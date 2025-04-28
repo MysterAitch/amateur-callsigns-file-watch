@@ -18,14 +18,25 @@ jobs:
 
     - name: Fetch CSV file
       run: |
-        curl -o amateur-callsigns.csv https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsigns.csv
+        Write-Host "Fetching CSV file from URL..."
+        Invoke-WebRequest -Uri "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsigns.csv" -OutFile "amateur-callsigns.csv"
+        Write-Host "File downloaded. Checking file size..."
+        if ((Get-Item "amateur-callsigns.csv").Length -eq 0) {
+          Write-Error "Error: The downloaded file is empty!"
+          exit 1
+        }
+        Write-Host "File size is valid. Proceeding to commit."
 
     - name: Commit and push changes
       run: |
+        Write-Host "Configuring Git user..."
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
+        Write-Host "Adding file to Git..."
         git add amateur-callsigns.csv
+        Write-Host "Committing changes..."
         git commit -m "Update amateur callsigns CSV file"
+        Write-Host "Pushing changes to repository..."
         git push
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
