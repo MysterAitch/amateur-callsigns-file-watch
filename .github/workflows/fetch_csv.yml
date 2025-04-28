@@ -16,19 +16,23 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Fetch CSV file
+    - name: Fetch CSV file and output file size
       shell: pwsh
       run: |
         Write-Host "Fetching CSV file from URL..."
         Invoke-WebRequest -Uri "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsigns.csv" -OutFile "amateur-callsigns.csv"
         Write-Host "File downloaded. Checking file size..."
-        if ((Get-Item "amateur-callsigns.csv").Length -eq 0) {
+        $file = Get-Item "amateur-callsigns.csv"
+        if ($file.Length -eq 0) {
           Write-Error "Error: The downloaded file is empty!"
           exit 1
         }
-        Write-Host "File size is valid. Proceeding to commit."
+        Write-Host "File size is valid. File size: $($file.Length) bytes."
+        Write-Host "Directory listing:"
+        Get-ChildItem -Path .
 
     - name: Commit and push changes
+      shell: pwsh
       run: |
         Write-Host "Configuring Git user..."
         git config user.name "github-actions[bot]"
