@@ -1,0 +1,27 @@
+name: Fetch and Commit CSV File
+
+on:
+  schedule:
+    - cron: "0 */6 * * *" # Runs every 6 hours
+
+jobs:
+  fetch-and-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Fetch CSV file
+      run: |
+        curl -o amateur-callsigns.csv https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsigns.csv
+
+    - name: Commit and push changes
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add amateur-callsigns.csv
+        git commit -m "Update amateur callsigns CSV file"
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
