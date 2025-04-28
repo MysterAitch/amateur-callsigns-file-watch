@@ -17,6 +17,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Fetch CSV file
+      shell: pwsh
       run: |
         Write-Host "Fetching CSV file from URL..."
         Invoke-WebRequest -Uri "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsigns.csv" -OutFile "amateur-callsigns.csv"
