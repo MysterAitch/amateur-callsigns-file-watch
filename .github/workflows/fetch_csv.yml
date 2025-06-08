@@ -16,32 +16,66 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Fetch CSV file and output file size
+    - name: Scrape CSV URL, then download file
       shell: pwsh
       run: |
-        Write-Host "Fetching CSV file from URL..."
-        Invoke-WebRequest -Uri "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsigns.csv" -OutFile "amateur-callsigns.csv"
-        Write-Host "File downloaded. Checking file size..."
-        $file = Get-Item "amateur-callsigns.csv"
-        if ($file.Length -eq 0) {
-          Write-Error "Error: The downloaded file is empty!"
-          exit 1
-        }
-        Write-Host "File size is valid. File size: $($file.Length) bytes."
-        Write-Host "Directory listing:"
-        Get-ChildItem -Path .
+        Write-Host "Running scrape-and-download.ps1 script..."
+        ./scrape-and-download.ps1
 
-    - name: Commit and push changes
+    - name: Process downloaded CSV
       shell: pwsh
       run: |
-        Write-Host "Configuring Git user..."
+        Write-Host "Running process-csv.ps1 script..."
+        ./process-csv.ps1
+
+    - name: Check for changes and commit if needed
+      shell: pwsh
+      run: |
+        # Configure Git
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        Write-Host "Adding file to Git..."
+        
+        # Add files to staging
+        ## - Original CSV
         git add amateur-callsigns.csv
-        Write-Host "Committing changes..."
-        git commit -m "Update amateur callsigns CSV file"
-        Write-Host "Pushing changes to repository..."
-        git push
+        ## - Metadata about the download
+        git add download-metadata.json
+        ## - Processed / generated files that are derived from the original CSV
+        git add amateur-callsigns-sorted.csv
+        git add amateur-callsigns.json
+        git add amateur-callsigns-sorted.json
+        ## - Metadata about all the data files
+        git add amateur-callsigns-metadata.json
+        
+        # Check if there are changes to commit
+        $status = git status --porcelain
+        if ($status) {
+          Write-Host "Changes detected. Committing updates..."
+          
+          # Read metadata for commit message
+          $metadata = Get-Content "amateur-callsigns-metadata.json" | ConvertFrom-Json
+          
+          # Create a detailed commit message based on what changed
+          $commitMsg = "Update amateur callsigns CSV"
+          
+          # Add Ofcom's last updated date if available
+          if ($metadata.lastUpdated) {
+            $commitMsg += " (Ofcom updated: $($metadata.lastUpdated))"
+          }
+          
+          # Add file size info
+          if ($metadata.originalCsvSize) {
+            $fileSizeMB = [math]::Round($metadata.originalCsvSize / 1MB, 2)
+            $commitMsg += ", size: ${fileSizeMB}MB"
+          }
+          
+          # Commit and push
+          git commit -m "$commitMsg"
+          git push
+          
+          Write-Host "Changes committed and pushed successfully."
+        } else {
+          Write-Host "No changes detected. Skipping commit."
+        }
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
