@@ -1,0 +1,34 @@
+{
+  "name": "amateur-callsigns-file-watch",
+  "version": "1.0.0",
+  "description": "",
+  "author": "Roger Howell (M7TEE)",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "pull": "ts-node src/scrape-and-download.ts",
+    "process": "ts-node src/process-csv.ts",
+    "all": "npm run pull && npm run process",
+    "js:pull": "node dist/scrape-and-download.js",
+    "js:process": "node dist/process-csv.js",
+    "js:all": "npm run js:pull && npm run js:process"
+  },
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "csv-parse": "^5.6.0",
+    "csv-stringify": "^6.5.2",
+    "dotenv": "^16.5.0",
+    "jsdom": "^26.1.0"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.6",
+    "@types/node": "^22.15.30",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

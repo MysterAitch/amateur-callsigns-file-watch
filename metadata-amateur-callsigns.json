@@ -1,0 +1,15 @@
+{
+  "originalCsvSize": 111548,
+  "originalCsvHash": "c5f042a9bcba0e20ff74f71da107150551814b615036d754bed4bc241d6259d7",
+  "sortedCsvSize": 110473,
+  "sortedCsvHash": "d31256e3cca64ec4d39c1c9ac6b1c591a9ab3882379a1086cc320f52efa09b42",
+  "originalJsonSize": 255398,
+  "originalJsonHash": "5dd74268d756d19b4dacfd86b6a8076f85c58a6dcc168e327f3c3751dda3fa75",
+  "sortedJsonSize": 255398,
+  "sortedJsonHash": "66a4a6e3350cf5659148861fd0d02f033a6db32302cdc7ea5ce00868662e16e5",
+  "recordCount": 1074,
+  "processDate": "2025-06-08T09:39:25.444Z",
+  "url": "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/callsign-030625.csv?v=398262",
+  "ofcomLastUpdate": "4 June 2025",
+  "linkText": "Amateur radio call signs (CSV, 11.0 MB)"
+}

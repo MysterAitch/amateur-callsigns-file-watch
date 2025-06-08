@@ -11,22 +11,31 @@ permissions:
 jobs:
   fetch-and-commit:
     runs-on: ubuntu-latest
+    env:
+      DEBUG: true # Set DEBUG=true for the entire job
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Scrape CSV URL, then download file
-      shell: pwsh
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+
+    - name: Install dependencies
       run: |
-        Write-Host "Running scrape-and-download.ps1 script..."
-        ./scrape-and-download.ps1
+        npm ci || npm install
+
+    - name: Scrape the CSV URL, then download file
+      run: |
+        echo "Running npm run pull..."
+        npm run pull
 
     - name: Process downloaded CSV
-      shell: pwsh
       run: |
-        Write-Host "Running process-csv.ps1 script..."
-        ./process-csv.ps1
+        echo "Running npm run process..."
+        npm run process
 
     - name: Check for changes and commit if needed
       shell: pwsh
@@ -37,15 +46,15 @@ jobs:
         
         # Add files to staging
         ## - Original CSV
-        git add amateur-callsigns.csv
+        git add amateur-callsigns-raw.csv
         ## - Metadata about the download
-        git add download-metadata.json
+        git add metadata-download-info.json
         ## - Processed / generated files that are derived from the original CSV
         git add amateur-callsigns-sorted.csv
         git add amateur-callsigns.json
         git add amateur-callsigns-sorted.json
         ## - Metadata about all the data files
-        git add amateur-callsigns-metadata.json
+        git add metadata-amateur-callsigns.json
         
         # Check if there are changes to commit
         $status = git status --porcelain
@@ -53,20 +62,24 @@ jobs:
           Write-Host "Changes detected. Committing updates..."
           
           # Read metadata for commit message
-          $metadata = Get-Content "amateur-callsigns-metadata.json" | ConvertFrom-Json
+          $metadata = Get-Content "metadata-amateur-callsigns.json" | ConvertFrom-Json
           
           # Create a detailed commit message based on what changed
           $commitMsg = "Update amateur callsigns CSV"
           
           # Add Ofcom's last updated date if available
-          if ($metadata.lastUpdated) {
-            $commitMsg += " (Ofcom updated: $($metadata.lastUpdated))"
+          if ($metadata.ofcomLastUpdate) {
+            $commitMsg += " (Ofcom updated: $($metadata.ofcomLastUpdate))"
+          } else {
+            $commitMsg += " (Ofcom last update: unknown)"
           }
           
           # Add file size info
           if ($metadata.originalCsvSize) {
             $fileSizeMB = [math]::Round($metadata.originalCsvSize / 1MB, 2)
             $commitMsg += ", size: ${fileSizeMB}MB"
+          } else {
+            $commitMsg += ", size: unknown"
           }
           
           # Commit and push
