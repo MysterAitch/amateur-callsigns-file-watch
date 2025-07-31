@@ -2,7 +2,8 @@ name: Fetch and Commit CSV File
 
 on:
   schedule:
-    - cron: "0 */6 * * *" # Runs every 6 hours
+    //- cron: "0 */6 * * *" # Runs every 6 hours
+    - cron: "25 10 * * *" # Runs at 10:25am each morning 
   workflow_dispatch: # Allows manual trigger
 
 permissions:
