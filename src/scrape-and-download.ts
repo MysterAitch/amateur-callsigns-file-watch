@@ -20,6 +20,19 @@ import {
 const { OFCOM_URL, OFCOM_BASE_URL } = CONSTANTS.URLS;
 const OUTPUT_FILES = CONSTANTS.FILES;
 
+// Browser-like headers to avoid bot-detection / WAF 403s.
+// Ofcom's site blocks requests that look automated (e.g. User-Agent: axios/x.y.z).
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-GB,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+};
 
 interface HtmlLinkDetails {
   href: string;
@@ -30,12 +43,12 @@ interface HtmlLinkDetails {
 async function downloadFile(url: string, outputPath: string): Promise<void> {
   try {
     logger.info(`Downloading: ${url} to ${outputPath}`);
-
     const response = await axios({
       method: 'GET',
       url,
       responseType: 'stream',
-      timeout: 30000 // 30 seconds timeout
+      timeout: 30000,
+      headers: BROWSER_HEADERS,
     });
 
     const writer = fsSync.createWriteStream(outputPath);
@@ -59,26 +72,18 @@ async function downloadFile(url: string, outputPath: string): Promise<void> {
 
 /**
  * Find the amateur callsign CSV link on the page (expects exactly one match)
- * @param {Document} document - JSDOM document
- * @returns {HtmlLinkDetails} - CSV link information
- * @throws {Error} - If zero or more than one link is found
  */
 function findCsvLink(document: Document): HtmlLinkDetails {
   logger.info("Searching for amateur callsigns CSV link...");
   const csvLinks: HtmlLinkDetails[] = [];
 
-  // Filter links containing "amateur" and ".csv"
   const links = document.querySelectorAll('a');
   links.forEach(element => {
     const href = element.getAttribute('href');
     if (href && href.toLowerCase().includes('amateur') && href.toLowerCase().includes('.csv')) {
       const linkText = element.textContent?.trim() || '';
       logger.debug("Found CSV link:", href, "with text:", linkText);
-      csvLinks.push({
-        href: href,
-        text: linkText,
-        element: element
-      });
+      csvLinks.push({ href, text: linkText, element });
     }
   });
 
@@ -97,12 +102,10 @@ function findCsvLink(document: Document): HtmlLinkDetails {
   return csvLinks[0];
 }
 
-
 function extractUpdateDateFromHtmlTable(linkElement: Element): string | null {
   let element: Element | null = linkElement;
   let tableRow: Element | null = null;
 
-  // Navigate up to find the closest tr
   while (element && element.tagName !== 'TR') {
     element = element.parentElement;
     if (element && element.tagName === 'TR') {
@@ -112,7 +115,6 @@ function extractUpdateDateFromHtmlTable(linkElement: Element): string | null {
   }
 
   if (tableRow) {
-    // Usually the date is in the second column
     const cells = tableRow.querySelectorAll('td');
     if (cells.length > 1) {
       const date = cells[1].textContent?.trim() || null;
@@ -131,42 +133,43 @@ function buildAbsoluteOfcomUrl(url: string): string {
   if (url.match(/^https?:\/\//)) {
     return url;
   }
-
   const relativeUrl = url.startsWith('/') ? url : `/${url}`;
   return `${OFCOM_BASE_URL}${relativeUrl}`;
 }
-
 
 async function main(): Promise<void> {
   try {
     logger.info("Starting Ofcom amateur radio callsigns scraping process");
 
-    // Make request to Ofcom website
+    // Fetch the Ofcom opendata page with browser-like headers to avoid WAF/bot 403s
     logger.info(`Fetching content from: ${OFCOM_URL}`);
-    const response = await axios.get(OFCOM_URL);
+    const response = await axios.get(OFCOM_URL, {
+      headers: BROWSER_HEADERS,
+      timeout: 30000,
+    });
 
-    // Save HTML for debugging if needed
+    // Save HTML for debugging
     await fs.writeFile(OUTPUT_FILES.htmlOutput, response.data);
     logger.debug(`Saved HTML content to ${OUTPUT_FILES.htmlOutput}`);
 
-    // Parse the HTML content
+    // Parse and find the CSV link
     logger.info("Parsing HTML content...");
     const dom = new JSDOM(response.data);
     const document = dom.window.document;
 
-    // Find the CSV link
     const csvLinkDetails = findCsvLink(document);
 
     // Extract update date
     const updatedDate = extractUpdateDateFromHtmlTable(csvLinkDetails.element) ||
-        new Date().toLocaleDateString('en-GB', {
-          day: 'numeric', month: 'long', year: 'numeric'
-        });
+      new Date().toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'long', year: 'numeric'
+      });
 
     // Build full URL
     const fullUrl = buildAbsoluteOfcomUrl(csvLinkDetails.href);
-    logger.info(`Found CSV URL  :`, fullUrl);
-    logger.info(`Link text      :`, csvLinkDetails.text);
+
+    logger.info(`Found CSV URL :`, fullUrl);
+    logger.info(`Link text :`, csvLinkDetails.text);
     logger.info(`Ofcom-reported last updated date:`, updatedDate);
 
     const downloadMetadata: CsvDownloadMetadata = {
@@ -178,13 +181,9 @@ async function main(): Promise<void> {
     logger.debug('Saving download metadata to: ', OUTPUT_FILES.downloadMetadataFile);
     await saveJsonFile(OUTPUT_FILES.downloadMetadataFile, downloadMetadata);
 
-    // Simple approach: Always download the CSV file directly
-    logger.info(`Downloading amateur callsigns CSV file to ${OUTPUT_FILES.originalRawCsvFile}...`);
-
     // Check if we had a previous version before overwriting
     const previousFileExists = fileExistsAndNotEmpty(OUTPUT_FILES.originalRawCsvFile);
     let previousHash = null;
-
     if (previousFileExists) {
       try {
         previousHash = calculateFileHash(OUTPUT_FILES.originalRawCsvFile);
@@ -194,15 +193,15 @@ async function main(): Promise<void> {
       }
     }
 
-    // Download the file (always)
+    // Download the CSV
+    logger.info(`Downloading amateur callsigns CSV file to ${OUTPUT_FILES.originalRawCsvFile}...`);
     await downloadFile(fullUrl, OUTPUT_FILES.originalRawCsvFile);
     logger.info("Download complete.");
 
-    // Calculate hash of the new file for comparison/logging
+    // Compare hashes
     if (previousHash !== null) {
       try {
         const newHash = calculateFileHash(OUTPUT_FILES.originalRawCsvFile);
-
         if (newHash === previousHash) {
           logger.info("Downloaded file is identical to the previous version (same hash).");
         } else {
@@ -213,7 +212,6 @@ async function main(): Promise<void> {
       }
     }
 
-    // Check if file was downloaded successfully
     if (fileExistsAndNotEmpty(OUTPUT_FILES.originalRawCsvFile)) {
       const stats = fsSync.statSync(OUTPUT_FILES.originalRawCsvFile);
       logger.info(`CSV file downloaded successfully. File size: ${formatFileSize(stats.size)}`);
@@ -228,15 +226,12 @@ async function main(): Promise<void> {
   }
 }
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+process.on('unhandledRejection', (reason: any) => {
   logger.error('Unhandled Rejection at:', reason);
   process.exit(1);
 });
 
-// Run the main function
 main().catch((err: Error) => {
   logger.error("Fatal error:", err);
   process.exit(1);
 });
-
