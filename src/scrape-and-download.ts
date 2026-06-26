@@ -71,35 +71,167 @@ async function downloadFile(url: string, outputPath: string): Promise<void> {
 }
 
 /**
- * Find the amateur callsign CSV link on the page (expects exactly one match)
+ * Find the amateur callsign CSV link on the page (expects exactly one match).
+ *
+ * IMPORTANT - why this is not a simple "href contains 'amateur'" match:
+ * Ofcom files BOTH the amateur callsign CSV and the Business Radio (BR) Light
+ * licences CSV under the SAME path prefix:
+ *   /siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list.csv   <- WANT
+ *   /siteassets/resources/documents/manage-your-licence/amateur/live-br-light-licences.csv  <- DO NOT WANT
+ * So the path contains "amateur" for the business-radio file too. Matching on
+ * the path substring grabs the wrong dataset (a valid CSV, so size/header
+ * checks won't catch it). We therefore select on the human-meaningful signals
+ * Ofcom controls deliberately:
+ *   1. the visible LINK TEXT  (e.g. "Amateur radio call signs")
+ *   2. the FILENAME           (e.g. "amateur-callsign-list.csv")
+ * and we explicitly EXCLUDE business-radio markers as a safety net.
+ *
+ * If the page structure changes such that we match zero or more-than-one link,
+ * we throw loudly rather than silently grabbing a neighbour.
  */
 function findCsvLink(document: Document): HtmlLinkDetails {
   logger.info("Searching for amateur callsigns CSV link...");
-  const csvLinks: HtmlLinkDetails[] = [];
+
+  // Tokens that POSITIVELY identify the amateur callsign list.
+  const FILENAME_MUST_INCLUDE = 'amateur-callsign-list';      // distinctive filename stem
+  const LINKTEXT_MUST_INCLUDE = 'amateur radio call sign';    // distinctive visible label (singular-tolerant)
+  // Tokens that identify the WRONG (business radio) dataset, used to exclude.
+  const EXCLUDE_FILENAME_TOKENS = ['br-light', 'business-radio', 'business radio'];
+  const EXCLUDE_LINKTEXT_TOKENS = ['business radio', 'br light'];
+
+  const getFilename = (href: string): string => {
+    // Strip query string and take the last path segment, lower-cased.
+    const noQuery = href.split('?')[0];
+    const segment = noQuery.substring(noQuery.lastIndexOf('/') + 1);
+    return segment.toLowerCase();
+  };
+
+  const candidates: HtmlLinkDetails[] = [];
+  const rejected: { href: string; text: string; reason: string }[] = [];
 
   const links = document.querySelectorAll('a');
   links.forEach(element => {
     const href = element.getAttribute('href');
-    if (href && href.toLowerCase().includes('amateur') && href.toLowerCase().includes('.csv')) {
-      const linkText = element.textContent?.trim() || '';
-      logger.debug("Found CSV link:", href, "with text:", linkText);
-      csvLinks.push({ href, text: linkText, element });
+    if (!href) return;
+
+    const hrefLower = href.toLowerCase();
+    if (!hrefLower.includes('.csv')) return; // only care about CSV links
+
+    const linkText = (element.textContent || '').trim();
+    const linkTextLower = linkText.toLowerCase();
+    const filename = getFilename(href);
+
+    // Positive identification: require BOTH the filename stem AND the link text
+    // to indicate the amateur callsign list. Requiring both makes an accidental
+    // match on a future, differently-named file far less likely.
+    const filenameMatches = filename.includes(FILENAME_MUST_INCLUDE);
+    const linkTextMatches = linkTextLower.includes(LINKTEXT_MUST_INCLUDE);
+
+    // Negative identification: reject anything that looks like business radio.
+    const looksLikeBusinessRadio =
+      EXCLUDE_FILENAME_TOKENS.some(t => filename.includes(t)) ||
+      EXCLUDE_LINKTEXT_TOKENS.some(t => linkTextLower.includes(t));
+
+    if (looksLikeBusinessRadio) {
+      rejected.push({ href, text: linkText, reason: 'matched business-radio exclusion' });
+      return;
+    }
+
+    if (filenameMatches && linkTextMatches) {
+      logger.debug("Candidate amateur CSV link:", href, "text:", linkText);
+      candidates.push({ href, text: linkText, element });
+    } else if (filenameMatches || linkTextMatches) {
+      // Partial match: record it so a structure change is diagnosable, but don't accept it.
+      rejected.push({
+        href,
+        text: linkText,
+        reason: `partial match (filename=${filenameMatches}, linkText=${linkTextMatches})`,
+      });
     }
   });
 
-  if (csvLinks.length === 0) {
+  if (candidates.length === 0) {
     logger.error("No amateur callsign CSV link found!");
-    throw new Error("No amateur callsign CSV link found on the Ofcom website.");
+    if (rejected.length > 0) {
+      logger.error("Near-misses (for diagnosis):", null,
+        rejected.map(r => `${r.text || '(no text)'} [${r.href}] - ${r.reason}`));
+    }
+    throw new Error(
+      "No amateur callsign CSV link found on the Ofcom open data page. " +
+      "The page structure or naming may have changed - inspect the saved HTML."
+    );
   }
 
-  if (csvLinks.length > 1) {
-    logger.error(`Found ${csvLinks.length} amateur callsign CSV links, expected exactly one.`);
-    logger.debug("Found links:", csvLinks.map(link => `${link.text} (${link.href})`));
-    throw new Error(`Found ${csvLinks.length} amateur callsign CSV links, expected exactly one.`);
+  if (candidates.length > 1) {
+    logger.error(`Found ${candidates.length} amateur callsign CSV candidates, expected exactly one.`);
+    logger.error("Candidates:", null, candidates.map(c => `${c.text} [${c.href}]`));
+    throw new Error(
+      `Found ${candidates.length} amateur callsign CSV candidates, expected exactly one. ` +
+      "Refusing to guess - inspect the saved HTML."
+    );
   }
 
-  logger.info("Found the amateur callsigns CSV link:", csvLinks[0].href);
-  return csvLinks[0];
+  logger.info("Found the amateur callsigns CSV link:", candidates[0].href);
+  logger.info("  (link text: '" + candidates[0].text + "')");
+  return candidates[0];
+}
+
+/**
+ * Validate that a freshly-downloaded file really is the amateur callsign CSV,
+ * BEFORE we treat it as good data (hash/commit/process).
+ *
+ * Guards against two failure modes seen or anticipated in this project:
+ *   (a) A Cloudflare "Just a moment..." challenge page saved as if it were CSV
+ *       (small HTML file, no valid header).
+ *   (b) The WRONG dataset (e.g. business radio) downloaded - a valid CSV, so a
+ *       size check alone won't catch it; we assert the expected header columns.
+ *
+ * Throws on failure so the caller can abort without overwriting good data.
+ */
+function verifyAmateurCsv(filePath: string): void {
+  const EXPECTED_HEADER_TOKENS = ['callsign', 'status']; // tolerant of column reordering/renames
+  const MIN_BYTES = 100 * 1024; // real file is ~10 MB; a challenge page is a few KB
+
+  if (!fileExistsAndNotEmpty(filePath)) {
+    throw new Error(`Downloaded file missing or empty: ${filePath}`);
+  }
+
+  const stats = fsSync.statSync(filePath);
+  if (stats.size < MIN_BYTES) {
+    throw new Error(
+      `Downloaded file is suspiciously small (${formatFileSize(stats.size)}, ` +
+      `expected >= ${formatFileSize(MIN_BYTES)}). Likely a challenge page or truncated download, not the CSV.`
+    );
+  }
+
+  // Read just the first line to validate the header (avoid loading ~10 MB).
+  const fd = fsSync.openSync(filePath, 'r');
+  let firstLine = '';
+  try {
+    const buf = Buffer.alloc(4096);
+    const bytesRead = fsSync.readSync(fd, buf, 0, buf.length, 0);
+    const chunk = buf.toString('utf8', 0, bytesRead).replace(/^\uFEFF/, ''); // strip BOM
+    firstLine = (chunk.split(/\r?\n/)[0] || '').toLowerCase();
+  } finally {
+    fsSync.closeSync(fd);
+  }
+
+  // Reject obvious challenge/HTML content.
+  if (firstLine.includes('<!doctype') || firstLine.includes('<html') || firstLine.includes('just a moment')) {
+    throw new Error(
+      "Downloaded file looks like an HTML/challenge page, not CSV. Aborting before overwriting good data."
+    );
+  }
+
+  const missing = EXPECTED_HEADER_TOKENS.filter(tok => !firstLine.includes(tok));
+  if (missing.length > 0) {
+    throw new Error(
+      `Downloaded CSV header missing expected column(s) [${missing.join(', ')}]. ` +
+      `Got header: "${firstLine}". This may be the wrong dataset - aborting.`
+    );
+  }
+
+  logger.info("Sanity check passed: file looks like the amateur callsign CSV.");
 }
 
 function extractUpdateDateFromHtmlTable(linkElement: Element): string | null {
@@ -178,10 +310,7 @@ async function main(): Promise<void> {
       ofcomReportedLastUpdate: updatedDate,
     };
 
-    logger.debug('Saving download metadata to: ', OUTPUT_FILES.downloadMetadataFile);
-    await saveJsonFile(OUTPUT_FILES.downloadMetadataFile, downloadMetadata);
-
-    // Check if we had a previous version before overwriting
+    // Check if we had a previous version (for hash comparison / change detection)
     const previousFileExists = fileExistsAndNotEmpty(OUTPUT_FILES.originalRawCsvFile);
     let previousHash = null;
     if (previousFileExists) {
@@ -193,12 +322,26 @@ async function main(): Promise<void> {
       }
     }
 
-    // Download the CSV
-    logger.info(`Downloading amateur callsigns CSV file to ${OUTPUT_FILES.originalRawCsvFile}...`);
-    await downloadFile(fullUrl, OUTPUT_FILES.originalRawCsvFile);
-    logger.info("Download complete.");
+    // Download to a TEMPORARY path first, so a bad download (challenge page,
+    // truncated file, wrong dataset) can never overwrite the last good CSV.
+    const tempCsvPath = `${OUTPUT_FILES.originalRawCsvFile}.tmp-${process.pid}`;
+    logger.info(`Downloading amateur callsigns CSV to temporary file ${tempCsvPath}...`);
+    try {
+      await downloadFile(fullUrl, tempCsvPath);
+      logger.info("Download complete.");
 
-    // Compare hashes
+      // SANITY GATE: validate content before accepting it. Throws on failure.
+      verifyAmateurCsv(tempCsvPath);
+
+      // Passed validation - promote temp file into place atomically.
+      fsSync.renameSync(tempCsvPath, OUTPUT_FILES.originalRawCsvFile);
+    } catch (err) {
+      // Clean up the temp file; leave any existing good CSV untouched.
+      try { if (fsSync.existsSync(tempCsvPath)) fsSync.unlinkSync(tempCsvPath); } catch { /* ignore */ }
+      throw err;
+    }
+
+    // Compare hashes (purely informational; process/commit steps decide what to do)
     if (previousHash !== null) {
       try {
         const newHash = calculateFileHash(OUTPUT_FILES.originalRawCsvFile);
@@ -212,12 +355,13 @@ async function main(): Promise<void> {
       }
     }
 
-    if (fileExistsAndNotEmpty(OUTPUT_FILES.originalRawCsvFile)) {
-      const stats = fsSync.statSync(OUTPUT_FILES.originalRawCsvFile);
-      logger.info(`CSV file downloaded successfully. File size: ${formatFileSize(stats.size)}`);
-    } else {
-      throw new Error("Failed to download the CSV file or the downloaded file is empty");
-    }
+    const stats = fsSync.statSync(OUTPUT_FILES.originalRawCsvFile);
+    logger.info(`CSV file downloaded and validated successfully. File size: ${formatFileSize(stats.size)}`);
+
+    // Only NOW persist the download metadata - i.e. metadata always describes a
+    // file that actually passed validation, never a failed/partial attempt.
+    logger.debug('Saving download metadata to: ', OUTPUT_FILES.downloadMetadataFile);
+    await saveJsonFile(OUTPUT_FILES.downloadMetadataFile, downloadMetadata);
 
     logger.info("Scraping process completed successfully");
   } catch (error: any) {
