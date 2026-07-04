@@ -8,6 +8,7 @@
     "watch": "tsc --watch",
     "pull": "ts-node src/scrape-and-download.ts",
     "process": "ts-node src/process-csv.ts",
+    "migrate-archive": "ts-node src/migrate-archive.ts",
     "all": "npm run pull && npm run process",
     "js:pull": "node dist/scrape-and-download.js",
     "js:process": "node dist/process-csv.js",

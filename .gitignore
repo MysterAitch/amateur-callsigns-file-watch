@@ -1,5 +1,9 @@
 node_modules/
 .idea/
+.claude/
 dist/
 ofcom_page.html
 .env
+
+# Scheduled-run state (per-host; not shared)
+.notify-state.json

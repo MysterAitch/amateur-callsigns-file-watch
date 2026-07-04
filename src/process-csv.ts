@@ -7,7 +7,6 @@ import { parse } from 'csv-parse/sync';
 import { stringify } from 'csv-stringify/sync';
 import {
   calculateFileHash,
-  getFileMetadata,
   loadJsonFile,
   saveJsonFile,
   CONSTANTS,
@@ -15,208 +14,226 @@ import {
   fileExistsAndNotEmpty,
   formatFileSize,
   CsvDownloadMetadata,
-  ProcessingMetadata
+  ArchiveMeta,
 } from './utils';
+import {
+  archiveKeyForDate,
+  parseOfcomHumanDate,
+  resolveArchiveKey,
+  writeArchiveEntry,
+  writeLatestPointers,
+  computeCsvFileMeta,
+  buildDiffSummary,
+  readPreviousArchiveRecords,
+  listArchiveKeys,
+} from './archive';
 
-// Constants
 const FILES = CONSTANTS.FILES;
+const ARCHIVE_DIR = CONSTANTS.DIRS.archive;
 
 interface CsvRecord {
   [key: string]: string;
 }
 
-async function isProcessingNeeded(originalCsvHash: string): Promise<boolean> {
-  if (!fsSync.existsSync(FILES.metadataFile)) {
-    logger.debug("No existing metadata file found - processing needed");
-    return true;
+/**
+ * Given a raw CSV staged at FILES.originalRawCsvFile plus the sidecar download
+ * metadata (URL, ?v=, Ofcom-reported date), materialise the archive entry
+ * (raw.csv + raw-sorted.csv + meta.json) and refresh the repo-root `latest-*` pointers.
+ *
+ * Idempotent: if the raw content is already archived (same sha256), no new entry
+ * is created; latest-* pointers are still refreshed to that entry so downstream
+ * consumers see a consistent "current" view.
+ */
+async function processStagedCsv(downloadMetadata: CsvDownloadMetadata | null): Promise<void> {
+  if (!fileExistsAndNotEmpty(FILES.originalRawCsvFile)) {
+    throw new Error(`${FILES.originalRawCsvFile} not found or empty. Run the scrape step first.`);
   }
 
-  try {
-    const existingMetadata = await loadJsonFile<ProcessingMetadata>(FILES.metadataFile);
+  const rawSha = calculateFileHash(FILES.originalRawCsvFile);
+  logger.info(`Raw CSV size: ${formatFileSize(fsSync.statSync(FILES.originalRawCsvFile).size)}, sha256: ${rawSha}`);
 
-    // Check if hash matches and all required files exist
-    if (
-      existingMetadata &&
-      existingMetadata.originalCsvHash === originalCsvHash &&
-      fileExistsAndNotEmpty(FILES.sortedCsvFile) &&
-      fileExistsAndNotEmpty(FILES.jsonFile) &&
-      fileExistsAndNotEmpty(FILES.sortedJsonFile)
-    ) {
-      logger.info("All files exist and CSV hash matches. No processing needed.");
-      return false;
-    }
+  // Parse + sort. The sort is deterministic per current sort policy (first column,
+  // case-insensitive locale compare) so the sorted CSV is a well-defined derivative.
+  //
+  // Sort primarily for git-diff readability. Ofcom's publication row order is not
+  // stable between publications, so a git diff of raw-vs-raw is unreadable noise
+  // (huge apparent churn from re-ordered rows). Diffing sorted-vs-sorted collapses
+  // to the actual semantic changes (added, removed, field-updated rows) at their
+  // callsign-neighbourhood. Not strictly required for correctness - buildDiffSummary
+  // already computes the semantic diff independently - but the derivative pays for
+  // itself the moment anyone inspects the archive in a git viewer.
+  //
+  // We parse before the idempotence check because latest.json / latest-sorted.json
+  // pointers are regenerated on every run (they are not archived per publication),
+  // and require the parsed records regardless of whether a new archive entry is
+  // being created.
+  const rawContent = await fs.readFile(FILES.originalRawCsvFile, 'utf8');
+  const records = parse(rawContent, {
+    columns: true,
+    skip_empty_lines: true,
+  }) as CsvRecord[];
 
-    logger.debug("Hash mismatch or files missing - processing needed");
-    return true;
-  } catch (error: any) {
-    logger.warn(`Error comparing with existing metadata: ${error.message}`);
-    return true;
+  if (records.length === 0) {
+    throw new Error('Parsed raw CSV is empty - refusing to archive an empty publication.');
+  }
+
+  const firstColumn = Object.keys(records[0])[0];
+  const sortedRecords = [...records].sort((a, b) =>
+    String(a[firstColumn] ?? '').toLowerCase().localeCompare(String(b[firstColumn] ?? '').toLowerCase())
+  );
+  const sortedContent = stringify(sortedRecords, {
+    header: true,
+    columns: Object.keys(records[0]),
+  });
+
+  // Idempotence: if this exact content is already archived somewhere, we do not
+  // create a duplicate directory. We do still refresh latest-* pointers (both the
+  // CSV copies via writeLatestPointers, and the JSON derivatives regenerated
+  // below), so consumers reading only latest-* stay coherent.
+  const existingKey = findArchiveKeyByRawHash(rawSha);
+  if (existingKey) {
+    logger.info(`Raw content already archived at archive/${existingKey}/ - no new entry needed.`);
+    const newest = newestArchiveKey();
+    if (newest) await writeLatestPointers(newest);
+    await fs.writeFile(FILES.latestRawSortedCsv, sortedContent);
+    await writeLatestJsonDerivatives(records, sortedRecords);
+    return;
+  }
+
+  // Diff summary vs the previous archive entry (if any). Semantic diff (added /
+  // removed / fieldChanged), tolerant of sort-order differences between publications.
+  const previous = readPreviousArchiveRecords('');
+  const diffSummary = buildDiffSummary(
+    records,
+    previous ? previous.records : null,
+    previous ? previous.key : undefined,
+  );
+
+  // Determine the archive directory name. Prefer Ofcom's own publication date
+  // (human-meaningful, sortable). Falls back to today's date if Ofcom didn't
+  // report one. Handles collisions (re-publication on the same date with
+  // different content) by appending a short hash suffix.
+  const ofcomDateIso = parseOfcomHumanDate(downloadMetadata?.ofcomReportedLastUpdate);
+  const preferredKey = archiveKeyForDate(ofcomDateIso, todayIso());
+  const finalKey = resolveArchiveKey(preferredKey, rawSha);
+  if (finalKey !== preferredKey) {
+    logger.warn(`Archive key collision: ${preferredKey} already exists with different content; using ${finalKey}`);
+  }
+
+  // Only raw.csv is archived per-publication. The sort variant lives ONLY at
+  // latest-raw-sorted.csv - inside archive/{key}/ it would have no git-diff
+  // value (every archive entry is a new directory, not a modification). All
+  // git-diff readability lives at latest-raw-sorted.csv which IS modified
+  // across publications. See writeLatestPointers in archive.ts for rationale.
+  const rawFileMeta = computeCsvFileMeta(FILES.originalRawCsvFile);
+
+  const meta: ArchiveMeta = {
+    schemaVersion: 1,
+    sourceKey: CONSTANTS.SOURCES.OFCOM_AMATEUR,
+    provenance: 'live',
+    fetchedAt: new Date().toISOString(),
+    files: {
+      'raw.csv': rawFileMeta,
+    },
+    diffSummary,
+  };
+  if (downloadMetadata) {
+    if (downloadMetadata.url) meta.sourceUrl = downloadMetadata.url;
+    if (downloadMetadata.ofcomReportedLastUpdate) meta.ofcomReportedUpdate = downloadMetadata.ofcomReportedLastUpdate;
+    if (ofcomDateIso) meta.ofcomReportedUpdateIso = ofcomDateIso;
+    if (downloadMetadata.linkText) meta.linkText = downloadMetadata.linkText;
+    const vParam = extractVersionParam(downloadMetadata.url);
+    if (vParam) meta.sourceVersionParam = vParam;
+  }
+
+  await writeArchiveEntry(finalKey, {
+    'raw.csv': await fs.readFile(FILES.originalRawCsvFile),
+  }, meta);
+
+  await writeLatestPointers(finalKey);
+  // The sort variant and JSON derivatives are computed once from the in-memory
+  // records here and written directly to latest-* - regenerated on every process
+  // run, never archived per-publication.
+  await fs.writeFile(FILES.latestRawSortedCsv, sortedContent);
+  await writeLatestJsonDerivatives(records, sortedRecords);
+
+  logger.info(`Archived publication as archive/${finalKey}/ (${records.length} records)`);
+  if (diffSummary.previousArchiveKey) {
+    const d = diffSummary;
+    logger.info(
+      `Diff vs archive/${d.previousArchiveKey}/: ` +
+      `${d.unchanged ?? 0} unchanged, ${d.fieldChanged ?? 0} field-changed, ` +
+      `${d.added ?? 0} added, ${d.removed ?? 0} removed`
+    );
+  } else {
+    logger.info('No previous archive entry to diff against; this is the first live entry (or the migration seeded this one).');
   }
 }
 
-/**
- * Process the CSV file - sort it and create JSON versions
- * @param {string} originalCsvHash - Hash of the original CSV file
- * @param {CsvDownloadMetadata | null} downloadMetadata - Metadata from download process (if available)
- * @returns {Promise<ProcessingMetadata>} - Processing results metadata
- */
-async function processCSV(originalCsvHash: string, downloadMetadata: CsvDownloadMetadata | null): Promise<ProcessingMetadata> {
-  try {
-    logger.info("Creating sorted version of the CSV file...");
-    const csvContent = await fs.readFile(FILES.originalRawCsvFile, 'utf8');
-    const fileStats = fsSync.statSync(FILES.originalRawCsvFile);
-
-    // Parse the CSV file
-    logger.debug("Parsing CSV data");
-    const csvData = parse(csvContent, {
-      columns: true,
-      skip_empty_lines: true,
-    }) as CsvRecord[];
-
-    logger.info(`Successfully parsed CSV with ${csvData.length} entries`);
-
-    // Get the first property name (column header) dynamically
-    const firstColumnName = Object.keys(csvData[0])[0];
-    logger.info(`Sorting data by column: ${firstColumnName}`);
-
-    // Sort the data (using spread to avoid mutating original data)
-    const sortedCsvData = [...csvData].sort((a, b) => {
-      const valA = String(a[firstColumnName] || '').toLowerCase();
-      const valB = String(b[firstColumnName] || '').toLowerCase();
-      return valA.localeCompare(valB);
-    });
-
-    // Write the sorted CSV
-    const sortedCsvContent = stringify(sortedCsvData, {
-      header: true,
-      columns: Object.keys(csvData[0]),
-    });
-
-    logger.info("Start writing sorted CSV file to: ", FILES.sortedCsvFile);
-    await fs.writeFile(FILES.sortedCsvFile, sortedCsvContent);
-    logger.info("End writing sorted CSV file to: ", FILES.sortedCsvFile);
-
-    // Create JSON versions of the data
-    logger.info("Creating JSON versions of the data...");
-    logger.info(" - Start writing sorted JSON file to: ", FILES.sortedJsonFile);
-    await saveJsonFile(FILES.jsonFile, csvData);
-    logger.info(" - End writing original JSON file to: ", FILES.jsonFile);
-    logger.info(" - Start writing sorted JSON file to: ", FILES.sortedJsonFile);
-    await saveJsonFile(FILES.sortedJsonFile, sortedCsvData);
-    logger.info( " - End writing sorted JSON file to: ", FILES.sortedJsonFile);
-    logger.info("Successfully created JSON files");
-
-    // Calculate hashes for all files
-    const sortedCsvHash = calculateFileHash(FILES.sortedCsvFile);
-    const originalJsonHash = calculateFileHash(FILES.jsonFile);
-    const sortedJsonHash = calculateFileHash(FILES.sortedJsonFile);
-
-    // Get file sizes
-    const sortedCsvFileSize = fsSync.statSync(FILES.sortedCsvFile).size;
-    const originalJsonFileSize = fsSync.statSync(FILES.jsonFile).size;
-    const sortedJsonFileSize = fsSync.statSync(FILES.sortedJsonFile).size;
-
-    logger.debug(`Sorted CSV checksum: ${sortedCsvHash}`);
-    logger.debug(`Original JSON checksum: ${originalJsonHash}`);
-    logger.debug(`Sorted JSON checksum: ${sortedJsonHash}`);
-
-    // Create comprehensive metadata
-    const metadata: ProcessingMetadata = {
-      originalCsvSize: fileStats.size,
-      originalCsvHash: originalCsvHash,
-      sortedCsvSize: sortedCsvFileSize,
-      sortedCsvHash: sortedCsvHash,
-      originalJsonSize: originalJsonFileSize,
-      originalJsonHash: originalJsonHash,
-      sortedJsonSize: sortedJsonFileSize,
-      sortedJsonHash: sortedJsonHash,
-      recordCount: csvData.length,
-    };
-
-    // Add download metadata if available
-    if (downloadMetadata) {
-      metadata.url = downloadMetadata.url;
-      metadata.ofcomLastUpdate = downloadMetadata.ofcomReportedLastUpdate;
-      metadata.linkText = downloadMetadata.linkText;
-    }
-
-    // Save metadata
-    await saveJsonFile(FILES.metadataFile, metadata);
-    logger.info(`Saved comprehensive metadata to ${FILES.metadataFile}`);
-
-    return metadata;
-  } catch (error: any) {
-    logger.error(`Failed to process CSV file: ${error.message}`, error);
-    throw new Error(`CSV processing failed: ${error.message}`);
-  }
+// JSON derivatives are convenience artefacts for consumers that want to skip
+// CSV parsing. They are NOT archived per publication (per current policy: they
+// carry no information the CSVs don't, and would double repo growth); they only
+// live as latest-* pointers, regenerated on every process run.
+async function writeLatestJsonDerivatives(records: CsvRecord[], sortedRecords: CsvRecord[]): Promise<void> {
+  await saveJsonFile(FILES.latestJson, records);
+  await saveJsonFile(FILES.latestRawSortedJson, sortedRecords);
 }
 
-/**
- * Main function
- */
+// Look up an archive key by its raw.csv sha256, so identical content is not
+// re-archived under a new key.
+function findArchiveKeyByRawHash(rawSha: string): string | null {
+  for (const key of listArchiveKeys()) {
+    const rawPath = path.join(ARCHIVE_DIR, key, 'raw.csv');
+    if (fsSync.existsSync(rawPath) && calculateFileHash(rawPath) === rawSha) return key;
+  }
+  return null;
+}
+
+function newestArchiveKey(): string | null {
+  const keys = listArchiveKeys();
+  return keys.length > 0 ? keys[keys.length - 1] : null;
+}
+
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
+// Extract the ?v= query parameter from Ofcom's cache-busted CSV URL, so it can be
+// recorded in the archive meta.json for later verification / anomaly detection.
+function extractVersionParam(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  const m = url.match(/[?&]v=([^&]+)/);
+  return m ? m[1] : undefined;
+}
+
 async function main(): Promise<void> {
   try {
-    logger.info("Starting amateur callsigns CSV processing");
+    logger.info('Starting amateur callsigns CSV processing');
 
-    // Check if the CSV file exists
-    if (!fileExistsAndNotEmpty(FILES.originalRawCsvFile)) {
-      throw new Error(`${FILES.originalRawCsvFile} file not found or empty! Please run scrape-and-download.js first.`);
-    }
-
-    // Check for download metadata (contains URL and Ofcom last updated date)
     const downloadMetadata = await loadJsonFile<CsvDownloadMetadata>(FILES.downloadMetadataFile);
-
     if (downloadMetadata) {
-      logger.info(`Found download metadata. URL: ${downloadMetadata.url}`);
+      logger.info(`Download metadata found. URL: ${downloadMetadata.url}`);
       logger.info(`Ofcom-reported last updated date: ${downloadMetadata.ofcomReportedLastUpdate}`);
     } else {
-      logger.warn(`${FILES.downloadMetadataFile} not found. Some metadata will be missing.`);
+      logger.warn(`${FILES.downloadMetadataFile} not found. Archive meta will be missing provenance fields.`);
     }
 
-    // Get file stats
-    const fileStats = fsSync.statSync(FILES.originalRawCsvFile);
-    logger.info(`Original CSV file size: ${formatFileSize(fileStats.size)}`);
+    await processStagedCsv(downloadMetadata);
 
-    // Calculate hash of the original CSV file
-    const originalCsvHash = calculateFileHash(FILES.originalRawCsvFile);
-    logger.debug(`Original CSV hash: ${originalCsvHash}`);
-
-    // Check if we need to process the file by comparing with existing metadata
-    const needsProcessing = await isProcessingNeeded(originalCsvHash);
-
-    if (needsProcessing) {
-      logger.info("Processing CSV data...");
-      await processCSV(originalCsvHash, downloadMetadata);
-    } else {
-      logger.info("No changes detected. Using existing files.");
-    }
-
-    logger.info("CSV processing complete!");
-    logger.info("Files available:");
-
-    // List files related to amateur callsigns
-    const files = getFileMetadata();
-
-    // Display file information
-    files.forEach(file => {
-      logger.info(`- ${file.name}: ${formatFileSize(file.size)} (Last modified: ${new Date(file.lastModified).toLocaleString()})`);
-    });
-
-    logger.info("All operations completed successfully");
+    logger.info('Processing complete.');
   } catch (error: any) {
     logger.error(`Processing failed: ${error.message}`, error);
     process.exit(1);
   }
 }
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+process.on('unhandledRejection', (reason: any) => {
   logger.error('Unhandled Rejection at:', reason);
   process.exit(1);
 });
 
-// Run the main function
 main().catch((error: Error) => {
-  logger.error("Fatal error:", error);
+  logger.error('Fatal error:', error);
   process.exit(1);
 });

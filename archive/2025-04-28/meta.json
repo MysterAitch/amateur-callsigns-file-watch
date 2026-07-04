@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-amateur-callsigns",
+  "provenance": "reconstructed-from-git-history",
+  "fetchedAt": "2025-04-28T02:13:20Z",
+  "gitCommitSha": "9c6103e11b8887548b49814ee017dcc5a9a8cae4",
+  "reconstructionNotes": "Reconstructed from git commit 9c6103e (path at commit: amateur-callsigns.csv). Ofcom-reported publication date unknown; using commit author date (2025-04-28) as archive key.",
+  "files": {
+    "raw.csv": {
+      "size": 12648906,
+      "sha256": "242decb29b2fd04d2f681458a554d7c651eb7181cb4963e84ab2c425cf14c403",
+      "format": "csv",
+      "columnCount": 6,
+      "columnNames": [
+        "Value__c",
+        "Product__c",
+        "Status__c",
+        "Type__c",
+        "CreatedDate",
+        "LastModifiedDate"
+      ],
+      "recordCount": 157427
+    }
+  }
+}

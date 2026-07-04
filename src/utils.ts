@@ -9,19 +9,42 @@ dotenv.config();
 
 export const CONSTANTS = {
   FILES: {
+    // Staging inbox: scrape-and-download writes the freshly-fetched raw CSV here;
+    // process-csv reads from here, produces the archive entry, then updates the
+    // latest-* pointers. Kept at a stable path so scrape and process share a handoff.
     originalRawCsvFile: 'amateur-callsigns-raw.csv',
-    sortedCsvFile: 'amateur-callsigns-sorted.csv',
-    jsonFile: 'amateur-callsigns.json',
-    sortedJsonFile: 'amateur-callsigns-sorted.json',
-    metadataFile: 'metadata-amateur-callsigns.json',
+
+    // Convenience "pointer" copies at repo root - always reflect the newest archive
+    // entry. Consumers that just want "the current dataset" read these without
+    // walking archive/.
+    latestRawCsv: 'latest-raw.csv',
+    latestRawSortedCsv: 'latest-raw-sorted.csv',
+    latestJson: 'latest.json',
+    latestRawSortedJson: 'latest-raw-sorted.json',
+    latestMeta: 'latest-meta.json',
+
+    // Per-fetch download context (URL, ?v=, Ofcom-reported date). Written by scrape,
+    // read by process to enrich the archive entry's meta.json.
     downloadMetadataFile: 'metadata-download-info.json',
+
+    // Debug: last successfully-fetched HTML page from Ofcom's opendata index.
     htmlOutput: 'ofcom_page.html',
-    tempCsvFile: 'temp-amateur-callsigns.csv'
+  },
+  DIRS: {
+    // Per-publication archive. Each subdirectory is one Ofcom publication with
+    // raw.csv, raw-sorted.csv, meta.json (and any future derived artefacts).
+    archive: 'archive',
   },
   URLS: {
     OFCOM_URL: 'https://www.ofcom.org.uk/about-ofcom/our-research/opendata',
     OFCOM_BASE_URL: 'https://www.ofcom.org.uk'
-  }
+  },
+  SOURCES: {
+    // Stable key identifying this source in archive metadata. When we add FOI or
+    // other sources, each will have its own key. Do not change without a migration
+    // pass over existing archive/*/meta.json files.
+    OFCOM_AMATEUR: 'ofcom-amateur-callsigns',
+  },
 };
 
 export interface FileMetadata {
@@ -49,6 +72,74 @@ export interface ProcessingMetadata {
   url?: string;
   ofcomLastUpdate?: string;
   linkText?: string;
+}
+
+// Per-file record inside an archive entry's meta.json.
+export interface ArchivedFileMeta {
+  size: number;
+  sha256: string;
+  format?: 'csv' | 'json' | 'sqlite' | 'other';
+  columnCount?: number;
+  columnNames?: string[];
+  recordCount?: number;
+  // For sorted derivatives: name of the column the data is sorted on.
+  sortedBy?: string;
+}
+
+// Semantic diff of this publication vs the archive entry immediately preceding
+// it in archive-key order AT THE MOMENT THIS META WAS WRITTEN.
+//
+// SNAPSHOT SEMANTICS - important caveat: this is a point-in-time snapshot, not
+// a live view. If entries are later inserted between this one and its previous
+// (e.g. a retroactively-discovered publication is dropped into archive/), the
+// `previousArchiveKey` referenced here becomes stale relative to current
+// archive chronology, but this meta.json is NOT rewritten. Consumers that need
+// an authoritative up-to-date diff should re-derive it from the raw CSVs at
+// read time, using whichever chronological definition they prefer (there are
+// multiple: Ofcom publication date, our fetch date, git-commit date; they do
+// not always agree). The persisted diff here is a convenience for notification
+// bodies and casual inspection - not a source of truth.
+//
+// Because of the above ambiguity, diff summaries are NOT computed for
+// reconstructed-from-git-history entries: their "previous" is inferred from a
+// mixed axis (Ofcom-date and commit-date) that can misorder relative to
+// real-world chronology, and the resulting numbers may actively mislead.
+// Historical entries get their record counts recorded but no diff.
+//
+// Sample arrays are capped for readability; the two archive entries themselves
+// are the authoritative record.
+export interface DiffSummary {
+  previousArchiveKey?: string;
+  previousRecordCount?: number;
+  currentRecordCount: number;
+  unchanged?: number;
+  fieldChanged?: number;
+  added?: number;
+  removed?: number;
+  sampleAdded?: string[];
+  sampleRemoved?: string[];
+}
+
+// meta.json for one archive/{key}/ entry. schemaVersion lets us evolve the shape
+// without a big-bang migration - readers check the version and adapt.
+export interface ArchiveMeta {
+  schemaVersion: 1;
+  sourceKey: string;
+  // 'live' entries were fetched by the current codebase; 'reconstructed-from-git-history'
+  // entries were materialised retroactively from prior git blobs and may be missing
+  // some fields (sourceUrl, ?v= value, etc.) that only live fetches can capture.
+  provenance: 'live' | 'reconstructed-from-git-history';
+  sourceUrl?: string;
+  sourceVersionParam?: string;
+  ofcomReportedUpdate?: string;
+  ofcomReportedUpdateIso?: string;
+  fetchedAt: string;
+  linkText?: string;
+  // For reconstructed entries only: the commit these files were extracted from.
+  gitCommitSha?: string;
+  reconstructionNotes?: string;
+  files: Record<string, ArchivedFileMeta>;
+  diffSummary?: DiffSummary;
 }
 
 export const logger = {
