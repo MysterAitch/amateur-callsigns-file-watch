@@ -120,6 +120,20 @@ export interface DiffSummary {
   sampleRemoved?: string[];
 }
 
+// Outcome of running the process step - what the caller (scheduled-run
+// orchestrator) needs to know to compose git commits and ntfy notifications.
+export interface ProcessResult {
+  // The archive key that now corresponds to the current raw CSV, whether newly
+  // created or matched from a prior entry.
+  archiveKey: string;
+  // True iff processing created a new archive/{key}/ directory; false if the
+  // raw content was already archived and only latest-* pointers were refreshed.
+  wasNewArchiveEntry: boolean;
+  recordCount: number;
+  diffSummary?: DiffSummary;
+  ofcomReportedUpdate?: string;
+}
+
 // meta.json for one archive/{key}/ entry. schemaVersion lets us evolve the shape
 // without a big-bang migration - readers check the version and adapt.
 export interface ArchiveMeta {

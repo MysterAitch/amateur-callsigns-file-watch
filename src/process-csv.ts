@@ -15,6 +15,7 @@ import {
   formatFileSize,
   CsvDownloadMetadata,
   ArchiveMeta,
+  ProcessResult,
 } from './utils';
 import {
   archiveKeyForDate,
@@ -44,7 +45,7 @@ interface CsvRecord {
  * is created; latest-* pointers are still refreshed to that entry so downstream
  * consumers see a consistent "current" view.
  */
-async function processStagedCsv(downloadMetadata: CsvDownloadMetadata | null): Promise<void> {
+async function processStagedCsv(downloadMetadata: CsvDownloadMetadata | null): Promise<ProcessResult> {
   if (!fileExistsAndNotEmpty(FILES.originalRawCsvFile)) {
     throw new Error(`${FILES.originalRawCsvFile} not found or empty. Run the scrape step first.`);
   }
@@ -97,7 +98,13 @@ async function processStagedCsv(downloadMetadata: CsvDownloadMetadata | null): P
     if (newest) await writeLatestPointers(newest);
     await fs.writeFile(FILES.latestRawSortedCsv, sortedContent);
     await writeLatestJsonDerivatives(records, sortedRecords);
-    return;
+    const existingMeta = await loadJsonFile<ArchiveMeta>(path.join(ARCHIVE_DIR, existingKey, 'meta.json'));
+    return {
+      archiveKey: existingKey,
+      wasNewArchiveEntry: false,
+      recordCount: records.length,
+      ofcomReportedUpdate: existingMeta?.ofcomReportedUpdate,
+    };
   }
 
   // Diff summary vs the previous archive entry (if any). Semantic diff (added /
@@ -168,6 +175,14 @@ async function processStagedCsv(downloadMetadata: CsvDownloadMetadata | null): P
   } else {
     logger.info('No previous archive entry to diff against; this is the first live entry (or the migration seeded this one).');
   }
+
+  return {
+    archiveKey: finalKey,
+    wasNewArchiveEntry: true,
+    recordCount: records.length,
+    diffSummary,
+    ofcomReportedUpdate: meta.ofcomReportedUpdate,
+  };
 }
 
 // JSON derivatives are convenience artefacts for consumers that want to skip
@@ -207,33 +222,39 @@ function extractVersionParam(url: string | undefined): string | undefined {
   return m ? m[1] : undefined;
 }
 
-async function main(): Promise<void> {
-  try {
-    logger.info('Starting amateur callsigns CSV processing');
+/**
+ * Read the staged raw CSV, produce the archive entry (if new content) and
+ * refresh `latest-*` pointers. Idempotent - returns the archive key it landed
+ * on and whether that was a fresh entry, so orchestrator code can decide
+ * whether to commit + notify.
+ *
+ * Callable from the scheduled-run orchestrator as well as from `npm run process`.
+ * Throws on failure; does not call process.exit itself.
+ */
+export async function runProcess(): Promise<ProcessResult> {
+  logger.info('Starting amateur callsigns CSV processing');
 
-    const downloadMetadata = await loadJsonFile<CsvDownloadMetadata>(FILES.downloadMetadataFile);
-    if (downloadMetadata) {
-      logger.info(`Download metadata found. URL: ${downloadMetadata.url}`);
-      logger.info(`Ofcom-reported last updated date: ${downloadMetadata.ofcomReportedLastUpdate}`);
-    } else {
-      logger.warn(`${FILES.downloadMetadataFile} not found. Archive meta will be missing provenance fields.`);
-    }
-
-    await processStagedCsv(downloadMetadata);
-
-    logger.info('Processing complete.');
-  } catch (error: any) {
-    logger.error(`Processing failed: ${error.message}`, error);
-    process.exit(1);
+  const downloadMetadata = await loadJsonFile<CsvDownloadMetadata>(FILES.downloadMetadataFile);
+  if (downloadMetadata) {
+    logger.info(`Download metadata found. URL: ${downloadMetadata.url}`);
+    logger.info(`Ofcom-reported last updated date: ${downloadMetadata.ofcomReportedLastUpdate}`);
+  } else {
+    logger.warn(`${FILES.downloadMetadataFile} not found. Archive meta will be missing provenance fields.`);
   }
+
+  const result = await processStagedCsv(downloadMetadata);
+  logger.info('Processing complete.');
+  return result;
 }
 
-process.on('unhandledRejection', (reason: any) => {
-  logger.error('Unhandled Rejection at:', reason);
-  process.exit(1);
-});
+if (require.main === module) {
+  process.on('unhandledRejection', (reason: any) => {
+    logger.error('Unhandled Rejection at:', reason);
+    process.exit(1);
+  });
 
-main().catch((error: Error) => {
-  logger.error('Fatal error:', error);
-  process.exit(1);
-});
+  runProcess().catch((err: Error) => {
+    logger.error(`Processing failed: ${err.message}`, err);
+    process.exit(1);
+  });
+}

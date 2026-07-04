@@ -1,0 +1,14 @@
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    // Co-locate tests with source: `src/foo.ts` -> `src/foo.test.ts`. Keeps a
+    // test's subject one click away and avoids a parallel `tests/` tree that
+    // has to be kept in sync as the code moves around.
+    include: ['src/**/*.test.ts'],
+    // Node environment (no jsdom for tests) - we don't test DOM code here.
+    // The scrape module does use jsdom internally, but we test its pure
+    // helpers rather than the whole page-fetch flow.
+    environment: 'node',
+  },
+});

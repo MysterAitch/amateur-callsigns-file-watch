@@ -269,113 +269,122 @@ function buildAbsoluteOfcomUrl(url: string): string {
   return `${OFCOM_BASE_URL}${relativeUrl}`;
 }
 
-async function main(): Promise<void> {
-  try {
-    logger.info("Starting Ofcom amateur radio callsigns scraping process");
+/**
+ * Fetch Ofcom's opendata page, locate the amateur callsigns CSV link, download
+ * it to a temp path, validate content (sanity gate), and atomically promote
+ * into place. Persists CsvDownloadMetadata (URL + ?v= + Ofcom-reported date +
+ * link text) as a sidecar so the process step can enrich the archive meta.
+ *
+ * Callable from the scheduled-run orchestrator as well as from `npm run pull`.
+ * Throws on any failure - the caller decides how to respond (retry, notify,
+ * abort). Does not call process.exit itself.
+ */
+export async function runScrape(): Promise<void> {
+  logger.info("Starting Ofcom amateur radio callsigns scraping process");
 
-    // Fetch the Ofcom opendata page with browser-like headers to avoid WAF/bot 403s
-    logger.info(`Fetching content from: ${OFCOM_URL}`);
-    const response = await axios.get(OFCOM_URL, {
-      headers: BROWSER_HEADERS,
-      timeout: 30000,
+  // Fetch the Ofcom opendata page with browser-like headers to avoid WAF/bot 403s
+  logger.info(`Fetching content from: ${OFCOM_URL}`);
+  const response = await axios.get(OFCOM_URL, {
+    headers: BROWSER_HEADERS,
+    timeout: 30000,
+  });
+
+  // Save HTML for debugging
+  await fs.writeFile(OUTPUT_FILES.htmlOutput, response.data);
+  logger.debug(`Saved HTML content to ${OUTPUT_FILES.htmlOutput}`);
+
+  // Parse and find the CSV link
+  logger.info("Parsing HTML content...");
+  const dom = new JSDOM(response.data);
+  const document = dom.window.document;
+
+  const csvLinkDetails = findCsvLink(document);
+
+  // Extract update date
+  const updatedDate = extractUpdateDateFromHtmlTable(csvLinkDetails.element) ||
+    new Date().toLocaleDateString('en-GB', {
+      day: 'numeric', month: 'long', year: 'numeric'
     });
 
-    // Save HTML for debugging
-    await fs.writeFile(OUTPUT_FILES.htmlOutput, response.data);
-    logger.debug(`Saved HTML content to ${OUTPUT_FILES.htmlOutput}`);
+  // Build full URL
+  const fullUrl = buildAbsoluteOfcomUrl(csvLinkDetails.href);
 
-    // Parse and find the CSV link
-    logger.info("Parsing HTML content...");
-    const dom = new JSDOM(response.data);
-    const document = dom.window.document;
+  logger.info(`Found CSV URL :`, fullUrl);
+  logger.info(`Link text :`, csvLinkDetails.text);
+  logger.info(`Ofcom-reported last updated date:`, updatedDate);
 
-    const csvLinkDetails = findCsvLink(document);
+  const downloadMetadata: CsvDownloadMetadata = {
+    url: fullUrl,
+    linkText: csvLinkDetails.text,
+    ofcomReportedLastUpdate: updatedDate,
+  };
 
-    // Extract update date
-    const updatedDate = extractUpdateDateFromHtmlTable(csvLinkDetails.element) ||
-      new Date().toLocaleDateString('en-GB', {
-        day: 'numeric', month: 'long', year: 'numeric'
-      });
-
-    // Build full URL
-    const fullUrl = buildAbsoluteOfcomUrl(csvLinkDetails.href);
-
-    logger.info(`Found CSV URL :`, fullUrl);
-    logger.info(`Link text :`, csvLinkDetails.text);
-    logger.info(`Ofcom-reported last updated date:`, updatedDate);
-
-    const downloadMetadata: CsvDownloadMetadata = {
-      url: fullUrl,
-      linkText: csvLinkDetails.text,
-      ofcomReportedLastUpdate: updatedDate,
-    };
-
-    // Check if we had a previous version (for hash comparison / change detection)
-    const previousFileExists = fileExistsAndNotEmpty(OUTPUT_FILES.originalRawCsvFile);
-    let previousHash = null;
-    if (previousFileExists) {
-      try {
-        previousHash = calculateFileHash(OUTPUT_FILES.originalRawCsvFile);
-        logger.debug(`Previous file hash: ${previousHash}`);
-      } catch (error) {
-        logger.warn("Could not calculate hash of previous file:", error);
-      }
-    }
-
-    // Download to a TEMPORARY path first, so a bad download (challenge page,
-    // truncated file, wrong dataset) can never overwrite the last good CSV.
-    const tempCsvPath = `${OUTPUT_FILES.originalRawCsvFile}.tmp-${process.pid}`;
-    logger.info(`Downloading amateur callsigns CSV to temporary file ${tempCsvPath}...`);
+  // Check if we had a previous version (for hash comparison / change detection)
+  const previousFileExists = fileExistsAndNotEmpty(OUTPUT_FILES.originalRawCsvFile);
+  let previousHash = null;
+  if (previousFileExists) {
     try {
-      await downloadFile(fullUrl, tempCsvPath);
-      logger.info("Download complete.");
-
-      // SANITY GATE: validate content before accepting it. Throws on failure.
-      verifyAmateurCsv(tempCsvPath);
-
-      // Passed validation - promote temp file into place atomically.
-      fsSync.renameSync(tempCsvPath, OUTPUT_FILES.originalRawCsvFile);
-    } catch (err) {
-      // Clean up the temp file; leave any existing good CSV untouched.
-      try { if (fsSync.existsSync(tempCsvPath)) fsSync.unlinkSync(tempCsvPath); } catch { /* ignore */ }
-      throw err;
+      previousHash = calculateFileHash(OUTPUT_FILES.originalRawCsvFile);
+      logger.debug(`Previous file hash: ${previousHash}`);
+    } catch (error) {
+      logger.warn("Could not calculate hash of previous file:", error);
     }
-
-    // Compare hashes (purely informational; process/commit steps decide what to do)
-    if (previousHash !== null) {
-      try {
-        const newHash = calculateFileHash(OUTPUT_FILES.originalRawCsvFile);
-        if (newHash === previousHash) {
-          logger.info("Downloaded file is identical to the previous version (same hash).");
-        } else {
-          logger.info("Downloaded file is different from the previous version (hash changed).");
-        }
-      } catch (error) {
-        logger.warn("Could not compare file hashes:", error);
-      }
-    }
-
-    const stats = fsSync.statSync(OUTPUT_FILES.originalRawCsvFile);
-    logger.info(`CSV file downloaded and validated successfully. File size: ${formatFileSize(stats.size)}`);
-
-    // Only NOW persist the download metadata - i.e. metadata always describes a
-    // file that actually passed validation, never a failed/partial attempt.
-    logger.debug('Saving download metadata to: ', OUTPUT_FILES.downloadMetadataFile);
-    await saveJsonFile(OUTPUT_FILES.downloadMetadataFile, downloadMetadata);
-
-    logger.info("Scraping process completed successfully");
-  } catch (error: any) {
-    logger.error(`Failed to scrape and download: ${error.message}`, error);
-    process.exit(1);
   }
+
+  // Download to a TEMPORARY path first, so a bad download (challenge page,
+  // truncated file, wrong dataset) can never overwrite the last good CSV.
+  const tempCsvPath = `${OUTPUT_FILES.originalRawCsvFile}.tmp-${process.pid}`;
+  logger.info(`Downloading amateur callsigns CSV to temporary file ${tempCsvPath}...`);
+  try {
+    await downloadFile(fullUrl, tempCsvPath);
+    logger.info("Download complete.");
+
+    // SANITY GATE: validate content before accepting it. Throws on failure.
+    verifyAmateurCsv(tempCsvPath);
+
+    // Passed validation - promote temp file into place atomically.
+    fsSync.renameSync(tempCsvPath, OUTPUT_FILES.originalRawCsvFile);
+  } catch (err) {
+    // Clean up the temp file; leave any existing good CSV untouched.
+    try { if (fsSync.existsSync(tempCsvPath)) fsSync.unlinkSync(tempCsvPath); } catch { /* ignore */ }
+    throw err;
+  }
+
+  // Compare hashes (purely informational; process/commit steps decide what to do)
+  if (previousHash !== null) {
+    try {
+      const newHash = calculateFileHash(OUTPUT_FILES.originalRawCsvFile);
+      if (newHash === previousHash) {
+        logger.info("Downloaded file is identical to the previous version (same hash).");
+      } else {
+        logger.info("Downloaded file is different from the previous version (hash changed).");
+      }
+    } catch (error) {
+      logger.warn("Could not compare file hashes:", error);
+    }
+  }
+
+  const stats = fsSync.statSync(OUTPUT_FILES.originalRawCsvFile);
+  logger.info(`CSV file downloaded and validated successfully. File size: ${formatFileSize(stats.size)}`);
+
+  // Only NOW persist the download metadata - i.e. metadata always describes a
+  // file that actually passed validation, never a failed/partial attempt.
+  logger.debug('Saving download metadata to: ', OUTPUT_FILES.downloadMetadataFile);
+  await saveJsonFile(OUTPUT_FILES.downloadMetadataFile, downloadMetadata);
+
+  logger.info("Scraping process completed successfully");
 }
 
-process.on('unhandledRejection', (reason: any) => {
-  logger.error('Unhandled Rejection at:', reason);
-  process.exit(1);
-});
+// Auto-invoke when run directly (npm run pull). When imported by the scheduled
+// orchestrator, runScrape is called explicitly and this block does nothing.
+if (require.main === module) {
+  process.on('unhandledRejection', (reason: any) => {
+    logger.error('Unhandled Rejection at:', reason);
+    process.exit(1);
+  });
 
-main().catch((err: Error) => {
-  logger.error("Fatal error:", err);
-  process.exit(1);
-});
+  runScrape().catch((err: Error) => {
+    logger.error(`Failed to scrape and download: ${err.message}`, err);
+    process.exit(1);
+  });
+}

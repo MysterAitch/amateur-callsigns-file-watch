@@ -9,6 +9,9 @@
     "pull": "ts-node src/scrape-and-download.ts",
     "process": "ts-node src/process-csv.ts",
     "migrate-archive": "ts-node src/migrate-archive.ts",
+    "scheduled": "ts-node src/scheduled-run.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "all": "npm run pull && npm run process",
     "js:pull": "node dist/scrape-and-download.js",
     "js:process": "node dist/process-csv.js",
@@ -30,6 +33,7 @@
     "@types/jsdom": "^28.0.3",
     "@types/node": "^26.0.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.9"
   }
 }
