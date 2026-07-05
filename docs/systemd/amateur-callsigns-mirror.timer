@@ -1,0 +1,25 @@
+[Unit]
+Description=Ofcom amateur callsigns mirror - fire every 5 minutes
+Documentation=https://github.com/OFCOMMIRRORROOT/README.md
+
+[Timer]
+# Fire every 5 minutes. The runner itself decides whether to do real work
+# (see shouldRunNow in src/scheduled-run.ts). All schedule *policy* lives in
+# the TS code, versioned in the repo; systemd only knows the wake-up cadence.
+# If you want to change the fetch cadence, edit SCHEDULED_HHMM in that file
+# rather than tweaking this timer.
+OnCalendar=*:0/5
+# Timezone-aware. The Ofcom-touching slots (03/10/18 local) will honour BST
+# vs GMT automatically. Make sure the LXC's timezone is Europe/London -
+# `timedatectl set-timezone Europe/London`.
+# Persistent=true would fire once immediately after boot if a tick was
+# missed while off. Off by default because we'd rather wait for the next
+# real slot than run at unpredictable startup times.
+Persistent=false
+# Some jitter helps if you eventually run multiple copies (e.g. a mirror on
+# a friend's LXC too) so they don't all hit Ofcom simultaneously. Currently
+# only ever one copy per household so it's marginal, but harmless.
+RandomizedDelaySec=15
+
+[Install]
+WantedBy=timers.target

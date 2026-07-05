@@ -87,10 +87,9 @@ async function processStagedCsv(downloadMetadata: CsvDownloadMetadata | null): P
     columns: Object.keys(records[0]),
   });
 
-  // Idempotence: if this exact content is already archived somewhere, we do not
-  // create a duplicate directory. We do still refresh latest-* pointers (both the
-  // CSV copies via writeLatestPointers, and the JSON derivatives regenerated
-  // below), so consumers reading only latest-* stay coherent.
+  // Idempotence check first (cheap - only hashes existing archive entries). If
+  // the current content is already archived, short-circuit before the more
+  // expensive previous-archive read below.
   const existingKey = findArchiveKeyByRawHash(rawSha);
   if (existingKey) {
     logger.info(`Raw content already archived at archive/${existingKey}/ - no new entry needed.`);
@@ -107,9 +106,33 @@ async function processStagedCsv(downloadMetadata: CsvDownloadMetadata | null): P
     };
   }
 
+  // Read previous archive ONCE - used for both the regression guard AND the
+  // diff summary. Avoids parsing ~11 MB of previous raw twice on every real
+  // publication.
+  const previous = readPreviousArchiveRecords('');
+
+  // Record-count regression guard. Ofcom has historically shipped truncated /
+  // filtered publications (e.g. the May 2025 entry with 1074 records vs the
+  // surrounding ~150k). A CSV that has valid headers AND parses cleanly can
+  // still be semantically wrong. Refuse anything that drops by more than
+  // REGRESSION_THRESHOLD_FRACTION vs the previous archived record count. The
+  // orchestrator's failure escalation surfaces this as a HIGH ntfy so Roger
+  // knows to investigate rather than silently mirroring a bad publication.
+  const REGRESSION_THRESHOLD_FRACTION = 0.5;
+  if (previous && previous.records.length > 0) {
+    const ratio = records.length / previous.records.length;
+    if (ratio < REGRESSION_THRESHOLD_FRACTION) {
+      throw new Error(
+        `Record count regression: current publication has ${records.length} records ` +
+        `vs previous archive/${previous.key}/ with ${previous.records.length} ` +
+        `(${(ratio * 100).toFixed(1)}% - below ${(REGRESSION_THRESHOLD_FRACTION * 100)}% threshold). ` +
+        `Possible bad Ofcom publication - refusing to archive; manual review required.`
+      );
+    }
+  }
+
   // Diff summary vs the previous archive entry (if any). Semantic diff (added /
   // removed / fieldChanged), tolerant of sort-order differences between publications.
-  const previous = readPreviousArchiveRecords('');
   const diffSummary = buildDiffSummary(
     records,
     previous ? previous.records : null,
