@@ -536,12 +536,6 @@ function composeUpdateBody(result: ProcessResult, git: GitResult): string {
 //
 
 async function runTick(state: NotifyState, windowId: string): Promise<void> {
-  // Pick up any dev-pushed code changes before doing real work. Runs first
-  // (before scrape) so the tick executes against the latest orchestrator /
-  // scrape / process logic, not a stale checkout. Non-fatal if it fails -
-  // continue with local state.
-  tryFastForwardPull();
-
   const scrape = await runScrape({
     lastKnownV: state.lastKnownV,
     lastKnownVContentHash: state.lastKnownVContentHash,
@@ -615,11 +609,19 @@ async function main(): Promise<void> {
   const now = new Date();
   const decision = shouldRunNow(state, now);
 
+  // Fast-forward pull on EVERY tick (including skips) - not only when work
+  // is being done. Otherwise dev-pushed code changes only reach the LXC
+  // when a scheduled window happens to fall after the push, which could be
+  // hours or (over a weekend) days. Cheap; safe (--ff-only touches no
+  // local commits).
+  tryFastForwardPull();
+
   // Drift checks run on EVERY tick (including skips) because they're the
   // signal that "the host is running a version of the systemd config that
   // doesn't match what's in the repo any more". Cheap - a couple of file
   // hashes and one `git status`. Rate-limited internally per drift state
-  // so this doesn't spam.
+  // so this doesn't spam. Runs AFTER the fast-forward pull so we're
+  // comparing the freshly-pulled repo state against the deployed state.
   try {
     await handleDrift(state, detectSystemdDrift(), 'systemd');
     await handleDrift(state, detectWorkingTreeDrift(), 'working-tree');
