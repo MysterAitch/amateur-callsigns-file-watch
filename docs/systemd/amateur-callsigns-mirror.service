@@ -17,6 +17,12 @@ Group=callsign-data-mirror
 # npm resolves tsx from node_modules/.bin. If node/npm are elsewhere on
 # the LXC, use their full paths.
 ExecStart=/usr/bin/npm run scheduled
+# Kill the tick if it hangs. Normal skip is <5s, normal real fetch is <60s,
+# so 5 minutes is well beyond legitimate work. Prevents a hung tick from
+# silently blocking subsequent ticks OR from evading OnFailure= (which only
+# fires on non-zero exit, not on hangs). A timeout hit registers as a
+# failure and triggers the notify unit.
+TimeoutStartSec=300
 # The runner's decision function decides whether to actually do work each
 # tick; a systemd fire that results in a "not within any scheduled window"
 # skip is normal and expected. Success/no-op is the same exit-0 either way.
