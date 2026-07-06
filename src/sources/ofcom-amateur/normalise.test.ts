@@ -135,7 +135,7 @@ describe('convertRawCsv', () => {
     expect(() => convertRawCsv(headerOnly, FETCH_CONTEXT)).toThrow(/zero|empty/i);
   });
 
-  it('Convert_ReportsPerColumnAmbiguousVsDisambiguatedCounts', () => {
+  it('Convert_WhenDatesMixAmbiguousAndDisambiguating_ReportsPerColumnCounts', () => {
     // Evidence for the reviewer, per column: date formats are assumed
     // consistent within a column, so ONE disambiguating value (any component
     // >12, e.g. 23/07/2016) verifies the whole column as day-first; values

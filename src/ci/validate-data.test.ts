@@ -173,6 +173,14 @@ describe('validateArchiveEntry', () => {
     const problems = validateArchiveEntry('2026-06-23');
     expect(problems.some(p => p.problem.includes('intendedCoverage.complete'))).toBe(true);
   });
+
+  it('ArchiveEntry_WhenIntendedCoverageIsNull_FailsWithProblemNotCrash', () => {
+    // null passes an !== undefined guard but must not crash the validator -
+    // one malformed meta should be a reported problem, never an aborted run.
+    writeEntry(tmpRoot, '2026-06-23', CSV, { intendedCoverage: null });
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.problem.includes('intendedCoverage'))).toBe(true);
+  });
 });
 
 describe('deepValidateEntryCsv', () => {

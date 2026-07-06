@@ -1,11 +1,10 @@
 # zizmor configuration (run by the workflow-audit CI job).
 rules:
   artipacked:
-    # persist-credentials: false is set wherever a job never pushes (ci.yml).
-    # These two workflows exist to push: data-sweep pushes branch deletions
-    # and PR merges, normalise pushes derivation branches. Their checkouts
-    # keep the default credential persistence deliberately - see ADR 0002 for
-    # the write posture they operate under.
+    # persist-credentials: false is set everywhere third-party code runs
+    # (ci.yml, and normalise.yml which injects its token only at the push
+    # step). data-sweep is the one deliberate exception: it runs ONLY git and
+    # gh (no npm ci, no third-party code), and pushing/merging is its entire
+    # purpose - see ADR 0002 for the write posture it operates under.
     ignore:
       - data-sweep.yml
-      - normalise.yml

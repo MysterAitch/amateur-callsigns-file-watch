@@ -24,9 +24,20 @@
 // date cells). Anything else throws.
 const UK_DATE_RE = /^(\d{2})\/(\d{2})\/(\d{4})(?: (\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
 
-export function parseUkDateTime(value: string): string {
+export interface ParsedUkDateTime {
+  iso: string;
+  // True when the day/month pair would parse validly under EITHER day-first
+  // or month-first order (both components <= 12) - i.e. this single value
+  // cannot self-verify its ordering. Converters aggregate the split per
+  // column as day-first-verification evidence for reviewers. Derived from
+  // the same match as the parse, so the two can never disagree about what
+  // counts as a date.
+  ambiguous: boolean;
+}
+
+export function parseUkDateTimeDetailed(value: string): ParsedUkDateTime {
   const trimmed = value.trim();
-  if (trimmed === '') return '';
+  if (trimmed === '') return { iso: '', ambiguous: false };
 
   const m = UK_DATE_RE.exec(trimmed);
   if (!m) {
@@ -52,17 +63,11 @@ export function parseUkDateTime(value: string): string {
     iso += ` ${h.padStart(2, '0')}:${min}`;
     if (sec !== undefined) iso += `:${sec}`;
   }
-  return iso;
+  return { iso, ambiguous: day <= 12 && month <= 12 };
 }
 
-// True when the date's day/month pair would parse validly under EITHER
-// day-first or month-first order (both components <= 12) - i.e. the value
-// cannot self-verify its ordering. Callers report the ambiguous/disambiguated
-// split as reviewer evidence.
-export function isOrderAmbiguous(value: string): boolean {
-  const m = UK_DATE_RE.exec(value.trim());
-  if (!m) return false;
-  return Number(m[1]) <= 12 && Number(m[2]) <= 12;
+export function parseUkDateTime(value: string): string {
+  return parseUkDateTimeDetailed(value).iso;
 }
 
 // Minimal RFC-4180 rendering: quote only when the value contains a comma,
