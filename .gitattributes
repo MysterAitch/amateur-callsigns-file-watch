@@ -1,0 +1,10 @@
+# Raw source files - preserve verbatim bytes across platforms. Ofcom (and
+# other data sources we'll mirror later) serve CSVs / PDFs / XLSX etc. with
+# source-specific bytes; without this marker, git's default text
+# normalisation would alter CRLF-terminated CSVs on Windows commit, so the
+# LXC checkout would have different bytes than the live download - breaking
+# the archive idempotence check that hashes staging CSVs against archived
+# raw.csv hashes.
+archive/**/raw.*           binary
+latest-raw.*               binary
+amateur-callsigns-raw.csv  binary

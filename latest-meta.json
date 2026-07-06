@@ -1,10 +1,8 @@
 {
   "schemaVersion": 1,
   "sourceKey": "ofcom-amateur-callsigns",
-  "provenance": "reconstructed-from-git-history",
-  "fetchedAt": "2026-06-27T00:55:42+01:00",
-  "gitCommitSha": "4c9074506d57060408719ff8aa9673645fbd6101",
-  "reconstructionNotes": "Reconstructed from git commit 4c90745 (path at commit: amateur-callsigns-raw.csv). Ofcom-reported publication date extracted from commit message.",
+  "provenance": "live",
+  "fetchedAt": "2026-07-06T09:56:05.262Z",
   "files": {
     "raw.csv": {
       "size": 11817502,
@@ -22,6 +20,18 @@
       "recordCount": 158318
     }
   },
+  "diffSummary": {
+    "currentRecordCount": 158318,
+    "previousArchiveKey": "2026-06-23",
+    "previousRecordCount": 158318,
+    "unchanged": 158318,
+    "fieldChanged": 0,
+    "added": 0,
+    "removed": 0
+  },
+  "sourceUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list.csv?v=419818",
   "ofcomReportedUpdate": "23 June 2026",
-  "ofcomReportedUpdateIso": "2026-06-23"
+  "ofcomReportedUpdateIso": "2026-06-23",
+  "linkText": "Amateur radio call signs",
+  "sourceVersionParam": "419818"
 }
