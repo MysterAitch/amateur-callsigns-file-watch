@@ -4,6 +4,13 @@ Documentation=https://github.com/MysterAitch/amateur-callsigns-file-watch
 # Don't try to run if the network is not up (typical LXC startup order)
 After=network-online.target
 Wants=network-online.target
+# On non-zero exit (or on a TimeoutStartSec= hit), fire the sibling
+# notify-failure unit. This catches failures that happen BEFORE the
+# runner's own notification code can run - e.g. transpiler-startup
+# errors, systemd sandbox mismatches, missing files. Without this, an
+# early crash is silent until healthchecks times out (up to several
+# hours later).
+OnFailure=amateur-callsigns-mirror-notify-failure.service
 
 [Service]
 Type=oneshot
@@ -31,13 +38,6 @@ StandardError=journal
 # Never restart on failure - the state file + next timer tick is the
 # recovery mechanism. Restarting inside a bad publication would just spam.
 Restart=no
-# On non-zero exit, fire the sibling notify-failure unit. This catches
-# failures that happen BEFORE the runner's own notification code can run -
-# e.g. transpiler-startup errors, systemd sandbox mismatches, missing files.
-# The %n specifier passes THIS unit's name to the notifier so its message
-# is unambiguous. Without this, an early crash is silent until healthchecks
-# times out (up to several hours later).
-OnFailure=amateur-callsigns-mirror-notify-failure.service
 # Modest hardening - the service only needs to read/write its working dir.
 # On Debian 13 (systemd 257), these directives require nesting to be enabled
 # on the LXC; the unit will start but hardening may not fully apply without it.
