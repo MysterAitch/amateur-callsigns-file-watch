@@ -1,0 +1,55 @@
+[Unit]
+Description=Notify via ntfy on failure of the amateur callsigns mirror service
+Documentation=https://github.com/MysterAitch/amateur-callsigns-file-watch
+
+# This unit is fired by the main service's OnFailure= directive. It reads the
+# same .env file the main runner uses so it can find the ntfy topic, then posts
+# a HIGH-priority notification via curl. Deliberately minimal - it has no npm,
+# no Node, no transpiler, so it cannot itself fail via a broken dep. If it
+# fails (e.g. no network), the failure surfaces via systemd's own logging plus
+# eventual healthchecks silence.
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/amateur-callsigns-file-watch
+User=callsign-data-mirror
+Group=callsign-data-mirror
+
+# EnvironmentFile= only reads KEY=VALUE lines; a blank / commented .env still
+# parses cleanly. NTFY_TOPIC_URL is set there. `-` prefix means "keep going if
+# the file is missing" so an unconfigured mirror still exits cleanly.
+EnvironmentFile=-/opt/amateur-callsigns-file-watch/.env
+
+# curl to ntfy with title + body. %i is the templated instance name (see the
+# main unit's OnFailure=) which conveys the failing unit's basename to us.
+# %H is the hostname. Timeout is short - a stuck curl mustn't hold up other
+# systemd work.
+#
+# The `sh -c` wrapper is here specifically so we can conditionally skip when
+# NTFY_TOPIC_URL isn't set - matching the runner's own soft-fail behaviour
+# rather than emitting an alarming "Command failed" line to journalctl.
+# FAILED_UNIT is set via the main service's OnFailure= line - passing the
+# failing unit name explicitly via Environment= is more reliable than
+# systemd's specifier interpolation for non-templated units, and works
+# across all systemd versions we might run under.
+Environment=FAILED_UNIT=amateur-callsigns-mirror.service
+ExecStart=/bin/sh -c '\
+    if [ -z "$NTFY_TOPIC_URL" ]; then \
+        echo "ntfy skipped - NTFY_TOPIC_URL unset in .env"; \
+        exit 0; \
+    fi; \
+    curl --max-time 15 --fail --silent --show-error \
+        -H "Title: Ofcom mirror systemd failure on $(hostname)" \
+        -H "Priority: 4" \
+        -H "Tags: warning,skull" \
+        -d "The $FAILED_UNIT unit failed at $(date --iso-8601=seconds). Check: journalctl -u $FAILED_UNIT -n 100" \
+        "$NTFY_TOPIC_URL" \
+    '
+
+StandardOutput=journal
+StandardError=journal
+Restart=no
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

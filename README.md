@@ -223,8 +223,9 @@ Confirm the ping landed by refreshing the check's page in Healthchecks — shoul
 ### 7. Install the systemd unit + timer
 
 ```bash
-cp /opt/amateur-callsigns-file-watch/docs/systemd/amateur-callsigns-mirror.service /etc/systemd/system/
-cp /opt/amateur-callsigns-file-watch/docs/systemd/amateur-callsigns-mirror.timer   /etc/systemd/system/
+cp /opt/amateur-callsigns-file-watch/docs/systemd/amateur-callsigns-mirror.service                 /etc/systemd/system/
+cp /opt/amateur-callsigns-file-watch/docs/systemd/amateur-callsigns-mirror.timer                   /etc/systemd/system/
+cp /opt/amateur-callsigns-file-watch/docs/systemd/amateur-callsigns-mirror-notify-failure.service  /etc/systemd/system/
 
 # Sanity check the unit's identity
 grep -E '^(User|Group|WorkingDirectory|ExecStart)=' \
