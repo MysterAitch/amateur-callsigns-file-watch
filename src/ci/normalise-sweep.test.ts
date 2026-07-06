@@ -75,7 +75,7 @@ describe('runNormaliseSweep', () => {
     const normalised = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'normalised.csv'), 'utf8');
     expect(normalised.startsWith('callsign,product,status,type,')).toBe(true);
     const meta = readMeta(tmpRoot, '2026-01-01');
-    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 2 });
+    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 3 });
     expect(meta.files['normalised.csv'].sha256).toBe(sha256(normalised));
     expect(meta.files['normalised.csv'].recordCount).toBe(2);
   });
@@ -155,13 +155,13 @@ describe('runNormaliseSweep', () => {
     expect(report.changed).toEqual(['2026-01-01']);
     const statsRaw = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'stats.json'), 'utf8');
     const stats = JSON.parse(statsRaw) as EntryStats;
-    expect(stats.statsSchemaVersion).toBe(2);
+    expect(stats.statsSchemaVersion).toBe(3);
     expect(stats.recordCount).toBe(2);
     expect(stats.callsignPatterns).toEqual({ ANAAA: 2 }); // M7TEE, G5ABC
     expect((stats.columns.callsign as { distinct: number }).distinct).toBe(2);
     const meta = readMeta(tmpRoot, '2026-01-01');
     expect(meta.files['stats.json'].sha256).toBe(sha256(statsRaw));
-    expect(meta.normalised?.statsSchemaVersion).toBe(2);
+    expect(meta.normalised?.statsSchemaVersion).toBe(3);
   });
 
   it('Report_WhenEntryBetweenNeighbours_MatrixColumnsCoverBothDirections', () => {
@@ -331,6 +331,48 @@ describe('runNormaliseSweep', () => {
     expect(series).toContain('`AN{U+00A0}AAA`');
     // ...the folded table merges them into one U-class row present in both.
     expect(folded).toContain('| `ANUAAA` | 1 | 1 |');
+  });
+
+  it('QualityRollup_DetectorCountsPerDataset_NewestLeftWithExamples', () => {
+    // reports/data-quality.md: one row per defect detector, one column per
+    // dataset (newest leftmost), with per-detector example values behind
+    // details blocks using human-readable markers.
+    const withDefects = SALESFORCE_RAW
+      + '20-Apr,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + 'M7 ODD,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + 'g0jrk,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n';
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-02-02', withDefects);
+    runNormaliseSweep();
+
+    const rollup = fs.readFileSync(path.join(tmpRoot, 'reports', 'data-quality.md'), 'utf8');
+    const header = rollup.split('\n').find(l => l.startsWith('| detector |')) ?? '';
+    expect(header).toBe('| detector | 2026-02-02 | 2026-01-01 |');
+    expect(rollup).toContain('| Excel-date-shaped callsigns | 1 | 0 |');
+    expect(rollup).toContain('| whitespace/invisible-bearing | 1 | 0 |');
+    // 2: g0jrk AND 20-Apr (month abbreviations carry lowercase) - detectors
+    // are independent, a row can trip several.
+    expect(rollup).toContain('| lowercase-bearing | 2 | 0 |');
+    // Examples in human-readable marker form, behind details.
+    expect(rollup).toContain('`M7{space}ODD`');
+    expect(rollup).toContain('<summary>Examples: Excel-date-shaped callsigns</summary>');
+  });
+
+  it('Reports_WhenSpecialCharactersPresent_CharacterKeyNamesThem', () => {
+    // Requested in review: raw codepoints stay in the tables for precision;
+    // a character-key section names invisibles AND visually-confusable
+    // printables (hyphen vs dash variants) for legibility.
+    const withDefects = SALESFORCE_RAW
+      + 'M7 ODD,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n';
+    writeEntry(tmpRoot, '2026-01-01', withDefects);
+    runNormaliseSweep();
+
+    const entryReport = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-01-01.md'), 'utf8');
+    expect(entryReport).toContain('## Character key');
+    expect(entryReport).toContain('| `{U+0020}` | U+0020 | space |');
+    const series = fs.readFileSync(path.join(tmpRoot, 'reports', 'callsign-patterns.md'), 'utf8');
+    expect(series).toContain('human-readable markers');
+    expect(series).toContain('`AN{space}AAA`');
   });
 
   it('Sweep_WhenNewestEntryMetaUpdated_LatestMetaMirrorRefreshedByteIdentically', () => {

@@ -16,11 +16,15 @@ as an always-human-reviewed PR.
 
 Each normalised entry also carries `archive/{key}/stats.json` (issue #46):
 data-quality statistics computed from the canonical rows — a callsign format
-taxonomy (statsSchemaVersion 2: uppercase→`A`, lowercase→`a`, digit→`N`;
+taxonomy (uppercase→`A`, lowercase→`a`, digit→`N`;
 whitespace/unprintable/invisible characters — including regular space, since
 whitespace in a callsign is unambiguously invalid — appear as printable
 `{U+XXXX}` markers so each offending codepoint is immediately visible and
-distinct; all other characters preserved verbatim) and per-column
+distinct; all other characters preserved verbatim), automated callsign-defect
+detectors (statsSchemaVersion 3, issue #51: Excel-date-shaped values,
+encoding-failure characters, whitespace-bearing values, post-normalisation
+duplicates, empty and lowercase-bearing callsigns — counts plus capped,
+sorted example values), and per-column
 distributions (distinct/empty counts, string-length
 ranges, date min/max; distinct and ranges consider non-empty values only,
 emptiness being its own counter). It lives in the same golden-master lane:

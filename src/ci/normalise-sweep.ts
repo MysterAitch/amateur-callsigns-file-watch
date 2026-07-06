@@ -339,10 +339,153 @@ function writeQualityReports(keys: string[]): void {
       ...(pairwise.length > 0 ? pairwise : ['| (no neighbours with stats) | — | — | — | — |']),
       '',
     ];
-    fs.writeFileSync(path.join(REPORTS_DIR, `${key}.md`), lines.join('\n'));
+    fs.writeFileSync(path.join(REPORTS_DIR, `${key}.md`), withCharacterKey(lines).join('\n'));
   }
 
-  writePatternTimeSeries(keys.filter(k => statsByKey.has(k)), statsByKey);
+  const keysWithStats = keys.filter(k => statsByKey.has(k));
+  writePatternTimeSeries(keysWithStats, statsByKey);
+  writeQualityRollup(keysWithStats, statsByKey);
+}
+
+// Human-readable names for characters that appear in patterns and examples
+// but are easy to misread in a table: invisibles (shown as {U+XXXX} markers)
+// and visually-confusable printables (hyphen vs en dash vs em dash, the
+// replacement character). Unlisted codepoints fall back to their U+ label.
+const CHARACTER_NAMES: Record<string, string> = {
+  '0009': 'character tabulation (tab)',
+  '0020': 'space',
+  '00A0': 'no-break space',
+  '2002': 'en space',
+  '2003': 'em space',
+  '200B': 'zero width space',
+  '200C': 'zero width non-joiner',
+  '200D': 'zero width joiner',
+  '2010': 'hyphen',
+  '2011': 'non-breaking hyphen',
+  '2013': 'en dash',
+  '2014': 'em dash',
+  '2212': 'minus sign',
+  'FEFF': 'zero width no-break space (BOM)',
+  'FFFD': 'replacement character (encoding failure)',
+  '002D': 'hyphen-minus',
+  '002F': 'solidus (portable/reciprocal separator)',
+  '0023': 'number sign (placeholder notation)',
+  '005F': 'low line / underscore (placeholder notation)',
+};
+
+function codepointHex(c: string): string {
+  return (c.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0');
+}
+
+// Compact human-readable marker names for the reader-selectable "named" table
+// views: a pure 1:1 relabelling of {U+XXXX} markers (space and NBSP stay
+// distinct), so counts never merge. Unlisted codepoints keep their U+ form.
+const SHORT_MARKER_NAMES: Record<string, string> = {
+  '0009': 'tab',
+  '0020': 'space',
+  '00A0': 'nbsp',
+  '200B': 'zwsp',
+  '200C': 'zwnj',
+  '200D': 'zwj',
+  'FEFF': 'bom',
+};
+
+function nameMarkers(text: string): string {
+  return text.replace(/\{U\+([0-9A-F]{4,6})\}/g, (m, hex: string) => `{${SHORT_MARKER_NAMES[hex] ?? `U+${hex}`}}`);
+}
+
+// Appends a "Character key" section naming every {U+XXXX} marker and every
+// non-alphanumeric character that appears inside the report's code spans -
+// raw codepoints stay in the tables for precision; the key supplies the
+// legibility (requested in review: space vs NBSP vs tab, dash variants).
+function withCharacterKey(lines: string[]): string[] {
+  const content = lines.join('\n');
+  const seen = new Map<string, string>(); // hex -> display label
+  for (const m of content.matchAll(/\{U\+([0-9A-F]{4,6})\}/g)) {
+    seen.set(m[1], `\`{U+${m[1]}}\``);
+  }
+  for (const span of content.matchAll(/`([^`\n]+)`/g)) {
+    for (const c of span[1]) {
+      if (/[A-Za-z0-9]/.test(c)) continue;
+      if ('{}+_'.includes(c) && span[1].includes('{U+')) continue; // marker syntax itself
+      seen.set(codepointHex(c), `\`${c}\``);
+    }
+  }
+  if (seen.size === 0) return lines;
+  const rows = [...seen.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([hex, label]) => `| ${label} | U+${hex} | ${CHARACTER_NAMES[hex] ?? '(unnamed)'} |`);
+  return [
+    ...lines,
+    '## Character key',
+    '',
+    '| appears as | codepoint | name |',
+    '|---|---|---|',
+    ...rows,
+    '',
+  ];
+}
+
+// Per-publication defect counts (issue #51's quality rollup): one row per
+// detector, one column per dataset (newest leftmost), with per-detector
+// example values folded behind details blocks. Each detector is grounded in
+// a defect class observed in real exports; a class appearing or vanishing
+// between publications is a pipeline-change signal in its own right.
+function writeQualityRollup(keys: string[], statsByKey: Map<string, EntryStats>): void {
+  const columns = [...keys].reverse();
+  const detectors = [
+    ['excelDateShaped', 'Excel-date-shaped callsigns'],
+    ['encodingFailure', 'encoding-failure characters'],
+    ['whitespaceBearing', 'whitespace/invisible-bearing'],
+    ['postNormalisationDuplicates', 'post-normalisation duplicates'],
+    ['emptyCallsign', 'empty callsigns'],
+    ['lowercaseBearing', 'lowercase-bearing'],
+  ] as const;
+
+  const countRow = (detector: (typeof detectors)[number][0], label: string): string =>
+    `| ${label} | ${columns.map(k => statsByKey.get(k)?.callsignQuality?.[detector].count ?? '—').join(' | ')} |`;
+
+  const exampleSections = detectors.flatMap(([detector, label]) => {
+    const rows = columns.flatMap((k) => {
+      const result = statsByKey.get(k)?.callsignQuality?.[detector];
+      if (!result || result.count === 0) return [];
+      const suffix = result.count > result.examples.length ? ` (+${result.count - result.examples.length} more)` : '';
+      // Examples use the human-readable marker form - this is the review
+      // surface; per-codepoint precision remains in stats.json.
+      return [`| ${k} | ${result.examples.map(e => `\`${mdCell(nameMarkers(e), 40)}\``).join(', ')}${suffix} |`];
+    });
+    if (rows.length === 0) return [];
+    return [
+      '',
+      '<details>',
+      `<summary>Examples: ${label}</summary>`,
+      '',
+      '| dataset | examples |',
+      '|---|---|',
+      ...rows,
+      '',
+      '</details>',
+    ];
+  });
+
+  const lines = [
+    '# Data-quality rollup (callsign defect detectors)',
+    '',
+    'Generated by the normalise sweep (issue #51) - do not edit by hand.',
+    '',
+    'Automated per-publication counts for defect classes observed in real',
+    'exports. Rows are detectors, columns are datasets (newest leftmost).',
+    'A class appearing or vanishing between publications is a pipeline-change',
+    'signal in its own right.',
+    '',
+    `| detector | ${columns.join(' | ')} |`,
+    `|---|${columns.map(() => '---:').join('|')}|`,
+    `| _records_ | ${columns.map(k => statsByKey.get(k)?.recordCount ?? '—').join(' | ')} |`,
+    ...detectors.map(([detector, label]) => countRow(detector, label)),
+    ...exampleSections,
+    '',
+  ];
+  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'data-quality.md'), withCharacterKey(lines).join('\n'));
 }
 
 // Full pattern time-series (issue #51's callsign-patterns drill-down): one
@@ -398,6 +541,13 @@ function writePatternTimeSeries(keys: string[], statsByKey: Map<string, EntrySta
     '</details>',
     '',
     '<details>',
+    '<summary>Raw patterns (human-readable markers: {nbsp}, {space}, ...)</summary>',
+    '',
+    ...table(nameMarkers),
+    '',
+    '</details>',
+    '',
+    '<details>',
     '<summary>Folded patterns (every {U+XXXX} marker collapsed to U)</summary>',
     '',
     ...table(foldMarkers),
@@ -405,7 +555,7 @@ function writePatternTimeSeries(keys: string[], statsByKey: Map<string, EntrySta
     '</details>',
     '',
   ];
-  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'callsign-patterns.md'), lines.join('\n'));
+  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'callsign-patterns.md'), withCharacterKey(lines).join('\n'));
 }
 
 // PR-body/dashboard guidance for changed entries: the window matrix folded
