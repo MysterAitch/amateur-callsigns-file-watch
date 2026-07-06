@@ -141,6 +141,22 @@ describe('runNormaliseSweep', () => {
     expect(summary).toMatch(/no converter/i);
   });
 
+  it('Sweep_WhenFailureReasonContainsMarkdownHostileCharacters_TableRowStaysWellFormed', () => {
+    // Error messages can contain pipes, backslashes, and newlines (CSV parse
+    // errors quote raw content); the coverage table must stay one row per
+    // entry with cell boundaries intact.
+    writeEntry(tmpRoot, '2026-02-02', 'Weird\\|Header,Two\nx,y\n');
+    const report = runNormaliseSweep();
+
+    expect(report.failed).toHaveLength(1);
+    const tableLines = report.coverageMarkdown.split('\n').filter(l => l.includes('2026-02-02'));
+    expect(tableLines).toHaveLength(1);
+    // Well-formed row: starts and ends with a pipe (single line implies no
+    // raw newline survived).
+    expect(tableLines[0].startsWith('|')).toBe(true);
+    expect(tableLines[0].endsWith('|')).toBe(true);
+  });
+
   it('Sweep_WhenEntryDeclaredPartialCoverage_FlaggedInSummary', () => {
     // A truncated/scoped raw record still normalises, but the dashboard must
     // mark it so nobody reads its row count as the full population.
