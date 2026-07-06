@@ -147,6 +147,10 @@ else
 fi
 
 # ----- 7. Report -----------------------------------------------------------
+# Give systemd a moment to recompute the next fire after a timer restart -
+# otherwise `list-timers` shows a placeholder "-" for NEXT/LEFT.
+sleep 1
+
 echo
 echo "==> Done. Next scheduled fire:"
 systemctl list-timers --no-pager "$TIMER_UNIT" \
