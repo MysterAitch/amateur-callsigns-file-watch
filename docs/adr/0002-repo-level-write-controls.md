@@ -21,14 +21,24 @@ set the way it is, and how to recreate them.
 ### 1. Ruleset "main: pull requests only" (branch ruleset, active)
 
 - **Target**: default branch.
-- **Rules**: require a pull request before merging (0 required approvals); block force
-  pushes; block deletion. Allowed merge methods: merge / squash / rebase.
+- **Rules**: require a pull request before merging (0 required approvals); require the
+  status checks `tests` and `data-validation` (the job names in
+  `.github/workflows/ci.yml` — renaming those jobs without updating the ruleset blocks
+  all merges); block force pushes; block deletion. Allowed merge methods: merge /
+  squash / rebase.
 - **Bypass**: repository **admin** role only, mode "always".
 
 Rationale:
 
 - *Require PR* is the checkpoint that makes every write to `main` visible, checkable,
   and rejectable before it lands — the core of #14.
+- *Required status checks* make auto-merge genuinely conditional (#15): `tests` gates
+  code correctness; `data-validation` gates data integrity (entry completeness,
+  meta.json shape, size + sha256 of every declared file, CSV parseability of changed
+  entries, latest-pointer consistency). A red check holds the PR open — the branch then
+  IS the preserved record of the anomalous bytes, and merging past a red check remains
+  possible as a deliberate, logged admin-bypass act (the "raw record worth keeping
+  despite failing checks" escape hatch).
 - *0 required approvals* because a solo maintainer cannot approve their own PRs; a
   required-review rule would deadlock every code change. The review pressure comes from
   the sweep's data-path allowlist (automated PRs) and from the maintainer being the only
@@ -109,5 +119,9 @@ gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true
 - Verified end-to-end 2026-07-06 with a synthetic publication test: fetcher pushed
   `data/2026-06-23`, the sweep opened PR #29, the allowlist passed, auto-merge landed it
   with a merge commit, and the pushing checkout fast-forwarded cleanly over the merge.
-- When #15 (read-only CI) lands, its checks should be added to the ruleset as required
-  status checks so auto-merge becomes genuinely gated rather than trivially green.
+- ~~When #15 (read-only CI) lands, its checks should be added to the ruleset as required
+  status checks so auto-merge becomes genuinely gated rather than trivially green.~~
+  Done — `tests` and `data-validation` are required checks (see the ruleset section).
+- Dependency freshness: Dependabot (`.github/dependabot.yml`) keeps the SHA-pinned
+  actions and npm dependencies updated via ordinary gated PRs. Chosen over hosted
+  Renovate so no third-party service holds write access to the repository.

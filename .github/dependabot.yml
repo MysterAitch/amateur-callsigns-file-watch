@@ -1,0 +1,22 @@
+# Dependabot keeps the SHA-pinned actions and npm dependencies fresh via PRs.
+#
+# Chosen over hosted Renovate deliberately: Dependabot is GitHub-native, so no
+# third-party service gains write access to the repository (hosted Renovate
+# runs as an external app with repo write). Update PRs land like any other
+# code PR: gated by the main ruleset and the CI checks, reviewed by the
+# maintainer, never auto-merged (the data-sweep auto-merge applies only to
+# data/* branches).
+#
+# For SHA-pinned actions (see ADR 0002 / issue #15), Dependabot bumps the pin
+# and keeps the human-readable `# vX.Y.Z` comment in sync.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
