@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-amateur-callsigns",
+  "provenance": "reconstructed-from-prior-download",
+  "fetchedAt": "2026-07-06T18:34:51Z",
+  "sourceUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsigns.csv",
+  "ofcomReportedUpdateIso": "2023-02-20",
+  "reconstructionNotes": "Imported 2026-07-06 from a manual download retained by the maintainer. The download's recorded metadata gives Ofcom's publication date as 2023-02-20 and the source URL above (the pre-cache-buster filename pattern Ofcom used at the time). No diff summary: predates the neighbouring entries' reconstruction axis.",
+  "files": {
+    "raw.csv": {
+      "size": 7459246,
+      "sha256": "a5fe1d92811606e5a744a4d6039c3774b7467a4b4daeee896f70b2e3ada9735a",
+      "format": "csv",
+      "columnCount": 4,
+      "columnNames": ["Value", "Status", "Product", "Call Sign MMSI: Last Modified Date"],
+      "recordCount": 152084
+    }
+  }
+}
