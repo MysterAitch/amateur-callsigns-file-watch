@@ -483,7 +483,7 @@ interface GitOpResult {
 // cleanly, and we simply continue with local state. Returns a structured
 // result so the caller can decide whether to notify - "no changes to pull"
 // isn't a failure worth notifying about, but SSH auth errors are.
-function tryFastForwardPull(): GitOpResult {
+export function tryFastForwardPull(): GitOpResult {
   try {
     // Compare HEAD before and after so we can log "already up to date" vs
     // "fetched N commits" distinctly, without relying on git's stdout text.
@@ -503,7 +503,15 @@ function tryFastForwardPull(): GitOpResult {
   }
 }
 
-function gitCommitAndPush(message: string): GitResult {
+// Publications land on main via pull requests (issue #14): each new archive
+// entry is pushed to its own data/* branch, and a scheduled sweep workflow
+// opens the PR and enables auto-merge. The fetch host's credential therefore
+// only ever needs to push branches - nothing it holds can write to main.
+export function dataBranchName(archiveKey: string): string {
+  return `data/${archiveKey}`;
+}
+
+export function gitCommitAndPush(message: string, archiveKey: string): GitResult {
   const result: GitResult = { committed: false, pushed: false };
   const status = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
   if (status.length === 0) return result;
@@ -540,10 +548,11 @@ function gitCommitAndPush(message: string): GitResult {
     return result;
   }
 
-  // Rebase our just-created data commit onto origin/main before pushing.
-  // Handles the "dev pushed a code commit between our last tick and now"
-  // race - without this the push would be rejected non-fast-forward. Since
-  // data commits only touch archive/latest-* and dev commits typically touch
+  // Rebase our just-created data commit onto origin/main before pushing, so
+  // the data branch is based on the freshest main. Handles the "dev pushed a
+  // code commit between our last tick and now" race, and drops any of our
+  // older local data commits that have since been merged. Since data commits
+  // only touch archive/latest-* and dev commits typically touch
   // src/README/docs, conflicts are essentially never expected.
   // --autostash guards against transient dirty state (there shouldn't be any
   // at this point since we just committed, but cheap defence).
@@ -561,8 +570,13 @@ function gitCommitAndPush(message: string): GitResult {
     // still succeed.
   }
 
+  // Push to a data/* branch, never to main. The commit stays on the local
+  // main too, which keeps the next tick idempotent (the archive entry is
+  // present, so process won't re-create it). Once the PR merges with a merge
+  // commit, our local commit is one of the merge's parents, so the tick-start
+  // `git pull --ff-only` converges without any divergence handling.
   try {
-    execFileSync('git', ['push'], { stdio: 'pipe' });
+    execFileSync('git', ['push', 'origin', `HEAD:refs/heads/${dataBranchName(archiveKey)}`], { stdio: 'pipe' });
     result.pushed = true;
     return result;
   } catch (err: any) {
@@ -666,8 +680,8 @@ async function runTick(state: NotifyState, windowId: string): Promise<void> {
   let git: GitResult = { committed: false, pushed: false };
   if (result.wasNewArchiveEntry) {
     const commitMessage = buildCommitMessage(result);
-    git = gitCommitAndPush(commitMessage);
-    logger.info(`git commit=${git.committed} push=${git.pushed}`);
+    git = gitCommitAndPush(commitMessage, result.archiveKey);
+    logger.info(`git commit=${git.committed} push=${git.pushed} branch=${dataBranchName(result.archiveKey)}`);
 
     // Feed the git-op outcomes into the same failure-notification path as
     // the tick-start fast-forward pull. Order matters: report rebase before

@@ -1,0 +1,13 @@
+# Code paths require human review; data-only PRs (archive/ + latest-*
+# pointers) may auto-merge via the data-sweep workflow. Enforcement of the
+# data/code split lives in the sweep's path allowlist and the main ruleset;
+# this file declares ownership for review routing and future-proofs a
+# require-codeowner-review rule if the project ever gains a second maintainer
+# (a solo maintainer cannot approve their own PRs, so that rule stays off).
+
+/src/ @MysterAitch
+/.github/ @MysterAitch
+/package.json @MysterAitch
+/package-lock.json @MysterAitch
+/tsconfig.json @MysterAitch
+/vitest.config.ts @MysterAitch

@@ -1,0 +1,87 @@
+# Data sweep (issue #14): discovers data/* branches pushed by the fetch host,
+# opens a PR for each, and enables auto-merge for data-only changes.
+#
+# Security shape (ADR 0001): this workflow runs only reviewed code from main on
+# a schedule - never in response to a push - so branch content can influence
+# WHAT gets merged only through the path allowlist below, never what executes.
+# The fetch host's deploy key can push branches but cannot touch main; this
+# workflow's per-run token is the only automated credential that can, and only
+# via merging PRs whose diff is confined to data paths.
+name: Data sweep
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: data-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Open PRs for data branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin '+refs/heads/data/*:refs/remotes/origin/data/*' || true
+
+          for ref in $(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/data/*'); do
+            branch="${ref#origin/}"
+
+            # Fully merged (or empty) branches are leftovers - clean them up.
+            if [ -z "$(git rev-list "origin/main..$ref" -- 2>/dev/null)" ]; then
+              echo "::notice::$branch is fully merged into main; deleting."
+              git push origin --delete "$branch" || true
+              continue
+            fi
+
+            if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
+              echo "PR already open for $branch."
+              continue
+            fi
+
+            # Allowlist mirrors the paths gitCommitAndPush stages (and the
+            # archive tree). Anything outside it means the branch is not a
+            # pure data publication and must not auto-merge.
+            changed="$(git diff --name-only "origin/main...$ref")"
+            echo "Changes on $branch:"
+            echo "$changed"
+            data_only=true
+            while IFS= read -r p; do
+              [ -z "$p" ] && continue
+              case "$p" in
+                archive/*) ;;
+                latest-raw.csv|latest-raw-sorted.csv|latest.json|latest-raw-sorted.json|latest-meta.json) ;;
+                amateur-callsigns-raw.csv|metadata-download-info.json) ;;
+                *) data_only=false ;;
+              esac
+            done <<< "$changed"
+
+            title="$(git log -1 --format=%s "$ref")"
+            pr_url="$(gh pr create --head "$branch" --base main \
+              --title "$title" \
+              --body "Automated data publication (branch \`$branch\`), opened by the scheduled data sweep. Merge method is merge-commit so the fetcher's per-publication commit messages are preserved on main.")"
+            echo "Opened $pr_url"
+
+            if [ "$data_only" = true ]; then
+              # --auto waits for required checks; if none are configured yet
+              # the PR is immediately mergeable and gh refuses --auto, so fall
+              # back to merging directly.
+              gh pr merge --auto --merge --delete-branch "$pr_url" \
+                || gh pr merge --merge --delete-branch "$pr_url"
+            else
+              gh pr comment "$pr_url" --body "Diff touches non-data paths - auto-merge NOT enabled. This needs human review."
+            fi
+          done
