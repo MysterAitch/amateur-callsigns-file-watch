@@ -6,10 +6,10 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "pull": "ts-node src/sources/ofcom-amateur/scrape.ts",
-    "process": "ts-node src/sources/ofcom-amateur/process.ts",
-    "migrate-archive": "ts-node src/sources/ofcom-amateur/migrate-archive.ts",
-    "scheduled": "ts-node src/scheduled-run.ts",
+    "pull": "tsx src/sources/ofcom-amateur/scrape.ts",
+    "process": "tsx src/sources/ofcom-amateur/process.ts",
+    "migrate-archive": "tsx src/sources/ofcom-amateur/migrate-archive.ts",
+    "scheduled": "tsx src/scheduled-run.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "all": "npm run pull && npm run process",
@@ -32,7 +32,7 @@
   "devDependencies": {
     "@types/jsdom": "^28.0.3",
     "@types/node": "^26.0.1",
-    "ts-node": "^10.9.2",
+    "tsx": "^4.23.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
   }
