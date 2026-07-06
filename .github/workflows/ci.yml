@@ -54,12 +54,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if command -v pipx >/dev/null 2>&1; then
-            pipx run --spec zizmor==1.26.1 zizmor --format plain .github/workflows/
-          else
-            python -m pip install --user zizmor==1.26.1
-            "$HOME/.local/bin/zizmor" --format plain .github/workflows/
-          fi
+          # pipx is a documented component of the ubuntu-latest runner image;
+          # no install-fallback branch - it would be dead code that bitrots,
+          # and if pipx ever disappears from the image a loud failure here is
+          # the correct outcome, not a silent switch of install mechanism.
+          pipx run zizmor==1.26.1 --format plain .github/workflows/
 
   data-validation:
     name: data-validation
