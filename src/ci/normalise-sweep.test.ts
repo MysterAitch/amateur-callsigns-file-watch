@@ -192,6 +192,48 @@ describe('runNormaliseSweep', () => {
     expect(report).toMatch(/`aNaaa` \| — \| \*\*1\*\*/);
   });
 
+  it('Report_WindowExtendsUntilThreeCompleteDatasets_KeepingIncompleteOnesInView', () => {
+    // Anomalous publications cluster (the truncated dataset published twice
+    // in a fortnight crowded a fixed look-back), so each side extends until
+    // it holds three complete datasets - and every incomplete entry passed
+    // over on the way STAYS in the window; the quota decides when to stop
+    // extending, never what to drop.
+    const incomplete = { intendedCoverage: { complete: false, scopeNotes: 'truncated publication' } };
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW); // beyond quota - excluded
+    writeEntry(tmpRoot, '2026-01-02', SALESFORCE_RAW); // complete #3 - stop here
+    writeEntry(tmpRoot, '2026-01-03', SALESFORCE_RAW); // complete #2
+    writeEntry(tmpRoot, '2026-01-04', SALESFORCE_RAW); // complete #1
+    writeEntry(tmpRoot, '2026-01-05', SALESFORCE_RAW, incomplete); // kept in view
+    writeEntry(tmpRoot, '2026-01-06', SALESFORCE_RAW, incomplete); // kept in view
+    writeEntry(tmpRoot, '2026-01-07', SALESFORCE_RAW); // the entry under report
+    runNormaliseSweep();
+
+    const report = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-01-07.md'), 'utf8');
+    const matrixSection = report.slice(report.indexOf('## Pattern counts across window'));
+    const matrixHeader = matrixSection.split('\n').find(l => l.includes('pattern |')) ?? '';
+    expect(matrixHeader).toContain('2026-01-06'); // incomplete, retained
+    expect(matrixHeader).toContain('2026-01-05'); // incomplete, retained
+    expect(matrixHeader).toContain('2026-01-02'); // third complete baseline
+    expect(matrixHeader).not.toContain('2026-01-01'); // beyond the quota
+  });
+
+  it('Report_WindowStopsAtHardCapWhenCompletenessScarce', () => {
+    const incomplete = { intendedCoverage: { complete: false, scopeNotes: 'truncated publication' } };
+    // Eleven incomplete entries precede the current one: the cap (10) binds
+    // before the completeness quota can ever be met.
+    for (let day = 1; day <= 11; day++) {
+      writeEntry(tmpRoot, `2026-01-${String(day).padStart(2, '0')}`, SALESFORCE_RAW, incomplete);
+    }
+    writeEntry(tmpRoot, '2026-01-12', SALESFORCE_RAW);
+    runNormaliseSweep();
+
+    const report = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-01-12.md'), 'utf8');
+    const matrixSection = report.slice(report.indexOf('## Pattern counts across window'));
+    const matrixHeader = matrixSection.split('\n').find(l => l.includes('pattern |')) ?? '';
+    expect(matrixHeader).toContain('2026-01-02'); // 10th before - at the cap
+    expect(matrixHeader).not.toContain('2026-01-01'); // 11th before - beyond the cap
+  });
+
   it('Report_WhenNothingChanges_FilesStayByteIdentical', () => {
     // Reports are derived golden masters like everything else: a re-run over
     // unchanged data must regenerate byte-identical files (no timestamps, no

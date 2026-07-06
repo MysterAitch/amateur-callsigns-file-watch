@@ -193,13 +193,47 @@ function readStats(key: string): EntryStats | undefined {
   }
 }
 
-// Chronological window for comparisons: up to 3 neighbours on EACH side in
-// archive-key order, so a retrospectively inserted entry is judged in both
-// directions - an anomaly can present as a discontinuity against successors
-// just as easily as against predecessors.
+// Chronological window for comparisons, bidirectional so a retrospectively
+// inserted entry is judged in both directions - an anomaly can present as a
+// discontinuity against successors just as easily as against predecessors.
+//
+// Each side extends from the nearest neighbour outwards until it contains
+// COMPLETE_QUOTA datasets whose intendedCoverage is not declared incomplete
+// (hard cap WINDOW_CAP per side). Anomalous publications cluster - the
+// truncated dataset published twice in a fortnight crowded a fixed short
+// look-back with the anomalies themselves - so the quota guarantees
+// legitimate baselines while still showing every incomplete entry passed
+// over on the way.
+const COMPLETE_QUOTA = 3;
+const WINDOW_CAP = 10;
+
+function isDeclaredIncomplete(key: string): boolean {
+  try {
+    const meta = JSON.parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, key, 'meta.json'), 'utf8')) as ArchiveMeta;
+    return meta.intendedCoverage?.complete === false;
+  } catch {
+    return false;
+  }
+}
+
+// candidates are ordered nearest-first; returns nearest-first.
+function takeUntilQuota(candidates: string[]): string[] {
+  const taken: string[] = [];
+  let complete = 0;
+  for (const key of candidates) {
+    if (taken.length >= WINDOW_CAP) break;
+    taken.push(key);
+    if (!isDeclaredIncomplete(key)) complete += 1;
+    if (complete >= COMPLETE_QUOTA) break;
+  }
+  return taken;
+}
+
 function windowFor(key: string, keys: string[]): string[] {
   const index = keys.indexOf(key);
-  return [...keys.slice(Math.max(0, index - 3), index), key, ...keys.slice(index + 1, index + 4)];
+  const before = takeUntilQuota(keys.slice(0, index).reverse()).reverse();
+  const after = takeUntilQuota(keys.slice(index + 1));
+  return [...before, key, ...after];
 }
 
 // Pattern x dataset matrix over the window: one row per pattern (union across
