@@ -3,8 +3,8 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { validateArchiveEntry, deepValidateEntryCsv, validateLatestPointers, validateRepoData } from './validate-data';
-import { CONSTANTS } from '../shared/utils';
+import { validateArchiveEntry, deepValidateEntryCsv, validateLatestPointers, validateRepoData } from './validate-data.ts';
+import { CONSTANTS } from '../shared/utils.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //

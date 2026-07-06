@@ -14,9 +14,9 @@
  */
 
 import { parse } from 'csv-parse/sync';
-import { parseUkDateTimeDetailed, ParsedUkDateTime, renderCsv, codepointCompare } from '../../shared/normalise';
-import { computeEntryStats, EntryStats } from '../../shared/stats';
-import { errorMessage } from '../../shared/utils';
+import { parseUkDateTimeDetailed, type ParsedUkDateTime, renderCsv, codepointCompare } from '../../shared/normalise.ts';
+import { computeEntryStats, type EntryStats } from '../../shared/stats.ts';
+import { errorMessage } from '../../shared/utils.ts';
 
 export const NORMALISED_SCHEMA_VERSION = 1;
 

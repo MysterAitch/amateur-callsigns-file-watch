@@ -13,10 +13,10 @@ import {
   logger,
   fileExistsAndNotEmpty,
   formatFileSize,
-  CsvDownloadMetadata,
-  ArchiveMeta,
-  ProcessResult,
-} from '../../shared/utils';
+  type CsvDownloadMetadata,
+  type ArchiveMeta,
+  type ProcessResult,
+} from '../../shared/utils.ts';
 import {
   archiveKeyForDate,
   parseOfcomHumanDate,
@@ -27,8 +27,8 @@ import {
   buildDiffSummary,
   readPreviousArchiveRecords,
   listArchiveKeys,
-} from '../../shared/archive';
-import { callsignColumnFor } from './normalise';
+} from '../../shared/archive.ts';
+import { callsignColumnFor } from './normalise.ts';
 
 const FILES = CONSTANTS.FILES;
 const ARCHIVE_DIR = CONSTANTS.DIRS.archive;
@@ -285,7 +285,7 @@ export async function runProcess(): Promise<ProcessResult> {
   return result;
 }
 
-if (require.main === module) {
+if (import.meta.main) {
   process.on('unhandledRejection', (reason: unknown) => {
     logger.error('Unhandled Rejection at:', reason);
     process.exit(1);

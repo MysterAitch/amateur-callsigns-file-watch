@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectHeaderVariant, callsignColumnFor, convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS } from './normalise';
+import { detectHeaderVariant, callsignColumnFor, convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS } from './normalise.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //

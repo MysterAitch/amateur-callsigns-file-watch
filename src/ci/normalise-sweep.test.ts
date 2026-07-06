@@ -3,9 +3,9 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { runNormaliseSweep, mdCell } from './normalise-sweep';
-import { CONSTANTS } from '../shared/utils';
-import { EntryStats } from '../shared/stats';
+import { runNormaliseSweep, mdCell } from './normalise-sweep.ts';
+import { CONSTANTS } from '../shared/utils.ts';
+import { type EntryStats } from '../shared/stats.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //

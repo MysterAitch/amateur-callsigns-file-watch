@@ -3,15 +3,15 @@ import * as fsSync from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import {
-  ArchiveMeta,
-  ArchivedFileMeta,
-  DiffSummary,
+  type ArchiveMeta,
+  type ArchivedFileMeta,
+  type DiffSummary,
   CONSTANTS,
   calculateFileHash,
   logger,
   saveJsonFile,
   loadJsonFile,
-} from './utils';
+} from './utils.ts';
 
 const ARCHIVE_DIR = CONSTANTS.DIRS.archive;
 

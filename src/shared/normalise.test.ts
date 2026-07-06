@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseUkDateTime, renderCsv } from './normalise';
+import { parseUkDateTime, renderCsv } from './normalise.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //

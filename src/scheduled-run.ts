@@ -35,8 +35,8 @@ import axios from 'axios';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import { runScrape } from './sources/ofcom-amateur/scrape';
-import { runProcess } from './sources/ofcom-amateur/process';
+import { runScrape } from './sources/ofcom-amateur/scrape.ts';
+import { runProcess } from './sources/ofcom-amateur/process.ts';
 import * as crypto from 'crypto';
 import {
   logger,
@@ -44,10 +44,10 @@ import {
   saveJsonFile,
   calculateFileHash,
   CONSTANTS,
-  ProcessResult,
-  ScrapeResult,
+  type ProcessResult,
+  type ScrapeResult,
   errorMessage,
-} from './shared/utils';
+} from './shared/utils.ts';
 
 //
 // State
@@ -257,7 +257,7 @@ interface DriftResult {
 function detectSystemdDrift(): DriftResult | null {
   if (!fsSync.existsSync(SYSTEMD_DEPLOYED_DIR)) return null;
 
-  const repoUnitsDir = path.resolve(__dirname, '..', 'docs', 'systemd');
+  const repoUnitsDir = path.resolve(import.meta.dirname, '..', 'docs', 'systemd');
   if (!fsSync.existsSync(repoUnitsDir)) return null;
 
   const changed: Array<{ name: string; repoHash: string }> = [];
@@ -810,7 +810,7 @@ async function main(): Promise<void> {
   }
 }
 
-if (require.main === module) {
+if (import.meta.main) {
   process.on('unhandledRejection', (reason: unknown) => {
     logger.error('Unhandled Rejection at:', reason);
     process.exit(1);
