@@ -20,3 +20,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+  # Keeps the devcontainer image (node:XX-bookworm) fresh. Note what nothing
+  # here covers: the Node MAJOR version itself is configuration, not a
+  # dependency - it lives in .nvmrc (read by all workflows via
+  # node-version-file), package.json engines, the devcontainer image tag, and
+  # the deployment host's NodeSource install, and is bumped manually.
+  - package-ecosystem: devcontainers
+    directory: "/"
+    schedule:
+      interval: weekly
