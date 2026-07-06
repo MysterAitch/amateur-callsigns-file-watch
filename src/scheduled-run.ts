@@ -202,6 +202,25 @@ interface GitResult {
   pushError?: string;
 }
 
+// Fast-forward pull at start of tick. Picks up any dev-pushed code changes
+// (README, orchestrator logic, docs) so the LXC's copy stays current without
+// manual `git pull` intervention. --ff-only means: never touch local commits
+// (a data commit awaiting push counts) and never do a merge; only advance
+// main if origin has moved and we have nothing local.
+//
+// Non-fatal by design: an unpushed local commit will cause this to fail
+// cleanly, and we simply continue with local state. The subsequent pull-rebase
+// before push reconciles when a data commit is actually being sent.
+function tryFastForwardPull(): void {
+  try {
+    execFileSync('git', ['pull', '--ff-only'], { stdio: 'pipe' });
+    logger.debug('git pull --ff-only succeeded');
+  } catch (err: any) {
+    const msg = (err.stderr?.toString() || err.message || '').split('\n')[0].trim();
+    logger.info(`git pull --ff-only skipped (${msg}); continuing with local state.`);
+  }
+}
+
 function gitCommitAndPush(message: string): GitResult {
   const status = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
   if (status.length === 0) {
@@ -237,6 +256,26 @@ function gitCommitAndPush(message: string): GitResult {
     logger.info('Push skipped (SKIP_PUSH=true set).');
     return { committed: true, pushed: false };
   }
+
+  // Rebase our just-created data commit onto origin/main before pushing.
+  // Handles the "dev pushed a code commit between our last tick and now"
+  // race - without this the push would be rejected non-fast-forward. Since
+  // data commits only touch archive/latest-* and dev commits typically touch
+  // src/README/docs, conflicts are essentially never expected.
+  // --autostash guards against transient dirty state (there shouldn't be any
+  // at this point since we just committed, but cheap defence).
+  try {
+    execFileSync('git', ['pull', '--rebase', '--autostash'], { stdio: 'pipe' });
+    logger.debug('git pull --rebase --autostash succeeded before push');
+  } catch (err: any) {
+    const errMsg = (err.stderr?.toString() || err.message || '').split('\n')[0].trim();
+    logger.warn(`git pull --rebase failed (${errMsg}); attempting push anyway.`);
+    // Continue - if rebase failed AND origin has actually diverged, the push
+    // will fail below and be surfaced via the normal push-error notification
+    // path. If rebase failed for a transient network reason, the push might
+    // still succeed.
+  }
+
   try {
     execFileSync('git', ['push'], { stdio: 'pipe' });
     return { committed: true, pushed: true };
@@ -315,6 +354,12 @@ function composeUpdateBody(result: ProcessResult, git: GitResult): string {
 //
 
 async function runTick(state: NotifyState, windowId: string): Promise<void> {
+  // Pick up any dev-pushed code changes before doing real work. Runs first
+  // (before scrape) so the tick executes against the latest orchestrator /
+  // scrape / process logic, not a stale checkout. Non-fatal if it fails -
+  // continue with local state.
+  tryFastForwardPull();
+
   const scrape = await runScrape({
     lastKnownV: state.lastKnownV,
     lastKnownVContentHash: state.lastKnownVContentHash,
