@@ -40,6 +40,18 @@ const CONVERTERS: Record<string, SourceConverter> = {
   },
 };
 
+// Sanitise arbitrary text (error messages can quote raw CSV content) for use
+// inside a one-line markdown table cell: escape backslashes FIRST, then
+// pipes, then collapse newlines - order matters, or the pipe-escaping can
+// itself be neutralised by a preceding backslash.
+function mdCell(text: string, maxLength = 160): string {
+  return String(text)
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .replace(/\r?\n/g, ' ')
+    .slice(0, maxLength);
+}
+
 export interface SweepReport {
   changed: string[];
   upToDate: string[];
@@ -78,7 +90,7 @@ export function runNormaliseSweep(): SweepReport {
       result = converter.convert(raw, referenceDateIso);
     } catch (err: any) {
       report.failed.push({ key, reason: err.message });
-      coverageRows.push(`| ${key} | ${meta.sourceKey} | FAILED | ${String(err.message).replace(/\|/g, '\\|').slice(0, 160)} |`);
+      coverageRows.push(`| ${key} | ${meta.sourceKey} | FAILED | ${mdCell(err.message)} |`);
       continue;
     }
 
