@@ -119,7 +119,9 @@ unaffected; they only add detection.
 - **Dependabot alerts + security updates**: enabled. Alerts surface CVEs in
   dependencies immediately (rather than waiting for the weekly version-update sweep);
   security updates open fix PRs, which arrive through the same gated door as all code
-  PRs (ruleset + required checks, never auto-merged).
+  PRs (ruleset + required checks, never auto-merged). Enabling alerts also switched on
+  **malware alerts** and GitHub's default auto-triage rule ("dismiss low impact issues
+  for development-scoped dependencies") — both left as they arrived.
 - **CodeQL code scanning, default setup**: enabled for JavaScript/TypeScript **and
   GitHub Actions workflows** — the latter catches workflow-injection patterns
   (untrusted input interpolated into `run:` blocks), directly relevant to the sweep and
@@ -138,8 +140,9 @@ unaffected; they only add detection.
   ecosystems whose build-time dependencies are invisible to manifest parsing; npm's
   lockfile already gives the graph everything, so this would only add a no-op Actions
   job.
-- **Grouped security updates**: UI-only setting (no public API); enable opportunistically
-  to reduce PR noise if security-update PRs ever arrive in clusters.
+- **Grouped security updates**: enabled (manually via the UI, 2026-07-06 — this setting
+  has no public API). Groups alert-resolving updates into one PR per package manager,
+  reducing PR noise when security updates arrive in clusters.
 
 ## Recreation (disaster recovery / new repo)
 
