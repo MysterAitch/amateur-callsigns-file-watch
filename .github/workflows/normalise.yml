@@ -1,0 +1,94 @@
+# Normalise sweep (ADR 0001): daily cron re-derives normalised.csv for every
+# archive entry via the source converters. Byte-identical output is a no-op;
+# any change (new entries, converter/schema evolution) becomes a PR whose
+# cross-entry diff is the review artefact - normaliser PRs are ALWAYS
+# human-reviewed, never auto-merged.
+#
+# Coverage (intended vs achieved schema version per entry, incl. failures and
+# raw-only entries) is maintained on a single rolling issue, dashboard-style.
+# Any entry failure also turns this run red so it re-alarms until fixed.
+name: Normalise sweep
+
+on:
+  schedule:
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: normalise-sweep
+  cancel-in-progress: false
+
+jobs:
+  normalise:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+
+      - name: Run normalise sweep
+        id: sweep
+        env:
+          COVERAGE_MARKDOWN_FILE: /tmp/coverage.md
+        run: |
+          set +e
+          npm run normalise:sweep
+          echo "exitcode=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Open PR for changed derivations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain archive/)" ]; then
+            echo "No derivation changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="normalise/run-${{ github.run_id }}"
+          git checkout -b "$branch"
+          git add archive/
+          git commit -m "Normalise sweep: update derived normalised.csv files"
+          git push origin "$branch"
+          {
+            echo "Scheduled normalise sweep output. The cross-entry diff below is the review artefact - check that changes are expected (new entries gaining their first derivation, or a deliberate converter/schema change) before merging."
+            echo ""
+            cat /tmp/coverage.md
+          } > /tmp/pr-body.md
+          gh pr create --head "$branch" --base main \
+            --title "Normalise sweep: derived data update" \
+            --body-file /tmp/pr-body.md
+
+      - name: Update rolling coverage issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title="Normalisation coverage (rolling dashboard)"
+          {
+            echo "Maintained automatically by the normalise-sweep workflow - do not edit by hand; comments welcome."
+            echo ""
+            cat /tmp/coverage.md
+          } > /tmp/issue-body.md
+          number="$(gh issue list --state open --search "in:title \"$title\"" --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -1)"
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file /tmp/issue-body.md
+          else
+            gh issue create --title "$title" --body-file /tmp/issue-body.md
+          fi
+
+      - name: Fail run if any entry failed to normalise
+        run: |
+          if [ "${{ steps.sweep.outputs.exitcode }}" != "0" ]; then
+            echo "::error::One or more entries failed to normalise - see the sweep step log and the coverage issue."
+            exit 1
+          fi

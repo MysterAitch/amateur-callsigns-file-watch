@@ -2,6 +2,9 @@
   "schemaVersion": 1,
   "sourceKey": "ofcom-amateur-callsigns",
   "provenance": "reconstructed-from-git-history",
+  "intendedCoverage": {
+    "complete": true
+  },
   "fetchedAt": "2025-06-08T10:55:29Z",
   "gitCommitSha": "20c6ef581bc5f07024c5106a5b9ab616135642b1",
   "reconstructionNotes": "Reconstructed from git commit 20c6ef5 (path at commit: amateur-callsigns-raw.csv). Ofcom-reported publication date extracted from commit message.",

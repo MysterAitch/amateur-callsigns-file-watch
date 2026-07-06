@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "validate:data": "tsx src/ci/validate-data.ts",
+    "normalise:sweep": "tsx src/ci/normalise-sweep.ts",
     "all": "npm run pull && npm run process",
     "js:pull": "node dist/sources/ofcom-amateur/scrape.js",
     "js:process": "node dist/sources/ofcom-amateur/process.js",

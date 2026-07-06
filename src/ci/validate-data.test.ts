@@ -158,6 +158,21 @@ describe('validateArchiveEntry', () => {
     const problems = validateArchiveEntry('2026-06-23');
     expect(problems.some(p => p.problem.includes('provenance'))).toBe(true);
   });
+
+  it('ArchiveEntry_WhenIntendedCoverageDeclaredPartialWithScopeNotes_Passes', () => {
+    // FOI-style partial views declare their scope; missing rows are scope,
+    // not change.
+    writeEntry(tmpRoot, '2026-06-23', CSV, {
+      intendedCoverage: { complete: false, scopeNotes: 'FOI response limited to Foundation licence callsigns' },
+    });
+    expect(validateArchiveEntry('2026-06-23')).toEqual([]);
+  });
+
+  it('ArchiveEntry_WhenIntendedCoverageDeclaredWithoutCompleteBoolean_Fails', () => {
+    writeEntry(tmpRoot, '2026-06-23', CSV, { intendedCoverage: { scopeNotes: 'shapeless' } });
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.problem.includes('intendedCoverage.complete'))).toBe(true);
+  });
 });
 
 describe('deepValidateEntryCsv', () => {

@@ -2,6 +2,10 @@
   "schemaVersion": 1,
   "sourceKey": "ofcom-amateur-callsigns",
   "provenance": "reconstructed-from-git-history",
+  "intendedCoverage": {
+    "complete": false,
+    "scopeNotes": "Ofcom published a truncated dataset (1,074 rows vs the ~150k full population of surrounding publications); archived faithfully as published."
+  },
   "fetchedAt": "2025-06-08T09:25:36+01:00",
   "gitCommitSha": "3b260b190715c7117fde4deae1875f7cb93f2149",
   "reconstructionNotes": "Reconstructed from git commit 3b260b1 (path at commit: amateur-callsigns-raw.csv). Ofcom-reported publication date unknown; using commit author date (2025-06-08) as archive key.",
