@@ -28,8 +28,38 @@ export interface DateColumnStats {
   max: string;
 }
 
+// One quality detector's result: how many rows it flagged, plus up to
+// EXAMPLE_CAP offending values (lexicographically sorted, invisibles
+// rendered as {U+XXXX} markers so examples are readable everywhere).
+export interface DetectorResult {
+  count: number;
+  examples: string[];
+}
+
+// Automated publication-defect detectors (issue #51), each grounded in a
+// defect class observed in real Ofcom exports. A row can trip several
+// detectors; counters are independent.
+export interface CallsignQuality {
+  // Values shaped like spreadsheet date renderings (e.g. "20-Apr"): a real
+  // intermediate callsign such as 20APR interpreted as a date somewhere in
+  // the publisher's export pipeline. Observed in the 2023/2025-04 exports.
+  excelDateShaped: DetectorResult;
+  // U+FFFD (replacement character) present: upstream encoding corruption by
+  // construction.
+  encodingFailure: DetectorResult;
+  // Any whitespace/unprintable/invisible character (including space).
+  whitespaceBearing: DetectorResult;
+  // The value stripped to [A-Za-z0-9/#] differs AND that stripped form also
+  // exists as its own row - the register effectively lists one callsign
+  // twice (confirmed live: G0TQK, G7IWE, G6FMU, M/EI8DJ).
+  postNormalisationDuplicates: DetectorResult;
+  emptyCallsign: DetectorResult;
+  // Any a-z present (fully lowercase g0jrk and mixed-case NaNAAA observed).
+  lowercaseBearing: DetectorResult;
+}
+
 export interface EntryStats {
-  statsSchemaVersion: 2;
+  statsSchemaVersion: 3;
   recordCount: number;
   // Format taxonomy of the callsign column: uppercase→A, lowercase→a,
   // digit→N; whitespace, unprintable, and invisible characters (Unicode
@@ -39,6 +69,7 @@ export interface EntryStats {
   // the pattern itself - process once, visible immediately, no detective
   // work - so a tab anomaly and an NBSP anomaly are distinct rows.
   callsignPatterns: Record<string, number>;
+  callsignQuality: CallsignQuality;
   columns: Record<string, StringColumnStats | DateColumnStats>;
 }
 
@@ -61,6 +92,45 @@ export function callsignPattern(callsign: string): string {
     .replace(UNPRINTABLE_RE, codepointMarker);
 }
 
+const EXAMPLE_CAP = 5;
+
+// Spreadsheet date renderings of real month-suffixed callsigns: digits,
+// hyphen, then exactly a capitalised English month abbreviation.
+const EXCEL_DATE_RE = /^\d{1,2}-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/;
+
+// Junk-stripping for the duplicate detector: the maintainer-defined
+// "plain" callsign alphabet is alphanumerics plus / and # (both meaningful
+// notation in Ofcom publications).
+const NON_PLAIN_RE = /[^A-Za-z0-9/#]/gu;
+
+function detect(rows: readonly string[], predicate: (value: string) => boolean): DetectorResult {
+  const offenders = rows.filter(predicate);
+  const examples = [...new Set(offenders.map(v => v.replace(UNPRINTABLE_RE, codepointMarker)))]
+    .sort()
+    .slice(0, EXAMPLE_CAP);
+  return { count: offenders.length, examples };
+}
+
+// Non-global twin of UNPRINTABLE_RE: a g-flagged regex is stateful under
+// .test() (lastIndex persists between calls), which silently alternates
+// results across rows.
+const HAS_UNPRINTABLE_RE = /[\p{C}\p{Z}]/u;
+
+function computeCallsignQuality(callsigns: readonly string[]): CallsignQuality {
+  const all = new Set(callsigns);
+  return {
+    excelDateShaped: detect(callsigns, v => EXCEL_DATE_RE.test(v)),
+    encodingFailure: detect(callsigns, v => v.includes('\uFFFD')),
+    whitespaceBearing: detect(callsigns, v => HAS_UNPRINTABLE_RE.test(v)),
+    postNormalisationDuplicates: detect(callsigns, (v) => {
+      const stripped = v.replace(NON_PLAIN_RE, '');
+      return stripped !== v && stripped !== '' && all.has(stripped);
+    }),
+    emptyCallsign: detect(callsigns, v => v === ''),
+    lowercaseBearing: detect(callsigns, v => /[a-z]/.test(v)),
+  };
+}
+
 // distinct and length/value ranges deliberately consider non-empty values
 // only; emptiness is its own counter. A column with many empties would
 // otherwise always report minLength 0 / min '', hiding the real range.
@@ -71,11 +141,14 @@ export function computeEntryStats(
 ): EntryStats {
   const callsignIndex = header.indexOf('callsign');
   const patterns = new Map<string, number>();
+  const callsigns: string[] = [];
   const perColumn = header.map(() => ({ values: new Set<string>(), empty: 0, minLen: Infinity, maxLen: -Infinity, min: '', max: '' }));
 
   for (const row of rows) {
     if (callsignIndex >= 0) {
-      const p = callsignPattern(row[callsignIndex] ?? '');
+      const callsign = row[callsignIndex] ?? '';
+      callsigns.push(callsign);
+      const p = callsignPattern(callsign);
       patterns.set(p, (patterns.get(p) ?? 0) + 1);
     }
     for (let i = 0; i < header.length; i++) {
@@ -110,9 +183,10 @@ export function computeEntryStats(
   });
 
   return {
-    statsSchemaVersion: 2,
+    statsSchemaVersion: 3,
     recordCount: rows.length,
     callsignPatterns: Object.fromEntries([...patterns.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
+    callsignQuality: computeCallsignQuality(callsigns),
     columns,
   };
 }

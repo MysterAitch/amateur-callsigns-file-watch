@@ -43,6 +43,94 @@ describe('computeEntryStats', () => {
     expect(callsignPattern('M7 TEE')).not.toBe(callsignPattern('M7\u00A0TEE'));
   });
 
+  it('CallsignQuality_WhenExcelDateShapedValues_Detected', () => {
+    // Observed in the 2023-02-20 and 2025-04-08 publications: intermediate
+    // callsigns whose suffix is a month abbreviation (20APR, 21FEB, ...)
+    // round-tripped through a spreadsheet and came back as rendered dates.
+    const rows = [
+      ['20-Apr', '', 'Allocated', '', '', ''],
+      ['21-Feb', '', 'Allocated', '', '', ''],
+      ['20-Zzz', '', 'Allocated', '', '', ''], // not a month - NOT excel-shaped
+      ['M7TEE', '', 'Allocated', '', '', ''],
+    ];
+    const q = computeEntryStats(HEADER, rows, DATE_COLUMNS).callsignQuality;
+    expect(q.excelDateShaped.count).toBe(2);
+    expect(q.excelDateShaped.examples).toEqual(['20-Apr', '21-Feb']);
+  });
+
+  it('CallsignQuality_WhenEncodingFailureCharacter_Detected', () => {
+    // U+FFFD (the Unicode replacement character) in a callsign is upstream
+    // encoding corruption by construction - observed on the same three
+    // licences across the 2023-2025 exports.
+    const rows = [
+      ['G0TQK\uFFFD', '', 'Allocated', '', '', ''],
+      ['M7TEE', '', 'Allocated', '', '', ''],
+    ];
+    const q = computeEntryStats(HEADER, rows, DATE_COLUMNS).callsignQuality;
+    expect(q.encodingFailure.count).toBe(1);
+    expect(q.encodingFailure.examples).toEqual(['G0TQK\uFFFD']);
+  });
+
+  it('CallsignQuality_WhenWhitespaceBearingValues_DetectedWithVisibleExamples', () => {
+    const rows = [
+      ['G6 FMU', '', 'Allocated', '', '', ''],
+      ['2E1HON\u00A0', '', 'Allocated', '', '', ''],
+      ['M7TEE', '', 'Allocated', '', '', ''],
+    ];
+    const q = computeEntryStats(HEADER, rows, DATE_COLUMNS).callsignQuality;
+    expect(q.whitespaceBearing.count).toBe(2);
+    // Examples carry {U+XXXX} markers - visible immediately, no detective work.
+    expect(q.whitespaceBearing.examples).toEqual(['2E1HON{U+00A0}', 'G6{U+0020}FMU']);
+  });
+
+  it('CallsignQuality_WhenStrippedFormAlsoExistsAsOwnRow_CountedAsDuplicate', () => {
+    // Confirmed double-listings in real publications: the junk-stripped form
+    // of an anomalous callsign also exists as its own row - the register
+    // effectively lists the callsign twice.
+    const rows = [
+      ['G0TQK', '', 'Allocated', '', '', ''],
+      ['G0TQK\u00A0', '', 'Allocated', '', '', ''],
+      ['M/EI-8-DJ', '', 'Allocated', '', '', ''],
+      ['M/EI8DJ', '', 'Allocated', '', '', ''],
+      ['G6 FMU', '', 'Allocated', '', '', ''], // stripped form G6FMU NOT present - no duplicate
+      ['M7TEE', '', 'Allocated', '', '', ''],
+    ];
+    const q = computeEntryStats(HEADER, rows, DATE_COLUMNS).callsignQuality;
+    expect(q.postNormalisationDuplicates.count).toBe(2);
+    expect(q.postNormalisationDuplicates.examples).toEqual(['G0TQK{U+00A0}', 'M/EI-8-DJ']);
+  });
+
+  it('CallsignQuality_WhenEmptyOrLowercaseValues_Counted', () => {
+    const rows = [
+      ['', '', 'Available', '', '', ''],
+      ['g0jrk', '', 'Allocated', '', '', ''],
+      ['NaNAAA', '', 'Allocated', '', '', ''], // mixed-case counts as lowercase-bearing
+      ['M7TEE', '', 'Allocated', '', '', ''],
+    ];
+    const q = computeEntryStats(HEADER, rows, DATE_COLUMNS).callsignQuality;
+    expect(q.emptyCallsign.count).toBe(1);
+    expect(q.lowercaseBearing.count).toBe(2);
+    expect(q.lowercaseBearing.examples).toEqual(['NaNAAA', 'g0jrk']);
+  });
+
+  it('CallsignQuality_WhenCleanData_AllDetectorsZeroWithEmptyExamples', () => {
+    const q = computeEntryStats(HEADER, ROWS.slice(0, 3), DATE_COLUMNS).callsignQuality;
+    expect(q.excelDateShaped).toEqual({ count: 0, examples: [] });
+    expect(q.encodingFailure).toEqual({ count: 0, examples: [] });
+    expect(q.whitespaceBearing).toEqual({ count: 0, examples: [] });
+    expect(q.postNormalisationDuplicates).toEqual({ count: 0, examples: [] });
+    expect(q.emptyCallsign).toEqual({ count: 0, examples: [] });
+    expect(q.lowercaseBearing).toEqual({ count: 0, examples: [] });
+  });
+
+  it('CallsignQuality_WhenManyOffendingValues_ExamplesCappedAndSorted', () => {
+    const rows = Array.from({ length: 9 }, (_, i) => [`m${i}abc`, '', 'Allocated', '', '', '']);
+    const q = computeEntryStats(HEADER, rows, DATE_COLUMNS).callsignQuality;
+    expect(q.lowercaseBearing.count).toBe(9);
+    expect(q.lowercaseBearing.examples).toHaveLength(5);
+    expect(q.lowercaseBearing.examples).toEqual([...q.lowercaseBearing.examples].sort());
+  });
+
   it('ColumnStats_WhenStringColumn_ReportsDistinctEmptyAndLengthRangeOverNonEmptyValues', () => {
     // distinct and length range deliberately consider non-empty values only;
     // emptiness is its own counter (a column with many empties would
