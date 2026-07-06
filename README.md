@@ -6,7 +6,8 @@ The project has three logical pieces:
 
 - **Scrape**: fetch Ofcom's opendata index, locate the current amateur CSV link (its filename rotates with a `?v=` cache-buster), download the CSV to a temp path, and content-validate it before promoting into place. Includes a `?v=` fast-path that skips the ~11 MB download when the cache-buster hasn't changed, with periodic re-verification. See [`src/sources/ofcom-amateur/scrape.ts`](src/sources/ofcom-amateur/scrape.ts).
 - **Process**: parse the raw CSV, compute the sorted view (for git-diff readability), compute a semantic diff against the previous archive entry, and materialise a new `archive/{ofcom-date}/` directory with `raw.csv` + `meta.json`. Also refreshes the repo-root `latest-*` pointers. Includes a record-count regression guard that refuses to archive suspiciously-shrunken publications. See [`src/sources/ofcom-amateur/process.ts`](src/sources/ofcom-amateur/process.ts).
-- **Scheduled orchestrator**: the entry point a periodic timer invokes. Decides whether to run scrape+process this tick (schedule policy lives in code), commits and pushes any new archive entry, and sends notifications. Soft-fails all external services. See [`src/scheduled-run.ts`](src/scheduled-run.ts).
+- **Scheduled orchestrator**: the entry point a periodic timer invokes. Decides whether to run scrape+process this tick (schedule policy lives in code), commits any new archive entry and pushes it to a `data/*` branch, and sends notifications. Soft-fails all external services. See [`src/scheduled-run.ts`](src/scheduled-run.ts).
+- **Data sweep**: a scheduled GitHub Actions workflow that discovers pushed `data/*` branches, opens a pull request for each, and enables auto-merge (merge-commit) when the diff is confined to data paths. Nothing lands on `main` without a PR; the fetch host's deploy key can only push branches. See [`.github/workflows/data-sweep.yml`](.github/workflows/data-sweep.yml).
 
 ## Repository layout
 
