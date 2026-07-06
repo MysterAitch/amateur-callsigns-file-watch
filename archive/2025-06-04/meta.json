@@ -41,12 +41,18 @@
       ],
       "recordCount": 112650,
       "sortedBy": "callsign"
+    },
+    "stats.json": {
+      "size": 1794,
+      "sha256": "f5b07fff314642234e3efc3bd0153ab2d8c9ceaa9c1aed2cd76be1bc5a6bdea1",
+      "format": "json"
     }
   },
   "ofcomReportedUpdate": "4 June 2025",
   "ofcomReportedUpdateIso": "2025-06-04",
   "normalised": {
     "schemaVersion": 1,
-    "headerVariant": "v2025-friendly"
+    "headerVariant": "v2025-friendly",
+    "statsSchemaVersion": 1
   }
 }

@@ -42,10 +42,16 @@
       ],
       "recordCount": 157427,
       "sortedBy": "callsign"
+    },
+    "stats.json": {
+      "size": 1838,
+      "sha256": "d35cdf4779ab12cc48a9372dcd86a89ebf2d8b89137e7fd5530ff65887a8f77a",
+      "format": "json"
     }
   },
   "normalised": {
     "schemaVersion": 1,
-    "headerVariant": "v2025-salesforce"
+    "headerVariant": "v2025-salesforce",
+    "statsSchemaVersion": 1
   }
 }

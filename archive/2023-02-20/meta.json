@@ -40,10 +40,16 @@
       ],
       "recordCount": 152084,
       "sortedBy": "callsign"
+    },
+    "stats.json": {
+      "size": 1631,
+      "sha256": "346997610dcfef536da459ef9831887cd92b42135efa4b9d30e662c4bf7179ad",
+      "format": "json"
     }
   },
   "normalised": {
     "schemaVersion": 1,
-    "headerVariant": "v2023-mmsi"
+    "headerVariant": "v2023-mmsi",
+    "statsSchemaVersion": 1
   }
 }
