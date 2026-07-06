@@ -16,8 +16,12 @@ as an always-human-reviewed PR.
 
 Each normalised entry also carries `archive/{key}/stats.json` (issue #46):
 data-quality statistics computed from the canonical rows — a callsign format
-taxonomy (uppercase→`A`, lowercase→`a`, digit→`N`, all other characters
-preserved) and per-column distributions (distinct/empty counts, string-length
+taxonomy (statsSchemaVersion 2: uppercase→`A`, lowercase→`a`, digit→`N`;
+whitespace/unprintable/invisible characters — including regular space, since
+whitespace in a callsign is unambiguously invalid — appear as printable
+`{U+XXXX}` markers so each offending codepoint is immediately visible and
+distinct; all other characters preserved verbatim) and per-column
+distributions (distinct/empty counts, string-length
 ranges, date min/max; distinct and ranges consider non-empty values only,
 emptiness being its own counter). It lives in the same golden-master lane:
 produced by the sweep, declared in `meta.files` (size + sha256), versioned via

@@ -68,7 +68,7 @@ describe('runNormaliseSweep', () => {
     const normalised = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'normalised.csv'), 'utf8');
     expect(normalised.startsWith('callsign,product,status,type,')).toBe(true);
     const meta = readMeta(tmpRoot, '2026-01-01');
-    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 1 });
+    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 2 });
     expect(meta.files['normalised.csv'].sha256).toBe(sha256(normalised));
     expect(meta.files['normalised.csv'].recordCount).toBe(2);
   });
@@ -148,13 +148,13 @@ describe('runNormaliseSweep', () => {
     expect(report.changed).toEqual(['2026-01-01']);
     const statsRaw = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'stats.json'), 'utf8');
     const stats = JSON.parse(statsRaw);
-    expect(stats.statsSchemaVersion).toBe(1);
+    expect(stats.statsSchemaVersion).toBe(2);
     expect(stats.recordCount).toBe(2);
     expect(stats.callsignPatterns).toEqual({ ANAAA: 2 }); // M7TEE, G5ABC
     expect(stats.columns.callsign.distinct).toBe(2);
     const meta = readMeta(tmpRoot, '2026-01-01');
     expect(meta.files['stats.json'].sha256).toBe(sha256(statsRaw));
-    expect(meta.normalised.statsSchemaVersion).toBe(1);
+    expect(meta.normalised.statsSchemaVersion).toBe(2);
   });
 
   it('Report_WhenEntryBetweenNeighbours_MatrixColumnsCoverBothDirections', () => {
@@ -250,20 +250,25 @@ describe('runNormaliseSweep', () => {
     expect(report).toContain('4<br><small>+2 (+100.0%)</small>');
   });
 
-  it('Report_WhenPatternEmptyOrSpaced_RenderedVisiblyNotAsBrokenMarkdown', () => {
+  it('Report_WhenPatternEmptyOrWhitespaced_RenderedVisiblyNotAsBrokenMarkdown', () => {
     // An empty callsign produces the empty pattern, which as a bare code
-    // span renders as two literal backticks; spaces inside code spans are
-    // invisible. Both must render visibly for the reviewer.
+    // span renders as two literal backticks - it gets an explicit marker.
+    // Whitespace (space, NBSP, ...) is unambiguously invalid in a callsign
+    // and arrives in reports as printable {U+XXXX} markers straight from the
+    // taxonomy - immediately visible, no detective work, and each codepoint
+    // is a distinct row.
     const withAnomalies = SALESFORCE_RAW
       + ',,Available,Call Sign - Amateur,21/01/2019,21/01/2019\n'
-      + 'M7 ODD,,Available,Call Sign - Amateur,21/01/2019,21/01/2019\n';
+      + 'M7 ODD,,Available,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + 'M7NBS\u00A0,,Available,Call Sign - Amateur,21/01/2019,21/01/2019\n';
     writeEntry(tmpRoot, '2026-01-01', withAnomalies);
     runNormaliseSweep();
 
     const report = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-01-01.md'), 'utf8');
     expect(report).toContain('_(empty)_');
     expect(report).not.toMatch(/\| `` \|/);
-    expect(report).toContain('`AN␣AAA`');
+    expect(report).toContain('`AN{U+0020}AAA`'); // space and NBSP stay distinct rows
+    expect(report).toContain('`ANAAA{U+00A0}`');
   });
 
   it('Report_WhenNothingChanges_FilesStayByteIdentical', () => {
