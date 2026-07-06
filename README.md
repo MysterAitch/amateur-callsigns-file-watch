@@ -65,7 +65,7 @@ Treating `npm ci` as read-only and `npm install` as a modifying operation preven
 
 ## Automation
 
-The orchestrator is designed to be invoked frequently by a boring, always-on timer (every 5 minutes by default). A pure decision function `shouldRunNow(state, now)` inside the orchestrator decides whether that particular tick actually touches Ofcom. Current policy: 3× per day at 03:00, 10:00, 18:00 local, with a ±15-min window and per-window deduplication. **All schedule policy lives in code, in `src/scheduled-run.ts`.** The systemd timer is just "wake me up every 5 minutes; forget everything else."
+The orchestrator is designed to be invoked frequently by a boring, always-on timer (every 5 minutes by default). A pure decision function `shouldRunNow(state, now)` inside the orchestrator decides whether that particular tick actually touches Ofcom. Current policy: 4× per day at 03:00, 10:00, 14:00, 18:00 local, with a ±15-min window and per-window deduplication. **All schedule policy lives in code, in `src/scheduled-run.ts`.** The systemd timer is just "wake me up every 5 minutes; forget everything else."
 
 ### Prerequisites
 
@@ -238,7 +238,7 @@ systemctl status amateur-callsigns-mirror.timer
 journalctl -u 'amateur-callsigns-mirror.*' -f
 ```
 
-Every 5 minutes you should see either a "not within any scheduled window" skip (with a healthchecks ping) or, at 03/10/18, an actual scrape → process → git ops → notification sequence.
+Every 5 minutes you should see either a "not within any scheduled window" skip (with a healthchecks ping) or, at 03/10/14/18, an actual scrape → process → git ops → notification sequence.
 
 ### Notifications
 

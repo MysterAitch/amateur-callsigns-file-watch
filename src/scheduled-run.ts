@@ -56,7 +56,15 @@ const STATE_FILE = '.notify-state.json';
 // Wall-clock schedule for Ofcom fetches. Local time on the running host - the
 // systemd unit should live in Europe/London, or `timedatectl set-timezone`
 // applied accordingly on the LXC.
-const SCHEDULED_HHMM: string[] = ['03:00', '10:00', '18:00'];
+//
+// Slot selection rationale:
+// - 03:00 catches overnight batch publications (Ofcom's automated end)
+// - 10:00 catches early-morning manual publications, once staff are in
+// - 14:00 catches late-morning-to-lunchtime publications (added 2026-07-06 to
+//         halve the 10:00->18:00 gap; Ofcom publish manually during UK
+//         business hours so the 10:00-18:00 window was the widest exposure)
+// - 18:00 catches afternoon publications and end-of-day mop-up
+const SCHEDULED_HHMM: string[] = ['03:00', '10:00', '14:00', '18:00'];
 
 // Half-width of the "we're at a scheduled slot" window, in minutes. A wake-up
 // at any point in [scheduled - WINDOW, scheduled + WINDOW] counts as being at
