@@ -1,0 +1,99 @@
+{
+  "callsignPatterns": {
+    "A/#AANAA": 1,
+    "A/#AANAAA": 2,
+    "A/A#AANAAA": 1,
+    "A/A/AANAA": 1,
+    "A/A/AANAAA": 1,
+    "A/AA-N-AA": 1,
+    "A/AAA": 1,
+    "A/AAA NNNN": 1,
+    "A/AAAA": 2,
+    "A/AAANAAA": 1,
+    "A/AANA": 1,
+    "A/AANAA": 20,
+    "A/AANAAA": 48,
+    "A/AANNN": 1,
+    "A/ANAA": 3,
+    "A/ANAAA": 16,
+    "A/ANAAAA": 1,
+    "A/ANNAA": 1,
+    "A/ANNAAA": 2,
+    "A/NAAA": 4,
+    "A/NANAAA": 2,
+    "A/NNNN": 2,
+    "AAAA": 3,
+    "AAAAA": 4,
+    "AAAAAAAAAAA": 1,
+    "AAAAAAAAAAAA": 1,
+    "AANAAA": 7,
+    "AANNN": 1,
+    "AN AAA": 1,
+    "ANAA": 473,
+    "ANAAA": 136896,
+    "ANAAA�": 2,
+    "ANAAN": 2,
+    "ANNAAA": 1,
+    "NAAAA": 1,
+    "NANAAA": 14,
+    "NANAAA�": 1,
+    "NN-Aaa": 16,
+    "NNAA": 5,
+    "NNAAA": 19882,
+    "NNNNNNNN": 1,
+    "NaNAAA": 1,
+    "aNaaa": 1
+  },
+  "columns": {
+    "callsign": {
+      "distinct": 157427,
+      "empty": 0,
+      "maxLength": 12,
+      "minLength": 4
+    },
+    "created_date": {
+      "distinct": 2958,
+      "empty": 0,
+      "max": "2025-04-08",
+      "min": "2016-07-23"
+    },
+    "last_modified_date": {
+      "distinct": 2084,
+      "empty": 0,
+      "max": "2025-04-08",
+      "min": "2016-07-23"
+    },
+    "licence_version_last_modified_date": {
+      "distinct": 0,
+      "empty": 157427,
+      "max": "",
+      "min": ""
+    },
+    "licence_version_original_start_date": {
+      "distinct": 0,
+      "empty": 157427,
+      "max": "",
+      "min": ""
+    },
+    "product": {
+      "distinct": 6,
+      "empty": 45157,
+      "maxLength": 42,
+      "minLength": 21
+    },
+    "status": {
+      "distinct": 3,
+      "empty": 14,
+      "maxLength": 9,
+      "minLength": 8
+    },
+    "type": {
+      "distinct": 1,
+      "empty": 0,
+      "maxLength": 19,
+      "minLength": 19
+    }
+  },
+  "recordCount": 157427,
+  "statsSchemaVersion": 1
+}

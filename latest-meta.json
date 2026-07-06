@@ -39,6 +39,11 @@
       ],
       "recordCount": 158318,
       "sortedBy": "callsign"
+    },
+    "stats.json": {
+      "size": 1711,
+      "sha256": "c0cf7399dce2d14812168ac14a3b0b76ceb010d3b6c2dd68c10bda01c518f962",
+      "format": "json"
     }
   },
   "diffSummary": {
@@ -57,6 +62,7 @@
   "sourceVersionParam": "419818",
   "normalised": {
     "schemaVersion": 1,
-    "headerVariant": "v2026-licence-version"
+    "headerVariant": "v2026-licence-version",
+    "statsSchemaVersion": 1
   }
 }
