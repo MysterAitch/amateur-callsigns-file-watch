@@ -7,3 +7,6 @@ ofcom_page.html
 
 # Scheduled-run state (per-host; not shared)
 .notify-state.json
+
+# Vitest coverage output (local + CI runs; never committed)
+coverage/
