@@ -27,7 +27,14 @@ jobs:
   normalise:
     runs-on: ubuntu-latest
     steps:
+      # No persisted credentials: npm ci and the converters run third-party
+      # code, which must never execute with a write-capable token sitting in
+      # .git/config. The push step below injects the token explicitly (Actions
+      # masks it in logs), so the write credential exists only where writing
+      # happens.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: .nvmrc
@@ -48,7 +55,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ -z "$(git status --porcelain archive/)" ]; then
+          # A missing coverage report means the sweep crashed before
+          # reporting (distinct from per-entry failures, which still produce
+          # one): whatever is in the working tree is unaccounted for, so do
+          # NOT commit or push it - the final step turns the run red.
+          if [ ! -f /tmp/coverage.md ]; then
+            echo "::error::Sweep produced no coverage report - refusing to open a PR from unaccounted working-tree state."
+            exit 0
+          fi
+          if [ -z "$(git status --porcelain archive/ latest-meta.json)" ]; then
             echo "No derivation changes."
             exit 0
           fi
@@ -56,9 +71,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           branch="normalise/run-${{ github.run_id }}"
           git checkout -b "$branch"
-          git add archive/
+          git add archive/ latest-meta.json
           git commit -m "Normalise sweep: update derived normalised.csv files"
-          git push origin "$branch"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/$branch"
           {
             echo "Scheduled normalise sweep output. The cross-entry diff below is the review artefact - check that changes are expected (new entries gaining their first derivation, or a deliberate converter/schema change) before merging."
             echo ""
@@ -73,6 +88,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          if [ ! -f /tmp/coverage.md ]; then
+            echo "Sweep produced no coverage report - leaving the dashboard at its last known state."
+            exit 0
+          fi
           title="Normalisation coverage (rolling dashboard)"
           {
             echo "Maintained automatically by the normalise-sweep workflow - do not edit by hand; comments welcome."

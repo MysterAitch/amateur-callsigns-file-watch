@@ -274,15 +274,37 @@ export async function loadJsonFile<T>(filePath: string): Promise<T | null> {
   }
 }
 
+// Single serialisation convention for every JSON file this project writes:
+// 2-space indent, trailing newline. Byte-level agreement between writers is
+// load-bearing - validateLatestPointers compares latest-meta.json against the
+// newest entry's meta.json by hash, so two writers with different conventions
+// would produce spurious mismatches and diff churn.
+export function serialiseJson<T>(data: T): string {
+  return JSON.stringify(data, null, 2) + '\n';
+}
+
 export async function saveJsonFile<T>(filePath: string, data: T): Promise<boolean> {
   try {
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2));
+    await fs.writeFile(filePath, serialiseJson(data));
     logger.debug(`Successfully saved JSON to ${filePath}`);
     return true;
   } catch (error: any) {
     logger.error(`Error saving JSON file ${filePath}`, error);
     return false;
   }
+}
+
+// Sync sibling for callers in synchronous pipelines (the normalise sweep).
+// Throws on failure rather than returning false - sweep callers convert the
+// throw into a per-entry failure report.
+export function saveJsonFileSync<T>(filePath: string, data: T): void {
+  fsSync.writeFileSync(filePath, serialiseJson(data));
+}
+
+// sha256 of in-memory content - the sibling of calculateFileHash for content
+// that is already in memory (avoids re-reading a file just written).
+export function calculateContentHash(content: string | Buffer): string {
+  return crypto.createHash('sha256').update(content).digest('hex');
 }
 
 export function fileExistsAndNotEmpty(filePath: string): boolean {

@@ -8,3 +8,8 @@
 archive/**/raw.*           binary
 latest-raw.*               binary
 amateur-callsigns-raw.csv  binary
+
+# Derived normalised.csv must be byte-stable across platforms (meta.json
+# records its sha256/size and the sweep no-op check is byte equality) while
+# staying diffable text - pin LF, never smudge to CRLF on checkout.
+archive/**/normalised.csv text eol=lf

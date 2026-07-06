@@ -14,10 +14,9 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts'],
-      // Regression floor, set just below measured coverage (~29-32% overall
-      // as of 2026-07 depending on branch: pure modules are well covered; the
-      // I/O-heavy scrape / process / orchestrator bodies are not). Raise as
-      // coverage grows - never lower without a written reason.
+      // Regression floor, set just below measured coverage
+      // (pure modules are well covered; the I/O-heavy scrape / process /
+      // orchestrator bodies are not). Raise as coverage grows - never lower without a written reason.
       thresholds: {
         statements: 28,
         branches: 26,

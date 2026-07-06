@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { runNormaliseSweep } from './normalise-sweep';
+import { runNormaliseSweep, mdCell } from './normalise-sweep';
 import { CONSTANTS } from '../shared/utils';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
@@ -125,7 +125,7 @@ describe('runNormaliseSweep', () => {
     expect(readMeta(tmpRoot, '2026-01-01').files['normalised.csv'].sha256).toBe(sha256(normalised));
   });
 
-  it('Sweep_ReportIncludesCoverageSummaryForRollingIssue', () => {
+  it('Sweep_WhenMixedEntryOutcomes_ReportIncludesCoverageSummaryForRollingIssue', () => {
     writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
     writeEntry(tmpRoot, '2026-02-02', 'Unknown,Columns\nx,y\n');
     writeEntry(tmpRoot, '2026-03-03', SALESFORCE_RAW, { sourceKey: 'some-future-source' });
@@ -139,6 +139,85 @@ describe('runNormaliseSweep', () => {
     expect(summary).toMatch(/v1|schemaVersion/i);
     expect(summary).toMatch(/unknown raw header/i);
     expect(summary).toMatch(/no converter/i);
+  });
+
+  it('Sweep_WhenNewestEntryMetaUpdated_LatestMetaMirrorRefreshedByteIdentically', () => {
+    // validateLatestPointers hash-compares latest-meta.json against the
+    // newest entry's meta.json; a sweep that rewrites the newest entry's meta
+    // without refreshing the mirror produces an unmergeable PR (observed live
+    // on the maiden derivation PR).
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-02-02', SALESFORCE_RAW);
+    fs.copyFileSync(
+      path.join(tmpRoot, 'archive', '2026-02-02', 'meta.json'),
+      path.join(tmpRoot, CONSTANTS.FILES.latestMeta),
+    );
+
+    const report = runNormaliseSweep();
+
+    expect(report.changed).toEqual(['2026-01-01', '2026-02-02']);
+    const newestMeta = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-02-02', 'meta.json'));
+    const latestMeta = fs.readFileSync(path.join(tmpRoot, CONSTANTS.FILES.latestMeta));
+    expect(latestMeta.equals(newestMeta)).toBe(true);
+  });
+
+  it('Sweep_WhenOnlyOlderEntryChanges_LatestMetaMirrorUntouched', () => {
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-02-02', SALESFORCE_RAW);
+    fs.copyFileSync(
+      path.join(tmpRoot, 'archive', '2026-02-02', 'meta.json'),
+      path.join(tmpRoot, CONSTANTS.FILES.latestMeta),
+    );
+    runNormaliseSweep();
+    const latestAfterFirst = fs.readFileSync(path.join(tmpRoot, CONSTANTS.FILES.latestMeta), 'utf8');
+    // Invalidate only the OLDER entry's derivation.
+    fs.writeFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'normalised.csv'), 'stale\n');
+
+    const second = runNormaliseSweep();
+
+    expect(second.changed).toEqual(['2026-01-01']);
+    expect(fs.readFileSync(path.join(tmpRoot, CONSTANTS.FILES.latestMeta), 'utf8')).toBe(latestAfterFirst);
+  });
+
+  it('Sweep_WhenEntryMetaLacksAnyReferenceDate_ReportedAsFailureWhileOthersNormalise', () => {
+    // Per-entry independence must survive malformed metadata, not just
+    // converter failures: an entry with neither ofcomReportedUpdateIso nor
+    // fetchedAt cannot supply a plausibility reference date.
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-02-02', SALESFORCE_RAW, { fetchedAt: undefined, ofcomReportedUpdateIso: undefined });
+
+    const report = runNormaliseSweep();
+
+    expect(report.changed).toEqual(['2026-01-01']);
+    expect(report.failed).toHaveLength(1);
+    expect(report.failed[0].key).toBe('2026-02-02');
+  });
+
+  it('Sweep_WhenEntryMetaLacksFilesMap_ReportedAsFailureWhileOthersNormalise', () => {
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-02-02', SALESFORCE_RAW, { files: undefined });
+
+    const report = runNormaliseSweep();
+
+    expect(report.changed).toEqual(['2026-01-01']);
+    expect(report.failed).toHaveLength(1);
+    expect(report.failed[0].key).toBe('2026-02-02');
+  });
+
+  it('MdCell_WhenTextExceedsLimit_TruncatedWithoutDanglingEscapeArtefacts', () => {
+    // Truncation must happen BEFORE escaping: slicing escaped output can
+    // bisect a two-character escape and leave a lone trailing backslash that
+    // escapes the closing cell delimiter.
+    const hostile = 'x'.repeat(159) + '\\'.repeat(50);
+    const cell = mdCell(hostile);
+    const trailingBackslashes = cell.match(/\\+$/)?.[0].length ?? 0;
+    expect(trailingBackslashes % 2).toBe(0);
+    expect(cell.length).toBeLessThanOrEqual(2 * 160);
+  });
+
+  it('MdCell_WhenTextShort_UnchangedApartFromEscaping', () => {
+    expect(mdCell('plain text')).toBe('plain text');
+    expect(mdCell('a|b')).toBe('a\\|b');
   });
 
   it('Sweep_WhenFailureReasonContainsMarkdownHostileCharacters_TableRowStaysWellFormed', () => {
