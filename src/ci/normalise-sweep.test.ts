@@ -279,10 +279,52 @@ describe('runNormaliseSweep', () => {
     writeEntry(tmpRoot, '2026-02-02', SALESFORCE_RAW);
     runNormaliseSweep();
     const before = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-01-01.md'), 'utf8');
+    const seriesBefore = fs.readFileSync(path.join(tmpRoot, 'reports', 'callsign-patterns.md'), 'utf8');
 
     runNormaliseSweep();
 
     expect(fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-01-01.md'), 'utf8')).toBe(before);
+    expect(fs.readFileSync(path.join(tmpRoot, 'reports', 'callsign-patterns.md'), 'utf8')).toBe(seriesBefore);
+  });
+
+  it('PatternTimeSeries_SpansAllDatasetsWithoutDeltas', () => {
+    // reports/callsign-patterns.md is the full pattern time-series: one
+    // column per dataset (ALL of them, not a window), plain counts with no
+    // baseline/delta annotations - how the distribution changed over time.
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-02-02', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-03-03', SALESFORCE_RAW);
+    runNormaliseSweep();
+
+    const series = fs.readFileSync(path.join(tmpRoot, 'reports', 'callsign-patterns.md'), 'utf8');
+    const header = series.split('\n').find(l => l.startsWith('| pattern |')) ?? '';
+    expect(header).toContain('2026-01-01');
+    expect(header).toContain('2026-02-02');
+    expect(header).toContain('2026-03-03');
+    expect(series).toContain('| _records_ | 2 | 2 | 2 |');
+    expect(series).toContain('| `ANAAA` | 2 | 2 | 2 |');
+    expect(series).not.toContain('<small>');
+  });
+
+  it('PatternTimeSeries_FoldedTable_MergesWhitespaceVariantsIntoU', () => {
+    // The folded companion table collapses every {U+XXXX} marker to a single
+    // U class, so the same shape contaminated by DIFFERENT whitespace
+    // codepoints (space in one dataset, NBSP in another) merges into one row
+    // - the phenomenon's continuity over time, complementing the raw table's
+    // per-codepoint precision.
+    const withSpace = SALESFORCE_RAW + 'M7 AAA,,Available,Call Sign - Amateur,21/01/2019,21/01/2019\n';
+    const withNbsp = SALESFORCE_RAW + 'M7\u00A0BBB,,Available,Call Sign - Amateur,21/01/2019,21/01/2019\n';
+    writeEntry(tmpRoot, '2026-01-01', withSpace);
+    writeEntry(tmpRoot, '2026-02-02', withNbsp);
+    runNormaliseSweep();
+
+    const series = fs.readFileSync(path.join(tmpRoot, 'reports', 'callsign-patterns.md'), 'utf8');
+    const folded = series.slice(series.indexOf('Folded'));
+    // Raw table keeps the codepoints distinct...
+    expect(series).toContain('`AN{U+0020}AAA`');
+    expect(series).toContain('`AN{U+00A0}AAA`');
+    // ...the folded table merges them into one U-class row present in both.
+    expect(folded).toContain('| `ANUAAA` | 1 | 1 |');
   });
 
   it('Sweep_WhenNewestEntryMetaUpdated_LatestMetaMirrorRefreshedByteIdentically', () => {
