@@ -23,8 +23,30 @@
         "LastModifiedDate"
       ],
       "recordCount": 112650
+    },
+    "normalised.csv": {
+      "size": 11481175,
+      "sha256": "74f601e1ab3a40aedbd516e2435d4c4b9f01653208af863621b247d618837d84",
+      "format": "csv",
+      "columnCount": 8,
+      "columnNames": [
+        "callsign",
+        "product",
+        "status",
+        "type",
+        "created_date",
+        "last_modified_date",
+        "licence_version_last_modified_date",
+        "licence_version_original_start_date"
+      ],
+      "recordCount": 112650,
+      "sortedBy": "callsign"
     }
   },
   "ofcomReportedUpdate": "4 June 2025",
-  "ofcomReportedUpdateIso": "2025-06-04"
+  "ofcomReportedUpdateIso": "2025-06-04",
+  "normalised": {
+    "schemaVersion": 1,
+    "headerVariant": "v2025-friendly"
+  }
 }
