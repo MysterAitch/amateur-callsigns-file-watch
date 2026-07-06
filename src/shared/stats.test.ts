@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeEntryStats, callsignPattern, renderStatsJson, compareStats } from './stats';
+import { computeEntryStats, callsignPattern, renderStatsJson, compareStats, EntryStats } from './stats';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -81,7 +81,8 @@ describe('renderStatsJson', () => {
     // Diff stability: pattern keys must not reorder when counts change, or
     // every small shift produces a churny stats.json diff.
     const stats = computeEntryStats(HEADER, ROWS, DATE_COLUMNS);
-    const keys = Object.keys(JSON.parse(renderStatsJson(stats)).callsignPatterns);
+    const roundTripped = JSON.parse(renderStatsJson(stats)) as EntryStats;
+    const keys = Object.keys(roundTripped.callsignPatterns);
     expect(keys).toEqual([...keys].sort());
   });
 });

@@ -46,6 +46,7 @@ import {
   CONSTANTS,
   ProcessResult,
   ScrapeResult,
+  errorMessage,
 } from './shared/utils';
 
 //
@@ -154,6 +155,17 @@ function pad2(n: number): string {
   return n.toString().padStart(2, '0');
 }
 
+// execSync failures carry the child process's stderr, which is far more
+// diagnostic than the generic "Command failed" message - surface it when
+// present.
+function execErrorText(err: unknown): string {
+  if (err !== null && typeof err === 'object' && 'stderr' in err) {
+    const text = (err as { stderr?: { toString(): string } }).stderr?.toString();
+    if (text) return text;
+  }
+  return errorMessage(err);
+}
+
 //
 // Notifications - ntfy client, soft-fail
 //
@@ -184,9 +196,9 @@ async function ntfy(priority: NtfyPriority, title: string, body: string): Promis
       timeout: 15_000,
     });
     logger.info(`ntfy sent: [${priority}] ${title}`);
-  } catch (err: any) {
+  } catch (err) {
     // Deliberately do NOT propagate: a broken ntfy is not a broken mirror.
-    logger.warn(`ntfy send failed (${err.message}); continuing.`);
+    logger.warn(`ntfy send failed (${errorMessage(err)}); continuing.`);
   }
 }
 
@@ -203,8 +215,8 @@ async function healthchecksPing(): Promise<void> {
   try {
     await axios.get(url, { timeout: 15_000 });
     logger.debug('healthchecks ping sent');
-  } catch (err: any) {
-    logger.warn(`healthchecks ping failed (${err.message}); continuing.`);
+  } catch (err) {
+    logger.warn(`healthchecks ping failed (${errorMessage(err)}); continuing.`);
   }
 }
 
@@ -495,8 +507,8 @@ export function tryFastForwardPull(): GitOpResult {
       logger.info(`git pull --ff-only: advanced ${before.slice(0, 7)} -> ${after.slice(0, 7)}`);
     }
     return { op: 'git pull --ff-only', success: true };
-  } catch (err: any) {
-    const message = (err.stderr?.toString() || err.message || '').split('\n')[0].trim();
+  } catch (err) {
+    const message = execErrorText(err).split('\n')[0].trim();
     logger.warn(`git pull --ff-only failed: ${message}`);
     return { op: 'git pull --ff-only', success: false, message };
   }
@@ -558,8 +570,8 @@ export function gitCommitAndPush(message: string, archiveKey: string): GitResult
   try {
     execFileSync('git', ['pull', '--rebase', '--autostash'], { stdio: 'pipe' });
     logger.debug('git pull --rebase --autostash succeeded before push');
-  } catch (err: any) {
-    const errMsg = (err.stderr?.toString() || err.message || '').split('\n')[0].trim();
+  } catch (err) {
+    const errMsg = execErrorText(err).split('\n')[0].trim();
     logger.warn(`git pull --rebase failed (${errMsg}); attempting push anyway.`);
     result.rebaseFailed = true;
     result.rebaseError = errMsg;
@@ -578,8 +590,8 @@ export function gitCommitAndPush(message: string, archiveKey: string): GitResult
     execFileSync('git', ['push', 'origin', `HEAD:refs/heads/${dataBranchName(archiveKey)}`], { stdio: 'pipe' });
     result.pushed = true;
     return result;
-  } catch (err: any) {
-    const errMsg = err.stderr?.toString() || err.message;
+  } catch (err) {
+    const errMsg = execErrorText(err);
     logger.warn(`git push failed: ${errMsg}`);
     result.pushError = errMsg;
     return result;
@@ -592,7 +604,7 @@ export function gitCommitAndPush(message: string, archiveKey: string): GitResult
 
 async function handleFailure(state: NotifyState, err: Error): Promise<void> {
   state.consecutiveFailures += 1;
-  state.lastErrorMessage = err.message;
+  state.lastErrorMessage = errorMessage(err);
   const failures = state.consecutiveFailures;
 
   const shouldNotifyAgain = (): boolean => {
@@ -602,17 +614,17 @@ async function handleFailure(state: NotifyState, err: Error): Promise<void> {
   };
 
   if (failures === 1) {
-    await ntfy('low', 'Ofcom mirror hiccup', `Transient failure: ${err.message}`);
+    await ntfy('low', 'Ofcom mirror hiccup', `Transient failure: ${errorMessage(err)}`);
     state.lastErrorNotifiedAt = new Date().toISOString();
   } else if (failures === 2) {
-    await ntfy('default', 'Ofcom mirror still failing', `Second consecutive failure: ${err.message}`);
+    await ntfy('default', 'Ofcom mirror still failing', `Second consecutive failure: ${errorMessage(err)}`);
     state.lastErrorNotifiedAt = new Date().toISOString();
   } else if (failures === 3) {
-    await ntfy('high', 'Ofcom mirror broken', `Third consecutive failure - needs intervention: ${err.message}`);
+    await ntfy('high', 'Ofcom mirror broken', `Third consecutive failure - needs intervention: ${errorMessage(err)}`);
     state.lastErrorNotifiedAt = new Date().toISOString();
   } else if (shouldNotifyAgain()) {
     // Persistent failure beyond the escalation ladder - remind at most once/24h.
-    await ntfy('high', 'Ofcom mirror still broken', `${failures} consecutive failures. Most recent: ${err.message}`);
+    await ntfy('high', 'Ofcom mirror still broken', `${failures} consecutive failures. Most recent: ${errorMessage(err)}`);
     state.lastErrorNotifiedAt = new Date().toISOString();
   }
 }
@@ -766,8 +778,8 @@ async function main(): Promise<void> {
   try {
     await handleDrift(state, detectSystemdDrift(), 'systemd');
     await handleDrift(state, detectWorkingTreeDrift(), 'working-tree');
-  } catch (err: any) {
-    logger.warn(`drift check failed (${err.message}); continuing.`);
+  } catch (err) {
+    logger.warn(`drift check failed (${errorMessage(err)}); continuing.`);
   }
 
   if (decision.action === 'skip') {
@@ -788,7 +800,7 @@ async function main(): Promise<void> {
     // Healthy tick: heartbeat. Note we deliberately do NOT ping on a failure -
     // absence of pings is a signal healthchecks can use for its own alert.
     await healthchecksPing();
-  } catch (err: any) {
+  } catch (err) {
     await handleFailure(state, err instanceof Error ? err : new Error(String(err)));
     // NOTE: do not re-throw; the tick has done its job (notify on failure).
     // Exit code 0 keeps systemd's `Result=success` clean; the state file is
@@ -799,13 +811,13 @@ async function main(): Promise<void> {
 }
 
 if (require.main === module) {
-  process.on('unhandledRejection', (reason: any) => {
+  process.on('unhandledRejection', (reason: unknown) => {
     logger.error('Unhandled Rejection at:', reason);
     process.exit(1);
   });
 
   main().catch((err: Error) => {
-    logger.error(`Scheduled-run failed at top level: ${err.message}`, err);
+    logger.error(`Scheduled-run failed at top level: ${errorMessage(err)}`, err);
     process.exit(1);
   });
 }

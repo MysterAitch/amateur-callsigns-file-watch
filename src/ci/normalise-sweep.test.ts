@@ -5,6 +5,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { runNormaliseSweep, mdCell } from './normalise-sweep';
 import { CONSTANTS } from '../shared/utils';
+import { EntryStats } from '../shared/stats';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -40,8 +41,14 @@ function writeEntry(root: string, key: string, rawContent: string, metaOverrides
   fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
 }
 
-function readMeta(root: string, key: string): any {
-  return JSON.parse(fs.readFileSync(path.join(root, CONSTANTS.DIRS.archive, key, 'meta.json'), 'utf8'));
+// The subset of meta.json shape these tests assert on.
+interface TestMeta {
+  normalised?: { schemaVersion: number; headerVariant: string; statsSchemaVersion?: number };
+  files: Record<string, { size?: number; sha256?: string; recordCount?: number }>;
+}
+
+function readMeta(root: string, key: string): TestMeta {
+  return JSON.parse(fs.readFileSync(path.join(root, CONSTANTS.DIRS.archive, key, 'meta.json'), 'utf8')) as TestMeta;
 }
 
 let tmpRoot: string;
@@ -147,14 +154,14 @@ describe('runNormaliseSweep', () => {
 
     expect(report.changed).toEqual(['2026-01-01']);
     const statsRaw = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'stats.json'), 'utf8');
-    const stats = JSON.parse(statsRaw);
+    const stats = JSON.parse(statsRaw) as EntryStats;
     expect(stats.statsSchemaVersion).toBe(2);
     expect(stats.recordCount).toBe(2);
     expect(stats.callsignPatterns).toEqual({ ANAAA: 2 }); // M7TEE, G5ABC
-    expect(stats.columns.callsign.distinct).toBe(2);
+    expect((stats.columns.callsign as { distinct: number }).distinct).toBe(2);
     const meta = readMeta(tmpRoot, '2026-01-01');
     expect(meta.files['stats.json'].sha256).toBe(sha256(statsRaw));
-    expect(meta.normalised.statsSchemaVersion).toBe(2);
+    expect(meta.normalised?.statsSchemaVersion).toBe(2);
   });
 
   it('Report_WhenEntryBetweenNeighbours_MatrixColumnsCoverBothDirections', () => {

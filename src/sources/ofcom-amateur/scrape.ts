@@ -14,6 +14,7 @@ import {
   CsvDownloadMetadata,
   ScrapeOptions,
   ScrapeResult,
+  errorMessage,
 } from '../../shared/utils';
 
 // Constants
@@ -52,7 +53,7 @@ async function downloadFile(url: string, outputPath: string): Promise<void> {
     });
 
     const writer = fsSync.createWriteStream(outputPath);
-    response.data.pipe(writer);
+    (response.data as NodeJS.ReadableStream).pipe(writer);
 
     return new Promise<void>((resolve, reject) => {
       writer.on('finish', () => {
@@ -64,9 +65,9 @@ async function downloadFile(url: string, outputPath: string): Promise<void> {
         reject(err);
       });
     });
-  } catch (error: any) {
+  } catch (error) {
     logger.error(`Download failed: ${url}`, error);
-    throw new Error(`Failed to download file: ${error.message}`);
+    throw new Error(`Failed to download file: ${errorMessage(error)}`);
   }
 }
 
@@ -341,11 +342,11 @@ export async function runScrape(options?: ScrapeOptions): Promise<ScrapeResult> 
     timeout: 30000,
   });
 
-  await fs.writeFile(OUTPUT_FILES.htmlOutput, response.data);
+  await fs.writeFile(OUTPUT_FILES.htmlOutput, response.data as string);
   logger.debug(`Saved HTML content to ${OUTPUT_FILES.htmlOutput}`);
 
   logger.info("Parsing HTML content...");
-  const dom = new JSDOM(response.data);
+  const dom = new JSDOM(response.data as string);
   const document = dom.window.document;
 
   const csvLinkDetails = findCsvLink(document);
@@ -448,7 +449,7 @@ export async function runScrape(options?: ScrapeOptions): Promise<ScrapeResult> 
 // Auto-invoke when run directly (npm run pull). When imported by the scheduled
 // orchestrator, runScrape is called explicitly and this block does nothing.
 if (require.main === module) {
-  process.on('unhandledRejection', (reason: any) => {
+  process.on('unhandledRejection', (reason: unknown) => {
     logger.error('Unhandled Rejection at:', reason);
     process.exit(1);
   });

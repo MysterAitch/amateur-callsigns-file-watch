@@ -22,7 +22,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { CONSTANTS, ArchiveMeta, calculateContentHash, saveJsonFileSync } from '../shared/utils';
+import { CONSTANTS, ArchiveMeta, calculateContentHash, errorMessage, saveJsonFileSync } from '../shared/utils';
 import { listArchiveKeys } from '../shared/archive';
 import { renderStatsJson, compareStats, EntryStats } from '../shared/stats';
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, ConvertResult } from '../sources/ofcom-amateur/normalise';
@@ -63,6 +63,9 @@ export interface SweepReport {
   coverageMarkdown: string;
 }
 
+// ArchiveMeta plus the normalisation declaration this sweep maintains.
+type SweepMeta = ArchiveMeta & { normalised?: { schemaVersion: number; headerVariant: string; statsSchemaVersion?: number } };
+
 export function runNormaliseSweep(): SweepReport {
   const report: SweepReport = { changed: [], upToDate: [], unsupported: [], failed: [], coverageMarkdown: '' };
   const coverageRows: string[] = [];
@@ -70,11 +73,11 @@ export function runNormaliseSweep(): SweepReport {
   for (const key of listArchiveKeys()) {
     const dir = path.join(CONSTANTS.DIRS.archive, key);
     const metaPath = path.join(dir, 'meta.json');
-    let meta: ArchiveMeta & { normalised?: { schemaVersion: number; headerVariant: string; statsSchemaVersion?: number } };
+    let meta: SweepMeta;
     try {
-      meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-    } catch (err: any) {
-      report.failed.push({ key, reason: `meta.json unreadable: ${err.message}` });
+      meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as SweepMeta;
+    } catch (err) {
+      report.failed.push({ key, reason: `meta.json unreadable: ${errorMessage(err)}` });
       coverageRows.push(`| ${key} | ? | FAILED | meta.json unreadable |`);
       continue;
     }
@@ -144,9 +147,9 @@ export function runNormaliseSweep(): SweepReport {
         : `UNVERIFIED date-order columns: ${result.unverifiedDateColumns.join(', ')}`;
       const partialNote = meta.intendedCoverage?.complete === false ? '; PARTIAL raw coverage (see meta scopeNotes)' : '';
       coverageRows.push(`| ${key} | ${meta.sourceKey} | v${result.schemaVersion} (${result.headerVariant}) | updated this run; ${dateNote}${partialNote} |`);
-    } catch (err: any) {
-      report.failed.push({ key, reason: err.message });
-      coverageRows.push(`| ${key} | ${meta.sourceKey} | FAILED | ${mdCell(err.message)} |`);
+    } catch (err) {
+      report.failed.push({ key, reason: errorMessage(err) });
+      coverageRows.push(`| ${key} | ${meta.sourceKey} | FAILED | ${mdCell(errorMessage(err))} |`);
     }
   }
 

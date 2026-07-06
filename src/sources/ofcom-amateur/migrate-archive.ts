@@ -23,6 +23,7 @@ import {
   CONSTANTS,
   logger,
   ArchiveMeta,
+  errorMessage,
 } from '../../shared/utils';
 import {
   writeArchiveEntry,
@@ -178,8 +179,8 @@ async function main(): Promise<void> {
     let records: CsvRecord[];
     try {
       records = parse(rawText, { columns: true, skip_empty_lines: true }) as CsvRecord[];
-    } catch (err: any) {
-      logger.warn(`Commit ${commit.sha.slice(0, 7)}: CSV parse failed (${err.message}); archiving raw with unknown shape.`);
+    } catch (err) {
+      logger.warn(`Commit ${commit.sha.slice(0, 7)}: CSV parse failed (${errorMessage(err)}); archiving raw with unknown shape.`);
       records = [];
     }
 
@@ -228,7 +229,7 @@ async function main(): Promise<void> {
   logger.info(`Migration complete. Created ${entriesCreated} archive entries; skipped ${entriesSkipped} commits.`);
 }
 
-process.on('unhandledRejection', (reason: any) => {
+process.on('unhandledRejection', (reason: unknown) => {
   logger.error('Unhandled Rejection at:', reason);
   process.exit(1);
 });

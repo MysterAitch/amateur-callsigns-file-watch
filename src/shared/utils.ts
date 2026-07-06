@@ -208,20 +208,22 @@ export interface ArchiveMeta {
 }
 
 export const logger = {
-  debug: (message: string, ...args: any[]): void => {
+  debug: (message: string, ...args: unknown[]): void => {
     if (process.env.DEBUG) {
       console.debug(`[${new Date().toISOString()}] [DEBUG] ${message}`, ...args);
     }
   },
-  info: (message: string, ...args: any[]): void => {
+  info: (message: string, ...args: unknown[]): void => {
     console.log(`[${new Date().toISOString()}] [INFO] ${message}`, ...args);
   },
-  warn: (message: string, ...args: any[]): void => {
+  warn: (message: string, ...args: unknown[]): void => {
     console.warn(`[${new Date().toISOString()}] [WARNING] ${message}`, ...args);
   },
-  error: (message: string, error: Error | null = null, ...args: any[]): void => {
+  // error accepts unknown because caught values are unknown - callers pass
+  // whatever they caught without narrowing ceremony.
+  error: (message: string, error: unknown = null, ...args: unknown[]): void => {
     console.error(`[${new Date().toISOString()}] [ERROR] ${message}`, ...args);
-    if (error && process.env.DEBUG) {
+    if (error !== null && error !== undefined && process.env.DEBUG) {
       console.error(util.inspect(error, { depth: null, colors: true }));
     }
   }
@@ -233,9 +235,9 @@ export function calculateFileHash(filePath: string): string {
     const hashSum = crypto.createHash('sha256');
     hashSum.update(fileBuffer);
     return hashSum.digest('hex');
-  } catch (error: any) {
+  } catch (error) {
     logger.error(`Failed to calculate hash for ${filePath}`, error);
-    throw new Error(`Hash calculation failed: ${error.message}`);
+    throw new Error(`Hash calculation failed: ${errorMessage(error)}`);
   }
 }
 
@@ -254,7 +256,7 @@ export function getFileMetadata(pattern: string | RegExp | null = null): FileMet
         };
       });
     return files;
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Error getting file information', error);
     return [];
   }
@@ -268,10 +270,16 @@ export async function loadJsonFile<T>(filePath: string): Promise<T | null> {
     }
     const content = await fs.readFile(filePath, 'utf8');
     return JSON.parse(content) as T;
-  } catch (error: any) {
+  } catch (error) {
     logger.error(`Error loading JSON file ${filePath}`, error);
     return null;
   }
+}
+
+// Caught values are unknown (anything can be thrown); this is the single
+// sanctioned way to get a printable message out of one.
+export function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 // Single serialisation convention for every JSON file this project writes:
@@ -288,7 +296,7 @@ export async function saveJsonFile<T>(filePath: string, data: T): Promise<boolea
     await fs.writeFile(filePath, serialiseJson(data));
     logger.debug(`Successfully saved JSON to ${filePath}`);
     return true;
-  } catch (error: any) {
+  } catch (error) {
     logger.error(`Error saving JSON file ${filePath}`, error);
     return false;
   }
@@ -314,7 +322,7 @@ export function fileExistsAndNotEmpty(filePath: string): boolean {
     }
     const stats = fsSync.statSync(filePath);
     return stats.size > 0;
-  } catch (error: any) {
+  } catch (error) {
     logger.error(`Error checking file ${filePath}`, error);
     return false;
   }
