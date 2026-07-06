@@ -24,6 +24,17 @@
         "LastModifiedDate"
       ],
       "recordCount": 1074
+    },
+    "normalised.csv": {
+      "size": 112686,
+      "sha256": "da7db8a4e9ddbe1f77a0934db67c9df33f27517c97fa3b5dd7c2189048473605",
+      "format": "csv",
+      "recordCount": 1074,
+      "sortedBy": "callsign"
     }
+  },
+  "normalised": {
+    "schemaVersion": 1,
+    "headerVariant": "v2025-salesforce"
   }
 }
