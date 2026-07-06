@@ -172,9 +172,13 @@ export interface ArchiveMeta {
   schemaVersion: 1;
   sourceKey: string;
   // 'live' entries were fetched by the current codebase; 'reconstructed-from-git-history'
-  // entries were materialised retroactively from prior git blobs and may be missing
-  // some fields (sourceUrl, ?v= value, etc.) that only live fetches can capture.
-  provenance: 'live' | 'reconstructed-from-git-history';
+  // entries were materialised retroactively from prior git blobs;
+  // 'reconstructed-from-prior-download' entries were imported from downloads the
+  // maintainer retained outside this repository. Reconstructed entries of either kind
+  // may be missing fields (sourceUrl, ?v= value, etc.) that only live fetches capture,
+  // and their fetchedAt records the import time - reconstructionNotes carries what is
+  // known about when and how the bytes were originally obtained.
+  provenance: 'live' | 'reconstructed-from-git-history' | 'reconstructed-from-prior-download';
   sourceUrl?: string;
   sourceVersionParam?: string;
   ofcomReportedUpdate?: string;
