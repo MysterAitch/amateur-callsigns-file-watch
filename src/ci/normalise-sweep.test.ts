@@ -68,7 +68,7 @@ describe('runNormaliseSweep', () => {
     const normalised = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'normalised.csv'), 'utf8');
     expect(normalised.startsWith('callsign,product,status,type,')).toBe(true);
     const meta = readMeta(tmpRoot, '2026-01-01');
-    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce' });
+    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 1 });
     expect(meta.files['normalised.csv'].sha256).toBe(sha256(normalised));
     expect(meta.files['normalised.csv'].recordCount).toBe(2);
   });
@@ -139,6 +139,39 @@ describe('runNormaliseSweep', () => {
     expect(summary).toMatch(/v1|schemaVersion/i);
     expect(summary).toMatch(/unknown raw header/i);
     expect(summary).toMatch(/no converter/i);
+  });
+
+  it('Sweep_WhenEntryNormalised_StatsJsonWrittenAndDeclaredInMeta', () => {
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    const report = runNormaliseSweep();
+
+    expect(report.changed).toEqual(['2026-01-01']);
+    const statsRaw = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'stats.json'), 'utf8');
+    const stats = JSON.parse(statsRaw);
+    expect(stats.statsSchemaVersion).toBe(1);
+    expect(stats.recordCount).toBe(2);
+    expect(stats.callsignPatterns).toEqual({ ANAAA: 2 }); // M7TEE, G5ABC
+    expect(stats.columns.callsign.distinct).toBe(2);
+    const meta = readMeta(tmpRoot, '2026-01-01');
+    expect(meta.files['stats.json'].sha256).toBe(sha256(statsRaw));
+    expect(meta.normalised.statsSchemaVersion).toBe(1);
+  });
+
+  it('Sweep_WhenMiddleEntryReDerivedBetweenNeighbours_ComparisonCoversBothDirections', () => {
+    // A retrospectively inserted/re-derived entry must be compared against
+    // chronological neighbours on BOTH sides, not just predecessors.
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-02-02', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-03-03', SALESFORCE_RAW);
+    runNormaliseSweep();
+    fs.writeFileSync(path.join(tmpRoot, 'archive', '2026-02-02', 'normalised.csv'), 'stale\n');
+
+    const second = runNormaliseSweep();
+
+    expect(second.changed).toEqual(['2026-02-02']);
+    const section = second.coverageMarkdown.slice(second.coverageMarkdown.indexOf('Neighbour comparison'));
+    expect(section).toContain('2026-01-01');
+    expect(section).toContain('2026-03-03');
   });
 
   it('Sweep_WhenNewestEntryMetaUpdated_LatestMetaMirrorRefreshedByteIdentically', () => {
