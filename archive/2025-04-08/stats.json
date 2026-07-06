@@ -7,9 +7,9 @@
     "A/A/AANAAA": 1,
     "A/AA-N-AA": 1,
     "A/AAA": 1,
-    "A/AAA NNNN": 1,
     "A/AAAA": 2,
     "A/AAANAAA": 1,
+    "A/AAA{U+0020}NNNN": 1,
     "A/AANA": 1,
     "A/AANAA": 20,
     "A/AANAAA": 48,
@@ -28,12 +28,12 @@
     "AAAAAAAAAAAA": 1,
     "AANAAA": 7,
     "AANNN": 1,
-    "AN AAA": 1,
     "ANAA": 473,
     "ANAAA": 136896,
     "ANAAA�": 2,
     "ANAAN": 2,
     "ANNAAA": 1,
+    "AN{U+0020}AAA": 1,
     "NAAAA": 1,
     "NANAAA": 14,
     "NANAAA�": 1,
@@ -95,5 +95,5 @@
     }
   },
   "recordCount": 157427,
-  "statsSchemaVersion": 1
+  "statsSchemaVersion": 2
 }

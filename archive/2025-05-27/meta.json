@@ -45,13 +45,13 @@
     },
     "stats.json": {
       "size": 1147,
-      "sha256": "ea3c4f094f2d72007e3cf8ee0d87135942c8846f940958aeca98841678987628",
+      "sha256": "f6c058b981b24acc6fe318064ebdd6389f89a3d54d8177d0bf1997faafbd1ea8",
       "format": "json"
     }
   },
   "normalised": {
     "schemaVersion": 1,
     "headerVariant": "v2025-salesforce",
-    "statsSchemaVersion": 1
+    "statsSchemaVersion": 2
   }
 }

@@ -21,11 +21,11 @@
     "AAAA": 3,
     "AAAAA": 4,
     "AANAAA": 7,
-    "AN AAA": 1,
     "ANAA": 472,
     "ANAAA": 132379,
     "ANAAA�": 2,
     "ANAAN": 1,
+    "AN{U+0020}AAA": 1,
     "NAAAA": 1,
     "NANAAA": 13,
     "NANAAA�": 1,
@@ -86,5 +86,5 @@
     }
   },
   "recordCount": 152084,
-  "statsSchemaVersion": 1
+  "statsSchemaVersion": 2
 }
