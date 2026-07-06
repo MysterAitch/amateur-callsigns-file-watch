@@ -24,6 +24,28 @@
         "LastModifiedDate"
       ],
       "recordCount": 157427
+    },
+    "normalised.csv": {
+      "size": 12806403,
+      "sha256": "63aea9b5ddd315e7009cc7075f1629aad1d21ef4dfbe6047b4cab25817515d40",
+      "format": "csv",
+      "columnCount": 8,
+      "columnNames": [
+        "callsign",
+        "product",
+        "status",
+        "type",
+        "created_date",
+        "last_modified_date",
+        "licence_version_last_modified_date",
+        "licence_version_original_start_date"
+      ],
+      "recordCount": 157427,
+      "sortedBy": "callsign"
     }
+  },
+  "normalised": {
+    "schemaVersion": 1,
+    "headerVariant": "v2025-salesforce"
   }
 }

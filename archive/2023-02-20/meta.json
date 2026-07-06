@@ -22,6 +22,28 @@
         "Call Sign MMSI: Last Modified Date"
       ],
       "recordCount": 152084
+    },
+    "normalised.csv": {
+      "size": 7915579,
+      "sha256": "ef6bdea303bc3c14a736f146953f34e0341b7dcc3cb0a234d2907abe83dbca87",
+      "format": "csv",
+      "columnCount": 8,
+      "columnNames": [
+        "callsign",
+        "product",
+        "status",
+        "type",
+        "created_date",
+        "last_modified_date",
+        "licence_version_last_modified_date",
+        "licence_version_original_start_date"
+      ],
+      "recordCount": 152084,
+      "sortedBy": "callsign"
     }
+  },
+  "normalised": {
+    "schemaVersion": 1,
+    "headerVariant": "v2023-mmsi"
   }
 }

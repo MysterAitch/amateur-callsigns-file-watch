@@ -21,6 +21,24 @@
         "Licence_Version.Original_start_date__c"
       ],
       "recordCount": 158318
+    },
+    "normalised.csv": {
+      "size": 11975841,
+      "sha256": "4978f137da2df7af6f019dd9d28ce21b9dce368bd3609e636ee90aacf6a6171a",
+      "format": "csv",
+      "columnCount": 8,
+      "columnNames": [
+        "callsign",
+        "product",
+        "status",
+        "type",
+        "created_date",
+        "last_modified_date",
+        "licence_version_last_modified_date",
+        "licence_version_original_start_date"
+      ],
+      "recordCount": 158318,
+      "sortedBy": "callsign"
     }
   },
   "diffSummary": {
@@ -36,5 +54,9 @@
   "ofcomReportedUpdate": "23 June 2026",
   "ofcomReportedUpdateIso": "2026-06-23",
   "linkText": "Amateur radio call signs",
-  "sourceVersionParam": "419818"
+  "sourceVersionParam": "419818",
+  "normalised": {
+    "schemaVersion": 1,
+    "headerVariant": "v2026-licence-version"
+  }
 }
