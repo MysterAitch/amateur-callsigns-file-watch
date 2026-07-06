@@ -13,7 +13,9 @@ import {
   logger,
   fileExistsAndNotEmpty,
   formatFileSize,
-  CsvDownloadMetadata
+  CsvDownloadMetadata,
+  ScrapeOptions,
+  ScrapeResult,
 } from './utils';
 
 // Constants
@@ -261,6 +263,49 @@ function extractUpdateDateFromHtmlTable(linkElement: Element): string | null {
   return null;
 }
 
+// Extract the ?v= query parameter from the CSV URL. Ofcom uses this as a
+// cache-buster - when the underlying content changes the value bumps, which
+// makes it a cheap "did anything change?" signal without downloading the
+// full 11 MB CSV.
+export function extractVersionParam(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  const m = url.match(/[?&]v=([^&]+)/);
+  return m ? m[1] : undefined;
+}
+
+const DEFAULT_VERIFICATION_INTERVAL_DAYS = 7;
+
+export type VersionCheckPath =
+  | 'download-new'          // first run, or v changed - always download
+  | 'skip-fast-path'        // v unchanged and verification is fresh
+  | 'download-and-verify';  // v unchanged but verification is stale - re-download to confirm
+
+/**
+ * Pure decision function: given the observed v and the last-known state, which
+ * of the three paths should scrape take? Extracted from runScrape so it is
+ * exhaustively testable without any network or filesystem setup.
+ */
+export function decideVersionCheckPath(
+  currentV: string | undefined,
+  options: ScrapeOptions | undefined,
+  now: Date,
+): VersionCheckPath {
+  const opts = options ?? {};
+  // No prior state (fresh install, or `?v=` wasn't extractable from the URL):
+  // fall through to the normal download path.
+  if (!opts.lastKnownV || !opts.lastKnownVContentHash || !opts.lastKnownVVerifiedAt) {
+    return 'download-new';
+  }
+  if (!currentV) return 'download-new';
+  if (currentV !== opts.lastKnownV) return 'download-new';
+
+  // Same v - either fast-path or verify depending on staleness.
+  const intervalDays = opts.verificationIntervalDays ?? DEFAULT_VERIFICATION_INTERVAL_DAYS;
+  const verifiedAt = new Date(opts.lastKnownVVerifiedAt);
+  const ageDays = (now.getTime() - verifiedAt.getTime()) / (1000 * 60 * 60 * 24);
+  return ageDays >= intervalDays ? 'download-and-verify' : 'skip-fast-path';
+}
+
 function buildAbsoluteOfcomUrl(url: string): string {
   if (url.match(/^https?:\/\//)) {
     return url;
@@ -270,16 +315,25 @@ function buildAbsoluteOfcomUrl(url: string): string {
 }
 
 /**
- * Fetch Ofcom's opendata page, locate the amateur callsigns CSV link, download
- * it to a temp path, validate content (sanity gate), and atomically promote
- * into place. Persists CsvDownloadMetadata (URL + ?v= + Ofcom-reported date +
- * link text) as a sidecar so the process step can enrich the archive meta.
+ * Fetch Ofcom's opendata page, locate the amateur callsigns CSV link, and take
+ * one of four possible paths based on the URL's `?v=` version parameter:
+ *
+ *   - downloaded         first run or v changed; do the full 11 MB download
+ *   - fast-path-skipped  v matches state and verification is recent; no download
+ *   - verified-unchanged v matches state but stale; re-download, hash matches
+ *   - anomaly-detected   v matches state but hash differs (Ofcom republished
+ *                        under the same v); staging file is NOT overwritten
+ *
+ * The full-download path also runs the sanity gate (rejects HTML/challenge
+ * pages, too-small files, and CSVs missing expected header tokens) and
+ * atomically promotes the temp file into the staging path.
  *
  * Callable from the scheduled-run orchestrator as well as from `npm run pull`.
- * Throws on any failure - the caller decides how to respond (retry, notify,
- * abort). Does not call process.exit itself.
+ * Throws on any hard failure (network, sanity gate rejection). Anomalies are
+ * signalled by a returned `action: 'anomaly-detected'` rather than a throw,
+ * so the orchestrator can compose the right notification.
  */
-export async function runScrape(): Promise<void> {
+export async function runScrape(options?: ScrapeOptions): Promise<ScrapeResult> {
   logger.info("Starting Ofcom amateur radio callsigns scraping process");
 
   // Fetch the Ofcom opendata page with browser-like headers to avoid WAF/bot 403s
@@ -289,29 +343,27 @@ export async function runScrape(): Promise<void> {
     timeout: 30000,
   });
 
-  // Save HTML for debugging
   await fs.writeFile(OUTPUT_FILES.htmlOutput, response.data);
   logger.debug(`Saved HTML content to ${OUTPUT_FILES.htmlOutput}`);
 
-  // Parse and find the CSV link
   logger.info("Parsing HTML content...");
   const dom = new JSDOM(response.data);
   const document = dom.window.document;
 
   const csvLinkDetails = findCsvLink(document);
 
-  // Extract update date
   const updatedDate = extractUpdateDateFromHtmlTable(csvLinkDetails.element) ||
     new Date().toLocaleDateString('en-GB', {
       day: 'numeric', month: 'long', year: 'numeric'
     });
 
-  // Build full URL
   const fullUrl = buildAbsoluteOfcomUrl(csvLinkDetails.href);
+  const currentV = extractVersionParam(fullUrl);
 
   logger.info(`Found CSV URL :`, fullUrl);
   logger.info(`Link text :`, csvLinkDetails.text);
   logger.info(`Ofcom-reported last updated date:`, updatedDate);
+  logger.info(`Observed ?v= : ${currentV ?? '(none)'}`);
 
   const downloadMetadata: CsvDownloadMetadata = {
     url: fullUrl,
@@ -319,22 +371,25 @@ export async function runScrape(): Promise<void> {
     ofcomReportedLastUpdate: updatedDate,
   };
 
-  // Check if we had a previous version (for hash comparison / change detection)
-  const previousFileExists = fileExistsAndNotEmpty(OUTPUT_FILES.originalRawCsvFile);
-  let previousHash = null;
-  if (previousFileExists) {
-    try {
-      previousHash = calculateFileHash(OUTPUT_FILES.originalRawCsvFile);
-      logger.debug(`Previous file hash: ${previousHash}`);
-    } catch (error) {
-      logger.warn("Could not calculate hash of previous file:", error);
-    }
+  const decision = decideVersionCheckPath(currentV, options, new Date());
+  logger.info(`Version-check decision: ${decision}`);
+
+  // Fast-path: v hasn't changed AND our last verification is recent. Skip the
+  // ~11 MB download entirely. We still refresh the download metadata sidecar
+  // so subsequent process runs see the current URL/link/date - none of that
+  // costs a large fetch.
+  if (decision === 'skip-fast-path') {
+    await saveJsonFile(OUTPUT_FILES.downloadMetadataFile, downloadMetadata);
+    logger.info("Fast-path: skipping CSV download (v unchanged, verification fresh).");
+    return { action: 'fast-path-skipped', currentV };
   }
 
-  // Download to a TEMPORARY path first, so a bad download (challenge page,
-  // truncated file, wrong dataset) can never overwrite the last good CSV.
+  // Either a fresh download or a verification re-download. Both take the same
+  // atomic-promote path: temp file -> sanity gate -> atomic rename. What
+  // differs is what we do AFTER: verify-and-compare-hash, or accept-as-new.
   const tempCsvPath = `${OUTPUT_FILES.originalRawCsvFile}.tmp-${process.pid}`;
   logger.info(`Downloading amateur callsigns CSV to temporary file ${tempCsvPath}...`);
+  let tempHash: string;
   try {
     await downloadFile(fullUrl, tempCsvPath);
     logger.info("Download complete.");
@@ -342,37 +397,54 @@ export async function runScrape(): Promise<void> {
     // SANITY GATE: validate content before accepting it. Throws on failure.
     verifyAmateurCsv(tempCsvPath);
 
-    // Passed validation - promote temp file into place atomically.
-    fsSync.renameSync(tempCsvPath, OUTPUT_FILES.originalRawCsvFile);
+    // Hash the temp file BEFORE promoting so the verification path can check
+    // for the anomaly (same v, different content) without touching the good
+    // staging file.
+    tempHash = calculateFileHash(tempCsvPath);
+    logger.debug(`Downloaded temp file hash: ${tempHash}`);
   } catch (err) {
     // Clean up the temp file; leave any existing good CSV untouched.
     try { if (fsSync.existsSync(tempCsvPath)) fsSync.unlinkSync(tempCsvPath); } catch { /* ignore */ }
     throw err;
   }
 
-  // Compare hashes (purely informational; process/commit steps decide what to do)
-  if (previousHash !== null) {
-    try {
-      const newHash = calculateFileHash(OUTPUT_FILES.originalRawCsvFile);
-      if (newHash === previousHash) {
-        logger.info("Downloaded file is identical to the previous version (same hash).");
-      } else {
-        logger.info("Downloaded file is different from the previous version (hash changed).");
-      }
-    } catch (error) {
-      logger.warn("Could not compare file hashes:", error);
+  // Verification path: v matched state but staleness triggered a re-download.
+  // If the hash still matches, all is well - refresh verifiedAt and leave the
+  // staging file alone. If it DIFFERS, this is the anomaly (Ofcom republished
+  // content under the same ?v= value) - do NOT overwrite the good staging
+  // file; the orchestrator will notify HIGH and can decide next steps.
+  if (decision === 'download-and-verify') {
+    const expected = options?.lastKnownVContentHash;
+    try { fsSync.unlinkSync(tempCsvPath); } catch { /* ignore */ }
+    if (expected && tempHash === expected) {
+      logger.info("Verification succeeded: v and hash both unchanged since last successful download.");
+      // Metadata still refreshed - the URL / Ofcom-reported date can shift
+      // independently of ?v= (e.g. a fresh crawl might see the same file but
+      // a subtly different link text).
+      await saveJsonFile(OUTPUT_FILES.downloadMetadataFile, downloadMetadata);
+      return { action: 'verified-unchanged', currentV, contentHash: tempHash };
     }
+    const msg =
+      `Ofcom appears to have republished under an unchanged ?v=${currentV ?? '(none)'} - ` +
+      `previous hash ${expected ?? '(unknown)'} vs newly-downloaded ${tempHash}. ` +
+      `Staging CSV was NOT overwritten; manual investigation required.`;
+    logger.warn(msg);
+    // Do NOT refresh download metadata either - metadata should describe the
+    // last KNOWN-GOOD publication until we've decided what to do.
+    return { action: 'anomaly-detected', currentV, contentHash: tempHash, anomalyMessage: msg };
   }
 
+  // Normal download path: v changed (or first-run). Promote the temp file into
+  // the staging path and refresh metadata.
+  fsSync.renameSync(tempCsvPath, OUTPUT_FILES.originalRawCsvFile);
   const stats = fsSync.statSync(OUTPUT_FILES.originalRawCsvFile);
   logger.info(`CSV file downloaded and validated successfully. File size: ${formatFileSize(stats.size)}`);
 
-  // Only NOW persist the download metadata - i.e. metadata always describes a
-  // file that actually passed validation, never a failed/partial attempt.
   logger.debug('Saving download metadata to: ', OUTPUT_FILES.downloadMetadataFile);
   await saveJsonFile(OUTPUT_FILES.downloadMetadataFile, downloadMetadata);
 
   logger.info("Scraping process completed successfully");
+  return { action: 'downloaded', currentV, contentHash: tempHash };
 }
 
 // Auto-invoke when run directly (npm run pull). When imported by the scheduled

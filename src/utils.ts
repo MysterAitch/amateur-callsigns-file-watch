@@ -120,6 +120,38 @@ export interface DiffSummary {
   sampleRemoved?: string[];
 }
 
+// Options fed to runScrape by the scheduled orchestrator to enable the
+// courtesy ?v= fast-path: if the CSV URL's version parameter hasn't changed
+// since we last successfully downloaded, and our last verification was
+// recent, we skip the ~11 MB download entirely (just fetch the small HTML
+// index).
+//
+// If all three lastKnown* fields are undefined, runScrape treats the state as
+// fresh (first run) and does a normal download. That's the migration-safe
+// default - existing invocations that don't pass options behave exactly as
+// they did before this feature was added.
+export interface ScrapeOptions {
+  lastKnownV?: string;
+  lastKnownVContentHash?: string;
+  lastKnownVVerifiedAt?: string; // ISO
+  verificationIntervalDays?: number; // default 7
+}
+
+// Outcome of runScrape - describes which of the four possible paths it took
+// so the orchestrator can update state and decide whether to run process.
+//
+// downloaded         - v changed (or first-run) -> fresh CSV promoted into staging path
+// fast-path-skipped  - v unchanged, verification is fresh -> no download; staging path unchanged
+// verified-unchanged - v unchanged, verification stale -> downloaded, hash still matches state
+// anomaly-detected   - v unchanged but downloaded content differs from state hash. Staging
+//                      path is NOT overwritten in this case; the previous good CSV is preserved.
+export interface ScrapeResult {
+  action: 'downloaded' | 'fast-path-skipped' | 'verified-unchanged' | 'anomaly-detected';
+  currentV?: string;
+  contentHash?: string; // sha256 of the raw CSV; present for downloaded/verified/anomaly
+  anomalyMessage?: string; // present only for anomaly-detected
+}
+
 // Outcome of running the process step - what the caller (scheduled-run
 // orchestrator) needs to know to compose git commits and ntfy notifications.
 export interface ProcessResult {

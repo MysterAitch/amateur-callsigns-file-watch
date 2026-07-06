@@ -44,6 +44,7 @@ import {
   saveJsonFile,
   CONSTANTS,
   ProcessResult,
+  ScrapeResult,
 } from './utils';
 
 //
@@ -306,7 +307,26 @@ function composeUpdateBody(result: ProcessResult, git: GitResult): string {
 //
 
 async function runTick(state: NotifyState, windowId: string): Promise<void> {
-  await runScrape();
+  const scrape = await runScrape({
+    lastKnownV: state.lastKnownV,
+    lastKnownVContentHash: state.lastKnownVContentHash,
+    lastKnownVVerifiedAt: state.lastKnownVVerifiedAt,
+  });
+  logger.info(`Scrape action: ${scrape.action}`);
+
+  // Anomaly: Ofcom republished under an unchanged ?v=. The staging file was
+  // NOT overwritten, so process would just re-observe the previous good CSV.
+  // Notify HIGH and record verifiedAt = now (so we don't burn a full download
+  // re-verifying at the next tick), then bail out of the tick without
+  // touching git or invoking process.
+  if (scrape.action === 'anomaly-detected') {
+    await ntfy('high', 'Ofcom cache-buster anomaly',
+      scrape.anomalyMessage ?? 'Ofcom republished content under an unchanged ?v= - manual review needed.');
+    state.lastKnownVVerifiedAt = new Date().toISOString();
+    state.lastRunWindowId = windowId;
+    return;
+  }
+
   const result = await runProcess();
 
   let git: GitResult = { committed: false, pushed: false };
@@ -319,7 +339,25 @@ async function runTick(state: NotifyState, windowId: string): Promise<void> {
   }
 
   await handleSuccess(state, result, git);
+  updateVersionState(state, scrape);
   state.lastRunWindowId = windowId;
+}
+
+// Fold the scrape outcome back into the persisted state so the next tick can
+// take the fast-path when appropriate. Only fresh downloads bump lastKnownV
+// and its hash; verification-passes only bump the verifiedAt timestamp.
+function updateVersionState(state: NotifyState, scrape: ScrapeResult): void {
+  const now = new Date().toISOString();
+  if (scrape.action === 'downloaded' && scrape.currentV && scrape.contentHash) {
+    state.lastKnownV = scrape.currentV;
+    state.lastKnownVContentHash = scrape.contentHash;
+    state.lastKnownVVerifiedAt = now;
+  } else if (scrape.action === 'verified-unchanged') {
+    state.lastKnownVVerifiedAt = now;
+  }
+  // 'fast-path-skipped' and 'anomaly-detected' leave lastKnownV state alone
+  // (fast-path had no reason to update it; anomaly is handled above and does
+  // its own timestamp bump so we don't loop on re-verifying).
 }
 
 function buildCommitMessage(result: ProcessResult): string {
