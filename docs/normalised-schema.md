@@ -12,6 +12,25 @@ derivation, re-derived by the scheduled normalise sweep; git history preserves
 every earlier version. Byte-identical re-runs are no-ops; any change arrives
 as an always-human-reviewed PR.
 
+## Companion artefact: `stats.json`
+
+Each normalised entry also carries `archive/{key}/stats.json` (issue #46):
+data-quality statistics computed from the canonical rows — a callsign format
+taxonomy (uppercase→`A`, lowercase→`a`, digit→`N`, all other characters
+preserved) and per-column distributions (distinct/empty counts, string-length
+ranges, date min/max; distinct and ranges consider non-empty values only,
+emptiness being its own counter). It lives in the same golden-master lane:
+produced by the sweep, declared in `meta.files` (size + sha256), versioned via
+`normalised.statsSchemaVersion` in meta, serialised with lexicographically
+sorted keys so diffs between publications stay minimal and are themselves a
+review signal.
+
+Derivation PRs and the coverage dashboard include a neighbour-comparison
+table for each changed entry — up to three chronological neighbours on *each
+side* (archive-key order), showing record-count deltas and callsign patterns
+gained/lost, so a reviewer can judge whether a new or retrospectively
+inserted publication is plausible in both directions.
+
 ## Schema v1
 
 Faithful column mapping plus date normalisation. Values are otherwise

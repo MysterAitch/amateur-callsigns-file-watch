@@ -24,6 +24,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CONSTANTS, ArchiveMeta, calculateContentHash, saveJsonFileSync } from '../shared/utils';
 import { listArchiveKeys } from '../shared/archive';
+import { renderStatsJson, compareStats, EntryStats } from '../shared/stats';
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, ConvertResult } from '../sources/ofcom-amateur/normalise';
 
 interface SourceConverter {
@@ -69,7 +70,7 @@ export function runNormaliseSweep(): SweepReport {
   for (const key of listArchiveKeys()) {
     const dir = path.join(CONSTANTS.DIRS.archive, key);
     const metaPath = path.join(dir, 'meta.json');
-    let meta: ArchiveMeta & { normalised?: { schemaVersion: number; headerVariant: string } };
+    let meta: ArchiveMeta & { normalised?: { schemaVersion: number; headerVariant: string; statsSchemaVersion?: number } };
     try {
       meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
     } catch (err: any) {
@@ -102,15 +103,26 @@ export function runNormaliseSweep(): SweepReport {
       const result: ConvertResult = converter.convert(raw, referenceDate);
 
       const outPath = path.join(dir, 'normalised.csv');
+      const statsPath = path.join(dir, 'stats.json');
+      const statsJson = renderStatsJson(result.stats);
       const existing = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8') : undefined;
-      if (existing === result.csv && meta.normalised?.schemaVersion === result.schemaVersion) {
+      const existingStats = fs.existsSync(statsPath) ? fs.readFileSync(statsPath, 'utf8') : undefined;
+      if (existing === result.csv
+        && existingStats === statsJson
+        && meta.normalised?.schemaVersion === result.schemaVersion
+        && meta.normalised?.statsSchemaVersion === result.stats.statsSchemaVersion) {
         report.upToDate.push(key);
         coverageRows.push(`| ${key} | ${meta.sourceKey} | v${result.schemaVersion} (${result.headerVariant}) | up to date |`);
         continue;
       }
 
       fs.writeFileSync(outPath, result.csv);
-      meta.normalised = { schemaVersion: result.schemaVersion, headerVariant: result.headerVariant };
+      fs.writeFileSync(statsPath, statsJson);
+      meta.normalised = {
+        schemaVersion: result.schemaVersion,
+        headerVariant: result.headerVariant,
+        statsSchemaVersion: result.stats.statsSchemaVersion,
+      };
       meta.files['normalised.csv'] = {
         size: Buffer.byteLength(result.csv),
         sha256: calculateContentHash(result.csv),
@@ -119,6 +131,11 @@ export function runNormaliseSweep(): SweepReport {
         columnNames: [...CANONICAL_COLUMNS],
         recordCount: result.recordCount,
         sortedBy: 'callsign',
+      };
+      meta.files['stats.json'] = {
+        size: Buffer.byteLength(statsJson),
+        sha256: calculateContentHash(statsJson),
+        format: 'json',
       };
       saveJsonFileSync(metaPath, meta);
       report.changed.push(key);
@@ -149,9 +166,48 @@ export function runNormaliseSweep(): SweepReport {
     '| entry | source | achieved | note |',
     '|---|---|---|---|',
     ...coverageRows,
+    ...neighbourComparisonMarkdown(report.changed, keys),
   ].join('\n');
 
   return report;
+}
+
+// Reviewer guidance for changed entries (issue #46): compare each against its
+// chronological neighbours - up to 3 before AND 3 after in archive-key order,
+// because a retrospectively inserted entry must be plausible in both
+// directions, not just against its predecessors. Neighbours without a
+// stats.json (raw-only entries) are skipped. Comparison failures degrade to a
+// note - guidance must never fail the sweep.
+function neighbourComparisonMarkdown(changed: string[], keys: string[]): string[] {
+  const lines: string[] = [];
+  const readStats = (key: string): EntryStats | undefined => {
+    const p = path.join(CONSTANTS.DIRS.archive, key, 'stats.json');
+    if (!fs.existsSync(p)) return undefined;
+    try {
+      return JSON.parse(fs.readFileSync(p, 'utf8')) as EntryStats;
+    } catch {
+      return undefined;
+    }
+  };
+  const capped = (patterns: string[]): string =>
+    patterns.length === 0 ? '—' : mdCell(patterns.slice(0, 5).join(', ') + (patterns.length > 5 ? ` (+${patterns.length - 5} more)` : ''), 200);
+
+  for (const key of changed) {
+    const entryStats = readStats(key);
+    if (!entryStats) continue;
+    const index = keys.indexOf(key);
+    const neighbours = [...keys.slice(Math.max(0, index - 3), index), ...keys.slice(index + 1, index + 4)];
+    const rows = neighbours.flatMap((neighbourKey) => {
+      const neighbourStats = readStats(neighbourKey);
+      if (!neighbourStats) return [];
+      const cmp = compareStats(entryStats, neighbourStats);
+      const direction = neighbourKey < key ? 'before' : 'after';
+      return [`| ${neighbourKey} (${direction}) | ${neighbourStats.recordCount} | ${cmp.recordCountDeltaPct >= 0 ? '+' : ''}${cmp.recordCountDeltaPct.toFixed(1)}% | ${capped(cmp.newPatterns)} | ${capped(cmp.lostPatterns)} |`];
+    });
+    if (rows.length === 0) continue;
+    lines.push('', `### Neighbour comparison: ${key} (${entryStats.recordCount} records, ${Object.keys(entryStats.callsignPatterns).length} callsign patterns)`, '', '| neighbour | records | Δ records | patterns gained vs neighbour | patterns lost vs neighbour |', '|---|---|---|---|---|', ...rows);
+  }
+  return lines;
 }
 
 function main(): void {
