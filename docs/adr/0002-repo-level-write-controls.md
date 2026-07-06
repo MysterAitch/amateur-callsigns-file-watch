@@ -109,6 +109,38 @@ narrowest credential shape that still lets the fetch host publish: compromising 
 host yields the ability to push branches that a reviewed workflow will refuse to
 auto-merge unless the diff is data-only.
 
+### 5. Advanced Security (all read-only analysis; enabled 2026-07-06)
+
+None of these grant write access to anything, so the supply-chain posture is
+unaffected; they only add detection.
+
+- **Dependency graph**: enabled (Dependabot requires it). Side benefit: automatic SPDX
+  SBOM export via `GET repos/{owner}/{repo}/dependency-graph/sbom`.
+- **Dependabot alerts + security updates**: enabled. Alerts surface CVEs in
+  dependencies immediately (rather than waiting for the weekly version-update sweep);
+  security updates open fix PRs, which arrive through the same gated door as all code
+  PRs (ruleset + required checks, never auto-merged).
+- **CodeQL code scanning, default setup**: enabled for JavaScript/TypeScript **and
+  GitHub Actions workflows** — the latter catches workflow-injection patterns
+  (untrusted input interpolated into `run:` blocks), directly relevant to the sweep and
+  any future comment-triggered workflows. Scans on PR + weekly. Its check run is
+  deliberately NOT a required status check: a new-query false positive must not block a
+  data publication; alerts and PR annotations are the right pressure. Failure
+  thresholds left at defaults (security: high-or-higher; standard: errors).
+- **Copilot Autofix**: on (suggests fixes on CodeQL alerts; suggestions only, never
+  commits).
+- **Private vulnerability reporting**: enabled — a private disclosure channel instead
+  of a public issue.
+- **Secret scanning + push protection**: enabled (pre-existing). Non-provider patterns
+  and validity checks left off: the former is noisy generic heuristics; the latter
+  sends candidate secrets to providers for live verification.
+- **Automatic dependency submission**: left OFF deliberately — it exists for
+  ecosystems whose build-time dependencies are invisible to manifest parsing; npm's
+  lockfile already gives the graph everything, so this would only add a no-op Actions
+  job.
+- **Grouped security updates**: UI-only setting (no public API); enable opportunistically
+  to reduce PR noise if security-update PRs ever arrive in clusters.
+
 ## Recreation (disaster recovery / new repo)
 
 ```bash
@@ -151,6 +183,14 @@ gh api -X PUT repos/{owner}/{repo}/actions/permissions/workflow \
 # Merge behaviour
 gh api -X PATCH repos/{owner}/{repo} -F allow_auto_merge=true
 # (allow_merge_commit and delete_branch_on_merge were already enabled)
+
+# Advanced Security
+gh api -X PUT repos/{owner}/{repo}/vulnerability-alerts
+gh api -X PUT repos/{owner}/{repo}/automated-security-fixes
+gh api -X PUT repos/{owner}/{repo}/private-vulnerability-reporting
+gh api -X PATCH repos/{owner}/{repo}/code-scanning/default-setup -f state=configured
+# (dependency graph, secret scanning, and push protection are on by default
+#  for public repos; grouped security updates is UI-only)
 ```
 
 ## Consequences
