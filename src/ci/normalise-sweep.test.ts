@@ -234,6 +234,38 @@ describe('runNormaliseSweep', () => {
     expect(matrixHeader).not.toContain('2026-01-01'); // 11th before - beyond the cap
   });
 
+  it('Report_MatrixRecordsRow_AnnotatesNeighboursWithDeltaFromCurrentEntry', () => {
+    // "this" is the baseline: each neighbour's records cell carries its
+    // difference from the current entry, signed, with a percentage over the
+    // current entry's count - the arithmetic reviewers would otherwise do by
+    // hand.
+    const fourRows = SALESFORCE_RAW
+      + 'M0AAA,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,20/01/2019,21/04/2024\n'
+      + 'M0BBB,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,20/01/2019,21/04/2024\n';
+    writeEntry(tmpRoot, '2026-01-01', fourRows); // 4 records
+    writeEntry(tmpRoot, '2026-02-02', SALESFORCE_RAW); // 2 records - the entry under report
+    runNormaliseSweep();
+
+    const report = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-02-02.md'), 'utf8');
+    expect(report).toContain('4<br><small>+2 (+100.0%)</small>');
+  });
+
+  it('Report_WhenPatternEmptyOrSpaced_RenderedVisiblyNotAsBrokenMarkdown', () => {
+    // An empty callsign produces the empty pattern, which as a bare code
+    // span renders as two literal backticks; spaces inside code spans are
+    // invisible. Both must render visibly for the reviewer.
+    const withAnomalies = SALESFORCE_RAW
+      + ',,Available,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + 'M7 ODD,,Available,Call Sign - Amateur,21/01/2019,21/01/2019\n';
+    writeEntry(tmpRoot, '2026-01-01', withAnomalies);
+    runNormaliseSweep();
+
+    const report = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-01-01.md'), 'utf8');
+    expect(report).toContain('_(empty)_');
+    expect(report).not.toMatch(/\| `` \|/);
+    expect(report).toContain('`AN␣AAA`');
+  });
+
   it('Report_WhenNothingChanges_FilesStayByteIdentical', () => {
     // Reports are derived golden masters like everything else: a re-run over
     // unchanged data must regenerate byte-identical files (no timestamps, no

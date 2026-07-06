@@ -237,8 +237,19 @@ function windowFor(key: string, keys: string[]): string[] {
 }
 
 // Pattern x dataset matrix over the window: one row per pattern (union across
+// Pattern labels must render VISIBLY: the empty pattern (a blank callsign in
+// the raw) as a bare code span shows as two literal backticks, and spaces
+// inside code spans are invisible - substitute an explicit marker for each.
+function patternLabel(pattern: string): string {
+  if (pattern === '') return '_(empty)_';
+  return `\`${mdCell(pattern, 40).replace(/ /g, '␣')}\``;
+}
+
 // the window), one column per dataset, current entry bolded. Absence is '—',
-// distinct from a zero count. First row carries record counts.
+// distinct from a zero count. First row carries record counts, with each
+// neighbour annotated by its difference from the current entry - the deltas
+// reviewers would otherwise compute by hand. Pattern rows stay plain numbers:
+// the matrix's job is shape-spotting, and per-cell deltas would drown it.
 function matrixTable(key: string, window: string[], statsByKey: Map<string, EntryStats>): string[] {
   const header = window.map(k => (k === key ? `${k} (this)` : k));
   const patternUnion = new Set<string>();
@@ -251,12 +262,22 @@ function matrixTable(key: string, window: string[], statsByKey: Map<string, Entr
     return byCount !== 0 ? byCount : a < b ? -1 : 1;
   });
   const cell = (k: string, value: string): string => (k === key ? `**${value}**` : value);
+  const recordsCell = (k: string): string => {
+    const count = statsByKey.get(k)?.recordCount;
+    if (count === undefined) return '—';
+    if (k === key || current === undefined || current.recordCount === 0) return cell(k, String(count));
+    const diff = count - current.recordCount;
+    if (diff === 0) return String(count); // a zero delta is noise, not signal
+    const sign = diff >= 0 ? '+' : '';
+    const pct = (diff / current.recordCount) * 100;
+    return `${count}<br><small>${sign}${diff} (${sign}${pct.toFixed(1)}%)</small>`;
+  };
   const rows = [
     `| pattern | ${header.join(' | ')} |`,
     `|---|${window.map(() => '---:').join('|')}|`,
-    `| _records_ | ${window.map(k => cell(k, String(statsByKey.get(k)?.recordCount ?? '—'))).join(' | ')} |`,
+    `| _records_ | ${window.map(recordsCell).join(' | ')} |`,
     ...patterns.map(p =>
-      `| \`${mdCell(p, 40)}\` | ${window
+      `| ${patternLabel(p)} | ${window
         .map(k => {
           const count = statsByKey.get(k)?.callsignPatterns[p];
           return cell(k, count === undefined ? '—' : String(count));
@@ -279,7 +300,7 @@ function writeQualityReports(keys: string[]): void {
   fs.mkdirSync(REPORTS_DIR, { recursive: true });
 
   const capped = (patterns: string[]): string =>
-    patterns.length === 0 ? '—' : mdCell(patterns.slice(0, 5).map(p => `\`${p}\``).join(', ') + (patterns.length > 5 ? ` (+${patterns.length - 5} more)` : ''), 250);
+    patterns.length === 0 ? '—' : patterns.slice(0, 5).map(patternLabel).join(', ') + (patterns.length > 5 ? ` (+${patterns.length - 5} more)` : '');
 
   for (const [key, stats] of statsByKey) {
     const window = windowFor(key, keys).filter(k => statsByKey.has(k));
@@ -303,7 +324,7 @@ function writeQualityReports(keys: string[]): void {
       '',
       '| pattern | count |',
       '|---|---:|',
-      ...ownPatterns.map(([p, c]) => `| \`${mdCell(p, 40)}\` | ${c} |`),
+      ...ownPatterns.map(([p, c]) => `| ${patternLabel(p)} | ${c} |`),
       '',
       '## Pattern counts across window',
       '',
