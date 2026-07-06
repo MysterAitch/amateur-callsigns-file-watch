@@ -4,7 +4,8 @@
   "provenance": "reconstructed-from-git-history",
   "fetchedAt": "2025-04-28T02:13:20Z",
   "gitCommitSha": "9c6103e11b8887548b49814ee017dcc5a9a8cae4",
-  "reconstructionNotes": "Reconstructed from git commit 9c6103e (path at commit: amateur-callsigns.csv). Ofcom-reported publication date unknown; using commit author date (2025-04-28) as archive key.",
+  "ofcomReportedUpdateIso": "2025-04-08",
+  "reconstructionNotes": "Reconstructed from git commit 9c6103e (path at commit: amateur-callsigns.csv). Ofcom-reported publication date unknown at reconstruction; commit author date (2025-04-28) was used as the archive key. Publication date subsequently established as 2025-04-08 from a retained download's recorded metadata (byte-identical content), and the entry was renamed from 2025-04-28 accordingly (2026-07-06).",
   "files": {
     "raw.csv": {
       "size": 12648906,
