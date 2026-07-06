@@ -160,52 +160,156 @@ export function runNormaliseSweep(): SweepReport {
     fs.copyFileSync(path.join(CONSTANTS.DIRS.archive, newest, 'meta.json'), CONSTANTS.FILES.latestMeta);
   }
 
+  // Committed quality reports (issue #46): reports/{key}.md per entry with
+  // stats - the durable, diffable, browsable home for the pattern matrix and
+  // pairwise comparisons. Regenerated wholesale each run; byte-identical
+  // regeneration means no git change, so unchanged windows never churn.
+  writeQualityReports(keys);
+
   report.coverageMarkdown = [
     `Intended schema version per source: ${Object.entries(CONVERTERS).map(([k, c]) => `\`${k}\` → v${c.schemaVersion}`).join(', ')}`,
     '',
     '| entry | source | achieved | note |',
     '|---|---|---|---|',
     ...coverageRows,
-    ...neighbourComparisonMarkdown(report.changed, keys),
+    ...changedEntryMatrixMarkdown(report.changed, keys),
   ].join('\n');
 
   return report;
 }
 
-// Reviewer guidance for changed entries (issue #46): compare each against its
-// chronological neighbours - up to 3 before AND 3 after in archive-key order,
-// because a retrospectively inserted entry must be plausible in both
-// directions, not just against its predecessors. Neighbours without a
-// stats.json (raw-only entries) are skipped. Comparison failures degrade to a
-// note - guidance must never fail the sweep.
-function neighbourComparisonMarkdown(changed: string[], keys: string[]): string[] {
-  const lines: string[] = [];
-  const readStats = (key: string): EntryStats | undefined => {
-    const p = path.join(CONSTANTS.DIRS.archive, key, 'stats.json');
-    if (!fs.existsSync(p)) return undefined;
-    try {
-      return JSON.parse(fs.readFileSync(p, 'utf8')) as EntryStats;
-    } catch {
-      return undefined;
-    }
-  };
-  const capped = (patterns: string[]): string =>
-    patterns.length === 0 ? '—' : mdCell(patterns.slice(0, 5).join(', ') + (patterns.length > 5 ? ` (+${patterns.length - 5} more)` : ''), 200);
+// Per-entry reports live under entries/ so future per-dimension drill-downs
+// (pattern time-series, prefix/RSL distributions, quality rollups - see the
+// follow-up issue) can sit alongside without moving files.
+const REPORTS_DIR = 'reports/entries';
 
+function readStats(key: string): EntryStats | undefined {
+  const p = path.join(CONSTANTS.DIRS.archive, key, 'stats.json');
+  if (!fs.existsSync(p)) return undefined;
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf8')) as EntryStats;
+  } catch {
+    return undefined;
+  }
+}
+
+// Chronological window for comparisons: up to 3 neighbours on EACH side in
+// archive-key order, so a retrospectively inserted entry is judged in both
+// directions - an anomaly can present as a discontinuity against successors
+// just as easily as against predecessors.
+function windowFor(key: string, keys: string[]): string[] {
+  const index = keys.indexOf(key);
+  return [...keys.slice(Math.max(0, index - 3), index), key, ...keys.slice(index + 1, index + 4)];
+}
+
+// Pattern x dataset matrix over the window: one row per pattern (union across
+// the window), one column per dataset, current entry bolded. Absence is '—',
+// distinct from a zero count. First row carries record counts.
+function matrixTable(key: string, window: string[], statsByKey: Map<string, EntryStats>): string[] {
+  const header = window.map(k => (k === key ? `${k} (this)` : k));
+  const patternUnion = new Set<string>();
+  for (const k of window) {
+    for (const p of Object.keys(statsByKey.get(k)?.callsignPatterns ?? {})) patternUnion.add(p);
+  }
+  const current = statsByKey.get(key);
+  const patterns = [...patternUnion].sort((a, b) => {
+    const byCount = (current?.callsignPatterns[b] ?? 0) - (current?.callsignPatterns[a] ?? 0);
+    return byCount !== 0 ? byCount : a < b ? -1 : 1;
+  });
+  const cell = (k: string, value: string): string => (k === key ? `**${value}**` : value);
+  const rows = [
+    `| pattern | ${header.join(' | ')} |`,
+    `|---|${window.map(() => '---:').join('|')}|`,
+    `| _records_ | ${window.map(k => cell(k, String(statsByKey.get(k)?.recordCount ?? '—'))).join(' | ')} |`,
+    ...patterns.map(p =>
+      `| \`${mdCell(p, 40)}\` | ${window
+        .map(k => {
+          const count = statsByKey.get(k)?.callsignPatterns[p];
+          return cell(k, count === undefined ? '—' : String(count));
+        })
+        .join(' | ')} |`),
+  ];
+  return rows;
+}
+
+// One committed report per entry: its own full pattern table, the window
+// matrix, and pairwise comparisons. Deterministic (no timestamps, stable
+// ordering) so unchanged windows regenerate byte-identically.
+function writeQualityReports(keys: string[]): void {
+  const statsByKey = new Map<string, EntryStats>();
+  for (const k of keys) {
+    const s = readStats(k);
+    if (s) statsByKey.set(k, s);
+  }
+  if (statsByKey.size === 0) return;
+  fs.mkdirSync(REPORTS_DIR, { recursive: true });
+
+  const capped = (patterns: string[]): string =>
+    patterns.length === 0 ? '—' : mdCell(patterns.slice(0, 5).map(p => `\`${p}\``).join(', ') + (patterns.length > 5 ? ` (+${patterns.length - 5} more)` : ''), 250);
+
+  for (const [key, stats] of statsByKey) {
+    const window = windowFor(key, keys).filter(k => statsByKey.has(k));
+    const ownPatterns = Object.entries(stats.callsignPatterns).sort(([pa, ca], [pb, cb]) => (cb - ca) || (pa < pb ? -1 : 1));
+    const pairwise = window
+      .filter(k => k !== key)
+      .map((neighbourKey) => {
+        const cmp = compareStats(stats, statsByKey.get(neighbourKey) as EntryStats);
+        const direction = neighbourKey < key ? 'before' : 'after';
+        return `| ${neighbourKey} (${direction}) | ${statsByKey.get(neighbourKey)?.recordCount} | ${cmp.recordCountDeltaPct >= 0 ? '+' : ''}${cmp.recordCountDeltaPct.toFixed(1)}% | ${capped(cmp.newPatterns)} | ${capped(cmp.lostPatterns)} |`;
+      });
+
+    const lines = [
+      `# Data-quality report: ${key}`,
+      '',
+      'Generated by the normalise sweep (issue #46) - do not edit by hand.',
+      '',
+      `${stats.recordCount} records, ${ownPatterns.length} distinct callsign patterns.`,
+      '',
+      '## Callsign patterns',
+      '',
+      '| pattern | count |',
+      '|---|---:|',
+      ...ownPatterns.map(([p, c]) => `| \`${mdCell(p, 40)}\` | ${c} |`),
+      '',
+      '## Pattern counts across window',
+      '',
+      ...matrixTable(key, window, statsByKey),
+      '',
+      '## Pairwise comparison',
+      '',
+      '| neighbour | records | Δ records | patterns gained vs neighbour | patterns lost vs neighbour |',
+      '|---|---:|---:|---|---|',
+      ...(pairwise.length > 0 ? pairwise : ['| (no neighbours with stats) | — | — | — | — |']),
+      '',
+    ];
+    fs.writeFileSync(path.join(REPORTS_DIR, `${key}.md`), lines.join('\n'));
+  }
+}
+
+// PR-body/dashboard guidance for changed entries: the window matrix folded
+// behind a details block per entry (the committed reports/ files carry the
+// full report; this is the "in addition" inline view for reviewers).
+function changedEntryMatrixMarkdown(changed: string[], keys: string[]): string[] {
+  const statsByKey = new Map<string, EntryStats>();
+  for (const k of keys) {
+    const s = readStats(k);
+    if (s) statsByKey.set(k, s);
+  }
+  const lines: string[] = [];
   for (const key of changed) {
-    const entryStats = readStats(key);
-    if (!entryStats) continue;
-    const index = keys.indexOf(key);
-    const neighbours = [...keys.slice(Math.max(0, index - 3), index), ...keys.slice(index + 1, index + 4)];
-    const rows = neighbours.flatMap((neighbourKey) => {
-      const neighbourStats = readStats(neighbourKey);
-      if (!neighbourStats) return [];
-      const cmp = compareStats(entryStats, neighbourStats);
-      const direction = neighbourKey < key ? 'before' : 'after';
-      return [`| ${neighbourKey} (${direction}) | ${neighbourStats.recordCount} | ${cmp.recordCountDeltaPct >= 0 ? '+' : ''}${cmp.recordCountDeltaPct.toFixed(1)}% | ${capped(cmp.newPatterns)} | ${capped(cmp.lostPatterns)} |`];
-    });
-    if (rows.length === 0) continue;
-    lines.push('', `### Neighbour comparison: ${key} (${entryStats.recordCount} records, ${Object.keys(entryStats.callsignPatterns).length} callsign patterns)`, '', '| neighbour | records | Δ records | patterns gained vs neighbour | patterns lost vs neighbour |', '|---|---|---|---|---|', ...rows);
+    if (!statsByKey.has(key)) continue;
+    const window = windowFor(key, keys).filter(k => statsByKey.has(k));
+    lines.push(
+      '',
+      `${key}: see \`reports/${key}.md\` for the full quality report.`,
+      '',
+      '<details>',
+      `<summary>Pattern counts across window: ${key}</summary>`,
+      '',
+      ...matrixTable(key, window, statsByKey),
+      '',
+      '</details>',
+    );
   }
   return lines;
 }
