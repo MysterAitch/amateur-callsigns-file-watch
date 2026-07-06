@@ -367,11 +367,14 @@ function writePatternTimeSeries(keys: string[], statsByKey: Map<string, EntrySta
     for (const agg of perKey.values()) for (const p of agg.keys()) union.add(p);
     const newest = perKey.get(keys[keys.length - 1]);
     const patterns = [...union].sort((a, b) => ((newest?.get(b) ?? 0) - (newest?.get(a) ?? 0)) || (a < b ? -1 : 1));
+    // Newest dataset on the LEFT: the latest publication is what a reader
+    // checks first, and history recedes rightwards.
+    const columns = [...keys].reverse();
     return [
-      `| pattern | ${keys.join(' | ')} |`,
-      `|---|${keys.map(() => '---:').join('|')}|`,
-      `| _records_ | ${keys.map(k => statsByKey.get(k)?.recordCount ?? '—').join(' | ')} |`,
-      ...patterns.map(p => `| ${patternLabel(p)} | ${keys.map(k => perKey.get(k)?.get(p) ?? '—').join(' | ')} |`),
+      `| pattern | ${columns.join(' | ')} |`,
+      `|---|${columns.map(() => '---:').join('|')}|`,
+      `| _records_ | ${columns.map(k => statsByKey.get(k)?.recordCount ?? '—').join(' | ')} |`,
+      ...patterns.map(p => `| ${patternLabel(p)} | ${columns.map(k => perKey.get(k)?.get(p) ?? '—').join(' | ')} |`),
     ];
   };
 
