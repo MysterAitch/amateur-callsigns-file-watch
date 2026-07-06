@@ -17,18 +17,13 @@ export default tseslint.config(
       },
     },
     rules: {
-      // Pragmatic accommodations for the existing idiom; tighten separately
-      // if ever worth the churn.
-      '@typescript-eslint/no-explicit-any': 'off',
+      // any is forbidden (issue #40): caught values are unknown, narrowed via
+      // errorMessage()/type guards. A legitimately unavoidable any needs a
+      // single-line disable pragma with a justification comment.
+      '@typescript-eslint/no-explicit-any': 'error',
       // Disagrees with tsc about csv-parse assertion necessity - tsc wins.
       '@typescript-eslint/no-unnecessary-type-assertion': 'off',
-      // catch (err: any) with err.message access is used throughout for
-      // execFileSync/axios error shapes.
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-argument': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
-      '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true, allowBoolean: true, allowAny: true }],
+      '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true, allowBoolean: true }],
     },
   },
 );

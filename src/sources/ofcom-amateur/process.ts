@@ -275,7 +275,7 @@ export async function runProcess(): Promise<ProcessResult> {
 }
 
 if (require.main === module) {
-  process.on('unhandledRejection', (reason: any) => {
+  process.on('unhandledRejection', (reason: unknown) => {
     logger.error('Unhandled Rejection at:', reason);
     process.exit(1);
   });

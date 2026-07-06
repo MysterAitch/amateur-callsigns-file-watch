@@ -23,7 +23,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { CONSTANTS, calculateFileHash, ArchiveMeta } from '../shared/utils';
+import { CONSTANTS, calculateFileHash, ArchiveMeta , errorMessage } from '../shared/utils';
 import { listArchiveKeys } from '../shared/archive';
 
 export interface ValidationProblem {
@@ -62,9 +62,9 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
 
   let meta: ArchiveMeta;
   try {
-    meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-  } catch (err: any) {
-    problems.push({ path: metaPath, problem: `meta.json is not valid JSON: ${err.message}` });
+    meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ArchiveMeta;
+  } catch (err) {
+    problems.push({ path: metaPath, problem: `meta.json is not valid JSON: ${errorMessage(err)}` });
     return problems;
   }
 
@@ -119,8 +119,8 @@ export function deepValidateEntryCsv(key: string): ValidationProblem[] {
   let records: unknown[];
   try {
     records = parse(fs.readFileSync(rawPath, 'utf8'), { columns: true, skip_empty_lines: true });
-  } catch (err: any) {
-    problems.push({ path: rawPath, problem: `raw.csv failed to parse as CSV: ${err.message}` });
+  } catch (err) {
+    problems.push({ path: rawPath, problem: `raw.csv failed to parse as CSV: ${errorMessage(err)}` });
     return problems;
   }
   if (records.length === 0) {
@@ -129,7 +129,7 @@ export function deepValidateEntryCsv(key: string): ValidationProblem[] {
 
   const metaPath = path.join(entryDir(key), 'meta.json');
   try {
-    const meta: ArchiveMeta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ArchiveMeta;
     const declared = meta.files?.['raw.csv']?.recordCount;
     if (declared !== undefined && declared !== records.length) {
       problems.push({ path: rawPath, problem: `recordCount mismatch: meta declares ${declared}, CSV parses to ${records.length}` });
@@ -173,7 +173,7 @@ export function validateLatestPointers(): ValidationProblem[] {
       continue;
     }
     try {
-      const parsed = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
+      const parsed: unknown = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
       if (!Array.isArray(parsed)) {
         problems.push({ path: jsonFile, problem: 'expected a JSON array of records' });
       } else if (jsonCount === undefined) {
@@ -181,8 +181,8 @@ export function validateLatestPointers(): ValidationProblem[] {
       } else if (parsed.length !== jsonCount) {
         problems.push({ path: jsonFile, problem: `record count ${parsed.length} disagrees with sibling JSON derivative (${jsonCount})` });
       }
-    } catch (err: any) {
-      problems.push({ path: jsonFile, problem: `not valid JSON: ${err.message}` });
+    } catch (err) {
+      problems.push({ path: jsonFile, problem: `not valid JSON: ${errorMessage(err)}` });
     }
   }
 
@@ -195,8 +195,8 @@ export function validateLatestPointers(): ValidationProblem[] {
       if (jsonCount !== undefined && records.length !== jsonCount) {
         problems.push({ path: F.latestRawSortedCsv, problem: `record count ${records.length} disagrees with JSON derivatives (${jsonCount})` });
       }
-    } catch (err: any) {
-      problems.push({ path: F.latestRawSortedCsv, problem: `failed to parse as CSV: ${err.message}` });
+    } catch (err) {
+      problems.push({ path: F.latestRawSortedCsv, problem: `failed to parse as CSV: ${errorMessage(err)}` });
     }
   }
 
