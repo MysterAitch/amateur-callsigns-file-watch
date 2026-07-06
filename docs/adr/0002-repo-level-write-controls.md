@@ -52,6 +52,22 @@ Rationale:
   properties depend on `main`'s history being append-only. (An admin can still bypass
   deliberately, e.g. resetting after a synthetic pipeline test.)
 
+Rules **deliberately not enabled** — these are decisions, not omissions:
+
+- *Require linear history* must stay **off**: it forbids merge commits, and the entire
+  data-landing design depends on them (fetch-host convergence, ADR section 3). Enabling
+  it would break every data PR.
+- *Require signed commits* stays **off**: the fetch host's deploy-key commits are
+  unsigned; enabling would block every publication. Revisit only alongside a signing
+  setup on the fetch host.
+- *Require branches to be up to date before merging* (strict status checks) stays
+  **off**: data branches would queue behind every unrelated `main` commit for pointless
+  re-runs; the checks validate the merge result well enough without it.
+- *Require review from Code Owners* stays **off**: a solo maintainer cannot approve
+  their own PRs (see the 0-approvals rationale above).
+- *Restrict creations/updates* stay **off**: they would reduce all non-bypass activity
+  to nothing, including PR merges.
+
 ### 2. Actions workflow policy
 
 - `default_workflow_permissions = read`
@@ -96,12 +112,37 @@ auto-merge unless the diff is data-only.
 ## Recreation (disaster recovery / new repo)
 
 ```bash
-# Ruleset
-gh api -X POST repos/{owner}/{repo}/rulesets --input ruleset.json
-#   ruleset.json: target=branch, include=~DEFAULT_BRANCH,
-#   rules: pull_request (0 approvals, allowed_merge_methods merge/squash/rebase),
-#          non_fast_forward, deletion
-#   bypass_actors: RepositoryRole admin (actor_id 5), mode always
+# Ruleset (this is the complete live definition)
+gh api -X POST repos/{owner}/{repo}/rulesets --input - <<'JSON'
+{
+  "name": "main: pull requests only",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
+  "rules": [
+    { "type": "pull_request", "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false,
+        "allowed_merge_methods": ["merge", "squash", "rebase"]
+      } },
+    { "type": "required_status_checks", "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [
+          { "context": "tests" },
+          { "context": "data-validation" }
+        ]
+      } },
+    { "type": "non_fast_forward" },
+    { "type": "deletion" }
+  ],
+  "bypass_actors": [
+    { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }
+  ]
+}
+JSON
 
 # Actions workflow policy
 gh api -X PUT repos/{owner}/{repo}/actions/permissions/workflow \

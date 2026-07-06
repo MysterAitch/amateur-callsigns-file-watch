@@ -2,12 +2,13 @@
 
 Mirrors Ofcom's [amateur radio callsign](https://www.ofcom.org.uk/about-ofcom/our-research/opendata) publications to git as they update, so the commit history is a durable record of what got published and when.
 
-The project has three logical pieces:
+The project's logical pieces:
 
 - **Scrape**: fetch Ofcom's opendata index, locate the current amateur CSV link (its filename rotates with a `?v=` cache-buster), download the CSV to a temp path, and content-validate it before promoting into place. Includes a `?v=` fast-path that skips the ~11 MB download when the cache-buster hasn't changed, with periodic re-verification. See [`src/sources/ofcom-amateur/scrape.ts`](src/sources/ofcom-amateur/scrape.ts).
 - **Process**: parse the raw CSV, compute the sorted view (for git-diff readability), compute a semantic diff against the previous archive entry, and materialise a new `archive/{ofcom-date}/` directory with `raw.csv` + `meta.json`. Also refreshes the repo-root `latest-*` pointers. Includes a record-count regression guard that refuses to archive suspiciously-shrunken publications. See [`src/sources/ofcom-amateur/process.ts`](src/sources/ofcom-amateur/process.ts).
 - **Scheduled orchestrator**: the entry point a periodic timer invokes. Decides whether to run scrape+process this tick (schedule policy lives in code), commits any new archive entry and pushes it to a `data/*` branch, and sends notifications. Soft-fails all external services. See [`src/scheduled-run.ts`](src/scheduled-run.ts).
 - **Data sweep**: a scheduled GitHub Actions workflow that discovers pushed `data/*` branches, opens a pull request for each, and enables auto-merge (merge-commit) when the diff is confined to data paths. Nothing lands on `main` without a PR; the fetch host's deploy key can only push branches. See [`.github/workflows/data-sweep.yml`](.github/workflows/data-sweep.yml).
+- **Read-only CI**: every PR must pass `tests` (typecheck + unit tests) and `data-validation` (archive-entry completeness, size + sha256 byte integrity against each entry's `meta.json`, CSV parseability, latest-pointer consistency — also runnable locally via `npm run validate:data`). Both are required status checks on `main`, so the sweep's auto-merge only completes on green. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml), and [ADR 0002](docs/adr/0002-repo-level-write-controls.md) for the repository-level write controls this slots into.
 
 ## Repository layout
 
@@ -35,7 +36,7 @@ Consumers can either:
 
 ## Development
 
-Requires Node 26+.
+Requires Node 26+. A devcontainer ([`.devcontainer/`](.devcontainer/devcontainer.json), `node:26-bookworm`) provides a Linux environment matching CI and the deployment host — use it for cross-platform lock-file reconciliation (see below) and CI-equivalent test runs. The Ofcom scrape won't work from cloud-hosted containers (datacenter IP).
 
 ```bash
 npm ci                              # strict install from lock; use after `git pull`
