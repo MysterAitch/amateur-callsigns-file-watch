@@ -97,6 +97,14 @@ interface NotifyState {
   lastSystemdDriftFingerprint?: string;
   lastWorkingTreeDriftNotifiedAt?: string;
   lastWorkingTreeDriftFingerprint?: string;
+
+  // Persistent git-operation failure notifications: same shape as drift
+  // (fingerprint + timestamp), clears on next successful git op. Fires only
+  // when a git op we EXPECTED to succeed actually failed - transient noise
+  // is suppressed by the fingerprint / 24h rate limit.
+  lastGitFailureNotifiedAt?: string;
+  lastGitFailureFingerprint?: string;
+  lastGitFailureMessage?: string;
 }
 
 async function loadState(): Promise<NotifyState> {
@@ -309,6 +317,71 @@ function detectWorkingTreeDrift(): DriftResult | null {
   }
 }
 
+// Handle a git operation outcome: if it failed, LOW-notify (rate-limited
+// per fingerprint of the failure message) so persistent SSH / network / auth
+// issues surface within a tick or two of manifesting. If it succeeded and
+// we were previously in a failure state, clear the state - resolution is
+// silent (no dedicated "recovered" ntfy for git; that pattern is reserved
+// for the main mirror-failure escalation ladder).
+async function handleGitOpOutcome(state: NotifyState, outcome: GitOpResult): Promise<void> {
+  if (outcome.success) {
+    if (state.lastGitFailureFingerprint) {
+      logger.info('git operation recovered; clearing failure state.');
+      state.lastGitFailureFingerprint = undefined;
+      state.lastGitFailureNotifiedAt = undefined;
+      state.lastGitFailureMessage = undefined;
+    }
+    return;
+  }
+
+  const message = outcome.message ?? '(no error message)';
+  const fingerprint = crypto
+    .createHash('sha256')
+    .update(`${outcome.op}\n${message}`)
+    .digest('hex')
+    .slice(0, 12);
+
+  // Same decision shape as drift: notify if new fingerprint OR 24h has
+  // passed since the last notify of this same fingerprint.
+  const decision = shouldNotifyGitFailure(
+    fingerprint,
+    state.lastGitFailureFingerprint,
+    state.lastGitFailureNotifiedAt,
+    new Date(),
+  );
+  if (!decision.notify) {
+    logger.debug(`git failure (${outcome.op}): ${decision.reason}`);
+    return;
+  }
+
+  await ntfy(
+    'low',
+    `Git operation failing: ${outcome.op}`,
+    `${message}. The runner continues with local state; investigate on the LXC ` +
+    `(cd /opt/amateur-callsigns-file-watch && su -s /bin/bash - callsign-data-mirror -c "${outcome.op}").`,
+  );
+  state.lastGitFailureFingerprint = fingerprint;
+  state.lastGitFailureNotifiedAt = new Date().toISOString();
+  state.lastGitFailureMessage = message;
+}
+
+// Pure decision helper for git-failure notification rate-limiting.
+// Symmetric to shouldNotifyDrift.
+export function shouldNotifyGitFailure(
+  currentFingerprint: string,
+  lastFingerprint: string | undefined,
+  lastNotifiedAt: string | undefined,
+  now: Date,
+): { notify: boolean; reason: string } {
+  if (lastFingerprint !== currentFingerprint) {
+    return { notify: true, reason: 'new or changed failure' };
+  }
+  if (!lastNotifiedAt) return { notify: true, reason: 'no prior notify recorded' };
+  const hoursAgo = (now.getTime() - new Date(lastNotifiedAt).getTime()) / 3_600_000;
+  if (hoursAgo >= 24) return { notify: true, reason: `${hoursAgo.toFixed(1)}h since last notify` };
+  return { notify: false, reason: `same failure, notified ${hoursAgo.toFixed(1)}h ago (< 24h)` };
+}
+
 // Pure decision helper for drift-notification rate-limiting. Testable
 // without any filesystem / systemd knowledge. Given the current drift
 // state and the persisted last-notified state, decides whether to
@@ -382,6 +455,22 @@ interface GitResult {
   committed: boolean;
   pushed: boolean;
   pushError?: string;
+  // Structured pull-rebase result so the tick can persist failure state
+  // rather than only surfacing "still committed but push failed" as a
+  // footnote in the update notification body.
+  rebaseFailed?: boolean;
+  rebaseError?: string;
+}
+
+// Result of a single git operation. `op` names the operation for
+// human-readable notifications; `success` records whether the op did what we
+// wanted. On failure, `message` carries the first line of git's stderr (or
+// exception message) so downstream code can compose notifications and
+// fingerprint the failure state.
+interface GitOpResult {
+  op: string;
+  success: boolean;
+  message?: string;
 }
 
 // Fast-forward pull at start of tick. Picks up any dev-pushed code changes
@@ -391,23 +480,33 @@ interface GitResult {
 // main if origin has moved and we have nothing local.
 //
 // Non-fatal by design: an unpushed local commit will cause this to fail
-// cleanly, and we simply continue with local state. The subsequent pull-rebase
-// before push reconciles when a data commit is actually being sent.
-function tryFastForwardPull(): void {
+// cleanly, and we simply continue with local state. Returns a structured
+// result so the caller can decide whether to notify - "no changes to pull"
+// isn't a failure worth notifying about, but SSH auth errors are.
+function tryFastForwardPull(): GitOpResult {
   try {
+    // Compare HEAD before and after so we can log "already up to date" vs
+    // "fetched N commits" distinctly, without relying on git's stdout text.
+    const before = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
     execFileSync('git', ['pull', '--ff-only'], { stdio: 'pipe' });
-    logger.debug('git pull --ff-only succeeded');
+    const after = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    if (before === after) {
+      logger.info('git pull --ff-only: already up to date');
+    } else {
+      logger.info(`git pull --ff-only: advanced ${before.slice(0, 7)} -> ${after.slice(0, 7)}`);
+    }
+    return { op: 'git pull --ff-only', success: true };
   } catch (err: any) {
-    const msg = (err.stderr?.toString() || err.message || '').split('\n')[0].trim();
-    logger.info(`git pull --ff-only skipped (${msg}); continuing with local state.`);
+    const message = (err.stderr?.toString() || err.message || '').split('\n')[0].trim();
+    logger.warn(`git pull --ff-only failed: ${message}`);
+    return { op: 'git pull --ff-only', success: false, message };
   }
 }
 
 function gitCommitAndPush(message: string): GitResult {
+  const result: GitResult = { committed: false, pushed: false };
   const status = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
-  if (status.length === 0) {
-    return { committed: false, pushed: false };
-  }
+  if (status.length === 0) return result;
 
   // Stage explicitly: new archive entries and the latest-* pointer set, plus
   // the sidecar download-info metadata that scrape produces. We deliberately
@@ -434,9 +533,11 @@ function gitCommitAndPush(message: string): GitResult {
 
   execFileSync('git', ['commit', '-m', message], { stdio: 'pipe', env: commitEnv });
 
+  result.committed = true;
+
   if (process.env.SKIP_PUSH === 'true') {
     logger.info('Push skipped (SKIP_PUSH=true set).');
-    return { committed: true, pushed: false };
+    return result;
   }
 
   // Rebase our just-created data commit onto origin/main before pushing.
@@ -452,6 +553,8 @@ function gitCommitAndPush(message: string): GitResult {
   } catch (err: any) {
     const errMsg = (err.stderr?.toString() || err.message || '').split('\n')[0].trim();
     logger.warn(`git pull --rebase failed (${errMsg}); attempting push anyway.`);
+    result.rebaseFailed = true;
+    result.rebaseError = errMsg;
     // Continue - if rebase failed AND origin has actually diverged, the push
     // will fail below and be surfaced via the normal push-error notification
     // path. If rebase failed for a transient network reason, the push might
@@ -460,11 +563,13 @@ function gitCommitAndPush(message: string): GitResult {
 
   try {
     execFileSync('git', ['push'], { stdio: 'pipe' });
-    return { committed: true, pushed: true };
+    result.pushed = true;
+    return result;
   } catch (err: any) {
     const errMsg = err.stderr?.toString() || err.message;
     logger.warn(`git push failed: ${errMsg}`);
-    return { committed: true, pushed: false, pushError: errMsg };
+    result.pushError = errMsg;
+    return result;
   }
 }
 
@@ -563,6 +668,28 @@ async function runTick(state: NotifyState, windowId: string): Promise<void> {
     const commitMessage = buildCommitMessage(result);
     git = gitCommitAndPush(commitMessage);
     logger.info(`git commit=${git.committed} push=${git.pushed}`);
+
+    // Feed the git-op outcomes into the same failure-notification path as
+    // the tick-start fast-forward pull. Order matters: report rebase before
+    // push, because a rebase failure typically causes the subsequent push
+    // failure, and we want the ROOT-CAUSE notification to be the sticky one.
+    if (git.rebaseFailed) {
+      await handleGitOpOutcome(state, {
+        op: 'git pull --rebase --autostash',
+        success: false,
+        message: git.rebaseError,
+      });
+    }
+    if (!git.pushed && git.committed) {
+      await handleGitOpOutcome(state, {
+        op: 'git push',
+        success: false,
+        message: git.pushError,
+      });
+    } else if (git.pushed) {
+      // Successful push clears any lingering push-failure state
+      await handleGitOpOutcome(state, { op: 'git push', success: true });
+    }
   } else {
     logger.info('No new archive entry - skipping git commit/push.');
   }
@@ -614,7 +741,8 @@ async function main(): Promise<void> {
   // when a scheduled window happens to fall after the push, which could be
   // hours or (over a weekend) days. Cheap; safe (--ff-only touches no
   // local commits).
-  tryFastForwardPull();
+  const pullOutcome = tryFastForwardPull();
+  await handleGitOpOutcome(state, pullOutcome);
 
   // Drift checks run on EVERY tick (including skips) because they're the
   // signal that "the host is running a version of the systemd config that

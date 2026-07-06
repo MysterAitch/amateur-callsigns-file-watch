@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldRunNow, shouldNotifyDrift } from './scheduled-run';
+import { shouldRunNow, shouldNotifyDrift, shouldNotifyGitFailure } from './scheduled-run';
 
 // Test names follow Subject_Scenario_Outcome per project convention. The
 // scheduled-run decision function is pure - state and a Date in, decision out -
@@ -162,5 +162,42 @@ describe('shouldNotifyDrift', () => {
     // Just under the boundary - still within suppression window.
     const almost24h = new Date(NOW.getTime() - 23.9 * 60 * 60_000).toISOString();
     expect(shouldNotifyDrift(drift, 'abc123', almost24h, NOW).notify).toBe(false);
+  });
+});
+
+describe('shouldNotifyGitFailure', () => {
+  const NOW = new Date('2026-07-06T12:00:00Z');
+  const FP = 'a1b2c3d4e5f6';
+
+  it('ShouldNotifyGitFailure_WhenFirstObservation_Notifies', () => {
+    const decision = shouldNotifyGitFailure(FP, undefined, undefined, NOW);
+    expect(decision.notify).toBe(true);
+    expect(decision.reason).toMatch(/new or changed failure|no prior notify/);
+  });
+
+  it('ShouldNotifyGitFailure_WhenFingerprintChanged_NotifiesEvenIfRecentlyNotified', () => {
+    const oneHourAgo = new Date(NOW.getTime() - 60 * 60_000).toISOString();
+    const decision = shouldNotifyGitFailure(FP, 'different-fp', oneHourAgo, NOW);
+    expect(decision.notify).toBe(true);
+    expect(decision.reason).toBe('new or changed failure');
+  });
+
+  it('ShouldNotifyGitFailure_WhenSameFingerprintAndRecentlyNotified_Suppresses', () => {
+    const oneHourAgo = new Date(NOW.getTime() - 60 * 60_000).toISOString();
+    const decision = shouldNotifyGitFailure(FP, FP, oneHourAgo, NOW);
+    expect(decision.notify).toBe(false);
+    expect(decision.reason).toMatch(/< 24h/);
+  });
+
+  it('ShouldNotifyGitFailure_WhenSameFingerprintButOver24hSinceLastNotify_Notifies', () => {
+    const yesterday = new Date(NOW.getTime() - 25 * 60 * 60_000).toISOString();
+    const decision = shouldNotifyGitFailure(FP, FP, yesterday, NOW);
+    expect(decision.notify).toBe(true);
+    expect(decision.reason).toMatch(/since last notify/);
+  });
+
+  it('ShouldNotifyGitFailure_WhenExactly24h_Notifies', () => {
+    const exactly24h = new Date(NOW.getTime() - 24 * 60 * 60_000).toISOString();
+    expect(shouldNotifyGitFailure(FP, FP, exactly24h, NOW).notify).toBe(true);
   });
 });
