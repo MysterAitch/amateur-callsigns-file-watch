@@ -14,7 +14,7 @@ WorkingDirectory=/opt/amateur-callsigns-file-watch
 #             --shell /usr/sbin/nologin callsign-data-mirror
 User=callsign-data-mirror
 Group=callsign-data-mirror
-# npm resolves ts-node from node_modules/.bin. If node/npm are elsewhere on
+# npm resolves tsx from node_modules/.bin. If node/npm are elsewhere on
 # the LXC, use their full paths.
 ExecStart=/usr/bin/npm run scheduled
 # The runner's decision function decides whether to actually do work each
@@ -32,6 +32,11 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/opt/amateur-callsigns-file-watch
+# Isolated per-invocation /tmp. Required by tsx (it creates an IPC pipe under
+# /tmp/tsx-{uid}/{pid}.pipe to coordinate its wrapper and the Node child).
+# PrivateTmp gives the service a writable /tmp that no other process on the
+# host can see - better than adding /tmp to ReadWritePaths.
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
