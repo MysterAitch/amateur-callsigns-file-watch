@@ -220,26 +220,24 @@ Outside a scheduled slot, expected output:
 
 Confirm the ping landed by refreshing the check's page in Healthchecks — should show "received a ping just now". Exit back to root with `exit` or Ctrl-D.
 
-### 7. Install the systemd unit + timer
+### 7. Install (and later update) systemd units
+
+Use the bundled bootstrap script, which is idempotent — safe to run repeatedly. It only copies units that actually differ, only reloads systemd if something changed, only restarts the timer if a unit file changed, and verifies units via `systemd-analyze verify` before finishing:
 
 ```bash
-cp /opt/amateur-callsigns-file-watch/docs/systemd/amateur-callsigns-mirror.service                 /etc/systemd/system/
-cp /opt/amateur-callsigns-file-watch/docs/systemd/amateur-callsigns-mirror.timer                   /etc/systemd/system/
-cp /opt/amateur-callsigns-file-watch/docs/systemd/amateur-callsigns-mirror-notify-failure.service  /etc/systemd/system/
+# First install (script auto-enables timer)
+sudo bash /opt/amateur-callsigns-file-watch/docs/setup/update-service.sh
 
-# Sanity check the unit's identity
-grep -E '^(User|Group|WorkingDirectory|ExecStart)=' \
-    /etc/systemd/system/amateur-callsigns-mirror.service
+# All subsequent unit-file changes:
+sudo bash /opt/amateur-callsigns-file-watch/docs/setup/update-service.sh
+```
 
-systemctl daemon-reload
-systemctl enable --now amateur-callsigns-mirror.timer
+The script also drops down to the service user for the initial `git pull`, so root's git state stays clean of the "dubious ownership" warning that would otherwise fire on a user-owned repo.
 
-# Verify
-systemctl list-timers amateur-callsigns-mirror.timer
-systemctl status amateur-callsigns-mirror.timer
+Watch fires live:
 
-# Watch fires live (Ctrl-C to exit)
-journalctl -u 'amateur-callsigns-mirror.*' -f
+```bash
+journalctl -u 'amateur-callsigns-mirror*' -f
 ```
 
 Every 5 minutes you should see either a "not within any scheduled window" skip (with a healthchecks ping) or, at 03/10/14/18, an actual scrape → process → git ops → notification sequence.
@@ -248,9 +246,11 @@ Every 5 minutes you should see either a "not within any scheduled window" skip (
 
 Priorities used by the orchestrator:
 
-- **HIGH** (priority 4): new publication landed; runner recovered from a failure streak; runner has failed 3 consecutive times; ongoing failure re-notify (rate-limited to 24h).
+- **HIGH** (priority 4): new publication landed; runner recovered from a failure streak; runner has failed 3 consecutive times; ongoing failure re-notify (rate-limited to 24h); systemd-level failure (via the `OnFailure=` sibling unit — catches transpiler-startup crashes and hangs that the runner cannot notify itself about).
 - **DEFAULT** (priority 3): second consecutive failure.
-- **LOW** (priority 2): first consecutive failure (transient blip).
+- **LOW** (priority 2): first consecutive failure (transient blip); systemd unit drift (repo units differ from deployed); working-tree drift (unstaged changes); persistent git operation failure (pull, rebase, push).
+
+Drift and git-failure notifications are fingerprinted and rate-limited to at most one per 24h per unique state, and clear automatically when the underlying issue resolves.
 
 Notifications are a *separate* stream from any noisy alerting you already have (e.g. Telegram bots, HA notifications for door sensors). A long random ntfy topic name = effectively a private channel.
 
@@ -263,10 +263,14 @@ The Healthchecks ping fires on every non-error tick, including scheduled skips �
 
 ## Non-goals and open items
 
-- **Cross-publication normalisation** (mapping Ofcom's shifting column schema — `Value__c` vs `Callsign` vs the BOM-contaminated `﻿Callsign` — to a canonical shape) is a future piece of work. See project memory (`.claude/`) for the plan.
+- **Cross-publication normalisation** (mapping Ofcom's shifting column schema — `Value__c` vs `Callsign` vs the BOM-contaminated `﻿Callsign` — to a canonical shape) is a future piece of work.
 - **Building presentation on top** (SPA / SQLite dump / GitHub Pages) is deliberately not this repo's job — this repo's single responsibility is being the authoritative archive. Downstream repos consume it.
-- **Post-fetch processing** (quality reports, PDF/XLSX extraction, normalisation into a canonical schema) is intended to live in GitHub Actions triggered on push, not on the residential LXC. The mirror's job is fetch-and-archive; anything derivable from raw files can run in ordinary CI.
+- **Post-fetch processing location** (quality reports, PDF/XLSX extraction, normalisation into a canonical schema) — where this runs (same repo via scoped GHA, downstream repo, or on the LXC) is REOPENED pending a fresh design conversation. The LXC's minimal-downloader role stays fixed either way.
 - **Additional sources** (FOI datasets, `data.gov.uk`, other Ofcom sections) will land under `src/sources/{key}/` when the multi-source refactor happens.
+
+### Backlog
+
+Open work items are tracked as [GitHub Issues](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues) rather than in-repo files. Use the labels `enhancement`, `refactor`, `research`, `docs`, `discussion` to distinguish work types.
 
 ## Design notes
 
