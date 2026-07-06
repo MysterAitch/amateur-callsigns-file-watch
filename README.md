@@ -4,8 +4,8 @@ Mirrors Ofcom's [amateur radio callsign](https://www.ofcom.org.uk/about-ofcom/ou
 
 The project has three logical pieces:
 
-- **Scrape**: fetch Ofcom's opendata index, locate the current amateur CSV link (its filename rotates with a `?v=` cache-buster), download the CSV to a temp path, and content-validate it before promoting into place. See [`src/scrape-and-download.ts`](src/scrape-and-download.ts).
-- **Process**: parse the raw CSV, compute the sorted view (for git-diff readability), compute a semantic diff against the previous archive entry, and materialise a new `archive/{ofcom-date}/` directory with `raw.csv` + `meta.json`. Also refreshes the repo-root `latest-*` pointers. See [`src/process-csv.ts`](src/process-csv.ts).
+- **Scrape**: fetch Ofcom's opendata index, locate the current amateur CSV link (its filename rotates with a `?v=` cache-buster), download the CSV to a temp path, and content-validate it before promoting into place. Includes a `?v=` fast-path that skips the ~11 MB download when the cache-buster hasn't changed, with periodic re-verification. See [`src/scrape-and-download.ts`](src/scrape-and-download.ts).
+- **Process**: parse the raw CSV, compute the sorted view (for git-diff readability), compute a semantic diff against the previous archive entry, and materialise a new `archive/{ofcom-date}/` directory with `raw.csv` + `meta.json`. Also refreshes the repo-root `latest-*` pointers. Includes a record-count regression guard that refuses to archive suspiciously-shrunken publications. See [`src/process-csv.ts`](src/process-csv.ts).
 - **Scheduled orchestrator**: the entry point a periodic timer invokes. Decides whether to run scrape+process this tick (schedule policy lives in code), commits and pushes any new archive entry, and sends notifications. Soft-fails all external services. See [`src/scheduled-run.ts`](src/scheduled-run.ts).
 
 ## Repository layout
@@ -31,15 +31,15 @@ Consumers can either:
 
 ## Development
 
-Requires Node 24+.
+Requires Node 26+.
 
 ```bash
-npm ci
-npm test                # unit tests (vitest)
+npm ci                              # strict install from lock; use after `git pull`
+npm test                            # unit tests (vitest)
 
 # run individual pipeline steps against the live Ofcom site (residential IP required):
-npm run pull            # scrape + download
-npm run process         # transform + archive
+npm run pull                        # scrape + download
+npm run process                     # transform + archive
 ```
 
 The network fetch **only works from a residential IP** — Cloudflare blocks datacenter ASNs from the Ofcom opendata page, so GitHub-hosted runners and cloud VMs will get a challenge page instead of the CSV. This is why the scheduled runner is deployed to a homelab LXC (or similar), not to CI.
@@ -47,8 +47,21 @@ The network fetch **only works from a residential IP** — Cloudflare blocks dat
 The scheduled orchestrator can be run manually from any machine (Windows / macOS / Linux) with an empty `.env` — it will do local work and log-skip notifications and git push:
 
 ```bash
-npm run scheduled       # one tick; decides whether to actually do anything
+npm run scheduled                   # one tick; decides whether to actually do anything
 ```
+
+### Cross-platform lock-file discipline
+
+`package-lock.json` is checked in and honoured on both Windows and Linux. Modern npm (v7+) stores platform-conditional optional dependencies (e.g. `@emnapi/*` on Linux) with `os`/`cpu` constraints; both platforms' entries can coexist in one lock. To keep it that way:
+
+- **After `git pull`, use `npm ci`** — installs strictly from the lock, never writes to it.
+- **Use `npm install` only when you intend to modify the lock** — adding a dep, running `npm audit fix`, or (on first install after cloning to a new platform) reconciling platform-specific optional deps.
+
+Treating `npm ci` as read-only and `npm install` as a modifying operation prevents cross-platform lock drift.
+
+### Line-ending preservation
+
+`.gitattributes` marks `archive/**/raw.*`, `latest-raw.*`, and `amateur-callsigns-raw.csv` as `binary`. This preserves Ofcom's original bytes (CRLF-terminated CSVs) verbatim across platforms — the archive idempotence check depends on `sha256` of the raw file matching between the live download and the checked-out archive. Derived files (sorted CSVs, JSONs, `meta.json`) are deliberately left as text, because Node's writers emit `\n` line endings unconditionally on every OS and text handling gives better git-diff readability.
 
 ## Automation
 
@@ -57,108 +70,175 @@ The orchestrator is designed to be invoked frequently by a boring, always-on tim
 ### Prerequisites
 
 - **A residential connection**. Cloudflare will block a datacenter IP.
-- **A Debian LXC (or equivalent always-on host)** on the residential side. Recipes below assume Debian on Proxmox with a bind-mount or shared filesystem holding the checkout.
+- **A Debian 13 (trixie) LXC** (or equivalent always-on host) on the residential side. Recipes below assume Debian on Proxmox.
 - **A write-scoped SSH deploy key** on the GitHub repo (see below).
-- **Optional**: an [ntfy.sh](https://ntfy.sh) topic (free, no signup), a [Healthchecks.io](https://healthchecks.io) check (free tier), or self-hosted equivalents ([Uptime Kuma](https://github.com/louislam/uptime-kuma) is the common self-hosted replacement for both).
+- **Optional but recommended**: an [ntfy.sh](https://ntfy.sh) topic (free, no signup) for update/failure notifications, a [Healthchecks.io](https://healthchecks.io) check (free tier) for a dead-man's-switch alert when the LXC itself goes silent, or self-hosted equivalents ([Uptime Kuma](https://github.com/louislam/uptime-kuma) is the common self-hosted replacement for both).
 
-### 1. Provision the LXC
+### 1. Provision the LXC (Proxmox click-ops)
+
+| Setting | Value | Notes |
+|---|---|---|
+| Template | Debian 13 (trixie) | Node 26 install path assumes this |
+| CPU | 1 core | plenty |
+| RAM | **2 GB** | 512 MB is not enough — the CSV parse + jsdom peak is ~1 GB |
+| Swap | 1 GB | headroom |
+| Disk | 4 GB | archive growth is ~130 MB/year |
+| Unprivileged | ✓ | default; keep it |
+| **Nesting** | **✓** | required for Debian 13's systemd 257 to fully honour the service unit's hardening directives |
+| Network | static IP | e.g. matching the container ID as the last octet (`/24`, not `/32`) |
+| SSH public key | pasted at creation | avoids the "root password SSH is disabled by default" tangent |
+
+### 2. Basic system setup (inside the LXC as root)
 
 ```bash
-# On the Proxmox host: create a small Debian LXC. 512 MB RAM is plenty.
-# Inside the LXC:
-apt update
-apt install -y nodejs npm git curl
-timedatectl set-timezone Europe/London       # so 03/10/18 slots honour BST/GMT
-useradd -r -s /usr/sbin/nologin ofcommirror  # dedicated non-privileged user
+apt update && apt upgrade -y
+apt install -y curl git ca-certificates gnupg nano
+
+# Timezone - so 03:00 / 10:00 / 18:00 slots honour BST/GMT automatically
+timedatectl set-timezone Europe/London
+
+# Node 26 from NodeSource - Debian 13's default repos ship Node 20/22
+curl -fsSL https://deb.nodesource.com/setup_26.x | bash -
+apt install -y nodejs
+node --version                                # want v26.x.x
+
+# Dedicated non-privileged service user with home dir but no interactive login
+useradd --system --create-home --home-dir /home/callsign-data-mirror \
+        --shell /usr/sbin/nologin callsign-data-mirror
 ```
 
-### 2. Clone the repo
+### 3. Deploy key + git config
+
+```bash
+# Generate the keypair AS the service user, so ownership is correct from the start
+runuser -u callsign-data-mirror -- ssh-keygen -t ed25519 -N '' \
+    -C "deploy: amateur-radio-data-mirror LXC ($(date +%Y-%m-%d))" \
+    -f /home/callsign-data-mirror/.ssh/id_ed25519
+
+# SSH client config: force this specific key for github.com,
+# auto-accept github's host key on first connect (no interactive prompt)
+cat > /home/callsign-data-mirror/.ssh/config <<'CFG'
+Host github.com
+  User git
+  IdentityFile ~/.ssh/id_ed25519
+  IdentitiesOnly yes
+  StrictHostKeyChecking accept-new
+CFG
+chown callsign-data-mirror:callsign-data-mirror /home/callsign-data-mirror/.ssh/config
+chmod 600 /home/callsign-data-mirror/.ssh/config
+
+# Default git commit identity (the .env can override at runtime later)
+runuser -u callsign-data-mirror -- git config --global user.name  "callsign-data-mirror"
+runuser -u callsign-data-mirror -- git config --global user.email "callsign-data-mirror@amateur-radio-data-mirror"
+
+# Print the public key for pasting to GitHub
+cat /home/callsign-data-mirror/.ssh/id_ed25519.pub
+```
+
+**Then in the browser**:
+
+1. GitHub → your repo → Settings → Deploy keys → **Add deploy key**
+2. Title: something like `amateur-radio-data-mirror LXC`
+3. Paste the printed `ssh-ed25519 …` line
+4. **Check "Allow write access"** — critical, otherwise push fails silently
+5. Add
+
+**Verify from the LXC** (should print `Hi <your-user>/<your-repo>! You've successfully authenticated…`):
+
+```bash
+runuser -u callsign-data-mirror -- ssh -T git@github.com
+```
+
+The first invocation adds github.com to the mirror user's `~/.ssh/known_hosts`; subsequent non-interactive git operations won't prompt.
+
+### 4. Clone the repo
 
 ```bash
 mkdir -p /opt/amateur-callsigns-file-watch
-chown ofcommirror:ofcommirror /opt/amateur-callsigns-file-watch
-sudo -u ofcommirror bash <<'EOF'
+chown callsign-data-mirror:callsign-data-mirror /opt/amateur-callsigns-file-watch
+
+runuser -u callsign-data-mirror -- git clone \
+    git@github.com:YOUR-GH-USER/amateur-callsigns-file-watch.git \
+    /opt/amateur-callsigns-file-watch
+
 cd /opt/amateur-callsigns-file-watch
-git clone git@github.com:YOUR_GITHUB_USER/amateur-callsigns-file-watch.git .
-npm ci
-EOF
+runuser -u callsign-data-mirror -- npm install
+runuser -u callsign-data-mirror -- npm test   # 49 tests pass
 ```
 
-### 3. Generate and register a deploy key
+`npm install` on the first-run (not `npm ci`) so platform-specific optional deps (Linux-only `@emnapi/*` etc.) get added to `package-lock.json`. Commit that change back so future `npm ci` works on both platforms:
 
 ```bash
-sudo -u ofcommirror ssh-keygen -t ed25519 -N '' -C 'amateur-callsigns-mirror' \
-    -f /home/ofcommirror/.ssh/deploy_key
-
-cat /home/ofcommirror/.ssh/deploy_key.pub
-```
-
-On GitHub: repo → Settings → Deploy Keys → **Add deploy key** → paste the public key → **check "Allow write access"** → Add.
-
-Tell git on the LXC to use this key for pushes:
-
-```bash
-sudo -u ofcommirror bash <<'EOF'
-cat >> /home/ofcommirror/.ssh/config <<'CFG'
-Host github.com
-  User git
-  IdentityFile ~/.ssh/deploy_key
-  IdentitiesOnly yes
-CFG
-chmod 600 /home/ofcommirror/.ssh/config
-cd /opt/amateur-callsigns-file-watch
-git remote set-url origin git@github.com:YOUR_GITHUB_USER/amateur-callsigns-file-watch.git
-EOF
-```
-
-### 4. Populate `.env`
-
-Copy the example and fill in the service URLs you actually want:
-
-```bash
-sudo -u ofcommirror cp /opt/amateur-callsigns-file-watch/.env.example \
-                     /opt/amateur-callsigns-file-watch/.env
-sudo -u ofcommirror nano /opt/amateur-callsigns-file-watch/.env
-```
-
-See `.env.example` for what each variable does and what happens when unset.
-
-### 5. Manual smoke test
-
-```bash
-sudo -u ofcommirror bash -c '
+su -s /bin/bash - callsign-data-mirror -c '
     cd /opt/amateur-callsigns-file-watch
-    npm run scheduled
+    git add package-lock.json
+    git commit -m "Update lock file with Linux-only optional deps"
+    git push
 '
 ```
 
-Outside a scheduled slot, you should see:
+### 5. Populate `.env`
+
+Two shapes — heredoc, or copy the template and edit:
+
+```bash
+# Option A: direct heredoc
+runuser -u callsign-data-mirror -- bash -c "cat > /opt/amateur-callsigns-file-watch/.env <<'EOF'
+NTFY_TOPIC_URL=https://ntfy.sh/YOUR-LONG-RANDOM-HEX
+HEALTHCHECKS_PING_URL=https://hc-ping.com/YOUR-UUID
+EOF"
+chmod 600 /opt/amateur-callsigns-file-watch/.env
+
+# Option B: template + nano
+runuser -u callsign-data-mirror -- cp /opt/amateur-callsigns-file-watch/.env.example \
+                                       /opt/amateur-callsigns-file-watch/.env
+chmod 600 /opt/amateur-callsigns-file-watch/.env
+nano /opt/amateur-callsigns-file-watch/.env
+```
+
+See `.env.example` in the repo for what each variable does. Everything is optional at runtime — missing variables produce soft-fail log messages, not crashes.
+
+### 6. Manual smoke test
+
+Interactive shell as the service user (`su` needs `-s /bin/bash` to override the `nologin` shell):
+
+```bash
+su -s /bin/bash - callsign-data-mirror
+cd /opt/amateur-callsigns-file-watch
+DEBUG=true npm run scheduled
+```
+
+Outside a scheduled slot, expected output:
 
 ```
 [DEBUG] Not running this tick: not within any scheduled window
+[DEBUG] healthchecks ping sent               (or "skipped" if not configured)
 ```
 
-To force a live run for testing, temporarily edit `SCHEDULED_HHMM` in `src/scheduled-run.ts` (or set your clock forward), then revert. Or just wait for the next 03/10/18 slot.
+Confirm the ping landed by refreshing the check's page in Healthchecks — should show "received a ping just now". Exit back to root with `exit` or Ctrl-D.
 
-### 6. Install the systemd unit + timer
-
-Templates are in `docs/systemd/`. Copy them into place, editing paths if you cloned somewhere other than `/opt/amateur-callsigns-file-watch`:
+### 7. Install the systemd unit + timer
 
 ```bash
-cp docs/systemd/amateur-callsigns-mirror.service /etc/systemd/system/
-cp docs/systemd/amateur-callsigns-mirror.timer /etc/systemd/system/
+cp /opt/amateur-callsigns-file-watch/docs/systemd/amateur-callsigns-mirror.service /etc/systemd/system/
+cp /opt/amateur-callsigns-file-watch/docs/systemd/amateur-callsigns-mirror.timer   /etc/systemd/system/
+
+# Sanity check the unit's identity
+grep -E '^(User|Group|WorkingDirectory|ExecStart)=' \
+    /etc/systemd/system/amateur-callsigns-mirror.service
+
 systemctl daemon-reload
 systemctl enable --now amateur-callsigns-mirror.timer
+
+# Verify
 systemctl list-timers amateur-callsigns-mirror.timer
+systemctl status amateur-callsigns-mirror.timer
+
+# Watch fires live (Ctrl-C to exit)
+journalctl -u 'amateur-callsigns-mirror.*' -f
 ```
 
-Check journal after a few minutes to see it firing:
-
-```bash
-journalctl -u amateur-callsigns-mirror.service -n 100 --no-pager
-```
-
-Every 5 minutes you should see either a "not within any scheduled window" skip or, at 03/10/18, a real run.
+Every 5 minutes you should see either a "not within any scheduled window" skip (with a healthchecks ping) or, at 03/10/18, an actual scrape → process → git ops → notification sequence.
 
 ### Notifications
 
@@ -168,20 +248,21 @@ Priorities used by the orchestrator:
 - **DEFAULT** (priority 3): second consecutive failure.
 - **LOW** (priority 2): first consecutive failure (transient blip).
 
-Notifications are a *separate* stream from any noisy alerting you already have on the LXC (e.g. Telegram bots, HA notifications for door sensors, etc.). Long random ntfy topic name = effectively a private channel.
+Notifications are a *separate* stream from any noisy alerting you already have (e.g. Telegram bots, HA notifications for door sensors). A long random ntfy topic name = effectively a private channel.
 
-The Healthchecks ping fires on every successful tick, including scheduled skips — so absence of pings for more than ~1 day is a signal that the LXC itself is dead / unreachable, which the local runner cannot notify about because it isn't running.
+The Healthchecks ping fires on every non-error tick, including scheduled skips — so absence of pings for more than the check's period + grace is a signal that the LXC itself is dead / unreachable, which the local runner cannot notify about because it isn't running.
 
 ### Alternative hosts
 
 - **Docker on a compose host (e.g. dockge)** instead of an LXC: replace the systemd timer with an [ofelia](https://github.com/mcuadros/ofelia) sidecar container in the compose file, invoking `npm run scheduled` on the same `*/5` cadence. Everything else is identical.
-- **Cross-platform**: the runner script itself is host-agnostic — same code works on Linux, macOS, and Windows. Only the "run me every 5 minutes" wrapper changes.
+- **Cross-platform runner**: the runner script itself is host-agnostic — same code works on Linux, macOS, and Windows. Only the "run me every 5 minutes" wrapper changes.
 
 ## Non-goals and open items
 
 - **Cross-publication normalisation** (mapping Ofcom's shifting column schema — `Value__c` vs `Callsign` vs the BOM-contaminated `﻿Callsign` — to a canonical shape) is a future piece of work. See project memory (`.claude/`) for the plan.
-- **`?v=` verification path**: the runner currently always downloads at each scheduled slot even if the URL's `?v=` version parameter hasn't changed. A follow-up will add a fast-path that skips download when v is unchanged, with periodic re-verification to catch anomalies. Backlogged.
 - **Building presentation on top** (SPA / SQLite dump / GitHub Pages) is deliberately not this repo's job — this repo's single responsibility is being the authoritative archive. Downstream repos consume it.
+- **Post-fetch processing** (quality reports, PDF/XLSX extraction, normalisation into a canonical schema) is intended to live in GitHub Actions triggered on push, not on the residential LXC. The mirror's job is fetch-and-archive; anything derivable from raw files can run in ordinary CI.
+- **Additional sources** (FOI datasets, `data.gov.uk`, other Ofcom sections) will land under `src/sources/{key}/` when the multi-source refactor happens.
 
 ## Design notes
 
@@ -190,7 +271,8 @@ Selected rationale worth knowing before making changes:
 - **Archive shape**: `archive/{ofcom-date}/raw.csv` + `meta.json` per publication. The sorted CSV lives only at `latest-raw-sorted.csv`, not per publication — inside `archive/`, sort variants have no git-diff value (each entry is a fresh directory on commit).
 - **Sort key**: currently the first column of the raw CSV, which happens to be the callsign column in every historical publication. If Ofcom ever moves the callsign out of column 1, `latest-raw-sorted.csv` will silently become semantically inconsistent — a future normalisation-aware sort will fix this.
 - **Diff summary in `meta.json`** is a *snapshot at write time*. If publications are ever retroactively inserted between existing entries, older `meta.json` files are NOT rewritten. Consumers needing an authoritative up-to-date diff should re-derive from the raw CSVs.
-- **Sanity gates are load-bearing**: HTML/challenge-page detection (in scrape), record-count regression check (in process, refuses commits where the current publication has less than 50% of the previous record count) — both exist because Ofcom has historically published truncated / broken datasets and silently mirroring them would be worse than an honest crash.
+- **Sanity gates are load-bearing**: HTML/challenge-page detection (in scrape), header-token check (in scrape), record-count regression check (in process, refuses commits where the current publication has less than 50% of the previous record count), and the archive-key `?v=` verification anomaly path — all exist because Ofcom has historically published truncated / broken datasets and silently mirroring them would be worse than an honest crash.
+- **Raw-bytes preservation**: `.gitattributes` marks raw source files as `binary` so their exact bytes survive checkout on any platform. The archive idempotence check hashes the staging CSV against archived `raw.csv` hashes; line-ending normalisation would break that invariant.
 
 ## Licence
 

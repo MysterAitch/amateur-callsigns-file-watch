@@ -1,6 +1,6 @@
 [Unit]
 Description=Ofcom amateur callsigns mirror - single tick
-Documentation=https://github.com/OFCOMMIRRORROOT/README.md
+Documentation=https://github.com/MysterAitch/amateur-callsigns-file-watch
 # Don't try to run if the network is not up (typical LXC startup order)
 After=network-online.target
 Wants=network-online.target
@@ -9,9 +9,11 @@ Wants=network-online.target
 Type=oneshot
 # Where you cloned the repo on the LXC. Replace with the actual path.
 WorkingDirectory=/opt/amateur-callsigns-file-watch
-# Run as a dedicated non-root user (create it first: `useradd -r -s /usr/sbin/nologin ofcommirror`).
-User=ofcommirror
-Group=ofcommirror
+# Run as a dedicated non-root user. Create first:
+#     useradd --system --create-home --home-dir /home/callsign-data-mirror \
+#             --shell /usr/sbin/nologin callsign-data-mirror
+User=callsign-data-mirror
+Group=callsign-data-mirror
 # npm resolves ts-node from node_modules/.bin. If node/npm are elsewhere on
 # the LXC, use their full paths.
 ExecStart=/usr/bin/npm run scheduled
@@ -24,6 +26,8 @@ StandardError=journal
 # recovery mechanism. Restarting inside a bad publication would just spam.
 Restart=no
 # Modest hardening - the service only needs to read/write its working dir.
+# On Debian 13 (systemd 257), these directives require nesting to be enabled
+# on the LXC; the unit will start but hardening may not fully apply without it.
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true

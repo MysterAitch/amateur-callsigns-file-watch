@@ -1,6 +1,6 @@
 [Unit]
 Description=Ofcom amateur callsigns mirror - fire every 5 minutes
-Documentation=https://github.com/OFCOMMIRRORROOT/README.md
+Documentation=https://github.com/MysterAitch/amateur-callsigns-file-watch
 
 [Timer]
 # Fire every 5 minutes. The runner itself decides whether to do real work
