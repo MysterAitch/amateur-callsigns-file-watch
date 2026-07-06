@@ -43,7 +43,14 @@ Restart=no
 # on the LXC; the unit will start but hardening may not fully apply without it.
 NoNewPrivileges=true
 ProtectSystem=strict
-ProtectHome=true
+# ProtectHome=true makes /home invisible (tmpfs overlay), which prevents ssh
+# from finding ~/.ssh/known_hosts and the deploy key. `read-only` keeps
+# meaningful hardening (writes to /home are still blocked) while allowing
+# ssh to read the credentials it needs for the git operations we run
+# (auto-pull, and the rebase-and-push when new data lands). Any new host
+# keys ssh wants to accept-new would be rejected due to read-only, but
+# our only remote is github.com and its host key is already known.
+ProtectHome=read-only
 ReadWritePaths=/opt/amateur-callsigns-file-watch
 # Isolated per-invocation /tmp. Required by tsx (it creates an IPC pipe under
 # /tmp/tsx-{uid}/{pid}.pipe to coordinate its wrapper and the Node child).
