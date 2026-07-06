@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { errorMessage } from './utils';
+import { errorMessage } from './utils.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //

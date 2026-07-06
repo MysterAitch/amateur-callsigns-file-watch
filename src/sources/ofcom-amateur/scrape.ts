@@ -11,11 +11,11 @@ import {
   logger,
   fileExistsAndNotEmpty,
   formatFileSize,
-  CsvDownloadMetadata,
-  ScrapeOptions,
-  ScrapeResult,
+  type CsvDownloadMetadata,
+  type ScrapeOptions,
+  type ScrapeResult,
   errorMessage,
-} from '../../shared/utils';
+} from '../../shared/utils.ts';
 
 // Constants
 const { OFCOM_URL, OFCOM_BASE_URL } = CONSTANTS.URLS;
@@ -448,7 +448,7 @@ export async function runScrape(options?: ScrapeOptions): Promise<ScrapeResult> 
 
 // Auto-invoke when run directly (npm run pull). When imported by the scheduled
 // orchestrator, runScrape is called explicitly and this block does nothing.
-if (require.main === module) {
+if (import.meta.main) {
   process.on('unhandledRejection', (reason: unknown) => {
     logger.error('Unhandled Rejection at:', reason);
     process.exit(1);

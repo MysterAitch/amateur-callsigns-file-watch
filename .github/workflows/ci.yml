@@ -88,4 +88,4 @@ jobs:
             keys="$(git diff --name-only "origin/$GITHUB_BASE_REF"...HEAD -- 'archive/' | cut -d/ -f2 | sort -u)"
           fi
           # shellcheck disable=SC2086 # archive keys are date-shaped, never contain spaces
-          npx tsx src/ci/validate-data.ts $keys
+          node src/ci/validate-data.ts $keys

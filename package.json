@@ -4,25 +4,21 @@
   "description": "",
   "author": "Roger Howell (M7TEE)",
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc --watch",
-    "pull": "tsx src/sources/ofcom-amateur/scrape.ts",
-    "process": "tsx src/sources/ofcom-amateur/process.ts",
-    "migrate-archive": "tsx src/sources/ofcom-amateur/migrate-archive.ts",
-    "scheduled": "tsx src/scheduled-run.ts",
+    "typecheck": "tsc",
+    "pull": "node src/sources/ofcom-amateur/scrape.ts",
+    "process": "node src/sources/ofcom-amateur/process.ts",
+    "migrate-archive": "node src/sources/ofcom-amateur/migrate-archive.ts",
+    "scheduled": "node src/scheduled-run.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src/",
-    "validate:data": "tsx src/ci/validate-data.ts",
-    "normalise:sweep": "tsx src/ci/normalise-sweep.ts",
-    "all": "npm run pull && npm run process",
-    "js:pull": "node dist/sources/ofcom-amateur/scrape.js",
-    "js:process": "node dist/sources/ofcom-amateur/process.js",
-    "js:all": "npm run js:pull && npm run js:process"
+    "validate:data": "node src/ci/validate-data.ts",
+    "normalise:sweep": "node src/ci/normalise-sweep.ts",
+    "all": "npm run pull && npm run process"
   },
   "license": "MIT",
-  "type": "commonjs",
+  "type": "module",
   "engines": {
     "node": ">=26.0.0"
   },
@@ -38,7 +34,6 @@
     "@types/node": "^26.1.0",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.6.0",
-    "tsx": "^4.23.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.63.0",
     "vitest": "^4.1.10"

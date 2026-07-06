@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeEntryStats, callsignPattern, renderStatsJson, compareStats, EntryStats } from './stats';
+import { computeEntryStats, callsignPattern, renderStatsJson, compareStats, type EntryStats } from './stats.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //

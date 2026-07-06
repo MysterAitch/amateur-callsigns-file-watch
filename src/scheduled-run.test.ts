@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldRunNow, shouldNotifyDrift, shouldNotifyGitFailure } from './scheduled-run';
+import { shouldRunNow, shouldNotifyDrift, shouldNotifyGitFailure } from './scheduled-run.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention. The
 // scheduled-run decision function is pure - state and a Date in, decision out -

@@ -21,8 +21,9 @@ WorkingDirectory=/opt/amateur-callsigns-file-watch
 #             --shell /usr/sbin/nologin callsign-data-mirror
 User=callsign-data-mirror
 Group=callsign-data-mirror
-# npm resolves tsx from node_modules/.bin. If node/npm are elsewhere on
-# the LXC, use their full paths.
+# The scheduled script runs .ts sources directly under node's native
+# type-stripping (node >=22.18; the LXC runs 26.x). If node/npm are
+# elsewhere on the LXC, use their full paths.
 ExecStart=/usr/bin/npm run scheduled
 # Kill the tick if it hangs. Normal skip is <5s, normal real fetch is <60s,
 # so 5 minutes is well beyond legitimate work. Prevents a hung tick from
@@ -52,10 +53,10 @@ ProtectSystem=strict
 # our only remote is github.com and its host key is already known.
 ProtectHome=read-only
 ReadWritePaths=/opt/amateur-callsigns-file-watch
-# Isolated per-invocation /tmp. Required by tsx (it creates an IPC pipe under
-# /tmp/tsx-{uid}/{pid}.pipe to coordinate its wrapper and the Node child).
-# PrivateTmp gives the service a writable /tmp that no other process on the
-# host can see - better than adding /tmp to ReadWritePaths.
+# Isolated per-invocation /tmp: the service gets a writable /tmp that no
+# other process on the host can see - better than adding /tmp to
+# ReadWritePaths. (Historically also required by the tsx loader; kept as
+# plain good hardening now the runner is node itself.)
 PrivateTmp=true
 
 [Install]

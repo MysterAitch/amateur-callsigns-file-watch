@@ -4,7 +4,7 @@ import {
   extractOfcomDateFromCommitMessage,
   archiveKeyForDate,
   buildDiffSummary,
-} from './archive';
+} from './archive.ts';
 
 describe('parseOfcomHumanDate', () => {
   it('ParseOfcomHumanDate_WhenGivenTypicalOfcomDate_ReturnsIsoDate', () => {

@@ -7,12 +7,21 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    "outDir": "dist",
-    "sourceMap": true,
-    "declaration": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+
+    // The runtime is node's native type-stripping (no build step, no tsx):
+    // tsc is a type CHECKER here, never an emitter. Relative imports carry
+    // explicit .ts extensions (ESM resolution does not guess extensions);
+    // erasableSyntaxOnly guards against syntax (enums, namespaces,
+    // parameter properties) that type-stripping cannot erase; and
+    // verbatimModuleSyntax forces type-only imports to say `import type`,
+    // because the stripper keeps plain imports verbatim and a type imported
+    // as a value binding fails at runtime with "does not provide an export".
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
-

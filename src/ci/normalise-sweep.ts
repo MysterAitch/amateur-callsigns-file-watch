@@ -22,10 +22,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { CONSTANTS, ArchiveMeta, calculateContentHash, errorMessage, saveJsonFileSync } from '../shared/utils';
-import { listArchiveKeys } from '../shared/archive';
-import { renderStatsJson, compareStats, EntryStats } from '../shared/stats';
-import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, ConvertResult } from '../sources/ofcom-amateur/normalise';
+import { CONSTANTS, type ArchiveMeta, calculateContentHash, errorMessage, saveJsonFileSync } from '../shared/utils.ts';
+import { listArchiveKeys } from '../shared/archive.ts';
+import { renderStatsJson, compareStats, type EntryStats } from '../shared/stats.ts';
+import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
 
 interface SourceConverter {
   schemaVersion: number;
@@ -455,6 +455,6 @@ function main(): void {
   }
 }
 
-if (require.main === module) {
+if (import.meta.main) {
   main();
 }

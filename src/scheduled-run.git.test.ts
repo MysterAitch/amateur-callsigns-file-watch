@@ -3,8 +3,8 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { dataBranchName, gitCommitAndPush, tryFastForwardPull } from './scheduled-run';
-import { CONSTANTS } from './shared/utils';
+import { dataBranchName, gitCommitAndPush, tryFastForwardPull } from './scheduled-run.ts';
+import { CONSTANTS } from './shared/utils.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //

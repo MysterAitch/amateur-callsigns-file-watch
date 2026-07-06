@@ -23,8 +23,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { CONSTANTS, calculateFileHash, ArchiveMeta , errorMessage } from '../shared/utils';
-import { listArchiveKeys } from '../shared/archive';
+import { CONSTANTS, calculateFileHash, type ArchiveMeta , errorMessage } from '../shared/utils.ts';
+import { listArchiveKeys } from '../shared/archive.ts';
 
 export interface ValidationProblem {
   path: string;
@@ -235,6 +235,6 @@ function main(): void {
   console.log('All data validation checks passed.');
 }
 
-if (require.main === module) {
+if (import.meta.main) {
   main();
 }

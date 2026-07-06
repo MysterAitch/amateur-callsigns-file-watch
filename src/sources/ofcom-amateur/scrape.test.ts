@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   decideVersionCheckPath,
   extractVersionParam,
-} from './scrape';
-import type { ScrapeOptions } from '../../shared/utils';
+} from './scrape.ts';
+import type { ScrapeOptions } from '../../shared/utils.ts';
 
 describe('extractVersionParam', () => {
   it('ExtractV_WhenTypicalOfcomUrl_ReturnsVValue', () => {

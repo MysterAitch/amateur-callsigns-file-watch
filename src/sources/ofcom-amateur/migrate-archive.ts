@@ -22,16 +22,16 @@ import { parse } from 'csv-parse/sync';
 import {
   CONSTANTS,
   logger,
-  ArchiveMeta,
+  type ArchiveMeta,
   errorMessage,
-} from '../../shared/utils';
+} from '../../shared/utils.ts';
 import {
   writeArchiveEntry,
   resolveArchiveKey,
   archiveKeyForDate,
   extractOfcomDateFromCommitMessage,
   computeCsvFileMeta,
-} from '../../shared/archive';
+} from '../../shared/archive.ts';
 
 const RAW_CSV_PATH_IN_REPO = CONSTANTS.FILES.originalRawCsvFile;
 const ARCHIVE_DIR = CONSTANTS.DIRS.archive;
