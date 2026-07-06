@@ -36,8 +36,8 @@ import axios from 'axios';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import { runScrape } from './scrape-and-download';
-import { runProcess } from './process-csv';
+import { runScrape } from './sources/ofcom-amateur/scrape';
+import { runProcess } from './sources/ofcom-amateur/process';
 import {
   logger,
   loadJsonFile,
@@ -45,7 +45,7 @@ import {
   CONSTANTS,
   ProcessResult,
   ScrapeResult,
-} from './utils';
+} from './shared/utils';
 
 //
 // State

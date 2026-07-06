@@ -16,7 +16,7 @@ import {
   CsvDownloadMetadata,
   ArchiveMeta,
   ProcessResult,
-} from './utils';
+} from '../../shared/utils';
 import {
   archiveKeyForDate,
   parseOfcomHumanDate,
@@ -27,7 +27,7 @@ import {
   buildDiffSummary,
   readPreviousArchiveRecords,
   listArchiveKeys,
-} from './archive';
+} from '../../shared/archive';
 
 const FILES = CONSTANTS.FILES;
 const ARCHIVE_DIR = CONSTANTS.DIRS.archive;

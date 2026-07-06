@@ -23,14 +23,14 @@ import {
   CONSTANTS,
   logger,
   ArchiveMeta,
-} from './utils';
+} from '../../shared/utils';
 import {
   writeArchiveEntry,
   resolveArchiveKey,
   archiveKeyForDate,
   extractOfcomDateFromCommitMessage,
   computeCsvFileMeta,
-} from './archive';
+} from '../../shared/archive';
 
 const RAW_CSV_PATH_IN_REPO = CONSTANTS.FILES.originalRawCsvFile;
 const ARCHIVE_DIR = CONSTANTS.DIRS.archive;

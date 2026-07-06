@@ -16,7 +16,7 @@ import {
   CsvDownloadMetadata,
   ScrapeOptions,
   ScrapeResult,
-} from './utils';
+} from '../../shared/utils';
 
 // Constants
 const { OFCOM_URL, OFCOM_BASE_URL } = CONSTANTS.URLS;
