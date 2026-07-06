@@ -6,6 +6,32 @@
     "NANAAA": 1,
     "NNAAA": 242
   },
+  "callsignQuality": {
+    "emptyCallsign": {
+      "count": 0,
+      "examples": []
+    },
+    "encodingFailure": {
+      "count": 0,
+      "examples": []
+    },
+    "excelDateShaped": {
+      "count": 0,
+      "examples": []
+    },
+    "lowercaseBearing": {
+      "count": 0,
+      "examples": []
+    },
+    "postNormalisationDuplicates": {
+      "count": 0,
+      "examples": []
+    },
+    "whitespaceBearing": {
+      "count": 0,
+      "examples": []
+    }
+  },
   "columns": {
     "callsign": {
       "distinct": 1074,
@@ -57,5 +83,5 @@
     }
   },
   "recordCount": 1074,
-  "statsSchemaVersion": 2
+  "statsSchemaVersion": 3
 }
