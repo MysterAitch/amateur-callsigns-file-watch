@@ -298,9 +298,8 @@ describe('runNormaliseSweep', () => {
 
     const series = fs.readFileSync(path.join(tmpRoot, 'reports', 'callsign-patterns.md'), 'utf8');
     const header = series.split('\n').find(l => l.startsWith('| pattern |')) ?? '';
-    expect(header).toContain('2026-01-01');
-    expect(header).toContain('2026-02-02');
-    expect(header).toContain('2026-03-03');
+    // Newest dataset leftmost, history receding rightwards.
+    expect(header).toContain('| pattern | 2026-03-03 | 2026-02-02 | 2026-01-01 |');
     expect(series).toContain('| _records_ | 2 | 2 | 2 |');
     expect(series).toContain('| `ANAAA` | 2 | 2 | 2 |');
     expect(series).not.toContain('<small>');
