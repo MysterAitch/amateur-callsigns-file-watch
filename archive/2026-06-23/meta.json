@@ -2,6 +2,9 @@
   "schemaVersion": 1,
   "sourceKey": "ofcom-amateur-callsigns",
   "provenance": "live",
+  "intendedCoverage": {
+    "complete": true
+  },
   "fetchedAt": "2026-07-06T09:56:05.262Z",
   "files": {
     "raw.csv": {

@@ -179,6 +179,21 @@ export interface ArchiveMeta {
   // and their fetchedAt records the import time - reconstructionNotes carries what is
   // known about when and how the bytes were originally obtained.
   provenance: 'live' | 'reconstructed-from-git-history' | 'reconstructed-from-prior-download';
+  // INTENDED scope of the raw record as published: complete=true means the
+  // publisher presented it as the full dataset (e.g. Ofcom's opendata
+  // export), complete=false means it is knowingly partial (e.g. an FOI
+  // response scoped to a subset of licences, or a visibly truncated
+  // publication). Consumers aggregating or diffing across entries must not
+  // read missing rows in a partial entry as revocations - they are scope,
+  // not change; scopeNotes says what a partial view covers.
+  //
+  // Deliberately about intent, NOT verified quality (the field name says so):
+  // an intended-complete export can still carry data-quality defects (blank
+  // fields, suspected missing records) - those are a separate observation
+  // axis, not a reason to mark coverage incomplete. Supplied at intake:
+  // automatically for opendata exports, at ratification for holding-pen
+  // material.
+  intendedCoverage?: { complete: boolean; scopeNotes?: string };
   sourceUrl?: string;
   sourceVersionParam?: string;
   ofcomReportedUpdate?: string;

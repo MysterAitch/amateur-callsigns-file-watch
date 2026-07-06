@@ -161,6 +161,10 @@ async function processStagedCsv(downloadMetadata: CsvDownloadMetadata | null): P
     schemaVersion: 1,
     sourceKey: CONSTANTS.SOURCES.OFCOM_AMATEUR,
     provenance: 'live',
+    // Ofcom's opendata export is published as the full callsign population,
+    // not a scoped subset - unlike e.g. FOI responses, which declare their
+    // scope at intake. Intent, not verified quality.
+    intendedCoverage: { complete: true },
     fetchedAt: new Date().toISOString(),
     files: {
       'raw.csv': rawFileMeta,

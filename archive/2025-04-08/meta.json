@@ -2,6 +2,9 @@
   "schemaVersion": 1,
   "sourceKey": "ofcom-amateur-callsigns",
   "provenance": "reconstructed-from-git-history",
+  "intendedCoverage": {
+    "complete": true
+  },
   "fetchedAt": "2025-04-28T02:13:20Z",
   "gitCommitSha": "9c6103e11b8887548b49814ee017dcc5a9a8cae4",
   "ofcomReportedUpdateIso": "2025-04-08",

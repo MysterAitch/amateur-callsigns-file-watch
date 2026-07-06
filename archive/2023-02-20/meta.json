@@ -2,6 +2,9 @@
   "schemaVersion": 1,
   "sourceKey": "ofcom-amateur-callsigns",
   "provenance": "reconstructed-from-prior-download",
+  "intendedCoverage": {
+    "complete": true
+  },
   "fetchedAt": "2026-07-06T18:34:51Z",
   "sourceUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsigns.csv",
   "ofcomReportedUpdateIso": "2023-02-20",
@@ -12,7 +15,12 @@
       "sha256": "a5fe1d92811606e5a744a4d6039c3774b7467a4b4daeee896f70b2e3ada9735a",
       "format": "csv",
       "columnCount": 4,
-      "columnNames": ["Value", "Status", "Product", "Call Sign MMSI: Last Modified Date"],
+      "columnNames": [
+        "Value",
+        "Status",
+        "Product",
+        "Call Sign MMSI: Last Modified Date"
+      ],
       "recordCount": 152084
     }
   }

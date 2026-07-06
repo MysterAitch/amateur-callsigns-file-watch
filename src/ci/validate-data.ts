@@ -74,6 +74,9 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
   if (typeof meta.sourceKey !== 'string' || meta.sourceKey.length === 0) problems.push({ path: metaPath, problem: 'sourceKey is missing or empty' });
   if (!VALID_PROVENANCE.has(meta.provenance)) problems.push({ path: metaPath, problem: `provenance is missing or invalid: ${meta.provenance}` });
   if (!meta.fetchedAt || Number.isNaN(Date.parse(meta.fetchedAt))) problems.push({ path: metaPath, problem: `fetchedAt is missing or not a parseable timestamp: ${meta.fetchedAt}` });
+  if (meta.intendedCoverage !== undefined && typeof meta.intendedCoverage.complete !== 'boolean') {
+    problems.push({ path: metaPath, problem: 'intendedCoverage.complete must be a boolean when intendedCoverage is declared' });
+  }
   if (typeof meta.files !== 'object' || meta.files === null || !meta.files['raw.csv']) {
     problems.push({ path: metaPath, problem: 'files map is missing a raw.csv declaration' });
     return problems;
