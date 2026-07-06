@@ -144,6 +144,20 @@ describe('validateArchiveEntry', () => {
     const problems = validateArchiveEntry('2026-06-23');
     expect(problems.some(p => p.problem.includes('sourceKey'))).toBe(true);
   });
+
+  it('ArchiveEntry_WhenProvenanceIsReconstructedFromPriorDownload_Passes', () => {
+    // Entries can be imported from downloads the maintainer retained outside
+    // this repository - a legitimate provenance distinct from live fetches
+    // and git-history reconstruction.
+    writeEntry(tmpRoot, '2023-02-20', CSV, { provenance: 'reconstructed-from-prior-download' });
+    expect(validateArchiveEntry('2023-02-20')).toEqual([]);
+  });
+
+  it('ArchiveEntry_WhenProvenanceUnrecognised_Fails', () => {
+    writeEntry(tmpRoot, '2026-06-23', CSV, { provenance: 'downloaded-from-somewhere' });
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.problem.includes('provenance'))).toBe(true);
+  });
 });
 
 describe('deepValidateEntryCsv', () => {

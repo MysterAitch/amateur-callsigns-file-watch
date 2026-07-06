@@ -37,7 +37,7 @@ export interface ValidationReport {
   checkedEntries: number;
 }
 
-const VALID_PROVENANCE = new Set(['live', 'reconstructed-from-git-history']);
+const VALID_PROVENANCE = new Set(['live', 'reconstructed-from-git-history', 'reconstructed-from-prior-download']);
 
 function entryDir(key: string): string {
   return path.join(CONSTANTS.DIRS.archive, key);
