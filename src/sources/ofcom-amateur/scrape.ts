@@ -2,12 +2,10 @@
 
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
-import * as path from 'path';
 import axios from 'axios';
 import { JSDOM } from 'jsdom';
 import {
   calculateFileHash,
-  loadJsonFile,
   saveJsonFile,
   CONSTANTS,
   logger,

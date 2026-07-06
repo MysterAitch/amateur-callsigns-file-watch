@@ -12,6 +12,8 @@
     "scheduled": "tsx src/scheduled-run.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/",
     "validate:data": "tsx src/ci/validate-data.ts",
     "normalise:sweep": "tsx src/ci/normalise-sweep.ts",
     "all": "npm run pull && npm run process",
@@ -34,8 +36,11 @@
   "devDependencies": {
     "@types/jsdom": "^28.0.3",
     "@types/node": "^26.1.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^10.6.0",
     "tsx": "^4.23.0",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.63.0",
     "vitest": "^4.1.10"
   }
 }
