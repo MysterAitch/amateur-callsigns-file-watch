@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldRunNow } from './scheduled-run';
+import { shouldRunNow, shouldNotifyDrift } from './scheduled-run';
 
 // Test names follow Subject_Scenario_Outcome per project convention. The
 // scheduled-run decision function is pure - state and a Date in, decision out -
@@ -109,5 +109,58 @@ describe('shouldRunNow', () => {
       const decision = shouldRunNow(emptyState, at18);
       expect(decision.windowId).toBe('2026-11-01T18:00');
     });
+  });
+});
+
+describe('shouldNotifyDrift', () => {
+  const NOW = new Date('2026-07-06T12:00:00Z');
+  const drift = { drifted: true, fingerprint: 'abc123', summary: 'foo.service' };
+
+  it('ShouldNotifyDrift_WhenNotDrifted_DoesNotNotify', () => {
+    const nodrift = { drifted: false, fingerprint: '', summary: '' };
+    expect(shouldNotifyDrift(nodrift, undefined, undefined, NOW).notify).toBe(false);
+    // Even if a prior notify exists, resolution = quiet
+    expect(shouldNotifyDrift(nodrift, 'old', '2026-07-05T12:00:00Z', NOW).notify).toBe(false);
+  });
+
+  it('ShouldNotifyDrift_WhenDriftedForFirstTime_Notifies', () => {
+    const decision = shouldNotifyDrift(drift, undefined, undefined, NOW);
+    expect(decision.notify).toBe(true);
+    expect(decision.reason).toMatch(/no prior notify recorded|new or changed/);
+  });
+
+  it('ShouldNotifyDrift_WhenFingerprintChanged_NotifiesEvenIfRecentlyNotified', () => {
+    // We notified 1h ago about a different drift; now a fresh fingerprint
+    // means a genuinely-new drift state - notify again immediately.
+    const oneHourAgo = new Date(NOW.getTime() - 60 * 60_000).toISOString();
+    const decision = shouldNotifyDrift(drift, 'different-fp', oneHourAgo, NOW);
+    expect(decision.notify).toBe(true);
+    expect(decision.reason).toBe('new or changed drift state');
+  });
+
+  it('ShouldNotifyDrift_WhenSameFingerprintAndRecentlyNotified_Suppresses', () => {
+    const oneHourAgo = new Date(NOW.getTime() - 60 * 60_000).toISOString();
+    const decision = shouldNotifyDrift(drift, 'abc123', oneHourAgo, NOW);
+    expect(decision.notify).toBe(false);
+    expect(decision.reason).toMatch(/< 24h/);
+  });
+
+  it('ShouldNotifyDrift_WhenSameFingerprintButLastNotifyOver24hAgo_Notifies', () => {
+    const yesterday = new Date(NOW.getTime() - 25 * 60 * 60_000).toISOString();
+    const decision = shouldNotifyDrift(drift, 'abc123', yesterday, NOW);
+    expect(decision.notify).toBe(true);
+    expect(decision.reason).toMatch(/since last notify/);
+  });
+
+  it('ShouldNotifyDrift_WhenExactly24hSinceLastNotify_Notifies', () => {
+    // Boundary: >= 24h triggers.
+    const exactly24h = new Date(NOW.getTime() - 24 * 60 * 60_000).toISOString();
+    expect(shouldNotifyDrift(drift, 'abc123', exactly24h, NOW).notify).toBe(true);
+  });
+
+  it('ShouldNotifyDrift_WhenSlightlyUnder24h_Suppresses', () => {
+    // Just under the boundary - still within suppression window.
+    const almost24h = new Date(NOW.getTime() - 23.9 * 60 * 60_000).toISOString();
+    expect(shouldNotifyDrift(drift, 'abc123', almost24h, NOW).notify).toBe(false);
   });
 });

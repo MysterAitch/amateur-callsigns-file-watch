@@ -38,10 +38,12 @@ dotenv.config();
 
 import { runScrape } from './sources/ofcom-amateur/scrape';
 import { runProcess } from './sources/ofcom-amateur/process';
+import * as crypto from 'crypto';
 import {
   logger,
   loadJsonFile,
   saveJsonFile,
+  calculateFileHash,
   CONSTANTS,
   ProcessResult,
   ScrapeResult,
@@ -87,6 +89,14 @@ interface NotifyState {
   lastKnownV?: string;
   lastKnownVContentHash?: string;
   lastKnownVVerifiedAt?: string;
+
+  // Drift notifications: fingerprints identify a specific drift state so we
+  // re-notify when it changes (new commits touched the units) but not for the
+  // same state within 24h. Both fields clear when drift resolves.
+  lastSystemdDriftNotifiedAt?: string;
+  lastSystemdDriftFingerprint?: string;
+  lastWorkingTreeDriftNotifiedAt?: string;
+  lastWorkingTreeDriftFingerprint?: string;
 }
 
 async function loadState(): Promise<NotifyState> {
@@ -189,6 +199,178 @@ async function healthchecksPing(): Promise<void> {
   } catch (err: any) {
     logger.warn(`healthchecks ping failed (${err.message}); continuing.`);
   }
+}
+
+//
+// Drift detection - flag two kinds of "the host is running something that
+// doesn't match the repo" that CANNOT be auto-healed by the non-root runner:
+//
+// 1. Systemd unit drift: the deployed /etc/systemd/system/*.service files
+//    differ from the docs/systemd/*.service files in the checkout. Needs
+//    root to run `sudo bash docs/setup/update-service.sh` to reconcile.
+//
+// 2. Working-tree drift: local unstaged changes exist in the checkout that
+//    aren't ours. Suggests something is editing files on the LXC by hand,
+//    or the auto-pull's `--autostash` had to stash local mods before rebase
+//    (rare but shouldn't happen in normal operation).
+//
+// Both are informational, LOW priority, rate-limited to at most one notify
+// per 24h per distinct drift state.
+//
+
+const SYSTEMD_DEPLOYED_DIR = '/etc/systemd/system';
+const SYSTEMD_UNIT_FILES = [
+  'amateur-callsigns-mirror.service',
+  'amateur-callsigns-mirror.timer',
+  'amateur-callsigns-mirror-notify-failure.service',
+];
+
+interface DriftResult {
+  drifted: boolean;
+  fingerprint: string;   // stable identifier for this specific drift state
+  summary: string;       // short human-readable description
+}
+
+// Compare the repo's docs/systemd/*.service files against the deployed copies
+// under /etc/systemd/system/. Returns null on hosts where the check doesn't
+// apply (Windows/macOS dev workstations, systems without systemd) - we don't
+// want dev boxes to notify about drift they have no way to fix.
+function detectSystemdDrift(): DriftResult | null {
+  if (!fsSync.existsSync(SYSTEMD_DEPLOYED_DIR)) return null;
+
+  const repoUnitsDir = path.resolve(__dirname, '..', 'docs', 'systemd');
+  if (!fsSync.existsSync(repoUnitsDir)) return null;
+
+  const changed: Array<{ name: string; repoHash: string }> = [];
+  for (const name of SYSTEMD_UNIT_FILES) {
+    const repoFile = path.join(repoUnitsDir, name);
+    const deployedFile = path.join(SYSTEMD_DEPLOYED_DIR, name);
+    if (!fsSync.existsSync(repoFile)) continue;         // not our unit yet
+    if (!fsSync.existsSync(deployedFile)) {
+      // File exists in repo but not deployed - drift (needs install)
+      changed.push({ name, repoHash: calculateFileHash(repoFile) });
+      continue;
+    }
+    const repoHash = calculateFileHash(repoFile);
+    const deployedHash = calculateFileHash(deployedFile);
+    if (repoHash !== deployedHash) changed.push({ name, repoHash });
+  }
+
+  if (changed.length === 0) {
+    return { drifted: false, fingerprint: '', summary: '' };
+  }
+
+  const sorted = changed.sort((a, b) => a.name.localeCompare(b.name));
+  const fingerprint = crypto
+    .createHash('sha256')
+    .update(sorted.map(x => `${x.name}:${x.repoHash}`).join('\n'))
+    .digest('hex')
+    .slice(0, 12);
+  const summary = sorted.map(x => x.name).join(', ');
+  return { drifted: true, fingerprint, summary };
+}
+
+// Detect any local unstaged changes in the checkout - things that would show
+// as `M` under `git status`. In normal operation the runner only writes
+// tracked files at controlled moments (archive/, latest-*, metadata sidecar),
+// so persistent unstaged mods usually mean either someone edited on the LXC
+// by hand OR the auto-pull's --autostash had to stash something before
+// rebasing. Either way, worth a nudge.
+function detectWorkingTreeDrift(): DriftResult | null {
+  try {
+    const status = execFileSync('git', ['status', '--porcelain'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    if (status.length === 0) return { drifted: false, fingerprint: '', summary: '' };
+
+    // Look ONLY at unstaged mods and untracked files. Staged changes are
+    // ours (about to be committed by gitCommitAndPush) so skip anything with
+    // an index-side status letter.
+    const lines = status.split('\n').filter(line => {
+      // status --porcelain format: XY <path>; X = index status, Y = worktree.
+      // We care about Y being non-space or lines starting with `??` (untracked).
+      return line.startsWith('??') || (line.length >= 2 && line[1] !== ' ');
+    });
+    if (lines.length === 0) return { drifted: false, fingerprint: '', summary: '' };
+
+    const fingerprint = crypto
+      .createHash('sha256')
+      .update(lines.sort().join('\n'))
+      .digest('hex')
+      .slice(0, 12);
+    // Cap the summary in case a large number of files are in a bad state
+    const summary = lines.slice(0, 5).map(l => l.trim()).join('; ') +
+                    (lines.length > 5 ? ` ... (+${lines.length - 5} more)` : '');
+    return { drifted: true, fingerprint, summary };
+  } catch {
+    // Not a git checkout, or git not available - no meaningful drift check.
+    return null;
+  }
+}
+
+// Pure decision helper for drift-notification rate-limiting. Testable
+// without any filesystem / systemd knowledge. Given the current drift
+// state and the persisted last-notified state, decides whether to
+// notify now.
+export function shouldNotifyDrift(
+  drift: DriftResult,
+  lastFingerprint: string | undefined,
+  lastNotifiedAt: string | undefined,
+  now: Date,
+): { notify: boolean; reason: string } {
+  if (!drift.drifted) return { notify: false, reason: 'no drift' };
+  if (lastFingerprint !== drift.fingerprint) {
+    return { notify: true, reason: 'new or changed drift state' };
+  }
+  if (!lastNotifiedAt) return { notify: true, reason: 'no prior notify recorded' };
+  const hoursAgo = (now.getTime() - new Date(lastNotifiedAt).getTime()) / 3_600_000;
+  if (hoursAgo >= 24) return { notify: true, reason: `${hoursAgo.toFixed(1)}h since last notify` };
+  return { notify: false, reason: `same drift, notified ${hoursAgo.toFixed(1)}h ago (< 24h)` };
+}
+
+// Fire a LOW notification when we hit new drift, or refresh a 24h-stale
+// notify for the same drift state. Clear state fields when drift resolves.
+async function handleDrift(
+  state: NotifyState,
+  drift: DriftResult | null,
+  kind: 'systemd' | 'working-tree',
+): Promise<void> {
+  const [fpField, tsField, titlePrefix] = kind === 'systemd'
+    ? ['lastSystemdDriftFingerprint', 'lastSystemdDriftNotifiedAt',
+       'Systemd units on LXC differ from repo'] as const
+    : ['lastWorkingTreeDriftFingerprint', 'lastWorkingTreeDriftNotifiedAt',
+       'LXC has unstaged local changes'] as const;
+
+  if (!drift) return;   // check doesn't apply on this host
+
+  if (!drift.drifted) {
+    // Resolution: clear state so next drift starts fresh
+    if (state[fpField] || state[tsField]) {
+      logger.info(`${kind} drift resolved; clearing state.`);
+      state[fpField] = undefined;
+      state[tsField] = undefined;
+    }
+    return;
+  }
+
+  const decision = shouldNotifyDrift(drift, state[fpField], state[tsField], new Date());
+  if (!decision.notify) {
+    logger.debug(`drift (${kind}): ${decision.reason}`);
+    return;
+  }
+
+  const body = kind === 'systemd'
+    ? `Files differ: ${drift.summary}. ` +
+      `To reconcile, on the LXC as root: ` +
+      `sudo bash /opt/amateur-callsigns-file-watch/docs/setup/update-service.sh`
+    : `Working tree has unstaged changes: ${drift.summary}. ` +
+      `Investigate on the LXC: cd /opt/amateur-callsigns-file-watch && ` +
+      `su -s /bin/bash - callsign-data-mirror -c "git status"`;
+
+  await ntfy('low', titlePrefix, body);
+  state[fpField] = drift.fingerprint;
+  state[tsField] = new Date().toISOString();
 }
 
 //
@@ -433,6 +615,18 @@ async function main(): Promise<void> {
   const now = new Date();
   const decision = shouldRunNow(state, now);
 
+  // Drift checks run on EVERY tick (including skips) because they're the
+  // signal that "the host is running a version of the systemd config that
+  // doesn't match what's in the repo any more". Cheap - a couple of file
+  // hashes and one `git status`. Rate-limited internally per drift state
+  // so this doesn't spam.
+  try {
+    await handleDrift(state, detectSystemdDrift(), 'systemd');
+    await handleDrift(state, detectWorkingTreeDrift(), 'working-tree');
+  } catch (err: any) {
+    logger.warn(`drift check failed (${err.message}); continuing.`);
+  }
+
   if (decision.action === 'skip') {
     logger.debug(`Not running this tick: ${decision.reason}`);
     // Even on a skipped tick we heartbeat healthchecks. That way healthchecks
@@ -440,6 +634,7 @@ async function main(): Promise<void> {
     // fetch right now" as alive. If we ONLY pinged on real work ticks,
     // healthchecks would think the mirror was dead outside the 3 slots/day.
     await healthchecksPing();
+    await saveState(state);
     return;
   }
 
