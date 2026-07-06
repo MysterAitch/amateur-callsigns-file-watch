@@ -1,0 +1,24 @@
+// Linux dev environment matching CI and the deployment host (Debian, Node 26).
+//
+// Primary uses:
+//  - cross-platform package-lock reconciliation: the lock must carry BOTH
+//    platforms' conditional optional deps (see README "Cross-platform
+//    lock-file discipline"); npm on Windows cannot record the Linux-only
+//    entries, so `npm install --package-lock-only` runs in here.
+//  - running tests/typecheck in the same environment CI uses.
+//
+// Caveat: the Ofcom scrape does NOT work from datacenter IPs (Cloudflare), so
+// `npm run pull` will fail inside Codespaces or any cloud-hosted container.
+// Local work (tests, process step against existing files) is unaffected.
+{
+  "name": "amateur-callsigns-file-watch",
+  "image": "node:26-bookworm",
+  "remoteUser": "node",
+  // .npmrc's ignore-scripts=true applies here as everywhere else.
+  "postCreateCommand": "npm ci",
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "vitest.explorer"]
+    }
+  }
+}
