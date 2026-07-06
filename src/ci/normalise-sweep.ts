@@ -236,20 +236,24 @@ function windowFor(key: string, keys: string[]): string[] {
   return [...before, key, ...after];
 }
 
-// Pattern x dataset matrix over the window: one row per pattern (union across
-// Pattern labels must render VISIBLY: the empty pattern (a blank callsign in
-// the raw) as a bare code span shows as two literal backticks, and spaces
-// inside code spans are invisible - substitute an explicit marker for each.
+// Pattern labels: the empty pattern (a blank callsign in the raw) as a bare
+// code span would render as two literal backticks, so it gets a marker.
+// Whitespace/unprintable characters need no label handling - the taxonomy
+// itself renders them as printable {U+XXXX} markers (statsSchemaVersion 2).
 function patternLabel(pattern: string): string {
   if (pattern === '') return '_(empty)_';
-  return `\`${mdCell(pattern, 40).replace(/ /g, '␣')}\``;
+  return `\`${mdCell(pattern, 40)}\``;
 }
 
+// Pattern x dataset matrix over the window: one row per pattern (union across
 // the window), one column per dataset, current entry bolded. Absence is '—',
-// distinct from a zero count. First row carries record counts, with each
-// neighbour annotated by its difference from the current entry - the deltas
-// reviewers would otherwise compute by hand. Pattern rows stay plain numbers:
-// the matrix's job is shape-spotting, and per-cell deltas would drown it.
+// distinct from a zero count. Every neighbour cell - the records row and the
+// pattern rows alike - is annotated with its signed difference from the
+// current entry ("this" is the baseline): the arithmetic reviewers would
+// otherwise do by hand. Zero deltas stay unannotated (noise, not signal),
+// and cells where the current entry lacks the pattern stay plain - the
+// em-dash in the current column is the signal there, and a percentage over
+// zero is undefined.
 function matrixTable(key: string, window: string[], statsByKey: Map<string, EntryStats>): string[] {
   const header = window.map(k => (k === key ? `${k} (this)` : k));
   const patternUnion = new Set<string>();
@@ -261,27 +265,22 @@ function matrixTable(key: string, window: string[], statsByKey: Map<string, Entr
     const byCount = (current?.callsignPatterns[b] ?? 0) - (current?.callsignPatterns[a] ?? 0);
     return byCount !== 0 ? byCount : a < b ? -1 : 1;
   });
-  const cell = (k: string, value: string): string => (k === key ? `**${value}**` : value);
-  const recordsCell = (k: string): string => {
-    const count = statsByKey.get(k)?.recordCount;
-    if (count === undefined) return '—';
-    if (k === key || current === undefined || current.recordCount === 0) return cell(k, String(count));
-    const diff = count - current.recordCount;
-    if (diff === 0) return String(count); // a zero delta is noise, not signal
+  const annotated = (k: string, count: number | undefined, currentCount: number | undefined): string => {
+    if (count === undefined) return k === key ? '**—**' : '—';
+    if (k === key) return `**${count}**`;
+    if (currentCount === undefined || currentCount === 0 || count === currentCount) return String(count);
+    const diff = count - currentCount;
     const sign = diff >= 0 ? '+' : '';
-    const pct = (diff / current.recordCount) * 100;
+    const pct = (diff / currentCount) * 100;
     return `${count}<br><small>${sign}${diff} (${sign}${pct.toFixed(1)}%)</small>`;
   };
   const rows = [
     `| pattern | ${header.join(' | ')} |`,
     `|---|${window.map(() => '---:').join('|')}|`,
-    `| _records_ | ${window.map(recordsCell).join(' | ')} |`,
+    `| _records_ | ${window.map(k => annotated(k, statsByKey.get(k)?.recordCount, current?.recordCount)).join(' | ')} |`,
     ...patterns.map(p =>
       `| ${patternLabel(p)} | ${window
-        .map(k => {
-          const count = statsByKey.get(k)?.callsignPatterns[p];
-          return cell(k, count === undefined ? '—' : String(count));
-        })
+        .map(k => annotated(k, statsByKey.get(k)?.callsignPatterns[p], current?.callsignPatterns[p]))
         .join(' | ')} |`),
   ];
   return rows;

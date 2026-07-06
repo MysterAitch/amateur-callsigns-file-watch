@@ -29,16 +29,36 @@ export interface DateColumnStats {
 }
 
 export interface EntryStats {
-  statsSchemaVersion: 1;
+  statsSchemaVersion: 2;
   recordCount: number;
   // Format taxonomy of the callsign column: uppercase→A, lowercase→a,
-  // digit→N, all other characters preserved verbatim.
+  // digit→N; whitespace, unprintable, and invisible characters (Unicode
+  // Other and Separator categories, INCLUDING regular space - whitespace in
+  // a callsign is unambiguously invalid) appear as explicit {U+XXXX}
+  // markers; all other characters preserved verbatim. Codepoints stay in
+  // the pattern itself - process once, visible immediately, no detective
+  // work - so a tab anomaly and an NBSP anomaly are distinct rows.
   callsignPatterns: Record<string, number>;
   columns: Record<string, StringColumnStats | DateColumnStats>;
 }
 
+// Whitespace/unprintable/invisible characters, marked per-codepoint in
+// patterns. Substitution runs AFTER the letter/digit mappings, so the marker
+// text's own letters can never be re-mapped. (A raw callsign containing a
+// literal "{U+XXXX}" string would collide with a marker; accepted as
+// vanishingly unlikely, and the raw data remains the arbiter.)
+const UNPRINTABLE_RE = /[\p{C}\p{Z}]/gu;
+
+function codepointMarker(c: string): string {
+  return `{U+${(c.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}}`;
+}
+
 export function callsignPattern(callsign: string): string {
-  return callsign.replace(/[A-Z]/g, 'A').replace(/[a-z]/g, 'a').replace(/[0-9]/g, 'N');
+  return callsign
+    .replace(/[A-Z]/g, 'A')
+    .replace(/[a-z]/g, 'a')
+    .replace(/[0-9]/g, 'N')
+    .replace(UNPRINTABLE_RE, codepointMarker);
 }
 
 // distinct and length/value ranges deliberately consider non-empty values
@@ -90,7 +110,7 @@ export function computeEntryStats(
   });
 
   return {
-    statsSchemaVersion: 1,
+    statsSchemaVersion: 2,
     recordCount: rows.length,
     callsignPatterns: Object.fromEntries([...patterns.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
     columns,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeEntryStats, renderStatsJson, compareStats } from './stats';
+import { computeEntryStats, callsignPattern, renderStatsJson, compareStats } from './stats';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -28,6 +28,19 @@ describe('computeEntryStats', () => {
     expect(stats.callsignPatterns['aNaaa']).toBe(1); // g0jrk lowercase preserved as 'a'
     expect(stats.callsignPatterns['A/#AANAA']).toBe(1); // M/#PT2FM: slash and hash preserved
     expect(Object.keys(stats.callsignPatterns)).toHaveLength(4);
+  });
+
+  it('CallsignTaxonomy_WhenWhitespaceOrUnprintable_MarkedPerCodepointDistinctly', () => {
+    // Whitespace in a callsign is unambiguously invalid; each offending
+    // codepoint appears as a printable {U+XXXX} marker IN the pattern -
+    // visible immediately, and space vs NBSP vs tab stay distinct rows.
+    // Markers substitute after the letter/digit mappings, so their own
+    // letters are never re-mapped.
+    expect(callsignPattern('M7 TEE')).toBe('AN{U+0020}AAA');
+    expect(callsignPattern('M7TEE\u00A0')).toBe('ANAAA{U+00A0}'); // trailing NBSP (observed live)
+    expect(callsignPattern('M7\tTEE')).toBe('AN{U+0009}AAA');
+    expect(callsignPattern('M7TEE\u200B')).toBe('ANAAA{U+200B}'); // zero-width space
+    expect(callsignPattern('M7 TEE')).not.toBe(callsignPattern('M7\u00A0TEE'));
   });
 
   it('ColumnStats_WhenStringColumn_ReportsDistinctEmptyAndLengthRangeOverNonEmptyValues', () => {
