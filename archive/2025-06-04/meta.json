@@ -43,8 +43,8 @@
       "sortedBy": "callsign"
     },
     "stats.json": {
-      "size": 1794,
-      "sha256": "f5b07fff314642234e3efc3bd0153ab2d8c9ceaa9c1aed2cd76be1bc5a6bdea1",
+      "size": 1808,
+      "sha256": "0922a046f3d5f86d8af38d2e0ca3ad5b2b3ad61855638a7f4c39296f94081b7c",
       "format": "json"
     }
   },
@@ -53,6 +53,6 @@
   "normalised": {
     "schemaVersion": 1,
     "headerVariant": "v2025-friendly",
-    "statsSchemaVersion": 1
+    "statsSchemaVersion": 2
   }
 }
