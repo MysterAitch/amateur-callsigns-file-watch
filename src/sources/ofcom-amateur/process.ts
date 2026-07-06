@@ -28,6 +28,7 @@ import {
   readPreviousArchiveRecords,
   listArchiveKeys,
 } from '../../shared/archive';
+import { callsignColumnFor } from './normalise';
 
 const FILES = CONSTANTS.FILES;
 const ARCHIVE_DIR = CONSTANTS.DIRS.archive;
@@ -53,8 +54,10 @@ async function processStagedCsv(downloadMetadata: CsvDownloadMetadata | null): P
   const rawSha = calculateFileHash(FILES.originalRawCsvFile);
   logger.info(`Raw CSV size: ${formatFileSize(fsSync.statSync(FILES.originalRawCsvFile).size)}, sha256: ${rawSha}`);
 
-  // Parse + sort. The sort is deterministic per current sort policy (first column,
-  // case-insensitive locale compare) so the sorted CSV is a well-defined derivative.
+  // Parse + sort. The sort is deterministic per current sort policy (callsign
+  // column found by name via the variant registry, falling back to the first
+  // column with a warning; case-insensitive locale compare) so the sorted CSV
+  // is a well-defined derivative.
   //
   // Sort primarily for git-diff readability. Ofcom's publication row order is not
   // stable between publications, so a git diff of raw-vs-raw is unreadable noise
@@ -78,9 +81,17 @@ async function processStagedCsv(downloadMetadata: CsvDownloadMetadata | null): P
     throw new Error('Parsed raw CSV is empty - refusing to archive an empty publication.');
   }
 
-  const firstColumn = Object.keys(records[0])[0];
+  // Issue #4: find the callsign column by NAME so an upstream column reorder
+  // cannot silently change what the sorted derivative is sorted by. A raw
+  // file with no recognised callsign column is itself a data-quality signal.
+  const headers = Object.keys(records[0]);
+  const callsignColumn = callsignColumnFor(headers);
+  if (callsignColumn === undefined) {
+    logger.warn(`No known callsign column among [${headers.join(', ')}] - falling back to first column "${headers[0]}" for the sorted derivative.`);
+  }
+  const sortColumn = callsignColumn ?? headers[0];
   const sortedRecords = [...records].sort((a, b) =>
-    String(a[firstColumn] ?? '').toLowerCase().localeCompare(String(b[firstColumn] ?? '').toLowerCase())
+    String(a[sortColumn] ?? '').toLowerCase().localeCompare(String(b[sortColumn] ?? '').toLowerCase())
   );
   const sortedContent = stringify(sortedRecords, {
     header: true,

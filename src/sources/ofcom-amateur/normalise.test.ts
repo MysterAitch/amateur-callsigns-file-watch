@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectHeaderVariant, convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS } from './normalise';
+import { detectHeaderVariant, callsignColumnFor, convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS } from './normalise';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -56,6 +56,34 @@ describe('detectHeaderVariant', () => {
 
   it('HeaderVariant_WhenUnknownHeaders_ReturnsUndefined', () => {
     expect(detectHeaderVariant(['Callsign', 'SomethingNew', 'Status'])).toBeUndefined();
+  });
+});
+
+describe('callsignColumnFor', () => {
+  // Issue #4: sorting must find the callsign column by NAME (drawn from the
+  // variant registry, so new variants keep it in sync automatically), never
+  // by position - an upstream column reorder must not silently change what
+  // latest-raw-sorted.csv is sorted by.
+
+  it('CallsignColumn_WhenKnownVariantHeaders_ReturnsTheCallsignColumn', () => {
+    expect(callsignColumnFor(['Value__c', 'Product__c', 'Status__c'])).toBe('Value__c');
+    expect(callsignColumnFor(['Call sign', 'Product', 'Status'])).toBe('Call sign');
+    expect(callsignColumnFor(['Value', 'Status', 'Product'])).toBe('Value');
+    expect(callsignColumnFor(['Callsign', 'Product__c', 'Status'])).toBe('Callsign');
+  });
+
+  it('CallsignColumn_WhenColumnsReordered_StillFoundByName', () => {
+    expect(callsignColumnFor(['Product__c', 'Status__c', 'Value__c'])).toBe('Value__c');
+  });
+
+  it('CallsignColumn_WhenHeaderCarriesBom_MatchesThroughBomAndReturnsOriginalKey', () => {
+    // process.ts parses without bom stripping, so the first header can arrive
+    // BOM-prefixed; the ORIGINAL key must come back or record access breaks.
+    expect(callsignColumnFor(['\uFEFFCallsign', 'Product__c', 'Status'])).toBe('\uFEFFCallsign');
+  });
+
+  it('CallsignColumn_WhenNoKnownCallsignName_ReturnsUndefined', () => {
+    expect(callsignColumnFor(['SomethingNew', 'Status', 'Product'])).toBeUndefined();
   });
 });
 
