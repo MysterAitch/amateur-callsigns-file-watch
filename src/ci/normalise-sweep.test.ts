@@ -157,21 +157,53 @@ describe('runNormaliseSweep', () => {
     expect(meta.normalised.statsSchemaVersion).toBe(1);
   });
 
-  it('Sweep_WhenMiddleEntryReDerivedBetweenNeighbours_ComparisonCoversBothDirections', () => {
-    // A retrospectively inserted/re-derived entry must be compared against
-    // chronological neighbours on BOTH sides, not just predecessors.
+  it('Report_WhenEntryBetweenNeighbours_MatrixColumnsCoverBothDirections', () => {
+    // Every entry with stats gets a committed reports/{key}.md; the pattern
+    // matrix spans chronological neighbours on BOTH sides, so retrospectively
+    // inserted entries are judged in both directions.
     writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
     writeEntry(tmpRoot, '2026-02-02', SALESFORCE_RAW);
     writeEntry(tmpRoot, '2026-03-03', SALESFORCE_RAW);
     runNormaliseSweep();
-    fs.writeFileSync(path.join(tmpRoot, 'archive', '2026-02-02', 'normalised.csv'), 'stale\n');
 
-    const second = runNormaliseSweep();
+    const report = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-02-02.md'), 'utf8');
+    const matrixSection = report.slice(report.indexOf('## Pattern counts across window'));
+    const matrixHeader = matrixSection.split('\n').find(l => l.includes('pattern |'));
+    expect(matrixHeader).toContain('2026-01-01');
+    expect(matrixHeader).toContain('2026-02-02 (this)');
+    expect(matrixHeader).toContain('2026-03-03');
+    // Records row and a pattern row with per-dataset counts, current bolded.
+    expect(report).toMatch(/_records_ \| 2 \| \*\*2\*\* \| 2/);
+    expect(report).toMatch(/`ANAAA` \| 2 \| \*\*2\*\* \| 2/);
+    // The entry's own full pattern table and pairwise sections are present.
+    expect(report).toContain('## Callsign patterns');
+    expect(report).toContain('## Pairwise comparison');
+  });
 
-    expect(second.changed).toEqual(['2026-02-02']);
-    const section = second.coverageMarkdown.slice(second.coverageMarkdown.indexOf('Neighbour comparison'));
-    expect(section).toContain('2026-01-01');
-    expect(section).toContain('2026-03-03');
+  it('Report_WhenPatternAbsentFromNeighbour_MatrixShowsDashNotZero', () => {
+    // Absence of a pattern is different from a zero count - the matrix must
+    // distinguish them for the reviewer.
+    const withOddity = SALESFORCE_RAW + 'm7odd,,Available,Call Sign - Amateur,21/01/2019,21/01/2019\n';
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-02-02', withOddity);
+    runNormaliseSweep();
+
+    const report = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-02-02.md'), 'utf8');
+    expect(report).toMatch(/`aNaaa` \| — \| \*\*1\*\*/);
+  });
+
+  it('Report_WhenNothingChanges_FilesStayByteIdentical', () => {
+    // Reports are derived golden masters like everything else: a re-run over
+    // unchanged data must regenerate byte-identical files (no timestamps, no
+    // ordering drift), or every scheduled run would churn the reports.
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-02-02', SALESFORCE_RAW);
+    runNormaliseSweep();
+    const before = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-01-01.md'), 'utf8');
+
+    runNormaliseSweep();
+
+    expect(fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-01-01.md'), 'utf8')).toBe(before);
   });
 
   it('Sweep_WhenNewestEntryMetaUpdated_LatestMetaMirrorRefreshedByteIdentically', () => {

@@ -63,7 +63,7 @@ jobs:
             echo "::error::Sweep produced no coverage report - refusing to open a PR from unaccounted working-tree state."
             exit 0
           fi
-          if [ -z "$(git status --porcelain archive/ latest-meta.json)" ]; then
+          if [ -z "$(git status --porcelain archive/ latest-meta.json reports/)" ]; then
             echo "No derivation changes."
             exit 0
           fi
@@ -71,7 +71,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           branch="normalise/run-${{ github.run_id }}"
           git checkout -b "$branch"
-          git add archive/ latest-meta.json
+          git add archive/ latest-meta.json reports/
           git commit -m "Normalise sweep: update derived normalised.csv files"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/$branch"
           {
