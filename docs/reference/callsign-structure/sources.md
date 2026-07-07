@@ -52,6 +52,22 @@ acknowledged, non-misleading context).
 | [SOTA Reflector: "UK callsigns – potted history please?"](https://reflector.sota.org.uk/t/uk-callsigns-potted-history-please/30736) | forum posts © their authors | Community recollections, attributed per post in `licence-class-history.md` (ZL4NVW, GM4LLD, MW0PJE) |
 | [Horsham ARC dates page](https://www.harc.org.uk/?page=technical&sub=Dates) | © HARC | Failed to fetch (JavaScript-rendered); listed for future manual capture |
 
+## Further community/commercial sources (unmirrored, unverified)
+
+Supplied for follow-up; none is Ofcom-primary, so nothing here should be
+cited as authority without independent verification:
+
+- [Moonraker: Ham radio call signs](https://moonrakeronline.com/blog/ham-radio-call-signs) —
+  retailer blog overview of UK callsign structure.
+- [Shanklin Sailing Club: VHF communications](https://www.shanklinsailingclub.com/content/sailing/2013-03-26/VHF_Communications.php) —
+  documents VHF Marine Channel M2 usage by sailing clubs. Relevant to the
+  (unverified) suggestion that the amateur `M2` block is withheld to avoid
+  confusion with marine channel M2: this source supports the channel's
+  existence and use, not the causal claim about Ofcom's allocation policy.
+- [Electronics Notes: UK amateur radio callsigns](https://www.electronics-notes.com/articles/ham_radio/call-signs/uk-amateur-radio-callsigns.php) —
+  hobbyist reference on UK callsign formats (already cited above via the
+  M0YBC lineage note; listed here as the direct URL).
+
 ## Research directories (not yet mined)
 
 - **OARC Wiki A–Z directory**: <https://wiki.oarc.uk/directory> — further
