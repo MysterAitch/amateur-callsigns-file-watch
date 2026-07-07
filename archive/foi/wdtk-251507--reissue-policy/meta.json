@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 251507,
+  "ofcomReference": null,
+  "requestUrl": "https://www.whatdotheyknow.com/request/policy_and_practice_for_the_re_i",
+  "title": "Policy and practice for the re-issue of previously issued amateur radio callsigns",
+  "requester": "peter_eckersley_2",
+  "requestedAt": "2015-01-30",
+  "respondedAt": "2015-02-27",
+  "outcome": "successful",
+  "dataVintage": "2015-02",
+  "datasetClasses": ["reference-context", "issuance-events", "attribute-addendum"],
+  "converter": null,
+  "files": {
+    "policy for old call signs.pdf": {
+      "bytes": 126662,
+      "sha256": "5954c79267239b95226952e809745d36d3a57bdc0010a8f8f92d4478e9db9887",
+      "role": "data",
+      "datasetClasses": ["reference-context"],
+      "contentsIndicative": "response letter: signposts Ofcom's PUBLISHED transfer/SCC/format policy pages (no internal documents provided) and records the constant-identity rationale and natural-person club-licensing model, citing the amateur-licensing consultation and Statement",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/policy_and_practice_for_the_re_i/response/623126/attach/3/policy%20for%20old%20call%20signs.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "applicants old call signs.pdf": {
+      "bytes": 24210,
+      "sha256": "2adcc39d4dfd86452f1d76ad3b51e23060ca12e0c2e824d72fe1ce151f11170d",
+      "role": "data",
+      "datasetClasses": ["issuance-events", "attribute-addendum"],
+      "contentsIndicative": "20-row table of heritage-callsign transfers 2012-07-30 to 2015-01-28: CALLSIGNS DISCLOSED (incl. five G2-series), licence product (17 club, 3 full), start date, uniform reason 'Letter of consent provided for transfer'; names withheld under s.40",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/policy_and_practice_for_the_re_i/response/623126/attach/4/applicants%20old%20call%20signs.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-policy-for-old-call-signs.md": {
+      "bytes": 3518,
+      "sha256": "fafd11b463a1e15efe62dfaa299c6a2324fd2856f7fe02a27678bfaaa679aa16",
+      "role": "extract",
+      "extractOf": "policy for old call signs.pdf"
+    },
+    "raw-extract-applicants-old-call-signs.md": {
+      "bytes": 4035,
+      "sha256": "1feb34a9641f6f946eb214ce8c4ba5203c4fe71851755e11f7069476f233a240",
+      "role": "extract",
+      "extractOf": "applicants old call signs.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 4353,
+      "sha256": "fe49a4d02136e29d3de941be4ab23d12a07e2cec858cd08304d4ef507be3fdb9",
+      "role": "transcript"
+    }
+  }
+}
