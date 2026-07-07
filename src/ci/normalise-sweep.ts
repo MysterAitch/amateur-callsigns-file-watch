@@ -408,8 +408,10 @@ const ENUMERATE_LIMIT = 50;
 // Curated pattern explanations (reference-data/pattern-formats.csv):
 // exact-match rows first, then starts-with prefixes in file order. A
 // pattern with no match is honestly unexplained - including any pattern
-// carrying {U+XXXX} markers, which by construction never matches.
-interface PatternFormat { match: string; pattern: string; explanation: string }
+// carrying {U+XXXX} markers, which by construction never matches. The
+// group column routes matches into their table (core vs the numerous
+// visitor shapes, kept contained in their own section).
+interface PatternFormat { match: string; pattern: string; group: string; explanation: string }
 let patternFormatsCache: PatternFormat[] | undefined;
 function loadPatternFormats(): PatternFormat[] {
   patternFormatsCache ??= parse(
@@ -419,30 +421,36 @@ function loadPatternFormats(): PatternFormat[] {
   return patternFormatsCache;
 }
 
-function explanationFor(pattern: string): string | undefined {
+function formatFor(pattern: string): PatternFormat | undefined {
   const formats = loadPatternFormats();
-  const exact = formats.find(f => f.match === 'exact' && f.pattern === pattern);
-  if (exact) return exact.explanation;
-  return formats.find(f => f.match === 'starts-with' && pattern.startsWith(f.pattern))?.explanation;
+  return formats.find(f => f.match === 'exact' && f.pattern === pattern)
+    ?? formats.find(f => f.match === 'starts-with' && pattern.startsWith(f.pattern));
 }
 
-// The callsign-patterns table split into expected formats (curated
-// explanations from reference data) and unexpected ones - the unexpected
-// list is the review target; the expected list is the baseline.
+// The callsign-patterns table split three ways: expected core formats
+// (curated explanations from reference data), the visitor family (many
+// distinct shapes - one per home-callsign form - kept contained in their
+// own table), and unexpected formats - the review target.
 function patternPartition(ownPatterns: [string, number][]): string[] {
-  const explained = ownPatterns.map(([p, c]) => [p, c, explanationFor(p)] as const);
-  const expected = explained.filter(([, , e]) => e !== undefined);
-  const unexpected = explained.filter(([, , e]) => e === undefined);
+  const matched = ownPatterns.map(([p, c]) => [p, c, formatFor(p)] as const);
+  const expected = matched.filter(([, , f]) => f !== undefined && f.group !== 'visitor');
+  const visitor = matched.filter(([, , f]) => f?.group === 'visitor');
+  const unexpected = matched.filter(([, , f]) => f === undefined);
+  const explainedTable = (rows: typeof matched): string[] => [
+    '| pattern | count | explanation |',
+    '|---|---:|---|',
+    ...rows.map(([p, c, f]) => `| ${patternLabel(p)} | ${c} | ${(f as PatternFormat).explanation} |`),
+  ];
   return [
     '## Callsign patterns',
     '',
     `### Expected formats (${expected.length})`,
     '',
-    ...(expected.length === 0 ? ['(none)'] : [
-      '| pattern | count | explanation |',
-      '|---|---:|---|',
-      ...expected.map(([p, c, e]) => `| ${patternLabel(p)} | ${c} | ${e} |`),
-    ]),
+    ...(expected.length === 0 ? ['(none)'] : explainedTable(expected)),
+    '',
+    `### Visitor formats (${visitor.length})`,
+    '',
+    ...(visitor.length === 0 ? ['(none)'] : explainedTable(visitor)),
     '',
     `### Unexpected formats (${unexpected.length})`,
     '',

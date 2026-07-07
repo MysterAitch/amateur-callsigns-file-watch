@@ -533,10 +533,11 @@ describe('runNormaliseSweep', () => {
     runNormaliseSweep();
 
     const report = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-02-02.md'), 'utf8');
-    expect(report).toContain('### Expected formats (3)');
+    expect(report).toContain('### Expected formats (2)');
     expect(report).toContain('| `ANAAA` | 2 | single-letter prefix + digit + three-letter suffix - the standard core callsign shape (G/M series) |');
     expect(report).toContain('| `AANAAA` | 1 | standard core with a Regional Secondary Locator inserted (MW7... / GM0...) |');
-    // Visitor pattern matches the starts-with A/ family.
+    // Visitor patterns are numerous - contained in their own table.
+    expect(report).toContain('### Visitor formats (1)');
     expect(report).toMatch(/\| `A\/AANAA` \| 1 \| visitor \/ temporary-reciprocal format/);
     // The literal value NANAAA maps to pattern AAAAAA - no curated
     // explanation, so it lands in the unexpected list.
