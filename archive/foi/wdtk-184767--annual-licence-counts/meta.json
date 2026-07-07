@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "sourceKey": "wdtk-foi",
   "requestId": 184767,
-  "ofcomReference": null,
+  "ofcomReference": "1-246847147",
   "requestUrl": "https://www.whatdotheyknow.com/request/number_of_licences",
   "title": "Number of licences",
   "requester": "nige_coleman",
@@ -18,7 +18,7 @@
       "sha256": "1d9241a812defb08bf827217dcd847f64acae01fd7d071fb0946bb2b6ae3ac74",
       "role": "data",
       "datasetClasses": ["statistics-aggregate"],
-      "contentsIndicative": "annual licence counts, amateur + business radio, each year 1993 to 2013; pre-lifetime-licensing amateur figures include CB and Maritime licences (RLC aggregate - see correspondence)",
+      "contentsIndicative": "annual counts of licences ISSUED (letter's wording; 'held' was asked), amateur + business radio, financial years 2003/04 to 2012/13 only - 1993-2003 refused under s.12 (see raw extract); pre-lifetime-licensing amateur figures include CB and Maritime licences (RLC aggregate - see correspondence)",
       "witnesses": [
         {
           "channel": "wdtk",
@@ -27,9 +27,15 @@
         }
       ]
     },
+    "raw-extract-number-of-licences-coleman.md": {
+      "bytes": 3325,
+      "sha256": "3b9020ac1e2c24a663a3b0f8ebc0602355bb82c6e9df4377ad372c4e47bf6c6d",
+      "role": "extract",
+      "extractOf": "Number of licences Coleman.pdf"
+    },
     "correspondence.md": {
-      "bytes": 4244,
-      "sha256": "6705ff04ccbeff8c48becf2e6510e102dda45e6dd146e4c1bce36ac75cd7c009",
+      "bytes": 4645,
+      "sha256": "a7d6a08837a684e7f8b666a3fa8754bc42f7a6f42c2a32e5962a087b68067d1d",
       "role": "transcript"
     }
   }
