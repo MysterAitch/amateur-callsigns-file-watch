@@ -17,7 +17,7 @@ not the row format.
 | `whitespace` | value contains whitespace/invisible characters (removed before parsing) | observed live (space, NBSP) |
 | `encoding-failure` | value contains U+FFFD (removed before parsing) | observed 2023–2025 exports |
 | `excel-date-shape` | value looks like a spreadsheet date rendering of a month-suffixed callsign (`20-Apr`) | observed 2023/2025-04 exports |
-| `missing-rsl` | `2`-format callsign stored without its mandatory-in-use RSL | register stores RSL-less core callsigns by design; see `docs/reference/callsign-structure/` |
+| `rsl-in-register` | parsed register value carries an explicit RSL — the register stores RSL-less core callsigns by design, so *presence* is the notable case (replaces the earlier `missing-rsl` flag, which marked ~19.5k bare `2`-format rows: the norm, not an anomaly) | census 2026-06-23: ~20 rows; see `docs/reference/callsign-structure/` |
 | `unknown-rsl` | RSL letter not in `rsl.csv` (temporary/special RSLs such as 2022's `Q` are deliberately not enumerated) | reportable signal, not an error |
 | `unknown-prefix-series` | prefix series not in `prefix-formats.csv` (e.g. `M2`, `M4`, `G9` — absent from Ofcom's current Table 1) | honest unknown; no class implied |
 | `forbidden-suffix` | suffix appears on Ofcom's August 2019 FOI withheld list (point-in-time semantics — see `forbidden-suffixes.csv` notes). **Empirically NOT an anomaly by itself**: ~2,800 such rows in the live register are long-standing `Allocated` records — the list evidently governs new issuance, not existing allocations. The interesting subset is allocations *created after* August 2019 | census 2026-06-23: 2,763 Allocated / 61 Reserved / 2 Available |

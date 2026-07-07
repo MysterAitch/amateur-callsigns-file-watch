@@ -22,7 +22,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 
-export const COMPONENTS_SCHEMA_VERSION = 3;
+export const COMPONENTS_SCHEMA_VERSION = 4;
 
 export const COMPONENT_COLUMNS = [
   'callsign',
@@ -184,12 +184,15 @@ export function parseCallsign(callsign: string, product: string, ref: ReferenceD
     row.rsl = '';
     row.suffix = twoBare[2];
     row.placeholderForm = `2#${twoBare[1]}${twoBare[2]}`;
-    flag('missing-rsl');
   } else {
     finaliseFlags(row);
     return row;
   }
 
+  // The register stores RSL-less core callsigns by design, so an explicit
+  // RSL in a register value is the notable case, not its absence (which
+  // the earlier missing-rsl flag marked on ~19.5k bare 2-format rows).
+  if (row.rsl !== '') flag('rsl-in-register');
   if (row.rsl !== '' && !ref.rslLetters.has(row.rsl)) flag('unknown-rsl');
 
   const series = ref.prefixSeries.get(row.prefixSeries);
