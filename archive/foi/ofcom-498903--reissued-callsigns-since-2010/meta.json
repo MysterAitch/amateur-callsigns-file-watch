@@ -44,7 +44,7 @@
       "sha256": "95eebe471b108cbc0bd646d228d8b98602b70f4274cc1c95a947a086fb857e1d",
       "role": "extract",
       "extractOf": "list-re-issue-amateur-radio-call-signs.xlsx",
-      "extractedBy": "tools/xlsx-extract.py"
+      "extractedBy": "src/shared/xlsx-extract.ts"
     },
     "normalised--sheet-1-sheet1.csv": {
       "bytes": 3435,

@@ -39,7 +39,7 @@
       "sha256": "c8085b66ecb1b6e4773fcc4d9e67d53448bdc478a978880d33161c984f18b2ac",
       "role": "extract",
       "extractOf": "Ofcom Amateur Radio Call Sign list available as at 14 March 2014.xlsx",
-      "extractedBy": "tools/xlsx-extract.py"
+      "extractedBy": "src/shared/xlsx-extract.ts"
     },
     "normalised--sheet-1-foundation.csv": {
       "bytes": 258639,
@@ -53,7 +53,7 @@
       "sha256": "01f4a794cb256275b3318f9bdf6aa0d34d0b1eed8d1c3620b33b1ce7796612b6",
       "role": "extract",
       "extractOf": "Ofcom Amateur Radio Call Sign list available as at 14 March 2014.xlsx",
-      "extractedBy": "tools/xlsx-extract.py"
+      "extractedBy": "src/shared/xlsx-extract.ts"
     },
     "normalised--sheet-2-intermediate.csv": {
       "bytes": 310666,
@@ -67,7 +67,7 @@
       "sha256": "9b60dbe064a052007c0ce00fb3502e4ef2e691b73d8cd8b9981232f8313abb95",
       "role": "extract",
       "extractOf": "Ofcom Amateur Radio Call Sign list available as at 14 March 2014.xlsx",
-      "extractedBy": "tools/xlsx-extract.py"
+      "extractedBy": "src/shared/xlsx-extract.ts"
     },
     "normalised--sheet-3-full.csv": {
       "bytes": 190937,
