@@ -375,6 +375,53 @@ describe('runNormaliseSweep', () => {
     expect(rollup).toContain('<summary>Examples: Excel-date-shaped callsigns</summary>');
   });
 
+  it('Distributions_PrefixSeriesCountsPerDataset_NonParsedLandInStatusRows', () => {
+    // reports/prefixes.md: one row per prefix series (or parse status for
+    // non-parsed records) per dataset, newest leftmost - every record lands
+    // in exactly one row.
+    const mixed = SALESFORCE_RAW
+      + 'MW7ABC,Amateur Foundation Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + 'M/PT2FM,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n';
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-02-02', mixed);
+    runNormaliseSweep();
+
+    const prefixes = fs.readFileSync(path.join(tmpRoot, 'reports', 'prefixes.md'), 'utf8');
+    expect(prefixes).toContain('| prefix series | 2026-02-02 | 2026-01-01 |');
+    expect(prefixes).toContain('| `M7` | ');
+    expect(prefixes).toContain('| _(visitor)_ | 1 | 0 |');
+  });
+
+  it('Distributions_RegionalIdentifiers_RenderedCombosBareIntermediatesAndCoreAggregate', () => {
+    // reports/regional-identifiers.md: rendered prefix+RSL combos (MW),
+    // bare 20/21 intermediates, and the RSL-less G/M core aggregate.
+    const mixed = SALESFORCE_RAW
+      + 'MW7ABC,Amateur Foundation Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + '20DLQ,Amateur Intermediate Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + '2E0XYZ,Amateur Intermediate Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n';
+    writeEntry(tmpRoot, '2026-02-02', mixed);
+    runNormaliseSweep();
+
+    const rsl = fs.readFileSync(path.join(tmpRoot, 'reports', 'regional-identifiers.md'), 'utf8');
+    expect(rsl).toContain('| `MW` | 1 |');
+    expect(rsl).toContain('| `20` _(bare)_ | 1 |');
+    expect(rsl).toContain('| `2E` | 1 |');
+    expect(rsl).toContain('_(G/M core, no RSL)_');
+  });
+
+  it('ReportsIndex_HeadlinesPerDataset_LinkToEntryReportsAndDrilldowns', () => {
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-02-02', SALESFORCE_RAW);
+    runNormaliseSweep();
+
+    const index = fs.readFileSync(path.join(tmpRoot, 'reports', 'README.md'), 'utf8');
+    expect(index).toContain('[2026-02-02](entries/2026-02-02.md)');
+    expect(index).toContain('[Prefix-series distributions](prefixes.md)');
+    expect(index).toContain('[Regional-identifier distributions](regional-identifiers.md)');
+    const headline = index.split('\n').find(l => l.startsWith('| [2026-02-02]')) ?? '';
+    expect(headline).toMatch(/\| \d+ \| \d+ \| \d+ \|$/);
+  });
+
   it('Reports_WhenSpecialCharactersPresent_CharacterKeyNamesThem', () => {
     // Requested in review: raw codepoints stay in the tables for precision;
     // a character-key section names invisibles AND visually-confusable
