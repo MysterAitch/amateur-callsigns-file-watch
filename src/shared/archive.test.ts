@@ -1,10 +1,48 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import {
   parseOfcomHumanDate,
   extractOfcomDateFromCommitMessage,
   archiveKeyForDate,
   buildDiffSummary,
+  listArchiveKeys,
 } from './archive.ts';
+
+describe('listArchiveKeys', () => {
+  let tmpRoot: string | undefined;
+  const originalCwd = process.cwd();
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    if (tmpRoot) fs.rmSync(tmpRoot, { recursive: true, force: true });
+    tmpRoot = undefined;
+  });
+
+  it('ListArchiveKeys_WhenNonDateDirectoriesPresent_OnlyDateShapedKeysReturned', () => {
+    // ADR 0004: the open-data lane's keys are publication dates. The FOI
+    // lane lives at archive/foi/ - it must never surface as a key, or it
+    // would hijack newest-entry logic (latest pointers, sweep coverage).
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'callsigns-keys-'));
+    process.chdir(tmpRoot);
+    for (const dir of ['archive/2022-05-30', 'archive/2026-06-23', 'archive/foi', 'archive/foi/wdtk-596532--issued-and-available', 'archive/notes']) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    expect(listArchiveKeys()).toEqual(['2022-05-30', '2026-06-23']);
+  });
+
+  it('ListArchiveKeys_WhenDateKeyCarriesContentHashSuffix_StillIncluded', () => {
+    // The archive contract allows content-hash suffixes on same-date
+    // collisions (e.g. 2025-06-04--0a1b2c) - those are date-shaped keys.
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'callsigns-keys-'));
+    process.chdir(tmpRoot);
+    fs.mkdirSync('archive/2025-06-04--0a1b2c', { recursive: true });
+
+    expect(listArchiveKeys()).toEqual(['2025-06-04--0a1b2c']);
+  });
+});
 
 describe('parseOfcomHumanDate', () => {
   it('ParseOfcomHumanDate_WhenGivenTypicalOfcomDate_ReturnsIsoDate', () => {

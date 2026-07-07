@@ -133,12 +133,19 @@ export async function readArchiveMeta(key: string): Promise<ArchiveMeta | null> 
   return loadJsonFile<ArchiveMeta>(metaPath);
 }
 
+// Open-data lane keys are publication dates, optionally content-hash
+// suffixed on same-date collisions (2025-06-04--0a1b2c). Anything else
+// under archive/ belongs to another lane (ADR 0004: archive/foi/) and must
+// never surface here - a non-date key would hijack newest-entry logic
+// (latest pointers, sweep coverage).
+const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}(--[0-9a-f]+)?$/;
+
 // Returns archive keys in chronological order (lexicographic works because keys are
 // ISO dates, optionally with content-hash suffix which orders stably within a date).
 export function listArchiveKeys(): string[] {
   if (!fsSync.existsSync(ARCHIVE_DIR)) return [];
   return fsSync.readdirSync(ARCHIVE_DIR)
-    .filter(name => fsSync.statSync(path.join(ARCHIVE_DIR, name)).isDirectory())
+    .filter(name => DATE_KEY_RE.test(name) && fsSync.statSync(path.join(ARCHIVE_DIR, name)).isDirectory())
     .sort();
 }
 
