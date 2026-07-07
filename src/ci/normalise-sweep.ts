@@ -27,7 +27,7 @@ import { CONSTANTS, type ArchiveMeta, calculateContentHash, errorMessage, saveJs
 import { listArchiveKeys } from '../shared/archive.ts';
 import { renderStatsJson, compareStats, type EntryStats } from '../shared/stats.ts';
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
-import { COMPONENT_COLUMNS } from '../sources/ofcom-amateur/components.ts';
+import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 
 interface SourceConverter {
   schemaVersion: number;
@@ -349,6 +349,7 @@ function writeQualityReports(keys: string[]): void {
       '',
       ...matrixTable(key, window, statsByKey),
       '',
+      ...rslMatrixSection(key),
       '## Pairwise comparison',
       '',
       '| neighbour | records | Δ records | patterns gained vs neighbour | patterns lost vs neighbour |',
@@ -364,6 +365,51 @@ function writeQualityReports(keys: string[]): void {
   writeQualityRollup(keysWithStats, statsByKey);
   writeComponentDistributions([...keysWithStats].reverse());
   writeReportsIndex([...keysWithStats].reverse(), statsByKey);
+}
+
+// Primary-by-secondary locator matrix (requested in #51 review): prefix
+// series down the left, EVERY RSL letter from reference data along the top
+// (all-zero columns stay visible - absence is the sparsity signal), counts
+// of parsed records at the intersections. Non-parsed records are excluded
+// and accounted for in the caption.
+function rslMatrixSection(key: string): string[] {
+  const componentsPath = path.join(CONSTANTS.DIRS.archive, key, 'components.csv');
+  if (!fs.existsSync(componentsPath)) return [];
+  const rslLetters = [...loadReferenceData().rslLetters].sort();
+
+  const bySeries = new Map<string, Map<string, number>>();
+  const excluded = new Map<string, number>();
+  const unknownRsl = new Set<string>();
+  for (const r of parseCsvRecords(componentsPath)) {
+    if (r.parse_status !== 'parsed') {
+      excluded.set(r.parse_status, (excluded.get(r.parse_status) ?? 0) + 1);
+      continue;
+    }
+    if (r.rsl !== '' && !rslLetters.includes(r.rsl)) unknownRsl.add(r.rsl);
+    const perRsl = bySeries.get(r.prefix_series) ?? new Map<string, number>();
+    const column = r.rsl === '' ? '(none)' : r.rsl;
+    perRsl.set(column, (perRsl.get(column) ?? 0) + 1);
+    bySeries.set(r.prefix_series, perRsl);
+  }
+  if (bySeries.size === 0) return [];
+
+  const columns = [...rslLetters, ...[...unknownRsl].sort(), '(none)'];
+  const excludedNote = [...excluded.entries()].sort()
+    .map(([status, count]) => `${count} ${status}`).join(', ');
+  return [
+    '## RSL matrix',
+    '',
+    'Parsed records by primary locator (prefix series, rows) and Regional',
+    'Secondary Locator (columns). Every RSL letter from `reference-data/rsl.csv`',
+    'is shown - all-zero columns are the sparsity signal, not noise.'
+    + (excludedNote === '' ? '' : ` Excluded from this table: ${excludedNote}.`),
+    '',
+    `| series | ${columns.join(' | ')} |`,
+    `|---|${columns.map(() => '---:').join('|')}|`,
+    ...[...bySeries.keys()].sort().map(series =>
+      `| \`${series}\` | ${columns.map(c => bySeries.get(series)?.get(c) ?? 0).join(' | ')} |`),
+    '',
+  ];
 }
 
 // Prefix-series and regional-identifier distributions (issue #51), both

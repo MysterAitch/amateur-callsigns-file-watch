@@ -422,6 +422,38 @@ describe('runNormaliseSweep', () => {
     expect(headline).toMatch(/\| \d+ \| \d+ \| \d+ \|$/);
   });
 
+  it('RslMatrix_SeriesByRslCounts_AllReferenceLettersShownAndExclusionsCaptioned', () => {
+    // Entry reports gain a primary-by-secondary locator matrix: prefix
+    // series rows, EVERY reference RSL letter as a column (zero columns are
+    // the sparsity signal), parsed counts at intersections; non-parsed rows
+    // excluded and accounted for in the caption.
+    const mixed = SALESFORCE_RAW
+      + 'MW7ABC,Amateur Foundation Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + '2E0XYZ,Amateur Intermediate Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + '20DLQ,Amateur Intermediate Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + 'M/PT2FM,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + 'NANAAA,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n';
+    writeEntry(tmpRoot, '2026-02-02', mixed);
+    runNormaliseSweep();
+
+    const report = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-02-02.md'), 'utf8');
+    expect(report).toContain('## RSL matrix');
+    const header = report.split('\n').find(l => l.startsWith('| series |')) ?? '';
+    // All 14 reference RSL letters present as columns even when unused.
+    for (const letter of ['C', 'D', 'E', 'H', 'I', 'J', 'M', 'N', 'P', 'S', 'T', 'U', 'W', 'X']) {
+      expect(header).toContain(` ${letter} |`);
+    }
+    expect(header).toContain('(none)');
+    // MW7ABC: M7 row, W column; M7TEE: M7 row, (none) column.
+    const m7 = report.split('\n').find(l => l.startsWith('| `M7` |')) ?? '';
+    const cells = m7.split('|').map(c => c.trim());
+    const headerCells = header.split('|').map(c => c.trim());
+    expect(cells[headerCells.indexOf('W')]).toBe('1');
+    expect(cells[headerCells.indexOf('(none)')]).toBe('1');
+    // Exclusions captioned, not silently dropped.
+    expect(report).toContain('Excluded from this table: 1 unparseable, 1 visitor.');
+  });
+
   it('Reports_WhenSpecialCharactersPresent_CharacterKeyNamesThem', () => {
     // Requested in review: raw codepoints stay in the tables for precision;
     // a character-key section names invisibles AND visually-confusable
