@@ -12,7 +12,7 @@
   "dataVintage": "2024-10",
   "dataVintageNote": "undated export, between the request (2024-09-30) and the response (2024-10-28)",
   "datasetClasses": ["register-snapshot", "attribute-addendum"],
-  "converter": null,
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-1180568-csv-pair" },
   "files": {
     "FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 1.csv": {
       "bytes": 5891407,
@@ -28,6 +28,13 @@
         }
       ]
     },
+    "normalised--foi-1900117-radio-amateur-licence-breakdown-by-duration-held-and-age-sheet-1.csv": {
+      "bytes": 2766289,
+      "sha256": "5902a81df1d92220a8342eb8c843c76e6c0540a05bc0b81d4a60babea5a93249",
+      "role": "normalised",
+      "normalisedFrom": "FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 1.csv",
+      "contentsIndicative": "header callsign,status,licence_class,reserved_to_date; 156,256 data rows sorted by callsign (source order not meaningful); 13 blank statuses and 2 blank callsigns preserved as data; 3 trailing-NBSP callsigns trimmed and counted (G0TQK, G7IWE, 2E1HON); licence_class empty throughout (the sheet asserts no class); constant Type column (Call Sign - Amateur) not carried"
+    },
     "FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 2.csv": {
       "bytes": 7260281,
       "sha256": "a6c853fbc67dac85eb7526e71b9849c36f39526433df77e7c38c0d94b7fabd1b",
@@ -41,6 +48,13 @@
           "fetchedAt": "2026-07-07"
         }
       ]
+    },
+    "normalised--foi-1900117-radio-amateur-licence-breakdown-by-duration-held-and-age-sheet-2.csv": {
+      "bytes": 7156551,
+      "sha256": "aabfb4dbd2d13b01f9cfbcba3d26ec4574b72314fd7986acc1844aefac224979",
+      "role": "normalised",
+      "normalisedFrom": "FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 2.csv",
+      "contentsIndicative": "header callsign,status,licence_class,created_date,original_start_date; 103,720 data rows sorted by callsign (source order not meaningful; duplicate callsigns are per-licence attribute rows); status Live throughout; licence_class carries the source Licence Type vocabulary verbatim; dates ISO-ordered; 3 trailing-NBSP callsigns trimmed and counted (G0TQK, G7IWE, 2E1HON)"
     },
     "FOI 1900117 Radio amateur licence breakdown by duration held and age.pdf": {
       "bytes": 146468,
