@@ -19,9 +19,10 @@
   Intermediate / Full), data as at 2013-09-06 16:30.
 - **Withheld**: nothing.
 - **Significance**: oldest machine-readable callsign dataset held by this
-  archive; available-pool class (not a full-register snapshot); Siebel-era
-  export predating the 2016 licensing-system change, after which Ofcom no
-  longer held availability lists.
+  archive; available-pool class (not a full-register snapshot); exported
+  from Ofcom's pre-2016 licensing system (Oracle Siebel — the source of the
+  `1-XXXXXXXXX` reference format), which was decommissioned in the 2016
+  system change after which Ofcom no longer held availability lists.
 
 ## Exchange (verbatim; relay email addresses and signature boilerplate omitted)
 
