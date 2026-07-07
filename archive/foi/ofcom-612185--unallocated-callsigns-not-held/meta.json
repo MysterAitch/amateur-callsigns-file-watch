@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": "612185",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/pdf_file/0010/120403/unallocated-uk-amateur-radio-call-signs-foi.pdf",
+  "title": "Unallocated UK amateur radio call signs (not held)",
+  "requester": null,
+  "requestedAt": "2018-08-30",
+  "respondedAt": "2018-09-12",
+  "outcome": "not held",
+  "dataVintage": null,
+  "datasetClasses": ["reference-context"],
+  "converter": null,
+  "relatedEntries": [
+    { "entry": "ofcom-518689--suffix-availability-not-held", "relation": "predecessor in the 2018-2019 not-held quartet (word-for-word identical request formula)" },
+    { "entry": "ofcom-632469--suffix-availability-not-held", "relation": "successor in the quartet" },
+    { "entry": "ofcom-671462--suffix-availability-not-held", "relation": "final member of the quartet" }
+  ],
+  "files": {
+    "unallocated-uk-amateur-radio-call-signs-foi.pdf": {
+      "bytes": 202609,
+      "sha256": "fd9134cb30f4ce17e1a4d35e4125fb9058cb4d0df6ddf454371ed1e7890150f1",
+      "role": "response-letter",
+      "contentsIndicative": "record-only response, the tersest of the not-held family: 'Ofcom does not hold the information you requested' with no generator explanation",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20201221225837id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0010/120403/unallocated-uk-amateur-radio-call-signs-foi.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-unallocated-uk-amateur-radio-call-signs-foi.md": {
+      "bytes": 1172,
+      "sha256": "269979beaa03641f27adcf919cdd111dd6039164648486dc857a7e93a1c2815e",
+      "role": "extract",
+      "extractOf": "unallocated-uk-amateur-radio-call-signs-foi.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 1395,
+      "sha256": "5da838a26e7f381f74a3673ccc2463e1845f1a5dae198eedc2a141487b3db45f",
+      "role": "transcript"
+    }
+  }
+}
