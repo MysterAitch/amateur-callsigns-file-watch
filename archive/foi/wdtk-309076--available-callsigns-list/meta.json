@@ -11,7 +11,7 @@
   "outcome": "successful",
   "dataVintage": "2016-01-21",
   "datasetClasses": ["available-pool"],
-  "converter": null,
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-309076-combined-list" },
   "relatedEntries": [
     { "entry": "ukgwa asset 83577 (1-313474335_available_call_signs.xlsx, in the drop zone)", "relation": "suspected sibling export (identical single-sheet A:J 20,738-row shape); reconcile when that entry graduates" }
   ],
@@ -43,6 +43,13 @@
       "role": "extract",
       "extractOf": "Available Call Signs 21 01 16.xlsx",
       "extractedBy": "tools/xlsx-extract.py"
+    },
+    "normalised--sheet-1-sheet1.csv": {
+      "bytes": 1073810,
+      "sha256": "6adc75b8cfdda9640dabeef88802ba576bf8f4d5b58f2e23954931abdc6d01b9",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-sheet1.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 20,737 rows sorted by callsign, all three licence classes in one sheet; four Value cells stored AS dates at export carried verbatim; Country/Current Series/Type/Allocated Flag and the two entirely-empty application-number columns required-present, not carried"
     },
     "correspondence.md": {
       "bytes": 2730,

@@ -12,7 +12,7 @@
   "dataVintage": "2019-08-12",
   "dataVintageNote": "the letter states the annex is 'as at the date of your request' (received 2019-08-12); the filename says only 'Aug19'",
   "datasetClasses": ["register-snapshot", "forbidden-list"],
-  "converter": null,
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-596532-register-and-forbidden" },
   "relatedEntries": [
     { "entry": "disclosure log 2019-09-12 CSV (allocated-reserved-forbidden-call-sign-foi-20190912.csv, drop zone)", "relation": "a full snapshot published six days later on Ofcom's FOI pages - nearest-neighbour comparison point" },
     { "entry": "requester's enriched xlsx/csv derivatives (local drop zone only)", "relation": "labelled derivatives with added analysis columns - not part of the FOI response, never committed; enrichment diff outstanding" }
@@ -45,12 +45,26 @@
       "extractOf": "Allocated reserved forbidden Call Sign FOI Aug19.xlsx",
       "extractedBy": "tools/xlsx-extract.py"
     },
+    "normalised--sheet-1-all-callsigns-on-record.csv": {
+      "bytes": 4432395,
+      "sha256": "7407372fa8a3c735093fdb40fb7257070bebbd662662fc0de1efb281b01de790",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-all-callsigns-on-record.csv",
+      "contentsIndicative": "header callsign,status,licence_class,licence_issued_date; 141,295 rows in source date-ascending order (the same publication order as ofcom-756622, preserved for cross-snapshot comparability); 55 Available and 6 blank statuses preserved; 37,392 blank issue dates; dates ISO (typed at source)"
+    },
     "raw-extract-sheet-2-forbidden-call-signs.csv": {
       "bytes": 5865,
       "sha256": "9d531b0306825f5e6e1cc793c7fdc31101844610df7e34f3a312ce1c5089da8d",
       "role": "extract",
       "extractOf": "Allocated reserved forbidden Call Sign FOI Aug19.xlsx",
       "extractedBy": "tools/xlsx-extract.py"
+    },
+    "normalised--sheet-2-forbidden-call-signs.csv": {
+      "bytes": 5867,
+      "sha256": "1202b00ce8bb8286ef64e3abc3ab8accb0749647c42f35a05074d7a0b7c02289",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-2-forbidden-call-signs.csv",
+      "contentsIndicative": "header suffix; 1,465 forbidden suffixes; sorted (a no-op; the source is already alphabetical)"
     },
     "Amateur Radio callsigns Howell.pdf": {
       "bytes": 237033,

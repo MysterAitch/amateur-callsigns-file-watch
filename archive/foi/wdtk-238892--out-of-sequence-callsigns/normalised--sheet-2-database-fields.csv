@@ -1,0 +1,42 @@
+view,field_name
+Contact View,Contact Id
+Contact View,Title
+Contact View,First Name
+Contact View,Middle Name
+Contact View,Last Name
+Contact View,Organisation
+Contact View,Phone Numbers
+Contact View,Address
+Contact View,Post Town
+Contact View,Post Code
+Contact View,Date of Birth
+Contact View,Type
+Contact View,Email Address
+Contact View,SAP Number Exist
+Contact View,Organisation Status
+Contact View,Roles Exist
+Contact View,Contact Status
+Contact View,Suffix
+Contact View,Do Not Call
+Contact View,Do Not Email
+Contact View,Age
+Contact View,Web Registered Date
+Contact View,User Name
+Contact View,Challenge Question
+Contact View,Challenge Answer
+Contact View,Web Registration
+Contact View,See Notes
+,
+Licence View,Amateur Callsign Assigned
+Licence View,Last Name
+Licence View,Contact ID
+Licence View,Licence #
+Licence View,Revision
+Licence View,Status
+Licence View,Product
+Licence View,Validation Date
+Licence View,Start Date
+Licence View,Termination Date
+Licence View,Original Start Date
+Licence View,Organisation
+Licence View,Legacy Licence Number

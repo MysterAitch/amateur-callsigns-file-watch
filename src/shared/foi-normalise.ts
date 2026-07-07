@@ -56,15 +56,25 @@ export interface FoiColumnSpec {
   // 'count' is a strictly-formatted integer (optionally with well-formed
   // thousands separators) emitted as plain digits - the only reshaping is
   // separator removal, validated, never repaired.
-  kind: 'verbatim' | 'date' | 'count';
+  // 'iso-date' is a workbook-extract date already rendered ISO by
+  // tools/xlsx-extract.py (typed at source, so no day-first ambiguity ever
+  // existed - no order-evidence stats are collected); validated and
+  // plausibility-bounded, carried verbatim including stored time-of-day
+  // artefacts.
+  // 'prefixed' constructs the value from the authored prefix plus the cell
+  // (the suffix-shaped available lists, whose sheets state their own prefix
+  // rule - pinned by the verbatim header/preamble match).
+  kind: 'verbatim' | 'date' | 'count' | 'iso-date' | 'prefixed';
   // Date columns describing a validity END (reservation expiries)
   // legitimately postdate the snapshot vintage; issuance/creation dates
-  // never do. Only meaningful for kind 'date'.
+  // never do. Only meaningful for kinds 'date' and 'iso-date'.
   futureAllowed?: boolean;
   // Authored constant emitted when source is null (e.g. the issuance-events
   // 'event' vocabulary, taken from the document's own wording). An
   // authored, reviewed value - never derived from row content.
   constant?: string;
+  // Required for kind 'prefixed': the sheet's stated prefix.
+  prefix?: string;
 }
 
 export interface FoiSourceConversion {
@@ -82,6 +92,12 @@ export interface FoiSourceConversion {
   // Ofcom-published register carries raw 0xA0 bytes (Windows-1252/latin-1
   // NBSP) that are not valid UTF-8.
   encoding: 'utf8' | 'latin1';
+  // Rows expected BEFORE the header row (titles, prefix statements, blank
+  // spacer rows), matched cell-for-cell - a changed preamble is a changed
+  // assertion and must fail, never be skipped blindly. Presence of this
+  // field (even empty) routes parsing through the explicit-header path,
+  // which also supports sources whose header row contains empty names.
+  preamble?: readonly (readonly string[])[];
   // Output column order; sources are matched by header NAME (order-insensitive).
   columns: readonly FoiColumnSpec[];
   // Source columns deliberately not carried into the normalised output.
@@ -94,8 +110,11 @@ export interface FoiSourceConversion {
   rowOrder: 'sorted-by-first-column' | 'source-order';
   orderRationale: string;
   // Upper plausibility bound (inclusive) for date columns without
-  // futureAllowed - the entry's data vintage.
-  referenceDateIso: string;
+  // futureAllowed - the entry's data vintage. Required whenever the
+  // conversion has date columns (enforced at convert time); omitted for
+  // date-free conversions so variants can be shared across entries with
+  // different response dates.
+  referenceDateIso?: string;
 }
 
 // Conversion registry, keyed by the variant name authored in each entry's
@@ -237,7 +256,240 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       referenceDateIso: '2015-02-27',
     },
   ],
+
+  // --- Workbook-extract variants (tier 3). Sources are the committed
+  // raw-extract-sheet-*.csv files produced by tools/xlsx-extract.py. ---
+
+  // The 2013/14 suffix-shaped available lists (wdtk-174341 2013-09,
+  // wdtk-197896 2014-03 - identical export shape, shared variant). Each
+  // sheet's first row states its own prefix rule ('Foundation = M6aaa') and
+  // is matched verbatim as the header; the callsign is that stated prefix
+  // plus the listed suffix, the suffix is also carried verbatim, and
+  // status/licence_class are authored per issue #139 (available lists
+  // normalise to status=Available; sheet-level class populates
+  // licence_class).
+  'available-suffix-lists-2013-style': suffixListConversions([
+    ['raw-extract-sheet-1-foundation.csv', 'Foundation = M6aaa', 'M6', 'Foundation'],
+    ['raw-extract-sheet-2-intermediate.csv', 'Intermediate = 20aaa - Appropriate Secondary Regional Indicator applied only when licence issued', '20', 'Intermediate'],
+    ['raw-extract-sheet-3-full.csv', 'Full = M0aaa', 'M0', 'Full'],
+  ]),
+
+  // The 2014-08 lists (wdtk-224333): a blank spacer row and a 'Prefix = M6'
+  // statement precede a 'Suffix' header. The preamble is matched
+  // cell-for-cell, pinning the prefix assertion.
+  'wdtk-224333-prefix-suffix-lists': [
+    prefixHeaderConversion('raw-extract-sheet-1-foundation.csv', 'M6', 'Foundation'),
+    prefixHeaderConversion('raw-extract-sheet-2-intermediate.csv', '20', 'Intermediate'),
+    prefixHeaderConversion('raw-extract-sheet-3-full.csv', 'M0', 'Full'),
+  ],
+
+  // The 2015 typed Siebel exports (wdtk-247308 2015-02, wdtk-261814
+  // 2015-04 - shared shape). Country/Current Series are the callsign's own
+  // decomposition (derivable), Type is 'Call Sign' throughout (two blank
+  // cells in the Full sheets), Allocated Flag is 'N' throughout - required
+  // present, not carried. A handful of Value cells are stored AS dates
+  // (Excel's '20JUN' mangling at Ofcom's export) and are carried verbatim.
+  'available-typed-export-8col': [
+    typedExportConversion('raw-extract-sheet-1-foundation.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag']),
+    typedExportConversion('raw-extract-sheet-2-intermediate.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag']),
+    typedExportConversion('raw-extract-sheet-3-full.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag']),
+  ],
+  // wdtk-271469 (2015-06): same 8-column shape, differently named sheets.
+  'wdtk-271469-typed-lists': [
+    typedExportConversion('raw-extract-sheet-1-amateur-foundation.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag']),
+    typedExportConversion('raw-extract-sheet-2-amateur-intermediate.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag']),
+    typedExportConversion('raw-extract-sheet-3-amateur-full.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag']),
+  ],
+  // The 2015-10 export (wdtk-294011 and wdtk-299321 - byte-identical
+  // disclosures, shared variant): 7 columns, no Allocated Flag.
+  'available-typed-export-7col': [
+    typedExportConversion('raw-extract-sheet-1-foundation.csv', ['Country', 'Current Series', 'Type']),
+    typedExportConversion('raw-extract-sheet-2-intermediate.csv', ['Country', 'Current Series', 'Type']),
+    typedExportConversion('raw-extract-sheet-3-full.csv', ['Country', 'Current Series', 'Type']),
+  ],
+  // wdtk-309076 (2016-01): one combined sheet, all classes, plus two
+  // entirely-empty application-number columns (required present, not
+  // carried - their emptiness is recorded in meta.json).
+  'wdtk-309076-combined-list': [
+    typedExportConversion('raw-extract-sheet-1-sheet1.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag', 'Call Sign Application #', 'MMSI Application #']),
+  ],
+
+  // wdtk-356636 (2016-09): the oldest full register snapshot. 'Final
+  // Status' carries a rich vocabulary (Allocated/Reserved/Forbidden/
+  // Available/Quarantine plus blanks) and 'SF List' the licence product -
+  // both verbatim.
+  'wdtk-356636-register-and-forbidden': [
+    {
+      sourceFile: 'raw-extract-sheet-1-all-call-signs.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Call Sign', output: 'callsign', kind: 'verbatim' },
+        { source: 'Final Status', output: 'status', kind: 'verbatim' },
+        { source: 'SF List', output: 'licence_class', kind: 'verbatim' },
+      ],
+      ignoredColumns: [],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'source rows arrive grouped but not fully ordered (13 duplicate callsigns, not callsign-sorted); no meaningful order evident, sorted by callsign for diffability',
+    },
+    {
+      sourceFile: 'raw-extract-sheet-2-forbidden-suffixes.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Value', output: 'suffix', kind: 'verbatim' },
+      ],
+      // 'Forbidden' on every row - the sheet-level discriminator, recorded
+      // in meta.json, not a per-row assertion.
+      ignoredColumns: ['Type'],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'alphabetical source order carries no meaning; sorted by suffix (a no-op for the archived file, kept for rule consistency)',
+    },
+    // Sheet 3 is a short prose note on licence formats - reference context,
+    // not a dataset; deliberately not normalised.
+  ],
+
+  // wdtk-596532 (as at 2019-08-12): the same export shape as the published
+  // 2019-09-12 register (ofcom-756622), down to the truncated 'Licence
+  // Issued Dat' header - but disclosed as a workbook, so its dates arrive
+  // typed and the extract renders them ISO.
+  'wdtk-596532-register-and-forbidden': [
+    {
+      sourceFile: 'raw-extract-sheet-1-all-callsigns-on-record.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Call Sign', output: 'callsign', kind: 'verbatim' },
+        { source: 'Status', output: 'status', kind: 'verbatim' },
+        { source: 'Licence Class', output: 'licence_class', kind: 'verbatim' },
+        { source: 'Licence Issued Dat', output: 'licence_issued_date', kind: 'iso-date' },
+      ],
+      ignoredColumns: [],
+      rowOrder: 'source-order',
+      orderRationale: 'source rows are ordered by Licence Issued Date ascending (blank dates last) - the same meaningful publication order as the ofcom-756622 register; preserved for cross-snapshot comparability',
+      referenceDateIso: '2019-08-12',
+    },
+    {
+      sourceFile: 'raw-extract-sheet-2-forbidden-call-signs.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'NAME', output: 'suffix', kind: 'verbatim' },
+      ],
+      ignoredColumns: [],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'alphabetical source order carries no meaning; sorted by suffix (a no-op for the archived file, kept for rule consistency)',
+    },
+  ],
+
+  // wdtk-238892 (2015-01): Annex A of the internal-review outcome. Sheet 1
+  // lists pre-WW2 G-series callsigns assigned or re-assigned since 1945
+  // (45 callsigns appear more than once - multiple assignments; 156 rows
+  // carry stored time-of-day artefacts). Sheet 2 discloses the licensing
+  // database's column headings - its header row has an unnamed first
+  // column, which the explicit-header path matches as the empty name.
+  'wdtk-238892-prewar-annex': [
+    {
+      sourceFile: 'raw-extract-sheet-1-callsigns.csv',
+      encoding: 'utf8',
+      preamble: [
+        ['Callsigns in the "G" series allocated prior to WW2 with 2-letter suffixes, which were assigned or re-assigned since 1945. ', ''],
+        ['', ''],
+      ],
+      columns: [
+        { source: 'Call Sign', output: 'callsign', kind: 'verbatim' },
+        { source: 'Original Start Date', output: 'original_start_date', kind: 'iso-date' },
+      ],
+      ignoredColumns: [],
+      rowOrder: 'source-order',
+      orderRationale: 'source rows are already callsign-sorted; preserved',
+      referenceDateIso: '2015-01-21',
+    },
+    {
+      sourceFile: 'raw-extract-sheet-2-database-fields.csv',
+      encoding: 'utf8',
+      preamble: [],
+      columns: [
+        { source: '', output: 'view', kind: 'verbatim' },
+        { source: 'Field Name', output: 'field_name', kind: 'verbatim' },
+      ],
+      ignoredColumns: [],
+      rowOrder: 'source-order',
+      orderRationale: 'rows are grouped by database view (Contact View, then Licence View) - a meaningful disclosed structure; preserved',
+    },
+  ],
+
+  // ofcom-498903 (vintage 2017-11, response 2017-12-22): call signs
+  // re-issued since 2010, one row per issuance event. Semantics caveat on
+  // the record: the source's Original Start Date is the START DATE OF THE
+  // RE-ISSUING LICENCE, treated here as the re-issue event date. 53 rows
+  // carry stored 23:00:00 times (timezone artefacts in the workbook) -
+  // carried verbatim, never rounded to a guessed day.
+  'ofcom-498903-reissue-events': [
+    {
+      sourceFile: 'raw-extract-sheet-1-sheet1.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Call Sign T-Number', output: 'callsign', kind: 'verbatim' },
+        { source: null, output: 'event', kind: 'verbatim', constant: 'reissued' },
+        { source: 'Original Start Date', output: 'event_date', kind: 'iso-date' },
+      ],
+      ignoredColumns: [],
+      rowOrder: 'source-order',
+      orderRationale: 'source rows are ordered by start date ascending - a meaningful chronology of re-issue events; preserved',
+      referenceDateIso: '2017-12-22',
+    },
+  ],
 };
+
+// The 2013/14 suffix-list sheets differ only in filename, stated prefix and
+// class; the label row doubles as the verbatim-matched header.
+function suffixListConversions(sheets: readonly [string, string, string, string][]): FoiSourceConversion[] {
+  return sheets.map(([sourceFile, label, prefix, licenceClass]) => ({
+    sourceFile,
+    encoding: 'utf8' as const,
+    columns: [
+      { source: label, output: 'callsign', kind: 'prefixed' as const, prefix },
+      { source: null, output: 'status', kind: 'verbatim' as const, constant: 'Available' },
+      { source: null, output: 'licence_class', kind: 'verbatim' as const, constant: licenceClass },
+      { source: label, output: 'suffix', kind: 'verbatim' as const },
+    ],
+    ignoredColumns: [],
+    rowOrder: 'sorted-by-first-column' as const,
+    orderRationale: 'alphabetical suffix order carries no meaning; sorted by callsign for diffability (a near no-op given the constant prefix)',
+  }));
+}
+
+function prefixHeaderConversion(sourceFile: string, prefix: string, licenceClass: string): FoiSourceConversion {
+  return {
+    sourceFile,
+    encoding: 'utf8',
+    preamble: [[''], [`Prefix = ${prefix}`]],
+    columns: [
+      { source: 'Suffix', output: 'callsign', kind: 'prefixed', prefix },
+      { source: null, output: 'status', kind: 'verbatim', constant: 'Available' },
+      { source: null, output: 'licence_class', kind: 'verbatim', constant: licenceClass },
+      { source: 'Suffix', output: 'suffix', kind: 'verbatim' },
+    ],
+    ignoredColumns: [],
+    rowOrder: 'sorted-by-first-column',
+    orderRationale: 'alphabetical suffix order carries no meaning; sorted by callsign for diffability (a near no-op given the constant prefix)',
+  };
+}
+
+// The 2015/16 typed Siebel exports share their column vocabulary; only the
+// sheet filenames and the not-carried column set vary.
+function typedExportConversion(sourceFile: string, ignoredColumns: readonly string[]): FoiSourceConversion {
+  return {
+    sourceFile,
+    encoding: 'utf8',
+    columns: [
+      { source: 'Value', output: 'callsign', kind: 'verbatim' },
+      { source: 'Status', output: 'status', kind: 'verbatim' },
+      { source: 'Product', output: 'licence_class', kind: 'verbatim' },
+      { source: 'Reference', output: 'suffix', kind: 'verbatim' },
+    ],
+    ignoredColumns,
+    rowOrder: 'sorted-by-first-column',
+    orderRationale: 'source rows arrive in no meaningful order; sorted by callsign for diffability',
+  };
+}
 
 export function conversionFor(variantName: string, sourceFile: string): FoiSourceConversion {
   const conversions = FOI_ENTRY_CONVERSIONS[variantName];
@@ -258,7 +510,10 @@ export function slugifyBasename(fileName: string): string {
 }
 
 export function normalisedFileNameFor(sourceFile: string): string {
-  return `normalised--${slugifyBasename(sourceFile)}.csv`;
+  // Workbook-extract conversions read raw-extract-sheet-*.csv files; the
+  // 'raw-extract-' prefix is the intermediary's marker, not part of what
+  // the output is named for (entry-scoped sheet names stay unique).
+  return `normalised--${slugifyBasename(sourceFile).replace(/^raw-extract-/, '')}.csv`;
 }
 
 export interface FoiConvertNotes {
@@ -349,11 +604,38 @@ function parseMarkdownTable(text: string, sourceFile: string): Record<string, st
   });
 }
 
+// Explicit-header parsing for conversions with a `preamble`: the authored
+// preamble rows are matched cell-for-cell, the next row is the header, and
+// the rest are data. Used where csv-parse's first-row-is-header rule cannot
+// apply (title/prefix rows before the header, or empty header names).
+function parseWithPreamble(text: string, conversion: FoiSourceConversion): Record<string, string>[] {
+  const rows: string[][] = parse(text, { columns: false, skip_empty_lines: true, bom: true, relax_column_count: true });
+  const preamble = conversion.preamble ?? [];
+  for (let i = 0; i < preamble.length; i++) {
+    const expected = preamble[i];
+    const actual = rows[i];
+    if (actual === undefined || actual.length !== expected.length || expected.some((cell, j) => actual[j] !== cell)) {
+      throw new Error(`${conversion.sourceFile}: preamble row ${i + 1} mismatch - expected ${JSON.stringify(expected)}, found ${JSON.stringify(actual ?? null)} (a changed preamble is a changed assertion, never skipped blindly)`);
+    }
+  }
+  const header = rows[preamble.length];
+  if (header === undefined) {
+    throw new Error(`${conversion.sourceFile}: no header row after the preamble`);
+  }
+  if (new Set(header).size !== header.length) {
+    throw new Error(`${conversion.sourceFile}: duplicate header names (${header.join(', ')})`);
+  }
+  return rows.slice(preamble.length + 1).map(cells =>
+    Object.fromEntries(header.map((name, i) => [name, cells[i] ?? ''])));
+}
+
 export function convertFoiSource(bytes: Buffer, conversion: FoiSourceConversion): FoiConvertResult {
   const text = bytes.toString(conversion.encoding);
   const records: Record<string, string>[] = conversion.format === 'markdown-table'
     ? parseMarkdownTable(text, conversion.sourceFile)
-    : parse(text, { columns: true, skip_empty_lines: true, bom: true });
+    : conversion.preamble !== undefined
+      ? parseWithPreamble(text, conversion)
+      : parse(text, { columns: true, skip_empty_lines: true, bom: true });
   if (records.length === 0) {
     throw new Error(`${conversion.sourceFile}: parsed to zero data rows - refusing to normalise an empty file`);
   }
@@ -426,6 +708,19 @@ function convertRecord(record: Record<string, string>, index: number, conversion
       }
     }
 
+    const checkDatePlausibility = (datePart: string): void => {
+      const referenceDateIso = conversion.referenceDateIso;
+      if (referenceDateIso === undefined) {
+        throw new Error(`${conversion.sourceFile}: date column "${column.output}" requires referenceDateIso on the conversion`);
+      }
+      if (column.futureAllowed !== true && datePart > referenceDateIso) {
+        throw new Error(`${conversion.sourceFile}: ${rowLabel()}: date "${trimmed}" is in the future relative to ${referenceDateIso} - failing plausibility check`);
+      }
+      if (Number(datePart.slice(0, 4)) < MIN_PLAUSIBLE_YEAR) {
+        throw new Error(`${conversion.sourceFile}: ${rowLabel()}: date "${trimmed}" predates ${MIN_PLAUSIBLE_YEAR} - failing plausibility check`);
+      }
+    };
+
     if (column.kind === 'date' && trimmed !== '') {
       let parsed: ParsedUkDateTime;
       try {
@@ -433,17 +728,31 @@ function convertRecord(record: Record<string, string>, index: number, conversion
       } catch (err) {
         throw new Error(`${conversion.sourceFile}: ${rowLabel()}: ${errorMessage(err)}`);
       }
-      const datePart = parsed.iso.slice(0, 10);
-      if (column.futureAllowed !== true && datePart > conversion.referenceDateIso) {
-        throw new Error(`${conversion.sourceFile}: ${rowLabel()}: date "${trimmed}" is in the future relative to ${conversion.referenceDateIso} - failing plausibility check`);
-      }
-      if (Number(datePart.slice(0, 4)) < MIN_PLAUSIBLE_YEAR) {
-        throw new Error(`${conversion.sourceFile}: ${rowLabel()}: date "${trimmed}" predates ${MIN_PLAUSIBLE_YEAR} - failing plausibility check`);
-      }
+      checkDatePlausibility(parsed.iso.slice(0, 10));
       const stats = (notes.dateStats[column.output] ??= { disambiguated: 0, ambiguous: 0 });
       if (parsed.ambiguous) stats.ambiguous += 1;
       else stats.disambiguated += 1;
       return parsed.iso;
+    }
+
+    if (column.kind === 'iso-date' && trimmed !== '') {
+      // Extract dates were typed in the workbook and rendered ISO by
+      // tools/xlsx-extract.py - validated and bounded, carried verbatim
+      // (including stored time-of-day artefacts), with no day-first
+      // order-evidence to collect.
+      const match = /^\d{4}-(\d{2})-(\d{2})( \d{2}:\d{2}:\d{2})?$/.exec(trimmed);
+      if (match === null || Number(match[1]) < 1 || Number(match[1]) > 12 || Number(match[2]) < 1 || Number(match[2]) > 31) {
+        throw new Error(`${conversion.sourceFile}: ${rowLabel()}: "${trimmed}" is not a well-formed ISO extract date`);
+      }
+      checkDatePlausibility(trimmed.slice(0, 10));
+      return trimmed;
+    }
+
+    if (column.kind === 'prefixed' && trimmed !== '') {
+      if (column.prefix === undefined) {
+        throw new Error(`${conversion.sourceFile}: prefixed column "${column.output}" has no authored prefix`);
+      }
+      return `${column.prefix}${trimmed}`;
     }
 
     if (column.kind === 'count' && trimmed !== '') {

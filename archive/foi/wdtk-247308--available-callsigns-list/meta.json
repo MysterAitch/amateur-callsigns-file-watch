@@ -11,7 +11,7 @@
   "outcome": "successful",
   "dataVintage": "2015-02-25",
   "datasetClasses": ["available-pool"],
-  "converter": null,
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "available-typed-export-8col" },
   "files": {
     "Amateur Available Call signs 25 02 2015.xlsx": {
       "bytes": 993125,
@@ -41,6 +41,13 @@
       "extractOf": "Amateur Available Call signs 25 02 2015.xlsx",
       "extractedBy": "tools/xlsx-extract.py"
     },
+    "normalised--sheet-1-foundation.csv": {
+      "bytes": 371196,
+      "sha256": "287c315069ef847296cd929b5d767cfdf620a52ac572fc948cf7b7b5f2348622",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-foundation.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,003 rows sorted by callsign; Value/Status/Product/Reference carried verbatim; Country/Current Series/Type ('Call Sign')/Allocated Flag ('N') required-present, not carried"
+    },
     "raw-extract-sheet-2-intermediate.csv": {
       "bytes": 621344,
       "sha256": "7a229de656feaa62b580503e20525de9a31d4a6f510c9ed50dbcac4a79cd99b1",
@@ -48,12 +55,26 @@
       "extractOf": "Amateur Available Call signs 25 02 2015.xlsx",
       "extractedBy": "tools/xlsx-extract.py"
     },
+    "normalised--sheet-2-intermediate.csv": {
+      "bytes": 481307,
+      "sha256": "0a9e072c79d1ca9b086ad04a3048757b04849140a9fcc5c9a19c8f92a297cd5d",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-2-intermediate.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 8,750 rows sorted by callsign; four Value cells stored AS dates at export (Excel 20xxx mangling) carried verbatim; Country/Current Series/Type/Allocated Flag required-present, not carried"
+    },
     "raw-extract-sheet-3-full.csv": {
       "bytes": 458783,
       "sha256": "a62276d36fe6e36452c7e3f8db26c5d579a13b99e72ac9d8aa21c63b724bd913",
       "role": "extract",
       "extractOf": "Amateur Available Call signs 25 02 2015.xlsx",
       "extractedBy": "tools/xlsx-extract.py"
+    },
+    "normalised--sheet-3-full.csv": {
+      "bytes": 342257,
+      "sha256": "a12736da64967fabcc704c5ab4373a147b5f8ac8ec358ea7c41179af2179ed98",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-3-full.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,282 rows sorted by callsign; blanks preserved and counted (incl. two blank Type cells in the source); Country/Current Series/Type/Allocated Flag required-present, not carried"
     },
     "2015 03 27 Response to Mr James IRFinal.pdf": {
       "bytes": 80646,

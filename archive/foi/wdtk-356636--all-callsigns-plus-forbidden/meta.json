@@ -12,7 +12,7 @@
   "dataVintage": "2016-09",
   "dataVintageNote": "no as-at date stated in the letter; a web-archive-recovered database export dated 2016-09-20 (Callsign-database-20-Sep.xlsx, identical 139,759-row extent) is a suspected sibling - reconcile at converter time",
   "datasetClasses": ["register-snapshot", "forbidden-list"],
-  "converter": null,
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-356636-register-and-forbidden" },
   "relatedEntries": [
     { "entry": "ofcom-337399--all-callsigns-published-copy", "relation": "Ofcom-published copy of this response (graduated); its zip's xlsx is byte-identical to this entry's data file (confirmed 2026-07-07) - second-channel witness; its letter is the publication-redacted variant" },
     { "entry": "ofcom-foi-log/ukgwa 90397--Callsign-database-20-Sep.xlsx (drop zone)", "relation": "suspected sibling export (2016-09-20, same row extent, two-column layout)" }
@@ -47,12 +47,26 @@
       "extractOf": "All Call Signs Assigned plus forbidden.xlsx",
       "extractedBy": "tools/xlsx-extract.py"
     },
+    "normalised--sheet-1-all-call-signs.csv": {
+      "bytes": 5056297,
+      "sha256": "c896e1ebfc1eb635ca829a6740e7f3675e651912940ae4db422823ebc951455c",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-all-call-signs.csv",
+      "contentsIndicative": "header callsign,status,licence_class; 139,758 rows sorted by callsign (source order not meaningful; 13 duplicate callsigns on the record); status vocabulary Allocated/Reserved/Forbidden/Available/Quarantine with 9 blanks preserved; licence_class from SF List verbatim (43,605 blanks preserved)"
+    },
     "raw-extract-sheet-2-forbidden-suffixes.csv": {
       "bytes": 20535,
       "sha256": "025860f90f86ba6d475ba78616a0328038fefab7b16c3858b438ec7234fea328",
       "role": "extract",
       "extractOf": "All Call Signs Assigned plus forbidden.xlsx",
       "extractedBy": "tools/xlsx-extract.py"
+    },
+    "normalised--sheet-2-forbidden-suffixes.csv": {
+      "bytes": 5871,
+      "sha256": "bb138f5d0d133ad402e4a7a89f3fca033fd0e5f20a8e18aa1efe43825196cd74",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-2-forbidden-suffixes.csv",
+      "contentsIndicative": "header suffix; 1,466 forbidden suffixes; constant Type column ('Forbidden') not carried; sorted (a no-op; the source is already alphabetical)"
     },
     "raw-extract-sheet-3-sheet1.csv": {
       "bytes": 396,

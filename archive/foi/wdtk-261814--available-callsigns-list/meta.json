@@ -11,7 +11,7 @@
   "outcome": "successful",
   "dataVintage": "2015-04-16",
   "datasetClasses": ["available-pool"],
-  "converter": null,
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "available-typed-export-8col" },
   "files": {
     "Amateur Available Call signs 16 Apr.xlsx": {
       "bytes": 971208,
@@ -41,6 +41,13 @@
       "extractOf": "Amateur Available Call signs 16 Apr.xlsx",
       "extractedBy": "tools/xlsx-extract.py"
     },
+    "normalised--sheet-1-foundation.csv": {
+      "bytes": 355720,
+      "sha256": "de67d15b700bde4523cad141e79bfda4c7d3c78d188d44778677a6069aef7553",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-foundation.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 6,711 rows sorted by callsign; Value/Status/Product/Reference carried verbatim; Country/Current Series/Type ('Call Sign')/Allocated Flag ('N') required-present, not carried"
+    },
     "raw-extract-sheet-2-intermediate.csv": {
       "bytes": 613889,
       "sha256": "a3035c2e7fb2b4c1f4d561e2d68e4367c9be8548f9a2a784e50655a3daa3da6d",
@@ -48,12 +55,26 @@
       "extractOf": "Amateur Available Call signs 16 Apr.xlsx",
       "extractedBy": "tools/xlsx-extract.py"
     },
+    "normalised--sheet-2-intermediate.csv": {
+      "bytes": 475532,
+      "sha256": "a09e565cd31121f04148d37cfb79f7f153aa4506b86399575bf1d14a560debce",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-2-intermediate.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 8,645 rows sorted by callsign; four Value cells stored AS dates at export (Excel 20xxx mangling) carried verbatim; Country/Current Series/Type/Allocated Flag required-present, not carried"
+    },
     "raw-extract-sheet-3-full.csv": {
       "bytes": 455482,
       "sha256": "7bd770dcf8dc2d26f4cf6ba905c9b8222efc5282215cbd232b87e6f32422e4c6",
       "role": "extract",
       "extractOf": "Amateur Available Call signs 16 Apr.xlsx",
       "extractedBy": "tools/xlsx-extract.py"
+    },
+    "normalised--sheet-3-full.csv": {
+      "bytes": 339782,
+      "sha256": "5ea24629a79e52186bdd9e8965e5edfb85135925ae639614aa755afcef805ca8",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-3-full.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,229 rows sorted by callsign; Country/Current Series/Type/Allocated Flag required-present, not carried"
     },
     "correspondence.md": {
       "bytes": 2363,
