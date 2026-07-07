@@ -138,6 +138,40 @@ export function deepValidateEntryCsv(key: string): ValidationProblem[] {
     // Structural validation reports unreadable meta; no duplicate here.
   }
 
+  // Callsign uniqueness: NOTED on raw (the stats detectors record publisher
+  // duplicates as a data-quality fact) but ENFORCED on normalised - the
+  // normalised dataset is this repository's contract and downstream joins
+  // (components.csv and beyond) key on callsign. The converter is the
+  // decision point for resolving publisher duplicates; this check turns an
+  // unresolved duplicate into an invalid PR rather than a silently broken
+  // join. Empty callsigns are exempt: multiple empties exist in real
+  // publications (2023-02-20 carries two), their handling policy is
+  // deliberately undecided, and they are surfaced by the emptyCallsign
+  // detector - join consumers must exclude them.
+  const normalisedPath = path.join(entryDir(key), 'normalised.csv');
+  if (fs.existsSync(normalisedPath)) {
+    try {
+      const rows = parse(fs.readFileSync(normalisedPath, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[];
+      const seen = new Set<string>();
+      const duplicated = new Set<string>();
+      for (const row of rows) {
+        const callsign = row['callsign'] ?? '';
+        if (callsign === '') continue;
+        if (seen.has(callsign)) duplicated.add(callsign);
+        else seen.add(callsign);
+      }
+      if (duplicated.size > 0) {
+        const sample = [...duplicated].sort().slice(0, 5).join(', ');
+        problems.push({
+          path: normalisedPath,
+          problem: `duplicate callsign values in normalised.csv (downstream joins key on callsign): ${duplicated.size} duplicated value(s), e.g. ${sample}`,
+        });
+      }
+    } catch (err) {
+      problems.push({ path: normalisedPath, problem: `normalised.csv failed to parse as CSV: ${errorMessage(err)}` });
+    }
+  }
+
   return problems;
 }
 
