@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 247308,
+  "ofcomReference": "1-277200227 / 1-279218761",
+  "requestUrl": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio_3",
+  "title": "List of available Amateur Radio Call-signs",
+  "requester": "mr_james_11",
+  "requestedAt": "2015-01-07",
+  "respondedAt": "2015-02-25",
+  "outcome": "successful",
+  "dataVintage": "2015-02-25",
+  "datasetClasses": ["available-pool"],
+  "converter": null,
+  "files": {
+    "Amateur Available Call signs 25 02 2015.xlsx": {
+      "bytes": 993125,
+      "sha256": "3a1c0bad1039308b7cabbce18bc5306914d3eeb185a351ac05f80168ed5ddae1",
+      "role": "data",
+      "datasetClasses": ["available-pool"],
+      "sheetsIndicative": {
+        "note": "from declared xlsx dimensions - approximate only; first appearance of headers in the available-list series (8-column Siebel export shape); authoritative record counts come from the converter/normaliser",
+        "sheets": [
+          { "name": "Foundation", "approxRows": 7004, "cols": "A:H", "datasetClass": "available-pool" },
+          { "name": "Intermediate", "approxRows": 8751, "cols": "A:H", "datasetClass": "available-pool" },
+          { "name": "Full", "approxRows": 7283, "cols": "A:H", "datasetClass": "available-pool" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio_3/response/622016/attach/3/Amateur%20Available%20Call%20signs%2025%2002%202015.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "2015 03 27 Response to Mr James IRFinal.pdf": {
+      "bytes": 80646,
+      "sha256": "9d4ab882ee825b31cb4e8ebe9d8664c0c61e33d417e1ffb67ba500082add92f9",
+      "role": "response-letter",
+      "contentsIndicative": "internal-review outcome: s.14(2) refusal conceded ('6 months was too long an interval'); dated 14 April 2015 despite the filename; addressed via the companion request's relay id (wdtk 249042)",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio_3/response/640227/attach/2/2015%2003%2027%20Response%20to%20Mr%20James%20IRFinal.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-2015-03-27-response-to-mr-james-irfinal.md": {
+      "bytes": 4518,
+      "sha256": "199a9527c08bfc206205d955886f4b7b327eb39e4c352487d33ee561482ef629",
+      "role": "extract",
+      "extractOf": "2015 03 27 Response to Mr James IRFinal.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 12654,
+      "sha256": "8ab19f3c329ba5b8e96bd98a73433c5e307a6d34cb96a51aebfc91ea411727b8",
+      "role": "transcript"
+    }
+  }
+}
