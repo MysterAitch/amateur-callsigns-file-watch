@@ -4,7 +4,7 @@
     "forbidden-suffix": 2826,
     "lowercase": 2,
     "malformed-home-callsign": 10,
-    "missing-rsl": 19502,
+    "rsl-in-register": 22,
     "stripped-collision": 4,
     "unknown-prefix-series": 1,
     "whitespace": 5

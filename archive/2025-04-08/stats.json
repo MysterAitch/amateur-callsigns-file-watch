@@ -6,7 +6,7 @@
     "forbidden-suffix": 3159,
     "lowercase": 18,
     "malformed-home-callsign": 13,
-    "missing-rsl": 19887,
+    "rsl-in-register": 23,
     "stripped-collision": 4,
     "unknown-prefix-series": 1,
     "whitespace": 2
