@@ -1,0 +1,63 @@
+# GitHub Pages deploy (ADR 0003): builds the published SQLite database and
+# the static lookup site as a DEPLOY ARTEFACT on every push to main.
+#
+# The database is deliberately never committed - SQLite files are not
+# byte-deterministic, so it lives outside the golden-master lane and is
+# derived fresh from committed data (archive/ + reference-data/) each deploy.
+#
+# Write posture: no repository writeback whatsoever. The deploy job's only
+# permissions are the Pages deployment itself (pages + id-token), consistent
+# with the repository's supply-chain stance (see ADR 0002/0003).
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci
+      - name: Build site with SQLite database
+        run: |
+          mkdir -p _site/data _site/vendor
+          node src/ci/build-sqlite.ts _site/data/callsigns.sqlite
+          cp site/index.html site/app.js site/style.css _site/
+          # sql.js-httpvfs is served from the npm-audited package, vendored at
+          # build time - no CDN scripts, nothing committed.
+          cp node_modules/sql.js-httpvfs/dist/index.js \
+             node_modules/sql.js-httpvfs/dist/sqlite.worker.js \
+             node_modules/sql.js-httpvfs/dist/sql-wasm.wasm \
+             _site/vendor/
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UK amateur callsign lookup — data mirror proof of concept</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>UK amateur callsign lookup</h1>
+    <p class="subtitle">
+      Proof of concept: this page queries a published SQLite database over
+      HTTP range requests — the full end-to-end flow from Ofcom's register,
+      through the <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">mirror's</a>
+      normalisation, component parsing, and reference data, to your browser.
+      Data is <em>not</em> authoritative; see the repository for provenance.
+    </p>
+  </header>
+
+  <main>
+    <section id="lookup">
+      <form id="lookup-form">
+        <label for="callsign">Callsign</label>
+        <input id="callsign" name="callsign" type="text" placeholder="e.g. M7TEE" autocomplete="off" spellcheck="false">
+        <button type="submit">Look up</button>
+      </form>
+      <div id="result" hidden></div>
+    </section>
+
+    <section id="aggregates">
+      <h2>Data-quality flags per publication</h2>
+      <p>Counts of per-row flags across every archived dataset (vocabulary:
+      <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/reference-data/flags.md">flag registry</a>).</p>
+      <div id="flags-table">loading…</div>
+    </section>
+
+    <footer id="build-info"></footer>
+  </main>
+
+  <!-- UMD bundle: attaches createDbWorker to window; must load before app.js -->
+  <script src="vendor/index.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
