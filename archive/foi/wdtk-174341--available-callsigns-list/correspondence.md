@@ -15,8 +15,12 @@
 
 - **Asked**: a list of all unallocated UK amateur radio callsigns (those
   available to a new Foundation, Intermediate or Full licensee).
-- **Provided**: in full — a three-worksheet spreadsheet (Foundation /
-  Intermediate / Full), data as at 2013-09-06 16:30.
+- **Provided**: in full — a three-worksheet spreadsheet, data as at
+  2013-09-06 16:30 (row/column extents are indicative, from the declared
+  worksheet dimensions):
+  - `Foundation` — ~9,100 rows × cols A:B, available-pool
+  - `Intermediate` — ~9,684 rows × cols A:F, available-pool
+  - `Full` — ~7,865 rows × cols A:L, available-pool
 - **Withheld**: nothing.
 - **Significance**: oldest machine-readable callsign dataset held by this
   archive; available-pool class (not a full-register snapshot); exported
