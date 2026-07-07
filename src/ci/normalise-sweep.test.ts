@@ -445,7 +445,7 @@ describe('runNormaliseSweep', () => {
     // unknown RSL letter (Q, e.g. the 2022 temporary RSL) gains an
     // unexpected COLUMN - both named in the caption.
     expect(report).toContain('| `M2` ⚠ |');
-    expect(report).toContain('⚠ marks locators observed in the data but absent from reference data: series `M2`; RSL Q.');
+    expect(report).toContain('⚠ locators observed in the data but absent from reference data: series `M2`; RSL Q.');
     const header = report.split('\n').find(l => l.startsWith('| series |')) ?? '';
     expect(header).toContain(' Q ⚠ |');
     // All 14 reference RSL letters present as columns even when unused.
@@ -473,8 +473,38 @@ describe('runNormaliseSweep', () => {
     expect(report.split('\n').some(l => l.startsWith('| `G8` |'))).toBe(true);
     // The transposed orientation was dropped in review - single table only.
     expect(report).not.toContain('RSL × series');
-    // Exclusions captioned, not silently dropped.
-    expect(report).toContain('Excluded from this table: 1 unparseable, 1 visitor.');
+    // Exclusions captioned as a bullet list, not silently dropped.
+    expect(report).toContain('Excluded from this table:');
+    expect(report).toContain('- 1 unparseable');
+    expect(report).toContain('- 1 visitor');
+    // Small populations are enumerated in details blocks: the RSL-bearing
+    // rows (the interesting finds) and each excluded status, with values in
+    // exploded marker form so invisibles are visible.
+    expect(report).toContain('<summary>RSL-bearing records (3)</summary>');
+    expect(report).toContain('| `MW7ABC` | `M7` | W |');
+    expect(report).toContain('<summary>Excluded: unparseable (1)</summary>');
+    expect(report).toContain('- `NANAAA`');
+  });
+
+  it('RslMatrix_LeadingInvisibleCharacter_ParsedIntoMatrixAndEnumerationExplodesMarker', () => {
+    // Invisibles are stripped wherever they sit - including position 0 -
+    // so a leading-NBSP callsign still parses into the matrix, and any
+    // enumerated appearance renders the exploded {U+00A0} marker.
+    const mixed = SALESFORCE_RAW
+      + '\u00A0M7LED,Amateur Foundation Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + '\u00A0NOPE,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n';
+    writeEntry(tmpRoot, '2026-02-02', mixed);
+    runNormaliseSweep();
+
+    const report = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-02-02.md'), 'utf8');
+    const header = report.split('\n').find(l => l.startsWith('| series |')) ?? '';
+    const m7 = report.split('\n').find(l => l.startsWith('| `M7` |')) ?? '';
+    const headerCells = header.split('|').map(c => c.trim());
+    // Leading-NBSP M7LED joins M7TEE in the M7 row's (none) column.
+    expect(m7.split('|').map(c => c.trim())[headerCells.indexOf('(none)')]).toBe('2');
+    // The unparseable leading-NBSP value is enumerated with the marker
+    // exploded at its true (leading) position.
+    expect(report).toContain('- `{nbsp}NOPE`');
   });
 
   it('SweepPrBody_ChangedEntry_IncludesRslMatrixWithVisibleAnomalyLine', () => {
@@ -489,6 +519,44 @@ describe('runNormaliseSweep', () => {
     expect(report.coverageMarkdown).toContain('<summary>RSL matrix: 2026-02-02</summary>');
     expect(report.coverageMarkdown).toContain('⚠ 2026-02-02 contains locators absent from reference data: series `M2`.');
     expect(report.coverageMarkdown).toContain('| **total** |');
+  });
+
+  it('PatternPartition_ExpectedFormatsExplainedFromReferenceData_UnexpectedListedSeparately', () => {
+    // The patterns table splits into expected formats (curated explanations
+    // from reference-data/pattern-formats.csv) and unexpected ones - the
+    // unexpected list is the review target.
+    const mixed = SALESFORCE_RAW
+      + 'MW7ABC,Amateur Foundation Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + 'M/PT2FM,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + 'NANAAA,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n';
+    writeEntry(tmpRoot, '2026-02-02', mixed);
+    runNormaliseSweep();
+
+    const report = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-02-02.md'), 'utf8');
+    expect(report).toContain('### Expected formats (3)');
+    expect(report).toContain('| `ANAAA` | 2 | single-letter prefix + digit + three-letter suffix - the standard core callsign shape (G/M series) |');
+    expect(report).toContain('| `AANAAA` | 1 | standard core with a Regional Secondary Locator inserted (MW7... / GM0...) |');
+    // Visitor pattern matches the starts-with A/ family.
+    expect(report).toMatch(/\| `A\/AANAA` \| 1 \| visitor \/ temporary-reciprocal format/);
+    // The literal value NANAAA maps to pattern AAAAAA - no curated
+    // explanation, so it lands in the unexpected list.
+    expect(report).toContain('### Unexpected formats (1)');
+    expect(report).toContain('| `AAAAAA` | 1 |');
+  });
+
+  it('SweepPrBody_WhenNoArchiveEntryChanged_NewestMatrixStillIncluded', () => {
+    // A reports-only derivation (no archive bytes changed) still needs the
+    // current-state matrix on its PR body - observed live on PR #99, whose
+    // body carried no quality notes at all.
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-02-02', SALESFORCE_RAW);
+    runNormaliseSweep();
+
+    const second = runNormaliseSweep();
+
+    expect(second.changed).toEqual([]);
+    expect(second.coverageMarkdown).toContain('<summary>RSL matrix (current state): 2026-02-02</summary>');
+    expect(second.coverageMarkdown).toContain('| **total** |');
   });
 
   it('Reports_WhenSpecialCharactersPresent_CharacterKeyNamesThem', () => {

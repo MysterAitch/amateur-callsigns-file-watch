@@ -126,6 +126,27 @@ export function buildSqlite(outputPath: string): { datasetKey: string; tables: R
     GROUP BY prefix_series, rsl`);
   counts['rsl_matrix'] = Number((db.prepare('SELECT COUNT(*) AS c FROM rsl_matrix').get() as { c: number | bigint }).c);
 
+  // Matrix elaborations, also precomputed for the same reason: exclusion
+  // counts for the caption, capped example lists, and the (few) RSL-bearing
+  // rows enumerated in full - the interesting finds behind a details block.
+  db.exec(`CREATE TABLE matrix_excluded AS
+    SELECT parse_status AS status, COUNT(*) AS n
+    FROM components WHERE parse_status != 'parsed'
+    GROUP BY parse_status`);
+  db.exec(`CREATE TABLE excluded_examples AS
+    SELECT status, callsign FROM (
+      SELECT parse_status AS status, callsign,
+             ROW_NUMBER() OVER (PARTITION BY parse_status ORDER BY callsign) AS rn
+      FROM components WHERE parse_status != 'parsed'
+    ) WHERE rn <= 50`);
+  db.exec(`CREATE TABLE rsl_bearing AS
+    SELECT callsign, prefix_series AS series, rsl
+    FROM components WHERE parse_status = 'parsed' AND rsl != ''
+    ORDER BY callsign`);
+  for (const table of ['matrix_excluded', 'excluded_examples', 'rsl_bearing']) {
+    counts[table] = Number((db.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get() as { c: number | bigint }).c);
+  }
+
   db.exec('CREATE TABLE build_info (key TEXT, value TEXT)');
   const info = db.prepare('INSERT INTO build_info VALUES (?, ?)');
   info.run('dataset', newest);

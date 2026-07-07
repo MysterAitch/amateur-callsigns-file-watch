@@ -103,6 +103,13 @@ export function callsignPattern(callsign: string): string {
     .replace(UNPRINTABLE_RE, codepointMarker);
 }
 
+// Raw value with ONLY the unprintables exploded to {U+XXXX} markers -
+// letters and digits untouched - for enumerating raw register values
+// legibly (report example lists), wherever the invisible sits.
+export function markUnprintables(text: string): string {
+  return text.replace(UNPRINTABLE_RE, codepointMarker);
+}
+
 const EXAMPLE_CAP = 5;
 
 // Spreadsheet date renderings of real month-suffixed callsigns: digits,

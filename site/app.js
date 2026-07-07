@@ -117,8 +117,41 @@ async function renderRslMatrix() {
       ...columns.map(rsl => quiet(seriesRows.reduce((sum, s) => sum + count(s, rsl), 0))),
       quiet(cellsRows.reduce((sum, r) => sum + r.n, 0)),
     ]);
-    target.replaceChildren(renderTable(
-      ['series', ...refRsl, ...unknownRsl.map(r => `${r} ⚠`), '(none)', 'total'], rows, 1));
+    // Elaborations from the precomputed tables: exclusion counts inline,
+    // enumerations behind details where the population is small enough to
+    // list (the RSL-bearing rows ARE the interesting finds). Invisible
+    // characters explode to {U+XXXX} markers wherever they sit.
+    const explode = s => [...s].map(ch =>
+      /[\p{C}\p{Z}]/u.test(ch)
+        ? `{U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}}`
+        : ch).join('');
+    const excludedCounts = await query('SELECT status, n FROM matrix_excluded ORDER BY status');
+    const excludedText = excludedCounts.length === 0 ? 'none'
+      : excludedCounts.map(r => `${r.status} (${r.n})`).join(', ');
+    const caption = el('p', { class: 'muted', text: `Excluded from this table: ${excludedText}.` });
+
+    const detailsBlocks = [];
+    const bearing = await query('SELECT callsign, series, rsl FROM rsl_bearing ORDER BY callsign');
+    if (bearing.length > 0 && bearing.length <= 50) {
+      const d = el('details', {}, [el('summary', { text: `RSL-bearing records (${bearing.length})` })]);
+      d.append(renderTable(['callsign', 'series', 'RSL'],
+        bearing.map(r => [explode(r.callsign), r.series, r.rsl]), 99));
+      detailsBlocks.push(d);
+    }
+    const exampleRows = await query('SELECT status, callsign FROM excluded_examples ORDER BY status, callsign');
+    for (const { status, n } of excludedCounts) {
+      if (n === 0 || n > 50) continue;
+      const examples = exampleRows.filter(r => r.status === status).map(r => explode(r.callsign));
+      const d = el('details', {}, [el('summary', { text: `Excluded: ${status} (${n})` })]);
+      d.append(el('p', { class: 'mono', text: examples.join(', ') }));
+      detailsBlocks.push(d);
+    }
+
+    target.replaceChildren(
+      renderTable(['series', ...refRsl, ...unknownRsl.map(r => `${r} ⚠`), '(none)', 'total'], rows, 1),
+      caption,
+      ...detailsBlocks,
+    );
   } catch (err) {
     target.textContent = `failed to load matrix: ${err}`;
   }
