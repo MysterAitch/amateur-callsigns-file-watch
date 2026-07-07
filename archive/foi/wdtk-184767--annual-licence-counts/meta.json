@@ -11,7 +11,7 @@
   "outcome": "successful",
   "dataVintage": "2013-12",
   "datasetClasses": ["statistics-aggregate"],
-  "converter": null,
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-184767-counts-table" },
   "files": {
     "Number of licences Coleman.pdf": {
       "bytes": 203052,
@@ -32,6 +32,13 @@
       "sha256": "3b9020ac1e2c24a663a3b0f8ebc0602355bb82c6e9df4377ad372c4e47bf6c6d",
       "role": "extract",
       "extractOf": "Number of licences Coleman.pdf"
+    },
+    "normalised--number-of-licences-coleman.csv": {
+      "bytes": 300,
+      "sha256": "95c430f1dcb13b79442cbf41cb0ccef58f82fc3eb4bfca1f7e684a9ee1d053dc",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-number-of-licences-coleman.md",
+      "contentsIndicative": "header period,amateur_radio_licences_issued,business_radio_licences_issued; 10 data rows, financial years 2003/04 to 2012/13 in the letter's chronological order; counts are licences ISSUED per period (both services carried - the disclosed assertion; consumers filter); thousands separators stripped, values otherwise verbatim"
     },
     "correspondence.md": {
       "bytes": 4645,

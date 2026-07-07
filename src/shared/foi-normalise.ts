@@ -1,8 +1,9 @@
 /**
- * FOI-lane CSV normalisers (issue #139, tier 1): deterministic converters
- * for the CSV-native FOI entries, per ADR 0004's derivation chain
- * (raw data file -> normalised--<slug>.csv, converter binding authored in
- * the entry's meta.json).
+ * FOI-lane normalisers (issue #139, tiers 1-2): deterministic converters for
+ * the CSV-native FOI entries and for tables transcribed into committed
+ * raw-extract-*.md files, per ADR 0004's derivation chain
+ * (raw data file [-> raw-extract-*.md] -> normalised--<slug>.csv, converter
+ * binding authored in the entry's meta.json).
  *
  * Principles (issue #139):
  *  - Normalise the source's ASSERTION only, never an inferred complement.
@@ -45,21 +46,38 @@ const MIN_PLAUSIBLE_YEAR = 1900;
 
 export interface FoiColumnSpec {
   // Exact source header this output column reads from, or null when the
-  // source does not assert the column at all - it is then emitted empty so
-  // the dataset class keeps its stable core schema (issue #139: core
-  // columns callsign,status,licence_class for callsign-observation rows).
+  // source does not assert the column at all - it is then emitted empty
+  // (or as the authored constant) so the dataset class keeps its stable
+  // core schema (issue #139: core columns callsign,status,licence_class
+  // for callsign-observation rows; callsign,event_date,event for
+  // issuance-events rows).
   source: string | null;
   output: string;
-  kind: 'verbatim' | 'date';
+  // 'count' is a strictly-formatted integer (optionally with well-formed
+  // thousands separators) emitted as plain digits - the only reshaping is
+  // separator removal, validated, never repaired.
+  kind: 'verbatim' | 'date' | 'count';
   // Date columns describing a validity END (reservation expiries)
   // legitimately postdate the snapshot vintage; issuance/creation dates
   // never do. Only meaningful for kind 'date'.
   futureAllowed?: boolean;
+  // Authored constant emitted when source is null (e.g. the issuance-events
+  // 'event' vocabulary, taken from the document's own wording). An
+  // authored, reviewed value - never derived from row content.
+  constant?: string;
 }
 
-export interface FoiCsvConversion {
-  // Exact filename of the source data file within the entry directory.
+export interface FoiSourceConversion {
+  // Exact filename of the source file within the entry directory - the raw
+  // data file for 'csv' format, or the committed raw-extract-*.md
+  // transcription for 'markdown-table' format.
   sourceFile: string;
+  // How sourceFile's bytes are parsed into records. Defaults to 'csv'.
+  format?: 'csv' | 'markdown-table';
+  // For markdown-table conversions: the data file the extract transcribes
+  // (the PDF). Names the normalised output, so the derivative is keyed to
+  // the disclosed document rather than the transcription intermediary.
+  dataFile?: string;
   // Authored decode decision: the wdtk sheets are UTF-8 with BOM; the
   // Ofcom-published register carries raw 0xA0 bytes (Windows-1252/latin-1
   // NBSP) that are not valid UTF-8.
@@ -82,8 +100,9 @@ export interface FoiCsvConversion {
 
 // Conversion registry, keyed by the variant name authored in each entry's
 // meta.json converter binding. One variant covers one entry's set of
-// CSV-native data files.
-export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiCsvConversion[]> = {
+// convertible source files (CSV-native data files, or committed
+// raw-extract-*.md table transcriptions).
+export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[]> = {
   // archive/foi/wdtk-1180568--licence-breakdown-duration-age (FOI 1900117,
   // vintage 2024-10; referenceDateIso is the response date, 2024-10-28).
   'wdtk-1180568-csv-pair': [
@@ -158,9 +177,69 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiCsvConversion[]> 
       referenceDateIso: '2019-09-12',
     },
   ],
+  // archive/foi/wdtk-184767--annual-licence-counts (reference 1-246847147,
+  // letter dated 2013-12-11): annual counts of licences ISSUED per financial
+  // year, transcribed from the response-letter PDF. Wide shape kept as the
+  // letter asserts it - one row per period, both services (consumers filter;
+  // the business-radio figures are part of the disclosed assertion).
+  'wdtk-184767-counts-table': [
+    {
+      sourceFile: 'raw-extract-number-of-licences-coleman.md',
+      format: 'markdown-table',
+      dataFile: 'Number of licences Coleman.pdf',
+      encoding: 'utf8',
+      columns: [
+        // The header's own qualifier '(1 April - 31 March)' defines the
+        // period boundaries; the label is carried verbatim rather than
+        // expanded into invented start/end dates.
+        { source: 'period (1 April – 31 March)', output: 'period', kind: 'verbatim' },
+        { source: 'Amateur Radio', output: 'amateur_radio_licences_issued', kind: 'count' },
+        { source: 'Business Radio', output: 'business_radio_licences_issued', kind: 'count' },
+      ],
+      ignoredColumns: [],
+      rowOrder: 'source-order',
+      orderRationale: "the letter's financial-year order is chronological and meaningful; preserved",
+      referenceDateIso: '2013-12-11',
+    },
+  ],
+  // archive/foi/wdtk-251507--reissue-policy (reference 1-278731481, letter
+  // dated 2015-02-27): the last 20 heritage-callsign reallocations,
+  // transcribed from 'applicants old call signs.pdf'. Event vocabulary
+  // 'reallocated' is the covering letter's own word. Semantics caveat: the
+  // source's Start date is the START DATE OF THE RECEIVING LICENCE, treated
+  // here as the reallocation event date.
+  'wdtk-251507-transfers-table': [
+    {
+      sourceFile: 'raw-extract-applicants-old-call-signs.md',
+      format: 'markdown-table',
+      dataFile: 'applicants old call signs.pdf',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Call Signs', output: 'callsign', kind: 'verbatim' },
+        { source: null, output: 'event', kind: 'verbatim', constant: 'reallocated' },
+        { source: 'Start date', output: 'event_date', kind: 'date' },
+        // Verbatim source vocabulary ('Amateur Club Radio Licence' /
+        // 'Amateur Full Radio Licence'), never canonicalised.
+        { source: 'Licence Product', output: 'licence_class', kind: 'verbatim' },
+        { source: 'Status', output: 'status', kind: 'verbatim' },
+        { source: 'Reason', output: 'reason', kind: 'verbatim' },
+        // Siebel-format identifiers, carried for cross-referencing against
+        // other snapshots (attribute-addendum value).
+        { source: 'Licence Number', output: 'licence_number', kind: 'verbatim' },
+        { source: 'Con Id', output: 'con_id', kind: 'verbatim' },
+      ],
+      // Title/First_name/Last_name are 'S40' on every row - the document's
+      // marker for names withheld under FOIA s.40. Withholding markers are
+      // not data; presence still required.
+      ignoredColumns: ['Title', 'First_name', 'Last_name'],
+      rowOrder: 'source-order',
+      orderRationale: "the document presents 'the last 20 applications' newest-first; a meaningful order, preserved",
+      referenceDateIso: '2015-02-27',
+    },
+  ],
 };
 
-export function conversionFor(variantName: string, sourceFile: string): FoiCsvConversion {
+export function conversionFor(variantName: string, sourceFile: string): FoiSourceConversion {
   const conversions = FOI_ENTRY_CONVERSIONS[variantName];
   if (conversions === undefined) {
     throw new Error(`unknown FOI converter variant "${variantName}" - known variants: ${Object.keys(FOI_ENTRY_CONVERSIONS).join(', ')}`);
@@ -223,9 +302,58 @@ const NBSP = String.fromCharCode(0xa0);
 // assertion ('G6 FMU' exists in the register) and is kept.
 const EDGE_WHITESPACE_RE = /^\s+|\s+$/g;
 
-export function convertFoiCsv(bytes: Buffer, conversion: FoiCsvConversion): FoiConvertResult {
+// Parses the single markdown table in a raw-extract document. Strict by
+// design: exactly one table block, a well-formed separator row, and a cell
+// count matching the header on every row - anything else is a new extract
+// shape deserving review, never a guess. Cell padding (ASCII space/tab) is
+// table FORMATTING and is stripped structurally; any other edge whitespace
+// is left for the counted trim so it stays on the record.
+function parseMarkdownTable(text: string, sourceFile: string): Record<string, string>[] {
+  const lines = text.split(/\r?\n/).map(line => line.replace(/[ \t]+$/, ''));
+  const blocks: string[][] = [];
+  let current: string[] | null = null;
+  for (const line of lines) {
+    if (line.startsWith('|')) {
+      if (current === null) blocks.push(current = []);
+      current.push(line);
+    } else {
+      current = null;
+    }
+  }
+  if (blocks.length === 0) {
+    throw new Error(`${sourceFile}: no markdown table found in the extract`);
+  }
+  if (blocks.length > 1) {
+    throw new Error(`${sourceFile}: ${blocks.length} markdown tables found - expected exactly one (a new extract shape deserves a reviewed converter change)`);
+  }
+  const [block] = blocks;
+  if (block.length < 2 || !/^\|[ :\-|]+\|$/.test(block[1])) {
+    throw new Error(`${sourceFile}: markdown table has no separator row after the header`);
+  }
+  const splitRow = (line: string): string[] => {
+    if (!line.endsWith('|')) {
+      throw new Error(`${sourceFile}: markdown table row does not end with '|': ${line}`);
+    }
+    return line.slice(1, -1).split('|').map(cell => cell.replace(/^[ \t]+|[ \t]+$/g, ''));
+  };
+  const header = splitRow(block[0]);
+  if (new Set(header).size !== header.length) {
+    throw new Error(`${sourceFile}: markdown table has duplicate header names (${header.join(', ')})`);
+  }
+  return block.slice(2).map((line, index) => {
+    const cells = splitRow(line);
+    if (cells.length !== header.length) {
+      throw new Error(`${sourceFile}: data row ${index + 1} (${cells[0] ?? '?'}) has ${cells.length} cells - the header has ${header.length}`);
+    }
+    return Object.fromEntries(header.map((name, i) => [name, cells[i]]));
+  });
+}
+
+export function convertFoiSource(bytes: Buffer, conversion: FoiSourceConversion): FoiConvertResult {
   const text = bytes.toString(conversion.encoding);
-  const records: Record<string, string>[] = parse(text, { columns: true, skip_empty_lines: true, bom: true });
+  const records: Record<string, string>[] = conversion.format === 'markdown-table'
+    ? parseMarkdownTable(text, conversion.sourceFile)
+    : parse(text, { columns: true, skip_empty_lines: true, bom: true });
   if (records.length === 0) {
     throw new Error(`${conversion.sourceFile}: parsed to zero data rows - refusing to normalise an empty file`);
   }
@@ -272,21 +400,21 @@ export function convertFoiCsv(bytes: Buffer, conversion: FoiCsvConversion): FoiC
 
   return {
     csv: renderCsv(conversion.columns.map(c => c.output), rows),
-    outputFileName: normalisedFileNameFor(conversion.sourceFile),
+    outputFileName: normalisedFileNameFor(conversion.dataFile ?? conversion.sourceFile),
     recordCount: rows.length,
     schemaVersion: FOI_NORMALISED_SCHEMA_VERSION,
     notes,
   };
 }
 
-function convertRecord(record: Record<string, string>, index: number, conversion: FoiCsvConversion, notes: FoiConvertNotes): string[] {
+function convertRecord(record: Record<string, string>, index: number, conversion: FoiSourceConversion, notes: FoiConvertNotes): string[] {
   const rowLabel = (): string => {
     const key = conversion.columns.find(c => c.source !== null)?.source;
     return `data row ${index + 1} (${(key === undefined || key === null ? '?' : record[key] ?? '?')})`;
   };
 
   return conversion.columns.map(column => {
-    if (column.source === null) return '';
+    if (column.source === null) return column.constant ?? '';
     const raw = record[column.source] ?? '';
 
     if (raw.includes(NBSP)) notes.nbspCellCount += 1;
@@ -318,6 +446,15 @@ function convertRecord(record: Record<string, string>, index: number, conversion
       return parsed.iso;
     }
 
+    if (column.kind === 'count' && trimmed !== '') {
+      // Plain digits, or well-formed thousands separators. Anything else is
+      // corruption, not a number to be repaired by stripping commas.
+      if (!/^\d+$/.test(trimmed) && !/^\d{1,3}(?:,\d{3})+$/.test(trimmed)) {
+        throw new Error(`${conversion.sourceFile}: ${rowLabel()}: "${trimmed}" is not a well-formed integer count`);
+      }
+      return trimmed.replaceAll(',', '');
+    }
+
     if (trimmed === '') {
       notes.blankCounts[column.output] = (notes.blankCounts[column.output] ?? 0) + 1;
     }
@@ -335,7 +472,7 @@ export function convertFoiEntry(entryDir: string, variantName: string): FoiConve
     if (!fs.existsSync(sourcePath)) {
       throw new Error(`source data file missing: ${sourcePath}`);
     }
-    return convertFoiCsv(fs.readFileSync(sourcePath), conversion);
+    return convertFoiSource(fs.readFileSync(sourcePath), conversion);
   });
 }
 

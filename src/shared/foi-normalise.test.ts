@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import {
-  convertFoiCsv,
+  convertFoiSource,
   convertFoiEntry,
   conversionFor,
   normalisedFileNameFor,
@@ -13,8 +13,9 @@ import {
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
-// The FOI CSV normaliser (issue #139, tier 1): deterministic converters for
-// the CSV-native FOI entries. Every normalised row is an observation - the
+// The FOI normaliser (issue #139, tiers 1-2): deterministic converters for
+// the CSV-native FOI entries and for the tables transcribed into committed
+// raw-extract-*.md files. Every normalised row is an observation - the
 // source's assertion at its vintage, never an inferred complement. Blank
 // statuses are preserved (they are data), whitespace (including non-breaking
 // spaces) is trimmed and COUNTED rather than silently discarded, and columns
@@ -22,6 +23,10 @@ import {
 
 const WDTK_VARIANT = 'wdtk-1180568-csv-pair';
 const OFCOM_VARIANT = 'ofcom-756622-register-and-forbidden';
+const COUNTS_VARIANT = 'wdtk-184767-counts-table';
+const TRANSFERS_VARIANT = 'wdtk-251507-transfers-table';
+const COUNTS_EXTRACT = 'raw-extract-number-of-licences-coleman.md';
+const TRANSFERS_EXTRACT = 'raw-extract-applicants-old-call-signs.md';
 const SHEET_1 = 'FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 1.csv';
 const SHEET_2 = 'FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 2.csv';
 const REGISTER_20190912 = 'allocated-reserved-forbidden-call-sign-foi-20190912.csv';
@@ -52,7 +57,7 @@ describe('FOI CSV normaliser - column mapping and row order', () => {
       'M5TX,Available,Call Sign - Amateur,21/01/2019',
       'G5YTT,Reserved,Call Sign - Amateur,15/10/2029',
     ]);
-    const result = convertFoiCsv(input, sheet1);
+    const result = convertFoiSource(input, sheet1);
     expect(result.csv).toBe(
       'callsign,status,licence_class,reserved_to_date\n' +
       'G5YTT,Reserved,,2029-10-15\n' +
@@ -69,7 +74,7 @@ describe('FOI CSV normaliser - column mapping and row order', () => {
       'Value,Status,Type,Reserved to Date',
       'M0IVB,Allocated,Call Sign - Amateur,',
     ]);
-    const result = convertFoiCsv(input, sheet1);
+    const result = convertFoiSource(input, sheet1);
     expect(result.csv).not.toContain('Call Sign - Amateur');
   });
 
@@ -81,7 +86,7 @@ describe('FOI CSV normaliser - column mapping and row order', () => {
       '24/02/2024 00:05,Live,M7MPK,01/08/2019,Amateur Foundation Radio Licence',
       '13/02/2019 08:40,Live,20DLQ,29/05/2015,Amateur Intermediate Radio Licence',
     ]);
-    const result = convertFoiCsv(input, sheet2);
+    const result = convertFoiSource(input, sheet2);
     expect(result.csv).toBe(
       'callsign,status,licence_class,created_date,original_start_date\n' +
       '20DLQ,Live,Amateur Intermediate Radio Licence,2019-02-13 08:40,2015-05-29\n' +
@@ -97,7 +102,7 @@ describe('FOI CSV normaliser - column mapping and row order', () => {
       'G4IFJ,Allocated,Full,03/05/1903\r\n' +
       'G8UYK,Allocated,Full,04/02/1904\r\n' +
       '2E1AAA,Reserved,Intermediate,\r\n', 'latin1');
-    const result = convertFoiCsv(input, register);
+    const result = convertFoiSource(input, register);
     expect(result.csv).toBe(
       'callsign,status,licence_class,licence_issued_date\n' +
       'G4IFJ,Allocated,Full,1903-05-03\n' +
@@ -109,7 +114,7 @@ describe('FOI CSV normaliser - column mapping and row order', () => {
     // Forbidden entries are three-letter SUFFIXES, not callsigns - a
     // different shape by design (issue #139).
     const input = Buffer.from('NAME\r\nBOG\r\nADS\r\n', 'latin1');
-    const result = convertFoiCsv(input, forbidden);
+    const result = convertFoiSource(input, forbidden);
     expect(result.csv).toBe('suffix\nADS\nBOG\n');
   });
 
@@ -124,7 +129,7 @@ describe('FOI CSV normaliser - column mapping and row order', () => {
       'Reserved to Date,Type,Status,Value',
       '21/01/2019,Call Sign - Amateur,Available,M5TX',
     ]);
-    expect(convertFoiCsv(shuffledOrder, sheet1).csv).toBe(convertFoiCsv(canonicalOrder, sheet1).csv);
+    expect(convertFoiSource(shuffledOrder, sheet1).csv).toBe(convertFoiSource(canonicalOrder, sheet1).csv);
   });
 });
 
@@ -138,7 +143,7 @@ describe('FOI CSV normaliser - value preservation', () => {
       'G0DBP,,Full,\r\n' +
       'M0KXY,,Full,\r\n' +
       'G4IFJ,Allocated,Full,03/05/1903\r\n', 'latin1');
-    const result = convertFoiCsv(input, register);
+    const result = convertFoiSource(input, register);
     expect(result.csv).toBe(
       'callsign,status,licence_class,licence_issued_date\n' +
       'G0DBP,,Full,\n' +
@@ -157,7 +162,7 @@ describe('FOI CSV normaliser - value preservation', () => {
       `G0TQK${NBSP},Allocated,Call Sign - Amateur,`,
       'M0IVB,Allocated,Call Sign - Amateur,',
     ]);
-    const result = convertFoiCsv(input, sheet1);
+    const result = convertFoiSource(input, sheet1);
     expect(result.csv).toContain('G0TQK,Allocated');
     expect(result.recordCount).toBe(2); // the affected row is kept, not discarded
     expect(result.notes.nbspCellCount).toBe(1);
@@ -174,7 +179,7 @@ describe('FOI CSV normaliser - value preservation', () => {
       Buffer.from([0xa0]),
       Buffer.from(',Allocated,Full,12/02/2018\r\n', 'latin1'),
     ]);
-    const result = convertFoiCsv(input, register);
+    const result = convertFoiSource(input, register);
     expect(result.csv).toContain('G0TQK,Allocated,Full,2018-02-12');
     expect(result.csv).not.toContain('�');
     expect(result.notes.nbspCellCount).toBe(1);
@@ -190,7 +195,7 @@ describe('FOI CSV normaliser - value preservation', () => {
       '2E1HON,Allocated,Call Sign - Amateur,',
       'M/KNIZ,Allocated,Call Sign - Amateur,',
     ]);
-    const result = convertFoiCsv(input, sheet1);
+    const result = convertFoiSource(input, sheet1);
     expect(result.csv).toContain('2E1HON,Allocated');
     expect(result.csv).toContain('M/KNIZ,Allocated');
     expect(result.recordCount).toBe(2);
@@ -205,7 +210,7 @@ describe('FOI CSV normaliser - value preservation', () => {
       'g0jrk,Allocated,Call Sign - Amateur,',
       '2e1GTD,Allocated,Call Sign - Amateur,',
     ]);
-    const result = convertFoiCsv(input, sheet1);
+    const result = convertFoiSource(input, sheet1);
     expect(result.csv).toContain('2e1GTD,Allocated');
     expect(result.csv).toContain('g0jrk,Allocated');
   });
@@ -217,7 +222,7 @@ describe('FOI CSV normaliser - value preservation', () => {
       'Created Date,Status,Call Sign,Original start date,Licence Type',
       '17/06/2024 03:10,Live,",,",19/04/2018,Amateur Intermediate Radio Licence',
     ]);
-    const result = convertFoiCsv(input, sheet2);
+    const result = convertFoiSource(input, sheet2);
     expect(result.csv).toContain('",,",Live,Amateur Intermediate Radio Licence');
   });
 
@@ -227,7 +232,7 @@ describe('FOI CSV normaliser - value preservation', () => {
     const input = Buffer.from(
       'Call Sign,Status,Licence Class,Licence Issued Dat\r\n' +
       'G6 FMU,Allocated,Full,21/02/2017\r\n', 'latin1');
-    const result = convertFoiCsv(input, register);
+    const result = convertFoiSource(input, register);
     expect(result.csv).toContain('G6 FMU,Allocated');
     expect(result.notes.trimmedCellCount).toBe(0);
   });
@@ -241,8 +246,8 @@ describe('FOI CSV normaliser - determinism', () => {
     ];
     const crlf = utf8BomCrlf(rows);
     const lf = Buffer.from(BOM + rows.join('\n') + '\n', 'utf8');
-    expect(convertFoiCsv(crlf, sheet1).csv).toBe(convertFoiCsv(lf, sheet1).csv);
-    expect(convertFoiCsv(lf, sheet1).csv).not.toContain('\r');
+    expect(convertFoiSource(crlf, sheet1).csv).toBe(convertFoiSource(lf, sheet1).csv);
+    expect(convertFoiSource(lf, sheet1).csv).not.toContain('\r');
   });
 
   it('FoiNormaliser_SameBytesTwice_ByteIdenticalOutput', () => {
@@ -251,7 +256,7 @@ describe('FOI CSV normaliser - determinism', () => {
       'M5TX,Available,Call Sign - Amateur,21/01/2019',
       'G5YTT,Reserved,Call Sign - Amateur,15/10/2029',
     ]);
-    expect(convertFoiCsv(input, sheet1).csv).toBe(convertFoiCsv(input, sheet1).csv);
+    expect(convertFoiSource(input, sheet1).csv).toBe(convertFoiSource(input, sheet1).csv);
   });
 });
 
@@ -261,8 +266,8 @@ describe('FOI CSV normaliser - header discipline', () => {
       'Value,Status,Type', // 'Reserved to Date' absent
       'M0IVB,Allocated,Call Sign - Amateur',
     ]);
-    expect(() => convertFoiCsv(input, sheet1)).toThrow(/Reserved to Date/);
-    expect(() => convertFoiCsv(input, sheet1)).toThrow(new RegExp(sheet1.sourceFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    expect(() => convertFoiSource(input, sheet1)).toThrow(/Reserved to Date/);
+    expect(() => convertFoiSource(input, sheet1)).toThrow(new RegExp(sheet1.sourceFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   });
 
   it('FoiNormaliser_UnexpectedExtraHeader_Throws', () => {
@@ -272,7 +277,7 @@ describe('FOI CSV normaliser - header discipline', () => {
       'Value,Status,Type,Reserved to Date,Surprise',
       'M0IVB,Allocated,Call Sign - Amateur,,x',
     ]);
-    expect(() => convertFoiCsv(input, sheet1)).toThrow(/Surprise/);
+    expect(() => convertFoiSource(input, sheet1)).toThrow(/Surprise/);
   });
 
   it('FoiNormaliser_RegisterTruncatedDateHeader_MatchedVerbatim', () => {
@@ -282,12 +287,12 @@ describe('FOI CSV normaliser - header discipline', () => {
     const untruncated = Buffer.from(
       'Call Sign,Status,Licence Class,Licence Issued Date\r\n' +
       'G4IFJ,Allocated,Full,03/05/1903\r\n', 'latin1');
-    expect(() => convertFoiCsv(untruncated, register)).toThrow(/Licence Issued Dat/);
+    expect(() => convertFoiSource(untruncated, register)).toThrow(/Licence Issued Dat/);
   });
 
   it('FoiNormaliser_ZeroDataRows_Throws', () => {
     const input = utf8BomCrlf(['Value,Status,Type,Reserved to Date']);
-    expect(() => convertFoiCsv(input, sheet1)).toThrow(/zero/i);
+    expect(() => convertFoiSource(input, sheet1)).toThrow(/zero/i);
   });
 });
 
@@ -300,7 +305,7 @@ describe('FOI CSV normaliser - date handling', () => {
       'M5TX,Available,Call Sign - Amateur,21/01/2019',
       'G5YTT,Reserved,Call Sign - Amateur,05/03/2020',
     ]);
-    const result = convertFoiCsv(input, sheet1);
+    const result = convertFoiSource(input, sheet1);
     expect(result.notes.dateStats['reserved_to_date']).toEqual({ disambiguated: 1, ambiguous: 1 });
     expect(result.notes.unverifiedDateColumns).toEqual([]);
   });
@@ -310,7 +315,7 @@ describe('FOI CSV normaliser - date handling', () => {
       'Value,Status,Type,Reserved to Date',
       'M5TX,Available,Call Sign - Amateur,05/03/2020',
     ]);
-    expect(convertFoiCsv(input, sheet1).notes.unverifiedDateColumns).toEqual(['reserved_to_date']);
+    expect(convertFoiSource(input, sheet1).notes.unverifiedDateColumns).toEqual(['reserved_to_date']);
   });
 
   it('FoiNormaliser_UnparseableDate_ThrowsWithRowContext', () => {
@@ -319,7 +324,7 @@ describe('FOI CSV normaliser - date handling', () => {
       'M0IVB,Allocated,Call Sign - Amateur,',
       'M5TX,Available,Call Sign - Amateur,not-a-date',
     ]);
-    expect(() => convertFoiCsv(input, sheet1)).toThrow(/M5TX/);
+    expect(() => convertFoiSource(input, sheet1)).toThrow(/M5TX/);
   });
 
   it('FoiNormaliser_IssuedDateAfterVintage_ThrowsPlausibilityFailure', () => {
@@ -328,7 +333,7 @@ describe('FOI CSV normaliser - date handling', () => {
     const input = Buffer.from(
       'Call Sign,Status,Licence Class,Licence Issued Dat\r\n' +
       'M7ZZZ,Allocated,Foundation,13/09/2019\r\n', 'latin1');
-    expect(() => convertFoiCsv(input, register)).toThrow(/future/i);
+    expect(() => convertFoiSource(input, register)).toThrow(/future/i);
   });
 
   it('FoiNormaliser_ReservedToDateInFuture_Accepted', () => {
@@ -339,7 +344,7 @@ describe('FOI CSV normaliser - date handling', () => {
       'Value,Status,Type,Reserved to Date',
       'G5YTT,Reserved,Call Sign - Amateur,15/10/2029',
     ]);
-    expect(convertFoiCsv(input, sheet1).csv).toContain('2029-10-15');
+    expect(convertFoiSource(input, sheet1).csv).toContain('2029-10-15');
   });
 
   it('FoiNormaliser_PreNineteenHundredDate_Throws', () => {
@@ -348,7 +353,7 @@ describe('FOI CSV normaliser - date handling', () => {
     const input = Buffer.from(
       'Call Sign,Status,Licence Class,Licence Issued Dat\r\n' +
       'G4IFJ,Allocated,Full,31/12/1899\r\n', 'latin1');
-    expect(() => convertFoiCsv(input, register)).toThrow(/1900/);
+    expect(() => convertFoiSource(input, register)).toThrow(/1900/);
   });
 });
 
@@ -406,6 +411,198 @@ describe('FOI entry conversion', () => {
   });
 });
 
+// Markdown-table extracts (tier 2): converters parse the tables transcribed
+// into the committed raw-extract-*.md files. Same discipline as CSV sources -
+// header-name matching, counted trims, fail-loudly on any unexpected shape.
+const countsExtract = conversionFor(COUNTS_VARIANT, COUNTS_EXTRACT);
+const transfersExtract = conversionFor(TRANSFERS_VARIANT, TRANSFERS_EXTRACT);
+
+// A minimal markdown extract document: prose above and below one table, as
+// in the committed raw-extract files (LF endings, UTF-8, no BOM).
+function mdExtract(tableLines: string[]): Buffer {
+  return Buffer.from(
+    '# Raw extract - fixture\n\nProse before the table.\n\n' +
+    tableLines.join('\n') +
+    '\n\nProse after the table.\n', 'utf8');
+}
+
+const COUNTS_HEADER = '| period (1 April – 31 March) | Amateur Radio | Business Radio |';
+const TRANSFERS_HEADER = '| Con Id | Licence Number | Call Signs | Licence Product | Status | Title | First_name | Last_name | Start date | Reason |';
+const TRANSFERS_SEPARATOR = '|---|---|---|---|---|---|---|---|---|---|';
+
+function transfersRow(conId: string, licenceNumber: string, callsign: string, product: string, startDate: string): string {
+  return `| ${conId} | ${licenceNumber} | ${callsign} | ${product} | Live | S40 | S40 | S40 | ${startDate} | Letter of consent provided for transfer |`;
+}
+
+describe('FOI markdown-table normaliser - parsing', () => {
+  it('FoiNormaliser_MarkdownExtractTable_MapsToAuthoredSchema', () => {
+    const input = mdExtract([
+      COUNTS_HEADER,
+      '|---|---:|---:|',
+      '| 2003–2004 | 29,190 | 6,371 |',
+      '| 2004–2005 | 167,561 | 6,515 |',
+    ]);
+    const result = convertFoiSource(input, countsExtract);
+    expect(result.csv).toBe(
+      'period,amateur_radio_licences_issued,business_radio_licences_issued\n' +
+      '2003–2004,29190,6371\n' +
+      '2004–2005,167561,6515\n');
+    expect(result.recordCount).toBe(2);
+    expect(result.schemaVersion).toBe(FOI_NORMALISED_SCHEMA_VERSION);
+  });
+
+  it('FoiNormaliser_MarkdownProseWithoutTable_Throws', () => {
+    const input = Buffer.from('# Raw extract\n\nOnly prose here, no table.\n', 'utf8');
+    expect(() => convertFoiSource(input, countsExtract)).toThrow(/no markdown table/i);
+  });
+
+  it('FoiNormaliser_MarkdownWithTwoTables_Throws', () => {
+    // Two table blocks means the extract's shape changed - a reviewed
+    // converter change, never a guess about which table is the dataset.
+    const table = [COUNTS_HEADER, '|---|---:|---:|', '| 2003–2004 | 29,190 | 6,371 |'];
+    const input = Buffer.from(
+      '# Raw extract\n\n' + table.join('\n') + '\n\nMore prose.\n\n' + table.join('\n') + '\n', 'utf8');
+    expect(() => convertFoiSource(input, countsExtract)).toThrow(/2 markdown tables/i);
+  });
+
+  it('FoiNormaliser_MarkdownRowWithWrongCellCount_ThrowsWithRowContext', () => {
+    const input = mdExtract([
+      COUNTS_HEADER,
+      '|---|---:|---:|',
+      '| 2003–2004 | 29,190 |',
+    ]);
+    expect(() => convertFoiSource(input, countsExtract)).toThrow(/2003–2004/);
+  });
+
+  it('FoiNormaliser_MarkdownHeaderMismatch_Throws', () => {
+    // Header discipline applies to markdown tables exactly as to CSVs.
+    const input = mdExtract([
+      '| period (1 April – 31 March) | Amateur Radio | Marine Radio |',
+      '|---|---:|---:|',
+      '| 2003–2004 | 29,190 | 6,371 |',
+    ]);
+    expect(() => convertFoiSource(input, countsExtract)).toThrow(/Business Radio/);
+    expect(() => convertFoiSource(input, countsExtract)).toThrow(/Marine Radio/);
+  });
+
+  it('FoiNormaliser_MarkdownCellWithTrailingNbsp_TrimmedAndCounted', () => {
+    // Table-formatting spaces are structure and are stripped silently; any
+    // OTHER edge whitespace (an NBSP carried through transcription) is data
+    // hygiene and goes through the counted trim, never a silent one.
+    const input = mdExtract([
+      TRANSFERS_HEADER,
+      TRANSFERS_SEPARATOR,
+      transfersRow('1-63D-1492', '1-276079645', `G2CP${NBSP}`, 'Amateur Club Radio Licence', '15/12/2014'),
+    ]);
+    const result = convertFoiSource(input, transfersExtract);
+    expect(result.csv).toContain('G2CP,');
+    expect(result.notes.nbspCellCount).toBe(1);
+    expect(result.notes.trimmedCellCount).toBe(1);
+  });
+});
+
+describe('FOI markdown-table normaliser - counts variant (wdtk-184767)', () => {
+  it('FoiNormaliser_ThousandsSeparatedCounts_NormalisedToPlainIntegers', () => {
+    const input = mdExtract([
+      COUNTS_HEADER,
+      '|---|---:|---:|',
+      '| 2004–2005 | 167,561 | 6,515 |',
+    ]);
+    const result = convertFoiSource(input, countsExtract);
+    expect(result.csv).toContain('167561');
+    expect(result.csv).toContain('6515');
+    expect(result.csv).not.toContain('"');
+  });
+
+  it('FoiNormaliser_MalformedCount_ThrowsWithRowContext', () => {
+    // '29,19' is not a well-formed thousands-separated integer - corruption,
+    // not a number to be repaired by stripping commas.
+    const input = mdExtract([
+      COUNTS_HEADER,
+      '|---|---:|---:|',
+      '| 2003–2004 | 29,19 | 6,371 |',
+    ]);
+    expect(() => convertFoiSource(input, countsExtract)).toThrow(/29,19/);
+    expect(() => convertFoiSource(input, countsExtract)).toThrow(/2003–2004/);
+  });
+
+  it('FoiNormaliser_CountsVariant_PreservesChronologicalSourceOrder', () => {
+    // The letter's financial-year order is chronological and meaningful -
+    // the converter must not re-sort it.
+    const input = mdExtract([
+      COUNTS_HEADER,
+      '|---|---:|---:|',
+      '| 2012–2013 | 28,041 | 4,738 |',
+      '| 2003–2004 | 29,190 | 6,371 |',
+    ]);
+    const result = convertFoiSource(input, countsExtract);
+    expect(result.csv.indexOf('2012–2013')).toBeLessThan(result.csv.indexOf('2003–2004'));
+  });
+});
+
+describe('FOI markdown-table normaliser - transfers variant (wdtk-251507)', () => {
+  it('FoiNormaliser_TransfersVariant_EmitsAuthoredReallocatedEvent', () => {
+    // The event vocabulary is the covering letter's own word ('applications
+    // where an old call sign was reallocated'), authored as a constant.
+    const input = mdExtract([
+      TRANSFERS_HEADER,
+      TRANSFERS_SEPARATOR,
+      transfersRow('1-LSY43', '1-278472477', 'G8JC', 'Amateur Club Radio Licence', '28/01/2015'),
+    ]);
+    const result = convertFoiSource(input, transfersExtract);
+    expect(result.csv).toBe(
+      'callsign,event,event_date,licence_class,status,reason,licence_number,con_id\n' +
+      'G8JC,reallocated,2015-01-28,Amateur Club Radio Licence,Live,Letter of consent provided for transfer,1-278472477,1-LSY43\n');
+  });
+
+  it('FoiNormaliser_TransfersVariant_DropsSection40WithheldColumns', () => {
+    // Title/First_name/Last_name are 'S40' on every row - the document's
+    // marker for names withheld under FOIA s.40. Withholding markers are not
+    // data; the columns are required to be present but are not carried.
+    const input = mdExtract([
+      TRANSFERS_HEADER,
+      TRANSFERS_SEPARATOR,
+      transfersRow('1-LSY43', '1-278472477', 'G8JC', 'Amateur Club Radio Licence', '28/01/2015'),
+    ]);
+    expect(convertFoiSource(input, transfersExtract).csv).not.toContain('S40');
+  });
+
+  it('FoiNormaliser_TransfersVariant_PreservesNewestFirstSourceOrder', () => {
+    // The document presents 'the last 20 applications' newest-first - a
+    // meaningful order, preserved.
+    const input = mdExtract([
+      TRANSFERS_HEADER,
+      TRANSFERS_SEPARATOR,
+      transfersRow('1-LSY43', '1-278472477', 'G8JC', 'Amateur Club Radio Licence', '28/01/2015'),
+      transfersRow('1-62T-1151', '1-214465959', 'G8WQ', 'Amateur Club Radio Licence', '30/07/2012'),
+    ]);
+    const result = convertFoiSource(input, transfersExtract);
+    expect(result.csv.indexOf('G8JC')).toBeLessThan(result.csv.indexOf('G8WQ'));
+  });
+
+  it('FoiNormaliser_TransfersStartDateAfterResponseDate_ThrowsPlausibilityFailure', () => {
+    // Event dates cannot postdate the response letter (2015-02-27).
+    const input = mdExtract([
+      TRANSFERS_HEADER,
+      TRANSFERS_SEPARATOR,
+      transfersRow('1-LSY43', '1-278472477', 'G8JC', 'Amateur Club Radio Licence', '28/02/2015'),
+    ]);
+    expect(() => convertFoiSource(input, transfersExtract)).toThrow(/future/i);
+  });
+
+  it('NormalisedFileName_MarkdownExtractConversion_NamedAfterTheTranscribedDataFile', () => {
+    // The output is named for the DATA file the extract transcribes (the
+    // PDF), not for the raw-extract-*.md intermediary.
+    const input = mdExtract([
+      TRANSFERS_HEADER,
+      TRANSFERS_SEPARATOR,
+      transfersRow('1-LSY43', '1-278472477', 'G8JC', 'Amateur Club Radio Licence', '28/01/2015'),
+    ]);
+    expect(convertFoiSource(input, transfersExtract).outputFileName).toBe('normalised--applicants-old-call-signs.csv');
+    expect(normalisedFileNameFor('Number of licences Coleman.pdf')).toBe('normalised--number-of-licences-coleman.csv');
+  });
+});
+
 // Golden-master checks against the archived source bytes: the converter must
 // reproduce the committed normalised files exactly (re-run policy: outputs
 // are byte-deterministic; a diff means the logic changed and the change is
@@ -430,6 +627,26 @@ describe('FOI archive golden master', () => {
       const committed = fs.readFileSync(path.join(wdtkDir, result.outputFileName), 'utf8');
       expect(result.csv).toBe(committed);
     }
+  });
+
+  it('FoiArchive_Wdtk184767Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+    const entryDir = path.join(repoRoot, 'archive', 'foi', 'wdtk-184767--annual-licence-counts');
+    const results = convertFoiEntry(entryDir, COUNTS_VARIANT);
+    expect(results.map(r => r.recordCount)).toEqual([10]);
+    const committed = fs.readFileSync(path.join(entryDir, results[0].outputFileName), 'utf8');
+    expect(results[0].csv).toBe(committed);
+  });
+
+  it('FoiArchive_Wdtk251507Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+    const entryDir = path.join(repoRoot, 'archive', 'foi', 'wdtk-251507--reissue-policy');
+    const results = convertFoiEntry(entryDir, TRANSFERS_VARIANT);
+    expect(results.map(r => r.recordCount)).toEqual([20]);
+    // Five G2-series transfers - the per-callsign evidence for the
+    // heritage/two-letter re-issue cycle.
+    const g2Rows = results[0].csv.split('\n').filter(line => line.startsWith('G2'));
+    expect(g2Rows).toHaveLength(5);
+    const committed = fs.readFileSync(path.join(entryDir, results[0].outputFileName), 'utf8');
+    expect(results[0].csv).toBe(committed);
   });
 
   it('FoiArchive_Ofcom756622Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
