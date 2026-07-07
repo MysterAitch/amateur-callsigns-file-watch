@@ -23,6 +23,7 @@ archive/foi/**/correspondence.md      text diff merge eol=lf
 archive/foi/**/raw-extract-*.csv      text diff merge eol=lf
 archive/foi/**/raw-extract*.md        text diff merge eol=lf
 archive/foi/**/normalised.csv         text diff merge eol=lf
+archive/foi/**/normalised--*.csv      text diff merge eol=lf
 
 # Derived normalised.csv must be byte-stable across platforms (meta.json
 # records its sha256/size and the sweep no-op check is byte equality) while
