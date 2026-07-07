@@ -57,7 +57,7 @@ export interface FoiColumnSpec {
   // thousands separators) emitted as plain digits - the only reshaping is
   // separator removal, validated, never repaired.
   // 'iso-date' is a workbook-extract date already rendered ISO by
-  // tools/xlsx-extract.py (typed at source, so no day-first ambiguity ever
+  // src/shared/xlsx-extract.ts (typed at source, so no day-first ambiguity ever
   // existed - no order-evidence stats are collected); validated and
   // plausibility-bounded, carried verbatim including stored time-of-day
   // artefacts.
@@ -258,7 +258,7 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
   ],
 
   // --- Workbook-extract variants (tier 3). Sources are the committed
-  // raw-extract-sheet-*.csv files produced by tools/xlsx-extract.py. ---
+  // raw-extract-sheet-*.csv files produced by src/shared/xlsx-extract.ts. ---
 
   // The 2013/14 suffix-shaped available lists (wdtk-174341 2013-09,
   // wdtk-197896 2014-03 - identical export shape, shared variant). Each
@@ -737,7 +737,7 @@ function convertRecord(record: Record<string, string>, index: number, conversion
 
     if (column.kind === 'iso-date' && trimmed !== '') {
       // Extract dates were typed in the workbook and rendered ISO by
-      // tools/xlsx-extract.py - validated and bounded, carried verbatim
+      // src/shared/xlsx-extract.ts - validated and bounded, carried verbatim
       // (including stored time-of-day artefacts), with no day-first
       // order-evidence to collect.
       const match = /^\d{4}-(\d{2})-(\d{2})( \d{2}:\d{2}:\d{2})?$/.exec(trimmed);

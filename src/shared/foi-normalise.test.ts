@@ -605,7 +605,7 @@ describe('FOI markdown-table normaliser - transfers variant (wdtk-251507)', () =
 
 // Workbook extracts (tier 3): converters parse the committed
 // raw-extract-sheet-*.csv files produced mechanically by
-// tools/xlsx-extract.py. Their dates are already ISO (typed at source, so
+// src/shared/xlsx-extract.ts. Their dates are already ISO (typed at source, so
 // no day-first ambiguity ever existed); some sheets carry preamble rows
 // (titles, prefix statements) that are matched verbatim, never skipped
 // blindly; and the 2013/14 suffix-shaped lists construct the callsign from
@@ -624,7 +624,7 @@ const register596532 = conversionFor(REGISTER_596532_VARIANT, 'raw-extract-sheet
 const prewarCallsigns = conversionFor(PREWAR_VARIANT, 'raw-extract-sheet-1-callsigns.csv');
 const reissueEvents = conversionFor(REISSUE_VARIANT, 'raw-extract-sheet-1-sheet1.csv');
 
-// Extract fixtures are plain LF/UTF-8 CSV, as tools/xlsx-extract.py writes.
+// Extract fixtures are plain LF/UTF-8 CSV, as src/shared/xlsx-extract.ts writes.
 function extractCsv(lines: string[]): Buffer {
   return Buffer.from(lines.join('\n') + '\n', 'utf8');
 }
