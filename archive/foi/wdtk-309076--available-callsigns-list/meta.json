@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 309076,
+  "ofcomReference": null,
+  "requestUrl": "https://www.whatdotheyknow.com/request/available_amateur_radio_call_sig",
+  "title": "Available Amateur Radio call-signs",
+  "requester": "neil_hutton",
+  "requestedAt": "2016-01-04",
+  "respondedAt": "2016-01-26",
+  "outcome": "successful",
+  "dataVintage": "2016-01-21",
+  "datasetClasses": ["available-pool"],
+  "converter": null,
+  "relatedEntries": [
+    { "entry": "ukgwa asset 83577 (1-313474335_available_call_signs.xlsx, in the drop zone)", "relation": "suspected sibling export (identical single-sheet A:J 20,738-row shape); reconcile when that entry graduates" }
+  ],
+  "files": {
+    "Available Call Signs 21 01 16.xlsx": {
+      "bytes": 894320,
+      "sha256": "01776c05e0331f2cfa8a82a89bc9916706259fde871a19c3e901104f0c2df737",
+      "role": "data",
+      "datasetClasses": ["available-pool"],
+      "sheetsIndicative": {
+        "note": "from declared xlsx dimensions - approximate only; final format evolution of the series: single data sheet, all licence levels, 10 columns incl. Call Sign Application # and MMSI Application #",
+        "sheets": [
+          { "name": "Sheet1", "approxRows": 20737, "cols": "A:J", "datasetClass": "available-pool" },
+          { "name": "Sheet2", "approxRows": 0, "cols": "", "datasetClass": "reference-context" },
+          { "name": "Sheet3", "approxRows": 0, "cols": "", "datasetClass": "reference-context" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/available_amateur_radio_call_sig/response/759317/attach/2/Available%20Call%20Signs%2021%2001%2016.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 2730,
+      "sha256": "ef846dde4c5239c72eae52d3643c53a4f1ae8c4ab7f57d3101d1a48ed2e2c0b2",
+      "role": "transcript"
+    }
+  }
+}
