@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 174543,
+  "ofcomReference": "FoI 1-241858032",
+  "requestUrl": "https://www.whatdotheyknow.com/request/amateur_radio_licence_statistics",
+  "title": "Amateur Radio Licence Statistics",
+  "requester": "stewart_baker",
+  "requestedAt": "2013-08-27",
+  "respondedAt": "2013-09-18",
+  "outcome": "successful",
+  "dataVintage": "2013-08-28",
+  "datasetClass": "statistics-aggregate",
+  "converter": null,
+  "files": {
+    "FoI 1 241858032 Full Response.pdf": {
+      "bytes": 83651,
+      "sha256": "7260f7d3cdb62728817c87d51f0dbc132b04043250ed395482908ce9cd4401b0",
+      "role": "response-letter",
+      "datasetClass": "statistics-aggregate",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/amateur_radio_licence_statistics/response/430808/attach/1/FoI%201%20241858032%20Full%20Response.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "FoI 1 241858032 Letter of Acknowledgement.pdf": {
+      "bytes": 45314,
+      "sha256": "2f0664f7fa8150bfe77db32cd6e0b761e1c7e364ea8a56f86a5bdfb328c17fc7",
+      "role": "acknowledgement-letter",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/amateur_radio_licence_statistics/response/424001/attach/1/FoI%201%20241858032%20Letter%20of%20Acknowledgement.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 3002,
+      "sha256": "5bfeeb87700eba4aa80e3847f898a8611aa02350200ec0c96876c07eec339bcd",
+      "role": "transcript"
+    }
+  }
+}
