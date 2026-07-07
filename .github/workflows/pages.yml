@@ -42,10 +42,18 @@ jobs:
           # sql.js-httpvfs reads. Image types are never re-compressed, so
           # the plain-SQLite file wears a .png name. See site/app.js.
           node src/ci/build-sqlite.ts _site/data/callsigns.sqlite.png
+          # Version stamp: the app appends ?v=<sha> to the database URL so
+          # each deploy is a distinct CDN cache object - two deploys inside
+          # the Pages max-age window otherwise mix range chunks from
+          # different database versions (observed live: "database disk
+          # image is malformed"). See site/app.js.
+          printf '%s' "$GITHUB_SHA" > _site/data/version.txt
           cp site/index.html site/app.js site/style.css _site/
           # sql.js-httpvfs is served from the npm-audited package, vendored at
-          # build time - no CDN scripts, nothing committed.
+          # build time - no CDN scripts, nothing committed. The sourcemap is
+          # included so browser devtools stop 404ing for it.
           cp node_modules/sql.js-httpvfs/dist/index.js \
+             node_modules/sql.js-httpvfs/dist/index.js.map \
              node_modules/sql.js-httpvfs/dist/sqlite.worker.js \
              node_modules/sql.js-httpvfs/dist/sql-wasm.wasm \
              _site/vendor/
