@@ -46,6 +46,24 @@
       "size": 2449,
       "sha256": "d6b69f14da59da85d0659a454444e40c87cf4a094f9062cdc10bac06ff2aec1a",
       "format": "json"
+    },
+    "components.csv": {
+      "size": 3713963,
+      "sha256": "2d011cbd7fc677fc241681cfb2b37f7685e539878b7f051b29b6eb1cd9ed20fe",
+      "format": "csv",
+      "columnCount": 8,
+      "columnNames": [
+        "callsign",
+        "parse_status",
+        "prefix_series",
+        "rsl",
+        "suffix",
+        "home_callsign",
+        "implied_class",
+        "flags"
+      ],
+      "recordCount": 112650,
+      "sortedBy": "callsign"
     }
   },
   "ofcomReportedUpdate": "4 June 2025",
@@ -53,6 +71,7 @@
   "normalised": {
     "schemaVersion": 1,
     "headerVariant": "v2025-friendly",
-    "statsSchemaVersion": 3
+    "statsSchemaVersion": 3,
+    "componentsSchemaVersion": 1
   }
 }

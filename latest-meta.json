@@ -44,6 +44,24 @@
       "size": 2482,
       "sha256": "2b48a0970d73f180ed7599e52b2ca5adc44ac37c131adeb3595b968b2b8a0cd0",
       "format": "json"
+    },
+    "components.csv": {
+      "size": 5149754,
+      "sha256": "4091af623db9c3f18e7d1758a8eca94c25d71bee3dde021ca78c12264b374461",
+      "format": "csv",
+      "columnCount": 8,
+      "columnNames": [
+        "callsign",
+        "parse_status",
+        "prefix_series",
+        "rsl",
+        "suffix",
+        "home_callsign",
+        "implied_class",
+        "flags"
+      ],
+      "recordCount": 158318,
+      "sortedBy": "callsign"
     }
   },
   "diffSummary": {
@@ -63,6 +81,7 @@
   "normalised": {
     "schemaVersion": 1,
     "headerVariant": "v2026-licence-version",
-    "statsSchemaVersion": 3
+    "statsSchemaVersion": 3,
+    "componentsSchemaVersion": 1
   }
 }
