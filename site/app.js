@@ -105,15 +105,20 @@ async function renderRslMatrix() {
     const unknownRsl = observedRsl.filter(r => !refRsl.includes(r)).sort();
     const columns = [...refRsl, ...unknownRsl, ''];
 
+    const count = (series, rsl) => counts.get(`${series}|${rsl}`) ?? 0;
+    const quiet = n => n === 0 ? '·' : n;
     const rows = seriesRows.map(series => [
       refSeries.includes(series) ? series : `${series} ⚠`,
-      ...columns.map((rsl) => {
-        const n = counts.get(`${series}|${rsl}`) ?? 0;
-        return n === 0 ? '·' : n;
-      }),
+      ...columns.map(rsl => quiet(count(series, rsl))),
+      quiet(columns.reduce((sum, rsl) => sum + count(series, rsl), 0)),
+    ]);
+    rows.push([
+      'total',
+      ...columns.map(rsl => quiet(seriesRows.reduce((sum, s) => sum + count(s, rsl), 0))),
+      quiet(cellsRows.reduce((sum, r) => sum + r.n, 0)),
     ]);
     target.replaceChildren(renderTable(
-      ['series', ...refRsl, ...unknownRsl.map(r => `${r} ⚠`), '(none)'], rows, 1));
+      ['series', ...refRsl, ...unknownRsl.map(r => `${r} ⚠`), '(none)', 'total'], rows, 1));
   } catch (err) {
     target.textContent = `failed to load matrix: ${err}`;
   }

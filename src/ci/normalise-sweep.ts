@@ -369,12 +369,21 @@ function writeQualityReports(keys: string[]): void {
 
 // Primary-by-secondary locator matrix (requested in #51 review): prefix
 // series down the left, EVERY RSL letter from reference data along the top
-// (all-zero columns stay visible - absence is the sparsity signal), counts
-// of parsed records at the intersections. Non-parsed records are excluded
-// and accounted for in the caption.
-function rslMatrixSection(key: string): string[] {
+// (all-zero rows/columns stay visible - absence is the sparsity signal),
+// counts of parsed records at the intersections, with a totals row and
+// column. Non-parsed records are excluded and accounted for in the caption.
+// The Series × RSL orientation was chosen over its transpose in review.
+interface RslMatrix {
+  lines: string[];
+  // Visible anomaly summary (empty when everything matches reference data) -
+  // surfaced OUTSIDE details blocks in PR bodies, where the matrix serves as
+  // a does-this-publication-look-right triage aid.
+  unexpectedNote: string;
+}
+
+function rslMatrix(key: string): RslMatrix | undefined {
   const componentsPath = path.join(CONSTANTS.DIRS.archive, key, 'components.csv');
-  if (!fs.existsSync(componentsPath)) return [];
+  if (!fs.existsSync(componentsPath)) return undefined;
   const referenceData = loadReferenceData();
   const rslLetters = [...referenceData.rslLetters].sort();
 
@@ -392,7 +401,7 @@ function rslMatrixSection(key: string): string[] {
     perRsl.set(column, (perRsl.get(column) ?? 0) + 1);
     bySeries.set(r.prefix_series, perRsl);
   }
-  if (bySeries.size === 0) return [];
+  if (bySeries.size === 0) return undefined;
 
   const rslColumns = [...rslLetters, ...[...unknownRsl].sort(), '(none)'];
   // Every primary locator is shown too: reference series with no register
@@ -410,38 +419,35 @@ function rslMatrixSection(key: string): string[] {
   ].join('; ');
   const excludedNote = [...excluded.entries()].sort()
     .map(([status, count]) => `${count} ${status}`).join(', ');
+  const count = (series: string, rsl: string): number => bySeries.get(series)?.get(rsl) ?? 0;
+  const seriesTotal = (series: string): number => rslColumns.reduce((sum, c) => sum + count(series, c), 0);
+  const columnTotal = (rsl: string): number => seriesRows.reduce((sum, s) => sum + count(s, rsl), 0);
+  const grandTotal = seriesRows.reduce((sum, s) => sum + seriesTotal(s), 0);
   // Zero cells render as a quiet dot so the populated intersections stand
   // out in an otherwise sparse table.
-  const cell = (series: string, rsl: string): string => {
-    const n = bySeries.get(series)?.get(rsl) ?? 0;
-    return n === 0 ? '·' : String(n);
-  };
-  return [
+  const quiet = (n: number): string => n === 0 ? '·' : String(n);
+  const lines = [
     '## RSL matrix',
     '',
     'Parsed records by primary locator (prefix series) and Regional',
     'Secondary Locator. Every RSL letter from `reference-data/rsl.csv` is',
     'shown - all-zero rows/columns are the sparsity signal, not noise; `·`',
-    'means zero. Both orientations are shown while the preferred one is',
-    'chosen.'
+    'means zero.'
     + (unexpectedNote === '' ? '' : ` ⚠ marks locators observed in the data but absent from reference data: ${unexpectedNote}.`)
-    + (excludedNote === '' ? '' : ` Excluded from these tables: ${excludedNote}.`),
+    + (excludedNote === '' ? '' : ` Excluded from this table: ${excludedNote}.`),
     '',
-    '### Series × RSL',
-    '',
-    `| series | ${rslColumns.map(rslHeading).join(' | ')} |`,
-    `|---|${rslColumns.map(() => '---:').join('|')}|`,
+    `| series | ${rslColumns.map(rslHeading).join(' | ')} | total |`,
+    `|---|${rslColumns.map(() => '---:').join('|')}|---:|`,
     ...seriesRows.map(series =>
-      `| ${seriesHeading(series)} | ${rslColumns.map(c => cell(series, c)).join(' | ')} |`),
-    '',
-    '### RSL × series',
-    '',
-    `| RSL | ${seriesRows.map(seriesHeading).join(' | ')} |`,
-    `|---|${seriesRows.map(() => '---:').join('|')}|`,
-    ...rslColumns.map(rsl =>
-      `| ${rslHeading(rsl)} | ${seriesRows.map(series => cell(series, rsl)).join(' | ')} |`),
+      `| ${seriesHeading(series)} | ${rslColumns.map(c => quiet(count(series, c))).join(' | ')} | ${quiet(seriesTotal(series))} |`),
+    `| **total** | ${rslColumns.map(c => quiet(columnTotal(c))).join(' | ')} | ${quiet(grandTotal)} |`,
     '',
   ];
+  return { lines, unexpectedNote };
+}
+
+function rslMatrixSection(key: string): string[] {
+  return rslMatrix(key)?.lines ?? [];
 }
 
 // Prefix-series and regional-identifier distributions (issue #51), both
@@ -841,9 +847,12 @@ function writePatternTimeSeries(keys: string[], statsByKey: Map<string, EntrySta
   fs.writeFileSync(path.join(REPORTS_DIR, '..', 'callsign-patterns.md'), withCharacterKey(lines).join('\n'));
 }
 
-// PR-body/dashboard guidance for changed entries: the window matrix folded
-// behind a details block per entry (the committed reports/ files carry the
-// full report; this is the "in addition" inline view for reviewers).
+// PR-body/dashboard guidance for changed entries: the window matrix and RSL
+// matrix folded behind details blocks per entry (the committed reports/
+// files carry the full report; this is the "in addition" inline view for
+// reviewers triaging whether the proposed dataset/normalisation looks
+// valid). Anomaly signals - unexpected locators - stay OUTSIDE the details
+// so they are visible without expanding anything.
 function changedEntryMatrixMarkdown(changed: string[], keys: string[]): string[] {
   const statsByKey = new Map<string, EntryStats>();
   for (const k of keys) {
@@ -854,9 +863,13 @@ function changedEntryMatrixMarkdown(changed: string[], keys: string[]): string[]
   for (const key of changed) {
     if (!statsByKey.has(key)) continue;
     const window = windowFor(key, keys).filter(k => statsByKey.has(k));
+    const matrix = rslMatrix(key);
     lines.push(
       '',
       `${key}: see \`reports/${key}.md\` for the full quality report.`,
+      ...(matrix !== undefined && matrix.unexpectedNote !== ''
+        ? ['', `⚠ ${key} contains locators absent from reference data: ${matrix.unexpectedNote}.`]
+        : []),
       '',
       '<details>',
       `<summary>Pattern counts across window: ${key}</summary>`,
@@ -864,6 +877,16 @@ function changedEntryMatrixMarkdown(changed: string[], keys: string[]): string[]
       ...matrixTable(key, window, statsByKey),
       '',
       '</details>',
+      ...(matrix !== undefined
+        ? [
+          '',
+          '<details>',
+          `<summary>RSL matrix: ${key}</summary>`,
+          '',
+          ...matrix.lines,
+          '</details>',
+        ]
+        : []),
     );
   }
   return lines;

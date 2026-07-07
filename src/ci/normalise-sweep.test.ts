@@ -432,6 +432,7 @@ describe('runNormaliseSweep', () => {
       + '2E0XYZ,Amateur Intermediate Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
       + '20DLQ,Amateur Intermediate Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
       + 'M2ODD,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + 'MQ1ABC,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
       + 'M/PT2FM,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
       + 'NANAAA,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n';
     writeEntry(tmpRoot, '2026-02-02', mixed);
@@ -439,34 +440,55 @@ describe('runNormaliseSweep', () => {
 
     const report = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-02-02.md'), 'utf8');
     expect(report).toContain('## RSL matrix');
-    expect(report).toContain('### Series × RSL');
-    expect(report).toContain('### RSL × series');
     // Locators absent from reference data are highlighted, not silently
-    // mixed in: M2 is not in prefix-formats.csv.
+    // mixed in: M2 is not in prefix-formats.csv (unexpected ROW), and an
+    // unknown RSL letter (Q, e.g. the 2022 temporary RSL) gains an
+    // unexpected COLUMN - both named in the caption.
     expect(report).toContain('| `M2` ⚠ |');
-    expect(report).toContain('⚠ marks locators observed in the data but absent from reference data: series `M2`.');
+    expect(report).toContain('⚠ marks locators observed in the data but absent from reference data: series `M2`; RSL Q.');
     const header = report.split('\n').find(l => l.startsWith('| series |')) ?? '';
+    expect(header).toContain(' Q ⚠ |');
     // All 14 reference RSL letters present as columns even when unused.
     for (const letter of ['C', 'D', 'E', 'H', 'I', 'J', 'M', 'N', 'P', 'S', 'T', 'U', 'W', 'X']) {
       expect(header).toContain(` ${letter} |`);
     }
     expect(header).toContain('(none)');
-    // MW7ABC: M7 row, W column; M7TEE: M7 row, (none) column.
+    expect(header.trimEnd().endsWith('| total |')).toBe(true);
+    // MW7ABC: M7 row, W column; M7TEE: M7 row, (none) column; total 2.
     const m7 = report.split('\n').find(l => l.startsWith('| `M7` |')) ?? '';
     const cells = m7.split('|').map(c => c.trim());
     const headerCells = header.split('|').map(c => c.trim());
     expect(cells[headerCells.indexOf('W')]).toBe('1');
     expect(cells[headerCells.indexOf('(none)')]).toBe('1');
+    expect(cells[headerCells.indexOf('total')]).toBe('2');
     // Zero cells render as a quiet dot, not the digit 0.
     expect(cells[headerCells.indexOf('C')]).toBe('·');
+    // Totals row: column totals and the grand total (7 parsed records).
+    const totalRow = report.split('\n').find(l => l.startsWith('| **total** |')) ?? '';
+    const totalCells = totalRow.split('|').map(c => c.trim());
+    expect(totalCells[headerCells.indexOf('W')]).toBe('1');
+    expect(totalCells[headerCells.indexOf('total')]).toBe('7');
     // Every reference primary locator shows even with no register presence
     // in this fixture (all-dot row) - absence is the signal.
     expect(report.split('\n').some(l => l.startsWith('| `G8` |'))).toBe(true);
-    // Transposed orientation: RSL letters as rows, series as columns.
-    const wRow = report.split('\n').find(l => l.startsWith('| W |')) ?? '';
-    expect(wRow.length).toBeGreaterThan(0);
+    // The transposed orientation was dropped in review - single table only.
+    expect(report).not.toContain('RSL × series');
     // Exclusions captioned, not silently dropped.
-    expect(report).toContain('Excluded from these tables: 1 unparseable, 1 visitor.');
+    expect(report).toContain('Excluded from this table: 1 unparseable, 1 visitor.');
+  });
+
+  it('SweepPrBody_ChangedEntry_IncludesRslMatrixWithVisibleAnomalyLine', () => {
+    // The PR body is the does-this-publication-look-right triage surface:
+    // the RSL matrix rides behind a details block per changed entry, and
+    // unexpected locators surface OUTSIDE the details, visible unexpanded.
+    const mixed = SALESFORCE_RAW
+      + 'M2ODD,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n';
+    writeEntry(tmpRoot, '2026-02-02', mixed);
+    const report = runNormaliseSweep();
+
+    expect(report.coverageMarkdown).toContain('<summary>RSL matrix: 2026-02-02</summary>');
+    expect(report.coverageMarkdown).toContain('⚠ 2026-02-02 contains locators absent from reference data: series `M2`.');
+    expect(report.coverageMarkdown).toContain('| **total** |');
   });
 
   it('Reports_WhenSpecialCharactersPresent_CharacterKeyNamesThem', () => {
