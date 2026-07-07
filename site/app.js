@@ -10,8 +10,13 @@ const { createDbWorker } = window;
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
 const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
 
+// The database URL must be ABSOLUTE: the worker resolves relative URLs
+// against its own location (vendor/), not the page - observed live as a 404
+// on vendor/data/callsigns.sqlite.
+const dbUrl = new URL('./data/callsigns.sqlite', document.baseURI);
+
 const dbPromise = createDbWorker(
-  [{ from: 'inline', config: { serverMode: 'full', url: './data/callsigns.sqlite', requestChunkSize: 4096 } }],
+  [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
   workerUrl.toString(),
   wasmUrl.toString(),
 );
