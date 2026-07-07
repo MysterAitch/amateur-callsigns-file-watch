@@ -45,7 +45,7 @@
     },
     "stats.json": {
       "size": 1788,
-      "sha256": "35a16a801cd54d45c38e3156e1c88b571e5909abe96524dab0e5cd8f3200a32c",
+      "sha256": "04cfde86dbfb99f1862d7516589ec3b5b2dcad7f08113065c19f64cdb0bf0931",
       "format": "json"
     },
     "components.csv": {
@@ -71,7 +71,7 @@
   "normalised": {
     "schemaVersion": 1,
     "headerVariant": "v2025-salesforce",
-    "statsSchemaVersion": 4,
+    "statsSchemaVersion": 5,
     "componentsSchemaVersion": 4
   }
 }

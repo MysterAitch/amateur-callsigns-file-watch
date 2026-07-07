@@ -55,9 +55,9 @@ Rows sorted by the newest dataset's counts.
 | `A/AAANAAA` | — | — | 1 | — | 1 | — |
 | `A/ANNAA` | — | — | 1 | — | 1 | — |
 | `AANNN` | — | — | 1 | — | 1 | — |
-| `ANAAA�` | — | — | 1 | — | 2 | 2 |
+| `ANAAA{U+FFFD}` | — | — | 1 | — | 2 | 2 |
 | `ANNAAA` | — | — | 1 | — | 1 | — |
-| `NANAAA�` | — | — | 1 | — | 1 | 1 |
+| `NANAAA{U+FFFD}` | — | — | 1 | — | 1 | 1 |
 | `NN-Aaa` | — | — | — | — | 16 | 15 |
 | `NNNNNNNN` | — | — | 1 | — | 1 | — |
 
@@ -112,9 +112,9 @@ Rows sorted by the newest dataset's counts.
 | `A/AAANAAA` | — | — | 1 | — | 1 | — |
 | `A/ANNAA` | — | — | 1 | — | 1 | — |
 | `AANNN` | — | — | 1 | — | 1 | — |
-| `ANAAA�` | — | — | 1 | — | 2 | 2 |
+| `ANAAA{U+FFFD}` | — | — | 1 | — | 2 | 2 |
 | `ANNAAA` | — | — | 1 | — | 1 | — |
-| `NANAAA�` | — | — | 1 | — | 1 | 1 |
+| `NANAAA{U+FFFD}` | — | — | 1 | — | 1 | 1 |
 | `NN-Aaa` | — | — | — | — | 16 | 15 |
 | `NNNNNNNN` | — | — | 1 | — | 1 | — |
 
@@ -144,7 +144,7 @@ Rows sorted by the newest dataset's counts.
 | `AAAAA` | 3 | — | 4 | — | 4 | 4 |
 | `A/#AANAAA` | 2 | — | 2 | — | 2 | 2 |
 | `A/NNNN` | 2 | — | 2 | — | 2 | 2 |
-| `ANAAAU` | 2 | — | — | — | — | — |
+| `ANAAAU` | 2 | — | 1 | — | 2 | 2 |
 | `A/#AANAA` | 1 | — | 1 | — | 1 | 1 |
 | `A/A/AANAA` | 1 | — | 1 | — | 1 | 1 |
 | `A/AA-N-AA` | 1 | — | 1 | — | 1 | 1 |
@@ -159,7 +159,7 @@ Rows sorted by the newest dataset's counts.
 | `ANAAN` | 1 | — | 2 | — | 2 | 1 |
 | `ANUAAA` | 1 | — | 1 | — | 1 | 1 |
 | `NAAAA` | 1 | — | 1 | — | 1 | 1 |
-| `NANAAAU` | 1 | — | — | — | — | — |
+| `NANAAAU` | 1 | — | 1 | — | 1 | 1 |
 | `NaNAAA` | 1 | — | 1 | — | 1 | 1 |
 | `aNaaa` | 1 | — | 1 | — | 1 | 1 |
 | _(empty)_ | — | — | — | — | — | 2 |
@@ -169,9 +169,7 @@ Rows sorted by the newest dataset's counts.
 | `A/AAANAAA` | — | — | 1 | — | 1 | — |
 | `A/ANNAA` | — | — | 1 | — | 1 | — |
 | `AANNN` | — | — | 1 | — | 1 | — |
-| `ANAAA�` | — | — | 1 | — | 2 | 2 |
 | `ANNAAA` | — | — | 1 | — | 1 | — |
-| `NANAAA�` | — | — | 1 | — | 1 | 1 |
 | `NN-Aaa` | — | — | — | — | 16 | 15 |
 | `NNNNNNNN` | — | — | 1 | — | 1 | — |
 
@@ -189,4 +187,4 @@ Rows sorted by the newest dataset's counts.
 | `{` | U+007B | (unnamed) |
 | `}` | U+007D | (unnamed) |
 | `{U+00A0}` | U+00A0 | no-break space |
-| `�` | U+FFFD | replacement character (encoding failure) |
+| `{U+FFFD}` | U+FFFD | replacement character (encoding failure) |

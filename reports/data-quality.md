@@ -60,9 +60,9 @@ long-standing allocations, not an anomaly by itself).
 
 | dataset | examples |
 |---|---|
-| 2025-06-04 | `2E1HON�`, `G0TQK�` |
-| 2025-04-08 | `2E1HON�`, `G0TQK�`, `G7IWE�` |
-| 2023-02-20 | `2E1HON�`, `G0TQK�`, `G7IWE�` |
+| 2025-06-04 | `2E1HON{U+FFFD}`, `G0TQK{U+FFFD}` |
+| 2025-04-08 | `2E1HON{U+FFFD}`, `G0TQK{U+FFFD}`, `G7IWE{U+FFFD}` |
+| 2023-02-20 | `2E1HON{U+FFFD}`, `G0TQK{U+FFFD}`, `G7IWE{U+FFFD}` |
 
 </details>
 
@@ -85,8 +85,8 @@ long-standing allocations, not an anomaly by itself).
 |---|---|
 | 2026-06-23 | `G0TQK{nbsp}`, `G6{space}FMU`, `G7IWE{nbsp}`, `M/EI-8-DJ` |
 | 2025-06-04 | `M/EI-8-DJ` |
-| 2025-04-08 | `G0TQK�`, `G6{space}FMU`, `G7IWE�`, `M/EI-8-DJ` |
-| 2023-02-20 | `G0TQK�`, `G6{space}FMU`, `G7IWE�`, `M/EI-8-DJ` |
+| 2025-04-08 | `G0TQK{U+FFFD}`, `G6{space}FMU`, `G7IWE{U+FFFD}`, `M/EI-8-DJ` |
+| 2023-02-20 | `G0TQK{U+FFFD}`, `G6{space}FMU`, `G7IWE{U+FFFD}`, `M/EI-8-DJ` |
 
 </details>
 
@@ -120,4 +120,4 @@ long-standing allocations, not an anomaly by itself).
 | `/` | U+002F | solidus (portable/reciprocal separator) |
 | `{` | U+007B | (unnamed) |
 | `}` | U+007D | (unnamed) |
-| `�` | U+FFFD | replacement character (encoding failure) |
+| `{U+FFFD}` | U+FFFD | replacement character (encoding failure) |

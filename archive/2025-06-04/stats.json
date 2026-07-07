@@ -38,13 +38,13 @@
     "AANNN": 1,
     "ANAA": 352,
     "ANAAA": 97773,
-    "ANAAA�": 1,
+    "ANAAA{U+FFFD}": 1,
     "ANAAN": 2,
     "ANNAAA": 1,
     "AN{U+0020}AAA": 1,
     "NAAAA": 1,
     "NANAAA": 14,
-    "NANAAA�": 1,
+    "NANAAA{U+FFFD}": 1,
     "NNAA": 4,
     "NNAAA": 14368,
     "NNNNNNNN": 1,
@@ -59,8 +59,8 @@
     "encodingFailure": {
       "count": 2,
       "examples": [
-        "2E1HON�",
-        "G0TQK�"
+        "2E1HON{U+FFFD}",
+        "G0TQK{U+FFFD}"
       ]
     },
     "excelDateShaped": {
@@ -144,5 +144,5 @@
     "visitor": 116
   },
   "recordCount": 112650,
-  "statsSchemaVersion": 4
+  "statsSchemaVersion": 5
 }

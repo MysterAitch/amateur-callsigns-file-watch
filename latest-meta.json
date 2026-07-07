@@ -42,7 +42,7 @@
     },
     "stats.json": {
       "size": 2825,
-      "sha256": "166849b777bb392f6ed6921f958b43a71785985655f90cce13eef6a8e481f2d5",
+      "sha256": "bc353a9bccc8a674a1d0b7362b79d2869e79fae29d87dc5465c4dbc07b5975ea",
       "format": "json"
     },
     "components.csv": {
@@ -82,7 +82,7 @@
   "normalised": {
     "schemaVersion": 1,
     "headerVariant": "v2026-licence-version",
-    "statsSchemaVersion": 4,
+    "statsSchemaVersion": 5,
     "componentsSchemaVersion": 4
   }
 }
