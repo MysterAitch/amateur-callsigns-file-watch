@@ -66,7 +66,7 @@ export interface ComponentAggregateInput {
 }
 
 export interface EntryStats {
-  statsSchemaVersion: 4;
+  statsSchemaVersion: 5;
   recordCount: number;
   // Format taxonomy of the callsign column: uppercase→A, lowercase→a,
   // digit→N; whitespace, unprintable, and invisible characters (Unicode
@@ -89,7 +89,11 @@ export interface EntryStats {
 // text's own letters can never be re-mapped. (A raw callsign containing a
 // literal "{U+XXXX}" string would collide with a marker; accepted as
 // vanishingly unlikely, and the raw data remains the arbiter.)
-const UNPRINTABLE_RE = /[\p{C}\p{Z}]/gu;
+// U+FFFD is included explicitly: the replacement character is category So
+// (a symbol, not a control), so \p{C}\p{Z} misses it - observed live as raw
+// replacement characters inside pattern tables while every other anomaly
+// carried a marker.
+const UNPRINTABLE_RE = /[\p{C}\p{Z}\uFFFD]/gu;
 
 function codepointMarker(c: string): string {
   return `{U+${(c.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}}`;
@@ -211,7 +215,7 @@ export function computeEntryStats(
     Object.fromEntries([...m.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 
   return {
-    statsSchemaVersion: 4,
+    statsSchemaVersion: 5,
     recordCount: rows.length,
     callsignPatterns: Object.fromEntries([...patterns.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
     callsignQuality: computeCallsignQuality(callsigns),

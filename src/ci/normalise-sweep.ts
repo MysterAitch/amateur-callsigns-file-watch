@@ -208,6 +208,23 @@ export function runNormaliseSweep(): SweepReport {
     }
   }
 
+  // The flag/status trend tables ride every sweep PR body (consistency with
+  // reports/data-quality.md - same generator, same tables).
+  const statsForBody = new Map<string, EntryStats>();
+  for (const k of keys) {
+    const s = readStats(k);
+    if (s) statsForBody.set(k, s);
+  }
+  const flagBlock = statsForBody.size === 0 ? [] : [
+    '',
+    '<details>',
+    '<summary>Data-quality flags per dataset</summary>',
+    '',
+    ...flagAggregateTables([...keys].filter(k => statsForBody.has(k)).reverse(), statsForBody),
+    '',
+    '</details>',
+  ];
+
   report.coverageMarkdown = [
     `Intended schema version per source: ${Object.entries(CONVERTERS).map(([k, c]) => `\`${k}\` → v${c.schemaVersion}`).join(', ')}`,
     '',
@@ -216,6 +233,7 @@ export function runNormaliseSweep(): SweepReport {
     ...coverageRows,
     ...changedEntryMatrixMarkdown(report.changed, keys),
     ...newestBlock,
+    ...flagBlock,
   ].join('\n');
 
   return report;
@@ -806,15 +824,6 @@ function writeQualityRollup(keys: string[], statsByKey: Map<string, EntryStats>)
     ];
   });
 
-  // Component-parse aggregates (flag vocabulary: reference-data/flags.md):
-  // one row per flag/status observed anywhere in the archive, so a class
-  // appearing or disappearing between publications is a visible trend line.
-  const unionKeysOf = (pick: (s: EntryStats) => Record<string, number>): string[] =>
-    [...new Set(columns.flatMap(k => Object.keys(pick(statsByKey.get(k) as EntryStats) ?? {})))].sort();
-  const aggregateRows = (pick: (s: EntryStats) => Record<string, number>): string[] =>
-    unionKeysOf(pick).map(name =>
-      `| \`${name}\` | ${columns.map(k => pick(statsByKey.get(k) as EntryStats)?.[name] ?? 0).join(' | ')} |`);
-
   const lines = [
     '# Data-quality rollup (callsign defect detectors)',
     '',
@@ -830,6 +839,28 @@ function writeQualityRollup(keys: string[], statsByKey: Map<string, EntryStats>)
     `| _records_ | ${columns.map(k => statsByKey.get(k)?.recordCount ?? '—').join(' | ')} |`,
     ...detectors.map(([detector, label]) => countRow(detector, label)),
     '',
+    ...flagAggregateTables(columns, statsByKey),
+    ...exampleSections,
+    '',
+  ];
+  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'data-quality.md'), withCharacterKey(lines).join('\n'));
+
+  writeMismatchReport(columns);
+}
+
+// Component-parse aggregates (flag vocabulary: reference-data/flags.md):
+// one row per flag/status observed anywhere in the archive, so a class
+// appearing or disappearing between publications is a visible trend line.
+// Shared between the committed rollup and sweep PR bodies - the same table
+// on every surface (consistency review).
+function flagAggregateTables(columnsNewestFirst: string[], statsByKey: Map<string, EntryStats>): string[] {
+  const columns = columnsNewestFirst;
+  const unionKeysOf = (pick: (s: EntryStats) => Record<string, number>): string[] =>
+    [...new Set(columns.flatMap(k => Object.keys(pick(statsByKey.get(k) as EntryStats) ?? {})))].sort();
+  const aggregateRows = (pick: (s: EntryStats) => Record<string, number>): string[] =>
+    unionKeysOf(pick).map(name =>
+      `| \`${name}\` | ${columns.map(k => pick(statsByKey.get(k) as EntryStats)?.[name] ?? 0).join(' | ')} |`);
+  return [
     '## Component-parse flags',
     '',
     'Per-row flags from `components.csv` (vocabulary and semantics:',
@@ -845,12 +876,7 @@ function writeQualityRollup(keys: string[], statsByKey: Map<string, EntryStats>)
     `| status | ${columns.join(' | ')} |`,
     `|---|${columns.map(() => '---:').join('|')}|`,
     ...aggregateRows(s => s.parseStatuses ?? {}),
-    ...exampleSections,
-    '',
   ];
-  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'data-quality.md'), withCharacterKey(lines).join('\n'));
-
-  writeMismatchReport(columns);
 }
 
 // The class-product-mismatch rows are few enough to publish in full: a
