@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 238892,
+  "ofcomReference": "1-273972981 / 1-274238044 / 1-274894363 / 1-276355280 / 1-276484403 / 1-277884351",
+  "requestUrl": "https://www.whatdotheyknow.com/request/out_of_sequence_amateur_radio_ca",
+  "title": "Out of sequence amateur radio callsigns",
+  "requester": "peter_eckersley_2",
+  "requestedAt": "2014-11-12",
+  "respondedAt": "2015-01-21",
+  "outcome": "successful",
+  "dataVintage": "2015-01",
+  "datasetClasses": ["attribute-addendum", "reference-context"],
+  "converter": null,
+  "files": {
+    "Pre War Callsigns.xlsx": {
+      "bytes": 20228,
+      "sha256": "6538a6ef55252fa82e49b2d8b57362ba6f47143b0db721880393de4375cff504",
+      "role": "data",
+      "datasetClasses": ["attribute-addendum", "reference-context"],
+      "sheetsIndicative": {
+        "note": "from declared xlsx dimensions - approximate only; the Callsigns sheet's first row is a title line, not headers",
+        "sheets": [
+          { "name": "Callsigns", "approxRows": 422, "cols": "A:I", "datasetClass": "attribute-addendum" },
+          { "name": "Database Fields", "approxRows": 42, "cols": "A:B", "datasetClass": "reference-context" },
+          { "name": "Sheet3", "approxRows": 0, "cols": "", "datasetClass": "reference-context" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/out_of_sequence_amateur_radio_ca/response/608326/attach/3/Pre%20War%20Callsigns.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "Call signs series before WW2.pdf": {
+      "bytes": 151542,
+      "sha256": "da207551c6d20bdbc522eeb9092cf6c3352eb949b388be5bf3a32e28dc078193",
+      "role": "response-letter",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/out_of_sequence_amateur_radio_ca/response/596988/attach/3/Call%20signs%20series%20before%20WW2.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "Response callsigns out of sequential order 181214.pdf": {
+      "bytes": 46530,
+      "sha256": "e91897f2b17249a5b0a95894440fd9dfbc9b7c46865f58e611ff4e9cc4b96132",
+      "role": "response-letter",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/out_of_sequence_amateur_radio_ca/response/597834/attach/3/Response%20callsigns%20out%20of%20sequential%20order%20181214.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "2014 01 19 1 276484403.pdf": {
+      "bytes": 248864,
+      "sha256": "75675fa1a0370fecd6676974b9fb2fd506d1a8ae9449fc5fb2a6c533784d4b12",
+      "role": "response-letter",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/out_of_sequence_amateur_radio_ca/response/608326/attach/4/2014%2001%2019%201%20276484403.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-call-signs-series-before-ww2.md": {
+      "bytes": 3060,
+      "sha256": "dd4d4563767da31bcf948266c9d46279074195a27a4a416adf7c2e9b0814e0b1",
+      "role": "extract",
+      "extractOf": "Call signs series before WW2.pdf"
+    },
+    "raw-extract-response-callsigns-out-of-sequential-order-181214.md": {
+      "bytes": 3207,
+      "sha256": "0f4114506e017c66e45edccfd2717cf97d872eafd68c71d546f56a15edc32d4b",
+      "role": "extract",
+      "extractOf": "Response callsigns out of sequential order 181214.pdf"
+    },
+    "raw-extract-2014-01-19-1-276484403.md": {
+      "bytes": 5088,
+      "sha256": "804537110fd67bf1cc13620e0b3ed3632cb55edf9f568231f890e90e20ae7377",
+      "role": "extract",
+      "extractOf": "2014 01 19 1 276484403.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 11953,
+      "sha256": "e6f9ac392aef70f0bc6bed737ebb88ae8e6f74a9f7dcda30adcec0f03bb8429e",
+      "role": "transcript"
+    }
+  }
+}
