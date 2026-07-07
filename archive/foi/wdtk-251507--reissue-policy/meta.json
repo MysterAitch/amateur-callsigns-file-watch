@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 251507,
+  "ofcomReference": null,
+  "requestUrl": "https://www.whatdotheyknow.com/request/policy_and_practice_for_the_re_i",
+  "title": "Policy and practice for the re-issue of previously issued amateur radio callsigns",
+  "requester": "peter_eckersley_2",
+  "requestedAt": "2015-01-30",
+  "respondedAt": "2015-02-27",
+  "outcome": "successful",
+  "dataVintage": "2015-02",
+  "datasetClasses": ["reference-context", "issuance-events"],
+  "converter": null,
+  "files": {
+    "policy for old call signs.pdf": {
+      "bytes": 126662,
+      "sha256": "5954c79267239b95226952e809745d36d3a57bdc0010a8f8f92d4478e9db9887",
+      "role": "data",
+      "datasetClasses": ["reference-context"],
+      "contentsIndicative": "internal policy / practice notes for issuing heritage (pre-war-format, two-letter-suffix) callsigns under the pre-2016 regime",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/policy_and_practice_for_the_re_i/response/623126/attach/3/policy%20for%20old%20call%20signs.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "applicants old call signs.pdf": {
+      "bytes": 24210,
+      "sha256": "2adcc39d4dfd86452f1d76ad3b51e23060ca12e0c2e824d72fe1ce151f11170d",
+      "role": "data",
+      "datasetClasses": ["issuance-events"],
+      "contentsIndicative": "anonymised reasons for the last 20 heritage-callsign issuances (callsigns and personal details redacted at the requester's suggestion)",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/policy_and_practice_for_the_re_i/response/623126/attach/4/applicants%20old%20call%20signs.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 3535,
+      "sha256": "9cfabd5b5d2126a97e1113ec46e9121214026126feba216745883195932401e4",
+      "role": "transcript"
+    }
+  }
+}
