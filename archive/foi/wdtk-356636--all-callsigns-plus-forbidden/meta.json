@@ -14,7 +14,7 @@
   "datasetClasses": ["register-snapshot", "forbidden-list"],
   "converter": null,
   "relatedEntries": [
-    { "entry": "ofcom-foi-log/ukgwa 337399-FOI-All-Call-Signs.zip (drop zone)", "relation": "Ofcom-published copy of this response recovered from the web archive - second-channel witness; contents not yet hash-compared against this entry's files" },
+    { "entry": "ofcom-337399--all-callsigns-published-copy", "relation": "Ofcom-published copy of this response (graduated); its zip's xlsx is byte-identical to this entry's data file (confirmed 2026-07-07) - second-channel witness; its letter is the publication-redacted variant" },
     { "entry": "ofcom-foi-log/ukgwa 90397--Callsign-database-20-Sep.xlsx (drop zone)", "relation": "suspected sibling export (2016-09-20, same row extent, two-column layout)" }
   ],
   "files": {
