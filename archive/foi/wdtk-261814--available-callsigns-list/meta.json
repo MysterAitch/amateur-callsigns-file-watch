@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 261814,
+  "ofcomReference": null,
+  "requestUrl": "https://www.whatdotheyknow.com/request/list_of_all_unallocated_uk_amate",
+  "title": "list of all unallocated UK amateur radio callsigns",
+  "requester": "dave_boley",
+  "requestedAt": "2015-04-02",
+  "respondedAt": "2015-04-17",
+  "outcome": "successful",
+  "dataVintage": "2015-04-16",
+  "datasetClasses": ["available-pool"],
+  "converter": null,
+  "files": {
+    "Amateur Available Call signs 16 Apr.xlsx": {
+      "bytes": 971208,
+      "sha256": "85e29d391563740af6a8d5ce440712f52312796d44be1f43a9d59ca488cbf3e8",
+      "role": "data",
+      "datasetClasses": ["available-pool"],
+      "sheetsIndicative": {
+        "note": "from declared xlsx dimensions - approximate only; authoritative record counts come from the converter/normaliser",
+        "sheets": [
+          { "name": "Foundation", "approxRows": 6712, "cols": "A:H", "datasetClass": "available-pool" },
+          { "name": "Intermediate", "approxRows": 8646, "cols": "A:H", "datasetClass": "available-pool" },
+          { "name": "Full", "approxRows": 7230, "cols": "A:H", "datasetClass": "available-pool" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_all_unallocated_uk_amate/response/642266/attach/3/Amateur%20Available%20Call%20signs%2016%20Apr.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 2363,
+      "sha256": "9346537117d648f791b282e29e76217f25dcf3207b953947ed8ec6a8c6032a12",
+      "role": "transcript"
+    }
+  }
+}
