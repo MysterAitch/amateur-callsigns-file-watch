@@ -135,6 +135,7 @@ captured via the callsign/allocated/business-radio/WTR/PMSE sweeps).
 | Ofcom–RSGB examination schedule of terms | context | licensing-system background |
 | Monies received from RSGB (Billy, 2021-03-18) | context | RSGB finances |
 | RSGB call-book data licensing set | context / pending-ingest | pre-open-data publication history: Mark Witton PSI request (call-book licensees, 2015-01), `rsgb-licence-foi.pdf`, `Call-signs-provided-to-RSGB.pdf`, `amateur-radio-call-book-data-licence-foi.pdf`, `Amateur-radio-call-book.pdf` (all UKGWA) — how callsign data reached the public before the open-data page |
+| RSGB contractual/API data access (lead, 2026-07-07) | pending-investigation | reportedly advertised but used only by the annual-yearbook publishers — a potentially untapped modern source; modern continuation of the licensing pipeline documented by the row above; verify what RSGB actually offers and on what terms |
 | OFCOM–RSGB NoV administration agreement + repeater/beacon process maps | pending-ingest | disclosure log 2023-10; reference-library material |
 | Ofcom–RSGB Forum meeting papers 15 Mar 2016 (Jayne Newtown, WDTK) | pending-fetch | includes "Paper describing call sign formats" + club-callsign RSL clarification action — format reference material |
 | Kernow (K) regional-secondary-locator documentation (Charlie Hill, WDTK) | pending-fetch | RSL policy history — the Cornwall RSL decision trail |
