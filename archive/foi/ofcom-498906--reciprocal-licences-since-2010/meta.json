@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": "498906",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/excel_doc/0020/109028/list-reciprocal-licences-since-2010.xlsx",
+  "title": "Reciprocal Amateur Radio Licences issued since 2010 (call signs with date of issue)",
+  "requester": null,
+  "requestedAt": "2017-11-26",
+  "respondedAt": "2017-12-22",
+  "outcome": "successful",
+  "dataVintage": "2017-11",
+  "dataVintageNote": "the dataset window is 2010 to the request date (2017-11-26), though the export's last event is 2016-07-12 - the same mid-2016 stop as the sibling 498903 export",
+  "datasetClasses": ["issuance-events", "attribute-addendum"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-498906-reciprocal-events" },
+  "relatedEntries": [
+    { "entry": "ofcom-498903--reissued-callsigns-since-2010", "relation": "sibling response: same intake (received 2017-11-26), adviser and response day (2017-12-22), same export shape; 498903 lists re-issue events, this lists reciprocal-licence issues" }
+  ],
+  "files": {
+    "list-reciprocal-licences-since-2010.xlsx": {
+      "bytes": 28714,
+      "sha256": "158a9aba0fb541a49cd72a0acf5054c154bac28a90d63e44410ba539de0b436b",
+      "role": "data",
+      "datasetClasses": ["issuance-events", "attribute-addendum"],
+      "sheetsIndicative": {
+        "note": "Sheet1 carries the dataset; Sheets 2-3 are empty",
+        "sheets": [
+          { "name": "Sheet1", "approxRows": 320, "cols": "A:B", "datasetClass": "issuance-events" },
+          { "name": "Sheet2", "approxRows": 0, "cols": "", "datasetClass": "reference-context" },
+          { "name": "Sheet3", "approxRows": 0, "cols": "", "datasetClass": "reference-context" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/excel_doc/0020/109028/list-reciprocal-licences-since-2010.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-sheet-1-sheet1.csv": {
+      "bytes": 7063,
+      "sha256": "b0466d9d1506e1dc3f609572831b81ceeacea5ea53cb22c71ad2dee08581d84b",
+      "role": "extract",
+      "extractOf": "list-reciprocal-licences-since-2010.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts"
+    },
+    "normalised--sheet-1-sheet1.csv": {
+      "bytes": 15344,
+      "sha256": "2a8b547ba5f57228468e1842be0a6ca72b3f776b6a8b4d15ad3cc85ee800d59c",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-sheet1.csv",
+      "contentsIndicative": "header callsign,event,event_date; 319 reciprocal-licence issue events in source date-ascending order (2010-01-07 to 2016-07-12); event 'reciprocal-licence-issued' authored from the letter's framing; 178 stored 23:00:00 timezone artefacts carried verbatim"
+    },
+    "reciprocal-licences-since-2010.pdf": {
+      "bytes": 396271,
+      "sha256": "0e20aa8da2dc9b6f52ff1bf398fdd26a3d4b4d6ae776491ecf9a263593ef99ad",
+      "role": "response-letter",
+      "contentsIndicative": "quotes the request (count + per-callsign list with date of issue in year order); attaches the workbook; no methodology caveats beyond the standard footer",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0013/109030/reciprocal-licences-since-2010.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-reciprocal-licences-since-2010.md": {
+      "bytes": 1052,
+      "sha256": "ea2f2df240669d7baecd49919c97bc132764dbe868ed9619b24fc1a465766108",
+      "role": "extract",
+      "extractOf": "reciprocal-licences-since-2010.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 1522,
+      "sha256": "e99929c4ab2a18790246848016d9c336f5197bd30f4e3fbe1229ea181f766b0c",
+      "role": "transcript"
+    }
+  }
+}

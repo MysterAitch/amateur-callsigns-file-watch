@@ -415,6 +415,29 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
     },
   ],
 
+  // ofcom-498906 (vintage 2017-11, response 2017-12-22): reciprocal
+  // amateur licences issued since 2010, one row per issuance event -
+  // sibling of ofcom-498903 (same intake, adviser, response day and export
+  // shape). 178 rows carry stored 23:00:00 times (timezone artefacts in
+  // the workbook) - carried verbatim, never rounded to a guessed day.
+  'ofcom-498906-reciprocal-events': [
+    {
+      sourceFile: 'raw-extract-sheet-1-sheet1.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Call Sign T-Number', output: 'callsign', kind: 'verbatim' },
+        // The letter's own framing: 'call signs associated to Amateur
+        // Reciprocal Licences since 2010', listed with date of issue.
+        { source: null, output: 'event', kind: 'verbatim', constant: 'reciprocal-licence-issued' },
+        { source: 'Original Start Date', output: 'event_date', kind: 'iso-date' },
+      ],
+      ignoredColumns: [],
+      rowOrder: 'source-order',
+      orderRationale: 'source rows are ordered by start date ascending - a meaningful chronology of reciprocal-licence issue events; preserved',
+      referenceDateIso: '2017-12-22',
+    },
+  ],
+
   // ofcom-498903 (vintage 2017-11, response 2017-12-22): call signs
   // re-issued since 2010, one row per issuance event. Semantics caveat on
   // the record: the source's Original Start Date is the START DATE OF THE
