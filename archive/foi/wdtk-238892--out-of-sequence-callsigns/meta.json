@@ -11,7 +11,7 @@
   "outcome": "successful",
   "dataVintage": "2015-01",
   "datasetClasses": ["attribute-addendum", "reference-context"],
-  "converter": null,
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-238892-prewar-annex" },
   "files": {
     "Pre War Callsigns.xlsx": {
       "bytes": 20228,
@@ -41,12 +41,26 @@
       "extractOf": "Pre War Callsigns.xlsx",
       "extractedBy": "src/shared/xlsx-extract.ts"
     },
+    "normalised--sheet-1-callsigns.csv": {
+      "bytes": 8137,
+      "sha256": "22ef6c0ad658f1bcc8085f20a6a4c95a1542032685a8f97475bdae8586658165",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-callsigns.csv",
+      "contentsIndicative": "header callsign,original_start_date; 419 rows in source (callsign-sorted) order; 45 pre-war G-series callsigns appear more than once (multiple assignments); 156 stored time-of-day artefacts carried verbatim; annex title preamble matched verbatim"
+    },
     "raw-extract-sheet-2-database-fields.csv": {
       "bytes": 1045,
       "sha256": "1213e1f3170b80cb2a30d427d3599ffa17c0c3085bc46831cdd07ad043a5208d",
       "role": "extract",
       "extractOf": "Pre War Callsigns.xlsx",
       "extractedBy": "src/shared/xlsx-extract.ts"
+    },
+    "normalised--sheet-2-database-fields.csv": {
+      "bytes": 1049,
+      "sha256": "1475a212888e152996757d03a5de60de9ba0dae031a23abe376513cc670cb727",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-2-database-fields.csv",
+      "contentsIndicative": "header view,field_name; 41 rows; the licensing database's disclosed column headings grouped by view (Contact View then Licence View, incl. one blank view cell), source order preserved"
     },
     "Call signs series before WW2.pdf": {
       "bytes": 151542,

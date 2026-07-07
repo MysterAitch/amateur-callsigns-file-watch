@@ -11,7 +11,7 @@
   "outcome": "successful",
   "dataVintage": "2014-03-14",
   "datasetClasses": ["available-pool"],
-  "converter": null,
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "available-suffix-lists-2013-style" },
   "files": {
     "Ofcom Amateur Radio Call Sign list available as at 14 March 2014.xlsx": {
       "bytes": 278802,
@@ -41,6 +41,13 @@
       "extractOf": "Ofcom Amateur Radio Call Sign list available as at 14 March 2014.xlsx",
       "extractedBy": "src/shared/xlsx-extract.ts"
     },
+    "normalised--sheet-1-foundation.csv": {
+      "bytes": 258639,
+      "sha256": "148bc811e774c1c10d77e76b1abf6708cc238b365df74a2b93beaa639314cb24",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-foundation.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 8,342 rows sorted by callsign; callsign = stated prefix M6 + suffix (sheet label 'Foundation = M6aaa' matched verbatim); status Available and licence_class Foundation authored per issue #139"
+    },
     "raw-extract-sheet-2-intermediate.csv": {
       "bytes": 37749,
       "sha256": "01f4a794cb256275b3318f9bdf6aa0d34d0b1eed8d1c3620b33b1ce7796612b6",
@@ -48,12 +55,26 @@
       "extractOf": "Ofcom Amateur Radio Call Sign list available as at 14 March 2014.xlsx",
       "extractedBy": "src/shared/xlsx-extract.ts"
     },
+    "normalised--sheet-2-intermediate.csv": {
+      "bytes": 310666,
+      "sha256": "0cf4d705b1d417699b475760217a0741963f94759173507d595e79cabf1d6cd9",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-2-intermediate.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 9,413 rows sorted by callsign; callsign = stated prefix 20 + suffix (sheet label matched verbatim, incl. its regional-indicator caveat); status Available and licence_class Intermediate authored per issue #139"
+    },
     "raw-extract-sheet-3-full.csv": {
       "bytes": 30557,
       "sha256": "9b60dbe064a052007c0ce00fb3502e4ef2e691b73d8cd8b9981232f8313abb95",
       "role": "extract",
       "extractOf": "Ofcom Amateur Radio Call Sign list available as at 14 March 2014.xlsx",
       "extractedBy": "src/shared/xlsx-extract.ts"
+    },
+    "normalised--sheet-3-full.csv": {
+      "bytes": 190937,
+      "sha256": "aa1208d021428a08946a252921a270bd3ba3ec6eed876508d99248e94419bf1b",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-3-full.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,636 rows sorted by callsign; callsign = stated prefix M0 + suffix (sheet label 'Full = M0aaa' matched verbatim); status Available and licence_class Full authored per issue #139"
     },
     "correspondence.md": {
       "bytes": 3519,

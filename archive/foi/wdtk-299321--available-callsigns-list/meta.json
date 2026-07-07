@@ -12,7 +12,7 @@
   "dataVintage": "2015-10-13",
   "dataVintageNote": "no as-of date stated; identical per-sheet extents to the wdtk-294011 file (as of 2015-10-13) plus the two-day turnaround point to the same export re-serialised - confirm by content diff at converter time",
   "datasetClasses": ["available-pool"],
-  "converter": null,
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "available-typed-export-7col" },
   "relatedEntries": [
     { "entry": "wdtk-294011--available-callsigns-list", "relation": "variant-of (suspected same 2015-10-13 export, different serialisation: same name and byte count, different sha256)" }
   ],
@@ -45,6 +45,13 @@
       "extractOf": "Amateur Available Call signs.xlsx",
       "extractedBy": "src/shared/xlsx-extract.ts"
     },
+    "normalised--sheet-1-foundation.csv": {
+      "bytes": 322118,
+      "sha256": "01042167aa8c8fed26ac36a492cd3be5caa9bcb11850f93a0f882f71ef675afe",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-foundation.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 6,077 rows sorted by callsign; Value/Status/Product/Reference carried verbatim; Country/Current Series/Type ('Call Sign') required-present, not carried; byte-identical to the wdtk-294011 output (same disclosed export)"
+    },
     "raw-extract-sheet-2-intermediate.csv": {
       "bytes": 577264,
       "sha256": "7e0f6c6d2b0e060fff11e55e47e750189b749901597cdfdb71d07f22ec0fbba4",
@@ -52,12 +59,26 @@
       "extractOf": "Amateur Available Call signs.xlsx",
       "extractedBy": "src/shared/xlsx-extract.ts"
     },
+    "normalised--sheet-2-intermediate.csv": {
+      "bytes": 460132,
+      "sha256": "bbb8b5bcba8960b771aa4620806d1d3c87b44081147b558e038fbe888be92024",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-2-intermediate.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 8,365 rows sorted by callsign; four Value cells stored AS dates at export (Excel 20xxx mangling) carried verbatim; byte-identical to the wdtk-294011 output"
+    },
     "raw-extract-sheet-3-full.csv": {
       "bytes": 429564,
       "sha256": "59bc874dde10b3345974c2cff22f7a6b4a77c85beedd88d62f5fa1c04bff7185",
       "role": "extract",
       "extractOf": "Amateur Available Call signs.xlsx",
       "extractedBy": "src/shared/xlsx-extract.ts"
+    },
+    "normalised--sheet-3-full.csv": {
+      "bytes": 330977,
+      "sha256": "85e445b800de8756de75ed746388d8550ff2a178d5f8106f989d40ccd2027eaf",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-3-full.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,042 rows sorted by callsign; blanks preserved and counted; byte-identical to the wdtk-294011 output"
     },
     "correspondence.md": {
       "bytes": 3155,

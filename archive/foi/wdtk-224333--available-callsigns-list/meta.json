@@ -13,7 +13,7 @@
   "datasetClasses": [
     "available-pool"
   ],
-  "converter": null,
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-224333-prefix-suffix-lists" },
   "files": {
     "Available Amateur Radio Call Signs 18 August 2014.xlsx": {
       "bytes": 267595,
@@ -60,6 +60,13 @@
       "extractOf": "Available Amateur Radio Call Signs 18 August 2014.xlsx",
       "extractedBy": "src/shared/xlsx-extract.ts"
     },
+    "normalised--sheet-1-foundation.csv": {
+      "bytes": 237342,
+      "sha256": "8be6b0182815d122d448a01cff7ccb4ce9493a43a85b06ac01dbceb262dbabed",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-foundation.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,655 rows sorted by callsign; callsign = stated prefix M6 + suffix ('Prefix = M6' preamble matched cell-for-cell); status Available and licence_class Foundation authored per issue #139"
+    },
     "raw-extract-sheet-2-intermediate.csv": {
       "bytes": 36246,
       "sha256": "25592d8ee606ccf89c9aad440efd623588b4146f27f6050beaca08cc497c5131",
@@ -67,12 +74,26 @@
       "extractOf": "Available Amateur Radio Call Signs 18 August 2014.xlsx",
       "extractedBy": "src/shared/xlsx-extract.ts"
     },
+    "normalised--sheet-2-intermediate.csv": {
+      "bytes": 298885,
+      "sha256": "80e44b3ce8b63bf6f0f41e41f7bdec6ef0e85f27ec81a0b13d55c94867a5b16b",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-2-intermediate.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 9,056 rows sorted by callsign; callsign = stated prefix 20 + suffix ('Prefix = 20' preamble matched cell-for-cell); status Available and licence_class Intermediate authored per issue #139"
+    },
     "raw-extract-sheet-3-full.csv": {
       "bytes": 29978,
       "sha256": "1fceae8b71ec98450b8a9ba335abed26db96e9d05c0c94b0c6100d4d8dd1351e",
       "role": "extract",
       "extractOf": "Available Amateur Radio Call Signs 18 August 2014.xlsx",
       "extractedBy": "src/shared/xlsx-extract.ts"
+    },
+    "normalised--sheet-3-full.csv": {
+      "bytes": 187262,
+      "sha256": "5ec6dc97faa4f4325b4aa89585797d0962acb83accac765337ec27dc417a85e9",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-3-full.csv",
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,489 rows sorted by callsign; callsign = stated prefix M0 + suffix ('Prefix = M0' preamble matched cell-for-cell); status Available and licence_class Full authored per issue #139"
     },
     "Letter of Acknowledgement.pdf": {
       "bytes": 44473,

@@ -13,7 +13,7 @@
   "dataVintage": "2017-11",
   "dataVintageNote": "the dataset window is 2010 to the request date (2017-11-26)",
   "datasetClasses": ["issuance-events"],
-  "converter": null,
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-498903-reissue-events" },
   "relatedEntries": [
     { "entry": "wdtk-251507--reissue-policy", "relation": "policy-side counterpart: the 2015 heritage re-issue policy signposts and 20-row transfers table; this entry quantifies actual re-issue events 2010-2017" }
   ],
@@ -45,6 +45,13 @@
       "role": "extract",
       "extractOf": "list-re-issue-amateur-radio-call-signs.xlsx",
       "extractedBy": "src/shared/xlsx-extract.ts"
+    },
+    "normalised--sheet-1-sheet1.csv": {
+      "bytes": 3435,
+      "sha256": "dd95f08b650a91913cc548021d390210cbd121c89b9b028f06e24a025e944e7a",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-sheet1.csv",
+      "contentsIndicative": "header callsign,event,event_date; 113 re-issue events in source date-ascending order; event 'reissued' authored; event_date is the RE-ISSUING licence's start date (semantics caveat per issue #139); 53 stored 23:00:00 timezone artefacts carried verbatim"
     },
     "foi-re-issue-amateur-radio-call-signs.pdf": {
       "bytes": 397891,

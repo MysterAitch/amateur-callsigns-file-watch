@@ -603,6 +603,169 @@ describe('FOI markdown-table normaliser - transfers variant (wdtk-251507)', () =
   });
 });
 
+// Workbook extracts (tier 3): converters parse the committed
+// raw-extract-sheet-*.csv files produced mechanically by
+// src/shared/xlsx-extract.ts. Their dates are already ISO (typed at source, so
+// no day-first ambiguity ever existed); some sheets carry preamble rows
+// (titles, prefix statements) that are matched verbatim, never skipped
+// blindly; and the 2013/14 suffix-shaped lists construct the callsign from
+// the sheet's own stated prefix while carrying the suffix verbatim.
+const SUFFIX_2013_VARIANT = 'available-suffix-lists-2013-style';
+const PREFIX_HEADER_VARIANT = 'wdtk-224333-prefix-suffix-lists';
+const TYPED_8COL_VARIANT = 'available-typed-export-8col';
+const REGISTER_596532_VARIANT = 'wdtk-596532-register-and-forbidden';
+const PREWAR_VARIANT = 'wdtk-238892-prewar-annex';
+const REISSUE_VARIANT = 'ofcom-498903-reissue-events';
+
+const foundationSuffixes = conversionFor(SUFFIX_2013_VARIANT, 'raw-extract-sheet-1-foundation.csv');
+const prefixHeaderFoundation = conversionFor(PREFIX_HEADER_VARIANT, 'raw-extract-sheet-1-foundation.csv');
+const typedFoundation = conversionFor(TYPED_8COL_VARIANT, 'raw-extract-sheet-1-foundation.csv');
+const register596532 = conversionFor(REGISTER_596532_VARIANT, 'raw-extract-sheet-1-all-callsigns-on-record.csv');
+const prewarCallsigns = conversionFor(PREWAR_VARIANT, 'raw-extract-sheet-1-callsigns.csv');
+const reissueEvents = conversionFor(REISSUE_VARIANT, 'raw-extract-sheet-1-sheet1.csv');
+
+// Extract fixtures are plain LF/UTF-8 CSV, as src/shared/xlsx-extract.ts writes.
+function extractCsv(lines: string[]): Buffer {
+  return Buffer.from(lines.join('\n') + '\n', 'utf8');
+}
+
+describe('FOI workbook-extract normaliser - suffix-shaped available lists', () => {
+  it('FoiNormaliser_SuffixListVariant_ConstructsCallsignFromStatedPrefix', () => {
+    // The sheet's own first row asserts the prefix rule ('Foundation =
+    // M6aaa') and is matched verbatim as the header; the callsign is the
+    // stated prefix plus the listed suffix, and the suffix is also carried
+    // verbatim so the source shape survives.
+    const input = extractCsv(['Foundation = M6aaa', 'DIR', 'DIQ']);
+    const result = convertFoiSource(input, foundationSuffixes);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,suffix\n' +
+      'M6DIQ,Available,Foundation,DIQ\n' +
+      'M6DIR,Available,Foundation,DIR\n');
+  });
+
+  it('FoiNormaliser_SuffixListVariant_UnexpectedLabelRow_Throws', () => {
+    // A changed label means a changed prefix assertion - reviewed, never
+    // silently accepted.
+    const input = extractCsv(['Foundation = M7aaa', 'DIQ']);
+    expect(() => convertFoiSource(input, foundationSuffixes)).toThrow(/Foundation = M6aaa/);
+  });
+
+  it('FoiNormaliser_PrefixHeaderVariant_VerifiesPreambleVerbatim', () => {
+    // The 2014-08 lists carry a blank row and a 'Prefix = M6' statement
+    // before the 'Suffix' header. The preamble is part of the assertion and
+    // is matched cell-for-cell.
+    const good = extractCsv(['""', 'Prefix = M6', 'Suffix', 'AAA']);
+    expect(convertFoiSource(good, prefixHeaderFoundation).csv).toContain('M6AAA,Available,Foundation,AAA');
+    const changedPrefix = extractCsv(['""', 'Prefix = M7', 'Suffix', 'AAA']);
+    expect(() => convertFoiSource(changedPrefix, prefixHeaderFoundation)).toThrow(/Prefix = M6/);
+    const missingPreamble = extractCsv(['Suffix', 'AAA']);
+    expect(() => convertFoiSource(missingPreamble, prefixHeaderFoundation)).toThrow(/preamble/i);
+  });
+
+  it('FoiNormaliser_PrefixedColumnWithBlankSuffix_EmitsBlankNotBarePrefix', () => {
+    // A blank suffix must not fabricate a callsign equal to the prefix.
+    const input = extractCsv(['Foundation = M6aaa', 'DIQ', '""']);
+    const result = convertFoiSource(input, foundationSuffixes);
+    expect(result.csv).toContain('M6DIQ');
+    expect(result.csv).toContain(',Available,Foundation,\n');
+    expect(result.csv).not.toContain('M6,');
+    expect(result.notes.blankCounts['callsign']).toBe(1);
+  });
+});
+
+describe('FOI workbook-extract normaliser - typed exports', () => {
+  it('FoiNormaliser_TypedExportVariant_MapsByNameAndSortsByCallsign', () => {
+    const input = extractCsv([
+      'Country,Current Series,Reference,Value,Type,Product,Status,Allocated Flag',
+      'M,6,FEU,M6FEU,Call Sign,Amateur Foundation Radio Licence,Available,N',
+      'M,6,FEQ,M6FEQ,Call Sign,Amateur Foundation Radio Licence,Available,N',
+    ]);
+    const result = convertFoiSource(input, typedFoundation);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,suffix\n' +
+      'M6FEQ,Available,Amateur Foundation Radio Licence,FEQ\n' +
+      'M6FEU,Available,Amateur Foundation Radio Licence,FEU\n');
+  });
+
+  it('FoiNormaliser_TypedExportMangledDateValue_CarriedVerbatim', () => {
+    // The 2015 workbooks genuinely store a few 20xxx callsigns AS dates
+    // (Excel mangling at Ofcom's export); the extract renders them ISO and
+    // the converter carries the assertion verbatim - never repaired back to
+    // a guessed suffix.
+    const input = extractCsv([
+      'Country,Current Series,Reference,Value,Type,Product,Status,Allocated Flag',
+      '2,0,JUN,2015-06-20,Call Sign,Amateur Intermediate Radio Licence,Available,N',
+    ]);
+    const result = convertFoiSource(input, typedFoundation);
+    expect(result.csv).toContain('2015-06-20,Available,Amateur Intermediate Radio Licence,JUN');
+  });
+});
+
+describe('FOI workbook-extract normaliser - ISO date columns', () => {
+  it('FoiNormaliser_IsoDateColumns_PassThroughDateAndDateTime', () => {
+    // Extract dates were typed in the workbook - already ISO, no day-first
+    // ambiguity ever existed (so no order-evidence stats are collected).
+    // The Pre-War annex's stored 01:00:00 times are source artefacts and
+    // are carried, not stripped.
+    const input = extractCsv([
+      '"Callsigns in the ""G"" series allocated prior to WW2 with 2-letter suffixes, which were assigned or re-assigned since 1945. ",',
+      ',',
+      'Call Sign,Original Start Date',
+      'G2AA,1992-10-30',
+      'G2AS,1989-10-11 01:00:00',
+    ]);
+    const result = convertFoiSource(input, prewarCallsigns);
+    expect(result.csv).toBe(
+      'callsign,original_start_date\n' +
+      'G2AA,1992-10-30\n' +
+      'G2AS,1989-10-11 01:00:00\n');
+    expect(result.notes.dateStats).toEqual({});
+  });
+
+  it('FoiNormaliser_IsoDateAfterVintage_ThrowsPlausibilityFailure', () => {
+    const input = extractCsv([
+      'Original Start Date,Call Sign T-Number',
+      '2017-12-23,G7DMN',
+    ]);
+    expect(() => convertFoiSource(input, reissueEvents)).toThrow(/future/i);
+  });
+
+  it('FoiNormaliser_MalformedIsoDate_ThrowsWithRowContext', () => {
+    const input = extractCsv([
+      'Original Start Date,Call Sign T-Number',
+      '2015-13-40,G7DMN',
+    ]);
+    expect(() => convertFoiSource(input, reissueEvents)).toThrow(/G7DMN/);
+  });
+});
+
+describe('FOI workbook-extract normaliser - registers and events', () => {
+  it('FoiNormaliser_Register596532_PreservesDateAscendingSourceOrder', () => {
+    const input = extractCsv([
+      'Call Sign,Status,Licence Class,Licence Issued Dat',
+      'G4IFJ,Allocated,Full,1903-05-03',
+      'G8UYK,Allocated,Full,1904-02-04',
+      '2E1AAA,Reserved,Intermediate,',
+    ]);
+    const result = convertFoiSource(input, register596532);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,licence_issued_date\n' +
+      'G4IFJ,Allocated,Full,1903-05-03\n' +
+      'G8UYK,Allocated,Full,1904-02-04\n' +
+      '2E1AAA,Reserved,Intermediate,\n');
+  });
+
+  it('FoiNormaliser_ReissueEvents_EmitsAuthoredReissuedEvent', () => {
+    const input = extractCsv([
+      'Original Start Date,Call Sign T-Number',
+      '2010-01-22,G7DMN',
+    ]);
+    expect(convertFoiSource(input, reissueEvents).csv).toBe(
+      'callsign,event,event_date\n' +
+      'G7DMN,reissued,2010-01-22\n');
+  });
+});
+
 // Golden-master checks against the archived source bytes: the converter must
 // reproduce the committed normalised files exactly (re-run policy: outputs
 // are byte-deterministic; a diff means the logic changed and the change is
@@ -660,5 +823,86 @@ describe('FOI archive golden master', () => {
       const committed = fs.readFileSync(path.join(ofcomDir, result.outputFileName), 'utf8');
       expect(result.csv).toBe(committed);
     }
+  });
+
+  // Tier-3 workbook entries: each converts from its committed
+  // raw-extract-sheet-*.csv files and must reproduce the committed
+  // normalised files exactly.
+  function expectEntryReproduced(entryKey: string, variant: string, recordCounts: number[]) {
+    const entryDir = path.join(repoRoot, 'archive', 'foi', entryKey);
+    const results = convertFoiEntry(entryDir, variant);
+    expect(results.map(r => r.recordCount)).toEqual(recordCounts);
+    for (const result of results) {
+      const committed = fs.readFileSync(path.join(entryDir, result.outputFileName), 'utf8');
+      expect(result.csv).toBe(committed);
+    }
+    return results;
+  }
+
+  it('FoiArchive_Wdtk174341Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+    expectEntryReproduced('wdtk-174341--available-callsigns-list', SUFFIX_2013_VARIANT, [9099, 9683, 7864]);
+  });
+
+  it('FoiArchive_Wdtk197896Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+    // Same export shape as wdtk-174341 six months later - the variant is
+    // shared, which is itself an assertion the shapes are identical.
+    expectEntryReproduced('wdtk-197896--available-callsigns-list', SUFFIX_2013_VARIANT, [8342, 9413, 7636]);
+  });
+
+  it('FoiArchive_Wdtk224333Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+    expectEntryReproduced('wdtk-224333--available-callsigns-list', PREFIX_HEADER_VARIANT, [7655, 9056, 7489]);
+  });
+
+  it('FoiArchive_Wdtk247308Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+    expectEntryReproduced('wdtk-247308--available-callsigns-list', TYPED_8COL_VARIANT, [7003, 8750, 7282]);
+  });
+
+  it('FoiArchive_Wdtk261814Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+    expectEntryReproduced('wdtk-261814--available-callsigns-list', TYPED_8COL_VARIANT, [6711, 8645, 7229]);
+  });
+
+  it('FoiArchive_Wdtk271469Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+    expectEntryReproduced('wdtk-271469--available-callsigns-list', 'wdtk-271469-typed-lists', [6498, 8533, 7190]);
+  });
+
+  it('FoiArchive_Wdtk294011And299321Entries_ReproduceIdenticalNormalisedFiles', () => {
+    // The two disclosures shipped byte-identical workbook exports (the
+    // extracts share sha256s); both entries bind the same variant and the
+    // normalised outputs must match each other as well as their own
+    // committed files.
+    const a = expectEntryReproduced('wdtk-294011--available-callsigns-list', 'available-typed-export-7col', [6077, 8365, 7042]);
+    const b = expectEntryReproduced('wdtk-299321--available-callsigns-list', 'available-typed-export-7col', [6077, 8365, 7042]);
+    expect(a.map(r => r.csv)).toEqual(b.map(r => r.csv));
+  });
+
+  it('FoiArchive_Wdtk309076Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+    expectEntryReproduced('wdtk-309076--available-callsigns-list', 'wdtk-309076-combined-list', [20737]);
+  });
+
+  it('FoiArchive_Wdtk356636Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('wdtk-356636--all-callsigns-plus-forbidden', 'wdtk-356636-register-and-forbidden', [139758, 1466]);
+    // The register's blank statuses (9) and blank SF List cells are data.
+    expect(results[0].notes.blankCounts['status']).toBe(9);
+    // The full status vocabulary survives - including the lone Quarantine.
+    expect(results[0].csv).toContain('Quarantine');
+  });
+
+  it('FoiArchive_Wdtk596532Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('wdtk-596532--allocated-reserved-forbidden', REGISTER_596532_VARIANT, [141295, 1465]);
+    expect(results[0].notes.blankCounts['status']).toBe(6);
+  });
+
+  it('FoiArchive_Wdtk238892Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+    const results = expectEntryReproduced('wdtk-238892--out-of-sequence-callsigns', PREWAR_VARIANT, [419, 41]);
+    // 45 pre-war callsigns appear more than once (multiple assignments) -
+    // G2AS among them, once with a stored 01:00:00 time artefact.
+    expect(results[0].csv).toContain('G2AS,1989-10-11 01:00:00');
+  });
+
+  it('FoiArchive_Ofcom498903Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+    const results = expectEntryReproduced('ofcom-498903--reissued-callsigns-since-2010', REISSUE_VARIANT, [113]);
+    // 53 events carry stored 23:00:00 times (timezone artefacts in the
+    // workbook itself) - carried verbatim, never rounded to a guessed day.
+    expect(results[0].csv.split('\n').filter(line => line.includes(' 23:00:00'))).toHaveLength(53);
   });
 });
