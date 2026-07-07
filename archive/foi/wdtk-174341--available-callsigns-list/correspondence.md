@@ -9,7 +9,7 @@
 | **Acknowledged** | 2013-08-28 |
 | **Responded** | 2013-09-12 |
 | **Outcome** | successful |
-| **Data vintage** | 2013-09-06 16:30 (stated in the dataset filename and letter) |
+| **Data vintage** | 2013-09-06 15:00 (stated in the response letter; corrected from 16:30 on extract review) |
 
 ## Overview
 

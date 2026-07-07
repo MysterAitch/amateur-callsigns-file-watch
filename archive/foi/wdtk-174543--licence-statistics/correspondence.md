@@ -15,7 +15,11 @@
 - **Asked**: the total number of *individuals* holding one or more current UK
   amateur radio licences (excluding club/repeater licences, NoVs, SCCs) —
   i.e. deduplicating multi-licence holders out of the headline count.
-- **Provided**: in full, as a response letter (PDF; no dataset attachment).
+- **Provided**: the response letter answers with **3,723 individuals** —
+  a figure that is implausible against the 81,801 licences then in force
+  (~22 licences per person); plausibly the underlying query counted
+  individuals holding *more than one* licence. Recorded verbatim with the
+  anomaly flagged in the raw extract.
 - **Withheld**: nothing.
 - **Significance**: the request text itself preserves Ofcom's then-published
   monthly licence statistics as of 2013-08-28 (see Exchange below) —

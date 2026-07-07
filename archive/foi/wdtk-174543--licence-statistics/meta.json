@@ -10,14 +10,18 @@
   "respondedAt": "2013-09-18",
   "outcome": "successful",
   "dataVintage": "2013-08-28",
-  "datasetClasses": ["statistics-aggregate"],
+  "datasetClasses": [
+    "statistics-aggregate"
+  ],
   "converter": null,
   "files": {
     "FoI 1 241858032 Full Response.pdf": {
       "bytes": 83651,
       "sha256": "7260f7d3cdb62728817c87d51f0dbc132b04043250ed395482908ce9cd4401b0",
       "role": "response-letter",
-      "datasetClasses": ["statistics-aggregate"],
+      "datasetClasses": [
+        "statistics-aggregate"
+      ],
       "witnesses": [
         {
           "channel": "wdtk",
@@ -39,9 +43,15 @@
       ]
     },
     "correspondence.md": {
-      "bytes": 3002,
-      "sha256": "5bfeeb87700eba4aa80e3847f898a8611aa02350200ec0c96876c07eec339bcd",
+      "bytes": 3254,
+      "sha256": "c422ec0e6d8e26a9f4a605af6b712a8fa4e97c0e46ba14082f597534230371ce",
       "role": "transcript"
+    },
+    "raw-extract-foi-1-241858032-full-response.md": {
+      "bytes": 2724,
+      "sha256": "776133a44288d3e936ca0691929424bc1657b7f479c15cb86644e3cfba942972",
+      "role": "extract",
+      "extractOf": "FoI 1 241858032 Full Response.pdf"
     }
   }
 }
