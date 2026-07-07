@@ -36,7 +36,12 @@ jobs:
       - name: Build site with SQLite database
         run: |
           mkdir -p _site/data _site/vendor
-          node src/ci/build-sqlite.ts _site/data/callsigns.sqlite
+          # .png extension: GitHub Pages gzip-transcodes text-like content
+          # types INCLUDING their Range responses (byte ranges of the
+          # compressed representation - verified live), which corrupts
+          # sql.js-httpvfs reads. Image types are never re-compressed, so
+          # the plain-SQLite file wears a .png name. See site/app.js.
+          node src/ci/build-sqlite.ts _site/data/callsigns.sqlite.png
           cp site/index.html site/app.js site/style.css _site/
           # sql.js-httpvfs is served from the npm-audited package, vendored at
           # build time - no CDN scripts, nothing committed.
