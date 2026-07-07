@@ -415,7 +415,11 @@ describe('FOI archive golden master', () => {
   const wdtkDir = path.join(repoRoot, 'archive', 'foi', 'wdtk-1180568--licence-breakdown-duration-age');
   const ofcomDir = path.join(repoRoot, 'archive', 'foi', 'ofcom-756622--published-register-csv');
 
-  it('FoiArchive_Wdtk1180568Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+  // Full-archive reproductions chew through ~260k records; slow shared CI
+  // runners need more than the default 5s.
+  const GOLDEN_MASTER_TIMEOUT_MS = 30_000;
+
+  it('FoiArchive_Wdtk1180568Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
     const results = convertFoiEntry(wdtkDir, WDTK_VARIANT);
     expect(results.map(r => r.recordCount)).toEqual([156256, 103720]);
     // The NBSP trio (G0TQK, G7IWE, 2E1HON) appears in both sheets.
@@ -428,7 +432,7 @@ describe('FOI archive golden master', () => {
     }
   });
 
-  it('FoiArchive_Ofcom756622Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+  it('FoiArchive_Ofcom756622Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
     const results = convertFoiEntry(ofcomDir, OFCOM_VARIANT);
     expect(results.map(r => r.recordCount)).toEqual([141295, 1465]);
     // Six blank statuses in the published register - preserved, on the record.
