@@ -4,6 +4,7 @@
     "encoding-failure": 2,
     "forbidden-suffix": 3143,
     "lowercase": 2,
+    "malformed-home-callsign": 13,
     "missing-rsl": 14372,
     "stripped-collision": 1,
     "whitespace": 2

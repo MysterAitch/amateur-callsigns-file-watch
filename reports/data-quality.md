@@ -30,6 +30,7 @@ long-standing allocations, not an anomaly by itself).
 | `excel-date-shape` | 0 | 0 | 0 | 0 | 16 | 15 |
 | `forbidden-suffix` | 2826 | 1 | 3143 | 1 | 3159 | 3145 |
 | `lowercase` | 2 | 0 | 2 | 0 | 18 | 17 |
+| `malformed-home-callsign` | 10 | 1 | 13 | 1 | 13 | 10 |
 | `missing-rsl` | 19502 | 242 | 14372 | 242 | 19887 | 19105 |
 | `stripped-collision` | 4 | 0 | 1 | 0 | 4 | 4 |
 | `unknown-prefix-series` | 1 | 0 | 0 | 0 | 1 | 1 |

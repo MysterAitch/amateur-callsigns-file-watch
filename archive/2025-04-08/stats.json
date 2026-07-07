@@ -5,6 +5,7 @@
     "excel-date-shape": 16,
     "forbidden-suffix": 3159,
     "lowercase": 18,
+    "malformed-home-callsign": 13,
     "missing-rsl": 19887,
     "stripped-collision": 4,
     "unknown-prefix-series": 1,
