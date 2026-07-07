@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 224333,
+  "ofcomReference": null,
+  "requestUrl": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio_2",
+  "title": "List of available Amateur Radio Call-signs",
+  "requester": "mr_james_11",
+  "requestedAt": "2014-08-11",
+  "respondedAt": "2014-08-18",
+  "outcome": "successful",
+  "dataVintage": "2014-08-18",
+  "datasetClasses": ["available-pool"],
+  "converter": null,
+  "files": {
+    "Available Amateur Radio Call Signs 18 August 2014.xlsx": {
+      "bytes": 267595,
+      "sha256": "037b34349a2f12dcaee0dc380aae4124cb797382356ac8f0a8be30ec354bf065",
+      "role": "data",
+      "datasetClasses": ["available-pool"],
+      "sheetsIndicative": {
+        "note": "from declared xlsx dimensions - approximate only (may include blank rows; header-row presence unconfirmed); authoritative record counts come from the converter/normaliser",
+        "sheets": [
+          { "name": "Foundation", "approxRows": 7658, "cols": "A:B", "datasetClass": "available-pool" },
+          { "name": "Intermediate", "approxRows": 9059, "cols": "A:B", "datasetClass": "available-pool" },
+          { "name": "Full", "approxRows": 7492, "cols": "A:B", "datasetClass": "available-pool" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio_2/response/551611/attach/4/Available%20Amateur%20Radio%20Call%20Signs%2018%20August%202014.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "Letter of Acknowledgement.pdf": {
+      "bytes": 44473,
+      "sha256": "71c1423a1c69708a1968457a02f7d3ad0c4a82eabd12126c48d6ee8c2723743a",
+      "role": "acknowledgement-letter",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio_2/response/549431/attach/3/Letter%20of%20Acknowledgement.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 4676,
+      "sha256": "a0fb775e2cca8d514a96e6de0c63363b4e45f227b50e5c1c53ba264bdcdbafef",
+      "role": "transcript"
+    }
+  }
+}
