@@ -13,11 +13,15 @@
 
 ## Overview
 
-A request for the list of all unallocated UK amateur radio callsigns,
-answered in full with a three-worksheet spreadsheet (Foundation /
-Intermediate / Full) — the oldest machine-readable callsign dataset held
-by this archive (available-pool class, Siebel-era export; not a
-full-register snapshot).
+- **Asked**: a list of all unallocated UK amateur radio callsigns (those
+  available to a new Foundation, Intermediate or Full licensee).
+- **Provided**: in full — a three-worksheet spreadsheet (Foundation /
+  Intermediate / Full), data as at 2013-09-06 16:30.
+- **Withheld**: nothing.
+- **Significance**: oldest machine-readable callsign dataset held by this
+  archive; available-pool class (not a full-register snapshot); Siebel-era
+  export predating the 2016 licensing-system change, after which Ofcom no
+  longer held availability lists.
 
 ## Exchange (verbatim; relay email addresses and signature boilerplate omitted)
 
