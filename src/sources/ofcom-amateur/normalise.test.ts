@@ -54,6 +54,12 @@ describe('detectHeaderVariant', () => {
     expect(detectHeaderVariant(['Value', 'Status', 'Product', 'Call Sign MMSI: Last Modified Date'])).toBe('v2023-mmsi');
   });
 
+  it('HeaderVariant_WhenThreeColumnMinimalHeaders_Detected', () => {
+    // The 2022-05-30 snapshot (oldest known open-data export): three
+    // columns only, no product and no dates.
+    expect(detectHeaderVariant(['Value', 'Status', 'Type'])).toBe('v2022-minimal');
+  });
+
   it('HeaderVariant_WhenUnknownHeaders_ReturnsUndefined', () => {
     expect(detectHeaderVariant(['Callsign', 'SomethingNew', 'Status'])).toBeUndefined();
   });
@@ -114,6 +120,17 @@ describe('convertRawCsv', () => {
   it('Convert_WhenVariantLacksTypeColumn_LeavesTypeEmpty', () => {
     const result = convertRawCsv(MMSI_LABELLED, FETCH_CONTEXT);
     expect(lines(result.csv)).toContain('M3YVL,Amateur Foundation Radio Licence,Allocated,,,2016-07-23,,');
+  });
+
+  it('Convert_When2022MinimalVariant_MapsThreeColumnsAndLeavesRestEmpty', () => {
+    // The 2022-05-30 snapshot: Value,Status,Type only - no product, no
+    // dates. Everything unmapped stays honestly empty.
+    const raw = 'Value,Status,Type\nM7RFT,Allocated,Call Sign - Amateur\n2E0ABC,Reserved,Call Sign - Amateur\n';
+    const result = convertRawCsv(raw, FETCH_CONTEXT);
+    expect(result.headerVariant).toBe('v2022-minimal');
+    const rows = lines(result.csv);
+    expect(rows).toContain('M7RFT,,Allocated,Call Sign - Amateur,,,,');
+    expect(rows).toContain('2E0ABC,,Reserved,Call Sign - Amateur,,,,');
   });
 
   it('Convert_WhenAnyVariant_SortsByCallsignCodepointOrder', () => {
