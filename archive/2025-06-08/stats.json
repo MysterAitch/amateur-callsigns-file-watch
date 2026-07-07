@@ -2,7 +2,7 @@
   "callsignFlags": {
     "forbidden-suffix": 1,
     "malformed-home-callsign": 1,
-    "missing-rsl": 242
+    "rsl-in-register": 1
   },
   "callsignPatterns": {
     "A/AAAA": 1,
