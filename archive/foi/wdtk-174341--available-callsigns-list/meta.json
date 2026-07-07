@@ -87,6 +87,12 @@
       "sha256": "054041bc537ec4abee83879e10074abce164b5648534631d2a0138caa941aaad",
       "role": "extract",
       "extractOf": "FoI 1 241825298 Full Response.pdf"
+    },
+    "raw-extract-foi-1-241825298-letter-of-acknowledgement.md": {
+      "bytes": 879,
+      "sha256": "e471230fd671be9880bef88e28fa4f3f3a83c46c4bab3ec308385ad09fa2d1cc",
+      "role": "extract",
+      "extractOf": "FoI 1 241825298 Letter of Acknowledgement.pdf"
     }
   }
 }
