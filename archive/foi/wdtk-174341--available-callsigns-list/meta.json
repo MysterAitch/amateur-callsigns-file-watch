@@ -25,22 +25,34 @@
         }
       ]
     },
-    "correspondence.md": {
-      "bytes": 2705,
-      "sha256": "4a2fe261addcf8b67258aa7ccd54be3f1cc6eb42d4743fe8d067d28334cf5ab3",
-      "role": "transcript"
-    }
-  },
-  "localOnlyFiles": {
     "FoI 1 241825298 Full Response.pdf": {
       "bytes": 89216,
       "sha256": "e3201db20aa0b1cb976cab90d116bac05649bd63b5e1878bd1d2d7e64c030641",
-      "reason": "response letter; embeds requester contact artefacts - retained in the local drop zone only"
+      "role": "response-letter",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio/response/428992/attach/2/FoI%201%20241825298%20Full%20Response.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
     },
     "FoI 1 241825298 Letter of Acknowledgement.pdf": {
       "bytes": 45176,
       "sha256": "95c0f77ece1a09719b548fbedf0e74e5f29e6e7a1cac0fe1718ab1f4c17a2e7f",
-      "reason": "acknowledgement letter; same rule"
+      "role": "acknowledgement-letter",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio/response/423957/attach/1/FoI%201%20241825298%20Letter%20of%20Acknowledgement.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 2047,
+      "sha256": "4721bb13bf6c68cf536c018df50f3a6bed6166eac4a3c7cf13eb8f5af778a3aa",
+      "role": "transcript"
     }
   }
 }

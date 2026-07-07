@@ -11,15 +11,7 @@
 | **Outcome** | successful |
 | **Data vintage** | 2013-09-06 16:30 (stated in the dataset filename and letter) |
 
-## Overview
-
-A request for the list of all unallocated UK amateur radio callsigns,
-acknowledged in five days and answered in full within twenty working days
-with a three-worksheet spreadsheet (Foundation / Intermediate / Full) —
-the oldest machine-readable callsign dataset held by this archive
-(available-pool class, Siebel-era export; not a full-register snapshot).
-
-## Exchange (verbatim; contact artefacts and signature boilerplate omitted)
+## Exchange (verbatim; relay email addresses and signature boilerplate omitted)
 
 **2013-08-23 — request (John Smith):**
 
@@ -70,10 +62,3 @@ Engineering & Enforcement (Spectrum Support), Ofcom), with
 > Yours sincerely,
 >
 > John Smith
-
-## Notes
-
-- The letter PDFs are retained locally only — per the FOI-lane rule,
-  attachment artefacts that embed contact details are not committed;
-  `meta.json` records their existence and hashes so the local originals
-  remain verifiable. Their substantive content is reproduced above.
