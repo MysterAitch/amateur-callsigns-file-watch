@@ -431,6 +431,7 @@ describe('runNormaliseSweep', () => {
       + 'MW7ABC,Amateur Foundation Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
       + '2E0XYZ,Amateur Intermediate Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
       + '20DLQ,Amateur Intermediate Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
+      + 'M2ODD,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
       + 'M/PT2FM,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'
       + 'NANAAA,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n';
     writeEntry(tmpRoot, '2026-02-02', mixed);
@@ -438,6 +439,12 @@ describe('runNormaliseSweep', () => {
 
     const report = fs.readFileSync(path.join(tmpRoot, 'reports', 'entries', '2026-02-02.md'), 'utf8');
     expect(report).toContain('## RSL matrix');
+    expect(report).toContain('### Series × RSL');
+    expect(report).toContain('### RSL × series');
+    // Locators absent from reference data are highlighted, not silently
+    // mixed in: M2 is not in prefix-formats.csv.
+    expect(report).toContain('| `M2` ⚠ |');
+    expect(report).toContain('⚠ marks locators observed in the data but absent from reference data: series `M2`.');
     const header = report.split('\n').find(l => l.startsWith('| series |')) ?? '';
     // All 14 reference RSL letters present as columns even when unused.
     for (const letter of ['C', 'D', 'E', 'H', 'I', 'J', 'M', 'N', 'P', 'S', 'T', 'U', 'W', 'X']) {
@@ -450,8 +457,16 @@ describe('runNormaliseSweep', () => {
     const headerCells = header.split('|').map(c => c.trim());
     expect(cells[headerCells.indexOf('W')]).toBe('1');
     expect(cells[headerCells.indexOf('(none)')]).toBe('1');
+    // Zero cells render as a quiet dot, not the digit 0.
+    expect(cells[headerCells.indexOf('C')]).toBe('·');
+    // Every reference primary locator shows even with no register presence
+    // in this fixture (all-dot row) - absence is the signal.
+    expect(report.split('\n').some(l => l.startsWith('| `G8` |'))).toBe(true);
+    // Transposed orientation: RSL letters as rows, series as columns.
+    const wRow = report.split('\n').find(l => l.startsWith('| W |')) ?? '';
+    expect(wRow.length).toBeGreaterThan(0);
     // Exclusions captioned, not silently dropped.
-    expect(report).toContain('Excluded from this table: 1 unparseable, 1 visitor.');
+    expect(report).toContain('Excluded from these tables: 1 unparseable, 1 visitor.');
   });
 
   it('Reports_WhenSpecialCharactersPresent_CharacterKeyNamesThem', () => {

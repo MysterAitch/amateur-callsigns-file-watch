@@ -375,7 +375,8 @@ function writeQualityReports(keys: string[]): void {
 function rslMatrixSection(key: string): string[] {
   const componentsPath = path.join(CONSTANTS.DIRS.archive, key, 'components.csv');
   if (!fs.existsSync(componentsPath)) return [];
-  const rslLetters = [...loadReferenceData().rslLetters].sort();
+  const referenceData = loadReferenceData();
+  const rslLetters = [...referenceData.rslLetters].sort();
 
   const bySeries = new Map<string, Map<string, number>>();
   const excluded = new Map<string, number>();
@@ -393,21 +394,52 @@ function rslMatrixSection(key: string): string[] {
   }
   if (bySeries.size === 0) return [];
 
-  const columns = [...rslLetters, ...[...unknownRsl].sort(), '(none)'];
+  const rslColumns = [...rslLetters, ...[...unknownRsl].sort(), '(none)'];
+  // Every primary locator is shown too: reference series with no register
+  // presence stay visible as all-dot rows - absence is the signal.
+  const seriesRows = [...new Set([...referenceData.prefixSeries.keys(), ...bySeries.keys()])].sort();
+  // Locators observed in the data but absent from reference data are
+  // highlighted on their heading and named in the caption - an unexpected
+  // series (M2) or RSL letter (a temporary/special RSL) is a finding.
+  const unexpectedSeries = seriesRows.filter(s => !referenceData.prefixSeries.has(s));
+  const seriesHeading = (s: string): string => unexpectedSeries.includes(s) ? `\`${s}\` ⚠` : `\`${s}\``;
+  const rslHeading = (r: string): string => unknownRsl.has(r) ? `${r} ⚠` : r;
+  const unexpectedNote = [
+    ...(unexpectedSeries.length > 0 ? [`series ${unexpectedSeries.map(s => `\`${s}\``).join(', ')}`] : []),
+    ...(unknownRsl.size > 0 ? [`RSL ${[...unknownRsl].sort().join(', ')}`] : []),
+  ].join('; ');
   const excludedNote = [...excluded.entries()].sort()
     .map(([status, count]) => `${count} ${status}`).join(', ');
+  // Zero cells render as a quiet dot so the populated intersections stand
+  // out in an otherwise sparse table.
+  const cell = (series: string, rsl: string): string => {
+    const n = bySeries.get(series)?.get(rsl) ?? 0;
+    return n === 0 ? '·' : String(n);
+  };
   return [
     '## RSL matrix',
     '',
-    'Parsed records by primary locator (prefix series, rows) and Regional',
-    'Secondary Locator (columns). Every RSL letter from `reference-data/rsl.csv`',
-    'is shown - all-zero columns are the sparsity signal, not noise.'
-    + (excludedNote === '' ? '' : ` Excluded from this table: ${excludedNote}.`),
+    'Parsed records by primary locator (prefix series) and Regional',
+    'Secondary Locator. Every RSL letter from `reference-data/rsl.csv` is',
+    'shown - all-zero rows/columns are the sparsity signal, not noise; `·`',
+    'means zero. Both orientations are shown while the preferred one is',
+    'chosen.'
+    + (unexpectedNote === '' ? '' : ` ⚠ marks locators observed in the data but absent from reference data: ${unexpectedNote}.`)
+    + (excludedNote === '' ? '' : ` Excluded from these tables: ${excludedNote}.`),
     '',
-    `| series | ${columns.join(' | ')} |`,
-    `|---|${columns.map(() => '---:').join('|')}|`,
-    ...[...bySeries.keys()].sort().map(series =>
-      `| \`${series}\` | ${columns.map(c => bySeries.get(series)?.get(c) ?? 0).join(' | ')} |`),
+    '### Series × RSL',
+    '',
+    `| series | ${rslColumns.map(rslHeading).join(' | ')} |`,
+    `|---|${rslColumns.map(() => '---:').join('|')}|`,
+    ...seriesRows.map(series =>
+      `| ${seriesHeading(series)} | ${rslColumns.map(c => cell(series, c)).join(' | ')} |`),
+    '',
+    '### RSL × series',
+    '',
+    `| RSL | ${seriesRows.map(seriesHeading).join(' | ')} |`,
+    `|---|${seriesRows.map(() => '---:').join('|')}|`,
+    ...rslColumns.map(rsl =>
+      `| ${rslHeading(rsl)} | ${seriesRows.map(series => cell(series, rsl)).join(' | ')} |`),
     '',
   ];
 }
