@@ -106,12 +106,79 @@ function placeholderOf(value) {
   return null;
 }
 
+// Suffix availability matrix (*TEE): one row per prefix series from
+// reference data, showing the register row where one exists. Where none
+// exists the register simply holds no record - Ofcom does not routinely
+// store records for never-allocated callsigns - which is a hopeful but NOT
+// guaranteed signal of availability.
+async function suffixMatrix(suffix, result) {
+  const seriesList = await query('SELECT prefix, station_level, issuing_status FROM ref_prefix_formats');
+  const matches = await query(
+    `SELECT c.prefix_series, c.placeholder_form, n.callsign, n.status, n.product,
+            COALESCE(NULLIF(n.last_modified_date, ''), n.licence_version_last_modified_date) AS modified
+     FROM components c JOIN normalised n ON n.callsign = c.callsign
+     WHERE c.suffix = ? AND c.parse_status = 'parsed'`, [suffix]);
+  const bySeries = new Map(matches.map(m => [m.prefix_series, m]));
+
+  const sections = [];
+  const [forbidden] = await query('SELECT 1 AS hit FROM ref_forbidden_suffixes WHERE suffix = ?', [suffix]);
+  if (forbidden) {
+    sections.push(card('Withheld suffix', [el('p', { text:
+      `"${suffix}" appears on Ofcom's August 2019 FOI withheld-suffixes list - unlikely to be newly issued, though existing allocations stand.` })]));
+  }
+  if (suffix.length < 2 || suffix.length > 3) {
+    sections.push(card('Suffix length', [el('p', { text:
+      `Suffixes are normally three letters (two-letter forms are heritage; single letters are contest callsigns via NoV) - "${suffix}" is unusual.` })]));
+  }
+
+  const rows = seriesList.map((s) => {
+    const hash = s.prefix.includes('#') ? s.prefix : `${s.prefix[0]}#${s.prefix.slice(1)}`;
+    const m = bySeries.get(s.prefix);
+    return [
+      `${hash}${suffix}`,
+      s.station_level,
+      s.issuing_status,
+      m ? `${m.status}${m.product ? ' — ' + m.product : ''}${m.modified ? ' (' + m.modified.slice(0, 10) + ')' : ''}` : 'no record',
+    ];
+  });
+  sections.push(card(`Availability matrix: suffix ${suffix}`, [
+    el('p', { class: 'muted', text:
+      'Register state per prefix series (latest dataset). "No record" means Ofcom holds no row for this callsign - Ofcom does not routinely record never-allocated callsigns, so this suggests, but does not guarantee, availability. Per-series format validity rules are not yet in the reference data.' }),
+    renderTable(['callsign', 'level', 'series status', 'register state'], rows, 99),
+  ]));
+  result.replaceChildren(...sections);
+}
+
+// General wildcard (* matches any run of characters) over register values.
+async function wildcardList(value, result) {
+  const like = value.replace(/[%_]/g, ch => '\\' + ch).replace(/\*/g, '%');
+  const [count] = await query(`SELECT COUNT(*) AS n FROM components WHERE callsign LIKE ? ESCAPE '\\'`, [like]);
+  const rows = await query(
+    `SELECT c.callsign, n.status, n.product, c.flags
+     FROM components c JOIN normalised n ON n.callsign = c.callsign
+     WHERE c.callsign LIKE ? ESCAPE '\\' ORDER BY c.callsign LIMIT 100`, [like]);
+  result.replaceChildren(card(`Wildcard "${value}" — ${count.n} match(es)${count.n > 100 ? ', first 100 shown' : ''}`, [
+    renderTable(['callsign', 'status', 'product', 'flags'], rows.map(r => [r.callsign, r.status, r.product, r.flags]), 99),
+  ]));
+}
+
 async function lookup(rawInput) {
   const result = document.getElementById('result');
   result.hidden = false;
   result.replaceChildren(el('p', { class: 'muted', text: 'querying…' }));
 
   const value = rawInput.trim().toUpperCase();
+
+  const suffixOnly = /^\*([A-Z]{1,4})$/.exec(value);
+  if (suffixOnly) {
+    await suffixMatrix(suffixOnly[1], result);
+    return;
+  }
+  if (value.includes('*')) {
+    await wildcardList(value, result);
+    return;
+  }
+
   let [row] = await query(`${ROW_SELECT} WHERE c.callsign = ? LIMIT 1`, [value]);
   let fallbackNote = null;
 
