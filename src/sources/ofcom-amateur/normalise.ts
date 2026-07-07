@@ -17,6 +17,7 @@ import { parse } from 'csv-parse/sync';
 import { parseUkDateTimeDetailed, type ParsedUkDateTime, renderCsv, codepointCompare } from '../../shared/normalise.ts';
 import { computeEntryStats, type EntryStats } from '../../shared/stats.ts';
 import { errorMessage } from '../../shared/utils.ts';
+import { parseCallsign, componentsFlagsForRows, componentRowToCells, loadReferenceData, COMPONENT_COLUMNS, COMPONENTS_SCHEMA_VERSION } from './components.ts';
 
 export const NORMALISED_SCHEMA_VERSION = 1;
 
@@ -131,6 +132,10 @@ export interface ConvertResult {
   // Data-quality statistics over the canonical rows (issue #46) - archived
   // as stats.json alongside normalised.csv.
   stats: EntryStats;
+  // Callsign components + per-row flags (issue #51) - archived as
+  // components.csv, joined to normalised.csv by callsign.
+  componentsCsv: string;
+  componentsSchemaVersion: number;
 }
 
 // Plausibility floor: UK wireless licensing began in the early 1900s, and
@@ -190,6 +195,12 @@ export function convertRawCsv(rawContent: string, context: ConvertContext): Conv
     .filter(([, s]) => s.disambiguated === 0)
     .map(([column]) => column);
 
+  // Component rows derive from the SAME sorted canonical rows (row order and
+  // join order match normalised.csv by construction); column 0 is callsign,
+  // column 1 product, per CANONICAL_COLUMNS.
+  const referenceData = loadReferenceData();
+  const componentRows = componentsFlagsForRows(rows.map(r => parseCallsign(r[0], r[1], referenceData)));
+
   return {
     csv: renderCsv([...CANONICAL_COLUMNS], rows),
     headerVariant: variant,
@@ -198,5 +209,7 @@ export function convertRawCsv(rawContent: string, context: ConvertContext): Conv
     dateStats,
     unverifiedDateColumns,
     stats: computeEntryStats(CANONICAL_COLUMNS, rows, DATE_COLUMNS),
+    componentsCsv: renderCsv([...COMPONENT_COLUMNS], componentRows.map(componentRowToCells)),
+    componentsSchemaVersion: COMPONENTS_SCHEMA_VERSION,
   };
 }

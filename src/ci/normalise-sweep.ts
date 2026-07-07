@@ -26,6 +26,7 @@ import { CONSTANTS, type ArchiveMeta, calculateContentHash, errorMessage, saveJs
 import { listArchiveKeys } from '../shared/archive.ts';
 import { renderStatsJson, compareStats, type EntryStats } from '../shared/stats.ts';
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
+import { COMPONENT_COLUMNS } from '../sources/ofcom-amateur/components.ts';
 
 interface SourceConverter {
   schemaVersion: number;
@@ -64,7 +65,7 @@ export interface SweepReport {
 }
 
 // ArchiveMeta plus the normalisation declaration this sweep maintains.
-type SweepMeta = ArchiveMeta & { normalised?: { schemaVersion: number; headerVariant: string; statsSchemaVersion?: number } };
+type SweepMeta = ArchiveMeta & { normalised?: { schemaVersion: number; headerVariant: string; statsSchemaVersion?: number; componentsSchemaVersion?: number } };
 
 export function runNormaliseSweep(): SweepReport {
   const report: SweepReport = { changed: [], upToDate: [], unsupported: [], failed: [], coverageMarkdown: '' };
@@ -107,13 +108,17 @@ export function runNormaliseSweep(): SweepReport {
 
       const outPath = path.join(dir, 'normalised.csv');
       const statsPath = path.join(dir, 'stats.json');
+      const componentsPath = path.join(dir, 'components.csv');
       const statsJson = renderStatsJson(result.stats);
       const existing = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8') : undefined;
       const existingStats = fs.existsSync(statsPath) ? fs.readFileSync(statsPath, 'utf8') : undefined;
+      const existingComponents = fs.existsSync(componentsPath) ? fs.readFileSync(componentsPath, 'utf8') : undefined;
       if (existing === result.csv
         && existingStats === statsJson
+        && existingComponents === result.componentsCsv
         && meta.normalised?.schemaVersion === result.schemaVersion
-        && meta.normalised?.statsSchemaVersion === result.stats.statsSchemaVersion) {
+        && meta.normalised?.statsSchemaVersion === result.stats.statsSchemaVersion
+        && meta.normalised?.componentsSchemaVersion === result.componentsSchemaVersion) {
         report.upToDate.push(key);
         coverageRows.push(`| ${key} | ${meta.sourceKey} | v${result.schemaVersion} (${result.headerVariant}) | up to date |`);
         continue;
@@ -121,10 +126,12 @@ export function runNormaliseSweep(): SweepReport {
 
       fs.writeFileSync(outPath, result.csv);
       fs.writeFileSync(statsPath, statsJson);
+      fs.writeFileSync(componentsPath, result.componentsCsv);
       meta.normalised = {
         schemaVersion: result.schemaVersion,
         headerVariant: result.headerVariant,
         statsSchemaVersion: result.stats.statsSchemaVersion,
+        componentsSchemaVersion: result.componentsSchemaVersion,
       };
       meta.files['normalised.csv'] = {
         size: Buffer.byteLength(result.csv),
@@ -139,6 +146,15 @@ export function runNormaliseSweep(): SweepReport {
         size: Buffer.byteLength(statsJson),
         sha256: calculateContentHash(statsJson),
         format: 'json',
+      };
+      meta.files['components.csv'] = {
+        size: Buffer.byteLength(result.componentsCsv),
+        sha256: calculateContentHash(result.componentsCsv),
+        format: 'csv',
+        columnCount: COMPONENT_COLUMNS.length,
+        columnNames: [...COMPONENT_COLUMNS],
+        recordCount: result.recordCount,
+        sortedBy: 'callsign',
       };
       saveJsonFileSync(metaPath, meta);
       report.changed.push(key);

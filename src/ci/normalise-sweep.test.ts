@@ -43,7 +43,7 @@ function writeEntry(root: string, key: string, rawContent: string, metaOverrides
 
 // The subset of meta.json shape these tests assert on.
 interface TestMeta {
-  normalised?: { schemaVersion: number; headerVariant: string; statsSchemaVersion?: number };
+  normalised?: { schemaVersion: number; headerVariant: string; statsSchemaVersion?: number; componentsSchemaVersion?: number };
   files: Record<string, { size?: number; sha256?: string; recordCount?: number }>;
 }
 
@@ -75,7 +75,7 @@ describe('runNormaliseSweep', () => {
     const normalised = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'normalised.csv'), 'utf8');
     expect(normalised.startsWith('callsign,product,status,type,')).toBe(true);
     const meta = readMeta(tmpRoot, '2026-01-01');
-    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 3 });
+    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 3, componentsSchemaVersion: 1 });
     expect(meta.files['normalised.csv'].sha256).toBe(sha256(normalised));
     expect(meta.files['normalised.csv'].recordCount).toBe(2);
   });
@@ -162,6 +162,23 @@ describe('runNormaliseSweep', () => {
     const meta = readMeta(tmpRoot, '2026-01-01');
     expect(meta.files['stats.json'].sha256).toBe(sha256(statsRaw));
     expect(meta.normalised?.statsSchemaVersion).toBe(3);
+  });
+
+  it('Sweep_WhenEntryNormalised_ComponentsCsvWrittenAndDeclaredInMeta', () => {
+    writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    const report = runNormaliseSweep();
+
+    expect(report.changed).toEqual(['2026-01-01']);
+    const components = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'components.csv'), 'utf8');
+    const lines = components.trimEnd().split('\n');
+    expect(lines[0]).toBe('callsign,parse_status,prefix_series,rsl,suffix,home_callsign,implied_class,flags');
+    // Rows join to normalised.csv by callsign, same sort order.
+    expect(lines[1]).toBe('G5ABC,parsed,G5,,ABC,,Full,');
+    expect(lines[2]).toBe('M7TEE,parsed,M7,,TEE,,Foundation,');
+    const meta = readMeta(tmpRoot, '2026-01-01');
+    expect(meta.files['components.csv'].sha256).toBe(sha256(components));
+    expect(meta.files['components.csv'].recordCount).toBe(2);
+    expect(meta.normalised?.componentsSchemaVersion).toBe(1);
   });
 
   it('Report_WhenEntryBetweenNeighbours_MatrixColumnsCoverBothDirections', () => {

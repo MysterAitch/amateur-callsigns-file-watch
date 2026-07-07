@@ -16,4 +16,5 @@ archive/**/normalised.csv text eol=lf
 # stats.json and quality reports: byte-compared derivatives like normalised.csv
 # - pin LF so Windows checkouts cannot break no-op detection or meta hashes.
 archive/**/stats.json  text eol=lf
+archive/**/components.csv  text eol=lf
 reports/**  text eol=lf
