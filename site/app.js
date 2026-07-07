@@ -114,7 +114,7 @@ function placeholderOf(value) {
 async function suffixMatrix(suffix, result) {
   const seriesList = await query('SELECT prefix, station_level, issuing_status FROM ref_prefix_formats');
   const matches = await query(
-    `SELECT c.prefix_series, c.placeholder_form, n.callsign, n.status, n.product,
+    `SELECT c.prefix_series, c.placeholder_form, c.flags, n.callsign, n.status, n.product,
             COALESCE(NULLIF(n.last_modified_date, ''), n.licence_version_last_modified_date) AS modified
      FROM components c JOIN normalised n ON n.callsign = c.callsign
      WHERE c.suffix = ? AND c.parse_status = 'parsed'`, [suffix]);
@@ -135,6 +135,7 @@ async function suffixMatrix(suffix, result) {
     const hash = s.prefix.includes('#') ? s.prefix : `${s.prefix[0]}#${s.prefix.slice(1)}`;
     const m = bySeries.get(s.prefix);
     let state = 'no record';
+    let flags = '';
     if (m) {
       state = m.status;
       if (m.product) state += ' — ' + m.product;
@@ -142,13 +143,24 @@ async function suffixMatrix(suffix, result) {
       // surfacing here (part of the blank-products data-quality thread).
       else if (m.status === 'Allocated') state += ' ⚠ no product recorded';
       if (m.modified) state += ` (${m.modified.slice(0, 10)})`;
+      // Per-row data-quality flags (forbidden-suffix, class-product-mismatch,
+      // missing-rsl, ...) - vocabulary in the flag registry.
+      flags = m.flags ? m.flags.split(';').join(', ') : '';
+    } else if (s.prefix === 'M8' || s.prefix === 'M9') {
+      // Corresponding-callsign reservation (Ofcom statement, Dec 2023, via
+      // reference data): while a 2#0/2#1 callsign is on issue, its M8/M9
+      // equivalent is reserved for that holder for three years from go-live.
+      const twin = bySeries.get(s.prefix === 'M8' ? '2#0' : '2#1');
+      if (twin) {
+        state = `no record — reserved for the current ${s.prefix === 'M8' ? '2#0' : '2#1'} holder (${twin.callsign}; corresponding-callsign reservation)`;
+      }
     }
-    return [`${hash}${suffix}`, s.station_level, s.issuing_status, state];
+    return [`${hash}${suffix}`, s.station_level, s.issuing_status, state, flags];
   });
   sections.push(card(`Availability matrix: suffix ${suffix}`, [
     el('p', { class: 'muted', text:
-      'Register state per prefix series (latest dataset). "No record" means Ofcom holds no row for this callsign - Ofcom does not routinely record never-allocated callsigns, so this suggests, but does not guarantee, availability. Per-series format validity rules are not yet in the reference data.' }),
-    renderTable(['callsign', 'level', 'series status', 'register state'], rows, 99),
+      'Register state per prefix series (latest dataset). "No record" means Ofcom holds no row for this callsign - Ofcom does not routinely record never-allocated callsigns, so this suggests, but does not guarantee, availability. Per-series format validity rules are not yet in the reference data. Flags are per-row data-quality markers (see the flag registry).' }),
+    renderTable(['callsign', 'level', 'series status', 'register state', 'flags'], rows, 99),
   ]));
   result.replaceChildren(...sections);
 }
