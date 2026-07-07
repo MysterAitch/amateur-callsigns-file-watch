@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no reference number appears anywhere in the published letter; the entry is keyed by request date instead",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/pdf_file/0020/106283/Amatuer-Radio-Callsigns.pdf",
+  "title": "Amateur radio callsigns - database system and full list with status (request of 2017-07-03)",
+  "requester": null,
+  "requestedAt": "2017-07-03",
+  "respondedAt": "2017-09-11",
+  "respondedAtNote": "no date in the letter text; from the letter PDF's creation metadata (author Anand Thakrar)",
+  "outcome": "successful",
+  "dataVintage": "2017-04-24",
+  "dataVintageNote": "from the attached list's PDF creation metadata (author Julia Snape, printed from Excel) - an export ~4.5 months older than the request",
+  "datasetClasses": ["register-snapshot", "reference-context"],
+  "converter": null,
+  "relatedEntries": [
+    { "entry": "wdtk-356636--all-callsigns-plus-forbidden", "relation": "the 2016-09 register snapshot preceding this 2017-04 one; the algorithm description here expands the one first given there" }
+  ],
+  "files": {
+    "Copy-of-Call-Signs.pdf": {
+      "bytes": 11599677,
+      "sha256": "adb538d42c0871a67710dc27f80377f634576aa9a6709feb3ad6a87aa55897c2",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "contentsIndicative": "the register list disclosed as a printed-to-PDF Excel export (the only known PDF-format register disclosure); PDF created 2017-04-24 by Julia Snape from Excel; contents recon and any extraction are converter-time questions",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0005/101300/Copy-of-Call-Signs.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "Amatuer-Radio-Callsigns.pdf": {
+      "bytes": 444559,
+      "sha256": "9402b201ab7b1f069104f90f8c77e615e09dd98b477ab00d1f211a2a129e8ad1",
+      "role": "response-letter",
+      "contentsIndicative": "the Salesforce confirmation letter: names the platform twice, gives the fullest generator description on the record (RR Article 19 + Appendix 42, recent-past check, distress-format check) and the online retry-loop flow; no reference number or date in the text",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0020/106283/Amatuer-Radio-Callsigns.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-amatuer-radio-callsigns.md": {
+      "bytes": 2840,
+      "sha256": "d24e0b5ce2ba3788511ac4d8f168d298036b60757cc2e2e3cfe290ee792acb95",
+      "role": "extract",
+      "extractOf": "Amatuer-Radio-Callsigns.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 2761,
+      "sha256": "4fe7dfb1c155cd30a80bfab1e9e22eb420fb631e521c088e1ab5b6f2699289d5",
+      "role": "transcript"
+    }
+  }
+}
