@@ -85,6 +85,25 @@ single digit, then the suffix letters — is defined separately in Article 19
 of the ITU Radio Regulations. This reading needs verifying against the
 Article 19 text before being stated as fact.
 
+Empirical observations from the mirrored table that inform (but do not
+settle) the question:
+
+- **Series shapes**: of the 952 series, 652 are letter+letter (`GA…`), 208
+  digit+letter (`2A…`, `3D…`), and 92 letter+digit (`H2A–H2Z` Cyprus,
+  `A2A–A2Z` Botswana). **No digit+digit series exist** (nothing like `33A`)
+  — the only excluded shape.
+- **Allocation granularity reaches the third character**: split blocks exist
+  — `3DA–3DM` Eswatini vs `3DN–3DZ` Fiji, and `SSA–SSM` Egypt vs `SSN–SSZ`
+  Sudan — so a two-character prefix can be divided between administrations
+  mid-range.
+- **No `Q`-first series exist**: letter first-characters run A–Z excluding
+  Q — the Q block is unallocated at the ITU level (Q codes), paralleling the
+  community-cited rule against suffixes beginning with Q.
+- A wrinkle sharpening the Article 19 to-do: Fiji's well-known amateur
+  prefix is `3D2` — a *digit* in the third position, within its `3DN–3DZ`
+  letter-range block — so the mapping from table ranges to transmitted
+  prefixes involves formation rules the table alone does not express.
+
 ## Conventions
 
 - CSV, UTF-8, LF, header row, minimal quoting — matching the repository's
