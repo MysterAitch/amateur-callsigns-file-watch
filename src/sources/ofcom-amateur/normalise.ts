@@ -208,7 +208,7 @@ export function convertRawCsv(rawContent: string, context: ConvertContext): Conv
     recordCount: rows.length,
     dateStats,
     unverifiedDateColumns,
-    stats: computeEntryStats(CANONICAL_COLUMNS, rows, DATE_COLUMNS),
+    stats: computeEntryStats(CANONICAL_COLUMNS, rows, DATE_COLUMNS, componentRows),
     componentsCsv: renderCsv([...COMPONENT_COLUMNS], componentRows.map(componentRowToCells)),
     componentsSchemaVersion: COMPONENTS_SCHEMA_VERSION,
   };

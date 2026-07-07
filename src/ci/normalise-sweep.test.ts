@@ -75,7 +75,7 @@ describe('runNormaliseSweep', () => {
     const normalised = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'normalised.csv'), 'utf8');
     expect(normalised.startsWith('callsign,product,status,type,')).toBe(true);
     const meta = readMeta(tmpRoot, '2026-01-01');
-    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 3, componentsSchemaVersion: 1 });
+    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 4, componentsSchemaVersion: 1 });
     expect(meta.files['normalised.csv'].sha256).toBe(sha256(normalised));
     expect(meta.files['normalised.csv'].recordCount).toBe(2);
   });
@@ -155,13 +155,13 @@ describe('runNormaliseSweep', () => {
     expect(report.changed).toEqual(['2026-01-01']);
     const statsRaw = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'stats.json'), 'utf8');
     const stats = JSON.parse(statsRaw) as EntryStats;
-    expect(stats.statsSchemaVersion).toBe(3);
+    expect(stats.statsSchemaVersion).toBe(4);
     expect(stats.recordCount).toBe(2);
     expect(stats.callsignPatterns).toEqual({ ANAAA: 2 }); // M7TEE, G5ABC
     expect((stats.columns.callsign as { distinct: number }).distinct).toBe(2);
     const meta = readMeta(tmpRoot, '2026-01-01');
     expect(meta.files['stats.json'].sha256).toBe(sha256(statsRaw));
-    expect(meta.normalised?.statsSchemaVersion).toBe(3);
+    expect(meta.normalised?.statsSchemaVersion).toBe(4);
   });
 
   it('Sweep_WhenEntryNormalised_ComponentsCsvWrittenAndDeclaredInMeta', () => {
