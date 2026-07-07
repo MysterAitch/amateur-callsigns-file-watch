@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 174341,
+  "ofcomReference": "FoI 1-241825298",
+  "requestUrl": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio",
+  "title": "List of available Amateur Radio Call-signs",
+  "requester": "john_smith_63",
+  "requestedAt": "2013-08-23",
+  "respondedAt": "2013-09-12",
+  "outcome": "successful",
+  "dataVintage": "2013-09-06",
+  "datasetClass": "available-pool",
+  "converter": null,
+  "files": {
+    "Ofcom UK Amateur Radio Call sign list available as at 6 September 2013.xlsx": {
+      "bytes": 277795,
+      "sha256": "b19e7d3f6f15ac162873453ec77ea548ebff8c581bb26ee68ad1dd0bf06e7789",
+      "role": "data",
+      "datasetClass": "available-pool",
+      "sheetsIndicative": {
+        "note": "from declared xlsx dimensions - approximate only (may include blank rows; header-row presence unconfirmed); authoritative record counts come from the converter/normaliser",
+        "sheets": [
+          { "name": "Foundation", "approxRows": 9100, "cols": "A:B" },
+          { "name": "Intermediate", "approxRows": 9684, "cols": "A:F" },
+          { "name": "Full", "approxRows": 7865, "cols": "A:L" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio/response/428992/attach/1/Ofcom%20UK%20Amateur%20Radio%20Call%20sign%20list%20available%20as%20at%206%20September%202013.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "FoI 1 241825298 Full Response.pdf": {
+      "bytes": 89216,
+      "sha256": "e3201db20aa0b1cb976cab90d116bac05649bd63b5e1878bd1d2d7e64c030641",
+      "role": "response-letter",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio/response/428992/attach/2/FoI%201%20241825298%20Full%20Response.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "FoI 1 241825298 Letter of Acknowledgement.pdf": {
+      "bytes": 45176,
+      "sha256": "95c0f77ece1a09719b548fbedf0e74e5f29e6e7a1cac0fe1718ab1f4c17a2e7f",
+      "role": "acknowledgement-letter",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio/response/423957/attach/1/FoI%201%20241825298%20Letter%20of%20Acknowledgement.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 2937,
+      "sha256": "c8ada61e960930b4f402f2168279b97bd24f6efdbcfa91e4a708e32b000b5409",
+      "role": "transcript"
+    }
+  }
+}

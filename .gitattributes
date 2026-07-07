@@ -9,6 +9,21 @@ archive/**/raw.*           binary
 latest-raw.*               binary
 amateur-callsigns-raw.csv  binary
 
+# FOI lane (ADR 0004): data attachments are preserved verbatim under their
+# original served filenames, so the whole lane defaults to binary; the text
+# artefacts (transcript, meta, derived extracts) are pinned back to LF.
+# Derivation convention: raw file -> mechanical extract (raw-extract-*.csv
+# for spreadsheets per sheet, raw-extract*.md for PDFs) -> normalised.csv.
+archive/foi/**                        binary
+# NB: `binary` is a macro for -diff -merge -text, so text artefacts must
+# explicitly restore diff+merge as well as text, or PR diffs render them
+# as binary blobs.
+archive/foi/**/meta.json              text diff merge eol=lf
+archive/foi/**/correspondence.md      text diff merge eol=lf
+archive/foi/**/raw-extract-*.csv      text diff merge eol=lf
+archive/foi/**/raw-extract*.md        text diff merge eol=lf
+archive/foi/**/normalised.csv         text diff merge eol=lf
+
 # Derived normalised.csv must be byte-stable across platforms (meta.json
 # records its sha256/size and the sweep no-op check is byte equality) while
 # staying diffable text - pin LF, never smudge to CRLF on checkout.
