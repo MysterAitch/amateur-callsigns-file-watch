@@ -87,26 +87,23 @@ function card(title, children) {
   return el('div', { class: 'card' }, [el('h3', { text: title }), ...children]);
 }
 
-const ROW_QUERY =
+const ROW_SELECT =
   `SELECT n.*, c.parse_status, c.prefix_series, c.rsl, c.suffix AS cs_suffix,
-          c.home_callsign, c.implied_class, c.flags
-   FROM components c JOIN normalised n ON n.callsign = c.callsign
-   WHERE c.callsign = ? LIMIT 1`;
+          c.placeholder_form, c.home_callsign, c.implied_class, c.flags
+   FROM components c JOIN normalised n ON n.callsign = c.callsign`;
 
-// The register stores the RSL-less CORE callsign (Ofcom: "the core call
-// sign does not include an RSL, as this may change depending on where in
-// the UK a radio amateur is transmitting from"). MW7TEE, ME7TEE etc. are
-// interchangeable regional renderings of the licence whose register row is
-// M7TEE - so an RSL-bearing input falls back to its core.
-async function coreFallback(value) {
-  const gm = /^([GM])([A-Z])(\d[A-Z]+)$/.exec(value);
-  const two = /^2([A-Z])(\d[A-Z]+)$/.exec(value);
-  const attempt = gm ? { rsl: gm[2], core: gm[1] + gm[3] } : two ? { rsl: two[1], core: '2' + two[2] } : null;
-  if (!attempt) return null;
-  const [rslRow] = await query('SELECT * FROM ref_rsl WHERE rsl = ?', [attempt.rsl]);
-  if (!rslRow) return null;
-  const [row] = await query(ROW_QUERY, [attempt.core]);
-  return row ? { row, rsl: rslRow, input: value, core: attempt.core } : null;
+// Normalise ANY rendering of a callsign to its RSL-placeholder form
+// (M7TEE, MW7TEE, ME7TEE, M#7TEE -> M#7TEE; 2E0ABC, 20ABC, 2#0ABC ->
+// 2#0ABC). The register stores the RSL-less core (Ofcom: "the core call
+// sign does not include an RSL"), and components.csv stores this same
+// placeholder for every parsed row - so one indexed equality query finds
+// the licence whichever variant is typed.
+function placeholderOf(value) {
+  const gm = /^([GM])(?:([A-Z#])?)(\d)([A-Z]+)$/.exec(value);
+  if (gm) return `${gm[1]}#${gm[3]}${gm[4]}`;
+  const two = /^2(?:([A-Z#])?)(\d)([A-Z]+)$/.exec(value);
+  if (two) return `2#${two[2]}${two[3]}`;
+  return null;
 }
 
 async function lookup(rawInput) {
@@ -115,18 +112,21 @@ async function lookup(rawInput) {
   result.replaceChildren(el('p', { class: 'muted', text: 'querying…' }));
 
   const value = rawInput.trim().toUpperCase();
-  let [row] = await query(ROW_QUERY, [value]);
+  let [row] = await query(`${ROW_SELECT} WHERE c.callsign = ? LIMIT 1`, [value]);
   let fallbackNote = null;
 
   if (!row) {
-    const fallback = await coreFallback(value);
-    if (fallback) {
-      row = fallback.row;
-      fallbackNote = card(`${fallback.input} → core callsign ${fallback.core}`, [el('p', { text:
-        `The register stores the RSL-less core callsign. "${fallback.input}" is ${fallback.core} `
-        + `carrying the Regional Secondary Locator "${fallback.rsl.rsl}" (${fallback.rsl.region}) - one of the `
-        + `interchangeable regional renderings of the same licence, used to indicate where the station is operating. `
-        + `Showing the core register row.` })]);
+    const placeholder = placeholderOf(value);
+    if (placeholder) {
+      const matches = await query(`${ROW_SELECT} WHERE c.placeholder_form = ? ORDER BY n.callsign LIMIT 5`, [placeholder]);
+      if (matches.length > 0) {
+        row = matches[0];
+        const others = matches.slice(1).map(m => m.callsign);
+        fallbackNote = card(`${value} → ${placeholder} → register row ${row.callsign}`, [el('p', { text:
+          `The register stores the RSL-less core callsign; regional renderings (with a Regional Secondary Locator at the # position) `
+          + `are interchangeable forms of the same licence. "${value}" normalises to ${placeholder}, matching register row ${row.callsign}.`
+          + (others.length > 0 ? ` Other register rows sharing this placeholder: ${others.join(', ')}.` : '') })]);
+      }
     }
   }
 
@@ -150,26 +150,19 @@ async function lookup(rawInput) {
   if (row.prefix_series) componentRows.push(['prefix series', row.prefix_series]);
   if (row.rsl) componentRows.push(['regional secondary locator', row.rsl]);
   if (row.cs_suffix) componentRows.push(['suffix', row.cs_suffix]);
+  if (row.placeholder_form) componentRows.push(['placeholder form', row.placeholder_form]);
   if (row.home_callsign) componentRows.push(['home callsign (visitor)', row.home_callsign]);
   if (row.implied_class) componentRows.push(['implied licence class', row.implied_class]);
   sections.push(card('Components', [renderTable(['part', 'value'], componentRows, 99)]));
 
-  // Regional renderings: a parsed personal callsign without an RSL in the
-  // register can be used with one - show the placeholder form and every
-  // interchangeable regional variant (personal-scope RSLs only).
-  if (row.parse_status === 'parsed' && !row.rsl && row.prefix_series && row.cs_suffix) {
-    const isTwoSeries = row.prefix_series.startsWith('2');
-    const placeholder = isTwoSeries
-      ? row.prefix_series + row.cs_suffix
-      : `${row.prefix_series[0]}#${row.prefix_series.slice(1)}${row.cs_suffix}`;
+  // Regional renderings: every parsed callsign carries its RSL-placeholder
+  // form (identical across all regional variants) - render each variant by
+  // substituting personal-scope RSL letters at the # position.
+  if (row.parse_status === 'parsed' && row.placeholder_form) {
+    const isTwoSeries = row.placeholder_form.startsWith('2');
     const rsls = await query(`SELECT rsl, region FROM ref_rsl WHERE scope = 'all' ORDER BY region`);
-    const variants = rsls.map(r => {
-      const rendered = isTwoSeries
-        ? row.prefix_series.replace('#', r.rsl) + row.cs_suffix
-        : row.prefix_series[0] + r.rsl + row.prefix_series.slice(1) + row.cs_suffix;
-      return [rendered, r.region];
-    });
-    sections.push(card(`Regional renderings (${placeholder})`, [
+    const variants = rsls.map(r => [row.placeholder_form.replace('#', r.rsl), r.region]);
+    sections.push(card(`Regional renderings (${row.placeholder_form})`, [
       el('p', { class: 'muted', text: isTwoSeries
         ? 'The register stores the RSL-less core, but a Regional Secondary Locator is mandatory in use for 2-format callsigns - the # marks where it goes:'
         : 'The register stores the core callsign; a Regional Secondary Locator may optionally be inserted at the # position. These renderings are interchangeable forms of the same licence:' }),

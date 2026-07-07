@@ -22,7 +22,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 
-export const COMPONENTS_SCHEMA_VERSION = 1;
+export const COMPONENTS_SCHEMA_VERSION = 2;
 
 export const COMPONENT_COLUMNS = [
   'callsign',
@@ -30,6 +30,7 @@ export const COMPONENT_COLUMNS = [
   'prefix_series',
   'rsl',
   'suffix',
+  'placeholder_form',
   'home_callsign',
   'implied_class',
   'flags',
@@ -44,6 +45,11 @@ export interface ComponentRow {
   prefixSeries: string;
   rsl: string;
   suffix: string;
+  // The RSL-placeholder normalisation of the callsign ('M#7TEE', '2#0DLQ'):
+  // identical for the core and for EVERY regional rendering, so it is the
+  // search/join key that unifies M7TEE, MW7TEE, ME7TEE, ... Empty for
+  // visitor/special-event/empty/unparseable rows.
+  placeholderForm: string;
   homeCallsign: string;
   impliedClass: string;
   flags: string[];
@@ -106,6 +112,7 @@ export function parseCallsign(callsign: string, product: string, ref: ReferenceD
     prefixSeries: '',
     rsl: '',
     suffix: '',
+    placeholderForm: '',
     homeCallsign: '',
     impliedClass: '',
     flags: [],
@@ -151,16 +158,21 @@ export function parseCallsign(callsign: string, product: string, ref: ReferenceD
     row.prefixSeries = gm[1] + gm[3];
     row.rsl = gm[2];
     row.suffix = gm[4];
+    // The placeholder form drops any RSL, so M7TEE and every regional
+    // rendering (MW7TEE, ME7TEE, ...) normalise to the same M#7TEE key.
+    row.placeholderForm = `${gm[1]}#${gm[3]}${gm[4]}`;
   } else if (twoWithRsl) {
     row.parseStatus = 'parsed';
     row.prefixSeries = `2#${twoWithRsl[2]}`;
     row.rsl = twoWithRsl[1];
     row.suffix = twoWithRsl[3];
+    row.placeholderForm = `2#${twoWithRsl[2]}${twoWithRsl[3]}`;
   } else if (twoBare) {
     row.parseStatus = 'parsed';
     row.prefixSeries = `2#${twoBare[1]}`;
     row.rsl = '';
     row.suffix = twoBare[2];
+    row.placeholderForm = `2#${twoBare[1]}${twoBare[2]}`;
     flag('missing-rsl');
   } else {
     finaliseFlags(row);
@@ -214,6 +226,7 @@ export function componentRowToCells(row: ComponentRow): string[] {
     row.prefixSeries,
     row.rsl,
     row.suffix,
+    row.placeholderForm,
     row.homeCallsign,
     row.impliedClass,
     row.flags.join(';'),
