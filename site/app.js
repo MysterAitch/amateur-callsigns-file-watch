@@ -120,6 +120,74 @@ function placeholderOf(value) {
   return null;
 }
 
+// Name a visitor's home country from the ITU call-sign series table
+// (Radio Regulations Appendix 42, via reference data). Series rows are
+// three-character ranges ("P2A - P2Z"), so:
+// - third character a LETTER: exact range containment names one country.
+// - third character a DIGIT (e.g. PT2FM, 3D2AB): the series table indexes
+//   by third LETTER, so a split two-character block is ambiguous - list
+//   every holder honestly rather than guess (the 3D block splits
+//   Eswatini/Fiji, and 3D2 in practice is Fiji).
+async function visitorHomeCard(homeCallsign) {
+  const clean = homeCallsign.replace(/^[^A-Za-z0-9]+/, '').toUpperCase();
+  const shape = /^([A-Z0-9])([A-Z0-9]?)([A-Z0-9]?)/.exec(clean);
+  if (clean.length < 3 || !shape || !/[A-Z]/.test(clean[0]) && !/[0-9]/.test(clean[0])) {
+    return card('Visitor home callsign', [el('p', { class: 'muted', text:
+      `"${homeCallsign}" is too short or malformed to derive an ITU prefix.` })]);
+  }
+
+  // All series sharing the first character (at most ~50 rows).
+  const rows = await query('SELECT series, allocated_to FROM itu_series WHERE series LIKE ?', [`${clean[0]}%`]);
+  const ranges = rows.map(r => {
+    const m = /^(\S+)\s*-\s*(\S+)$/.exec(r.series);
+    return m ? { start: m[1], end: m[2], country: r.allocated_to, series: r.series } : null;
+  }).filter(Boolean);
+  if (ranges.length === 0) {
+    return card('Visitor home callsign', [el('p', { text:
+      `"${clean}" does not begin with a series in the ITU call-sign table - possibly malformed, or a prefix outside Appendix 42.` })]);
+  }
+
+  const named = (hit, how) => card('Visitor home callsign', [el('p', { text:
+    `${clean} ${how}, allocated to ${hit}.` })]);
+
+  // Single-letter prefix (digit in second position, e.g. W1AW, G0ICN): the
+  // callsign belongs to the whole first-letter block. If one country holds
+  // the entire block (USA for K/N/W, UK for G/M, ...), that names it.
+  if (/[0-9]/.test(clean[1])) {
+    const countries = [...new Set(ranges.map(r => r.country))];
+    if (countries.length === 1) return named(countries[0], `has a single-letter ${clean[0]} prefix (whole block)`);
+    return card('Visitor home callsign', [
+      el('p', { text: `${clean} has a single-letter ${clean[0]} prefix, but the ${clean[0]} block is split between allocations:` }),
+      renderTable(['series', 'allocated to'], ranges.map(r => [r.series, r.country]), 99),
+    ]);
+  }
+
+  // Two-character prefix with a letter third character: exact range match.
+  if (/[A-Z]/.test(clean[2])) {
+    const code = clean.slice(0, 3);
+    const hit = ranges.find(r => code >= r.start && code <= r.end);
+    if (hit) return named(hit.country, `falls in ITU series ${hit.series}`);
+  }
+
+  // Digit third character (e.g. PT2FM, 3D2AB): the series table indexes by
+  // third LETTER, so only the two-character block can be consulted. One
+  // holder names it; a split block (3D: Eswatini/Fiji) is listed honestly
+  // rather than guessed - 3D2 in practice is Fiji, but the table alone
+  // cannot say so.
+  const first2 = clean.slice(0, 2);
+  const blockRanges = ranges.filter(r => r.start.slice(0, 2) <= first2 && first2 <= r.end.slice(0, 2));
+  const countries = [...new Set(blockRanges.map(r => r.country))];
+  if (countries.length === 1) return named(countries[0], `begins with the ${first2} block`);
+  if (countries.length > 1) {
+    return card('Visitor home callsign', [
+      el('p', { text: `${clean} has a digit in the third position, and the ${first2} block is split between allocations - the ITU series table cannot name the country alone:` }),
+      renderTable(['series', 'allocated to'], blockRanges.map(r => [r.series, r.country]), 99),
+    ]);
+  }
+  return card('Visitor home callsign', [el('p', { text:
+    `"${clean}" does not fall in any ITU series for the ${clean[0]} block - possibly malformed.` })]);
+}
+
 // Suffix availability matrix (*TEE): one row per prefix series from
 // reference data, showing the register row where one exists. Where none
 // exists the register simply holds no record - Ofcom does not routinely
@@ -348,6 +416,10 @@ async function lookup(criteria) {
   if (row.home_callsign) componentRows.push(['home callsign (visitor)', row.home_callsign]);
   if (row.implied_class) componentRows.push(['implied licence class', row.implied_class]);
   sections.push(card('Components', [renderTable(['part', 'value'], componentRows, 99)]));
+
+  if (row.home_callsign) {
+    sections.push(await visitorHomeCard(row.home_callsign));
+  }
 
   // Regional renderings: every parsed callsign carries its RSL-placeholder
   // form (identical across all regional variants) - render each variant by
