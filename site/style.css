@@ -1,0 +1,61 @@
+:root {
+  --ink: #1a1a1a;
+  --paper: #fafafa;
+  --accent: #14506e;
+  --warn: #8a3c00;
+  --line: #d8d8d8;
+  font-family: system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e6e6e6;
+    --paper: #161616;
+    --accent: #7fbcd9;
+    --warn: #e8a35c;
+    --line: #3a3a3a;
+  }
+}
+body {
+  margin: 0 auto;
+  max-width: 60rem;
+  padding: 1.5rem;
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.5;
+}
+h1 { margin-bottom: 0.25rem; }
+.subtitle { color: color-mix(in srgb, var(--ink) 70%, transparent); max-width: 46rem; }
+a { color: var(--accent); }
+form { display: flex; gap: 0.5rem; align-items: center; margin: 1rem 0; flex-wrap: wrap; }
+input[type="text"] {
+  font: inherit;
+  font-family: ui-monospace, monospace;
+  text-transform: uppercase;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  min-width: 12rem;
+}
+button {
+  font: inherit;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--paper);
+  cursor: pointer;
+}
+table { border-collapse: collapse; margin: 0.75rem 0; width: 100%; }
+th, td { text-align: left; padding: 0.3rem 0.6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+code, .mono { font-family: ui-monospace, monospace; }
+.flag { display: inline-block; padding: 0.05rem 0.45rem; margin: 0 0.2rem 0.2rem 0; border: 1px solid var(--warn); border-radius: 999px; color: var(--warn); font-size: 0.85em; }
+.status-ok { color: #2e7d32; }
+.card { border: 1px solid var(--line); border-radius: 6px; padding: 0.75rem 1rem; margin: 0.75rem 0; }
+.card h3 { margin: 0 0 0.4rem; font-size: 1rem; }
+.muted { color: color-mix(in srgb, var(--ink) 60%, transparent); }
+.overflow { overflow-x: auto; }
+footer { margin-top: 2rem; font-size: 0.85em; color: color-mix(in srgb, var(--ink) 55%, transparent); }

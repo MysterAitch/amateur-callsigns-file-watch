@@ -1,0 +1,62 @@
+# ADR 0003: In-repo presentation proof of concept (GitHub Pages + published SQLite)
+
+Date: 2026-07-07
+Status: accepted
+
+## Context
+
+The repository's data now spans four strata (see `docs/normalised-schema.md`):
+source mirror, reference data, derived data, and presentation. The first
+three live here; presentation was assumed to live in downstream UI
+repositories. Issue #17 anticipated a consumer surface (SPA / SQLite export).
+
+A proof of concept demonstrating the full end-to-end flow — register →
+normalisation → components → reference joins → browser — is more valuable
+inside this repository than outside it, because what it demonstrates is
+*this repository's data contract*.
+
+## Decision
+
+1. **A simple lookup site lives in this repository** (`site/`, deliberately
+   frameworkless: no build step, no client-side npm supply chain). It is a
+   contract demonstrator, not a product; richer consumer experiences remain
+   downstream concerns.
+2. **A SQLite database is published to GitHub Pages** as the site's data
+   source, built by `src/ci/build-sqlite.ts` from committed data (latest
+   dataset's `normalised` + `components`, statistics for every dataset, all
+   `reference-data/` tables including the flag registry).
+3. **The database is never committed.** SQLite files are not
+   byte-deterministic, so the artefact lives outside the golden-master lane
+   entirely: derived fresh on every deploy from committed inputs, which
+   preserves the property that everything *in git* is reviewable and
+   reproducible.
+4. **The only client-side dependency, sql.js-httpvfs, is vendored at build
+   time from the npm-audited package** (copied out of `node_modules` into
+   the deploy artefact) — no CDN script tags, nothing vendored into git.
+   It queries the database via HTTP range requests, so browsers fetch
+   kilobytes, not the full ~24 MB file.
+5. **Deploy workflow** (`.github/workflows/pages.yml`): builds on pushes to
+   main; `contents: read` throughout; only the deploy job holds
+   `pages: write` + `id-token: write`. No repository writeback — consistent
+   with ADR 0002's write posture. Actions are digest-pinned per repository
+   convention.
+
+## Repository settings changed
+
+- **GitHub Pages enabled** with source "GitHub Actions" (Settings → Pages →
+  Build and deployment → Source: GitHub Actions). Applied manually by the
+  maintainer on 2026-07-07. To recreate: `gh api --method POST
+  "repos/{owner}/{repo}/pages" -f build_type=workflow` (or the UI).
+
+## Consequences
+
+- Every merge to main redeploys the site with fresh data — derivation PRs
+  therefore update the public lookup automatically once merged.
+- The published database is a convenience copy, not a record: its integrity
+  derives from the committed inputs it is built from, and it carries its
+  source commit in `build_info`.
+- The site publishes data already public in the repository; no new data
+  surface is created, only a new rendering of it.
+- If the PoC grows beyond "contract demonstrator", that growth belongs
+  downstream (issue #17 remains the tracking issue for a full consumer
+  surface).
