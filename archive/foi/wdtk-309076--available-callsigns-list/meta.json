@@ -37,6 +37,13 @@
         }
       ]
     },
+    "raw-extract-sheet-1-sheet1.csv": {
+      "bytes": 1447133,
+      "sha256": "fe98c573476a0d65604e882d46c822e544b50dfa876e7cfe4387c4498c79a124",
+      "role": "extract",
+      "extractOf": "Available Call Signs 21 01 16.xlsx",
+      "extractedBy": "tools/xlsx-extract.py"
+    },
     "correspondence.md": {
       "bytes": 2730,
       "sha256": "ef846dde4c5239c72eae52d3643c53a4f1ae8c4ab7f57d3101d1a48ed2e2c0b2",

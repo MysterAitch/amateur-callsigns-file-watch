@@ -34,6 +34,27 @@
         }
       ]
     },
+    "raw-extract-sheet-1-amateur-foundation.csv": {
+      "bytes": 448436,
+      "sha256": "687f180ca3679ed26feccc1f7479d03624ce00ba3437d419715b87a2534c8d41",
+      "role": "extract",
+      "extractOf": "List of Available Amateur Call signs 11 June 15.xlsx",
+      "extractedBy": "tools/xlsx-extract.py"
+    },
+    "raw-extract-sheet-2-amateur-intermediate.csv": {
+      "bytes": 605937,
+      "sha256": "f394e3d9095d59f8c3f3328af44726bb7964fa1d3083207c873e5ce4c259f7e6",
+      "role": "extract",
+      "extractOf": "List of Available Amateur Call signs 11 June 15.xlsx",
+      "extractedBy": "tools/xlsx-extract.py"
+    },
+    "raw-extract-sheet-3-amateur-full.csv": {
+      "bytes": 452987,
+      "sha256": "05a5e562e7f4ab4ad58ea46c5f83f4f43f6f2a869e065664d07e76612f890e10",
+      "role": "extract",
+      "extractOf": "List of Available Amateur Call signs 11 June 15.xlsx",
+      "extractedBy": "tools/xlsx-extract.py"
+    },
     "Unallocated call signs Sullivan.pdf": {
       "bytes": 148374,
       "sha256": "71e820e4dde2da4c2e9e80deccb4aa97522e8f42f0d4e60ffb01f6b1beab8f39",
