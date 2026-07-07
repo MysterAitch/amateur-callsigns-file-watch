@@ -10,20 +10,20 @@
   "respondedAt": "2013-09-12",
   "outcome": "successful",
   "dataVintage": "2013-09-06",
-  "datasetClass": "available-pool",
+  "datasetClasses": ["available-pool"],
   "converter": null,
   "files": {
     "Ofcom UK Amateur Radio Call sign list available as at 6 September 2013.xlsx": {
       "bytes": 277795,
       "sha256": "b19e7d3f6f15ac162873453ec77ea548ebff8c581bb26ee68ad1dd0bf06e7789",
       "role": "data",
-      "datasetClass": "available-pool",
+      "datasetClasses": ["available-pool"],
       "sheetsIndicative": {
         "note": "from declared xlsx dimensions - approximate only (may include blank rows; header-row presence unconfirmed); authoritative record counts come from the converter/normaliser",
         "sheets": [
-          { "name": "Foundation", "approxRows": 9100, "cols": "A:B" },
-          { "name": "Intermediate", "approxRows": 9684, "cols": "A:F" },
-          { "name": "Full", "approxRows": 7865, "cols": "A:L" }
+          { "name": "Foundation", "approxRows": 9100, "cols": "A:B", "datasetClass": "available-pool" },
+          { "name": "Intermediate", "approxRows": 9684, "cols": "A:F", "datasetClass": "available-pool" },
+          { "name": "Full", "approxRows": 7865, "cols": "A:L", "datasetClass": "available-pool" }
         ]
       },
       "witnesses": [
