@@ -47,6 +47,25 @@ button {
   color: var(--paper);
   cursor: pointer;
 }
+#flag-filters {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem 0.6rem;
+  display: flex;
+  gap: 0.25rem 0.9rem;
+  flex-wrap: wrap;
+  flex-basis: 100%;
+}
+#flag-filters legend { font-size: 0.85em; padding: 0 0.3rem; }
+#flag-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+.hint { font-size: 0.85em; }
 table { border-collapse: collapse; margin: 0.75rem 0; width: 100%; }
 th, td { text-align: left; padding: 0.3rem 0.6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { font-weight: 600; }

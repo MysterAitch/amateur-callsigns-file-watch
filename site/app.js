@@ -179,20 +179,57 @@ async function suffixMatrix(suffix, result) {
   result.replaceChildren(...sections);
 }
 
-// General wildcard (* matches any run of characters) over register values.
-async function wildcardList(value, result) {
-  const like = value.replace(/[%_]/g, ch => '\\' + ch).replace(/\*/g, '%');
-  const [count] = await query(`SELECT COUNT(*) AS n FROM components WHERE callsign LIKE ? ESCAPE '\\'`, [like]);
+const PAGE_SIZE = 50;
+
+// Paginated list of register rows matching an optional callsign wildcard
+// and/or selected flags (AND semantics: a row must carry every selected
+// flag, so the count is simply the number of matching rows). Flags are
+// stored semicolon-separated, so each token match wraps both sides in ';'
+// for exactness (no prefix collisions).
+async function filteredList(value, flags, page, result) {
+  const conds = [];
+  const params = [];
+  if (value !== '') {
+    conds.push(`c.callsign LIKE ? ESCAPE '\\'`);
+    params.push(value.replace(/[%_]/g, ch => '\\' + ch).replace(/\*/g, '%'));
+  }
+  for (const flag of flags) {
+    conds.push(`(';' || c.flags || ';') LIKE ?`);
+    params.push(`%;${flag};%`);
+  }
+  const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : '';
+  const [count] = await query(`SELECT COUNT(*) AS n FROM components c ${where}`, params);
   const rows = await query(
     `SELECT c.callsign, n.status, n.product, c.flags
      FROM components c JOIN normalised n ON n.callsign = c.callsign
-     WHERE c.callsign LIKE ? ESCAPE '\\' ORDER BY c.callsign LIMIT 100`, [like]);
-  result.replaceChildren(card(`Wildcard "${value}" — ${count.n} match(es)${count.n > 100 ? ', first 100 shown' : ''}`, [
+     ${where} ORDER BY c.callsign LIMIT ${PAGE_SIZE} OFFSET ${page * PAGE_SIZE}`, params);
+
+  const total = count.n;
+  const first = total === 0 ? 0 : page * PAGE_SIZE + 1;
+  const last = page * PAGE_SIZE + rows.length;
+  const title = [value !== '' ? `"${value}"` : null, flags.length > 0 ? `flags: ${flags.join(' + ')}` : null]
+    .filter(Boolean).join(' · ');
+
+  const nav = el('p', {});
+  if (page > 0) {
+    const prev = el('button', { type: 'button', text: '← previous' });
+    prev.addEventListener('click', () => void filteredList(value, flags, page - 1, result));
+    nav.append(prev, ' ');
+  }
+  nav.append(el('span', { class: 'muted', text: ` showing ${first}–${last} of ${total} ` }));
+  if (last < total) {
+    const next = el('button', { type: 'button', text: 'next →' });
+    next.addEventListener('click', () => void filteredList(value, flags, page + 1, result));
+    nav.append(' ', next);
+  }
+
+  result.replaceChildren(card(`Matches — ${title}`, [
     renderTable(['callsign', 'status', 'product', 'flags'], rows.map(r => [r.callsign, r.status, r.product, r.flags]), 99),
+    nav,
   ]));
 }
 
-async function lookup(rawInput) {
+async function lookup(rawInput, flags) {
   const result = document.getElementById('result');
   result.hidden = false;
   result.replaceChildren(el('p', { class: 'muted', text: 'querying…' }));
@@ -200,12 +237,12 @@ async function lookup(rawInput) {
   const value = rawInput.trim().toUpperCase();
 
   const suffixOnly = /^\*([A-Z]{1,4})$/.exec(value);
-  if (suffixOnly) {
+  if (suffixOnly && flags.length === 0) {
     await suffixMatrix(suffixOnly[1], result);
     return;
   }
-  if (value.includes('*')) {
-    await wildcardList(value, result);
+  if (value.includes('*') || (flags.length > 0 && value === '')) {
+    await filteredList(value, flags, 0, result);
     return;
   }
 
@@ -312,11 +349,31 @@ async function lookup(rawInput) {
   result.replaceChildren(...sections);
 }
 
+async function populateFlagFilters() {
+  try {
+    const fieldset = document.getElementById('flag-filters');
+    const registry = await query('SELECT flag, meaning FROM flag_registry ORDER BY flag');
+    for (const r of registry) {
+      const box = el('input', { type: 'checkbox', value: r.flag });
+      const label = el('label', { title: r.meaning }, [box, r.flag]);
+      fieldset.append(label);
+    }
+  } catch {
+    /* filters stay empty if the registry can't load */
+  }
+}
+
+function selectedFlags() {
+  return [...document.querySelectorAll('#flag-filters input:checked')].map(box => box.value);
+}
+
 document.getElementById('lookup-form').addEventListener('submit', (event) => {
   event.preventDefault();
   const input = document.getElementById('callsign').value;
-  if (input.trim() !== '') void lookup(input);
+  const flags = selectedFlags();
+  if (input.trim() !== '' || flags.length > 0) void lookup(input, flags);
 });
 
+void populateFlagFilters();
 void renderAggregates();
 void renderBuildInfo();
