@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 271469,
+  "ofcomReference": "1-296727561",
+  "requestUrl": "https://www.whatdotheyknow.com/request/unallocated_uk_amateur_radio_cal",
+  "title": "Unallocated UK amateur radio callsigns request",
+  "requester": "dean_sullivan",
+  "requestedAt": "2015-06-02",
+  "respondedAt": "2015-06-15",
+  "outcome": "successful",
+  "dataVintage": "2015-06-11",
+  "datasetClasses": ["available-pool"],
+  "converter": null,
+  "files": {
+    "List of Available Amateur Call signs 11 June 15.xlsx": {
+      "bytes": 960526,
+      "sha256": "98ada5cd77ddeef08311557885707688d2467a90048524c7dd6d4d86035eae2a",
+      "role": "data",
+      "datasetClasses": ["available-pool"],
+      "sheetsIndicative": {
+        "note": "from declared xlsx dimensions - approximate only; sheet names carry an 'Amateur' prefix unlike sibling files; authoritative record counts come from the converter/normaliser",
+        "sheets": [
+          { "name": "Amateur Foundation", "approxRows": 6499, "cols": "A:H", "datasetClass": "available-pool" },
+          { "name": "Amateur Intermediate", "approxRows": 8534, "cols": "A:H", "datasetClass": "available-pool" },
+          { "name": "Amateur Full", "approxRows": 7191, "cols": "A:H", "datasetClass": "available-pool" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/unallocated_uk_amateur_radio_cal/response/664819/attach/4/List%20of%20Available%20Amateur%20Call%20signs%2011%20June%2015.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "Unallocated call signs Sullivan.pdf": {
+      "bytes": 148374,
+      "sha256": "71e820e4dde2da4c2e9e80deccb4aa97522e8f42f0d4e60ffb01f6b1beab8f39",
+      "role": "response-letter",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/unallocated_uk_amateur_radio_cal/response/664819/attach/3/Unallocated%20call%20signs%20Sullivan.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-unallocated-call-signs-sullivan.md": {
+      "bytes": 882,
+      "sha256": "bdeabe34c485659ad2d215936d0f991a9b418a68a54da1f7f3f2f2b1a87b9a2d",
+      "role": "extract",
+      "extractOf": "Unallocated call signs Sullivan.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 2092,
+      "sha256": "2340ca7f42f74a78fbafff38bc94f17e4dd4f771915fe89b7e83242b6eb8123f",
+      "role": "transcript"
+    }
+  }
+}
