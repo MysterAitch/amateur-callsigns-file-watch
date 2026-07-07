@@ -64,6 +64,45 @@ describe('parseCallsign', () => {
   it('Parse_WhenVisitorFormat_HomeCallsignPreservedUnparsed', () => {
     const r = parsed('M/PT2FM', 'Amateur Full (Temporary Reciprocal) Radio Licence');
     expect(r).toMatchObject({ parseStatus: 'visitor', homeCallsign: 'PT2FM', prefixSeries: '', placeholderForm: '', impliedClass: '' });
+    expect(r.flags).not.toContain('malformed-home-callsign');
+  });
+
+  it('Parse_WhenVisitorHomeIsAllDigits_MalformedHomeFlagged', () => {
+    const r = parsed('M/1234', '');
+    expect(r.parseStatus).toBe('visitor');
+    expect(r.flags).toContain('malformed-home-callsign');
+  });
+
+  it('Parse_WhenVisitorHomeHasNoDigit_MalformedHomeFlagged', () => {
+    const r = parsed('M/ABCDE', '');
+    expect(r.flags).toContain('malformed-home-callsign');
+  });
+
+  it('Parse_WhenVisitorHomeIsNestedVisitorForm_MalformedHomeFlagged', () => {
+    // Real register value: M/M/PT2FM - the home portion carries a stray '/'.
+    const r = parsed('M/M/PT2FM', '');
+    expect(r).toMatchObject({ parseStatus: 'visitor', homeCallsign: 'M/PT2FM' });
+    expect(r.flags).toContain('malformed-home-callsign');
+  });
+
+  it('Parse_WhenVisitorHomeTooShort_MalformedHomeFlagged', () => {
+    const r = parsed('M/AB', '');
+    expect(r.flags).toContain('malformed-home-callsign');
+  });
+
+  it('Parse_WhenVisitorHomeStartsWithZeroOrOne_MalformedHomeFlagged', () => {
+    // No ITU call-sign series begins with 0 or 1 (empirical:
+    // reference-data/itu-call-sign-series.csv) - real register value 1CNB.
+    const r = parsed('M/1CNB', '');
+    expect(r.flags).toContain('malformed-home-callsign');
+  });
+
+  it('Parse_WhenVisitorHomeHasDigitFirstButValidSeries_NotFlagged', () => {
+    // Digit-first home callsigns are legitimate (3DA0X, 5B4AHJ) - only
+    // 0/1-first is outside every ITU series.
+    const r = parsed('M/5B4AHJ', '');
+    expect(r.parseStatus).toBe('visitor');
+    expect(r.flags).not.toContain('malformed-home-callsign');
   });
 
   it('Parse_WhenGbPrefixed_ClassifiedSpecialEvent', () => {
@@ -158,6 +197,6 @@ describe('reference data loading', () => {
 describe('schema constants', () => {
   it('ComponentColumns_StableContract', () => {
     expect(COMPONENT_COLUMNS).toEqual(['callsign', 'parse_status', 'prefix_series', 'rsl', 'suffix', 'placeholder_form', 'home_callsign', 'implied_class', 'flags']);
-    expect(COMPONENTS_SCHEMA_VERSION).toBe(2);
+    expect(COMPONENTS_SCHEMA_VERSION).toBe(3);
   });
 });

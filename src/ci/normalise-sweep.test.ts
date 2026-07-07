@@ -75,7 +75,7 @@ describe('runNormaliseSweep', () => {
     const normalised = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'normalised.csv'), 'utf8');
     expect(normalised.startsWith('callsign,product,status,type,')).toBe(true);
     const meta = readMeta(tmpRoot, '2026-01-01');
-    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 4, componentsSchemaVersion: 2 });
+    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 4, componentsSchemaVersion: 3 });
     expect(meta.files['normalised.csv'].sha256).toBe(sha256(normalised));
     expect(meta.files['normalised.csv'].recordCount).toBe(2);
   });
@@ -178,7 +178,7 @@ describe('runNormaliseSweep', () => {
     const meta = readMeta(tmpRoot, '2026-01-01');
     expect(meta.files['components.csv'].sha256).toBe(sha256(components));
     expect(meta.files['components.csv'].recordCount).toBe(2);
-    expect(meta.normalised?.componentsSchemaVersion).toBe(2);
+    expect(meta.normalised?.componentsSchemaVersion).toBe(3);
   });
 
   it('Report_WhenEntryBetweenNeighbours_MatrixColumnsCoverBothDirections', () => {

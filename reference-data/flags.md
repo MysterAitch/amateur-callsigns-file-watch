@@ -24,6 +24,7 @@ not the row format.
 | `suffix-length-abnormal` | suffix length outside 2–3 letters ("normally, three letters"; two-letter forms are heritage; single letters are NoV contest callsigns, not register entries) | Ofcom guidance §5.2 |
 | `class-product-mismatch` | licence class implied by the prefix series disagrees with the `product` column (both known). The flag records the discrepancy, not a verdict: causes are unknown — plausibly issuance-time input errors uncorrected since, plausibly legitimate arrangements not publicly stated (e.g. permission to use a deceased relative's callsign at the holder's own licence level). Full standing table: `reports/class-product-mismatches.md` | empty product = never-licensed, never a mismatch; 24 rows in the live register |
 | `stripped-collision` | the value stripped to plain characters (`[A-Za-z0-9/#]`) coexists as its own row — the register lists one callsign twice | confirmed live (`G0TQK`, `G7IWE`, `G6FMU`, `M/EI8DJ`) |
+| `malformed-home-callsign` | visitor (`M/…`) row whose home-callsign portion cannot be a callsign: shorter than 3 characters, characters outside A–Z/0–9, missing a letter or a digit, or starting `0`/`1` (no ITU call-sign series begins with either — empirical, `itu-call-sign-series.csv`) | confirmed live (`M/1234`, `M/1CNB`, nested `M/M/PT2FM`) |
 
 Statuses (the `parse_status` column) are not flags: `parsed`, `visitor`
 (`M/` + home callsign), `special-event` (`GB…`), `empty`, `unparseable`.
