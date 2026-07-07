@@ -98,6 +98,12 @@ Rationale:
   ancestor of `origin/main` after merge, so its tick-start `git pull --ff-only`
   converges without divergence handling. Squash or rebase merges would break that
   convergence property (new SHAs), so data PRs must never be squashed.
+- `allow_squash_merge = false`, `allow_rebase_merge = false` (hardened 2026-07-07) —
+  the never-squash rule above was previously convention-only; a mis-click on any data
+  PR would rewrite the commit SHA, diverge the fetch host's local `main` from
+  `origin/main`, and wedge its next `git pull --ff-only` until manual intervention.
+  Merge commit is now the only method the UI offers, turning the convention into a
+  structural guarantee (at the cost of squash on code PRs, judged worth it).
 - `delete_branch_on_merge = true` — merged `data/*` branches are litter; the sweep also
   deletes fully-merged leftovers defensively.
 
