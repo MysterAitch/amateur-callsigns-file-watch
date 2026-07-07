@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-amateur-callsigns",
+  "provenance": "reconstructed-from-prior-download",
+  "intendedCoverage": {
+    "complete": true,
+    "scopeNotes": "151,157 records - consistent with the full register between the 2017 FOI (135,866) and the 2023-02-20 publication (152,084)."
+  },
+  "fetchedAt": "2022-05-30T00:00:00Z",
+  "reconstructionNotes": "Recovered from the maintainer's Amateur-Radio-Callsign-Browser repository (commit 3075df0, 2023-05-10, 'Add call sign data, available and re-used under the Open Government Licence v3'; path at commit: 'data/archive/amateur-callsigns -- 2022.05.30.csv'). That repository holds two downloads of this dataset - filenames dated 2022-05-30 and 2022-07-26 - which are byte-identical, so Ofcom's publication predates 2022-05-30 and was unchanged for at least two months. Ofcom's own publication date is unknown; the earliest observed download date (2022-05-30) is used as the archive key, and fetchedAt records that date at midnight UTC for want of a finer timestamp. Oldest known header variant (Value,Status,Type - no product, no dates).",
+  "files": {
+    "raw.csv": {
+      "size": 5541149,
+      "sha256": "8ccd62b2373d3ea363e72f77d9ac1a61069816fd90c9fde05e9081c809ce2915",
+      "format": "csv",
+      "columnCount": 3,
+      "columnNames": [
+        "Value",
+        "Status",
+        "Type"
+      ],
+      "recordCount": 151157
+    }
+  }
+}

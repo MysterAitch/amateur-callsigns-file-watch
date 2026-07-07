@@ -46,6 +46,14 @@ const DATE_COLUMNS: ReadonlySet<CanonicalColumn> = new Set([
 // match is exact and order-sensitive - Ofcom's exports are machine-generated,
 // so any deviation is a genuinely new variant deserving review.
 const VARIANTS: Record<string, Record<string, CanonicalColumn>> = {
+  // 2022 opendata export (oldest known variant): three columns only - no
+  // product, no dates. Recovered from a prior download (see the 2022-05-30
+  // archive entry's reconstructionNotes).
+  'v2022-minimal': {
+    'Value': 'callsign',
+    'Status': 'status',
+    'Type': 'type',
+  },
   // 2023 opendata export (no Type column; single date with an MMSI-flavoured label).
   'v2023-mmsi': {
     'Value': 'callsign',
