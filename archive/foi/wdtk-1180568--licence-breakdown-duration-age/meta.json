@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 1180568,
+  "ofcomReference": "1900117",
+  "requestUrl": "https://www.whatdotheyknow.com/request/radio_amateur_licence_breakdown",
+  "title": "Radio amateur licence breakdown by duration held and age",
+  "requester": "roger_howell",
+  "requestedAt": "2024-09-30",
+  "respondedAt": "2024-10-28",
+  "outcome": "successful",
+  "dataVintage": "2024-10",
+  "dataVintageNote": "undated export, between the request (2024-09-30) and the response (2024-10-28)",
+  "datasetClasses": ["register-snapshot", "attribute-addendum"],
+  "converter": null,
+  "files": {
+    "FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 1.csv": {
+      "bytes": 5891407,
+      "sha256": "b04c1b2881769c8a5eee30889629e967d6d27f0c1c7cfdcae953fe57d1be5e02",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "contentsIndicative": "header Value,Status,Type,Reserved to Date; 156,256 data rows (verified by line count); full register snapshot carrying the reservation-expiry column seen in no other publication; Salesforce-era column names",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/radio_amateur_licence_breakdown/response/2807049/attach/13/FOI%201900117%20Radio%20amateur%20licence%20breakdown%20by%20duration%20held%20and%20age%20sheet%201.csv",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 2.csv": {
+      "bytes": 7260281,
+      "sha256": "a6c853fbc67dac85eb7526e71b9849c36f39526433df77e7c38c0d94b7fabd1b",
+      "role": "data",
+      "datasetClasses": ["attribute-addendum"],
+      "contentsIndicative": "header Created Date,Status,Call Sign,Original start date,Licence Type; 103,720 data rows (verified by line count); per-licence rows with issue dates - the duration-held source",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/radio_amateur_licence_breakdown/response/2807049/attach/14/FOI%201900117%20Radio%20amateur%20licence%20breakdown%20by%20duration%20held%20and%20age%20sheet%202.csv",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "FOI 1900117 Radio amateur licence breakdown by duration held and age.pdf": {
+      "bytes": 146468,
+      "sha256": "6b5caa4df19d70e5df59aca341aa2ac29a3e0f8232bdf1438f59103f2af0289e",
+      "role": "response-letter",
+      "contentsIndicative": "quotes the request in full; s.40(2) withholding of age/year of birth (absolute exemption)",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/radio_amateur_licence_breakdown/response/2807049/attach/12/FOI%201900117%20Radio%20amateur%20licence%20breakdown%20by%20duration%20held%20and%20age.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-foi-1900117-response.md": {
+      "bytes": 3569,
+      "sha256": "db1cf5e0229fe400b9c04d77ef5301a2e9e8d8943d9886609226986805938085",
+      "role": "extract",
+      "extractOf": "FOI 1900117 Radio amateur licence breakdown by duration held and age.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 5004,
+      "sha256": "d88e89acf56a4835d08fba9a21e0eb18f9e12e5d129fdd9b8b90bed6dc3219eb",
+      "role": "transcript"
+    }
+  }
+}
