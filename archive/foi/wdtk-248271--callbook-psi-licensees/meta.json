@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 248271,
+  "ofcomReference": "1-277622422",
+  "requestUrl": "https://www.whatdotheyknow.com/request/list_of_licencees_of_the_amateur",
+  "title": "List of licencees of the Amateur Radio Call book data under Re-use of Public Sector Information Regulations 2000",
+  "requester": "mark_witton",
+  "requestedAt": "2015-01-14",
+  "respondedAt": "2015-01-26",
+  "outcome": "successful",
+  "dataVintage": "2015-01",
+  "datasetClasses": ["reference-context"],
+  "converter": null,
+  "files": {
+    "150126 Response to MW Ofcom Amateur Call Book 1 277622422.pdf": {
+      "bytes": 106430,
+      "sha256": "87fc9eaa0234b741adccc641568de1457b6688af1785e9f99d2e54ee210b28f5",
+      "role": "response-letter",
+      "contentsIndicative": "the zero-licensees answer: one application form ever requested, none completed; Ofcom aware of no PSI call-book licensee",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_licencees_of_the_amateur/response/610102/attach/3/150126%20Response%20to%20MW%20Ofcom%20Amateur%20Call%20Book%201%20277622422.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "Amateur Radio Callbook PSI 1.pdf": {
+      "bytes": 86277,
+      "sha256": "a10f3e6a50a411f9caf8cb79f8e41889d7233b32afbaa98d0cf89ddebcebd53c",
+      "role": "data",
+      "datasetClasses": ["reference-context"],
+      "contentsIndicative": "Ofcom's published PSI 1 application form + click-use licence terms (May 2009): callsign + name + mailing address, callbook purposes only, free, one-year term - the never-used formal route to call-book data",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_licencees_of_the_amateur/response/610102/attach/4/Amateur%20Radio%20Callbook%20PSI%201.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "150114 acknowledgement to Mr M Witton 1 277622422.pdf": {
+      "bytes": 95329,
+      "sha256": "9adf1889d6b862a4e8a1916c659261ee67d625d50fcab6938ad6324086e27851",
+      "role": "acknowledgement-letter",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_licencees_of_the_amateur/response/609679/attach/3/150114%20acknowledgement%20to%20Mr%20M%20Witton%201%20277622422.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-150126-response-to-mw.md": {
+      "bytes": 1654,
+      "sha256": "eedd14cf09f09a00451cce213e954014f9c34c957693a0fa0ba62ccb79d35c78",
+      "role": "extract",
+      "extractOf": "150126 Response to MW Ofcom Amateur Call Book 1 277622422.pdf"
+    },
+    "raw-extract-amateur-radio-callbook-psi-1.md": {
+      "bytes": 7228,
+      "sha256": "cf5d76c02c366c342e345415a927dddebc2f795eda785d3ac1829684119baa09",
+      "role": "extract",
+      "extractOf": "Amateur Radio Callbook PSI 1.pdf"
+    },
+    "raw-extract-150114-acknowledgement.md": {
+      "bytes": 1001,
+      "sha256": "a797bfc0cb2d628dab643248aae68d73b13153a441779fb41f4fe6194491fea1",
+      "role": "extract",
+      "extractOf": "150114 acknowledgement to Mr M Witton 1 277622422.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 3369,
+      "sha256": "dac58cf59034f363ba256659a5d2e78299ad6029b8ca69a3c48a2a6bad0e5ede",
+      "role": "transcript"
+    }
+  }
+}
