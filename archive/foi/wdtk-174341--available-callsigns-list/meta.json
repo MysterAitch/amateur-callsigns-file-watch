@@ -10,20 +10,39 @@
   "respondedAt": "2013-09-12",
   "outcome": "successful",
   "dataVintage": "2013-09-06",
-  "datasetClasses": ["available-pool"],
+  "datasetClasses": [
+    "available-pool"
+  ],
   "converter": null,
   "files": {
     "Ofcom UK Amateur Radio Call sign list available as at 6 September 2013.xlsx": {
       "bytes": 277795,
       "sha256": "b19e7d3f6f15ac162873453ec77ea548ebff8c581bb26ee68ad1dd0bf06e7789",
       "role": "data",
-      "datasetClasses": ["available-pool"],
+      "datasetClasses": [
+        "available-pool"
+      ],
       "sheetsIndicative": {
         "note": "from declared xlsx dimensions - approximate only (may include blank rows; header-row presence unconfirmed); authoritative record counts come from the converter/normaliser",
         "sheets": [
-          { "name": "Foundation", "approxRows": 9100, "cols": "A:B", "datasetClass": "available-pool" },
-          { "name": "Intermediate", "approxRows": 9684, "cols": "A:F", "datasetClass": "available-pool" },
-          { "name": "Full", "approxRows": 7865, "cols": "A:L", "datasetClass": "available-pool" }
+          {
+            "name": "Foundation",
+            "approxRows": 9100,
+            "cols": "A:B",
+            "datasetClass": "available-pool"
+          },
+          {
+            "name": "Intermediate",
+            "approxRows": 9684,
+            "cols": "A:F",
+            "datasetClass": "available-pool"
+          },
+          {
+            "name": "Full",
+            "approxRows": 7865,
+            "cols": "A:L",
+            "datasetClass": "available-pool"
+          }
         ]
       },
       "witnesses": [
@@ -59,9 +78,21 @@
       ]
     },
     "correspondence.md": {
-      "bytes": 2937,
-      "sha256": "c8ada61e960930b4f402f2168279b97bd24f6efdbcfa91e4a708e32b000b5409",
+      "bytes": 2965,
+      "sha256": "f6736efe4794ab242f23732a73466b8a9a0af1e1127c7c5494a0b90972c280ca",
       "role": "transcript"
+    },
+    "raw-extract-foi-1-241825298-full-response.md": {
+      "bytes": 2436,
+      "sha256": "054041bc537ec4abee83879e10074abce164b5648534631d2a0138caa941aaad",
+      "role": "extract",
+      "extractOf": "FoI 1 241825298 Full Response.pdf"
+    },
+    "raw-extract-foi-1-241825298-letter-of-acknowledgement.md": {
+      "bytes": 879,
+      "sha256": "e471230fd671be9880bef88e28fa4f3f3a83c46c4bab3ec308385ad09fa2d1cc",
+      "role": "extract",
+      "extractOf": "FoI 1 241825298 Letter of Acknowledgement.pdf"
     }
   }
 }

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "sourceKey": "wdtk-foi",
   "requestId": 224333,
-  "ofcomReference": null,
+  "ofcomReference": "1-267483222",
   "requestUrl": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio_2",
   "title": "List of available Amateur Radio Call-signs",
   "requester": "mr_james_11",
@@ -10,20 +10,39 @@
   "respondedAt": "2014-08-18",
   "outcome": "successful",
   "dataVintage": "2014-08-18",
-  "datasetClasses": ["available-pool"],
+  "datasetClasses": [
+    "available-pool"
+  ],
   "converter": null,
   "files": {
     "Available Amateur Radio Call Signs 18 August 2014.xlsx": {
       "bytes": 267595,
       "sha256": "037b34349a2f12dcaee0dc380aae4124cb797382356ac8f0a8be30ec354bf065",
       "role": "data",
-      "datasetClasses": ["available-pool"],
+      "datasetClasses": [
+        "available-pool"
+      ],
       "sheetsIndicative": {
         "note": "from declared xlsx dimensions - approximate only (may include blank rows; header-row presence unconfirmed); authoritative record counts come from the converter/normaliser",
         "sheets": [
-          { "name": "Foundation", "approxRows": 7658, "cols": "A:B", "datasetClass": "available-pool" },
-          { "name": "Intermediate", "approxRows": 9059, "cols": "A:B", "datasetClass": "available-pool" },
-          { "name": "Full", "approxRows": 7492, "cols": "A:B", "datasetClass": "available-pool" }
+          {
+            "name": "Foundation",
+            "approxRows": 7658,
+            "cols": "A:B",
+            "datasetClass": "available-pool"
+          },
+          {
+            "name": "Intermediate",
+            "approxRows": 9059,
+            "cols": "A:B",
+            "datasetClass": "available-pool"
+          },
+          {
+            "name": "Full",
+            "approxRows": 7492,
+            "cols": "A:B",
+            "datasetClass": "available-pool"
+          }
         ]
       },
       "witnesses": [
@@ -50,6 +69,12 @@
       "bytes": 4676,
       "sha256": "a0fb775e2cca8d514a96e6de0c63363b4e45f227b50e5c1c53ba264bdcdbafef",
       "role": "transcript"
+    },
+    "raw-extract-letter-of-acknowledgement.md": {
+      "bytes": 969,
+      "sha256": "3eb8e5a9e612f9bbb98043155431364bcccc33f344a5811b8fe2ad0f1957a291",
+      "role": "extract",
+      "extractOf": "Letter of Acknowledgement.pdf"
     }
   }
 }
