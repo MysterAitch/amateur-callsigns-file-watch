@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 174341,
+  "ofcomReference": "FoI 1-241825298",
+  "requestUrl": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio",
+  "title": "List of available Amateur Radio Call-signs",
+  "requester": "john_smith_63",
+  "requestedAt": "2013-08-23",
+  "respondedAt": "2013-09-12",
+  "outcome": "successful",
+  "dataVintage": "2013-09-06",
+  "datasetClass": "available-pool",
+  "converter": null,
+  "files": {
+    "Ofcom UK Amateur Radio Call sign list available as at 6 September 2013.xlsx": {
+      "bytes": 277795,
+      "sha256": "b19e7d3f6f15ac162873453ec77ea548ebff8c581bb26ee68ad1dd0bf06e7789",
+      "role": "data",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio/response/428992/attach/1/Ofcom%20UK%20Amateur%20Radio%20Call%20sign%20list%20available%20as%20at%206%20September%202013.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 2003,
+      "sha256": "73d9a8b9066bf7371342edfccb5b90f9c6fc42f6c0e3bbba62ad679971a5f0c7",
+      "role": "transcript"
+    }
+  },
+  "localOnlyFiles": {
+    "FoI 1 241825298 Full Response.pdf": {
+      "bytes": 89216,
+      "sha256": "e3201db20aa0b1cb976cab90d116bac05649bd63b5e1878bd1d2d7e64c030641",
+      "reason": "response letter; embeds requester contact artefacts - retained in the local drop zone only"
+    },
+    "FoI 1 241825298 Letter of Acknowledgement.pdf": {
+      "bytes": 45176,
+      "sha256": "95c0f77ece1a09719b548fbedf0e74e5f29e6e7a1cac0fe1718ab1f4c17a2e7f",
+      "reason": "acknowledgement letter; same rule"
+    }
+  }
+}
