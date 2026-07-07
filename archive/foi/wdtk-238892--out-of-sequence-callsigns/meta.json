@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "sourceKey": "wdtk-foi",
   "requestId": 238892,
-  "ofcomReference": "1-273972981 / 1-274238044 / 1-274894363 / 1-276484403",
+  "ofcomReference": "1-273972981 / 1-274238044 / 1-274894363 / 1-276355280 / 1-276484403 / 1-277884351",
   "requestUrl": "https://www.whatdotheyknow.com/request/out_of_sequence_amateur_radio_ca",
   "title": "Out of sequence amateur radio callsigns",
   "requester": "peter_eckersley_2",
@@ -10,7 +10,7 @@
   "respondedAt": "2015-01-21",
   "outcome": "successful",
   "dataVintage": "2015-01",
-  "datasetClasses": ["attribute-addendum", "statistics-aggregate", "reference-context"],
+  "datasetClasses": ["attribute-addendum", "reference-context"],
   "converter": null,
   "files": {
     "Pre War Callsigns.xlsx": {
@@ -70,9 +70,27 @@
         }
       ]
     },
+    "raw-extract-call-signs-series-before-ww2.md": {
+      "bytes": 3060,
+      "sha256": "dd4d4563767da31bcf948266c9d46279074195a27a4a416adf7c2e9b0814e0b1",
+      "role": "extract",
+      "extractOf": "Call signs series before WW2.pdf"
+    },
+    "raw-extract-response-callsigns-out-of-sequential-order-181214.md": {
+      "bytes": 3207,
+      "sha256": "0f4114506e017c66e45edccfd2717cf97d872eafd68c71d546f56a15edc32d4b",
+      "role": "extract",
+      "extractOf": "Response callsigns out of sequential order 181214.pdf"
+    },
+    "raw-extract-2014-01-19-1-276484403.md": {
+      "bytes": 5088,
+      "sha256": "804537110fd67bf1cc13620e0b3ed3632cb55edf9f568231f890e90e20ae7377",
+      "role": "extract",
+      "extractOf": "2014 01 19 1 276484403.pdf"
+    },
     "correspondence.md": {
-      "bytes": 11085,
-      "sha256": "4a274145878dfa3da80afe6610f0d1bd32dbcdd165e156a4623cc3beb605016c",
+      "bytes": 11953,
+      "sha256": "e6f9ac392aef70f0bc6bed737ebb88ae8e6f74a9f7dcda30adcec0f03bb8429e",
       "role": "transcript"
     }
   }

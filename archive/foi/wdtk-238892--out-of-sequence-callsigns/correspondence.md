@@ -27,16 +27,31 @@
   - `Database Fields` — ~42 rows × cols A:B, reference-context (field
     dictionary for the licensing records — the requester's schema ask)
   - `Sheet3` — empty
-- **Withheld** (initially): the original ten-year request was refused on
-  cost grounds (s.12 territory; see `Call signs series before WW2.pdf` and
-  `Response callsigns out of sequential order 181214.pdf`); the internal
-  review (`2014 01 19 1 276484403.pdf`) substantively delivered the data.
-- **Significance**: the deepest-history callsign dataset held by this
-  archive (pre-war G-series two-letter suffixes with post-1945
-  re-assignment history); the `Database Fields` sheet is an on-the-record
-  schema of Ofcom's then-current licensing records; the requester's
-  2014-12-28 message puts licensing-system history on the record (claims:
-  new system live 2007; paper records computerised by the 1980s).
+- **Withheld** (initially): both original requests refused under s.12
+  (£450 limit, >18-hour estimates; the pre-WW2 one with
+  neither-confirm-nor-deny on archive holdings) — **reversed at internal
+  review, with Ofcom stating the s.12 conclusion "turned out to not be
+  accurate"**; the out-of-sequence *counts* remained unprovided for a
+  different reason: not held (see below). See the raw extracts of all
+  three letters.
+- **Significance** (all on the record, from the letters — see extracts):
+  - **No strict sequencing exists**: Ofcom listed all callsigns issued
+    since 1 December 2006 in date order and found "there does not appear
+    to any strict sequencing of the call-signs… licensees have the ability
+    to request their own personalised callsign upon application. This
+    appears to be the more standard practice" — so out-of-sequence counts
+    are information Ofcom does not hold.
+  - **System history confirmed by Ofcom** (not just the requester's
+    claims): "Our current database went live in 2007 and all licences were
+    re-issued at this point in a new format"; prior records, where held,
+    are paper.
+  - **Pre-war format statement**: "all call signs issued before World War
+    2, were in the format 'GXaa'".
+  - The `Database Fields` sheet is the column-headings schema of the
+    amateur licensing database, with the caveat that "not all these fields
+    are populated for each licensee".
+  - The deepest-history callsign dataset held by this archive (pre-war
+    G-series two-letter suffixes with post-1945 re-assignment history).
 
 ## Exchange (verbatim; relay email addresses and signature boilerplate omitted)
 
