@@ -25,11 +25,35 @@
         <label for="callsign">Callsign</label>
         <input id="callsign" name="callsign" type="text" placeholder="e.g. M7TEE, MW7TEE, M#7TEE or *TEE" autocomplete="off" spellcheck="false">
         <button type="submit">Look up</button>
-        <fieldset id="flag-filters">
-          <legend class="muted">Flag filters — results must carry <em>all</em> ticked flags</legend>
-        </fieldset>
+        <details id="filters">
+          <summary>Filters <span class="muted">(within a group: any ticked value matches; across groups: all conditions apply)</span></summary>
+          <fieldset id="status-filters">
+            <legend class="muted">register status</legend>
+          </fieldset>
+          <fieldset id="parse-filters">
+            <legend class="muted">parse status</legend>
+          </fieldset>
+          <fieldset id="flag-filters">
+            <legend class="muted">flags — rows must carry <em>all</em> ticked</legend>
+          </fieldset>
+          <fieldset id="shape-filters">
+            <legend class="muted">shape</legend>
+            <label>prefix series
+              <select id="series-filter"><option value="">any</option></select>
+            </label>
+            <label>length
+              <input id="length-filter" type="number" min="1" max="20" placeholder="any">
+            </label>
+            <label title="A = letter, N = digit, other characters literal. e.g. ANAAA or 2NAAA">pattern
+              <input id="pattern-filter" type="text" placeholder="e.g. ANAAA" spellcheck="false">
+            </label>
+            <label title="callsign contains characters outside A-Z and 0-9">
+              <input id="abnormal-filter" type="checkbox"> abnormal characters
+            </label>
+          </fieldset>
+        </details>
       </form>
-      <p class="muted hint">Wildcard searches (<span class="mono">*</span>) can be filtered by data-quality flags; flags on their own (empty callsign) browse every row carrying them.</p>
+      <p class="muted hint">Wildcard searches (<span class="mono">*</span>) and filters compose; filters on their own (empty callsign) browse the whole register. <span class="mono">*SUF</span> with no filters shows the suffix availability matrix.</p>
       <div id="result" hidden></div>
     </section>
 
