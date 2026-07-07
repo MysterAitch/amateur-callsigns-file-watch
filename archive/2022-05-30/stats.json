@@ -1,0 +1,167 @@
+{
+  "callsignFlags": {
+    "encoding-failure": 3,
+    "excel-date-shape": 15,
+    "forbidden-suffix": 3143,
+    "lowercase": 22,
+    "malformed-home-callsign": 10,
+    "rsl-in-register": 22,
+    "stripped-collision": 4,
+    "unknown-prefix-series": 1,
+    "whitespace": 5
+  },
+  "callsignPatterns": {
+    "": 4,
+    ",,": 1,
+    "A/#AANAA": 1,
+    "A/#AANAAA": 2,
+    "A/A/AANAA": 1,
+    "A/AA-N-AA": 1,
+    "A/AAA": 1,
+    "A/AAAA": 2,
+    "A/AANAA": 11,
+    "A/AANAAA": 29,
+    "A/AANNN": 1,
+    "A/ANAA": 3,
+    "A/ANAAA": 12,
+    "A/ANAAAA": 1,
+    "A/ANNAAA": 1,
+    "A/NAAA": 2,
+    "A/NANAAA": 2,
+    "A/NNNN": 2,
+    "AAAA": 3,
+    "AAAAA": 4,
+    "AANAAA": 7,
+    "ANAA": 472,
+    "ANAAA": 131583,
+    "ANAAA{U+FFFD}": 2,
+    "ANAAN": 1,
+    "AN{U+0020}AAA": 1,
+    "Aaaaa": 1,
+    "Aaaaaaaaaaaa{U+0020}Aaaaaaaaaaa{U+0020}-{U+0020}Aa{U+0020}Aaa{U+0020}Aaaaaaaaaa": 1,
+    "Aaaaaaaaa{U+0020}(a){U+0020}NNNN-NNNN{U+0020}aaaaaaaaaa.aaa,{U+0020}aaa.{U+0020}Aaa{U+0020}aaaaaa{U+0020}aaaaaaaa.": 1,
+    "Aaaaaaaaa{U+0020}Aa:{U+0020}{U+0020}Aaa{U+0020}Aaaaa{U+0020}{U+0020}NN/NN/NNNN{U+0020}NN:NN": 1,
+    "Aaaa{U+0020}Aaaa{U+0020}Aaaa{U+0020}aaa{U+0020}Aaaa{U+0020}Aaaa": 1,
+    "NAAAA": 1,
+    "NANAAA": 13,
+    "NANAAA{U+FFFD}": 1,
+    "NN-Aaa": 15,
+    "NNAA": 5,
+    "NNAAA": 18965,
+    "NaNAAA": 1,
+    "aNaaa": 1
+  },
+  "callsignQuality": {
+    "emptyCallsign": {
+      "count": 4,
+      "examples": [
+        ""
+      ]
+    },
+    "encodingFailure": {
+      "count": 3,
+      "examples": [
+        "2E1HON{U+FFFD}",
+        "G0TQK{U+FFFD}",
+        "G7IWE{U+FFFD}"
+      ]
+    },
+    "excelDateShaped": {
+      "count": 15,
+      "examples": [
+        "20-Apr",
+        "20-Aug",
+        "20-Dec",
+        "20-Feb",
+        "20-Jan"
+      ]
+    },
+    "lowercaseBearing": {
+      "count": 22,
+      "examples": [
+        "20-Apr",
+        "20-Aug",
+        "20-Dec",
+        "20-Feb",
+        "20-Jan"
+      ]
+    },
+    "postNormalisationDuplicates": {
+      "count": 4,
+      "examples": [
+        "G0TQK{U+FFFD}",
+        "G6{U+0020}FMU",
+        "G7IWE{U+FFFD}",
+        "M/EI-8-DJ"
+      ]
+    },
+    "whitespaceBearing": {
+      "count": 5,
+      "examples": [
+        "Call{U+0020}Sign{U+0020}List{U+0020}for{U+0020}Open{U+0020}Data",
+        "Confidential{U+0020}Information{U+0020}-{U+0020}Do{U+0020}Not{U+0020}Distribute",
+        "Copyright{U+0020}(c){U+0020}2000-2022{U+0020}salesforce.com,{U+0020}inc.{U+0020}All{U+0020}rights{U+0020}reserved.",
+        "G6{U+0020}FMU",
+        "Generated{U+0020}By:{U+0020}{U+0020}Tim{U+0020}Smith{U+0020}{U+0020}26/07/2022{U+0020}09:24"
+      ]
+    }
+  },
+  "columns": {
+    "callsign": {
+      "distinct": 151153,
+      "empty": 4,
+      "maxLength": 65,
+      "minLength": 2
+    },
+    "created_date": {
+      "distinct": 0,
+      "empty": 151157,
+      "max": "",
+      "min": ""
+    },
+    "last_modified_date": {
+      "distinct": 0,
+      "empty": 151157,
+      "max": "",
+      "min": ""
+    },
+    "licence_version_last_modified_date": {
+      "distinct": 0,
+      "empty": 151157,
+      "max": "",
+      "min": ""
+    },
+    "licence_version_original_start_date": {
+      "distinct": 0,
+      "empty": 151157,
+      "max": "",
+      "min": ""
+    },
+    "product": {
+      "distinct": 0,
+      "empty": 151157,
+      "maxLength": 0,
+      "minLength": 0
+    },
+    "status": {
+      "distinct": 3,
+      "empty": 17,
+      "maxLength": 9,
+      "minLength": 8
+    },
+    "type": {
+      "distinct": 1,
+      "empty": 7,
+      "maxLength": 19,
+      "minLength": 19
+    }
+  },
+  "parseStatuses": {
+    "empty": 4,
+    "parsed": 151050,
+    "unparseable": 31,
+    "visitor": 72
+  },
+  "recordCount": 151157,
+  "statsSchemaVersion": 5
+}

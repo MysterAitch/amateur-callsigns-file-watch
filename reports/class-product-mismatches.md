@@ -72,3 +72,7 @@ a verdict.
 | `2E1CZS` | 2#1 | Intermediate | Amateur Full Radio Licence |
 | `G1MOK` | G1 | Full | Amateur Intermediate Radio Licence |
 | `G6JRC` | G6 | Full | Amateur Foundation Radio Licence |
+
+## 2022-05-30 (0)
+
+(none)
