@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": "498903",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/excel_doc/0021/109029/list-re-issue-amateur-radio-call-signs.xlsx",
+  "title": "Re-issue of Amateur Radio Call Signs since 2010 (T numbers)",
+  "requester": null,
+  "requestedAt": "2017-11-26",
+  "respondedAt": "2017-12-22",
+  "outcome": "successful",
+  "dataVintage": "2017-11",
+  "dataVintageNote": "the dataset window is 2010 to the request date (2017-11-26)",
+  "datasetClasses": ["issuance-events"],
+  "converter": null,
+  "relatedEntries": [
+    { "entry": "wdtk-251507--reissue-policy", "relation": "policy-side counterpart: the 2015 heritage re-issue policy signposts and 20-row transfers table; this entry quantifies actual re-issue events 2010-2017" }
+  ],
+  "files": {
+    "list-re-issue-amateur-radio-call-signs.xlsx": {
+      "bytes": 20154,
+      "sha256": "6ab20dd6ca8922893a66240285fcd0f1ec6c7ac71af345cadecba9c42ff25683",
+      "role": "data",
+      "datasetClasses": ["issuance-events"],
+      "sheetsIndicative": {
+        "note": "from declared xlsx dimensions - approximate only; per the letter, 'original start date' means the start date of the licence under which the callsign was re-issued",
+        "sheets": [
+          { "name": "Sheet1", "approxRows": 113, "cols": "A:B", "datasetClass": "issuance-events" },
+          { "name": "Sheet2", "approxRows": 0, "cols": "", "datasetClass": "reference-context" },
+          { "name": "Sheet3", "approxRows": 0, "cols": "", "datasetClass": "reference-context" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/excel_doc/0021/109029/list-re-issue-amateur-radio-call-signs.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "foi-re-issue-amateur-radio-call-signs.pdf": {
+      "bytes": 397891,
+      "sha256": "dc6ed20076224413dbe88b8fa307a1a8dac2c407506962adbb6afe1587c5ad34",
+      "role": "response-letter",
+      "contentsIndicative": "quotes the request; methodology caveats on the record: same-name ambiguity included, duplicate accounts from system changes merged by a data-cleansing exercise, original-start-date semantics",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0019/109027/foi-re-issue-amateur-radio-call-signs.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-foi-re-issue-amateur-radio-call-signs.md": {
+      "bytes": 2264,
+      "sha256": "f8e9ced24c7f7527a7c0ef6c04c341f16dc3558aa509087bc16e5a2f5ed10eb7",
+      "role": "extract",
+      "extractOf": "foi-re-issue-amateur-radio-call-signs.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 2137,
+      "sha256": "75333023ef507560f4595940984d5e48dd1b5c36db1aa95181df941c03c4e84e",
+      "role": "transcript"
+    }
+  }
+}
