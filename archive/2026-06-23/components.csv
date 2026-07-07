@@ -93694,12 +93694,12 @@ GSPG,unparseable,,,,,,,
 GTUN,unparseable,,,,,,,
 GW6AWV,parsed,G6,W,AWV,G#6AWV,,Full,
 GYUUO,unparseable,,,,,,,
-M/#PT2FM,visitor,,,,,#PT2FM,,
-M/#VK4VGK,visitor,,,,,#VK4VGK,,
-M/#YO3IES,visitor,,,,,#YO3IES,,
-M/1234,visitor,,,,,1234,,
-M/1235,visitor,,,,,1235,,
-M/1CNB,visitor,,,,,1CNB,,
+M/#PT2FM,visitor,,,,,#PT2FM,,malformed-home-callsign
+M/#VK4VGK,visitor,,,,,#VK4VGK,,malformed-home-callsign
+M/#YO3IES,visitor,,,,,#YO3IES,,malformed-home-callsign
+M/1234,visitor,,,,,1234,,malformed-home-callsign
+M/1235,visitor,,,,,1235,,malformed-home-callsign
+M/1CNB,visitor,,,,,1CNB,,malformed-home-callsign
 M/4DMP,visitor,,,,,4DMP,,
 M/4S6LAS,visitor,,,,,4S6LAS,,
 M/5Q5JUF,visitor,,,,,5Q5JUF,,
@@ -93716,7 +93716,7 @@ M/E20NKB,visitor,,,,,E20NKB,,
 M/E21EIC,visitor,,,,,E21EIC,,
 M/E2IEIC,visitor,,,,,E2IEIC,,
 M/EA2AIV,visitor,,,,,EA2AIV,,
-M/EI-8-DJ,visitor,,,,,EI-8-DJ,,stripped-collision
+M/EI-8-DJ,visitor,,,,,EI-8-DJ,,malformed-home-callsign;stripped-collision
 M/EI8DJ,visitor,,,,,EI8DJ,,
 M/G0ICN,visitor,,,,,G0ICN,,
 M/G1XXU,visitor,,,,,G1XXU,,
@@ -93749,7 +93749,7 @@ M/KN4MFB,visitor,,,,,KN4MFB,,
 M/KO6CVO,visitor,,,,,KO6CVO,,
 M/KO6CVP,visitor,,,,,KO6CVP,,
 M/KQ4U,visitor,,,,,KQ4U,,
-M/M/PT2FM,visitor,,,,,M/PT2FM,,
+M/M/PT2FM,visitor,,,,,M/PT2FM,,malformed-home-callsign
 M/M0ABO,visitor,,,,,M0ABO,,
 M/M0BBB,visitor,,,,,M0BBB,,
 M/M6IPG,visitor,,,,,M6IPG,,
@@ -93769,7 +93769,7 @@ M/SQ4IND,visitor,,,,,SQ4IND,,
 M/SQ8MAR,visitor,,,,,SQ8MAR,,
 M/SV450,visitor,,,,,SV450,,
 M/TA8ERG,visitor,,,,,TA8ERG,,
-M/TEST,visitor,,,,,TEST,,
+M/TEST,visitor,,,,,TEST,,malformed-home-callsign
 M/TKG 2021,visitor,,,,,TKG2021,,whitespace
 M/VA6UK,visitor,,,,,VA6UK,,
 M/VK2BY,visitor,,,,,VK2BY,,
@@ -93793,7 +93793,7 @@ M/W6AJ,visitor,,,,,W6AJ,,
 M/W6PNG,visitor,,,,,W6PNG,,
 M/WB1PEP,visitor,,,,,WB1PEP,,
 M/WD0HHU,visitor,,,,,WD0HHU,,
-M/XTC,visitor,,,,,XTC,,
+M/XTC,visitor,,,,,XTC,,malformed-home-callsign
 M0AAA,parsed,M0,,AAA,M#0AAA,,Full,
 M0AAB,parsed,M0,,AAB,M#0AAB,,Full,
 M0AAC,parsed,M0,,AAC,M#0AAC,,Full,

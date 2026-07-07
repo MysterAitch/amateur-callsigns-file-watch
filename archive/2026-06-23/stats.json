@@ -3,6 +3,7 @@
     "class-product-mismatch": 24,
     "forbidden-suffix": 2826,
     "lowercase": 2,
+    "malformed-home-callsign": 10,
     "missing-rsl": 19502,
     "stripped-collision": 4,
     "unknown-prefix-series": 1,
