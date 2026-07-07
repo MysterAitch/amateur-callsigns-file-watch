@@ -25,7 +25,7 @@ import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS, type ArchiveMeta, calculateContentHash, errorMessage, saveJsonFileSync } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
-import { renderStatsJson, compareStats, type EntryStats } from '../shared/stats.ts';
+import { renderStatsJson, compareStats, markUnprintables, type EntryStats } from '../shared/stats.ts';
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
 import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 
@@ -186,6 +186,28 @@ export function runNormaliseSweep(): SweepReport {
   // regeneration means no git change, so unchanged windows never churn.
   writeQualityReports(keys);
 
+  // The newest dataset's matrix always appears, even when no archive entry
+  // changed bytes (e.g. a reports-only derivation): the PR body is the
+  // does-this-look-right triage surface, and current state belongs on it.
+  const newestKey = keys[keys.length - 1];
+  const newestBlock: string[] = [];
+  if (newestKey !== undefined && !report.changed.includes(newestKey)) {
+    const matrix = rslMatrix(newestKey);
+    if (matrix !== undefined) {
+      newestBlock.push(
+        '',
+        ...(matrix.unexpectedNote !== ''
+          ? [`⚠ ${newestKey} contains locators absent from reference data: ${matrix.unexpectedNote}.`, '']
+          : []),
+        '<details>',
+        `<summary>RSL matrix (current state): ${newestKey}</summary>`,
+        '',
+        ...matrix.lines,
+        '</details>',
+      );
+    }
+  }
+
   report.coverageMarkdown = [
     `Intended schema version per source: ${Object.entries(CONVERTERS).map(([k, c]) => `\`${k}\` → v${c.schemaVersion}`).join(', ')}`,
     '',
@@ -193,6 +215,7 @@ export function runNormaliseSweep(): SweepReport {
     '|---|---|---|---|',
     ...coverageRows,
     ...changedEntryMatrixMarkdown(report.changed, keys),
+    ...newestBlock,
   ].join('\n');
 
   return report;
@@ -339,11 +362,7 @@ function writeQualityReports(keys: string[]): void {
       '',
       `${stats.recordCount} records, ${ownPatterns.length} distinct callsign patterns.`,
       '',
-      '## Callsign patterns',
-      '',
-      '| pattern | count |',
-      '|---|---:|',
-      ...ownPatterns.map(([p, c]) => `| ${patternLabel(p)} | ${c} |`),
+      ...patternPartition(ownPatterns),
       '',
       '## Pattern counts across window',
       '',
@@ -381,6 +400,60 @@ interface RslMatrix {
   unexpectedNote: string;
 }
 
+// Enumeration cap for the example details blocks: small populations are
+// listed in full (the review value is in the rows themselves); larger ones
+// are counted in the caption but not enumerated.
+const ENUMERATE_LIMIT = 50;
+
+// Curated pattern explanations (reference-data/pattern-formats.csv):
+// exact-match rows first, then starts-with prefixes in file order. A
+// pattern with no match is honestly unexplained - including any pattern
+// carrying {U+XXXX} markers, which by construction never matches.
+interface PatternFormat { match: string; pattern: string; explanation: string }
+let patternFormatsCache: PatternFormat[] | undefined;
+function loadPatternFormats(): PatternFormat[] {
+  patternFormatsCache ??= parse(
+    fs.readFileSync(path.resolve(import.meta.dirname, '..', '..', 'reference-data', 'pattern-formats.csv'), 'utf8'),
+    { columns: true, skip_empty_lines: true },
+  ) as PatternFormat[];
+  return patternFormatsCache;
+}
+
+function explanationFor(pattern: string): string | undefined {
+  const formats = loadPatternFormats();
+  const exact = formats.find(f => f.match === 'exact' && f.pattern === pattern);
+  if (exact) return exact.explanation;
+  return formats.find(f => f.match === 'starts-with' && pattern.startsWith(f.pattern))?.explanation;
+}
+
+// The callsign-patterns table split into expected formats (curated
+// explanations from reference data) and unexpected ones - the unexpected
+// list is the review target; the expected list is the baseline.
+function patternPartition(ownPatterns: [string, number][]): string[] {
+  const explained = ownPatterns.map(([p, c]) => [p, c, explanationFor(p)] as const);
+  const expected = explained.filter(([, , e]) => e !== undefined);
+  const unexpected = explained.filter(([, , e]) => e === undefined);
+  return [
+    '## Callsign patterns',
+    '',
+    `### Expected formats (${expected.length})`,
+    '',
+    ...(expected.length === 0 ? ['(none)'] : [
+      '| pattern | count | explanation |',
+      '|---|---:|---|',
+      ...expected.map(([p, c, e]) => `| ${patternLabel(p)} | ${c} | ${e} |`),
+    ]),
+    '',
+    `### Unexpected formats (${unexpected.length})`,
+    '',
+    ...(unexpected.length === 0 ? ['(none)'] : [
+      '| pattern | count |',
+      '|---|---:|',
+      ...unexpected.map(([p, c]) => `| ${patternLabel(p)} | ${c} |`),
+    ]),
+  ];
+}
+
 function rslMatrix(key: string): RslMatrix | undefined {
   const componentsPath = path.join(CONSTANTS.DIRS.archive, key, 'components.csv');
   if (!fs.existsSync(componentsPath)) return undefined;
@@ -389,13 +462,19 @@ function rslMatrix(key: string): RslMatrix | undefined {
 
   const bySeries = new Map<string, Map<string, number>>();
   const excluded = new Map<string, number>();
+  const excludedExamples = new Map<string, string[]>();
   const unknownRsl = new Set<string>();
+  const rslBearing: { callsign: string; series: string; rsl: string }[] = [];
   for (const r of parseCsvRecords(componentsPath)) {
     if (r.parse_status !== 'parsed') {
       excluded.set(r.parse_status, (excluded.get(r.parse_status) ?? 0) + 1);
+      const examples = excludedExamples.get(r.parse_status) ?? [];
+      if (examples.length <= ENUMERATE_LIMIT) examples.push(r.callsign);
+      excludedExamples.set(r.parse_status, examples);
       continue;
     }
     if (r.rsl !== '' && !rslLetters.includes(r.rsl)) unknownRsl.add(r.rsl);
+    if (r.rsl !== '') rslBearing.push({ callsign: r.callsign, series: r.prefix_series, rsl: r.rsl });
     const perRsl = bySeries.get(r.prefix_series) ?? new Map<string, number>();
     const column = r.rsl === '' ? '(none)' : r.rsl;
     perRsl.set(column, (perRsl.get(column) ?? 0) + 1);
@@ -417,8 +496,6 @@ function rslMatrix(key: string): RslMatrix | undefined {
     ...(unexpectedSeries.length > 0 ? [`series ${unexpectedSeries.map(s => `\`${s}\``).join(', ')}`] : []),
     ...(unknownRsl.size > 0 ? [`RSL ${[...unknownRsl].sort().join(', ')}`] : []),
   ].join('; ');
-  const excludedNote = [...excluded.entries()].sort()
-    .map(([status, count]) => `${count} ${status}`).join(', ');
   const count = (series: string, rsl: string): number => bySeries.get(series)?.get(rsl) ?? 0;
   const seriesTotal = (series: string): number => rslColumns.reduce((sum, c) => sum + count(series, c), 0);
   const columnTotal = (rsl: string): number => seriesRows.reduce((sum, s) => sum + count(s, rsl), 0);
@@ -426,21 +503,61 @@ function rslMatrix(key: string): RslMatrix | undefined {
   // Zero cells render as a quiet dot so the populated intersections stand
   // out in an otherwise sparse table.
   const quiet = (n: number): string => n === 0 ? '·' : String(n);
+  // Enumerated elaborations: populations small enough to list in full go
+  // behind details blocks - the RSL-bearing rows ARE the interesting finds,
+  // and excluded values render with exploded {U+XXXX} markers so invisible
+  // characters (leading, middle, or trailing) are visible in the list.
+  const details: string[] = [];
+  if (rslBearing.length > 0 && rslBearing.length <= ENUMERATE_LIMIT) {
+    details.push(
+      '',
+      '<details>',
+      `<summary>RSL-bearing records (${rslBearing.length})</summary>`,
+      '',
+      '| callsign | series | RSL |',
+      '|---|---|---|',
+      ...rslBearing.map(r => `| \`${mdCell(nameMarkers(markUnprintables(r.callsign)), 40)}\` | \`${r.series}\` | ${r.rsl} |`),
+      '',
+      '</details>',
+    );
+  }
+  for (const [status, n] of [...excluded.entries()].sort()) {
+    const examples = excludedExamples.get(status) ?? [];
+    if (n === 0 || n > ENUMERATE_LIMIT) continue;
+    details.push(
+      '',
+      '<details>',
+      `<summary>Excluded: ${status} (${n})</summary>`,
+      '',
+      ...examples.slice(0, ENUMERATE_LIMIT).map(c => `- \`${mdCell(nameMarkers(markUnprintables(c)), 60)}\``),
+      '',
+      '</details>',
+    );
+  }
+
   const lines = [
     '## RSL matrix',
     '',
     'Parsed records by primary locator (prefix series) and Regional',
     'Secondary Locator. Every RSL letter from `reference-data/rsl.csv` is',
     'shown - all-zero rows/columns are the sparsity signal, not noise; `·`',
-    'means zero.'
-    + (unexpectedNote === '' ? '' : ` ⚠ marks locators observed in the data but absent from reference data: ${unexpectedNote}.`)
-    + (excludedNote === '' ? '' : ` Excluded from this table: ${excludedNote}.`),
+    'means zero.',
+    ...(unexpectedNote === '' ? [] : [
+      '',
+      `⚠ locators observed in the data but absent from reference data: ${unexpectedNote}.`,
+    ]),
+    ...(excluded.size === 0 ? [] : [
+      '',
+      'Excluded from this table:',
+      ...[...excluded.entries()].sort().map(([status, n]) => `- ${n} ${status}`),
+    ]),
     '',
     `| series | ${rslColumns.map(rslHeading).join(' | ')} | total |`,
     `|---|${rslColumns.map(() => '---:').join('|')}|---:|`,
     ...seriesRows.map(series =>
       `| ${seriesHeading(series)} | ${rslColumns.map(c => quiet(count(series, c))).join(' | ')} | ${quiet(seriesTotal(series))} |`),
     `| **total** | ${rslColumns.map(c => quiet(columnTotal(c))).join(' | ')} | ${quiet(grandTotal)} |`,
+    ...details,
     '',
   ];
   return { lines, unexpectedNote };
