@@ -22,7 +22,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 
-export const COMPONENTS_SCHEMA_VERSION = 2;
+export const COMPONENTS_SCHEMA_VERSION = 3;
 
 export const COMPONENT_COLUMNS = [
   'callsign',
@@ -145,6 +145,17 @@ export function parseCallsign(callsign: string, product: string, ref: ReferenceD
   if (clean.startsWith('M/')) {
     row.parseStatus = 'visitor';
     row.homeCallsign = clean.slice(2);
+    // A plausible home callsign is at least three characters of A-Z/0-9
+    // containing both a letter and a digit, and does not start with 0 or 1
+    // (no ITU call-sign series does - empirical, itu-call-sign-series.csv).
+    // The register contains counter-examples: 1234, 1CNB, nested M/PT2FM.
+    const home = row.homeCallsign;
+    const plausible = home.length >= 3
+      && /^[A-Z0-9]+$/.test(home)
+      && /[A-Z]/.test(home)
+      && /[0-9]/.test(home)
+      && !/^[01]/.test(home);
+    if (!plausible) flag('malformed-home-callsign');
     finaliseFlags(row);
     return row;
   }
