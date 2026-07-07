@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 184767,
+  "ofcomReference": null,
+  "requestUrl": "https://www.whatdotheyknow.com/request/number_of_licences",
+  "title": "Number of licences",
+  "requester": "nige_coleman",
+  "requestedAt": "2013-11-13",
+  "respondedAt": "2013-12-12",
+  "outcome": "successful",
+  "dataVintage": "2013-12",
+  "datasetClasses": ["statistics-aggregate"],
+  "converter": null,
+  "files": {
+    "Number of licences Coleman.pdf": {
+      "bytes": 203052,
+      "sha256": "1d9241a812defb08bf827217dcd847f64acae01fd7d071fb0946bb2b6ae3ac74",
+      "role": "data",
+      "datasetClasses": ["statistics-aggregate"],
+      "contentsIndicative": "annual licence counts, amateur + business radio, each year 1993 to 2013; pre-lifetime-licensing amateur figures include CB and Maritime licences (RLC aggregate - see correspondence)",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/number_of_licences/response/460006/attach/1/Number%20of%20licences%20Coleman.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 4244,
+      "sha256": "6705ff04ccbeff8c48becf2e6510e102dda45e6dd146e4c1bce36ac75cd7c009",
+      "role": "transcript"
+    }
+  }
+}
