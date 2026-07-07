@@ -134,12 +134,16 @@ async function suffixMatrix(suffix, result) {
   const rows = seriesList.map((s) => {
     const hash = s.prefix.includes('#') ? s.prefix : `${s.prefix[0]}#${s.prefix.slice(1)}`;
     const m = bySeries.get(s.prefix);
-    return [
-      `${hash}${suffix}`,
-      s.station_level,
-      s.issuing_status,
-      m ? `${m.status}${m.product ? ' — ' + m.product : ''}${m.modified ? ' (' + m.modified.slice(0, 10) + ')' : ''}` : 'no record',
-    ];
+    let state = 'no record';
+    if (m) {
+      state = m.status;
+      if (m.product) state += ' — ' + m.product;
+      // An Allocated row without a product is a register anomaly worth
+      // surfacing here (part of the blank-products data-quality thread).
+      else if (m.status === 'Allocated') state += ' ⚠ no product recorded';
+      if (m.modified) state += ` (${m.modified.slice(0, 10)})`;
+    }
+    return [`${hash}${suffix}`, s.station_level, s.issuing_status, state];
   });
   sections.push(card(`Availability matrix: suffix ${suffix}`, [
     el('p', { class: 'muted', text:
