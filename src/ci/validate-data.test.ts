@@ -205,6 +205,48 @@ describe('deepValidateEntryCsv', () => {
     const problems = deepValidateEntryCsv('2026-06-23');
     expect(problems.some(p => p.problem.includes('recordCount'))).toBe(true);
   });
+
+  // Uniqueness is NOTED on raw (stats detectors) but ENFORCED on normalised:
+  // raw.csv mirrors the publication verbatim, duplicates and all, while
+  // normalised.csv is this repository's contract and downstream joins key on
+  // callsign. The converter is the decision point for resolving publisher
+  // duplicates; this check makes an unresolved duplicate an invalid PR.
+
+  it('DeepValidation_WhenNormalisedHasDuplicateCallsigns_Fails', () => {
+    writeEntry(tmpRoot, '2026-06-23', CSV);
+    const normalised =
+      'callsign,product,status,type,created_date,last_modified_date,licence_version_last_modified_date,licence_version_original_start_date\n'
+      + 'M7TEE,Amateur Foundation Radio Licence,Allocated,,,,,\n'
+      + 'M7TEE,Amateur Foundation Radio Licence,Reserved,,,,,\n';
+    fs.writeFileSync(path.join(tmpRoot, 'archive', '2026-06-23', 'normalised.csv'), normalised);
+
+    const problems = deepValidateEntryCsv('2026-06-23');
+    expect(problems.some(p => p.problem.includes('duplicate') && p.problem.includes('M7TEE'))).toBe(true);
+  });
+
+  it('DeepValidation_WhenNormalisedHasMultipleEmptyCallsigns_UniquenessCheckDoesNotFail', () => {
+    // Empty callsigns are exempt from the uniqueness constraint: multiple
+    // empties exist in real publications (2023-02-20 has two) and their
+    // handling policy is deliberately undecided - they are surfaced by the
+    // emptyCallsign quality detector, and join consumers must exclude them.
+    writeEntry(tmpRoot, '2026-06-23', CSV);
+    const normalised =
+      'callsign,product,status,type,created_date,last_modified_date,licence_version_last_modified_date,licence_version_original_start_date\n'
+      + ',Amateur Foundation Radio Licence,Available,,,,,\n'
+      + ',Amateur Foundation Radio Licence,Available,,,,,\n'
+      + 'M7TEE,Amateur Foundation Radio Licence,Allocated,,,,,\n';
+    fs.writeFileSync(path.join(tmpRoot, 'archive', '2026-06-23', 'normalised.csv'), normalised);
+
+    const problems = deepValidateEntryCsv('2026-06-23');
+    expect(problems.filter(p => p.problem.includes('duplicate'))).toEqual([]);
+  });
+
+  it('DeepValidation_WhenEntryIsRawOnly_UniquenessCheckSkipped', () => {
+    // Raw-only entries (no converter yet, or pre-normalisation) are valid;
+    // the constraint applies only where a normalised.csv exists.
+    writeEntry(tmpRoot, '2026-06-23', CSV);
+    expect(deepValidateEntryCsv('2026-06-23')).toEqual([]);
+  });
 });
 
 describe('validateLatestPointers', () => {
