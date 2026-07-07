@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 299321,
+  "ofcomReference": "1-308967565",
+  "requestUrl": "https://www.whatdotheyknow.com/request/list_of_currently_available_amat",
+  "title": "List of currently available Amateur Radio Call-signs",
+  "requester": "glen_turnbull",
+  "requestedAt": "2015-10-27",
+  "respondedAt": "2015-10-29",
+  "outcome": "successful",
+  "dataVintage": "2015-10-13",
+  "dataVintageNote": "no as-of date stated; identical per-sheet extents to the wdtk-294011 file (as of 2015-10-13) plus the two-day turnaround point to the same export re-serialised - confirm by content diff at converter time",
+  "datasetClasses": ["available-pool"],
+  "converter": null,
+  "relatedEntries": [
+    { "entry": "wdtk-294011--available-callsigns-list", "relation": "variant-of (suspected same 2015-10-13 export, different serialisation: same name and byte count, different sha256)" }
+  ],
+  "files": {
+    "Amateur Available Call signs.xlsx": {
+      "bytes": 857879,
+      "sha256": "8da7507f3b6a3dadf8d2212e4da6079ad51a08675c10bb0492d09a1c1d45a848",
+      "role": "data",
+      "datasetClasses": ["available-pool"],
+      "sheetsIndicative": {
+        "note": "from declared xlsx dimensions - approximate only; authoritative record counts come from the converter/normaliser",
+        "sheets": [
+          { "name": "Foundation", "approxRows": 6077, "cols": "A:G", "datasetClass": "available-pool" },
+          { "name": "Intermediate", "approxRows": 8365, "cols": "A:G", "datasetClass": "available-pool" },
+          { "name": "Full", "approxRows": 7042, "cols": "A:G", "datasetClass": "available-pool" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_currently_available_amat/response/726411/attach/2/Amateur%20Available%20Call%20signs.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 3155,
+      "sha256": "afa47a78d7e7c72e8fa58aec85925055417a2cf8d21be1329b1d521943c18c94",
+      "role": "transcript"
+    }
+  }
+}
