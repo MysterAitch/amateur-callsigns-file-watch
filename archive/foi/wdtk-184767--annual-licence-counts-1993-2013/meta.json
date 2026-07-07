@@ -10,14 +10,14 @@
   "respondedAt": "2013-12-12",
   "outcome": "successful",
   "dataVintage": "2013-12",
-  "datasetClass": "statistics-aggregate",
+  "datasetClasses": ["statistics-aggregate"],
   "converter": null,
   "files": {
     "Number of licences Coleman.pdf": {
       "bytes": 203052,
       "sha256": "1d9241a812defb08bf827217dcd847f64acae01fd7d071fb0946bb2b6ae3ac74",
       "role": "data",
-      "datasetClass": "statistics-aggregate",
+      "datasetClasses": ["statistics-aggregate"],
       "contentsIndicative": "annual licence counts, amateur + business radio, each year 1993 to 2013; pre-lifetime-licensing amateur figures include CB and Maritime licences (RLC aggregate - see correspondence)",
       "witnesses": [
         {
