@@ -181,68 +181,128 @@ async function suffixMatrix(suffix, result) {
 
 const PAGE_SIZE = 50;
 
-// Paginated list of register rows matching an optional callsign wildcard
-// and/or selected flags (AND semantics: a row must carry every selected
-// flag, so the count is simply the number of matching rows). Flags are
-// stored semicolon-separated, so each token match wraps both sides in ';'
-// for exactness (no prefix collisions).
-async function filteredList(value, flags, page, result) {
+// Translate the pattern notation to a SQLite GLOB: A = letter, N = digit,
+// * = any run; anything else is literal. GLOB metacharacters in literals
+// are wrapped in a character class so they cannot widen the match.
+function patternToGlob(pattern) {
+  return [...pattern].map(ch =>
+    ch === 'A' ? '[A-Za-z]'
+      : ch === 'N' ? '[0-9]'
+        : ch === '*' ? '*'
+          : /[[\]?]/.test(ch) ? `[${ch}]` : ch,
+  ).join('');
+}
+
+// Build WHERE conditions from the criteria object. Facet model: values
+// ticked WITHIN a group are alternatives (IN - a row has one status), while
+// groups combine with AND - so the shown count is exactly the number of
+// matching rows. Flags are the exception: they AND individually, since one
+// row can carry several. Flags are stored semicolon-separated, so each
+// token match wraps both sides in ';' for exactness.
+function buildConds(criteria) {
   const conds = [];
   const params = [];
-  if (value !== '') {
+  if (criteria.value !== '') {
     conds.push(`c.callsign LIKE ? ESCAPE '\\'`);
-    params.push(value.replace(/[%_]/g, ch => '\\' + ch).replace(/\*/g, '%'));
+    params.push(criteria.value.replace(/[%_]/g, ch => '\\' + ch).replace(/\*/g, '%'));
   }
-  for (const flag of flags) {
+  for (const flag of criteria.flags) {
     conds.push(`(';' || c.flags || ';') LIKE ?`);
     params.push(`%;${flag};%`);
   }
+  if (criteria.statuses.length > 0) {
+    conds.push(`n.status IN (${criteria.statuses.map(() => '?').join(',')})`);
+    params.push(...criteria.statuses);
+  }
+  if (criteria.parseStatuses.length > 0) {
+    conds.push(`c.parse_status IN (${criteria.parseStatuses.map(() => '?').join(',')})`);
+    params.push(...criteria.parseStatuses);
+  }
+  if (criteria.series !== '') {
+    conds.push('c.prefix_series = ?');
+    params.push(criteria.series);
+  }
+  if (criteria.length !== '') {
+    conds.push('length(c.callsign) = ?');
+    params.push(Number(criteria.length));
+  }
+  if (criteria.pattern !== '') {
+    conds.push('c.callsign GLOB ?');
+    params.push(patternToGlob(criteria.pattern.toUpperCase()));
+  }
+  if (criteria.abnormal) {
+    conds.push(`c.callsign GLOB '*[^A-Za-z0-9]*'`);
+  }
+  return { conds, params };
+}
+
+function describeCriteria(criteria) {
+  return [
+    criteria.value !== '' ? `"${criteria.value}"` : null,
+    criteria.flags.length > 0 ? `flags: ${criteria.flags.join(' + ')}` : null,
+    criteria.statuses.length > 0 ? `status: ${criteria.statuses.join('/')}` : null,
+    criteria.parseStatuses.length > 0 ? `parse: ${criteria.parseStatuses.join('/')}` : null,
+    criteria.series !== '' ? `series: ${criteria.series}` : null,
+    criteria.length !== '' ? `length: ${criteria.length}` : null,
+    criteria.pattern !== '' ? `pattern: ${criteria.pattern.toUpperCase()}` : null,
+    criteria.abnormal ? 'abnormal characters' : null,
+  ].filter(Boolean).join(' · ') || 'whole register';
+}
+
+// Paginated list of register rows matching the criteria.
+async function filteredList(criteria, page, result) {
+  const { conds, params } = buildConds(criteria);
   const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : '';
-  const [count] = await query(`SELECT COUNT(*) AS n FROM components c ${where}`, params);
+  const [count] = await query(
+    `SELECT COUNT(*) AS n FROM components c JOIN normalised n ON n.callsign = c.callsign ${where}`, params);
   const rows = await query(
-    `SELECT c.callsign, n.status, n.product, c.flags
+    `SELECT c.callsign, n.status, n.product, c.parse_status, c.flags
      FROM components c JOIN normalised n ON n.callsign = c.callsign
      ${where} ORDER BY c.callsign LIMIT ${PAGE_SIZE} OFFSET ${page * PAGE_SIZE}`, params);
 
   const total = count.n;
   const first = total === 0 ? 0 : page * PAGE_SIZE + 1;
   const last = page * PAGE_SIZE + rows.length;
-  const title = [value !== '' ? `"${value}"` : null, flags.length > 0 ? `flags: ${flags.join(' + ')}` : null]
-    .filter(Boolean).join(' · ');
 
   const nav = el('p', {});
   if (page > 0) {
     const prev = el('button', { type: 'button', text: '← previous' });
-    prev.addEventListener('click', () => void filteredList(value, flags, page - 1, result));
+    prev.addEventListener('click', () => void filteredList(criteria, page - 1, result));
     nav.append(prev, ' ');
   }
   nav.append(el('span', { class: 'muted', text: ` showing ${first}–${last} of ${total} ` }));
   if (last < total) {
     const next = el('button', { type: 'button', text: 'next →' });
-    next.addEventListener('click', () => void filteredList(value, flags, page + 1, result));
+    next.addEventListener('click', () => void filteredList(criteria, page + 1, result));
     nav.append(' ', next);
   }
 
-  result.replaceChildren(card(`Matches — ${title}`, [
-    renderTable(['callsign', 'status', 'product', 'flags'], rows.map(r => [r.callsign, r.status, r.product, r.flags]), 99),
+  result.replaceChildren(card(`Matches — ${describeCriteria(criteria)}`, [
+    renderTable(['callsign', 'status', 'product', 'parse status', 'flags'],
+      rows.map(r => [r.callsign, r.status, r.product, r.parse_status, r.flags]), 99),
     nav,
   ]));
 }
 
-async function lookup(rawInput, flags) {
+function criteriaActive(criteria) {
+  return criteria.flags.length > 0 || criteria.statuses.length > 0 || criteria.parseStatuses.length > 0
+    || criteria.series !== '' || criteria.length !== '' || criteria.pattern !== '' || criteria.abnormal;
+}
+
+async function lookup(criteria) {
   const result = document.getElementById('result');
   result.hidden = false;
   result.replaceChildren(el('p', { class: 'muted', text: 'querying…' }));
 
-  const value = rawInput.trim().toUpperCase();
+  const value = criteria.value;
 
   const suffixOnly = /^\*([A-Z]{1,4})$/.exec(value);
-  if (suffixOnly && flags.length === 0) {
+  if (suffixOnly && !criteriaActive(criteria)) {
     await suffixMatrix(suffixOnly[1], result);
     return;
   }
-  if (value.includes('*') || (flags.length > 0 && value === '')) {
-    await filteredList(value, flags, 0, result);
+  if (value.includes('*') || (criteriaActive(criteria) && value === '')) {
+    await filteredList(criteria, 0, result);
     return;
   }
 
@@ -349,31 +409,55 @@ async function lookup(rawInput, flags) {
   result.replaceChildren(...sections);
 }
 
-async function populateFlagFilters() {
+function addCheckbox(fieldset, value, title) {
+  const box = el('input', { type: 'checkbox', value });
+  fieldset.append(el('label', title ? { title } : {}, [box, value]));
+}
+
+// Facet values come from the data itself (DISTINCT queries), so the panel
+// self-maintains as datasets evolve - new statuses or series just appear.
+async function populateFilters() {
   try {
-    const fieldset = document.getElementById('flag-filters');
     const registry = await query('SELECT flag, meaning FROM flag_registry ORDER BY flag');
-    for (const r of registry) {
-      const box = el('input', { type: 'checkbox', value: r.flag });
-      const label = el('label', { title: r.meaning }, [box, r.flag]);
-      fieldset.append(label);
-    }
+    for (const r of registry) addCheckbox(document.getElementById('flag-filters'), r.flag, r.meaning);
+
+    const statuses = await query('SELECT DISTINCT status FROM normalised ORDER BY status');
+    for (const r of statuses) addCheckbox(document.getElementById('status-filters'), r.status);
+
+    const parses = await query('SELECT DISTINCT parse_status FROM components ORDER BY parse_status');
+    for (const r of parses) addCheckbox(document.getElementById('parse-filters'), r.parse_status);
+
+    const seriesSelect = document.getElementById('series-filter');
+    const series = await query(`SELECT DISTINCT prefix_series FROM components WHERE prefix_series != '' ORDER BY prefix_series`);
+    for (const r of series) seriesSelect.append(el('option', { value: r.prefix_series, text: r.prefix_series }));
   } catch {
-    /* filters stay empty if the registry can't load */
+    /* filters stay empty if the database can't load */
   }
 }
 
-function selectedFlags() {
-  return [...document.querySelectorAll('#flag-filters input:checked')].map(box => box.value);
+function checked(fieldsetId) {
+  return [...document.querySelectorAll(`#${fieldsetId} input:checked`)].map(box => box.value);
+}
+
+function gatherCriteria() {
+  return {
+    value: document.getElementById('callsign').value.trim().toUpperCase(),
+    flags: checked('flag-filters'),
+    statuses: checked('status-filters'),
+    parseStatuses: checked('parse-filters'),
+    series: document.getElementById('series-filter').value,
+    length: document.getElementById('length-filter').value.trim(),
+    pattern: document.getElementById('pattern-filter').value.trim(),
+    abnormal: document.getElementById('abnormal-filter').checked,
+  };
 }
 
 document.getElementById('lookup-form').addEventListener('submit', (event) => {
   event.preventDefault();
-  const input = document.getElementById('callsign').value;
-  const flags = selectedFlags();
-  if (input.trim() !== '' || flags.length > 0) void lookup(input, flags);
+  const criteria = gatherCriteria();
+  if (criteria.value !== '' || criteriaActive(criteria)) void lookup(criteria);
 });
 
-void populateFlagFilters();
+void populateFilters();
 void renderAggregates();
 void renderBuildInfo();

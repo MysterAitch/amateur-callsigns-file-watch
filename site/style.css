@@ -47,17 +47,19 @@ button {
   color: var(--paper);
   cursor: pointer;
 }
-#flag-filters {
+#filters { flex-basis: 100%; }
+#filters summary { cursor: pointer; font-size: 0.9em; }
+#filters fieldset {
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 0.4rem 0.75rem 0.6rem;
   display: flex;
   gap: 0.25rem 0.9rem;
   flex-wrap: wrap;
-  flex-basis: 100%;
+  margin-top: 0.5rem;
 }
-#flag-filters legend { font-size: 0.85em; padding: 0 0.3rem; }
-#flag-filters label {
+#filters legend { font-size: 0.85em; padding: 0 0.3rem; }
+#filters label {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
@@ -65,6 +67,18 @@ button {
   font-size: 0.85em;
   cursor: pointer;
 }
+#filters select, #filters input[type="number"], #filters input[type="text"] {
+  font: inherit;
+  font-family: ui-monospace, monospace;
+  font-size: 0.95em;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+}
+#filters input[type="number"] { width: 5rem; }
+#filters input[type="text"] { width: 9rem; text-transform: uppercase; }
 .hint { font-size: 0.85em; }
 table { border-collapse: collapse; margin: 0.75rem 0; width: 100%; }
 th, td { text-align: left; padding: 0.3rem 0.6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
