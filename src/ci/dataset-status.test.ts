@@ -12,7 +12,10 @@ import { renderDatasetStatus, STATUS_FILE } from './dataset-status.ts';
 describe('Dataset status overview', () => {
   it('DatasetStatus_CommittedFile_MatchesRegenerationExactly', () => {
     const committed = fs.readFileSync(STATUS_FILE, 'utf8');
-    expect(committed).toBe(renderDatasetStatus());
+    expect(
+      committed,
+      'docs/dataset-status.md is stale for this archive content - run `npm run dataset:status` and commit the regenerated file',
+    ).toBe(renderDatasetStatus());
   });
 
   it('DatasetStatus_Rendering_ListsBothLanesWithOneRowPerEntry', () => {
