@@ -158,3 +158,7 @@ captured via the callsign/allocated/business-radio/WTR/PMSE sweeps).
 Tracked separately in `docs/reference/callsign-structure/sources.md`
 (mirrored primary documents + community sources with copyright notes) and
 `reference-data/README.md` (provenance policy for distilled tables).
+
+| source | why it matters | status |
+|---|---|---|
+| ITU-R Recommendation M.1172 (10/1995), "Miscellaneous abbreviations and signals to be used for radiocommunications in the maritime mobile service" — `itu.int/dms_pubrec/itu-r/rec/m/R-REC-M.1172-0-199510-I!!PDF-E.pdf` | the Q-code list that Ofcom's licensing system is "programmed not to allow as suffixes", cited in FOI 337399 (with Radio Regulations Art 19.46) — primary source behind the forbidden-suffixes reference data | fetched to drop zone 2026-07-07 (112,114 B, sha256 `cb1f99de…`); ITU copyright — cite, don't commit |
