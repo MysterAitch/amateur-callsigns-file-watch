@@ -42,13 +42,13 @@
     "AANNN": 1,
     "ANAA": 473,
     "ANAAA": 136896,
-    "ANAAA�": 2,
+    "ANAAA{U+FFFD}": 2,
     "ANAAN": 2,
     "ANNAAA": 1,
     "AN{U+0020}AAA": 1,
     "NAAAA": 1,
     "NANAAA": 14,
-    "NANAAA�": 1,
+    "NANAAA{U+FFFD}": 1,
     "NN-Aaa": 16,
     "NNAA": 5,
     "NNAAA": 19882,
@@ -64,9 +64,9 @@
     "encodingFailure": {
       "count": 3,
       "examples": [
-        "2E1HON�",
-        "G0TQK�",
-        "G7IWE�"
+        "2E1HON{U+FFFD}",
+        "G0TQK{U+FFFD}",
+        "G7IWE{U+FFFD}"
       ]
     },
     "excelDateShaped": {
@@ -92,9 +92,9 @@
     "postNormalisationDuplicates": {
       "count": 4,
       "examples": [
-        "G0TQK�",
+        "G0TQK{U+FFFD}",
         "G6{U+0020}FMU",
-        "G7IWE�",
+        "G7IWE{U+FFFD}",
         "M/EI-8-DJ"
       ]
     },
@@ -162,5 +162,5 @@
     "visitor": 113
   },
   "recordCount": 157427,
-  "statsSchemaVersion": 4
+  "statsSchemaVersion": 5
 }
