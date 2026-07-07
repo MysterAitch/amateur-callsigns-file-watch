@@ -1,0 +1,38 @@
+# Raw extract — `amateur-radio-call-sign-allocation-foi.pdf`
+
+Mechanical text extraction (2026-07-07) of the letter as published on
+Ofcom's FOI-responses pages (requester identity redacted by Ofcom for
+publication). Standard internal-review boilerplate footer omitted;
+substantive text verbatim.
+
+---
+
+Reference: 671462
+27 February 2019
+Jerin John, Information Rights Adviser
+
+**Freedom of Information: Right to know request**
+
+Thank you for your request for information about amateur call sign
+allocation.
+
+This was received by Ofcom on 9 February and it has been considered under
+the Freedom of Information Act 2000.
+
+You asked:
+
+*Hi, i am applying for my UK amateur intermediate call sign and i would like
+to see what call sign suffix are available to me to use.*
+
+We have responded to a similar Freedom of Information request on the same
+subject [hyperlinked "same subject" in the original]. **We do not hold lists
+of available call signs, but instead our licensing system generates them on
+demand.**
+
+If you have any queries, please contact information.requests@ofcom.org.uk.
+Please remember to quote the reference number above in any future
+communications.
+
+Yours sincerely,
+
+Jerin John
