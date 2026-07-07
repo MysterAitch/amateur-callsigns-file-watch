@@ -18,9 +18,10 @@
   a distinct artefact.
 - **Byte-identity of the dataset confirmed**: the zip's
   `337399 All Call Signs Assigned (plus forbidden).xlsx` is sha256-identical
-  (`9ec1df14…`) to the WDTK-served xlsx — the same bytes now witnessed
-  through two independent channels and three fetch events spanning
-  2016→2026.
+  (`9ec1df14…`) to the WDTK-served xlsx — the same bytes witnessed through
+  two independent channels and three held fetches (WDTK circa 2020, the
+  UKGWA capture of 2020-04-10, and the WDTK refetch of 2026-07-07) of an
+  artefact dating to 2016.
 - **The letter differs by publication redaction only**: the salutation and
   requester name/relay-address block are removed; body text identical (see
   the raw extract). The redacted variant documents Ofcom's
