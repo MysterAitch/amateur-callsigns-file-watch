@@ -34,6 +34,27 @@
         }
       ]
     },
+    "raw-extract-sheet-1-foundation.csv": {
+      "bytes": 483281,
+      "sha256": "a5c6cf82702871fdb57b6baa53d4b3e2b09173cc396fcbd4fadd5ccb316e96af",
+      "role": "extract",
+      "extractOf": "Amateur Available Call signs 25 02 2015.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts"
+    },
+    "raw-extract-sheet-2-intermediate.csv": {
+      "bytes": 621344,
+      "sha256": "7a229de656feaa62b580503e20525de9a31d4a6f510c9ed50dbcac4a79cd99b1",
+      "role": "extract",
+      "extractOf": "Amateur Available Call signs 25 02 2015.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts"
+    },
+    "raw-extract-sheet-3-full.csv": {
+      "bytes": 458783,
+      "sha256": "a62276d36fe6e36452c7e3f8db26c5d579a13b99e72ac9d8aa21c63b724bd913",
+      "role": "extract",
+      "extractOf": "Amateur Available Call signs 25 02 2015.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts"
+    },
     "2015 03 27 Response to Mr James IRFinal.pdf": {
       "bytes": 80646,
       "sha256": "9d4ab882ee825b31cb4e8ebe9d8664c0c61e33d417e1ffb67ba500082add92f9",

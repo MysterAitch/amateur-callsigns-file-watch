@@ -39,6 +39,13 @@
         }
       ]
     },
+    "raw-extract-sheet-1-sheet1.csv": {
+      "bytes": 2431,
+      "sha256": "95eebe471b108cbc0bd646d228d8b98602b70f4274cc1c95a947a086fb857e1d",
+      "role": "extract",
+      "extractOf": "list-re-issue-amateur-radio-call-signs.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts"
+    },
     "foi-re-issue-amateur-radio-call-signs.pdf": {
       "bytes": 397891,
       "sha256": "dc6ed20076224413dbe88b8fa307a1a8dac2c407506962adbb6afe1587c5ad34",

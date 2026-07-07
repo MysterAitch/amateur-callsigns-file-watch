@@ -34,6 +34,27 @@
         }
       ]
     },
+    "raw-extract-sheet-1-foundation.csv": {
+      "bytes": 407218,
+      "sha256": "2e74c02eae72f7a4d0321cf6b85568d63d3c030d3a204a7180458ab2713ec2d2",
+      "role": "extract",
+      "extractOf": "Amateur Available Call signs.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts"
+    },
+    "raw-extract-sheet-2-intermediate.csv": {
+      "bytes": 577264,
+      "sha256": "7e0f6c6d2b0e060fff11e55e47e750189b749901597cdfdb71d07f22ec0fbba4",
+      "role": "extract",
+      "extractOf": "Amateur Available Call signs.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts"
+    },
+    "raw-extract-sheet-3-full.csv": {
+      "bytes": 429564,
+      "sha256": "59bc874dde10b3345974c2cff22f7a6b4a77c85beedd88d62f5fa1c04bff7185",
+      "role": "extract",
+      "extractOf": "Amateur Available Call signs.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts"
+    },
     "correspondence.md": {
       "bytes": 2369,
       "sha256": "2f66de2e37fff6a723c10b632c9c0ffff495b87738729b44b9b5b635ea008d0a",

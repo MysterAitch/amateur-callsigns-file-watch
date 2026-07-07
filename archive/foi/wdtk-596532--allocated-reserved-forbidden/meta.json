@@ -38,6 +38,20 @@
         }
       ]
     },
+    "raw-extract-sheet-1-all-callsigns-on-record.csv": {
+      "bytes": 4432401,
+      "sha256": "3ed475e972ad0bbc66e4d3fcc4de750acf9159a5a269d58eed01dad738259bcd",
+      "role": "extract",
+      "extractOf": "Allocated reserved forbidden Call Sign FOI Aug19.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts"
+    },
+    "raw-extract-sheet-2-forbidden-call-signs.csv": {
+      "bytes": 5865,
+      "sha256": "9d531b0306825f5e6e1cc793c7fdc31101844610df7e34f3a312ce1c5089da8d",
+      "role": "extract",
+      "extractOf": "Allocated reserved forbidden Call Sign FOI Aug19.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts"
+    },
     "Amateur Radio callsigns Howell.pdf": {
       "bytes": 237033,
       "sha256": "a6567e9ba2a496a6b12736a06f04fc53ffa907d72f36372a0f4f64c43fd806ae",
