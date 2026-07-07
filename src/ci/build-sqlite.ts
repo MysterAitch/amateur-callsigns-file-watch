@@ -117,6 +117,15 @@ export function buildSqlite(outputPath: string): { datasetKey: string; tables: R
   const registry = parseFlagRegistry();
   createAndFill('flag_registry', ['flag', 'meaning', 'grounding'], registry.map(r => [r.flag, r.meaning, r.grounding]), 'flag');
 
+  // Precomputed primary-by-secondary locator matrix: a GROUP BY over the
+  // full components table would be prohibitively chatty over the site's
+  // range-request VFS, so the handful of aggregate rows ship ready-made.
+  db.exec(`CREATE TABLE rsl_matrix AS
+    SELECT prefix_series AS series, rsl, COUNT(*) AS n
+    FROM components WHERE parse_status = 'parsed'
+    GROUP BY prefix_series, rsl`);
+  counts['rsl_matrix'] = Number((db.prepare('SELECT COUNT(*) AS c FROM rsl_matrix').get() as { c: number | bigint }).c);
+
   db.exec('CREATE TABLE build_info (key TEXT, value TEXT)');
   const info = db.prepare('INSERT INTO build_info VALUES (?, ?)');
   info.run('dataset', newest);
