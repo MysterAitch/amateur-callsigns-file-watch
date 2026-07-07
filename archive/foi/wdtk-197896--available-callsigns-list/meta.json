@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 197896,
+  "ofcomReference": "1-252468335",
+  "requestUrl": "https://www.whatdotheyknow.com/request/amateur_radio_callsigns",
+  "title": "Amateur Radio Callsigns",
+  "requester": "william_dover",
+  "requestedAt": "2014-02-16",
+  "respondedAt": "2014-03-18",
+  "outcome": "successful",
+  "dataVintage": "2014-03-14",
+  "datasetClasses": ["available-pool"],
+  "converter": null,
+  "files": {
+    "Ofcom Amateur Radio Call Sign list available as at 14 March 2014.xlsx": {
+      "bytes": 278802,
+      "sha256": "73a591e05d23ae73be82dc1d04da035e2bae196d974ffd15c3d71687a9514a6f",
+      "role": "data",
+      "datasetClasses": ["available-pool"],
+      "sheetsIndicative": {
+        "note": "from declared xlsx dimensions - approximate only (may include blank rows; header-row presence unconfirmed); authoritative record counts come from the converter/normaliser",
+        "sheets": [
+          { "name": "Foundation", "approxRows": 8343, "cols": "A:B", "datasetClass": "available-pool" },
+          { "name": "Intermediate", "approxRows": 9414, "cols": "A:F", "datasetClass": "available-pool" },
+          { "name": "Full", "approxRows": 7637, "cols": "A:B", "datasetClass": "available-pool" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/amateur_radio_callsigns/response/494466/attach/1/Ofcom%20Amateur%20Radio%20Call%20Sign%20list%20available%20as%20at%2014%20March%202014.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 3519,
+      "sha256": "a7167fcc80726a52566d5c0f6c3eedda1df40f2ae1e29184b6dfd79171808a33",
+      "role": "transcript"
+    }
+  }
+}
