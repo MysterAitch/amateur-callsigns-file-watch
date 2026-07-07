@@ -10,14 +10,14 @@
   "respondedAt": "2013-09-18",
   "outcome": "successful",
   "dataVintage": "2013-08-28",
-  "datasetClass": "statistics-aggregate",
+  "datasetClasses": ["statistics-aggregate"],
   "converter": null,
   "files": {
     "FoI 1 241858032 Full Response.pdf": {
       "bytes": 83651,
       "sha256": "7260f7d3cdb62728817c87d51f0dbc132b04043250ed395482908ce9cd4401b0",
       "role": "response-letter",
-      "datasetClass": "statistics-aggregate",
+      "datasetClasses": ["statistics-aggregate"],
       "witnesses": [
         {
           "channel": "wdtk",
