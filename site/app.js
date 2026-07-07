@@ -13,7 +13,14 @@ const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
 // The database URL must be ABSOLUTE: the worker resolves relative URLs
 // against its own location (vendor/), not the page - observed live as a 404
 // on vendor/data/callsigns.sqlite.
-const dbUrl = new URL('./data/callsigns.sqlite', document.baseURI);
+//
+// The .png name is a deliberate lie told to the CDN: GitHub Pages/Fastly
+// gzip-transcodes text-like types (verified live: even Range requests are
+// served as byte ranges OF THE COMPRESSED representation, which corrupts
+// httpvfs reads), but never re-compresses image formats. Naming the SQLite
+// file .png makes every range request address the real bytes. The file is
+// plain SQLite; only the extension is costume.
+const dbUrl = new URL('./data/callsigns.sqlite.png', document.baseURI);
 
 const dbPromise = createDbWorker(
   [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
