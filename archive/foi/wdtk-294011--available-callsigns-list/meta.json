@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 294011,
+  "ofcomReference": null,
+  "requestUrl": "https://www.whatdotheyknow.com/request/unallocated_uk_amateur_radio_cal_2",
+  "title": "Unallocated UK Amateur radio callsigns request",
+  "requester": "lisa_baker",
+  "requestedAt": "2015-09-25",
+  "respondedAt": "2015-10-21",
+  "outcome": "successful",
+  "dataVintage": "2015-10-13",
+  "datasetClasses": ["available-pool"],
+  "converter": null,
+  "files": {
+    "Amateur Available Call signs.xlsx": {
+      "bytes": 857879,
+      "sha256": "23b711b3446a493d6a6204d20cbb677908b32d93e66bd854d002ef6a4c8a1f74",
+      "role": "data",
+      "datasetClasses": ["available-pool"],
+      "sheetsIndicative": {
+        "note": "from declared xlsx dimensions - approximate only; as-of date 2015-10-13 stated in the response letter (filename undated); sibling wdtk-299321 file has identical name+bytes, different sha256 - resolve at converter time",
+        "sheets": [
+          { "name": "Foundation", "approxRows": 6077, "cols": "A:G", "datasetClass": "available-pool" },
+          { "name": "Intermediate", "approxRows": 8365, "cols": "A:G", "datasetClass": "available-pool" },
+          { "name": "Full", "approxRows": 7042, "cols": "A:G", "datasetClass": "available-pool" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/unallocated_uk_amateur_radio_cal_2/response/722643/attach/2/Amateur%20Available%20Call%20signs.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 2369,
+      "sha256": "2f66de2e37fff6a723c10b632c9c0ffff495b87738729b44b9b5b635ea008d0a",
+      "role": "transcript"
+    }
+  }
+}
