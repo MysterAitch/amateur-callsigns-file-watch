@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": "632469",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/pdf_file/0018/125190/Amateur-Call-Sign-Allocation-FOI.pdf",
+  "title": "Amateur Radio available call signs (suffix availability - not held)",
+  "requester": null,
+  "requestedAt": "2018-10-27",
+  "respondedAt": "2018-10-30",
+  "outcome": "not held",
+  "dataVintage": null,
+  "datasetClasses": ["reference-context"],
+  "converter": null,
+  "relatedEntries": [
+    { "entry": "ofcom-518689--suffix-availability-not-held", "relation": "predecessor in the 2018-2019 not-held trilogy (same generator description)" },
+    { "entry": "ofcom-671462--suffix-availability-not-held", "relation": "successor in the trilogy (word-for-word identical request, four months later)" }
+  ],
+  "files": {
+    "Amateur-Call-Sign-Allocation-FOI.pdf": {
+      "bytes": 179477,
+      "sha256": "4168e6363e777786376bac7c84d1ae223493028ff7117403cff55a038cfea8eb",
+      "role": "response-letter",
+      "contentsIndicative": "record-only response with the fullest generator description on the record: any three-letter suffix combination excluding on-issue and deemed-unsuitable combinations",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20201221225837id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0018/125190/Amateur-Call-Sign-Allocation-FOI.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-amateur-call-sign-allocation-foi.md": {
+      "bytes": 1324,
+      "sha256": "856ff9088af27d509e4cbdc3e75d94363c64d82c3ff126125864b652aba2b64b",
+      "role": "extract",
+      "extractOf": "Amateur-Call-Sign-Allocation-FOI.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 1796,
+      "sha256": "22947324c1ed2a1d77cf552403c678542f86cc444d958a5d754f4bde352cf80e",
+      "role": "transcript"
+    }
+  }
+}
