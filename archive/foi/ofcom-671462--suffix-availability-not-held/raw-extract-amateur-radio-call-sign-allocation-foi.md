@@ -24,10 +24,14 @@ You asked:
 *Hi, i am applying for my UK amateur intermediate call sign and i would like
 to see what call sign suffix are available to me to use.*
 
-We have responded to a similar Freedom of Information request on the same
-subject [hyperlinked "same subject" in the original]. **We do not hold lists
-of available call signs, but instead our licensing system generates them on
-demand.**
+We have responded to a similar Freedom of Information request on the [same
+subject](https://www.ofcom.org.uk/__data/assets/pdf_file/0009/111141/Amateur-Radio-available-call-signs.pdf).
+**We do not hold lists of available call signs, but instead our licensing
+system generates them on demand.**
+
+*[Extractor's note: the link reproduces the PDF's embedded URI annotation —
+the published letter for response 518689, archived as
+[`ofcom-518689--suffix-availability-not-held`](../ofcom-518689--suffix-availability-not-held/).]*
 
 If you have any queries, please contact information.requests@ofcom.org.uk.
 Please remember to quote the reference number above in any future
