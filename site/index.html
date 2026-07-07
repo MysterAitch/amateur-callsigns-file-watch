@@ -25,7 +25,11 @@
         <label for="callsign">Callsign</label>
         <input id="callsign" name="callsign" type="text" placeholder="e.g. M7TEE, MW7TEE, M#7TEE or *TEE" autocomplete="off" spellcheck="false">
         <button type="submit">Look up</button>
+        <fieldset id="flag-filters">
+          <legend class="muted">Flag filters — results must carry <em>all</em> ticked flags</legend>
+        </fieldset>
       </form>
+      <p class="muted hint">Wildcard searches (<span class="mono">*</span>) can be filtered by data-quality flags; flags on their own (empty callsign) browse every row carrying them.</p>
       <div id="result" hidden></div>
     </section>
 
