@@ -1,4 +1,15 @@
 {
+  "callsignFlags": {
+    "class-product-mismatch": 5,
+    "encoding-failure": 3,
+    "excel-date-shape": 16,
+    "forbidden-suffix": 3159,
+    "lowercase": 18,
+    "missing-rsl": 19887,
+    "stripped-collision": 4,
+    "unknown-prefix-series": 1,
+    "whitespace": 2
+  },
   "callsignPatterns": {
     "A/#AANAA": 1,
     "A/#AANAAA": 2,
@@ -144,6 +155,11 @@
       "minLength": 19
     }
   },
+  "parseStatuses": {
+    "parsed": 157282,
+    "unparseable": 32,
+    "visitor": 113
+  },
   "recordCount": 157427,
-  "statsSchemaVersion": 3
+  "statsSchemaVersion": 4
 }

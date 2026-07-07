@@ -17,6 +17,33 @@ signal in its own right.
 | empty callsigns | 0 | 0 | 0 | 0 | 0 | 2 |
 | lowercase-bearing | 2 | 0 | 2 | 0 | 18 | 17 |
 
+## Component-parse flags
+
+Per-row flags from `components.csv` (vocabulary and semantics:
+`reference-data/flags.md` - notably, `forbidden-suffix` is mostly
+long-standing allocations, not an anomaly by itself).
+
+| flag | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 |
+|---|---:|---:|---:|---:|---:|---:|
+| `class-product-mismatch` | 24 | 0 | 5 | 0 | 5 | 3 |
+| `encoding-failure` | 0 | 0 | 2 | 0 | 3 | 3 |
+| `excel-date-shape` | 0 | 0 | 0 | 0 | 16 | 15 |
+| `forbidden-suffix` | 2826 | 1 | 3143 | 1 | 3159 | 3145 |
+| `lowercase` | 2 | 0 | 2 | 0 | 18 | 17 |
+| `missing-rsl` | 19502 | 242 | 14372 | 242 | 19887 | 19105 |
+| `stripped-collision` | 4 | 0 | 1 | 0 | 4 | 4 |
+| `unknown-prefix-series` | 1 | 0 | 0 | 0 | 1 | 1 |
+| `whitespace` | 5 | 0 | 2 | 0 | 2 | 1 |
+
+## Parse statuses
+
+| status | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 |
+|---|---:|---:|---:|---:|---:|---:|
+| `empty` | 0 | 0 | 0 | 0 | 0 | 2 |
+| `parsed` | 158208 | 1070 | 112523 | 1070 | 157282 | 151981 |
+| `unparseable` | 10 | 0 | 11 | 0 | 32 | 26 |
+| `visitor` | 100 | 4 | 116 | 4 | 113 | 75 |
+
 <details>
 <summary>Examples: Excel-date-shaped callsigns</summary>
 
@@ -88,6 +115,7 @@ signal in its own right.
 | appears as | codepoint | name |
 |---|---|---|
 | `-` | U+002D | hyphen-minus |
+| `.` | U+002E | (unnamed) |
 | `/` | U+002F | solidus (portable/reciprocal separator) |
 | `{` | U+007B | (unnamed) |
 | `}` | U+007D | (unnamed) |
