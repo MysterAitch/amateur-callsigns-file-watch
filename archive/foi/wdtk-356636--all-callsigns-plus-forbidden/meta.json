@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 356636,
+  "ofcomReference": "337399",
+  "requestUrl": "https://www.whatdotheyknow.com/request/list_of_all_amateur_radio_callsi",
+  "title": "List of ALL Amateur radio callsigns",
+  "requester": "nan_smith",
+  "requestedAt": "2016-09-07",
+  "respondedAt": "2016-09-29",
+  "outcome": "successful",
+  "dataVintage": "2016-09",
+  "dataVintageNote": "no as-at date stated in the letter; a web-archive-recovered database export dated 2016-09-20 (Callsign-database-20-Sep.xlsx, identical 139,759-row extent) is a suspected sibling - reconcile at converter time",
+  "datasetClasses": ["register-snapshot", "forbidden-list"],
+  "converter": null,
+  "relatedEntries": [
+    { "entry": "ofcom-foi-log/ukgwa 337399-FOI-All-Call-Signs.zip (drop zone)", "relation": "Ofcom-published copy of this response recovered from the web archive - second-channel witness; contents not yet hash-compared against this entry's files" },
+    { "entry": "ofcom-foi-log/ukgwa 90397--Callsign-database-20-Sep.xlsx (drop zone)", "relation": "suspected sibling export (2016-09-20, same row extent, two-column layout)" }
+  ],
+  "files": {
+    "All Call Signs Assigned plus forbidden.xlsx": {
+      "bytes": 2570239,
+      "sha256": "9ec1df14722a09f0da4071d3d5e4e45a2e88924be6dbbeea4b98cd6ae3a40f93",
+      "role": "data",
+      "datasetClasses": ["register-snapshot", "forbidden-list"],
+      "sheetsIndicative": {
+        "note": "from declared xlsx dimensions - approximate only; per the letter, the register sheet holds allocated+reserved callsigns with licence type (Club indistinguishable from Full); authoritative record counts come from the converter/normaliser",
+        "sheets": [
+          { "name": "All Call Signs", "approxRows": 139758, "cols": "A:C", "datasetClass": "register-snapshot" },
+          { "name": "Forbidden Suffixes", "approxRows": 1466, "cols": "A:B", "datasetClass": "forbidden-list" },
+          { "name": "Sheet1", "approxRows": 28, "cols": "A:A", "datasetClass": "reference-context" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_all_amateur_radio_callsi/response/875470/attach/2/All%20Call%20Signs%20Assigned%20plus%20forbidden.xlsx",
+          "fetchedAt": "2026-07-07",
+          "note": "hash-identical to the copy fetched circa 2020 - one artefact, two dated fetch events"
+        }
+      ]
+    },
+    "all call sign list Nan Smith.pdf": {
+      "bytes": 137090,
+      "sha256": "b3a723f309967d7c2ac5c1a2e185a29688c9d4ab8b2027a9f759e2728182cf01",
+      "role": "response-letter",
+      "variantNote": "an earlier fetch (circa 2020) of the same attachment differs by one byte (137,089 B, sha256 8632e7376160541d8040cd451f9b5b9a05de044e0045652d6e50a270f89174de) with identical text - a re-serving artefact; the 2026-07-07 fetch is committed as its witness URL is verifiable today",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/list_of_all_amateur_radio_callsi/response/875470/attach/1/all%20call%20sign%20list%20Nan%20Smith.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-all-call-sign-list-nan-smith.md": {
+      "bytes": 3549,
+      "sha256": "aaf98de4b2ca22e8ab84acb11cc354e33d2879acba6c7738e0c5ecfb831d4bb8",
+      "role": "extract",
+      "extractOf": "all call sign list Nan Smith.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 5040,
+      "sha256": "ceef37b77b0c4960428ac87493f21b030fb5496c3d8ebe7ecdb6751f65573be6",
+      "role": "transcript"
+    }
+  }
+}
