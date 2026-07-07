@@ -15,11 +15,14 @@ amateur-callsigns-raw.csv  binary
 # Derivation convention: raw file -> mechanical extract (raw-extract-*.csv
 # for spreadsheets per sheet, raw-extract*.md for PDFs) -> normalised.csv.
 archive/foi/**                        binary
-archive/foi/**/meta.json              text eol=lf
-archive/foi/**/correspondence.md      text eol=lf
-archive/foi/**/raw-extract-*.csv      text eol=lf
-archive/foi/**/raw-extract*.md        text eol=lf
-archive/foi/**/normalised.csv         text eol=lf
+# NB: `binary` is a macro for -diff -merge -text, so text artefacts must
+# explicitly restore diff+merge as well as text, or PR diffs render them
+# as binary blobs.
+archive/foi/**/meta.json              text diff merge eol=lf
+archive/foi/**/correspondence.md      text diff merge eol=lf
+archive/foi/**/raw-extract-*.csv      text diff merge eol=lf
+archive/foi/**/raw-extract*.md        text diff merge eol=lf
+archive/foi/**/normalised.csv         text diff merge eol=lf
 
 # Derived normalised.csv must be byte-stable across platforms (meta.json
 # records its sha256/size and the sweep no-op check is byte equality) while
