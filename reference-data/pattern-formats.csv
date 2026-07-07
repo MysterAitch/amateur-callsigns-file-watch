@@ -1,11 +1,11 @@
-match,pattern,explanation
-exact,ANAAA,single-letter prefix + digit + three-letter suffix - the standard core callsign shape (G/M series)
-exact,AANAAA,standard core with a Regional Secondary Locator inserted (MW7... / GM0...)
-exact,NANAAA,2-format Intermediate with its mandatory-in-use RSL (2E0... / 2W1...)
-exact,NNAAA,2-format Intermediate core stored without the RSL (20... / 21...)
-exact,ANAA,heritage two-letter suffix (early G-series allocations)
-exact,AANAA,heritage two-letter suffix with a Regional Secondary Locator
-exact,ANA,single-letter suffix - contest callsigns issued by Notice of Variation
-exact,AANA,single-letter-suffix contest callsign with a Regional Secondary Locator
-starts-with,A/,visitor / temporary-reciprocal format - UK prefix + / + home callsign
-starts-with,AANNN,GB special event series (GB + digits + suffix)
+match,pattern,group,explanation
+exact,ANAAA,core,single-letter prefix + digit + three-letter suffix - the standard core callsign shape (G/M series)
+exact,AANAAA,core,standard core with a Regional Secondary Locator inserted (MW7... / GM0...)
+exact,NANAAA,core,2-format Intermediate with its mandatory-in-use RSL (2E0... / 2W1...)
+exact,NNAAA,core,2-format Intermediate core stored without the RSL (20... / 21...)
+exact,ANAA,core,heritage two-letter suffix (early G-series allocations)
+exact,AANAA,core,heritage two-letter suffix with a Regional Secondary Locator
+exact,ANA,core,single-letter suffix - contest callsigns issued by Notice of Variation
+exact,AANA,core,single-letter-suffix contest callsign with a Regional Secondary Locator
+starts-with,A/,visitor,visitor / temporary-reciprocal format - UK prefix + / + home callsign
+starts-with,AANNN,core,GB special event series (GB + digits + suffix)
