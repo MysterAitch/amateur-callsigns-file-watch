@@ -76,6 +76,9 @@ export function buildSqlite(outputPath: string): { datasetKey: string; tables: R
   const componentRecords = readCsv(path.join(CONSTANTS.DIRS.archive, newest, 'components.csv'));
   const componentColumns = Object.keys(componentRecords[0]);
   createAndFill('components', componentColumns, objectRows(componentRecords, componentColumns), 'callsign');
+  // Second lookup path: the RSL-placeholder form unifies every regional
+  // rendering of a callsign, so variant searches are one indexed equality.
+  db.exec('CREATE INDEX idx_components_placeholder ON components("placeholder_form")');
 
   // Statistics for EVERY dataset (long format - easy to pivot in SQL).
   const datasets: string[][] = [];
