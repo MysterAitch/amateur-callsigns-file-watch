@@ -10,3 +10,10 @@ ofcom_page.html
 
 # Vitest coverage output (local + CI runs; never committed)
 coverage/
+
+# Local-only drop zone for pre-ingestion source material (see
+# docs/source-register.md). NEVER committed: contains WDTK json/html
+# save-pages and original attachments, which carry personal-data artefacts
+# (requester addresses etc.) and must not be published; only properly
+# provenanced bytes graduate into archive/ or reference-data/ via PRs.
+landing/
