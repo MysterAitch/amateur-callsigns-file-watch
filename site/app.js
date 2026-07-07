@@ -20,13 +20,27 @@ const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
 // httpvfs reads), but never re-compresses image formats. Naming the SQLite
 // file .png makes every range request address the real bytes. The file is
 // plain SQLite; only the extension is costume.
-const dbUrl = new URL('./data/callsigns.sqlite.png', document.baseURI);
+//
+// The ?v= version stamp makes each deploy's database a DISTINCT cache
+// object: Pages caches with max-age=600, and two deploys inside that window
+// let the worker stitch 4 KiB chunks from DIFFERENT database versions -
+// observed live as "database disk image is malformed". version.txt is
+// written by the deploy workflow and fetched uncached.
+async function openDatabase() {
+  let version = 'dev';
+  try {
+    const res = await fetch(new URL('./data/version.txt', document.baseURI), { cache: 'no-store' });
+    if (res.ok) version = (await res.text()).trim();
+  } catch { /* fall back to unversioned */ }
+  const dbUrl = new URL(`./data/callsigns.sqlite.png?v=${encodeURIComponent(version)}`, document.baseURI);
+  return createDbWorker(
+    [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
+    workerUrl.toString(),
+    wasmUrl.toString(),
+  );
+}
 
-const dbPromise = createDbWorker(
-  [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
-  workerUrl.toString(),
-  wasmUrl.toString(),
-);
+const dbPromise = openDatabase();
 
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
