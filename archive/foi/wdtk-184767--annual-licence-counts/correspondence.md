@@ -12,11 +12,16 @@
 
 - **Asked**: the annual number of licences held (any class) for both the
   amateur radio service and business radio, each year from 1993 to date.
-- **Provided**: in full — `Number of licences Coleman.pdf` (statistics table;
-  the longest licence-count time series held by this archive, reaching back
-  to 1993).
-- **Withheld**: nothing; a follow-up about anomalies was answered
-  substantively.
+- **Provided**: partially — `Number of licences Coleman.pdf` supplies
+  **financial years 2003/04 → 2012/13 only** ("from 2003, the date of
+  Ofcom's inception"), and the letter's own wording is licences **issued**,
+  not *held* as asked (see `raw-extract-number-of-licences-coleman.md` for
+  the full letter and consolidated table).
+- **Withheld**: **1993→2003, refused under s.12 FOIA** (cost limit: £450 /
+  £25·hour; Ofcom estimated more than 18 hours), with a
+  neither-confirm-nor-deny on whether pre-2003 information exists in its
+  archives at all. The follow-up about the 2004/5–2005/6 anomaly was
+  answered substantively (below).
 - **Significance / interpretation caveats (on the record, from the
   follow-up)**:
   - Pre-lifetime-licensing "amateur" figures are NOT amateur-only: they
