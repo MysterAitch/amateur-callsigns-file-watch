@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": "756622",
+  "requestUrl": "https://www.whatdotheyknow.com/request/issued_and_available_uk_amateur",
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/file/0027/166572/allocated-reserved-forbidden-call-sign-foi-20190912.csv",
+  "title": "Issued and available UK amateur radio callsigns (Ofcom-published CSVs for response 756622)",
+  "requester": "roger_howell",
+  "requestedAt": "2019-08-09",
+  "respondedAt": "2019-09-06",
+  "outcome": "successful",
+  "dataVintage": "2019-09-12",
+  "dataVintageNote": "from the published filename; row count exactly matches the 2019-08-12 requester annex (141,295), so likely the same snapshot re-exported with the extra Licence Issued Date column - confirm by content diff at converter time",
+  "datasetClasses": ["register-snapshot", "forbidden-list", "attribute-addendum"],
+  "converter": null,
+  "relatedEntries": [
+    { "entry": "wdtk-596532--allocated-reserved-forbidden", "relation": "requester-channel entry for the same FOI response; the published register CSV adds a Licence Issued Date column absent from the requester annex and matches its 141,295-record count" }
+  ],
+  "files": {
+    "allocated-reserved-forbidden-call-sign-foi-20190912.csv": {
+      "bytes": 4571642,
+      "sha256": "22b1467f14f36035377bff9dc659bbafcfbe1c7cac7065ae6f9145c0842320dd",
+      "role": "data",
+      "datasetClasses": ["register-snapshot", "attribute-addendum"],
+      "contentsIndicative": "header Call Sign,Status,Licence Class,Licence Issued Date; 141,295 data rows (verified by line count); appears sorted by issued date ascending, opening with a 03/05/1903 date (presumed migration/placeholder artefact); the earliest known bulk disclosure of per-callsign issue dates",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20211213223006id_/https://www.ofcom.org.uk/__data/assets/file/0027/166572/allocated-reserved-forbidden-call-sign-foi-20190912.csv",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "allocated-reserved-forbidden-call-sign.csv": {
+      "bytes": 7331,
+      "sha256": "c981597e9bda0cf57e4a2dd0378865ddae035fa866d5a5eab784c799dd2d8d44",
+      "role": "data",
+      "datasetClasses": ["forbidden-list"],
+      "contentsIndicative": "header NAME; 1,465 data rows (verified by line count) - the forbidden-suffixes list, matching the requester annex's Forbidden Call Signs tab extent",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20211213223006id_/https://www.ofcom.org.uk/__data/assets/file/0026/165734/allocated-reserved-forbidden-call-sign.csv",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 2402,
+      "sha256": "dd6cc4dccfec727906e7d19780fa3dc84c36f72f739aa3717cf609b3b26766db",
+      "role": "transcript"
+    }
+  }
+}
