@@ -79,6 +79,8 @@ export function buildSqlite(outputPath: string): { datasetKey: string; tables: R
   // Second lookup path: the RSL-placeholder form unifies every regional
   // rendering of a callsign, so variant searches are one indexed equality.
   db.exec('CREATE INDEX idx_components_placeholder ON components("placeholder_form")');
+  // Third lookup path: suffix search (*TEE) powers the availability matrix.
+  db.exec('CREATE INDEX idx_components_suffix ON components("suffix")');
 
   // Statistics for EVERY dataset (long format - easy to pivot in SQL).
   const datasets: string[][] = [];
