@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 596532,
+  "ofcomReference": "756622",
+  "requestUrl": "https://www.whatdotheyknow.com/request/issued_and_available_uk_amateur",
+  "title": "Issued and available UK amateur radio callsigns",
+  "requester": "roger_howell",
+  "requestedAt": "2019-08-09",
+  "respondedAt": "2019-09-06",
+  "outcome": "successful",
+  "dataVintage": "2019-08-12",
+  "dataVintageNote": "the letter states the annex is 'as at the date of your request' (received 2019-08-12); the filename says only 'Aug19'",
+  "datasetClasses": ["register-snapshot", "forbidden-list"],
+  "converter": null,
+  "relatedEntries": [
+    { "entry": "disclosure log 2019-09-12 CSV (allocated-reserved-forbidden-call-sign-foi-20190912.csv, drop zone)", "relation": "a full snapshot published six days later on Ofcom's FOI pages - nearest-neighbour comparison point" },
+    { "entry": "requester's enriched xlsx/csv derivatives (local drop zone only)", "relation": "labelled derivatives with added analysis columns - not part of the FOI response, never committed; enrichment diff outstanding" }
+  ],
+  "files": {
+    "Allocated reserved forbidden Call Sign FOI Aug19.xlsx": {
+      "bytes": 3604733,
+      "sha256": "865141ed22151e349453180fd108b66f7da86ff3924ce013b32209191b282ca7",
+      "role": "data",
+      "datasetClasses": ["register-snapshot", "forbidden-list"],
+      "sheetsIndicative": {
+        "note": "from declared xlsx dimensions - approximate only; pristine as-served copy (workbook creator/modifier Julia Snape); the requester's follow-up records 141,295 records with specific anomalies (six blank statuses, 21 six-character callsigns, three trailing NBSPs, one mid-callsign space)",
+        "sheets": [
+          { "name": "All CallSigns on Record", "approxRows": 141295, "cols": "A:D", "datasetClass": "register-snapshot" },
+          { "name": "Forbidden Call Signs", "approxRows": 1465, "cols": "A:A", "datasetClass": "forbidden-list" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/issued_and_available_uk_amateur/response/1427939/attach/2/Allocated%20reserved%20forbidden%20Call%20Sign%20FOI%20Aug19.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "Amateur Radio callsigns Howell.pdf": {
+      "bytes": 237033,
+      "sha256": "a6567e9ba2a496a6b12736a06f04fc53ffa907d72f36372a0f4f64c43fd806ae",
+      "role": "response-letter",
+      "variantNote": "an earlier fetch of the same attachment differs in bytes (236,977 B, sha256 c90778b9314093ca9bfc991c02b833ab22f84760e9b0a739878a3ba0344ab871) with identical text - a re-serving artefact; the 2026-07-07 fetch is committed",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/issued_and_available_uk_amateur/response/1427939/attach/1/Amateur%20Radio%20callsigns%20Howell.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-amateur-radio-callsigns-howell.md": {
+      "bytes": 3617,
+      "sha256": "1c72f4c475a65ca2c6ff7c895d834693b5a8b098388422a5005bd83af67f0ad7",
+      "role": "extract",
+      "extractOf": "Amateur Radio callsigns Howell.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 5676,
+      "sha256": "1c0cc340f12dc4d07d869f0be3142964ff9c93ea6abb1d4df431a18123bd765a",
+      "role": "transcript"
+    }
+  }
+}
