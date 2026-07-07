@@ -53,6 +53,27 @@
         }
       ]
     },
+    "raw-extract-sheet-1-foundation.csv": {
+      "bytes": 36415,
+      "sha256": "dac7296da1d0e4f7dc6038aaaaee6e0d85695585bc7ff9706b3ee23184e738de",
+      "role": "extract",
+      "extractOf": "Ofcom UK Amateur Radio Call sign list available as at 6 September 2013.xlsx",
+      "extractedBy": "tools/xlsx-extract.py"
+    },
+    "raw-extract-sheet-2-intermediate.csv": {
+      "bytes": 38829,
+      "sha256": "3596ef9d0f4f3bca113177affbbcda389b8f4eada4f24f5011c06a03e94736ee",
+      "role": "extract",
+      "extractOf": "Ofcom UK Amateur Radio Call sign list available as at 6 September 2013.xlsx",
+      "extractedBy": "tools/xlsx-extract.py"
+    },
+    "raw-extract-sheet-3-full.csv": {
+      "bytes": 31469,
+      "sha256": "c1abbf7a82f080b34fc8245244d252023d49619f9b58da2bfb81571565fa45b8",
+      "role": "extract",
+      "extractOf": "Ofcom UK Amateur Radio Call sign list available as at 6 September 2013.xlsx",
+      "extractedBy": "tools/xlsx-extract.py"
+    },
     "FoI 1 241825298 Full Response.pdf": {
       "bytes": 89216,
       "sha256": "e3201db20aa0b1cb976cab90d116bac05649bd63b5e1878bd1d2d7e64c030641",
