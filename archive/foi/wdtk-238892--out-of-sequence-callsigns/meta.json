@@ -39,14 +39,14 @@
       "sha256": "71cf67fcb17a32266f68d67cc7c5e01c25aaac8edcc09909c2cbbfdc9b0fe946",
       "role": "extract",
       "extractOf": "Pre War Callsigns.xlsx",
-      "extractedBy": "tools/xlsx-extract.py"
+      "extractedBy": "src/shared/xlsx-extract.ts"
     },
     "raw-extract-sheet-2-database-fields.csv": {
       "bytes": 1045,
       "sha256": "1213e1f3170b80cb2a30d427d3599ffa17c0c3085bc46831cdd07ad043a5208d",
       "role": "extract",
       "extractOf": "Pre War Callsigns.xlsx",
-      "extractedBy": "tools/xlsx-extract.py"
+      "extractedBy": "src/shared/xlsx-extract.ts"
     },
     "Call signs series before WW2.pdf": {
       "bytes": 151542,

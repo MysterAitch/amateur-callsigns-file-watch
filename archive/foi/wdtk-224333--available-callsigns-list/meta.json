@@ -58,21 +58,21 @@
       "sha256": "72c0aac36664b4ebf0dc6a474df557eab7e83ac065ff93e3dfaf95564da1a990",
       "role": "extract",
       "extractOf": "Available Amateur Radio Call Signs 18 August 2014.xlsx",
-      "extractedBy": "tools/xlsx-extract.py"
+      "extractedBy": "src/shared/xlsx-extract.ts"
     },
     "raw-extract-sheet-2-intermediate.csv": {
       "bytes": 36246,
       "sha256": "25592d8ee606ccf89c9aad440efd623588b4146f27f6050beaca08cc497c5131",
       "role": "extract",
       "extractOf": "Available Amateur Radio Call Signs 18 August 2014.xlsx",
-      "extractedBy": "tools/xlsx-extract.py"
+      "extractedBy": "src/shared/xlsx-extract.ts"
     },
     "raw-extract-sheet-3-full.csv": {
       "bytes": 29978,
       "sha256": "1fceae8b71ec98450b8a9ba335abed26db96e9d05c0c94b0c6100d4d8dd1351e",
       "role": "extract",
       "extractOf": "Available Amateur Radio Call Signs 18 August 2014.xlsx",
-      "extractedBy": "tools/xlsx-extract.py"
+      "extractedBy": "src/shared/xlsx-extract.ts"
     },
     "Letter of Acknowledgement.pdf": {
       "bytes": 44473,

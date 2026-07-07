@@ -45,21 +45,21 @@
       "sha256": "6dae61c661a94b3ca24ccc6e1bf59b52bdce3f135394d7534683686bcaad6ca9",
       "role": "extract",
       "extractOf": "All Call Signs Assigned plus forbidden.xlsx",
-      "extractedBy": "tools/xlsx-extract.py"
+      "extractedBy": "src/shared/xlsx-extract.ts"
     },
     "raw-extract-sheet-2-forbidden-suffixes.csv": {
       "bytes": 20535,
       "sha256": "025860f90f86ba6d475ba78616a0328038fefab7b16c3858b438ec7234fea328",
       "role": "extract",
       "extractOf": "All Call Signs Assigned plus forbidden.xlsx",
-      "extractedBy": "tools/xlsx-extract.py"
+      "extractedBy": "src/shared/xlsx-extract.ts"
     },
     "raw-extract-sheet-3-sheet1.csv": {
       "bytes": 396,
       "sha256": "04d69edf777c55ba79344b8635d68621719dc304f41f6d62848193fb997403f0",
       "role": "extract",
       "extractOf": "All Call Signs Assigned plus forbidden.xlsx",
-      "extractedBy": "tools/xlsx-extract.py"
+      "extractedBy": "src/shared/xlsx-extract.ts"
     },
     "all call sign list Nan Smith.pdf": {
       "bytes": 137090,
