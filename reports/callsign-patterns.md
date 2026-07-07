@@ -64,6 +64,63 @@ Rows sorted by the newest dataset's counts.
 </details>
 
 <details>
+<summary>Raw patterns (human-readable markers: {nbsp}, {space}, ...)</summary>
+
+| pattern | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 |
+|---|---:|---:|---:|---:|---:|---:|
+| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152084 |
+| `ANAAA` | 138209 | 827 | 97773 | 827 | 136896 | 132379 |
+| `NNAAA` | 19497 | 242 | 14368 | 242 | 19882 | 19100 |
+| `ANAA` | 471 | — | 352 | — | 473 | 472 |
+| `A/AANAAA` | 38 | 3 | 49 | 3 | 48 | 31 |
+| `A/AANAA` | 19 | — | 21 | — | 20 | 11 |
+| `A/ANAAA` | 14 | — | 16 | — | 16 | 12 |
+| `NANAAA` | 13 | 1 | 14 | 1 | 14 | 13 |
+| `AANAAA` | 7 | — | 7 | — | 7 | 7 |
+| `NNAA` | 5 | — | 4 | — | 5 | 5 |
+| `A/NAAA` | 4 | — | 4 | — | 4 | 2 |
+| `A/AANA` | 3 | — | 1 | — | 1 | — |
+| `A/ANAA` | 3 | — | 3 | — | 3 | 3 |
+| `A/ANNAAA` | 3 | — | 2 | — | 2 | 2 |
+| `A/NANAAA` | 3 | — | 3 | — | 2 | 2 |
+| `AAAA` | 3 | — | — | — | 3 | 3 |
+| `AAAAA` | 3 | — | 4 | — | 4 | 4 |
+| `A/#AANAAA` | 2 | — | 2 | — | 2 | 2 |
+| `A/NNNN` | 2 | — | 2 | — | 2 | 2 |
+| `ANAAA{nbsp}` | 2 | — | — | — | — | — |
+| `A/#AANAA` | 1 | — | 1 | — | 1 | 1 |
+| `A/A/AANAA` | 1 | — | 1 | — | 1 | 1 |
+| `A/AA-N-AA` | 1 | — | 1 | — | 1 | 1 |
+| `A/AAA` | 1 | — | 1 | — | 1 | 1 |
+| `A/AAAA` | 1 | 1 | 2 | 1 | 2 | 2 |
+| `A/AAA{space}NNNN` | 1 | — | 1 | — | 1 | — |
+| `A/AANNN` | 1 | — | 1 | — | 1 | 1 |
+| `A/ANAAAA` | 1 | — | 1 | — | 1 | 1 |
+| `A/NANAA` | 1 | — | — | — | — | — |
+| `AAAAAAAAAAA` | 1 | — | — | — | 1 | — |
+| `AAAAAAAAAAAA` | 1 | — | — | — | 1 | — |
+| `ANAAN` | 1 | — | 2 | — | 2 | 1 |
+| `AN{space}AAA` | 1 | — | 1 | — | 1 | 1 |
+| `NAAAA` | 1 | — | 1 | — | 1 | 1 |
+| `NANAAA{nbsp}` | 1 | — | — | — | — | — |
+| `NaNAAA` | 1 | — | 1 | — | 1 | 1 |
+| `aNaaa` | 1 | — | 1 | — | 1 | 1 |
+| _(empty)_ | — | — | — | — | — | 2 |
+| `,,` | — | — | 1 | — | — | 1 |
+| `A/A#AANAAA` | — | — | 1 | — | 1 | — |
+| `A/A/AANAAA` | — | — | 1 | — | 1 | — |
+| `A/AAANAAA` | — | — | 1 | — | 1 | — |
+| `A/ANNAA` | — | — | 1 | — | 1 | — |
+| `AANNN` | — | — | 1 | — | 1 | — |
+| `ANAAA�` | — | — | 1 | — | 2 | 2 |
+| `ANNAAA` | — | — | 1 | — | 1 | — |
+| `NANAAA�` | — | — | 1 | — | 1 | 1 |
+| `NN-Aaa` | — | — | — | — | 16 | 15 |
+| `NNNNNNNN` | — | — | 1 | — | 1 | — |
+
+</details>
+
+<details>
 <summary>Folded patterns (every {U+XXXX} marker collapsed to U)</summary>
 
 | pattern | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 |
@@ -119,3 +176,17 @@ Rows sorted by the newest dataset's counts.
 | `NNNNNNNN` | — | — | 1 | — | 1 | — |
 
 </details>
+
+## Character key
+
+| appears as | codepoint | name |
+|---|---|---|
+| `{U+0020}` | U+0020 | space |
+| `#` | U+0023 | number sign (placeholder notation) |
+| `,` | U+002C | (unnamed) |
+| `-` | U+002D | hyphen-minus |
+| `/` | U+002F | solidus (portable/reciprocal separator) |
+| `{` | U+007B | (unnamed) |
+| `}` | U+007D | (unnamed) |
+| `{U+00A0}` | U+00A0 | no-break space |
+| `�` | U+FFFD | replacement character (encoding failure) |

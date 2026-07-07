@@ -37,6 +37,46 @@
     "NaNAAA": 1,
     "aNaaa": 1
   },
+  "callsignQuality": {
+    "emptyCallsign": {
+      "count": 0,
+      "examples": []
+    },
+    "encodingFailure": {
+      "count": 0,
+      "examples": []
+    },
+    "excelDateShaped": {
+      "count": 0,
+      "examples": []
+    },
+    "lowercaseBearing": {
+      "count": 2,
+      "examples": [
+        "2e1GTD",
+        "g0jrk"
+      ]
+    },
+    "postNormalisationDuplicates": {
+      "count": 4,
+      "examples": [
+        "G0TQK{U+00A0}",
+        "G6{U+0020}FMU",
+        "G7IWE{U+00A0}",
+        "M/EI-8-DJ"
+      ]
+    },
+    "whitespaceBearing": {
+      "count": 5,
+      "examples": [
+        "2E1HON{U+00A0}",
+        "G0TQK{U+00A0}",
+        "G6{U+0020}FMU",
+        "G7IWE{U+00A0}",
+        "M/TKG{U+0020}2021"
+      ]
+    }
+  },
   "columns": {
     "callsign": {
       "distinct": 158318,
@@ -88,5 +128,5 @@
     }
   },
   "recordCount": 158318,
-  "statsSchemaVersion": 2
+  "statsSchemaVersion": 3
 }
