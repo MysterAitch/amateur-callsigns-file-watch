@@ -47,16 +47,17 @@
       "format": "json"
     },
     "components.csv": {
-      "size": 4927691,
-      "sha256": "9ed28927126b0af07b3efa17a218ff72532bda18102f3233a7d436442f78553e",
+      "size": 5991201,
+      "sha256": "63396c8c8dec85ca0a636ecf59c405a4331f7e9c2a8667640d7d148cb4aef832",
       "format": "csv",
-      "columnCount": 8,
+      "columnCount": 9,
       "columnNames": [
         "callsign",
         "parse_status",
         "prefix_series",
         "rsl",
         "suffix",
+        "placeholder_form",
         "home_callsign",
         "implied_class",
         "flags"
@@ -69,6 +70,6 @@
     "schemaVersion": 1,
     "headerVariant": "v2023-mmsi",
     "statsSchemaVersion": 4,
-    "componentsSchemaVersion": 1
+    "componentsSchemaVersion": 2
   }
 }
