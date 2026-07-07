@@ -58,8 +58,15 @@ export interface CallsignQuality {
   lowercaseBearing: DetectorResult;
 }
 
+// The component-parse facts a stats aggregate needs: flags and parse status
+// per row (the full detail lives in components.csv).
+export interface ComponentAggregateInput {
+  parseStatus: string;
+  flags: readonly string[];
+}
+
 export interface EntryStats {
-  statsSchemaVersion: 3;
+  statsSchemaVersion: 4;
   recordCount: number;
   // Format taxonomy of the callsign column: uppercase→A, lowercase→a,
   // digit→N; whitespace, unprintable, and invisible characters (Unicode
@@ -70,6 +77,10 @@ export interface EntryStats {
   // work - so a tab anomaly and an NBSP anomaly are distinct rows.
   callsignPatterns: Record<string, number>;
   callsignQuality: CallsignQuality;
+  // Aggregated from components.csv rows (flag vocabulary:
+  // reference-data/flags.md); empty objects when no component parse ran.
+  callsignFlags: Record<string, number>;
+  parseStatuses: Record<string, number>;
   columns: Record<string, StringColumnStats | DateColumnStats>;
 }
 
@@ -138,6 +149,7 @@ export function computeEntryStats(
   header: readonly string[],
   rows: readonly (readonly string[])[],
   dateColumns: ReadonlySet<string>,
+  components: readonly ComponentAggregateInput[] = [],
 ): EntryStats {
   const callsignIndex = header.indexOf('callsign');
   const patterns = new Map<string, number>();
@@ -182,11 +194,22 @@ export function computeEntryStats(
     }
   });
 
+  const callsignFlags = new Map<string, number>();
+  const parseStatuses = new Map<string, number>();
+  for (const c of components) {
+    parseStatuses.set(c.parseStatus, (parseStatuses.get(c.parseStatus) ?? 0) + 1);
+    for (const f of c.flags) callsignFlags.set(f, (callsignFlags.get(f) ?? 0) + 1);
+  }
+  const sortedEntries = (m: Map<string, number>): Record<string, number> =>
+    Object.fromEntries([...m.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+
   return {
-    statsSchemaVersion: 3,
+    statsSchemaVersion: 4,
     recordCount: rows.length,
     callsignPatterns: Object.fromEntries([...patterns.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
     callsignQuality: computeCallsignQuality(callsigns),
+    callsignFlags: sortedEntries(callsignFlags),
+    parseStatuses: sortedEntries(parseStatuses),
     columns,
   };
 }

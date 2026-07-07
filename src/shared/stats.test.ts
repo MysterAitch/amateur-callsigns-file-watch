@@ -131,6 +131,26 @@ describe('computeEntryStats', () => {
     expect(q.lowercaseBearing.examples).toEqual([...q.lowercaseBearing.examples].sort());
   });
 
+  it('ComponentAggregates_WhenProvided_FlagAndStatusCountsIncluded', () => {
+    // Flags and parse statuses aggregate from component rows when supplied
+    // (the converter computes both from the same parse) - counts only; the
+    // per-row detail lives in components.csv.
+    const components = [
+      { parseStatus: 'parsed', flags: ['missing-rsl'] },
+      { parseStatus: 'parsed', flags: ['missing-rsl', 'forbidden-suffix'] },
+      { parseStatus: 'visitor', flags: [] },
+    ];
+    const stats = computeEntryStats(HEADER, ROWS.slice(0, 3), DATE_COLUMNS, components);
+    expect(stats.callsignFlags).toEqual({ 'forbidden-suffix': 1, 'missing-rsl': 2 });
+    expect(stats.parseStatuses).toEqual({ parsed: 2, visitor: 1 });
+  });
+
+  it('ComponentAggregates_WhenAbsent_EmptyObjects', () => {
+    const stats = computeEntryStats(HEADER, ROWS, DATE_COLUMNS);
+    expect(stats.callsignFlags).toEqual({});
+    expect(stats.parseStatuses).toEqual({});
+  });
+
   it('ColumnStats_WhenStringColumn_ReportsDistinctEmptyAndLengthRangeOverNonEmptyValues', () => {
     // distinct and length range deliberately consider non-empty values only;
     // emptiness is its own counter (a column with many empties would

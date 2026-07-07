@@ -1,5 +1,16 @@
 # Normalised schema reference
 
+## Data strata
+
+The repository's data falls into four strata with distinct lifecycles:
+
+| stratum | contents | lifecycle |
+|---|---|---|
+| **source mirror** | `archive/*/raw.csv` (+ provenance in `meta.json`) | verbatim publications; never modified |
+| **reference data** | `reference-data/` | hand-curated knowledge with citations; an *input*, reviewed like code |
+| **derived data** | `normalised.csv`, `components.csv`, `stats.json`, `reports/` | machine-derived in the golden-master lane: byte-deterministic, re-derived by the scheduled sweep, changes arrive as human-reviewed PRs |
+| **presentation** | downstream consumers (UI repositories, analyses) | assembles derived + reference data at read time |
+
 `archive/{key}/normalised.csv` presents every publication in ONE stable shape,
 regardless of the raw file's per-publication header drift. The filename never
 changes; each entry's `meta.json` declares what it achieved
