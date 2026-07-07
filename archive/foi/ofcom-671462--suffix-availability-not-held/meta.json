@@ -11,7 +11,9 @@
   "respondedAt": "2019-02-27",
   "outcome": "not held",
   "dataVintage": null,
-  "datasetClasses": ["reference-context"],
+  "datasetClasses": [
+    "reference-context"
+  ],
   "converter": null,
   "files": {
     "amateur-radio-call-sign-allocation-foi.pdf": {
@@ -28,8 +30,8 @@
       ]
     },
     "raw-extract-amateur-radio-call-sign-allocation-foi.md": {
-      "bytes": 1195,
-      "sha256": "ace0f4f0afe31461eeae81305348df9d821f279039cccfbc3e08f6ca08363b83",
+      "bytes": 1483,
+      "sha256": "a09a78e022f487a16b6a2790e3b63e58864cd5681473e01ad2f2cbf3b4217878",
       "role": "extract",
       "extractOf": "amateur-radio-call-sign-allocation-foi.pdf"
     },
@@ -38,5 +40,15 @@
       "sha256": "9e20d419e95899db49ba71c0c34f611a9c5d10d4a95421de3786d38d8fe6907a",
       "role": "transcript"
     }
-  }
+  },
+  "relatedEntries": [
+    {
+      "relation": "the letter's 'same subject' hyperlink targets that entry's published letter (URI annotation recovered from the PDF)",
+      "entry": "ofcom-518689--suffix-availability-not-held"
+    },
+    {
+      "relation": "predecessor in the 2018-2019 not-held trilogy (word-for-word identical request)",
+      "entry": "ofcom-632469--suffix-availability-not-held"
+    }
+  ]
 }

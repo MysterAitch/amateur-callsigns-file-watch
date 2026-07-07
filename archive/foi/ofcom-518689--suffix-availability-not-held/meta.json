@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": "518689",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/pdf_file/0009/111141/Amateur-Radio-available-call-signs.pdf",
+  "title": "Amateur Radio available call signs (suffix availability - not held)",
+  "requester": null,
+  "requestedAt": "2018-02-09",
+  "respondedAt": "2018-02-13",
+  "outcome": "not held",
+  "dataVintage": null,
+  "datasetClasses": ["reference-context"],
+  "converter": null,
+  "relatedEntries": [
+    { "entry": "ofcom-632469--suffix-availability-not-held", "relation": "successor in the 2018-2019 not-held trilogy (same generator description)" },
+    { "entry": "ofcom-671462--suffix-availability-not-held", "relation": "the 671462 letter hyperlinks to this letter's published copy as its 'same subject' precedent" }
+  ],
+  "files": {
+    "Amateur-Radio-available-call-signs.pdf": {
+      "bytes": 392489,
+      "sha256": "db6e4edd04bac8cb65fde42c5dcfe481594259a3f8ab96106b1658871ccb94b0",
+      "role": "response-letter",
+      "contentsIndicative": "record-only response: the classic available-list request formula meeting the algorithmic era; generator description with exclusion semantics",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20201221225837id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0009/111141/Amateur-Radio-available-call-signs.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-amateur-radio-available-call-signs.md": {
+      "bytes": 1388,
+      "sha256": "9dfc02b3ff620e695a3be8a5f74c32b09735181763f0942346bd71bae7261a81",
+      "role": "extract",
+      "extractOf": "Amateur-Radio-available-call-signs.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 1641,
+      "sha256": "ee88fda2c1ca9f0fbd8261f3e0c3326b1de7938e3f2e2d7bd7fdb6cfd0d9bf5b",
+      "role": "transcript"
+    }
+  }
+}
