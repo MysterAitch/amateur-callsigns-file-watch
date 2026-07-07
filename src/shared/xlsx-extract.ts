@@ -331,7 +331,7 @@ export function extractWorkbook(bytes: Buffer): ExtractedSheet[] {
         maxRow = Math.max(maxRow, rowIndex);
         maxColumn = Math.max(maxColumn, columnIndex);
         let row = grid.get(rowIndex);
-        if (row === undefined) grid.set(rowIndex, row = new Map());
+        if (row === undefined) grid.set(rowIndex, row = new Map<number, string>());
         row.set(columnIndex, rendered);
       }
     }
