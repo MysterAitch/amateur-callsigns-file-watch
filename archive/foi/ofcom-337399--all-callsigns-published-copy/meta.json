@@ -11,17 +11,26 @@
   "respondedAt": "2016-09-29",
   "outcome": "successful",
   "dataVintage": "2016-09",
-  "datasetClasses": ["register-snapshot", "forbidden-list"],
+  "datasetClasses": [
+    "register-snapshot",
+    "forbidden-list"
+  ],
   "converter": null,
   "relatedEntries": [
-    { "entry": "wdtk-356636--all-callsigns-plus-forbidden", "relation": "requester-channel entry for the same FOI response; the zip's xlsx is byte-identical (sha256 9ec1df14722a09f0da4071d3d5e4e45a2e88924be6dbbeea4b98cd6ae3a40f93) to that entry's data file; the letter differs by publication redaction only" }
+    {
+      "entry": "wdtk-356636--all-callsigns-plus-forbidden",
+      "relation": "requester-channel entry for the same FOI response; the zip's xlsx is byte-identical (sha256 9ec1df14722a09f0da4071d3d5e4e45a2e88924be6dbbeea4b98cd6ae3a40f93) to that entry's data file; the letter differs by publication redaction only"
+    }
   ],
   "files": {
     "337399-FOI-All-Call-Signs.zip": {
       "bytes": 2093163,
       "sha256": "ff6d5deec4f9f49fd4c58812fc8d477fa7a9b8f24c3578d16b3ca346c55523cf",
       "role": "data",
-      "datasetClasses": ["register-snapshot", "forbidden-list"],
+      "datasetClasses": [
+        "register-snapshot",
+        "forbidden-list"
+      ],
       "contentsIndicative": "as-published container; contents: '337399 All Call Signs Assigned (plus forbidden).xlsx' (2,570,239 B, sha256 9ec1df14722a09f0da4071d3d5e4e45a2e88924be6dbbeea4b98cd6ae3a40f93, byte-identical to the wdtk-356636 data file) and '337399 all call sign list.pdf' (154,635 B, the publication-redacted letter, committed extracted alongside)",
       "witnesses": [
         {
@@ -36,7 +45,7 @@
       "sha256": "5f773c2e65d75508704d6dc03ad9017a3c5501b2f0f12a6add6ac7d5874629bb",
       "role": "response-letter",
       "extractedFrom": "337399-FOI-All-Call-Signs.zip",
-      "contentsIndicative": "publication-redacted variant of the wdtk-356636 letter: salutation and requester name/relay-address block removed, body identical",
+      "contentsIndicative": "publication-redacted variant of the wdtk-356636 letter: salutation and requester name/relay-address block removed, body identical; PDF CreationDate 2016-09-29T16:13:29+01:00 (Word 2016, no Author) - four minutes after the requester letter (16:09:24), so the publication package was prepared in the same session as the response",
       "witnesses": [
         {
           "channel": "ukgwa",
@@ -53,8 +62,8 @@
       "extractOf": "337399 all call sign list.pdf"
     },
     "correspondence.md": {
-      "bytes": 1607,
-      "sha256": "05b92727f2baae32458c6eb60c8d5bb7dde4c5e27c3dcc96e45ea94cbe3bbf87",
+      "bytes": 2040,
+      "sha256": "16f4cf76185fc699b57088b281c25d75985aaf31d554b9e4d150bfbd51c73ca7",
       "role": "transcript"
     }
   }

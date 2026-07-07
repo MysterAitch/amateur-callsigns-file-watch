@@ -25,6 +25,12 @@
   requester name/relay-address block are removed; body text identical (see
   the raw extract). The redacted variant documents Ofcom's
   publication-anonymisation practice of the era.
+- **Document metadata dates the publication step**: the requester letter's
+  PDF was created 2016-09-29 16:09:24 (+01:00) and the published variant
+  2016-09-29 16:13:29 (+01:00) — four minutes apart, both Microsoft Word
+  2016, neither carrying an Author field; the zip's internal entry
+  timestamps fall in the same minutes. The publication package was
+  prepared in the same session as the response itself, not retrospectively.
 - **Correspondence**: the request/response exchange itself is transcribed
   in the wdtk-356636 entry; this entry records the publication event, not
   the exchange.
