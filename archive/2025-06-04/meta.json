@@ -43,13 +43,13 @@
       "sortedBy": "callsign"
     },
     "stats.json": {
-      "size": 2750,
-      "sha256": "605c3c552a5a60f55a54791f34f0095b8320e11b3c523a60a82b56c28ad592c4",
+      "size": 2785,
+      "sha256": "56cf8bb9f5a10a64b38af4bf1e3bc785bab8bb484c79f28d0dba15898ece3b49",
       "format": "json"
     },
     "components.csv": {
-      "size": 4501412,
-      "sha256": "64574a9400885e6ce6eff565258a3b2ce64afa6c7431ac36a0a7fb2521584298",
+      "size": 4501712,
+      "sha256": "ccb8f8beb254051285b720a8cdcba1e649e719ee842d192585a4c887c9db9d00",
       "format": "csv",
       "columnCount": 9,
       "columnNames": [
@@ -73,6 +73,6 @@
     "schemaVersion": 1,
     "headerVariant": "v2025-friendly",
     "statsSchemaVersion": 4,
-    "componentsSchemaVersion": 2
+    "componentsSchemaVersion": 3
   }
 }

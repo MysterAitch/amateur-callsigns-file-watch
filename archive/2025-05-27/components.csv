@@ -251,7 +251,7 @@ G8DRB,parsed,G8,,DRB,G#8DRB,,Full,
 G8EIS,parsed,G8,,EIS,G#8EIS,,Full,
 M/EA2AIV,visitor,,,,,EA2AIV,,
 M/JE1QCL,visitor,,,,,JE1QCL,,
-M/KNIZ,visitor,,,,,KNIZ,,
+M/KNIZ,visitor,,,,,KNIZ,,malformed-home-callsign
 M/OK1IKI,visitor,,,,,OK1IKI,,
 M0IVB,parsed,M0,,IVB,M#0IVB,,Full,
 M0IVC,parsed,M0,,IVC,M#0IVC,,Full,

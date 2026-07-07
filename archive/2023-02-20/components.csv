@@ -94809,11 +94809,11 @@ GSPG,unparseable,,,,,,,
 GTUN,unparseable,,,,,,,
 GW6AWV,parsed,G6,W,AWV,G#6AWV,,Full,
 GYUUO,unparseable,,,,,,,
-M/#PT2FM,visitor,,,,,#PT2FM,,
-M/#VK4VGK,visitor,,,,,#VK4VGK,,
-M/#YO3IES,visitor,,,,,#YO3IES,,
-M/1234,visitor,,,,,1234,,
-M/1235,visitor,,,,,1235,,
+M/#PT2FM,visitor,,,,,#PT2FM,,malformed-home-callsign
+M/#VK4VGK,visitor,,,,,#VK4VGK,,malformed-home-callsign
+M/#YO3IES,visitor,,,,,#YO3IES,,malformed-home-callsign
+M/1234,visitor,,,,,1234,,malformed-home-callsign
+M/1235,visitor,,,,,1235,,malformed-home-callsign
 M/4DMP,visitor,,,,,4DMP,,
 M/5Q5JUF,visitor,,,,,5Q5JUF,,
 M/7K1BIB,visitor,,,,,7K1BIB,,
@@ -94823,7 +94823,7 @@ M/AI4PP,visitor,,,,,AI4PP,,
 M/E21EIC,visitor,,,,,E21EIC,,
 M/E2IEIC,visitor,,,,,E2IEIC,,
 M/EA2AIV,visitor,,,,,EA2AIV,,
-M/EI-8-DJ,visitor,,,,,EI-8-DJ,,stripped-collision
+M/EI-8-DJ,visitor,,,,,EI-8-DJ,,malformed-home-callsign;stripped-collision
 M/EI8DJ,visitor,,,,,EI8DJ,,
 M/G0ICN,visitor,,,,,G0ICN,,
 M/G1XXU,visitor,,,,,G1XXU,,
@@ -94849,9 +94849,9 @@ M/K5NOV,visitor,,,,,K5NOV,,
 M/KC0QYU,visitor,,,,,KC0QYU,,
 M/KC8KBK,visitor,,,,,KC8KBK,,
 M/KE6ZOM,visitor,,,,,KE6ZOM,,
-M/KNIZ,visitor,,,,,KNIZ,,
+M/KNIZ,visitor,,,,,KNIZ,,malformed-home-callsign
 M/LZ1QU,visitor,,,,,LZ1QU,,
-M/M/PT2FM,visitor,,,,,M/PT2FM,,
+M/M/PT2FM,visitor,,,,,M/PT2FM,,malformed-home-callsign
 M/M0BBB,visitor,,,,,M0BBB,,
 M/M6IPG,visitor,,,,,M6IPG,,
 M/MB6DT,visitor,,,,,MB6DT,,
@@ -94865,7 +94865,7 @@ M/SP9EOT,visitor,,,,,SP9EOT,,
 M/SQ4IND,visitor,,,,,SQ4IND,,
 M/SV450,visitor,,,,,SV450,,
 M/TA8ERG,visitor,,,,,TA8ERG,,
-M/TEST,visitor,,,,,TEST,,
+M/TEST,visitor,,,,,TEST,,malformed-home-callsign
 M/VE1TAZ,visitor,,,,,VE1TAZ,,
 M/VK2BY,visitor,,,,,VK2BY,,
 M/VK3JUG,visitor,,,,,VK3JUG,,
@@ -94880,7 +94880,7 @@ M/W6AJ,visitor,,,,,W6AJ,,
 M/W6PNG,visitor,,,,,W6PNG,,
 M/WB1PEP,visitor,,,,,WB1PEP,,
 M/WD0HHU,visitor,,,,,WD0HHU,,
-M/XTC,visitor,,,,,XTC,,
+M/XTC,visitor,,,,,XTC,,malformed-home-callsign
 M/ZL1CNB,visitor,,,,,ZL1CNB,,
 M/ZL2BJO,visitor,,,,,ZL2BJO,,
 M/ZS6ZAP,visitor,,,,,ZS6ZAP,,
