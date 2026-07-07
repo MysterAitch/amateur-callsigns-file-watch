@@ -68,7 +68,10 @@ describe('computeEntryStats', () => {
     ];
     const q = computeEntryStats(HEADER, rows, DATE_COLUMNS).callsignQuality;
     expect(q.encodingFailure.count).toBe(1);
-    expect(q.encodingFailure.examples).toEqual(['G0TQK\uFFFD']);
+    // The replacement character renders as its marker in examples, like
+    // every other anomalous codepoint (it is category So, which \p{C}\p{Z}
+    // misses - the raw glyph was leaking into report tables).
+    expect(q.encodingFailure.examples).toEqual(['G0TQK{U+FFFD}']);
   });
 
   it('CallsignQuality_WhenWhitespaceBearingValues_DetectedWithVisibleExamples', () => {

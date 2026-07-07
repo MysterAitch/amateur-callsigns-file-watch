@@ -75,7 +75,7 @@ describe('runNormaliseSweep', () => {
     const normalised = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'normalised.csv'), 'utf8');
     expect(normalised.startsWith('callsign,product,status,type,')).toBe(true);
     const meta = readMeta(tmpRoot, '2026-01-01');
-    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 4, componentsSchemaVersion: 4 });
+    expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 5, componentsSchemaVersion: 4 });
     expect(meta.files['normalised.csv'].sha256).toBe(sha256(normalised));
     expect(meta.files['normalised.csv'].recordCount).toBe(2);
   });
@@ -155,13 +155,13 @@ describe('runNormaliseSweep', () => {
     expect(report.changed).toEqual(['2026-01-01']);
     const statsRaw = fs.readFileSync(path.join(tmpRoot, 'archive', '2026-01-01', 'stats.json'), 'utf8');
     const stats = JSON.parse(statsRaw) as EntryStats;
-    expect(stats.statsSchemaVersion).toBe(4);
+    expect(stats.statsSchemaVersion).toBe(5);
     expect(stats.recordCount).toBe(2);
     expect(stats.callsignPatterns).toEqual({ ANAAA: 2 }); // M7TEE, G5ABC
     expect((stats.columns.callsign as { distinct: number }).distinct).toBe(2);
     const meta = readMeta(tmpRoot, '2026-01-01');
     expect(meta.files['stats.json'].sha256).toBe(sha256(statsRaw));
-    expect(meta.normalised?.statsSchemaVersion).toBe(4);
+    expect(meta.normalised?.statsSchemaVersion).toBe(5);
   });
 
   it('Sweep_WhenEntryNormalised_ComponentsCsvWrittenAndDeclaredInMeta', () => {
@@ -558,6 +558,11 @@ describe('runNormaliseSweep', () => {
     expect(second.changed).toEqual([]);
     expect(second.coverageMarkdown).toContain('<summary>RSL matrix (current state): 2026-02-02</summary>');
     expect(second.coverageMarkdown).toContain('| **total** |');
+    // The flag/status trend tables ride every sweep PR body (restored after
+    // review noted their absence).
+    expect(second.coverageMarkdown).toContain('<summary>Data-quality flags per dataset</summary>');
+    expect(second.coverageMarkdown).toContain('## Component-parse flags');
+    expect(second.coverageMarkdown).toContain('## Parse statuses');
   });
 
   it('Reports_WhenSpecialCharactersPresent_CharacterKeyNamesThem', () => {

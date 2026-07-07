@@ -126,8 +126,10 @@ async function renderRslMatrix() {
         ? `{U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}}`
         : ch).join('');
     const excludedCounts = await query('SELECT status, n FROM matrix_excluded ORDER BY status');
+    // Count-first phrasing, matching the reports' bullet convention
+    // ("10 unparseable") - one grammar on every surface.
     const excludedText = excludedCounts.length === 0 ? 'none'
-      : excludedCounts.map(r => `${r.status} (${r.n})`).join(', ');
+      : excludedCounts.map(r => `${r.n} ${r.status}`).join(', ');
     const caption = el('p', { class: 'muted', text: `Excluded from this table: ${excludedText}.` });
 
     const detailsBlocks = [];
