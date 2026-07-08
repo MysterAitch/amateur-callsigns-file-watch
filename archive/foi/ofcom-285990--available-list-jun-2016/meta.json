@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": "285990",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/pdf_file/0024/38229/285990-amateur-call-signs.pdf",
+  "title": "Amateur radio available call sign list (applicable from 29 June 2016)",
+  "requester": null,
+  "requestedAt": "2016-06-13",
+  "respondedAt": null,
+  "respondedAtNote": "the published letter is undated; bounded by the list's applicability date (2016-06-29) and the response page's july2016 publication path",
+  "outcome": "successful",
+  "dataVintage": "2016-06-29",
+  "dataVintageNote": "the letter states the attached available list is applicable from 29 June 2016; THE LIST ATTACHMENT ITSELF HAS NOT BEEN RECOVERED - the web archive captured only the covering letter, and no capture of the response page (which would reveal the attachment URL) is indexed. Open recovery target.",
+  "datasetRecovery": "unrecovered",
+  "datasetClasses": ["reference-context"],
+  "converter": null,
+  "relatedEntries": [
+    { "entry": "ofcom-299351--available-list-referral", "relation": "the 299351 web-link response answers a fresh available-list request by pointing at this publication's response page" },
+    { "entry": "wdtk-356636--all-callsigns-plus-forbidden", "relation": "the 356636 correspondence cites this publication as the separately recovered available list" },
+    { "entry": "wdtk-309076--available-callsigns-list", "relation": "predecessor: the last of the 2013-2016 WDTK available-list series (January 2016); this June 2016 disclosure is the only known later available list before the not-held era" }
+  ],
+  "files": {
+    "285990-amateur-call-signs.pdf": {
+      "bytes": 68791,
+      "sha256": "7d59085b6bea1fb6a7e4e7f8ea14cb196a8fab3bc5c5a9d0ecfc33faffea76bd",
+      "role": "response-letter",
+      "contentsIndicative": "one-page undated covering letter: request of 13 June 2016 answered with an attached available call sign list applicable from 29 June 2016 (attachment not part of this PDF and not recovered)",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0024/38229/285990-amateur-call-signs.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-285990-amateur-call-signs.md": {
+      "bytes": 855,
+      "sha256": "2e68a6a65c8c4da26dfb9f1f1c821e8b1caac629656dce9e98525b87ef3ab45c",
+      "role": "extract",
+      "extractOf": "285990-amateur-call-signs.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 2079,
+      "sha256": "e2e71da0f3280e004cf4f16498ecb76fa46261ade8397f712eb99ac61c7915cf",
+      "role": "transcript"
+    }
+  }
+}
