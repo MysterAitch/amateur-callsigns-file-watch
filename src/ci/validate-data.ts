@@ -24,7 +24,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS, calculateFileHash, type ArchiveMeta , errorMessage } from '../shared/utils.ts';
-import { physicalLines, ignoreReasonForRecord } from '../sources/ofcom-amateur/normalise.ts';
+import { physicalLines } from '../sources/ofcom-amateur/normalise.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { validateFoiLaneAt } from './validate-foi.ts';
 
@@ -136,7 +136,6 @@ function validateIgnoredLines(dir: string, meta: ArchiveMeta): ValidationProblem
   const ignored = meta.ignoredLines ?? [];
   if (normalisedDecl === undefined && ignored.length === 0) return problems;
   if (!fs.existsSync(rawPath)) return problems; // already reported above
-  const variant = (meta as { normalised?: { headerVariant?: string } }).normalised?.headerVariant;
 
   const lines = physicalLines(fs.readFileSync(rawPath, 'utf8'));
   for (const header of meta.headerLines ?? []) {
@@ -144,7 +143,6 @@ function validateIgnoredLines(dir: string, meta: ArchiveMeta): ValidationProblem
       problems.push({ path: metaPath, problem: `headerLines: line ${header.line} content mismatch - meta declares ${JSON.stringify(header.content)}, raw.csv has ${JSON.stringify(lines[header.line - 1])}` });
     }
   }
-  const headerLine = lines[0] ?? '';
   const seen = new Set<number>();
   for (const entry of ignored) {
     if (!Number.isInteger(entry.line) || entry.line < 2 || entry.line > lines.length) {
@@ -160,25 +158,15 @@ function validateIgnoredLines(dir: string, meta: ArchiveMeta): ValidationProblem
       problems.push({ path: metaPath, problem: `ignoredLines: line ${entry.line} content mismatch - meta declares ${JSON.stringify(entry.content)}, raw.csv has ${JSON.stringify(lines[entry.line - 1])}` });
       continue;
     }
+    // Validity is syntactic-vs-semantic (ratified 2026-07-08): blank lines
+    // are auto-ignored; every OTHER ignored line is a CURATED human
+    // judgement (export furniture) and must say so - a non-empty reason is
+    // the minimum audit trail, and the byte-match above plus the count
+    // invariant below keep the curation honest. There is deliberately no
+    // mechanical can-this-be-ignored predicate any more: syntactically
+    // valid rows can only leave the table via reviewed, explicit curation.
     if (typeof entry.reason !== 'string' || entry.reason.trim() === '') {
       problems.push({ path: metaPath, problem: `ignoredLines: line ${entry.line} has no reason` });
-    }
-    // Predicate re-check: whitespace-only lines are trivially non-data;
-    // anything else must parse under the entry's header variant and still
-    // fail the row-validity predicate.
-    if (entry.content.trim() === '') continue;
-    if (variant === undefined) {
-      problems.push({ path: metaPath, problem: 'ignoredLines present but meta.normalised.headerVariant is missing - cannot re-verify the row-validity predicate' });
-      break;
-    }
-    try {
-      const [record] = parse(`${headerLine}\n${entry.content}`, { columns: true, bom: true }) as Record<string, string>[];
-      if (record !== undefined && ignoreReasonForRecord(record, variant) === undefined) {
-        problems.push({ path: rawPath, problem: `ignoredLines: line ${entry.line} is a VALID data row (${JSON.stringify(entry.content)}) - data must never be ignored` });
-      }
-    } catch {
-      // Unparseable under the variant's header - by definition not a data
-      // row; the enumeration stands.
     }
   }
 

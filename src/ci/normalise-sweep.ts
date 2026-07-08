@@ -23,7 +23,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { CONSTANTS, type ArchiveMeta, calculateContentHash, errorMessage, saveJsonFileSync } from '../shared/utils.ts';
+import { CONSTANTS, type ArchiveMeta, type IgnoredRawLine, calculateContentHash, errorMessage, saveJsonFileSync } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { renderStatsJson, compareStats, markUnprintables, type EntryStats } from '../shared/stats.ts';
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
@@ -31,7 +31,10 @@ import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/c
 
 interface SourceConverter {
   schemaVersion: number;
-  convert(rawContent: string, referenceDateIso: string): ConvertResult;
+  // curatedIgnores: meta.json's hand-curated ignoredLines - an INPUT to
+  // conversion (syntactically valid lines a human judged to be export
+  // furniture), byte-verified against raw by the converter.
+  convert(rawContent: string, referenceDateIso: string, curatedIgnores: IgnoredRawLine[]): ConvertResult;
 }
 
 // Converter registry, keyed by meta.sourceKey. Future sources (FOI xlsx via
@@ -39,7 +42,7 @@ interface SourceConverter {
 const CONVERTERS: Record<string, SourceConverter> = {
   [CONSTANTS.SOURCES.OFCOM_AMATEUR]: {
     schemaVersion: NORMALISED_SCHEMA_VERSION,
-    convert: (rawContent, referenceDateIso) => convertRawCsv(rawContent, { referenceDateIso }),
+    convert: (rawContent, referenceDateIso, curatedIgnores) => convertRawCsv(rawContent, { referenceDateIso }, curatedIgnores),
   },
 };
 
@@ -108,7 +111,7 @@ export function runNormaliseSweep(): SweepReport {
       }
 
       const raw = fs.readFileSync(path.join(dir, 'raw.csv'), 'utf8');
-      const result: ConvertResult = converter.convert(raw, referenceDate);
+      const result: ConvertResult = converter.convert(raw, referenceDate, meta.ignoredLines ?? []);
 
       const outPath = path.join(dir, 'normalised.csv');
       const statsPath = path.join(dir, 'stats.json');

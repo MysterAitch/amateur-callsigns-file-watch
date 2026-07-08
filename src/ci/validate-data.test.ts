@@ -107,29 +107,15 @@ describe('validateArchiveEntry', () => {
     expect(problems.some(p => p.problem.includes('content mismatch'))).toBe(true);
   });
 
-  it('ArchiveEntry_WhenIgnoredLineIsValidData_Fails', () => {
-    // Ignoring a line that passes the row-validity predicate must fail:
-    // the mechanism exists for furniture, never for data.
+  it('ArchiveEntry_WhenIgnoredLineHasNoReason_Fails', () => {
+    // Curated ignores are human judgements; a non-empty reason is the
+    // minimum audit trail (there is deliberately no mechanical
+    // can-this-be-ignored predicate - explicitness plus review is the guard).
     writeAccountedEntry(tmpRoot, '2026-06-23', {
-      files: undefined, // rebuilt below via writeEntry defaults - not used
-      ignoredLines: [
-        { line: 3, content: 'M7TEE,Allocated,Call Sign - Amateur', reason: 'testing' },
-        { line: 4, content: 'footer text,,', reason: 'no companion values' },
-      ],
+      ignoredLines: [{ line: 4, content: 'footer text,,', reason: '  ' }],
     });
-    // Restore a coherent files map (recordCount 1 keeps the count invariant
-    // satisfied so the data-row check is what fails).
-    const dir = path.join(tmpRoot, CONSTANTS.DIRS.archive, '2026-06-23');
-    const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')) as { files: Record<string, unknown> };
-    const raw = fs.readFileSync(path.join(dir, 'raw.csv'));
-    const normalised = fs.readFileSync(path.join(dir, 'normalised.csv'));
-    meta.files = {
-      'raw.csv': { size: raw.length, sha256: sha256(raw), format: 'csv' },
-      'normalised.csv': { size: normalised.length, sha256: sha256(normalised), format: 'csv', recordCount: 1 },
-    };
-    fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 2));
     const problems = validateArchiveEntry('2026-06-23');
-    expect(problems.some(p => p.problem.includes('VALID data row'))).toBe(true);
+    expect(problems.some(p => p.problem.includes('has no reason'))).toBe(true);
   });
 
   it('ArchiveEntry_WhenRowsVanishWithoutEnumeration_FailsTheCountInvariant', () => {

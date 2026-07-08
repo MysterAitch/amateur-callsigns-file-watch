@@ -24,8 +24,8 @@
       "recordCount": 152084
     },
     "normalised.csv": {
-      "size": 7915500,
-      "sha256": "82457340955e1aaffd195cd6fdb7ff31e8a40b4164982fc6075b53c23819c5d9",
+      "size": 7915579,
+      "sha256": "ef6bdea303bc3c14a736f146953f34e0341b7dcc3cb0a234d2907abe83dbca87",
       "format": "csv",
       "columnCount": 8,
       "columnNames": [
@@ -38,17 +38,17 @@
         "licence_version_last_modified_date",
         "licence_version_original_start_date"
       ],
-      "recordCount": 152082,
+      "recordCount": 152084,
       "sortedBy": "callsign"
     },
     "stats.json": {
-      "size": 2909,
-      "sha256": "63e969bce2217fb5cc792166f190109442e3a092319fb464d140a2f7c931959a",
+      "size": 2998,
+      "sha256": "ac46ed0259eb8fface2954f6b99f0ae70b78b3dd643dcba0cacf1efabd33d9b9",
       "format": "json"
     },
     "components.csv": {
-      "size": 5781354,
-      "sha256": "c8a8b281e79cada71a1598754be226a203f5c1af25e8d15348c625d7efa29104",
+      "size": 5781382,
+      "sha256": "4559a843c7678dafeb28f40b9a89cba9190bc3e1c3dfc44abb4e19f0651764fd",
       "format": "csv",
       "columnCount": 9,
       "columnNames": [
@@ -62,28 +62,16 @@
         "implied_class",
         "flags"
       ],
-      "recordCount": 152082,
+      "recordCount": 152084,
       "sortedBy": "callsign"
     }
   },
   "normalised": {
     "schemaVersion": 1,
     "headerVariant": "v2023-mmsi",
-    "statsSchemaVersion": 5,
+    "statsSchemaVersion": 6,
     "componentsSchemaVersion": 4
   },
-  "ignoredLines": [
-    {
-      "line": 19267,
-      "content": ",Reserved,Amateur Club Radio Licence,23/07/2016",
-      "reason": "no callsign"
-    },
-    {
-      "line": 150482,
-      "content": ",Available,,11/05/2022",
-      "reason": "no callsign"
-    }
-  ],
   "headerLines": [
     {
       "line": 1,
