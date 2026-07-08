@@ -34,7 +34,7 @@ function readCsv(filePath: string): Record<string, string>[] {
 
 // The flag registry table in reference-data/flags.md is the single source of
 // flag semantics; parse its markdown table so the lookup can explain flags.
-function parseFlagRegistry(): { flag: string; meaning: string; grounding: string }[] {
+export function parseFlagRegistry(): { flag: string; meaning: string; grounding: string }[] {
   const md = fs.readFileSync(path.join(REFERENCE_DATA_DIR, 'flags.md'), 'utf8');
   const rows: { flag: string; meaning: string; grounding: string }[] = [];
   for (const line of md.split('\n')) {

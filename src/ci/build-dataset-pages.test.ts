@@ -15,10 +15,12 @@ import { buildDatasetPages, type DatasetPagesSummary } from './build-dataset-pag
 let outputDir: string;
 let summary: DatasetPagesSummary;
 
+// Generous hook timeout: the per-entry RSL matrices parse seven ~158k-row
+// components.csv files, which exceeds the 10s default on CI runners.
 beforeAll(() => {
   outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dataset-pages-'));
   summary = buildDatasetPages(outputDir, 'https://example.test/site');
-});
+}, 300_000);
 
 afterAll(() => {
   fs.rmSync(outputDir, { recursive: true, force: true });
@@ -35,6 +37,32 @@ describe('Dataset pages build', () => {
     // like file downloads.
     expect(index).toContain('Publication of 23 June 2026');
     expect(index).toContain('>Radio amateur licence breakdown by duration held and age</a>');
+  });
+
+  it('DatasetPages_OpenDataEntryPage_CarriesMetricsMatrixAndAnomalies', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    // Headline metrics from the entry's own stats.json.
+    expect(page).toContain('158,318 register rows');
+    expect(page).toContain('Prefix series × Regional Secondary Locator');
+    // The matrix carries per-series rows and totals derived from
+    // components.csv (2#0 is the Intermediate placeholder series).
+    expect(page).toContain('<code>2#0</code>');
+    expect(page).toMatch(/<tr><th>total<\/th>.*158,208/);
+    // Anomaly flags render with their registry meanings, not bare slugs.
+    expect(page).toContain('<code>forbidden-suffix</code>');
+    expect(page).toContain('2,826');
+    // The meta-recorded diff is the only inter-dataset comparison shown.
+    expect(page).toContain('rows unchanged');
+  });
+
+  it('DatasetPages_FoiEntryPage_ExplainsDataClassesAndSheetShapes', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'wdtk-596532--allocated-reserved-forbidden', 'index.html'), 'utf8');
+    expect(page).toContain('What this data is');
+    // Class prose comes from the shared registry, not re-authored here.
+    expect(page).toContain('the register state at a vintage');
+    // Workbook sheet shapes surface from the meta's sheetsIndicative.
+    expect(page).toContain('All CallSigns on Record');
+    expect(page).toContain('~141,295');
   });
 
   it('DatasetPages_FoiEntryPage_LinksWitnessCapturesAndOwnMeta', () => {
@@ -94,7 +122,7 @@ describe('Dataset pages build', () => {
     }
   });
 
-  it('DatasetPages_Rebuild_IsDeterministic', () => {
+  it('DatasetPages_Rebuild_IsDeterministic', { timeout: 300_000 }, () => {
     // No timestamps or ordering instability: a rebuild over unchanged data
     // must produce identical bytes (Wayback re-crawls then see no change).
     const second = fs.mkdtempSync(path.join(os.tmpdir(), 'dataset-pages-2-'));
