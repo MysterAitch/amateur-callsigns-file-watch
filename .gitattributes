@@ -34,3 +34,8 @@ archive/**/normalised.csv text eol=lf
 archive/**/stats.json  text eol=lf
 archive/**/components.csv  text eol=lf
 reports/**  text eol=lf
+
+# Generated docs with byte-equality freshness tests: pin LF so Windows
+# checkouts cannot fail the committed-file-matches-regeneration assertion.
+docs/dataset-status.md  text eol=lf
+docs/foi-schemas.md  text eol=lf

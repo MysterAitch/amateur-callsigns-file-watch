@@ -1,33 +1,57 @@
 # amateur-callsigns-file-watch
 
-Mirrors Ofcom's [amateur radio callsign](https://www.ofcom.org.uk/about-ofcom/our-research/opendata) publications to git as they update, so the commit history is a durable record of what got published and when.
+A durable archive of UK amateur radio callsign data, in two lanes:
+
+- **Open-data lane** (`archive/{date}/`): mirrors Ofcom's [amateur radio callsign](https://www.ofcom.org.uk/about-ofcom/our-research/opendata) publications to git as they update, so the commit history is a durable record of what got published and when.
+- **FOI lane** (`archive/foi/{entry}/`, [ADR 0004](docs/adr/0004-foi-source-lane.md)): a decade of FOI-disclosed material (register snapshots, available lists, issuance events, statistics, and responses that are records rather than datasets), one reviewed entry per request/publication with full provenance, hash-pinned files and — where a dataset exists — deterministic converters into published per-class schemas.
+
+What exists per dataset is tracked in the generated [`docs/dataset-status.md`](docs/dataset-status.md); whether every derivation still verifies is the [rolling coverage dashboard](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/43); sources not yet ingested are tracked in [`docs/source-register.md`](docs/source-register.md).
 
 The project's logical pieces:
 
 - **Scrape**: fetch Ofcom's opendata index, locate the current amateur CSV link (its filename rotates with a `?v=` cache-buster), download the CSV to a temp path, and content-validate it before promoting into place. Includes a `?v=` fast-path that skips the ~11 MB download when the cache-buster hasn't changed, with periodic re-verification. See [`src/sources/ofcom-amateur/scrape.ts`](src/sources/ofcom-amateur/scrape.ts).
-- **Process**: parse the raw CSV, compute the sorted view (for git-diff readability), compute a semantic diff against the previous archive entry, and materialise a new `archive/{ofcom-date}/` directory with `raw.csv` + `meta.json`. Also refreshes the repo-root `latest-*` pointers. Includes a record-count regression guard that refuses to archive suspiciously-shrunken publications. See [`src/sources/ofcom-amateur/process.ts`](src/sources/ofcom-amateur/process.ts).
+- **Process**: parse the raw CSV, compute the sorted view (for git-diff readability), compute a semantic diff against the previous archive entry, and materialise a new `archive/{ofcom-open-data-date}/` directory with `raw.csv` + `meta.json`. Also refreshes the repo-root `latest-*` pointers. Includes a record-count regression guard that refuses to archive suspiciously-shrunken publications. See [`src/sources/ofcom-amateur/process.ts`](src/sources/ofcom-amateur/process.ts).
 - **Scheduled orchestrator**: the entry point a periodic timer invokes. Decides whether to run scrape+process this tick (schedule policy lives in code), commits any new archive entry and pushes it to a `data/*` branch, and sends notifications. Soft-fails all external services. See [`src/scheduled-run.ts`](src/scheduled-run.ts).
 - **Data sweep**: a scheduled GitHub Actions workflow that discovers pushed `data/*` branches, opens a pull request for each, and enables auto-merge (merge-commit) when the diff is confined to data paths. Nothing lands on `main` without a PR; the fetch host's deploy key can only push branches. See [`.github/workflows/data-sweep.yml`](.github/workflows/data-sweep.yml).
-- **Read-only CI**: every PR must pass `tests` (typecheck + unit tests) and `data-validation` (archive-entry completeness, size + sha256 byte integrity against each entry's `meta.json`, CSV parseability, latest-pointer consistency — also runnable locally via `npm run validate:data`). Both are required status checks on `main`, so the sweep's auto-merge only completes on green. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml), and [ADR 0002](docs/adr/0002-repo-level-write-controls.md) for the repository-level write controls this slots into.
+- **Read-only CI**: every PR must pass `tests` (typecheck + unit tests) and `data-validation` — for the open-data lane: archive-entry completeness, size + sha256 byte integrity against each entry's `meta.json`, CSV parseability, latest-pointer consistency; for the FOI lane: meta shape and vocabularies, referential integrity (converter bindings, derivation references, entry cross-links) and the same full byte integrity (every declared file hash-verified on every run). Also runnable locally via `npm run validate:data`. Both are required status checks on `main`, so the sweep's auto-merge only completes on green. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml), [`src/ci/validate-foi.ts`](src/ci/validate-foi.ts), and [ADR 0002](docs/adr/0002-repo-level-write-controls.md) for the repository-level write controls this slots into.
 - **Normalise sweep**: a daily workflow re-derives `archive/{key}/normalised.csv` — one canonical schema (stable columns, ISO-ordered dates) across every publication regardless of Ofcom's per-publication header drift. Byte-identical output is a no-op; changes become an always-human-reviewed PR whose cross-entry diff is the review artefact (golden-master semantics, ADR 0001). Coverage (intended vs achieved schema version per entry) lives on a rolling dashboard issue. Converter: [`src/sources/ofcom-amateur/normalise.ts`](src/sources/ofcom-amateur/normalise.ts); sweep: [`src/ci/normalise-sweep.ts`](src/ci/normalise-sweep.ts) (`npm run normalise:sweep`).
+- **FOI derivation chain**: raw disclosure files → mechanical extraction (`src/shared/xlsx-extract.ts`, a dependency-free workbook reader; PDF tables are transcribed into committed `raw-extract-*.md` files) → deterministic converters (`src/shared/foi-normalise.ts`, authored per-entry bindings in each `meta.json`) → `normalised--*.csv` in the published per-class schemas ([`docs/foi-schemas.md`](docs/foi-schemas.md)). Every arrow is re-derived and byte-compared by golden-master tests on every CI run, and daily by the FOI sweep (`npm run foi:sweep`), which reports both lanes to the coverage dashboard.
+- **Presentation** ([ADR 0003](docs/adr/0003-in-repo-presentation-poc.md)): every push to `main` builds a SQLite database from the archive + reference data and deploys it with a frameworkless lookup site ([`site/`](site/)) to [GitHub Pages](https://mysteraitch.github.io/amateur-callsigns-file-watch/) — callsign lookup with regional-variant resolution, filtered browse, suffix availability and RSL matrices, and per-publication data-quality flags.
 
 ## Repository layout
 
 ```
-archive/                            <- authoritative record; one directory per Ofcom publication
-  {ofcom-date}/                        e.g. 2026-06-23/
+archive/                            <- authoritative record
+  {ofcom-open-data-date}/              open-data lane: one directory per Ofcom publication
     raw.csv                         <- Ofcom's bytes, untouched
     meta.json                       <- provenance + shape + diff summary
-latest-raw.csv                      <- convenience pointers: newest archive entry's raw
+    normalised.csv, components.csv  <- derived (golden-master lane)
+  foi/{entry}/                         FOI lane (ADR 0004): one directory per request/publication
+    meta.json                       <- provenance, outcome, hash-pinned file declarations
+    correspondence.md               <- the publication/exchange record (always present)
+    <data files verbatim>           <- xlsx/csv/pdf as disclosed (where a dataset exists)
+    raw-extract-*.{csv,md}          <- mechanical workbook extracts / PDF transcriptions
+    normalised--*.csv               <- converter outputs in the published per-class schemas
+latest-raw.csv                      <- convenience pointers: newest open-data entry's raw
 latest-raw-sorted.csv                  ...raw content, sorted for git-diff readability
 latest.json                            ...raw content as JSON (raw order)
 latest-raw-sorted.json                 ...raw content as JSON (sorted)
 latest-meta.json                       ...the newest entry's meta
+reference-data/                     <- hand-curated reference tables (RSLs, prefix formats, ITU series...)
+reports/                            <- generated data-quality reports
+site/                               <- the GitHub Pages lookup site (ADR 0003)
 src/
   scheduled-run.ts                  <- Pattern-2 orchestrator; the systemd timer's ExecStart
-  shared/                           <- source-agnostic archive, utils, types
+  shared/                           <- source-agnostic archive, utils, FOI converters + extractor
   sources/{key}/                    <- one directory per data source; ofcom-amateur is the first
-docs/systemd/                       <- unit templates for LXC deployment
+  ci/                               <- validation, sweeps, generated-doc builders, SQLite build
+docs/
+  adr/                              <- architecture decision records
+  dataset-status.md                 <- generated per-dataset overview (freshness-tested)
+  foi-schemas.md                    <- generated FOI schema registry (freshness-tested)
+  normalised-schema.md              <- open-data normalised schema reference
+  source-register.md                <- cross-lane index of known sources and their intake status
+  systemd/                          <- unit templates for LXC deployment
 ```
 
 Consumers can either:
@@ -264,12 +288,20 @@ The Healthchecks ping fires on every non-error tick, including scheduled skips �
 - **Docker on a compose host (e.g. dockge)** instead of an LXC: replace the systemd timer with an [ofelia](https://github.com/mcuadros/ofelia) sidecar container in the compose file, invoking `npm run scheduled` on the same `*/5` cadence. Everything else is identical.
 - **Cross-platform runner**: the runner script itself is host-agnostic — same code works on Linux, macOS, and Windows. Only the "run me every 5 minutes" wrapper changes.
 
-## Non-goals and open items
+## Settled design questions and open items
 
-- **Cross-publication normalisation** (mapping Ofcom's shifting column schema — `Value__c` vs `Callsign` vs the BOM-contaminated `﻿Callsign` — to a canonical shape) is a future piece of work.
-- **Building presentation on top** (SPA / SQLite dump / GitHub Pages) is deliberately not this repo's job — this repo's single responsibility is being the authoritative archive. Downstream repos consume it.
-- **Post-fetch processing location** (quality reports, PDF/XLSX extraction, normalisation into a canonical schema) — where this runs (same repo via scoped GHA, downstream repo, or on the LXC) is REOPENED pending a fresh design conversation. The LXC's minimal-downloader role stays fixed either way.
-- **Additional sources** (FOI datasets, `data.gov.uk`, other Ofcom sections) will land under `src/sources/{key}/` when the multi-source refactor happens.
+Earlier revisions of this README listed several of these as non-goals or open questions; they have since been settled by ADRs and built:
+
+- **Cross-publication normalisation** — built (ADR 0001): the daily normalise sweep derives one canonical schema across every open-data publication; the FOI lane's converters do the same per dataset class ([`docs/foi-schemas.md`](docs/foi-schemas.md)).
+- **Presentation** — built in-repo (ADR 0003): the SQLite database + lookup site deploy to GitHub Pages on every push to `main`.
+- **Post-fetch processing location** — settled (ADR 0001): in this repo, via scheduled workflows whose only write path is opening PRs. The LXC remains a minimal downloader.
+- **FOI datasets** — built as the second archive lane (ADR 0004), 25+ entries and counting.
+
+Still open:
+
+- **Publishing the raw + normalised dataset files via Pages** (with machine-readable schema descriptors and a Wayback-crawlable index) and folding per-callsign FOI observations into the lookup — tracked in [#149](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/149).
+- **Restructuring `archive/` into per-source lanes** (`archive/open-data/{key}/` alongside `archive/foi/{key}/`) — tracked in [#151](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/151), LXC-coordinated.
+- **Further sources** (Business Radio Light, `data.gov.uk` WTR dump) — see [`docs/source-register.md`](docs/source-register.md).
 
 ### Backlog
 
@@ -279,7 +311,7 @@ Open work items are tracked as [GitHub Issues](https://github.com/MysterAitch/am
 
 Selected rationale worth knowing before making changes:
 
-- **Archive shape**: `archive/{ofcom-date}/raw.csv` + `meta.json` per publication. The sorted CSV lives only at `latest-raw-sorted.csv`, not per publication — inside `archive/`, sort variants have no git-diff value (each entry is a fresh directory on commit).
+- **Archive shape**: `archive/{ofcom-open-data-date}/raw.csv` + `meta.json` per publication. The sorted CSV lives only at `latest-raw-sorted.csv`, not per publication — inside `archive/`, sort variants have no git-diff value (each entry is a fresh directory on commit).
 - **Sort key**: currently the first column of the raw CSV, which happens to be the callsign column in every historical publication. If Ofcom ever moves the callsign out of column 1, `latest-raw-sorted.csv` will silently become semantically inconsistent — a future normalisation-aware sort will fix this.
 - **Diff summary in `meta.json`** is a *snapshot at write time*. If publications are ever retroactively inserted between existing entries, older `meta.json` files are NOT rewritten. Consumers needing an authoritative up-to-date diff should re-derive from the raw CSVs.
 - **Sanity gates are load-bearing**: HTML/challenge-page detection (in scrape), header-token check (in scrape), record-count regression check (in process, refuses commits where the current publication has less than 50% of the previous record count), and the archive-key `?v=` verification anomaly path — all exist because Ofcom has historically published truncated / broken datasets and silently mirroring them would be worse than an honest crash.

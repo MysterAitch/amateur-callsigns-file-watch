@@ -294,4 +294,38 @@ describe('validateRepoData (orchestrating check used by CI)', () => {
     expect(report.ok).toBe(false);
     expect(report.problems.some(p => p.path.includes('2025-06-08'))).toBe(true);
   });
+
+  it('RepoData_WithFoiLane_CountsBothLanesInReport', () => {
+    // The FOI lane joins the same required check (ADR 0004 point 4): a
+    // well-formed FOI entry is counted; a tampered one fails the report.
+    writeEntry(tmpRoot, '2026-06-23', CSV);
+    writeLatestSet(tmpRoot, '2026-06-23');
+    const foiDirPath = path.join(tmpRoot, 'archive', 'foi', 'wdtk-111--fixture');
+    fs.mkdirSync(foiDirPath, { recursive: true });
+    const correspondence = '# record\n';
+    fs.writeFileSync(path.join(foiDirPath, 'correspondence.md'), correspondence);
+    fs.writeFileSync(path.join(foiDirPath, 'meta.json'), JSON.stringify({
+      schemaVersion: 1,
+      sourceKey: 'wdtk-foi',
+      requestId: 111,
+      ofcomReference: null,
+      requestUrl: null,
+      title: 'Fixture',
+      requester: null,
+      requestedAt: '2015-01-01',
+      respondedAt: '2015-02-01',
+      outcome: 'not held',
+      dataVintage: null,
+      datasetClasses: ['reference-context'],
+      converter: null,
+      files: { 'correspondence.md': { bytes: Buffer.byteLength(correspondence), sha256: sha256(correspondence), role: 'transcript' } },
+    }, null, 2));
+    const report = validateRepoData(['2026-06-23']);
+    expect(report.ok).toBe(true);
+    expect(report.checkedEntries).toBe(1);
+    expect(report.checkedFoiEntries).toBe(1);
+
+    fs.appendFileSync(path.join(foiDirPath, 'correspondence.md'), 'tamper\n');
+    expect(validateRepoData(['2026-06-23']).ok).toBe(false);
+  });
 });
