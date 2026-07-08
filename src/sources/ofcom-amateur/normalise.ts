@@ -169,57 +169,53 @@ export function physicalLines(rawContent: string): string[] {
   return lines;
 }
 
-// The row-validity predicate: a data row asserts a callsign AND at least
-// one companion value. Deliberately structural, NOT callsign-shaped:
-// damaged register assertions (Excel-mangled callsigns, embedded
-// whitespace, encoding casualties) carry populated companion columns and
-// MUST stay - flagged by the quality machinery, never filtered. Returns
-// the ignore reason, or undefined for a valid data row. Exported so the
-// validator enforces that only genuinely non-data lines are ever ignored.
-export function ignoreReasonForRecord(record: Record<string, string>, variant: string): string | undefined {
-  const mapping = VARIANTS[variant];
-  const callsignColumn = Object.entries(mapping).find(([, canonical]) => canonical === 'callsign')?.[0] ?? '';
-  const callsign = (record[callsignColumn] ?? '').trim();
-  const companions = Object.keys(mapping).filter(c => c !== callsignColumn).map(c => (record[c] ?? '').trim());
-  const hasCompanion = companions.some(v => v !== '');
-  if (callsign === '' && !hasCompanion) return 'all cells empty';
-  if (callsign === '') return 'no callsign';
-  if (!hasCompanion) return 'no companion values (export furniture, not a register assertion)';
-  return undefined;
-}
+// Validity is SYNTACTIC here, SEMANTIC downstream (ratified 2026-07-08):
+// a raw line with the correct column count is a row of the table and goes
+// into normalised.csv - including all-empty rows (,,) and rows with no
+// callsign, because that is what the raw data provides. Whether a row
+// represents a valid callsign with sensible attributes is a semantic
+// judgement that belongs to the flag machinery and downstream consumers.
+// The ONLY exceptions are:
+//   - blank physical lines (not rows at all) - auto-enumerated;
+//   - CURATED ignores from meta.json's ignoredLines: syntactically valid
+//     lines a human has judged to be export furniture (copyright footers,
+//     generated-by stamps). The converter honours them only if they
+//     byte-match the raw line; stale curation fails loudly. There is no
+//     mechanical predicate that can make this call - explicitness plus PR
+//     review is the guard.
+export function convertRawCsv(rawContent: string, context: ConvertContext, curatedIgnores: IgnoredRawLine[] = []): ConvertResult {
+  const lines = physicalLines(rawContent);
+  const ignoredByLine = new Map<number, IgnoredRawLine>();
+  for (const curated of curatedIgnores) {
+    if (lines[curated.line - 1] !== curated.content) {
+      throw new Error(`curated ignoredLines entry for line ${curated.line} does not match raw.csv - meta declares ${JSON.stringify(curated.content)}, raw has ${JSON.stringify(lines[curated.line - 1])}`);
+    }
+    ignoredByLine.set(curated.line, curated);
+  }
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '' && !ignoredByLine.has(i + 1)) {
+      ignoredByLine.set(i + 1, { line: i + 1, content: lines[i], reason: 'blank' });
+    }
+  }
 
-export function convertRawCsv(rawContent: string, context: ConvertContext): ConvertResult {
-  const parsed: { record: Record<string, string>; info: { lines: number } }[] =
-    parse(rawContent, { columns: true, skip_empty_lines: true, bom: true, info: true });
-  if (parsed.length === 0) {
+  // Strip ignored lines BEFORE parsing, so the parser's strict column-count
+  // checking applies to everything else: a ragged line that is neither
+  // blank nor curated fails the whole conversion loudly - the human then
+  // decides (new variant, or a new curated ignore).
+  const effective = lines.filter((_, index) => !ignoredByLine.has(index + 1)).join('\n') + '\n';
+  const records: Record<string, string>[] = parse(effective, { columns: true, bom: true });
+  if (records.length === 0) {
     throw new Error('raw CSV parsed to zero records - refusing to normalise an empty publication');
   }
 
-  const headers = Object.keys(parsed[0].record);
+  const headers = Object.keys(records[0]);
   const variant = detectHeaderVariant(headers);
   if (variant === undefined) {
     throw new Error(`unknown raw header variant [${headers.join(', ')}] - extend the variant registry (with tests) to support it`);
   }
   const mapping = VARIANTS[variant];
 
-  // Non-data lines are ENUMERATED, never silently dropped: whitespace-only
-  // physical lines (which the parser skips) and parsed records failing the
-  // row-validity predicate, each recorded with its 1-based physical line
-  // number and verbatim content for the validator to re-verify.
-  const lines = physicalLines(rawContent);
-  const ignoredLines: IgnoredRawLine[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    if (lines[i].trim() === '') ignoredLines.push({ line: i + 1, content: lines[i], reason: 'blank' });
-  }
-  const records: Record<string, string>[] = [];
-  for (const { record, info } of parsed) {
-    const reason = ignoreReasonForRecord(record, variant);
-    if (reason === undefined) records.push(record);
-    // info.lines is the 1-based physical line on which the record ends;
-    // for the single-line records of these exports that IS the line.
-    else ignoredLines.push({ line: info.lines, content: lines[info.lines - 1] ?? '', reason });
-  }
-  ignoredLines.sort((a, b) => a.line - b.line);
+  const ignoredLines = [...ignoredByLine.values()].sort((a, b) => a.line - b.line);
 
   // Count invariant - exact arithmetic, no inference: every physical line
   // is exactly one of header / data row / ignored. A mismatch means the
@@ -228,9 +224,6 @@ export function convertRawCsv(rawContent: string, context: ConvertContext): Conv
   const headerLineCount = 1;
   if (lines.length - headerLineCount !== records.length + ignoredLines.length) {
     throw new Error(`raw line accounting failed: ${lines.length - headerLineCount} data lines != ${records.length} records + ${ignoredLines.length} ignored - does a quoted cell span lines?`);
-  }
-  if (records.length === 0) {
-    throw new Error('every raw line was ignored as non-data - refusing to normalise an empty publication');
   }
 
   const dateStats: Partial<Record<CanonicalColumn, { disambiguated: number; ambiguous: number }>> = {};

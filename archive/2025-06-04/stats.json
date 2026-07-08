@@ -138,11 +138,13 @@
       "minLength": 19
     }
   },
+  "emptyRows": 0,
+  "nonEmptyRows": 112650,
   "parseStatuses": {
     "parsed": 112523,
     "unparseable": 11,
     "visitor": 116
   },
   "recordCount": 112650,
-  "statsSchemaVersion": 5
+  "statsSchemaVersion": 6
 }

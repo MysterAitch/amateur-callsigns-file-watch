@@ -9,12 +9,12 @@ signal in its own right.
 
 | detector | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152082 | 151148 |
+| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152084 | 151152 |
 | Excel-date-shaped callsigns | 0 | 0 | 0 | 0 | 16 | 15 | 15 |
 | encoding-failure characters | 0 | 0 | 2 | 0 | 3 | 3 | 3 |
 | whitespace/invisible-bearing | 5 | 0 | 2 | 0 | 2 | 1 | 1 |
 | post-normalisation duplicates | 4 | 0 | 1 | 0 | 4 | 4 | 4 |
-| empty callsigns | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| empty callsigns | 0 | 0 | 0 | 0 | 0 | 2 | 4 |
 | lowercase-bearing | 2 | 0 | 2 | 0 | 18 | 17 | 17 |
 
 ## Component-parse flags
@@ -40,6 +40,7 @@ long-standing allocations, not an anomaly by itself).
 
 | status | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
 |---|---:|---:|---:|---:|---:|---:|---:|
+| `empty` | 0 | 0 | 0 | 0 | 0 | 2 | 4 |
 | `parsed` | 158208 | 1070 | 112523 | 1070 | 157282 | 151981 | 151050 |
 | `unparseable` | 10 | 0 | 11 | 0 | 32 | 26 | 26 |
 | `visitor` | 100 | 4 | 116 | 4 | 113 | 75 | 72 |
@@ -90,6 +91,16 @@ long-standing allocations, not an anomaly by itself).
 | 2025-04-08 | `G0TQK{U+FFFD}`, `G6{space}FMU`, `G7IWE{U+FFFD}`, `M/EI-8-DJ` |
 | 2023-02-20 | `G0TQK{U+FFFD}`, `G6{space}FMU`, `G7IWE{U+FFFD}`, `M/EI-8-DJ` |
 | 2022-05-30 | `G0TQK{U+FFFD}`, `G6{space}FMU`, `G7IWE{U+FFFD}`, `M/EI-8-DJ` |
+
+</details>
+
+<details>
+<summary>Examples: empty callsigns</summary>
+
+| dataset | examples |
+|---|---|
+| 2023-02-20 | `` (+1 more) |
+| 2022-05-30 | `` (+3 more) |
 
 </details>
 

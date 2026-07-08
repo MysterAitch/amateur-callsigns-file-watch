@@ -11,6 +11,7 @@
     "whitespace": 1
   },
   "callsignPatterns": {
+    "": 4,
     ",,": 1,
     "A/#AANAA": 1,
     "A/#AANAAA": 2,
@@ -47,8 +48,10 @@
   },
   "callsignQuality": {
     "emptyCallsign": {
-      "count": 0,
-      "examples": []
+      "count": 4,
+      "examples": [
+        ""
+      ]
     },
     "encodingFailure": {
       "count": 3,
@@ -97,58 +100,61 @@
   "columns": {
     "callsign": {
       "distinct": 151148,
-      "empty": 0,
+      "empty": 4,
       "maxLength": 9,
       "minLength": 2
     },
     "created_date": {
       "distinct": 0,
-      "empty": 151148,
+      "empty": 151152,
       "max": "",
       "min": ""
     },
     "last_modified_date": {
       "distinct": 0,
-      "empty": 151148,
+      "empty": 151152,
       "max": "",
       "min": ""
     },
     "licence_version_last_modified_date": {
       "distinct": 0,
-      "empty": 151148,
+      "empty": 151152,
       "max": "",
       "min": ""
     },
     "licence_version_original_start_date": {
       "distinct": 0,
-      "empty": 151148,
+      "empty": 151152,
       "max": "",
       "min": ""
     },
     "product": {
       "distinct": 0,
-      "empty": 151148,
+      "empty": 151152,
       "maxLength": 0,
       "minLength": 0
     },
     "status": {
       "distinct": 3,
-      "empty": 10,
+      "empty": 12,
       "maxLength": 9,
       "minLength": 8
     },
     "type": {
       "distinct": 1,
-      "empty": 0,
+      "empty": 2,
       "maxLength": 19,
       "minLength": 19
     }
   },
+  "emptyRows": 2,
+  "nonEmptyRows": 151150,
   "parseStatuses": {
+    "empty": 4,
     "parsed": 151050,
     "unparseable": 26,
     "visitor": 72
   },
-  "recordCount": 151148,
-  "statsSchemaVersion": 5
+  "recordCount": 151152,
+  "statsSchemaVersion": 6
 }

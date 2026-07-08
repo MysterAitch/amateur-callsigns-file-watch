@@ -66,8 +66,16 @@ export interface ComponentAggregateInput {
 }
 
 export interface EntryStats {
-  statsSchemaVersion: 5;
+  statsSchemaVersion: 6;
   recordCount: number;
+  // Row-emptiness accounting (syntactic-vs-semantic split, 2026-07-08):
+  // syntactically valid all-empty rows (e.g. ",,") are TABLE ROWS and stay
+  // in normalised.csv - this pair makes their prevalence visible at a
+  // glance. recordCount = emptyRecords + nonEmptyRecords always. (Blank physical
+  // LINES are not rows at all; they are enumerated per-line in meta.json's
+  // ignoredLines with reason 'blank'.)
+  emptyRecords: number;
+  nonEmptyRecords: number;
   // Format taxonomy of the callsign column: uppercase→A, lowercase→a,
   // digit→N; whitespace, unprintable, and invisible characters (Unicode
   // Other and Separator categories, INCLUDING regular space - whitespace in
@@ -166,8 +174,10 @@ export function computeEntryStats(
   const patterns = new Map<string, number>();
   const callsigns: string[] = [];
   const perColumn = header.map(() => ({ values: new Set<string>(), empty: 0, minLen: Infinity, maxLen: -Infinity, min: '', max: '' }));
+  let emptyRecords = 0;
 
   for (const row of rows) {
+    if (row.every(value => (value ?? '') === '')) emptyRecords += 1;
     if (callsignIndex >= 0) {
       const callsign = row[callsignIndex] ?? '';
       callsigns.push(callsign);
@@ -215,8 +225,10 @@ export function computeEntryStats(
     Object.fromEntries([...m.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 
   return {
-    statsSchemaVersion: 5,
+    statsSchemaVersion: 6,
     recordCount: rows.length,
+    emptyRecords,
+    nonEmptyRecords: rows.length - emptyRecords,
     callsignPatterns: Object.fromEntries([...patterns.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
     callsignQuality: computeCallsignQuality(callsigns),
     callsignFlags: sortedEntries(callsignFlags),

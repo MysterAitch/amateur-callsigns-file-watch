@@ -1,4 +1,8 @@
 callsign,parse_status,prefix_series,rsl,suffix,placeholder_form,home_callsign,implied_class,flags
+,empty,,,,,,,
+,empty,,,,,,,
+,empty,,,,,,,
+,empty,,,,,,,
 ",,",unparseable,,,,,,,
 20-Apr,unparseable,,,,,,,excel-date-shape;lowercase
 20-Aug,unparseable,,,,,,,excel-date-shape;lowercase

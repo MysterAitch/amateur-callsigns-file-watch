@@ -44,8 +44,8 @@
       "sortedBy": "callsign"
     },
     "stats.json": {
-      "size": 3164,
-      "sha256": "a02133fb294e2b7fa671e9448e98ec331833900d03427b37ad834d5082ecfe8e",
+      "size": 3208,
+      "sha256": "150cd60789842a8d3587b6f019de808f1323b29c5d2fc3f3d56b9291b214f6ad",
       "format": "json"
     },
     "components.csv": {
@@ -71,7 +71,7 @@
   "normalised": {
     "schemaVersion": 1,
     "headerVariant": "v2025-salesforce",
-    "statsSchemaVersion": 5,
+    "statsSchemaVersion": 6,
     "componentsSchemaVersion": 4
   },
   "headerLines": [
