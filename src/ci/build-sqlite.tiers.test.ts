@@ -52,9 +52,14 @@ describe('Published data tiers', () => {
     }
   });
 
-  it('Tiers_PerDatasetDatabases_CarryOneTablePerCsv', { timeout: 120_000 }, () => {
+  it('Tiers_PerDatasetDatabases_CarryOneTablePerCsvUnderHonestNames', { timeout: 120_000 }, () => {
     expect(summary['per-dataset databases']).toBeGreaterThanOrEqual(25);
-    const db = new DatabaseSync(path.join(dataDir, 'datasets', 'foi--ofcom-498906--reciprocal-licences-since-2010.sqlite.png'), { readOnly: true });
+    // Download artefacts wear honest names (.sqlite.gz); only the site's
+    // range-queried databases need the .png workaround.
+    const gzPath = path.join(dataDir, 'datasets', 'foi--ofcom-498906--reciprocal-licences-since-2010.sqlite.gz');
+    const sqlitePath = path.join(dataDir, 'unpacked-test.sqlite');
+    fs.writeFileSync(sqlitePath, zlib.gunzipSync(fs.readFileSync(gzPath)));
+    const db = new DatabaseSync(sqlitePath, { readOnly: true });
     try {
       const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[]).map(t => t.name);
       expect(tables).toContain('normalised_sheet_1_sheet1');
@@ -64,5 +69,11 @@ describe('Published data tiers', () => {
     } finally {
       db.close();
     }
+  });
+
+  it('Tiers_MasterDownloadTwin_GunzipsByteIdenticalToTheRangeRequestVariant', { timeout: 120_000 }, () => {
+    const gunzipped = zlib.gunzipSync(fs.readFileSync(path.join(dataDir, 'master.sqlite.gz')));
+    const png = fs.readFileSync(path.join(dataDir, 'master.sqlite.png'));
+    expect(gunzipped.equals(png)).toBe(true);
   });
 });
