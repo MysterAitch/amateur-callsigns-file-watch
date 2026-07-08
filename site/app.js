@@ -93,12 +93,15 @@ async function queryMaster(sql, params = []) {
   return worker.db.query(sql, params);
 }
 
-// The publication keys present in register_history, oldest first - the
-// timeline axis for longitudinal views. Cached after the first query.
+// The publications in register_history with their SCOPE facts, oldest
+// first - the timeline axis for longitudinal views. Scope matters because
+// absence is only meaningful relative to what a publication intended to
+// cover: Ofcom has published declared-partial ~1k-row truncations of a
+// ~150k register. Cached after the first query.
 let historyDatasetsPromise = null;
 function historyDatasets() {
-  historyDatasetsPromise ??= queryMaster('SELECT DISTINCT dataset FROM register_history ORDER BY dataset')
-    .then(rows => rows.map(r => r.dataset));
+  historyDatasetsPromise ??= queryMaster(
+    'SELECT dataset, record_count, intended_complete FROM history_datasets ORDER BY dataset');
   return historyDatasetsPromise;
 }
 
@@ -131,24 +134,35 @@ async function registerHistoryCard(callsigns) {
       if (found.length > 1) {
         tbody.append(el('tr', {}, [el('td', { colspan: '4' }, [el('strong', { text: callsign })])]));
       }
-      let previous = null; // null = before first publication; '' = absent
-      for (const dataset of datasets) {
-        const row = byKey.get(`${dataset}|${callsign}`);
+      // previous = last state KNOWN from evidence: presence anywhere is
+      // evidence; absence is evidence only in an intended-complete
+      // publication. Absence from a declared-partial or undeclared-scope
+      // publication is NO INFORMATION - it neither annotates a change nor
+      // updates the known state (scope differences, publisher truncation
+      // and omission errors all look identical to absence).
+      let previous = null; // null = no evidence yet; '' = known absent
+      for (const d of datasets) {
+        const row = byKey.get(`${d.dataset}|${callsign}`);
         const status = row ? row.status : '';
+        const complete = d.intended_complete === 'true';
+        const informative = row !== undefined || complete;
         let change = '';
-        if (previous !== null && status !== previous) {
+        if (informative && previous !== null && status !== previous) {
           const from = previous === '' ? '(absent)' : previous;
           const to = status === '' ? '(absent)' : status;
           change = `${from} → ${to}`;
         }
-        const link = el('a', { href: `datasets/open-data/${dataset}/index.html`, text: dataset });
+        const link = el('a', { href: `datasets/open-data/${d.dataset}/index.html`, text: d.dataset });
+        const statusText = row ? (status === '' ? '(blank status)' : status)
+          : complete ? '(absent from this publication)'
+            : `(not in this publication — ${d.intended_complete === 'false' ? 'declared partial' : 'undeclared scope'}, ${Number(d.record_count).toLocaleString('en-GB')} rows; not evidence of absence)`;
         tbody.append(el('tr', {}, [
           el('td', {}, [link]),
-          el('td', { text: row ? (status === '' ? '(blank status)' : status) : '(not in this publication)' }),
+          el('td', { text: statusText }),
           el('td', { text: row ? row.product : '' }),
           el('td', { text: change, class: change === '' ? '' : 'flag' }),
         ]));
-        previous = status;
+        if (informative) previous = status;
       }
     }
     table.append(tbody);
@@ -156,7 +170,7 @@ async function registerHistoryCard(callsigns) {
     wrap.append(table);
     return card('Register history (archived open-data publications)', [
       el('p', { class: 'muted', text:
-        'Status per archived publication, oldest first. A change row records only what the register shows - an Allocated → Reserved transition can be a surrendered licence, progression to a new licence level under a different callsign, or the holder’s death; the register does not say which. Gaps between publications can hide intermediate states.' }),
+        'Status per archived publication, oldest first. A change row records only what the register shows - an Allocated → Reserved transition can be a surrendered licence, progression to a new licence level under a different callsign, or the holder’s death; the register does not say which. Absence is only treated as evidence in publications that declared themselves complete: missing from a partial or undeclared-scope publication can equally be truncation, a publisher omission error, or a scope difference (some datasets are broader than others). Gaps between publications can hide intermediate states.' }),
       wrap,
     ]);
   } catch {
@@ -388,13 +402,15 @@ async function suffixMatrix(suffix, result) {
     if (h) {
       history = `seen in ${h.datasets.length} publication${h.datasets.length === 1 ? '' : 's'}`;
       if (h.statuses.size > 1) history += ` ⚠ status varied (${[...h.statuses].map(v => v === '' ? '(blank)' : v).join(' / ')})`;
-      if (!m) history += ' — since left the register';
+      // Present historically, no row today: reported neutrally - the
+      // publications vary in scope, so this is a lead, not a verdict.
+      if (!m) history += ' — absent from the latest publication';
     }
     return [`${hash}${suffix}`, s.station_level, s.issuing_status, state, flags, history];
   });
   sections.push(card(`Availability matrix: suffix ${suffix}`, [
     el('p', { class: 'muted', text:
-      'Register state per prefix series (latest dataset). "No record" means Ofcom holds no row for this callsign - Ofcom does not routinely record never-allocated callsigns, so this suggests, but does not guarantee, availability. Per-series format validity rules are not yet in the reference data. Flags are per-row data-quality markers (see the flag registry). History spans the archived publications; look a callsign up for its full timeline (status changes can be surrender, progression, or death - the register does not say which).' }),
+      'Register state per prefix series (latest dataset). "No record" means Ofcom holds no row for this callsign - Ofcom does not routinely record never-allocated callsigns, so this suggests, but does not guarantee, availability. Per-series format validity rules are not yet in the reference data. Flags are per-row data-quality markers (see the flag registry). History spans archived publications OF VARYING SCOPE (Ofcom has published declared-partial truncations), so absence from one publication is not by itself evidence of removal - look a callsign up for its scope-aware timeline. Status changes can be surrender, progression, or death; the register does not say which.' }),
     renderTable(['callsign', 'level', 'series status', 'register state', 'flags', 'history'], rows, 99),
   ]));
   result.replaceChildren(...sections);

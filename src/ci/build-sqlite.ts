@@ -246,6 +246,27 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
   for (const publication of publications) {
     for (const column of Object.keys(publication.records[0] ?? {})) historyColumns.add(column);
   }
+  // Per-publication scope facts, so consumers can interpret ABSENCE
+  // honestly: a callsign missing from a declared-partial publication
+  // (Ofcom has published 1,074-row truncations of a ~150k register) is
+  // scope, not an event. intended_complete mirrors meta.json's
+  // intendedCoverage.complete ('true'/'false'/'' when undeclared) - intent
+  // as published, deliberately not verified quality.
+  master.exec('CREATE TABLE history_datasets (dataset TEXT, record_count TEXT, intended_complete TEXT, scope_notes TEXT)');
+  const insertDataset = master.prepare('INSERT INTO history_datasets VALUES (?, ?, ?, ?)');
+  for (const publication of publications) {
+    const metaPath = path.join(CONSTANTS.DIRS.archive, publication.key, 'meta.json');
+    const meta = fs.existsSync(metaPath)
+      ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as { intendedCoverage?: { complete: boolean; scopeNotes?: string } }
+      : {};
+    insertDataset.run(
+      publication.key,
+      String(publication.records.length),
+      meta.intendedCoverage === undefined ? '' : String(meta.intendedCoverage.complete),
+      meta.intendedCoverage?.scopeNotes ?? '',
+    );
+  }
+
   const historyColumnList = [...historyColumns];
   master.exec(`CREATE TABLE register_history (${historyColumnList.map(c => `"${c}" TEXT`).join(', ')})`);
   const insertHistory = master.prepare(`INSERT INTO register_history VALUES (${historyColumnList.map(() => '?').join(', ')})`);

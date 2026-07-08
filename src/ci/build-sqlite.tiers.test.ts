@@ -47,6 +47,12 @@ describe('Published data tiers', () => {
       // register_history spans every open-data publication.
       const publications = db.prepare('SELECT COUNT(DISTINCT dataset) AS c FROM register_history').get() as { c: number | bigint };
       expect(Number(publications.c)).toBeGreaterThanOrEqual(7);
+      // Scope facts ride alongside so consumers interpret ABSENCE
+      // honestly: the 2025-06-08 truncation is declared partial in its
+      // meta, and the timeline must not read absence from it as removal.
+      const partial = db.prepare("SELECT record_count, intended_complete FROM history_datasets WHERE dataset = '2025-06-08'").get() as { record_count: string; intended_complete: string };
+      expect(partial.intended_complete).toBe('false');
+      expect(Number(partial.record_count)).toBeLessThan(2000);
     } finally {
       db.close();
     }
