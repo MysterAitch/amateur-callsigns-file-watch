@@ -114,6 +114,32 @@ describe('Dataset pages build', () => {
     expect(page).toContain('href="raw-extract-applicants-old-call-signs.md.html"');
   });
 
+  it('DatasetPages_EntryZip_CarriesEveryArchivedFilePlusDescriptor', () => {
+    const key = 'ofcom-498906--reciprocal-licences-since-2010';
+    const zipPath = path.join(outputDir, 'datasets', 'foi', key, `${key}.zip`);
+    expect(fs.existsSync(zipPath)).toBe(true);
+    // Central directory names every archived file plus the descriptor.
+    const zip = fs.readFileSync(zipPath);
+    for (const name of [...fs.readdirSync(path.join('archive', 'foi', key)), 'datapackage.json']) {
+      expect(zip.includes(Buffer.from(name, 'utf8'))).toBe(true);
+    }
+    // The entry page offers it with a size (the download-link pattern).
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', key, 'index.html'), 'utf8');
+    expect(page).toMatch(new RegExp(`<a href="${key}\\.zip">${key}\\.zip</a> \\(`));
+  });
+
+  it('DatasetPages_DataDictionary_RendersSchemaDocsAndLinksFromIndex', () => {
+    const schema = fs.readFileSync(path.join(outputDir, 'datasets', 'docs', 'foi-schemas.html'), 'utf8');
+    expect(schema).toContain('register-snapshot'); // class glossary present
+    expect(schema).toContain('docs/foi-schemas.md'); // authoritative-source pointer
+    const flags = fs.readFileSync(path.join(outputDir, 'datasets', 'docs', 'flags.html'), 'utf8');
+    expect(flags).toContain('forbidden-suffix');
+    const index = fs.readFileSync(path.join(outputDir, 'datasets', 'index.html'), 'utf8');
+    expect(index).toContain('<h2>Data dictionary</h2>');
+    expect(index).toContain('docs/normalised-schema.html');
+    expect(summary.pageUrls.some(url => url.endsWith('/datasets/docs/flags.html'))).toBe(true);
+  });
+
   it('DatasetPages_Sitemap_ListsEveryEntryPageUnderTheBaseUrl', () => {
     const sitemap = fs.readFileSync(path.join(outputDir, 'sitemap.xml'), 'utf8');
     expect(sitemap).toContain('<loc>https://example.test/site/datasets/index.html</loc>');
