@@ -36,29 +36,12 @@ import * as path from 'path';
 import { convertFoiEntry } from '../shared/foi-normalise.ts';
 import { extractWorkbook, toCsvBytes, extractFileNameFor } from '../shared/xlsx-extract.ts';
 import { errorMessage } from '../shared/utils.ts';
+import { type FoiFileDeclaration, readFoiEntryMeta } from '../shared/foi-archive.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 export const FOI_ARCHIVE_DIR = path.join(REPO_ROOT, 'archive', 'foi');
 
 const XLSX_EXTRACTOR = 'src/shared/xlsx-extract.ts';
-
-interface FoiFileDeclaration {
-  bytes: number;
-  sha256: string;
-  role: string;
-  extractOf?: string;
-  extractedBy?: string;
-  normalisedFrom?: string;
-}
-
-interface FoiEntryMeta {
-  title?: string;
-  outcome?: string;
-  dataVintage?: string | null;
-  datasetClasses?: string[];
-  converter?: { script?: string; variant?: string } | null;
-  files?: Record<string, FoiFileDeclaration>;
-}
 
 export interface FoiEntryReport {
   entryKey: string;
@@ -135,7 +118,7 @@ function verifyConversions(entryDir: string, variant: string, files: Record<stri
 
 function sweepEntry(archiveDir: string, entryKey: string): FoiEntryReport {
   const entryDir = path.join(archiveDir, entryKey);
-  const meta = JSON.parse(fs.readFileSync(path.join(entryDir, 'meta.json'), 'utf8')) as FoiEntryMeta;
+  const meta = readFoiEntryMeta(archiveDir, entryKey);
   const classes = meta.datasetClasses ?? [];
   const files = meta.files ?? {};
 

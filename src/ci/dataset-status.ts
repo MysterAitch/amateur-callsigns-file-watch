@@ -23,25 +23,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { CONSTANTS } from '../shared/utils.ts';
+import { listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const FOI_ARCHIVE_DIR = path.join(REPO_ROOT, 'archive', 'foi');
 export const STATUS_FILE = path.join(REPO_ROOT, 'docs', 'dataset-status.md');
-
-interface FoiFileDeclaration {
-  role: string;
-  extractedBy?: string;
-  datasetClasses?: string[];
-}
-
-interface FoiEntryMeta {
-  title?: string;
-  outcome?: string;
-  dataVintage?: string | null;
-  datasetClasses?: string[];
-  converter?: { variant?: string } | null;
-  files?: Record<string, FoiFileDeclaration>;
-}
 
 const tick = (present: boolean): string => (present ? '✔' : '—');
 const count = (n: number, symbol = '✔'): string => (n === 0 ? '—' : `${symbol} ${n}`);
@@ -55,11 +41,9 @@ function openDataRows(): string[] {
 }
 
 function foiRows(): string[] {
-  return fs.readdirSync(FOI_ARCHIVE_DIR)
-    .filter(name => fs.statSync(path.join(FOI_ARCHIVE_DIR, name)).isDirectory())
-    .sort()
+  return listFoiEntryKeys(FOI_ARCHIVE_DIR)
     .map(key => {
-      const meta = JSON.parse(fs.readFileSync(path.join(FOI_ARCHIVE_DIR, key, 'meta.json'), 'utf8')) as FoiEntryMeta;
+      const meta = readFoiEntryMeta(FOI_ARCHIVE_DIR, key);
       const files = Object.values(meta.files ?? {});
       const data = files.filter(f => f.role === 'data' || f.role === 'data-container').length;
       const mechanical = files.filter(f => f.role === 'extract' && f.extractedBy !== undefined).length;

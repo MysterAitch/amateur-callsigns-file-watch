@@ -18,10 +18,11 @@
     "FoI 1 241858032 Full Response.pdf": {
       "bytes": 83651,
       "sha256": "7260f7d3cdb62728817c87d51f0dbc132b04043250ed395482908ce9cd4401b0",
-      "role": "response-letter",
+      "role": "data",
       "datasetClasses": [
         "statistics-aggregate"
       ],
+      "contentsIndicative": "the response letter IS the disclosure (same shape as wdtk-184767): licence-holder statistics as at 2013-08-28 answered inline - see the raw extract",
       "witnesses": [
         {
           "channel": "wdtk",

@@ -57,11 +57,19 @@ the at-rest layout and its invariants.
      artefact.**
    - **Data attachments verbatim** (xlsx/csv as served, byte-preserved,
      `.gitattributes`-marked binary like other raw files).
-   - **Response-letter PDFs are NOT committed**: they embed requester
-     email addresses and similar artefacts. They stay in the local drop
-     zone; the committed transcript carries their content, and meta.json
-     records their existence and sha256 so the local original is
-     verifiable without being published.
+   - **Response-letter PDFs: committed when publishable, local-only
+     otherwise.** *(Amended 2026-07-08 to record the practice ratified with
+     the #133 pattern — the original text said letters were never
+     committed.)* Letters whose content is publishable ARE committed
+     verbatim as disclosure events with `role: response-letter` (or `data`
+     where the letter itself carries the disclosed dataset): Ofcom-published
+     copies are redacted by Ofcom before publication, and WDTK-served
+     letters free of withheld personal data (e.g. the wdtk-356636 response)
+     qualify equally. Letters embedding requester email addresses or other
+     personal-data artefacts stay in the local drop zone; the committed
+     transcript carries their content, and meta.json records their
+     existence and sha256 so the local original is verifiable without being
+     published.
    - WDTK `.json` and saved HTML likewise stay local-only (ADR-adjacent
      rule already enforced by gitignore).
 
