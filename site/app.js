@@ -170,7 +170,7 @@ async function registerHistoryCard(callsigns) {
     wrap.append(table);
     return card('Register history (archived open-data publications)', [
       el('p', { class: 'muted', text:
-        'Status per archived publication, oldest first. A change row records only what the register shows - an Allocated → Reserved transition can be a surrendered licence, progression to a new licence level under a different callsign, or the holder’s death; the register does not say which. Absence is only treated as evidence in publications that declared themselves complete: missing from a partial or undeclared-scope publication can equally be truncation, a publisher omission error, or a scope difference (some datasets are broader than others). Gaps between publications can hide intermediate states.' }),
+        'Status per archived publication, oldest first. A change row records only what the register shows - an Allocated → Reserved transition can be a surrendered licence, progression to a new licence level under a different callsign, or the holder’s death; the register does not say which. Absence is only treated as evidence in publications that DECLARED themselves complete - and a declaration is intent, not verified fact: intended-complete exports have been observed silently filtering records (e.g. omitting rows with a blank product field, which many legitimate allocations carry), so even an "(absent)" change here is a lead to check against the publication, never proof. Missing from a partial or undeclared-scope publication can equally be truncation, a publisher omission error, or a scope difference. Gaps between publications can hide intermediate states.' }),
       wrap,
     ]);
   } catch {
