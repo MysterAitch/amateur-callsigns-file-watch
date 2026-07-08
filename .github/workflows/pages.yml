@@ -41,7 +41,10 @@ jobs:
           # compressed representation - verified live), which corrupts
           # sql.js-httpvfs reads. Image types are never re-compressed, so
           # the plain-SQLite file wears a .png name. See site/app.js.
-          node src/ci/build-sqlite.ts _site/data/callsigns.sqlite.png
+          # --tiers additionally builds the master database (all datasets +
+          # the FOI observations union), one database per archive entry, and
+          # the gzipped flat union CSV (issue #149 item 4).
+          node src/ci/build-sqlite.ts _site/data/callsigns.sqlite.png --tiers
           # Version stamp: the app appends ?v=<sha> to the database URL so
           # each deploy is a distinct CDN cache object - two deploys inside
           # the Pages max-age window otherwise mix range chunks from

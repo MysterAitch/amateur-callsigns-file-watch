@@ -66,6 +66,75 @@ async function query(sql, params = []) {
   return worker.db.query(sql, params);
 }
 
+// The master database (all datasets + the FOI observations union) is much
+// larger than the lookup database, so it is opened LAZILY - only when a
+// lookup first needs FOI history - and queried over the same range-request
+// VFS. Same .png/?v= hosting workarounds as the main database.
+let masterDbPromise = null;
+function openMasterDatabase() {
+  masterDbPromise ??= (async () => {
+    let version = 'dev';
+    try {
+      const res = await fetch(new URL('./data/version.txt', document.baseURI), { cache: 'no-store' });
+      if (res.ok) version = (await res.text()).trim();
+    } catch { /* fall back to unversioned */ }
+    const dbUrl = new URL(`./data/master.sqlite.png?v=${encodeURIComponent(version)}`, document.baseURI);
+    return createDbWorker(
+      [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
+      workerUrl.toString(),
+      wasmUrl.toString(),
+    );
+  })();
+  return masterDbPromise;
+}
+
+async function queryMaster(sql, params = []) {
+  const worker = await openMasterDatabase();
+  return worker.db.query(sql, params);
+}
+
+// FOI-witnessed history for a callsign: every observation row across the
+// FOI lane's normalised datasets (register snapshots, available lists,
+// issuance events), oldest vintage first, each linked to its entry page.
+// Soft-fails to null so a master-database hiccup never breaks the lookup.
+async function foiHistoryCard(callsigns) {
+  try {
+    const distinct = [...new Set(callsigns.filter(Boolean))];
+    if (distinct.length === 0) return null;
+    const rows = await queryMaster(
+      `SELECT callsign, entry, dataset_classes, vintage, status, licence_class, event, event_date
+       FROM observations WHERE callsign IN (${distinct.map(() => '?').join(',')})
+       ORDER BY vintage IS NULL, vintage, entry`, distinct);
+    if (rows.length === 0) return null;
+    const table = el('table');
+    table.append(el('thead', {}, [el('tr', {}, ['vintage', 'observation', 'classes', 'source entry'].map(h => el('th', { text: h })))]));
+    table.append(el('tbody', {}, rows.map(r => {
+      // Event rows describe a dated happening; observation rows a state.
+      // NULL means the source did not assert the column at all.
+      const what = r.event !== null
+        ? `${r.event}${r.event_date ? ` (${r.event_date})` : ''}`
+        : [r.status === null ? null : `status: ${r.status === '' ? '(asserted blank)' : r.status}`,
+           r.licence_class === null || r.licence_class === '' ? null : `class: ${r.licence_class}`]
+            .filter(Boolean).join(', ') || '(row present)';
+      const link = el('a', { href: `datasets/foi/${encodeURIComponent(r.entry)}/index.html`, text: r.entry });
+      return el('tr', {}, [
+        el('td', { text: r.vintage ?? '—' }),
+        el('td', { text: `${r.callsign !== distinct[0] ? r.callsign + ': ' : ''}${what}` }),
+        el('td', { text: r.dataset_classes }),
+        el('td', {}, [link]),
+      ]);
+    })));
+    const wrap = el('div', { class: 'overflow' });
+    wrap.append(table);
+    return card(`FOI-witnessed history (${rows.length} observation${rows.length === 1 ? '' : 's'})`, [
+      el('p', { class: 'muted', text: 'Rows this callsign carries across the FOI-disclosed datasets - snapshots of past register states, availability listings, and issuance events. Full provenance on each linked entry page.' }),
+      wrap,
+    ]);
+  } catch {
+    return null;
+  }
+}
+
 async function renderAggregates() {
   const target = document.getElementById('flags-table');
   try {
@@ -466,7 +535,14 @@ async function lookup(criteria) {
   }
 
   if (!row) {
-    result.replaceChildren(el('p', { text: `No register row for "${value}" in the latest dataset. (The register only holds callsigns Ofcom has had reason to record.)` }));
+    // Absent from the current register is exactly where FOI history is
+    // most valuable: heritage transfers, pre-war annex callsigns, and
+    // past availability listings still witness the callsign.
+    const history = await foiHistoryCard([value]);
+    result.replaceChildren(
+      el('p', { text: `No register row for "${value}" in the latest dataset. (The register only holds callsigns Ofcom has had reason to record.)` }),
+      ...(history ? [history] : []),
+    );
     return;
   }
 
@@ -550,6 +626,11 @@ async function lookup(criteria) {
   } else {
     sections.push(card('Flags', [el('p', { class: 'status-ok', text: 'None - nothing anomalous recorded for this row.' })]));
   }
+
+  // FOI-witnessed history: query by the register row's callsign plus the
+  // as-typed value (regional renderings appear literally in FOI datasets).
+  const history = await foiHistoryCard([row.callsign, value]);
+  if (history) sections.push(history);
 
   result.replaceChildren(...sections);
 }

@@ -16,11 +16,13 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as zlib from 'zlib';
 import { DatabaseSync } from 'node:sqlite';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { type EntryStats } from '../shared/stats.ts';
+import { buildFoiObservations, renderObservationsCsv, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
 
 // Reference data is repo-anchored (same convention as the component parser).
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -157,9 +159,115 @@ export function buildSqlite(outputPath: string): { datasetKey: string; tables: R
   return { datasetKey: newest, tables: counts };
 }
 
+function fillObservations(db: DatabaseSync, rows: FoiObservationRow[]): number {
+  const valueColumns = OBSERVATION_VALUE_COLUMNS.map(c => `"${c}" TEXT`).join(', ');
+  db.exec(`CREATE TABLE observations (callsign TEXT, entry TEXT, source_file TEXT, dataset_classes TEXT, vintage TEXT, ${valueColumns})`);
+  const placeholders = Array.from({ length: 5 + OBSERVATION_VALUE_COLUMNS.length }, () => '?').join(', ');
+  const insert = db.prepare(`INSERT INTO observations VALUES (${placeholders})`);
+  db.exec('BEGIN');
+  for (const row of rows) {
+    insert.run(row.callsign, row.entry, row.sourceFile, row.datasetClasses, row.vintage,
+      ...OBSERVATION_VALUE_COLUMNS.map(column => row.values[column] ?? null));
+  }
+  db.exec('COMMIT');
+  db.exec('CREATE INDEX idx_observations_callsign ON observations("callsign")');
+  return rows.length;
+}
+
+// The remaining published tiers (issue #149 item 4 + the composed-stack
+// decision): the mandatory flat union CSV, one SQLite per archive entry,
+// and the master database. All derived at deploy time, never committed.
+export function buildPublishedTiers(dataDir: string): Record<string, number> {
+  const summary: Record<string, number> = {};
+  const foiDir = path.join(CONSTANTS.DIRS.archive, 'foi');
+  const observations = buildFoiObservations(foiDir);
+
+  // Mandatory union CSV - the no-SQL consumption path. Published gzipped:
+  // the plain text is ~160 MB, which alone would strain the Pages 1 GB
+  // site cap alongside the published dataset files; .csv.gz keeps the
+  // no-SQL property (universally decompressible) at ~15% of the size. The
+  // faithful NULL-vs-blank form lives in the master database.
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(path.join(dataDir, 'foi-observations.csv.gz'), zlib.gzipSync(renderObservationsCsv(observations), { level: 9 }));
+  summary['foi-observations.csv.gz rows'] = observations.length;
+
+  // One database per archive entry (both lanes): every CSV in the entry
+  // becomes a table named for its file (non-CSV files are in the dataset
+  // pages, not the databases).
+  const perDatasetDir = path.join(dataDir, 'datasets');
+  fs.mkdirSync(perDatasetDir, { recursive: true });
+  let perDataset = 0;
+  const entryDirs: { name: string; dir: string }[] = [
+    ...listArchiveKeys().sort().map(key => ({ name: `open-data--${key}`, dir: path.join(CONSTANTS.DIRS.archive, key) })),
+    ...fs.readdirSync(foiDir).filter(n => fs.statSync(path.join(foiDir, n)).isDirectory()).sort()
+      .map(key => ({ name: `foi--${key}`, dir: path.join(foiDir, key) })),
+  ];
+  for (const { name, dir } of entryDirs) {
+    const outputPath = path.join(perDatasetDir, `${name}.sqlite.png`);
+    fs.rmSync(outputPath, { force: true });
+    const db = new DatabaseSync(outputPath);
+    let tables = 0;
+    for (const file of fs.readdirSync(dir).sort()) {
+      if (!file.endsWith('.csv')) continue;
+      const records = parse(fs.readFileSync(path.join(dir, file), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+      if (records.length === 0) continue;
+      const columns = Object.keys(records[0]);
+      const tableName = file.replace(/\.csv$/, '').replace(/[^a-zA-Z0-9]+/g, '_');
+      db.exec(`CREATE TABLE "${tableName}" (${columns.map(c => `"${c}" TEXT`).join(', ')})`);
+      const insert = db.prepare(`INSERT INTO "${tableName}" VALUES (${columns.map(() => '?').join(', ')})`);
+      db.exec('BEGIN');
+      for (const record of records) insert.run(...columns.map(c => record[c] ?? ''));
+      db.exec('COMMIT');
+      tables += 1;
+    }
+    db.close();
+    if (tables === 0) fs.rmSync(outputPath, { force: true });
+    else perDataset += 1;
+  }
+  summary['per-dataset databases'] = perDataset;
+
+  // The master database: the observations union + every open-data
+  // publication's normalised rows as one dataset-keyed history table.
+  const masterPath = path.join(dataDir, 'master.sqlite.png');
+  fs.rmSync(masterPath, { force: true });
+  const master = new DatabaseSync(masterPath);
+  summary['master observations'] = fillObservations(master, observations);
+  const historyColumns = new Set<string>(['dataset']);
+  const publications = listArchiveKeys().sort()
+    .map(key => ({ key, path: path.join(CONSTANTS.DIRS.archive, key, 'normalised.csv') }))
+    .filter(p => fs.existsSync(p.path))
+    .map(p => ({ key: p.key, records: parse(fs.readFileSync(p.path, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[] }));
+  for (const publication of publications) {
+    for (const column of Object.keys(publication.records[0] ?? {})) historyColumns.add(column);
+  }
+  const historyColumnList = [...historyColumns];
+  master.exec(`CREATE TABLE register_history (${historyColumnList.map(c => `"${c}" TEXT`).join(', ')})`);
+  const insertHistory = master.prepare(`INSERT INTO register_history VALUES (${historyColumnList.map(() => '?').join(', ')})`);
+  let historyRows = 0;
+  master.exec('BEGIN');
+  for (const publication of publications) {
+    for (const record of publication.records) {
+      insertHistory.run(...historyColumnList.map(c => (c === 'dataset' ? publication.key : record[c] ?? null)));
+      historyRows += 1;
+    }
+  }
+  master.exec('COMMIT');
+  master.exec('CREATE INDEX idx_register_history_callsign ON register_history("callsign")');
+  summary['master register_history'] = historyRows;
+  master.close();
+
+  return summary;
+}
+
 if (import.meta.main) {
-  const output = process.argv[2] ?? path.join('_site', 'data', 'callsigns.sqlite');
+  const args = process.argv.slice(2).filter(a => a.trim().length > 0);
+  const tiersFlag = args.indexOf('--tiers');
+  const output = args.find(a => !a.startsWith('--')) ?? path.join('_site', 'data', 'callsigns.sqlite');
   const result = buildSqlite(output);
   console.log(`built ${output} from dataset ${result.datasetKey}`);
   for (const [table, n] of Object.entries(result.tables)) console.log(`  ${table}: ${n} rows`);
+  if (tiersFlag !== -1) {
+    const tiers = buildPublishedTiers(path.dirname(output));
+    for (const [what, n] of Object.entries(tiers)) console.log(`  tiers: ${what}: ${n}`);
+  }
 }
