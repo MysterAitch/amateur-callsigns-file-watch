@@ -40,11 +40,13 @@ function explode(value: string): string {
 
 // Mirrors app.js renderTable: thead/tbody, 'num' class from numericFrom,
 // wrapped in div.overflow. rawHeaders lets a caller pass pre-built header
-// HTML (the flags table links its dataset-date columns to entry pages).
-function tableHtml(headers: string[], rows: (string | number)[][], numericFrom = 1, rawHeaders = false): string {
+// HTML (the flags table links its dataset-date columns to entry pages);
+// rawFirstColumn does the same for row labels (the matrix links its
+// series rows to their entity pages).
+function tableHtml(headers: string[], rows: (string | number)[][], numericFrom = 1, rawHeaders = false, rawFirstColumn = false): string {
   const th = headers.map((h, i) => `<th${i >= numericFrom ? ' class="num"' : ''}>${rawHeaders ? h : escapeHtml(h)}</th>`).join('');
   const body = rows.map(row =>
-    `<tr>${row.map((c, i) => `<td${i >= numericFrom ? ' class="num"' : ''}>${escapeHtml(String(c))}</td>`).join('')}</tr>`).join('\n');
+    `<tr>${row.map((c, i) => `<td${i >= numericFrom ? ' class="num"' : ''}>${rawFirstColumn && i === 0 ? String(c) : escapeHtml(String(c))}</td>`).join('')}</tr>`).join('\n');
   return `<div class="overflow"><table><thead><tr>${th}</tr></thead>\n<tbody>${body}</tbody></table></div>`;
 }
 
@@ -126,8 +128,12 @@ export function renderRslMatrixHtml(): string {
 
   const count = (series: string, rsl: string): number => counts.get(`${series}|${rsl}`) ?? 0;
   const quiet = (n: number): string | number => (n === 0 ? '·' : n);
+  // Series row labels link to their entity pages (statistics.html sits at
+  // the site root, so series/ is a sibling directory). Honest here because
+  // both describe the LATEST publication; the per-entry historical
+  // matrices deliberately stay unlinked.
   const rows: (string | number)[][] = seriesRows.map(series => [
-    displaySeries(series) + (refSeries.includes(series) ? '' : ' ⚠'),
+    `<a href="series/${series.replace(/#/g, '')}.html">${escapeHtml(displaySeries(series))}</a>${refSeries.includes(series) ? '' : ' ⚠'}`,
     ...columns.map(rsl => quiet(count(series, rsl))),
     quiet(columns.reduce((sum, rsl) => sum + count(series, rsl), 0)),
   ]);
@@ -157,8 +163,8 @@ export function renderRslMatrixHtml(): string {
       + `<p class="mono">${escapeHtml(examples.join(', '))}</p></details>`);
   }
 
-  return tableHtml(['series', ...refRsl, ...unknownRsl.map(r => `${r} ⚠`), '(none)', 'total'], rows, 1)
-    + `<p class="muted">In the series column, # marks where the Regional Secondary Locator sits when one is present; (none) = no RSL letter stored on the row. Excluded from this table: ${escapeHtml(excludedText)} (populations over 50 are not enumerated below).</p>`
+  return tableHtml(['series', ...refRsl, ...unknownRsl.map(r => `${r} ⚠`), '(none)', 'total'], rows, 1, false, true)
+    + `<p class="muted">In the series column, # marks where the Regional Secondary Locator sits when one is present; (none) = no RSL letter stored on the row — each series links to its own page. Excluded from this table: ${escapeHtml(excludedText)} (populations over 50 are not enumerated below).</p>`
     + details.join('\n');
 }
 

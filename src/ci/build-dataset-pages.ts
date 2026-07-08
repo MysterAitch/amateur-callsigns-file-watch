@@ -124,7 +124,9 @@ function htmlPage(title: string, depthToRoot: number, body: string[], options: P
   const navItems: [string, string][] = [
     ['Lookup', `${rootPath}index.html`],
     ['Statistics', `${rootPath}statistics.html`],
-    ['Dataset index', `${'../'.repeat(depthToRoot - 1) || './'}index.html`],
+    // Root-anchored so it is correct from every directory (a sibling-
+    // relative form resolved to the SERIES index from series/ pages).
+    ['Dataset index', `${rootPath}datasets/index.html`],
     ['Repository', REPO_URL],
   ];
   const nav = navItems
@@ -558,6 +560,116 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey?: string
   return { files, zipBytes };
 }
 
+// URL-safe slug for a prefix series: the stored names carry the RSL-slot
+// placeholder (2#0), and # is a fragment delimiter in URLs.
+export function seriesSlug(series: string): string {
+  return series.replace(/#/g, '');
+}
+
+// Precomputed per-series entity pages (the static half of the entity-pages
+// plan; callsigns stay dynamic behind ?c= deep links because 158k static
+// pages would alone exceed the Pages size cap): reference-data facts plus
+// latest-publication derived numbers, one page per prefix series observed
+// in the data or named in reference data. Fully static - archived captures
+// are complete. Returns the page URLs for the sitemap.
+function buildSeriesPages(outputDir: string, baseUrl: string): string[] {
+  const keys = listArchiveKeys().sort();
+  const newest = keys[keys.length - 1];
+  if (newest === undefined) return [];
+  const componentsRows = parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, newest, 'components.csv'), 'utf8'),
+    { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  const normalisedRows = parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, newest, 'normalised.csv'), 'utf8'),
+    { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  const statusByCallsign = new Map(normalisedRows.map(r => [r.callsign, r.status]));
+  const reference = new Map(
+    (parse(fs.readFileSync(path.join(REPO_ROOT, 'reference-data', 'prefix-formats.csv'), 'utf8'), { columns: true, bom: true }) as Record<string, string>[])
+      .map(r => [r.prefix, r]));
+
+  interface SeriesAccumulator {
+    total: number;
+    statuses: Map<string, number>;
+    rsls: Map<string, number>;
+    flags: Map<string, number>;
+    examples: string[];
+  }
+  const bySeries = new Map<string, SeriesAccumulator>();
+  for (const row of componentsRows) {
+    if (row.parse_status !== 'parsed' || row.prefix_series === '') continue;
+    const acc: SeriesAccumulator = bySeries.get(row.prefix_series) ?? { total: 0, statuses: new Map(), rsls: new Map(), flags: new Map(), examples: [] };
+    acc.total += 1;
+    const status = statusByCallsign.get(row.callsign) ?? '(unknown)';
+    acc.statuses.set(status, (acc.statuses.get(status) ?? 0) + 1);
+    if (row.rsl !== '') acc.rsls.set(row.rsl, (acc.rsls.get(row.rsl) ?? 0) + 1);
+    for (const flag of row.flags === '' ? [] : row.flags.split(';')) acc.flags.set(flag, (acc.flags.get(flag) ?? 0) + 1);
+    if (acc.examples.length < 5) acc.examples.push(row.callsign);
+    bySeries.set(row.prefix_series, acc);
+  }
+
+  const allSeries = [...new Set([...reference.keys(), ...bySeries.keys()])].sort((a, b) => a.localeCompare(b));
+  const seriesDir = path.join(outputDir, 'series');
+  fs.mkdirSync(seriesDir, { recursive: true });
+  const urls: string[] = [];
+
+  const countTable = (title: string, counts: Map<string, number>): string[] => {
+    if (counts.size === 0) return [];
+    const rows = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    return [`<h2>${escapeHtml(title)}</h2>`, '<table>', `<tr><th>value</th><th>rows</th></tr>`,
+      ...rows.map(([value, n]) => `<tr><td>${escapeHtml(value)}</td><td>${n.toLocaleString('en-GB')}</td></tr>`), '</table>'];
+  };
+
+  const indexRows: string[] = [];
+  for (const series of allSeries) {
+    const slug = seriesSlug(series);
+    const ref = reference.get(series);
+    const acc = bySeries.get(series);
+    const display = displaySeries(series);
+    const facts: string[] = [];
+    if (ref !== undefined) {
+      facts.push(
+        '<table>',
+        `<tr><th>station level</th><td>${escapeHtml(ref.station_level)}</td></tr>`,
+        `<tr><th>issuing status</th><td>${escapeHtml(ref.issuing_status)}</td></tr>`,
+        `<tr><th>RSL required</th><td>${escapeHtml(ref.rsl_required)}</td></tr>`,
+        ...(ref.notes ? [`<tr><th>notes</th><td>${escapeHtml(ref.notes)}</td></tr>`] : []),
+        '</table>',
+      );
+    } else {
+      facts.push('<p>⚠ Observed in the register but absent from <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/reference-data">reference data</a> — an open research item, not an established series.</p>');
+    }
+    const numbers = acc === undefined
+      ? ['<p>No parsed register rows in the latest publication carry this series.</p>']
+      : [
+        `<p>${acc.total.toLocaleString('en-GB')} parsed register rows in the latest publication (${escapeHtml(newest)}).</p>`,
+        ...countTable('Status breakdown', acc.statuses),
+        ...countTable('Stored RSL letters', acc.rsls),
+        ...countTable('Data-quality flags within this series', acc.flags),
+        `<p>Examples: ${acc.examples.map(c => `<a href="../index.html?c=${encodeURIComponent(c)}"><code>${escapeHtml(c)}</code></a>`).join(', ')} — each opens the live lookup.</p>`,
+      ];
+    const body = [
+      `<h1>Prefix series ${escapeHtml(display)}</h1>`,
+      '<p><code>#</code> marks where the Regional Secondary Locator sits when one is present. Reference facts are hand-curated; numbers derive from the latest archived publication and regenerate on every deploy.</p>',
+      ...facts,
+      ...numbers,
+      '<p>See the <a href="../statistics.html">statistics page</a> for the all-series locator matrix, or <a href="index.html">all series</a>.</p>',
+    ];
+    fs.writeFileSync(path.join(seriesDir, `${slug}.html`), htmlPage(`Prefix series ${display}`, 1, body, { sourcePath: 'reference-data/prefix-formats.csv' }));
+    urls.push(`${baseUrl}/series/${slug}.html`);
+    indexRows.push(`<tr><td><a href="${slug}.html"><code>${escapeHtml(display)}</code></a></td><td>${ref === undefined ? '⚠ unreferenced' : escapeHtml(ref.station_level)}</td><td>${ref === undefined ? '—' : escapeHtml(ref.issuing_status)}</td><td>${(acc?.total ?? 0).toLocaleString('en-GB')}</td></tr>`);
+  }
+
+  const indexBody = [
+    '<h1>Prefix series</h1>',
+    `<p>One page per callsign prefix series — hand-curated reference facts joined with numbers derived from the latest archived publication (${escapeHtml(newest)}). <code>#</code> marks the RSL slot.</p>`,
+    '<table>',
+    '<tr><th>series</th><th>station level</th><th>issuing status</th><th>rows</th></tr>',
+    ...indexRows,
+    '</table>',
+  ];
+  fs.writeFileSync(path.join(seriesDir, 'index.html'), htmlPage('Prefix series', 1, indexBody, { sourcePath: 'reference-data/prefix-formats.csv' }));
+  urls.unshift(`${baseUrl}/series/index.html`);
+  return urls;
+}
+
 export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_BASE_URL): DatasetPagesSummary {
   const foiDir = path.join(REPO_ROOT, 'archive', 'foi');
   const openDataKeys = listArchiveKeys().sort();
@@ -667,6 +779,8 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   const datasetsDir = path.join(outputDir, 'datasets');
   fs.mkdirSync(datasetsDir, { recursive: true });
   fs.writeFileSync(path.join(datasetsDir, 'index.html'), htmlPage('Dataset index', 1, indexBody, { currentNav: 'Dataset index', sourcePath: 'archive' }));
+
+  pageUrls.push(...buildSeriesPages(outputDir, baseUrl));
 
   const sitemap = [
     '<?xml version="1.0" encoding="UTF-8"?>',
