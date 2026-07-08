@@ -114,6 +114,7 @@ The orchestrator is designed to be invoked frequently by a boring, always-on tim
 | Swap | 1 GB | headroom |
 | Disk | 4 GB | archive growth is ~130 MB/year |
 | Unprivileged | ✓ | default; keep it |
+| **Start at boot** | **✓** | NOT the Proxmox default — without it the container (and the dead-man's-switch pings) stays down after a host reboot until started by hand; on an existing container: Options → Start at boot, or `pct set <vmid> --onboot 1` |
 | **Nesting** | **✓** | required for Debian 13's systemd 257 to fully honour the service unit's hardening directives |
 | Network | static IP | e.g. matching the container ID as the last octet (`/24`, not `/32`) |
 | SSH public key | pasted at creation | avoids the "root password SSH is disabled by default" tangent |
