@@ -1,5 +1,9 @@
 # Normalised schema reference
 
+This page covers the **open-data lane**; the FOI lane's row-schema families,
+extension-column registry and per-variant conversions are documented in the
+generated [`foi-schemas.md`](foi-schemas.md).
+
 ## Data strata
 
 The repository's data falls into four strata with distinct lifecycles:
