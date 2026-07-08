@@ -56,6 +56,12 @@ jobs:
           # descriptors + sitemap.xml - the Wayback Machine crawl seed.
           node src/ci/build-dataset-pages.ts _site
           cp site/index.html site/app.js site/style.css _site/
+          # Home-page aggregates (locator matrix, flags table) are
+          # deterministic per deploy - pre-rendered into the page so the
+          # browser neither flickers "loading…" nor burns range requests
+          # recomputing them. app.js skips its dynamic render when it
+          # finds the injected content.
+          node src/ci/build-home-aggregates.ts _site/index.html
           # sql.js-httpvfs is served from the npm-audited package, vendored at
           # build time - no CDN scripts, nothing committed. The sourcemap is
           # included so browser devtools stop 404ing for it.
