@@ -54,7 +54,8 @@ export type ParseStatus = 'parsed' | 'visitor' | 'special-event' | 'empty' | 'un
 export interface ComponentRow {
   callsign: string;
   parseStatus: ParseStatus;
-  // Join key into reference-data/prefix-formats.csv ('M7', '2#0', 'GB', '').
+  // Join key into reference-data/prefix-formats.csv ('M7', '20', 'GB', '')
+  // - stored bare for every series; the # RSL-slot marker is display-only.
   prefixSeries: string;
   rsl: string;
   suffix: string;
@@ -189,13 +190,17 @@ export function parseCallsign(callsign: string, product: string, ref: ReferenceD
     row.placeholderForm = `${gm[1]}#${gm[3]}${gm[4]}`;
   } else if (twoWithRsl) {
     row.parseStatus = 'parsed';
-    row.prefixSeries = `2#${twoWithRsl[2]}`;
+    // Series names are stored BARE for every series (20, like M7/G0) -
+    // the # RSL-slot marker is a display convention, applied uniformly at
+    // render time; it survives in placeholder_form, where it carries
+    // meaning (the rendering-unification key).
+    row.prefixSeries = `2${twoWithRsl[2]}`;
     row.rsl = twoWithRsl[1];
     row.suffix = twoWithRsl[3];
     row.placeholderForm = `2#${twoWithRsl[2]}${twoWithRsl[3]}`;
   } else if (twoBare) {
     row.parseStatus = 'parsed';
-    row.prefixSeries = `2#${twoBare[1]}`;
+    row.prefixSeries = `2${twoBare[1]}`;
     row.rsl = '';
     row.suffix = twoBare[2];
     row.placeholderForm = `2#${twoBare[1]}${twoBare[2]}`;

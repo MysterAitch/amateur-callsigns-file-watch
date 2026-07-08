@@ -24,7 +24,9 @@ describe('Home-page aggregate pre-rendering', () => {
 
   it('RslMatrix_RealArchive_CarriesReferenceDrivenRowsTotalsAndExclusions', () => {
     const html = renderRslMatrixHtml();
-    expect(html).toContain('<td>2#0</td>'); // Intermediate placeholder series
+    // Series stored bare (20), displayed with the # slot marker, linked
+    // to the series entity page.
+    expect(html).toContain('<a href="series/20.html">2#0</a>');
     expect(html).toContain('<td>total</td>');
     expect(html).toContain('·'); // zero-marker convention preserved
     expect(html).toContain('Excluded from this table:');

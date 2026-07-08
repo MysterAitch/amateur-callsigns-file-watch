@@ -569,8 +569,9 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey?: string
   return { files, zipBytes };
 }
 
-// URL-safe slug for a prefix series: the stored names carry the RSL-slot
-// placeholder (2#0), and # is a fragment delimiter in URLs.
+// URL-safe slug for a prefix series. Names are now stored bare (20, M7),
+// so this is normally the identity; the # strip stays as a guard for any
+// display-form input.
 export function seriesSlug(series: string): string {
   return series.replace(/#/g, '');
 }

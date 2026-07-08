@@ -12,10 +12,10 @@ a verdict.
 
 | callsign | prefix series | implied class | product |
 |---|---|---|---|
-| `21CZS` | 2#1 | Intermediate | Amateur Full Radio Licence |
-| `21EXG` | 2#1 | Intermediate | Amateur Foundation Radio Licence |
-| `21FNR` | 2#1 | Intermediate | Amateur Foundation Radio Licence |
-| `21IEM` | 2#1 | Intermediate | Amateur Foundation Radio Licence |
+| `21CZS` | 21 | Intermediate | Amateur Full Radio Licence |
+| `21EXG` | 21 | Intermediate | Amateur Foundation Radio Licence |
+| `21FNR` | 21 | Intermediate | Amateur Foundation Radio Licence |
+| `21IEM` | 21 | Intermediate | Amateur Foundation Radio Licence |
 | `G1MOK` | G1 | Full | Amateur Intermediate Radio Licence |
 | `G1THP` | G1 | Full | Amateur Intermediate Radio Licence |
 | `G1XPH` | G1 | Full | Amateur Foundation Radio Licence |
@@ -45,7 +45,7 @@ a verdict.
 
 | callsign | prefix series | implied class | product |
 |---|---|---|---|
-| `2E1CZS` | 2#1 | Intermediate | Amateur Full Radio Licence |
+| `2E1CZS` | 21 | Intermediate | Amateur Full Radio Licence |
 | `G1MOK` | G1 | Full | Amateur Intermediate Radio Licence |
 | `G1XPH` | G1 | Full | Amateur Foundation Radio Licence |
 | `G6JRC` | G6 | Full | Amateur Foundation Radio Licence |
@@ -59,7 +59,7 @@ a verdict.
 
 | callsign | prefix series | implied class | product |
 |---|---|---|---|
-| `2E1CZS` | 2#1 | Intermediate | Amateur Full Radio Licence |
+| `2E1CZS` | 21 | Intermediate | Amateur Full Radio Licence |
 | `G1MOK` | G1 | Full | Amateur Intermediate Radio Licence |
 | `G1XPH` | G1 | Full | Amateur Foundation Radio Licence |
 | `G6JRC` | G6 | Full | Amateur Foundation Radio Licence |
@@ -69,7 +69,7 @@ a verdict.
 
 | callsign | prefix series | implied class | product |
 |---|---|---|---|
-| `2E1CZS` | 2#1 | Intermediate | Amateur Full Radio Licence |
+| `2E1CZS` | 21 | Intermediate | Amateur Full Radio Licence |
 | `G1MOK` | G1 | Full | Amateur Intermediate Radio Licence |
 | `G6JRC` | G6 | Full | Amateur Foundation Radio Licence |
 

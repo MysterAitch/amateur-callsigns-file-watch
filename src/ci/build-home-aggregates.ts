@@ -54,11 +54,10 @@ function readCsv(filePath: string): Record<string, string>[] {
   return parse(fs.readFileSync(filePath, 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
 }
 
-// Display form of a prefix series for the statistics tables: the RSL-slot
-// placeholder appears on EVERY row (G0 -> G#0), not just the 2-series whose
-// stored names happen to carry it - mixing 2#0 with bare G0 forced two
-// different reading models against the "(none)" column. The # position is
-// where an RSL letter sits when one is present.
+// Display form of a prefix series: names are stored BARE for every series
+// (20, G0, M7); the # RSL-slot marker is the uniform display convention,
+// inserted after the leading character - it marks where an RSL letter
+// sits when one is present.
 export function displaySeries(series: string): string {
   if (series.includes('#') || series.length < 2) return series;
   return `${series[0]}#${series.slice(1)}`;

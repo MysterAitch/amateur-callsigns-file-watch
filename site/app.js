@@ -76,8 +76,13 @@ function csLink(callsign) {
 function suffixLink(suffix) {
   return el('a', { href: `?c=${encodeURIComponent('*' + suffix)}`, text: suffix, title: `availability matrix for *${suffix}` });
 }
+// Series names are stored bare (20, M7); the # RSL-slot marker is the
+// uniform display convention, inserted after the leading character.
+function displaySeries(series) {
+  return series.includes('#') || series.length < 2 ? series : `${series[0]}#${series.slice(1)}`;
+}
 function seriesLink(series) {
-  return el('a', { href: `series/${series.replace(/#/g, '')}.html`, text: series, title: `prefix series ${series}` });
+  return el('a', { href: `series/${series.replace(/#/g, '')}.html`, text: displaySeries(series), title: `prefix series ${displaySeries(series)}` });
 }
 
 async function query(sql, params = []) {
@@ -388,7 +393,9 @@ async function suffixMatrix(suffix, result) {
   } catch { /* master unavailable - history column degrades to blank */ }
 
   const rows = seriesList.map((s) => {
-    const hash = s.prefix.includes('#') ? s.prefix : `${s.prefix[0]}#${s.prefix.slice(1)}`;
+    // Series names are stored bare (20, M7); the # RSL-slot marker is the
+    // uniform display convention, inserted after the leading character.
+    const hash = `${s.prefix[0]}#${s.prefix.slice(1)}`;
     const m = bySeries.get(s.prefix);
     let state = 'no record';
     let flags = '';
@@ -406,7 +413,7 @@ async function suffixMatrix(suffix, result) {
       // Corresponding-callsign reservation (Ofcom statement, Dec 2023, via
       // reference data): while a 2#0/2#1 callsign is on issue, its M8/M9
       // equivalent is reserved for that holder for three years from go-live.
-      const twin = bySeries.get(s.prefix === 'M8' ? '2#0' : '2#1');
+      const twin = bySeries.get(s.prefix === 'M8' ? '20' : '21');
       if (twin) {
         state = `no record — reserved for the current ${s.prefix === 'M8' ? '2#0' : '2#1'} holder (${twin.callsign}; corresponding-callsign reservation)`;
       }
@@ -659,7 +666,7 @@ async function lookup(criteria) {
   if (row.prefix_series) {
     const [series] = await query('SELECT * FROM ref_prefix_formats WHERE prefix = ?', [row.prefix_series]);
     if (series) {
-      sections.push(card(`Prefix series ${series.prefix}`, [renderTable(['fact', 'value'], [
+      sections.push(card(`Prefix series ${displaySeries(series.prefix)}`, [renderTable(['fact', 'value'], [
         ['station level', series.station_level],
         ['issuing status', series.issuing_status],
         ['RSL required', series.rsl_required],
@@ -736,7 +743,7 @@ async function populateFilters() {
 
     const seriesSelect = document.getElementById('series-filter');
     const series = await query(`SELECT DISTINCT prefix_series FROM components WHERE prefix_series != '' ORDER BY prefix_series`);
-    for (const r of series) seriesSelect.append(el('option', { value: r.prefix_series, text: r.prefix_series }));
+    for (const r of series) seriesSelect.append(el('option', { value: r.prefix_series, text: displaySeries(r.prefix_series) }));
   } catch {
     /* filters stay empty if the database can't load */
   }

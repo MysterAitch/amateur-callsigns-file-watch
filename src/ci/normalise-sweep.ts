@@ -631,7 +631,9 @@ function writeComponentDistributions(columnsNewestFirst: string[]): void {
       // 2E, ...), bare 20/21 for RSL-less intermediates, and an aggregate
       // for RSL-less G/M cores (the register stores cores by design).
       if (r.prefix_series.startsWith('2')) {
-        bump(rslCounts, r.rsl !== '' ? `\`2${r.rsl}\`` : `\`2${r.prefix_series.slice(2)}\` _(bare)_`, key);
+        // Series names are stored bare (20/21), so the trailing digit is
+        // everything after the leading 2.
+        bump(rslCounts, r.rsl !== '' ? `\`2${r.rsl}\`` : `\`${r.prefix_series}\` _(bare)_`, key);
       } else if (r.rsl !== '') {
         bump(rslCounts, `\`${r.prefix_series[0]}${r.rsl}\``, key);
       } else {
