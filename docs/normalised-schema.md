@@ -83,8 +83,12 @@ raw.csv physical lines = headerLines.length + recordCount + ignoredLines.length
 one.) `headerLines` records the verbatim header bytes with line numbers
 (`columnNames` records the *parsed* header; this records the *bytes*, so
 header drift in a re-fetch is loudly visible) — an array so a future source
-with multi-row headers (title lines above the column row, as
-PDF-transcribed FOI tables have) fits without a schema change. The
+with multi-row headers fits without a schema change. Both PDF-transcribed
+FOI tables and formatted xlsx sheets are known carriers of the multi-row
+case (title lines above the column row; merged-cell workbook titles
+flatten to exactly this shape when serialised to CSV — see the 238892
+annex, whose sheet meta already notes "first row is a title line, not
+headers"). The
 validator re-verifies every declared header and ignored line byte-for-byte
 against the immutable, hash-pinned `raw.csv`, and requires a reason on
 every ignored line.
