@@ -23,6 +23,7 @@ import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { type EntryStats } from '../shared/stats.ts';
 import { buildFoiObservations, renderObservationsCsv, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
+import { cleanedCallsign } from '../sources/ofcom-amateur/components.ts';
 
 // Reference data is repo-anchored (same convention as the component parser).
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -83,6 +84,10 @@ export function buildSqlite(outputPath: string): { datasetKey: string; tables: R
   db.exec('CREATE INDEX idx_components_placeholder ON components("placeholder_form")');
   // Third lookup path: suffix search (*TEE) powers the availability matrix.
   db.exec('CREATE INDEX idx_components_suffix ON components("suffix")');
+  // Fourth: the artefact-unifying cleaned key ("did you mean" recovery -
+  // whitespace/encoding-artefact rows found from a clean search input).
+  // Plain index, never UNIQUE: duplicates are expected and deliberate.
+  db.exec('CREATE INDEX idx_components_cleaned ON components("cleaned")');
 
   // Statistics for EVERY dataset (long format - easy to pivot in SQL).
   const datasets: string[][] = [];
@@ -161,16 +166,20 @@ export function buildSqlite(outputPath: string): { datasetKey: string; tables: R
 
 function fillObservations(db: DatabaseSync, rows: FoiObservationRow[]): number {
   const valueColumns = OBSERVATION_VALUE_COLUMNS.map(c => `"${c}" TEXT`).join(', ');
-  db.exec(`CREATE TABLE observations (callsign TEXT, entry TEXT, source_file TEXT, dataset_classes TEXT, vintage TEXT, ${valueColumns})`);
-  const placeholders = Array.from({ length: 5 + OBSERVATION_VALUE_COLUMNS.length }, () => '?').join(', ');
+  // cleaned: the artefact-unifying join key (computed here at build - the
+  // FOI committed files stay verbatim). A join key, not an identity:
+  // duplicates are expected, so its index is plain, never UNIQUE.
+  db.exec(`CREATE TABLE observations (callsign TEXT, cleaned TEXT, entry TEXT, source_file TEXT, dataset_classes TEXT, vintage TEXT, ${valueColumns})`);
+  const placeholders = Array.from({ length: 6 + OBSERVATION_VALUE_COLUMNS.length }, () => '?').join(', ');
   const insert = db.prepare(`INSERT INTO observations VALUES (${placeholders})`);
   db.exec('BEGIN');
   for (const row of rows) {
-    insert.run(row.callsign, row.entry, row.sourceFile, row.datasetClasses, row.vintage,
+    insert.run(row.callsign, cleanedCallsign(row.callsign), row.entry, row.sourceFile, row.datasetClasses, row.vintage,
       ...OBSERVATION_VALUE_COLUMNS.map(column => row.values[column] ?? null));
   }
   db.exec('COMMIT');
   db.exec('CREATE INDEX idx_observations_callsign ON observations("callsign")');
+  db.exec('CREATE INDEX idx_observations_cleaned ON observations("cleaned")');
   return rows.length;
 }
 
@@ -238,11 +247,29 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
   fs.rmSync(masterPath, { force: true });
   const master = new DatabaseSync(masterPath);
   summary['master observations'] = fillObservations(master, observations);
-  const historyColumns = new Set<string>(['dataset']);
+  // Longitudinal join keys ride along: each publication's components.csv
+  // contributes the derived cleaned (artefact-unifying) and suffix keys,
+  // so cross-publication cohort queries (e.g. the forbidden-suffix
+  // cohort) are runnable in SQL. cleaned is a JOIN KEY, not an identity -
+  // duplicates are expected and deliberate (G6 FMU / G6FMU), so its
+  // index is plain, never UNIQUE.
+  const historyColumns = new Set<string>(['dataset', 'cleaned', 'suffix']);
   const publications = listArchiveKeys().sort()
     .map(key => ({ key, path: path.join(CONSTANTS.DIRS.archive, key, 'normalised.csv') }))
     .filter(p => fs.existsSync(p.path))
-    .map(p => ({ key: p.key, records: parse(fs.readFileSync(p.path, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[] }));
+    .map(p => {
+      const componentsPath = path.join(CONSTANTS.DIRS.archive, p.key, 'components.csv');
+      const componentKeys = new Map<string, { cleaned: string; suffix: string }>(
+        fs.existsSync(componentsPath)
+          ? (parse(fs.readFileSync(componentsPath, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[])
+            .map(c => [c.callsign, { cleaned: c.cleaned ?? cleanedCallsign(c.callsign), suffix: c.suffix ?? '' }])
+          : []);
+      return {
+        key: p.key,
+        componentKeys,
+        records: parse(fs.readFileSync(p.path, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[],
+      };
+    });
   for (const publication of publications) {
     for (const column of Object.keys(publication.records[0] ?? {})) historyColumns.add(column);
   }
@@ -274,12 +301,31 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
   master.exec('BEGIN');
   for (const publication of publications) {
     for (const record of publication.records) {
-      insertHistory.run(...historyColumnList.map(c => (c === 'dataset' ? publication.key : record[c] ?? null)));
+      const keys = publication.componentKeys.get(record.callsign);
+      insertHistory.run(...historyColumnList.map(c => {
+        if (c === 'dataset') return publication.key;
+        if (c === 'cleaned') return keys?.cleaned ?? cleanedCallsign(record.callsign ?? '');
+        if (c === 'suffix') return keys?.suffix ?? '';
+        return record[c] ?? null;
+      }));
       historyRows += 1;
     }
   }
   master.exec('COMMIT');
   master.exec('CREATE INDEX idx_register_history_callsign ON register_history("callsign")');
+  master.exec('CREATE INDEX idx_register_history_cleaned ON register_history("cleaned")');
+
+  // The withheld-suffix list rides into the master so cohort queries
+  // (join register_history/observations against it) run in one database.
+  const masterForbidden = parse(fs.readFileSync(path.join(REFERENCE_DATA_DIR, 'forbidden-suffixes.csv'), 'utf8'),
+    { columns: true, skip_empty_lines: true }) as Record<string, string>[];
+  master.exec('CREATE TABLE ref_forbidden_suffixes (suffix TEXT)');
+  const insertForbidden = master.prepare('INSERT INTO ref_forbidden_suffixes VALUES (?)');
+  master.exec('BEGIN');
+  for (const r of masterForbidden) insertForbidden.run(r.suffix);
+  master.exec('COMMIT');
+  master.exec('CREATE INDEX idx_master_forbidden ON ref_forbidden_suffixes("suffix")');
+  summary['master ref_forbidden_suffixes'] = masterForbidden.length;
   summary['master register_history'] = historyRows;
   master.close();
 

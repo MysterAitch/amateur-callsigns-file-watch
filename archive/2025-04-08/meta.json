@@ -44,17 +44,18 @@
       "sortedBy": "callsign"
     },
     "stats.json": {
-      "size": 3208,
-      "sha256": "150cd60789842a8d3587b6f019de808f1323b29c5d2fc3f3d56b9291b214f6ad",
+      "size": 3214,
+      "sha256": "379f0a8e712071a497578daedcb513cc4855bb182ba0927cc233203f62c0c00e",
       "format": "json"
     },
     "components.csv": {
-      "size": 5997043,
-      "sha256": "e61c86a79108b6f9ae593f8313918ed37a79be4e223fb5b141d0afba2fafca62",
+      "size": 6941450,
+      "sha256": "bbdfd1058d7f5aca1bd0860f7f87da92216cb0f5f968b82f28bff1a21f195ee4",
       "format": "csv",
-      "columnCount": 9,
+      "columnCount": 10,
       "columnNames": [
         "callsign",
+        "cleaned",
         "parse_status",
         "prefix_series",
         "rsl",
@@ -72,7 +73,7 @@
     "schemaVersion": 1,
     "headerVariant": "v2025-salesforce",
     "statsSchemaVersion": 6,
-    "componentsSchemaVersion": 4
+    "componentsSchemaVersion": 5
   },
   "headerLines": [
     {

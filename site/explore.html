@@ -62,6 +62,26 @@
       and declared coverage) — a callsign missing from a declared-partial
       publication tells you nothing, and even declared-complete exports
       have been observed silently filtering records.</p>
+      <p><strong>The <code>cleaned</code> join key</strong> (on
+      <code>components</code>, <code>register_history</code> and
+      <code>observations</code>) unifies publisher artefacts — uppercase,
+      stripped outside A–Z/0–9/<code>/</code> — so longitudinal joins
+      survive whitespace and encoding damage. Duplicates are expected and
+      deliberate: it is a join key, never an identity.</p>
+      <p><strong>A cohort worth reproducing</strong> (heavy — run it on the
+      <a href="datasets/index.html">downloaded master database</a>, not
+      here): forbidden-suffix callsigns in the current register that were
+      absent from the August 2019 FOI snapshot — the "issued after the
+      withheld list existed" candidates (each needs per-member checking:
+      artefact fixes and heritage re-issues are innocent explanations):</p>
+      <pre><code>SELECT rh.callsign, rh.status, rh.licence_version_original_start_date
+FROM register_history rh
+JOIN ref_forbidden_suffixes f ON f.suffix = rh.suffix
+WHERE rh.dataset = '2026-06-23'
+  AND rh.cleaned NOT IN (
+    SELECT cleaned FROM observations
+    WHERE entry = 'wdtk-596532--allocated-reserved-forbidden')
+ORDER BY rh.licence_version_original_start_date;</code></pre>
       <p>Column meanings live in the
       <a href="datasets/docs/normalised-schema.html">data dictionary</a>
       and <a href="datasets/docs/flags.html">flag registry</a>.</p>

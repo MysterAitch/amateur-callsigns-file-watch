@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCallsign, loadReferenceData, componentsFlagsForRows, COMPONENT_COLUMNS, COMPONENTS_SCHEMA_VERSION } from './components.ts';
+import { parseCallsign, loadReferenceData, componentsFlagsForRows, cleanedCallsign, COMPONENT_COLUMNS, COMPONENTS_SCHEMA_VERSION } from './components.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -134,6 +134,21 @@ describe('parseCallsign', () => {
     expect(parsed('M7TEE', '').flags).not.toContain('class-product-mismatch');
   });
 
+  it('CleanedCallsign_PublisherArtefacts_UnifyToOneJoinKey', () => {
+    // The artefact-unifying join key (v5): NBSP, spaces, replacement
+    // characters and case damage all clean away; / survives (visitor
+    // callsigns). A join key, not an identity - G6 FMU and G6FMU
+    // deliberately collide, and that visible collision is the
+    // stripped-collision finding.
+    expect(cleanedCallsign('2E1HON ')).toBe('2E1HON');
+    expect(cleanedCallsign('G6 FMU')).toBe('G6FMU');
+    expect(cleanedCallsign('G6FMU')).toBe('G6FMU');
+    expect(cleanedCallsign('g0jrk')).toBe('G0JRK');
+    expect(cleanedCallsign('G0TQK�')).toBe('G0TQK');
+    expect(cleanedCallsign('M/EI-8-DJ')).toBe('M/EI8DJ');
+    expect(cleanedCallsign('')).toBe('');
+  });
+
   it('Parse_WhenLowercaseValue_ParsedCaseInsensitivelyAndFlagged', () => {
     const r = parsed('g0jrk', 'Amateur Full Radio Licence');
     expect(r).toMatchObject({ parseStatus: 'parsed', prefixSeries: 'G0', suffix: 'JRK', impliedClass: 'Full' });
@@ -195,7 +210,7 @@ describe('reference data loading', () => {
 
 describe('schema constants', () => {
   it('ComponentColumns_StableContract', () => {
-    expect(COMPONENT_COLUMNS).toEqual(['callsign', 'parse_status', 'prefix_series', 'rsl', 'suffix', 'placeholder_form', 'home_callsign', 'implied_class', 'flags']);
-    expect(COMPONENTS_SCHEMA_VERSION).toBe(4);
+    expect(COMPONENT_COLUMNS).toEqual(['callsign', 'cleaned', 'parse_status', 'prefix_series', 'rsl', 'suffix', 'placeholder_form', 'home_callsign', 'implied_class', 'flags']);
+    expect(COMPONENTS_SCHEMA_VERSION).toBe(5);
   });
 });

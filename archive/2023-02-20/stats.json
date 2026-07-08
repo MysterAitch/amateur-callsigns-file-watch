@@ -148,8 +148,8 @@
       "minLength": 0
     }
   },
-  "emptyRows": 0,
-  "nonEmptyRows": 152084,
+  "emptyRecords": 0,
+  "nonEmptyRecords": 152084,
   "parseStatuses": {
     "empty": 2,
     "parsed": 151981,
