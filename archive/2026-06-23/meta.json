@@ -84,5 +84,11 @@
     "headerVariant": "v2026-licence-version",
     "statsSchemaVersion": 5,
     "componentsSchemaVersion": 4
-  }
+  },
+  "headerLines": [
+    {
+      "line": 1,
+      "content": "﻿Callsign,Product__c,Status,Type__c,Licence_Version.LastModifiedDate,Licence_Version.Original_start_date__c"
+    }
+  ]
 }

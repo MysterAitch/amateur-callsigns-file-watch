@@ -67,11 +67,86 @@ afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 });
 
+// An entry with full line accounting: a v2022-minimal raw carrying one
+// footer line, a normalised.csv, and the headerLines/ignoredLines
+// declarations the sweep would write. Overrides let each test break one
+// aspect of the contract.
+function writeAccountedEntry(root: string, key: string, metaOverrides: Record<string, unknown> = {}): void {
+  const raw = 'Value,Status,Type\nG5ABC,Allocated,Call Sign - Amateur\nM7TEE,Allocated,Call Sign - Amateur\nfooter text,,\n';
+  const normalised = 'callsign,product,status,type,created_date,last_modified_date,licence_version_last_modified_date,licence_version_original_start_date\nG5ABC,,Allocated,Call Sign - Amateur,,,,\nM7TEE,,Allocated,Call Sign - Amateur,,,,\n';
+  writeEntry(root, key, raw, {
+    files: {
+      'raw.csv': { size: Buffer.byteLength(raw), sha256: sha256(raw), format: 'csv' },
+      'normalised.csv': { size: Buffer.byteLength(normalised), sha256: sha256(normalised), format: 'csv', recordCount: 2 },
+    },
+    normalised: { schemaVersion: 1, headerVariant: 'v2022-minimal' },
+    headerLines: [{ line: 1, content: 'Value,Status,Type' }],
+    ignoredLines: [{ line: 4, content: 'footer text,,', reason: 'no companion values (export furniture, not a register assertion)' }],
+    ...metaOverrides,
+  });
+  fs.writeFileSync(path.join(root, CONSTANTS.DIRS.archive, key, 'normalised.csv'), normalised);
+}
+
 describe('validateArchiveEntry', () => {
   it('ArchiveEntry_WhenWellFormed_PassesValidation', () => {
     writeEntry(tmpRoot, '2026-06-23', CSV);
     const problems = validateArchiveEntry('2026-06-23');
     expect(problems).toEqual([]);
+  });
+
+  it('ArchiveEntry_WhenLineAccountingComplete_PassesValidation', () => {
+    writeAccountedEntry(tmpRoot, '2026-06-23');
+    expect(validateArchiveEntry('2026-06-23')).toEqual([]);
+  });
+
+  it('ArchiveEntry_WhenIgnoredLineContentDrifts_Fails', () => {
+    writeAccountedEntry(tmpRoot, '2026-06-23', {
+      ignoredLines: [{ line: 4, content: 'something else entirely', reason: 'no companion values' }],
+    });
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.problem.includes('content mismatch'))).toBe(true);
+  });
+
+  it('ArchiveEntry_WhenIgnoredLineIsValidData_Fails', () => {
+    // Ignoring a line that passes the row-validity predicate must fail:
+    // the mechanism exists for furniture, never for data.
+    writeAccountedEntry(tmpRoot, '2026-06-23', {
+      files: undefined, // rebuilt below via writeEntry defaults - not used
+      ignoredLines: [
+        { line: 3, content: 'M7TEE,Allocated,Call Sign - Amateur', reason: 'testing' },
+        { line: 4, content: 'footer text,,', reason: 'no companion values' },
+      ],
+    });
+    // Restore a coherent files map (recordCount 1 keeps the count invariant
+    // satisfied so the data-row check is what fails).
+    const dir = path.join(tmpRoot, CONSTANTS.DIRS.archive, '2026-06-23');
+    const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')) as { files: Record<string, unknown> };
+    const raw = fs.readFileSync(path.join(dir, 'raw.csv'));
+    const normalised = fs.readFileSync(path.join(dir, 'normalised.csv'));
+    meta.files = {
+      'raw.csv': { size: raw.length, sha256: sha256(raw), format: 'csv' },
+      'normalised.csv': { size: normalised.length, sha256: sha256(normalised), format: 'csv', recordCount: 1 },
+    };
+    fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 2));
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.problem.includes('VALID data row'))).toBe(true);
+  });
+
+  it('ArchiveEntry_WhenRowsVanishWithoutEnumeration_FailsTheCountInvariant', () => {
+    // The checksum property: raw lines = header + normalised rows +
+    // ignored. A footer line with no ignoredLines entry (or any silent row
+    // loss in the derivation chain) breaks the arithmetic.
+    writeAccountedEntry(tmpRoot, '2026-06-23', { ignoredLines: undefined });
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.problem.includes('raw line accounting failed'))).toBe(true);
+  });
+
+  it('ArchiveEntry_WhenHeaderLineDrifts_Fails', () => {
+    writeAccountedEntry(tmpRoot, '2026-06-23', {
+      headerLines: [{ line: 1, content: 'Value,Status,Type,ExtraColumn' }],
+    });
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.problem.includes('headerLines: line 1 content mismatch'))).toBe(true);
   });
 
   it('ArchiveEntry_WhenMetaJsonMissing_Fails', () => {

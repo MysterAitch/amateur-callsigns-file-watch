@@ -16,7 +16,7 @@
 import { parse } from 'csv-parse/sync';
 import { parseUkDateTimeDetailed, type ParsedUkDateTime, renderCsv, codepointCompare } from '../../shared/normalise.ts';
 import { computeEntryStats, type EntryStats } from '../../shared/stats.ts';
-import { errorMessage } from '../../shared/utils.ts';
+import { errorMessage, type IgnoredRawLine } from '../../shared/utils.ts';
 import { parseCallsign, componentsFlagsForRows, componentRowToCells, loadReferenceData, COMPONENT_COLUMNS, COMPONENTS_SCHEMA_VERSION } from './components.ts';
 
 export const NORMALISED_SCHEMA_VERSION = 1;
@@ -128,6 +128,13 @@ export interface ConvertResult {
   headerVariant: string;
   schemaVersion: number;
   recordCount: number;
+  // The verbatim raw header line(s) - archived in meta.json so the line
+  // accounting is fully explicit. Always one element for today's exports;
+  // an array so multi-row headers fit without a schema change.
+  headerLines: { line: number; content: string }[];
+  // Raw lines excluded as non-data (empty when the export is clean) -
+  // archived in meta.json so nothing is dropped silently.
+  ignoredLines: IgnoredRawLine[];
   // Reviewer evidence for date-order confidence, per canonical date column.
   // Date formats are assumed consistent within a column (they may differ
   // between columns), so one disambiguating value (any component >12)
@@ -152,18 +159,79 @@ export interface ConvertResult {
 // 1900 indicates corruption, not history.
 const MIN_PLAUSIBLE_YEAR = 1900;
 
+// Physical lines of a raw file: split on LF, tolerate CRLF (the terminator
+// is serialisation, not content - stripped), and drop the single empty
+// element a file-terminating newline produces (it ends the last line, it
+// does not start an empty row).
+export function physicalLines(rawContent: string): string[] {
+  const lines = rawContent.split('\n').map(l => l.replace(/\r$/, ''));
+  if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+  return lines;
+}
+
+// The row-validity predicate: a data row asserts a callsign AND at least
+// one companion value. Deliberately structural, NOT callsign-shaped:
+// damaged register assertions (Excel-mangled callsigns, embedded
+// whitespace, encoding casualties) carry populated companion columns and
+// MUST stay - flagged by the quality machinery, never filtered. Returns
+// the ignore reason, or undefined for a valid data row. Exported so the
+// validator enforces that only genuinely non-data lines are ever ignored.
+export function ignoreReasonForRecord(record: Record<string, string>, variant: string): string | undefined {
+  const mapping = VARIANTS[variant];
+  const callsignColumn = Object.entries(mapping).find(([, canonical]) => canonical === 'callsign')?.[0] ?? '';
+  const callsign = (record[callsignColumn] ?? '').trim();
+  const companions = Object.keys(mapping).filter(c => c !== callsignColumn).map(c => (record[c] ?? '').trim());
+  const hasCompanion = companions.some(v => v !== '');
+  if (callsign === '' && !hasCompanion) return 'all cells empty';
+  if (callsign === '') return 'no callsign';
+  if (!hasCompanion) return 'no companion values (export furniture, not a register assertion)';
+  return undefined;
+}
+
 export function convertRawCsv(rawContent: string, context: ConvertContext): ConvertResult {
-  const records: Record<string, string>[] = parse(rawContent, { columns: true, skip_empty_lines: true, bom: true });
-  if (records.length === 0) {
+  const parsed: { record: Record<string, string>; info: { lines: number } }[] =
+    parse(rawContent, { columns: true, skip_empty_lines: true, bom: true, info: true });
+  if (parsed.length === 0) {
     throw new Error('raw CSV parsed to zero records - refusing to normalise an empty publication');
   }
 
-  const headers = Object.keys(records[0]);
+  const headers = Object.keys(parsed[0].record);
   const variant = detectHeaderVariant(headers);
   if (variant === undefined) {
     throw new Error(`unknown raw header variant [${headers.join(', ')}] - extend the variant registry (with tests) to support it`);
   }
   const mapping = VARIANTS[variant];
+
+  // Non-data lines are ENUMERATED, never silently dropped: whitespace-only
+  // physical lines (which the parser skips) and parsed records failing the
+  // row-validity predicate, each recorded with its 1-based physical line
+  // number and verbatim content for the validator to re-verify.
+  const lines = physicalLines(rawContent);
+  const ignoredLines: IgnoredRawLine[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '') ignoredLines.push({ line: i + 1, content: lines[i], reason: 'blank' });
+  }
+  const records: Record<string, string>[] = [];
+  for (const { record, info } of parsed) {
+    const reason = ignoreReasonForRecord(record, variant);
+    if (reason === undefined) records.push(record);
+    // info.lines is the 1-based physical line on which the record ends;
+    // for the single-line records of these exports that IS the line.
+    else ignoredLines.push({ line: info.lines, content: lines[info.lines - 1] ?? '', reason });
+  }
+  ignoredLines.sort((a, b) => a.line - b.line);
+
+  // Count invariant - exact arithmetic, no inference: every physical line
+  // is exactly one of header / data row / ignored. A mismatch means the
+  // one-line-per-record model does not hold (e.g. a quoted multi-line cell)
+  // and the enumeration cannot be trusted: fail loudly.
+  const headerLineCount = 1;
+  if (lines.length - headerLineCount !== records.length + ignoredLines.length) {
+    throw new Error(`raw line accounting failed: ${lines.length - headerLineCount} data lines != ${records.length} records + ${ignoredLines.length} ignored - does a quoted cell span lines?`);
+  }
+  if (records.length === 0) {
+    throw new Error('every raw line was ignored as non-data - refusing to normalise an empty publication');
+  }
 
   const dateStats: Partial<Record<CanonicalColumn, { disambiguated: number; ambiguous: number }>> = {};
   const rows: string[][] = records.map((record, index) => {
@@ -214,6 +282,8 @@ export function convertRawCsv(rawContent: string, context: ConvertContext): Conv
     headerVariant: variant,
     schemaVersion: NORMALISED_SCHEMA_VERSION,
     recordCount: rows.length,
+    headerLines: [{ line: 1, content: lines[0] }],
+    ignoredLines,
     dateStats,
     unverifiedDateColumns,
     stats: computeEntryStats(CANONICAL_COLUMNS, rows, DATE_COLUMNS, componentRows),

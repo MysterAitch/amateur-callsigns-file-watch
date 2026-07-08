@@ -24,6 +24,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS, calculateFileHash, type ArchiveMeta , errorMessage } from '../shared/utils.ts';
+import { physicalLines, ignoreReasonForRecord } from '../sources/ofcom-amateur/normalise.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { validateFoiLaneAt } from './validate-foi.ts';
 
@@ -110,6 +111,84 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
     }
   }
 
+  problems.push(...validateIgnoredLines(dir, meta));
+
+  return problems;
+}
+
+// The line-accounting contract (ratified 2026-07-08): every physical line
+// of raw.csv is exactly one of header / data row / ignored line, and
+// every entry is re-verified here -
+//   1. each declared header line and ignored line byte-matches the named
+//      physical line of raw.csv (raw is immutable and hash-pinned, so
+//      line numbers are stable);
+//   2. each ignored line FAILS the row-validity predicate - a mechanism
+//      for ignoring furniture must never be able to quietly ignore data;
+//   3. the count invariant is exact arithmetic:
+//      raw physical lines = header lines + normalised rows + ignored lines.
+// The invariant runs for every normalised entry even with nothing ignored,
+// so silent row loss anywhere in the derivation chain fails validation.
+function validateIgnoredLines(dir: string, meta: ArchiveMeta): ValidationProblem[] {
+  const problems: ValidationProblem[] = [];
+  const metaPath = path.join(dir, 'meta.json');
+  const rawPath = path.join(dir, 'raw.csv');
+  const normalisedDecl = meta.files['normalised.csv'];
+  const ignored = meta.ignoredLines ?? [];
+  if (normalisedDecl === undefined && ignored.length === 0) return problems;
+  if (!fs.existsSync(rawPath)) return problems; // already reported above
+  const variant = (meta as { normalised?: { headerVariant?: string } }).normalised?.headerVariant;
+
+  const lines = physicalLines(fs.readFileSync(rawPath, 'utf8'));
+  for (const header of meta.headerLines ?? []) {
+    if (lines[header.line - 1] !== header.content) {
+      problems.push({ path: metaPath, problem: `headerLines: line ${header.line} content mismatch - meta declares ${JSON.stringify(header.content)}, raw.csv has ${JSON.stringify(lines[header.line - 1])}` });
+    }
+  }
+  const headerLine = lines[0] ?? '';
+  const seen = new Set<number>();
+  for (const entry of ignored) {
+    if (!Number.isInteger(entry.line) || entry.line < 2 || entry.line > lines.length) {
+      problems.push({ path: metaPath, problem: `ignoredLines: line ${entry.line} is out of range for raw.csv (${lines.length} lines)` });
+      continue;
+    }
+    if (seen.has(entry.line)) {
+      problems.push({ path: metaPath, problem: `ignoredLines: line ${entry.line} is listed twice` });
+      continue;
+    }
+    seen.add(entry.line);
+    if (lines[entry.line - 1] !== entry.content) {
+      problems.push({ path: metaPath, problem: `ignoredLines: line ${entry.line} content mismatch - meta declares ${JSON.stringify(entry.content)}, raw.csv has ${JSON.stringify(lines[entry.line - 1])}` });
+      continue;
+    }
+    if (typeof entry.reason !== 'string' || entry.reason.trim() === '') {
+      problems.push({ path: metaPath, problem: `ignoredLines: line ${entry.line} has no reason` });
+    }
+    // Predicate re-check: whitespace-only lines are trivially non-data;
+    // anything else must parse under the entry's header variant and still
+    // fail the row-validity predicate.
+    if (entry.content.trim() === '') continue;
+    if (variant === undefined) {
+      problems.push({ path: metaPath, problem: 'ignoredLines present but meta.normalised.headerVariant is missing - cannot re-verify the row-validity predicate' });
+      break;
+    }
+    try {
+      const [record] = parse(`${headerLine}\n${entry.content}`, { columns: true, bom: true }) as Record<string, string>[];
+      if (record !== undefined && ignoreReasonForRecord(record, variant) === undefined) {
+        problems.push({ path: rawPath, problem: `ignoredLines: line ${entry.line} is a VALID data row (${JSON.stringify(entry.content)}) - data must never be ignored` });
+      }
+    } catch {
+      // Unparseable under the variant's header - by definition not a data
+      // row; the enumeration stands.
+    }
+  }
+
+  if (normalisedDecl?.recordCount !== undefined) {
+    const headerCount = meta.headerLines?.length ?? 1;
+    const expected = headerCount + normalisedDecl.recordCount + ignored.length;
+    if (lines.length !== expected) {
+      problems.push({ path: rawPath, problem: `raw line accounting failed: ${lines.length} physical lines but ${headerCount} header + ${normalisedDecl.recordCount} normalised rows + ${ignored.length} ignored = ${expected} - rows are being lost or invented somewhere` });
+    }
+  }
   return problems;
 }
 

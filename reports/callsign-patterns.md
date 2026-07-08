@@ -11,7 +11,7 @@ Rows sorted by the newest dataset's counts.
 
 | pattern | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152084 | 151157 |
+| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152082 | 151148 |
 | `ANAAA` | 138209 | 827 | 97773 | 827 | 136896 | 132379 | 131583 |
 | `NNAAA` | 19497 | 242 | 14368 | 242 | 19882 | 19100 | 18965 |
 | `ANAA` | 471 | — | 352 | — | 473 | 472 | 472 |
@@ -48,7 +48,6 @@ Rows sorted by the newest dataset's counts.
 | `NANAAA{U+00A0}` | 1 | — | — | — | — | — | — |
 | `NaNAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
 | `aNaaa` | 1 | — | 1 | — | 1 | 1 | 1 |
-| _(empty)_ | — | — | — | — | — | 2 | 4 |
 | `,,` | — | — | 1 | — | — | 1 | 1 |
 | `A/A#AANAAA` | — | — | 1 | — | 1 | — | — |
 | `A/A/AANAAA` | — | — | 1 | — | 1 | — | — |
@@ -57,11 +56,6 @@ Rows sorted by the newest dataset's counts.
 | `AANNN` | — | — | 1 | — | 1 | — | — |
 | `ANAAA{U+FFFD}` | — | — | 1 | — | 2 | 2 | 2 |
 | `ANNAAA` | — | — | 1 | — | 1 | — | — |
-| `Aaaaa` | — | — | — | — | — | — | 1 |
-| `Aaaaaaaaaaaa{U+0020}Aaaaaaaaaaa{U+0020}-` | — | — | — | — | — | — | 1 |
-| `Aaaaaaaaa{U+0020}(a){U+0020}NNNN-NNNN{U+` | — | — | — | — | — | — | 1 |
-| `Aaaaaaaaa{U+0020}Aa:{U+0020}{U+0020}Aaa{` | — | — | — | — | — | — | 1 |
-| `Aaaa{U+0020}Aaaa{U+0020}Aaaa{U+0020}aaa{` | — | — | — | — | — | — | 1 |
 | `NANAAA{U+FFFD}` | — | — | 1 | — | 1 | 1 | 1 |
 | `NN-Aaa` | — | — | — | — | 16 | 15 | 15 |
 | `NNNNNNNN` | — | — | 1 | — | 1 | — | — |
@@ -73,7 +67,7 @@ Rows sorted by the newest dataset's counts.
 
 | pattern | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152084 | 151157 |
+| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152082 | 151148 |
 | `ANAAA` | 138209 | 827 | 97773 | 827 | 136896 | 132379 | 131583 |
 | `NNAAA` | 19497 | 242 | 14368 | 242 | 19882 | 19100 | 18965 |
 | `ANAA` | 471 | — | 352 | — | 473 | 472 | 472 |
@@ -110,7 +104,6 @@ Rows sorted by the newest dataset's counts.
 | `NANAAA{nbsp}` | 1 | — | — | — | — | — | — |
 | `NaNAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
 | `aNaaa` | 1 | — | 1 | — | 1 | 1 | 1 |
-| _(empty)_ | — | — | — | — | — | 2 | 4 |
 | `,,` | — | — | 1 | — | — | 1 | 1 |
 | `A/A#AANAAA` | — | — | 1 | — | 1 | — | — |
 | `A/A/AANAAA` | — | — | 1 | — | 1 | — | — |
@@ -119,11 +112,6 @@ Rows sorted by the newest dataset's counts.
 | `AANNN` | — | — | 1 | — | 1 | — | — |
 | `ANAAA{U+FFFD}` | — | — | 1 | — | 2 | 2 | 2 |
 | `ANNAAA` | — | — | 1 | — | 1 | — | — |
-| `Aaaaa` | — | — | — | — | — | — | 1 |
-| `Aaaaaaaaaaaa{space}Aaaaaaaaaaa{space}-{s` | — | — | — | — | — | — | 1 |
-| `Aaaaaaaaa{space}(a){space}NNNN-NNNN{spac` | — | — | — | — | — | — | 1 |
-| `Aaaaaaaaa{space}Aa:{space}{space}Aaa{spa` | — | — | — | — | — | — | 1 |
-| `Aaaa{space}Aaaa{space}Aaaa{space}aaa{spa` | — | — | — | — | — | — | 1 |
 | `NANAAA{U+FFFD}` | — | — | 1 | — | 1 | 1 | 1 |
 | `NN-Aaa` | — | — | — | — | 16 | 15 | 15 |
 | `NNNNNNNN` | — | — | 1 | — | 1 | — | — |
@@ -135,7 +123,7 @@ Rows sorted by the newest dataset's counts.
 
 | pattern | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152084 | 151157 |
+| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152082 | 151148 |
 | `ANAAA` | 138209 | 827 | 97773 | 827 | 136896 | 132379 | 131583 |
 | `NNAAA` | 19497 | 242 | 14368 | 242 | 19882 | 19100 | 18965 |
 | `ANAA` | 471 | — | 352 | — | 473 | 472 | 472 |
@@ -172,7 +160,6 @@ Rows sorted by the newest dataset's counts.
 | `NANAAAU` | 1 | — | 1 | — | 1 | 1 | 1 |
 | `NaNAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
 | `aNaaa` | 1 | — | 1 | — | 1 | 1 | 1 |
-| _(empty)_ | — | — | — | — | — | 2 | 4 |
 | `,,` | — | — | 1 | — | — | 1 | 1 |
 | `A/A#AANAAA` | — | — | 1 | — | 1 | — | — |
 | `A/A/AANAAA` | — | — | 1 | — | 1 | — | — |
@@ -180,11 +167,6 @@ Rows sorted by the newest dataset's counts.
 | `A/ANNAA` | — | — | 1 | — | 1 | — | — |
 | `AANNN` | — | — | 1 | — | 1 | — | — |
 | `ANNAAA` | — | — | 1 | — | 1 | — | — |
-| `AaaaUAaaaUAaaaUaaaUAaaaUAaaa` | — | — | — | — | — | — | 1 |
-| `Aaaaa` | — | — | — | — | — | — | 1 |
-| `AaaaaaaaaU(a)UNNNN-NNNNUaaaaaaaaaa.aaa,U` | — | — | — | — | — | — | 1 |
-| `AaaaaaaaaUAa:UUAaaUAaaaaUUNN/NN/NNNNUNN:` | — | — | — | — | — | — | 1 |
-| `AaaaaaaaaaaaUAaaaaaaaaaaU-UAaUAaaUAaaaaa` | — | — | — | — | — | — | 1 |
 | `NN-Aaa` | — | — | — | — | 16 | 15 | 15 |
 | `NNNNNNNN` | — | — | 1 | — | 1 | — | — |
 
@@ -196,13 +178,9 @@ Rows sorted by the newest dataset's counts.
 |---|---|---|
 | `{U+0020}` | U+0020 | space |
 | `#` | U+0023 | number sign (placeholder notation) |
-| `(` | U+0028 | (unnamed) |
-| `)` | U+0029 | (unnamed) |
 | `,` | U+002C | (unnamed) |
 | `-` | U+002D | hyphen-minus |
-| `.` | U+002E | (unnamed) |
 | `/` | U+002F | solidus (portable/reciprocal separator) |
-| `:` | U+003A | (unnamed) |
 | `{` | U+007B | (unnamed) |
 | `}` | U+007D | (unnamed) |
 | `{U+00A0}` | U+00A0 | no-break space |

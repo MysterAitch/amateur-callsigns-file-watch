@@ -27,6 +27,45 @@ derivation, re-derived by the scheduled normalise sweep; git history preserves
 every earlier version. Byte-identical re-runs are no-ops; any change arrives
 as an always-human-reviewed PR.
 
+## Line accounting: `headerLines` and `ignoredLines`
+
+Every physical line of `raw.csv` is exactly one of **header**, **data row**,
+or **ignored line**, and `meta.json` accounts for all three explicitly — the
+count invariant is exact arithmetic, enforced by `validate:data` for every
+normalised entry:
+
+```
+raw.csv physical lines = headerLines.length + normalised.csv rows + ignoredLines.length
+```
+
+(a file-terminating newline ends the last line; it does not start an empty
+row.)
+
+- **`headerLines`** records the verbatim header byte content with its line
+  number (`columnNames` records the *parsed* header; this records the
+  *bytes*, so header drift in a re-fetch is loudly visible). An array so a
+  future source with multi-row headers — title lines above the column row,
+  as PDF-transcribed FOI tables have — fits without a schema change; today's
+  exports always have exactly one.
+- **`ignoredLines`** enumerates raw lines excluded from
+  `normalised.csv`/`components.csv`/`stats.json` as **not being register
+  assertions**: blank separators, all-empty rows, export footers
+  (copyright/generated-by furniture) and rows with no callsign. Each entry
+  carries its 1-based line number, verbatim content and reason. Nothing is
+  ever dropped silently: `raw.csv` is immutable and hash-pinned, so the line
+  numbers are permanently stable, and the validator re-verifies every entry
+  byte-for-byte. There is deliberately no special-casing of never-observed
+  artefacts — anything data-shaped stays, surfaces via the flag machinery,
+  and forces a reviewed decision if it ever actually occurs.
+
+The row-validity predicate is deliberately **structural, not
+callsign-shaped**: a row with a callsign cell *and* at least one populated
+companion column is data, however damaged the callsign looks (Excel-mangled
+`20-Apr` values, embedded whitespace, encoding casualties) — those stay in
+the dataset and are *flagged* by the quality machinery, never filtered. The
+validator additionally enforces that every ignored line FAILS this predicate:
+the mechanism can ignore furniture, it cannot be used to ignore data.
+
 ## Companion artefact: `stats.json`
 
 Each normalised entry also carries `archive/{key}/stats.json` (issue #46):
