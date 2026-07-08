@@ -47,8 +47,8 @@
       "format": "json"
     },
     "components.csv": {
-      "size": 6693600,
-      "sha256": "5eae0dd9f3cc92235ef758c2704aa5a66e83dfdbe97679d48c094cd1b5e0e057",
+      "size": 6674480,
+      "sha256": "1151b06f82cfb64e4cf4ed64012ebc154d640e1aa252b4079fada11954d3446d",
       "format": "csv",
       "columnCount": 10,
       "columnNames": [

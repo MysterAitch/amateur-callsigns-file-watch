@@ -34,14 +34,14 @@ describe('parseCallsign', () => {
 
   it('Parse_WhenIntermediateWithRsl_SeriesUsesPlaceholderForm', () => {
     const r = parsed('2E0ABC', 'Amateur Intermediate Radio Licence');
-    expect(r).toMatchObject({ parseStatus: 'parsed', prefixSeries: '2#0', rsl: 'E', suffix: 'ABC', placeholderForm: '2#0ABC', impliedClass: 'Intermediate', flags: ['rsl-in-register'] });
+    expect(r).toMatchObject({ parseStatus: 'parsed', prefixSeries: '20', rsl: 'E', suffix: 'ABC', placeholderForm: '2#0ABC', impliedClass: 'Intermediate', flags: ['rsl-in-register'] });
   });
 
   it('Parse_WhenBareIntermediateWithoutRsl_NotFlaggedBecauseCoresAreTheNorm', () => {
     // Bare 20/21 values are RSL-less core callsigns - the register stores
     // cores by design, so absence of an RSL is the norm, never a flag.
     const r = parsed('20DLQ', 'Amateur Intermediate Radio Licence');
-    expect(r).toMatchObject({ parseStatus: 'parsed', prefixSeries: '2#0', rsl: '', suffix: 'DLQ', placeholderForm: '2#0DLQ', impliedClass: 'Intermediate', flags: [] });
+    expect(r).toMatchObject({ parseStatus: 'parsed', prefixSeries: '20', rsl: '', suffix: 'DLQ', placeholderForm: '2#0DLQ', impliedClass: 'Intermediate', flags: [] });
   });
 
   it('Parse_WhenUnknownRslLetter_Flagged', () => {
@@ -157,7 +157,7 @@ describe('parseCallsign', () => {
 
   it('Parse_WhenWhitespaceBearing_ParsedOnCleanedValueAndFlagged', () => {
     const r = parsed('2E1HON\u00A0', 'Amateur Intermediate Radio Licence');
-    expect(r).toMatchObject({ parseStatus: 'parsed', prefixSeries: '2#1', rsl: 'E', suffix: 'HON' });
+    expect(r).toMatchObject({ parseStatus: 'parsed', prefixSeries: '21', rsl: 'E', suffix: 'HON' });
     expect(r.flags).toContain('whitespace');
   });
 

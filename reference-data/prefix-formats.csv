@@ -4,8 +4,8 @@ M6,Foundation,currently-issuing,false,
 M7,Foundation,currently-issuing,false,
 M8,Intermediate,currently-issuing,false,"Introduced October 2025; corresponding M8 callsign reserved for each 2#0 holder"
 M9,Intermediate,currently-issuing,false,"Introduced October 2025; corresponding M9 callsign reserved for each 2#1 holder"
-2#0,Intermediate,formerly-issued,true,"# denotes a mandatory RSL; without it the callsign does not conform to the Radio Regulations. Holders may retain their existing callsigns (see the M8/M9 corresponding-callsign reservation)"
-2#1,Intermediate,formerly-issued,true,"# denotes a mandatory RSL; without it the callsign does not conform to the Radio Regulations. Holders may retain their existing callsigns (see the M8/M9 corresponding-callsign reservation)"
+20,Intermediate,formerly-issued,true,"A Regional Secondary Locator is mandatory in use (the 2#0-style rendering); without one the callsign does not conform to the Radio Regulations. Holders may retain their existing callsigns (see the M8/M9 corresponding-callsign reservation)"
+21,Intermediate,formerly-issued,true,"A Regional Secondary Locator is mandatory in use (the 2#0-style rendering); without one the callsign does not conform to the Radio Regulations. Holders may retain their existing callsigns (see the M8/M9 corresponding-callsign reservation)"
 M0,Full,currently-issuing,false,
 M1,Full,currently-issuing,false,
 M5,Full,currently-issuing,false,
