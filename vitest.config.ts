@@ -10,6 +10,15 @@ export default defineConfig({
     // The scrape module does use jsdom internally, but we test its pure
     // helpers rather than the whole page-fetch flow.
     environment: 'node',
+    // This suite is data-heavy by design: golden masters and deploy-artefact
+    // builds routinely parse multi-hundred-thousand-row CSVs from the real
+    // archive inside tests and hooks. The 5s/10s vitest defaults are tuned
+    // for unit tests and flake on slower CI machines (three separate
+    // timeout failures caught in CI, each passing locally) - a generous
+    // repo-wide budget reflects what the tests actually do. Hangs still
+    // fail; they just get two minutes to prove themselves.
+    testTimeout: 120_000,
+    hookTimeout: 300_000,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
