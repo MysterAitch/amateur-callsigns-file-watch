@@ -55,10 +55,29 @@ function el(tag, attrs = {}, children = []) {
 function renderTable(headers, rows, numericFrom = 1) {
   const table = el('table');
   table.append(el('thead', {}, [el('tr', {}, headers.map((h, i) => el('th', { text: h, class: i >= numericFrom ? 'num' : '' })))]));
-  table.append(el('tbody', {}, rows.map(r => el('tr', {}, r.map((c, i) => el('td', { text: String(c), class: i >= numericFrom ? 'num' : '' }))))));
+  // Cells accept DOM nodes as well as text - the edge-density work turns
+  // component values into navigable links.
+  table.append(el('tbody', {}, rows.map(r => el('tr', {}, r.map((c, i) =>
+    c instanceof Node
+      ? el('td', { class: i >= numericFrom ? 'num' : '' }, [c])
+      : el('td', { text: String(c), class: i >= numericFrom ? 'num' : '' }))))));
   const wrap = el('div', { class: 'overflow' });
   wrap.append(table);
   return wrap;
+}
+
+// Edge navigation: the graph is latent in the components - every value
+// links to the surface that explores it (callsigns and placeholder forms
+// to their own ?c= pages, suffixes to the availability matrix, series to
+// their entity pages).
+function csLink(callsign) {
+  return el('a', { href: `?c=${encodeURIComponent(callsign)}`, text: callsign });
+}
+function suffixLink(suffix) {
+  return el('a', { href: `?c=${encodeURIComponent('*' + suffix)}`, text: suffix, title: `availability matrix for *${suffix}` });
+}
+function seriesLink(series) {
+  return el('a', { href: `series/${series.replace(/#/g, '')}.html`, text: series, title: `prefix series ${series}` });
 }
 
 async function query(sql, params = []) {
@@ -406,7 +425,7 @@ async function suffixMatrix(suffix, result) {
       // publications vary in scope, so this is a lead, not a verdict.
       if (!m) history += ' — absent from the latest publication';
     }
-    return [`${hash}${suffix}`, s.station_level, s.issuing_status, state, flags, history];
+    return [csLink(`${hash}${suffix}`), s.station_level, s.issuing_status, state, flags, history];
   });
   sections.push(card(`Availability matrix: suffix ${suffix}`, [
     el('p', { class: 'muted', text:
@@ -553,10 +572,15 @@ async function lookup(criteria) {
       if (matches.length > 0) {
         row = matches[0];
         const others = matches.slice(1).map(m => m.callsign);
-        fallbackNote = card(`${value} → ${placeholder} → register row ${row.callsign}`, [el('p', { text:
+        const note = el('p', { text:
           `The register stores the RSL-less core callsign; regional renderings (with a Regional Secondary Locator at the # position) `
-          + `are interchangeable forms of the same licence. "${value}" normalises to ${placeholder}, matching register row ${row.callsign}.`
-          + (others.length > 0 ? ` Other register rows sharing this placeholder: ${others.join(', ')}.` : '') })]);
+          + `are interchangeable forms of the same licence. "${value}" normalises to ${placeholder}, matching register row ${row.callsign}.` });
+        if (others.length > 0) {
+          note.append(' Other register rows sharing this placeholder: ');
+          others.forEach((o, i) => { if (i > 0) note.append(', '); note.append(csLink(o)); });
+          note.append('.');
+        }
+        fallbackNote = card(`${value} → ${placeholder} → register row ${row.callsign}`, [note]);
       }
     }
   }
@@ -586,11 +610,11 @@ async function lookup(criteria) {
     99)]));
 
   const componentRows = [['parse status', row.parse_status]];
-  if (row.prefix_series) componentRows.push(['prefix series', row.prefix_series]);
+  if (row.prefix_series) componentRows.push(['prefix series', seriesLink(row.prefix_series)]);
   if (row.rsl) componentRows.push(['regional secondary locator', row.rsl]);
-  if (row.cs_suffix) componentRows.push(['suffix', row.cs_suffix]);
-  if (row.placeholder_form) componentRows.push(['placeholder form', row.placeholder_form]);
-  if (row.home_callsign) componentRows.push(['home callsign (visitor)', row.home_callsign]);
+  if (row.cs_suffix) componentRows.push(['suffix', suffixLink(row.cs_suffix)]);
+  if (row.placeholder_form) componentRows.push(['placeholder form', csLink(row.placeholder_form)]);
+  if (row.home_callsign) componentRows.push(['home callsign (visitor)', csLink(row.home_callsign)]);
   if (row.implied_class) componentRows.push(['implied licence class', row.implied_class]);
   sections.push(card('Components', [renderTable(['part', 'value'], componentRows, 99)]));
 
@@ -604,7 +628,7 @@ async function lookup(criteria) {
   if (row.parse_status === 'parsed' && row.placeholder_form) {
     const isTwoSeries = row.placeholder_form.startsWith('2');
     const rsls = await query(`SELECT rsl, region FROM ref_rsl WHERE scope = 'all' ORDER BY region`);
-    const variants = rsls.map(r => [row.placeholder_form.replace('#', r.rsl), r.region]);
+    const variants = rsls.map(r => [csLink(row.placeholder_form.replace('#', r.rsl)), r.region]);
     sections.push(card(`Regional renderings (${row.placeholder_form})`, [
       el('p', { class: 'muted', text: isTwoSeries
         ? 'The register stores the RSL-less core, but a Regional Secondary Locator is mandatory in use for 2-format callsigns - the # marks where it goes:'
@@ -621,7 +645,11 @@ async function lookup(criteria) {
         ['issuing status', series.issuing_status],
         ['RSL required', series.rsl_required],
         ...(series.notes ? [['notes', series.notes]] : []),
-      ], 99)]));
+      ], 99),
+      el('p', { class: 'muted' }, [
+        el('a', { href: `series/${series.prefix.replace(/#/g, '')}.html`, text: `Series ${series.prefix} page` }),
+        ' — reference facts joined with latest-publication counts.',
+      ])]));
     }
   }
 
