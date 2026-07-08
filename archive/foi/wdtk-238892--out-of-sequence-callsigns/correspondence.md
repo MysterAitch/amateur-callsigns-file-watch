@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Ofcom references** | 1-273972981 (original) · 1-274238044 (clarified, response 2014-12-16) · 1-274894363 (narrowed, response 2014-12-18) · 1-276484403 (internal review, response 2015-01-21) |
+| **Ofcom references** | 1-273972981 (original out-of-sequence request, 2014-11-12) · 1-274238044 (pre-WW2-series request, 2014-11-18; response 2014-12-16) · 1-274894363 (response of 2014-12-18 to the ORIGINAL request) · 1-276355280 (narrowed request of 2014-12-19) · 1-276484403 (internal review of the two initial requests; outcome letter 2015-01-19) · 1-277884351 (second internal-review request, 2014-12-28) — per the IR outcome letter's own reference table *(header corrected on verification review 2026-07-08: 1-274894363 was previously mislabelled as the narrowed request's response, and the last two references were missing)* |
 | **WDTK request** | https://www.whatdotheyknow.com/request/out_of_sequence_amateur_radio_ca (id 238892) |
 | **Requester** | Peter Eckersley (WDTK user `peter_eckersley_2`) |
 | **Requested** | 2014-11-12 (clarified 2014-11-18; narrowed 2014-12-19) |

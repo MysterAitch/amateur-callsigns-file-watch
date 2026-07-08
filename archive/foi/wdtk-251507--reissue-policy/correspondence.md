@@ -3,6 +3,7 @@
 | | |
 |---|---|
 | **WDTK request** | https://www.whatdotheyknow.com/request/policy_and_practice_for_the_re_i (id 251507) |
+| **Ofcom reference** | 1-278731481 (from the response letter's header) |
 | **Requester** | Peter Eckersley (WDTK user `peter_eckersley_2`) |
 | **Requested** | 2015-01-30 |
 | **Responded** | 2015-02-27 |

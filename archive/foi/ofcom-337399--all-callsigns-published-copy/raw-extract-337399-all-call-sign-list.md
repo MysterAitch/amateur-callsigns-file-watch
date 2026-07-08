@@ -3,7 +3,7 @@
 Mechanical text extraction (2026-07-07) of the letter as published on
 Ofcom's FOI-responses pages (extracted from `337399-FOI-All-Call-Signs.zip`;
 the zip is committed verbatim alongside). The standard internal-review
-boilerplate footer is omitted here; substantive text verbatim.
+boilerplate footer is omitted here, as is the letterhead contact line (information.requests@ofcom.org.uk); substantive text verbatim.
 
 **Publication redactions vs the requester-served letter** (see
 `wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md`):

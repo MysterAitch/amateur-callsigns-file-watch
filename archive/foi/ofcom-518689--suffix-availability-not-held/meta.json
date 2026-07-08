@@ -14,7 +14,8 @@
   "datasetClasses": ["reference-context"],
   "converter": null,
   "relatedEntries": [
-    { "entry": "ofcom-632469--suffix-availability-not-held", "relation": "successor in the 2018-2019 not-held trilogy (same generator description)" },
+    { "entry": "ofcom-612185--unallocated-callsigns-not-held", "relation": "second member of the quartet (word-for-word identical request formula, answered seven months later)" },
+    { "entry": "ofcom-632469--suffix-availability-not-held", "relation": "successor in the 2018-2019 not-held quartet (same generator description)" },
     { "entry": "ofcom-671462--suffix-availability-not-held", "relation": "the 671462 letter hyperlinks to this letter's published copy as its 'same subject' precedent" }
   ],
   "files": {
@@ -32,14 +33,14 @@
       ]
     },
     "raw-extract-amateur-radio-available-call-signs.md": {
-      "bytes": 1388,
-      "sha256": "9dfc02b3ff620e695a3be8a5f74c32b09735181763f0942346bd71bae7261a81",
+      "bytes": 1516,
+      "sha256": "e4469a267f216d8159b5a46e12c40876ad50c71e4daa11158391e068b72ce974",
       "role": "extract",
       "extractOf": "Amateur-Radio-available-call-signs.pdf"
     },
     "correspondence.md": {
-      "bytes": 1641,
-      "sha256": "ee88fda2c1ca9f0fbd8261f3e0c3326b1de7938e3f2e2d7bd7fdb6cfd0d9bf5b",
+      "bytes": 1714,
+      "sha256": "32ebfb5f3fa756f66d9920804301a1ff737e33f8d6e2f75da41b7ad70cc97697",
       "role": "transcript"
     }
   }

@@ -13,19 +13,27 @@
 ## Overview
 
 - **Asked**: an intermediate-licence applicant wanted to see which callsign
-  suffixes were available (word-for-word the same request as
-  [`ofcom-671462`](../ofcom-671462--suffix-availability-not-held/), four
-  months later — evidently a recurring ask).
-- **Provided**: no data — not held, with the **fullest on-record
-  description of the post-2016 assignment generator**: "The system is
-  designed to generate any three-letter combination for the suffix of a
-  call sign, excluding those combinations already on issue and those which
-  have been deemed unsuitable."
-- **Significance**: middle member of the 2018–2019 not-held trilogy
+  suffixes were available (near-identical to the later
+  [`ofcom-671462`](../ofcom-671462--suffix-availability-not-held/) request
+  — that one adds a greeting and lowercase pronouns — evidently a
+  recurring ask).
+- **Provided**: no data — not held, restating the assignment-generator
+  description **word-for-word as first given in the
+  [`ofcom-518689`](../ofcom-518689--suffix-availability-not-held/) letter**:
+  "The system is designed to generate any three-letter combination for the
+  suffix of a call sign, excluding those combinations already on issue and
+  those which have been deemed unsuitable." *(Corrected on verification
+  review 2026-07-08: this entry previously claimed the fullest on-record
+  generator description and that this formulation added the exclusion
+  semantics — both belong to earlier letters; the fullest description is
+  the [`ofcom-2017-07-03`](../ofcom-2017-07-03--all-callsigns-with-status/)
+  letter's.)*
+- **Significance**: third member of the 2018–2019 not-held quartet
   ([`ofcom-518689`](../ofcom-518689--suffix-availability-not-held/) →
+  [`ofcom-612185`](../ofcom-612185--unallocated-callsigns-not-held/) →
   this → [`ofcom-671462`](../ofcom-671462--suffix-availability-not-held/)),
-  each restating the algorithmic position; this formulation adds the
-  exclusion semantics (on-issue + deemed-unsuitable) that connect the
+  each restating the algorithmic position with the exclusion semantics
+  (on-issue + deemed-unsuitable) that connect the
   generator to the forbidden-suffixes list (FOI 337399). Answered within
   three days — the not-held reply had become routine.
 

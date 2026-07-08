@@ -13,6 +13,7 @@
   "datasetClasses": ["available-pool"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-309076-combined-list" },
   "relatedEntries": [
+    { "entry": "ofcom-285990--available-list-jun-2016", "relation": "successor: the only known later available-list disclosure (June 2016) before the not-held era; its correspondence names this entry as the last of the WDTK series" },
     { "entry": "ukgwa asset 83577 (1-313474335_available_call_signs.xlsx, in the drop zone)", "relation": "suspected sibling export (identical single-sheet A:J 20,738-row shape); reconcile when that entry graduates" }
   ],
   "files": {

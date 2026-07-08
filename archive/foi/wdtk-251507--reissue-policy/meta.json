@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "sourceKey": "wdtk-foi",
   "requestId": 251507,
-  "ofcomReference": null,
+  "ofcomReference": "1-278731481",
   "requestUrl": "https://www.whatdotheyknow.com/request/policy_and_practice_for_the_re_i",
   "title": "Policy and practice for the re-issue of previously issued amateur radio callsigns",
   "requester": "peter_eckersley_2",
@@ -12,6 +12,10 @@
   "dataVintage": "2015-02",
   "datasetClasses": ["reference-context", "issuance-events", "attribute-addendum"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-251507-transfers-table" },
+  "relatedEntries": [
+    { "entry": "wdtk-238892--out-of-sequence-callsigns", "relation": "companion request from the same requester: the out-of-sequence/pre-war thread whose internal review preceded this policy request by a month" },
+    { "entry": "ofcom-498903--reissued-callsigns-since-2010", "relation": "data-side counterpart: quantifies actual re-issue events 2010-2017; this entry holds the 2015 policy signposts and the 20-row transfers table" }
+  ],
   "files": {
     "policy for old call signs.pdf": {
       "bytes": 126662,
@@ -61,8 +65,8 @@
       "contentsIndicative": "header callsign,event,event_date,licence_class,status,reason,licence_number,con_id; 20 data rows newest-first (the document's 'last 20 applications' order); event 'reallocated' authored from the covering letter's wording; event_date is the RECEIVING licence's start date, ISO-ordered; s.40-withheld name columns not carried; licence_class verbatim (17 club, 3 full)"
     },
     "correspondence.md": {
-      "bytes": 4353,
-      "sha256": "fe49a4d02136e29d3de941be4ab23d12a07e2cec858cd08304d4ef507be3fdb9",
+      "bytes": 4427,
+      "sha256": "4c8a91dbf78afff4e54d1d24bd909055c5f46ab9b3e2c01024babf91aa521137",
       "role": "transcript"
     }
   }

@@ -12,6 +12,9 @@
   "dataVintage": "2015-01",
   "datasetClasses": ["attribute-addendum", "reference-context"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-238892-prewar-annex" },
+  "relatedEntries": [
+    { "entry": "wdtk-251507--reissue-policy", "relation": "companion request from the same requester a month after this thread's internal review: the policy side of the re-issue story" }
+  ],
   "files": {
     "Pre War Callsigns.xlsx": {
       "bytes": 20228,
@@ -111,14 +114,14 @@
       "extractOf": "Response callsigns out of sequential order 181214.pdf"
     },
     "raw-extract-2014-01-19-1-276484403.md": {
-      "bytes": 5088,
-      "sha256": "804537110fd67bf1cc13620e0b3ed3632cb55edf9f568231f890e90e20ae7377",
+      "bytes": 5089,
+      "sha256": "ca0a75699791962f577a21d25ce90ec1467f69c15c6aff33ff5c797317b1b2ff",
       "role": "extract",
       "extractOf": "2014 01 19 1 276484403.pdf"
     },
     "correspondence.md": {
-      "bytes": 11953,
-      "sha256": "e6f9ac392aef70f0bc6bed737ebb88ae8e6f74a9f7dcda30adcec0f03bb8429e",
+      "bytes": 12397,
+      "sha256": "2d4ff29b01d531c44d82ab6881a54ceb5082082d4e06de26bc36e68ce04b35e1",
       "role": "transcript"
     }
   }

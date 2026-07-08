@@ -53,8 +53,8 @@
       ]
     },
     "raw-extract-150126-response-to-mw.md": {
-      "bytes": 1654,
-      "sha256": "eedd14cf09f09a00451cce213e954014f9c34c957693a0fa0ba62ccb79d35c78",
+      "bytes": 1720,
+      "sha256": "483411c61a858a43985799e6ea13819467f86c2a236049dd930b0414935d6e1b",
       "role": "extract",
       "extractOf": "150126 Response to MW Ofcom Amateur Call Book 1 277622422.pdf"
     },

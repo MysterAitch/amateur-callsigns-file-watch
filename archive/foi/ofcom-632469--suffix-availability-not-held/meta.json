@@ -14,15 +14,16 @@
   "datasetClasses": ["reference-context"],
   "converter": null,
   "relatedEntries": [
-    { "entry": "ofcom-518689--suffix-availability-not-held", "relation": "predecessor in the 2018-2019 not-held trilogy (same generator description)" },
-    { "entry": "ofcom-671462--suffix-availability-not-held", "relation": "successor in the trilogy (word-for-word identical request, four months later)" }
+    { "entry": "ofcom-518689--suffix-availability-not-held", "relation": "predecessor in the 2018-2019 not-held quartet (same generator description, first used in its letter)" },
+    { "entry": "ofcom-612185--unallocated-callsigns-not-held", "relation": "second member of the quartet (the 518689 formula, answered 2018-09)" },
+    { "entry": "ofcom-671462--suffix-availability-not-held", "relation": "successor in the quartet (near-identical request - adds a greeting and lowercase pronouns - some 3.5 months later)" }
   ],
   "files": {
     "Amateur-Call-Sign-Allocation-FOI.pdf": {
       "bytes": 179477,
       "sha256": "4168e6363e777786376bac7c84d1ae223493028ff7117403cff55a038cfea8eb",
       "role": "response-letter",
-      "contentsIndicative": "record-only response with the fullest generator description on the record: any three-letter suffix combination excluding on-issue and deemed-unsuitable combinations",
+      "contentsIndicative": "record-only response repeating the generator description first given in the 518689 letter word-for-word (any three-letter suffix combination excluding on-issue and deemed-unsuitable combinations); the fullest generator description on the record is the ofcom-2017-07-03 letter's",
       "witnesses": [
         {
           "channel": "ukgwa",
@@ -32,14 +33,14 @@
       ]
     },
     "raw-extract-amateur-call-sign-allocation-foi.md": {
-      "bytes": 1324,
-      "sha256": "856ff9088af27d509e4cbdc3e75d94363c64d82c3ff126125864b652aba2b64b",
+      "bytes": 1452,
+      "sha256": "01feb2292e968a1309fb4c3aed722595de93db67564fc2ad0247b4761e4d54fb",
       "role": "extract",
       "extractOf": "Amateur-Call-Sign-Allocation-FOI.pdf"
     },
     "correspondence.md": {
-      "bytes": 1796,
-      "sha256": "22947324c1ed2a1d77cf552403c678542f86cc444d958a5d754f4bde352cf80e",
+      "bytes": 2303,
+      "sha256": "e377c00dad4fd9291f53460f0a35aec1e61441472d58c206506e77ed5e647ffc",
       "role": "transcript"
     }
   }

@@ -11,10 +11,11 @@
   "respondedAt": "2017-12-22",
   "outcome": "successful",
   "dataVintage": "2017-11",
-  "dataVintageNote": "the dataset window is 2010 to the request date (2017-11-26)",
+  "dataVintageNote": "the dataset window is 2010 to the request date (2017-11-26), though the export's last event is 2016-06-01 - the same mid-2016 stop as the sibling 498906 export, unexplained in the letter",
   "datasetClasses": ["issuance-events"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-498903-reissue-events" },
   "relatedEntries": [
+    { "entry": "ofcom-498906--reciprocal-licences-since-2010", "relation": "sibling response: same intake (received 2017-11-26), adviser and response day (2017-12-22), same export shape and the same unexplained mid-2016 data stop" },
     { "entry": "wdtk-251507--reissue-policy", "relation": "policy-side counterpart: the 2015 heritage re-issue policy signposts and 20-row transfers table; this entry quantifies actual re-issue events 2010-2017" }
   ],
   "files": {
@@ -73,8 +74,8 @@
       "extractOf": "foi-re-issue-amateur-radio-call-signs.pdf"
     },
     "correspondence.md": {
-      "bytes": 2137,
-      "sha256": "75333023ef507560f4595940984d5e48dd1b5c36db1aa95181df941c03c4e84e",
+      "bytes": 2264,
+      "sha256": "4784a7dfe28f025cd85eeec35f297a0b45411c2b6e6258a33580a57a3e8eb5d2",
       "role": "transcript"
     }
   }

@@ -12,7 +12,7 @@
   "outcome": "successful",
   "dataVintage": "2017-11",
   "dataVintageNote": "the dataset window is 2010 to the request date (2017-11-26), though the export's last event is 2016-07-12 - the same mid-2016 stop as the sibling 498903 export",
-  "datasetClasses": ["issuance-events", "attribute-addendum"],
+  "datasetClasses": ["issuance-events"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-498906-reciprocal-events" },
   "relatedEntries": [
     { "entry": "ofcom-498903--reissued-callsigns-since-2010", "relation": "sibling response: same intake (received 2017-11-26), adviser and response day (2017-12-22), same export shape; 498903 lists re-issue events, this lists reciprocal-licence issues" }
@@ -22,11 +22,11 @@
       "bytes": 28714,
       "sha256": "158a9aba0fb541a49cd72a0acf5054c154bac28a90d63e44410ba539de0b436b",
       "role": "data",
-      "datasetClasses": ["issuance-events", "attribute-addendum"],
+      "datasetClasses": ["issuance-events"],
       "sheetsIndicative": {
         "note": "Sheet1 carries the dataset; Sheets 2-3 are empty",
         "sheets": [
-          { "name": "Sheet1", "approxRows": 320, "cols": "A:B", "datasetClass": "issuance-events" },
+          { "name": "Sheet1", "approxRows": 319, "cols": "A:B", "datasetClass": "issuance-events" },
           { "name": "Sheet2", "approxRows": 0, "cols": "", "datasetClass": "reference-context" },
           { "name": "Sheet3", "approxRows": 0, "cols": "", "datasetClass": "reference-context" }
         ]

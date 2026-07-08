@@ -19,9 +19,12 @@
   making a format-valid, unforbidden, unallocated callsign nevertheless
   unavailable.
 - **Provided**: `Allocated reserved forbidden Call Sign FOI Aug19.xlsx` —
-  allocated+reserved callsigns with class (~141,295 rows) and the
-  Forbidden Call Signs tab (~1,466 rows); format rules by signpost to the
-  published page.
+  allocated+reserved callsigns with class AND per-callsign licence issue
+  dates (141,295 rows; the letter said only "together with their class",
+  but the annex carries a `Licence Issued Dat` column — making this, not
+  the published CSV six days later, **the earliest known bulk disclosure
+  of per-callsign issue dates**) and the Forbidden Call Signs tab
+  (1,465 rows); format rules by signpost to the published page.
 - **Withheld**: nothing — the availability list does not exist as a thing
   to withhold (availability is definitional, see below).
 - **Significance** (on the record — see the raw extract):

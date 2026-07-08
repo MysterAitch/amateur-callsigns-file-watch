@@ -13,7 +13,7 @@
   "respondedAtNote": "no date in the letter text; from the letter PDF's creation metadata (author Anand Thakrar)",
   "outcome": "successful",
   "dataVintage": "2017-04-24",
-  "dataVintageNote": "from the attached list's PDF creation metadata (author Julia Snape, printed from Excel) - an export ~4.5 months older than the request",
+  "dataVintageNote": "from the attached list's PDF creation metadata (author Julia Snape, printed from Excel) - an export ~2.3 months older than the request (~4.5 months older than the response)",
   "datasetClasses": ["register-snapshot", "reference-context"],
   "converter": null,
   "relatedEntries": [
@@ -54,8 +54,8 @@
       "extractOf": "Amatuer-Radio-Callsigns.pdf"
     },
     "correspondence.md": {
-      "bytes": 2761,
-      "sha256": "4fe7dfb1c155cd30a80bfab1e9e22eb420fb631e521c088e1ab5b6f2699289d5",
+      "bytes": 2799,
+      "sha256": "5c0478700b694bbb66e4514300230b7525cd76abf20b2a1b5157caf9ffaa8f19",
       "role": "transcript"
     }
   }

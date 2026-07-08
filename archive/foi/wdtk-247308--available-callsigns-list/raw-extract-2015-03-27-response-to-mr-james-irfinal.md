@@ -1,7 +1,7 @@
 # Raw extract — `2015 03 27 Response to Mr James IRFinal.pdf` (internal-review outcome)
 
 Mechanical text extraction (2026-07-07). Relay email address and signature
-image omitted; all substantive text verbatim. NB two anomalies in the
+image omitted, as is the standard ICO-contact boilerplate footer; all substantive text verbatim, with emphasis on the two concession paragraphs added by the extractor. NB two anomalies in the
 original: the letter is dated **14 April 2015** although the filename says
 "2015 03 27"; and it is addressed to the relay address of the requester's
 COMPANION request (WDTK id 249042, "How long did it take to create a list of

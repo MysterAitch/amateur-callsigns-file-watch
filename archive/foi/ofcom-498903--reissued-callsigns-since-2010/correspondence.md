@@ -32,7 +32,7 @@
 - **Significance**: the first `issuance-events` dataset in the archive —
   actual re-issue events with dates, complementing the policy-side
   signposts of wdtk-251507 (heritage re-issue policy) and quantifying
-  ~113 two-letter re-issues over ~7.9 years.
+  ~113 two-letter re-issues over ~6.4 years (2010-01-22 to 2016-06-01; the export stops mid-2016 despite the request window running to 2017-11, unexplained in the letter).
 
 ## Exchange
 

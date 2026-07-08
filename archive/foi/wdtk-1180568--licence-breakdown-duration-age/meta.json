@@ -13,6 +13,9 @@
   "dataVintageNote": "undated export, between the request (2024-09-30) and the response (2024-10-28)",
   "datasetClasses": ["register-snapshot", "attribute-addendum"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-1180568-csv-pair" },
+  "relatedEntries": [
+    { "entry": "wdtk-596532--allocated-reserved-forbidden", "relation": "pairs as register snapshots five years apart from the same requester; the NBSP trio (G0TQK, G7IWE, 2E1HON) recurs in both" }
+  ],
   "files": {
     "FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 1.csv": {
       "bytes": 5891407,

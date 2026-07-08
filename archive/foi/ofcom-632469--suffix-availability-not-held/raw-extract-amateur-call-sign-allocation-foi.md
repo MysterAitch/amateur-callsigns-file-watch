@@ -3,7 +3,7 @@
 Mechanical text extraction (2026-07-07) of the letter as published on
 Ofcom's FOI-responses pages (requester identity redacted by Ofcom for
 publication). Standard internal-review boilerplate footer omitted;
-substantive text verbatim. The PDF carries no hyperlinks.
+substantive text verbatim. The PDF carries no web hyperlinks (its only link annotations are two mailto links to information.requests@ofcom.org.uk, both present in the transcribed text).
 
 ---
 
