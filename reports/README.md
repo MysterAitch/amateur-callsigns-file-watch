@@ -17,8 +17,8 @@ Standing, deterministic views over the archive. Drill-downs:
 | [2025-06-04](entries/2025-06-04.md) | 112650 | 40 | 3191 |
 | [2025-05-27](entries/2025-05-27.md) | 1074 | 5 | 3 |
 | [2025-04-08](entries/2025-04-08.md) | 157427 | 43 | 3244 |
-| [2023-02-20](entries/2023-02-20.md) | 152084 | 34 | 3221 |
-| [2022-05-30](entries/2022-05-30.md) | 151157 | 39 | 3225 |
+| [2023-02-20](entries/2023-02-20.md) | 152082 | 33 | 3221 |
+| [2022-05-30](entries/2022-05-30.md) | 151148 | 33 | 3216 |
 
 Per-entry reports (pattern tables, windowed matrices, pairwise
 comparisons) live in [entries/](entries/).

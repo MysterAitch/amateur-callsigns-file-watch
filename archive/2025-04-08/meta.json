@@ -73,5 +73,11 @@
     "headerVariant": "v2025-salesforce",
     "statsSchemaVersion": 5,
     "componentsSchemaVersion": 4
-  }
+  },
+  "headerLines": [
+    {
+      "line": 1,
+      "content": "Value__c,Product__c,Status__c,Type__c,CreatedDate,LastModifiedDate"
+    }
+  ]
 }

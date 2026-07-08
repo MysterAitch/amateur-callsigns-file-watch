@@ -65,8 +65,11 @@ export interface SweepReport {
   coverageMarkdown: string;
 }
 
-// ArchiveMeta plus the normalisation declaration this sweep maintains.
-type SweepMeta = ArchiveMeta & { normalised?: { schemaVersion: number; headerVariant: string; statsSchemaVersion?: number; componentsSchemaVersion?: number } };
+// ArchiveMeta plus the normalisation declaration this sweep maintains
+// (ignoredLines lives on ArchiveMeta itself).
+type SweepMeta = ArchiveMeta & {
+  normalised?: { schemaVersion: number; headerVariant: string; statsSchemaVersion?: number; componentsSchemaVersion?: number };
+};
 
 export function runNormaliseSweep(): SweepReport {
   const report: SweepReport = { changed: [], upToDate: [], unsupported: [], failed: [], coverageMarkdown: '' };
@@ -119,7 +122,9 @@ export function runNormaliseSweep(): SweepReport {
         && existingComponents === result.componentsCsv
         && meta.normalised?.schemaVersion === result.schemaVersion
         && meta.normalised?.statsSchemaVersion === result.stats.statsSchemaVersion
-        && meta.normalised?.componentsSchemaVersion === result.componentsSchemaVersion) {
+        && meta.normalised?.componentsSchemaVersion === result.componentsSchemaVersion
+        && JSON.stringify(meta.headerLines ?? null) === JSON.stringify(result.headerLines)
+        && JSON.stringify(meta.ignoredLines ?? []) === JSON.stringify(result.ignoredLines)) {
         report.upToDate.push(key);
         coverageRows.push(`| ${key} | ${meta.sourceKey} | v${result.schemaVersion} (${result.headerVariant}) | up to date |`);
         continue;
@@ -134,6 +139,9 @@ export function runNormaliseSweep(): SweepReport {
         statsSchemaVersion: result.stats.statsSchemaVersion,
         componentsSchemaVersion: result.componentsSchemaVersion,
       };
+      meta.headerLines = result.headerLines;
+      if (result.ignoredLines.length > 0) meta.ignoredLines = result.ignoredLines;
+      else delete meta.ignoredLines;
       meta.files['normalised.csv'] = {
         size: Buffer.byteLength(result.csv),
         sha256: calculateContentHash(result.csv),

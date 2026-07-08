@@ -74,5 +74,11 @@
     "headerVariant": "v2025-friendly",
     "statsSchemaVersion": 5,
     "componentsSchemaVersion": 4
-  }
+  },
+  "headerLines": [
+    {
+      "line": 1,
+      "content": "Call sign,Product,Status,Type,CreatedDate,LastModifiedDate"
+    }
+  ]
 }

@@ -9,13 +9,13 @@ signal in its own right.
 
 | detector | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152084 | 151157 |
+| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152082 | 151148 |
 | Excel-date-shaped callsigns | 0 | 0 | 0 | 0 | 16 | 15 | 15 |
 | encoding-failure characters | 0 | 0 | 2 | 0 | 3 | 3 | 3 |
-| whitespace/invisible-bearing | 5 | 0 | 2 | 0 | 2 | 1 | 5 |
+| whitespace/invisible-bearing | 5 | 0 | 2 | 0 | 2 | 1 | 1 |
 | post-normalisation duplicates | 4 | 0 | 1 | 0 | 4 | 4 | 4 |
-| empty callsigns | 0 | 0 | 0 | 0 | 0 | 2 | 4 |
-| lowercase-bearing | 2 | 0 | 2 | 0 | 18 | 17 | 22 |
+| empty callsigns | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| lowercase-bearing | 2 | 0 | 2 | 0 | 18 | 17 | 17 |
 
 ## Component-parse flags
 
@@ -29,20 +29,19 @@ long-standing allocations, not an anomaly by itself).
 | `encoding-failure` | 0 | 0 | 2 | 0 | 3 | 3 | 3 |
 | `excel-date-shape` | 0 | 0 | 0 | 0 | 16 | 15 | 15 |
 | `forbidden-suffix` | 2826 | 1 | 3143 | 1 | 3159 | 3145 | 3143 |
-| `lowercase` | 2 | 0 | 2 | 0 | 18 | 17 | 22 |
+| `lowercase` | 2 | 0 | 2 | 0 | 18 | 17 | 17 |
 | `malformed-home-callsign` | 10 | 1 | 13 | 1 | 13 | 10 | 10 |
 | `rsl-in-register` | 22 | 1 | 23 | 1 | 23 | 22 | 22 |
 | `stripped-collision` | 4 | 0 | 1 | 0 | 4 | 4 | 4 |
 | `unknown-prefix-series` | 1 | 0 | 0 | 0 | 1 | 1 | 1 |
-| `whitespace` | 5 | 0 | 2 | 0 | 2 | 1 | 5 |
+| `whitespace` | 5 | 0 | 2 | 0 | 2 | 1 | 1 |
 
 ## Parse statuses
 
 | status | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| `empty` | 0 | 0 | 0 | 0 | 0 | 2 | 4 |
 | `parsed` | 158208 | 1070 | 112523 | 1070 | 157282 | 151981 | 151050 |
-| `unparseable` | 10 | 0 | 11 | 0 | 32 | 26 | 31 |
+| `unparseable` | 10 | 0 | 11 | 0 | 32 | 26 | 26 |
 | `visitor` | 100 | 4 | 116 | 4 | 113 | 75 | 72 |
 
 <details>
@@ -77,7 +76,7 @@ long-standing allocations, not an anomaly by itself).
 | 2025-06-04 | `G6{space}FMU`, `M/TKG{space}2021` |
 | 2025-04-08 | `G6{space}FMU`, `M/TKG{space}2021` |
 | 2023-02-20 | `G6{space}FMU` |
-| 2022-05-30 | `Call{space}Sign{space}List{space}for{spa`, `Confidential{space}Information{space}-{s`, `Copyright{space}(c){space}2000-2022{spac`, `G6{space}FMU`, `Generated{space}By:{space}{space}Tim{spa` |
+| 2022-05-30 | `G6{space}FMU` |
 
 </details>
 
@@ -95,16 +94,6 @@ long-standing allocations, not an anomaly by itself).
 </details>
 
 <details>
-<summary>Examples: empty callsigns</summary>
-
-| dataset | examples |
-|---|---|
-| 2023-02-20 | `` (+1 more) |
-| 2022-05-30 | `` (+3 more) |
-
-</details>
-
-<details>
 <summary>Examples: lowercase-bearing</summary>
 
 | dataset | examples |
@@ -113,7 +102,7 @@ long-standing allocations, not an anomaly by itself).
 | 2025-06-04 | `2e1GTD`, `g0jrk` |
 | 2025-04-08 | `20-Apr`, `20-Aug`, `20-Dec`, `20-Feb`, `20-Jan` (+13 more) |
 | 2023-02-20 | `20-Apr`, `20-Aug`, `20-Dec`, `20-Feb`, `20-Jan` (+12 more) |
-| 2022-05-30 | `20-Apr`, `20-Aug`, `20-Dec`, `20-Feb`, `20-Jan` (+17 more) |
+| 2022-05-30 | `20-Apr`, `20-Aug`, `20-Dec`, `20-Feb`, `20-Jan` (+12 more) |
 
 </details>
 
@@ -121,12 +110,9 @@ long-standing allocations, not an anomaly by itself).
 
 | appears as | codepoint | name |
 |---|---|---|
-| `(` | U+0028 | (unnamed) |
-| `)` | U+0029 | (unnamed) |
 | `-` | U+002D | hyphen-minus |
 | `.` | U+002E | (unnamed) |
 | `/` | U+002F | solidus (portable/reciprocal separator) |
-| `:` | U+003A | (unnamed) |
 | `{` | U+007B | (unnamed) |
 | `}` | U+007D | (unnamed) |
 | `{U+FFFD}` | U+FFFD | replacement character (encoding failure) |
