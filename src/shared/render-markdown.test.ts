@@ -64,6 +64,41 @@ describe('Markdown renderer', () => {
     expect(html).not.toContain('<p>export furniture');
   });
 
+  it('RenderMarkdown_ListInsideBlockquote_RendersAsListNotSpuriousEmphasis', () => {
+    // Verbatim quoted letters carry bulleted lists; joining their lines
+    // paired the orphaned * markers as <em>, corrupting the quote
+    // (observed live on the 596532 follow-up).
+    const html = renderMarkdown('> Findings:\n>\n> * There are six records which have a blank status.\n> * There are 21 records which are six characters long (the norm is\n>   five or fewer).\n>\n> 1. First question.\n> 2. Second question.');
+    expect(html).toContain('<li>There are six records which have a blank status.</li>');
+    expect(html).toContain('<li>There are 21 records which are six characters long (the norm is five or fewer).</li>');
+    expect(html).toContain('<ol>');
+    expect(html).toContain('<li>Second question.</li>');
+    expect(html).not.toContain('<em>');
+    expect(html).toContain('<blockquote>');
+  });
+
+  it('RenderMarkdown_NestedSubBullets_RenderAsNestedListNotRunInProse', () => {
+    const html = renderMarkdown('- **Significance** (on the record):\n  - **First point**: something\n    wrapped over lines.\n  - **Second point**: more.\n- Next top-level item.');
+    expect(html).toContain('<li><strong>Significance</strong> (on the record):<ul><li><strong>First point</strong>: something wrapped over lines.</li><li><strong>Second point</strong>: more.</li></ul></li>');
+    expect(html).toContain('<li>Next top-level item.</li>');
+  });
+
+  it('RenderMarkdown_CodeSpanInsideLinkText_RestoresNestedSpans', () => {
+    // The placeholder scheme must survive nesting: a code span inside link
+    // text leaked out as a literal " 0 " on the live dictionary page.
+    const html = renderMarkdown('documented in the generated [`foi-schemas.md`](foi-schemas.md).');
+    expect(html).toContain('<a href="foi-schemas.md"><code>foi-schemas.md</code></a>');
+    expect(html).not.toMatch(/>\s*0\s*</);
+  });
+
+  it('RenderMarkdown_StandaloneNumbersInProse_NeverSwallowedAsPlaceholders', () => {
+    // The old space-digit-space sentinel could collide with real numbers.
+    const html = renderMarkdown('census `2026-06-23`: 2,763 Allocated / 61 Reserved / 2 Available - 24 rows in total.');
+    expect(html).toContain('61 Reserved');
+    expect(html).toContain(' 24 rows');
+    expect(html).not.toContain('undefined');
+  });
+
   it('RenderMarkdown_RelativeLinks_PreservedForSiblingEntriesAndFiles', () => {
     // Correspondence files cross-link sibling entries relatively; those
     // paths resolve identically from the rendered page's location.

@@ -538,12 +538,20 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey?: string
   const files = copyEntryFiles(sourceDir, targetDir, descriptions, new Map(), title);
   const descriptor = dataPackage(key, title, files);
   const zipBytes = writeEntryZip(sourceDir, targetDir, key, descriptor, OPEN_DATA_DICTIONARY_SOURCES);
-  // Non-first-hand provenance is the single most important caveat about an
-  // entry - it belongs under the H1, not one click away in JSON.
-  const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as { provenance?: string };
+  // Non-first-hand provenance and declared-partial scope are the two most
+  // important caveats about an entry - they belong under the H1, not one
+  // click away in JSON. Scope especially: a 1,074-row declared truncation
+  // reads like a full publication without it.
+  const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as {
+    provenance?: string;
+    intendedCoverage?: { complete: boolean; scopeNotes?: string };
+  };
   const provenanceNote = meta.provenance !== undefined && meta.provenance !== 'live'
     ? [`<p><em>Provenance: ${escapeHtml(meta.provenance.replace(/-/g, ' '))} — this entry was not fetched first-hand by the mirror; see <a href="meta.json">meta.json</a>'s <code>reconstructionNotes</code>.</em></p>`]
     : [];
+  if (meta.intendedCoverage?.complete === false) {
+    provenanceNote.push(`<p><em>⚠ Declared-partial publication: ${escapeHtml(meta.intendedCoverage.scopeNotes ?? 'the publisher presented this as a partial dataset')}. Absence of a callsign from this publication is not evidence of anything.</em></p>`);
+  }
   const body = [
     `<h1>${escapeHtml(title)}</h1>`,
     `<p>Open-data archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
@@ -643,7 +651,7 @@ function buildSeriesPages(outputDir: string, baseUrl: string): string[] {
         ...countTable('Status breakdown', acc.statuses),
         ...countTable('Stored RSL letters', acc.rsls),
         ...countTable('Data-quality flags within this series', acc.flags),
-        `<p>Examples: ${acc.examples.map(c => `<a href="../index.html?c=${encodeURIComponent(c)}"><code>${escapeHtml(c)}</code></a>`).join(', ')} — each opens the live lookup.</p>`,
+        `<p>Examples, as stored in the register (the RSL letter, where one applies, is stored separately from the row): ${acc.examples.map(c => `<a href="../index.html?c=${encodeURIComponent(c)}"><code>${escapeHtml(c)}</code></a>`).join(', ')} — each opens the live lookup.</p>`,
       ];
     const body = [
       `<h1>Prefix series ${escapeHtml(display)}</h1>`,
@@ -680,8 +688,14 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   const pageUrls: string[] = [`${baseUrl}/datasets/index.html`];
 
   const openDataRows: string[] = [];
-  for (const [index, key] of openDataKeys.entries()) {
-    const { files, zipBytes } = buildOpenDataEntry(outputDir, key, openDataKeys[index - 1]);
+  // The changes-since pointer targets the most recent INTENDED-COMPLETE
+  // earlier publication: pointing at a declared-partial truncation would
+  // imply ~150k spurious additions (caught in review).
+  let lastCompleteKey: string | undefined;
+  for (const key of openDataKeys) {
+    const { files, zipBytes } = buildOpenDataEntry(outputDir, key, lastCompleteKey);
+    const entryMeta = JSON.parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, key, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete: boolean } };
+    if (entryMeta.intendedCoverage?.complete !== false) lastCompleteKey = key;
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;
     pageUrls.push(`${baseUrl}/datasets/open-data/${key}/index.html`);
