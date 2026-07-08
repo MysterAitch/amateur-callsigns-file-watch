@@ -15,13 +15,15 @@
   CSVs — a distinct disclosure event from the requester-channel response
   (which served an xlsx annex "as at the date of your request",
   2019-08-12).
-- **The register CSV is not a byte- or shape-copy of the annex**: header
-  `Call Sign,Status,Licence Class,Licence Issued Date` — it carries a
-  **`Licence Issued Date` column absent from the requester annex**, and its
-  141,295 data rows (verified by line count) exactly match the annex's
-  record count. The likeliest reading is the same underlying snapshot
-  re-exported with an extra column for publication, dated 2019-09-12; a
-  content diff at converter time confirms or refutes.
+- **The register CSV shares the annex's exact shape** — the same four-column
+  header (`Call Sign,Status,Licence Class,Licence Issued Dat`, truncation
+  included) and the same 141,295 data rows (verified by line count).
+  *Corrected on verification review (2026-07-08): this entry originally
+  claimed the issue-date column was absent from the requester annex; the
+  annex carries it identically, six days earlier.* The likeliest reading is
+  the same underlying snapshot re-serialised as CSV for publication, dated
+  2019-09-12; the annex serialises dates as ISO datetimes, this CSV as
+  dd/mm/yyyy.
 - **First row oddity, recorded not interpreted**: the file opens with
   `G4IFJ,Allocated,Full,03/05/1903` — it appears sorted by issued date
   ascending, and the 1903 date at the top is presumably a
@@ -32,9 +34,12 @@
 - **Significance**: publication came six days after the requester
   response, within the same weeks as the requester's periodic-publication
   ask ("actively considering", 2019-09-18) — and the published form is
-  CSV, the format the open-data page would later adopt. The
-  `Licence Issued Date` column makes this the earliest known bulk
-  disclosure of per-callsign issue dates.
+  CSV, the format the open-data page would later adopt. This entry's
+  distinctiveness is the publication channel and format; the earliest
+  known bulk disclosure of per-callsign issue dates is the requester
+  annex itself
+  ([`wdtk-596532`](../wdtk-596532--allocated-reserved-forbidden/),
+  served 2019-09-06).
 
 ## Exchange
 

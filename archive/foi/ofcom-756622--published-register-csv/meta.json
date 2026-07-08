@@ -11,11 +11,11 @@
   "respondedAt": "2019-09-06",
   "outcome": "successful",
   "dataVintage": "2019-09-12",
-  "dataVintageNote": "from the published filename; row count exactly matches the 2019-08-12 requester annex (141,295), so likely the same snapshot re-exported with the extra Licence Issued Date column - confirm by content diff at converter time",
+  "dataVintageNote": "from the published filename; header and row count exactly match the 2019-08-12 requester annex (141,295, incl. the Licence Issued Dat column - a claim that the column was absent from the annex was corrected on verification review 2026-07-08), so likely the same snapshot re-serialised as CSV for publication",
   "datasetClasses": ["register-snapshot", "forbidden-list", "attribute-addendum"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-756622-register-and-forbidden" },
   "relatedEntries": [
-    { "entry": "wdtk-596532--allocated-reserved-forbidden", "relation": "requester-channel entry for the same FOI response; the published register CSV adds a Licence Issued Date column absent from the requester annex and matches its 141,295-record count" }
+    { "entry": "wdtk-596532--allocated-reserved-forbidden", "relation": "requester-channel entry for the same FOI response; the published register CSV shares the annex's exact header (incl. Licence Issued Dat) and 141,295-record count - the annex, six days earlier, is the earliest bulk disclosure of per-callsign issue dates" }
   ],
   "files": {
     "allocated-reserved-forbidden-call-sign-foi-20190912.csv": {
@@ -23,7 +23,7 @@
       "sha256": "22b1467f14f36035377bff9dc659bbafcfbe1c7cac7065ae6f9145c0842320dd",
       "role": "data",
       "datasetClasses": ["register-snapshot", "attribute-addendum"],
-      "contentsIndicative": "header Call Sign,Status,Licence Class,Licence Issued Date; 141,295 data rows (verified by line count); appears sorted by issued date ascending, opening with a 03/05/1903 date (presumed migration/placeholder artefact); the earliest known bulk disclosure of per-callsign issue dates",
+      "contentsIndicative": "header Call Sign,Status,Licence Class,Licence Issued Dat; 141,295 data rows (verified by line count); appears sorted by issued date ascending, opening with a 03/05/1903 date (presumed migration/placeholder artefact); the same shape and count as the wdtk-596532 requester annex, which precedes it by six days",
       "witnesses": [
         {
           "channel": "ukgwa",
@@ -61,8 +61,8 @@
       "contentsIndicative": "header suffix; 1,465 data rows sorted by suffix (a no-op - the source is already alphabetical); forbidden-list shape per issue #139 (three-letter suffixes, not callsigns)"
     },
     "correspondence.md": {
-      "bytes": 2402,
-      "sha256": "dd6cc4dccfec727906e7d19780fa3dc84c36f72f739aa3717cf609b3b26766db",
+      "bytes": 2661,
+      "sha256": "1f1cdb430f1c76b1995b48c542e1d79b14bf8c8958f1807f70ec2f5d3ffa5243",
       "role": "transcript"
     }
   }

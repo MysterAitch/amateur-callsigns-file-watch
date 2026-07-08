@@ -47,8 +47,12 @@
       "entry": "ofcom-518689--suffix-availability-not-held"
     },
     {
-      "relation": "predecessor in the 2018-2019 not-held trilogy (word-for-word identical request)",
+      "relation": "predecessor in the 2018-2019 not-held quartet (near-identical request)",
       "entry": "ofcom-632469--suffix-availability-not-held"
+    },
+    {
+      "relation": "second member of the quartet (the 518689 request formula repeated word-for-word)",
+      "entry": "ofcom-612185--unallocated-callsigns-not-held"
     }
   ]
 }

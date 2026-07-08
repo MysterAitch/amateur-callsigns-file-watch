@@ -24,8 +24,9 @@
   the list itself remains an open recovery target.
 - **Significance**: the only known available-list disclosure between the
   last of the WDTK series (wdtk-309076, January 2016) and the algorithmic
-  "not held" era from 2018 — and the published precedent that two later
-  responses lean on: the
+  "not held" era (first reported for an October 2016 repeat — see the
+  source register — and uniformly on the record from 2018) — and the
+  published precedent that two later responses lean on: the
   [`ofcom-299351`](../ofcom-299351--available-list-referral/) web-link
   referral answers a fresh request by pointing at this publication, and the
   [`wdtk-356636`](../wdtk-356636--all-callsigns-plus-forbidden/)

@@ -14,8 +14,8 @@
   "datasetClasses": ["register-snapshot", "forbidden-list"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-596532-register-and-forbidden" },
   "relatedEntries": [
-    { "entry": "disclosure log 2019-09-12 CSV (allocated-reserved-forbidden-call-sign-foi-20190912.csv, drop zone)", "relation": "a full snapshot published six days later on Ofcom's FOI pages - nearest-neighbour comparison point" },
-    { "entry": "requester's enriched xlsx/csv derivatives (local drop zone only)", "relation": "labelled derivatives with added analysis columns - not part of the FOI response, never committed; enrichment diff outstanding" }
+    { "entry": "ofcom-756622--published-register-csv", "relation": "Ofcom's publication of this same response six days later (graduated from the drop zone) - identical header incl. Licence Issued Dat and identical 141,295-record count; this annex is the earlier serving and hence the earliest bulk disclosure of per-callsign issue dates" },
+    { "entry": "requester's enriched xlsx/csv derivatives (retained privately by the requester; not part of the FOI response and not published anywhere)", "relation": "labelled derivatives with added analysis columns; enrichment diff outstanding - noted so future readers know such derivatives exist but are not recoverable from this archive" }
   ],
   "files": {
     "Allocated reserved forbidden Call Sign FOI Aug19.xlsx": {
@@ -86,8 +86,8 @@
       "extractOf": "Amateur Radio callsigns Howell.pdf"
     },
     "correspondence.md": {
-      "bytes": 5676,
-      "sha256": "1c0cc340f12dc4d07d869f0be3142964ff9c93ea6abb1d4df431a18123bd765a",
+      "bytes": 5942,
+      "sha256": "7600a1fcba02d95a7909160bcaabd4b9b0481ab5deff133c6cd92dc417982c8b",
       "role": "transcript"
     }
   }

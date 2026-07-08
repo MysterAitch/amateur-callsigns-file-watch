@@ -9,7 +9,7 @@
 | **Responded** | ~2017-09-11 (no date in the letter text; from PDF creation metadata) |
 | **Outcome** | successful (systems questions answered; register list attached) |
 | **Requester** | not named (redacted by Ofcom for publication); no matching WDTK thread known |
-| **Data vintage** | **2017-04-24** (the attached list's PDF creation metadata — an export ~4.5 months older than the request) |
+| **Data vintage** | **2017-04-24** (the attached list's PDF creation metadata — an export ~2.3 months older than the request (~4.5 months older than the response)) |
 
 ## Overview
 

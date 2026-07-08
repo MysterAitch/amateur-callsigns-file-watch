@@ -20,8 +20,9 @@
   licensing system generates them on demand… any three-letter combination
   for the suffix… excluding those combinations already on issue and those
   which have been deemed unsuitable."
-- **Significance**: the earliest member of the 2018–2019 not-held trilogy
+- **Significance**: the earliest member of the 2018–2019 not-held quartet
   (this →
+  [`ofcom-612185`](../ofcom-612185--unallocated-callsigns-not-held/) →
   [`ofcom-632469`](../ofcom-632469--suffix-availability-not-held/) →
   [`ofcom-671462`](../ofcom-671462--suffix-availability-not-held/)); the
   671462 letter hyperlinks to this letter's published copy as its "same

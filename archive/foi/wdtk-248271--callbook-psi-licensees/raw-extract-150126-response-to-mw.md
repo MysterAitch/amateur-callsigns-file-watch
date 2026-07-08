@@ -1,7 +1,7 @@
 # Raw extract — `150126 Response to MW Ofcom Amateur Call Book 1 277622422.pdf`
 
 Mechanical text extraction (2026-07-07). Relay email address and the standard
-internal-review boilerplate footer omitted; all substantive text verbatim.
+internal-review boilerplate footer omitted; all substantive text verbatim (emphasis on the zero-licensees paragraph added by the extractor).
 
 ---
 
