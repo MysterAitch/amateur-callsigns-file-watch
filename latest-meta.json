@@ -41,17 +41,18 @@
       "sortedBy": "callsign"
     },
     "stats.json": {
-      "size": 2869,
-      "sha256": "38ccc4c6e4b5fd1d665a66bd2c488e262719df562228a8e6bc1f7dda59244146",
+      "size": 2875,
+      "sha256": "a2c440179c99442e880f4fa11a252611ead7fe974b562c778f7a5325cd96fbd8",
       "format": "json"
     },
     "components.csv": {
-      "size": 6042693,
-      "sha256": "b2e7a080651184c1ff8add853d399d116d0da05a4b904c749a9d1b96e248c097",
+      "size": 6992401,
+      "sha256": "563538e2496fe2d430d484ef43ceb22cce81496bcd087964575455ce97e55f88",
       "format": "csv",
-      "columnCount": 9,
+      "columnCount": 10,
       "columnNames": [
         "callsign",
+        "cleaned",
         "parse_status",
         "prefix_series",
         "rsl",
@@ -83,7 +84,7 @@
     "schemaVersion": 1,
     "headerVariant": "v2026-licence-version",
     "statsSchemaVersion": 6,
-    "componentsSchemaVersion": 4
+    "componentsSchemaVersion": 5
   },
   "headerLines": [
     {

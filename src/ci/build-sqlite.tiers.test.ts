@@ -53,6 +53,21 @@ describe('Published data tiers', () => {
       const partial = db.prepare("SELECT record_count, intended_complete FROM history_datasets WHERE dataset = '2025-06-08'").get() as { record_count: string; intended_complete: string };
       expect(partial.intended_complete).toBe('false');
       expect(Number(partial.record_count)).toBeLessThan(2000);
+      // Longitudinal join keys: cleaned unifies publisher artefacts
+      // (2E1HON and its NBSP-damaged 2022 twin share one key), suffix
+      // enables cohort joins against the withheld list, which rides into
+      // the master so those queries run in one database.
+      const cleanedTwins = db.prepare("SELECT COUNT(DISTINCT callsign) AS c FROM register_history WHERE cleaned = '2E1HON'").get() as { c: number | bigint };
+      expect(Number(cleanedTwins.c)).toBeGreaterThanOrEqual(2);
+      const forbidden = db.prepare('SELECT COUNT(*) AS c FROM ref_forbidden_suffixes').get() as { c: number | bigint };
+      expect(Number(forbidden.c)).toBe(1465);
+      const cohort = db.prepare(`SELECT COUNT(*) AS c FROM register_history rh JOIN ref_forbidden_suffixes f ON f.suffix = rh.suffix WHERE rh.dataset = '2026-06-23'`).get() as { c: number | bigint };
+      expect(Number(cohort.c)).toBe(2826);
+      // G0TQK's encoding-damaged twin lives in the register lane (the
+      // 2022 publication carries G0TQK + G0TQK�) - cleaned unifies
+      // them for longitudinal joins.
+      const rhTwins = db.prepare("SELECT COUNT(DISTINCT callsign) AS c FROM register_history WHERE cleaned = 'G0TQK'").get() as { c: number | bigint };
+      expect(Number(rhTwins.c)).toBeGreaterThanOrEqual(2);
     } finally {
       db.close();
     }

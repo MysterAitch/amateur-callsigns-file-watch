@@ -93,6 +93,24 @@ validator re-verifies every declared header and ignored line byte-for-byte
 against the immutable, hash-pinned `raw.csv`, and requires a reason on
 every ignored line.
 
+## Companion artefact: `components.csv` (v5)
+
+One row per normalised row, joined by `callsign`: `parse_status`, the
+derived join keys, and per-row data-quality `flags` (vocabulary:
+`reference-data/flags.md`). Two columns are **derived join keys**, both
+following the same pattern — computed unifiers, not identity claims:
+
+- `placeholder_form` unifies regional renderings (`M7TEE`, `MW7TEE`, … →
+  `M#7TEE`).
+- `cleaned` (v5) unifies publisher artefacts: uppercase, stripped of
+  everything outside `A–Z`, `0–9` and `/` — so `2E1HON`,
+  `2E1HON{U+00A0}` and `2e1hon` share one key, and longitudinal joins
+  survive whitespace/encoding/case damage. **Duplicates are expected and
+  deliberate** (`G6 FMU` and `G6FMU` both exist as register rows and share
+  `cleaned = G6FMU` — that visible collision *is* the `stripped-collision`
+  finding); uniqueness is desirable in principle but cannot be enforced,
+  so no consumer may treat `cleaned` as a primary key.
+
 ## Companion artefact: `stats.json`
 
 Each normalised entry also carries `archive/{key}/stats.json` (issue #46):

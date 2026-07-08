@@ -586,12 +586,31 @@ async function lookup(criteria) {
   }
 
   if (!row) {
+    // Artefact recovery via the cleaned join key: rows whose CLEANED form
+    // matches the search are likely the same callsign wearing publisher
+    // whitespace/encoding damage (2E1HON vs "2E1HON{U+00A0}"). Suggested,
+    // never silently adopted - an artefact match is a lead, not an
+    // identity.
+    let artefactNote = null;
+    const cleanedInput = value.toUpperCase().replace(/[^A-Z0-9/]/g, '');
+    if (cleanedInput !== '') {
+      const likely = await query(
+        `${ROW_SELECT} WHERE c.cleaned = ? AND n.callsign != ? ORDER BY n.callsign LIMIT 5`,
+        [cleanedInput, value]);
+      if (likely.length > 0) {
+        const note = el('p', { text: 'No exact register row, but these rows clean to the same key - likely the same callsign carrying publisher whitespace or encoding artefacts: ' });
+        likely.forEach((m, i) => { if (i > 0) note.append(', '); note.append(csLink(m.callsign)); });
+        note.append('.');
+        artefactNote = card(`Likely matches for ${value}`, [note]);
+      }
+    }
     // Absent from the current register is exactly where history is most
     // valuable: earlier publications may still hold the callsign, and FOI
     // datasets witness heritage transfers and pre-war annex callsigns.
     const [registerHistory, foiHistory] = await Promise.all([registerHistoryCard([value]), foiHistoryCard([value])]);
     result.replaceChildren(
       el('p', { text: `No register row for "${value}" in the latest dataset. (The register only holds callsigns Ofcom has had reason to record.)` }),
+      ...(artefactNote ? [artefactNote] : []),
       ...(registerHistory ? [registerHistory] : []),
       ...(foiHistory ? [foiHistory] : []),
     );

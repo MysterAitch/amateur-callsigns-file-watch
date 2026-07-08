@@ -22,10 +22,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 
-export const COMPONENTS_SCHEMA_VERSION = 4;
+export const COMPONENTS_SCHEMA_VERSION = 5;
 
 export const COMPONENT_COLUMNS = [
   'callsign',
+  'cleaned',
   'parse_status',
   'prefix_series',
   'rsl',
@@ -35,6 +36,18 @@ export const COMPONENT_COLUMNS = [
   'implied_class',
   'flags',
 ] as const;
+
+// The artefact-unifying JOIN KEY (v5): uppercase, stripped of everything
+// outside A-Z, 0-9 and / - so 2E1HON, "2E1HON{U+00A0}" and 2e1hon share
+// one key across publications and longitudinal joins survive publisher
+// whitespace/encoding/case artefacts (the NBSP trio broke exactly this).
+// Sibling of placeholder_form's rendering-unification role. A join key,
+// NOT an identity claim: G6 FMU and G6FMU both exist as register rows and
+// deliberately share cleaned = G6FMU - the collision staying visible IS
+// the stripped-collision finding.
+export function cleanedCallsign(callsign: string): string {
+  return callsign.toUpperCase().replace(/[^A-Z0-9/]/g, '');
+}
 
 export type ParseStatus = 'parsed' | 'visitor' | 'special-event' | 'empty' | 'unparseable';
 
@@ -238,6 +251,7 @@ export function componentsFlagsForRows(rows: ComponentRow[]): ComponentRow[] {
 export function componentRowToCells(row: ComponentRow): string[] {
   return [
     row.callsign,
+    cleanedCallsign(row.callsign),
     row.parseStatus,
     row.prefixSeries,
     row.rsl,

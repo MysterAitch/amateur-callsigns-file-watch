@@ -87,8 +87,8 @@
       "minLength": 19
     }
   },
-  "emptyRows": 0,
-  "nonEmptyRows": 1074,
+  "emptyRecords": 0,
+  "nonEmptyRecords": 1074,
   "parseStatuses": {
     "parsed": 1070,
     "visitor": 4
