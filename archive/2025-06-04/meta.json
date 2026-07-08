@@ -81,5 +81,13 @@
       "line": 1,
       "content": "Call sign,Product,Status,Type,CreatedDate,LastModifiedDate"
     }
+  ],
+  "qualityObservations": [
+    {
+      "observedAt": "2026-07-09",
+      "statement": "This publication omits every record with a blank product field (~45,000, many of them live allocations) despite declaring complete coverage.",
+      "evidence": "The 2025-04-08 publication has 157,427 records including 45,157 with a blank product; this publication has 112,650 records and zero blank products (157,427 - 45,157 = 112,270, plus normal weeks-of-drift). Full per-publication counts on issue #177.",
+      "coverageAffecting": true
+    }
   ]
 }

@@ -178,6 +178,19 @@ response, truncated publication) normalises fine, but its rows must never be
 read as the full population, and cross-entry diffs against it mislead. The
 sweep's dashboard flags such entries.
 
+`intendedCoverage` is never retro-edited — it records what the publisher
+claimed. **Verified quality is a separate axis**: `meta.qualityObservations`
+carries hand-curated, cited findings about the data's *actual* quality, each
+with `observedAt`, a `statement`, its `evidence`, and an optional
+`coverageAffecting` flag. A `coverageAffecting` observation means the
+publication silently omits records it claims to hold — the confirmed case is
+2025-06-04, which declared complete but filtered out every blank-product row
+(~45,000, many live allocations; see issue #177). Consumers must then treat
+that publication's absences exactly like a declared-partial's: **not
+evidence.** The published `master.sqlite`'s `history_datasets` table carries
+this so the register-history timeline demotes such publications
+automatically, and entry pages surface the observation under their heading.
+
 ## Evolving the schema
 
 A new version = a converter change (with tests and fixtures) merged like any

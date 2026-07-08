@@ -221,6 +221,29 @@ export interface ArchiveMeta {
   // Written by the normalise sweep; absent when the export is clean; every
   // entry re-verified by validate:data (byte match + must-not-be-data).
   ignoredLines?: IgnoredRawLine[];
+  // VERIFIED-QUALITY observations - the axis intendedCoverage always
+  // promised to keep separate. intendedCoverage records the publisher's
+  // INTENT (never retro-edited); this records what we have since found
+  // about the data's actual quality. Hand-curated and cited, reviewed like
+  // reference data. A coverageAffecting observation means the publication
+  // silently omits records it claims to include (the confirmed 2025-06-04
+  // blank-product filter) - consumers must then treat its absences like a
+  // declared-partial's: not evidence.
+  qualityObservations?: QualityObservation[];
+}
+
+export interface QualityObservation {
+  // ISO date the observation was made (not the data's vintage).
+  observedAt: string;
+  // One-sentence finding about the data's actual quality.
+  statement: string;
+  // How it was established: the arithmetic, a link, or an issue reference.
+  evidence: string;
+  // True when the observation means the publication omits records it
+  // claims to include - such absences are not evidence (as for a
+  // declared-partial). Absent/false = a quality note that does not affect
+  // how absence should be read.
+  coverageAffecting?: boolean;
 }
 
 export interface IgnoredRawLine {

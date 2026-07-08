@@ -53,6 +53,12 @@ describe('Published data tiers', () => {
       const partial = db.prepare("SELECT record_count, intended_complete FROM history_datasets WHERE dataset = '2025-06-08'").get() as { record_count: string; intended_complete: string };
       expect(partial.intended_complete).toBe('false');
       expect(Number(partial.record_count)).toBeLessThan(2000);
+      // The 2025-06-04 blank-product filter: declared complete, but a
+      // coverage-affecting quality observation demotes it so the timeline
+      // stops reading its absences as evidence.
+      const filtered = db.prepare("SELECT intended_complete, coverage_affecting FROM history_datasets WHERE dataset = '2025-06-04'").get() as { intended_complete: string; coverage_affecting: string };
+      expect(filtered.intended_complete).toBe('true');
+      expect(filtered.coverage_affecting).toContain('blank product');
       // Longitudinal join keys: cleaned unifies publisher artefacts
       // (2E1HON and its NBSP-damaged 2022 twin share one key), suffix
       // enables cohort joins against the withheld list, which rides into

@@ -113,6 +113,25 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
 
   problems.push(...validateIgnoredLines(dir, meta));
 
+  // Verified-quality observations: hand-curated and cited, so every entry
+  // must carry the date, a non-empty statement, and non-empty evidence
+  // (an observation with no evidence is not an observation).
+  for (const [i, observation] of (meta.qualityObservations ?? []).entries()) {
+    const at = `qualityObservations[${i}]`;
+    if (!observation.observedAt || Number.isNaN(Date.parse(observation.observedAt))) {
+      problems.push({ path: metaPath, problem: `${at}.observedAt is missing or not a date: ${observation.observedAt}` });
+    }
+    if (typeof observation.statement !== 'string' || observation.statement.trim() === '') {
+      problems.push({ path: metaPath, problem: `${at}.statement is missing or empty` });
+    }
+    if (typeof observation.evidence !== 'string' || observation.evidence.trim() === '') {
+      problems.push({ path: metaPath, problem: `${at}.evidence is missing or empty (a cited observation needs its citation)` });
+    }
+    if (observation.coverageAffecting !== undefined && typeof observation.coverageAffecting !== 'boolean') {
+      problems.push({ path: metaPath, problem: `${at}.coverageAffecting must be a boolean when present` });
+    }
+  }
+
   return problems;
 }
 

@@ -94,6 +94,22 @@ describe('validateArchiveEntry', () => {
     expect(problems).toEqual([]);
   });
 
+  it('ArchiveEntry_WhenQualityObservationWellFormed_PassesValidation', () => {
+    writeEntry(tmpRoot, '2026-06-23', CSV, {
+      qualityObservations: [{ observedAt: '2026-07-09', statement: 'Omits blank-product records.', evidence: 'See issue #177.', coverageAffecting: true }],
+    });
+    expect(validateArchiveEntry('2026-06-23')).toEqual([]);
+  });
+
+  it('ArchiveEntry_WhenQualityObservationLacksEvidence_Fails', () => {
+    // A cited observation with no citation is not an observation.
+    writeEntry(tmpRoot, '2026-06-23', CSV, {
+      qualityObservations: [{ observedAt: '2026-07-09', statement: 'Something is off.', evidence: '' }],
+    });
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.problem.includes('qualityObservations[0].evidence'))).toBe(true);
+  });
+
   it('ArchiveEntry_WhenLineAccountingComplete_PassesValidation', () => {
     writeAccountedEntry(tmpRoot, '2026-06-23');
     expect(validateArchiveEntry('2026-06-23')).toEqual([]);
