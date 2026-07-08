@@ -1,44 +1,45 @@
 import { describe, it, expect } from 'vitest';
-import * as fs from 'fs';
-import { findStaleRegisterRows, REGISTER_FILE } from './register-crosscheck.ts';
+import { findStaleRegisterRows } from './register-crosscheck.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
 // The source-register staleness check (issue #149 Phase A) flags pending
 // rows whose dataset already exists as an FOI entry. It is heuristic
-// tooling for register-tidying commits, deliberately conservative: prose
-// mentions of an id outside the first cell must not match.
+// TOOLING for register-tidying commits, deliberately not a CI gate on the
+// register's content - so these tests exercise the matching logic against
+// synthetic registers only. Asserting the live register's staleness state
+// here would fail the very PR that tidies it (learnt the hard way on the
+// first tidying commit).
 
 describe('Source-register cross-check', () => {
-  const stale = findStaleRegisterRows(fs.readFileSync(REGISTER_FILE, 'utf8'));
-
-  it('RegisterCrosscheck_KnownIngestedRows_AreFlagged', () => {
-    // The three known-stale rows as of Phase A: WDTK 356636, WDTK 596532,
-    // and the 2019-09-12 disclosure CSV (ofcom-756622, matched by its
-    // declared data filename).
-    const matched = new Set(stale.map(row => row.matchedEntry));
-    expect(matched).toContain('wdtk-356636--all-callsigns-plus-forbidden');
-    expect(matched).toContain('wdtk-596532--allocated-reserved-forbidden');
-    expect(matched).toContain('ofcom-756622--published-register-csv');
-  });
-
-  it('RegisterCrosscheck_ProseMentionOfIngestedId_IsNotFlagged', () => {
-    // The Callsign-database-20-Sep row mentions 356636 in its notes ("9
-    // days before the 356636 response") but is genuinely not ingested -
-    // context is not ingestion.
-    expect(stale.some(row => row.firstCell.includes('Callsign database 20 Sep'))).toBe(false);
-    expect(stale.some(row => row.firstCell.includes('Callsign-database-20-Sep'))).toBe(false);
-  });
-
-  it('RegisterCrosscheck_SyntheticRegister_MatchesFirstCellIdentifierOnly', () => {
+  it('RegisterCrosscheck_PendingRowNamingIngestedIdInFirstCell_IsFlagged', () => {
     const synthetic = [
       '| WDTK 596532 (someone) | 2019 | pending-ingest | notes |',
-      '| Something else entirely | 2020 | pending-ingest | mentions 596532 in passing |',
-      '| Already done | 2021 | ingested | archive/foi pointer |',
+      '| Something to fetch | 2020 | pending-fetch | uses 756622 data (`allocated-reserved-forbidden-call-sign-foi-20190912.csv`) |',
     ].join('\n');
     const rows = findStaleRegisterRows(synthetic);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].firstCell).toBe('WDTK 596532 (someone)');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].matchedEntry).toBe('wdtk-596532--allocated-reserved-forbidden');
     expect(rows[0].matchedBy).toBe('identifier');
+    // Data-file mentions anywhere in the row surface as weak candidates.
+    expect(rows[1].matchedEntry).toBe('ofcom-756622--published-register-csv');
+    expect(rows[1].matchedBy).toBe('data-file');
+  });
+
+  it('RegisterCrosscheck_ProseMentionOfIngestedIdOutsideFirstCell_IsNotFlagged', () => {
+    // Context is not ingestion: an id cited in the notes column (the real
+    // Callsign-database-20-Sep row cites 356636 as a vintage neighbour)
+    // must not flag the row by identifier.
+    const synthetic = '| Ofcom "Callsign database 20 Sep" xlsx | 2016-09-20 | pending-ingest | export 9 days before the 356636 response |';
+    expect(findStaleRegisterRows(synthetic)).toHaveLength(0);
+  });
+
+  it('RegisterCrosscheck_IngestedAndNonTableRows_AreIgnored', () => {
+    const synthetic = [
+      '| WDTK 596532 (someone) | 2019 | ingested | archive/foi pointer |',
+      'Prose paragraph mentioning 596532 and pending-ingest outside a table.',
+      '| source | data vintage | status | notes |',
+    ].join('\n');
+    expect(findStaleRegisterRows(synthetic)).toHaveLength(0);
   });
 });
