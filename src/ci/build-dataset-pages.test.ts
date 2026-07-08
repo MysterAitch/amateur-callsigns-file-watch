@@ -144,6 +144,25 @@ describe('Dataset pages build', () => {
     expect(summary.pageUrls.some(url => url.endsWith('/datasets/docs/flags.html'))).toBe(true);
   });
 
+  it('SeriesPages_RealArchive_OnePagePerSeriesWithFactsAndCounts', () => {
+    const index = fs.readFileSync(path.join(outputDir, 'series', 'index.html'), 'utf8');
+    // Reference-known and observed-only series both get pages; the slug
+    // drops the # (a URL fragment delimiter), the display keeps it.
+    expect(index).toContain('<a href="20.html"><code>2#0</code></a>');
+    expect(index).toContain('<a href="M7.html"><code>M#7</code></a>');
+    const m7 = fs.readFileSync(path.join(outputDir, 'series', 'M7.html'), 'utf8');
+    expect(m7).toContain('Foundation'); // reference facts
+    expect(m7).toContain('Status breakdown');
+    expect(m7).toMatch(/index\.html\?c=[A-Z0-9]/); // examples deep-link into the lookup
+    // Observed-but-unreferenced series are flagged, not passed off as
+    // established (M2 exists in the register, not in reference data).
+    const m2 = fs.readFileSync(path.join(outputDir, 'series', 'M2.html'), 'utf8');
+    expect(m2).toContain('absent from');
+    // All series pages join the sitemap.
+    expect(summary.pageUrls.some(url => url.endsWith('/series/index.html'))).toBe(true);
+    expect(summary.pageUrls.some(url => url.endsWith('/series/M7.html'))).toBe(true);
+  });
+
   it('DatasetPages_Sitemap_ListsEveryEntryPageUnderTheBaseUrl', () => {
     const sitemap = fs.readFileSync(path.join(outputDir, 'sitemap.xml'), 'utf8');
     expect(sitemap).toContain('<loc>https://example.test/site/datasets/index.html</loc>');
