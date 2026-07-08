@@ -25,6 +25,7 @@ import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS, calculateFileHash, type ArchiveMeta , errorMessage } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
+import { validateFoiLaneAt } from './validate-foi.ts';
 
 export interface ValidationProblem {
   path: string;
@@ -35,6 +36,7 @@ export interface ValidationReport {
   ok: boolean;
   problems: ValidationProblem[];
   checkedEntries: number;
+  checkedFoiEntries: number;
 }
 
 const VALID_PROVENANCE = new Set(['live', 'reconstructed-from-git-history', 'reconstructed-from-prior-download']);
@@ -249,7 +251,11 @@ export function validateRepoData(deepKeys: string[]): ValidationReport {
     }
   }
   problems.push(...validateLatestPointers());
-  return { ok: problems.length === 0, problems, checkedEntries: keys.length };
+  // The FOI lane (ADR 0004 point 4): structural/referential checks + full
+  // hash verification of every declared file, every run.
+  const foi = validateFoiLaneAt();
+  problems.push(...foi.problems);
+  return { ok: problems.length === 0, problems, checkedEntries: keys.length, checkedFoiEntries: foi.checkedEntries };
 }
 
 function main(): void {
@@ -258,7 +264,7 @@ function main(): void {
   const args = process.argv.slice(2).filter(a => a.trim().length > 0);
   const deepKeys = args.length > 0 ? args : listArchiveKeys().sort().slice(-1);
   const report = validateRepoData(deepKeys);
-  console.log(`Validated ${report.checkedEntries} archive entries (deep: ${deepKeys.join(', ') || 'none'}) + latest-* pointers.`);
+  console.log(`Validated ${report.checkedEntries} open-data + ${report.checkedFoiEntries} FOI entries (deep: ${deepKeys.join(', ') || 'none'}) + latest-* pointers.`);
   if (!report.ok) {
     for (const p of report.problems) {
       console.error(`FAIL ${p.path}: ${p.problem}`);

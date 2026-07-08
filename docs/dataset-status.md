@@ -40,7 +40,7 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | ofcom-756622--published-register-csv | successful | register-snapshot, forbidden-list, attribute-addendum | 2019-09-12 | ✔ 2 | — | `ofcom-756622-register-and-forbidden` | ✔ 2 |
 | wdtk-1180568--licence-breakdown-duration-age | successful | register-snapshot, attribute-addendum | 2024-10 | ✔ 2 | 1 transcr | `wdtk-1180568-csv-pair` | ✔ 2 |
 | wdtk-174341--available-callsigns-list | successful | available-pool | 2013-09-06 | ✔ 1 | 3 mech + 2 transcr | `available-suffix-lists-2013-style` | ✔ 3 |
-| wdtk-174543--licence-statistics | successful | statistics-aggregate | 2013-08-28 | — | 2 transcr | — | — |
+| wdtk-174543--licence-statistics | successful | statistics-aggregate | 2013-08-28 | ✔ 1 | 2 transcr | — | — |
 | wdtk-184767--annual-licence-counts | successful | statistics-aggregate | 2013-12 | ✔ 1 | 1 transcr | `wdtk-184767-counts-table` | ✔ 1 |
 | wdtk-197896--available-callsigns-list | successful | available-pool | 2014-03-14 | ✔ 1 | 3 mech | `available-suffix-lists-2013-style` | ✔ 3 |
 | wdtk-224333--available-callsigns-list | successful | available-pool | 2014-08-18 | ✔ 1 | 3 mech + 1 transcr | `wdtk-224333-prefix-suffix-lists` | ✔ 3 |
