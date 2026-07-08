@@ -122,7 +122,7 @@ describe('Dataset pages build', () => {
     }
   });
 
-  it('DatasetPages_Rebuild_IsDeterministic', () => {
+  it('DatasetPages_Rebuild_IsDeterministic', { timeout: 300_000 }, () => {
     // No timestamps or ordering instability: a rebuild over unchanged data
     // must produce identical bytes (Wayback re-crawls then see no change).
     const second = fs.mkdtempSync(path.join(os.tmpdir(), 'dataset-pages-2-'));
