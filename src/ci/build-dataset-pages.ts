@@ -596,6 +596,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     `<url><loc>${baseUrl}/index.html</loc></url>`,
+    `<url><loc>${baseUrl}/statistics.html</loc></url>`,
     ...pageUrls.map(url => `<url><loc>${url}</loc></url>`),
     '</urlset>',
     '',

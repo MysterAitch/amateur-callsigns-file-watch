@@ -30,15 +30,27 @@ describe('Home-page aggregate pre-rendering', () => {
     expect(html).toContain('unparseable');
   });
 
-  it('InjectHomeAggregates_SitePage_ReplacesBothPlaceholdersAndMarksPrerendered', () => {
-    const scratch = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'home-agg-')), 'index.html');
-    fs.copyFileSync(path.join('site', 'index.html'), scratch);
+  it('InjectHomeAggregates_StatisticsPage_ReplacesBothPlaceholders', () => {
+    const scratch = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'home-agg-')), 'statistics.html');
+    fs.copyFileSync(path.join('site', 'statistics.html'), scratch);
     injectHomeAggregates(scratch);
     const html = fs.readFileSync(scratch, 'utf8');
     expect(html).toContain('<div id="rsl-matrix-table" data-prerendered>');
     expect(html).toContain('<div id="flags-table" data-prerendered>');
-    expect(html).not.toContain('loading…');
+    expect(html).not.toContain('generated at deploy time — build the site to populate');
+    // Fully static by design: archived captures must be complete, so the
+    // statistics page ships without any script.
+    expect(html).not.toContain('<script');
     fs.rmSync(path.dirname(scratch), { recursive: true, force: true });
+  });
+
+  it('HomePage_CarriesNoAggregatePlaceholders_TheStatisticsPageOwnsThem', () => {
+    // The split: index.html is the interactive lookup only. A placeholder
+    // reappearing there would mean the injection targets have drifted.
+    const home = fs.readFileSync(path.join('site', 'index.html'), 'utf8');
+    expect(home).not.toContain('rsl-matrix-table');
+    expect(home).not.toContain('flags-table');
+    expect(home).toContain('statistics.html');
   });
 
   it('InjectHomeAggregates_PlaceholderMissing_FailsLoudly', () => {
