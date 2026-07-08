@@ -15,10 +15,12 @@ import { buildDatasetPages, type DatasetPagesSummary } from './build-dataset-pag
 let outputDir: string;
 let summary: DatasetPagesSummary;
 
+// Generous hook timeout: the per-entry RSL matrices parse seven ~158k-row
+// components.csv files, which exceeds the 10s default on CI runners.
 beforeAll(() => {
   outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dataset-pages-'));
   summary = buildDatasetPages(outputDir, 'https://example.test/site');
-});
+}, 300_000);
 
 afterAll(() => {
   fs.rmSync(outputDir, { recursive: true, force: true });
