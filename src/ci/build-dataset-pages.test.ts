@@ -56,6 +56,23 @@ describe('Dataset pages build', () => {
     expect(page).toContain('285990-amateur-call-signs.pdf');
   });
 
+  it('DatasetPages_MarkdownFiles_RenderedByDefaultWithRawOneClickAway', () => {
+    const entryDir = path.join(outputDir, 'datasets', 'foi', 'wdtk-251507--reissue-policy');
+    // The rendered sibling exists and carries the correspondence content
+    // as HTML (table cells, not pipe syntax).
+    const rendered = fs.readFileSync(path.join(entryDir, 'correspondence.md.html'), 'utf8');
+    expect(rendered).toContain('<td>');
+    expect(rendered).not.toContain('| **Ofcom reference** |');
+    expect(rendered).toContain('href="correspondence.md"'); // the raw record, linked
+    // The verbatim .md is still published byte-for-byte.
+    const raw = path.join('archive', 'foi', 'wdtk-251507--reissue-policy', 'correspondence.md');
+    expect(fs.readFileSync(path.join(entryDir, 'correspondence.md')).equals(fs.readFileSync(raw))).toBe(true);
+    // The entry page's file table defaults to the rendered view.
+    const page = fs.readFileSync(path.join(entryDir, 'index.html'), 'utf8');
+    expect(page).toContain('href="correspondence.md.html"');
+    expect(page).toContain('href="raw-extract-applicants-old-call-signs.md.html"');
+  });
+
   it('DatasetPages_Sitemap_ListsEveryEntryPageUnderTheBaseUrl', () => {
     const sitemap = fs.readFileSync(path.join(outputDir, 'sitemap.xml'), 'utf8');
     expect(sitemap).toContain('<loc>https://example.test/site/datasets/index.html</loc>');
