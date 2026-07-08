@@ -9,6 +9,9 @@ import {
   normalisedFileNameFor,
   slugifyBasename,
   FOI_NORMALISED_SCHEMA_VERSION,
+  FOI_ENTRY_CONVERSIONS,
+  FOI_ROW_SCHEMA_FAMILIES,
+  FOI_EXTENSION_COLUMNS,
 } from './foi-normalise.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
@@ -763,6 +766,38 @@ describe('FOI workbook-extract normaliser - registers and events', () => {
     expect(convertFoiSource(input, reissueEvents).csv).toBe(
       'callsign,event,event_date\n' +
       'G7DMN,reissued,2010-01-22\n');
+  });
+});
+
+// Column-name governance (issue #149 Phase A): every output column of every
+// conversion must be core to a row-schema family or registered as an
+// extension - converters cannot invent near-duplicate names.
+describe('FOI schema governance', () => {
+  it('FoiSchemas_EveryConversionOutputColumn_IsFamilyCoreOrRegistered', () => {
+    const allowed = new Set<string>([
+      ...FOI_ROW_SCHEMA_FAMILIES.flatMap(family => family.coreColumns),
+      ...Object.keys(FOI_EXTENSION_COLUMNS),
+    ]);
+    for (const [variant, conversions] of Object.entries(FOI_ENTRY_CONVERSIONS)) {
+      for (const conversion of conversions) {
+        for (const column of conversion.columns) {
+          expect(
+            allowed.has(column.output),
+            `variant ${variant}, ${conversion.sourceFile}: output column "${column.output}" is neither family-core nor a registered extension - add a reviewed definition to FOI_EXTENSION_COLUMNS`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('FoiSchemas_ExtensionFamilyReferences_NameRealFamilies', () => {
+    const familyNames = new Set(FOI_ROW_SCHEMA_FAMILIES.map(family => family.name));
+    for (const [name, extension] of Object.entries(FOI_EXTENSION_COLUMNS)) {
+      expect(extension.families.length, `extension ${name} lists no families`).toBeGreaterThan(0);
+      for (const family of extension.families) {
+        expect(familyNames.has(family), `extension ${name} references unknown family "${family}"`).toBe(true);
+      }
+    }
   });
 });
 

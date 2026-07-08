@@ -15,6 +15,9 @@
     "lint": "eslint src/",
     "validate:data": "node src/ci/validate-data.ts",
     "normalise:sweep": "node src/ci/normalise-sweep.ts",
+    "foi:sweep": "node src/ci/foi-sweep.ts",
+    "dataset:status": "node src/ci/dataset-status.ts",
+    "foi:schemas": "node src/ci/foi-schemas.ts",
     "all": "npm run pull && npm run process"
   },
   "license": "MIT",

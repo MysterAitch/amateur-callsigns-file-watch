@@ -514,6 +514,112 @@ function typedExportConversion(sourceFile: string, ignoredColumns: readonly stri
   };
 }
 
+// --- The published row-schema vocabulary (issue #149 Phase A) -----------
+//
+// Every normalised output column is either CORE to its row-schema family or
+// REGISTERED below - a governance test enforces this, so converters cannot
+// invent near-duplicate column names (issued_date vs licence_issued_date).
+// docs/foi-schemas.md renders these values; the prose here IS the published
+// definition.
+
+export interface FoiRowSchemaFamily {
+  name: string;
+  coreColumns: readonly string[];
+  description: string;
+}
+
+export const FOI_ROW_SCHEMA_FAMILIES: readonly FoiRowSchemaFamily[] = [
+  {
+    name: 'callsign-observation',
+    coreColumns: ['callsign', 'status', 'licence_class'],
+    description: 'one row per callsign asserting its state at the entry vintage (register snapshots, available lists); status and licence_class carry the source vocabulary verbatim, empty where the source asserts nothing',
+  },
+  {
+    name: 'issuance-events',
+    coreColumns: ['callsign', 'event', 'event_date'],
+    description: 'one row per dated per-callsign event; the event vocabulary is authored per converter from the source document\'s own wording (reissued, reallocated, reciprocal-licence-issued)',
+  },
+  {
+    name: 'suffix-list',
+    coreColumns: ['suffix'],
+    description: 'one row per three-letter suffix (the forbidden lists) - suffixes, not callsigns, by design',
+  },
+  {
+    name: 'counts-aggregate',
+    coreColumns: ['period'],
+    description: 'one row per reporting period carrying counts, not per-callsign data; the period label is carried verbatim from the source',
+  },
+  {
+    name: 'callsign-attributes',
+    coreColumns: ['callsign'],
+    description: 'one row per callsign (or per callsign-assignment) carrying attributes for downstream joins, without a status assertion (e.g. the Pre-War annex)',
+  },
+  {
+    name: 'database-fields',
+    coreColumns: ['view', 'field_name'],
+    description: 'the disclosed licensing-database column headings, grouped by database view (wdtk-238892 Annex A sheet 2)',
+  },
+];
+
+export interface FoiExtensionColumn {
+  definition: string;
+  families: readonly string[];
+}
+
+// Registered extension columns: carried only where the source asserts them,
+// named once here so every converter reuses the same name. Adding a column
+// means adding a reviewed definition, not inventing a header.
+export const FOI_EXTENSION_COLUMNS: Readonly<Record<string, FoiExtensionColumn>> = {
+  suffix: {
+    definition: 'the three-letter suffix component, carried verbatim alongside the callsign where the source is suffix-shaped',
+    families: ['callsign-observation'],
+  },
+  reserved_to_date: {
+    definition: 'reservation expiry (a validity END - legitimately after the entry vintage), ISO-rendered',
+    families: ['callsign-observation'],
+  },
+  licence_issued_date: {
+    definition: 'the licence issue date as disclosed in register snapshots, ISO-rendered',
+    families: ['callsign-observation'],
+  },
+  created_date: {
+    definition: 'the licensing-system record creation timestamp, ISO-rendered (time kept where the source carries one)',
+    families: ['callsign-observation'],
+  },
+  original_start_date: {
+    definition: 'the licence\'s original start date as disclosed, ISO-rendered; per-source semantics caveats live in the entry meta',
+    families: ['callsign-observation', 'callsign-attributes'],
+  },
+  status: {
+    definition: 'the licence status at disclosure, carried verbatim, when it accompanies event rows',
+    families: ['issuance-events'],
+  },
+  licence_class: {
+    definition: 'the licence product/class vocabulary carried verbatim, when it accompanies event rows',
+    families: ['issuance-events'],
+  },
+  reason: {
+    definition: 'the source\'s stated reason for the event, verbatim',
+    families: ['issuance-events'],
+  },
+  licence_number: {
+    definition: 'the Siebel-format licence identifier, verbatim',
+    families: ['issuance-events'],
+  },
+  con_id: {
+    definition: 'the Siebel-format contact/consent identifier, verbatim',
+    families: ['issuance-events'],
+  },
+  amateur_radio_licences_issued: {
+    definition: 'count of amateur radio licences issued in the period (thousands separators stripped, otherwise verbatim)',
+    families: ['counts-aggregate'],
+  },
+  business_radio_licences_issued: {
+    definition: 'count of business radio licences issued in the period (part of the disclosed assertion; consumers filter)',
+    families: ['counts-aggregate'],
+  },
+};
+
 export function conversionFor(variantName: string, sourceFile: string): FoiSourceConversion {
   const conversions = FOI_ENTRY_CONVERSIONS[variantName];
   if (conversions === undefined) {

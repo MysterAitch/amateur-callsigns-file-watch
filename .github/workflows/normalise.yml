@@ -50,11 +50,36 @@ jobs:
       - name: Run normalise sweep
         id: sweep
         env:
-          COVERAGE_MARKDOWN_FILE: /tmp/coverage.md
+          COVERAGE_MARKDOWN_FILE: /tmp/coverage-opendata.md
         run: |
           set +e
           npm run normalise:sweep
           echo "exitcode=$?" >> "$GITHUB_OUTPUT"
+
+      # The FOI lane is report-and-verify only (no writeback): converter
+      # changes ship their regenerated outputs in reviewed PRs and the
+      # golden-master tests enforce byte-equality on every CI run, so drift
+      # here means environment divergence or corruption - it turns the run
+      # red and names the entry on the dashboard.
+      - name: Run FOI derivation sweep
+        id: foi
+        env:
+          COVERAGE_MARKDOWN_FILE: /tmp/coverage-foi.md
+        run: |
+          set +e
+          npm run foi:sweep
+          echo "exitcode=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble coverage report
+        run: |
+          set -euo pipefail
+          # Each lane's sweep writes its section even when entries fail;
+          # a missing section means that sweep crashed before reporting, so
+          # leave /tmp/coverage.md absent and the steps below will refuse to
+          # PR from (or publish) unaccounted state.
+          if [ -f /tmp/coverage-opendata.md ] && [ -f /tmp/coverage-foi.md ]; then
+            cat /tmp/coverage-opendata.md /tmp/coverage-foi.md > /tmp/coverage.md
+          fi
 
       - name: Open PR for changed derivations
         env:
@@ -120,8 +145,9 @@ jobs:
       - name: Fail run if any entry failed to normalise
         env:
           SWEEP_EXITCODE: ${{ steps.sweep.outputs.exitcode }}
+          FOI_EXITCODE: ${{ steps.foi.outputs.exitcode }}
         run: |
-          if [ "$SWEEP_EXITCODE" != "0" ]; then
-            echo "::error::One or more entries failed to normalise - see the sweep step log and the coverage issue."
+          if [ "$SWEEP_EXITCODE" != "0" ] || [ "$FOI_EXITCODE" != "0" ]; then
+            echo "::error::One or more entries failed to normalise or verify - see the sweep step logs and the coverage issue."
             exit 1
           fi
