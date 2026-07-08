@@ -93,6 +93,77 @@ async function queryMaster(sql, params = []) {
   return worker.db.query(sql, params);
 }
 
+// The publication keys present in register_history, oldest first - the
+// timeline axis for longitudinal views. Cached after the first query.
+let historyDatasetsPromise = null;
+function historyDatasets() {
+  historyDatasetsPromise ??= queryMaster('SELECT DISTINCT dataset FROM register_history ORDER BY dataset')
+    .then(rows => rows.map(r => r.dataset));
+  return historyDatasetsPromise;
+}
+
+// Register history across every archived open-data publication: one row
+// per publication showing the callsign's status then, with transitions
+// annotated and absences shown (a callsign present in 2022 and gone in
+// 2023 is itself an event). Deliberately neutral on WHY a transition
+// happened - Allocated -> Reserved can be surrender, progression to a new
+// licence level under a different callsign, or death; the register does
+// not say which. Soft-fails to null (master-database hiccup never breaks
+// the lookup).
+async function registerHistoryCard(callsigns) {
+  try {
+    const distinct = [...new Set(callsigns.filter(Boolean))];
+    if (distinct.length === 0) return null;
+    const [datasets, rows] = await Promise.all([
+      historyDatasets(),
+      queryMaster(
+        `SELECT dataset, callsign, status, product FROM register_history
+         WHERE callsign IN (${distinct.map(() => '?').join(',')}) ORDER BY dataset, callsign`, distinct),
+    ]);
+    if (rows.length === 0) return null;
+    const byKey = new Map(rows.map(r => [`${r.dataset}|${r.callsign}`, r]));
+    const found = [...new Set(rows.map(r => r.callsign))];
+
+    const table = el('table');
+    table.append(el('thead', {}, [el('tr', {}, ['publication', 'status', 'product', 'change'].map(h => el('th', { text: h })))]));
+    const tbody = el('tbody');
+    for (const callsign of found) {
+      if (found.length > 1) {
+        tbody.append(el('tr', {}, [el('td', { colspan: '4' }, [el('strong', { text: callsign })])]));
+      }
+      let previous = null; // null = before first publication; '' = absent
+      for (const dataset of datasets) {
+        const row = byKey.get(`${dataset}|${callsign}`);
+        const status = row ? row.status : '';
+        let change = '';
+        if (previous !== null && status !== previous) {
+          const from = previous === '' ? '(absent)' : previous;
+          const to = status === '' ? '(absent)' : status;
+          change = `${from} → ${to}`;
+        }
+        const link = el('a', { href: `datasets/open-data/${dataset}/index.html`, text: dataset });
+        tbody.append(el('tr', {}, [
+          el('td', {}, [link]),
+          el('td', { text: row ? (status === '' ? '(blank status)' : status) : '(not in this publication)' }),
+          el('td', { text: row ? row.product : '' }),
+          el('td', { text: change, class: change === '' ? '' : 'flag' }),
+        ]));
+        previous = status;
+      }
+    }
+    table.append(tbody);
+    const wrap = el('div', { class: 'overflow' });
+    wrap.append(table);
+    return card('Register history (archived open-data publications)', [
+      el('p', { class: 'muted', text:
+        'Status per archived publication, oldest first. A change row records only what the register shows - an Allocated → Reserved transition can be a surrendered licence, progression to a new licence level under a different callsign, or the holder’s death; the register does not say which. Gaps between publications can hide intermediate states.' }),
+      wrap,
+    ]);
+  } catch {
+    return null;
+  }
+}
+
 // FOI-witnessed history for a callsign: every observation row across the
 // FOI lane's normalised datasets (register snapshots, available lists,
 // issuance events), oldest vintage first, each linked to its entry page.
@@ -266,6 +337,23 @@ async function suffixMatrix(suffix, result) {
       `Suffixes are normally three letters (two-letter forms are heritage; single letters are contest callsigns via NoV) - "${suffix}" is unusual.` })]));
   }
 
+  // Longitudinal presence per candidate callsign, one IN query over the
+  // master's register_history: which archived publications carry it, and
+  // whether its status ever varied. Soft-fails to an empty map.
+  const candidates = seriesList.map(s => `${s.prefix.replace('#', '')}${suffix}`);
+  const historyByCallsign = new Map();
+  try {
+    const historyRows = await queryMaster(
+      `SELECT callsign, dataset, status FROM register_history
+       WHERE callsign IN (${candidates.map(() => '?').join(',')}) ORDER BY dataset`, candidates);
+    for (const h of historyRows) {
+      const acc = historyByCallsign.get(h.callsign) ?? { datasets: [], statuses: new Set() };
+      acc.datasets.push(h.dataset);
+      acc.statuses.add(h.status);
+      historyByCallsign.set(h.callsign, acc);
+    }
+  } catch { /* master unavailable - history column degrades to blank */ }
+
   const rows = seriesList.map((s) => {
     const hash = s.prefix.includes('#') ? s.prefix : `${s.prefix[0]}#${s.prefix.slice(1)}`;
     const m = bySeries.get(s.prefix);
@@ -290,12 +378,24 @@ async function suffixMatrix(suffix, result) {
         state = `no record — reserved for the current ${s.prefix === 'M8' ? '2#0' : '2#1'} holder (${twin.callsign}; corresponding-callsign reservation)`;
       }
     }
-    return [`${hash}${suffix}`, s.station_level, s.issuing_status, state, flags];
+    // Longitudinal column: publications carrying this callsign, with a
+    // marker when the status ever varied across them - a disappearance or
+    // an Allocated -> Reserved swing is visible at a glance. For no-record
+    // rows a non-empty history means the callsign EXISTED in an earlier
+    // publication and has since left the register.
+    const h = historyByCallsign.get(`${s.prefix.replace('#', '')}${suffix}`);
+    let history = '';
+    if (h) {
+      history = `seen in ${h.datasets.length} publication${h.datasets.length === 1 ? '' : 's'}`;
+      if (h.statuses.size > 1) history += ` ⚠ status varied (${[...h.statuses].map(v => v === '' ? '(blank)' : v).join(' / ')})`;
+      if (!m) history += ' — since left the register';
+    }
+    return [`${hash}${suffix}`, s.station_level, s.issuing_status, state, flags, history];
   });
   sections.push(card(`Availability matrix: suffix ${suffix}`, [
     el('p', { class: 'muted', text:
-      'Register state per prefix series (latest dataset). "No record" means Ofcom holds no row for this callsign - Ofcom does not routinely record never-allocated callsigns, so this suggests, but does not guarantee, availability. Per-series format validity rules are not yet in the reference data. Flags are per-row data-quality markers (see the flag registry).' }),
-    renderTable(['callsign', 'level', 'series status', 'register state', 'flags'], rows, 99),
+      'Register state per prefix series (latest dataset). "No record" means Ofcom holds no row for this callsign - Ofcom does not routinely record never-allocated callsigns, so this suggests, but does not guarantee, availability. Per-series format validity rules are not yet in the reference data. Flags are per-row data-quality markers (see the flag registry). History spans the archived publications; look a callsign up for its full timeline (status changes can be surrender, progression, or death - the register does not say which).' }),
+    renderTable(['callsign', 'level', 'series status', 'register state', 'flags', 'history'], rows, 99),
   ]));
   result.replaceChildren(...sections);
 }
@@ -446,13 +546,14 @@ async function lookup(criteria) {
   }
 
   if (!row) {
-    // Absent from the current register is exactly where FOI history is
-    // most valuable: heritage transfers, pre-war annex callsigns, and
-    // past availability listings still witness the callsign.
-    const history = await foiHistoryCard([value]);
+    // Absent from the current register is exactly where history is most
+    // valuable: earlier publications may still hold the callsign, and FOI
+    // datasets witness heritage transfers and pre-war annex callsigns.
+    const [registerHistory, foiHistory] = await Promise.all([registerHistoryCard([value]), foiHistoryCard([value])]);
     result.replaceChildren(
       el('p', { text: `No register row for "${value}" in the latest dataset. (The register only holds callsigns Ofcom has had reason to record.)` }),
-      ...(history ? [history] : []),
+      ...(registerHistory ? [registerHistory] : []),
+      ...(foiHistory ? [foiHistory] : []),
     );
     return;
   }
@@ -538,10 +639,16 @@ async function lookup(criteria) {
     sections.push(card('Flags', [el('p', { class: 'status-ok', text: 'None - nothing anomalous recorded for this row.' })]));
   }
 
-  // FOI-witnessed history: query by the register row's callsign plus the
-  // as-typed value (regional renderings appear literally in FOI datasets).
-  const history = await foiHistoryCard([row.callsign, value]);
-  if (history) sections.push(history);
+  // Longitudinal history: the register's own state across archived
+  // publications, then FOI-witnessed observations - queried by the
+  // register row's callsign plus the as-typed value (regional renderings
+  // appear literally in FOI datasets).
+  const [registerHistory, foiHistory] = await Promise.all([
+    registerHistoryCard([row.callsign, value]),
+    foiHistoryCard([row.callsign, value]),
+  ]);
+  if (registerHistory) sections.push(registerHistory);
+  if (foiHistory) sections.push(foiHistory);
 
   result.replaceChildren(...sections);
 }
@@ -608,11 +715,17 @@ void populateFilters();
 void renderBuildInfo();
 
 // Deep link: arriving with ?c=M7TEE runs the lookup immediately, so every
-// callsign has a linkable page backed by the range-request database.
+// callsign has a linkable page backed by the range-request database. The
+// title and scroll position make the deep-linked view read as that
+// callsign's page rather than a pre-filled search.
 {
   const deepLinked = new URLSearchParams(window.location.search).get('c');
   if (deepLinked !== null && deepLinked.trim() !== '') {
-    document.getElementById('callsign').value = deepLinked.trim().toUpperCase();
-    void lookup(gatherCriteria());
+    const value = deepLinked.trim().toUpperCase();
+    document.getElementById('callsign').value = value;
+    document.title = `${value} — UK amateur callsign`;
+    void lookup(gatherCriteria()).then(() => {
+      document.getElementById('result').scrollIntoView({ block: 'start' });
+    });
   }
 }
