@@ -240,6 +240,12 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   const indexBody = [
     '<h1>Dataset index</h1>',
     '<p>Every archived dataset in both lanes, with the raw, extract and normalised files published verbatim at stable URLs. Integrity: each entry’s <code>meta.json</code> declares sha256 for every file; each entry ships a <a href="https://datapackage.org/">Frictionless</a> <code>datapackage.json</code>.</p>',
+    '<h2>Bulk downloads</h2>',
+    '<ul>',
+    '<li><a href="../data/foi-observations.csv.gz">foi-observations.csv.gz</a> — the flat union of every callsign-bearing FOI normalised row (one CSV, gzipped; empty cells conflate not-asserted with asserted-blank — the master database keeps them distinct as NULL vs empty string).</li>',
+    '<li><a href="../data/master.sqlite.png">master.sqlite.png</a> — one SQLite database of everything: the FOI observations union plus every open-data publication’s normalised rows (<code>register_history</code>). Plain SQLite wearing a .png name (hosting workaround).</li>',
+    '<li><code>../data/datasets/{lane}--{key}.sqlite.png</code> — one SQLite database per archive entry, one table per CSV.</li>',
+    '</ul>',
     `<h2>Open-data lane (${openDataKeys.length} publications)</h2>`,
     '<table><tr><th>publication</th><th>files</th><th>size</th></tr>',
     ...openDataRows,
