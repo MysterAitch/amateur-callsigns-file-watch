@@ -152,6 +152,79 @@ published artefacts (Pages) — both are stable interfaces.
 4. Every fact shown is asserted somewhere committed (meta, stats.json,
    registry) — pages present, they do not compute truths.
 
+## Ratified designs awaiting implementation
+
+*Specified precisely so implementation needs no further epistemic
+decisions (2026-07-09).*
+
+### Quality observations (new meta axis)
+
+Motivated by the confirmed 2025-06-04 blank-product filter (declared
+complete; 112,650 rows = the April publication minus its 45,157
+blank-product records, +380 drift — counts table on issue #177):
+
+- `meta.json` gains optional `qualityObservations: [{ observedAt,
+  statement, evidence, coverageAffecting }]` — hand-curated, cited,
+  reviewed like reference data. `intendedCoverage` is NEVER retro-edited:
+  intent stays intent; verified quality is a separate axis (as that
+  field's docs always promised).
+- The master's `history_datasets` carries `coverage_affecting_observation`;
+  the timeline treats such publications like declared-partials —
+  **absence is not evidence there** (today a blank-product callsign
+  absent from 2025-06-04 gets a false "(absent)" annotation).
+- Entry pages surface the observation under the H1 beside the
+  scope/provenance notes.
+- First entry: 2025-06-04 — "omits all blank-product records (~45k,
+  including live allocations) while declaring complete"; evidence: #177.
+
+### Knowledge-lane registry format
+
+`reference-data/conventions.csv` (working name), reviewed like code:
+`rule_id` (stable slug) · `statement` (one plain sentence) · `applies_to`
+(selector mini-grammar, initially `series:` / `class:` /
+`issued-before:` / `issued-after:` conjunctions) · `effective_from` /
+`effective_to` (date anchors) · `inference` (the sentence a page renders
+at point of use) · `epistemics` (`sourced` | `recollection` —
+recollection entries ALWAYS render with "(community recollection,
+unverified)") · `source` (required when sourced) · `notes`.
+
+First candidates: morse-era rule (stays `recollection` until the
+licensing-change date is sourced); M2 reserved-never-issued (2018 FOI
+prefix counts as source); G2 two-letter heritage conventions
+(wdtk-251507 as source); the 1970/1977/1984/1987 issue-spike
+explanations stay OUT until dated and sourced.
+
+### Edges artefact vocabulary (graph layer 2)
+
+Published at deploy as `data/edges.csv`
+(`from_type, from, to_type, to, edge_type, source`): edge types
+`in-publication` (register_history), `witnessed-by` (observations),
+`in-series` / `has-suffix` / `renders-as` / `cleaned-as` (components —
+cleaned-as duplicates expected), `transferred` (issuance-events
+observations), `rule-applies` (conventions selectors). Edges are
+derived knowledge, never primary; `source` names the deriving table so
+every edge is auditable. No UNIQUE constraints anywhere.
+
+### Story hooks (curated; the wording IS the work)
+
+Claim (exactly supported) + link + source:
+
+1. "**74 → 9.** Forbidden-suffix callsigns were issued routinely for
+   decades — until the flow collapsed in 2017, two years before Ofcom's
+   withheld list became public." → the Explore cohort example. Source:
+   the 2019 FOI issue-date histogram (#179 comment).
+2. "**M2: present in the register, never issued.** One register row, and
+   a 2018 FOI count that lists totals for every prefix around it." →
+   series/M2.html. Source: register + 2018 FOI prefix counts.
+3. "**The register lists one callsign twice.** G0TQK has been Reserved
+   (since 1993) and Allocated (since 2018) at the same time — and its
+   encoding-damaged twin haunts the 2022 publication." → ?c=G0TQK.
+   Source: the 2019 snapshot's two rows + the 2022 register.
+4. "**An intended-complete publication that wasn't.** The June 2025
+   dataset silently omitted ~45,000 records — every row with a blank
+   product field." → the 2025-06-04 entry page (once its quality
+   observation renders). Source: #177 counts table.
+
 ## Page inventory (ideal)
 
 | page | serves | answers | belongs | does NOT belong |
