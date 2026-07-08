@@ -21,7 +21,7 @@ This documents **what exists**. Whether each derivation still *verifies* is the
 | 2025-06-08 | ✔ | ✔ | ✔ | ✔ |
 | 2026-06-23 | ✔ | ✔ | ✔ | ✔ |
 
-## FOI lane (25 entries)
+## FOI lane (27 entries)
 
 Extracts: `mech` = mechanically re-derivable (xlsx, via `src/shared/xlsx-extract.ts`);
 `transcr` = attested transcription of a PDF (see the entry's raw-extract file).
@@ -31,6 +31,8 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | entry | outcome | dataset classes | vintage | data files | extracts | converter | normalised |
 |---|---|---|---|---|---|---|---|
 | ofcom-2017-07-03--all-callsigns-with-status | successful | register-snapshot, reference-context | 2017-04-24 | ✔ 1 | 1 transcr | — | — |
+| ofcom-285990--available-list-jun-2016 | successful | reference-context | 2016-06-29 | — | 1 transcr | — | — |
+| ofcom-299351--available-list-referral | successful | reference-context | — | — | 1 transcr | — | — |
 | ofcom-337399--all-callsigns-published-copy | successful | register-snapshot, forbidden-list | 2016-09 | ✔ 1 | 1 transcr | — | — |
 | ofcom-498903--reissued-callsigns-since-2010 | successful | issuance-events | 2017-11 | ✔ 1 | 1 mech + 1 transcr | `ofcom-498903-reissue-events` | ✔ 1 |
 | ofcom-518689--suffix-availability-not-held | not held | reference-context | — | — | 1 transcr | — | — |

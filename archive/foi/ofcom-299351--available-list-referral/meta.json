@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": "299351",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/pdf_file/0027/54459/299351-available-amateur-call0-signs.pdf",
+  "title": "Available amateur radio call signs (web-link referral to the 285990 list)",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "the letter does not quote the request date; the request necessarily postdates the July 2016 publication of the 285990 list the answer links to",
+  "respondedAt": null,
+  "respondedAtNote": "the published letter is undated and does not quote the request date; it postdates the July 2016 publication of the 285990 list it links to",
+  "outcome": "successful",
+  "dataVintage": null,
+  "datasetClasses": ["reference-context"],
+  "converter": null,
+  "relatedEntries": [
+    { "entry": "ofcom-285990--available-list-jun-2016", "relation": "the letter answers by linking to 285990's published response page - secondary evidence the June 2016 list remained the current published availability snapshot" }
+  ],
+  "files": {
+    "299351-available-amateur-call0-signs.pdf": {
+      "bytes": 240835,
+      "sha256": "cfdee3d0b43f06a3ac1a56286637698a96fbdbb0b7880bc80cd6f83439d15a6f",
+      "role": "response-letter",
+      "contentsIndicative": "one-page undated web-link referral: an available-callsigns request answered with a link to the published 285990 response page; the earliest known referral-shaped answer in the amateur series (published filename's 'call0' typo is Ofcom's own)",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0027/54459/299351-available-amateur-call0-signs.pdf",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-299351-available-amateur-call0-signs.md": {
+      "bytes": 870,
+      "sha256": "5d7a5ca57601d69c58fd9599c22fea9b87fd47835d7d2182325ef6a4fc4cf428",
+      "role": "extract",
+      "extractOf": "299351-available-amateur-call0-signs.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 1636,
+      "sha256": "4e843f8ea7c0b8e47f4268a79378218d364d64ecbd94183c0f5b1d31beb5d6c8",
+      "role": "transcript"
+    }
+  }
+}
