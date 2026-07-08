@@ -30,6 +30,7 @@ import { listFoiEntryKeys, readFoiEntryMeta, FOI_DATASET_CLASSES, type FoiEntryM
 import { renderMarkdown } from '../shared/render-markdown.ts';
 import { parseFlagRegistry } from './build-sqlite.ts';
 import { parse } from 'csv-parse/sync';
+import { buildZip } from '../shared/zip.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
@@ -258,7 +259,39 @@ function foiDataSummarySections(meta: FoiEntryMeta): string[] {
   return html;
 }
 
-function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files: CopiedFile[]; meta: FoiEntryMeta } {
+// One deterministic zip per entry: every archived file, the
+// datapackage.json descriptor, AND the lane's data dictionary (the
+// committed authoritative sources, under docs/ inside the zip), so a
+// single download carries the data, its provenance/integrity record and
+// the vocabulary to interpret it. Zip bytes only change when content
+// changes - timestamps are pinned by the writer - so a dictionary edit
+// legitimately re-versions every zip that carries it. Returns the zip's
+// byte size.
+function writeEntryZip(sourceDir: string, targetDir: string, key: string, descriptorJson: string, dictionarySources: string[]): number {
+  const entries = fs.readdirSync(sourceDir).sort().map(name => ({
+    name,
+    data: fs.readFileSync(path.join(sourceDir, name)),
+  }));
+  entries.push({ name: 'datapackage.json', data: Buffer.from(descriptorJson, 'utf8') });
+  for (const source of dictionarySources) {
+    entries.push({ name: `docs/${path.basename(source)}`, data: fs.readFileSync(path.join(REPO_ROOT, source)) });
+  }
+  const zip = buildZip(entries);
+  fs.writeFileSync(path.join(targetDir, `${key}.zip`), zip);
+  return zip.length;
+}
+
+// The lane-appropriate data dictionary: FOI entries carry the FOI schema
+// registry; open-data entries carry the normalised schema and the flag
+// registry their metrics reference.
+const FOI_DICTIONARY_SOURCES = ['docs/foi-schemas.md'];
+const OPEN_DATA_DICTIONARY_SOURCES = ['docs/normalised-schema.md', 'reference-data/flags.md'];
+
+function entryZipLine(key: string, zipBytes: number): string {
+  return `<p>Download everything (all files above, plus the descriptor and the data dictionary) as one archive: <a href="${encodeURIComponent(`${key}.zip`)}">${escapeHtml(key)}.zip</a> (${formatBytes(zipBytes)}).</p>`;
+}
+
+function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files: CopiedFile[]; meta: FoiEntryMeta; zipBytes: number } {
   const meta = readFoiEntryMeta(foiDir, key);
   const descriptions = new Map<string, string>();
   const hashes = new Map<string, string>();
@@ -285,6 +318,8 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files:
   const related = (meta.relatedEntries ?? []).map(rel =>
     `<li>${/^(wdtk|ofcom)-[^\s/]+$/.test(rel.entry) ? `<a href="../${encodeURIComponent(rel.entry)}/index.html"><code>${escapeHtml(rel.entry)}</code></a>` : `<code>${escapeHtml(rel.entry)}</code>`} — ${escapeHtml(rel.relation)}</li>`);
 
+  const descriptor = dataPackage(key, meta.title, files);
+  const zipBytes = writeEntryZip(path.join(foiDir, key), targetDir, key, descriptor, FOI_DICTIONARY_SOURCES);
   const body = [
     `<h1>${escapeHtml(meta.title)}</h1>`,
     `<p>FOI archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
@@ -294,12 +329,13 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files:
     ...foiDataSummarySections(meta),
     '<h2>Files</h2>',
     ...filesTable(files),
+    entryZipLine(key, zipBytes),
     ...entryDatabaseLine(outputDir, 'foi', key),
     ...(related.length > 0 ? ['<h2>Related entries</h2>', '<ul>', ...related, '</ul>'] : []),
   ];
   fs.writeFileSync(path.join(targetDir, 'index.html'), htmlPage(meta.title, 3, body, 'meta.json'));
-  fs.writeFileSync(path.join(targetDir, 'datapackage.json'), dataPackage(key, meta.title, files));
-  return { files, meta };
+  fs.writeFileSync(path.join(targetDir, 'datapackage.json'), descriptor);
+  return { files, meta, zipBytes };
 }
 
 // The per-entry SQLite database is built earlier in the deploy (the data
@@ -428,7 +464,7 @@ function openDataMetricsSections(sourceDir: string, key: string): string[] {
   return html;
 }
 
-function buildOpenDataEntry(outputDir: string, key: string): { files: CopiedFile[] } {
+function buildOpenDataEntry(outputDir: string, key: string): { files: CopiedFile[]; zipBytes: number } {
   const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
   const descriptions = new Map<string, string>([
     ['raw.csv', "Ofcom's bytes, verbatim"],
@@ -440,6 +476,8 @@ function buildOpenDataEntry(outputDir: string, key: string): { files: CopiedFile
   const title = `Ofcom open-data publication ${key}`;
   const targetDir = path.join(outputDir, 'datasets', 'open-data', key);
   const files = copyEntryFiles(sourceDir, targetDir, descriptions, new Map(), title);
+  const descriptor = dataPackage(key, title, files);
+  const zipBytes = writeEntryZip(sourceDir, targetDir, key, descriptor, OPEN_DATA_DICTIONARY_SOURCES);
   const body = [
     `<h1>${escapeHtml(title)}</h1>`,
     `<p>Open-data archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
@@ -447,11 +485,12 @@ function buildOpenDataEntry(outputDir: string, key: string): { files: CopiedFile
     ...rslMatrixSection(path.join(sourceDir, 'components.csv')),
     '<h2>Files</h2>',
     ...filesTable(files),
+    entryZipLine(key, zipBytes),
     ...entryDatabaseLine(outputDir, 'open-data', key),
   ];
   fs.writeFileSync(path.join(targetDir, 'index.html'), htmlPage(title, 3, body, 'meta.json'));
-  fs.writeFileSync(path.join(targetDir, 'datapackage.json'), dataPackage(key, title, files));
-  return { files };
+  fs.writeFileSync(path.join(targetDir, 'datapackage.json'), descriptor);
+  return { files, zipBytes };
 }
 
 export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_BASE_URL): DatasetPagesSummary {
@@ -465,18 +504,18 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
 
   const openDataRows: string[] = [];
   for (const key of openDataKeys) {
-    const { files } = buildOpenDataEntry(outputDir, key);
+    const { files, zipBytes } = buildOpenDataEntry(outputDir, key);
     fileCount += files.length;
-    totalBytes += files.reduce((sum, f) => sum + f.bytes, 0);
+    totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;
     pageUrls.push(`${baseUrl}/datasets/open-data/${key}/index.html`);
     openDataRows.push(`<tr><td><a href="open-data/${key}/index.html">Publication of ${humanDate(key)}</a> <code>${key}</code></td><td>${files.length}</td><td>${formatBytes(files.reduce((s, f) => s + f.bytes, 0))}</td></tr>`);
   }
 
   const foiRows: string[] = [];
   for (const key of foiKeys) {
-    const { files, meta } = buildFoiEntry(outputDir, foiDir, key);
+    const { files, meta, zipBytes } = buildFoiEntry(outputDir, foiDir, key);
     fileCount += files.length;
-    totalBytes += files.reduce((sum, f) => sum + f.bytes, 0);
+    totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;
     pageUrls.push(`${baseUrl}/datasets/foi/${key}/index.html`);
     foiRows.push(`<tr><td><a href="foi/${encodeURIComponent(key)}/index.html">${escapeHtml(meta.title)}</a><br><code>${escapeHtml(key)}</code></td><td>${escapeHtml(meta.dataVintage ?? '—')}</td><td>${meta.datasetClasses.map(c => `<code>${escapeHtml(c)}</code>`).join(', ')}</td></tr>`);
   }
@@ -485,9 +524,38 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     throw new Error(`dataset pages would ship ${totalBytes} bytes - over the ${MAX_TOTAL_BYTES} ceiling; revisit what is published before deploying`);
   }
 
+  // Data dictionary: the repository's schema documentation rendered onto
+  // the site so the published datasets are interpretable without the
+  // repo. Sources are the committed docs (two of them generated and
+  // freshness-tested), rendered with the same markdown renderer as the
+  // correspondence records.
+  const dictionaryDocs = [
+    { source: 'docs/normalised-schema.md', slug: 'normalised-schema', label: 'Open-data normalised schema', blurb: 'column-by-column definitions of every open-data publication’s <code>normalised.csv</code> and <code>components.csv</code>.' },
+    { source: 'docs/foi-schemas.md', slug: 'foi-schemas', label: 'FOI dataset schemas', blurb: 'the dataset-class glossary, row-schema families, registered extension columns, and per-variant conversion detail behind every FOI <code>normalised--*.csv</code>.' },
+    { source: 'reference-data/flags.md', slug: 'flags', label: 'Data-quality flag registry', blurb: 'the meaning and grounding of every anomaly flag used in the metrics and the lookup.' },
+  ];
+  const docsDir = path.join(outputDir, 'datasets', 'docs');
+  fs.mkdirSync(docsDir, { recursive: true });
+  for (const doc of dictionaryDocs) {
+    const docBody = [
+      `<p><small>Rendered from <a href="${REPO_URL}/blob/main/${doc.source}">${escapeHtml(doc.source)}</a> in the repository (the authoritative copy).</small></p>`,
+      '<hr>',
+      renderMarkdown(fs.readFileSync(path.join(REPO_ROOT, doc.source), 'utf8')),
+    ];
+    fs.writeFileSync(path.join(docsDir, `${doc.slug}.html`), htmlPage(doc.label, 2, docBody));
+    pageUrls.push(`${baseUrl}/datasets/docs/${doc.slug}.html`);
+  }
+  const dictionarySection = [
+    '<h2>Data dictionary</h2>',
+    '<ul>',
+    ...dictionaryDocs.map(doc => `<li><a href="docs/${doc.slug}.html">${escapeHtml(doc.label)}</a> — ${doc.blurb}</li>`),
+    '</ul>',
+  ];
+
   const indexBody = [
     '<h1>Dataset index</h1>',
-    '<p>Every archived dataset in both collections below, with the raw, extract and normalised files published verbatim at stable URLs. Integrity: each entry’s <code>meta.json</code> declares sha256 for every file; each entry ships a <a href="https://datapackage.org/">Frictionless</a> <code>datapackage.json</code>.</p>',
+    '<p>Every archived dataset in both collections below, with the raw, extract and normalised files published verbatim at stable URLs. Integrity: each entry’s <code>meta.json</code> declares sha256 for every file; each entry ships a <a href="https://datapackage.org/">Frictionless</a> <code>datapackage.json</code> and a one-click <code>.zip</code> of everything.</p>',
+    ...dictionarySection,
     '<h2>Bulk downloads</h2>',
     '<ul>',
     `<li><a href="../data/foi-observations.csv.gz">foi-observations.csv.gz</a>${sizeOf(path.join(outputDir, 'data', 'foi-observations.csv.gz'))} — the flat union of every callsign-bearing FOI normalised row (one CSV, gzipped; empty cells conflate not-asserted with asserted-blank — the master database keeps them distinct as NULL vs empty string).</li>`,
