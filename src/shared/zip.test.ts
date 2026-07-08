@@ -30,6 +30,9 @@ describe('Deterministic zip writer', () => {
         { name: 'normalised.csv', data: text },
         { name: 'meta.json', data: Buffer.from('{"a":1}\n') },
         { name: 'raw.bin', data: binary },
+        // Subdirectory entries (the bundled data dictionary) extract even
+        // though the writer emits no explicit directory records.
+        { name: 'docs/dictionary.md', data: Buffer.from('# Dictionary\n') },
       ]);
       const zipPath = path.join(scratch, 'entry.zip');
       fs.writeFileSync(zipPath, zip);
@@ -38,6 +41,7 @@ describe('Deterministic zip writer', () => {
       expect(fs.readFileSync(path.join(dest, 'normalised.csv')).equals(text)).toBe(true);
       expect(fs.readFileSync(path.join(dest, 'raw.bin')).equals(binary)).toBe(true);
       expect(fs.readFileSync(path.join(dest, 'meta.json'), 'utf8')).toBe('{"a":1}\n');
+      expect(fs.readFileSync(path.join(dest, 'docs', 'dictionary.md'), 'utf8')).toBe('# Dictionary\n');
     } finally {
       fs.rmSync(scratch, { recursive: true, force: true });
     }

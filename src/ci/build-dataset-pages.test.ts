@@ -118,9 +118,10 @@ describe('Dataset pages build', () => {
     const key = 'ofcom-498906--reciprocal-licences-since-2010';
     const zipPath = path.join(outputDir, 'datasets', 'foi', key, `${key}.zip`);
     expect(fs.existsSync(zipPath)).toBe(true);
-    // Central directory names every archived file plus the descriptor.
+    // Central directory names every archived file, the descriptor, and
+    // the lane's data dictionary.
     const zip = fs.readFileSync(zipPath);
-    for (const name of [...fs.readdirSync(path.join('archive', 'foi', key)), 'datapackage.json']) {
+    for (const name of [...fs.readdirSync(path.join('archive', 'foi', key)), 'datapackage.json', 'docs/foi-schemas.md']) {
       expect(zip.includes(Buffer.from(name, 'utf8'))).toBe(true);
     }
     // The entry page offers it with a size (the download-link pattern).

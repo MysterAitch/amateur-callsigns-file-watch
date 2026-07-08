@@ -259,22 +259,36 @@ function foiDataSummarySections(meta: FoiEntryMeta): string[] {
   return html;
 }
 
-// One deterministic zip per entry: every archived file plus the
-// datapackage.json descriptor, so a single download carries the data AND
-// its provenance/integrity record. Returns the zip's byte size.
-function writeEntryZip(sourceDir: string, targetDir: string, key: string, descriptorJson: string): number {
+// One deterministic zip per entry: every archived file, the
+// datapackage.json descriptor, AND the lane's data dictionary (the
+// committed authoritative sources, under docs/ inside the zip), so a
+// single download carries the data, its provenance/integrity record and
+// the vocabulary to interpret it. Zip bytes only change when content
+// changes - timestamps are pinned by the writer - so a dictionary edit
+// legitimately re-versions every zip that carries it. Returns the zip's
+// byte size.
+function writeEntryZip(sourceDir: string, targetDir: string, key: string, descriptorJson: string, dictionarySources: string[]): number {
   const entries = fs.readdirSync(sourceDir).sort().map(name => ({
     name,
     data: fs.readFileSync(path.join(sourceDir, name)),
   }));
   entries.push({ name: 'datapackage.json', data: Buffer.from(descriptorJson, 'utf8') });
+  for (const source of dictionarySources) {
+    entries.push({ name: `docs/${path.basename(source)}`, data: fs.readFileSync(path.join(REPO_ROOT, source)) });
+  }
   const zip = buildZip(entries);
   fs.writeFileSync(path.join(targetDir, `${key}.zip`), zip);
   return zip.length;
 }
 
+// The lane-appropriate data dictionary: FOI entries carry the FOI schema
+// registry; open-data entries carry the normalised schema and the flag
+// registry their metrics reference.
+const FOI_DICTIONARY_SOURCES = ['docs/foi-schemas.md'];
+const OPEN_DATA_DICTIONARY_SOURCES = ['docs/normalised-schema.md', 'reference-data/flags.md'];
+
 function entryZipLine(key: string, zipBytes: number): string {
-  return `<p>Download everything (all files above plus the descriptor) as one archive: <a href="${encodeURIComponent(`${key}.zip`)}">${escapeHtml(key)}.zip</a> (${formatBytes(zipBytes)}).</p>`;
+  return `<p>Download everything (all files above, plus the descriptor and the data dictionary) as one archive: <a href="${encodeURIComponent(`${key}.zip`)}">${escapeHtml(key)}.zip</a> (${formatBytes(zipBytes)}).</p>`;
 }
 
 function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files: CopiedFile[]; meta: FoiEntryMeta; zipBytes: number } {
@@ -305,7 +319,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files:
     `<li>${/^(wdtk|ofcom)-[^\s/]+$/.test(rel.entry) ? `<a href="../${encodeURIComponent(rel.entry)}/index.html"><code>${escapeHtml(rel.entry)}</code></a>` : `<code>${escapeHtml(rel.entry)}</code>`} — ${escapeHtml(rel.relation)}</li>`);
 
   const descriptor = dataPackage(key, meta.title, files);
-  const zipBytes = writeEntryZip(path.join(foiDir, key), targetDir, key, descriptor);
+  const zipBytes = writeEntryZip(path.join(foiDir, key), targetDir, key, descriptor, FOI_DICTIONARY_SOURCES);
   const body = [
     `<h1>${escapeHtml(meta.title)}</h1>`,
     `<p>FOI archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
@@ -463,7 +477,7 @@ function buildOpenDataEntry(outputDir: string, key: string): { files: CopiedFile
   const targetDir = path.join(outputDir, 'datasets', 'open-data', key);
   const files = copyEntryFiles(sourceDir, targetDir, descriptions, new Map(), title);
   const descriptor = dataPackage(key, title, files);
-  const zipBytes = writeEntryZip(sourceDir, targetDir, key, descriptor);
+  const zipBytes = writeEntryZip(sourceDir, targetDir, key, descriptor, OPEN_DATA_DICTIONARY_SOURCES);
   const body = [
     `<h1>${escapeHtml(title)}</h1>`,
     `<p>Open-data archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
