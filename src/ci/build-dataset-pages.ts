@@ -27,6 +27,7 @@ import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta } from '../shared/foi-archive.ts';
+import { renderMarkdown } from '../shared/render-markdown.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
@@ -103,18 +104,35 @@ interface CopiedFile {
   description?: string;
   sha256?: string;
   schemaFields?: { name: string; type: string }[];
+  // Present for markdown files: the rendered .html sibling written next to
+  // the verbatim .md - the browsing default, with the raw file one click
+  // away.
+  renderedName?: string;
 }
 
 // Copies every file of an entry directory into the output tree and returns
-// the manifest used by both the page and the descriptor.
-function copyEntryFiles(sourceDir: string, targetDir: string, descriptions: Map<string, string>, hashes: Map<string, string>): CopiedFile[] {
+// the manifest used by both the page and the descriptor. Markdown files
+// (correspondence records, PDF transcription extracts) additionally get a
+// rendered .html sibling for browsing; the verbatim .md remains the
+// published record.
+function copyEntryFiles(sourceDir: string, targetDir: string, descriptions: Map<string, string>, hashes: Map<string, string>, entryTitle: string): CopiedFile[] {
   fs.mkdirSync(targetDir, { recursive: true });
   return fs.readdirSync(sourceDir).sort().map(name => {
     const sourcePath = path.join(sourceDir, name);
     fs.copyFileSync(sourcePath, path.join(targetDir, name));
     const bytes = fs.statSync(sourcePath).size;
     const schemaFields = name.endsWith('.csv') ? csvHeaderFields(sourcePath) : undefined;
-    return { name, bytes, description: descriptions.get(name), sha256: hashes.get(name), schemaFields };
+    let renderedName: string | undefined;
+    if (name.endsWith('.md')) {
+      renderedName = `${name}.html`;
+      const body = [
+        `<p><small>Rendered from <a href="${encodeURIComponent(name)}">${escapeHtml(name)}</a> (the verbatim record) — part of <a href="index.html">${escapeHtml(entryTitle)}</a>.</small></p>`,
+        '<hr>',
+        renderMarkdown(fs.readFileSync(sourcePath, 'utf8')),
+      ];
+      fs.writeFileSync(path.join(targetDir, renderedName), htmlPage(`${name} — ${entryTitle}`, 3, body));
+    }
+    return { name, bytes, description: descriptions.get(name), sha256: hashes.get(name), schemaFields, renderedName };
   });
 }
 
@@ -138,8 +156,13 @@ function filesTable(files: CopiedFile[]): string[] {
   return [
     '<table>',
     '<tr><th>file</th><th>size</th><th>notes</th></tr>',
-    ...files.map(file =>
-      `<tr><td><a href="${encodeURIComponent(file.name)}">${escapeHtml(file.name)}</a></td><td>${formatBytes(file.bytes)}</td><td>${escapeHtml(file.description ?? '')}</td></tr>`),
+    ...files.map(file => {
+      // Markdown defaults to the rendered view; the verbatim raw file
+      // stays one click away.
+      const mainHref = file.renderedName === undefined ? encodeURIComponent(file.name) : encodeURIComponent(file.renderedName);
+      const rawLink = file.renderedName === undefined ? '' : ` · <a href="${encodeURIComponent(file.name)}">raw</a>`;
+      return `<tr><td><a href="${mainHref}">${escapeHtml(file.name)}</a>${rawLink}</td><td>${formatBytes(file.bytes)}</td><td>${escapeHtml(file.description ?? '')}</td></tr>`;
+    }),
     '</table>',
   ];
 }
@@ -155,7 +178,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files:
   }
   descriptions.set('meta.json', 'provenance, outcome, and hash-pinned file declarations');
   const targetDir = path.join(outputDir, 'datasets', 'foi', key);
-  const files = copyEntryFiles(path.join(foiDir, key), targetDir, descriptions, hashes);
+  const files = copyEntryFiles(path.join(foiDir, key), targetDir, descriptions, hashes, meta.title);
 
   const facts: string[] = [
     `<tr><th>outcome</th><td>${escapeHtml(meta.outcome)}${meta.datasetRecovery === undefined ? '' : ` <em>(dataset ${escapeHtml(meta.datasetRecovery)})</em>`}</td></tr>`,
@@ -170,7 +193,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files:
 
   const body = [
     `<h1>${escapeHtml(meta.title)}</h1>`,
-    `<p>FOI-lane archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
+    `<p>FOI archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
     '<table>',
     ...facts,
     '</table>',
@@ -192,12 +215,12 @@ function buildOpenDataEntry(outputDir: string, key: string): { files: CopiedFile
     ['components.csv', 'per-callsign component decomposition'],
     ['stats.json', 'per-publication statistics and data-quality flags'],
   ]);
-  const targetDir = path.join(outputDir, 'datasets', 'open-data', key);
-  const files = copyEntryFiles(sourceDir, targetDir, descriptions, new Map());
   const title = `Ofcom open-data publication ${key}`;
+  const targetDir = path.join(outputDir, 'datasets', 'open-data', key);
+  const files = copyEntryFiles(sourceDir, targetDir, descriptions, new Map(), title);
   const body = [
     `<h1>${escapeHtml(title)}</h1>`,
-    `<p>Open-data-lane archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
+    `<p>Open-data archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
     '<h2>Files</h2>',
     ...filesTable(files),
   ];
@@ -239,22 +262,35 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
 
   const indexBody = [
     '<h1>Dataset index</h1>',
-    '<p>Every archived dataset in both lanes, with the raw, extract and normalised files published verbatim at stable URLs. Integrity: each entry’s <code>meta.json</code> declares sha256 for every file; each entry ships a <a href="https://datapackage.org/">Frictionless</a> <code>datapackage.json</code>.</p>',
+    '<p>Every archived dataset in both collections below, with the raw, extract and normalised files published verbatim at stable URLs. Integrity: each entry’s <code>meta.json</code> declares sha256 for every file; each entry ships a <a href="https://datapackage.org/">Frictionless</a> <code>datapackage.json</code>.</p>',
     '<h2>Bulk downloads</h2>',
     '<ul>',
     '<li><a href="../data/foi-observations.csv.gz">foi-observations.csv.gz</a> — the flat union of every callsign-bearing FOI normalised row (one CSV, gzipped; empty cells conflate not-asserted with asserted-blank — the master database keeps them distinct as NULL vs empty string).</li>',
     '<li><a href="../data/master.sqlite.gz">master.sqlite.gz</a> — one SQLite database of everything: the FOI observations union plus every open-data publication’s normalised rows (<code>register_history</code>).</li>',
-    '<li><code>../data/datasets/{lane}--{key}.sqlite.gz</code> — one SQLite database per archive entry, one table per CSV (linked from each entry page’s lane in the tables below).</li>',
+    '<li><code>../data/datasets/open-data--{key}.sqlite.gz</code> / <code>foi--{key}.sqlite.gz</code> — one SQLite database per archive entry, one table per CSV.</li>',
     '</ul>',
     '<!-- Reading the source? The site also serves callsigns.sqlite.png and master.sqlite.png: those ARE plain SQLite databases, byte-identical to the honest-named downloads once gunzipped. The .png extension defeats GitHub Pages\' gzip transcoding of Range responses, which corrupts the lookup\'s HTTP range-request reads (sql.js-httpvfs). Use the .sqlite.gz downloads above; the .png files exist for the in-browser lookup. -->',
     '<details><summary>Why do the site’s own database files end in <code>.png</code>?</summary>',
     '<p>The in-browser lookup queries its databases over HTTP <em>range requests</em> without downloading them whole. GitHub Pages gzip-transcodes text-like content types — including their range responses, which corrupts partial reads — but never re-compresses image types, so the databases the site queries live (<code>callsigns.sqlite.png</code>, <code>master.sqlite.png</code>) wear a <code>.png</code> name. They are plain SQLite files, byte-identical to the gzipped downloads above; if you ended up with one, rename it to <code>.sqlite</code> and it will open normally.</p>',
     '</details>',
-    `<h2>Open-data lane (${openDataKeys.length} publications)</h2>`,
+    `<h2>Ofcom open data (${openDataKeys.length} publications)</h2>`,
+    '<p>Ofcom publish the current amateur radio callsign dataset on their',
+    '<a href="https://www.ofcom.org.uk/about-ofcom/our-research/opendata">open data page</a> —',
+    'but only the current version, with no historical archive. This section preserves a copy of each',
+    'publication as obtained at the time, byte-for-byte, so past register states remain checkable.</p>',
     '<table><tr><th>publication</th><th>files</th><th>size</th></tr>',
     ...openDataRows,
     '</table>',
-    `<h2>FOI lane (${foiKeys.length} entries)</h2>`,
+    `<h2>FOI requests and responses (${foiKeys.length} entries)</h2>`,
+    '<p>Ofcom is a public body: under the Freedom of Information Act 2000 it must, on request, disclose',
+    'information it holds (subject to the Act’s exemptions). Following years of such requests, Ofcom now',
+    'publishes point-in-time callsign data periodically — the open data section above. This section archives',
+    'amateur-radio FOI requests and responses recovered from Ofcom’s own published responses, the UK',
+    'Government Web Archive, and third-party sites such as',
+    '<a href="https://www.whatdotheyknow.com/">WhatDoTheyKnow</a> — a decade of register snapshots,',
+    'availability lists and issuance records predating the open data page. Where, when and how each file',
+    'was retrieved is recorded alongside it: machine-readably in the entry’s hash-pinned <code>meta.json</code>,',
+    'and narratively in its correspondence record.</p>',
     '<table><tr><th>entry</th><th>title</th><th>vintage</th><th>dataset classes</th></tr>',
     ...foiRows,
     '</table>',
