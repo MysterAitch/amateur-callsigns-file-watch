@@ -26,7 +26,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { CONSTANTS } from '../shared/utils.ts';
-import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta } from '../shared/foi-archive.ts';
+import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
 import { renderMarkdown } from '../shared/render-markdown.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -52,6 +52,21 @@ function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${bytes} B`;
+}
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// '2022-05-30' -> '30 May 2022' (deterministic; no locale machinery).
+function humanDate(isoDate: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate);
+  if (match === null) return isoDate;
+  return `${Number(match[3])} ${MONTHS[Number(match[2]) - 1]} ${match[1]}`;
+}
+
+// Download links always show a size; navigation links never do - the
+// consistent pattern that tells a visitor what a click will do.
+function sizeOf(filePath: string): string {
+  return fs.existsSync(filePath) ? ` (${formatBytes(fs.statSync(filePath).size)})` : '';
 }
 
 // Column names from a CSV's own header row - the honest schema source.
@@ -82,8 +97,11 @@ const PAGE_STYLE = [
   '</style>',
 ].join('');
 
-function htmlPage(title: string, depthToRoot: number, body: string[]): string {
+function htmlPage(title: string, depthToRoot: number, body: string[], metaJsonHref?: string): string {
   const rootPath = '../'.repeat(depthToRoot);
+  // On entry pages the footer's meta.json mention links to THAT entry's
+  // meta; elsewhere it stays plain text (a generic link would mislead).
+  const metaMention = metaJsonHref === undefined ? '<code>meta.json</code>' : `<a href="${metaJsonHref}"><code>meta.json</code></a>`;
   return [
     '<!DOCTYPE html>',
     '<html lang="en-GB">',
@@ -91,7 +109,7 @@ function htmlPage(title: string, depthToRoot: number, body: string[]): string {
     '<body>',
     `<p><a href="${rootPath}index.html">← callsign lookup</a> · <a href="${'../'.repeat(depthToRoot - 1) || './'}index.html">dataset index</a> · <a href="${REPO_URL}">repository</a></p>`,
     ...body,
-    `<p><small>Derived from the committed archive; provenance and integrity hashes live in each entry's <code>meta.json</code>. Regenerated on every deploy.</small></p>`,
+    `<p><small>Derived from the committed archive; provenance and integrity hashes live in each entry's ${metaMention}. Regenerated on every deploy.</small></p>`,
     '</body>',
     '</html>',
     '',
@@ -108,6 +126,30 @@ interface CopiedFile {
   // the verbatim .md - the browsing default, with the raw file one click
   // away.
   renderedName?: string;
+  // Pre-rendered witness links (recovered-from provenance), derived from
+  // the entry's meta so page and meta cannot drift.
+  witnessHtml?: string;
+}
+
+const WITNESS_CHANNEL_NAMES: Record<string, string> = {
+  wdtk: 'WhatDoTheyKnow',
+  ukgwa: 'UK Government Web Archive',
+  ofcom: 'ofcom.org.uk',
+};
+
+// "recovered from <channel>, capture/fetched <date>" as a clickable link.
+// UKGWA URLs embed the capture timestamp - surface that; otherwise the
+// fetch date from the witness record.
+function witnessLinks(witnesses: FoiWitness[] | undefined): string {
+  if (witnesses === undefined || witnesses.length === 0) return '';
+  return witnesses.map(w => {
+    const channelName = WITNESS_CHANNEL_NAMES[w.channel] ?? w.channel;
+    const capture = /\/ukgwa\/(\d{4})(\d{2})(\d{2})/.exec(w.url);
+    const label = capture === null
+      ? `${channelName}, fetched ${w.fetchedAt}`
+      : `${channelName}, capture ${capture[1]}-${capture[2]}-${capture[3]}`;
+    return ` · recovered from <a href="${escapeHtml(w.url)}">${escapeHtml(label)}</a>`;
+  }).join('');
 }
 
 // Copies every file of an entry directory into the output tree and returns
@@ -161,7 +203,7 @@ function filesTable(files: CopiedFile[]): string[] {
       // stays one click away.
       const mainHref = file.renderedName === undefined ? encodeURIComponent(file.name) : encodeURIComponent(file.renderedName);
       const rawLink = file.renderedName === undefined ? '' : ` · <a href="${encodeURIComponent(file.name)}">raw</a>`;
-      return `<tr><td><a href="${mainHref}">${escapeHtml(file.name)}</a>${rawLink}</td><td>${formatBytes(file.bytes)}</td><td>${escapeHtml(file.description ?? '')}</td></tr>`;
+      return `<tr><td><a href="${mainHref}">${escapeHtml(file.name)}</a>${rawLink}</td><td>${formatBytes(file.bytes)}</td><td>${escapeHtml(file.description ?? '')}${file.witnessHtml ?? ''}</td></tr>`;
     }),
     '</table>',
   ];
@@ -179,6 +221,9 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files:
   descriptions.set('meta.json', 'provenance, outcome, and hash-pinned file declarations');
   const targetDir = path.join(outputDir, 'datasets', 'foi', key);
   const files = copyEntryFiles(path.join(foiDir, key), targetDir, descriptions, hashes, meta.title);
+  for (const file of files) {
+    file.witnessHtml = witnessLinks(meta.files[file.name]?.witnesses);
+  }
 
   const facts: string[] = [
     `<tr><th>outcome</th><td>${escapeHtml(meta.outcome)}${meta.datasetRecovery === undefined ? '' : ` <em>(dataset ${escapeHtml(meta.datasetRecovery)})</em>`}</td></tr>`,
@@ -199,11 +244,22 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files:
     '</table>',
     '<h2>Files</h2>',
     ...filesTable(files),
+    ...entryDatabaseLine(outputDir, 'foi', key),
     ...(related.length > 0 ? ['<h2>Related entries</h2>', '<ul>', ...related, '</ul>'] : []),
   ];
-  fs.writeFileSync(path.join(targetDir, 'index.html'), htmlPage(meta.title, 3, body));
+  fs.writeFileSync(path.join(targetDir, 'index.html'), htmlPage(meta.title, 3, body, 'meta.json'));
   fs.writeFileSync(path.join(targetDir, 'datapackage.json'), dataPackage(key, meta.title, files));
   return { files, meta };
+}
+
+// The per-entry SQLite database is built earlier in the deploy (the data
+// tiers step); when present, offer it from the entry page with its size -
+// the download-link pattern. Absent in scratch builds without tiers.
+function entryDatabaseLine(outputDir: string, lane: 'foi' | 'open-data', key: string): string[] {
+  const dbName = `${lane}--${key}.sqlite.gz`;
+  const size = sizeOf(path.join(outputDir, 'data', 'datasets', dbName));
+  if (size === '') return [];
+  return [`<p>All of this entry's CSV files as one SQLite database: <a href="../../../data/datasets/${encodeURIComponent(dbName)}">${escapeHtml(dbName)}</a>${size}.</p>`];
 }
 
 function buildOpenDataEntry(outputDir: string, key: string): { files: CopiedFile[] } {
@@ -223,8 +279,9 @@ function buildOpenDataEntry(outputDir: string, key: string): { files: CopiedFile
     `<p>Open-data archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
     '<h2>Files</h2>',
     ...filesTable(files),
+    ...entryDatabaseLine(outputDir, 'open-data', key),
   ];
-  fs.writeFileSync(path.join(targetDir, 'index.html'), htmlPage(title, 3, body));
+  fs.writeFileSync(path.join(targetDir, 'index.html'), htmlPage(title, 3, body, 'meta.json'));
   fs.writeFileSync(path.join(targetDir, 'datapackage.json'), dataPackage(key, title, files));
   return { files };
 }
@@ -244,7 +301,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0);
     pageUrls.push(`${baseUrl}/datasets/open-data/${key}/index.html`);
-    openDataRows.push(`<tr><td><a href="open-data/${key}/index.html"><code>${key}</code></a></td><td>${files.length}</td><td>${formatBytes(files.reduce((s, f) => s + f.bytes, 0))}</td></tr>`);
+    openDataRows.push(`<tr><td><a href="open-data/${key}/index.html">Publication of ${humanDate(key)}</a> <code>${key}</code></td><td>${files.length}</td><td>${formatBytes(files.reduce((s, f) => s + f.bytes, 0))}</td></tr>`);
   }
 
   const foiRows: string[] = [];
@@ -253,7 +310,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0);
     pageUrls.push(`${baseUrl}/datasets/foi/${key}/index.html`);
-    foiRows.push(`<tr><td><a href="foi/${encodeURIComponent(key)}/index.html"><code>${escapeHtml(key)}</code></a></td><td>${escapeHtml(meta.title)}</td><td>${escapeHtml(meta.dataVintage ?? '—')}</td><td>${meta.datasetClasses.map(c => `<code>${escapeHtml(c)}</code>`).join(', ')}</td></tr>`);
+    foiRows.push(`<tr><td><a href="foi/${encodeURIComponent(key)}/index.html">${escapeHtml(meta.title)}</a><br><code>${escapeHtml(key)}</code></td><td>${escapeHtml(meta.dataVintage ?? '—')}</td><td>${meta.datasetClasses.map(c => `<code>${escapeHtml(c)}</code>`).join(', ')}</td></tr>`);
   }
 
   if (totalBytes > MAX_TOTAL_BYTES) {
@@ -265,9 +322,9 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     '<p>Every archived dataset in both collections below, with the raw, extract and normalised files published verbatim at stable URLs. Integrity: each entry’s <code>meta.json</code> declares sha256 for every file; each entry ships a <a href="https://datapackage.org/">Frictionless</a> <code>datapackage.json</code>.</p>',
     '<h2>Bulk downloads</h2>',
     '<ul>',
-    '<li><a href="../data/foi-observations.csv.gz">foi-observations.csv.gz</a> — the flat union of every callsign-bearing FOI normalised row (one CSV, gzipped; empty cells conflate not-asserted with asserted-blank — the master database keeps them distinct as NULL vs empty string).</li>',
-    '<li><a href="../data/master.sqlite.gz">master.sqlite.gz</a> — one SQLite database of everything: the FOI observations union plus every open-data publication’s normalised rows (<code>register_history</code>).</li>',
-    '<li><code>../data/datasets/open-data--{key}.sqlite.gz</code> / <code>foi--{key}.sqlite.gz</code> — one SQLite database per archive entry, one table per CSV.</li>',
+    `<li><a href="../data/foi-observations.csv.gz">foi-observations.csv.gz</a>${sizeOf(path.join(outputDir, 'data', 'foi-observations.csv.gz'))} — the flat union of every callsign-bearing FOI normalised row (one CSV, gzipped; empty cells conflate not-asserted with asserted-blank — the master database keeps them distinct as NULL vs empty string).</li>`,
+    `<li><a href="../data/master.sqlite.gz">master.sqlite.gz</a>${sizeOf(path.join(outputDir, 'data', 'master.sqlite.gz'))} — one SQLite database of everything: the FOI observations union plus every open-data publication’s normalised rows (<code>register_history</code>).</li>`,
+    '<li>One SQLite database per archive entry (one table per CSV), offered with its size from each entry’s own page below.</li>',
     '</ul>',
     '<!-- Reading the source? The site also serves callsigns.sqlite.png and master.sqlite.png: those ARE plain SQLite databases, byte-identical to the honest-named downloads once gunzipped. The .png extension defeats GitHub Pages\' gzip transcoding of Range responses, which corrupts the lookup\'s HTTP range-request reads (sql.js-httpvfs). Use the .sqlite.gz downloads above; the .png files exist for the in-browser lookup. -->',
     '<details><summary>Why do the site’s own database files end in <code>.png</code>?</summary>',
@@ -291,7 +348,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     'availability lists and issuance records predating the open data page. Where, when and how each file',
     'was retrieved is recorded alongside it: machine-readably in the entry’s hash-pinned <code>meta.json</code>,',
     'and narratively in its correspondence record.</p>',
-    '<table><tr><th>entry</th><th>title</th><th>vintage</th><th>dataset classes</th></tr>',
+    '<table><tr><th>entry</th><th>vintage</th><th>dataset classes</th></tr>',
     ...foiRows,
     '</table>',
   ];

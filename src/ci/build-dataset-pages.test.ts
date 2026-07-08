@@ -31,6 +31,19 @@ describe('Dataset pages build', () => {
     const index = fs.readFileSync(path.join(outputDir, 'datasets', 'index.html'), 'utf8');
     expect(index).toContain('open-data/2026-06-23/index.html');
     expect(index).toContain('foi/wdtk-1180568--licence-breakdown-duration-age/index.html');
+    // Navigation anchors are human-readable - not bare keys that look
+    // like file downloads.
+    expect(index).toContain('Publication of 23 June 2026');
+    expect(index).toContain('>Radio amateur licence breakdown by duration held and age</a>');
+  });
+
+  it('DatasetPages_FoiEntryPage_LinksWitnessCapturesAndOwnMeta', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'ofcom-756622--published-register-csv', 'index.html'), 'utf8');
+    // Recovered-from provenance is clickable, derived from meta witnesses.
+    expect(page).toContain('recovered from <a href="https://webarchive.nationalarchives.gov.uk/ukgwa/20211213223006id_/');
+    expect(page).toContain('UK Government Web Archive, capture 2021-12-13');
+    // The footer's meta.json mention links to this entry's own meta.
+    expect(page).toContain('<a href="meta.json"><code>meta.json</code></a>');
   });
 
   it('DatasetPages_ArchivedFiles_CopiedByteForByte', () => {
