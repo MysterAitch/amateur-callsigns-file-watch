@@ -124,6 +124,7 @@ function htmlPage(title: string, depthToRoot: number, body: string[], options: P
   const navItems: [string, string][] = [
     ['Lookup', `${rootPath}index.html`],
     ['Statistics', `${rootPath}statistics.html`],
+    ['Explore', `${rootPath}explore.html`],
     // Root-anchored so it is correct from every directory (a sibling-
     // relative form resolved to the SERIES index from series/ pages).
     ['Dataset index', `${rootPath}datasets/index.html`],
@@ -801,6 +802,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     `<url><loc>${baseUrl}/index.html</loc></url>`,
     `<url><loc>${baseUrl}/statistics.html</loc></url>`,
+    `<url><loc>${baseUrl}/explore.html</loc></url>`,
     ...pageUrls.map(url => `<url><loc>${url}</loc></url>`),
     '</urlset>',
     '',

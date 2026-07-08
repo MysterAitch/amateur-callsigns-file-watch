@@ -176,6 +176,7 @@ describe('Dataset pages build', () => {
   it('DatasetPages_Sitemap_ListsEveryEntryPageUnderTheBaseUrl', () => {
     const sitemap = fs.readFileSync(path.join(outputDir, 'sitemap.xml'), 'utf8');
     expect(sitemap).toContain('<loc>https://example.test/site/datasets/index.html</loc>');
+    expect(sitemap).toContain('<loc>https://example.test/site/explore.html</loc>');
     for (const url of summary.pageUrls) {
       expect(sitemap).toContain(`<loc>${url}</loc>`);
     }

@@ -92,3 +92,11 @@ code, .mono { font-family: ui-monospace, monospace; }
 .muted { color: color-mix(in srgb, var(--ink) 60%, transparent); }
 .overflow { overflow-x: auto; }
 footer { margin-top: 2rem; font-size: 0.85em; color: color-mix(in srgb, var(--ink) 55%, transparent); }
+
+/* Explore page: SQL console */
+#sql-form { flex-direction: column; align-items: stretch; }
+#sql-form label { font-weight: 600; }
+#sql-form select { font: inherit; padding: 0.35rem 0.5rem; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: inherit; max-width: 34rem; }
+#sql-input { font-family: ui-monospace, monospace; font-size: 0.95em; padding: 0.6rem; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: inherit; width: 100%; box-sizing: border-box; }
+#sql-form button { align-self: flex-start; }
+button.example { font: inherit; font-size: 0.92em; background: transparent; border: none; color: var(--accent); text-decoration: underline; cursor: pointer; padding: 0.15rem 0; }
