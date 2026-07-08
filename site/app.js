@@ -135,104 +135,9 @@ async function foiHistoryCard(callsigns) {
   }
 }
 
-async function renderAggregates() {
-  const target = document.getElementById('flags-table');
-  // Pre-rendered at deploy time (build-home-aggregates.ts) - the dynamic
-  // path remains for pages served without the injection (local dev).
-  if (target.dataset.prerendered !== undefined) return;
-  try {
-    const datasets = await query('SELECT key, record_count FROM datasets ORDER BY key DESC');
-    const flags = await query('SELECT dataset, flag, count FROM stats_flags');
-    const flagNames = [...new Set(flags.map(f => f.flag))].sort();
-    const byDataset = new Map(datasets.map(d => [d.key, new Map()]));
-    for (const f of flags) byDataset.get(f.dataset)?.set(f.flag, f.count);
-    const rows = flagNames.map(flag => [flag, ...datasets.map(d => byDataset.get(d.key)?.get(flag) ?? 0)]);
-    target.replaceChildren(
-      renderTable(['flag', ...datasets.map(d => d.key)], [
-        ['records', ...datasets.map(d => d.record_count)],
-        ...rows,
-      ]),
-    );
-  } catch (err) {
-    target.textContent = `failed to load aggregates: ${err}`;
-  }
-}
-
-// Primary-by-secondary locator matrix from the precomputed rsl_matrix
-// table (aggregated at build time - a live GROUP BY over the components
-// table would be prohibitively chatty over the range-request VFS). Rows and
-// columns are driven by reference data so absences stay visible; observed
-// locators missing from reference data are flagged with a warning marker.
-async function renderRslMatrix() {
-  const target = document.getElementById('rsl-matrix-table');
-  // Pre-rendered at deploy time (build-home-aggregates.ts) - the dynamic
-  // path remains for pages served without the injection (local dev).
-  if (target.dataset.prerendered !== undefined) return;
-  try {
-    const refSeries = (await query('SELECT prefix FROM ref_prefix_formats')).map(r => r.prefix);
-    const refRsl = (await query('SELECT rsl FROM ref_rsl ORDER BY rsl')).map(r => r.rsl);
-    const cellsRows = await query('SELECT series, rsl, n FROM rsl_matrix');
-
-    const counts = new Map(cellsRows.map(r => [`${r.series}|${r.rsl}`, r.n]));
-    const observedSeries = [...new Set(cellsRows.map(r => r.series))];
-    const observedRsl = [...new Set(cellsRows.map(r => r.rsl).filter(r => r !== ''))];
-    const seriesRows = [...new Set([...refSeries, ...observedSeries])].sort();
-    const unknownRsl = observedRsl.filter(r => !refRsl.includes(r)).sort();
-    const columns = [...refRsl, ...unknownRsl, ''];
-
-    const count = (series, rsl) => counts.get(`${series}|${rsl}`) ?? 0;
-    const quiet = n => n === 0 ? '·' : n;
-    const rows = seriesRows.map(series => [
-      refSeries.includes(series) ? series : `${series} ⚠`,
-      ...columns.map(rsl => quiet(count(series, rsl))),
-      quiet(columns.reduce((sum, rsl) => sum + count(series, rsl), 0)),
-    ]);
-    rows.push([
-      'total',
-      ...columns.map(rsl => quiet(seriesRows.reduce((sum, s) => sum + count(s, rsl), 0))),
-      quiet(cellsRows.reduce((sum, r) => sum + r.n, 0)),
-    ]);
-    // Elaborations from the precomputed tables: exclusion counts inline,
-    // enumerations behind details where the population is small enough to
-    // list (the RSL-bearing rows ARE the interesting finds). Invisible
-    // characters explode to {U+XXXX} markers wherever they sit.
-    const explode = s => [...s].map(ch =>
-      /[\p{C}\p{Z}]/u.test(ch)
-        ? `{U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}}`
-        : ch).join('');
-    const excludedCounts = await query('SELECT status, n FROM matrix_excluded ORDER BY status');
-    // Count-first phrasing, matching the reports' bullet convention
-    // ("10 unparseable") - one grammar on every surface.
-    const excludedText = excludedCounts.length === 0 ? 'none'
-      : excludedCounts.map(r => `${r.n} ${r.status}`).join(', ');
-    const caption = el('p', { class: 'muted', text: `Excluded from this table: ${excludedText}.` });
-
-    const detailsBlocks = [];
-    const bearing = await query('SELECT callsign, series, rsl FROM rsl_bearing ORDER BY callsign');
-    if (bearing.length > 0 && bearing.length <= 50) {
-      const d = el('details', {}, [el('summary', { text: `RSL-bearing records (${bearing.length})` })]);
-      d.append(renderTable(['callsign', 'series', 'RSL'],
-        bearing.map(r => [explode(r.callsign), r.series, r.rsl]), 99));
-      detailsBlocks.push(d);
-    }
-    const exampleRows = await query('SELECT status, callsign FROM excluded_examples ORDER BY status, callsign');
-    for (const { status, n } of excludedCounts) {
-      if (n === 0 || n > 50) continue;
-      const examples = exampleRows.filter(r => r.status === status).map(r => explode(r.callsign));
-      const d = el('details', {}, [el('summary', { text: `Excluded: ${status} (${n})` })]);
-      d.append(el('p', { class: 'mono', text: examples.join(', ') }));
-      detailsBlocks.push(d);
-    }
-
-    target.replaceChildren(
-      renderTable(['series', ...refRsl, ...unknownRsl.map(r => `${r} ⚠`), '(none)', 'total'], rows, 1),
-      caption,
-      ...detailsBlocks,
-    );
-  } catch (err) {
-    target.textContent = `failed to load matrix: ${err}`;
-  }
-}
+// The aggregate views (locator matrix, flags-per-publication) live on the
+// fully static statistics.html, pre-rendered at deploy time by
+// build-home-aggregates.ts - this page carries only the interactive lookup.
 
 async function renderBuildInfo() {
   try {
@@ -691,6 +596,4 @@ document.getElementById('lookup-form').addEventListener('submit', (event) => {
 });
 
 void populateFilters();
-void renderRslMatrix();
-void renderAggregates();
 void renderBuildInfo();

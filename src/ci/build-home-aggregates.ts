@@ -1,21 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * Pre-renders the home page's aggregate blocks - the primary-by-secondary
- * locator matrix and the data-quality-flags-per-publication table - as
- * static HTML injected into the deployed index.html.
+ * Pre-renders the statistics page's aggregate blocks - the
+ * primary-by-secondary locator matrix and the
+ * data-quality-flags-per-publication table - as static HTML injected into
+ * the deployed statistics.html.
  *
  * These blocks are deterministic per deploy (they summarise committed
- * data), so computing them in the browser bought nothing except a
- * "loading…" flicker and a burst of range requests on every page load.
- * The lookup itself stays dynamic; app.js skips its client-side render
- * when it finds the pre-rendered content (and still renders dynamically
- * when the page is served without this injection, e.g. local dev).
+ * data), so statistics.html is FULLY static - no scripts at all, which
+ * also makes archived captures of it complete. The home page carries only
+ * the interactive lookup. The HTML shapes mirror app.js's renderTable
+ * conventions so both pages look alike.
  *
- * The HTML shapes mirror app.js's renderTable/renderRslMatrix exactly so
- * the pre-rendered and dynamic paths are visually identical.
- *
- * Usage: node src/ci/build-home-aggregates.ts <path-to-index.html>
+ * Usage: node src/ci/build-home-aggregates.ts <path-to-statistics.html>
  */
 
 import * as fs from 'fs';
@@ -150,20 +147,22 @@ export function renderRslMatrixHtml(): string {
     + details.join('\n');
 }
 
-// Injects both blocks into the deployed index.html, marking the containers
-// data-prerendered so app.js leaves them alone. Fails loudly if the
-// placeholders drift - a silent miss would quietly reintroduce the flicker.
-export function injectHomeAggregates(indexPath: string): void {
-  let html = fs.readFileSync(indexPath, 'utf8');
+const PLACEHOLDER_TEXT = 'generated at deploy time — build the site to populate';
+
+// Injects both blocks into the deployed statistics.html. Fails loudly if
+// the placeholders drift - a silent miss would publish the placeholder
+// text instead of the statistics, misleadingly.
+export function injectHomeAggregates(statisticsPath: string): void {
+  let html = fs.readFileSync(statisticsPath, 'utf8');
   const replacements: [string, string][] = [
-    ['<div id="rsl-matrix-table">loading…</div>', `<div id="rsl-matrix-table" data-prerendered>${renderRslMatrixHtml()}</div>`],
-    ['<div id="flags-table">loading…</div>', `<div id="flags-table" data-prerendered>${renderFlagsTableHtml()}</div>`],
+    [`<div id="rsl-matrix-table">${PLACEHOLDER_TEXT}</div>`, `<div id="rsl-matrix-table" data-prerendered>${renderRslMatrixHtml()}</div>`],
+    [`<div id="flags-table">${PLACEHOLDER_TEXT}</div>`, `<div id="flags-table" data-prerendered>${renderFlagsTableHtml()}</div>`],
   ];
   for (const [placeholder, replacement] of replacements) {
-    if (!html.includes(placeholder)) throw new Error(`placeholder not found in ${indexPath}: ${placeholder}`);
+    if (!html.includes(placeholder)) throw new Error(`placeholder not found in ${statisticsPath}: ${placeholder}`);
     html = html.replace(placeholder, replacement);
   }
-  fs.writeFileSync(indexPath, html);
+  fs.writeFileSync(statisticsPath, html);
 }
 
 function main(): void {

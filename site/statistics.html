@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>UK amateur callsign statistics — data mirror</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>UK amateur callsign statistics</h1>
+    <p class="subtitle">
+      Aggregate views over the
+      <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">mirror's</a>
+      archived datasets, generated at deploy time from the committed data —
+      this page is fully static (no scripts), so archived captures of it are
+      complete. Interactive lookups live on the
+      <a href="index.html">callsign lookup</a> page; per-dataset drill-downs
+      on each entry's page in the
+      <a href="datasets/index.html">dataset index</a>.
+    </p>
+  </header>
+
+  <main>
+    <section id="rsl-matrix">
+      <h2>Primary × secondary locator matrix</h2>
+      <p>Parsed records by prefix series and Regional Secondary Locator
+      (latest dataset). Every reference series and RSL letter is shown —
+      all-dot rows and columns are the sparsity signal, not noise; · means
+      zero; ⚠ marks locators observed in the data but absent from
+      <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/reference-data">reference data</a>.
+      Excluded records are counted beneath the table.</p>
+      <div id="rsl-matrix-table">generated at deploy time — build the site to populate</div>
+    </section>
+
+    <section id="aggregates">
+      <h2>Data-quality flags per publication</h2>
+      <p>Counts of per-row flags across every archived <strong>open-data
+      publication</strong> (vocabulary:
+      <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/reference-data/flags.md">flag registry</a>).
+      FOI-disclosed datasets are not yet run through the flag machinery —
+      see the <a href="datasets/index.html">dataset index</a> for their
+      per-entry summaries.</p>
+      <div id="flags-table">generated at deploy time — build the site to populate</div>
+    </section>
+
+    <footer>
+      <p class="muted"><small>Derived from the committed archive at deploy
+      time; regenerated on every deploy. See each dataset's
+      <a href="datasets/index.html">entry page</a> for provenance and
+      integrity hashes.</small></p>
+    </footer>
+  </main>
+</body>
+</html>

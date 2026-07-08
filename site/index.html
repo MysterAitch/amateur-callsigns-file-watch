@@ -57,34 +57,16 @@
       <div id="result" hidden></div>
     </section>
 
-    <section id="rsl-matrix">
-      <h2>Primary × secondary locator matrix</h2>
-      <p>Parsed records by prefix series and Regional Secondary Locator
-      (latest dataset). Every reference series and RSL letter is shown —
-      all-dot rows and columns are the sparsity signal, not noise; · means
-      zero; ⚠ marks locators observed in the data but absent from
-      <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/reference-data">reference data</a>.
-      Excluded records are counted beneath the table.</p>
-      <div id="rsl-matrix-table">loading…</div>
-    </section>
-
-    <section id="aggregates">
-      <h2>Data-quality flags per publication</h2>
-      <p>Counts of per-row flags across every archived <strong>open-data
-      publication</strong> (vocabulary:
-      <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/reference-data/flags.md">flag registry</a>).
-      FOI-disclosed datasets are not yet run through the flag machinery —
-      see the <a href="datasets/index.html">dataset index</a> for their
-      per-entry summaries.</p>
-      <div id="flags-table">loading…</div>
-    </section>
-
-    <section id="datasets-link">
-      <h2>Datasets</h2>
-      <p>Every archived dataset — open-data publications and FOI disclosures — is
-      published with its raw, extract and normalised files at stable URLs, each
-      entry with a machine-readable descriptor:
-      <a href="datasets/index.html">browse the dataset index</a>.</p>
+    <section id="explore">
+      <h2>Explore</h2>
+      <p><a href="statistics.html">Statistics</a> — aggregate views over the
+      archived data: the prefix-series × RSL matrix and data-quality flags
+      per publication, generated at deploy time.</p>
+      <p><a href="datasets/index.html">Dataset index</a> — every archived
+      dataset (open-data publications and FOI disclosures), published with
+      its raw, extract and normalised files at stable URLs, each entry with
+      a machine-readable descriptor, per-entry metrics, and one-click
+      downloads.</p>
     </section>
 
     <footer id="build-info"></footer>
