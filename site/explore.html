@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>Explore — UK amateur callsign data mirror</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <strong>Explore</strong> · <a href="datasets/index.html">Dataset index</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">Repository</a></p></nav>
+  <header>
+    <h1>Explore the data</h1>
+    <p class="subtitle">
+      Joining the datasets is where the value lives. This page runs
+      read-only SQL <em>in your browser</em> over the published databases —
+      no install, no server; queries fetch only the pages of the database
+      file they touch, via HTTP range requests. Indexed lookups are fast;
+      full-table scans are slow here by construction — for heavy analysis,
+      <a href="datasets/index.html">download the databases</a> and run them
+      locally.
+    </p>
+  </header>
+
+  <main>
+    <section id="console">
+      <form id="sql-form">
+        <label for="db-select">Database</label>
+        <select id="db-select">
+          <option value="latest">latest — current publication + reference data (28 MB)</option>
+          <option value="master">master — every publication + FOI observations (257 MB)</option>
+        </select>
+        <textarea id="sql-input" rows="6" spellcheck="false" placeholder="SELECT … (read-only; results capped at 500 rows)"></textarea>
+        <button type="submit">Run</button>
+        <span id="sql-status" class="muted"></span>
+      </form>
+      <div id="sql-result" hidden></div>
+    </section>
+
+    <section id="examples">
+      <h2>Worked examples</h2>
+      <p class="muted">Each example is indexed-lookup friendly (fast over
+      range requests). Click to load, then Run.</p>
+      <div id="example-list"></div>
+    </section>
+
+    <section id="semantics">
+      <h2>Join keys and semantics</h2>
+      <p><strong>Join keys:</strong> <code>callsign</code> joins everything —
+      the latest database's <code>normalised</code> ↔ <code>components</code>
+      tables, and the master database's <code>register_history</code>
+      (one row per callsign per publication, keyed by <code>dataset</code>)
+      ↔ <code>observations</code> (one row per FOI-witnessed assertion,
+      keyed by <code>entry</code>).</p>
+      <p><strong>NULL vs empty string</strong> (master
+      <code>observations</code>): <code>NULL</code> means the source dataset
+      never asserted that column; <code>''</code> means the source asserted
+      a blank value. The distinction is the point — a blank status in the
+      2019 register is data.</p>
+      <p><strong>Absence is not evidence:</strong> publications vary in
+      scope (<code>history_datasets</code> carries each one's record count
+      and declared coverage) — a callsign missing from a declared-partial
+      publication tells you nothing, and even declared-complete exports
+      have been observed silently filtering records.</p>
+      <p>Column meanings live in the
+      <a href="datasets/docs/normalised-schema.html">data dictionary</a>
+      and <a href="datasets/docs/flags.html">flag registry</a>.</p>
+    </section>
+  </main>
+
+  <!-- UMD bundle: attaches createDbWorker to window; must load before explore.js -->
+  <script src="vendor/index.js"></script>
+  <script type="module" src="explore.js"></script>
+</body>
+</html>
