@@ -1,9 +1,10 @@
-# FOI normalised-output schemas
+# FOI dataset schemas
 
-**Generated file - do not edit by hand.** Regenerate with `npm run foi:schemas`;
-the test suite fails when this file is stale. Rendered from the authored
-registry values that validation and the column-governance test enforce, so
-this page and the accepted vocabulary are the same thing.
+**Generated from the converter registry** (`npm run foi:schemas`; the
+repository copy is authoritative and the test suite fails when it is
+stale - do not edit by hand). Rendered from the authored registry values
+that validation and the column-governance test enforce, so this page and
+the accepted vocabulary are the same thing.
 
 Committed normalised files are **per-class core + registered extensions**
 (the composed-stack working decision, 2026-07): each file carries its row
@@ -57,6 +58,15 @@ a header.
 | `business_radio_licences_issued` | `counts-aggregate` | count of business radio licences issued in the period (part of the disclosed assertion; consumers filter) |
 
 ## Converter variants
+
+Column **kind** vocabulary: `verbatim` (value carried unchanged),
+`prefixed` (source value with an authored prefix), `date` (parsed from
+the source's date format to ISO order), `iso-date` (already ISO-shaped
+at source, verified not reformatted), `count` (numeric with thousands
+separators stripped), `constant` (authored fixed value, stated in the
+source column). A **date plausibility bound** appears only for
+conversions whose outputs include date columns - dates beyond the bound
+fail the conversion.
 
 | variant | bound by |
 |---|---|
@@ -343,7 +353,7 @@ Date plausibility bound: 2015-01-21.
 
 | output column | source | kind |
 |---|---|---|
-| `view` | `` | verbatim |
+| `view` | *(emitted empty)* | verbatim |
 | `field_name` | `Field Name` | verbatim |
 
 Row order: **source-order** — rows are grouped by database view (Contact View, then Licence View) - a meaningful disclosed structure; preserved.

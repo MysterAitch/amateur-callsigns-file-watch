@@ -30,7 +30,9 @@ const FOI_ARCHIVE_DIR = path.join(REPO_ROOT, 'archive', 'foi');
 export const SCHEMAS_FILE = path.join(REPO_ROOT, 'docs', 'foi-schemas.md');
 
 function columnSourceLabel(column: FoiColumnSpec): string {
-  if (column.source !== null) {
+  // An empty-string source rendered as `` `` `` showed two literal
+  // backticks on the published page - treat it like no source.
+  if (column.source !== null && column.source !== '') {
     return column.kind === 'prefixed' ? `\`${column.source}\` (prefix \`${column.prefix ?? ''}\`)` : `\`${column.source}\``;
   }
   return column.constant === undefined ? '*(emitted empty)*' : `constant \`${column.constant}\``;
@@ -69,12 +71,13 @@ export function renderFoiSchemas(): string {
   const variantNames = Object.keys(FOI_ENTRY_CONVERSIONS).sort();
 
   const lines: string[] = [
-    '# FOI normalised-output schemas',
+    '# FOI dataset schemas',
     '',
-    '**Generated file - do not edit by hand.** Regenerate with `npm run foi:schemas`;',
-    'the test suite fails when this file is stale. Rendered from the authored',
-    'registry values that validation and the column-governance test enforce, so',
-    'this page and the accepted vocabulary are the same thing.',
+    '**Generated from the converter registry** (`npm run foi:schemas`; the',
+    'repository copy is authoritative and the test suite fails when it is',
+    'stale - do not edit by hand). Rendered from the authored registry values',
+    'that validation and the column-governance test enforce, so this page and',
+    'the accepted vocabulary are the same thing.',
     '',
     'Committed normalised files are **per-class core + registered extensions**',
     '(the composed-stack working decision, 2026-07): each file carries its row',
@@ -108,6 +111,15 @@ export function renderFoiSchemas(): string {
       `| \`${name}\` | ${extension.families.map(f => `\`${f}\``).join(', ')} | ${extension.definition} |`),
     '',
     '## Converter variants',
+    '',
+    'Column **kind** vocabulary: `verbatim` (value carried unchanged),',
+    '`prefixed` (source value with an authored prefix), `date` (parsed from',
+    'the source\'s date format to ISO order), `iso-date` (already ISO-shaped',
+    'at source, verified not reformatted), `count` (numeric with thousands',
+    'separators stripped), `constant` (authored fixed value, stated in the',
+    'source column). A **date plausibility bound** appears only for',
+    'conversions whose outputs include date columns - dates beyond the bound',
+    'fail the conversion.',
     '',
     '| variant | bound by |',
     '|---|---|',

@@ -95,8 +95,10 @@ const EXCEL_DATE_RE = /^\d{1,2}-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec
 // meaningful notation characters / and #).
 const NON_PLAIN_RE = /[^A-Za-z0-9/#]/gu;
 
-// Product strings encode today's licence levels; empty product legitimately
-// means never-licensed, so absence of evidence is never a mismatch.
+// Product strings encode today's licence levels. An empty product asserts
+// nothing about licensing - many live allocations carry one - so it is
+// excluded from mismatch judgements simply because the comparison needs
+// both sides, never because emptiness implies never-licensed.
 function productClass(product: string): string {
   const p = product.toLowerCase();
   if (p.includes('foundation')) return 'Foundation';

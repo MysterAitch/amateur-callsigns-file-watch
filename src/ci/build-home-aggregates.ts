@@ -39,9 +39,10 @@ function explode(value: string): string {
 }
 
 // Mirrors app.js renderTable: thead/tbody, 'num' class from numericFrom,
-// wrapped in div.overflow.
-function tableHtml(headers: string[], rows: (string | number)[][], numericFrom = 1): string {
-  const th = headers.map((h, i) => `<th${i >= numericFrom ? ' class="num"' : ''}>${escapeHtml(h)}</th>`).join('');
+// wrapped in div.overflow. rawHeaders lets a caller pass pre-built header
+// HTML (the flags table links its dataset-date columns to entry pages).
+function tableHtml(headers: string[], rows: (string | number)[][], numericFrom = 1, rawHeaders = false): string {
+  const th = headers.map((h, i) => `<th${i >= numericFrom ? ' class="num"' : ''}>${rawHeaders ? h : escapeHtml(h)}</th>`).join('');
   const body = rows.map(row =>
     `<tr>${row.map((c, i) => `<td${i >= numericFrom ? ' class="num"' : ''}>${escapeHtml(String(c))}</td>`).join('')}</tr>`).join('\n');
   return `<div class="overflow"><table><thead><tr>${th}</tr></thead>\n<tbody>${body}</tbody></table></div>`;
@@ -49,6 +50,16 @@ function tableHtml(headers: string[], rows: (string | number)[][], numericFrom =
 
 function readCsv(filePath: string): Record<string, string>[] {
   return parse(fs.readFileSync(filePath, 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+}
+
+// Display form of a prefix series for the statistics tables: the RSL-slot
+// placeholder appears on EVERY row (G0 -> G#0), not just the 2-series whose
+// stored names happen to carry it - mixing 2#0 with bare G0 forced two
+// different reading models against the "(none)" column. The # position is
+// where an RSL letter sits when one is present.
+export function displaySeries(series: string): string {
+  if (series.includes('#') || series.length < 2) return series;
+  return `${series[0]}#${series.slice(1)}`;
 }
 
 // The data-quality-flags-per-publication table: one column per archived
@@ -64,12 +75,16 @@ export function renderFlagsTableHtml(): string {
     datasets.push({ key, recordCount: stats.recordCount, flags: stats.callsignFlags ?? {} });
   }
   const flagNames = [...new Set(datasets.flatMap(d => Object.keys(d.flags)))].sort();
+  // Each dataset column header links straight to that publication's entry
+  // page - the aggregate connects to its provenance in one click.
   return tableHtml(
-    ['flag', ...datasets.map(d => d.key)],
+    ['flag', ...datasets.map(d => `<a href="datasets/open-data/${d.key}/index.html">${d.key}</a>`)],
     [
       ['records', ...datasets.map(d => d.recordCount)],
       ...flagNames.map(flag => [flag, ...datasets.map(d => d.flags[flag] ?? 0)]),
     ],
+    1,
+    true,
   );
 }
 
@@ -112,7 +127,7 @@ export function renderRslMatrixHtml(): string {
   const count = (series: string, rsl: string): number => counts.get(`${series}|${rsl}`) ?? 0;
   const quiet = (n: number): string | number => (n === 0 ? '·' : n);
   const rows: (string | number)[][] = seriesRows.map(series => [
-    refSeries.includes(series) ? series : `${series} ⚠`,
+    displaySeries(series) + (refSeries.includes(series) ? '' : ' ⚠'),
     ...columns.map(rsl => quiet(count(series, rsl))),
     quiet(columns.reduce((sum, rsl) => sum + count(series, rsl), 0)),
   ]);
@@ -143,7 +158,7 @@ export function renderRslMatrixHtml(): string {
   }
 
   return tableHtml(['series', ...refRsl, ...unknownRsl.map(r => `${r} ⚠`), '(none)', 'total'], rows, 1)
-    + `<p class="muted">Excluded from this table: ${escapeHtml(excludedText)}.</p>`
+    + `<p class="muted">In the series column, # marks where the Regional Secondary Locator sits when one is present; (none) = no RSL letter stored on the row. Excluded from this table: ${escapeHtml(excludedText)} (populations over 50 are not enumerated below).</p>`
     + details.join('\n');
 }
 
@@ -162,6 +177,9 @@ export function injectHomeAggregates(statisticsPath: string): void {
     if (!html.includes(placeholder)) throw new Error(`placeholder not found in ${statisticsPath}: ${placeholder}`);
     html = html.replace(placeholder, replacement);
   }
+  // Footer build stamp (same convention as the generated dataset pages).
+  const sha = (process.env.GITHUB_SHA ?? 'dev').slice(0, 9);
+  html = html.replace('<span id="build-sha"></span>', ` from commit <code>${sha}</code>`);
   fs.writeFileSync(statisticsPath, html);
 }
 

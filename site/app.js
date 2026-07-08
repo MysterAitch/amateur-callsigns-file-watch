@@ -592,8 +592,27 @@ function gatherCriteria() {
 document.getElementById('lookup-form').addEventListener('submit', (event) => {
   event.preventDefault();
   const criteria = gatherCriteria();
-  if (criteria.value !== '' || criteriaActive(criteria)) void lookup(criteria);
+  if (criteria.value !== '' || criteriaActive(criteria)) {
+    // Every looked-up callsign gets a shareable URL (?c=M7TEE) - the
+    // dynamic half of the entity-pages plan; precomputing 158k static
+    // callsign pages would alone exceed the Pages size cap.
+    const url = new URL(window.location.href);
+    if (criteria.value !== '') url.searchParams.set('c', criteria.value);
+    else url.searchParams.delete('c');
+    window.history.replaceState(null, '', url);
+    void lookup(criteria);
+  }
 });
 
 void populateFilters();
 void renderBuildInfo();
+
+// Deep link: arriving with ?c=M7TEE runs the lookup immediately, so every
+// callsign has a linkable page backed by the range-request database.
+{
+  const deepLinked = new URLSearchParams(window.location.search).get('c');
+  if (deepLinked !== null && deepLinked.trim() !== '') {
+    document.getElementById('callsign').value = deepLinked.trim().toUpperCase();
+    void lookup(gatherCriteria());
+  }
+}
