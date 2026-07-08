@@ -193,7 +193,10 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
 
   // One database per archive entry (both lanes): every CSV in the entry
   // becomes a table named for its file (non-CSV files are in the dataset
-  // pages, not the databases).
+  // pages, not the databases). Extension follows consumption path: these
+  // exist for DOWNLOAD/archiving, not range-request querying, so they wear
+  // their honest name, gzipped - only the site's range-queried databases
+  // need the .png hosting workaround.
   const perDatasetDir = path.join(dataDir, 'datasets');
   fs.mkdirSync(perDatasetDir, { recursive: true });
   let perDataset = 0;
@@ -203,9 +206,9 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
       .map(key => ({ name: `foi--${key}`, dir: path.join(foiDir, key) })),
   ];
   for (const { name, dir } of entryDirs) {
-    const outputPath = path.join(perDatasetDir, `${name}.sqlite.png`);
-    fs.rmSync(outputPath, { force: true });
-    const db = new DatabaseSync(outputPath);
+    const buildPath = path.join(perDatasetDir, `${name}.sqlite.tmp`);
+    fs.rmSync(buildPath, { force: true });
+    const db = new DatabaseSync(buildPath);
     let tables = 0;
     for (const file of fs.readdirSync(dir).sort()) {
       if (!file.endsWith('.csv')) continue;
@@ -221,8 +224,11 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
       tables += 1;
     }
     db.close();
-    if (tables === 0) fs.rmSync(outputPath, { force: true });
-    else perDataset += 1;
+    if (tables > 0) {
+      fs.writeFileSync(path.join(perDatasetDir, `${name}.sqlite.gz`), zlib.gzipSync(fs.readFileSync(buildPath), { level: 9 }));
+      perDataset += 1;
+    }
+    fs.rmSync(buildPath, { force: true });
   }
   summary['per-dataset databases'] = perDataset;
 
@@ -255,6 +261,10 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
   master.exec('CREATE INDEX idx_register_history_callsign ON register_history("callsign")');
   summary['master register_history'] = historyRows;
   master.close();
+
+  // Download twin of the master: honest name, gzipped - the .png variant
+  // exists solely for the site's range-request path.
+  fs.writeFileSync(path.join(dataDir, 'master.sqlite.gz'), zlib.gzipSync(fs.readFileSync(masterPath), { level: 9 }));
 
   return summary;
 }
