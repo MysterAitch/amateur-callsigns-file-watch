@@ -940,4 +940,12 @@ describe('FOI archive golden master', () => {
     // workbook itself) - carried verbatim, never rounded to a guessed day.
     expect(results[0].csv.split('\n').filter(line => line.includes(' 23:00:00'))).toHaveLength(53);
   });
+
+  it('FoiArchive_Ofcom498906Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
+    // Sibling of 498903: same intake, adviser, response day and export
+    // shape - reciprocal-licence issue events rather than re-issues.
+    const results = expectEntryReproduced('ofcom-498906--reciprocal-licences-since-2010', 'ofcom-498906-reciprocal-events', [319]);
+    expect(results[0].csv).toContain('M0GRT,reciprocal-licence-issued,2010-01-07');
+    expect(results[0].csv.split('\n').filter(line => line.includes(' 23:00:00'))).toHaveLength(178);
+  });
 });

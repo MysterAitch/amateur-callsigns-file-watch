@@ -64,6 +64,7 @@ a header.
 | `available-typed-export-7col` | `wdtk-294011--available-callsigns-list`, `wdtk-299321--available-callsigns-list` |
 | `available-typed-export-8col` | `wdtk-247308--available-callsigns-list`, `wdtk-261814--available-callsigns-list` |
 | `ofcom-498903-reissue-events` | `ofcom-498903--reissued-callsigns-since-2010` |
+| `ofcom-498906-reciprocal-events` | `ofcom-498906--reciprocal-licences-since-2010` |
 | `ofcom-756622-register-and-forbidden` | `ofcom-756622--published-register-csv` |
 | `wdtk-1180568-csv-pair` | `wdtk-1180568--licence-breakdown-duration-age` |
 | `wdtk-184767-counts-table` | `wdtk-184767--annual-licence-counts` |
@@ -203,6 +204,20 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 | `event_date` | `Original Start Date` | iso-date |
 
 Row order: **source-order** — source rows are ordered by start date ascending - a meaningful chronology of re-issue events; preserved.
+
+Date plausibility bound: 2017-12-22.
+
+### `ofcom-498906-reciprocal-events`
+
+**`raw-extract-sheet-1-sheet1.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Call Sign T-Number` | verbatim |
+| `event` | constant `reciprocal-licence-issued` | verbatim |
+| `event_date` | `Original Start Date` | iso-date |
+
+Row order: **source-order** — source rows are ordered by start date ascending - a meaningful chronology of reciprocal-licence issue events; preserved.
 
 Date plausibility bound: 2017-12-22.
 
