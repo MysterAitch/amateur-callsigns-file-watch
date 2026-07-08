@@ -37,6 +37,32 @@ describe('Dataset pages build', () => {
     expect(index).toContain('>Radio amateur licence breakdown by duration held and age</a>');
   });
 
+  it('DatasetPages_OpenDataEntryPage_CarriesMetricsMatrixAndAnomalies', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    // Headline metrics from the entry's own stats.json.
+    expect(page).toContain('158,318 register rows');
+    expect(page).toContain('Prefix series × Regional Secondary Locator');
+    // The matrix carries per-series rows and totals derived from
+    // components.csv (2#0 is the Intermediate placeholder series).
+    expect(page).toContain('<code>2#0</code>');
+    expect(page).toMatch(/<tr><th>total<\/th>.*158,208/);
+    // Anomaly flags render with their registry meanings, not bare slugs.
+    expect(page).toContain('<code>forbidden-suffix</code>');
+    expect(page).toContain('2,826');
+    // The meta-recorded diff is the only inter-dataset comparison shown.
+    expect(page).toContain('rows unchanged');
+  });
+
+  it('DatasetPages_FoiEntryPage_ExplainsDataClassesAndSheetShapes', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'wdtk-596532--allocated-reserved-forbidden', 'index.html'), 'utf8');
+    expect(page).toContain('What this data is');
+    // Class prose comes from the shared registry, not re-authored here.
+    expect(page).toContain('the register state at a vintage');
+    // Workbook sheet shapes surface from the meta's sheetsIndicative.
+    expect(page).toContain('All CallSigns on Record');
+    expect(page).toContain('~141,295');
+  });
+
   it('DatasetPages_FoiEntryPage_LinksWitnessCapturesAndOwnMeta', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'ofcom-756622--published-register-csv', 'index.html'), 'utf8');
     // Recovered-from provenance is clickable, derived from meta witnesses.

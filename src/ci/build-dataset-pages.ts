@@ -26,8 +26,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { CONSTANTS } from '../shared/utils.ts';
-import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
+import { listFoiEntryKeys, readFoiEntryMeta, FOI_DATASET_CLASSES, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
 import { renderMarkdown } from '../shared/render-markdown.ts';
+import { parseFlagRegistry } from './build-sqlite.ts';
+import { parse } from 'csv-parse/sync';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
@@ -209,6 +211,53 @@ function filesTable(files: CopiedFile[]): string[] {
   ];
 }
 
+interface SheetsIndicative {
+  note?: string;
+  sheets: { name: string; approxRows?: number; cols?: string; datasetClass?: string }[];
+}
+
+function asSheetsIndicative(value: unknown): SheetsIndicative | undefined {
+  if (typeof value !== 'object' || value === null || !Array.isArray((value as SheetsIndicative).sheets)) return undefined;
+  return value as SheetsIndicative;
+}
+
+// Plain-language summary of what an FOI entry's data IS - the dataset
+// classes with their registry prose, and the per-file sheet shapes where
+// the meta declares them (workbook attachments). Everything shown is
+// already asserted by meta.json; this only presents it.
+function foiDataSummarySections(meta: FoiEntryMeta): string[] {
+  const html: string[] = [
+    '<h2>What this data is</h2>',
+    '<ul>',
+    ...meta.datasetClasses.map(c => `<li><code>${escapeHtml(c)}</code> — ${escapeHtml(FOI_DATASET_CLASSES[c] ?? '')}</li>`),
+    '</ul>',
+  ];
+  const shapeRows: string[] = [];
+  const notes = new Set<string>();
+  for (const [name, decl] of Object.entries(meta.files)) {
+    const indicative = asSheetsIndicative(decl.sheetsIndicative);
+    if (indicative === undefined) continue;
+    if (indicative.note !== undefined) notes.add(indicative.note);
+    for (const sheet of indicative.sheets) {
+      shapeRows.push(`<tr><td><code>${escapeHtml(name)}</code></td><td>${escapeHtml(sheet.name)}</td>`
+        + `<td>${sheet.approxRows === undefined ? '—' : `~${sheet.approxRows.toLocaleString('en-GB')}`}</td>`
+        + `<td>${escapeHtml(sheet.cols ?? '—')}</td>`
+        + `<td>${sheet.datasetClass === undefined ? '—' : `<code>${escapeHtml(sheet.datasetClass)}</code>`}</td></tr>`);
+    }
+  }
+  if (shapeRows.length > 0) {
+    html.push(
+      '<h3>Sheets (indicative shape)</h3>',
+      '<table>',
+      '<tr><th>file</th><th>sheet</th><th>rows</th><th>cols</th><th>class</th></tr>',
+      ...shapeRows,
+      '</table>',
+      ...[...notes].map(n => `<p><small>${escapeHtml(n)}</small></p>`),
+    );
+  }
+  return html;
+}
+
 function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files: CopiedFile[]; meta: FoiEntryMeta } {
   const meta = readFoiEntryMeta(foiDir, key);
   const descriptions = new Map<string, string>();
@@ -242,6 +291,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files:
     '<table>',
     ...facts,
     '</table>',
+    ...foiDataSummarySections(meta),
     '<h2>Files</h2>',
     ...filesTable(files),
     ...entryDatabaseLine(outputDir, 'foi', key),
@@ -262,6 +312,122 @@ function entryDatabaseLine(outputDir: string, lane: 'foi' | 'open-data', key: st
   return [`<p>All of this entry's CSV files as one SQLite database: <a href="../../../data/datasets/${encodeURIComponent(dbName)}">${escapeHtml(dbName)}</a>${size}.</p>`];
 }
 
+interface OpenDataStats {
+  recordCount: number;
+  parseStatuses: Record<string, number>;
+  callsignFlags: Record<string, number>;
+  callsignQuality: Record<string, { count: number; examples: string[] }>;
+}
+
+interface OpenDataDiffSummary {
+  previousArchiveKey: string;
+  previousRecordCount: number;
+  unchanged: number;
+  fieldChanged: number;
+  added: number;
+  removed: number;
+}
+
+// Prefix-series × RSL matrix with row/column totals, derived from the
+// entry's own components.csv (parsed rows only; the exclusions are stated
+// beneath the table). Built per entry - the SQLite rsl_matrix covers only
+// the latest publication.
+function rslMatrixSection(componentsPath: string): string[] {
+  if (!fs.existsSync(componentsPath)) return [];
+  const rows = parse(fs.readFileSync(componentsPath, 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  const counts = new Map<string, Map<string, number>>();
+  const excluded = new Map<string, number>();
+  const rslSet = new Set<string>();
+  for (const row of rows) {
+    if (row.parse_status !== 'parsed') {
+      excluded.set(row.parse_status, (excluded.get(row.parse_status) ?? 0) + 1);
+      continue;
+    }
+    const series = row.prefix_series;
+    const rsl = row.rsl;
+    rslSet.add(rsl);
+    const seriesCounts = counts.get(series) ?? new Map<string, number>();
+    seriesCounts.set(rsl, (seriesCounts.get(rsl) ?? 0) + 1);
+    counts.set(series, seriesCounts);
+  }
+  if (counts.size === 0) return [];
+  const rsls = [...rslSet].sort((a, b) => a.localeCompare(b)); // '' (no RSL) sorts first
+  const seriesKeys = [...counts.keys()].sort((a, b) => a.localeCompare(b));
+  const columnTotals = new Map<string, number>();
+  const html: string[] = [
+    '<h2>Prefix series × Regional Secondary Locator</h2>',
+    '<p>Parsed register rows by prefix series and RSL letter as stored in the register (RSLs are rarely stored - regional renderings are usually implicit).</p>',
+    '<div style="overflow-x:auto"><table>',
+    `<tr><th>series</th>${rsls.map(r => `<th>${r === '' ? '(none)' : escapeHtml(r)}</th>`).join('')}<th>total</th></tr>`,
+  ];
+  let grandTotal = 0;
+  for (const series of seriesKeys) {
+    const seriesCounts = counts.get(series) ?? new Map<string, number>();
+    let rowTotal = 0;
+    const cells = rsls.map(rsl => {
+      const n = seriesCounts.get(rsl) ?? 0;
+      rowTotal += n;
+      columnTotals.set(rsl, (columnTotals.get(rsl) ?? 0) + n);
+      return `<td>${n === 0 ? '' : n.toLocaleString('en-GB')}</td>`;
+    });
+    grandTotal += rowTotal;
+    html.push(`<tr><td><code>${escapeHtml(series)}</code></td>${cells.join('')}<td>${rowTotal.toLocaleString('en-GB')}</td></tr>`);
+  }
+  html.push(`<tr><th>total</th>${rsls.map(rsl => `<th>${(columnTotals.get(rsl) ?? 0).toLocaleString('en-GB')}</th>`).join('')}<th>${grandTotal.toLocaleString('en-GB')}</th></tr>`);
+  html.push('</table></div>');
+  const exclusions = [...excluded.entries()].sort().map(([status, n]) => `${n.toLocaleString('en-GB')} ${escapeHtml(status)}`);
+  if (exclusions.length > 0) html.push(`<p><small>Excluded from the matrix: ${exclusions.join(', ')} rows (shown in the metrics above).</small></p>`);
+  return html;
+}
+
+// Derived metrics for an open-data publication, from its own stats.json
+// (counts, parse statuses, anomaly flags with registry meanings) plus the
+// meta-recorded diff against the previous publication - the only
+// inter-dataset comparison shown, because the meta itself asserts it.
+function openDataMetricsSections(sourceDir: string, key: string): string[] {
+  const statsPath = path.join(sourceDir, 'stats.json');
+  if (!fs.existsSync(statsPath)) return [];
+  const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8')) as OpenDataStats;
+  const registry = new Map(parseFlagRegistry().map(r => [r.flag, r.meaning]));
+
+  const statuses = Object.entries(stats.parseStatuses).sort()
+    .map(([status, n]) => `${n.toLocaleString('en-GB')} ${escapeHtml(status)}`).join(', ');
+  const html: string[] = [
+    '<h2>Dataset metrics</h2>',
+    `<p>${stats.recordCount.toLocaleString('en-GB')} register rows: ${statuses}.</p>`,
+  ];
+
+  const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as { diffSummary?: OpenDataDiffSummary };
+  const diff = meta.diffSummary;
+  if (diff !== undefined) {
+    const previous = diff.previousArchiveKey === key
+      ? 'the previous fetch of this publication'
+      : `the <a href="../${escapeHtml(diff.previousArchiveKey)}/index.html">publication of ${humanDate(diff.previousArchiveKey)}</a>`;
+    html.push(`<p>Against ${previous} (${diff.previousRecordCount.toLocaleString('en-GB')} rows, as recorded in this entry's meta.json at archive time): `
+      + `${diff.unchanged.toLocaleString('en-GB')} rows unchanged, ${diff.fieldChanged.toLocaleString('en-GB')} changed, `
+      + `${diff.added.toLocaleString('en-GB')} added, ${diff.removed.toLocaleString('en-GB')} removed.</p>`);
+  }
+
+  const flags = Object.entries(stats.callsignFlags).sort((a, b) => b[1] - a[1]);
+  if (flags.length > 0) {
+    html.push('<h2>Anomalies</h2>', '<table>', '<tr><th>flag</th><th>rows</th><th>meaning</th></tr>');
+    for (const [flag, count] of flags) {
+      html.push(`<tr><td><code>${escapeHtml(flag)}</code></td><td>${count.toLocaleString('en-GB')}</td><td>${escapeHtml(registry.get(flag) ?? '')}</td></tr>`);
+    }
+    html.push('</table>');
+  }
+  const quality = Object.entries(stats.callsignQuality).filter(([, q]) => q.count > 0).sort();
+  if (quality.length > 0) {
+    html.push('<h3>Value-level quality checks</h3>', '<ul>');
+    for (const [check, q] of quality) {
+      const examples = q.examples.length > 0 ? ` — e.g. ${q.examples.slice(0, 5).map(e => `<code>${escapeHtml(e)}</code>`).join(', ')}` : '';
+      html.push(`<li>${escapeHtml(check)}: ${q.count.toLocaleString('en-GB')}${examples}</li>`);
+    }
+    html.push('</ul>');
+  }
+  return html;
+}
+
 function buildOpenDataEntry(outputDir: string, key: string): { files: CopiedFile[] } {
   const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
   const descriptions = new Map<string, string>([
@@ -277,6 +443,8 @@ function buildOpenDataEntry(outputDir: string, key: string): { files: CopiedFile
   const body = [
     `<h1>${escapeHtml(title)}</h1>`,
     `<p>Open-data archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
+    ...openDataMetricsSections(sourceDir, key),
+    ...rslMatrixSection(path.join(sourceDir, 'components.csv')),
     '<h2>Files</h2>',
     ...filesTable(files),
     ...entryDatabaseLine(outputDir, 'open-data', key),
