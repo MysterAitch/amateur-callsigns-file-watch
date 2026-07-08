@@ -53,9 +53,19 @@ describe('Dataset pages build', () => {
     expect(page).toContain('2,826');
     // The meta-recorded diff is the only inter-dataset comparison shown;
     // 2026-06-23's diff is a self-comparison, phrased as a re-fetch check
-    // with a pointer to the previous archived publication.
+    // pointing at the most recent INTENDED-COMPLETE earlier publication -
+    // 2025-06-08 is a declared-partial 1,074-row truncation and must NOT
+    // be the changes-since baseline (it would imply ~157k spurious adds).
     expect(page).toContain('Re-fetch check: identical to the earlier fetch');
-    expect(page).toContain('href="../2025-06-08/index.html"');
+    expect(page).toContain('href="../2025-06-04/index.html"');
+    expect(page).not.toContain('href="../2025-06-08/index.html"');
+  });
+
+  it('DatasetPages_DeclaredPartialPublication_CarriesScopeWarningUnderH1', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2025-06-08', 'index.html'), 'utf8');
+    expect(page).toContain('Declared-partial publication');
+    expect(page).toContain('truncated dataset');
+    expect(page).toContain('not evidence of anything');
   });
 
   it('DatasetPages_FoiEntryPage_ExplainsDataClassesAndSheetShapes', () => {
