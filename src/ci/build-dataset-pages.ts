@@ -27,8 +27,9 @@ import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, FOI_DATASET_CLASSES, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
-import { renderMarkdown } from '../shared/render-markdown.ts';
+import { renderMarkdown, renderInline } from '../shared/render-markdown.ts';
 import { parseFlagRegistry } from './build-sqlite.ts';
+import { displaySeries } from './build-home-aggregates.ts';
 import { parse } from 'csv-parse/sync';
 import { buildZip } from '../shared/zip.ts';
 
@@ -100,19 +101,49 @@ const PAGE_STYLE = [
   '</style>',
 ].join('');
 
-function htmlPage(title: string, depthToRoot: number, body: string[], metaJsonHref?: string): string {
+// Short commit identifier for footers; 'dev' outside the deploy workflow.
+const BUILD_SHA = (process.env.GITHUB_SHA ?? 'dev').slice(0, 9);
+
+interface PageOptions {
+  metaJsonHref?: string;
+  currentNav?: string;
+  // Repo-relative path (forward slashes) of what this page presents: a
+  // directory for entry pages, a file for rendered documents. Rendered as
+  // a footer link to the exact GitHub location - both the way to browse
+  // the raw data and the "edit this page" path (GitHub's own edit button
+  // takes over from the blob view).
+  sourcePath?: string;
+}
+
+function htmlPage(title: string, depthToRoot: number, body: string[], options: PageOptions = {}): string {
+  const { metaJsonHref, currentNav, sourcePath } = options;
   const rootPath = '../'.repeat(depthToRoot);
+  // One consistent navigation strip on every generated page (no arrow -
+  // the old "← callsign lookup" wrongly implied where the visitor came
+  // from); the current page is named but not self-linked.
+  const navItems: [string, string][] = [
+    ['Lookup', `${rootPath}index.html`],
+    ['Statistics', `${rootPath}statistics.html`],
+    ['Dataset index', `${'../'.repeat(depthToRoot - 1) || './'}index.html`],
+    ['Repository', REPO_URL],
+  ];
+  const nav = navItems
+    .map(([label, href]) => (label === currentNav ? `<strong>${label}</strong>` : `<a href="${href}">${label}</a>`))
+    .join(' · ');
   // On entry pages the footer's meta.json mention links to THAT entry's
   // meta; elsewhere it stays plain text (a generic link would mislead).
   const metaMention = metaJsonHref === undefined ? '<code>meta.json</code>' : `<a href="${metaJsonHref}"><code>meta.json</code></a>`;
+  const isFile = sourcePath !== undefined && /\.[a-z]+$/i.test(sourcePath);
+  const sourceLink = sourcePath === undefined ? '' :
+    ` <a href="${REPO_URL}/${isFile ? 'blob' : 'tree'}/main/${sourcePath}">${isFile ? 'View or edit this page’s source on GitHub' : 'Browse this entry’s directory on GitHub'}</a>.`;
   return [
     '<!DOCTYPE html>',
     '<html lang="en-GB">',
     `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${PAGE_STYLE}</head>`,
     '<body>',
-    `<p><a href="${rootPath}index.html">← callsign lookup</a> · <a href="${'../'.repeat(depthToRoot - 1) || './'}index.html">dataset index</a> · <a href="${REPO_URL}">repository</a></p>`,
+    `<nav><p>${nav}</p></nav>`,
     ...body,
-    `<p><small>Derived from the committed archive; provenance and integrity hashes live in each entry's ${metaMention}. Regenerated on every deploy.</small></p>`,
+    `<p><small>Derived from the committed archive; provenance and integrity hashes live in each entry's ${metaMention}.${sourceLink} Regenerated on every deploy from commit <code>${escapeHtml(BUILD_SHA)}</code>. Maintained by Roger Howell (M7TEE).</small></p>`,
     '</body>',
     '</html>',
     '',
@@ -315,8 +346,10 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files:
   ];
   if (meta.requestUrl !== null) facts.push(`<tr><th>request</th><td><a href="${escapeHtml(meta.requestUrl)}">${escapeHtml(meta.requestUrl)}</a></td></tr>`);
   if (meta.publicationUrl !== undefined) facts.push(`<tr><th>published at</th><td><a href="${escapeHtml(meta.publicationUrl)}">${escapeHtml(meta.publicationUrl)}</a></td></tr>`);
+  // Real entry ids get <code> + a link; free-text related notes render as
+  // prose - <code>-styling a whole sentence made it read as a dead slug.
   const related = (meta.relatedEntries ?? []).map(rel =>
-    `<li>${/^(wdtk|ofcom)-[^\s/]+$/.test(rel.entry) ? `<a href="../${encodeURIComponent(rel.entry)}/index.html"><code>${escapeHtml(rel.entry)}</code></a>` : `<code>${escapeHtml(rel.entry)}</code>`} — ${escapeHtml(rel.relation)}</li>`);
+    `<li>${/^(wdtk|ofcom)-[^\s/]+$/.test(rel.entry) ? `<a href="../${encodeURIComponent(rel.entry)}/index.html"><code>${escapeHtml(rel.entry)}</code></a>` : `<em>${escapeHtml(rel.entry)}</em>`} — ${escapeHtml(rel.relation)}</li>`);
 
   const descriptor = dataPackage(key, meta.title, files);
   const zipBytes = writeEntryZip(path.join(foiDir, key), targetDir, key, descriptor, FOI_DICTIONARY_SOURCES);
@@ -333,7 +366,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files:
     ...entryDatabaseLine(outputDir, 'foi', key),
     ...(related.length > 0 ? ['<h2>Related entries</h2>', '<ul>', ...related, '</ul>'] : []),
   ];
-  fs.writeFileSync(path.join(targetDir, 'index.html'), htmlPage(meta.title, 3, body, 'meta.json'));
+  fs.writeFileSync(path.join(targetDir, 'index.html'), htmlPage(meta.title, 3, body, { metaJsonHref: 'meta.json', sourcePath: `archive/foi/${key}` }));
   fs.writeFileSync(path.join(targetDir, 'datapackage.json'), descriptor);
   return { files, meta, zipBytes };
 }
@@ -392,7 +425,8 @@ function rslMatrixSection(componentsPath: string): string[] {
   const columnTotals = new Map<string, number>();
   const html: string[] = [
     '<h2>Prefix series × Regional Secondary Locator</h2>',
-    '<p>Parsed register rows by prefix series and RSL letter as stored in the register (RSLs are rarely stored - regional renderings are usually implicit).</p>',
+    '<p>Parsed register rows by prefix series and RSL letter as stored in the register (RSLs are rarely stored — regional renderings are usually implicit). '
+    + 'In the series column, <code>#</code> marks where the RSL letter sits when present; <em>(none)</em> means no RSL letter is stored on the row.</p>',
     '<div style="overflow-x:auto"><table>',
     `<tr><th>series</th>${rsls.map(r => `<th>${r === '' ? '(none)' : escapeHtml(r)}</th>`).join('')}<th>total</th></tr>`,
   ];
@@ -407,7 +441,7 @@ function rslMatrixSection(componentsPath: string): string[] {
       return `<td>${n === 0 ? '' : n.toLocaleString('en-GB')}</td>`;
     });
     grandTotal += rowTotal;
-    html.push(`<tr><td><code>${escapeHtml(series)}</code></td>${cells.join('')}<td>${rowTotal.toLocaleString('en-GB')}</td></tr>`);
+    html.push(`<tr><td><code>${escapeHtml(displaySeries(series))}</code></td>${cells.join('')}<td>${rowTotal.toLocaleString('en-GB')}</td></tr>`);
   }
   html.push(`<tr><th>total</th>${rsls.map(rsl => `<th>${(columnTotals.get(rsl) ?? 0).toLocaleString('en-GB')}</th>`).join('')}<th>${grandTotal.toLocaleString('en-GB')}</th></tr>`);
   html.push('</table></div>');
@@ -420,7 +454,7 @@ function rslMatrixSection(componentsPath: string): string[] {
 // (counts, parse statuses, anomaly flags with registry meanings) plus the
 // meta-recorded diff against the previous publication - the only
 // inter-dataset comparison shown, because the meta itself asserts it.
-function openDataMetricsSections(sourceDir: string, key: string): string[] {
+function openDataMetricsSections(sourceDir: string, key: string, previousKey?: string): string[] {
   const statsPath = path.join(sourceDir, 'stats.json');
   if (!fs.existsSync(statsPath)) return [];
   const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8')) as OpenDataStats;
@@ -433,22 +467,45 @@ function openDataMetricsSections(sourceDir: string, key: string): string[] {
     `<p>${stats.recordCount.toLocaleString('en-GB')} register rows: ${statuses}.</p>`,
   ];
 
-  const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as { diffSummary?: OpenDataDiffSummary };
+  const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as {
+    diffSummary?: OpenDataDiffSummary;
+    ignoredLines?: { line: number; content: string; reason: string }[];
+  };
+
+  // Curated exclusions are judgement-bearing and must be visible on the
+  // page, not only in the meta - otherwise the raw-vs-normalised count
+  // difference is unexplained to anyone opening raw.csv.
+  const ignored = meta.ignoredLines ?? [];
+  if (ignored.length > 0) {
+    const reasons = [...new Set(ignored.map(l => l.reason))].map(escapeHtml).join('; ');
+    html.push(`<p>${ignored.length} raw line${ignored.length === 1 ? '' : 's'} excluded as non-data (${reasons}) — enumerated verbatim in <a href="meta.json">meta.json</a>'s <code>ignoredLines</code>.</p>`);
+  }
+
   const diff = meta.diffSummary;
   if (diff !== undefined) {
-    const previous = diff.previousArchiveKey === key
-      ? 'the previous fetch of this publication'
-      : `the <a href="../${escapeHtml(diff.previousArchiveKey)}/index.html">publication of ${humanDate(diff.previousArchiveKey)}</a>`;
-    html.push(`<p>Against ${previous} (${diff.previousRecordCount.toLocaleString('en-GB')} rows, as recorded in this entry's meta.json at archive time): `
-      + `${diff.unchanged.toLocaleString('en-GB')} rows unchanged, ${diff.fieldChanged.toLocaleString('en-GB')} changed, `
-      + `${diff.added.toLocaleString('en-GB')} added, ${diff.removed.toLocaleString('en-GB')} removed.</p>`);
+    if (diff.previousArchiveKey === key) {
+      // A self-comparison records byte-stability of a re-fetch - phrasing
+      // it as "against the previous publication" misled skim-readers.
+      const seePrevious = previousKey === undefined ? '' :
+        ` For changes since the previous archived publication, compare with <a href="../${escapeHtml(previousKey)}/index.html">${humanDate(previousKey)}</a>.`;
+      html.push(`<p>Re-fetch check: identical to the earlier fetch of this same publication (${diff.previousRecordCount.toLocaleString('en-GB')} rows, recorded in meta.json at archive time).${seePrevious}</p>`);
+    } else {
+      html.push(`<p>Against the <a href="../${escapeHtml(diff.previousArchiveKey)}/index.html">publication of ${humanDate(diff.previousArchiveKey)}</a> (${diff.previousRecordCount.toLocaleString('en-GB')} rows, as recorded in this entry's meta.json at archive time): `
+        + `${diff.unchanged.toLocaleString('en-GB')} rows unchanged, ${diff.fieldChanged.toLocaleString('en-GB')} changed, `
+        + `${diff.added.toLocaleString('en-GB')} added, ${diff.removed.toLocaleString('en-GB')} removed.</p>`);
+    }
   }
 
   const flags = Object.entries(stats.callsignFlags).sort((a, b) => b[1] - a[1]);
   if (flags.length > 0) {
     html.push('<h2>Anomalies</h2>', '<table>', '<tr><th>flag</th><th>rows</th><th>meaning</th></tr>');
     for (const [flag, count] of flags) {
-      html.push(`<tr><td><code>${escapeHtml(flag)}</code></td><td>${count.toLocaleString('en-GB')}</td><td>${escapeHtml(registry.get(flag) ?? '')}</td></tr>`);
+      // First sentence only, rendered (the registry strings are markdown -
+      // dumping them raw showed literal ** and backticks on every entry
+      // page); the full registry entry carries live-register census notes
+      // that would mislead beside historical data, so it stays a link.
+      const meaning = (registry.get(flag) ?? '').split(/(?<=\.)\s/, 1)[0];
+      html.push(`<tr><td><code>${escapeHtml(flag)}</code></td><td>${count.toLocaleString('en-GB')}</td><td>${renderInline(meaning)} <a href="../../docs/flags.html">registry →</a></td></tr>`);
     }
     html.push('</table>');
   }
@@ -456,7 +513,8 @@ function openDataMetricsSections(sourceDir: string, key: string): string[] {
   if (quality.length > 0) {
     html.push('<h3>Value-level quality checks</h3>', '<ul>');
     for (const [check, q] of quality) {
-      const examples = q.examples.length > 0 ? ` — e.g. ${q.examples.slice(0, 5).map(e => `<code>${escapeHtml(e)}</code>`).join(', ')}` : '';
+      const shown = q.examples.slice(0, 5).map(e => (e === '' ? '<em>(empty value)</em>' : `<code>${escapeHtml(e)}</code>`));
+      const examples = shown.length > 0 ? ` — e.g. ${shown.join(', ')}` : '';
       html.push(`<li>${escapeHtml(check)}: ${q.count.toLocaleString('en-GB')}${examples}</li>`);
     }
     html.push('</ul>');
@@ -464,12 +522,12 @@ function openDataMetricsSections(sourceDir: string, key: string): string[] {
   return html;
 }
 
-function buildOpenDataEntry(outputDir: string, key: string): { files: CopiedFile[]; zipBytes: number } {
+function buildOpenDataEntry(outputDir: string, key: string, previousKey?: string): { files: CopiedFile[]; zipBytes: number } {
   const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
   const descriptions = new Map<string, string>([
     ['raw.csv', "Ofcom's bytes, verbatim"],
     ['meta.json', 'provenance + shape + diff summary'],
-    ['normalised.csv', 'canonical schema derivation (see normalised-schema.md)'],
+    ['normalised.csv', 'canonical schema derivation — see the data dictionary'],
     ['components.csv', 'per-callsign component decomposition'],
     ['stats.json', 'per-publication statistics and data-quality flags'],
   ]);
@@ -478,17 +536,24 @@ function buildOpenDataEntry(outputDir: string, key: string): { files: CopiedFile
   const files = copyEntryFiles(sourceDir, targetDir, descriptions, new Map(), title);
   const descriptor = dataPackage(key, title, files);
   const zipBytes = writeEntryZip(sourceDir, targetDir, key, descriptor, OPEN_DATA_DICTIONARY_SOURCES);
+  // Non-first-hand provenance is the single most important caveat about an
+  // entry - it belongs under the H1, not one click away in JSON.
+  const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as { provenance?: string };
+  const provenanceNote = meta.provenance !== undefined && meta.provenance !== 'live'
+    ? [`<p><em>Provenance: ${escapeHtml(meta.provenance.replace(/-/g, ' '))} — this entry was not fetched first-hand by the mirror; see <a href="meta.json">meta.json</a>'s <code>reconstructionNotes</code>.</em></p>`]
+    : [];
   const body = [
     `<h1>${escapeHtml(title)}</h1>`,
     `<p>Open-data archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
-    ...openDataMetricsSections(sourceDir, key),
+    ...provenanceNote,
+    ...openDataMetricsSections(sourceDir, key, previousKey),
     ...rslMatrixSection(path.join(sourceDir, 'components.csv')),
     '<h2>Files</h2>',
     ...filesTable(files),
     entryZipLine(key, zipBytes),
     ...entryDatabaseLine(outputDir, 'open-data', key),
   ];
-  fs.writeFileSync(path.join(targetDir, 'index.html'), htmlPage(title, 3, body, 'meta.json'));
+  fs.writeFileSync(path.join(targetDir, 'index.html'), htmlPage(title, 3, body, { metaJsonHref: 'meta.json', sourcePath: `archive/${key}` }));
   fs.writeFileSync(path.join(targetDir, 'datapackage.json'), descriptor);
   return { files, zipBytes };
 }
@@ -503,8 +568,8 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   const pageUrls: string[] = [`${baseUrl}/datasets/index.html`];
 
   const openDataRows: string[] = [];
-  for (const key of openDataKeys) {
-    const { files, zipBytes } = buildOpenDataEntry(outputDir, key);
+  for (const [index, key] of openDataKeys.entries()) {
+    const { files, zipBytes } = buildOpenDataEntry(outputDir, key, openDataKeys[index - 1]);
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;
     pageUrls.push(`${baseUrl}/datasets/open-data/${key}/index.html`);
@@ -530,17 +595,28 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   // freshness-tested), rendered with the same markdown renderer as the
   // correspondence records.
   const dictionaryDocs = [
-    { source: 'docs/normalised-schema.md', slug: 'normalised-schema', label: 'Open-data normalised schema', blurb: 'column-by-column definitions of every open-data publication’s <code>normalised.csv</code> and <code>components.csv</code>.' },
+    { source: 'docs/normalised-schema.md', slug: 'normalised-schema', label: 'Open-data normalised schema', blurb: 'column-by-column definitions of every open-data publication’s <code>normalised.csv</code>, plus the line-accounting contract.' },
     { source: 'docs/foi-schemas.md', slug: 'foi-schemas', label: 'FOI dataset schemas', blurb: 'the dataset-class glossary, row-schema families, registered extension columns, and per-variant conversion detail behind every FOI <code>normalised--*.csv</code>.' },
     { source: 'reference-data/flags.md', slug: 'flags', label: 'Data-quality flag registry', blurb: 'the meaning and grounding of every anomaly flag used in the metrics and the lookup.' },
   ];
   const docsDir = path.join(outputDir, 'datasets', 'docs');
   fs.mkdirSync(docsDir, { recursive: true });
   for (const doc of dictionaryDocs) {
+    let rendered = renderMarkdown(fs.readFileSync(path.join(REPO_ROOT, doc.source), 'utf8'));
+    // Cross-references between the dictionary docs are .md links in the
+    // repository; on the site the siblings are .html (the .md forms 404ed
+    // live). Entry keys named in the docs become links to their pages -
+    // the schema tables are the natural jumping-off point to the data.
+    for (const sibling of dictionaryDocs) {
+      rendered = rendered.replaceAll(`href="${path.basename(sibling.source)}"`, `href="${sibling.slug}.html"`);
+    }
+    for (const key of foiKeys) {
+      rendered = rendered.replaceAll(`<code>${key}</code>`, `<a href="../foi/${encodeURIComponent(key)}/index.html"><code>${key}</code></a>`);
+    }
     const docBody = [
       `<p><small>Rendered from <a href="${REPO_URL}/blob/main/${doc.source}">${escapeHtml(doc.source)}</a> in the repository (the authoritative copy).</small></p>`,
       '<hr>',
-      renderMarkdown(fs.readFileSync(path.join(REPO_ROOT, doc.source), 'utf8')),
+      rendered,
     ];
     fs.writeFileSync(path.join(docsDir, `${doc.slug}.html`), htmlPage(doc.label, 2, docBody));
     pageUrls.push(`${baseUrl}/datasets/docs/${doc.slug}.html`);
@@ -590,7 +666,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   ];
   const datasetsDir = path.join(outputDir, 'datasets');
   fs.mkdirSync(datasetsDir, { recursive: true });
-  fs.writeFileSync(path.join(datasetsDir, 'index.html'), htmlPage('Dataset index', 1, indexBody));
+  fs.writeFileSync(path.join(datasetsDir, 'index.html'), htmlPage('Dataset index', 1, indexBody, { currentNav: 'Dataset index', sourcePath: 'archive' }));
 
   const sitemap = [
     '<?xml version="1.0" encoding="UTF-8"?>',

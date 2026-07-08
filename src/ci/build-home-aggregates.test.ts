@@ -14,7 +14,8 @@ import { renderFlagsTableHtml, renderRslMatrixHtml, injectHomeAggregates } from 
 describe('Home-page aggregate pre-rendering', () => {
   it('FlagsTable_RealArchive_PivotsEveryPublicationWithRecordsRow', () => {
     const html = renderFlagsTableHtml();
-    expect(html).toContain('<th class="num">2026-06-23</th>');
+    // Dataset column headers link to their entry pages.
+    expect(html).toContain('<th class="num"><a href="datasets/open-data/2026-06-23/index.html">2026-06-23</a></th>');
     expect(html).toContain('<td>records</td>');
     expect(html).toContain('<td>forbidden-suffix</td>');
     // Newest-first column order: 2026 keys precede the 2023 import.

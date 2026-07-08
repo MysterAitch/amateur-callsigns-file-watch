@@ -51,8 +51,11 @@ describe('Dataset pages build', () => {
     // Anomaly flags render with their registry meanings, not bare slugs.
     expect(page).toContain('<code>forbidden-suffix</code>');
     expect(page).toContain('2,826');
-    // The meta-recorded diff is the only inter-dataset comparison shown.
-    expect(page).toContain('rows unchanged');
+    // The meta-recorded diff is the only inter-dataset comparison shown;
+    // 2026-06-23's diff is a self-comparison, phrased as a re-fetch check
+    // with a pointer to the previous archived publication.
+    expect(page).toContain('Re-fetch check: identical to the earlier fetch');
+    expect(page).toContain('href="../2025-06-08/index.html"');
   });
 
   it('DatasetPages_FoiEntryPage_ExplainsDataClassesAndSheetShapes', () => {

@@ -12,9 +12,17 @@ describe('Markdown renderer', () => {
   it('RenderMarkdown_HeadingsRulesAndParagraphs_ProduceStructuralHtml', () => {
     const html = renderMarkdown('# Title\n\nSome text\nover two lines.\n\n---\n\n## Section');
     expect(html).toContain('<h1>Title</h1>');
-    expect(html).toContain('<p>Some text<br>over two lines.</p>');
+    // Soft-wrapped source lines flow as one sentence - never a hard break.
+    expect(html).toContain('<p>Some text over two lines.</p>');
     expect(html).toContain('<hr>');
     expect(html).toContain('<h2>Section</h2>');
+  });
+
+  it('RenderMarkdown_FencedCodeBlock_RendersAsPreformattedEscapedCode', () => {
+    const html = renderMarkdown('Before.\n\n```\nraw lines = headers + rows\nx < y & z\n```\n\nAfter.');
+    expect(html).toContain('<pre><code>raw lines = headers + rows\nx &lt; y &amp; z</code></pre>');
+    expect(html).toContain('<p>Before.</p>');
+    expect(html).toContain('<p>After.</p>');
   });
 
   it('RenderMarkdown_PipeTable_RendersHeaderAndRows', () => {
@@ -45,6 +53,15 @@ describe('Markdown renderer', () => {
     expect(html).toContain('<li>first</li>');
     expect(html).toContain('<ol>');
     expect(html).toContain('<li>two</li>');
+  });
+
+  it('RenderMarkdown_ListItemSoftWrapped_ContinuationFoldsIntoTheSameItem', () => {
+    // Lazy continuations are the SAME sentence - severed bullets with
+    // orphan <p> siblings were observed live on every docs page.
+    const html = renderMarkdown('- **curated ignores**: lines a human has judged to be\n  export furniture, hand-written into meta.\n- next item.');
+    expect(html).toContain('<li><strong>curated ignores</strong>: lines a human has judged to be export furniture, hand-written into meta.</li>');
+    expect(html).toContain('<li>next item.</li>');
+    expect(html).not.toContain('<p>export furniture');
   });
 
   it('RenderMarkdown_RelativeLinks_PreservedForSiblingEntriesAndFiles', () => {

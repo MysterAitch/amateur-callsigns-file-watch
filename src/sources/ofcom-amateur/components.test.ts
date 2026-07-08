@@ -129,7 +129,7 @@ describe('parseCallsign', () => {
   });
 
   it('Parse_WhenProductEmpty_NoMismatchJudgement', () => {
-    // Never-licensed callsigns legitimately carry an empty product; absence
+    // An empty product is common and asserts nothing about licensing; absence
     // of evidence is not a mismatch.
     expect(parsed('M7TEE', '').flags).not.toContain('class-product-mismatch');
   });

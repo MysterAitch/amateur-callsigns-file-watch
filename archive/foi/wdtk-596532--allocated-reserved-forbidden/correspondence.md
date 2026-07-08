@@ -44,8 +44,7 @@
     are actively considering" — the direct precursor to the open-data
     publication this repository mirrors.
 
-## Exchange (verbatim; relay email addresses, signature boilerplate and an
-out-of-office auto-reply omitted)
+## Exchange (verbatim; relay email addresses, signature boilerplate and an out-of-office auto-reply omitted)
 
 **2019-08-09 — request (Roger Howell):**
 

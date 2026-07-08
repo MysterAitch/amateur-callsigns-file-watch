@@ -128,7 +128,7 @@ verbatim from raw.
 | column | notes |
 |---|---|
 | `callsign` | the callsign value, verbatim |
-| `product` | licence product, verbatim (legitimately empty for never-licensed callsigns) |
+| `product` | licence product, verbatim (legitimately and commonly empty — an empty product does not indicate the callsign was never licensed) |
 | `status` | e.g. Allocated / Available / Reserved, verbatim |
 | `type` | verbatim; empty for variants that carry no Type column |
 | `created_date` | ISO-ordered; populated by the 2025 variants only |
