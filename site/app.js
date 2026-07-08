@@ -137,6 +137,9 @@ async function foiHistoryCard(callsigns) {
 
 async function renderAggregates() {
   const target = document.getElementById('flags-table');
+  // Pre-rendered at deploy time (build-home-aggregates.ts) - the dynamic
+  // path remains for pages served without the injection (local dev).
+  if (target.dataset.prerendered !== undefined) return;
   try {
     const datasets = await query('SELECT key, record_count FROM datasets ORDER BY key DESC');
     const flags = await query('SELECT dataset, flag, count FROM stats_flags');
@@ -162,6 +165,9 @@ async function renderAggregates() {
 // locators missing from reference data are flagged with a warning marker.
 async function renderRslMatrix() {
   const target = document.getElementById('rsl-matrix-table');
+  // Pre-rendered at deploy time (build-home-aggregates.ts) - the dynamic
+  // path remains for pages served without the injection (local dev).
+  if (target.dataset.prerendered !== undefined) return;
   try {
     const refSeries = (await query('SELECT prefix FROM ref_prefix_formats')).map(r => r.prefix);
     const refRsl = (await query('SELECT rsl FROM ref_rsl ORDER BY rsl')).map(r => r.rsl);
