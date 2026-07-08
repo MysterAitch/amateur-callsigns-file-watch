@@ -240,7 +240,10 @@ describe('xlsx extractor - archive golden master', () => {
     .filter(entry => fs.readdirSync(path.join(foiRoot, entry)).some(f => f.endsWith('.xlsx')));
 
   it('XlsxExtract_AllArchivedWorkbooks_ReproduceCommittedExtractsByteForByte', { timeout: 60_000 }, () => {
-    expect(workbookEntries).toHaveLength(13);
+    // Growing floor, not an exact count: new workbook entries join the
+    // golden master automatically; the byte-equality checks below are the
+    // real guard.
+    expect(workbookEntries.length).toBeGreaterThanOrEqual(13);
     for (const entry of workbookEntries) {
       const entryDir = path.join(foiRoot, entry);
       const produced = new Set<string>();
