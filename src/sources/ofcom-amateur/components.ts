@@ -79,6 +79,11 @@ export interface ReferenceData {
   rslLetters: ReadonlySet<string>;
   prefixSeries: ReadonlyMap<string, PrefixSeriesInfo>;
   forbiddenSuffixes: ReadonlySet<string>;
+  // Raw product/licence_class string -> canonical licence category. The
+  // register writes the same class differently by source vintage ('Full' vs
+  // 'Amateur Full Radio Licence'); this collapses the drift to one category
+  // while the raw value is still carried verbatim elsewhere (source fidelity).
+  licenceCategory: ReadonlyMap<string, string>;
 }
 
 // Anchored to the repository root via this module's location, so tests and
@@ -98,7 +103,20 @@ export function loadReferenceData(): ReferenceData {
     }]),
   );
   const forbiddenSuffixes = new Set(readCsv('forbidden-suffixes.csv').map(r => r.suffix));
-  return { rslLetters, prefixSeries, forbiddenSuffixes };
+  const licenceCategory = new Map(
+    readCsv('licence-category.csv').map(r => [r.product, r.normalised_category]),
+  );
+  return { rslLetters, prefixSeries, forbiddenSuffixes, licenceCategory };
+}
+
+// The canonical licence category for a raw product/licence_class value, or
+// null when there is no category to assign: a genuinely blank value (the
+// source asserted no product) OR a non-blank value with no mapping. A null on
+// a non-blank value is a surprise to surface (fail loud), never a silent drop.
+export function normaliseLicenceCategory(product: string, ref: ReferenceData): string | null {
+  const key = product.trim();
+  if (key === '') return null;
+  return ref.licenceCategory.get(key) ?? null;
 }
 
 const INVISIBLE_RE = /[\p{C}\p{Z}]/gu;

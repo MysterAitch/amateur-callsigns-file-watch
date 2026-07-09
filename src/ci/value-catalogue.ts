@@ -18,7 +18,7 @@ import { parse } from 'csv-parse/sync';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { buildFoiObservations } from '../shared/foi-observations.ts';
-import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { parseCallsign, loadReferenceData, normaliseLicenceCategory, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { mdCode } from '../shared/markdown.ts';
 
 // A blank source value is data (the source asserted an empty string); a value
@@ -124,6 +124,60 @@ function notableSection(cats: Map<string, FieldCatalogue>, ref: ReferenceData): 
   return lines;
 }
 
+// The "describe, then do" of the licence vocabulary drift (issue #232): the
+// raw product/licence_class variants surfaced in Notable and the product table,
+// collapsed to their canonical category via reference-data/licence-category.csv.
+// The raw values are still carried verbatim (source fidelity); this is the
+// derived, canonical view beside them, made visible so the normalisation is a
+// reviewable artefact rather than a hidden mapping. A non-blank variant with no
+// category is flagged, never silently dropped.
+function licenceCategorySection(cats: Map<string, FieldCatalogue>, ref: ReferenceData): string[] {
+  const product = cats.get(PRODUCT_FIELD);
+  if (product === undefined) return [];
+  const byCategory = new Map<string, { total: number; variants: ValueTally[] }>();
+  const unmapped: ValueTally[] = [];
+  let blank: ValueTally | undefined;
+  for (const v of product.values) {
+    if (v.value === BLANK) { blank = v; continue; }
+    const category = normaliseLicenceCategory(v.value, ref);
+    if (category === null) { unmapped.push(v); continue; }
+    const bucket = byCategory.get(category) ?? { total: 0, variants: [] };
+    bucket.total += v.count;
+    bucket.variants.push(v);
+    byCategory.set(category, bucket);
+  }
+  const categories = [...byCategory.entries()]
+    .map(([category, b]) => ({ category, total: b.total, variants: b.variants }))
+    .sort((a, b) => b.total - a.total || a.category.localeCompare(b.category));
+  if (categories.length === 0) return [];
+
+  const mapped = categories.reduce((n, c) => n + c.variants.length, 0);
+  const lines: string[] = [];
+  lines.push('## Normalised licence category');
+  lines.push('');
+  lines.push(`The ${mapped} non-blank product/licence_class variants above collapse to ${categories.length} canonical categories via \`reference-data/licence-category.csv\`. The raw values are still passed through VERBATIM (source fidelity); this is the derived, canonical view beside them - the drift described above, resolved.`);
+  lines.push('');
+  lines.push('| normalised category | count | folds in |');
+  lines.push('|---|---:|---|');
+  for (const c of categories) {
+    const variants = [...c.variants]
+      .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
+      .map(v => `${mdCode(v.value)} (${v.count.toLocaleString('en-GB')})`)
+      .join(', ');
+    lines.push(`| ${mdCode(c.category)} | ${c.total.toLocaleString('en-GB')} | ${variants} |`);
+  }
+  lines.push('');
+  if (blank !== undefined) {
+    lines.push(`\`(blank)\` (${blank.count.toLocaleString('en-GB')}) is not a category - the source asserted no product; it is left as-is.`);
+    lines.push('');
+  }
+  if (unmapped.length > 0) {
+    lines.push(`⚠ **Unmapped non-blank variants** (no category decided - add a row to \`reference-data/licence-category.csv\`): ${unmapped.map(v => `${mdCode(v.value)} (${v.count.toLocaleString('en-GB')})`).join(', ')}.`);
+    lines.push('');
+  }
+  return lines;
+}
+
 export function renderValueCatalogue(tallies: Map<string, Map<string, { count: number; lanes: Set<string> }>>, ref: ReferenceData): string {
   const FIELD_ORDER = ['status', PRODUCT_FIELD, 'implied_class', 'parse_status', 'prefix_series', 'flags'];
   const cats = new Map<string, FieldCatalogue>();
@@ -151,6 +205,8 @@ export function renderValueCatalogue(tallies: Map<string, Map<string, { count: n
     out.push(...notable);
     out.push('');
   }
+
+  out.push(...licenceCategorySection(cats, ref));
 
   for (const field of FIELD_ORDER) {
     const cat = cats.get(field);

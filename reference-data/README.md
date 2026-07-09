@@ -54,6 +54,26 @@ Sources: Ofcom, *Implementing Phase 2 and 3 of the Amateur Review*
 (14 October 2025), p. 2 (SES); Ofcom, *Amateur radio guidance* (updated
 14 October 2025), §6.4 (SCC).
 
+### `licence-category.csv` — product/class string → canonical category
+
+Maps each raw `product` (open-data) / `licence_class` (FOI) string the
+register uses to one canonical `normalised_category`. The same class is
+written differently across source vintages — `Full` vs `Amateur Full Radio
+Licence`, `Foundation` vs `Amateur Foundation Radio Licence` — so this table
+collapses the vocabulary drift to a single category while the raw value is
+still carried verbatim elsewhere (source fidelity). The value catalogue's
+"Normalised licence category" section is generated from it, and flags any
+non-blank product with no mapping rather than dropping it.
+
+The two reciprocal categories are kept **distinct**: `Temporary Reciprocal`
+is a short-term visitor authorisation (being phased out), whereas `Full
+(Reciprocal)` is a permanent UK Full licence granted on a recognised foreign
+qualification (HAREC / CEPT T/R 61-02) — different duration, rights and legal
+basis. A blank product is not a category and is left as-is.
+
+Sources: Ofcom, *Amateur radio licence guidance for licensees* (2025); RSGB,
+*Operating for Visitors* / *Operating Abroad* (CEPT T/R 61-01 vs 61-02).
+
 ### `forbidden-suffixes.csv` — suffixes Ofcom will not issue
 
 1,465 three-letter suffixes disclosed by Ofcom in response to a Freedom of

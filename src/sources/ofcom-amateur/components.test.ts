@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCallsign, loadReferenceData, componentsFlagsForRows, cleanedCallsign, COMPONENT_COLUMNS, COMPONENTS_SCHEMA_VERSION } from './components.ts';
+import { parseCallsign, loadReferenceData, normaliseLicenceCategory, componentsFlagsForRows, cleanedCallsign, COMPONENT_COLUMNS, COMPONENTS_SCHEMA_VERSION } from './components.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -238,6 +238,36 @@ describe('reference data loading', () => {
     expect(REF.prefixSeries.get('M7')?.stationLevel).toBe('Foundation');
     expect(REF.forbiddenSuffixes.has('ASS')).toBe(true);
     expect(REF.forbiddenSuffixes.size).toBe(1465);
+  });
+});
+
+describe('normaliseLicenceCategory', () => {
+  it('LicenceCategory_WhenSourceVintagesDiffer_CollapseToOneCategory', () => {
+    // The same class written differently by source vintage maps to one
+    // canonical category (the vocabulary-drift collapse).
+    expect(normaliseLicenceCategory('Full', REF)).toBe('Full');
+    expect(normaliseLicenceCategory('Amateur Full Radio Licence', REF)).toBe('Full');
+    expect(normaliseLicenceCategory('Foundation', REF)).toBe('Foundation');
+    expect(normaliseLicenceCategory('Amateur Foundation Radio Licence', REF)).toBe('Foundation');
+  });
+
+  it('LicenceCategory_WhenReciprocalVariants_KeptDistinct', () => {
+    // A temporary visitor authorisation and a permanent full-on-reciprocal
+    // licence are different products - they must not collapse together.
+    expect(normaliseLicenceCategory('Amateur Temporary Reciprocal Radio Licence', REF)).toBe('Temporary Reciprocal');
+    expect(normaliseLicenceCategory('Amateur Full (Reciprocal) Radio Licence', REF)).toBe('Full Reciprocal');
+  });
+
+  it('LicenceCategory_WhenBlank_IsNotACategory', () => {
+    // A blank product asserts no class; it is not forced into a category.
+    expect(normaliseLicenceCategory('', REF)).toBeNull();
+    expect(normaliseLicenceCategory('   ', REF)).toBeNull();
+  });
+
+  it('LicenceCategory_WhenUnmappedNonBlank_ReturnsNullToSurface', () => {
+    // An unrecognised non-blank product surfaces as null (fail loud) rather
+    // than being silently bucketed into a category.
+    expect(normaliseLicenceCategory('Amateur Novice Radio Licence', REF)).toBeNull();
   });
 });
 

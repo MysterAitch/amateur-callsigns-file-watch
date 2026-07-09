@@ -14,6 +14,22 @@ are shown, never assumed away.
 - **Prefix series outside the reference table** (`reference-data/prefix-formats.csv`): `M2` (6). A supposed-to-be-empty prefix that is not empty (e.g. `M2`) is exactly the kind of surprise this catalogue exists to flag.
 - **Licence product/class vocabulary drift**: 11 distinct variants across the corpus (6 appear in both lanes). The same class is written differently by source (e.g. `Full` vs `Amateur Full Radio Licence`) - these are passed through VERBATIM today (source fidelity), so this is the explicit, counted list of canonicalisation candidates.
 
+## Normalised licence category
+
+The 10 non-blank product/licence_class variants above collapse to 7 canonical categories via `reference-data/licence-category.csv`. The raw values are still passed through VERBATIM (source fidelity); this is the derived, canonical view beside them - the drift described above, resolved.
+
+| normalised category | count | folds in |
+|---|---:|---|
+| `Full` | 601,345 | `Amateur Full Radio Licence` (395,518), `Full` (205,827) |
+| `Foundation` | 334,323 | `Amateur Foundation Radio Licence` (243,703), `Foundation` (90,620) |
+| `Intermediate` | 195,311 | `Amateur Intermediate Radio Licence` (132,931), `Intermediate` (62,380) |
+| `Club` | 11,450 | `Amateur Club Radio Licence` (11,450) |
+| `Temporary Reciprocal` | 413 | `Amateur Temporary Reciprocal Radio Licence` (413) |
+| `Full Reciprocal` | 15 | `Amateur Full (Reciprocal) Radio Licence` (15) |
+| `Special Event` | 7 | `Special Event Station` (7) |
+
+`(blank)` (481,042) is not a category - the source asserted no product; it is left as-is.
+
 ## `status` — 7 distinct
 
 | value | count | lanes |
