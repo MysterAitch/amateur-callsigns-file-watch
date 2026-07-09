@@ -296,6 +296,53 @@ describe('Dataset pages build', () => {
     expect(summary.pageUrls.some(url => url.endsWith('/datasets/docs/flags.html'))).toBe(true);
   });
 
+  it('ReportPages_StandingReports_RenderedAndIndexedOnHub', () => {
+    // The reports hub lists every standing report and the register-status doc,
+    // and cross-references (does not move) the data-dictionary pages.
+    const hub = fs.readFileSync(path.join(outputDir, 'reports', 'index.html'), 'utf8');
+    expect(hub).toContain('href="value-catalogue.html"');
+    expect(hub).toContain('href="data-quality.html"');
+    expect(hub).toContain('href="dataset-status.html"');
+    expect(hub).toContain('href="../datasets/docs/flags.html"');
+    // The value catalogue is a real rendered page carrying its table content
+    // (cells, not raw pipe syntax) and the Reports nav marked current.
+    const vc = fs.readFileSync(path.join(outputDir, 'reports', 'value-catalogue.html'), 'utf8');
+    expect(vc).toContain('<td>');
+    expect(vc).toContain('Allocated');
+    expect(vc).not.toContain('| value | count |');
+    expect(vc).toContain('<strong>Reports</strong>');
+    expect(vc).toContain('href="index.html">All reports');
+    // Every report page joins the sitemap (Wayback crawl seed).
+    expect(summary.pageUrls.some(u => u.endsWith('/reports/value-catalogue.html'))).toBe(true);
+    expect(summary.pageUrls.some(u => u.endsWith('/reports/index.html'))).toBe(true);
+  });
+
+  it('ReportPages_DatasetStatusRelativeLink_RewrittenToRepoNot404', () => {
+    // dataset-status.md links a sibling doc (source-register.md) that has no
+    // rendered page on the site; the link resolves to the authoritative repo
+    // copy rather than a dead relative .md.
+    const status = fs.readFileSync(path.join(outputDir, 'reports', 'dataset-status.html'), 'utf8');
+    expect(status).not.toContain('href="source-register.md"');
+    expect(status).toContain('/blob/main/docs/source-register.md');
+  });
+
+  it('GeneratedPages_Nav_CarryReportsAndCompareLinks', () => {
+    // The Reports hub (and the previously-missing Compare page) are reachable
+    // from every generated page's nav strip.
+    const datasetIndex = fs.readFileSync(path.join(outputDir, 'datasets', 'index.html'), 'utf8');
+    expect(datasetIndex).toContain('reports/index.html');
+    expect(datasetIndex).toContain('compare.html');
+  });
+
+  it('StaticPages_Nav_CarryReportsLink', () => {
+    // The four hand-authored pages carry the Reports link too, so navigation
+    // is uniform across the whole site (≤2 clicks to any report).
+    for (const page of ['index', 'statistics', 'explore', 'compare']) {
+      const html = fs.readFileSync(path.join('site', `${page}.html`), 'utf8');
+      expect(html).toContain('href="reports/index.html">Reports</a>');
+    }
+  });
+
   it('SeriesPages_RealArchive_OnePagePerSeriesWithFactsAndCounts', () => {
     const index = fs.readFileSync(path.join(outputDir, 'series', 'index.html'), 'utf8');
     // Reference-known and observed-only series both get pages; the slug
