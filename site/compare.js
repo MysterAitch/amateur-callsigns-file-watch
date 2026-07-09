@@ -65,6 +65,10 @@ const state = {
 };
 const selected = new Set();      // dataset keys chosen for comparison
 let datasets = [];               // [{ dataset, record_count, intended_complete, scope_notes, coverage_affecting }]
+// A hand-edited filter condition that overrides the inherited facet/toggle
+// state - so a comparison whose inherited filter matched nothing can be fixed
+// in place without a round-trip to a publication browser.
+let customPredicate = null;
 
 const setup = document.getElementById('setup');
 const picker = document.getElementById('dataset-picker');
@@ -76,6 +80,7 @@ const diffSection = document.getElementById('diff');
 const diffResult = document.getElementById('diff-result');
 const sqlSection = document.getElementById('sql');
 const sqlText = document.getElementById('sql-text');
+const predInput = document.getElementById('pred-input');
 const bootStatus = document.getElementById('boot-status');
 
 // A publication whose declared coverage is partial, or that carries a
@@ -90,10 +95,11 @@ function scopeCaveat(d) {
 }
 function datasetOf(key) { return datasets.find(d => d.dataset === key); }
 
-// The dataset-agnostic predicate shared with the single-publication browser.
+// The dataset-agnostic predicate applied to every publication. A hand-edited
+// filter (customPredicate) overrides the inherited facet/toggle/column state.
 // A custom-SQL ?view= is tied to one publication, so it cannot be compared
 // automatically - the caller checks state.customSql before using this.
-function predicate() { return buildPredicate(state); }
+function predicate() { return customPredicate ?? buildPredicate(state); }
 
 function restoreFromUrl() {
   const url = new URL(window.location.href);
@@ -110,6 +116,8 @@ function restoreFromUrl() {
   }
   const rawSets = url.searchParams.get('datasets');
   if (rawSets !== null) for (const k of rawSets.split(',')) if (k !== '') selected.add(k);
+  const rawPred = url.searchParams.get('pred');
+  if (rawPred !== null && rawPred !== '') customPredicate = rawPred;
 }
 function writeUrl() {
   const url = new URL(window.location.href);
@@ -118,12 +126,15 @@ function writeUrl() {
   else url.searchParams.set('view', JSON.stringify(view));
   if (selected.size === 0) url.searchParams.delete('datasets');
   else url.searchParams.set('datasets', [...selected].join(','));
+  if (customPredicate === null) url.searchParams.delete('pred');
+  else url.searchParams.set('pred', customPredicate);
   window.history.replaceState(null, '', url);
 }
 
 // A human description of the inherited filter, so the page states plainly
 // what is being compared.
 function describeFilter() {
+  if (customPredicate !== null) return `a custom filter — ${customPredicate}`;
   if (state.customSql !== null) return 'a custom SQL query';
   const parts = [];
   for (const f of state.facets.values()) {
@@ -312,8 +323,28 @@ function diffBlock(title, rows, columns) {
 
 function renderSql(chosen, pred) {
   sqlSection.hidden = false;
+  // Keep the editable filter box in step with the active predicate (unless the
+  // user is mid-edit having typed something not yet applied).
+  if (document.activeElement !== predInput) predInput.value = pred;
   const counts = chosen.map(k => `SELECT '${k}' AS publication, COUNT(*) AS matching\nFROM register_history WHERE dataset = '${k}' AND (${pred})`).join('\nUNION ALL\n');
   sqlText.textContent = counts + '\nORDER BY publication;';
 }
+
+// The editable filter: apply a hand-typed WHERE condition (read-only - a
+// single condition, no statement terminator), or reset to the inherited
+// filter. Safe like the entry browser's literal SQL: the VFS is read-only, so
+// the worst a crafted condition does is run another read-only read.
+document.getElementById('pred-apply').addEventListener('click', () => {
+  const raw = predInput.value.trim();
+  if (raw.includes(';')) { scopeNote.textContent = 'Filter must be a single condition (no “;”).'; return; }
+  customPredicate = raw === '' ? null : raw;
+  filterNote.textContent = `Comparing: ${describeFilter()}.`;
+  void refresh();
+});
+document.getElementById('pred-reset').addEventListener('click', () => {
+  customPredicate = null;
+  filterNote.textContent = `Comparing: ${describeFilter()}.`;
+  void refresh();
+});
 
 boot();
