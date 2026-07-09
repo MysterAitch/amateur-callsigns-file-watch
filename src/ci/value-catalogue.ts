@@ -171,7 +171,12 @@ export const VALUE_CATALOGUE_PATH = 'reports/value-catalogue.md';
 export function writeValueCatalogue(): { path: string; changed: boolean } {
   const ref = loadReferenceData();
   const markdown = renderValueCatalogue(buildFieldTallies(), ref);
-  const target = path.join(path.resolve(import.meta.dirname, '..', '..'), VALUE_CATALOGUE_PATH);
+  // Written relative to the working directory - the SAME root the tallies read
+  // archive/ from (CONSTANTS.DIRS.archive is relative). So a sweep run against
+  // a fixture archive in a temp cwd writes ITS catalogue there, never
+  // clobbering the committed real one.
+  const target = path.resolve(process.cwd(), VALUE_CATALOGUE_PATH);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
   const existing = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : undefined;
   const changed = existing !== markdown;
   if (changed) fs.writeFileSync(target, markdown);
