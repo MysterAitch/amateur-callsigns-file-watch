@@ -773,36 +773,85 @@ function gatherCriteria() {
   };
 }
 
+// Every executed lookup gets a shareable URL: a callsign (?c=M7TEE) OR a
+// filtered view (?series=20&status=Reserved&flags=forbidden-suffix). This
+// is the dynamic half of the entity-pages plan (precomputing 158k static
+// callsign pages would alone exceed the Pages cap) AND the answer to
+// "which N?" - every count on a series/statistics page links to its rows.
+function criteriaToParams(criteria) {
+  const params = new URLSearchParams();
+  if (criteria.value) params.set('c', criteria.value);
+  if (criteria.series) params.set('series', criteria.series);
+  if (criteria.statuses.length) params.set('status', criteria.statuses.join(','));
+  if (criteria.parseStatuses.length) params.set('parse', criteria.parseStatuses.join(','));
+  if (criteria.flags.length) params.set('flags', criteria.flags.join(','));
+  if (criteria.length) params.set('len', criteria.length);
+  if (criteria.pattern) params.set('pattern', criteria.pattern);
+  if (criteria.abnormal) params.set('abnormal', '1');
+  return params;
+}
+
+function tickBoxes(fieldsetId, values) {
+  const wanted = new Set(values);
+  for (const box of document.querySelectorAll(`#${fieldsetId} input`)) {
+    if (wanted.has(box.value)) box.checked = true;
+  }
+}
+
+// Restore form state from URL params (checkboxes must already exist, so
+// this runs after populateFilters). Opens the filter panel when any facet
+// is set so the applied conditions are visible, not hidden.
+function applyParamsToForm(params) {
+  const c = params.get('c');
+  if (c) document.getElementById('callsign').value = c.trim().toUpperCase();
+  if (params.get('series')) document.getElementById('series-filter').value = params.get('series');
+  if (params.get('len')) document.getElementById('length-filter').value = params.get('len');
+  if (params.get('pattern')) document.getElementById('pattern-filter').value = params.get('pattern');
+  if (params.get('abnormal') === '1') document.getElementById('abnormal-filter').checked = true;
+  tickBoxes('status-filters', (params.get('status') ?? '').split(',').filter(Boolean));
+  tickBoxes('parse-filters', (params.get('parse') ?? '').split(',').filter(Boolean));
+  tickBoxes('flag-filters', (params.get('flags') ?? '').split(',').filter(Boolean));
+  if ([...params.keys()].some(k => k !== 'c')) {
+    const details = document.getElementById('filters');
+    if (details) details.open = true;
+  }
+}
+
 document.getElementById('lookup-form').addEventListener('submit', (event) => {
   event.preventDefault();
   const criteria = gatherCriteria();
   if (criteria.value !== '' || criteriaActive(criteria)) {
-    // Every looked-up callsign gets a shareable URL (?c=M7TEE) - the
-    // dynamic half of the entity-pages plan; precomputing 158k static
-    // callsign pages would alone exceed the Pages size cap.
     const url = new URL(window.location.href);
-    if (criteria.value !== '') url.searchParams.set('c', criteria.value);
-    else url.searchParams.delete('c');
+    url.search = criteriaToParams(criteria).toString();
     window.history.replaceState(null, '', url);
     void lookup(criteria);
   }
 });
 
-void populateFilters();
 void renderBuildInfo();
 
-// Deep link: arriving with ?c=M7TEE runs the lookup immediately, so every
-// callsign has a linkable page backed by the range-request database. The
-// title and scroll position make the deep-linked view read as that
-// callsign's page rather than a pre-filled search.
-{
-  const deepLinked = new URLSearchParams(window.location.search).get('c');
-  if (deepLinked !== null && deepLinked.trim() !== '') {
-    const value = deepLinked.trim().toUpperCase();
+const initialParams = new URLSearchParams(window.location.search);
+const hasFilterParams = [...initialParams.keys()].some(k => k !== 'c');
+
+// Fast path: a callsign-only deep link runs immediately (a callsign
+// lookup ignores filters), without waiting for the filter panel's DISTINCT
+// scans. The title and scroll make it read as that callsign's own page.
+if (!hasFilterParams) {
+  const c = initialParams.get('c');
+  if (c !== null && c.trim() !== '') {
+    const value = c.trim().toUpperCase();
     document.getElementById('callsign').value = value;
     document.title = `${value} — UK amateur callsign`;
-    void lookup(gatherCriteria()).then(() => {
-      document.getElementById('result').scrollIntoView({ block: 'start' });
-    });
+    void lookup(gatherCriteria()).then(() => document.getElementById('result').scrollIntoView({ block: 'start' }));
   }
 }
+
+// Filter deep links must wait for the checkboxes to exist before ticking
+// them; a shared filtered-view URL then reproduces the exact result set.
+populateFilters().then(() => {
+  if (!hasFilterParams) return;
+  applyParamsToForm(initialParams);
+  const criteria = gatherCriteria();
+  if (criteria.value === '' && !criteriaActive(criteria)) return;
+  void lookup(criteria).then(() => document.getElementById('result').scrollIntoView({ block: 'start' }));
+});
