@@ -97,6 +97,8 @@ const PAGE_STYLE = [
   'body{font-family:system-ui,sans-serif;max-width:60rem;margin:2rem auto;padding:0 1rem;line-height:1.5}',
   'table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:.3rem .5rem;text-align:left;vertical-align:top}',
   'code{background:#f4f4f4;padding:0 .2rem}h1,h2{line-height:1.2}',
+  'nav a{display:inline-block;padding:.3rem .15rem}',
+  '.skip{position:absolute;left:-999px;top:0;z-index:10;padding:.5rem .8rem;background:Canvas;color:CanvasText;border:1px solid GrayText}.skip:focus{left:0}',
   '@media(prefers-color-scheme:dark){body{background:#111;color:#ddd}td,th{border-color:#444}code{background:#222}a{color:#8cf}}',
   '</style>',
 ].join('');
@@ -182,8 +184,11 @@ function htmlPage(title: string, depthToRoot: number, body: string[], options: P
     '<html lang="en-GB">',
     `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${PAGE_STYLE}</head>`,
     '<body>',
+    '<a class="skip" href="#main">Skip to content</a>',
     `<nav><p>${navHtml(depthToRoot, currentNav)}</p></nav>`,
+    '<main id="main">',
     ...body,
+    '</main>',
     footerHtml(metaJsonHref, sourcePath),
     '</body>',
     '</html>',
@@ -202,7 +207,8 @@ const ENTRY_STYLE = [
   '@media(prefers-color-scheme:dark){:root{--ink:#e6e6e6;--paper:#111;--card:#191919;--line:#333;--muted:#9a9a9a;--accent:#7fbcd9;--slot:#141414;--good:#7fbf97;--warnbg:#2a2016;--warnline:#8a5a1f;--warnink:#e8b877;--note:#15211f;--bar:#2c4048;--marker:#e58}}',
   '*{box-sizing:border-box}body{font-family:system-ui,sans-serif;margin:0;color:var(--ink);background:var(--paper);line-height:1.55}',
   '.wrap{max-width:76rem;margin:0 auto;padding:1.4rem 1.2rem 3rem}',
-  'nav{font-size:.92rem;color:var(--muted)}nav a{color:var(--accent);text-decoration:none}a{color:var(--accent)}',
+  'nav{font-size:.92rem;color:var(--muted)}nav a{color:var(--accent);text-decoration:none;display:inline-block;padding:.3rem .15rem}a{color:var(--accent)}',
+  '.skip{position:absolute;left:-999px;top:0;z-index:10;padding:.5rem .8rem;background:var(--paper);color:var(--accent);border:1px solid var(--line)}.skip:focus{left:0}',
   'h1{font-size:1.8rem;margin:.7rem 0 .1rem;line-height:1.15}.subtitle{color:var(--muted);margin:.1rem 0 1rem;font-size:.94rem}.subtitle code{color:var(--muted)}',
   'section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.9rem 1.2rem 1.1rem;margin:0 0 1.05rem}section>h2{font-size:1.02rem;margin:.2rem 0 .7rem}',
   '.notice{display:flex;gap:.5rem;align-items:baseline;font-size:.86rem;color:var(--muted);border:1px solid var(--line);border-left:4px solid var(--good);border-radius:8px;padding:.5rem .8rem;margin:0 0 1.05rem;background:var(--card)}',
@@ -229,7 +235,7 @@ const ENTRY_STYLE = [
   '.brow .pct{color:var(--muted);font-size:.76rem;min-width:2.4rem;text-align:right}.brow b{font-variant-numeric:tabular-nums;font-weight:600;min-width:4rem;text-align:right}',
   '.brow .barbg{position:absolute;left:0;bottom:0;height:2px;background:var(--bar)}',
   '.lvl{color:var(--muted);font-weight:400;font-size:.85em}.prefixscroll{max-height:13rem;overflow-y:auto;margin-right:-.3rem;padding-right:.3rem}',
-  '.seriesnav{color:var(--muted);text-decoration:none;font-size:.85em}.seriesnav:hover{color:var(--accent)}',
+  '.seriesnav{color:var(--muted);text-decoration:none;font-size:.85em;display:inline-block;padding:.15rem .35rem}.seriesnav:hover{color:var(--accent)}',
   '.attr{margin-top:.9rem;padding-top:.7rem;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted)}.attr a{color:var(--accent)}.attr div{margin:.15rem 0}.attr b{color:var(--ink)}',
   '.notable{margin-top:.9rem;padding-top:.7rem;border-top:1px solid var(--line)}.notable h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 .3rem;font-weight:600}',
   '.notable ul{list-style:none;margin:0;padding:0}.notable li{font-size:.85rem;padding-left:1rem;position:relative;margin:.3rem 0}.notable li::before{content:"›";position:absolute;left:0;color:var(--accent)}.notable .rel{color:var(--muted)}.notable b{color:var(--ink)}',
@@ -280,9 +286,12 @@ function entryPage(title: string, body: string[], options: PageOptions = {}): st
     '<html lang="en-GB">',
     `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${ENTRY_STYLE}</head>`,
     '<body>',
+    '<a class="skip" href="#main">Skip to content</a>',
     '<div class="wrap">',
     `<nav>${navHtml(3)}</nav>`,
+    '<main id="main">',
     ...body,
+    '</main>',
     footerHtml(metaJsonHref, sourcePath).replace('<p><small>', '<footer>').replace('</small></p>', '</footer>'),
     '</div>',
     '</body>',
@@ -704,7 +713,7 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
   const prefixRows = bd.prefixes.map(([p, n]) => {
     const level = bd.prefixLevel.get(p) ?? '';
     const tag = level === '' ? '' : ` <small class="lvl">${escapeHtml(level.toLowerCase())}</small>`;
-    return `<div class="brow"${facetAttr('prefix_series', p)}><span class="lab">${escapeHtml(displaySeries(p))}${tag} <a class="seriesnav" href="../../../series/${seriesSlug(p)}.html" title="series page for ${escapeHtml(displaySeries(p))}" aria-label="series page">↗</a></span>${bar(n)}</div>`;
+    return `<div class="brow"${facetAttr('prefix_series', p)}><span class="lab">${escapeHtml(displaySeries(p))}${tag} <a class="seriesnav" href="../../../series/${seriesSlug(p)}.html" aria-label="${escapeHtml(displaySeries(p))} series page">↗</a></span>${bar(n)}</div>`;
   }).join('');
   const declaredRows = bd.declared.map(([p, n]) => `<div class="brow"${facetAttr('product', p)}><span class="lab">${escapeHtml(shortProduct(p))}</span>${bar(n)}</div>`).join('');
   const intlExpr = "CASE WHEN callsign LIKE '%/%' THEN 'yes' ELSE 'no' END";
