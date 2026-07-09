@@ -176,4 +176,43 @@ describe('value catalogue', () => {
     expect(html).toContain('<code>');             // rendered as a code span
     expect(html).not.toMatch(/<a [^>]*href="y"/); // the [x](y) is inert, not a link
   });
+
+  it('NormalisationFidelity_DroppedCallsigns_SurfacedInTableAndDetail', () => {
+    // The raw-vs-normalised gap (#242): per-publication counts plus the actual
+    // dropped forms enumerated (e.g. the 2022 export's furniture lines).
+    const md = renderValueCatalogue(tallies({ status: [['Allocated', 1, ['open-data']]] }), ref, [], [
+      { key: '2022-05-30', rawRows: 151157, normalisedRows: 151152, dropped: ['Ofcom', 'Confidential Information - Do Not Distribute'], coerced: [] },
+      { key: '2026-06-23', rawRows: 158318, normalisedRows: 158318, dropped: [], coerced: [] },
+    ]);
+    expect(md).toContain('## Normalisation fidelity (raw → normalised)');
+    expect(md).toContain('| 2022-05-30 | 151,157 | 151,152 | 2 | 0 |');
+    expect(md).toContain('**2022-05-30** — dropped 2:');
+    expect(md).toContain('Ofcom');
+  });
+
+  it('NormalisationFidelity_NoGaps_StatesFaithful', () => {
+    const md = renderValueCatalogue(tallies({ status: [['Allocated', 1, ['open-data']]] }), ref, [], [
+      { key: '2026-06-23', rawRows: 158318, normalisedRows: 158318, dropped: [], coerced: [] },
+    ]);
+    expect(md).toContain('No gaps: normalisation preserved every callsign');
+  });
+});
+
+describe('buildNormalisationFidelity over the real archive', () => {
+  it('RealArchive_2022Export_DropsFiveFurnitureLinesOthersFaithful', async () => {
+    const { buildNormalisationFidelity } = await import('./value-catalogue.ts');
+    const fidelity = buildNormalisationFidelity();
+    const y2022 = fidelity.find(f => f.key === '2022-05-30');
+    // The 2022 raw export carried five non-callsign furniture lines (title,
+    // copyright, confidentiality, generator stamp, "Ofcom") that normalisation
+    // correctly excluded; nothing was coerced.
+    expect(y2022?.dropped.length).toBe(5);
+    expect(y2022?.coerced.length).toBe(0);
+    expect(y2022?.dropped).toContain('Ofcom');
+    // Every other publication is 1:1 faithful (no drops, no coercions).
+    for (const f of fidelity.filter(f => f.key !== '2022-05-30')) {
+      expect(f.dropped.length).toBe(0);
+      expect(f.coerced.length).toBe(0);
+    }
+  }, 60_000);
 });

@@ -18,7 +18,7 @@ import { parse } from 'csv-parse/sync';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { buildFoiObservations } from '../shared/foi-observations.ts';
-import { parseCallsign, loadReferenceData, normaliseLicenceCategory, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { parseCallsign, cleanedCallsign, loadReferenceData, normaliseLicenceCategory, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { mdCode } from '../shared/markdown.ts';
 
 // A blank source value is data (the source asserted an empty string); a value
@@ -261,7 +261,75 @@ function sparkline(bySource: Map<string, number>, timeline: string[]): string {
     .join('');
 }
 
-export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timeline: string[] = []): string {
+// The raw-vs-normalised gap (#242). Normalisation renames and sorts columns but
+// preserves values, so the meaningful gap is at the callsign level: a source
+// callsign that normalisation drops, or whose form it changes. This is a
+// fidelity guard - mostly empty for clean exports, lighting up on a messy one.
+export interface EntryFidelity { key: string; rawRows: number; normalisedRows: number; dropped: string[]; coerced: [string, string][] }
+
+// Join each open-data publication's raw.csv against its normalised.csv by the
+// cleaned callsign key (order-independent - the two files are sorted
+// differently). Reads column 1 (the callsign) only, so it is uniform across
+// source vintages whose other columns differ.
+export function buildNormalisationFidelity(): EntryFidelity[] {
+  const result: EntryFidelity[] = [];
+  for (const key of listArchiveKeys().sort()) {
+    const dir = path.join(CONSTANTS.DIRS.archive, key);
+    const rawPath = path.join(dir, 'raw.csv');
+    const normPath = path.join(dir, 'normalised.csv');
+    if (!fs.existsSync(rawPath) || !fs.existsSync(normPath)) continue;
+    const rawRows = (parse(fs.readFileSync(rawPath, 'utf8'), { bom: true, skip_empty_lines: true, relax_column_count: true }) as string[][])
+      .slice(1).map(r => r[0] ?? '');
+    const normRows = (parse(fs.readFileSync(normPath, 'utf8'), { columns: true, bom: true, skip_empty_lines: true }) as Record<string, string>[])
+      .map(r => r['callsign'] ?? '');
+    const normByCleaned = new Map<string, Set<string>>();
+    for (const c of normRows) {
+      const k = cleanedCallsign(c);
+      const s = normByCleaned.get(k); if (s === undefined) normByCleaned.set(k, new Set([c])); else s.add(c);
+    }
+    const dropped = new Set<string>();
+    const coerced: [string, string][] = [];
+    const seen = new Set<string>();
+    for (const raw of rawRows) {
+      const forms = normByCleaned.get(cleanedCallsign(raw));
+      if (forms === undefined) { dropped.add(raw); continue; }
+      if (!forms.has(raw) && !seen.has(raw)) { seen.add(raw); coerced.push([raw, [...forms][0]]); }
+    }
+    result.push({ key, rawRows: rawRows.length, normalisedRows: normRows.length, dropped: [...dropped], coerced });
+  }
+  return result;
+}
+
+function normalisationFidelitySection(fidelity: EntryFidelity[]): string[] {
+  if (fidelity.length === 0) return [];
+  const out: string[] = ['## Normalisation fidelity (raw → normalised)', ''];
+  out.push('Each open-data publication\'s raw Ofcom bytes joined against its');
+  out.push('normalised form by the cleaned callsign key (order-independent — the two');
+  out.push('files are sorted differently). Normalisation renames and sorts columns');
+  out.push('but preserves values, so this is a fidelity guard: a callsign `dropped`');
+  out.push('(its cleaned key is absent from the normalised set) or `coerced` (its');
+  out.push('cleaned key survives but its form changed) is a drift signal, not a');
+  out.push('routine figure.');
+  out.push('');
+  out.push('| publication | raw rows | normalised rows | dropped | coerced |');
+  out.push('|---|---:|---:|---:|---:|');
+  for (const f of fidelity) {
+    out.push(`| ${f.key} | ${f.rawRows.toLocaleString('en-GB')} | ${f.normalisedRows.toLocaleString('en-GB')} | ${f.dropped.length} | ${f.coerced.length} |`);
+  }
+  out.push('');
+  const detailed = fidelity.filter(f => f.dropped.length > 0 || f.coerced.length > 0);
+  for (const f of detailed) {
+    const parts: string[] = [];
+    if (f.dropped.length > 0) parts.push(`dropped ${f.dropped.length}: ${f.dropped.slice(0, 20).map(c => mdCode(c)).join(', ')}${f.dropped.length > 20 ? ` (+${f.dropped.length - 20} more)` : ''}`);
+    if (f.coerced.length > 0) parts.push(`coerced ${f.coerced.length}: ${f.coerced.slice(0, 20).map(([r, n]) => `${mdCode(r)} → ${mdCode(n)}`).join(', ')}${f.coerced.length > 20 ? ` (+${f.coerced.length - 20} more)` : ''}`);
+    out.push(`- **${f.key}** — ${parts.join('; ')}.`);
+  }
+  if (detailed.length === 0) out.push('No gaps: normalisation preserved every callsign across every publication.');
+  out.push('');
+  return out;
+}
+
+export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timeline: string[] = [], fidelity: EntryFidelity[] = []): string {
   const FIELD_ORDER = ['status', PRODUCT_FIELD, 'implied_class', 'parse_status', 'prefix_series', 'flags'];
   const cats = new Map<string, FieldCatalogue>();
   for (const field of FIELD_ORDER) {
@@ -312,6 +380,8 @@ export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timel
 
   out.push(...licenceCategorySection(cats, ref));
 
+  out.push(...normalisationFidelitySection(fidelity));
+
   for (const field of FIELD_ORDER) {
     const cat = cats.get(field);
     if (cat === undefined) continue;
@@ -336,7 +406,7 @@ export const VALUE_CATALOGUE_PATH = 'reports/value-catalogue.md';
 
 export function writeValueCatalogue(): { path: string; changed: boolean } {
   const ref = loadReferenceData();
-  const markdown = renderValueCatalogue(buildFieldTallies(), ref, openDataTimeline());
+  const markdown = renderValueCatalogue(buildFieldTallies(), ref, openDataTimeline(), buildNormalisationFidelity());
   // Written relative to the working directory - the SAME root the tallies read
   // archive/ from (CONSTANTS.DIRS.archive is relative). So a sweep run against
   // a fixture archive in a temp cwd writes ITS catalogue there, never
