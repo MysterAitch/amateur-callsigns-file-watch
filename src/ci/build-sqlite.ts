@@ -23,7 +23,7 @@ import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { type EntryStats } from '../shared/stats.ts';
 import { buildFoiObservations, renderObservationsCsv, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
-import { cleanedCallsign } from '../sources/ofcom-amateur/components.ts';
+import { cleanedCallsign, parseCallsign, loadReferenceData, componentsFlagsForRows, type ComponentRow } from '../sources/ofcom-amateur/components.ts';
 
 // Reference data is repo-anchored (same convention as the component parser).
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -164,22 +164,50 @@ export function buildSqlite(outputPath: string): { datasetKey: string; tables: R
   return { datasetKey: newest, tables: counts };
 }
 
-function fillObservations(db: DatabaseSync, rows: FoiObservationRow[]): number {
+// The component fields FOI observations gain by running every callsign
+// through the same parser the open-data lane uses (issue #171), so the
+// anomaly flags and the component decomposition span both lanes. These are
+// callsign-level determinations, so they apply to every callsign-bearing
+// observation regardless of register state; register-state semantics stay
+// per-class elsewhere.
+const OBSERVATION_COMPONENT_COLUMNS = ['prefix_series', 'rsl', 'placeholder_form', 'implied_class', 'parse_status', 'flags'] as const;
+
+export function fillObservations(db: DatabaseSync, rows: FoiObservationRow[]): number {
   const valueColumns = OBSERVATION_VALUE_COLUMNS.map(c => `"${c}" TEXT`).join(', ');
+  const componentColumns = OBSERVATION_COMPONENT_COLUMNS.map(c => `"${c}" TEXT`).join(', ');
   // cleaned: the artefact-unifying join key (computed here at build - the
   // FOI committed files stay verbatim). A join key, not an identity:
   // duplicates are expected, so its index is plain, never UNIQUE.
-  db.exec(`CREATE TABLE observations (callsign TEXT, cleaned TEXT, entry TEXT, source_file TEXT, dataset_classes TEXT, vintage TEXT, ${valueColumns})`);
-  const placeholders = Array.from({ length: 6 + OBSERVATION_VALUE_COLUMNS.length }, () => '?').join(', ');
+  db.exec(`CREATE TABLE observations (callsign TEXT, cleaned TEXT, entry TEXT, source_file TEXT, dataset_classes TEXT, vintage TEXT, ${valueColumns}, ${componentColumns})`);
+
+  // Parse each callsign through the shared component parser, grouped by entry
+  // so the whole-set stripped-collision flag is scoped to one snapshot. The
+  // FOI licence_class stands in for the open-data product column, so
+  // class-product-mismatch fires where a class is disclosed and is simply
+  // absent where it is not - per-schema, never assumed universal.
+  const ref = loadReferenceData();
+  const parsed = new Array<ComponentRow>(rows.length);
+  const byEntry = new Map<string, number[]>();
+  rows.forEach((row, i) => { const a = byEntry.get(row.entry); if (a) a.push(i); else byEntry.set(row.entry, [i]); });
+  for (const idxs of byEntry.values()) {
+    const comps = idxs.map(i => parseCallsign(rows[i].callsign, rows[i].values['licence_class'] ?? '', ref));
+    componentsFlagsForRows(comps);
+    idxs.forEach((i, k) => { parsed[i] = comps[k]; });
+  }
+
+  const placeholders = Array.from({ length: 6 + OBSERVATION_VALUE_COLUMNS.length + OBSERVATION_COMPONENT_COLUMNS.length }, () => '?').join(', ');
   const insert = db.prepare(`INSERT INTO observations VALUES (${placeholders})`);
   db.exec('BEGIN');
-  for (const row of rows) {
+  rows.forEach((row, i) => {
+    const c = parsed[i];
     insert.run(row.callsign, cleanedCallsign(row.callsign), row.entry, row.sourceFile, row.datasetClasses, row.vintage,
-      ...OBSERVATION_VALUE_COLUMNS.map(column => row.values[column] ?? null));
-  }
+      ...OBSERVATION_VALUE_COLUMNS.map(column => row.values[column] ?? null),
+      c.prefixSeries, c.rsl, c.placeholderForm, c.impliedClass, c.parseStatus, c.flags.join(';'));
+  });
   db.exec('COMMIT');
   db.exec('CREATE INDEX idx_observations_callsign ON observations("callsign")');
   db.exec('CREATE INDEX idx_observations_cleaned ON observations("cleaned")');
+  db.exec('CREATE INDEX idx_observations_placeholder ON observations("placeholder_form")');
   return rows.length;
 }
 
