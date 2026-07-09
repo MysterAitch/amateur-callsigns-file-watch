@@ -29,6 +29,7 @@ import { renderStatsJson, compareStats, markUnprintables, type EntryStats } from
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
 import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { writeValueCatalogue } from './value-catalogue.ts';
+import { mdCell } from '../shared/markdown.ts';
 
 interface SourceConverter {
   schemaVersion: number;
@@ -47,19 +48,9 @@ const CONVERTERS: Record<string, SourceConverter> = {
   },
 };
 
-// Sanitise arbitrary text (error messages can quote raw CSV content) for use
-// inside a one-line markdown table cell. Truncate FIRST, then escape
-// backslashes, then pipes, then collapse newlines - truncating escaped output
-// could bisect a two-character escape and leave a dangling backslash that
-// escapes the closing cell delimiter; and backslashes must be escaped before
-// pipes or the pipe-escaping is itself neutralised.
-export function mdCell(text: string, maxLength = 160): string {
-  return String(text)
-    .slice(0, maxLength)
-    .replace(/\\/g, '\\\\')
-    .replace(/\|/g, '\\|')
-    .replace(/\r?\n/g, ' ');
-}
+// mdCell (markdown table-cell sanitiser) is shared with the other report
+// generators; re-exported here so existing importers keep their path.
+export { mdCell };
 
 export interface SweepReport {
   changed: string[];
