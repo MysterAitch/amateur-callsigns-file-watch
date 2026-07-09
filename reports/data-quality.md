@@ -29,8 +29,9 @@ long-standing allocations, not an anomaly by itself).
 | `encoding-failure` | 0 | 0 | 2 | 0 | 3 | 3 | 3 |
 | `excel-date-shape` | 0 | 0 | 0 | 0 | 16 | 15 | 15 |
 | `forbidden-suffix` | 2826 | 1 | 3143 | 1 | 3159 | 3145 | 3143 |
+| `hash-in-register` | 3 | 0 | 3 | 0 | 3 | 3 | 3 |
 | `lowercase` | 2 | 0 | 2 | 0 | 18 | 17 | 17 |
-| `malformed-home-callsign` | 10 | 1 | 13 | 1 | 13 | 10 | 10 |
+| `malformed-home-callsign` | 7 | 1 | 10 | 1 | 10 | 7 | 7 |
 | `rsl-in-register` | 22 | 1 | 23 | 1 | 23 | 22 | 22 |
 | `stripped-collision` | 4 | 0 | 1 | 0 | 4 | 4 | 4 |
 | `unknown-prefix-series` | 1 | 0 | 0 | 0 | 1 | 1 | 1 |

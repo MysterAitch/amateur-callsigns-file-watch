@@ -3,8 +3,9 @@
     "class-product-mismatch": 5,
     "encoding-failure": 2,
     "forbidden-suffix": 3143,
+    "hash-in-register": 3,
     "lowercase": 2,
-    "malformed-home-callsign": 13,
+    "malformed-home-callsign": 10,
     "rsl-in-register": 23,
     "stripped-collision": 1,
     "whitespace": 2

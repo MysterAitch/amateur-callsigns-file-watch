@@ -62,7 +62,40 @@ describe('parseCallsign', () => {
 
   it('Parse_WhenVisitorFormat_HomeCallsignPreservedUnparsed', () => {
     const r = parsed('M/PT2FM', 'Amateur Full (Temporary Reciprocal) Radio Licence');
-    expect(r).toMatchObject({ parseStatus: 'visitor', homeCallsign: 'PT2FM', prefixSeries: '', placeholderForm: '', impliedClass: '' });
+    expect(r).toMatchObject({ parseStatus: 'visitor', rsl: '', homeCallsign: 'PT2FM', prefixSeries: '', placeholderForm: 'M#/PT2FM', impliedClass: '' });
+    expect(r.flags).not.toContain('malformed-home-callsign');
+  });
+
+  it('Parse_WhenVisitorRegionalSecondaryLocatorPresent_RslExtractedAndPlaceholderUnifies', () => {
+    // MM/ (Scotland) and M/ (England) are the same visitor operating from
+    // different UK nations - the RSL sits in position 2, exactly as in a
+    // core callsign, so both render to the one M#/homecall placeholder.
+    const r = parsed('MM/PT2FM', 'Amateur Full (Temporary Reciprocal) Radio Licence');
+    expect(r).toMatchObject({ parseStatus: 'visitor', rsl: 'M', homeCallsign: 'PT2FM', placeholderForm: 'M#/PT2FM' });
+    expect(r.flags).not.toContain('unknown-rsl');
+  });
+
+  it('Parse_WhenVisitorRegionalRenderingsDiffer_PlaceholderFormIsShared', () => {
+    // The join key that unifies the register: every regional rendering of
+    // the same reciprocal licence collapses to one placeholder_form.
+    const forms = ['M/EI8DJ', 'MM/EI8DJ', 'MW/EI8DJ', 'MI/EI8DJ'].map(c => parsed(c, '').placeholderForm);
+    expect(new Set(forms)).toEqual(new Set(['M#/EI8DJ']));
+  });
+
+  it('Parse_WhenVisitorRslNotAKnownLocator_UnknownRslFlagged', () => {
+    const r = parsed('MZ/PT2FM', '');
+    expect(r).toMatchObject({ parseStatus: 'visitor', rsl: 'Z' });
+    expect(r.flags).toContain('unknown-rsl');
+  });
+
+  it('Parse_WhenReservedReciprocalHasHashAfterSlash_HomeParsesAndHashRecorded', () => {
+    // The RSL sits before the slash (RSGB visitor examples M/F1ABC, MM/F1ABC,
+    // MW/F1ABC), so a literal # after it (real Reserved value M/#YO3IES) is a
+    // reserved-template placeholder - the home callsign parses normally and
+    // the # is recorded, not mistaken for a malformed home callsign.
+    const r = parsed('M/#YO3IES', 'Amateur Temporary Reciprocal Radio Licence');
+    expect(r).toMatchObject({ parseStatus: 'visitor', homeCallsign: 'YO3IES', placeholderForm: 'M#/YO3IES' });
+    expect(r.flags).toContain('hash-in-register');
     expect(r.flags).not.toContain('malformed-home-callsign');
   });
 

@@ -158,9 +158,32 @@ export function parseCallsign(callsign: string, product: string, ref: ReferenceD
     return row;
   }
 
-  if (clean.startsWith('M/')) {
+  // The UK visitor/reciprocal callsign is Mx/homecall, where x is an optional
+  // Regional Secondary Locator in position 2 - before the slash, exactly as
+  // in a core callsign (M#7TEE). RSGB's visitor guidance gives the worked
+  // examples M/F1ABC (England), MM/F1ABC (Scotland), MW/F1ABC (Wales); Ofcom's
+  // licensee guidance supplies the RSL letters (E M W I D J U), states that
+  // CEPT operation prefixes the country identifier BEFORE the call sign
+  // (section 7.3), and writes its own RSL slot with a # in position 2 (the
+  // '2#0'/'2#1' Intermediate formats in Table 1) - the same marker this parser
+  // uses. Every rendering therefore normalises to the one placeholder
+  // M#/homecall and resolves to the single canonical (RSL-less) M/ register
+  // row, just as MW7TEE -> M7TEE.
+  //
+  // A literal # AFTER the slash (M/#PT2FM) appears only in a handful of
+  // Reserved reciprocal entries; with the RSL slot documented to sit before
+  // the slash, it reads as a reserved-template placeholder rather than a
+  // callsign character. It is stripped from the home portion (which parses
+  // normally) and recorded with hash-in-register, never mistaken for a
+  // malformed home callsign.
+  const visitor = /^M([A-Z]?)\/(#?)(.+)$/.exec(clean);
+  if (visitor !== null) {
     row.parseStatus = 'visitor';
-    row.homeCallsign = clean.slice(2);
+    row.rsl = visitor[1];
+    row.homeCallsign = visitor[3];
+    row.placeholderForm = `M#/${visitor[3]}`;
+    if (visitor[2] === '#') flag('hash-in-register');
+    if (row.rsl !== '' && !ref.rslLetters.has(row.rsl)) flag('unknown-rsl');
     // A plausible home callsign is at least three characters of A-Z/0-9
     // containing both a letter and a digit, and does not start with 0 or 1
     // (no ITU call-sign series does - empirical, itu-call-sign-series.csv).

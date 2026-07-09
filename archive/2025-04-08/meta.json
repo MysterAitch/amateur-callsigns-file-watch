@@ -44,13 +44,13 @@
       "sortedBy": "callsign"
     },
     "stats.json": {
-      "size": 3214,
-      "sha256": "379f0a8e712071a497578daedcb513cc4855bb182ba0927cc233203f62c0c00e",
+      "size": 3241,
+      "sha256": "6ecd968a0f0935f60ba93c2b3afd84acefa89110be7785eca43c32d0a854e8b0",
       "format": "json"
     },
     "components.csv": {
-      "size": 6921547,
-      "sha256": "54127d2fd7e4cde16b28f842869f2af47a172cf77c5bcfcf5f04ff3c16a1ed5a",
+      "size": 6922482,
+      "sha256": "a26cfef80b55a0ad124ce79631f7b60c245d0b3b3a7f0e0d413e215b295ee87f",
       "format": "csv",
       "columnCount": 10,
       "columnNames": [
