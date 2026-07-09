@@ -15,28 +15,39 @@ export function mdCell(text: string, maxLength = 160): string {
     .replace(/\r?\n/g, ' ');
 }
 
-// The markdown/HTML/table metacharacters that must be neutralised so a
-// data-derived value cannot break a table cell, inject inline formatting or a
-// link, or carry markup through to a page rendered from the markdown.
-const MD_TEXT_SPECIAL = new Set(['\\', '`', '*', '_', '[', ']', '<', '>', '&', '|']);
+// A visible codepoint marker, matching the {U+XXXX} form the sweep reports use
+// (shared marker vocabulary, so a Character key can name them uniformly).
+function codepointMarker(ch: string): string {
+  return `{U+${(ch.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}}`;
+}
 
-// A stricter escaper than mdCell for values that come straight from register
-// data and may be published to HTML: control and format characters (including
-// newlines and zero-width characters) become visible codepoint markers, and
-// every markdown/HTML/table metacharacter is backslash-escaped. A normal value
-// (letters, digits, spaces, a slash) is returned unchanged, so the report
-// stays readable while a crafted or corrupt value is rendered inert and
-// visible. Iterating by code point keeps astral characters whole.
-export function mdText(value: string): string {
-  let out = '';
-  for (const ch of value) {
-    if (/\p{Cc}|\p{Cf}/u.test(ch)) {
-      out += `{U+${(ch.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}}`;
-    } else if (MD_TEXT_SPECIAL.has(ch)) {
-      out += '\\' + ch;
+// Render an arbitrary data value as a markdown CODE SPAN for a table cell:
+// monospace, so the precise value is unambiguous, and injection-safe — a
+// crafted or corrupt value cannot break out of the span, the cell or the row,
+// nor inject inline markup or a link (code-span content is inert). The only
+// characters that could break a single-backtick code span inside a pipe table
+// are the backtick delimiter and the pipe itself; both become visible {U+XXXX}
+// markers, as do all control/format/other-whitespace characters and the
+// replacement character. Leading and trailing spaces are marked too (table
+// cells are trimmed on render, so edge whitespace would otherwise vanish),
+// while INTERNAL ordinary spaces stay literal so multi-word values remain
+// readable. Everything else — <, >, [, ], *, _, & — is inert inside the span
+// and needs no escaping. Iterating by code point keeps astral characters whole.
+export function mdCode(value: string): string {
+  const chars = [...value];
+  let lead = 0;
+  while (lead < chars.length && chars[lead] === ' ') lead++;
+  let trail = chars.length;
+  while (trail > lead && chars[trail - 1] === ' ') trail--;
+  let inner = '';
+  chars.forEach((ch, i) => {
+    if (ch === ' ' && i >= lead && i < trail) {
+      inner += ch; // an ordinary internal space: keep it readable
+    } else if (ch === '`' || ch === '|' || /[\p{C}\p{Z}�]/u.test(ch)) {
+      inner += codepointMarker(ch);
     } else {
-      out += ch;
+      inner += ch;
     }
-  }
-  return out;
+  });
+  return `\`${inner}\``;
 }
