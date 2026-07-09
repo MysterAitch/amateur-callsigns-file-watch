@@ -555,7 +555,7 @@ async function filteredList(criteria, page, result) {
 
   result.replaceChildren(card(`Matches — ${describeCriteria(criteria)}`, [
     renderTable(['callsign', 'status', 'product', 'parse status', 'flags'],
-      rows.map(r => [r.callsign, r.status, r.product, r.parse_status, r.flags]), 99),
+      rows.map(r => [csLink(r.callsign), r.status, r.product, r.parse_status, r.flags]), 99),
     nav,
   ]));
 }
