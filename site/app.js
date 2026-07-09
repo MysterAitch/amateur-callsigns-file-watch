@@ -85,6 +85,46 @@ function seriesLink(series) {
   return el('a', { href: `series/${series.replace(/#/g, '')}.html`, text: displaySeries(series), title: `prefix series ${displaySeries(series)}` });
 }
 
+// Humanise an ISO date (or timestamp) as "23 June 2026" for the data-currency
+// line; leaves anything unparseable untouched. Mirrors the dataset pages' phrasing.
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+function humanDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
+  return m ? `${Number(m[3])} ${MONTH_NAMES[Number(m[2]) - 1]} ${m[1]}` : String(iso);
+}
+
+// Point-of-use glossary hooks (issues #260/#263). A term label carries a
+// small linked marker to its glossary entry, so a reader mid-lookup can learn
+// what a word means without leaving the result. The status value additionally
+// links to the register-status glossary, which resolves the "Available"
+// overload (the literal status vs the inferred "no record → maybe free").
+function glossLabel(text, anchor) {
+  return el('span', {}, [
+    text + ' ',
+    el('a', { href: `glossary.html#${anchor}`, class: 'muted hint', title: `glossary: ${text}`, text: '(?)' }),
+  ]);
+}
+const STATUS_ANCHORS = {
+  allocated: 'allocated', reserved: 'reserved', available: 'available',
+  live: 'status-live', forbidden: 'status-forbidden', quarantine: 'status-quarantine',
+};
+function statusCell(status) {
+  if (status === '' || status == null) return status;
+  const anchor = STATUS_ANCHORS[String(status).toLowerCase()] ?? 'status-values';
+  return el('span', {}, [
+    String(status) + ' ',
+    el('a', { href: `glossary.html#${anchor}`, class: 'muted hint', title: 'what this register status means', text: '(what this means)' }),
+  ]);
+}
+// Extract the suffix (trailing letter run after the last digit) from a typed
+// callsign, so a not-found lookup can route to that suffix's availability
+// matrix (issue #261). Returns null when there is no clear suffix.
+function suffixOf(value) {
+  const m = /[0-9]([A-Z]+)$/.exec(String(value).toUpperCase().replace(/[^A-Z0-9/]/g, ''));
+  return m ? m[1] : null;
+}
+
 async function query(sql, params = []) {
   const worker = await dbPromise;
   return worker.db.query(sql, params);
@@ -261,6 +301,13 @@ async function renderBuildInfo() {
     const get = k => info.find(r => r.key === k)?.value ?? '?';
     document.getElementById('build-info').textContent =
       `Dataset ${get('dataset')} · built ${get('generated_at')} · commit ${String(get('commit')).slice(0, 9)}`;
+    // Near-header data-currency line (issue #259): the same figures phrased
+    // for a human — when Ofcom published this register, and when we mirrored it.
+    const currency = document.getElementById('data-currency');
+    if (currency) {
+      currency.textContent =
+        `Current register: published ${humanDate(get('dataset'))} · mirrored ${humanDate(get('generated_at'))}.`;
+    }
   } catch {
     /* non-essential */
   }
@@ -628,8 +675,27 @@ async function lookup(criteria) {
     // valuable: earlier publications may still hold the callsign, and FOI
     // datasets witness heritage transfers and pre-war annex callsigns.
     const [registerHistory, foiHistory] = await Promise.all([registerHistoryCard([value]), foiHistoryCard([value])]);
+    // Checking availability? Absence from the register is NOT evidence a
+    // callsign is free (issue #261). Route to the suffix-availability matrix
+    // for the typed suffix, and say plainly that no-record is not proof.
+    const suffix = suffixOf(value);
+    let suffixCta = null;
+    if (suffix) {
+      const note = el('p', {}, [
+        'Checking whether this callsign is free? Absence here is ',
+        el('strong', { text: 'not' }),
+        ' proof of availability — the register does not list every un-issued callsign, only the ones Ofcom has had reason to record. ',
+        'To see this suffix across every prefix series, view the ',
+        el('a', { href: `?c=${encodeURIComponent('*' + suffix)}`, text: `*${suffix} availability matrix`, title: `availability matrix for *${suffix}` }),
+        ' (and read ',
+        el('a', { href: 'glossary.html#available', text: 'what “available” means' }),
+        ').',
+      ]);
+      suffixCta = card(`Is ${value} available?`, [note]);
+    }
     result.replaceChildren(
       el('p', { text: `No register row for "${value}" in the latest dataset. (The register only holds callsigns Ofcom has had reason to record.)` }),
+      ...(suffixCta ? [suffixCta] : []),
       ...(artefactNote ? [artefactNote] : []),
       ...(registerHistory ? [registerHistory] : []),
       ...(foiHistory ? [foiHistory] : []),
@@ -642,17 +708,17 @@ async function lookup(criteria) {
 
   sections.push(card('Register row (normalised)', [renderTable(
     ['field', 'value'],
-    [['callsign', row.callsign], ['product', row.product], ['status', row.status], ['type', row.type],
+    [['callsign', row.callsign], ['product', row.product], ['status', statusCell(row.status)], ['type', row.type],
       ['created', row.created_date], ['last modified', row.last_modified_date],
       ['licence version modified', row.licence_version_last_modified_date],
       ['licence version start', row.licence_version_original_start_date]].filter(([, v]) => v !== ''),
     99)]));
 
   const componentRows = [['parse status', row.parse_status]];
-  if (row.prefix_series) componentRows.push(['prefix series', seriesLink(row.prefix_series)]);
-  if (row.rsl) componentRows.push(['regional secondary locator', row.rsl]);
+  if (row.prefix_series) componentRows.push([glossLabel('prefix series', 'prefix-series'), seriesLink(row.prefix_series)]);
+  if (row.rsl) componentRows.push([glossLabel('regional secondary locator', 'rsl'), row.rsl]);
   if (row.cs_suffix) componentRows.push(['suffix', suffixLink(row.cs_suffix)]);
-  if (row.placeholder_form) componentRows.push(['placeholder form', csLink(row.placeholder_form)]);
+  if (row.placeholder_form) componentRows.push([glossLabel('placeholder form', 'placeholder-form'), csLink(row.placeholder_form)]);
   if (row.home_callsign) componentRows.push(['home callsign (visitor)', csLink(row.home_callsign)]);
   if (row.implied_class) componentRows.push(['implied licence class', row.implied_class]);
   sections.push(card('Components', [renderTable(['part', 'value'], componentRows, 99)]));
