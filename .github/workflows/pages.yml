@@ -51,6 +51,11 @@ jobs:
           # different database versions (observed live: "database disk
           # image is malformed"). See site/app.js.
           printf '%s' "$GITHUB_SHA" > _site/data/version.txt
+          # Deploy provenance for page footers: the commit's own timestamp
+          # and this build's time (the GitHub Actions run id/number/url come
+          # from the standard GITHUB_* env vars the generator reads).
+          export BUILD_COMMIT_TIME="$(git show -s --format=%cI "$GITHUB_SHA")"
+          export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           # Dataset index (issue #149 item 3): per-entry pages publishing
           # the archived files verbatim at stable URLs + Frictionless
           # descriptors + sitemap.xml - the Wayback Machine crawl seed.

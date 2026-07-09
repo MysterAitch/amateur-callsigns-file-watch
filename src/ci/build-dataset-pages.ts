@@ -103,6 +103,37 @@ const PAGE_STYLE = [
 
 // Short commit identifier for footers; 'dev' outside the deploy workflow.
 const BUILD_SHA = (process.env.GITHUB_SHA ?? 'dev').slice(0, 9);
+// Deploy provenance (set by the Pages workflow): the commit's own time, the
+// build time, and a link to the exact GitHub Actions run that produced this
+// deploy - so a reader can trace a page back to its origin. All optional so
+// local/dev builds degrade gracefully.
+const BUILD_COMMIT_TIME = process.env.BUILD_COMMIT_TIME ?? '';
+const BUILD_TIME = process.env.BUILD_TIME ?? '';
+const RUN_ID = process.env.GITHUB_RUN_ID ?? '';
+const RUN_NUMBER = process.env.GITHUB_RUN_NUMBER ?? '';
+const SERVER_URL = process.env.GITHUB_SERVER_URL ?? 'https://github.com';
+const REPO_SLUG = process.env.GITHUB_REPOSITORY ?? '';
+
+// An ISO timestamp as "9 July 2026 14:32 UTC" (empty in -> empty out).
+function formatTimestamp(iso: string): string {
+  const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(iso);
+  return m === null ? '' : `${humanDate(m[1])} ${m[2]} UTC`;
+}
+
+// The deploy-provenance clause for the footer: commit time + a link to the
+// Actions run that built this page, degrading to just the commit when the
+// workflow env vars are absent.
+function deployProvenance(): string {
+  const commit = `commit <code>${escapeHtml(BUILD_SHA)}</code>${BUILD_COMMIT_TIME !== '' ? ` (committed ${escapeHtml(formatTimestamp(BUILD_COMMIT_TIME))})` : ''}`;
+  let via = '';
+  if (RUN_ID !== '' && REPO_SLUG !== '') {
+    const runLabel = RUN_NUMBER !== '' ? `run #${escapeHtml(RUN_NUMBER)}` : 'the build run';
+    via = ` via <a href="${SERVER_URL}/${REPO_SLUG}/actions/runs/${encodeURIComponent(RUN_ID)}">${runLabel}</a>${BUILD_TIME !== '' ? ` (${escapeHtml(formatTimestamp(BUILD_TIME))})` : ''}`;
+  } else if (BUILD_TIME !== '') {
+    via = ` on ${escapeHtml(formatTimestamp(BUILD_TIME))}`;
+  }
+  return `Regenerated from ${commit}${via}.`;
+}
 
 interface PageOptions {
   metaJsonHref?: string;
@@ -139,7 +170,7 @@ function footerHtml(metaJsonHref?: string, sourcePath?: string): string {
   const isFile = sourcePath !== undefined && /\.[a-z]+$/i.test(sourcePath);
   const sourceLink = sourcePath === undefined ? '' :
     ` <a href="${REPO_URL}/${isFile ? 'blob' : 'tree'}/main/${sourcePath}">${isFile ? 'View or edit this page’s source on GitHub' : 'Browse this entry’s directory on GitHub'}</a>.`;
-  return `<p><small>Derived from the committed archive; provenance and integrity hashes live in each entry's ${metaMention}.${sourceLink} Regenerated on every deploy from commit <code>${escapeHtml(BUILD_SHA)}</code>. Maintained by Roger Howell (M7TEE).</small></p>`;
+  return `<p><small>Derived from the committed archive; provenance and integrity hashes live in each entry's ${metaMention}.${sourceLink} ${deployProvenance()} Maintained by Roger Howell (M7TEE).</small></p>`;
 }
 
 function htmlPage(title: string, depthToRoot: number, body: string[], options: PageOptions = {}): string {
@@ -182,6 +213,7 @@ const ENTRY_STYLE = [
   '.brow{display:flex;align-items:baseline;gap:.4rem;font-size:.85rem;padding:.14rem 0;position:relative}.brow .lab{flex:1}.brow .lab a{color:var(--accent)}',
   '.brow .pct{color:var(--muted);font-size:.76rem;min-width:2.4rem;text-align:right}.brow b{font-variant-numeric:tabular-nums;font-weight:600;min-width:4rem;text-align:right}',
   '.brow .barbg{position:absolute;left:0;bottom:0;height:2px;background:var(--bar)}',
+  '.lvl{color:var(--muted);font-weight:400;font-size:.85em}.prefixscroll{max-height:13rem;overflow-y:auto;margin-right:-.3rem;padding-right:.3rem}',
   '.attr{margin-top:.9rem;padding-top:.7rem;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted)}.attr a{color:var(--accent)}.attr div{margin:.15rem 0}.attr b{color:var(--ink)}',
   '.notable{margin-top:.9rem;padding-top:.7rem;border-top:1px solid var(--line)}.notable h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 .3rem;font-weight:600}',
   '.notable ul{list-style:none;margin:0;padding:0}.notable li{font-size:.85rem;padding-left:1rem;position:relative;margin:.3rem 0}.notable li::before{content:"›";position:absolute;left:0;color:var(--accent)}.notable .rel{color:var(--muted)}.notable b{color:var(--ink)}',
@@ -462,31 +494,39 @@ function openDataBreakdowns(sourceDir: string): {
   recordCount: number;
   status: [string, number][];
   impliedClass: [string, number][];
+  declared: [string, number][];
   prefixes: [string, number][];
+  prefixLevel: Map<string, string>;
+  international: number;
   flaggedRows: number;
 } {
   const statusRows = parse(fs.readFileSync(path.join(sourceDir, 'normalised.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
   const componentRows = parse(fs.readFileSync(path.join(sourceDir, 'components.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  // Empty is a distinct, meaningful bucket (a record the source left blank,
+  // or an unparseable callsign with no series) - counted as '' and humanised
+  // at display, never silently dropped.
   const tally = (rows: Record<string, string>[], column: string): Map<string, number> => {
     const m = new Map<string, number>();
-    for (const r of rows) {
-      const v = (r[column] ?? '').trim();
-      if (v === '') continue;
-      m.set(v, (m.get(v) ?? 0) + 1);
-    }
+    for (const r of rows) { const v = (r[column] ?? '').trim(); m.set(v, (m.get(v) ?? 0) + 1); }
     return m;
   };
-  const status = tally(statusRows, 'status');
-  // Rows carrying at least one flag (NOT the sum of per-flag counts, which
-  // over-counts rows that trip several detectors).
+  const prefixLevel = new Map<string, string>();
+  for (const r of componentRows) {
+    const p = (r.prefix_series ?? '').trim();
+    if (p !== '' && !prefixLevel.has(p)) prefixLevel.set(p, (r.implied_class ?? '').trim());
+  }
   const flaggedRows = componentRows.filter(r => (r.flags ?? '') !== '').length;
+  const international = componentRows.filter(r => (r.callsign ?? '').includes('/')).length;
   const sortDesc = (m: Map<string, number>, n?: number): [string, number][] =>
     [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, n);
   return {
     recordCount: statusRows.length,
-    status: sortDesc(status),
+    status: sortDesc(tally(statusRows, 'status')),
     impliedClass: sortDesc(tally(componentRows, 'implied_class')),
-    prefixes: sortDesc(tally(componentRows, 'prefix_series'), 6),
+    declared: sortDesc(tally(statusRows, 'product')),
+    prefixes: sortDesc(tally(componentRows, 'prefix_series')),
+    prefixLevel,
+    international,
     flaggedRows,
   };
 }
@@ -548,13 +588,30 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
   }
 
   const publishedIso = meta.ofcomReportedUpdateIso ?? key;
+  // Breakdown row with the shared bar + %; the prefix rows carry a
+  // de-emphasised inferred level, the declared-level rows a shortened
+  // product. All are click-to-filter facets.
+  const bar = (n: number): string => {
+    const pct = bd.recordCount > 0 ? Math.round((n / bd.recordCount) * 100) : 0;
+    return `<span class="pct">${pct === 0 && n > 0 ? '<1%' : `${pct}%`}</span><b>${n.toLocaleString('en-GB')}</b><span class="barbg" style="width:${Math.min(pct, 100)}%"></span>`;
+  };
+  const shortProduct = (p: string): string => p === '' ? '(blank)' : p.replace(/^Amateur /, '').replace(/ Radio Licence$/, '');
+  const prefixRows = bd.prefixes.map(([p, n]) => {
+    const level = bd.prefixLevel.get(p) ?? '';
+    const tag = level === '' ? '' : ` <small class="lvl">${escapeHtml(level.toLowerCase())}</small>`;
+    return `<div class="brow"${facetAttr('prefix_series', p)}><span class="lab"><a href="../../../series/${seriesSlug(p)}.html">${escapeHtml(displaySeries(p))}</a>${tag}</span>${bar(n)}</div>`;
+  }).join('');
+  const declaredRows = bd.declared.map(([p, n]) => `<div class="brow"${facetAttr('product', p)}><span class="lab">${escapeHtml(shortProduct(p))}</span>${bar(n)}</div>`).join('');
+  const intlExpr = "CASE WHEN callsign LIKE '%/%' THEN 'yes' ELSE 'no' END";
   return [
     '<section>',
     '<h2>At a glance</h2>',
     `<div class="headline">${bd.recordCount.toLocaleString('en-GB')} <small>register rows</small></div>`,
     bd.status.length > 0 ? `<div class="bd"><h3>Status</h3>${breakdownRows(bd.status, bd.recordCount, undefined, label => facetAttr('status', label))}</div>` : '',
     bd.impliedClass.length > 0 ? `<div class="bd"><h3>Licence level (implied)</h3>${breakdownRows(bd.impliedClass, bd.recordCount, undefined, label => facetAttr('implied_class', label))}</div>` : '',
-    bd.prefixes.length > 0 ? `<div class="bd"><h3>Largest prefixes</h3>${breakdownRows(bd.prefixes.map(([p, n]): [string, number] => [displaySeries(p), n]), bd.recordCount, d => `../../../series/${seriesSlug(d)}.html`, label => facetAttr('prefix_series', seriesSlug(label)))}<div class="brow"><a href="../../../series/index.html">all series →</a></div></div>` : '',
+    bd.declared.length > 0 ? `<div class="bd"><h3>Licence level (declared)</h3>${declaredRows}</div>` : '',
+    bd.prefixes.length > 0 ? `<div class="bd"><h3>Prefixes <small class="lvl">— all ${bd.prefixes.length}, with inferred level</small></h3><div class="prefixscroll">${prefixRows}</div><div class="brow"><a href="../../../series/index.html">all series →</a></div></div>` : '',
+    bd.international > 0 ? `<div class="bd"><h3>International / visitor</h3><div class="brow" data-filter-expr="${escapeHtml(intlExpr)}" data-filter-val="yes" data-filter-label="international" role="button" tabindex="0"><span class="lab">contain <code>/</code> (e.g. <code>M/</code>) — country lookup planned</span>${bar(bd.international)}</div></div>` : '',
     '<div class="attr">',
     `<div><b>Source</b> · ${meta.sourceUrl !== undefined ? `<a href="${escapeHtml(meta.sourceUrl)}">Ofcom open-data page →</a>` : 'Ofcom open-data page'}</div>`,
     `<div>Published ${escapeHtml(humanDate(publishedIso))}${meta.fetchedAt !== undefined ? ` · fetched ${escapeHtml(humanDate(meta.fetchedAt.slice(0, 10)))}` : ''}</div>`,
@@ -614,6 +671,7 @@ function svgBarChart(idBase: string, heading: string, summary: string, unit: str
 // implied licence level.
 function distributions(sourceDir: string, key: string): {
   length: [string, number][];
+  suffixLength: [string, number][];
   issueYear: [string, number][];
   recentByClass: [string, number][];
   dateColumn: string | undefined;
@@ -625,6 +683,12 @@ function distributions(sourceDir: string, key: string): {
   const lengthMap = new Map<number, number>();
   for (const r of normRows) { const len = (r.callsign ?? '').length; if (len > 0) lengthMap.set(len, (lengthMap.get(len) ?? 0) + 1); }
   const length = [...lengthMap.entries()].sort((a, b) => a[0] - b[0]).map(([l, n]): [string, number] => [String(l), n]);
+
+  // Suffix length distinguishes heritage 2-letter callsigns (the G2 series
+  // and older G/M holders) from the modern 3-letter allocations.
+  const suffixLengthMap = new Map<number, number>();
+  for (const r of compRows) { const len = (r.suffix ?? '').length; if (len > 0) suffixLengthMap.set(len, (suffixLengthMap.get(len) ?? 0) + 1); }
+  const suffixLength = [...suffixLengthMap.entries()].sort((a, b) => a[0] - b[0]).map(([l, n]): [string, number] => [String(l), n]);
 
   const dateColumn = ['licence_version_original_start_date', 'created_date'].find(c => normRows.some(r => (r[c] ?? '') !== ''));
   const pubDate = /^\d{4}-\d{2}-\d{2}$/.test(key) ? Date.parse(`${key}T00:00:00Z`) : NaN;
@@ -648,7 +712,7 @@ function distributions(sourceDir: string, key: string): {
   }
   const issueYear = [...yearMap.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([y, n]): [string, number] => [y, n]);
   const recentByClass = [...recentMap.entries()].sort((a, b) => b[1] - a[1]);
-  return { length, issueYear, recentByClass, dateColumn };
+  return { length, suffixLength, issueYear, recentByClass, dateColumn };
 }
 
 function distributionsSection(sourceDir: string, key: string): string[] {
@@ -659,6 +723,7 @@ function distributionsSection(sourceDir: string, key: string): string[] {
   return [
     '<section><h2>Distributions</h2>',
     dist.length.length > 0 ? svgBarChart('dist-length', 'Callsign length', `Number of callsigns of each length in characters, from ${dist.length[0][0]} to ${dist.length[dist.length.length - 1][0]}.`, 'length (characters)', dist.length, 'CAST(LENGTH(callsign) AS TEXT)') : '',
+    dist.suffixLength.length > 0 ? svgBarChart('dist-suffixlen', 'Suffix length', 'Callsigns by suffix length — 2-letter suffixes are heritage (G2 series and older holders), 3-letter the modern allocations.', 'suffix length', dist.suffixLength, 'CAST(LENGTH(suffix) AS TEXT)') : '',
     dist.issueYear.length > 0 && dist.dateColumn !== undefined ? svgBarChart('dist-year', `Issue year (by ${dateLabel})`, `Callsigns by year of ${dateLabel}, from ${dist.issueYear[0][0]} to ${dist.issueYear[dist.issueYear.length - 1][0]}.`, 'year', dist.issueYear, `substr("${dist.dateColumn}", 1, 4)`) : '',
     dist.recentByClass.length > 0 ? `<h3 style="font-size:.92rem;margin:.3rem 0 .4rem">New in the 12 months to ${escapeHtml(humanDate(key))}, by licence level (${recentTotal.toLocaleString('en-GB')} total)</h3>${breakdownRows(dist.recentByClass, recentTotal)}` : '',
     '</section>',

@@ -145,11 +145,15 @@ function enhance(section) {
   // mode; the facet UI then shows the custom-query state until reset. Only
   // always-present columns are used so no example errors on older variants.
   const EXAMPLES = [
-    { title: 'Status × licence level (counts)', sql: `SELECT status, implied_class, COUNT(*) AS n\nFROM register_history WHERE dataset = '${dataset}'\nGROUP BY status, implied_class ORDER BY n DESC` },
+    { title: 'Status × licence level (counts and %)', sql: `SELECT status, implied_class, COUNT(*) AS n,\n  ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1) AS pct\nFROM register_history WHERE dataset = '${dataset}'\nGROUP BY status, implied_class ORDER BY n DESC` },
     { title: 'Callsigns whose raw form needed cleaning', sql: `SELECT callsign, cleaned, status\nFROM register_history WHERE dataset = '${dataset}' AND callsign != cleaned\nORDER BY callsign` },
-    { title: 'Withheld-suffix callsigns', sql: `SELECT callsign, status, prefix_series\nFROM register_history WHERE dataset = '${dataset}'\n  AND suffix IN (SELECT suffix FROM ref_forbidden_suffixes)\nORDER BY callsign` },
-    { title: 'Longest callsigns first', sql: `SELECT callsign, LENGTH(callsign) AS len, status\nFROM register_history WHERE dataset = '${dataset}'\nORDER BY len DESC, callsign` },
-    { title: 'Reserved callsigns by prefix', sql: `SELECT prefix_series, COUNT(*) AS n\nFROM register_history WHERE dataset = '${dataset}' AND status = 'Reserved'\nGROUP BY prefix_series ORDER BY n DESC` },
+    // Dates + whether the callsign predates the forbidden list's first known
+    // publication (Ofcom's August 2019 FOI). NULL start date -> 'unknown', not
+    // a false 'no'. Date columns exist in the master's UNION schema (NULL for
+    // publications that did not carry them).
+    { title: 'Withheld-suffix callsigns — issued before the 2019 list?', sql: `SELECT callsign, status,\n  licence_version_original_start_date AS issued,\n  last_modified_date AS last_modified,\n  CASE WHEN licence_version_original_start_date IS NULL THEN 'unknown'\n       WHEN licence_version_original_start_date < '2019-08-01' THEN 'yes'\n       ELSE 'no' END AS predates_2019_list\nFROM register_history WHERE dataset = '${dataset}'\n  AND suffix IN (SELECT suffix FROM ref_forbidden_suffixes)\nORDER BY issued` },
+    { title: 'Longest callsigns first', sql: `SELECT callsign, LENGTH(callsign) AS len, status, implied_class\nFROM register_history WHERE dataset = '${dataset}'\nORDER BY len DESC, callsign` },
+    { title: 'Reserved callsigns by prefix (with level and %)', sql: `SELECT prefix_series, implied_class AS level, COUNT(*) AS n,\n  ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1) AS pct\nFROM register_history WHERE dataset = '${dataset}' AND status = 'Reserved'\nGROUP BY prefix_series ORDER BY n DESC` },
   ];
   const examplesBox = el('details', { class: 'examples' });
   examplesBox.append(el('summary', { text: 'Interesting queries' }));
@@ -312,10 +316,11 @@ function enhance(section) {
 
   // --- filter triggers (sidebar rows, chart bars, chips) ---
   function facetKeyOf(node) {
+    const explicit = node.getAttribute('data-filter-label');
     const expr = node.getAttribute('data-filter-expr');
-    if (expr !== null) return { key: expr, field: expr, isExpr: true, label: node.closest('.bd,figure')?.querySelector('h3,figcaption')?.textContent?.trim() ?? expr };
+    if (expr !== null) return { key: expr, field: expr, isExpr: true, label: explicit ?? node.closest('.bd,figure')?.querySelector('h3,figcaption')?.textContent?.trim() ?? expr };
     const col = node.getAttribute('data-filter-col');
-    return { key: col, field: col, isExpr: false, label: col };
+    return { key: col, field: col, isExpr: false, label: explicit ?? col };
   }
   function toggleFacetValue(node) {
     const { key, field, isExpr, label } = facetKeyOf(node);
