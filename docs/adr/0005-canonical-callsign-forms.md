@@ -7,8 +7,10 @@ Status: accepted
 
 A callsign appears in the data under many surface forms. The same station is
 `M7TEE` in the register and `MW7TEE` on air from Wales; the same publisher
-value arrives as `2E1HON`, `2e1hon`, or `2E1HON ` across exports; a
-visitor is `M/EI8DJ` from England and `MM/EI8DJ` from Scotland. If joins keyed
+value arrives as `2E1HON`, `2e1hon`, or `2E1HON ` across exports;
+an Irish visitor signs `M/EI8DJ` when operating within England and `MM/EI8DJ`
+within Scotland (the home callsign `EI8DJ` marks the operator's origin; the
+`M` prefix and its RSL mark the UK nation the station is operating in). If joins keyed
 off the raw string, these renderings would fragment: longitudinal history
 would break on a whitespace artefact, and a regional rendering would never
 find its canonical row.
