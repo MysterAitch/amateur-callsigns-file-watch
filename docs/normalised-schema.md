@@ -158,8 +158,18 @@ verbatim from raw.
 | `created_date` | ISO-ordered; populated by the 2025 variants only |
 | `last_modified_date` | ISO-ordered; populated by the 2023 and 2025 variants |
 | `licence_version_last_modified_date` | ISO-ordered; populated by the 2026 variant only |
-| `licence_version_original_start_date` | ISO-ordered; populated by the 2026 variant only |
+| `licence_version_original_start_date` | ISO-ordered; populated by the 2026 variant only. **Observed to track the call sign's original issuance, apparently retained across re-issue** — not the current licence's start (see the note below) |
 
+- **`licence_version_original_start_date` semantics (observed, not verified)**:
+  it appears to record the *call sign's* original issuance, retained through
+  re-issue, rather than the current holder's licence start. Evidence: 25 call
+  signs listed as *available* in a 2013 FOI disclosure carry a 2026
+  original-start-date predating that availability (some to the 1990s) — which
+  is consistent with a call sign that was issued, lapsed to available, and was
+  later re-issued while keeping its first-ever date. A plausible innocent
+  lifecycle (original holder's licence ended, five-year rest elapsed, the call
+  sign was later explicitly requested by a new holder) fits the same evidence,
+  so this is a declared observation to probe further, not an established fact.
 - **Union columns**: the header is identical for every entry; a column the
   entry's raw variant doesn't carry is empty on every row. `headerVariant` in
   meta says which columns are real for that entry — distinguishing
