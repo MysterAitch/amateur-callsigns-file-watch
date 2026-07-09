@@ -374,11 +374,48 @@ describe('runNormaliseSweep', () => {
 
     const series = fs.readFileSync(path.join(tmpRoot, 'reports', 'callsign-patterns.md'), 'utf8');
     const header = series.split('\n').find(l => l.startsWith('| pattern |')) ?? '';
-    // Newest dataset leftmost, history receding rightwards.
-    expect(header).toContain('| pattern | 2026-03-03 | 2026-02-02 | 2026-01-01 |');
+    // The grouped section leads with a descriptor column; newest dataset
+    // leftmost, history receding rightwards.
+    expect(header).toContain('| pattern | descriptor | 2026-03-03 | 2026-02-02 | 2026-01-01 |');
     expect(series).toContain('| _records_ | 2 | 2 | 2 |');
+    // The ungrouped companion table keeps the plain per-codepoint counts.
     expect(series).toContain('| `ANAAA` | 2 | 2 | 2 |');
     expect(series).not.toContain('<small>');
+  });
+
+  it('PatternTimeSeries_GroupsPatternsByClassWithDescriptors', () => {
+    // #244: the standing report groups patterns into UK / visitor /
+    // unknown-unexpected and gives each a descriptor, reusing the per-entry
+    // drill-downs' source of truth (reference-data/pattern-formats.csv).
+    const mixed = SALESFORCE_RAW
+      + 'F/M0ABC,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n' // visitor A/ANAAA
+      + 'WXYZ,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n';    // unknown AAAA
+    writeEntry(tmpRoot, '2026-01-01', mixed);
+    runNormaliseSweep();
+
+    const series = fs.readFileSync(path.join(tmpRoot, 'reports', 'callsign-patterns.md'), 'utf8');
+    expect(series).toContain('### UK patterns (1)');
+    expect(series).toContain('### Visitor patterns (1)');
+    expect(series).toContain('### Unknown / unexpected patterns (1)');
+    // UK core shape carries its sourced descriptor.
+    expect(series).toMatch(/\| `ANAAA` \| single-letter prefix \+ digit \+ three-letter suffix[^|]*\| 2 \|/);
+    // Visitor shape carries the visitor-family descriptor.
+    expect(series).toMatch(/\| `A\/ANAAA` \| visitor \/ temporary-reciprocal format[^|]*\| 1 \|/);
+    // The unknown shape is surfaced with counts but no asserted descriptor.
+    const unknownSection = series.slice(series.indexOf('### Unknown / unexpected patterns'));
+    expect(unknownSection).toContain('| `AAAA` | 1 |');
+  });
+
+  it('PatternTimeSeries_UnverifiableShape_TaggedUnverifiedNotAsserted', () => {
+    // Descriptors that cannot be grounded in an Ofcom/RSGB citation (the
+    // contest/special shapes) are hedged, never asserted as fact.
+    const withContest = SALESFORCE_RAW
+      + 'G9Z,,Allocated,Call Sign - Amateur,21/01/2019,21/01/2019\n'; // pattern ANA
+    writeEntry(tmpRoot, '2026-01-01', withContest);
+    runNormaliseSweep();
+
+    const series = fs.readFileSync(path.join(tmpRoot, 'reports', 'callsign-patterns.md'), 'utf8');
+    expect(series).toMatch(/\| `ANA` \|[^|]*believed a contest \/ special-call shape[^|]*_\(unverified\)_ \|/);
   });
 
   it('PatternTimeSeries_FoldedTable_MergesWhitespaceVariantsIntoU', () => {
