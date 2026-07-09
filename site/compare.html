@@ -54,7 +54,12 @@
 
     <section id="sql" hidden>
       <details class="sqlbox">
-        <summary>SQL for the current comparison</summary>
+        <summary>Filter &amp; SQL for the current comparison</summary>
+        <p class="muted">Edit the filter below (a SQL <code>WHERE</code> condition applied to every publication) and Apply, to tweak the comparison in place — for example if a filter matched nothing. Read-only: it must be a single condition, no <code>;</code>.</p>
+        <label class="muted" for="pred-input">Filter condition</label>
+        <textarea id="pred-input" rows="2" spellcheck="false" aria-label="filter condition"></textarea>
+        <div><button type="button" id="pred-apply">Apply filter</button> <button type="button" id="pred-reset" class="pg">Reset to inherited filter</button></div>
+        <p class="muted" style="margin-top:.6rem">Composed count query:</p>
         <pre><code id="sql-text"></code></pre>
       </details>
     </section>
