@@ -78,6 +78,10 @@ describe('runNormaliseSweep', () => {
     expect(meta.normalised).toEqual({ schemaVersion: 1, headerVariant: 'v2025-salesforce', statsSchemaVersion: 6, componentsSchemaVersion: 5 });
     expect(meta.files['normalised.csv'].sha256).toBe(sha256(normalised));
     expect(meta.files['normalised.csv'].recordCount).toBe(2);
+    // The value catalogue is written UNDER the sweep's working root, not the
+    // real repo - so running the sweep against a fixture never clobbers the
+    // committed reports/value-catalogue.md.
+    expect(fs.existsSync(path.join(tmpRoot, 'reports', 'value-catalogue.md'))).toBe(true);
   });
 
   it('Sweep_WhenOutputAlreadyCurrent_MakesNoChanges', () => {
