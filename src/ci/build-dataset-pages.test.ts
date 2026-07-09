@@ -164,6 +164,8 @@ describe('Dataset pages build', () => {
     expect(m7).toContain('Foundation'); // reference facts
     expect(m7).toContain('Status breakdown');
     expect(m7).toMatch(/index\.html\?c=[A-Z0-9]/); // examples deep-link into the lookup
+    // Status-breakdown counts link to the filtered lookup ("which N?").
+    expect(m7).toContain('../index.html?series=M7&status=Allocated');
     // Observed-but-unreferenced series are flagged, not passed off as
     // established (M2 exists in the register, not in reference data).
     const m2 = fs.readFileSync(path.join(outputDir, 'series', 'M2.html'), 'utf8');

@@ -630,12 +630,20 @@ function buildSeriesPages(outputDir: string, baseUrl: string): string[] {
   fs.mkdirSync(seriesDir, { recursive: true });
   const urls: string[] = [];
 
-  const countTable = (title: string, counts: Map<string, number>): string[] => {
+  // linkFor turns each count into a filtered-lookup link ("which N?"):
+  // a return of undefined (synthetic values like "(unknown)") stays plain.
+  const countTable = (title: string, counts: Map<string, number>, linkFor?: (value: string) => string | undefined): string[] => {
     if (counts.size === 0) return [];
     const rows = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     return [`<h2>${escapeHtml(title)}</h2>`, '<table>', `<tr><th>value</th><th>rows</th></tr>`,
-      ...rows.map(([value, n]) => `<tr><td>${escapeHtml(value)}</td><td>${n.toLocaleString('en-GB')}</td></tr>`), '</table>'];
+      ...rows.map(([value, n]) => {
+        const count = n.toLocaleString('en-GB');
+        const href = linkFor?.(value);
+        return `<tr><td>${escapeHtml(value)}</td><td>${href === undefined ? count : `<a href="${href}">${count}</a>`}</td></tr>`;
+      }), '</table>'];
   };
+  const filterLink = (series: string, param: 'status' | 'flags', value: string): string | undefined =>
+    value.startsWith('(') ? undefined : `../index.html?series=${encodeURIComponent(series)}&${param}=${encodeURIComponent(value)}`;
 
   const indexRows: string[] = [];
   for (const series of allSeries) {
@@ -659,10 +667,10 @@ function buildSeriesPages(outputDir: string, baseUrl: string): string[] {
     const numbers = acc === undefined
       ? ['<p>No parsed register rows in the latest publication carry this series.</p>']
       : [
-        `<p>${acc.total.toLocaleString('en-GB')} parsed register rows in the latest publication (${escapeHtml(newest)}).</p>`,
-        ...countTable('Status breakdown', acc.statuses),
+        `<p>${acc.total.toLocaleString('en-GB')} parsed register rows in the latest publication (${escapeHtml(newest)}). Counts link to the matching rows in the live lookup.</p>`,
+        ...countTable('Status breakdown', acc.statuses, status => filterLink(series, 'status', status)),
         ...countTable('Stored RSL letters', acc.rsls),
-        ...countTable('Data-quality flags within this series', acc.flags),
+        ...countTable('Data-quality flags within this series', acc.flags, flag => filterLink(series, 'flags', flag)),
         `<p>Examples, as stored in the register (the RSL letter, where one applies, is stored separately from the row): ${acc.examples.map(c => `<a href="../index.html?c=${encodeURIComponent(c)}"><code>${escapeHtml(c)}</code></a>`).join(', ')} — each opens the live lookup.</p>`,
       ];
     const body = [
