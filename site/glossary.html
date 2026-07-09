@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>Glossary — UK amateur callsign data mirror</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Definition-list styling for the glossary entries; the shared .skip class
+       (site/style.css) handles the skip link. -->
+  <style>
+    dl.gloss dt { font-weight: 600; margin-top: 0.9rem; }
+    dl.gloss dt:target { background: color-mix(in srgb, var(--accent) 18%, transparent); border-radius: 4px; padding: 0.1rem 0.3rem; margin-left: -0.3rem; }
+    dl.gloss dd { margin: 0.2rem 0 0; }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="reports/index.html">Reports</a> · <strong>Glossary</strong> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">Repository</a></p></nav>
+  <header>
+    <h1>Glossary</h1>
+    <p class="subtitle">
+      Plain-language definitions of the terms that recur across the lookup,
+      Explore, Compare, dataset and series pages. Each entry is one clear
+      line, deep-linkable by its <span class="mono">#anchor</span>. This is a
+      human-first layer above the column-level
+      <a href="datasets/docs/normalised-schema.html">data dictionary</a> and
+      <a href="datasets/docs/flags.html">flag registry</a>, which remain the
+      authoritative, per-field references.
+    </p>
+  </header>
+
+  <main id="main">
+    <section id="status">
+      <h2 id="status-values">Register status values</h2>
+      <p class="muted">The register's <code>status</code> column records the
+      state Ofcom holds for a callsign. The mirror reports the value verbatim
+      and does not infer policy the data does not state. The three common
+      values below are described in everyday terms; the rarer values that
+      follow are shown honestly as observed but not authoritatively defined.</p>
+      <dl class="gloss">
+        <dt id="allocated">Allocated</dt>
+        <dd>The callsign is on issue — held by a licensee. This is the ordinary
+        "in use" state and by far the most common value in the register.</dd>
+
+        <dt id="reserved">Reserved</dt>
+        <dd>The register marks the callsign as held back or withheld from new
+        issue. The record does <strong>not</strong> say <em>why</em> or
+        <em>for whom</em> — it can cover, among other things, a
+        corresponding-callsign hold for an existing holder, or an
+        administrative reservation. Treat it as "not currently available for
+        general issue", nothing more specific.</dd>
+
+        <dt id="available">Available (and the "availability" trap)</dt>
+        <dd>Two different things share this word, and confusing them leads to
+        wrong conclusions:
+          <ul>
+            <li><strong>Status <code>Available</code></strong> — a literal
+            value the register can carry on a row it <em>does</em> hold,
+            asserting that the callsign is free to be issued.</li>
+            <li><strong>Inferred availability</strong> — the suffix matrix's
+            "no record" conclusion, drawn when the register holds
+            <em>no row at all</em> for a callsign. Ofcom does not routinely
+            record never-issued callsigns, so no-record <em>suggests, but does
+            not guarantee,</em> availability. A no-record result is a hopeful
+            lead, not the status value <code>Available</code>, and never a
+            promise you can apply for it.</li>
+          </ul>
+          In short: <em>absence of a record is not evidence of availability.</em></dd>
+
+        <dt id="status-live">Live</dt>
+        <dd>A status value observed in the data. The mirror has not established
+        an authoritative mapping for it — it is carried verbatim and flagged in
+        the <a href="reports/value-catalogue.html">value catalogue</a> as a
+        state with no canonical meaning decided. Do not read more into it than
+        the register states.</dd>
+
+        <dt id="status-forbidden">Forbidden</dt>
+        <dd>A status value observed in the data, distinct from the
+        <a href="#forbidden-suffix">forbidden-suffix</a> data-quality flag.
+        As with <a href="#status-live">Live</a>, no canonical meaning has been
+        established; it is reported verbatim, not interpreted.</dd>
+
+        <dt id="status-quarantine">Quarantine</dt>
+        <dd>A status value observed in the data, with no canonical meaning
+        established by the mirror. Commonly understood in amateur-radio practice
+        as a cooling-off period before a surrendered callsign can be re-issued,
+        but the register does not state this, so the mirror does not assert it.</dd>
+      </dl>
+    </section>
+
+    <section id="terms">
+      <h2>Terms and notation</h2>
+      <dl class="gloss">
+        <dt id="prefix-series">Prefix series</dt>
+        <dd>The leading block of a callsign that fixes its licence level and
+        era — for example <code>M7</code> (Foundation), <code>2E0</code>,
+        <code>M0</code>. One <a href="series/index.html">series page</a> exists
+        per series, pairing reference facts with current counts.</dd>
+
+        <dt id="rsl">RSL — Regional Secondary Locator</dt>
+        <dd>The optional letter inserted after the first character to show the
+        UK nation of operation (e.g. <code>M</code> for England,
+        <code>MW</code> Wales, <code>MM</code> Scotland). The register stores
+        the RSL-less <em>core</em> callsign; a rendering with an RSL is an
+        interchangeable form of the same licence.</dd>
+
+        <dt id="placeholder-form">Placeholder form (the <code>#</code> notation)</dt>
+        <dd>A single display of a callsign that stands for every regional
+        rendering at once, with <code>#</code> marking the
+        <a href="#rsl">RSL</a> slot — so <code>M7TEE</code>,
+        <code>MW7TEE</code> and <code>ME7TEE</code> all normalise to
+        <code>M#7TEE</code>. It is the mirror's uniform join key across regional
+        variants, not a callsign you would transmit.</dd>
+
+        <dt id="suffix">Suffix</dt>
+        <dd>The trailing letters after the digit (the <code>TEE</code> of
+        <code>M7TEE</code>). Searching <code>*TEE</code> shows the availability
+        matrix — the register state of that suffix across every prefix series.</dd>
+
+        <dt id="forbidden-suffix">Forbidden suffix</dt>
+        <dd>A suffix on Ofcom's August 2019 FOI withheld-suffixes list —
+        unlikely to be newly issued, though existing allocations stand. Carried
+        as a per-row data-quality flag; see the
+        <a href="datasets/docs/flags.html">flag registry</a>.</dd>
+
+        <dt id="cleaned">Cleaned</dt>
+        <dd>An artefact-safe join key: the callsign uppercased with everything
+        outside <code>A–Z</code>, <code>0–9</code> and <code>/</code> stripped,
+        so longitudinal joins survive publisher whitespace and encoding damage.
+        Duplicates are expected — it is a join key, deliberately not an
+        identity.</dd>
+
+        <dt id="normalised">Normalised</dt>
+        <dd>The mirror's tidied view of a raw source: consistent columns and
+        casing derived from the archived original, which is always preserved
+        verbatim alongside it. Normalisation never overwrites the raw bytes.</dd>
+
+        <dt id="register-snapshot">Register snapshot</dt>
+        <dd>A dataset class: a point-in-time copy of (part of) the register, as
+        disclosed via FOI or published as open data. What it describes is fixed
+        at its <a href="#vintage">vintage</a>; it is not live.</dd>
+
+        <dt id="observation">Observation</dt>
+        <dd>A single assertion witnessed in an FOI-disclosed dataset — one
+        callsign's status, class or a dated event as that source recorded it.
+        In the master database, <code>NULL</code> means the source never
+        asserted a column; an empty string means it asserted a blank value.</dd>
+
+        <dt id="vintage">Vintage</dt>
+        <dd>The date the data <em>describes</em> — the "as of" moment of a
+        snapshot or list — distinct from when the FOI request was made or
+        answered. It may be a precise date, a coarse month (e.g.
+        <code>2016-09</code>), or unknown (<code>—</code>).</dd>
+
+        <dt id="declared-complete">Declared complete / declared partial</dt>
+        <dd>Whether a publication <em>says</em> it covers the whole register or
+        only a subset. This is a declaration of intent, not verified fact:
+        exports declared complete have been observed silently omitting records.
+        Absence from a publication is only ever treated as evidence when that
+        publication declared itself complete — and even then it is a lead to
+        check, not proof.</dd>
+      </dl>
+    </section>
+
+    <footer>
+      <p class="muted"><small>Definitions in plain language for orientation; the
+      per-field <a href="datasets/docs/normalised-schema.html">data
+      dictionary</a>, <a href="datasets/docs/foi-schemas.html">FOI schemas</a>
+      and <a href="datasets/docs/flags.html">flag registry</a> remain
+      authoritative. An independent, unofficial mirror — see
+      <a href="about.html">About</a>.</small></p>
+    </footer>
+  </main>
+</body>
+</html>

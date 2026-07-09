@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>About — UK amateur callsign data mirror</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="reports/index.html">Reports</a> · <a href="glossary.html">Glossary</a> · <strong>About</strong> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">Repository</a></p></nav>
+  <header>
+    <h1>About this site</h1>
+    <p class="subtitle">
+      An independent mirror of the UK amateur-radio callsign register and the
+      Freedom-of-Information disclosures about it — built so operators,
+      researchers and the curious can look up, browse and cross-check the
+      public record. It is not an official service.
+    </p>
+  </header>
+
+  <main id="main">
+    <section id="not-affiliated">
+      <div class="card">
+        <h3>Not affiliated with Ofcom</h3>
+        <p>This is an <strong>independent project</strong>. It is
+        <strong>not affiliated with, endorsed by, or operated by Ofcom</strong>,
+        the Radiocommunications Agency, the RSGB, or any other authority. It
+        mirrors data that those bodies have published; it does not speak for
+        them. It is <strong>not an authoritative source</strong> and must not
+        be relied on for licensing, legal or enforcement decisions — for those,
+        consult Ofcom directly.</p>
+      </div>
+    </section>
+
+    <section id="what">
+      <h2>What this is</h2>
+      <p>The UK amateur-radio callsign register is public data. Ofcom publishes
+      a periodic open-data export of it, and — through Freedom-of-Information
+      requests over more than a decade — has released a series of snapshots,
+      availability lists and statistical breakdowns. Those releases are
+      scattered across Ofcom's disclosure log, the WhatDoTheyKnow request
+      archive and the UK Government Web Archive, in changing formats, and they
+      are not always easy to find or compare.</p>
+      <p>This site gathers them into one place. It preserves each source
+      <em>verbatim</em> (the original bytes are archived), derives a normalised,
+      component-parsed view for searching and joining, and publishes the lot as
+      a browsable, queryable mirror. You can look up a single callsign, browse a
+      whole publication, compare publications over time, or run your own SQL
+      over the databases — see the <a href="index.html">lookup</a> and
+      <a href="explore.html">Explore</a> pages.</p>
+    </section>
+
+    <section id="why">
+      <h2>Why it exists</h2>
+      <p>The guiding idea is <strong>epistemic honesty</strong>: to show what
+      the record actually says, and — just as importantly — what it does
+      <em>not</em>. A callsign missing from a register export is not proof it is
+      free; a status of "Reserved" does not say why, or for whom; a
+      "declared-complete" export has been observed silently dropping tens of
+      thousands of rows. The mirror is built to surface those limits rather than
+      paper over them, so that absence is never mistaken for evidence. The
+      <a href="glossary.html">glossary</a> defines the recurring terms in plain
+      language.</p>
+    </section>
+
+    <section id="currency">
+      <h2>How current the data is</h2>
+      <p>The searchable register reflects <strong>whatever Ofcom last
+      published</strong>, mirrored on the mirror's most recent deploy. Ofcom's
+      open-data export is not a live feed and is published only periodically, so
+      the snapshot here can lag the real register by weeks. The exact
+      publication and mirror dates are shown near the top of the
+      <a href="index.html">lookup page</a> and on every entry in the
+      <a href="datasets/index.html">dataset index</a>; the FOI disclosures each
+      carry their own vintage. Older publications remain archived, so the record
+      can be read historically as well as at its latest state.</p>
+    </section>
+
+    <section id="errors">
+      <h2>Reporting errors</h2>
+      <p>Corrections, questions and suggestions are welcome. Because the raw
+      sources are preserved unchanged, an error is usually either in Ofcom's
+      published data (which the mirror faithfully reproduces) or in the mirror's
+      own normalisation, parsing or reference data (which can be fixed here).
+      Please open an issue on the
+      <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/issues">GitHub repository</a>,
+      where the full source, provenance and change history also live.</p>
+    </section>
+
+    <footer>
+      <p class="muted"><small>An independent, unofficial mirror. Data belongs to
+      its original publishers; provenance and integrity hashes accompany every
+      archived file in the <a href="datasets/index.html">dataset index</a>.</small></p>
+    </footer>
+  </main>
+</body>
+</html>

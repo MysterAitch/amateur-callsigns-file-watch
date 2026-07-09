@@ -9,16 +9,18 @@
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
-  <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="reports/index.html">Reports</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">Repository</a></p></nav>
+  <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="reports/index.html">Reports</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">Repository</a></p></nav>
   <header>
     <h1>UK amateur callsign lookup</h1>
     <p class="subtitle">
-      Proof of concept: this page queries a published SQLite database over
-      HTTP range requests — the full end-to-end flow from Ofcom's register,
-      through the <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">mirror's</a>
-      normalisation, component parsing, and reference data, to your browser.
-      Data is <em>not</em> authoritative; see the repository for provenance.
+      Look up any UK amateur-radio callsign against Ofcom's published
+      register and a decade of archived FOI disclosures — or type a suffix
+      like <span class="mono">*TEE</span> to see which prefix series it is
+      free in. This is an <strong>independent</strong> mirror for reference
+      and research: <em>not</em> an authoritative source, and not affiliated
+      with or endorsed by Ofcom. <a href="about.html">About this site</a>.
     </p>
+    <p id="data-currency" class="muted hint">Current register currency loads with the data…</p>
   </header>
 
   <main id="main">
@@ -63,27 +65,47 @@
           </fieldset>
         </details>
       </form>
-      <p class="muted hint">Wildcard searches (<span class="mono">*</span>) and filters compose; filters on their own (empty callsign) browse the whole register. <span class="mono">*SUF</span> with no filters shows the suffix availability matrix.</p>
+      <p class="muted hint">Try a full callsign, or a suffix like
+      <a href="?c=*TEE">*TEE</a> to check which prefix series that suffix is
+      free in. Wildcard searches (<span class="mono">*</span>) and filters
+      compose; filters on their own (empty callsign) browse the whole
+      register. The <span class="mono">#</span> in a
+      <a href="glossary.html#placeholder-form">placeholder form</a> marks the
+      optional Regional Secondary Locator slot.</p>
       <div id="result" hidden></div>
     </section>
 
-    <section id="explore">
-      <h2>Explore</h2>
+    <section id="views">
+      <h2>Views &amp; tools</h2>
       <p><a href="statistics.html">Statistics</a> — aggregate views over the
-      archived data: the prefix-series × RSL matrix and data-quality flags
-      per publication, generated at deploy time.</p>
+      archived data (no SQL needed): the prefix-series × RSL matrix and
+      data-quality flags per publication, generated at deploy time.</p>
+      <p><a href="series/index.html">Prefix series</a> — one page per
+      callsign prefix series (no SQL needed): hand-curated reference facts
+      joined with counts from the latest publication.</p>
       <p><a href="datasets/index.html">Dataset index</a> — every archived
       dataset (open-data publications and FOI disclosures), published with
       its raw, extract and normalised files at stable URLs, each entry with
       a machine-readable descriptor, per-entry metrics, and one-click
       downloads.</p>
-      <p><a href="series/index.html">Prefix series</a> — one page per
-      callsign prefix series: hand-curated reference facts joined with
-      counts from the latest publication.</p>
-      <p><a href="explore.html">Explore</a> — run read-only SQL over the
-      published databases in your browser: join the datasets, follow the
-      worked examples, no install needed.</p>
+      <p><a href="glossary.html">Glossary</a> — plain-language definitions of
+      the recurring terms: RSL, prefix series, placeholder form, register
+      status values, and more.</p>
+      <p><a href="explore.html">Explore</a> <span class="muted">(for SQL
+      users)</span> — run read-only SQL over the published databases in your
+      browser: join the datasets, follow the worked examples, no install
+      needed.</p>
     </section>
+
+    <details id="how-it-works">
+      <summary>How this works</summary>
+      <p class="muted">This lookup is a proof of concept: it queries a
+      published SQLite database directly from your browser over HTTP range
+      requests — the full end-to-end flow from Ofcom's register, through the
+      mirror's normalisation, component parsing and reference data, to your
+      screen, with no server in between. Full source and provenance are in
+      the <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">repository</a>.</p>
+    </details>
 
     <footer id="build-info"></footer>
   </main>
