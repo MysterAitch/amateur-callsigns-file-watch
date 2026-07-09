@@ -203,6 +203,11 @@ const ENTRY_STYLE = [
   '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:.5rem}',
   '.slot{border:1px solid var(--line);border-radius:9px;padding:.5rem .65rem;background:var(--slot);min-height:3.6rem}.slot .name{font-weight:650}.slot .meta{color:var(--muted);font-size:.77rem}.slot .desc{color:var(--muted);font-size:.78rem;line-height:1.25;margin-top:.15rem}',
   '.slot.empty{border-style:dashed;opacity:.68}.slot.empty .name{color:var(--muted);font-weight:600}.slot.empty .tag{font-size:.74rem;color:var(--muted);font-style:italic}',
+  // Distribution charts (accessible static SVG)
+  '.chart{margin:0 0 1.1rem}.chart figcaption{font-weight:600;font-size:.92rem;margin:0 0 .3rem}',
+  '.chart svg{width:100%;height:auto;max-height:190px;display:block}',
+  '.chart details{margin-top:.3rem}.chart summary{cursor:pointer;color:var(--accent);font-size:.84rem}',
+  '.chart details table{margin-top:.4rem;max-width:22rem}.chart tr.explore{cursor:pointer}.chart tr.explore:hover td:first-child{text-decoration:underline;color:var(--accent)}',
   '.linkout{display:block;margin:.1rem 0 1.05rem;padding:.7rem 1.1rem;border:1px dashed var(--line);border-radius:12px;font-size:.9rem}',
   'footer{color:var(--muted);font-size:.83rem;margin-top:.6rem;line-height:1.6}footer a{color:var(--accent)}',
   '</style>',
@@ -413,12 +418,20 @@ function downloadTier(title: string, slots: string[]): string {
 
 // Vertical breakdown rows with a subtle proportion bar and a de-emphasised
 // percentage; the label optionally links (largest = whole; caller supplies).
+// Never show a bare empty string as a label/key/header: a blank value is
+// itself information (a record the source left empty), so name it. Matches
+// the humanising used elsewhere ((blank status), (none), (empty value)).
+function humaniseLabel(value: string): string {
+  return value === '' ? '(blank)' : value;
+}
+
 function breakdownRows(counts: [string, number][], total: number, linkFor?: (v: string) => string | undefined, rowAttr?: (v: string) => string): string {
   return counts.map(([label, n]) => {
     const pct = total > 0 ? Math.round((n / total) * 100) : 0;
     const pctText = pct === 0 && n > 0 ? '<1%' : `${pct}%`;
     const href = linkFor?.(label);
-    const lab = href === undefined ? escapeHtml(label) : `<a href="${href}">${escapeHtml(label)}</a>`;
+    const shown = escapeHtml(humaniseLabel(label));
+    const lab = href === undefined ? shown : `<a href="${href}">${shown}</a>`;
     return `<div class="brow"${rowAttr?.(label) ?? ''}><span class="lab">${lab}</span><span class="pct">${pctText}</span><b>${n.toLocaleString('en-GB')}</b><span class="barbg" style="width:${Math.min(pct, 100)}%"></span></div>`;
   }).join('');
 }
@@ -533,6 +546,102 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
     notable.length > 0 ? `<div class="notable"><h3>Notable</h3><ul>${notable.join('')}</ul></div>` : '',
     '</section>',
   ].filter(s => s !== '').join('\n');
+}
+
+// An accessible, progressive-enhancement bar chart: the data table IS the
+// content (crawlable, screen-reader-native, survives with no SVG); the
+// inline SVG is a visual layer over it inside a <figure>. The SVG carries
+// role="img" + <title>/<desc> for a spoken summary, a per-bar <title> for
+// hover, and text value labels (never colour/height alone). Theme-aware via
+// the CSS custom properties; no client JS, no charting dependency (d3 and
+// friends belong in the interactive downstream graph layer, not this
+// static record).
+function svgBarChart(idBase: string, heading: string, summary: string, unit: string, data: [string, number][], exploreSql?: (label: string) => string): string {
+  if (data.length === 0) return '';
+  const max = Math.max(...data.map(d => d[1]));
+  const width = 600; const chartH = 150; const padTop = 12; const padBottom = 28; const gap = data.length > 40 ? 1 : 2;
+  const barW = (width - (data.length - 1) * gap) / data.length;
+  const labelEvery = data.length <= 14 ? 1 : Math.ceil(data.length / 12);
+  const parts = data.map(([label, n], i) => {
+    const shown = escapeHtml(humaniseLabel(label));
+    const h = max > 0 ? (n / max) * chartH : 0;
+    const x = i * (barW + gap);
+    const y = padTop + (chartH - h);
+    const cx = (x + barW / 2).toFixed(1);
+    const value = data.length <= 14 ? `<text x="${cx}" y="${(y - 2).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--muted)">${n.toLocaleString('en-GB')}</text>` : '';
+    const tick = i % labelEvery === 0 ? `<text x="${cx}" y="${(padTop + chartH + 14).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--muted)">${shown}</text>` : '';
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(barW, 0.5).toFixed(1)}" height="${h.toFixed(1)}" fill="var(--accent)"><title>${shown}: ${n.toLocaleString('en-GB')}</title></rect>${value}${tick}`;
+  }).join('');
+  // Each data-table row can carry a scoped-browser query so the long tails
+  // are explorable in one click (entry-browser.js wires data-browser-sql).
+  const tableRows = data.map(([label, n]) => {
+    const sql = exploreSql?.(label);
+    const attrs = sql === undefined ? '' : ` class="explore" role="button" tabindex="0" data-browser-sql="${escapeHtml(sql)}"`;
+    return `<tr${attrs}><td>${escapeHtml(humaniseLabel(label))}</td><td class="n">${n.toLocaleString('en-GB')}</td></tr>`;
+  }).join('');
+  const exploreHint = exploreSql === undefined ? '' : ' — rows open in the browser above';
+  return `<figure class="chart"><figcaption>${escapeHtml(heading)}</figcaption>`
+    + `<svg viewBox="0 0 ${width} ${padTop + chartH + padBottom}" role="img" aria-labelledby="${idBase}-t ${idBase}-d" preserveAspectRatio="xMidYMid meet">`
+    + `<title id="${idBase}-t">${escapeHtml(heading)}</title><desc id="${idBase}-d">${escapeHtml(summary)}</desc>${parts}</svg>`
+    + `<details><summary>Data table${exploreHint}</summary><table><tr><th>${escapeHtml(unit)}</th><th class="n">callsigns</th></tr>${tableRows}</table></details></figure>`;
+}
+
+// Per-publication distributions computed at build: callsign length, issue
+// year (from the best available start-date column), and issuance in the
+// trailing 12 months before THIS publication's date (anchored on the
+// publication date, not today, so the build stays reproducible), split by
+// implied licence level.
+function distributions(sourceDir: string, key: string): {
+  length: [string, number][];
+  issueYear: [string, number][];
+  recentByClass: [string, number][];
+  dateColumn: string | undefined;
+} {
+  const normRows = parse(fs.readFileSync(path.join(sourceDir, 'normalised.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  const compRows = parse(fs.readFileSync(path.join(sourceDir, 'components.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  const classByCallsign = new Map(compRows.map(r => [r.callsign, r.implied_class]));
+
+  const lengthMap = new Map<number, number>();
+  for (const r of normRows) { const len = (r.callsign ?? '').length; if (len > 0) lengthMap.set(len, (lengthMap.get(len) ?? 0) + 1); }
+  const length = [...lengthMap.entries()].sort((a, b) => a[0] - b[0]).map(([l, n]): [string, number] => [String(l), n]);
+
+  const dateColumn = ['licence_version_original_start_date', 'created_date'].find(c => normRows.some(r => (r[c] ?? '') !== ''));
+  const pubDate = /^\d{4}-\d{2}-\d{2}$/.test(key) ? Date.parse(`${key}T00:00:00Z`) : NaN;
+  const cutoff = Number.isNaN(pubDate) ? NaN : pubDate - 365 * 24 * 3600 * 1000;
+  const yearMap = new Map<string, number>();
+  const recentMap = new Map<string, number>();
+  if (dateColumn !== undefined) {
+    for (const r of normRows) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(r[dateColumn] ?? '');
+      if (m === null) continue;
+      yearMap.set(m[1], (yearMap.get(m[1]) ?? 0) + 1);
+      if (!Number.isNaN(cutoff)) {
+        const rowDate = Date.parse(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`);
+        if (rowDate >= cutoff && rowDate <= pubDate) {
+          const cls = classByCallsign.get(r.callsign);
+          const clsLabel = cls === undefined || cls === '' ? '(unclassified)' : cls;
+          recentMap.set(clsLabel, (recentMap.get(clsLabel) ?? 0) + 1);
+        }
+      }
+    }
+  }
+  const issueYear = [...yearMap.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([y, n]): [string, number] => [y, n]);
+  const recentByClass = [...recentMap.entries()].sort((a, b) => b[1] - a[1]);
+  return { length, issueYear, recentByClass, dateColumn };
+}
+
+function distributionsSection(sourceDir: string, key: string): string[] {
+  const dist = distributions(sourceDir, key);
+  if (dist.length.length === 0 && dist.issueYear.length === 0) return [];
+  const dateLabel = dist.dateColumn === 'created_date' ? 'record creation' : 'licence start';
+  const recentTotal = dist.recentByClass.reduce((a, b) => a + b[1], 0);
+  return [
+    '<section><h2>Distributions</h2>',
+    dist.length.length > 0 ? svgBarChart('dist-length', 'Callsign length', `Number of callsigns of each length in characters, from ${dist.length[0][0]} to ${dist.length[dist.length.length - 1][0]}.`, 'length (characters)', dist.length, l => `SELECT callsign, cleaned, status, product FROM register_history WHERE dataset = '${key}' AND LENGTH(callsign) = ${l} ORDER BY callsign`) : '',
+    dist.issueYear.length > 0 && dist.dateColumn !== undefined ? svgBarChart('dist-year', `Issue year (by ${dateLabel})`, `Callsigns by year of ${dateLabel}, from ${dist.issueYear[0][0]} to ${dist.issueYear[dist.issueYear.length - 1][0]}.`, 'year', dist.issueYear, y => `SELECT callsign, cleaned, status, "${dist.dateColumn}" FROM register_history WHERE dataset = '${key}' AND substr("${dist.dateColumn}", 1, 4) = '${y}' ORDER BY "${dist.dateColumn}"`) : '',
+    dist.recentByClass.length > 0 ? `<h3 style="font-size:.92rem;margin:.3rem 0 .4rem">New in the 12 months to ${escapeHtml(humanDate(key))}, by licence level (${recentTotal.toLocaleString('en-GB')} total)</h3>${breakdownRows(dist.recentByClass, recentTotal)}` : '',
+    '</section>',
+  ].filter(s => s !== '');
 }
 
 function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files: CopiedFile[]; meta: FoiEntryMeta; zipBytes: number } {
@@ -732,6 +841,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey?: string
     ignoredNote,
     '</section>',
     inspectTabsHtml(tabs),
+    ...distributionsSection(sourceDir, key),
     '<section><h2>Get the data</h2>',
     downloadTier('Canonical — most-wanted', [
       dl('normalised.csv', 'CSV', 'canonical schema across all publications'),

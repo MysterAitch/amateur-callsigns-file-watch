@@ -59,6 +59,26 @@ describe('Dataset pages build', () => {
     expect(page).not.toContain('href="../2025-06-08/index.html"');
   });
 
+  it('DatasetPages_OpenDataEntryPage_CarriesAccessibleDistributionCharts', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(page).toContain('<h2>Distributions</h2>');
+    expect(page).toContain('Callsign length');
+    expect(page).toContain('Issue year');
+    // The chart is an accessible figure: role="img" with a spoken summary,
+    // and the data table IS the content (crawlable, no-SVG fallback).
+    expect(page).toContain('<figure class="chart">');
+    expect(page).toContain('role="img"');
+    expect(page).toMatch(/<desc id="dist-length-d">/);
+    expect(page).toContain('<details><summary>Data table');
+    // Recent issuance split by licence level, anchored on the publication.
+    expect(page).toContain('New in the 12 months to 23 June 2026, by licence level');
+    // Long tails are explorable: chart rows carry a scoped-browser query.
+    expect(page).toContain('data-browser-sql="SELECT');
+    expect(page).toContain('LENGTH(callsign) = 12'); // the length-12 tail
+    // Blank category values are humanised, never shown as an empty label.
+    expect(page).not.toMatch(/<td><\/td><td class="n">/);
+  });
+
   it('DatasetPages_OpenDataEntryPage_CarriesScopedBrowserEnhancement', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
     // The browse section is marked with its dataset key and the browser
