@@ -138,6 +138,38 @@ describe('Dataset pages build', () => {
     expect(page).not.toMatch(/<td><\/td><td class="n">/);
   });
 
+  it('DatasetPages_SkewedDistributionChart_AxisLabelCarriesSameFilterTriggerAsBar', () => {
+    // A tiny bar in a skewed distribution is a near-single-pixel click
+    // target; the axis tick label under it carries the identical facet
+    // trigger so the category stays clickable, while the bar keeps its own.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(page).toMatch(/<text[^>]*class="tickfilter"[^>]*data-filter-expr="CAST\(LENGTH\(callsign\) AS TEXT\)"[^>]*data-filter-val="/);
+    expect(page).toMatch(/<rect[^>]*class="barfilter"[^>]*data-filter-expr="CAST\(LENGTH\(callsign\) AS TEXT\)"/);
+  });
+
+  it('DatasetPages_ReconstructedEntry_DisclosesProvenanceNotesInline', () => {
+    // A reconstructed publication shows its reconstruction provenance in a
+    // collapsible disclosure on the page - the honest "not first-hand"
+    // caveat stays visible, the supporting notes are one click away rather
+    // than a meta.json fetch.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2025-04-08', 'index.html'), 'utf8');
+    expect(page).toContain('<details class="notice provenance">');
+    expect(page).toContain('reconstructed from git history — not fetched first-hand by the mirror.');
+    // The reconstructionNotes and the recovered-from commit are rendered
+    // inline, not merely pointed at.
+    expect(page).toContain('Reconstructed from git commit 9c6103e (path at commit: amateur-callsigns.csv).');
+    expect(page).toContain('<code>9c6103e11b8887548b49814ee017dcc5a9a8cae4</code>');
+    // The old "go and read meta.json's reconstructionNotes" redirect is gone.
+    expect(page).not.toContain("meta.json</a>'s <code>reconstructionNotes</code>");
+  });
+
+  it('DatasetPages_LiveEntry_HasNoReconstructionProvenanceNotice', () => {
+    // Live-fetched publications were obtained first-hand, so they carry no
+    // reconstruction disclosure at all.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(page).not.toContain('class="notice provenance"');
+  });
+
   it('DatasetPages_OpenDataEntryPage_CarriesScopedBrowserEnhancement', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
     // The browse section is marked with its dataset key and the browser

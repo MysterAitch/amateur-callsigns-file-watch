@@ -205,6 +205,7 @@ const ENTRY_STYLE = [
   'section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.9rem 1.2rem 1.1rem;margin:0 0 1.05rem}section>h2{font-size:1.02rem;margin:.2rem 0 .7rem}',
   '.notice{display:flex;gap:.5rem;align-items:baseline;font-size:.86rem;color:var(--muted);border:1px solid var(--line);border-left:4px solid var(--good);border-radius:8px;padding:.5rem .8rem;margin:0 0 1.05rem;background:var(--card)}',
   '.notice.warn{border:1px solid var(--warnline);border-left-width:4px;background:var(--warnbg);color:var(--warnink)}.notice b{color:inherit}',
+  'details.notice.provenance{display:block}details.notice.provenance summary{cursor:pointer}details.notice.provenance .pdetail{margin-top:.5rem}details.notice.provenance .pdetail p{margin:.35rem 0}',
   '.main-region{display:flex;gap:1.05rem;align-items:flex-start;flex-wrap:wrap}',
   '.col{flex:1 1 26rem;order:1;min-width:0;display:flex;flex-direction:column;gap:1.05rem}.col section{margin:0}.side{flex:0 0 16.5rem;order:2}',
   '.nav-side{flex:0 0 13rem;order:0;font-size:.83rem}',
@@ -249,7 +250,7 @@ const ENTRY_STYLE = [
   'button.pg{font:inherit;font-size:.82rem;padding:.2rem .6rem;border:1px solid var(--line);border-radius:6px;background:var(--slot);color:var(--accent);cursor:pointer}button.pg:disabled{opacity:.4;cursor:default}',
   'th.sortable{cursor:pointer;white-space:nowrap}th.sortable:hover{color:var(--accent)}',
   'tr.colfilters th{padding:.15rem .3rem}tr.colfilters input{width:100%;min-width:5rem;font:inherit;font-size:.8rem;padding:.15rem .3rem;border:1px solid var(--line);border-radius:5px;background:transparent;color:inherit}',
-  'rect.barfilter,.chart tr.explore{cursor:pointer}rect.barfilter:hover{fill:var(--ink)}',
+  'rect.barfilter,text.tickfilter,.chart tr.explore{cursor:pointer}rect.barfilter:hover,text.tickfilter:hover{fill:var(--ink)}',
   '.examples{margin-top:.5rem}.examples summary{cursor:pointer;color:var(--accent);font-size:.86rem}.exlist{display:flex;flex-direction:column;gap:.25rem;margin-top:.4rem;align-items:flex-start}',
   'button.exq{font:inherit;font-size:.83rem;padding:.2rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--slot);color:var(--accent);cursor:pointer;text-align:left}',
   '.sqlbox{margin-top:.6rem}.sqlbox summary{cursor:pointer;color:var(--accent);font-size:.86rem}',
@@ -413,17 +414,35 @@ function noticeStrip(warn: boolean, inner: string): string {
   return `<div class="notice${warn ? ' warn' : ''}"><span>${warn ? '⚠' : 'ⓘ'}</span><span>${inner}</span></div>`;
 }
 
+// Reconstructed-provenance notice: keeps the "reconstructed, not first-hand"
+// caveat prominent in the always-visible summary, and discloses the entry's
+// own reconstructionNotes (and the git commit it was recovered from, when
+// known) inline — one click away, rather than sending the reader off to
+// fetch meta.json. Notice styling matches noticeStrip; the disclosure is a
+// details element (invalid nested inside noticeStrip's span), so it is built
+// directly here.
+function reconstructionNotice(provenance: string, reconstructionNotes?: string, gitCommitSha?: string): string {
+  const caveat = `<em>Provenance: ${escapeHtml(provenance.replace(/-/g, ' '))} — not fetched first-hand by the mirror.</em>`;
+  const detail: string[] = [];
+  if (reconstructionNotes !== undefined) detail.push(`<p>${escapeHtml(reconstructionNotes)}</p>`);
+  if (gitCommitSha !== undefined) detail.push(`<p>Recovered from git commit <code>${escapeHtml(gitCommitSha)}</code>.</p>`);
+  detail.push(`<p><small>Full provenance and integrity record in <a href="meta.json">meta.json</a>.</small></p>`);
+  return `<details class="notice provenance"><summary><span aria-hidden="true">ⓘ</span> ${caveat}</summary><div class="pdetail">${detail.join('')}</div></details>`;
+}
+
 // Coverage / provenance / verified-quality notices as full-width strips
 // above the two-column region. Safety information (a coverage-affecting
 // quality observation) renders amber.
 function coverageNotices(meta: {
   provenance?: string;
+  reconstructionNotes?: string;
+  gitCommitSha?: string;
   intendedCoverage?: { complete: boolean; scopeNotes?: string };
   qualityObservations?: { statement: string; evidence: string; coverageAffecting?: boolean }[];
 }): string[] {
   const out: string[] = [];
   if (meta.provenance !== undefined && meta.provenance !== 'live') {
-    out.push(noticeStrip(false, `<em>Provenance: ${escapeHtml(meta.provenance.replace(/-/g, ' '))} — not fetched first-hand by the mirror; see <a href="meta.json">meta.json</a>'s <code>reconstructionNotes</code>.</em>`));
+    out.push(reconstructionNotice(meta.provenance, meta.reconstructionNotes, meta.gitCommitSha));
   }
   if (meta.intendedCoverage?.complete === false) {
     out.push(noticeStrip(true, `<b>Declared-partial publication:</b> ${escapeHtml(meta.intendedCoverage.scopeNotes ?? 'the publisher presented this as a partial dataset')}. Absence of a callsign from this publication is not evidence of anything.`));
@@ -698,9 +717,12 @@ function svgBarChart(idBase: string, heading: string, summary: string, unit: str
     const y = padTop + (chartH - h);
     const cx = (x + barW / 2).toFixed(1);
     const value = data.length <= 14 ? `<text x="${cx}" y="${(y - 2).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--muted)">${n.toLocaleString('en-GB')}</text>` : '';
-    const tick = i % labelEvery === 0 ? `<text x="${cx}" y="${(padTop + chartH + 14).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--muted)">${shown}</text>` : '';
-    const filterAttrs = facetExpr === undefined ? '' : ` class="barfilter" role="button" tabindex="0" data-filter-expr="${escapeHtml(facetExpr)}" data-filter-val="${escapeHtml(label)}"`;
-    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(barW, 0.5).toFixed(1)}" height="${h.toFixed(1)}" fill="var(--accent)"${filterAttrs}><title>${shown}: ${n.toLocaleString('en-GB')}</title></rect>${value}${tick}`;
+    // Bar and axis tick carry the same facet trigger: in a highly skewed
+    // distribution a tiny bar is a near-single-pixel click target, so the
+    // label under it keeps the category clickable too.
+    const trigger = facetExpr === undefined ? '' : ` role="button" tabindex="0" data-filter-expr="${escapeHtml(facetExpr)}" data-filter-val="${escapeHtml(label)}"`;
+    const tick = i % labelEvery === 0 ? `<text x="${cx}" y="${(padTop + chartH + 14).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--muted)"${trigger === '' ? '' : ` class="tickfilter"${trigger}`}>${shown}</text>` : '';
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(barW, 0.5).toFixed(1)}" height="${h.toFixed(1)}" fill="var(--accent)"${trigger === '' ? '' : ` class="barfilter"${trigger}`}><title>${shown}: ${n.toLocaleString('en-GB')}</title></rect>${value}${tick}`;
   }).join('');
   // Bars and data-table rows both toggle the value into the scoped browser
   // (crossfilter-style): clicking adds to the current filters, not replaces.
@@ -1074,6 +1096,8 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   const zipBytes = writeEntryZip(sourceDir, targetDir, key, descriptor, OPEN_DATA_DICTIONARY_SOURCES);
   const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as {
     provenance?: string;
+    reconstructionNotes?: string;
+    gitCommitSha?: string;
     intendedCoverage?: { complete: boolean; scopeNotes?: string };
     qualityObservations?: { statement: string; evidence: string; coverageAffecting?: boolean }[];
     sourceUrl?: string; ofcomReportedUpdateIso?: string; ofcomReportedUpdate?: string; fetchedAt?: string;
