@@ -7,29 +7,42 @@ import { renderMarkdown } from '../shared/render-markdown.ts';
 // tracked fields across both lanes with counts, flagging the unexpected.
 // Test names follow Subject_Scenario_Outcome.
 
-type Cell = { count: number; lanes: Set<string> };
+type Cell = { lanes: Set<string>; bySource: Map<string, number> };
+// Simple form: the whole count under one synthetic source (breadth = 1).
 function tallies(spec: Record<string, [string, number, string[]][]>): Map<string, Map<string, Cell>> {
   const t = new Map<string, Map<string, Cell>>();
   for (const [field, rows] of Object.entries(spec)) {
     const m = new Map<string, Cell>();
-    for (const [value, count, lanes] of rows) m.set(value, { count, lanes: new Set(lanes) });
+    for (const [value, count, lanes] of rows) m.set(value, { lanes: new Set(lanes), bySource: new Map([['s', count]]) });
     t.set(field, m);
   }
   return t;
+}
+// Per-source form for breadth/timeline: field -> value -> { sourceKey -> count }.
+function talliesBySource(field: string, spec: Record<string, Record<string, number>>, lanes: string[] = ['open-data']): Map<string, Map<string, Cell>> {
+  const m = new Map<string, Cell>();
+  for (const [value, bySource] of Object.entries(spec)) {
+    m.set(value, { lanes: new Set(lanes), bySource: new Map(Object.entries(bySource)) });
+  }
+  return new Map([[field, m]]);
 }
 
 describe('value catalogue', () => {
   const ref = loadReferenceData();
 
   it('CatalogueField_OrdersByCountThenValue', () => {
+    const cell = (bySource: Record<string, number>, lane: string): Cell =>
+      ({ lanes: new Set([lane]), bySource: new Map(Object.entries(bySource)) });
     const cat = catalogueField('f', new Map<string, Cell>([
-      ['b', { count: 5, lanes: new Set(['x']) }],
-      ['a', { count: 5, lanes: new Set(['y']) }],
-      ['c', { count: 9, lanes: new Set(['x']) }],
+      ['b', cell({ p: 5 }, 'x')],
+      ['a', cell({ q: 5 }, 'y')],
+      ['c', cell({ p: 9 }, 'x')],
     ]));
     expect(cat.values.map(v => v.value)).toEqual(['c', 'a', 'b']);
     expect(cat.distinct).toBe(3);
     expect(cat.total).toBe(19);
+    // Count is summed across sources; breadth is the distinct-source count.
+    expect(cat.values.find(v => v.value === 'c')?.sources).toBe(1);
   });
 
   it('Render_NotableSection_FlagsUnexpectedStatusUnknownPrefixAndDrift', () => {
@@ -78,7 +91,31 @@ describe('value catalogue', () => {
       status: [['Allocated', 100, ['open-data', 'foi']], ['(blank)', 2, ['foi']]],
     }), ref);
     expect(md).toContain('## `status` — 2 distinct');
-    expect(md).toContain('| `Allocated` | 100 | foi, open-data |');
+    expect(md).toContain('| `Allocated` | 100 | 1 | foi, open-data |');
+  });
+
+  it('Render_Breadth_DistinguishesManySourcesFromHighVolume', () => {
+    // A value spread thinly across many publications and one concentrated in a
+    // single publication can share a lane; the sources column tells them apart.
+    const md = renderValueCatalogue(talliesBySource('status', {
+      Spread: { '2022-05-30': 1, '2023-02-20': 1, '2025-04-08': 1 },
+      Concentrated: { '2026-06-23': 3000 },
+    }), ref);
+    expect(md).toContain('| value | count | sources | lanes |');
+    expect(md).toContain('| `Spread` | 3 | 3 |');
+    expect(md).toContain('| `Concentrated` | 3,000 | 1 |');
+  });
+
+  it('Render_Timeline_ShowsPresentThenGoneAsSparkline', () => {
+    // A value present in the early publications and absent from the recent ones
+    // renders as bars then dots — the "used then dropped" shape at a glance.
+    const timeline = ['2022-05-30', '2023-02-20', '2025-04-08', '2026-06-23'];
+    const md = renderValueCatalogue(talliesBySource('status', {
+      Legacy: { '2022-05-30': 100, '2023-02-20': 100 },
+    }), ref, timeline);
+    expect(md).toContain('| value | count | sources | timeline | lanes |');
+    const row = md.split('\n').find(l => l.startsWith('| `Legacy`')) ?? '';
+    expect(row.split('|')[4].trim()).toBe('██··');
   });
 
   it('Render_ValueWithEdgeWhitespace_IsVisibleInMonospace', () => {
