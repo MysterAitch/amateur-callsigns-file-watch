@@ -155,7 +155,9 @@ function navHtml(depthToRoot: number, currentNav?: string): string {
     ['Lookup', `${rootPath}index.html`],
     ['Statistics', `${rootPath}statistics.html`],
     ['Explore', `${rootPath}explore.html`],
+    ['Compare', `${rootPath}compare.html`],
     ['Dataset index', `${rootPath}datasets/index.html`],
+    ['Reports', `${rootPath}reports/index.html`],
     ['Repository', REPO_URL],
   ];
   return navItems
@@ -406,6 +408,39 @@ function writeEntryZip(sourceDir: string, targetDir: string, key: string, descri
 // registry their metrics reference.
 const FOI_DICTIONARY_SOURCES = ['docs/foi-schemas.md'];
 const OPEN_DATA_DICTIONARY_SOURCES = ['docs/normalised-schema.md', 'reference-data/flags.md'];
+
+// A committed markdown source rendered onto the site as a themed HTML page.
+interface RenderedDoc { source: string; slug: string; label: string; blurb: string }
+
+// The repository's schema documentation, rendered onto the site so the
+// published datasets are interpretable without the repo (two of the sources
+// are themselves generated and freshness-tested). Module scope so both the
+// dataset index and the reports hub can point at the same pages; their
+// contextual citations elsewhere on the site stay where they are cited.
+const DICTIONARY_DOCS: RenderedDoc[] = [
+  { source: 'docs/normalised-schema.md', slug: 'normalised-schema', label: 'Open-data normalised schema', blurb: 'column-by-column definitions of every open-data publication’s <code>normalised.csv</code>, plus the line-accounting contract.' },
+  { source: 'docs/foi-schemas.md', slug: 'foi-schemas', label: 'FOI dataset schemas', blurb: 'the dataset-class glossary, row-schema families, registered extension columns, and per-variant conversion detail behind every FOI <code>normalised--*.csv</code>.' },
+  { source: 'reference-data/flags.md', slug: 'flags', label: 'Data-quality flag registry', blurb: 'the meaning and grounding of every anomaly flag used in the metrics and the lookup.' },
+];
+
+// The standing reports (issue #51): deterministic, sweep-regenerated views over
+// the whole archive, committed as golden masters so a change in a diff is itself
+// a signal. Rendered onto the site and indexed by the reports hub the "Reports"
+// nav link lands on.
+const STANDING_REPORTS: RenderedDoc[] = [
+  { source: 'reports/value-catalogue.md', slug: 'value-catalogue', label: 'Value catalogue', blurb: 'every distinct value of the tracked fields across both lanes, with counts — a new one appearing in the diff is a drift signal.' },
+  { source: 'reports/data-quality.md', slug: 'data-quality', label: 'Data-quality rollup', blurb: 'the callsign defect detectors, flag instances and parse statuses across the whole corpus.' },
+  { source: 'reports/callsign-patterns.md', slug: 'callsign-patterns', label: 'Callsign pattern time-series', blurb: 'the distribution of structural callsign patterns across every publication.' },
+  { source: 'reports/prefixes.md', slug: 'prefixes', label: 'Prefix-series distributions', blurb: 'how callsigns divide across prefix series (M0, 2E0, …) in each publication.' },
+  { source: 'reports/regional-identifiers.md', slug: 'regional-identifiers', label: 'Regional-identifier distributions', blurb: 'the national/regional secondary locators seen across the corpus.' },
+  { source: 'reports/class-product-mismatches.md', slug: 'class-product-mismatches', label: 'Class-product mismatches', blurb: 'every row whose licence class and licensing product disagree — a standing table of affected rows.' },
+];
+
+// Register-status prose that belongs with the reports rather than the data
+// dictionary: the mirror's own per-dataset coverage/build status.
+const STATUS_DOCS: RenderedDoc[] = [
+  { source: 'docs/dataset-status.md', slug: 'dataset-status', label: 'Dataset status', blurb: 'the mirror’s per-dataset build and coverage status.' },
+];
 
 
 // ---- Redesigned entry-page components (variant Q, static half) ----
@@ -1304,6 +1339,57 @@ function buildSeriesPages(outputDir: string, baseUrl: string): string[] {
   return urls;
 }
 
+// Render the standing reports and the register-status doc onto the site under
+// /reports/, with a hub index the "Reports" nav link lands on. The
+// data-dictionary docs are cross-referenced here (their own pages are built
+// with the dataset index, their contextual citations left in place). Returns
+// the page URLs so the caller can seed the sitemap.
+export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: string[]): string[] {
+  const urls: string[] = [];
+  const reportsDir = path.join(outputDir, 'reports');
+  fs.mkdirSync(reportsDir, { recursive: true });
+
+  const renderDoc = (doc: RenderedDoc): void => {
+    let rendered = renderMarkdown(fs.readFileSync(path.join(REPO_ROOT, doc.source), 'utf8'));
+    // A relative link to a sibling repo doc with no rendered page on the site
+    // (e.g. dataset-status → source-register.md) points at the authoritative
+    // repo copy rather than 404ing.
+    const sourceDir = path.posix.dirname(doc.source.replace(/\\/g, '/'));
+    rendered = rendered.replace(/href="([^":/?#]+\.md)"/g, (_m, target: string) =>
+      `href="${REPO_URL}/blob/main/${sourceDir}/${target}"`);
+    // Entry keys named in the prose deep-link to their dataset pages.
+    for (const key of foiKeys) {
+      rendered = rendered.replaceAll(`<code>${key}</code>`, `<a href="../datasets/foi/${encodeURIComponent(key)}/index.html"><code>${key}</code></a>`);
+    }
+    const body = [
+      `<p><small>Rendered from <a href="${REPO_URL}/blob/main/${doc.source}">${escapeHtml(doc.source)}</a> in the repository (the authoritative, sweep-generated copy). <a href="index.html">All reports →</a></small></p>`,
+      '<hr>',
+      rendered,
+    ];
+    fs.writeFileSync(path.join(reportsDir, `${doc.slug}.html`), htmlPage(doc.label, 1, body, { currentNav: 'Reports', sourcePath: doc.source }));
+    urls.push(`${baseUrl}/reports/${doc.slug}.html`);
+  };
+
+  for (const doc of [...STANDING_REPORTS, ...STATUS_DOCS]) renderDoc(doc);
+
+  const listOf = (docs: RenderedDoc[], rel: string): string[] =>
+    ['<ul>', ...docs.map(d => `<li><a href="${rel}${d.slug}.html">${escapeHtml(d.label)}</a> — ${d.blurb}</li>`), '</ul>'];
+  const hubBody = [
+    '<h1>Reports</h1>',
+    '<p>Standing, deterministic views over the whole archive — regenerated by the normalise sweep and committed, so each is a stable snapshot whose change in a diff is itself a signal. Everything here derives from the same archived data the <a href="../datasets/index.html">datasets</a> publish and the <a href="../explore.html">Explore</a> page queries.</p>',
+    '<h2>Standing reports</h2>',
+    ...listOf(STANDING_REPORTS, ''),
+    '<h2>Register status</h2>',
+    ...listOf(STATUS_DOCS, ''),
+    '<h2>Data dictionary</h2>',
+    '<p>The schemas and vocabularies that make the datasets interpretable — cited in context throughout the site, and collected here.</p>',
+    ...listOf(DICTIONARY_DOCS, '../datasets/docs/'),
+  ];
+  fs.writeFileSync(path.join(reportsDir, 'index.html'), htmlPage('Reports', 1, hubBody, { currentNav: 'Reports', sourcePath: 'reports' }));
+  urls.push(`${baseUrl}/reports/index.html`);
+  return urls;
+}
+
 export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_BASE_URL): DatasetPagesSummary {
   const foiDir = path.join(REPO_ROOT, 'archive', 'foi');
   const openDataKeys = listArchiveKeys().sort();
@@ -1355,37 +1441,33 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   // repo. Sources are the committed docs (two of them generated and
   // freshness-tested), rendered with the same markdown renderer as the
   // correspondence records.
-  const dictionaryDocs = [
-    { source: 'docs/normalised-schema.md', slug: 'normalised-schema', label: 'Open-data normalised schema', blurb: 'column-by-column definitions of every open-data publication’s <code>normalised.csv</code>, plus the line-accounting contract.' },
-    { source: 'docs/foi-schemas.md', slug: 'foi-schemas', label: 'FOI dataset schemas', blurb: 'the dataset-class glossary, row-schema families, registered extension columns, and per-variant conversion detail behind every FOI <code>normalised--*.csv</code>.' },
-    { source: 'reference-data/flags.md', slug: 'flags', label: 'Data-quality flag registry', blurb: 'the meaning and grounding of every anomaly flag used in the metrics and the lookup.' },
-  ];
   const docsDir = path.join(outputDir, 'datasets', 'docs');
   fs.mkdirSync(docsDir, { recursive: true });
-  for (const doc of dictionaryDocs) {
+  for (const doc of DICTIONARY_DOCS) {
     let rendered = renderMarkdown(fs.readFileSync(path.join(REPO_ROOT, doc.source), 'utf8'));
     // Cross-references between the dictionary docs are .md links in the
     // repository; on the site the siblings are .html (the .md forms 404ed
     // live). Entry keys named in the docs become links to their pages -
     // the schema tables are the natural jumping-off point to the data.
-    for (const sibling of dictionaryDocs) {
+    for (const sibling of DICTIONARY_DOCS) {
       rendered = rendered.replaceAll(`href="${path.basename(sibling.source)}"`, `href="${sibling.slug}.html"`);
     }
     for (const key of foiKeys) {
       rendered = rendered.replaceAll(`<code>${key}</code>`, `<a href="../foi/${encodeURIComponent(key)}/index.html"><code>${key}</code></a>`);
     }
     const docBody = [
-      `<p><small>Rendered from <a href="${REPO_URL}/blob/main/${doc.source}">${escapeHtml(doc.source)}</a> in the repository (the authoritative copy).</small></p>`,
+      `<p><small>Rendered from <a href="${REPO_URL}/blob/main/${doc.source}">${escapeHtml(doc.source)}</a> in the repository (the authoritative copy). Collected with the standing views on the <a href="../../reports/index.html">reports</a> page.</small></p>`,
       '<hr>',
       rendered,
     ];
-    fs.writeFileSync(path.join(docsDir, `${doc.slug}.html`), htmlPage(doc.label, 2, docBody));
+    fs.writeFileSync(path.join(docsDir, `${doc.slug}.html`), htmlPage(doc.label, 2, docBody, { currentNav: 'Reports' }));
     pageUrls.push(`${baseUrl}/datasets/docs/${doc.slug}.html`);
   }
   const dictionarySection = [
     '<h2>Data dictionary</h2>',
+    '<p>The schemas and vocabularies that make the datasets interpretable — also collected, with the standing <a href="../reports/index.html">reports</a>, on the reports page.</p>',
     '<ul>',
-    ...dictionaryDocs.map(doc => `<li><a href="docs/${doc.slug}.html">${escapeHtml(doc.label)}</a> — ${doc.blurb}</li>`),
+    ...DICTIONARY_DOCS.map(doc => `<li><a href="docs/${doc.slug}.html">${escapeHtml(doc.label)}</a> — ${doc.blurb}</li>`),
     '</ul>',
   ];
 
@@ -1430,6 +1512,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   fs.writeFileSync(path.join(datasetsDir, 'index.html'), htmlPage('Dataset index', 1, indexBody, { currentNav: 'Dataset index', sourcePath: 'archive' }));
 
   pageUrls.push(...buildSeriesPages(outputDir, baseUrl));
+  pageUrls.push(...buildReportPages(outputDir, baseUrl, foiKeys));
 
   const sitemap = [
     '<?xml version="1.0" encoding="UTF-8"?>',
