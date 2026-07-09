@@ -53,9 +53,12 @@ jobs:
           printf '%s' "$GITHUB_SHA" > _site/data/version.txt
           # Deploy provenance for page footers: the commit's own timestamp
           # and this build's time (the GitHub Actions run id/number/url come
-          # from the standard GITHUB_* env vars the generator reads).
-          export BUILD_COMMIT_TIME="$(git show -s --format=%cI "$GITHUB_SHA")"
-          export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          # from the standard GITHUB_* env vars the generator reads). Declare
+          # then export separately so the command's exit status isn't masked
+          # by the export (shellcheck SC2155).
+          BUILD_COMMIT_TIME="$(git show -s --format=%cI "$GITHUB_SHA")"
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          export BUILD_COMMIT_TIME BUILD_TIME
           # Dataset index (issue #149 item 3): per-entry pages publishing
           # the archived files verbatim at stable URLs + Frictionless
           # descriptors + sitemap.xml - the Wayback Machine crawl seed.
