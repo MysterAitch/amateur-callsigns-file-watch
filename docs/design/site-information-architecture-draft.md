@@ -225,6 +225,33 @@ Claim (exactly supported) + link + source:
    product field." → the 2025-06-04 entry page (once its quality
    observation renders). Source: #177 counts table.
 
+## Finalized entry-page design (converged 2026-07-09, "variant Q")
+
+The entry page is a **scoped data browser**, not a static catalogue record.
+Layout (open-data and FOI share it; FOI swaps the lane-specific slots):
+
+- **Header** — human title ("Publication of 23 June 2026"), machine key demoted to subtitle.
+- **Coverage notice** — full-width strip, its OWN element (not inside At a glance). Neutral for a clean declared-complete publication; amber `.warn` when a coverage-affecting quality observation exists (the 2025-06-04 filter).
+- **Two-column region:**
+  - **Left column (hero width):**
+    - **Notable** — tinted strip, 2-up, the "why you clicked through" findings (top anomaly, unparseable count, delta vs previous *complete* publication, re-fetch/diff status), each with a **drill-down link that applies a filter to the data browser below** (Roger: keep these).
+    - **Inspect a file** — deep-linkable `:target` tabs (pure CSS, no JS, hash survives reload), one per file; for FOI workbooks the sheets are sub-tabs. Each tab shows that file's real column schema / sheet shape.
+    - **Browse the data** — the scoped data browser (see below).
+    - **Get the data** — fixed-slot download grid, tiered (canonical / source & bundles / entry-specific), narrowed to the column width. Absent canonical files show greyed placeholders (absence = information: "not derived", "not held", "planned"). Slots flip by lane.
+  - **Right column (sidebar):** **At a glance** — headline count, then vertical breakdowns with subtle proportion bars AND a de-emphasised %: status (Allocated/Reserved/Available), licence level (Full/Foundation/Intermediate), largest prefixes (linked); then an **attribution block** (Source link — Ofcom open-data page, or WDTK + requester + request/response timeline for FOI; published/fetched dates; flagged-row count). Breakdown rows are click-to-filter.
+- **Related** — chronological (← previous / next → publication) + cross-lane ("same register, other disclosures" → e.g. the 2019 FOI annex).
+- **Register-structure link-out** — the RSL matrix LEAVES entry pages → statistics (it is near-constant across publications, not a property of one).
+
+### The scoped data browser
+
+Filter chips (status, licence level, unparseable, forbidden-suffix, and **raw ≠ cleaned** — publisher-artefact rows with per-row diff notes), a live table, and a collapsible **SQL box scoped to this publication**. Queries the per-dataset SQLite (already published) in the browser over HTTP range requests — the same engine as the Explore page, scoped. The At-a-glance counts and the Notable drill-down links apply filters here.
+
+### Architecture: static skeleton + progressive-enhancement browser
+
+The page's core (header, coverage notice, Notable, Inspect schemas, download grid, At-a-glance, Related) is **static and Wayback-crawlable** — the archival record survives with no JS. The **data browser is a progressive-enhancement layer** (JS + sql.js-httpvfs over the per-dataset SQLite): with JS off or in a Wayback capture, you still get the full record and the download/Explore links. Deep-link tabs use `:target` so they work statically.
+
+**Build phasing:** (3a) the static redesign — ships the whole structure above minus the live browser, fully static, high value alone. (3b) the progressive-enhancement scoped data browser — chips, raw≠cleaned with diff notes, SQL box, filter wiring from At-a-glance/Notable. (Tier B, after build) distribution charts — callsign-length distribution; original-start-date histograms; at-a-glance new-licences-per-period at each licence level (periods before publication ± up to today). Charts explored on the live build, not mocked.
+
 ## Page inventory (ideal)
 
 | page | serves | answers | belongs | does NOT belong |
