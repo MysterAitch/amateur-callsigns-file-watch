@@ -23,21 +23,29 @@ export const TOGGLES = {
 export const PAGE_SIZES = [25, 50, 100, 250, 500, 1000];
 
 // --- rendering helper shared by both browsers ---
-// A callsign can carry characters that hide as an invisible or ambiguous
-// glyph (a plain space vs an NBSP, a tab, a zero-width space, a replacement
-// character from encoding damage). This returns the visible marker to show
-// in their place - a friendly name where there is one, else the codepoint -
-// or null for a plain glyph that should pass through unchanged. Pure, so it
-// is unit-tested; the DOM assembly lives in each browser.
+// Everything outside the plain callsign alphabet (letters, digits, / and #,
+// matching the parser's NON_PLAIN set) is flagged so it can't hide or pass
+// unnoticed. Returns null for a plain glyph (pass through unchanged); a
+// {friendly-name} or {U+XXXX} label for an INVISIBLE character (whitespace,
+// control, format, replacement - no glyph of its own); or the character
+// itself for a visible stray (a hyphen, dot, star) which stays readable but
+// is shown highlighted. Pure, so it is unit-tested; the DOM assembly and the
+// highlight styling live in each browser.
 const CALLSIGN_CHAR_NAMES = { 0x09: 'TAB', 0x0a: 'LF', 0x0d: 'CR', 0x20: 'SP', 0xa0: 'NBSP', 0xfeff: 'BOM', 0xfffd: 'U+FFFD' };
 export function callsignCharMarker(ch) {
+  if (/[a-zA-Z0-9#/]/.test(ch)) return null;
   const cp = ch.codePointAt(0);
   const named = CALLSIGN_CHAR_NAMES[cp];
   if (named !== undefined) return `{${named}}`;
-  // \p{C} (control/format, incl. zero-width chars \s misses) and \p{Z}
-  // (all separators) - the same invisible-character class the parser strips.
-  if (/[\p{C}\p{Z}]/u.test(ch)) return `{U+${cp.toString(16).toUpperCase().padStart(4, '0')}}`;
-  return null;
+  // Characters with no standalone glyph get the codepoint: \p{C}
+  // (control/format, incl. zero-width chars \s misses), \p{Z} (all
+  // separators), and \p{M} (combining marks - a lone accent would otherwise
+  // float onto the marker span). Any other non-plain character is a visible
+  // glyph of its own (a stray hyphen, an accented letter, an emoji), so show
+  // it as-is; the caller highlights it. `for...of` iterates by code point, so
+  // an astral emoji is one unit here.
+  if (/[\p{C}\p{Z}\p{M}]/u.test(ch)) return `{U+${cp.toString(16).toUpperCase().padStart(4, '0')}}`;
+  return ch;
 }
 
 // A SQL string literal, single quotes doubled. Values come from the data or

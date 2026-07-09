@@ -132,6 +132,25 @@ describe('callsignCharMarker', () => {
   });
 });
 
+describe('callsignCharMarker — unicode edge cases', () => {
+  it('CharMarker_LowercaseAndHash_PassThrough', () => {
+    for (const ch of 'abc#') expect(callsignCharMarker(ch)).toBeNull();
+  });
+  it('CharMarker_VisibleStray_ShownAsGlyphToHighlight', () => {
+    // Visible-but-invalid characters stay readable (returned as-is) so the
+    // caller highlights them in place rather than hiding them behind a code.
+    expect(callsignCharMarker('-')).toBe('-');
+    expect(callsignCharMarker('.')).toBe('.');
+    expect(callsignCharMarker('é')).toBe('é');   // precomposed accented letter
+    expect(callsignCharMarker('😀')).toBe('😀');  // single-codepoint emoji (for..of yields one unit)
+  });
+  it('CharMarker_CombiningMark_ShowsCodepointNotFloatingAccent', () => {
+    // A lone combining accent has no glyph of its own; label it rather than
+    // let it float onto the marker span.
+    expect(callsignCharMarker(String.fromCodePoint(0x301))).toBe('{U+0301}');
+  });
+});
+
 describe('matchingCountSql', () => {
   it('CountSql_ScopesToDatasetAndPredicate', () => {
     expect(matchingCountSql('2026-06-23', `"status" IN ('Reserved')`))
