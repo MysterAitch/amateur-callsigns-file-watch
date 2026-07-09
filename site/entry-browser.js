@@ -123,6 +123,47 @@ function enhance(section) {
   sqlBox.append(textarea, el('div', {}, [runBtn, ' ', resetSqlBtn]));
   section.insertBefore(sqlBox, result);
 
+  // Schema reference (collapsible): the queryable surface a hand-written
+  // query can reach, so composing SQL needs no trip to the data dictionary.
+  // Two column groups mirror how the master's register_history is built:
+  // canonical keys the mirror derives for EVERY publication, and source
+  // columns carried from Ofcom's publication into the master's UNION schema -
+  // present as columns for all rows but populated only for the publications
+  // that actually carried them (e.g. the licence_version_* dates).
+  const columnList = (cols) => el('ul', { class: 'schema-cols' },
+    cols.map(([name, note]) => el('li', {}, note === undefined ? [codeCell(name)] : [codeCell(name), ` — ${note}`])));
+  const schemaBox = el('details', { class: 'schema-ref' });
+  schemaBox.append(el('summary', { text: 'Tables & columns' }));
+  schemaBox.append(
+    el('p', { class: 'browser-status', text: `Queries run against the published master database. In filters mode the scope is limited to this publication (WHERE dataset = '${dataset}') automatically; a hand-written query reaches every publication unless you add that clause yourself.` }),
+    el('h4', { text: 'register_history' }),
+    el('p', { class: 'browser-status', text: 'One row per callsign per publication.' }),
+    el('p', { class: 'schema-group', text: 'Canonical keys (derived by the mirror, present for every publication):' }),
+    columnList([
+      ['dataset', 'the publication key'],
+      ['cleaned', 'artefact-stripped join key'],
+      ['suffix'],
+      ['implied_class'],
+      ['prefix_series'],
+      ['parse_status'],
+    ]),
+    el('p', { class: 'schema-group', text: 'Source columns (carried from Ofcom’s publication into the UNION schema; a column is populated only where that publication carried it — e.g. the licence_version_* dates):' }),
+    columnList([
+      ['callsign', 'raw, as published'],
+      ['status'],
+      ['product'],
+      ['type'],
+      ['created_date'],
+      ['last_modified_date'],
+      ['licence_version_last_modified_date'],
+      ['licence_version_original_start_date'],
+    ]),
+    el('h4', { text: 'ref_forbidden_suffixes' }),
+    el('p', { class: 'browser-status', text: 'Ofcom’s withheld-suffix list.' }),
+    columnList([['suffix']]),
+  );
+  section.insertBefore(schemaBox, result);
+
   // Interesting queries: curated starting points scoped to THIS
   // publication (KQL-editor style). Selecting one loads and runs it in SQL
   // mode; the facet UI then shows the custom-query state until reset. Only
