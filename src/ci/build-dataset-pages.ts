@@ -190,6 +190,15 @@ const ENTRY_STYLE = [
   '.panel .lead{font-size:.9rem;color:var(--muted);margin:.1rem 0 .6rem}',
   'table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{text-align:left;padding:.28rem .5rem;border-bottom:1px solid var(--line);vertical-align:top}th{font-weight:600}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}',
   'code{font-size:.92em}.marker{color:var(--marker)}',
+  // Scoped data browser (progressive enhancement)
+  '.chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:.6rem 0 .5rem}',
+  '.chip{font-size:.82rem;padding:.25rem .6rem;border:1px solid var(--line);border-radius:6px;color:var(--muted);cursor:pointer;background:var(--slot)}',
+  '.chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}.chip .c{opacity:.7;font-size:.76rem;margin-left:.3rem}',
+  '.brow[data-filter-status]{cursor:pointer}.brow[data-filter-status]:hover .lab{text-decoration:underline}',
+  '.browser-status{font-size:.83rem;color:var(--muted);margin:.4rem 0}.diffnote{color:var(--accent);font-size:.8rem}',
+  '.sqlbox{margin-top:.6rem}.sqlbox summary{cursor:pointer;color:var(--accent);font-size:.86rem}',
+  '.sqlbox textarea{width:100%;font-family:ui-monospace,monospace;font-size:.85rem;padding:.5rem;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit;margin-top:.4rem}',
+  '.sqlbox button,.browser button.run{font:inherit;font-size:.85rem;padding:.3rem .8rem;margin-top:.4rem;border:1px solid var(--accent);border-radius:6px;background:var(--accent);color:#fff;cursor:pointer}',
   '.tier h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:.6rem 0 .45rem;font-weight:600}',
   '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:.5rem}',
   '.slot{border:1px solid var(--line);border-radius:9px;padding:.5rem .65rem;background:var(--slot);min-height:3.6rem}.slot .name{font-weight:650}.slot .meta{color:var(--muted);font-size:.77rem}.slot .desc{color:var(--muted);font-size:.78rem;line-height:1.25;margin-top:.15rem}',
@@ -404,13 +413,13 @@ function downloadTier(title: string, slots: string[]): string {
 
 // Vertical breakdown rows with a subtle proportion bar and a de-emphasised
 // percentage; the label optionally links (largest = whole; caller supplies).
-function breakdownRows(counts: [string, number][], total: number, linkFor?: (v: string) => string | undefined): string {
+function breakdownRows(counts: [string, number][], total: number, linkFor?: (v: string) => string | undefined, rowAttr?: (v: string) => string): string {
   return counts.map(([label, n]) => {
     const pct = total > 0 ? Math.round((n / total) * 100) : 0;
     const pctText = pct === 0 && n > 0 ? '<1%' : `${pct}%`;
     const href = linkFor?.(label);
     const lab = href === undefined ? escapeHtml(label) : `<a href="${href}">${escapeHtml(label)}</a>`;
-    return `<div class="brow"><span class="lab">${lab}</span><span class="pct">${pctText}</span><b>${n.toLocaleString('en-GB')}</b><span class="barbg" style="width:${Math.min(pct, 100)}%"></span></div>`;
+    return `<div class="brow"${rowAttr?.(label) ?? ''}><span class="lab">${lab}</span><span class="pct">${pctText}</span><b>${n.toLocaleString('en-GB')}</b><span class="barbg" style="width:${Math.min(pct, 100)}%"></span></div>`;
   }).join('');
 }
 
@@ -491,7 +500,6 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
   diffSummary?: OpenDataDiffSummary;
 }): string {
   const bd = openDataBreakdowns(sourceDir);
-  const prefixLinks = bd.prefixes.map(([p]) => `<a href="../../../series/${seriesSlug(p)}.html" title="series ${displaySeries(p)}">${escapeHtml(displaySeries(p))}</a>`).join(' · ');
 
   // Notable: computed findings with the drill-downs Roger asked to keep.
   // Row-level filtered links are correct only for the latest publication
@@ -514,9 +522,9 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
     '<section>',
     '<h2>At a glance</h2>',
     `<div class="headline">${bd.recordCount.toLocaleString('en-GB')} <small>register rows</small></div>`,
-    bd.status.length > 0 ? `<div class="bd"><h3>Status</h3>${breakdownRows(bd.status, bd.recordCount)}</div>` : '',
+    bd.status.length > 0 ? `<div class="bd"><h3>Status</h3>${breakdownRows(bd.status, bd.recordCount, undefined, label => ` data-filter-status="${escapeHtml(label)}" role="button" tabindex="0"`)}</div>` : '',
     bd.impliedClass.length > 0 ? `<div class="bd"><h3>Licence level (implied)</h3>${breakdownRows(bd.impliedClass, bd.recordCount)}</div>` : '',
-    bd.prefixes.length > 0 ? `<div class="bd"><h3>Largest prefixes</h3><div class="brow"><span class="lab">${prefixLinks}</span></div><div class="brow"><a href="../../../series/index.html">all series →</a></div></div>` : '',
+    bd.prefixes.length > 0 ? `<div class="bd"><h3>Largest prefixes</h3>${breakdownRows(bd.prefixes.map(([p, n]): [string, number] => [displaySeries(p), n]), bd.recordCount, d => `../../../series/${seriesSlug(d)}.html`)}<div class="brow"><a href="../../../series/index.html">all series →</a></div></div>` : '',
     '<div class="attr">',
     `<div><b>Source</b> · ${meta.sourceUrl !== undefined ? `<a href="${escapeHtml(meta.sourceUrl)}">Ofcom open-data page →</a>` : 'Ofcom open-data page'}</div>`,
     `<div>Published ${escapeHtml(humanDate(publishedIso))}${meta.fetchedAt !== undefined ? ` · fetched ${escapeHtml(humanDate(meta.fetchedAt.slice(0, 10)))}` : ''}</div>`,
@@ -718,9 +726,9 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey?: string
     ...coverageNotices(meta),
     '<div class="main-region">',
     '<div class="col">',
-    '<section><h2>Browse the data</h2>',
+    `<section class="browser" data-dataset="${escapeHtml(key)}"><h2>Browse the data</h2>`,
     `<p class="lead">The <b>normalised</b> register — the canonical shape, not the raw file (inspect <code>raw.csv</code> below for that). Showing the first rows of ${stats.recordCount.toLocaleString('en-GB')}; download <code>normalised.csv</code> for all, or query it on the <a href="../../../explore.html">Explore</a> page.</p>`,
-    csvPreviewTable(path.join(sourceDir, 'normalised.csv')),
+    `<div class="browser-static">${csvPreviewTable(path.join(sourceDir, 'normalised.csv'))}</div>`,
     ignoredNote,
     '</section>',
     inspectTabsHtml(tabs),
@@ -749,6 +757,11 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey?: string
     '</div>',
     related.length > 0 ? `<section><h2>Related</h2>${related.join('')}</section>` : '',
     '<a class="linkout" href="../../../statistics.html">Register structure (prefix series × RSL) → on the statistics page (near-constant across publications, not a property of this one).</a>',
+    // Progressive enhancement: the scoped data browser queries the master
+    // database (filtered to this publication) over range requests. With JS
+    // off, the static preview above is the complete, crawlable record.
+    '<script src="../../../vendor/index.js"></script>',
+    '<script type="module" src="../../../entry-browser.js"></script>',
   ].filter(s => s !== '');
   fs.writeFileSync(path.join(targetDir, 'index.html'), entryPage(pageTitle, body, { metaJsonHref: 'meta.json', sourcePath: `archive/${key}` }));
   fs.writeFileSync(path.join(targetDir, 'datapackage.json'), descriptor);

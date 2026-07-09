@@ -324,6 +324,10 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
   master.exec('COMMIT');
   master.exec('CREATE INDEX idx_register_history_callsign ON register_history("callsign")');
   master.exec('CREATE INDEX idx_register_history_cleaned ON register_history("cleaned")');
+  // Scoped-browser lookups filter one publication at a time
+  // (WHERE dataset = ?); index it so the entry-page data browser reads
+  // pages instead of scanning the whole cross-publication history.
+  master.exec('CREATE INDEX idx_register_history_dataset ON register_history("dataset")');
 
   // The withheld-suffix list rides into the master so cohort queries
   // (join register_history/observations against it) run in one database.

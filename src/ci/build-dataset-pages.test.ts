@@ -59,6 +59,27 @@ describe('Dataset pages build', () => {
     expect(page).not.toContain('href="../2025-06-08/index.html"');
   });
 
+  it('DatasetPages_OpenDataEntryPage_CarriesScopedBrowserEnhancement', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    // The browse section is marked with its dataset key and the browser
+    // scripts are loaded, so entry-browser.js can query master scoped to it.
+    expect(page).toContain('class="browser" data-dataset="2026-06-23"');
+    expect(page).toContain('src="../../../vendor/index.js"');
+    expect(page).toContain('src="../../../entry-browser.js"');
+    // The static preview remains as the no-JS/crawlable fallback.
+    expect(page).toContain('class="browser-static"');
+    // Status-breakdown rows are click-to-filter targets for the browser.
+    expect(page).toContain('data-filter-status="Allocated"');
+  });
+
+  it('DatasetPages_FoiEntryPage_HasNoScopedBrowser', () => {
+    // The scoped browser reads register_history (open-data publications);
+    // FOI entries keep the static preview only, for now.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'wdtk-596532--allocated-reserved-forbidden', 'index.html'), 'utf8');
+    expect(page).not.toContain('entry-browser.js');
+    expect(page).not.toContain('data-dataset=');
+  });
+
   it('DatasetPages_DeclaredPartialPublication_CarriesScopeWarningUnderH1', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2025-06-08', 'index.html'), 'utf8');
     expect(page).toContain('Declared-partial publication');
