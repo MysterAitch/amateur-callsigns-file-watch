@@ -7,7 +7,7 @@ import { renderMarkdown } from '../shared/render-markdown.ts';
 // tracked fields across both lanes with counts, flagging the unexpected.
 // Test names follow Subject_Scenario_Outcome.
 
-type Cell = { lanes: Set<string>; bySource: Map<string, number> };
+type Cell = { lanes: Set<string>; bySource: Map<string, number>; callsigns?: Set<string>; allocatedCallsigns?: Set<string> };
 // Simple form: the whole count under one synthetic source (breadth = 1).
 function tallies(spec: Record<string, [string, number, string[]][]>): Map<string, Map<string, Cell>> {
   const t = new Map<string, Map<string, Cell>>();
@@ -17,6 +17,20 @@ function tallies(spec: Record<string, [string, number, string[]][]>): Map<string
     t.set(field, m);
   }
   return t;
+}
+// Breakdown form (#245): a value with its distinct callsigns and the subset of
+// those callsigns that are allocated, so records / callsigns / allocated differ.
+function talliesWithCallsigns(field: string, spec: Record<string, { records: number; callsigns: string[]; allocated: string[]; lanes?: string[] }>): Map<string, Map<string, Cell>> {
+  const m = new Map<string, Cell>();
+  for (const [value, s] of Object.entries(spec)) {
+    m.set(value, {
+      lanes: new Set(s.lanes ?? ['open-data']),
+      bySource: new Map([['s', s.records]]),
+      callsigns: new Set(s.callsigns),
+      allocatedCallsigns: new Set(s.allocated),
+    });
+  }
+  return new Map([[field, m]]);
 }
 // Per-source form for breadth/timeline: field -> value -> { sourceKey -> count }.
 function talliesBySource(field: string, spec: Record<string, Record<string, number>>, lanes: string[] = ['open-data']): Map<string, Map<string, Cell>> {
@@ -91,7 +105,23 @@ describe('value catalogue', () => {
       status: [['Allocated', 100, ['open-data', 'foi']], ['(blank)', 2, ['foi']]],
     }), ref);
     expect(md).toContain('## `status` — 2 distinct');
-    expect(md).toContain('| `Allocated` | 100 | 1 | foi, open-data |');
+    // records / callsigns / allocated / sources / lanes - allocated is `—` for
+    // the status field (the value already IS the status).
+    expect(md).toContain('| value | records | callsigns | allocated | sources | lanes |');
+    expect(md).toContain('| `Allocated` | 100 | 0 | — | 1 | foi, open-data |');
+  });
+
+  it('Render_CountBreakdown_DisambiguatesRecordsDistinctCallsignsAndAllocated', () => {
+    // #245: a bare count conflates denominators. The breakdown makes each figure
+    // unambiguous - records (rows), the distinct callsigns those span, and how
+    // many of those callsigns are allocated.
+    const md = renderValueCatalogue(talliesWithCallsigns('prefix_series', {
+      // 6 records but only 2 distinct callsigns (each recurs across publications),
+      // of which 1 is allocated.
+      M0: { records: 6, callsigns: ['M0AAA', 'M0BBB'], allocated: ['M0AAA'] },
+    }), ref);
+    expect(md).toContain('| value | records | callsigns | allocated | sources | lanes |');
+    expect(md).toContain('| `M0` | 6 | 2 | 1 | 1 | open-data |');
   });
 
   it('Render_Breadth_DistinguishesManySourcesFromHighVolume', () => {
@@ -101,9 +131,9 @@ describe('value catalogue', () => {
       Spread: { '2022-05-30': 1, '2023-02-20': 1, '2025-04-08': 1 },
       Concentrated: { '2026-06-23': 3000 },
     }), ref);
-    expect(md).toContain('| value | count | sources | lanes |');
-    expect(md).toContain('| `Spread` | 3 | 3 |');
-    expect(md).toContain('| `Concentrated` | 3,000 | 1 |');
+    expect(md).toContain('| value | records | callsigns | allocated | sources | lanes |');
+    expect(md).toContain('| `Spread` | 3 | 0 | — | 3 |');
+    expect(md).toContain('| `Concentrated` | 3,000 | 0 | — | 1 |');
   });
 
   it('Render_Timeline_ShowsPresentThenGoneAsSparkline', () => {
@@ -113,9 +143,11 @@ describe('value catalogue', () => {
     const md = renderValueCatalogue(talliesBySource('status', {
       Legacy: { '2022-05-30': 100, '2023-02-20': 100 },
     }), ref, timeline);
-    expect(md).toContain('| value | count | sources | timeline | lanes |');
+    expect(md).toContain('| value | records | callsigns | allocated | sources | timeline | lanes |');
     const row = md.split('\n').find(l => l.startsWith('| `Legacy`')) ?? '';
-    expect(row.split('|')[4].trim()).toBe('██··');
+    // timeline is the sixth data column now (records, callsigns, allocated,
+    // sources, timeline).
+    expect(row.split('|')[6].trim()).toBe('██··');
   });
 
   it('Render_ValueWithEdgeWhitespace_IsVisibleInMonospace', () => {

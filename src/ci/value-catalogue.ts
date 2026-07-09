@@ -28,30 +28,61 @@ const BLANK = '(blank)';
 // A value's per-source counts yield both breadth (how many distinct
 // publications/entries carry it) and its timeline (count per dated open-data
 // publication). bySource is exposed so the renderer can build the sparkline.
-export interface ValueTally { value: string; count: number; lanes: string[]; sources: number; bySource: Map<string, number> }
+// The count-type breakdown (#245) disambiguates WHAT `count` counts: `count`
+// is records (rows; the raw->record map is a 1:1 bijection here), while
+// distinctCallsigns dedupes the same callsign recurring across publications and
+// allocated narrows to those distinct callsigns recorded with an `Allocated`
+// status somewhere in the corpus.
+export interface ValueTally {
+  value: string;
+  count: number;
+  lanes: string[];
+  sources: number;
+  bySource: Map<string, number>;
+  distinctCallsigns: number;
+  allocated: number;
+}
 export interface FieldCatalogue { field: string; distinct: number; total: number; values: ValueTally[] }
 
-interface Cell { lanes: Set<string>; bySource: Map<string, number> }
+// callsigns / allocatedCallsigns are optional so hand-built fixtures (and any
+// caller that only cares about counts/breadth) stay valid; they default to
+// empty, yielding a zero breakdown.
+interface Cell { lanes: Set<string>; bySource: Map<string, number>; callsigns?: Set<string>; allocatedCallsigns?: Set<string> }
 type Tallies = Map<string, Map<string, Cell>>;
-type Bump = (field: string, value: string, lane: string, source: string, n?: number) => void;
+// A bump carries, beyond the value itself, the callsign the value belongs to
+// and whether that callsign's record is `Allocated` - the raw material for the
+// records/callsigns/allocated breakdown.
+interface BumpContext { n?: number; callsign?: string; allocated?: boolean }
+type Bump = (field: string, value: string, lane: string, source: string, ctx?: BumpContext) => void;
 
-// Accumulate into field -> value -> { lanes, per-source counts }. The source is
-// the publication date (open data) or the FOI entry key; keeping the count per
-// source is what makes breadth and the timeline derivable. Pure over its
+// Accumulate into field -> value -> { lanes, per-source counts, callsigns }. The
+// source is the publication date (open data) or the FOI entry key; keeping the
+// count per source is what makes breadth and the timeline derivable, and the
+// callsign sets are what make the count-type breakdown derivable. Pure over its
 // inputs; the corpus reading is done by buildFieldTallies below.
 function makeTallies(): { tallies: Tallies; bump: Bump } {
   const tallies: Tallies = new Map();
-  const bump: Bump = (field, value, lane, source, n = 1) => {
+  const bump: Bump = (field, value, lane, source, ctx = {}) => {
+    const { n = 1, callsign, allocated = false } = ctx;
     let byValue = tallies.get(field);
     if (byValue === undefined) { byValue = new Map(); tallies.set(field, byValue); }
     const key = value === '' ? BLANK : value;
     let cell = byValue.get(key);
-    if (cell === undefined) { cell = { lanes: new Set(), bySource: new Map() }; byValue.set(key, cell); }
+    if (cell === undefined) { cell = { lanes: new Set(), bySource: new Map(), callsigns: new Set(), allocatedCallsigns: new Set() }; byValue.set(key, cell); }
     cell.lanes.add(lane);
     cell.bySource.set(source, (cell.bySource.get(source) ?? 0) + n);
+    if (callsign !== undefined && callsign !== '') {
+      (cell.callsigns ??= new Set()).add(callsign);
+      if (allocated) (cell.allocatedCallsigns ??= new Set()).add(callsign);
+    }
   };
   return { tallies, bump };
 }
+
+// The one register status that means "issued / in use". A callsign is counted
+// as allocated for a value if any record carrying that value records this
+// status (either lane - both spell it the same, so this is not open-data-only).
+const ALLOCATED_STATUS = 'Allocated';
 
 // The fields profiled and the lane each source contributes. `product` (open
 // data) and `licence_class` (FOI) describe the same concept under different
@@ -64,29 +95,41 @@ function tallyOpenData(bump: Bump, key: string): void {
     const p = path.join(dir, name);
     return fs.existsSync(p) ? parse(fs.readFileSync(p, 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[] : [];
   };
+  // Status lives on normalised.csv, keyed by callsign; components.csv (the
+  // source of the parse-derived fields) has no status column, so build the
+  // join once per entry to know whether each callsign's record is allocated.
+  const allocatedByCallsign = new Map<string, boolean>();
   for (const r of readCsv('normalised.csv')) {
-    bump('status', (r['status'] ?? '').trim(), 'open-data', key);
-    bump(PRODUCT_FIELD, (r['product'] ?? '').trim(), 'open-data', key);
+    const callsign = (r['callsign'] ?? '').trim();
+    const allocated = (r['status'] ?? '').trim() === ALLOCATED_STATUS;
+    allocatedByCallsign.set(callsign, allocated);
+    bump('status', (r['status'] ?? '').trim(), 'open-data', key, { callsign, allocated });
+    bump(PRODUCT_FIELD, (r['product'] ?? '').trim(), 'open-data', key, { callsign, allocated });
   }
   for (const r of readCsv('components.csv')) {
-    bump('prefix_series', (r['prefix_series'] ?? '').trim(), 'open-data', key);
-    bump('implied_class', (r['implied_class'] ?? '').trim(), 'open-data', key);
-    bump('parse_status', (r['parse_status'] ?? '').trim(), 'open-data', key);
-    for (const f of (r['flags'] ?? '').split(';').filter(x => x !== '')) bump('flags', f, 'open-data', key);
+    const callsign = (r['callsign'] ?? '').trim();
+    const allocated = allocatedByCallsign.get(callsign) ?? false;
+    bump('prefix_series', (r['prefix_series'] ?? '').trim(), 'open-data', key, { callsign, allocated });
+    bump('implied_class', (r['implied_class'] ?? '').trim(), 'open-data', key, { callsign, allocated });
+    bump('parse_status', (r['parse_status'] ?? '').trim(), 'open-data', key, { callsign, allocated });
+    for (const f of (r['flags'] ?? '').split(';').filter(x => x !== '')) bump('flags', f, 'open-data', key, { callsign, allocated });
   }
 }
 
 function tallyFoi(bump: Bump, ref: ReferenceData, foiDir: string): void {
   for (const obs of buildFoiObservations(foiDir)) {
     const status = obs.values['status'];
-    if (status !== null && status !== undefined) bump('status', status.trim(), 'foi', obs.entry);
+    const callsign = obs.callsign.trim();
+    const allocated = (status ?? '').trim() === ALLOCATED_STATUS;
+    const ctx = { callsign, allocated };
+    if (status !== null && status !== undefined) bump('status', status.trim(), 'foi', obs.entry, ctx);
     const licenceClass = obs.values['licence_class'];
-    if (licenceClass !== null && licenceClass !== undefined) bump(PRODUCT_FIELD, licenceClass.trim(), 'foi', obs.entry);
+    if (licenceClass !== null && licenceClass !== undefined) bump(PRODUCT_FIELD, licenceClass.trim(), 'foi', obs.entry, ctx);
     const c = parseCallsign(obs.callsign, licenceClass ?? '', ref);
-    bump('prefix_series', c.prefixSeries, 'foi', obs.entry);
-    bump('implied_class', c.impliedClass, 'foi', obs.entry);
-    bump('parse_status', c.parseStatus, 'foi', obs.entry);
-    for (const f of c.flags) bump('flags', f, 'foi', obs.entry);
+    bump('prefix_series', c.prefixSeries, 'foi', obs.entry, ctx);
+    bump('implied_class', c.impliedClass, 'foi', obs.entry, ctx);
+    bump('parse_status', c.parseStatus, 'foi', obs.entry, ctx);
+    for (const f of c.flags) bump('flags', f, 'foi', obs.entry, ctx);
   }
 }
 
@@ -114,6 +157,8 @@ export function catalogueField(field: string, byValue: Map<string, Cell>): Field
       lanes: [...cell.lanes].sort(),
       sources: cell.bySource.size,
       bySource: cell.bySource,
+      distinctCallsigns: cell.callsigns?.size ?? 0,
+      allocated: cell.allocatedCallsigns?.size ?? 0,
     }))
     .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
   return { field, distinct: values.length, total: values.reduce((s, v) => s + v.count, 0), values };
@@ -236,6 +281,16 @@ export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timel
   out.push('canonical* surface; nothing is dropped or force-mapped - unmapped values');
   out.push('are shown, never assumed away.');
   out.push('');
+  out.push('Each figure names WHAT it counts, so a number is never ambiguous:');
+  out.push('`records` is rows carrying the value (rows and records are 1:1 here -');
+  out.push('the conversion is a bijection); `callsigns` is how many DISTINCT');
+  out.push('callsigns those records span (the same callsign recurs across every');
+  out.push('publication, so `records` far exceeds it); `allocated` is how many of');
+  out.push('those distinct callsigns carry the `Allocated` status somewhere in the');
+  out.push('corpus - the live-register slice of the population. `allocated` is not');
+  out.push('meaningful for the `status` field itself (the value already IS the');
+  out.push('status), so it shows `—` there.');
+  out.push('');
   out.push('`sources` is how many distinct publications/entries carry the value:');
   out.push('breadth, not just volume - a value in 10 sources at 1 each reads very');
   out.push('differently from one source at 10,000.');
@@ -260,13 +315,17 @@ export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timel
   for (const field of FIELD_ORDER) {
     const cat = cats.get(field);
     if (cat === undefined) continue;
+    // The value of the `status` field already IS a status, so an "allocated"
+    // sub-count of it is circular; render it not-applicable there.
+    const allocatable = field !== 'status';
     out.push(`## \`${field}\` — ${cat.distinct} distinct`);
     out.push('');
-    out.push(`| value | count | sources |${hasTimeline ? ' timeline |' : ''} lanes |`);
-    out.push(`|---|---:|---:|${hasTimeline ? '---|' : ''}---|`);
+    out.push(`| value | records | callsigns | allocated | sources |${hasTimeline ? ' timeline |' : ''} lanes |`);
+    out.push(`|---|---:|---:|---:|---:|${hasTimeline ? '---|' : ''}---|`);
     for (const v of cat.values) {
       const spark = hasTimeline ? ` ${sparkline(v.bySource, timeline)} |` : '';
-      out.push(`| ${mdCode(v.value)} | ${v.count.toLocaleString('en-GB')} | ${v.sources} |${spark} ${v.lanes.join(', ')} |`);
+      const allocated = allocatable ? v.allocated.toLocaleString('en-GB') : '—';
+      out.push(`| ${mdCode(v.value)} | ${v.count.toLocaleString('en-GB')} | ${v.distinctCallsigns.toLocaleString('en-GB')} | ${allocated} | ${v.sources} |${spark} ${v.lanes.join(', ')} |`);
     }
     out.push('');
   }
