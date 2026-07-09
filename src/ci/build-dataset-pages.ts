@@ -199,7 +199,7 @@ const ENTRY_STYLE = [
   ':root{--ink:#1a1a1a;--paper:#f6f6f4;--card:#fff;--line:#dcdcd8;--muted:#6b6b6b;--accent:#14506e;--slot:#faf9f6;--good:#3f7d55;--warnbg:#fbeee2;--warnline:#c98a3f;--warnink:#7a3d00;--note:#eef3f4;--bar:#c9d7dc;--marker:#b23}',
   '@media(prefers-color-scheme:dark){:root{--ink:#e6e6e6;--paper:#111;--card:#191919;--line:#333;--muted:#9a9a9a;--accent:#7fbcd9;--slot:#141414;--good:#7fbf97;--warnbg:#2a2016;--warnline:#8a5a1f;--warnink:#e8b877;--note:#15211f;--bar:#2c4048;--marker:#e58}}',
   '*{box-sizing:border-box}body{font-family:system-ui,sans-serif;margin:0;color:var(--ink);background:var(--paper);line-height:1.55}',
-  '.wrap{max-width:64rem;margin:0 auto;padding:1.4rem 1.2rem 3rem}',
+  '.wrap{max-width:76rem;margin:0 auto;padding:1.4rem 1.2rem 3rem}',
   'nav{font-size:.92rem;color:var(--muted)}nav a{color:var(--accent);text-decoration:none}a{color:var(--accent)}',
   'h1{font-size:1.8rem;margin:.7rem 0 .1rem;line-height:1.15}.subtitle{color:var(--muted);margin:.1rem 0 1rem;font-size:.94rem}.subtitle code{color:var(--muted)}',
   'section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.9rem 1.2rem 1.1rem;margin:0 0 1.05rem}section>h2{font-size:1.02rem;margin:.2rem 0 .7rem}',
@@ -605,6 +605,7 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
   diffSummary?: OpenDataDiffSummary;
 }): string {
   const bd = openDataBreakdowns(sourceDir);
+  const allocatedCount = bd.status.find(([s]) => s === 'Allocated')?.[1] ?? 0;
 
   // Notable: computed findings with the drill-downs Roger asked to keep.
   // Row-level filtered links are correct only for the latest publication
@@ -656,7 +657,7 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
   return [
     '<section>',
     '<h2>At a glance</h2>',
-    `<div class="headline">${bd.recordCount.toLocaleString('en-GB')} <small>register rows</small></div>`,
+    `<div class="headline">${bd.recordCount.toLocaleString('en-GB')} <small>register rows · ${allocatedCount.toLocaleString('en-GB')} allocated</small></div>`,
     bd.status.length > 0 ? `<div class="bd"><h3>Status</h3>${breakdownRows(bd.status, bd.recordCount, undefined, label => facetAttr('status', label))}</div>` : '',
     bd.impliedClass.length > 0 ? `<div class="bd"><h3>Licence level (implied)</h3>${breakdownRows(bd.impliedClass, bd.recordCount, undefined, label => facetAttr('implied_class', label))}</div>` : '',
     bd.declared.length > 0 ? `<div class="bd"><h3>Licence level (declared)</h3>${declaredRows}</div>` : '',
@@ -780,7 +781,7 @@ function distributionsSection(sourceDir: string, key: string): string[] {
   ].filter(s => s !== '');
 }
 
-function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files: CopiedFile[]; meta: FoiEntryMeta; zipBytes: number } {
+function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries: PublicationSummary[], foiEntries: FoiNavEntry[]): { files: CopiedFile[]; meta: FoiEntryMeta; zipBytes: number } {
   const meta = readFoiEntryMeta(foiDir, key);
   const descriptions = new Map<string, string>();
   const hashes = new Map<string, string>();
@@ -877,6 +878,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files:
     `<p class="subtitle">Freedom-of-Information response from Ofcom, recovered and mirrored. FOI archive entry <code>${escapeHtml(key)}</code> · <a href="datapackage.json">datapackage.json</a>.</p>`,
     ...recoveryNotice,
     '<div class="main-region">',
+    datasetNavSidebar(key, summaries, foiEntries),
     '<div class="col">',
     ...browseSection,
     inspectTabsHtml(dataTabs),
@@ -973,16 +975,18 @@ interface FoiNavEntry {
   classes: string[];
 }
 
-// The left dataset-navigation sidebar: every open-data publication as a
-// compact elevator pitch - source + ISO date with the day-gap to the page you
-// are on, then a de-emphasised caption of rows and allocated callsigns, each
-// carrying its delta relative to THIS publication. The current page is marked,
-// not linked. Declared-partial snapshots and the data-bearing FOI disclosures
-// follow in their own collapsed sections. Opposite side to the At-a-glance
-// panel.
+// The left dataset-navigation sidebar, shared by both lanes so open-data and
+// FOI entry pages navigate identically. Every open-data publication is a
+// compact elevator pitch - source + ISO date, and (only when viewed FROM an
+// open-data page) the day-gap and row/allocated deltas relative to THIS
+// publication; from an FOI page the same rows show absolute figures. The
+// current entry is marked, not linked. Declared-partial snapshots and the
+// data-bearing FOI disclosures follow in their own collapsed sections. Links
+// use the lane-uniform ../../{lane}/{key}/ form (every entry page sits two
+// levels under datasets/). Opposite side to the At-a-glance panel.
 function datasetNavSidebar(currentKey: string, summaries: PublicationSummary[], foiEntries: FoiNavEntry[]): string {
-  const current = summaries.find(s => s.key === currentKey);
-  if (current === undefined) return '';
+  const onOpenDataPage = /^\d{4}-\d{2}-\d{2}$/.test(currentKey);
+  const current = onOpenDataPage ? summaries.find(s => s.key === currentKey) : undefined;
   const markersOf = (s: PublicationSummary): string => {
     const m: string[] = [];
     if (s.partial) m.push('partial export');
@@ -992,14 +996,16 @@ function datasetNavSidebar(currentKey: string, summaries: PublicationSummary[], 
   const item = (s: PublicationSummary): string => {
     const isCurrent = s.key === currentKey;
     const gap = dayGap(s.key, currentKey);
-    const gapHtml = isCurrent ? ' <small class="gap">this page</small>' : ` <small class="gap">(${gap > 0 ? '+' : '−'}${Math.abs(gap)} days)</small>`;
-    const caption = isCurrent
-      ? `${current.recordCount.toLocaleString('en-GB')} rows, ${current.allocated.toLocaleString('en-GB')} allocated callsigns${markersOf(s)}`
-      : `${s.recordCount.toLocaleString('en-GB')} rows${signedDelta(s.recordCount, current.recordCount)}, ${s.allocated.toLocaleString('en-GB')} allocated callsigns${signedDelta(s.allocated, current.allocated)}${markersOf(s)}`;
+    // Day-gap and deltas are relative to a publication, so only from an
+    // open-data page; an FOI page shows the open-data rows as plain figures.
+    const gapHtml = !onOpenDataPage ? '' : isCurrent ? ' <small class="gap">this page</small>' : ` <small class="gap">(${gap > 0 ? '+' : '−'}${Math.abs(gap)} days)</small>`;
+    const caption = current !== undefined && !isCurrent
+      ? `${s.recordCount.toLocaleString('en-GB')} rows${signedDelta(s.recordCount, current.recordCount)}, ${s.allocated.toLocaleString('en-GB')} allocated callsigns${signedDelta(s.allocated, current.allocated)}${markersOf(s)}`
+      : `${s.recordCount.toLocaleString('en-GB')} rows, ${s.allocated.toLocaleString('en-GB')} allocated callsigns${markersOf(s)}`;
     const inner = `<span class="dpitch"><small class="src">Ofcom open data</small> <b>${escapeHtml(s.key)}</b>${gapHtml}</span><small class="dcap">${escapeHtml(caption)}</small>`;
     return isCurrent
       ? `<li class="dcur" aria-current="page">${inner}</li>`
-      : `<li><a href="../${escapeHtml(s.key)}/index.html">${inner}</a></li>`;
+      : `<li><a href="../../open-data/${escapeHtml(s.key)}/index.html">${inner}</a></li>`;
   };
   const byNewest = (a: PublicationSummary, b: PublicationSummary): number => b.key.localeCompare(a.key);
   // Declared-complete publications (plus the page you are on, even if it is
@@ -1011,16 +1017,22 @@ function datasetNavSidebar(currentKey: string, summaries: PublicationSummary[], 
   const partialsBlock = partials.length === 0 ? ''
     : `<details class="partials"><summary>${partials.length} partial export${partials.length === 1 ? '' : 's'}</summary><ol class="dlist">${partials.map(item).join('')}</ol></details>`;
   // FOI disclosures are a different lane (request-keyed, various vintages), so
-  // a separate collapsed section ordered by data vintage, newest first.
+  // a separate collapsed section ordered by data vintage, newest first. On an
+  // FOI page the current entry is marked, and the section starts expanded.
+  const foiOnCurrent = !onOpenDataPage && foiEntries.some(e => e.key === currentKey);
   const foiItems = [...foiEntries]
     .sort((a, b) => (b.vintage ?? '').localeCompare(a.vintage ?? ''))
     .map(e => {
+      const isCurrent = e.key === currentKey;
       const cls = e.classes.join(', ');
       const caption = cls === '' ? escapeHtml(e.title) : `${escapeHtml(e.title)} · ${escapeHtml(cls)}`;
-      return `<li><a href="../../foi/${escapeHtml(e.key)}/index.html"><span class="dpitch"><small class="src">FOI</small> <b>${escapeHtml(e.vintage ?? 'undated')}</b></span><small class="dcap">${caption}</small></a></li>`;
+      const inner = `<span class="dpitch"><small class="src">FOI</small> <b>${escapeHtml(e.vintage ?? 'undated')}</b></span><small class="dcap">${caption}</small>`;
+      return isCurrent
+        ? `<li class="dcur" aria-current="page">${inner}</li>`
+        : `<li><a href="../../foi/${escapeHtml(e.key)}/index.html">${inner}</a></li>`;
     }).join('');
   const foiBlock = foiItems === '' ? ''
-    : `<details class="foi-nav"><summary>${foiEntries.length} FOI dataset${foiEntries.length === 1 ? '' : 's'}</summary><ol class="dlist">${foiItems}</ol></details>`;
+    : `<details class="foi-nav"${foiOnCurrent ? ' open' : ''}><summary>${foiEntries.length} FOI dataset${foiEntries.length === 1 ? '' : 's'}</summary><ol class="dlist">${foiItems}</ol></details>`;
   return `<nav class="nav-side" aria-label="Publications"><h2>Publications</h2><ol class="dlist">${timeline.map(item).join('')}</ol>${partialsBlock}${foiBlock}</nav>`;
 }
 
@@ -1085,7 +1097,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     datasetNavSidebar(key, summaries, foiEntries),
     '<div class="col">',
     `<section class="browser" data-dataset="${escapeHtml(key)}"><h2>Browse the data</h2>`,
-    `<p class="lead">The <b>normalised</b> register — the canonical shape, not the raw file (inspect <code>raw.csv</code> below for that). Showing the first rows of ${stats.recordCount.toLocaleString('en-GB')}; download <code>normalised.csv</code> for all, or query it on the <a href="../../../explore.html">Explore</a> page.</p>`,
+    `<p class="lead">The <b>normalised</b> register — the canonical shape, not the raw file (inspect <code>raw.csv</code> below for that). Showing the first rows of ${stats.recordCount.toLocaleString('en-GB')} (${(summaries.find(s => s.key === key)?.allocated ?? 0).toLocaleString('en-GB')} allocated callsigns); download <code>normalised.csv</code> for all, or query it on the <a href="../../../explore.html">Explore</a> page.</p>`,
     `<div class="browser-static">${csvPreviewTable(path.join(sourceDir, 'normalised.csv'))}</div>`,
     ignoredNote,
     '</section>',
@@ -1281,7 +1293,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
 
   const foiRows: string[] = [];
   for (const key of foiKeys) {
-    const { files, meta, zipBytes } = buildFoiEntry(outputDir, foiDir, key);
+    const { files, meta, zipBytes } = buildFoiEntry(outputDir, foiDir, key, summaries, foiNav);
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;
     pageUrls.push(`${baseUrl}/datasets/foi/${key}/index.html`);

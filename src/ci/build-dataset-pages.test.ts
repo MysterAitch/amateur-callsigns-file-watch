@@ -50,10 +50,10 @@ describe('Dataset pages build', () => {
   it('DatasetPages_OpenDataEntryPage_CarriesNavigationSidebarWithDeltasAndAllocatedCounts', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
     // The left navigation sidebar lists publications with allocated-callsign
-    // counts and links to the others.
+    // counts and links to the others (lane-uniform ../../open-data/ paths).
     expect(page).toContain('class="nav-side"');
     expect(page).toContain('allocated callsigns');
-    expect(page).toContain('href="../2025-04-08/index.html"');
+    expect(page).toContain('href="../../open-data/2025-04-08/index.html"');
     // The page's own entry is marked current, not linked.
     expect(page).toContain('aria-current="page"');
     // A neighbour carries a signed delta relative to this publication.
@@ -61,6 +61,20 @@ describe('Dataset pages build', () => {
     // The cross-lane section links data-bearing FOI disclosures.
     expect(page).toContain('FOI dataset');
     expect(page).toMatch(/href="\.\.\/\.\.\/foi\/[^"]+\/index\.html"/);
+    // The At-a-glance headline and the browse lead both carry the allocated
+    // count alongside the bare row count.
+    expect(page).toMatch(/register rows · [\d,]+ allocated/);
+    expect(page).toMatch(/first rows of [\d,]+ \([\d,]+ allocated callsigns\)/);
+  });
+
+  it('DatasetPages_FoiEntryPage_CarriesSameNavigationSidebar', () => {
+    // Parity: FOI entry pages get the same left navigation, linking back to
+    // the open-data timeline (absolute figures - no delta from an FOI page).
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'wdtk-1180568--licence-breakdown-duration-age', 'index.html'), 'utf8');
+    expect(page).toContain('class="nav-side"');
+    expect(page).toContain('href="../../open-data/2026-06-23/index.html"');
+    // The current FOI entry is marked, not linked.
+    expect(page).toContain('aria-current="page"');
   });
 
   it('DatasetPages_RealArchive_BuildsIndexAndOnePagePerEntry', () => {
@@ -94,7 +108,7 @@ describe('Dataset pages build', () => {
     expect(page).toContain('Compare with <a href="../2025-06-04/index.html">');
     // The partial 2025-06-08 snapshot is reachable only from the collapsed
     // "partial exports" section of the navigation, never as the diff baseline.
-    expect(page).toMatch(/partial exports?<\/summary>[\s\S]*?href="\.\.\/2025-06-08\/index\.html"/);
+    expect(page).toMatch(/partial exports?<\/summary>[\s\S]*?href="\.\.\/\.\.\/open-data\/2025-06-08\/index\.html"/);
   });
 
   it('DatasetPages_OpenDataEntryPage_CarriesAccessibleDistributionCharts', () => {
