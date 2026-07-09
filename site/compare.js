@@ -12,7 +12,7 @@
 // and declared-partial / coverage-affecting publications carry a loud caveat
 // because absence there is scope, not removal (issues #182-#184).
 
-import { buildPredicate, parseFilterState, serializeFilterState, matchingCountSql, setDiffSql, TOGGLES } from './browser-query.js';
+import { buildPredicate, parseFilterState, serializeFilterState, matchingCountSql, setDiffSql, callsignCharMarker, TOGGLES } from './browser-query.js';
 
 const { createDbWorker } = window;
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
@@ -41,6 +41,16 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 function code(v) { const c = el('code'); c.textContent = v ?? ''; return c; }
+// A callsign with whitespace/odd characters made legible (shared classifier),
+// so a damaged value in a set-difference sample doesn't hide.
+function rawCallsign(raw) {
+  const span = el('code');
+  for (const ch of String(raw ?? '')) {
+    const marker = callsignCharMarker(ch);
+    span.append(marker !== null ? el('span', { class: 'marker', text: marker }) : document.createTextNode(ch));
+  }
+  return span;
+}
 const nf = (n) => Number(n).toLocaleString('en-GB');
 
 // A cohort larger than this per side is not set-diffed in the browser: the
@@ -290,7 +300,11 @@ function diffBlock(title, rows, columns) {
   details.append(el('summary', {}, [el('strong', { text: `${nf(rows.length)} ` }), title]));
   if (rows.length === 0) { details.append(el('p', { class: 'muted', text: 'none' })); return details; }
   const thead = el('thead', {}, [el('tr', {}, columns.map(h => el('th', { text: h })))]);
-  const tbody = el('tbody', {}, shown.map(r => el('tr', {}, columns.map(h => (h === 'callsign' || h === 'cleaned') ? el('td', {}, [code(r[h])]) : el('td', { text: r[h] === null ? 'NULL' : String(r[h]) })))));
+  const tbody = el('tbody', {}, shown.map(r => el('tr', {}, columns.map(h => {
+    if (h === 'callsign') return el('td', {}, [rawCallsign(r[h])]);
+    if (h === 'cleaned') return el('td', {}, [code(r[h])]);
+    return el('td', { text: r[h] === null ? 'NULL' : String(r[h]) });
+  }))));
   details.append(el('div', { class: 'overflow', style: 'overflow-x:auto' }, [el('table', {}, [thead, tbody])]));
   if (rows.length > SAMPLE) details.append(el('p', { class: 'muted', text: `showing ${SAMPLE} of ${nf(rows.length)}` }));
   return details;

@@ -8,6 +8,7 @@ import {
   parseFilterState,
   matchingCountSql,
   setDiffSql,
+  callsignCharMarker,
   TOGGLES,
 } from './browser-query.js';
 
@@ -111,6 +112,23 @@ describe('isDefaultSort', () => {
     expect(isDefaultSort([{ col: 'status', dir: 'ASC' }])).toBe(false);
     expect(isDefaultSort([{ col: 'callsign', dir: 'DESC' }])).toBe(false);
     expect(isDefaultSort([{ col: 'callsign', dir: 'ASC' }, { col: 'status', dir: 'ASC' }])).toBe(false);
+  });
+});
+
+describe('callsignCharMarker', () => {
+  it('CharMarker_PlainGlyph_PassesThrough', () => {
+    // Ordinary callsign characters render as themselves (null = no marker).
+    for (const ch of 'M7TEE/2E0ABC') expect(callsignCharMarker(ch)).toBeNull();
+  });
+  it('CharMarker_Whitespace_UsesFriendlyName', () => {
+    expect(callsignCharMarker(' ')).toBe('{SP}');       // U+0020 plain space
+    expect(callsignCharMarker(' ')).toBe('{NBSP}'); // non-breaking space
+    expect(callsignCharMarker('\t')).toBe('{TAB}');
+  });
+  it('CharMarker_ReplacementAndControl_AreMarked', () => {
+    expect(callsignCharMarker('�')).toBe('{U+FFFD}');   // encoding damage
+    expect(callsignCharMarker('​')).toBe('{U+200B}');   // zero-width space (whitespace, no friendly name)
+    expect(callsignCharMarker('')).toBe('{U+0007}');   // control char
   });
 });
 
