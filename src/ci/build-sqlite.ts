@@ -253,16 +253,16 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
   // cohort) are runnable in SQL. cleaned is a JOIN KEY, not an identity -
   // duplicates are expected and deliberate (G6 FMU / G6FMU), so its
   // index is plain, never UNIQUE.
-  const historyColumns = new Set<string>(['dataset', 'cleaned', 'suffix', 'implied_class', 'prefix_series']);
+  const historyColumns = new Set<string>(['dataset', 'cleaned', 'suffix', 'implied_class', 'prefix_series', 'parse_status']);
   const publications = listArchiveKeys().sort()
     .map(key => ({ key, path: path.join(CONSTANTS.DIRS.archive, key, 'normalised.csv') }))
     .filter(p => fs.existsSync(p.path))
     .map(p => {
       const componentsPath = path.join(CONSTANTS.DIRS.archive, p.key, 'components.csv');
-      const componentKeys = new Map<string, { cleaned: string; suffix: string; impliedClass: string; prefixSeries: string }>(
+      const componentKeys = new Map<string, { cleaned: string; suffix: string; impliedClass: string; prefixSeries: string; parseStatus: string }>(
         fs.existsSync(componentsPath)
           ? (parse(fs.readFileSync(componentsPath, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[])
-            .map(c => [c.callsign, { cleaned: c.cleaned ?? cleanedCallsign(c.callsign), suffix: c.suffix ?? '', impliedClass: c.implied_class ?? '', prefixSeries: c.prefix_series ?? '' }])
+            .map(c => [c.callsign, { cleaned: c.cleaned ?? cleanedCallsign(c.callsign), suffix: c.suffix ?? '', impliedClass: c.implied_class ?? '', prefixSeries: c.prefix_series ?? '', parseStatus: c.parse_status ?? '' }])
           : []);
       return {
         key: p.key,
@@ -318,6 +318,7 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
         if (c === 'suffix') return keys?.suffix ?? '';
         if (c === 'implied_class') return keys?.impliedClass ?? '';
         if (c === 'prefix_series') return keys?.prefixSeries ?? '';
+        if (c === 'parse_status') return keys?.parseStatus ?? '';
         return record[c] ?? null;
       }));
       historyRows += 1;

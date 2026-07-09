@@ -214,6 +214,7 @@ const ENTRY_STYLE = [
   '.brow .pct{color:var(--muted);font-size:.76rem;min-width:2.4rem;text-align:right}.brow b{font-variant-numeric:tabular-nums;font-weight:600;min-width:4rem;text-align:right}',
   '.brow .barbg{position:absolute;left:0;bottom:0;height:2px;background:var(--bar)}',
   '.lvl{color:var(--muted);font-weight:400;font-size:.85em}.prefixscroll{max-height:13rem;overflow-y:auto;margin-right:-.3rem;padding-right:.3rem}',
+  '.seriesnav{color:var(--muted);text-decoration:none;font-size:.85em}.seriesnav:hover{color:var(--accent)}',
   '.attr{margin-top:.9rem;padding-top:.7rem;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted)}.attr a{color:var(--accent)}.attr div{margin:.15rem 0}.attr b{color:var(--ink)}',
   '.notable{margin-top:.9rem;padding-top:.7rem;border-top:1px solid var(--line)}.notable h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 .3rem;font-weight:600}',
   '.notable ul{list-style:none;margin:0;padding:0}.notable li{font-size:.85rem;padding-left:1rem;position:relative;margin:.3rem 0}.notable li::before{content:"›";position:absolute;left:0;color:var(--accent)}.notable .rel{color:var(--muted)}.notable b{color:var(--ink)}',
@@ -490,6 +491,11 @@ function breakdownRows(counts: [string, number][], total: number, linkFor?: (v: 
 // prefix_series). The RSL matrix used to be the components consumer on
 // entry pages; it has moved to the statistics home, so this read replaces
 // it rather than adding one.
+// The forbidden/withheld suffix list's first KNOWN publication: Ofcom's
+// August 2019 FOI disclosure (wdtk-596532). A withheld-suffix callsign
+// issued on/after this is the "issued while the list existed" case.
+const FORBIDDEN_LIST_FIRST_KNOWN = '2019-08-01';
+
 function openDataBreakdowns(sourceDir: string): {
   recordCount: number;
   status: [string, number][];
@@ -499,6 +505,8 @@ function openDataBreakdowns(sourceDir: string): {
   prefixLevel: Map<string, string>;
   international: number;
   flaggedRows: number;
+  forbiddenTotal: number;
+  forbiddenSince: number;
 } {
   const statusRows = parse(fs.readFileSync(path.join(sourceDir, 'normalised.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
   const componentRows = parse(fs.readFileSync(path.join(sourceDir, 'components.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
@@ -517,6 +525,19 @@ function openDataBreakdowns(sourceDir: string): {
   }
   const flaggedRows = componentRows.filter(r => (r.flags ?? '') !== '').length;
   const international = componentRows.filter(r => (r.callsign ?? '').includes('/')).length;
+  // Forbidden-suffix cohort: the whole flagged set, and the subset issued
+  // on/after the withheld list's first known publication (Ofcom's August
+  // 2019 FOI) - the "issued while the list existed" cases worth inspecting
+  // (re-issues and artefacts are innocent explanations; see issue #179).
+  const startDateCol = ['licence_version_original_start_date', 'created_date'].find(c => statusRows.some(r => (r[c] ?? '') !== ''));
+  const startByCallsign = new Map(statusRows.map(r => [r.callsign, startDateCol === undefined ? '' : (r[startDateCol] ?? '')]));
+  let forbiddenTotal = 0; let forbiddenSince = 0;
+  for (const r of componentRows) {
+    if (!(r.flags ?? '').split(';').includes('forbidden-suffix')) continue;
+    forbiddenTotal += 1;
+    const d = startByCallsign.get(r.callsign) ?? '';
+    if (d !== '' && d >= FORBIDDEN_LIST_FIRST_KNOWN) forbiddenSince += 1;
+  }
   const sortDesc = (m: Map<string, number>, n?: number): [string, number][] =>
     [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, n);
   return {
@@ -528,6 +549,8 @@ function openDataBreakdowns(sourceDir: string): {
     prefixLevel,
     international,
     flaggedRows,
+    forbiddenTotal,
+    forbiddenSince,
   };
 }
 
@@ -576,8 +599,19 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
   // (the whole-register lookup ≈ this publication); the scoped, per-
   // publication browser in 3b makes them exact for every entry.
   const notable: string[] = [];
+  // The forbidden-suffix cohort is the interesting story, not the raw count:
+  // two filter links - the whole flagged set, and the narrower "issued while
+  // the withheld list existed" subset (the second only when non-empty).
+  if (bd.forbiddenTotal > 0) {
+    const allSql = `SELECT callsign, cleaned, status, prefix_series, implied_class FROM register_history WHERE dataset = '${key}' AND suffix IN (SELECT suffix FROM ref_forbidden_suffixes) ORDER BY callsign`;
+    const sinceSql = `SELECT callsign, status, prefix_series, licence_version_original_start_date AS issued FROM register_history WHERE dataset = '${key}' AND suffix IN (SELECT suffix FROM ref_forbidden_suffixes) AND licence_version_original_start_date >= '${FORBIDDEN_LIST_FIRST_KNOWN}' ORDER BY issued`;
+    const sinceLink = bd.forbiddenSince > 0
+      ? ` — <a href="#" data-browser-sql="${escapeHtml(sinceSql)}"><b>${bd.forbiddenSince.toLocaleString('en-GB')}</b> issued since the 2019 list</a>, worth a look`
+      : '';
+    notable.push(`<li><a href="#" data-browser-sql="${escapeHtml(allSql)}"><b>${bd.forbiddenTotal.toLocaleString('en-GB')}</b> withheld-suffix</a> (mostly legacy holders)${sinceLink}.</li>`);
+  }
   const topFlag = Object.entries(stats.callsignFlags).sort((a, b) => b[1] - a[1])[0];
-  if (topFlag !== undefined) notable.push(`<li><b>${topFlag[1].toLocaleString('en-GB')}</b> rows flagged <a href="../../docs/flags.html"><code>${escapeHtml(topFlag[0])}</code></a>.</li>`);
+  if (topFlag !== undefined && topFlag[0] !== 'forbidden-suffix') notable.push(`<li><b>${topFlag[1].toLocaleString('en-GB')}</b> rows flagged <a href="../../docs/flags.html"><code>${escapeHtml(topFlag[0])}</code></a>.</li>`);
   const unparseable = stats.parseStatuses.unparseable ?? 0;
   if (unparseable > 0) notable.push(`<li><b>${unparseable.toLocaleString('en-GB')}</b> callsign${unparseable === 1 ? '' : 's'} don't parse — likely upstream corruption.</li>`);
   const diff = meta.diffSummary;
@@ -596,10 +630,14 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
     return `<span class="pct">${pct === 0 && n > 0 ? '<1%' : `${pct}%`}</span><b>${n.toLocaleString('en-GB')}</b><span class="barbg" style="width:${Math.min(pct, 100)}%"></span>`;
   };
   const shortProduct = (p: string): string => p === '' ? '(blank)' : p.replace(/^Amateur /, '').replace(/ Radio Licence$/, '');
+  // The prefix label FILTERS on click (the row is the facet trigger); the
+  // small ↗ is the only link, to the series page (the row handler ignores
+  // clicks on <a>). Previously the whole label navigated, surprising anyone
+  // expecting a filter.
   const prefixRows = bd.prefixes.map(([p, n]) => {
     const level = bd.prefixLevel.get(p) ?? '';
     const tag = level === '' ? '' : ` <small class="lvl">${escapeHtml(level.toLowerCase())}</small>`;
-    return `<div class="brow"${facetAttr('prefix_series', p)}><span class="lab"><a href="../../../series/${seriesSlug(p)}.html">${escapeHtml(displaySeries(p))}</a>${tag}</span>${bar(n)}</div>`;
+    return `<div class="brow"${facetAttr('prefix_series', p)}><span class="lab">${escapeHtml(displaySeries(p))}${tag} <a class="seriesnav" href="../../../series/${seriesSlug(p)}.html" title="series page for ${escapeHtml(displaySeries(p))}" aria-label="series page">↗</a></span>${bar(n)}</div>`;
   }).join('');
   const declaredRows = bd.declared.map(([p, n]) => `<div class="brow"${facetAttr('product', p)}><span class="lab">${escapeHtml(shortProduct(p))}</span>${bar(n)}</div>`).join('');
   const intlExpr = "CASE WHEN callsign LIKE '%/%' THEN 'yes' ELSE 'no' END";

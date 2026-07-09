@@ -71,22 +71,34 @@ const COLUMNS = ['callsign', 'cleaned', 'status', 'product', 'implied_class', 'p
 const TOGGLES = {
   'raw-cleaned': { label: 'raw ≠ cleaned', sql: 'callsign != cleaned' },
   forbidden: { label: 'forbidden-suffix', sql: 'suffix IN (SELECT suffix FROM ref_forbidden_suffixes)' },
+  // Invalid / non-parseable rows (e.g. a stray ",,") - parse_status rides in
+  // register_history alongside the other component keys.
+  unparseable: { label: 'unparseable', sql: "parse_status = 'unparseable'" },
 };
 const PAGE_SIZES = [25, 50, 100, 250, 500, 1000];
 
+// A SQL string literal, single quotes doubled. Values come from the data or
+// the user's own filter inputs; interpolating them (rather than binding ?)
+// makes the DISPLAYED SQL self-contained and runnable as-is - the whole
+// point of the "Edit SQL" hand-off. Safe here: the database is read-only
+// (the VFS cannot write) and every statement passes the SELECT/WITH guard,
+// so the worst a crafted value could do is run another read-only query the
+// user could already run in SQL mode.
+function quote(value) { return `'${String(value).replace(/'/g, "''")}'`; }
+
 // Per-column filter mini-language: comparison operators, GLOB wildcards
-// (* ?), ! to negate, bare text = contains. Complex boolean (a OR b) is a
-// power query for SQL mode, deliberately not reimplemented here.
+// (* ?), ! to negate, bare text = contains. Returns a literal SQL fragment.
+// Complex boolean (a OR b) is a power query for SQL mode.
 function parseColumnFilter(col, raw) {
   const s = raw.trim();
   if (s === '') return null;
   const op = /^(>=|<=|!=|>|<|=)\s*(.+)$/.exec(s);
-  if (op !== null) return { sql: `"${col}" ${op[1]} ?`, params: [op[2].trim()] };
+  if (op !== null) return `"${col}" ${op[1]} ${quote(op[2].trim())}`;
   const negate = s.startsWith('!');
   const body = (negate ? s.slice(1) : s).trim();
   if (body === '') return null;
-  if (/[*?]/.test(body)) return { sql: `"${col}" ${negate ? 'NOT ' : ''}GLOB ?`, params: [body] };
-  return { sql: `"${col}" ${negate ? 'NOT ' : ''}LIKE ?`, params: [`%${body}%`] };
+  if (/[*?]/.test(body)) return `"${col}" ${negate ? 'NOT ' : ''}GLOB ${quote(body)}`;
+  return `"${col}" ${negate ? 'NOT ' : ''}LIKE ${quote(`%${body}%`)}`;
 }
 
 const section = document.querySelector('.browser[data-dataset]');
@@ -166,30 +178,28 @@ function enhance(section) {
   examplesBox.append(exList);
   section.insertBefore(examplesBox, result);
 
-  // --- query construction ---
+  // --- query construction (literal values, so the shown SQL runs as-is) ---
   function buildWhere() {
-    const clauses = ['dataset = ?'];
-    const params = [dataset];
+    const clauses = [`dataset = ${quote(dataset)}`];
     for (const f of state.facets.values()) {
       if (f.values.size === 0) continue;
       const field = f.isExpr ? f.field : `"${f.field}"`;
-      const vals = [...f.values];
-      clauses.push(`${field} ${f.exclude ? 'NOT IN' : 'IN'} (${vals.map(() => '?').join(', ')})`);
-      params.push(...vals);
+      const vals = [...f.values].map(quote).join(', ');
+      clauses.push(`${field} ${f.exclude ? 'NOT IN' : 'IN'} (${vals})`);
     }
     for (const id of state.toggles) clauses.push(`(${TOGGLES[id].sql})`);
     for (const [col, raw] of state.columnFilters) {
       const frag = parseColumnFilter(col, raw);
-      if (frag !== null) { clauses.push(`(${frag.sql})`); params.push(...frag.params); }
+      if (frag !== null) clauses.push(`(${frag})`);
     }
-    return { where: clauses.join(' AND '), params };
+    return clauses.join(' AND ');
   }
 
   function filtersSql() {
-    const { where, params } = buildWhere();
+    const where = buildWhere();
     const cols = COLUMNS.map(c => `"${c}"`).join(', ');
     const order = state.sort.map(s => `"${s.col}" ${s.dir}`).join(', ');
-    return { inner: `SELECT ${cols} FROM register_history WHERE ${where} ORDER BY ${order}`, where, params };
+    return { inner: `SELECT ${cols} FROM register_history WHERE ${where} ORDER BY ${order}`, where };
   }
 
   function composedSql() {
@@ -201,24 +211,22 @@ function enhance(section) {
   async function refresh() {
     statusLine.textContent = 'querying this publication…';
     result.hidden = true;
-    let countSql; let pageSql; let params;
+    let inner; let countSql;
     if (state.customSql !== null) {
-      countSql = `SELECT COUNT(*) AS n FROM (${state.customSql})`;
-      pageSql = `SELECT * FROM (${state.customSql}) LIMIT ? OFFSET ?`;
-      params = [];
+      inner = state.customSql;
+      countSql = `SELECT COUNT(*) AS n FROM (${inner})`;
     } else {
       const q = filtersSql();
+      inner = q.inner;
       countSql = `SELECT COUNT(*) AS n FROM register_history WHERE ${q.where}`;
-      pageSql = `${q.inner} LIMIT ? OFFSET ?`;
-      params = q.params;
     }
     try {
       const started = performance.now();
       const worker = await openMaster();
-      const total = Number((await worker.db.query(countSql, params))[0].n);
+      const total = Number((await worker.db.query(countSql))[0].n);
       const maxPage = Math.max(0, Math.ceil(total / state.pageSize) - 1);
       if (state.page > maxPage) state.page = maxPage;
-      const rows = await worker.db.query(pageSql, [...params, state.pageSize, state.page * state.pageSize]);
+      const rows = await worker.db.query(`SELECT * FROM (${inner}) LIMIT ${state.pageSize} OFFSET ${state.page * state.pageSize}`);
       const elapsed = ((performance.now() - started) / 1000).toFixed(1);
       renderRows(rows, total, elapsed);
     } catch (err) {
@@ -235,8 +243,11 @@ function enhance(section) {
     nextBtn.disabled = to >= total;
     textarea.value = composedSql();
 
-    if (rows.length === 0) { result.replaceChildren(el('p', { class: 'browser-status', text: 'No matching rows.' })); result.hidden = false; return; }
     const custom = state.customSql !== null;
+    // Custom-mode empty result has no columns to show, so a bare message. In
+    // filters mode we keep the header + per-column filter row so an over-
+    // narrow filter can be adjusted, not trap the user with a blank panel.
+    if (custom && rows.length === 0) { result.replaceChildren(el('p', { class: 'browser-status', text: 'No matching rows.' })); result.hidden = false; return; }
     const showDiff = !custom && state.toggles.has('raw-cleaned');
     const headers = custom ? Object.keys(rows[0]) : [...COLUMNS, ...(showDiff ? ['difference'] : [])];
     const thead = el('thead');
@@ -280,12 +291,14 @@ function enhance(section) {
       }
       thead.append(filterRow);
     }
-    const tbody = el('tbody', {}, rows.map(r => el('tr', {}, headers.map(h => {
-      if (h === 'callsign') return el('td', {}, [showDiff ? renderRawCallsign(r.callsign) : codeCell(r.callsign)]);
-      if (h === 'cleaned') return el('td', {}, [codeCell(r.cleaned)]);
-      if (h === 'difference') return el('td', { class: 'diffnote', text: describeDiff(r.callsign, r.cleaned ?? '') });
-      return el('td', { text: r[h] === null ? 'NULL' : String(r[h]), class: r[h] === null ? 'browser-status' : '' });
-    }))));
+    const tbody = rows.length === 0
+      ? el('tbody', {}, [el('tr', {}, [el('td', { colspan: String(headers.length), class: 'browser-status', text: 'No matching rows — adjust or clear the filters above.' })])])
+      : el('tbody', {}, rows.map(r => el('tr', {}, headers.map(h => {
+        if (h === 'callsign') return el('td', {}, [showDiff ? renderRawCallsign(r.callsign) : codeCell(r.callsign)]);
+        if (h === 'cleaned') return el('td', {}, [codeCell(r.cleaned)]);
+        if (h === 'difference') return el('td', { class: 'diffnote', text: describeDiff(r.callsign, r.cleaned ?? '') });
+        return el('td', { text: r[h] === null ? 'NULL' : String(r[h]), class: r[h] === null ? 'browser-status' : '' });
+      }))));
     const wrap = el('div', { class: 'overflow', style: 'overflow-x:auto' });
     wrap.append(el('table', {}, [thead, tbody]));
     result.replaceChildren(wrap);
@@ -336,6 +349,17 @@ function enhance(section) {
     const trigger = (e) => { if (e.target.closest('a') !== null) return; toggleFacetValue(node); };
     node.addEventListener('click', trigger);
     node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger(e); } });
+  }
+
+  // Notable "compound filter" links carry a full data-browser-sql query (a
+  // preset that facets can't express as one predicate, e.g. forbidden AND
+  // issued-since-2019). Clicking loads it as a custom query and runs it;
+  // <a href="#"> for link styling, so preventDefault the jump.
+  for (const node of document.querySelectorAll('[data-browser-sql]')) {
+    const sql = node.getAttribute('data-browser-sql');
+    const go = (e) => { if (e) e.preventDefault(); textarea.value = sql; sqlBox.open = true; state.customSql = sql; state.page = 0; void refresh(); section.scrollIntoView({ block: 'start' }); };
+    node.addEventListener('click', go);
+    node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(e); } });
   }
 
   // Quick chips: reset + the two boolean toggles.
