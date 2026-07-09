@@ -333,6 +333,25 @@ describe('Dataset pages build', () => {
     expect(vc).not.toContain('<a href="../series/M7.html"><a');
   });
 
+  it('ReportPages_PerEntryDrillDown_RenderedAndLinkedFromDatasetPageNotHub', () => {
+    // The per-publication drill-down is a real rendered page, cross-linked from
+    // two levels deep (../../), and reached from the publication's dataset page
+    // rather than flooding the reports hub.
+    const drill = fs.readFileSync(path.join(outputDir, 'reports', 'entries', '2026-06-23.html'), 'utf8');
+    expect(drill).toContain('Data-quality report: 2026-06-23');
+    expect(drill).toContain('href="../../datasets/open-data/2026-06-23/index.html"'); // back to its dataset
+    expect(drill).toMatch(/href="\.\.\/\.\.\/series\/[^"]+\.html"/);                  // a series token, depth-2 rel
+    // The dataset page links out to the drill-down.
+    const entry = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(entry).toContain('href="../../../reports/entries/2026-06-23.html"');
+    // The hub points at them contextually but does not list each one.
+    const hub = fs.readFileSync(path.join(outputDir, 'reports', 'index.html'), 'utf8');
+    expect(hub).toContain('drill-downs');
+    expect(hub).not.toContain('entries/2026-06-23.html');
+    // They still join the sitemap for crawlability.
+    expect(summary.pageUrls.some(u => u.endsWith('/reports/entries/2026-06-23.html'))).toBe(true);
+  });
+
   it('StaticStatistics_LinksToTheReportsThatExpandItsFigures', () => {
     // The statistics page points at the standing reports that expand its
     // deploy-time aggregates - a two-way weave, not a one-way nav link.
