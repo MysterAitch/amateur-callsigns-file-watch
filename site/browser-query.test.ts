@@ -6,6 +6,8 @@ import {
   isDefaultSort,
   serializeFilterState,
   parseFilterState,
+  matchingCountSql,
+  setDiffSql,
   TOGGLES,
 } from './browser-query.js';
 
@@ -109,6 +111,46 @@ describe('isDefaultSort', () => {
     expect(isDefaultSort([{ col: 'status', dir: 'ASC' }])).toBe(false);
     expect(isDefaultSort([{ col: 'callsign', dir: 'DESC' }])).toBe(false);
     expect(isDefaultSort([{ col: 'callsign', dir: 'ASC' }, { col: 'status', dir: 'ASC' }])).toBe(false);
+  });
+});
+
+describe('matchingCountSql', () => {
+  it('CountSql_ScopesToDatasetAndPredicate', () => {
+    expect(matchingCountSql('2026-06-23', `"status" IN ('Reserved')`))
+      .toBe(`SELECT COUNT(*) AS n FROM register_history WHERE dataset = '2026-06-23' AND ("status" IN ('Reserved'))`);
+  });
+  it('CountSql_QuotesDatasetKey', () => {
+    // Defensive: the dataset key is interpolated as a literal, quote-escaped.
+    expect(matchingCountSql("o'dd", '1=1')).toContain(`dataset = 'o''dd'`);
+  });
+});
+
+describe('setDiffSql', () => {
+  const pred = `"status" IN ('Reserved')`;
+  const diff = setDiffSql('2025-06-04', '2026-06-23', pred);
+
+  it('Appeared_SelectsFromComparisonExcludingBaselineCleaned', () => {
+    // "Appeared" rows are in the later publication but their cleaned key is
+    // absent from the earlier one's filtered cohort.
+    expect(diff.appeared).toContain(`FROM register_history WHERE dataset = '2026-06-23' AND (${pred})`);
+    expect(diff.appeared).toContain(`cleaned NOT IN (SELECT cleaned FROM register_history WHERE dataset = '2025-06-04' AND (${pred}))`);
+  });
+  it('Disappeared_IsTheMirrorOfAppeared', () => {
+    expect(diff.disappeared).toContain(`FROM register_history WHERE dataset = '2025-06-04' AND (${pred})`);
+    expect(diff.disappeared).toContain(`cleaned NOT IN (SELECT cleaned FROM register_history WHERE dataset = '2026-06-23' AND (${pred}))`);
+  });
+  it('Changed_JoinsBothCohortsOnCleanedWhereStatusDiffers', () => {
+    expect(diff.changed).toContain(`ra.status AS status_before`);
+    expect(diff.changed).toContain(`rb.status AS status_after`);
+    expect(diff.changed).toContain(`ON ra.cleaned = rb.cleaned`);
+    expect(diff.changed).toContain(`WHERE ra.status != rb.status`);
+    // Each side carries the predicate so the comparison is view-scoped.
+    expect(diff.changed).toContain(`dataset = '2025-06-04' AND (${pred})`);
+    expect(diff.changed).toContain(`dataset = '2026-06-23' AND (${pred})`);
+  });
+  it('SetDiff_WithEmptyPredicate_ComparesWholePublications', () => {
+    const whole = setDiffSql('A', 'B', '1=1');
+    expect(whole.appeared).toBe(`SELECT callsign, cleaned, status FROM register_history WHERE dataset = 'B' AND (1=1) AND cleaned NOT IN (SELECT cleaned FROM register_history WHERE dataset = 'A' AND (1=1)) ORDER BY callsign`);
   });
 });
 
