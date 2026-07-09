@@ -15,7 +15,7 @@ describe('Home-page aggregate pre-rendering', () => {
   it('FlagsTable_RealArchive_PivotsEveryPublicationWithRecordsRow', () => {
     const html = renderFlagsTableHtml();
     // Dataset column headers link to their entry pages.
-    expect(html).toContain('<th class="num"><a href="datasets/open-data/2026-06-23/index.html">2026-06-23</a></th>');
+    expect(html).toContain('<th scope="col" class="num"><a href="datasets/open-data/2026-06-23/index.html">2026-06-23</a></th>');
     expect(html).toContain('<td>records</td>');
     expect(html).toContain('<td>forbidden-suffix</td>');
     // Newest-first column order: 2026 keys precede the 2023 import.
@@ -27,10 +27,18 @@ describe('Home-page aggregate pre-rendering', () => {
     // Series stored bare (20), displayed with the # slot marker, linked
     // to the series entity page.
     expect(html).toContain('<a href="series/20.html">2#0</a>');
-    expect(html).toContain('<td>total</td>');
     expect(html).toContain('·'); // zero-marker convention preserved
     expect(html).toContain('Excluded from this table:');
     expect(html).toContain('unparseable');
+    // Accessible 2-D table: column headers scoped, and each series row label
+    // (and the total row) is a scoped ROW header so a screen reader can resolve
+    // which series a data cell belongs to.
+    expect(html).toContain('<th scope="col"');
+    expect(html).toContain('<th scope="row">total</th>');
+    expect(html).toMatch(/<th scope="row"[^>]*><a href="series\/20\.html">/);
+    // The observed-but-unreferenced warning carries a text alternative, not a
+    // bare glyph that reads as "warning sign".
+    expect(html).toContain('<abbr title="observed in the register but absent from reference data">⚠</abbr>');
   });
 
   it('InjectHomeAggregates_StatisticsPage_ReplacesBothPlaceholders', () => {
