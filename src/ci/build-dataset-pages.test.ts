@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { buildDatasetPages, type DatasetPagesSummary } from './build-dataset-pages.ts';
+import { buildDatasetPages, dayGap, signedDelta, type DatasetPagesSummary } from './build-dataset-pages.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -26,7 +26,43 @@ afterAll(() => {
   fs.rmSync(outputDir, { recursive: true, force: true });
 });
 
+describe('Dataset navigation sidebar helpers', () => {
+  it('DayGap_EarlierPublication_IsNegative', () => {
+    expect(dayGap('2026-04-08', '2026-04-12')).toBe(-4);
+    expect(dayGap('2026-04-12', '2026-04-08')).toBe(4);
+    expect(dayGap('2026-06-23', '2026-06-23')).toBe(0);
+  });
+  it('SignedDelta_AgainstReference_CarriesSignAmountAndPercent', () => {
+    expect(signedDelta(102000, 103000)).toBe(' (−1,000; −1.0%)');
+    expect(signedDelta(103000, 102000)).toBe(' (+1,000; +1.0%)');
+  });
+  it('SignedDelta_NoChange_IsEmpty', () => {
+    // Identical figures (e.g. the current page vs itself) emit nothing.
+    expect(signedDelta(158318, 158318)).toBe('');
+  });
+  it('SignedDelta_ZeroReference_OmitsPercent', () => {
+    // Avoid a divide-by-zero producing Infinity% in the caption.
+    expect(signedDelta(5, 0)).toBe(' (+5)');
+  });
+});
+
 describe('Dataset pages build', () => {
+  it('DatasetPages_OpenDataEntryPage_CarriesNavigationSidebarWithDeltasAndAllocatedCounts', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    // The left navigation sidebar lists publications with allocated-callsign
+    // counts and links to the others.
+    expect(page).toContain('class="nav-side"');
+    expect(page).toContain('allocated callsigns');
+    expect(page).toContain('href="../2025-04-08/index.html"');
+    // The page's own entry is marked current, not linked.
+    expect(page).toContain('aria-current="page"');
+    // A neighbour carries a signed delta relative to this publication.
+    expect(page).toMatch(/\((?:\+|−)[\d,]+; (?:\+|−)[\d.]+%\)/);
+    // The cross-lane section links data-bearing FOI disclosures.
+    expect(page).toContain('FOI dataset');
+    expect(page).toMatch(/href="\.\.\/\.\.\/foi\/[^"]+\/index\.html"/);
+  });
+
   it('DatasetPages_RealArchive_BuildsIndexAndOnePagePerEntry', () => {
     expect(summary.entryCount).toBeGreaterThanOrEqual(35); // 7 open-data + 28 FOI
     expect(fs.existsSync(path.join(outputDir, 'datasets', 'index.html'))).toBe(true);
@@ -55,8 +91,10 @@ describe('Dataset pages build', () => {
     // earlier publication - 2025-06-08 is a declared-partial 1,074-row
     // truncation and must NOT be the changes-since baseline.
     expect(page).toContain('byte-identical to the earlier fetch');
-    expect(page).toContain('href="../2025-06-04/index.html"');
-    expect(page).not.toContain('href="../2025-06-08/index.html"');
+    expect(page).toContain('Compare with <a href="../2025-06-04/index.html">');
+    // The partial 2025-06-08 snapshot is reachable only from the collapsed
+    // "partial exports" section of the navigation, never as the diff baseline.
+    expect(page).toMatch(/partial exports?<\/summary>[\s\S]*?href="\.\.\/2025-06-08\/index\.html"/);
   });
 
   it('DatasetPages_OpenDataEntryPage_CarriesAccessibleDistributionCharts', () => {
