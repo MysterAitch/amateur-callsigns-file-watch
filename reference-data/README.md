@@ -104,6 +104,20 @@ settle) the question:
   letter-range block — so the mapping from table ranges to transmitted
   prefixes involves formation rules the table alone does not express.
 
+### `callsign-format.md` — permitted call-sign characters (ITU Article 19)
+
+Not tabular data but a reference note: what characters a call sign may
+contain per ITU Radio Regulations **Article 19 §III** — the letters A–Z and
+the digits, **accented letters explicitly excluded**, and nothing confusable
+with a distress signal. It records how that grounds the parser's plain
+alphabet (`A–Z`/`0–9` plus the notation characters `/` and `#`) and the
+browsers' legible-call-sign flagging, and the crucial caveat that policy is
+not the data — the mirror surfaces whatever is actually in a register value,
+flagging (never assuming away) anything outside the permitted set. This also
+supplies the Article 19 primary source the `itu-call-sign-series.csv` open
+question above asks for on the *alphabet* (the fuller series-to-formation
+mapping still merits its own verification). Source cited in the file.
+
 ## Conventions
 
 - CSV, UTF-8, LF, header row, minimal quoting — matching the repository's
