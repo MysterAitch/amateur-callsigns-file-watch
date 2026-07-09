@@ -1169,6 +1169,9 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
 
   const related: string[] = [];
   if (previousKey !== undefined) related.push(`<p style="margin:.1rem 0;font-size:.9rem"><b>Chronological:</b> ← <a href="../${escapeHtml(previousKey)}/index.html">Publication of ${humanDate(previousKey)}</a>.</p>`);
+  if (fs.existsSync(path.join(REPO_ROOT, 'reports', 'entries', `${key}.md`))) {
+    related.push(`<p style="margin:.1rem 0;font-size:.9rem"><b>Drill-down:</b> <a href="../../../reports/entries/${encodeURIComponent(key)}.html">Data-quality report for ${humanDate(key)}</a> — pattern tables, windowed matrices, pairwise comparison.</p>`);
+  }
 
   const body = [
     `<h1>${escapeHtml(pageTitle)}</h1>`,
@@ -1351,12 +1354,12 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
 // left alone, so nothing is double-linked. Report pages sit at /reports/, so
 // targets are one level up. This is what makes the value catalogue's series and
 // flags tables, and every entry key named in prose, click-through (issue #234).
-function linkKnownEntities(html: string, foiKeys: ReadonlySet<string>, series: ReadonlySet<string>, flags: ReadonlySet<string>): string {
+function linkKnownEntities(html: string, foiKeys: ReadonlySet<string>, series: ReadonlySet<string>, flags: ReadonlySet<string>, rel: string): string {
   return html.replace(/<code>([^<]+)<\/code>/g, (whole: string, token: string, offset: number, full: string) => {
     if (/<a\b[^>]*>\s*$/.test(full.slice(Math.max(0, offset - 80), offset))) return whole; // already linked
-    if (foiKeys.has(token)) return `<a href="../datasets/foi/${encodeURIComponent(token)}/index.html">${whole}</a>`;
-    if (series.has(token)) return `<a href="../series/${seriesSlug(token)}.html">${whole}</a>`;
-    if (flags.has(token)) return `<a href="../datasets/docs/flags.html">${whole}</a>`;
+    if (foiKeys.has(token)) return `<a href="${rel}datasets/foi/${encodeURIComponent(token)}/index.html">${whole}</a>`;
+    if (series.has(token)) return `<a href="${rel}series/${seriesSlug(token)}.html">${whole}</a>`;
+    if (flags.has(token)) return `<a href="${rel}datasets/docs/flags.html">${whole}</a>`;
     return whole;
   });
 }
@@ -1375,8 +1378,9 @@ export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: st
     const sourceDir = path.posix.dirname(doc.source.replace(/\\/g, '/'));
     rendered = rendered.replace(/href="([^":/?#]+\.md)"/g, (_m, target: string) =>
       `href="${REPO_URL}/blob/main/${sourceDir}/${target}"`);
-    // Named entities (FOI entries, prefix series, flags) deep-link to their pages.
-    rendered = linkKnownEntities(rendered, foiKeySet, series, flags);
+    // Named entities (FOI entries, prefix series, flags) deep-link to their
+    // pages. Standing reports sit at /reports/, one level below root.
+    rendered = linkKnownEntities(rendered, foiKeySet, series, flags, '../');
     const body = [
       `<p><small>Rendered from <a href="${REPO_URL}/blob/main/${doc.source}">${escapeHtml(doc.source)}</a> in the repository (the authoritative, sweep-generated copy). <a href="index.html">All reports →</a></small></p>`,
       '<hr>',
@@ -1388,6 +1392,29 @@ export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: st
 
   for (const doc of [...STANDING_REPORTS, ...STATUS_DOCS]) renderDoc(doc);
 
+  // Per-publication drill-downs (issue #51): rendered under /reports/entries/
+  // and linked from each publication's dataset page, not listed on the hub (to
+  // keep the index curated as it grows with every publication).
+  const entriesSourceDir = path.join(REPO_ROOT, 'reports', 'entries');
+  let entryReportCount = 0;
+  if (fs.existsSync(entriesSourceDir)) {
+    const entriesOutDir = path.join(reportsDir, 'entries');
+    fs.mkdirSync(entriesOutDir, { recursive: true });
+    for (const name of fs.readdirSync(entriesSourceDir).filter(n => n.endsWith('.md')).sort()) {
+      const slug = name.slice(0, -'.md'.length);
+      // Entry drill-downs sit at /reports/entries/, two levels below root.
+      const rendered = linkKnownEntities(renderMarkdown(fs.readFileSync(path.join(entriesSourceDir, name), 'utf8')), foiKeySet, series, flags, '../../');
+      const body = [
+        `<p><small>Per-publication data-quality drill-down, rendered from <a href="${REPO_URL}/blob/main/reports/entries/${name}">reports/entries/${name}</a>. Back to the <a href="../index.html">reports index</a> or this publication's <a href="../../datasets/open-data/${encodeURIComponent(slug)}/index.html">dataset page</a>.</small></p>`,
+        '<hr>',
+        rendered,
+      ];
+      fs.writeFileSync(path.join(entriesOutDir, `${slug}.html`), htmlPage(`Data-quality drill-down — ${slug}`, 2, body, { currentNav: 'Reports', sourcePath: `reports/entries/${name}` }));
+      urls.push(`${baseUrl}/reports/entries/${slug}.html`);
+      entryReportCount += 1;
+    }
+  }
+
   const listOf = (docs: RenderedDoc[], rel: string): string[] =>
     ['<ul>', ...docs.map(d => `<li><a href="${rel}${d.slug}.html">${escapeHtml(d.label)}</a> — ${d.blurb}</li>`), '</ul>'];
   const hubBody = [
@@ -1395,6 +1422,9 @@ export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: st
     '<p>Standing, deterministic views over the whole archive — regenerated by the normalise sweep and committed, so each is a stable snapshot whose change in a diff is itself a signal. Everything here derives from the same archived data the <a href="../datasets/index.html">datasets</a> publish and the <a href="../explore.html">Explore</a> page queries.</p>',
     '<h2>Standing reports</h2>',
     ...listOf(STANDING_REPORTS, ''),
+    ...(entryReportCount > 0
+      ? [`<p><small>Per-publication data-quality drill-downs (pattern tables, windowed matrices, pairwise comparisons) — ${entryReportCount} of them — are linked from each publication's own <a href="../datasets/index.html">dataset page</a>, where they belong in context.</small></p>`]
+      : []),
     '<h2>Register status</h2>',
     ...listOf(STATUS_DOCS, ''),
     '<h2>Data dictionary</h2>',
