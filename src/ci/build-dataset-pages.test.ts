@@ -93,6 +93,14 @@ describe('Dataset pages build', () => {
     expect(page).toContain('data-filter-col="status" data-filter-val="Allocated"');
     expect(page).toContain('data-filter-col="implied_class" data-filter-val="Full"');
     expect(page).toContain('data-filter-col="prefix_series" data-filter-val="M3"');
+    // The prefix label filters on click; only the small ↗ navigates to the
+    // series page (so the row is a filter, not a surprise navigation).
+    expect(page).toContain('class="seriesnav" href="../../../series/M3.html"');
+    // The Notable forbidden-suffix line is a cohort with two filter links:
+    // the whole set, and the "issued since the 2019 list" subset.
+    expect(page).toMatch(/data-browser-sql="SELECT[^"]*suffix IN \(SELECT suffix FROM ref_forbidden_suffixes\)[^"]*ORDER BY callsign"/);
+    expect(page).toContain('issued since the 2019 list');
+    expect(page).toContain("licence_version_original_start_date &gt;= '2019-08-01'");
   });
 
   it('DatasetPages_FoiEntryPage_HasNoScopedBrowser', () => {
