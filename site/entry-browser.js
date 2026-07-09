@@ -205,6 +205,16 @@ function enhance(section) {
   details.append(textarea, el('br'), runBtn);
   section.append(details);
 
+  // Wire anything carrying data-browser-sql (the distribution-chart rows)
+  // to load + run that scoped query here, so the charts are an entry point
+  // into exploring their long tails.
+  for (const node of document.querySelectorAll('[data-browser-sql]')) {
+    const sql = node.getAttribute('data-browser-sql');
+    const go = () => { textarea.value = sql; details.open = true; void runSql(); section.scrollIntoView({ block: 'start' }); };
+    node.addEventListener('click', go);
+    node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  }
+
   // Wire the sidebar status-breakdown rows to their matching chip, so the
   // At-a-glance counts double as filters (Roger's "click to filter").
   for (const node of document.querySelectorAll('[data-filter-status]')) {
