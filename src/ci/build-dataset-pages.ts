@@ -194,11 +194,22 @@ const ENTRY_STYLE = [
   '.chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:.6rem 0 .5rem}',
   '.chip{font-size:.82rem;padding:.25rem .6rem;border:1px solid var(--line);border-radius:6px;color:var(--muted);cursor:pointer;background:var(--slot)}',
   '.chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}.chip .c{opacity:.7;font-size:.76rem;margin-left:.3rem}',
-  '.brow[data-filter-status]{cursor:pointer}.brow[data-filter-status]:hover .lab{text-decoration:underline}',
+  '.brow[data-filter-col]{cursor:pointer}.brow[data-filter-col]:hover .lab{text-decoration:underline}',
   '.browser-status{font-size:.83rem;color:var(--muted);margin:.4rem 0}.diffnote{color:var(--accent);font-size:.8rem}',
+  // Coordinated browser: pills, toolbar, sortable headers, per-column filters
+  '.pills{display:flex;flex-wrap:wrap;gap:.35rem;margin:.4rem 0}.pill{display:inline-flex;align-items:center;gap:.3rem;font-size:.8rem;padding:.15rem .5rem;border:1px solid var(--accent);border-radius:999px;color:var(--accent);background:var(--slot)}',
+  '.pill.custom{border-style:dashed}.pill button{border:none;background:none;color:inherit;cursor:pointer;font-size:.85rem;padding:0;line-height:1}',
+  '.browser-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:.5rem 0 .2rem;font-size:.83rem}',
+  '.pagesize{width:4.2rem;font:inherit;font-size:.82rem;padding:.15rem .3rem;border:1px solid var(--line);border-radius:5px;background:transparent;color:inherit}',
+  'button.pg{font:inherit;font-size:.82rem;padding:.2rem .6rem;border:1px solid var(--line);border-radius:6px;background:var(--slot);color:var(--accent);cursor:pointer}button.pg:disabled{opacity:.4;cursor:default}',
+  'th.sortable{cursor:pointer;white-space:nowrap}th.sortable:hover{color:var(--accent)}',
+  'tr.colfilters th{padding:.15rem .3rem}tr.colfilters input{width:100%;min-width:5rem;font:inherit;font-size:.8rem;padding:.15rem .3rem;border:1px solid var(--line);border-radius:5px;background:transparent;color:inherit}',
+  'rect.barfilter,.chart tr.explore{cursor:pointer}rect.barfilter:hover{fill:var(--ink)}',
+  '.examples{margin-top:.5rem}.examples summary{cursor:pointer;color:var(--accent);font-size:.86rem}.exlist{display:flex;flex-direction:column;gap:.25rem;margin-top:.4rem;align-items:flex-start}',
+  'button.exq{font:inherit;font-size:.83rem;padding:.2rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--slot);color:var(--accent);cursor:pointer;text-align:left}',
   '.sqlbox{margin-top:.6rem}.sqlbox summary{cursor:pointer;color:var(--accent);font-size:.86rem}',
   '.sqlbox textarea{width:100%;font-family:ui-monospace,monospace;font-size:.85rem;padding:.5rem;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit;margin-top:.4rem}',
-  '.sqlbox button,.browser button.run{font:inherit;font-size:.85rem;padding:.3rem .8rem;margin-top:.4rem;border:1px solid var(--accent);border-radius:6px;background:var(--accent);color:#fff;cursor:pointer}',
+  '.sqlbox button.run{font:inherit;font-size:.85rem;padding:.3rem .8rem;margin-top:.4rem;border:1px solid var(--accent);border-radius:6px;background:var(--accent);color:#fff;cursor:pointer}',
   '.tier h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:.6rem 0 .45rem;font-weight:600}',
   '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:.5rem}',
   '.slot{border:1px solid var(--line);border-radius:9px;padding:.5rem .65rem;background:var(--slot);min-height:3.6rem}.slot .name{font-weight:650}.slot .meta{color:var(--muted);font-size:.77rem}.slot .desc{color:var(--muted);font-size:.78rem;line-height:1.25;margin-top:.15rem}',
@@ -425,6 +436,12 @@ function humaniseLabel(value: string): string {
   return value === '' ? '(blank)' : value;
 }
 
+// Marks a breakdown row / chart element as a filter trigger for the scoped
+// browser: clicking toggles this column=value into the shared facet set.
+function facetAttr(col: string, value: string): string {
+  return ` data-filter-col="${col}" data-filter-val="${escapeHtml(value)}" role="button" tabindex="0"`;
+}
+
 function breakdownRows(counts: [string, number][], total: number, linkFor?: (v: string) => string | undefined, rowAttr?: (v: string) => string): string {
   return counts.map(([label, n]) => {
     const pct = total > 0 ? Math.round((n / total) * 100) : 0;
@@ -535,9 +552,9 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
     '<section>',
     '<h2>At a glance</h2>',
     `<div class="headline">${bd.recordCount.toLocaleString('en-GB')} <small>register rows</small></div>`,
-    bd.status.length > 0 ? `<div class="bd"><h3>Status</h3>${breakdownRows(bd.status, bd.recordCount, undefined, label => ` data-filter-status="${escapeHtml(label)}" role="button" tabindex="0"`)}</div>` : '',
-    bd.impliedClass.length > 0 ? `<div class="bd"><h3>Licence level (implied)</h3>${breakdownRows(bd.impliedClass, bd.recordCount)}</div>` : '',
-    bd.prefixes.length > 0 ? `<div class="bd"><h3>Largest prefixes</h3>${breakdownRows(bd.prefixes.map(([p, n]): [string, number] => [displaySeries(p), n]), bd.recordCount, d => `../../../series/${seriesSlug(d)}.html`)}<div class="brow"><a href="../../../series/index.html">all series →</a></div></div>` : '',
+    bd.status.length > 0 ? `<div class="bd"><h3>Status</h3>${breakdownRows(bd.status, bd.recordCount, undefined, label => facetAttr('status', label))}</div>` : '',
+    bd.impliedClass.length > 0 ? `<div class="bd"><h3>Licence level (implied)</h3>${breakdownRows(bd.impliedClass, bd.recordCount, undefined, label => facetAttr('implied_class', label))}</div>` : '',
+    bd.prefixes.length > 0 ? `<div class="bd"><h3>Largest prefixes</h3>${breakdownRows(bd.prefixes.map(([p, n]): [string, number] => [displaySeries(p), n]), bd.recordCount, d => `../../../series/${seriesSlug(d)}.html`, label => facetAttr('prefix_series', seriesSlug(label)))}<div class="brow"><a href="../../../series/index.html">all series →</a></div></div>` : '',
     '<div class="attr">',
     `<div><b>Source</b> · ${meta.sourceUrl !== undefined ? `<a href="${escapeHtml(meta.sourceUrl)}">Ofcom open-data page →</a>` : 'Ofcom open-data page'}</div>`,
     `<div>Published ${escapeHtml(humanDate(publishedIso))}${meta.fetchedAt !== undefined ? ` · fetched ${escapeHtml(humanDate(meta.fetchedAt.slice(0, 10)))}` : ''}</div>`,
@@ -556,7 +573,11 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
 // the CSS custom properties; no client JS, no charting dependency (d3 and
 // friends belong in the interactive downstream graph layer, not this
 // static record).
-function svgBarChart(idBase: string, heading: string, summary: string, unit: string, data: [string, number][], exploreSql?: (label: string) => string): string {
+// facetExpr, when given, is a SQL expression (e.g. CAST(LENGTH(callsign) AS
+// TEXT)) that both the bars and the data-table rows carry as a filter
+// trigger, so clicking a bar toggles that value into the scoped browser's
+// facet set (crossfilter-style coordination). Trusted build-time SQL only.
+function svgBarChart(idBase: string, heading: string, summary: string, unit: string, data: [string, number][], facetExpr?: string): string {
   if (data.length === 0) return '';
   const max = Math.max(...data.map(d => d[1]));
   const width = 600; const chartH = 150; const padTop = 12; const padBottom = 28; const gap = data.length > 40 ? 1 : 2;
@@ -570,16 +591,16 @@ function svgBarChart(idBase: string, heading: string, summary: string, unit: str
     const cx = (x + barW / 2).toFixed(1);
     const value = data.length <= 14 ? `<text x="${cx}" y="${(y - 2).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--muted)">${n.toLocaleString('en-GB')}</text>` : '';
     const tick = i % labelEvery === 0 ? `<text x="${cx}" y="${(padTop + chartH + 14).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--muted)">${shown}</text>` : '';
-    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(barW, 0.5).toFixed(1)}" height="${h.toFixed(1)}" fill="var(--accent)"><title>${shown}: ${n.toLocaleString('en-GB')}</title></rect>${value}${tick}`;
+    const filterAttrs = facetExpr === undefined ? '' : ` class="barfilter" role="button" tabindex="0" data-filter-expr="${escapeHtml(facetExpr)}" data-filter-val="${escapeHtml(label)}"`;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(barW, 0.5).toFixed(1)}" height="${h.toFixed(1)}" fill="var(--accent)"${filterAttrs}><title>${shown}: ${n.toLocaleString('en-GB')}</title></rect>${value}${tick}`;
   }).join('');
-  // Each data-table row can carry a scoped-browser query so the long tails
-  // are explorable in one click (entry-browser.js wires data-browser-sql).
+  // Bars and data-table rows both toggle the value into the scoped browser
+  // (crossfilter-style): clicking adds to the current filters, not replaces.
   const tableRows = data.map(([label, n]) => {
-    const sql = exploreSql?.(label);
-    const attrs = sql === undefined ? '' : ` class="explore" role="button" tabindex="0" data-browser-sql="${escapeHtml(sql)}"`;
+    const attrs = facetExpr === undefined ? '' : ` class="explore" role="button" tabindex="0" data-filter-expr="${escapeHtml(facetExpr)}" data-filter-val="${escapeHtml(label)}"`;
     return `<tr${attrs}><td>${escapeHtml(humaniseLabel(label))}</td><td class="n">${n.toLocaleString('en-GB')}</td></tr>`;
   }).join('');
-  const exploreHint = exploreSql === undefined ? '' : ' — rows open in the browser above';
+  const exploreHint = facetExpr === undefined ? '' : ' — click a bar or row to filter the browser above';
   return `<figure class="chart"><figcaption>${escapeHtml(heading)}</figcaption>`
     + `<svg viewBox="0 0 ${width} ${padTop + chartH + padBottom}" role="img" aria-labelledby="${idBase}-t ${idBase}-d" preserveAspectRatio="xMidYMid meet">`
     + `<title id="${idBase}-t">${escapeHtml(heading)}</title><desc id="${idBase}-d">${escapeHtml(summary)}</desc>${parts}</svg>`
@@ -637,8 +658,8 @@ function distributionsSection(sourceDir: string, key: string): string[] {
   const recentTotal = dist.recentByClass.reduce((a, b) => a + b[1], 0);
   return [
     '<section><h2>Distributions</h2>',
-    dist.length.length > 0 ? svgBarChart('dist-length', 'Callsign length', `Number of callsigns of each length in characters, from ${dist.length[0][0]} to ${dist.length[dist.length.length - 1][0]}.`, 'length (characters)', dist.length, l => `SELECT callsign, cleaned, status, product FROM register_history WHERE dataset = '${key}' AND LENGTH(callsign) = ${l} ORDER BY callsign`) : '',
-    dist.issueYear.length > 0 && dist.dateColumn !== undefined ? svgBarChart('dist-year', `Issue year (by ${dateLabel})`, `Callsigns by year of ${dateLabel}, from ${dist.issueYear[0][0]} to ${dist.issueYear[dist.issueYear.length - 1][0]}.`, 'year', dist.issueYear, y => `SELECT callsign, cleaned, status, "${dist.dateColumn}" FROM register_history WHERE dataset = '${key}' AND substr("${dist.dateColumn}", 1, 4) = '${y}' ORDER BY "${dist.dateColumn}"`) : '',
+    dist.length.length > 0 ? svgBarChart('dist-length', 'Callsign length', `Number of callsigns of each length in characters, from ${dist.length[0][0]} to ${dist.length[dist.length.length - 1][0]}.`, 'length (characters)', dist.length, 'CAST(LENGTH(callsign) AS TEXT)') : '',
+    dist.issueYear.length > 0 && dist.dateColumn !== undefined ? svgBarChart('dist-year', `Issue year (by ${dateLabel})`, `Callsigns by year of ${dateLabel}, from ${dist.issueYear[0][0]} to ${dist.issueYear[dist.issueYear.length - 1][0]}.`, 'year', dist.issueYear, `substr("${dist.dateColumn}", 1, 4)`) : '',
     dist.recentByClass.length > 0 ? `<h3 style="font-size:.92rem;margin:.3rem 0 .4rem">New in the 12 months to ${escapeHtml(humanDate(key))}, by licence level (${recentTotal.toLocaleString('en-GB')} total)</h3>${breakdownRows(dist.recentByClass, recentTotal)}` : '',
     '</section>',
   ].filter(s => s !== '');

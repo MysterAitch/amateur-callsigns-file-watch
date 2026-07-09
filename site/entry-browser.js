@@ -1,20 +1,23 @@
-// Scoped data browser for open-data entry pages (variant Q, phase 3b).
-// Progressive enhancement over the static "Browse the data" preview: filter
-// chips and a SQL box that query the published master database scoped to
-// THIS publication (WHERE dataset = key) over HTTP range requests - the same
-// engine as the Explore page. With JS off (or in a Wayback capture) the
-// static preview the page already rendered is the complete, crawlable
-// record; this only adds interactivity. Frameworkless like app.js/explore.js.
+// Coordinated data browser ("hand-made crossfilter") for open-data entry
+// pages. Progressive enhancement over the static "Browse the data" preview:
+// a SQL-as-model engine where every affordance - facet chip, sidebar
+// breakdown row, chart bar, per-column input - composes ONE query against
+// the published master database scoped to THIS publication
+// (WHERE dataset = key), run over HTTP range requests (same engine as the
+// Explore page). With JS off the static preview is the complete, crawlable
+// record; this only adds interactivity. Frameworkless; d3/crossfilter belong
+// in the interactive downstream, not this static record.
 //
-// Paths resolve against import.meta.url (this file sits at the site root),
-// NOT document.baseURI - entry pages live three directories deep, so a
-// page-relative URL would 404. The .png / ?v= hosting workarounds are the
-// same as app.js (see the comments there).
+// Two modes, Home-Assistant-style: FILTERS mode (facets + per-column inputs
+// build a query you can view) and SQL mode (edit the composed query
+// directly; once hand-edited the facets show a custom-query state). Paths
+// resolve against import.meta.url (this file is at the site root; entry
+// pages live three directories deep). The .png / ?v= hosting workarounds are
+// the same as app.js.
 
 const { createDbWorker } = window;
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
 const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
-const ROW_CAP = 500;
 
 let workerPromise = null;
 async function openMaster() {
@@ -38,38 +41,52 @@ function el(tag, attrs = {}, children = []) {
   for (const c of children) node.append(c);
   return node;
 }
+function codeCell(value) { const c = el('code'); c.textContent = value ?? ''; return c; }
 
-function codeCell(value) {
-  const c = el('code');
-  c.textContent = value ?? '';
-  return c;
-}
-
-// A raw callsign rendered with visible markers for the invisible/odd
-// characters that make it differ from its cleaned key.
+// A raw callsign with visible markers for the invisible/odd characters that
+// make it differ from its cleaned key (shown in the raw ≠ cleaned view).
 function renderRawCallsign(raw) {
   const span = el('code');
   for (const ch of raw) {
     const cp = ch.codePointAt(0);
-    if (ch === ' ') span.append(el('span', { class: 'marker', text: '{NBSP}' }));
+    if (ch === ' ') span.append(el('span', { class: 'marker', text: '{NBSP}' }));
     else if (ch === '�') span.append(el('span', { class: 'marker', text: '{U+FFFD}' }));
     else if (cp < 0x20 || (cp >= 0x7f && cp < 0xa0)) span.append(el('span', { class: 'marker', text: `{U+${cp.toString(16).toUpperCase().padStart(4, '0')}}` }));
     else span.append(document.createTextNode(ch));
   }
   return span;
 }
-
-// The per-row note for the "raw ≠ cleaned" filter: what the difference IS.
 function describeDiff(raw, cleaned) {
   const notes = [];
-  if (/ /.test(raw)) notes.push('non-breaking space');
+  if (/ /.test(raw)) notes.push('non-breaking space');
   if (/�/.test(raw)) notes.push('replacement character (encoding damage)');
-  if (/^\s|\s$/.test(raw.replace(/ /g, ' '))) notes.push('leading/trailing whitespace');
-  else if (/\S[  ]+\S/.test(raw)) notes.push('space mid-callsign');
+  else if (/^\s|\s$/.test(raw)) notes.push('leading/trailing whitespace');
+  else if (/\S[  ]+\S/.test(raw)) notes.push('space mid-callsign');
   if (raw.toUpperCase() !== raw) notes.push('lowercase letters');
-  const stripped = raw.replace(/[A-Za-z0-9/\s �]/g, '');
-  if (stripped !== '') notes.push('other non-standard characters');
+  if (raw.replace(/[A-Za-z0-9/\s �]/g, '') !== '') notes.push('other non-standard characters');
   return notes.length > 0 ? notes.join('; ') : 'differs after cleaning';
+}
+
+const COLUMNS = ['callsign', 'cleaned', 'status', 'product', 'implied_class', 'prefix_series'];
+const TOGGLES = {
+  'raw-cleaned': { label: 'raw ≠ cleaned', sql: 'callsign != cleaned' },
+  forbidden: { label: 'forbidden-suffix', sql: 'suffix IN (SELECT suffix FROM ref_forbidden_suffixes)' },
+};
+const PAGE_SIZES = [25, 50, 100, 250, 500, 1000];
+
+// Per-column filter mini-language: comparison operators, GLOB wildcards
+// (* ?), ! to negate, bare text = contains. Complex boolean (a OR b) is a
+// power query for SQL mode, deliberately not reimplemented here.
+function parseColumnFilter(col, raw) {
+  const s = raw.trim();
+  if (s === '') return null;
+  const op = /^(>=|<=|!=|>|<|=)\s*(.+)$/.exec(s);
+  if (op !== null) return { sql: `"${col}" ${op[1]} ?`, params: [op[2].trim()] };
+  const negate = s.startsWith('!');
+  const body = (negate ? s.slice(1) : s).trim();
+  if (body === '') return null;
+  if (/[*?]/.test(body)) return { sql: `"${col}" ${negate ? 'NOT ' : ''}GLOB ?`, params: [body] };
+  return { sql: `"${col}" ${negate ? 'NOT ' : ''}LIKE ?`, params: [`%${body}%`] };
 }
 
 const section = document.querySelector('.browser[data-dataset]');
@@ -80,149 +97,272 @@ function enhance(section) {
   const staticView = section.querySelector('.browser-static');
   if (staticView === null) return;
 
-  const chipsBar = el('div', { class: 'chips' });
+  const state = {
+    facets: new Map(),        // key -> { field, isExpr, values:Set, exclude:bool }
+    toggles: new Set(),       // toggle ids present = active
+    columnFilters: new Map(), // col -> raw input string
+    sort: [{ col: 'callsign', dir: 'ASC' }], // multi-column: Shift/Ctrl-click appends
+    pageSize: 25,
+    page: 0,
+    customSql: null,          // string => SQL mode
+  };
+
+  // --- UI scaffold, inserted before the static preview ---
+  const chips = el('div', { class: 'chips' });
+  const pills = el('div', { class: 'pills' });
+  const toolbar = el('div', { class: 'browser-toolbar' });
   const statusLine = el('p', { class: 'browser-status' });
   const result = el('div', { class: 'browser-result' });
-  result.hidden = true;
-
-  // Status values come from the sidebar breakdown (already in the DOM), so
-  // no extra scan is needed to build the chips.
-  const statusValues = [...document.querySelectorAll('[data-filter-status]')].map(n => n.getAttribute('data-filter-status'));
-  const chips = [
-    { label: 'all', kind: 'reset' },
-    ...statusValues.map(s => ({ label: s, kind: 'status', value: s })),
-    { label: 'raw ≠ cleaned', kind: 'artefact' },
-    { label: 'forbidden-suffix', kind: 'forbidden' },
-  ];
-  const chipEls = new Map();
-  for (const c of chips) {
-    const chip = el('span', { class: 'chip', role: 'button', tabindex: '0', text: c.label });
-    const fire = () => void activate(c, chip);
-    chip.addEventListener('click', fire);
-    chip.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(); } });
-    chipEls.set(c, chip);
-    chipsBar.append(chip);
-  }
-
-  section.insertBefore(chipsBar, staticView);
+  section.insertBefore(chips, staticView);
+  section.insertBefore(pills, staticView);
+  section.insertBefore(toolbar, staticView);
   section.insertBefore(statusLine, staticView);
   staticView.after(result);
+  // The static preview was the no-JS fallback; once the live browser takes
+  // over it is redundant, so hide it (it stays in the DOM for crawlers).
+  staticView.hidden = true;
 
-  function setActive(chip) {
-    for (const c of chipEls.values()) c.classList.remove('active');
-    if (chip !== null) chip.classList.add('active');
+  // Toolbar: page size, pagination, SQL toggle.
+  const sizeInput = el('input', { type: 'number', min: '1', max: '1000', value: '25', list: 'page-sizes', class: 'pagesize', 'aria-label': 'rows per page' });
+  const sizeList = el('datalist', { id: 'page-sizes' }, PAGE_SIZES.map(s => el('option', { value: String(s) })));
+  const prevBtn = el('button', { type: 'button', class: 'pg', text: '‹ prev' });
+  const nextBtn = el('button', { type: 'button', class: 'pg', text: 'next ›' });
+  const pageInfo = el('span', { class: 'pageinfo browser-status' });
+  const sqlBtn = el('button', { type: 'button', class: 'pg', text: 'Edit SQL ▸' });
+  toolbar.append(el('label', { class: 'browser-status' }, ['rows/page ', sizeInput]), sizeList, prevBtn, nextBtn, pageInfo, sqlBtn);
+
+  // SQL box (collapsible). Shows the composed query; running it enters SQL mode.
+  const sqlBox = el('details', { class: 'sqlbox' });
+  sqlBox.append(el('summary', { text: 'SQL for the current view' }));
+  const textarea = el('textarea', { rows: '4', spellcheck: 'false', 'aria-label': 'SQL query' });
+  const runBtn = el('button', { type: 'button', class: 'run', text: 'Run as query' });
+  const resetSqlBtn = el('button', { type: 'button', class: 'pg', text: 'Back to filters' });
+  sqlBox.append(textarea, el('div', {}, [runBtn, ' ', resetSqlBtn]));
+  section.insertBefore(sqlBox, result);
+
+  // Interesting queries: curated starting points scoped to THIS
+  // publication (KQL-editor style). Selecting one loads and runs it in SQL
+  // mode; the facet UI then shows the custom-query state until reset. Only
+  // always-present columns are used so no example errors on older variants.
+  const EXAMPLES = [
+    { title: 'Status × licence level (counts)', sql: `SELECT status, implied_class, COUNT(*) AS n\nFROM register_history WHERE dataset = '${dataset}'\nGROUP BY status, implied_class ORDER BY n DESC` },
+    { title: 'Callsigns whose raw form needed cleaning', sql: `SELECT callsign, cleaned, status\nFROM register_history WHERE dataset = '${dataset}' AND callsign != cleaned\nORDER BY callsign` },
+    { title: 'Withheld-suffix callsigns', sql: `SELECT callsign, status, prefix_series\nFROM register_history WHERE dataset = '${dataset}'\n  AND suffix IN (SELECT suffix FROM ref_forbidden_suffixes)\nORDER BY callsign` },
+    { title: 'Longest callsigns first', sql: `SELECT callsign, LENGTH(callsign) AS len, status\nFROM register_history WHERE dataset = '${dataset}'\nORDER BY len DESC, callsign` },
+    { title: 'Reserved callsigns by prefix', sql: `SELECT prefix_series, COUNT(*) AS n\nFROM register_history WHERE dataset = '${dataset}' AND status = 'Reserved'\nGROUP BY prefix_series ORDER BY n DESC` },
+  ];
+  const examplesBox = el('details', { class: 'examples' });
+  examplesBox.append(el('summary', { text: 'Interesting queries' }));
+  const exList = el('div', { class: 'exlist' });
+  for (const ex of EXAMPLES) {
+    const button = el('button', { type: 'button', class: 'exq', text: ex.title });
+    button.addEventListener('click', () => { textarea.value = ex.sql; sqlBox.open = true; state.customSql = ex.sql; state.page = 0; void refresh(); });
+    exList.append(button);
+  }
+  examplesBox.append(exList);
+  section.insertBefore(examplesBox, result);
+
+  // --- query construction ---
+  function buildWhere() {
+    const clauses = ['dataset = ?'];
+    const params = [dataset];
+    for (const f of state.facets.values()) {
+      if (f.values.size === 0) continue;
+      const field = f.isExpr ? f.field : `"${f.field}"`;
+      const vals = [...f.values];
+      clauses.push(`${field} ${f.exclude ? 'NOT IN' : 'IN'} (${vals.map(() => '?').join(', ')})`);
+      params.push(...vals);
+    }
+    for (const id of state.toggles) clauses.push(`(${TOGGLES[id].sql})`);
+    for (const [col, raw] of state.columnFilters) {
+      const frag = parseColumnFilter(col, raw);
+      if (frag !== null) { clauses.push(`(${frag.sql})`); params.push(...frag.params); }
+    }
+    return { where: clauses.join(' AND '), params };
   }
 
-  async function activate(chipDef, chip) {
-    if (chipDef.kind === 'reset') {
-      setActive(null);
-      staticView.hidden = false;
-      result.hidden = true;
-      statusLine.textContent = '';
-      return;
-    }
-    setActive(chip);
-    staticView.hidden = true;
-    result.hidden = true;
+  function filtersSql() {
+    const { where, params } = buildWhere();
+    const cols = COLUMNS.map(c => `"${c}"`).join(', ');
+    const order = state.sort.map(s => `"${s.col}" ${s.dir}`).join(', ');
+    return { inner: `SELECT ${cols} FROM register_history WHERE ${where} ORDER BY ${order}`, where, params };
+  }
+
+  function composedSql() {
+    if (state.customSql !== null) return state.customSql;
+    return filtersSql().inner;
+  }
+
+  // --- run + render ---
+  async function refresh() {
     statusLine.textContent = 'querying this publication…';
-    let where; let params;
-    if (chipDef.kind === 'status') { where = 'status = ?'; params = [dataset, chipDef.value]; }
-    else if (chipDef.kind === 'artefact') { where = 'callsign != cleaned'; params = [dataset]; }
-    else { where = 'suffix IN (SELECT suffix FROM ref_forbidden_suffixes)'; params = [dataset]; }
-    const sql = `SELECT callsign, cleaned, status, product FROM register_history WHERE dataset = ? AND ${where} ORDER BY callsign LIMIT ${ROW_CAP + 1}`;
+    result.hidden = true;
+    let countSql; let pageSql; let params;
+    if (state.customSql !== null) {
+      countSql = `SELECT COUNT(*) AS n FROM (${state.customSql})`;
+      pageSql = `SELECT * FROM (${state.customSql}) LIMIT ? OFFSET ?`;
+      params = [];
+    } else {
+      const q = filtersSql();
+      countSql = `SELECT COUNT(*) AS n FROM register_history WHERE ${q.where}`;
+      pageSql = `${q.inner} LIMIT ? OFFSET ?`;
+      params = q.params;
+    }
     try {
       const started = performance.now();
       const worker = await openMaster();
-      const rows = await worker.db.query(sql, params);
-      renderScoped(rows, chipDef.kind === 'artefact', ((performance.now() - started) / 1000).toFixed(1));
+      const total = Number((await worker.db.query(countSql, params))[0].n);
+      const maxPage = Math.max(0, Math.ceil(total / state.pageSize) - 1);
+      if (state.page > maxPage) state.page = maxPage;
+      const rows = await worker.db.query(pageSql, [...params, state.pageSize, state.page * state.pageSize]);
+      const elapsed = ((performance.now() - started) / 1000).toFixed(1);
+      renderRows(rows, total, elapsed);
     } catch (err) {
       statusLine.textContent = `Query failed: ${String(err.message ?? err)}`;
     }
   }
 
-  function finishStatus(rows) {
-    const truncated = rows.length > ROW_CAP;
-    const shown = truncated ? rows.slice(0, ROW_CAP) : rows;
-    return { shown, label: `${shown.length}${truncated ? `+ (capped at ${ROW_CAP})` : ''} row${shown.length === 1 ? '' : 's'}` };
-  }
+  function renderRows(rows, total, elapsed) {
+    const from = total === 0 ? 0 : state.page * state.pageSize + 1;
+    const to = state.page * state.pageSize + rows.length;
+    statusLine.textContent = `${total.toLocaleString('en-GB')} matching row${total === 1 ? '' : 's'} in ${elapsed}s`;
+    pageInfo.textContent = total === 0 ? '' : `${from.toLocaleString('en-GB')}–${to.toLocaleString('en-GB')} of ${total.toLocaleString('en-GB')}`;
+    prevBtn.disabled = state.page === 0;
+    nextBtn.disabled = to >= total;
+    textarea.value = composedSql();
 
-  function renderScoped(rows, showDiff, elapsed) {
-    const { shown, label } = finishStatus(rows);
-    statusLine.textContent = `${label} in ${elapsed}s${showDiff ? ' — publisher whitespace/encoding artefacts; the difference is annotated per row.' : ''}`;
-    if (shown.length === 0) { result.replaceChildren(el('p', { class: 'browser-status', text: 'No rows.' })); result.hidden = false; return; }
-    const headers = showDiff ? ['callsign (raw)', 'cleaned', 'status', 'difference'] : ['callsign', 'cleaned', 'status', 'product'];
-    const tbody = el('tbody', {}, shown.map(r => el('tr', {}, [
-      el('td', {}, [showDiff ? renderRawCallsign(r.callsign) : codeCell(r.callsign)]),
-      el('td', {}, [codeCell(r.cleaned)]),
-      el('td', { text: r.status ?? '' }),
-      showDiff ? el('td', { class: 'diffnote', text: describeDiff(r.callsign, r.cleaned ?? '') }) : el('td', { text: r.product ?? '' }),
-    ])));
-    renderTable(headers, tbody);
-  }
-
-  function renderGeneric(rows, elapsed) {
-    const { shown, label } = finishStatus(rows);
-    statusLine.textContent = `${label} in ${elapsed}s`;
-    if (shown.length === 0) { result.replaceChildren(el('p', { class: 'browser-status', text: 'No rows.' })); result.hidden = false; return; }
-    const headers = Object.keys(shown[0]);
-    const tbody = el('tbody', {}, shown.map(r => el('tr', {}, headers.map(h =>
-      el('td', { text: r[h] === null ? 'NULL' : String(r[h]), class: r[h] === null ? 'browser-status' : '' })))));
-    renderTable(headers, tbody);
-  }
-
-  function renderTable(headers, tbody) {
-    const table = el('table', {}, [el('thead', {}, [el('tr', {}, headers.map(h => el('th', { text: h })))]), tbody]);
+    if (rows.length === 0) { result.replaceChildren(el('p', { class: 'browser-status', text: 'No matching rows.' })); result.hidden = false; return; }
+    const custom = state.customSql !== null;
+    const showDiff = !custom && state.toggles.has('raw-cleaned');
+    const headers = custom ? Object.keys(rows[0]) : [...COLUMNS, ...(showDiff ? ['difference'] : [])];
+    const thead = el('thead');
+    const headRow = el('tr');
+    for (const h of headers) {
+      const sortable = !custom && COLUMNS.includes(h);
+      const si = state.sort.findIndex(s => s.col === h);
+      const arrow = si >= 0 ? `${state.sort[si].dir === 'ASC' ? ' ▲' : ' ▼'}${state.sort.length > 1 ? String(si + 1) : ''}` : '';
+      const th = el('th', sortable ? { role: 'button', tabindex: '0', class: 'sortable', title: 'click to sort; Shift-click to add a secondary sort' } : {}, [`${h}${arrow}`]);
+      if (sortable) {
+        // Shift/Ctrl/Alt-click appends a secondary sort; plain click resets
+        // to a single-column sort, toggling direction if already sorting by it.
+        const sortBy = (multi) => {
+          const idx = state.sort.findIndex(s => s.col === h);
+          if (multi) {
+            if (idx >= 0) state.sort[idx].dir = state.sort[idx].dir === 'ASC' ? 'DESC' : 'ASC';
+            else state.sort.push({ col: h, dir: 'ASC' });
+          } else {
+            const wasAscSingle = state.sort.length === 1 && idx === 0 && state.sort[0].dir === 'ASC';
+            state.sort = [{ col: h, dir: wasAscSingle ? 'DESC' : 'ASC' }];
+          }
+          state.page = 0; void refresh();
+        };
+        th.addEventListener('click', e => sortBy(e.shiftKey || e.ctrlKey || e.altKey || e.metaKey));
+        th.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortBy(e.shiftKey); } });
+      }
+      headRow.append(th);
+    }
+    thead.append(headRow);
+    // Per-column filter inputs (filters mode only).
+    if (!custom) {
+      const filterRow = el('tr', { class: 'colfilters' });
+      for (const h of headers) {
+        if (h === 'difference') { filterRow.append(el('th')); continue; }
+        const input = el('input', { type: 'text', 'aria-label': `filter ${h}`, placeholder: '>= , * , !' });
+        input.value = state.columnFilters.get(h) ?? '';
+        const apply = () => { const v = input.value.trim(); if (v === '') state.columnFilters.delete(h); else state.columnFilters.set(h, v); state.page = 0; void refresh(); };
+        input.addEventListener('change', apply);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
+        filterRow.append(el('th', {}, [input]));
+      }
+      thead.append(filterRow);
+    }
+    const tbody = el('tbody', {}, rows.map(r => el('tr', {}, headers.map(h => {
+      if (h === 'callsign') return el('td', {}, [showDiff ? renderRawCallsign(r.callsign) : codeCell(r.callsign)]);
+      if (h === 'cleaned') return el('td', {}, [codeCell(r.cleaned)]);
+      if (h === 'difference') return el('td', { class: 'diffnote', text: describeDiff(r.callsign, r.cleaned ?? '') });
+      return el('td', { text: r[h] === null ? 'NULL' : String(r[h]), class: r[h] === null ? 'browser-status' : '' });
+    }))));
     const wrap = el('div', { class: 'overflow', style: 'overflow-x:auto' });
-    wrap.append(table);
+    wrap.append(el('table', {}, [thead, tbody]));
     result.replaceChildren(wrap);
     result.hidden = false;
+    renderPills();
   }
 
-  // The SQL box: scoped to this publication, with the read-only guard and
-  // the row cap that the Explore console uses.
-  const details = el('details', { class: 'sqlbox' });
-  details.append(el('summary', { text: '▸ Query this publication with SQL' }));
-  const textarea = el('textarea', { rows: '4', spellcheck: 'false' });
-  textarea.value = `SELECT callsign, cleaned, status, product\nFROM register_history\nWHERE dataset = '${dataset}' AND callsign != cleaned\nORDER BY callsign`;
-  const runBtn = el('button', { type: 'button', class: 'run', text: 'Run' });
-  const runSql = async () => {
-    const raw = textarea.value.trim().replace(/;+\s*$/, '');
-    if (!/^\s*(select|with)\b/i.test(raw)) { statusLine.textContent = 'read-only console: queries must start with SELECT or WITH'; return; }
-    setActive(null);
-    staticView.hidden = true;
-    result.hidden = true;
-    statusLine.textContent = 'querying…';
-    try {
-      const started = performance.now();
-      const worker = await openMaster();
-      const rows = await worker.db.query(`SELECT * FROM (${raw}) LIMIT ${ROW_CAP + 1}`);
-      renderGeneric(rows, ((performance.now() - started) / 1000).toFixed(1));
-    } catch (err) {
-      statusLine.textContent = `Query failed: ${String(err.message ?? err)}`;
+  // --- active-filter pills ---
+  function renderPills() {
+    pills.replaceChildren();
+    if (state.customSql !== null) {
+      const pill = el('span', { class: 'pill custom' }, ['custom SQL — ', el('button', { type: 'button', 'aria-label': 'back to filters', text: 'reset ✕' })]);
+      pill.querySelector('button').addEventListener('click', () => { state.customSql = null; state.page = 0; void refresh(); });
+      pills.append(pill);
+      return;
     }
-  };
-  runBtn.addEventListener('click', () => void runSql());
-  details.append(textarea, el('br'), runBtn);
-  section.append(details);
-
-  // Wire anything carrying data-browser-sql (the distribution-chart rows)
-  // to load + run that scoped query here, so the charts are an entry point
-  // into exploring their long tails.
-  for (const node of document.querySelectorAll('[data-browser-sql]')) {
-    const sql = node.getAttribute('data-browser-sql');
-    const go = () => { textarea.value = sql; details.open = true; void runSql(); section.scrollIntoView({ block: 'start' }); };
-    node.addEventListener('click', go);
-    node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    const add = (label, remove) => {
+      const pill = el('span', { class: 'pill' }, [label, ' ', el('button', { type: 'button', 'aria-label': `remove ${label}`, text: '✕' })]);
+      pill.querySelector('button').addEventListener('click', () => { remove(); state.page = 0; void refresh(); });
+      pills.append(pill);
+    };
+    for (const f of state.facets.values()) {
+      for (const v of f.values) add(`${f.label} ${f.exclude ? '≠' : '='} ${v === '' ? '(blank)' : v}`, () => { f.values.delete(v); if (f.values.size === 0) state.facets.delete(f.key); });
+    }
+    for (const id of state.toggles) add(TOGGLES[id].label, () => state.toggles.delete(id));
+    for (const [col, raw] of state.columnFilters) add(`${col}: ${raw}`, () => state.columnFilters.delete(col));
   }
 
-  // Wire the sidebar status-breakdown rows to their matching chip, so the
-  // At-a-glance counts double as filters (Roger's "click to filter").
-  for (const node of document.querySelectorAll('[data-filter-status]')) {
-    const value = node.getAttribute('data-filter-status');
-    const chipDef = chips.find(x => x.kind === 'status' && x.value === value);
-    if (chipDef === undefined) continue;
-    const trigger = () => { void activate(chipDef, chipEls.get(chipDef)); section.scrollIntoView({ block: 'start' }); };
+  // --- filter triggers (sidebar rows, chart bars, chips) ---
+  function facetKeyOf(node) {
+    const expr = node.getAttribute('data-filter-expr');
+    if (expr !== null) return { key: expr, field: expr, isExpr: true, label: node.closest('.bd,figure')?.querySelector('h3,figcaption')?.textContent?.trim() ?? expr };
+    const col = node.getAttribute('data-filter-col');
+    return { key: col, field: col, isExpr: false, label: col };
+  }
+  function toggleFacetValue(node) {
+    const { key, field, isExpr, label } = facetKeyOf(node);
+    const value = node.getAttribute('data-filter-val');
+    let facet = state.facets.get(key);
+    if (facet === undefined) { facet = { key, field, isExpr, label, values: new Set(), exclude: false }; state.facets.set(key, facet); }
+    if (facet.values.has(value)) facet.values.delete(value); else facet.values.add(value);
+    if (facet.values.size === 0) state.facets.delete(key);
+    state.customSql = null; state.page = 0; void refresh();
+    section.scrollIntoView({ block: 'start' });
+  }
+  for (const node of document.querySelectorAll('[data-filter-col],[data-filter-expr]')) {
+    const trigger = (e) => { if (e.target.closest('a') !== null) return; toggleFacetValue(node); };
     node.addEventListener('click', trigger);
-    node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger(); } });
+    node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger(e); } });
   }
+
+  // Quick chips: reset + the two boolean toggles.
+  const chipDefs = [
+    { label: 'clear filters', run: () => { state.facets.clear(); state.toggles.clear(); state.columnFilters.clear(); state.customSql = null; state.page = 0; } },
+    ...Object.entries(TOGGLES).map(([id, t]) => ({ label: t.label, toggle: id })),
+  ];
+  const chipEls = [];
+  for (const def of chipDefs) {
+    const chip = el('span', { class: 'chip', role: 'button', tabindex: '0', text: def.label });
+    const fire = () => {
+      if (def.run) def.run();
+      else { if (state.toggles.has(def.toggle)) state.toggles.delete(def.toggle); else state.toggles.add(def.toggle); state.customSql = null; state.page = 0; }
+      syncChips(); void refresh();
+    };
+    chip.addEventListener('click', fire);
+    chip.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(); } });
+    chipEls.push({ def, chip }); chips.append(chip);
+  }
+  function syncChips() { for (const { def, chip } of chipEls) chip.classList.toggle('active', def.toggle !== undefined && state.toggles.has(def.toggle)); }
+
+  // Toolbar wiring.
+  sizeInput.addEventListener('change', () => { const n = Math.max(1, Math.min(1000, Number(sizeInput.value) || 25)); state.pageSize = n; sizeInput.value = String(n); state.page = 0; void refresh(); });
+  prevBtn.addEventListener('click', () => { if (state.page > 0) { state.page -= 1; void refresh(); } });
+  nextBtn.addEventListener('click', () => { state.page += 1; void refresh(); });
+  sqlBtn.addEventListener('click', () => { sqlBox.open = true; textarea.value = composedSql(); textarea.focus(); });
+  runBtn.addEventListener('click', () => {
+    const raw = textarea.value.trim().replace(/;+\s*$/, '');
+    if (!/^\s*(select|with)\b/i.test(raw)) { statusLine.textContent = 'read-only: queries must start with SELECT or WITH'; return; }
+    state.customSql = raw; state.page = 0; void refresh();
+  });
+  resetSqlBtn.addEventListener('click', () => { state.customSql = null; state.page = 0; void refresh(); });
+
+  void refresh();
 }
