@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { catalogueField, renderValueCatalogue } from './value-catalogue.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { renderMarkdown } from '../shared/render-markdown.ts';
 
 // The value catalogue (issues #43/#223) enumerates every distinct value of the
 // tracked fields across both lanes with counts, flagging the unexpected.
@@ -41,30 +42,45 @@ describe('value catalogue', () => {
       ],
     }), ref);
     // Notable: a status outside the reasoned-about set, a prefix outside the
-    // reference table, and the licence-vocabulary drift.
-    expect(md).toContain('Live (50)');
-    expect(md).toContain('M2 (6)');
+    // reference table, and the licence-vocabulary drift. Values render as
+    // monospace code spans, so the precise value is unambiguous.
+    expect(md).toContain('`Live` (50)');
+    expect(md).toContain('`M2` (6)');
     expect(md).toContain('vocabulary drift');
   });
 
-  it('Render_FieldTable_ShowsCountsAndLanes', () => {
+  it('Render_FieldTable_ShowsCountsAndLanesWithValuesAsCodeSpans', () => {
     const md = renderValueCatalogue(tallies({
       status: [['Allocated', 100, ['open-data', 'foi']], ['(blank)', 2, ['foi']]],
     }), ref);
     expect(md).toContain('## `status` — 2 distinct');
-    expect(md).toContain('| Allocated | 100 | foi, open-data |');
+    expect(md).toContain('| `Allocated` | 100 | foi, open-data |');
   });
 
-  it('Render_CraftedValue_IsEscapedNotInjected', () => {
-    // A corrupt/crafted value must not break the table, inject markdown, or
-    // carry markup into a page rendered from the report (the CodeQL
-    // incomplete-sanitization fix).
+  it('Render_ValueWithEdgeWhitespace_IsVisibleInMonospace', () => {
+    // A leading space (table cells are trimmed on render, so it would
+    // otherwise vanish) surfaces as a codepoint marker; internal spaces of a
+    // multi-word value stay readable.
+    const md = renderValueCatalogue(tallies({
+      status: [[' Allocated', 5, ['foi']]],
+    }), ref);
+    expect(md).toContain('`{U+0020}Allocated`');
+  });
+
+  it('Render_CraftedValue_RendersInertNotInjected', () => {
+    // A corrupt/crafted value must not break the table row, inject inline
+    // markup, or become a live link/script when the committed report is
+    // rendered to HTML — it renders as literal monospace text. This is the
+    // property the CodeQL incomplete-sanitization fix guarantees.
     const md = renderValueCatalogue(tallies({
       status: [['a|b<script>[x](y)`', 1, ['foi']]],
     }), ref);
-    expect(md).not.toContain('<script>');    // raw angle-bracket markup neutralised
-    // Every metacharacter is backslash-escaped: pipe, angle brackets, link
-    // brackets and backtick can no longer break the cell or inject.
-    expect(md).toContain('a\\|b\\<script\\>\\[x\\](y)\\`');
+    // The structural characters that could break a code-span-in-a-table are
+    // neutralised as visible markers; no raw pipe or unescaped backtick.
+    expect(md).toContain('`a{U+007C}b<script>[x](y){U+0060}`');
+    const html = renderMarkdown(md);
+    expect(html).not.toContain('<script>');       // angle brackets escaped, not live
+    expect(html).toContain('<code>');             // rendered as a code span
+    expect(html).not.toMatch(/<a [^>]*href="y"/); // the [x](y) is inert, not a link
   });
 });
