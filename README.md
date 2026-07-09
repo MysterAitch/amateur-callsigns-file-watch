@@ -38,8 +38,8 @@ latest.json                            ...raw content as JSON (raw order)
 latest-raw-sorted.json                 ...raw content as JSON (sorted)
 latest-meta.json                       ...the newest entry's meta
 reference-data/                     <- hand-curated reference tables (RSLs, prefix formats, ITU series...)
-reports/                            <- generated data-quality reports
-site/                               <- the GitHub Pages lookup site (ADR 0003)
+reports/                            <- generated golden-master reports (value catalogue, drill-downs); published at /reports/
+site/                               <- the GitHub Pages site (ADR 0003): lookup, statistics, explore, compare, series, datasets, reports, glossary, about
 src/
   scheduled-run.ts                  <- Pattern-2 orchestrator; the systemd timer's ExecStart
   shared/                           <- source-agnostic archive, utils, FOI converters + extractor
@@ -297,10 +297,20 @@ Earlier revisions of this README listed several of these as non-goals or open qu
 - **Presentation** — built in-repo (ADR 0003): the SQLite database + lookup site deploy to GitHub Pages on every push to `main`.
 - **Post-fetch processing location** — settled (ADR 0001): in this repo, via scheduled workflows whose only write path is opening PRs. The LXC remains a minimal downloader.
 - **FOI datasets** — built as the second archive lane (ADR 0004), 25+ entries and counting.
+- **Canonical callsign forms** — the `cleaned` / `placeholder_form` join keys (ADR 0005) unify publisher artefacts and regional renderings without claiming identity.
+- **Publishing the dataset files + per-callsign FOI observations** (#149) — built: the Pages build publishes every archived entry's raw/extract/normalised files at stable URLs with Frictionless descriptors and a sitemap, and the lookup shows a callsign's FOI-witnessed history alongside the register.
+- **Standing reports + value catalogue as site pages** (#229/#51) — built: `/reports/` publishes the sweep-regenerated drill-downs and a cross-lane value catalogue (every tracked value with counts, per-source breadth, a per-publication timeline, and a record/callsign/allocated count breakdown), plus a licence-category normalisation (`reference-data/licence-category.csv`). A per-PR golden-master freshness gate (#243) keeps them from drifting.
+- **Accessibility + navigation** — every page carries a skip link and `<main>` landmark, scoped data-table headers, a uniform nav with breadcrumbs on deep pages, and a plain-language glossary + About page.
+
+Proposed (recorded, awaiting ratification):
+
+- **Reusable UI modules via Web Components** rather than a framework (ADR 0006).
+- **Migrating the coverage dashboard to a published site page** with a lightweight workflow alarm (ADR 0007).
+- **Offline-first / PWA** with a user-triggered full-dataset download (ADR 0008, #248).
 
 Still open:
 
-- **Publishing the raw + normalised dataset files via Pages** (with machine-readable schema descriptors and a Wayback-crawlable index) and folding per-callsign FOI observations into the lookup — tracked in [#149](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/149).
+- **Cross-dataset invariant probes** (overlap/complementarity/depletion/original-start-date, joined on `cleaned`) as a committed report — [#241](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/241); and a raw-vs-normalised value-gap layer — [#242](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/242).
 - **Restructuring `archive/` into per-source lanes** (`archive/open-data/{key}/` alongside `archive/foi/{key}/`) — tracked in [#151](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/151), LXC-coordinated.
 - **Further sources** (Business Radio Light, `data.gov.uk` WTR dump) — see [`docs/source-register.md`](docs/source-register.md).
 
