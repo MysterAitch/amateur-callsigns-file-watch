@@ -141,7 +141,8 @@ function enhance(section) {
   const nextBtn = el('button', { type: 'button', class: 'pg', text: 'next ›' });
   const pageInfo = el('span', { class: 'pageinfo browser-status' });
   const sqlBtn = el('button', { type: 'button', class: 'pg', text: 'Edit SQL ▸' });
-  toolbar.append(el('label', { class: 'browser-status' }, ['rows/page ', sizeInput]), sizeList, prevBtn, nextBtn, pageInfo, sqlBtn);
+  const dlBtn = el('button', { type: 'button', class: 'pg', text: '↓ CSV' });
+  toolbar.append(el('label', { class: 'browser-status' }, ['rows/page ', sizeInput]), sizeList, prevBtn, nextBtn, pageInfo, sqlBtn, dlBtn);
 
   // SQL box (collapsible). Shows the composed query; running it enters SQL mode.
   const sqlBox = el('details', { class: 'sqlbox' });
@@ -211,6 +212,7 @@ function enhance(section) {
   async function refresh() {
     statusLine.textContent = 'querying this publication…';
     result.hidden = true;
+    writeUrl(); // keep the shareable ?view= link in sync with the state
     let inner; let countSql;
     if (state.customSql !== null) {
       inner = state.customSql;
@@ -393,5 +395,79 @@ function enhance(section) {
   });
   resetSqlBtn.addEventListener('click', () => { state.customSql = null; state.page = 0; void refresh(); });
 
+  // --- shareable state: the current filters live in a ?view= query param
+  // (a query param, not the hash, so it doesn't clash with the :target
+  // inspect tabs), so any filtered view is a bookmarkable / shareable link. ---
+  function serializeState() {
+    const obj = {};
+    const facets = [...state.facets.values()].filter(f => f.values.size > 0)
+      .map(f => ({ k: f.key, field: f.field, x: f.isExpr, l: f.label, v: [...f.values], e: f.exclude }));
+    if (facets.length > 0) obj.f = facets;
+    if (state.toggles.size > 0) obj.t = [...state.toggles];
+    if (state.columnFilters.size > 0) obj.c = [...state.columnFilters];
+    const defaultSort = state.sort.length === 1 && state.sort[0].col === 'callsign' && state.sort[0].dir === 'ASC';
+    if (!defaultSort) obj.s = state.sort;
+    if (state.pageSize !== 25) obj.z = state.pageSize;
+    if (state.customSql !== null) obj.q = state.customSql;
+    return obj;
+  }
+  function writeUrl() {
+    const obj = serializeState();
+    const url = new URL(window.location.href);
+    if (Object.keys(obj).length === 0) url.searchParams.delete('view');
+    else url.searchParams.set('view', JSON.stringify(obj)); // searchParams handles encoding
+    window.history.replaceState(null, '', url);
+  }
+  function restoreFromUrl() {
+    const raw = new URL(window.location.href).searchParams.get('view');
+    if (raw === null) return;
+    let obj;
+    try { obj = JSON.parse(raw); } catch { return; }
+    for (const f of obj.f ?? []) state.facets.set(f.k, { key: f.k, field: f.field, isExpr: f.x, label: f.l, values: new Set(f.v), exclude: f.e });
+    for (const id of obj.t ?? []) if (TOGGLES[id] !== undefined) state.toggles.add(id);
+    for (const [col, v] of obj.c ?? []) state.columnFilters.set(col, v);
+    if (Array.isArray(obj.s)) state.sort = obj.s;
+    if (typeof obj.z === 'number') { state.pageSize = obj.z; sizeInput.value = String(obj.z); }
+    if (typeof obj.q === 'string') { state.customSql = obj.q; textarea.value = obj.q; }
+    syncChips();
+  }
+
+  // --- download the current view as CSV, with a query/meta comment header ---
+  const DOWNLOAD_CAP = 20000;
+  const csvField = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  async function downloadCsv() {
+    const prev = dlBtn.textContent;
+    dlBtn.disabled = true; dlBtn.textContent = '…';
+    try {
+      const inner = state.customSql !== null ? state.customSql : filtersSql().inner;
+      const worker = await openMaster();
+      const rows = await worker.db.query(`SELECT * FROM (${inner}) LIMIT ${DOWNLOAD_CAP + 1}`);
+      const truncated = rows.length > DOWNLOAD_CAP;
+      const shown = truncated ? rows.slice(0, DOWNLOAD_CAP) : rows;
+      const headers = shown.length > 0 ? Object.keys(shown[0]) : [];
+      const lines = [
+        `# UK amateur callsign register — publication ${dataset}`,
+        `# query: ${inner.replace(/\s+/g, ' ')}`,
+        `# rows: ${shown.length}${truncated ? ` (capped at ${DOWNLOAD_CAP.toLocaleString('en-GB')})` : ''}`,
+        `# generated: ${new Date().toISOString()}`,
+        `# source: this data mirror (derived from Ofcom's open-data publication)`,
+        headers.map(csvField).join(','),
+        ...shown.map(r => headers.map(h => csvField(r[h])).join(',')),
+      ];
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = el('a', { href: url, download: `${dataset}-view.csv` });
+      document.body.append(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      if (truncated) statusLine.textContent = `Downloaded ${DOWNLOAD_CAP.toLocaleString('en-GB')} rows (capped) — narrow the filters for the full set.`;
+    } catch (err) {
+      statusLine.textContent = `Download failed: ${String(err.message ?? err)}`;
+    } finally {
+      dlBtn.disabled = false; dlBtn.textContent = prev;
+    }
+  }
+  dlBtn.addEventListener('click', () => void downloadCsv());
+
+  restoreFromUrl();
   void refresh();
 }
