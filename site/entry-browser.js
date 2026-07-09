@@ -15,7 +15,7 @@
 // pages live three directories deep). The .png / ?v= hosting workarounds are
 // the same as app.js.
 
-import { COLUMNS, TOGGLES, PAGE_SIZES, buildPredicate, serializeFilterState, parseFilterState } from './browser-query.js';
+import { COLUMNS, TOGGLES, PAGE_SIZES, buildPredicate, serializeFilterState, parseFilterState, callsignCharMarker } from './browser-query.js';
 
 const { createDbWorker } = window;
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
@@ -45,15 +45,16 @@ function el(tag, attrs = {}, children = []) {
 }
 function codeCell(value) { const c = el('code'); c.textContent = value ?? ''; return c; }
 
-// A raw callsign with visible markers for the invisible/odd characters that
-// make it differ from its cleaned key (shown in the raw ≠ cleaned view).
+// A callsign rendered so every character is legible: plain visible glyphs
+// pass through, but any whitespace, control, format or replacement character
+// becomes a visible marker ({SP}, {NBSP}, {TAB}, {U+200B}, …). Used for EVERY
+// callsign cell, not just the raw≠cleaned view - a clean callsign renders
+// identically (all glyphs pass through), a damaged one stops hiding.
 function renderRawCallsign(raw) {
   const span = el('code');
   for (const ch of raw) {
-    const cp = ch.codePointAt(0);
-    if (ch === ' ') span.append(el('span', { class: 'marker', text: '{NBSP}' }));
-    else if (ch === '�') span.append(el('span', { class: 'marker', text: '{U+FFFD}' }));
-    else if (cp < 0x20 || (cp >= 0x7f && cp < 0xa0)) span.append(el('span', { class: 'marker', text: `{U+${cp.toString(16).toUpperCase().padStart(4, '0')}}` }));
+    const marker = callsignCharMarker(ch);
+    if (marker !== null) span.append(el('span', { class: 'marker', text: marker }));
     else span.append(document.createTextNode(ch));
   }
   return span;
@@ -251,7 +252,7 @@ function enhance(section) {
     const tbody = rows.length === 0
       ? el('tbody', {}, [el('tr', {}, [el('td', { colspan: String(headers.length), class: 'browser-status', text: 'No matching rows — adjust or clear the filters above.' })])])
       : el('tbody', {}, rows.map(r => el('tr', {}, headers.map(h => {
-        if (h === 'callsign') return el('td', {}, [showDiff ? renderRawCallsign(r.callsign) : codeCell(r.callsign)]);
+        if (h === 'callsign') return el('td', {}, [renderRawCallsign(r.callsign)]);
         if (h === 'cleaned') return el('td', {}, [codeCell(r.cleaned)]);
         if (h === 'difference') return el('td', { class: 'diffnote', text: describeDiff(r.callsign, r.cleaned ?? '') });
         return el('td', { text: r[h] === null ? 'NULL' : String(r[h]), class: r[h] === null ? 'browser-status' : '' });

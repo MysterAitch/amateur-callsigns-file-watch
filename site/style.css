@@ -108,3 +108,5 @@ button.example { font: inherit; font-size: 0.92em; background: transparent; bord
 .cmp-warn { border-left: 3px solid var(--warn); padding: 0.4rem 0.75rem; margin: 0.5rem 0; background: color-mix(in srgb, var(--warn) 8%, transparent); }
 .cmp-diffblock { margin: 0.5rem 0; }
 .cmp-diffblock > summary { cursor: pointer; }
+/* Visible markers for whitespace/odd characters in a callsign (shared with the entry browser) */
+.marker { color: var(--warn); font-size: 0.85em; }

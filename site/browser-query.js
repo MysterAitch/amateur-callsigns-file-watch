@@ -22,6 +22,32 @@ export const TOGGLES = {
 
 export const PAGE_SIZES = [25, 50, 100, 250, 500, 1000];
 
+// --- rendering helper shared by both browsers ---
+// Everything outside the plain callsign alphabet (letters, digits, / and #,
+// matching the parser's NON_PLAIN set) is flagged so it can't hide or pass
+// unnoticed. Returns null for a plain glyph (pass through unchanged); a
+// {friendly-name} or {U+XXXX} label for an INVISIBLE character (whitespace,
+// control, format, replacement - no glyph of its own); or the character
+// itself for a visible stray (a hyphen, dot, star) which stays readable but
+// is shown highlighted. Pure, so it is unit-tested; the DOM assembly and the
+// highlight styling live in each browser.
+const CALLSIGN_CHAR_NAMES = { 0x09: 'TAB', 0x0a: 'LF', 0x0d: 'CR', 0x20: 'SP', 0xa0: 'NBSP', 0xfeff: 'BOM', 0xfffd: 'U+FFFD' };
+export function callsignCharMarker(ch) {
+  if (/[a-zA-Z0-9#/]/.test(ch)) return null;
+  const cp = ch.codePointAt(0);
+  const named = CALLSIGN_CHAR_NAMES[cp];
+  if (named !== undefined) return `{${named}}`;
+  // Characters with no standalone glyph get the codepoint: \p{C}
+  // (control/format, incl. zero-width chars \s misses), \p{Z} (all
+  // separators), and \p{M} (combining marks - a lone accent would otherwise
+  // float onto the marker span). Any other non-plain character is a visible
+  // glyph of its own (a stray hyphen, an accented letter, an emoji), so show
+  // it as-is; the caller highlights it. `for...of` iterates by code point, so
+  // an astral emoji is one unit here.
+  if (/[\p{C}\p{Z}\p{M}]/u.test(ch)) return `{U+${cp.toString(16).toUpperCase().padStart(4, '0')}}`;
+  return ch;
+}
+
 // A SQL string literal, single quotes doubled. Values come from the data or
 // the user's own filter inputs; interpolating them (rather than binding ?)
 // makes the DISPLAYED SQL self-contained and runnable as-is - the whole

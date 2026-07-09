@@ -8,6 +8,7 @@ import {
   parseFilterState,
   matchingCountSql,
   setDiffSql,
+  callsignCharMarker,
   TOGGLES,
 } from './browser-query.js';
 
@@ -111,6 +112,42 @@ describe('isDefaultSort', () => {
     expect(isDefaultSort([{ col: 'status', dir: 'ASC' }])).toBe(false);
     expect(isDefaultSort([{ col: 'callsign', dir: 'DESC' }])).toBe(false);
     expect(isDefaultSort([{ col: 'callsign', dir: 'ASC' }, { col: 'status', dir: 'ASC' }])).toBe(false);
+  });
+});
+
+describe('callsignCharMarker', () => {
+  it('CharMarker_PlainGlyph_PassesThrough', () => {
+    // Ordinary callsign characters render as themselves (null = no marker).
+    for (const ch of 'M7TEE/2E0ABC') expect(callsignCharMarker(ch)).toBeNull();
+  });
+  it('CharMarker_Whitespace_UsesFriendlyName', () => {
+    expect(callsignCharMarker(' ')).toBe('{SP}');       // U+0020 plain space
+    expect(callsignCharMarker(' ')).toBe('{NBSP}'); // non-breaking space
+    expect(callsignCharMarker('\t')).toBe('{TAB}');
+  });
+  it('CharMarker_ReplacementAndControl_AreMarked', () => {
+    expect(callsignCharMarker('�')).toBe('{U+FFFD}');   // encoding damage
+    expect(callsignCharMarker('​')).toBe('{U+200B}');   // zero-width space (whitespace, no friendly name)
+    expect(callsignCharMarker('')).toBe('{U+0007}');   // control char
+  });
+});
+
+describe('callsignCharMarker — unicode edge cases', () => {
+  it('CharMarker_LowercaseAndHash_PassThrough', () => {
+    for (const ch of 'abc#') expect(callsignCharMarker(ch)).toBeNull();
+  });
+  it('CharMarker_VisibleStray_ShownAsGlyphToHighlight', () => {
+    // Visible-but-invalid characters stay readable (returned as-is) so the
+    // caller highlights them in place rather than hiding them behind a code.
+    expect(callsignCharMarker('-')).toBe('-');
+    expect(callsignCharMarker('.')).toBe('.');
+    expect(callsignCharMarker('é')).toBe('é');   // precomposed accented letter
+    expect(callsignCharMarker('😀')).toBe('😀');  // single-codepoint emoji (for..of yields one unit)
+  });
+  it('CharMarker_CombiningMark_ShowsCodepointNotFloatingAccent', () => {
+    // A lone combining accent has no glyph of its own; label it rather than
+    // let it float onto the marker span.
+    expect(callsignCharMarker(String.fromCodePoint(0x301))).toBe('{U+0301}');
   });
 });
 
