@@ -851,7 +851,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
   derivedSlots.push(downloadSlot('datapackage.json', 'datapackage.json', 'Frictionless', 'machine-readable manifest'));
 
   // At a glance (FOI): outcome, vintage, classes, attribution, notable.
-  const totalRows = Object.values(meta.files).flatMap(d => asSheetsIndicative(d.sheetsIndicative)?.sheets ?? []).reduce((a, s) => a + (s.approxRows ?? 0), 0);
+  const totalRows = foiApproxRecords(meta.files);
   const notable: string[] = [];
   if (totalRows > 0) notable.push(`<li><b>~${totalRows.toLocaleString('en-GB')}</b> records across the disclosed sheets.</li>`);
   if (meta.relatedEntries !== undefined && meta.relatedEntries.length > 0) notable.push(`<li><b>${meta.relatedEntries.length}</b> related ${meta.relatedEntries.length === 1 ? 'entry' : 'entries'} — see below.</li>`);
@@ -973,6 +973,16 @@ interface FoiNavEntry {
   title: string;
   vintage: string | null;
   classes: string[];
+  approxRecords: number;
+}
+
+// Approximate record count declared for an FOI entry (summed across the
+// disclosed sheets' approxRows). Approximate by nature - it is the publisher's
+// indicative figure - so it is always shown with a leading ~.
+function foiApproxRecords(files: FoiEntryMeta['files']): number {
+  return Object.values(files)
+    .flatMap(d => asSheetsIndicative(d.sheetsIndicative)?.sheets ?? [])
+    .reduce((a, s) => a + (s.approxRows ?? 0), 0);
 }
 
 // The left dataset-navigation sidebar, shared by both lanes so open-data and
@@ -986,7 +996,18 @@ interface FoiNavEntry {
 // levels under datasets/). Opposite side to the At-a-glance panel.
 function datasetNavSidebar(currentKey: string, summaries: PublicationSummary[], foiEntries: FoiNavEntry[]): string {
   const onOpenDataPage = /^\d{4}-\d{2}-\d{2}$/.test(currentKey);
+  const byNewest = <T extends { key: string }>(a: T, b: T): number => b.key.localeCompare(a.key);
   const current = onOpenDataPage ? summaries.find(s => s.key === currentKey) : undefined;
+  // Deltas compare each entry against a full-register baseline: the publication
+  // you are on, or - from an FOI page - the latest complete publication. So an
+  // FOI's figure reads as a share of the register (e.g. -99.9%, revealing a
+  // narrow request), never an absurd inverse against a tiny snapshot. Equal
+  // figures (the baseline vs itself) emit no delta.
+  const latestComplete = summaries.filter(s => !s.partial).sort(byNewest)[0];
+  const refCount = current?.recordCount ?? latestComplete?.recordCount;
+  const refAllocated = current?.allocated ?? latestComplete?.allocated;
+  const rowDelta = (n: number): string => refCount === undefined ? '' : signedDelta(n, refCount);
+  const allocDelta = (n: number): string => refAllocated === undefined ? '' : signedDelta(n, refAllocated);
   const markersOf = (s: PublicationSummary): string => {
     const m: string[] = [];
     if (s.partial) m.push('partial export');
@@ -996,18 +1017,14 @@ function datasetNavSidebar(currentKey: string, summaries: PublicationSummary[], 
   const item = (s: PublicationSummary): string => {
     const isCurrent = s.key === currentKey;
     const gap = dayGap(s.key, currentKey);
-    // Day-gap and deltas are relative to a publication, so only from an
-    // open-data page; an FOI page shows the open-data rows as plain figures.
+    // The day-gap is date arithmetic, so only meaningful from an open-data page.
     const gapHtml = !onOpenDataPage ? '' : isCurrent ? ' <small class="gap">this page</small>' : ` <small class="gap">(${gap > 0 ? '+' : '−'}${Math.abs(gap)} days)</small>`;
-    const caption = current !== undefined && !isCurrent
-      ? `${s.recordCount.toLocaleString('en-GB')} rows${signedDelta(s.recordCount, current.recordCount)}, ${s.allocated.toLocaleString('en-GB')} allocated callsigns${signedDelta(s.allocated, current.allocated)}${markersOf(s)}`
-      : `${s.recordCount.toLocaleString('en-GB')} rows, ${s.allocated.toLocaleString('en-GB')} allocated callsigns${markersOf(s)}`;
+    const caption = `${s.recordCount.toLocaleString('en-GB')} rows${rowDelta(s.recordCount)}, ${s.allocated.toLocaleString('en-GB')} allocated callsigns${allocDelta(s.allocated)}${markersOf(s)}`;
     const inner = `<span class="dpitch"><small class="src">Ofcom open data</small> <b>${escapeHtml(s.key)}</b>${gapHtml}</span><small class="dcap">${escapeHtml(caption)}</small>`;
     return isCurrent
       ? `<li class="dcur" aria-current="page">${inner}</li>`
       : `<li><a href="../../open-data/${escapeHtml(s.key)}/index.html">${inner}</a></li>`;
   };
-  const byNewest = (a: PublicationSummary, b: PublicationSummary): number => b.key.localeCompare(a.key);
   // Declared-complete publications (plus the page you are on, even if it is
   // itself partial) are the timeline. Declared-partial snapshots collapse into
   // an expandable section - still browseable, and their delta shows exactly
@@ -1017,20 +1034,25 @@ function datasetNavSidebar(currentKey: string, summaries: PublicationSummary[], 
   const partialsBlock = partials.length === 0 ? ''
     : `<details class="partials"><summary>${partials.length} partial export${partials.length === 1 ? '' : 's'}</summary><ol class="dlist">${partials.map(item).join('')}</ol></details>`;
   // FOI disclosures are a different lane (request-keyed, various vintages), so
-  // a separate collapsed section ordered by data vintage, newest first. On an
-  // FOI page the current entry is marked, and the section starts expanded.
+  // a separate collapsed section ordered by data vintage, newest first. Each
+  // shows its ~approximate record count with a delta to the register baseline -
+  // the whole point: a narrow request (say, reciprocal calls only) reads far
+  // below the register, a full snapshot near it. On an FOI page the current
+  // entry is marked and the section starts expanded.
   const foiOnCurrent = !onOpenDataPage && foiEntries.some(e => e.key === currentKey);
-  const foiItems = [...foiEntries]
-    .sort((a, b) => (b.vintage ?? '').localeCompare(a.vintage ?? ''))
-    .map(e => {
-      const isCurrent = e.key === currentKey;
-      const cls = e.classes.join(', ');
-      const caption = cls === '' ? escapeHtml(e.title) : `${escapeHtml(e.title)} · ${escapeHtml(cls)}`;
-      const inner = `<span class="dpitch"><small class="src">FOI</small> <b>${escapeHtml(e.vintage ?? 'undated')}</b></span><small class="dcap">${caption}</small>`;
-      return isCurrent
-        ? `<li class="dcur" aria-current="page">${inner}</li>`
-        : `<li><a href="../../foi/${escapeHtml(e.key)}/index.html">${inner}</a></li>`;
-    }).join('');
+  const foiItem = (e: FoiNavEntry): string => {
+    const isCurrent = e.key === currentKey;
+    const parts: string[] = [];
+    if (e.approxRecords > 0) parts.push(`~${e.approxRecords.toLocaleString('en-GB')} records${rowDelta(e.approxRecords)}`);
+    parts.push(e.title);
+    if (e.classes.length > 0) parts.push(e.classes.join(', '));
+    const gapHtml = isCurrent ? ' <small class="gap">this page</small>' : '';
+    const inner = `<span class="dpitch"><small class="src">FOI</small> <b>${escapeHtml(e.vintage ?? 'undated')}</b>${gapHtml}</span><small class="dcap">${escapeHtml(parts.join(' · '))}</small>`;
+    return isCurrent
+      ? `<li class="dcur" aria-current="page">${inner}</li>`
+      : `<li><a href="../../foi/${escapeHtml(e.key)}/index.html">${inner}</a></li>`;
+  };
+  const foiItems = [...foiEntries].sort((a, b) => (b.vintage ?? '').localeCompare(a.vintage ?? '')).map(foiItem).join('');
   const foiBlock = foiItems === '' ? ''
     : `<details class="foi-nav"${foiOnCurrent ? ' open' : ''}><summary>${foiEntries.length} FOI dataset${foiEntries.length === 1 ? '' : 's'}</summary><ol class="dlist">${foiItems}</ol></details>`;
   return `<nav class="nav-side" aria-label="Publications"><h2>Publications</h2><ol class="dlist">${timeline.map(item).join('')}</ol>${partialsBlock}${foiBlock}</nav>`;
@@ -1279,7 +1301,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   // to navigate to); correspondence-only entries stay in the dataset index.
   const foiNav: FoiNavEntry[] = foiKeys.map(k => {
     const m = readFoiEntryMeta(foiDir, k);
-    return { key: k, title: m.title, vintage: m.dataVintage, classes: m.datasetClasses };
+    return { key: k, title: m.title, vintage: m.dataVintage, classes: m.datasetClasses, approxRecords: foiApproxRecords(m.files) };
   }).filter(e => e.classes.length > 0);
   for (const key of openDataKeys) {
     const { files, zipBytes } = buildOpenDataEntry(outputDir, key, lastCompleteKey, summaries, foiNav);

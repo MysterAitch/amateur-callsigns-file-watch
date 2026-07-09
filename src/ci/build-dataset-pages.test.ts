@@ -58,9 +58,12 @@ describe('Dataset pages build', () => {
     expect(page).toContain('aria-current="page"');
     // A neighbour carries a signed delta relative to this publication.
     expect(page).toMatch(/\((?:\+|−)[\d,]+; (?:\+|−)[\d.]+%\)/);
-    // The cross-lane section links data-bearing FOI disclosures.
+    // The cross-lane section links data-bearing FOI disclosures, each with its
+    // approximate record count and a delta to the register baseline (so a
+    // narrow request reads far below the register, a full snapshot near it).
     expect(page).toContain('FOI dataset');
     expect(page).toMatch(/href="\.\.\/\.\.\/foi\/[^"]+\/index\.html"/);
+    expect(page).toMatch(/~[\d,]+ records \((?:\+|−)[\d,]+; (?:\+|−)[\d.]+%\)/);
     // The At-a-glance headline and the browse lead both carry the allocated
     // count alongside the bare row count.
     expect(page).toMatch(/register rows · [\d,]+ allocated/);
@@ -69,12 +72,15 @@ describe('Dataset pages build', () => {
 
   it('DatasetPages_FoiEntryPage_CarriesSameNavigationSidebar', () => {
     // Parity: FOI entry pages get the same left navigation, linking back to
-    // the open-data timeline (absolute figures - no delta from an FOI page).
+    // the open-data timeline, with deltas measured against the latest complete
+    // publication as the register baseline.
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'wdtk-1180568--licence-breakdown-duration-age', 'index.html'), 'utf8');
     expect(page).toContain('class="nav-side"');
     expect(page).toContain('href="../../open-data/2026-06-23/index.html"');
     // The current FOI entry is marked, not linked.
     expect(page).toContain('aria-current="page"');
+    // Earlier publications carry a delta to that baseline.
+    expect(page).toMatch(/\((?:\+|−)[\d,]+; (?:\+|−)[\d.]+%\)/);
   });
 
   it('DatasetPages_RealArchive_BuildsIndexAndOnePagePerEntry', () => {
