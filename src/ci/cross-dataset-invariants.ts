@@ -44,8 +44,11 @@ export interface DepletionRow {
 
 export interface CrossDataset { register: string; allocatedTotal: number; rows: DepletionRow[] }
 
+// Existence-guarded, matching the value-catalogue precedent: a missing file
+// yields no rows rather than throwing, so partial archives (test fixtures, a
+// sweep over entries that never normalised) degrade gracefully.
 function readCsv(file: string): Record<string, string>[] {
-  return parse(fs.readFileSync(file, 'utf8'), { columns: true, bom: true, skip_empty_lines: true }) as Record<string, string>[];
+  return fs.existsSync(file) ? parse(fs.readFileSync(file, 'utf8'), { columns: true, bom: true, skip_empty_lines: true }) as Record<string, string>[] : [];
 }
 
 // Join the FOI available-pool snapshots against the LATEST register on the
