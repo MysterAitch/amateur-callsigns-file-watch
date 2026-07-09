@@ -49,6 +49,30 @@ describe('value catalogue', () => {
     expect(md).toContain('vocabulary drift');
   });
 
+  it('Render_LicenceCategorySection_CollapsesVariantsAndFlagsUnmapped', () => {
+    // The "describe, then do": the product/licence_class variants collapse to
+    // canonical categories, blank is excluded, an unmapped non-blank surfaces.
+    const md = renderValueCatalogue(tallies({
+      'product / licence_class': [
+        ['Full', 100, ['foi']],
+        ['Amateur Full Radio Licence', 40, ['open-data']],
+        ['Amateur Foundation Radio Licence', 30, ['open-data']],
+        ['(blank)', 500, ['open-data', 'foi']],
+        ['Amateur Novice Radio Licence', 3, ['open-data']],
+      ],
+    }), ref);
+    expect(md).toContain('## Normalised licence category');
+    // Full's two spellings collapse to one 140-count category listing both.
+    expect(md).toContain('| `Full` | 140 |');
+    expect(md).toContain('`Full` (100)');
+    expect(md).toContain('`Amateur Full Radio Licence` (40)');
+    // Blank is called out as a non-category, not folded in.
+    expect(md).toContain('`(blank)` (500) is not a category');
+    // The unmapped non-blank variant is flagged for a decision (fail loud).
+    expect(md).toContain('Unmapped non-blank variants');
+    expect(md).toContain('`Amateur Novice Radio Licence` (3)');
+  });
+
   it('Render_FieldTable_ShowsCountsAndLanesWithValuesAsCodeSpans', () => {
     const md = renderValueCatalogue(tallies({
       status: [['Allocated', 100, ['open-data', 'foi']], ['(blank)', 2, ['foi']]],
