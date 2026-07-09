@@ -286,6 +286,12 @@ function placeholderOf(value) {
   if (gm) return `${gm[1]}#${gm[3]}${gm[4]}`;
   const two = /^2(?:([A-Z#])?)(\d)([A-Z]+)$/.exec(value);
   if (two) return `2#${two[2]}${two[3]}`;
+  // Visitor/reciprocal prefix Mx/ carries the RSL in position 2 (M/, MM/,
+  // MW/, ...), so every regional rendering normalises to M#/homecall and
+  // resolves to the canonical M/ register row - the same treatment core
+  // callsigns get.
+  const visitor = /^M(?:[A-Z#]?)\/(.+)$/.exec(value);
+  if (visitor) return `M#/${visitor[1]}`;
   return null;
 }
 

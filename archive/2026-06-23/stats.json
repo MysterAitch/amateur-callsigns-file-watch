@@ -2,8 +2,9 @@
   "callsignFlags": {
     "class-product-mismatch": 24,
     "forbidden-suffix": 2826,
+    "hash-in-register": 3,
     "lowercase": 2,
-    "malformed-home-callsign": 10,
+    "malformed-home-callsign": 7,
     "rsl-in-register": 22,
     "stripped-collision": 4,
     "unknown-prefix-series": 1,
