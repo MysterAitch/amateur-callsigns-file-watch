@@ -19,6 +19,7 @@ import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { buildFoiObservations } from '../shared/foi-observations.ts';
 import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { mdText } from '../shared/markdown.ts';
 
 // A blank source value is data (the source asserted an empty string); a value
 // the source does not carry at all is a different thing. Both render legibly.
@@ -107,12 +108,12 @@ function notableSection(cats: Map<string, FieldCatalogue>, ref: ReferenceData): 
   const status = cats.get('status');
   const unexpectedStatus = status?.values.filter(v => !EXPECTED_STATUS.has(v.value)) ?? [];
   if (unexpectedStatus.length > 0) {
-    lines.push(`- **Status values with no canonical mapping decided**: ${unexpectedStatus.map(v => `\`${v.value}\` (${v.count.toLocaleString('en-GB')})`).join(', ')}. Seen but not reasoned about as register states - candidates for reconciliation or an FOI on the state vocabulary.`);
+    lines.push(`- **Status values with no canonical mapping decided**: ${unexpectedStatus.map(v => `${mdText(v.value)} (${v.count.toLocaleString('en-GB')})`).join(', ')}. Seen but not reasoned about as register states - candidates for reconciliation or an FOI on the state vocabulary.`);
   }
   const prefixes = cats.get('prefix_series');
   const unknownPrefixes = prefixes?.values.filter(v => v.value !== BLANK && !ref.prefixSeries.has(v.value)) ?? [];
   if (unknownPrefixes.length > 0) {
-    lines.push(`- **Prefix series outside the reference table** (\`reference-data/prefix-formats.csv\`): ${unknownPrefixes.map(v => `\`${v.value}\` (${v.count.toLocaleString('en-GB')})`).join(', ')}. A supposed-to-be-empty prefix that is not empty (e.g. \`M2\`) is exactly the kind of surprise this catalogue exists to flag.`);
+    lines.push(`- **Prefix series outside the reference table** (\`reference-data/prefix-formats.csv\`): ${unknownPrefixes.map(v => `${mdText(v.value)} (${v.count.toLocaleString('en-GB')})`).join(', ')}. A supposed-to-be-empty prefix that is not empty (e.g. \`M2\`) is exactly the kind of surprise this catalogue exists to flag.`);
   }
   const product = cats.get(PRODUCT_FIELD);
   const crossLane = product?.values.filter(v => v.lanes.length > 1).length ?? 0;
@@ -159,7 +160,7 @@ export function renderValueCatalogue(tallies: Map<string, Map<string, { count: n
     out.push('| value | count | lanes |');
     out.push('|---|---:|---|');
     for (const v of cat.values) {
-      out.push(`| \`${v.value.replace(/\|/g, '\\|')}\` | ${v.count.toLocaleString('en-GB')} | ${v.lanes.join(', ')} |`);
+      out.push(`| ${mdText(v.value)} | ${v.count.toLocaleString('en-GB')} | ${v.lanes.join(', ')} |`);
     }
     out.push('');
   }

@@ -10,94 +10,94 @@ are shown, never assumed away.
 
 ## Notable
 
-- **Status values with no canonical mapping decided**: `Live` (103,740), `Forbidden` (5,431), `Quarantine` (1). Seen but not reasoned about as register states - candidates for reconciliation or an FOI on the state vocabulary.
-- **Prefix series outside the reference table** (`reference-data/prefix-formats.csv`): `M2` (6). A supposed-to-be-empty prefix that is not empty (e.g. `M2`) is exactly the kind of surprise this catalogue exists to flag.
+- **Status values with no canonical mapping decided**: Live (103,740), Forbidden (5,431), Quarantine (1). Seen but not reasoned about as register states - candidates for reconciliation or an FOI on the state vocabulary.
+- **Prefix series outside the reference table** (`reference-data/prefix-formats.csv`): M2 (6). A supposed-to-be-empty prefix that is not empty (e.g. `M2`) is exactly the kind of surprise this catalogue exists to flag.
 - **Licence product/class vocabulary drift**: 11 distinct variants across the corpus (6 appear in both lanes). The same class is written differently by source (e.g. `Full` vs `Amateur Full Radio Licence`) - these are passed through VERBATIM today (source fidelity), so this is the explicit, counted list of canonicalisation candidates.
 
 ## `status` — 7 distinct
 
 | value | count | lanes |
 |---|---:|---|
-| `Allocated` | 884,216 | foi, open-data |
-| `Reserved` | 419,905 | foi, open-data |
-| `Available` | 210,529 | foi, open-data |
-| `Live` | 103,740 | foi |
-| `Forbidden` | 5,431 | foi |
-| `(blank)` | 84 | foi, open-data |
-| `Quarantine` | 1 | foi |
+| Allocated | 884,216 | foi, open-data |
+| Reserved | 419,905 | foi, open-data |
+| Available | 210,529 | foi, open-data |
+| Live | 103,740 | foi |
+| Forbidden | 5,431 | foi |
+| (blank) | 84 | foi, open-data |
+| Quarantine | 1 | foi |
 
 ## `product / licence_class` — 11 distinct
 
 | value | count | lanes |
 |---|---:|---|
-| `(blank)` | 481,042 | foi, open-data |
-| `Amateur Full Radio Licence` | 395,518 | foi, open-data |
-| `Amateur Foundation Radio Licence` | 243,703 | foi, open-data |
-| `Full` | 205,827 | foi |
-| `Amateur Intermediate Radio Licence` | 132,931 | foi, open-data |
-| `Foundation` | 90,620 | foi |
-| `Intermediate` | 62,380 | foi |
-| `Amateur Club Radio Licence` | 11,450 | foi, open-data |
-| `Amateur Temporary Reciprocal Radio Licence` | 413 | foi, open-data |
-| `Amateur Full (Reciprocal) Radio Licence` | 15 | foi |
-| `Special Event Station` | 7 | open-data |
+| (blank) | 481,042 | foi, open-data |
+| Amateur Full Radio Licence | 395,518 | foi, open-data |
+| Amateur Foundation Radio Licence | 243,703 | foi, open-data |
+| Full | 205,827 | foi |
+| Amateur Intermediate Radio Licence | 132,931 | foi, open-data |
+| Foundation | 90,620 | foi |
+| Intermediate | 62,380 | foi |
+| Amateur Club Radio Licence | 11,450 | foi, open-data |
+| Amateur Temporary Reciprocal Radio Licence | 413 | foi, open-data |
+| Amateur Full (Reciprocal) Radio Licence | 15 | foi |
+| Special Event Station | 7 | open-data |
 
 ## `implied_class` — 4 distinct
 
 | value | count | lanes |
 |---|---:|---|
-| `Full` | 926,998 | foi, open-data |
-| `Foundation` | 439,959 | foi, open-data |
-| `Intermediate` | 256,975 | foi, open-data |
-| `(blank)` | 825 | foi, open-data |
+| Full | 926,998 | foi, open-data |
+| Foundation | 439,959 | foi, open-data |
+| Intermediate | 256,975 | foi, open-data |
+| (blank) | 825 | foi, open-data |
 
 ## `parse_status` — 4 distinct
 
 | value | count | lanes |
 |---|---:|---|
-| `parsed` | 1,623,938 | foi, open-data |
-| `visitor` | 590 | foi, open-data |
-| `unparseable` | 211 | foi, open-data |
-| `empty` | 18 | foi, open-data |
+| parsed | 1,623,938 | foi, open-data |
+| visitor | 590 | foi, open-data |
+| unparseable | 211 | foi, open-data |
+| empty | 18 | foi, open-data |
 
 ## `prefix_series` — 21 distinct
 
 | value | count | lanes |
 |---|---:|---|
-| `M6` | 207,572 | foi, open-data |
-| `20` | 202,654 | foi, open-data |
-| `M0` | 184,554 | foi, open-data |
-| `M3` | 154,199 | foi, open-data |
-| `G0` | 130,836 | foi, open-data |
-| `G4` | 130,817 | foi, open-data |
-| `G7` | 113,688 | foi, open-data |
-| `G1` | 83,267 | foi, open-data |
-| `G3` | 82,846 | foi, open-data |
-| `M7` | 78,188 | foi, open-data |
-| `G6` | 76,558 | foi, open-data |
-| `G8` | 69,325 | foi, open-data |
-| `21` | 52,519 | foi, open-data |
-| `M1` | 40,304 | foi, open-data |
-| `M5` | 7,209 | foi, open-data |
-| `G2` | 5,218 | foi, open-data |
-| `G5` | 2,376 | foi, open-data |
-| `M9` | 951 | open-data |
-| `M8` | 851 | open-data |
-| `(blank)` | 819 | foi, open-data |
-| `M2` | 6 | foi, open-data |
+| M6 | 207,572 | foi, open-data |
+| 20 | 202,654 | foi, open-data |
+| M0 | 184,554 | foi, open-data |
+| M3 | 154,199 | foi, open-data |
+| G0 | 130,836 | foi, open-data |
+| G4 | 130,817 | foi, open-data |
+| G7 | 113,688 | foi, open-data |
+| G1 | 83,267 | foi, open-data |
+| G3 | 82,846 | foi, open-data |
+| M7 | 78,188 | foi, open-data |
+| G6 | 76,558 | foi, open-data |
+| G8 | 69,325 | foi, open-data |
+| 21 | 52,519 | foi, open-data |
+| M1 | 40,304 | foi, open-data |
+| M5 | 7,209 | foi, open-data |
+| G2 | 5,218 | foi, open-data |
+| G5 | 2,376 | foi, open-data |
+| M9 | 951 | open-data |
+| M8 | 851 | open-data |
+| (blank) | 819 | foi, open-data |
+| M2 | 6 | foi, open-data |
 
 ## `flags` — 11 distinct
 
 | value | count | lanes |
 |---|---:|---|
-| `forbidden-suffix` | 49,571 | foi, open-data |
-| `rsl-in-register` | 192 | foi, open-data |
-| `lowercase` | 80 | foi, open-data |
-| `class-product-mismatch` | 63 | foi, open-data |
-| `excel-date-shape` | 61 | foi, open-data |
-| `malformed-home-callsign` | 52 | foi, open-data |
-| `hash-in-register` | 18 | foi, open-data |
-| `stripped-collision` | 17 | open-data |
-| `whitespace` | 17 | foi, open-data |
-| `encoding-failure` | 11 | open-data |
-| `unknown-prefix-series` | 6 | foi, open-data |
+| forbidden-suffix | 49,571 | foi, open-data |
+| rsl-in-register | 192 | foi, open-data |
+| lowercase | 80 | foi, open-data |
+| class-product-mismatch | 63 | foi, open-data |
+| excel-date-shape | 61 | foi, open-data |
+| malformed-home-callsign | 52 | foi, open-data |
+| hash-in-register | 18 | foi, open-data |
+| stripped-collision | 17 | open-data |
+| whitespace | 17 | foi, open-data |
+| encoding-failure | 11 | open-data |
+| unknown-prefix-series | 6 | foi, open-data |

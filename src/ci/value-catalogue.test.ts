@@ -42,8 +42,8 @@ describe('value catalogue', () => {
     }), ref);
     // Notable: a status outside the reasoned-about set, a prefix outside the
     // reference table, and the licence-vocabulary drift.
-    expect(md).toContain('`Live` (50)');
-    expect(md).toContain('`M2` (6)');
+    expect(md).toContain('Live (50)');
+    expect(md).toContain('M2 (6)');
     expect(md).toContain('vocabulary drift');
   });
 
@@ -52,6 +52,19 @@ describe('value catalogue', () => {
       status: [['Allocated', 100, ['open-data', 'foi']], ['(blank)', 2, ['foi']]],
     }), ref);
     expect(md).toContain('## `status` — 2 distinct');
-    expect(md).toContain('| `Allocated` | 100 | foi, open-data |');
+    expect(md).toContain('| Allocated | 100 | foi, open-data |');
+  });
+
+  it('Render_CraftedValue_IsEscapedNotInjected', () => {
+    // A corrupt/crafted value must not break the table, inject markdown, or
+    // carry markup into a page rendered from the report (the CodeQL
+    // incomplete-sanitization fix).
+    const md = renderValueCatalogue(tallies({
+      status: [['a|b<script>[x](y)`', 1, ['foi']]],
+    }), ref);
+    expect(md).not.toContain('<script>');    // raw angle-bracket markup neutralised
+    // Every metacharacter is backslash-escaped: pipe, angle brackets, link
+    // brackets and backtick can no longer break the cell or inject.
+    expect(md).toContain('a\\|b\\<script\\>\\[x\\](y)\\`');
   });
 });
