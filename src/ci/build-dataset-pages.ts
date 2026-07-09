@@ -480,6 +480,7 @@ const STANDING_REPORTS: RenderedDoc[] = [
   { source: 'reports/prefixes.md', slug: 'prefixes', label: 'Prefix-series distributions', blurb: 'how callsigns divide across prefix series (M0, 2E0, …) in each publication.' },
   { source: 'reports/regional-identifiers.md', slug: 'regional-identifiers', label: 'Regional-identifier distributions', blurb: 'the national/regional secondary locators seen across the corpus.' },
   { source: 'reports/class-product-mismatches.md', slug: 'class-product-mismatches', label: 'Class-product mismatches', blurb: 'every row whose licence class and licensing product disagree — a standing table of affected rows.' },
+  { source: 'reports/cross-dataset-invariants.md', slug: 'cross-dataset-invariants', label: 'Cross-dataset invariants', blurb: 'the FOI available-pool snapshots joined against the register — depletion over time, the still-absent decomposition, and the original-issue-date invariant.' },
 ];
 
 // Register-status prose that belongs with the reports rather than the data
