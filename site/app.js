@@ -125,7 +125,7 @@ async function queryMaster(sql, params = []) {
 let historyDatasetsPromise = null;
 function historyDatasets() {
   historyDatasetsPromise ??= queryMaster(
-    'SELECT dataset, record_count, intended_complete FROM history_datasets ORDER BY dataset');
+    'SELECT dataset, record_count, intended_complete, coverage_affecting FROM history_datasets ORDER BY dataset');
   return historyDatasetsPromise;
 }
 
@@ -168,7 +168,11 @@ async function registerHistoryCard(callsigns) {
       for (const d of datasets) {
         const row = byKey.get(`${d.dataset}|${callsign}`);
         const status = row ? row.status : '';
-        const complete = d.intended_complete === 'true';
+        // A publication counts as complete-for-absence only if it declared
+        // complete AND has no coverage-affecting quality observation: the
+        // confirmed 2025-06-04 blank-product filter declared complete but
+        // silently omitted ~45k records, so its absences are not evidence.
+        const complete = d.intended_complete === 'true' && (d.coverage_affecting ?? '') === '';
         const informative = row !== undefined || complete;
         let change = '';
         if (informative && previous !== null && status !== previous) {
@@ -177,9 +181,12 @@ async function registerHistoryCard(callsigns) {
           change = `${from} → ${to}`;
         }
         const link = el('a', { href: `datasets/open-data/${d.dataset}/index.html`, text: d.dataset });
+        const notEvidenceReason = (d.coverage_affecting ?? '') !== ''
+          ? 'known to omit records it declares (see the publication page)'
+          : `${d.intended_complete === 'false' ? 'declared partial' : 'undeclared scope'}, ${Number(d.record_count).toLocaleString('en-GB')} rows`;
         const statusText = row ? (status === '' ? '(blank status)' : status)
           : complete ? '(absent from this publication)'
-            : `(not in this publication — ${d.intended_complete === 'false' ? 'declared partial' : 'undeclared scope'}, ${Number(d.record_count).toLocaleString('en-GB')} rows; not evidence of absence)`;
+            : `(not in this publication — ${notEvidenceReason}; not evidence of absence)`;
         tbody.append(el('tr', {}, [
           el('td', {}, [link]),
           el('td', { text: statusText }),

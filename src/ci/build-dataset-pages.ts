@@ -546,12 +546,22 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey?: string
   const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as {
     provenance?: string;
     intendedCoverage?: { complete: boolean; scopeNotes?: string };
+    qualityObservations?: { statement: string; evidence: string; coverageAffecting?: boolean }[];
   };
   const provenanceNote = meta.provenance !== undefined && meta.provenance !== 'live'
     ? [`<p><em>Provenance: ${escapeHtml(meta.provenance.replace(/-/g, ' '))} — this entry was not fetched first-hand by the mirror; see <a href="meta.json">meta.json</a>'s <code>reconstructionNotes</code>.</em></p>`]
     : [];
   if (meta.intendedCoverage?.complete === false) {
     provenanceNote.push(`<p><em>⚠ Declared-partial publication: ${escapeHtml(meta.intendedCoverage.scopeNotes ?? 'the publisher presented this as a partial dataset')}. Absence of a callsign from this publication is not evidence of anything.</em></p>`);
+  }
+  // Verified-quality observations sit under the H1 beside provenance/scope:
+  // a coverage-affecting one (the 2025-06-04 filter) is the single most
+  // important caveat about the entry - it declared complete but is not.
+  for (const observation of meta.qualityObservations ?? []) {
+    const lead = observation.coverageAffecting === true
+      ? '⚠ Data-quality caveat (affects coverage): '
+      : 'Data-quality note: ';
+    provenanceNote.push(`<p><em>${lead}${escapeHtml(observation.statement)} <small>(${escapeHtml(observation.evidence)})</small></em></p>`);
   }
   const body = [
     `<h1>${escapeHtml(title)}</h1>`,
