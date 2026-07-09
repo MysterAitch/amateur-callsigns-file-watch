@@ -823,6 +823,25 @@ function applyParamsToForm(params) {
   }
 }
 
+// Any failure in a lookup — most likely the database could not be loaded — is
+// shown loudly (as an alert) in the result region, rather than leaving the
+// "querying…" placeholder to hang silently. This is the fail-loud contract.
+async function runLookup(criteria) {
+  const result = document.getElementById('result');
+  try {
+    await lookup(criteria);
+  } catch (err) {
+    console.error(err);
+    result.hidden = false;
+    result.replaceChildren(el('div', { class: 'error', role: 'alert' }, [
+      'The lookup database could not be loaded or queried. Try reloading the page, or ',
+      el('a', { href: 'datasets/index.html', text: 'browse the datasets' }),
+      ' instead.',
+    ]));
+  }
+  return result;
+}
+
 document.getElementById('lookup-form').addEventListener('submit', (event) => {
   event.preventDefault();
   const criteria = gatherCriteria();
@@ -830,7 +849,7 @@ document.getElementById('lookup-form').addEventListener('submit', (event) => {
     const url = new URL(window.location.href);
     url.search = criteriaToParams(criteria).toString();
     window.history.replaceState(null, '', url);
-    void lookup(criteria);
+    void runLookup(criteria);
   }
 });
 
@@ -848,7 +867,7 @@ if (!hasFilterParams) {
     const value = c.trim().toUpperCase();
     document.getElementById('callsign').value = value;
     document.title = `${value} — UK amateur callsign`;
-    void lookup(gatherCriteria()).then(() => document.getElementById('result').scrollIntoView({ block: 'start' }));
+    void runLookup(gatherCriteria()).then(() => document.getElementById('result').scrollIntoView({ block: 'start' }));
   }
 }
 
@@ -859,5 +878,16 @@ populateFilters().then(() => {
   applyParamsToForm(initialParams);
   const criteria = gatherCriteria();
   if (criteria.value === '' && !criteriaActive(criteria)) return;
-  void lookup(criteria).then(() => document.getElementById('result').scrollIntoView({ block: 'start' }));
+  void runLookup(criteria).then(() => document.getElementById('result').scrollIntoView({ block: 'start' }));
+}).catch((err) => {
+  // A database load failure would otherwise leave the filter panel silently
+  // empty; surface it loudly instead.
+  console.error(err);
+  const result = document.getElementById('result');
+  result.hidden = false;
+  result.replaceChildren(el('div', { class: 'error', role: 'alert' }, [
+    'The lookup database could not be loaded. Try reloading the page, or ',
+    el('a', { href: 'datasets/index.html', text: 'browse the datasets' }),
+    ' instead.',
+  ]));
 });

@@ -386,6 +386,19 @@ describe('Dataset pages build', () => {
     }
   });
 
+  it('StaticInteractivePages_HaveNoscriptFallbackAndLabelledControls', () => {
+    // The JS-dependent pages degrade with a no-JS fallback pointing at the
+    // crawlable data, and every SQL/lookup control has a programmatic label.
+    const index = fs.readFileSync(path.join('site', 'index.html'), 'utf8');
+    const explore = fs.readFileSync(path.join('site', 'explore.html'), 'utf8');
+    expect(index).toContain('<noscript>');
+    expect(explore).toContain('<noscript>');
+    // The Explore SQL textarea gains a real label (was placeholder-only).
+    expect(explore).toContain('<label for="sql-input">');
+    // The status line announces politely to assistive tech.
+    expect(explore).toContain('id="sql-status" class="muted" role="status"');
+  });
+
   it('SeriesPages_RealArchive_OnePagePerSeriesWithFactsAndCounts', () => {
     const index = fs.readFileSync(path.join(outputDir, 'series', 'index.html'), 'utf8');
     // Reference-known and observed-only series both get pages; the slug

@@ -23,6 +23,14 @@
   </header>
 
   <main>
+    <!-- No-JS fallback: the SQL console runs in your browser; the underlying
+         data is browsable without JavaScript from the dataset index. -->
+    <noscript>
+      <p class="muted">This SQL console runs in your browser and needs
+      JavaScript. Every publication is browsable without it from the
+      <a href="datasets/index.html">dataset index</a>, and the databases can be
+      <a href="datasets/index.html">downloaded</a> to query locally.</p>
+    </noscript>
     <section id="console">
       <form id="sql-form">
         <label for="db-select">Database</label>
@@ -30,9 +38,10 @@
           <option value="latest">latest — current publication + reference data (28 MB)</option>
           <option value="master">master — every publication + FOI observations (257 MB)</option>
         </select>
+        <label for="sql-input">SQL query</label>
         <textarea id="sql-input" rows="6" spellcheck="false" placeholder="SELECT … (read-only; results capped at 500 rows)"></textarea>
         <button type="submit">Run</button>
-        <span id="sql-status" class="muted"></span>
+        <span id="sql-status" class="muted" role="status"></span>
       </form>
       <div id="sql-result" hidden></div>
     </section>
