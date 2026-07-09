@@ -106,4 +106,17 @@ describe('Markdown renderer', () => {
     expect(html).toContain('href="../ofcom-285990--available-list-jun-2016/"');
     expect(html).toContain('href="raw-extract-letter.md"');
   });
+
+  it('RenderMarkdown_DetailsBlock_PassedThroughSoCollapsibleSectionsWork', () => {
+    // The sweep's reports wrap example tables in <details>/<summary>; these are
+    // passed through verbatim (not escaped to literal text), and the table
+    // inside still renders. Previously the tags rendered as escaped <p>&lt;...
+    const html = renderMarkdown('<details>\n<summary>Examples: whitespace</summary>\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n</details>');
+    expect(html).toContain('<details>');
+    expect(html).toContain('<summary>Examples: whitespace</summary>');
+    expect(html).toContain('</details>');
+    expect(html).not.toContain('&lt;details&gt;');
+    expect(html).not.toContain('&lt;summary&gt;');
+    expect(html).toContain('<td>1</td>'); // the table inside still renders
+  });
 });
