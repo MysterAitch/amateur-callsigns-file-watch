@@ -4,6 +4,23 @@
 fresh, iterated towards strategically. Draft for discussion — not yet
 ratified; delete or trim freely.*
 
+## Implementation status (updated 2026-07-09)
+
+Much of this draft is now built. Shipped: the lookup, statistics, in-browser
+Explore (SQL) and Compare surfaces; the dataset index publishing every entry's
+files at stable URLs; per-prefix-series pages; the standing reports + value
+catalogue at `/reports/` (with per-source breadth, per-publication timelines,
+record/callsign/allocated count breakdowns, and licence-category normalisation);
+a plain-language **glossary** and an **About** page; a uniform nav
+(Lookup · Statistics · Explore · Compare · Dataset index · Series · Reports ·
+Glossary · About) with breadcrumbs on deep pages; dense cross-linking between
+reports, series, datasets and the flag registry; and an accessibility baseline
+(skip links, `<main>` landmarks, scoped data-table headers, live-region status,
+labelled controls, target sizes, contrast). In flight / proposed: reusable
+components via Web Components (ADR 0006), a coverage dashboard page (ADR 0007),
+and offline-first/PWA (ADR 0008). The sections below are the original draft and
+may describe surfaces in more aspirational terms than the built ones.
+
 ## The audiences and their journeys
 
 | # | persona | arrives asking | entry point | journey |
