@@ -29,6 +29,7 @@ import { renderStatsJson, compareStats, markUnprintables, type EntryStats } from
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
 import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { writeValueCatalogue } from './value-catalogue.ts';
+import { writeCrossDatasetInvariants } from './cross-dataset-invariants.ts';
 import { mdCell } from '../shared/markdown.ts';
 
 interface SourceConverter {
@@ -193,6 +194,12 @@ export function runNormaliseSweep(): SweepReport {
   // the tracked fields across both lanes, regenerated and committed here so a
   // PR diff flags vocabulary drift and unexpected values.
   writeValueCatalogue();
+
+  // The cross-dataset invariant probes (issue #241): available-pool depletion,
+  // the still-absent decomposition and the original-issue-date invariant,
+  // joining the FOI lane against the register. Committed so a PR diff is a
+  // drift signal.
+  writeCrossDatasetInvariants();
 
   // The newest dataset's matrix always appears, even when no archive entry
   // changed bytes (e.g. a reports-only derivation): the PR body is the

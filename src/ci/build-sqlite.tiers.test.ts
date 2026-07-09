@@ -17,10 +17,15 @@ import { OBSERVATION_VALUE_COLUMNS } from '../shared/foi-observations.ts';
 let dataDir: string;
 let summary: Record<string, number>;
 
+// The full-corpus build is heavy; under coverage instrumentation on a shared
+// CI runner (competing with other real-archive test files for cores) its
+// wall-clock sits close to the old 300s ceiling and occasionally tipped over.
+// The headroom keeps the build honest without masking a real slowdown — a
+// genuine regression would still blow past this.
 beforeAll(() => {
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-tiers-'));
   summary = buildPublishedTiers(dataDir);
-}, 300_000);
+}, 480_000);
 
 afterAll(() => {
   fs.rmSync(dataDir, { recursive: true, force: true });
