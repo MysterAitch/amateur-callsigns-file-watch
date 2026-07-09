@@ -100,8 +100,14 @@ derived join keys, and per-row data-quality `flags` (vocabulary:
 `reference-data/flags.md`). Two columns are **derived join keys**, both
 following the same pattern — computed unifiers, not identity claims:
 
-- `placeholder_form` unifies regional renderings (`M7TEE`, `MW7TEE`, … →
-  `M#7TEE`).
+- `placeholder_form` unifies regional renderings by normalising the
+  Regional Secondary Locator slot to `#`. It spans every callsign family
+  the same way: core (`M7TEE`, `MW7TEE`, … → `M#7TEE`), Intermediate
+  (`20DLQ`, `2E0DLQ` → `2#0DLQ`), and visitor/reciprocal, where the RSL
+  sits in position 2 before the slash (`M/EI8DJ`, `MW/EI8DJ`, `MM/EI8DJ` →
+  `M#/EI8DJ`) — so a search for any rendering resolves to the one canonical
+  register row. The slash is preserved throughout: it is the only thing
+  distinguishing a reciprocal `M/1CNB` from a core `M1CNB`.
 - `cleaned` (v5) unifies publisher artefacts: uppercase, stripped of
   everything outside `A–Z`, `0–9` and `/` — so `2E1HON`,
   `2E1HON{U+00A0}` and `2e1hon` share one key, and longitudinal joins
