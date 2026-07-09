@@ -26,6 +26,11 @@ body {
 h1 { margin-bottom: 0.25rem; }
 .subtitle { color: color-mix(in srgb, var(--ink) 70%, transparent); max-width: 46rem; }
 a { color: var(--accent); }
+/* Nav links get a larger tap area (WCAG 2.5.8) without restructuring the strip. */
+nav a { display: inline-block; padding: 0.3rem 0.15rem; }
+/* Skip-to-content link: off-screen until focused, then visible top-left. */
+.skip { position: absolute; left: -999px; top: 0; z-index: 10; padding: 0.5rem 0.8rem; background: var(--paper); color: var(--accent); border: 1px solid var(--line); }
+.skip:focus { left: 0; }
 form { display: flex; gap: 0.5rem; align-items: center; margin: 1rem 0; flex-wrap: wrap; }
 input[type="text"] {
   font: inherit;
@@ -89,12 +94,12 @@ code, .mono { font-family: ui-monospace, monospace; }
 .status-ok { color: #2e7d32; }
 .card { border: 1px solid var(--line); border-radius: 6px; padding: 0.75rem 1rem; margin: 0.75rem 0; }
 .card h3 { margin: 0 0 0.4rem; font-size: 1rem; }
-.muted { color: color-mix(in srgb, var(--ink) 60%, transparent); }
+.muted { color: color-mix(in srgb, var(--ink) 70%, transparent); }
 /* Error state: a red border/tint carries the signal; the text keeps --ink so
    it stays legible (colour is not the only indicator, and contrast holds). */
 .error { border-left: 3px solid #c0392b; padding: 0.5rem 0.8rem; margin: 0.6rem 0; background: color-mix(in srgb, #c0392b 12%, transparent); }
 .overflow { overflow-x: auto; }
-footer { margin-top: 2rem; font-size: 0.85em; color: color-mix(in srgb, var(--ink) 55%, transparent); }
+footer { margin-top: 2rem; font-size: 0.85em; color: color-mix(in srgb, var(--ink) 70%, transparent); }
 
 /* Explore page: SQL console */
 #sql-form { flex-direction: column; align-items: stretch; }

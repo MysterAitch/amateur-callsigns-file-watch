@@ -397,6 +397,31 @@ describe('Dataset pages build', () => {
     expect(explore).toContain('<label for="sql-input">');
     // The status line announces politely to assistive tech.
     expect(explore).toContain('id="sql-status" class="muted" role="status"');
+    // Every static page also carries the skip link + main landmark.
+    for (const page of ['index', 'statistics', 'explore', 'compare']) {
+      const html = fs.readFileSync(path.join('site', `${page}.html`), 'utf8');
+      expect(html).toContain('<a class="skip" href="#main">Skip to content</a>');
+      expect(html).toContain('<main id="main">');
+    }
+  });
+
+  it('GeneratedPages_HaveMainLandmarkAndSkipLink', () => {
+    // Every generated page (index + entry templates) wraps its content in a
+    // <main id="main"> landmark reachable by a first-focusable skip link.
+    for (const rel of [['datasets', 'index.html'], ['reports', 'index.html'], ['series', 'M7.html'], ['datasets', 'open-data', '2026-06-23', 'index.html']]) {
+      const html = fs.readFileSync(path.join(outputDir, ...rel), 'utf8');
+      expect(html).toContain('<a class="skip" href="#main">Skip to content</a>');
+      expect(html).toContain('<main id="main">');
+      expect(html).toContain('</main>');
+    }
+  });
+
+  it('EntryPageSeriesNav_HasUniqueAccessibleNamePerSeries', () => {
+    // The ↗ series-nav link names its own series (was the identical "series
+    // page" for every row, useless to a screen reader).
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(page).toMatch(/aria-label="M#7 series page"/);
+    expect(page).not.toContain('aria-label="series page"');
   });
 
   it('SeriesPages_RealArchive_OnePagePerSeriesWithFactsAndCounts', () => {
