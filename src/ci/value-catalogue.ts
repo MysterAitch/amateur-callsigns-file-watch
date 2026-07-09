@@ -25,22 +25,30 @@ import { mdCode } from '../shared/markdown.ts';
 // the source does not carry at all is a different thing. Both render legibly.
 const BLANK = '(blank)';
 
-export interface ValueTally { value: string; count: number; lanes: string[] }
+// A value's per-source counts yield both breadth (how many distinct
+// publications/entries carry it) and its timeline (count per dated open-data
+// publication). bySource is exposed so the renderer can build the sparkline.
+export interface ValueTally { value: string; count: number; lanes: string[]; sources: number; bySource: Map<string, number> }
 export interface FieldCatalogue { field: string; distinct: number; total: number; values: ValueTally[] }
 
-type Bump = (field: string, value: string, lane: string, n?: number) => void;
+interface Cell { lanes: Set<string>; bySource: Map<string, number> }
+type Tallies = Map<string, Map<string, Cell>>;
+type Bump = (field: string, value: string, lane: string, source: string, n?: number) => void;
 
-// Accumulate counts into field -> value -> { count, lanes }. Pure over its
+// Accumulate into field -> value -> { lanes, per-source counts }. The source is
+// the publication date (open data) or the FOI entry key; keeping the count per
+// source is what makes breadth and the timeline derivable. Pure over its
 // inputs; the corpus reading is done by buildFieldTallies below.
-function makeTallies(): { tallies: Map<string, Map<string, { count: number; lanes: Set<string> }>>; bump: Bump } {
-  const tallies = new Map<string, Map<string, { count: number; lanes: Set<string> }>>();
-  const bump: Bump = (field, value, lane, n = 1) => {
+function makeTallies(): { tallies: Tallies; bump: Bump } {
+  const tallies: Tallies = new Map();
+  const bump: Bump = (field, value, lane, source, n = 1) => {
     let byValue = tallies.get(field);
     if (byValue === undefined) { byValue = new Map(); tallies.set(field, byValue); }
     const key = value === '' ? BLANK : value;
-    const cell = byValue.get(key);
-    if (cell === undefined) byValue.set(key, { count: n, lanes: new Set([lane]) });
-    else { cell.count += n; cell.lanes.add(lane); }
+    let cell = byValue.get(key);
+    if (cell === undefined) { cell = { lanes: new Set(), bySource: new Map() }; byValue.set(key, cell); }
+    cell.lanes.add(lane);
+    cell.bySource.set(source, (cell.bySource.get(source) ?? 0) + n);
   };
   return { tallies, bump };
 }
@@ -57,32 +65,32 @@ function tallyOpenData(bump: Bump, key: string): void {
     return fs.existsSync(p) ? parse(fs.readFileSync(p, 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[] : [];
   };
   for (const r of readCsv('normalised.csv')) {
-    bump('status', (r['status'] ?? '').trim(), 'open-data');
-    bump(PRODUCT_FIELD, (r['product'] ?? '').trim(), 'open-data');
+    bump('status', (r['status'] ?? '').trim(), 'open-data', key);
+    bump(PRODUCT_FIELD, (r['product'] ?? '').trim(), 'open-data', key);
   }
   for (const r of readCsv('components.csv')) {
-    bump('prefix_series', (r['prefix_series'] ?? '').trim(), 'open-data');
-    bump('implied_class', (r['implied_class'] ?? '').trim(), 'open-data');
-    bump('parse_status', (r['parse_status'] ?? '').trim(), 'open-data');
-    for (const f of (r['flags'] ?? '').split(';').filter(x => x !== '')) bump('flags', f, 'open-data');
+    bump('prefix_series', (r['prefix_series'] ?? '').trim(), 'open-data', key);
+    bump('implied_class', (r['implied_class'] ?? '').trim(), 'open-data', key);
+    bump('parse_status', (r['parse_status'] ?? '').trim(), 'open-data', key);
+    for (const f of (r['flags'] ?? '').split(';').filter(x => x !== '')) bump('flags', f, 'open-data', key);
   }
 }
 
 function tallyFoi(bump: Bump, ref: ReferenceData, foiDir: string): void {
   for (const obs of buildFoiObservations(foiDir)) {
     const status = obs.values['status'];
-    if (status !== null && status !== undefined) bump('status', status.trim(), 'foi');
+    if (status !== null && status !== undefined) bump('status', status.trim(), 'foi', obs.entry);
     const licenceClass = obs.values['licence_class'];
-    if (licenceClass !== null && licenceClass !== undefined) bump(PRODUCT_FIELD, licenceClass.trim(), 'foi');
+    if (licenceClass !== null && licenceClass !== undefined) bump(PRODUCT_FIELD, licenceClass.trim(), 'foi', obs.entry);
     const c = parseCallsign(obs.callsign, licenceClass ?? '', ref);
-    bump('prefix_series', c.prefixSeries, 'foi');
-    bump('implied_class', c.impliedClass, 'foi');
-    bump('parse_status', c.parseStatus, 'foi');
-    for (const f of c.flags) bump('flags', f, 'foi');
+    bump('prefix_series', c.prefixSeries, 'foi', obs.entry);
+    bump('implied_class', c.impliedClass, 'foi', obs.entry);
+    bump('parse_status', c.parseStatus, 'foi', obs.entry);
+    for (const f of c.flags) bump('flags', f, 'foi', obs.entry);
   }
 }
 
-export function buildFieldTallies(): Map<string, Map<string, { count: number; lanes: Set<string> }>> {
+export function buildFieldTallies(): Tallies {
   const { tallies, bump } = makeTallies();
   const ref = loadReferenceData();
   for (const key of listArchiveKeys().sort()) tallyOpenData(bump, key);
@@ -90,10 +98,23 @@ export function buildFieldTallies(): Map<string, Map<string, { count: number; la
   return tallies;
 }
 
+// The dated open-data publications, oldest first: the timeline axis every
+// value's sparkline is drawn against. FOI entries carry breadth but not a
+// position on this axis (their vintages are irregular), so they are excluded.
+export function openDataTimeline(): string[] {
+  return listArchiveKeys().sort();
+}
+
 // Order a field's values by count desc, then value, so the report is stable.
-export function catalogueField(field: string, byValue: Map<string, { count: number; lanes: Set<string> }>): FieldCatalogue {
+export function catalogueField(field: string, byValue: Map<string, Cell>): FieldCatalogue {
   const values: ValueTally[] = [...byValue.entries()]
-    .map(([value, { count, lanes }]) => ({ value, count, lanes: [...lanes].sort() }))
+    .map(([value, cell]) => ({
+      value,
+      count: [...cell.bySource.values()].reduce((s, n) => s + n, 0),
+      lanes: [...cell.lanes].sort(),
+      sources: cell.bySource.size,
+      bySource: cell.bySource,
+    }))
     .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
   return { field, distinct: values.length, total: values.reduce((s, v) => s + v.count, 0), values };
 }
@@ -178,13 +199,31 @@ function licenceCategorySection(cats: Map<string, FieldCatalogue>, ref: Referenc
   return lines;
 }
 
-export function renderValueCatalogue(tallies: Map<string, Map<string, { count: number; lanes: Set<string> }>>, ref: ReferenceData): string {
+// A per-value sparkline over the dated open-data publications: each bar is the
+// value's count in that publication, scaled to the value's OWN peak so its
+// temporal shape shows (present-then-gone reads differently from steady). `·`
+// marks a publication where the value is absent - the point of the timeline.
+const SPARK_BARS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+function sparkline(bySource: Map<string, number>, timeline: string[]): string {
+  const counts = timeline.map(key => bySource.get(key) ?? 0);
+  const peak = Math.max(0, ...counts);
+  return counts
+    .map(c => {
+      if (c === 0) return '·';
+      if (peak <= 1) return SPARK_BARS[SPARK_BARS.length - 1];
+      return SPARK_BARS[Math.round(((c - 1) / (peak - 1)) * (SPARK_BARS.length - 1))];
+    })
+    .join('');
+}
+
+export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timeline: string[] = []): string {
   const FIELD_ORDER = ['status', PRODUCT_FIELD, 'implied_class', 'parse_status', 'prefix_series', 'flags'];
   const cats = new Map<string, FieldCatalogue>();
   for (const field of FIELD_ORDER) {
     const byValue = tallies.get(field);
     if (byValue !== undefined) cats.set(field, catalogueField(field, byValue));
   }
+  const hasTimeline = timeline.length > 0;
 
   const out: string[] = [];
   out.push('# Value catalogue');
@@ -196,6 +235,16 @@ export function renderValueCatalogue(tallies: Map<string, Map<string, { count: n
   out.push('should not exist, a fresh vocabulary variant. Values are the *derived /');
   out.push('canonical* surface; nothing is dropped or force-mapped - unmapped values');
   out.push('are shown, never assumed away.');
+  out.push('');
+  out.push('`sources` is how many distinct publications/entries carry the value:');
+  out.push('breadth, not just volume - a value in 10 sources at 1 each reads very');
+  out.push('differently from one source at 10,000.');
+  if (hasTimeline) {
+    out.push(`\`timeline\` is its count across the ${timeline.length} dated open-data`);
+    out.push('publications, oldest→newest, each value scaled to its own peak');
+    out.push('(`·` = absent from that publication; FOI entries add to `sources` but');
+    out.push('not to this axis). A present-then-gone value is visible at a glance.');
+  }
   out.push('');
 
   const notable = notableSection(cats, ref);
@@ -213,10 +262,11 @@ export function renderValueCatalogue(tallies: Map<string, Map<string, { count: n
     if (cat === undefined) continue;
     out.push(`## \`${field}\` — ${cat.distinct} distinct`);
     out.push('');
-    out.push('| value | count | lanes |');
-    out.push('|---|---:|---|');
+    out.push(`| value | count | sources |${hasTimeline ? ' timeline |' : ''} lanes |`);
+    out.push(`|---|---:|---:|${hasTimeline ? '---|' : ''}---|`);
     for (const v of cat.values) {
-      out.push(`| ${mdCode(v.value)} | ${v.count.toLocaleString('en-GB')} | ${v.lanes.join(', ')} |`);
+      const spark = hasTimeline ? ` ${sparkline(v.bySource, timeline)} |` : '';
+      out.push(`| ${mdCode(v.value)} | ${v.count.toLocaleString('en-GB')} | ${v.sources} |${spark} ${v.lanes.join(', ')} |`);
     }
     out.push('');
   }
@@ -227,7 +277,7 @@ export const VALUE_CATALOGUE_PATH = 'reports/value-catalogue.md';
 
 export function writeValueCatalogue(): { path: string; changed: boolean } {
   const ref = loadReferenceData();
-  const markdown = renderValueCatalogue(buildFieldTallies(), ref);
+  const markdown = renderValueCatalogue(buildFieldTallies(), ref, openDataTimeline());
   // Written relative to the working directory - the SAME root the tallies read
   // archive/ from (CONSTANTS.DIRS.archive is relative). So a sweep run against
   // a fixture archive in a temp cwd writes ITS catalogue there, never
