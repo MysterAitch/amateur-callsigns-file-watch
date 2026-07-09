@@ -119,4 +119,25 @@ describe('Markdown renderer', () => {
     expect(html).not.toContain('&lt;summary&gt;');
     expect(html).toContain('<td>1</td>'); // the table inside still renders
   });
+
+  it('RenderMarkdown_CountDeltaCell_RendersBrAndSmallNotEscapedText', () => {
+    // The sweep's pattern-window tables put a count and a de-emphasised delta in
+    // one cell via <br><small>; these two safe tags must render, not show as
+    // literal &lt;br&gt; text (which a screen reader reads out).
+    const html = renderMarkdown('| pattern | a |\n|---|---|\n| `ANAAA` | 132379<br><small>-5830 (-4.2%)</small> |');
+    expect(html).toContain('132379<br><small>-5830 (-4.2%)</small>');
+    expect(html).not.toContain('&lt;br&gt;');
+    expect(html).not.toContain('&lt;small&gt;');
+    // But other markup stays escaped (no raw HTML injection through cells).
+    const scriptCell = renderMarkdown('| a |\n|---|\n| <script>x</script> |');
+    expect(scriptCell).toContain('&lt;script&gt;');
+  });
+
+  it('RenderMarkdown_Table_WrappedInHorizontalScrollContainer', () => {
+    // Wide report tables scroll within their own box, not the page body.
+    const html = renderMarkdown('| a | b |\n|---|---|\n| 1 | 2 |');
+    expect(html).toContain('<div style="overflow-x:auto">');
+    expect(html).toMatch(/<div style="overflow-x:auto">\s*<table>/);
+    expect(html).toContain('</table>\n</div>');
+  });
 });
