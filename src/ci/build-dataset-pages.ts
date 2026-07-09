@@ -1233,10 +1233,10 @@ export function seriesSlug(series: string): string {
 // latest-publication derived numbers, one page per prefix series observed
 // in the data or named in reference data. Fully static - archived captures
 // are complete. Returns the page URLs for the sitemap.
-function buildSeriesPages(outputDir: string, baseUrl: string): string[] {
+function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[]; series: Set<string> } {
   const keys = listArchiveKeys().sort();
   const newest = keys[keys.length - 1];
-  if (newest === undefined) return [];
+  if (newest === undefined) return { urls: [], series: new Set() };
   const componentsRows = parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, newest, 'components.csv'), 'utf8'),
     { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
   const normalisedRows = parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, newest, 'normalised.csv'), 'utf8'),
@@ -1336,7 +1336,7 @@ function buildSeriesPages(outputDir: string, baseUrl: string): string[] {
   ];
   fs.writeFileSync(path.join(seriesDir, 'index.html'), htmlPage('Prefix series', 1, indexBody, { sourcePath: 'reference-data/prefix-formats.csv' }));
   urls.unshift(`${baseUrl}/series/index.html`);
-  return urls;
+  return { urls, series: new Set(allSeries) };
 }
 
 // Render the standing reports and the register-status doc onto the site under
@@ -1344,8 +1344,26 @@ function buildSeriesPages(outputDir: string, baseUrl: string): string[] {
 // data-dictionary docs are cross-referenced here (their own pages are built
 // with the dataset index, their contextual citations left in place). Returns
 // the page URLs so the caller can seed the sitemap.
-export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: string[]): string[] {
+// Cross-link a rendered report: rewrite a `<code>TOKEN</code>` span into a link
+// when the token names a canonical page elsewhere on the site — an archived FOI
+// entry (its dataset page), a prefix series (its series page), or a
+// data-quality flag (the flag registry). A span already inside an anchor is
+// left alone, so nothing is double-linked. Report pages sit at /reports/, so
+// targets are one level up. This is what makes the value catalogue's series and
+// flags tables, and every entry key named in prose, click-through (issue #234).
+function linkKnownEntities(html: string, foiKeys: ReadonlySet<string>, series: ReadonlySet<string>, flags: ReadonlySet<string>): string {
+  return html.replace(/<code>([^<]+)<\/code>/g, (whole: string, token: string, offset: number, full: string) => {
+    if (/<a\b[^>]*>\s*$/.test(full.slice(Math.max(0, offset - 80), offset))) return whole; // already linked
+    if (foiKeys.has(token)) return `<a href="../datasets/foi/${encodeURIComponent(token)}/index.html">${whole}</a>`;
+    if (series.has(token)) return `<a href="../series/${seriesSlug(token)}.html">${whole}</a>`;
+    if (flags.has(token)) return `<a href="../datasets/docs/flags.html">${whole}</a>`;
+    return whole;
+  });
+}
+
+export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: string[], series: ReadonlySet<string>, flags: ReadonlySet<string>): string[] {
   const urls: string[] = [];
+  const foiKeySet = new Set(foiKeys);
   const reportsDir = path.join(outputDir, 'reports');
   fs.mkdirSync(reportsDir, { recursive: true });
 
@@ -1357,10 +1375,8 @@ export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: st
     const sourceDir = path.posix.dirname(doc.source.replace(/\\/g, '/'));
     rendered = rendered.replace(/href="([^":/?#]+\.md)"/g, (_m, target: string) =>
       `href="${REPO_URL}/blob/main/${sourceDir}/${target}"`);
-    // Entry keys named in the prose deep-link to their dataset pages.
-    for (const key of foiKeys) {
-      rendered = rendered.replaceAll(`<code>${key}</code>`, `<a href="../datasets/foi/${encodeURIComponent(key)}/index.html"><code>${key}</code></a>`);
-    }
+    // Named entities (FOI entries, prefix series, flags) deep-link to their pages.
+    rendered = linkKnownEntities(rendered, foiKeySet, series, flags);
     const body = [
       `<p><small>Rendered from <a href="${REPO_URL}/blob/main/${doc.source}">${escapeHtml(doc.source)}</a> in the repository (the authoritative, sweep-generated copy). <a href="index.html">All reports →</a></small></p>`,
       '<hr>',
@@ -1511,8 +1527,10 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   fs.mkdirSync(datasetsDir, { recursive: true });
   fs.writeFileSync(path.join(datasetsDir, 'index.html'), htmlPage('Dataset index', 1, indexBody, { currentNav: 'Dataset index', sourcePath: 'archive' }));
 
-  pageUrls.push(...buildSeriesPages(outputDir, baseUrl));
-  pageUrls.push(...buildReportPages(outputDir, baseUrl, foiKeys));
+  const seriesPages = buildSeriesPages(outputDir, baseUrl);
+  pageUrls.push(...seriesPages.urls);
+  const flagNames = new Set(parseFlagRegistry().map(r => r.flag));
+  pageUrls.push(...buildReportPages(outputDir, baseUrl, foiKeys, seriesPages.series, flagNames));
 
   const sitemap = [
     '<?xml version="1.0" encoding="UTF-8"?>',
