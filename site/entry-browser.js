@@ -15,6 +15,8 @@
 // pages live three directories deep). The .png / ?v= hosting workarounds are
 // the same as app.js.
 
+import { COLUMNS, TOGGLES, PAGE_SIZES, buildPredicate, serializeFilterState, parseFilterState } from './browser-query.js';
+
 const { createDbWorker } = window;
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
 const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
@@ -65,40 +67,6 @@ function describeDiff(raw, cleaned) {
   if (raw.toUpperCase() !== raw) notes.push('lowercase letters');
   if (raw.replace(/[A-Za-z0-9/\s �]/g, '') !== '') notes.push('other non-standard characters');
   return notes.length > 0 ? notes.join('; ') : 'differs after cleaning';
-}
-
-const COLUMNS = ['callsign', 'cleaned', 'status', 'product', 'implied_class', 'prefix_series'];
-const TOGGLES = {
-  'raw-cleaned': { label: 'raw ≠ cleaned', sql: 'callsign != cleaned' },
-  forbidden: { label: 'forbidden-suffix', sql: 'suffix IN (SELECT suffix FROM ref_forbidden_suffixes)' },
-  // Invalid / non-parseable rows (e.g. a stray ",,") - parse_status rides in
-  // register_history alongside the other component keys.
-  unparseable: { label: 'unparseable', sql: "parse_status = 'unparseable'" },
-};
-const PAGE_SIZES = [25, 50, 100, 250, 500, 1000];
-
-// A SQL string literal, single quotes doubled. Values come from the data or
-// the user's own filter inputs; interpolating them (rather than binding ?)
-// makes the DISPLAYED SQL self-contained and runnable as-is - the whole
-// point of the "Edit SQL" hand-off. Safe here: the database is read-only
-// (the VFS cannot write) and every statement passes the SELECT/WITH guard,
-// so the worst a crafted value could do is run another read-only query the
-// user could already run in SQL mode.
-function quote(value) { return `'${String(value).replace(/'/g, "''")}'`; }
-
-// Per-column filter mini-language: comparison operators, GLOB wildcards
-// (* ?), ! to negate, bare text = contains. Returns a literal SQL fragment.
-// Complex boolean (a OR b) is a power query for SQL mode.
-function parseColumnFilter(col, raw) {
-  const s = raw.trim();
-  if (s === '') return null;
-  const op = /^(>=|<=|!=|>|<|=)\s*(.+)$/.exec(s);
-  if (op !== null) return `"${col}" ${op[1]} ${quote(op[2].trim())}`;
-  const negate = s.startsWith('!');
-  const body = (negate ? s.slice(1) : s).trim();
-  if (body === '') return null;
-  if (/[*?]/.test(body)) return `"${col}" ${negate ? 'NOT ' : ''}GLOB ${quote(body)}`;
-  return `"${col}" ${negate ? 'NOT ' : ''}LIKE ${quote(`%${body}%`)}`;
 }
 
 const section = document.querySelector('.browser[data-dataset]');
@@ -179,25 +147,11 @@ function enhance(section) {
   examplesBox.append(exList);
   section.insertBefore(examplesBox, result);
 
-  // --- query construction (literal values, so the shown SQL runs as-is) ---
-  function buildWhere() {
-    const clauses = [`dataset = ${quote(dataset)}`];
-    for (const f of state.facets.values()) {
-      if (f.values.size === 0) continue;
-      const field = f.isExpr ? f.field : `"${f.field}"`;
-      const vals = [...f.values].map(quote).join(', ');
-      clauses.push(`${field} ${f.exclude ? 'NOT IN' : 'IN'} (${vals})`);
-    }
-    for (const id of state.toggles) clauses.push(`(${TOGGLES[id].sql})`);
-    for (const [col, raw] of state.columnFilters) {
-      const frag = parseColumnFilter(col, raw);
-      if (frag !== null) clauses.push(`(${frag})`);
-    }
-    return clauses.join(' AND ');
-  }
-
+  // --- query construction (literal values, so the shown SQL runs as-is).
+  // Scoped to THIS publication via the shared predicate builder's dataset
+  // option; the comparison surface reuses the same builder without it. ---
   function filtersSql() {
-    const where = buildWhere();
+    const where = buildPredicate(state, { dataset });
     const cols = COLUMNS.map(c => `"${c}"`).join(', ');
     const order = state.sort.map(s => `"${s.col}" ${s.dir}`).join(', ');
     return { inner: `SELECT ${cols} FROM register_history WHERE ${where} ORDER BY ${order}`, where };
@@ -398,21 +352,8 @@ function enhance(section) {
   // --- shareable state: the current filters live in a ?view= query param
   // (a query param, not the hash, so it doesn't clash with the :target
   // inspect tabs), so any filtered view is a bookmarkable / shareable link. ---
-  function serializeState() {
-    const obj = {};
-    const facets = [...state.facets.values()].filter(f => f.values.size > 0)
-      .map(f => ({ k: f.key, field: f.field, x: f.isExpr, l: f.label, v: [...f.values], e: f.exclude }));
-    if (facets.length > 0) obj.f = facets;
-    if (state.toggles.size > 0) obj.t = [...state.toggles];
-    if (state.columnFilters.size > 0) obj.c = [...state.columnFilters];
-    const defaultSort = state.sort.length === 1 && state.sort[0].col === 'callsign' && state.sort[0].dir === 'ASC';
-    if (!defaultSort) obj.s = state.sort;
-    if (state.pageSize !== 25) obj.z = state.pageSize;
-    if (state.customSql !== null) obj.q = state.customSql;
-    return obj;
-  }
   function writeUrl() {
-    const obj = serializeState();
+    const obj = serializeFilterState(state);
     const url = new URL(window.location.href);
     if (Object.keys(obj).length === 0) url.searchParams.delete('view');
     else url.searchParams.set('view', JSON.stringify(obj)); // searchParams handles encoding
@@ -423,12 +364,13 @@ function enhance(section) {
     if (raw === null) return;
     let obj;
     try { obj = JSON.parse(raw); } catch { return; }
-    for (const f of obj.f ?? []) state.facets.set(f.k, { key: f.k, field: f.field, isExpr: f.x, label: f.l, values: new Set(f.v), exclude: f.e });
-    for (const id of obj.t ?? []) if (TOGGLES[id] !== undefined) state.toggles.add(id);
-    for (const [col, v] of obj.c ?? []) state.columnFilters.set(col, v);
-    if (Array.isArray(obj.s)) state.sort = obj.s;
-    if (typeof obj.z === 'number') { state.pageSize = obj.z; sizeInput.value = String(obj.z); }
-    if (typeof obj.q === 'string') { state.customSql = obj.q; textarea.value = obj.q; }
+    const parsed = parseFilterState(obj);
+    if (parsed.facets !== undefined) state.facets = parsed.facets;
+    if (parsed.toggles !== undefined) state.toggles = parsed.toggles;
+    if (parsed.columnFilters !== undefined) state.columnFilters = parsed.columnFilters;
+    if (parsed.sort !== undefined) state.sort = parsed.sort;
+    if (parsed.pageSize !== undefined) { state.pageSize = parsed.pageSize; sizeInput.value = String(parsed.pageSize); }
+    if (parsed.customSql !== undefined) { state.customSql = parsed.customSql; textarea.value = parsed.customSql; }
     syncChips();
   }
 
