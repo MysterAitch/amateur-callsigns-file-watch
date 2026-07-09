@@ -100,7 +100,7 @@ async function run() {
     result.hidden = false;
   } catch (err) {
     status.textContent = '';
-    result.replaceChildren(el('p', { text: `Query failed: ${String(err.message ?? err)}` }));
+    result.replaceChildren(el('p', { class: 'error', role: 'alert', text: `Query failed: ${String(err.message ?? err)}` }));
     result.hidden = false;
   }
 }
