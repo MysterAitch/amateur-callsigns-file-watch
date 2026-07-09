@@ -92,14 +92,23 @@ function csvHeaderFields(filePath: string): { name: string; type: string }[] | u
   }
 }
 
+// The minimal per-page stylesheet, sharing the site's design tokens with
+// the hand-authored pages (site/style.css) and the richer entry pages
+// (ENTRY_STYLE): the same accent/ink/paper/line/muted colours and the same
+// bottom-ruled tables, so adjacent pages read as one product. The full
+// entry layout still layers on top of these; a single shared stylesheet is
+// a later refactor.
 const PAGE_STYLE = [
   '<style>',
-  'body{font-family:system-ui,sans-serif;max-width:60rem;margin:2rem auto;padding:0 1rem;line-height:1.5}',
-  'table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:.3rem .5rem;text-align:left;vertical-align:top}',
-  'code{background:#f4f4f4;padding:0 .2rem}h1,h2{line-height:1.2}',
-  'nav a{display:inline-block;padding:.3rem .15rem}',
+  ':root{--ink:#1a1a1a;--paper:#fafafa;--accent:#14506e;--line:#d8d8d8;--muted:#6b6b6b;--code:#f4f4f4}',
+  '@media(prefers-color-scheme:dark){:root{--ink:#e6e6e6;--paper:#161616;--accent:#7fbcd9;--line:#3a3a3a;--muted:#9a9a9a;--code:#222}}',
+  'body{font-family:system-ui,sans-serif;max-width:60rem;margin:2rem auto;padding:0 1rem;line-height:1.5;color:var(--ink);background:var(--paper)}',
+  'a{color:var(--accent)}',
+  'table{border-collapse:collapse;width:100%;margin:.75rem 0}td,th{border-bottom:1px solid var(--line);padding:.3rem .6rem;text-align:left;vertical-align:top}th{font-weight:600}',
+  'code{background:var(--code);padding:0 .2rem}h1,h2{line-height:1.2}',
+  'nav{color:var(--muted)}nav a{color:var(--accent);display:inline-block;padding:.3rem .15rem}',
   '.skip{position:absolute;left:-999px;top:0;z-index:10;padding:.5rem .8rem;background:Canvas;color:CanvasText;border:1px solid GrayText}.skip:focus{left:0}',
-  '@media(prefers-color-scheme:dark){body{background:#111;color:#ddd}td,th{border-color:#444}code{background:#222}a{color:#8cf}}',
+  '.breadcrumb{font-size:.9rem;color:var(--muted);margin:.6rem 0 .2rem}.breadcrumb a{color:var(--accent)}',
   '</style>',
 ].join('');
 
@@ -159,7 +168,10 @@ function navHtml(depthToRoot: number, currentNav?: string): string {
     ['Explore', `${rootPath}explore.html`],
     ['Compare', `${rootPath}compare.html`],
     ['Dataset index', `${rootPath}datasets/index.html`],
+    ['Series', `${rootPath}series/index.html`],
     ['Reports', `${rootPath}reports/index.html`],
+    ['Glossary', `${rootPath}glossary.html`],
+    ['About', `${rootPath}about.html`],
     ['Repository', REPO_URL],
   ];
   return navItems
@@ -167,14 +179,35 @@ function navHtml(depthToRoot: number, currentNav?: string): string {
     .join(' · ');
 }
 
+// A breadcrumb trail above the H1 on deep pages (e.g. entry pages), telling
+// the visitor where they are within the site's hierarchy. Ancestors link;
+// the final crumb (the current page) is plain, marked aria-current.
+function breadcrumbHtml(crumbs: [label: string, href: string | undefined][]): string {
+  const parts = crumbs.map(([label, href]) =>
+    href === undefined ? `<span aria-current="page">${escapeHtml(label)}</span>` : `<a href="${href}">${escapeHtml(label)}</a>`);
+  return `<nav class="breadcrumb" aria-label="Breadcrumb">${parts.join(' › ')}</nav>`;
+}
+
 function footerHtml(metaJsonHref?: string, sourcePath?: string): string {
-  // On entry pages the footer's meta.json mention links to THAT entry's
-  // meta; elsewhere it stays plain text (a generic link would mislead).
-  const metaMention = metaJsonHref === undefined ? '<code>meta.json</code>' : `<a href="${metaJsonHref}"><code>meta.json</code></a>`;
+  // Entry pages (those with a meta.json) carry per-entry provenance wording
+  // linking THAT entry's meta and its archive directory. Aggregate pages
+  // (indexes, rendered docs) are not archive entries, so the "this entry's
+  // meta.json" boilerplate would be wrong there - they get a plain
+  // provenance line pointing at the generating source instead.
+  const isEntry = metaJsonHref !== undefined;
   const isFile = sourcePath !== undefined && /\.[a-z]+$/i.test(sourcePath);
-  const sourceLink = sourcePath === undefined ? '' :
-    ` <a href="${REPO_URL}/${isFile ? 'blob' : 'tree'}/main/${sourcePath}">${isFile ? 'View or edit this page’s source on GitHub' : 'Browse this entry’s directory on GitHub'}</a>.`;
-  return `<p><small>Derived from the committed archive; provenance and integrity hashes live in each entry's ${metaMention}.${sourceLink} ${deployProvenance()} Maintained by Roger Howell (M7TEE).</small></p>`;
+  let sourceLink = '';
+  if (sourcePath !== undefined) {
+    const href = `${REPO_URL}/${isFile ? 'blob' : 'tree'}/main/${sourcePath}`;
+    const text = isFile
+      ? 'View or edit this page’s source on GitHub'
+      : isEntry ? 'Browse this entry’s directory on GitHub' : 'Browse the source on GitHub';
+    sourceLink = ` <a href="${href}">${text}</a>.`;
+  }
+  const lead = isEntry
+    ? `Derived from the committed archive; provenance and integrity hashes live in this entry's <a href="${metaJsonHref}"><code>meta.json</code></a>.`
+    : 'Generated from the committed archive.';
+  return `<p><small>${lead}${sourceLink} ${deployProvenance()} Maintained by Roger Howell (M7TEE).</small></p>`;
 }
 
 function htmlPage(title: string, depthToRoot: number, body: string[], options: PageOptions = {}): string {
@@ -203,12 +236,16 @@ function htmlPage(title: string, depthToRoot: number, body: string[], options: P
 // the other generated pages keep PAGE_STYLE until the site-wide style pass.
 const ENTRY_STYLE = [
   '<style>',
-  ':root{--ink:#1a1a1a;--paper:#f6f6f4;--card:#fff;--line:#dcdcd8;--muted:#6b6b6b;--accent:#14506e;--slot:#faf9f6;--good:#3f7d55;--warnbg:#fbeee2;--warnline:#c98a3f;--warnink:#7a3d00;--note:#eef3f4;--bar:#c9d7dc;--marker:#b23}',
-  '@media(prefers-color-scheme:dark){:root{--ink:#e6e6e6;--paper:#111;--card:#191919;--line:#333;--muted:#9a9a9a;--accent:#7fbcd9;--slot:#141414;--good:#7fbf97;--warnbg:#2a2016;--warnline:#8a5a1f;--warnink:#e8b877;--note:#15211f;--bar:#2c4048;--marker:#e58}}',
+  // Shared design tokens: --ink/--paper/--accent/--line/--muted are kept
+  // identical to site/style.css and PAGE_STYLE so the whole site reads as
+  // one product; the entry-only tokens (cards, slots, warnings) layer on top.
+  ':root{--ink:#1a1a1a;--paper:#fafafa;--card:#fff;--line:#d8d8d8;--muted:#6b6b6b;--accent:#14506e;--slot:#faf9f6;--good:#3f7d55;--warnbg:#fbeee2;--warnline:#c98a3f;--warnink:#7a3d00;--note:#eef3f4;--bar:#c9d7dc;--marker:#b23}',
+  '@media(prefers-color-scheme:dark){:root{--ink:#e6e6e6;--paper:#161616;--card:#191919;--line:#3a3a3a;--muted:#9a9a9a;--accent:#7fbcd9;--slot:#141414;--good:#7fbf97;--warnbg:#2a2016;--warnline:#8a5a1f;--warnink:#e8b877;--note:#15211f;--bar:#2c4048;--marker:#e58}}',
   '*{box-sizing:border-box}body{font-family:system-ui,sans-serif;margin:0;color:var(--ink);background:var(--paper);line-height:1.55}',
   '.wrap{max-width:76rem;margin:0 auto;padding:1.4rem 1.2rem 3rem}',
   'nav{font-size:.92rem;color:var(--muted)}nav a{color:var(--accent);text-decoration:none;display:inline-block;padding:.3rem .15rem}a{color:var(--accent)}',
   '.skip{position:absolute;left:-999px;top:0;z-index:10;padding:.5rem .8rem;background:var(--paper);color:var(--accent);border:1px solid var(--line)}.skip:focus{left:0}',
+  'nav.breadcrumb{margin:.5rem 0 -.2rem}nav.breadcrumb a{text-decoration:none}',
   'h1{font-size:1.8rem;margin:.7rem 0 .1rem;line-height:1.15}.subtitle{color:var(--muted);margin:.1rem 0 1rem;font-size:.94rem}.subtitle code{color:var(--muted)}',
   'section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.9rem 1.2rem 1.1rem;margin:0 0 1.05rem}section>h2{font-size:1.02rem;margin:.2rem 0 .7rem}',
   '.notice{display:flex;gap:.5rem;align-items:baseline;font-size:.86rem;color:var(--muted);border:1px solid var(--line);border-left:4px solid var(--good);border-radius:8px;padding:.5rem .8rem;margin:0 0 1.05rem;background:var(--card)}',
@@ -280,7 +317,7 @@ const ENTRY_STYLE = [
 
 // Full HTML for a redesigned entry page (depth 3: datasets/{lane}/{key}/).
 function entryPage(title: string, body: string[], options: PageOptions = {}): string {
-  const { metaJsonHref, sourcePath } = options;
+  const { metaJsonHref, currentNav, sourcePath } = options;
   return [
     '<!DOCTYPE html>',
     '<html lang="en-GB">',
@@ -288,7 +325,7 @@ function entryPage(title: string, body: string[], options: PageOptions = {}): st
     '<body>',
     '<a class="skip" href="#main">Skip to content</a>',
     '<div class="wrap">',
-    `<nav>${navHtml(3)}</nav>`,
+    `<nav>${navHtml(3, currentNav)}</nav>`,
     '<main id="main">',
     ...body,
     '</main>',
@@ -940,6 +977,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     : [noticeStrip(false, `Freedom-of-Information disclosure — a point-in-time snapshot, not a live feed.`)];
 
   const body = [
+    breadcrumbHtml([['Datasets', '../../index.html'], ['FOI requests', '../../index.html#foi'], [key, undefined]]),
     `<h1>${escapeHtml(meta.title)}</h1>`,
     `<p class="subtitle">Freedom-of-Information response from Ofcom, recovered and mirrored. FOI archive entry <code>${escapeHtml(key)}</code> · <a href="datapackage.json">datapackage.json</a>.</p>`,
     ...recoveryNotice,
@@ -958,7 +996,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     '</div>',
     related.length > 0 ? `<section><h2>Related entries</h2><ul>${related.join('')}</ul></section>` : '',
   ].filter(s => s !== '');
-  fs.writeFileSync(path.join(targetDir, 'index.html'), entryPage(meta.title, body, { metaJsonHref: 'meta.json', sourcePath: `archive/foi/${key}` }));
+  fs.writeFileSync(path.join(targetDir, 'index.html'), entryPage(meta.title, body, { metaJsonHref: 'meta.json', currentNav: 'Dataset index', sourcePath: `archive/foi/${key}` }));
   fs.writeFileSync(path.join(targetDir, 'datapackage.json'), descriptor);
   return { files, meta, zipBytes };
 }
@@ -1183,6 +1221,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   }
 
   const body = [
+    breadcrumbHtml([['Datasets', '../../index.html'], ['Ofcom open data', '../../index.html#open-data'], [key, undefined]]),
     `<h1>${escapeHtml(pageTitle)}</h1>`,
     `<p class="subtitle">Ofcom amateur-radio callsign register, mirrored byte-for-byte. Archive entry <code>${escapeHtml(key)}</code> · <a href="datapackage.json">datapackage.json</a>.</p>`,
     ...coverageNotices(meta),
@@ -1227,7 +1266,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     '<script src="../../../vendor/index.js"></script>',
     '<script type="module" src="../../../entry-browser.js"></script>',
   ].filter(s => s !== '');
-  fs.writeFileSync(path.join(targetDir, 'index.html'), entryPage(pageTitle, body, { metaJsonHref: 'meta.json', sourcePath: `archive/${key}` }));
+  fs.writeFileSync(path.join(targetDir, 'index.html'), entryPage(pageTitle, body, { metaJsonHref: 'meta.json', currentNav: 'Dataset index', sourcePath: `archive/${key}` }));
   fs.writeFileSync(path.join(targetDir, 'datapackage.json'), descriptor);
   return { files, zipBytes };
 }
@@ -1333,7 +1372,7 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
       ...numbers,
       '<p>See the <a href="../statistics.html">statistics page</a> for the all-series locator matrix, or <a href="index.html">all series</a>.</p>',
     ];
-    fs.writeFileSync(path.join(seriesDir, `${slug}.html`), htmlPage(`Prefix series ${display}`, 1, body, { sourcePath: 'reference-data/prefix-formats.csv' }));
+    fs.writeFileSync(path.join(seriesDir, `${slug}.html`), htmlPage(`Prefix series ${display}`, 1, body, { currentNav: 'Series', sourcePath: 'reference-data/prefix-formats.csv' }));
     urls.push(`${baseUrl}/series/${slug}.html`);
     indexRows.push(`<tr><td><a href="${slug}.html"><code>${escapeHtml(display)}</code></a></td><td>${ref === undefined ? '⚠ unreferenced' : escapeHtml(ref.station_level)}</td><td>${ref === undefined ? '—' : escapeHtml(ref.issuing_status)}</td><td>${(acc?.total ?? 0).toLocaleString('en-GB')}</td></tr>`);
   }
@@ -1346,7 +1385,7 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
     ...indexRows,
     '</table>',
   ];
-  fs.writeFileSync(path.join(seriesDir, 'index.html'), htmlPage('Prefix series', 1, indexBody, { sourcePath: 'reference-data/prefix-formats.csv' }));
+  fs.writeFileSync(path.join(seriesDir, 'index.html'), htmlPage('Prefix series', 1, indexBody, { currentNav: 'Series', sourcePath: 'reference-data/prefix-formats.csv' }));
   urls.unshift(`${baseUrl}/series/index.html`);
   return { urls, series: new Set(allSeries) };
 }
@@ -1540,7 +1579,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     '<details><summary>Why do the site’s own database files end in <code>.png</code>?</summary>',
     '<p>The in-browser lookup queries its databases over HTTP <em>range requests</em> without downloading them whole. GitHub Pages gzip-transcodes text-like content types — including their range responses, which corrupts partial reads — but never re-compresses image types, so the databases the site queries live (<code>callsigns.sqlite.png</code>, <code>master.sqlite.png</code>) wear a <code>.png</code> name. They are plain SQLite files, byte-identical to the gzipped downloads above; if you ended up with one, rename it to <code>.sqlite</code> and it will open normally.</p>',
     '</details>',
-    `<h2>Ofcom open data (${openDataKeys.length} publications)</h2>`,
+    `<h2 id="open-data">Ofcom open data (${openDataKeys.length} publications)</h2>`,
     '<p>Ofcom publish the current amateur radio callsign dataset on their',
     '<a href="https://www.ofcom.org.uk/about-ofcom/our-research/opendata">open data page</a> —',
     'but only the current version, with no historical archive. This section preserves a copy of each',
@@ -1548,7 +1587,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     '<table><tr><th>publication</th><th>files</th><th>size</th></tr>',
     ...openDataRows,
     '</table>',
-    `<h2>FOI requests and responses (${foiKeys.length} entries)</h2>`,
+    `<h2 id="foi">FOI requests and responses (${foiKeys.length} entries)</h2>`,
     '<p>Ofcom is a public body: under the Freedom of Information Act 2000 it must, on request, disclose',
     'information it holds (subject to the Act’s exemptions). Following years of such requests, Ofcom now',
     'publishes point-in-time callsign data periodically — the open data section above. This section archives',
