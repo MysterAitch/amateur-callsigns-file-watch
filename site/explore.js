@@ -17,15 +17,32 @@ const DB_FILES = {
   master: './data/master.sqlite.png',
 };
 
+// The deploy version stamp. Online it is the fresh commit SHA; offline it
+// falls back to the version an offline copy was downloaded under (recorded in
+// localStorage by the lookup page's offline control), so the database URL
+// keeps matching the service worker's cached bytes. Mirrors app.js's
+// getVersion - deliberately duplicated to keep both files dependency-free.
+let versionPromise = null;
+function getVersion() {
+  versionPromise ??= (async () => {
+    try {
+      const res = await fetch(new URL('./data/version.txt', document.baseURI), { cache: 'no-store' });
+      if (res.ok) return (await res.text()).trim();
+    } catch { /* offline or missing - fall through to the offline marker */ }
+    try {
+      const markers = JSON.parse(localStorage.getItem('offline-db-state') ?? '{}');
+      if (markers && typeof markers.version === 'string') return markers.version;
+    } catch { /* storage unavailable */ }
+    return 'dev';
+  })();
+  return versionPromise;
+}
+
 // Same .png / ?v= hosting workarounds as app.js (see the comments there).
 const workers = {};
 async function openDb(name) {
   workers[name] ??= (async () => {
-    let version = 'dev';
-    try {
-      const res = await fetch(new URL('./data/version.txt', document.baseURI), { cache: 'no-store' });
-      if (res.ok) version = (await res.text()).trim();
-    } catch { /* fall back to unversioned */ }
+    const version = await getVersion();
     const dbUrl = new URL(`${DB_FILES[name]}?v=${encodeURIComponent(version)}`, document.baseURI);
     return createDbWorker(
       [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
@@ -140,3 +157,11 @@ document.getElementById('sql-form').addEventListener('submit', (event) => {
   void run();
 });
 renderExamples();
+
+// Offline-first (ADR 0008): register the service worker so the static shell
+// (this page, its scripts and the vendored library) is cached and the site
+// loads offline. The database itself is only cached when the visitor opts in
+// from the lookup page; once cached, the worker serves it here too.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register(new URL('./sw.js', document.baseURI).href).catch(() => {});
+}
