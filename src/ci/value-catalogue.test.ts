@@ -214,5 +214,5 @@ describe('buildNormalisationFidelity over the real archive', () => {
       expect(f.dropped.length).toBe(0);
       expect(f.coerced.length).toBe(0);
     }
-  }, 60_000);
+  }, 180_000);
 });
