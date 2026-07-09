@@ -110,7 +110,8 @@ function enhance(section) {
   const pageInfo = el('span', { class: 'pageinfo browser-status' });
   const sqlBtn = el('button', { type: 'button', class: 'pg', text: 'Edit SQL ▸' });
   const dlBtn = el('button', { type: 'button', class: 'pg', text: '↓ CSV' });
-  toolbar.append(el('label', { class: 'browser-status' }, ['rows/page ', sizeInput]), sizeList, prevBtn, nextBtn, pageInfo, sqlBtn, dlBtn);
+  const cmpBtn = el('button', { type: 'button', class: 'pg', title: 'compare this view across publications', text: 'compare ↗' });
+  toolbar.append(el('label', { class: 'browser-status' }, ['rows/page ', sizeInput]), sizeList, prevBtn, nextBtn, pageInfo, sqlBtn, dlBtn, cmpBtn);
 
   // SQL box (collapsible). Shows the composed query; running it enters SQL mode.
   const sqlBox = el('details', { class: 'sqlbox' });
@@ -409,6 +410,19 @@ function enhance(section) {
     }
   }
   dlBtn.addEventListener('click', () => void downloadCsv());
+
+  // Hand off the current view to the cross-publication comparison surface:
+  // carry the live filter state as ?view= (the same format the compare page
+  // reads) and pre-select THIS publication. compare.html sits at the site
+  // root next to this module, so resolve it against import.meta.url and it
+  // works regardless of how deep the entry page is.
+  cmpBtn.addEventListener('click', () => {
+    const obj = serializeFilterState(state);
+    const cmp = new URL('./compare.html', import.meta.url);
+    if (Object.keys(obj).length > 0) cmp.searchParams.set('view', JSON.stringify(obj));
+    cmp.searchParams.set('datasets', dataset);
+    window.location.href = cmp.toString();
+  });
 
   restoreFromUrl();
   void refresh();
