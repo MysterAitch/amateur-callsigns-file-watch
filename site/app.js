@@ -10,6 +10,39 @@ const { createDbWorker } = window;
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
 const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
 
+// The offline download control (below) records, in localStorage, which
+// database it cached and under which deploy version. Read here too so the
+// deploy version survives going offline: version.txt is fetched uncached and
+// so is unreachable with no network, but the database URL must still carry the
+// SAME `?v=` the cached copy was stored under, or the service worker cannot
+// match it. The marker's version is the offline fallback.
+const OFFLINE_DB_CACHE = 'callsign-offline-db';
+const OFFLINE_MARKER_KEY = 'offline-db-state';
+function readOfflineMarkers() {
+  try { return JSON.parse(localStorage.getItem(OFFLINE_MARKER_KEY) ?? '{}') ?? {}; }
+  catch { return {}; }
+}
+function writeOfflineMarkers(markers) {
+  try { localStorage.setItem(OFFLINE_MARKER_KEY, JSON.stringify(markers)); }
+  catch { /* storage unavailable - offline state simply is not remembered */ }
+}
+
+// The deploy version stamp (data/version.txt, written uncached by the Pages
+// build). Resolved once. Online it is the fresh commit SHA; offline it falls
+// back to the version an offline copy was downloaded under, so the database
+// URL keeps matching the cached bytes. Shared by every database opener.
+let versionPromise = null;
+function getVersion() {
+  versionPromise ??= (async () => {
+    try {
+      const res = await fetch(new URL('./data/version.txt', document.baseURI), { cache: 'no-store' });
+      if (res.ok) return (await res.text()).trim();
+    } catch { /* offline or missing - fall through to the offline marker */ }
+    return readOfflineMarkers().version ?? 'dev';
+  })();
+  return versionPromise;
+}
+
 // The database URL must be ABSOLUTE: the worker resolves relative URLs
 // against its own location (vendor/), not the page - observed live as a 404
 // on vendor/data/callsigns.sqlite.
@@ -27,11 +60,7 @@ const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
 // observed live as "database disk image is malformed". version.txt is
 // written by the deploy workflow and fetched uncached.
 async function openDatabase() {
-  let version = 'dev';
-  try {
-    const res = await fetch(new URL('./data/version.txt', document.baseURI), { cache: 'no-store' });
-    if (res.ok) version = (await res.text()).trim();
-  } catch { /* fall back to unversioned */ }
+  const version = await getVersion();
   const dbUrl = new URL(`./data/callsigns.sqlite.png?v=${encodeURIComponent(version)}`, document.baseURI);
   return createDbWorker(
     [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
@@ -137,11 +166,7 @@ async function query(sql, params = []) {
 let masterDbPromise = null;
 function openMasterDatabase() {
   masterDbPromise ??= (async () => {
-    let version = 'dev';
-    try {
-      const res = await fetch(new URL('./data/version.txt', document.baseURI), { cache: 'no-store' });
-      if (res.ok) version = (await res.text()).trim();
-    } catch { /* fall back to unversioned */ }
+    const version = await getVersion();
     const dbUrl = new URL(`./data/master.sqlite.png?v=${encodeURIComponent(version)}`, document.baseURI);
     return createDbWorker(
       [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
@@ -957,3 +982,185 @@ populateFilters().then(() => {
     ' instead.',
   ]));
 });
+
+// ---- Offline-first (ADR 0008) ------------------------------------------
+// Registers the service worker (static-shell precache) and drives the
+// user-triggered full-database download. Online by default: nothing here
+// caches the database until the visitor explicitly asks for it, and if
+// service workers are unavailable the lookup carries on online exactly as
+// before.
+
+const OFFLINE_DBS = {
+  latest: { file: 'callsigns.sqlite.png', label: 'lookup database' },
+  master: { file: 'master.sqlite.png', label: 'master database' },
+};
+
+function offlineSupported() {
+  return 'serviceWorker' in navigator && 'caches' in window && typeof Response !== 'undefined';
+}
+
+function offlineDbUrl(file, version) {
+  return new URL(`./data/${file}?v=${encodeURIComponent(version)}`, document.baseURI).href;
+}
+
+function humanBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '';
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+}
+
+async function notifyServiceWorker(message) {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    reg.active?.postMessage(message);
+  } catch { /* worker not controlling yet - activate will pick the cache up */ }
+}
+
+// Reflect the current offline state: which databases (for THIS deploy version)
+// are cached, when they were downloaded, and whether searches now run offline.
+async function renderOfflineState() {
+  const state = document.getElementById('offline-state');
+  const downloadBtn = document.getElementById('offline-download');
+  const removeBtn = document.getElementById('offline-remove');
+  if (!state) return;
+  const version = await getVersion();
+  const markers = readOfflineMarkers();
+  const cache = await caches.open(OFFLINE_DB_CACHE);
+  const cached = {};
+  for (const [key, { file }] of Object.entries(OFFLINE_DBS)) {
+    cached[key] = !!(await cache.match(offlineDbUrl(file, version)));
+  }
+  const anyCached = Object.values(cached).some(Boolean);
+  if (anyCached) {
+    const parts = [];
+    for (const [key, { file, label }] of Object.entries(OFFLINE_DBS)) {
+      if (!cached[key]) continue;
+      const when = markers.files?.[file]?.date;
+      parts.push(when ? `${label} (downloaded ${humanDate(when)})` : label);
+    }
+    state.textContent =
+      `Running offline: ${parts.join(' and ')} cached for this version (${String(version).slice(0, 9)}). `
+      + 'Searches now work with no network. A new deploy replaces it — re-download to refresh.';
+    if (removeBtn) removeBtn.hidden = false;
+    if (downloadBtn) downloadBtn.hidden = cached.latest;
+  } else {
+    state.textContent =
+      'Running online: each search fetches only the few kilobytes of the database it touches.';
+    if (removeBtn) removeBtn.hidden = true;
+    if (downloadBtn) downloadBtn.hidden = false;
+  }
+}
+
+async function downloadForOffline(which, buttons) {
+  const { file, label } = OFFLINE_DBS[which];
+  const wrap = document.getElementById('offline-progress-wrap');
+  const bar = document.getElementById('offline-progress');
+  const progressLabel = document.getElementById('offline-progress-label');
+  const state = document.getElementById('offline-state');
+  buttons.forEach(b => { if (b) b.disabled = true; });
+  if (wrap) wrap.hidden = false;
+  if (bar) bar.removeAttribute('value'); // indeterminate until the size is known
+  if (progressLabel) progressLabel.textContent = `Preparing to download the ${label}…`;
+  try {
+    const version = await getVersion();
+    const url = offlineDbUrl(file, version);
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    const total = Number(res.headers.get('Content-Length')) || 0;
+    const reader = res.body.getReader();
+    const chunks = [];
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      const pct = total > 0 ? Math.round((received / total) * 100) : 0;
+      if (bar && total > 0) bar.value = pct;
+      if (progressLabel) {
+        progressLabel.textContent = total > 0
+          ? `Downloading the ${label}: ${humanBytes(received)} of ${humanBytes(total)} (${pct}%)`
+          : `Downloading the ${label}: ${humanBytes(received)}…`;
+      }
+    }
+    const blob = new Blob(chunks, { type: 'image/png' });
+    const cache = await caches.open(OFFLINE_DB_CACHE);
+    await cache.put(url, new Response(blob, {
+      headers: { 'Content-Type': 'image/png', 'Content-Length': String(blob.size), 'Accept-Ranges': 'bytes' },
+    }));
+    // Let the worker know it may now satisfy this database's Range requests
+    // from the cache (it does not touch the database otherwise).
+    await notifyServiceWorker({ type: 'offline-db-added', url });
+    const markers = readOfflineMarkers();
+    markers.version = version;
+    markers.files = markers.files ?? {};
+    markers.files[file] = { date: new Date().toISOString(), size: blob.size };
+    writeOfflineMarkers(markers);
+    if (wrap) wrap.hidden = true;
+    await renderOfflineState();
+  } catch (err) {
+    console.error(err);
+    if (wrap) wrap.hidden = true;
+    if (state) state.textContent =
+      `The offline download failed (${String(err?.message ?? err)}). The lookup still works online — try again.`;
+  } finally {
+    buttons.forEach(b => { if (b) b.disabled = false; });
+  }
+}
+
+async function removeOffline(buttons) {
+  buttons.forEach(b => { if (b) b.disabled = true; });
+  try {
+    const version = await getVersion();
+    const cache = await caches.open(OFFLINE_DB_CACHE);
+    for (const { file } of Object.values(OFFLINE_DBS)) {
+      const url = offlineDbUrl(file, version);
+      await cache.delete(url);
+      await notifyServiceWorker({ type: 'offline-db-removed', url });
+    }
+    writeOfflineMarkers({});
+    await renderOfflineState();
+  } finally {
+    buttons.forEach(b => { if (b) b.disabled = false; });
+  }
+}
+
+// Best-effort: show the download size up front, so the choice is informed.
+async function annotateOfflineSize() {
+  const downloadBtn = document.getElementById('offline-download');
+  if (!downloadBtn) return;
+  try {
+    const version = await getVersion();
+    const res = await fetch(offlineDbUrl(OFFLINE_DBS.latest.file, version), { method: 'HEAD', cache: 'no-store' });
+    const total = Number(res.headers.get('Content-Length')) || 0;
+    if (total > 0) downloadBtn.textContent = `Download the full dataset for offline use (${humanBytes(total)})`;
+  } catch { /* size stays unshown - not essential */ }
+}
+
+function initOffline() {
+  const section = document.getElementById('offline');
+  if (!section) return;
+  const downloadBtn = document.getElementById('offline-download');
+  const masterBtn = document.getElementById('offline-download-master');
+  const removeBtn = document.getElementById('offline-remove');
+  const controls = document.getElementById('offline-controls');
+  if (!offlineSupported()) {
+    const state = document.getElementById('offline-state');
+    if (state) state.textContent =
+      'Offline use is not available in this browser, but the lookup works online as normal.';
+    if (controls) controls.hidden = true;
+    const advanced = document.getElementById('offline-advanced');
+    if (advanced) advanced.hidden = true;
+    return;
+  }
+  navigator.serviceWorker.register(new URL('./sw.js', document.baseURI).href)
+    .catch(err => console.error('Service worker registration failed', err));
+  const buttons = [downloadBtn, masterBtn, removeBtn];
+  downloadBtn?.addEventListener('click', () => void downloadForOffline('latest', buttons));
+  masterBtn?.addEventListener('click', () => void downloadForOffline('master', buttons));
+  removeBtn?.addEventListener('click', () => void removeOffline(buttons));
+  void renderOfflineState();
+  void annotateOfflineSize();
+}
+
+initOffline();

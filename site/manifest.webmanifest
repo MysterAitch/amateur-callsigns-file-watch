@@ -1,0 +1,32 @@
+{
+  "name": "UK amateur callsign data mirror",
+  "short_name": "Callsigns",
+  "description": "Look up and explore the UK amateur-radio callsign register and its FOI disclosures. Online by default, with an optional full-database download for offline use.",
+  "id": "./",
+  "start_url": "index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "lang": "en-GB",
+  "dir": "ltr",
+  "theme_color": "#14506e",
+  "background_color": "#fafafa",
+  "categories": [
+    "reference",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4KPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMDIiIGZpbGw9IiMxNDUwNmUiLz4KPGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmFmYWZhIiBzdHJva2Utd2lkdGg9IjIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgo8bGluZSB4MT0iMjU2IiB5MT0iMTY4IiB4Mj0iMjU2IiB5Mj0iMzcyIi8+CjxsaW5lIHgxPSIyMDYiIHkxPSIzNzIiIHgyPSIzMDYiIHkyPSIzNzIiLz4KPHBhdGggZD0iTTE5OCAyMTIgYTc4IDc4IDAgMCAwIDAgMTE4Ii8+CjxwYXRoIGQ9Ik0xNjIgMTg2IGExMjggMTI4IDAgMCAwIDAgMTcwIi8+CjxwYXRoIGQ9Ik0zMTQgMjEyIGE3OCA3OCAwIDAgMSAwIDExOCIvPgo8cGF0aCBkPSJNMzUwIDE4NiBhMTI4IDEyOCAwIDAgMSAwIDE3MCIvPgo8L2c+CjxjaXJjbGUgY3g9IjI1NiIgY3k9IjE2MiIgcj0iMjYiIGZpbGw9IiNmYWZhZmEiLz4KPC9zdmc+",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4KPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMDIiIGZpbGw9IiMxNDUwNmUiLz4KPGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmFmYWZhIiBzdHJva2Utd2lkdGg9IjIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgo8bGluZSB4MT0iMjU2IiB5MT0iMTY4IiB4Mj0iMjU2IiB5Mj0iMzcyIi8+CjxsaW5lIHgxPSIyMDYiIHkxPSIzNzIiIHgyPSIzMDYiIHkyPSIzNzIiLz4KPHBhdGggZD0iTTE5OCAyMTIgYTc4IDc4IDAgMCAwIDAgMTE4Ii8+CjxwYXRoIGQ9Ik0xNjIgMTg2IGExMjggMTI4IDAgMCAwIDAgMTcwIi8+CjxwYXRoIGQ9Ik0zMTQgMjEyIGE3OCA3OCAwIDAgMSAwIDExOCIvPgo8cGF0aCBkPSJNMzUwIDE4NiBhMTI4IDEyOCAwIDAgMSAwIDE3MCIvPgo8L2c+CjxjaXJjbGUgY3g9IjI1NiIgY3k9IjE2MiIgcj0iMjYiIGZpbGw9IiNmYWZhZmEiLz4KPC9zdmc+",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

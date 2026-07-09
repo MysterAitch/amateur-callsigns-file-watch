@@ -6,6 +6,8 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
   <title>UK amateur callsign lookup — data mirror proof of concept</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#14506e">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -106,6 +108,38 @@
       screen, with no server in between. Full source and provenance are in
       the <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">repository</a>.</p>
     </details>
+
+    <section id="offline">
+      <div class="card">
+        <h3>Use this lookup offline</h3>
+        <p class="muted">By default each search fetches only the few kilobytes
+        of the database it needs, so the first load stays light. If you would
+        rather work with no connection — on the air, in the field, or on a poor
+        link — you can download the whole database once and run entirely in your
+        browser afterwards. It stays on this device until a new version is
+        published (which replaces it) or you remove it.</p>
+        <p id="offline-state" class="muted" role="status">Running online: each
+        search fetches only the few kilobytes of the database it touches.</p>
+        <div id="offline-controls">
+          <button type="button" id="offline-download">Download the full dataset for offline use</button>
+          <button type="button" id="offline-remove" class="pg" hidden>Remove offline copy</button>
+        </div>
+        <p id="offline-progress-wrap" hidden>
+          <label for="offline-progress" id="offline-progress-label" class="muted"></label><br>
+          <progress id="offline-progress" max="100" value="0"></progress>
+        </p>
+        <details id="offline-advanced">
+          <summary>Advanced: the full historical database</summary>
+          <p class="muted">The master database carries every archived
+          publication and all FOI observations — much larger (~257 MB). Only
+          download it if you need the longitudinal history (register history and
+          FOI-witnessed observations) available offline too.</p>
+          <button type="button" id="offline-download-master">Download the master database for offline use</button>
+        </details>
+        <p class="muted hint">Needs a browser that supports service workers.
+        Where it is unavailable the lookup simply carries on online.</p>
+      </div>
+    </section>
 
     <footer id="build-info"></footer>
   </main>

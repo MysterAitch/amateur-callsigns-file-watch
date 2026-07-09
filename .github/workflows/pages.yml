@@ -63,7 +63,14 @@ jobs:
           # the archived files verbatim at stable URLs + Frictionless
           # descriptors + sitemap.xml - the Wayback Machine crawl seed.
           node src/ci/build-dataset-pages.ts _site
-          cp site/index.html site/statistics.html site/explore.html site/explore.js site/compare.html site/compare.js site/about.html site/glossary.html site/app.js site/entry-browser.js site/browser-query.js site/style.css _site/
+          cp site/index.html site/statistics.html site/explore.html site/explore.js site/compare.html site/compare.js site/about.html site/glossary.html site/app.js site/entry-browser.js site/browser-query.js site/style.css site/sw.js site/manifest.webmanifest _site/
+          # Version-stamp the service worker (ADR 0008). The browser re-installs
+          # a worker only when its script bytes change, so writing the commit
+          # SHA into DEPLOY_VERSION makes each deploy supersede the last: it
+          # names the shell cache by the commit and lets the activate handler
+          # drop the previous caches. Same rationale as the database ?v= stamp
+          # above; without it a cached shell could make the site un-updatable.
+          sed -i "s/const DEPLOY_VERSION = 'dev';/const DEPLOY_VERSION = '$GITHUB_SHA';/" _site/sw.js
           # The statistics page's aggregates (locator matrix, flags table)
           # are deterministic per deploy - pre-rendered so the page is
           # fully static (no scripts; archived captures are complete).

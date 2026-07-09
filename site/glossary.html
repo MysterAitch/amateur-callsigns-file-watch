@@ -6,6 +6,8 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
   <title>Glossary — UK amateur callsign data mirror</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#14506e">
   <!-- Definition-list styling for the glossary entries; the shared .skip class
        (site/style.css) handles the skip link. -->
   <style>
@@ -172,5 +174,15 @@
       <a href="about.html">About</a>.</small></p>
     </footer>
   </main>
+  <!-- Offline-first (ADR 0008): register the service worker so the static shell
+       is cached and the site loads offline. No database is cached unless the
+       visitor opts in from the lookup page. -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
 </body>
 </html>
