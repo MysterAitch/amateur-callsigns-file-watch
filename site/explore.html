@@ -68,6 +68,16 @@
       stripped outside A–Z/0–9/<code>/</code> — so longitudinal joins
       survive whitespace and encoding damage. Duplicates are expected and
       deliberate: it is a join key, never an identity.</p>
+      <p><strong>The <code>normalised_licence_category</code> column</strong>
+      (on <code>register_history</code> and <code>observations</code>) is the
+      canonical category the raw <code>product</code> / <code>licence_class</code>
+      string collapses to — <code>Full</code>, <code>Foundation</code>,
+      <code>Intermediate</code>, <code>Club</code>, the two reciprocals, and so
+      on — so you can group by class without matching every source spelling.
+      It is a derived view (the raw value is still carried beside it), and it is
+      <code>NULL</code> where no product is asserted or none maps; the mapping
+      lives in
+      <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/reference-data/licence-category.csv">reference-data/licence-category.csv</a>.</p>
       <p><strong>A cohort worth reproducing</strong> (heavy — run it on the
       <a href="datasets/index.html">downloaded master database</a>, not
       here): forbidden-suffix callsigns in the current register that were

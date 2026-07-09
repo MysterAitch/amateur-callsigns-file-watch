@@ -23,7 +23,7 @@ import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { type EntryStats } from '../shared/stats.ts';
 import { buildFoiObservations, renderObservationsCsv, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
-import { cleanedCallsign, parseCallsign, loadReferenceData, componentsFlagsForRows, type ComponentRow } from '../sources/ofcom-amateur/components.ts';
+import { cleanedCallsign, parseCallsign, loadReferenceData, normaliseLicenceCategory, componentsFlagsForRows, type ComponentRow } from '../sources/ofcom-amateur/components.ts';
 
 // Reference data is repo-anchored (same convention as the component parser).
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -178,7 +178,11 @@ export function fillObservations(db: DatabaseSync, rows: FoiObservationRow[]): n
   // cleaned: the artefact-unifying join key (computed here at build - the
   // FOI committed files stay verbatim). A join key, not an identity:
   // duplicates are expected, so its index is plain, never UNIQUE.
-  db.exec(`CREATE TABLE observations (callsign TEXT, cleaned TEXT, entry TEXT, source_file TEXT, dataset_classes TEXT, vintage TEXT, ${valueColumns}, ${componentColumns})`);
+  // normalised_licence_category: the canonical category the disclosed
+  // licence_class collapses to (reference-data/licence-category.csv). A derived
+  // view - the raw licence_class is still carried verbatim beside it; NULL where
+  // no class is disclosed or none maps, so the distinction stays queryable.
+  db.exec(`CREATE TABLE observations (callsign TEXT, cleaned TEXT, entry TEXT, source_file TEXT, dataset_classes TEXT, vintage TEXT, ${valueColumns}, ${componentColumns}, normalised_licence_category TEXT)`);
 
   // Parse each callsign through the shared component parser, grouped by entry
   // so the whole-set stripped-collision flag is scoped to one snapshot. The
@@ -195,14 +199,15 @@ export function fillObservations(db: DatabaseSync, rows: FoiObservationRow[]): n
     idxs.forEach((i, k) => { parsed[i] = comps[k]; });
   }
 
-  const placeholders = Array.from({ length: 6 + OBSERVATION_VALUE_COLUMNS.length + OBSERVATION_COMPONENT_COLUMNS.length }, () => '?').join(', ');
+  const placeholders = Array.from({ length: 6 + OBSERVATION_VALUE_COLUMNS.length + OBSERVATION_COMPONENT_COLUMNS.length + 1 }, () => '?').join(', ');
   const insert = db.prepare(`INSERT INTO observations VALUES (${placeholders})`);
   db.exec('BEGIN');
   rows.forEach((row, i) => {
     const c = parsed[i];
     insert.run(row.callsign, cleanedCallsign(row.callsign), row.entry, row.sourceFile, row.datasetClasses, row.vintage,
       ...OBSERVATION_VALUE_COLUMNS.map(column => row.values[column] ?? null),
-      c.prefixSeries, c.rsl, c.placeholderForm, c.impliedClass, c.parseStatus, c.flags.join(';'));
+      c.prefixSeries, c.rsl, c.placeholderForm, c.impliedClass, c.parseStatus, c.flags.join(';'),
+      normaliseLicenceCategory(row.values['licence_class'] ?? '', ref));
   });
   db.exec('COMMIT');
   db.exec('CREATE INDEX idx_observations_callsign ON observations("callsign")');
@@ -281,7 +286,8 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
   // cohort) are runnable in SQL. cleaned is a JOIN KEY, not an identity -
   // duplicates are expected and deliberate (G6 FMU / G6FMU), so its
   // index is plain, never UNIQUE.
-  const historyColumns = new Set<string>(['dataset', 'cleaned', 'suffix', 'implied_class', 'prefix_series', 'parse_status']);
+  const historyColumns = new Set<string>(['dataset', 'cleaned', 'suffix', 'implied_class', 'prefix_series', 'parse_status', 'normalised_licence_category']);
+  const historyRef = loadReferenceData();
   const publications = listArchiveKeys().sort()
     .map(key => ({ key, path: path.join(CONSTANTS.DIRS.archive, key, 'normalised.csv') }))
     .filter(p => fs.existsSync(p.path))
@@ -347,6 +353,7 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
         if (c === 'implied_class') return keys?.impliedClass ?? '';
         if (c === 'prefix_series') return keys?.prefixSeries ?? '';
         if (c === 'parse_status') return keys?.parseStatus ?? '';
+        if (c === 'normalised_licence_category') return normaliseLicenceCategory(record['product'] ?? '', historyRef);
         return record[c] ?? null;
       }));
       historyRows += 1;

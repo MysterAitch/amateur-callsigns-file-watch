@@ -118,6 +118,7 @@ const EXAMPLES = [
   { db: 'master', title: 'One callsign across every publication', sql: "SELECT dataset, status, product FROM register_history WHERE callsign = 'G2CP' ORDER BY dataset" },
   { db: 'master', title: 'Every FOI-witnessed observation of a callsign', sql: "SELECT entry, vintage, status, licence_class, event, event_date FROM observations WHERE callsign = 'G2CP' ORDER BY vintage" },
   { db: 'master', title: 'NULL vs blank: the semantics in action', sql: "SELECT entry, status, CASE WHEN status IS NULL THEN 'not asserted by source' WHEN status = '' THEN 'asserted BLANK by source' ELSE 'asserted' END AS reading FROM observations WHERE callsign = 'G0TQK' ORDER BY entry" },
+  { db: 'master', title: 'Licence-category mix in one publication (canonical, dataset-scoped)', sql: "SELECT normalised_licence_category, COUNT(*) AS n FROM register_history WHERE dataset = '2026-06-23' AND normalised_licence_category IS NOT NULL GROUP BY normalised_licence_category ORDER BY n DESC" },
 ];
 
 function renderExamples() {
