@@ -72,9 +72,10 @@ describe('Dataset pages build', () => {
     expect(page).toContain('<details><summary>Data table');
     // Recent issuance split by licence level, anchored on the publication.
     expect(page).toContain('New in the 12 months to 23 June 2026, by licence level');
-    // Long tails are explorable: chart rows carry a scoped-browser query.
-    expect(page).toContain('data-browser-sql="SELECT');
-    expect(page).toContain('LENGTH(callsign) = 12'); // the length-12 tail
+    // Long tails are explorable: chart bars/rows carry a facet trigger
+    // that toggles the value into the coordinated browser.
+    expect(page).toContain('data-filter-expr="CAST(LENGTH(callsign) AS TEXT)"');
+    expect(page).toContain('data-filter-val="12"'); // the length-12 tail
     // Blank category values are humanised, never shown as an empty label.
     expect(page).not.toMatch(/<td><\/td><td class="n">/);
   });
@@ -88,8 +89,10 @@ describe('Dataset pages build', () => {
     expect(page).toContain('src="../../../entry-browser.js"');
     // The static preview remains as the no-JS/crawlable fallback.
     expect(page).toContain('class="browser-static"');
-    // Status-breakdown rows are click-to-filter targets for the browser.
-    expect(page).toContain('data-filter-status="Allocated"');
+    // Breakdown rows are click-to-filter targets feeding the browser facets.
+    expect(page).toContain('data-filter-col="status" data-filter-val="Allocated"');
+    expect(page).toContain('data-filter-col="implied_class" data-filter-val="Full"');
+    expect(page).toContain('data-filter-col="prefix_series" data-filter-val="M3"');
   });
 
   it('DatasetPages_FoiEntryPage_HasNoScopedBrowser', () => {
