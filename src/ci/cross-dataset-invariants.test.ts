@@ -1,13 +1,19 @@
-import { describe, it, expect } from 'vitest';
-import { buildDepletion, renderCrossDatasetInvariants } from './cross-dataset-invariants.ts';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { buildDepletion, renderCrossDatasetInvariants, type CrossDataset } from './cross-dataset-invariants.ts';
 
 // Issue #241: the cross-dataset probes join each FOI available snapshot against
 // the latest register on the cleaned callsign key. Test names follow
 // Subject_Scenario_Outcome.
 
 describe('cross-dataset invariants — available-pool depletion', () => {
+  // The real-archive join re-parses the whole register (~158k rows) and every
+  // FOI snapshot; build it once and share it across the assertions rather than
+  // three times (cheaper, and it stops the CPU-heavy join from starving other
+  // parallel test workers).
+  let d: CrossDataset;
+  beforeAll(() => { d = buildDepletion(); }, 60_000);
+
   it('AvailablePool_2013Snapshot_DepletionMatchesIndependentJoin', () => {
-    const d = buildDepletion();
     const s = d.rows.find(r => r.entry === 'wdtk-174341--available-callsigns-list');
     // Cross-checked by an independent cleaned join outside the generator.
     expect(s?.available).toBe(26646);
@@ -21,10 +27,9 @@ describe('cross-dataset invariants — available-pool depletion', () => {
     expect(a?.nowAllocated).toBe(b?.nowAllocated);
     // Drawdown is a proper subset: never more allocated than were available.
     for (const r of d.rows) expect(r.nowAllocated).toBeLessThanOrEqual(r.available);
-  }, 60_000);
+  });
 
   it('AbsentFromBoth_2013Snapshot_DecompositionSumsToStillAbsentAndMatchesJoin', () => {
-    const d = buildDepletion();
     const s = d.rows.find(r => r.entry === 'wdtk-174341--available-callsigns-list');
     // Independently cross-checked status decomposition of the still-absent pool.
     expect(s?.nowReserved).toBe(2662);
@@ -34,10 +39,9 @@ describe('cross-dataset invariants — available-pool depletion', () => {
     for (const r of d.rows) {
       expect(r.nowReserved + r.stillAvailable + r.absentFromRegister).toBe(r.stillAbsent);
     }
-  }, 60_000);
+  });
 
   it('OriginalIssueDate_2013Snapshot_CountsCallsignsFirstLicensedBeforeVintage', () => {
-    const d = buildDepletion();
     const s = d.rows.find(r => r.entry === 'wdtk-174341--available-callsigns-list');
     // Independently cross-checked: of the 14,966 now allocated, 25 carry an
     // original-start-date predating the 2013-09-06 snapshot — reconciliation
@@ -46,7 +50,7 @@ describe('cross-dataset invariants — available-pool depletion', () => {
     expect(s?.issuedBeforeVintage).toBe(25);
     // The anomaly is always a subset of the dated allocations.
     for (const r of d.rows) expect(r.issuedBeforeVintage).toBeLessThanOrEqual(r.allocatedWithDate);
-  }, 60_000);
+  });
 
   it('Render_AllSections_ShowDepletionDecompositionAndDateInvariant', () => {
     const md = renderCrossDatasetInvariants({
