@@ -317,6 +317,30 @@ describe('Dataset pages build', () => {
     expect(summary.pageUrls.some(u => u.endsWith('/reports/index.html'))).toBe(true);
   });
 
+  it('ReportPages_KnownEntities_AreCrossLinkedToTheirPages', () => {
+    // The value catalogue names prefix series and data-quality flags; each
+    // becomes a link to its canonical page, so the report is a jumping-off
+    // point rather than a dead end (issue #234).
+    const vc = fs.readFileSync(path.join(outputDir, 'reports', 'value-catalogue.html'), 'utf8');
+    // A prefix series links to its series page (M7 is a Foundation series with
+    // a page and a large prefix_series row).
+    expect(vc).toContain('<a href="../series/M7.html"><code>M7</code></a>');
+    // The observed-but-unreferenced M2 series, called out in Notable, links too.
+    expect(vc).toContain('<a href="../series/M2.html"><code>M2</code></a>');
+    // A data-quality flag links to the flag registry.
+    expect(vc).toContain('<a href="../datasets/docs/flags.html"><code>forbidden-suffix</code></a>');
+    // Links are not double-wrapped (the token appears inside exactly one anchor).
+    expect(vc).not.toContain('<a href="../series/M7.html"><a');
+  });
+
+  it('StaticStatistics_LinksToTheReportsThatExpandItsFigures', () => {
+    // The statistics page points at the standing reports that expand its
+    // deploy-time aggregates - a two-way weave, not a one-way nav link.
+    const stats = fs.readFileSync(path.join('site', 'statistics.html'), 'utf8');
+    expect(stats).toContain('href="reports/data-quality.html"');
+    expect(stats).toContain('href="reports/value-catalogue.html"');
+  });
+
   it('ReportPages_DatasetStatusRelativeLink_RewrittenToRepoNot404', () => {
     // dataset-status.md links a sibling doc (source-register.md) that has no
     // rendered page on the site; the link resolves to the authoritative repo
