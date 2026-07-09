@@ -26,7 +26,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { CONSTANTS } from '../shared/utils.ts';
-import { listFoiEntryKeys, readFoiEntryMeta, FOI_DATASET_CLASSES, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
+import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
 import { renderMarkdown, renderInline } from '../shared/render-markdown.ts';
 import { parseFlagRegistry } from './build-sqlite.ts';
 import { displaySeries } from './build-home-aggregates.ts';
@@ -115,38 +115,103 @@ interface PageOptions {
   sourcePath?: string;
 }
 
-function htmlPage(title: string, depthToRoot: number, body: string[], options: PageOptions = {}): string {
-  const { metaJsonHref, currentNav, sourcePath } = options;
+// One consistent navigation strip on every generated page (no arrow - the
+// old "← callsign lookup" wrongly implied where the visitor came from); the
+// current page is named but not self-linked.
+function navHtml(depthToRoot: number, currentNav?: string): string {
   const rootPath = '../'.repeat(depthToRoot);
-  // One consistent navigation strip on every generated page (no arrow -
-  // the old "← callsign lookup" wrongly implied where the visitor came
-  // from); the current page is named but not self-linked.
   const navItems: [string, string][] = [
     ['Lookup', `${rootPath}index.html`],
     ['Statistics', `${rootPath}statistics.html`],
     ['Explore', `${rootPath}explore.html`],
-    // Root-anchored so it is correct from every directory (a sibling-
-    // relative form resolved to the SERIES index from series/ pages).
     ['Dataset index', `${rootPath}datasets/index.html`],
     ['Repository', REPO_URL],
   ];
-  const nav = navItems
+  return navItems
     .map(([label, href]) => (label === currentNav ? `<strong>${label}</strong>` : `<a href="${href}">${label}</a>`))
     .join(' · ');
+}
+
+function footerHtml(metaJsonHref?: string, sourcePath?: string): string {
   // On entry pages the footer's meta.json mention links to THAT entry's
   // meta; elsewhere it stays plain text (a generic link would mislead).
   const metaMention = metaJsonHref === undefined ? '<code>meta.json</code>' : `<a href="${metaJsonHref}"><code>meta.json</code></a>`;
   const isFile = sourcePath !== undefined && /\.[a-z]+$/i.test(sourcePath);
   const sourceLink = sourcePath === undefined ? '' :
     ` <a href="${REPO_URL}/${isFile ? 'blob' : 'tree'}/main/${sourcePath}">${isFile ? 'View or edit this page’s source on GitHub' : 'Browse this entry’s directory on GitHub'}</a>.`;
+  return `<p><small>Derived from the committed archive; provenance and integrity hashes live in each entry's ${metaMention}.${sourceLink} Regenerated on every deploy from commit <code>${escapeHtml(BUILD_SHA)}</code>. Maintained by Roger Howell (M7TEE).</small></p>`;
+}
+
+function htmlPage(title: string, depthToRoot: number, body: string[], options: PageOptions = {}): string {
+  const { metaJsonHref, currentNav, sourcePath } = options;
   return [
     '<!DOCTYPE html>',
     '<html lang="en-GB">',
     `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${PAGE_STYLE}</head>`,
     '<body>',
-    `<nav><p>${nav}</p></nav>`,
+    `<nav><p>${navHtml(depthToRoot, currentNav)}</p></nav>`,
     ...body,
-    `<p><small>Derived from the committed archive; provenance and integrity hashes live in each entry's ${metaMention}.${sourceLink} Regenerated on every deploy from commit <code>${escapeHtml(BUILD_SHA)}</code>. Maintained by Roger Howell (M7TEE).</small></p>`,
+    footerHtml(metaJsonHref, sourcePath),
+    '</body>',
+    '</html>',
+    '',
+  ].join('\n');
+}
+
+// Richer, card-based styling for the redesigned entry pages (the static
+// half of "variant Q"): theme-aware via prefers-color-scheme, a hero
+// column beside an At-a-glance sidebar, deep-linkable :target inspect tabs,
+// the fixed-slot download grid, and the Notable coda. Entry pages only;
+// the other generated pages keep PAGE_STYLE until the site-wide style pass.
+const ENTRY_STYLE = [
+  '<style>',
+  ':root{--ink:#1a1a1a;--paper:#f6f6f4;--card:#fff;--line:#dcdcd8;--muted:#6b6b6b;--accent:#14506e;--slot:#faf9f6;--good:#3f7d55;--warnbg:#fbeee2;--warnline:#c98a3f;--warnink:#7a3d00;--note:#eef3f4;--bar:#c9d7dc;--marker:#b23}',
+  '@media(prefers-color-scheme:dark){:root{--ink:#e6e6e6;--paper:#111;--card:#191919;--line:#333;--muted:#9a9a9a;--accent:#7fbcd9;--slot:#141414;--good:#7fbf97;--warnbg:#2a2016;--warnline:#8a5a1f;--warnink:#e8b877;--note:#15211f;--bar:#2c4048;--marker:#e58}}',
+  '*{box-sizing:border-box}body{font-family:system-ui,sans-serif;margin:0;color:var(--ink);background:var(--paper);line-height:1.55}',
+  '.wrap{max-width:64rem;margin:0 auto;padding:1.4rem 1.2rem 3rem}',
+  'nav{font-size:.92rem;color:var(--muted)}nav a{color:var(--accent);text-decoration:none}a{color:var(--accent)}',
+  'h1{font-size:1.8rem;margin:.7rem 0 .1rem;line-height:1.15}.subtitle{color:var(--muted);margin:.1rem 0 1rem;font-size:.94rem}.subtitle code{color:var(--muted)}',
+  'section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.9rem 1.2rem 1.1rem;margin:0 0 1.05rem}section>h2{font-size:1.02rem;margin:.2rem 0 .7rem}',
+  '.notice{display:flex;gap:.5rem;align-items:baseline;font-size:.86rem;color:var(--muted);border:1px solid var(--line);border-left:4px solid var(--good);border-radius:8px;padding:.5rem .8rem;margin:0 0 1.05rem;background:var(--card)}',
+  '.notice.warn{border:1px solid var(--warnline);border-left-width:4px;background:var(--warnbg);color:var(--warnink)}.notice b{color:inherit}',
+  '.main-region{display:flex;gap:1.05rem;align-items:flex-start;flex-wrap:wrap}',
+  '.col{flex:1 1 27rem;order:1;min-width:0;display:flex;flex-direction:column;gap:1.05rem}.col section{margin:0}.side{flex:0 0 16.5rem;order:2}',
+  '@media(max-width:48rem){.col{order:2;flex-basis:100%}.side{order:1;flex-basis:100%}}',
+  '.headline{font-size:1.5rem;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.1}.headline small{font-size:.8rem;font-weight:400;color:var(--muted)}',
+  '.bd{margin:.7rem 0 0}.bd h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:.7rem 0 .3rem;font-weight:600}',
+  '.brow{display:flex;align-items:baseline;gap:.4rem;font-size:.85rem;padding:.14rem 0;position:relative}.brow .lab{flex:1}.brow .lab a{color:var(--accent)}',
+  '.brow .pct{color:var(--muted);font-size:.76rem;min-width:2.4rem;text-align:right}.brow b{font-variant-numeric:tabular-nums;font-weight:600;min-width:4rem;text-align:right}',
+  '.brow .barbg{position:absolute;left:0;bottom:0;height:2px;background:var(--bar)}',
+  '.attr{margin-top:.9rem;padding-top:.7rem;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted)}.attr a{color:var(--accent)}.attr div{margin:.15rem 0}.attr b{color:var(--ink)}',
+  '.notable{margin-top:.9rem;padding-top:.7rem;border-top:1px solid var(--line)}.notable h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 .3rem;font-weight:600}',
+  '.notable ul{list-style:none;margin:0;padding:0}.notable li{font-size:.85rem;padding-left:1rem;position:relative;margin:.3rem 0}.notable li::before{content:"›";position:absolute;left:0;color:var(--accent)}.notable .rel{color:var(--muted)}.notable b{color:var(--ink)}',
+  '.tablist{display:flex;flex-wrap:wrap;gap:.35rem;margin:.1rem 0 .8rem}.tablist a{font-size:.85rem;padding:.32rem .7rem;border:1px solid var(--line);border-radius:999px;color:var(--muted);text-decoration:none}',
+  '.panel{display:none;scroll-margin-top:5rem}.panel:target{display:block}.tabs:not(:has(.panel:target)) .panel.first{display:block}',
+  '.panel .lead{font-size:.9rem;color:var(--muted);margin:.1rem 0 .6rem}',
+  'table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{text-align:left;padding:.28rem .5rem;border-bottom:1px solid var(--line);vertical-align:top}th{font-weight:600}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}',
+  'code{font-size:.92em}.marker{color:var(--marker)}',
+  '.tier h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:.6rem 0 .45rem;font-weight:600}',
+  '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:.5rem}',
+  '.slot{border:1px solid var(--line);border-radius:9px;padding:.5rem .65rem;background:var(--slot);min-height:3.6rem}.slot .name{font-weight:650}.slot .meta{color:var(--muted);font-size:.77rem}.slot .desc{color:var(--muted);font-size:.78rem;line-height:1.25;margin-top:.15rem}',
+  '.slot.empty{border-style:dashed;opacity:.68}.slot.empty .name{color:var(--muted);font-weight:600}.slot.empty .tag{font-size:.74rem;color:var(--muted);font-style:italic}',
+  '.linkout{display:block;margin:.1rem 0 1.05rem;padding:.7rem 1.1rem;border:1px dashed var(--line);border-radius:12px;font-size:.9rem}',
+  'footer{color:var(--muted);font-size:.83rem;margin-top:.6rem;line-height:1.6}footer a{color:var(--accent)}',
+  '</style>',
+].join('');
+
+// Full HTML for a redesigned entry page (depth 3: datasets/{lane}/{key}/).
+function entryPage(title: string, body: string[], options: PageOptions = {}): string {
+  const { metaJsonHref, sourcePath } = options;
+  return [
+    '<!DOCTYPE html>',
+    '<html lang="en-GB">',
+    `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${ENTRY_STYLE}</head>`,
+    '<body>',
+    '<div class="wrap">',
+    `<nav>${navHtml(3)}</nav>`,
+    ...body,
+    footerHtml(metaJsonHref, sourcePath).replace('<p><small>', '<footer>').replace('</small></p>', '</footer>'),
+    '</div>',
     '</body>',
     '</html>',
     '',
@@ -231,20 +296,6 @@ function dataPackage(name: string, title: string, files: CopiedFile[]): string {
   }, null, 2) + '\n';
 }
 
-function filesTable(files: CopiedFile[]): string[] {
-  return [
-    '<table>',
-    '<tr><th>file</th><th>size</th><th>notes</th></tr>',
-    ...files.map(file => {
-      // Markdown defaults to the rendered view; the verbatim raw file
-      // stays one click away.
-      const mainHref = file.renderedName === undefined ? encodeURIComponent(file.name) : encodeURIComponent(file.renderedName);
-      const rawLink = file.renderedName === undefined ? '' : ` · <a href="${encodeURIComponent(file.name)}">raw</a>`;
-      return `<tr><td><a href="${mainHref}">${escapeHtml(file.name)}</a>${rawLink}</td><td>${formatBytes(file.bytes)}</td><td>${escapeHtml(file.description ?? '')}${file.witnessHtml ?? ''}</td></tr>`;
-    }),
-    '</table>',
-  ];
-}
 
 interface SheetsIndicative {
   note?: string;
@@ -256,42 +307,6 @@ function asSheetsIndicative(value: unknown): SheetsIndicative | undefined {
   return value as SheetsIndicative;
 }
 
-// Plain-language summary of what an FOI entry's data IS - the dataset
-// classes with their registry prose, and the per-file sheet shapes where
-// the meta declares them (workbook attachments). Everything shown is
-// already asserted by meta.json; this only presents it.
-function foiDataSummarySections(meta: FoiEntryMeta): string[] {
-  const html: string[] = [
-    '<h2>What this data is</h2>',
-    '<ul>',
-    ...meta.datasetClasses.map(c => `<li><code>${escapeHtml(c)}</code> — ${escapeHtml(FOI_DATASET_CLASSES[c] ?? '')}</li>`),
-    '</ul>',
-  ];
-  const shapeRows: string[] = [];
-  const notes = new Set<string>();
-  for (const [name, decl] of Object.entries(meta.files)) {
-    const indicative = asSheetsIndicative(decl.sheetsIndicative);
-    if (indicative === undefined) continue;
-    if (indicative.note !== undefined) notes.add(indicative.note);
-    for (const sheet of indicative.sheets) {
-      shapeRows.push(`<tr><td><code>${escapeHtml(name)}</code></td><td>${escapeHtml(sheet.name)}</td>`
-        + `<td>${sheet.approxRows === undefined ? '—' : `~${sheet.approxRows.toLocaleString('en-GB')}`}</td>`
-        + `<td>${escapeHtml(sheet.cols ?? '—')}</td>`
-        + `<td>${sheet.datasetClass === undefined ? '—' : `<code>${escapeHtml(sheet.datasetClass)}</code>`}</td></tr>`);
-    }
-  }
-  if (shapeRows.length > 0) {
-    html.push(
-      '<h3>Sheets (indicative shape)</h3>',
-      '<table>',
-      '<tr><th>file</th><th>sheet</th><th>rows</th><th>cols</th><th>class</th></tr>',
-      ...shapeRows,
-      '</table>',
-      ...[...notes].map(n => `<p><small>${escapeHtml(n)}</small></p>`),
-    );
-  }
-  return html;
-}
 
 // One deterministic zip per entry: every archived file, the
 // datapackage.json descriptor, AND the lane's data dictionary (the
@@ -321,8 +336,195 @@ function writeEntryZip(sourceDir: string, targetDir: string, key: string, descri
 const FOI_DICTIONARY_SOURCES = ['docs/foi-schemas.md'];
 const OPEN_DATA_DICTIONARY_SOURCES = ['docs/normalised-schema.md', 'reference-data/flags.md'];
 
-function entryZipLine(key: string, zipBytes: number): string {
-  return `<p>Download everything (all files above, plus the descriptor and the data dictionary) as one archive: <a href="${encodeURIComponent(`${key}.zip`)}">${escapeHtml(key)}.zip</a> (${formatBytes(zipBytes)}).</p>`;
+
+// ---- Redesigned entry-page components (variant Q, static half) ----
+
+function noticeStrip(warn: boolean, inner: string): string {
+  return `<div class="notice${warn ? ' warn' : ''}"><span>${warn ? '⚠' : 'ⓘ'}</span><span>${inner}</span></div>`;
+}
+
+// Coverage / provenance / verified-quality notices as full-width strips
+// above the two-column region. Safety information (a coverage-affecting
+// quality observation) renders amber.
+function coverageNotices(meta: {
+  provenance?: string;
+  intendedCoverage?: { complete: boolean; scopeNotes?: string };
+  qualityObservations?: { statement: string; evidence: string; coverageAffecting?: boolean }[];
+}): string[] {
+  const out: string[] = [];
+  if (meta.provenance !== undefined && meta.provenance !== 'live') {
+    out.push(noticeStrip(false, `<em>Provenance: ${escapeHtml(meta.provenance.replace(/-/g, ' '))} — not fetched first-hand by the mirror; see <a href="meta.json">meta.json</a>'s <code>reconstructionNotes</code>.</em>`));
+  }
+  if (meta.intendedCoverage?.complete === false) {
+    out.push(noticeStrip(true, `<b>Declared-partial publication:</b> ${escapeHtml(meta.intendedCoverage.scopeNotes ?? 'the publisher presented this as a partial dataset')}. Absence of a callsign from this publication is not evidence of anything.`));
+  } else if (meta.intendedCoverage?.complete === true) {
+    out.push(noticeStrip(false, `Declared <b>complete</b> — the publisher's stated intent, not a verified guarantee. <a href="../../docs/normalised-schema.html">How we read coverage →</a>`));
+  }
+  for (const o of meta.qualityObservations ?? []) {
+    const lead = o.coverageAffecting === true ? '<b>Data-quality caveat (affects coverage):</b> ' : '<b>Data-quality note:</b> ';
+    out.push(noticeStrip(o.coverageAffecting === true, `${lead}${escapeHtml(o.statement)} <small>(${escapeHtml(o.evidence)})</small>`));
+  }
+  return out;
+}
+
+interface InspectTab { id: string; label: string; panel: string }
+
+// Deep-linkable :target tabs (pure CSS, hash survives reload). The first
+// panel shows by default; the active tab is highlighted via :has().
+function inspectTabsHtml(tabs: InspectTab[]): string {
+  if (tabs.length === 0) return '';
+  const activeRules = tabs.map(t => `.tabs:has(#${t.id}:target) a[href="#${t.id}"]`).join(',')
+    + `,.tabs:not(:has(.panel:target)) a[href="#${tabs[0].id}"]`;
+  return [
+    '<section class="tabs">',
+    `<style>${activeRules}{background:var(--accent);color:#fff;border-color:var(--accent)}</style>`,
+    '<h2>Inspect a file</h2>',
+    `<div class="tablist">${tabs.map(t => `<a href="#${t.id}">${escapeHtml(t.label)}</a>`).join('')}</div>`,
+    ...tabs.map((t, i) => `<div class="panel${i === 0 ? ' first' : ''}" id="${t.id}">${t.panel}</div>`),
+    '</section>',
+  ].join('\n');
+}
+
+// A CSV file's own column list, rendered from its header row.
+function csvSchemaPanel(filePath: string, rowNote: string): string {
+  const fields = csvHeaderFields(filePath);
+  if (fields === undefined) return `<p class="lead">${escapeHtml(rowNote)}</p>`;
+  return `<p class="lead">${escapeHtml(rowNote)} · ${fields.length} columns.</p><table><tr><th>column</th></tr>${fields.map(f => `<tr><td><code>${escapeHtml(f.name)}</code></td></tr>`).join('')}</table>`;
+}
+
+function downloadSlot(name: string, href: string, meta: string, desc: string): string {
+  return `<div class="slot"><span class="name"><a href="${href}">${escapeHtml(name)}</a></span> <span class="meta">${escapeHtml(meta)}</span><div class="desc">${escapeHtml(desc)}</div></div>`;
+}
+function placeholderSlot(name: string, tag: string): string {
+  return `<div class="slot empty"><span class="name">${escapeHtml(name)}</span><br><span class="tag">${escapeHtml(tag)}</span></div>`;
+}
+function downloadTier(title: string, slots: string[]): string {
+  return `<div class="tier"><h3>${escapeHtml(title)}</h3><div class="grid">${slots.join('')}</div></div>`;
+}
+
+// Vertical breakdown rows with a subtle proportion bar and a de-emphasised
+// percentage; the label optionally links (largest = whole; caller supplies).
+function breakdownRows(counts: [string, number][], total: number, linkFor?: (v: string) => string | undefined): string {
+  return counts.map(([label, n]) => {
+    const pct = total > 0 ? Math.round((n / total) * 100) : 0;
+    const pctText = pct === 0 && n > 0 ? '<1%' : `${pct}%`;
+    const href = linkFor?.(label);
+    const lab = href === undefined ? escapeHtml(label) : `<a href="${href}">${escapeHtml(label)}</a>`;
+    return `<div class="brow"><span class="lab">${lab}</span><span class="pct">${pctText}</span><b>${n.toLocaleString('en-GB')}</b><span class="barbg" style="width:${Math.min(pct, 100)}%"></span></div>`;
+  }).join('');
+}
+
+// Status and implied-class distributions for an open-data publication,
+// read from its normalised.csv (status) and components.csv (implied_class,
+// prefix_series). The RSL matrix used to be the components consumer on
+// entry pages; it has moved to the statistics home, so this read replaces
+// it rather than adding one.
+function openDataBreakdowns(sourceDir: string): {
+  recordCount: number;
+  status: [string, number][];
+  impliedClass: [string, number][];
+  prefixes: [string, number][];
+  flaggedRows: number;
+} {
+  const statusRows = parse(fs.readFileSync(path.join(sourceDir, 'normalised.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  const componentRows = parse(fs.readFileSync(path.join(sourceDir, 'components.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  const tally = (rows: Record<string, string>[], column: string): Map<string, number> => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      const v = (r[column] ?? '').trim();
+      if (v === '') continue;
+      m.set(v, (m.get(v) ?? 0) + 1);
+    }
+    return m;
+  };
+  const status = tally(statusRows, 'status');
+  // Rows carrying at least one flag (NOT the sum of per-flag counts, which
+  // over-counts rows that trip several detectors).
+  const flaggedRows = componentRows.filter(r => (r.flags ?? '') !== '').length;
+  const sortDesc = (m: Map<string, number>, n?: number): [string, number][] =>
+    [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, n);
+  return {
+    recordCount: statusRows.length,
+    status: sortDesc(status),
+    impliedClass: sortDesc(tally(componentRows, 'implied_class')),
+    prefixes: sortDesc(tally(componentRows, 'prefix_series'), 6),
+    flaggedRows,
+  };
+}
+
+// A static preview of a CSV's first rows (reads only the head buffer, not
+// the whole 158k-row file). Columns with no value in the sample are
+// dropped so the preview stays legible.
+function csvPreviewTable(filePath: string, sampleSize = 12): string {
+  if (!fs.existsSync(filePath)) return '';
+  const fd = fs.openSync(filePath, 'r');
+  const buffer = Buffer.alloc(128 * 1024);
+  const read = fs.readSync(fd, buffer, 0, buffer.length, 0);
+  fs.closeSync(fd);
+  const lines = buffer.toString('utf8', 0, read).split('\n').filter(l => l.length > 0).slice(0, sampleSize + 1);
+  if (lines.length < 2) return '';
+  const rows = parse(lines.join('\n'), { columns: true, bom: true }) as Record<string, string>[];
+  const headers = Object.keys(rows[0]).filter(h => rows.some(r => (r[h] ?? '') !== ''));
+  const head = headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+  const body = rows.map(r => `<tr>${headers.map(h => `<td>${escapeHtml(r[h] ?? '')}</td>`).join('')}</tr>`).join('');
+  return `<div style="overflow-x:auto"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+// The anomaly-flag table (first-sentence meanings + registry link), used
+// in the stats.json inspect panel.
+function anomalyFlagsHtml(flags: Record<string, number>): string {
+  const registry = new Map(parseFlagRegistry().map(r => [r.flag, r.meaning]));
+  const entries = Object.entries(flags).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) return '<p class="lead">No data-quality flags recorded.</p>';
+  const rows = entries.map(([flag, count]) => {
+    const meaning = (registry.get(flag) ?? '').split(/(?<=\.)\s/, 1)[0];
+    return `<tr><td><code>${escapeHtml(flag)}</code></td><td class="n">${count.toLocaleString('en-GB')}</td><td>${renderInline(meaning)} <a href="../../docs/flags.html">registry →</a></td></tr>`;
+  }).join('');
+  return `<table><tr><th>flag</th><th class="n">rows</th><th>meaning</th></tr>${rows}</table>`;
+}
+
+// The At-a-glance sidebar for an open-data publication: headline count,
+// status/licence-level breakdowns with bars, largest prefixes (linked to
+// their series pages), attribution, and the Notable coda.
+function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string | undefined, stats: OpenDataStats, meta: {
+  sourceUrl?: string; ofcomReportedUpdateIso?: string; ofcomReportedUpdate?: string; fetchedAt?: string;
+  diffSummary?: OpenDataDiffSummary;
+}): string {
+  const bd = openDataBreakdowns(sourceDir);
+  const prefixLinks = bd.prefixes.map(([p]) => `<a href="../../../series/${seriesSlug(p)}.html" title="series ${displaySeries(p)}">${escapeHtml(displaySeries(p))}</a>`).join(' · ');
+
+  // Notable: computed findings with the drill-downs Roger asked to keep.
+  // Row-level filtered links are correct only for the latest publication
+  // (the whole-register lookup ≈ this publication); the scoped, per-
+  // publication browser in 3b makes them exact for every entry.
+  const notable: string[] = [];
+  const topFlag = Object.entries(stats.callsignFlags).sort((a, b) => b[1] - a[1])[0];
+  if (topFlag !== undefined) notable.push(`<li><b>${topFlag[1].toLocaleString('en-GB')}</b> rows flagged <a href="../../docs/flags.html"><code>${escapeHtml(topFlag[0])}</code></a>.</li>`);
+  const unparseable = stats.parseStatuses.unparseable ?? 0;
+  if (unparseable > 0) notable.push(`<li><b>${unparseable.toLocaleString('en-GB')}</b> callsign${unparseable === 1 ? '' : 's'} don't parse — likely upstream corruption.</li>`);
+  const diff = meta.diffSummary;
+  if (diff !== undefined && diff.previousArchiveKey === key && previousKey !== undefined) {
+    notable.push(`<li class="rel"><b>Re-fetch:</b> byte-identical to the earlier fetch. Compare with <a href="../${escapeHtml(previousKey)}/index.html">${humanDate(previousKey)}</a>.</li>`);
+  } else if (diff !== undefined) {
+    notable.push(`<li class="rel"><b>vs <a href="../${escapeHtml(diff.previousArchiveKey)}/index.html">${humanDate(diff.previousArchiveKey)}</a>:</b> ${diff.added.toLocaleString('en-GB')} added, ${diff.removed.toLocaleString('en-GB')} removed, ${diff.fieldChanged.toLocaleString('en-GB')} changed.</li>`);
+  }
+
+  const publishedIso = meta.ofcomReportedUpdateIso ?? key;
+  return [
+    '<section>',
+    '<h2>At a glance</h2>',
+    `<div class="headline">${bd.recordCount.toLocaleString('en-GB')} <small>register rows</small></div>`,
+    bd.status.length > 0 ? `<div class="bd"><h3>Status</h3>${breakdownRows(bd.status, bd.recordCount)}</div>` : '',
+    bd.impliedClass.length > 0 ? `<div class="bd"><h3>Licence level (implied)</h3>${breakdownRows(bd.impliedClass, bd.recordCount)}</div>` : '',
+    bd.prefixes.length > 0 ? `<div class="bd"><h3>Largest prefixes</h3><div class="brow"><span class="lab">${prefixLinks}</span></div><div class="brow"><a href="../../../series/index.html">all series →</a></div></div>` : '',
+    '<div class="attr">',
+    `<div><b>Source</b> · ${meta.sourceUrl !== undefined ? `<a href="${escapeHtml(meta.sourceUrl)}">Ofcom open-data page →</a>` : 'Ofcom open-data page'}</div>`,
+    `<div>Published ${escapeHtml(humanDate(publishedIso))}${meta.fetchedAt !== undefined ? ` · fetched ${escapeHtml(humanDate(meta.fetchedAt.slice(0, 10)))}` : ''}</div>`,
+    `<div>${bd.flaggedRows.toLocaleString('en-GB')} rows carry a quality flag</div>`,
+    '</div>',
+    notable.length > 0 ? `<div class="notable"><h3>Notable</h3><ul>${notable.join('')}</ul></div>` : '',
+    '</section>',
+  ].filter(s => s !== '').join('\n');
 }
 
 function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files: CopiedFile[]; meta: FoiEntryMeta; zipBytes: number } {
@@ -337,18 +539,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files:
   descriptions.set('meta.json', 'provenance, outcome, and hash-pinned file declarations');
   const targetDir = path.join(outputDir, 'datasets', 'foi', key);
   const files = copyEntryFiles(path.join(foiDir, key), targetDir, descriptions, hashes, meta.title);
-  for (const file of files) {
-    file.witnessHtml = witnessLinks(meta.files[file.name]?.witnesses);
-  }
 
-  const facts: string[] = [
-    `<tr><th>outcome</th><td>${escapeHtml(meta.outcome)}${meta.datasetRecovery === undefined ? '' : ` <em>(dataset ${escapeHtml(meta.datasetRecovery)})</em>`}</td></tr>`,
-    `<tr><th>dataset classes</th><td>${meta.datasetClasses.map(c => `<code>${escapeHtml(c)}</code>`).join(', ')}</td></tr>`,
-    `<tr><th>data vintage</th><td>${escapeHtml(meta.dataVintage ?? '—')}</td></tr>`,
-    `<tr><th>requested / responded</th><td>${escapeHtml(meta.requestedAt ?? 'not stated')} / ${escapeHtml(meta.respondedAt ?? 'not stated')}</td></tr>`,
-  ];
-  if (meta.requestUrl !== null) facts.push(`<tr><th>request</th><td><a href="${escapeHtml(meta.requestUrl)}">${escapeHtml(meta.requestUrl)}</a></td></tr>`);
-  if (meta.publicationUrl !== undefined) facts.push(`<tr><th>published at</th><td><a href="${escapeHtml(meta.publicationUrl)}">${escapeHtml(meta.publicationUrl)}</a></td></tr>`);
   // Real entry ids get <code> + a link; free-text related notes render as
   // prose - <code>-styling a whole sentence made it read as a dead slug.
   const related = (meta.relatedEntries ?? []).map(rel =>
@@ -356,33 +547,101 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string): { files:
 
   const descriptor = dataPackage(key, meta.title, files);
   const zipBytes = writeEntryZip(path.join(foiDir, key), targetDir, key, descriptor, FOI_DICTIONARY_SOURCES);
+  const sizeMap = new Map(files.map(f => [f.name, formatBytes(f.bytes)]));
+  const isDerived = (name: string): boolean => /normalis|extract/i.test(name) || /normalis|extract/i.test(meta.files[name]?.role ?? '');
+
+  // Inspect: a tab per declared file (workbook → its sheets; CSV → column
+  // schema; document → role + contents + witnesses), plus meta.json.
+  const dataTabs: InspectTab[] = Object.keys(meta.files).map((name, i) => {
+    const decl = meta.files[name];
+    const indicative = asSheetsIndicative(decl.sheetsIndicative);
+    const roleLine = [decl.role, decl.contentsIndicative].filter(Boolean).join(' — ');
+    let panel: string;
+    if (indicative !== undefined) {
+      const rows = indicative.sheets.map(s => `<tr><td>${escapeHtml(s.name)}</td><td class="n">${s.approxRows === undefined ? '—' : `~${s.approxRows.toLocaleString('en-GB')}`}</td><td>${escapeHtml(s.cols ?? '—')}</td><td>${s.datasetClass === undefined ? '—' : `<code>${escapeHtml(s.datasetClass)}</code>`}</td></tr>`).join('');
+      panel = `<p class="lead">${escapeHtml(roleLine)}</p><table><tr><th>sheet</th><th class="n">rows</th><th>cols</th><th>class</th></tr>${rows}</table>${indicative.note !== undefined ? `<p class="lead">${escapeHtml(indicative.note)}</p>` : ''}`;
+    } else if (name.endsWith('.csv')) {
+      panel = csvSchemaPanel(path.join(targetDir, name), roleLine || 'CSV');
+    } else {
+      // Markdown files are rendered to a readable .md.html sibling; link
+      // it as the default view, with the verbatim .md a download away.
+      const renderedLink = name.endsWith('.md') && fs.existsSync(path.join(targetDir, `${name}.html`))
+        ? ` <a href="${encodeURIComponent(`${name}.html`)}">read the rendered version →</a>` : '';
+      panel = `<p class="lead">${escapeHtml(roleLine || 'archived file')}.${renderedLink}</p>`;
+    }
+    // Witness provenance (recovered-from links) belongs on every file's
+    // panel, whatever its type - it is how a reader verifies the source.
+    return { id: `i-${i}`, label: name, panel: panel + witnessLinks(decl.witnesses) };
+  });
+  dataTabs.push({ id: 'i-meta', label: 'meta.json', panel: `<table><tr><th>outcome</th><td>${escapeHtml(meta.outcome)}</td></tr><tr><th>dataset classes</th><td>${meta.datasetClasses.map(c => `<code>${escapeHtml(c)}</code>`).join(', ')}</td></tr><tr><th>data vintage</th><td>${escapeHtml(meta.dataVintage ?? '—')}</td></tr></table>` });
+
+  // Browse the data: preview the largest normalised CSV, if any.
+  const previewName = files.filter(f => isDerived(f.name) && f.name.endsWith('.csv')).sort((a, b) => b.bytes - a.bytes)[0]?.name;
+  const browseSection = previewName === undefined ? [] : [
+    '<section><h2>Browse the data</h2>',
+    `<p class="lead">A preview of the <b>normalised</b> extract <code>${escapeHtml(previewName)}</code>; download it for all rows, or inspect the source document below.</p>`,
+    csvPreviewTable(path.join(targetDir, previewName)),
+    '</section>',
+  ];
+
+  // Download grid: source/disclosure vs derived, with the open-data-only
+  // slots as "not applicable" placeholders (the lane flip).
+  const sourceSlots = files.filter(f => !isDerived(f.name) && f.name !== 'meta.json')
+    .map(f => downloadSlot(f.name, encodeURIComponent(f.name), sizeMap.get(f.name) ?? '', meta.files[f.name]?.role ?? ''));
+  sourceSlots.push(downloadSlot('meta.json', 'meta.json', sizeMap.get('meta.json') ?? 'JSON', 'provenance, outcome, integrity'));
+  const dbName = `foi--${key}.sqlite.gz`;
+  const dbSize = sizeOf(path.join(outputDir, 'data', 'datasets', dbName));
+  const derivedSlots = files.filter(f => isDerived(f.name)).map(f => downloadSlot(f.name, encodeURIComponent(f.name), sizeMap.get(f.name) ?? '', meta.files[f.name]?.role ?? 'derived'));
+  derivedSlots.push(dbSize !== '' ? downloadSlot(dbName, `../../../data/datasets/${encodeURIComponent(dbName)}`, `SQLite${dbSize}`, 'one database, one table per CSV') : placeholderSlot('SQLite', 'built at deploy'));
+  derivedSlots.push(downloadSlot(`${key}.zip`, encodeURIComponent(`${key}.zip`), `ZIP ${formatBytes(zipBytes)}`, 'everything + descriptor + dictionary'));
+  derivedSlots.push(downloadSlot('datapackage.json', 'datapackage.json', 'Frictionless', 'machine-readable manifest'));
+
+  // At a glance (FOI): outcome, vintage, classes, attribution, notable.
+  const totalRows = Object.values(meta.files).flatMap(d => asSheetsIndicative(d.sheetsIndicative)?.sheets ?? []).reduce((a, s) => a + (s.approxRows ?? 0), 0);
+  const notable: string[] = [];
+  if (totalRows > 0) notable.push(`<li><b>~${totalRows.toLocaleString('en-GB')}</b> records across the disclosed sheets.</li>`);
+  if (meta.relatedEntries !== undefined && meta.relatedEntries.length > 0) notable.push(`<li><b>${meta.relatedEntries.length}</b> related ${meta.relatedEntries.length === 1 ? 'entry' : 'entries'} — see below.</li>`);
+  const atAGlance = [
+    '<section><h2>At a glance</h2>',
+    `<div class="headline">${escapeHtml(meta.outcome)} <small>FOI outcome</small></div>`,
+    `<div class="bd"><h3>Data vintage</h3><div class="brow"><span class="lab">${escapeHtml(meta.dataVintage ?? 'not stated')}</span></div></div>`,
+    `<div class="bd"><h3>Dataset classes</h3>${meta.datasetClasses.map(c => `<div class="brow"><span class="lab"><code>${escapeHtml(c)}</code></span></div>`).join('')}</div>`,
+    '<div class="attr">',
+    meta.requestUrl !== null ? `<div><b>Source</b> · <a href="${escapeHtml(meta.requestUrl)}">request on WhatDoTheyKnow →</a></div>` : '',
+    meta.publicationUrl !== undefined ? `<div><a href="${escapeHtml(meta.publicationUrl)}">also published by Ofcom →</a></div>` : '',
+    `<div>Requested ${escapeHtml(meta.requestedAt ?? '—')} · responded ${escapeHtml(meta.respondedAt ?? '—')}</div>`,
+    '</div>',
+    notable.length > 0 ? `<div class="notable"><h3>Notable</h3><ul>${notable.join('')}</ul></div>` : '',
+    '</section>',
+  ].filter(s => s !== '').join('\n');
+
+  const recoveryNotice = meta.datasetRecovery !== undefined && meta.datasetRecovery !== 'recovered'
+    ? [noticeStrip(true, `<b>Dataset ${escapeHtml(meta.datasetRecovery)}:</b> the response data itself is not held in this entry (the correspondence and provenance are). Absence of data here is a recovery state, not evidence about the register.`)]
+    : [noticeStrip(false, `Freedom-of-Information disclosure — a point-in-time snapshot, not a live feed.`)];
+
   const body = [
     `<h1>${escapeHtml(meta.title)}</h1>`,
-    `<p>FOI archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
-    '<table>',
-    ...facts,
-    '</table>',
-    ...foiDataSummarySections(meta),
-    '<h2>Files</h2>',
-    ...filesTable(files),
-    entryZipLine(key, zipBytes),
-    ...entryDatabaseLine(outputDir, 'foi', key),
-    ...(related.length > 0 ? ['<h2>Related entries</h2>', '<ul>', ...related, '</ul>'] : []),
-  ];
-  fs.writeFileSync(path.join(targetDir, 'index.html'), htmlPage(meta.title, 3, body, { metaJsonHref: 'meta.json', sourcePath: `archive/foi/${key}` }));
+    `<p class="subtitle">Freedom-of-Information response from Ofcom, recovered and mirrored. FOI archive entry <code>${escapeHtml(key)}</code> · <a href="datapackage.json">datapackage.json</a>.</p>`,
+    ...recoveryNotice,
+    '<div class="main-region">',
+    '<div class="col">',
+    ...browseSection,
+    inspectTabsHtml(dataTabs),
+    '<section><h2>Get the data</h2>',
+    downloadTier('Source & disclosure', sourceSlots),
+    downloadTier('Derived & bundles', derivedSlots),
+    downloadTier('Not applicable to this entry', [placeholderSlot('raw.csv', 'n/a — source is not a single CSV'), placeholderSlot('components.csv', 'n/a — FOI snapshot, not the parsed register')]),
+    '</section>',
+    '</div>',
+    `<div class="side">${atAGlance}</div>`,
+    '</div>',
+    related.length > 0 ? `<section><h2>Related entries</h2><ul>${related.join('')}</ul></section>` : '',
+  ].filter(s => s !== '');
+  fs.writeFileSync(path.join(targetDir, 'index.html'), entryPage(meta.title, body, { metaJsonHref: 'meta.json', sourcePath: `archive/foi/${key}` }));
   fs.writeFileSync(path.join(targetDir, 'datapackage.json'), descriptor);
   return { files, meta, zipBytes };
 }
 
-// The per-entry SQLite database is built earlier in the deploy (the data
-// tiers step); when present, offer it from the entry page with its size -
-// the download-link pattern. Absent in scratch builds without tiers.
-function entryDatabaseLine(outputDir: string, lane: 'foi' | 'open-data', key: string): string[] {
-  const dbName = `${lane}--${key}.sqlite.gz`;
-  const size = sizeOf(path.join(outputDir, 'data', 'datasets', dbName));
-  if (size === '') return [];
-  return [`<p>All of this entry's CSV files as one SQLite database: <a href="../../../data/datasets/${encodeURIComponent(dbName)}">${escapeHtml(dbName)}</a>${size}.</p>`];
-}
 
 interface OpenDataStats {
   recordCount: number;
@@ -400,131 +659,6 @@ interface OpenDataDiffSummary {
   removed: number;
 }
 
-// Prefix-series × RSL matrix with row/column totals, derived from the
-// entry's own components.csv (parsed rows only; the exclusions are stated
-// beneath the table). Built per entry - the SQLite rsl_matrix covers only
-// the latest publication.
-function rslMatrixSection(componentsPath: string): string[] {
-  if (!fs.existsSync(componentsPath)) return [];
-  const rows = parse(fs.readFileSync(componentsPath, 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
-  const counts = new Map<string, Map<string, number>>();
-  const excluded = new Map<string, number>();
-  const rslSet = new Set<string>();
-  for (const row of rows) {
-    if (row.parse_status !== 'parsed') {
-      excluded.set(row.parse_status, (excluded.get(row.parse_status) ?? 0) + 1);
-      continue;
-    }
-    const series = row.prefix_series;
-    const rsl = row.rsl;
-    rslSet.add(rsl);
-    const seriesCounts = counts.get(series) ?? new Map<string, number>();
-    seriesCounts.set(rsl, (seriesCounts.get(rsl) ?? 0) + 1);
-    counts.set(series, seriesCounts);
-  }
-  if (counts.size === 0) return [];
-  const rsls = [...rslSet].sort((a, b) => a.localeCompare(b)); // '' (no RSL) sorts first
-  const seriesKeys = [...counts.keys()].sort((a, b) => a.localeCompare(b));
-  const columnTotals = new Map<string, number>();
-  const html: string[] = [
-    '<h2>Prefix series × Regional Secondary Locator</h2>',
-    '<p>Parsed register rows by prefix series and RSL letter as stored in the register (RSLs are rarely stored — regional renderings are usually implicit). '
-    + 'In the series column, <code>#</code> marks where the RSL letter sits when present; <em>(none)</em> means no RSL letter is stored on the row.</p>',
-    '<div style="overflow-x:auto"><table>',
-    `<tr><th>series</th>${rsls.map(r => `<th>${r === '' ? '(none)' : escapeHtml(r)}</th>`).join('')}<th>total</th></tr>`,
-  ];
-  let grandTotal = 0;
-  for (const series of seriesKeys) {
-    const seriesCounts = counts.get(series) ?? new Map<string, number>();
-    let rowTotal = 0;
-    const cells = rsls.map(rsl => {
-      const n = seriesCounts.get(rsl) ?? 0;
-      rowTotal += n;
-      columnTotals.set(rsl, (columnTotals.get(rsl) ?? 0) + n);
-      return `<td>${n === 0 ? '' : n.toLocaleString('en-GB')}</td>`;
-    });
-    grandTotal += rowTotal;
-    html.push(`<tr><td><code>${escapeHtml(displaySeries(series))}</code></td>${cells.join('')}<td>${rowTotal.toLocaleString('en-GB')}</td></tr>`);
-  }
-  html.push(`<tr><th>total</th>${rsls.map(rsl => `<th>${(columnTotals.get(rsl) ?? 0).toLocaleString('en-GB')}</th>`).join('')}<th>${grandTotal.toLocaleString('en-GB')}</th></tr>`);
-  html.push('</table></div>');
-  const exclusions = [...excluded.entries()].sort().map(([status, n]) => `${n.toLocaleString('en-GB')} ${escapeHtml(status)}`);
-  if (exclusions.length > 0) html.push(`<p><small>Excluded from the matrix: ${exclusions.join(', ')} rows (shown in the metrics above).</small></p>`);
-  return html;
-}
-
-// Derived metrics for an open-data publication, from its own stats.json
-// (counts, parse statuses, anomaly flags with registry meanings) plus the
-// meta-recorded diff against the previous publication - the only
-// inter-dataset comparison shown, because the meta itself asserts it.
-function openDataMetricsSections(sourceDir: string, key: string, previousKey?: string): string[] {
-  const statsPath = path.join(sourceDir, 'stats.json');
-  if (!fs.existsSync(statsPath)) return [];
-  const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8')) as OpenDataStats;
-  const registry = new Map(parseFlagRegistry().map(r => [r.flag, r.meaning]));
-
-  const statuses = Object.entries(stats.parseStatuses).sort()
-    .map(([status, n]) => `${n.toLocaleString('en-GB')} ${escapeHtml(status)}`).join(', ');
-  const html: string[] = [
-    '<h2>Dataset metrics</h2>',
-    `<p>${stats.recordCount.toLocaleString('en-GB')} register rows: ${statuses}.</p>`,
-  ];
-
-  const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as {
-    diffSummary?: OpenDataDiffSummary;
-    ignoredLines?: { line: number; content: string; reason: string }[];
-  };
-
-  // Curated exclusions are judgement-bearing and must be visible on the
-  // page, not only in the meta - otherwise the raw-vs-normalised count
-  // difference is unexplained to anyone opening raw.csv.
-  const ignored = meta.ignoredLines ?? [];
-  if (ignored.length > 0) {
-    const reasons = [...new Set(ignored.map(l => l.reason))].map(escapeHtml).join('; ');
-    html.push(`<p>${ignored.length} raw line${ignored.length === 1 ? '' : 's'} excluded as non-data (${reasons}) — enumerated verbatim in <a href="meta.json">meta.json</a>'s <code>ignoredLines</code>.</p>`);
-  }
-
-  const diff = meta.diffSummary;
-  if (diff !== undefined) {
-    if (diff.previousArchiveKey === key) {
-      // A self-comparison records byte-stability of a re-fetch - phrasing
-      // it as "against the previous publication" misled skim-readers.
-      const seePrevious = previousKey === undefined ? '' :
-        ` For changes since the previous archived publication, compare with <a href="../${escapeHtml(previousKey)}/index.html">${humanDate(previousKey)}</a>.`;
-      html.push(`<p>Re-fetch check: identical to the earlier fetch of this same publication (${diff.previousRecordCount.toLocaleString('en-GB')} rows, recorded in meta.json at archive time).${seePrevious}</p>`);
-    } else {
-      html.push(`<p>Against the <a href="../${escapeHtml(diff.previousArchiveKey)}/index.html">publication of ${humanDate(diff.previousArchiveKey)}</a> (${diff.previousRecordCount.toLocaleString('en-GB')} rows, as recorded in this entry's meta.json at archive time): `
-        + `${diff.unchanged.toLocaleString('en-GB')} rows unchanged, ${diff.fieldChanged.toLocaleString('en-GB')} changed, `
-        + `${diff.added.toLocaleString('en-GB')} added, ${diff.removed.toLocaleString('en-GB')} removed.</p>`);
-    }
-  }
-
-  const flags = Object.entries(stats.callsignFlags).sort((a, b) => b[1] - a[1]);
-  if (flags.length > 0) {
-    html.push('<h2>Anomalies</h2>', '<table>', '<tr><th>flag</th><th>rows</th><th>meaning</th></tr>');
-    for (const [flag, count] of flags) {
-      // First sentence only, rendered (the registry strings are markdown -
-      // dumping them raw showed literal ** and backticks on every entry
-      // page); the full registry entry carries live-register census notes
-      // that would mislead beside historical data, so it stays a link.
-      const meaning = (registry.get(flag) ?? '').split(/(?<=\.)\s/, 1)[0];
-      html.push(`<tr><td><code>${escapeHtml(flag)}</code></td><td>${count.toLocaleString('en-GB')}</td><td>${renderInline(meaning)} <a href="../../docs/flags.html">registry →</a></td></tr>`);
-    }
-    html.push('</table>');
-  }
-  const quality = Object.entries(stats.callsignQuality).filter(([, q]) => q.count > 0).sort();
-  if (quality.length > 0) {
-    html.push('<h3>Value-level quality checks</h3>', '<ul>');
-    for (const [check, q] of quality) {
-      const shown = q.examples.slice(0, 5).map(e => (e === '' ? '<em>(empty value)</em>' : `<code>${escapeHtml(e)}</code>`));
-      const examples = shown.length > 0 ? ` — e.g. ${shown.join(', ')}` : '';
-      html.push(`<li>${escapeHtml(check)}: ${q.count.toLocaleString('en-GB')}${examples}</li>`);
-    }
-    html.push('</ul>');
-  }
-  return html;
-}
-
 function buildOpenDataEntry(outputDir: string, key: string, previousKey?: string): { files: CopiedFile[]; zipBytes: number } {
   const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
   const descriptions = new Map<string, string>([
@@ -534,47 +668,89 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey?: string
     ['components.csv', 'per-callsign component decomposition'],
     ['stats.json', 'per-publication statistics and data-quality flags'],
   ]);
-  const title = `Ofcom open-data publication ${key}`;
+  const pageTitle = `Publication of ${humanDate(key)}`;
   const targetDir = path.join(outputDir, 'datasets', 'open-data', key);
-  const files = copyEntryFiles(sourceDir, targetDir, descriptions, new Map(), title);
-  const descriptor = dataPackage(key, title, files);
+  const files = copyEntryFiles(sourceDir, targetDir, descriptions, new Map(), pageTitle);
+  const descriptor = dataPackage(key, `Ofcom open-data publication ${key}`, files);
   const zipBytes = writeEntryZip(sourceDir, targetDir, key, descriptor, OPEN_DATA_DICTIONARY_SOURCES);
-  // Non-first-hand provenance and declared-partial scope are the two most
-  // important caveats about an entry - they belong under the H1, not one
-  // click away in JSON. Scope especially: a 1,074-row declared truncation
-  // reads like a full publication without it.
   const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as {
     provenance?: string;
     intendedCoverage?: { complete: boolean; scopeNotes?: string };
     qualityObservations?: { statement: string; evidence: string; coverageAffecting?: boolean }[];
+    sourceUrl?: string; ofcomReportedUpdateIso?: string; ofcomReportedUpdate?: string; fetchedAt?: string;
+    diffSummary?: OpenDataDiffSummary;
+    ignoredLines?: { line: number; content: string; reason: string }[];
   };
-  const provenanceNote = meta.provenance !== undefined && meta.provenance !== 'live'
-    ? [`<p><em>Provenance: ${escapeHtml(meta.provenance.replace(/-/g, ' '))} — this entry was not fetched first-hand by the mirror; see <a href="meta.json">meta.json</a>'s <code>reconstructionNotes</code>.</em></p>`]
-    : [];
-  if (meta.intendedCoverage?.complete === false) {
-    provenanceNote.push(`<p><em>⚠ Declared-partial publication: ${escapeHtml(meta.intendedCoverage.scopeNotes ?? 'the publisher presented this as a partial dataset')}. Absence of a callsign from this publication is not evidence of anything.</em></p>`);
-  }
-  // Verified-quality observations sit under the H1 beside provenance/scope:
-  // a coverage-affecting one (the 2025-06-04 filter) is the single most
-  // important caveat about the entry - it declared complete but is not.
-  for (const observation of meta.qualityObservations ?? []) {
-    const lead = observation.coverageAffecting === true
-      ? '⚠ Data-quality caveat (affects coverage): '
-      : 'Data-quality note: ';
-    provenanceNote.push(`<p><em>${lead}${escapeHtml(observation.statement)} <small>(${escapeHtml(observation.evidence)})</small></em></p>`);
-  }
+  const stats = fs.existsSync(path.join(sourceDir, 'stats.json'))
+    ? JSON.parse(fs.readFileSync(path.join(sourceDir, 'stats.json'), 'utf8')) as OpenDataStats
+    : { recordCount: 0, parseStatuses: {}, callsignFlags: {}, callsignQuality: {} };
+  const sizeMap = new Map(files.map(f => [f.name, formatBytes(f.bytes)]));
+  const dl = (name: string, meta2: string, desc: string): string => sizeMap.has(name)
+    ? downloadSlot(name, encodeURIComponent(name), sizeMap.get(name) ?? meta2, desc) : placeholderSlot(name, 'not present');
+  const dbName = `open-data--${key}.sqlite.gz`;
+  const dbSize = sizeOf(path.join(outputDir, 'data', 'datasets', dbName));
+
+  // Inspect: per-file schemas (raw included - the source file's own shape).
+  const parseStatuses = Object.entries(stats.parseStatuses).sort().map(([s, n]) => `${n.toLocaleString('en-GB')} ${escapeHtml(s)}`).join(' · ');
+  const quality = Object.entries(stats.callsignQuality).filter(([, q]) => q.count > 0).sort();
+  const qualityHtml = quality.length === 0 ? '' : `<h3 style="font-size:.9rem;margin-top:.8rem">Value-level checks</h3><ul>${quality.map(([check, q]) => {
+    const shown = q.examples.slice(0, 5).map(e => (e === '' ? '<em>(empty value)</em>' : `<code>${escapeHtml(e)}</code>`));
+    return `<li>${escapeHtml(check)}: ${q.count.toLocaleString('en-GB')}${shown.length > 0 ? ` — e.g. ${shown.join(', ')}` : ''}</li>`;
+  }).join('')}</ul>`;
+  const tabs: InspectTab[] = [
+    { id: 'i-raw', label: 'raw.csv', panel: csvSchemaPanel(path.join(sourceDir, 'raw.csv'), "Ofcom's bytes, verbatim") },
+    { id: 'i-norm', label: 'normalised.csv', panel: csvSchemaPanel(path.join(sourceDir, 'normalised.csv'), 'Canonical schema — one stable shape across every publication') },
+    { id: 'i-comp', label: 'components.csv', panel: csvSchemaPanel(path.join(sourceDir, 'components.csv'), 'Per-callsign decomposition + join keys') },
+    { id: 'i-stats', label: 'stats.json', panel: `<p class="lead">Parse statuses: ${parseStatuses}.</p>${anomalyFlagsHtml(stats.callsignFlags)}${qualityHtml}` },
+    { id: 'i-meta', label: 'meta.json', panel: `<table><tr><th>provenance</th><td>${escapeHtml(meta.provenance ?? 'live')}</td></tr><tr><th>declared coverage</th><td>${meta.intendedCoverage === undefined ? '—' : `${meta.intendedCoverage.complete ? 'complete' : 'partial'} (intent, not verified)`}</td></tr></table>` },
+  ].filter(t => t.panel !== '');
+
+  const ignored = meta.ignoredLines ?? [];
+  const ignoredNote = ignored.length > 0
+    ? `<p class="lead">${ignored.length} raw line${ignored.length === 1 ? '' : 's'} excluded as non-data (${[...new Set(ignored.map(l => l.reason))].map(escapeHtml).join('; ')}) — enumerated in <a href="meta.json">meta.json</a>.</p>` : '';
+
+  const related: string[] = [];
+  if (previousKey !== undefined) related.push(`<p style="margin:.1rem 0;font-size:.9rem"><b>Chronological:</b> ← <a href="../${escapeHtml(previousKey)}/index.html">Publication of ${humanDate(previousKey)}</a>.</p>`);
+
   const body = [
-    `<h1>${escapeHtml(title)}</h1>`,
-    `<p>Open-data archive entry <code>${escapeHtml(key)}</code>. Machine-readable: <a href="datapackage.json">datapackage.json</a>.</p>`,
-    ...provenanceNote,
-    ...openDataMetricsSections(sourceDir, key, previousKey),
-    ...rslMatrixSection(path.join(sourceDir, 'components.csv')),
-    '<h2>Files</h2>',
-    ...filesTable(files),
-    entryZipLine(key, zipBytes),
-    ...entryDatabaseLine(outputDir, 'open-data', key),
-  ];
-  fs.writeFileSync(path.join(targetDir, 'index.html'), htmlPage(title, 3, body, { metaJsonHref: 'meta.json', sourcePath: `archive/${key}` }));
+    `<h1>${escapeHtml(pageTitle)}</h1>`,
+    `<p class="subtitle">Ofcom amateur-radio callsign register, mirrored byte-for-byte. Archive entry <code>${escapeHtml(key)}</code> · <a href="datapackage.json">datapackage.json</a>.</p>`,
+    ...coverageNotices(meta),
+    '<div class="main-region">',
+    '<div class="col">',
+    '<section><h2>Browse the data</h2>',
+    `<p class="lead">The <b>normalised</b> register — the canonical shape, not the raw file (inspect <code>raw.csv</code> below for that). Showing the first rows of ${stats.recordCount.toLocaleString('en-GB')}; download <code>normalised.csv</code> for all, or query it on the <a href="../../../explore.html">Explore</a> page.</p>`,
+    csvPreviewTable(path.join(sourceDir, 'normalised.csv')),
+    ignoredNote,
+    '</section>',
+    inspectTabsHtml(tabs),
+    '<section><h2>Get the data</h2>',
+    downloadTier('Canonical — most-wanted', [
+      dl('normalised.csv', 'CSV', 'canonical schema across all publications'),
+      dl('components.csv', 'CSV', 'decomposition + join keys'),
+      dl('stats.json', 'JSON', 'counts & quality flags'),
+      dl('meta.json', 'JSON', 'provenance & integrity'),
+    ]),
+    downloadTier('Source & bundles', [
+      dl('raw.csv', 'CSV', "Ofcom's bytes, verbatim"),
+      dbSize !== '' ? downloadSlot(dbName, `../../../data/datasets/${encodeURIComponent(dbName)}`, `SQLite${dbSize}`, 'one database, one table per CSV') : placeholderSlot('SQLite', 'built at deploy'),
+      downloadSlot(`${key}.zip`, encodeURIComponent(`${key}.zip`), `ZIP ${formatBytes(zipBytes)}`, 'everything + descriptor + dictionary'),
+      downloadSlot('datapackage.json', 'datapackage.json', 'Frictionless', 'machine-readable manifest with schemas'),
+    ]),
+    downloadTier('Entry-specific', [
+      placeholderSlot('source documents', 'none — open-data is one CSV'),
+      placeholderSlot('edges.csv', 'planned — graph export'),
+    ]),
+    '</section>',
+    '</div>',
+    '<div class="side">',
+    atAGlanceOpenData(sourceDir, key, previousKey, stats, meta),
+    '</div>',
+    '</div>',
+    related.length > 0 ? `<section><h2>Related</h2>${related.join('')}</section>` : '',
+    '<a class="linkout" href="../../../statistics.html">Register structure (prefix series × RSL) → on the statistics page (near-constant across publications, not a property of this one).</a>',
+  ].filter(s => s !== '');
+  fs.writeFileSync(path.join(targetDir, 'index.html'), entryPage(pageTitle, body, { metaJsonHref: 'meta.json', sourcePath: `archive/${key}` }));
   fs.writeFileSync(path.join(targetDir, 'datapackage.json'), descriptor);
   return { files, zipBytes };
 }

@@ -39,24 +39,22 @@ describe('Dataset pages build', () => {
     expect(index).toContain('>Radio amateur licence breakdown by duration held and age</a>');
   });
 
-  it('DatasetPages_OpenDataEntryPage_CarriesMetricsMatrixAndAnomalies', () => {
+  it('DatasetPages_OpenDataEntryPage_CarriesGlanceBreakdownsAnomaliesAndMatrixLinkout', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
-    // Headline metrics from the entry's own stats.json.
-    expect(page).toContain('158,318 register rows');
-    expect(page).toContain('Prefix series × Regional Secondary Locator');
-    // The matrix carries per-series rows and totals derived from
-    // components.csv (2#0 is the Intermediate placeholder series).
-    expect(page).toContain('<code>2#0</code>');
-    expect(page).toMatch(/<tr><th>total<\/th>.*158,208/);
-    // Anomaly flags render with their registry meanings, not bare slugs.
+    // At-a-glance headline + status breakdown, computed from the files.
+    expect(page).toContain('158,318');
+    expect(page).toContain('105,332'); // Allocated status count
+    // The RSL matrix has LEFT entry pages for the statistics home; the
+    // page carries a link-out to it, not the matrix itself.
+    expect(page).not.toContain('Prefix series × Regional Secondary Locator');
+    expect(page).toContain('statistics.html">Register structure');
+    // Anomalies surface (Notable coda + the stats.json inspect panel).
     expect(page).toContain('<code>forbidden-suffix</code>');
     expect(page).toContain('2,826');
-    // The meta-recorded diff is the only inter-dataset comparison shown;
-    // 2026-06-23's diff is a self-comparison, phrased as a re-fetch check
-    // pointing at the most recent INTENDED-COMPLETE earlier publication -
-    // 2025-06-08 is a declared-partial 1,074-row truncation and must NOT
-    // be the changes-since baseline (it would imply ~157k spurious adds).
-    expect(page).toContain('Re-fetch check: identical to the earlier fetch');
+    // The re-fetch check points at the most recent INTENDED-COMPLETE
+    // earlier publication - 2025-06-08 is a declared-partial 1,074-row
+    // truncation and must NOT be the changes-since baseline.
+    expect(page).toContain('byte-identical to the earlier fetch');
     expect(page).toContain('href="../2025-06-04/index.html"');
     expect(page).not.toContain('href="../2025-06-08/index.html"');
   });
@@ -68,12 +66,13 @@ describe('Dataset pages build', () => {
     expect(page).toContain('not evidence of anything');
   });
 
-  it('DatasetPages_FoiEntryPage_ExplainsDataClassesAndSheetShapes', () => {
+  it('DatasetPages_FoiEntryPage_ShowsDatasetClassesAndSheetShapes', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'wdtk-596532--allocated-reserved-forbidden', 'index.html'), 'utf8');
-    expect(page).toContain('What this data is');
-    // Class prose comes from the shared registry, not re-authored here.
-    expect(page).toContain('the register state at a vintage');
-    // Workbook sheet shapes surface from the meta's sheetsIndicative.
+    // Dataset classes surface in At-a-glance.
+    expect(page).toContain('<code>register-snapshot</code>');
+    expect(page).toContain('<code>forbidden-list</code>');
+    // Workbook sheet shapes surface from the meta's sheetsIndicative in
+    // the file's inspect panel.
     expect(page).toContain('All CallSigns on Record');
     expect(page).toContain('~141,295');
   });
@@ -106,7 +105,7 @@ describe('Dataset pages build', () => {
 
   it('DatasetPages_FoiEntryPage_RecordsOutcomeAndUnrecoveredState', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'ofcom-285990--available-list-jun-2016', 'index.html'), 'utf8');
-    expect(page).toContain('dataset unrecovered');
+    expect(page).toContain('Dataset unrecovered');
     expect(page).toContain('285990-amateur-call-signs.pdf');
   });
 
@@ -137,9 +136,10 @@ describe('Dataset pages build', () => {
     for (const name of [...fs.readdirSync(path.join('archive', 'foi', key)), 'datapackage.json', 'docs/foi-schemas.md']) {
       expect(zip.includes(Buffer.from(name, 'utf8'))).toBe(true);
     }
-    // The entry page offers it with a size (the download-link pattern).
+    // The entry page offers it as a download slot with its size.
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', key, 'index.html'), 'utf8');
-    expect(page).toMatch(new RegExp(`<a href="${key}\\.zip">${key}\\.zip</a> \\(`));
+    expect(page).toContain(`<a href="${key}.zip">${key}.zip</a>`);
+    expect(page).toMatch(/ZIP [\d.]+ [KM]B/);
   });
 
   it('DatasetPages_DataDictionary_RendersSchemaDocsAndLinksFromIndex', () => {
