@@ -377,6 +377,70 @@ describe('Dataset pages build', () => {
     expect(datasetIndex).toContain('compare.html');
   });
 
+  it('GeneratedPages_Nav_CarrySeriesGlossaryAndAboutLinks', () => {
+    // The global nav also reaches the Series index and the Glossary/About
+    // pages, so no page is a dead end for sideways navigation (issue #256).
+    const datasetIndex = fs.readFileSync(path.join(outputDir, 'datasets', 'index.html'), 'utf8');
+    expect(datasetIndex).toContain('href="../series/index.html">Series</a>');
+    expect(datasetIndex).toContain('href="../glossary.html">Glossary</a>');
+    expect(datasetIndex).toContain('href="../about.html">About</a>');
+  });
+
+  it('SeriesPages_Nav_MarkSeriesSectionCurrent', () => {
+    // A series page marks its own section active, so a visitor knows they are
+    // within "Series" (issue #256).
+    const seriesIndex = fs.readFileSync(path.join(outputDir, 'series', 'index.html'), 'utf8');
+    expect(seriesIndex).toContain('<strong>Series</strong>');
+    const m7 = fs.readFileSync(path.join(outputDir, 'series', 'M7.html'), 'utf8');
+    expect(m7).toContain('<strong>Series</strong>');
+  });
+
+  it('OpenDataEntryPage_BreadcrumbAboveH1_LinksAncestorsAndMarksDatasetIndex', () => {
+    // A deep open-data entry page gets a breadcrumb above the H1 naming its
+    // ancestry, and marks "Dataset index" active in the global nav (issue #256).
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(page).toContain('class="breadcrumb"');
+    expect(page).toContain('<a href="../../index.html">Datasets</a>');
+    expect(page).toContain('<a href="../../index.html#open-data">Ofcom open data</a>');
+    expect(page).toContain('<span aria-current="page">2026-06-23</span>');
+    // The breadcrumb precedes the H1.
+    expect(page.indexOf('class="breadcrumb"')).toBeLessThan(page.indexOf('<h1'));
+    // The owning global-nav section is now marked active (was unmarked before).
+    expect(page).toContain('<strong>Dataset index</strong>');
+  });
+
+  it('FoiEntryPage_BreadcrumbAboveH1_LinksAncestorsAndMarksDatasetIndex', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'wdtk-596532--allocated-reserved-forbidden', 'index.html'), 'utf8');
+    expect(page).toContain('class="breadcrumb"');
+    expect(page).toContain('<a href="../../index.html">Datasets</a>');
+    expect(page).toContain('<a href="../../index.html#foi">FOI requests</a>');
+    expect(page).toContain('<span aria-current="page">wdtk-596532--allocated-reserved-forbidden</span>');
+    expect(page).toContain('<strong>Dataset index</strong>');
+  });
+
+  it('AggregateIndexPages_Footer_DropPerEntryMetaBoilerplateAndCiteGeneratingSource', () => {
+    // Aggregate index pages are not archive entries, so the "provenance lives
+    // in this entry's meta.json / Browse this entry's directory" boilerplate is
+    // wrong there; they carry a plain generated-from line instead (issue #258).
+    const reportsIndex = fs.readFileSync(path.join(outputDir, 'reports', 'index.html'), 'utf8');
+    const seriesIndex = fs.readFileSync(path.join(outputDir, 'series', 'index.html'), 'utf8');
+    for (const page of [reportsIndex, seriesIndex]) {
+      expect(page).not.toContain('Browse this entry’s directory');
+      expect(page).not.toContain("live in this entry's");
+      expect(page).not.toContain("each entry's");
+      expect(page).toContain('Generated from the committed archive.');
+    }
+    // The reports hub (a directory source) links out to browse that source.
+    expect(reportsIndex).toContain('/tree/main/reports">Browse the source on GitHub');
+  });
+
+  it('EntryPage_Footer_KeepsPerEntryMetaWording', () => {
+    // Real archive entries still carry the per-entry provenance wording,
+    // linking that entry's own meta.json (issue #258).
+    const entry = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(entry).toContain('live in this entry\'s <a href="meta.json"><code>meta.json</code></a>');
+  });
+
   it('StaticPages_Nav_CarryReportsLink', () => {
     // The four hand-authored pages carry the Reports link too, so navigation
     // is uniform across the whole site (≤2 clicks to any report).

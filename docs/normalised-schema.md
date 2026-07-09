@@ -119,14 +119,14 @@ following the same pattern — computed unifiers, not identity claims:
 
 ## Companion artefact: `stats.json`
 
-Each normalised entry also carries `archive/{key}/stats.json` (issue #46):
+Each normalised entry also carries `archive/{key}/stats.json`:
 data-quality statistics computed from the canonical rows — a callsign format
 taxonomy (uppercase→`A`, lowercase→`a`, digit→`N`;
 whitespace/unprintable/invisible characters — including regular space, since
 whitespace in a callsign is unambiguously invalid — appear as printable
 `{U+XXXX}` markers so each offending codepoint is immediately visible and
 distinct; all other characters preserved verbatim), automated callsign-defect
-detectors (statsSchemaVersion 3, issue #51: Excel-date-shaped values,
+detectors (statsSchemaVersion 3: Excel-date-shaped values,
 encoding-failure characters, whitespace-bearing values, post-normalisation
 duplicates, empty and lowercase-bearing callsigns — counts plus capped,
 sorted example values), and per-column
@@ -201,7 +201,7 @@ with `observedAt`, a `statement`, its `evidence`, and an optional
 `coverageAffecting` flag. A `coverageAffecting` observation means the
 publication silently omits records it claims to hold — the confirmed case is
 2025-06-04, which declared complete but filtered out every blank-product row
-(~45,000, many live allocations; see issue #177). Consumers must then treat
+(~45,000, many live allocations, identified by the automated change-tracking analysis). Consumers must then treat
 that publication's absences exactly like a declared-partial's: **not
 evidence.** The published `master.sqlite`'s `history_datasets` table carries
 this so the register-history timeline demotes such publications
