@@ -193,18 +193,24 @@ async function refresh() {
 
 async function renderCounts(chosen, pred) {
   countsSection.hidden = false;
-  countsResult.replaceChildren(el('p', { class: 'muted', text: 'Counting…' }));
-  let worker;
-  try { worker = await openMaster(); } catch (err) { countsResult.replaceChildren(el('p', { class: 'muted', text: String(err.message ?? err) })); return; }
+  // A trivial predicate matches every row, so the answer is already known -
+  // history_datasets.record_count - and no whole-register scan over range
+  // requests is needed. Only a real filter costs a query.
+  const trivial = pred === '1=1';
+  if (!trivial) countsResult.replaceChildren(el('p', { class: 'muted', text: 'Counting… (scans each publication over HTTP range requests — a few seconds)' }));
   const rows = [];
+  let worker = null;
   for (const key of chosen) {
     const d = datasetOf(key);
     const total = Number(d?.record_count ?? 0);
-    let matching = 0;
-    try {
-      const r = await worker.db.query(matchingCountSql(key, pred));
-      matching = Number(r[0].n);
-    } catch (err) { countsResult.replaceChildren(el('p', { class: 'muted', text: `Query failed: ${String(err.message ?? err)}` })); return; }
+    let matching = total;
+    if (!trivial) {
+      try {
+        worker ??= await openMaster();
+        const r = await worker.db.query(matchingCountSql(key, pred));
+        matching = Number(r[0].n);
+      } catch (err) { countsResult.replaceChildren(el('p', { class: 'muted', text: `Query failed: ${String(err.message ?? err)}` })); return; }
+    }
     rows.push({ key, matching, total, caveat: scopeCaveat(d) });
   }
   // Cache the cohort sizes for the diff gate.
