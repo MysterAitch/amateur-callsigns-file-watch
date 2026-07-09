@@ -63,7 +63,7 @@ jobs:
           # the archived files verbatim at stable URLs + Frictionless
           # descriptors + sitemap.xml - the Wayback Machine crawl seed.
           node src/ci/build-dataset-pages.ts _site
-          cp site/index.html site/statistics.html site/explore.html site/explore.js site/app.js site/entry-browser.js site/browser-query.js site/style.css _site/
+          cp site/index.html site/statistics.html site/explore.html site/explore.js site/compare.html site/compare.js site/app.js site/entry-browser.js site/browser-query.js site/style.css _site/
           # The statistics page's aggregates (locator matrix, flags table)
           # are deterministic per deploy - pre-rendered so the page is
           # fully static (no scripts; archived captures are complete).

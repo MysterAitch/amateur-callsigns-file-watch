@@ -90,6 +90,36 @@ export function serializeFilterState(state) {
   return obj;
 }
 
+// --- cross-publication comparison SQL (issue #199) ---
+// The comparison surface applies the dataset-agnostic predicate to each
+// selected publication and set-diffs the results on the artefact-safe
+// `cleaned` key. Every per-dataset piece is a SELF-CONTAINED, non-correlated
+// subquery, so the shared unqualified predicate resolves against that
+// subquery's own columns with no aliasing - the same predicate string the
+// single-publication browser builds drops straight in.
+
+// Rows in one publication matching the predicate.
+export function matchingCountSql(dataset, predicate) {
+  return `SELECT COUNT(*) AS n FROM register_history WHERE dataset = ${quote(dataset)} AND (${predicate})`;
+}
+
+// Set-differences of the filtered cohort between an earlier `baseline` and a
+// later `comparison` publication: rows whose cleaned key appeared, disappeared,
+// or whose status changed. NOT IN is safe here because `cleaned` is never NULL
+// (it is a derived key, blank at worst, never absent).
+export function setDiffSql(baseline, comparison, predicate) {
+  const inBaseline = `SELECT cleaned FROM register_history WHERE dataset = ${quote(baseline)} AND (${predicate})`;
+  const inComparison = `SELECT cleaned FROM register_history WHERE dataset = ${quote(comparison)} AND (${predicate})`;
+  return {
+    appeared: `SELECT callsign, cleaned, status FROM register_history WHERE dataset = ${quote(comparison)} AND (${predicate}) AND cleaned NOT IN (${inBaseline}) ORDER BY callsign`,
+    disappeared: `SELECT callsign, cleaned, status FROM register_history WHERE dataset = ${quote(baseline)} AND (${predicate}) AND cleaned NOT IN (${inComparison}) ORDER BY callsign`,
+    changed: `SELECT ra.callsign, ra.cleaned, ra.status AS status_before, rb.status AS status_after`
+      + ` FROM (SELECT callsign, cleaned, status FROM register_history WHERE dataset = ${quote(baseline)} AND (${predicate})) ra`
+      + ` JOIN (SELECT cleaned, status FROM register_history WHERE dataset = ${quote(comparison)} AND (${predicate})) rb ON ra.cleaned = rb.cleaned`
+      + ` WHERE ra.status != rb.status ORDER BY ra.callsign`,
+  };
+}
+
 // Inverse of serializeFilterState: reconstruct the state pieces from a parsed
 // ?view= object. Returns only the pieces present, as native Map/Set/array, so
 // the caller merges them into its own live state and syncs its UI. Unknown
