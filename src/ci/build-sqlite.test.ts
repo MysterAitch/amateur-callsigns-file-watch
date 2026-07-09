@@ -45,4 +45,18 @@ describe('FOI observations component enrichment', () => {
   it('Observations_VisitorCallsign_ParsedAsVisitorWithPlaceholder', () => {
     expect(get('M/PT2FM')).toMatchObject({ parse_status: 'visitor', placeholder_form: 'M#/PT2FM' });
   });
+
+  it('Observations_DisclosedClass_GainsNormalisedLicenceCategory', () => {
+    // The disclosed licence_class collapses to a canonical category, queryable
+    // beside the verbatim class; the reciprocals stay distinct; no disclosed
+    // class yields NULL (not a forced category).
+    const cat = (callsign: string): string | null =>
+      (db.prepare('SELECT normalised_licence_category AS c FROM observations WHERE callsign = ?').get(callsign) as { c: string | null }).c;
+    expect(cat('M7TEE')).toBe('Foundation');
+    expect(cat('M6ABC')).toBe('Full');
+    expect(cat('M/PT2FM')).toBe('Temporary Reciprocal');
+    // The observation with no disclosed licence_class maps to NULL, not a forced category.
+    const noClass = db.prepare('SELECT normalised_licence_category AS c FROM observations WHERE licence_class IS NULL').get() as { c: string | null };
+    expect(noClass.c).toBeNull();
+  });
 });
