@@ -28,6 +28,7 @@ import { listArchiveKeys } from '../shared/archive.ts';
 import { renderStatsJson, compareStats, markUnprintables, type EntryStats } from '../shared/stats.ts';
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
 import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { writeValueCatalogue } from './value-catalogue.ts';
 
 interface SourceConverter {
   schemaVersion: number;
@@ -196,6 +197,11 @@ export function runNormaliseSweep(): SweepReport {
   // pairwise comparisons. Regenerated wholesale each run; byte-identical
   // regeneration means no git change, so unchanged windows never churn.
   writeQualityReports(keys);
+
+  // The cross-lane value catalogue (issues #43/#223): every distinct value of
+  // the tracked fields across both lanes, regenerated and committed here so a
+  // PR diff flags vocabulary drift and unexpected values.
+  writeValueCatalogue();
 
   // The newest dataset's matrix always appears, even when no archive entry
   // changed bytes (e.g. a reports-only derivation): the PR body is the
