@@ -206,8 +206,20 @@ const ENTRY_STYLE = [
   '.notice{display:flex;gap:.5rem;align-items:baseline;font-size:.86rem;color:var(--muted);border:1px solid var(--line);border-left:4px solid var(--good);border-radius:8px;padding:.5rem .8rem;margin:0 0 1.05rem;background:var(--card)}',
   '.notice.warn{border:1px solid var(--warnline);border-left-width:4px;background:var(--warnbg);color:var(--warnink)}.notice b{color:inherit}',
   '.main-region{display:flex;gap:1.05rem;align-items:flex-start;flex-wrap:wrap}',
-  '.col{flex:1 1 27rem;order:1;min-width:0;display:flex;flex-direction:column;gap:1.05rem}.col section{margin:0}.side{flex:0 0 16.5rem;order:2}',
-  '@media(max-width:48rem){.col{order:2;flex-basis:100%}.side{order:1;flex-basis:100%}}',
+  '.col{flex:1 1 26rem;order:1;min-width:0;display:flex;flex-direction:column;gap:1.05rem}.col section{margin:0}.side{flex:0 0 16.5rem;order:2}',
+  '.nav-side{flex:0 0 13rem;order:0;font-size:.83rem}',
+  '.nav-side h2{font-size:.95rem;margin:.2rem 0 .5rem}',
+  '.dlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.35rem}.dlist li{margin:0}',
+  '.dlist a{display:block;text-decoration:none;color:inherit}',
+  '.dlist a>.dpitch,.dlist a>.dcap,.dcur>.dpitch,.dcur>.dcap{padding-inline:.5rem}',
+  '.dlist a,.dcur{padding-block:.35rem;border:1px solid var(--line);border-radius:6px;background:var(--slot)}',
+  '.dlist a:hover{border-color:var(--accent)}',
+  '.dcur{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}',
+  '.dpitch{display:block}.dpitch .src{color:var(--muted);font-weight:400;font-size:.76rem}.dpitch b{font-variant-numeric:tabular-nums}',
+  '.gap{color:var(--muted);font-weight:400}',
+  '.dcap{display:block;margin-top:.15rem;color:var(--muted);font-size:.76rem;line-height:1.3}',
+  '.nav-side details{margin-top:.45rem}.nav-side summary{cursor:pointer;color:var(--muted);font-size:.78rem;padding:.2rem 0}.nav-side details .dlist{margin-top:.35rem}',
+  '@media(max-width:48rem){.col{order:2;flex-basis:100%}.side{order:1;flex-basis:100%}.nav-side{order:3;flex-basis:100%}}',
   '.headline{font-size:1.5rem;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.1}.headline small{font-size:.8rem;font-weight:400;color:var(--muted)}',
   '.bd{margin:.7rem 0 0}.bd h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:.7rem 0 .3rem;font-weight:600}',
   '.brow{display:flex;align-items:baseline;gap:.4rem;font-size:.85rem;padding:.14rem 0;position:relative}.brow .lab{flex:1}.brow .lab a{color:var(--accent)}',
@@ -900,7 +912,119 @@ interface OpenDataDiffSummary {
   removed: number;
 }
 
-function buildOpenDataEntry(outputDir: string, key: string, previousKey?: string): { files: CopiedFile[]; zipBytes: number } {
+// A lean per-publication summary for the dataset-navigation sidebar - the
+// headline figures every page compares itself against. Parses normalised.csv
+// once (row count + status -> allocated) and reads meta for the known-issues
+// / partial-scope signals; deltas are computed at render time relative to
+// whichever publication's page is showing.
+interface PublicationSummary {
+  key: string;
+  recordCount: number;
+  allocated: number;
+  knownIssues: boolean;
+  partial: boolean;
+}
+
+function publicationSummary(key: string): PublicationSummary {
+  const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
+  const rows = parse(fs.readFileSync(path.join(sourceDir, 'normalised.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  let allocated = 0;
+  for (const r of rows) if ((r.status ?? '').trim() === 'Allocated') allocated += 1;
+  const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as {
+    intendedCoverage?: { complete: boolean };
+    qualityObservations?: unknown[];
+  };
+  return {
+    key,
+    recordCount: rows.length,
+    allocated,
+    knownIssues: (meta.qualityObservations?.length ?? 0) > 0,
+    partial: meta.intendedCoverage?.complete === false,
+  };
+}
+
+// Whole days from `to` back to `from` (negative = earlier). Both are
+// date-shaped archive keys; Date.parse of a YYYY-MM-DD is fixed-input and so
+// stays golden-master deterministic.
+export function dayGap(from: string, to: string): number {
+  return Math.round((Date.parse(from) - Date.parse(to)) / 86_400_000);
+}
+
+// A signed "(+1,234; +0.8%)" delta versus the current page's figure, empty
+// when identical. The percentage is relative to the current publication (the
+// reference), as asked.
+export function signedDelta(value: number, reference: number): string {
+  const d = value - reference;
+  if (d === 0) return '';
+  const sign = d > 0 ? '+' : '−';
+  const magnitude = Math.abs(d).toLocaleString('en-GB');
+  const pct = reference > 0 ? `; ${sign}${Math.abs((d / reference) * 100).toFixed(1)}%` : '';
+  return ` (${sign}${magnitude}${pct})`;
+}
+
+// A data-bearing FOI disclosure, for the sidebar's second (cross-lane)
+// section: the register snapshots and attribute addenda that sit beside the
+// open-data timeline. Correspondence-only entries (no dataset) stay in the
+// dataset index, not this navigation.
+interface FoiNavEntry {
+  key: string;
+  title: string;
+  vintage: string | null;
+  classes: string[];
+}
+
+// The left dataset-navigation sidebar: every open-data publication as a
+// compact elevator pitch - source + ISO date with the day-gap to the page you
+// are on, then a de-emphasised caption of rows and allocated callsigns, each
+// carrying its delta relative to THIS publication. The current page is marked,
+// not linked. Declared-partial snapshots and the data-bearing FOI disclosures
+// follow in their own collapsed sections. Opposite side to the At-a-glance
+// panel.
+function datasetNavSidebar(currentKey: string, summaries: PublicationSummary[], foiEntries: FoiNavEntry[]): string {
+  const current = summaries.find(s => s.key === currentKey);
+  if (current === undefined) return '';
+  const markersOf = (s: PublicationSummary): string => {
+    const m: string[] = [];
+    if (s.partial) m.push('partial export');
+    if (s.knownIssues) m.push('known data issues');
+    return m.length > 0 ? ` · ${m.join(' · ')}` : '';
+  };
+  const item = (s: PublicationSummary): string => {
+    const isCurrent = s.key === currentKey;
+    const gap = dayGap(s.key, currentKey);
+    const gapHtml = isCurrent ? ' <small class="gap">this page</small>' : ` <small class="gap">(${gap > 0 ? '+' : '−'}${Math.abs(gap)} days)</small>`;
+    const caption = isCurrent
+      ? `${current.recordCount.toLocaleString('en-GB')} rows, ${current.allocated.toLocaleString('en-GB')} allocated callsigns${markersOf(s)}`
+      : `${s.recordCount.toLocaleString('en-GB')} rows${signedDelta(s.recordCount, current.recordCount)}, ${s.allocated.toLocaleString('en-GB')} allocated callsigns${signedDelta(s.allocated, current.allocated)}${markersOf(s)}`;
+    const inner = `<span class="dpitch"><small class="src">Ofcom open data</small> <b>${escapeHtml(s.key)}</b>${gapHtml}</span><small class="dcap">${escapeHtml(caption)}</small>`;
+    return isCurrent
+      ? `<li class="dcur" aria-current="page">${inner}</li>`
+      : `<li><a href="../${escapeHtml(s.key)}/index.html">${inner}</a></li>`;
+  };
+  const byNewest = (a: PublicationSummary, b: PublicationSummary): number => b.key.localeCompare(a.key);
+  // Declared-complete publications (plus the page you are on, even if it is
+  // itself partial) are the timeline. Declared-partial snapshots collapse into
+  // an expandable section - still browseable, and their delta shows exactly
+  // how incomplete they are, but not mistaken for a timeline neighbour.
+  const timeline = summaries.filter(s => !s.partial || s.key === currentKey).sort(byNewest);
+  const partials = summaries.filter(s => s.partial && s.key !== currentKey).sort(byNewest);
+  const partialsBlock = partials.length === 0 ? ''
+    : `<details class="partials"><summary>${partials.length} partial export${partials.length === 1 ? '' : 's'}</summary><ol class="dlist">${partials.map(item).join('')}</ol></details>`;
+  // FOI disclosures are a different lane (request-keyed, various vintages), so
+  // a separate collapsed section ordered by data vintage, newest first.
+  const foiItems = [...foiEntries]
+    .sort((a, b) => (b.vintage ?? '').localeCompare(a.vintage ?? ''))
+    .map(e => {
+      const cls = e.classes.join(', ');
+      const caption = cls === '' ? escapeHtml(e.title) : `${escapeHtml(e.title)} · ${escapeHtml(cls)}`;
+      return `<li><a href="../../foi/${escapeHtml(e.key)}/index.html"><span class="dpitch"><small class="src">FOI</small> <b>${escapeHtml(e.vintage ?? 'undated')}</b></span><small class="dcap">${caption}</small></a></li>`;
+    }).join('');
+  const foiBlock = foiItems === '' ? ''
+    : `<details class="foi-nav"><summary>${foiEntries.length} FOI dataset${foiEntries.length === 1 ? '' : 's'}</summary><ol class="dlist">${foiItems}</ol></details>`;
+  return `<nav class="nav-side" aria-label="Publications"><h2>Publications</h2><ol class="dlist">${timeline.map(item).join('')}</ol>${partialsBlock}${foiBlock}</nav>`;
+}
+
+function buildOpenDataEntry(outputDir: string, key: string, previousKey: string | undefined, summaries: PublicationSummary[], foiEntries: FoiNavEntry[]): { files: CopiedFile[]; zipBytes: number } {
   const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
   const descriptions = new Map<string, string>([
     ['raw.csv', "Ofcom's bytes, verbatim"],
@@ -958,6 +1082,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey?: string
     `<p class="subtitle">Ofcom amateur-radio callsign register, mirrored byte-for-byte. Archive entry <code>${escapeHtml(key)}</code> · <a href="datapackage.json">datapackage.json</a>.</p>`,
     ...coverageNotices(meta),
     '<div class="main-region">',
+    datasetNavSidebar(key, summaries, foiEntries),
     '<div class="col">',
     `<section class="browser" data-dataset="${escapeHtml(key)}"><h2>Browse the data</h2>`,
     `<p class="lead">The <b>normalised</b> register — the canonical shape, not the raw file (inspect <code>raw.csv</code> below for that). Showing the first rows of ${stats.recordCount.toLocaleString('en-GB')}; download <code>normalised.csv</code> for all, or query it on the <a href="../../../explore.html">Explore</a> page.</p>`,
@@ -1135,8 +1260,17 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   // earlier publication: pointing at a declared-partial truncation would
   // imply ~150k spurious additions (caught in review).
   let lastCompleteKey: string | undefined;
+  // Precompute each publication's headline figures once; every entry's
+  // navigation sidebar lists them all, with deltas relative to that page.
+  const summaries = openDataKeys.map(publicationSummary);
+  // The cross-lane FOI section lists only data-bearing disclosures (a dataset
+  // to navigate to); correspondence-only entries stay in the dataset index.
+  const foiNav: FoiNavEntry[] = foiKeys.map(k => {
+    const m = readFoiEntryMeta(foiDir, k);
+    return { key: k, title: m.title, vintage: m.dataVintage, classes: m.datasetClasses };
+  }).filter(e => e.classes.length > 0);
   for (const key of openDataKeys) {
-    const { files, zipBytes } = buildOpenDataEntry(outputDir, key, lastCompleteKey);
+    const { files, zipBytes } = buildOpenDataEntry(outputDir, key, lastCompleteKey, summaries, foiNav);
     const entryMeta = JSON.parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, key, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete: boolean } };
     if (entryMeta.intendedCoverage?.complete !== false) lastCompleteKey = key;
     fileCount += files.length;
