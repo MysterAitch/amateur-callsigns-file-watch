@@ -61,4 +61,11 @@ describe('startup warning wiring', () => {
   it('AppModule_OnSuccessfulInit_ClearsTheStartupWarningTimer', () => {
     expect(app).toContain('clearTimeout(window.__lookupReadyTimer)');
   });
+
+  it('AppModule_HonoursCallsignParamAsAliasForC', () => {
+    // A native form submit (module unavailable) produces ?callsign=; a reload
+    // once scripts are back must recover the lookup, treating it like ?c=.
+    expect(app).toMatch(/get\('c'\)\s*\?\?\s*initialParams\.get\('callsign'\)/);
+    expect(app).toContain("k !== 'c' && k !== 'callsign'");
+  });
 });

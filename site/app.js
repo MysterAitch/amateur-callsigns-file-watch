@@ -870,7 +870,7 @@ function tickBoxes(fieldsetId, values) {
 // this runs after populateFilters). Opens the filter panel when any facet
 // is set so the applied conditions are visible, not hidden.
 function applyParamsToForm(params) {
-  const c = params.get('c');
+  const c = params.get('c') ?? params.get('callsign');
   if (c) document.getElementById('callsign').value = c.trim().toUpperCase();
   if (params.get('series')) document.getElementById('series-filter').value = params.get('series');
   if (params.get('len')) document.getElementById('length-filter').value = params.get('len');
@@ -918,13 +918,17 @@ document.getElementById('lookup-form').addEventListener('submit', (event) => {
 void renderBuildInfo();
 
 const initialParams = new URLSearchParams(window.location.search);
-const hasFilterParams = [...initialParams.keys()].some(k => k !== 'c');
+// A bare native form submit (when JavaScript was momentarily unavailable)
+// serialises the input's name into ?callsign=<value>; honour it as an alias of
+// ?c= so a reload — once scripts are back — recovers the lookup rather than
+// ignoring the param. Neither key counts as a filter.
+const hasFilterParams = [...initialParams.keys()].some(k => k !== 'c' && k !== 'callsign');
 
 // Fast path: a callsign-only deep link runs immediately (a callsign
 // lookup ignores filters), without waiting for the filter panel's DISTINCT
 // scans. The title and scroll make it read as that callsign's own page.
 if (!hasFilterParams) {
-  const c = initialParams.get('c');
+  const c = initialParams.get('c') ?? initialParams.get('callsign');
   if (c !== null && c.trim() !== '') {
     const value = c.trim().toUpperCase();
     document.getElementById('callsign').value = value;
