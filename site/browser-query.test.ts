@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   quote,
   parseColumnFilter,
+  placeholderOf,
+  canonicalCallsign,
+  resolvedCallsignCore,
   buildPredicate,
   isDefaultSort,
   serializeFilterState,
@@ -59,6 +62,79 @@ describe('parseColumnFilter', () => {
   });
   it('ColumnFilter_WhenNegatedWildcard_EmitsNotGlob', () => {
     expect(parseColumnFilter('callsign', '!G?ABC')).toBe(`"callsign" NOT GLOB 'G?ABC'`);
+  });
+  it('ColumnFilter_WhenRegionalVariantCallsign_AlsoMatchesCanonicalCore', () => {
+    // The shared normalisation the index lookup applies, now reaching the
+    // per-dataset browser: a regional-variant search widens to also match the
+    // RSL-less core the register actually stores.
+    expect(parseColumnFilter('callsign', 'MW7TEE'))
+      .toBe(`("callsign" LIKE '%MW7TEE%' OR "callsign" = 'M7TEE')`);
+  });
+  it('ColumnFilter_WhenCanonicalCallsign_StaysAPlainContainsMatch', () => {
+    // An already-canonical callsign has nothing to resolve, so no spurious OR.
+    expect(parseColumnFilter('callsign', 'M7TEE')).toBe(`"callsign" LIKE '%M7TEE%'`);
+  });
+  it('ColumnFilter_WhenNonCallsignColumn_IsNotWidened', () => {
+    // Normalisation is callsign-specific; other columns keep the plain match.
+    expect(parseColumnFilter('product', 'MW7TEE')).toBe(`"product" LIKE '%MW7TEE%'`);
+  });
+});
+
+// The callsign RSL-normalisation shared with the index lookup (issue #213):
+// the pure core both the lookup (app.js) and the per-dataset browser
+// (entry-browser.js) resolve regional variants through.
+describe('placeholderOf', () => {
+  it('Placeholder_WhenRegionalVariant_NormalisesToRslSlotForm', () => {
+    expect(placeholderOf('MW7TEE')).toBe('M#7TEE');
+    expect(placeholderOf('M7TEE')).toBe('M#7TEE');
+    expect(placeholderOf('2E0ABC')).toBe('2#0ABC');
+  });
+  it('Placeholder_WhenVisitorPrefix_NormalisesToMSlashForm', () => {
+    expect(placeholderOf('MM/1CNB')).toBe('M#/1CNB');
+  });
+  it('Placeholder_WhenNotACallsign_IsNull', () => {
+    expect(placeholderOf('HELLO')).toBeNull();
+  });
+});
+
+describe('canonicalCallsign', () => {
+  it('Canonical_WhenRegionalVariant_ResolvesToRslLessCore', () => {
+    // MW7TEE (Welsh regional rendering) resolves to the M7TEE core the
+    // register stores.
+    expect(canonicalCallsign('MW7TEE')).toBe('M7TEE');
+  });
+  it('Canonical_WhenVisitorRegionalForm_ResolvesToMSlashCore', () => {
+    // An MM/-style visitor/reciprocal rendering resolves to the canonical M/ row.
+    expect(canonicalCallsign('MM/1CNB')).toBe('M/1CNB');
+  });
+  it('Canonical_WhenAlreadyCore_IsUnchanged', () => {
+    expect(canonicalCallsign('M7TEE')).toBe('M7TEE');
+  });
+  it('Canonical_WhenNotACallsign_IsNull', () => {
+    expect(canonicalCallsign('12345')).toBeNull();
+  });
+});
+
+describe('resolvedCallsignCore', () => {
+  it('ResolvedCore_WhenRegionalVariant_ReturnsCanonicalCore', () => {
+    expect(resolvedCallsignCore('callsign', 'MW7TEE')).toBe('M7TEE');
+  });
+  it('ResolvedCore_WhenLowercaseRegionalVariant_ResolvesCaseInsensitively', () => {
+    // The browser column filter is not upper-cased for the user, so the core
+    // resolution upper-cases first - matching the lookup's own input handling.
+    expect(resolvedCallsignCore('callsign', 'mw7tee')).toBe('M7TEE');
+  });
+  it('ResolvedCore_WhenAlreadyCanonical_IsNull', () => {
+    expect(resolvedCallsignCore('callsign', 'M7TEE')).toBeNull();
+  });
+  it('ResolvedCore_WhenWildcardOrNegationOrOperator_IsNotResolved', () => {
+    // Power-query forms are matched literally, never silently widened.
+    expect(resolvedCallsignCore('callsign', 'MW*')).toBeNull();
+    expect(resolvedCallsignCore('callsign', '!MW7TEE')).toBeNull();
+    expect(resolvedCallsignCore('callsign', '= MW7TEE')).toBeNull();
+  });
+  it('ResolvedCore_WhenNonCallsignColumn_IsNull', () => {
+    expect(resolvedCallsignCore('product', 'MW7TEE')).toBeNull();
   });
 });
 

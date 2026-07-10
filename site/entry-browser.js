@@ -15,7 +15,7 @@
 // pages live three directories deep). The .png / ?v= hosting workarounds are
 // the same as app.js.
 
-import { COLUMNS, TOGGLES, PAGE_SIZES, buildPredicate, stateToViewParam, viewParamToState, applyViewToState, callsignCharMarker } from './browser-query.js';
+import { COLUMNS, TOGGLES, PAGE_SIZES, buildPredicate, stateToViewParam, viewParamToState, applyViewToState, callsignCharMarker, resolvedCallsignCore } from './browser-query.js';
 import { createHistorySync } from './history-sync.js';
 
 const { createDbWorker } = window;
@@ -327,7 +327,13 @@ function enhance(section) {
       for (const v of f.values) add(`${f.label} ${f.exclude ? '≠' : '='} ${v === '' ? '(blank)' : v}`, () => { f.values.delete(v); if (f.values.size === 0) state.facets.delete(f.key); });
     }
     for (const id of state.toggles) add(TOGGLES[id].label, () => state.toggles.delete(id));
-    for (const [col, raw] of state.columnFilters) add(`${col}: ${raw}`, () => state.columnFilters.delete(col));
+    for (const [col, raw] of state.columnFilters) {
+      // A regional-variant callsign search resolves to its canonical register
+      // core (the same normalisation the index lookup applies); surface that
+      // resolution so the extra matched row isn't a surprise (MW7TEE → M7TEE).
+      const core = resolvedCallsignCore(col, raw);
+      add(`${col}: ${raw}${core !== null ? ` → ${core}` : ''}`, () => state.columnFilters.delete(col));
+    }
   }
 
   // --- filter triggers (sidebar rows, chart bars, chips) ---
