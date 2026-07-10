@@ -584,6 +584,75 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
   'ofcom-2024-01-register': [
     valueStatusProductRegisterConversion('foi-1734722-amateur-call-signs.csv', '2024-01-31'),
   ],
+
+  // ofcom-2024-04-30 ('copy-all-callsigns-30-apr-24'): a full register snapshot
+  // in a Salesforce object-export shape - the columns carry the `__c`
+  // custom-field suffix (Value__c, Product__c, Status__c, Type__c), the only
+  // disclosure held in that shape. Value__c is the callsign, Product__c the
+  // licence product/class carried verbatim (empty for the ~45k reserved pool),
+  // Status__c the status. Type__c is 'Call Sign - Amateur' on every row (the
+  // service discriminator, recorded in meta.json, not a per-row assertion) and
+  // is dropped. The export carries no date column, so there is no reference
+  // bound; the vintage (2024-04-30) rests on the filename and lives in the
+  // entry meta. The published bytes are latin-1: a single trailing 0xA0 (raw
+  // NBSP) rides one callsign, so decoding must go through latin1.
+  'ofcom-2024-04-30-register': [
+    {
+      sourceFile: 'copy-all-callsigns-30-apr-24.csv',
+      encoding: 'latin1',
+      columns: [
+        { source: 'Value__c', output: 'callsign', kind: 'verbatim' },
+        { source: 'Status__c', output: 'status', kind: 'verbatim' },
+        // Product__c is the licence product/class, carried verbatim; empty
+        // where the source asserts none (the reserved pool).
+        { source: 'Product__c', output: 'licence_class', kind: 'verbatim' },
+      ],
+      // 'Type__c' is 'Call Sign - Amateur' on every row - the product/service
+      // discriminator, required present, not carried.
+      ignoredColumns: ['Type__c'],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'source rows arrive grouped but carry no globally meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability',
+    },
+  ],
+
+  // ofcom-2024-09 ('every-radio-callsign-spreadsheet'): a full register
+  // snapshot in the six-column shape Created Date, Product, Reserved to Date,
+  // Status, Type, Value - the widest register export held. Unlike every other
+  // register snapshot, 'Type' is NOT constant here: it carries 'Call Sign -
+  // Amateur' AND 'Call Sign - NoV' (the Notice-of-Variation special-event and
+  // permit callsigns), and the value is not derivable from Product (the
+  // 'Special Event Station' product appears under both types). Dropping it
+  // would erase the NoV distinction, so it is carried verbatim as
+  // call_sign_type - the one register shape where the type is a per-row
+  // assertion, not a discriminator. Created Date is the record-creation
+  // timestamp (cannot postdate the snapshot, so bounded by referenceDateIso);
+  // Reserved to Date is a reservation EXPIRY (a validity END, legitimately
+  // future - 2099 placeholders exist - so futureAllowed). The exact snapshot
+  // day is not stated; referenceDateIso is the disclosure-month ceiling and the
+  // data's own Created Dates top out at 2024-09-10 - the month-level vintage
+  // caveat lives in the entry meta.
+  'ofcom-2024-09-register': [
+    {
+      sourceFile: 'every-radio-callsign-spreadsheet.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Value', output: 'callsign', kind: 'verbatim' },
+        { source: 'Status', output: 'status', kind: 'verbatim' },
+        { source: 'Product', output: 'licence_class', kind: 'verbatim' },
+        // Type varies (Call Sign - Amateur / Call Sign - NoV) and is not
+        // derivable from Product - a genuine per-row assertion, carried.
+        { source: 'Type', output: 'call_sign_type', kind: 'verbatim' },
+        // Record-creation timestamp; cannot postdate the snapshot, so bounded.
+        { source: 'Created Date', output: 'created_date', kind: 'date' },
+        // Reservation EXPIRY - future values are legitimate (2099 observed).
+        { source: 'Reserved to Date', output: 'reserved_to_date', kind: 'date', futureAllowed: true },
+      ],
+      ignoredColumns: [],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'source rows arrive roughly callsign-grouped but carry no globally meaningful order (not fully callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability',
+      referenceDateIso: '2024-09-30',
+    },
+  ],
 };
 
 // The 2013/14 suffix-list sheets differ only in filename, stated prefix and
@@ -745,6 +814,10 @@ export const FOI_EXTENSION_COLUMNS: Readonly<Record<string, FoiExtensionColumn>>
   last_modified_date: {
     definition: 'the record\'s last-modified timestamp as disclosed in a Salesforce-era export, ISO-rendered with any time-of-day kept: per-suffix provenance in the forbidden-suffix list, per-callsign provenance in the 2023-24 register snapshots - in both cases the dated provenance the earlier exports lack',
     families: ['suffix-list', 'callsign-observation'],
+  },
+  call_sign_type: {
+    definition: 'the call-sign service/type discriminator carried verbatim ("Call Sign - Amateur" / "Call Sign - NoV"), kept only where a snapshot asserts more than one value so the Notice-of-Variation special-event/permit callsigns stay distinguishable from ordinary amateur ones (elsewhere the constant Type is a discriminator recorded in meta, not carried)',
+    families: ['callsign-observation'],
   },
   status: {
     definition: 'the licence status at disclosure, carried verbatim, when it accompanies event rows',
