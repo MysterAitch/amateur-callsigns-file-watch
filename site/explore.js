@@ -165,3 +165,14 @@ renderExamples();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register(new URL('./sw.js', document.baseURI).href).catch(() => {});
 }
+
+// Signal a successful start: cancel the startup-warning timer (explore.html) and
+// hide the warning if it was already shown. Reaching here means the module
+// loaded and its top-level wiring — the form handler and worked examples — ran;
+// if a module had failed to load, none of this executes and the warning
+// surfaces. Query failures are reported inline by run(), independently of this.
+if (typeof window !== 'undefined' && window.__exploreReadyTimer !== undefined) {
+  clearTimeout(window.__exploreReadyTimer);
+}
+const startupWarning = document.getElementById('startup-warning');
+if (startupWarning !== null) startupWarning.hidden = true;
