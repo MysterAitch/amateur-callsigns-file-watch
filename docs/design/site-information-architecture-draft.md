@@ -6,15 +6,22 @@ ratified; delete or trim freely.*
 
 ## Implementation status (updated 2026-07-09)
 
-Much of this draft is now built. Shipped: the lookup, statistics, in-browser
+Much of this draft is now built. Shipped: the lookup, statistics (with the
+latest-publication headline breakdowns expanded from `stats.json`), in-browser
 Explore (SQL) and Compare surfaces; the dataset index publishing every entry's
-files at stable URLs; per-prefix-series pages; the standing reports + value
+files at stable URLs; **per-class dataset pages** (clickable class tags, one
+page per dataset class listing every entry that carries it — #178);
+per-prefix-series pages; a first-class **forbidden-suffix section** (#291): a
+section index, one page per forbidden-list disclosure and one per ever-forbidden
+union suffix, with notable-change drill-downs, backed by the ingested December
+2024 list and `reports/forbidden-suffix-history.md`; the standing reports + value
 catalogue at `/reports/` (with per-source breadth, per-publication timelines,
 record/callsign/allocated count breakdowns, and licence-category normalisation);
 a plain-language **glossary** and an **About** page; a uniform nav
-(Lookup · Statistics · Explore · Compare · Dataset index · Series · Reports ·
-Glossary · About) with breadcrumbs on deep pages; dense cross-linking between
-reports, series, datasets and the flag registry; an accessibility baseline
+(Lookup · Statistics · Explore · Compare · Dataset index · Series ·
+Forbidden suffixes · Reports · Glossary · About) with breadcrumbs on deep pages;
+dense cross-linking between reports, series, datasets and the flag registry; an
+accessibility baseline
 (skip links, `<main>` landmarks, scoped data-table headers, live-region status
 for Explore query results/errors, labelled controls, nav target sizes,
 contrast); and offline-first/PWA (ADR 0008: service-worker shell precache +

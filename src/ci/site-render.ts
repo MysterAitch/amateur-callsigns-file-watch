@@ -190,6 +190,7 @@ function navHtml(depthToRoot: number, currentNav?: string): string {
   const navItems: [string, string][] = [
     ['Lookup', `${rootPath}index.html`],
     ['Statistics', `${rootPath}statistics.html`],
+    ['Inter-dataset', `${rootPath}statistics/inter-dataset.html`],
     ['Explore', `${rootPath}explore.html`],
     ['Compare', `${rootPath}compare.html`],
     ['Dataset index', `${rootPath}datasets/index.html`],
