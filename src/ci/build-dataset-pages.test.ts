@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { buildDatasetPages, dayGap, signedDelta, type DatasetPagesSummary } from './build-dataset-pages.ts';
+import { externalLink } from './site-render.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -432,8 +433,10 @@ describe('Dataset pages build', () => {
       expect(page).not.toContain("each entry's");
       expect(page).toContain('Generated from the committed archive.');
     }
-    // The reports hub (a directory source) links out to browse that source.
-    expect(reportsIndex).toContain('/tree/main/reports">Browse the source on GitHub');
+    // The reports hub (a directory source) links out to browse that source —
+    // an external GitHub link, so it carries the shared leave-the-site
+    // affordance (↗ + rel=noopener + a text alternative), issue #310.
+    expect(reportsIndex).toContain('/tree/main/reports" target="_blank" rel="noopener">Browse the source on GitHub <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>');
   });
 
   it('EntryPage_Footer_KeepsPerEntryMetaWording', () => {
@@ -441,6 +444,35 @@ describe('Dataset pages build', () => {
     // linking that entry's own meta.json (issue #258).
     const entry = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
     expect(entry).toContain('live in this entry\'s <a href="meta.json"><code>meta.json</code></a>');
+  });
+
+  it('ExternalLinkAffordance_RepositoryNavLink_CarriesArrowNoopenerAndTextAlternative', () => {
+    // The Repository nav item leaves the site (to GitHub), so it carries the
+    // shared leave-the-site affordance on every generated page (issue #310):
+    // a decorative ↗, a visually-hidden "(opens in a new tab)", and
+    // rel=noopener + target=_blank.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'index.html'), 'utf8');
+    expect(page).toContain('<a href="https://github.com/MysterAitch/amateur-callsigns-file-watch" target="_blank" rel="noopener">Repository <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>');
+  });
+
+  it('ExternalLinkAffordance_InternalNavLinks_StayPlainWithoutArrowOrNewTab', () => {
+    // Internal navigation is visually and behaviourally distinct: no ↗, no
+    // new-tab, no rel — a plain relative link, unchanged by the affordance work.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'index.html'), 'utf8');
+    expect(page).toContain('<a href="../index.html">Lookup</a>');
+    expect(page).toContain('<a href="../statistics.html">Statistics</a>');
+    // The internal links carry neither the marker nor the new-tab behaviour.
+    expect(page).not.toContain('<a href="../index.html" target="_blank"');
+    expect(page).not.toContain('Lookup <span class="ext-marker"');
+  });
+
+  it('ExternalLink_Helper_EscapesLabelAndEmitsMarkerNoopenerAndTextAlternative', () => {
+    // The shared helper (generalising the series-nav ↗) escapes its label by
+    // default, marks the arrow aria-hidden, provides the visually-hidden text
+    // alternative, and sets rel=noopener + target=_blank.
+    expect(externalLink('https://example.test/a', 'Docs & specs')).toBe(
+      '<a href="https://example.test/a" target="_blank" rel="noopener">Docs &amp; specs <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>',
+    );
   });
 
   it('StaticPages_Nav_CarryReportsLink', () => {

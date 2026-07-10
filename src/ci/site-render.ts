@@ -22,6 +22,53 @@ export function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// ---- Shared affordances (issue #310) ----
+// One definition each, reused across sections, so a given kind of link or
+// value looks and behaves the same site-wide. Static, no JS: they emit plain
+// HTML + the shared CSS, so the affordance works with JavaScript disabled.
+
+// A link that LEAVES the site (or otherwise opens in a new browser tab): a
+// trailing ↗ marker (decorative, so hidden from assistive tech) plus a
+// visually-hidden "(opens in a new tab)" that announces the behaviour to a
+// screen-reader, and rel="noopener" for the isolation a new tab needs. Only
+// for links that leave the site's own pages - internal navigation stays a
+// plain <a> so the two are visually and behaviourally distinguishable. This
+// generalises the one-off series-nav ↗ into a single reusable convention.
+export function externalLink(href: string, text: string, options: { escapeText?: boolean } = {}): string {
+  const label = options.escapeText === false ? text : escapeHtml(text);
+  return `<a href="${href}" target="_blank" rel="noopener">${label} <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>`;
+}
+
+// The parsed callsign components a caller may have to hand for a pill's
+// supplementary title. Every field is optional: the pill uses whatever is
+// present and degrades to the bare callsign when none is.
+export interface CallsignComponents {
+  prefixSeries?: string;
+  rsl?: string;
+  suffix?: string;
+  // The human licence class / station level (e.g. 'Foundation'), where known.
+  licenceClass?: string;
+}
+
+// A callsign rendered as a small monospace pill that links to the register
+// lookup (?c=<callsign>), so a callsign looks and behaves the same wherever it
+// is presented as content. `depthToRoot` places the lookup link at the right
+// relative depth. The ACCESSIBLE NAME is always the bare callsign (the link
+// text); any parsed component data the caller supplies becomes a supplementary
+// title only ("M7TEE — prefix series M7 · suffix TEE · Foundation"), never the
+// accessible name, and the pill degrades gracefully to just the callsign when
+// no components are given.
+export function callsignPill(callsign: string, depthToRoot: number, components: CallsignComponents = {}): string {
+  const href = `${'../'.repeat(depthToRoot)}index.html?c=${encodeURIComponent(callsign)}`;
+  const facts: string[] = [];
+  if (components.prefixSeries !== undefined && components.prefixSeries !== '') facts.push(`prefix series ${components.prefixSeries}`);
+  if (components.rsl !== undefined && components.rsl !== '') facts.push(`RSL ${components.rsl}`);
+  if (components.suffix !== undefined && components.suffix !== '') facts.push(`suffix ${components.suffix}`);
+  if (components.licenceClass !== undefined && components.licenceClass !== '') facts.push(components.licenceClass);
+  const title = facts.length > 0 ? ` title="${escapeHtml(`${callsign} — ${facts.join(' · ')}`)}"` : '';
+  return `<a class="callsign-pill" href="${href}"${title}>${escapeHtml(callsign)}</a>`;
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -50,6 +97,25 @@ export function sizeOf(filePath: string): string {
 // involved - the file is read as plain text (ADR 0002/0003).
 const SHARED_TOKENS_CSS = fs.readFileSync(path.join(REPO_ROOT, 'site', 'tokens.css'), 'utf8').trim();
 
+// The shared affordance styling (issue #310), included on every generated
+// page's stylesheet: the visually-hidden utility that carries text
+// alternatives (e.g. the external-link "(opens in a new tab)") off-screen but
+// available to assistive tech, and the small trailing ↗ external-link marker.
+const SHARED_AFFORDANCE_CSS = [
+  '.visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}',
+  '.ext-marker{font-size:.85em;line-height:1;text-decoration:none}',
+].join('');
+
+// The callsign-pill styling (issue #310): a small monospace, subtly tinted and
+// bordered chip. Layered onto the entry-page stylesheet (where callsigns are
+// rendered as content) so it can rely on the entry tokens (--slot alongside
+// the shared --line/--accent); focus-visible gives keyboard users a clear ring.
+const CALLSIGN_PILL_CSS = [
+  '.callsign-pill{display:inline-block;font-family:ui-monospace,monospace;font-size:.86rem;line-height:1.4;padding:.02rem .35rem;border:1px solid var(--line);border-radius:6px;background:var(--slot);color:var(--accent);text-decoration:none;white-space:nowrap}',
+  '.callsign-pill:hover{border-color:var(--accent)}',
+  '.callsign-pill:focus-visible{outline:2px solid var(--accent);outline-offset:1px}',
+].join('');
+
 // The minimal per-page stylesheet. It opens with the shared palette
 // (SHARED_TOKENS_CSS) so adjacent pages read as one product, then layers a
 // page-only --code tint and the bottom-ruled tables on top. The full entry
@@ -66,6 +132,7 @@ const PAGE_STYLE = [
   'nav{color:var(--muted)}nav a{color:var(--accent);display:inline-block;padding:.3rem .15rem}',
   '.skip{position:absolute;left:-999px;top:0;z-index:10;padding:.5rem .8rem;background:Canvas;color:CanvasText;border:1px solid GrayText}.skip:focus{left:0}',
   '.breadcrumb{font-size:.9rem;color:var(--muted);margin:.6rem 0 .2rem}.breadcrumb a{color:var(--accent)}',
+  SHARED_AFFORDANCE_CSS,
   '</style>',
 ].join('');
 
@@ -96,7 +163,8 @@ function deployProvenance(): string {
   let via = '';
   if (RUN_ID !== '' && REPO_SLUG !== '') {
     const runLabel = RUN_NUMBER !== '' ? `run #${escapeHtml(RUN_NUMBER)}` : 'the build run';
-    via = ` via <a href="${SERVER_URL}/${REPO_SLUG}/actions/runs/${encodeURIComponent(RUN_ID)}">${runLabel}</a>${BUILD_TIME !== '' ? ` (${escapeHtml(formatTimestamp(BUILD_TIME))})` : ''}`;
+    const runLink = externalLink(`${SERVER_URL}/${REPO_SLUG}/actions/runs/${encodeURIComponent(RUN_ID)}`, runLabel, { escapeText: false });
+    via = ` via ${runLink}${BUILD_TIME !== '' ? ` (${escapeHtml(formatTimestamp(BUILD_TIME))})` : ''}`;
   } else if (BUILD_TIME !== '') {
     via = ` on ${escapeHtml(formatTimestamp(BUILD_TIME))}`;
   }
@@ -134,7 +202,12 @@ function navHtml(depthToRoot: number, currentNav?: string): string {
     ['Repository', REPO_URL],
   ];
   return navItems
-    .map(([label, href]) => (label === currentNav ? `<strong>${label}</strong>` : `<a href="${href}">${label}</a>`))
+    .map(([label, href]) => {
+      if (label === currentNav) return `<strong>${label}</strong>`;
+      // The one external nav item (Repository → GitHub) carries the shared
+      // leave-the-site affordance; internal navigation stays a plain link.
+      return /^https?:/.test(href) ? externalLink(href, label) : `<a href="${href}">${label}</a>`;
+    })
     .join(' · ');
 }
 
@@ -161,7 +234,7 @@ function footerHtml(metaJsonHref?: string, sourcePath?: string): string {
     const text = isFile
       ? 'View or edit this page’s source on GitHub'
       : isEntry ? 'Browse this entry’s directory on GitHub' : 'Browse the source on GitHub';
-    sourceLink = ` <a href="${href}">${text}</a>.`;
+    sourceLink = ` ${externalLink(href, text)}.`;
   }
   const lead = isEntry
     ? `Derived from the committed archive; provenance and integrity hashes live in this entry's <a href="${metaJsonHref}"><code>meta.json</code></a>.`
@@ -272,6 +345,8 @@ const ENTRY_STYLE = [
   '.chart details table{margin-top:.4rem;max-width:22rem}.chart tr.explore{cursor:pointer}.chart tr.explore:hover td:first-child{text-decoration:underline;color:var(--accent)}',
   '.linkout{display:block;margin:.1rem 0 1.05rem;padding:.7rem 1.1rem;border:1px dashed var(--line);border-radius:12px;font-size:.9rem}',
   'footer{color:var(--muted);font-size:.83rem;margin-top:.6rem;line-height:1.6}footer a{color:var(--accent)}',
+  SHARED_AFFORDANCE_CSS,
+  CALLSIGN_PILL_CSS,
   '</style>',
 ].join('');
 

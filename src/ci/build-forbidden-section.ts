@@ -46,6 +46,7 @@ import {
   type SuffixCallsign,
 } from './forbidden-suffix-callsigns.ts';
 import { readFoiEntryMeta, type FoiEntryMeta } from '../shared/foi-archive.ts';
+import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import {
   escapeHtml,
   sizeOf,
@@ -56,6 +57,7 @@ import {
   downloadSlot,
   downloadTier,
   breakdownRows,
+  callsignPill,
   humanDate,
 } from './site-render.ts';
 
@@ -452,7 +454,11 @@ function arcCallout(suffix: string, a: SuffixAnalysis): string {
 // The callsigns section: the status breakdown (never a bare total) followed by
 // the per-callsign table, cross-linked to the register lookup, and the FOI
 // witnesses. A suffix with no callsign says so.
-function suffixCallsignsSection(info: SuffixCallsignInfo): string {
+// The per-suffix pages sit at depth 3 (forbidden/suffix/{SUFFIX}/), so the
+// shared callsign pill's register-lookup link resolves three levels up.
+const SUFFIX_PAGE_DEPTH = 3;
+
+function suffixCallsignsSection(info: SuffixCallsignInfo, ref: ReferenceData): string {
   if (info.total === 0) {
     return [
       '<section><h2>Callsigns carrying this suffix</h2>',
@@ -475,7 +481,18 @@ function suffixCallsignsSection(info: SuffixCallsignInfo): string {
     const statusCell = `${escapeHtml(c.latestStatus === '' ? '(blank)' : c.latestStatus)}${wasNote}`;
     const startCell = c.startDate === '' ? '<span class="gap">—</span>' : escapeHtml(humanDate(c.startDate));
     const regCell = c.inCurrentRegister ? '✓' : '<span class="gap">—</span>';
-    return `<tr><td><a href="${callsignLookupHref(c.callsign)}"><code>${escapeHtml(c.callsign)}</code></a></td><td>${statusCell}</td><td>${startCell}</td><td>${regCell}</td><td>${escapeHtml(seenParts.join(' · '))}</td></tr>`;
+    // The shared callsign pill: accessible name is the bare callsign, with a
+    // supplementary title built from the components the same parser derives
+    // everywhere (prefix series · suffix · implied class), degrading to the
+    // callsign alone for anything unparseable (e.g. a visitor Mx/ form).
+    const comp = parseCallsign(c.callsign, '', ref);
+    const pill = callsignPill(c.callsign, SUFFIX_PAGE_DEPTH, {
+      prefixSeries: comp.prefixSeries,
+      rsl: comp.rsl,
+      suffix: comp.suffix,
+      licenceClass: comp.impliedClass,
+    });
+    return `<tr><td>${pill}</td><td>${statusCell}</td><td>${startCell}</td><td>${regCell}</td><td>${escapeHtml(seenParts.join(' · '))}</td></tr>`;
   });
   // The distinct FOI entries witnessing any of these callsigns, cross-linked.
   const foiEntries = [...new Set(info.callsigns.flatMap(c => c.observations.filter(o => o.lane === 'foi').map(o => o.source)))].sort();
@@ -527,7 +544,7 @@ function suffixAtAGlance(suffix: string, h: ForbiddenSuffixHistory, info: Suffix
 // the entry-page card shell so it matches the disclosure and dataset pages.
 // Exported so the no-callsign branch can be exercised directly in tests (no
 // real union suffix is callsign-free).
-export function suffixPage(suffix: string, h: ForbiddenSuffixHistory, info: SuffixCallsignInfo): string {
+export function suffixPage(suffix: string, h: ForbiddenSuffixHistory, info: SuffixCallsignInfo, ref: ReferenceData = loadReferenceData()): string {
   const a = analyseSuffix(suffix, h, info);
   const title = `Forbidden suffix ${suffix}`;
   const body = [
@@ -539,7 +556,7 @@ export function suffixPage(suffix: string, h: ForbiddenSuffixHistory, info: Suff
     '<div class="main-region">',
     '<div class="col">',
     suffixHistorySection(suffix, h, a),
-    suffixCallsignsSection(info),
+    suffixCallsignsSection(info, ref),
     '</div>',
     `<div class="side">${suffixAtAGlance(suffix, h, info, a)}</div>`,
     '</div>',
@@ -555,6 +572,9 @@ export function suffixPage(suffix: string, h: ForbiddenSuffixHistory, info: Suff
 export function buildForbiddenSection(outputDir: string, baseUrl: string = DEFAULT_BASE_URL): string[] {
   const history = buildForbiddenSuffixHistory(FOI_DIR);
   const suffixIndex = buildSuffixCallsignIndex(history.everForbiddenUnion);
+  // Loaded once and passed to every per-suffix page so the callsign pills'
+  // component titles are derived without re-reading the reference data per page.
+  const ref = loadReferenceData();
   const dir = path.join(outputDir, 'forbidden');
   fs.mkdirSync(dir, { recursive: true });
   const urls: string[] = [];
@@ -577,7 +597,7 @@ export function buildForbiddenSection(outputDir: string, baseUrl: string = DEFAU
     if (info === undefined) continue;
     const pageDir = path.join(suffixDir, suffix);
     fs.mkdirSync(pageDir, { recursive: true });
-    fs.writeFileSync(path.join(pageDir, 'index.html'), suffixPage(suffix, history, info));
+    fs.writeFileSync(path.join(pageDir, 'index.html'), suffixPage(suffix, history, info, ref));
     urls.push(`${baseUrl}/forbidden/suffix/${encodeURIComponent(suffix)}/index.html`);
   }
 
