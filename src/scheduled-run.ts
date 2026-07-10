@@ -166,6 +166,30 @@ function execErrorText(err: unknown): string {
   return errorMessage(err);
 }
 
+// Deployment layout on the LXC: the runner is checked out here and runs as this
+// service user. `su - <user>` starts a LOGIN shell, which resets the working
+// directory to the user's home - so any `cd` an operator needs MUST live inside
+// `-c`, never before `su` (there it applies to the calling shell and is
+// discarded, leaving git to run in the wrong directory). lxcServiceCommand
+// builds a copy-pasteable command that respects this.
+const LXC_REPO_DIR = '/opt/amateur-callsigns-file-watch';
+const LXC_SERVICE_USER = 'callsign-data-mirror';
+
+export function lxcServiceCommand(inner: string): string {
+  return `su -s /bin/bash - ${LXC_SERVICE_USER} -c 'cd ${LXC_REPO_DIR} && ${inner}'`;
+}
+
+// Surface the actionable line of a git failure. Git emits warnings (e.g.
+// "warning: fetch updated the current branch head" when a concurrent process
+// moves the ref mid-fetch) BEFORE the fatal/error line, so the first stderr
+// line is often a benign warning that masks the real cause. Prefer the first
+// fatal:/error: line; fall back to the last non-empty line.
+export function summariseGitError(stderr: string): string {
+  const lines = stderr.split('\n').map((line) => line.trim()).filter(Boolean);
+  const fatal = lines.find((line) => /^(fatal|error):/i.test(line));
+  return fatal ?? lines[lines.length - 1] ?? '(no error message)';
+}
+
 //
 // Notifications - ntfy client, soft-fail
 //
@@ -369,7 +393,7 @@ async function handleGitOpOutcome(state: NotifyState, outcome: GitOpResult): Pro
     'low',
     `Git operation failing: ${outcome.op}`,
     `${message}. The runner continues with local state; investigate on the LXC ` +
-    `(cd /opt/amateur-callsigns-file-watch && su -s /bin/bash - callsign-data-mirror -c "${outcome.op}").`,
+    `(${lxcServiceCommand(outcome.op)}).`,
   );
   state.lastGitFailureFingerprint = fingerprint;
   state.lastGitFailureNotifiedAt = new Date().toISOString();
@@ -449,8 +473,7 @@ async function handleDrift(
       `To reconcile, on the LXC as root: ` +
       `sudo bash /opt/amateur-callsigns-file-watch/docs/setup/update-service.sh`
     : `Working tree has unstaged changes: ${drift.summary}. ` +
-      `Investigate on the LXC: cd /opt/amateur-callsigns-file-watch && ` +
-      `su -s /bin/bash - callsign-data-mirror -c "git status"`;
+      `Investigate on the LXC: ${lxcServiceCommand('git status')}`;
 
   await ntfy('low', titlePrefix, body);
   state[fpField] = drift.fingerprint;
@@ -508,7 +531,7 @@ export function tryFastForwardPull(): GitOpResult {
     }
     return { op: 'git pull --ff-only', success: true };
   } catch (err) {
-    const message = execErrorText(err).split('\n')[0].trim();
+    const message = summariseGitError(execErrorText(err));
     logger.warn(`git pull --ff-only failed: ${message}`);
     return { op: 'git pull --ff-only', success: false, message };
   }
@@ -571,7 +594,7 @@ export function gitCommitAndPush(message: string, archiveKey: string): GitResult
     execFileSync('git', ['pull', '--rebase', '--autostash'], { stdio: 'pipe' });
     logger.debug('git pull --rebase --autostash succeeded before push');
   } catch (err) {
-    const errMsg = execErrorText(err).split('\n')[0].trim();
+    const errMsg = summariseGitError(execErrorText(err));
     logger.warn(`git pull --rebase failed (${errMsg}); attempting push anyway.`);
     result.rebaseFailed = true;
     result.rebaseError = errMsg;
