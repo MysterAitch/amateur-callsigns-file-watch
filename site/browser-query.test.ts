@@ -10,6 +10,10 @@ import {
   setDiffSql,
   callsignCharMarker,
   TOGGLES,
+  stateToViewParam,
+  viewParamToState,
+  applyViewToState,
+  historySyncAction,
 } from './browser-query.js';
 
 // The shared query core turns a data-browser's filter state into SQL and
@@ -224,5 +228,88 @@ describe('serialize/parse round-trip', () => {
     // not resurrect it.
     const restored = parseFilterState({ t: ['forbidden', 'removed-toggle'] });
     expect([...(restored.toggles ?? [])]).toEqual(['forbidden']);
+  });
+});
+
+// The shared ?view= round-trip (issue #214): both browsers turn state into the
+// query-param value, restore state FROM the param on first load and on
+// back/forward, and decide whether a sync should touch the History API.
+describe('stateToViewParam / viewParamToState round-trip', () => {
+  it('ViewParam_WhenPristineState_IsNull', () => {
+    // A pristine view emits no param, so the caller deletes ?view= entirely.
+    expect(stateToViewParam(state())).toBeNull();
+  });
+  it('ViewParam_WhenFiltered_RoundTripsToSamePredicateAndState', () => {
+    // The user-facing contract: a ?view= link reproduces the same query. We
+    // serialise, re-parse via the URL string, apply to a fresh state, and
+    // confirm the SQL predicate and the visible state match the original.
+    const original = state({
+      facets: new Map([['status', facet('status', ['Reserved', 'Allocated'], { exclude: true })]]),
+      toggles: new Set(['forbidden']),
+      columnFilters: new Map([['callsign', '2*T']]),
+      sort: [{ col: 'status', dir: 'DESC' }],
+      pageSize: 100,
+    });
+    const param = stateToViewParam(original);
+    expect(param).not.toBeNull();
+    const restored = state();
+    applyViewToState(restored, viewParamToState(param));
+    expect(buildPredicate(restored, { dataset: 'D' })).toBe(buildPredicate(original, { dataset: 'D' }));
+    expect([...(restored.facets.get('status')?.values ?? [])]).toEqual(['Reserved', 'Allocated']);
+    expect(restored.facets.get('status')?.exclude).toBe(true);
+    expect([...restored.toggles]).toEqual(['forbidden']);
+    expect([...restored.columnFilters]).toEqual([['callsign', '2*T']]);
+    expect(restored.sort).toEqual([{ col: 'status', dir: 'DESC' }]);
+    expect(restored.pageSize).toBe(100);
+  });
+  it('ViewParamToState_WhenNullParam_YieldsPristinePieces', () => {
+    // No ?view= at all (a bare page load) parses to nothing to apply.
+    expect(viewParamToState(null)).toEqual({});
+  });
+  it('ViewParamToState_WhenMalformedLink_DegradesToPristine', () => {
+    // A hand-mangled or truncated share link must not throw; it falls back to
+    // the pristine view rather than breaking the page.
+    expect(viewParamToState('{not json')).toEqual({});
+    expect(viewParamToState('"a string, not an object"')).toEqual({});
+  });
+});
+
+describe('applyViewToState', () => {
+  it('ApplyView_WhenPieceAbsentFromLink_ResetsItToDefault', () => {
+    // Back/forward must restore each state exactly: navigating to a link that
+    // omits a facet has to CLEAR a facet left over from a later state, not keep
+    // it. This is the difference between a total restore and an accumulating one.
+    const live = state({
+      facets: new Map([['status', facet('status', ['Reserved'])]]),
+      toggles: new Set(['forbidden']),
+      pageSize: 500,
+      sort: [{ col: 'status', dir: 'DESC' }],
+      customSql: 'SELECT 1',
+    });
+    applyViewToState(live, viewParamToState(null)); // an empty (pristine) link
+    expect(live.facets.size).toBe(0);
+    expect(live.toggles.size).toBe(0);
+    expect(live.columnFilters.size).toBe(0);
+    expect(live.pageSize).toBe(25);
+    expect(live.sort).toEqual([{ col: 'callsign', dir: 'ASC' }]);
+    expect(live.customSql).toBeNull();
+  });
+});
+
+describe('historySyncAction', () => {
+  it('HistorySync_WhenUrlUnchanged_WritesNothing', () => {
+    // A no-op / programmatic sync (paginating, first load, an idempotent
+    // refresh) leaves history alone rather than duplicating an entry.
+    expect(historySyncAction('/p?view=x', '/p?view=x', false)).toBe('none');
+    expect(historySyncAction('/p?view=x', '/p?view=x', true)).toBe('none');
+  });
+  it('HistorySync_WhenDiscreteChangeStartsBurst_PushesNewEntry', () => {
+    // The leading edge of a burst pushes, preserving the previous state for Back.
+    expect(historySyncAction('/p?view=a', '/p?view=b', false)).toBe('push');
+  });
+  it('HistorySync_WhenChangeDuringBurst_ReplacesToCoalesce', () => {
+    // A rapid follow-up within the debounce window replaces the just-pushed
+    // entry, so a burst collapses to one history step.
+    expect(historySyncAction('/p?view=b', '/p?view=c', true)).toBe('replace');
   });
 });

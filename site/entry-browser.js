@@ -15,7 +15,8 @@
 // pages live three directories deep). The .png / ?v= hosting workarounds are
 // the same as app.js.
 
-import { COLUMNS, TOGGLES, PAGE_SIZES, buildPredicate, serializeFilterState, parseFilterState, callsignCharMarker } from './browser-query.js';
+import { COLUMNS, TOGGLES, PAGE_SIZES, buildPredicate, stateToViewParam, viewParamToState, applyViewToState, callsignCharMarker } from './browser-query.js';
+import { createHistorySync } from './history-sync.js';
 
 const { createDbWorker } = window;
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
@@ -92,7 +93,10 @@ function enhance(section) {
   const chips = el('div', { class: 'chips' });
   const pills = el('div', { class: 'pills' });
   const toolbar = el('div', { class: 'browser-toolbar' });
-  const statusLine = el('p', { class: 'browser-status' });
+  // role="status" makes the results line a polite live region, so a change in
+  // the matching-row count - whether from a filter action or a back/forward
+  // restore - is announced to assistive technology.
+  const statusLine = el('p', { class: 'browser-status', role: 'status' });
   const result = el('div', { class: 'browser-result' });
   section.insertBefore(chips, staticView);
   section.insertBefore(pills, staticView);
@@ -209,7 +213,7 @@ function enhance(section) {
   async function refresh() {
     statusLine.textContent = 'querying this publication…';
     result.hidden = true;
-    writeUrl(); // keep the shareable ?view= link in sync with the state
+    historySync.sync(); // keep the shareable ?view= link in sync (push on a discrete change, no-op otherwise)
     let inner; let countSql;
     if (state.customSql !== null) {
       inner = state.customSql;
@@ -394,28 +398,29 @@ function enhance(section) {
 
   // --- shareable state: the current filters live in a ?view= query param
   // (a query param, not the hash, so it doesn't clash with the :target
-  // inspect tabs), so any filtered view is a bookmarkable / shareable link. ---
-  function writeUrl() {
-    const obj = serializeFilterState(state);
+  // inspect tabs), so any filtered view is a bookmarkable / shareable link.
+  // Discrete actions push a history entry (via historySync); back/forward
+  // replay them through restore(). ---
+  function buildUrl() {
     const url = new URL(window.location.href);
-    if (Object.keys(obj).length === 0) url.searchParams.delete('view');
-    else url.searchParams.set('view', JSON.stringify(obj)); // searchParams handles encoding
-    window.history.replaceState(null, '', url);
+    const param = stateToViewParam(state);
+    if (param === null) url.searchParams.delete('view');
+    else url.searchParams.set('view', param); // searchParams handles encoding
+    return url.toString();
   }
-  function restoreFromUrl() {
-    const raw = new URL(window.location.href).searchParams.get('view');
-    if (raw === null) return;
-    let obj;
-    try { obj = JSON.parse(raw); } catch { return; }
-    const parsed = parseFilterState(obj);
-    if (parsed.facets !== undefined) state.facets = parsed.facets;
-    if (parsed.toggles !== undefined) state.toggles = parsed.toggles;
-    if (parsed.columnFilters !== undefined) state.columnFilters = parsed.columnFilters;
-    if (parsed.sort !== undefined) state.sort = parsed.sort;
-    if (parsed.pageSize !== undefined) { state.pageSize = parsed.pageSize; sizeInput.value = String(parsed.pageSize); }
-    if (parsed.customSql !== undefined) { state.customSql = parsed.customSql; textarea.value = parsed.customSql; }
+  // The single restore path shared by first load and popstate: read the ?view=
+  // link, apply it wholesale to state (absent pieces reset to defaults), resync
+  // the UI and re-render. Re-render's own sync() is a no-op here because the URL
+  // already matches, so restoring never itself writes history.
+  function restore() {
+    applyViewToState(state, viewParamToState(new URL(window.location.href).searchParams.get('view')));
+    state.page = 0;
+    sizeInput.value = String(state.pageSize);
+    if (state.customSql !== null) { textarea.value = state.customSql; sqlBox.open = true; }
     syncChips();
+    void refresh();
   }
+  const historySync = createHistorySync({ getUrl: buildUrl, onPopState: restore });
 
   // --- download the current view as CSV, with a query/meta comment header ---
   const DOWNLOAD_CAP = 20000;
@@ -459,13 +464,12 @@ function enhance(section) {
   // root next to this module, so resolve it against import.meta.url and it
   // works regardless of how deep the entry page is.
   cmpBtn.addEventListener('click', () => {
-    const obj = serializeFilterState(state);
+    const param = stateToViewParam(state);
     const cmp = new URL('./compare.html', import.meta.url);
-    if (Object.keys(obj).length > 0) cmp.searchParams.set('view', JSON.stringify(obj));
+    if (param !== null) cmp.searchParams.set('view', param);
     cmp.searchParams.set('datasets', dataset);
     window.location.href = cmp.toString();
   });
 
-  restoreFromUrl();
-  void refresh();
+  restore();
 }

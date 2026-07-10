@@ -22,6 +22,12 @@ export const TOGGLES = {
 
 export const PAGE_SIZES = [25, 50, 100, 250, 500, 1000];
 
+// The pristine defaults an untouched view holds - kept here so serialise
+// (what to omit from ?view=), the front-ends' initial state, and the restore
+// path (what to reset an absent piece back to) all agree on one definition.
+export const DEFAULT_PAGE_SIZE = 25;
+export function defaultSort() { return [{ col: 'callsign', dir: 'ASC' }]; }
+
 // --- rendering helper shared by both browsers ---
 // Everything outside the plain callsign alphabet (letters, digits, / and #,
 // matching the parser's NON_PLAIN set) is flagged so it can't hide or pass
@@ -111,7 +117,7 @@ export function serializeFilterState(state) {
   if (state.toggles.size > 0) obj.t = [...state.toggles];
   if (state.columnFilters.size > 0) obj.c = [...state.columnFilters];
   if (!isDefaultSort(state.sort)) obj.s = state.sort;
-  if (state.pageSize !== 25) obj.z = state.pageSize;
+  if (state.pageSize !== DEFAULT_PAGE_SIZE) obj.z = state.pageSize;
   if (state.customSql !== null && state.customSql !== undefined) obj.q = state.customSql;
   return obj;
 }
@@ -161,4 +167,54 @@ export function parseFilterState(obj) {
   if (typeof obj.z === 'number') out.pageSize = obj.z;
   if (typeof obj.q === 'string') out.customSql = obj.q;
   return out;
+}
+
+// --- shared ?view= round-trip + history wiring (issue #214) ---
+// The single-publication browser and the comparison surface both read/write
+// the same ?view= param, so the state<->URL mapping and the back/forward
+// restore path live here once. These stay pure (no DOM, no window): the thin
+// History-API side effects live in the front-ends via historySyncAction.
+
+// The value for the ?view= query param, or null when the view is pristine (so
+// the caller deletes the param rather than emitting an empty {}).
+export function stateToViewParam(state) {
+  const obj = serializeFilterState(state);
+  return Object.keys(obj).length === 0 ? null : JSON.stringify(obj);
+}
+
+// Inverse of stateToViewParam: a raw ?view= string (or null/absent) becomes
+// the parsed state pieces. A malformed or non-object link yields {} so a stale
+// or hand-mangled share link degrades to the pristine view rather than throwing.
+export function viewParamToState(raw) {
+  if (raw === null || raw === undefined) return {};
+  let obj;
+  try { obj = JSON.parse(raw); } catch { return {}; }
+  if (obj === null || typeof obj !== 'object') return {};
+  return parseFilterState(obj);
+}
+
+// Apply parsed ?view= pieces onto a live state object. Total by design: a piece
+// ABSENT from the link resets to its default rather than keeping the previous
+// value, so back/forward navigation restores each state exactly (the URL fully
+// determines the filter state) instead of accumulating stale facets.
+export function applyViewToState(state, parsed) {
+  state.facets = parsed.facets ?? new Map();
+  state.toggles = parsed.toggles ?? new Set();
+  state.columnFilters = parsed.columnFilters ?? new Map();
+  state.sort = parsed.sort ?? defaultSort();
+  state.pageSize = parsed.pageSize ?? DEFAULT_PAGE_SIZE;
+  state.customSql = parsed.customSql ?? null;
+}
+
+// Decide how a state->URL sync should touch the History API. A no-op sync (the
+// URL already mirrors the state - e.g. paginating, first load, an idempotent
+// refresh) writes nothing. A discrete change pushes a new entry (leaving the
+// prior state in history for Back); rapid follow-ups still within the debounce
+// window replace that entry, so a burst of actions collapses to ONE history
+// step rather than one per action. Pure, so the push/replace/none decision is
+// unit-tested without a DOM; the front-ends own the timer and the actual
+// pushState/replaceState calls.
+export function historySyncAction(currentHref, nextHref, burstActive) {
+  if (nextHref === currentHref) return 'none';
+  return burstActive ? 'replace' : 'push';
 }
