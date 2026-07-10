@@ -62,6 +62,46 @@ const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-w
 // before a deploy that would silently degrade.
 const MAX_TOTAL_BYTES = 900 * 1024 * 1024;
 
+// Every open-data derivative is parsed with the same options: header row as
+// keys, blank lines skipped, and a leading BOM tolerated.
+const ARCHIVE_CSV_PARSE_OPTIONS = { columns: true, skip_empty_lines: true, bom: true } as const;
+
+// A full-file parse of an archived open-data derivative is the build's heaviest
+// read - a single publication's normalised.csv is ~158k rows - and several
+// independent page sections parse the same file within one run (the glance
+// breakdowns, the distribution charts, the publication summary, the series and
+// forbidden-suffix sections). This module-level memo returns the parsed rows for
+// an unchanged source file, keyed by absolute path plus last-modified time so an
+// edited file re-parses, collapsing those repeats into one parse per file.
+//
+// The cached rows are treated as read-only by every caller (each only tallies,
+// filters, or maps them), so returning the shared array is byte-identical to a
+// fresh parse; the rebuild-determinism check still renders each build
+// independently from these shared rows. The memo is confined to the test runner
+// so the deploy always parses each source file fresh - the cache is provably
+// idempotent, but keeping the published artefact on the un-memoised path removes
+// any doubt about what it builds from.
+const MEMOISE_ARCHIVE_CSV = process.env.VITEST !== undefined;
+
+interface ParsedCsvCacheEntry {
+  mtimeMs: number;
+  rows: Record<string, string>[];
+}
+const parsedArchiveCsvCache = new Map<string, ParsedCsvCacheEntry>();
+
+function parseArchiveCsv(filePath: string): Record<string, string>[] {
+  const absolute = path.resolve(filePath);
+  if (!MEMOISE_ARCHIVE_CSV) {
+    return parse(fs.readFileSync(absolute, 'utf8'), ARCHIVE_CSV_PARSE_OPTIONS) as Record<string, string>[];
+  }
+  const mtimeMs = fs.statSync(absolute).mtimeMs;
+  const cached = parsedArchiveCsvCache.get(absolute);
+  if (cached !== undefined && cached.mtimeMs === mtimeMs) return cached.rows;
+  const rows = parse(fs.readFileSync(absolute, 'utf8'), ARCHIVE_CSV_PARSE_OPTIONS) as Record<string, string>[];
+  parsedArchiveCsvCache.set(absolute, { mtimeMs, rows });
+  return rows;
+}
+
 export interface DatasetPagesSummary {
   entryCount: number;
   fileCount: number;
@@ -338,8 +378,8 @@ function openDataBreakdowns(sourceDir: string): {
   forbiddenTotal: number;
   forbiddenSince: number;
 } {
-  const statusRows = parse(fs.readFileSync(path.join(sourceDir, 'normalised.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
-  const componentRows = parse(fs.readFileSync(path.join(sourceDir, 'components.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  const statusRows = parseArchiveCsv(path.join(sourceDir, 'normalised.csv'));
+  const componentRows = parseArchiveCsv(path.join(sourceDir, 'components.csv'));
   // Empty is a distinct, meaningful bucket (a record the source left blank,
   // or an unparseable callsign with no series) - counted as '' and humanised
   // at display, never silently dropped.
@@ -586,8 +626,8 @@ function distributions(sourceDir: string, key: string): {
   recentByClass: [string, number][];
   dateColumn: string | undefined;
 } {
-  const normRows = parse(fs.readFileSync(path.join(sourceDir, 'normalised.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
-  const compRows = parse(fs.readFileSync(path.join(sourceDir, 'components.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  const normRows = parseArchiveCsv(path.join(sourceDir, 'normalised.csv'));
+  const compRows = parseArchiveCsv(path.join(sourceDir, 'components.csv'));
   const classByCallsign = new Map(compRows.map(r => [r.callsign, r.implied_class]));
 
   const lengthMap = new Map<number, number>();
@@ -789,7 +829,7 @@ interface PublicationSummary {
 
 function publicationSummary(key: string): PublicationSummary {
   const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
-  const rows = parse(fs.readFileSync(path.join(sourceDir, 'normalised.csv'), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  const rows = parseArchiveCsv(path.join(sourceDir, 'normalised.csv'));
   let allocated = 0;
   for (const r of rows) if ((r.status ?? '').trim() === 'Allocated') allocated += 1;
   const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as {
@@ -1044,10 +1084,8 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
   const keys = listArchiveKeys().sort();
   const newest = keys[keys.length - 1];
   if (newest === undefined) return { urls: [], series: new Set() };
-  const componentsRows = parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, newest, 'components.csv'), 'utf8'),
-    { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
-  const normalisedRows = parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, newest, 'normalised.csv'), 'utf8'),
-    { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  const componentsRows = parseArchiveCsv(path.join(CONSTANTS.DIRS.archive, newest, 'components.csv'));
+  const normalisedRows = parseArchiveCsv(path.join(CONSTANTS.DIRS.archive, newest, 'normalised.csv'));
   const statusByCallsign = new Map(normalisedRows.map(r => [r.callsign, r.status]));
   const reference = new Map(
     (parse(fs.readFileSync(path.join(REPO_ROOT, 'reference-data', 'prefix-formats.csv'), 'utf8'), { columns: true, bom: true }) as Record<string, string>[])

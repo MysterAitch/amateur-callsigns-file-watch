@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -47,11 +47,37 @@ function simulatePublication(repo: string, archiveKey: string): void {
   fs.writeFileSync(path.join(repo, CONSTANTS.FILES.latestRawCsv), `data-for-${archiveKey}\n`);
 }
 
+// A pristine origin+clone pair, seeded once. The seed is process-spawn heavy
+// (init, clone, config, add, commit, push), so it runs a single time; each
+// test gets its own isolated pair by cheaply copying this template.
+let templateRoot: string;
+let templateOrigin: string;
+let templateClone: string;
+
 let tmpRoot: string;
 let origin: string; // bare repo standing in for GitHub
 let clone: string; // checkout standing in for the fetch host
 let originalCwd: string;
 let originalSkipPush: string | undefined;
+
+beforeAll(() => {
+  templateRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'callsigns-git-template-'));
+  templateOrigin = path.join(templateRoot, 'origin.git');
+  templateClone = path.join(templateRoot, 'clone');
+
+  execFileSync('git', ['init', '--bare', '--initial-branch=main', templateOrigin], { stdio: 'pipe' });
+  execFileSync('git', ['clone', templateOrigin, templateClone], { stdio: 'pipe' });
+  git(templateClone, 'config', 'user.name', 'Test Fetcher');
+  git(templateClone, 'config', 'user.email', 'fetcher@test.invalid');
+  seedTrackedFiles(templateClone);
+  git(templateClone, 'add', '-A');
+  git(templateClone, 'commit', '-m', 'seed');
+  git(templateClone, 'push', 'origin', 'main');
+});
+
+afterAll(() => {
+  fs.rmSync(templateRoot, { recursive: true, force: true });
+});
 
 beforeEach(() => {
   originalCwd = process.cwd();
@@ -62,14 +88,16 @@ beforeEach(() => {
   origin = path.join(tmpRoot, 'origin.git');
   clone = path.join(tmpRoot, 'clone');
 
-  execFileSync('git', ['init', '--bare', '--initial-branch=main', origin], { stdio: 'pipe' });
-  execFileSync('git', ['clone', origin, clone], { stdio: 'pipe' });
-  git(clone, 'config', 'user.name', 'Test Fetcher');
-  git(clone, 'config', 'user.email', 'fetcher@test.invalid');
-  seedTrackedFiles(clone);
-  git(clone, 'add', '-A');
-  git(clone, 'commit', '-m', 'seed');
-  git(clone, 'push', 'origin', 'main');
+  // Copy the once-seeded pair rather than re-running the full init/clone/
+  // commit/push sequence per test: a filesystem copy avoids ~7 git
+  // subprocesses each time, while every test still gets a fully isolated,
+  // pristine origin and checkout (so origin-mutating tests never leak into
+  // the next test).
+  fs.cpSync(templateOrigin, origin, { recursive: true });
+  fs.cpSync(templateClone, clone, { recursive: true });
+  // The copied checkout still names the template as its origin remote; retarget
+  // it at this test's own origin so pushes and pulls stay isolated.
+  git(clone, 'remote', 'set-url', 'origin', origin);
 
   process.chdir(clone);
 });
