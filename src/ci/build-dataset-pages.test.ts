@@ -587,6 +587,50 @@ describe('Dataset pages build', () => {
     expect(summary.pageUrls.some(url => url.endsWith('/series/M7.html'))).toBe(true);
   });
 
+  it('SeriesPage_ExampleCallsigns_RenderAsPillsLinkingToRegisterLookup', () => {
+    // The series-page "Examples" list presents each callsign with the shared
+    // pill (issue #310), linking to the register lookup at the series depth
+    // (../index.html?c=…), so it looks and behaves like callsigns elsewhere.
+    const m7 = fs.readFileSync(path.join(outputDir, 'series', 'M7.html'), 'utf8');
+    expect(m7).toMatch(/<a class="callsign-pill" href="\.\.\/index\.html\?c=M7[A-Z0-9]+"/);
+    // The examples are no longer bare <code> anchors.
+    expect(m7).not.toMatch(/<a href="\.\.\/index\.html\?c=[^"]+"><code>/);
+  });
+
+  it('SeriesPage_ExampleCallsignPill_KeepsCallsignAsAccessibleNameWithComponentsAsTitle', () => {
+    // The pill's accessible name stays the bare callsign (the link text); the
+    // parsed components (prefix series · suffix · implied class) are a
+    // supplementary title only, built from the same fields used site-wide.
+    const m7 = fs.readFileSync(path.join(outputDir, 'series', 'M7.html'), 'utf8');
+    const m = /<a class="callsign-pill" href="\.\.\/index\.html\?c=([^"]+)" title="([^"]*)">([^<]+)<\/a>/.exec(m7);
+    expect(m).not.toBeNull();
+    const [, hrefCall, title, text] = m as RegExpExecArray;
+    // The link text (accessible name) equals the callsign in the href.
+    expect(text).toBe(decodeURIComponent(hrefCall));
+    // M7 is a Foundation series; the title carries the parsed components.
+    expect(title).toContain('prefix series M7');
+    expect(title).toContain('Foundation');
+    expect(title.startsWith(`${text} —`)).toBe(true);
+  });
+
+  it('PageStyleShell_SeriesPage_CarriesCallsignPillStyleToken', () => {
+    // The plainer page shell (PAGE_STYLE) now carries the pill CSS token (and
+    // its --slot tint) so callsigns rendered on htmlPage surfaces are styled,
+    // not bare - mirroring how the token reached the entry shell in #313.
+    const m7 = fs.readFileSync(path.join(outputDir, 'series', 'M7.html'), 'utf8');
+    expect(m7).toContain('.callsign-pill{');
+    expect(m7).toMatch(/--slot:/);
+  });
+
+  it('PageStyleShell_PageWithoutCallsigns_CarriesInertPillTokenButEmitsNoPillMarkup', () => {
+    // Adding the pill token to PAGE_STYLE changes callsign-free htmlPage pages
+    // only by that inert CSS: the dataset index presents no callsigns, so it
+    // gains the style token but renders no pill markup.
+    const index = fs.readFileSync(path.join(outputDir, 'datasets', 'index.html'), 'utf8');
+    expect(index).toContain('.callsign-pill{');
+    expect(index).not.toContain('class="callsign-pill"');
+  });
+
   it('DatasetPages_Sitemap_ListsEveryEntryPageUnderTheBaseUrl', () => {
     const sitemap = fs.readFileSync(path.join(outputDir, 'sitemap.xml'), 'utf8');
     expect(sitemap).toContain('<loc>https://example.test/site/datasets/index.html</loc>');

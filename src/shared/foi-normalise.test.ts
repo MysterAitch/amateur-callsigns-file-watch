@@ -941,6 +941,23 @@ describe('FOI archive golden master', () => {
     expect(results[0].notes.blankCounts['status']).toBeUndefined();
   });
 
+  it('FoiArchive_Ofcom01420046Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('ofcom-01420046--allocated-reserved-callsigns', 'ofcom-01420046-register', [150181]);
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class');
+    // 12 blank statuses in an "allocated and reserved" list - preserved, on
+    // the record; the constant Type column is required-present but not carried.
+    expect(results[0].notes.blankCounts['status']).toBe(12);
+    // The trailing-NBSP trio (G0TQK, G7IWE, 2E1HON) is trimmed, counted here,
+    // never silently.
+    expect(results[0].notes.nbspCellCount).toBe(3);
+    // The ',,' Value (two commas, Reserved) is preserved verbatim - RFC-4180
+    // quoted because it contains commas - and sorts first under the codepoint
+    // order.
+    expect(results[0].csv.startsWith('callsign,status,licence_class\n",,",Reserved,\n')).toBe(true);
+    // 'G6 FMU' keeps its interior space (the same anomaly as the 2017 register).
+    expect(results[0].csv).toContain('G6 FMU,');
+  });
+
   it('FoiArchive_Wdtk238892Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
     const results = expectEntryReproduced('wdtk-238892--out-of-sequence-callsigns', PREWAR_VARIANT, [419, 41]);
     // 45 pre-war callsigns appear more than once (multiple assignments) -
