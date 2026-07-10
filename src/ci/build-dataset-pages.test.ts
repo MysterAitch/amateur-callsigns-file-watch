@@ -534,3 +534,75 @@ describe('Dataset pages build', () => {
     }
   });
 });
+
+describe('Dataset class pages', () => {
+  // Issue #178: dataset classes become clickable tags with a per-class listing
+  // page each, headed by the class's registry prose and listing every entry
+  // across BOTH collections that carries the class.
+
+  it('ClassPage_RegisterSnapshot_ListsEntriesAcrossBothLanes', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'classes', 'register-snapshot.html'), 'utf8');
+    // An open-data publication (register state at a vintage) is listed...
+    expect(page).toContain('href="../open-data/2026-06-23/index.html"');
+    // ...alongside a FOI register-snapshot disclosure.
+    expect(page).toContain('href="../foi/wdtk-596532--allocated-reserved-forbidden/index.html"');
+    // The cross-lane split is stated, so "both collections" is visible, not implied.
+    expect(page).toMatch(/\d+ open-data, \d+ FOI/);
+    // The "other classes" column links sibling class pages directly (same
+    // directory) — not via a classes/ prefix that would resolve wrongly.
+    expect(page).toContain('<a href="forbidden-list.html"><code>forbidden-list</code></a>');
+    expect(page).not.toContain('classes/forbidden-list.html');
+  });
+
+  it('ClassPage_Header_ShowsClassRegistryProse', () => {
+    // The header is the class's own authored definition (FOI_DATASET_CLASSES),
+    // not an invented meaning — the same object the FOI validator enforces.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'classes', 'forbidden-list.html'), 'utf8');
+    expect(page).toContain('three-letter suffixes withheld from issue');
+    // A forbidden-list FOI entry is listed on its class page.
+    expect(page).toContain('href="../foi/wdtk-596532--allocated-reserved-forbidden/index.html"');
+  });
+
+  it('ClassPage_NavSkipLinkAndMainLandmark_Present', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'classes', 'register-snapshot.html'), 'utf8');
+    expect(page).toContain('<a class="skip" href="#main">Skip to content</a>');
+    expect(page).toContain('<main id="main">');
+    expect(page).toContain('<strong>Dataset index</strong>'); // owning nav section marked
+    // Tabular listing carries scoped column headers.
+    expect(page).toContain('<th scope="col">entry</th>');
+  });
+
+  it('ClassChips_OnFoiEntryPage_RenderAsLinksToClassPages', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'wdtk-596532--allocated-reserved-forbidden', 'index.html'), 'utf8');
+    // The At-a-glance chips are links now, not bare <code> spans.
+    expect(page).toContain('<a href="../../classes/register-snapshot.html"><code>register-snapshot</code></a>');
+    expect(page).toContain('<a href="../../classes/forbidden-list.html"><code>forbidden-list</code></a>');
+  });
+
+  it('ClassChips_OnOpenDataEntryPage_RenderRegisterSnapshotAsLink', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(page).toContain('<a href="../../classes/register-snapshot.html"><code>register-snapshot</code></a>');
+  });
+
+  it('ClassChips_OnDatasetIndex_RenderAsLinksToClassPages', () => {
+    const index = fs.readFileSync(path.join(outputDir, 'datasets', 'index.html'), 'utf8');
+    expect(index).toContain('<a href="classes/forbidden-list.html"><code>forbidden-list</code></a>');
+    // The index also points at the class index for browse-by-kind.
+    expect(index).toContain('href="classes/index.html"');
+  });
+
+  it('ClassIndex_ListsEveryPresentClassWithDefinition', () => {
+    const index = fs.readFileSync(path.join(outputDir, 'datasets', 'classes', 'index.html'), 'utf8');
+    for (const cls of ['register-snapshot', 'available-pool', 'issuance-events', 'forbidden-list', 'statistics-aggregate', 'attribute-addendum', 'reference-context']) {
+      expect(index).toContain(`<a href="${cls}.html"><code>${cls}</code></a>`);
+    }
+    expect(index).toContain('the register state at a vintage'); // a definition is shown
+  });
+
+  it('ClassPages_JoinSitemap', () => {
+    expect(summary.pageUrls.some(u => u.endsWith('/datasets/classes/index.html'))).toBe(true);
+    expect(summary.pageUrls.some(u => u.endsWith('/datasets/classes/register-snapshot.html'))).toBe(true);
+    const sitemap = fs.readFileSync(path.join(outputDir, 'sitemap.xml'), 'utf8');
+    expect(sitemap).toContain('<loc>https://example.test/site/datasets/classes/register-snapshot.html</loc>');
+  });
+});
