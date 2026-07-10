@@ -93,11 +93,26 @@ describe('value catalogue', () => {
     expect(md).toContain('| `Full` | 140 |');
     expect(md).toContain('`Full` (100)');
     expect(md).toContain('`Amateur Full Radio Licence` (40)');
-    // Blank is called out as a non-category, not folded in.
-    expect(md).toContain('`(blank)` (500) is not a category');
+    // Blank is called out as a non-category, not folded in (now with its own
+    // records/callsigns/allocated breakdown).
+    expect(md).toContain('`(blank)` (500 records,');
+    expect(md).toContain('is not a category');
     // The unmapped non-blank variant is flagged for a decision (fail loud).
     expect(md).toContain('Unmapped non-blank variants');
     expect(md).toContain('`Amateur Novice Radio Licence` (3)');
+  });
+
+  it('Render_LicenceCategoryBreakdown_UnionsCallsignsAcrossVariantsNotSum', () => {
+    // #245: a callsign written two ways (both fold to `Full`) must count ONCE
+    // in the category's callsigns/allocated - a plain sum of the per-variant
+    // distinct counts would double-count. `G0AAA` appears under both spellings.
+    const md = renderValueCatalogue(talliesWithCallsigns('product / licence_class', {
+      'Full': { records: 2, callsigns: ['G0AAA', 'G0BBB'], allocated: ['G0AAA'] },
+      'Amateur Full Radio Licence': { records: 2, callsigns: ['G0AAA', 'G0CCC'], allocated: ['G0AAA', 'G0CCC'] },
+    }), ref);
+    // records = 2 + 2 = 4 (additive); callsigns = union{G0AAA,G0BBB,G0CCC} = 3
+    // (NOT 4); allocated = union{G0AAA,G0CCC} = 2 (NOT 3).
+    expect(md).toContain('| `Full` | 4 | 3 | 2 |');
   });
 
   it('Render_FieldTable_ShowsCountsAndLanesWithValuesAsCodeSpans', () => {

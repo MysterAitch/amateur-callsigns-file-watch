@@ -197,7 +197,7 @@ function notableSection(cats: Map<string, FieldCatalogue>, ref: ReferenceData): 
 // derived, canonical view beside them, made visible so the normalisation is a
 // reviewable artefact rather than a hidden mapping. A non-blank variant with no
 // category is flagged, never silently dropped.
-function licenceCategorySection(cats: Map<string, FieldCatalogue>, ref: ReferenceData): string[] {
+function licenceCategorySection(cats: Map<string, FieldCatalogue>, ref: ReferenceData, productCells?: Map<string, Cell>): string[] {
   const product = cats.get(PRODUCT_FIELD);
   if (product === undefined) return [];
   const byCategory = new Map<string, { total: number; variants: ValueTally[] }>();
@@ -223,18 +223,32 @@ function licenceCategorySection(cats: Map<string, FieldCatalogue>, ref: Referenc
   lines.push('');
   lines.push(`The ${mapped} non-blank product/licence_class variants above collapse to ${categories.length} canonical categories via \`reference-data/licence-category.csv\`. The raw values are still passed through VERBATIM (source fidelity); this is the derived, canonical view beside them - the drift described above, resolved.`);
   lines.push('');
-  lines.push('| normalised category | count | folds in |');
-  lines.push('|---|---:|---|');
+  lines.push('Counts use the same denominators as the value tables above - `records`');
+  lines.push('(rows), `callsigns` (distinct), `allocated` (the live-register slice) -');
+  lines.push('each **unioned** across the folded variants, so a callsign written two');
+  lines.push('ways (e.g. `Full` in one publication, `Amateur Full Radio Licence` in');
+  lines.push('another) counts once per category, not once per spelling. A plain sum of');
+  lines.push('the raw per-variant figures would double-count and mislead.');
+  lines.push('');
+  lines.push('| normalised category | records | callsigns | allocated | folds in |');
+  lines.push('|---|---:|---:|---:|---|');
   for (const c of categories) {
+    const callsigns = new Set<string>();
+    const allocated = new Set<string>();
+    for (const v of c.variants) {
+      const cell = productCells?.get(v.value);
+      cell?.callsigns?.forEach(x => callsigns.add(x));
+      cell?.allocatedCallsigns?.forEach(x => allocated.add(x));
+    }
     const variants = [...c.variants]
       .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
       .map(v => `${mdCode(v.value)} (${v.count.toLocaleString('en-GB')})`)
       .join(', ');
-    lines.push(`| ${mdCode(c.category)} | ${c.total.toLocaleString('en-GB')} | ${variants} |`);
+    lines.push(`| ${mdCode(c.category)} | ${c.total.toLocaleString('en-GB')} | ${callsigns.size.toLocaleString('en-GB')} | ${allocated.size.toLocaleString('en-GB')} | ${variants} |`);
   }
   lines.push('');
   if (blank !== undefined) {
-    lines.push(`\`(blank)\` (${blank.count.toLocaleString('en-GB')}) is not a category - the source asserted no product; it is left as-is.`);
+    lines.push(`\`(blank)\` (${blank.count.toLocaleString('en-GB')} records, ${blank.distinctCallsigns.toLocaleString('en-GB')} callsigns, ${blank.allocated.toLocaleString('en-GB')} allocated) is not a category - the source asserted no product; it is left as-is.`);
     lines.push('');
   }
   if (unmapped.length > 0) {
@@ -378,7 +392,7 @@ export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timel
     out.push('');
   }
 
-  out.push(...licenceCategorySection(cats, ref));
+  out.push(...licenceCategorySection(cats, ref, tallies.get(PRODUCT_FIELD)));
 
   out.push(...normalisationFidelitySection(fidelity));
 
