@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no FOI reference number appears on the disclosure; the file is published as 'every-radio-callsign-spreadsheet.csv' under Ofcom's FOI/disclosure area for September 2024 and the entry is keyed by its data vintage",
+  "requestUrl": null,
+  "title": "Amateur callsign list (Ofcom disclosure log, 'Every radio callsign spreadsheet')",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "not held; the disclosure carries no request thread - a disclosure-log/open-data style publication",
+  "respondedAt": null,
+  "respondedAtNote": "no response date is stated; the file sits under the September 2024 disclosure/open-data area",
+  "outcome": "successful",
+  "dataVintage": "2024-09",
+  "dataVintageNote": "declared not proven at the day level: the file is filed under Ofcom's September 2024 disclosure area and served as 'every-radio-callsign-spreadsheet.csv'; the latest Created Date in the data is 2024-09-10 (a lower bound consistent with September), but the exact snapshot day is not stated, so the entry is keyed by month",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2024-09-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2024-04-30--copy-all-callsigns--all-callsigns", "relation": "the previous snapshot (April 2024), a narrower Salesforce object export (Value__c,Product__c,Status__c,Type__c) with no date columns and a constant Type" },
+    { "entry": "ofcom-2024-01--foi-1734722--all-callsigns", "relation": "the January 2024 complete-register snapshot in the Value,Status,Product,Type,Last-Modified shape" },
+    { "entry": "wdtk-1180568--licence-breakdown-duration-age", "relation": "the October 2024 FOI 1900117 register whose sheet 2 shares the Created Date column and Product-as-licence-class mapping" }
+  ],
+  "files": {
+    "every-radio-callsign-spreadsheet.csv": {
+      "bytes": 12242983,
+      "sha256": "72b20845851f79442a5db6baf9c2371fea470c22ab7a2f4cc1e8c7d003817019",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "contentsIndicative": "header Created Date,Product,Reserved to Date,Status,Type,Value (UTF-8 with BOM, CRLF) - the widest register shape held. 159,999 data rows - 103,621 Allocated, 53,230 Reserved, 3,134 Available, 14 blank statuses. Product is the licence-product vocabulary verbatim (Full 59,053 / Foundation 35,780 / Intermediate 14,156 / Club 1,892 / Temporary Reciprocal 103, plus a special-event/permit family: Special Event Station 1,316 / NoV Special Event Station 2,256 / NoV Special Special Event Station 143 / Perm Special Event Station 32 / NoV Permanent Special Event Station 21 / Special Research Permit 1) and blank on 45,246 rows (the reserved pool). Created Date (day-first DD/MM/YYYY HH:MM, day-first verified: 106,421 rows carry a day>12) spans 2016-07-23..2024-09-10; Reserved to Date present on 4,319 rows, spanning 2016-01-04..2099-12-31 (a 'permanent' reservation-expiry placeholder). Type is NOT constant here (156,048 'Call Sign - Amateur' + 3,951 'Call Sign - NoV', the Notice-of-Variation callsigns) and is not derivable from Product (Special Event Station appears under both types), so it is carried, not dropped. Anomalies preserved verbatim: one '.' callsign and two blank callsigns; four trailing-NBSP callsigns (2E1HON/G0TQK/G7IWE/GB2DWM, UTF-8 0xC2 0xA0) - trimmed, counted, then colliding with clean duplicates; four interior-space callsigns (G6 FMU, GB 8IMD, GB GU75LIB, M/TKG 2021); 15 Excel-mangled 20xxx callsigns served as dates plus a numeric-only 22032024 (a mangled 22/03/2024); lower-case 'g0jrk'/'2e1GTD'; 153 over-length callsigns (GB100... centenary specials, EDUCATIONAL, ENVIRONMENTS).",
+      "witnesses": [
+        {
+          "channel": "live",
+          "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/september/every-radio-callsign-spreadsheet.csv?v=383712",
+          "note": "the disclosure-log copy served directly from Ofcom; ingested here as the primary raw. No UKGWA mirror of this specific September 2024 export was found (a single witness)."
+        }
+      ]
+    },
+    "normalised--every-radio-callsign-spreadsheet.csv": {
+      "bytes": 12082991,
+      "sha256": "fc16f8bebef1018e1f3ab40a56c3d64b0b3f60ada07b38865f2fe626edc3e872",
+      "role": "normalised",
+      "normalisedFrom": "every-radio-callsign-spreadsheet.csv",
+      "contentsIndicative": "header callsign,status,licence_class,call_sign_type,created_date,reserved_to_date; 159,999 rows sorted by callsign. Status and licence_class (from Product) carried verbatim, empty where the source asserts none (45,246 blank licence_class, 14 blank status). call_sign_type carries the verbatim Type ('Call Sign - Amateur'/'Call Sign - NoV') because it varies here and is not derivable from Product (the sole register snapshot where Type is a per-row assertion, not a dropped discriminator). created_date and reserved_to_date ISO-rendered from the day-first source, time-of-day kept; reserved_to_date is a validity END so future values (to 2099-12-31) are accepted. The '.' and blank callsigns, the trimmed trailing-NBSP quartet, the interior-space and Excel-mangled callsigns are all preserved."
+    },
+    "correspondence.md": {
+      "bytes": 4154,
+      "sha256": "5a4a55dd84018e9373c39c414f2292b03393b2c7b60add4b31497c963a8cbd6a",
+      "role": "transcript"
+    }
+  }
+}

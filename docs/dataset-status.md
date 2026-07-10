@@ -21,7 +21,7 @@ This documents **what exists**. Whether each derivation still *verifies* is the
 | 2025-06-08 | ✔ | ✔ | ✔ | ✔ |
 | 2026-06-23 | ✔ | ✔ | ✔ | ✔ |
 
-## FOI lane (39 entries)
+## FOI lane (41 entries)
 
 Extracts: `mech` = mechanically re-derivable (xlsx, via `src/shared/xlsx-extract.ts`);
 `transcr` = attested transcription of a PDF (see the entry's raw-extract file).
@@ -38,7 +38,9 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | ofcom-2023-11-24--call-sign-list--all-callsigns | successful | register-snapshot | 2023-11-24 | ✔ 1 | — | `ofcom-2023-11-24-register` | ✔ 1 |
 | ofcom-2023-12-07--open-data-call-sign-list--all-callsigns | successful | register-snapshot | 2023-12-07 | ✔ 1 | — | `ofcom-2023-12-07-register` | ✔ 1 |
 | ofcom-2024-01--foi-1734722--all-callsigns | successful | register-snapshot | 2024-01 | ✔ 1 | — | `ofcom-2024-01-register` | ✔ 1 |
+| ofcom-2024-04-30--copy-all-callsigns--all-callsigns | successful | register-snapshot | 2024-04-30 | ✔ 1 | — | `ofcom-2024-04-30-register` | ✔ 1 |
 | ofcom-2024-07--call-signs--all-callsigns | successful | register-snapshot | 2024-07 | ✔ 1 | — | `ofcom-2024-07-register` | ✔ 1 |
+| ofcom-2024-09--every-radio-callsign--all-callsigns | successful | register-snapshot | 2024-09 | ✔ 1 | — | `ofcom-2024-09-register` | ✔ 1 |
 | ofcom-2024-10-21--callsigns--all-callsigns | successful | register-snapshot | 2024-10-21 | ✔ 1 | — | `ofcom-2024-10-21-register` | ✔ 1 |
 | ofcom-2024-12--forbidden-suffixes | successful | forbidden-list | 2024-12 | ✔ 1 | — | `ofcom-2024-12-forbidden-suffixes` | ✔ 1 |
 | ofcom-2025-03-13--callsigns--all-callsigns | successful | register-snapshot | 2025-03-13 | ✔ 1 | — | `ofcom-2025-03-13-register` | ✔ 1 |
