@@ -194,7 +194,7 @@ runuser -u callsign-data-mirror -- git clone \
 
 cd /opt/amateur-callsigns-file-watch
 runuser -u callsign-data-mirror -- npm install
-runuser -u callsign-data-mirror -- npm test   # 49 tests pass
+runuser -u callsign-data-mirror -- npm test   # unit tests pass
 ```
 
 `npm install` on the first-run (not `npm ci`) so platform-specific optional deps (Linux-only `@emnapi/*` etc.) get added to `package-lock.json`. Commit that change back so future `npm ci` works on both platforms:
@@ -301,16 +301,16 @@ Earlier revisions of this README listed several of these as non-goals or open qu
 - **Publishing the dataset files + per-callsign FOI observations** (#149) — built: the Pages build publishes every archived entry's raw/extract/normalised files at stable URLs with Frictionless descriptors and a sitemap, and the lookup shows a callsign's FOI-witnessed history alongside the register.
 - **Standing reports + value catalogue as site pages** (#229/#51) — built: `/reports/` publishes the sweep-regenerated drill-downs and a cross-lane value catalogue (every tracked value with counts, per-source breadth, a per-publication timeline, and a record/callsign/allocated count breakdown), plus a licence-category normalisation (`reference-data/licence-category.csv`). A per-PR golden-master freshness gate (#243) keeps them from drifting.
 - **Accessibility + navigation** — every page carries a skip link and `<main>` landmark, scoped data-table headers, a uniform nav with breadcrumbs on deep pages, and a plain-language glossary + About page.
+- **Offline-first / PWA** — built (ADR 0008, #248): a service worker precaches the static shell so the site works offline, plus a user-triggered full-dataset download that caches the SQLite database and answers queries with no network.
 
 Proposed (recorded, awaiting ratification):
 
 - **Reusable UI modules via Web Components** rather than a framework (ADR 0006).
 - **Migrating the coverage dashboard to a published site page** with a lightweight workflow alarm (ADR 0007).
-- **Offline-first / PWA** with a user-triggered full-dataset download (ADR 0008, #248).
 
 Still open:
 
-- **Cross-dataset invariant probes** (overlap/complementarity/depletion/original-start-date, joined on `cleaned`) as a committed report — [#241](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/241); and a raw-vs-normalised value-gap layer — [#242](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/242).
+- **Cross-dataset invariant probes** (overlap/complementarity/depletion/original-start-date, joined on `cleaned`) as a committed report — [#241](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/241): three of the five probes (depletion, still-absent decomposition, original-start-date) are published at `/reports/cross-dataset-invariants`; the overlap matrix and same-vintage complementarity probes remain (the latter blocked on a matched-vintage register snapshot). The raw-vs-normalised value-gap layer ([#242](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/242)) is built.
 - **Restructuring `archive/` into per-source lanes** (`archive/open-data/{key}/` alongside `archive/foi/{key}/`) — tracked in [#151](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/151), LXC-coordinated.
 - **Further sources** (Business Radio Light, `data.gov.uk` WTR dump) — see [`docs/source-register.md`](docs/source-register.md).
 

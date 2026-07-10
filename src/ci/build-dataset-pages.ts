@@ -304,7 +304,7 @@ const ENTRY_STYLE = [
   '.tier h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:.6rem 0 .45rem;font-weight:600}',
   '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:.5rem}',
   '.slot{border:1px solid var(--line);border-radius:9px;padding:.5rem .65rem;background:var(--slot);min-height:3.6rem}.slot .name{font-weight:650}.slot .meta{color:var(--muted);font-size:.77rem}.slot .desc{color:var(--muted);font-size:.78rem;line-height:1.25;margin-top:.15rem}',
-  '.slot.empty{border-style:dashed;opacity:.68}.slot.empty .name{color:var(--muted);font-weight:600}.slot.empty .tag{font-size:.74rem;color:var(--muted);font-style:italic}',
+  '.slot.empty{border-style:dashed}.slot.empty .name{color:var(--muted);font-weight:600}.slot.empty .tag{font-size:.74rem;color:var(--muted);font-style:italic}',
   // Distribution charts (accessible static SVG)
   '.chart{margin:0 0 1.1rem}.chart figcaption{font-weight:600;font-size:.92rem;margin:0 0 .3rem}',
   '.chart svg{width:100%;height:auto;max-height:190px;display:block}',
