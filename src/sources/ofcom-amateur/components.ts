@@ -127,14 +127,19 @@ const EXCEL_DATE_RE = /^\d{1,2}-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec
 // meaningful notation characters / and #).
 const NON_PLAIN_RE = /[^A-Za-z0-9/#]/gu;
 
-// Ofcom's withheld-suffix list is a point-in-time FOI disclosure dated August
-// 2019. The month is the list's own precision, so the boundary for "issued
-// after the list existed" is a month strictly later than August 2019 -
-// September 2019 onward.
-const FORBIDDEN_SUFFIX_LIST_MONTH = '2019-08';
+// The earliest disclosure of the withheld-suffix list that this archive holds
+// is September 2016: the FOI sheet
+// archive/foi/wdtk-356636--all-callsigns-plus-forbidden already lists every
+// suffix on today's reference-data/forbidden-suffixes.csv (in fact a superset,
+// carrying one further suffix, ZIT, since dropped). So the list governed all
+// of these suffixes at least as early as 2016-09; whether it existed before
+// then is unknown, so this is the earliest boundary the evidence supports. The
+// month is the disclosure's precision, so "issued after the list came into
+// force" is a month strictly later than September 2016 - October 2016 onward.
+const FORBIDDEN_SUFFIX_LIST_MONTH = '2016-09';
 
 // True when a call sign's original start date (ISO yyyy-mm-dd[ hh:mm]) falls in
-// a month after the forbidden-suffix list's disclosure. A blank or non-ISO
+// a month after the forbidden-suffix list came into force. A blank or non-ISO
 // value asserts nothing - absence of a date is not evidence of a post-list
 // issuance, so it yields honest silence, never a guessed determination. Only
 // variants carrying an original-start-date column can assert the flag.
@@ -282,12 +287,12 @@ export function parseCallsign(callsign: string, product: string, ref: ReferenceD
 
   if (ref.forbiddenSuffixes.has(row.suffix)) {
     flag('forbidden-suffix');
-    // The bulk forbidden-suffix rows are long-standing allocations the list
-    // never governed; the interesting subset is a forbidden suffix whose
-    // ORIGINAL issuance post-dates the list, contradicting the generator's
-    // stated exclusions. It rides only on a forbidden suffix, and only where
-    // the variant supplies an original start date.
-    if (isAfterForbiddenSuffixList(originalStartDate)) flag('forbidden-suffix-post-2019');
+    // The bulk forbidden-suffix rows are long-standing allocations that predate
+    // the list; the interesting subset is a forbidden suffix whose ORIGINAL
+    // issuance post-dates the list coming into force, in apparent contradiction
+    // to it. It rides only on a forbidden suffix, and only where the variant
+    // supplies an original start date.
+    if (isAfterForbiddenSuffixList(originalStartDate)) flag('forbidden-suffix-issued-after-list');
   }
   if (row.suffix.length < 2 || row.suffix.length > 3) flag('suffix-length-abnormal');
 
