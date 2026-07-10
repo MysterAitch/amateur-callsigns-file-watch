@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": "1734722",
+  "requestUrl": null,
+  "title": "Amateur callsigns - complete register (Ofcom FOI 1734722)",
+  "requester": null,
+  "requestedAt": null,
+  "respondedAt": null,
+  "respondedAtNote": "the disclosure appears in Ofcom's January 2024 disclosure log (served under the 2024/january path) alongside the response PDF 'FOI-1734722-Amateur-Radio-Callsign-complete-Spreadsheet.pdf'; no exact response date is stated",
+  "outcome": "successful",
+  "dataVintage": "2024-01",
+  "dataVintageNote": "declared, not proven, at month precision: the CSV states no snapshot date. The latest 'Call Sign MMSI: Last Modified Date' in the data is 2023-12-19, a firm lower bound on the capture; the file is published in the January 2024 disclosure log, so the true snapshot most likely falls between 2023-12-19 and the January 2024 response. Keyed at month precision rather than inventing a day.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2024-01-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2023-11-24--call-sign-list--all-callsigns", "relation": "an earlier snapshot in the same Value,Status,Product,Type,Last-Modified shape; that list omits the reserved pool this complete extract carries" },
+    { "entry": "ofcom-2023-12-07--open-data-call-sign-list--all-callsigns", "relation": "the closest-in-time snapshot in the same shape (three weeks earlier); the ~45k extra records here are the blank-product reserved pool" },
+    { "entry": "wdtk-1180568--licence-breakdown-duration-age", "relation": "the later FOI 1900117 register (2024-10) whose sheet 1 shares the Value,Status,Type core" },
+    { "entry": "ofcom-756622--published-register-csv", "relation": "the previous published register generation (2019-09), a different header shape" }
+  ],
+  "files": {
+    "foi-1734722-amateur-call-signs.csv": {
+      "bytes": 10645806,
+      "sha256": "b4f26479887472e92f631ee4c1632b0faf01c2629b9656eb7b7b4d84f6ab32a1",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "contentsIndicative": "header Value,Status,Product,Type,Call Sign MMSI: Last Modified Date (leading UTF-8 BOM, CRLF, UTF-8); 153,938 data rows - 101,947 Allocated, 51,533 Reserved, 447 Available, 11 blank statuses. This is the COMPLETE register: ~45k more rows than the December lists because it carries the full reserved pool (44,860 rows have a blank Product, almost all Reserved). Product vocabulary is the five Amateur products plus three 'Special Event Station' rows (G4ZUL, G6DGK, M0MBB). Type is 'Call Sign - Amateur' throughout. Last-modified dates day-first DD/MM/YYYY spanning 2016-07-23..2023-12-19 (day-first verified: 66,117 rows carry a day>12). Anomalies preserved verbatim: the NBSP trio 2E1HON/G0TQK/G7IWE (trailing non-breaking space, trimmed-and-counted at normalise time); the W-prefix callsign W4WNZ in the reserved pool; 'G6 FMU' interior space; lower-case 'g0jrk'; a ten-character and several seven-to-nine-character reciprocal/regional callsigns.",
+      "witnesses": [
+        {
+          "channel": "live",
+          "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/january/foi-1734722-amateur-call-signs.csv?v=215395",
+          "note": "the disclosure-log copy served directly from Ofcom; ingested here as the primary raw"
+        },
+        {
+          "channel": "ukgwa",
+          "url": "https://www.ofcom.org.uk/__data/assets/file/0024/275334/FOI-1734722-Amateur-Call-Signs.csv",
+          "fetchedAt": "2024-03-26"
+        }
+      ],
+      "provenanceAgreement": "the live and UKGWA-mirror copies are byte-identical (same sha256 b4f264...), so the two provenance witnesses agree",
+      "relatedDocumentNote": "a companion response PDF (FOI-1734722-Amateur-Radio-Callsign-complete-Spreadsheet.pdf, UKGWA 275333) accompanies this CSV; it is recorded as context but is not part of this entry"
+    },
+    "normalised--foi-1734722-amateur-call-signs.csv": {
+      "bytes": 7413086,
+      "sha256": "7d2544af5bf129e1b11e6a334b97b809463548e76bfc3acbf4eb8783d582077f",
+      "role": "normalised",
+      "normalisedFrom": "foi-1734722-amateur-call-signs.csv",
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 153,938 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product) carried verbatim - 44,860 blank licence_class values (the reserved pool) and 11 blank statuses preserved. last_modified_date ISO-rendered from the day-first source. Type is required-present but not carried. The NBSP trio is trimmed (the sole canonicalisation, counted at convert time) and passes through as 2E1HON/G0TQK/G7IWE."
+    },
+    "correspondence.md": {
+      "bytes": 3310,
+      "sha256": "c493a5c99862cb1cf13395c039157d184db51013ba20ce5ca4fff33273362a16",
+      "role": "transcript"
+    }
+  }
+}

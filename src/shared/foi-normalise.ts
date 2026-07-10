@@ -520,6 +520,37 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       referenceDateIso: '2024-12-31',
     },
   ],
+
+  // The 2023-24 Salesforce-era register exports: three Ofcom disclosure-log CSV
+  // snapshots sharing one shape (Value, Status, Product, Type, and a per-record
+  // 'Call Sign MMSI: Last Modified Date'). Product is the licence product/class
+  // carried verbatim; Type is 'Call Sign - Amateur' throughout (the service
+  // discriminator, recorded in meta.json, not a per-row assertion); the
+  // last-modified date is the only per-callsign provenance these exports carry
+  // and is kept (dropping it would discard the very signal that dates the
+  // snapshot). Each snapshot binds its own variant so referenceDateIso is its
+  // own vintage ceiling - the shape is shared via the factory, the vintages are
+  // not (see valueStatusProductRegisterConversion).
+  //
+  // ofcom-2023-11-24 ('call-sign-list-241123'): vintage 2023-11-24 - the
+  // filename's 241123 and the latest last-modified date in the data agree.
+  'ofcom-2023-11-24-register': [
+    valueStatusProductRegisterConversion('call-sign-list-241123.csv', '2023-11-24'),
+  ],
+  // ofcom-2023-12-07 ('call-sign-list-for-open-data-07-12-23'): vintage
+  // 2023-12-07 - again the filename date and the latest last-modified agree.
+  'ofcom-2023-12-07-register': [
+    valueStatusProductRegisterConversion('call-sign-list-for-open-data-07-12-23.csv', '2023-12-07'),
+  ],
+  // ofcom-2024-01 (FOI 1734722, disclosed January 2024): a fuller register than
+  // the December pair (it carries the ~45k reserved-with-blank-product pool and
+  // a Special Event Station product the open-data exports omit). The exact
+  // snapshot day is not stated; referenceDateIso is the disclosure-month ceiling
+  // (a last-modified date beyond it would be corruption), and the data's own
+  // dates top out at 2023-12-19 - the vintage caveat lives in the entry meta.
+  'ofcom-2024-01-register': [
+    valueStatusProductRegisterConversion('foi-1734722-amateur-call-signs.csv', '2024-01-31'),
+  ],
 };
 
 // The 2013/14 suffix-list sheets differ only in filename, stated prefix and
@@ -554,6 +585,33 @@ function prefixHeaderConversion(sourceFile: string, prefix: string, licenceClass
     ignoredColumns: [],
     rowOrder: 'sorted-by-first-column',
     orderRationale: 'alphabetical suffix order carries no meaning; sorted by callsign for diffability (a near no-op given the constant prefix)',
+  };
+}
+
+// The 2023-24 disclosure-log register exports share one column shape
+// (Value, Status, Product, Type, Call Sign MMSI: Last Modified Date); only the
+// source filename and the vintage ceiling vary across the three snapshots.
+function valueStatusProductRegisterConversion(sourceFile: string, referenceDateIso: string): FoiSourceConversion {
+  return {
+    sourceFile,
+    encoding: 'utf8',
+    columns: [
+      { source: 'Value', output: 'callsign', kind: 'verbatim' },
+      { source: 'Status', output: 'status', kind: 'verbatim' },
+      // Product is the licence product/class, carried verbatim (as in the
+      // typed Siebel exports); empty where the source asserts none (the
+      // reserved pool in the FOI 1734722 snapshot).
+      { source: 'Product', output: 'licence_class', kind: 'verbatim' },
+      // Day-first DD/MM/YYYY; a last-modified date cannot postdate the
+      // snapshot, so it is bounded by referenceDateIso (not futureAllowed).
+      { source: 'Call Sign MMSI: Last Modified Date', output: 'last_modified_date', kind: 'date' },
+    ],
+    // 'Type' is 'Call Sign - Amateur' on every row - the product/service
+    // discriminator, recorded in meta.json, not a per-row assertion.
+    ignoredColumns: ['Type'],
+    rowOrder: 'sorted-by-first-column',
+    orderRationale: 'source rows arrive grouped (reserved blocks first) but carry no globally meaningful order (not callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability',
+    referenceDateIso,
   };
 }
 
@@ -652,8 +710,8 @@ export const FOI_EXTENSION_COLUMNS: Readonly<Record<string, FoiExtensionColumn>>
     families: ['callsign-observation', 'callsign-attributes'],
   },
   last_modified_date: {
-    definition: 'the suffix record\'s last-modified timestamp as disclosed in the forbidden-suffix export (a Salesforce object attribute), ISO-rendered with any time-of-day kept - the per-suffix provenance the earlier forbidden lists lack',
-    families: ['suffix-list'],
+    definition: 'the record\'s last-modified timestamp as disclosed in a Salesforce-era export, ISO-rendered with any time-of-day kept: per-suffix provenance in the forbidden-suffix list, per-callsign provenance in the 2023-24 register snapshots - in both cases the dated provenance the earlier exports lack',
+    families: ['suffix-list', 'callsign-observation'],
   },
   status: {
     definition: 'the licence status at disclosure, carried verbatim, when it accompanies event rows',
