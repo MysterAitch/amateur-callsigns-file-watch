@@ -36,17 +36,24 @@ not to this axis). A present-then-gone value is visible at a glance.
 
 The 10 non-blank product/licence_class variants above collapse to 7 canonical categories via `reference-data/licence-category.csv`. The raw values are still passed through VERBATIM (source fidelity); this is the derived, canonical view beside them - the drift described above, resolved.
 
-| normalised category | count | folds in |
-|---|---:|---|
-| `Full` | 601,345 | `Amateur Full Radio Licence` (395,518), `Full` (205,827) |
-| `Foundation` | 334,323 | `Amateur Foundation Radio Licence` (243,703), `Foundation` (90,620) |
-| `Intermediate` | 195,311 | `Amateur Intermediate Radio Licence` (132,931), `Intermediate` (62,380) |
-| `Club` | 11,450 | `Amateur Club Radio Licence` (11,450) |
-| `Temporary Reciprocal` | 413 | `Amateur Temporary Reciprocal Radio Licence` (413) |
-| `Full Reciprocal` | 15 | `Amateur Full (Reciprocal) Radio Licence` (15) |
-| `Special Event` | 7 | `Special Event Station` (7) |
+Counts use the same denominators as the value tables above - `records`
+(rows), `callsigns` (distinct), `allocated` (the live-register slice) -
+each **unioned** across the folded variants, so a callsign written two
+ways (e.g. `Full` in one publication, `Amateur Full Radio Licence` in
+another) counts once per category, not once per spelling. A plain sum of
+the raw per-variant figures would double-count and mislead.
 
-`(blank)` (481,042) is not a category - the source asserted no product; it is left as-is.
+| normalised category | records | callsigns | allocated | folds in |
+|---|---:|---:|---:|---|
+| `Full` | 601,345 | 98,735 | 59,451 | `Amateur Full Radio Licence` (395,518), `Full` (205,827) |
+| `Foundation` | 334,323 | 47,337 | 37,835 | `Amateur Foundation Radio Licence` (243,703), `Foundation` (90,620) |
+| `Intermediate` | 195,311 | 24,038 | 15,114 | `Amateur Intermediate Radio Licence` (132,931), `Intermediate` (62,380) |
+| `Club` | 11,450 | 2,437 | 2,111 | `Amateur Club Radio Licence` (11,450) |
+| `Temporary Reciprocal` | 413 | 125 | 77 | `Amateur Temporary Reciprocal Radio Licence` (413) |
+| `Full Reciprocal` | 15 | 15 | 0 | `Amateur Full (Reciprocal) Radio Licence` (15) |
+| `Special Event` | 7 | 5 | 4 | `Special Event Station` (7) |
+
+`(blank)` (481,042 records, 162,927 callsigns, 106,630 allocated) is not a category - the source asserted no product; it is left as-is.
 
 ## Normalisation fidelity (raw → normalised)
 
