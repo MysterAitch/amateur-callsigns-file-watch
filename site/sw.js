@@ -44,6 +44,7 @@ const SHELL_ASSETS = [
   'explore.js',
   'compare.js',
   'style.css',
+  'tokens.css',
   'manifest.webmanifest',
   'vendor/index.js',
   'vendor/sqlite.worker.js',
