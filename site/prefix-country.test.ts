@@ -134,3 +134,43 @@ describe('countryForCallsign', () => {
     expect(r.country).toBeNull();
   });
 });
+
+describe('countryForCallsign — RSL placeholder and hash artifact', () => {
+  it('CanonicalPlaceholderPrefix_WhenHashBeforeSlash_ResolvesWithNoArtifact', () => {
+    // M#/ is the ITU-canonical visitor placeholder (ADR 0005): the '#' is part
+    // of the prefix and strips cleanly, leaving no artifact.
+    const r = countryForCallsign('M#/EI8DJ', ITU);
+    expect(r.status).toBe('resolved');
+    expect(r.country).toBe('Ireland');
+    expect(r.home).toBe('EI8DJ');
+    expect(r.visitorPrefix).toBe('M#/');
+    expect(r.artifact).toBeNull();
+  });
+
+  it('PlainVisitorPrefix_WhenNoHash_ResolvesWithNoArtifact', () => {
+    const r = countryForCallsign('M/EI8DJ', ITU);
+    expect(r.status).toBe('resolved');
+    expect(r.country).toBe('Ireland');
+    expect(r.artifact).toBeNull();
+  });
+
+  it('HashAfterSlash_WhenSuspectedArtifact_CanonicalisesAndFlags', () => {
+    // M/#EI8DJ carries the '#' RSL placeholder after the slash instead of
+    // before it - resolve the country AND surface the artifact loudly.
+    const r = countryForCallsign('M/#EI8DJ', ITU);
+    expect(r.status).toBe('resolved');
+    expect(r.country).toBe('Ireland');
+    expect(r.artifact).toBe('hash-after-slash');
+    expect(r.canonical).toBe('M#/EI8DJ');
+    expect(r.artifactNote).toContain('M#/EI8DJ');
+  });
+
+  it('HashAfterSlash_WhenHashOnly_IsNonResolutionNotGuessed', () => {
+    // A bare '#' after the slash has no home call to canonicalise - report a
+    // non-resolution status rather than inventing a country.
+    const r = countryForCallsign('M/#', ITU);
+    expect(r.status).toBe('malformed');
+    expect(r.country).toBeNull();
+    expect(r.artifact).toBeNull();
+  });
+});

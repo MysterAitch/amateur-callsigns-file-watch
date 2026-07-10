@@ -16,14 +16,16 @@
 // declared allocation, not a verified claim about the operator's own licence.
 
 // The UK visitor/reciprocal prefix: M, an optional Regional Secondary Locator
-// letter (M/ England, MM/ Scotland, MW/ Wales, MI/ NI, MD/ Isle of Man, ...),
-// then a slash. The home call follows.
-const VISITOR_PREFIX = /^M[A-Z]?\//i;
+// in position 2 (M/ England, MM/ Scotland, MW/ Wales, MI/ NI, MD/ Isle of Man,
+// ...), then a slash. The RSL slot may be a region letter, the ITU-canonical
+// placeholder '#' (M#/homecall per ADR 0005), or absent - so all of M/, M#/,
+// MW/ and MW#/ are recognised. The home call follows.
+const VISITOR_PREFIX = /^M[A-Z]?#?\//i;
 
 // Strip the UK visitor prefix from a call sign, leaving the foreign home call.
 // A call sign without the prefix (e.g. a home call passed in directly) is
-// returned unchanged. Only the leading M[A-Z]?/ is removed - a later slash
-// (a portable/mobile suffix) is left for the caller/prefix extractor.
+// returned unchanged. Only the leading visitor prefix is removed - a later
+// slash (a portable/mobile suffix) is left for the caller/prefix extractor.
 export function stripVisitorPrefix(callsign) {
   const s = String(callsign ?? '').trim();
   const m = VISITOR_PREFIX.exec(s);
@@ -59,14 +61,37 @@ function distinct(values) {
 //   { status: 'ambiguous',   candidates: [{ series, country }], basis, ... }
 //   { status: 'unallocated', ... }   first character maps to no ITU series
 //   { status: 'malformed',   ... }   no usable prefix could be derived
+//
+// Every result also carries `artifact` (null, or 'hash-after-slash' when the
+// raw form carried a stray RSL '#' placeholder after the slash - M/#EI8DJ -
+// instead of before it), `canonical` (the corrected form, e.g. M#/EI8DJ), and
+// `artifactNote` (a human sentence). The '#' is canonicalised to derive the
+// country but never silently discarded - it is always surfaced.
 export function countryForCallsign(callsign, rows) {
   const input = String(callsign ?? '');
-  const home = stripVisitorPrefix(input);
-  const visitorPrefix = input.trim().slice(0, input.trim().length - home.length);
-  // The prefix lives before any portable/mobile slash; keep letters and digits.
-  const cleaned = home.split('/')[0].replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const trimmed = input.trim();
+  const home = stripVisitorPrefix(trimmed);
+  const visitorPrefix = trimmed.slice(0, trimmed.length - home.length);
 
-  const base = { input, home, visitorPrefix, cleaned, country: null, series: null, candidates: [] };
+  // A '#' immediately after the slash (M/#EI8DJ) is a suspected technical
+  // artifact: the RSL placeholder recorded after the slash instead of in its
+  // canonical position before it (M#/EI8DJ). Canonicalise by dropping the
+  // stray leading '#' to derive the country, and flag it (the register records
+  // the same as the `hash-in-register` flag; ADR 0005 fixes the canonical form).
+  const hashAfterSlash = /^#/.test(home);
+  const effectiveHome = hashAfterSlash ? home.replace(/^#+/, '') : home;
+  // The prefix lives before any portable/mobile slash; keep letters and digits.
+  const cleaned = effectiveHome.split('/')[0].replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+
+  // Only flag the artifact when there is a home call left to canonicalise; a
+  // bare '#' is simply malformed, with nothing to resolve.
+  const artifact = hashAfterSlash && cleaned.length > 0 ? 'hash-after-slash' : null;
+  const canonical = artifact ? `${visitorPrefix.replace(/\/$/, '')}#/${effectiveHome}` : null;
+  const artifactNote = artifact
+    ? `Raw form carried a "#" RSL placeholder after the slash; the canonical form is ${canonical}. Home country derived from the canonicalised call.`
+    : null;
+
+  const base = { input, home, visitorPrefix, cleaned, artifact, canonical, artifactNote, country: null, series: null, candidates: [] };
   const malformed = (message) => ({ ...base, status: 'malformed', basis: message });
   const unallocated = (message) => ({ ...base, status: 'unallocated', basis: message });
   const resolved = (country, series, basis) => ({ ...base, status: 'resolved', country, series, basis });

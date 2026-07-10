@@ -388,11 +388,19 @@ async function visitorHomeCard(homeCallsign) {
     : [];
   const res = countryForCallsign(homeCallsign, rows);
   const note = el('p', { class: 'muted', text: ITU_SOURCE_NOTE });
+  // A '#' recorded after the slash is a suspected artifact (same as the
+  // register's hash-in-register flag; ADR 0005 gives the canonical M#/ form).
+  // Surface that the raw data is one thing and the country rests on a manual
+  // canonicalisation - never let the correction pass silently.
+  const artifactNote = res.artifact
+    ? [el('p', { class: 'muted', text: `${res.artifactNote} (Recorded as the hash-in-register anomaly.)` })]
+    : [];
 
   if (res.status === 'resolved') {
     const where = res.series ? `falls in ITU series ${res.series}` : res.basis;
     return card('Visitor home callsign', [
       el('p', { text: `${res.cleaned} ${where}, allocated to ${res.country}.` }),
+      ...artifactNote,
       note,
     ]);
   }
@@ -400,12 +408,14 @@ async function visitorHomeCard(homeCallsign) {
     return card('Visitor home callsign', [
       el('p', { text: `${res.cleaned}: the ${res.basis}. The series table alone cannot name one country, so every holder is listed:` }),
       renderTable(['series', 'allocated to'], res.candidates.map(c => [c.series, c.country]), 99),
+      ...artifactNote,
       note,
     ]);
   }
   // Unallocated or malformed: state honestly that no country can be derived.
   return card('Visitor home callsign', [
     el('p', { class: 'muted', text: res.basis }),
+    ...artifactNote,
     note,
   ]);
 }
