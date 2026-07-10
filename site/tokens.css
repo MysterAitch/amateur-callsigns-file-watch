@@ -1,0 +1,26 @@
+/* Shared design tokens: the single source of truth for the site's colour
+   palette (light + dark). The hand-authored pages @import this from
+   style.css; the generated pages (src/ci/build-dataset-pages.ts) read this
+   file at build time and inline the same block, so hub, dataset index and
+   entry pages all derive their ink/paper/accent/line/muted colours from one
+   place. Frameworkless and build-step-free by design (ADR 0002/0003):
+   plain static CSS, referenced rather than copied.
+
+   Page- or component-specific tokens (cards, slots, warnings, code tint)
+   layer on top of these in the stylesheet that needs them. */
+:root {
+  --ink: #1a1a1a;
+  --paper: #fafafa;
+  --accent: #14506e;
+  --line: #d8d8d8;
+  --muted: #6b6b6b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e6e6e6;
+    --paper: #161616;
+    --accent: #7fbcd9;
+    --line: #3a3a3a;
+    --muted: #9a9a9a;
+  }
+}

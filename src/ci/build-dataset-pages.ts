@@ -92,16 +92,22 @@ function csvHeaderFields(filePath: string): { name: string; type: string }[] | u
   }
 }
 
-// The minimal per-page stylesheet, sharing the site's design tokens with
-// the hand-authored pages (site/style.css) and the richer entry pages
-// (ENTRY_STYLE): the same accent/ink/paper/line/muted colours and the same
-// bottom-ruled tables, so adjacent pages read as one product. The full
-// entry layout still layers on top of these; a single shared stylesheet is
-// a later refactor.
+// The shared design tokens (colour palette, light + dark) live once in
+// site/tokens.css. The hand-authored pages @import it; the generated pages
+// inline it here, read at build time, so the whole site derives its
+// ink/paper/accent/line/muted colours from a single source. No bundler is
+// involved - the file is read as plain text (ADR 0002/0003).
+const SHARED_TOKENS_CSS = fs.readFileSync(path.join(REPO_ROOT, 'site', 'tokens.css'), 'utf8').trim();
+
+// The minimal per-page stylesheet. It opens with the shared palette
+// (SHARED_TOKENS_CSS) so adjacent pages read as one product, then layers a
+// page-only --code tint and the bottom-ruled tables on top. The full entry
+// layout (ENTRY_STYLE) layers on the same shared palette; a single shared
+// stylesheet across every page is a later refactor.
 const PAGE_STYLE = [
   '<style>',
-  ':root{--ink:#1a1a1a;--paper:#fafafa;--accent:#14506e;--line:#d8d8d8;--muted:#6b6b6b;--code:#f4f4f4}',
-  '@media(prefers-color-scheme:dark){:root{--ink:#e6e6e6;--paper:#161616;--accent:#7fbcd9;--line:#3a3a3a;--muted:#9a9a9a;--code:#222}}',
+  SHARED_TOKENS_CSS,
+  ':root{--code:#f4f4f4}@media(prefers-color-scheme:dark){:root{--code:#222}}',
   'body{font-family:system-ui,sans-serif;max-width:60rem;margin:2rem auto;padding:0 1rem;line-height:1.5;color:var(--ink);background:var(--paper)}',
   'a{color:var(--accent)}',
   'table{border-collapse:collapse;width:100%;margin:.75rem 0}td,th{border-bottom:1px solid var(--line);padding:.3rem .6rem;text-align:left;vertical-align:top}th{font-weight:600}',
@@ -236,11 +242,12 @@ function htmlPage(title: string, depthToRoot: number, body: string[], options: P
 // the other generated pages keep PAGE_STYLE until the site-wide style pass.
 const ENTRY_STYLE = [
   '<style>',
-  // Shared design tokens: --ink/--paper/--accent/--line/--muted are kept
-  // identical to site/style.css and PAGE_STYLE so the whole site reads as
-  // one product; the entry-only tokens (cards, slots, warnings) layer on top.
-  ':root{--ink:#1a1a1a;--paper:#fafafa;--card:#fff;--line:#d8d8d8;--muted:#6b6b6b;--accent:#14506e;--slot:#faf9f6;--good:#3f7d55;--warnbg:#fbeee2;--warnline:#c98a3f;--warnink:#7a3d00;--note:#eef3f4;--bar:#c9d7dc;--marker:#b23}',
-  '@media(prefers-color-scheme:dark){:root{--ink:#e6e6e6;--paper:#161616;--card:#191919;--line:#3a3a3a;--muted:#9a9a9a;--accent:#7fbcd9;--slot:#141414;--good:#7fbf97;--warnbg:#2a2016;--warnline:#8a5a1f;--warnink:#e8b877;--note:#15211f;--bar:#2c4048;--marker:#e58}}',
+  // The shared palette (SHARED_TOKENS_CSS: --ink/--paper/--accent/--line/
+  // --muted, light + dark) comes first so entry pages match the rest of the
+  // site; the entry-only tokens below (cards, slots, warnings) layer on top.
+  SHARED_TOKENS_CSS,
+  ':root{--card:#fff;--slot:#faf9f6;--good:#3f7d55;--warnbg:#fbeee2;--warnline:#c98a3f;--warnink:#7a3d00;--note:#eef3f4;--bar:#c9d7dc;--marker:#b23}',
+  '@media(prefers-color-scheme:dark){:root{--card:#191919;--slot:#141414;--good:#7fbf97;--warnbg:#2a2016;--warnline:#8a5a1f;--warnink:#e8b877;--note:#15211f;--bar:#2c4048;--marker:#e58}}',
   '*{box-sizing:border-box}body{font-family:system-ui,sans-serif;margin:0;color:var(--ink);background:var(--paper);line-height:1.55}',
   '.wrap{max-width:76rem;margin:0 auto;padding:1.4rem 1.2rem 3rem}',
   'nav{font-size:.92rem;color:var(--muted)}nav a{color:var(--accent);text-decoration:none;display:inline-block;padding:.3rem .15rem}a{color:var(--accent)}',

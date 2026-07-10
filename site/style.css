@@ -1,18 +1,14 @@
+/* Shared colour palette (--ink/--paper/--accent/--line/--muted, light +
+   dark) lives once in tokens.css; only the site-specific --warn token and
+   the base font-family are declared here. */
+@import url("tokens.css");
 :root {
-  --ink: #1a1a1a;
-  --paper: #fafafa;
-  --accent: #14506e;
   --warn: #8a3c00;
-  --line: #d8d8d8;
   font-family: system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --ink: #e6e6e6;
-    --paper: #161616;
-    --accent: #7fbcd9;
     --warn: #e8a35c;
-    --line: #3a3a3a;
   }
 }
 body {
