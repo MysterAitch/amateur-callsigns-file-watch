@@ -101,6 +101,10 @@ code, .mono { font-family: ui-monospace, monospace; }
 /* Error state: a red border/tint carries the signal; the text keeps --ink so
    it stays legible (colour is not the only indicator, and contrast holds). */
 .error { border-left: 3px solid #c0392b; padding: 0.5rem 0.8rem; margin: 0.6rem 0; background: color-mix(in srgb, #c0392b 12%, transparent); }
+/* Startup warning: same red signal as .error. Kept legible with --ink text and
+   readable even if this stylesheet is the only thing that loaded. */
+.startup-warning { border: 1px solid #c0392b; border-radius: 6px; padding: 0.5rem 0.9rem; margin: 0.8rem 0; background: color-mix(in srgb, #c0392b 12%, transparent); }
+.startup-warning p { margin: 0; }
 .overflow { overflow-x: auto; }
 footer { margin-top: 2rem; font-size: 0.85em; color: color-mix(in srgb, var(--ink) 70%, transparent); }
 

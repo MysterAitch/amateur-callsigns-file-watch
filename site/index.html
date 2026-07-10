@@ -37,6 +37,23 @@
       <a href="datasets/index.html">dataset index</a>, and the databases can be
       <a href="datasets/index.html">downloaded</a> for offline use.</p>
     </noscript>
+    <!-- Shown only when JavaScript is enabled but the page's modules failed to
+         start: the timer below reveals it, and app.js clears the timer once it
+         has initialised, so a normal load never flashes it. Complements the
+         <noscript> above, which covers JavaScript being disabled entirely. -->
+    <div id="startup-warning" class="startup-warning" role="alert" hidden>
+      <p>The lookup didn’t start — a script may have failed to load. Try reloading the page. For diagnostics, add <code>?debug=1</code> to the address bar. You can still browse every publication from the <a href="datasets/index.html">dataset index</a>.</p>
+    </div>
+    <script>
+      // Reveal the startup warning if the lookup module has not signalled ready
+      // shortly after load. This inline classic script runs before the ES
+      // modules; app.js clears the timer on successful init (see its tail), so
+      // the warning only surfaces when JavaScript is on but a module failed.
+      window.__lookupReadyTimer = window.setTimeout(function () {
+        var warn = document.getElementById('startup-warning');
+        if (warn) warn.hidden = false;
+      }, 6000);
+    </script>
     <section id="lookup">
       <form id="lookup-form">
         <label for="callsign">Callsign</label>

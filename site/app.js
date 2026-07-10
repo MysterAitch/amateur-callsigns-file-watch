@@ -1134,3 +1134,13 @@ function initOffline() {
 }
 
 initOffline();
+
+// Signal a successful start: cancel the startup-warning timer (index.html) and
+// hide the warning if it was already shown. Reaching here means the module
+// loaded and its top-level wiring ran; if a module had failed to load, none of
+// this executes and the warning surfaces.
+if (typeof window !== 'undefined' && window.__lookupReadyTimer !== undefined) {
+  clearTimeout(window.__lookupReadyTimer);
+}
+const startupWarning = document.getElementById('startup-warning');
+if (startupWarning !== null) startupWarning.hidden = true;
