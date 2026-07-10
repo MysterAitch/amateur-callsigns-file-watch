@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no FOI reference number appears on the disclosure; the file is published as 'Call-Sign-List-for-Open-Data-07-12-23.csv' (an open-data publication) under Ofcom's FOI/disclosure area for December 2023 and the entry is keyed by its data vintage",
+  "requestUrl": null,
+  "title": "Amateur callsign list (Ofcom open data, 'Call Sign List for Open Data 07-12-23')",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "not applicable - an open-data publication rather than an FOI response, so there is no request thread or request date to record.",
+  "respondedAt": null,
+  "respondedAtNote": "not applicable - an open-data publication rather than an FOI response",
+  "outcome": "successful",
+  "dataVintage": "2023-12-07",
+  "dataVintageNote": "high confidence: the filename's '07-12-23' reads as 7 December 2023 and the latest 'Call Sign MMSI: Last Modified Date' in the data is exactly 2023-12-07, so the two independent signals agree",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2023-12-07-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2023-11-24--call-sign-list--all-callsigns", "relation": "the previous snapshot in the same Value,Status,Product,Type,Last-Modified shape, thirteen days earlier (70 fewer records)" },
+    { "entry": "ofcom-2024-01--foi-1734722--all-callsigns", "relation": "the January 2024 FOI 1734722 disclosure in the same shape - the complete register including the reserved pool this list omits" },
+    { "entry": "ofcom-756622--published-register-csv", "relation": "the previous published register generation (2019-09), a different header shape" }
+  ],
+  "files": {
+    "call-sign-list-for-open-data-07-12-23.csv": {
+      "bytes": 8483278,
+      "sha256": "855875658a00a2cce28574c45d3c18d003f900621945b25ba516f03cacc19fbc",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "contentsIndicative": "header Value,Status,Product,Type,Call Sign MMSI: Last Modified Date (no BOM, CRLF, UTF-8); 108,992 data rows - 99,581 Allocated, 9,169 Reserved, 233 Available, 9 blank statuses. Product is the licence-product vocabulary verbatim (Amateur Foundation/Intermediate/Full/Club/Temporary Reciprocal Radio Licence), no blanks. Type is 'Call Sign - Amateur' throughout. Last-modified dates day-first DD/MM/YYYY spanning 2016-07-23..2023-12-07 (day-first verified: 63,930 rows carry a day>12). Anomalies preserved verbatim: 'G6 FMU' interior space; lower-case 'g0jrk'; a ten-character and several seven-to-nine-character reciprocal/regional callsigns. Unlike the 24 November list this export carries NO Excel date-mangling of 20xxx callsigns.",
+      "witnesses": [
+        {
+          "channel": "live",
+          "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2023/december/call-sign-list-for-open-data-07-12-23.csv?v=215333",
+          "note": "the disclosure-log/open-data copy served directly from Ofcom; ingested here as the primary raw"
+        },
+        {
+          "channel": "ukgwa",
+          "url": "https://www.ofcom.org.uk/__data/assets/file/0027/273357/Call-Sign-List-for-Open-Data-07-12-23.csv",
+          "fetchedAt": "2024-03-26"
+        }
+      ],
+      "provenanceAgreement": "the live and UKGWA-mirror copies are byte-identical (same sha256 855875...), so the two provenance witnesses agree"
+    },
+    "normalised--call-sign-list-for-open-data-07-12-23.csv": {
+      "bytes": 6194437,
+      "sha256": "8b203382491d0fb8b9437afef81a995475e564be6a2ee58b60930d477588fa3a",
+      "role": "normalised",
+      "normalisedFrom": "call-sign-list-for-open-data-07-12-23.csv",
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 108,992 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product) carried verbatim; last_modified_date ISO-rendered from the day-first source. Type is required-present but not carried. The 9 blank statuses are preserved."
+    },
+    "correspondence.md": {
+      "bytes": 2281,
+      "sha256": "defe8d7f86c15df6e33951545e86ac10b5387b68c5d2715ea60c9f1bbe30bd16",
+      "role": "transcript"
+    }
+  }
+}

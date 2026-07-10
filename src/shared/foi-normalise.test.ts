@@ -360,6 +360,97 @@ describe('FOI CSV normaliser - date handling', () => {
   });
 });
 
+// The 2023-24 Salesforce-era register exports (three disclosure-log snapshots
+// sharing one shape: Value, Status, Product, Type, Call Sign MMSI: Last
+// Modified Date). Product maps to licence_class; Type is the constant service
+// discriminator and is dropped; the day-first last-modified date is carried as
+// the per-callsign provenance these exports uniquely supply.
+const VSP_NOV_VARIANT = 'ofcom-2023-11-24-register';
+const VSP_JAN_VARIANT = 'ofcom-2024-01-register';
+const vspNov = conversionFor(VSP_NOV_VARIANT, 'call-sign-list-241123.csv');
+const vspJan = conversionFor(VSP_JAN_VARIANT, 'foi-1734722-amateur-call-signs.csv');
+const VSP_HEADER = 'Value,Status,Product,Type,Call Sign MMSI: Last Modified Date';
+
+// The three snapshots are served CRLF/UTF-8, one with a leading BOM; a helper
+// reproduces that framing (no BOM by default, opt in for the BOM case).
+function vspBytes(rows: string[], withBom = false): Buffer {
+  return Buffer.from((withBom ? BOM : '') + rows.join('\r\n') + '\r\n', 'utf8');
+}
+
+describe('FOI CSV normaliser - value/status/product register shape (2023-24)', () => {
+  it('FoiNormaliser_ValueStatusProductRows_MapToObservationSchemaSortedByCallsign', () => {
+    const input = vspBytes([
+      VSP_HEADER,
+      'M0IVB,Allocated,Amateur Full Radio Licence,Call Sign - Amateur,03/10/2021',
+      '20AAA,Reserved,Amateur Intermediate Radio Licence,Call Sign - Amateur,07/07/2017',
+    ]);
+    const result = convertFoiSource(input, vspNov);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,last_modified_date\n' +
+      '20AAA,Reserved,Amateur Intermediate Radio Licence,2017-07-07\n' +
+      'M0IVB,Allocated,Amateur Full Radio Licence,2021-10-03\n');
+    expect(result.recordCount).toBe(2);
+  });
+
+  it('FoiNormaliser_ValueStatusProductTypeColumn_DroppedFromOutput', () => {
+    // 'Type' is 'Call Sign - Amateur' across the whole export - a service
+    // discriminator recorded in meta.json, not a per-row assertion.
+    const input = vspBytes([VSP_HEADER, 'M0IVB,Allocated,Amateur Full Radio Licence,Call Sign - Amateur,03/10/2021']);
+    expect(convertFoiSource(input, vspNov).csv).not.toContain('Call Sign - Amateur');
+  });
+
+  it('FoiNormaliser_ValueStatusProductWithBomHeader_ParsesFirstColumn', () => {
+    // The FOI 1734722 export is served with a leading UTF-8 BOM; it must be
+    // stripped so the first header is 'Value', not the BOM-prefixed form.
+    const input = vspBytes([VSP_HEADER, 'M0ABC,Allocated,Amateur Full Radio Licence,Call Sign - Amateur,03/10/2021'], true);
+    expect(convertFoiSource(input, vspJan).csv).toBe(
+      'callsign,status,licence_class,last_modified_date\n' +
+      'M0ABC,Allocated,Amateur Full Radio Licence,2021-10-03\n');
+  });
+
+  it('FoiNormaliser_ValueStatusProductBlankProduct_PreservesEmptyLicenceClass', () => {
+    // The reserved pool in the complete register carries a blank Product - the
+    // source asserts no product, so licence_class is emptied, never backfilled.
+    const input = vspBytes([VSP_HEADER, 'W4WNZ,Reserved,,Call Sign - Amateur,12/08/2016']);
+    const result = convertFoiSource(input, vspJan);
+    expect(result.csv).toContain('W4WNZ,Reserved,,2016-08-12');
+    expect(result.notes.blankCounts['licence_class']).toBe(1);
+  });
+
+  it('FoiNormaliser_ValueStatusProductUnexpectedStatus_CarriedVerbatim', () => {
+    // Status is carried verbatim - the converter does not gate on a status
+    // vocabulary, so an unexpected value is preserved (surfaced by the manual
+    // sanity check on ingest, never silently dropped or rewritten).
+    const input = vspBytes([VSP_HEADER, 'G9XYZ,Quarantine,Amateur Full Radio Licence,Call Sign - Amateur,03/10/2021']);
+    expect(convertFoiSource(input, vspNov).csv).toContain('G9XYZ,Quarantine,');
+  });
+
+  it('FoiNormaliser_ValueStatusProductExcelMangledCallsign_CarriedVerbatim', () => {
+    // The 24 November list serves Intermediate 20xxx callsigns whose suffix
+    // reads as a month AS dates (20APR -> 20-Apr); carried verbatim, never
+    // repaired back to a guessed suffix.
+    const input = vspBytes([VSP_HEADER, '20-Apr,Allocated,Amateur Intermediate Radio Licence,Call Sign - Amateur,16/03/2023']);
+    expect(convertFoiSource(input, vspNov).csv).toContain('20-Apr,Allocated,');
+  });
+
+  it('FoiNormaliser_ValueStatusProductLastModifiedAfterVintage_ThrowsPlausibilityFailure', () => {
+    // A last-modified date cannot postdate the snapshot vintage (2023-11-24).
+    const input = vspBytes([VSP_HEADER, 'G9XYZ,Allocated,Amateur Full Radio Licence,Call Sign - Amateur,25/11/2023']);
+    expect(() => convertFoiSource(input, vspNov)).toThrow(/future/i);
+  });
+
+  it('FoiNormaliser_ValueStatusProductTrailingNbspCallsign_TrimmedAndCounted', () => {
+    // The NBSP trio (2E1HON/G0TQK/G7IWE) carries a trailing non-breaking space
+    // in the complete-register export; the trim is the sole canonicalisation
+    // and it is counted, never silent.
+    const input = vspBytes([VSP_HEADER, `G0TQK${NBSP},Allocated,Amateur Full Radio Licence,Call Sign - Amateur,03/10/2021`]);
+    const result = convertFoiSource(input, vspJan);
+    expect(result.csv).toContain('G0TQK,Allocated');
+    expect(result.notes.nbspCellCount).toBe(1);
+    expect(result.notes.trimmedCellCount).toBe(1);
+  });
+});
+
 describe('FOI CSV normaliser - output naming', () => {
   it('SlugifyBasename_MixedCaseSpacesAndExtension_ProducesHyphenatedLowerCaseSlug', () => {
     expect(slugifyBasename('FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 1.csv'))
@@ -956,6 +1047,37 @@ describe('FOI archive golden master', () => {
     expect(results[0].csv.startsWith('callsign,status,licence_class\n",,",Reserved,\n')).toBe(true);
     // 'G6 FMU' keeps its interior space (the same anomaly as the 2017 register).
     expect(results[0].csv).toContain('G6 FMU,');
+  });
+
+  it('FoiArchive_Ofcom20231124Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('ofcom-2023-11-24--call-sign-list--all-callsigns', 'ofcom-2023-11-24-register', [108922]);
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class,last_modified_date');
+    // Ten blank statuses - data, preserved on the record.
+    expect(results[0].notes.blankCounts['status']).toBe(10);
+    // This export carries no NBSP (the December pair matches; the FOI 1734722
+    // complete register carries the trailing-NBSP trio).
+    expect(results[0].notes.nbspCellCount).toBe(0);
+    // Thirteen Excel-mangled 20xxx callsigns are carried verbatim.
+    expect(results[0].csv).toContain('20-Apr,Allocated');
+  });
+
+  it('FoiArchive_Ofcom20231207Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('ofcom-2023-12-07--open-data-call-sign-list--all-callsigns', 'ofcom-2023-12-07-register', [108992]);
+    expect(results[0].notes.blankCounts['status']).toBe(9);
+    expect(results[0].notes.nbspCellCount).toBe(0);
+    // Unlike the 24 November list, this export carries no Excel date-mangling.
+    expect(results[0].csv).not.toContain('20-Apr,');
+  });
+
+  it('FoiArchive_Ofcom202401Foi1734722Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('ofcom-2024-01--foi-1734722--all-callsigns', 'ofcom-2024-01-register', [153938]);
+    // The complete register carries the reserved pool: 44,860 blank products.
+    expect(results[0].notes.blankCounts['licence_class']).toBe(44860);
+    expect(results[0].notes.blankCounts['status']).toBe(11);
+    // The trailing-NBSP trio (2E1HON/G0TQK/G7IWE) is served here, trimmed.
+    expect(results[0].notes.nbspCellCount).toBe(3);
+    // A product vocabulary the December lists lack.
+    expect(results[0].csv).toContain('Special Event Station');
   });
 
   it('FoiArchive_Wdtk238892Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {

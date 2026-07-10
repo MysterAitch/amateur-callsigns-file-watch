@@ -48,7 +48,7 @@ a header.
 | `licence_issued_date` | `callsign-observation` | the licence issue date as disclosed in register snapshots, ISO-rendered |
 | `created_date` | `callsign-observation` | the licensing-system record creation timestamp, ISO-rendered (time kept where the source carries one) |
 | `original_start_date` | `callsign-observation`, `callsign-attributes` | the licence's original start date as disclosed, ISO-rendered; per-source semantics caveats live in the entry meta |
-| `last_modified_date` | `suffix-list` | the suffix record's last-modified timestamp as disclosed in the forbidden-suffix export (a Salesforce object attribute), ISO-rendered with any time-of-day kept - the per-suffix provenance the earlier forbidden lists lack |
+| `last_modified_date` | `suffix-list`, `callsign-observation` | the record's last-modified timestamp as disclosed in a Salesforce-era export, ISO-rendered with any time-of-day kept: per-suffix provenance in the forbidden-suffix list, per-callsign provenance in the 2023-24 register snapshots - in both cases the dated provenance the earlier exports lack |
 | `status` | `issuance-events` | the licence status at disclosure, carried verbatim, when it accompanies event rows |
 | `licence_class` | `issuance-events` | the licence product/class vocabulary carried verbatim, when it accompanies event rows |
 | `reason` | `issuance-events` | the source's stated reason for the event, verbatim |
@@ -75,6 +75,9 @@ fail the conversion.
 | `available-typed-export-8col` | `wdtk-247308--available-callsigns-list`, `wdtk-261814--available-callsigns-list` |
 | `ofcom-01420046-register` | `ofcom-01420046--allocated-reserved-callsigns` |
 | `ofcom-2017-07-13-register` | `ofcom-2017-07-13--all-callsigns` |
+| `ofcom-2023-11-24-register` | `ofcom-2023-11-24--call-sign-list--all-callsigns` |
+| `ofcom-2023-12-07-register` | `ofcom-2023-12-07--open-data-call-sign-list--all-callsigns` |
+| `ofcom-2024-01-register` | `ofcom-2024-01--foi-1734722--all-callsigns` |
 | `ofcom-2024-12-forbidden-suffixes` | `ofcom-2024-12--forbidden-suffixes` |
 | `ofcom-498903-reissue-events` | `ofcom-498903--reissued-callsigns-since-2010` |
 | `ofcom-498906-reciprocal-events` | `ofcom-498906--reciprocal-licences-since-2010` |
@@ -233,6 +236,57 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 Required-present but not carried: `Prefix`, `Suffix`, `Type`.
 
 Row order: **sorted-by-first-column** — source rows arrive grouped by suffix but carry no meaningful publication order (no dates, not callsign-sorted); sorted by callsign for diffability and cross-snapshot comparability.
+
+### `ofcom-2023-11-24-register`
+
+**`call-sign-list-241123.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | `Product` | verbatim |
+| `last_modified_date` | `Call Sign MMSI: Last Modified Date` | date |
+
+Required-present but not carried: `Type`.
+
+Row order: **sorted-by-first-column** — source rows arrive grouped (reserved blocks first) but carry no globally meaningful order (not callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability.
+
+Date plausibility bound: 2023-11-24.
+
+### `ofcom-2023-12-07-register`
+
+**`call-sign-list-for-open-data-07-12-23.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | `Product` | verbatim |
+| `last_modified_date` | `Call Sign MMSI: Last Modified Date` | date |
+
+Required-present but not carried: `Type`.
+
+Row order: **sorted-by-first-column** — source rows arrive grouped (reserved blocks first) but carry no globally meaningful order (not callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability.
+
+Date plausibility bound: 2023-12-07.
+
+### `ofcom-2024-01-register`
+
+**`foi-1734722-amateur-call-signs.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | `Product` | verbatim |
+| `last_modified_date` | `Call Sign MMSI: Last Modified Date` | date |
+
+Required-present but not carried: `Type`.
+
+Row order: **sorted-by-first-column** — source rows arrive grouped (reserved blocks first) but carry no globally meaningful order (not callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability.
+
+Date plausibility bound: 2024-01-31.
 
 ### `ofcom-2024-12-forbidden-suffixes`
 
