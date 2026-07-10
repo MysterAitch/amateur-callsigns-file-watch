@@ -527,6 +527,25 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
     },
   ],
 
+  // ofcom-2021-01 and ofcom-2021-04 (UK Government Web Archive captures of two
+  // Ofcom FOI annexes, the 2021 full-register snapshots): the 'Value, Status,
+  // Type' register export extended with three typed columns - Reserved to Date,
+  // Original Start Date and Licence Type. Disclosed as workbooks, so the dates
+  // arrive typed and the extract renders them ISO (iso-date). 'Type' is
+  // 'Call Sign - Amateur' on every row (the product/service discriminator,
+  // recorded in meta, required-present not carried); Licence Type carries the
+  // source's own product vocabulary verbatim ('Amateur Full Radio Licence' etc,
+  // including 'Amateur Temporary Reciprocal Radio Licence'). The two annexes
+  // differ ONLY in the case of two headers ('Original Start Date' vs 'Original
+  // start date', 'Licence Type' vs 'Licence type'); since columns are matched by
+  // exact NAME, each annex binds its own variant built from the shared factory.
+  'ofcom-2021-01-register': [
+    datedRegisterConversion('raw-extract-sheet-1-callsigns.csv', 'Original Start Date', 'Licence Type', '2021-01-29'),
+  ],
+  'ofcom-2021-04-register': [
+    datedRegisterConversion('raw-extract-sheet-1-sheet1.csv', 'Original start date', 'Licence type', '2021-04-21'),
+  ],
+
   // ofcom-2024-12 (Ofcom disclosure log, December 2024): the five-years-on
   // forbidden-suffix comparison point. A suspected Salesforce object export -
   // two columns, Name (the three-letter suffix) and LastModifiedDate - so,
@@ -605,6 +624,33 @@ function typedExportConversion(sourceFile: string, ignoredColumns: readonly stri
     ignoredColumns,
     rowOrder: 'sorted-by-first-column',
     orderRationale: 'source rows arrive in no meaningful order; sorted by callsign for diffability',
+  };
+}
+
+// The 2021 UKGWA-captured full-register annexes share this shape; only the
+// sheet filename and the case of the Original-Start-Date / Licence-Type headers
+// vary between the two disclosures. referenceDateIso is the snapshot's evidenced
+// lower bound - its most recent Original Start Date, the plausibility ceiling
+// for that issue-date column; Reserved to Date is a validity END and may
+// legitimately postdate it.
+function datedRegisterConversion(sourceFile: string, originalStartDateHeader: string, licenceTypeHeader: string, referenceDateIso: string): FoiSourceConversion {
+  return {
+    sourceFile,
+    encoding: 'utf8',
+    columns: [
+      { source: 'Value', output: 'callsign', kind: 'verbatim' },
+      { source: 'Status', output: 'status', kind: 'verbatim' },
+      { source: licenceTypeHeader, output: 'licence_class', kind: 'verbatim' },
+      // Reservation EXPIRY - a validity end, so future values are legitimate.
+      { source: 'Reserved to Date', output: 'reserved_to_date', kind: 'iso-date', futureAllowed: true },
+      { source: originalStartDateHeader, output: 'original_start_date', kind: 'iso-date' },
+    ],
+    // 'Type' is 'Call Sign - Amateur' on every row - the product/service
+    // discriminator, required present but not carried.
+    ignoredColumns: ['Type'],
+    rowOrder: 'sorted-by-first-column',
+    orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability',
+    referenceDateIso,
   };
 }
 
