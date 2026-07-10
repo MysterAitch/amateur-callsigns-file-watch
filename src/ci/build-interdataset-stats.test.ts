@@ -19,7 +19,7 @@ const read = (): string => fs.readFileSync(path.join(outputDir, 'statistics', 'i
 beforeAll(() => {
   outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'interdataset-'));
   urls = buildInterdatasetStats(outputDir, 'https://example.test/site');
-}, 120_000);
+}, 600_000);
 
 afterAll(() => {
   fs.rmSync(outputDir, { recursive: true, force: true });

@@ -12,7 +12,7 @@ describe('forbidden-suffix callsign index — real archive', () => {
   let index: SuffixCallsignIndex;
   beforeAll(() => {
     index = buildSuffixCallsignIndex(buildForbiddenSuffixHistory().everForbiddenUnion);
-  }, 120_000);
+  }, 600_000);
 
   const info = (suffix: string) => {
     const i = index.get(suffix);

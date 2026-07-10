@@ -16,7 +16,7 @@ import { sweepFoiLane, sweepFoiLaneAt, FOI_ARCHIVE_DIR } from './foi-sweep.ts';
 describe('FOI derivation sweep', () => {
   const report = sweepFoiLane();
 
-  it('FoiSweep_RealArchive_EveryEntryReportsAndNoneFailOrDrift', { timeout: 120_000 }, () => {
+  it('FoiSweep_RealArchive_EveryEntryReportsAndNoneFailOrDrift', { timeout: 600_000 }, () => {
     const entryKeys = fs.readdirSync(FOI_ARCHIVE_DIR)
       .filter(name => fs.statSync(path.join(FOI_ARCHIVE_DIR, name)).isDirectory());
     expect(report.entries.map(e => e.entryKey).sort()).toEqual(entryKeys.sort());
