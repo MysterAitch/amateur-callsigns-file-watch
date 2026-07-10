@@ -12,7 +12,8 @@
 // and declared-partial / coverage-affecting publications carry a loud caveat
 // because absence there is scope, not removal (issues #182-#184).
 
-import { buildPredicate, parseFilterState, serializeFilterState, matchingCountSql, setDiffSql, callsignCharMarker, TOGGLES } from './browser-query.js';
+import { buildPredicate, stateToViewParam, viewParamToState, applyViewToState, matchingCountSql, setDiffSql, callsignCharMarker, TOGGLES } from './browser-query.js';
+import { createHistorySync } from './history-sync.js';
 
 const { createDbWorker } = window;
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
@@ -101,35 +102,42 @@ function datasetOf(key) { return datasets.find(d => d.dataset === key); }
 // automatically - the caller checks state.customSql before using this.
 function predicate() { return customPredicate ?? buildPredicate(state); }
 
-function restoreFromUrl() {
+// Read the shareable state (?view= filter, ?datasets= selection, ?pred=
+// override) wholesale from the URL. Total by design: pieces absent from the
+// link reset to their defaults, so a back/forward restore reproduces each
+// state exactly rather than accumulating a stale selection.
+function readStateFromUrl() {
   const url = new URL(window.location.href);
-  const rawView = url.searchParams.get('view');
-  if (rawView !== null) {
-    try {
-      const parsed = parseFilterState(JSON.parse(rawView));
-      if (parsed.facets !== undefined) state.facets = parsed.facets;
-      if (parsed.toggles !== undefined) state.toggles = parsed.toggles;
-      if (parsed.columnFilters !== undefined) state.columnFilters = parsed.columnFilters;
-      if (parsed.sort !== undefined) state.sort = parsed.sort;
-      if (parsed.customSql !== undefined) state.customSql = parsed.customSql;
-    } catch { /* ignore a malformed link */ }
-  }
+  applyViewToState(state, viewParamToState(url.searchParams.get('view')));
+  selected.clear();
   const rawSets = url.searchParams.get('datasets');
   if (rawSets !== null) for (const k of rawSets.split(',')) if (k !== '') selected.add(k);
   const rawPred = url.searchParams.get('pred');
-  if (rawPred !== null && rawPred !== '') customPredicate = rawPred;
+  customPredicate = (rawPred !== null && rawPred !== '') ? rawPred : null;
 }
-function writeUrl() {
+// The single restore path shared by popstate (first load routes through boot,
+// which also applies its default selection). Re-render's own sync() is a no-op
+// because the URL already matches, so restoring never itself writes history.
+function restore() {
+  readStateFromUrl();
+  if (predInput !== null) predInput.value = customPredicate ?? '';
+  filterNote.textContent = `Comparing: ${describeFilter()}.`;
+  renderPicker();
+  void refresh();
+}
+function buildUrl() {
   const url = new URL(window.location.href);
-  const view = serializeFilterState(state);
-  if (Object.keys(view).length === 0) url.searchParams.delete('view');
-  else url.searchParams.set('view', JSON.stringify(view));
+  const view = stateToViewParam(state);
+  if (view === null) url.searchParams.delete('view');
+  else url.searchParams.set('view', view);
   if (selected.size === 0) url.searchParams.delete('datasets');
   else url.searchParams.set('datasets', [...selected].join(','));
   if (customPredicate === null) url.searchParams.delete('pred');
   else url.searchParams.set('pred', customPredicate);
-  window.history.replaceState(null, '', url);
+  return url.toString();
 }
+const historySync = createHistorySync({ getUrl: buildUrl, onPopState: restore });
+function writeUrl() { historySync.sync(); }
 
 // A human description of the inherited filter, so the page states plainly
 // what is being compared.
@@ -154,7 +162,7 @@ async function boot() {
     bootStatus.textContent = `Could not load publications: ${String(err.message ?? err)}`;
     return;
   }
-  restoreFromUrl();
+  readStateFromUrl();
   // Default selection when none arrived in the link: the two most recent
   // publications with no scope caveat at all (declared complete, no
   // coverage-affecting observation) - the cleanest baseline pair to diff.
