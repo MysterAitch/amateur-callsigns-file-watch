@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { buildDepletion, renderCrossDatasetInvariants, type CrossDataset } from './cross-dataset-invariants.ts';
+import { buildDepletion, buildOverlapMatrix, renderCrossDatasetInvariants, type CrossDataset, type OverlapMatrix } from './cross-dataset-invariants.ts';
 
 // Issue #241: the cross-dataset probes join each FOI available snapshot against
 // the latest register on the cleaned callsign key. Test names follow
@@ -69,5 +69,94 @@ describe('cross-dataset invariants — available-pool depletion', () => {
     expect(md).toContain('| `wdtk-174341--available-callsigns-list` | 2013-09-06 | 11,680 | 2,662 | 121 | 8,897 |');
     expect(md).toContain('## Original-issue-date invariant');
     expect(md).toContain('| `wdtk-174341--available-callsigns-list` | 2013-09-06 | 14,966 | 25 | 0.2% |');
+  });
+});
+
+describe('cross-dataset invariants — available × record-of overlap matrix', () => {
+  // The matrix loads every register vintage (open-data ~150k rows each, plus
+  // the FOI register-snapshots) one at a time; build it once and share it.
+  let m: OverlapMatrix;
+  beforeAll(() => { m = buildOverlapMatrix(); }, 60_000);
+
+  it('OverlapMatrix_RealArchive_HasNinePoolRowsAndVintageOrderedRegisterColumns', () => {
+    // Nine available-pool snapshots (2013–2016) as rows.
+    expect(m.pools.length).toBe(9);
+    // Eleven surviving register columns: seven open-data publications plus four
+    // FOI register-snapshots (two 2016/2019 FOI snapshots that hold no callsign
+    // union are dropped, not shown as all-zero columns).
+    expect(m.registers.length).toBe(11);
+    expect(m.registers.filter(r => r.kind === 'open-data')).toHaveLength(7);
+    expect(m.registers.filter(r => r.kind === 'foi')).toHaveLength(4);
+    // Every pool row carries exactly one cell per register column.
+    expect(m.present.length).toBe(m.pools.length);
+    for (const row of m.present) expect(row.length).toBe(m.registers.length);
+    // Rows and columns are both ordered oldest→newest so the age gradient is
+    // legible left-to-right and top-to-bottom.
+    const monotonic = (v: string[]): boolean => v.every((x, i) => i === 0 || v[i - 1].localeCompare(x) <= 0);
+    expect(monotonic(m.registers.map(r => r.vintage))).toBe(true);
+    expect(monotonic(m.pools.map(p => p.vintage))).toBe(true);
+    // The two truncated publications are flagged partial, not read as low take-up.
+    expect(m.registers.filter(r => r.partial).map(r => r.key)).toEqual(['2025-05-27', '2025-06-08']);
+  });
+
+  it('OverlapMatrix_2013PoolVsLatestRegister_PresentEqualsDepletionComplement', () => {
+    const pi = m.pools.findIndex(p => p.entry === 'wdtk-174341--available-callsigns-list');
+    const ri = m.registers.findIndex(r => r.key === '2026-06-23');
+    expect(pi).toBeGreaterThanOrEqual(0);
+    expect(ri).toBeGreaterThanOrEqual(0);
+    // Independent hand computation: presence (any register row) of the 2013 pool
+    // in the latest register is exactly the pool minus the "absent from register"
+    // residue the depletion probe already locks — 26,646 − 8,897 = 17,749.
+    expect(m.pools[pi].size).toBe(26646);
+    expect(m.present[pi][ri]).toBe(26646 - 8897);
+  });
+
+  it('OverlapMatrix_EveryPool_OverlapsLatestRegisterMoreThanEarliest', () => {
+    // The age gradient at its endpoints: for every pool, more of it is present
+    // in the newest register than in the oldest — the pool is taken up over
+    // time. (Individual mid columns can dip where a publication holds fewer
+    // rows, e.g. the smaller 2025-06-04 export, so the robust claim is the
+    // oldest→newest span, not step-by-step monotonicity.)
+    const earliest = 0;
+    const latest = m.registers.length - 1;
+    expect(m.registers[earliest].vintage).toBe('2016-09');
+    expect(m.registers[latest].key).toBe('2026-06-23');
+    for (let pi = 0; pi < m.pools.length; pi += 1) {
+      expect(m.present[pi][latest]).toBeGreaterThan(m.present[pi][earliest]);
+    }
+  });
+
+  it('OverlapRender_SyntheticMatrix_ShowsSectionHeaderAndCellPercentages', () => {
+    const md = renderCrossDatasetInvariants(
+      { register: '2026-06-23', allocatedTotal: 0, rows: [] },
+      {
+        pools: [{ entry: 'pool-a', vintage: '2013-09-06', size: 100 }],
+        registers: [
+          { key: '2016-09', vintage: '2016-09', kind: 'foi', size: 50, partial: false },
+          { key: '2026-06-23', vintage: '2026-06-23', kind: 'open-data', size: 200, partial: false },
+        ],
+        present: [[40, 66]],
+      },
+    );
+    expect(md).toContain('## Available × record-of overlap matrix');
+    // Independent hand computation: 40/100 = 40.0%, 66/100 = 66.0%.
+    expect(md).toContain('| `pool-a` | 2013-09-06 | 100 | 40.0% | 66.0% |');
+  });
+
+  it('OverlapRender_PartialColumn_IsFlaggedAndExplained', () => {
+    const md = renderCrossDatasetInvariants(
+      { register: '2026-06-23', allocatedTotal: 0, rows: [] },
+      {
+        pools: [{ entry: 'pool-a', vintage: '2013-09-06', size: 100 }],
+        registers: [
+          { key: '2025-05-27', vintage: '2025-05-27', kind: 'open-data', size: 1074, partial: true },
+          { key: '2026-06-23', vintage: '2026-06-23', kind: 'open-data', size: 200, partial: false },
+        ],
+        present: [[1, 66]],
+      },
+    );
+    expect(md).toContain('Columns marked ⚠ are **partial publications**');
+    expect(md).toContain('- `2025-05-27` ⚠ — open-data `2025-05-27` (1,074 keys, partial publication)');
+    expect(md).toContain('| `pool-a` | 2013-09-06 | 100 | 1.0% | 66.0% |');
   });
 });
