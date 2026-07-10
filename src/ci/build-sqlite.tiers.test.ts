@@ -70,10 +70,13 @@ describe('Published data tiers', () => {
       // the master so those queries run in one database.
       const cleanedTwins = db.prepare("SELECT COUNT(DISTINCT callsign) AS c FROM register_history WHERE cleaned = '2E1HON'").get() as { c: number | bigint };
       expect(Number(cleanedTwins.c)).toBeGreaterThanOrEqual(2);
+      // The ever-forbidden union (1,465 shared 2016/2019 set plus JIZ) rides
+      // into the master from reference-data/forbidden-suffixes.csv.
       const forbidden = db.prepare('SELECT COUNT(*) AS c FROM ref_forbidden_suffixes').get() as { c: number | bigint };
-      expect(Number(forbidden.c)).toBe(1465);
+      expect(Number(forbidden.c)).toBe(1466);
+      // 2,826 on the shared set plus 4 JIZ-suffix rows the union now joins.
       const cohort = db.prepare(`SELECT COUNT(*) AS c FROM register_history rh JOIN ref_forbidden_suffixes f ON f.suffix = rh.suffix WHERE rh.dataset = '2026-06-23'`).get() as { c: number | bigint };
-      expect(Number(cohort.c)).toBe(2826);
+      expect(Number(cohort.c)).toBe(2830);
       // G0TQK's encoding-damaged twin lives in the register lane (the
       // 2022 publication carries G0TQK + G0TQK�) - cleaned unifies
       // them for longitudinal joins.

@@ -76,16 +76,42 @@ Sources: Ofcom, *Amateur radio licence guidance for licensees* (2025); RSGB,
 
 ### `forbidden-suffixes.csv` — suffixes Ofcom will not issue
 
-1,465 three-letter suffixes disclosed by Ofcom in response to a Freedom of
-Information request, August 2019. The list is a point-in-time disclosure:
-treat presence on this list as "was withheld as of August 2019", not as a
-statement about current policy — Ofcom's current guidance describes withheld
-callsigns only generally ("is not withheld (for example because it is
-offensive)", *Amateur radio guidance*, §5.4.1 fn. 5).
+The **ever-forbidden union**: **1,466** three-letter suffixes, one row each,
+with a `first_known_forbidden` date column. This is the distinct union across
+*every* forbidden-list disclosure the archive holds — the September 2016 FOI
+sheet, the two August/September 2019 witnesses, and the December 2024 export —
+each suffix carrying the earliest date at which it is known to have been
+withheld. It replaces the earlier 2019-only list (a bare `suffix` column of
+1,465 entries, which lacked `JIZ`).
 
-Normalisation applied on import: UTF-8 BOM removed, CRLF→LF, `suffix` header
-row added. Content otherwise verbatim (original disclosure order — already
-alphabetical — preserved; 1,465 unique entries).
+The union basis is deliberate. A single point-in-time list is fragile: the
+2024 export drops `QNF`/`ZFJ` (the working theory is that this is an artefact,
+not a deliberate de-listing) and adds `JIZ`. Flagging against "ever forbidden"
+is robust to that churn and to suspected omission errors — `QNF`/`ZFJ` stay in
+the union, so a register row carrying them stays flagged. Treat presence here
+as "was withheld at some point on the disclosures held", not as a statement of
+current policy — Ofcom's current guidance describes withheld callsigns only
+generally ("is not withheld (for example because it is offensive)", *Amateur
+radio guidance*, §5.4.1 fn. 5).
+
+`first_known_forbidden` is the earliest disclosure vintage or per-suffix
+`LastModifiedDate` at which a suffix appears (ISO-ordered `yyyy-mm-dd` or
+`yyyy-mm`). Most suffixes sit at the 2024 export's `2016-07-29` bulk origin;
+`QNF`/`ZFJ`, absent from that export, are dated `2016-09` from the earliest
+disclosure vintage; `JIZ` is `2020-12-10` from its own `LastModifiedDate`. It
+is the per-suffix anchor for the `forbidden-suffix-issued-after-first-known-list`
+flag (see `flags.md`).
+
+**Provenance and curation**: this file is a curated reference input, but its
+content is derived one-time from the held disclosures via
+`src/ci/forbidden-suffix-history.ts` (which reads only the committed FOI
+`forbidden-list` normalised files, never the `landing/` drop zone) so it cannot
+silently drift from them. A test in
+`src/sources/ofcom-amateur/components.test.ts` asserts this file's union and
+first-known dates still match the disclosure-derived history; the standing
+observation layer is `reports/forbidden-suffix-history.md`. Normalisation on
+the underlying disclosures: UTF-8 BOM removed, CRLF→LF; within-disclosure
+duplicate rows (2016's `ZIT`) are surfaced, never silently deduplicated.
 
 ### `itu-call-sign-series.csv` — international call sign series (Appendix 42)
 

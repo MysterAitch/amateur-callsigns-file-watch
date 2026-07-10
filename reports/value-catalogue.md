@@ -153,9 +153,9 @@ routine figure.
 
 | value | records | callsigns | allocated | sources | timeline | lanes |
 |---|---:|---:|---:|---:|---|---|
-| `forbidden-suffix` | 49,571 | 8,558 | 2,972 | 22 | ███▁█▁▇ | foi, open-data |
+| `forbidden-suffix` | 49,674 | 8,569 | 2,976 | 22 | ███▁█▁▇ | foi, open-data |
 | `rsl-in-register` | 192 | 24 | 20 | 11 | ███▁█▁█ | foi, open-data |
-| `forbidden-suffix-issued-after-list` | 103 | 103 | 103 | 1 | ······█ | open-data |
+| `forbidden-suffix-issued-after-first-known-list` | 106 | 106 | 106 | 1 | ······█ | open-data |
 | `lowercase` | 80 | 19 | 15 | 9 | ███·▁·▁ | foi, open-data |
 | `class-product-mismatch` | 63 | 29 | 23 | 6 | ·▂▂·▂·█ | foi, open-data |
 | `excel-date-shape` | 61 | 16 | 13 | 4 | ███···· | foi, open-data |
