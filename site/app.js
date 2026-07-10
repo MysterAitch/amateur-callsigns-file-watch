@@ -5,6 +5,8 @@
 // The library ships as a UMD bundle loaded via a classic script tag in
 // index.html, which attaches createDbWorker to window.
 
+import { countryForCallsign, stripVisitorPrefix } from './prefix-country.js';
+
 const { createDbWorker } = window;
 
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
@@ -367,72 +369,55 @@ function placeholderOf(value) {
   return null;
 }
 
-// Name a visitor's home country from the ITU call-sign series table
-// (Radio Regulations Appendix 42, via reference data). Series rows are
-// three-character ranges ("P2A - P2Z"), so:
-// - third character a LETTER: exact range containment names one country.
-// - third character a DIGIT (e.g. PT2FM, 3D2AB): the series table indexes
-//   by third LETTER, so a split two-character block is ambiguous - list
-//   every holder honestly rather than guess (the 3D block splits
-//   Eswatini/Fiji, and 3D2 in practice is Fiji).
+// Name a visitor's home country from the ITU call-sign series table (Radio
+// Regulations Appendix 42, via reference data). The resolution - stripping the
+// UK visitor prefix, longest-prefix matching the home call against the series
+// ranges, and refusing to guess when a split block is ambiguous - lives in the
+// DOM-free, unit-tested prefix-country module; this wrapper only renders it.
+// The country named is the ITU-allocated HOLDER of the call sign series, a
+// declared allocation, not a verified claim about the operator's own licence.
+const ITU_SOURCE_NOTE = 'Source: ITU Appendix 42 (Table of allocation of international call sign series). '
+  + 'This names the holder of the call sign series, not a verified claim about the operator\'s licence.';
+
 async function visitorHomeCard(homeCallsign) {
-  const clean = homeCallsign.replace(/^[^A-Za-z0-9]+/, '').toUpperCase();
-  const shape = /^([A-Z0-9])([A-Z0-9]?)([A-Z0-9]?)/.exec(clean);
-  if (clean.length < 3 || !shape || !/[A-Z]/.test(clean[0]) && !/[0-9]/.test(clean[0])) {
-    return card('Visitor home callsign', [el('p', { class: 'muted', text:
-      `"${homeCallsign}" is too short or malformed to derive an ITU prefix.` })]);
-  }
-
+  const home = stripVisitorPrefix(homeCallsign);
+  const first = (home.match(/[A-Za-z0-9]/)?.[0] ?? '').toUpperCase();
   // All series sharing the first character (at most ~50 rows).
-  const rows = await query('SELECT series, allocated_to FROM itu_series WHERE series LIKE ?', [`${clean[0]}%`]);
-  const ranges = rows.map(r => {
-    const m = /^(\S+)\s*-\s*(\S+)$/.exec(r.series);
-    return m ? { start: m[1], end: m[2], country: r.allocated_to, series: r.series } : null;
-  }).filter(Boolean);
-  if (ranges.length === 0) {
-    return card('Visitor home callsign', [el('p', { text:
-      `"${clean}" does not begin with a series in the ITU call-sign table - possibly malformed, or a prefix outside Appendix 42.` })]);
-  }
+  const rows = first
+    ? await query('SELECT series, allocated_to FROM itu_series WHERE series LIKE ?', [`${first}%`])
+    : [];
+  const res = countryForCallsign(homeCallsign, rows);
+  const note = el('p', { class: 'muted', text: ITU_SOURCE_NOTE });
+  // A '#' recorded after the slash is a suspected artifact (same as the
+  // register's hash-in-register flag; ADR 0005 gives the canonical M#/ form).
+  // Surface that the raw data is one thing and the country rests on a manual
+  // canonicalisation - never let the correction pass silently.
+  const artifactNote = res.artifact
+    ? [el('p', { class: 'muted', text: `${res.artifactNote} (Recorded as the hash-in-register anomaly.)` })]
+    : [];
 
-  const named = (hit, how) => card('Visitor home callsign', [el('p', { text:
-    `${clean} ${how}, allocated to ${hit}.` })]);
-
-  // Single-letter prefix (digit in second position, e.g. W1AW, G0ICN): the
-  // callsign belongs to the whole first-letter block. If one country holds
-  // the entire block (USA for K/N/W, UK for G/M, ...), that names it.
-  if (/[0-9]/.test(clean[1])) {
-    const countries = [...new Set(ranges.map(r => r.country))];
-    if (countries.length === 1) return named(countries[0], `has a single-letter ${clean[0]} prefix (whole block)`);
+  if (res.status === 'resolved') {
+    const where = res.series ? `falls in ITU series ${res.series}` : res.basis;
     return card('Visitor home callsign', [
-      el('p', { text: `${clean} has a single-letter ${clean[0]} prefix, but the ${clean[0]} block is split between allocations:` }),
-      renderTable(['series', 'allocated to'], ranges.map(r => [r.series, r.country]), 99),
+      el('p', { text: `${res.cleaned} ${where}, allocated to ${res.country}.` }),
+      ...artifactNote,
+      note,
     ]);
   }
-
-  // Two-character prefix with a letter third character: exact range match.
-  if (/[A-Z]/.test(clean[2])) {
-    const code = clean.slice(0, 3);
-    const hit = ranges.find(r => code >= r.start && code <= r.end);
-    if (hit) return named(hit.country, `falls in ITU series ${hit.series}`);
-  }
-
-  // Digit third character (e.g. PT2FM, 3D2AB): the series table indexes by
-  // third LETTER, so only the two-character block can be consulted. One
-  // holder names it; a split block (3D: Eswatini/Fiji) is listed honestly
-  // rather than guessed - 3D2 in practice is Fiji, but the table alone
-  // cannot say so.
-  const first2 = clean.slice(0, 2);
-  const blockRanges = ranges.filter(r => r.start.slice(0, 2) <= first2 && first2 <= r.end.slice(0, 2));
-  const countries = [...new Set(blockRanges.map(r => r.country))];
-  if (countries.length === 1) return named(countries[0], `begins with the ${first2} block`);
-  if (countries.length > 1) {
+  if (res.status === 'ambiguous') {
     return card('Visitor home callsign', [
-      el('p', { text: `${clean} has a digit in the third position, and the ${first2} block is split between allocations - the ITU series table cannot name the country alone:` }),
-      renderTable(['series', 'allocated to'], blockRanges.map(r => [r.series, r.country]), 99),
+      el('p', { text: `${res.cleaned}: the ${res.basis}. The series table alone cannot name one country, so every holder is listed:` }),
+      renderTable(['series', 'allocated to'], res.candidates.map(c => [c.series, c.country]), 99),
+      ...artifactNote,
+      note,
     ]);
   }
-  return card('Visitor home callsign', [el('p', { text:
-    `"${clean}" does not fall in any ITU series for the ${clean[0]} block - possibly malformed.` })]);
+  // Unallocated or malformed: state honestly that no country can be derived.
+  return card('Visitor home callsign', [
+    el('p', { class: 'muted', text: res.basis }),
+    ...artifactNote,
+    note,
+  ]);
 }
 
 // Suffix availability matrix (*TEE): one row per prefix series from
