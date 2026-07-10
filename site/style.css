@@ -24,6 +24,13 @@ h1 { margin-bottom: 0.25rem; }
 a { color: var(--accent); }
 /* Nav links get a larger tap area (WCAG 2.5.8) without restructuring the strip. */
 nav a { display: inline-block; padding: 0.3rem 0.15rem; }
+/* Shared affordances (issue #310), matching the generated pages: the
+   visually-hidden utility carries text alternatives (e.g. the external-link
+   "(opens in a new tab)") off-screen but available to assistive tech, and the
+   small trailing external-link marker. The canonical nav strip stamped in at
+   deploy (build-nav.ts) uses both for its one external link (Repository). */
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.ext-marker { font-size: 0.85em; line-height: 1; text-decoration: none; }
 /* Skip-to-content link: off-screen until focused, then visible top-left. */
 .skip { position: absolute; left: -999px; top: 0; z-index: 10; padding: 0.5rem 0.8rem; background: var(--paper); color: var(--accent); border: 1px solid var(--line); }
 .skip:focus { left: 0; }
