@@ -63,7 +63,11 @@ jobs:
           # the archived files verbatim at stable URLs + Frictionless
           # descriptors + sitemap.xml - the Wayback Machine crawl seed.
           node src/ci/build-dataset-pages.ts _site
-          cp site/index.html site/statistics.html site/explore.html site/explore.js site/compare.html site/compare.js site/about.html site/glossary.html site/app.js site/entry-browser.js site/browser-query.js site/style.css site/tokens.css site/sw.js site/manifest.webmanifest _site/
+          # Copy every hand-authored site asset by glob rather than a
+          # hand-listed set: a module added later (and imported by app.js et al)
+          # is deployed automatically, so a missing import can no longer break
+          # the live pages. The site-deploy-coverage test guards this contract.
+          cp site/*.html site/*.js site/*.css site/*.webmanifest _site/
           # Version-stamp the service worker (ADR 0008). The browser re-installs
           # a worker only when its script bytes change, so writing the commit
           # SHA into DEPLOY_VERSION makes each deploy supersede the last: it
