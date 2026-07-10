@@ -553,6 +553,52 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       referenceDateIso: '2024-12-31',
     },
   ],
+
+  // The callsign+product+status register-snapshot family (Ofcom disclosure
+  // log, 2024-2025). Three snapshots, one shared factory; they differ only in
+  // header spelling, and the last one additionally carries CreatedDate. Type
+  // is the constant 'Call Sign - Amateur' discriminator throughout.
+
+  // ofcom-2024-07 (July 2024): header
+  // 'Call sign,Product,Status,Type,Call Sign MMSI: Last Modified Date' (no
+  // BOM). The day of the July vintage is not stated (served as
+  // 'call-signs.csv'), so the entry is keyed to the month and referenceDateIso
+  // is the month-end plausibility ceiling; the disclosed last-modified dates
+  // top out at 2024-06-14, well within it.
+  'ofcom-2024-07-register': [
+    callsignProductRegisterConversion({
+      sourceFile: 'call-signs.csv',
+      callsignHeader: 'Call sign',
+      lastModifiedHeader: 'Call Sign MMSI: Last Modified Date',
+      referenceDateIso: '2024-07-31',
+    }),
+  ],
+  // ofcom-2024-10-21 (filed under September 2024, but the filename dates the
+  // export 21/10/2024): header 'Callsign,Product,Status,Type,Last Modified
+  // Date' (UTF-8 BOM). The disclosed last-modified dates top out at exactly
+  // 2024-10-21 - the vintage.
+  'ofcom-2024-10-21-register': [
+    callsignProductRegisterConversion({
+      sourceFile: 'copy-of-callsigns-21102024.csv',
+      callsignHeader: 'Callsign',
+      lastModifiedHeader: 'Last Modified Date',
+      referenceDateIso: '2024-10-21',
+    }),
+  ],
+  // ofcom-2025-03-13 (filed under January 2025, but the filename dates the
+  // export 13/03/2025): header
+  // 'Callsign,Product,Status,Type,LastModifiedDate,CreatedDate' (no BOM) - the
+  // same family plus a CreatedDate column. Both dates top out at 2025-03-13 -
+  // the vintage.
+  'ofcom-2025-03-13-register': [
+    callsignProductRegisterConversion({
+      sourceFile: 'call-signs-13mar2025.csv',
+      callsignHeader: 'Callsign',
+      lastModifiedHeader: 'LastModifiedDate',
+      createdDateHeader: 'CreatedDate',
+      referenceDateIso: '2025-03-13',
+    }),
+  ],
 };
 
 // The 2013/14 suffix-list sheets differ only in filename, stated prefix and
@@ -605,6 +651,56 @@ function typedExportConversion(sourceFile: string, ignoredColumns: readonly stri
     ignoredColumns,
     rowOrder: 'sorted-by-first-column',
     orderRationale: 'source rows arrive in no meaningful order; sorted by callsign for diffability',
+  };
+}
+
+// The Ofcom disclosure-log register snapshots in the callsign+product+status
+// export family (2024-2025). Every snapshot carries the same fields - a
+// callsign column, the licence Product, the Status, the constant
+// 'Call Sign - Amateur' Type discriminator, and a last-modified date - but the
+// callsign column is spelled 'Call sign' or 'Callsign', the last-modified
+// header spelling varies, and the March-2025 export additionally carries a
+// CreatedDate. One factory covers the whole family; each snapshot pins its own
+// EXACT header spellings, so a silent column rename can never slip through
+// (columns are matched by name, never by position). Product is the licence
+// class carried verbatim; the constant Type is required-present but not carried.
+interface CallsignProductRegisterOptions {
+  sourceFile: string;
+  // Exact callsign-column header for this snapshot ('Call sign' | 'Callsign').
+  callsignHeader: string;
+  // Exact last-modified-date header for this snapshot.
+  lastModifiedHeader: string;
+  // Exact created-date header, where the snapshot carries one (2025-03 only).
+  createdDateHeader?: string;
+  // The snapshot vintage, used as the date plausibility ceiling.
+  referenceDateIso: string;
+}
+
+function callsignProductRegisterConversion(options: CallsignProductRegisterOptions): FoiSourceConversion {
+  const columns: FoiColumnSpec[] = [
+    { source: options.callsignHeader, output: 'callsign', kind: 'verbatim' },
+    { source: 'Status', output: 'status', kind: 'verbatim' },
+    // The source's own Product vocabulary ('Amateur Full Radio Licence' etc.),
+    // carried verbatim, never canonicalised; blank where the source asserts no
+    // product (a large minority of rows).
+    { source: 'Product', output: 'licence_class', kind: 'verbatim' },
+    // A record last-modified timestamp (not a licence issue date); day-first,
+    // never postdates the snapshot vintage.
+    { source: options.lastModifiedHeader, output: 'last_modified_date', kind: 'date' },
+  ];
+  if (options.createdDateHeader !== undefined) {
+    columns.push({ source: options.createdDateHeader, output: 'created_date', kind: 'date' });
+  }
+  return {
+    sourceFile: options.sourceFile,
+    encoding: 'utf8',
+    columns,
+    // 'Type' is 'Call Sign - Amateur' on every row - the product/service
+    // discriminator recorded in meta.json, not a per-row assertion.
+    ignoredColumns: ['Type'],
+    rowOrder: 'sorted-by-first-column',
+    orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, no clear date order); sorted by callsign for diffability and cross-snapshot comparability',
+    referenceDateIso: options.referenceDateIso,
   };
 }
 
@@ -685,8 +781,8 @@ export const FOI_EXTENSION_COLUMNS: Readonly<Record<string, FoiExtensionColumn>>
     families: ['callsign-observation', 'callsign-attributes'],
   },
   last_modified_date: {
-    definition: 'the suffix record\'s last-modified timestamp as disclosed in the forbidden-suffix export (a Salesforce object attribute), ISO-rendered with any time-of-day kept - the per-suffix provenance the earlier forbidden lists lack',
-    families: ['suffix-list'],
+    definition: 'the record\'s last-modified timestamp as disclosed (a Salesforce/Siebel object attribute), ISO-rendered with any time-of-day kept - per-suffix provenance in the forbidden-suffix export, and per-callsign provenance in the register snapshots that carry it',
+    families: ['suffix-list', 'callsign-observation'],
   },
   status: {
     definition: 'the licence status at disclosure, carried verbatim, when it accompanies event rows',

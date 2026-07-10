@@ -47,10 +47,27 @@ function utf8BomCrlf(lines: string[]): Buffer {
   return Buffer.from(BOM + lines.join('\r\n') + '\r\n', 'utf8');
 }
 
+// The July-2024 and March-2025 disclosure-log register CSVs are served WITHOUT
+// a byte-order mark (the October-2024 one carries a BOM); fixtures reproduce
+// each framing so the decode path matches the archived bytes.
+function utf8Crlf(lines: string[]): Buffer {
+  return Buffer.from(lines.join('\r\n') + '\r\n', 'utf8');
+}
+
 const sheet1 = conversionFor(WDTK_VARIANT, SHEET_1);
 const sheet2 = conversionFor(WDTK_VARIANT, SHEET_2);
 const register = conversionFor(OFCOM_VARIANT, REGISTER_20190912);
 const forbidden = conversionFor(OFCOM_VARIANT, FORBIDDEN);
+
+// The callsign+product+status disclosure-log register family (2024-2025): one
+// shared factory, three registrations differing only in header spelling (and
+// the March-2025 CreatedDate column).
+const JULY_2024_VARIANT = 'ofcom-2024-07-register';
+const OCT_2024_VARIANT = 'ofcom-2024-10-21-register';
+const MAR_2025_VARIANT = 'ofcom-2025-03-13-register';
+const july2024 = conversionFor(JULY_2024_VARIANT, 'call-signs.csv');
+const oct2024 = conversionFor(OCT_2024_VARIANT, 'copy-of-callsigns-21102024.csv');
+const mar2025 = conversionFor(MAR_2025_VARIANT, 'call-signs-13mar2025.csv');
 
 describe('FOI CSV normaliser - column mapping and row order', () => {
   it('FoiNormaliser_Sheet1Rows_MapToObservationSchemaSortedByCallsign', () => {
@@ -357,6 +374,110 @@ describe('FOI CSV normaliser - date handling', () => {
       'Call Sign,Status,Licence Class,Licence Issued Dat\r\n' +
       'G4IFJ,Allocated,Full,31/12/1899\r\n', 'latin1');
     expect(() => convertFoiSource(input, register)).toThrow(/1900/);
+  });
+});
+
+describe('FOI CSV normaliser - callsign+product+status register family', () => {
+  it('FoiNormaliser_July2024CallSignSpaceHeader_MapsToObservationSchema', () => {
+    // The July-2024 export spells the callsign column 'Call sign' (with a
+    // space) and the date column 'Call Sign MMSI: Last Modified Date'; the
+    // shared factory pins those exact spellings. Product becomes licence_class
+    // verbatim; the constant Type is not carried.
+    const input = utf8Crlf([
+      'Call sign,Product,Status,Type,Call Sign MMSI: Last Modified Date',
+      'M7WKP,Amateur Foundation Radio Licence,Allocated,Call Sign - Amateur,21/04/2024',
+      'G6KZH,,Reserved,Call Sign - Amateur,12/08/2016',
+    ]);
+    const result = convertFoiSource(input, july2024);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,last_modified_date\n' +
+      'G6KZH,Reserved,,2016-08-12\n' +
+      'M7WKP,Allocated,Amateur Foundation Radio Licence,2024-04-21\n');
+    expect(result.recordCount).toBe(2);
+    expect(result.schemaVersion).toBe(FOI_NORMALISED_SCHEMA_VERSION);
+  });
+
+  it('FoiNormaliser_October2024BomHeader_DecodedAndMappedByName', () => {
+    // The October-2024 export spells the column 'Callsign' (one word) and is
+    // served with a UTF-8 BOM; the BOM must be stripped and the header matched.
+    const input = utf8BomCrlf([
+      'Callsign,Product,Status,Type,Last Modified Date',
+      'M0IVB,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,21/04/2024',
+    ]);
+    const result = convertFoiSource(input, oct2024);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,last_modified_date\n' +
+      'M0IVB,Allocated,Amateur Full Radio Licence,2024-04-21\n');
+  });
+
+  it('FoiNormaliser_March2025Variant_CarriesCreatedDateColumn', () => {
+    // The March-2025 export uniquely adds a CreatedDate column, carried as the
+    // registered created_date extension alongside last_modified_date.
+    const input = utf8Crlf([
+      'Callsign,Product,Status,Type,LastModifiedDate,CreatedDate',
+      'M0IVB,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,21/04/2024,20/01/2019',
+    ]);
+    const result = convertFoiSource(input, mar2025);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,last_modified_date,created_date\n' +
+      'M0IVB,Allocated,Amateur Full Radio Licence,2024-04-21,2019-01-20\n');
+  });
+
+  it('FoiNormaliser_BlankProduct_PreservedAsEmptyLicenceClass', () => {
+    // Product is undisclosed for a large minority of rows (most Reserved and
+    // Available callsigns); the blank is data, preserved and counted.
+    const input = utf8Crlf([
+      'Call sign,Product,Status,Type,Call Sign MMSI: Last Modified Date',
+      'G6KZH,,Reserved,Call Sign - Amateur,12/08/2016',
+    ]);
+    const result = convertFoiSource(input, july2024);
+    expect(result.csv).toContain('G6KZH,Reserved,,2016-08-12');
+    expect(result.notes.blankCounts['licence_class']).toBe(1);
+  });
+
+  it('FoiNormaliser_UnexpectedStatus_CarriedVerbatim', () => {
+    // Status carries the source vocabulary verbatim - an unexpected value is
+    // preserved, never rejected or canonicalised (the source is the authority).
+    const input = utf8Crlf([
+      'Call sign,Product,Status,Type,Call Sign MMSI: Last Modified Date',
+      'M7ABC,Amateur Foundation Radio Licence,Suspended,Call Sign - Amateur,21/04/2024',
+    ]);
+    const result = convertFoiSource(input, july2024);
+    expect(result.csv).toContain('M7ABC,Suspended,Amateur Foundation Radio Licence,2024-04-21');
+  });
+
+  it('FoiNormaliser_ConstantTypeColumn_DroppedFromOutput', () => {
+    // 'Type' is 'Call Sign - Amateur' on every row - the service discriminator
+    // recorded in meta.json, required-present but not carried per row.
+    const input = utf8Crlf([
+      'Callsign,Product,Status,Type,LastModifiedDate,CreatedDate',
+      'M0IVB,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,21/04/2024,20/01/2019',
+    ]);
+    expect(convertFoiSource(input, mar2025).csv).not.toContain('Call Sign - Amateur');
+  });
+
+  it('FoiNormaliser_LastModifiedDateAfterVintage_ThrowsPlausibilityFailure', () => {
+    // A record last-modified date cannot postdate the snapshot vintage
+    // (2024-07-31 for the July-2024 entry's plausibility ceiling).
+    const input = utf8Crlf([
+      'Call sign,Product,Status,Type,Call Sign MMSI: Last Modified Date',
+      'M7WKP,Amateur Foundation Radio Licence,Allocated,Call Sign - Amateur,01/08/2024',
+    ]);
+    expect(() => convertFoiSource(input, july2024)).toThrow(/future/i);
+  });
+
+  it('FoiNormaliser_FamilyShufflesColumns_MapsByHeaderNameNotPosition', () => {
+    // Columns are identified by NAME across the whole family: a source reorder
+    // produces identical output.
+    const canonical = utf8Crlf([
+      'Callsign,Product,Status,Type,LastModifiedDate,CreatedDate',
+      'M0IVB,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,21/04/2024,20/01/2019',
+    ]);
+    const shuffled = utf8Crlf([
+      'CreatedDate,Type,Status,Callsign,LastModifiedDate,Product',
+      '20/01/2019,Call Sign - Amateur,Allocated,M0IVB,21/04/2024,Amateur Full Radio Licence',
+    ]);
+    expect(convertFoiSource(shuffled, mar2025).csv).toBe(convertFoiSource(canonical, mar2025).csv);
   });
 });
 
@@ -978,5 +1099,40 @@ describe('FOI archive golden master', () => {
     const results = expectEntryReproduced('ofcom-498906--reciprocal-licences-since-2010', 'ofcom-498906-reciprocal-events', [319]);
     expect(results[0].csv).toContain('M0GRT,reciprocal-licence-issued,2010-01-07');
     expect(results[0].csv.split('\n').filter(line => line.includes(' 23:00:00'))).toHaveLength(178);
+  });
+
+  // The callsign+product+status disclosure-log register family (2024-2025):
+  // one shared factory, three snapshots. Each must reproduce its committed
+  // normalised file byte-for-byte from the archived raw CSV.
+  it('FoiArchive_Ofcom202407Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('ofcom-2024-07--call-signs--all-callsigns', JULY_2024_VARIANT, [155346]);
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class,last_modified_date');
+    // Product (licence_class) is undisclosed for a large minority - blanks are data.
+    expect(results[0].notes.blankCounts['licence_class']).toBe(45001);
+    expect(results[0].notes.blankCounts['status']).toBe(11);
+    // Excel date-mangled callsigns are carried verbatim, never reconstructed.
+    expect(results[0].csv).toContain('\n21-Oct,Allocated,,2024-06-03\n');
+  });
+
+  it('FoiArchive_Ofcom20241021Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('ofcom-2024-10-21--callsigns--all-callsigns', OCT_2024_VARIANT, [156278]);
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class,last_modified_date');
+    expect(results[0].notes.blankCounts['licence_class']).toBe(45062);
+    expect(results[0].notes.blankCounts['status']).toBe(12);
+    // The trailing-non-breaking-space trio (G7IWE, G0TQK, 2E1HON) is trimmed
+    // and counted here, never silently.
+    expect(results[0].notes.nbspCellCount).toBe(3);
+    expect(results[0].notes.trimmedCellCount).toBe(3);
+  });
+
+  it('FoiArchive_Ofcom20250313Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('ofcom-2025-03-13--callsigns--all-callsigns', MAR_2025_VARIANT, [157227]);
+    // This snapshot uniquely carries created_date alongside last_modified_date.
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class,last_modified_date,created_date');
+    expect(results[0].notes.blankCounts['licence_class']).toBe(45149);
+    expect(results[0].notes.blankCounts['status']).toBe(14);
+    // The over-length reciprocal 'M/TKG 2021' (interior space, Temporary
+    // Reciprocal) survives verbatim.
+    expect(results[0].csv).toContain('M/TKG 2021,Available,Amateur Temporary Reciprocal Radio Licence');
   });
 });
