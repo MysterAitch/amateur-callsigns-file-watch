@@ -15,7 +15,8 @@
 // pages live three directories deep). The .png / ?v= hosting workarounds are
 // the same as app.js.
 
-import { COLUMNS, TOGGLES, PAGE_SIZES, buildPredicate, stateToViewParam, viewParamToState, applyViewToState, callsignCharMarker, resolvedCallsignCore } from './browser-query.js';
+import { COLUMNS, TOGGLES, PAGE_SIZES, buildPredicate, stateToViewParam, viewParamToState, applyViewToState, resolvedCallsignCore } from './browser-query.js';
+import { callsignPillRaw } from './callsign-pill.js';
 import { createHistorySync } from './history-sync.js';
 
 const { createDbWorker } = window;
@@ -46,19 +47,14 @@ function el(tag, attrs = {}, children = []) {
 }
 function codeCell(value) { const c = el('code'); c.textContent = value ?? ''; return c; }
 
-// A callsign rendered so every character is legible: plain visible glyphs
-// pass through, but any whitespace, control, format or replacement character
-// becomes a visible marker ({SP}, {NBSP}, {TAB}, {U+200B}, …). Used for EVERY
-// callsign cell, not just the raw≠cleaned view - a clean callsign renders
-// identically (all glyphs pass through), a damaged one stops hiding.
+// The raw callsign column: every character legible (whitespace, control,
+// format and replacement characters become visible {markers}) inside the shared
+// callsign-pill visual (issue #310). A non-link chip - the raw as-published
+// bytes are data to inspect, not a navigation target - so the browser's
+// transparency view is preserved while a callsign looks the same as everywhere
+// else on the site.
 function renderRawCallsign(raw) {
-  const span = el('code');
-  for (const ch of raw) {
-    const marker = callsignCharMarker(ch);
-    if (marker !== null) span.append(el('span', { class: 'marker', text: marker }));
-    else span.append(document.createTextNode(ch));
-  }
-  return span;
+  return callsignPillRaw(el, raw);
 }
 function describeDiff(raw, cleaned) {
   const notes = [];
