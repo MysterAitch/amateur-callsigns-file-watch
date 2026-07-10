@@ -29,8 +29,8 @@ not to this axis). A present-then-gone value is visible at a glance.
 ## Notable
 
 - **Status values with no canonical mapping decided**: `Live` (103,740), `Forbidden` (5,431), `Quarantine` (1). Seen but not reasoned about as register states - candidates for reconciliation or an FOI on the state vocabulary.
-- **Prefix series outside the reference table** (`reference-data/prefix-formats.csv`): `M2` (14). A supposed-to-be-empty prefix that is not empty (e.g. `M2`) is exactly the kind of surprise this catalogue exists to flag.
-- **Licence product/class vocabulary drift**: 11 distinct variants across the corpus (7 appear in both lanes). The same class is written differently by source (e.g. `Full` vs `Amateur Full Radio Licence`) - these are passed through VERBATIM today (source fidelity), so this is the explicit, counted list of canonicalisation candidates.
+- **Prefix series outside the reference table** (`reference-data/prefix-formats.csv`): `GB` (3,935), `M2` (16). A supposed-to-be-empty prefix that is not empty (e.g. `M2`) is exactly the kind of surprise this catalogue exists to flag.
+- **Licence product/class vocabulary drift**: 16 distinct variants across the corpus (7 appear in both lanes). The same class is written differently by source (e.g. `Full` vs `Amateur Full Radio Licence`) - these are passed through VERBATIM today (source fidelity), so this is the explicit, counted list of canonicalisation candidates.
 
 ## Normalised licence category
 
@@ -45,15 +45,17 @@ the raw per-variant figures would double-count and mislead.
 
 | normalised category | records | callsigns | allocated | folds in |
 |---|---:|---:|---:|---|
-| `Full` | 1,062,774 | 98,737 | 59,472 | `Amateur Full Radio Licence` (856,947), `Full` (205,827) |
-| `Foundation` | 603,017 | 47,337 | 37,885 | `Amateur Foundation Radio Licence` (512,397), `Foundation` (90,620) |
-| `Intermediate` | 303,764 | 24,040 | 15,165 | `Amateur Intermediate Radio Licence` (241,384), `Intermediate` (62,380) |
-| `Club` | 26,017 | 2,444 | 2,138 | `Amateur Club Radio Licence` (26,017) |
-| `Temporary Reciprocal` | 1,050 | 125 | 78 | `Amateur Temporary Reciprocal Radio Licence` (1,050) |
+| `Full` | 1,180,755 | 98,737 | 59,472 | `Amateur Full Radio Licence` (974,928), `Full` (205,827) |
+| `Foundation` | 673,872 | 47,338 | 37,887 | `Amateur Foundation Radio Licence` (583,252), `Foundation` (90,620) |
+| `Intermediate` | 331,895 | 24,040 | 15,165 | `Amateur Intermediate Radio Licence` (269,515), `Intermediate` (62,380) |
+| `Club` | 29,730 | 2,444 | 2,138 | `Amateur Club Radio Licence` (29,730) |
+| `Special Event` | 1,331 | 1,316 | 54 | `Special Event Station` (1,331) |
+| `Temporary Reciprocal` | 1,154 | 125 | 78 | `Amateur Temporary Reciprocal Radio Licence` (1,154) |
 | `Full Reciprocal` | 15 | 15 | 0 | `Amateur Full (Reciprocal) Radio Licence` (15) |
-| `Special Event` | 10 | 5 | 4 | `Special Event Station` (10) |
 
-`(blank)` (1,048,649 records, 162,939 callsigns, 108,732 allocated) is not a category - the source asserted no product; it is left as-is.
+`(blank)` (1,138,672 records, 163,126 callsigns, 108,736 allocated) is not a category - the source asserted no product; it is left as-is.
+
+⚠ **Unmapped non-blank variants** (no category decided - add a row to `reference-data/licence-category.csv`): `NoV Special Event Station` (2,256), `NoV Special Special Event Station` (143), `Perm Special Event Station` (32), `NoV Permanent Special Event Station` (21), `Special Research Permit` (1).
 
 ## Normalisation fidelity (raw → normalised)
 
@@ -81,87 +83,96 @@ routine figure.
 
 | value | records | callsigns | allocated | sources | timeline | lanes |
 |---|---:|---:|---:|---:|---|---|
-| `Allocated` | 1,873,633 | 114,918 | — | 21 | ███▁█▁█ | foi, open-data |
-| `Reserved` | 848,447 | 59,277 | — | 21 | ███▁▂▁█ | foi, open-data |
-| `Available` | 213,862 | 27,421 | — | 30 | ▆▆▇▁▄▁█ | foi, open-data |
+| `Allocated` | 2,079,787 | 115,120 | — | 23 | ███▁█▁█ | foi, open-data |
+| `Reserved` | 953,580 | 60,377 | — | 23 | ███▁▂▁█ | foi, open-data |
+| `Available` | 217,141 | 30,082 | — | 32 | ▆▆▇▁▄▁█ | foi, open-data |
 | `Live` | 103,740 | 103,506 | — | 2 | ······· | foi |
 | `Forbidden` | 5,431 | 5,431 | — | 1 | ······· | foi |
-| `(blank)` | 182 | 29 | — | 17 | ▇▆█·█·· | foi, open-data |
+| `(blank)` | 197 | 30 | — | 19 | ▇▆█·█·· | foi, open-data |
 | `Quarantine` | 1 | 1 | — | 1 | ······· | foi |
 
-## `product / licence_class` — 11 distinct
+## `product / licence_class` — 16 distinct
 
 | value | records | callsigns | allocated | sources | timeline | lanes |
 |---|---:|---:|---:|---:|---|---|
-| `(blank)` | 1,048,649 | 162,939 | 108,732 | 14 | █▃▃···▃ | foi, open-data |
-| `Amateur Full Radio Licence` | 856,947 | 69,379 | 57,954 | 23 | ·██▁█▁█ | foi, open-data |
-| `Amateur Foundation Radio Licence` | 512,397 | 43,159 | 37,866 | 22 | ·▇█▁█▁█ | foi, open-data |
-| `Amateur Intermediate Radio Licence` | 241,384 | 19,471 | 15,152 | 22 | ·▇▇▁▇▁█ | foi, open-data |
+| `(blank)` | 1,138,672 | 163,126 | 108,736 | 16 | █▃▃···▃ | foi, open-data |
+| `Amateur Full Radio Licence` | 974,928 | 69,380 | 57,955 | 25 | ·██▁█▁█ | foi, open-data |
+| `Amateur Foundation Radio Licence` | 583,252 | 43,160 | 37,868 | 24 | ·▇█▁█▁█ | foi, open-data |
+| `Amateur Intermediate Radio Licence` | 269,515 | 19,471 | 15,152 | 24 | ·▇▇▁▇▁█ | foi, open-data |
 | `Full` | 205,827 | 96,949 | 54,584 | 5 | ······· | foi |
 | `Foundation` | 90,620 | 34,869 | 25,304 | 5 | ······· | foi |
 | `Intermediate` | 62,380 | 22,916 | 11,050 | 5 | ······· | foi |
-| `Amateur Club Radio Licence` | 26,017 | 2,444 | 2,138 | 17 | ·▇▇▁▇▁█ | foi, open-data |
-| `Amateur Temporary Reciprocal Radio Licence` | 1,050 | 125 | 78 | 15 | ·▆█▁█▁▇ | foi, open-data |
+| `Amateur Club Radio Licence` | 29,730 | 2,444 | 2,138 | 19 | ·▇▇▁▇▁█ | foi, open-data |
+| `NoV Special Event Station` | 2,256 | 2,256 | 123 | 1 | ······· | foi |
+| `Special Event Station` | 1,331 | 1,316 | 54 | 5 | ·▃█···· | foi, open-data |
+| `Amateur Temporary Reciprocal Radio Licence` | 1,154 | 125 | 78 | 17 | ·▆█▁█▁▇ | foi, open-data |
+| `NoV Special Special Event Station` | 143 | 143 | 7 | 1 | ······· | foi |
+| `Perm Special Event Station` | 32 | 32 | 10 | 1 | ······· | foi |
+| `NoV Permanent Special Event Station` | 21 | 21 | 8 | 1 | ······· | foi |
 | `Amateur Full (Reciprocal) Radio Licence` | 15 | 15 | 0 | 1 | ······· | foi |
-| `Special Event Station` | 10 | 5 | 4 | 3 | ·▃█···· | foi, open-data |
+| `Special Research Permit` | 1 | 1 | 1 | 1 | ······· | foi |
 
 ## `implied_class` — 4 distinct
 
 | value | records | callsigns | allocated | sources | timeline | lanes |
 |---|---:|---:|---:|---:|---|---|
-| `Full` | 1,792,756 | 101,365 | 60,762 | 34 | ███▁▆▁█ | foi, open-data |
-| `Foundation` | 817,196 | 48,859 | 37,967 | 30 | ▇▇█▁▇▁█ | foi, open-data |
-| `Intermediate` | 434,463 | 25,647 | 16,083 | 30 | ▇▇█▁▆▁█ | foi, open-data |
-| `(blank)` | 1,732 | 181 | 106 | 25 | ▆▆█▁▇▁▆ | foi, open-data |
+| `Full` | 1,980,496 | 101,369 | 60,762 | 36 | ███▁▆▁█ | foi, open-data |
+| `Foundation` | 900,649 | 48,859 | 37,968 | 32 | ▇▇█▁▇▁█ | foi, open-data |
+| `Intermediate` | 473,741 | 25,647 | 16,083 | 32 | ▇▇█▁▆▁█ | foi, open-data |
+| `(blank)` | 5,842 | 4,125 | 307 | 27 | ▆▆█▁▇▁▆ | foi, open-data |
 
-## `parse_status` — 4 distinct
-
-| value | records | callsigns | allocated | sources | timeline | lanes |
-|---|---:|---:|---:|---:|---|---|
-| `parsed` | 3,044,429 | 175,872 | 114,812 | 34 | ███▁▆▁█ | foi, open-data |
-| `visitor` | 1,365 | 125 | 78 | 19 | ▅▆█▁█▁▇ | foi, open-data |
-| `unparseable` | 332 | 55 | 28 | 23 | ▇▇█·▃·▃ | foi, open-data |
-| `empty` | 21 | 0 | 0 | 11 | █▃····· | foi, open-data |
-
-## `prefix_series` — 21 distinct
+## `parse_status` — 5 distinct
 
 | value | records | callsigns | allocated | sources | timeline | lanes |
 |---|---:|---:|---:|---:|---|---|
-| `M6` | 352,901 | 17,581 | 14,258 | 28 | ███·█·█ | foi, open-data |
-| `20` | 327,350 | 17,582 | 12,508 | 30 | ███▁▇▁█ | foi, open-data |
-| `M3` | 309,019 | 17,498 | 10,136 | 19 | ███·▅·█ | foi, open-data |
-| `M0` | 303,116 | 17,585 | 10,797 | 32 | ███▁▇▁█ | foi, open-data |
-| `G0` | 263,063 | 14,270 | 9,058 | 25 | ███·▆·█ | foi, open-data |
-| `G4` | 262,787 | 14,367 | 9,690 | 28 | ███▁▆▁█ | foi, open-data |
-| `G7` | 227,953 | 12,846 | 6,172 | 22 | ███▁▄▁█ | foi, open-data |
-| `G3` | 167,025 | 9,566 | 5,247 | 23 | ███·▅·█ | foi, open-data |
-| `G1` | 166,827 | 9,537 | 5,337 | 25 | ███▁▅▁█ | foi, open-data |
-| `M7` | 155,276 | 13,780 | 13,573 | 19 | ▅▅▇▁▇▁█ | foi, open-data |
-| `G6` | 153,338 | 8,631 | 5,379 | 28 | ███▁▅▁█ | foi, open-data |
-| `G8` | 138,878 | 7,747 | 5,316 | 25 | ███▁▆▁█ | foi, open-data |
-| `21` | 105,311 | 6,263 | 1,802 | 26 | ███▁▃▁█ | foi, open-data |
-| `M1` | 80,692 | 4,589 | 2,494 | 20 | ███·▅·█ | foi, open-data |
-| `M5` | 14,375 | 923 | 445 | 20 | ▇▇█·▃·█ | foi, open-data |
-| `G2` | 10,422 | 667 | 274 | 22 | ███·▄·█ | foi, open-data |
-| `G5` | 4,280 | 637 | 553 | 23 | ▄▄▅·▂·█ | foi, open-data |
-| `(blank)` | 1,718 | 180 | 106 | 25 | ▆▆█▁▇▁▆ | foi, open-data |
+| `parsed` | 3,354,902 | 175,876 | 114,813 | 36 | ███▁▆▁█ | foi, open-data |
+| `special-event` | 3,935 | 3,934 | 201 | 1 | ······· | foi |
+| `visitor` | 1,469 | 125 | 78 | 21 | ▅▆█▁█▁▇ | foi, open-data |
+| `unparseable` | 399 | 65 | 28 | 25 | ▇▇█·▃·▃ | foi, open-data |
+| `empty` | 23 | 0 | 0 | 12 | █▃····· | foi, open-data |
+
+## `prefix_series` — 22 distinct
+
+| value | records | callsigns | allocated | sources | timeline | lanes |
+|---|---:|---:|---:|---:|---|---|
+| `M6` | 382,337 | 17,581 | 14,258 | 30 | ███·█·█ | foi, open-data |
+| `20` | 354,257 | 17,582 | 12,508 | 32 | ███▁▇▁█ | foi, open-data |
+| `M3` | 342,398 | 17,498 | 10,136 | 21 | ███·▅·█ | foi, open-data |
+| `M0` | 328,590 | 17,585 | 10,797 | 34 | ███▁▇▁█ | foi, open-data |
+| `G0` | 291,350 | 14,270 | 9,058 | 27 | ███·▆·█ | foi, open-data |
+| `G4` | 290,777 | 14,367 | 9,690 | 30 | ███▁▆▁█ | foi, open-data |
+| `G7` | 253,487 | 12,846 | 6,172 | 24 | ███▁▄▁█ | foi, open-data |
+| `G3` | 185,218 | 9,566 | 5,247 | 25 | ███·▅·█ | foi, open-data |
+| `G1` | 185,162 | 9,538 | 5,337 | 27 | ███▁▅▁█ | foi, open-data |
+| `M7` | 175,914 | 13,780 | 13,574 | 21 | ▅▅▇▁▇▁█ | foi, open-data |
+| `G6` | 170,006 | 8,631 | 5,379 | 30 | ███▁▅▁█ | foi, open-data |
+| `G8` | 153,757 | 7,748 | 5,316 | 27 | ███▁▆▁█ | foi, open-data |
+| `21` | 117,682 | 6,263 | 1,802 | 28 | ███▁▃▁█ | foi, open-data |
+| `M1` | 89,624 | 4,589 | 2,494 | 22 | ███·▅·█ | foi, open-data |
+| `M5` | 16,050 | 924 | 445 | 22 | ▇▇█·▃·█ | foi, open-data |
+| `G2` | 11,619 | 668 | 274 | 24 | ███·▄·█ | foi, open-data |
+| `G5` | 4,856 | 637 | 553 | 25 | ▄▄▅·▂·█ | foi, open-data |
+| `GB` | 3,935 | 3,934 | 201 | 1 | ······· | foi |
+| `(blank)` | 1,891 | 190 | 106 | 27 | ▆▆█▁▇▁▆ | foi, open-data |
 | `M9` | 951 | 951 | 933 | 1 | ······█ | open-data |
 | `M8` | 851 | 851 | 840 | 1 | ······█ | open-data |
-| `M2` | 14 | 1 | 0 | 14 | ███···█ | foi, open-data |
+| `M2` | 16 | 1 | 0 | 16 | ███···█ | foi, open-data |
 
-## `flags` — 12 distinct
+## `flags` — 14 distinct
 
 | value | records | callsigns | allocated | sources | timeline | lanes |
 |---|---:|---:|---:|---:|---|---|
-| `forbidden-suffix` | 81,170 | 8,569 | 2,976 | 32 | ███▁█▁▇ | foi, open-data |
-| `rsl-in-register` | 404 | 24 | 21 | 21 | ███▁█▁█ | foi, open-data |
-| `lowercase` | 130 | 19 | 15 | 19 | ███·▁·▁ | foi, open-data |
-| `class-product-mismatch` | 110 | 29 | 25 | 14 | ·▂▂·▂·█ | foi, open-data |
-| `malformed-home-callsign` | 110 | 10 | 5 | 18 | ▆▆█▁█▁▆ | foi, open-data |
+| `forbidden-suffix` | 87,495 | 8,569 | 2,976 | 34 | ███▁█▁▇ | foi, open-data |
+| `rsl-in-register` | 430 | 27 | 21 | 22 | ███▁█▁█ | foi, open-data |
+| `lowercase` | 163 | 19 | 15 | 21 | ███·▁·▁ | foi, open-data |
+| `excel-date-shape` | 122 | 16 | 13 | 9 | ███···· | foi, open-data |
+| `malformed-home-callsign` | 120 | 10 | 5 | 20 | ▆▆█▁█▁▆ | foi, open-data |
+| `class-product-mismatch` | 116 | 29 | 25 | 16 | ·▂▂·▂·█ | foi, open-data |
 | `forbidden-suffix-issued-after-first-known-list` | 106 | 106 | 106 | 1 | ······█ | open-data |
-| `excel-date-shape` | 92 | 16 | 13 | 7 | ███···· | foi, open-data |
-| `hash-in-register` | 40 | 3 | 2 | 14 | ███·█·█ | foi, open-data |
-| `whitespace` | 28 | 6 | 4 | 19 | ▁▁▃·▃·█ | foi, open-data |
+| `hash-in-register` | 43 | 3 | 2 | 15 | ███·█·█ | foi, open-data |
+| `whitespace` | 32 | 8 | 4 | 20 | ▁▁▃·▃·█ | foi, open-data |
 | `encoding-failure` | 21 | 3 | 3 | 8 | ███·▅·· | foi, open-data |
 | `stripped-collision` | 17 | 6 | 4 | 5 | ███·▁·█ | open-data |
-| `unknown-prefix-series` | 14 | 1 | 0 | 14 | ███···█ | foi, open-data |
+| `unknown-prefix-series` | 16 | 1 | 0 | 16 | ███···█ | foi, open-data |
+| `unknown-rsl` | 2 | 2 | 0 | 1 | ······· | foi |
+| `suffix-length-abnormal` | 1 | 1 | 0 | 1 | ······· | foi |

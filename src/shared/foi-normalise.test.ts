@@ -673,6 +673,196 @@ describe('FOI CSV normaliser - 2021 dated register annexes', () => {
   });
 });
 
+// The April 2024 Salesforce object export (ofcom-2024-04-30): header
+// Value__c,Product__c,Status__c,Type__c - the '__c' custom-field suffix. The
+// same callsign-observation core as the other register snapshots (Product
+// maps to licence_class, the constant Type__c is dropped), decoded latin-1
+// for its lone raw-NBSP byte, with no date column.
+const SF_VARIANT = 'ofcom-2024-04-30-register';
+const sfRegister = conversionFor(SF_VARIANT, 'copy-all-callsigns-30-apr-24.csv');
+const SF_HEADER = 'Value__c,Product__c,Status__c,Type__c';
+
+// latin-1 CRLF framing (no BOM), matching the published April 2024 bytes.
+function sfBytes(rows: string[]): Buffer {
+  return Buffer.from(rows.join('\r\n') + '\r\n', 'latin1');
+}
+
+describe('FOI CSV normaliser - Salesforce __c register shape (2024-04)', () => {
+  it('FoiNormaliser_SalesforceCcHeader_MapsToObservationSchemaSortedByCallsign', () => {
+    const input = sfBytes([
+      SF_HEADER,
+      'M0IVB,Amateur Full Radio Licence,Allocated,Call Sign - Amateur',
+      '20RLT,Amateur Intermediate Radio Licence,Allocated,Call Sign - Amateur',
+    ]);
+    const result = convertFoiSource(input, sfRegister);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class\n' +
+      '20RLT,Allocated,Amateur Intermediate Radio Licence\n' +
+      'M0IVB,Allocated,Amateur Full Radio Licence\n');
+    expect(result.recordCount).toBe(2);
+    expect(result.schemaVersion).toBe(FOI_NORMALISED_SCHEMA_VERSION);
+  });
+
+  it('FoiNormaliser_SalesforceCcTypeColumn_DroppedFromOutput', () => {
+    // Type__c is 'Call Sign - Amateur' across the whole export - a constant
+    // service discriminator recorded in meta.json, not a per-row assertion.
+    const input = sfBytes([SF_HEADER, 'M0IVB,Amateur Full Radio Licence,Allocated,Call Sign - Amateur']);
+    expect(convertFoiSource(input, sfRegister).csv).not.toContain('Call Sign - Amateur');
+  });
+
+  it('FoiNormaliser_SalesforceCcBlankProduct_PreservesEmptyLicenceClass', () => {
+    // The reserved pool carries a blank Product__c - the source asserts no
+    // product, so licence_class is emptied, never backfilled.
+    const input = sfBytes([SF_HEADER, 'W4WNZ,,Reserved,Call Sign - Amateur']);
+    const result = convertFoiSource(input, sfRegister);
+    expect(result.csv).toContain('W4WNZ,Reserved,\n');
+    expect(result.notes.blankCounts['licence_class']).toBe(1);
+  });
+
+  it('FoiNormaliser_SalesforceCcRawLatin1Nbsp_DecodesAndTrimsAndCounts', () => {
+    // The published file's single high byte is a lone 0xA0 (latin-1 NBSP)
+    // trailing the 'G7IWE' callsign - decoding must go through latin1 or it
+    // gains a U+FFFD; the trim is the sole canonicalisation and is counted.
+    const input = Buffer.concat([
+      Buffer.from(SF_HEADER + '\r\nG7IWE', 'latin1'),
+      Buffer.from([0xa0]),
+      Buffer.from(',Amateur Full Radio Licence,Allocated,Call Sign - Amateur\r\n', 'latin1'),
+    ]);
+    const result = convertFoiSource(input, sfRegister);
+    expect(result.csv).toContain('G7IWE,Allocated');
+    expect(result.csv).not.toContain('�');
+    expect(result.notes.nbspCellCount).toBe(1);
+    expect(result.notes.trimmedCellCount).toBe(1);
+  });
+
+  it('FoiNormaliser_SalesforceCcExcelMangledCallsign_CarriedVerbatim', () => {
+    // Intermediate 20xxx callsigns whose suffix reads as a month are served AS
+    // dates (20APR -> 20-Apr); carried verbatim, never repaired to a suffix.
+    const input = sfBytes([SF_HEADER, '20-Apr,Amateur Intermediate Radio Licence,Allocated,Call Sign - Amateur']);
+    expect(convertFoiSource(input, sfRegister).csv).toContain('20-Apr,Allocated,');
+  });
+
+  it('FoiNormaliser_SalesforceCcOverLengthCallsign_PassesThroughUnfiltered', () => {
+    // 'EDUCATIONAL' (11 chars) and 'ENVIRONMENTS' (12) are real over-length
+    // allocations; the normaliser never filters by callsign shape.
+    const input = sfBytes([
+      SF_HEADER,
+      'EDUCATIONAL,Special Event Station,Allocated,Call Sign - Amateur',
+      'ENVIRONMENTS,Special Event Station,Allocated,Call Sign - Amateur',
+    ]);
+    const result = convertFoiSource(input, sfRegister);
+    expect(result.csv).toContain('EDUCATIONAL,Allocated');
+    expect(result.csv).toContain('ENVIRONMENTS,Allocated');
+  });
+});
+
+// The September 2024 snapshot (ofcom-2024-09): the widest register shape,
+// header Created Date,Product,Reserved to Date,Status,Type,Value. Uniquely,
+// Type is NOT constant (Call Sign - Amateur AND Call Sign - NoV) and is not
+// derivable from Product, so it is carried verbatim as call_sign_type; both
+// date columns are day-first (Created Date bounded, Reserved to Date a
+// future-allowed expiry).
+const SEP_VARIANT = 'ofcom-2024-09-register';
+const sepRegister = conversionFor(SEP_VARIANT, 'every-radio-callsign-spreadsheet.csv');
+const SEP_HEADER = 'Created Date,Product,Reserved to Date,Status,Type,Value';
+
+// UTF-8 with BOM, CRLF - the published September 2024 framing.
+function sepBytes(rows: string[]): Buffer {
+  return Buffer.from(BOM + rows.join('\r\n') + '\r\n', 'utf8');
+}
+
+describe('FOI CSV normaliser - widest register shape with varying Type (2024-09)', () => {
+  it('FoiNormaliser_SeptemberRows_MapToObservationSchemaWithDatesSortedByCallsign', () => {
+    const input = sepBytes([
+      SEP_HEADER,
+      '10/04/2024 15:28,Amateur Full Radio Licence,,Allocated,Call Sign - Amateur,M0IVB',
+      '24/07/2016 18:22,Amateur Intermediate Radio Licence,,Reserved,Call Sign - Amateur,20AAA',
+    ]);
+    const result = convertFoiSource(input, sepRegister);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,call_sign_type,created_date,reserved_to_date\n' +
+      '20AAA,Reserved,Amateur Intermediate Radio Licence,Call Sign - Amateur,2016-07-24 18:22,\n' +
+      'M0IVB,Allocated,Amateur Full Radio Licence,Call Sign - Amateur,2024-04-10 15:28,\n');
+    expect(result.recordCount).toBe(2);
+  });
+
+  it('FoiNormaliser_SeptemberVaryingType_CarriesNoVDistinctionVerbatim', () => {
+    // Type is not constant here and is not derivable from Product (the
+    // 'Special Event Station' product appears under both Amateur and NoV), so
+    // dropping it would erase the Notice-of-Variation distinction.
+    const input = sepBytes([
+      SEP_HEADER,
+      '01/06/2023 09:00,Special Event Station,,Allocated,Call Sign - NoV,GB100XYZ',
+      '01/06/2023 09:00,Special Event Station,,Allocated,Call Sign - Amateur,GB4ABC',
+    ]);
+    const result = convertFoiSource(input, sepRegister);
+    expect(result.csv).toContain('GB100XYZ,Allocated,Special Event Station,Call Sign - NoV,');
+    expect(result.csv).toContain('GB4ABC,Allocated,Special Event Station,Call Sign - Amateur,');
+  });
+
+  it('FoiNormaliser_SeptemberReservedToDateInFuture_Accepted', () => {
+    // Reserved to Date is a reservation EXPIRY; the 2099 "permanent"
+    // placeholder legitimately postdates the vintage.
+    const input = sepBytes([
+      SEP_HEADER,
+      '24/07/2016 18:22,Amateur Intermediate Radio Licence,31/12/2099,Reserved,Call Sign - Amateur,20AAA',
+    ]);
+    expect(convertFoiSource(input, sepRegister).csv).toContain(',2016-07-24 18:22,2099-12-31\n');
+  });
+
+  it('FoiNormaliser_SeptemberCreatedDateAfterVintage_ThrowsPlausibilityFailure', () => {
+    // The record-creation date cannot postdate the snapshot vintage (bounded
+    // by the disclosure-month ceiling 2024-09-30).
+    const input = sepBytes([
+      SEP_HEADER,
+      '01/10/2024 00:00,Amateur Full Radio Licence,,Allocated,Call Sign - Amateur,M0ZZZ',
+    ]);
+    expect(() => convertFoiSource(input, sepRegister)).toThrow(/future/i);
+  });
+
+  it('FoiNormaliser_SeptemberDotAndBlankCallsigns_PreservedAsData', () => {
+    // The source asserts a callsign of a single '.' and, separately, an empty
+    // Value; both are data, never dropped, and sort first (codepoint order).
+    const input = sepBytes([
+      SEP_HEADER,
+      '10/04/2024 15:28,Amateur Foundation Radio Licence,,Allocated,Call Sign - Amateur,.',
+      '11/05/2022 10:53,,,Available,Call Sign - Amateur,',
+      '24/07/2016 18:22,Amateur Intermediate Radio Licence,,Reserved,Call Sign - Amateur,20AAA',
+    ]);
+    const result = convertFoiSource(input, sepRegister);
+    expect(result.csv.startsWith(
+      'callsign,status,licence_class,call_sign_type,created_date,reserved_to_date\n' +
+      ',Available,,Call Sign - Amateur,2022-05-11 10:53,\n' +
+      '.,Allocated,Amateur Foundation Radio Licence,Call Sign - Amateur,2024-04-10 15:28,\n')).toBe(true);
+    expect(result.notes.blankCounts['callsign']).toBe(1);
+  });
+
+  it('FoiNormaliser_SeptemberTrailingNbspCallsign_TrimmedAndCounted', () => {
+    // The NBSP quartet (2E1HON/G0TQK/G7IWE/GB2DWM) carries a trailing UTF-8
+    // non-breaking space; the trim is the sole canonicalisation and counted.
+    const input = sepBytes([
+      SEP_HEADER,
+      `12/02/2018 13:37,Amateur Full Radio Licence,,Allocated,Call Sign - Amateur,G0TQK${NBSP}`,
+    ]);
+    const result = convertFoiSource(input, sepRegister);
+    expect(result.csv).toContain('G0TQK,Allocated');
+    expect(result.notes.nbspCellCount).toBe(1);
+    expect(result.notes.trimmedCellCount).toBe(1);
+  });
+
+  it('FoiNormaliser_SeptemberInteriorSpaceCallsign_KeptIntact', () => {
+    // 'GB GU75LIB' and 'G6 FMU' carry interior spaces - part of the assertion,
+    // never trimmed away.
+    const input = sepBytes([
+      SEP_HEADER,
+      '01/06/2023 09:00,Special Event Station,,Allocated,Call Sign - NoV,GB GU75LIB',
+    ]);
+    const result = convertFoiSource(input, sepRegister);
+    expect(result.csv).toContain('GB GU75LIB,Allocated');
+    expect(result.notes.trimmedCellCount).toBe(0);
+  });
+});
+
 describe('FOI CSV normaliser - output naming', () => {
   it('SlugifyBasename_MixedCaseSpacesAndExtension_ProducesHyphenatedLowerCaseSlug', () => {
     expect(slugifyBasename('FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 1.csv'))
@@ -1388,5 +1578,43 @@ describe('FOI archive golden master', () => {
     expect(results[0].notes.nbspCellCount).toBe(3);
     expect(results[0].csv.startsWith('callsign,status,licence_class,reserved_to_date,original_start_date\n,Reserved,,,\n",,",Reserved,,,\n')).toBe(true);
     expect(results[0].csv).toContain(',2023-04-19,');
+  });
+
+  it('FoiArchive_Ofcom20240430Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('ofcom-2024-04-30--copy-all-callsigns--all-callsigns', 'ofcom-2024-04-30-register', [154582]);
+    // The Salesforce __c export keeps the callsign-observation core; Type__c
+    // is dropped, Product__c becomes licence_class.
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class');
+    // The reserved pool carries a blank Product__c (44,777 blank classes); a
+    // single blank status is data, on the record.
+    expect(results[0].notes.blankCounts['licence_class']).toBe(44777);
+    expect(results[0].notes.blankCounts['status']).toBe(1);
+    // A single latin-1 raw-NBSP callsign (G7IWE) is decoded, trimmed, counted.
+    expect(results[0].notes.nbspCellCount).toBe(1);
+    // Excel date-mangling and the over-length educational allocations survive.
+    expect(results[0].csv).toContain('20-Apr,Allocated');
+    expect(results[0].csv).toContain('EDUCATIONAL,Allocated');
+    expect(results[0].csv).toContain('ENVIRONMENTS,Allocated');
+  });
+
+  it('FoiArchive_Ofcom202409Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('ofcom-2024-09--every-radio-callsign--all-callsigns', 'ofcom-2024-09-register', [159999]);
+    // The widest register shape keeps the varying Type as call_sign_type.
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class,call_sign_type,created_date,reserved_to_date');
+    // Type varies here (unique among register snapshots): the NoV callsigns
+    // are carried, not dropped.
+    expect(results[0].csv.split('\n').filter(line => line.includes(',Call Sign - NoV,'))).toHaveLength(3951);
+    // The reserved pool (45,246 blank classes) and 14 blank statuses are data.
+    expect(results[0].notes.blankCounts['licence_class']).toBe(45246);
+    expect(results[0].notes.blankCounts['status']).toBe(14);
+    // Two blank callsigns and the trailing-NBSP quartet are preserved/trimmed.
+    expect(results[0].notes.blankCounts['callsign']).toBe(2);
+    expect(results[0].notes.nbspCellCount).toBe(4);
+    // The '.' callsign and the mangled numeric 22032024 survive verbatim.
+    expect(results[0].csv).toContain('\n.,Allocated,');
+    expect(results[0].csv).toContain('22032024,');
+    // Interior-space callsign kept; both date columns day-first verified.
+    expect(results[0].csv).toContain('GB GU75LIB,');
+    expect(results[0].notes.unverifiedDateColumns).toEqual([]);
   });
 });

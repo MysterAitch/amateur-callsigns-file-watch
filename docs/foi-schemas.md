@@ -49,6 +49,7 @@ a header.
 | `created_date` | `callsign-observation` | the licensing-system record creation timestamp, ISO-rendered (time kept where the source carries one) |
 | `original_start_date` | `callsign-observation`, `callsign-attributes` | the licence's original start date as disclosed, ISO-rendered; per-source semantics caveats live in the entry meta |
 | `last_modified_date` | `suffix-list`, `callsign-observation` | the record's last-modified timestamp as disclosed in a Salesforce-era export, ISO-rendered with any time-of-day kept: per-suffix provenance in the forbidden-suffix list, per-callsign provenance in the 2023-24 register snapshots - in both cases the dated provenance the earlier exports lack |
+| `call_sign_type` | `callsign-observation` | the call-sign service/type discriminator carried verbatim ("Call Sign - Amateur" / "Call Sign - NoV"), kept only where a snapshot asserts more than one value so the Notice-of-Variation special-event/permit callsigns stay distinguishable from ordinary amateur ones (elsewhere the constant Type is a discriminator recorded in meta, not carried) |
 | `status` | `issuance-events` | the licence status at disclosure, carried verbatim, when it accompanies event rows |
 | `licence_class` | `issuance-events` | the licence product/class vocabulary carried verbatim, when it accompanies event rows |
 | `reason` | `issuance-events` | the source's stated reason for the event, verbatim |
@@ -80,7 +81,9 @@ fail the conversion.
 | `ofcom-2023-11-24-register` | `ofcom-2023-11-24--call-sign-list--all-callsigns` |
 | `ofcom-2023-12-07-register` | `ofcom-2023-12-07--open-data-call-sign-list--all-callsigns` |
 | `ofcom-2024-01-register` | `ofcom-2024-01--foi-1734722--all-callsigns` |
+| `ofcom-2024-04-30-register` | `ofcom-2024-04-30--copy-all-callsigns--all-callsigns` |
 | `ofcom-2024-07-register` | `ofcom-2024-07--call-signs--all-callsigns` |
+| `ofcom-2024-09-register` | `ofcom-2024-09--every-radio-callsign--all-callsigns` |
 | `ofcom-2024-10-21-register` | `ofcom-2024-10-21--callsigns--all-callsigns` |
 | `ofcom-2024-12-forbidden-suffixes` | `ofcom-2024-12--forbidden-suffixes` |
 | `ofcom-2025-03-13-register` | `ofcom-2025-03-13--callsigns--all-callsigns` |
@@ -329,6 +332,20 @@ Row order: **sorted-by-first-column** — source rows arrive grouped (reserved b
 
 Date plausibility bound: 2024-01-31.
 
+### `ofcom-2024-04-30-register`
+
+**`copy-all-callsigns-30-apr-24.csv`** (csv, latin1)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value__c` | verbatim |
+| `status` | `Status__c` | verbatim |
+| `licence_class` | `Product__c` | verbatim |
+
+Required-present but not carried: `Type__c`.
+
+Row order: **sorted-by-first-column** — source rows arrive grouped but carry no globally meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability.
+
 ### `ofcom-2024-07-register`
 
 **`call-signs.csv`** (csv, utf8)
@@ -345,6 +362,23 @@ Required-present but not carried: `Type`.
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, no clear date order); sorted by callsign for diffability and cross-snapshot comparability.
 
 Date plausibility bound: 2024-07-31.
+
+### `ofcom-2024-09-register`
+
+**`every-radio-callsign-spreadsheet.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | `Product` | verbatim |
+| `call_sign_type` | `Type` | verbatim |
+| `created_date` | `Created Date` | date |
+| `reserved_to_date` | `Reserved to Date` | date (future allowed) |
+
+Row order: **sorted-by-first-column** — source rows arrive roughly callsign-grouped but carry no globally meaningful order (not fully callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability.
+
+Date plausibility bound: 2024-09-30.
 
 ### `ofcom-2024-10-21-register`
 
