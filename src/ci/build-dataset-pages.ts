@@ -52,6 +52,7 @@ import {
   htmlPage,
   entryPage,
   callsignPill,
+  type CallsignComponents,
 } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -1057,7 +1058,9 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
     statuses: Map<string, number>;
     rsls: Map<string, number>;
     flags: Map<string, number>;
-    examples: string[];
+    // Each example keeps the parsed components alongside the callsign so the
+    // shared pill can carry the same supplementary title used site-wide.
+    examples: { callsign: string; components: CallsignComponents }[];
   }
   const bySeries = new Map<string, SeriesAccumulator>();
   for (const row of componentsRows) {
@@ -1068,7 +1071,10 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
     acc.statuses.set(status, (acc.statuses.get(status) ?? 0) + 1);
     if (row.rsl !== '') acc.rsls.set(row.rsl, (acc.rsls.get(row.rsl) ?? 0) + 1);
     for (const flag of row.flags === '' ? [] : row.flags.split(';')) acc.flags.set(flag, (acc.flags.get(flag) ?? 0) + 1);
-    if (acc.examples.length < 5) acc.examples.push(row.callsign);
+    if (acc.examples.length < 5) acc.examples.push({
+      callsign: row.callsign,
+      components: { prefixSeries: row.prefix_series, rsl: row.rsl, suffix: row.suffix, licenceClass: row.implied_class },
+    });
     bySeries.set(row.prefix_series, acc);
   }
 
@@ -1118,7 +1124,7 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
         ...countTable('Status breakdown', acc.statuses, status => filterLink(series, 'status', status)),
         ...countTable('Stored RSL letters', acc.rsls),
         ...countTable('Data-quality flags within this series', acc.flags, flag => filterLink(series, 'flags', flag)),
-        `<p>Examples, as stored in the register (the RSL letter, where one applies, is stored separately from the row): ${acc.examples.map(c => `<a href="../index.html?c=${encodeURIComponent(c)}"><code>${escapeHtml(c)}</code></a>`).join(', ')} — each opens the live lookup.</p>`,
+        `<p>Examples, as stored in the register (the RSL letter, where one applies, is stored separately from the row): ${acc.examples.map(e => callsignPill(e.callsign, 1, e.components)).join(', ')} — each opens the live lookup.</p>`,
       ];
     const body = [
       `<h1>Prefix series ${escapeHtml(display)}</h1>`,

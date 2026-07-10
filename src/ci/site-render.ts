@@ -107,9 +107,10 @@ const SHARED_AFFORDANCE_CSS = [
 ].join('');
 
 // The callsign-pill styling (issue #310): a small monospace, subtly tinted and
-// bordered chip. Layered onto the entry-page stylesheet (where callsigns are
-// rendered as content) so it can rely on the entry tokens (--slot alongside
-// the shared --line/--accent); focus-visible gives keyboard users a clear ring.
+// bordered chip. Layered onto every stylesheet that renders callsigns as
+// content - the entry-page shell (ENTRY_STYLE) and the plainer page shell
+// (PAGE_STYLE, e.g. series pages) - each of which supplies --slot alongside
+// the shared --line/--accent; focus-visible gives keyboard users a clear ring.
 const CALLSIGN_PILL_CSS = [
   '.callsign-pill{display:inline-block;font-family:ui-monospace,monospace;font-size:.86rem;line-height:1.4;padding:.02rem .35rem;border:1px solid var(--line);border-radius:6px;background:var(--slot);color:var(--accent);text-decoration:none;white-space:nowrap}',
   '.callsign-pill:hover{border-color:var(--accent)}',
@@ -124,7 +125,9 @@ const CALLSIGN_PILL_CSS = [
 const PAGE_STYLE = [
   '<style>',
   SHARED_TOKENS_CSS,
-  ':root{--code:#f4f4f4}@media(prefers-color-scheme:dark){:root{--code:#222}}',
+  // --slot (the pill's tint) is defined here as well as on the entry shell so
+  // the shared callsign pill renders identically on the plainer page shell.
+  ':root{--code:#f4f4f4;--slot:#faf9f6}@media(prefers-color-scheme:dark){:root{--code:#222;--slot:#141414}}',
   'body{font-family:system-ui,sans-serif;max-width:60rem;margin:2rem auto;padding:0 1rem;line-height:1.5;color:var(--ink);background:var(--paper)}',
   'a{color:var(--accent)}',
   'table{border-collapse:collapse;width:100%;margin:.75rem 0}td,th{border-bottom:1px solid var(--line);padding:.3rem .6rem;text-align:left;vertical-align:top}th{font-weight:600}',
@@ -133,6 +136,7 @@ const PAGE_STYLE = [
   '.skip{position:absolute;left:-999px;top:0;z-index:10;padding:.5rem .8rem;background:Canvas;color:CanvasText;border:1px solid GrayText}.skip:focus{left:0}',
   '.breadcrumb{font-size:.9rem;color:var(--muted);margin:.6rem 0 .2rem}.breadcrumb a{color:var(--accent)}',
   SHARED_AFFORDANCE_CSS,
+  CALLSIGN_PILL_CSS,
   '</style>',
 ].join('');
 
