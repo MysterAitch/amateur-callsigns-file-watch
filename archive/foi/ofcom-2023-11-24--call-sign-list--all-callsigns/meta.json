@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no FOI reference number appears on the disclosure; the file is published as 'call-sign-list-241123.csv' under Ofcom's FOI/disclosure area for December 2023 and the entry is keyed by its data vintage",
+  "requestUrl": null,
+  "title": "Amateur callsign list (Ofcom disclosure log, 'Call sign list 241123')",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "not held; the disclosure carries no request thread. The source register associates it with a WhatDoTheyKnow request (Andrew Robinson, November 2023) but no exact request date is recorded.",
+  "respondedAt": null,
+  "respondedAtNote": "no response date is stated; the file sits under the December 2023 disclosure/open-data area",
+  "outcome": "successful",
+  "dataVintage": "2023-11-24",
+  "dataVintageNote": "high confidence: the filename's '241123' reads as 24 November 2023 and the latest 'Call Sign MMSI: Last Modified Date' in the data is exactly 2023-11-24, so the two independent signals agree",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2023-11-24-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2023-12-07--open-data-call-sign-list--all-callsigns", "relation": "the next snapshot in the same Value,Status,Product,Type,Last-Modified shape, published thirteen days later as open data (70 more records)" },
+    { "entry": "ofcom-2024-01--foi-1734722--all-callsigns", "relation": "the January 2024 FOI 1734722 disclosure in the same shape - the complete register including the reserved pool this list omits" },
+    { "entry": "ofcom-756622--published-register-csv", "relation": "the previous published register generation (2019-09), a different header shape (Call Sign,Status,Licence Class,Licence Issued Dat)" },
+    { "entry": "wdtk-1180568--licence-breakdown-duration-age", "relation": "the later FOI 1900117 register (2024-10) whose sheet 1 shares the Value,Status,Type core" }
+  ],
+  "files": {
+    "call-sign-list-241123.csv": {
+      "bytes": 8477624,
+      "sha256": "e438c141a645bacdeef7efdc5f474c629744f4328e60fe5f091ba38194dd6061",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "contentsIndicative": "header Value,Status,Product,Type,Call Sign MMSI: Last Modified Date (no BOM, CRLF, UTF-8); 108,922 data rows - 99,529 Allocated, 9,148 Reserved, 235 Available, 10 blank statuses. Product is the licence-product vocabulary verbatim (Amateur Foundation/Intermediate/Full/Club/Temporary Reciprocal Radio Licence), no blanks. Type is 'Call Sign - Amateur' throughout (service discriminator). Last-modified dates day-first DD/MM/YYYY spanning 2016-07-23..2023-11-24 (day-first verified: 63,988 rows carry a day>12). Anomalies preserved verbatim: 13 Excel-mangled callsigns (Intermediate 20xxx suffixes reading as months, served as 20-Apr/20-May/20-Nov/21-Jan etc.); 'G6 FMU' interior space; lower-case 'g0jrk'; six-to-nine-character reciprocal/regional callsigns.",
+      "witnesses": [
+        {
+          "channel": "live",
+          "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2023/december/call-sign-list-241123.csv?v=215321",
+          "note": "the disclosure-log copy served directly from Ofcom; ingested here as the primary raw"
+        },
+        {
+          "channel": "ukgwa",
+          "url": "https://www.ofcom.org.uk/__data/assets/file/0028/272782/Call-sign-list-241123.csv",
+          "fetchedAt": "2024-03-26"
+        }
+      ],
+      "provenanceAgreement": "the live and UKGWA-mirror copies are byte-identical (same sha256 e438c141...), so the two provenance witnesses agree"
+    },
+    "normalised--call-sign-list-241123.csv": {
+      "bytes": 6190253,
+      "sha256": "f5991bbe134b510ef77f3b3339a13aa4d941f9c17a016193728ca2b704b6fc8b",
+      "role": "normalised",
+      "normalisedFrom": "call-sign-list-241123.csv",
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 108,922 rows sorted by callsign (source order carries no meaning - grouped but neither callsign-sorted nor date-ordered). Status and licence_class (from Product) carried verbatim; last_modified_date ISO-rendered from the day-first source. Type is required-present but not carried (constant discriminator, described above). The 10 blank statuses and the Excel-mangled callsigns are preserved."
+    },
+    "correspondence.md": {
+      "bytes": 2815,
+      "sha256": "5d1844fdfb05107c9fc34b06a1b3e1852a879f1bf4d806f8be7a8adcb02d2911",
+      "role": "transcript"
+    }
+  }
+}

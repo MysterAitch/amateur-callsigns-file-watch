@@ -21,7 +21,7 @@ This documents **what exists**. Whether each derivation still *verifies* is the
 | 2025-06-08 | ✔ | ✔ | ✔ | ✔ |
 | 2026-06-23 | ✔ | ✔ | ✔ | ✔ |
 
-## FOI lane (31 entries)
+## FOI lane (34 entries)
 
 Extracts: `mech` = mechanically re-derivable (xlsx, via `src/shared/xlsx-extract.ts`);
 `transcr` = attested transcription of a PDF (see the entry's raw-extract file).
@@ -33,6 +33,9 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | ofcom-01420046--allocated-reserved-callsigns | successful | register-snapshot | 2022-03-07 | ✔ 1 | 2 mech | `ofcom-01420046-register` | ✔ 1 |
 | ofcom-2017-07-03--all-callsigns-with-status | successful | register-snapshot, reference-context | 2017-04-24 | ✔ 1 | 1 transcr | — | — |
 | ofcom-2017-07-13--all-callsigns | successful | register-snapshot | 2017-07-13 | ✔ 1 | — | `ofcom-2017-07-13-register` | ✔ 1 |
+| ofcom-2023-11-24--call-sign-list--all-callsigns | successful | register-snapshot | 2023-11-24 | ✔ 1 | — | `ofcom-2023-11-24-register` | ✔ 1 |
+| ofcom-2023-12-07--open-data-call-sign-list--all-callsigns | successful | register-snapshot | 2023-12-07 | ✔ 1 | — | `ofcom-2023-12-07-register` | ✔ 1 |
+| ofcom-2024-01--foi-1734722--all-callsigns | successful | register-snapshot | 2024-01 | ✔ 1 | — | `ofcom-2024-01-register` | ✔ 1 |
 | ofcom-2024-12--forbidden-suffixes | successful | forbidden-list | 2024-12 | ✔ 1 | — | `ofcom-2024-12-forbidden-suffixes` | ✔ 1 |
 | ofcom-285990--available-list-jun-2016 | successful | reference-context | 2016-06-29 | — | 1 transcr | — | — |
 | ofcom-299351--available-list-referral | successful | reference-context | — | — | 1 transcr | — | — |
