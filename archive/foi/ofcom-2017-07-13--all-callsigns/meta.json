@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no reference number appears in the material held; the disclosure is labelled only 'FOI Request 13 Jul 17' and the entry is keyed by that date",
+  "requestUrl": null,
+  "title": "Amateur callsigns register (Ofcom web-link CSV, FOI Request 13 Jul 17)",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "the request date is not known; the disclosure's own '13 Jul 17' label is read as the response/publication date (see respondedAt), not the request date",
+  "respondedAt": "2017-07-13",
+  "respondedAtNote": "from the disclosure's '13 Jul 17' label, read as the response/publication date per the drop-zone provenance ('Response of 13 July 2017')",
+  "outcome": "successful",
+  "dataVintage": "2017-07-13",
+  "dataVintageNote": "declared, not proven: the disclosure is labelled '13 Jul 17'. The held CSV was obtained by following the supplied web link in August 2019 (file mtime 2019-08-09), so were the link to have served live data the vintage could be 2019 rather than 2017. The record count argues for a genuine 2017 vintage - 135,866 here vs 141,295 in the September-2019 register (wdtk-596532 / ofcom-756622) - but this is inference, not proof.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2017-07-13-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2017-07-03--all-callsigns-with-status", "relation": "the same July-2017 window: that entry is the Salesforce-era systems letter plus a PDF-format register export (vintage 2017-04-24); this is the machine-readable CSV register for the period" },
+    { "entry": "wdtk-356636--all-callsigns-plus-forbidden", "relation": "the preceding full register snapshot (2016-09), one CSV header generation earlier" },
+    { "entry": "wdtk-596532--allocated-reserved-forbidden", "relation": "the next full register snapshot (2019-08); its 141,295-record count vs this entry's 135,866 is the primary support for reading this vintage as genuinely 2017 rather than 2019" },
+    { "entry": "ofcom-756622--published-register-csv", "relation": "Ofcom's published CSV of the September-2019 register (141,295 rows); the count comparison bounding this entry's vintage caveat" }
+  ],
+  "files": {
+    "Amateur Call Signs for FOI Request 13 Jul 17.csv": {
+      "bytes": 5927346,
+      "sha256": "f94083d33d4d3e3421318358d6e03569287fcd1a7d1e56358ed471e7cf1654b8",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "contentsIndicative": "header Value,Prefix,Suffix,Type,Status (CRLF, UTF-8/ASCII); 135,866 data rows (verified by line count) - 85,672 Allocated, 50,164 Reserved, 30 Available, no blank statuses. Type is 'Call Sign - Amateur' throughout (service discriminator). Carries Ofcom's OWN prefix/suffix decomposition of each callsign, which is not uniformly three-letter-suffix-shaped (GM6JYC -> G6/JYC yet GM0SXQ -> GM/0SXQ) - preserved verbatim here, required-present-not-carried in the normalised projection. Anomalies preserved: one row has a blank callsign (blank Value/Prefix/Suffix) with a Reserved status; twelve six-, four seven- and seven eight-character callsigns (regional-locator and reciprocal M/... forms); 'G6 FMU' carries an interior space. Provenance: obtained by following a web link supplied with the July-2017 FOI response (mtime 2019-08-09); no public URL for these exact bytes, so no witness is asserted."
+    },
+    "normalised--amateur-call-signs-for-foi-request-13-jul-17.csv": {
+      "bytes": 2259277,
+      "sha256": "0715a187826e8a7af3ce966ecdd3a4675cadd0cd50bd7ce6cfba1484d62d3776",
+      "role": "normalised",
+      "normalisedFrom": "Amateur Call Signs for FOI Request 13 Jul 17.csv",
+      "contentsIndicative": "header callsign,status,licence_class; 135,866 rows sorted by callsign (source order carries no meaning - no dates, not callsign-sorted). Status carried verbatim (Allocated/Reserved/Available); licence_class emitted empty (no class disclosed). The one blank-callsign row is preserved and sorts first. Ofcom's Prefix/Suffix decomposition and the constant Type are required-present but not carried (see the source CSV)."
+    },
+    "correspondence.md": {
+      "bytes": 3505,
+      "sha256": "b50aeb8813a6445bd939cd97cdf2bf2d9f384e98f7db2c2e319f4426914f90cb",
+      "role": "transcript"
+    }
+  }
+}
