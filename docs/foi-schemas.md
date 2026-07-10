@@ -75,6 +75,8 @@ fail the conversion.
 | `available-typed-export-8col` | `wdtk-247308--available-callsigns-list`, `wdtk-261814--available-callsigns-list` |
 | `ofcom-01420046-register` | `ofcom-01420046--allocated-reserved-callsigns` |
 | `ofcom-2017-07-13-register` | `ofcom-2017-07-13--all-callsigns` |
+| `ofcom-2021-01-register` | `ofcom-2021-01--all-callsigns` |
+| `ofcom-2021-04-register` | `ofcom-2021-04--all-callsigns` |
 | `ofcom-2023-11-24-register` | `ofcom-2023-11-24--call-sign-list--all-callsigns` |
 | `ofcom-2023-12-07-register` | `ofcom-2023-12-07--open-data-call-sign-list--all-callsigns` |
 | `ofcom-2024-01-register` | `ofcom-2024-01--foi-1734722--all-callsigns` |
@@ -239,6 +241,42 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 Required-present but not carried: `Prefix`, `Suffix`, `Type`.
 
 Row order: **sorted-by-first-column** — source rows arrive grouped by suffix but carry no meaningful publication order (no dates, not callsign-sorted); sorted by callsign for diffability and cross-snapshot comparability.
+
+### `ofcom-2021-01-register`
+
+**`raw-extract-sheet-1-callsigns.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | `Licence Type` | verbatim |
+| `reserved_to_date` | `Reserved to Date` | iso-date (future allowed) |
+| `original_start_date` | `Original Start Date` | iso-date |
+
+Required-present but not carried: `Type`.
+
+Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability.
+
+Date plausibility bound: 2021-01-29.
+
+### `ofcom-2021-04-register`
+
+**`raw-extract-sheet-1-sheet1.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | `Licence type` | verbatim |
+| `reserved_to_date` | `Reserved to Date` | iso-date (future allowed) |
+| `original_start_date` | `Original start date` | iso-date |
+
+Required-present but not carried: `Type`.
+
+Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability.
+
+Date plausibility bound: 2021-04-21.
 
 ### `ofcom-2023-11-24-register`
 
