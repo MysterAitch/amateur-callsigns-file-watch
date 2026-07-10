@@ -15,7 +15,7 @@
  * figure traces back through those layers to the committed FOI `forbidden-list`
  * entries and the archived publications. Shared render helpers (nav, breadcrumb,
  * entry-page shell, download slots, breakdown bars, the a11y skip-link / <main>
- * pattern, the shared design tokens) are imported from build-dataset-pages.ts,
+ * pattern, the shared design tokens) are imported from site-render.ts,
  * so the section reads as one product with the site.
  *
  * Boundaries (deliberately): STATIC only — no interactive filtering, SQL, or
@@ -56,7 +56,7 @@ import {
   downloadSlot,
   downloadTier,
   breakdownRows,
-} from './build-dataset-pages.ts';
+} from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
