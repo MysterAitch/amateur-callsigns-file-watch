@@ -184,8 +184,10 @@ export interface PageOptions {
 
 // One consistent navigation strip on every generated page (no arrow - the
 // old "← callsign lookup" wrongly implied where the visitor came from); the
-// current page is named but not self-linked.
-function navHtml(depthToRoot: number, currentNav?: string): string {
+// current page is named but not self-linked. Exported so the deploy-time nav
+// injector (build-nav.ts) can stamp this same single-source strip into the
+// hand-authored site/*.html pages - the nav list lives here and nowhere else.
+export function navHtml(depthToRoot: number, currentNav?: string): string {
   const rootPath = '../'.repeat(depthToRoot);
   const navItems: [string, string][] = [
     ['Lookup', `${rootPath}index.html`],
