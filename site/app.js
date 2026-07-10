@@ -918,10 +918,10 @@ document.getElementById('lookup-form').addEventListener('submit', (event) => {
 void renderBuildInfo();
 
 const initialParams = new URLSearchParams(window.location.search);
-// A bare native form submit (when JavaScript was momentarily unavailable)
-// serialises the input's name into ?callsign=<value>; honour it as an alias of
-// ?c= so a reload — once scripts are back — recovers the lookup rather than
-// ignoring the param. Neither key counts as a filter.
+// The form field is named "c", so a native submit produces the canonical ?c=.
+// ?callsign= is also honoured as a legacy alias (older links, and any URL left
+// from before the field was renamed), so a reload recovers the lookup rather
+// than ignoring the param. Neither key counts as a filter.
 const hasFilterParams = [...initialParams.keys()].some(k => k !== 'c' && k !== 'callsign');
 
 // Fast path: a callsign-only deep link runs immediately (a callsign

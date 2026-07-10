@@ -57,7 +57,10 @@
     <section id="lookup">
       <form id="lookup-form">
         <label for="callsign">Callsign</label>
-        <input id="callsign" name="callsign" type="text" placeholder="e.g. M7TEE, MW7TEE, M#7TEE or *TEE" autocomplete="off" spellcheck="false">
+        <!-- name="c" so a native submit (JavaScript momentarily unavailable)
+             produces the canonical ?c= the deep-link handler already reads; the
+             id stays "callsign" for the label and the scripts. -->
+        <input id="callsign" name="c" type="text" placeholder="e.g. M7TEE, MW7TEE, M#7TEE or *TEE" autocomplete="off" spellcheck="false">
         <button type="submit">Look up</button>
         <details id="filters">
           <summary>Filters <span class="muted">(within a group: any ticked value matches; across groups: all conditions apply)</span></summary>
