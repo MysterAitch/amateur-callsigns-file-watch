@@ -5,6 +5,7 @@ import * as path from 'path';
 import { buildForbiddenSection, suffixPage } from './build-forbidden-section.ts';
 import { buildForbiddenSuffixHistory, type ForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { type SuffixCallsignInfo } from './forbidden-suffix-callsigns.ts';
+import { callsignPill } from './site-render.ts';
 
 // Issue #291 phases 2 + 3: the STATIC forbidden-suffix site section (index +
 // per-disclosure pages + per-suffix detail pages), built from the committed
@@ -245,6 +246,36 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', () =>
     expect(html).toContain('withheld, and so far as the mirror can see, unused');
     // No fabricated table rows.
     expect(html).not.toContain('<th scope="col">callsign</th>');
+  });
+
+  it('SuffixPage_CallsignsCarryingSuffix_RenderAsPillsLinkingToRegisterLookup', () => {
+    // The shared callsign pill (issue #310) is applied to the "callsigns
+    // carrying this suffix" list: a monospace chip whose accessible name is the
+    // bare callsign, with a supplementary title built from the parsed
+    // components, deep-linking into the register lookup (?c=).
+    const page = read('forbidden', 'suffix', 'QNF', 'index.html');
+    expect(page).toContain('<a class="callsign-pill" href="../../../index.html?c=M3QNF" title="M3QNF — prefix series M3 · suffix QNF · Foundation">M3QNF</a>');
+    // The accessible name is the callsign itself (the link text), not the
+    // title — the pill carries no aria-label that would override it.
+    expect(page).not.toMatch(/class="callsign-pill"[^>]*aria-label=/);
+    // The pill styling is present in the (entry) stylesheet the page uses.
+    expect(page).toContain('.callsign-pill{');
+  });
+
+  it('CallsignPill_WithNoParsedComponents_DegradesToBareCallsignLinkWithNoTitle', () => {
+    // With no component data, the pill is just the callsign linking to the
+    // lookup at the given relative depth — no supplementary title is fabricated.
+    const pill = callsignPill('M7TEE', 3);
+    expect(pill).toBe('<a class="callsign-pill" href="../../../index.html?c=M7TEE">M7TEE</a>');
+  });
+
+  it('CallsignPill_WithParsedComponents_AddsSupplementaryTitleButKeepsCallsignAsAccessibleName', () => {
+    // The accessible name stays the callsign (link text); the components only
+    // enrich the supplementary title, and absent fields are omitted rather than
+    // rendered blank.
+    const pill = callsignPill('M7TEE', 1, { prefixSeries: 'M7', suffix: 'TEE', licenceClass: 'Foundation' });
+    expect(pill).toBe('<a class="callsign-pill" href="../index.html?c=M7TEE" title="M7TEE — prefix series M7 · suffix TEE · Foundation">M7TEE</a>');
+    expect(pill).not.toContain('aria-label');
   });
 
   it('SuffixPage_Accessibility_CarriesSkipLinkMainAndScopedHeaders', () => {
