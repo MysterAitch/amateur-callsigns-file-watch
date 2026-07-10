@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": "01649066",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2023/august/copy-of-call-sign-list-18-08-2023.xlsx?v=215149",
+  "title": "Call sign list, 18 August 2023 (Ofcom FOI 01649066)",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "not held; the request thread is not recovered. The disclosure appears on Ofcom's FOI log with no requester or request date stated (the request necessarily predates the August 2023 response).",
+  "respondedAt": null,
+  "respondedAtNote": "not stated in the held material; the file is served under Ofcom's 2023/august disclosure-log path, and the served filename dates the export 18-08-2023 (see dataVintage).",
+  "outcome": "successful",
+  "dataVintage": "2023-08-18",
+  "dataVintageNote": "declared, well-supported. The worksheet name ('Call Sign Data') embeds no timestamp, but the served filename dates the export 18-08-2023 and the latest 'Call Sign MMSI: Last Modified Date' in the data is 2023-08-17 - a firm lower bound sitting one day inside the filename date. The disclosed bytes are identical across the live disclosure-log copy and the UK Government Web Archive capture (both sha256 016c51c3…), so the vintage is corroborated by two independent retrievals.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2023-08-18-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2023-01-25--call-sign-list-with-status--all-callsigns", "relation": "the previous register snapshot held (2023-01-25) in the same Value/Status/Product family; that four-column workbook omits the constant Type column this one carries." },
+    { "entry": "ofcom-2023-11-24--call-sign-list--all-callsigns", "relation": "the next snapshot in the same five-column shape, disclosed as a CSV (day-first dates) rather than a workbook (typed ISO dates)." },
+    { "entry": "ofcom-2024-01--foi-1734722--all-callsigns", "relation": "the complete-register snapshot in the same family (2024-01); both carry the reserved pool with a blank Product." }
+  ],
+  "files": {
+    "copy-of-call-sign-list-18-08-2023.xlsx": {
+      "bytes": 4521889,
+      "sha256": "016c51c3c27ce6347321ea273ee46d5cdc2ed665bee00938a3c2da58223150ad",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "sheetsIndicative": {
+        "note": "one worksheet ('Call Sign Data'): header Value,Product,Status,Type,Call Sign MMSI: Last Modified Date then 153,248 data rows. Preserved verbatim as a raw extract and normalised into the register-snapshot dataset.",
+        "sheets": [
+          { "name": "Call Sign Data", "dataRows": 153248, "cols": "A:E", "datasetClass": "register-snapshot" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "live",
+          "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2023/august/copy-of-call-sign-list-18-08-2023.xlsx?v=215149",
+          "note": "the disclosure-log copy served directly from Ofcom; ingested here as the primary raw"
+        },
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20240326004101/https://www.ofcom.org.uk/__data/assets/file/0027/266625/Copy-of-Call-Sign-List-18-08-2023.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ],
+      "provenanceAgreement": "the live and UKGWA-mirror copies are byte-identical (same sha256 016c51c3…), so the two provenance witnesses agree"
+    },
+    "raw-extract-sheet-1-call-sign-data.csv": {
+      "bytes": 10501223,
+      "sha256": "647a93f5f2d489af439046d072492440be2525e9ebe04fa1107df0cfeddd9257",
+      "role": "extract",
+      "extractOf": "copy-of-call-sign-list-18-08-2023.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts",
+      "contentsIndicative": "mechanical extract of the single sheet; header Value,Product,Status,Type,Call Sign MMSI: Last Modified Date then 153,248 rows. Status vocabulary Allocated (101,381), Reserved (51,416), Available (440) and blank (11). Product vocabulary: Amateur Full (60,566), blank (42,502), Amateur Foundation (34,054), Amateur Intermediate (13,994), Amateur Club (2,048), Amateur Temporary Reciprocal (84) - no Special Event Station (contrast the 2023-01-25 snapshot). Type is 'Call Sign - Amateur' on every row. Last-modified dates typed at source and rendered ISO, spanning 2016-07-23..2023-08-17. Anomalies preserved verbatim: the trailing-NBSP trio (G0TQK, G7IWE, 2E1HON); 'G6 FMU' interior space; lower-case g0jrk and 2e1GTD; 480 four-character heritage callsigns and 46 callsigns of eight or nine characters, reciprocal 'M/…' forms including M/#PT2FM, M/#VK4VGK, M/#YO3IES and M/EI-8-DJ. No blank callsign, no ',,' value and no Excel date-mangling in this snapshot."
+    },
+    "normalised--sheet-1-call-sign-data.csv": {
+      "bytes": 7436245,
+      "sha256": "3930329680b0fb25d367341cd3f456df191882d4942550953dfbd786426fb85e",
+      "role": "normalised",
+      "datasetClasses": ["register-snapshot"],
+      "normalisedFrom": "raw-extract-sheet-1-call-sign-data.csv",
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 153,248 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product) carried verbatim - 42,502 blank licence_class values (the reserved pool) and 11 blank statuses preserved. last_modified_date carried verbatim from the ISO-rendered workbook extract. Type is required-present but not carried. The trailing-NBSP trio is trimmed (the sole canonicalisation, counted at convert time) and passes through as G0TQK/G7IWE/2E1HON; 'G6 FMU' keeps its interior space."
+    },
+    "correspondence.md": {
+      "bytes": 2863,
+      "sha256": "ef5d31b7d20f09447505398e8c457b5f1be8af7a8eb1897896a3bbefac879103",
+      "role": "transcript"
+    }
+  }
+}

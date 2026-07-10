@@ -509,22 +509,20 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
   // normalised into a dataset, since doing so would assert a membership the
   // source does not explain (documented in the entry meta).
   'ofcom-01420046-register': [
-    {
-      sourceFile: 'raw-extract-sheet-1-report1646659776237.csv',
-      encoding: 'utf8',
-      columns: [
-        { source: 'Value', output: 'callsign', kind: 'verbatim' },
-        { source: 'Status', output: 'status', kind: 'verbatim' },
-        // No licence class is disclosed; emitted empty to keep the
-        // callsign-observation core schema stable.
-        { source: null, output: 'licence_class', kind: 'verbatim' },
-      ],
-      // 'Type' is the constant product/service discriminator - required
-      // present, not carried.
-      ignoredColumns: ['Type'],
-      rowOrder: 'sorted-by-first-column',
-      orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability',
-    },
+    valueStatusTypeRegisterConversion('raw-extract-sheet-1-report1646659776237.csv'),
+  ],
+
+  // ofcom-2022-03-14 (Ofcom disclosure log, case 01432624, "Available and
+  // registered UK amateur radio callsigns"): a full register snapshot in the
+  // identical 'Value, Status, Type' workbook shape as ofcom-01420046, generated
+  // a week later - sheet 1's name Report1647268967067 embeds the
+  // report-generation instant (2022-03-14T14:42:47Z), the entry's vintage. Type
+  // is 'Call Sign - Amateur' on every row (the service discriminator, recorded
+  // in meta.json, not a per-row assertion); no licence class or date is
+  // disclosed. Shares the Value,Status,Type factory with ofcom-01420046 - the
+  // shape is asserted identical.
+  'ofcom-2022-03-14-register': [
+    valueStatusTypeRegisterConversion('raw-extract-sheet-1-report1647268967067.csv'),
   ],
 
   // ofcom-2024-12 (Ofcom disclosure log, December 2024): the five-years-on
@@ -583,6 +581,31 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
   // dates top out at 2023-12-19 - the vintage caveat lives in the entry meta.
   'ofcom-2024-01-register': [
     valueStatusProductRegisterConversion('foi-1734722-amateur-call-signs.csv', '2024-01-31'),
+  ],
+
+  // Two 2023 register snapshots in the same Value/Status/Product family,
+  // disclosed as WORKBOOKS rather than CSVs: their dates arrive typed and the
+  // extract renders them ISO, so the shared factory is asked for ISO-date
+  // handling (lastModifiedKind: 'iso-date') - the same workbook-vs-CSV
+  // distinction as wdtk-596532 against the ofcom-756622 register.
+  //
+  // ofcom-2023-01-25 ('call-sign-list-with-status-25-01-2023'): the earliest
+  // Value,Status,Product snapshot held, and the only one WITHOUT a Type column
+  // (four columns: Value, Status, Product, Call Sign MMSI: Last Modified Date).
+  // Sheet 1's name Report1674642037414 embeds the report-generation instant
+  // (2023-01-25T10:20:37Z), agreeing with the filename date and the latest
+  // last-modified date (2023-01-25) - the vintage, and the plausibility ceiling.
+  'ofcom-2023-01-25-register': [
+    valueStatusProductRegisterConversion('raw-extract-sheet-1-report1674642037414.csv', '2023-01-25', { hasType: false, lastModifiedKind: 'iso-date' }),
+  ],
+  // ofcom-2023-08-18 (Ofcom FOI 01649066, 'Copy of Call Sign List 18-08-2023'):
+  // the full five-column shape (Value, Product, Status, Type, Call Sign MMSI:
+  // Last Modified Date) with the constant 'Call Sign - Amateur' Type as the
+  // discriminator. The sheet ('Call Sign Data') embeds no timestamp; the
+  // filename dates the export 18/08/2023 and the latest last-modified date
+  // (2023-08-17) sits just within it - the vintage and the plausibility ceiling.
+  'ofcom-2023-08-18-register': [
+    valueStatusProductRegisterConversion('raw-extract-sheet-1-call-sign-data.csv', '2023-08-18', { lastModifiedKind: 'iso-date' }),
   ],
 
   // The callsign+product+status register-snapshot family (Ofcom disclosure
@@ -670,10 +693,28 @@ function prefixHeaderConversion(sourceFile: string, prefix: string, licenceClass
   };
 }
 
-// The 2023-24 disclosure-log register exports share one column shape
-// (Value, Status, Product, Type, Call Sign MMSI: Last Modified Date); only the
-// source filename and the vintage ceiling vary across the three snapshots.
-function valueStatusProductRegisterConversion(sourceFile: string, referenceDateIso: string): FoiSourceConversion {
+// The Value/Status/Product register exports share one column vocabulary
+// (Value -> callsign, Status, Product -> licence_class, a Call Sign MMSI: Last
+// Modified Date, and - in most snapshots - a constant 'Call Sign - Amateur'
+// Type discriminator). The 2023-24 disclosure-log CSVs carry day-first dates
+// and the Type column; the 2023 WORKBOOK snapshots carry ISO dates (typed at
+// source, rendered by the extractor) and one of them omits the Type column
+// entirely. Options cover both axes so the family shares one factory rather
+// than spawning near-duplicates; the three CSV callers keep the defaults
+// (Type present, day-first dates).
+interface ValueStatusProductRegisterOptions {
+  // Whether the source carries the constant 'Call Sign - Amateur' Type
+  // discriminator (required-present, not carried). Default true; the
+  // 2023-01-25 workbook is the sole four-column source without it.
+  hasType?: boolean;
+  // 'date' for day-first DD/MM/YYYY CSV sources (default); 'iso-date' for
+  // workbook extracts whose dates were typed at source and rendered ISO.
+  lastModifiedKind?: 'date' | 'iso-date';
+}
+
+function valueStatusProductRegisterConversion(sourceFile: string, referenceDateIso: string, options: ValueStatusProductRegisterOptions = {}): FoiSourceConversion {
+  const hasType = options.hasType ?? true;
+  const lastModifiedKind = options.lastModifiedKind ?? 'date';
   return {
     sourceFile,
     encoding: 'utf8',
@@ -682,18 +723,44 @@ function valueStatusProductRegisterConversion(sourceFile: string, referenceDateI
       { source: 'Status', output: 'status', kind: 'verbatim' },
       // Product is the licence product/class, carried verbatim (as in the
       // typed Siebel exports); empty where the source asserts none (the
-      // reserved pool in the FOI 1734722 snapshot).
+      // reserved pool in the complete-register snapshots).
       { source: 'Product', output: 'licence_class', kind: 'verbatim' },
-      // Day-first DD/MM/YYYY; a last-modified date cannot postdate the
-      // snapshot, so it is bounded by referenceDateIso (not futureAllowed).
-      { source: 'Call Sign MMSI: Last Modified Date', output: 'last_modified_date', kind: 'date' },
+      // A last-modified date cannot postdate the snapshot, so it is bounded by
+      // referenceDateIso (not futureAllowed), whether it arrives day-first
+      // (CSV) or already ISO (workbook extract).
+      { source: 'Call Sign MMSI: Last Modified Date', output: 'last_modified_date', kind: lastModifiedKind },
     ],
     // 'Type' is 'Call Sign - Amateur' on every row - the product/service
-    // discriminator, recorded in meta.json, not a per-row assertion.
-    ignoredColumns: ['Type'],
+    // discriminator, recorded in meta.json, not a per-row assertion. Required
+    // present where the source carries it; the 2023-01-25 workbook omits it.
+    ignoredColumns: hasType ? ['Type'] : [],
     rowOrder: 'sorted-by-first-column',
     orderRationale: 'source rows arrive grouped (reserved blocks first) but carry no globally meaningful order (not callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability',
     referenceDateIso,
+  };
+}
+
+// The Value,Status,Type register-snapshot shape: a full register export with no
+// licence class and no dates, the constant 'Call Sign - Amateur' Type the only
+// discriminator (required-present, not carried, per issue #139). Shared by the
+// Ofcom disclosure-log workbook snapshots that carry exactly these three
+// columns (01420046 and case 01432624, both March 2022).
+function valueStatusTypeRegisterConversion(sourceFile: string): FoiSourceConversion {
+  return {
+    sourceFile,
+    encoding: 'utf8',
+    columns: [
+      { source: 'Value', output: 'callsign', kind: 'verbatim' },
+      { source: 'Status', output: 'status', kind: 'verbatim' },
+      // No licence class is disclosed; emitted empty to keep the
+      // callsign-observation core schema stable.
+      { source: null, output: 'licence_class', kind: 'verbatim' },
+    ],
+    // 'Type' is the constant product/service discriminator - required present,
+    // not carried.
+    ignoredColumns: ['Type'],
+    rowOrder: 'sorted-by-first-column',
+    orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability',
   };
 }
 

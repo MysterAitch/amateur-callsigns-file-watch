@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": "01432624",
+  "requestUrl": null,
+  "publicationUrl": "https://webarchive.nationalarchives.gov.uk/ukgwa/20230904223900/https://www.ofcom.org.uk/__data/assets/file/0023/234734/Available-and-registered-UK-amateur-radio-callsigns-case-01432624.xlsx",
+  "title": "Available and registered UK amateur radio callsigns (Ofcom FOI 01432624)",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "not held; the request thread is not recovered. The disclosure appears on Ofcom's FOI log with no requester or request date stated (the request necessarily predates the March 2022 response).",
+  "respondedAt": null,
+  "respondedAtNote": "not stated in the held material; the response is filed under Ofcom's March 2022 disclosure log, and the worksheet's report-generation timestamp is 2022-03-14 (see dataVintage).",
+  "outcome": "successful",
+  "dataVintage": "2022-03-14",
+  "dataVintageNote": "declared and well-supported. The single worksheet's name, 'Report1647268967067', embeds the report-generation instant as a Unix epoch in milliseconds (1647268967067 = 2022-03-14T14:42:47Z); Ofcom filed the disclosure under March 2022. This is one week later than the byte-identical-shaped ofcom-01420046 export (Report1646659776237 = 2022-03-07T13:29:36Z). The workbook is held from a single channel (the UK Government Web Archive capture), so the vintage rests on the embedded timestamp and the disclosure-log month, not on a two-witness byte agreement.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2022-03-14-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-01420046--allocated-reserved-callsigns", "relation": "the byte-identical-shaped Value,Status,Type register export disclosed one week earlier (2022-03-07, 150,181 records); this snapshot's 150,238 records mark a week of register growth. The two entries share the valueStatusTypeRegisterConversion converter, which is itself an assertion the shapes are identical." },
+    { "entry": "ofcom-2017-07-13--all-callsigns", "relation": "an earlier register snapshot in the same export family (that one carries Ofcom's own Prefix/Suffix decomposition; this one is reduced to Value, Status, Type)." },
+    { "entry": "ofcom-2023-01-25--call-sign-list-with-status--all-callsigns", "relation": "the next register snapshot held (2023-01-25), by which point the export had gained a Product (licence class) column and a per-record last-modified date." }
+  ],
+  "files": {
+    "available-and-registered-uk-amateur-radio-callsigns-case-01432624.xlsx": {
+      "bytes": 2963055,
+      "sha256": "6a4fa060c1d5a2bf6b3a158461f59b853b3ce0af2a6b92a12f4ec806ee9bf169",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "sheetsIndicative": {
+        "note": "one worksheet ('Report1647268967067'): header Value,Status,Type then 150,238 data rows. Preserved verbatim as a raw extract and normalised into the register-snapshot dataset.",
+        "sheets": [
+          { "name": "Report1647268967067", "dataRows": 150238, "cols": "A:C", "datasetClass": "register-snapshot" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20230904223900/https://www.ofcom.org.uk/__data/assets/file/0023/234734/Available-and-registered-UK-amateur-radio-callsigns-case-01432624.xlsx",
+          "fetchedAt": "2026-07-07",
+          "note": "the only channel holding this workbook; the disclosure-log copy of case 01432624 that survives on the live site is the companion PDF, not this data annex, so no live-copy byte cross-check is possible"
+        }
+      ],
+      "provenanceAgreement": "single witness only (UK Government Web Archive, asset 234734). No byte-level live-vs-archive agreement can be asserted for this workbook, unlike the dual-witnessed 2023 snapshots in the same batch; recorded honestly rather than overstated.",
+      "relatedDocumentNote": "a companion response PDF (Available-and-registered-UK-amateur-radio-callsigns.pdf, UKGWA 234733; also live under 2022/march) accompanies this workbook; it is recorded as context but is not part of this entry"
+    },
+    "raw-extract-sheet-1-report1647268967067.csv": {
+      "bytes": 5356931,
+      "sha256": "dc8654fdba2cfbbf37517ef7f32e372e02b1fb70aa4faff4af4f35bec365fb19",
+      "role": "extract",
+      "extractOf": "available-and-registered-uk-amateur-radio-callsigns-case-01432624.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts",
+      "contentsIndicative": "mechanical extract of the single sheet; header Value,Status,Type then 150,238 rows. Status vocabulary Allocated (98,575), Reserved (51,271), Available (380) and blank (12); Type is 'Call Sign - Amateur' on every row. Anomalies preserved verbatim: one Value is literally ',,' (two commas) carrying a Reserved status; 'G6 FMU' has an interior space; three Values carry a trailing non-breaking space (G0TQK, G7IWE, 2E1HON); two are lower-case (g0jrk, 2e1GTD); 480 four-character callsigns and 38 callsigns of eight or nine characters, most reciprocal 'M/…' forms including M/#PT2FM, M/#VK4VGK, M/#YO3IES and M/EI-8-DJ."
+    },
+    "normalised--sheet-1-report1647268967067.csv": {
+      "bytes": 2502415,
+      "sha256": "eb373cb9fe3b43c1f9e59d9fca0bc153d5def78b0c64b85f48b871f6079007dc",
+      "role": "normalised",
+      "datasetClasses": ["register-snapshot"],
+      "normalisedFrom": "raw-extract-sheet-1-report1647268967067.csv",
+      "contentsIndicative": "header callsign,status,licence_class; 150,238 rows sorted by callsign (source order carries no meaning - no dates, not callsign-sorted). Status carried verbatim (Allocated/Reserved/Available and 12 blanks preserved); licence_class emitted empty (no class disclosed). The constant Type column is required-present but not carried. Three trailing non-breaking spaces were trimmed from callsigns (counted in the converter notes, never silent); the ',,' Value and the interior-space 'G6 FMU' are preserved verbatim. The ',,' callsign sorts first."
+    },
+    "correspondence.md": {
+      "bytes": 2974,
+      "sha256": "a024e4388613473606da00f4cd021353bdab5634e980e53988fe28868159d40f",
+      "role": "transcript"
+    }
+  }
+}
