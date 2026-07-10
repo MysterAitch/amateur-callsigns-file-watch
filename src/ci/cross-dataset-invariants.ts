@@ -5,9 +5,14 @@
  * PR diff is a drift signal.
  *
  * Probes so far: available-pool depletion, the decomposition of the
- * still-absent residue by current register status, and the original-issue-date
- * invariant. The remaining probes from #241 (available x record-of overlap
- * matrix, same-vintage complementarity) are staged; see the issue.
+ * still-absent residue by current register status, the original-issue-date
+ * invariant, and the available x record-of overlap matrix (each available
+ * pool against every register vintage - the open-data publications and the
+ * FOI register-snapshots). The last #241 probe, same-vintage complementarity,
+ * stays blocked: it needs a register snapshot of the same vintage as an
+ * available list, and none exists (available lists are 2013-2016; the
+ * open-data register starts 2022, and no FOI register-snapshot matches those
+ * early vintages). See the issue.
  *
  * `cleaned` is a JOIN KEY, not an identity (uppercased, stripped outside
  * A-Z/0-9/`/`); collisions are expected and deliberate, so counts are of
@@ -120,6 +125,118 @@ export function buildDepletion(): CrossDataset {
   return { register, allocatedTotal, rows };
 }
 
+// --- Probe 1: available x record-of overlap matrix -------------------------
+//
+// Rows are the FOI available-pool snapshots; columns are every register
+// vintage we hold - the open-data publications AND the FOI register-snapshots.
+// A cell is the share of that pool's cleaned keys PRESENT in that register
+// (intersection over pool size). Presence means the key carries any row in the
+// register (Allocated, Reserved or still Available), not that it is allocated.
+
+export interface OverlapPool { entry: string; vintage: string; size: number }
+// `partial` flags a register archived as published-but-incomplete (an open-data
+// intendedCoverage.complete === false, or an FOI snapshot only partly
+// recovered): its column cannot overlap much by construction, so it is marked
+// rather than read as low take-up.
+export interface OverlapRegister { key: string; vintage: string; kind: 'open-data' | 'foi'; size: number; partial: boolean }
+// present[poolIndex][registerIndex] = |pool ∩ register|, a count of distinct
+// cleaned keys in common. Pools index the rows, registers the columns.
+export interface OverlapMatrix { pools: OverlapPool[]; registers: OverlapRegister[]; present: number[][] }
+
+// The cleaned-key set of a single normalised register file (open-data
+// normalised.csv, or one FOI normalised--*.csv sheet). Empty callsigns and
+// columns without a `callsign` field (e.g. forbidden-suffix sheets) contribute
+// nothing, so mixed-sheet entries fold to their callsign union naturally.
+function registerKeys(file: string): Set<string> {
+  const keys = new Set<string>();
+  for (const r of readCsv(file)) {
+    const c = r['callsign'];
+    if (c !== undefined && c !== '') keys.add(cleanedCallsign(c));
+  }
+  return keys;
+}
+
+// The available-pool snapshots as small cleaned-key sets (the matrix rows).
+// Same selection and union rule as buildDepletion, sorted by vintage.
+function loadAvailablePools(foiDir: string): { entry: string; vintage: string; keys: Set<string> }[] {
+  const pools: { entry: string; vintage: string; keys: Set<string> }[] = [];
+  for (const entry of listFoiEntryKeys(foiDir)) {
+    const meta = readFoiEntryMeta(foiDir, entry);
+    if (!(meta.datasetClasses ?? []).includes('available-pool')) continue;
+    const keys = new Set<string>();
+    for (const name of fs.readdirSync(path.join(foiDir, entry)).filter(n => /^normalised--.*\.csv$/.test(n)).sort()) {
+      for (const c of registerKeys(path.join(foiDir, entry, name))) keys.add(c);
+    }
+    if (keys.size === 0) continue;
+    pools.push({ entry, vintage: meta.dataVintage ?? '—', keys });
+  }
+  pools.sort((a, b) => a.vintage.localeCompare(b.vintage) || a.entry.localeCompare(b.entry));
+  return pools;
+}
+
+// One register snapshot: its display key, vintage, provenance, and a lazy
+// loader so we materialise its (large) cleaned-key set only when its column is
+// being computed, then let it fall out of scope before the next.
+interface RegisterSource { key: string; vintage: string; kind: 'open-data' | 'foi'; partial: boolean; load: () => Set<string> }
+
+// Build the overlap matrix. Register sets are loaded ONE AT A TIME - an
+// open-data normalised.csv is ~150k rows, so we compute a whole column against
+// the (small) pool sets, record the counts, and discard the register set before
+// moving on, never holding more than one register set at once. A register that
+// yields no callsign union (e.g. an FOI register-snapshot whose sheets are
+// unrecovered) is omitted rather than shown as a misleading all-zero column.
+export function buildOverlapMatrix(): OverlapMatrix {
+  const foiDir = path.join(CONSTANTS.DIRS.archive, 'foi');
+  const pools = loadAvailablePools(foiDir);
+
+  const sources: RegisterSource[] = [];
+  for (const key of listArchiveKeys()) {
+    const dir = path.join(CONSTANTS.DIRS.archive, key);
+    let partial = false;
+    try {
+      const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete?: boolean } };
+      partial = meta.intendedCoverage?.complete === false;
+    } catch { /* absent/unreadable meta: treat as complete, the file itself is the evidence */ }
+    const file = path.join(dir, 'normalised.csv');
+    sources.push({ key, vintage: key, kind: 'open-data', partial, load: () => registerKeys(file) });
+  }
+  for (const entry of listFoiEntryKeys(foiDir)) {
+    const meta = readFoiEntryMeta(foiDir, entry);
+    if (!(meta.datasetClasses ?? []).includes('register-snapshot')) continue;
+    sources.push({
+      key: entry,
+      vintage: meta.dataVintage ?? '—',
+      kind: 'foi',
+      partial: meta.datasetRecovery === 'partial' || meta.datasetRecovery === 'unrecovered',
+      load: () => {
+        const keys = new Set<string>();
+        for (const name of fs.readdirSync(path.join(foiDir, entry)).filter(n => /^normalised--.*\.csv$/.test(n)).sort()) {
+          for (const c of registerKeys(path.join(foiDir, entry, name))) keys.add(c);
+        }
+        return keys;
+      },
+    });
+  }
+  sources.sort((a, b) => a.vintage.localeCompare(b.vintage) || a.key.localeCompare(b.key));
+
+  const registers: OverlapRegister[] = [];
+  const columns: number[][] = []; // per surviving register, a count per pool
+  for (const src of sources) {
+    const regSet = src.load();
+    if (regSet.size === 0) continue;
+    columns.push(pools.map((p) => {
+      let n = 0;
+      for (const c of p.keys) if (regSet.has(c)) n += 1;
+      return n;
+    }));
+    registers.push({ key: src.key, vintage: src.vintage, kind: src.kind, size: regSet.size, partial: src.partial });
+    // regSet goes out of scope here - only its counts survive.
+  }
+
+  const present = pools.map((_, pi) => columns.map(col => col[pi]));
+  return { pools: pools.map(p => ({ entry: p.entry, vintage: p.vintage, size: p.keys.size })), registers, present };
+}
+
 function pct(n: number, d: number): string {
   return d === 0 ? '—' : `${((n / d) * 100).toFixed(1)}%`;
 }
@@ -128,7 +245,53 @@ function num(n: number): string {
   return n.toLocaleString('en-GB');
 }
 
-export function renderCrossDatasetInvariants(d: CrossDataset): string {
+function renderOverlapMatrix(m: OverlapMatrix): string[] {
+  const out: string[] = [];
+  out.push('## Available × record-of overlap matrix');
+  out.push('');
+  out.push('Each FOI available-pool snapshot (row, by vintage) against every');
+  out.push('register snapshot we hold (column, by vintage): the share of that');
+  out.push('pool\'s cleaned keys **present** in that register — intersection over');
+  out.push('pool size. "Record-of" registers are the open-data publications and');
+  out.push('the FOI register-snapshots (the union of their `callsign` columns).');
+  out.push('Presence means the key carries any row in that register (Allocated,');
+  out.push('Reserved or still Available), not that it is allocated.');
+  out.push('');
+  out.push('Columns run oldest→newest left to right, and every register vintage');
+  out.push('here falls at or after every pool vintage (the pools are 2013–2016;');
+  out.push('the earliest register is 2016-09), so the row reads as an **age');
+  out.push('gradient**: overlap climbs rightward as each pool is drawn down /');
+  out.push('taken up into successively later registers. Declared, not verified;');
+  out.push('`cleaned` is a join key, so a cell counts distinct keys in common,');
+  out.push('never distinct stations, and absence is not evidence.');
+  const anyPartial = m.registers.some(r => r.partial);
+  if (anyPartial) {
+    out.push('');
+    out.push('Columns marked ⚠ are **partial publications** (archived as published');
+    out.push('but incomplete): a register holding a few thousand rows cannot');
+    out.push('overlap much of any pool, so those cells collapse to near-zero by');
+    out.push('construction and interrupt the gradient — read the trend across the');
+    out.push('complete columns.');
+  }
+  out.push('');
+  out.push('Register snapshots (columns), by vintage:');
+  out.push('');
+  for (const r of m.registers) {
+    out.push(`- \`${r.vintage}\`${r.partial ? ' ⚠' : ''} — ${r.kind === 'foi' ? 'FOI' : 'open-data'} \`${r.key}\` (${num(r.size)} keys${r.partial ? ', partial publication' : ''})`);
+  }
+  out.push('');
+  const header = ['available-pool snapshot', 'vintage', 'pool', ...m.registers.map(r => r.partial ? `${r.vintage} ⚠` : r.vintage)];
+  out.push(`| ${header.join(' | ')} |`);
+  out.push(`|---|---|---:|${m.registers.map(() => '---:').join('|')}|`);
+  m.pools.forEach((p, pi) => {
+    const cells = m.registers.map((_, ri) => pct(m.present[pi][ri], p.size));
+    out.push(`| \`${p.entry}\` | ${p.vintage} | ${num(p.size)} | ${cells.join(' | ')} |`);
+  });
+  out.push('');
+  return out;
+}
+
+export function renderCrossDatasetInvariants(d: CrossDataset, overlap?: OverlapMatrix): string {
   const out: string[] = [];
   out.push('# Cross-dataset invariants');
   out.push('');
@@ -188,13 +351,15 @@ export function renderCrossDatasetInvariants(d: CrossDataset): string {
   }
   out.push('');
 
+  if (overlap !== undefined) out.push(...renderOverlapMatrix(overlap));
+
   return out.join('\n');
 }
 
 export const CROSS_DATASET_INVARIANTS_PATH = 'reports/cross-dataset-invariants.md';
 
 export function writeCrossDatasetInvariants(): { path: string; changed: boolean } {
-  const markdown = renderCrossDatasetInvariants(buildDepletion());
+  const markdown = renderCrossDatasetInvariants(buildDepletion(), buildOverlapMatrix());
   const target = path.resolve(process.cwd(), CROSS_DATASET_INVARIANTS_PATH);
   fs.mkdirSync(path.dirname(target), { recursive: true });
   const existing = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : undefined;

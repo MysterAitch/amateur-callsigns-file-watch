@@ -69,3 +69,53 @@ callsigns, or the recorded start-date may reflect an earlier holder).
 | `wdtk-294011--available-callsigns-list` | 2015-10-13 | 10,516 | 45 | 0.4% |
 | `wdtk-299321--available-callsigns-list` | 2015-10-13 | 10,516 | 45 | 0.4% |
 | `wdtk-309076--available-callsigns-list` | 2016-01-21 | 9,880 | 30 | 0.3% |
+
+## Available × record-of overlap matrix
+
+Each FOI available-pool snapshot (row, by vintage) against every
+register snapshot we hold (column, by vintage): the share of that
+pool's cleaned keys **present** in that register — intersection over
+pool size. "Record-of" registers are the open-data publications and
+the FOI register-snapshots (the union of their `callsign` columns).
+Presence means the key carries any row in that register (Allocated,
+Reserved or still Available), not that it is allocated.
+
+Columns run oldest→newest left to right, and every register vintage
+here falls at or after every pool vintage (the pools are 2013–2016;
+the earliest register is 2016-09), so the row reads as an **age
+gradient**: overlap climbs rightward as each pool is drawn down /
+taken up into successively later registers. Declared, not verified;
+`cleaned` is a join key, so a cell counts distinct keys in common,
+never distinct stations, and absence is not evidence.
+
+Columns marked ⚠ are **partial publications** (archived as published
+but incomplete): a register holding a few thousand rows cannot
+overlap much of any pool, so those cells collapse to near-zero by
+construction and interrupt the gradient — read the trend across the
+complete columns.
+
+Register snapshots (columns), by vintage:
+
+- `2016-09` — FOI `wdtk-356636--all-callsigns-plus-forbidden` (139,745 keys)
+- `2019-08-12` — FOI `wdtk-596532--allocated-reserved-forbidden` (141,291 keys)
+- `2019-09-12` — FOI `ofcom-756622--published-register-csv` (141,291 keys)
+- `2022-05-30` — open-data `2022-05-30` (151,142 keys)
+- `2023-02-20` — open-data `2023-02-20` (152,076 keys)
+- `2024-10` — FOI `wdtk-1180568--licence-breakdown-duration-age` (156,252 keys)
+- `2025-04-08` — open-data `2025-04-08` (157,420 keys)
+- `2025-05-27` ⚠ — open-data `2025-05-27` (1,074 keys, partial publication)
+- `2025-06-04` — open-data `2025-06-04` (112,646 keys)
+- `2025-06-08` ⚠ — open-data `2025-06-08` (1,074 keys, partial publication)
+- `2026-06-23` — open-data `2026-06-23` (158,312 keys)
+
+| available-pool snapshot | vintage | pool | 2016-09 | 2019-08-12 | 2019-09-12 | 2022-05-30 | 2023-02-20 | 2024-10 | 2025-04-08 | 2025-05-27 ⚠ | 2025-06-04 | 2025-06-08 ⚠ | 2026-06-23 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `wdtk-174341--available-callsigns-list` | 2013-09-06 | 26,646 | 32.8% | 49.6% | 49.6% | 60.3% | 61.2% | 64.9% | 65.9% | 1.3% | 65.6% | 1.3% | 66.6% |
+| `wdtk-197896--available-callsigns-list` | 2014-03-14 | 25,391 | 29.5% | 47.1% | 47.1% | 58.4% | 59.3% | 63.2% | 64.2% | 1.4% | 64.0% | 1.4% | 65.0% |
+| `wdtk-224333--available-callsigns-list` | 2014-08-18 | 24,200 | 26.0% | 44.5% | 44.5% | 56.3% | 57.3% | 61.4% | 62.4% | 1.5% | 62.3% | 1.5% | 63.3% |
+| `wdtk-247308--available-callsigns-list` | 2015-02-25 | 23,032 | 22.3% | 41.6% | 41.6% | 54.1% | 55.1% | 59.4% | 60.5% | 1.5% | 60.4% | 1.5% | 61.5% |
+| `wdtk-261814--available-callsigns-list` | 2015-04-16 | 22,584 | 20.7% | 40.5% | 40.5% | 53.2% | 54.2% | 58.6% | 59.7% | 1.6% | 59.6% | 1.6% | 60.8% |
+| `wdtk-271469--available-callsigns-list` | 2015-06-11 | 22,218 | 19.4% | 39.5% | 39.5% | 52.4% | 53.4% | 57.9% | 59.1% | 1.6% | 59.0% | 1.6% | 60.1% |
+| `wdtk-294011--available-callsigns-list` | 2015-10-13 | 21,481 | 16.7% | 37.4% | 37.4% | 50.8% | 51.8% | 56.4% | 57.6% | 1.6% | 57.6% | 1.6% | 58.8% |
+| `wdtk-299321--available-callsigns-list` | 2015-10-13 | 21,481 | 16.7% | 37.4% | 37.4% | 50.8% | 51.8% | 56.4% | 57.6% | 1.6% | 57.6% | 1.6% | 58.8% |
+| `wdtk-309076--available-callsigns-list` | 2016-01-21 | 20,734 | 13.6% | 35.1% | 35.1% | 49.0% | 50.1% | 54.9% | 56.1% | 1.7% | 56.1% | 1.7% | 57.4% |
