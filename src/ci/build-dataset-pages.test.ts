@@ -16,12 +16,15 @@ import { externalLink } from './site-render.ts';
 let outputDir: string;
 let summary: DatasetPagesSummary;
 
-// Generous hook timeout: the per-entry RSL matrices parse seven ~158k-row
-// components.csv files, which exceeds the 10s default on CI runners.
+// Generous hook timeout: this builds the whole deploy artefact by parsing the
+// entire real archive (seven ~158k-row publications plus every FOI snapshot),
+// which grows with each ingested dataset. The ceiling is deliberately large so
+// a congested CI runner has headroom; the durable fix is the #336 efficiency
+// work that shares the archive parse instead of rebuilding it per test file.
 beforeAll(() => {
   outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dataset-pages-'));
   summary = buildDatasetPages(outputDir, 'https://example.test/site');
-}, 300_000);
+}, 600_000);
 
 afterAll(() => {
   fs.rmSync(outputDir, { recursive: true, force: true });
@@ -640,7 +643,7 @@ describe('Dataset pages build', () => {
     }
   });
 
-  it('DatasetPages_Rebuild_IsDeterministic', { timeout: 300_000 }, () => {
+  it('DatasetPages_Rebuild_IsDeterministic', { timeout: 600_000 }, () => {
     // No timestamps or ordering instability: a rebuild over unchanged data
     // must produce identical bytes (Wayback re-crawls then see no change).
     const second = fs.mkdtempSync(path.join(os.tmpdir(), 'dataset-pages-2-'));
