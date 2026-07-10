@@ -927,6 +927,20 @@ describe('FOI archive golden master', () => {
     expect(results[0].notes.blankCounts['status']).toBe(6);
   });
 
+  it('FoiArchive_Ofcom20170713Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('ofcom-2017-07-13--all-callsigns', 'ofcom-2017-07-13-register', [135866]);
+    // The oldest CSV header shape carries Ofcom's own prefix/suffix
+    // decomposition (Prefix, Suffix), required-present but not carried - the
+    // normalised projection keeps the register-snapshot core only.
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class');
+    // One row asserts a blank callsign with a Reserved status - data, not
+    // dropped, and it sorts first under the codepoint order.
+    expect(results[0].notes.blankCounts['callsign']).toBe(1);
+    expect(results[0].csv.startsWith('callsign,status,licence_class\n,Reserved,\n')).toBe(true);
+    // No blank statuses in this snapshot (contrast the 2019 registers).
+    expect(results[0].notes.blankCounts['status']).toBeUndefined();
+  });
+
   it('FoiArchive_Wdtk238892Entry_ReproducesCommittedNormalisedFilesByteForByte', () => {
     const results = expectEntryReproduced('wdtk-238892--out-of-sequence-callsigns', PREWAR_VARIANT, [419, 41]);
     // 45 pre-war callsigns appear more than once (multiple assignments) -

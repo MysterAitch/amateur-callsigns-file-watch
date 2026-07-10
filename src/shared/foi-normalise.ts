@@ -460,6 +460,40 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
     },
   ],
 
+  // ofcom-2017-07-13 (Ofcom web-link CSV, "FOI Request 13 Jul 17"): a full
+  // register snapshot in the oldest CSV header shape held (Value, Prefix,
+  // Suffix, Type, Status), predating all three known open-data variants. The
+  // source carries Ofcom's OWN prefix/suffix decomposition of each callsign -
+  // recorded in the entry meta and preserved verbatim in the archived source
+  // CSV, but required-present-not-carried here: the normalised projection keeps
+  // the register-snapshot core so it stays comparable with every other register
+  // vintage, and the decomposition is not uniformly three-letter-suffix-shaped
+  // (GM6JYC -> G6/JYC yet GM0SXQ -> GM/0SXQ), so it is not the registered
+  // `suffix` extension. 'Type' is 'Call Sign - Amateur' on every row - the
+  // product/service discriminator, not a per-row assertion. No licence class is
+  // disclosed, so licence_class is emitted empty to keep the callsign-observation
+  // core stable (as in wdtk-1180568 sheet 1). No date columns, so no reference
+  // bound. Vintage caveat lives in the meta (declared 2017-07-13, not proven).
+  'ofcom-2017-07-13-register': [
+    {
+      sourceFile: 'Amateur Call Signs for FOI Request 13 Jul 17.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Value', output: 'callsign', kind: 'verbatim' },
+        { source: 'Status', output: 'status', kind: 'verbatim' },
+        // No licence class is disclosed; emitted empty to keep the
+        // callsign-observation core schema stable.
+        { source: null, output: 'licence_class', kind: 'verbatim' },
+      ],
+      // Prefix/Suffix are Ofcom's own decomposition of the callsign (preserved
+      // verbatim in the archived source CSV, described in meta); Type is the
+      // constant product/service discriminator. Required present, not carried.
+      ignoredColumns: ['Prefix', 'Suffix', 'Type'],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'source rows arrive grouped by suffix but carry no meaningful publication order (no dates, not callsign-sorted); sorted by callsign for diffability and cross-snapshot comparability',
+    },
+  ],
+
   // ofcom-2024-12 (Ofcom disclosure log, December 2024): the five-years-on
   // forbidden-suffix comparison point. A suspected Salesforce object export -
   // two columns, Name (the three-letter suffix) and LastModifiedDate - so,
