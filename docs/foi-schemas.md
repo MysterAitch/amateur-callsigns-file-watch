@@ -48,6 +48,7 @@ a header.
 | `licence_issued_date` | `callsign-observation` | the licence issue date as disclosed in register snapshots, ISO-rendered |
 | `created_date` | `callsign-observation` | the licensing-system record creation timestamp, ISO-rendered (time kept where the source carries one) |
 | `original_start_date` | `callsign-observation`, `callsign-attributes` | the licence's original start date as disclosed, ISO-rendered; per-source semantics caveats live in the entry meta |
+| `last_modified_date` | `suffix-list` | the suffix record's last-modified timestamp as disclosed in the forbidden-suffix export (a Salesforce object attribute), ISO-rendered with any time-of-day kept - the per-suffix provenance the earlier forbidden lists lack |
 | `status` | `issuance-events` | the licence status at disclosure, carried verbatim, when it accompanies event rows |
 | `licence_class` | `issuance-events` | the licence product/class vocabulary carried verbatim, when it accompanies event rows |
 | `reason` | `issuance-events` | the source's stated reason for the event, verbatim |
@@ -72,6 +73,7 @@ fail the conversion.
 | `available-suffix-lists-2013-style` | `wdtk-174341--available-callsigns-list`, `wdtk-197896--available-callsigns-list` |
 | `available-typed-export-7col` | `wdtk-294011--available-callsigns-list`, `wdtk-299321--available-callsigns-list` |
 | `available-typed-export-8col` | `wdtk-247308--available-callsigns-list`, `wdtk-261814--available-callsigns-list` |
+| `ofcom-2024-12-forbidden-suffixes` | `ofcom-2024-12--forbidden-suffixes` |
 | `ofcom-498903-reissue-events` | `ofcom-498903--reissued-callsigns-since-2010` |
 | `ofcom-498906-reciprocal-events` | `ofcom-498906--reciprocal-licences-since-2010` |
 | `ofcom-756622-register-and-forbidden` | `ofcom-756622--published-register-csv` |
@@ -201,6 +203,19 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 Required-present but not carried: `Country`, `Current Series`, `Type`, `Allocated Flag`.
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order; sorted by callsign for diffability.
+
+### `ofcom-2024-12-forbidden-suffixes`
+
+**`forbidden-amateur-radio-callsigns.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `suffix` | `Name` | verbatim |
+| `last_modified_date` | `LastModifiedDate` | date |
+
+Row order: **sorted-by-first-column** — the source is alphabetical by suffix and carries no other meaningful order; sorted by suffix for diffability and cross-disclosure comparability (a near no-op).
+
+Date plausibility bound: 2024-12-31.
 
 ### `ofcom-498903-reissue-events`
 

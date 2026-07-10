@@ -459,6 +459,33 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       referenceDateIso: '2017-12-22',
     },
   ],
+
+  // ofcom-2024-12 (Ofcom disclosure log, December 2024): the five-years-on
+  // forbidden-suffix comparison point. A suspected Salesforce object export -
+  // two columns, Name (the three-letter suffix) and LastModifiedDate - so,
+  // unlike the earlier forbidden lists, it carries per-suffix provenance. The
+  // LastModifiedDate is kept: it is the only dated provenance any forbidden
+  // disclosure supplies, and dropping it would discard the very signal that
+  // distinguishes this list from its predecessors. referenceDateIso is the
+  // disclosure-month upper bound used solely as the date plausibility ceiling
+  // (a last-modified date beyond December 2024 would be corruption); the
+  // disclosed dates themselves top out at 2020-12-10.
+  'ofcom-2024-12-forbidden-suffixes': [
+    {
+      sourceFile: 'forbidden-amateur-radio-callsigns.csv',
+      encoding: 'utf8',
+      columns: [
+        // Three-letter SUFFIXES under a 'Name' column - the forbidden-list
+        // shape (issue #139), not callsigns.
+        { source: 'Name', output: 'suffix', kind: 'verbatim' },
+        { source: 'LastModifiedDate', output: 'last_modified_date', kind: 'date' },
+      ],
+      ignoredColumns: [],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'the source is alphabetical by suffix and carries no other meaningful order; sorted by suffix for diffability and cross-disclosure comparability (a near no-op)',
+      referenceDateIso: '2024-12-31',
+    },
+  ],
 };
 
 // The 2013/14 suffix-list sheets differ only in filename, stated prefix and
@@ -589,6 +616,10 @@ export const FOI_EXTENSION_COLUMNS: Readonly<Record<string, FoiExtensionColumn>>
   original_start_date: {
     definition: 'the licence\'s original start date as disclosed, ISO-rendered; per-source semantics caveats live in the entry meta',
     families: ['callsign-observation', 'callsign-attributes'],
+  },
+  last_modified_date: {
+    definition: 'the suffix record\'s last-modified timestamp as disclosed in the forbidden-suffix export (a Salesforce object attribute), ISO-rendered with any time-of-day kept - the per-suffix provenance the earlier forbidden lists lack',
+    families: ['suffix-list'],
   },
   status: {
     definition: 'the licence status at disclosure, carried verbatim, when it accompanies event rows',

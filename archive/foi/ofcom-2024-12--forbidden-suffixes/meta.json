@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no reference number appears on the disclosure-log listing, in the CSV, or on the paired archived PDF; the entry is keyed by disclosure vintage instead",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/december/forbidden-amateur-radio-callsigns.csv",
+  "title": "Forbidden amateur radio callsigns (Ofcom disclosure-log CSV, December 2024)",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "no request thread recovered; the dataset was published on Ofcom's FOI disclosure log without an associated requester or request date",
+  "respondedAt": null,
+  "respondedAtNote": "no response date stated in the material; the disclosure-log folder places publication in December 2024",
+  "outcome": "successful",
+  "dataVintage": "2024-12",
+  "dataVintageNote": "disclosure-log publication month; the list's own LastModifiedDate values top out at 2020-12-10 (1,463 rows at 2016-07-29, one - JIZ - at 2020-12-10), and a same-titled PDF was web-archived by UKGWA on 2023-01-03, so the data's currency predates the December 2024 listing - declared, not verified",
+  "datasetClasses": ["forbidden-list"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2024-12-forbidden-suffixes" },
+  "relatedEntries": [
+    { "entry": "ofcom-756622--published-register-csv", "relation": "the immediately-preceding forbidden-suffix disclosure (2019-09-12 published copy); same 1,465-suffix set as 2016, against which this 2024 list differs by +JIZ, -QNF, -ZFJ" },
+    { "entry": "wdtk-596532--allocated-reserved-forbidden", "relation": "the 2019-08-12 FOI annex carrying the same 1,465-suffix forbidden set - the second 2019 witness" },
+    { "entry": "wdtk-356636--all-callsigns-plus-forbidden", "relation": "the 2016-09 origin of the forbidden list (1,465 distinct suffixes; a duplicate ZIT row makes 1,466); this 2024 list's 2016-07-29 LastModifiedDate bulk is consistent with that origin" },
+    { "entry": "ofcom-2017-07-03--all-callsigns-with-status", "relation": "names Salesforce as Ofcom's licensing database - consistent with this file's two-column Name,LastModifiedDate shape being a Salesforce object export (declared, not verified)" },
+    { "entry": "ofcom-foi-log/ukgwa 196674--forbidden-amateur-radio-callsigns.pdf (drop zone)", "relation": "a same-titled PDF web-archived 2023-01-03 - evidence a forbidden-suffix document under this title predates the December 2024 CSV listing (not committed; declared, not verified as the same list)" },
+    { "entry": "ofcom-foi-log/live/2024/december amateur-radio-foundation-callsigns-beginning-with-m7.csv (drop zone)", "relation": "companion dataset in the same December 2024 disclosure-log folder - a separate M7-foundation list, out of scope for this entry" }
+  ],
+  "files": {
+    "forbidden-amateur-radio-callsigns.csv": {
+      "bytes": 32231,
+      "sha256": "533452f6c39cc754ebcb5ed9d356bec45a0ab94dc4a364b366e4f781c6c634cb",
+      "role": "data",
+      "datasetClasses": ["forbidden-list"],
+      "contentsIndicative": "header Name,LastModifiedDate; 1,464 data rows, CRLF line endings, preserved verbatim; three-letter forbidden suffixes with a per-suffix last-modified timestamp; suspected Salesforce object export (declared, not verified); LastModifiedDate distribution is 1,463 rows at 29/07/2016 17:19 and one (JIZ) at 10/12/2020 09:10",
+      "witnesses": [
+        {
+          "channel": "ofcom-disclosure-log",
+          "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/december/forbidden-amateur-radio-callsigns.csv?v=386925",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "normalised--forbidden-amateur-radio-callsigns.csv": {
+      "bytes": 30770,
+      "sha256": "229444fb1ebad64f6708f314c96fe0b9f203e167eeb2ef71fa3607b35f237fa7",
+      "role": "normalised",
+      "normalisedFrom": "forbidden-amateur-radio-callsigns.csv",
+      "contentsIndicative": "header suffix,last_modified_date; 1,464 data rows sorted by suffix (a near no-op - the source is already alphabetical); LastModifiedDate ISO-rendered with time-of-day kept (29/07/2016 17:19 -> 2016-07-29 17:19); the 2020-12-10 JIZ outlier preserved; forbidden-list (suffix-list) shape per issue #139"
+    },
+    "correspondence.md": {
+      "bytes": 3378,
+      "sha256": "bdb9e5fea97044cecd533f453b729446bfa2ab9edef02dd02f392ac9c1274af0",
+      "role": "transcript"
+    }
+  }
+}
