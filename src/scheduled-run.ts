@@ -507,6 +507,28 @@ interface GitOpResult {
   message?: string;
 }
 
+// Run fn; if it throws, invoke onRetry (to log and/or back off) then run it
+// once more, propagating a second throw. Absorbs a transient git race - a
+// concurrent process moving refs mid-fetch - without masking a persistent
+// failure, which fails both attempts and surfaces normally.
+export function retryOnce<T>(fn: () => T, onRetry: (err: unknown) => void): T {
+  try {
+    return fn();
+  } catch (err) {
+    onRetry(err);
+    return fn();
+  }
+}
+
+// Synchronous sleep for the rare git-retry path. The tick is synchronous
+// around its git calls, so we cannot await; Atomics.wait is a dependency-free
+// blocking sleep.
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+const FF_PULL_RETRY_DELAY_MS = 1_000;
+
 // Fast-forward pull at start of tick. Picks up any dev-pushed code changes
 // (README, orchestrator logic, docs) so the LXC's copy stays current without
 // manual `git pull` intervention. --ff-only means: never touch local commits
@@ -518,7 +540,7 @@ interface GitOpResult {
 // result so the caller can decide whether to notify - "no changes to pull"
 // isn't a failure worth notifying about, but SSH auth errors are.
 export function tryFastForwardPull(): GitOpResult {
-  try {
+  const attemptPull = (): GitOpResult => {
     // Compare HEAD before and after so we can log "already up to date" vs
     // "fetched N commits" distinctly, without relying on git's stdout text.
     const before = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
@@ -530,6 +552,22 @@ export function tryFastForwardPull(): GitOpResult {
       logger.info(`git pull --ff-only: advanced ${before.slice(0, 7)} -> ${after.slice(0, 7)}`);
     }
     return { op: 'git pull --ff-only', success: true };
+  };
+
+  try {
+    // A tick's pull can collide with a concurrent git operation - an operator
+    // reconciling by hand, or an overlapping tick - that moves refs/heads/main
+    // mid-fetch; git then warns "fetch updated the current branch head" and
+    // exits non-zero. That race is transient, so retry once before treating it
+    // as a real failure. A genuine failure (real divergence from an unpushed
+    // commit, auth) fails both attempts and is still reported.
+    return retryOnce(attemptPull, (err) => {
+      const message = summariseGitError(execErrorText(err));
+      logger.warn(
+        `git pull --ff-only failed (${message}); retrying once after a possible concurrent-op race`,
+      );
+      sleepSync(FF_PULL_RETRY_DELAY_MS);
+    });
   } catch (err) {
     const message = summariseGitError(execErrorText(err));
     logger.warn(`git pull --ff-only failed: ${message}`);
