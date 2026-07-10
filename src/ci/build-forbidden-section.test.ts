@@ -202,6 +202,13 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', () =>
     expect(page).toContain('<a href="../../../index.html?c=M3QNF"><code>M3QNF</code></a> (original start 20 November 2025)');
     expect(page).toContain('<a href="../../../index.html?c=M7QNF"><code>M7QNF</code></a> (original start 7 February 2025)');
     expect(page).toContain('A reconciliation candidate');
+    // The flag rationale is accurate post phase-4 refit: the row-level
+    // forbidden-suffix flag keys off the ever-forbidden union (NOT the old 2019
+    // reference list), and a post-first-known-forbidden issuance additionally
+    // carries the per-suffix temporal flag.
+    expect(page).toContain('still fires because the suffix is on the ever-forbidden union');
+    expect(page).toContain('forbidden-suffix-issued-after-first-known-list');
+    expect(page).not.toContain('keys off the 2019 reference list');
   });
 
   it('SuffixPage_QNF_BreaksCallsignsDownByStatusNotABareTotal', () => {
