@@ -1,32 +1,35 @@
 #!/usr/bin/env node
 
 /**
- * Builds the forbidden-suffix site section (issue #291 phase 2): a discrete,
- * STATIC, Wayback-crawlable section for the forbidden-suffix lists, mirroring
- * the dataset/FOI entry-page information architecture. A section index plus one
- * page per forbidden-list disclosure.
+ * Builds the forbidden-suffix site section (issue #291 phases 2 + 3): a
+ * discrete, STATIC, Wayback-crawlable section for the forbidden-suffix lists,
+ * mirroring the dataset/FOI entry-page information architecture. A section
+ * index, one page per forbidden-list disclosure, and (phase 3) one detail page
+ * per ever-forbidden union suffix, with the notable-change suffixes on the
+ * index and disclosure pages now linked into those detail pages.
  *
  * Reuses the committed phase-1 data foundation (buildForbiddenSuffixHistory in
- * src/ci/forbidden-suffix-history.ts): it does NOT re-parse the archive or the
- * generated golden-master .md. Every figure traces back through that layer to
- * the committed FOI `forbidden-list` entries. Shared render helpers (nav,
- * breadcrumb, entry-page shell, download slots, breakdown bars, the a11y
- * skip-link / <main> pattern, the shared design tokens) are imported from
- * build-dataset-pages.ts, so the section reads as one product with the site.
+ * src/ci/forbidden-suffix-history.ts) and the phase-3 suffix -> callsigns index
+ * (buildSuffixCallsignIndex in src/ci/forbidden-suffix-callsigns.ts, built ONCE
+ * per build, not per page): it does NOT re-parse the archive per page. Every
+ * figure traces back through those layers to the committed FOI `forbidden-list`
+ * entries and the archived publications. Shared render helpers (nav, breadcrumb,
+ * entry-page shell, download slots, breakdown bars, the a11y skip-link / <main>
+ * pattern, the shared design tokens) are imported from build-dataset-pages.ts,
+ * so the section reads as one product with the site.
  *
- * Boundaries (phase 2, deliberately): STATIC only — no interactive filtering,
- * SQL, or live browser (that is phase 3b), so the core content renders with no
- * JavaScript. No per-suffix detail pages and no clickable notable-change
- * drill-downs (phase 3): changed suffixes are named as text, never linked to
- * pages that do not exist yet.
- *
- * Phase-3 note (also stated in the page copy): when per-suffix pages attach
- * callsign counts, those counts MUST decompose by status (Allocated /
- * Reserved / Available), never a bare total — a rise in matches could be a
- * Reserved spike rather than new issuance, a very different meaning.
+ * Boundaries (deliberately): STATIC only — no interactive filtering, SQL, or
+ * live browser (that is phase 3b), so the core content renders with no
+ * JavaScript. Per-suffix callsign counts ALWAYS decompose by status (Allocated
+ * / Reserved / Available / Forbidden / …), never a bare total — a rise in
+ * matches could be a Reserved spike, or a batch of Forbidden prohibition rows,
+ * rather than new Allocated issuance, a very different meaning. Row-level flags
+ * are untouched here (that is phase 4 / #179): this phase is presentation +
+ * cross-links only.
  *
  * Everything here is DECLARED, not verified; absence of a suffix from a
- * disclosure is not evidence it may be issued.
+ * disclosure is not evidence it may be issued, and absence of a callsign is not
+ * evidence a suffix may be issued.
  */
 
 import * as fs from 'fs';
@@ -36,6 +39,12 @@ import {
   type ForbiddenDisclosure,
   type ForbiddenSuffixHistory,
 } from './forbidden-suffix-history.ts';
+import {
+  buildSuffixCallsignIndex,
+  type SuffixCallsignIndex,
+  type SuffixCallsignInfo,
+  type SuffixCallsign,
+} from './forbidden-suffix-callsigns.ts';
 import { readFoiEntryMeta, type FoiEntryMeta } from '../shared/foi-archive.ts';
 import {
   escapeHtml,
@@ -77,10 +86,46 @@ function humanVintage(vintage: string): string {
   return vintage;
 }
 
-// Suffixes as inline <code> spans — never linked in phase 2 (per-suffix pages
-// are phase 3, so a link here would be a dead link).
+// Suffixes as inline <code> spans, unlinked — kept for the few sites where a
+// suffix is named incidentally (a duplicated-row artefact, a last-modified
+// bucket label) rather than as a drill-down target.
 function suffixCodes(suffixes: string[]): string {
   return suffixes.length === 0 ? '—' : suffixes.map(s => `<code>${escapeHtml(s)}</code>`).join(', ');
+}
+
+// Every ever-forbidden union suffix has its own detail page at
+// forbidden/suffix/{SUFFIX}/index.html. These build the relative href to it
+// from each depth the section renders at (index = forbidden/, disclosure =
+// forbidden/{entry}/, suffix = forbidden/suffix/{SUFFIX}/).
+type LinkOrigin = 'index' | 'disclosure' | 'suffix';
+function suffixHref(suffix: string, from: LinkOrigin): string {
+  const enc = encodeURIComponent(suffix);
+  if (from === 'index') return `suffix/${enc}/index.html`;
+  if (from === 'disclosure') return `../suffix/${enc}/index.html`;
+  return `../${enc}/index.html`;
+}
+
+// Suffixes as linked <code> spans into their per-suffix detail pages — the
+// phase-3 notable-change drill-downs. Every listed suffix is in the union, so
+// every link resolves to a page that exists.
+function suffixLinks(suffixes: string[], from: LinkOrigin): string {
+  return suffixes.length === 0
+    ? '—'
+    : suffixes.map(s => `<a href="${suffixHref(s, from)}"><code>${escapeHtml(s)}</code></a>`).join(', ');
+}
+
+// A callsign start / issue date as "20 November 2025" (trailing time dropped);
+// blank in -> blank out. Deterministic, no locale machinery.
+function humanDate(value: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (m === null) return value;
+  return `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}`;
+}
+
+// The lookup deep-link for a callsign, from a per-suffix page (depth 3: the
+// site root is three levels up). Opens the register/callsign view via ?c=.
+function callsignLookupHref(callsign: string): string {
+  return `../../../index.html?c=${encodeURIComponent(callsign)}`;
 }
 
 // The left timeline sidebar of forbidden-list disclosures, oldest first (the
@@ -141,11 +186,11 @@ function notablePanel(d: ForbiddenDisclosure, prev: ForbiddenDisclosure | undefi
     items.push(`<li><b>No change</b> from ${escapeHtml(humanVintage(prev.vintage))} — the identical ${num(d.distinctCount)}-suffix set.</li>`);
   } else {
     const parts: string[] = [];
-    if (d.added.length > 0) parts.push(`added ${suffixCodes(d.added)}`);
-    if (d.removed.length > 0) parts.push(`removed ${suffixCodes(d.removed)}`);
-    items.push(`<li><b>vs ${escapeHtml(humanVintage(prev.vintage))}:</b> ${parts.join('; ')} → ${num(d.distinctCount)} suffixes.</li>`);
+    if (d.added.length > 0) parts.push(`added ${suffixLinks(d.added, 'disclosure')}`);
+    if (d.removed.length > 0) parts.push(`removed ${suffixLinks(d.removed, 'disclosure')}`);
+    items.push(`<li><b>vs ${escapeHtml(humanVintage(prev.vintage))}:</b> ${parts.join('; ')} → ${num(d.distinctCount)} suffixes. <span class="gap">Each opens its per-suffix page.</span></li>`);
     if (d.removed.length > 0) {
-      items.push(`<li class="rel"><b>The de-listing is the standout.</b> A removal means a previously-withheld suffix could now be issued — the notable direction. The working theory is that such removals (here ${suffixCodes(d.removed)}) may be export artefacts rather than a deliberate policy change, so the ever-forbidden union keeps them flagged. Declared, not verified.</li>`);
+      items.push(`<li class="rel"><b>The de-listing is the standout.</b> A removal means a previously-withheld suffix could now be issued — the notable direction. The working theory is that such removals (here ${suffixLinks(d.removed, 'disclosure')}) may be export artefacts rather than a deliberate policy change, so the ever-forbidden union keeps them flagged. Declared, not verified.</li>`);
     }
   }
   if (d.duplicates.length > 0) {
@@ -164,9 +209,9 @@ function listSection(d: ForbiddenDisclosure): string {
   const more = d.distinctCount - preview.length;
   return [
     '<section><h2>The list</h2>',
-    `<p class="lead">${num(d.distinctCount)} distinct three-letter suffixes withheld from issue in this disclosure. A callsign already carrying one predates the withholding — see the <a href="../index.html">ever-forbidden note</a> on the section index.</p>`,
-    `<p>${suffixCodes(preview)}${more > 0 ? ` … <span class="gap">and ${num(more)} more — download the full list below</span>` : ''}</p>`,
-    '<p class="dcap">Per-suffix detail pages (phase 3) will list every callsign carrying a suffix, broken down by status (Allocated / Reserved / Available) — never a bare total, since a rise could be a Reserved spike rather than new issuance.</p>',
+    `<p class="lead">${num(d.distinctCount)} distinct three-letter suffixes withheld from issue in this disclosure. A callsign already carrying one predates the withholding — see the <a href="../index.html">ever-forbidden note</a> on the section index. Each suffix links to its detail page.</p>`,
+    `<p>${suffixLinks(preview, 'disclosure')}${more > 0 ? ` … <span class="gap">and ${num(more)} more — download the full list below, or browse them from the <a href="../index.html">section index</a></span>` : ''}</p>`,
+    '<p class="dcap">Each per-suffix page lists every callsign carrying the suffix, broken down by status (Allocated / Reserved / Available / Forbidden) — never a bare total, since a rise could be a Reserved spike, or a batch of Forbidden prohibition rows, rather than new issuance.</p>',
     '</section>',
   ].join('\n');
 }
@@ -232,9 +277,28 @@ function firstKnownDistribution(h: ForbiddenSuffixHistory): { dateKey: string; s
 // linking to its page), the headline change counts, the ever-forbidden union,
 // and the first-known-forbidden distribution. A plain-table page (no JS), like
 // the dataset/series/reports index pages.
-function indexPage(h: ForbiddenSuffixHistory): string {
+// The A–Z browse block: every union suffix as a link to its detail page,
+// grouped by first letter so the ~1,466 links stay scannable and every
+// per-suffix page is reachable by a crawler (no page is orphaned).
+function browseAllSuffixes(h: ForbiddenSuffixHistory): string[] {
+  const groups = new Map<string, string[]>();
+  for (const suffix of h.everForbiddenUnion) {
+    const letter = suffix.slice(0, 1);
+    const list = groups.get(letter) ?? [];
+    list.push(suffix);
+    groups.set(letter, list);
+  }
+  const out: string[] = [];
+  for (const letter of [...groups.keys()].sort()) {
+    const links = (groups.get(letter) ?? []).sort().map(s => `<a href="${suffixHref(s, 'index')}"><code>${escapeHtml(s)}</code></a>`).join(' ');
+    out.push(`<p><b>${escapeHtml(letter)}</b> — ${links}</p>`);
+  }
+  return out;
+}
+
+function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): string {
   const timelineRows = h.disclosures.map(d =>
-    `<tr><td><a href="${escapeHtml(d.entry)}/index.html">${escapeHtml(humanVintage(d.vintage))}</a><br><code>${escapeHtml(d.entry)}</code></td><td>${num(d.distinctCount)}</td><td>${num(d.rowCount)}</td><td>${suffixCodes(d.duplicates)}</td><td>${suffixCodes(d.added)}</td><td>${suffixCodes(d.removed)}</td></tr>`);
+    `<tr><td><a href="${escapeHtml(d.entry)}/index.html">${escapeHtml(humanVintage(d.vintage))}</a><br><code>${escapeHtml(d.entry)}</code></td><td>${num(d.distinctCount)}</td><td>${num(d.rowCount)}</td><td>${suffixCodes(d.duplicates)}</td><td>${suffixLinks(d.added, 'index')}</td><td>${suffixLinks(d.removed, 'index')}</td></tr>`);
 
   const steady = h.disclosures.filter(d => d.added.length === 0 && d.removed.length === 0);
   const drift = h.disclosures.filter(d => d.added.length > 0 || d.removed.length > 0);
@@ -246,8 +310,8 @@ function indexPage(h: ForbiddenSuffixHistory): string {
   }
   for (const d of drift) {
     const parts: string[] = [];
-    if (d.added.length > 0) parts.push(`added ${suffixCodes(d.added)}`);
-    if (d.removed.length > 0) parts.push(`removed ${suffixCodes(d.removed)}`);
+    if (d.added.length > 0) parts.push(`added ${suffixLinks(d.added, 'index')}`);
+    if (d.removed.length > 0) parts.push(`removed ${suffixLinks(d.removed, 'index')}`);
     let currency = '';
     const latestLm = d.lastModified.map(b => b.value).sort().at(-1);
     if (latestLm !== undefined) {
@@ -257,7 +321,7 @@ function indexPage(h: ForbiddenSuffixHistory): string {
   }
 
   const fkRows = firstKnownDistribution(h).map(b =>
-    `<tr><td>${escapeHtml(b.dateKey)}</td><td>${num(b.suffixes.length)}</td><td>${b.suffixes.length <= ENUMERATE_LIMIT ? suffixCodes(b.suffixes) : `<span class="gap">${num(b.suffixes.length)} suffixes — not enumerated</span>`}</td></tr>`);
+    `<tr><td>${escapeHtml(b.dateKey)}</td><td>${num(b.suffixes.length)}</td><td>${b.suffixes.length <= ENUMERATE_LIMIT ? suffixLinks(b.suffixes, 'index') : `<span class="gap">${num(b.suffixes.length)} suffixes — not enumerated; browse them below</span>`}</td></tr>`);
 
   const body = [
     '<h1>Forbidden-suffix lists</h1>',
@@ -283,22 +347,224 @@ function indexPage(h: ForbiddenSuffixHistory): string {
     ...fkRows,
     '</table>',
 
-    '<h2>Per-suffix detail (phase 3)</h2>',
-    '<p>Per-suffix pages — each suffix’s list history plus every callsign carrying it — are a later phase and are not yet built, so no links to them appear here. When they arrive, every per-suffix callsign count will decompose by status (Allocated / Reserved / Available), never a bare total: a rise in matches could be a spike in <em>Reserved</em> rows rather than new <em>Allocated</em> issuance, a very different meaning.</p>',
+    '<h2>Per-suffix detail</h2>',
+    '<p>Every ever-forbidden union suffix has its own detail page: its forbidden-list history (which disclosures list it, first known forbidden, whether it was de-listed) plus every callsign carrying it, <b>broken down by status</b> (Allocated / Reserved / Available / Forbidden), cross-linked to the register lookup and the FOI observations. A count is never bare: a rise could be a spike in <em>Reserved</em> rows, or a batch of <em>Forbidden</em> prohibition rows, rather than new <em>Allocated</em> issuance — a very different meaning.</p>',
   ];
+
+  // The surprise worth surfacing on the index: forbidden suffixes that
+  // nonetheless carry Allocated (issued / in-use) callsigns. Status breakdown,
+  // not a bare total — the whole point.
+  const withAllocated = h.everForbiddenUnion
+    .map(suffix => ({ suffix, info: index.get(suffix) }))
+    .filter((x): x is { suffix: string; info: SuffixCallsignInfo } => x.info !== undefined)
+    .map(x => ({ suffix: x.suffix, allocated: x.info.byStatus.find(b => b.status === 'Allocated')?.count ?? 0 }))
+    .filter(x => x.allocated > 0)
+    .sort((a, b) => b.allocated - a.allocated || a.suffix.localeCompare(b.suffix));
+  if (withAllocated.length > 0) {
+    body.push('<h3>Forbidden, yet carrying Allocated callsigns</h3>');
+    body.push(`<p>${num(withAllocated.length)} union suffixes carry at least one <b>Allocated</b> callsign somewhere in the corpus — most predating the withholding, a few (notably <a href="${suffixHref('QNF', 'index')}"><code>QNF</code></a>) issued <em>after</em> the suffix was de-listed. Declared, not verified.</p>`);
+    body.push('<table>');
+    body.push('<tr><th scope="col">suffix</th><th scope="col">Allocated callsigns</th></tr>');
+    for (const x of withAllocated.slice(0, 40)) {
+      body.push(`<tr><td><a href="${suffixHref(x.suffix, 'index')}"><code>${escapeHtml(x.suffix)}</code></a></td><td>${num(x.allocated)}</td></tr>`);
+    }
+    body.push('</table>');
+    if (withAllocated.length > 40) body.push(`<p class="dcap">Showing the 40 with the most Allocated callsigns; the rest are reachable from the A–Z list below.</p>`);
+  }
+
+  body.push('<h3>Browse every forbidden suffix (A–Z)</h3>');
+  body.push('<p>Each links to its per-suffix detail page. A suffix with no callsign in any snapshot the mirror holds is itself informative — withheld, and so far as the mirror can see, unused.</p>');
+  body.push(...browseAllSuffixes(h));
+
   return htmlPage('Forbidden-suffix lists', 1, body, { currentNav: 'Forbidden suffixes', sourcePath: 'archive/foi' });
+}
+
+// ---- Per-suffix detail pages (phase 3) ----
+
+// A YYYY-MM month key for chronological comparison; '' when the value is not a
+// dated string (asserts nothing, so it can never satisfy an "after" test).
+function monthOf(value: string): string {
+  const m = value.slice(0, 7);
+  return /^\d{4}-\d{2}$/.test(m) ? m : '';
+}
+
+interface SuffixAnalysis {
+  // Per disclosure, whether this suffix is on that list — the presence trail.
+  presence: { disclosure: ForbiddenDisclosure; present: boolean }[];
+  // Present on the most recent disclosure held.
+  currentlyListed: boolean;
+  // The disclosure that removed the suffix (if it was de-listed and not
+  // re-added), else undefined.
+  delisting: ForbiddenDisclosure | undefined;
+  // Allocated callsigns whose original-start month is strictly after the
+  // de-listing disclosure's vintage — the "de-listed, then issued" arc.
+  issuedAfterDelisting: SuffixCallsign[];
+}
+
+function analyseSuffix(suffix: string, h: ForbiddenSuffixHistory, info: SuffixCallsignInfo): SuffixAnalysis {
+  const presence = h.disclosures.map(d => ({ disclosure: d, present: d.distinctSuffixes.includes(suffix) }));
+  const latest = h.disclosures[h.disclosures.length - 1];
+  const currentlyListed = latest !== undefined && latest.distinctSuffixes.includes(suffix);
+  // The de-listing event: the last disclosure whose `removed` set carries this
+  // suffix and which was not followed by a re-addition (i.e. it is still off
+  // the list now).
+  let delisting: ForbiddenDisclosure | undefined;
+  if (!currentlyListed) {
+    for (const d of h.disclosures) if (d.removed.includes(suffix)) delisting = d;
+  }
+  const delistMonth = delisting !== undefined ? monthOf(delisting.vintage) : '';
+  const issuedAfterDelisting = delistMonth === ''
+    ? []
+    : info.callsigns.filter(c => c.latestStatus === 'Allocated' && monthOf(c.startDate) !== '' && monthOf(c.startDate) > delistMonth);
+  return { presence, currentlyListed, delisting, issuedAfterDelisting };
+}
+
+// The forbidden-list history for one suffix: which disclosures list it, first
+// known forbidden, and the de-listing (with the currency caveat). Each
+// disclosure links back to its own page.
+function suffixHistorySection(suffix: string, h: ForbiddenSuffixHistory, a: SuffixAnalysis): string {
+  const fk = h.firstKnownForbidden[suffix];
+  const rows = a.presence.map(({ disclosure, present }) =>
+    `<tr><td><a href="../../${escapeHtml(disclosure.entry)}/index.html">${escapeHtml(humanVintage(disclosure.vintage))}</a></td><td>${present ? 'on the list' : '<span class="gap">absent</span>'}</td></tr>`);
+  const statusLine = a.currentlyListed
+    ? `Still withheld as of the most recent disclosure held (${escapeHtml(humanVintage(h.disclosures[h.disclosures.length - 1].vintage))}).`
+    : a.delisting !== undefined
+      ? `<b>De-listed</b> by the ${escapeHtml(humanVintage(a.delisting.vintage))} disclosure — it appears on earlier lists but not this one. The working theory is that such removals may be export artefacts rather than a deliberate policy change, so the ever-forbidden union keeps the suffix flagged. Declared, not verified.`
+      : 'Not on the most recent disclosure held.';
+  return [
+    '<section><h2>Forbidden-list history</h2>',
+    `<p class="lead">First known forbidden <b>${escapeHtml(fk.displayValue)}</b> <span class="gap">(${escapeHtml(fk.basis)})</span>. ${statusLine}</p>`,
+    '<table>',
+    '<tr><th scope="col">disclosure</th><th scope="col">this suffix</th></tr>',
+    ...rows,
+    '</table>',
+    '</section>',
+  ].join('\n');
+}
+
+// The de-listed-then-issued arc callout (the QNF payoff): forbidden → de-listed
+// → then issued, with the callsigns and their post-de-listing dates named, and
+// framed as a reconciliation candidate.
+function arcCallout(suffix: string, a: SuffixAnalysis): string {
+  if (a.delisting === undefined || a.issuedAfterDelisting.length === 0) return '';
+  const cs = a.issuedAfterDelisting
+    .map(c => `<a href="${callsignLookupHref(c.callsign)}"><code>${escapeHtml(c.callsign)}</code></a> (original start ${escapeHtml(humanDate(c.startDate))})`)
+    .join(', ');
+  return noticeStrip(true,
+    `<b>Forbidden, then de-listed, then issued.</b> <code>${escapeHtml(suffix)}</code> was withheld on the earlier lists, removed by the ${escapeHtml(humanVintage(a.delisting.vintage))} disclosure (whose currency predates its publication), yet ${cs} ${a.issuedAfterDelisting.length === 1 ? 'is' : 'are'} now Allocated — issued <em>after</em> the de-listing. The row-level <code>forbidden-suffix</code> flag still fires (it keys off the 2019 reference list). A reconciliation candidate: possibly the de-listing was an error, or the issuance was. Declared, not verified.`);
+}
+
+// The callsigns section: the status breakdown (never a bare total) followed by
+// the per-callsign table, cross-linked to the register lookup, and the FOI
+// witnesses. A suffix with no callsign says so.
+function suffixCallsignsSection(info: SuffixCallsignInfo): string {
+  if (info.total === 0) {
+    return [
+      '<section><h2>Callsigns carrying this suffix</h2>',
+      '<p class="lead">No callsign carries this suffix in any snapshot the mirror holds — withheld, and so far as the mirror can see, unused. Absence is not evidence it may be issued; it is simply not witnessed here.</p>',
+      '</section>',
+    ].join('\n');
+  }
+  const breakdown: [string, number][] = info.byStatus.map(b => [b.status, b.count]);
+  const rows = info.callsigns.map(c => {
+    const distinctStatuses = [...new Set(c.observations.map(o => o.status))];
+    const earliest = c.observations[0].status;
+    const wasNote = distinctStatuses.length > 1 && earliest !== c.latestStatus
+      ? ` <small class="gap">(was ${escapeHtml(earliest === '' ? '(blank)' : earliest)})</small>`
+      : '';
+    const openData = new Set(c.observations.filter(o => o.lane === 'open-data').map(o => o.source)).size;
+    const foi = new Set(c.observations.filter(o => o.lane === 'foi').map(o => o.source)).size;
+    const seenParts: string[] = [];
+    if (openData > 0) seenParts.push(`${openData} open-data`);
+    if (foi > 0) seenParts.push(`${foi} FOI`);
+    const statusCell = `${escapeHtml(c.latestStatus === '' ? '(blank)' : c.latestStatus)}${wasNote}`;
+    const startCell = c.startDate === '' ? '<span class="gap">—</span>' : escapeHtml(humanDate(c.startDate));
+    const regCell = c.inCurrentRegister ? '✓' : '<span class="gap">—</span>';
+    return `<tr><td><a href="${callsignLookupHref(c.callsign)}"><code>${escapeHtml(c.callsign)}</code></a></td><td>${statusCell}</td><td>${startCell}</td><td>${regCell}</td><td>${escapeHtml(seenParts.join(' · '))}</td></tr>`;
+  });
+  // The distinct FOI entries witnessing any of these callsigns, cross-linked.
+  const foiEntries = [...new Set(info.callsigns.flatMap(c => c.observations.filter(o => o.lane === 'foi').map(o => o.source)))].sort();
+  const foiLinks = foiEntries
+    .map(e => `<a href="../../../datasets/foi/${encodeURIComponent(e)}/index.html"><code>${escapeHtml(e)}</code></a>`)
+    .join(', ');
+  const foiNote = foiEntries.length > 0
+    ? `<p class="dcap">FOI observations witnessing these callsigns: ${foiLinks}.</p>`
+    : '';
+  return [
+    '<section><h2>Callsigns carrying this suffix</h2>',
+    `<p class="lead">${num(info.total)} distinct callsign${info.total === 1 ? '' : 's'} witnessed carrying this suffix across the corpus, <b>broken down by latest-known status</b> — never a bare total, since Allocated (issued), Reserved, Available and Forbidden (the prohibition itself, expressed as a callsign row) mean very different things.</p>`,
+    '<div class="bd"><h3>By latest-known status</h3>',
+    breakdownRows(breakdown, info.total),
+    '</div>',
+    '<table>',
+    '<tr><th scope="col">callsign</th><th scope="col">latest status</th><th scope="col">original start</th><th scope="col">in current register</th><th scope="col">witnessed in</th></tr>',
+    ...rows,
+    '</table>',
+    '<p class="dcap">Each callsign opens the register lookup (<code>?c=</code>) for its full recorded history. A status shown as "(was …)" changed across snapshots — for example Forbidden in an early register export, Allocated later.</p>',
+    foiNote,
+    '</section>',
+  ].join('\n');
+}
+
+// The At-a-glance sidebar for a suffix: the headline callsign total, the status
+// breakdown, whether it is currently listed, and first known forbidden.
+function suffixAtAGlance(suffix: string, h: ForbiddenSuffixHistory, info: SuffixCallsignInfo, a: SuffixAnalysis): string {
+  const fk = h.firstKnownForbidden[suffix];
+  const breakdown: [string, number][] = info.byStatus.map(b => [b.status, b.count]);
+  const statusBar = breakdownRows(breakdown, info.total);
+  const statusBlock = info.total === 0
+    ? '<div class="bd"><h3>By status</h3><div class="brow"><span class="lab gap">no callsigns witnessed</span></div></div>'
+    : '<div class="bd"><h3>By latest-known status</h3>' + statusBar + '</div>';
+  return [
+    '<section><h2>At a glance</h2>',
+    `<div class="headline">${num(info.total)} <small>callsign${info.total === 1 ? '' : 's'}</small></div>`,
+    statusBlock,
+    '<div class="attr">',
+    `<div><b>On the list now?</b> · ${a.currentlyListed ? 'yes' : (a.delisting !== undefined ? `de-listed ${escapeHtml(humanVintage(a.delisting.vintage))}` : 'no')}</div>`,
+    `<div><b>First known forbidden</b> · ${escapeHtml(fk.displayValue)}</div>`,
+    `<div>Ever-forbidden union member · <code>${escapeHtml(suffix)}</code></div>`,
+    '</div>',
+    '</section>',
+  ].join('\n');
+}
+
+// One per-suffix detail page at forbidden/suffix/{SUFFIX}/ (depth 3), reusing
+// the entry-page card shell so it matches the disclosure and dataset pages.
+// Exported so the no-callsign branch can be exercised directly in tests (no
+// real union suffix is callsign-free).
+export function suffixPage(suffix: string, h: ForbiddenSuffixHistory, info: SuffixCallsignInfo): string {
+  const a = analyseSuffix(suffix, h, info);
+  const title = `Forbidden suffix ${suffix}`;
+  const body = [
+    breadcrumbHtml([['Forbidden suffixes', '../../index.html'], [suffix, undefined]]),
+    `<h1>Forbidden suffix <code>${escapeHtml(suffix)}</code></h1>`,
+    `<p class="subtitle">A three-letter callsign suffix on the ever-forbidden union — withheld from issue in at least one disclosure the mirror holds. Every figure is <b>declared, not verified</b>.</p>`,
+    noticeStrip(false, 'Freedom-of-Information + open-data derived — point-in-time snapshots, not a live feed. Absence of a callsign is not evidence a suffix may be issued.'),
+    arcCallout(suffix, a),
+    '<div class="main-region">',
+    '<div class="col">',
+    suffixHistorySection(suffix, h, a),
+    suffixCallsignsSection(info),
+    '</div>',
+    `<div class="side">${suffixAtAGlance(suffix, h, info, a)}</div>`,
+    '</div>',
+  ];
+  return entryPage(title, body, { currentNav: 'Forbidden suffixes', sourcePath: 'archive/foi' }, 3);
 }
 
 // Build the whole section under {outputDir}/forbidden/. Returns the page URLs
 // for the caller's sitemap. Deterministic for unchanged inputs (no
-// timestamps), like the rest of the dataset-pages build.
+// timestamps), like the rest of the dataset-pages build. The suffix -> callsigns
+// index is built ONCE and shared across the index page and every per-suffix
+// page — never re-scanned per page.
 export function buildForbiddenSection(outputDir: string, baseUrl: string = DEFAULT_BASE_URL): string[] {
   const history = buildForbiddenSuffixHistory(FOI_DIR);
+  const suffixIndex = buildSuffixCallsignIndex(history.everForbiddenUnion);
   const dir = path.join(outputDir, 'forbidden');
   fs.mkdirSync(dir, { recursive: true });
   const urls: string[] = [];
 
-  fs.writeFileSync(path.join(dir, 'index.html'), indexPage(history));
+  fs.writeFileSync(path.join(dir, 'index.html'), indexPage(history, suffixIndex));
   urls.push(`${baseUrl}/forbidden/index.html`);
 
   history.disclosures.forEach((d, i) => {
@@ -308,6 +574,17 @@ export function buildForbiddenSection(outputDir: string, baseUrl: string = DEFAU
     fs.writeFileSync(path.join(entryDir, 'index.html'), disclosurePage(d, prev, history.disclosures));
     urls.push(`${baseUrl}/forbidden/${d.entry}/index.html`);
   });
+
+  const suffixDir = path.join(dir, 'suffix');
+  fs.mkdirSync(suffixDir, { recursive: true });
+  for (const suffix of history.everForbiddenUnion) {
+    const info = suffixIndex.get(suffix);
+    if (info === undefined) continue;
+    const pageDir = path.join(suffixDir, suffix);
+    fs.mkdirSync(pageDir, { recursive: true });
+    fs.writeFileSync(path.join(pageDir, 'index.html'), suffixPage(suffix, history, info));
+    urls.push(`${baseUrl}/forbidden/suffix/${encodeURIComponent(suffix)}/index.html`);
+  }
 
   return urls;
 }
