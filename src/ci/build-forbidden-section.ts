@@ -56,6 +56,7 @@ import {
   downloadSlot,
   downloadTier,
   breakdownRows,
+  humanDate,
 } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -112,14 +113,6 @@ function suffixLinks(suffixes: string[], from: LinkOrigin): string {
   return suffixes.length === 0
     ? '—'
     : suffixes.map(s => `<a href="${suffixHref(s, from)}"><code>${escapeHtml(s)}</code></a>`).join(', ');
-}
-
-// A callsign start / issue date as "20 November 2025" (trailing time dropped);
-// blank in -> blank out. Deterministic, no locale machinery.
-function humanDate(value: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
-  if (m === null) return value;
-  return `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}`;
 }
 
 // The lookup deep-link for a callsign, from a per-suffix page (depth 3: the
@@ -447,11 +440,13 @@ function suffixHistorySection(suffix: string, h: ForbiddenSuffixHistory, a: Suff
 // framed as a reconciliation candidate.
 function arcCallout(suffix: string, a: SuffixAnalysis): string {
   if (a.delisting === undefined || a.issuedAfterDelisting.length === 0) return '';
+  const n = a.issuedAfterDelisting.length;
   const cs = a.issuedAfterDelisting
     .map(c => `<a href="${callsignLookupHref(c.callsign)}"><code>${escapeHtml(c.callsign)}</code></a> (original start ${escapeHtml(humanDate(c.startDate))})`)
     .join(', ');
+  const carryPhrase = n === 1 ? 'this callsign also carries' : 'these callsigns also carry';
   return noticeStrip(true,
-    `<b>Forbidden, then de-listed, then issued.</b> <code>${escapeHtml(suffix)}</code> was withheld on the earlier lists, removed by the ${escapeHtml(humanVintage(a.delisting.vintage))} disclosure (whose currency predates its publication), yet ${cs} ${a.issuedAfterDelisting.length === 1 ? 'is' : 'are'} now Allocated — issued <em>after</em> the de-listing. The row-level <code>forbidden-suffix</code> flag still fires (it keys off the 2019 reference list). A reconciliation candidate: possibly the de-listing was an error, or the issuance was. Declared, not verified.`);
+    `<b>Forbidden, then de-listed, then issued.</b> <code>${escapeHtml(suffix)}</code> was withheld on the earlier lists, removed by the ${escapeHtml(humanVintage(a.delisting.vintage))} disclosure (whose currency predates its publication), yet ${cs} ${n === 1 ? 'is' : 'are'} now Allocated — issued <em>after</em> the de-listing. The row-level <code>forbidden-suffix</code> flag still fires because the suffix is on the ever-forbidden union — every suffix ever on any held disclosure — so a de-listing (suspected to be an artefact) does not un-flag it; and, being issued after the suffix's first-known-forbidden date, ${carryPhrase} <code>forbidden-suffix-issued-after-first-known-list</code>. A reconciliation candidate: possibly the de-listing was an error, or the issuance was. Declared, not verified.`);
 }
 
 // The callsigns section: the status breakdown (never a bare total) followed by
