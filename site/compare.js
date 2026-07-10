@@ -356,3 +356,14 @@ document.getElementById('pred-reset').addEventListener('click', () => {
 });
 
 boot();
+
+// Signal a successful start: cancel the startup-warning timer (compare.html) and
+// hide the warning if it was already shown. Reaching here means the module
+// loaded and its top-level wiring ran; if a module had failed to load, none of
+// this executes and the warning surfaces. boot() reports its own data-loading
+// errors separately, so a database that fails to open still shows those.
+if (typeof window !== 'undefined' && window.__compareReadyTimer !== undefined) {
+  clearTimeout(window.__compareReadyTimer);
+}
+const startupWarning = document.getElementById('startup-warning');
+if (startupWarning !== null) startupWarning.hidden = true;
