@@ -129,11 +129,12 @@ const NON_PLAIN_RE = /[^A-Za-z0-9/#]/gu;
 
 // The earliest disclosure of the withheld-suffix list that this archive holds
 // is September 2016: the FOI sheet
-// archive/foi/wdtk-356636--all-callsigns-plus-forbidden already lists every
-// suffix on today's reference-data/forbidden-suffixes.csv (in fact a superset,
-// carrying one further suffix, ZIT, since dropped). So the list governed all
-// of these suffixes at least as early as 2016-09; whether it existed before
-// then is unknown, so this is the earliest boundary the evidence supports. The
+// archive/foi/wdtk-356636--all-callsigns-plus-forbidden carries the same
+// 1,465-suffix set as today's reference-data/forbidden-suffixes.csv (the 2016
+// sheet differs only by line endings and a duplicated ZIT row - a data-quality
+// artefact - not a vocabulary change). So the list governed all of these
+// suffixes at least as early as 2016-09; whether it existed before then is
+// unknown, so this is the earliest boundary the evidence supports. The
 // month is the disclosure's precision, so "issued after the list came into
 // force" is a month strictly later than September 2016 - October 2016 onward.
 const FORBIDDEN_SUFFIX_LIST_MONTH = '2016-09';
