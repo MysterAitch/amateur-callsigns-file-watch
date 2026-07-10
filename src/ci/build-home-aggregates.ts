@@ -20,7 +20,13 @@ import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
-import { type EntryStats } from '../shared/stats.ts';
+import {
+  type EntryStats,
+  type StringColumnStats,
+  type DateColumnStats,
+  type CallsignQuality,
+} from '../shared/stats.ts';
+import { humanDate, humaniseLabel } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const REFERENCE_DATA_DIR = path.join(REPO_ROOT, 'reference-data');
@@ -55,6 +61,63 @@ function tableHtml(headers: string[], rows: (string | number)[][], numericFrom =
       return rowHeader && i === 0 ? `<th scope="row"${cls}>${content}</th>` : `<td${cls}>${content}</td>`;
     }).join('')}</tr>`).join('\n');
   return `<div class="overflow"><table><thead><tr>${th}</tr></thead>\n<tbody>${body}</tbody></table></div>`;
+}
+
+// A richer sibling of tableHtml for the latest-publication statistics
+// blocks: per-column definitions rather than positional booleans, so a
+// column can be numeric (right-aligned tabular-nums), carry pre-built raw
+// HTML (a monospace pattern cell, a decorative bar), or be a scoped row
+// header. Same div.overflow > thead/tbody shape and the same scoped-header
+// accessibility as tableHtml, so every table on the page reads alike.
+interface ColumnDef {
+  label: string;
+  num?: boolean;
+  raw?: boolean;
+  rowHeader?: boolean;
+}
+
+function dataTable(columns: ColumnDef[], rows: (string | number)[][]): string {
+  const th = columns.map(c => `<th scope="col"${c.num ? ' class="num"' : ''}>${escapeHtml(c.label)}</th>`).join('');
+  const body = rows.map(row =>
+    `<tr>${row.map((cell, i) => {
+      const c = columns[i];
+      const content = c.raw ? String(cell) : escapeHtml(String(cell));
+      const cls = c.num ? ' class="num"' : '';
+      return c.rowHeader ? `<th scope="row"${cls}>${content}</th>` : `<td${cls}>${content}</td>`;
+    }).join('')}</tr>`).join('\n');
+  return `<div class="overflow"><table><thead><tr>${th}</tr></thead>\n<tbody>${body}</tbody></table></div>`;
+}
+
+// A whole-number percentage share, humanised at the extremes: an exact zero
+// stays "0%", a non-zero that rounds to nothing becomes "<1%" (never a
+// misleading "0%"), and an undefined denominator degrades to an em dash.
+function sharePct(n: number, total: number): string {
+  if (total <= 0) return '—';
+  if (n === 0) return '0%';
+  const p = Math.round((n / total) * 100);
+  return p === 0 ? '<1%' : `${p}%`;
+}
+
+// A fixed-width proportion bar drawn from block glyphs (full ▁ light). It is
+// decorative - the count and percentage always sit beside it - so callers
+// wrap it aria-hidden; it renders identically on a fully static page and in
+// an archived capture, no CSS required.
+function asciiBar(value: number, max: number, width = 18): string {
+  if (max <= 0 || value <= 0) return '';
+  const filled = Math.min(width, Math.max(1, Math.round((value / max) * width)));
+  return '█'.repeat(filled) + '░'.repeat(width - filled);
+}
+
+// The newest open-data publication's parsed stats.json, with its archive key
+// (a publication date). All the latest-publication blocks below derive from
+// this one file - the same figures stats.json commits, now rendered.
+function newestStats(): { key: string; stats: EntryStats } {
+  const keys = listArchiveKeys().sort();
+  const newest = keys[keys.length - 1];
+  if (newest === undefined) throw new Error('no archive entries found');
+  const statsPath = path.join(CONSTANTS.DIRS.archive, newest, 'stats.json');
+  const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8')) as EntryStats;
+  return { key: newest, stats };
 }
 
 function readCsv(filePath: string): Record<string, string>[] {
@@ -174,6 +237,182 @@ export function renderRslMatrixHtml(): string {
     + details.join('\n');
 }
 
+// Latest publication at a glance: the headline record count, the
+// syntactic-emptiness split (recordCount = nonEmptyRecords + emptyRecords),
+// the publisher's DECLARED coverage (intent, never independently verified),
+// and the parse-status breakdown - a distribution the parser assigns to
+// every row, not a bare total.
+export function renderLatestProfileHtml(): string {
+  const { key, stats } = newestStats();
+  const metaPath = path.join(CONSTANTS.DIRS.archive, key, 'meta.json');
+  const meta = fs.existsSync(metaPath)
+    ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as { intendedCoverage?: { complete?: boolean } }
+    : {};
+  const complete = meta.intendedCoverage?.complete;
+  const coverageText = complete === undefined ? 'not declared'
+    : complete ? 'complete — declared by the publisher, not independently verified'
+      : 'partial — declared by the publisher';
+  const total = stats.recordCount;
+
+  const glance = dataTable(
+    [{ label: 'measure', rowHeader: true }, { label: 'value', raw: true }],
+    [
+      ['Publication', `<a href="datasets/open-data/${key}/index.html">${escapeHtml(key)}</a> (${escapeHtml(humanDate(key))})`],
+      ['Records', total.toLocaleString('en-GB')],
+      ['Non-empty records', `${stats.nonEmptyRecords.toLocaleString('en-GB')} (${sharePct(stats.nonEmptyRecords, total)})`],
+      ['Empty records', stats.emptyRecords === 0 ? 'none' : `${stats.emptyRecords.toLocaleString('en-GB')} (${sharePct(stats.emptyRecords, total)})`],
+      ['Declared coverage', escapeHtml(coverageText)],
+    ],
+  );
+
+  const statuses = Object.entries(stats.parseStatuses).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const maxStatus = Math.max(1, ...statuses.map(([, n]) => n));
+  const statusRows: (string | number)[][] = statuses.map(([status, n]) => [
+    humaniseLabel(status),
+    n.toLocaleString('en-GB'),
+    sharePct(n, total),
+    `<span class="mono" aria-hidden="true">${asciiBar(n, maxStatus)}</span>`,
+  ]);
+  const statusTable = dataTable(
+    [
+      { label: 'parse status', rowHeader: true },
+      { label: 'records', num: true },
+      { label: 'share', num: true },
+      { label: 'distribution', raw: true },
+    ],
+    statusRows,
+  );
+
+  return glance
+    + '<h3>Parse-status breakdown</h3>'
+    + '<p class="muted">How the callsign parser classified each row of the latest publication. A status other than <code>parsed</code> is a signal, not necessarily an error — <code>visitor</code> covers reciprocal/temporary callsigns the parser recognises but does not decompose.</p>'
+    + statusTable;
+}
+
+// Column-emptiness and range profile of the latest publication: for every
+// column, its distinct non-empty values, how many rows populate it, how many
+// leave it empty (with share), and its value range (date span for date
+// columns, character-length span otherwise). Distinct counts and ranges
+// consider non-empty values only, so a mostly-empty column still reports its
+// real range rather than a spurious zero.
+export function renderColumnProfilesHtml(): string {
+  const { stats } = newestStats();
+  const total = stats.recordCount;
+  const rows: (string | number)[][] = Object.entries(stats.columns).map(([name, col]) => {
+    const empty = col.empty;
+    const populated = total - empty;
+    let range: string;
+    if ('min' in col) {
+      const d = col as DateColumnStats;
+      range = d.min === '' ? '(never populated)' : `${escapeHtml(humanDate(d.min))} – ${escapeHtml(humanDate(d.max))}`;
+    } else {
+      const s = col as StringColumnStats;
+      range = populated === 0 ? '(never populated)'
+        : s.minLength === s.maxLength ? `${s.minLength} chars` : `${s.minLength}–${s.maxLength} chars`;
+    }
+    return [
+      name,
+      col.distinct.toLocaleString('en-GB'),
+      populated.toLocaleString('en-GB'),
+      empty === 0 ? 'none' : `${empty.toLocaleString('en-GB')} (${sharePct(empty, total)})`,
+      range,
+    ];
+  });
+  return dataTable(
+    [
+      { label: 'column', rowHeader: true },
+      { label: 'distinct', num: true },
+      { label: 'populated', num: true },
+      { label: 'empty', num: true },
+      { label: 'value range', raw: true },
+    ],
+    rows,
+  ) + '<p class="muted">Distinct counts and ranges consider non-empty values only; the empty column carries emptiness separately. A column empty on every row (e.g. a field this export never carried) shows “(never populated)”.</p>';
+}
+
+// Callsign format taxonomy of the latest publication: the callsign column
+// abstracted to its shape (A = upper-case letter, a = lower-case, N = digit;
+// a space or invisible character becomes an explicit {U+XXXX} marker), the
+// most common shapes ranked, and the full taxonomy folded into a details
+// block so the long tail of anomalies stays archived on the static page.
+export function renderCallsignTaxonomyHtml(): string {
+  const { stats } = newestStats();
+  const total = stats.recordCount;
+  const patterns = Object.entries(stats.callsignPatterns).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const distinct = patterns.length;
+  const TOP = 12;
+  const top = patterns.slice(0, TOP);
+  const maxTop = Math.max(1, ...top.map(([, n]) => n));
+
+  const topRows: (string | number)[][] = top.map(([pattern, n]) => [
+    `<span class="mono">${escapeHtml(pattern)}</span>`,
+    n.toLocaleString('en-GB'),
+    sharePct(n, total),
+    `<span class="mono" aria-hidden="true">${asciiBar(n, maxTop)}</span>`,
+  ]);
+  const topTable = dataTable(
+    [
+      { label: 'shape', rowHeader: true, raw: true },
+      { label: 'records', num: true },
+      { label: 'share', num: true },
+      { label: 'distribution', raw: true },
+    ],
+    topRows,
+  );
+
+  const fullRows: (string | number)[][] = patterns.map(([pattern, n]) => [
+    `<span class="mono">${escapeHtml(pattern)}</span>`,
+    n.toLocaleString('en-GB'),
+    sharePct(n, total),
+  ]);
+  const fullTable = dataTable(
+    [
+      { label: 'shape', rowHeader: true, raw: true },
+      { label: 'records', num: true },
+      { label: 'share', num: true },
+    ],
+    fullRows,
+  );
+
+  const caption = `<p class="muted">${distinct.toLocaleString('en-GB')} distinct shapes across ${total.toLocaleString('en-GB')} records; the ${TOP} most common are shown. `
+    + 'In a shape, <code>A</code> is an upper-case letter, <code>a</code> a lower-case letter and <code>N</code> a digit; a space or invisible character is shown as its <code>{U+XXXX}</code> code point, so a tab anomaly and a non-breaking-space anomaly stay distinct rows.</p>';
+  return caption
+    + topTable
+    + `<details><summary>Full taxonomy (${distinct.toLocaleString('en-GB')} shapes)</summary>${fullTable}</details>`;
+}
+
+// Callsign quality detectors of the latest publication: each heuristic
+// detector's hit count and up to five example values (spaces and invisibles
+// already marked {U+XXXX}). These are DETECTED occurrences of a defect
+// shape, not verified defects, and a zero is itself a result worth showing.
+export function renderCallsignQualityHtml(): string {
+  const { stats } = newestStats();
+  const q = stats.callsignQuality;
+  const detectors: [keyof CallsignQuality, string][] = [
+    ['excelDateShaped', 'Spreadsheet-date-shaped (e.g. 20-Apr)'],
+    ['encodingFailure', 'Encoding failure (U+FFFD present)'],
+    ['whitespaceBearing', 'Whitespace or invisible character present'],
+    ['postNormalisationDuplicates', 'Duplicate once junk is stripped'],
+    ['lowercaseBearing', 'Lower-case letter present'],
+    ['emptyCallsign', 'Empty callsign'],
+  ];
+  const rows: (string | number)[][] = detectors.map(([detectorKey, label]) => {
+    const result = q[detectorKey];
+    const examples = result.examples.length === 0
+      ? '<span class="muted">—</span>'
+      : `<span class="mono">${escapeHtml(result.examples.join(', '))}</span>`;
+    return [label, result.count.toLocaleString('en-GB'), examples];
+  });
+  return dataTable(
+    [
+      { label: 'detector', rowHeader: true },
+      { label: 'rows flagged', num: true },
+      { label: 'examples', raw: true },
+    ],
+    rows,
+  ) + '<p class="muted">Heuristic detectors run over the callsign column: the counts are detected occurrences of a defect shape, declared but not independently verified against Ofcom, and a zero is a genuine result. Up to five example values are shown per detector, with spaces and invisible characters marked <code>{U+XXXX}</code>.</p>';
+}
+
 const PLACEHOLDER_TEXT = 'generated at deploy time — build the site to populate';
 
 // Injects both blocks into the deployed statistics.html. Fails loudly if
@@ -182,7 +421,11 @@ const PLACEHOLDER_TEXT = 'generated at deploy time — build the site to populat
 export function injectHomeAggregates(statisticsPath: string): void {
   let html = fs.readFileSync(statisticsPath, 'utf8');
   const replacements: [string, string][] = [
+    [`<div id="latest-profile-table">${PLACEHOLDER_TEXT}</div>`, `<div id="latest-profile-table" data-prerendered>${renderLatestProfileHtml()}</div>`],
     [`<div id="rsl-matrix-table">${PLACEHOLDER_TEXT}</div>`, `<div id="rsl-matrix-table" data-prerendered>${renderRslMatrixHtml()}</div>`],
+    [`<div id="column-profiles-table">${PLACEHOLDER_TEXT}</div>`, `<div id="column-profiles-table" data-prerendered>${renderColumnProfilesHtml()}</div>`],
+    [`<div id="callsign-taxonomy-table">${PLACEHOLDER_TEXT}</div>`, `<div id="callsign-taxonomy-table" data-prerendered>${renderCallsignTaxonomyHtml()}</div>`],
+    [`<div id="callsign-quality-table">${PLACEHOLDER_TEXT}</div>`, `<div id="callsign-quality-table" data-prerendered>${renderCallsignQualityHtml()}</div>`],
     [`<div id="flags-table">${PLACEHOLDER_TEXT}</div>`, `<div id="flags-table" data-prerendered>${renderFlagsTableHtml()}</div>`],
   ];
   for (const [placeholder, replacement] of replacements) {

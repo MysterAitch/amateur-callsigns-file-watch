@@ -27,6 +27,17 @@
   </header>
 
   <main id="main">
+    <section id="latest-profile">
+      <h2>Latest publication at a glance</h2>
+      <p>Headline figures for the newest archived <strong>open-data
+      publication</strong>: its record count, the split between syntactically
+      empty and non-empty rows, the coverage the publisher declared (intent,
+      not an independent guarantee), and how the callsign parser classified
+      each row. Every figure here is committed in that publication's
+      <code>stats.json</code>.</p>
+      <div id="latest-profile-table">generated at deploy time — build the site to populate</div>
+    </section>
+
     <section id="rsl-matrix">
       <h2>Primary × secondary locator matrix</h2>
       <p>Parsed records by prefix series and Regional Secondary Locator
@@ -36,6 +47,39 @@
       <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/reference-data">reference data</a>.
       Excluded records are counted beneath the table.</p>
       <div id="rsl-matrix-table">generated at deploy time — build the site to populate</div>
+    </section>
+
+    <section id="column-profiles">
+      <h2>Column profiles</h2>
+      <p>Per-column shape of the latest publication: how many distinct
+      non-empty values each column carries, how many rows populate it, how
+      many leave it empty, and its value range. Emptiness is the signal —
+      a column empty on a quarter of rows, or on every row, is visible at a
+      glance. Distinct counts and ranges consider non-empty values only.</p>
+      <div id="column-profiles-table">generated at deploy time — build the site to populate</div>
+    </section>
+
+    <section id="callsign-taxonomy">
+      <h2>Callsign format taxonomy</h2>
+      <p>Every callsign in the latest publication abstracted to its
+      <strong>shape</strong> — letters, digits and any space or invisible
+      character collapsed to a pattern — then ranked. The dominant shapes are
+      the standard licence formats; the long tail is where placeholder
+      conventions, casing errors and stray whitespace surface. The full
+      taxonomy is folded into a details block so archived captures keep the
+      complete list.</p>
+      <div id="callsign-taxonomy-table">generated at deploy time — build the site to populate</div>
+    </section>
+
+    <section id="callsign-quality">
+      <h2>Callsign quality detectors</h2>
+      <p>Heuristic detectors run over the callsign column of the latest
+      publication, each grounded in a defect class observed in real exports.
+      Counts are <em>detected occurrences</em>, declared but not independently
+      verified; example values make each detector's hits legible, with spaces
+      and invisible characters marked. A zero is a genuine result worth
+      seeing.</p>
+      <div id="callsign-quality-table">generated at deploy time — build the site to populate</div>
     </section>
 
     <section id="aggregates">
