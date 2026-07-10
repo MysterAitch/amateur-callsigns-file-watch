@@ -2,12 +2,15 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { buildForbiddenSection } from './build-forbidden-section.ts';
+import { buildForbiddenSection, suffixPage } from './build-forbidden-section.ts';
+import { buildForbiddenSuffixHistory, type ForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
+import { type SuffixCallsignInfo } from './forbidden-suffix-callsigns.ts';
 
-// Issue #291 phase 2: the STATIC forbidden-suffix site section (index +
-// per-disclosure pages), built from the committed phase-1 data foundation.
-// These build the real archive into a scratch directory and assert the
-// rendered markup carries the figures the PR cites. Test names follow
+// Issue #291 phases 2 + 3: the STATIC forbidden-suffix site section (index +
+// per-disclosure pages + per-suffix detail pages), built from the committed
+// phase-1 data foundation and the phase-3 suffix -> callsigns index. These
+// build the real archive into a scratch directory and assert the rendered
+// markup carries the figures the PR cites. Test names follow
 // Subject_Scenario_Outcome.
 
 const D2024 = 'ofcom-2024-12--forbidden-suffixes';
@@ -15,12 +18,14 @@ const D2016 = 'wdtk-356636--all-callsigns-plus-forbidden';
 
 let outputDir: string;
 let urls: string[];
+let history: ForbiddenSuffixHistory;
 
 const read = (...rel: string[]): string => fs.readFileSync(path.join(outputDir, ...rel), 'utf8');
 
 beforeAll(() => {
   outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'forbidden-section-'));
   urls = buildForbiddenSection(outputDir, 'https://example.test/site');
+  history = buildForbiddenSuffixHistory();
 }, 120_000);
 
 afterAll(() => {
@@ -34,9 +39,10 @@ describe('Forbidden-suffix section — index', () => {
     expect(index).toContain(`<a href="${D2016}/index.html">September 2016</a>`);
     expect(index).toContain(`<a href="${D2024}/index.html">December 2024</a>`);
     // The headline diff: steady 1,465 across the early disclosures, then the
-    // 2024 change (+JIZ, −QNF, −ZFJ) → 1,464.
+    // 2024 change (+JIZ, −QNF, −ZFJ) → 1,464. The changed suffixes are now
+    // links to their per-suffix pages (phase 3).
     expect(index).toContain('held steady at <b>1,465</b> suffixes');
-    expect(index).toMatch(/added <code>JIZ<\/code>; removed <code>QNF<\/code>, <code>ZFJ<\/code> → <b>1,464<\/b>/);
+    expect(index).toMatch(/added <a href="suffix\/JIZ\/index.html"><code>JIZ<\/code><\/a>; removed <a href="suffix\/QNF\/index.html"><code>QNF<\/code><\/a>, <a href="suffix\/ZFJ\/index.html"><code>ZFJ<\/code><\/a> → <b>1,464<\/b>/);
     // The ever-forbidden union headline figure.
     expect(index).toContain('<b>1,466</b> distinct suffixes have been forbidden');
     // The ~2020 currency caveat is surfaced on the index too.
@@ -49,13 +55,22 @@ describe('Forbidden-suffix section — index', () => {
     expect(index).toContain('<th scope="col">first known forbidden</th>');
   });
 
-  it('ForbiddenSectionIndex_Phase3Note_CommitsToStatusBreakdownAndAvoidsDeadLinks', () => {
+  it('ForbiddenSectionIndex_StatusBreakdownCommitment_IsStatedInCopy', () => {
     const index = read('forbidden', 'index.html');
-    // The phase-3 status-decomposition commitment appears in the page copy.
-    expect(index).toContain('decompose by status (Allocated / Reserved / Available)');
-    // No per-suffix drill-down links exist yet (phase 3), so none are rendered.
-    expect(index).not.toMatch(/href="[^"]*\/forbidden\/[A-Z]{3}"/);
-    expect(index).not.toContain('index.html?');
+    // The status-decomposition commitment appears in the page copy — never a
+    // bare total.
+    expect(index).toContain('broken down by status</b> (Allocated / Reserved / Available / Forbidden)');
+  });
+
+  it('ForbiddenSectionIndex_PerSuffixPages_AreLinkedAndCrawlable', () => {
+    const index = read('forbidden', 'index.html');
+    // The per-suffix drill-downs now exist and are linked (phase 3).
+    expect(index).toContain('<a href="suffix/QNF/index.html"><code>QNF</code></a>');
+    // The A–Z browse block makes every union suffix reachable by a crawler.
+    expect(index).toContain('Browse every forbidden suffix (A–Z)');
+    // The surprise the index surfaces: forbidden suffixes that nonetheless
+    // carry Allocated callsigns — QNF is called out by name.
+    expect(index).toContain('Forbidden, yet carrying Allocated callsigns');
   });
 });
 
@@ -64,8 +79,8 @@ describe('Forbidden-suffix section — 2024 disclosure page', () => {
     const page = read('forbidden', D2024, 'index.html');
     // The notable diff versus the previous (September 2019) disclosure.
     expect(page).toContain('vs 12 September 2019:');
-    expect(page).toContain('added <code>JIZ</code>');
-    expect(page).toContain('removed <code>QNF</code>, <code>ZFJ</code>');
+    expect(page).toContain('added <a href="../suffix/JIZ/index.html"><code>JIZ</code></a>');
+    expect(page).toContain('removed <a href="../suffix/QNF/index.html"><code>QNF</code></a>, <a href="../suffix/ZFJ/index.html"><code>ZFJ</code></a>');
     // The de-listing is called out as the standout.
     expect(page).toContain('The de-listing is the standout.');
   });
@@ -91,13 +106,13 @@ describe('Forbidden-suffix section — 2024 disclosure page', () => {
     expect(page).toContain("data's currency predates the December 2024 listing");
   });
 
-  it('ForbiddenSection2024Page_NotableChanges_AreTextNotDeadPerSuffixLinks', () => {
+  it('ForbiddenSection2024Page_NotableChanges_DrillDownIntoPerSuffixPages', () => {
     const page = read('forbidden', D2024, 'index.html');
-    // Changed suffixes are named as <code>, never linked to phase-3 pages.
-    expect(page).toContain('<code>QNF</code>');
-    expect(page).not.toMatch(/href="[^"]*QNF[^"]*"/);
-    expect(page).not.toMatch(/href="[^"]*JIZ[^"]*"/);
-    // No progressive-enhancement browser scripts (static-only, phase-2 boundary).
+    // The changed suffixes are now drill-down links to their per-suffix pages
+    // (phase 3), relative to the disclosure page's depth.
+    expect(page).toMatch(/href="..\/suffix\/QNF\/index.html"/);
+    expect(page).toMatch(/href="..\/suffix\/JIZ\/index.html"/);
+    // Still static: no progressive-enhancement browser scripts.
     expect(page).not.toContain('entry-browser.js');
     expect(page).not.toContain('data-browser-sql');
   });
@@ -154,21 +169,84 @@ describe('Forbidden-suffix section — cross-cutting', () => {
   });
 
   it('ForbiddenSectionBuild_ReturnsOneUrlPerPageForTheSitemap', () => {
-    // One index + one page per disclosure (four disclosures in the archive).
+    // One index + one page per disclosure (four disclosures) + one page per
+    // ever-forbidden union suffix (1,466) = 1,471.
     expect(urls).toContain('https://example.test/site/forbidden/index.html');
     expect(urls).toContain(`https://example.test/site/forbidden/${D2024}/index.html`);
-    expect(urls.length).toBe(5);
+    expect(urls).toContain('https://example.test/site/forbidden/suffix/QNF/index.html');
+    expect(urls.length).toBe(1 + 4 + 1466);
   });
 
   it('ForbiddenSectionBuild_Rebuild_IsDeterministic', () => {
     const second = fs.mkdtempSync(path.join(os.tmpdir(), 'forbidden-section-2-'));
     try {
       buildForbiddenSection(second, 'https://example.test/site');
-      for (const rel of [['forbidden', 'index.html'], ['forbidden', D2024, 'index.html'], ['forbidden', D2016, 'index.html']]) {
+      for (const rel of [['forbidden', 'index.html'], ['forbidden', D2024, 'index.html'], ['forbidden', D2016, 'index.html'], ['forbidden', 'suffix', 'QNF', 'index.html']]) {
         expect(fs.readFileSync(path.join(second, ...rel), 'utf8')).toBe(read(...rel));
       }
     } finally {
       fs.rmSync(second, { recursive: true, force: true });
     }
+  });
+});
+
+describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', () => {
+  it('SuffixPage_QNF_TellsTheForbiddenThenDelistedThenIssuedArc', () => {
+    const page = read('forbidden', 'suffix', 'QNF', 'index.html');
+    // The forbidden-list history: first known forbidden and the de-listing.
+    expect(page).toContain('First known forbidden <b>2016-09</b>');
+    expect(page).toContain('<b>De-listed</b> by the December 2024 disclosure');
+    // The arc callout names both post-de-listing callsigns with their 2025
+    // original-start dates, and frames it as a reconciliation candidate.
+    expect(page).toContain('Forbidden, then de-listed, then issued.');
+    expect(page).toContain('<a href="../../../index.html?c=M3QNF"><code>M3QNF</code></a> (original start 20 November 2025)');
+    expect(page).toContain('<a href="../../../index.html?c=M7QNF"><code>M7QNF</code></a> (original start 7 February 2025)');
+    expect(page).toContain('A reconciliation candidate');
+  });
+
+  it('SuffixPage_QNF_BreaksCallsignsDownByStatusNotABareTotal', () => {
+    const page = read('forbidden', 'suffix', 'QNF', 'index.html');
+    // The status breakdown: 2 Allocated (the issued pair) and 3 Forbidden (the
+    // 2016 prohibition rows) — never conflated into a bare "5 callsigns".
+    expect(page).toContain('broken down by latest-known status');
+    expect(page).toMatch(/By latest-known status/);
+    // Both status buckets render as breakdown rows with their counts.
+    expect(page).toMatch(/<span class="lab">Allocated<\/span><span class="pct">[^<]*<\/span><b>2<\/b>/);
+    expect(page).toMatch(/<span class="lab">Forbidden<\/span><span class="pct">[^<]*<\/span><b>3<\/b>/);
+    // M3QNF's status transition (Forbidden in 2016, Allocated now) is surfaced,
+    // not flattened away.
+    expect(page).toContain('Allocated <small class="gap">(was Forbidden)</small>');
+    // Every callsign deep-links into the register lookup.
+    expect(page).toContain('<a href="../../../index.html?c=M3QNF">');
+  });
+
+  it('SuffixPage_QNF_CrossLinksToDisclosuresAndFoiObservations', () => {
+    const page = read('forbidden', 'suffix', 'QNF', 'index.html');
+    // The history table links back to each disclosure page.
+    expect(page).toContain(`../../${D2024}/index.html`);
+    // The FOI witnesses are cross-linked to their dataset entries.
+    expect(page).toContain(`../../../datasets/foi/${D2016}/index.html`);
+  });
+
+  it('SuffixPage_NoCallsignSuffix_SaysSoRatherThanFabricating', () => {
+    // A suffix with no callsign is informative in itself. No real union suffix
+    // is callsign-free (the 2016 all-callsigns snapshot lists them as
+    // Forbidden), so the no-callsign branch is exercised directly.
+    const empty: SuffixCallsignInfo = { suffix: 'ZZZ', callsigns: [], byStatus: [], total: 0 };
+    const html = suffixPage('ZZZ', history, empty);
+    expect(html).toContain('No callsign carries this suffix in any snapshot the mirror holds');
+    expect(html).toContain('withheld, and so far as the mirror can see, unused');
+    // No fabricated table rows.
+    expect(html).not.toContain('<th scope="col">callsign</th>');
+  });
+
+  it('SuffixPage_Accessibility_CarriesSkipLinkMainAndScopedHeaders', () => {
+    const page = read('forbidden', 'suffix', 'QNF', 'index.html');
+    expect(page).toContain('<a class="skip" href="#main">Skip to content</a>');
+    expect(page).toContain('<main id="main">');
+    expect(page).toContain('</main>');
+    // Data tables carry scoped column headers.
+    expect(page).toContain('<th scope="col">callsign</th>');
+    expect(page).toContain('<th scope="col">latest status</th>');
   });
 });
