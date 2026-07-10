@@ -28,7 +28,10 @@ export default defineConfig({
     // repo-wide budget reflects what the tests actually do. Hangs still
     // fail; they just get two minutes to prove themselves.
     testTimeout: 120_000,
-    hookTimeout: 300_000,
+    // Hooks build whole deploy artefacts from the real archive; that work grows
+    // with each ingested dataset, so the ceiling is generous for congested CI
+    // runners (the #336 efficiency work reduces the actual time). Hangs still fail.
+    hookTimeout: 600_000,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],

@@ -27,7 +27,7 @@ beforeAll(() => {
   outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'forbidden-section-'));
   urls = buildForbiddenSection(outputDir, 'https://example.test/site');
   history = buildForbiddenSuffixHistory();
-}, 120_000);
+}, 480_000);
 
 afterAll(() => {
   fs.rmSync(outputDir, { recursive: true, force: true });

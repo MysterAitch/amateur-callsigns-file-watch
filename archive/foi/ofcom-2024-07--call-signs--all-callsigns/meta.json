@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no case number appears in the material held; the CSV is published on Ofcom's FOI disclosure log under July 2024 and the entry is keyed by that month",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/july/call-signs.csv?v=369215",
+  "title": "Amateur callsigns register (Ofcom FOI disclosure log, July 2024)",
+  "requester": null,
+  "requesterNote": "a disclosure-log publication is not attributed; no requester is held.",
+  "requestedAt": null,
+  "requestedAtNote": "not in the held material; a disclosure-log publication carries no request date.",
+  "respondedAt": null,
+  "respondedAtNote": "not stated in the held material; Ofcom filed the CSV on its FOI disclosure log under July 2024, but no in-file response date exists (see dataVintage).",
+  "outcome": "successful",
+  "dataVintage": "2024-07",
+  "dataVintageNote": "declared to month precision, not proven. The file is published on the disclosure log under July 2024 but is served simply as 'call-signs.csv' with no day in its name and no in-file response date, so the exact day within July is not asserted and the entry is keyed to the month. The month is well-supported: the disclosure-log path files it under July 2024 and the disclosed last-modified dates top out at 2024-06-14, immediately before it. Provenance rests on a single witness (the live disclosure-log copy); no UK Government Web Archive capture of these exact bytes appears in the harvest manifest, so the vintage cannot be corroborated by an independent retrieval (contrast ofcom-01420046, mirrored on UKGWA).",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2024-07-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2024-10-21--callsigns--all-callsigns", "relation": "the next snapshot in the 2024-2025 disclosure-log register family (three months on, 156,278 records vs 155,346 here); identical shape bar the callsign-header spelling and a UTF-8 BOM." },
+    { "entry": "ofcom-2025-03-13--callsigns--all-callsigns", "relation": "the latest snapshot in the same family (adds a CreatedDate column)." },
+    { "entry": "ofcom-01420046--allocated-reserved-callsigns", "relation": "the preceding full FOI register snapshot held (2022-03, 150,181 records); this July-2024 snapshot's 155,346 records mark the continued growth of the register." },
+    { "entry": "wdtk-1180568--licence-breakdown-duration-age", "relation": "the near-contemporary 2024-10 licence-breakdown disclosure (sheet 1 carries Reserved-to-Date); same year, different shape." }
+  ],
+  "files": {
+    "call-signs.csv": {
+      "bytes": 10754577,
+      "sha256": "232335feca13ca0338483722554b932a82471970674929ffc039f78b27ff6bab",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "contentsIndicative": "header 'Call sign,Product,Status,Type,Call Sign MMSI: Last Modified Date' (no BOM); 155,346 data rows. Status: 102,936 Allocated, 51,955 Reserved, 444 Available, 11 blank. Product (the licence class): 58,987 Full, 35,336 Foundation, 14,051 Intermediate, 1,881 Club, 90 Temporary Reciprocal, 45,001 blank. Type is 'Call Sign - Amateur' on every row (service discriminator, required-present but not carried into the normalised projection). Last-modified dates run 2016-07-23 to 2024-06-14. Anomalies preserved verbatim: two Excel date-mangled callsigns ('21-Feb' Reserved, '21-Oct' Allocated); lower-case 'g0jrk' and '2e1GTD'; interior-space 'G6 FMU'; and 465 four-, 39 six-, 34 seven- and 45 eight-character callsigns (heritage two-letter and reciprocal 'M/...' forms).",
+      "witnesses": [
+        {
+          "channel": "ofcom-disclosure-log",
+          "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/july/call-signs.csv?v=369215",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "normalised--call-signs.csv": {
+      "bytes": 7492300,
+      "sha256": "f0f71d9cb08eacc2a8415363b14cffcb357f2b1ac92ea1937099db6c8279d75c",
+      "role": "normalised",
+      "normalisedFrom": "call-signs.csv",
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 155,346 rows sorted by callsign (source order carries no meaning - not callsign-sorted, no clear date order). Status carried verbatim (Allocated/Reserved/Available and 11 blanks preserved); licence_class is the source Product verbatim (45,001 blanks preserved); last_modified_date ISO-rendered (day-first, verified by 61,880 day>12 values). The constant Type column is required-present but not carried. No whitespace trimming was needed. The Excel date-mangled callsigns ('21-Feb', '21-Oct'), lower-case forms and interior-space 'G6 FMU' are preserved verbatim."
+    },
+    "correspondence.md": {
+      "bytes": 3310,
+      "sha256": "f057851c16f6a0c04e36b062598e06bb052f58c030a76d3db711001297c7d8d1",
+      "role": "transcript"
+    }
+  }
+}
