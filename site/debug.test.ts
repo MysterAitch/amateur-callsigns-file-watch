@@ -68,4 +68,25 @@ describe('on-screen debug console', () => {
     win.dispatchEvent(ev);
     expect(win.document.body.textContent).toContain('prefix-country.js');
   });
+
+  it('DebugConsole_WhenErrorCaptured_ShowsCountBadgeOnCollapsedToggle', () => {
+    const dom = new JSDOM('<!DOCTYPE html><html><head></head><body></body></html>', {
+      url: 'https://example.org/?debug=1',
+      runScripts: 'outside-only',
+    });
+    const win = dom.window as unknown as Window & typeof globalThis;
+    // Make the on-load diagnostics succeed so the badge reflects only the error
+    // raised below, not the probe failures a bare JSDOM (no fetch) would log.
+    const fetchStub = (): Promise<unknown> => Promise.resolve({ ok: true, status: 200, headers: { get: (): null => null } });
+    (win as unknown as { fetch: typeof fetchStub }).fetch = fetchStub;
+    win.eval(SRC);
+    (win.console.error as (...a: unknown[]) => void)('BADGE_ME');
+    const toggle = win.document.querySelector('button[aria-label="Toggle debug console"]');
+    const badge = toggle ? toggle.lastElementChild : null;
+    expect(badge).not.toBeNull();
+    if (badge !== null) {
+      expect(badge.textContent).toBe('1');
+      expect((badge as HTMLElement).style.display).toBe('flex');
+    }
+  });
 });

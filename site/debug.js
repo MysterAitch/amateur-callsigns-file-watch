@@ -34,6 +34,16 @@
   var entries = [];
   var logEl = null;
   var countEl = null;
+  var badgeEl = null;
+  var errorCount = 0;
+
+  // A count of errors shown on the collapsed toggle, so a failure is visible on
+  // mobile without opening the panel.
+  function updateBadge() {
+    if (!badgeEl) return;
+    badgeEl.textContent = errorCount > 99 ? '99+' : String(errorCount);
+    badgeEl.style.display = errorCount > 0 ? 'flex' : 'none';
+  }
 
   function pad(n, width) {
     n = String(n);
@@ -62,6 +72,7 @@
     if (entries.length > MAX_ENTRIES) entries.shift();
     if (logEl) { appendRow(entry); trimRows(); }
     if (countEl) { countEl.textContent = String(entries.length); }
+    if (level === 'error') { errorCount += 1; updateBadge(); }
   }
 
   function appendRow(entry) {
@@ -198,8 +209,13 @@
 
     var toggle = document.createElement('button');
     toggle.setAttribute('aria-label', 'Toggle debug console');
-    toggle.textContent = '🐞';
     toggle.style.cssText = 'position:fixed;right:10px;bottom:10px;z-index:2147483647;width:44px;height:44px;border-radius:50%;border:none;background:#8ecae6;color:#000;font-size:20px;box-shadow:0 2px 8px rgba(0,0,0,.4);cursor:pointer';
+    var bug = document.createElement('span');
+    bug.textContent = '🐞';
+    badgeEl = document.createElement('span');
+    badgeEl.style.cssText = 'position:absolute;top:-3px;right:-3px;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;display:none;align-items:center;justify-content:center;background:#e5484d;color:#fff;border-radius:9px;font:600 11px/1 system-ui,sans-serif';
+    toggle.appendChild(bug);
+    toggle.appendChild(badgeEl);
     toggle.addEventListener('click', function () {
       panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
     });
@@ -210,6 +226,7 @@
     // Flush entries captured before the UI existed.
     for (var i = 0; i < entries.length; i++) appendRow(entries[i]);
     countEl.textContent = String(entries.length);
+    updateBadge();
     return { panel: panel, toggle: toggle };
   }
 
