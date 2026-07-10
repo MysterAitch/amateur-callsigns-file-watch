@@ -7,6 +7,7 @@
 
 import { countryForCallsign, stripVisitorPrefix } from './prefix-country.js';
 import { placeholderOf } from './browser-query.js';
+import { callsignPillLink } from './callsign-pill.js';
 
 const { createDbWorker } = window;
 
@@ -103,7 +104,7 @@ function renderTable(headers, rows, numericFrom = 1) {
 // to their own ?c= pages, suffixes to the availability matrix, series to
 // their entity pages).
 function csLink(callsign) {
-  return el('a', { href: `?c=${encodeURIComponent(callsign)}`, text: callsign });
+  return callsignPillLink(el, callsign);
 }
 function suffixLink(suffix) {
   return el('a', { href: `?c=${encodeURIComponent('*' + suffix)}`, text: suffix, title: `availability matrix for *${suffix}` });
