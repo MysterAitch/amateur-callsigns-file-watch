@@ -14,12 +14,14 @@ record/callsign/allocated count breakdowns, and licence-category normalisation);
 a plain-language **glossary** and an **About** page; a uniform nav
 (Lookup · Statistics · Explore · Compare · Dataset index · Series · Reports ·
 Glossary · About) with breadcrumbs on deep pages; dense cross-linking between
-reports, series, datasets and the flag registry; and an accessibility baseline
-(skip links, `<main>` landmarks, scoped data-table headers, live-region status,
-labelled controls, target sizes, contrast). In flight / proposed: reusable
-components via Web Components (ADR 0006), a coverage dashboard page (ADR 0007),
-and offline-first/PWA (ADR 0008). The sections below are the original draft and
-may describe surfaces in more aspirational terms than the built ones.
+reports, series, datasets and the flag registry; an accessibility baseline
+(skip links, `<main>` landmarks, scoped data-table headers, live-region status
+for Explore query results/errors, labelled controls, nav target sizes,
+contrast); and offline-first/PWA (ADR 0008: service-worker shell precache +
+opt-in full-database download). In flight / proposed: reusable components via
+Web Components (ADR 0006) and a coverage dashboard page (ADR 0007). The sections
+below are the original draft and may describe surfaces in more aspirational
+terms than the built ones.
 
 ## The audiences and their journeys
 
