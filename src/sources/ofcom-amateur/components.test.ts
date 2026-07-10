@@ -149,6 +149,54 @@ describe('parseCallsign', () => {
     expect(r.flags).toContain('forbidden-suffix');
   });
 
+  it('Parse_WhenForbiddenSuffixIssuedAfterTheList_PostListFlagged', () => {
+    // A forbidden suffix whose original start date post-dates the withheld
+    // list (attested from September 2016) is the interesting subset - it
+    // appears to contradict the generator's stated exclusions, so it earns
+    // its own flag rather than hiding inside the ~2,800 long-standing
+    // forbidden-suffix allocations that predate the list.
+    const r = parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '2020-05-01');
+    expect(r.flags).toContain('forbidden-suffix');
+    expect(r.flags).toContain('forbidden-suffix-issued-after-list');
+  });
+
+  it('Parse_WhenForbiddenSuffixIssuedBeforeTheList_PostListNotFlagged', () => {
+    // The bulk forbidden-suffix rows are long-standing allocations that
+    // predate the list - a pre-2016 original start date is exactly this
+    // benign case and must not gain the post-list flag.
+    const r = parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '2015-01-01');
+    expect(r.flags).toContain('forbidden-suffix');
+    expect(r.flags).not.toContain('forbidden-suffix-issued-after-list');
+  });
+
+  it('Parse_WhenForbiddenSuffixIssuedWithinListMonth_PostListNotFlagged', () => {
+    // The boundary is a month strictly after the list's earliest attestation
+    // (September 2016); a date within that month itself cannot be shown to
+    // post-date the list, so the conservative parser withholds the flag - the
+    // following month does gain it.
+    const r = parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '2016-09-30');
+    expect(r.flags).not.toContain('forbidden-suffix-issued-after-list');
+    expect(parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '2016-10-01').flags)
+      .toContain('forbidden-suffix-issued-after-list');
+  });
+
+  it('Parse_WhenForbiddenSuffixHasNoOriginalStartDate_PostListNotAsserted', () => {
+    // Variants that carry no original-start-date column supply a blank date;
+    // absence of a date is not evidence of a post-list issuance, so the flag
+    // is honestly withheld (the default parameter reproduces those variants).
+    expect(parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '').flags)
+      .not.toContain('forbidden-suffix-issued-after-list');
+    expect(parsed('M7ASS').flags).not.toContain('forbidden-suffix-issued-after-list');
+  });
+
+  it('Parse_WhenSuffixAllowedButIssuedAfterTheList_PostListNotAsserted', () => {
+    // The post-list flag rides only on a forbidden suffix; a permitted suffix
+    // issued after the list is unremarkable and gains neither flag.
+    const r = parseCallsign('M7TEE', 'Amateur Foundation Radio Licence', REF, '2021-03-15');
+    expect(r.flags).not.toContain('forbidden-suffix');
+    expect(r.flags).not.toContain('forbidden-suffix-issued-after-list');
+  });
+
   it('Parse_WhenSuffixLengthOutsideTwoToThree_Flagged', () => {
     expect(parsed('G5A', 'Amateur Full Radio Licence').flags).toContain('suffix-length-abnormal');
     expect(parsed('M7ABCD').flags).toContain('suffix-length-abnormal');

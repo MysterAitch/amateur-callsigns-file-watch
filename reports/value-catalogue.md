@@ -142,12 +142,13 @@ routine figure.
 | `(blank)` | 819 | 179 | 105 | 15 | ▆▆█▁▇▁▆ | foi, open-data |
 | `M2` | 6 | 1 | 0 | 6 | ███···█ | foi, open-data |
 
-## `flags` — 11 distinct
+## `flags` — 12 distinct
 
 | value | records | callsigns | allocated | sources | timeline | lanes |
 |---|---:|---:|---:|---:|---|---|
 | `forbidden-suffix` | 49,571 | 8,558 | 2,972 | 22 | ███▁█▁▇ | foi, open-data |
 | `rsl-in-register` | 192 | 24 | 20 | 11 | ███▁█▁█ | foi, open-data |
+| `forbidden-suffix-issued-after-list` | 103 | 103 | 103 | 1 | ······█ | open-data |
 | `lowercase` | 80 | 19 | 15 | 9 | ███·▁·▁ | foi, open-data |
 | `class-product-mismatch` | 63 | 29 | 23 | 6 | ·▂▂·▂·█ | foi, open-data |
 | `excel-date-shape` | 61 | 16 | 13 | 4 | ███···· | foi, open-data |

@@ -127,6 +127,29 @@ const EXCEL_DATE_RE = /^\d{1,2}-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec
 // meaningful notation characters / and #).
 const NON_PLAIN_RE = /[^A-Za-z0-9/#]/gu;
 
+// The earliest disclosure of the withheld-suffix list that this archive holds
+// is September 2016: the FOI sheet
+// archive/foi/wdtk-356636--all-callsigns-plus-forbidden carries the same
+// 1,465-suffix set as today's reference-data/forbidden-suffixes.csv (the 2016
+// sheet differs only by line endings and a duplicated ZIT row - a data-quality
+// artefact - not a vocabulary change). So the list governed all of these
+// suffixes at least as early as 2016-09; whether it existed before then is
+// unknown, so this is the earliest boundary the evidence supports. The
+// month is the disclosure's precision, so "issued after the list came into
+// force" is a month strictly later than September 2016 - October 2016 onward.
+const FORBIDDEN_SUFFIX_LIST_MONTH = '2016-09';
+
+// True when a call sign's original start date (ISO yyyy-mm-dd[ hh:mm]) falls in
+// a month after the forbidden-suffix list came into force. A blank or non-ISO
+// value asserts nothing - absence of a date is not evidence of a post-list
+// issuance, so it yields honest silence, never a guessed determination. Only
+// variants carrying an original-start-date column can assert the flag.
+export function isAfterForbiddenSuffixList(originalStartDateIso: string): boolean {
+  const month = originalStartDateIso.slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(month)) return false;
+  return month > FORBIDDEN_SUFFIX_LIST_MONTH;
+}
+
 // Product strings encode today's licence levels. An empty product asserts
 // nothing about licensing - many live allocations carry one - so it is
 // excluded from mismatch judgements simply because the comparison needs
@@ -139,7 +162,7 @@ function productClass(product: string): string {
   return '';
 }
 
-export function parseCallsign(callsign: string, product: string, ref: ReferenceData): ComponentRow {
+export function parseCallsign(callsign: string, product: string, ref: ReferenceData, originalStartDate = ''): ComponentRow {
   const row: ComponentRow = {
     callsign,
     parseStatus: 'unparseable',
@@ -263,7 +286,15 @@ export function parseCallsign(callsign: string, product: string, ref: ReferenceD
     row.impliedClass = series.stationLevel;
   }
 
-  if (ref.forbiddenSuffixes.has(row.suffix)) flag('forbidden-suffix');
+  if (ref.forbiddenSuffixes.has(row.suffix)) {
+    flag('forbidden-suffix');
+    // The bulk forbidden-suffix rows are long-standing allocations that predate
+    // the list; the interesting subset is a forbidden suffix whose ORIGINAL
+    // issuance post-dates the list coming into force, in apparent contradiction
+    // to it. It rides only on a forbidden suffix, and only where the variant
+    // supplies an original start date.
+    if (isAfterForbiddenSuffixList(originalStartDate)) flag('forbidden-suffix-issued-after-list');
+  }
   if (row.suffix.length < 2 || row.suffix.length > 3) flag('suffix-length-abnormal');
 
   const declared = productClass(product);
