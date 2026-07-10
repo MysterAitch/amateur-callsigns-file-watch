@@ -39,3 +39,13 @@ reports/**  text eol=lf
 # checkouts cannot fail the committed-file-matches-regeneration assertion.
 docs/dataset-status.md  text eol=lf
 docs/foi-schemas.md  text eol=lf
+
+# Latest-pointer JSON at the repo root: written by serialiseJson (2-space
+# indent, trailing LF) and byte-stable by design - validateLatestPointers hashes
+# latest-meta.json against the newest entry's meta.json. A Windows checkout that
+# smudged these to CRLF would break that hash / no-op detection and churn diffs,
+# so pin LF and never smudge to CRLF on checkout.
+latest.json                  text eol=lf
+latest-raw-sorted.json       text eol=lf
+latest-meta.json             text eol=lf
+metadata-download-info.json  text eol=lf
