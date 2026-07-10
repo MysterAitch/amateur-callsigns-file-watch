@@ -32,6 +32,7 @@ import { parseFlagRegistry } from './build-sqlite.ts';
 import { displaySeries } from './build-home-aggregates.ts';
 import { parse } from 'csv-parse/sync';
 import { buildZip } from '../shared/zip.ts';
+import { buildForbiddenSection } from './build-forbidden-section.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
@@ -48,11 +49,11 @@ export interface DatasetPagesSummary {
   pageUrls: string[];
 }
 
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${bytes} B`;
@@ -69,7 +70,7 @@ function humanDate(isoDate: string): string {
 
 // Download links always show a size; navigation links never do - the
 // consistent pattern that tells a visitor what a click will do.
-function sizeOf(filePath: string): string {
+export function sizeOf(filePath: string): string {
   return fs.existsSync(filePath) ? ` (${formatBytes(fs.statSync(filePath).size)})` : '';
 }
 
@@ -175,6 +176,7 @@ function navHtml(depthToRoot: number, currentNav?: string): string {
     ['Compare', `${rootPath}compare.html`],
     ['Dataset index', `${rootPath}datasets/index.html`],
     ['Series', `${rootPath}series/index.html`],
+    ['Forbidden suffixes', `${rootPath}forbidden/index.html`],
     ['Reports', `${rootPath}reports/index.html`],
     ['Glossary', `${rootPath}glossary.html`],
     ['About', `${rootPath}about.html`],
@@ -188,7 +190,7 @@ function navHtml(depthToRoot: number, currentNav?: string): string {
 // A breadcrumb trail above the H1 on deep pages (e.g. entry pages), telling
 // the visitor where they are within the site's hierarchy. Ancestors link;
 // the final crumb (the current page) is plain, marked aria-current.
-function breadcrumbHtml(crumbs: [label: string, href: string | undefined][]): string {
+export function breadcrumbHtml(crumbs: [label: string, href: string | undefined][]): string {
   const parts = crumbs.map(([label, href]) =>
     href === undefined ? `<span aria-current="page">${escapeHtml(label)}</span>` : `<a href="${href}">${escapeHtml(label)}</a>`);
   return `<nav class="breadcrumb" aria-label="Breadcrumb">${parts.join(' › ')}</nav>`;
@@ -216,7 +218,7 @@ function footerHtml(metaJsonHref?: string, sourcePath?: string): string {
   return `<p><small>${lead}${sourceLink} ${deployProvenance()} Maintained by Roger Howell (M7TEE).</small></p>`;
 }
 
-function htmlPage(title: string, depthToRoot: number, body: string[], options: PageOptions = {}): string {
+export function htmlPage(title: string, depthToRoot: number, body: string[], options: PageOptions = {}): string {
   const { metaJsonHref, currentNav, sourcePath } = options;
   return [
     '<!DOCTYPE html>',
@@ -322,8 +324,11 @@ const ENTRY_STYLE = [
   '</style>',
 ].join('');
 
-// Full HTML for a redesigned entry page (depth 3: datasets/{lane}/{key}/).
-function entryPage(title: string, body: string[], options: PageOptions = {}): string {
+// Full HTML for a redesigned entry page. Depth 3 (datasets/{lane}/{key}/) is
+// the default; the forbidden-suffix section reuses this shell at depth 2
+// (forbidden/{key}/) so it inherits the same card layout, sidebar and a11y
+// pattern with correct relative nav links.
+export function entryPage(title: string, body: string[], options: PageOptions = {}, depthToRoot = 3): string {
   const { metaJsonHref, currentNav, sourcePath } = options;
   return [
     '<!DOCTYPE html>',
@@ -332,7 +337,7 @@ function entryPage(title: string, body: string[], options: PageOptions = {}): st
     '<body>',
     '<a class="skip" href="#main">Skip to content</a>',
     '<div class="wrap">',
-    `<nav>${navHtml(3, currentNav)}</nav>`,
+    `<nav>${navHtml(depthToRoot, currentNav)}</nav>`,
     '<main id="main">',
     ...body,
     '</main>',
@@ -499,7 +504,7 @@ const STATUS_DOCS: RenderedDoc[] = [
 
 // ---- Redesigned entry-page components (variant Q, static half) ----
 
-function noticeStrip(warn: boolean, inner: string): string {
+export function noticeStrip(warn: boolean, inner: string): string {
   return `<div class="notice${warn ? ' warn' : ''}"><span>${warn ? '⚠' : 'ⓘ'}</span><span>${inner}</span></div>`;
 }
 
@@ -570,13 +575,13 @@ function csvSchemaPanel(filePath: string, rowNote: string): string {
   return `<p class="lead">${escapeHtml(rowNote)} · ${fields.length} columns.</p><table><tr><th>column</th></tr>${fields.map(f => `<tr><td><code>${escapeHtml(f.name)}</code></td></tr>`).join('')}</table>`;
 }
 
-function downloadSlot(name: string, href: string, meta: string, desc: string): string {
+export function downloadSlot(name: string, href: string, meta: string, desc: string): string {
   return `<div class="slot"><span class="name"><a href="${href}">${escapeHtml(name)}</a></span> <span class="meta">${escapeHtml(meta)}</span><div class="desc">${escapeHtml(desc)}</div></div>`;
 }
 function placeholderSlot(name: string, tag: string): string {
   return `<div class="slot empty"><span class="name">${escapeHtml(name)}</span><br><span class="tag">${escapeHtml(tag)}</span></div>`;
 }
-function downloadTier(title: string, slots: string[]): string {
+export function downloadTier(title: string, slots: string[]): string {
   return `<div class="tier"><h3>${escapeHtml(title)}</h3><div class="grid">${slots.join('')}</div></div>`;
 }
 
@@ -595,7 +600,7 @@ function facetAttr(col: string, value: string): string {
   return ` data-filter-col="${col}" data-filter-val="${escapeHtml(value)}" role="button" tabindex="0"`;
 }
 
-function breakdownRows(counts: [string, number][], total: number, linkFor?: (v: string) => string | undefined, rowAttr?: (v: string) => string): string {
+export function breakdownRows(counts: [string, number][], total: number, linkFor?: (v: string) => string | undefined, rowAttr?: (v: string) => string): string {
   return counts.map(([label, n]) => {
     const pct = total > 0 ? Math.round((n / total) * 100) : 0;
     const pctText = pct === 0 && n > 0 ? '<1%' : `${pct}%`;
@@ -1617,6 +1622,12 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   pageUrls.push(...seriesPages.urls);
   const flagNames = new Set(parseFlagRegistry().map(r => r.flag));
   pageUrls.push(...buildReportPages(outputDir, baseUrl, foiKeys, seriesPages.series, flagNames));
+
+  // The forbidden-suffix section (issue #291 phase 2): a discrete, static,
+  // crawlable section built like series/reports — one generator, wired here so
+  // no pages.yml change is needed. It links its downloads to the FOI entry
+  // copies published in the loop above, so it must build after them.
+  pageUrls.push(...buildForbiddenSection(outputDir, baseUrl));
 
   const sitemap = [
     '<?xml version="1.0" encoding="UTF-8"?>',
