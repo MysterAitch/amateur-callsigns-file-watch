@@ -63,10 +63,61 @@ export function callsignCharMarker(ch) {
 // user could already run in SQL mode.
 export function quote(value) { return `'${String(value).replace(/'/g, "''")}'`; }
 
+// --- callsign RSL-normalisation shared by the index lookup (app.js) and the
+// per-dataset browser (entry-browser.js) ---
+// Normalise ANY rendering of a callsign to its RSL-placeholder form
+// (M7TEE, MW7TEE, ME7TEE, M#7TEE -> M#7TEE; 2E0ABC, 20ABC, 2#0ABC -> 2#0ABC).
+// The register stores the RSL-less core (Ofcom: "the core call sign does not
+// include an RSL"), and the lookup's components.csv stores this same
+// placeholder for every parsed row - so one indexed equality query on
+// placeholder_form finds the licence whichever variant is typed. Visitor/
+// reciprocal prefix Mx/ carries the RSL in position 2 (M/, MM/, MW/, ...), so
+// every regional rendering normalises to M#/homecall and resolves to the
+// canonical M/ register row. Pure (no DOM, no reference data), so both
+// front-ends share it; expects an already-upper-cased value (the callers
+// upper-case user input before calling).
+export function placeholderOf(value) {
+  const gm = /^([GM])(?:([A-Z#])?)(\d)([A-Z]+)$/.exec(value);
+  if (gm) return `${gm[1]}#${gm[3]}${gm[4]}`;
+  const two = /^2(?:([A-Z#])?)(\d)([A-Z]+)$/.exec(value);
+  if (two) return `2#${two[2]}${two[3]}`;
+  const visitor = /^M(?:[A-Z#]?)\/(.+)$/.exec(value);
+  if (visitor) return `M#/${visitor[1]}`;
+  return null;
+}
+
+// The canonical RSL-less register core of a callsign rendering: the register
+// stores this form (the placeholder with the RSL slot removed), so matching a
+// search's core against a `callsign` column resolves a regional variant to its
+// canonical row. Returns null when the value is not a recognised callsign
+// rendering (nothing to resolve).
+export function canonicalCallsign(value) {
+  const placeholder = placeholderOf(value);
+  return placeholder === null ? null : placeholder.replace('#', '');
+}
+
+// The canonical register core a plain callsign-column search resolves TO, or
+// null when there is nothing to resolve: a non-callsign column, an empty
+// input, an operator/negation/wildcard search (those are matched literally),
+// an unrecognised value, or a value that is already its own core. Shared by
+// parseColumnFilter (to widen the predicate) and the browser UI (to show the
+// "MW7TEE -> M7TEE" resolution), so the two never disagree on when a variant
+// resolves.
+export function resolvedCallsignCore(col, raw) {
+  if (col !== 'callsign') return null;
+  const s = raw.trim();
+  if (s === '' || /^(>=|<=|!=|>|<|=)/.test(s) || s.startsWith('!') || /[*?]/.test(s)) return null;
+  const upper = s.toUpperCase();
+  const core = canonicalCallsign(upper);
+  return core !== null && core !== upper ? core : null;
+}
+
 // Per-column filter mini-language: comparison operators, GLOB wildcards
 // (* ?), ! to negate, bare text = contains. Returns a literal SQL fragment,
 // or null for an empty input. Complex boolean (a OR b) is a power query for
-// SQL mode.
+// SQL mode. A plain callsign search that names a regional variant also matches
+// its canonical register core, so a search there resolves the same way the
+// index lookup does.
 export function parseColumnFilter(col, raw) {
   const s = raw.trim();
   if (s === '') return null;
@@ -76,7 +127,9 @@ export function parseColumnFilter(col, raw) {
   const body = (negate ? s.slice(1) : s).trim();
   if (body === '') return null;
   if (/[*?]/.test(body)) return `"${col}" ${negate ? 'NOT ' : ''}GLOB ${quote(body)}`;
-  return `"${col}" ${negate ? 'NOT ' : ''}LIKE ${quote(`%${body}%`)}`;
+  const like = `"${col}" ${negate ? 'NOT ' : ''}LIKE ${quote(`%${body}%`)}`;
+  const core = resolvedCallsignCore(col, s);
+  return core !== null ? `(${like} OR "${col}" = ${quote(core)})` : like;
 }
 
 // Compose the WHERE predicate from filter state (facets, boolean toggles,

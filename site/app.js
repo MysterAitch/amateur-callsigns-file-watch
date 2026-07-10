@@ -6,6 +6,7 @@
 // index.html, which attaches createDbWorker to window.
 
 import { countryForCallsign, stripVisitorPrefix } from './prefix-country.js';
+import { placeholderOf } from './browser-query.js';
 
 const { createDbWorker } = window;
 
@@ -349,25 +350,9 @@ const ROW_SELECT =
           c.placeholder_form, c.home_callsign, c.implied_class, c.flags
    FROM components c JOIN normalised n ON n.callsign = c.callsign`;
 
-// Normalise ANY rendering of a callsign to its RSL-placeholder form
-// (M7TEE, MW7TEE, ME7TEE, M#7TEE -> M#7TEE; 2E0ABC, 20ABC, 2#0ABC ->
-// 2#0ABC). The register stores the RSL-less core (Ofcom: "the core call
-// sign does not include an RSL"), and components.csv stores this same
-// placeholder for every parsed row - so one indexed equality query finds
-// the licence whichever variant is typed.
-function placeholderOf(value) {
-  const gm = /^([GM])(?:([A-Z#])?)(\d)([A-Z]+)$/.exec(value);
-  if (gm) return `${gm[1]}#${gm[3]}${gm[4]}`;
-  const two = /^2(?:([A-Z#])?)(\d)([A-Z]+)$/.exec(value);
-  if (two) return `2#${two[2]}${two[3]}`;
-  // Visitor/reciprocal prefix Mx/ carries the RSL in position 2 (M/, MM/,
-  // MW/, ...), so every regional rendering normalises to M#/homecall and
-  // resolves to the canonical M/ register row - the same treatment core
-  // callsigns get.
-  const visitor = /^M(?:[A-Z#]?)\/(.+)$/.exec(value);
-  if (visitor) return `M#/${visitor[1]}`;
-  return null;
-}
+// Callsign RSL-normalisation (placeholderOf) is shared with the per-dataset
+// browser through the DOM-free query core; see site/browser-query.js. The
+// lookup passes it an upper-cased value and matches c.placeholder_form.
 
 // Name a visitor's home country from the ITU call-sign series table (Radio
 // Regulations Appendix 42, via reference data). The resolution - stripping the
