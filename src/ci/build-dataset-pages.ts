@@ -33,6 +33,7 @@ import { displaySeries } from './build-home-aggregates.ts';
 import { parse } from 'csv-parse/sync';
 import { buildZip } from '../shared/zip.ts';
 import { buildForbiddenSection } from './build-forbidden-section.ts';
+import { buildClassPages, classChipLink } from './build-class-pages.ts';
 import {
   REPO_URL,
   escapeHtml,
@@ -476,6 +477,10 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
     bd.declared.length > 0 ? `<div class="bd"><h3>Licence level (declared)</h3>${declaredRows}</div>` : '',
     bd.prefixes.length > 0 ? `<div class="bd"><h3>Prefixes <small class="lvl">— all ${bd.prefixes.length}, with inferred level</small></h3><div class="prefixscroll">${prefixRows}</div><div class="brow"><a href="../../../series/index.html">all series →</a></div></div>` : '',
     bd.international > 0 ? `<div class="bd"><h3>International / visitor</h3><div class="brow" data-filter-expr="${escapeHtml(intlExpr)}" data-filter-val="yes" data-filter-label="international" role="button" tabindex="0"><span class="lab">contain <code>/</code> (e.g. <code>M/</code>) — country lookup planned</span>${bar(bd.international)}</div></div>` : '',
+    // Dataset class: an open-data publication is the register state at a
+    // vintage, so it is classified (declared, from the lane's shape) as a
+    // register-snapshot; the chip links to every entry of that class.
+    `<div class="bd"><h3>Dataset class</h3><div class="brow"><span class="lab">${classChipLink('register-snapshot', '../../')} <small class="lvl">declared</small></span></div></div>`,
     '<div class="attr">',
     `<div><b>Source</b> · ${meta.sourceUrl !== undefined ? `<a href="${escapeHtml(meta.sourceUrl)}">Ofcom open-data page →</a>` : 'Ofcom open-data page'}</div>`,
     `<div>Published ${escapeHtml(humanDate(publishedIso))}${meta.fetchedAt !== undefined ? ` · fetched ${escapeHtml(humanDate(meta.fetchedAt.slice(0, 10)))}` : ''}</div>`,
@@ -643,7 +648,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     // panel, whatever its type - it is how a reader verifies the source.
     return { id: `i-${i}`, label: name, panel: panel + witnessLinks(decl.witnesses) };
   });
-  dataTabs.push({ id: 'i-meta', label: 'meta.json', panel: `<table><tr><th>outcome</th><td>${escapeHtml(meta.outcome)}</td></tr><tr><th>dataset classes</th><td>${meta.datasetClasses.map(c => `<code>${escapeHtml(c)}</code>`).join(', ')}</td></tr><tr><th>data vintage</th><td>${escapeHtml(meta.dataVintage ?? '—')}</td></tr></table>` });
+  dataTabs.push({ id: 'i-meta', label: 'meta.json', panel: `<table><tr><th>outcome</th><td>${escapeHtml(meta.outcome)}</td></tr><tr><th>dataset classes</th><td>${meta.datasetClasses.map(c => classChipLink(c, '../../')).join(', ')}</td></tr><tr><th>data vintage</th><td>${escapeHtml(meta.dataVintage ?? '—')}</td></tr></table>` });
 
   // Browse the data: preview the largest normalised CSV, if any.
   const previewName = files.filter(f => isDerived(f.name) && f.name.endsWith('.csv')).sort((a, b) => b.bytes - a.bytes)[0]?.name;
@@ -675,7 +680,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     '<section><h2>At a glance</h2>',
     `<div class="headline">${escapeHtml(meta.outcome)} <small>FOI outcome</small></div>`,
     `<div class="bd"><h3>Data vintage</h3><div class="brow"><span class="lab">${escapeHtml(meta.dataVintage ?? 'not stated')}</span></div></div>`,
-    `<div class="bd"><h3>Dataset classes</h3>${meta.datasetClasses.map(c => `<div class="brow"><span class="lab"><code>${escapeHtml(c)}</code></span></div>`).join('')}</div>`,
+    `<div class="bd"><h3>Dataset classes</h3>${meta.datasetClasses.map(c => `<div class="brow"><span class="lab">${classChipLink(c, '../../')}</span></div>`).join('')}</div>`,
     '<div class="attr">',
     meta.requestUrl !== null ? `<div><b>Source</b> · <a href="${escapeHtml(meta.requestUrl)}">request on WhatDoTheyKnow →</a></div>` : '',
     meta.publicationUrl !== undefined ? `<div><a href="${escapeHtml(meta.publicationUrl)}">also published by Ofcom →</a></div>` : '',
@@ -1236,7 +1241,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;
     pageUrls.push(`${baseUrl}/datasets/foi/${key}/index.html`);
-    foiRows.push(`<tr><td><a href="foi/${encodeURIComponent(key)}/index.html">${escapeHtml(meta.title)}</a><br><code>${escapeHtml(key)}</code></td><td>${escapeHtml(meta.dataVintage ?? '—')}</td><td>${meta.datasetClasses.map(c => `<code>${escapeHtml(c)}</code>`).join(', ')}</td></tr>`);
+    foiRows.push(`<tr><td><a href="foi/${encodeURIComponent(key)}/index.html">${escapeHtml(meta.title)}</a><br><code>${escapeHtml(key)}</code></td><td>${escapeHtml(meta.dataVintage ?? '—')}</td><td>${meta.datasetClasses.map(c => classChipLink(c, '')).join(', ')}</td></tr>`);
   }
 
   if (totalBytes > MAX_TOTAL_BYTES) {
@@ -1281,6 +1286,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   const indexBody = [
     '<h1>Dataset index</h1>',
     '<p>Every archived dataset in both collections below, with the raw, extract and normalised files published verbatim at stable URLs. Integrity: each entry’s <code>meta.json</code> declares sha256 for every file; each entry ships a <a href="https://datapackage.org/">Frictionless</a> <code>datapackage.json</code> and a one-click <code>.zip</code> of everything.</p>',
+    '<p>Prefer to browse by kind of data? Every entry carries one or more <a href="classes/index.html">dataset classes</a> — a register snapshot, an availability pool, a forbidden-suffix list, and so on — each with a page listing every entry that carries it, across both collections.</p>',
     ...dictionarySection,
     '<h2>Bulk downloads</h2>',
     '<ul>',
@@ -1328,6 +1334,13 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   // no pages.yml change is needed. It links its downloads to the FOI entry
   // copies published in the loop above, so it must build after them.
   pageUrls.push(...buildForbiddenSection(outputDir, baseUrl));
+
+  // The dataset-class section (issue #178): one page per class, listing every
+  // entry across both lanes that carries it, headed by the class's registry
+  // prose. Built like series/reports/forbidden — one generator, wired here.
+  // It writes under datasets/classes/, so it must run after the dataset
+  // entry pages the chips link back to.
+  pageUrls.push(...buildClassPages(outputDir, baseUrl));
 
   const sitemap = [
     '<?xml version="1.0" encoding="UTF-8"?>',
