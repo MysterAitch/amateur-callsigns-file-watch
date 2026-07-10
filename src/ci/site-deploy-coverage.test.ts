@@ -69,4 +69,21 @@ describe('site deploy coverage', () => {
     const stale = shellAssets().filter(a => a.endsWith('.js') && !a.includes('/') && !present.has(a));
     expect(stale, `sw.js SHELL_ASSETS lists modules absent from site/: ${stale.join(', ')}`).toEqual([]);
   });
+
+  it('DebugConsole_IsWiredOnScriptedPagesOnly', () => {
+    const loadsDebug = (page: string): boolean =>
+      fs.readFileSync(path.join(SITE_DIR, page), 'utf8').includes('src="debug.js"');
+    // Pages that already run a module carry the debug console — it can only help
+    // where there is script to debug, and it is what surfaces a module that
+    // fails to load.
+    ['index.html', 'explore.html', 'compare.html'].forEach(function (page) {
+      expect(loadsDebug(page), page + ' should load debug.js').toBe(true);
+    });
+    // The deliberately static pages stay script-free so their archived captures
+    // stay complete and reproducible (see the no-scripts assertions in
+    // build-home-aggregates and build-interdataset-stats).
+    ['statistics.html', 'about.html', 'glossary.html'].forEach(function (page) {
+      expect(loadsDebug(page), page + ' must stay script-free').toBe(false);
+    });
+  });
 });
