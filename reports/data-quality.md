@@ -27,8 +27,8 @@ long-standing allocations, not an anomaly by itself).
 | `class-product-mismatch` | 24 | 0 | 5 | 0 | 5 | 3 | 0 |
 | `encoding-failure` | 0 | 0 | 2 | 0 | 3 | 3 | 3 |
 | `excel-date-shape` | 0 | 0 | 0 | 0 | 16 | 15 | 15 |
-| `forbidden-suffix` | 2826 | 1 | 3143 | 1 | 3159 | 3145 | 3143 |
-| `forbidden-suffix-issued-after-list` | 103 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `forbidden-suffix` | 2830 | 1 | 3149 | 1 | 3170 | 3156 | 3154 |
+| `forbidden-suffix-issued-after-first-known-list` | 106 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `hash-in-register` | 3 | 0 | 3 | 0 | 3 | 3 | 3 |
 | `lowercase` | 2 | 0 | 2 | 0 | 18 | 17 | 17 |
 | `malformed-home-callsign` | 7 | 1 | 10 | 1 | 10 | 7 | 7 |

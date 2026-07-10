@@ -104,9 +104,11 @@ describe('Dataset pages build', () => {
     // page carries a link-out to it, not the matrix itself.
     expect(page).not.toContain('Prefix series × Regional Secondary Locator');
     expect(page).toContain('statistics.html">Register structure');
-    // Anomalies surface (Notable coda + the stats.json inspect panel).
+    // Anomalies surface (Notable coda + the stats.json inspect panel). The
+    // withheld-suffix cohort joins against the ever-forbidden union (1,466
+    // suffixes incl. JIZ), so 2,826 on the shared 2016/2019 set becomes 2,830.
     expect(page).toContain('<code>forbidden-suffix</code>');
-    expect(page).toContain('2,826');
+    expect(page).toContain('2,830');
     // The re-fetch check points at the most recent INTENDED-COMPLETE
     // earlier publication - 2025-06-08 is a declared-partial 1,074-row
     // truncation and must NOT be the changes-since baseline.

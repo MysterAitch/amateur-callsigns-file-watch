@@ -11,13 +11,13 @@ Standing, deterministic views over the archive. Drill-downs:
 
 | dataset | records | distinct patterns | flag instances |
 |---|---:|---:|---:|
-| [2026-06-23](entries/2026-06-23.md) | 158318 | 36 | 2997 |
+| [2026-06-23](entries/2026-06-23.md) | 158318 | 36 | 3004 |
 | [2025-06-08](entries/2025-06-08.md) | 1074 | 5 | 3 |
-| [2025-06-04](entries/2025-06-04.md) | 112650 | 40 | 3191 |
+| [2025-06-04](entries/2025-06-04.md) | 112650 | 40 | 3197 |
 | [2025-05-27](entries/2025-05-27.md) | 1074 | 5 | 3 |
-| [2025-04-08](entries/2025-04-08.md) | 157427 | 43 | 3244 |
-| [2023-02-20](entries/2023-02-20.md) | 152084 | 34 | 3221 |
-| [2022-05-30](entries/2022-05-30.md) | 151152 | 34 | 3216 |
+| [2025-04-08](entries/2025-04-08.md) | 157427 | 43 | 3255 |
+| [2023-02-20](entries/2023-02-20.md) | 152084 | 34 | 3232 |
+| [2022-05-30](entries/2022-05-30.md) | 151152 | 34 | 3227 |
 
 Per-entry reports (pattern tables, windowed matrices, pairwise
 comparisons) live in [entries/](entries/).

@@ -43,12 +43,12 @@
     },
     "stats.json": {
       "size": 3030,
-      "sha256": "dc2ded22e1edf4e1bf2b88d29e56c5d799b78624b1b0ed43710d5bbad6549477",
+      "sha256": "844fc3607c33d23dd5e87ff31257bde954c905f451dcfcd3bfa18472c5a68473",
       "format": "json"
     },
     "components.csv": {
-      "size": 6675087,
-      "sha256": "8f45acafedd03e9a1d811e0c5e6f98e079534bf0c596c665d9e0c7f3ce47db9d",
+      "size": 6675263,
+      "sha256": "4a18b911c71ad8fe51ba922ca850221eb69e968f156cfa511d49bd8478e48e7d",
       "format": "csv",
       "columnCount": 10,
       "columnNames": [

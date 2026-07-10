@@ -78,7 +78,16 @@ export interface PrefixSeriesInfo {
 export interface ReferenceData {
   rslLetters: ReadonlySet<string>;
   prefixSeries: ReadonlyMap<string, PrefixSeriesInfo>;
+  // The ever-forbidden UNION: every suffix on ANY forbidden-list disclosure
+  // held, not a single point-in-time list. Union membership drives the
+  // `forbidden-suffix` flag, so it is robust to churn and to suspected
+  // omission errors (a suffix de-listed by a later disclosure stays flagged).
   forbiddenSuffixes: ReadonlySet<string>;
+  // Per-suffix earliest-known-forbidden date (ISO-ordered yyyy-mm-dd or
+  // yyyy-mm), keyed by suffix - the temporal anchor for the
+  // `forbidden-suffix-issued-after-first-known-list` flag. Confined to the
+  // union: a suffix not in the set has no such date.
+  forbiddenSuffixFirstKnown: ReadonlyMap<string, string>;
   // Raw product/licence_class string -> canonical licence category. The
   // register writes the same class differently by source vintage ('Full' vs
   // 'Amateur Full Radio Licence'); this collapses the drift to one category
@@ -102,11 +111,13 @@ export function loadReferenceData(): ReferenceData {
       rslRequired: r.rsl_required === 'true',
     }]),
   );
-  const forbiddenSuffixes = new Set(readCsv('forbidden-suffixes.csv').map(r => r.suffix));
+  const forbiddenRows = readCsv('forbidden-suffixes.csv');
+  const forbiddenSuffixes = new Set(forbiddenRows.map(r => r.suffix));
+  const forbiddenSuffixFirstKnown = new Map(forbiddenRows.map(r => [r.suffix, r.first_known_forbidden]));
   const licenceCategory = new Map(
     readCsv('licence-category.csv').map(r => [r.product, r.normalised_category]),
   );
-  return { rslLetters, prefixSeries, forbiddenSuffixes, licenceCategory };
+  return { rslLetters, prefixSeries, forbiddenSuffixes, forbiddenSuffixFirstKnown, licenceCategory };
 }
 
 // The canonical licence category for a raw product/licence_class value, or
@@ -127,27 +138,24 @@ const EXCEL_DATE_RE = /^\d{1,2}-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec
 // meaningful notation characters / and #).
 const NON_PLAIN_RE = /[^A-Za-z0-9/#]/gu;
 
-// The earliest disclosure of the withheld-suffix list that this archive holds
-// is September 2016: the FOI sheet
-// archive/foi/wdtk-356636--all-callsigns-plus-forbidden carries the same
-// 1,465-suffix set as today's reference-data/forbidden-suffixes.csv (the 2016
-// sheet differs only by line endings and a duplicated ZIT row - a data-quality
-// artefact - not a vocabulary change). So the list governed all of these
-// suffixes at least as early as 2016-09; whether it existed before then is
-// unknown, so this is the earliest boundary the evidence supports. The
-// month is the disclosure's precision, so "issued after the list came into
-// force" is a month strictly later than September 2016 - October 2016 onward.
-const FORBIDDEN_SUFFIX_LIST_MONTH = '2016-09';
-
 // True when a call sign's original start date (ISO yyyy-mm-dd[ hh:mm]) falls in
-// a month after the forbidden-suffix list came into force. A blank or non-ISO
-// value asserts nothing - absence of a date is not evidence of a post-list
-// issuance, so it yields honest silence, never a guessed determination. Only
-// variants carrying an original-start-date column can assert the flag.
-export function isAfterForbiddenSuffixList(originalStartDateIso: string): boolean {
-  const month = originalStartDateIso.slice(0, 7);
-  if (!/^\d{4}-\d{2}$/.test(month)) return false;
-  return month > FORBIDDEN_SUFFIX_LIST_MONTH;
+// a month strictly after the month a SPECIFIC suffix was first known to be
+// forbidden - the per-suffix temporal anchor from
+// reference-data/forbidden-suffixes.csv (derived from every disclosure held;
+// see src/ci/forbidden-suffix-history.ts). Keying off the suffix's own
+// first-known-forbidden date rather than a single global boundary means a
+// callsign predating ALL known lists (e.g. a 1980 issue) is correctly not the
+// anomaly, and a suffix first seen only in 2020 (JIZ) is judged against 2020,
+// not 2016. A blank or non-ISO date, or a suffix with no known first date,
+// asserts nothing - absence of a date is not evidence of a post-list issuance,
+// so it yields honest silence, never a guessed determination.
+export function isAfterFirstKnownForbidden(originalStartDateIso: string, firstKnownForbidden: string | undefined): boolean {
+  if (firstKnownForbidden === undefined) return false;
+  const issuedMonth = originalStartDateIso.slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(issuedMonth)) return false;
+  const firstKnownMonth = firstKnownForbidden.slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(firstKnownMonth)) return false;
+  return issuedMonth > firstKnownMonth;
 }
 
 // Product strings encode today's licence levels. An empty product asserts
@@ -290,10 +298,12 @@ export function parseCallsign(callsign: string, product: string, ref: ReferenceD
     flag('forbidden-suffix');
     // The bulk forbidden-suffix rows are long-standing allocations that predate
     // the list; the interesting subset is a forbidden suffix whose ORIGINAL
-    // issuance post-dates the list coming into force, in apparent contradiction
-    // to it. It rides only on a forbidden suffix, and only where the variant
-    // supplies an original start date.
-    if (isAfterForbiddenSuffixList(originalStartDate)) flag('forbidden-suffix-issued-after-list');
+    // issuance post-dates THAT suffix's own first-known-forbidden date, in
+    // apparent contradiction to it. It rides only on a forbidden suffix, and
+    // only where the variant supplies an original start date.
+    if (isAfterFirstKnownForbidden(originalStartDate, ref.forbiddenSuffixFirstKnown.get(row.suffix))) {
+      flag('forbidden-suffix-issued-after-first-known-list');
+    }
   }
   if (row.suffix.length < 2 || row.suffix.length > 3) flag('suffix-length-abnormal');
 

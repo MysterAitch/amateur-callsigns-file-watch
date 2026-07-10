@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseCallsign, loadReferenceData, normaliseLicenceCategory, componentsFlagsForRows, cleanedCallsign, COMPONENT_COLUMNS, COMPONENTS_SCHEMA_VERSION } from './components.ts';
+import { buildForbiddenSuffixHistory } from '../../ci/forbidden-suffix-history.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -142,42 +143,83 @@ describe('parseCallsign', () => {
     expect(r).toMatchObject({ parseStatus: 'special-event', prefixSeries: 'GB', suffix: '100RSM' });
   });
 
-  it('Parse_WhenForbiddenSuffixAllocated_Flagged', () => {
-    // ASS is on Ofcom's August 2019 FOI forbidden list; its presence in a
-    // register row is exactly the anomaly the flag exists to surface.
+  it('Parse_WhenSuffixInEverForbiddenUnion_Flagged', () => {
+    // ASS is on every forbidden-list disclosure held; its presence in a
+    // register row is exactly the anomaly the flag exists to surface. The flag
+    // keys off the ever-forbidden UNION, not any single point-in-time list.
     const r = parsed('M7ASS');
     expect(r.flags).toContain('forbidden-suffix');
   });
 
-  it('Parse_WhenForbiddenSuffixIssuedAfterTheList_PostListFlagged', () => {
-    // A forbidden suffix whose original start date post-dates the withheld
-    // list (attested from September 2016) is the interesting subset - it
-    // appears to contradict the generator's stated exclusions, so it earns
-    // its own flag rather than hiding inside the ~2,800 long-standing
-    // forbidden-suffix allocations that predate the list.
+  it('Parse_WhenSuffixDeListedByLaterDisclosure_StillFlaggedFromUnion', () => {
+    // QNF and ZFJ appear on the 2016/2019 lists but are absent from the 2024
+    // export (working theory: an artefact, not a deliberate de-listing). The
+    // ever-forbidden union keeps them, so their rows stay flagged - robustness
+    // to churn and to suspected omission errors is the whole point of the union.
+    expect(parsed('M7QNF').flags).toContain('forbidden-suffix');
+    expect(parsed('M7ZFJ').flags).toContain('forbidden-suffix');
+  });
+
+  it('Parse_WhenSuffixOnlyKnownFromLaterDisclosure_FlaggedFromUnion', () => {
+    // JIZ was added by the 2024 export (first known forbidden 2020-12-10) and
+    // is absent from the older lists; the union carries it, so it flags too.
+    expect(parsed('M7JIZ').flags).toContain('forbidden-suffix');
+  });
+
+  it('Parse_WhenForbiddenSuffixIssuedAfterItsFirstKnownList_PostListFlagged', () => {
+    // A forbidden suffix whose original start date post-dates THAT suffix's own
+    // first-known-forbidden date is the interesting subset - it appears to
+    // contradict the exclusions, so it earns its own flag rather than hiding
+    // inside the long-standing forbidden-suffix allocations that predate the
+    // list. ASS is first known forbidden 2016-07, so a 2020 issue is after it.
     const r = parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '2020-05-01');
     expect(r.flags).toContain('forbidden-suffix');
-    expect(r.flags).toContain('forbidden-suffix-issued-after-list');
+    expect(r.flags).toContain('forbidden-suffix-issued-after-first-known-list');
   });
 
-  it('Parse_WhenForbiddenSuffixIssuedBeforeTheList_PostListNotFlagged', () => {
-    // The bulk forbidden-suffix rows are long-standing allocations that
-    // predate the list - a pre-2016 original start date is exactly this
-    // benign case and must not gain the post-list flag.
-    const r = parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '2015-01-01');
-    expect(r.flags).toContain('forbidden-suffix');
-    expect(r.flags).not.toContain('forbidden-suffix-issued-after-list');
+  it('Parse_WhenForbiddenSuffixIssuedBeforeAnyKnownList_PostListNotFlagged', () => {
+    // The bulk forbidden-suffix rows are long-standing allocations that predate
+    // the lists - a pre-2016 original start date is exactly this benign case
+    // and must not gain the post-list flag. A callsign predating every known
+    // list (here, a 1980 issue) is not the anomaly.
+    const early = parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '1980-01-01');
+    expect(early.flags).toContain('forbidden-suffix');
+    expect(early.flags).not.toContain('forbidden-suffix-issued-after-first-known-list');
   });
 
-  it('Parse_WhenForbiddenSuffixIssuedWithinListMonth_PostListNotFlagged', () => {
-    // The boundary is a month strictly after the list's earliest attestation
-    // (September 2016); a date within that month itself cannot be shown to
-    // post-date the list, so the conservative parser withholds the flag - the
-    // following month does gain it.
-    const r = parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '2016-09-30');
-    expect(r.flags).not.toContain('forbidden-suffix-issued-after-list');
-    expect(parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '2016-10-01').flags)
-      .toContain('forbidden-suffix-issued-after-list');
+  it('Parse_WhenForbiddenSuffixIssuedWithinFirstKnownMonth_PostListNotFlagged', () => {
+    // The boundary is a month strictly after the suffix's first-known-forbidden
+    // month. ASS is first known 2016-07, so a date within that month cannot be
+    // shown to post-date it and the conservative parser withholds the flag -
+    // the following month does gain it.
+    expect(parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '2016-07-31').flags)
+      .not.toContain('forbidden-suffix-issued-after-first-known-list');
+    expect(parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '2016-08-01').flags)
+      .toContain('forbidden-suffix-issued-after-first-known-list');
+  });
+
+  it('Parse_WhenLateAddedSuffixIssuedBeforeItsOwnFirstKnownDate_PostListNotFlagged', () => {
+    // JIZ is first known forbidden only from 2020-12-10, so a JIZ callsign
+    // issued in 2019 - after the 2016 lists, but before JIZ itself was known
+    // forbidden - is NOT the anomaly. The per-suffix date is what makes this
+    // distinction possible; a single global 2016 boundary would misfire here.
+    const before = parseCallsign('M7JIZ', 'Amateur Foundation Radio Licence', REF, '2019-01-01');
+    expect(before.flags).toContain('forbidden-suffix');
+    expect(before.flags).not.toContain('forbidden-suffix-issued-after-first-known-list');
+    // Issued after JIZ's own first-known-forbidden month, it does gain the flag.
+    const after = parseCallsign('M7JIZ', 'Amateur Foundation Radio Licence', REF, '2021-01-01');
+    expect(after.flags).toContain('forbidden-suffix-issued-after-first-known-list');
+  });
+
+  it('Parse_WhenDeListedSuffixStraddlesIts2016Boundary_PostListReflectsFirstKnownMonth', () => {
+    // QNF/ZFJ are known forbidden only from the 2016-09 disclosure vintage
+    // (they carry no 2024 LastModifiedDate, being absent from that export), so
+    // their boundary is 2016-09: an August 2016 issue is not the anomaly, an
+    // October 2016 one is.
+    expect(parseCallsign('M7QNF', 'Amateur Foundation Radio Licence', REF, '2016-08-01').flags)
+      .not.toContain('forbidden-suffix-issued-after-first-known-list');
+    expect(parseCallsign('M7QNF', 'Amateur Foundation Radio Licence', REF, '2016-10-01').flags)
+      .toContain('forbidden-suffix-issued-after-first-known-list');
   });
 
   it('Parse_WhenForbiddenSuffixHasNoOriginalStartDate_PostListNotAsserted', () => {
@@ -185,8 +227,8 @@ describe('parseCallsign', () => {
     // absence of a date is not evidence of a post-list issuance, so the flag
     // is honestly withheld (the default parameter reproduces those variants).
     expect(parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '').flags)
-      .not.toContain('forbidden-suffix-issued-after-list');
-    expect(parsed('M7ASS').flags).not.toContain('forbidden-suffix-issued-after-list');
+      .not.toContain('forbidden-suffix-issued-after-first-known-list');
+    expect(parsed('M7ASS').flags).not.toContain('forbidden-suffix-issued-after-first-known-list');
   });
 
   it('Parse_WhenSuffixAllowedButIssuedAfterTheList_PostListNotAsserted', () => {
@@ -194,7 +236,7 @@ describe('parseCallsign', () => {
     // issued after the list is unremarkable and gains neither flag.
     const r = parseCallsign('M7TEE', 'Amateur Foundation Radio Licence', REF, '2021-03-15');
     expect(r.flags).not.toContain('forbidden-suffix');
-    expect(r.flags).not.toContain('forbidden-suffix-issued-after-list');
+    expect(r.flags).not.toContain('forbidden-suffix-issued-after-first-known-list');
   });
 
   it('Parse_WhenSuffixLengthOutsideTwoToThree_Flagged', () => {
@@ -285,7 +327,39 @@ describe('reference data loading', () => {
     expect(REF.rslLetters.has('W')).toBe(true);
     expect(REF.prefixSeries.get('M7')?.stationLevel).toBe('Foundation');
     expect(REF.forbiddenSuffixes.has('ASS')).toBe(true);
-    expect(REF.forbiddenSuffixes.size).toBe(1465);
+    // The ever-forbidden union: the 1,465 shared 2016/2019 set plus JIZ.
+    expect(REF.forbiddenSuffixes.size).toBe(1466);
+    expect(REF.forbiddenSuffixes.has('JIZ')).toBe(true);
+  });
+
+  it('ReferenceData_CarriesPerSuffixFirstKnownForbiddenDates', () => {
+    // The per-suffix temporal anchor the after-first-known-list flag keys off:
+    // the bulk sit at the 2024 export's 2016-07-29 origin; QNF/ZFJ are known
+    // only from the 2016-09 disclosure vintage; JIZ from 2020-12-10.
+    expect(REF.forbiddenSuffixFirstKnown.get('ASS')).toBe('2016-07-29');
+    expect(REF.forbiddenSuffixFirstKnown.get('QNF')).toBe('2016-09');
+    expect(REF.forbiddenSuffixFirstKnown.get('ZFJ')).toBe('2016-09');
+    expect(REF.forbiddenSuffixFirstKnown.get('JIZ')).toBe('2020-12-10');
+  });
+});
+
+describe('forbidden-suffix reference data vs disclosures', () => {
+  // The curated reference-data/forbidden-suffixes.csv is derived one-time from
+  // the forbidden-list disclosures held. This guard fails loudly if it ever
+  // drifts from those disclosures: the ever-forbidden union and each suffix's
+  // first-known-forbidden date must match what the disclosure history computes.
+  const history = buildForbiddenSuffixHistory();
+
+  it('ForbiddenReferenceData_UnionMatchesDisclosureDerivedUnion', () => {
+    expect([...REF.forbiddenSuffixes].sort()).toEqual([...history.everForbiddenUnion].sort());
+  });
+
+  it('ForbiddenReferenceData_FirstKnownDatesMatchDisclosureDerivedDates', () => {
+    const fromDisclosures = Object.fromEntries(
+      history.everForbiddenUnion.map(s => [s, history.firstKnownForbidden[s].dateKey]),
+    );
+    const fromReference = Object.fromEntries(REF.forbiddenSuffixFirstKnown);
+    expect(fromReference).toEqual(fromDisclosures);
   });
 });
 
