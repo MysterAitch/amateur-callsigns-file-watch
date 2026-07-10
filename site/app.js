@@ -870,7 +870,7 @@ function tickBoxes(fieldsetId, values) {
 // this runs after populateFilters). Opens the filter panel when any facet
 // is set so the applied conditions are visible, not hidden.
 function applyParamsToForm(params) {
-  const c = params.get('c');
+  const c = params.get('c') ?? params.get('callsign');
   if (c) document.getElementById('callsign').value = c.trim().toUpperCase();
   if (params.get('series')) document.getElementById('series-filter').value = params.get('series');
   if (params.get('len')) document.getElementById('length-filter').value = params.get('len');
@@ -918,13 +918,17 @@ document.getElementById('lookup-form').addEventListener('submit', (event) => {
 void renderBuildInfo();
 
 const initialParams = new URLSearchParams(window.location.search);
-const hasFilterParams = [...initialParams.keys()].some(k => k !== 'c');
+// The form field is named "c", so a native submit produces the canonical ?c=.
+// ?callsign= is also honoured as a legacy alias (older links, and any URL left
+// from before the field was renamed), so a reload recovers the lookup rather
+// than ignoring the param. Neither key counts as a filter.
+const hasFilterParams = [...initialParams.keys()].some(k => k !== 'c' && k !== 'callsign');
 
 // Fast path: a callsign-only deep link runs immediately (a callsign
 // lookup ignores filters), without waiting for the filter panel's DISTINCT
 // scans. The title and scroll make it read as that callsign's own page.
 if (!hasFilterParams) {
-  const c = initialParams.get('c');
+  const c = initialParams.get('c') ?? initialParams.get('callsign');
   if (c !== null && c.trim() !== '') {
     const value = c.trim().toUpperCase();
     document.getElementById('callsign').value = value;
@@ -1135,3 +1139,13 @@ function initOffline() {
 }
 
 initOffline();
+
+// Signal a successful start: cancel the startup-warning timer (index.html) and
+// hide the warning if it was already shown. Reaching here means the module
+// loaded and its top-level wiring ran; if a module had failed to load, none of
+// this executes and the warning surfaces.
+if (typeof window !== 'undefined' && window.__lookupReadyTimer !== undefined) {
+  clearTimeout(window.__lookupReadyTimer);
+}
+const startupWarning = document.getElementById('startup-warning');
+if (startupWarning !== null) startupWarning.hidden = true;
