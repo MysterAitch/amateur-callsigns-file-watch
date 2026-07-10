@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": "01420046",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/file/0027/233847/FOI-List-of-Allocated-and-Reserved-Amateur-Radio-Callsigns-spreadsheet-01420046.xlsx",
+  "title": "List of allocated and reserved amateur radio callsigns (Ofcom FOI 01420046)",
+  "requester": null,
+  "requesterNote": "the disclosure-log publication is not attributed; the project source register associates this response (Ofcom reference 01420046) with a WhatDoTheyKnow request by Gareth Steele in February 2022. That linkage is recorded but not independently re-verified in this entry, and the exact WhatDoTheyKnow username is not held here, so requester is left null rather than asserted.",
+  "requestedAt": null,
+  "requestedAtNote": "not in the held material; the source register places the associated WhatDoTheyKnow request in February 2022, but no exact request date is held.",
+  "respondedAt": null,
+  "respondedAtNote": "not stated in the held material; Ofcom filed the response on its FOI disclosure log under March 2022, and sheet 1's report-generation timestamp is 2022-03-07 (see dataVintage).",
+  "outcome": "successful",
+  "dataVintage": "2022-03-07",
+  "dataVintageNote": "declared and well-supported. Sheet 1's name, 'Report1646659776237', embeds the report-generation instant as a Unix epoch in milliseconds (1646659776237 = 2022-03-07T13:29:36Z); Ofcom filed the disclosure on its FOI log under March 2022. The disclosed bytes are byte-identical across the live disclosure-log copy and the UK Government Web Archive capture (both sha256 8a61da94…), so the vintage is corroborated by two independent retrievals.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-01420046-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2017-07-13--all-callsigns", "relation": "the earlier register snapshot in the same 'Value…Status' export family (that one carries Ofcom's own Prefix/Suffix decomposition and a Type column; this one is the same shape reduced to Value, Status, Type). Cross-snapshot status-vocabulary and callsign-form comparison point." },
+    { "entry": "ofcom-756622--published-register-csv", "relation": "the preceding full FOI register snapshot held (2019-09-12, 141,295 records); this 2022-03 snapshot's 150,181 records mark the continued growth of the register." },
+    { "entry": "wdtk-1180568--licence-breakdown-duration-age", "relation": "the next FOI register snapshot held (2024-10, sheet 1, which additionally carries Reserved-to-Date); this entry sits between the 2019 and 2024 FOI register snapshots." }
+  ],
+  "files": {
+    "foi-list-of-allocated-and-reserved-amateur-radio-callsigns-spreadsheet-01420046.xlsx": {
+      "bytes": 3289955,
+      "sha256": "8a61da944220c655a5b8ec2a787451729de7e6269f180dc8394f03c35b0ead35",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "sheetsIndicative": {
+        "note": "two worksheets. Sheet 1 ('Report1646659776237') is the register snapshot: header Value,Status,Type then 150,181 data rows. Sheet 2 ('Sheet1') is a header-less single column of 36,526 callsigns, all of them a subset of sheet 1 and appearing in sheet 1's own row order (an order-preserving subsequence spanning all statuses); its purpose is not disclosed in the material. Both sheets are preserved verbatim as raw extracts; only sheet 1 is normalised into a dataset (see the raw-extract-sheet-2 declaration for why sheet 2 is not).",
+        "sheets": [
+          { "name": "Report1646659776237", "dataRows": 150181, "cols": "A:C", "datasetClass": "register-snapshot" },
+          { "name": "Sheet1", "dataRows": 36526, "cols": "A:A" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "ofcom-disclosure-log",
+          "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2022/march/foi-list-of-allocated-and-reserved-amateur-radio-callsigns-spreadsheet-01420046.xlsx?v=72369",
+          "fetchedAt": "2026-07-07"
+        },
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20240326004101/https://www.ofcom.org.uk/__data/assets/file/0027/233847/FOI-List-of-Allocated-and-Reserved-Amateur-Radio-Callsigns-spreadsheet-01420046.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-sheet-1-report1646659776237.csv": {
+      "bytes": 5354879,
+      "sha256": "c89c648f50cdc83b1219ebd31fc8440cc9500ee4cf0df27f4fa5b112f2519416",
+      "role": "extract",
+      "extractOf": "foi-list-of-allocated-and-reserved-amateur-radio-callsigns-spreadsheet-01420046.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts",
+      "contentsIndicative": "mechanical extract of sheet 1; header Value,Status,Type then 150,181 rows. Status vocabulary Allocated (98,521), Reserved (51,271), Available (377) and blank (12); Type is 'Call Sign - Amateur' on every row. Anomalies preserved verbatim: one Value is literally ',,' (two commas) carrying a Reserved status; 'G6 FMU' has an interior space; three Values carry a trailing non-breaking space (G0TQK, G7IWE, 2E1HON); 479 four-character callsigns (two-letter-suffix heritage series) and 96 callsigns of six to nine characters, most of them reciprocal 'M/…' forms including curiosities such as M/M/PT2FM, M/#YO3IES, M/#VK4VGK and M/EI-8-DJ."
+    },
+    "normalised--sheet-1-report1646659776237.csv": {
+      "bytes": 2501446,
+      "sha256": "f51d8ea18d16dd564ce04f54fc64d6216a36beb2686ddb1b50daedc72f17bcf6",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-report1646659776237.csv",
+      "contentsIndicative": "header callsign,status,licence_class; 150,181 rows sorted by callsign (source order carries no meaning - not callsign-sorted, no dates). Status carried verbatim (Allocated/Reserved/Available and 12 blanks preserved); licence_class emitted empty (no class disclosed). The constant Type column is required-present but not carried. Three trailing non-breaking spaces were trimmed from callsigns (counted in the converter notes, never silent); the ',,' Value and the interior-space 'G6 FMU' are preserved verbatim. The ',,' callsign sorts first."
+    },
+    "raw-extract-sheet-2-sheet1.csv": {
+      "bytes": 219141,
+      "sha256": "7f10118ed2d66d84dada121e96b486f161aa021aeb3008afe3a512e9498d50cb",
+      "role": "extract",
+      "extractOf": "foi-list-of-allocated-and-reserved-amateur-radio-callsigns-spreadsheet-01420046.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts",
+      "contentsIndicative": "mechanical extract of sheet 2 ('Sheet1'): a header-less single column of 36,526 callsigns, all distinct and all present in sheet 1, appearing in sheet 1's own row order (an order-preserving subsequence). Their sheet-1 statuses are mixed (16,688 Allocated, 19,741 Reserved, 94 Available, 3 blank), so the column is not a clean status filter, and the workbook discloses no purpose for it. It asserts no status or attribute of its own, so normalising it would invent a set-membership the source does not explain: it is preserved verbatim here (required-present) but deliberately not converted into a normalised dataset. If its meaning is later established, a reviewed converter change can add it."
+    },
+    "correspondence.md": {
+      "bytes": 4031,
+      "sha256": "323c99e006cbe6b1fc197d2f0fd302e77ad4b330a48d6ad4d497b9ddfffb6141",
+      "role": "transcript"
+    }
+  }
+}

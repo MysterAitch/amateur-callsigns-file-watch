@@ -494,6 +494,39 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
     },
   ],
 
+  // ofcom-01420046 (Ofcom disclosure log, March 2022): a full register
+  // snapshot in the 'Value, Status, Type' header shape - the same three-column
+  // export as the open-data lane's earliest publications, minus any date or
+  // class. Sheet 1's name embeds the report-generation instant
+  // (Report1646659776237 = 2022-03-07T13:29:36Z), the entry's vintage. 'Type'
+  // is 'Call Sign - Amateur' on every row - the product/service discriminator,
+  // recorded in meta, not a per-row assertion. No licence class is disclosed,
+  // so licence_class is emitted empty to keep the callsign-observation core
+  // stable (as in ofcom-2017-07-13 and wdtk-1180568 sheet 1). No date columns,
+  // so no reference bound. The workbook's second sheet is an undisclosed-purpose
+  // subset of sheet 1 (an order-preserving subsequence, header-less, no status
+  // of its own) - preserved verbatim in the committed raw-extract but not
+  // normalised into a dataset, since doing so would assert a membership the
+  // source does not explain (documented in the entry meta).
+  'ofcom-01420046-register': [
+    {
+      sourceFile: 'raw-extract-sheet-1-report1646659776237.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Value', output: 'callsign', kind: 'verbatim' },
+        { source: 'Status', output: 'status', kind: 'verbatim' },
+        // No licence class is disclosed; emitted empty to keep the
+        // callsign-observation core schema stable.
+        { source: null, output: 'licence_class', kind: 'verbatim' },
+      ],
+      // 'Type' is the constant product/service discriminator - required
+      // present, not carried.
+      ignoredColumns: ['Type'],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability',
+    },
+  ],
+
   // ofcom-2024-12 (Ofcom disclosure log, December 2024): the five-years-on
   // forbidden-suffix comparison point. A suspected Salesforce object export -
   // two columns, Name (the three-letter suffix) and LastModifiedDate - so,

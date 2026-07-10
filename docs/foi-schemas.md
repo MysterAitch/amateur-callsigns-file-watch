@@ -73,6 +73,7 @@ fail the conversion.
 | `available-suffix-lists-2013-style` | `wdtk-174341--available-callsigns-list`, `wdtk-197896--available-callsigns-list` |
 | `available-typed-export-7col` | `wdtk-294011--available-callsigns-list`, `wdtk-299321--available-callsigns-list` |
 | `available-typed-export-8col` | `wdtk-247308--available-callsigns-list`, `wdtk-261814--available-callsigns-list` |
+| `ofcom-01420046-register` | `ofcom-01420046--allocated-reserved-callsigns` |
 | `ofcom-2017-07-13-register` | `ofcom-2017-07-13--all-callsigns` |
 | `ofcom-2024-12-forbidden-suffixes` | `ofcom-2024-12--forbidden-suffixes` |
 | `ofcom-498903-reissue-events` | `ofcom-498903--reissued-callsigns-since-2010` |
@@ -204,6 +205,20 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 Required-present but not carried: `Country`, `Current Series`, `Type`, `Allocated Flag`.
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order; sorted by callsign for diffability.
+
+### `ofcom-01420046-register`
+
+**`raw-extract-sheet-1-report1646659776237.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | *(emitted empty)* | verbatim |
+
+Required-present but not carried: `Type`.
+
+Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability.
 
 ### `ofcom-2017-07-13-register`
 
