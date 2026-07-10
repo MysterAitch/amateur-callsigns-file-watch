@@ -196,6 +196,50 @@ describe('Dataset pages build', () => {
     expect(page).toContain("licence_version_original_start_date &gt;= '2019-08-01'");
   });
 
+  it('DatasetPages_OpenDataRegisterPreview_RendersCallsignsAsPillsLinkingToRegisterLookup', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    const preview = page.slice(page.indexOf('class="browser-static"'));
+    // Every callsign in the crawlable register preview is the shared pill,
+    // linking to the register lookup at the entry page's depth (three up).
+    expect(preview).toContain('<a class="callsign-pill" href="../../../index.html?c=');
+    // The pill's accessible name is the bare callsign: the link text and the
+    // ?c= lookup target decode to the same callsign.
+    const m = /<a class="callsign-pill" href="\.\.\/\.\.\/\.\.\/index\.html\?c=([^"]+)"[^>]*>([^<]+)<\/a>/.exec(preview);
+    if (m === null) throw new Error('expected a callsign pill in the register preview');
+    expect(decodeURIComponent(m[1])).toBe(m[2]);
+  });
+
+  it('DatasetPages_RegisterPreviewPill_KeepsCallsignAsAccessibleNameWithComponentsAsTitle', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    const preview = page.slice(page.indexOf('class="browser-static"'));
+    // A parseable callsign carries a supplementary title (prefix series ·
+    // suffix · implied class) that opens with the callsign itself; the link
+    // text — the accessible name — stays the bare callsign, never the title.
+    const m = /<a class="callsign-pill" href="[^"]*\?c=([^"]+)" title="([^"]*)">([^<]+)<\/a>/.exec(preview);
+    if (m === null) throw new Error('expected a titled callsign pill in the register preview');
+    const callsign = m[3];
+    expect(decodeURIComponent(m[1])).toBe(callsign);
+    expect(m[2].startsWith(`${callsign} — `)).toBe(true);
+    expect(m[2]).not.toContain('<');
+  });
+
+  it('DatasetPages_FoiObservationPreview_RendersCallsignColumnAsPills', () => {
+    // A callsign-bearing FOI extract (reciprocal licences: callsign · event ·
+    // date) presents its callsign column with the same pill as the register.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'ofcom-498906--reciprocal-licences-since-2010', 'index.html'), 'utf8');
+    const preview = page.slice(page.indexOf('Browse the data'));
+    expect(preview).toContain('<a class="callsign-pill" href="../../../index.html?c=');
+  });
+
+  it('DatasetPages_PreviewWithoutCallsignColumn_RendersNoCallsignPills', () => {
+    // This FOI preview is annual licence counts (period + counts) — no
+    // callsign column, so the column-targeted pill treatment emits no pill
+    // markup and the preview is unchanged.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'wdtk-184767--annual-licence-counts', 'index.html'), 'utf8');
+    expect(page).toContain('Browse the data');
+    expect(page).not.toContain('class="callsign-pill" href');
+  });
+
   it('DatasetPages_FoiEntryPage_HasNoScopedBrowser', () => {
     // The scoped browser reads register_history (open-data publications);
     // FOI entries keep the static preview only, for now.

@@ -35,6 +35,7 @@ import { buildZip } from '../shared/zip.ts';
 import { buildForbiddenSection } from './build-forbidden-section.ts';
 import { buildClassPages, classChipLink } from './build-class-pages.ts';
 import { buildInterdatasetStats } from './build-interdataset-stats.ts';
+import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import {
   REPO_URL,
   escapeHtml,
@@ -50,6 +51,7 @@ import {
   breadcrumbHtml,
   htmlPage,
   entryPage,
+  callsignPill,
 } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -384,7 +386,38 @@ function openDataBreakdowns(sourceDir: string): {
 // A static preview of a CSV's first rows (reads only the head buffer, not
 // the whole 158k-row file). Columns with no value in the sample are
 // dropped so the preview stays legible.
-function csvPreviewTable(filePath: string, sampleSize = 12): string {
+// The reference data (prefix formats, RSL letters, forbidden suffixes) the
+// callsign parser needs, read at most once per build - many entry pages are
+// rendered in one run and each would otherwise re-read the same files.
+let cachedReferenceData: ReferenceData | undefined;
+function referenceData(): ReferenceData {
+  cachedReferenceData ??= loadReferenceData();
+  return cachedReferenceData;
+}
+
+// A callsign preview cell: the shared pill (accessible name = the bare
+// callsign, linking to the register lookup at the given depth), with the
+// supplementary title built from the same parser used everywhere. A blank
+// callsign carries no pill - there is nothing to look up - and an unparseable
+// value degrades to the bare callsign with no title.
+function callsignCell(callsign: string, licenceClass: string, depthToRoot: number): string {
+  if (callsign === '') return '<td></td>';
+  const comp = parseCallsign(callsign, licenceClass, referenceData());
+  return `<td>${callsignPill(callsign, depthToRoot, {
+    prefixSeries: comp.prefixSeries,
+    rsl: comp.rsl,
+    suffix: comp.suffix,
+    licenceClass: comp.impliedClass,
+  })}</td>`;
+}
+
+// Static, crawlable preview of a normalised CSV's first rows. When
+// pillCallsignDepth is given, any 'callsign' column is rendered with the shared
+// callsign pill (issue #310) so the register/observation tables present a
+// callsign the same way as the rest of the site; omit it (the default) and the
+// table is byte-for-byte the plain-text form, so previews with no callsign
+// column - and callers that do not opt in - are unchanged.
+function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSize = 12): string {
   if (!fs.existsSync(filePath)) return '';
   const fd = fs.openSync(filePath, 'r');
   const buffer = Buffer.alloc(128 * 1024);
@@ -395,7 +428,10 @@ function csvPreviewTable(filePath: string, sampleSize = 12): string {
   const rows = parse(lines.join('\n'), { columns: true, bom: true }) as Record<string, string>[];
   const headers = Object.keys(rows[0]).filter(h => rows.some(r => (r[h] ?? '') !== ''));
   const head = headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
-  const body = rows.map(r => `<tr>${headers.map(h => `<td>${escapeHtml(r[h] ?? '')}</td>`).join('')}</tr>`).join('');
+  const body = rows.map(r => `<tr>${headers.map(h =>
+    pillCallsignDepth !== undefined && h === 'callsign'
+      ? callsignCell(r[h] ?? '', r['licence_class'] ?? '', pillCallsignDepth)
+      : `<td>${escapeHtml(r[h] ?? '')}</td>`).join('')}</tr>`).join('');
   return `<div style="overflow-x:auto"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
@@ -656,7 +692,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
   const browseSection = previewName === undefined ? [] : [
     '<section><h2>Browse the data</h2>',
     `<p class="lead">A preview of the <b>normalised</b> extract <code>${escapeHtml(previewName)}</code>; download it for all rows, or inspect the source document below.</p>`,
-    csvPreviewTable(path.join(targetDir, previewName)),
+    csvPreviewTable(path.join(targetDir, previewName), 3),
     '</section>',
   ];
 
@@ -949,7 +985,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     '<div class="col">',
     `<section class="browser" data-dataset="${escapeHtml(key)}"><h2>Browse the data</h2>`,
     `<p class="lead">The <b>normalised</b> register — the canonical shape, not the raw file (inspect <code>raw.csv</code> below for that). Showing the first rows of ${stats.recordCount.toLocaleString('en-GB')} (${(summaries.find(s => s.key === key)?.allocated ?? 0).toLocaleString('en-GB')} allocated callsigns); download <code>normalised.csv</code> for all, or query it on the <a href="../../../explore.html">Explore</a> page.</p>`,
-    `<div class="browser-static">${csvPreviewTable(path.join(sourceDir, 'normalised.csv'))}</div>`,
+    `<div class="browser-static">${csvPreviewTable(path.join(sourceDir, 'normalised.csv'), 3)}</div>`,
     ignoredNote,
     '</section>',
     inspectTabsHtml(tabs),
