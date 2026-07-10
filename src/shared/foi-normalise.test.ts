@@ -572,6 +572,107 @@ describe('FOI CSV normaliser - callsign+product+status register family', () => {
   });
 });
 
+describe('FOI CSV normaliser - 2021 dated register annexes', () => {
+  // The two 2021 UKGWA-captured annexes carry the register core extended with
+  // typed Reserved to Date / Original Start Date / Licence Type columns. They
+  // differ ONLY in the case of two headers, so each binds its own variant.
+  const jan = conversionFor('ofcom-2021-01-register', 'raw-extract-sheet-1-callsigns.csv');
+  const apr = conversionFor('ofcom-2021-04-register', 'raw-extract-sheet-1-sheet1.csv');
+
+  // Extracts are UTF-8 without BOM and LF-terminated (the xlsx-extract output).
+  function utf8Lf(lines: string[]): Buffer {
+    return Buffer.from(lines.join('\n') + '\n', 'utf8');
+  }
+
+  it('FoiNormaliser_DatedRegisterRows_MapToObservationSchemaWithIsoDatesSortedByCallsign', () => {
+    const input = utf8Lf([
+      'Value,Status,Type,Reserved to Date,Original Start Date,Licence Type',
+      'M0ABC,Allocated,Call Sign - Amateur,,2020-05-01,Amateur Full Radio Licence',
+      'G5XYZ,Reserved,Call Sign - Amateur,2023-01-07,,',
+      '20DEF,Available,Call Sign - Amateur,,2019-03-14,Amateur Intermediate Radio Licence',
+    ]);
+    const result = convertFoiSource(input, jan);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,reserved_to_date,original_start_date\n' +
+      '20DEF,Available,Amateur Intermediate Radio Licence,,2019-03-14\n' +
+      'G5XYZ,Reserved,,2023-01-07,\n' +
+      'M0ABC,Allocated,Amateur Full Radio Licence,,2020-05-01\n');
+    expect(result.recordCount).toBe(3);
+    // The constant Type discriminator is required-present but never carried.
+    expect(result.csv).not.toContain('Call Sign - Amateur');
+  });
+
+  it('FoiNormaliser_AprilAnnexLowerCaseHeaders_MatchedByTheAprilVariant', () => {
+    // The spring-2021 disclosure names its columns 'Original start date' and
+    // 'Licence type'; the April variant matches those exact names.
+    const input = utf8Lf([
+      'Value,Status,Type,Reserved to Date,Original start date,Licence type',
+      'M0ABC,Allocated,Call Sign - Amateur,,2020-05-01,Amateur Full Radio Licence',
+    ]);
+    const result = convertFoiSource(input, apr);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,reserved_to_date,original_start_date\n' +
+      'M0ABC,Allocated,Amateur Full Radio Licence,,2020-05-01\n');
+  });
+
+  it('FoiNormaliser_JanuaryHeadersAgainstAprilVariant_ThrowsOnExactNameMismatch', () => {
+    // Case is part of the header name: the capitalised January headers are a
+    // different shape from the April variant's, and must fail rather than be
+    // silently accepted.
+    const input = utf8Lf([
+      'Value,Status,Type,Reserved to Date,Original Start Date,Licence Type',
+      'M0ABC,Allocated,Call Sign - Amateur,,2020-05-01,Amateur Full Radio Licence',
+    ]);
+    expect(() => convertFoiSource(input, apr)).toThrow(/Original Start Date|Original start date/);
+  });
+
+  it('FoiNormaliser_BlankStatusAndEmptyCallsign_PreservedWithEmptyCallsignSortingFirst', () => {
+    const input = utf8Lf([
+      'Value,Status,Type,Reserved to Date,Original Start Date,Licence Type',
+      'M0ABC,Allocated,Call Sign - Amateur,,2020-05-01,Amateur Full Radio Licence',
+      ',Reserved,Call Sign - Amateur,,,',
+      'M0BLK,,Call Sign - Amateur,,,',
+    ]);
+    const result = convertFoiSource(input, jan);
+    // The empty call sign is data (Reserved) and sorts first; the blank status
+    // is preserved as an empty field, not dropped.
+    expect(result.csv.startsWith('callsign,status,licence_class,reserved_to_date,original_start_date\n,Reserved,,,\n')).toBe(true);
+    expect(result.notes.blankCounts['status']).toBe(1);
+    expect(result.notes.blankCounts['callsign']).toBe(1);
+    expect(result.csv).toContain('M0BLK,,,,\n');
+  });
+
+  it('FoiNormaliser_CallsignWithTrailingNbsp_TrimmedAndCounted', () => {
+    const input = utf8Lf([
+      'Value,Status,Type,Reserved to Date,Original Start Date,Licence Type',
+      `G0TQK${NBSP},Allocated,Call Sign - Amateur,,2019-01-01,Amateur Full Radio Licence`,
+    ]);
+    const result = convertFoiSource(input, jan);
+    expect(result.notes.nbspCellCount).toBe(1);
+    expect(result.notes.trimmedCellCount).toBe(1);
+    expect(result.csv).toContain('G0TQK,Allocated,');
+    expect(result.csv).not.toContain(NBSP);
+  });
+
+  it('FoiNormaliser_OriginalStartDateAfterVintage_ThrowsPlausibilityFailure', () => {
+    // The issue date cannot postdate the snapshot vintage (2021-01-29 here).
+    const input = utf8Lf([
+      'Value,Status,Type,Reserved to Date,Original Start Date,Licence Type',
+      'M0ABC,Allocated,Call Sign - Amateur,,2021-06-01,Amateur Full Radio Licence',
+    ]);
+    expect(() => convertFoiSource(input, jan)).toThrow(/future/i);
+  });
+
+  it('FoiNormaliser_ReservedToDateAfterVintage_Accepted', () => {
+    // A reservation EXPIRY legitimately postdates the vintage (futureAllowed).
+    const input = utf8Lf([
+      'Value,Status,Type,Reserved to Date,Original Start Date,Licence Type',
+      'G5XYZ,Reserved,Call Sign - Amateur,2023-01-07,,',
+    ]);
+    expect(convertFoiSource(input, jan).csv).toContain('2023-01-07');
+  });
+});
+
 describe('FOI CSV normaliser - output naming', () => {
   it('SlugifyBasename_MixedCaseSpacesAndExtension_ProducesHyphenatedLowerCaseSlug', () => {
     expect(slugifyBasename('FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 1.csv'))
@@ -1256,5 +1357,36 @@ describe('FOI archive golden master', () => {
     // The over-length reciprocal 'M/TKG 2021' (interior space, Temporary
     // Reciprocal) survives verbatim.
     expect(results[0].csv).toContain('M/TKG 2021,Available,Amateur Temporary Reciprocal Radio Licence');
+  });
+
+  it('FoiArchive_Ofcom202101Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('ofcom-2021-01--all-callsigns', 'ofcom-2021-01-register', [146763]);
+    // The 2021 annexes extend the register core with the reservation-expiry
+    // and original-start (issue) date columns and the licence product.
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class,reserved_to_date,original_start_date');
+    // Blank statuses (10) are data in an "all call signs" export - preserved.
+    expect(results[0].notes.blankCounts['status']).toBe(10);
+    // The trailing-NBSP trio (G0TQK, G7IWE, 2E1HON) is trimmed and counted.
+    expect(results[0].notes.nbspCellCount).toBe(3);
+    // The empty Value (blank call sign, Reserved) sorts first under codepoint
+    // order, ahead of the ',,' Value.
+    expect(results[0].csv.startsWith('callsign,status,licence_class,reserved_to_date,original_start_date\n,Reserved,,,\n",,",Reserved,,,\n')).toBe(true);
+    // 'G6 FMU' keeps its interior space; the source's own product vocabulary
+    // (including the Temporary Reciprocal type) is carried verbatim.
+    expect(results[0].csv).toContain('G6 FMU,');
+    expect(results[0].csv).toContain('Amateur Temporary Reciprocal Radio Licence');
+    // A reservation expiry beyond the vintage is legitimate (futureAllowed).
+    expect(results[0].csv).toContain(',2023-01-07,');
+  });
+
+  it('FoiArchive_Ofcom202104Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    // The spring-2021 sibling: same shape, three months on, differing only in
+    // the case of two source headers (matched by exact name via its variant).
+    const results = expectEntryReproduced('ofcom-2021-04--all-callsigns', 'ofcom-2021-04-register', [147877]);
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class,reserved_to_date,original_start_date');
+    expect(results[0].notes.blankCounts['status']).toBe(9);
+    expect(results[0].notes.nbspCellCount).toBe(3);
+    expect(results[0].csv.startsWith('callsign,status,licence_class,reserved_to_date,original_start_date\n,Reserved,,,\n",,",Reserved,,,\n')).toBe(true);
+    expect(results[0].csv).toContain(',2023-04-19,');
   });
 });

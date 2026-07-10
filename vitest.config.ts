@@ -26,8 +26,8 @@ export default defineConfig({
     // for unit tests and flake on slower CI machines (three separate
     // timeout failures caught in CI, each passing locally) - a generous
     // repo-wide budget reflects what the tests actually do. Hangs still
-    // fail; they just get two minutes to prove themselves.
-    testTimeout: 120_000,
+    // fail; they just get ten minutes to prove themselves (the data-heavy real-archive builds grow with each ingested dataset).
+    testTimeout: 600_000,
     // Hooks build whole deploy artefacts from the real archive; that work grows
     // with each ingested dataset, so the ceiling is generous for congested CI
     // runners (the #336 efficiency work reduces the actual time). Hangs still fail.
