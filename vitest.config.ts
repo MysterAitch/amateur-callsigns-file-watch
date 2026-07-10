@@ -13,6 +13,13 @@ export default defineConfig({
     // The scrape module does use jsdom internally, but we test its pure
     // helpers rather than the whole page-fetch flow.
     environment: 'node',
+    // The published .gz download artefacts are compressed at level 9 by the
+    // deploy for the smallest downloads; the tiers build is CPU-heavy, and
+    // ~half of it is that level-9 compression. Tests verify the artefacts'
+    // CONTENTS (gunzip + row/query checks), not their size, and gzip level does
+    // not affect functionality — so tests compress at level 1 for a large
+    // speed-up. The deploy (which sets no such env var) keeps level 9.
+    env: { TIERS_GZIP_LEVEL: '1' },
     // This suite is data-heavy by design: golden masters and deploy-artefact
     // builds routinely parse multi-hundred-thousand-row CSVs from the real
     // archive inside tests and hooks. The 5s/10s vitest defaults are tuned
