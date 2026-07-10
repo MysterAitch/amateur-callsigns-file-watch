@@ -30,6 +30,7 @@ import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type Conve
 import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { writeValueCatalogue } from './value-catalogue.ts';
 import { writeCrossDatasetInvariants } from './cross-dataset-invariants.ts';
+import { writeForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { mdCell } from '../shared/markdown.ts';
 
 interface SourceConverter {
@@ -200,6 +201,12 @@ export function runNormaliseSweep(): SweepReport {
   // joining the FOI lane against the register. Committed so a PR diff is a
   // drift signal.
   writeCrossDatasetInvariants();
+
+  // The forbidden-suffix history (issues #289/#291): the forbidden list as a
+  // first-class dataset category, diffed across every disclosure held and
+  // carrying the ever-forbidden union and per-suffix first-known dates.
+  // Committed, so a change to the disallowed vocabulary shows up in a PR diff.
+  writeForbiddenSuffixHistory();
 
   // The newest dataset's matrix always appears, even when no archive entry
   // changed bytes (e.g. a reports-only derivation): the PR body is the
