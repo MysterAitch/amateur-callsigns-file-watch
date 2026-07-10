@@ -266,9 +266,13 @@ export function convertRawCsv(rawContent: string, context: ConvertContext, curat
 
   // Component rows derive from the SAME sorted canonical rows (row order and
   // join order match normalised.csv by construction); column 0 is callsign,
-  // column 1 product, per CANONICAL_COLUMNS.
+  // column 1 product, per CANONICAL_COLUMNS. The original-start-date column
+  // reaches the parser so the date-aware forbidden-suffix-post-2019 flag can
+  // be asserted; it is empty on variants that carry no such column, and the
+  // parser then honestly declines the flag.
+  const originalStartDateIndex = CANONICAL_COLUMNS.indexOf('licence_version_original_start_date');
   const referenceData = loadReferenceData();
-  const componentRows = componentsFlagsForRows(rows.map(r => parseCallsign(r[0], r[1], referenceData)));
+  const componentRows = componentsFlagsForRows(rows.map(r => parseCallsign(r[0], r[1], referenceData, r[originalStartDateIndex])));
 
   return {
     csv: renderCsv([...CANONICAL_COLUMNS], rows),

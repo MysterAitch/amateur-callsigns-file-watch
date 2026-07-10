@@ -28988,11 +28988,11 @@ G0POJ,G0POJ,parsed,G0,,POJ,G#0POJ,,Full,
 G0POK,G0POK,parsed,G0,,POK,G#0POK,,Full,forbidden-suffix
 G0POL,G0POL,parsed,G0,,POL,G#0POL,,Full,
 G0POM,G0POM,parsed,G0,,POM,G#0POM,,Full,
-G0PON,G0PON,parsed,G0,,PON,G#0PON,,Full,forbidden-suffix
+G0PON,G0PON,parsed,G0,,PON,G#0PON,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G0POP,G0POP,parsed,G0,,POP,G#0POP,,Full,
 G0POQ,G0POQ,parsed,G0,,POQ,G#0POQ,,Full,
 G0POS,G0POS,parsed,G0,,POS,G#0POS,,Full,
-G0POT,G0POT,parsed,G0,,POT,G#0POT,,Full,forbidden-suffix
+G0POT,G0POT,parsed,G0,,POT,G#0POT,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G0POU,G0POU,parsed,G0,,POU,G#0POU,,Full,
 G0POV,G0POV,parsed,G0,,POV,G#0POV,,Full,
 G0POW,G0POW,parsed,G0,,POW,G#0POW,,Full,
@@ -34065,7 +34065,7 @@ G1CFH,G1CFH,parsed,G1,,CFH,G#1CFH,,Full,
 G1CFJ,G1CFJ,parsed,G1,,CFJ,G#1CFJ,,Full,
 G1CFK,G1CFK,parsed,G1,,CFK,G#1CFK,,Full,
 G1CFL,G1CFL,parsed,G1,,CFL,G#1CFL,,Full,
-G1CFM,G1CFM,parsed,G1,,CFM,G#1CFM,,Full,forbidden-suffix
+G1CFM,G1CFM,parsed,G1,,CFM,G#1CFM,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G1CFT,G1CFT,parsed,G1,,CFT,G#1CFT,,Full,
 G1CFY,G1CFY,parsed,G1,,CFY,G#1CFY,,Full,
 G1CGD,G1CGD,parsed,G1,,CGD,G#1CGD,,Full,
@@ -38655,7 +38655,7 @@ G1PIF,G1PIF,parsed,G1,,PIF,G#1PIF,,Full,
 G1PIH,G1PIH,parsed,G1,,PIH,G#1PIH,,Full,
 G1PII,G1PII,parsed,G1,,PII,G#1PII,,Full,
 G1PIK,G1PIK,parsed,G1,,PIK,G#1PIK,,Full,
-G1PIN,G1PIN,parsed,G1,,PIN,G#1PIN,,Full,forbidden-suffix
+G1PIN,G1PIN,parsed,G1,,PIN,G#1PIN,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G1PIP,G1PIP,parsed,G1,,PIP,G#1PIP,,Full,
 G1PIR,G1PIR,parsed,G1,,PIR,G#1PIR,,Full,
 G1PIV,G1PIV,parsed,G1,,PIV,G#1PIV,,Full,
@@ -42107,7 +42107,7 @@ G1ZFX,G1ZFX,parsed,G1,,ZFX,G#1ZFX,,Full,forbidden-suffix
 G1ZGC,G1ZGC,parsed,G1,,ZGC,G#1ZGC,,Full,forbidden-suffix
 G1ZGF,G1ZGF,parsed,G1,,ZGF,G#1ZGF,,Full,forbidden-suffix
 G1ZGH,G1ZGH,parsed,G1,,ZGH,G#1ZGH,,Full,forbidden-suffix
-G1ZGL,G1ZGL,parsed,G1,,ZGL,G#1ZGL,,Full,forbidden-suffix
+G1ZGL,G1ZGL,parsed,G1,,ZGL,G#1ZGL,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G1ZGU,G1ZGU,parsed,G1,,ZGU,G#1ZGU,,Full,forbidden-suffix
 G1ZGX,G1ZGX,parsed,G1,,ZGX,G#1ZGX,,Full,forbidden-suffix
 G1ZGZ,G1ZGZ,parsed,G1,,ZGZ,G#1ZGZ,,Full,forbidden-suffix
@@ -42149,7 +42149,7 @@ G1ZME,G1ZME,parsed,G1,,ZME,G#1ZME,,Full,forbidden-suffix
 G1ZMG,G1ZMG,parsed,G1,,ZMG,G#1ZMG,,Full,forbidden-suffix
 G1ZMJ,G1ZMJ,parsed,G1,,ZMJ,G#1ZMJ,,Full,forbidden-suffix
 G1ZMM,G1ZMM,parsed,G1,,ZMM,G#1ZMM,,Full,forbidden-suffix
-G1ZMS,G1ZMS,parsed,G1,,ZMS,G#1ZMS,,Full,forbidden-suffix
+G1ZMS,G1ZMS,parsed,G1,,ZMS,G#1ZMS,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G1ZMV,G1ZMV,parsed,G1,,ZMV,G#1ZMV,,Full,forbidden-suffix
 G1ZMW,G1ZMW,parsed,G1,,ZMW,G#1ZMW,,Full,forbidden-suffix
 G1ZNC,G1ZNC,parsed,G1,,ZNC,G#1ZNC,,Full,forbidden-suffix
@@ -42234,14 +42234,14 @@ G1ZWQ,G1ZWQ,parsed,G1,,ZWQ,G#1ZWQ,,Full,forbidden-suffix
 G1ZWT,G1ZWT,parsed,G1,,ZWT,G#1ZWT,,Full,forbidden-suffix
 G1ZWY,G1ZWY,parsed,G1,,ZWY,G#1ZWY,,Full,forbidden-suffix
 G1ZXA,G1ZXA,parsed,G1,,ZXA,G#1ZXA,,Full,forbidden-suffix
-G1ZXC,G1ZXC,parsed,G1,,ZXC,G#1ZXC,,Full,forbidden-suffix
-G1ZXD,G1ZXD,parsed,G1,,ZXD,G#1ZXD,,Full,forbidden-suffix
+G1ZXC,G1ZXC,parsed,G1,,ZXC,G#1ZXC,,Full,forbidden-suffix;forbidden-suffix-post-2019
+G1ZXD,G1ZXD,parsed,G1,,ZXD,G#1ZXD,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G1ZXH,G1ZXH,parsed,G1,,ZXH,G#1ZXH,,Full,forbidden-suffix
 G1ZXQ,G1ZXQ,parsed,G1,,ZXQ,G#1ZXQ,,Full,forbidden-suffix
 G1ZXT,G1ZXT,parsed,G1,,ZXT,G#1ZXT,,Full,forbidden-suffix
 G1ZYB,G1ZYB,parsed,G1,,ZYB,G#1ZYB,,Full,forbidden-suffix
 G1ZYC,G1ZYC,parsed,G1,,ZYC,G#1ZYC,,Full,forbidden-suffix
-G1ZYH,G1ZYH,parsed,G1,,ZYH,G#1ZYH,,Full,forbidden-suffix
+G1ZYH,G1ZYH,parsed,G1,,ZYH,G#1ZYH,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G1ZYJ,G1ZYJ,parsed,G1,,ZYJ,G#1ZYJ,,Full,forbidden-suffix
 G1ZYN,G1ZYN,parsed,G1,,ZYN,G#1ZYN,,Full,forbidden-suffix
 G1ZYS,G1ZYS,parsed,G1,,ZYS,G#1ZYS,,Full,forbidden-suffix
@@ -46049,7 +46049,7 @@ G3LOW,G3LOW,parsed,G3,,LOW,G#3LOW,,Full,
 G3LOX,G3LOX,parsed,G3,,LOX,G#3LOX,,Full,
 G3LPA,G3LPA,parsed,G3,,LPA,G#3LPA,,Full,
 G3LPB,G3LPB,parsed,G3,,LPB,G#3LPB,,Full,
-G3LPC,G3LPC,parsed,G3,,LPC,G#3LPC,,Full,forbidden-suffix
+G3LPC,G3LPC,parsed,G3,,LPC,G#3LPC,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G3LPD,G3LPD,parsed,G3,,LPD,G#3LPD,,Full,
 G3LPF,G3LPF,parsed,G3,,LPF,G#3LPF,,Full,
 G3LPJ,G3LPJ,parsed,G3,,LPJ,G#3LPJ,,Full,
@@ -48360,7 +48360,7 @@ G3SHZ,G3SHZ,parsed,G3,,SHZ,G#3SHZ,,Full,
 G3SIA,G3SIA,parsed,G3,,SIA,G#3SIA,,Full,
 G3SIB,G3SIB,parsed,G3,,SIB,G#3SIB,,Full,
 G3SID,G3SID,parsed,G3,,SID,G#3SID,,Full,
-G3SIG,G3SIG,parsed,G3,,SIG,G#3SIG,,Full,forbidden-suffix
+G3SIG,G3SIG,parsed,G3,,SIG,G#3SIG,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G3SIH,G3SIH,parsed,G3,,SIH,G#3SIH,,Full,
 G3SIK,G3SIK,parsed,G3,,SIK,G#3SIK,,Full,
 G3SIM,G3SIM,parsed,G3,,SIM,G#3SIM,,Full,
@@ -51560,7 +51560,7 @@ G3ZLB,G3ZLB,parsed,G3,,ZLB,G#3ZLB,,Full,forbidden-suffix
 G3ZLD,G3ZLD,parsed,G3,,ZLD,G#3ZLD,,Full,forbidden-suffix
 G3ZLE,G3ZLE,parsed,G3,,ZLE,G#3ZLE,,Full,forbidden-suffix
 G3ZLF,G3ZLF,parsed,G3,,ZLF,G#3ZLF,,Full,forbidden-suffix
-G3ZLG,G3ZLG,parsed,G3,,ZLG,G#3ZLG,,Full,forbidden-suffix
+G3ZLG,G3ZLG,parsed,G3,,ZLG,G#3ZLG,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G3ZLJ,G3ZLJ,parsed,G3,,ZLJ,G#3ZLJ,,Full,forbidden-suffix
 G3ZLM,G3ZLM,parsed,G3,,ZLM,G#3ZLM,,Full,forbidden-suffix
 G3ZLP,G3ZLP,parsed,G3,,ZLP,G#3ZLP,,Full,forbidden-suffix
@@ -51571,14 +51571,14 @@ G3ZLX,G3ZLX,parsed,G3,,ZLX,G#3ZLX,,Full,forbidden-suffix
 G3ZMA,G3ZMA,parsed,G3,,ZMA,G#3ZMA,,Full,forbidden-suffix
 G3ZMC,G3ZMC,parsed,G3,,ZMC,G#3ZMC,,Full,forbidden-suffix
 G3ZMD,G3ZMD,parsed,G3,,ZMD,G#3ZMD,,Full,forbidden-suffix
-G3ZME,G3ZME,parsed,G3,,ZME,G#3ZME,,Full,forbidden-suffix
+G3ZME,G3ZME,parsed,G3,,ZME,G#3ZME,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G3ZMG,G3ZMG,parsed,G3,,ZMG,G#3ZMG,,Full,forbidden-suffix
 G3ZMH,G3ZMH,parsed,G3,,ZMH,G#3ZMH,,Full,forbidden-suffix
 G3ZMK,G3ZMK,parsed,G3,,ZMK,G#3ZMK,,Full,forbidden-suffix
 G3ZML,G3ZML,parsed,G3,,ZML,G#3ZML,,Full,forbidden-suffix
 G3ZMM,G3ZMM,parsed,G3,,ZMM,G#3ZMM,,Full,forbidden-suffix
 G3ZMO,G3ZMO,parsed,G3,,ZMO,G#3ZMO,,Full,forbidden-suffix
-G3ZMS,G3ZMS,parsed,G3,,ZMS,G#3ZMS,,Full,forbidden-suffix
+G3ZMS,G3ZMS,parsed,G3,,ZMS,G#3ZMS,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G3ZMU,G3ZMU,parsed,G3,,ZMU,G#3ZMU,,Full,forbidden-suffix
 G3ZMY,G3ZMY,parsed,G3,,ZMY,G#3ZMY,,Full,forbidden-suffix
 G3ZNB,G3ZNB,parsed,G3,,ZNB,G#3ZNB,,Full,forbidden-suffix
@@ -51588,7 +51588,7 @@ G3ZNE,G3ZNE,parsed,G3,,ZNE,G#3ZNE,,Full,forbidden-suffix
 G3ZNG,G3ZNG,parsed,G3,,ZNG,G#3ZNG,,Full,forbidden-suffix
 G3ZNH,G3ZNH,parsed,G3,,ZNH,G#3ZNH,,Full,forbidden-suffix
 G3ZNK,G3ZNK,parsed,G3,,ZNK,G#3ZNK,,Full,forbidden-suffix
-G3ZNQ,G3ZNQ,parsed,G3,,ZNQ,G#3ZNQ,,Full,forbidden-suffix
+G3ZNQ,G3ZNQ,parsed,G3,,ZNQ,G#3ZNQ,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G3ZNR,G3ZNR,parsed,G3,,ZNR,G#3ZNR,,Full,forbidden-suffix
 G3ZNU,G3ZNU,parsed,G3,,ZNU,G#3ZNU,,Full,forbidden-suffix
 G3ZNW,G3ZNW,parsed,G3,,ZNW,G#3ZNW,,Full,forbidden-suffix
@@ -51653,7 +51653,7 @@ G3ZSE,G3ZSE,parsed,G3,,ZSE,G#3ZSE,,Full,forbidden-suffix
 G3ZSF,G3ZSF,parsed,G3,,ZSF,G#3ZSF,,Full,forbidden-suffix
 G3ZSH,G3ZSH,parsed,G3,,ZSH,G#3ZSH,,Full,forbidden-suffix
 G3ZSJ,G3ZSJ,parsed,G3,,ZSJ,G#3ZSJ,,Full,forbidden-suffix
-G3ZSK,G3ZSK,parsed,G3,,ZSK,G#3ZSK,,Full,forbidden-suffix
+G3ZSK,G3ZSK,parsed,G3,,ZSK,G#3ZSK,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G3ZSP,G3ZSP,parsed,G3,,ZSP,G#3ZSP,,Full,forbidden-suffix
 G3ZSQ,G3ZSQ,parsed,G3,,ZSQ,G#3ZSQ,,Full,forbidden-suffix
 G3ZSS,G3ZSS,parsed,G3,,ZSS,G#3ZSS,,Full,forbidden-suffix
@@ -51667,7 +51667,7 @@ G3ZTH,G3ZTH,parsed,G3,,ZTH,G#3ZTH,,Full,forbidden-suffix
 G3ZTI,G3ZTI,parsed,G3,,ZTI,G#3ZTI,,Full,forbidden-suffix
 G3ZTJ,G3ZTJ,parsed,G3,,ZTJ,G#3ZTJ,,Full,forbidden-suffix
 G3ZTL,G3ZTL,parsed,G3,,ZTL,G#3ZTL,,Full,forbidden-suffix
-G3ZTO,G3ZTO,parsed,G3,,ZTO,G#3ZTO,,Full,forbidden-suffix
+G3ZTO,G3ZTO,parsed,G3,,ZTO,G#3ZTO,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G3ZTP,G3ZTP,parsed,G3,,ZTP,G#3ZTP,,Full,forbidden-suffix
 G3ZTR,G3ZTR,parsed,G3,,ZTR,G#3ZTR,,Full,forbidden-suffix
 G3ZTT,G3ZTT,parsed,G3,,ZTT,G#3ZTT,,Full,forbidden-suffix
@@ -51675,7 +51675,7 @@ G3ZTU,G3ZTU,parsed,G3,,ZTU,G#3ZTU,,Full,forbidden-suffix
 G3ZTV,G3ZTV,parsed,G3,,ZTV,G#3ZTV,,Full,forbidden-suffix
 G3ZTX,G3ZTX,parsed,G3,,ZTX,G#3ZTX,,Full,forbidden-suffix
 G3ZTY,G3ZTY,parsed,G3,,ZTY,G#3ZTY,,Full,forbidden-suffix
-G3ZTZ,G3ZTZ,parsed,G3,,ZTZ,G#3ZTZ,,Full,forbidden-suffix
+G3ZTZ,G3ZTZ,parsed,G3,,ZTZ,G#3ZTZ,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G3ZUB,G3ZUB,parsed,G3,,ZUB,G#3ZUB,,Full,forbidden-suffix
 G3ZUC,G3ZUC,parsed,G3,,ZUC,G#3ZUC,,Full,forbidden-suffix
 G3ZUD,G3ZUD,parsed,G3,,ZUD,G#3ZUD,,Full,forbidden-suffix
@@ -55680,7 +55680,7 @@ G4HON,G4HON,parsed,G4,,HON,G#4HON,,Full,forbidden-suffix
 G4HOO,G4HOO,parsed,G4,,HOO,G#4HOO,,Full,
 G4HOP,G4HOP,parsed,G4,,HOP,G#4HOP,,Full,
 G4HOQ,G4HOQ,parsed,G4,,HOQ,G#4HOQ,,Full,
-G4HOR,G4HOR,parsed,G4,,HOR,G#4HOR,,Full,forbidden-suffix
+G4HOR,G4HOR,parsed,G4,,HOR,G#4HOR,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G4HOS,G4HOS,parsed,G4,,HOS,G#4HOS,,Full,
 G4HOT,G4HOT,parsed,G4,,HOT,G#4HOT,,Full,
 G4HOU,G4HOU,parsed,G4,,HOU,G#4HOU,,Full,
@@ -60359,7 +60359,7 @@ G4RAB,G4RAB,parsed,G4,,RAB,G#4RAB,,Full,
 G4RAC,G4RAC,parsed,G4,,RAC,G#4RAC,,Full,
 G4RAD,G4RAD,parsed,G4,,RAD,G#4RAD,,Full,
 G4RAE,G4RAE,parsed,G4,,RAE,G#4RAE,,Full,
-G4RAF,G4RAF,parsed,G4,,RAF,G#4RAF,,Full,forbidden-suffix
+G4RAF,G4RAF,parsed,G4,,RAF,G#4RAF,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G4RAG,G4RAG,parsed,G4,,RAG,G#4RAG,,Full,
 G4RAH,G4RAH,parsed,G4,,RAH,G#4RAH,,Full,
 G4RAI,G4RAI,parsed,G4,,RAI,G#4RAI,,Full,
@@ -62055,7 +62055,7 @@ G4TXP,G4TXP,parsed,G4,,TXP,G#4TXP,,Full,
 G4TXQ,G4TXQ,parsed,G4,,TXQ,G#4TXQ,,Full,
 G4TXR,G4TXR,parsed,G4,,TXR,G#4TXR,,Full,
 G4TXS,G4TXS,parsed,G4,,TXS,G#4TXS,,Full,
-G4TXT,G4TXT,parsed,G4,,TXT,G#4TXT,,Full,forbidden-suffix
+G4TXT,G4TXT,parsed,G4,,TXT,G#4TXT,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G4TXU,G4TXU,parsed,G4,,TXU,G#4TXU,,Full,
 G4TXV,G4TXV,parsed,G4,,TXV,G#4TXV,,Full,
 G4TXW,G4TXW,parsed,G4,,TXW,G#4TXW,,Full,
@@ -65068,7 +65068,7 @@ G4ZBY,G4ZBY,parsed,G4,,ZBY,G#4ZBY,,Full,forbidden-suffix
 G4ZBZ,G4ZBZ,parsed,G4,,ZBZ,G#4ZBZ,,Full,forbidden-suffix
 G4ZCA,G4ZCA,parsed,G4,,ZCA,G#4ZCA,,Full,forbidden-suffix
 G4ZCG,G4ZCG,parsed,G4,,ZCG,G#4ZCG,,Full,forbidden-suffix
-G4ZCH,G4ZCH,parsed,G4,,ZCH,G#4ZCH,,Full,forbidden-suffix
+G4ZCH,G4ZCH,parsed,G4,,ZCH,G#4ZCH,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G4ZCJ,G4ZCJ,parsed,G4,,ZCJ,G#4ZCJ,,Full,forbidden-suffix
 G4ZCL,G4ZCL,parsed,G4,,ZCL,G#4ZCL,,Full,forbidden-suffix
 G4ZCM,G4ZCM,parsed,G4,,ZCM,G#4ZCM,,Full,forbidden-suffix
@@ -65214,7 +65214,7 @@ G4ZMP,G4ZMP,parsed,G4,,ZMP,G#4ZMP,,Full,forbidden-suffix
 G4ZMR,G4ZMR,parsed,G4,,ZMR,G#4ZMR,,Full,forbidden-suffix
 G4ZMU,G4ZMU,parsed,G4,,ZMU,G#4ZMU,,Full,forbidden-suffix
 G4ZMY,G4ZMY,parsed,G4,,ZMY,G#4ZMY,,Full,forbidden-suffix
-G4ZNE,G4ZNE,parsed,G4,,ZNE,G#4ZNE,,Full,forbidden-suffix
+G4ZNE,G4ZNE,parsed,G4,,ZNE,G#4ZNE,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G4ZNI,G4ZNI,parsed,G4,,ZNI,G#4ZNI,,Full,forbidden-suffix
 G4ZNS,G4ZNS,parsed,G4,,ZNS,G#4ZNS,,Full,forbidden-suffix
 G4ZNX,G4ZNX,parsed,G4,,ZNX,G#4ZNX,,Full,forbidden-suffix
@@ -65252,7 +65252,7 @@ G4ZPQ,G4ZPQ,parsed,G4,,ZPQ,G#4ZPQ,,Full,forbidden-suffix
 G4ZPR,G4ZPR,parsed,G4,,ZPR,G#4ZPR,,Full,forbidden-suffix
 G4ZPW,G4ZPW,parsed,G4,,ZPW,G#4ZPW,,Full,forbidden-suffix
 G4ZPZ,G4ZPZ,parsed,G4,,ZPZ,G#4ZPZ,,Full,forbidden-suffix
-G4ZQB,G4ZQB,parsed,G4,,ZQB,G#4ZQB,,Full,forbidden-suffix
+G4ZQB,G4ZQB,parsed,G4,,ZQB,G#4ZQB,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G4ZQC,G4ZQC,parsed,G4,,ZQC,G#4ZQC,,Full,forbidden-suffix
 G4ZQF,G4ZQF,parsed,G4,,ZQF,G#4ZQF,,Full,forbidden-suffix
 G4ZQH,G4ZQH,parsed,G4,,ZQH,G#4ZQH,,Full,forbidden-suffix
@@ -65281,7 +65281,7 @@ G4ZRV,G4ZRV,parsed,G4,,ZRV,G#4ZRV,,Full,forbidden-suffix
 G4ZRW,G4ZRW,parsed,G4,,ZRW,G#4ZRW,,Full,forbidden-suffix
 G4ZRX,G4ZRX,parsed,G4,,ZRX,G#4ZRX,,Full,forbidden-suffix
 G4ZRY,G4ZRY,parsed,G4,,ZRY,G#4ZRY,,Full,forbidden-suffix
-G4ZRZ,G4ZRZ,parsed,G4,,ZRZ,G#4ZRZ,,Full,forbidden-suffix
+G4ZRZ,G4ZRZ,parsed,G4,,ZRZ,G#4ZRZ,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G4ZSA,G4ZSA,parsed,G4,,ZSA,G#4ZSA,,Full,forbidden-suffix
 G4ZSC,G4ZSC,parsed,G4,,ZSC,G#4ZSC,,Full,forbidden-suffix
 G4ZSD,G4ZSD,parsed,G4,,ZSD,G#4ZSD,,Full,forbidden-suffix
@@ -65353,7 +65353,7 @@ G4ZWA,G4ZWA,parsed,G4,,ZWA,G#4ZWA,,Full,forbidden-suffix
 G4ZWB,G4ZWB,parsed,G4,,ZWB,G#4ZWB,,Full,forbidden-suffix
 G4ZWD,G4ZWD,parsed,G4,,ZWD,G#4ZWD,,Full,forbidden-suffix
 G4ZWE,G4ZWE,parsed,G4,,ZWE,G#4ZWE,,Full,forbidden-suffix
-G4ZWH,G4ZWH,parsed,G4,,ZWH,G#4ZWH,,Full,forbidden-suffix
+G4ZWH,G4ZWH,parsed,G4,,ZWH,G#4ZWH,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G4ZWI,G4ZWI,parsed,G4,,ZWI,G#4ZWI,,Full,forbidden-suffix
 G4ZWJ,G4ZWJ,parsed,G4,,ZWJ,G#4ZWJ,,Full,forbidden-suffix
 G4ZWL,G4ZWL,parsed,G4,,ZWL,G#4ZWL,,Full,forbidden-suffix
@@ -65389,7 +65389,7 @@ G4ZYN,G4ZYN,parsed,G4,,ZYN,G#4ZYN,,Full,forbidden-suffix
 G4ZYO,G4ZYO,parsed,G4,,ZYO,G#4ZYO,,Full,forbidden-suffix
 G4ZYR,G4ZYR,parsed,G4,,ZYR,G#4ZYR,,Full,forbidden-suffix
 G4ZYT,G4ZYT,parsed,G4,,ZYT,G#4ZYT,,Full,forbidden-suffix
-G4ZYU,G4ZYU,parsed,G4,,ZYU,G#4ZYU,,Full,forbidden-suffix
+G4ZYU,G4ZYU,parsed,G4,,ZYU,G#4ZYU,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G4ZYV,G4ZYV,parsed,G4,,ZYV,G#4ZYV,,Full,forbidden-suffix
 G4ZYY,G4ZYY,parsed,G4,,ZYY,G#4ZYY,,Full,forbidden-suffix
 G4ZYZ,G4ZYZ,parsed,G4,,ZYZ,G#4ZYZ,,Full,forbidden-suffix
@@ -65786,7 +65786,7 @@ G5QK,G5QK,parsed,G5,,QK,G#5QK,,Full,
 G5RAB,G5RAB,parsed,G5,,RAB,G#5RAB,,Full,
 G5RAC,G5RAC,parsed,G5,,RAC,G#5RAC,,Full,
 G5RAE,G5RAE,parsed,G5,,RAE,G#5RAE,,Full,
-G5RAF,G5RAF,parsed,G5,,RAF,G#5RAF,,Full,forbidden-suffix
+G5RAF,G5RAF,parsed,G5,,RAF,G#5RAF,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G5RAH,G5RAH,parsed,G5,,RAH,G#5RAH,,Full,
 G5RAM,G5RAM,parsed,G5,,RAM,G#5RAM,,Full,
 G5RAR,G5RAR,parsed,G5,,RAR,G#5RAR,,Full,
@@ -66830,7 +66830,7 @@ G6COB,G6COB,parsed,G6,,COB,G#6COB,,Full,
 G6COE,G6COE,parsed,G6,,COE,G#6COE,,Full,
 G6COG,G6COG,parsed,G6,,COG,G#6COG,,Full,
 G6COH,G6COH,parsed,G6,,COH,G#6COH,,Full,
-G6COL,G6COL,parsed,G6,,COL,G#6COL,,Full,forbidden-suffix
+G6COL,G6COL,parsed,G6,,COL,G#6COL,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G6COM,G6COM,parsed,G6,,COM,G#6COM,,Full,
 G6CON,G6CON,parsed,G6,,CON,G#6CON,,Full,
 G6COQ,G6COQ,parsed,G6,,COQ,G#6COQ,,Full,
@@ -70414,7 +70414,7 @@ G6NID,G6NID,parsed,G6,,NID,G#6NID,,Full,
 G6NIE,G6NIE,parsed,G6,,NIE,G#6NIE,,Full,
 G6NII,G6NII,parsed,G6,,NII,G#6NII,,Full,
 G6NIK,G6NIK,parsed,G6,,NIK,G#6NIK,,Full,
-G6NIL,G6NIL,parsed,G6,,NIL,G#6NIL,,Full,forbidden-suffix
+G6NIL,G6NIL,parsed,G6,,NIL,G#6NIL,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G6NIO,G6NIO,parsed,G6,,NIO,G#6NIO,,Full,
 G6NIS,G6NIS,parsed,G6,,NIS,G#6NIS,,Full,
 G6NIW,G6NIW,parsed,G6,,NIW,G#6NIW,,Full,
@@ -73901,12 +73901,12 @@ G6ZAC,G6ZAC,parsed,G6,,ZAC,G#6ZAC,,Full,forbidden-suffix
 G6ZAF,G6ZAF,parsed,G6,,ZAF,G#6ZAF,,Full,forbidden-suffix
 G6ZAK,G6ZAK,parsed,G6,,ZAK,G#6ZAK,,Full,forbidden-suffix
 G6ZAL,G6ZAL,parsed,G6,,ZAL,G#6ZAL,,Full,forbidden-suffix
-G6ZAM,G6ZAM,parsed,G6,,ZAM,G#6ZAM,,Full,forbidden-suffix
+G6ZAM,G6ZAM,parsed,G6,,ZAM,G#6ZAM,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G6ZAX,G6ZAX,parsed,G6,,ZAX,G#6ZAX,,Full,forbidden-suffix
 G6ZAY,G6ZAY,parsed,G6,,ZAY,G#6ZAY,,Full,forbidden-suffix
 G6ZBB,G6ZBB,parsed,G6,,ZBB,G#6ZBB,,Full,forbidden-suffix
 G6ZBI,G6ZBI,parsed,G6,,ZBI,G#6ZBI,,Full,forbidden-suffix
-G6ZBL,G6ZBL,parsed,G6,,ZBL,G#6ZBL,,Full,forbidden-suffix
+G6ZBL,G6ZBL,parsed,G6,,ZBL,G#6ZBL,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G6ZBO,G6ZBO,parsed,G6,,ZBO,G#6ZBO,,Full,forbidden-suffix
 G6ZBT,G6ZBT,parsed,G6,,ZBT,G#6ZBT,,Full,forbidden-suffix
 G6ZBV,G6ZBV,parsed,G6,,ZBV,G#6ZBV,,Full,forbidden-suffix
@@ -73920,7 +73920,7 @@ G6ZDP,G6ZDP,parsed,G6,,ZDP,G#6ZDP,,Full,forbidden-suffix
 G6ZDQ,G6ZDQ,parsed,G6,,ZDQ,G#6ZDQ,,Full,forbidden-suffix
 G6ZDS,G6ZDS,parsed,G6,,ZDS,G#6ZDS,,Full,forbidden-suffix
 G6ZDV,G6ZDV,parsed,G6,,ZDV,G#6ZDV,,Full,forbidden-suffix
-G6ZDY,G6ZDY,parsed,G6,,ZDY,G#6ZDY,,Full,forbidden-suffix
+G6ZDY,G6ZDY,parsed,G6,,ZDY,G#6ZDY,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G6ZEM,G6ZEM,parsed,G6,,ZEM,G#6ZEM,,Full,forbidden-suffix
 G6ZEN,G6ZEN,parsed,G6,,ZEN,G#6ZEN,,Full,forbidden-suffix
 G6ZEQ,G6ZEQ,parsed,G6,,ZEQ,G#6ZEQ,,Full,forbidden-suffix
@@ -73976,7 +73976,7 @@ G6ZKC,G6ZKC,parsed,G6,,ZKC,G#6ZKC,,Full,forbidden-suffix
 G6ZKH,G6ZKH,parsed,G6,,ZKH,G#6ZKH,,Full,forbidden-suffix
 G6ZKM,G6ZKM,parsed,G6,,ZKM,G#6ZKM,,Full,forbidden-suffix
 G6ZKS,G6ZKS,parsed,G6,,ZKS,G#6ZKS,,Full,forbidden-suffix
-G6ZKT,G6ZKT,parsed,G6,,ZKT,G#6ZKT,,Full,forbidden-suffix
+G6ZKT,G6ZKT,parsed,G6,,ZKT,G#6ZKT,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G6ZKU,G6ZKU,parsed,G6,,ZKU,G#6ZKU,,Full,forbidden-suffix
 G6ZKX,G6ZKX,parsed,G6,,ZKX,G#6ZKX,,Full,forbidden-suffix
 G6ZKY,G6ZKY,parsed,G6,,ZKY,G#6ZKY,,Full,forbidden-suffix
@@ -74020,7 +74020,7 @@ G6ZQE,G6ZQE,parsed,G6,,ZQE,G#6ZQE,,Full,forbidden-suffix
 G6ZQJ,G6ZQJ,parsed,G6,,ZQJ,G#6ZQJ,,Full,forbidden-suffix
 G6ZQQ,G6ZQQ,parsed,G6,,ZQQ,G#6ZQQ,,Full,forbidden-suffix
 G6ZQS,G6ZQS,parsed,G6,,ZQS,G#6ZQS,,Full,forbidden-suffix
-G6ZQT,G6ZQT,parsed,G6,,ZQT,G#6ZQT,,Full,forbidden-suffix
+G6ZQT,G6ZQT,parsed,G6,,ZQT,G#6ZQT,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G6ZQU,G6ZQU,parsed,G6,,ZQU,G#6ZQU,,Full,forbidden-suffix
 G6ZQX,G6ZQX,parsed,G6,,ZQX,G#6ZQX,,Full,forbidden-suffix
 G6ZQY,G6ZQY,parsed,G6,,ZQY,G#6ZQY,,Full,forbidden-suffix
@@ -74033,7 +74033,7 @@ G6ZSF,G6ZSF,parsed,G6,,ZSF,G#6ZSF,,Full,forbidden-suffix
 G6ZSG,G6ZSG,parsed,G6,,ZSG,G#6ZSG,,Full,forbidden-suffix
 G6ZSH,G6ZSH,parsed,G6,,ZSH,G#6ZSH,,Full,forbidden-suffix
 G6ZSN,G6ZSN,parsed,G6,,ZSN,G#6ZSN,,Full,forbidden-suffix
-G6ZSQ,G6ZSQ,parsed,G6,,ZSQ,G#6ZSQ,,Full,forbidden-suffix
+G6ZSQ,G6ZSQ,parsed,G6,,ZSQ,G#6ZSQ,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G6ZSR,G6ZSR,parsed,G6,,ZSR,G#6ZSR,,Full,forbidden-suffix
 G6ZSU,G6ZSU,parsed,G6,,ZSU,G#6ZSU,,Full,forbidden-suffix
 G6ZTA,G6ZTA,parsed,G6,,ZTA,G#6ZTA,,Full,forbidden-suffix
@@ -74069,7 +74069,7 @@ G6ZYD,G6ZYD,parsed,G6,,ZYD,G#6ZYD,,Full,forbidden-suffix
 G6ZYF,G6ZYF,parsed,G6,,ZYF,G#6ZYF,,Full,forbidden-suffix
 G6ZYG,G6ZYG,parsed,G6,,ZYG,G#6ZYG,,Full,forbidden-suffix
 G6ZYI,G6ZYI,parsed,G6,,ZYI,G#6ZYI,,Full,forbidden-suffix
-G6ZYL,G6ZYL,parsed,G6,,ZYL,G#6ZYL,,Full,forbidden-suffix
+G6ZYL,G6ZYL,parsed,G6,,ZYL,G#6ZYL,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G6ZYM,G6ZYM,parsed,G6,,ZYM,G#6ZYM,,Full,forbidden-suffix
 G6ZYP,G6ZYP,parsed,G6,,ZYP,G#6ZYP,,Full,forbidden-suffix
 G6ZYX,G6ZYX,parsed,G6,,ZYX,G#6ZYX,,Full,forbidden-suffix
@@ -75655,7 +75655,7 @@ G7DOM,G7DOM,parsed,G7,,DOM,G#7DOM,,Full,
 G7DON,G7DON,parsed,G7,,DON,G#7DON,,Full,
 G7DOO,G7DOO,parsed,G7,,DOO,G#7DOO,,Full,
 G7DOP,G7DOP,parsed,G7,,DOP,G#7DOP,,Full,
-G7DOR,G7DOR,parsed,G7,,DOR,G#7DOR,,Full,forbidden-suffix
+G7DOR,G7DOR,parsed,G7,,DOR,G#7DOR,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G7DOS,G7DOS,parsed,G7,,DOS,G#7DOS,,Full,
 G7DOT,G7DOT,parsed,G7,,DOT,G#7DOT,,Full,
 G7DOW,G7DOW,parsed,G7,,DOW,G#7DOW,,Full,
@@ -78005,7 +78005,7 @@ G7IIN,G7IIN,parsed,G7,,IIN,G#7IIN,,Full,
 G7IIO,G7IIO,parsed,G7,,IIO,G#7IIO,,Full,
 G7IIP,G7IIP,parsed,G7,,IIP,G#7IIP,,Full,
 G7IIQ,G7IIQ,parsed,G7,,IIQ,G#7IIQ,,Full,
-G7IIR,G7IIR,parsed,G7,,IIR,G#7IIR,,Full,forbidden-suffix
+G7IIR,G7IIR,parsed,G7,,IIR,G#7IIR,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G7IIS,G7IIS,parsed,G7,,IIS,G#7IIS,,Full,
 G7IIU,G7IIU,parsed,G7,,IIU,G#7IIU,,Full,
 G7IIV,G7IIV,parsed,G7,,IIV,G#7IIV,,Full,
@@ -79823,7 +79823,7 @@ G7LII,G7LII,parsed,G7,,LII,G#7LII,,Full,
 G7LIJ,G7LIJ,parsed,G7,,LIJ,G#7LIJ,,Full,
 G7LIK,G7LIK,parsed,G7,,LIK,G#7LIK,,Full,
 G7LIL,G7LIL,parsed,G7,,LIL,G#7LIL,,Full,
-G7LIM,G7LIM,parsed,G7,,LIM,G#7LIM,,Full,forbidden-suffix
+G7LIM,G7LIM,parsed,G7,,LIM,G#7LIM,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G7LIN,G7LIN,parsed,G7,,LIN,G#7LIN,,Full,
 G7LIO,G7LIO,parsed,G7,,LIO,G#7LIO,,Full,
 G7LIP,G7LIP,parsed,G7,,LIP,G#7LIP,,Full,
@@ -90981,7 +90981,7 @@ G8RAA,G8RAA,parsed,G8,,RAA,G#8RAA,,Full,
 G8RAB,G8RAB,parsed,G8,,RAB,G#8RAB,,Full,
 G8RAC,G8RAC,parsed,G8,,RAC,G#8RAC,,Full,
 G8RAE,G8RAE,parsed,G8,,RAE,G#8RAE,,Full,
-G8RAF,G8RAF,parsed,G8,,RAF,G#8RAF,,Full,forbidden-suffix
+G8RAF,G8RAF,parsed,G8,,RAF,G#8RAF,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G8RAI,G8RAI,parsed,G8,,RAI,G#8RAI,,Full,
 G8RAJ,G8RAJ,parsed,G8,,RAJ,G#8RAJ,,Full,
 G8RAK,G8RAK,parsed,G8,,RAK,G#8RAK,,Full,
@@ -93531,11 +93531,11 @@ G8ZGQ,G8ZGQ,parsed,G8,,ZGQ,G#8ZGQ,,Full,forbidden-suffix
 G8ZGS,G8ZGS,parsed,G8,,ZGS,G#8ZGS,,Full,forbidden-suffix
 G8ZGX,G8ZGX,parsed,G8,,ZGX,G#8ZGX,,Full,forbidden-suffix
 G8ZGY,G8ZGY,parsed,G8,,ZGY,G#8ZGY,,Full,forbidden-suffix
-G8ZGZ,G8ZGZ,parsed,G8,,ZGZ,G#8ZGZ,,Full,forbidden-suffix
+G8ZGZ,G8ZGZ,parsed,G8,,ZGZ,G#8ZGZ,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G8ZHA,G8ZHA,parsed,G8,,ZHA,G#8ZHA,,Full,forbidden-suffix
 G8ZHC,G8ZHC,parsed,G8,,ZHC,G#8ZHC,,Full,forbidden-suffix
 G8ZHD,G8ZHD,parsed,G8,,ZHD,G#8ZHD,,Full,forbidden-suffix
-G8ZHJ,G8ZHJ,parsed,G8,,ZHJ,G#8ZHJ,,Full,forbidden-suffix
+G8ZHJ,G8ZHJ,parsed,G8,,ZHJ,G#8ZHJ,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G8ZHL,G8ZHL,parsed,G8,,ZHL,G#8ZHL,,Full,forbidden-suffix
 G8ZHN,G8ZHN,parsed,G8,,ZHN,G#8ZHN,,Full,forbidden-suffix
 G8ZHP,G8ZHP,parsed,G8,,ZHP,G#8ZHP,,Full,forbidden-suffix
@@ -93569,7 +93569,7 @@ G8ZKZ,G8ZKZ,parsed,G8,,ZKZ,G#8ZKZ,,Full,forbidden-suffix
 G8ZLF,G8ZLF,parsed,G8,,ZLF,G#8ZLF,,Full,forbidden-suffix
 G8ZLL,G8ZLL,parsed,G8,,ZLL,G#8ZLL,,Full,forbidden-suffix
 G8ZLN,G8ZLN,parsed,G8,,ZLN,G#8ZLN,,Full,forbidden-suffix
-G8ZLO,G8ZLO,parsed,G8,,ZLO,G#8ZLO,,Full,forbidden-suffix
+G8ZLO,G8ZLO,parsed,G8,,ZLO,G#8ZLO,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G8ZLT,G8ZLT,parsed,G8,,ZLT,G#8ZLT,,Full,forbidden-suffix
 G8ZLU,G8ZLU,parsed,G8,,ZLU,G#8ZLU,,Full,forbidden-suffix
 G8ZMC,G8ZMC,parsed,G8,,ZMC,G#8ZMC,,Full,forbidden-suffix
@@ -93613,7 +93613,7 @@ G8ZRE,G8ZRE,parsed,G8,,ZRE,G#8ZRE,,Full,forbidden-suffix
 G8ZRL,G8ZRL,parsed,G8,,ZRL,G#8ZRL,,Full,forbidden-suffix
 G8ZRM,G8ZRM,parsed,G8,,ZRM,G#8ZRM,,Full,forbidden-suffix
 G8ZRN,G8ZRN,parsed,G8,,ZRN,G#8ZRN,,Full,forbidden-suffix
-G8ZRO,G8ZRO,parsed,G8,,ZRO,G#8ZRO,,Full,forbidden-suffix
+G8ZRO,G8ZRO,parsed,G8,,ZRO,G#8ZRO,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G8ZRQ,G8ZRQ,parsed,G8,,ZRQ,G#8ZRQ,,Full,forbidden-suffix
 G8ZRU,G8ZRU,parsed,G8,,ZRU,G#8ZRU,,Full,forbidden-suffix
 G8ZRV,G8ZRV,parsed,G8,,ZRV,G#8ZRV,,Full,forbidden-suffix
@@ -93655,7 +93655,7 @@ G8ZWN,G8ZWN,parsed,G8,,ZWN,G#8ZWN,,Full,forbidden-suffix
 G8ZWQ,G8ZWQ,parsed,G8,,ZWQ,G#8ZWQ,,Full,forbidden-suffix
 G8ZWS,G8ZWS,parsed,G8,,ZWS,G#8ZWS,,Full,forbidden-suffix
 G8ZWU,G8ZWU,parsed,G8,,ZWU,G#8ZWU,,Full,forbidden-suffix
-G8ZXI,G8ZXI,parsed,G8,,ZXI,G#8ZXI,,Full,forbidden-suffix
+G8ZXI,G8ZXI,parsed,G8,,ZXI,G#8ZXI,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G8ZXL,G8ZXL,parsed,G8,,ZXL,G#8ZXL,,Full,forbidden-suffix
 G8ZXQ,G8ZXQ,parsed,G8,,ZXQ,G#8ZXQ,,Full,forbidden-suffix
 G8ZXT,G8ZXT,parsed,G8,,ZXT,G#8ZXT,,Full,forbidden-suffix
@@ -93672,7 +93672,7 @@ G8ZYR,G8ZYR,parsed,G8,,ZYR,G#8ZYR,,Full,forbidden-suffix
 G8ZYT,G8ZYT,parsed,G8,,ZYT,G#8ZYT,,Full,forbidden-suffix
 G8ZZB,G8ZZB,parsed,G8,,ZZB,G#8ZZB,,Full,forbidden-suffix
 G8ZZE,G8ZZE,parsed,G8,,ZZE,G#8ZZE,,Full,forbidden-suffix
-G8ZZF,G8ZZF,parsed,G8,,ZZF,G#8ZZF,,Full,forbidden-suffix
+G8ZZF,G8ZZF,parsed,G8,,ZZF,G#8ZZF,,Full,forbidden-suffix;forbidden-suffix-post-2019
 G8ZZG,G8ZZG,parsed,G8,,ZZG,G#8ZZG,,Full,forbidden-suffix
 G8ZZK,G8ZZK,parsed,G8,,ZZK,G#8ZZK,,Full,forbidden-suffix
 G8ZZL,G8ZZL,parsed,G8,,ZZL,G#8ZZL,,Full,forbidden-suffix
@@ -95487,7 +95487,7 @@ M0COH,M0COH,parsed,M0,,COH,M#0COH,,Full,
 M0COI,M0COI,parsed,M0,,COI,M#0COI,,Full,
 M0COJ,M0COJ,parsed,M0,,COJ,M#0COJ,,Full,
 M0COK,M0COK,parsed,M0,,COK,M#0COK,,Full,forbidden-suffix
-M0COL,M0COL,parsed,M0,,COL,M#0COL,,Full,forbidden-suffix
+M0COL,M0COL,parsed,M0,,COL,M#0COL,,Full,forbidden-suffix;forbidden-suffix-post-2019
 M0COM,M0COM,parsed,M0,,COM,M#0COM,,Full,
 M0CON,M0CON,parsed,M0,,CON,M#0CON,,Full,
 M0COO,M0COO,parsed,M0,,COO,M#0COO,,Full,
@@ -103252,7 +103252,7 @@ M0RAB,M0RAB,parsed,M0,,RAB,M#0RAB,,Full,
 M0RAC,M0RAC,parsed,M0,,RAC,M#0RAC,,Full,
 M0RAD,M0RAD,parsed,M0,,RAD,M#0RAD,,Full,
 M0RAE,M0RAE,parsed,M0,,RAE,M#0RAE,,Full,
-M0RAF,M0RAF,parsed,M0,,RAF,M#0RAF,,Full,forbidden-suffix
+M0RAF,M0RAF,parsed,M0,,RAF,M#0RAF,,Full,forbidden-suffix;forbidden-suffix-post-2019
 M0RAG,M0RAG,parsed,M0,,RAG,M#0RAG,,Full,
 M0RAH,M0RAH,parsed,M0,,RAH,M#0RAH,,Full,
 M0RAI,M0RAI,parsed,M0,,RAI,M#0RAI,,Full,
@@ -103989,7 +103989,7 @@ M0SIA,M0SIA,parsed,M0,,SIA,M#0SIA,,Full,
 M0SIB,M0SIB,parsed,M0,,SIB,M#0SIB,,Full,
 M0SID,M0SID,parsed,M0,,SID,M#0SID,,Full,
 M0SIE,M0SIE,parsed,M0,,SIE,M#0SIE,,Full,
-M0SIG,M0SIG,parsed,M0,,SIG,M#0SIG,,Full,forbidden-suffix
+M0SIG,M0SIG,parsed,M0,,SIG,M#0SIG,,Full,forbidden-suffix;forbidden-suffix-post-2019
 M0SIH,M0SIH,parsed,M0,,SIH,M#0SIH,,Full,
 M0SII,M0SII,parsed,M0,,SII,M#0SII,,Full,
 M0SIK,M0SIK,parsed,M0,,SIK,M#0SIK,,Full,
@@ -106541,7 +106541,7 @@ M0ZDM,M0ZDM,parsed,M0,,ZDM,M#0ZDM,,Full,forbidden-suffix
 M0ZDO,M0ZDO,parsed,M0,,ZDO,M#0ZDO,,Full,forbidden-suffix
 M0ZDR,M0ZDR,parsed,M0,,ZDR,M#0ZDR,,Full,forbidden-suffix
 M0ZDU,M0ZDU,parsed,M0,,ZDU,M#0ZDU,,Full,forbidden-suffix
-M0ZDX,M0ZDX,parsed,M0,,ZDX,M#0ZDX,,Full,forbidden-suffix
+M0ZDX,M0ZDX,parsed,M0,,ZDX,M#0ZDX,,Full,forbidden-suffix;forbidden-suffix-post-2019
 M0ZEB,M0ZEB,parsed,M0,,ZEB,M#0ZEB,,Full,forbidden-suffix
 M0ZED,M0ZED,parsed,M0,,ZED,M#0ZED,,Full,forbidden-suffix
 M0ZEE,M0ZEE,parsed,M0,,ZEE,M#0ZEE,,Full,forbidden-suffix
@@ -106553,11 +106553,11 @@ M0ZEQ,M0ZEQ,parsed,M0,,ZEQ,M#0ZEQ,,Full,forbidden-suffix
 M0ZER,M0ZER,parsed,M0,,ZER,M#0ZER,,Full,forbidden-suffix
 M0ZES,M0ZES,parsed,M0,,ZES,M#0ZES,,Full,forbidden-suffix
 M0ZET,M0ZET,parsed,M0,,ZET,M#0ZET,,Full,forbidden-suffix
-M0ZEY,M0ZEY,parsed,M0,,ZEY,M#0ZEY,,Full,forbidden-suffix
+M0ZEY,M0ZEY,parsed,M0,,ZEY,M#0ZEY,,Full,forbidden-suffix;forbidden-suffix-post-2019
 M0ZFA,M0ZFA,parsed,M0,,ZFA,M#0ZFA,,Full,forbidden-suffix
 M0ZFF,M0ZFF,parsed,M0,,ZFF,M#0ZFF,,Full,forbidden-suffix
 M0ZFG,M0ZFG,parsed,M0,,ZFG,M#0ZFG,,Full,forbidden-suffix
-M0ZFJ,M0ZFJ,parsed,M0,,ZFJ,M#0ZFJ,,Full,forbidden-suffix
+M0ZFJ,M0ZFJ,parsed,M0,,ZFJ,M#0ZFJ,,Full,forbidden-suffix;forbidden-suffix-post-2019
 M0ZFR,M0ZFR,parsed,M0,,ZFR,M#0ZFR,,Full,forbidden-suffix
 M0ZFX,M0ZFX,parsed,M0,,ZFX,M#0ZFX,,Full,forbidden-suffix
 M0ZGB,M0ZGB,parsed,M0,,ZGB,M#0ZGB,,Full,forbidden-suffix
@@ -106578,10 +106578,10 @@ M0ZIX,M0ZIX,parsed,M0,,ZIX,M#0ZIX,,Full,forbidden-suffix
 M0ZJB,M0ZJB,parsed,M0,,ZJB,M#0ZJB,,Full,forbidden-suffix
 M0ZJO,M0ZJO,parsed,M0,,ZJO,M#0ZJO,,Full,forbidden-suffix
 M0ZJQ,M0ZJQ,parsed,M0,,ZJQ,M#0ZJQ,,Full,forbidden-suffix
-M0ZJV,M0ZJV,parsed,M0,,ZJV,M#0ZJV,,Full,forbidden-suffix
+M0ZJV,M0ZJV,parsed,M0,,ZJV,M#0ZJV,,Full,forbidden-suffix;forbidden-suffix-post-2019
 M0ZKA,M0ZKA,parsed,M0,,ZKA,M#0ZKA,,Full,forbidden-suffix
 M0ZKK,M0ZKK,parsed,M0,,ZKK,M#0ZKK,,Full,forbidden-suffix
-M0ZKX,M0ZKX,parsed,M0,,ZKX,M#0ZKX,,Full,forbidden-suffix
+M0ZKX,M0ZKX,parsed,M0,,ZKX,M#0ZKX,,Full,forbidden-suffix;forbidden-suffix-post-2019
 M0ZLB,M0ZLB,parsed,M0,,ZLB,M#0ZLB,,Full,forbidden-suffix
 M0ZLE,M0ZLE,parsed,M0,,ZLE,M#0ZLE,,Full,forbidden-suffix
 M0ZLF,M0ZLF,parsed,M0,,ZLF,M#0ZLF,,Full,forbidden-suffix
@@ -108339,7 +108339,7 @@ M1COH,M1COH,parsed,M1,,COH,M#1COH,,Full,
 M1COI,M1COI,parsed,M1,,COI,M#1COI,,Full,
 M1COJ,M1COJ,parsed,M1,,COJ,M#1COJ,,Full,
 M1COK,M1COK,parsed,M1,,COK,M#1COK,,Full,forbidden-suffix
-M1COL,M1COL,parsed,M1,,COL,M#1COL,,Full,forbidden-suffix
+M1COL,M1COL,parsed,M1,,COL,M#1COL,,Full,forbidden-suffix;forbidden-suffix-post-2019
 M1COM,M1COM,parsed,M1,,COM,M#1COM,,Full,
 M1CON,M1CON,parsed,M1,,CON,M#1CON,,Full,
 M1COO,M1COO,parsed,M1,,COO,M#1COO,,Full,
@@ -109746,7 +109746,7 @@ M1ESV,M1ESV,parsed,M1,,ESV,M#1ESV,,Full,
 M1ESW,M1ESW,parsed,M1,,ESW,M#1ESW,,Full,
 M1ESX,M1ESX,parsed,M1,,ESX,M#1ESX,,Full,
 M1ESY,M1ESY,parsed,M1,,ESY,M#1ESY,,Full,
-M1ETA,M1ETA,parsed,M1,,ETA,M#1ETA,,Full,forbidden-suffix
+M1ETA,M1ETA,parsed,M1,,ETA,M#1ETA,,Full,forbidden-suffix;forbidden-suffix-post-2019
 M1ETB,M1ETB,parsed,M1,,ETB,M#1ETB,,Full,
 M1ETC,M1ETC,parsed,M1,,ETC,M#1ETC,,Full,
 M1ETD,M1ETD,parsed,M1,,ETD,M#1ETD,,Full,
@@ -121483,7 +121483,7 @@ M3PZU,M3PZU,parsed,M3,,PZU,M#3PZU,,Foundation,
 M3PZV,M3PZV,parsed,M3,,PZV,M#3PZV,,Foundation,
 M3PZX,M3PZX,parsed,M3,,PZX,M#3PZX,,Foundation,
 M3PZZ,M3PZZ,parsed,M3,,PZZ,M#3PZZ,,Foundation,
-M3QNF,M3QNF,parsed,M3,,QNF,M#3QNF,,Foundation,forbidden-suffix
+M3QNF,M3QNF,parsed,M3,,QNF,M#3QNF,,Foundation,forbidden-suffix;forbidden-suffix-post-2019
 M3RAA,M3RAA,parsed,M3,,RAA,M#3RAA,,Foundation,
 M3RAB,M3RAB,parsed,M3,,RAB,M#3RAB,,Foundation,
 M3RAC,M3RAC,parsed,M3,,RAC,M#3RAC,,Foundation,
@@ -126819,7 +126819,7 @@ M3ZEH,M3ZEH,parsed,M3,,ZEH,M#3ZEH,,Foundation,forbidden-suffix
 M3ZEI,M3ZEI,parsed,M3,,ZEI,M#3ZEI,,Foundation,forbidden-suffix
 M3ZEJ,M3ZEJ,parsed,M3,,ZEJ,M#3ZEJ,,Foundation,forbidden-suffix
 M3ZEK,M3ZEK,parsed,M3,,ZEK,M#3ZEK,,Foundation,forbidden-suffix
-M3ZEO,M3ZEO,parsed,M3,,ZEO,M#3ZEO,,Foundation,forbidden-suffix
+M3ZEO,M3ZEO,parsed,M3,,ZEO,M#3ZEO,,Foundation,forbidden-suffix;forbidden-suffix-post-2019
 M3ZEP,M3ZEP,parsed,M3,,ZEP,M#3ZEP,,Foundation,forbidden-suffix
 M3ZER,M3ZER,parsed,M3,,ZER,M#3ZER,,Foundation,forbidden-suffix
 M3ZET,M3ZET,parsed,M3,,ZET,M#3ZET,,Foundation,forbidden-suffix
@@ -127098,7 +127098,7 @@ M3ZSH,M3ZSH,parsed,M3,,ZSH,M#3ZSH,,Foundation,forbidden-suffix
 M3ZSI,M3ZSI,parsed,M3,,ZSI,M#3ZSI,,Foundation,forbidden-suffix
 M3ZSJ,M3ZSJ,parsed,M3,,ZSJ,M#3ZSJ,,Foundation,forbidden-suffix
 M3ZSK,M3ZSK,parsed,M3,,ZSK,M#3ZSK,,Foundation,forbidden-suffix
-M3ZSL,M3ZSL,parsed,M3,,ZSL,M#3ZSL,,Foundation,forbidden-suffix
+M3ZSL,M3ZSL,parsed,M3,,ZSL,M#3ZSL,,Foundation,forbidden-suffix;forbidden-suffix-post-2019
 M3ZSM,M3ZSM,parsed,M3,,ZSM,M#3ZSM,,Foundation,forbidden-suffix
 M3ZSN,M3ZSN,parsed,M3,,ZSN,M#3ZSN,,Foundation,forbidden-suffix
 M3ZSO,M3ZSO,parsed,M3,,ZSO,M#3ZSO,,Foundation,forbidden-suffix
@@ -136620,7 +136620,7 @@ M6MSC,M6MSC,parsed,M6,,MSC,M#6MSC,,Foundation,
 M6MSD,M6MSD,parsed,M6,,MSD,M#6MSD,,Foundation,
 M6MSE,M6MSE,parsed,M6,,MSE,M#6MSE,,Foundation,
 M6MSF,M6MSF,parsed,M6,,MSF,M#6MSF,,Foundation,
-M6MSG,M6MSG,parsed,M6,,MSG,M#6MSG,,Foundation,forbidden-suffix
+M6MSG,M6MSG,parsed,M6,,MSG,M#6MSG,,Foundation,forbidden-suffix;forbidden-suffix-post-2019
 M6MSH,M6MSH,parsed,M6,,MSH,M#6MSH,,Foundation,
 M6MSI,M6MSI,parsed,M6,,MSI,M#6MSI,,Foundation,forbidden-suffix
 M6MSJ,M6MSJ,parsed,M6,,MSJ,M#6MSJ,,Foundation,
@@ -144507,7 +144507,7 @@ M7COG,M7COG,parsed,M7,,COG,M#7COG,,Foundation,
 M7COH,M7COH,parsed,M7,,COH,M#7COH,,Foundation,
 M7COI,M7COI,parsed,M7,,COI,M#7COI,,Foundation,
 M7COJ,M7COJ,parsed,M7,,COJ,M#7COJ,,Foundation,
-M7COL,M7COL,parsed,M7,,COL,M#7COL,,Foundation,forbidden-suffix
+M7COL,M7COL,parsed,M7,,COL,M#7COL,,Foundation,forbidden-suffix;forbidden-suffix-post-2019
 M7COM,M7COM,parsed,M7,,COM,M#7COM,,Foundation,
 M7CON,M7CON,parsed,M7,,CON,M#7CON,,Foundation,
 M7COO,M7COO,parsed,M7,,COO,M#7COO,,Foundation,
@@ -152989,13 +152989,13 @@ M7PZW,M7PZW,parsed,M7,,PZW,M#7PZW,,Foundation,
 M7PZX,M7PZX,parsed,M7,,PZX,M#7PZX,,Foundation,
 M7PZY,M7PZY,parsed,M7,,PZY,M#7PZY,,Foundation,
 M7PZZ,M7PZZ,parsed,M7,,PZZ,M#7PZZ,,Foundation,
-M7QNF,M7QNF,parsed,M7,,QNF,M#7QNF,,Foundation,forbidden-suffix
+M7QNF,M7QNF,parsed,M7,,QNF,M#7QNF,,Foundation,forbidden-suffix;forbidden-suffix-post-2019
 M7RAA,M7RAA,parsed,M7,,RAA,M#7RAA,,Foundation,
 M7RAB,M7RAB,parsed,M7,,RAB,M#7RAB,,Foundation,
 M7RAC,M7RAC,parsed,M7,,RAC,M#7RAC,,Foundation,
 M7RAD,M7RAD,parsed,M7,,RAD,M#7RAD,,Foundation,
 M7RAE,M7RAE,parsed,M7,,RAE,M#7RAE,,Foundation,
-M7RAF,M7RAF,parsed,M7,,RAF,M#7RAF,,Foundation,forbidden-suffix
+M7RAF,M7RAF,parsed,M7,,RAF,M#7RAF,,Foundation,forbidden-suffix;forbidden-suffix-post-2019
 M7RAG,M7RAG,parsed,M7,,RAG,M#7RAG,,Foundation,
 M7RAH,M7RAH,parsed,M7,,RAH,M#7RAH,,Foundation,
 M7RAI,M7RAI,parsed,M7,,RAI,M#7RAI,,Foundation,
@@ -154592,7 +154592,7 @@ M7TTP,M7TTP,parsed,M7,,TTP,M#7TTP,,Foundation,
 M7TTQ,M7TTQ,parsed,M7,,TTQ,M#7TTQ,,Foundation,
 M7TTR,M7TTR,parsed,M7,,TTR,M#7TTR,,Foundation,
 M7TTS,M7TTS,parsed,M7,,TTS,M#7TTS,,Foundation,
-M7TTT,M7TTT,parsed,M7,,TTT,M#7TTT,,Foundation,forbidden-suffix
+M7TTT,M7TTT,parsed,M7,,TTT,M#7TTT,,Foundation,forbidden-suffix;forbidden-suffix-post-2019
 M7TTU,M7TTU,parsed,M7,,TTU,M#7TTU,,Foundation,
 M7TTV,M7TTV,parsed,M7,,TTV,M#7TTV,,Foundation,
 M7TTW,M7TTW,parsed,M7,,TTW,M#7TTW,,Foundation,
@@ -156511,7 +156511,7 @@ M7YZV,M7YZV,parsed,M7,,YZV,M#7YZV,,Foundation,
 M7YZX,M7YZX,parsed,M7,,YZX,M#7YZX,,Foundation,
 M7YZY,M7YZY,parsed,M7,,YZY,M#7YZY,,Foundation,
 M7YZZ,M7YZZ,parsed,M7,,YZZ,M#7YZZ,,Foundation,
-M7ZAK,M7ZAK,parsed,M7,,ZAK,M#7ZAK,,Foundation,forbidden-suffix
+M7ZAK,M7ZAK,parsed,M7,,ZAK,M#7ZAK,,Foundation,forbidden-suffix;forbidden-suffix-post-2019
 M8AAC,M8AAC,parsed,M8,,AAC,M#8AAC,,Intermediate,
 M8AAJ,M8AAJ,parsed,M8,,AAJ,M#8AAJ,,Intermediate,
 M8ADH,M8ADH,parsed,M8,,ADH,M#8ADH,,Intermediate,
@@ -156550,7 +156550,7 @@ M8CHR,M8CHR,parsed,M8,,CHR,M#8CHR,,Intermediate,
 M8CJW,M8CJW,parsed,M8,,CJW,M#8CJW,,Intermediate,
 M8CMI,M8CMI,parsed,M8,,CMI,M#8CMI,,Intermediate,
 M8CMM,M8CMM,parsed,M8,,CMM,M#8CMM,,Intermediate,
-M8COL,M8COL,parsed,M8,,COL,M#8COL,,Intermediate,forbidden-suffix
+M8COL,M8COL,parsed,M8,,COL,M#8COL,,Intermediate,forbidden-suffix;forbidden-suffix-post-2019
 M8CQB,M8CQB,parsed,M8,,CQB,M#8CQB,,Intermediate,
 M8CQD,M8CQD,parsed,M8,,CQD,M#8CQD,,Intermediate,
 M8CQN,M8CQN,parsed,M8,,CQN,M#8CQN,,Intermediate,
@@ -157904,7 +157904,7 @@ M9PYM,M9PYM,parsed,M9,,PYM,M#9PYM,,Intermediate,
 M9PZL,M9PZL,parsed,M9,,PZL,M#9PZL,,Intermediate,
 M9RAB,M9RAB,parsed,M9,,RAB,M#9RAB,,Intermediate,
 M9RAC,M9RAC,parsed,M9,,RAC,M#9RAC,,Intermediate,
-M9RAF,M9RAF,parsed,M9,,RAF,M#9RAF,,Intermediate,forbidden-suffix
+M9RAF,M9RAF,parsed,M9,,RAF,M#9RAF,,Intermediate,forbidden-suffix;forbidden-suffix-post-2019
 M9RAH,M9RAH,parsed,M9,,RAH,M#9RAH,,Intermediate,
 M9RAJ,M9RAJ,parsed,M9,,RAJ,M#9RAJ,,Intermediate,
 M9RAL,M9RAL,parsed,M9,,RAL,M#9RAL,,Intermediate,

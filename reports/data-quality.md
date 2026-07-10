@@ -28,6 +28,7 @@ long-standing allocations, not an anomaly by itself).
 | `encoding-failure` | 0 | 0 | 2 | 0 | 3 | 3 | 3 |
 | `excel-date-shape` | 0 | 0 | 0 | 0 | 16 | 15 | 15 |
 | `forbidden-suffix` | 2826 | 1 | 3143 | 1 | 3159 | 3145 | 3143 |
+| `forbidden-suffix-post-2019` | 68 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `hash-in-register` | 3 | 0 | 3 | 0 | 3 | 3 | 3 |
 | `lowercase` | 2 | 0 | 2 | 0 | 18 | 17 | 17 |
 | `malformed-home-callsign` | 7 | 1 | 10 | 1 | 10 | 7 | 7 |
