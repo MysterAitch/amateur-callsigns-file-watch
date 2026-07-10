@@ -248,12 +248,20 @@ function footerHtml(metaJsonHref?: string, sourcePath?: string): string {
   return `<p><small>${lead}${sourceLink} ${deployProvenance()} Maintained by Roger Howell (M7TEE).</small></p>`;
 }
 
+// The on-screen debug console (site/debug.js). A classic, dependency-free
+// script carried on every page so ?debug=1 works wherever the visitor lands —
+// and, crucially, so it can report failures even when the page's own ES modules
+// fail to load. Depth-relative so it resolves from any nesting level.
+export function debugScriptTag(depthToRoot: number): string {
+  return `<script src="${'../'.repeat(depthToRoot)}debug.js"></script>`;
+}
+
 export function htmlPage(title: string, depthToRoot: number, body: string[], options: PageOptions = {}): string {
   const { metaJsonHref, currentNav, sourcePath } = options;
   return [
     '<!DOCTYPE html>',
     '<html lang="en-GB">',
-    `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${PAGE_STYLE}</head>`,
+    `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${PAGE_STYLE}${debugScriptTag(depthToRoot)}</head>`,
     '<body>',
     '<a class="skip" href="#main">Skip to content</a>',
     `<nav><p>${navHtml(depthToRoot, currentNav)}</p></nav>`,
@@ -365,7 +373,7 @@ export function entryPage(title: string, body: string[], options: PageOptions = 
   return [
     '<!DOCTYPE html>',
     '<html lang="en-GB">',
-    `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${ENTRY_STYLE}</head>`,
+    `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${ENTRY_STYLE}${debugScriptTag(depthToRoot)}</head>`,
     '<body>',
     '<a class="skip" href="#main">Skip to content</a>',
     '<div class="wrap">',

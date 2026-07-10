@@ -40,6 +40,7 @@ const SHELL_ASSETS = [
   'compare.html',
   'about.html',
   'glossary.html',
+  'debug.js',
   'app.js',
   'browser-query.js',
   'entry-browser.js',
