@@ -11,7 +11,10 @@ describe('cross-dataset invariants — available-pool depletion', () => {
   // three times (cheaper, and it stops the CPU-heavy join from starving other
   // parallel test workers).
   let d: CrossDataset;
-  beforeAll(() => { d = buildDepletion(); }, 60_000);
+  // Generous hook timeout: the real-archive build is CPU-heavy and a congested
+  // CI runner can exceed a tight limit (the build-sqlite.tiers hook hit the same
+  // contention and uses the same allowance).
+  beforeAll(() => { d = buildDepletion(); }, 480_000);
 
   it('AvailablePool_2013Snapshot_DepletionMatchesIndependentJoin', () => {
     const s = d.rows.find(r => r.entry === 'wdtk-174341--available-callsigns-list');
@@ -76,7 +79,9 @@ describe('cross-dataset invariants — available × record-of overlap matrix', (
   // The matrix loads every register vintage (open-data ~150k rows each, plus
   // the FOI register-snapshots) one at a time; build it once and share it.
   let m: OverlapMatrix;
-  beforeAll(() => { m = buildOverlapMatrix(); }, 60_000);
+  // Generous hook timeout (see the depletion suite above): the matrix build is
+  // heavy and timed out at 60s on a loaded CI runner.
+  beforeAll(() => { m = buildOverlapMatrix(); }, 480_000);
 
   it('OverlapMatrix_RealArchive_HasNinePoolRowsAndVintageOrderedRegisterColumns', () => {
     // Nine available-pool snapshots (2013–2016) as rows.
