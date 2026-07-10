@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no Ofcom FOI case reference is held for this disclosure. It survives only as a UK Government Web Archive capture of an Ofcom FOI workbook, identified there by its Ofcom asset id (219065). The entry is keyed by data-vintage month rather than by a case reference or a proven day.",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/file/0023/219065/Amateur-radio-callsigns.xlsx",
+  "title": "List of all UK amateur radio call signs (Ofcom FOI, spring 2021)",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "not held; no request thread or covering correspondence survives, only the archived workbook.",
+  "respondedAt": null,
+  "respondedAtNote": "not held precisely; the workbook is an FOI response captured by the UK Government Web Archive on 2023-09-04, but no response date is recorded in the held material.",
+  "outcome": "successful",
+  "dataVintage": "2021-04-21",
+  "dataVintageNote": "declared, not proven. No report-generation instant is embedded in this workbook. The vintage is taken as 2021-04-21, the most recent Original start date in the file - a firm lower bound (a register snapshot cannot predate its most recently issued licence), not a proven generation day. The entry is keyed by month (ofcom-2021-04). The disclosure rests on a single UK Government Web Archive witness (snapshot 20230904223900, captured 2023-09-04); no Ofcom disclosure-log copy is held.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2021-04-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2021-01--all-callsigns", "relation": "the early-2021 sibling snapshot in the same six-column export shape (differing only in the case of two headers); this spring-2021 disclosure has 1,114 more records three months on. Together the two fill the 2021 gap in the register timeline." },
+    { "entry": "ofcom-756622--published-register-csv", "relation": "the preceding full FOI register snapshot held (2019-09-12, 141,295 records); this spring-2021 snapshot's 147,877 records mark the register's continued growth." },
+    { "entry": "ofcom-01420046--allocated-reserved-callsigns", "relation": "the following full register snapshot (2022-03, 150,181 records), disclosed in the reduced Value/Status/Type shape - it dropped the reservation-expiry, original-start-date and licence-product columns these 2021 annexes carry." },
+    { "entry": "wdtk-1180568--licence-breakdown-duration-age", "relation": "the next FOI register snapshot held after 2022 (2024-10); this entry sits earlier in the 2019->2024 FOI register sequence." }
+  ],
+  "files": {
+    "Amateur-radio-callsigns.xlsx": {
+      "bytes": 4043455,
+      "sha256": "aa336fadac7463998862d4c4c3843482a3dbb264b0cf13fc88c5dacc04b6dec3",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "sheetsIndicative": {
+        "note": "one worksheet ('Sheet1'): header Value,Status,Type,Reserved to Date,Original start date,Licence type then 147,877 data rows. Status vocabulary Allocated (96,936), Reserved (50,627), Available (305) and blank (9); Type is 'Call Sign - Amateur' on every row. Licence type carries the product vocabulary (Full 53,699, Foundation 29,246, Intermediate 12,291, Club 1,658, Temporary Reciprocal 39) with 50,944 blank. Original start date populated on 96,869 rows (1903-05-03 to 2021-04-21); Reserved to Date populated on 123 rows (2019-03-23 to 2023-04-19). Header case differs from the January-2021 annex (Original start date / Licence type here).",
+        "sheets": [
+          { "name": "Sheet1", "dataRows": 147877, "cols": "A:F", "datasetClass": "register-snapshot" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20230904223900/https://www.ofcom.org.uk/__data/assets/file/0023/219065/Amateur-radio-callsigns.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-sheet-1-sheet1.csv": {
+      "bytes": 9480882,
+      "sha256": "f0203d8ca1e02115d1564afb5d6773cc66dfada46c3220849455a8d67dbe254c",
+      "role": "extract",
+      "extractOf": "Amateur-radio-callsigns.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts",
+      "contentsIndicative": "mechanical extract of the single sheet; header Value,Status,Type,Reserved to Date,Original start date,Licence type then 147,877 rows. Anomalies preserved verbatim: one Value is empty (blank call sign, Reserved); one is literally ',,' (two commas, Reserved); 'G6 FMU' has an interior space; three Values carry a trailing non-breaking space (G0TQK, G7IWE, 2E1HON); two are lower-case (g0jrk, 2e1GTD); 475 four-character call signs (two-letter-suffix heritage series) and 91 call signs of six to nine characters, most of them reciprocal 'M/...' forms including curiosities such as M/#PT2FM, M/#YO3IES and M/EI-8-DJ. Dates arrive typed and are rendered ISO (date-only; no time-of-day components)."
+    },
+    "normalised--sheet-1-sheet1.csv": {
+      "bytes": 6523335,
+      "sha256": "ccaa18632c1d304c758831d073dc38897738d6b2218b7b96c9977a12060caece",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-sheet1.csv",
+      "contentsIndicative": "header callsign,status,licence_class,reserved_to_date,original_start_date; 147,877 rows sorted by callsign (source order carries no meaning - not callsign-sorted, dates not monotonic). Status carried verbatim (9 blanks preserved); licence_class carries the source product vocabulary verbatim (50,944 blanks); reserved_to_date and original_start_date carried as ISO from the typed workbook. The constant Type column is required-present but not carried. Three trailing non-breaking spaces were trimmed from callsigns (counted in the converter notes, never silent); the empty Value, the ',,' Value and the interior-space 'G6 FMU' are preserved verbatim. The empty callsign sorts first, then ',,'."
+    },
+    "correspondence.md": {
+      "bytes": 4551,
+      "sha256": "2eed0be7fd7df5112c135ed500a560dd75e797878d861bb3e7591b7d35e0ad5b",
+      "role": "transcript"
+    }
+  }
+}

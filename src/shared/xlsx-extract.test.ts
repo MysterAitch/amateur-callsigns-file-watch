@@ -239,7 +239,7 @@ describe('xlsx extractor - archive golden master', () => {
   const workbookEntries = fs.readdirSync(foiRoot)
     .filter(entry => fs.readdirSync(path.join(foiRoot, entry)).some(f => f.endsWith('.xlsx')));
 
-  it('XlsxExtract_AllArchivedWorkbooks_ReproduceCommittedExtractsByteForByte', { timeout: 60_000 }, () => {
+  it('XlsxExtract_AllArchivedWorkbooks_ReproduceCommittedExtractsByteForByte', { timeout: 600_000 }, () => {
     // Growing floor, not an exact count: new workbook entries join the
     // golden master automatically; the byte-equality checks below are the
     // real guard.

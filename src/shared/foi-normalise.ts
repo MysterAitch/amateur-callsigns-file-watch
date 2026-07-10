@@ -527,6 +527,25 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
     },
   ],
 
+  // ofcom-2021-01 and ofcom-2021-04 (UK Government Web Archive captures of two
+  // Ofcom FOI annexes, the 2021 full-register snapshots): the 'Value, Status,
+  // Type' register export extended with three typed columns - Reserved to Date,
+  // Original Start Date and Licence Type. Disclosed as workbooks, so the dates
+  // arrive typed and the extract renders them ISO (iso-date). 'Type' is
+  // 'Call Sign - Amateur' on every row (the product/service discriminator,
+  // recorded in meta, required-present not carried); Licence Type carries the
+  // source's own product vocabulary verbatim ('Amateur Full Radio Licence' etc,
+  // including 'Amateur Temporary Reciprocal Radio Licence'). The two annexes
+  // differ ONLY in the case of two headers ('Original Start Date' vs 'Original
+  // start date', 'Licence Type' vs 'Licence type'); since columns are matched by
+  // exact NAME, each annex binds its own variant built from the shared factory.
+  'ofcom-2021-01-register': [
+    datedRegisterConversion('raw-extract-sheet-1-callsigns.csv', 'Original Start Date', 'Licence Type', '2021-01-29'),
+  ],
+  'ofcom-2021-04-register': [
+    datedRegisterConversion('raw-extract-sheet-1-sheet1.csv', 'Original start date', 'Licence type', '2021-04-21'),
+  ],
+
   // ofcom-2024-12 (Ofcom disclosure log, December 2024): the five-years-on
   // forbidden-suffix comparison point. A suspected Salesforce object export -
   // two columns, Name (the three-letter suffix) and LastModifiedDate - so,
@@ -583,6 +602,55 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
   // dates top out at 2023-12-19 - the vintage caveat lives in the entry meta.
   'ofcom-2024-01-register': [
     valueStatusProductRegisterConversion('foi-1734722-amateur-call-signs.csv', '2024-01-31'),
+  ],
+
+  // The callsign+product+status register-snapshot family (Ofcom disclosure
+  // log, 2024-2025). Three snapshots, one shared factory; they differ only in
+  // header spelling, and the last one additionally carries CreatedDate. Type
+  // is the constant 'Call Sign - Amateur' discriminator throughout. This family
+  // spells the callsign column 'Call sign'/'Callsign' (the 2023-24 family above
+  // spells it 'Value'), so it binds its own factory rather than reusing that
+  // one.
+
+  // ofcom-2024-07 (July 2024): header
+  // 'Call sign,Product,Status,Type,Call Sign MMSI: Last Modified Date' (no
+  // BOM). The day of the July vintage is not stated (served as
+  // 'call-signs.csv'), so the entry is keyed to the month and referenceDateIso
+  // is the month-end plausibility ceiling; the disclosed last-modified dates
+  // top out at 2024-06-14, well within it.
+  'ofcom-2024-07-register': [
+    callsignProductRegisterConversion({
+      sourceFile: 'call-signs.csv',
+      callsignHeader: 'Call sign',
+      lastModifiedHeader: 'Call Sign MMSI: Last Modified Date',
+      referenceDateIso: '2024-07-31',
+    }),
+  ],
+  // ofcom-2024-10-21 (filed under September 2024, but the filename dates the
+  // export 21/10/2024): header 'Callsign,Product,Status,Type,Last Modified
+  // Date' (UTF-8 BOM). The disclosed last-modified dates top out at exactly
+  // 2024-10-21 - the vintage.
+  'ofcom-2024-10-21-register': [
+    callsignProductRegisterConversion({
+      sourceFile: 'copy-of-callsigns-21102024.csv',
+      callsignHeader: 'Callsign',
+      lastModifiedHeader: 'Last Modified Date',
+      referenceDateIso: '2024-10-21',
+    }),
+  ],
+  // ofcom-2025-03-13 (filed under January 2025, but the filename dates the
+  // export 13/03/2025): header
+  // 'Callsign,Product,Status,Type,LastModifiedDate,CreatedDate' (no BOM) - the
+  // same family plus a CreatedDate column. Both dates top out at 2025-03-13 -
+  // the vintage.
+  'ofcom-2025-03-13-register': [
+    callsignProductRegisterConversion({
+      sourceFile: 'call-signs-13mar2025.csv',
+      callsignHeader: 'Callsign',
+      lastModifiedHeader: 'LastModifiedDate',
+      createdDateHeader: 'CreatedDate',
+      referenceDateIso: '2025-03-13',
+    }),
   ],
 };
 
@@ -648,6 +716,56 @@ function valueStatusProductRegisterConversion(sourceFile: string, referenceDateI
   };
 }
 
+// The Ofcom disclosure-log register snapshots in the callsign+product+status
+// export family (2024-2025). Every snapshot carries the same fields - a
+// callsign column, the licence Product, the Status, the constant
+// 'Call Sign - Amateur' Type discriminator, and a last-modified date - but the
+// callsign column is spelled 'Call sign' or 'Callsign', the last-modified
+// header spelling varies, and the March-2025 export additionally carries a
+// CreatedDate. One factory covers the whole family; each snapshot pins its own
+// EXACT header spellings, so a silent column rename can never slip through
+// (columns are matched by name, never by position). Product is the licence
+// class carried verbatim; the constant Type is required-present but not carried.
+interface CallsignProductRegisterOptions {
+  sourceFile: string;
+  // Exact callsign-column header for this snapshot ('Call sign' | 'Callsign').
+  callsignHeader: string;
+  // Exact last-modified-date header for this snapshot.
+  lastModifiedHeader: string;
+  // Exact created-date header, where the snapshot carries one (2025-03 only).
+  createdDateHeader?: string;
+  // The snapshot vintage, used as the date plausibility ceiling.
+  referenceDateIso: string;
+}
+
+function callsignProductRegisterConversion(options: CallsignProductRegisterOptions): FoiSourceConversion {
+  const columns: FoiColumnSpec[] = [
+    { source: options.callsignHeader, output: 'callsign', kind: 'verbatim' },
+    { source: 'Status', output: 'status', kind: 'verbatim' },
+    // The source's own Product vocabulary ('Amateur Full Radio Licence' etc.),
+    // carried verbatim, never canonicalised; blank where the source asserts no
+    // product (a large minority of rows).
+    { source: 'Product', output: 'licence_class', kind: 'verbatim' },
+    // A record last-modified timestamp (not a licence issue date); day-first,
+    // never postdates the snapshot vintage.
+    { source: options.lastModifiedHeader, output: 'last_modified_date', kind: 'date' },
+  ];
+  if (options.createdDateHeader !== undefined) {
+    columns.push({ source: options.createdDateHeader, output: 'created_date', kind: 'date' });
+  }
+  return {
+    sourceFile: options.sourceFile,
+    encoding: 'utf8',
+    columns,
+    // 'Type' is 'Call Sign - Amateur' on every row - the product/service
+    // discriminator recorded in meta.json, not a per-row assertion.
+    ignoredColumns: ['Type'],
+    rowOrder: 'sorted-by-first-column',
+    orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, no clear date order); sorted by callsign for diffability and cross-snapshot comparability',
+    referenceDateIso: options.referenceDateIso,
+  };
+}
+
 // The 2015/16 typed Siebel exports share their column vocabulary; only the
 // sheet filenames and the not-carried column set vary.
 function typedExportConversion(sourceFile: string, ignoredColumns: readonly string[]): FoiSourceConversion {
@@ -663,6 +781,33 @@ function typedExportConversion(sourceFile: string, ignoredColumns: readonly stri
     ignoredColumns,
     rowOrder: 'sorted-by-first-column',
     orderRationale: 'source rows arrive in no meaningful order; sorted by callsign for diffability',
+  };
+}
+
+// The 2021 UKGWA-captured full-register annexes share this shape; only the
+// sheet filename and the case of the Original-Start-Date / Licence-Type headers
+// vary between the two disclosures. referenceDateIso is the snapshot's evidenced
+// lower bound - its most recent Original Start Date, the plausibility ceiling
+// for that issue-date column; Reserved to Date is a validity END and may
+// legitimately postdate it.
+function datedRegisterConversion(sourceFile: string, originalStartDateHeader: string, licenceTypeHeader: string, referenceDateIso: string): FoiSourceConversion {
+  return {
+    sourceFile,
+    encoding: 'utf8',
+    columns: [
+      { source: 'Value', output: 'callsign', kind: 'verbatim' },
+      { source: 'Status', output: 'status', kind: 'verbatim' },
+      { source: licenceTypeHeader, output: 'licence_class', kind: 'verbatim' },
+      // Reservation EXPIRY - a validity end, so future values are legitimate.
+      { source: 'Reserved to Date', output: 'reserved_to_date', kind: 'iso-date', futureAllowed: true },
+      { source: originalStartDateHeader, output: 'original_start_date', kind: 'iso-date' },
+    ],
+    // 'Type' is 'Call Sign - Amateur' on every row - the product/service
+    // discriminator, required present but not carried.
+    ignoredColumns: ['Type'],
+    rowOrder: 'sorted-by-first-column',
+    orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability',
+    referenceDateIso,
   };
 }
 

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no case number appears in the material held; the CSV is published on Ofcom's FOI disclosure log (filed under September 2024) and the entry is keyed by the export date in its filename, 21/10/2024",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/september/copy-of-callsigns-21102024.csv?v=383861",
+  "title": "Amateur callsigns register (Ofcom FOI disclosure log, October 2024)",
+  "requester": null,
+  "requesterNote": "a disclosure-log publication is not attributed; no requester is held.",
+  "requestedAt": null,
+  "requestedAtNote": "not in the held material; a disclosure-log publication carries no request date.",
+  "respondedAt": null,
+  "respondedAtNote": "not stated in the held material; the CSV is filed on Ofcom's FOI disclosure log under September 2024, though its filename and data date the export 21 October 2024 (see dataVintage).",
+  "outcome": "successful",
+  "dataVintage": "2024-10-21",
+  "dataVintageNote": "declared from the filename ('copy-of-callsigns-21102024.csv' = 21/10/2024) and well-supported by the data: the disclosed last-modified dates top out at exactly 2024-10-21. Note the filing-vs-filename discrepancy - the disclosure is filed on the log under September 2024, but both the filename and the data's maximum last-modified date say 21 October 2024, which is taken as the vintage. Provenance rests on a single witness (the live disclosure-log copy); no UK Government Web Archive capture of these exact bytes appears in the harvest manifest, so the vintage cannot be corroborated by an independent retrieval, though the filename and the data agree internally.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2024-10-21-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2024-07--call-signs--all-callsigns", "relation": "the preceding snapshot in the 2024-2025 disclosure-log register family (July 2024, 155,346 records); same shape bar the callsign-header spelling and this file's UTF-8 BOM." },
+    { "entry": "ofcom-2025-03-13--callsigns--all-callsigns", "relation": "the next snapshot in the same family (March 2025, adds a CreatedDate column)." },
+    { "entry": "ofcom-01420046--allocated-reserved-callsigns", "relation": "an earlier full FOI register snapshot (2022-03, 150,181 records); cross-snapshot growth and status-vocabulary comparison point." },
+    { "entry": "wdtk-1180568--licence-breakdown-duration-age", "relation": "the 2024-10 licence-breakdown disclosure - the same October-2024 window in a different shape." }
+  ],
+  "files": {
+    "copy-of-callsigns-21102024.csv": {
+      "bytes": 10827638,
+      "sha256": "44d416b83f11ad1b80ad0d71e886dd35f3acf2119e87fe4a2c660fa31066b7ed",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "contentsIndicative": "header 'Callsign,Product,Status,Type,Last Modified Date' with a UTF-8 BOM; 156,278 data rows. Status: 103,632 Allocated, 52,160 Reserved, 474 Available, 12 blank. Product (the licence class): 59,073 Full, 35,969 Foundation, 14,184 Intermediate, 1,893 Club, 97 Temporary Reciprocal, 45,062 blank. Type is 'Call Sign - Amateur' on every row (service discriminator, required-present but not carried). Last-modified dates run 2016-07-23 to 2024-10-21. Anomalies preserved verbatim: three callsigns carry a trailing non-breaking space ('G7IWE', 'G0TQK', '2E1HON' - the same trio as the 2019/2024 registers); lower-case 'g0jrk' and '2e1GTD'; interior-space 'G6 FMU'; and 481 four- plus 113 six-to-eight-character callsigns.",
+      "witnesses": [
+        {
+          "channel": "ofcom-disclosure-log",
+          "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/september/copy-of-callsigns-21102024.csv?v=383861",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "normalised--copy-of-callsigns-21102024.csv": {
+      "bytes": 7545791,
+      "sha256": "582a16ed9169c38a0dd546531036b81e31ba36b2794e756c9869710a5da5f02e",
+      "role": "normalised",
+      "normalisedFrom": "copy-of-callsigns-21102024.csv",
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 156,278 rows sorted by callsign. Status carried verbatim (Allocated/Reserved/Available and 12 blanks preserved); licence_class is the source Product verbatim (45,062 blanks preserved); last_modified_date ISO-rendered (day-first, verified by 69,839 day>12 values). The constant Type column is required-present but not carried. The trailing-non-breaking-space trio (G7IWE, G0TQK, 2E1HON) is trimmed - the only canonicalisation applied - and counted in the converter notes, never silent; because each also appears as a bare-callsign row, the three collapse onto duplicate callsign keys here (an honest consequence of trimming, preserved). Lower-case forms and interior-space 'G6 FMU' are preserved verbatim."
+    },
+    "correspondence.md": {
+      "bytes": 3342,
+      "sha256": "f6639f3abecfd6f2476942dfb1d2e07eaac0a8af823d8824bd34b38da5ac9706",
+      "role": "transcript"
+    }
+  }
+}

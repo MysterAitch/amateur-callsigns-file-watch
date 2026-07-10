@@ -25,6 +25,14 @@ import { type EntryStats } from '../shared/stats.ts';
 import { buildFoiObservations, renderObservationsCsv, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
 import { cleanedCallsign, parseCallsign, loadReferenceData, normaliseLicenceCategory, componentsFlagsForRows, type ComponentRow } from '../sources/ofcom-amateur/components.ts';
 
+// Gzip level for the published .gz download artefacts. The deploy uses maximum
+// compression (level 9) for the smallest downloads; tests set
+// TIERS_GZIP_LEVEL=1 for speed. The level is purely a size/time trade-off — any
+// level decompresses to identical bytes — so the tiers tests, which verify the
+// artefacts' CONTENTS (gunzip + row/query checks), not their size, are correct
+// at any level and run far faster at level 1.
+const GZIP_LEVEL = process.env.TIERS_GZIP_LEVEL !== undefined ? Number(process.env.TIERS_GZIP_LEVEL) : 9;
+
 // Reference data is repo-anchored (same convention as the component parser).
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const REFERENCE_DATA_DIR = path.join(REPO_ROOT, 'reference-data');
@@ -230,7 +238,7 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
   // no-SQL property (universally decompressible) at ~15% of the size. The
   // faithful NULL-vs-blank form lives in the master database.
   fs.mkdirSync(dataDir, { recursive: true });
-  fs.writeFileSync(path.join(dataDir, 'foi-observations.csv.gz'), zlib.gzipSync(renderObservationsCsv(observations), { level: 9 }));
+  fs.writeFileSync(path.join(dataDir, 'foi-observations.csv.gz'), zlib.gzipSync(renderObservationsCsv(observations), { level: GZIP_LEVEL }));
   summary['foi-observations.csv.gz rows'] = observations.length;
 
   // One database per archive entry (both lanes): every CSV in the entry
@@ -267,7 +275,7 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
     }
     db.close();
     if (tables > 0) {
-      fs.writeFileSync(path.join(perDatasetDir, `${name}.sqlite.gz`), zlib.gzipSync(fs.readFileSync(buildPath), { level: 9 }));
+      fs.writeFileSync(path.join(perDatasetDir, `${name}.sqlite.gz`), zlib.gzipSync(fs.readFileSync(buildPath), { level: GZIP_LEVEL }));
       perDataset += 1;
     }
     fs.rmSync(buildPath, { force: true });
@@ -383,7 +391,7 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
 
   // Download twin of the master: honest name, gzipped - the .png variant
   // exists solely for the site's range-request path.
-  fs.writeFileSync(path.join(dataDir, 'master.sqlite.gz'), zlib.gzipSync(fs.readFileSync(masterPath), { level: 9 }));
+  fs.writeFileSync(path.join(dataDir, 'master.sqlite.gz'), zlib.gzipSync(fs.readFileSync(masterPath), { level: GZIP_LEVEL }));
 
   return summary;
 }
