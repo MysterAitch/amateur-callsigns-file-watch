@@ -113,6 +113,41 @@ export const LICENCE_CATEGORY_PREDICATE = 'licence_category';
 // rather than inventing a vocabulary of its own.
 export const LICENCE_CATEGORY_RULE = 'licence-category';
 
+// The five claim-confidence rungs, best-to-worst, fixed by site/glossary.html
+// (the #axes panel). Confidence is a READOUT of source authority × how the
+// value was produced, never stored on the claim: it is derived from the claim's
+// layer and rule so it cannot drift from what the claim actually is.
+export type ClaimConfidence = 'As-published' | 'Computed' | 'Looked-up' | 'Community' | 'Best-guess';
+
+export const CONFIDENCE_ORDER: readonly ClaimConfidence[] = [
+  'As-published',
+  'Computed',
+  'Looked-up',
+  'Community',
+  'Best-guess',
+];
+
+// The named rules that resolve a value via a reference table (a LOOKUP, the
+// 'Looked-up' rung); every other named derived rule is a deterministic
+// COMPUTATION (the 'Computed' rung). Today only the licence-category tier is a
+// lookup (reference-data/licence-category.csv, via normaliseLicenceCategory).
+const LOOKUP_RULES: ReadonlySet<string> = new Set<string>([LICENCE_CATEGORY_RULE]);
+
+// The confidence readout for a claim, from its layer and rule alone:
+//   - raw            -> As-published (the verbatim source token, untouched)
+//   - derived+lookup  -> Looked-up   (resolved via a reference table)
+//   - derived+other   -> Computed    (deterministically derived by a named rule)
+// A derived claim NEVER reads out As-published — derivation degrades confidence
+// by construction, which is the invariant the trust net enforces. Malformed
+// claims (raw carrying a rule, derived missing one) are NOT masked here: this is
+// a pure best-effort readout; the structural checks in src/ci/trust-rating.ts
+// catch such claims loudly.
+export function claimConfidence(claim: Claim): ClaimConfidence {
+  if (claim.layer === 'raw') return 'As-published';
+  if (claim.rule !== undefined && LOOKUP_RULES.has(claim.rule)) return 'Looked-up';
+  return 'Computed';
+}
+
 // A parsed set of rows from ONE published source (a normalised.csv OR a
 // raw-extract CSV — the emit step is identical, only the subject column name
 // differs). Rows are records keyed by column name (csv-parse `columns: true`);
