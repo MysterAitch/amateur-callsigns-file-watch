@@ -179,7 +179,19 @@ function jsonlNameFor(entry: string, conversion: FoiSourceConversion): string {
 // source (a single register snapshot is ~150k rows / hundreds of thousands of
 // claims), so peak memory is one source's ledger, not the whole corpus - the
 // same streaming discipline build-sqlite.ts uses for the tiers.
-export function buildLedger(outputDir: string, foiDir: string = defaultFoiDir(), ref: ReferenceData = loadReferenceData()): LedgerBuildSummary {
+// An optional entry selector, so a caller can build the ledger for a
+// tractable representative subset of entries rather than the whole corpus. The
+// default (undefined) processes every qualifying entry - the full-corpus build
+// the CLI runs. A downstream artefact build (build-ledger-db) uses this to key
+// off a handful of snapshots without re-implementing the emit path.
+export type EntrySelector = (entry: string) => boolean;
+
+export function buildLedger(
+  outputDir: string,
+  foiDir: string = defaultFoiDir(),
+  ref: ReferenceData = loadReferenceData(),
+  selectEntry?: EntrySelector,
+): LedgerBuildSummary {
   const ledgerDir = path.join(outputDir, 'ledger');
   fs.mkdirSync(ledgerDir, { recursive: true });
 
@@ -187,6 +199,7 @@ export function buildLedger(outputDir: string, foiDir: string = defaultFoiDir(),
   let entriesProcessed = 0;
 
   for (const { entry, meta } of qualifyingRegisterEntries(foiDir)) {
+    if (selectEntry !== undefined && !selectEntry(entry)) continue;
     const sources = registerSourcesFor(meta);
     if (sources.length === 0) continue;
     entriesProcessed += 1;
