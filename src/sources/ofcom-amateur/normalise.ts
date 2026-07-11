@@ -32,7 +32,7 @@ export const CANONICAL_COLUMNS = [
   'licence_version_original_start_date',
 ] as const;
 
-type CanonicalColumn = (typeof CANONICAL_COLUMNS)[number];
+export type CanonicalColumn = (typeof CANONICAL_COLUMNS)[number];
 
 const DATE_COLUMNS: ReadonlySet<CanonicalColumn> = new Set([
   'created_date',
@@ -117,6 +117,84 @@ export function callsignColumnFor(headers: readonly string[]): string | undefine
   return headers.find(h => CALLSIGN_COLUMN_NAMES.has(h.replace(/^\uFEFF/, '')));
 }
 
+// The raw header a variant's mapping assigns to a given canonical column, or
+// undefined when the variant carries no such column (e.g. the 2022-minimal
+// export declares no product). Lets a consumer read the authored raw->canonical
+// binding by canonical name without re-deriving which raw header means what.
+export function rawColumnForCanonical(
+  mapping: Readonly<Record<string, CanonicalColumn>>,
+  canonical: CanonicalColumn,
+): string | undefined {
+  return Object.entries(mapping).find(([, target]) => target === canonical)?.[0];
+}
+
+// The variant-detected, ignored-line-stripped parse of a raw open-data register
+// CSV, under Ofcom's OWN headers - the step shared by convertRawCsv and any
+// consumer (e.g. the raw-keyed claim ledger) that must read the same rows the
+// committed normalisation was derived from. `records` are keyed by raw header;
+// `mapping` is the authored raw->canonical binding for the detected variant, so
+// the callsign/product columns are read from the registry, never re-guessed.
+export interface ParsedRawRegister {
+  records: Record<string, string>[];
+  headers: string[];
+  variant: string;
+  mapping: Readonly<Record<string, CanonicalColumn>>;
+  headerLines: { line: number; content: string }[];
+  ignoredLines: IgnoredRawLine[];
+}
+
+// Strip the curated + blank non-data lines, parse the remainder under Ofcom's
+// headers, detect the header variant, and prove the line accounting - the
+// converter-neutral front half of convertRawCsv. Curated ignores are
+// byte-verified against the raw content (stale curation fails loudly), and an
+// unknown header variant or a broken line count throws rather than guessing:
+// the same discipline whether the caller is normalising or emitting claims.
+export function parseRawRegister(rawContent: string, curatedIgnores: IgnoredRawLine[] = []): ParsedRawRegister {
+  const lines = physicalLines(rawContent);
+  const ignoredByLine = new Map<number, IgnoredRawLine>();
+  for (const curated of curatedIgnores) {
+    if (lines[curated.line - 1] !== curated.content) {
+      throw new Error(`curated ignoredLines entry for line ${curated.line} does not match raw.csv - meta declares ${JSON.stringify(curated.content)}, raw has ${JSON.stringify(lines[curated.line - 1])}`);
+    }
+    ignoredByLine.set(curated.line, curated);
+  }
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '' && !ignoredByLine.has(i + 1)) {
+      ignoredByLine.set(i + 1, { line: i + 1, content: lines[i], reason: 'blank' });
+    }
+  }
+
+  // Strip ignored lines BEFORE parsing, so the parser's strict column-count
+  // checking applies to everything else: a ragged line that is neither
+  // blank nor curated fails the whole conversion loudly - the human then
+  // decides (new variant, or a new curated ignore).
+  const effective = lines.filter((_, index) => !ignoredByLine.has(index + 1)).join('\n') + '\n';
+  const records: Record<string, string>[] = parse(effective, { columns: true, bom: true });
+  if (records.length === 0) {
+    throw new Error('raw CSV parsed to zero records - refusing to normalise an empty publication');
+  }
+
+  const headers = Object.keys(records[0]);
+  const variant = detectHeaderVariant(headers);
+  if (variant === undefined) {
+    throw new Error(`unknown raw header variant [${headers.join(', ')}] - extend the variant registry (with tests) to support it`);
+  }
+  const mapping = VARIANTS[variant];
+
+  const ignoredLines = [...ignoredByLine.values()].sort((a, b) => a.line - b.line);
+
+  // Count invariant - exact arithmetic, no inference: every physical line
+  // is exactly one of header / data row / ignored. A mismatch means the
+  // one-line-per-record model does not hold (e.g. a quoted multi-line cell)
+  // and the enumeration cannot be trusted: fail loudly.
+  const headerLineCount = 1;
+  if (lines.length - headerLineCount !== records.length + ignoredLines.length) {
+    throw new Error(`raw line accounting failed: ${lines.length - headerLineCount} data lines != ${records.length} records + ${ignoredLines.length} ignored - does a quoted cell span lines?`);
+  }
+
+  return { records, headers, variant, mapping, headerLines: [{ line: 1, content: lines[0] }], ignoredLines };
+}
+
 export interface ConvertContext {
   // Upper plausibility bound for parsed dates - typically the entry's
   // Ofcom-reported or fetch date. Any raw date beyond it fails the entry.
@@ -184,47 +262,7 @@ export function physicalLines(rawContent: string): string[] {
 //     mechanical predicate that can make this call - explicitness plus PR
 //     review is the guard.
 export function convertRawCsv(rawContent: string, context: ConvertContext, curatedIgnores: IgnoredRawLine[] = []): ConvertResult {
-  const lines = physicalLines(rawContent);
-  const ignoredByLine = new Map<number, IgnoredRawLine>();
-  for (const curated of curatedIgnores) {
-    if (lines[curated.line - 1] !== curated.content) {
-      throw new Error(`curated ignoredLines entry for line ${curated.line} does not match raw.csv - meta declares ${JSON.stringify(curated.content)}, raw has ${JSON.stringify(lines[curated.line - 1])}`);
-    }
-    ignoredByLine.set(curated.line, curated);
-  }
-  for (let i = 1; i < lines.length; i++) {
-    if (lines[i].trim() === '' && !ignoredByLine.has(i + 1)) {
-      ignoredByLine.set(i + 1, { line: i + 1, content: lines[i], reason: 'blank' });
-    }
-  }
-
-  // Strip ignored lines BEFORE parsing, so the parser's strict column-count
-  // checking applies to everything else: a ragged line that is neither
-  // blank nor curated fails the whole conversion loudly - the human then
-  // decides (new variant, or a new curated ignore).
-  const effective = lines.filter((_, index) => !ignoredByLine.has(index + 1)).join('\n') + '\n';
-  const records: Record<string, string>[] = parse(effective, { columns: true, bom: true });
-  if (records.length === 0) {
-    throw new Error('raw CSV parsed to zero records - refusing to normalise an empty publication');
-  }
-
-  const headers = Object.keys(records[0]);
-  const variant = detectHeaderVariant(headers);
-  if (variant === undefined) {
-    throw new Error(`unknown raw header variant [${headers.join(', ')}] - extend the variant registry (with tests) to support it`);
-  }
-  const mapping = VARIANTS[variant];
-
-  const ignoredLines = [...ignoredByLine.values()].sort((a, b) => a.line - b.line);
-
-  // Count invariant - exact arithmetic, no inference: every physical line
-  // is exactly one of header / data row / ignored. A mismatch means the
-  // one-line-per-record model does not hold (e.g. a quoted multi-line cell)
-  // and the enumeration cannot be trusted: fail loudly.
-  const headerLineCount = 1;
-  if (lines.length - headerLineCount !== records.length + ignoredLines.length) {
-    throw new Error(`raw line accounting failed: ${lines.length - headerLineCount} data lines != ${records.length} records + ${ignoredLines.length} ignored - does a quoted cell span lines?`);
-  }
+  const { records, variant, mapping, headerLines, ignoredLines } = parseRawRegister(rawContent, curatedIgnores);
 
   const dateStats: Partial<Record<CanonicalColumn, { disambiguated: number; ambiguous: number }>> = {};
   const rows: string[][] = records.map((record, index) => {
@@ -279,7 +317,7 @@ export function convertRawCsv(rawContent: string, context: ConvertContext, curat
     headerVariant: variant,
     schemaVersion: NORMALISED_SCHEMA_VERSION,
     recordCount: rows.length,
-    headerLines: [{ line: 1, content: lines[0] }],
+    headerLines,
     ignoredLines,
     dateStats,
     unverifiedDateColumns,

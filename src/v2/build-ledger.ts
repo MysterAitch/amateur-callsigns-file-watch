@@ -3,7 +3,26 @@
 /**
  * Stage 1 of the raw-keyed claim-ledger pipeline (issue #361): emit the
  * canonical claim ledger (JSONL) straight from the RAW published bytes of the
- * register-snapshot entries, and report the corpus scale.
+ * register-snapshot sources, and report the corpus scale.
+ *
+ * SOURCE FAMILIES. The ledger folds over several published-source families, all
+ * emitting through the ONE emit path (emitLedger) once a family resolves to a
+ * SourceObservationSet - the raw rows under the publisher's own headers, with
+ * the callsign/product columns read from that family's AUTHORED converter
+ * binding, never re-guessed. Two register families are covered today:
+ *   - foi-register: the FOI-disclosed register snapshots (archive/foi/**),
+ *     keyed off FOI_ENTRY_CONVERSIONS (foi-normalise.ts).
+ *   - open-data-register: Ofcom's open-data register publications
+ *     (archive/<date>/raw.csv), keyed off the header-variant registry
+ *     (ofcom-amateur/normalise.ts), honouring each entry's curated ignoredLines
+ *     so export footer furniture never becomes a bogus observation.
+ * Adding a family is additive: implement a collect<Family>Sources() that yields
+ * ResolvedLedgerSource values (see collectOpenDataRegisterSources for the
+ * pattern) and add it to collectLedgerSources. The remaining families
+ * (available-pools, attribute-addenda, forbidden lists, statistics) follow the
+ * same shape where they are callsign-row-per-line; a shape that is not (a
+ * statistics aggregate, a PDF-only source) needs a bespoke adapter and does not
+ * ride this path.
  *
  * The inversion #361 proposes makes a CLAIM the atom and every published table
  * a fold over the ledger. This runner is the emit half, keyed - deliberately -
@@ -44,6 +63,9 @@ import { emitLedger, type Claim, type SourceObservationSet } from './claim.ts';
 import { serialiseClaimsJsonl } from './serialise.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, type FoiEntryMeta } from '../shared/foi-archive.ts';
 import { FOI_ENTRY_CONVERSIONS, type FoiSourceConversion } from '../shared/foi-normalise.ts';
+import { listArchiveKeys } from '../shared/archive.ts';
+import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
+import { parseRawRegister, rawColumnForCanonical } from '../sources/ofcom-amateur/normalise.ts';
 import { loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 
 // The dataset class that marks a per-callsign register state at a vintage. Only
@@ -157,7 +179,123 @@ export function loadRegisterSource(foiDir: string, entry: string, meta: FoiEntry
   };
 }
 
+// The two register source families the ledger folds over. Every family loads
+// to a SourceObservationSet and emits through the one emitLedger path; the tag
+// only distinguishes provenance in the corpus summary.
+export type SourceFamily = 'foi-register' | 'open-data-register';
+
+// One published source resolved to everything buildLedger needs: how to load
+// its rows, and a filesystem-safe unique stem for its JSONL. `entry` is the
+// family's natural key (an FOI entry key, or an open-data archive-date key) so
+// an EntrySelector reads the same across families.
+export interface ResolvedLedgerSource {
+  family: SourceFamily;
+  entry: string;
+  jsonlStem: string;
+  load(): SourceObservationSet;
+}
+
+// A filesystem-safe stem, unique per source, for one source's JSONL.
+function jsonlStem(...parts: string[]): string {
+  return parts.join('--').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+// The FOI-register family: every qualifying FOI register entry's callsign-
+// bearing sources, each resolved to a loader that reads the entry's raw bytes.
+export function collectFoiRegisterSources(foiDir: string = defaultFoiDir()): ResolvedLedgerSource[] {
+  const resolved: ResolvedLedgerSource[] = [];
+  for (const { entry, meta } of qualifyingRegisterEntries(foiDir)) {
+    for (const source of registerSourcesFor(meta)) {
+      resolved.push({
+        family: 'foi-register',
+        entry,
+        jsonlStem: jsonlStem(entry, source.conversion.sourceFile),
+        load: () => loadRegisterSource(foiDir, entry, meta, source),
+      });
+    }
+  }
+  return resolved;
+}
+
+// The open-data source key - the ONE converter registered for the open-data
+// lane (ofcom-amateur/normalise.ts). An archive entry declaring another source
+// belongs to a different family and is skipped here.
+const OPEN_DATA_SOURCE_KEY = CONSTANTS.SOURCES.OFCOM_AMATEUR;
+
+// Default open-data lane location: the archive root, where dated register
+// publications live (archive/<date>/), distinct from the FOI lane's
+// archive/foi/. Fixed here as the shared archive helpers anchor it, matching
+// the normalise sweep.
+export function defaultArchiveDir(): string {
+  return CONSTANTS.DIRS.archive;
+}
+
+// Read one open-data archive entry's meta.json synchronously (the async
+// readArchiveMeta would force buildLedger async for no gain), tolerating the
+// normalise-sweep's extra `normalised` block the base ArchiveMeta omits.
+type OpenDataMeta = ArchiveMeta & { normalised?: { headerVariant?: string } };
+
+function readOpenDataMeta(archiveDir: string, key: string): OpenDataMeta {
+  return JSON.parse(fs.readFileSync(path.join(archiveDir, key, 'meta.json'), 'utf8')) as OpenDataMeta;
+}
+
+// Parse one open-data register's RAW bytes into the SourceObservationSet shape,
+// verbatim under Ofcom's OWN headers. The strip-and-parse is LIFTED whole from
+// the authored converter (parseRawRegister): the entry's curated ignoredLines
+// remove export footer furniture before parsing, the header variant is detected
+// from the registry, and the callsign/product columns are read from that
+// variant's authored raw->canonical mapping - so the observations this keys off
+// are exactly the rows the committed normalisation was derived from, and the
+// raw callsign token still travels verbatim (BOM/whitespace artefacts intact).
+export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta: OpenDataMeta): SourceObservationSet {
+  const rawContent = fs.readFileSync(path.join(archiveDir, key, 'raw.csv'), 'utf8');
+  const parsed = parseRawRegister(rawContent, meta.ignoredLines ?? []);
+  const callsignColumn = rawColumnForCanonical(parsed.mapping, 'callsign');
+  if (callsignColumn === undefined) {
+    throw new Error(`archive/${key}: variant "${parsed.variant}" maps no raw header to callsign`);
+  }
+  const productColumn = rawColumnForCanonical(parsed.mapping, 'product');
+  return {
+    // Corpus-unique, self-locating provenance parallel to the FOI lane's
+    // foi/<entry>/<file>.
+    sourceFile: `opendata/${key}/raw.csv`,
+    vintage: meta.ofcomReportedUpdateIso ?? key,
+    columns: parsed.headers,
+    subjectColumn: callsignColumn,
+    rows: parsed.records,
+    categoryColumn: productColumn,
+  };
+}
+
+// The open-data-register family: every archive/<date>/ publication whose
+// source is the ofcom-amateur open-data export, resolved to a loader over its
+// raw bytes. Chronological (listArchiveKeys is date-ordered) for a stable
+// corpus order. A truncated publication (a partial-coverage vintage) is still a
+// register snapshot of the rows it carries and is included - coverage is scope,
+// not shape.
+export function collectOpenDataRegisterSources(archiveDir: string = defaultArchiveDir()): ResolvedLedgerSource[] {
+  const resolved: ResolvedLedgerSource[] = [];
+  for (const key of listArchiveKeys()) {
+    const meta = readOpenDataMeta(archiveDir, key);
+    if (meta.sourceKey !== OPEN_DATA_SOURCE_KEY) continue;
+    resolved.push({
+      family: 'open-data-register',
+      entry: key,
+      jsonlStem: jsonlStem('opendata', key, 'raw.csv'),
+      load: () => loadOpenDataRegisterSource(archiveDir, key, meta),
+    });
+  }
+  return resolved;
+}
+
+// Every register source across all covered families, in a stable order (FOI
+// first, then open-data), ready for the one emit path.
+export function collectLedgerSources(foiDir: string = defaultFoiDir()): ResolvedLedgerSource[] {
+  return [...collectFoiRegisterSources(foiDir), ...collectOpenDataRegisterSources()];
+}
+
 export interface SourceLedgerSummary {
+  family: SourceFamily;
   entry: string;
   sourceFile: string;
   vintage: string;
@@ -170,6 +308,10 @@ export interface LedgerBuildSummary {
   outputDir: string;
   entriesProcessed: number;
   sourcesProcessed: number;
+  // Distinct entries and sources contributed by each family, so the corpus
+  // report shows coverage per source family, not just the total.
+  entriesByFamily: Record<SourceFamily, number>;
+  sourcesByFamily: Record<SourceFamily, number>;
   totalObservations: number;
   totalRawClaims: number;
   totalDerivedClaims: number;
@@ -187,11 +329,7 @@ function tallyLayers(claims: readonly Claim[]): { raw: number; derived: number }
   return { raw, derived };
 }
 
-// A filesystem-safe stem for one source's JSONL, unique per (entry, file).
-function jsonlNameFor(entry: string, conversion: FoiSourceConversion): string {
-  const stem = `${entry}--${conversion.sourceFile}`.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return `${stem}.jsonl`;
-}
+const EMPTY_FAMILY_TALLY: Record<SourceFamily, number> = { 'foi-register': 0, 'open-data-register': 0 };
 
 // Build the register ledger from the RAW bytes and write it as one JSONL file
 // per source into outputDir/ledger/. Claims are serialised and released per
@@ -200,9 +338,11 @@ function jsonlNameFor(entry: string, conversion: FoiSourceConversion): string {
 // same streaming discipline build-sqlite.ts uses for the tiers.
 // An optional entry selector, so a caller can build the ledger for a
 // tractable representative subset of entries rather than the whole corpus. The
-// default (undefined) processes every qualifying entry - the full-corpus build
-// the CLI runs. A downstream artefact build (build-ledger-db) uses this to key
-// off a handful of snapshots without re-implementing the emit path.
+// default (undefined) processes every qualifying source across all families -
+// the full-corpus build the CLI runs. A downstream artefact build
+// (build-ledger-db) uses this to key off a handful of snapshots without
+// re-implementing the emit path; the selector matches an entry's natural key,
+// so a subset naming FOI entry keys naturally excludes the open-data lane.
 export type EntrySelector = (entry: string) => boolean;
 
 export function buildLedger(
@@ -215,36 +355,40 @@ export function buildLedger(
   fs.mkdirSync(ledgerDir, { recursive: true });
 
   const perSource: SourceLedgerSummary[] = [];
-  let entriesProcessed = 0;
+  const entriesSeen: Record<SourceFamily, Set<string>> = { 'foi-register': new Set(), 'open-data-register': new Set() };
 
-  for (const { entry, meta } of qualifyingRegisterEntries(foiDir)) {
-    if (selectEntry !== undefined && !selectEntry(entry)) continue;
-    const sources = registerSourcesFor(meta);
-    if (sources.length === 0) continue;
-    entriesProcessed += 1;
-    for (const source of sources) {
-      const observationSet = loadRegisterSource(foiDir, entry, meta, source);
-      const claims = emitLedger(observationSet, ref);
-      const { raw, derived } = tallyLayers(claims);
-      fs.writeFileSync(path.join(ledgerDir, jsonlNameFor(entry, source.conversion)), serialiseClaimsJsonl(claims));
-      perSource.push({
-        entry,
-        sourceFile: observationSet.sourceFile,
-        vintage: observationSet.vintage,
-        observations: observationSet.rows.length,
-        rawClaims: raw,
-        derivedClaims: derived,
-      });
-    }
+  for (const source of collectLedgerSources(foiDir)) {
+    if (selectEntry !== undefined && !selectEntry(source.entry)) continue;
+    const observationSet = source.load();
+    const claims = emitLedger(observationSet, ref);
+    const { raw, derived } = tallyLayers(claims);
+    fs.writeFileSync(path.join(ledgerDir, `${source.jsonlStem}.jsonl`), serialiseClaimsJsonl(claims));
+    entriesSeen[source.family].add(source.entry);
+    perSource.push({
+      family: source.family,
+      entry: source.entry,
+      sourceFile: observationSet.sourceFile,
+      vintage: observationSet.vintage,
+      observations: observationSet.rows.length,
+      rawClaims: raw,
+      derivedClaims: derived,
+    });
   }
+
+  const entriesByFamily = { ...EMPTY_FAMILY_TALLY };
+  const sourcesByFamily = { ...EMPTY_FAMILY_TALLY };
+  for (const family of Object.keys(entriesSeen) as SourceFamily[]) entriesByFamily[family] = entriesSeen[family].size;
+  for (const s of perSource) sourcesByFamily[s.family] += 1;
 
   const totalObservations = perSource.reduce((sum, s) => sum + s.observations, 0);
   const totalRawClaims = perSource.reduce((sum, s) => sum + s.rawClaims, 0);
   const totalDerivedClaims = perSource.reduce((sum, s) => sum + s.derivedClaims, 0);
   return {
     outputDir: ledgerDir,
-    entriesProcessed,
+    entriesProcessed: entriesByFamily['foi-register'] + entriesByFamily['open-data-register'],
     sourcesProcessed: perSource.length,
+    entriesByFamily,
+    sourcesByFamily,
     totalObservations,
     totalRawClaims,
     totalDerivedClaims,
@@ -259,8 +403,9 @@ if (import.meta.main) {
   const summary = buildLedger(outputDir);
   console.log(`wrote raw-keyed claim ledger to ${summary.outputDir}`);
   console.log(`  entries: ${summary.entriesProcessed}, sources: ${summary.sourcesProcessed}, observations: ${summary.totalObservations}`);
+  console.log(`  by family: foi-register ${summary.entriesByFamily['foi-register']} entries / ${summary.sourcesByFamily['foi-register']} sources, open-data-register ${summary.entriesByFamily['open-data-register']} entries / ${summary.sourcesByFamily['open-data-register']} sources`);
   console.log(`  claims: ${summary.totalClaims} (raw ${summary.totalRawClaims}, derived ${summary.totalDerivedClaims})`);
   for (const s of summary.perSource) {
-    console.log(`  ${s.entry} [${s.vintage}] ${s.observations} obs -> ${s.rawClaims + s.derivedClaims} claims (raw ${s.rawClaims}, derived ${s.derivedClaims})  ${s.sourceFile}`);
+    console.log(`  [${s.family}] ${s.entry} [${s.vintage}] ${s.observations} obs -> ${s.rawClaims + s.derivedClaims} claims (raw ${s.rawClaims}, derived ${s.derivedClaims})  ${s.sourceFile}`);
   }
 }
