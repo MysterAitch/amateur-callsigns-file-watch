@@ -8,14 +8,17 @@ import type { LedgerCollector, LedgerRoots, ResolvedLedgerSource } from './types
 import { foiRegisterCollector } from './foi-register.ts';
 import { openDataRegisterCollector } from './open-data-register.ts';
 import { attributeAddendumCollector } from './attribute-addendum.ts';
+import { availablePoolCollector } from './available-pool.ts';
 
 // Stable order (declaration order): FOI register first, then open-data
-// register, then the attribute addenda - the order buildLedger folds and emits
-// in, so the corpus order and the JSONL bytes are preserved.
+// register, then the attribute addenda, then the available-pool disclosures -
+// the order buildLedger folds and emits in, so the corpus order and the JSONL
+// bytes are preserved.
 export const COLLECTORS: readonly LedgerCollector[] = [
   foiRegisterCollector,
   openDataRegisterCollector,
   attributeAddendumCollector,
+  availablePoolCollector,
 ];
 
 // Every source across all covered families, in the registry's stable order,

@@ -11,6 +11,7 @@ import {
 } from './claim.ts';
 import { projectNormalised } from './project-normalised.ts';
 import { buildLedger } from './build-ledger.ts';
+import { COLLECTORS } from './collectors/index.ts';
 import {
   registerSourcesFor,
   loadRegisterSource,
@@ -352,11 +353,14 @@ describe('corpus scale sanity', () => {
     try {
       const summary = buildLedger(outputDir, FOI_DIR, REF);
 
-      // All three families contribute. Every qualifying FOI register entry
-      // produced at least one source; the open-data-register family adds every
-      // mirrored Ofcom open-data publication; the attribute-addendum family adds
-      // the per-callsign attribute entries the register family excludes - all
-      // additive, the earlier counts intact.
+      // The callsign-subject families contribute their expected counts. Every
+      // qualifying FOI register entry produced at least one source; the
+      // open-data-register family adds every mirrored Ofcom open-data
+      // publication; the attribute-addendum family adds the per-callsign
+      // attribute entries the register family excludes - all additive, the
+      // earlier counts intact. Bespoke non-callsign families (available-pool,
+      // and later forbidden/statistics) add further entries on top, so the
+      // corpus total is a lower bound, not this exact sum.
       const foiEntries = qualifyingRegisterEntries(FOI_DIR).filter(e => registerSourcesFor(e.meta).length > 0).length;
       const openDataSources = collectOpenDataRegisterSources().length;
       const addendumEntries = attributeAddendumEntries(FOI_DIR).filter(e => registerSourcesFor(e.meta).length > 0).length;
@@ -365,16 +369,24 @@ describe('corpus scale sanity', () => {
       expect(summary.entriesByFamily['open-data-register']).toBeGreaterThanOrEqual(OPEN_DATA_ROUND_TRIP_ENTRIES.length);
       expect(summary.entriesByFamily['attribute-addendum']).toBe(addendumEntries);
       expect(summary.entriesByFamily['attribute-addendum']).toBeGreaterThanOrEqual(ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES.length);
-      expect(summary.entriesProcessed).toBe(foiEntries + openDataSources + addendumEntries);
+      expect(summary.entriesProcessed).toBeGreaterThanOrEqual(foiEntries + openDataSources + addendumEntries);
       expect(summary.sourcesProcessed).toBeGreaterThanOrEqual(19 + OPEN_DATA_ROUND_TRIP_ENTRIES.length + ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES.length);
 
+      // The families a source may belong to, and which of them carry the derived
+      // (normalisation/category) layer - derived from the registry, so a newly
+      // registered family is tolerated without editing a literal here.
+      const registeredFamilies = COLLECTORS.map(collector => collector.family);
+      const callsignFamilies = new Set(COLLECTORS.filter(collector => collector.subjectKind === 'callsign').map(collector => collector.family));
+
       // No source is silently empty (an empty source would be a converter/
-      // filter defect); each carries its family tag.
+      // filter defect); each carries its family tag. Callsign-subject families
+      // carry a derived layer; bespoke non-callsign families are raw-only.
       for (const s of summary.perSource) {
         expect(s.observations).toBeGreaterThan(0);
         expect(s.rawClaims).toBeGreaterThan(0);
-        expect(s.derivedClaims).toBeGreaterThan(0);
-        expect(['foi-register', 'open-data-register', 'attribute-addendum']).toContain(s.family);
+        if (callsignFamilies.has(s.family)) expect(s.derivedClaims).toBeGreaterThan(0);
+        else expect(s.derivedClaims).toBe(0);
+        expect(registeredFamilies).toContain(s.family);
       }
 
       // The attribute-addendum family contributes real claims of its own
