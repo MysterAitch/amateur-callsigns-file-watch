@@ -58,10 +58,19 @@ describe('claim-ledger preview page', () => {
 
   it('LedgerPage_ShipsToTheDeployAndGetsTheCanonicalNav', () => {
     const wf = fs.readFileSync(PAGES_WORKFLOW, 'utf8');
-    // The glob copy carries the HTML/JS/CSS to the artefact (guarded broadly by
-    // site-deploy-coverage too); the nav injector must also be handed the new
-    // page, or the deployed copy would carry a stale hand-written nav.
-    expect(wf).toMatch(/cp\b[^\n]*site\/\*\.html\b/);
+    // What actually guarantees the page's assets deploy is the glob copy of
+    // EACH asset kind: the HTML page, the externalised script AND the bespoke
+    // stylesheet (plus the shared webmanifest). Asserting all of them means a
+    // future workflow edit that dropped, say, the *.css glob would fail here
+    // rather than silently shipping ledger.html with no styling. Guarding the
+    // globs (not the filenames) keeps the contract: any later site/*.js or
+    // site/*.css is carried automatically.
+    expect(wf).toMatch(/cp\b[^\n]*\bsite\/\*\.html\b/);
+    expect(wf).toMatch(/cp\b[^\n]*\bsite\/\*\.js\b/);
+    expect(wf).toMatch(/cp\b[^\n]*\bsite\/\*\.css\b/);
+    expect(wf).toMatch(/cp\b[^\n]*\bsite\/\*\.webmanifest\b/);
+    // The nav injector must also be handed the new page, or the deployed copy
+    // would carry a stale hand-written nav.
     expect(wf).toMatch(/build-nav\.ts[^\n]*\b_site\/ledger\.html\b/);
   });
 

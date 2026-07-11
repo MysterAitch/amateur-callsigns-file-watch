@@ -122,6 +122,25 @@ const DATA = {
   dossier: [{"callsign":"M7TEE","category":"1. Baseline UK callsign — full anatomy","note":"M7 Foundation prefix, no RSL, suffix TEE. product=Foundation agrees with prefix-implied class: no mismatch. Clean parse.","reg":{"product":"Amateur Foundation Radio Licence","status":"Allocated","start":"2018-10-18","mod":"2025-10-11"},"parse":{"parseStatus":"parsed","prefixSeries":"M7","rsl":"","suffix":"TEE","placeholderForm":"M#7TEE","homeCallsign":"","impliedClass":"Foundation","flags":[]},"anatomy":{"prefix":{"series":"M7","level":"Foundation","issuing":"currently-issuing","layer":"derived"},"rsl":{"letter":"","region":null,"scope":null,"layer":"derived"},"suffix":{"value":"TEE","ever":false,"firstKnown":null,"churn":false,"disclosures":[{"v":"2016-09","present":false},{"v":"2019-08-12","present":false},{"v":"2019-09-12","present":false},{"v":"2024-12","present":false}],"layer":"derived"},"home":null},"flags":[],"crossSource":[]},{"callsign":"M/EI8DJ","category":"2. Reciprocal/visitor (M/ prefix) with clear foreign home callsign","note":"Temporary Reciprocal, Reserved. Home EI8DJ resolves to Ireland via ITU series EIA-EIZ. NOTE country is site-layer (proposed), not pipeline.","reg":{"product":"Amateur Temporary Reciprocal Radio Licence","status":"Reserved","start":"","mod":""},"parse":{"parseStatus":"visitor","prefixSeries":"","rsl":"","suffix":"","placeholderForm":"M#/EI8DJ","homeCallsign":"EI8DJ","impliedClass":"","flags":[]},"anatomy":{"prefix":null,"rsl":null,"suffix":null,"home":{"callsign":"EI8DJ","country":"Ireland","itu":"EIA - EIZ","layer":"proposed"}},"flags":[],"crossSource":[{"source":"archive/foi/ofcom-498906--reciprocal-licences-since-2010","note":"That FOI lists reciprocal-licence ISSUANCE EVENTS but as UK M0-format callsigns (M0GRT...), NOT M/home visitor strings — so it does not structurally link to M/EI8DJ.","layer":"proposed"}]},{"callsign":"M/#PT2FM","category":"2b. Reserved reciprocal with # RSL-placeholder after slash (hash-in-register)","note":"Home PT2FM -> Brazil. Demonstrates hash-in-register flag + site-layer hash-after-slash canonicalisation (M#/PT2FM).","reg":{"product":"Amateur Temporary Reciprocal Radio Licence","status":"Reserved","start":"","mod":""},"parse":{"parseStatus":"visitor","prefixSeries":"","rsl":"","suffix":"","placeholderForm":"M#/PT2FM","homeCallsign":"PT2FM","impliedClass":"","flags":["hash-in-register"]},"anatomy":{"prefix":null,"rsl":null,"suffix":null,"home":{"callsign":"PT2FM","country":"Brazil (Federative Republic of)","itu":"PTA - PTZ","layer":"proposed"}},"flags":[{"flag":"hash-in-register","gloss":"visitor row carrying a literal `#` immediately after the slash (`M/#PT2FM`).","layer":"derived"}],"crossSource":[]},{"callsign":"M5SHA","category":"3. class-product-mismatch (prefix-implied level != product)","note":"M5 prefix implies Full; product=Amateur Foundation Radio Licence -> class-product-mismatch fires. The documented FOI M5SHA case.","reg":{"product":"Amateur Foundation Radio Licence","status":"Allocated","start":"2021-01-28","mod":"2026-06-08"},"parse":{"parseStatus":"parsed","prefixSeries":"M5","rsl":"","suffix":"SHA","placeholderForm":"M#5SHA","homeCallsign":"","impliedClass":"Full","flags":["class-product-mismatch"]},"anatomy":{"prefix":{"series":"M5","level":"Full","issuing":"currently-issuing","layer":"derived"},"rsl":{"letter":"","region":null,"scope":null,"layer":"derived"},"suffix":{"value":"SHA","ever":false,"firstKnown":null,"churn":false,"disclosures":[{"v":"2016-09","present":false},{"v":"2019-08-12","present":false},{"v":"2019-09-12","present":false},{"v":"2024-12","present":false}],"layer":"derived"},"home":null},"flags":[{"flag":"class-product-mismatch","gloss":"licence class implied by the prefix series disagrees with the `product` column (both known).","layer":"derived"}],"crossSource":[{"source":"FOI 01667041 (Billy, \"Amateur Radio Licence Errors\", 2023-10-02) — docs/source-register.md","note":"Ofcom cites M5SHA as an example of class-product mismatch, stating \"we do not record it in this way\" — official confirmation the mismatch table is information Ofcom does not hold.","layer":"proposed"},{"source":"CAPABILITY ASSESSMENT","note":"M5SHA genuinely appears in FOI CORRESPONDENCE (01667041 disclosure-log PDF; 01403789 refusal) outside any register response body — a real cross-source case.","layer":"proposed"}]},{"callsign":"2E1HON","category":"4. BOTH forbidden-suffix AND forbidden-suffix-issued-after-first-known-list","note":"Suffix HON first-known-forbidden 2016-07-29; original start 2018-05-14 (a month strictly after) -> both flags. Register value carries a trailing space (whitespace flag) and explicit RSL E (rsl-in-register).","reg":{"product":"Amateur Intermediate Radio Licence","status":"Allocated","start":"2018-05-14","mod":"2025-10-11"},"parse":{"parseStatus":"parsed","prefixSeries":"21","rsl":"E","suffix":"HON","placeholderForm":"2#1HON","homeCallsign":"","impliedClass":"Intermediate","flags":["forbidden-suffix","forbidden-suffix-issued-after-first-known-list","rsl-in-register","whitespace"]},"anatomy":{"prefix":{"series":"21","level":"Intermediate","issuing":"formerly-issued","layer":"derived"},"rsl":{"letter":"E","region":"England","scope":"all","layer":"derived"},"suffix":{"value":"HON","ever":true,"firstKnown":"2016-07-29 17:19","churn":false,"disclosures":[{"v":"2016-09","present":true},{"v":"2019-08-12","present":true},{"v":"2019-09-12","present":true},{"v":"2024-12","present":true}],"layer":"derived"},"home":null},"flags":[{"flag":"forbidden-suffix","gloss":"suffix appears in the **ever-forbidden union** — every suffix on ANY forbidden-list disclosure the archive holds (2016 ∪ 2019 ∪ 2024 = **1,466**: the shared 1,465 plus `JIZ`), curated in `forbidden-su","layer":"derived"},{"flag":"forbidden-suffix-issued-after-first-known-list","gloss":"a `forbidden-suffix` row whose original start date falls in a month strictly after **that suffix's own first-known-forbidden month** — a candidate for scrutiny, not a verdict: it *appears* to post-dat","layer":"derived"},{"flag":"rsl-in-register","gloss":"parsed register value carries an explicit RSL — the register stores RSL-less core callsigns by design, so *presence* is the notable case (replaces the earlier `missing-rsl` flag, which marked ~19.5k b","layer":"derived"},{"flag":"whitespace","gloss":"value contains whitespace/invisible characters (removed before parsing)","layer":"derived"}],"crossSource":[]},{"callsign":"G1CFM","category":"4b. BOTH forbidden flags (clean example, no whitespace)","note":"Suffix CFM first-known-forbidden 2016-07-29; original start 2020-09-01 -> both flags. G1 Full agrees with product Full (no mismatch).","reg":{"product":"Amateur Full Radio Licence","status":"Allocated","start":"2020-09-01","mod":"2026-05-15"},"parse":{"parseStatus":"parsed","prefixSeries":"G1","rsl":"","suffix":"CFM","placeholderForm":"G#1CFM","homeCallsign":"","impliedClass":"Full","flags":["forbidden-suffix","forbidden-suffix-issued-after-first-known-list"]},"anatomy":{"prefix":{"series":"G1","level":"Full","issuing":"currently-issuing","layer":"derived"},"rsl":{"letter":"","region":null,"scope":null,"layer":"derived"},"suffix":{"value":"CFM","ever":true,"firstKnown":"2016-07-29 17:19","churn":false,"disclosures":[{"v":"2016-09","present":true},{"v":"2019-08-12","present":true},{"v":"2019-09-12","present":true},{"v":"2024-12","present":true}],"layer":"derived"},"home":null},"flags":[{"flag":"forbidden-suffix","gloss":"suffix appears in the **ever-forbidden union** — every suffix on ANY forbidden-list disclosure the archive holds (2016 ∪ 2019 ∪ 2024 = **1,466**: the shared 1,465 plus `JIZ`), curated in `forbidden-su","layer":"derived"},{"flag":"forbidden-suffix-issued-after-first-known-list","gloss":"a `forbidden-suffix` row whose original start date falls in a month strictly after **that suffix's own first-known-forbidden month** — a candidate for scrutiny, not a verdict: it *appears* to post-dat","layer":"derived"}],"crossSource":[]},{"callsign":"M7QNF","category":"5. Forbidden CHURN — QNF de-listed by 2024 (appearing/disappearing)","note":"QNF on 2016+2019 lists, ABSENT from 2024 export (working theory: artefact). Ever-forbidden union keeps it flagged. Original start 2025-02-07 (after first-known 2016-09) -> issued-after flag too.","reg":{"product":"Amateur Foundation Radio Licence","status":"Allocated","start":"2025-02-07","mod":"2025-10-11"},"parse":{"parseStatus":"parsed","prefixSeries":"M7","rsl":"","suffix":"QNF","placeholderForm":"M#7QNF","homeCallsign":"","impliedClass":"Foundation","flags":["forbidden-suffix","forbidden-suffix-issued-after-first-known-list"]},"anatomy":{"prefix":{"series":"M7","level":"Foundation","issuing":"currently-issuing","layer":"derived"},"rsl":{"letter":"","region":null,"scope":null,"layer":"derived"},"suffix":{"value":"QNF","ever":true,"firstKnown":"2016-09","churn":true,"disclosures":[{"v":"2016-09","present":true},{"v":"2019-08-12","present":true},{"v":"2019-09-12","present":true},{"v":"2024-12","present":false}],"layer":"derived"},"home":null},"flags":[{"flag":"forbidden-suffix","gloss":"suffix appears in the **ever-forbidden union** — every suffix on ANY forbidden-list disclosure the archive holds (2016 ∪ 2019 ∪ 2024 = **1,466**: the shared 1,465 plus `JIZ`), curated in `forbidden-su","layer":"derived"},{"flag":"forbidden-suffix-issued-after-first-known-list","gloss":"a `forbidden-suffix` row whose original start date falls in a month strictly after **that suffix's own first-known-forbidden month** — a candidate for scrutiny, not a verdict: it *appears* to post-dat","layer":"derived"}],"crossSource":[]},{"callsign":"G0JIZ","category":"5b. Forbidden CHURN — JIZ ADDED only in 2024 disclosure","note":"JIZ first appears in the 2024 disclosure, first-known 2020-12-10 (per-suffix LastModifiedDate). G0JIZ original start 1988-04-05 predates first-known -> forbidden-suffix but correctly NO issued-after flag.","reg":{"product":"Amateur Full Radio Licence","status":"Allocated","start":"1988-04-05","mod":"2025-10-11"},"parse":{"parseStatus":"parsed","prefixSeries":"G0","rsl":"","suffix":"JIZ","placeholderForm":"G#0JIZ","homeCallsign":"","impliedClass":"Full","flags":["forbidden-suffix"]},"anatomy":{"prefix":{"series":"G0","level":"Full","issuing":"currently-issuing","layer":"derived"},"rsl":{"letter":"","region":null,"scope":null,"layer":"derived"},"suffix":{"value":"JIZ","ever":true,"firstKnown":"2020-12-10 09:10","churn":true,"disclosures":[{"v":"2016-09","present":false},{"v":"2019-08-12","present":false},{"v":"2019-09-12","present":false},{"v":"2024-12","present":true}],"layer":"derived"},"home":null},"flags":[{"flag":"forbidden-suffix","gloss":"suffix appears in the **ever-forbidden union** — every suffix on ANY forbidden-list disclosure the archive holds (2016 ∪ 2019 ∪ 2024 = **1,466**: the shared 1,465 plus `JIZ`), curated in `forbidden-su","layer":"derived"}],"crossSource":[]}]
 };
 const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
+// A bold <b> node carrying safe text. All DATA-derived output is built as DOM
+// nodes with textContent (never innerHTML), so a raw '<' or '&' - which real
+// register data does carry - can never be interpreted as markup. This mirrors
+// the el() helper in site/app.js and keeps the page safe once it queries the
+// live database.
+const b = txt => el("b", null, String(txt));
+// Render a raw token that may contain the {NBSP}/{SP} placeholder markers,
+// appending each marker as a visible span and everything else as text nodes.
+const appendMarked = (parent, str) => {
+  const re = /\{NBSP\}|\{SP\}/g;
+  let last = 0, m;
+  while ((m = re.exec(str)) !== null) {
+    if (m.index > last) parent.append(str.slice(last, m.index));
+    parent.append(el("span", "nbsp", m[0] === "{NBSP}" ? "\u2423\u1d3a\u1d2e" : "\u2423"));
+    last = re.lastIndex;
+  }
+  if (last < str.length) parent.append(str.slice(last));
+  return parent;
+};
 const isActive = s => s === "Allocated";
 const showRaw = t => t.replace(/\u00a0/g, "[NBSP]").replace(/ /g, "[SP]");
 const showNbsp = s => s.replace(/\u00a0/g, "[NBSP]");
@@ -168,15 +187,15 @@ function fold(cs) {
 }
 
 function renderEntity(cs) {
-  const host = document.getElementById("entity"); host.innerHTML = "";
+  const host = document.getElementById("entity"); host.textContent = "";
   const f = fold(cs);
   const card = el("div", "entity");
   const head = el("div", "entity-head");
   head.appendChild(el("div", "id", cs));
   const s1 = el("div", "stat");
-  s1.innerHTML = `<b>${f.snaps}</b> observations · <b>${f.vints.length}</b> vintages` +
-    (f.variants.size > 1 ? ` · <b>${f.variants.size}</b> raw variants` : "") +
-    (f.admin ? ` · <b>${f.admin}</b> admin updates` : "");
+  s1.append(b(f.snaps), " observations · ", b(f.vints.length), " vintages");
+  if (f.variants.size > 1) s1.append(" · ", b(f.variants.size), " raw variants");
+  if (f.admin) s1.append(" · ", b(f.admin), " admin updates");
   head.appendChild(s1);
   const verdict = el("div", "verdict " + (f.changes ? "moved" : "flat"),
     f.changes ? `${f.changes} real change${f.changes>1?"s":""}` : "no real change");
@@ -224,15 +243,29 @@ function renderAnatomy() {
     top.appendChild(el("span", "obs-mini", damaged ? "trailing NBSP" : "clean"));
     box.appendChild(top);
     const kv = el("div", "kv");
-    const rawVal = damaged ? `G0TQK<span class="nbsp">␠</span>` : "G0TQK";
-    kv.innerHTML = `<span class="k">Value</span><span class="v">${rawVal}</span>
-      <span class="k">bytes</span><span class="v"><span class="bytes">${o.bytes}</span></span>
-      <span class="k">Status</span><span class="v">${o.status}</span>
-      <span class="k">Type</span><span class="v">${o.type}</span>`;
+    const valNode = el("span", "v");
+    valNode.append("G0TQK");
+    if (damaged) valNode.append(el("span", "nbsp", "␠"));
+    const bytesNode = el("span", "v");
+    bytesNode.append(el("span", "bytes", o.bytes));
+    kv.append(
+      el("span", "k", "Value"), valNode,
+      el("span", "k", "bytes"), bytesNode,
+      el("span", "k", "Status"), el("span", "v", o.status),
+      el("span", "k", "Type"), el("span", "v", o.type),
+    );
     box.appendChild(kv);
     const edge = el("div", "edge");
-    edge.innerHTML = `<span class="badge derived">derived</span> &nbsp;“${showNbsp(o.raw)}” <span class="rel">normalises_to</span> G0TQK<br>
-      <span style="color:var(--muted)">rule:</span> ${o.rule}`;
+    const ruleLabel = el("span", null, "rule:");
+    ruleLabel.style.color = "var(--muted)";
+    edge.append(
+      el("span", "badge derived", "derived"),
+      "  “", showNbsp(o.raw), "” ",
+      el("span", "rel", "normalises_to"),
+      " G0TQK",
+      el("br"),
+      ruleLabel, " ", o.rule,
+    );
     box.appendChild(edge);
     host.appendChild(box);
   }
@@ -242,31 +275,40 @@ function renderAnatomy() {
 function renderCensus() {
   const tb = document.querySelector("#census tbody");
   for (const r of DATA.census) {
-    const tr = el("tr"); tr.dataset.canon = r.canon; tr.tabIndex = 0; tr.style.cursor = "pointer";
-    tr.innerHTML = `<td><span class="cn">${r.canon}</span></td><td class="n">${r.count.toLocaleString()}</td>`;
-    tr.addEventListener("click", () => selectClass(r.canon));
-    tr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectClass(r.canon); } });
+    const tr = el("tr"); tr.dataset.canon = r.canon;
+    // The canonical type is a real <button>, not a tabindexed row: it is a
+    // legitimate keyboard/AT control (native Enter/Space, button role), while
+    // the .sel row highlight below is kept purely as the visual affordance.
+    const nameCell = el("td");
+    const btn = el("button", "cn-btn", r.canon);
+    btn.type = "button";
+    btn.dataset.canon = r.canon;
+    btn.setAttribute("aria-pressed", "false");
+    btn.addEventListener("click", () => selectClass(r.canon));
+    nameCell.appendChild(btn);
+    tr.append(nameCell, el("td", "n", r.count.toLocaleString()));
     tb.appendChild(tr);
   }
 }
 function selectClass(canon) {
   for (const tr of document.querySelectorAll("#census tbody tr")) tr.classList.toggle("sel", tr.dataset.canon === canon);
-  const host = document.getElementById("spellings"); host.innerHTML = "";
+  for (const btn of document.querySelectorAll("#census .cn-btn")) btn.setAttribute("aria-pressed", String(btn.dataset.canon === canon));
+  const host = document.getElementById("spellings"); host.textContent = "";
   const raws = DATA.spellings[canon] || [];
-  const lab = el("div", "lab"); lab.innerHTML = `<b>${raws.length}</b> raw spelling${raws.length>1?"s":""} unify to one canonical type:`;
+  const lab = el("div", "lab");
+  lab.append(b(raws.length), ` raw spelling${raws.length > 1 ? "s" : ""} unify to one canonical type:`);
   host.appendChild(lab);
   const line = el("div", "raws");
-  raws.forEach((r, i) => { line.appendChild(el("span", "rawpill", r)); });
+  raws.forEach((r) => { line.appendChild(el("span", "rawpill", r)); });
   line.appendChild(el("span", "arrow-to", "→"));
   line.appendChild(el("span", "canonpill", canon));
   host.appendChild(line);
   const s = DATA.samples[canon];
-  if (s) { const sm = el("div", "samples"); sm.innerHTML = `<b>${canon}</b> in the latest snapshot includes: ` + s.join("  ·  "); host.appendChild(sm); }
+  if (s) { const sm = el("div", "samples"); sm.append(b(canon), " in the latest snapshot includes: ", s.join("  ·  ")); host.appendChild(sm); }
   else if (canon === "Special Research Permit") { const sm = el("div", "samples"); sm.textContent = "A single observation in the entire archive — the rarest type on record."; host.appendChild(sm); }
 }
 
 // ---- Normalisation: cleaning + regional --------------------------------------
-const showMarks = str => str.replace(/{NBSP}/g, '<span class="nbsp">␣ᴺᴮ</span>').replace(/{SP}/g, '<span class="nbsp">␣</span>');
 function renderCleaning() {
   const c = DATA.cleaning;
   document.getElementById("clean-rule").textContent = c.rule;
@@ -275,14 +317,19 @@ function renderCleaning() {
   const cats = document.getElementById("clean-cats");
   for (const k of c.categories) { const chip = el("span", "rawpill");
     chip.style.background = "var(--surface-2)"; chip.style.color = "var(--muted)";
-    chip.innerHTML = k.cat + ' <b style="color:var(--ink)">' + k.n + '</b>'; cats.appendChild(chip); }
+    const n = b(k.n); n.style.color = "var(--ink)";
+    chip.append(k.cat, " ", n); cats.appendChild(chip); }
   const tb = document.querySelector("#cleaning tbody");
   for (const e of c.examples) {
     const tr = el("tr");
     const isRsl = e.cat === "RSL";
-    tr.innerHTML = '<td>' + showMarks(e.raw) + '</td><td style="color:var(--steady)">' + e.cleaned + '</td>' +
-      '<td style="color:' + (isRsl ? 'var(--signal)' : 'var(--muted)') + '">' + e.cat + '</td>' +
-      '<td style="white-space:normal; color:var(--muted); font-family:var(--sans); font-size:12.5px">' + e.note + '</td>';
+    const tdRaw = appendMarked(el("td"), e.raw);
+    const tdCleaned = el("td", null, e.cleaned); tdCleaned.style.color = "var(--steady)";
+    const tdCat = el("td", null, e.cat); tdCat.style.color = isRsl ? "var(--signal)" : "var(--muted)";
+    const tdNote = el("td", null, e.note);
+    tdNote.style.whiteSpace = "normal"; tdNote.style.color = "var(--muted)";
+    tdNote.style.fontFamily = "var(--sans)"; tdNote.style.fontSize = "12.5px";
+    tr.append(tdRaw, tdCleaned, tdCat, tdNote);
     tb.appendChild(tr);
   }
 }
@@ -292,10 +339,12 @@ function renderRegional() {
   document.getElementById("reg-key").textContent = r.placeholder;
   const host = document.getElementById("regional");
   const core = el("span", "rawpill"); core.style.background = "var(--signal-soft)"; core.style.color = "var(--signal)";
-  core.innerHTML = r.core + ' <span style="opacity:.7">core</span>'; host.appendChild(core);
+  const coreLbl = el("span", null, "core"); coreLbl.style.opacity = ".7";
+  core.append(r.core, " ", coreLbl); host.appendChild(core);
   for (const [rend, region] of r.renderings) {
     const pill = el("span", "rawpill");
-    pill.innerHTML = rend + ' <span style="opacity:.7">' + region + '</span>';
+    const regionLbl = el("span", null, region); regionLbl.style.opacity = ".7";
+    pill.append(rend, " ", regionLbl);
     host.appendChild(pill);
   }
 }
@@ -303,13 +352,14 @@ function renderRegional() {
 
 function renderDossier(cs) {
   const d = DATA.dossier.find(x => x.callsign === cs);
-  const host = document.getElementById("dossier"); host.innerHTML = "";
+  const host = document.getElementById("dossier"); host.textContent = "";
   if (!d) return;
   const card = el("div", "entity");
   const head = el("div", "entity-head");
   head.appendChild(el("div", "id", d.callsign));
   const st = el("div", "stat");
-  st.innerHTML = "<b>" + d.reg.status + "</b> · " + d.reg.product + (d.reg.start ? " · issued " + d.reg.start : "");
+  st.append(b(d.reg.status), " · ", d.reg.product);
+  if (d.reg.start) st.append(" · issued " + d.reg.start);
   head.appendChild(st);
   card.appendChild(head);
   const body = el("div"); body.style.padding = "16px 18px";
@@ -317,22 +367,29 @@ function renderDossier(cs) {
 
   const badge = layer => { const b = el("span", "tb " + (layer === "derived" ? "d" : "p")); b.textContent = layer; return b; };
   const section = (title) => { const s = el("div", "dsec"); s.appendChild(el("h4", null, title)); return s; };
-  const row = (lab, valNode, layer) => { const r = el("div", "drow");
+  // parts is a node or an array of strings (safe text) and nodes, appended in
+  // order - never an HTML string, so DATA values can carry '<' or '&' safely.
+  const row = (lab, parts, layer) => { const r = el("div", "drow");
     r.appendChild(el("span", "lab", lab)); const v = el("span", "val");
-    if (typeof valNode === "string") v.innerHTML = valNode; else v.appendChild(valNode);
+    for (const p of (Array.isArray(parts) ? parts : [parts])) v.append(p);
     r.appendChild(v); if (layer) r.appendChild(badge(layer)); return r; };
 
   const a = d.anatomy;
   const anat = section("anatomy of the parts");
-  if (a.prefix) anat.appendChild(row("prefix", "<b>" + a.prefix.series + "</b> — " + a.prefix.level + " licence level (" + a.prefix.issuing + ")", a.prefix.layer));
-  if (a.rsl && a.rsl.letter) anat.appendChild(row("RSL", "<b>" + a.rsl.letter + "</b> → " + a.rsl.region + " (" + a.rsl.scope + ")", a.rsl.layer));
+  if (a.prefix) anat.appendChild(row("prefix", [b(a.prefix.series), " — " + a.prefix.level + " licence level (" + a.prefix.issuing + ")"], a.prefix.layer));
+  if (a.rsl && a.rsl.letter) anat.appendChild(row("RSL", [b(a.rsl.letter), " → " + a.rsl.region + " (" + a.rsl.scope + ")"], a.rsl.layer));
   else if (a.rsl) anat.appendChild(row("RSL", "none — register stores the RSL-less core by design", a.rsl.layer));
-  if (a.home) anat.appendChild(row("home", "<b>" + a.home.callsign + "</b> → " + a.home.country + " <span style='color:var(--faint)'>(ITU " + a.home.itu + ")</span>", a.home.layer));
+  if (a.home) {
+    const itu = el("span", null, "(ITU " + a.home.itu + ")"); itu.style.color = "var(--faint)";
+    anat.appendChild(row("home", [b(a.home.callsign), " → " + a.home.country + " ", itu], a.home.layer));
+  }
   if (a.suffix) {
     const churn = el("span", "churn");
     for (const p of a.suffix.disclosures) { const c = el("span", "cdot " + (p.present ? "on" : "off")); c.textContent = p.v + (p.present ? " on" : " off"); churn.appendChild(c); }
     const wrap = el("span");
-    wrap.innerHTML = "<b>" + a.suffix.value + "</b> — " + (a.suffix.ever ? "on the ever-forbidden union" + (a.suffix.firstKnown ? " (first known " + a.suffix.firstKnown + ")" : "") : "never forbidden") + (a.suffix.churn ? " · <span style='color:var(--change)'>churn</span>" : "") + "<br>";
+    wrap.append(b(a.suffix.value), " — ", a.suffix.ever ? "on the ever-forbidden union" + (a.suffix.firstKnown ? " (first known " + a.suffix.firstKnown + ")" : "") : "never forbidden");
+    if (a.suffix.churn) { const ch = el("span", null, "churn"); ch.style.color = "var(--change)"; wrap.append(" · ", ch); }
+    wrap.append(el("br"));
     wrap.appendChild(churn);
     anat.appendChild(row("suffix", wrap, a.suffix.layer));
   }

@@ -170,6 +170,13 @@
 .ledger .census td.n { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
 .ledger .census tr.sel td { background: var(--signal-soft); }
 .ledger .census td .cn { font-weight: 600; }
+/* The canonical-type cell is a real button (keyboard/AT control) styled to read
+   as the plain bold label it replaced; the row's .sel tint remains the visual
+   selection cue, and focus-visible gives keyboard users a clear ring. */
+.ledger .census td .cn-btn { font: inherit; font-weight: 600; color: var(--ink); background: none;
+  border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left; }
+.ledger .census td .cn-btn:hover { color: var(--signal); }
+.ledger .census td .cn-btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .ledger .spellings { margin-top: 14px; }
 .ledger .spellings .lab { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
 .ledger .spellings .raws { display: flex; flex-wrap: wrap; gap: 6px; }
