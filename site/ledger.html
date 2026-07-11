@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>Ledger — UK amateur callsign data mirror</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- The claim-ledger page keeps its own bespoke visual language; those styles
+       are scoped under .ledger in ledger.css so they never collide with the
+       shared tokens/style that back the nav and skip link. -->
+  <link rel="stylesheet" href="ledger.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#14506e">
+  <script src="debug.js"></script>
+  <!-- sql.js-httpvfs (UMD) attaches createDbWorker to window; the ledger query
+       module reads it. Vendored at deploy time from the npm-audited package -
+       no CDN scripts. Mirrors index.html's loader. -->
+  <script src="vendor/index.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
+  <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <strong>Ledger</strong> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch" target="_blank" rel="noopener">Repository <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></p></nav>
+  <!-- nav:end -->
+
+  <main id="main" class="ledger">
+    <header>
+      <div class="head-inner">
+        <div class="eyebrow">UK amateur-radio register · provenance-first model</div>
+        <h1>Every fact traced to the byte that asserted it</h1>
+        <p class="lede">The register isn't a spreadsheet — it's a stack of snapshots, published in a dozen
+          shapes, each disagreeing with the next. This page keeps every raw observation exactly as Ofcom
+          published it, makes each normalisation an explicit, reversible step, and lets the timeline fall out
+          as a fold. Everything below is a <b>live query</b> against the raw-keyed claim ledger.</p>
+        <div class="held"><b>Live</b> · queried in your browser from the raw-keyed claim-ledger database
+          (<a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/361">issue&nbsp;#361</a>)
+          over range requests — no whole-file download</div>
+
+        <div class="pipe">
+          <div class="node raw"><div class="k">1 · observation</div><div class="v">raw token, verbatim</div>
+            <small>keyed by (source file, row). The absolute source of truth.</small></div>
+          <div class="arrow">→</div>
+          <div class="node der"><div class="k">2 · normalises_to</div><div class="v">a named rule</div>
+            <small>an edge carrying the rule. Reversible, auditable.</small></div>
+          <div class="arrow">→</div>
+          <div class="node ent"><div class="k">3 · entity</div><div class="v">what you query</div>
+            <small>a fold over every observation that resolves here.</small></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+      <section class="panel">
+        <div class="eyebrow">resolve a callsign</div>
+        <h2>Ask the ledger about one callsign</h2>
+        <p class="panel-sub">Type a callsign (or pick a sample). It is cleaned and matched against the ledger's
+          <span class="mono">cleaned</span> index to find the entity; a regional rendering resolves via the
+          placeholder key. You get the entity you would search for, every observation that resolves to it, its
+          layer anatomy, and the timeline — nothing is hidden: a callsign whose only observation is an
+          abnormally-formatted token keeps that abnormality flagged rather than presented as a clean name.</p>
+
+        <form id="lookup-form" role="search">
+          <label for="callsign-input" class="visually-hidden">Callsign</label>
+          <div class="chips" style="align-items:center">
+            <input id="callsign-input" type="text" inputmode="latin" autocomplete="off" spellcheck="false"
+                   placeholder="e.g. G0TQK" aria-label="Callsign to look up"
+                   style="font-family:var(--mono);font-size:14px;padding:8px 12px;border-radius:10px;border:1px solid var(--hair);background:var(--surface-2);color:var(--ink);min-width:160px">
+            <button class="chip" type="submit" aria-label="Look up this callsign">Look up</button>
+          </div>
+        </form>
+
+        <p class="panel-sub" style="margin:14px 0 6px">Samples present in the shipped subset:</p>
+        <div class="chips" id="resolver" role="group" aria-label="Choose a sample callsign">
+          <button class="chip" type="button" data-cs="G0TQK" aria-pressed="true">G0TQK</button>
+          <button class="chip" type="button" data-cs="M7TEE">M7TEE</button>
+          <button class="chip" type="button" data-cs="21CZS">21CZS</button>
+        </div>
+        <p class="obs-mini" id="lookup-status" role="status" aria-live="polite" style="margin:12px 4px 0"></p>
+        <div id="miss"></div>
+        <div id="entity"></div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--raw)"></i>first sighting</span>
+          <span><i class="dot" style="background:var(--change)"></i>licence-state change</span>
+          <span><i class="dot" style="background:var(--derived)"></i>raw variant</span>
+          <span><i class="dot" style="background:var(--faint)"></i>parallel (de-emphasised)</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="eyebrow">layer anatomy</div>
+        <h2>Why keying off the raw bytes recovers what the tidy file loses</h2>
+        <p class="panel-sub">Each distinct raw token this entity was published under, shown with its bytes and
+          the <span class="mono">normalises_to</span> edges the ledger derived from it (raw → cleaned →
+          entity, each carrying its named rule). Where two tokens differ only in invisible characters — a
+          trailing space, a non-breaking space — the current normalised CSV shows both as the same clean form,
+          so you can no longer tell which was damaged. The ledger keeps the raw token, the rule and the
+          attributes together, so nothing is quietly lost.</p>
+        <div class="layers" id="anatomy"></div>
+        <div class="callout">Every observation is real. The entity view shows them all, with provenance — it
+          never silently picks a winner. That is the join key obeying transparency-first.</div>
+      </section>
+
+      <section class="panel">
+        <div class="eyebrow">callsign dossier</div>
+        <h2>The full background for one callsign</h2>
+        <p class="panel-sub">What the ledger asserts for the resolved entity, plus derived notable observations
+          — each computed from the claims themselves, not hard-coded. A <span class="tb d">derived</span>
+          observation is produced from the query result today; cross-source links (FOI correspondence, ITU
+          home-country resolution) are a later sub-stage and are noted, not shown.</p>
+        <div id="dossier"></div>
+      </section>
+
+      <section class="panel">
+        <div class="eyebrow">coming next</div>
+        <h2>What this view does not yet show</h2>
+        <p class="panel-sub">Stage 3a proves one real page serving live data end-to-end (raw bytes → claims →
+          SQLite → in-browser query). Deliberately out of scope here, and arriving in later sub-stages:</p>
+        <ul class="panel-sub" style="margin-top:0">
+          <li>the both-engines <b>playground</b> (SQLite beside DuckDB/Parquet) and hand-written SQL;</li>
+          <li>the vocabulary and normalisation demonstrations (licence-type census, the cleaning catalogue,
+            the regional-renderings walk-through);</li>
+          <li><b>cross-source links</b> — FOI correspondence and ITU home-country resolution — which are not
+            yet available in the claim ledger;</li>
+          <li>the offline (PWA) opt-in download of the claim-ledger database.</li>
+        </ul>
+        <div class="callout" style="border-color:var(--change)">The shipped database is a <b>representative
+          subset</b> (two register snapshots at distinct vintages), enough to prove the pipeline end-to-end.
+          Most callsigns are therefore absent — a bound of the sample, not the model. The full corpus is a
+          later step.</div>
+      </section>
+
+      <footer>
+        <div class="mono" style="font-size:12px; letter-spacing:.04em; color:var(--faint)">
+          amateur-callsigns-file-watch · raw-keyed claim ledger (issue #361, Stage 3a) · live in-browser query over a representative subset</div>
+        <p style="margin:10px 0 0; max-width:66ch">Values shown are declared by the sources, not independently
+          verified; the model keeps them honest and traceable, it does not assert they are true. Cross-source
+          links are not yet available — this is the raw-keyed claim ledger on its own.</p>
+      </footer>
+    </div>
+  </main>
+
+  <!-- Offline-first (ADR 0008): register the service worker so the static shell
+       is cached and the page loads offline. The claim-ledger database itself is
+       not cached (the offline opt-in for it is a later sub-stage). -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
+  <script type="module" src="ledger.js"></script>
+</body>
+</html>
