@@ -154,7 +154,8 @@ describe('Forbidden-suffix section — cross-cutting', () => {
     for (const rel of [['forbidden', 'index.html'], ['forbidden', D2024, 'index.html']]) {
       const html = read(...rel);
       expect(html).toContain('<a class="skip" href="#main">Skip to content</a>');
-      expect(html).toContain('<main id="main">');
+      // Class-tolerant: the landmark now carries the ledger class (issue #394).
+      expect(html).toMatch(/<main id="main"[^>]*>/);
       expect(html).toContain('</main>');
     }
   });
@@ -281,7 +282,8 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', () =>
   it('SuffixPage_Accessibility_CarriesSkipLinkMainAndScopedHeaders', () => {
     const page = read('forbidden', 'suffix', 'QNF', 'index.html');
     expect(page).toContain('<a class="skip" href="#main">Skip to content</a>');
-    expect(page).toContain('<main id="main">');
+    // Class-tolerant: the landmark now carries the ledger class (issue #394).
+    expect(page).toMatch(/<main id="main"[^>]*>/);
     expect(page).toContain('</main>');
     // Data tables carry scoped column headers.
     expect(page).toContain('<th scope="col">callsign</th>');

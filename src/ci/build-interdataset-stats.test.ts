@@ -144,7 +144,9 @@ describe('Inter-dataset statistics — static, discoverable, accessible', () => 
   it('Page_Accessibility_CarriesSkipLinkMainLandmarkAndScopedHeaders', () => {
     const page = read();
     expect(page).toContain('<a class="skip" href="#main">Skip to content</a>');
-    expect(page).toContain('<main id="main">');
+    // The inter-dataset page shares the generated page shell, so its landmark
+    // now carries the ledger visual-language class (issue #394); match by id.
+    expect(page).toMatch(/<main id="main"[^>]*>/);
     expect(page).toContain('</main>');
     expect(page).toContain('<th scope="col">');
   });

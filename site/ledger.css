@@ -333,6 +333,38 @@
   --warn: var(--signal);
 }
 
+/* ---------------------------------------------------------------------------
+   Generated-page token bridge (issue #394). The generated pages (the dataset
+   index and entry pages, the class, series, forbidden-suffix, report and
+   inter-dataset sections) keep their own inline layout - the card grids,
+   sidebars, breakdown bars, download slots, distribution charts and the scoped
+   data browser rendered by src/ci/site-render.ts - but link this stylesheet and
+   wrap their content in `.ledger`, so the shared palette, header/panel chrome
+   and census tables apply. Those inline shells consume a few extra palette
+   tokens beyond the four bridged above; mapping them to the ledger palette here
+   re-tints every generated surface with no specificity contest, the same
+   technique the tool-page bridge uses for style.css.
+
+   Additive custom properties only: the hand-authored pages neither define nor
+   consume any of these inside `.ledger` (their control styling is bridged via
+   --accent/--line/--slot/--warn above, and ledger.css itself uses the
+   --surface/--signal/--change names directly), so their appearance is
+   unchanged. Real error reds keep their own hard-coded values in the shells, so
+   nothing alarming is softened. --paper is deliberately not bridged: the
+   generated body backdrop stays the site paper, with ledger panels floating on
+   it, exactly as on the hand-authored pages. */
+.ledger {
+  --card: var(--surface);
+  --code: var(--surface-2);
+  --note: var(--surface-2);
+  --bar: var(--hair);
+  --good: var(--steady);
+  --marker: var(--change);
+  --warnbg: var(--signal-soft);
+  --warnline: var(--signal);
+  --warnink: var(--signal);
+}
+
 /* The query and callsign fields are the signature input surfaces: give them the
    ledger's inset panel fill rather than the transparent default. */
 .ledger #sql-input, .ledger #pred-input, .ledger #callsign { background: var(--surface-2); }
