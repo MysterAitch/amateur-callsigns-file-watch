@@ -460,6 +460,42 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
     },
   ],
 
+  // ofcom-2016-09-20 (UK Government Web Archive capture of an Ofcom __data
+  // asset, id 90397): the EARLIEST register snapshot held, and the oldest and
+  // sparsest export shape in the archive - a single worksheet of just two
+  // columns, 'Call Sign' and 'Status'. No licence class, no dates, no
+  // prefix/suffix decomposition; licence_class is emitted empty to keep the
+  // callsign-observation core stable (as in ofcom-2017-07-13 and
+  // ofcom-01420046). The Status vocabulary is unusually rich for a register
+  // snapshot - Allocated/Reserved/Available/Quarantine and, distinctively,
+  // Forbidden: this file folds the forbidden values straight into the callsign
+  // column (5,431 rows, mostly 20-series intermediate callsigns built on
+  // withheld suffixes plus one bare three-letter suffix), rather than isolating
+  // them in a separate forbidden-suffix sheet the way the sibling WDTK
+  // disclosure does. Carried verbatim as status='Forbidden' observations - the
+  // source's own single-column structure, not reshaped. The callsign+status
+  // content is byte-for-byte the same 139,758-row register as
+  // wdtk-356636's sheet 1 (same 2016-09-20 export lineage), minus that
+  // workbook's SF-List licence-class column and its separate forbidden sheet.
+  // No date columns, so no reference bound. Vintage is PROVEN by the workbook's
+  // own docProps (created and modified 2016-09-20), not merely declared.
+  'ofcom-2016-09-20-register': [
+    {
+      sourceFile: 'raw-extract-sheet-1-sheet1.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Call Sign', output: 'callsign', kind: 'verbatim' },
+        { source: 'Status', output: 'status', kind: 'verbatim' },
+        // No licence class is disclosed; emitted empty to keep the
+        // callsign-observation core schema stable.
+        { source: null, output: 'licence_class', kind: 'verbatim' },
+      ],
+      ignoredColumns: [],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'source rows arrive grouped (intermediate 20-series first, forbidden values last) but carry no globally meaningful order (13 duplicate callsigns, not callsign-sorted); sorted by callsign for diffability and cross-snapshot comparability',
+    },
+  ],
+
   // ofcom-2017-07-13 (Ofcom web-link CSV, "FOI Request 13 Jul 17"): a full
   // register snapshot in the oldest CSV header shape held (Value, Prefix,
   // Suffix, Type, Status), predating all three known open-data variants. The
@@ -651,6 +687,50 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       createdDateHeader: 'CreatedDate',
       referenceDateIso: '2025-03-13',
     }),
+  ],
+
+  // ofcom-2025-09-11 (Ofcom FOI disclosure log, published October 2025 as
+  // 'callsigns-spreadsheet-october-2025.xlsx'): a full register snapshot in a
+  // sixth, Salesforce-flavoured workbook shape. Its column headers carry the
+  // source system's own object/field names - 'Callsign', 'Product__c',
+  // 'Status', 'Type', 'Licence LastModifiedDate' and
+  // 'Licence Original_start_date__c' - unlike any earlier export, so it binds
+  // its own variant (columns are matched by exact name). Product__c is the
+  // licence product/class carried verbatim; Type is 'Call Sign - Amateur' on
+  // every row (the service discriminator, required-present not carried). Both
+  // dates arrive typed in the workbook and are rendered ISO by the mechanical
+  // extract (iso-date, as in the 2021 annexes) rather than day-first CSV
+  // strings. The last-modified timestamp never postdates the snapshot and the
+  // original-start (issue) date never postdates it either, so both are bounded
+  // by referenceDateIso. The vintage is 2025-09-11 - the worksheet name
+  // ('Amateur Callsgn 11092025') and the data's maximum date agree - NOT the
+  // 'october-2025' of the published filename, which is the export/publication
+  // month (docProps created 2025-10-07); the filing-vs-vintage caveat lives in
+  // the entry meta.
+  'ofcom-2025-09-11-register': [
+    {
+      sourceFile: 'raw-extract-sheet-1-amateur-callsgn-11092025.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Callsign', output: 'callsign', kind: 'verbatim' },
+        { source: 'Status', output: 'status', kind: 'verbatim' },
+        // The source's own Product vocabulary ('Amateur Full Radio Licence'
+        // etc.), carried verbatim, never canonicalised; blank where the source
+        // asserts no product (the reserved/available pool).
+        { source: 'Product__c', output: 'licence_class', kind: 'verbatim' },
+        // A record last-modified timestamp; cannot postdate the snapshot.
+        { source: 'Licence LastModifiedDate', output: 'last_modified_date', kind: 'iso-date' },
+        // The licence's original start (issue) date; cannot postdate the
+        // snapshot (the 1903-05-03 migration-placeholder floor recurs here).
+        { source: 'Licence Original_start_date__c', output: 'original_start_date', kind: 'iso-date' },
+      ],
+      // 'Type' is 'Call Sign - Amateur' on every row - the product/service
+      // discriminator recorded in meta.json, not a per-row assertion.
+      ignoredColumns: ['Type'],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability',
+      referenceDateIso: '2025-09-11',
+    },
   ],
 };
 

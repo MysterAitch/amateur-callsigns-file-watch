@@ -673,6 +673,129 @@ describe('FOI CSV normaliser - 2021 dated register annexes', () => {
   });
 });
 
+describe('FOI CSV normaliser - 2016-09-20 two-column database (earliest snapshot)', () => {
+  // The oldest and sparsest export held: a single worksheet of just Call Sign
+  // and Status, with the forbidden values folded straight into the callsign
+  // column rather than isolated in a separate suffix sheet.
+  const register2016 = conversionFor('ofcom-2016-09-20-register', 'raw-extract-sheet-1-sheet1.csv');
+
+  function utf8Lf(lines: string[]): Buffer {
+    return Buffer.from(lines.join('\n') + '\n', 'utf8');
+  }
+
+  it('FoiNormaliser_TwoColumnDatabaseRows_MapToObservationSchemaWithEmptyClassSortedByCallsign', () => {
+    const input = utf8Lf([
+      'Call Sign,Status',
+      'M0ABC,Allocated',
+      '20AAA,Reserved',
+      'G5XYZ,Available',
+    ]);
+    const result = convertFoiSource(input, register2016);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class\n' +
+      '20AAA,Reserved,\n' +
+      'G5XYZ,Available,\n' +
+      'M0ABC,Allocated,\n');
+    expect(result.recordCount).toBe(3);
+  });
+
+  it('FoiNormaliser_ForbiddenValuesFoldedIntoCallsignColumn_PreservedVerbatimAsObservations', () => {
+    // The distinctive 2016 anomaly: forbidden values live in the callsign
+    // column (full callsign-shaped 20-series plus a bare three-letter suffix),
+    // carried verbatim as status=Forbidden observations, never reshaped.
+    const input = utf8Lf([
+      'Call Sign,Status',
+      '20ASS,Forbidden',
+      'ZBX,Forbidden',
+      'M0ABC,Allocated',
+    ]);
+    const result = convertFoiSource(input, register2016);
+    expect(result.csv).toContain('20ASS,Forbidden,\n');
+    expect(result.csv).toContain('ZBX,Forbidden,\n');
+  });
+
+  it('FoiNormaliser_BlankStatusAndLowerCaseCallsign_PreservedNotRepaired', () => {
+    // 'mogfs' is lower-case AND carries a blank status in the real file; case
+    // is never changed and the blank status is data, counted not dropped.
+    const input = utf8Lf([
+      'Call Sign,Status',
+      'mogfs,',
+      'M0ABC,Allocated',
+    ]);
+    const result = convertFoiSource(input, register2016);
+    expect(result.csv).toContain('mogfs,,\n');
+    expect(result.notes.blankCounts['status']).toBe(1);
+  });
+
+  it('FoiNormaliser_TwoColumnDatabaseWithExtraHeader_ThrowsOnUnexpectedShape', () => {
+    // A third column would be a genuinely different (fuller) export shape and
+    // must fail loudly rather than be silently accepted.
+    const input = utf8Lf([
+      'Call Sign,Status,SF List',
+      'M0ABC,Allocated,Amateur Full Radio Licence',
+    ]);
+    expect(() => convertFoiSource(input, register2016)).toThrow(/unexpected header "SF List"/);
+  });
+});
+
+describe('FOI CSV normaliser - 2025-09-11 Salesforce-flavoured register', () => {
+  // The sixth register shape: Salesforce object/field header names, the register
+  // core extended with both a last-modified timestamp and the original-start
+  // date, disclosed as a workbook so the dates arrive typed (iso-date).
+  const register2025 = conversionFor('ofcom-2025-09-11-register', 'raw-extract-sheet-1-amateur-callsgn-11092025.csv');
+
+  function utf8Lf(lines: string[]): Buffer {
+    return Buffer.from(lines.join('\n') + '\n', 'utf8');
+  }
+
+  it('FoiNormaliser_SalesforceRegisterRows_MapToObservationSchemaWithIsoDatesTypeDropped', () => {
+    const input = utf8Lf([
+      'Callsign,Product__c,Status,Type,Licence LastModifiedDate,Licence Original_start_date__c',
+      'M0ABC,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,2025-07-29,2018-02-12',
+      'G5XYZ,,Reserved,Call Sign - Amateur,,',
+    ]);
+    const result = convertFoiSource(input, register2025);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,last_modified_date,original_start_date\n' +
+      'G5XYZ,Reserved,,,\n' +
+      'M0ABC,Allocated,Amateur Full Radio Licence,2025-07-29,2018-02-12\n');
+    // The constant Type discriminator is required-present but never carried.
+    expect(result.csv).not.toContain('Call Sign - Amateur');
+  });
+
+  it('FoiNormaliser_WordShapedCallsign_PreservedVerbatim', () => {
+    // Two real values are full English words (EDUCATIONAL, ENVIRONMENTS); they
+    // are the source's assertion and are carried unchanged.
+    const input = utf8Lf([
+      'Callsign,Product__c,Status,Type,Licence LastModifiedDate,Licence Original_start_date__c',
+      'EDUCATIONAL,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,2024-04-17,2024-04-17',
+    ]);
+    const result = convertFoiSource(input, register2025);
+    expect(result.csv).toContain('EDUCATIONAL,Allocated,Amateur Full Radio Licence,2024-04-17,2024-04-17\n');
+  });
+
+  it('FoiNormaliser_CallsignWithTrailingNbsp_TrimmedAndCounted', () => {
+    const input = utf8Lf([
+      'Callsign,Product__c,Status,Type,Licence LastModifiedDate,Licence Original_start_date__c',
+      `G0TQK${NBSP},Amateur Full Radio Licence,Allocated,Call Sign - Amateur,2025-07-29,2018-02-12`,
+    ]);
+    const result = convertFoiSource(input, register2025);
+    expect(result.notes.nbspCellCount).toBe(1);
+    expect(result.notes.trimmedCellCount).toBe(1);
+    expect(result.csv).toContain('G0TQK,Allocated,');
+    expect(result.csv).not.toContain(NBSP);
+  });
+
+  it('FoiNormaliser_OriginalStartDateAfterVintage_ThrowsPlausibilityFailure', () => {
+    // An issue date cannot postdate the snapshot vintage (2025-09-11 here).
+    const input = utf8Lf([
+      'Callsign,Product__c,Status,Type,Licence LastModifiedDate,Licence Original_start_date__c',
+      'M0ABC,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,2025-07-29,2025-10-01',
+    ]);
+    expect(() => convertFoiSource(input, register2025)).toThrow(/future/i);
+  });
+});
+
 describe('FOI CSV normaliser - output naming', () => {
   it('SlugifyBasename_MixedCaseSpacesAndExtension_ProducesHyphenatedLowerCaseSlug', () => {
     expect(slugifyBasename('FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 1.csv'))
@@ -1388,5 +1511,39 @@ describe('FOI archive golden master', () => {
     expect(results[0].notes.nbspCellCount).toBe(3);
     expect(results[0].csv.startsWith('callsign,status,licence_class,reserved_to_date,original_start_date\n,Reserved,,,\n",,",Reserved,,,\n')).toBe(true);
     expect(results[0].csv).toContain(',2023-04-19,');
+  });
+
+  it('FoiArchive_Ofcom20160920Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    // The earliest snapshot held: the sparse two-column database.
+    const results = expectEntryReproduced('ofcom-2016-09-20--callsign-database--all-callsigns', 'ofcom-2016-09-20-register', [139758]);
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class');
+    // Nine blank statuses are data in an "all call signs" export - preserved.
+    expect(results[0].notes.blankCounts['status']).toBe(9);
+    // No non-breaking spaces in this era's file: nothing is trimmed.
+    expect(results[0].notes.nbspCellCount).toBe(0);
+    expect(results[0].notes.trimmedCellCount).toBe(0);
+    // Forbidden values are folded into the callsign column and carried verbatim
+    // (a 20-series intermediate built on a withheld suffix, and a bare suffix).
+    expect(results[0].csv).toContain('20ASS,Forbidden,\n');
+    expect(results[0].csv).toContain('ZBX,Forbidden,\n');
+    // The lower-case, blank-status 'mogfs' survives unchanged.
+    expect(results[0].csv).toContain('mogfs,,\n');
+  });
+
+  it('FoiArchive_Ofcom20250911Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    // The latest snapshot held: the Salesforce-flavoured workbook with both a
+    // last-modified and an original-start date.
+    const results = expectEntryReproduced('ofcom-2025-09-11--callsigns--all-callsigns', 'ofcom-2025-09-11-register', [158470]);
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class,last_modified_date,original_start_date');
+    expect(results[0].notes.blankCounts['licence_class']).toBe(42415);
+    expect(results[0].notes.blankCounts['status']).toBe(14);
+    // The trailing-non-breaking-space trio is trimmed and counted, never silent.
+    expect(results[0].notes.nbspCellCount).toBe(3);
+    expect(results[0].notes.trimmedCellCount).toBe(3);
+    // The two word-shaped callsigns survive verbatim.
+    expect(results[0].csv).toContain('EDUCATIONAL,Allocated,Amateur Full Radio Licence,2024-04-17,2024-04-17\n');
+    expect(results[0].csv).toContain('ENVIRONMENTS,Allocated,Amateur Full Radio Licence,2024-04-17,2024-04-17\n');
+    // The 1903 migration-placeholder floor recurs in the original-start dates.
+    expect(results[0].csv).toContain(',1903-05-03\n');
   });
 });

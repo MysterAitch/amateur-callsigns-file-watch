@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no Ofcom FOI case reference is held for this disclosure. It survives only as a UK Government Web Archive capture of an Ofcom `__data` asset, identified there by its Ofcom asset id (90397). The entry is keyed by the proven data-generation day.",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/excel_doc/0028/90397/Callsign-database-20-Sep.xlsx",
+  "title": "Amateur callsign database, 20 September 2016 (Ofcom `__data` asset, earliest register snapshot held)",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "not held; no request thread or covering correspondence survives, only the archived workbook.",
+  "respondedAt": null,
+  "respondedAtNote": "not held; the workbook is an Ofcom-published asset captured by the UK Government Web Archive, with no response date in the held material.",
+  "outcome": "successful",
+  "dataVintage": "2016-09-20",
+  "dataVintageNote": "proven, not merely declared. The workbook's OOXML document properties embed dcterms:created and dcterms:modified of 2016-09-20 (15:13-15:14 UTC, authored by 'Julia Snape') - the export instant is recorded in the file itself. The UK Government Web Archive capture (2020-04-10, snapshot 20200410122042) is a later archival event that only bounds when the bytes were preserved. The register content is independently corroborated: its 139,758 Call Sign/Status rows are byte-for-byte identical to sheet 1 of the WhatDoTheyKnow disclosure wdtk-356636, also dated 2016-09-20.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2016-09-20-register" },
+  "relatedEntries": [
+    { "entry": "wdtk-356636--all-callsigns-plus-forbidden", "relation": "the WhatDoTheyKnow sibling of the same 2016-09-20 export: its sheet 1 carries a byte-for-byte identical 139,758-row Call Sign/Status register, plus an SF-List licence-class column and a separate forbidden-suffix sheet that this two-column Ofcom projection omits." },
+    { "entry": "ofcom-2017-07-13--all-callsigns", "relation": "the next register snapshot held (2017-07-13), in the fuller Value/Prefix/Suffix/Type/Status CSV shape; this 2016-09-20 entry sits immediately before it and opens the register timeline." },
+    { "entry": "ofcom-756622--published-register-csv", "relation": "the September-2019 full FOI register snapshot (141,295 records); this 2016-09-20 snapshot's 139,758 records are the earliest datum for register-growth comparison." }
+  ],
+  "files": {
+    "callsign-database-20-sep.xlsx": {
+      "bytes": 2195930,
+      "sha256": "ebd9e04ba63b7f79b23ea01e5468682bbf5e22f0011aa43c502ffafacd82795f",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "sheetsIndicative": {
+        "note": "one worksheet ('Sheet1'): header Call Sign,Status then 139,758 data rows. This is the sparsest export shape held - just two columns, with no licence class, no dates and no prefix/suffix decomposition. Status vocabulary Allocated (84,690), Reserved (49,624), Forbidden (5,431), Available (3), Quarantine (1) and blank (9). Distinctively, the 5,431 Forbidden values are folded into the Call Sign column (5,430 full callsign-shaped, mostly 20-series intermediate callsigns built on withheld suffixes, plus one bare three-letter suffix 'ZBX') rather than isolated in a separate sheet.",
+        "sheets": [
+          { "name": "Sheet1", "dataRows": 139758, "cols": "A:B", "datasetClass": "register-snapshot" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042/https://www.ofcom.org.uk/__data/assets/excel_doc/0028/90397/Callsign-database-20-Sep.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-sheet-1-sheet1.csv": {
+      "bytes": 2185635,
+      "sha256": "6f135735ca981eee49f40afd7fdbb33b163514bba0de93a16fd8541c9f42ecdc",
+      "role": "extract",
+      "extractOf": "callsign-database-20-sep.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts",
+      "contentsIndicative": "mechanical extract of the single sheet; header Call Sign,Status then 139,758 rows. Anomalies preserved verbatim: two Values are lower-case (g0jrk, mogfs); 'G5 ZZ' has an interior space; 811 four-character Values (two-letter-suffix heritage series), five six-character (2E1BGN, 2E1DLR, 2E1EXP, GI0OXB, GI4OKU) and one seven-character (M/K2BBC, a reciprocal form); thirteen Values occur twice. No non-breaking spaces are present."
+    },
+    "normalised--sheet-1-sheet1.csv": {
+      "bytes": 2325406,
+      "sha256": "faa8a58ab46e959519e6d609d4b20356991ea9f01330662c823baec48638b363",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-sheet1.csv",
+      "contentsIndicative": "header callsign,status,licence_class; 139,758 rows sorted by callsign (source order carries no meaning - not callsign-sorted; 13 duplicate callsigns on the record). Status carried verbatim (Allocated/Reserved/Forbidden/Available/Quarantine and 9 blanks preserved); licence_class is required-present-empty (the source discloses no class). Nothing was trimmed (no non-breaking spaces); lower-case forms and the interior-space 'G5 ZZ' are preserved verbatim. The 5,431 Forbidden values are folded into the callsign column verbatim, not reshaped into a suffix list."
+    },
+    "correspondence.md": {
+      "bytes": 4448,
+      "sha256": "189a7597600843ce969829472dfa3b2c312f39b1707fcdb7e795a435e7b29966",
+      "role": "transcript"
+    }
+  }
+}
