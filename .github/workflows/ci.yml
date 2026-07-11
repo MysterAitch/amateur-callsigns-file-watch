@@ -34,6 +34,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # DuckDB CLI: the cross-dataset-invariants report is folded from the claim
+      # data via DuckDB, and its byte-identity test (the #361 retirement gate)
+      # runs here. Pinned static binary, no native npm build (ADR 0002).
+      - uses: ./.github/actions/setup-duckdb
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm run test:coverage
@@ -114,6 +118,11 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # The cross-dataset-invariants report is folded via DuckDB, so the sweep
+      # that regenerates reports/ needs the pinned CLI to reproduce it (issue
+      # #361). Without it the sweep would fail loudly rather than emit a report
+      # that silently differs from the committed golden.
+      - uses: ./.github/actions/setup-duckdb
       - name: Regenerate golden-master reports and fail on drift
         run: |
           set -euo pipefail

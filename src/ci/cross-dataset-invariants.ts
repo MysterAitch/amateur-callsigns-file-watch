@@ -14,6 +14,17 @@
  * open-data register starts 2022, and no FOI register-snapshot matches those
  * early vintages). See the issue.
  *
+ * FOLD, not re-parse (issue #361): the per-vintage entity sets this report joins
+ * are computed by a build-time DuckDB fold over the normalised register/pool
+ * projections rather than by re-parsing every CSV in Node. DuckDB derives the
+ * `cleaned` join key in SQL (the identical uppercase-and-strip rule), intersects
+ * each pool against the ~160k-row registers in one pass, and resolves the latest
+ * register's last-writer-wins status map deterministically. The fold replaces
+ * the earlier hand-rolled join; its output is asserted byte-identical to the
+ * committed golden (cross-dataset-invariants.test.ts) — that byte-identity is
+ * the legacy-retirement gate. This is the first report folded from the claim
+ * data via DuckDB; report-fold.ts is the shared scaffold others follow.
+ *
  * `cleaned` is a JOIN KEY, not an identity (uppercased, stripped outside
  * A-Z/0-9/`/`); collisions are expected and deliberate, so counts are of
  * distinct cleaned keys, never asserted as distinct stations. Every figure is
@@ -22,11 +33,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { parse } from 'csv-parse/sync';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
-import { cleanedCallsign } from '../sources/ofcom-amateur/components.ts';
+import { foldQuery, csvFileList, cleanedKeyExpr } from '../v2/report-fold.ts';
 import { time, perfReport } from '../shared/perf.ts';
 
 export interface DepletionRow {
@@ -50,83 +60,203 @@ export interface DepletionRow {
 
 export interface CrossDataset { register: string; allocatedTotal: number; rows: DepletionRow[] }
 
-// Existence-guarded, matching the value-catalogue precedent: a missing file
-// yields no rows rather than throwing, so partial archives (test fixtures, a
-// sweep over entries that never normalised) degrade gracefully.
-function readCsv(file: string): Record<string, string>[] {
-  return fs.existsSync(file) ? parse(fs.readFileSync(file, 'utf8'), { columns: true, bom: true, skip_empty_lines: true }) as Record<string, string>[] : [];
+// --- Source enumeration ----------------------------------------------------
+//
+// The fold reads the normalised projections the register-snapshot / available-
+// pool entries already carry; enumeration (which files, which vintage, whether
+// a publication is partial) stays in TypeScript because it is cheap metadata,
+// and keeping it here preserves the exact selection and ordering the committed
+// golden was built from.
+
+// One FOI available-pool snapshot: its callsign-bearing normalised sheets.
+interface PoolSource { entry: string; vintage: string; files: string[] }
+// One "record-of" register: an open-data publication (a single normalised.csv)
+// or an FOI register-snapshot (its normalised sheets), with the partial-coverage
+// flag the matrix marks rather than reads as low take-up.
+interface RegisterSource { key: string; vintage: string; kind: 'open-data' | 'foi'; partial: boolean; files: string[] }
+
+// A normalised sheet contributes callsign keys only if it actually carries a
+// `callsign` column; a forbidden-suffix sheet riding inside a register entry
+// (suffix rows, no callsigns) contributes nothing, exactly as the prior per-row
+// join skipped a missing `callsign` cell. Checking the header keeps such sheets
+// out of the fold's read list rather than feeding read_csv a column it lacks.
+function hasCallsignColumn(file: string): boolean {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const buffer = Buffer.alloc(8192);
+    const read = fs.readSync(fd, buffer, 0, buffer.length, 0);
+    const header = buffer.toString('utf8', 0, read).split(/\r?\n/)[0].replace(/^﻿/, '');
+    return header.split(',').map(cell => cell.trim()).includes('callsign');
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function normalisedSheets(dir: string): string[] {
+  return fs.readdirSync(dir)
+    .filter(name => /^normalised--.*\.csv$/.test(name))
+    .sort()
+    .map(name => path.join(dir, name))
+    .filter(hasCallsignColumn);
+}
+
+// The available-pool snapshots (the matrix rows / the depletion rows), sorted by
+// vintage then entry so the age gradient reads top-to-bottom.
+function enumeratePools(foiDir: string): PoolSource[] {
+  const pools: PoolSource[] = [];
+  for (const entry of listFoiEntryKeys(foiDir)) {
+    const meta = readFoiEntryMeta(foiDir, entry);
+    if (!(meta.datasetClasses ?? []).includes('available-pool')) continue;
+    const files = normalisedSheets(path.join(foiDir, entry));
+    if (files.length === 0) continue;
+    pools.push({ entry, vintage: meta.dataVintage ?? '—', files });
+  }
+  pools.sort((a, b) => a.vintage.localeCompare(b.vintage) || a.entry.localeCompare(b.entry));
+  return pools;
+}
+
+// Every register vintage we hold (the matrix columns): the open-data
+// publications keyed by date, plus the FOI register-snapshots. Sorted by vintage
+// then key so columns run oldest→newest. A register whose sheets carry no
+// callsign union is dropped downstream once the fold reports its size as zero,
+// never shown as a misleading all-zero column.
+function enumerateRegisters(foiDir: string): RegisterSource[] {
+  const registers: RegisterSource[] = [];
+  for (const key of listArchiveKeys()) {
+    const dir = path.join(CONSTANTS.DIRS.archive, key);
+    let partial = false;
+    try {
+      const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete?: boolean } };
+      partial = meta.intendedCoverage?.complete === false;
+    } catch { /* absent/unreadable meta: treat as complete, the file itself is the evidence */ }
+    const file = path.join(dir, 'normalised.csv');
+    registers.push({ key, vintage: key, kind: 'open-data', partial, files: fs.existsSync(file) && hasCallsignColumn(file) ? [file] : [] });
+  }
+  for (const entry of listFoiEntryKeys(foiDir)) {
+    const meta = readFoiEntryMeta(foiDir, entry);
+    if (!(meta.datasetClasses ?? []).includes('register-snapshot')) continue;
+    registers.push({
+      key: entry,
+      vintage: meta.dataVintage ?? '—',
+      kind: 'foi',
+      partial: meta.datasetRecovery === 'partial' || meta.datasetRecovery === 'unrecovered',
+      files: normalisedSheets(path.join(foiDir, entry)),
+    });
+  }
+  registers.sort((a, b) => a.vintage.localeCompare(b.vintage) || a.key.localeCompare(b.key));
+  return registers;
+}
+
+// The newest register (the depletion join's "latest register"): the last
+// open-data key by lexicographic date order, exactly as the prior join chose it.
+function latestRegisterKey(): string | undefined {
+  return listArchiveKeys().sort().at(-1);
+}
+
+// A read_csv branch tagging every callsign key of a source's files with an index
+// column, so one query can fold many sources at once. Empty raw callsigns are
+// skipped (the prior join skipped `callsign === ''`); union_by_name lets a
+// multi-sheet register fold to its callsign union regardless of the other
+// columns each sheet carries.
+function readBranch(files: readonly string[], indexColumn: string, index: number): string {
+  return `SELECT ${index} AS ${indexColumn}, ${cleanedKeyExpr()} AS ck `
+    + `FROM read_csv(${csvFileList(files)}, header=true, all_varchar=true, union_by_name=true) `
+    + `WHERE callsign IS NOT NULL AND callsign <> ''`;
+}
+
+function unionBranches(sources: { files: string[] }[], indexColumn: string): string {
+  return sources
+    .map((source, index) => ({ source, index }))
+    .filter(({ source }) => source.files.length > 0)
+    .map(({ source, index }) => readBranch(source.files, indexColumn, index))
+    .join('\nUNION ALL\n');
 }
 
 // Join the FOI available-pool snapshots against the LATEST register on the
-// cleaned key, in a single pass over the register. For each snapshot we learn:
-// how much of the pool has been drawn down (allocated), how the still-absent
-// remainder decomposes by current status, and how many of the now-allocated
-// carry an original-start-date that predates the snapshot's vintage.
+// cleaned key. For each snapshot we learn: how much of the pool has been drawn
+// down (allocated), how the still-absent remainder decomposes by current status,
+// and how many of the now-allocated carry an original-start-date that predates
+// the snapshot's vintage. The whole join is a single DuckDB fold.
 export function buildDepletion(): CrossDataset {
   return time('cross-dataset:depletion', buildDepletionImpl);
 }
 
+// One folded depletion row as DuckDB returns it (allocatedTotal repeats the
+// register-level Allocated count on every row; the fold carries it rather than
+// making a second round-trip).
+interface DepletionFoldRow {
+  pidx: number;
+  allocatedTotal: number;
+  available: number;
+  nowAllocated: number;
+  nowReserved: number;
+  stillAvailable: number;
+  absentFromRegister: number;
+  allocatedWithDate: number;
+  issuedBeforeVintage: number;
+}
+
 function buildDepletionImpl(): CrossDataset {
-  const keys = listArchiveKeys().sort();
-  const register = keys[keys.length - 1];
+  const register = latestRegisterKey();
   if (register === undefined) return { register: '', allocatedTotal: 0, rows: [] };
-
-  // cleaned key -> current status, and (for allocated) -> original-start-date.
-  const status = new Map<string, string>();
-  const originalStart = new Map<string, string>();
-  let allocatedTotal = 0;
-  for (const r of readCsv(path.join(CONSTANTS.DIRS.archive, register, 'normalised.csv'))) {
-    const c = cleanedCallsign(r['callsign'] ?? '');
-    const s = r['status'] ?? '';
-    status.set(c, s);
-    if (s === 'Allocated') {
-      allocatedTotal += 1;
-      const d = (r['licence_version_original_start_date'] ?? '').slice(0, 10);
-      if (d !== '') originalStart.set(c, d);
-    }
-  }
-
   const foiDir = path.join(CONSTANTS.DIRS.archive, 'foi');
-  const rows: DepletionRow[] = [];
-  for (const entry of listFoiEntryKeys(foiDir)) {
-    const meta = readFoiEntryMeta(foiDir, entry);
-    if (!(meta.datasetClasses ?? []).includes('available-pool')) continue;
-    const available = new Set<string>();
-    for (const name of fs.readdirSync(path.join(foiDir, entry)).filter(n => /^normalised--.*\.csv$/.test(n)).sort()) {
-      for (const r of readCsv(path.join(foiDir, entry, name))) {
-        const c = r['callsign'];
-        if (c !== undefined && c !== '') available.add(cleanedCallsign(c));
-      }
-    }
-    if (available.size === 0) continue;
-    const vintage = meta.dataVintage ?? '—';
-    let nowAllocated = 0, nowReserved = 0, stillAvailable = 0, absentFromRegister = 0;
-    let allocatedWithDate = 0, issuedBeforeVintage = 0;
-    for (const c of available) {
-      const s = status.get(c);
-      if (s === 'Allocated') {
-        nowAllocated += 1;
-        const d = originalStart.get(c);
-        if (d !== undefined) {
-          allocatedWithDate += 1;
-          if (vintage !== '—' && d < vintage) issuedBeforeVintage += 1;
-        }
-      } else if (s === 'Reserved') {
-        nowReserved += 1;
-      } else if (s === 'Available') {
-        stillAvailable += 1;
-      } else {
-        absentFromRegister += 1;
-      }
-    }
-    rows.push({
-      entry, vintage, available: available.size, nowAllocated,
-      stillAbsent: available.size - nowAllocated,
-      nowReserved, stillAvailable, absentFromRegister,
-      allocatedWithDate, issuedBeforeVintage,
-    });
-  }
-  rows.sort((a, b) => a.vintage.localeCompare(b.vintage) || a.entry.localeCompare(b.entry));
+  const pools = enumeratePools(foiDir);
+  if (pools.length === 0) return { register, allocatedTotal: 0, rows: [] };
+
+  const latestFile = path.join(CONSTANTS.DIRS.archive, register, 'normalised.csv').replace(/\\/g, '/');
+  const key = cleanedKeyExpr();
+  const poolBranches = unionBranches(pools, 'pidx');
+  const vintageValues = pools.map((pool, index) => `(${index}, '${pool.vintage}')`).join(', ');
+
+  // SET threads TO 1: row_number() must reflect FILE ORDER so arg_max(status,rn)
+  // reproduces the prior map's last-writer-wins on a cleaned-key collision (the
+  // register lists e.g. "G6 FMU" and "G6FMU", which share a cleaned key with
+  // differing status — the later row won). status is resolved over ALL rows; the
+  // original-start-date over the Allocated rows only, matching the two separate
+  // maps the join built. allocatedTotal counts Allocated ROWS, not distinct keys.
+  const sql = `SET threads TO 1;
+WITH reg AS (
+  SELECT ${key} AS ck, status, substr(licence_version_original_start_date, 1, 10) AS d, row_number() OVER () AS rn
+  FROM read_csv('${latestFile}', header=true, all_varchar=true)
+  WHERE callsign IS NOT NULL AND callsign <> ''
+),
+status_map AS (SELECT ck, arg_max(status, rn) AS status FROM reg GROUP BY ck),
+date_map AS (SELECT ck, arg_max(d, rn) AS d FROM reg WHERE status = 'Allocated' AND d <> '' GROUP BY ck),
+pool_keys AS (SELECT DISTINCT pidx, ck FROM (${poolBranches})),
+pool_vintage(pidx, vintage) AS (VALUES ${vintageValues}),
+allocated AS (SELECT count(*) AS total FROM read_csv('${latestFile}', header=true, all_varchar=true) WHERE status = 'Allocated')
+SELECT
+  p.pidx AS pidx,
+  (SELECT total FROM allocated) AS allocatedTotal,
+  count(*) AS available,
+  count(*) FILTER (WHERE sm.status = 'Allocated') AS nowAllocated,
+  count(*) FILTER (WHERE sm.status = 'Reserved') AS nowReserved,
+  count(*) FILTER (WHERE sm.status = 'Available') AS stillAvailable,
+  count(*) FILTER (WHERE sm.status IS NULL OR sm.status NOT IN ('Allocated', 'Reserved', 'Available')) AS absentFromRegister,
+  count(*) FILTER (WHERE sm.status = 'Allocated' AND dm.d IS NOT NULL) AS allocatedWithDate,
+  count(*) FILTER (WHERE sm.status = 'Allocated' AND dm.d IS NOT NULL AND pv.vintage <> '—' AND dm.d < pv.vintage) AS issuedBeforeVintage
+FROM pool_keys p
+JOIN pool_vintage pv ON pv.pidx = p.pidx
+LEFT JOIN status_map sm ON sm.ck = p.ck
+LEFT JOIN date_map dm ON dm.ck = p.ck
+GROUP BY p.pidx
+ORDER BY p.pidx`;
+
+  const folded = foldQuery<DepletionFoldRow>(sql);
+  const byPidx = new Map(folded.map(row => [row.pidx, row]));
+  const allocatedTotal = folded[0]?.allocatedTotal ?? 0;
+  const empty: Omit<DepletionFoldRow, 'pidx' | 'allocatedTotal'> = { available: 0, nowAllocated: 0, nowReserved: 0, stillAvailable: 0, absentFromRegister: 0, allocatedWithDate: 0, issuedBeforeVintage: 0 };
+  const rows: DepletionRow[] = pools.map((pool, index) => {
+    // A pool present in enumeration always yields a fold row (its own keys are a
+    // non-empty group), so the fallback is defensive only.
+    const f = byPidx.get(index) ?? empty;
+    return {
+      entry: pool.entry, vintage: pool.vintage, available: f.available, nowAllocated: f.nowAllocated,
+      stillAbsent: f.available - f.nowAllocated,
+      nowReserved: f.nowReserved, stillAvailable: f.stillAvailable, absentFromRegister: f.absentFromRegister,
+      allocatedWithDate: f.allocatedWithDate, issuedBeforeVintage: f.issuedBeforeVintage,
+    };
+  });
   return { register, allocatedTotal, rows };
 }
 
@@ -148,102 +278,69 @@ export interface OverlapRegister { key: string; vintage: string; kind: 'open-dat
 // cleaned keys in common. Pools index the rows, registers the columns.
 export interface OverlapMatrix { pools: OverlapPool[]; registers: OverlapRegister[]; present: number[][] }
 
-// The cleaned-key set of a single normalised register file (open-data
-// normalised.csv, or one FOI normalised--*.csv sheet). Empty callsigns and
-// columns without a `callsign` field (e.g. forbidden-suffix sheets) contribute
-// nothing, so mixed-sheet entries fold to their callsign union naturally.
-function registerKeys(file: string): Set<string> {
-  const keys = new Set<string>();
-  for (const r of readCsv(file)) {
-    const c = r['callsign'];
-    if (c !== undefined && c !== '') keys.add(cleanedCallsign(c));
-  }
-  return keys;
-}
-
-// The available-pool snapshots as small cleaned-key sets (the matrix rows).
-// Same selection and union rule as buildDepletion, sorted by vintage.
-function loadAvailablePools(foiDir: string): { entry: string; vintage: string; keys: Set<string> }[] {
-  const pools: { entry: string; vintage: string; keys: Set<string> }[] = [];
-  for (const entry of listFoiEntryKeys(foiDir)) {
-    const meta = readFoiEntryMeta(foiDir, entry);
-    if (!(meta.datasetClasses ?? []).includes('available-pool')) continue;
-    const keys = new Set<string>();
-    for (const name of fs.readdirSync(path.join(foiDir, entry)).filter(n => /^normalised--.*\.csv$/.test(n)).sort()) {
-      for (const c of registerKeys(path.join(foiDir, entry, name))) keys.add(c);
-    }
-    if (keys.size === 0) continue;
-    pools.push({ entry, vintage: meta.dataVintage ?? '—', keys });
-  }
-  pools.sort((a, b) => a.vintage.localeCompare(b.vintage) || a.entry.localeCompare(b.entry));
-  return pools;
-}
-
-// One register snapshot: its display key, vintage, provenance, and a lazy
-// loader so we materialise its (large) cleaned-key set only when its column is
-// being computed, then let it fall out of scope before the next.
-interface RegisterSource { key: string; vintage: string; kind: 'open-data' | 'foi'; partial: boolean; load: () => Set<string> }
-
-// Build the overlap matrix. Register sets are loaded ONE AT A TIME - an
-// open-data normalised.csv is ~150k rows, so we compute a whole column against
-// the (small) pool sets, record the counts, and discard the register set before
-// moving on, never holding more than one register set at once. A register that
-// yields no callsign union (e.g. an FOI register-snapshot whose sheets are
-// unrecovered) is omitted rather than shown as a misleading all-zero column.
+// Build the overlap matrix as a single DuckDB fold. Each register's distinct
+// cleaned-key set is derived once (union_by_name folds a multi-sheet FOI
+// snapshot to its callsign union), its size reported, and its intersection with
+// every pool counted in the same pass — the ~14x-cheaper replacement for
+// loading each ~150k-row register into a JS Set one at a time. A register that
+// yields no callsign union is omitted (size zero), not shown as an all-zero
+// column.
 export function buildOverlapMatrix(): OverlapMatrix {
   return time('cross-dataset:overlap-matrix', buildOverlapMatrixImpl);
 }
 
+// One folded overlap row. Sentinels keep a single query self-describing: a
+// pidx = -1 row carries a register's size; a ridx = -1 row carries a pool's
+// size; a row with both indexes present is a (pool, register) intersection
+// count. One register scan feeds all three.
+interface OverlapFoldRow { pidx: number; ridx: number; n: number }
+
 function buildOverlapMatrixImpl(): OverlapMatrix {
   const foiDir = path.join(CONSTANTS.DIRS.archive, 'foi');
-  const pools = loadAvailablePools(foiDir);
-
-  const sources: RegisterSource[] = [];
-  for (const key of listArchiveKeys()) {
-    const dir = path.join(CONSTANTS.DIRS.archive, key);
-    let partial = false;
-    try {
-      const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete?: boolean } };
-      partial = meta.intendedCoverage?.complete === false;
-    } catch { /* absent/unreadable meta: treat as complete, the file itself is the evidence */ }
-    const file = path.join(dir, 'normalised.csv');
-    sources.push({ key, vintage: key, kind: 'open-data', partial, load: () => registerKeys(file) });
-  }
-  for (const entry of listFoiEntryKeys(foiDir)) {
-    const meta = readFoiEntryMeta(foiDir, entry);
-    if (!(meta.datasetClasses ?? []).includes('register-snapshot')) continue;
-    sources.push({
-      key: entry,
-      vintage: meta.dataVintage ?? '—',
-      kind: 'foi',
-      partial: meta.datasetRecovery === 'partial' || meta.datasetRecovery === 'unrecovered',
-      load: () => {
-        const keys = new Set<string>();
-        for (const name of fs.readdirSync(path.join(foiDir, entry)).filter(n => /^normalised--.*\.csv$/.test(n)).sort()) {
-          for (const c of registerKeys(path.join(foiDir, entry, name))) keys.add(c);
-        }
-        return keys;
-      },
-    });
-  }
-  sources.sort((a, b) => a.vintage.localeCompare(b.vintage) || a.key.localeCompare(b.key));
-
-  const registers: OverlapRegister[] = [];
-  const columns: number[][] = []; // per surviving register, a count per pool
-  for (const src of sources) {
-    const regSet = src.load();
-    if (regSet.size === 0) continue;
-    columns.push(pools.map((p) => {
-      let n = 0;
-      for (const c of p.keys) if (regSet.has(c)) n += 1;
-      return n;
-    }));
-    registers.push({ key: src.key, vintage: src.vintage, kind: src.kind, size: regSet.size, partial: src.partial });
-    // regSet goes out of scope here - only its counts survive.
+  const pools = enumeratePools(foiDir);
+  const registers = enumerateRegisters(foiDir);
+  if (pools.length === 0 || registers.length === 0) {
+    return { pools: pools.map(p => ({ entry: p.entry, vintage: p.vintage, size: 0 })), registers: [], present: pools.map(() => []) };
   }
 
-  const present = pools.map((_, pi) => columns.map(col => col[pi]));
-  return { pools: pools.map(p => ({ entry: p.entry, vintage: p.vintage, size: p.keys.size })), registers, present };
+  const poolBranches = unionBranches(pools, 'pidx');
+  const registerBranches = unionBranches(registers, 'ridx');
+  const sql = `WITH register_keys AS (SELECT DISTINCT ridx, ck FROM (${registerBranches})),
+pool_keys AS (SELECT DISTINCT pidx, ck FROM (${poolBranches}))
+SELECT CAST(-1 AS BIGINT) AS pidx, ridx, count(*) AS n FROM register_keys GROUP BY ridx
+UNION ALL
+SELECT pidx, CAST(-1 AS BIGINT) AS ridx, count(*) AS n FROM pool_keys GROUP BY pidx
+UNION ALL
+SELECT pool_keys.pidx AS pidx, register_keys.ridx AS ridx, count(*) AS n
+  FROM pool_keys JOIN register_keys ON register_keys.ck = pool_keys.ck
+  GROUP BY pool_keys.pidx, register_keys.ridx
+ORDER BY pidx, ridx`;
+
+  const folded = foldQuery<OverlapFoldRow>(sql);
+  const registerSizeByRidx = new Map<number, number>();
+  const poolSizeByPidx = new Map<number, number>();
+  for (const row of folded) {
+    if (row.pidx === -1 && row.ridx !== -1) registerSizeByRidx.set(row.ridx, row.n);
+    else if (row.ridx === -1 && row.pidx !== -1) poolSizeByPidx.set(row.pidx, row.n);
+  }
+
+  // Keep only registers with a non-empty callsign union, preserving order.
+  const survivingRidx = registers.map((_, index) => index).filter(index => (registerSizeByRidx.get(index) ?? 0) > 0);
+  const outRegisters: OverlapRegister[] = survivingRidx.map((index) => {
+    const source = registers[index];
+    return { key: source.key, vintage: source.vintage, kind: source.kind, size: registerSizeByRidx.get(index) ?? 0, partial: source.partial };
+  });
+  const columnOfRidx = new Map(survivingRidx.map((ridx, column) => [ridx, column]));
+
+  const present = pools.map(() => outRegisters.map(() => 0));
+  for (const row of folded) {
+    if (row.pidx < 0 || row.ridx < 0) continue;
+    const column = columnOfRidx.get(row.ridx);
+    if (column !== undefined) present[row.pidx][column] = row.n;
+  }
+
+  const outPools: OverlapPool[] = pools.map((pool, index) => ({ entry: pool.entry, vintage: pool.vintage, size: poolSizeByPidx.get(index) ?? 0 }));
+  return { pools: outPools, registers: outRegisters, present };
 }
 
 function pct(n: number, d: number): string {

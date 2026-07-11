@@ -46,6 +46,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # The normalise sweep regenerates the cross-dataset-invariants report,
+      # which is folded from the claim data via DuckDB (issue #361). Pinned
+      # static binary, no native npm build (ADR 0002).
+      - uses: ./.github/actions/setup-duckdb
 
       - name: Run normalise sweep
         id: sweep
