@@ -9,28 +9,31 @@
  * emitting through the ONE emit path (emitLedger) once a family resolves to a
  * SourceObservationSet - the raw rows under the publisher's own headers, with
  * the callsign/product columns read from that family's AUTHORED converter
- * binding, never re-guessed. Two register families are covered today:
+ * binding, never re-guessed. Each family lives in its own module under
+ * collectors/ and joins the corpus through the collectors/index.ts registry;
+ * the families covered today are:
  *   - foi-register: the FOI-disclosed register snapshots (archive/foi/**),
  *     keyed off FOI_ENTRY_CONVERSIONS (foi-normalise.ts).
  *   - open-data-register: Ofcom's open-data register publications
  *     (archive/<date>/raw.csv), keyed off the header-variant registry
  *     (ofcom-amateur/normalise.ts), honouring each entry's curated ignoredLines
  *     so export footer furniture never becomes a bogus observation.
- * A third family joins the two register families:
  *   - attribute-addendum: FOI entries whose datasetClasses carry
  *     'attribute-addendum' (archive/foi/**), the per-callsign attribute rows
  *     (licence-issued / original-start dates, reservation expiries) that the
  *     register family deliberately excludes at the entry level. Its
  *     callsign-row-per-line CSV sources ride the SAME register machinery
  *     (registerSourcesFor + loadRegisterSource), keyed off the authored
- *     converter binding; see collectAttributeAddendumSources.
- * Adding a family is additive: implement a collect<Family>Sources() that yields
- * ResolvedLedgerSource values (see collectOpenDataRegisterSources for the
- * pattern) and add it to collectLedgerSources. The remaining families
- * (available-pools, forbidden lists, statistics) follow the same shape where
- * they are callsign-row-per-line; a shape that is not (a statistics aggregate, a
- * markdown-table or PDF-only transcription needing a raw parser lifted from the
- * FOI converter) needs a bespoke adapter and does not ride this path.
+ *     converter binding.
+ * Adding a family is additive and file-local: implement a collectors/<family>.ts
+ * exporting a LedgerCollector (see collectors/open-data-register.ts for the
+ * pattern) and add it to the COLLECTORS registry. A collector declares its
+ * subjectKind, so the emit path runs callsign normalisation only for callsign
+ * subjects and never mis-normalises a suffix / pool-slot / aggregate token. The
+ * remaining families (available-pools, forbidden lists, statistics) follow the
+ * same shape where they are callsign-row-per-line; a shape that is not (a
+ * statistics aggregate, a markdown-table or PDF-only transcription needing a raw
+ * parser lifted from the FOI converter) needs a bespoke adapter.
  *
  * The inversion #361 proposes makes a CLAIM the atom and every published table
  * a fold over the ledger. This runner is the emit half, keyed - deliberately -
@@ -66,296 +69,21 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { parse } from 'csv-parse/sync';
-import { emitLedger, type Claim, type SourceObservationSet } from './claim.ts';
+import { emitLedger, emitClaims, type Claim } from './claim.ts';
 import { serialiseClaimsJsonl } from './serialise.ts';
-import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, type FoiEntryMeta } from '../shared/foi-archive.ts';
-import { FOI_ENTRY_CONVERSIONS, type FoiSourceConversion } from '../shared/foi-normalise.ts';
-import { listArchiveKeys } from '../shared/archive.ts';
-import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
-import { parseRawRegister, rawColumnForCanonical } from '../sources/ofcom-amateur/normalise.ts';
+import { defaultFoiDir } from '../shared/foi-archive.ts';
 import { loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { COLLECTORS, collectLedgerSources } from './collectors/index.ts';
+import { defaultArchiveDir } from './collectors/open-data-register.ts';
+import type { LedgerRoots } from './collectors/types.ts';
 
-// The dataset class that marks a per-callsign register state at a vintage. Only
-// these fold into the register ledger.
-const REGISTER_SNAPSHOT_CLASS = 'register-snapshot';
-
-// The dataset class marking an entry that carries extra per-callsign attributes
-// beyond the plain register row (licence-issued / original-start dates,
-// reservation expiries). Its own collector folds these entries in.
-const ATTRIBUTE_ADDENDUM_CLASS = 'attribute-addendum';
-
-// Classes whose PRESENCE disqualifies an entry from the REGISTER families even
-// when register-snapshot is also declared: an attribute addendum is per-callsign
-// join material rather than a snapshot of register state (picked up instead by
-// the attribute-addendum family, collectAttributeAddendumSources), and a
-// statistics aggregate carries no per-row callsign at all. This is the filter
-// the #361 exploration settled on.
-const EXCLUDED_CLASSES: readonly string[] = [ATTRIBUTE_ADDENDUM_CLASS, 'statistics-aggregate'];
-
-// The normalised output column whose raw source header names the callsign token
-// this runner keys the ledger off.
-const CALLSIGN_OUTPUT = 'callsign';
-
-// The normalised output column whose raw source header names the licence
-// product/class token the derived licence-category tier is computed from.
-const LICENCE_CLASS_OUTPUT = 'licence_class';
-
-export interface RegisterEntry {
-  entry: string;
-  meta: FoiEntryMeta;
-}
-
-// The register-snapshot entries: register-snapshot present, no excluded class.
-// Sorted for a stable, reproducible corpus order.
-export function qualifyingRegisterEntries(foiDir: string = defaultFoiDir()): RegisterEntry[] {
-  const entries: RegisterEntry[] = [];
-  for (const entry of listFoiEntryKeys(foiDir)) {
-    const meta = readFoiEntryMeta(foiDir, entry);
-    const classes = meta.datasetClasses;
-    if (!classes.includes(REGISTER_SNAPSHOT_CLASS)) continue;
-    if (EXCLUDED_CLASSES.some(excluded => classes.includes(excluded))) continue;
-    entries.push({ entry, meta });
-  }
-  return entries;
-}
-
-// One raw source that carries register-snapshot rows, with the raw header that
-// names its callsign token. Sourced from the authored converter binding so the
-// raw-file and callsign-column choices are never re-guessed here.
-export interface RegisterSource {
-  conversion: FoiSourceConversion;
-  callsignColumn: string;
-  // The raw header carrying the licence product/class token, when the
-  // conversion maps one verbatim to the licence_class output; null when the
-  // source discloses no product (licence_class emitted empty, or synthesised
-  // from an authored constant). Only a verbatim, source-backed product feeds
-  // the derived licence-category tier - a constant is an authored value, not a
-  // disclosed product string to canonicalise.
-  productColumn: string | null;
-}
-
-// The callsign-bearing register sources for one entry. A conversion is a
-// register source only when it plainly maps a raw header to the callsign column
-// (kind 'verbatim') and is parsed as CSV: the raw-keyed ledger stores the token
-// AS PUBLISHED, so a synthesised (kind 'prefixed') callsign - the available-pool
-// suffix lists, already excluded by class - is never a register source, and the
-// markdown-table / preamble shapes belong to other families. A forbidden-suffix
-// sheet inside a register entry maps 'suffix', not 'callsign', so it drops out
-// here rather than being mis-keyed as a callsign.
-export function registerSourcesFor(meta: FoiEntryMeta): RegisterSource[] {
-  const variant = meta.converter?.variant;
-  if (variant === undefined || variant === null) return [];
-  const conversions = FOI_ENTRY_CONVERSIONS[variant];
-  if (conversions === undefined) return [];
-
-  const sources: RegisterSource[] = [];
-  for (const conversion of conversions) {
-    if (conversion.format === 'markdown-table' || conversion.preamble !== undefined) continue;
-    const callsignSpec = conversion.columns.find(column => column.output === CALLSIGN_OUTPUT);
-    if (callsignSpec === undefined || callsignSpec.source === null || callsignSpec.kind !== 'verbatim') continue;
-    const productSpec = conversion.columns.find(column => column.output === LICENCE_CLASS_OUTPUT);
-    const productColumn = productSpec !== undefined && productSpec.source !== null && productSpec.kind === 'verbatim'
-      ? productSpec.source
-      : null;
-    sources.push({ conversion, callsignColumn: callsignSpec.source, productColumn });
-  }
-  return sources;
-}
-
-// Parse one raw source file into the SourceObservationSet shape, verbatim under
-// Ofcom's own headers. The parse options mirror the FOI converter's
-// (skip_empty_lines + BOM), so the observations this runner keys off are the
-// same rows the committed normalisation was derived from - the raw->normalised
-// path stays honestly comparable. The stored sourceFile is corpus-unique
-// (foi/<entry>/<file>) so an observation's provenance is self-locating.
-export function loadRegisterSource(foiDir: string, entry: string, meta: FoiEntryMeta, source: RegisterSource): SourceObservationSet {
-  const { conversion, callsignColumn } = source;
-  const filePath = path.join(foiDir, entry, conversion.sourceFile);
-  const text = fs.readFileSync(filePath).toString(conversion.encoding);
-  const rows = parse(text, { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
-  if (rows.length === 0) {
-    throw new Error(`${filePath}: parsed to zero rows - a register source must not be empty`);
-  }
-  const columns = Object.keys(rows[0]);
-  if (!columns.includes(callsignColumn)) {
-    throw new Error(`${filePath}: authored callsign column "${callsignColumn}" absent from raw headers (${columns.join(', ')})`);
-  }
-  if (source.productColumn !== null && !columns.includes(source.productColumn)) {
-    throw new Error(`${filePath}: authored product column "${source.productColumn}" absent from raw headers (${columns.join(', ')})`);
-  }
-  return {
-    sourceFile: `foi/${entry}/${conversion.sourceFile}`,
-    vintage: meta.dataVintage ?? '',
-    columns,
-    subjectColumn: callsignColumn,
-    rows,
-    categoryColumn: source.productColumn ?? undefined,
-  };
-}
-
-// The source families the ledger folds over. Every family loads to a
-// SourceObservationSet and emits through the one emitLedger path; the tag only
-// distinguishes provenance in the corpus summary.
-export type SourceFamily = 'foi-register' | 'open-data-register' | 'attribute-addendum';
-
-// One published source resolved to everything buildLedger needs: how to load
-// its rows, and a filesystem-safe unique stem for its JSONL. `entry` is the
-// family's natural key (an FOI entry key, or an open-data archive-date key) so
-// an EntrySelector reads the same across families.
-export interface ResolvedLedgerSource {
-  family: SourceFamily;
-  entry: string;
-  jsonlStem: string;
-  load(): SourceObservationSet;
-}
-
-// A filesystem-safe stem, unique per source, for one source's JSONL.
-function jsonlStem(...parts: string[]): string {
-  return parts.join('--').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-}
-
-// The FOI-register family: every qualifying FOI register entry's callsign-
-// bearing sources, each resolved to a loader that reads the entry's raw bytes.
-export function collectFoiRegisterSources(foiDir: string = defaultFoiDir()): ResolvedLedgerSource[] {
-  const resolved: ResolvedLedgerSource[] = [];
-  for (const { entry, meta } of qualifyingRegisterEntries(foiDir)) {
-    for (const source of registerSourcesFor(meta)) {
-      resolved.push({
-        family: 'foi-register',
-        entry,
-        jsonlStem: jsonlStem(entry, source.conversion.sourceFile),
-        load: () => loadRegisterSource(foiDir, entry, meta, source),
-      });
-    }
-  }
-  return resolved;
-}
-
-// The open-data source key - the ONE converter registered for the open-data
-// lane (ofcom-amateur/normalise.ts). An archive entry declaring another source
-// belongs to a different family and is skipped here.
-const OPEN_DATA_SOURCE_KEY = CONSTANTS.SOURCES.OFCOM_AMATEUR;
-
-// Default open-data lane location: the archive root, where dated register
-// publications live (archive/<date>/), distinct from the FOI lane's
-// archive/foi/. Fixed here as the shared archive helpers anchor it, matching
-// the normalise sweep.
-export function defaultArchiveDir(): string {
-  return CONSTANTS.DIRS.archive;
-}
-
-// Read one open-data archive entry's meta.json synchronously (the async
-// readArchiveMeta would force buildLedger async for no gain), tolerating the
-// normalise-sweep's extra `normalised` block the base ArchiveMeta omits.
-type OpenDataMeta = ArchiveMeta & { normalised?: { headerVariant?: string } };
-
-function readOpenDataMeta(archiveDir: string, key: string): OpenDataMeta {
-  return JSON.parse(fs.readFileSync(path.join(archiveDir, key, 'meta.json'), 'utf8')) as OpenDataMeta;
-}
-
-// Parse one open-data register's RAW bytes into the SourceObservationSet shape,
-// verbatim under Ofcom's OWN headers. The strip-and-parse is LIFTED whole from
-// the authored converter (parseRawRegister): the entry's curated ignoredLines
-// remove export footer furniture before parsing, the header variant is detected
-// from the registry, and the callsign/product columns are read from that
-// variant's authored raw->canonical mapping - so the observations this keys off
-// are exactly the rows the committed normalisation was derived from, and the
-// raw callsign token still travels verbatim (BOM/whitespace artefacts intact).
-export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta: OpenDataMeta): SourceObservationSet {
-  const rawContent = fs.readFileSync(path.join(archiveDir, key, 'raw.csv'), 'utf8');
-  const parsed = parseRawRegister(rawContent, meta.ignoredLines ?? []);
-  const callsignColumn = rawColumnForCanonical(parsed.mapping, 'callsign');
-  if (callsignColumn === undefined) {
-    throw new Error(`archive/${key}: variant "${parsed.variant}" maps no raw header to callsign`);
-  }
-  const productColumn = rawColumnForCanonical(parsed.mapping, 'product');
-  return {
-    // Corpus-unique, self-locating provenance parallel to the FOI lane's
-    // foi/<entry>/<file>.
-    sourceFile: `opendata/${key}/raw.csv`,
-    vintage: meta.ofcomReportedUpdateIso ?? key,
-    columns: parsed.headers,
-    subjectColumn: callsignColumn,
-    rows: parsed.records,
-    categoryColumn: productColumn,
-  };
-}
-
-// The open-data-register family: every archive/<date>/ publication whose
-// source is the ofcom-amateur open-data export, resolved to a loader over its
-// raw bytes. Chronological (listArchiveKeys is date-ordered) for a stable
-// corpus order. A truncated publication (a partial-coverage vintage) is still a
-// register snapshot of the rows it carries and is included - coverage is scope,
-// not shape.
-export function collectOpenDataRegisterSources(archiveDir: string = defaultArchiveDir()): ResolvedLedgerSource[] {
-  const resolved: ResolvedLedgerSource[] = [];
-  for (const key of listArchiveKeys()) {
-    const meta = readOpenDataMeta(archiveDir, key);
-    if (meta.sourceKey !== OPEN_DATA_SOURCE_KEY) continue;
-    resolved.push({
-      family: 'open-data-register',
-      entry: key,
-      jsonlStem: jsonlStem('opendata', key, 'raw.csv'),
-      load: () => loadOpenDataRegisterSource(archiveDir, key, meta),
-    });
-  }
-  return resolved;
-}
-
-// The attribute-addendum entries: 'attribute-addendum' present in
-// datasetClasses. These are exactly the FOI entries the register family
-// excludes (EXCLUDED_CLASSES), picked up here by their own collector - so the
-// two selections are disjoint by construction and no source is emitted twice.
-// Sorted for a stable, reproducible corpus order (listFoiEntryKeys is sorted).
-export function attributeAddendumEntries(foiDir: string = defaultFoiDir()): RegisterEntry[] {
-  const entries: RegisterEntry[] = [];
-  for (const entry of listFoiEntryKeys(foiDir)) {
-    const meta = readFoiEntryMeta(foiDir, entry);
-    if (!meta.datasetClasses.includes(ATTRIBUTE_ADDENDUM_CLASS)) continue;
-    entries.push({ entry, meta });
-  }
-  return entries;
-}
-
-// The attribute-addendum family: every attribute-addendum FOI entry's
-// callsign-bearing verbatim CSV sources, each resolved to a loader over the
-// entry's RAW bytes. The conversion-shape filter is the register family's own
-// (registerSourcesFor): a raw header mapped verbatim to the callsign column and
-// parsed as CSV. Two addendum shapes ride a raw encoding this CSV loader does
-// not parse and so drop out of registerSourcesFor - a preamble-bearing workbook
-// annex (the pre-war-callsigns sheet, whose title rows precede the header) and a
-// markdown-table PDF transcription (the heritage-transfer re-issue table). Both
-// await a raw parser lifted from the FOI converter, exactly as the PDF-only
-// sources do; until then they are among the remaining families, not this one.
-export function collectAttributeAddendumSources(foiDir: string = defaultFoiDir()): ResolvedLedgerSource[] {
-  const resolved: ResolvedLedgerSource[] = [];
-  for (const { entry, meta } of attributeAddendumEntries(foiDir)) {
-    for (const source of registerSourcesFor(meta)) {
-      resolved.push({
-        family: 'attribute-addendum',
-        entry,
-        jsonlStem: jsonlStem('addendum', entry, source.conversion.sourceFile),
-        load: () => loadRegisterSource(foiDir, entry, meta, source),
-      });
-    }
-  }
-  return resolved;
-}
-
-// Every source across all covered families, in a stable order (FOI register
-// first, then open-data register, then the attribute addenda), ready for the
-// one emit path.
-export function collectLedgerSources(foiDir: string = defaultFoiDir()): ResolvedLedgerSource[] {
-  return [
-    ...collectFoiRegisterSources(foiDir),
-    ...collectOpenDataRegisterSources(),
-    ...collectAttributeAddendumSources(foiDir),
-  ];
-}
+// The covered source families, in the registry's stable declaration order. The
+// tallies below are keyed off this list, so a newly-registered family is
+// counted without editing a literal here.
+const FAMILIES: readonly string[] = COLLECTORS.map(collector => collector.family);
 
 export interface SourceLedgerSummary {
-  family: SourceFamily;
+  family: string;
   entry: string;
   sourceFile: string;
   vintage: string;
@@ -370,8 +98,8 @@ export interface LedgerBuildSummary {
   sourcesProcessed: number;
   // Distinct entries and sources contributed by each family, so the corpus
   // report shows coverage per source family, not just the total.
-  entriesByFamily: Record<SourceFamily, number>;
-  sourcesByFamily: Record<SourceFamily, number>;
+  entriesByFamily: Record<string, number>;
+  sourcesByFamily: Record<string, number>;
   totalObservations: number;
   totalRawClaims: number;
   totalDerivedClaims: number;
@@ -389,7 +117,13 @@ function tallyLayers(claims: readonly Claim[]): { raw: number; derived: number }
   return { raw, derived };
 }
 
-const EMPTY_FAMILY_TALLY: Record<SourceFamily, number> = { 'foi-register': 0, 'open-data-register': 0, 'attribute-addendum': 0 };
+// A fresh per-family counter with every covered family present at zero, built
+// from the registry so the family set is never a hardcoded literal.
+function emptyFamilyTally(): Record<string, number> {
+  const tally: Record<string, number> = {};
+  for (const family of FAMILIES) tally[family] = 0;
+  return tally;
+}
 
 // Build the register ledger from the RAW bytes and write it as one JSONL file
 // per source into outputDir/ledger/. Claims are serialised and released per
@@ -415,12 +149,19 @@ export function buildLedger(
   fs.mkdirSync(ledgerDir, { recursive: true });
 
   const perSource: SourceLedgerSummary[] = [];
-  const entriesSeen: Record<SourceFamily, Set<string>> = { 'foi-register': new Set(), 'open-data-register': new Set(), 'attribute-addendum': new Set() };
+  const entriesSeen: Record<string, Set<string>> = {};
+  for (const family of FAMILIES) entriesSeen[family] = new Set();
 
-  for (const source of collectLedgerSources(foiDir)) {
+  const roots: LedgerRoots = { foiDir, archiveDir: defaultArchiveDir() };
+  for (const source of collectLedgerSources(roots)) {
     if (selectEntry !== undefined && !selectEntry(source.entry)) continue;
     const observationSet = source.load();
-    const claims = emitLedger(observationSet, ref);
+    // A callsign subject runs the full emit path (cleanedCallsign +
+    // normalises_to edges); any other subject kind emits the raw observation
+    // claims only, so a non-callsign token is never mis-normalised AS a
+    // callsign. Every covered family is 'callsign' today, so this is the full
+    // path for the whole corpus.
+    const claims = source.subjectKind === 'callsign' ? emitLedger(observationSet, ref) : emitClaims(observationSet);
     const { raw, derived } = tallyLayers(claims);
     fs.writeFileSync(path.join(ledgerDir, `${source.jsonlStem}.jsonl`), serialiseClaimsJsonl(claims));
     entriesSeen[source.family].add(source.entry);
@@ -435,9 +176,9 @@ export function buildLedger(
     });
   }
 
-  const entriesByFamily = { ...EMPTY_FAMILY_TALLY };
-  const sourcesByFamily = { ...EMPTY_FAMILY_TALLY };
-  for (const family of Object.keys(entriesSeen) as SourceFamily[]) entriesByFamily[family] = entriesSeen[family].size;
+  const entriesByFamily = emptyFamilyTally();
+  const sourcesByFamily = emptyFamilyTally();
+  for (const family of FAMILIES) entriesByFamily[family] = entriesSeen[family].size;
   for (const s of perSource) sourcesByFamily[s.family] += 1;
 
   const totalObservations = perSource.reduce((sum, s) => sum + s.observations, 0);
@@ -464,7 +205,10 @@ if (import.meta.main) {
   const summary = buildLedger(outputDir);
   console.log(`wrote raw-keyed claim ledger to ${summary.outputDir}`);
   console.log(`  entries: ${summary.entriesProcessed}, sources: ${summary.sourcesProcessed}, observations: ${summary.totalObservations}`);
-  console.log(`  by family: foi-register ${summary.entriesByFamily['foi-register']} entries / ${summary.sourcesByFamily['foi-register']} sources, open-data-register ${summary.entriesByFamily['open-data-register']} entries / ${summary.sourcesByFamily['open-data-register']} sources, attribute-addendum ${summary.entriesByFamily['attribute-addendum']} entries / ${summary.sourcesByFamily['attribute-addendum']} sources`);
+  const byFamily = FAMILIES
+    .map(family => `${family} ${summary.entriesByFamily[family]} entries / ${summary.sourcesByFamily[family]} sources`)
+    .join(', ');
+  console.log(`  by family: ${byFamily}`);
   console.log(`  claims: ${summary.totalClaims} (raw ${summary.totalRawClaims}, derived ${summary.totalDerivedClaims})`);
   for (const s of summary.perSource) {
     console.log(`  [${s.family}] ${s.entry} [${s.vintage}] ${s.observations} obs -> ${s.rawClaims + s.derivedClaims} claims (raw ${s.rawClaims}, derived ${s.derivedClaims})  ${s.sourceFile}`);

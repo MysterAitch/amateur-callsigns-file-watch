@@ -1,0 +1,46 @@
+/**
+ * The collector contract: each source family is a self-contained module that
+ * exports one LedgerCollector, and the registry (index.ts) folds them into the
+ * corpus. Adding a family is adding a file plus one registry line, never an edit
+ * spread across build-ledger.ts.
+ */
+
+import type { SourceObservationSet } from '../claim.ts';
+
+// The location roots every collector may need, threaded once instead of
+// per-family default-arg plumbing.
+export interface LedgerRoots {
+  foiDir: string;
+  archiveDir: string;
+}
+
+// What kind of subject each row's subjectColumn holds. Governs whether the emit
+// path runs callsign normalisation (cleanedCallsign + normalises_to edges) or
+// emits raw observations only. Register/addendum families are 'callsign'; a
+// forbidden-suffix list is 'suffix'; a statistics aggregate has no per-row
+// subject ('aggregate'); an available-pool slot is 'pool-slot'. Extend the union
+// as bespoke families land - the point is the emit path never mis-normalises a
+// non-callsign token AS a callsign.
+export type SubjectKind = 'callsign' | 'suffix' | 'pool-slot' | 'aggregate';
+
+// One published source resolved to everything buildLedger needs: how to load
+// its rows, and a filesystem-safe unique stem for its JSONL. `entry` is the
+// family's natural key (an FOI entry key, or an open-data archive-date key) so
+// an EntrySelector reads the same across families. `subjectKind` is copied from
+// the collector so the emit path can branch per source without re-looking-up
+// the collector.
+export interface ResolvedLedgerSource {
+  family: string;
+  subjectKind: SubjectKind;
+  entry: string;
+  jsonlStem: string;
+  load(): SourceObservationSet;
+}
+
+// One source family: its provenance tag, the kind of subject its rows carry,
+// and how to resolve its published sources against the shared roots.
+export interface LedgerCollector {
+  family: string;
+  subjectKind: SubjectKind;
+  collect(roots: LedgerRoots): ResolvedLedgerSource[];
+}

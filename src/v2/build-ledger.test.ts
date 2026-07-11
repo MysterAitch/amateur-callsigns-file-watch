@@ -10,17 +10,21 @@ import {
   CLEANED_CALLSIGN_RULE,
 } from './claim.ts';
 import { projectNormalised } from './project-normalised.ts';
+import { buildLedger } from './build-ledger.ts';
 import {
   registerSourcesFor,
   loadRegisterSource,
-  buildLedger,
   qualifyingRegisterEntries,
+} from './collectors/foi-register.ts';
+import {
   loadOpenDataRegisterSource,
   collectOpenDataRegisterSources,
+  defaultArchiveDir,
+} from './collectors/open-data-register.ts';
+import {
   collectAttributeAddendumSources,
   attributeAddendumEntries,
-  defaultArchiveDir,
-} from './build-ledger.ts';
+} from './collectors/attribute-addendum.ts';
 import { convertFoiSource } from '../shared/foi-normalise.ts';
 import { readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
 import { loadReferenceData, cleanedCallsign } from '../sources/ofcom-amateur/components.ts';
