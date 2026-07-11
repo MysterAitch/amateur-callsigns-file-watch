@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2023/february/call-sign-list-with-status-25-01-2023.xlsx?v=72804",
+  "title": "Call sign list with status, 25 January 2023 (Ofcom FOI disclosure log)",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "not held; the request thread is not recovered. The list is published on Ofcom's FOI disclosure log with no requester, request date or case number stated.",
+  "respondedAt": null,
+  "respondedAtNote": "not stated in the held material; the file is served under Ofcom's 2023/february disclosure-log path, and the worksheet's report-generation timestamp is 2023-01-25 (see dataVintage).",
+  "outcome": "successful",
+  "dataVintage": "2023-01-25",
+  "dataVintageNote": "declared and well-supported by three agreeing signals: the worksheet name 'Report1674642037414' embeds the report-generation instant (1674642037414 = 2023-01-25T10:20:37Z); the served filename dates the export 25-01-2023; and the latest 'Call Sign MMSI: Last Modified Date' in the data is exactly 2023-01-25. The disclosed bytes are identical across the live disclosure-log copy and the UK Government Web Archive capture (both sha256 73d17c0c…), so the vintage is corroborated by two independent retrievals.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2023-01-25-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2022-03-14--available-and-registered--all-callsigns", "relation": "the previous register snapshot held (2022-03-14), in the leaner Value,Status,Type shape without a Product column or dates." },
+    { "entry": "ofcom-2023-08-18--call-sign-list--all-callsigns", "relation": "the next register snapshot held (2023-08-18) in the same Value/Status/Product family, differing only by an added constant Type column." },
+    { "entry": "ofcom-2023-11-24--call-sign-list--all-callsigns", "relation": "a later snapshot in the same family, disclosed as a CSV (day-first dates) rather than a workbook (typed ISO dates); it also carries the Type column." },
+    { "entry": "ofcom-2024-01--foi-1734722--all-callsigns", "relation": "the complete-register snapshot in the same family (2024-01); both carry the reserved pool with a blank Product and the two 'Special Event Station' rows that the open-data lists omit." }
+  ],
+  "files": {
+    "call-sign-list-with-status-25-01-2023.xlsx": {
+      "bytes": 3793535,
+      "sha256": "73d17c0ccb2f1675d5205cf199d2e30015b68fcba17531ee50ed72ab790c3f1d",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "sheetsIndicative": {
+        "note": "one worksheet ('Report1674642037414'): header Value,Status,Product,Call Sign MMSI: Last Modified Date then 152,084 data rows. No Type column - the only four-column source in the Value/Status/Product family. Preserved verbatim as a raw extract and normalised into the register-snapshot dataset.",
+        "sheets": [
+          { "name": "Report1674642037414", "dataRows": 152084, "cols": "A:D", "datasetClass": "register-snapshot" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "live",
+          "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2023/february/call-sign-list-with-status-25-01-2023.xlsx?v=72804",
+          "note": "the disclosure-log copy served directly from Ofcom; ingested here as the primary raw"
+        },
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20240326004101/https://www.ofcom.org.uk/__data/assets/file/0022/253624/Call-sign-List-with-Status-25-01-2023.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ],
+      "provenanceAgreement": "the live and UKGWA-mirror copies are byte-identical (same sha256 73d17c0c…), so the two provenance witnesses agree"
+    },
+    "raw-extract-sheet-1-report1674642037414.csv": {
+      "bytes": 7307224,
+      "sha256": "3539d763015b05298a4c07331e91f1c3ba3d72a35917f84a306d5db09e49ffbd",
+      "role": "extract",
+      "extractOf": "call-sign-list-with-status-25-01-2023.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts",
+      "contentsIndicative": "mechanical extract of the single sheet; header Value,Status,Product,Call Sign MMSI: Last Modified Date then 152,084 rows. Status vocabulary Allocated (100,351), Reserved (51,301), Available (422) and blank (10). Product vocabulary: Amateur Full (58,725), blank (44,712), Amateur Foundation (33,190), Amateur Intermediate (13,551), Amateur Club (1,829), Amateur Temporary Reciprocal (75), Special Event Station (2). Last-modified dates typed at source and rendered ISO, spanning 2016-07-23..2023-01-25. Anomalies preserved verbatim: two rows carry a blank Value (empty callsign); one Value is literally ',,'; fifteen Value cells were mangled into dates by Excel and are rendered ISO (e.g. 2023-11-20, 2023-03-20, 2023-05-20 - all Intermediate 20… callsigns); the trailing-NBSP trio (G0TQK, G7IWE, 2E1HON); 'G6 FMU' interior space; lower-case g0jrk and 2e1GTD; reciprocal 'M/…' forms including M/#PT2FM."
+    },
+    "normalised--sheet-1-report1674642037414.csv": {
+      "bytes": 7307211,
+      "sha256": "b1b97342f38acab445916fc84911de0999d6f95de847dc4d600de773223f90dc",
+      "role": "normalised",
+      "datasetClasses": ["register-snapshot"],
+      "normalisedFrom": "raw-extract-sheet-1-report1674642037414.csv",
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 152,084 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product) carried verbatim - 44,712 blank licence_class values (the reserved pool) and 10 blank statuses preserved. last_modified_date carried verbatim from the ISO-rendered workbook extract. Type is absent from this source (the only four-column snapshot). The trailing-NBSP trio is trimmed (the sole canonicalisation, counted at convert time). Two blank-callsign rows sort first, then the ',,' Value; the fifteen Excel-date-mangled callsigns (e.g. 2023-11-20) are carried verbatim, never reconstructed."
+    },
+    "correspondence.md": {
+      "bytes": 3127,
+      "sha256": "fd0460563e3bb34af01a73160c323a5e518bd3c9ce7c340b41dcdeb0548df748",
+      "role": "transcript"
+    }
+  }
+}

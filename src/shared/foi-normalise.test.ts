@@ -1272,6 +1272,162 @@ describe('FOI workbook-extract normaliser - registers and events', () => {
   });
 });
 
+// The March-2022 workbook register snapshots in the Value,Status,Type shape
+// (ofcom-2022-03-14 case 01432624, sharing the valueStatusTypeRegisterConversion
+// factory with ofcom-01420046): no licence class, no dates, the constant
+// 'Call Sign - Amateur' Type the only discriminator.
+const VST_2022_VARIANT = 'ofcom-2022-03-14-register';
+const VST_01420046_VARIANT = 'ofcom-01420046-register';
+const vst2022 = conversionFor(VST_2022_VARIANT, 'raw-extract-sheet-1-report1647268967067.csv');
+const vst01420046 = conversionFor(VST_01420046_VARIANT, 'raw-extract-sheet-1-report1646659776237.csv');
+
+describe('FOI workbook-extract normaliser - Value/Status/Type register snapshots', () => {
+  it('FoiNormaliser_ValueStatusTypeWorkbook_MapsToObservationSchemaAndDropsConstantType', () => {
+    const input = extractCsv([
+      'Value,Status,Type',
+      'M7RFT,Allocated,Call Sign - Amateur',
+      'G1YUE,Reserved,Call Sign - Amateur',
+    ]);
+    const result = convertFoiSource(input, vst2022);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class\n' +
+      'G1YUE,Reserved,\n' +
+      'M7RFT,Allocated,\n');
+    expect(result.csv).not.toContain('Call Sign - Amateur');
+  });
+
+  it('FoiNormaliser_ValueStatusTypeDoubleCommaCallsign_PreservedAndSortsFirst', () => {
+    // The real ',,' Value (two commas, Reserved) survives RFC-4180 quoting and
+    // sorts first under the codepoint order.
+    const input = extractCsv([
+      'Value,Status,Type',
+      'M0AAA,Allocated,Call Sign - Amateur',
+      '",,",Reserved,Call Sign - Amateur',
+    ]);
+    const result = convertFoiSource(input, vst2022);
+    expect(result.csv.startsWith('callsign,status,licence_class\n",,",Reserved,\n')).toBe(true);
+  });
+
+  it('FoiNormaliser_ValueStatusTypeSharedFactory_ProducesIdenticalOutputAcrossSnapshots', () => {
+    // ofcom-2022-03-14 and ofcom-01420046 bind the SAME factory - the shape is
+    // asserted identical, so the same input must normalise identically.
+    const input = extractCsv(['Value,Status,Type', 'M7RFT,Allocated,Call Sign - Amateur']);
+    expect(convertFoiSource(input, vst2022).csv).toBe(convertFoiSource(input, vst01420046).csv);
+  });
+});
+
+// The 2023 workbook register snapshots in the Value/Status/Product family: the
+// 25 January 2023 four-column shape without a Type column, and the 18 August
+// 2023 five-column shape with the constant Type discriminator. Both are
+// WORKBOOK extracts, so their last-modified dates are already ISO (typed at
+// source) rather than day-first as in the CSV snapshots.
+const VSP_WB_0125_VARIANT = 'ofcom-2023-01-25-register';
+const VSP_WB_0818_VARIANT = 'ofcom-2023-08-18-register';
+const vspWb0125 = conversionFor(VSP_WB_0125_VARIANT, 'raw-extract-sheet-1-report1674642037414.csv');
+const vspWb0818 = conversionFor(VSP_WB_0818_VARIANT, 'raw-extract-sheet-1-call-sign-data.csv');
+
+describe('FOI workbook-extract normaliser - Value/Status/Product register snapshots (2023 workbooks)', () => {
+  it('FoiNormaliser_FourColumnWorkbookWithoutType_MapsIsoDateObservationSchema', () => {
+    // The 25 January 2023 workbook has NO Type column and typed (ISO) dates;
+    // no day-first order evidence is collected for an already-ISO column.
+    const input = extractCsv([
+      'Value,Status,Product,Call Sign MMSI: Last Modified Date',
+      'M7CVI,Allocated,Amateur Foundation Radio Licence,2022-01-28',
+      '20ABC,Reserved,,2016-07-23',
+    ]);
+    const result = convertFoiSource(input, vspWb0125);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,last_modified_date\n' +
+      '20ABC,Reserved,,2016-07-23\n' +
+      'M7CVI,Allocated,Amateur Foundation Radio Licence,2022-01-28\n');
+    expect(result.notes.blankCounts['licence_class']).toBe(1);
+    expect(result.notes.dateStats).toEqual({});
+  });
+
+  it('FoiNormaliser_FourColumnWorkbookWithUnexpectedTypeColumn_Throws', () => {
+    // hasType:false means a Type column is a genuinely different (five-column)
+    // shape - a reviewed change, never silently accepted.
+    const input = extractCsv([
+      'Value,Status,Product,Type,Call Sign MMSI: Last Modified Date',
+      'M7CVI,Allocated,Amateur Foundation Radio Licence,Call Sign - Amateur,2022-01-28',
+    ]);
+    expect(() => convertFoiSource(input, vspWb0125)).toThrow(/Type/);
+  });
+
+  it('FoiNormaliser_WorkbookExcelMangledCallsign_CarriedVerbatim', () => {
+    // Fifteen 20xxx Intermediate callsigns are stored AS dates in the January
+    // workbook; the extract renders them ISO and the converter carries the
+    // callsign verbatim, never reconstructed to a guessed suffix.
+    const input = extractCsv([
+      'Value,Status,Product,Call Sign MMSI: Last Modified Date',
+      '2023-11-20,Reserved,Amateur Intermediate Radio Licence,2019-02-27',
+    ]);
+    expect(convertFoiSource(input, vspWb0125).csv)
+      .toContain('\n2023-11-20,Reserved,Amateur Intermediate Radio Licence,2019-02-27\n');
+  });
+
+  it('FoiNormaliser_WorkbookBlankCallsign_PreservedAndSortsFirst', () => {
+    // Two records in the January workbook carry a blank Value (empty callsign);
+    // they are data, preserved and sorted first, never dropped.
+    const input = extractCsv([
+      'Value,Status,Product,Call Sign MMSI: Last Modified Date',
+      'M0AAA,Allocated,Amateur Full Radio Licence,2022-01-28',
+      '"",Available,,2022-05-11',
+    ]);
+    const result = convertFoiSource(input, vspWb0125);
+    expect(result.csv.startsWith('callsign,status,licence_class,last_modified_date\n,Available,,2022-05-11\n')).toBe(true);
+    expect(result.notes.blankCounts['callsign']).toBe(1);
+  });
+
+  it('FoiNormaliser_FiveColumnWorkbookWithConstantType_DropsTypeAndKeepsIsoDate', () => {
+    // The 18 August 2023 workbook carries the constant Type discriminator and
+    // typed ISO dates; Type is dropped, the date carried verbatim.
+    const input = extractCsv([
+      'Value,Product,Status,Type,Call Sign MMSI: Last Modified Date',
+      'M0OOZ,Amateur Club Radio Licence,Allocated,Call Sign - Amateur,2022-11-29',
+    ]);
+    const result = convertFoiSource(input, vspWb0818);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,last_modified_date\n' +
+      'M0OOZ,Allocated,Amateur Club Radio Licence,2022-11-29\n');
+    expect(result.csv).not.toContain('Call Sign - Amateur');
+  });
+
+  it('FoiNormaliser_WorkbookIsoLastModifiedAfterVintage_ThrowsPlausibilityFailure', () => {
+    // A last-modified date cannot postdate the 18 August 2023 vintage.
+    const input = extractCsv([
+      'Value,Product,Status,Type,Call Sign MMSI: Last Modified Date',
+      'M0OOZ,Amateur Club Radio Licence,Allocated,Call Sign - Amateur,2023-08-19',
+    ]);
+    expect(() => convertFoiSource(input, vspWb0818)).toThrow(/future/i);
+  });
+
+  it('FoiNormaliser_WorkbookColumnOrderShuffled_MapsByHeaderNameNotPosition', () => {
+    const canonical = extractCsv([
+      'Value,Product,Status,Type,Call Sign MMSI: Last Modified Date',
+      'M0OOZ,Amateur Club Radio Licence,Allocated,Call Sign - Amateur,2022-11-29',
+    ]);
+    const shuffled = extractCsv([
+      'Call Sign MMSI: Last Modified Date,Type,Status,Product,Value',
+      '2022-11-29,Call Sign - Amateur,Allocated,Amateur Club Radio Licence,M0OOZ',
+    ]);
+    expect(convertFoiSource(shuffled, vspWb0818).csv).toBe(convertFoiSource(canonical, vspWb0818).csv);
+  });
+
+  it('FoiNormaliser_WorkbookTrailingNbspCallsign_TrimmedAndCounted', () => {
+    // The NBSP trio (G0TQK/G7IWE/2E1HON) carries a trailing non-breaking space
+    // in these snapshots too; the trim is the sole canonicalisation and counted.
+    const input = extractCsv([
+      'Value,Product,Status,Type,Call Sign MMSI: Last Modified Date',
+      `G0TQK${NBSP},Amateur Full Radio Licence,Allocated,Call Sign - Amateur,2022-11-29`,
+    ]);
+    const result = convertFoiSource(input, vspWb0818);
+    expect(result.csv).toContain('G0TQK,Allocated');
+    expect(result.notes.nbspCellCount).toBe(1);
+    expect(result.notes.trimmedCellCount).toBe(1);
+  });
+});
+
 // Column-name governance (issue #149 Phase A): every output column of every
 // conversion must be core to a row-schema family or registered as an
 // extension - converters cannot invent near-duplicate names.
@@ -1459,6 +1615,48 @@ describe('FOI archive golden master', () => {
     expect(results[0].csv.startsWith('callsign,status,licence_class\n",,",Reserved,\n')).toBe(true);
     // 'G6 FMU' keeps its interior space (the same anomaly as the 2017 register).
     expect(results[0].csv).toContain('G6 FMU,');
+  });
+
+  it('FoiArchive_Ofcom20220314Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    // Case 01432624, the Value,Status,Type workbook disclosed a week after
+    // ofcom-01420046 and sharing its factory - 57 rows larger.
+    const results = expectEntryReproduced('ofcom-2022-03-14--available-and-registered--all-callsigns', 'ofcom-2022-03-14-register', [150238]);
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class');
+    // 12 blank statuses preserved; the constant Type column is not carried.
+    expect(results[0].notes.blankCounts['status']).toBe(12);
+    // The trailing-NBSP trio (G0TQK, G7IWE, 2E1HON) is trimmed and counted here.
+    expect(results[0].notes.nbspCellCount).toBe(3);
+    // The ',,' Value (Reserved) sorts first under the codepoint order.
+    expect(results[0].csv.startsWith('callsign,status,licence_class\n",,",Reserved,\n')).toBe(true);
+    expect(results[0].csv).toContain('G6 FMU,');
+  });
+
+  it('FoiArchive_Ofcom20230125Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    // The earliest Value/Status/Product snapshot, and the only one without a
+    // Type column; a workbook, so its last-modified dates are typed ISO.
+    const results = expectEntryReproduced('ofcom-2023-01-25--call-sign-list-with-status--all-callsigns', 'ofcom-2023-01-25-register', [152084]);
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class,last_modified_date');
+    // The reserved pool: 44,712 blank products; 10 blank statuses.
+    expect(results[0].notes.blankCounts['licence_class']).toBe(44712);
+    expect(results[0].notes.blankCounts['status']).toBe(10);
+    // Two blank-callsign rows are data, preserved and sorted first.
+    expect(results[0].notes.blankCounts['callsign']).toBe(2);
+    // The trailing-NBSP trio is trimmed and counted here.
+    expect(results[0].notes.nbspCellCount).toBe(3);
+    // Fifteen Excel-date-mangled Intermediate callsigns are carried verbatim.
+    expect(results[0].csv).toContain('\n2023-11-20,Reserved,Amateur Intermediate Radio Licence,2019-02-27\n');
+  });
+
+  it('FoiArchive_Ofcom20230818Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    // FOI 01649066, the five-column Value/Status/Product/Type workbook.
+    const results = expectEntryReproduced('ofcom-2023-08-18--call-sign-list--all-callsigns', 'ofcom-2023-08-18-register', [153248]);
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class,last_modified_date');
+    // 11 blank statuses; 42,502 blank products (the reserved pool).
+    expect(results[0].notes.blankCounts['status']).toBe(11);
+    expect(results[0].notes.blankCounts['licence_class']).toBe(42502);
+    expect(results[0].notes.nbspCellCount).toBe(3);
+    // This snapshot carries no Special Event Station product (contrast 2023-01-25).
+    expect(results[0].csv).not.toContain('Special Event Station');
   });
 
   it('FoiArchive_Ofcom20231124Entry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
