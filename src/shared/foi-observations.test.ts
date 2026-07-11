@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
-import { buildFoiObservations, renderObservationsCsv, OBSERVATION_VALUE_COLUMNS } from './foi-observations.ts';
+import { buildFoiObservations, renderObservationsCsv, renderObservationsCsvBuffer, OBSERVATION_VALUE_COLUMNS } from './foi-observations.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -55,5 +55,17 @@ describe('FOI observations projection', () => {
     expect(lines).toHaveLength(4);
     // Every data line has the full column count (nulls flattened to '').
     expect(lines[1].split(',').length).toBeGreaterThanOrEqual(5 + OBSERVATION_VALUE_COLUMNS.length);
+  });
+
+  it('FoiObservationsCsvBuffer_MatchesStringRendererByteForByte_AcrossBatchBoundaries', () => {
+    // The whole-archive union exceeds V8's maximum single-string length, so
+    // the published union is assembled as a Buffer in row batches. It must be
+    // byte-identical to the string renderer; a tiny batch size forces several
+    // batch boundaries so the seam handling is exercised.
+    const sample = rows.slice(0, 10);
+    const asString = Buffer.from(renderObservationsCsv(sample), 'utf8');
+    expect(renderObservationsCsvBuffer(sample, 3).equals(asString)).toBe(true);
+    // The default (unbatched-in-practice) path agrees too.
+    expect(renderObservationsCsvBuffer(sample).equals(asString)).toBe(true);
   });
 });

@@ -33,10 +33,16 @@ afterAll(() => {
 
 describe('Published data tiers', () => {
   it('Tiers_UnionCsv_GunzipsToFullHeaderAndDeclaredRowCount', { timeout: 120_000 }, () => {
-    const csv = zlib.gunzipSync(fs.readFileSync(path.join(dataDir, 'foi-observations.csv.gz'))).toString('utf8');
-    const lines = csv.trimEnd().split('\n');
-    expect(lines[0]).toBe(['callsign', 'entry', 'source_file', 'dataset_classes', 'vintage', ...OBSERVATION_VALUE_COLUMNS].join(','));
-    expect(lines.length - 1).toBe(summary['foi-observations.csv.gz rows']);
+    // The full-archive union exceeds V8's maximum single-string length, so it
+    // is inspected as bytes: the header is the first newline-delimited line and
+    // every line (header included) is newline-terminated, so the data-row count
+    // is the newline total minus the header.
+    const buf = zlib.gunzipSync(fs.readFileSync(path.join(dataDir, 'foi-observations.csv.gz')));
+    const firstNewline = buf.indexOf(0x0a);
+    expect(buf.subarray(0, firstNewline).toString('utf8')).toBe(['callsign', 'entry', 'source_file', 'dataset_classes', 'vintage', ...OBSERVATION_VALUE_COLUMNS].join(','));
+    let newlines = 0;
+    for (let pos = buf.indexOf(0x0a); pos !== -1; pos = buf.indexOf(0x0a, pos + 1)) newlines += 1;
+    expect(newlines - 1).toBe(summary['foi-observations.csv.gz rows']);
   });
 
   it('Tiers_MasterObservations_KeepNullVsAssertedBlankDistinct', { timeout: 120_000 }, () => {

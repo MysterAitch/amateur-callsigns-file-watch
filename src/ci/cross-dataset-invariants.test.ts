@@ -86,12 +86,12 @@ describe('cross-dataset invariants — available × record-of overlap matrix', (
   it('OverlapMatrix_RealArchive_HasNinePoolRowsAndVintageOrderedRegisterColumns', () => {
     // Nine available-pool snapshots (2013–2016) as rows.
     expect(m.pools.length).toBe(9);
-    // Twenty-six surviving register columns: seven open-data publications
-    // plus nineteen FOI register-snapshots (two 2016/2019 FOI snapshots that
+    // Twenty-eight surviving register columns: seven open-data publications
+    // plus twenty-one FOI register-snapshots (two 2016/2019 FOI snapshots that
     // hold no callsign union are dropped, not shown as all-zero columns).
-    expect(m.registers.length).toBe(26);
+    expect(m.registers.length).toBe(28);
     expect(m.registers.filter(r => r.kind === 'open-data')).toHaveLength(7);
-    expect(m.registers.filter(r => r.kind === 'foi')).toHaveLength(19);
+    expect(m.registers.filter(r => r.kind === 'foi')).toHaveLength(21);
     // Every pool row carries exactly one cell per register column.
     expect(m.present.length).toBe(m.pools.length);
     for (const row of m.present) expect(row.length).toBe(m.registers.length);
