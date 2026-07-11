@@ -29,13 +29,15 @@
       <div class="head-inner">
         <div class="eyebrow">UK amateur-radio register · provenance-first model</div>
         <h1>Every fact traced to the byte that asserted it</h1>
-        <p class="lede">The register isn't a spreadsheet — it's a stack of snapshots, published in a dozen
-          shapes, each disagreeing with the next. This page keeps every raw observation exactly as Ofcom
-          published it, makes each normalisation an explicit, reversible step, and lets the timeline fall out
-          as a fold. Everything below is a <b>live query</b> against the raw-keyed claim ledger.</p>
+        <p class="lede">The amateur register isn't a spreadsheet — it's a stack of snapshots, published over the
+          years in a dozen shapes, each disagreeing with the next. This page folds every archived
+          <b>register-snapshot</b> publication, keeping each raw observation exactly as Ofcom published it,
+          making every normalisation an explicit, reversible step, and letting the status timeline fall out as a
+          fold. Everything below is a <b>live query</b> against the raw-keyed claim ledger.</p>
         <div class="held"><b>Live</b> · queried in your browser from the raw-keyed claim-ledger database
           (<a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/361">issue&nbsp;#361</a>)
-          over range requests — no whole-file download</div>
+          over range requests — no whole-file download. Register snapshots only; other Ofcom disclosures are
+          not folded in yet.</div>
 
         <div class="pipe">
           <div class="node raw"><div class="k">1 · observation</div><div class="v">raw token, verbatim</div>
@@ -58,8 +60,9 @@
         <p class="panel-sub">Type a callsign (or pick a sample). It is cleaned and matched against the ledger's
           <span class="mono">cleaned</span> index to find the entity; a regional rendering resolves via the
           placeholder key. You get the entity you would search for, every observation that resolves to it, its
-          layer anatomy, and the timeline — nothing is hidden: a callsign whose only observation is an
-          abnormally-formatted token keeps that abnormality flagged rather than presented as a clean name.</p>
+          layer anatomy, and the <b>status timeline</b> across the snapshots — nothing is hidden: a callsign
+          whose only observation is an abnormally-formatted token keeps that abnormality flagged rather than
+          presented as a clean name.</p>
 
         <form id="lookup-form" role="search">
           <label for="callsign-input" class="visually-hidden">Callsign</label>
@@ -71,7 +74,7 @@
           </div>
         </form>
 
-        <p class="panel-sub" style="margin:14px 0 6px">Samples present in the shipped subset:</p>
+        <p class="panel-sub" style="margin:14px 0 6px">Sample callsigns:</p>
         <div class="chips" id="resolver" role="group" aria-label="Choose a sample callsign">
           <button class="chip" type="button" data-cs="G0TQK" aria-pressed="true">G0TQK</button>
           <button class="chip" type="button" data-cs="M7TEE">M7TEE</button>
@@ -82,7 +85,7 @@
         <div id="entity"></div>
         <div class="legend">
           <span><i class="dot" style="background:var(--raw)"></i>first sighting</span>
-          <span><i class="dot" style="background:var(--change)"></i>licence-state change</span>
+          <span><i class="dot" style="background:var(--change)"></i>status change</span>
           <span><i class="dot" style="background:var(--derived)"></i>raw variant</span>
           <span><i class="dot" style="background:var(--faint)"></i>parallel (de-emphasised)</span>
         </div>
@@ -121,22 +124,26 @@
           <li>the both-engines <b>playground</b> (SQLite beside DuckDB/Parquet) and hand-written SQL;</li>
           <li>the vocabulary and normalisation demonstrations (licence-type census, the cleaning catalogue,
             the regional-renderings walk-through);</li>
+          <li><b>licence class and dates in the timeline</b> — the snapshots name these under different columns
+            with different value vocabularies and date formats, so the timeline tracks register <b>status</b>
+            only until that cross-schema normalisation is done;</li>
           <li><b>cross-source links</b> — FOI correspondence and ITU home-country resolution — which are not
             yet available in the claim ledger;</li>
           <li>the offline (PWA) opt-in download of the claim-ledger database.</li>
         </ul>
-        <div class="callout" style="border-color:var(--change)">The shipped database is a <b>representative
-          subset</b> (two register snapshots at distinct vintages), enough to prove the pipeline end-to-end.
-          Most callsigns are therefore absent — a bound of the sample, not the model. The full corpus is a
-          later step.</div>
+        <div class="callout" style="border-color:var(--change)">Scope: this folds the <b>register-snapshot</b>
+          publications the archive holds — not Ofcom's other disclosures (FOI correspondence, forbidden-suffix
+          lists, statistics). A callsign absent here may still appear in those, and the register never listed
+          every un-issued callsign, so absence is never proof of availability.</div>
       </section>
 
       <footer>
         <div class="mono" style="font-size:12px; letter-spacing:.04em; color:var(--faint)">
-          amateur-callsigns-file-watch · raw-keyed claim ledger (issue #361, Stage 3a) · live in-browser query over a representative subset</div>
+          amateur-callsigns-file-watch · raw-keyed claim ledger (issue #361, Stage 3a) · live in-browser query over the archived register snapshots</div>
         <p style="margin:10px 0 0; max-width:66ch">Values shown are declared by the sources, not independently
-          verified; the model keeps them honest and traceable, it does not assert they are true. Cross-source
-          links are not yet available — this is the raw-keyed claim ledger on its own.</p>
+          verified; the model keeps them honest and traceable, it does not assert they are true. This folds the
+          register-snapshot publications only; cross-source links are not yet available — this is the raw-keyed
+          claim ledger on its own.</p>
       </footer>
     </div>
   </main>

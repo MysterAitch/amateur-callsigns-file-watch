@@ -90,8 +90,8 @@ function renderAnatomy(host, resolved, claims) {
     const valNode = appendRawToken(el('span', 'v'), o.raw);
     const bytesNode = el('span', 'v');
     bytesNode.append(el('span', 'bytes', o.bytes));
-    kv.append(el('span', 'k', 'Value'), valNode, el('span', 'k', 'bytes'), bytesNode);
-    for (const a of o.attrs) { kv.append(el('span', 'k', a.predicate), el('span', 'v', a.object)); }
+    const obsNode = el('span', 'v'); obsNode.append(b(o.observations), ` observation${o.observations === 1 ? '' : 's'}`);
+    kv.append(el('span', 'k', 'Value'), valNode, el('span', 'k', 'bytes'), bytesNode, el('span', 'k', 'seen in'), obsNode);
     box.appendChild(kv);
     for (const edge of o.edges) {
       const edgeBox = el('div', 'edge');
@@ -120,12 +120,17 @@ function renderDossier(host, resolved, claims) {
   const head = el('div', 'entity-head');
   head.appendChild(el('div', 'id', resolved.entity));
   const observations = observationsOf(claims);
-  const latest = observations[observations.length - 1];
   const st = el('div', 'stat');
-  if (latest) {
-    st.append(b(latest.status || '(no status)'));
-    if (latest.classCanon) st.append(' · ', latest.classCanon);
-    st.append(' · latest snapshot ', latest.vintage);
+  if (observations.length > 0) {
+    // The latest snapshot may carry more than one raw variant (a clean token
+    // beside a damaged twin), each with its own status, so name every status
+    // seen at that vintage rather than picking one arbitrarily.
+    const latestVintage = observations.map(o => o.vintage).sort().at(-1);
+    const latestStatuses = [...new Set(observations
+      .filter(o => o.vintage === latestVintage && o.status !== '')
+      .map(o => o.status))].sort();
+    st.append(b(latestStatuses.length > 0 ? latestStatuses.join(' / ') : '(no status)'));
+    st.append(' · latest snapshot ', latestVintage);
   } else {
     st.append('no observations');
   }
@@ -155,7 +160,7 @@ function renderDossier(host, resolved, claims) {
   variants.forEach((t, i) => { if (i > 0) variantVal.append('  ·  '); appendRawToken(variantVal, t); });
   facts.appendChild(row('raw tokens', variantVal));
   const vintages = [...new Set(claims.map(c => c.vintage))].sort();
-  facts.appendChild(row('vintages', vintages.join(', ')));
+  facts.appendChild(row('snapshots', [b(vintages.length), vintages.length > 0 ? ` · ${vintages[0]} → ${vintages.at(-1)}` : '']));
   body.appendChild(facts);
 
   const flags = flagsOf(claims, resolved.cleaned);
@@ -196,8 +201,9 @@ export async function runLookup(query, typed) {
     if (missHost) {
       missHost.textContent = '';
       missHost.appendChild(el('div', 'callout',
-        `No claim in this ledger for "${typed}". This is the representative subset (two register snapshots), `
-        + 'so most callsigns are absent — that is a bound of the sample, not evidence the callsign is unrecorded.'));
+        `No observation for "${typed}" in the register snapshots this ledger folds. That is not proof it is `
+        + 'unrecorded: the ledger covers register-snapshot publications only, not Ofcom’s other disclosures, and '
+        + 'the register does not list every un-issued callsign.'));
     }
     return resolved;
   }

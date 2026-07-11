@@ -10,7 +10,7 @@ import {
   foldObservations, anatomyOf, flagsOf, bytesHex,
 } from './ledger-query.js';
 import { runLookup } from './ledger.js';
-import { buildLedgerSqlite } from '../src/v2/build-ledger-db.ts';
+import { buildCompactLedgerSqlite } from '../src/v2/build-ledger-db-compact.ts';
 import { serialiseClaimsJsonl } from '../src/v2/serialise.ts';
 import {
   LISTED_PREDICATE, NORMALISES_TO_PREDICATE, CLEANED_CALLSIGN_RULE, PLACEHOLDER_FORM_RULE,
@@ -21,9 +21,11 @@ import { placeholderOf } from './browser-query.js';
 // The Ledger page (issue #361, Stage 3a) serves LIVE data end-to-end: raw bytes
 // -> claim ledger -> claim-ledger SQLite -> in-browser query -> page. These
 // tests exercise the whole chain against a REAL, freshly-built claim-ledger
-// SQLite (built by the same buildLedgerSqlite the deploy uses, from a tiny
-// hand-authored ledger that carries the documented G0TQK trailing-space twin),
-// then the deploy/SW/nav guards that keep the page reachable and offline-cached.
+// SQLite - built by the COMPACT builder the deploy ships (its `claims` VIEW, not
+// a fat table), from a tiny hand-authored ledger that carries the documented
+// G0TQK trailing-space twin AND snapshots that name the status column under
+// three different schemas - then the deploy/SW/nav guards that keep the page
+// reachable and offline-cached.
 
 const SITE_DIR = 'site';
 const PAGES_WORKFLOW = path.join('.github', 'workflows', 'pages.yml');
@@ -58,8 +60,12 @@ function observationClaims(
 
 const SRC_2016 = 'foi/ofcom-2016--callsign-database/raw-extract.csv';
 const SRC_2022 = 'foi/ofcom-2022--allocated-reserved/raw-extract.csv';
-const V_2016 = '2016-09-20';
+const SRC_2024 = 'foi/ofcom-2024--data-download/raw-extract.csv';
+// Three vintages whose real-world schemas name the status column differently:
+// 2016-09 uses "Final Status", 2022 uses "Status", 2024-04-30 uses "Status__c".
+const V_2016 = '2016-09';
 const V_2022 = '2022-03-07';
+const V_2024 = '2024-04-30';
 
 let dbPath: string;
 let tmpDir: string;
@@ -74,19 +80,29 @@ beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-page-test-'));
   const ledgerDir = path.join(tmpDir, 'ledger');
   fs.mkdirSync(ledgerDir, { recursive: true });
-  const claims: Claim[] = [
-    // G0TQK: Reserved in 2016; in 2022 the clean token is still Reserved while a
-    // trailing-SPACE twin ("G0TQK ") is Allocated - two raw tokens, one entity.
-    ...observationClaims(SRC_2016, 1, V_2016, 'G0TQK', { Status: 'Reserved' }),
-    ...observationClaims(SRC_2022, 10, V_2022, 'G0TQK', { Status: 'Reserved', Type: 'Call Sign - Amateur' }),
-    ...observationClaims(SRC_2022, 20, V_2022, 'G0TQK ', { Status: 'Allocated', Type: 'Call Sign - Amateur' }),
-    // M7TEE: a clean Foundation record present at one vintage (resolves by the
+  // One JSONL file per source, so the compact builder's per-source obs_id and
+  // dictionary passes run exactly as they do over the real corpus.
+  const bySource = new Map<string, Claim[]>([
+    // 2016-09 names the status column "Final Status".
+    [SRC_2016, observationClaims(SRC_2016, 1, V_2016, 'G0TQK', { 'Final Status': 'Reserved' })],
+    // 2022: the clean token is Reserved while a trailing-SPACE twin is Allocated
+    // - two raw tokens, one entity, co-temporal. Plus M7TEE (resolves by the
     // cleaned index; its placeholder key M#7TEE also resolves a regional MW7TEE).
-    ...observationClaims(SRC_2022, 30, V_2022, 'M7TEE', { Status: 'Allocated', Type: 'Call Sign - Amateur' }),
-  ];
-  fs.writeFileSync(path.join(ledgerDir, 'subset.jsonl'), serialiseClaimsJsonl(claims));
+    [SRC_2022, [
+      ...observationClaims(SRC_2022, 10, V_2022, 'G0TQK', { Status: 'Reserved', Type: 'Call Sign - Amateur' }),
+      ...observationClaims(SRC_2022, 20, V_2022, 'G0TQK ', { Status: 'Allocated', Type: 'Call Sign - Amateur' }),
+      ...observationClaims(SRC_2022, 30, V_2022, 'M7TEE', { Status: 'Allocated', Type: 'Call Sign - Amateur' }),
+    ]],
+    // 2024-04-30 names the status column "Status__c".
+    [SRC_2024, observationClaims(SRC_2024, 40, V_2024, 'G0TQK', { 'Status__c': 'Allocated', 'Type__c': 'Call Sign - Amateur' })],
+  ]);
+  let n = 0;
+  for (const [, claims] of bySource) {
+    fs.writeFileSync(path.join(ledgerDir, `source-${n}.jsonl`), serialiseClaimsJsonl(claims));
+    n += 1;
+  }
   dbPath = path.join(tmpDir, 'claim-ledger.sqlite.png');
-  buildLedgerSqlite(ledgerDir, dbPath);
+  buildCompactLedgerSqlite(ledgerDir, dbPath);
   db = new DatabaseSync(dbPath);
 });
 
@@ -111,7 +127,7 @@ describe('claim-ledger query layer (live, against a built SQLite)', () => {
     expect(resolved.matched).toBe('placeholder');
   });
 
-  it('Lookup_WhenCallsignAbsentFromSubset_ReturnsHonestMiss', async () => {
+  it('Lookup_WhenCallsignAbsentFromCorpus_ReturnsHonestMiss', async () => {
     const resolved = await resolveEntity(query, 'ZZ9ZZZ');
     expect(resolved.entity).toBeNull();
     expect(resolved.matched).toBe('none');
@@ -123,18 +139,30 @@ describe('claim-ledger query layer (live, against a built SQLite)', () => {
     expect(rawTokens.has('G0TQK')).toBe(true);
     expect(rawTokens.has('G0TQK ')).toBe(true); // the trailing-space twin, verbatim
     const vintages = [...new Set(claims.map(c => c.vintage))].sort();
-    expect(vintages).toEqual([V_2016, V_2022]);
+    expect(vintages).toEqual([V_2016, V_2022, V_2024]);
   });
 
   it('TemporalFold_WhenFoldedAcrossVintages_ReportsBirthsAndPerVariantStreams', async () => {
     const claims = await entityClaims(query, 'G#0TQK');
     const fold = foldObservations(observationsOf(claims), 'G0TQK');
-    expect(fold.vints).toEqual([V_2016, V_2022]);
+    expect(fold.vints).toEqual([V_2016, V_2022, V_2024]);
     expect(fold.variants.size).toBe(2); // clean token + trailing-space twin
     // Both statuses observed at 2022 (Reserved clean, Allocated twin).
     const at2022 = fold.byV.get(V_2022) ?? [];
     const statuses = at2022.map(o => o.status).sort();
     expect(statuses).toEqual(['Allocated', 'Reserved']);
+  });
+
+  it('StatusTimeline_WhenSnapshotsNameStatusColumnDifferently_ReadsItFromEachSchema', async () => {
+    // The status column is "Final Status" in 2016-09, "Status" in 2022 and
+    // "Status__c" in 2024-04-30. Reading whichever is present (a faithful, not
+    // lossy, normalisation) is what keeps the timeline correct across schemas -
+    // a naive "Status"-only read would blank the 2016 and 2024 vintages.
+    const obs = observationsOf(await entityClaims(query, 'G#0TQK'));
+    const statusesAt = (v: string): string[] =>
+      [...new Set(obs.filter(o => o.vintage === v).map(o => o.status))].sort();
+    expect(statusesAt(V_2016)).toEqual(['Reserved']); // via "Final Status"
+    expect(statusesAt(V_2024)).toEqual(['Allocated']); // via "Status__c"
   });
 
   it('Anatomy_WhenTokenIsDamaged_ExposesTheDifferingBytesAndNormalisesToEdges', async () => {
@@ -185,10 +213,11 @@ describe('Ledger page render (JSDOM smoke test, live query)', () => {
     expect(dossier?.textContent).toContain('G#0TQK');
     expect(dossier?.textContent).toContain('raw-differs-from-cleaned');
 
-    // A miss clears the views and explains the subset bound rather than hanging.
+    // A miss clears the views and states the register-snapshot scope honestly
+    // rather than hanging.
     const miss = await runLookup(query, 'ZZ9ZZZ');
     expect(miss.entity).toBeNull();
-    expect(document.getElementById('miss')?.textContent).toContain('representative subset');
+    expect(document.getElementById('miss')?.textContent).toContain('register-snapshot publications only');
     expect(document.getElementById('entity')?.textContent).toBe('');
   });
 });
@@ -232,8 +261,9 @@ describe('Ledger page deploy integrity', () => {
     expect(wf).toMatch(/cp\b[^\n]*\bsite\/\*\.html\b/);
     expect(wf).toMatch(/cp\b[^\n]*\bsite\/\*\.js\b/);
     expect(wf).toMatch(/cp\b[^\n]*\bsite\/\*\.css\b/);
-    // The claim-ledger database is built as a deploy artefact for the page.
-    expect(wf).toMatch(/build-ledger-db\.ts[^\n]*claim-ledger\.sqlite\.png/);
+    // The COMPACT claim-ledger database is built as a deploy artefact for the
+    // page (the full corpus that fits the range-served Pages lane).
+    expect(wf).toMatch(/build-ledger-db-compact\.ts[^\n]*claim-ledger\.sqlite\.png/);
     // The nav injector must be handed the page, or its deployed copy carries a
     // stale hand-written nav.
     expect(wf).toMatch(/build-nav\.ts[^\n]*\b_site\/ledger\.html\b/);
@@ -246,9 +276,10 @@ describe('Ledger page deploy integrity', () => {
     // Renamed off "(preview)": the page now serves real data.
     expect(html).toContain('<strong>Ledger</strong>');
     expect(html).not.toContain('Ledger (preview)');
-    // Honest framing: tied to issue #361, live query, and a representative subset.
+    // Honest framing: tied to issue #361, and scoped to register snapshots only
+    // (no overclaim of covering Ofcom's other disclosures).
     expect(html).toContain('issues/361');
-    expect(html).toContain('representative subset');
+    expect(html).toContain('Register snapshots only');
   });
 
   it('LedgerPage_IsInTheSingleSourceNav', () => {
