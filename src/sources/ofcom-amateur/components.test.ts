@@ -296,6 +296,46 @@ describe('parseCallsign', () => {
     expect(r.flags).toContain('excel-date-shape');
   });
 
+  it('Parse_WhenSpreadsheetErrorToken_UnparseableWithVerbatimValueAndFlag', () => {
+    // A failed workbook formula leaks its error literal into the callsign
+    // column (real defect: #REF! in the ~2021 asset-210648 register). The
+    // token is preserved verbatim and flagged, never treated as a callsign.
+    const r = parsed('#REF!');
+    expect(r.parseStatus).toBe('unparseable');
+    expect(r.callsign).toBe('#REF!');
+    expect(r.flags).toContain('spreadsheet-error-token');
+  });
+
+  it('Parse_WhenOtherSpreadsheetErrorLiterals_Flagged', () => {
+    // The whole family of spreadsheet formula-error tokens is recognised, not
+    // just #REF!, so any leaked error value surfaces rather than masquerading.
+    for (const token of ['#N/A', '#VALUE!', '#DIV/0!', '#NAME?', '#NULL!', '#NUM!']) {
+      const r = parsed(token);
+      expect(r.parseStatus).toBe('unparseable');
+      expect(r.callsign).toBe(token);
+      expect(r.flags).toContain('spreadsheet-error-token');
+    }
+  });
+
+  it('Parse_WhenValidCallsign_NotFlaggedAsSpreadsheetErrorToken', () => {
+    // A genuine callsign must never gain the defect flag - including values
+    // that merely contain the letters REF (G0REF is a real register row).
+    expect(parsed('M7TEE').flags).not.toContain('spreadsheet-error-token');
+    expect(parsed('G0REF', 'Amateur Club Radio Licence').flags).not.toContain('spreadsheet-error-token');
+  });
+
+  it('Parse_WhenAssetRegisterRefCells_EachFlaggedAndAllocatedRowsPreserved', () => {
+    // Scenario reconstruction of the ~2021 asset-210648 defect (#335): 14
+    // Status=Allocated callsign cells published as #REF! formula errors. Each
+    // is kept verbatim, left unparseable and flagged; none is silently dropped.
+    const refCells = Array.from({ length: 14 }, () => '#REF!');
+    const rows = refCells.map(c => parseCallsign(c, 'Amateur Full Radio Licence', REF, '2021-01-15'));
+    expect(rows).toHaveLength(14);
+    expect(rows.every(r => r.parseStatus === 'unparseable')).toBe(true);
+    expect(rows.every(r => r.callsign === '#REF!')).toBe(true);
+    expect(rows.every(r => r.flags.includes('spreadsheet-error-token'))).toBe(true);
+  });
+
   it('Parse_WhenEmptyValue_StatusEmpty', () => {
     expect(parsed('').parseStatus).toBe('empty');
   });
