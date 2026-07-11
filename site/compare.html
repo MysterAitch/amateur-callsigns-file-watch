@@ -6,6 +6,11 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
   <title>Compare across publications — UK amateur callsign data mirror</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Adopts the bespoke visual language scoped under .ledger (ledger.css); the
+       comparison controls and the picker/diff widgets compare.js renders pick up
+       the ledger palette there. The shared nav and skip link stay styled by
+       tokens.css/style.css, outside it. -->
+  <link rel="stylesheet" href="ledger.css">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#14506e">
   <script src="debug.js"></script>
@@ -15,20 +20,24 @@
   <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
   <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <a href="explore.html">Explore</a> · <strong>Compare</strong> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">Repository</a></p></nav>
   <!-- nav:end -->
-  <header>
-    <h1>Compare a view across publications</h1>
-    <p class="subtitle">
-      The single-publication browser answers "what is in <em>this</em>
-      export?". This page runs the <em>same</em> filter against several
-      publications at once and surfaces the differences — the longitudinal
-      question the register-history timeline only hints at. It queries the
-      published <code>master</code> database read-only <em>in your browser</em>
-      via HTTP range requests, the same engine as the
-      <a href="explore.html">Explore</a> console.
-    </p>
-  </header>
+  <main id="main" class="ledger">
+    <header>
+      <div class="head-inner">
+        <div class="eyebrow">longitudinal view · in your browser</div>
+        <h1>Compare a view across publications</h1>
+        <p class="lede">
+          The single-publication browser answers "what is in <em>this</em>
+          export?". This page runs the <em>same</em> filter against several
+          publications at once and surfaces the differences — the longitudinal
+          question the register-history timeline only hints at. It queries the
+          published <code>master</code> database read-only <em>in your browser</em>
+          via HTTP range requests, the same engine as the
+          <a href="explore.html">Explore</a> console.
+        </p>
+      </div>
+    </header>
 
-  <main id="main">
+    <div class="wrap">
     <!-- No-JS fallback: this is an interactive analysis surface, not a
          crawlable record (the per-publication browser pages are that). -->
     <noscript>
@@ -55,19 +64,22 @@
       }, 6000);
     </script>
 
-    <section id="setup" hidden>
+    <section class="panel" id="setup" hidden>
+      <div class="eyebrow">publications</div>
       <h2>Publications</h2>
       <p class="muted" id="filter-note" role="status"></p>
       <div id="dataset-picker" class="cmp-picker"></div>
       <p class="muted" id="scope-note"></p>
     </section>
 
-    <section id="counts" hidden>
+    <section class="panel" id="counts" hidden>
+      <div class="eyebrow">side by side</div>
       <h2>Matching rows, side by side</h2>
       <div id="counts-result"></div>
     </section>
 
-    <section id="diff" hidden>
+    <section class="panel" id="diff" hidden>
+      <div class="eyebrow">what changed</div>
       <h2>What changed between two publications</h2>
       <p class="muted">Differences are computed on the <code>cleaned</code>
       join key (artefact-safe) across the filtered cohort. Pick exactly two
@@ -75,7 +87,7 @@
       <div id="diff-result"></div>
     </section>
 
-    <section id="sql" hidden>
+    <section class="panel" id="sql" hidden>
       <details class="sqlbox">
         <summary>Filter &amp; SQL for the current comparison</summary>
         <p class="muted">Edit the filter below (a SQL <code>WHERE</code> condition applied to every publication) and Apply, to tweak the comparison in place — for example if a filter matched nothing. Read-only: it must be a single condition, no <code>;</code>.</p>
@@ -88,6 +100,7 @@
     </section>
 
     <p id="boot-status" class="muted">Loading publications…</p>
+    </div>
   </main>
 
   <!-- UMD bundle: attaches createDbWorker to window; must load before compare.js -->

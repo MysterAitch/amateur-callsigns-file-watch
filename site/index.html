@@ -6,6 +6,11 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
   <title>UK amateur callsign lookup — data mirror proof of concept</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Adopts the bespoke visual language scoped under .ledger (ledger.css); the
+       interactive lookup controls and the cards app.js renders pick up the
+       ledger palette there. The shared nav and skip link stay styled by
+       tokens.css/style.css, outside it. -->
+  <link rel="stylesheet" href="ledger.css">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#14506e">
   <script src="debug.js"></script>
@@ -15,46 +20,52 @@
   <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
   <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">Repository</a></p></nav>
   <!-- nav:end -->
-  <header>
-    <h1>UK amateur callsign lookup</h1>
-    <p class="subtitle">
-      Look up any UK amateur-radio callsign against Ofcom's published
-      register and a decade of archived FOI disclosures — or type a suffix
-      like <span class="mono">*TEE</span> to see which prefix series it is
-      free in. This is an <strong>independent</strong> mirror for reference
-      and research: <em>not</em> an authoritative source, and not affiliated
-      with or endorsed by Ofcom. <a href="about.html">About this site</a>.
-    </p>
-    <p id="data-currency" class="muted hint">Current register currency loads with the data…</p>
-  </header>
+  <main id="main" class="ledger">
+    <header>
+      <div class="head-inner">
+        <div class="eyebrow">UK amateur-radio register · independent mirror</div>
+        <h1>UK amateur callsign lookup</h1>
+        <p class="lede">
+          Look up any UK amateur-radio callsign against Ofcom's published
+          register and a decade of archived FOI disclosures — or type a suffix
+          like <span class="mono">*TEE</span> to see which prefix series it is
+          free in. This is an <strong>independent</strong> mirror for reference
+          and research: <em>not</em> an authoritative source, and not affiliated
+          with or endorsed by Ofcom. <a href="about.html">About this site</a>.
+        </p>
+        <p id="data-currency" class="muted hint">Current register currency loads with the data…</p>
+      </div>
+    </header>
 
-  <main id="main">
-    <!-- No-JS fallback: the lookup runs in your browser; the data itself is
-         browsable without JavaScript from the dataset index. -->
-    <noscript>
-      <p class="muted">This lookup runs in your browser and needs JavaScript.
-      Every publication is browsable without it from the
-      <a href="datasets/index.html">dataset index</a>, and the databases can be
-      <a href="datasets/index.html">downloaded</a> for offline use.</p>
-    </noscript>
-    <!-- Shown only when JavaScript is enabled but the page's modules failed to
-         start: the timer below reveals it, and app.js clears the timer once it
-         has initialised, so a normal load never flashes it. Complements the
-         <noscript> above, which covers JavaScript being disabled entirely. -->
-    <div id="startup-warning" class="startup-warning" role="alert" hidden>
-      <p>The lookup didn’t start — a script may have failed to load. Try reloading the page. For diagnostics, add <code>?debug=1</code> to the address bar. You can still browse every publication from the <a href="datasets/index.html">dataset index</a>.</p>
-    </div>
-    <script>
-      // Reveal the startup warning if the lookup module has not signalled ready
-      // shortly after load. This inline classic script runs before the ES
-      // modules; app.js clears the timer on successful init (see its tail), so
-      // the warning only surfaces when JavaScript is on but a module failed.
-      window.__lookupReadyTimer = window.setTimeout(function () {
-        var warn = document.getElementById('startup-warning');
-        if (warn) warn.hidden = false;
-      }, 6000);
-    </script>
-    <section id="lookup">
+    <div class="wrap">
+    <section class="panel" id="lookup">
+      <div class="eyebrow">callsign lookup</div>
+      <h2>Search the register</h2>
+      <!-- No-JS fallback: the lookup runs in your browser; the data itself is
+           browsable without JavaScript from the dataset index. -->
+      <noscript>
+        <p class="muted">This lookup runs in your browser and needs JavaScript.
+        Every publication is browsable without it from the
+        <a href="datasets/index.html">dataset index</a>, and the databases can be
+        <a href="datasets/index.html">downloaded</a> for offline use.</p>
+      </noscript>
+      <!-- Shown only when JavaScript is enabled but the page's modules failed to
+           start: the timer below reveals it, and app.js clears the timer once it
+           has initialised, so a normal load never flashes it. Complements the
+           <noscript> above, which covers JavaScript being disabled entirely. -->
+      <div id="startup-warning" class="startup-warning" role="alert" hidden>
+        <p>The lookup didn’t start — a script may have failed to load. Try reloading the page. For diagnostics, add <code>?debug=1</code> to the address bar. You can still browse every publication from the <a href="datasets/index.html">dataset index</a>.</p>
+      </div>
+      <script>
+        // Reveal the startup warning if the lookup module has not signalled ready
+        // shortly after load. This inline classic script runs before the ES
+        // modules; app.js clears the timer on successful init (see its tail), so
+        // the warning only surfaces when JavaScript is on but a module failed.
+        window.__lookupReadyTimer = window.setTimeout(function () {
+          var warn = document.getElementById('startup-warning');
+          if (warn) warn.hidden = false;
+        }, 6000);
+      </script>
       <form id="lookup-form">
         <label for="callsign">Callsign</label>
         <!-- name="c" so a native submit (JavaScript momentarily unavailable)
@@ -100,8 +111,9 @@
       <div id="result" hidden></div>
     </section>
 
-    <section id="views">
-      <h2>Views &amp; tools</h2>
+    <section class="panel" id="views">
+      <div class="eyebrow">views &amp; tools</div>
+      <h2>Other ways in</h2>
       <p><a href="statistics.html">Statistics</a> — aggregate views over the
       archived data (no SQL needed): the prefix-series × RSL matrix and
       data-quality flags per publication, generated at deploy time.</p>
@@ -113,58 +125,64 @@
       its raw, extract and normalised files at stable URLs, each entry with
       a machine-readable descriptor, per-entry metrics, and one-click
       downloads.</p>
+      <p><a href="data-status.html">Data status</a> — a build-time tracker of
+      every dataset the mirror holds or knows exists, and how far each has been
+      carried through processing.</p>
       <p><a href="glossary.html">Glossary</a> — plain-language definitions of
       the recurring terms: RSL, prefix series, placeholder form, register
-      status values, and more.</p>
+      status values, and the three axes the project describes its data by.</p>
       <p><a href="explore.html">Explore</a> <span class="muted">(for SQL
       users)</span> — run read-only SQL over the published databases in your
       browser: join the datasets, follow the worked examples, no install
       needed.</p>
     </section>
 
-    <details id="how-it-works">
-      <summary>How this works</summary>
-      <p class="muted">This lookup is a proof of concept: it queries a
-      published SQLite database directly from your browser over HTTP range
-      requests — the full end-to-end flow from Ofcom's register, through the
-      mirror's normalisation, component parsing and reference data, to your
-      screen, with no server in between. Full source and provenance are in
-      the <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">repository</a>.</p>
-    </details>
+    <section class="panel">
+      <div class="eyebrow">how this works</div>
+      <details id="how-it-works">
+        <summary>The end-to-end flow, no server in between</summary>
+        <p class="muted">This lookup is a proof of concept: it queries a
+        published SQLite database directly from your browser over HTTP range
+        requests — the full end-to-end flow from Ofcom's register, through the
+        mirror's normalisation, component parsing and reference data, to your
+        screen, with no server in between. Full source and provenance are in
+        the <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">repository</a>.</p>
+      </details>
+    </section>
 
-    <section id="offline">
-      <div class="card">
-        <h3>Use this lookup offline</h3>
-        <p class="muted">By default each search fetches only the few kilobytes
-        of the database it needs, so the first load stays light. If you would
-        rather work with no connection — on the air, in the field, or on a poor
-        link — you can download the whole database once and run entirely in your
-        browser afterwards. It stays on this device until a new version is
-        published (which replaces it) or you remove it.</p>
-        <p id="offline-state" class="muted" role="status">Running online: each
-        search fetches only the few kilobytes of the database it touches.</p>
-        <div id="offline-controls">
-          <button type="button" id="offline-download">Download the full dataset for offline use</button>
-          <button type="button" id="offline-remove" class="pg" hidden>Remove offline copy</button>
-        </div>
-        <p id="offline-progress-wrap" hidden>
-          <label for="offline-progress" id="offline-progress-label" class="muted"></label><br>
-          <progress id="offline-progress" max="100" value="0"></progress>
-        </p>
-        <details id="offline-advanced">
-          <summary>Advanced: the full historical database</summary>
-          <p class="muted">The master database carries every archived
-          publication and all FOI observations — much larger (~257 MB). Only
-          download it if you need the longitudinal history (register history and
-          FOI-witnessed observations) available offline too.</p>
-          <button type="button" id="offline-download-master">Download the master database for offline use</button>
-        </details>
-        <p class="muted hint">Needs a browser that supports service workers.
-        Where it is unavailable the lookup simply carries on online.</p>
+    <section class="panel" id="offline">
+      <div class="eyebrow">offline use</div>
+      <h2>Use this lookup offline</h2>
+      <p class="muted">By default each search fetches only the few kilobytes
+      of the database it needs, so the first load stays light. If you would
+      rather work with no connection — on the air, in the field, or on a poor
+      link — you can download the whole database once and run entirely in your
+      browser afterwards. It stays on this device until a new version is
+      published (which replaces it) or you remove it.</p>
+      <p id="offline-state" class="muted" role="status">Running online: each
+      search fetches only the few kilobytes of the database it touches.</p>
+      <div id="offline-controls">
+        <button type="button" id="offline-download">Download the full dataset for offline use</button>
+        <button type="button" id="offline-remove" class="pg" hidden>Remove offline copy</button>
       </div>
+      <p id="offline-progress-wrap" hidden>
+        <label for="offline-progress" id="offline-progress-label" class="muted"></label><br>
+        <progress id="offline-progress" max="100" value="0"></progress>
+      </p>
+      <details id="offline-advanced">
+        <summary>Advanced: the full historical database</summary>
+        <p class="muted">The master database carries every archived
+        publication and all FOI observations — much larger (~257 MB). Only
+        download it if you need the longitudinal history (register history and
+        FOI-witnessed observations) available offline too.</p>
+        <button type="button" id="offline-download-master">Download the master database for offline use</button>
+      </details>
+      <p class="muted hint">Needs a browser that supports service workers.
+      Where it is unavailable the lookup simply carries on online.</p>
     </section>
 
     <footer id="build-info"></footer>
+    </div>
   </main>
 
   <!-- UMD bundle: attaches createDbWorker to window; must load before app.js -->
