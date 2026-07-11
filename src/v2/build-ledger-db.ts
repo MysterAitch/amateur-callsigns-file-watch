@@ -78,15 +78,26 @@ export function subsetSelector(): EntrySelector {
 }
 
 // The claim-ledger SQLite schema, denormalised for the LOOKUP workload: one row
-// per claim, carrying the resolved `entity` beside the verbatim `raw_subject`
-// so per-entity and per-raw-token lookups are both single indexed equalities.
-// TEXT throughout except the stored source ordinal (INTEGER), matching the
-// ledger's own types. `rule` is NULL for raw claims and the named rule for
-// derived ones, so a consumer can trust the raw layer and treat the derived
-// layer as reproducible opinion - the same layering the ledger models.
+// per claim, carrying both derived keys beside the verbatim `raw_subject` in
+// derivation order (raw -> cleaned -> entity), so every lookup path is a single
+// indexed equality. TEXT throughout except the stored source ordinal (INTEGER),
+// matching the ledger's own types. `rule` is NULL for raw claims and the named
+// rule for derived ones, so a consumer can trust the raw layer and treat the
+// derived layer as reproducible opinion - the same layering the ledger models.
+//
+// The two derived keys serve distinct purposes:
+//   - entity  = the RSL-less placeholder form (G#0TQK). The cross-regional
+//               unification key: every regional rendering of one licence
+//               collapses to it, so it is what per-entity views group on. Never
+//               shown to a user (it carries the '#' placeholder marker).
+//   - cleaned = cleanedCallsign of the raw token (G0TQK). The human-readable
+//               canonical, and the direct-lookup key: a user typing a literal
+//               callsign matches it in one indexed hop, without the browser
+//               having to compute the placeholder form itself.
 const CREATE_CLAIMS_TABLE = `CREATE TABLE claims (
   layer TEXT NOT NULL,
   raw_subject TEXT NOT NULL,
+  cleaned TEXT NOT NULL,
   entity TEXT NOT NULL,
   predicate TEXT NOT NULL,
   object TEXT NOT NULL,
@@ -96,7 +107,7 @@ const CREATE_CLAIMS_TABLE = `CREATE TABLE claims (
   vintage TEXT NOT NULL
 )`;
 
-const CLAIMS_COLUMN_COUNT = 9;
+const CLAIMS_COLUMN_COUNT = 10;
 
 export interface LedgerSqliteSummary {
   claims: number;
@@ -105,15 +116,24 @@ export interface LedgerSqliteSummary {
   analyzed: boolean;
 }
 
-// Resolve every raw token in one source's claims to its terminal entity, using
-// ONLY that source's normalises_to edges - never a re-derivation. The edges are
-// self-contained per source (Stage 1 emits raw -> cleaned for every listed
-// token, then cleaned -> placeholder where the token parses to one), so entity
-// resolution is local to the file and needs no cross-source state:
-//   entity(token) = placeholder(cleaned(token)) ?? cleaned(token) ?? token
-// A token with no placeholder edge (a callsign that does not parse) resolves to
-// its cleaned form, so it is still indexed and queryable rather than dropped.
-function resolveEntities(claims: readonly Claim[]): (claim: Claim) => string {
+// The two derived keys a claim resolves to.
+interface ResolvedKeys {
+  cleaned: string;
+  entity: string;
+}
+
+// Resolve every raw token in one source's claims to its cleaned form and its
+// terminal entity, using ONLY that source's normalises_to edges - never a
+// re-derivation. The edges are self-contained per source (Stage 1 emits
+// raw -> cleaned for every listed token, then cleaned -> placeholder where the
+// token parses to one), so resolution is local to the file and needs no
+// cross-source state:
+//   cleaned(token) = cleaned-edge(token) ?? token
+//   entity(token)  = placeholder-edge(cleaned(token)) ?? cleaned(token)
+// A token with no placeholder edge (a callsign that does not parse) has its
+// cleaned form as its entity, so it is still indexed and queryable rather than
+// dropped.
+function resolveKeys(claims: readonly Claim[]): (claim: Claim) => ResolvedKeys {
   const cleanedOf = new Map<string, string>();
   const placeholderOf = new Map<string, string>();
   for (const claim of claims) {
@@ -121,29 +141,33 @@ function resolveEntities(claims: readonly Claim[]): (claim: Claim) => string {
     if (claim.rule === CLEANED_CALLSIGN_RULE) cleanedOf.set(claim.rawSubject, claim.object);
     else if (claim.rule === PLACEHOLDER_FORM_RULE) placeholderOf.set(claim.rawSubject, claim.object);
   }
-  return (claim: Claim): string => {
+  return (claim: Claim): ResolvedKeys => {
     const cleaned = cleanedOf.get(claim.rawSubject) ?? claim.rawSubject;
-    return placeholderOf.get(cleaned) ?? cleaned;
+    return { cleaned, entity: placeholderOf.get(cleaned) ?? cleaned };
   };
 }
 
 // Insert claims through a fixed-size multi-row prepared statement, with a
 // single remainder statement for the tail. The caller owns the surrounding
 // transaction.
-function insertClaims(db: DatabaseSync, claims: readonly Claim[], entityOf: (claim: Claim) => string): void {
+function insertClaims(db: DatabaseSync, claims: readonly Claim[], keysOf: (claim: Claim) => ResolvedKeys): void {
   const n = claims.length;
   if (n === 0) return;
-  const toValues = (claim: Claim): (string | number | null)[] => [
-    claim.layer,
-    claim.rawSubject,
-    entityOf(claim),
-    claim.predicate,
-    claim.object,
-    claim.rule ?? null,
-    claim.provenance.sourceFile,
-    claim.provenance.ordinal,
-    claim.provenance.vintage,
-  ];
+  const toValues = (claim: Claim): (string | number | null)[] => {
+    const { cleaned, entity } = keysOf(claim);
+    return [
+      claim.layer,
+      claim.rawSubject,
+      cleaned,
+      entity,
+      claim.predicate,
+      claim.object,
+      claim.rule ?? null,
+      claim.provenance.sourceFile,
+      claim.provenance.ordinal,
+      claim.provenance.vintage,
+    ];
+  };
   const oneRow = `(${Array.from({ length: CLAIMS_COLUMN_COUNT }, () => '?').join(', ')})`;
   const fullCount = n - (n % INSERT_BATCH_ROWS);
   let i = 0;
@@ -183,18 +207,21 @@ export function buildLedgerSqlite(ledgerDir: string, dbPath: string): LedgerSqli
   db.exec('BEGIN');
   for (const file of jsonlFiles) {
     const claims = parseClaimsJsonl(fs.readFileSync(path.join(ledgerDir, file), 'utf8'));
-    const entityOf = resolveEntities(claims);
-    insertClaims(db, claims, entityOf);
-    for (const claim of claims) entities.add(entityOf(claim));
+    const keysOf = resolveKeys(claims);
+    insertClaims(db, claims, keysOf);
+    for (const claim of claims) entities.add(keysOf(claim).entity);
     totalClaims += claims.length;
   }
   db.exec('COMMIT');
 
-  // The three lookup paths the browser workload hits: per-entity dossier and
-  // variants-of-entity both key on `entity`; the "did you mean this raw token"
-  // and raw-fidelity paths key on `raw_subject`; corpus aggregates and the
-  // temporal fold filter/partition on `predicate`.
+  // The lookup paths the browser workload hits: per-entity dossier and
+  // variants-of-entity key on `entity` (the cross-regional unification key); a
+  // user-typed literal callsign and the human-readable display path key on
+  // `cleaned` (one indexed hop, no placeholder computation in the browser); the
+  // "did you mean this raw token" and raw-fidelity paths key on `raw_subject`;
+  // corpus aggregates and the temporal fold filter/partition on `predicate`.
   db.exec('CREATE INDEX idx_claims_entity ON claims(entity)');
+  db.exec('CREATE INDEX idx_claims_cleaned ON claims(cleaned)');
   db.exec('CREATE INDEX idx_claims_raw_subject ON claims(raw_subject)');
   db.exec('CREATE INDEX idx_claims_predicate ON claims(predicate)');
 

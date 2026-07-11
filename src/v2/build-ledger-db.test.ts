@@ -14,6 +14,8 @@ import {
   findDuckdb,
   type LedgerSqliteSummary,
 } from './build-ledger-db.ts';
+import { emitLedger, type SourceObservationSet } from './claim.ts';
+import { serialiseClaimsJsonl } from './serialise.ts';
 import { loadReferenceData, parseCallsign } from '../sources/ofcom-amateur/components.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
@@ -84,9 +86,9 @@ describe('claim-ledger SQLite artefact', () => {
     const db = openDb(dbPath);
     try {
       const columns = (db.prepare("SELECT name FROM pragma_table_info('claims')").all() as { name: string }[]).map(c => c.name);
-      expect(columns).toEqual(['layer', 'raw_subject', 'entity', 'predicate', 'object', 'rule', 'source_file', 'ordinal', 'vintage']);
+      expect(columns).toEqual(['layer', 'raw_subject', 'cleaned', 'entity', 'predicate', 'object', 'rule', 'source_file', 'ordinal', 'vintage']);
       const indexes = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'claims' AND name NOT LIKE 'sqlite_%'").all() as { name: string }[]).map(i => i.name).sort();
-      expect(indexes).toEqual(['idx_claims_entity', 'idx_claims_predicate', 'idx_claims_raw_subject']);
+      expect(indexes).toEqual(['idx_claims_cleaned', 'idx_claims_entity', 'idx_claims_predicate', 'idx_claims_raw_subject']);
     } finally {
       db.close();
     }
@@ -130,6 +132,68 @@ describe('the four representative lookup queries', () => {
       expect(variants).toContain('G0TQK');
       expect(variants).toContain('G0TQK ');
       expect(variants.length).toBe(2);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('DirectCallsignLookup_WhenUserTypesLiteralCallsign_ResolvesViaCleanedIndexAcrossRawVariants', () => {
+    const db = openDb(dbPath);
+    try {
+      // A user types a literal, human-readable callsign. It matches `cleaned`
+      // in one indexed hop - the browser never has to compute the placeholder
+      // form - and finds every raw rendering, including the NBSP twin that only
+      // the raw layer keeps distinct.
+      const listed = db.prepare(
+        "SELECT DISTINCT raw_subject, vintage FROM claims WHERE cleaned = 'G0TQK' AND predicate = '@listed' ORDER BY vintage, raw_subject",
+      ).all() as { raw_subject: string; vintage: string }[];
+      // Three listed observations: the clean token in both 2016 and 2022, plus
+      // the 2022 NBSP twin - one indexed cleaned lookup surfaces all of them.
+      // The twin's exact whitespace byte is not asserted (it is a raw
+      // artefact); what matters is that a SECOND, distinct raw token that also
+      // cleans to G0TQK is found.
+      expect(listed.map(r => r.vintage)).toEqual([V_2016, V_2022, V_2022]);
+      const tokens = listed.map(r => r.raw_subject);
+      expect(tokens.filter(t => t === 'G0TQK').length).toBe(2);
+      expect(tokens.some(t => t !== 'G0TQK')).toBe(true);
+      // The human-readable cleaned key resolves to the never-shown placeholder
+      // entity, so display and unification stay linked.
+      const entities = (db.prepare("SELECT DISTINCT entity FROM claims WHERE cleaned = 'G0TQK'").all() as { entity: string }[]).map(r => r.entity);
+      expect(entities).toEqual([G0TQK_ENTITY]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('Entity_WhenRegionalRenderingsOfOneLicence_UnifiesToSinglePlaceholderKey', () => {
+    // The cross-regional unification the placeholder entity exists for: one
+    // licence rendered in two regions (an England M0ABC and a Wales MW0ABC)
+    // carries two distinct cleaned callsigns but collapses to ONE entity, so a
+    // per-entity view groups the regional renderings together. Built from a
+    // synthetic two-row source so the scenario is crisp and corpus-independent.
+    const expectedEntity = parseCallsign('M0ABC', '', REF).placeholderForm;
+    // Sanity: the two regional renderings genuinely share the placeholder key.
+    expect(parseCallsign('MW0ABC', '', REF).placeholderForm).toBe(expectedEntity);
+
+    const observationSet: SourceObservationSet = {
+      sourceFile: 'synthetic/regional-renderings.csv',
+      vintage: '2020-01-01',
+      columns: ['callsign'],
+      subjectColumn: 'callsign',
+      rows: [{ callsign: 'M0ABC' }, { callsign: 'MW0ABC' }],
+    };
+    const syntheticDir = path.join(workDir, 'synthetic');
+    fs.mkdirSync(syntheticDir, { recursive: true });
+    fs.writeFileSync(path.join(syntheticDir, 'regional.jsonl'), serialiseClaimsJsonl(emitLedger(observationSet, REF)));
+    const syntheticDb = path.join(workDir, 'synthetic.sqlite');
+    buildLedgerSqlite(syntheticDir, syntheticDb);
+
+    const db = openDb(syntheticDb);
+    try {
+      const entities = (db.prepare("SELECT DISTINCT entity FROM claims WHERE cleaned IN ('M0ABC', 'MW0ABC')").all() as { entity: string }[]).map(r => r.entity);
+      expect(entities).toEqual([expectedEntity]);
+      const cleaned = (db.prepare('SELECT DISTINCT cleaned FROM claims WHERE entity = ? ORDER BY cleaned').all(expectedEntity) as { cleaned: string }[]).map(r => r.cleaned);
+      expect(cleaned).toEqual(['M0ABC', 'MW0ABC']);
     } finally {
       db.close();
     }
@@ -194,10 +258,12 @@ describe('ANALYZE fixes the point-lookup planning', () => {
       const statRows = Number((db.prepare('SELECT COUNT(*) AS c FROM sqlite_stat1').get() as { c: number | bigint }).c);
       expect(statRows).toBeGreaterThan(0);
 
-      // The two high-selectivity point lookups the bench-off flagged plan onto
+      // The high-selectivity point lookups the bench-off flagged plan onto
       // their indexes rather than scanning the multi-million-row table.
       const entityPlan = (db.prepare('EXPLAIN QUERY PLAN SELECT * FROM claims WHERE entity = ?').all(G0TQK_ENTITY) as { detail: string }[]).map(r => r.detail).join(' | ');
       expect(entityPlan).toContain('idx_claims_entity');
+      const cleanedPlan = (db.prepare('EXPLAIN QUERY PLAN SELECT * FROM claims WHERE cleaned = ?').all('G0TQK') as { detail: string }[]).map(r => r.detail).join(' | ');
+      expect(cleanedPlan).toContain('idx_claims_cleaned');
       const rawPlan = (db.prepare('EXPLAIN QUERY PLAN SELECT * FROM claims WHERE raw_subject = ?').all('G0TQK') as { detail: string }[]).map(r => r.detail).join(' | ');
       expect(rawPlan).toContain('idx_claims_raw_subject');
     } finally {
