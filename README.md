@@ -47,6 +47,7 @@ src/
   shared/                           <- source-agnostic archive, utils, FOI converters + extractor
   sources/{key}/                    <- one directory per data source; ofcom-amateur is the first
   ci/                               <- validation, sweeps, generated-doc builders, SQLite build
+  v2/                               <- raw-keyed claim ledger (ADR 0013): claim model, collectors/ registry (one module per source family), JSONL build, query-artefact + report folds
 docs/
   adr/                              <- architecture decision records (see adr/README.md for the index)
   dataset-status.md                 <- generated per-dataset overview (freshness-tested)
