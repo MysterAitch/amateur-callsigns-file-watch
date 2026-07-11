@@ -10,10 +10,20 @@ import {
   CLEANED_CALLSIGN_RULE,
 } from './claim.ts';
 import { projectNormalised } from './project-normalised.ts';
-import { registerSourcesFor, loadRegisterSource, buildLedger, qualifyingRegisterEntries } from './build-ledger.ts';
+import {
+  registerSourcesFor,
+  loadRegisterSource,
+  buildLedger,
+  qualifyingRegisterEntries,
+  loadOpenDataRegisterSource,
+  collectOpenDataRegisterSources,
+  defaultArchiveDir,
+} from './build-ledger.ts';
 import { convertFoiSource } from '../shared/foi-normalise.ts';
 import { readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
 import { loadReferenceData, cleanedCallsign } from '../sources/ofcom-amateur/components.ts';
+import { convertRawCsv, CANONICAL_COLUMNS } from '../sources/ofcom-amateur/normalise.ts';
+import type { ArchiveMeta } from '../shared/utils.ts';
 import { renderCsv } from '../shared/normalise.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
@@ -112,6 +122,87 @@ describe('raw->claims->normalised round-trip on real register snapshots', () => 
   }
 });
 
+// The open-data-register family (issue #361 source-coverage extension): the
+// SAME raw->claims->normalised equivalence oracle, now over Ofcom's open-data
+// register publications (archive/<date>/raw.csv), chosen for awkward shapes:
+// a 2022-minimal export whose raw carries FIVE footer-furniture lines curated
+// out via meta.ignoredLines (2022-05-30, no product column); a 2023 export
+// with a day-first date column the normalisation reorders to ISO (2023-02-20);
+// and the live 2026 export whose header is BOM-prefixed and carries
+// licence-version date columns (2026-06-23). Each is named by its archive-date
+// key only - the raw source file, callsign column and product column are read
+// from the authored header-variant registry, never hard-coded here.
+const OPEN_DATA_ROUND_TRIP_ENTRIES = [
+  { key: '2022-05-30', label: 'FooterFurnitureMinimalExport' },
+  { key: '2023-02-20', label: 'DayFirstDateExport' },
+  { key: '2026-06-23', label: 'BomPrefixedLicenceVersionExport' },
+];
+
+const ARCHIVE_DIR = defaultArchiveDir();
+
+function readArchiveMetaSync(key: string): ArchiveMeta {
+  return JSON.parse(fs.readFileSync(path.join(ARCHIVE_DIR, key, 'meta.json'), 'utf8')) as ArchiveMeta;
+}
+
+describe('raw->claims->normalised round-trip on real open-data register publications', () => {
+  for (const { key, label } of OPEN_DATA_ROUND_TRIP_ENTRIES) {
+    it(`NormalisedTable_When${label}_IsRecoverableFromRawKeyedLedger`, () => {
+      const meta = readArchiveMetaSync(key);
+      const observationSet = loadOpenDataRegisterSource(ARCHIVE_DIR, key, meta);
+      expect(observationSet.rows.length).toBeGreaterThan(0);
+
+      const ledger = emitLedger(observationSet, REF);
+      const rawClaims = ledger.filter(claim => claim.layer === 'raw');
+
+      // Hop 1 - the raw layer is a LOSSLESS encoding of the DATA rows (footer
+      // furniture already curated out before emission): folding the raw claims
+      // back reproduces the register rows exactly, under Ofcom's own headers,
+      // order/quoting-independent.
+      const projected = projectNormalised(rawClaims, observationSet.columns, observationSet.subjectColumn);
+      expect(projected.length).toBe(observationSet.rows.length);
+      expect(multisetsEqual(
+        multiset(projected.map(record => record.values), observationSet.columns),
+        multiset(observationSet.rows, observationSet.columns),
+      )).toBe(true);
+
+      // Hop 2 - the committed normalisation is reproducible from that encoding:
+      // render the ledger-reconstructed raw table (no footer furniture, so the
+      // re-conversion needs no curated ignores) and run the AUTHORED converter,
+      // then compare to the committed normalised.csv. Jointly the two hops
+      // prove the raw->claims->normalised path loses nothing the family carries.
+      const reconstructedRows = projected.map(record => observationSet.columns.map(column => record.values[column] ?? ''));
+      const reconstructedCsv = renderCsv([...observationSet.columns], reconstructedRows);
+      const referenceDateIso = meta.ofcomReportedUpdateIso ?? meta.fetchedAt.slice(0, 10);
+      const converted = convertRawCsv(reconstructedCsv, { referenceDateIso }, []);
+
+      const convertedRecords = parse(converted.csv, { columns: true, bom: true }) as Record<string, string>[];
+      const committedText = fs.readFileSync(path.join(ARCHIVE_DIR, key, 'normalised.csv'), 'utf8');
+      const committedRecords = parse(committedText, { columns: true, bom: true }) as Record<string, string>[];
+
+      expect(convertedRecords.length).toBe(committedRecords.length);
+      expect(multisetsEqual(
+        multiset(convertedRecords, CANONICAL_COLUMNS),
+        multiset(committedRecords, CANONICAL_COLUMNS),
+      )).toBe(true);
+    });
+  }
+
+  it('OpenDataRegisterFamily_WhenCollected_CoversEveryOfcomAmateurPublication', () => {
+    // The family is discovered from the archive, not a hard-coded list, so a
+    // newly-mirrored publication is covered automatically. Every collected
+    // source names its raw bytes and a callsign column.
+    const sources = collectOpenDataRegisterSources();
+    expect(sources.length).toBeGreaterThanOrEqual(OPEN_DATA_ROUND_TRIP_ENTRIES.length);
+    for (const source of sources) {
+      expect(source.family).toBe('open-data-register');
+      const observationSet = source.load();
+      expect(observationSet.rows.length).toBeGreaterThan(0);
+      expect(observationSet.subjectColumn.length).toBeGreaterThan(0);
+      expect(observationSet.sourceFile).toBe(`opendata/${source.entry}/raw.csv`);
+    }
+  });
+});
+
 describe('raw-keyed fidelity the normalised store discards (G0TQK)', () => {
   it('RawCallsignTokens_WhenNbspTwinInSource_YieldTwoObservationsBothNormalisingToOneEntity', () => {
     // The 2022-03 register lists the entity G0TQK under two DISTINCT raw tokens
@@ -162,23 +253,36 @@ describe('corpus scale sanity', () => {
     try {
       const summary = buildLedger(outputDir, FOI_DIR, REF);
 
-      // Every qualifying register entry produced at least one source, and none
-      // is silently empty (an empty source would be a converter/filter defect).
-      expect(summary.entriesProcessed).toBe(qualifyingRegisterEntries(FOI_DIR).filter(e => registerSourcesFor(e.meta).length > 0).length);
-      expect(summary.sourcesProcessed).toBeGreaterThanOrEqual(19);
+      // Both families contribute. Every qualifying FOI register entry produced
+      // at least one source; the open-data-register family adds every mirrored
+      // Ofcom open-data publication - additive coverage, the FOI count intact.
+      const foiEntries = qualifyingRegisterEntries(FOI_DIR).filter(e => registerSourcesFor(e.meta).length > 0).length;
+      const openDataSources = collectOpenDataRegisterSources().length;
+      expect(summary.entriesByFamily['foi-register']).toBe(foiEntries);
+      expect(summary.entriesByFamily['open-data-register']).toBe(openDataSources);
+      expect(summary.entriesByFamily['open-data-register']).toBeGreaterThanOrEqual(OPEN_DATA_ROUND_TRIP_ENTRIES.length);
+      expect(summary.entriesProcessed).toBe(foiEntries + openDataSources);
+      expect(summary.sourcesProcessed).toBeGreaterThanOrEqual(19 + OPEN_DATA_ROUND_TRIP_ENTRIES.length);
+
+      // No source is silently empty (an empty source would be a converter/
+      // filter defect); each carries its family tag.
       for (const s of summary.perSource) {
         expect(s.observations).toBeGreaterThan(0);
         expect(s.rawClaims).toBeGreaterThan(0);
         expect(s.derivedClaims).toBeGreaterThan(0);
+        expect(['foi-register', 'open-data-register']).toContain(s.family);
       }
 
       // The corpus runs to millions of claims (the #361 exploration measured a
       // comparable ~10.8M decomposing the normalised CSVs; keying off the wider
-      // raw columns is larger still). Both layers are substantial.
-      expect(summary.totalClaims).toBeGreaterThan(5_000_000);
-      expect(summary.totalRawClaims).toBeGreaterThan(1_000_000);
-      expect(summary.totalDerivedClaims).toBeGreaterThan(1_000_000);
+      // raw columns across both families is larger still). Both layers are
+      // substantial, and each family contributes millions in its own right.
+      expect(summary.totalClaims).toBeGreaterThan(10_000_000);
+      expect(summary.totalRawClaims).toBeGreaterThan(5_000_000);
+      expect(summary.totalDerivedClaims).toBeGreaterThan(3_000_000);
       expect(summary.totalClaims).toBe(summary.totalRawClaims + summary.totalDerivedClaims);
+      const openDataClaims = summary.perSource.filter(s => s.family === 'open-data-register').reduce((sum, s) => sum + s.rawClaims + s.derivedClaims, 0);
+      expect(openDataClaims).toBeGreaterThan(1_000_000);
 
       // The JSONL landed on disk, one file per source (the pipeline's output
       // shape), never committed to the repo.
