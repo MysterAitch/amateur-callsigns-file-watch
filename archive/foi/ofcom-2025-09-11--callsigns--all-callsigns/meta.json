@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no case number appears in the material held; the workbook is published on Ofcom's FOI disclosure log (filed under June 2025) and served as 'callsigns-spreadsheet-october-2025.xlsx'. The entry is keyed by the data's proven as-at date (see dataVintage), not the October in the filename.",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2025/june/callsigns-spreadsheet-october-2025.xlsx?v=405457",
+  "title": "Amateur callsigns register, as at 11 September 2025 (Ofcom FOI disclosure log, published October 2025)",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "not in the held material; a disclosure-log publication carries no request date.",
+  "respondedAt": null,
+  "respondedAtNote": "not stated in the held material; the workbook is filed on Ofcom's FOI disclosure log under June 2025, its filename dates it October 2025, and its data dates the snapshot 11 September 2025 (see dataVintage).",
+  "outcome": "successful",
+  "dataVintage": "2025-09-11",
+  "dataVintageNote": "declared and well-supported by the data: the single worksheet is named 'Amateur Callsgn 11092025' (11/09/2025) and the disclosed dates top out at exactly 2025-09-11, so the two agree. This is the data's as-at date, NOT the 'october-2025' of the filename nor the June-2025 filing on the log: the workbook's document properties record it as created 2025-10-07, so October 2025 is the export/publication month. A triple label-vs-data discrepancy (filed June, titled October, data September) is resolved in favour of the data and the internally-agreeing sheet name. Provenance rests on a single witness (the live disclosure-log copy); no UK Government Web Archive capture of these exact bytes appears in the harvest manifest, so the vintage cannot be corroborated by an independent retrieval, though the sheet name and the data agree internally.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2025-09-11-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2025-03-13--callsigns--all-callsigns", "relation": "the preceding register snapshot held (March 2025, 157,227 records) in the callsign+product+status disclosure-log CSV family; this September-2025 workbook continues the growth to 158,470 records and adds an original-start-date column that family lacks." },
+    { "entry": "ofcom-2021-01--all-callsigns", "relation": "the earlier UKGWA-captured workbook snapshot that also carries a typed Original Start Date column (2021-01, 146,763 records); a cross-snapshot issue-date comparison point." },
+    { "entry": "ofcom-01420046--allocated-reserved-callsigns", "relation": "an earlier full FOI register snapshot (2022-03, 150,181 records); a register-growth and status-vocabulary comparison point." }
+  ],
+  "files": {
+    "callsigns-spreadsheet-october-2025.xlsx": {
+      "bytes": 4773378,
+      "sha256": "a94977e77c94d906a7bb1f9c9026b44e4f8d6a9dc9281e1879860dc7c90e9916",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "sheetsIndicative": {
+        "note": "one worksheet ('Amateur Callsgn 11092025'): header Callsign,Product__c,Status,Type,Licence LastModifiedDate,Licence Original_start_date__c then 158,470 data rows - a Salesforce-flavoured shape carrying the source system's own object/field names. Status vocabulary Allocated (105,631), Reserved (52,291), Available (534) and blank (14); Type is 'Call Sign - Amateur' on every row. Product__c carries the licence product (Full 61,393, Foundation 37,656, Intermediate 14,736, Club 2,147, Temporary Reciprocal 123) with 42,415 blank. Licence LastModifiedDate and Licence Original_start_date__c are each populated on 105,519 rows (last-modified 2020-10-15 to 2025-09-11; original-start 1903-05-03 to 2025-09-11) and blank on 52,951.",
+        "sheets": [
+          { "name": "Amateur Callsgn 11092025", "dataRows": 158470, "cols": "A:F", "datasetClass": "register-snapshot" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "ofcom-disclosure-log",
+          "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2025/june/callsigns-spreadsheet-october-2025.xlsx?v=405457",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-sheet-1-amateur-callsgn-11092025.csv": {
+      "bytes": 11601469,
+      "sha256": "18c7108c2c259d128425fa8fbfeb1c62faa65ae75b9e0eefc91ce023c49f36d9",
+      "role": "extract",
+      "extractOf": "callsigns-spreadsheet-october-2025.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts",
+      "contentsIndicative": "mechanical extract of the single sheet; header Callsign,Product__c,Status,Type,Licence LastModifiedDate,Licence Original_start_date__c then 158,470 rows. Dates arrive typed and are rendered ISO (date-only). Anomalies preserved verbatim: two Callsigns are lower-case (g0jrk, 2e1GTD); 'G6 FMU' and reciprocal 'M/TKG 2021' have interior spaces; three carry a trailing non-breaking space (2E1HON, G7IWE, G0TQK); one is literally '.'; two are full English words (EDUCATIONAL, ENVIRONMENTS, both Full/Allocated); 481 four-character and 148 six-to-twelve-character Callsigns appear, most of them reciprocal 'M/...' forms including curiosities such as M/#YO3IES, M/#VK4VGK and M/M/PT2FM."
+    },
+    "normalised--sheet-1-amateur-callsgn-11092025.csv": {
+      "bytes": 8432044,
+      "sha256": "81e862d5046ac80fc3070ff1fc674e13b7bfce699c3aa62365c07b40552b3e9e",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-amateur-callsgn-11092025.csv",
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date,original_start_date; 158,470 rows sorted by callsign. Status carried verbatim (Allocated/Reserved/Available and 14 blanks preserved); licence_class is the source Product__c verbatim (42,415 blanks preserved); both dates carried as ISO from the typed workbook (each blank on 52,951 rows). The constant Type column is required-present but not carried. The trailing-non-breaking-space trio (2E1HON, G7IWE, G0TQK) is trimmed - the only canonicalisation applied - and counted in the converter notes, never silent; because G0TQK and G7IWE each also appear as a bare-callsign row, those two collapse onto duplicate callsign keys here (an honest consequence of trimming, preserved), while 2E1HON's non-breaking-space form is unique. Lower-case forms, the interior-space 'G6 FMU'/'M/TKG 2021', the '.' value and the EDUCATIONAL/ENVIRONMENTS words are preserved verbatim."
+    },
+    "correspondence.md": {
+      "bytes": 5090,
+      "sha256": "174fed33f4eb4a11006a4b099dd3c0fad9bbc0c9feabe64b8c151357f505bd30",
+      "role": "transcript"
+    }
+  }
+}

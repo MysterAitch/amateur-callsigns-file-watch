@@ -22,7 +22,7 @@ import { parse } from 'csv-parse/sync';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { type EntryStats } from '../shared/stats.ts';
-import { buildFoiObservations, renderObservationsCsv, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
+import { buildFoiObservations, renderObservationsCsvBuffer, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
 import { cleanedCallsign, parseCallsign, loadReferenceData, normaliseLicenceCategory, componentsFlagsForRows, type ComponentRow } from '../sources/ofcom-amateur/components.ts';
 
 // Gzip level for the published .gz download artefacts. The deploy uses maximum
@@ -233,12 +233,14 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
   const observations = buildFoiObservations(foiDir);
 
   // Mandatory union CSV - the no-SQL consumption path. Published gzipped:
-  // the plain text is ~160 MB, which alone would strain the Pages 1 GB
-  // site cap alongside the published dataset files; .csv.gz keeps the
-  // no-SQL property (universally decompressible) at ~15% of the size. The
-  // faithful NULL-vs-blank form lives in the master database.
+  // the plain text is several hundred MB, which alone would strain the Pages
+  // 1 GB site cap alongside the published dataset files; .csv.gz keeps the
+  // no-SQL property (universally decompressible) at a fraction of the size.
+  // The union exceeds V8's maximum single-string length, so it is assembled
+  // as a Buffer in row batches. The faithful NULL-vs-blank form lives in the
+  // master database.
   fs.mkdirSync(dataDir, { recursive: true });
-  fs.writeFileSync(path.join(dataDir, 'foi-observations.csv.gz'), zlib.gzipSync(renderObservationsCsv(observations), { level: GZIP_LEVEL }));
+  fs.writeFileSync(path.join(dataDir, 'foi-observations.csv.gz'), zlib.gzipSync(renderObservationsCsvBuffer(observations), { level: GZIP_LEVEL }));
   summary['foi-observations.csv.gz rows'] = observations.length;
 
   // One database per archive entry (both lanes): every CSV in the entry

@@ -75,6 +75,7 @@ fail the conversion.
 | `available-typed-export-7col` | `wdtk-294011--available-callsigns-list`, `wdtk-299321--available-callsigns-list` |
 | `available-typed-export-8col` | `wdtk-247308--available-callsigns-list`, `wdtk-261814--available-callsigns-list` |
 | `ofcom-01420046-register` | `ofcom-01420046--allocated-reserved-callsigns` |
+| `ofcom-2016-09-20-register` | `ofcom-2016-09-20--callsign-database--all-callsigns` |
 | `ofcom-2017-07-13-register` | `ofcom-2017-07-13--all-callsigns` |
 | `ofcom-2021-01-register` | `ofcom-2021-01--all-callsigns` |
 | `ofcom-2021-04-register` | `ofcom-2021-04--all-callsigns` |
@@ -90,6 +91,7 @@ fail the conversion.
 | `ofcom-2024-10-21-register` | `ofcom-2024-10-21--callsigns--all-callsigns` |
 | `ofcom-2024-12-forbidden-suffixes` | `ofcom-2024-12--forbidden-suffixes` |
 | `ofcom-2025-03-13-register` | `ofcom-2025-03-13--callsigns--all-callsigns` |
+| `ofcom-2025-09-11-register` | `ofcom-2025-09-11--callsigns--all-callsigns` |
 | `ofcom-498903-reissue-events` | `ofcom-498903--reissued-callsigns-since-2010` |
 | `ofcom-498906-reciprocal-events` | `ofcom-498906--reciprocal-licences-since-2010` |
 | `ofcom-756622-register-and-forbidden` | `ofcom-756622--published-register-csv` |
@@ -233,6 +235,18 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 Required-present but not carried: `Type`.
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability.
+
+### `ofcom-2016-09-20-register`
+
+**`raw-extract-sheet-1-sheet1.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Call Sign` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | *(emitted empty)* | verbatim |
+
+Row order: **sorted-by-first-column** — source rows arrive grouped (intermediate 20-series first, forbidden values last) but carry no globally meaningful order (13 duplicate callsigns, not callsign-sorted); sorted by callsign for diffability and cross-snapshot comparability.
 
 ### `ofcom-2017-07-13-register`
 
@@ -476,6 +490,24 @@ Required-present but not carried: `Type`.
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, no clear date order); sorted by callsign for diffability and cross-snapshot comparability.
 
 Date plausibility bound: 2025-03-13.
+
+### `ofcom-2025-09-11-register`
+
+**`raw-extract-sheet-1-amateur-callsgn-11092025.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Callsign` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | `Product__c` | verbatim |
+| `last_modified_date` | `Licence LastModifiedDate` | iso-date |
+| `original_start_date` | `Licence Original_start_date__c` | iso-date |
+
+Required-present but not carried: `Type`.
+
+Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability.
+
+Date plausibility bound: 2025-09-11.
 
 ### `ofcom-498903-reissue-events`
 
