@@ -89,6 +89,25 @@ describe('validateFoiEntry - shape and vocabularies', () => {
     expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
   });
 
+  it('FoiEntry_TitleWithBacktickCodeSpan_Fails', () => {
+    // A backtick in the title renders as a literal backtick in the escaped
+    // page <title>/<h1>, not a code span (#332).
+    writeFoiEntry(undefined, meta => { meta.title = 'Register snapshot (Ofcom `__data` asset)'; });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/title contains markdown syntax/);
+  });
+
+  it('FoiEntry_TitleWithInlineLink_Fails', () => {
+    writeFoiEntry(undefined, meta => { meta.title = 'See [the workbook](https://example.test/x)'; });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/title contains markdown syntax/);
+  });
+
+  it('FoiEntry_TitleWithLiteralUnderscoresButNoMarkdown_Passes', () => {
+    // The legitimate literal (an Ofcom `__data` asset name) with the backticks
+    // removed must NOT trip the guard - underscores are not forbidden.
+    writeFoiEntry(undefined, meta => { meta.title = 'Amateur callsign database (Ofcom __data asset)'; });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
+  });
+
   it('FoiEntry_MetaJsonMissing_Fails', () => {
     const dir = writeFoiEntry();
     fs.rmSync(path.join(dir, 'meta.json'));

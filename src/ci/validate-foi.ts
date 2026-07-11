@@ -92,6 +92,14 @@ export function validateFoiEntry(foiDir: string, key: string): ValidationProblem
 
   // 4: title and the two request-lifecycle dates.
   if (typeof meta.title !== 'string' || meta.title.length === 0) problems.push({ path: metaPath, problem: 'title is missing or empty' });
+  // The title is surfaced as plain (escaped) text in the page <title>, <h1>,
+  // breadcrumbs and link text, so any markdown in it renders as literal
+  // punctuation rather than formatting. Forbid the syntaxes that are never
+  // legitimate in a title - a backtick code-span or an inline [label](url)
+  // link - so such a token cannot leak visibly onto a generated page.
+  if (typeof meta.title === 'string' && /`|\[[^\]]*\]\([^)]*\)/.test(meta.title)) {
+    problems.push({ path: metaPath, problem: `title contains markdown syntax (backtick or inline link) that renders literally in the plain-text page title/heading: ${JSON.stringify(meta.title)}` });
+  }
   checkDateField(problems, metaPath, 'requestedAt', meta.requestedAt, meta.requestedAtNote);
   checkDateField(problems, metaPath, 'respondedAt', meta.respondedAt, meta.respondedAtNote);
 
