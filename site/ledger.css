@@ -378,3 +378,59 @@
 .ledger .axis.processing .rung { border-left: 3px solid var(--derived); }
 .ledger .axis.authority .rung { border-left: 3px solid var(--raw); }
 .ledger .axis.confidence .rung { border-left: 3px solid var(--signal); }
+
+/* ---------------------------------------------------------------------------
+   Coverage grid (data-status page). The processing-coverage tracker adopts the
+   ledger shell - header, panels, the shared census tables and the three-axis
+   ladder above - and carries this family for the one surface the shared
+   vocabulary does not cover: the inventory grid of per-stage cells and the
+   series-and-gaps timeline. The four cell states bridge to the ledger's signal
+   palette - done -> steady (green), partial -> signal (amber), absent -> change
+   (red), not-applicable -> faint - so a cell carries the same meaning here as a
+   verdict or event chip does elsewhere, in either theme. Everything stays scoped
+   under .ledger, so the shared nav and skip link keep their tokens.css styling.
+   --------------------------------------------------------------------------- */
+
+/* The build-derived summary line that introduces the panels below the header. */
+.ledger .lead { font-size: 15px; color: var(--muted); margin: 18px 0 6px; }
+.ledger .lead b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Inventory grid: the stage columns are centred; everything else inherits the
+   shared census-table idiom (monospace headers, hairline rows) defined above. */
+.ledger table.grid { font-size: 13px; }
+.ledger table.grid th.cell, .ledger table.grid td.cell { text-align: center; padding: 6px 7px; }
+.ledger table.grid td.vintage, .ledger table.grid td.auth { white-space: nowrap; font-size: 12.5px; color: var(--muted); }
+.ledger table.grid tr.grouprow th { background: var(--surface-2); font-family: var(--mono); font-size: 11px;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+.ledger .dskey a { font-family: var(--mono); font-size: 12.5px; }
+.ledger .dstitle { display: block; font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 2px; max-width: 40ch; }
+
+/* Source-authority tag (axis 2): a quiet outline pill, kept visually distinct
+   from the stage pills so the two axes are never read as one. */
+.ledger .atag { font-family: var(--mono); font-size: 11px; padding: 1px 7px; border: 1px solid var(--hair);
+  border-radius: 999px; color: var(--muted); cursor: help; }
+
+/* Stage-state pill: a glyph whose colour carries its state. */
+.ledger .pill { display: inline-block; min-width: 1.5em; font-family: var(--mono); font-weight: 700;
+  border-radius: 6px; padding: 1px 6px; text-align: center; cursor: help; }
+.ledger .pill.st-done { color: var(--steady); background: var(--steady-soft); }
+.ledger .pill.st-partial { color: var(--signal); background: var(--signal-soft); }
+.ledger .pill.st-none { color: var(--change); background: var(--change-soft); }
+.ledger .pill.st-na { color: var(--faint); background: transparent; }
+
+/* The pill legend under the grid heading, in its own class so it never inherits
+   the footer .legend spacing. */
+.ledger .cov-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 6px 0 14px; font-size: 12.5px; color: var(--muted); }
+.ledger .cov-legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Series coverage & gaps: a stack of series, each a wrapping row of vintage
+   pills with any long-silence gaps called out beneath. */
+.ledger .series { margin: 0 0 14px; padding-bottom: 12px; border-bottom: 1px solid var(--hair); }
+.ledger .series:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+.ledger .series h3 { font-size: 15px; margin: 4px 0 8px; }
+.ledger .series .timeline { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.ledger a.vpill { font-family: var(--mono); font-size: 12px; padding: 2px 8px; border: 1px solid var(--hair);
+  border-radius: 6px; background: var(--surface-2); color: var(--ink); text-decoration: none; }
+.ledger a.vpill:hover { border-color: var(--signal); }
+.ledger ul.gaps { margin: 8px 0; }
+.ledger ul.gaps li { margin: 4px 0; }
