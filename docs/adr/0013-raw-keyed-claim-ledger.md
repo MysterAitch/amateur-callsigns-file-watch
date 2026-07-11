@@ -220,12 +220,18 @@ end-to-end over the full corpus from the ledger; a both-engines query playground
 the reusable "fold a committed report from the claim data via DuckDB" primitive,
 with DuckDB adopted in CI as a pinned binary and the first report
 (cross-dataset-invariants) migrated onto it and verified against its golden; the
-derived canonical licence-category tier; and extension of ledger ingestion beyond
-the FOI register snapshots to the open-data register family, establishing the
-source-family-extension pattern.
+derived canonical licence-category tier; and extension of ledger ingestion
+across all six current source families — the FOI register snapshots, the
+open-data register family, the attribute addenda, and the bespoke non-callsign
+families (forbidden-suffix lists, statistics aggregates, and available-pool
+disclosures) — each joined through a shared collector registry
+(`src/v2/collectors/`) in which adding a family is adding a module plus one
+registry line, so the source-family-extension pattern is now proven across the
+corpus rather than on a single family.
 
-Remaining: ingestion of the bespoke and heterogeneous source families; migration
-of the remaining reports and pages onto ledger folds; the reviewed canonical
-vocabularies and coverage-aware gating the temporal fold depends on; and, only
+Remaining: migration of the remaining reports and pages onto ledger folds; the
+reviewed canonical vocabularies and coverage-aware gating the temporal fold
+depends on; the continued onboarding through the registry of heterogeneous
+sources still pending intake (tracked in `docs/source-register.md`); and, only
 once each legacy projection is reproduced against its golden, retirement of the
 legacy snapshot-canonical flow.
