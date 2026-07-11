@@ -204,6 +204,7 @@ export function navHtml(depthToRoot: number, currentNav?: string): string {
     ['Forbidden suffixes', `${rootPath}forbidden/index.html`],
     ['Reports', `${rootPath}reports/index.html`],
     ['Ledger', `${rootPath}ledger.html`],
+    ['Playground', `${rootPath}playground.html`],
     ['Glossary', `${rootPath}glossary.html`],
     ['About', `${rootPath}about.html`],
     ['Repository', REPO_URL],

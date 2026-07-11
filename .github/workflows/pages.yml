@@ -97,7 +97,7 @@ jobs:
           # site-render.ts) into every hand-authored page, so the deployed
           # pages carry the full nav - Inter-dataset link, Forbidden suffixes -
           # without a hand-maintained second copy that drifts (issue #308).
-          node src/ci/build-nav.ts _site/index.html _site/statistics.html _site/explore.html _site/compare.html _site/ledger.html _site/glossary.html _site/about.html
+          node src/ci/build-nav.ts _site/index.html _site/statistics.html _site/explore.html _site/compare.html _site/ledger.html _site/playground.html _site/glossary.html _site/about.html
           # sql.js-httpvfs is served from the npm-audited package, vendored at
           # build time - no CDN scripts, nothing committed. The sourcemap is
           # included so browser devtools stop 404ing for it.
