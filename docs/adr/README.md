@@ -29,6 +29,7 @@ baseline, and 0013 as the direction of travel.
 | [0011](0011-two-tier-architecture.md) | Two-tier architecture: a minimal residential fetch host, everything else in-repo | accepted | 2026-07-10 |
 | [0012](0012-supply-chain-posture.md) | Supply-chain posture: a minimal, auditable dependency and write surface | accepted | 2026-07-10 |
 | [0013](0013-raw-keyed-claim-ledger.md) | A raw-keyed claim ledger as the canonical record, everything else a derived fold | accepted (migration in progress) | 2026-07-11 |
+| [0014](0014-trust-rating-safety-net.md) | The trust-rating model, derived from provenance and guarded against inflation | accepted | 2026-07-12 |
 
 ## Related documentation
 
