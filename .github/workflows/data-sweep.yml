@@ -1,6 +1,12 @@
 # Data sweep (issue #14): discovers data/* branches pushed by the fetch host,
 # opens a PR for each, and enables auto-merge for data-only changes.
 #
+# Scope note: this watches only `data/*`. Maintainer-driven bulk ingestion
+# (e.g. FOI batches) bundles converter code + regenerated golden masters and so
+# can never be "data-only"; it uses the `ingest/*` branch prefix instead, which
+# this sweep deliberately ignores, and lands via its own reviewed consolidation
+# PRs (regenerate the golden set with `npm run regen`).
+#
 # Security shape (ADR 0001): this workflow runs only reviewed code from main on
 # a schedule - never in response to a push - so branch content can influence
 # WHAT gets merged only through the path allowlist below, never what executes.
