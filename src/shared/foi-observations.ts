@@ -16,6 +16,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { listFoiEntryKeys, readFoiEntryMeta } from './foi-archive.ts';
+import { time } from './perf.ts';
 
 // The union projection's value columns: the callsign-bearing families'
 // cores (minus callsign itself) plus every registered extension column
@@ -45,39 +46,79 @@ export interface FoiObservationRow {
   values: Record<string, string | null>;
 }
 
-export function buildFoiObservations(foiDir: string): FoiObservationRow[] {
-  const rows: FoiObservationRow[] = [];
+interface FoiObservationsCacheEntry {
+  signature: string;
+  rows: FoiObservationRow[];
+}
+const foiObservationsCache = new Map<string, FoiObservationsCacheEntry>();
+
+// A signature of every normalised FOI file the build folds in (path + mtime),
+// so the memo serves cached rows only while the inputs are unchanged and
+// rebuilds the moment any file is edited.
+function foiInputsSignature(foiDir: string): string {
+  const parts: string[] = [];
   for (const entry of listFoiEntryKeys(foiDir)) {
     const meta = readFoiEntryMeta(foiDir, entry);
     for (const [fileName, declaration] of Object.entries(meta.files)) {
       if (declaration.role !== 'normalised') continue;
-      const records = parse(fs.readFileSync(path.join(foiDir, entry, fileName), 'utf8'), {
-        columns: true,
-        skip_empty_lines: true,
-      }) as Record<string, string>[];
-      if (records.length === 0 || records[0]['callsign'] === undefined) continue;
-
-      const present = new Set(Object.keys(records[0]));
-      const datasetClasses = (declaration.datasetClasses ?? meta.datasetClasses).join(',');
-      for (const record of records) {
-        const values: Record<string, string | null> = {};
-        for (const column of OBSERVATION_VALUE_COLUMNS) {
-          // null = the file does not assert this column; '' = the source
-          // asserted a blank. The distinction IS the point.
-          values[column] = present.has(column) ? record[column] : null;
-        }
-        rows.push({
-          callsign: record['callsign'],
-          entry,
-          sourceFile: fileName,
-          datasetClasses,
-          vintage: meta.dataVintage,
-          values,
-        });
-      }
+      parts.push(`${entry}/${fileName}:${fs.statSync(path.join(foiDir, entry, fileName)).mtimeMs}`);
     }
   }
-  return rows;
+  return parts.join('|');
+}
+
+// Clear the memo. For test isolation only; a build runs one process to
+// completion and never needs it.
+export function resetFoiObservationsCache(): void {
+  foiObservationsCache.clear();
+}
+
+export function buildFoiObservations(foiDir: string): FoiObservationRow[] {
+  // Several build steps fold the same FOI files into this union within one
+  // process (the master/tiers build, the forbidden-suffix cohort, the value
+  // catalogue). Memoise by directory + input signature so repeats reuse the
+  // first build's rows; every consumer reads them without mutating in place, so
+  // a shared array is byte-identical to rebuilding. Edited inputs rebuild.
+  const cacheKey = path.resolve(foiDir);
+  const signature = foiInputsSignature(foiDir);
+  const cached = foiObservationsCache.get(cacheKey);
+  if (cached !== undefined && cached.signature === signature) return cached.rows;
+  const result = time('foi-observations:build', () => {
+    const rows: FoiObservationRow[] = [];
+    for (const entry of listFoiEntryKeys(foiDir)) {
+      const meta = readFoiEntryMeta(foiDir, entry);
+      for (const [fileName, declaration] of Object.entries(meta.files)) {
+        if (declaration.role !== 'normalised') continue;
+        const records = parse(fs.readFileSync(path.join(foiDir, entry, fileName), 'utf8'), {
+          columns: true,
+          skip_empty_lines: true,
+        }) as Record<string, string>[];
+        if (records.length === 0 || records[0]['callsign'] === undefined) continue;
+
+        const present = new Set(Object.keys(records[0]));
+        const datasetClasses = (declaration.datasetClasses ?? meta.datasetClasses).join(',');
+        for (const record of records) {
+          const values: Record<string, string | null> = {};
+          for (const column of OBSERVATION_VALUE_COLUMNS) {
+            // null = the file does not assert this column; '' = the source
+            // asserted a blank. The distinction IS the point.
+            values[column] = present.has(column) ? record[column] : null;
+          }
+          rows.push({
+            callsign: record['callsign'],
+            entry,
+            sourceFile: fileName,
+            datasetClasses,
+            vintage: meta.dataVintage,
+            values,
+          });
+        }
+      }
+    }
+    return rows;
+  });
+  foiObservationsCache.set(cacheKey, { signature, rows: result });
+  return result;
 }
 
 const OBSERVATION_CSV_HEADER = ['callsign', 'entry', 'source_file', 'dataset_classes', 'vintage', ...OBSERVATION_VALUE_COLUMNS].join(',');

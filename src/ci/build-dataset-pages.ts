@@ -36,6 +36,8 @@ import { buildForbiddenSection } from './build-forbidden-section.ts';
 import { buildClassPages, classChipLink } from './build-class-pages.ts';
 import { buildInterdatasetStats } from './build-interdataset-stats.ts';
 import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { time, perfReport } from '../shared/perf.ts';
+import { parseCsvCached } from '../shared/parse-cache.ts';
 import {
   REPO_URL,
   escapeHtml,
@@ -70,36 +72,19 @@ const ARCHIVE_CSV_PARSE_OPTIONS = { columns: true, skip_empty_lines: true, bom: 
 // read - a single publication's normalised.csv is ~158k rows - and several
 // independent page sections parse the same file within one run (the glance
 // breakdowns, the distribution charts, the publication summary, the series and
-// forbidden-suffix sections). This module-level memo returns the parsed rows for
-// an unchanged source file, keyed by absolute path plus last-modified time so an
-// edited file re-parses, collapsing those repeats into one parse per file.
+// forbidden-suffix sections). The shared process-lifetime memo
+// (shared/parse-cache.ts) returns the parsed rows for an unchanged source file,
+// keyed by absolute path plus last-modified time and the parse shape, so an
+// edited file re-parses while those repeats collapse into one parse per file.
 //
 // The cached rows are treated as read-only by every caller (each only tallies,
 // filters, or maps them), so returning the shared array is byte-identical to a
 // fresh parse; the rebuild-determinism check still renders each build
-// independently from these shared rows. The memo is confined to the test runner
-// so the deploy always parses each source file fresh - the cache is provably
-// idempotent, but keeping the published artefact on the un-memoised path removes
-// any doubt about what it builds from.
-const MEMOISE_ARCHIVE_CSV = process.env.VITEST !== undefined;
-
-interface ParsedCsvCacheEntry {
-  mtimeMs: number;
-  rows: Record<string, string>[];
-}
-const parsedArchiveCsvCache = new Map<string, ParsedCsvCacheEntry>();
-
+// independently from these shared rows. The memo runs in the deploy as well as
+// under test: it is provably idempotent, so there is no behaviour to keep off
+// the published path, only repeated parses to save.
 function parseArchiveCsv(filePath: string): Record<string, string>[] {
-  const absolute = path.resolve(filePath);
-  if (!MEMOISE_ARCHIVE_CSV) {
-    return parse(fs.readFileSync(absolute, 'utf8'), ARCHIVE_CSV_PARSE_OPTIONS) as Record<string, string>[];
-  }
-  const mtimeMs = fs.statSync(absolute).mtimeMs;
-  const cached = parsedArchiveCsvCache.get(absolute);
-  if (cached !== undefined && cached.mtimeMs === mtimeMs) return cached.rows;
-  const rows = parse(fs.readFileSync(absolute, 'utf8'), ARCHIVE_CSV_PARSE_OPTIONS) as Record<string, string>[];
-  parsedArchiveCsvCache.set(absolute, { mtimeMs, rows });
-  return rows;
+  return parseCsvCached(filePath, ARCHIVE_CSV_PARSE_OPTIONS, 'parse:archive-csv');
 }
 
 export interface DatasetPagesSummary {
@@ -1299,7 +1284,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   let lastCompleteKey: string | undefined;
   // Precompute each publication's headline figures once; every entry's
   // navigation sidebar lists them all, with deltas relative to that page.
-  const summaries = openDataKeys.map(publicationSummary);
+  const summaries = time('dataset-pages:summaries', () => openDataKeys.map(publicationSummary));
   // The cross-lane FOI section lists only data-bearing disclosures (a dataset
   // to navigate to); correspondence-only entries stay in the dataset index.
   const foiNav: FoiNavEntry[] = foiKeys.map(k => {
@@ -1307,7 +1292,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     return { key: k, title: m.title, vintage: m.dataVintage, classes: m.datasetClasses, approxRecords: foiApproxRecords(m.files) };
   }).filter(e => e.classes.length > 0);
   for (const key of openDataKeys) {
-    const { files, zipBytes } = buildOpenDataEntry(outputDir, key, lastCompleteKey, summaries, foiNav);
+    const { files, zipBytes } = time('dataset-pages:open-data-entry', () => buildOpenDataEntry(outputDir, key, lastCompleteKey, summaries, foiNav));
     const entryMeta = JSON.parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, key, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete: boolean } };
     if (entryMeta.intendedCoverage?.complete !== false) lastCompleteKey = key;
     fileCount += files.length;
@@ -1318,7 +1303,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
 
   const foiRows: string[] = [];
   for (const key of foiKeys) {
-    const { files, meta, zipBytes } = buildFoiEntry(outputDir, foiDir, key, summaries, foiNav);
+    const { files, meta, zipBytes } = time('dataset-pages:foi-entry', () => buildFoiEntry(outputDir, foiDir, key, summaries, foiNav));
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;
     pageUrls.push(`${baseUrl}/datasets/foi/${key}/index.html`);
@@ -1406,30 +1391,30 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   fs.mkdirSync(datasetsDir, { recursive: true });
   fs.writeFileSync(path.join(datasetsDir, 'index.html'), htmlPage('Dataset index', 1, indexBody, { currentNav: 'Dataset index', sourcePath: 'archive' }));
 
-  const seriesPages = buildSeriesPages(outputDir, baseUrl);
+  const seriesPages = time('dataset-pages:series', () => buildSeriesPages(outputDir, baseUrl));
   pageUrls.push(...seriesPages.urls);
   const flagNames = new Set(parseFlagRegistry().map(r => r.flag));
-  pageUrls.push(...buildReportPages(outputDir, baseUrl, foiKeys, seriesPages.series, flagNames));
+  pageUrls.push(...time('dataset-pages:reports', () => buildReportPages(outputDir, baseUrl, foiKeys, seriesPages.series, flagNames)));
 
   // The forbidden-suffix section (issue #291 phase 2): a discrete, static,
   // crawlable section built like series/reports — one generator, wired here so
   // no pages.yml change is needed. It links its downloads to the FOI entry
   // copies published in the loop above, so it must build after them.
-  pageUrls.push(...buildForbiddenSection(outputDir, baseUrl));
+  pageUrls.push(...time('dataset-pages:forbidden-section', () => buildForbiddenSection(outputDir, baseUrl)));
 
   // The dataset-class section (issue #178): one page per class, listing every
   // entry across both lanes that carries it, headed by the class's registry
   // prose. Built like series/reports/forbidden — one generator, wired here.
   // It writes under datasets/classes/, so it must run after the dataset
   // entry pages the chips link back to.
-  pageUrls.push(...buildClassPages(outputDir, baseUrl));
+  pageUrls.push(...time('dataset-pages:class-pages', () => buildClassPages(outputDir, baseUrl)));
 
   // The inter-dataset statistics page (issue #177, Surface 2): a discrete,
   // static, crawlable view of statistics ACROSS publications (blank-product
   // filtering, record-count deltas, column/flag/pattern drift) — distinct from
   // the latest-publication statistics page. Built like the sections above; it
   // reads only the committed stats.json/meta.json, so ordering does not matter.
-  pageUrls.push(...buildInterdatasetStats(outputDir, baseUrl));
+  pageUrls.push(...time('dataset-pages:interdataset-stats', () => buildInterdatasetStats(outputDir, baseUrl)));
 
   const sitemap = [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -1455,6 +1440,8 @@ function main(): void {
   }
   const summary = buildDatasetPages(outputDir, baseUrl);
   console.log(`dataset pages: ${summary.entryCount} entries, ${summary.fileCount} files, ${formatBytes(summary.totalBytes)} (+ index, descriptors, sitemap)`);
+  // Self-guarded: prints the profiling breakdown to stderr only under PERF.
+  perfReport();
 }
 
 if (import.meta.main) {
