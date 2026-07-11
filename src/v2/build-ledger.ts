@@ -16,13 +16,21 @@
  *     (archive/<date>/raw.csv), keyed off the header-variant registry
  *     (ofcom-amateur/normalise.ts), honouring each entry's curated ignoredLines
  *     so export footer furniture never becomes a bogus observation.
+ * A third family joins the two register families:
+ *   - attribute-addendum: FOI entries whose datasetClasses carry
+ *     'attribute-addendum' (archive/foi/**), the per-callsign attribute rows
+ *     (licence-issued / original-start dates, reservation expiries) that the
+ *     register family deliberately excludes at the entry level. Its
+ *     callsign-row-per-line CSV sources ride the SAME register machinery
+ *     (registerSourcesFor + loadRegisterSource), keyed off the authored
+ *     converter binding; see collectAttributeAddendumSources.
  * Adding a family is additive: implement a collect<Family>Sources() that yields
  * ResolvedLedgerSource values (see collectOpenDataRegisterSources for the
  * pattern) and add it to collectLedgerSources. The remaining families
- * (available-pools, attribute-addenda, forbidden lists, statistics) follow the
- * same shape where they are callsign-row-per-line; a shape that is not (a
- * statistics aggregate, a PDF-only source) needs a bespoke adapter and does not
- * ride this path.
+ * (available-pools, forbidden lists, statistics) follow the same shape where
+ * they are callsign-row-per-line; a shape that is not (a statistics aggregate, a
+ * markdown-table or PDF-only transcription needing a raw parser lifted from the
+ * FOI converter) needs a bespoke adapter and does not ride this path.
  *
  * The inversion #361 proposes makes a CLAIM the atom and every published table
  * a fold over the ledger. This runner is the emit half, keyed - deliberately -
@@ -72,11 +80,18 @@ import { loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/
 // these fold into the register ledger.
 const REGISTER_SNAPSHOT_CLASS = 'register-snapshot';
 
-// Classes whose PRESENCE disqualifies an entry even when register-snapshot is
-// also declared: an attribute addendum is per-callsign join material rather than
-// a snapshot of register state, and a statistics aggregate carries no per-row
-// callsign at all. This is the filter the #361 exploration settled on.
-const EXCLUDED_CLASSES: readonly string[] = ['attribute-addendum', 'statistics-aggregate'];
+// The dataset class marking an entry that carries extra per-callsign attributes
+// beyond the plain register row (licence-issued / original-start dates,
+// reservation expiries). Its own collector folds these entries in.
+const ATTRIBUTE_ADDENDUM_CLASS = 'attribute-addendum';
+
+// Classes whose PRESENCE disqualifies an entry from the REGISTER families even
+// when register-snapshot is also declared: an attribute addendum is per-callsign
+// join material rather than a snapshot of register state (picked up instead by
+// the attribute-addendum family, collectAttributeAddendumSources), and a
+// statistics aggregate carries no per-row callsign at all. This is the filter
+// the #361 exploration settled on.
+const EXCLUDED_CLASSES: readonly string[] = [ATTRIBUTE_ADDENDUM_CLASS, 'statistics-aggregate'];
 
 // The normalised output column whose raw source header names the callsign token
 // this runner keys the ledger off.
@@ -179,10 +194,10 @@ export function loadRegisterSource(foiDir: string, entry: string, meta: FoiEntry
   };
 }
 
-// The two register source families the ledger folds over. Every family loads
-// to a SourceObservationSet and emits through the one emitLedger path; the tag
-// only distinguishes provenance in the corpus summary.
-export type SourceFamily = 'foi-register' | 'open-data-register';
+// The source families the ledger folds over. Every family loads to a
+// SourceObservationSet and emits through the one emitLedger path; the tag only
+// distinguishes provenance in the corpus summary.
+export type SourceFamily = 'foi-register' | 'open-data-register' | 'attribute-addendum';
 
 // One published source resolved to everything buildLedger needs: how to load
 // its rows, and a filesystem-safe unique stem for its JSONL. `entry` is the
@@ -288,10 +303,55 @@ export function collectOpenDataRegisterSources(archiveDir: string = defaultArchi
   return resolved;
 }
 
-// Every register source across all covered families, in a stable order (FOI
-// first, then open-data), ready for the one emit path.
+// The attribute-addendum entries: 'attribute-addendum' present in
+// datasetClasses. These are exactly the FOI entries the register family
+// excludes (EXCLUDED_CLASSES), picked up here by their own collector - so the
+// two selections are disjoint by construction and no source is emitted twice.
+// Sorted for a stable, reproducible corpus order (listFoiEntryKeys is sorted).
+export function attributeAddendumEntries(foiDir: string = defaultFoiDir()): RegisterEntry[] {
+  const entries: RegisterEntry[] = [];
+  for (const entry of listFoiEntryKeys(foiDir)) {
+    const meta = readFoiEntryMeta(foiDir, entry);
+    if (!meta.datasetClasses.includes(ATTRIBUTE_ADDENDUM_CLASS)) continue;
+    entries.push({ entry, meta });
+  }
+  return entries;
+}
+
+// The attribute-addendum family: every attribute-addendum FOI entry's
+// callsign-bearing verbatim CSV sources, each resolved to a loader over the
+// entry's RAW bytes. The conversion-shape filter is the register family's own
+// (registerSourcesFor): a raw header mapped verbatim to the callsign column and
+// parsed as CSV. Two addendum shapes ride a raw encoding this CSV loader does
+// not parse and so drop out of registerSourcesFor - a preamble-bearing workbook
+// annex (the pre-war-callsigns sheet, whose title rows precede the header) and a
+// markdown-table PDF transcription (the heritage-transfer re-issue table). Both
+// await a raw parser lifted from the FOI converter, exactly as the PDF-only
+// sources do; until then they are among the remaining families, not this one.
+export function collectAttributeAddendumSources(foiDir: string = defaultFoiDir()): ResolvedLedgerSource[] {
+  const resolved: ResolvedLedgerSource[] = [];
+  for (const { entry, meta } of attributeAddendumEntries(foiDir)) {
+    for (const source of registerSourcesFor(meta)) {
+      resolved.push({
+        family: 'attribute-addendum',
+        entry,
+        jsonlStem: jsonlStem('addendum', entry, source.conversion.sourceFile),
+        load: () => loadRegisterSource(foiDir, entry, meta, source),
+      });
+    }
+  }
+  return resolved;
+}
+
+// Every source across all covered families, in a stable order (FOI register
+// first, then open-data register, then the attribute addenda), ready for the
+// one emit path.
 export function collectLedgerSources(foiDir: string = defaultFoiDir()): ResolvedLedgerSource[] {
-  return [...collectFoiRegisterSources(foiDir), ...collectOpenDataRegisterSources()];
+  return [
+    ...collectFoiRegisterSources(foiDir),
+    ...collectOpenDataRegisterSources(),
+    ...collectAttributeAddendumSources(foiDir),
+  ];
 }
 
 export interface SourceLedgerSummary {
@@ -329,7 +389,7 @@ function tallyLayers(claims: readonly Claim[]): { raw: number; derived: number }
   return { raw, derived };
 }
 
-const EMPTY_FAMILY_TALLY: Record<SourceFamily, number> = { 'foi-register': 0, 'open-data-register': 0 };
+const EMPTY_FAMILY_TALLY: Record<SourceFamily, number> = { 'foi-register': 0, 'open-data-register': 0, 'attribute-addendum': 0 };
 
 // Build the register ledger from the RAW bytes and write it as one JSONL file
 // per source into outputDir/ledger/. Claims are serialised and released per
@@ -355,7 +415,7 @@ export function buildLedger(
   fs.mkdirSync(ledgerDir, { recursive: true });
 
   const perSource: SourceLedgerSummary[] = [];
-  const entriesSeen: Record<SourceFamily, Set<string>> = { 'foi-register': new Set(), 'open-data-register': new Set() };
+  const entriesSeen: Record<SourceFamily, Set<string>> = { 'foi-register': new Set(), 'open-data-register': new Set(), 'attribute-addendum': new Set() };
 
   for (const source of collectLedgerSources(foiDir)) {
     if (selectEntry !== undefined && !selectEntry(source.entry)) continue;
@@ -383,9 +443,10 @@ export function buildLedger(
   const totalObservations = perSource.reduce((sum, s) => sum + s.observations, 0);
   const totalRawClaims = perSource.reduce((sum, s) => sum + s.rawClaims, 0);
   const totalDerivedClaims = perSource.reduce((sum, s) => sum + s.derivedClaims, 0);
+  const entriesProcessed = (Object.values(entriesByFamily) as number[]).reduce((sum, count) => sum + count, 0);
   return {
     outputDir: ledgerDir,
-    entriesProcessed: entriesByFamily['foi-register'] + entriesByFamily['open-data-register'],
+    entriesProcessed,
     sourcesProcessed: perSource.length,
     entriesByFamily,
     sourcesByFamily,
@@ -403,7 +464,7 @@ if (import.meta.main) {
   const summary = buildLedger(outputDir);
   console.log(`wrote raw-keyed claim ledger to ${summary.outputDir}`);
   console.log(`  entries: ${summary.entriesProcessed}, sources: ${summary.sourcesProcessed}, observations: ${summary.totalObservations}`);
-  console.log(`  by family: foi-register ${summary.entriesByFamily['foi-register']} entries / ${summary.sourcesByFamily['foi-register']} sources, open-data-register ${summary.entriesByFamily['open-data-register']} entries / ${summary.sourcesByFamily['open-data-register']} sources`);
+  console.log(`  by family: foi-register ${summary.entriesByFamily['foi-register']} entries / ${summary.sourcesByFamily['foi-register']} sources, open-data-register ${summary.entriesByFamily['open-data-register']} entries / ${summary.sourcesByFamily['open-data-register']} sources, attribute-addendum ${summary.entriesByFamily['attribute-addendum']} entries / ${summary.sourcesByFamily['attribute-addendum']} sources`);
   console.log(`  claims: ${summary.totalClaims} (raw ${summary.totalRawClaims}, derived ${summary.totalDerivedClaims})`);
   for (const s of summary.perSource) {
     console.log(`  [${s.family}] ${s.entry} [${s.vintage}] ${s.observations} obs -> ${s.rawClaims + s.derivedClaims} claims (raw ${s.rawClaims}, derived ${s.derivedClaims})  ${s.sourceFile}`);

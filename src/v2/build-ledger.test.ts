@@ -17,6 +17,8 @@ import {
   qualifyingRegisterEntries,
   loadOpenDataRegisterSource,
   collectOpenDataRegisterSources,
+  collectAttributeAddendumSources,
+  attributeAddendumEntries,
   defaultArchiveDir,
 } from './build-ledger.ts';
 import { convertFoiSource } from '../shared/foi-normalise.ts';
@@ -203,6 +205,99 @@ describe('raw->claims->normalised round-trip on real open-data register publicat
   });
 });
 
+// The attribute-addendum family (issue #361 source-coverage extension): the
+// SAME raw->claims->normalised equivalence oracle, now over the FOI entries
+// whose datasetClasses carry 'attribute-addendum' - the per-callsign attribute
+// rows the register family excludes at the entry level. Two entries qualify
+// with callsign-row-per-line CSV sources: the 2024 duration-held CSV PAIR
+// (wdtk-1180568), whose sheet 2 carries the original-start and created dates
+// beyond the plain register row and whose callsign column is 'Call Sign'; and
+// the 2019 published register (ofcom-756622), a latin-1 CSV carrying the
+// truncated 'Licence Issued Dat' issue-date column. Each is named by its ENTRY
+// key only - the raw source files and callsign columns are read from the
+// authored converter binding, never hard-coded here.
+const ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES = [
+  { entry: 'wdtk-1180568--licence-breakdown-duration-age', label: 'DurationHeldCsvPair' },
+  { entry: 'ofcom-756622--published-register-csv', label: 'PublishedRegisterWithIssueDates' },
+];
+
+describe('raw->claims->normalised round-trip on real attribute-addendum entries', () => {
+  for (const { entry, label } of ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES) {
+    it(`NormalisedTable_When${label}_IsRecoverableFromRawKeyedLedger`, () => {
+      const meta = readFoiEntryMeta(FOI_DIR, entry);
+      const sources = registerSourcesFor(meta);
+      // At least one callsign-row-per-line CSV source; every one is round-tripped.
+      expect(sources.length).toBeGreaterThan(0);
+
+      for (const source of sources) {
+        const observationSet = loadRegisterSource(FOI_DIR, entry, meta, source);
+        expect(observationSet.rows.length).toBeGreaterThan(0);
+
+        const ledger = emitLedger(observationSet, REF);
+        const rawClaims = ledger.filter(claim => claim.layer === 'raw');
+
+        // Hop 1 - the raw layer is a LOSSLESS encoding of the published rows:
+        // folding the raw claims back reproduces the raw source table exactly,
+        // under Ofcom's own headers, order/quoting-independent.
+        const projected = projectNormalised(rawClaims, observationSet.columns, observationSet.subjectColumn);
+        expect(projected.length).toBe(observationSet.rows.length);
+        expect(multisetsEqual(
+          multiset(projected.map(record => record.values), observationSet.columns),
+          multiset(observationSet.rows, observationSet.columns),
+        )).toBe(true);
+
+        // Hop 2 - the committed normalisation is reproducible from that
+        // encoding: render the ledger-reconstructed raw table and run the
+        // entry's authored, deterministic converter, then compare to the
+        // committed normalised--*.csv. Jointly the two hops prove the
+        // raw->claims->normalised path loses nothing the addendum source carries.
+        const reconstructedRows = projected.map(record => observationSet.columns.map(column => record.values[column] ?? ''));
+        const reconstructedCsv = renderCsv([...observationSet.columns], reconstructedRows);
+        const converted = convertFoiSource(Buffer.from(reconstructedCsv, source.conversion.encoding), source.conversion);
+
+        const normalisedColumns = source.conversion.columns.map(column => column.output);
+        const convertedRecords = parse(converted.csv, { columns: true, bom: true }) as Record<string, string>[];
+        const committedText = fs.readFileSync(path.join(FOI_DIR, entry, converted.outputFileName), 'utf8');
+        const committedRecords = parse(committedText, { columns: true, bom: true }) as Record<string, string>[];
+
+        expect(convertedRecords.length).toBe(committedRecords.length);
+        expect(multisetsEqual(
+          multiset(convertedRecords, normalisedColumns),
+          multiset(committedRecords, normalisedColumns),
+        )).toBe(true);
+      }
+    });
+  }
+
+  it('AttributeAddendumFamily_WhenCollected_CoversEveryQualifyingCallsignSource', () => {
+    // The family is discovered from the archive's datasetClasses, not a
+    // hard-coded list, so a newly-classed addendum entry is covered
+    // automatically. Every collected source names its raw bytes and a callsign
+    // column, and is disjoint from the register family (which excludes these
+    // very entries).
+    const sources = collectAttributeAddendumSources();
+    const expectedSourceCount = attributeAddendumEntries()
+      .reduce((sum, { meta }) => sum + registerSourcesFor(meta).length, 0);
+    expect(sources.length).toBe(expectedSourceCount);
+    expect(sources.length).toBeGreaterThanOrEqual(ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES.length);
+    for (const source of sources) {
+      expect(source.family).toBe('attribute-addendum');
+      const observationSet = source.load();
+      expect(observationSet.rows.length).toBeGreaterThan(0);
+      expect(observationSet.subjectColumn.length).toBeGreaterThan(0);
+      expect(observationSet.sourceFile.startsWith(`foi/${source.entry}/`)).toBe(true);
+    }
+
+    // Disjoint from the register family: no attribute-addendum entry is also a
+    // qualifying register entry (EXCLUDED_CLASSES guarantees it), so nothing is
+    // emitted twice.
+    const registerEntryKeys = new Set(qualifyingRegisterEntries().map(e => e.entry));
+    for (const { entry } of attributeAddendumEntries()) {
+      expect(registerEntryKeys.has(entry)).toBe(false);
+    }
+  });
+});
+
 describe('raw-keyed fidelity the normalised store discards (G0TQK)', () => {
   it('RawCallsignTokens_WhenNbspTwinInSource_YieldTwoObservationsBothNormalisingToOneEntity', () => {
     // The 2022-03 register lists the entity G0TQK under two DISTINCT raw tokens
@@ -253,16 +348,21 @@ describe('corpus scale sanity', () => {
     try {
       const summary = buildLedger(outputDir, FOI_DIR, REF);
 
-      // Both families contribute. Every qualifying FOI register entry produced
-      // at least one source; the open-data-register family adds every mirrored
-      // Ofcom open-data publication - additive coverage, the FOI count intact.
+      // All three families contribute. Every qualifying FOI register entry
+      // produced at least one source; the open-data-register family adds every
+      // mirrored Ofcom open-data publication; the attribute-addendum family adds
+      // the per-callsign attribute entries the register family excludes - all
+      // additive, the earlier counts intact.
       const foiEntries = qualifyingRegisterEntries(FOI_DIR).filter(e => registerSourcesFor(e.meta).length > 0).length;
       const openDataSources = collectOpenDataRegisterSources().length;
+      const addendumEntries = attributeAddendumEntries(FOI_DIR).filter(e => registerSourcesFor(e.meta).length > 0).length;
       expect(summary.entriesByFamily['foi-register']).toBe(foiEntries);
       expect(summary.entriesByFamily['open-data-register']).toBe(openDataSources);
       expect(summary.entriesByFamily['open-data-register']).toBeGreaterThanOrEqual(OPEN_DATA_ROUND_TRIP_ENTRIES.length);
-      expect(summary.entriesProcessed).toBe(foiEntries + openDataSources);
-      expect(summary.sourcesProcessed).toBeGreaterThanOrEqual(19 + OPEN_DATA_ROUND_TRIP_ENTRIES.length);
+      expect(summary.entriesByFamily['attribute-addendum']).toBe(addendumEntries);
+      expect(summary.entriesByFamily['attribute-addendum']).toBeGreaterThanOrEqual(ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES.length);
+      expect(summary.entriesProcessed).toBe(foiEntries + openDataSources + addendumEntries);
+      expect(summary.sourcesProcessed).toBeGreaterThanOrEqual(19 + OPEN_DATA_ROUND_TRIP_ENTRIES.length + ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES.length);
 
       // No source is silently empty (an empty source would be a converter/
       // filter defect); each carries its family tag.
@@ -270,8 +370,13 @@ describe('corpus scale sanity', () => {
         expect(s.observations).toBeGreaterThan(0);
         expect(s.rawClaims).toBeGreaterThan(0);
         expect(s.derivedClaims).toBeGreaterThan(0);
-        expect(['foi-register', 'open-data-register']).toContain(s.family);
+        expect(['foi-register', 'open-data-register', 'attribute-addendum']).toContain(s.family);
       }
+
+      // The attribute-addendum family contributes real claims of its own
+      // (hundreds of thousands of observations across the covered entries).
+      const addendumClaims = summary.perSource.filter(s => s.family === 'attribute-addendum').reduce((sum, s) => sum + s.rawClaims + s.derivedClaims, 0);
+      expect(addendumClaims).toBeGreaterThan(1_000_000);
 
       // The corpus runs to millions of claims (the #361 exploration measured a
       // comparable ~10.8M decomposing the normalised CSVs; keying off the wider
