@@ -45,6 +45,20 @@ jobs:
           # the FOI observations union), one database per archive entry, and
           # the gzipped flat union CSV (issue #149 item 4).
           node src/ci/build-sqlite.ts _site/data/callsigns.sqlite.png --tiers
+          # The raw-keyed claim-ledger database (issue #361, Stage 3a): the
+          # deploy-time artefact the Ledger page queries in the browser over the
+          # same range-request VFS, in the same .png costume as the databases
+          # above. The COMPACT build (ADR-tracked spike #368) folds the FULL
+          # corpus - every archived register-snapshot publication (~17.9M claims)
+          # - into ~548 MB by splitting provenance onto an observation row and
+          # reconstructing the derived layer through a `claims` VIEW, so it fits
+          # the range-served Pages lane. Never committed (SQLite is not
+          # byte-deterministic), derived fresh here from the archive.
+          node src/v2/build-ledger-db-compact.ts _site/data/claim-ledger.sqlite.png
+          # The gzip download twin is only needed for the offline opt-in (a later
+          # sub-stage) and the page never fetches it, so drop it to keep the
+          # published site lean under the Pages size envelope.
+          rm -f _site/data/claim-ledger.sqlite.gz
           # Version stamp: the app appends ?v=<sha> to the database URL so
           # each deploy is a distinct CDN cache object - two deploys inside
           # the Pages max-age window otherwise mix range chunks from
@@ -83,7 +97,7 @@ jobs:
           # site-render.ts) into every hand-authored page, so the deployed
           # pages carry the full nav - Inter-dataset link, Forbidden suffixes -
           # without a hand-maintained second copy that drifts (issue #308).
-          node src/ci/build-nav.ts _site/index.html _site/statistics.html _site/explore.html _site/compare.html _site/glossary.html _site/about.html
+          node src/ci/build-nav.ts _site/index.html _site/statistics.html _site/explore.html _site/compare.html _site/ledger.html _site/glossary.html _site/about.html
           # sql.js-httpvfs is served from the npm-audited package, vendored at
           # build time - no CDN scripts, nothing committed. The sourcemap is
           # included so browser devtools stop 404ing for it.
