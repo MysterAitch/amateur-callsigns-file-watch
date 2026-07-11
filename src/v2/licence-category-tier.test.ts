@@ -14,7 +14,7 @@ import {
 import { serialiseClaimsJsonl } from './serialise.ts';
 import { buildLedgerSqlite } from './build-ledger-db.ts';
 import { buildCompactLedgerSqlite } from './build-ledger-db-compact.ts';
-import { registerSourcesFor, loadRegisterSource } from './build-ledger.ts';
+import { registerSourcesFor, loadRegisterSource } from './collectors/foi-register.ts';
 import { readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
 import { loadReferenceData, normaliseLicenceCategory } from '../sources/ofcom-amateur/components.ts';
 
