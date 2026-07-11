@@ -6,6 +6,9 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
   <title>About — UK amateur callsign data mirror</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Adopts the bespoke visual language scoped under .ledger (ledger.css); the
+       shared nav and skip link stay styled by tokens.css/style.css, outside it. -->
+  <link rel="stylesheet" href="ledger.css">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#14506e">
 </head>
@@ -14,20 +17,25 @@
   <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
   <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="glossary.html">Glossary</a> · <strong>About</strong> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">Repository</a></p></nav>
   <!-- nav:end -->
-  <header>
-    <h1>About this site</h1>
-    <p class="subtitle">
-      An independent mirror of the UK amateur-radio callsign register and the
-      Freedom-of-Information disclosures about it — built so operators,
-      researchers and the curious can look up, browse and cross-check the
-      public record. It is not an official service.
-    </p>
-  </header>
+  <main id="main" class="ledger">
+    <header>
+      <div class="head-inner">
+        <div class="eyebrow">UK amateur-radio register · independent mirror</div>
+        <h1>About this site</h1>
+        <p class="lede">
+          An independent mirror of the UK amateur-radio callsign register and the
+          Freedom-of-Information disclosures about it — built so operators,
+          researchers and the curious can look up, browse and cross-check the
+          public record. It is not an official service.
+        </p>
+      </div>
+    </header>
 
-  <main id="main">
-    <section id="not-affiliated">
-      <div class="card">
-        <h3>Not affiliated with Ofcom</h3>
+    <div class="wrap">
+    <section class="panel" id="not-affiliated">
+      <div class="eyebrow">important</div>
+      <h2>Not affiliated with Ofcom</h2>
+      <div class="callout" style="border-color:var(--change)">
         <p>This is an <strong>independent project</strong>. It is
         <strong>not affiliated with, endorsed by, or operated by Ofcom</strong>,
         the Radiocommunications Agency, the RSGB, or any other authority. It
@@ -38,7 +46,8 @@
       </div>
     </section>
 
-    <section id="what">
+    <section class="panel" id="what">
+      <div class="eyebrow">what this is</div>
       <h2>What this is</h2>
       <p>The UK amateur-radio callsign register is public data. Ofcom publishes
       a periodic open-data export of it, and — through Freedom-of-Information
@@ -56,7 +65,8 @@
       <a href="explore.html">Explore</a> pages.</p>
     </section>
 
-    <section id="why">
+    <section class="panel" id="why">
+      <div class="eyebrow">why it exists</div>
       <h2>Why it exists</h2>
       <p>The guiding idea is <strong>epistemic honesty</strong>: to show what
       the record actually says, and — just as importantly — what it does
@@ -69,7 +79,8 @@
       language.</p>
     </section>
 
-    <section id="currency">
+    <section class="panel" id="currency">
+      <div class="eyebrow">currency</div>
       <h2>How current the data is</h2>
       <p>The searchable register reflects <strong>whatever Ofcom last
       published</strong>, mirrored on the mirror's most recent deploy. Ofcom's
@@ -82,7 +93,8 @@
       can be read historically as well as at its latest state.</p>
     </section>
 
-    <section id="errors">
+    <section class="panel" id="errors">
+      <div class="eyebrow">reporting errors</div>
       <h2>Reporting errors</h2>
       <p>Corrections, questions and suggestions are welcome. Because the raw
       sources are preserved unchanged, an error is usually either in Ofcom's
@@ -98,6 +110,7 @@
       its original publishers; provenance and integrity hashes accompany every
       archived file in the <a href="datasets/index.html">dataset index</a>.</small></p>
     </footer>
+    </div>
   </main>
   <!-- Offline-first (ADR 0008): register the service worker so the static shell
        is cached and the site loads offline. No database is cached unless the

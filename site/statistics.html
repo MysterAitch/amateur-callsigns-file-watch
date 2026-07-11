@@ -6,6 +6,11 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
   <title>UK amateur callsign statistics — data mirror</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Adopts the bespoke visual language scoped under .ledger (ledger.css); the
+       data tables injected at deploy keep their shared classes and render in the
+       ledger census-table idiom. The shared nav/skip stay styled by tokens.css.
+       This page remains script-free - CSS only, no behaviour added. -->
+  <link rel="stylesheet" href="ledger.css">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#14506e">
 </head>
@@ -14,22 +19,27 @@
   <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
   <nav><p><a href="index.html">Lookup</a> · <strong>Statistics</strong> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">Repository</a></p></nav>
   <!-- nav:end -->
-  <header>
-    <h1>UK amateur callsign statistics</h1>
-    <p class="subtitle">
-      Aggregate views over the
-      <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">mirror's</a>
-      archived datasets, generated at deploy time from the committed data —
-      this page is fully static (no scripts), so archived captures of it are
-      complete. Interactive lookups live on the
-      <a href="index.html">callsign lookup</a> page; per-dataset drill-downs
-      on each entry's page in the
-      <a href="datasets/index.html">dataset index</a>.
-    </p>
-  </header>
+  <main id="main" class="ledger">
+    <header>
+      <div class="head-inner">
+        <div class="eyebrow">aggregate views · generated at deploy</div>
+        <h1>UK amateur callsign statistics</h1>
+        <p class="lede">
+          Aggregate views over the
+          <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">mirror's</a>
+          archived datasets, generated at deploy time from the committed data —
+          this page is fully static (no scripts), so archived captures of it are
+          complete. Interactive lookups live on the
+          <a href="index.html">callsign lookup</a> page; per-dataset drill-downs
+          on each entry's page in the
+          <a href="datasets/index.html">dataset index</a>.
+        </p>
+      </div>
+    </header>
 
-  <main id="main">
-    <section id="latest-profile">
+    <div class="wrap">
+    <section class="panel" id="latest-profile">
+      <div class="eyebrow">latest publication</div>
       <h2>Latest publication at a glance</h2>
       <p>Headline figures for the newest archived <strong>open-data
       publication</strong>: its record count, the split between syntactically
@@ -40,7 +50,8 @@
       <div id="latest-profile-table">generated at deploy time — build the site to populate</div>
     </section>
 
-    <section id="rsl-matrix">
+    <section class="panel" id="rsl-matrix">
+      <div class="eyebrow">locator matrix</div>
       <h2>Primary × secondary locator matrix</h2>
       <p>Parsed records by prefix series and Regional Secondary Locator
       (latest dataset). Every reference series and RSL letter is shown —
@@ -51,7 +62,8 @@
       <div id="rsl-matrix-table">generated at deploy time — build the site to populate</div>
     </section>
 
-    <section id="column-profiles">
+    <section class="panel" id="column-profiles">
+      <div class="eyebrow">column shape</div>
       <h2>Column profiles</h2>
       <p>Per-column shape of the latest publication: how many distinct
       non-empty values each column carries, how many rows populate it, how
@@ -61,7 +73,8 @@
       <div id="column-profiles-table">generated at deploy time — build the site to populate</div>
     </section>
 
-    <section id="callsign-taxonomy">
+    <section class="panel" id="callsign-taxonomy">
+      <div class="eyebrow">format taxonomy</div>
       <h2>Callsign format taxonomy</h2>
       <p>Every callsign in the latest publication abstracted to its
       <strong>shape</strong> — letters, digits and any space or invisible
@@ -73,7 +86,8 @@
       <div id="callsign-taxonomy-table">generated at deploy time — build the site to populate</div>
     </section>
 
-    <section id="callsign-quality">
+    <section class="panel" id="callsign-quality">
+      <div class="eyebrow">quality detectors</div>
       <h2>Callsign quality detectors</h2>
       <p>Heuristic detectors run over the callsign column of the latest
       publication, each grounded in a defect class observed in real exports.
@@ -84,7 +98,8 @@
       <div id="callsign-quality-table">generated at deploy time — build the site to populate</div>
     </section>
 
-    <section id="aggregates">
+    <section class="panel" id="aggregates">
+      <div class="eyebrow">flags per publication</div>
       <h2>Data-quality flags per publication</h2>
       <p>Counts of per-row flags across every archived <strong>open-data
       publication</strong> (vocabulary:
@@ -108,6 +123,7 @@
       <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/archive">browse the raw data on GitHub</a>.
       Maintained by Roger Howell (M7TEE).</small></p>
     </footer>
+    </div>
   </main>
 </body>
 </html>
