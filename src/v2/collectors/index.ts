@@ -10,17 +10,20 @@ import { openDataRegisterCollector } from './open-data-register.ts';
 import { attributeAddendumCollector } from './attribute-addendum.ts';
 import { forbiddenListCollector } from './forbidden-list.ts';
 import { statisticsCollector } from './statistics.ts';
+import { availablePoolCollector } from './available-pool.ts';
 
 // Stable order (declaration order): FOI register first, then open-data
 // register, then the attribute addenda, then the bespoke non-callsign families
-// (forbidden-suffix lists, then statistics aggregates) - the order buildLedger
-// folds and emits in, so the corpus order and the JSONL bytes are preserved.
+// (forbidden-suffix lists, statistics aggregates, then available-pool
+// disclosures) - the order buildLedger folds and emits in, so the corpus order
+// and the JSONL bytes are preserved.
 export const COLLECTORS: readonly LedgerCollector[] = [
   foiRegisterCollector,
   openDataRegisterCollector,
   attributeAddendumCollector,
   forbiddenListCollector,
   statisticsCollector,
+  availablePoolCollector,
 ];
 
 // Every source across all covered families, in the registry's stable order,
