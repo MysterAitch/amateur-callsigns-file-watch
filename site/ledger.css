@@ -197,6 +197,27 @@
   color: var(--faint); }
 .ledger .dmg td { font-family: var(--mono); }
 
+/* Playground console (playground.html) - shares this bespoke visual language.
+   The read-only SQL surface: a monospace textarea, a result table styled like
+   the census/damage tables, and the one-click example starters. */
+.ledger .pg-h3 { font-size: 15px; margin: 20px 0 8px; }
+.ledger .pg-input { width: 100%; resize: vertical; min-height: 120px; font-size: 13.5px; line-height: 1.5;
+  padding: 12px 14px; border-radius: 10px; border: 1px solid var(--hair); background: var(--surface-2);
+  color: var(--ink); }
+.ledger .pg-input:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.ledger .pg-result { margin-top: 16px; }
+.ledger .pg-table { width: 100%; border-collapse: collapse; }
+.ledger .pg-table th, .ledger .pg-table td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--hair);
+  font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+.ledger .pg-table th { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint);
+  font-weight: 600; position: sticky; top: 0; background: var(--surface); }
+.ledger .pg-table td.pg-null { color: var(--faint); font-style: italic; }
+.ledger .pg-error { color: var(--change); font-family: var(--mono); font-size: 13px; }
+.ledger .pg-examples { display: grid; gap: 8px; grid-template-columns: 1fr; }
+@media (min-width: 700px) { .ledger .pg-examples { grid-template-columns: 1fr 1fr; } }
+.ledger .pg-example { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ledger .pg-example .chip { flex: 0 1 auto; text-align: left; }
+
 .ledger footer { border-top: 1px solid var(--hair); padding: 26px 0 40px; color: var(--muted); font-size: 13px; margin-top: 22px; }
 .ledger .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0 0; font-size: 12.5px; color: var(--muted); }
 .ledger .legend span { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); }
