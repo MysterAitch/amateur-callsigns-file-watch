@@ -21,7 +21,7 @@ This documents **what exists**. Whether each derivation still *verifies* is the
 | 2025-06-08 | ✔ | ✔ | ✔ | ✔ |
 | 2026-06-23 | ✔ | ✔ | ✔ | ✔ |
 
-## FOI lane (44 entries)
+## FOI lane (46 entries)
 
 Extracts: `mech` = mechanically re-derivable (xlsx, via `src/shared/xlsx-extract.ts`);
 `transcr` = attested transcription of a PDF (see the entry's raw-extract file).
@@ -31,6 +31,7 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | entry | outcome | dataset classes | vintage | data files | extracts | converter | normalised |
 |---|---|---|---|---|---|---|---|
 | ofcom-01420046--allocated-reserved-callsigns | successful | register-snapshot | 2022-03-07 | ✔ 1 | 2 mech | `ofcom-01420046-register` | ✔ 1 |
+| ofcom-2016-09-20--callsign-database--all-callsigns | successful | register-snapshot | 2016-09-20 | ✔ 1 | 1 mech | `ofcom-2016-09-20-register` | ✔ 1 |
 | ofcom-2017-07-03--all-callsigns-with-status | successful | register-snapshot, reference-context | 2017-04-24 | ✔ 1 | 1 transcr | — | — |
 | ofcom-2017-07-13--all-callsigns | successful | register-snapshot | 2017-07-13 | ✔ 1 | — | `ofcom-2017-07-13-register` | ✔ 1 |
 | ofcom-2021-01--all-callsigns | successful | register-snapshot | 2021-01-29 | ✔ 1 | 1 mech | `ofcom-2021-01-register` | ✔ 1 |
@@ -47,6 +48,7 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | ofcom-2024-10-21--callsigns--all-callsigns | successful | register-snapshot | 2024-10-21 | ✔ 1 | — | `ofcom-2024-10-21-register` | ✔ 1 |
 | ofcom-2024-12--forbidden-suffixes | successful | forbidden-list | 2024-12 | ✔ 1 | — | `ofcom-2024-12-forbidden-suffixes` | ✔ 1 |
 | ofcom-2025-03-13--callsigns--all-callsigns | successful | register-snapshot | 2025-03-13 | ✔ 1 | — | `ofcom-2025-03-13-register` | ✔ 1 |
+| ofcom-2025-09-11--callsigns--all-callsigns | successful | register-snapshot | 2025-09-11 | ✔ 1 | 1 mech | `ofcom-2025-09-11-register` | ✔ 1 |
 | ofcom-285990--available-list-jun-2016 | successful | reference-context | 2016-06-29 | — | 1 transcr | — | — |
 | ofcom-299351--available-list-referral | successful | reference-context | — | — | 1 transcr | — | — |
 | ofcom-337399--all-callsigns-published-copy | successful | register-snapshot, forbidden-list | 2016-09 | ✔ 1 | 1 transcr | — | — |

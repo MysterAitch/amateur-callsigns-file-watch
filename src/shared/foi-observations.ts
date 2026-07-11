@@ -80,25 +80,49 @@ export function buildFoiObservations(foiDir: string): FoiObservationRow[] {
   return rows;
 }
 
+const OBSERVATION_CSV_HEADER = ['callsign', 'entry', 'source_file', 'dataset_classes', 'vintage', ...OBSERVATION_VALUE_COLUMNS].join(',');
+
+function renderObservationCell(value: string | null): string {
+  const text = value ?? '';
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function renderObservationLine(row: FoiObservationRow): string {
+  return [
+    renderObservationCell(row.callsign),
+    renderObservationCell(row.entry),
+    renderObservationCell(row.sourceFile),
+    renderObservationCell(row.datasetClasses),
+    renderObservationCell(row.vintage),
+    ...OBSERVATION_VALUE_COLUMNS.map(column => renderObservationCell(row.values[column] ?? null)),
+  ].join(',');
+}
+
 // The published flat union CSV (mandatory per the composed-stack decision):
 // the same projection with nulls flattened to '' - consumers needing the
 // asserted-blank vs not-asserted distinction use the SQLite form.
 export function renderObservationsCsv(rows: FoiObservationRow[]): string {
-  const header = ['callsign', 'entry', 'source_file', 'dataset_classes', 'vintage', ...OBSERVATION_VALUE_COLUMNS];
-  const renderCell = (value: string | null): string => {
-    const text = value ?? '';
-    return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-  };
-  const lines = [header.join(',')];
-  for (const row of rows) {
-    lines.push([
-      renderCell(row.callsign),
-      renderCell(row.entry),
-      renderCell(row.sourceFile),
-      renderCell(row.datasetClasses),
-      renderCell(row.vintage),
-      ...OBSERVATION_VALUE_COLUMNS.map(column => renderCell(row.values[column] ?? null)),
-    ].join(','));
-  }
+  const lines = [OBSERVATION_CSV_HEADER];
+  for (const row of rows) lines.push(renderObservationLine(row));
   return lines.join('\n') + '\n';
+}
+
+// The whole-archive union as a UTF-8 Buffer, assembled in row batches. The
+// flat union of every callsign-bearing FOI file exceeds V8's maximum
+// single-string length, so it cannot be produced by one `join`; batching into
+// Buffers (a Buffer's ceiling is far higher) keeps it byte-for-byte identical
+// to renderObservationsCsv while staying within the string limit per batch.
+export function renderObservationsCsvBuffer(rows: FoiObservationRow[], batchSize = 100_000): Buffer {
+  const chunks: Buffer[] = [];
+  let batch: string[] = [OBSERVATION_CSV_HEADER];
+  const flush = (): void => {
+    chunks.push(Buffer.from(batch.join('\n') + '\n', 'utf8'));
+    batch = [];
+  };
+  for (const row of rows) {
+    batch.push(renderObservationLine(row));
+    if (batch.length >= batchSize) flush();
+  }
+  if (batch.length > 0) flush();
+  return Buffer.concat(chunks);
 }
