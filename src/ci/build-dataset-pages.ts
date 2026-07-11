@@ -37,6 +37,7 @@ import { buildClassPages, classChipLink } from './build-class-pages.ts';
 import { buildInterdatasetStats } from './build-interdataset-stats.ts';
 import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { time, perfReport } from '../shared/perf.ts';
+import { parseCsvCached } from '../shared/parse-cache.ts';
 import {
   REPO_URL,
   escapeHtml,
@@ -71,37 +72,19 @@ const ARCHIVE_CSV_PARSE_OPTIONS = { columns: true, skip_empty_lines: true, bom: 
 // read - a single publication's normalised.csv is ~158k rows - and several
 // independent page sections parse the same file within one run (the glance
 // breakdowns, the distribution charts, the publication summary, the series and
-// forbidden-suffix sections). This module-level memo returns the parsed rows for
-// an unchanged source file, keyed by absolute path plus last-modified time so an
-// edited file re-parses, collapsing those repeats into one parse per file.
+// forbidden-suffix sections). The shared process-lifetime memo
+// (shared/parse-cache.ts) returns the parsed rows for an unchanged source file,
+// keyed by absolute path plus last-modified time and the parse shape, so an
+// edited file re-parses while those repeats collapse into one parse per file.
 //
 // The cached rows are treated as read-only by every caller (each only tallies,
 // filters, or maps them), so returning the shared array is byte-identical to a
 // fresh parse; the rebuild-determinism check still renders each build
-// independently from these shared rows. The memo is confined to the test runner
-// so the deploy always parses each source file fresh - the cache is provably
-// idempotent, but keeping the published artefact on the un-memoised path removes
-// any doubt about what it builds from.
-const MEMOISE_ARCHIVE_CSV = process.env.VITEST !== undefined;
-
-interface ParsedCsvCacheEntry {
-  mtimeMs: number;
-  rows: Record<string, string>[];
-}
-const parsedArchiveCsvCache = new Map<string, ParsedCsvCacheEntry>();
-
+// independently from these shared rows. The memo runs in the deploy as well as
+// under test: it is provably idempotent, so there is no behaviour to keep off
+// the published path, only repeated parses to save.
 function parseArchiveCsv(filePath: string): Record<string, string>[] {
-  const absolute = path.resolve(filePath);
-  if (!MEMOISE_ARCHIVE_CSV) {
-    const rows = time('parse:archive-csv', () => parse(fs.readFileSync(absolute, 'utf8'), ARCHIVE_CSV_PARSE_OPTIONS) as Record<string, string>[]);
-    return rows;
-  }
-  const mtimeMs = fs.statSync(absolute).mtimeMs;
-  const cached = parsedArchiveCsvCache.get(absolute);
-  if (cached !== undefined && cached.mtimeMs === mtimeMs) return cached.rows;
-  const rows = time('parse:archive-csv', () => parse(fs.readFileSync(absolute, 'utf8'), ARCHIVE_CSV_PARSE_OPTIONS) as Record<string, string>[]);
-  parsedArchiveCsvCache.set(absolute, { mtimeMs, rows });
-  return rows;
+  return parseCsvCached(filePath, ARCHIVE_CSV_PARSE_OPTIONS, 'parse:archive-csv');
 }
 
 export interface DatasetPagesSummary {

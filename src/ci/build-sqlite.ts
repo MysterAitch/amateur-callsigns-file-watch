@@ -24,6 +24,7 @@ import { listArchiveKeys } from '../shared/archive.ts';
 import { type EntryStats } from '../shared/stats.ts';
 import { buildFoiObservations, renderObservationsCsvBuffer, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
 import { time, perfReport } from '../shared/perf.ts';
+import { parseCsvCached } from '../shared/parse-cache.ts';
 import { cleanedCallsign, parseCallsign, loadReferenceData, normaliseLicenceCategory, componentsFlagsForRows, type ComponentRow } from '../sources/ofcom-amateur/components.ts';
 
 // Gzip level for the published .gz download artefacts. The deploy uses maximum
@@ -38,8 +39,14 @@ const GZIP_LEVEL = process.env.TIERS_GZIP_LEVEL !== undefined ? Number(process.e
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const REFERENCE_DATA_DIR = path.join(REPO_ROOT, 'reference-data');
 
+// Shared with the register-history table below through the process-wide parse
+// memo, so the newest publication's normalised.csv and components.csv - parsed
+// here for the latest-dataset tables and again for the history table - are read
+// once. Callers that want the parse attributed to a perf label wrap the call
+// themselves (parse:register / parse:components); reference-data reads stay
+// untimed, exactly as before.
 function readCsv(filePath: string): Record<string, string>[] {
-  return parse(fs.readFileSync(filePath, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[];
+  return parseCsvCached(filePath, { columns: true, skip_empty_lines: true });
 }
 
 // Rows per multi-row INSERT statement. Each `.run()` is one JS→native crossing
@@ -361,13 +368,13 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
       const componentsPath = path.join(CONSTANTS.DIRS.archive, p.key, 'components.csv');
       const componentKeys = new Map<string, { cleaned: string; suffix: string; impliedClass: string; prefixSeries: string; parseStatus: string }>(
         fs.existsSync(componentsPath)
-          ? (parse(fs.readFileSync(componentsPath, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[])
+          ? parseCsvCached(componentsPath, { columns: true, skip_empty_lines: true })
             .map(c => [c.callsign, { cleaned: c.cleaned ?? cleanedCallsign(c.callsign), suffix: c.suffix ?? '', impliedClass: c.implied_class ?? '', prefixSeries: c.prefix_series ?? '', parseStatus: c.parse_status ?? '' }])
           : []);
       return {
         key: p.key,
         componentKeys,
-        records: parse(fs.readFileSync(p.path, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[],
+        records: parseCsvCached(p.path, { columns: true, skip_empty_lines: true }),
       };
     }));
   for (const publication of publications) {
