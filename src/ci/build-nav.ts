@@ -45,6 +45,7 @@ export const ACTIVE_NAV: Record<string, string> = {
   'compare.html': 'Compare',
   'ledger.html': 'Ledger',
   'playground.html': 'Playground',
+  'data-status.html': 'Data status',
   'glossary.html': 'Glossary',
   'about.html': 'About',
 };

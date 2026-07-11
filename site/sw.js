@@ -42,6 +42,7 @@ const SHELL_ASSETS = [
   'glossary.html',
   'ledger.html',
   'playground.html',
+  'data-status.html',
   'debug.js',
   'app.js',
   'callsign-pill.js',
