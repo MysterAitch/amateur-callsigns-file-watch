@@ -1,15 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { findStaleRegisterRows } from './register-crosscheck.ts';
+import * as fs from 'fs';
+import { findStaleRegisterRows, REGISTER_FILE } from './register-crosscheck.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
 // The source-register staleness check (issue #149 Phase A) flags pending
-// rows whose dataset already exists as an FOI entry. It is heuristic
-// TOOLING for register-tidying commits, deliberately not a CI gate on the
-// register's content - so these tests exercise the matching logic against
-// synthetic registers only. Asserting the live register's staleness state
-// here would fail the very PR that tidies it (learnt the hard way on the
-// first tidying commit).
+// rows whose dataset already exists as an FOI entry. The matching logic is
+// exercised against synthetic registers below. In addition, now that the
+// ingestion backlog is cleared, the LIVE register is asserted clean (#356):
+// this turns the check into a real gate, so an ingestion PR that adds an
+// entry but forgets to flip its source-register row to `ingested` fails here.
+// (The earlier synthetic-only stance existed only to avoid failing the PR
+// that first tidied a then-dirty register; that tidy is complete.)
 
 describe('Source-register cross-check', () => {
   it('RegisterCrosscheck_PendingRowNamingIngestedIdInFirstCell_IsFlagged', () => {
@@ -41,5 +43,13 @@ describe('Source-register cross-check', () => {
       '| source | data vintage | status | notes |',
     ].join('\n');
     expect(findStaleRegisterRows(synthetic)).toHaveLength(0);
+  });
+
+  it('RegisterCrosscheck_LiveRegister_HasNoPendingRowForAnArchivedEntry', () => {
+    // The gate (#356): a row still marked pending whose dataset is already in
+    // archive/foi is drift. This must stay empty — flip the row to `ingested`
+    // in the same PR that archives the entry.
+    const stale = findStaleRegisterRows(fs.readFileSync(REGISTER_FILE, 'utf8'));
+    expect(stale.map(r => `${r.matchedEntry} (${r.matchedBy})`)).toEqual([]);
   });
 });
