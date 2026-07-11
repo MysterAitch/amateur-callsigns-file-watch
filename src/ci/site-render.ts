@@ -175,6 +175,21 @@ function deployProvenance(): string {
   return `Regenerated from ${commit}${via}.`;
 }
 
+// The bespoke "ledger" visual language (site/ledger.css, scoped under
+// `.ledger`) is the shared look the hand-authored pages already carry. The
+// generated pages adopt it too (issue #394): they keep their own inline layout
+// (PAGE_STYLE / ENTRY_STYLE) but link this one stylesheet - copied to the
+// artefact root by the deploy alongside the hand-authored pages that link the
+// same file (pages.yml) - so the ledger palette, header/panel chrome and
+// census tables apply once the content is wrapped in `.ledger`. The href is
+// resolved to the site root from the page's own depth, matching every other
+// depth-relative link the shells emit. In the test/dev build the stylesheet is
+// not copied into the scratch output, but nothing depends on it being fetched
+// there; the link is inert and the markup assertions are unaffected.
+function ledgerStylesheetLink(depthToRoot: number): string {
+  return `<link rel="stylesheet" href="${'../'.repeat(depthToRoot)}ledger.css">`;
+}
+
 export interface PageOptions {
   metaJsonHref?: string;
   currentNav?: string;
@@ -256,11 +271,14 @@ export function htmlPage(title: string, depthToRoot: number, body: string[], opt
   return [
     '<!DOCTYPE html>',
     '<html lang="en-GB">',
-    `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${PAGE_STYLE}</head>`,
+    `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${PAGE_STYLE}${ledgerStylesheetLink(depthToRoot)}</head>`,
     '<body>',
     '<a class="skip" href="#main">Skip to content</a>',
     `<nav><p>${navHtml(depthToRoot, currentNav)}</p></nav>`,
-    '<main id="main">',
+    // Content adopts the ledger visual language; the nav and skip link stay
+    // outside `.ledger`, styled by the shell's own tokens, exactly as on the
+    // hand-authored pages.
+    '<main id="main" class="ledger">',
     ...body,
     '</main>',
     footerHtml(metaJsonHref, sourcePath),
@@ -330,8 +348,11 @@ const ENTRY_STYLE = [
   '.brow[data-filter-col]{cursor:pointer}.brow[data-filter-col]:hover .lab{text-decoration:underline}',
   '.browser-status{font-size:.83rem;color:var(--muted);margin:.4rem 0}.diffnote{color:var(--accent);font-size:.8rem}',
   // Coordinated browser: pills, toolbar, sortable headers, per-column filters
-  '.pills{display:flex;flex-wrap:wrap;gap:.35rem;margin:.4rem 0}.pill{display:inline-flex;align-items:center;gap:.3rem;font-size:.8rem;padding:.15rem .5rem;border:1px solid var(--accent);border-radius:999px;color:var(--accent);background:var(--slot)}',
-  '.pill.custom{border-style:dashed}.pill button{border:none;background:none;color:inherit;cursor:pointer;font-size:.85rem;padding:0;line-height:1}',
+  // The active-facet pills are scoped under .pills so they out-specify the
+  // ledger stylesheet's coverage-grid `.pill` (a same-named state glyph); the
+  // entry shell loads after ledger.css, so this tie resolves to the pill look.
+  '.pills{display:flex;flex-wrap:wrap;gap:.35rem;margin:.4rem 0}.pills .pill{display:inline-flex;align-items:center;gap:.3rem;font-size:.8rem;padding:.15rem .5rem;border:1px solid var(--accent);border-radius:999px;color:var(--accent);background:var(--slot)}',
+  '.pills .pill.custom{border-style:dashed}.pills .pill button{border:none;background:none;color:inherit;cursor:pointer;font-size:.85rem;padding:0;line-height:1}',
   '.browser-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:.5rem 0 .2rem;font-size:.83rem}',
   '.pagesize{width:4.2rem;font:inherit;font-size:.82rem;padding:.15rem .3rem;border:1px solid var(--line);border-radius:5px;background:transparent;color:inherit}',
   'button.pg{font:inherit;font-size:.82rem;padding:.2rem .6rem;border:1px solid var(--line);border-radius:6px;background:var(--slot);color:var(--accent);cursor:pointer}button.pg:disabled{opacity:.4;cursor:default}',
@@ -368,12 +389,18 @@ export function entryPage(title: string, body: string[], options: PageOptions = 
   return [
     '<!DOCTYPE html>',
     '<html lang="en-GB">',
-    `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${ENTRY_STYLE}</head>`,
+    // The ledger stylesheet is linked BEFORE the inline entry styles so that,
+    // where a selector ties on specificity (e.g. the scoped browser's filter
+    // pills), the entry shell's later inline rule wins and the interactive
+    // components keep their bespoke look.
+    `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${ledgerStylesheetLink(depthToRoot)}${ENTRY_STYLE}</head>`,
     '<body>',
     '<a class="skip" href="#main">Skip to content</a>',
     '<div class="wrap">',
     `<nav>${navHtml(depthToRoot, currentNav)}</nav>`,
-    '<main id="main">',
+    // Content adopts the ledger visual language; the nav and skip link stay
+    // outside `.ledger`, as on the hand-authored pages.
+    '<main id="main" class="ledger">',
     ...body,
     '</main>',
     footerHtml(metaJsonHref, sourcePath).replace('<p><small>', '<footer>').replace('</small></p>', '</footer>'),

@@ -692,7 +692,10 @@ describe('Dataset class pages', () => {
   it('ClassPage_NavSkipLinkAndMainLandmark_Present', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'classes', 'register-snapshot.html'), 'utf8');
     expect(page).toContain('<a class="skip" href="#main">Skip to content</a>');
-    expect(page).toContain('<main id="main">');
+    // The landmark carries the ledger visual-language class (issue #394), so it
+    // is matched by its id (the skip-link target) rather than an attribute-exact
+    // substring a styling class would break.
+    expect(page).toMatch(/<main id="main"[^>]*>/);
     expect(page).toContain('<strong>Dataset index</strong>'); // owning nav section marked
     // Tabular listing carries scoped column headers.
     expect(page).toContain('<th scope="col">entry</th>');
