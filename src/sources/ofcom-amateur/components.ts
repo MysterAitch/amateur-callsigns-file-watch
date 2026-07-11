@@ -132,6 +132,17 @@ export function normaliseLicenceCategory(product: string, ref: ReferenceData): s
 
 const INVISIBLE_RE = /[\p{C}\p{Z}]/gu;
 const REPLACEMENT_CHAR_RE = /\uFFFD/g;
+// The spreadsheet formula-error literals a workbook publishes in a cell when a
+// formula fails to evaluate. They are data defects, never callsigns: a source
+// export leaked fourteen such tokens into the callsign column of the ~2021
+// asset-210648 register (broken CONCATENATE(#REF!,#REF!) cells, all
+// Status=Allocated - see docs/source-register.md and #335). Matched on the
+// trimmed, upper-cased value so a whitespace- or case-damaged token is still
+// recognised, while the raw value stays verbatim in the row and is flagged
+// `spreadsheet-error-token` rather than silently treated as valid or dropped.
+const SPREADSHEET_ERROR_TOKENS: ReadonlySet<string> = new Set([
+  '#REF!', '#N/A', '#VALUE!', '#DIV/0!', '#NAME?', '#NULL!', '#NUM!', '#SPILL!', '#CALC!', '#GETTING_DATA',
+]);
 // Spreadsheet date renderings of month-suffixed callsigns (20APR -> 20-Apr).
 const EXCEL_DATE_RE = /^\d{1,2}-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/;
 // The maintainer-defined plain callsign alphabet (alphanumerics plus the
@@ -188,6 +199,13 @@ export function parseCallsign(callsign: string, product: string, ref: ReferenceD
     row.parseStatus = 'empty';
     return row;
   }
+
+  // A leaked spreadsheet formula-error literal is a data defect, not a
+  // callsign: flag it, keep the token verbatim in `callsign`, and let it fall
+  // through to `unparseable` (it matches no callsign formation). Never
+  // rewritten and never dropped - the defect stays visible wherever callsigns
+  // are analysed.
+  if (SPREADSHEET_ERROR_TOKENS.has(callsign.trim().toUpperCase())) flag('spreadsheet-error-token');
 
   if (EXCEL_DATE_RE.test(callsign)) flag('excel-date-shape');
 
