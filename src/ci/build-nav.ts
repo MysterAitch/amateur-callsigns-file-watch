@@ -43,6 +43,7 @@ export const ACTIVE_NAV: Record<string, string> = {
   'statistics.html': 'Statistics',
   'explore.html': 'Explore',
   'compare.html': 'Compare',
+  'ledger.html': 'Ledger (preview)',
   'glossary.html': 'Glossary',
   'about.html': 'About',
 };

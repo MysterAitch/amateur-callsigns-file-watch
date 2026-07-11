@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>Ledger (preview) — UK amateur callsign data mirror</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- The claim-ledger preview keeps its own bespoke visual language; those
+       styles are scoped under .ledger in ledger.css so they never collide with
+       the shared tokens/style that back the nav and skip link. -->
+  <link rel="stylesheet" href="ledger.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#14506e">
+  <script src="debug.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
+  <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <strong>Ledger (preview)</strong> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch" target="_blank" rel="noopener">Repository <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></p></nav>
+  <!-- nav:end -->
+
+  <main id="main" class="ledger">
+    <header>
+      <div class="head-inner">
+        <div class="eyebrow">UK amateur-radio register · provenance-first model</div>
+        <h1>Every fact traced to the byte that asserted it</h1>
+        <p class="lede">The register isn't a spreadsheet — it's twenty-three snapshots, published over
+          nine years in a dozen shapes, each disagreeing with the next. This is a working proof of a
+          different model: keep every raw observation exactly as Ofcom published it, make each normalisation
+          an explicit, reversible step, and let the timeline fall out as a fold. Real data throughout.</p>
+        <div class="held"><b>Preview</b> · a proposed, exploratory model — see
+          <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/361">issue&nbsp;#361</a> ·
+          an illustrative static snapshot of curated real data, not the live pipeline</div>
+
+        <div class="pipe">
+          <div class="node raw"><div class="k">1 · observation</div><div class="v">raw token, verbatim</div>
+            <small>keyed by (source file, row). The absolute source of truth.</small></div>
+          <div class="arrow">→</div>
+          <div class="node der"><div class="k">2 · normalises_to</div><div class="v">a named rule</div>
+            <small>an edge carrying the rule. Reversible, auditable.</small></div>
+          <div class="arrow">→</div>
+          <div class="node ent"><div class="k">3 · entity</div><div class="v">what you query</div>
+            <small>a fold over every observation that resolves here.</small></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+      <section class="panel">
+        <div class="eyebrow">resolve a callsign</div>
+        <h2>Ask the ledger about one callsign</h2>
+
+        <p class="panel-sub">Pick a callsign. You get the entity you would search for, every observation that
+          resolves to it, and the timeline — licence-state changes to the fore; admin/timestamp moves and
+          inactive parallels de-emphasised; each raw variant labelled. Nothing is hidden: even where a
+          callsign's ONLY observation is an abnormally-formatted token, that abnormality stays flagged rather
+          than presented as a clean name.</p>
+        <div class="chips" id="resolver" role="group" aria-label="Choose a callsign">
+          <button class="chip" data-cs="M7TEE" aria-pressed="true">M7TEE</button>
+          <button class="chip" data-cs="21CZS">21CZS</button>
+          <button class="chip" data-cs="G0TQK">G0TQK</button>
+        </div>
+        <div id="entity"></div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--raw)"></i>first sighting</span>
+          <span><i class="dot" style="background:var(--change)"></i>licence-state change</span>
+          <span><i class="dot" style="background:var(--derived)"></i>raw variant</span>
+          <span><i class="dot" style="background:var(--faint)"></i>admin / parallel (de-emphasised)</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="eyebrow">layer anatomy · G0TQK</div>
+        <h2>Why keying off the raw bytes recovers what the tidy file loses</h2>
+        <p class="panel-sub">In the 2019 register, <span class="mono">G0TQK</span> appears twice — once as
+          itself, once with an invisible trailing non-breaking space. Two distinct raw tokens; both normalise
+          to the same entity. The current normalised CSV keeps both rows but shows both as clean
+          <span class="mono">G0TQK</span> — you can no longer tell which was damaged. The ledger keeps the raw
+          token, the rule, and the attributes together, so nothing is quietly lost.</p>
+        <div class="layers" id="anatomy"></div>
+        <div class="callout">Both observations are real and co-temporal. The entity view shows <b>both</b>, with
+          provenance — it never silently picks a winner. That is the join key obeying transparency-first.</div>
+      </section>
+
+      <section class="panel">
+        <div class="eyebrow">query by normalised attribute</div>
+        <h2>One licence type, many spellings — search the canonical form</h2>
+        <p class="panel-sub">Every node carries a normalised form, always (identity when already clean), so a
+          query never has to ask which form to use. Licence type works exactly like the callsign: fifteen raw
+          spellings across nine years collapse to a handful of canonical types. Pick one to see the raw
+          spellings it unifies and a few callsigns holding it in the latest snapshot.</p>
+        <table class="census" id="census"><thead><tr><th>Canonical type</th><th>Observations</th></tr></thead>
+          <tbody></tbody></table>
+        <div class="spellings" id="spellings"></div>
+        <div class="callout" style="border-color:var(--change)"><b>Preview-grade vocabulary.</b> This heuristic
+          lumps <span class="mono">Temporary Reciprocal</span> and <span class="mono">Full (Reciprocal)</span>
+          into one bucket — but they are genuinely distinct licence types and must <em>not</em> be merged. The
+          reviewed map is part of the acceptance criteria for the real build. Surfacing the flaw is the point.</div>
+      </section>
+
+      <section class="panel">
+        <div class="eyebrow">normalisation · three forms</div>
+        <h2>raw → cleaned → placeholder, each an explicit step</h2>
+        <p class="panel-sub">The cleaned form is one documented rule: <span class="mono" id="clean-rule"></span>.
+          Across the register snapshots, <b id="clean-forms"></b> distinct raw forms clean to something different
+          (<b id="clean-occ"></b> occurrences) — case, stray spaces, a non-breaking space, punctuation, even a
+          numeric callsign Excel stored as a date. One is not damage at all: the <span class="mono">#</span> in
+          <span class="mono">M/#PT2FM</span> is a Regional Secondary Locator slot — stripping it as junk would
+          destroy real meaning, so it earns a form of its own.</p>
+        <div class="chips" id="clean-cats" style="margin-bottom:16px" aria-label="Cleaning categories"></div>
+        <div class="dmg-wrap"><table class="dmg" id="cleaning">
+          <thead><tr><th>raw (as published)</th><th>cleaned</th><th>reason</th><th>note</th></tr></thead>
+          <tbody></tbody></table></div>
+
+        <h3 style="margin:26px 0 4px; font-size:16px">The placeholder form — one licence, seven regional renderings</h3>
+        <p class="panel-sub" style="margin-bottom:14px">The register stores the RSL-less core callsign by design.
+          A Regional Secondary Locator may be inserted at the <span class="mono">#</span> slot to show where the
+          operator is transmitting — so <span class="mono" id="reg-core"></span> and every regional rendering are
+          interchangeable forms of the same licence, all collapsing to one canonical key you can search:
+          <span class="canonpill" id="reg-key"></span></p>
+        <div class="chips" id="regional" aria-label="Regional renderings"></div>
+      </section>
+
+
+      <section class="panel">
+        <div class="eyebrow">callsign dossier · background explorer</div>
+        <h2>The full background for one callsign</h2>
+        <p class="panel-sub">Anatomy of the parts, cross-referenced attributes, and derived notable
+          observations — each tagged by confidence. A <span class="tb d">derived</span> fact is produced by the
+          pipeline today; a <span class="tb p">proposed</span> fact is a grounded enrichment (e.g. home country
+          via the ITU series, computed in the display layer) not yet in the archive derivative. Nothing asserts
+          more authority than its source earns — the first rung of the confidence ladder.</p>
+        <div class="chips" id="dossier-chips" role="group" aria-label="Choose a callsign"></div>
+        <div id="dossier"></div>
+      </section>
+
+      <footer>
+        <div class="mono" style="font-size:12px; letter-spacing:.04em; color:var(--faint)">
+          amateur-callsigns-file-watch · claim-ledger preview (issue #361) · a static snapshot folded from 23 real register snapshots</div>
+        <p style="margin:10px 0 0; max-width:66ch">A preview of a proposed model, not a claim of completeness.
+          The embedded data is a curated real-data sample captured as a static illustration — it is not produced
+          by the live pipeline. Values shown are declared by the sources, not independently verified; the model
+          keeps them honest and traceable, it does not assert they are true.</p>
+      </footer>
+    </div>
+  </main>
+
+  <!-- Offline-first (ADR 0008): register the service worker so the static shell
+       is cached and the site loads offline. No database is cached unless the
+       visitor opts in from the lookup page. -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
+  <script type="module" src="ledger.js"></script>
+</body>
+</html>
