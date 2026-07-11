@@ -25,6 +25,7 @@ import {
   collectAttributeAddendumSources,
   attributeAddendumEntries,
 } from './collectors/attribute-addendum.ts';
+import { COLLECTORS } from './collectors/index.ts';
 import { convertFoiSource } from '../shared/foi-normalise.ts';
 import { readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
 import { loadReferenceData, cleanedCallsign } from '../sources/ofcom-amateur/components.ts';
@@ -365,16 +366,31 @@ describe('corpus scale sanity', () => {
       expect(summary.entriesByFamily['open-data-register']).toBeGreaterThanOrEqual(OPEN_DATA_ROUND_TRIP_ENTRIES.length);
       expect(summary.entriesByFamily['attribute-addendum']).toBe(addendumEntries);
       expect(summary.entriesByFamily['attribute-addendum']).toBeGreaterThanOrEqual(ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES.length);
-      expect(summary.entriesProcessed).toBe(foiEntries + openDataSources + addendumEntries);
+      // The three callsign families contribute at least this many entries;
+      // bespoke non-callsign families (forbidden-list, ...) only add to the
+      // total, so this is a floor rather than an exact count.
+      expect(summary.entriesProcessed).toBeGreaterThanOrEqual(foiEntries + openDataSources + addendumEntries);
       expect(summary.sourcesProcessed).toBeGreaterThanOrEqual(19 + OPEN_DATA_ROUND_TRIP_ENTRIES.length + ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES.length);
 
+      // Which families run the full emit path (callsign normalisation), read
+      // from the registry so a newly-registered family is judged by its own
+      // declared subjectKind rather than a hard-coded list.
+      const callsignFamilies = new Set(COLLECTORS.filter(c => c.subjectKind === 'callsign').map(c => c.family));
+      const registeredFamilies = COLLECTORS.map(c => c.family);
+
       // No source is silently empty (an empty source would be a converter/
-      // filter defect); each carries its family tag.
+      // filter defect); each carries a registered family tag. A callsign family
+      // always derives normalisation edges; a non-callsign family (suffix /
+      // aggregate / pool-slot) emits raw observations only, so it derives none.
       for (const s of summary.perSource) {
         expect(s.observations).toBeGreaterThan(0);
         expect(s.rawClaims).toBeGreaterThan(0);
-        expect(s.derivedClaims).toBeGreaterThan(0);
-        expect(['foi-register', 'open-data-register', 'attribute-addendum']).toContain(s.family);
+        if (callsignFamilies.has(s.family)) {
+          expect(s.derivedClaims).toBeGreaterThan(0);
+        } else {
+          expect(s.derivedClaims).toBe(0);
+        }
+        expect(registeredFamilies).toContain(s.family);
       }
 
       // The attribute-addendum family contributes real claims of its own
