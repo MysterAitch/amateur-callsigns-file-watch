@@ -51,6 +51,8 @@ import {
   NORMALISES_TO_PREDICATE,
   CLEANED_CALLSIGN_RULE,
   PLACEHOLDER_FORM_RULE,
+  LICENCE_CATEGORY_PREDICATE,
+  LICENCE_CATEGORY_RULE,
   type Claim,
 } from './claim.ts';
 
@@ -108,14 +110,26 @@ CREATE TABLE ph_override (
   obs_id INTEGER PRIMARY KEY,
   ph_object TEXT NOT NULL
 );
+-- The derived licence-category tier, kept as a SPARSE satellite (one row per
+-- observation whose product mapped to a category, LIFTED via
+-- normaliseLicenceCategory) rather than a column on every observation. Sources
+-- that disclose no product contribute no rows, so the VIEW's category branch
+-- scans an empty relation for them instead of the whole observation table - the
+-- same sparse-satellite discipline as ph_override.
+CREATE TABLE licence_category (
+  obs_id INTEGER PRIMARY KEY,
+  category TEXT NOT NULL
+);
 `;
 
 // The reconstruction VIEW. Every observation implies its @listed anchor and its
 // always-present cleaned-callsign edge; an observation that parsed to a
 // placeholder (parses = 1) also implies its placeholder-form edge, whose raw
-// subject is the CLEANED token (matching how the ledger emits the edge). Real
-// attribute claims join through `attr`. The UNION ALL branches reproduce the
-// fat table's exact multiset, column-for-column and row-for-row.
+// subject is the CLEANED token (matching how the ledger emits the edge); an
+// observation whose product mapped to a category (licence_category <> '')
+// implies its derived licence_category claim, keyed to the observation's own raw
+// subject. Real attribute claims join through `attr`. The UNION ALL branches
+// reproduce the fat table's exact multiset, column-for-column and row-for-row.
 const CREATE_CLAIMS_VIEW = `
 CREATE VIEW claims (layer, raw_subject, cleaned, entity, predicate, object, rule, source_file, ordinal, vintage) AS
   SELECT 'raw', o.raw_subject, o.cleaned, o.entity, '${LISTED_PREDICATE}', '', NULL, s.source_file, o.ordinal, s.vintage
@@ -137,6 +151,11 @@ CREATE VIEW claims (layer, raw_subject, cleaned, entity, predicate, object, rule
     JOIN source s ON s.source_id = o.source_id
     LEFT JOIN ph_override ov ON ov.obs_id = o.obs_id
     WHERE o.parses = 1
+  UNION ALL
+  SELECT 'derived', o.raw_subject, o.cleaned, o.entity, '${LICENCE_CATEGORY_PREDICATE}', lc.category, '${LICENCE_CATEGORY_RULE}', s.source_file, o.ordinal, s.vintage
+    FROM licence_category lc
+    JOIN observation o ON o.obs_id = lc.obs_id
+    JOIN source s ON s.source_id = o.source_id
 `;
 
 export interface CompactLedgerSummary {
@@ -148,6 +167,9 @@ export interface CompactLedgerSummary {
   predicates: number;
   objects: number;
   overrides: number;
+  // Rows in the sparse licence-category satellite: derived canonical-category
+  // claims the VIEW reconstructs, one per observation whose product mapped.
+  categories: number;
   analyzed: boolean;
 }
 
@@ -184,6 +206,10 @@ interface ObservationRecord {
   entity: string;
   parses: boolean;
   phObject: string | null;
+  // The derived licence category for this observation, read from the ledger's
+  // own licence_category claim (never re-derived here); '' when none was
+  // emitted, so the VIEW omits the derived row exactly as the ledger did.
+  licenceCategory: string;
 }
 
 // A dictionary that assigns a stable 1-based integer id to each distinct string
@@ -257,7 +283,9 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
   const insertPredicate = db.prepare('INSERT INTO predicate VALUES (?, ?)');
   const insertObject = db.prepare('INSERT INTO object VALUES (?, ?)');
   const insertOverride = db.prepare('INSERT INTO ph_override VALUES (?, ?)');
+  const insertCategory = db.prepare('INSERT INTO licence_category VALUES (?, ?)');
   let overrides = 0;
+  let categories = 0;
 
   const jsonlFiles = fs.readdirSync(ledgerDir).filter(name => name.endsWith('.jsonl')).sort();
   const entities = new Set<string>();
@@ -280,7 +308,7 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
       if (sourceFile === '') { sourceFile = sf; vintage = vt; }
       if (claim.predicate === LISTED_PREDICATE) {
         const { cleaned, entity } = keysOf(claim.rawSubject);
-        observations.set(ordinal, { ordinal, rawSubject: claim.rawSubject, cleaned, entity, parses: false, phObject: null });
+        observations.set(ordinal, { ordinal, rawSubject: claim.rawSubject, cleaned, entity, parses: false, phObject: null, licenceCategory: '' });
         entities.add(entity);
       }
     }
@@ -288,6 +316,9 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
       if (claim.layer === 'derived' && claim.predicate === NORMALISES_TO_PREDICATE && claim.rule === PLACEHOLDER_FORM_RULE) {
         const obs = observations.get(claim.provenance.ordinal);
         if (obs !== undefined) { obs.parses = true; obs.phObject = claim.object; }
+      } else if (claim.layer === 'derived' && claim.predicate === LICENCE_CATEGORY_PREDICATE) {
+        const obs = observations.get(claim.provenance.ordinal);
+        if (obs !== undefined) obs.licenceCategory = claim.object;
       }
     }
 
@@ -301,6 +332,12 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
       nextObsId += 1;
       obsIdByOrdinal.set(obs.ordinal, obsId);
       obsRows.push([obsId, sourceId, obs.ordinal, obs.rawSubject, obs.cleaned, obs.entity, obs.parses ? 1 : 0]);
+      // The sparse licence-category satellite: only observations that mapped to
+      // a category contribute a row, so a product-less source adds none.
+      if (obs.licenceCategory !== '') {
+        insertCategory.run(obsId, obs.licenceCategory);
+        categories += 1;
+      }
       // The rare divergence the VIEW cannot synthesise: this observation's own
       // placeholder-form edge object differs from its resolved entity.
       if (obs.parses && obs.phObject !== null && obs.phObject !== obs.entity) {
@@ -364,6 +401,7 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
     predicates: predicates.size,
     objects: objects.size,
     overrides,
+    categories,
     analyzed,
   };
 }

@@ -60,6 +60,10 @@ const EXCLUDED_CLASSES: readonly string[] = ['attribute-addendum', 'statistics-a
 // this runner keys the ledger off.
 const CALLSIGN_OUTPUT = 'callsign';
 
+// The normalised output column whose raw source header names the licence
+// product/class token the derived licence-category tier is computed from.
+const LICENCE_CLASS_OUTPUT = 'licence_class';
+
 export interface RegisterEntry {
   entry: string;
   meta: FoiEntryMeta;
@@ -85,6 +89,13 @@ export function qualifyingRegisterEntries(foiDir: string = defaultFoiDir()): Reg
 export interface RegisterSource {
   conversion: FoiSourceConversion;
   callsignColumn: string;
+  // The raw header carrying the licence product/class token, when the
+  // conversion maps one verbatim to the licence_class output; null when the
+  // source discloses no product (licence_class emitted empty, or synthesised
+  // from an authored constant). Only a verbatim, source-backed product feeds
+  // the derived licence-category tier - a constant is an authored value, not a
+  // disclosed product string to canonicalise.
+  productColumn: string | null;
 }
 
 // The callsign-bearing register sources for one entry. A conversion is a
@@ -106,7 +117,11 @@ export function registerSourcesFor(meta: FoiEntryMeta): RegisterSource[] {
     if (conversion.format === 'markdown-table' || conversion.preamble !== undefined) continue;
     const callsignSpec = conversion.columns.find(column => column.output === CALLSIGN_OUTPUT);
     if (callsignSpec === undefined || callsignSpec.source === null || callsignSpec.kind !== 'verbatim') continue;
-    sources.push({ conversion, callsignColumn: callsignSpec.source });
+    const productSpec = conversion.columns.find(column => column.output === LICENCE_CLASS_OUTPUT);
+    const productColumn = productSpec !== undefined && productSpec.source !== null && productSpec.kind === 'verbatim'
+      ? productSpec.source
+      : null;
+    sources.push({ conversion, callsignColumn: callsignSpec.source, productColumn });
   }
   return sources;
 }
@@ -129,12 +144,16 @@ export function loadRegisterSource(foiDir: string, entry: string, meta: FoiEntry
   if (!columns.includes(callsignColumn)) {
     throw new Error(`${filePath}: authored callsign column "${callsignColumn}" absent from raw headers (${columns.join(', ')})`);
   }
+  if (source.productColumn !== null && !columns.includes(source.productColumn)) {
+    throw new Error(`${filePath}: authored product column "${source.productColumn}" absent from raw headers (${columns.join(', ')})`);
+  }
   return {
     sourceFile: `foi/${entry}/${conversion.sourceFile}`,
     vintage: meta.dataVintage ?? '',
     columns,
     subjectColumn: callsignColumn,
     rows,
+    categoryColumn: source.productColumn ?? undefined,
   };
 }
 

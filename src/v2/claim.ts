@@ -29,7 +29,7 @@
  *    parseCallsign's placeholderForm), never re-derived by eyeball.
  */
 
-import { cleanedCallsign, parseCallsign, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { cleanedCallsign, parseCallsign, normaliseLicenceCategory, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 
 // A claim is either a verbatim source assertion ('raw') or one computed by a
 // named rule ('derived'). The layer flag lets a consumer trust raw claims as
@@ -98,6 +98,21 @@ export const NORMALISES_TO_PREDICATE = 'normalises_to';
 export const CLEANED_CALLSIGN_RULE = 'cleaned-callsign';
 export const PLACEHOLDER_FORM_RULE = 'placeholder-form';
 
+// The derived licence-category predicate: the canonical category a raw product/
+// licence_class value collapses to. It rides as an ADDITIONAL derived claim
+// beside the verbatim raw product claim (both layers coexist, tiered), never
+// replacing it - the same source-fidelity discipline the normalisation edges
+// follow.
+export const LICENCE_CATEGORY_PREDICATE = 'licence_category';
+
+// The named rule for the derived licence-category claims. It attributes the
+// derivation to reference-data/licence-category.csv via normaliseLicenceCategory
+// (components.ts) - the ONE authoritative product->category map, LIFTED whole
+// and never re-derived here, so the tier keeps the map's deliberate
+// distinctions (Temporary Reciprocal vs Full Reciprocal, Club, Special Event)
+// rather than inventing a vocabulary of its own.
+export const LICENCE_CATEGORY_RULE = 'licence-category';
+
 // A parsed set of rows from ONE published source (a normalised.csv OR a
 // raw-extract CSV — the emit step is identical, only the subject column name
 // differs). Rows are records keyed by column name (csv-parse `columns: true`);
@@ -108,6 +123,12 @@ export interface SourceObservationSet {
   columns: readonly string[];
   subjectColumn: string;
   rows: readonly Record<string, string>[];
+  // The raw header carrying the licence product/class token, when the source
+  // declares one. Named so the derived licence-category tier can read the
+  // product cell under Ofcom's OWN header (which varies by vintage: 'Product',
+  // 'Licence Class', 'SF List', ...); absent when the source discloses no
+  // product column, in which case no category claim is derivable.
+  categoryColumn?: string;
 }
 
 // Emit the raw-layer claims for a source: one existence claim per observation
@@ -163,11 +184,40 @@ export function edgeToClaim(edge: NormalisationEdge): Claim {
   };
 }
 
+// The DERIVED licence-category claims for a source: for each observation whose
+// product cell maps to a canonical category, one derived claim tying that
+// category to the observation's raw subject. The category is computed by
+// normaliseLicenceCategory (components.ts) over the RAW product value read under
+// the source's own product header — the map is LIFTED, never re-derived. The
+// raw product claim is still emitted verbatim by emitClaims, so the raw and
+// derived layers coexist (source fidelity, tiered).
+//
+// A product that maps to no category yields NO claim, faithfully mirroring the
+// legacy's null (build-sqlite.ts stores a NULL normalised_licence_category for
+// both cases): a genuinely blank product and an unmapped non-blank product both
+// return null from normaliseLicenceCategory, so the derived tier neither invents
+// a bucket nor over-collapses. An unmapped product stays fully visible in its
+// verbatim raw claim — the surprise is surfaced there, never silently dropped.
+export function emitLicenceCategoryClaims(source: SourceObservationSet, ref: ReferenceData): Claim[] {
+  const categoryColumn = source.categoryColumn;
+  if (categoryColumn === undefined) return [];
+  const claims: Claim[] = [];
+  source.rows.forEach((row, ordinal) => {
+    const category = normaliseLicenceCategory(row[categoryColumn] ?? '', ref);
+    if (category === null) return;
+    const rawSubject = row[source.subjectColumn] ?? '';
+    const provenance: Provenance = { sourceFile: source.sourceFile, ordinal, vintage: source.vintage };
+    claims.push({ layer: 'derived', rawSubject, predicate: LICENCE_CATEGORY_PREDICATE, object: category, provenance, rule: LICENCE_CATEGORY_RULE });
+  });
+  return claims;
+}
+
 // The full ledger for a source: the raw attribute/existence claims plus the
-// derived normalisation edges (as derived claims) for every observation's raw
-// subject. This is what a canonical claims.jsonl for the source contains — both
-// layers in one file, the derived layer reproducible from the raw layer and the
-// lifted rules.
+// derived claims — the normalisation edges for every observation's raw subject,
+// and the canonical licence-category tier where the source discloses a product.
+// This is what a canonical claims.jsonl for the source contains — both layers in
+// one file, the derived layer reproducible from the raw layer and the lifted
+// rules.
 export function emitLedger(source: SourceObservationSet, ref: ReferenceData): Claim[] {
   const claims = emitClaims(source);
   source.rows.forEach((row, ordinal) => {
@@ -178,5 +228,6 @@ export function emitLedger(source: SourceObservationSet, ref: ReferenceData): Cl
       claims.push(edgeToClaim(edge));
     }
   });
+  for (const claim of emitLicenceCategoryClaims(source, ref)) claims.push(claim);
   return claims;
 }

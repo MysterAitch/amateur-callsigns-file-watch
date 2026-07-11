@@ -65,7 +65,7 @@ describe('compact claim-ledger schema', () => {
       // The satellite tables the compaction rests on, plus the `claims` VIEW
       // that re-presents the fat schema so consumers never see the difference.
       const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").all() as { name: string }[]).map(t => t.name).sort();
-      expect(tables).toEqual(['attr', 'build_info', 'object', 'observation', 'ph_override', 'predicate', 'source']);
+      expect(tables).toEqual(['attr', 'build_info', 'licence_category', 'object', 'observation', 'ph_override', 'predicate', 'source']);
       const views = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'view'").all() as { name: string }[]).map(v => v.name);
       expect(views).toEqual(['claims']);
       const columns = (db.prepare("SELECT name FROM pragma_table_info('claims')").all() as { name: string }[]).map(c => c.name);
