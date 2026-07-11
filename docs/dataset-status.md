@@ -21,7 +21,7 @@ This documents **what exists**. Whether each derivation still *verifies* is the
 | 2025-06-08 | ✔ | ✔ | ✔ | ✔ |
 | 2026-06-23 | ✔ | ✔ | ✔ | ✔ |
 
-## FOI lane (41 entries)
+## FOI lane (44 entries)
 
 Extracts: `mech` = mechanically re-derivable (xlsx, via `src/shared/xlsx-extract.ts`);
 `transcr` = attested transcription of a PDF (see the entry's raw-extract file).
@@ -35,6 +35,9 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | ofcom-2017-07-13--all-callsigns | successful | register-snapshot | 2017-07-13 | ✔ 1 | — | `ofcom-2017-07-13-register` | ✔ 1 |
 | ofcom-2021-01--all-callsigns | successful | register-snapshot | 2021-01-29 | ✔ 1 | 1 mech | `ofcom-2021-01-register` | ✔ 1 |
 | ofcom-2021-04--all-callsigns | successful | register-snapshot | 2021-04-21 | ✔ 1 | 1 mech | `ofcom-2021-04-register` | ✔ 1 |
+| ofcom-2022-03-14--available-and-registered--all-callsigns | successful | register-snapshot | 2022-03-14 | ✔ 1 | 1 mech | `ofcom-2022-03-14-register` | ✔ 1 |
+| ofcom-2023-01-25--call-sign-list-with-status--all-callsigns | successful | register-snapshot | 2023-01-25 | ✔ 1 | 1 mech | `ofcom-2023-01-25-register` | ✔ 1 |
+| ofcom-2023-08-18--call-sign-list--all-callsigns | successful | register-snapshot | 2023-08-18 | ✔ 1 | 1 mech | `ofcom-2023-08-18-register` | ✔ 1 |
 | ofcom-2023-11-24--call-sign-list--all-callsigns | successful | register-snapshot | 2023-11-24 | ✔ 1 | — | `ofcom-2023-11-24-register` | ✔ 1 |
 | ofcom-2023-12-07--open-data-call-sign-list--all-callsigns | successful | register-snapshot | 2023-12-07 | ✔ 1 | — | `ofcom-2023-12-07-register` | ✔ 1 |
 | ofcom-2024-01--foi-1734722--all-callsigns | successful | register-snapshot | 2024-01 | ✔ 1 | — | `ofcom-2024-01-register` | ✔ 1 |

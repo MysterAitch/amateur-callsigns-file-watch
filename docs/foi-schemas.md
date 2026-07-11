@@ -78,6 +78,9 @@ fail the conversion.
 | `ofcom-2017-07-13-register` | `ofcom-2017-07-13--all-callsigns` |
 | `ofcom-2021-01-register` | `ofcom-2021-01--all-callsigns` |
 | `ofcom-2021-04-register` | `ofcom-2021-04--all-callsigns` |
+| `ofcom-2022-03-14-register` | `ofcom-2022-03-14--available-and-registered--all-callsigns` |
+| `ofcom-2023-01-25-register` | `ofcom-2023-01-25--call-sign-list-with-status--all-callsigns` |
+| `ofcom-2023-08-18-register` | `ofcom-2023-08-18--call-sign-list--all-callsigns` |
 | `ofcom-2023-11-24-register` | `ofcom-2023-11-24--call-sign-list--all-callsigns` |
 | `ofcom-2023-12-07-register` | `ofcom-2023-12-07--open-data-call-sign-list--all-callsigns` |
 | `ofcom-2024-01-register` | `ofcom-2024-01--foi-1734722--all-callsigns` |
@@ -280,6 +283,52 @@ Required-present but not carried: `Type`.
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability.
 
 Date plausibility bound: 2021-04-21.
+
+### `ofcom-2022-03-14-register`
+
+**`raw-extract-sheet-1-report1647268967067.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | *(emitted empty)* | verbatim |
+
+Required-present but not carried: `Type`.
+
+Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability.
+
+### `ofcom-2023-01-25-register`
+
+**`raw-extract-sheet-1-report1674642037414.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | `Product` | verbatim |
+| `last_modified_date` | `Call Sign MMSI: Last Modified Date` | iso-date |
+
+Row order: **sorted-by-first-column** — source rows arrive grouped (reserved blocks first) but carry no globally meaningful order (not callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability.
+
+Date plausibility bound: 2023-01-25.
+
+### `ofcom-2023-08-18-register`
+
+**`raw-extract-sheet-1-call-sign-data.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | `Product` | verbatim |
+| `last_modified_date` | `Call Sign MMSI: Last Modified Date` | iso-date |
+
+Required-present but not carried: `Type`.
+
+Row order: **sorted-by-first-column** — source rows arrive grouped (reserved blocks first) but carry no globally meaningful order (not callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability.
+
+Date plausibility bound: 2023-08-18.
 
 ### `ofcom-2023-11-24-register`
 
