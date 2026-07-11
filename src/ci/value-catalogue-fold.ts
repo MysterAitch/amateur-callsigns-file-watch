@@ -181,8 +181,15 @@ function assembleCategories(rows: readonly FoldRow[]): FoldedCategory[] {
 }
 
 // Fold the licence-category table from a directory of per-source ledger JSONL
-// files (the shape build-ledger writes into <outputDir>/ledger/).
+// files (the shape build-ledger writes into <outputDir>/ledger/). A ledger with
+// no JSONL files (an archive with no register-bearing entries, or one whose only
+// entries were skipped as malformed) yields no categories — returned as the
+// empty table rather than handed to DuckDB, whose read_json errors on a glob
+// that matches nothing.
 export function foldLicenceCategories(ledgerDir: string, ref: ReferenceData = loadReferenceData()): FoldedCategory[] {
+  const hasClaims = fs.existsSync(ledgerDir)
+    && fs.readdirSync(ledgerDir).some(name => name.endsWith('.jsonl'));
+  if (!hasClaims) return [];
   const rows = foldQuery<FoldRow>(foldSql(ledgerDir, recognisedProducts(ref)));
   return assembleCategories(rows);
 }
@@ -201,7 +208,12 @@ export function buildLicenceCategoryFold(ledgerDir?: string, ref: ReferenceData 
   if (ledgerDir !== undefined) return foldLicenceCategories(ledgerDir, ref);
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'value-catalogue-ledger-'));
   try {
-    buildLedger(scratch);
+    // skipFailedSources: the fold consumes the archive the same way the
+    // normalise sweep does — an entry that cannot be parsed is skipped, not a
+    // reason to crash the whole report (the sweep already reports it). The real
+    // archive parses cleanly, so nothing is skipped there and the fold is
+    // unchanged; only a malformed/synthetic entry degrades gracefully.
+    buildLedger(scratch, undefined, ref, undefined, true);
     return foldLicenceCategories(path.join(scratch, 'ledger'), ref);
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
