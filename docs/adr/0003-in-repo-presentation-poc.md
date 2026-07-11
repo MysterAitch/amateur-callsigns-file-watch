@@ -2,6 +2,7 @@
 
 Date: 2026-07-07
 Status: accepted
+Related: ADR 0002 (write posture), ADR 0008 (offline-first PWA over the same SQLite), ADR 0013 (raw-keyed claim ledger — reuses this vendored `sql.js-httpvfs` range-read path for the in-browser ledger query lane)
 
 ## Context
 

@@ -47,4 +47,4 @@ itself, and its title stops being load-bearing.
 - **Migration:** additive — the page can ship before the issue is retired; the
   issue can be demoted to a pointer or closed once the page is trusted.
 
-Relates to #43 (the dashboard), #229 (reports publishing), #243 (freshness gate).
+Relates to #43 (the original dashboard issue, since closed and continued as #360 — the title-keyed reopen this ADR anticipated), #229 (reports publishing), #243 (freshness gate).

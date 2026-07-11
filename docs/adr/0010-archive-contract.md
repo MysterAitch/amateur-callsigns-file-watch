@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-10
-- Related: ADR 0001 (golden-master derivation), ADR 0004 (FOI lane), ADR 0009 (how entries land)
+- Related: ADR 0001 (golden-master derivation), ADR 0004 (FOI lane), ADR 0009 (how entries land), ADR 0013 (raw-keyed claim ledger — builds on this contract; the raw archive is the irreplaceable asset every fold derives from)
 
 ## Context
 
