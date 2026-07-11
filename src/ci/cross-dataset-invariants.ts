@@ -27,6 +27,7 @@ import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
 import { cleanedCallsign } from '../sources/ofcom-amateur/components.ts';
+import { time, perfReport } from '../shared/perf.ts';
 
 export interface DepletionRow {
   entry: string;
@@ -62,6 +63,10 @@ function readCsv(file: string): Record<string, string>[] {
 // remainder decomposes by current status, and how many of the now-allocated
 // carry an original-start-date that predates the snapshot's vintage.
 export function buildDepletion(): CrossDataset {
+  return time('cross-dataset:depletion', buildDepletionImpl);
+}
+
+function buildDepletionImpl(): CrossDataset {
   const keys = listArchiveKeys().sort();
   const register = keys[keys.length - 1];
   if (register === undefined) return { register: '', allocatedTotal: 0, rows: [] };
@@ -186,6 +191,10 @@ interface RegisterSource { key: string; vintage: string; kind: 'open-data' | 'fo
 // yields no callsign union (e.g. an FOI register-snapshot whose sheets are
 // unrecovered) is omitted rather than shown as a misleading all-zero column.
 export function buildOverlapMatrix(): OverlapMatrix {
+  return time('cross-dataset:overlap-matrix', buildOverlapMatrixImpl);
+}
+
+function buildOverlapMatrixImpl(): OverlapMatrix {
   const foiDir = path.join(CONSTANTS.DIRS.archive, 'foi');
   const pools = loadAvailablePools(foiDir);
 
@@ -371,4 +380,6 @@ export function writeCrossDatasetInvariants(): { path: string; changed: boolean 
 if (import.meta.main) {
   const { path: written, changed } = writeCrossDatasetInvariants();
   console.log(`${changed ? 'wrote' : 'up to date'}: ${written}`);
+  // Self-guarded: prints the profiling breakdown to stderr only under PERF.
+  perfReport();
 }
