@@ -1,0 +1,32 @@
+# Install a pinned, checksum-verified static DuckDB CLI and export DUCKDB_BIN
+# (issue #361). Report generators fold committed reports from the claim data via
+# DuckDB (see src/v2/report-fold.ts); this brings the engine into CI WITHOUT a
+# native-build npm dependency, so `npm ci` still compiles nothing and the
+# ignore-scripts supply-chain posture (ADR 0002) holds. The download is version-
+# pinned and SHA256-checked before use, in the same spirit as the digest-pinned
+# actions and containers the workflows already rely on.
+name: Set up DuckDB CLI
+description: Install a pinned, checksum-verified DuckDB CLI binary and export DUCKDB_BIN.
+
+runs:
+  using: composite
+  steps:
+    - name: Install pinned DuckDB CLI
+      shell: bash
+      run: |
+        set -euo pipefail
+        version="v1.5.4"
+        # SHA256 of duckdb_cli-linux-amd64.zip for the pinned version. Bump both
+        # together when upgrading; a mismatch fails the run loudly rather than
+        # executing an unexpected binary.
+        sha256="1f2fa724fb054b3dbe1a9cbd13de5b76997d850e7087ec762ba88db04e0180cf"
+        dest="$RUNNER_TEMP/duckdb"
+        mkdir -p "$dest"
+        curl -fsSL -o "$dest/duckdb.zip" \
+          "https://github.com/duckdb/duckdb/releases/download/${version}/duckdb_cli-linux-amd64.zip"
+        echo "${sha256}  $dest/duckdb.zip" | sha256sum -c -
+        unzip -o "$dest/duckdb.zip" -d "$dest" >/dev/null
+        chmod +x "$dest/duckdb"
+        echo "DUCKDB_BIN=$dest/duckdb" >> "$GITHUB_ENV"
+        echo "$dest" >> "$GITHUB_PATH"
+        "$dest/duckdb" --version
