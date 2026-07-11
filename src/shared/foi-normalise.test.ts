@@ -986,6 +986,120 @@ describe('FOI CSV normaliser - 2025-09-11 Salesforce-flavoured register', () => 
   });
 });
 
+// The 2020 UKGWA-captured status-filtered register exports. Ofcom disclosed
+// only the allocated slice (March 2020, minimal Value,Status shape) and the
+// reserved slice (October 2020, a seven-column shape with typed dates). The
+// Status column is genuine and per-row, carried verbatim - NOT a declared
+// attribution: what is partial is the disclosure's COVERAGE, recorded in the
+// entry meta, not any per-row status certainty.
+describe('FOI CSV normaliser - 2020 status-filtered register exports', () => {
+  const allocated = conversionFor('ofcom-2020-03-26-allocated', 'raw-extract-sheet-1-allocated-callsign-as-at-260320.csv');
+  const reserved = conversionFor('ofcom-2020-10-23-reserved', 'raw-extract-sheet-1-reserved-callsigns-23-10-2020.csv');
+
+  // The extracts are UTF-8 without BOM and LF-terminated (xlsx-extract output).
+  function utf8Lf(lines: string[]): Buffer {
+    return Buffer.from(lines.join('\n') + '\n', 'utf8');
+  }
+
+  it('FoiNormaliser_AllocatedList_MapsValueStatusToObservationSchemaWithVerbatimStatus', () => {
+    const input = utf8Lf([
+      'Value,Status',
+      'M7FAF,Allocated',
+      '20JAN,Allocated',
+      '2E0ADR,Allocated',
+    ]);
+    const result = convertFoiSource(input, allocated);
+    // Status is a real per-row column carried verbatim; licence_class is the
+    // empty synthesised core column; rows sort by callsign.
+    expect(result.csv).toBe(
+      'callsign,status,licence_class\n' +
+      '20JAN,Allocated,\n' +
+      '2E0ADR,Allocated,\n' +
+      'M7FAF,Allocated,\n');
+    expect(result.recordCount).toBe(3);
+    expect(result.schemaVersion).toBe(FOI_NORMALISED_SCHEMA_VERSION);
+  });
+
+  it('FoiNormaliser_AllocatedCallsignWithTrailingNbsp_TrimmedAndCounted', () => {
+    // The faithful witness carries three trailing non-breaking spaces
+    // (2E1HON, G0TQK, G7IWE); the trim is counted, never silent.
+    const input = utf8Lf([
+      'Value,Status',
+      `G0TQK${NBSP},Allocated`,
+      'G6 FMU,Allocated',
+    ]);
+    const result = convertFoiSource(input, allocated);
+    expect(result.notes.nbspCellCount).toBe(1);
+    expect(result.notes.trimmedCellCount).toBe(1);
+    expect(result.csv).toContain('G0TQK,Allocated,');
+    expect(result.csv).not.toContain(NBSP);
+    // The interior space of 'G6 FMU' is part of the assertion and is kept.
+    expect(result.csv).toContain('G6 FMU,Allocated,');
+  });
+
+  it('FoiNormaliser_ReservedList_MapsSevenColumnShapeWithIsoDatesSortedByCallsign', () => {
+    const input = utf8Lf([
+      'Value,Status,Type,Call Sign MMSI: Created Date,Call Sign MMSI: Last Modified Date,Reserved to Date,Licence Cancel Date',
+      'M7YBB,Reserved,Call Sign - Amateur,2020-10-05,2020-10-05,2020-11-04,',
+      'G6NB,Reserved,Call Sign - Amateur,2016-07-23,2016-07-23,,1932-01-26',
+      '20AMN,Available,Call Sign - Amateur,2016-08-12,2020-09-19,,',
+    ]);
+    const result = convertFoiSource(input, reserved);
+    expect(result.csv).toBe(
+      'callsign,status,licence_class,created_date,last_modified_date,reserved_to_date,licence_cancel_date\n' +
+      '20AMN,Available,,2016-08-12,2020-09-19,,\n' +
+      'G6NB,Reserved,,2016-07-23,2016-07-23,,1932-01-26\n' +
+      'M7YBB,Reserved,,2020-10-05,2020-10-05,2020-11-04,\n');
+    // Status carried verbatim, including the stray Available row in a
+    // 'Reserved' list; the constant Type discriminator is never carried.
+    expect(result.csv).not.toContain('Call Sign - Amateur');
+    // A historic (1930s) cancellation date is legitimate; it passes the
+    // plausibility floor and is carried verbatim.
+    expect(result.csv).toContain(',1932-01-26\n');
+  });
+
+  it('FoiNormaliser_ReservedBlankCallsign_PreservedAndSortsFirst', () => {
+    const input = utf8Lf([
+      'Value,Status,Type,Call Sign MMSI: Created Date,Call Sign MMSI: Last Modified Date,Reserved to Date,Licence Cancel Date',
+      'W4WNZ,Reserved,Call Sign - Amateur,2016-08-12,2016-08-12,,',
+      ',Reserved,Call Sign - Amateur,2016-07-23,2016-07-23,,',
+    ]);
+    const result = convertFoiSource(input, reserved);
+    expect(result.csv.startsWith(
+      'callsign,status,licence_class,created_date,last_modified_date,reserved_to_date,licence_cancel_date\n' +
+      ',Reserved,,2016-07-23,2016-07-23,,\n')).toBe(true);
+    expect(result.notes.blankCounts['callsign']).toBe(1);
+  });
+
+  it('FoiNormaliser_ReservedToDateAfterVintage_Accepted', () => {
+    // A reservation EXPIRY legitimately postdates the 2020-10-23 vintage.
+    const input = utf8Lf([
+      'Value,Status,Type,Call Sign MMSI: Created Date,Call Sign MMSI: Last Modified Date,Reserved to Date,Licence Cancel Date',
+      'G0WIH,Reserved,Call Sign - Amateur,2016-07-23,2018-10-31,2022-10-20,',
+    ]);
+    expect(convertFoiSource(input, reserved).csv).toContain(',2022-10-20,');
+  });
+
+  it('FoiNormaliser_ReservedCreatedDateAfterVintage_ThrowsPlausibilityFailure', () => {
+    // A record-creation timestamp cannot postdate the snapshot vintage.
+    const input = utf8Lf([
+      'Value,Status,Type,Call Sign MMSI: Created Date,Call Sign MMSI: Last Modified Date,Reserved to Date,Licence Cancel Date',
+      'M7NEW,Reserved,Call Sign - Amateur,2020-12-01,2020-12-01,,',
+    ]);
+    expect(() => convertFoiSource(input, reserved)).toThrow(/future/i);
+  });
+
+  it('FoiNormaliser_ReservedTypeColumn_RequiredPresentThenDropped', () => {
+    // Removing the constant Type discriminator is a changed source shape and
+    // must fail loudly rather than be silently accepted.
+    const input = utf8Lf([
+      'Value,Status,Call Sign MMSI: Created Date,Call Sign MMSI: Last Modified Date,Reserved to Date,Licence Cancel Date',
+      'M7YBB,Reserved,2020-10-05,2020-10-05,,',
+    ]);
+    expect(() => convertFoiSource(input, reserved)).toThrow(/Type/);
+  });
+});
+
 describe('FOI CSV normaliser - output naming', () => {
   it('SlugifyBasename_MixedCaseSpacesAndExtension_ProducesHyphenatedLowerCaseSlug', () => {
     expect(slugifyBasename('FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 1.csv'))
@@ -1971,5 +2085,41 @@ describe('FOI archive golden master', () => {
     expect(results[0].csv).toContain('ENVIRONMENTS,Allocated,Amateur Full Radio Licence,2024-04-17,2024-04-17\n');
     // The 1903 migration-placeholder floor recurs in the original-start dates.
     expect(results[0].csv).toContain(',1903-05-03\n');
+  });
+
+  it('FoiArchive_Ofcom20200326AllocatedEntry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('ofcom-2020-03-26--allocated-callsigns', 'ofcom-2020-03-26-allocated', [92318]);
+    // The minimal Value,Status shape: status carried verbatim ('Allocated' on
+    // every row), licence_class emitted empty. No status blanks in this slice.
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class');
+    expect(results[0].notes.blankCounts['status']).toBeUndefined();
+    // The trailing-NBSP trio (2E1HON, G0TQK, G7IWE) is trimmed and counted.
+    expect(results[0].notes.nbspCellCount).toBe(3);
+    expect(results[0].notes.trimmedCellCount).toBe(3);
+    // The faithful witness preserves the suffix-month callsigns as text (the
+    // companion asset 194533 mangled these into date serials); interior space
+    // and non-uppercase callsigns survive verbatim.
+    expect(results[0].csv).toContain('\n20JAN,Allocated,\n');
+    expect(results[0].csv).toContain('\n21MAR,Allocated,\n');
+    expect(results[0].csv).toContain('G6 FMU,Allocated,');
+    expect(results[0].csv).toContain('g0jrk,Allocated,');
+  });
+
+  it('FoiArchive_Ofcom20201023ReservedEntry_ReproducesCommittedNormalisedFilesByteForByte', { timeout: GOLDEN_MASTER_TIMEOUT_MS }, () => {
+    const results = expectEntryReproduced('ofcom-2020-10-23--reserved-callsigns', 'ofcom-2020-10-23-reserved', [50524]);
+    expect(results[0].csv.split('\n', 1)[0]).toBe('callsign,status,licence_class,created_date,last_modified_date,reserved_to_date,licence_cancel_date');
+    // Status is a genuine per-row column: 264 Available rows ride along in the
+    // 'Reserved' list and are carried verbatim, not reconciled to the title.
+    expect(results[0].csv.split('\n').filter(line => line.includes(',Available,'))).toHaveLength(264);
+    // Reservation expiry (93) and licence cancellation (7,397) dates are carried
+    // where present; the one blank callsign sorts first.
+    expect(results[0].notes.blankCounts['reserved_to_date']).toBe(50431);
+    expect(results[0].notes.blankCounts['licence_cancel_date']).toBe(43127);
+    expect(results[0].notes.blankCounts['callsign']).toBe(1);
+    expect(results[0].csv.startsWith('callsign,status,licence_class,created_date,last_modified_date,reserved_to_date,licence_cancel_date\n,Reserved,,')).toBe(true);
+    // The oldest cancellation reaches 1932; the three Excel-date-mangled
+    // callsigns (20FEB/20AUG/20NOV) survive verbatim as date serials.
+    expect(results[0].csv).toContain(',1932-01-26\n');
+    expect(results[0].csv).toContain('\n2020-02-20,Reserved,');
   });
 });

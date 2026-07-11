@@ -48,6 +48,7 @@ a header.
 | `licence_issued_date` | `callsign-observation` | the licence issue date as disclosed in register snapshots, ISO-rendered |
 | `created_date` | `callsign-observation` | the licensing-system record creation timestamp, ISO-rendered (time kept where the source carries one) |
 | `original_start_date` | `callsign-observation`, `callsign-attributes` | the licence's original start date as disclosed, ISO-rendered; per-source semantics caveats live in the entry meta |
+| `licence_cancel_date` | `callsign-observation` | the date a licence was cancelled as disclosed in a register export, ISO-rendered; a past event that cannot postdate the snapshot, recorded only where the source carries one (historic values reach back to the 1930s) |
 | `last_modified_date` | `suffix-list`, `callsign-observation` | the record's last-modified timestamp as disclosed in a Salesforce-era export, ISO-rendered with any time-of-day kept: per-suffix provenance in the forbidden-suffix list, per-callsign provenance in the 2023-24 register snapshots - in both cases the dated provenance the earlier exports lack |
 | `call_sign_type` | `callsign-observation` | the call-sign service/type discriminator carried verbatim ("Call Sign - Amateur" / "Call Sign - NoV"), kept only where a snapshot asserts more than one value so the Notice-of-Variation special-event/permit callsigns stay distinguishable from ordinary amateur ones (elsewhere the constant Type is a discriminator recorded in meta, not carried) |
 | `status` | `issuance-events` | the licence status at disclosure, carried verbatim, when it accompanies event rows |
@@ -77,6 +78,8 @@ fail the conversion.
 | `ofcom-01420046-register` | `ofcom-01420046--allocated-reserved-callsigns` |
 | `ofcom-2016-09-20-register` | `ofcom-2016-09-20--callsign-database--all-callsigns` |
 | `ofcom-2017-07-13-register` | `ofcom-2017-07-13--all-callsigns` |
+| `ofcom-2020-03-26-allocated` | `ofcom-2020-03-26--allocated-callsigns` |
+| `ofcom-2020-10-23-reserved` | `ofcom-2020-10-23--reserved-callsigns` |
 | `ofcom-2021-01-register` | `ofcom-2021-01--all-callsigns` |
 | `ofcom-2021-04-register` | `ofcom-2021-04--all-callsigns` |
 | `ofcom-2022-03-14-register` | `ofcom-2022-03-14--available-and-registered--all-callsigns` |
@@ -261,6 +264,38 @@ Row order: **sorted-by-first-column** — source rows arrive grouped (intermedia
 Required-present but not carried: `Prefix`, `Suffix`, `Type`.
 
 Row order: **sorted-by-first-column** — source rows arrive grouped by suffix but carry no meaningful publication order (no dates, not callsign-sorted); sorted by callsign for diffability and cross-snapshot comparability.
+
+### `ofcom-2020-03-26-allocated`
+
+**`raw-extract-sheet-1-allocated-callsign-as-at-260320.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | *(emitted empty)* | verbatim |
+
+Row order: **sorted-by-first-column** — the source is already grouped by suffix but carries no meaningful publication order (no dates); sorted by callsign for diffability and cross-snapshot comparability.
+
+### `ofcom-2020-10-23-reserved`
+
+**`raw-extract-sheet-1-reserved-callsigns-23-10-2020.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | *(emitted empty)* | verbatim |
+| `created_date` | `Call Sign MMSI: Created Date` | iso-date |
+| `last_modified_date` | `Call Sign MMSI: Last Modified Date` | iso-date |
+| `reserved_to_date` | `Reserved to Date` | iso-date (future allowed) |
+| `licence_cancel_date` | `Licence Cancel Date` | iso-date |
+
+Required-present but not carried: `Type`.
+
+Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability (the one blank callsign sorts first).
+
+Date plausibility bound: 2020-10-23.
 
 ### `ofcom-2021-01-register`
 
