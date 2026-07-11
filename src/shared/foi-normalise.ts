@@ -1292,7 +1292,7 @@ const EDGE_WHITESPACE_RE = /^\s+|\s+$/g;
 // shape deserving review, never a guess. Cell padding (ASCII space/tab) is
 // table FORMATTING and is stripped structurally; any other edge whitespace
 // is left for the counted trim so it stays on the record.
-function parseMarkdownTable(text: string, sourceFile: string): Record<string, string>[] {
+export function parseMarkdownTable(text: string, sourceFile: string): Record<string, string>[] {
   const lines = text.split(/\r?\n/).map(line => line.replace(/[ \t]+$/, ''));
   const blocks: string[][] = [];
   let current: string[] | null = null;

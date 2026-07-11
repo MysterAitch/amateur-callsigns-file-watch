@@ -25,6 +25,10 @@ import {
   collectAttributeAddendumSources,
   attributeAddendumEntries,
 } from './collectors/attribute-addendum.ts';
+import {
+  collectStatisticsSources,
+  statisticsEntries,
+} from './collectors/statistics.ts';
 import { convertFoiSource } from '../shared/foi-normalise.ts';
 import { readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
 import { loadReferenceData, cleanedCallsign } from '../sources/ofcom-amateur/components.ts';
@@ -352,29 +356,40 @@ describe('corpus scale sanity', () => {
     try {
       const summary = buildLedger(outputDir, FOI_DIR, REF);
 
-      // All three families contribute. Every qualifying FOI register entry
+      // All four families contribute. Every qualifying FOI register entry
       // produced at least one source; the open-data-register family adds every
       // mirrored Ofcom open-data publication; the attribute-addendum family adds
-      // the per-callsign attribute entries the register family excludes - all
-      // additive, the earlier counts intact.
+      // the per-callsign attribute entries the register family excludes; the
+      // statistics-aggregate family adds the aggregate-count entries (a period,
+      // not a callsign) - all additive, the earlier counts intact.
       const foiEntries = qualifyingRegisterEntries(FOI_DIR).filter(e => registerSourcesFor(e.meta).length > 0).length;
       const openDataSources = collectOpenDataRegisterSources().length;
       const addendumEntries = attributeAddendumEntries(FOI_DIR).filter(e => registerSourcesFor(e.meta).length > 0).length;
+      const statisticsSourceEntries = statisticsEntries(FOI_DIR).filter(e => collectStatisticsSources(FOI_DIR).some(s => s.entry === e.entry)).length;
       expect(summary.entriesByFamily['foi-register']).toBe(foiEntries);
       expect(summary.entriesByFamily['open-data-register']).toBe(openDataSources);
       expect(summary.entriesByFamily['open-data-register']).toBeGreaterThanOrEqual(OPEN_DATA_ROUND_TRIP_ENTRIES.length);
       expect(summary.entriesByFamily['attribute-addendum']).toBe(addendumEntries);
       expect(summary.entriesByFamily['attribute-addendum']).toBeGreaterThanOrEqual(ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES.length);
-      expect(summary.entriesProcessed).toBe(foiEntries + openDataSources + addendumEntries);
-      expect(summary.sourcesProcessed).toBeGreaterThanOrEqual(19 + OPEN_DATA_ROUND_TRIP_ENTRIES.length + ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES.length);
+      expect(summary.entriesByFamily['statistics-aggregate']).toBe(statisticsSourceEntries);
+      expect(summary.entriesByFamily['statistics-aggregate']).toBeGreaterThanOrEqual(1);
+      expect(summary.entriesProcessed).toBe(foiEntries + openDataSources + addendumEntries + statisticsSourceEntries);
+      expect(summary.sourcesProcessed).toBeGreaterThanOrEqual(19 + OPEN_DATA_ROUND_TRIP_ENTRIES.length + ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES.length + 1);
 
       // No source is silently empty (an empty source would be a converter/
-      // filter defect); each carries its family tag.
+      // filter defect); each carries its family tag. Callsign-subject families
+      // additionally carry a derived layer (normalises_to edges); the
+      // aggregate family is raw-only by design (a period is not a callsign), so
+      // its derived count is legitimately zero.
       for (const s of summary.perSource) {
         expect(s.observations).toBeGreaterThan(0);
         expect(s.rawClaims).toBeGreaterThan(0);
-        expect(s.derivedClaims).toBeGreaterThan(0);
-        expect(['foi-register', 'open-data-register', 'attribute-addendum']).toContain(s.family);
+        expect(['foi-register', 'open-data-register', 'attribute-addendum', 'statistics-aggregate']).toContain(s.family);
+        if (s.family === 'statistics-aggregate') {
+          expect(s.derivedClaims).toBe(0);
+        } else {
+          expect(s.derivedClaims).toBeGreaterThan(0);
+        }
       }
 
       // The attribute-addendum family contributes real claims of its own
