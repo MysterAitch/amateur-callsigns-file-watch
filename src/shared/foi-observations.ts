@@ -46,8 +46,44 @@ export interface FoiObservationRow {
   values: Record<string, string | null>;
 }
 
+interface FoiObservationsCacheEntry {
+  signature: string;
+  rows: FoiObservationRow[];
+}
+const foiObservationsCache = new Map<string, FoiObservationsCacheEntry>();
+
+// A signature of every normalised FOI file the build folds in (path + mtime),
+// so the memo serves cached rows only while the inputs are unchanged and
+// rebuilds the moment any file is edited.
+function foiInputsSignature(foiDir: string): string {
+  const parts: string[] = [];
+  for (const entry of listFoiEntryKeys(foiDir)) {
+    const meta = readFoiEntryMeta(foiDir, entry);
+    for (const [fileName, declaration] of Object.entries(meta.files)) {
+      if (declaration.role !== 'normalised') continue;
+      parts.push(`${entry}/${fileName}:${fs.statSync(path.join(foiDir, entry, fileName)).mtimeMs}`);
+    }
+  }
+  return parts.join('|');
+}
+
+// Clear the memo. For test isolation only; a build runs one process to
+// completion and never needs it.
+export function resetFoiObservationsCache(): void {
+  foiObservationsCache.clear();
+}
+
 export function buildFoiObservations(foiDir: string): FoiObservationRow[] {
-  return time('foi-observations:build', () => {
+  // Several build steps fold the same FOI files into this union within one
+  // process (the master/tiers build, the forbidden-suffix cohort, the value
+  // catalogue). Memoise by directory + input signature so repeats reuse the
+  // first build's rows; every consumer reads them without mutating in place, so
+  // a shared array is byte-identical to rebuilding. Edited inputs rebuild.
+  const cacheKey = path.resolve(foiDir);
+  const signature = foiInputsSignature(foiDir);
+  const cached = foiObservationsCache.get(cacheKey);
+  if (cached !== undefined && cached.signature === signature) return cached.rows;
+  const result = time('foi-observations:build', () => {
     const rows: FoiObservationRow[] = [];
     for (const entry of listFoiEntryKeys(foiDir)) {
       const meta = readFoiEntryMeta(foiDir, entry);
@@ -81,6 +117,8 @@ export function buildFoiObservations(foiDir: string): FoiObservationRow[] {
     }
     return rows;
   });
+  foiObservationsCache.set(cacheKey, { signature, rows: result });
+  return result;
 }
 
 const OBSERVATION_CSV_HEADER = ['callsign', 'entry', 'source_file', 'dataset_classes', 'vintage', ...OBSERVATION_VALUE_COLUMNS].join(',');

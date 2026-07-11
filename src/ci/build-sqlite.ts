@@ -24,6 +24,7 @@ import { listArchiveKeys } from '../shared/archive.ts';
 import { type EntryStats } from '../shared/stats.ts';
 import { buildFoiObservations, renderObservationsCsvBuffer, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
 import { time, perfReport } from '../shared/perf.ts';
+import { parseCsvCached } from '../shared/parse-cache.ts';
 import { cleanedCallsign, parseCallsign, loadReferenceData, normaliseLicenceCategory, componentsFlagsForRows, type ComponentRow } from '../sources/ofcom-amateur/components.ts';
 
 // Gzip level for the published .gz download artefacts. The deploy uses maximum
@@ -38,8 +39,63 @@ const GZIP_LEVEL = process.env.TIERS_GZIP_LEVEL !== undefined ? Number(process.e
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const REFERENCE_DATA_DIR = path.join(REPO_ROOT, 'reference-data');
 
+// Shared with the register-history table below through the process-wide parse
+// memo, so the newest publication's normalised.csv and components.csv - parsed
+// here for the latest-dataset tables and again for the history table - are read
+// once. Callers that want the parse attributed to a perf label wrap the call
+// themselves (parse:register / parse:components); reference-data reads stay
+// untimed, exactly as before.
 function readCsv(filePath: string): Record<string, string>[] {
-  return parse(fs.readFileSync(filePath, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[];
+  return parseCsvCached(filePath, { columns: true, skip_empty_lines: true });
+}
+
+// Rows per multi-row INSERT statement. Each `.run()` is one JS→native crossing
+// plus one bytecode execution, so binding N rows in a single statement instead
+// of N statements cuts that fixed per-row overhead ~N-fold — the dominant cost
+// once the whole load already rides in one transaction.
+const INSERT_BATCH_ROWS = 500;
+// SQLite's bundled bound-parameter ceiling is 32,766; stay well under it so a
+// wide table transparently shrinks its batch (BATCH × columns never nears the
+// limit) rather than failing to prepare.
+const MAX_BULK_PARAMS = 20_000;
+
+// Insert many rows through a fixed-size multi-row prepared statement, with a
+// single remainder statement for the tail so the count need not be a multiple
+// of the batch size. Byte-identical to per-row inserts — a multi-row VALUES
+// list is exactly sugar for the individual inserts, same rows in the same
+// order — and shared by the master, per-dataset and register-history loops.
+// The caller owns the surrounding transaction; `tableToken` is the table
+// identifier exactly as it must follow INSERT INTO (already quoted where the
+// name needs it). `toValues` returns one row's column values, left to right.
+function insertBatched<T>(
+  db: DatabaseSync,
+  tableToken: string,
+  columnCount: number,
+  items: readonly T[],
+  toValues: (item: T, index: number) => (string | null)[],
+): void {
+  const n = items.length;
+  if (n === 0) return;
+  const batchRows = Math.max(1, Math.min(INSERT_BATCH_ROWS, Math.floor(MAX_BULK_PARAMS / columnCount)));
+  const oneRow = `(${Array.from({ length: columnCount }, () => '?').join(', ')})`;
+  const fullCount = n - (n % batchRows);
+  let i = 0;
+  if (fullCount > 0) {
+    const bulk = db.prepare(`INSERT INTO ${tableToken} VALUES ${Array.from({ length: batchRows }, () => oneRow).join(', ')}`);
+    const flat = new Array<string | null>(batchRows * columnCount);
+    for (; i < fullCount; i += batchRows) {
+      let p = 0;
+      for (let k = 0; k < batchRows; k += 1) {
+        const values = toValues(items[i + k], i + k);
+        for (let c = 0; c < columnCount; c += 1) { flat[p] = values[c]; p += 1; }
+      }
+      bulk.run(...flat);
+    }
+  }
+  if (i < n) {
+    const single = db.prepare(`INSERT INTO ${tableToken} VALUES ${oneRow}`);
+    for (; i < n; i += 1) single.run(...toValues(items[i], i));
+  }
 }
 
 // The flag registry table in reference-data/flags.md is the single source of
@@ -67,12 +123,11 @@ export function buildSqlite(outputPath: string): { datasetKey: string; tables: R
 
   const createAndFill = (table: string, columns: string[], rows: string[][], indexColumn?: string): void => {
     db.exec(`CREATE TABLE ${table} (${columns.map(c => `"${c}" TEXT`).join(', ')})`);
-    const insert = db.prepare(`INSERT INTO ${table} VALUES (${columns.map(() => '?').join(', ')})`);
     // One transaction per table: without it every insert commits separately
     // and a 158k-row table takes minutes instead of milliseconds.
     time('sqlite:createAndFill-insert', () => {
       db.exec('BEGIN');
-      for (const row of rows) insert.run(...row);
+      insertBatched(db, table, columns.length, rows, row => row);
       db.exec('COMMIT');
     }, rows.length);
     if (indexColumn) db.exec(`CREATE INDEX idx_${table}_${indexColumn} ON ${table}("${indexColumn}")`);
@@ -212,15 +267,16 @@ export function fillObservations(db: DatabaseSync, rows: FoiObservationRow[]): n
     idxs.forEach((i, k) => { parsed[i] = comps[k]; });
   }
 
-  const placeholders = Array.from({ length: 6 + OBSERVATION_VALUE_COLUMNS.length + OBSERVATION_COMPONENT_COLUMNS.length + 1 }, () => '?').join(', ');
-  const insert = db.prepare(`INSERT INTO observations VALUES (${placeholders})`);
+  const columnCount = 6 + OBSERVATION_VALUE_COLUMNS.length + OBSERVATION_COMPONENT_COLUMNS.length + 1;
   db.exec('BEGIN');
-  rows.forEach((row, i) => {
+  insertBatched(db, 'observations', columnCount, rows, (row, i) => {
     const c = parsed[i];
-    insert.run(row.callsign, cleanedCallsign(row.callsign), row.entry, row.sourceFile, row.datasetClasses, row.vintage,
+    return [
+      row.callsign, cleanedCallsign(row.callsign), row.entry, row.sourceFile, row.datasetClasses, row.vintage,
       ...OBSERVATION_VALUE_COLUMNS.map(column => row.values[column] ?? null),
       c.prefixSeries, c.rsl, c.placeholderForm, c.impliedClass, c.parseStatus, c.flags.join(';'),
-      normaliseLicenceCategory(row.values['licence_class'] ?? '', ref));
+      normaliseLicenceCategory(row.values['licence_class'] ?? '', ref),
+    ];
   });
   db.exec('COMMIT');
   db.exec('CREATE INDEX idx_observations_callsign ON observations("callsign")');
@@ -275,10 +331,9 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
       const columns = Object.keys(records[0]);
       const tableName = file.replace(/\.csv$/, '').replace(/[^a-zA-Z0-9]+/g, '_');
       db.exec(`CREATE TABLE "${tableName}" (${columns.map(c => `"${c}" TEXT`).join(', ')})`);
-      const insert = db.prepare(`INSERT INTO "${tableName}" VALUES (${columns.map(() => '?').join(', ')})`);
       time('sqlite:per-dataset-insert', () => {
         db.exec('BEGIN');
-        for (const record of records) insert.run(...columns.map(c => record[c] ?? ''));
+        insertBatched(db, `"${tableName}"`, columns.length, records, record => columns.map(c => record[c] ?? ''));
         db.exec('COMMIT');
       }, records.length);
       tables += 1;
@@ -313,13 +368,13 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
       const componentsPath = path.join(CONSTANTS.DIRS.archive, p.key, 'components.csv');
       const componentKeys = new Map<string, { cleaned: string; suffix: string; impliedClass: string; prefixSeries: string; parseStatus: string }>(
         fs.existsSync(componentsPath)
-          ? (parse(fs.readFileSync(componentsPath, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[])
+          ? parseCsvCached(componentsPath, { columns: true, skip_empty_lines: true })
             .map(c => [c.callsign, { cleaned: c.cleaned ?? cleanedCallsign(c.callsign), suffix: c.suffix ?? '', impliedClass: c.implied_class ?? '', prefixSeries: c.prefix_series ?? '', parseStatus: c.parse_status ?? '' }])
           : []);
       return {
         key: p.key,
         componentKeys,
-        records: parse(fs.readFileSync(p.path, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[],
+        records: parseCsvCached(p.path, { columns: true, skip_empty_lines: true }),
       };
     }));
   for (const publication of publications) {
@@ -358,14 +413,13 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
 
   const historyColumnList = [...historyColumns];
   master.exec(`CREATE TABLE register_history (${historyColumnList.map(c => `"${c}" TEXT`).join(', ')})`);
-  const insertHistory = master.prepare(`INSERT INTO register_history VALUES (${historyColumnList.map(() => '?').join(', ')})`);
   let historyRows = 0;
   time('sqlite:register-history-insert', () => {
     master.exec('BEGIN');
     for (const publication of publications) {
-      for (const record of publication.records) {
+      insertBatched(master, 'register_history', historyColumnList.length, publication.records, record => {
         const keys = publication.componentKeys.get(record.callsign);
-        insertHistory.run(...historyColumnList.map(c => {
+        return historyColumnList.map(c => {
           if (c === 'dataset') return publication.key;
           if (c === 'cleaned') return keys?.cleaned ?? cleanedCallsign(record.callsign ?? '');
           if (c === 'suffix') return keys?.suffix ?? '';
@@ -374,9 +428,9 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
           if (c === 'parse_status') return keys?.parseStatus ?? '';
           if (c === 'normalised_licence_category') return normaliseLicenceCategory(record['product'] ?? '', historyRef);
           return record[c] ?? null;
-        }));
-        historyRows += 1;
-      }
+        });
+      });
+      historyRows += publication.records.length;
     }
     master.exec('COMMIT');
   });
