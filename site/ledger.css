@@ -121,11 +121,13 @@
 
 /* Timeline */
 .ledger .tl { padding: 6px 4px; }
-.ledger .tl-row { display: grid; grid-template-columns: 92px 1fr; gap: 12px; align-items: start;
+/* minmax(0,1fr) + min-width:0 let the body column shrink so its chips wrap
+   instead of overflowing and being clipped along the card's rounded edge. */
+.ledger .tl-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; align-items: start;
   padding: 7px 14px; position: relative; }
 .ledger .tl-row .vint { font-family: var(--mono); font-size: 12.5px; color: var(--muted); padding-top: 2px;
   font-variant-numeric: tabular-nums; }
-.ledger .tl-row .body { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ledger .tl-row .body { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
 .ledger .ev { font-family: var(--mono); font-size: 12px; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
 .ledger .ev.birth { background: var(--raw-soft); color: var(--raw); }
 .ledger .ev.change { background: var(--change-soft); color: var(--change); font-weight: 600; }
@@ -153,7 +155,7 @@
 .ledger .kv .k { color: var(--faint); }
 .ledger .kv .v { color: var(--ink); word-break: break-all; }
 .ledger .bytes { display: inline-block; background: var(--surface-2); border-radius: 6px; padding: 1px 7px;
-  color: var(--muted); }
+  color: var(--muted); max-width: 100%; overflow-wrap: anywhere; }
 .ledger .nbsp { color: var(--change); font-weight: 700; }
 .ledger .edge { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--derived-soft);
   border: 1px dashed var(--derived); font-family: var(--mono); font-size: 12.5px; }
