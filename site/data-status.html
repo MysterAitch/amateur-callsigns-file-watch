@@ -6,107 +6,86 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%8A%3C/text%3E%3C/svg%3E">
   <title>Data status — processing coverage tracker — data mirror</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Adopts the bespoke visual language scoped under .ledger (ledger.css),
+       which also carries the coverage-grid styling for the inventory, rollup and
+       series blocks; the shared nav and skip link stay styled by
+       tokens.css/style.css. This page remains script-free by design, so archived
+       captures of it are complete. -->
+  <link rel="stylesheet" href="ledger.css">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#14506e">
-  <style>
-    /* Page-specific styling for the coverage grid. Built on the shared palette
-       (--ink/--paper/--accent/--line from style.css); the state tints below are
-       declared light + dark so a cell reads the same in either theme. */
-    :root {
-      --good: #3f7d55; --goodbg: #eef6f0;
-      --warn: #8a5a1f; --warnbg: #fbf2e6;
-      --bad: #b23; --badbg: #fbeeee;
-      --group: #f4f4f4;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --good: #7fbf97; --goodbg: #15251b;
-        --warn: #e8b877; --warnbg: #2a2016;
-        --bad: #e58; --badbg: #2a1618;
-        --group: #1c1c1c;
-      }
-    }
-    .lead { font-size: 1.02rem; }
-    .lead b { font-variant-numeric: tabular-nums; }
-    /* The axes callout: the three-axis framing, kept visually distinct so the
-       reader never mistakes processing progress for authority or confidence. */
-    .axes { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 0.6rem 1rem; margin: 1rem 0; }
-    .axes h2 { font-size: 1rem; margin: 0.2rem 0 0.5rem; }
-    .axes ol { margin: 0.3rem 0 0.2rem 1.1rem; padding: 0; }
-    .axes li { margin: 0.25rem 0; }
-    table.grid { font-size: 0.9rem; }
-    table.grid th.cell, table.grid td.cell { text-align: center; padding: 0.3rem 0.45rem; }
-    table.grid td.vintage, table.grid td.auth { white-space: nowrap; font-size: 0.85rem; }
-    .grouprow th { background: var(--group); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; }
-    .dskey a { font-family: ui-monospace, monospace; font-size: 0.85rem; text-decoration: none; }
-    .dstitle { display: block; font-weight: 400; font-size: 0.8rem; color: color-mix(in srgb, var(--ink) 70%, transparent); margin-top: 0.1rem; max-width: 30rem; }
-    .atag { font-size: 0.75rem; padding: 0.05rem 0.35rem; border: 1px solid var(--line); border-radius: 999px; color: color-mix(in srgb, var(--ink) 75%, transparent); cursor: help; }
-    .pill { display: inline-block; min-width: 1.4rem; font-weight: 700; border-radius: 6px; padding: 0.05rem 0.3rem; cursor: help; }
-    .pill.st-done { color: var(--good); background: var(--goodbg); }
-    .pill.st-partial { color: var(--warn); background: var(--warnbg); }
-    .pill.st-none { color: var(--bad); background: var(--badbg); }
-    .pill.st-na { color: color-mix(in srgb, var(--ink) 45%, transparent); background: transparent; }
-    .series { margin: 0.9rem 0; padding-bottom: 0.6rem; border-bottom: 1px solid var(--line); }
-    .series h3 { font-size: 0.98rem; margin: 0.3rem 0; }
-    .timeline { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0; }
-    .vpill { font-size: 0.8rem; padding: 0.1rem 0.4rem; border: 1px solid var(--line); border-radius: 6px; background: var(--slot); text-decoration: none; }
-    .vpill:hover { border-color: var(--accent); }
-    ul.gaps { margin: 0.3rem 0; }
-    ul.gaps li { margin: 0.2rem 0; }
-    .legend { display: flex; flex-wrap: wrap; gap: 0.6rem 1.1rem; margin: 0.5rem 0; font-size: 0.85rem; }
-    .legend span b { font-weight: 700; }
-  </style>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
   <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <strong>Data status</strong> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">Repository</a></p></nav>
   <!-- nav:end -->
-  <header>
-    <h1>Data status</h1>
-    <p class="subtitle">
-      A build-time-derived tracker of every dataset this
-      <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">mirror</a>
-      holds or knows exists, and how far each has been carried through the
-      processing pipeline. It doubles as the work-queue — what to process
-      next — and the gap-finder. Nothing here is hand-maintained: every row and
-      cell is computed on each deploy from the committed archive, each entry's
-      <code>meta.json</code>, and the
-      <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/docs/source-register.md">source register</a>,
-      so it cannot drift from reality. This page is fully static (no scripts),
-      so archived captures of it are complete.
-    </p>
-  </header>
+  <main id="main" class="ledger">
+    <header>
+      <div class="head-inner">
+        <div class="eyebrow">processing coverage · derived at deploy</div>
+        <h1>Data status</h1>
+        <p class="lede">
+          A build-time-derived tracker of every dataset this
+          <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">mirror</a>
+          holds or knows exists, and how far each has been carried through the
+          processing pipeline — the work-queue and the gap-finder in one. Nothing
+          here is hand-maintained: every row and cell is computed on each deploy
+          from the committed archive, each entry's <code>meta.json</code>, and the
+          <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/docs/source-register.md">source register</a>,
+          so it cannot drift from reality.
+        </p>
+      </div>
+    </header>
 
-  <main id="main">
+    <div class="wrap">
     <div id="ds-summary">generated at deploy time — build the site to populate</div>
 
-    <section class="axes" aria-labelledby="axes-h">
+    <section class="panel" id="axes" aria-labelledby="axes-h">
+      <div class="eyebrow">one of three axes</div>
       <h2 id="axes-h">This is axis 1 of three — the processing view</h2>
-      <p>Three separate questions, deliberately not conflated:</p>
+      <p>The mirror describes its data along three <strong>separate</strong>
+      questions, deliberately not conflated. This page tracks the first — how far
+      each file has been carried through the pipeline — shown as an operational
+      ladder, like build tasks:</p>
+      <div class="axis processing">
+        <div class="ladder" aria-label="Processing progress rungs, in order">
+          <span class="rung"><span class="seq">1</span><span class="name">Read</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">2</span><span class="name">Understood</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">3</span><span class="name">Validated</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">4</span><span class="name">Normalised</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">5</span><span class="name">Enriched</span></span>
+        </div>
+      </div>
+      <p>The other two are kept apart from it:</p>
       <ol>
-        <li><b>Processing</b> (this page) — how far a file has been carried
-          through the pipeline. Operational, like build tasks.</li>
-        <li><b>Source authority</b> — how trustworthy the origin is
+        <li><strong>Source authority</strong> — how official the origin is
           (Official → FOI → Reference → Community → Self), from each entry's
-          <code>meta.json</code>. Shown here only as the small “Source” tag, for
-          orientation.</li>
-        <li><b>Claim confidence</b> — how much to trust a given fact
+          <code>meta.json</code>. Shown here only as the small “Source” tag on
+          each row, for orientation.</li>
+        <li><strong>Claim confidence</strong> — how much to trust a given fact
           (As-published → Computed → Looked-up → Community → Best-guess), the
-          tiered claim layer surfaced on the
-          <a href="ledger.html">Ledger</a>.</li>
+          tiered claim layer surfaced on the <a href="ledger.html">Ledger</a>.</li>
       </ol>
       <p class="muted">A high-authority source can still yield a low-confidence
-      claim, which is why the three are kept apart. The three axes are defined in
-      full in the <a href="glossary.html#axes">glossary</a>.</p>
+      claim, which is why the three are kept apart. All three axes, with every
+      rung defined, live in the <a href="glossary.html#axes">glossary</a>.</p>
     </section>
 
-    <section id="grid">
+    <section class="panel" id="grid">
+      <div class="eyebrow">inventory</div>
       <h2>Inventory &amp; processing grid</h2>
       <p>Every held dataset as a row, grouped by data type, with a cell per
       pipeline stage. A stage that has not run is a surfaced fact, never implied
-      complete. Hover a cell (or its stage heading) for the detail behind it.</p>
-      <div class="legend" aria-hidden="true">
+      complete. Hover a cell (or its stage heading) for the detail behind it;
+      each dataset key links to its
+      <a href="datasets/index.html">entry page</a> for provenance and integrity
+      hashes.</p>
+      <div class="cov-legend" aria-hidden="true">
         <span><b class="pill st-done">✓</b> done</span>
         <span><b class="pill st-partial">~</b> partial</span>
         <span><b class="pill st-none">✗</b> not done / absent</span>
@@ -115,7 +94,8 @@
       <div id="ds-grid">generated at deploy time — build the site to populate</div>
     </section>
 
-    <section id="rollup">
+    <section class="panel" id="rollup">
+      <div class="eyebrow">per type</div>
       <h2>Per-type rollup</h2>
       <p>Each data type summarised: how many datasets it holds and, per stage,
       how many are fully done (✓) or partial (~). Types do not share every
@@ -124,20 +104,23 @@
       <div id="ds-rollup">generated at deploy time — build the site to populate</div>
     </section>
 
-    <section id="known-absent">
+    <section class="panel" id="known-absent">
+      <div class="eyebrow">work-queue</div>
       <h2>Known but not yet held</h2>
-      <p>Datasets the source register names that the processed archive does not
-      yet hold. These sit at “Read ✗” on the grid: known to exist, provenance
-      recorded, not yet fetched or converted. This is the standing work-queue.</p>
+      <p>Datasets the <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/docs/source-register.md">source register</a>
+      names that the processed archive does not yet hold. These sit at “Read ✗” on
+      the grid: known to exist, provenance recorded, not yet fetched or converted.
+      This is the standing work-queue.</p>
       <div id="ds-known-absent">generated at deploy time — build the site to populate</div>
     </section>
 
-    <section id="series">
+    <section class="panel" id="series">
+      <div class="eyebrow">coverage over time</div>
       <h2>Series coverage &amp; gaps</h2>
-      <p>Datasets grouped into series over time, so coverage, staleness and gaps
-      are visible. A long silence between consecutive held vintages is flagged
-      with a plain next-step — no action is automated; the gap is surfaced and
-      the option named.</p>
+      <p>Datasets grouped into <a href="series/index.html">series</a> over time,
+      so coverage, staleness and gaps are visible. A long silence between
+      consecutive held vintages is flagged with a plain next-step — no action is
+      automated; the gap is surfaced and the option named.</p>
       <div id="ds-series">generated at deploy time — build the site to populate</div>
     </section>
 
@@ -149,6 +132,7 @@
       <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/archive">browse the raw data on GitHub</a>.
       Maintained by Roger Howell (M7TEE).</small></p>
     </footer>
+    </div>
   </main>
 </body>
 </html>
