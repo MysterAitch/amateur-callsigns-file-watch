@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no FOI case reference is stated on the disclosed asset; it was published as an Ofcom __data asset (id 196168) and captured by the UK Government Web Archive. The asset id is a hosting identifier, not an FOI reference, so ofcomReference is left null rather than asserted.",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/excel_doc/0031/196168/List-of-Allocated-amateur-radio-callsigns.xlsx",
+  "title": "List of allocated amateur radio callsigns as at 26 March 2020 (Ofcom FOI disclosure)",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "not held; no request thread accompanies the disclosed asset.",
+  "respondedAt": null,
+  "respondedAtNote": "not stated in the held material; the disclosure is an FOI-response annex captured by the UK Government Web Archive on 2023-01-03, and the worksheet title dates the data to 26/03/2020 (see dataVintage).",
+  "outcome": "successful",
+  "dataVintage": "2020-03-26",
+  "dataVintageNote": "declared from the worksheet title 'Allocated CallSign as at 260320' (260320 = 26/03/2020). This export carries no date columns, so the vintage rests on the declared title and cannot be cross-checked against the data itself; it is bracketed by the September-2019 and March-2022 full FOI register snapshots and pairs with the October-2020 reserved companion captured in the same UK Government Web Archive crawl.",
+  "datasetRecovery": "partial",
+  "datasetRecoveryNote": "the FOI response was fully recovered - all disclosed bytes are held and hash-verified. 'partial' records that this disclosure is a STATUS-FILTERED subset of the register (allocated-only): it is an incomplete capture of the full register that existed at the vintage, not a complete register snapshot. This is a COVERAGE statement, not a claim that bytes are missing; it also flags the entry to the cross-dataset overlap probe so its by-construction-limited overlap is marked partial rather than read as low take-up. See the modelling note carried to reviewers.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2020-03-26-allocated" },
+  "relatedEntries": [
+    { "entry": "ofcom-2020-10-23--reserved-callsigns", "relation": "the companion status-filtered export from the same 2020 FOI material (the reserved slice, as at 2020-10-23); together the only 2020 register-vintage lists held." },
+    { "entry": "ofcom-756622--published-register-csv", "relation": "the preceding full FOI register snapshot (2019-09-12, 141,295 records); this allocated-only list is a partial view roughly six months later." },
+    { "entry": "ofcom-01420046--allocated-reserved-callsigns", "relation": "the next full FOI register snapshot (2022-03-07, 150,181 records, allocated AND reserved combined); this 2020 pair sits between the 2019 and 2022 full snapshots." }
+  ],
+  "files": {
+    "list-of-allocated-amateur-radio-callsigns.xlsx": {
+      "bytes": 1658597,
+      "sha256": "80921c08f0556e4ccfa2c59989b15010cc180615314d0a7196b5a0d28fae2ced",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "contentsIndicative": "one worksheet, 'Allocated CallSign as at 260320': header Value,Status then 92,318 data rows, Status 'Allocated' on every row. This is the faithful witness (Ofcom asset id 196168). A companion asset (id 194533, amateur-radio-allocated-call-signs.xlsx, sha256 8e7ddcfccc1a4d3f80a88e924f4a39297ba5142bf1b608bdedbc4dccfbc0638c, published at https://www.ofcom.org.uk/__data/assets/excel_doc/0025/194533/amateur-radio-allocated-call-signs.xlsx) carries the same 92,318 logical callsigns but with eleven suffix-month callsigns mangled by Excel into date serials (20JAN,21JAN,20FEB,20MAR,21MAR,20APR,20MAY,20JUL,20SEP,20OCT,20DEC -> 2020-01-20,2020-01-21,2020-02-20,2020-03-20,2020-03-21,2020-04-20,2020-05-20,2020-07-20,2020-09-20,2020-10-20,2020-12-20); it is not ingested (identical worksheet title would collide on extraction, and it is a strictly-corrupted variant). Anomalies in this faithful copy, preserved verbatim: three trailing non-breaking spaces (2E1HON, G0TQK, G7IWE), one interior space (G6 FMU), two non-uppercase callsigns (2e1GTD, g0jrk), 388 four-character heritage callsigns and 51 callsigns of six to nine characters (mostly reciprocal M/... forms).",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20230103113243/https://www.ofcom.org.uk/__data/assets/excel_doc/0031/196168/List-of-Allocated-amateur-radio-callsigns.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-sheet-1-allocated-callsign-as-at-260320.csv": {
+      "bytes": 1476811,
+      "sha256": "9508b7e1ac49de8df82d4334dd19fb7778f34985578ac405f98f8459d1ce855e",
+      "role": "extract",
+      "extractOf": "list-of-allocated-amateur-radio-callsigns.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts",
+      "contentsIndicative": "mechanical extract of the sole worksheet; header Value,Status then 92,318 rows. Status 'Allocated' throughout. All anomalies preserved verbatim (trailing non-breaking spaces, interior space, non-uppercase callsigns, heritage four-character and over-length reciprocal callsigns)."
+    },
+    "normalised--sheet-1-allocated-callsign-as-at-260320.csv": {
+      "bytes": 1569140,
+      "sha256": "47d8629b69b0968713caf7a749056fa121ea41b1bb0561d0a665b146679f43d7",
+      "role": "normalised",
+      "datasetClasses": ["register-snapshot"],
+      "normalisedFrom": "raw-extract-sheet-1-allocated-callsign-as-at-260320.csv",
+      "contentsIndicative": "header callsign,status,licence_class; 92,318 rows sorted by callsign (source order carries no meaning). Status carried verbatim ('Allocated' on every row - a genuine per-row column, not a declared attribution); licence_class emitted empty (no class disclosed). Three trailing non-breaking spaces were trimmed from callsigns and counted in the converter notes (never silent); the interior-space 'G6 FMU' and the non-uppercase callsigns are preserved verbatim."
+    },
+    "correspondence.md": {
+      "bytes": 4248,
+      "sha256": "d705a4ab0211519b50720672a7a76cd08b704e386ed7b54006db2642665353e4",
+      "role": "transcript"
+    }
+  }
+}

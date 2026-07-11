@@ -580,6 +580,81 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
     datedRegisterConversion('raw-extract-sheet-1-sheet1.csv', 'Original start date', 'Licence type', '2021-04-21'),
   ],
 
+  // ofcom-2020-03-26 (UK Government Web Archive capture of an Ofcom FOI-log
+  // annex, "Allocated CallSign as at 260320"): a STATUS-FILTERED register
+  // export - Ofcom disclosed only the Allocated rows, in the minimal
+  // 'Value, Status' shape (no Type, no class, no dates). Status is a genuine
+  // per-row column carried verbatim (Allocated on every row), NOT a declared
+  // attribution: the list is partial by COVERAGE (allocated-only), not by
+  // per-row uncertainty. No licence class is disclosed, so licence_class is
+  // emitted empty to keep the callsign-observation core stable (as in
+  // ofcom-2017-07-13 and ofcom-01420046). No date columns, so no reference
+  // bound. A companion Ofcom asset (194533) carries the same 92,318-row export
+  // but with eleven suffix-month callsigns (20JAN, 21JAN, 20FEB, 20MAR, 20APR,
+  // 20MAY, 20JUL, 20SEP, 20OCT, 20DEC, 21MAR) mangled by Excel into date
+  // serials; this faithful witness (196168) preserves them as text and is the
+  // one ingested (the divergence is enumerated in the entry meta).
+  'ofcom-2020-03-26-allocated': [
+    {
+      sourceFile: 'raw-extract-sheet-1-allocated-callsign-as-at-260320.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Value', output: 'callsign', kind: 'verbatim' },
+        { source: 'Status', output: 'status', kind: 'verbatim' },
+        // No licence class is disclosed; emitted empty to keep the
+        // callsign-observation core schema stable.
+        { source: null, output: 'licence_class', kind: 'verbatim' },
+      ],
+      ignoredColumns: [],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'the source is already grouped by suffix but carries no meaningful publication order (no dates); sorted by callsign for diffability and cross-snapshot comparability',
+    },
+  ],
+
+  // ofcom-2020-10-23 (UK Government Web Archive capture of an Ofcom FOI-log
+  // annex, "Reserved Callsigns 23-10-2020"): the companion STATUS-FILTERED
+  // export to the March allocated list, disclosed as a workbook so its dates
+  // arrive typed and the extract renders them ISO (iso-date). Ofcom filtered
+  // to the Reserved rows, but the Status column is genuine and carried
+  // verbatim: 50,260 Reserved plus 264 Available rows that ride along despite
+  // the "Reserved" title (a title/data mismatch preserved, not reconciled).
+  // No licence product/class is disclosed (Type is the constant service
+  // discriminator, required-present not carried), so licence_class is emitted
+  // empty. Created Date and Last Modified Date are record timestamps that
+  // cannot postdate the snapshot (bounded by referenceDateIso); Reserved to
+  // Date is a reservation EXPIRY (a validity END, legitimately future -
+  // 2022 observed - so futureAllowed); Licence Cancel Date is a past
+  // cancellation date carried where present (7,397 rows, reaching back to the
+  // 1930s). referenceDateIso is the vintage, corroborated by the data's own
+  // Created/Last-Modified dates topping out at exactly 2020-10-23.
+  'ofcom-2020-10-23-reserved': [
+    {
+      sourceFile: 'raw-extract-sheet-1-reserved-callsigns-23-10-2020.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Value', output: 'callsign', kind: 'verbatim' },
+        { source: 'Status', output: 'status', kind: 'verbatim' },
+        // No licence product/class is disclosed; emitted empty to keep the
+        // callsign-observation core schema stable.
+        { source: null, output: 'licence_class', kind: 'verbatim' },
+        // Record-creation and last-modified timestamps; neither can postdate
+        // the snapshot, so both are bounded by referenceDateIso.
+        { source: 'Call Sign MMSI: Created Date', output: 'created_date', kind: 'iso-date' },
+        { source: 'Call Sign MMSI: Last Modified Date', output: 'last_modified_date', kind: 'iso-date' },
+        // Reservation EXPIRY - a validity END, so future values are legitimate.
+        { source: 'Reserved to Date', output: 'reserved_to_date', kind: 'iso-date', futureAllowed: true },
+        // A past cancellation date; cannot postdate the snapshot, so bounded.
+        { source: 'Licence Cancel Date', output: 'licence_cancel_date', kind: 'iso-date' },
+      ],
+      // 'Type' is 'Call Sign - Amateur' on every row - the product/service
+      // discriminator, required present, not carried.
+      ignoredColumns: ['Type'],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability (the one blank callsign sorts first)',
+      referenceDateIso: '2020-10-23',
+    },
+  ],
+
   // ofcom-2024-12 (Ofcom disclosure log, December 2024): the five-years-on
   // forbidden-suffix comparison point. A suspected Salesforce object export -
   // two columns, Name (the three-letter suffix) and LastModifiedDate - so,
@@ -1102,6 +1177,10 @@ export const FOI_EXTENSION_COLUMNS: Readonly<Record<string, FoiExtensionColumn>>
   original_start_date: {
     definition: 'the licence\'s original start date as disclosed, ISO-rendered; per-source semantics caveats live in the entry meta',
     families: ['callsign-observation', 'callsign-attributes'],
+  },
+  licence_cancel_date: {
+    definition: 'the date a licence was cancelled as disclosed in a register export, ISO-rendered; a past event that cannot postdate the snapshot, recorded only where the source carries one (historic values reach back to the 1930s)',
+    families: ['callsign-observation'],
   },
   last_modified_date: {
     definition: 'the record\'s last-modified timestamp as disclosed in a Salesforce-era export, ISO-rendered with any time-of-day kept: per-suffix provenance in the forbidden-suffix list, per-callsign provenance in the 2023-24 register snapshots - in both cases the dated provenance the earlier exports lack',

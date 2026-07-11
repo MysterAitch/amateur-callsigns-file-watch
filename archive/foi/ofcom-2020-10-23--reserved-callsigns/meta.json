@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no FOI case reference is stated on the disclosed asset; it was published as an Ofcom __data asset (id 206901) and captured by the UK Government Web Archive. The asset id is a hosting identifier, not an FOI reference, so ofcomReference is left null rather than asserted.",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/file/0018/206901/list-of-amateur-radio-call-signs.xlsx",
+  "title": "List of reserved amateur radio callsigns as at 23 October 2020 (Ofcom FOI disclosure)",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "not held; no request thread accompanies the disclosed asset.",
+  "respondedAt": null,
+  "respondedAtNote": "not stated in the held material; the disclosure is an FOI-response annex captured by the UK Government Web Archive on 2023-01-03, and both the worksheet title and the data's own Created/Last-Modified dates place the vintage at 2020-10-23 (see dataVintage).",
+  "outcome": "successful",
+  "dataVintage": "2020-10-23",
+  "dataVintageNote": "declared by the worksheet title 'Reserved Callsigns 23-10-2020' and independently corroborated by the data: the Call Sign MMSI Created Date and Last Modified Date columns top out at exactly 2020-10-23. Pairs with the March-2020 allocated companion captured in the same UK Government Web Archive crawl.",
+  "datasetRecovery": "partial",
+  "datasetRecoveryNote": "the FOI response was fully recovered - all disclosed bytes are held and hash-verified. 'partial' records that this disclosure is a STATUS-FILTERED subset of the register (reserved-only, with 264 stray Available rows): it is an incomplete capture of the full register that existed at the vintage, not a complete register snapshot. This is a COVERAGE statement, not a claim that bytes are missing; it also flags the entry to the cross-dataset overlap probe so its by-construction-limited overlap is marked partial rather than read as low take-up. See the modelling note carried to reviewers.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2020-10-23-reserved" },
+  "relatedEntries": [
+    { "entry": "ofcom-2020-03-26--allocated-callsigns", "relation": "the companion status-filtered export from the same 2020 FOI material (the allocated slice, as at 2020-03-26); together the only 2020 register-vintage lists held." },
+    { "entry": "ofcom-756622--published-register-csv", "relation": "the preceding full FOI register snapshot (2019-09-12, 141,295 records); this reserved-only list is a partial view roughly thirteen months later." },
+    { "entry": "ofcom-01420046--allocated-reserved-callsigns", "relation": "the next full FOI register snapshot (2022-03-07, 150,181 records, allocated AND reserved combined, plus 377 Available); this 2020 pair sits between the 2019 and 2022 full snapshots." }
+  ],
+  "files": {
+    "list-of-amateur-radio-call-signs.xlsx": {
+      "bytes": 1443123,
+      "sha256": "344d190a8d8f56c869643016de68ab84294ae26ea8cd6f39cdc7938d07dfd04e",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "contentsIndicative": "one worksheet, 'Reserved Callsigns 23-10-2020': header Value,Status,Type,Call Sign MMSI: Created Date,Call Sign MMSI: Last Modified Date,Reserved to Date,Licence Cancel Date then 50,524 data rows. Status 50,260 Reserved and 264 Available (the stray Available rows are preserved, not reconciled to the 'Reserved' title). Type is 'Call Sign - Amateur' on every row. Created Date and Last Modified Date populated on every row (2016-07-23 to 2020-10-23); Reserved to Date on 93 rows (a reservation expiry, values reaching 2022); Licence Cancel Date on 7,397 rows, reaching back to 1932-01-26. Anomalies preserved verbatim: one blank callsign; three callsigns (20FEB, 20AUG, 20NOV) mangled by Excel into date serials 2020-02-20, 2020-08-20, 2020-11-20; 84 four-character heritage callsigns and a run of over-length reciprocal M/... forms including M/M/PT2FM.",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20230103113243/https://www.ofcom.org.uk/__data/assets/file/0018/206901/list-of-amateur-radio-call-signs.xlsx",
+          "fetchedAt": "2026-07-07"
+        }
+      ]
+    },
+    "raw-extract-sheet-1-reserved-callsigns-23-10-2020.csv": {
+      "bytes": 3056195,
+      "sha256": "72d8e55f7419a0308afa6e81f64e611bb7df1192d5f22e2e1bc411c9d58043e5",
+      "role": "extract",
+      "extractOf": "list-of-amateur-radio-call-signs.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts",
+      "contentsIndicative": "mechanical extract of the sole worksheet; the seven-column header then 50,524 rows, dates rendered ISO from their stored serials. All anomalies preserved verbatim (blank callsign, three Excel-date-mangled callsigns, heritage four-character and over-length reciprocal callsigns)."
+    },
+    "normalised--sheet-1-reserved-callsigns-23-10-2020.csv": {
+      "bytes": 2096219,
+      "sha256": "3b948a9e186cd6d38549a765b6056ea3bd5d6809583cbe27c8f939c026078d08",
+      "role": "normalised",
+      "datasetClasses": ["register-snapshot"],
+      "normalisedFrom": "raw-extract-sheet-1-reserved-callsigns-23-10-2020.csv",
+      "contentsIndicative": "header callsign,status,licence_class,created_date,last_modified_date,reserved_to_date,licence_cancel_date; 50,524 rows sorted by callsign (source order carries no meaning). Status carried verbatim (50,260 Reserved, 264 Available - a genuine per-row column, not a declared attribution); licence_class emitted empty (no product/class disclosed; the constant Type discriminator is required-present but not carried). Dates carried ISO where present: created_date and last_modified_date on every row, reserved_to_date on 93 rows (futureAllowed - a reservation expiry), licence_cancel_date on 7,397 rows (bounded by the vintage, oldest 1932-01-26). The one blank callsign sorts first; the three Excel-date-mangled callsigns (2020-02-20, 2020-08-20, 2020-11-20) are preserved verbatim in the callsign column. Blank counts recorded in the converter notes."
+    },
+    "correspondence.md": {
+      "bytes": 3799,
+      "sha256": "7805d87316bca7be7f46ed9b9b9b9bff7e0965270816efadde12de8577a06f58",
+      "role": "transcript"
+    }
+  }
+}

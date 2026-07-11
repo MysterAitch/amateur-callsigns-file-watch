@@ -21,7 +21,7 @@ This documents **what exists**. Whether each derivation still *verifies* is the
 | 2025-06-08 | ✔ | ✔ | ✔ | ✔ |
 | 2026-06-23 | ✔ | ✔ | ✔ | ✔ |
 
-## FOI lane (46 entries)
+## FOI lane (48 entries)
 
 Extracts: `mech` = mechanically re-derivable (xlsx, via `src/shared/xlsx-extract.ts`);
 `transcr` = attested transcription of a PDF (see the entry's raw-extract file).
@@ -34,6 +34,8 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | ofcom-2016-09-20--callsign-database--all-callsigns | successful | register-snapshot | 2016-09-20 | ✔ 1 | 1 mech | `ofcom-2016-09-20-register` | ✔ 1 |
 | ofcom-2017-07-03--all-callsigns-with-status | successful | register-snapshot, reference-context | 2017-04-24 | ✔ 1 | 1 transcr | — | — |
 | ofcom-2017-07-13--all-callsigns | successful | register-snapshot | 2017-07-13 | ✔ 1 | — | `ofcom-2017-07-13-register` | ✔ 1 |
+| ofcom-2020-03-26--allocated-callsigns | successful | register-snapshot | 2020-03-26 | ✔ 1 | 1 mech | `ofcom-2020-03-26-allocated` | ✔ 1 |
+| ofcom-2020-10-23--reserved-callsigns | successful | register-snapshot | 2020-10-23 | ✔ 1 | 1 mech | `ofcom-2020-10-23-reserved` | ✔ 1 |
 | ofcom-2021-01--all-callsigns | successful | register-snapshot | 2021-01-29 | ✔ 1 | 1 mech | `ofcom-2021-01-register` | ✔ 1 |
 | ofcom-2021-04--all-callsigns | successful | register-snapshot | 2021-04-21 | ✔ 1 | 1 mech | `ofcom-2021-04-register` | ✔ 1 |
 | ofcom-2022-03-14--available-and-registered--all-callsigns | successful | register-snapshot | 2022-03-14 | ✔ 1 | 1 mech | `ofcom-2022-03-14-register` | ✔ 1 |

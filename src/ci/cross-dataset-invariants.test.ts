@@ -86,12 +86,12 @@ describe('cross-dataset invariants — available × record-of overlap matrix', (
   it('OverlapMatrix_RealArchive_HasNinePoolRowsAndVintageOrderedRegisterColumns', () => {
     // Nine available-pool snapshots (2013–2016) as rows.
     expect(m.pools.length).toBe(9);
-    // Twenty-eight surviving register columns: seven open-data publications
-    // plus twenty-one FOI register-snapshots (two 2016/2019 FOI snapshots that
+    // Thirty surviving register columns: seven open-data publications plus
+    // twenty-three FOI register-snapshots (two 2016/2019 FOI snapshots that
     // hold no callsign union are dropped, not shown as all-zero columns).
-    expect(m.registers.length).toBe(28);
+    expect(m.registers.length).toBe(30);
     expect(m.registers.filter(r => r.kind === 'open-data')).toHaveLength(7);
-    expect(m.registers.filter(r => r.kind === 'foi')).toHaveLength(21);
+    expect(m.registers.filter(r => r.kind === 'foi')).toHaveLength(23);
     // Every pool row carries exactly one cell per register column.
     expect(m.present.length).toBe(m.pools.length);
     for (const row of m.present) expect(row.length).toBe(m.registers.length);
@@ -100,8 +100,10 @@ describe('cross-dataset invariants — available × record-of overlap matrix', (
     const monotonic = (v: string[]): boolean => v.every((x, i) => i === 0 || v[i - 1].localeCompare(x) <= 0);
     expect(monotonic(m.registers.map(r => r.vintage))).toBe(true);
     expect(monotonic(m.pools.map(p => p.vintage))).toBe(true);
-    // The two truncated publications are flagged partial, not read as low take-up.
-    expect(m.registers.filter(r => r.partial).map(r => r.key)).toEqual(['2025-05-27', '2025-06-08']);
+    // Four partial-coverage columns are flagged, not read as low take-up: the
+    // two 2020 FOI exports are status-filtered slices (allocated-only and
+    // reserved-only) and the two 2025 open-data publications are truncated.
+    expect(m.registers.filter(r => r.partial).map(r => r.key)).toEqual(['ofcom-2020-03-26--allocated-callsigns', 'ofcom-2020-10-23--reserved-callsigns', '2025-05-27', '2025-06-08']);
   });
 
   it('OverlapMatrix_2013PoolVsLatestRegister_PresentEqualsDepletionComplement', () => {
