@@ -221,10 +221,11 @@ the reusable "fold a committed report from the claim data via DuckDB" primitive,
 with DuckDB adopted in CI as a pinned binary and the first report
 (cross-dataset-invariants) migrated onto it and verified against its golden; the
 derived canonical licence-category tier; and extension of ledger ingestion
-across all six current source families — the FOI register snapshots, the
-open-data register family, the attribute addenda, and the bespoke non-callsign
+across all seven current source families — the FOI register snapshots, the
+open-data register family, the attribute addenda, the bespoke non-callsign
 families (forbidden-suffix lists, statistics aggregates, and available-pool
-disclosures) — each joined through a shared collector registry
+disclosures), and the issuance-events family (callsign-subject dated licensing
+events) — each joined through a shared collector registry
 (`src/v2/collectors/`) in which adding a family is adding a module plus one
 registry line, so the source-family-extension pattern is now proven across the
 corpus rather than on a single family.
