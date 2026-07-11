@@ -45,11 +45,11 @@ the raw per-variant figures would double-count and mislead.
 
 | normalised category | records | callsigns | allocated | folds in |
 |---|---:|---:|---:|---|
-| `Full` | 1,361,439 | 98,747 | 59,495 | `Amateur Full Radio Licence` (1,155,612), `Full` (205,827) |
-| `Foundation` | 778,772 | 47,342 | 37,936 | `Amateur Foundation Radio Licence` (688,152), `Foundation` (90,620) |
-| `Intermediate` | 374,176 | 24,056 | 15,286 | `Amateur Intermediate Radio Licence` (311,796), `Intermediate` (62,380) |
-| `Club` | 35,754 | 2,459 | 2,143 | `Amateur Club Radio Licence` (35,754) |
-| `Temporary Reciprocal` | 1,436 | 126 | 83 | `Amateur Temporary Reciprocal Radio Licence` (1,436) |
+| `Full` | 1,295,732 | 94,764 | 59,492 | `Amateur Full Radio Licence` (1,112,894), `Full` (182,838) |
+| `Foundation` | 715,656 | 45,331 | 37,935 | `Amateur Foundation Radio Licence` (650,132), `Foundation` (65,524) |
+| `Intermediate` | 295,213 | 21,136 | 15,273 | `Amateur Intermediate Radio Licence` (260,985), `Intermediate` (34,228) |
+| `Club` | 35,737 | 2,460 | 2,143 | `Amateur Club Radio Licence` (35,737) |
+| `Temporary Reciprocal` | 1,436 | 122 | 82 | `Amateur Temporary Reciprocal Radio Licence` (1,436) |
 | `Special Event` | 1,333 | 1,316 | 54 | `Special Event Station` (1,333) |
 | `Full Reciprocal` | 15 | 15 | 0 | `Amateur Full (Reciprocal) Radio Licence` (15) |
 
