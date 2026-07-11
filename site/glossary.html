@@ -36,6 +36,143 @@
     </header>
 
     <div class="wrap">
+    <section class="panel" id="axes">
+      <div class="eyebrow">the model</div>
+      <h2>Three axes, deliberately not conflated</h2>
+      <p>The project describes every piece of its data along three
+      <strong>separate</strong> questions. They are easy to run together and must
+      not be: a highly authoritative source can still yield a low-confidence
+      value, and a fully processed file says nothing about how sure any single
+      value inside it is. Each axis has its own ladder of rungs, shown below as
+      tier badges in order, and each ladder carries its own colour accent so the
+      three are never mistaken for one another.</p>
+
+      <div class="axis processing" id="axis-processing">
+        <h3>1 · Processing progress</h3>
+        <p class="axis-q">Per dataset — how far have we taken this file?</p>
+        <div class="ladder" aria-label="Processing progress rungs, in order">
+          <span class="rung"><span class="seq">1</span><span class="name">Read</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">2</span><span class="name">Understood</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">3</span><span class="name">Validated</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">4</span><span class="name">Normalised</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">5</span><span class="name">Enriched</span></span>
+        </div>
+        <p class="axis-where">An operational ladder, like build tasks: how far a
+        file has been carried through the pipeline. Surfaced — and computed at
+        deploy from the committed archive — on the
+        <a href="data-status.html">data-status</a> tracker, which doubles as the
+        work-queue. A stage that has not run is shown as a fact, never implied
+        complete.</p>
+        <dl class="gloss">
+          <dt>Read</dt>
+          <dd>Raw bytes archived and openable: turned into machine-readable
+          rows — a container opened, sheets or CSV extracted. A PDF scan stays
+          not-read until it is transcribed or OCR'd.</dd>
+          <dt>Understood</dt>
+          <dd>The shape, columns, encoding and meaning are known: the domain
+          fields in the extract are identified and mapped to the canonical shape
+          — which column is the callsign, which the status, which the licence
+          class.</dd>
+          <dt>Validated</dt>
+          <dd>The extract passes the committed integrity contract — the
+          invariants and sanity gates: <a href="#observation">line and row</a>
+          accounting reconciles and values parse, enforced by the validators in
+          continuous integration.</dd>
+          <dt>Normalised</dt>
+          <dd>A canonical <a href="#normalised">normalised</a> view exists,
+          mapped into the shared schema and joinable across snapshots —
+          deterministic transforms only: <a href="#cleaned">clean</a> the
+          callsign, carry status and class verbatim, render dates ISO.</dd>
+          <dt>Enriched</dt>
+          <dd>Derived attributes computed by authoritative reference joins —
+          <a href="#prefix-series">prefix</a>→country (ITU), <a href="#rsl">RSL</a>→region,
+          suffix→<a href="#forbidden-suffix">forbidden-suffix</a> membership —
+          with parsed components, quality flags and cross-dataset links
+          attached.</dd>
+        </dl>
+      </div>
+
+      <div class="axis authority" id="axis-authority">
+        <h3>2 · Source authority</h3>
+        <p class="axis-q">Per source — who published it, and how official?</p>
+        <div class="ladder" aria-label="Source authority rungs, in order">
+          <span class="rung"><span class="seq">1</span><span class="name">Official</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">2</span><span class="name">FOI</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">3</span><span class="name">Reference</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">4</span><span class="name">Community</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">5</span><span class="name">Self</span></span>
+        </div>
+        <p class="axis-where">Recorded in each dataset's metadata (its
+        <code>meta.json</code>) and shown for every entry in the
+        <a href="datasets/index.html">dataset index</a>. These are
+        <strong>not</strong> strictly better-or-worse rungs — they describe
+        <em>origin</em>. Authority then combines with how a value was produced to
+        give a claim's confidence (axis 3).</p>
+        <dl class="gloss">
+          <dt>Official</dt>
+          <dd>Ofcom's own published open data — the register export it releases
+          periodically as open data.</dd>
+          <dt>FOI</dt>
+          <dd>Released under a Freedom-of-Information request: Ofcom's disclosure
+          log or the <a href="https://www.whatdotheyknow.com/">WhatDoTheyKnow</a>
+          request archive.</dd>
+          <dt>Reference</dt>
+          <dd>Authoritative external standards — the ITU callsign series,
+          published licence conditions, RSGB guidance.</dd>
+          <dt>Community</dt>
+          <dd>Contributed or collated by the amateur-radio community.</dd>
+          <dt>Self</dt>
+          <dd>Derived or asserted by this project itself — the lowest-authority
+          origin, and always attributable to a rule or note here.</dd>
+        </dl>
+      </div>
+
+      <div class="axis confidence" id="axis-confidence">
+        <h3>3 · Claim confidence</h3>
+        <p class="axis-q">Per individual value — how sure are we of <em>this</em> value?</p>
+        <div class="ladder" aria-label="Claim confidence rungs, in order">
+          <span class="rung"><span class="seq">1</span><span class="name">As-published</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">2</span><span class="name">Computed</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">3</span><span class="name">Looked-up</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">4</span><span class="name">Community</span></span>
+          <span class="sep">→</span>
+          <span class="rung"><span class="seq">5</span><span class="name">Best-guess</span></span>
+        </div>
+        <p class="axis-where">Tiered per value in the JSONL claim ledger and
+        surfaced on the <a href="ledger.html">Ledger</a>. It is a readout of
+        <a href="#axis-authority">source authority</a> × how the value was
+        produced: a high-authority source can still yield a low-confidence claim,
+        which is exactly why this axis is kept apart from the other two.</p>
+        <dl class="gloss">
+          <dt>As-published</dt>
+          <dd>The raw token exactly as the source gave it — verbatim, untouched.</dd>
+          <dt>Computed</dt>
+          <dd>Deterministically derived by an attributed rule — for example the
+          <a href="#cleaned">cleaned</a> or <a href="#normalised">normalised</a>
+          form of a raw value.</dd>
+          <dt>Looked-up</dt>
+          <dd>Resolved via a reference table — for example a licence category
+          derived from the product code.</dd>
+          <dt>Community</dt>
+          <dd>Drawn from community knowledge rather than a published source.</dd>
+          <dt>Best-guess</dt>
+          <dd>An inferred fallback where nothing better exists — always flagged
+          as such, never presented as fact.</dd>
+        </dl>
+      </div>
+    </section>
+
     <section class="panel" id="status">
       <div class="eyebrow">status vocabulary</div>
       <h2 id="status-values">Register status values</h2>

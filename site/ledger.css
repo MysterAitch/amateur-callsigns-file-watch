@@ -308,3 +308,73 @@
 .ledger details { margin: 8px 0; }
 .ledger details > summary { cursor: pointer; font-family: var(--mono); font-size: 12.5px; color: var(--signal); }
 .ledger abbr { cursor: help; }
+
+/* ---------------------------------------------------------------------------
+   Interactive tool surfaces (Lookup, Explore, Compare). These pages carry the
+   live controls the hand-authored content pages do not - text and number
+   inputs, database and series selects, the SQL query textareas, filter
+   fieldsets, and primary/secondary action buttons - plus the cards and
+   comparison widgets their scripts render at runtime. The base layout and
+   behaviour still come from style.css; the rules here re-tint those controls
+   into the ledger idiom.
+
+   Rather than out-specify the id-level selectors in style.css control by
+   control, this block first bridges the few shared palette tokens style.css
+   consumes (--accent / --line / --slot / --warn) to their ledger equivalents,
+   so every control adopts the ledger palette with no specificity contest. Real
+   error signals keep their own hard-coded red, so nothing alarming is softened.
+   Everything stays scoped under .ledger, leaving the shared nav/skip and the
+   content pages (which carry none of these controls) untouched.
+   --------------------------------------------------------------------------- */
+.ledger {
+  --accent: var(--raw);
+  --line: var(--hair);
+  --slot: var(--surface-2);
+  --warn: var(--signal);
+}
+
+/* The query and callsign fields are the signature input surfaces: give them the
+   ledger's inset panel fill rather than the transparent default. */
+.ledger #sql-input, .ledger #pred-input, .ledger #callsign { background: var(--surface-2); }
+
+/* One consistent focus ring across every control, matching the ledger's links
+   and chips. */
+.ledger input:focus-visible, .ledger select:focus-visible,
+.ledger textarea:focus-visible, .ledger button:focus-visible {
+  outline: 2px solid var(--signal); outline-offset: 2px;
+}
+
+/* Each tool's hero action (Look up / Run) in the ledger's signal amber - the
+   same treatment as a pressed chip - so it reads as the primary call to action;
+   utility buttons keep the bridged link-blue. */
+.ledger button[type="submit"] { background: var(--signal); border-color: var(--signal); color: #fff; }
+
+/* Runtime-rendered result cards (lookup matches, register/FOI history) read as
+   ledger sub-panels within their surrounding panel. */
+.ledger .card { background: var(--surface); border: 1px solid var(--hair); border-radius: 12px;
+  box-shadow: var(--shadow); }
+.ledger .card h3 { font-size: 15px; margin: 0 0 8px; }
+
+/* The three-axis model (glossary): each axis is a labelled block whose rungs are
+   shown as ordered tier badges - a monospace signature pill with a leading
+   sequence number - so the ladder reads left to right. The connective arrows are
+   muted and drop away when the rungs wrap on a narrow screen. */
+.ledger .axis { margin-top: 18px; }
+.ledger .axis:first-of-type { margin-top: 6px; }
+.ledger .axis > h3 { font-size: 16px; margin: 0 0 2px; }
+.ledger .axis .axis-q { color: var(--muted); font-style: italic; margin: 0 0 6px; }
+.ledger .axis .axis-where { font-size: 13px; margin: 0 0 12px; }
+.ledger .ladder { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 10px; }
+.ledger .rung { display: inline-flex; align-items: baseline; gap: 7px; font-family: var(--mono);
+  font-size: 12.5px; padding: 4px 11px; border-radius: 8px; background: var(--surface-2);
+  border: 1px solid var(--hair); }
+.ledger .rung .seq { font-size: 10px; font-weight: 700; color: var(--faint); font-variant-numeric: tabular-nums; }
+.ledger .rung .name { font-weight: 600; color: var(--ink); }
+.ledger .ladder .sep { color: var(--faint); font-family: var(--mono); font-weight: 700; }
+@media (max-width: 620px) { .ledger .ladder .sep { display: none; } }
+/* The processing axis is tinted like a derived stage, authority like an observed
+   source, confidence like the signal, so the three ladders are told apart at a
+   glance without relying on their labels alone. */
+.ledger .axis.processing .rung { border-left: 3px solid var(--derived); }
+.ledger .axis.authority .rung { border-left: 3px solid var(--raw); }
+.ledger .axis.confidence .rung { border-left: 3px solid var(--signal); }
