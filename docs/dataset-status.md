@@ -5,7 +5,7 @@ the test suite fails when this file is stale, so any PR changing archive content
 must include the regenerated table (changelog discipline, enforced).
 
 This documents **what exists**. Whether each derivation still *verifies* is the
-[normalisation coverage dashboard](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/43)
+[normalisation coverage dashboard](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/360)
 (daily sweeps); intake that has not reached the archive yet is tracked in
 [`source-register.md`](source-register.md).
 

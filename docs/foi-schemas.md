@@ -12,6 +12,10 @@ The union view is a derived, downstream projection (SQLite / published
 union CSV), never the committed format. The open-data lane's schema is
 documented separately in [`normalised-schema.md`](normalised-schema.md).
 
+Under [ADR 0013](adr/0013-raw-keyed-claim-ledger.md), these schemas are being
+recast as **derived folds** over the raw-keyed claim ledger rather than the
+canonical format; the vocabulary here remains the contract in the interim.
+
 ## Dataset classes (entry-level vocabulary)
 
 | class | definition |

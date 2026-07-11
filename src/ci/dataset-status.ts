@@ -11,7 +11,7 @@
  * normalised files do. Facts come from meta.json declarations only - the
  * generator asserts nothing the metas do not.
  *
- * Division of labour: this file documents WHAT exists; the #43 dashboard
+ * Division of labour: this file documents WHAT exists; the #360 dashboard
  * (normalise + FOI sweeps) reports whether the derivations VERIFY; and
  * docs/source-register.md tracks intake that has not reached the archive
  * yet.
@@ -67,7 +67,7 @@ export function renderDatasetStatus(): string {
     'must include the regenerated table (changelog discipline, enforced).',
     '',
     'This documents **what exists**. Whether each derivation still *verifies* is the',
-    '[normalisation coverage dashboard](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/43)',
+    '[normalisation coverage dashboard](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/360)',
     "(daily sweeps); intake that has not reached the archive yet is tracked in",
     '[`source-register.md`](source-register.md).',
     '',
