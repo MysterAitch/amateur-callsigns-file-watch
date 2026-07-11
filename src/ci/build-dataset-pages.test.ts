@@ -542,11 +542,14 @@ describe('Dataset pages build', () => {
     expect(explore).toContain('<label for="sql-input">');
     // The status line announces politely to assistive tech.
     expect(explore).toContain('id="sql-status" class="muted" role="status"');
-    // Every static page also carries the skip link + main landmark.
+    // Every static page also carries the skip link + main landmark. The
+    // landmark may carry a page-scoping class, so it is matched by its id (the
+    // skip-link target that satisfies the a11y requirement) rather than an
+    // attribute-exact substring that a styling class would break.
     for (const page of ['index', 'statistics', 'explore', 'compare']) {
       const html = fs.readFileSync(path.join('site', `${page}.html`), 'utf8');
       expect(html).toContain('<a class="skip" href="#main">Skip to content</a>');
-      expect(html).toContain('<main id="main">');
+      expect(html).toMatch(/<main id="main"[^>]*>/);
     }
   });
 
@@ -556,7 +559,7 @@ describe('Dataset pages build', () => {
     for (const rel of [['datasets', 'index.html'], ['reports', 'index.html'], ['series', 'M7.html'], ['datasets', 'open-data', '2026-06-23', 'index.html']]) {
       const html = fs.readFileSync(path.join(outputDir, ...rel), 'utf8');
       expect(html).toContain('<a class="skip" href="#main">Skip to content</a>');
-      expect(html).toContain('<main id="main">');
+      expect(html).toMatch(/<main id="main"[^>]*>/);
       expect(html).toContain('</main>');
     }
   });

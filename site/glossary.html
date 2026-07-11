@@ -6,36 +6,38 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
   <title>Glossary — UK amateur callsign data mirror</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Adopts the bespoke visual language scoped under .ledger (ledger.css),
+       which also carries the definition-list styling for the glossary entries;
+       the shared nav and skip link stay styled by tokens.css/style.css. -->
+  <link rel="stylesheet" href="ledger.css">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#14506e">
-  <!-- Definition-list styling for the glossary entries; the shared .skip class
-       (site/style.css) handles the skip link. -->
-  <style>
-    dl.gloss dt { font-weight: 600; margin-top: 0.9rem; }
-    dl.gloss dt:target { background: color-mix(in srgb, var(--accent) 18%, transparent); border-radius: 4px; padding: 0.1rem 0.3rem; margin-left: -0.3rem; }
-    dl.gloss dd { margin: 0.2rem 0 0; }
-  </style>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
   <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <strong>Glossary</strong> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">Repository</a></p></nav>
   <!-- nav:end -->
-  <header>
-    <h1>Glossary</h1>
-    <p class="subtitle">
-      Plain-language definitions of the terms that recur across the lookup,
-      Explore, Compare, dataset and series pages. Each entry is one clear
-      line, deep-linkable by its <span class="mono">#anchor</span>. This is a
-      human-first layer above the column-level
-      <a href="datasets/docs/normalised-schema.html">data dictionary</a> and
-      <a href="datasets/docs/flags.html">flag registry</a>, which remain the
-      authoritative, per-field references.
-    </p>
-  </header>
+  <main id="main" class="ledger">
+    <header>
+      <div class="head-inner">
+        <div class="eyebrow">plain-language reference</div>
+        <h1>Glossary</h1>
+        <p class="lede">
+          Plain-language definitions of the terms that recur across the lookup,
+          Explore, Compare, dataset and series pages. Each entry is one clear
+          line, deep-linkable by its <span class="mono">#anchor</span>. This is a
+          human-first layer above the column-level
+          <a href="datasets/docs/normalised-schema.html">data dictionary</a> and
+          <a href="datasets/docs/flags.html">flag registry</a>, which remain the
+          authoritative, per-field references.
+        </p>
+      </div>
+    </header>
 
-  <main id="main">
-    <section id="status">
+    <div class="wrap">
+    <section class="panel" id="status">
+      <div class="eyebrow">status vocabulary</div>
       <h2 id="status-values">Register status values</h2>
       <p class="muted">The register's <code>status</code> column records the
       state Ofcom holds for a callsign. The mirror reports the value verbatim
@@ -93,7 +95,8 @@
       </dl>
     </section>
 
-    <section id="terms">
+    <section class="panel" id="terms">
+      <div class="eyebrow">terms and notation</div>
       <h2>Terms and notation</h2>
       <dl class="gloss">
         <dt id="prefix-series">Prefix series</dt>
@@ -175,6 +178,7 @@
       authoritative. An independent, unofficial mirror — see
       <a href="about.html">About</a>.</small></p>
     </footer>
+    </div>
   </main>
   <!-- Offline-first (ADR 0008): register the service worker so the static shell
        is cached and the site loads offline. No database is cached unless the

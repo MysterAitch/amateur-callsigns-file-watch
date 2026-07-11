@@ -244,3 +244,67 @@
 .ledger .cdot.on { background: var(--change-soft); color: var(--change); }
 .ledger .cdot.off { background: transparent; color: var(--faint); border: 1px dashed var(--hair); }
 @media (prefers-reduced-motion: reduce) { .ledger * { transition: none !important; } }
+
+/* ---------------------------------------------------------------------------
+   Shared content surfaces. The hand-authored content pages - About, Glossary
+   and the static Statistics page - adopt this visual language by wrapping their
+   main content in `.ledger` and reusing the panel / eyebrow / callout family
+   above. These rules extend the vocabulary to the components those pages carry
+   that the claim-ledger preview did not: prose inside panels, definition lists,
+   inline code, and the shared data tables and flag pills the Statistics build
+   injects. Everything stays scoped under `.ledger`, so the shared nav and skip
+   link keep their tokens.css styling untouched.
+   --------------------------------------------------------------------------- */
+
+/* Prose inside a panel: a readable measure, muted secondary text. */
+.ledger .panel p { margin: 0 0 12px; max-width: 72ch; }
+.ledger .panel > p:last-child { margin-bottom: 0; }
+.ledger .panel ul { margin: 0 0 12px; padding-left: 1.2em; max-width: 72ch; }
+.ledger .panel li { margin: 4px 0; }
+.ledger .panel li::marker { color: var(--faint); }
+.ledger .panel strong { color: var(--ink); font-weight: 600; }
+.ledger .panel h2 { margin: 6px 0 4px; }
+
+/* Inline code / monospace tokens, tinted like the ledger's byte chips. */
+.ledger code { font-family: var(--mono); font-size: .92em; background: var(--surface-2);
+  border: 1px solid var(--hair); border-radius: 6px; padding: 1px 6px; color: var(--muted); }
+.ledger .muted { color: var(--muted); }
+.ledger small { font-size: 12.5px; }
+
+/* Definition list (Glossary): terms as monospace signatures, definitions as
+   prose. A :target term lights up in the signal tint so a deep-linked #anchor
+   is obvious on arrival. */
+.ledger dl.gloss { margin: 6px 0 0; }
+.ledger dl.gloss dt { font-family: var(--mono); font-weight: 600; font-size: 14px; color: var(--ink);
+  margin-top: 18px; letter-spacing: .01em; }
+.ledger dl.gloss dt:first-of-type { margin-top: 4px; }
+.ledger dl.gloss dt:target { background: var(--signal-soft); color: var(--signal); border-radius: 6px;
+  padding: 2px 8px; margin-left: -8px; }
+.ledger dl.gloss dd { margin: 5px 0 0; color: var(--muted); max-width: 72ch; }
+.ledger dl.gloss dd ul { margin: 6px 0 0; padding-left: 1.2em; }
+.ledger dl.gloss dd strong { color: var(--ink); }
+.ledger dl.gloss dd code { color: var(--muted); }
+
+/* Shared data tables. The Statistics build injects these under `.overflow`
+   with the plain table / th / td / .num / .flag classes from style.css; here
+   they render in the ledger's census-table idiom - monospace uppercase headers,
+   hairline rows, tabular figures. The page's own .census / .dmg / .pg-table
+   selectors are more specific, so those tables keep their bespoke styling. */
+.ledger .overflow { overflow-x: auto; margin: 6px 0 4px; }
+.ledger table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+.ledger th, .ledger td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--hair);
+  font-size: 13.5px; vertical-align: top; }
+.ledger thead th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--faint); font-weight: 600; }
+.ledger th[scope="row"] { font-weight: 600; color: var(--ink); }
+.ledger td.num, .ledger th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Flag / status pills injected into the statistics tables. */
+.ledger .flag { display: inline-block; font-family: var(--mono); font-size: 11.5px; padding: 1px 8px;
+  margin: 0 4px 4px 0; border-radius: 999px; background: var(--signal-soft); color: var(--signal); }
+.ledger .status-ok { color: var(--steady); }
+
+/* Collapsible detail blocks (e.g. the full callsign-shape taxonomy). */
+.ledger details { margin: 8px 0; }
+.ledger details > summary { cursor: pointer; font-family: var(--mono); font-size: 12.5px; color: var(--signal); }
+.ledger abbr { cursor: help; }
