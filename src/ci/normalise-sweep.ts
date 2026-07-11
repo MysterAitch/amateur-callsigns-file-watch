@@ -32,6 +32,7 @@ import { writeValueCatalogue } from './value-catalogue.ts';
 import { writeCrossDatasetInvariants } from './cross-dataset-invariants.ts';
 import { writeForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { mdCell } from '../shared/markdown.ts';
+import { time, perfReport } from '../shared/perf.ts';
 
 interface SourceConverter {
   schemaVersion: number;
@@ -105,7 +106,7 @@ export function runNormaliseSweep(): SweepReport {
       }
 
       const raw = fs.readFileSync(path.join(dir, 'raw.csv'), 'utf8');
-      const result: ConvertResult = converter.convert(raw, referenceDate, meta.ignoredLines ?? []);
+      const result: ConvertResult = time('sweep:convert', () => converter.convert(raw, referenceDate, meta.ignoredLines ?? []));
 
       const outPath = path.join(dir, 'normalised.csv');
       const statsPath = path.join(dir, 'stats.json');
@@ -127,9 +128,11 @@ export function runNormaliseSweep(): SweepReport {
         continue;
       }
 
-      fs.writeFileSync(outPath, result.csv);
-      fs.writeFileSync(statsPath, statsJson);
-      fs.writeFileSync(componentsPath, result.componentsCsv);
+      time('sweep:write-entry', () => {
+        fs.writeFileSync(outPath, result.csv);
+        fs.writeFileSync(statsPath, statsJson);
+        fs.writeFileSync(componentsPath, result.componentsCsv);
+      }, result.recordCount);
       meta.normalised = {
         schemaVersion: result.schemaVersion,
         headerVariant: result.headerVariant,
@@ -189,24 +192,26 @@ export function runNormaliseSweep(): SweepReport {
   // stats - the durable, diffable, browsable home for the pattern matrix and
   // pairwise comparisons. Regenerated wholesale each run; byte-identical
   // regeneration means no git change, so unchanged windows never churn.
-  writeQualityReports(keys);
+  time('reports:quality-reports', () => writeQualityReports(keys));
 
   // The cross-lane value catalogue (issues #43/#223): every distinct value of
   // the tracked fields across both lanes, regenerated and committed here so a
   // PR diff flags vocabulary drift and unexpected values.
-  writeValueCatalogue();
+  time('reports:value-catalogue', () => writeValueCatalogue());
 
   // The cross-dataset invariant probes (issue #241): available-pool depletion,
   // the still-absent decomposition and the original-issue-date invariant,
   // joining the FOI lane against the register. Committed so a PR diff is a
-  // drift signal.
+  // drift signal. Its own buildDepletion/buildOverlapMatrix spans are recorded
+  // internally, so the call is left unwrapped here to keep those figures free
+  // of a nesting parent.
   writeCrossDatasetInvariants();
 
   // The forbidden-suffix history (issues #289/#291): the forbidden list as a
   // first-class dataset category, diffed across every disclosure held and
   // carrying the ever-forbidden union and per-suffix first-known dates.
   // Committed, so a change to the disallowed vocabulary shows up in a PR diff.
-  writeForbiddenSuffixHistory();
+  time('reports:forbidden-suffix-history', () => writeForbiddenSuffixHistory());
 
   // The newest dataset's matrix always appears, even when no archive entry
   // changed bytes (e.g. a reports-only derivation): the PR body is the
@@ -1148,6 +1153,8 @@ function main(): void {
   for (const f of report.failed) {
     console.error(`FAILED ${f.key}: ${f.reason}`);
   }
+  // Self-guarded: prints the profiling breakdown to stderr only under PERF.
+  perfReport();
   // Emit the summary for the workflow to consume (rolling issue + PR body).
   // The workflow's other signals are the shell-captured exit code and git
   // status - no GITHUB_OUTPUT channel is written here.
