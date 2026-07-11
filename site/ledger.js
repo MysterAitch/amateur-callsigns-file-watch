@@ -141,6 +141,20 @@ const appendMarked = (parent, str) => {
   if (last < str.length) parent.append(str.slice(last));
   return parent;
 };
+// Render an actual raw register token, surfacing any literal whitespace or
+// non-breaking space it carries as a visible marker rather than an invisible
+// gap - so the value is driven by the observation's own bytes, never a
+// hard-coded literal.
+const appendRawToken = (parent, str) => {
+  let run = "";
+  const flush = () => { if (run) { parent.append(run); run = ""; } };
+  for (const ch of str) {
+    if (ch === "\u00a0" || ch === " ") { flush(); parent.append(el("span", "nbsp", "\u2420")); }
+    else run += ch;
+  }
+  flush();
+  return parent;
+};
 const isActive = s => s === "Allocated";
 const showRaw = t => t.replace(/\u00a0/g, "[NBSP]").replace(/ /g, "[SP]");
 const showNbsp = s => s.replace(/\u00a0/g, "[NBSP]");
@@ -243,9 +257,7 @@ function renderAnatomy() {
     top.appendChild(el("span", "obs-mini", damaged ? "trailing NBSP" : "clean"));
     box.appendChild(top);
     const kv = el("div", "kv");
-    const valNode = el("span", "v");
-    valNode.append("G0TQK");
-    if (damaged) valNode.append(el("span", "nbsp", "␠"));
+    const valNode = appendRawToken(el("span", "v"), o.raw);
     const bytesNode = el("span", "v");
     bytesNode.append(el("span", "bytes", o.bytes));
     kv.append(

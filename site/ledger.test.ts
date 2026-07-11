@@ -76,8 +76,12 @@ describe('claim-ledger preview page', () => {
 
   it('LedgerPage_CarriesTheNavMarkersAndIsWayfindableAsAPreview', () => {
     const html = siteFile('ledger.html');
-    // The nav-injection markers must be present so the deploy can stamp the
-    // canonical strip; the committed copy names the page as the active item.
+    // BOTH nav-injection markers must be present so the deploy can stamp the
+    // canonical strip: the injector replaces the region between them, and a
+    // missing start marker would make it fail loudly at deploy - so guard the
+    // full start marker string here too, not only the end marker. The committed
+    // copy names the page as the active item.
+    expect(html).toContain('<!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->');
     expect(html).toContain('<!-- nav:end -->');
     expect(html).toContain('<strong>Ledger (preview)</strong>');
     // Honest framing: tied to issue #361 and clearly a static illustrative
