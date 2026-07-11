@@ -27,6 +27,14 @@ derivation, re-derived by the scheduled normalise sweep; git history preserves
 every earlier version. Byte-identical re-runs are no-ops; any change arrives
 as an always-human-reviewed PR.
 
+> **Migration note ([ADR 0013](adr/0013-raw-keyed-claim-ledger.md)).** The
+> project is inverting its canonical-record model: the raw-keyed claim ledger
+> becomes canonical and `normalised.csv` is recast as a *derived fold* over it
+> (an exploratory proof re-derived every committed `normalised.csv` from
+> per-cell claims exactly). This is a strangler migration in progress — the
+> schema below remains the committed baseline and the golden-master lane keeps
+> working until each projection is reproduced against its golden.
+
 ## Line accounting: `headerLines` and `ignoredLines`
 
 ### Vocabulary: line, row, record

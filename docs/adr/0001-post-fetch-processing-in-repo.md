@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-06
-- Related: issues #1 (decision thread), #14, #15, #18, #25
+- Related: issues #1 (decision thread), #14, #15, #18, #25; ADR 0010 (archive contract); ADR 0013 (raw-keyed claim ledger — recasts this lane's derivations as ledger folds)
 
 ## Context
 

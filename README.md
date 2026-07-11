@@ -5,7 +5,9 @@ A durable archive of UK amateur radio callsign data, in two lanes:
 - **Open-data lane** (`archive/{date}/`): mirrors Ofcom's [amateur radio callsign](https://www.ofcom.org.uk/about-ofcom/our-research/opendata) publications to git as they update, so the commit history is a durable record of what got published and when.
 - **FOI lane** (`archive/foi/{entry}/`, [ADR 0004](docs/adr/0004-foi-source-lane.md)): a decade of FOI-disclosed material (register snapshots, available lists, issuance events, statistics, and responses that are records rather than datasets), one reviewed entry per request/publication with full provenance, hash-pinned files and — where a dataset exists — deterministic converters into published per-class schemas.
 
-What exists per dataset is tracked in the generated [`docs/dataset-status.md`](docs/dataset-status.md); whether every derivation still verifies is the [rolling coverage dashboard](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/43); sources not yet ingested are tracked in [`docs/source-register.md`](docs/source-register.md).
+What exists per dataset is tracked in the generated [`docs/dataset-status.md`](docs/dataset-status.md); whether every derivation still verifies is the [rolling coverage dashboard](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/360); sources not yet ingested are tracked in [`docs/source-register.md`](docs/source-register.md). The architecture is recorded as decision records — see the [ADR index](docs/adr/README.md).
+
+> **Direction of travel — the canonical-record model is being inverted.** [ADR 0013](docs/adr/0013-raw-keyed-claim-ledger.md) (accepted; strangler migration in progress) makes a **raw-keyed claim ledger** the canonical record, from which the normalised CSVs, query databases, reports and Pages site all become *derived folds*. The snapshot-canonical pipeline described below is the current baseline being migrated onto ledger folds, not a retired one: it keeps running until each projection is reproduced against its golden master.
 
 The project's logical pieces:
 
@@ -46,7 +48,7 @@ src/
   sources/{key}/                    <- one directory per data source; ofcom-amateur is the first
   ci/                               <- validation, sweeps, generated-doc builders, SQLite build
 docs/
-  adr/                              <- architecture decision records
+  adr/                              <- architecture decision records (see adr/README.md for the index)
   dataset-status.md                 <- generated per-dataset overview (freshness-tested)
   foi-schemas.md                    <- generated FOI schema registry (freshness-tested)
   normalised-schema.md              <- open-data normalised schema reference
@@ -293,6 +295,7 @@ The Healthchecks ping fires on every non-error tick, including scheduled skips �
 
 Earlier revisions of this README listed several of these as non-goals or open questions; they have since been settled by ADRs and built:
 
+- **Canonical-record model** — accepted, migration in progress ([ADR 0013](docs/adr/0013-raw-keyed-claim-ledger.md)): the record is being inverted to a raw-keyed claim ledger with every other artefact (normalised CSV, query databases, reports, pages) a derived fold over it (tracker [#361](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/361)). The snapshot-canonical items below are the current baseline being strangler-migrated onto ledger folds, retired per projection only once it reproduces its golden master.
 - **Cross-publication normalisation** — built (ADR 0001): the daily normalise sweep derives one canonical schema across every open-data publication; the FOI lane's converters do the same per dataset class ([`docs/foi-schemas.md`](docs/foi-schemas.md)).
 - **Presentation** — built in-repo (ADR 0003): the SQLite database + lookup site deploy to GitHub Pages on every push to `main`.
 - **Post-fetch processing location** — settled (ADR 0001, and the two-tier split recorded in [ADR 0011](docs/adr/0011-two-tier-architecture.md)): in this repo, via scheduled workflows whose only write path is opening PRs. The LXC remains a minimal downloader.
