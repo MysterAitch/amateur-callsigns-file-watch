@@ -1,6 +1,6 @@
 # 0016. File-level claims and the reconstruction oracle
 
-Status: proposed
+Status: accepted
 Date: 2026-07-12
 Relates: #434, #431 (source position, ADR 0015), #361 (raw-keyed claim ledger, ADR 0013), #404 (trust-rating net, ADR 0014)
 
