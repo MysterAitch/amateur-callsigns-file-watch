@@ -108,6 +108,17 @@ export function glossaryCue(anchor: GlossaryAnchor, depthToRoot: number): string
   return `<a class="gloss-cue-link" href="${glossaryHref(anchor, depthToRoot)}" aria-label="${accessible}"><span class="gloss-cue" aria-hidden="true">?</span></a>`;
 }
 
+// A data table's accessible name and visible label (issue #334). Every
+// self-evident table opens with one so assistive tech announces what the table
+// is before reading its cells, and a sighted reader gets the same one-line
+// "what am I looking at" without hunting the surrounding prose. Styled small
+// and muted under `.ledger caption` (site/ledger.css). Pass `escape: false` to
+// keep caller-supplied markup inside the caption (e.g. a glossary-linked term).
+export function tableCaption(text: string, options: { escape?: boolean } = {}): string {
+  const shown = options.escape === false ? text : escapeHtml(text);
+  return `<caption class="table-caption">${shown}</caption>`;
+}
+
 // The parsed callsign components a caller may have to hand for a pill's
 // supplementary title. Every field is optional: the pill uses whatever is
 // present and degrades to the bare callsign when none is.

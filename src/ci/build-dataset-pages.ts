@@ -55,6 +55,7 @@ import {
   entryPage,
   callsignPill,
   glossaryTerm,
+  tableCaption,
   type CallsignComponents,
 } from './site-render.ts';
 
@@ -333,7 +334,7 @@ function inspectTabsHtml(tabs: InspectTab[]): string {
 function csvSchemaPanel(filePath: string, rowNote: string): string {
   const fields = csvHeaderFields(filePath);
   if (fields === undefined) return `<p class="lead">${escapeHtml(rowNote)}</p>`;
-  return `<p class="lead">${escapeHtml(rowNote)} · ${fields.length} columns.</p><table><tr><th>column</th></tr>${fields.map(f => `<tr><td><code>${escapeHtml(f.name)}</code></td></tr>`).join('')}</table>`;
+  return `<p class="lead">${escapeHtml(rowNote)} · ${fields.length} columns.</p><table>${tableCaption('Columns in this file')}<thead><tr><th scope="col">column</th></tr></thead><tbody>${fields.map(f => `<tr><td><code>${escapeHtml(f.name)}</code></td></tr>`).join('')}</tbody></table>`;
 }
 
 // Marks a breakdown row / chart element as a filter trigger for the scoped
@@ -454,12 +455,12 @@ function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSiz
   if (lines.length < 2) return '';
   const rows = parse(lines.join('\n'), { columns: true, bom: true }) as Record<string, string>[];
   const headers = Object.keys(rows[0]).filter(h => rows.some(r => (r[h] ?? '') !== ''));
-  const head = headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+  const head = headers.map(h => `<th scope="col">${escapeHtml(h)}</th>`).join('');
   const body = rows.map(r => `<tr>${headers.map(h =>
     pillCallsignDepth !== undefined && h === 'callsign'
       ? callsignCell(r[h] ?? '', r['licence_class'] ?? '', pillCallsignDepth)
       : `<td>${escapeHtml(r[h] ?? '')}</td>`).join('')}</tr>`).join('');
-  return `<div style="overflow-x:auto"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div style="overflow-x:auto"><table>${tableCaption(`Preview — first ${rows.length} rows of this file`)}<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 // The anomaly-flag table (first-sentence meanings + registry link), used
@@ -472,7 +473,7 @@ function anomalyFlagsHtml(flags: Record<string, number>): string {
     const meaning = (registry.get(flag) ?? '').split(/(?<=\.)\s/, 1)[0];
     return `<tr><td><code>${escapeHtml(flag)}</code></td><td class="n">${count.toLocaleString('en-GB')}</td><td>${renderInline(meaning)} <a href="../../docs/flags.html">registry →</a></td></tr>`;
   }).join('');
-  return `<table><tr><th>flag</th><th class="n">rows</th><th>meaning</th></tr>${rows}</table>`;
+  return `<table>${tableCaption('Data-quality flags recorded, with row counts and meanings')}<thead><tr><th scope="col">flag</th><th scope="col" class="n">rows</th><th scope="col">meaning</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 // The At-a-glance sidebar for an open-data publication: headline count,
@@ -597,7 +598,7 @@ function svgBarChart(idBase: string, heading: string, summary: string, unit: str
   return `<figure class="chart"><figcaption>${escapeHtml(heading)}</figcaption>`
     + `<svg viewBox="0 0 ${width} ${padTop + chartH + padBottom}" role="img" aria-labelledby="${idBase}-t ${idBase}-d" preserveAspectRatio="xMidYMid meet">`
     + `<title id="${idBase}-t">${escapeHtml(heading)}</title><desc id="${idBase}-d">${escapeHtml(summary)}</desc>${parts}</svg>`
-    + `<details><summary>Data table${exploreHint}</summary><table><tr><th>${escapeHtml(unit)}</th><th class="n">callsigns</th></tr>${tableRows}</table></details></figure>`;
+    + `<details><summary>Data table${exploreHint}</summary><table>${tableCaption(`${heading} — the figures behind the chart`)}<thead><tr><th scope="col">${escapeHtml(unit)}</th><th scope="col" class="n">callsigns</th></tr></thead><tbody>${tableRows}</tbody></table></details></figure>`;
 }
 
 // Per-publication distributions computed at build: callsign length, issue
@@ -698,7 +699,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     let panel: string;
     if (indicative !== undefined) {
       const rows = indicative.sheets.map(s => `<tr><td>${escapeHtml(s.name)}</td><td class="n">${s.approxRows === undefined ? '—' : `~${s.approxRows.toLocaleString('en-GB')}`}</td><td>${escapeHtml(s.cols ?? '—')}</td><td>${s.datasetClass === undefined ? '—' : `<code>${escapeHtml(s.datasetClass)}</code>`}</td></tr>`).join('');
-      panel = `<p class="lead">${escapeHtml(roleLine)}</p><table><tr><th>sheet</th><th class="n">rows</th><th>cols</th><th>class</th></tr>${rows}</table>${indicative.note !== undefined ? `<p class="lead">${escapeHtml(indicative.note)}</p>` : ''}`;
+      panel = `<p class="lead">${escapeHtml(roleLine)}</p><table>${tableCaption('Sheets in this workbook, with indicative row and column counts')}<thead><tr><th scope="col">sheet</th><th scope="col" class="n">rows</th><th scope="col">cols</th><th scope="col">${glossaryTerm('dataset-class', 3, { label: 'class' })}</th></tr></thead><tbody>${rows}</tbody></table>${indicative.note !== undefined ? `<p class="lead">${escapeHtml(indicative.note)}</p>` : ''}`;
     } else if (name.endsWith('.csv')) {
       panel = csvSchemaPanel(path.join(targetDir, name), roleLine || 'CSV');
     } else {
@@ -712,7 +713,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     // panel, whatever its type - it is how a reader verifies the source.
     return { id: `i-${i}`, label: name, panel: panel + witnessLinks(decl.witnesses) };
   });
-  dataTabs.push({ id: 'i-meta', label: 'meta.json', panel: `<table><tr><th>outcome</th><td>${escapeHtml(meta.outcome)}</td></tr><tr><th>dataset classes</th><td>${meta.datasetClasses.map(c => classChipLink(c, '../../')).join(', ')}</td></tr><tr><th>data vintage</th><td>${escapeHtml(meta.dataVintage ?? '—')}</td></tr></table>` });
+  dataTabs.push({ id: 'i-meta', label: 'meta.json', panel: `<table>${tableCaption('meta.json — this entry’s declared facts')}<tbody><tr><th scope="row">outcome</th><td>${escapeHtml(meta.outcome)}</td></tr><tr><th scope="row">${glossaryTerm('dataset-class', 3, { label: 'dataset classes' })}</th><td>${meta.datasetClasses.map(c => classChipLink(c, '../../')).join(', ')}</td></tr><tr><th scope="row">data ${glossaryTerm('vintage', 3, { label: 'vintage' })}</th><td>${escapeHtml(meta.dataVintage ?? '—')}</td></tr></tbody></table>` });
 
   // Browse the data: preview the largest normalised CSV, if any.
   const previewName = files.filter(f => isDerived(f.name) && f.name.endsWith('.csv')).sort((a, b) => b.bytes - a.bytes)[0]?.name;
@@ -989,7 +990,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     { id: 'i-norm', label: 'normalised.csv', panel: csvSchemaPanel(path.join(sourceDir, 'normalised.csv'), 'Canonical schema — one stable shape across every publication') },
     { id: 'i-comp', label: 'components.csv', panel: csvSchemaPanel(path.join(sourceDir, 'components.csv'), 'Per-callsign decomposition + join keys') },
     { id: 'i-stats', label: 'stats.json', panel: `<p class="lead">Parse statuses: ${parseStatuses}.</p>${anomalyFlagsHtml(stats.callsignFlags)}${qualityHtml}` },
-    { id: 'i-meta', label: 'meta.json', panel: `<table><tr><th>provenance</th><td>${escapeHtml(meta.provenance ?? 'live')}</td></tr><tr><th>declared coverage</th><td>${meta.intendedCoverage === undefined ? '—' : `${meta.intendedCoverage.complete ? 'complete' : 'partial'} (intent, not verified)`}</td></tr></table>` },
+    { id: 'i-meta', label: 'meta.json', panel: `<table>${tableCaption('meta.json — this publication’s declared facts')}<tbody><tr><th scope="row">provenance</th><td>${escapeHtml(meta.provenance ?? 'live')}</td></tr><tr><th scope="row">${glossaryTerm('declared-complete', 3, { label: 'declared coverage' })}</th><td>${meta.intendedCoverage === undefined ? '—' : `${meta.intendedCoverage.complete ? 'complete' : 'partial'} (intent, not verified)`}</td></tr></tbody></table>` },
   ].filter(t => t.panel !== '');
 
   const ignored = meta.ignoredLines ?? [];
@@ -1112,12 +1113,12 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
   const countTable = (title: string, counts: Map<string, number>, linkFor?: (value: string) => string | undefined): string[] => {
     if (counts.size === 0) return [];
     const rows = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-    return [`<h2>${escapeHtml(title)}</h2>`, '<table>', `<tr><th>value</th><th>rows</th></tr>`,
+    return [`<h2>${escapeHtml(title)}</h2>`, '<table>', tableCaption(title), '<thead>', `<tr><th scope="col">value</th><th scope="col" class="n">rows</th></tr>`, '</thead>', '<tbody>',
       ...rows.map(([value, n]) => {
         const count = n.toLocaleString('en-GB');
         const href = linkFor?.(value);
-        return `<tr><td>${escapeHtml(value)}</td><td>${href === undefined ? count : `<a href="${href}">${count}</a>`}</td></tr>`;
-      }), '</table>'];
+        return `<tr><td>${escapeHtml(value)}</td><td class="n">${href === undefined ? count : `<a href="${href}">${count}</a>`}</td></tr>`;
+      }), '</tbody>', '</table>'];
   };
   const filterLink = (series: string, param: 'status' | 'flags', value: string): string | undefined =>
     value.startsWith('(') ? undefined : `../index.html?series=${encodeURIComponent(series)}&${param}=${encodeURIComponent(value)}`;
@@ -1132,10 +1133,13 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
     if (ref !== undefined) {
       facts.push(
         '<table>',
-        `<tr><th>${glossaryTerm('licence-class', 1, { label: 'station level' })}</th><td>${escapeHtml(ref.station_level)}</td></tr>`,
-        `<tr><th>issuing status</th><td>${escapeHtml(ref.issuing_status)}</td></tr>`,
-        `<tr><th>${glossaryTerm('rsl', 1, { label: 'RSL' })} required</th><td>${escapeHtml(ref.rsl_required)}</td></tr>`,
-        ...(ref.notes ? [`<tr><th>notes</th><td>${escapeHtml(ref.notes)}</td></tr>`] : []),
+        tableCaption('Reference facts for this prefix series'),
+        '<tbody>',
+        `<tr><th scope="row">${glossaryTerm('licence-class', 1, { label: 'station level' })}</th><td>${escapeHtml(ref.station_level)}</td></tr>`,
+        `<tr><th scope="row">issuing status</th><td>${escapeHtml(ref.issuing_status)}</td></tr>`,
+        `<tr><th scope="row">${glossaryTerm('rsl', 1, { label: 'RSL' })} required</th><td>${escapeHtml(ref.rsl_required)}</td></tr>`,
+        ...(ref.notes ? [`<tr><th scope="row">notes</th><td>${escapeHtml(ref.notes)}</td></tr>`] : []),
+        '</tbody>',
         '</table>',
       );
     } else {
@@ -1159,15 +1163,20 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
     ];
     fs.writeFileSync(path.join(seriesDir, `${slug}.html`), htmlPage(`Prefix series ${display}`, 1, body, { currentNav: 'Series', sourcePath: 'reference-data/prefix-formats.csv' }));
     urls.push(`${baseUrl}/series/${slug}.html`);
-    indexRows.push(`<tr><td><a href="${slug}.html"><code>${escapeHtml(display)}</code></a></td><td>${ref === undefined ? '⚠ unreferenced' : escapeHtml(ref.station_level)}</td><td>${ref === undefined ? '—' : escapeHtml(ref.issuing_status)}</td><td>${(acc?.total ?? 0).toLocaleString('en-GB')}</td></tr>`);
+    indexRows.push(`<tr><th scope="row"><a href="${slug}.html"><code>${escapeHtml(display)}</code></a></th><td>${ref === undefined ? '⚠ unreferenced' : escapeHtml(ref.station_level)}</td><td>${ref === undefined ? '—' : escapeHtml(ref.issuing_status)}</td><td class="n">${(acc?.total ?? 0).toLocaleString('en-GB')}</td></tr>`);
   }
 
   const indexBody = [
     '<h1>Prefix series</h1>',
     `<p>One page per callsign ${glossaryTerm('prefix-series', 1, { label: 'prefix series' })} — hand-curated reference facts joined with numbers derived from the latest archived publication (${escapeHtml(newest)}). <code>#</code> marks the ${glossaryTerm('rsl', 1, { label: 'RSL' })} slot.</p>`,
     '<table>',
-    '<tr><th>series</th><th>station level</th><th>issuing status</th><th>rows</th></tr>',
+    tableCaption('Every prefix series, with its reference facts and register row count'),
+    '<thead>',
+    `<tr><th scope="col">${glossaryTerm('prefix-series', 1, { label: 'series' })}</th><th scope="col">${glossaryTerm('licence-class', 1, { label: 'station level' })}</th><th scope="col">issuing status</th><th scope="col" class="n">rows</th></tr>`,
+    '</thead>',
+    '<tbody>',
     ...indexRows,
+    '</tbody>',
     '</table>',
   ];
   fs.writeFileSync(path.join(seriesDir, 'index.html'), htmlPage('Prefix series', 1, indexBody, { currentNav: 'Series', sourcePath: 'reference-data/prefix-formats.csv' }));
@@ -1299,7 +1308,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;
     pageUrls.push(`${baseUrl}/datasets/open-data/${key}/index.html`);
-    openDataRows.push(`<tr><td><a href="open-data/${key}/index.html">Publication of ${humanDate(key)}</a> <code>${key}</code></td><td>${files.length}</td><td>${formatBytes(files.reduce((s, f) => s + f.bytes, 0))}</td></tr>`);
+    openDataRows.push(`<tr><th scope="row"><a href="open-data/${key}/index.html">Publication of ${humanDate(key)}</a> <code>${key}</code></th><td class="n">${files.length}</td><td class="n">${formatBytes(files.reduce((s, f) => s + f.bytes, 0))}</td></tr>`);
   }
 
   const foiRows: string[] = [];
@@ -1308,7 +1317,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;
     pageUrls.push(`${baseUrl}/datasets/foi/${key}/index.html`);
-    foiRows.push(`<tr><td><a href="foi/${encodeURIComponent(key)}/index.html">${escapeHtml(meta.title)}</a><br><code>${escapeHtml(key)}</code></td><td>${escapeHtml(meta.dataVintage ?? '—')}</td><td>${meta.datasetClasses.map(c => classChipLink(c, '')).join(', ')}</td></tr>`);
+    foiRows.push(`<tr><th scope="row"><a href="foi/${encodeURIComponent(key)}/index.html">${escapeHtml(meta.title)}</a><br><code>${escapeHtml(key)}</code></th><td>${escapeHtml(meta.dataVintage ?? '—')}</td><td>${meta.datasetClasses.map(c => classChipLink(c, '')).join(', ')}</td></tr>`);
   }
 
   if (totalBytes > MAX_TOTAL_BYTES) {
@@ -1371,9 +1380,9 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     '<a href="https://www.ofcom.org.uk/about-ofcom/our-research/opendata">open data page</a> —',
     'but only the current version, with no historical archive. This section preserves a copy of each',
     'publication as obtained at the time, byte-for-byte, so past register states remain checkable.</p>',
-    '<table><tr><th>publication</th><th>files</th><th>size</th></tr>',
+    `<table>${tableCaption('Archived Ofcom open-data publications')}<thead><tr><th scope="col">publication</th><th scope="col" class="n">files</th><th scope="col" class="n">size</th></tr></thead><tbody>`,
     ...openDataRows,
-    '</table>',
+    '</tbody></table>',
     `<h2 id="foi">FOI requests and responses (${foiKeys.length} entries)</h2>`,
     '<p>Ofcom is a public body: under the Freedom of Information Act 2000 it must, on request, disclose',
     'information it holds (subject to the Act’s exemptions). Following years of such requests, Ofcom now',
@@ -1384,9 +1393,9 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     'availability lists and issuance records predating the open data page. Where, when and how each file',
     'was retrieved is recorded alongside it: machine-readably in the entry’s hash-pinned <code>meta.json</code>,',
     'and narratively in its correspondence record.</p>',
-    `<table><tr><th>entry</th><th>${glossaryTerm('vintage', 1, { label: 'vintage' })}</th><th>${glossaryTerm('dataset-class', 1, { label: 'dataset classes' })}</th></tr>`,
+    `<table>${tableCaption('Archived FOI requests and responses')}<thead><tr><th scope="col">entry</th><th scope="col">${glossaryTerm('vintage', 1, { label: 'vintage' })}</th><th scope="col">${glossaryTerm('dataset-class', 1, { label: 'dataset classes' })}</th></tr></thead><tbody>`,
     ...foiRows,
-    '</table>',
+    '</tbody></table>',
   ];
   const datasetsDir = path.join(outputDir, 'datasets');
   fs.mkdirSync(datasetsDir, { recursive: true });
