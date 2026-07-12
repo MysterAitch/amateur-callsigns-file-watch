@@ -551,9 +551,12 @@ function rowHtml(row: DatasetRow): string {
   const cells = STAGES.map(s => cellHtml(s.label, row.stages[s.key])).join('');
   const classNote = row.datasetClasses.length > 1
     ? ` <span class="muted">(${escapeHtml(row.datasetClasses.join(', '))})</span>` : '';
+  // Lead with the human dataset name (issue #328); the raw archive key follows
+  // as a secondary, monospace identifier so a reader sees what the dataset is
+  // before its machine key. The name links to the entry page for provenance.
   return `<tr>`
-    + `<th scope="row" class="dskey"><a href="${row.entryHref}">${escapeHtml(row.key)}</a>`
-    + `<span class="dstitle">${escapeHtml(row.title)}${classNote}</span></th>`
+    + `<th scope="row" class="dskey"><a href="${row.entryHref}">${escapeHtml(row.title)}</a>${classNote}`
+    + `<span class="dstitle"><span class="mono">${escapeHtml(row.key)}</span></span></th>`
     + `<td class="vintage">${humaniseVintage(row.vintage)}</td>`
     + `<td class="auth"><span class="atag" title="${escapeHtml(`Axis 2 (source authority): ${row.authority.detail}`)}">${escapeHtml(row.authority.label)}</span></td>`
     + cells

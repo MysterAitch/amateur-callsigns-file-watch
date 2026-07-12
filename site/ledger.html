@@ -64,6 +64,18 @@
           whose only observation is an abnormally-formatted token keeps that abnormality flagged rather than
           presented as a clean name.</p>
 
+        <!-- No-JS fallback: the ledger resolves callsigns live in your browser
+             and needs JavaScript. The folded register snapshots are browsable
+             without it from the dataset index, mirroring the lookup/explore
+             pages. -->
+        <noscript>
+          <p class="muted">This ledger resolves callsigns live in your browser
+          and needs JavaScript. The folded register snapshots are browsable
+          without it from the <a href="datasets/index.html">dataset index</a>,
+          and the databases can be <a href="datasets/index.html">downloaded</a>
+          to query locally.</p>
+        </noscript>
+
         <form id="lookup-form" role="search">
           <label for="callsign-input" class="visually-hidden">Callsign</label>
           <div class="chips" style="align-items:center">

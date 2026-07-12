@@ -17,10 +17,10 @@
 
 .ledger {
   --bg: #F4F6F8; --surface: #FFFFFF; --surface-2: #EEF1F4;
-  --ink: #161B21; --muted: #5C6773; --faint: #8B95A1; --hair: #E0E5EA;
-  --signal: #C9791B; --signal-soft: #F4E4CE;
+  --ink: #161B21; --muted: #5C6773; --faint: #6C7581; --hair: #E0E5EA;
+  --signal: #905713; --signal-soft: #F4E4CE; --on-signal: #FFFFFF;
   --raw: #3F6FB0; --raw-soft: #E1EAF5;
-  --derived: #C9791B; --derived-soft: #F6E6CF;
+  --derived: #905713; --derived-soft: #F6E6CF;
   --change: #B84A5F; --change-soft: #F5DDE2;
   --steady: #4E8A66; --steady-soft: #DDECE1;
   --shadow: 0 1px 2px rgba(20,30,45,.06), 0 6px 20px rgba(20,30,45,.05);
@@ -35,8 +35,8 @@
 @media (prefers-color-scheme: dark) {
   .ledger {
     --bg: #0E1319; --surface: #161D26; --surface-2: #1D2731;
-    --ink: #E7ECF1; --muted: #939EAA; --faint: #6B7682; --hair: #26313C;
-    --signal: #E8A24A; --signal-soft: #33291A;
+    --ink: #E7ECF1; --muted: #939EAA; --faint: #7E8995; --hair: #26313C;
+    --signal: #E8A24A; --signal-soft: #33291A; --on-signal: #161B21;
     --raw: #6C9BD6; --raw-soft: #182432;
     --derived: #E8A24A; --derived-soft: #33291A;
     --change: #D9748A; --change-soft: #331e24;
@@ -46,16 +46,16 @@
 }
 :root[data-theme="light"] .ledger {
   --bg: #F4F6F8; --surface: #FFFFFF; --surface-2: #EEF1F4;
-  --ink: #161B21; --muted: #5C6773; --faint: #8B95A1; --hair: #E0E5EA;
-  --signal: #C9791B; --signal-soft: #F4E4CE;
-  --raw: #3F6FB0; --raw-soft: #E1EAF5; --derived: #C9791B; --derived-soft: #F6E6CF;
+  --ink: #161B21; --muted: #5C6773; --faint: #6C7581; --hair: #E0E5EA;
+  --signal: #905713; --signal-soft: #F4E4CE; --on-signal: #FFFFFF;
+  --raw: #3F6FB0; --raw-soft: #E1EAF5; --derived: #905713; --derived-soft: #F6E6CF;
   --change: #B84A5F; --change-soft: #F5DDE2; --steady: #4E8A66; --steady-soft: #DDECE1;
   --shadow: 0 1px 2px rgba(20,30,45,.06), 0 6px 20px rgba(20,30,45,.05);
 }
 :root[data-theme="dark"] .ledger {
   --bg: #0E1319; --surface: #161D26; --surface-2: #1D2731;
-  --ink: #E7ECF1; --muted: #939EAA; --faint: #6B7682; --hair: #26313C;
-  --signal: #E8A24A; --signal-soft: #33291A;
+  --ink: #E7ECF1; --muted: #939EAA; --faint: #7E8995; --hair: #26313C;
+  --signal: #E8A24A; --signal-soft: #33291A; --on-signal: #161B21;
   --raw: #6C9BD6; --raw-soft: #182432; --derived: #E8A24A; --derived-soft: #33291A;
   --change: #D9748A; --change-soft: #331e24; --steady: #6FB086; --steady-soft: #172a1f;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
@@ -105,7 +105,7 @@
   padding: 8px 14px; border-radius: 10px; border: 1px solid var(--hair); background: var(--surface-2);
   color: var(--ink); transition: transform .08s ease, border-color .12s, background .12s; }
 .ledger button.chip:hover { border-color: var(--signal); transform: translateY(-1px); }
-.ledger button.chip[aria-pressed="true"] { background: var(--signal); border-color: var(--signal); color: #fff; }
+.ledger button.chip[aria-pressed="true"] { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
 .ledger button.chip:focus-visible, .ledger a:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 
 /* Entity card */
@@ -378,8 +378,10 @@
 
 /* Each tool's hero action (Look up / Run) in the ledger's signal amber - the
    same treatment as a pressed chip - so it reads as the primary call to action;
-   utility buttons keep the bridged link-blue. */
-.ledger button[type="submit"] { background: var(--signal); border-color: var(--signal); color: #fff; }
+   utility buttons keep the bridged link-blue. The label uses --on-signal (white
+   on the darker light-theme amber, near-black ink on the brighter dark-theme
+   amber) so it clears WCAG AA against the fill in either theme. */
+.ledger button[type="submit"] { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
 
 /* Runtime-rendered result cards (lookup matches, register/FOI history) read as
    ledger sub-panels within their surrounding panel. */
@@ -434,8 +436,12 @@
 .ledger table.grid td.vintage, .ledger table.grid td.auth { white-space: nowrap; font-size: 12.5px; color: var(--muted); }
 .ledger table.grid tr.grouprow th { background: var(--surface-2); font-family: var(--mono); font-size: 11px;
   letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
-.ledger .dskey a { font-family: var(--mono); font-size: 12.5px; }
+/* The dataset name leads (issue #328), so its link reads as a plain readable
+   label; the raw archive key follows in .dstitle as a secondary monospace
+   identifier. */
+.ledger .dskey a { font-weight: 600; font-size: 13.5px; }
 .ledger .dstitle { display: block; font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 2px; max-width: 40ch; }
+.ledger .dstitle .mono { font-size: 11.5px; }
 
 /* Source-authority tag (axis 2): a quiet outline pill, kept visually distinct
    from the stage pills so the two axes are never read as one. */
