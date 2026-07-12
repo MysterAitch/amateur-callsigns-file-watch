@@ -59,8 +59,10 @@ describe('Forbidden-suffix section — index', () => {
   it('ForbiddenSectionIndex_StatusBreakdownCommitment_IsStatedInCopy', () => {
     const index = read('forbidden', 'index.html');
     // The status-decomposition commitment appears in the page copy — never a
-    // bare total.
-    expect(index).toContain('broken down by status</b> (Allocated / Reserved / Available / Forbidden)');
+    // bare total. "status" carries the shared glossary affordance (issue #329),
+    // so the word is a glossary link within the bolded commitment.
+    expect(index).toContain('broken down by <a class="gloss-term" href="../glossary.html#status-values">status');
+    expect(index).toContain('(Allocated / Reserved / Available / Forbidden)');
   });
 
   it('ForbiddenSectionIndex_PerSuffixPages_AreLinkedAndCrawlable', () => {
@@ -217,7 +219,8 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', () =>
     const page = read('forbidden', 'suffix', 'QNF', 'index.html');
     // The status breakdown: 2 Allocated (the issued pair) and 3 Forbidden (the
     // 2016 prohibition rows) — never conflated into a bare "5 callsigns".
-    expect(page).toContain('broken down by latest-known status');
+    // "status" in the lead carries the shared glossary affordance (issue #329).
+    expect(page).toContain('broken down by latest-known <a class="gloss-term" href="../../../glossary.html#status-values">status');
     expect(page).toMatch(/By latest-known status/);
     // Both status buckets render as breakdown rows with their counts.
     expect(page).toMatch(/<span class="lab">Allocated<\/span><span class="pct">[^<]*<\/span><b>2<\/b>/);

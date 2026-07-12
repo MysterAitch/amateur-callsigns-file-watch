@@ -472,3 +472,24 @@
 .ledger a.vpill:hover { border-color: var(--signal); }
 .ledger ul.gaps { margin: 8px 0; }
 .ledger ul.gaps li { margin: 4px 0; }
+
+/* Glossary-term affordance (issue #329): the ONE standardised way a jargon
+   term links to its definition in the glossary. Emitted by glossaryTerm /
+   glossaryCue (src/ci/site-render.ts) on the generated pages and written by
+   hand into the site/*.html pages; both wrap their content in `.ledger`, so
+   this single scoped block styles the affordance everywhere.
+
+   Accessibility: the cue is a "(?)" GLYPH, not a colour — the term also keeps
+   a dotted underline — so the affordance never relies on colour alone. It
+   reuses the --raw link token, which the #407 contrast guard already checks
+   for AA in both themes, and gives keyboard users a visible focus ring. */
+.ledger .gloss-term { color: var(--raw); text-decoration: underline dotted;
+  text-underline-offset: 2px; text-decoration-thickness: from-font; }
+.ledger .gloss-term:hover, .ledger .gloss-term:focus-visible { text-decoration-style: solid; }
+.ledger .gloss-cue { font-family: var(--mono); font-weight: 700; font-size: .72em;
+  line-height: 0; vertical-align: super; margin-left: .12em; color: var(--raw); }
+.ledger .gloss-cue::before { content: "("; } .ledger .gloss-cue::after { content: ")"; }
+.ledger .gloss-cue-link { text-decoration: none; }
+.ledger .gloss-cue-link:hover .gloss-cue { text-decoration: underline; }
+.ledger .gloss-term:focus-visible, .ledger .gloss-cue-link:focus-visible {
+  outline: 2px solid var(--raw); outline-offset: 2px; border-radius: 3px; }
