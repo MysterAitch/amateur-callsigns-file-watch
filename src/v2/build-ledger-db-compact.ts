@@ -86,6 +86,10 @@ CREATE TABLE object (
   object_id INTEGER PRIMARY KEY,
   value TEXT NOT NULL
 );
+CREATE TABLE rule (
+  rule_id INTEGER PRIMARY KEY,
+  rule TEXT NOT NULL
+);
 CREATE TABLE observation (
   obs_id INTEGER PRIMARY KEY,
   source_id INTEGER NOT NULL,
@@ -119,6 +123,22 @@ CREATE TABLE ph_override (
 CREATE TABLE licence_category (
   obs_id INTEGER PRIMARY KEY,
   category TEXT NOT NULL
+);
+-- The T1 parse-attribute tier (issue #406): the derived per-callsign attributes
+-- parseCallsign yields (prefix_series / implied_class / parse_status, and one
+-- row per raised flag). Unlike the normalises_to and licence_category tiers,
+-- these are NOT reconstructible from the observation alone (the VIEW is pure
+-- SQL and cannot run the parser), so each such claim is stored explicitly,
+-- dictionary-encoded on predicate / object / rule and keyed to its observation.
+-- A parse yields several per callsign, so this is many rows per observation -
+-- still far narrower than the fat table's repeated long strings. Only observed
+-- attributes land here (the emit never invents), so the VIEW reconstructs
+-- exactly the tier the ledger emitted.
+CREATE TABLE derived_attr (
+  obs_id INTEGER NOT NULL,
+  predicate_id INTEGER NOT NULL,
+  object_id INTEGER NOT NULL,
+  rule_id INTEGER NOT NULL
 );
 `;
 
@@ -156,11 +176,22 @@ CREATE VIEW claims (layer, raw_subject, cleaned, entity, predicate, object, rule
     FROM licence_category lc
     JOIN observation o ON o.obs_id = lc.obs_id
     JOIN source s ON s.source_id = o.source_id
+  UNION ALL
+  SELECT 'derived', o.raw_subject, o.cleaned, o.entity, p.predicate, obj.value, r.rule, s.source_file, o.ordinal, s.vintage
+    FROM derived_attr d
+    JOIN observation o ON o.obs_id = d.obs_id
+    JOIN source s ON s.source_id = o.source_id
+    JOIN predicate p ON p.predicate_id = d.predicate_id
+    JOIN object obj ON obj.object_id = d.object_id
+    JOIN rule r ON r.rule_id = d.rule_id
 `;
 
 export interface CompactLedgerSummary {
   observations: number;
   attrClaims: number;
+  // Stored T1 parse-attribute claims (issue #406): the derived per-callsign
+  // attributes the VIEW cannot synthesise, so they are materialised rows.
+  derivedAttrClaims: number;
   claims: number;
   entities: number;
   sources: number;
@@ -279,13 +310,16 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
 
   const predicates = new Dictionary();
   const objects = new Dictionary();
+  const rules = new Dictionary();
   const insertSource = db.prepare('INSERT INTO source VALUES (?, ?, ?)');
   const insertPredicate = db.prepare('INSERT INTO predicate VALUES (?, ?)');
   const insertObject = db.prepare('INSERT INTO object VALUES (?, ?)');
+  const insertRule = db.prepare('INSERT INTO rule VALUES (?, ?)');
   const insertOverride = db.prepare('INSERT INTO ph_override VALUES (?, ?)');
   const insertCategory = db.prepare('INSERT INTO licence_category VALUES (?, ?)');
   let overrides = 0;
   let categories = 0;
+  let totalDerivedAttrClaims = 0;
 
   const jsonlFiles = fs.readdirSync(ledgerDir).filter(name => name.endsWith('.jsonl')).sort();
   const entities = new Set<string>();
@@ -358,10 +392,27 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
       if (obsId === undefined) continue;
       attrRows.push([obsId, predicates.intern(claim.predicate), objects.intern(claim.object)]);
     }
+    // The T1 parse-attribute tier: every derived claim that is neither a
+    // normalises_to edge (synthesised by the VIEW) nor a licence_category tier
+    // (its own satellite). Stored explicitly, dictionary-encoded, keyed to the
+    // observation whose raw subject the parse ran on - the VIEW cannot run the
+    // parser, so these rows carry what it reconstructs.
+    const derivedAttrRows: (string | number)[][] = [];
+    for (const claim of claims) {
+      if (claim.layer !== 'derived') continue;
+      if (claim.predicate === NORMALISES_TO_PREDICATE || claim.predicate === LICENCE_CATEGORY_PREDICATE) continue;
+      const obsId = obsIdByOrdinal.get(claim.provenance.ordinal);
+      if (obsId === undefined) continue;
+      derivedAttrRows.push([obsId, predicates.intern(claim.predicate), objects.intern(claim.object), rules.intern(claim.rule ?? '')]);
+    }
+
     for (const value of predicates.drainPending()) insertPredicate.run(predicates.intern(value), value);
     for (const value of objects.drainPending()) insertObject.run(objects.intern(value), value);
+    for (const value of rules.drainPending()) insertRule.run(rules.intern(value), value);
     insertBatched(db, 'attr', 3, attrRows);
     totalAttrClaims += attrRows.length;
+    insertBatched(db, 'derived_attr', 4, derivedAttrRows);
+    totalDerivedAttrClaims += derivedAttrRows.length;
   });
   db.exec('COMMIT');
 
@@ -377,6 +428,7 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
   db.exec('CREATE INDEX idx_obs_raw ON observation(raw_subject)');
   db.exec('CREATE INDEX idx_attr_obs ON attr(obs_id)');
   db.exec('CREATE INDEX idx_attr_predicate ON attr(predicate_id)');
+  db.exec('CREATE INDEX idx_derived_attr_obs ON derived_attr(obs_id)');
 
   // Same load-bearing step as the fat build: without statistics the planner
   // mis-costs the point lookups onto a scan. ANALYZE after the indexes exist.
@@ -395,6 +447,7 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
   return {
     observations: totalObservations,
     attrClaims: totalAttrClaims,
+    derivedAttrClaims: totalDerivedAttrClaims,
     claims: claimCount,
     entities: entities.size,
     sources: jsonlFiles.length,
@@ -453,7 +506,7 @@ if (import.meta.main) {
   const useSubset = flags.has('--subset');
   const result = buildCompactLedgerDb(dbPath, { selectEntry: useSubset ? subsetSelector() : undefined });
   console.log(`built COMPACT claim-ledger SQLite ${result.dbPath} (${useSubset ? 'subset' : 'full corpus'})`);
-  console.log(`  claims: ${result.summary.claims} (observations ${result.summary.observations}, attr ${result.summary.attrClaims}), entities: ${result.summary.entities}, sources: ${result.summary.sources}, analyzed: ${result.summary.analyzed}`);
+  console.log(`  claims: ${result.summary.claims} (observations ${result.summary.observations}, attr ${result.summary.attrClaims}, parse-attr ${result.summary.derivedAttrClaims}), entities: ${result.summary.entities}, sources: ${result.summary.sources}, analyzed: ${result.summary.analyzed}`);
   console.log(`  dictionaries: predicates ${result.summary.predicates}, objects ${result.summary.objects}`);
   console.log(`  sqlite: ${result.sizes.sqlite} bytes, gz twin: ${result.sizes.gz} bytes`);
 }

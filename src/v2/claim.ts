@@ -113,6 +113,41 @@ export const LICENCE_CATEGORY_PREDICATE = 'licence_category';
 // rather than inventing a vocabulary of its own.
 export const LICENCE_CATEGORY_RULE = 'licence-category';
 
+// The T1 PARSE-DERIVED attribute predicates (issue #406). Beside the verbatim
+// raw layer, the ledger carries the per-callsign attributes parseCallsign
+// COMPUTES from the raw token - its prefix series, implied station class, parse
+// status, and each data-quality flag - so entity-level report fields can fold
+// from the ledger (each later with its own equivalence oracle, like the
+// licence-category tier). The parse output is CONSUMED here, never re-derived:
+// the whole tier is a projection of parseCallsign (components.ts) into
+// rule-attributed derived claims, so any change to what a callsign parses to is
+// owned by components.ts alone.
+//
+//   - prefix_series : the join key into prefix-formats.csv ('M7', 'G0', '20',
+//                     'GB'), emitted only when the parse resolved one.
+//   - implied_class : the station level the prefix series implies ('Foundation',
+//                     'Full', ...), emitted only when the series is known.
+//   - parse_status  : the parser's synthesised determination of the token's
+//                     callsign formation ('parsed' / 'visitor' / 'special-event'
+//                     / 'unparseable'), present for every non-empty token.
+//   - flag          : one claim per raised flag, the closed data-quality
+//                     vocabulary (reference-data/flags.md); its OBJECT is the
+//                     flag name, so a report folds "callsigns carrying flag X"
+//                     by object rather than by a per-flag predicate.
+export const PREFIX_SERIES_PREDICATE = 'prefix_series';
+export const IMPLIED_CLASS_PREDICATE = 'implied_class';
+export const PARSE_STATUS_PREDICATE = 'parse_status';
+export const FLAG_PREDICATE = 'flag';
+
+// The one named rule attributing every parse-derived claim to parseCallsign
+// (components.ts). A SINGLE rule - not one per attribute - because one
+// deterministic computation produces prefix series, implied class, parse status
+// and flags together from the same parse; naming it keeps the tier's production
+// method a COMPUTATION (never a reference-table lookup, so it reads out Computed,
+// never As-published) and its rule set enumerable beside the normalisation and
+// licence-category rules.
+export const PARSE_CALLSIGN_RULE = 'parse-callsign';
+
 // The five claim-confidence rungs, best-to-worst, fixed by site/glossary.html
 // (the #axes panel). Confidence is a READOUT of source authority × how the
 // value was produced, never stored on the claim: it is derived from the claim's
@@ -247,12 +282,48 @@ export function emitLicenceCategoryClaims(source: SourceObservationSet, ref: Ref
   return claims;
 }
 
+// The DERIVED T1 parse-attribute claims for a source (issue #406): for each
+// observation whose raw subject is a callsign token, the per-callsign attributes
+// parseCallsign COMPUTES — its prefix series, implied class, parse status and
+// each raised flag — projected into rule-attributed derived claims. The parse is
+// LIFTED whole from components.ts and CONSUMED here, never re-derived; the token
+// is parsed WITH the source's disclosed product (source.categoryColumn) so a
+// class-vs-product mismatch the parser detects rides as a real flag claim rather
+// than being invisible.
+//
+// The tier NEVER invents: a claim rides only where the parse actually yields a
+// value. parse_status is the sole always-present attribute (every non-empty
+// token resolves to one determination), so it is emitted for every observation;
+// prefix_series and implied_class emit only when the parse resolved one (a
+// visitor or unparseable token yields neither), and a flag claim only for a flag
+// actually raised. An empty subject (an all-blank anchor row) yields nothing,
+// mirroring how the normalisation edges skip it — there is no callsign to parse.
+export function emitParseAttributeClaims(source: SourceObservationSet, ref: ReferenceData): Claim[] {
+  const claims: Claim[] = [];
+  const productColumn = source.categoryColumn;
+  source.rows.forEach((row, ordinal) => {
+    const rawSubject = row[source.subjectColumn] ?? '';
+    if (rawSubject === '') return;
+    const product = productColumn !== undefined ? (row[productColumn] ?? '') : '';
+    const parsed = parseCallsign(rawSubject, product, ref);
+    const provenance: Provenance = { sourceFile: source.sourceFile, ordinal, vintage: source.vintage };
+    const emit = (predicate: string, object: string): void => {
+      claims.push({ layer: 'derived', rawSubject, predicate, object, provenance, rule: PARSE_CALLSIGN_RULE });
+    };
+    emit(PARSE_STATUS_PREDICATE, parsed.parseStatus);
+    if (parsed.prefixSeries !== '') emit(PREFIX_SERIES_PREDICATE, parsed.prefixSeries);
+    if (parsed.impliedClass !== '') emit(IMPLIED_CLASS_PREDICATE, parsed.impliedClass);
+    for (const flag of parsed.flags) emit(FLAG_PREDICATE, flag);
+  });
+  return claims;
+}
+
 // The full ledger for a source: the raw attribute/existence claims plus the
 // derived claims — the normalisation edges for every observation's raw subject,
-// and the canonical licence-category tier where the source discloses a product.
-// This is what a canonical claims.jsonl for the source contains — both layers in
-// one file, the derived layer reproducible from the raw layer and the lifted
-// rules.
+// the T1 parse-attribute tier, and the canonical licence-category tier where the
+// source discloses a product. This is what a canonical claims.jsonl for the
+// source contains — both layers in one file, the derived layer reproducible from
+// the raw layer and the lifted rules.
 export function emitLedger(source: SourceObservationSet, ref: ReferenceData): Claim[] {
   const claims = emitClaims(source);
   source.rows.forEach((row, ordinal) => {
@@ -263,6 +334,7 @@ export function emitLedger(source: SourceObservationSet, ref: ReferenceData): Cl
       claims.push(edgeToClaim(edge));
     }
   });
+  for (const claim of emitParseAttributeClaims(source, ref)) claims.push(claim);
   for (const claim of emitLicenceCategoryClaims(source, ref)) claims.push(claim);
   return claims;
 }
