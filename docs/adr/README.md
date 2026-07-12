@@ -20,8 +20,10 @@ keeps source-intrinsic provenance rigorously distinct from archive/processing
 artefacts (a filesystem-stat origin is made unrepresentable, not merely
 discouraged); and [ADR 0016](0016-file-level-claims-and-reconstruction-oracle.md)
 adds the file-level-claim convention and a reconstruction oracle that rebuilds
-the CSV-lane text sources from their claims alone. ADR 0015 and ADR 0016 are the
-fidelity infrastructure of the #431 programme.
+the CSV-lane text sources from their claims alone; and [ADR 0017](0017-show-the-working-behind-derived-claims.md)
+reconstructs on read the working behind every derived claim (its inputs, source
+positions and rule). ADR 0015, ADR 0016 and ADR 0017 are the fidelity
+infrastructure of the #431 programme.
 
 | ADR | Decision | Status | Date |
 |---|---|---|---|

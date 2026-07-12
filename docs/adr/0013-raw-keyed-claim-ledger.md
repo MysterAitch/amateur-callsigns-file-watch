@@ -234,7 +234,10 @@ catalogue (licence-category and parse-derived field tables), the byte-identical
 forbidden-suffix history report, and the quality reports (prefix-series,
 class-product-mismatches, regional-identifiers, callsign-patterns and
 data-quality) — each verified by a committed equivalence oracle, alongside the
-cross-dataset-invariants report that began the cutover. And
+cross-dataset-invariants report that began the cutover; the folds now read one
+shared deploy-time `claims.parquet` built once per run rather than each
+re-materialising the ledger, cutting the deploy cost from N-per-report to one.
+And
 a trust-rating safety net derives source authority and claim confidence from
 provenance and fails loud on any inflation ([ADR 0014](0014-trust-rating-safety-net.md)),
 making the confidence-partition model above enforceable rather than merely
@@ -258,6 +261,12 @@ built by the oracle alone rather than promoted into the main ledger (whose
 claims for these sources remain lossy), so the oracle mirror — not the ledger —
 is canonical for them today; closing that gap against the inversion premise is
 tracked in [#455](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/455).
+Every derived claim can now show its working — the input claims, their source
+positions, and the named rule that produced it — reconstructed on read
+([ADR 0017](0017-show-the-working-behind-derived-claims.md)), guarded by a
+fail-loud self-check oracle which already earned its keep by forcing a
+completeness gap into the open: a callsign-pattern rule the design's own
+inventory had missed.
 
 Remaining: the reviewed canonical vocabularies and coverage-aware gating the
 temporal fold depends on; the continued onboarding through the registry of
