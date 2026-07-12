@@ -123,8 +123,9 @@ describe('fidelityOf — a derived flag (forbidden suffix)', () => {
     const f = fidelityOf(claims, resolved);
     const note = f.notes.find(n => n.id === 'forbidden-suffix');
     expect(note).toBeDefined();
-    expect(note?.label).toBe('The ending appears on a withheld-endings list');
-    // The tight, already-clear phrasing is kept verbatim.
+    // Precise domain term "suffix" (the callsign's ending letters), linked to the
+    // Anatomy explainer; the tight, already-clear phrasing is kept verbatim.
+    expect(note?.label).toBe('Suffix appears on a withheld-suffix list');
     expect(glossText(note?.gloss)).toContain('Recorded, not a verdict');
     expect(note?.working?.result).toBe('forbidden-suffix');
     // No divergence, so no canonical block - just the note.
@@ -233,13 +234,26 @@ describe('explainer pages (reusable FAQ section)', () => {
     });
   }
 
-  it('CallsignStructure_FlagsUncertainDomainFactsForExpertReview', () => {
-    // Sourcing discipline: uncertain facts/URLs are flagged, never invented.
+  it('CallsignStructure_IsPublishableWithSourcedConfidenceTiers_NoPlaceholders', () => {
+    // Sourcing discipline: every fact carries a source + confidence tier; no bare
+    // placeholder text remains, and no fabricated basis. The suffix-sense
+    // collision (callsign ending vs Ofcom's post-slash "suffix") is disambiguated.
     const html = fs.readFileSync(path.join(SITE, 'callsign-structure.html'), 'utf8');
-    expect(html).toContain('[needs verification');
+    expect(html).not.toContain('[needs verification');
+    expect(html).toContain('Authoritative');
+    expect(html).toContain('Best available');
+    expect(html).toContain('OFW611');
     expect(html).toContain('International Telecommunication Union');
-    expect(html).toContain('Ofcom');
-    expect(html).toContain('RSGB');
+    expect(html).toContain('Full (Club) Licence only'); // the RSL club-difference correction
+    expect(html).toContain('operating suffix'); // the disambiguated post-slash sense
+  });
+
+  it('InvisibleCharacters_ResolvesUnicodeFactsWithAnAuthoritativeSource', () => {
+    const html = fs.readFileSync(path.join(SITE, 'invisible-characters.html'), 'utf8');
+    expect(html).not.toContain('[needs verification');
+    expect(html).toContain('NO-BREAK SPACE');
+    expect(html).toContain('REPLACEMENT CHARACTER');
+    expect(html).toContain('unicode.org/charts');
   });
 
   it('ExplainerPages_ArePrecachedInTheOfflineShell', () => {

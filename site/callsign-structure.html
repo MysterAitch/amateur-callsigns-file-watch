@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
-  <title>How a UK amateur-radio callsign is structured — UK amateur callsign data mirror</title>
+  <title>Anatomy of a UK amateur callsign — UK amateur callsign data mirror</title>
   <link rel="stylesheet" href="style.css">
   <!-- Adopts the bespoke visual language scoped under .ledger (ledger.css); the
        shared nav and skip link stay styled by tokens.css/style.css. -->
@@ -21,10 +21,14 @@
     <header>
       <div class="head-inner">
         <div class="eyebrow">explainer · plain-English background</div>
-        <h1>How a UK amateur-radio callsign is structured</h1>
-        <p class="lede">A short, plain guide to the parts of a UK amateur callsign, which characters
-          belong in one, and who decides what is allowed. It is background for the notes this site
-          shows; it is not official guidance — for that, see Ofcom.</p>
+        <h1>Anatomy of a UK amateur callsign</h1>
+        <p class="lede">The parts of a UK amateur callsign, which characters belong in one, and who
+          decides what is allowed. This is background for the notes shown elsewhere on this site. It
+          is not official guidance — for that, see Ofcom. Each fact below carries its source and how
+          confident we are in it.</p>
+        <div class="held"><b>How to read the sources</b> · <b>Authoritative</b> = stated in an
+          Ofcom-published document; <b>best available</b> = a reputable secondary source where the
+          primary is silent; <b>institutional knowledge</b> = widely known but not sourced here.</div>
       </div>
     </header>
 
@@ -32,104 +36,178 @@
     <section class="panel" id="parts">
       <div class="eyebrow">the parts</div>
       <h2>The parts of a callsign</h2>
-      <p>A UK amateur callsign is a short code that identifies one licence. It is normally made of
-        <strong>capital letters and digits</strong>, with no spaces. Most callsigns have three parts:</p>
+      <p>A UK amateur callsign is a short identifier for one licence, made of
+        <strong>capital letters and digits</strong> with no spaces. It has three core parts:</p>
       <ul>
-        <li>a <strong>prefix</strong> — the opening letter or letters (for the UK, usually
-          <code>G</code>, <code>M</code> or <code>2</code>);</li>
-        <li>a <strong>number</strong> — a single digit; and</li>
-        <li>a <strong>suffix</strong> — the final letters, normally two or three of them.</li>
+        <li>a <strong>prefix</strong> — the opening character(s); for the UK these begin
+          <code>G</code>, <code>M</code> or <code>2</code>;</li>
+        <li>a <strong>digit</strong>; and</li>
+        <li>a <strong>suffix</strong> — the ending letters (for example the <code>TEE</code> in an
+          <code>M7TEE</code>-shaped call). This is the sense of "suffix" used across this site.</li>
       </ul>
-      <p>For example (illustrative), <code>G0ABC</code> has the prefix <code>G</code>, the number
-        <code>0</code> and the suffix <code>ABC</code>.</p>
-      <p>Some callsigns also carry a <strong>regional letter</strong> just after the prefix, showing
-        which UK nation the station is in — this is called the
-        <a class="gloss-term" href="glossary.html#rsl">Regional Secondary Locator<span class="gloss-cue" aria-hidden="true">?</span><span class="visually-hidden"> (definition of the RSL in the glossary)</span></a>.
-        The usual mapping is Wales <code>W</code>, Scotland <code>M</code>, Northern Ireland
-        <code>I</code>, Isle of Man <code>D</code>, Jersey <code>J</code>, Guernsey <code>U</code>
-        (so a Welsh station using an <code>M</code> callsign appears as <code>MW…</code>).
-        <em>[needs verification — the exact set of regional letters and nations against a current
-        Ofcom/RSGB source.]</em> This mirror stores the callsign <em>without</em> the regional
-        letter as its <a class="gloss-term" href="glossary.html#canonical-form">canonical form<span class="gloss-cue" aria-hidden="true">?</span><span class="visually-hidden"> (definition of the canonical form in the glossary)</span></a>,
-        so that every regional version of one licence lines up.</p>
+      <p>A callsign may also carry a <strong>Regional Secondary Locator (RSL)</strong> — a letter
+        inserted after the first character to show which UK nation or Crown Dependency the station is
+        in. Ofcom defines it as "a letter, that is inserted after the initial character of the call
+        sign … to convey the location of the Radio Equipment".
+        <span class="src">Authoritative — Ofcom, <em>Amateur Radio Wireless Telegraphy Licence
+        Conditions Booklet</em> (OFW611, 21 February 2024), definitions, cl. (w).</span></p>
+
+      <div class="callout" style="border-color:var(--change)"><strong>Two different meanings of
+        "suffix".</strong> On this site and among amateurs, the <em>suffix</em> is the callsign's
+        ending letters (<code>TEE</code> in <code>M7TEE</code>) — the ITU/amateur-standard sense, and
+        the one this site always means by "suffix". Ofcom's licence T&amp;Cs (cl. 26) use the same
+        word, <em>suffix</em>, for something different: the optional addition after a slash (such as
+        <code>/P</code>). To keep the two apart, this page calls that one the
+        <strong>operating suffix</strong> (also "post-slash suffix"). The two are unrelated.</div>
+    </section>
+
+    <section class="panel" id="rsl">
+      <div class="eyebrow">regional secondary locator</div>
+      <h2>Regional Secondary Locators, and the club difference</h2>
+      <p>Where an RSL is used it must be one of the letters below. There are <strong>two sets</strong>:
+        a letter available to all licences, and — the point most often missed — an
+        <strong>additional letter available only to a Full (Club) Licence</strong>.
+        <span class="src">Authoritative — Ofcom OFW611, cl. 24 (pp 7–8).</span></p>
+      <div class="overflow">
+      <table>
+        <caption class="table-caption">Regional Secondary Locator letters (Ofcom OFW611, cl. 24).</caption>
+        <thead><tr><th scope="col">Nation / area</th><th scope="col">All licences</th><th scope="col">Full (Club) Licence only</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">England</th><td><code>E</code></td><td><code>X</code></td></tr>
+          <tr><th scope="row">Guernsey</th><td><code>U</code></td><td><code>P</code></td></tr>
+          <tr><th scope="row">Isle of Man</th><td><code>D</code></td><td><code>T</code></td></tr>
+          <tr><th scope="row">Jersey</th><td><code>J</code></td><td><code>H</code></td></tr>
+          <tr><th scope="row">Northern Ireland</th><td><code>I</code></td><td><code>N</code></td></tr>
+          <tr><th scope="row">Scotland</th><td><code>M</code></td><td><code>S</code></td></tr>
+          <tr><th scope="row">Wales</th><td><code>W</code></td><td><code>C</code></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>Using an RSL is normally optional; but for an Intermediate callsign beginning with
+        <code>2</code>, an RSL <em>must</em> be inserted as the new second character. Ofcom may also
+        notify a licensee of a different character to use "in place of an RSL".
+        <span class="src">Authoritative — Ofcom OFW611, cl. 22, 23 and 25 (pp 7–8).</span></p>
+    </section>
+
+    <section class="panel" id="classes">
+      <div class="eyebrow">licence classes</div>
+      <h2>Licence classes and their prefixes</h2>
+      <p>UK amateur licences come at three classes — <strong>Foundation</strong>,
+        <strong>Intermediate</strong> and <strong>Full</strong> — earned by successive exams; there
+        are also Full (Club) and Full (Temporary Reciprocal) licences. Ofcom's guidance sets out the
+        callsign formats issued at each class.
+        <span class="src">Authoritative — Ofcom, <em>Licensing guidance document for amateur
+        radio</em>, §5, Table 1 (Amateur Radio Call sign formats).</span></p>
+      <div class="overflow">
+      <table>
+        <caption class="table-caption">Callsign initial characters by class (Ofcom guidance, Table 1).</caption>
+        <thead><tr><th scope="col">Class</th><th scope="col">Currently issuing</th><th scope="col">Formerly issued</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Foundation</th><td><code>M3</code>, <code>M6</code>, <code>M7</code></td><td>—</td></tr>
+          <tr><th scope="row">Intermediate</th><td><code>M8</code>, <code>M9</code></td><td><code>2#0</code>, <code>2#1</code></td></tr>
+          <tr><th scope="row">Full</th><td><code>M0</code>, <code>M1</code>, <code>M5</code>, <code>G0</code>–<code>G8</code></td><td><code>G2</code></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>A Full (Club) callsign is <code>G</code> or <code>M</code> followed by three letters (two by
+        heritage). In Ofcom's table the Intermediate format is written <code>2#0</code>/<code>2#1</code>,
+        where the <code>#</code> stands for the <a href="#rsl">RSL</a> position — the second-character
+        slot an Intermediate <code>2</code> callsign must fill.
+        <span class="src">Authoritative — Ofcom guidance, Table 1; the <code>#</code>-as-RSL-slot
+        reading is grounded in OFW611 cl. 25. This mirror reuses the same <code>#</code> notation for
+        that slot (see the glossary's <a href="glossary.html#placeholder-form">placeholder form</a>).</span></p>
     </section>
 
     <section class="panel" id="characters">
       <div class="eyebrow">which characters belong</div>
       <h2>Which characters belong in a callsign</h2>
-      <p>A UK amateur callsign uses <strong>A–Z</strong> and <strong>0–9</strong>. The only
-        punctuation normally seen is the forward slash <code>/</code>, which separates the callsign
-        from an added indicator — for example <code>/P</code> (portable), <code>/M</code> (mobile)
-        or <code>/A</code> (an alternative address), and in visitor callsigns written as
-        <code>M/</code> followed by the visitor's home callsign.
-        <em>[needs verification — the list of slash indicators against a current Ofcom source.]</em></p>
-      <p>You may also see a <code>#</code> in data that comes from Ofcom. Ofcom uses it in its own
-        notation as a stand-in for the regional-letter slot (for example the Intermediate
-        <code>2#0</code> shape). It is a notation mark, not a letter of the callsign.
-        <em>[needs verification — Ofcom's use of <code>#</code> in callsign notation.]</em></p>
-      <p>Anything else — lower-case letters, spaces, other punctuation, or
+      <p>The core callsign uses <strong>A–Z</strong> and <strong>0–9</strong>. After the core, an
+        <strong>operating suffix</strong> (post-slash suffix — the sense Ofcom's cl. 26 calls a
+        "suffix", distinct from the callsign's <a href="#parts">ending-letter suffix</a>) may be added
+        after a forward slash <code>/</code>. Ofcom permits <em>any</em> such addition "so long as the
+        station remains identifiable"; the familiar <code>/P</code> (portable), <code>/M</code>
+        (mobile), <code>/MM</code> (maritime mobile), <code>/A</code> and <code>/AM</code> are
+        examples, not a fixed list, and they are "not mandated by, or referenced in, the amateur radio
+        licence".
+        <span class="src">Authoritative — Ofcom OFW611, cl. 26 (p 8); Ofcom guidance, §5.8 Suffixes.</span></p>
+      <p>The <code>#</code> you may see is not a letter of the callsign: it marks the
+        <a href="#rsl">RSL</a> slot in Ofcom's format notation (as in <code>2#0</code>) and in this
+        mirror's <a href="glossary.html#placeholder-form">placeholder form</a>. Anything else —
+        lower-case letters, ordinary spaces, other punctuation, or
         <a href="invisible-characters.html">characters you cannot see</a> — is not part of a normal
-        callsign. When the published data contains such characters, this site keeps the entry exactly
-        as published and also shows the tidied-up <a href="glossary.html#canonical-form">canonical
-        form</a> beside it, so nothing is hidden and nothing is silently changed.</p>
+        callsign. Where the published data contains such characters, this site keeps the entry
+        exactly as published and shows the tidied-up
+        <a href="glossary.html#canonical-form">canonical form</a> beside it.</p>
     </section>
 
-    <section class="panel" id="classes">
-      <div class="eyebrow">licence levels</div>
-      <h2>Licence levels and what they look like</h2>
-      <p>UK amateur licences come at three levels — <strong>Foundation</strong>,
-        <strong>Intermediate</strong> and <strong>Full</strong> — earned by passing successively
-        harder exams. The level is reflected in the callsign's prefix and number. As a rough guide,
-        Foundation calls have used <code>M7</code>, <code>M6</code> and <code>M3</code>;
-        Intermediate calls use <code>2E0</code>/<code>2E1</code> (with regional variants); and Full
-        calls use <code>M0</code>, <code>M5</code> and the older <code>G</code> series.
-        <em>[needs verification — the exact prefix-to-level mapping, including regional and historic
-        variants, against a current Ofcom source.]</em></p>
+    <section class="panel" id="slashes">
+      <div class="eyebrow">operating away or abroad</div>
+      <h2>More than one slash: operating away or abroad</h2>
+      <p>A callsign can carry more than one slash. Operating overseas under CEPT Recommendation
+        T/R 61-01, a UK amateur must place "the appropriate country prefix before your call sign"
+        (for example <code>F/M0ABC</code> in France) and may still add an operating suffix — so the
+        transmitted call has both a prefix-slash and a suffix-slash.
+        <span class="src">Authoritative — Ofcom guidance, §7.3 (Your call sign beyond UK jurisdiction).</span></p>
+      <p>The mirror image — a visitor operating in the UK under a reciprocal arrangement, shown as a
+        UK prefix and RSL before their home callsign (for example <code>MW/</code> then a non-UK
+        callsign, optionally with <code>/P</code>) — appears in the register data.
+        <span class="src">Best available — reciprocal/CEPT operating practice (RSGB,
+        <a href="https://rsgb.org/main/operating/licensing-novs-visitors/international-prefixes/">International
+        Prefixes</a>); the exact visitor format is convention, not spelled out in the primary licence
+        documents. Confidence: medium.</span></p>
     </section>
 
     <section class="panel" id="who">
       <div class="eyebrow">who decides</div>
       <h2>Who decides what is allowed</h2>
-      <p>Three bodies matter here:</p>
       <ul>
-        <li><strong>The International Telecommunication Union (ITU)</strong> — a United Nations
-          agency — divides up the opening letters of callsigns between countries in its Radio
-          Regulations, so that a callsign's start shows which country issued it. The UK's shares
-          include the <code>G</code>, <code>M</code> and <code>2</code> series.
-          <em>[needs verification — the exact ITU Radio Regulations article/appendix and the UK's
-          allocated call-sign series blocks, with a stable ITU source URL.]</em></li>
-        <li><strong>Ofcom</strong> — the UK's communications regulator — issues amateur licences and
-          decides the UK callsign rules, in the amateur radio licence terms and conditions and its
-          callsign policy. <em>[needs verification — exact document titles and current Ofcom URLs.]</em></li>
-        <li><strong>The Radio Society of Great Britain (RSGB)</strong> — administers the amateur
-          exams and publishes operating and callsign guidance for licensees.
-          <em>[needs verification — current RSGB source URLs.]</em></li>
+        <li><strong>The International Telecommunication Union (ITU)</strong> allocates blocks of
+          call-sign series to countries in the Radio Regulations, so a callsign's opening shows which
+          country issued it. The UK's amateur prefixes are <code>G</code>, <code>M</code> and
+          <code>2</code>. <span class="src">Authoritative (instrument) — ITU Radio Regulations,
+          Appendix 42, <a href="https://www.itu.int/en/ITU-R/terrestrial/fmd/Pages/call_sign_series.aspx">Table
+          of International Call Sign Series</a>; UK amateur prefixes per Ofcom guidance, Table 1. The
+          full enumerated UK ranges (<code>GAA–GZZ</code>, <code>MAA–MZZ</code>, <code>2AA–2ZZ</code>,
+          and territory blocks such as <code>VP/VS/ZB/ZN/ZQ</code>) — best available (Wikipedia,
+          <a href="https://en.wikipedia.org/wiki/Call_signs_in_the_United_Kingdom">Call signs in the
+          United Kingdom</a>); confidence: medium.</span></li>
+        <li><strong>Ofcom</strong> — the UK regulator — issues the licences and sets the callsign
+          rules. <span class="src">Authoritative — Ofcom OFW611; Ofcom <em>Licensing guidance
+          document for amateur radio</em>; UK Interface Requirement 2028.</span></li>
+        <li><strong>The Radio Society of Great Britain (RSGB)</strong> administers the amateur exams
+          and publishes operating guidance. <span class="src">Best available — RSGB
+          (<a href="https://rsgb.org/main/operating/licensing-novs-visitors/international-prefixes/">rsgb.org</a>);
+          the exam-administration role is institutional knowledge.</span></li>
       </ul>
       <p>This site is an <a href="about.html">independent mirror</a>; it follows these rules to read
-        the data but does not set them, and it is not affiliated with any of these bodies.</p>
+        the data but does not set them, and is not affiliated with any of these bodies.</p>
     </section>
 
     <section class="panel" id="sources">
       <div class="eyebrow">sources</div>
-      <h2>Sources and further reading</h2>
-      <p>The facts above are drawn from the following, and each should be checked and linked to a
-        current, stable source before this page is treated as authoritative:</p>
+      <h2>Sources</h2>
       <ul>
-        <li>ITU Radio Regulations — the table of international call-sign series.
-          <em>[needs verification — article/appendix number and URL.]</em></li>
-        <li>Ofcom — the amateur radio licence (terms, conditions and limitations) and callsign
-          policy. <em>[needs verification — titles and URLs.]</em></li>
-        <li>RSGB — licensing, exams and operating/callsign guidance.
-          <em>[needs verification — URLs.]</em></li>
+        <li><strong>Authoritative</strong> — Ofcom, <em>Amateur Radio Wireless Telegraphy Licence
+          Conditions Booklet</em> (OFW611, published 21 February 2024): RSLs cl. 22–26, pp 7–8;
+          definition cl. (w).</li>
+        <li><strong>Authoritative</strong> — Ofcom, <em>Licensing guidance document for amateur
+          radio</em>: callsign formats §5 Table 1; post-slash suffixes §5.8; operating abroad §7.3.</li>
+        <li><strong>Authoritative (instrument)</strong> — ITU Radio Regulations, Appendix 42:
+          <a href="https://www.itu.int/en/ITU-R/terrestrial/fmd/Pages/call_sign_series.aspx">Table of
+          International Call Sign Series</a>.</li>
+        <li><strong>Best available</strong> — Wikipedia,
+          <a href="https://en.wikipedia.org/wiki/Call_signs_in_the_United_Kingdom">Call signs in the
+          United Kingdom</a> (enumerated UK blocks); RSGB,
+          <a href="https://rsgb.org/main/operating/licensing-novs-visitors/international-prefixes/">International
+          Prefixes</a> (reciprocal/visitor practice).</li>
       </ul>
-      <div class="callout">Corrections welcome. If any statement here is wrong or out of date, please
-        open an issue on the
+      <div class="callout">Spotted an error? Please open an issue on the
         <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/issues">GitHub repository</a>.</div>
     </section>
 
     <footer>
-      <p class="muted"><small>An independent, unofficial mirror. This explainer is plain-English
-        background, not official guidance — for licensing questions consult Ofcom directly.</small></p>
+      <p class="muted"><small>An independent, unofficial mirror. Plain-English background, not
+        official guidance — for licensing questions consult Ofcom directly.</small></p>
     </footer>
     </div>
   </main>
