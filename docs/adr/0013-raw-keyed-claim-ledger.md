@@ -246,6 +246,12 @@ parse-dependent quality-report folds. Source-position provenance is now attested
 per observation — the exact CSV line or spreadsheet cell an observation came
 from — with source-intrinsic facts kept rigorously distinct from
 archive/processing artefacts ([ADR 0015](0015-source-intrinsic-vs-archive-provenance.md)).
+A committed reconstruction oracle now rebuilds the CSV-lane text sources (the
+open-data, FOI-CSV and addendum lanes — 31 sources) from their claims alone,
+byte-identical modulo cosmetic quoting/line-ending differences, with the
+verbatim as-published header attested as a file-level claim
+([ADR 0016](0016-file-level-claims-and-reconstruction-oracle.md)) — so for those
+lanes the raw layer is proven canonical, not merely asserted.
 
 Remaining: the reviewed canonical vocabularies and coverage-aware gating the
 temporal fold depends on; the continued onboarding through the registry of
