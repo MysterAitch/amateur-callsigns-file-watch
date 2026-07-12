@@ -72,6 +72,25 @@ const glossTerm = (anchor, label, accessibleName) => {
   return a;
 };
 
+// Render a prose segment list (see ledger-query.js) into `parent`. A plain
+// string is text; a `link` is a hyperlink (an off-site http… link opens in a
+// new tab, an on-site link stays in the tab); a `raw` value is a verbatim
+// register token with its invisible characters made visible; a `code` value is
+// a monospace span. Every value is written with textContent, never innerHTML.
+const appendSegments = (parent, segments) => {
+  for (const s of segments) {
+    if (typeof s === 'string') { parent.append(s); continue; }
+    if (s.link) {
+      if (/^https?:/i.test(s.link.href)) { parent.appendChild(extLink(s.link.href, s.link.text)); }
+      else { const a = el('a', null, s.link.text); a.href = s.link.href; parent.appendChild(a); }
+      continue;
+    }
+    if (s.raw !== undefined) { parent.appendChild(appendRawToken(el('span', 'fid-code'), s.raw)); continue; }
+    if (s.code !== undefined) { parent.appendChild(el('span', 'fid-code', s.code)); continue; }
+  }
+  return parent;
+};
+
 const showRaw = t => t.replace(/ /g, '[NBSP]').replace(/ /g, '[SP]');
 
 // ---- Entity timeline (temporal fold) ---------------------------------------
@@ -218,21 +237,14 @@ export function renderFidelity(body, resolved, claims) {
 
   const sec = el('div', 'dsec fidelity');
   sec.appendChild(el('h4', null, 'record fidelity'));
-  sec.appendChild(el('p', 'fid-preamble', fidelity.preamble));
+  sec.appendChild(appendSegments(el('p', 'fid-preamble'), fidelity.preamble));
 
   if (fidelity.canonical) {
     const c = el('div', 'fid-canonical');
-    const line = el('p', 'fid-line');
-    line.append('The register published this callsign in a form that differs from its ');
-    line.appendChild(glossTerm('canonical-form', 'canonical form', 'the canonical form'));
-    line.append('. The reference form is ');
-    line.appendChild(b(fidelity.canonical.canonicalForm));
-    line.append('. Each published form is kept exactly as it appeared:');
-    c.appendChild(line);
+    c.appendChild(appendSegments(el('p', 'fid-line'), fidelity.canonical.intro));
     for (const v of fidelity.canonical.variants) {
       const vrow = el('div', 'fid-variant');
-      const raw = appendRawToken(el('span', 'fid-raw'), v.raw);
-      vrow.appendChild(raw);
+      vrow.appendChild(appendSegments(el('p', 'fid-line'), v.prose));
       vrow.appendChild(renderWorking(v.working));
       c.appendChild(vrow);
     }
@@ -245,7 +257,7 @@ export function renderFidelity(body, resolved, claims) {
     t.appendChild(el('span', 'fn', note.label));
     t.appendChild(el('span', 'tb d', 'derived'));
     fc.appendChild(t);
-    if (note.gloss) fc.appendChild(el('div', 'fg', note.gloss));
+    if (note.gloss && note.gloss.length > 0) fc.appendChild(appendSegments(el('div', 'fg'), note.gloss));
     if (note.working) fc.appendChild(renderWorking(note.working));
     sec.appendChild(fc);
   }

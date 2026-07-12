@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>How a UK amateur-radio callsign is structured — UK amateur callsign data mirror</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Adopts the bespoke visual language scoped under .ledger (ledger.css); the
+       shared nav and skip link stay styled by tokens.css/style.css. -->
+  <link rel="stylesheet" href="ledger.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#14506e">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
+  <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="ledger.html">Ledger</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">Repository</a></p></nav>
+  <!-- nav:end -->
+  <main id="main" class="ledger">
+    <header>
+      <div class="head-inner">
+        <div class="eyebrow">explainer · plain-English background</div>
+        <h1>How a UK amateur-radio callsign is structured</h1>
+        <p class="lede">A short, plain guide to the parts of a UK amateur callsign, which characters
+          belong in one, and who decides what is allowed. It is background for the notes this site
+          shows; it is not official guidance — for that, see Ofcom.</p>
+      </div>
+    </header>
+
+    <div class="wrap">
+    <section class="panel" id="parts">
+      <div class="eyebrow">the parts</div>
+      <h2>The parts of a callsign</h2>
+      <p>A UK amateur callsign is a short code that identifies one licence. It is normally made of
+        <strong>capital letters and digits</strong>, with no spaces. Most callsigns have three parts:</p>
+      <ul>
+        <li>a <strong>prefix</strong> — the opening letter or letters (for the UK, usually
+          <code>G</code>, <code>M</code> or <code>2</code>);</li>
+        <li>a <strong>number</strong> — a single digit; and</li>
+        <li>a <strong>suffix</strong> — the final letters, normally two or three of them.</li>
+      </ul>
+      <p>For example (illustrative), <code>G0ABC</code> has the prefix <code>G</code>, the number
+        <code>0</code> and the suffix <code>ABC</code>.</p>
+      <p>Some callsigns also carry a <strong>regional letter</strong> just after the prefix, showing
+        which UK nation the station is in — this is called the
+        <a class="gloss-term" href="glossary.html#rsl">Regional Secondary Locator<span class="gloss-cue" aria-hidden="true">?</span><span class="visually-hidden"> (definition of the RSL in the glossary)</span></a>.
+        The usual mapping is Wales <code>W</code>, Scotland <code>M</code>, Northern Ireland
+        <code>I</code>, Isle of Man <code>D</code>, Jersey <code>J</code>, Guernsey <code>U</code>
+        (so a Welsh station using an <code>M</code> callsign appears as <code>MW…</code>).
+        <em>[needs verification — the exact set of regional letters and nations against a current
+        Ofcom/RSGB source.]</em> This mirror stores the callsign <em>without</em> the regional
+        letter as its <a class="gloss-term" href="glossary.html#canonical-form">canonical form<span class="gloss-cue" aria-hidden="true">?</span><span class="visually-hidden"> (definition of the canonical form in the glossary)</span></a>,
+        so that every regional version of one licence lines up.</p>
+    </section>
+
+    <section class="panel" id="characters">
+      <div class="eyebrow">which characters belong</div>
+      <h2>Which characters belong in a callsign</h2>
+      <p>A UK amateur callsign uses <strong>A–Z</strong> and <strong>0–9</strong>. The only
+        punctuation normally seen is the forward slash <code>/</code>, which separates the callsign
+        from an added indicator — for example <code>/P</code> (portable), <code>/M</code> (mobile)
+        or <code>/A</code> (an alternative address), and in visitor callsigns written as
+        <code>M/</code> followed by the visitor's home callsign.
+        <em>[needs verification — the list of slash indicators against a current Ofcom source.]</em></p>
+      <p>You may also see a <code>#</code> in data that comes from Ofcom. Ofcom uses it in its own
+        notation as a stand-in for the regional-letter slot (for example the Intermediate
+        <code>2#0</code> shape). It is a notation mark, not a letter of the callsign.
+        <em>[needs verification — Ofcom's use of <code>#</code> in callsign notation.]</em></p>
+      <p>Anything else — lower-case letters, spaces, other punctuation, or
+        <a href="invisible-characters.html">characters you cannot see</a> — is not part of a normal
+        callsign. When the published data contains such characters, this site keeps the entry exactly
+        as published and also shows the tidied-up <a href="glossary.html#canonical-form">canonical
+        form</a> beside it, so nothing is hidden and nothing is silently changed.</p>
+    </section>
+
+    <section class="panel" id="classes">
+      <div class="eyebrow">licence levels</div>
+      <h2>Licence levels and what they look like</h2>
+      <p>UK amateur licences come at three levels — <strong>Foundation</strong>,
+        <strong>Intermediate</strong> and <strong>Full</strong> — earned by passing successively
+        harder exams. The level is reflected in the callsign's prefix and number. As a rough guide,
+        Foundation calls have used <code>M7</code>, <code>M6</code> and <code>M3</code>;
+        Intermediate calls use <code>2E0</code>/<code>2E1</code> (with regional variants); and Full
+        calls use <code>M0</code>, <code>M5</code> and the older <code>G</code> series.
+        <em>[needs verification — the exact prefix-to-level mapping, including regional and historic
+        variants, against a current Ofcom source.]</em></p>
+    </section>
+
+    <section class="panel" id="who">
+      <div class="eyebrow">who decides</div>
+      <h2>Who decides what is allowed</h2>
+      <p>Three bodies matter here:</p>
+      <ul>
+        <li><strong>The International Telecommunication Union (ITU)</strong> — a United Nations
+          agency — divides up the opening letters of callsigns between countries in its Radio
+          Regulations, so that a callsign's start shows which country issued it. The UK's shares
+          include the <code>G</code>, <code>M</code> and <code>2</code> series.
+          <em>[needs verification — the exact ITU Radio Regulations article/appendix and the UK's
+          allocated call-sign series blocks, with a stable ITU source URL.]</em></li>
+        <li><strong>Ofcom</strong> — the UK's communications regulator — issues amateur licences and
+          decides the UK callsign rules, in the amateur radio licence terms and conditions and its
+          callsign policy. <em>[needs verification — exact document titles and current Ofcom URLs.]</em></li>
+        <li><strong>The Radio Society of Great Britain (RSGB)</strong> — administers the amateur
+          exams and publishes operating and callsign guidance for licensees.
+          <em>[needs verification — current RSGB source URLs.]</em></li>
+      </ul>
+      <p>This site is an <a href="about.html">independent mirror</a>; it follows these rules to read
+        the data but does not set them, and it is not affiliated with any of these bodies.</p>
+    </section>
+
+    <section class="panel" id="sources">
+      <div class="eyebrow">sources</div>
+      <h2>Sources and further reading</h2>
+      <p>The facts above are drawn from the following, and each should be checked and linked to a
+        current, stable source before this page is treated as authoritative:</p>
+      <ul>
+        <li>ITU Radio Regulations — the table of international call-sign series.
+          <em>[needs verification — article/appendix number and URL.]</em></li>
+        <li>Ofcom — the amateur radio licence (terms, conditions and limitations) and callsign
+          policy. <em>[needs verification — titles and URLs.]</em></li>
+        <li>RSGB — licensing, exams and operating/callsign guidance.
+          <em>[needs verification — URLs.]</em></li>
+      </ul>
+      <div class="callout">Corrections welcome. If any statement here is wrong or out of date, please
+        open an issue on the
+        <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/issues">GitHub repository</a>.</div>
+    </section>
+
+    <footer>
+      <p class="muted"><small>An independent, unofficial mirror. This explainer is plain-English
+        background, not official guidance — for licensing questions consult Ofcom directly.</small></p>
+    </footer>
+    </div>
+  </main>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>

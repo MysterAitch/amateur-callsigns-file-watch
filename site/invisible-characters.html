@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>Invisible characters, and how we show them — UK amateur callsign data mirror</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Adopts the bespoke visual language scoped under .ledger (ledger.css); the
+       shared nav and skip link stay styled by tokens.css/style.css. -->
+  <link rel="stylesheet" href="ledger.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#14506e">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
+  <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="ledger.html">Ledger</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">Repository</a></p></nav>
+  <!-- nav:end -->
+  <main id="main" class="ledger">
+    <header>
+      <div class="head-inner">
+        <div class="eyebrow">explainer · plain-English background</div>
+        <h1>Invisible characters, and how we show them</h1>
+        <p class="lede">Some published data contains characters you cannot see on screen. They can
+          make two entries that look identical actually differ. This page explains what they are,
+          why they matter, and how this site makes them visible.</p>
+      </div>
+    </header>
+
+    <div class="wrap">
+    <section class="panel" id="what">
+      <div class="eyebrow">what they are</div>
+      <h2>What "invisible characters" are</h2>
+      <p>Computers store text as a long list of numbered characters. This numbering scheme is called
+        <strong>Unicode</strong>, and it covers not just letters and digits but also spaces and
+        other marks that take up room without showing a shape. A few turn up in register data:</p>
+      <ul>
+        <li>an ordinary <strong>space</strong> — for example a stray space at the end of a callsign;</li>
+        <li>a <strong>non-breaking space</strong> — a special kind of space (often written
+          <code>NBSP</code>) that looks the same as an ordinary one; and</li>
+        <li>the <strong>replacement character</strong> (numbered <code>U+FFFD</code>, usually shown
+          as <code>&#xFFFD;</code>) — the mark that appears when text is converted between formats
+          and a character could not be carried across.</li>
+      </ul>
+      <p><em>[needs verification — Unicode is maintained by the Unicode Consortium; the exact names
+        and code points above should be checked against a current Unicode Standard reference and
+        linked.]</em></p>
+    </section>
+
+    <section class="panel" id="why">
+      <div class="eyebrow">why they matter</div>
+      <h2>Why they matter</h2>
+      <p>Two entries can look exactly the same on screen yet differ in their hidden characters — for
+        example <code>G0ABC</code> and <code>G0ABC </code> (the second has a trailing space). If we
+        quietly deleted the hidden character, we would hide a real difference in the source. If we
+        ignored it, searches and cross-links would fail, because to a computer the two are not the
+        same text.</p>
+      <p>So this site does neither. It keeps every entry <strong>exactly as published</strong>, and
+        separately shows the tidied-up <a href="glossary.html#canonical-form">canonical form</a> it
+        uses to match and link records. Both are shown together, so you can see precisely what the
+        source contained.</p>
+    </section>
+
+    <section class="panel" id="how">
+      <div class="eyebrow">how we show them</div>
+      <h2>How we make them visible</h2>
+      <p>Where an entry contains a character you cannot see, we replace it with a visible marker so
+        you can tell it is there:</p>
+      <ul>
+        <li>a space or non-breaking space is shown as <span class="nbsp">&#x2420;</span> (or written
+          out as <code>[SP]</code> / <code>[NBSP]</code>);</li>
+        <li>the exact bytes of an entry can also be shown as hexadecimal in the
+          <a href="ledger.html">Ledger</a>'s layer-anatomy view, which is the unambiguous evidence
+          that two look-alike entries really differ.</li>
+      </ul>
+      <p>The marker is only a way of showing you the character — the stored data keeps the original
+        exactly.</p>
+    </section>
+
+    <section class="panel" id="sources">
+      <div class="eyebrow">sources</div>
+      <h2>Sources and further reading</h2>
+      <ul>
+        <li>The Unicode Standard (the Unicode Consortium) — for the character names and code points,
+          including the replacement character <code>U+FFFD</code>.
+          <em>[needs verification — a current, stable Unicode reference URL.]</em></li>
+      </ul>
+      <div class="callout">Corrections welcome — please open an issue on the
+        <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/issues">GitHub repository</a>.</div>
+    </section>
+
+    <footer>
+      <p class="muted"><small>An independent, unofficial mirror. Plain-English background, not
+        official guidance.</small></p>
+    </footer>
+    </div>
+  </main>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>

@@ -287,14 +287,50 @@ const FLAG_PREDICATE = 'flag';
 const PARSE_STATUS_PREDICATE = 'parse_status';
 const CLEANED_CALLSIGN_RULE = 'cleaned-callsign';
 
-// The standing framing preamble (ADR ethics decision 2). It defuses the
-// "my record was corrupted" reading before any potentially-surprising note.
-export const FIDELITY_PREAMBLE =
-  'These notes describe what the archived register snapshots record for this '
-  + 'callsign, and where. They locate an observation rather than assign fault, and '
-  + 'impute nothing to any licensee or to the publisher. A callsign’s history '
-  + 'may also span more than one licensee over time. The form each source published '
-  + 'is always kept verbatim; nothing here alters a record.';
+// The reusable explainer pages this surface links out to, so a reader meeting a
+// term for the first time can follow it to a plain-English explanation.
+export const FAQ_CALLSIGN_STRUCTURE = 'callsign-structure.html';
+export const FAQ_INVISIBLE_CHARACTERS = 'invisible-characters.html';
+
+// Prose is modelled as an array of SEGMENTS so a sentence can carry an inline
+// link (to an explainer or the glossary), a verbatim raw token (with its
+// invisible characters made visible), or a monospace code value - while every
+// value is still written to the DOM with textContent, never innerHTML. A plain
+// string segment is literal text; the objects below are the richer parts.
+//   link:  a hyperlink { text, href }  (http… opens in a new tab; else same-tab)
+//   raw:   a verbatim register token, invisible characters shown
+//   code:  a monospace value (e.g. the canonical form)
+const lnk = (text, href) => ({ link: { text, href } });
+const rawSeg = (value) => ({ raw: value });
+const codeSeg = (value) => ({ code: value });
+
+// The readable text of a segment list (the link text and values, in order),
+// for accessible-name building and for tests. Pure.
+export function segmentsText(segments) {
+  return segments.map(s => {
+    if (typeof s === 'string') return s;
+    if (s.link) return s.link.text;
+    if (s.raw !== undefined) return s.raw;
+    if (s.code !== undefined) return s.code;
+    return '';
+  }).join('');
+}
+
+// The standing framing preamble (ADR ethics decision 2), in plain language. It
+// defuses the "my record was corrupted" reading before any surprising note:
+// says plainly whose data this is, that the notes are observations not
+// judgements, that a callsign can belong to different people over time, and
+// that nothing here changes a record.
+export const FIDELITY_PREAMBLE = [
+  'What you see below describes what an official register — published by Ofcom, the UK '
+  + 'regulator — actually recorded for this ',
+  lnk('callsign', FAQ_CALLSIGN_STRUCTURE),
+  ', and which file we found it in. These are observations, not judgements: each one points '
+  + 'to something in the data and says where it is, without blaming the licence holder or the '
+  + 'publisher, and without saying anything is wrong. A single callsign can also belong to '
+  + 'different people at different times, because callsigns are re-issued over the years. We '
+  + 'always keep the data exactly as it was published; nothing here changes any record.',
+];
 
 // A plain-English gloss per derivation rule (kept in step with src/v2/explain.ts
 // RULE_GLOSSES). Used to head the "show the working" panel.
@@ -310,92 +346,119 @@ const RULE_GLOSSES = {
 // Non-accusatory notes for the derived data-quality flags the ledger can carry
 // (predicate `flag`), keyed by the flag token stored in the database. `label`
 // is neutral plain English (no "malformed"/"unparseable"/"defect" review tone);
-// `gloss` is a short, hedged, source-located sentence drawn from
-// reference-data/flags.md. Absent keys fall back to the raw token so a newly
-// added flag surfaces honestly rather than silently vanishing.
+// `gloss` is a short, hedged, source-located sentence (segments), drawn from
+// reference-data/flags.md and kept deliberately tight - the depth on any linked
+// term lives in the explainer page, so the inline note stays plain AND short.
+// Wording that already read well is kept ("Recorded, not a verdict"). Absent
+// keys fall back to the raw token so a newly added flag surfaces honestly.
 const FLAG_NOTES = {
   'lowercase': {
-    label: 'Lowercase letters in the published form',
-    gloss: 'The register published this callsign with one or more lowercase letters. It is read case-insensitively; the observation is recorded, not corrected.',
+    label: 'Lower-case letters in the published form',
+    gloss: ['The register normally writes a ', lnk('callsign', FAQ_CALLSIGN_STRUCTURE),
+      ' in capitals; this entry has one or more lower-case letters. We read it the same either way and record it as published.'],
   },
   'whitespace': {
-    label: 'Whitespace in the published form',
-    gloss: 'The published form carries a space or other invisible character. It is kept verbatim and noted here rather than silently removed.',
+    label: 'A hidden space in the published form',
+    gloss: ['This entry contains a space or other ', lnk('character you cannot see', FAQ_INVISIBLE_CHARACTERS),
+      '. Kept verbatim and noted here, not silently removed.'],
   },
   'encoding-failure': {
-    label: 'Replacement character in the published form',
-    gloss: 'The published form contains a Unicode replacement character (U+FFFD), which usually marks a text-encoding step that could not represent the original byte. Recorded as observed; the raw form is kept verbatim.',
+    label: 'A “replacement character” in the published form',
+    gloss: ['This entry contains a Unicode ', lnk('replacement character', FAQ_INVISIBLE_CHARACTERS),
+      ' (U+FFFD) — usually the mark of a text conversion that could not carry a character across. Recorded as found; the original is kept verbatim.'],
   },
   'excel-date-shape': {
-    label: 'Reads as a spreadsheet date',
-    gloss: 'In this snapshot the value appears in the shape a spreadsheet uses to show a date (for example 20-Apr) rather than a callsign. Adjacent snapshots may render it differently. The value is kept exactly as published and located here.',
+    label: 'The value looks like a spreadsheet date',
+    gloss: ['In this snapshot the value is written the way a spreadsheet shows a date (for example 20-Apr) rather than as a ',
+      lnk('callsign', FAQ_CALLSIGN_STRUCTURE), '. Other snapshots may show it differently. Kept exactly as published and noted here.'],
   },
   'spreadsheet-error-token': {
-    label: 'Spreadsheet error token in the callsign column',
-    gloss: 'The value is a spreadsheet formula-error literal (such as #REF!) that appears in the callsign column of this export — a source artefact preserved verbatim, not a callsign. It is left as-is rather than guessed at or dropped.',
+    label: 'A spreadsheet error code in the callsign column',
+    gloss: ['The value is a spreadsheet error code (such as #REF!) that landed in the callsign column of this file — a fault carried over from the source, not a ',
+      lnk('callsign', FAQ_CALLSIGN_STRUCTURE), '. Kept as found rather than guessed at or dropped.'],
   },
   'rsl-in-register': {
-    label: 'Regional locator present in the published form',
-    gloss: 'The register normally stores the locator-less core callsign, so a published form that includes an explicit regional secondary locator is the notable case and is recorded here.',
+    label: 'A regional letter is shown in the published form',
+    gloss: ['The register usually stores the core callsign without its ', lnk('regional letter', FAQ_CALLSIGN_STRUCTURE),
+      ' (which UK nation a station is in). This entry includes it, so we note it.'],
   },
   'unknown-rsl': {
-    label: 'Regional locator not in the reference list',
-    gloss: 'The regional secondary locator letter is not one enumerated in the reference table (some temporary or special locators are deliberately not listed). Recorded as an honest unknown, not an error.',
+    label: 'A regional letter not on our reference list',
+    gloss: ['This callsign’s ', lnk('regional letter', FAQ_CALLSIGN_STRUCTURE),
+      ' is not one in our reference list (some temporary or special ones are deliberately not listed). Recorded as an honest unknown, not an error.'],
   },
   'unknown-prefix-series': {
-    label: 'Prefix series not in the reference table',
-    gloss: 'The prefix series is not present in Ofcom’s current prefix table, so no licence class is implied from it. Recorded as an honest unknown.',
+    label: 'A callsign start not on our reference list',
+    gloss: ['The opening ', lnk('prefix', FAQ_CALLSIGN_STRUCTURE),
+      ' of this callsign is not in Ofcom’s current published table, so no licence level is read from it. Recorded as an honest unknown.'],
   },
   'forbidden-suffix': {
-    label: 'Suffix appears on a withheld-suffix list',
-    gloss: 'The suffix appears on the combined list of suffixes Ofcom’s disclosures have withheld from new issuance. On its own this is unremarkable: many long-standing allocations carry such a suffix, so the list evidently governs new issuance rather than existing holdings. Recorded, not a verdict.',
+    label: 'The ending appears on a withheld-endings list',
+    gloss: ['This callsign’s ', lnk('ending', FAQ_CALLSIGN_STRUCTURE),
+      ' is on a combined list of endings Ofcom has withheld from new licences. On its own this is unremarkable: many long-standing callsigns carry such an ending, so the list governs new issues, not existing ones. Recorded, not a verdict.'],
   },
   'forbidden-suffix-issued-after-first-known-list': {
-    label: 'Start date appears to post-date the suffix’s first-known withheld month',
-    gloss: 'A candidate for scrutiny, not a verdict: the recorded original start date appears to fall after the month this suffix is first known to have been withheld. Innocent explanations come first — a heritage re-issue under a letter of consent, a publisher date artefact, or a version start date that resets on a later change rather than recording first issuance.',
+    label: 'Start date looks later than when the ending was first withheld',
+    gloss: ['A candidate for scrutiny, not a verdict: the recorded start date looks like it comes after the month this ',
+      lnk('ending', FAQ_CALLSIGN_STRUCTURE),
+      ' was first known to be withheld from new licences. Ordinary explanations come first — a re-issue to a family member with permission, a date artefact from the publisher, or a start date reset by a later change rather than recording the first issue.'],
   },
   'suffix-length-abnormal': {
-    label: 'Suffix length outside the usual range',
-    gloss: 'The suffix is outside the usual two-to-three-letter range. Two-letter forms are heritage; recorded here for reference.',
+    label: 'The ending is an unusual length',
+    gloss: ['This callsign’s ', lnk('ending', FAQ_CALLSIGN_STRUCTURE),
+      ' is outside the usual two-to-three-letter length. Two-letter endings are older, historic callsigns. Noted here for reference.'],
   },
   'class-product-mismatch': {
-    label: 'Prefix-implied class differs from the product column',
-    gloss: 'The licence class implied by the prefix series differs from the product recorded in this snapshot. This records the discrepancy, not a verdict: the cause is unknown — plausibly an issuance-time entry left uncorrected, plausibly a legitimate arrangement not stated publicly.',
+    label: 'Licence level from the callsign differs from the product column',
+    gloss: ['The licence level suggested by the callsign’s ', lnk('prefix', FAQ_CALLSIGN_STRUCTURE),
+      ' differs from the product recorded in this snapshot. This records the discrepancy, not a verdict: the cause is unknown — perhaps an old entry left uncorrected, perhaps a legitimate arrangement not stated in the public data.'],
   },
   'stripped-collision': {
-    label: 'A plain-character twin coexists in the same source',
-    gloss: 'Reduced to plain characters, this value matches another row in the same snapshot — the register lists the same callsign twice, once verbatim and once carrying extra characters. Both are shown; neither is dropped.',
+    label: 'The same callsign appears twice in one file',
+    gloss: ['Reduced to plain characters, this value matches another row in the same snapshot — the register lists the same callsign twice, once as normal text and once carrying extra ',
+      lnk('hidden or unusual characters', FAQ_INVISIBLE_CHARACTERS), '. Both are shown; neither is dropped.'],
   },
   'malformed-home-callsign': {
-    label: 'Visitor row whose home-callsign portion is unusual',
-    gloss: 'This is a visitor (M/…) row whose home-callsign portion does not take the shape of a callsign. Recorded as observed.',
+    label: 'A visitor entry whose home callsign looks unusual',
+    gloss: ['This is a visitor entry (written M/ then the visitor’s home ', lnk('callsign', FAQ_CALLSIGN_STRUCTURE),
+      ') where the home part does not look like a normal callsign. Recorded as found.'],
   },
   'hash-in-register': {
-    label: 'Placeholder character after the slash in a visitor row',
-    gloss: 'A visitor row carrying a literal # immediately after the slash, which reads as a reserved template placeholder rather than a callsign character. It is set aside and the home portion parsed normally; recorded here.',
+    label: 'A placeholder “#” after the slash in a visitor entry',
+    gloss: ['A visitor entry with a “#” just after the slash. The “#” reads as a fill-in placeholder, not a real ',
+      lnk('callsign', FAQ_CALLSIGN_STRUCTURE), ' character, so we set it aside, read the rest normally, and note it here.'],
   },
 };
 
 // Parse-status values worth surfacing. `parsed`, `visitor` and `special-event`
 // are the normal outcomes and are NOT surfaced (selective disclosure). Only the
-// two that mean "the register lists a token the parser could not resolve" are.
+// two that mean "the register lists a token we could not read as a callsign" are.
 const NOTABLE_PARSE_STATUS = {
   'unparseable': {
-    label: 'Not resolved to a standard callsign',
-    gloss: 'The register lists this token, but the callsign parser could not resolve it to a standard callsign formation. It is kept exactly as published and recorded here rather than reshaped into a guess.',
+    label: 'We could not read this as a standard callsign',
+    gloss: ['The register lists this entry, but it does not match the usual shape of a UK ',
+      lnk('callsign', FAQ_CALLSIGN_STRUCTURE),
+      ', so we could not read it as one. We keep it exactly as published rather than reshape it into a guess — and we do not suggest a “corrected” callsign, because a similar-looking one may be a different, real licence held by someone else.'],
   },
   'empty': {
-    label: 'Empty callsign field',
-    gloss: 'The callsign field for this row is empty in the source. Recorded as observed.',
+    label: 'The callsign field is empty',
+    gloss: ['The callsign field for this row is empty in the source. Recorded as found.'],
   },
 };
 
-// Labels for the cross-record observations flagsOf computes (these are not
-// per-row database flags but genuine multi-observation findings). The gloss for
-// each comes from flagsOf itself, so its wording stays single-sourced.
-const COMPUTED_LABELS = {
-  'multiple-raw-variants': 'Published under more than one form',
-  'co-temporal-status-divergence': 'Forms disagree on status within one snapshot',
+// Plain notes for the cross-record observations flagsOf computes (these are not
+// per-row database flags but genuine multi-observation findings). flagsOf's own
+// glosses use model jargon ("raw tokens", "the entity view"); these plainer
+// versions read better for a lay reader while staying precise.
+const COMPUTED_NOTES = {
+  'multiple-raw-variants': {
+    label: 'Published in more than one form',
+    gloss: ['Across the snapshots, the register published this licence under more than one written form. We keep every one, with a note of where it came from; we never quietly pick a single “winner”.'],
+  },
+  'co-temporal-status-divergence': {
+    label: 'Two forms disagree on status in one snapshot',
+    gloss: ['Within a single snapshot, two written forms of this callsign show different statuses. We show both exactly as published rather than decide which is right.'],
+  },
 };
 
 // The real repository path of a source file. The logical `source_file` key the
@@ -452,6 +515,17 @@ function ruleGlossFor(rule) {
   return RULE_GLOSSES[rule] ?? rule ?? '';
 }
 
+// Prose segments naming where a value was seen: "row 20 of <file link> (2025-06-04)",
+// joined with "; " for more than one. The file is an examine-source link.
+function sourceSegments(sources) {
+  const out = [];
+  sources.forEach((s, i) => {
+    if (i > 0) out.push('; ');
+    out.push(`row ${s.ordinal} of `, lnk(s.sourceFile, sourceFileUrl(s.sourceFile)), ` (${s.vintage})`);
+  });
+  return out;
+}
+
 // The structured fidelity model for a resolved callsign, ready for the surface
 // to render. `disclose` is false for the clean, unremarkable case (nothing is
 // surfaced then). `canonical` describes any divergence between a published form
@@ -465,23 +539,46 @@ export function fidelityOf(claims, resolved) {
   const cleaned = resolved.cleaned;
 
   // Canonical-form divergence: a published (raw) form that differs from the
-  // canonical reference form. Each divergent form keeps the working behind its
-  // cleaned-callsign normalises_to edge.
+  // canonical reference form. `intro` explains, plainly and once, what the entry
+  // contains and what the canonical form is (jargon depth pushed to the linked
+  // explainer). Each divergent form shows itself verbatim beside the canonical
+  // form, with the working behind its cleaned-callsign normalises_to edge.
   const rawTokens = [...new Set(claims.map(c => c.raw_subject))];
   const divergent = rawTokens.filter(t => t !== cleaned && t !== '');
   const canonical = divergent.length === 0 ? null : {
     canonicalForm: cleaned,
-    variants: divergent.map(raw => ({
-      raw,
-      bytes: bytesHex(raw),
-      working: {
-        rule: CLEANED_CALLSIGN_RULE,
-        ruleGloss: ruleGlossFor(CLEANED_CALLSIGN_RULE),
-        inputs: [{ role: 'published form', value: raw }],
-        result: cleaned,
-        sources: sourcesForRaw(claims, raw),
-      },
-    })),
+    intro: [
+      'This entry contains ', lnk('characters not normally found in a UK callsign', FAQ_CALLSIGN_STRUCTURE),
+      ' — a callsign is normally upper-case letters and digits, sometimes with a “/”. Taking out the '
+      + 'characters that do not belong leaves the form we recognise and match on — the ',
+      lnk('canonical form', 'glossary.html#canonical-form'), '.',
+    ],
+    variants: divergent.map(raw => {
+      const sources = sourcesForRaw(claims, raw);
+      // Only mention "invisible characters shown" when the form actually carries
+      // whitespace/invisible characters (the marker is only then meaningful).
+      const hasInvisible = /[\s\u00a0\u0000-\u001f\u007f-\u009f\ufffd]/.test(raw);
+      return {
+        raw,
+        bytes: bytesHex(raw),
+        // Side-by-side prose: the entry exactly as published, then the canonical
+        // form we use. Invisible characters (if any) are shown, linked to the
+        // explainer that says how.
+        prose: [
+          'As published: ', rawSeg(raw),
+          ...(hasInvisible ? [' (', lnk('invisible characters shown', FAQ_INVISIBLE_CHARACTERS), ')'] : []),
+          ...(sources.length > 0 ? [' — in ', ...sourceSegments(sources)] : []),
+          '. Canonical form: ', codeSeg(cleaned), '.',
+        ],
+        working: {
+          rule: CLEANED_CALLSIGN_RULE,
+          ruleGloss: ruleGlossFor(CLEANED_CALLSIGN_RULE),
+          inputs: [{ role: 'published form', value: raw }],
+          result: cleaned,
+          sources,
+        },
+      };
+    }),
   };
 
   const notes = [];
@@ -534,7 +631,8 @@ export function fidelityOf(claims, resolved) {
   // represented by the canonical block above, so it is not repeated as a note.
   for (const f of flagsOf(claims, cleaned)) {
     if (f.flag === 'raw-differs-from-cleaned') continue;
-    notes.push({ id: f.flag, label: COMPUTED_LABELS[f.flag] ?? f.flag, gloss: f.gloss, working: null });
+    const meta = COMPUTED_NOTES[f.flag] ?? { label: f.flag, gloss: [f.gloss] };
+    notes.push({ id: f.flag, label: meta.label, gloss: meta.gloss, working: null });
   }
 
   return { disclose: canonical !== null || notes.length > 0, preamble: FIDELITY_PREAMBLE, canonical, notes };

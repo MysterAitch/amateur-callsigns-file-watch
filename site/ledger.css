@@ -249,10 +249,13 @@
    note locates an observation, it is not a verdict against a licensee. */
 .ledger .fidelity .fid-preamble { font-size: 13px; color: var(--muted); margin: 0 0 12px; max-width: 72ch; }
 .ledger .fid-canonical { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); margin-top: 8px; }
-.ledger .fid-canonical .fid-line { margin: 0 0 8px; font-size: 13.5px; }
-.ledger .fid-variant { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding: 6px 0; }
-.ledger .fid-raw { font-family: var(--mono); font-size: 13px; background: var(--raw-soft); color: var(--raw);
-  padding: 2px 9px; border-radius: 7px; word-break: break-all; }
+.ledger .fid-canonical .fid-line { margin: 0 0 8px; font-size: 13.5px; max-width: 72ch; }
+.ledger .fid-canonical .fid-line:last-child { margin-bottom: 0; }
+.ledger .fid-variant { padding: 6px 0; }
+/* Verbatim and canonical values, side by side in the prose: a monospace chip
+   that shows invisible characters (via the .nbsp marker) without a loud pill. */
+.ledger .fid-code { font-family: var(--mono); font-size: 12.5px; background: var(--surface);
+  border: 1px solid var(--hair); border-radius: 6px; padding: 1px 6px; word-break: break-all; }
 .ledger .fid-note .fid-note-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .ledger .fid-note .fn { color: var(--ink); }
 .ledger .fid-why { margin: 8px 0 0; }
