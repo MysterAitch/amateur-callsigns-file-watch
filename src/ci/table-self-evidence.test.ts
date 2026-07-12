@@ -110,7 +110,9 @@ describe('generated tables — self-evidence contract (issues #334 / #397)', () 
     // identifier and must link to its detail page — a reader navigates onward
     // from the table, not by hunting elsewhere.
     for (const html of [classIndex, classPage]) {
-      for (const th of html.matchAll(/<th scope="row">([\s\S]*?)<\/th>/g)) {
+      // Class-tolerant: the identifier cell now carries the shared dataset-label
+      // component's `class="dskey"` wrapper (issues #328 / #310).
+      for (const th of html.matchAll(/<th scope="row"[^>]*>([\s\S]*?)<\/th>/g)) {
         expect(th[1], `a row-header identifier is dead text: ${th[0]}`).toContain('<a href="');
       }
     }

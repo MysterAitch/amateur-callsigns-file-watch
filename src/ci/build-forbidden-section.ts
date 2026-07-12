@@ -119,12 +119,6 @@ function suffixLinks(suffixes: string[], from: LinkOrigin): string {
     : suffixes.map(s => `<a href="${suffixHref(s, from)}"><code>${escapeHtml(s)}</code></a>`).join(', ');
 }
 
-// The lookup deep-link for a callsign, from a per-suffix page (depth 3: the
-// site root is three levels up). Opens the register/callsign view via ?c=.
-function callsignLookupHref(callsign: string): string {
-  return `../../../index.html?c=${encodeURIComponent(callsign)}`;
-}
-
 // The left timeline sidebar of forbidden-list disclosures, oldest first (the
 // story is chronological), the current disclosure marked and not linked —
 // mirroring the dataset/FOI entry sidebar's shape and classes.
@@ -446,11 +440,23 @@ function suffixHistorySection(suffix: string, h: ForbiddenSuffixHistory, a: Suff
 // The de-listed-then-issued arc callout (the QNF payoff): forbidden → de-listed
 // → then issued, with the callsigns and their post-de-listing dates named, and
 // framed as a reconciliation candidate.
-function arcCallout(suffix: string, a: SuffixAnalysis): string {
+function arcCallout(suffix: string, a: SuffixAnalysis, ref: ReferenceData): string {
   if (a.delisting === undefined || a.issuedAfterDelisting.length === 0) return '';
   const n = a.issuedAfterDelisting.length;
+  // The shared callsign pill (issue #310), so a callsign in this prose callout
+  // reads and behaves exactly as it does in the section's tables — its
+  // supplementary title built from the same parser used everywhere.
   const cs = a.issuedAfterDelisting
-    .map(c => `<a href="${callsignLookupHref(c.callsign)}"><code>${escapeHtml(c.callsign)}</code></a> (original start ${escapeHtml(humanDate(c.startDate))})`)
+    .map(c => {
+      const comp = parseCallsign(c.callsign, '', ref);
+      const pill = callsignPill(c.callsign, SUFFIX_PAGE_DEPTH, {
+        prefixSeries: comp.prefixSeries,
+        rsl: comp.rsl,
+        suffix: comp.suffix,
+        licenceClass: comp.impliedClass,
+      });
+      return `${pill} (original start ${escapeHtml(humanDate(c.startDate))})`;
+    })
     .join(', ');
   const carryPhrase = n === 1 ? 'this callsign also carries' : 'these callsigns also carry';
   return noticeStrip(true,
@@ -559,7 +565,7 @@ export function suffixPage(suffix: string, h: ForbiddenSuffixHistory, info: Suff
     `<h1>Forbidden suffix <code>${escapeHtml(suffix)}</code></h1>`,
     `<p class="subtitle">A three-letter callsign ${glossaryTerm('suffix', 3, { label: 'suffix' })} on the ever-forbidden union — a ${glossaryTerm('forbidden-suffix', 3, { label: 'forbidden suffix' })} withheld from issue in at least one disclosure the mirror holds. Every figure is <b>declared, not verified</b>.</p>`,
     noticeStrip(false, 'Freedom-of-Information + open-data derived — point-in-time snapshots, not a live feed. Absence of a callsign is not evidence a suffix may be issued.'),
-    arcCallout(suffix, a),
+    arcCallout(suffix, a, ref),
     '<div class="main-region">',
     '<div class="col">',
     suffixHistorySection(suffix, h, a),

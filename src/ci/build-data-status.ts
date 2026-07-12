@@ -35,7 +35,7 @@ import {
   listFoiEntryKeys,
   readFoiEntryMeta,
 } from '../shared/foi-archive.ts';
-import { escapeHtml, humanDate } from './site-render.ts';
+import { escapeHtml, humanDate, datasetLabel } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const FOI_ARCHIVE_DIR = path.join(REPO_ROOT, 'archive', 'foi');
@@ -553,10 +553,11 @@ function rowHtml(row: DatasetRow): string {
     ? ` <span class="muted">(${escapeHtml(row.datasetClasses.join(', '))})</span>` : '';
   // Lead with the human dataset name (issue #328); the raw archive key follows
   // as a secondary, monospace identifier so a reader sees what the dataset is
-  // before its machine key. The name links to the entry page for provenance.
+  // before its machine key. Rendered through the shared dataset-label component
+  // so every surface names a dataset the same way; the name links to the entry
+  // page for provenance.
   return `<tr>`
-    + `<th scope="row" class="dskey"><a href="${row.entryHref}">${escapeHtml(row.title)}</a>${classNote}`
-    + `<span class="dstitle"><span class="mono">${escapeHtml(row.key)}</span></span></th>`
+    + `<th scope="row" class="dskey">${datasetLabel(row.title, row.key, { href: row.entryHref, trailing: classNote })}</th>`
     + `<td class="vintage">${humaniseVintage(row.vintage)}</td>`
     + `<td class="auth"><span class="atag" title="${escapeHtml(`Axis 2 (source authority): ${row.authority.detail}`)}">${escapeHtml(row.authority.label)}</span></td>`
     + cells

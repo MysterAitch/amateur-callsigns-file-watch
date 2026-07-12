@@ -441,9 +441,11 @@
 .ledger table.grid td.vintage, .ledger table.grid td.auth { white-space: nowrap; font-size: 12.5px; color: var(--muted); }
 .ledger table.grid tr.grouprow th { background: var(--surface-2); font-family: var(--mono); font-size: 11px;
   letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
-/* The dataset name leads (issue #328), so its link reads as a plain readable
+/* The shared dataset-label component (issues #328 / #310, datasetLabel in
+   site-render.ts). The human name leads, so its link reads as a plain readable
    label; the raw archive key follows in .dstitle as a secondary monospace
-   identifier. */
+   identifier. Styled once here and worn by every surface that names a dataset
+   (the data-status inventory, the class pages, the dataset index). */
 .ledger .dskey a { font-weight: 600; font-size: 13.5px; }
 .ledger .dstitle { display: block; font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 2px; max-width: 40ch; }
 .ledger .dstitle .mono { font-size: 11.5px; }

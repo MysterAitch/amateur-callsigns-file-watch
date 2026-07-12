@@ -149,6 +149,23 @@ export function callsignPill(callsign: string, depthToRoot: number, components: 
   return `<a class="callsign-pill" href="${href}"${title}>${escapeHtml(callsign)}</a>`;
 }
 
+// A dataset identifier rendered as its humanised label (issue #328). The human
+// name reads first (linked to the dataset's detail page where one exists); the
+// raw archive key follows beneath as a secondary, monospace identifier, so a
+// reader sees WHAT a dataset is before its machine key. One definition, reused
+// by the data-status inventory, the dataset-class pages and the dataset index,
+// so a dataset is presented the same way wherever it is named — replacing the
+// name-then-key markup each of those generators used to hand-roll. Emits the
+// inner markup of a row-header cell; the caller supplies the enclosing
+// `<th class="dskey">` (styling in site/ledger.css, scoped under `.ledger`).
+// `trailing` slots caller markup (e.g. a secondary-class note) between the name
+// and the key; `escapeName: false` keeps caller-supplied markup in the name.
+export function datasetLabel(name: string, rawKey: string, options: { href?: string; escapeName?: boolean; trailing?: string } = {}): string {
+  const shownName = options.escapeName === false ? name : escapeHtml(name);
+  const nameHtml = options.href === undefined ? shownName : `<a href="${options.href}">${shownName}</a>`;
+  return `${nameHtml}${options.trailing ?? ''}<span class="dstitle"><span class="mono">${escapeHtml(rawKey)}</span></span>`;
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
