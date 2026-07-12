@@ -234,7 +234,10 @@ committed equivalence oracle, following the cross-dataset-invariants report. And
 a trust-rating safety net derives source authority and claim confidence from
 provenance and fails loud on any inflation ([ADR 0014](0014-trust-rating-safety-net.md)),
 making the confidence-partition model above enforceable rather than merely
-declared.
+declared. The T1 parse-attribute tier now emits as rule-attributed derived
+claims (`prefix_series`, `implied_class`, `parse_status`, and per-row `flag`
+claims from a single `parse-callsign` rule, reading out *Computed*), unblocking
+the parse-dependent quality-report folds.
 
 Remaining: migration of the remaining reports and pages onto ledger folds; the
 reviewed canonical vocabularies and coverage-aware gating the temporal fold
