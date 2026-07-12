@@ -43,6 +43,13 @@ const CALLSIGN_OUTPUT = 'callsign';
 // product/class token the derived licence-category tier is computed from.
 const LICENCE_CLASS_OUTPUT = 'licence_class';
 
+// The normalised output column whose raw source header names the call sign's
+// original start (issue) date - the temporal input parseCallsign consumes for
+// the forbidden-suffix-issued-after-first-known-list flag. Present on the
+// date-bearing register/addendum shapes (the 2021 annexes' 'Original Start
+// Date'), absent from the reduced Value/Status/Type snapshots.
+const ORIGINAL_START_DATE_OUTPUT = 'original_start_date';
+
 export interface RegisterEntry {
   entry: string;
   meta: FoiEntryMeta;
@@ -75,6 +82,13 @@ export interface RegisterSource {
   // the derived licence-category tier - a constant is an authored value, not a
   // disclosed product string to canonicalise.
   productColumn: string | null;
+  // The raw header carrying the call sign's original start date, when the
+  // conversion maps one to the original_start_date output; null when the source
+  // discloses no such date. The RAW cell (verbatim, under the source's own
+  // header) feeds parseCallsign's temporal flag - the FOI shapes render this
+  // date ISO, so the flag fires where the date post-dates the suffix's
+  // first-known-forbidden month.
+  startDateColumn: string | null;
 }
 
 // The callsign-bearing register sources for one entry. A conversion is a
@@ -100,7 +114,15 @@ export function registerSourcesFor(meta: FoiEntryMeta): RegisterSource[] {
     const productColumn = productSpec !== undefined && productSpec.source !== null && productSpec.kind === 'verbatim'
       ? productSpec.source
       : null;
-    sources.push({ conversion, callsignColumn: callsignSpec.source, productColumn });
+    // The original-start-date column is a DATE transform (kind 'date'/'iso-date'),
+    // not 'verbatim': the raw cell is passed to parseCallsign, whose ISO-only
+    // comparison tolerates a source that already renders ISO and stays silent
+    // otherwise, so any source-backed date column qualifies here.
+    const startDateSpec = conversion.columns.find(column => column.output === ORIGINAL_START_DATE_OUTPUT);
+    const startDateColumn = startDateSpec !== undefined && startDateSpec.source !== null
+      ? startDateSpec.source
+      : null;
+    sources.push({ conversion, callsignColumn: callsignSpec.source, productColumn, startDateColumn });
   }
   return sources;
 }
@@ -126,6 +148,9 @@ export function loadRegisterSource(foiDir: string, entry: string, meta: FoiEntry
   if (source.productColumn !== null && !columns.includes(source.productColumn)) {
     throw new Error(`${filePath}: authored product column "${source.productColumn}" absent from raw headers (${columns.join(', ')})`);
   }
+  if (source.startDateColumn !== null && !columns.includes(source.startDateColumn)) {
+    throw new Error(`${filePath}: authored original-start-date column "${source.startDateColumn}" absent from raw headers (${columns.join(', ')})`);
+  }
   return {
     sourceFile: `foi/${entry}/${conversion.sourceFile}`,
     vintage: meta.dataVintage ?? '',
@@ -133,6 +158,7 @@ export function loadRegisterSource(foiDir: string, entry: string, meta: FoiEntry
     subjectColumn: callsignColumn,
     rows,
     categoryColumn: source.productColumn ?? undefined,
+    originalStartDateColumn: source.startDateColumn ?? undefined,
   };
 }
 

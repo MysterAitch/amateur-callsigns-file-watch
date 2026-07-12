@@ -146,8 +146,13 @@ const SPREADSHEET_ERROR_TOKENS: ReadonlySet<string> = new Set([
 // Spreadsheet date renderings of month-suffixed callsigns (20APR -> 20-Apr).
 const EXCEL_DATE_RE = /^\d{1,2}-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/;
 // The maintainer-defined plain callsign alphabet (alphanumerics plus the
-// meaningful notation characters / and #).
-const NON_PLAIN_RE = /[^A-Za-z0-9/#]/gu;
+// meaningful notation characters / and #). Exported so the raw-keyed claim
+// ledger's stripped-collision tier (src/v2/claim.ts) computes the collision
+// key from the SAME regex this module's componentsFlagsForRows uses, rather
+// than duplicating (and risking drift from) the plain-alphabet definition.
+// The `g` flag is safe to share across callers because it is only ever used
+// with String.prototype.replace, which resets lastIndex on every call.
+export const NON_PLAIN_RE = /[^A-Za-z0-9/#]/gu;
 
 // True when a call sign's original start date (ISO yyyy-mm-dd[ hh:mm]) falls in
 // a month strictly after the month a SPECIFIC suffix was first known to be

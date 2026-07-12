@@ -52,6 +52,13 @@ export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta
     throw new Error(`archive/${key}: variant "${parsed.variant}" maps no raw header to callsign`);
   }
   const productColumn = rawColumnForCanonical(parsed.mapping, 'product');
+  // The raw header the variant maps to the call sign's original start date,
+  // read from the same authored raw->canonical binding as the callsign/product
+  // columns (never re-guessed). Only the 2026 variant declares one; older
+  // variants map no such column and derive no temporal flag. The open-data raw
+  // renders this date DD/MM/YYYY, which parseCallsign treats as a non-ISO date
+  // and conservatively withholds the flag on - honest silence, not a misfire.
+  const originalStartDateColumn = rawColumnForCanonical(parsed.mapping, 'licence_version_original_start_date');
   return {
     // Corpus-unique, self-locating provenance parallel to the FOI lane's
     // foi/<entry>/<file>.
@@ -61,6 +68,7 @@ export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta
     subjectColumn: callsignColumn,
     rows: parsed.records,
     categoryColumn: productColumn,
+    originalStartDateColumn,
   };
 }
 

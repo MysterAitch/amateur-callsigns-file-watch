@@ -29,7 +29,7 @@
  *    parseCallsign's placeholderForm), never re-derived by eyeball.
  */
 
-import { cleanedCallsign, parseCallsign, normaliseLicenceCategory, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { cleanedCallsign, parseCallsign, normaliseLicenceCategory, NON_PLAIN_RE, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { callsignPattern } from '../shared/stats.ts';
 
 // A claim is either a verbatim source assertion ('raw') or one computed by a
@@ -172,6 +172,26 @@ export const CALLSIGN_PATTERN_PREDICATE = 'callsign-pattern';
 // COMPUTATION (not a reference-table lookup) keeps it reading out Computed.
 export const CALLSIGN_PATTERN_RULE = 'callsign-pattern';
 
+// The DERIVED stripped-collision flag object (issue #361, Phase B tail): a raw
+// callsign token whose junk-stripped form (NON_PLAIN_RE removed) both DIFFERS
+// from the verbatim token and coexists as its OWN distinct row in the SAME
+// published source - a confirmed double-listing (the G0TQK trailing-NBSP twin).
+// It rides the FLAG_PREDICATE like every other data-quality flag, so a report
+// folds "callsigns carrying stripped-collision" by object; its OBJECT is this
+// flag name.
+export const STRIPPED_COLLISION_FLAG = 'stripped-collision';
+
+// The named rule attributing every stripped-collision claim. Unlike the
+// per-token parse flags (PARSE_CALLSIGN_RULE), this flag is a WHOLE-SOURCE
+// cross-row computation - it needs the set of every raw subject in the source
+// to decide membership - so it is NOT a parseCallsign output and carries its
+// own rule, enumerable beside the parse / pattern / licence-category rules. It
+// mirrors componentsFlagsForRows (components.ts), LIFTING that module's
+// NON_PLAIN_RE rather than re-deriving the plain-alphabet key, and it is a
+// COMPUTATION (not a reference-table lookup, absent from LOOKUP_RULES) so it
+// reads out Computed.
+export const STRIPPED_COLLISION_RULE = 'stripped-collision';
+
 // The five claim-confidence rungs, best-to-worst, fixed by site/glossary.html
 // (the #axes panel). Confidence is a READOUT of source authority × how the
 // value was produced, never stored on the claim: it is derived from the claim's
@@ -223,6 +243,17 @@ export interface SourceObservationSet {
   // 'Licence Class', 'SF List', ...); absent when the source discloses no
   // product column, in which case no category claim is derivable.
   categoryColumn?: string;
+  // The raw header carrying the call sign's ORIGINAL start (issue) date, when
+  // the source declares one, read under Ofcom's OWN header (which varies by
+  // vintage: 'Original Start Date', 'Licence_Version.Original_start_date__c',
+  // ...). It feeds parseCallsign's temporal
+  // `forbidden-suffix-issued-after-first-known-list` flag; absent when the
+  // source discloses no such date (the reduced Value/Status/Type snapshots), in
+  // which case that flag is honestly never derivable for the source. The RAW
+  // cell travels verbatim to the parser, which withholds the flag on a blank or
+  // NON-ISO date (e.g. an open-data DD/MM/YYYY rendering) rather than guessing -
+  // the same conservative silence isAfterFirstKnownForbidden documents.
+  originalStartDateColumn?: string;
 }
 
 // Emit the raw-layer claims for a source: one existence claim per observation
@@ -313,7 +344,12 @@ export function emitLicenceCategoryClaims(source: SourceObservationSet, ref: Ref
 // LIFTED whole from components.ts and CONSUMED here, never re-derived; the token
 // is parsed WITH the source's disclosed product (source.categoryColumn) so a
 // class-vs-product mismatch the parser detects rides as a real flag claim rather
-// than being invisible.
+// than being invisible, and WITH the source's disclosed original start date
+// (source.originalStartDateColumn) so the temporal
+// forbidden-suffix-issued-after-first-known-list flag - which parseCallsign
+// already computes from that date and the per-suffix first-known-forbidden
+// reference - rides too. Both extra flags join parsed.flags under the ONE
+// parse-callsign rule; no new predicate or rule is introduced for them.
 //
 // The tier NEVER invents: a claim rides only where the parse actually yields a
 // value. parse_status is the sole always-present attribute (every non-empty
@@ -327,11 +363,17 @@ export function emitLicenceCategoryClaims(source: SourceObservationSet, ref: Ref
 export function emitParseAttributeClaims(source: SourceObservationSet, ref: ReferenceData): Claim[] {
   const claims: Claim[] = [];
   const productColumn = source.categoryColumn;
+  const startDateColumn = source.originalStartDateColumn;
   source.rows.forEach((row, ordinal) => {
     const rawSubject = row[source.subjectColumn] ?? '';
     if (rawSubject === '') return;
     const product = productColumn !== undefined ? (row[productColumn] ?? '') : '';
-    const parsed = parseCallsign(rawSubject, product, ref);
+    // The RAW original-start-date cell (verbatim, under Ofcom's own header) is
+    // passed as parseCallsign's fourth argument so the temporal
+    // forbidden-suffix-issued-after-first-known-list flag can fire; a source
+    // that discloses no such column passes '' and the parser withholds the flag.
+    const originalStartDate = startDateColumn !== undefined ? (row[startDateColumn] ?? '') : '';
+    const parsed = parseCallsign(rawSubject, product, ref, originalStartDate);
     const provenance: Provenance = { sourceFile: source.sourceFile, ordinal, vintage: source.vintage };
     const emit = (predicate: string, object: string): void => {
       claims.push({ layer: 'derived', rawSubject, predicate, object, provenance, rule: PARSE_CALLSIGN_RULE });
@@ -372,11 +414,40 @@ export function emitCallsignPatternClaims(source: SourceObservationSet): Claim[]
   return claims;
 }
 
+// The DERIVED stripped-collision claims for a source (issue #361): a WHOLE-SOURCE
+// cross-row pass. For each observation whose raw subject's NON_PLAIN_RE-stripped
+// form DIFFERS from the verbatim token and coexists as its OWN distinct raw row
+// in the SAME source, one derived flag claim (object stripped-collision). This
+// mirrors componentsFlagsForRows (components.ts) EXACTLY: the collision set is
+// built over the verbatim raw subjects of THIS source's rows (never cleaned
+// entities, never across sources - the legacy scope is one snapshot), and the
+// key is the LIFTED NON_PLAIN_RE ([^A-Za-z0-9/#], which KEEPS '#'), deliberately
+// NOT cleanedCallsign (which upper-cases and drops '#') - a future refactor must
+// not silently substitute one for the other.
+//
+// The tier NEVER invents: a claim rides only on the JUNK-bearing observation
+// whose stripped twin is actually present (the clean twin itself strips to
+// itself and is not flagged), so an empty subject, a token with no junk, and a
+// token whose stripped form is absent all yield nothing - honest silence.
+export function emitStrippedCollisionClaims(source: SourceObservationSet): Claim[] {
+  const rawSubjects = new Set<string>(source.rows.map(row => row[source.subjectColumn] ?? ''));
+  const claims: Claim[] = [];
+  source.rows.forEach((row, ordinal) => {
+    const rawSubject = row[source.subjectColumn] ?? '';
+    if (rawSubject === '') return;
+    const stripped = rawSubject.replace(NON_PLAIN_RE, '');
+    if (stripped === rawSubject || stripped === '' || !rawSubjects.has(stripped)) return;
+    const provenance: Provenance = { sourceFile: source.sourceFile, ordinal, vintage: source.vintage };
+    claims.push({ layer: 'derived', rawSubject, predicate: FLAG_PREDICATE, object: STRIPPED_COLLISION_FLAG, provenance, rule: STRIPPED_COLLISION_RULE });
+  });
+  return claims;
+}
+
 // The full ledger for a source: the raw attribute/existence claims plus the
 // derived claims — the normalisation edges for every observation's raw subject,
 // the T1 parse-attribute tier (including the rsl attribute), the callsign-pattern
-// tier, and the canonical licence-category tier where the source discloses a
-// product. This is what a canonical claims.jsonl for the source contains — both
+// tier, the whole-source stripped-collision tier, and the canonical
+// licence-category tier where the source discloses a product. This is what a canonical claims.jsonl for the source contains — both
 // layers in one file, the derived layer reproducible from the raw layer and the
 // lifted rules.
 export function emitLedger(source: SourceObservationSet, ref: ReferenceData): Claim[] {
@@ -391,6 +462,7 @@ export function emitLedger(source: SourceObservationSet, ref: ReferenceData): Cl
   });
   for (const claim of emitParseAttributeClaims(source, ref)) claims.push(claim);
   for (const claim of emitCallsignPatternClaims(source)) claims.push(claim);
+  for (const claim of emitStrippedCollisionClaims(source)) claims.push(claim);
   for (const claim of emitLicenceCategoryClaims(source, ref)) claims.push(claim);
   return claims;
 }
