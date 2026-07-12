@@ -36,9 +36,15 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { buildLedger } from '../v2/build-ledger.ts';
-import { LICENCE_CATEGORY_PREDICATE } from '../v2/claim.ts';
+import {
+  LICENCE_CATEGORY_PREDICATE,
+  IMPLIED_CLASS_PREDICATE,
+  PARSE_STATUS_PREDICATE,
+  PREFIX_SERIES_PREDICATE,
+} from '../v2/claim.ts';
 import { foldQuery, cleanedKeyExpr } from '../v2/report-fold.ts';
 import { loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
+import type { FieldCatalogue, ValueTally } from './value-catalogue.ts';
 
 // The register status that means "issued / in use", matching the value
 // catalogue's own ALLOCATED_STATUS. A category's allocated slice counts the
@@ -215,6 +221,182 @@ export function buildLicenceCategoryFold(ledgerDir?: string, ref: ReferenceData 
     // unchanged; only a malformed/synthetic entry degrades gracefully.
     buildLedger(scratch, undefined, ref, undefined, true);
     return foldLicenceCategories(path.join(scratch, 'ledger'), ref);
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+// --- The parse-attribute value distributions (issue #361, migration step 5) ---
+//
+// Beside the licence-category table, the value catalogue's per-field value
+// tables for the T1 PARSE-DERIVED attributes fold from the ledger's own derived
+// tier (claim.ts, issue #406) rather than re-deriving parseCallsign over the
+// normalised CSVs. Each folds by its clean derived predicate, so the fold reads
+// exactly what the parse tier emitted — never a second parse.
+//
+// FIELD -> derived predicate. Each folds by its clean derived predicate, so the
+// fold reads exactly what the parse tier emitted.
+//
+// The `flags` field is deliberately NOT folded here. The legacy `flags` field
+// UNIONS the per-token parse flags with two HIGHER-TIER data-quality signals the
+// T1 parse tier does not compute — `stripped-collision` (a cross-row cleaned-key
+// collision, which needs the whole register in view, not one token) and
+// `forbidden-suffix-issued-after-first-known-list` (a forbidden-suffix TEMPORAL
+// finding, which needs the suffix history). Folding `flags` from the T1 tier
+// alone would silently DROP those real findings from the published report, so
+// `flags` stays on the legacy path until those signals emit as their own claims
+// (migration map). The three fields below are fully T1-derivable, so folding them
+// loses no real signal — only the synthesised blank/empty buckets a raw-keyed
+// fold does not invent (classified in value-catalogue-fold.test.ts).
+export const FOLDED_PARSE_FIELDS: ReadonlyMap<string, string> = new Map([
+  ['implied_class', IMPLIED_CLASS_PREDICATE],
+  ['parse_status', PARSE_STATUS_PREDICATE],
+  ['prefix_series', PREFIX_SERIES_PREDICATE],
+]);
+
+// A folded set of per-field value catalogues, keyed by the report field name —
+// the shape renderValueCatalogue folds into place of the legacy tally for the
+// fields that have migrated.
+export type FoldedFields = Map<string, FieldCatalogue>;
+
+// The lane a ledger observation belongs to, derived from its sourceFile prefix.
+// Every collector stamps a corpus-unique, self-locating sourceFile of the form
+// `opendata/<date>/…` (the open-data register lane) or `foi/<entry>/…` (every
+// FOI-sourced family), so the two lanes the value catalogue reports — matching
+// the legacy `open-data` / `foi` split — fall straight out of the first path
+// segment.
+const LANE_EXPR = `CASE WHEN sourceFile LIKE 'opendata/%' THEN 'open-data' ELSE 'foi' END`;
+
+// The source KEY a value's breadth and timeline count against: the dated
+// publication for the open-data lane, the FOI entry for the FOI lane — the
+// second path segment of the sourceFile, matching the legacy tally's per-source
+// key (the archive date, or the FOI entry key).
+const SOURCE_KEY_EXPR = `split_part(sourceFile, '/', 2)`;
+
+// One row of the field-distribution fold. GROUPING SETS emits two grains: a
+// per-value total (src NULL, isTotal 1) carrying the records/callsigns/allocated
+// figures and the lane union, and a per-value-per-source row (src set, isTotal 0)
+// carrying that source's record count — the material for the breadth count and
+// the timeline sparkline.
+interface FieldFoldRow {
+  value: string;
+  src: string | null;
+  records: number;
+  callsigns: number;
+  allocated: number;
+  lanes: string;
+  isTotal: number;
+}
+
+// The fold SQL for one parse-derived field's value distribution. One pass over
+// the ledger's derived claims for the field's predicate:
+//   - each claim's object is the value; the cleaned key of its raw subject is the
+//     distinct-callsign unit (the same cleanedCallsign the legacy tally keys on,
+//     modulo raw-vs-trimmed spelling); its lane and source key come from the
+//     sourceFile; and it is `allocated` when its observation also carries a raw
+//     `Allocated` status verbatim (joined by the observation key, exactly as the
+//     licence-category fold counts allocation).
+// GROUPING SETS yields the per-value total and per-source grains in one scan; the
+// total ORDER BY keeps the byte output deterministic (report-fold's contract).
+function fieldFoldSql(ledgerDir: string, predicate: string): string {
+  const glob = ledgerGlob(ledgerDir);
+  const key = cleanedKeyExpr('rawSubject');
+  return `WITH claims AS (
+  SELECT * FROM read_json(${glob}, format='newline_delimited', columns=${LEDGER_COLUMNS})
+),
+alloc AS (
+  SELECT DISTINCT sourceFile, ordinal FROM claims WHERE layer='raw' AND object='${ALLOCATED_STATUS}'
+),
+v AS (
+  SELECT c.object AS value, ${key} AS ck, ${LANE_EXPR} AS lane, ${SOURCE_KEY_EXPR} AS src,
+    (a.ordinal IS NOT NULL) AS is_alloc
+  FROM claims c
+  LEFT JOIN alloc a USING (sourceFile, ordinal)
+  WHERE c.layer='derived' AND c.predicate='${predicate}'
+)
+SELECT
+  value,
+  src,
+  count(*) AS records,
+  count(DISTINCT ck) AS callsigns,
+  count(DISTINCT CASE WHEN is_alloc THEN ck END) AS allocated,
+  string_agg(DISTINCT lane, ',' ORDER BY lane) AS lanes,
+  grouping(src) AS isTotal
+FROM v
+GROUP BY GROUPING SETS ((value), (value, src))
+ORDER BY value, isTotal DESC, src`;
+}
+
+// Assemble the folded rows into a FieldCatalogue shaped exactly as
+// catalogueField produces: values ordered by record count desc then value, each
+// with its per-source counts (breadth + timeline) and lane set. Records is the
+// per-source sum, so it equals the total-grain count; the distinct-callsign and
+// allocated figures come from the total grain (a plain sum would double-count a
+// callsign recurring across sources).
+function assembleFieldCatalogue(field: string, rows: readonly FieldFoldRow[]): FieldCatalogue {
+  const byValue = new Map<string, ValueTally>();
+  for (const row of rows) {
+    if (row.isTotal !== 1) continue;
+    byValue.set(row.value, {
+      value: row.value,
+      count: row.records,
+      lanes: row.lanes === '' ? [] : row.lanes.split(','),
+      sources: 0,
+      bySource: new Map(),
+      distinctCallsigns: row.callsigns,
+      allocated: row.allocated,
+    });
+  }
+  for (const row of rows) {
+    if (row.isTotal === 1 || row.src === null) continue;
+    const tally = byValue.get(row.value);
+    if (tally !== undefined) tally.bySource.set(row.src, row.records);
+  }
+  const values = [...byValue.values()];
+  for (const tally of values) tally.sources = tally.bySource.size;
+  values.sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+  return { field, distinct: values.length, total: values.reduce((s, v) => s + v.count, 0), values };
+}
+
+// Fold one parse-derived field's value distribution from a ledger directory. An
+// empty ledger (no JSONL) yields an empty catalogue rather than reaching DuckDB,
+// mirroring foldLicenceCategories.
+export function foldFieldDistribution(ledgerDir: string, field: string, predicate: string): FieldCatalogue {
+  const hasClaims = fs.existsSync(ledgerDir)
+    && fs.readdirSync(ledgerDir).some(name => name.endsWith('.jsonl'));
+  if (!hasClaims) return { field, distinct: 0, total: 0, values: [] };
+  return assembleFieldCatalogue(field, foldQuery<FieldFoldRow>(fieldFoldSql(ledgerDir, predicate)));
+}
+
+// Fold every migrated parse-derived field from a ledger directory.
+export function foldParseFields(ledgerDir: string): FoldedFields {
+  const folded: FoldedFields = new Map();
+  for (const [field, predicate] of FOLDED_PARSE_FIELDS) {
+    folded.set(field, foldFieldDistribution(ledgerDir, field, predicate));
+  }
+  return folded;
+}
+
+// The whole value-catalogue fold: the licence-category table plus the migrated
+// parse-derived field distributions, materialising the ledger ONCE when no
+// pre-built directory is supplied (the standalone / sweep path) so the corpus is
+// emitted a single time and every fold reads the same ledger. A caller holding a
+// ledger passes its directory to skip the rebuild (a test fixture, or a future
+// deploy-time claims artefact).
+export interface ValueCatalogueFold {
+  categories: FoldedCategory[];
+  fields: FoldedFields;
+}
+
+export function buildValueCatalogueFold(ledgerDir?: string, ref: ReferenceData = loadReferenceData()): ValueCatalogueFold {
+  if (ledgerDir !== undefined) {
+    return { categories: foldLicenceCategories(ledgerDir, ref), fields: foldParseFields(ledgerDir) };
+  }
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'value-catalogue-ledger-'));
+  try {
+    buildLedger(scratch, undefined, ref, undefined, true);
+    const dir = path.join(scratch, 'ledger');
+    return { categories: foldLicenceCategories(dir, ref), fields: foldParseFields(dir) };
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
   }

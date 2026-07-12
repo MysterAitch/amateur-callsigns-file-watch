@@ -112,48 +112,45 @@ routine figure.
 | `Amateur Full (Reciprocal) Radio Licence` | 15 | 15 | 0 | 1 | ······· | foi |
 | `Special Research Permit` | 1 | 1 | 1 | 1 | ······· | foi |
 
-## `implied_class` — 4 distinct
+## `implied_class` — 3 distinct
 
 | value | records | callsigns | allocated | sources | timeline | lanes |
 |---|---:|---:|---:|---:|---|---|
-| `Full` | 2,539,349 | 101,370 | 60,774 | 43 | ███▁▆▁█ | foi, open-data |
-| `Foundation` | 1,126,744 | 48,863 | 38,013 | 39 | ▇▇█▁▇▁█ | foi, open-data |
-| `Intermediate` | 584,927 | 25,647 | 16,149 | 39 | ▇▇█▁▆▁█ | foi, open-data |
-| `(blank)` | 6,348 | 4,144 | 324 | 34 | ▆▆█▁▇▁▆ | foi, open-data |
+| `Full` | 2,473,266 | 98,123 | 60,771 | 33 | ███▁▆▁█ | foi, open-data |
+| `Foundation` | 1,063,628 | 47,277 | 38,013 | 30 | ▇▇█▁▇▁█ | foi, open-data |
+| `Intermediate` | 505,988 | 23,219 | 16,148 | 30 | ▇▇█▁▆▁█ | foi, open-data |
 
-## `parse_status` — 5 distinct
-
-| value | records | callsigns | allocated | sources | timeline | lanes |
-|---|---:|---:|---:|---:|---|---|
-| `parsed` | 4,251,042 | 175,881 | 114,936 | 43 | ███▁▆▁█ | foi, open-data |
-| `special-event` | 3,935 | 3,934 | 201 | 1 | ······· | foi |
-| `visitor` | 1,880 | 126 | 83 | 28 | ▅▆█▁█▁▇ | foi, open-data |
-| `unparseable` | 485 | 83 | 40 | 32 | ▇▇█·▃·▃ | foi, open-data |
-| `empty` | 26 | 0 | 0 | 14 | █▃····· | foi, open-data |
-
-## `prefix_series` — 22 distinct
+## `parse_status` — 4 distinct
 
 | value | records | callsigns | allocated | sources | timeline | lanes |
 |---|---:|---:|---:|---:|---|---|
-| `M6` | 469,179 | 17,581 | 14,258 | 37 | ███·█·█ | foi, open-data |
+| `parsed` | 4,042,904 | 168,620 | 114,932 | 33 | ███▁▆▁█ | foi, open-data |
+| `special-event` | 3,935 | 3,933 | 201 | 1 | ······· | foi |
+| `visitor` | 1,880 | 122 | 82 | 28 | ▅▆█▁█▁▇ | foi, open-data |
+| `unparseable` | 431 | 70 | 39 | 26 | ▇▇█·▃·▃ | foi, open-data |
+
+## `prefix_series` — 21 distinct
+
+| value | records | callsigns | allocated | sources | timeline | lanes |
+|---|---:|---:|---:|---:|---|---|
 | `M3` | 443,357 | 17,498 | 10,137 | 28 | ███·▅·█ | foi, open-data |
-| `20` | 428,398 | 17,582 | 12,564 | 39 | ███▁▇▁█ | foi, open-data |
-| `M0` | 401,701 | 17,585 | 10,807 | 41 | ███▁▇▁█ | foi, open-data |
-| `G0` | 376,246 | 14,270 | 9,058 | 34 | ███·▆·█ | foi, open-data |
-| `G4` | 374,820 | 14,367 | 9,690 | 37 | ███▁▆▁█ | foi, open-data |
-| `G7` | 330,064 | 12,846 | 6,172 | 31 | ███▁▄▁█ | foi, open-data |
-| `G1` | 240,063 | 9,539 | 5,337 | 34 | ███▁▅▁█ | foi, open-data |
-| `G3` | 239,821 | 9,566 | 5,248 | 32 | ███·▅·█ | foi, open-data |
-| `G6` | 219,833 | 8,631 | 5,380 | 37 | ███▁▅▁█ | foi, open-data |
+| `M6` | 406,063 | 15,995 | 14,258 | 28 | ███·█·█ | foi, open-data |
+| `G0` | 376,242 | 14,269 | 9,057 | 30 | ███·▆·█ | foi, open-data |
+| `G4` | 374,755 | 14,367 | 9,690 | 33 | ███▁▆▁█ | foi, open-data |
+| `20` | 349,465 | 15,155 | 12,564 | 30 | ███▁▇▁█ | foi, open-data |
+| `M0` | 336,062 | 14,344 | 10,807 | 32 | ███▁▇▁█ | foi, open-data |
+| `G7` | 330,064 | 12,845 | 6,171 | 31 | ███▁▄▁█ | foi, open-data |
+| `G1` | 240,059 | 9,538 | 5,337 | 31 | ███▁▅▁█ | foi, open-data |
+| `G3` | 239,740 | 9,566 | 5,248 | 30 | ███·▅·█ | foi, open-data |
+| `G6` | 219,760 | 8,629 | 5,379 | 33 | ███▁▅▁█ | foi, open-data |
 | `M7` | 214,208 | 13,784 | 13,618 | 27 | ▅▅▇▁▇▁█ | foi, open-data |
-| `G8` | 198,215 | 7,748 | 5,316 | 34 | ███▁▆▁█ | foi, open-data |
-| `21` | 154,727 | 6,263 | 1,812 | 35 | ███▁▃▁█ | foi, open-data |
+| `G8` | 198,145 | 7,748 | 5,316 | 33 | ███▁▆▁█ | foi, open-data |
+| `21` | 154,721 | 6,262 | 1,811 | 30 | ███▁▃▁█ | foi, open-data |
 | `M1` | 116,301 | 4,589 | 2,494 | 29 | ███·▅·█ | foi, open-data |
 | `M5` | 20,908 | 924 | 445 | 29 | ▇▇█·▃·█ | foi, open-data |
-| `G2` | 15,226 | 668 | 274 | 31 | ███·▄·█ | foi, open-data |
-| `G5` | 6,151 | 637 | 553 | 32 | ▄▄▅·▂·█ | foi, open-data |
-| `GB` | 3,935 | 3,934 | 201 | 1 | ······· | foi |
-| `(blank)` | 2,391 | 209 | 123 | 34 | ▆▆█▁▇▁▆ | foi, open-data |
+| `G2` | 15,151 | 668 | 274 | 30 | ███·▄·█ | foi, open-data |
+| `G5` | 6,079 | 636 | 553 | 30 | ▄▄▅·▂·█ | foi, open-data |
+| `GB` | 3,935 | 3,933 | 201 | 1 | ······· | foi |
 | `M9` | 951 | 951 | 933 | 1 | ······█ | open-data |
 | `M8` | 851 | 851 | 840 | 1 | ······█ | open-data |
 | `M2` | 22 | 1 | 0 | 22 | ███···█ | foi, open-data |

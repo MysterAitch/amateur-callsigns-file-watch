@@ -4,8 +4,11 @@ import * as os from 'os';
 import * as path from 'path';
 import {
   buildLicenceCategoryFold,
+  buildValueCatalogueFold,
   foldLicenceCategories,
+  foldFieldDistribution,
   recognisedProducts,
+  FOLDED_PARSE_FIELDS,
   type FoldedCategory,
 } from './value-catalogue-fold.ts';
 import {
@@ -14,6 +17,7 @@ import {
   computeLegacyLicenceCategories,
   VALUE_CATALOGUE_PATH,
   PRODUCT_FIELD,
+  type FieldCatalogue,
   type LicenceCategoryFigures,
 } from './value-catalogue.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
@@ -22,6 +26,8 @@ import {
   LICENCE_CATEGORY_PREDICATE,
   LICENCE_CATEGORY_RULE,
   LISTED_PREDICATE,
+  PARSE_STATUS_PREDICATE,
+  PARSE_CALLSIGN_RULE,
   type Claim,
 } from '../v2/claim.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
@@ -287,6 +293,221 @@ describe.skipIf(!duckDbAvailable())('licence-category fold — real-archive reti
       expect({ records: actual?.records, callsigns: actual?.callsigns, allocated: actual?.allocated }, category)
         .toEqual(expectation.folded);
       expect((actual?.variants ?? []).map(v => v.product).sort()).toEqual([...expectation.variants].sort());
+    }
+  });
+});
+
+// --- The parse-derived field distributions (issue #361, migration step 5) -----
+//
+// The T1 parse-attribute tier (claim.ts, issue #406) lets the value catalogue's
+// per-field value tables for the parse-DERIVED attributes fold from the ledger's
+// own derived claims rather than re-deriving parseCallsign over the normalised
+// CSVs. Three fields migrate here — `implied_class`, `parse_status`,
+// `prefix_series`; `flags` deliberately stays on the legacy path because the
+// legacy flags UNION carries two higher-tier signals the T1 tier does not compute
+// (see FOLDED_PARSE_FIELDS), and `status` / `product` await their own emit steps.
+//
+// The classification, in one sentence: a raw-keyed T1 fold reports a value only
+// where the parse actually YIELDED it on a converter-bound callsign observation,
+// so (a) it never carries the synthesised "no value" bucket the legacy tally adds
+// (a blank prefix/class, or parse_status `empty` for a blank token) — the ledger
+// does not invent an attribute of a non-token — and (b) it counts fewer
+// records/callsigns/sources than the legacy tally, which also folds the
+// available-pool "available callsigns" lists (modelled as pool-slots, never parsed
+// AS callsigns) and the out-of-sequence list. The fold is therefore <= legacy on
+// every retained value, and the only values it omits are the classified
+// synthesised buckets. Any OTHER divergence — a folded value absent from legacy, a
+// folded figure exceeding legacy, or an unexpected omission — trips CI.
+interface FieldFigures { records: number; callsigns: number; allocated: number; sources: number; lanes: string[] }
+
+// The legacy-only values each folded field legitimately omits, with the reason.
+// A blank/absent bucket is the ledger declining to invent a value; nothing else
+// may be missing.
+const PARSE_FIELD_CLASSIFICATION: Record<string, { legacyOnly: string[]; reason: string }> = {
+  implied_class: {
+    legacyOnly: ['(blank)'],
+    reason: 'implied_class rides only where the parse resolved a prefix series; a token with no series yields no claim, so the fold carries no blank bucket (the legacy tally synthesises one from the empty cell)',
+  },
+  parse_status: {
+    legacyOnly: ['empty'],
+    reason: 'the parse tier skips an empty token (nothing to parse), so parse_status `empty` never rides; the legacy tally synthesises it for blank subjects',
+  },
+  prefix_series: {
+    legacyOnly: ['(blank)'],
+    reason: 'prefix_series rides only where the parse resolved a series; an unresolved token yields no claim, so the fold carries no blank bucket the legacy tally synthesises',
+  },
+};
+
+const PARSE_FIELD_DIRECTION_REASON = 'a T1 fold counts only converter-bound callsign observations and distinct cleaned keys, whereas the legacy tally also folds the available-pool "available callsigns" lists (pool-slots, never parsed as callsigns) and the out-of-sequence list, and unions raw-trimmed spellings — so the fold is never larger';
+
+// Parse one committed field table ("## `<field>` — N distinct") back into
+// figures per value, reading the same folded golden the freshness gate
+// regenerates and diffs, so the equivalence check runs on every CI run whether or
+// not DuckDB is present.
+function parseCommittedFieldTable(field: string): Map<string, FieldFigures> {
+  const markdown = fs.readFileSync(path.resolve(process.cwd(), VALUE_CATALOGUE_PATH), 'utf8');
+  const lines = markdown.split('\n');
+  const start = lines.findIndex(l => l.startsWith(`## \`${field}\` — `));
+  expect(start, `section for ${field}`).toBeGreaterThanOrEqual(0);
+  const byValue = new Map<string, FieldFigures>();
+  const num = (cell: string): number => Number(cell.trim().replace(/,/g, ''));
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (line.startsWith('## ')) break;
+    // value | records | callsigns | allocated | sources | timeline | lanes
+    const m = /^\| `([^`]+)` \| ([\d,]+) \| ([\d,]+) \| ([\d,]+) \| (\d+) \| [^|]* \| (.+) \|$/.exec(line);
+    if (m === null) continue;
+    byValue.set(m[1], {
+      records: num(m[2]), callsigns: num(m[3]), allocated: num(m[4]), sources: num(m[5]),
+      lanes: m[6].split(',').map(s => s.trim()).sort(),
+    });
+  }
+  return byValue;
+}
+
+describe('parse-derived fields — ledger vs legacy equivalence oracle', () => {
+  // Always-on: reads the committed folded golden and recomputes the legacy field
+  // catalogues live over the real archive (no DuckDB needed for this side).
+  let legacyByField: Map<string, FieldCatalogue>;
+  beforeAll(() => {
+    const tallies = buildFieldTallies();
+    legacyByField = new Map();
+    for (const field of FOLDED_PARSE_FIELDS.keys()) {
+      const cells = tallies.get(field);
+      if (cells !== undefined) legacyByField.set(field, catalogueField(field, cells));
+    }
+  }, 600_000);
+
+  it('ParseFields_FoldedValues_AreAllPresentInLegacyNeverInvented', () => {
+    // Never-invents: a raw-keyed fold reports only values a source's parse
+    // actually produced, so every folded value is one the legacy tally also has.
+    for (const field of FOLDED_PARSE_FIELDS.keys()) {
+      const folded = parseCommittedFieldTable(field);
+      const legacyValues = new Set((legacyByField.get(field)?.values ?? []).map(v => v.value));
+      for (const value of folded.keys()) {
+        expect(legacyValues.has(value), `${field} folds a value legacy lacks: ${value}`).toBe(true);
+      }
+    }
+  });
+
+  it('ParseFields_LegacyOnlyValues_AreExactlyTheClassifiedBlankBuckets', () => {
+    // The only values the fold omits are the classified synthesised buckets; a
+    // NEW omission (a real value the fold silently drops) trips here.
+    for (const field of FOLDED_PARSE_FIELDS.keys()) {
+      const folded = parseCommittedFieldTable(field);
+      const legacyValues = (legacyByField.get(field)?.values ?? []).map(v => v.value);
+      const omitted = legacyValues.filter(v => !folded.has(v)).sort();
+      const classified = [...PARSE_FIELD_CLASSIFICATION[field].legacyOnly].sort();
+      expect(omitted, `${field} omissions (${PARSE_FIELD_CLASSIFICATION[field].reason})`).toEqual(classified);
+    }
+  });
+
+  it('ParseFields_FoldedFigures_NeverExceedLegacy', () => {
+    // The load-bearing direction: a converter-bound, distinct-cleaned-key fold can
+    // never report MORE records/callsigns/allocated/sources than the legacy tally.
+    // An inversion means the fold gained observations the legacy path lacks — a
+    // genuine divergence to investigate, not a routine regeneration.
+    for (const field of FOLDED_PARSE_FIELDS.keys()) {
+      const folded = parseCommittedFieldTable(field);
+      const legacy = new Map((legacyByField.get(field)?.values ?? []).map(v => [v.value, v]));
+      for (const [value, f] of folded) {
+        const l = legacy.get(value);
+        expect(l, `legacy ${field}/${value}`).toBeDefined();
+        expect(f.records, `${field}/${value} records (${PARSE_FIELD_DIRECTION_REASON})`).toBeLessThanOrEqual(l?.count ?? 0);
+        expect(f.callsigns, `${field}/${value} callsigns`).toBeLessThanOrEqual(l?.distinctCallsigns ?? 0);
+        expect(f.allocated, `${field}/${value} allocated`).toBeLessThanOrEqual(l?.allocated ?? 0);
+        expect(f.sources, `${field}/${value} sources`).toBeLessThanOrEqual(l?.sources ?? 0);
+      }
+    }
+  });
+
+  it('ParseFields_FoldedLanes_NeverExceedLegacy', () => {
+    // Lanes are preserved: the fold surfaces a value in no lane the legacy tally
+    // did not already carry it in (the fold reads the same two lanes).
+    for (const field of FOLDED_PARSE_FIELDS.keys()) {
+      const folded = parseCommittedFieldTable(field);
+      const legacy = new Map((legacyByField.get(field)?.values ?? []).map(v => [v.value, new Set(v.lanes)]));
+      for (const [value, f] of folded) {
+        const legacyLanes = legacy.get(value) ?? new Set<string>();
+        for (const lane of f.lanes) {
+          expect(legacyLanes.has(lane), `${field}/${value} folds lane ${lane} legacy lacks`).toBe(true);
+        }
+      }
+    }
+  });
+});
+
+// A hand-built ledger over two sources — an open-data publication and an FOI
+// entry — for one parse-status value across a shared cleaned callsign, verifying
+// the fold's user-facing figures without the whole corpus: record count (rows),
+// distinct callsigns (cleaned-key), the allocated slice (observations carrying a
+// verbatim Allocated status), and the per-source breadth/lane split.
+function writeParseFixtureLedger(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'parse-field-fold-fixture-'));
+  const parse = (rawSubject: string, sourceFile: string, ordinal: number, vintage: string): Claim =>
+    ({ layer: 'derived', rawSubject, predicate: PARSE_STATUS_PREDICATE, object: 'parsed', provenance: { sourceFile, ordinal, vintage }, rule: PARSE_CALLSIGN_RULE });
+  const status = (rawSubject: string, sourceFile: string, ordinal: number, vintage: string, object: string): Claim =>
+    ({ layer: 'raw', rawSubject, predicate: 'Status', object, provenance: { sourceFile, ordinal, vintage } });
+  const claims: Claim[] = [
+    // Open-data publication 2025-01-01: G0AAA (Allocated) and G0BBB (Reserved).
+    parse('G0AAA', 'opendata/2025-01-01/raw.csv', 0, '2025-01-01'),
+    status('G0AAA', 'opendata/2025-01-01/raw.csv', 0, '2025-01-01', 'Allocated'),
+    parse('G0BBB', 'opendata/2025-01-01/raw.csv', 1, '2025-01-01'),
+    status('G0BBB', 'opendata/2025-01-01/raw.csv', 1, '2025-01-01', 'Reserved'),
+    // FOI entry e1: the SAME cleaned callsign (lower case), Allocated.
+    parse('g0aaa', 'foi/e1/f.csv', 0, '2024-01-01'),
+    status('g0aaa', 'foi/e1/f.csv', 0, '2024-01-01', 'Allocated'),
+  ];
+  fs.writeFileSync(path.join(dir, 'fixture.jsonl'), serialiseClaimsJsonl(claims));
+  return dir;
+}
+
+describe.skipIf(!duckDbAvailable())('parse-derived field fold — fixture ledger', () => {
+  it('FieldFold_SyntheticLedger_CountsRecordsDistinctCallsignsAllocatedAndBreadth', () => {
+    const dir = writeParseFixtureLedger();
+    try {
+      const cat = foldFieldDistribution(dir, 'parse_status', PARSE_STATUS_PREDICATE);
+      expect(cat.values).toHaveLength(1);
+      const parsed = cat.values[0];
+      expect(parsed.value).toBe('parsed');
+      // Three rows, two distinct cleaned callsigns (G0AAA / g0aaa collapse), one
+      // of which is Allocated somewhere.
+      expect(parsed.count).toBe(3);
+      expect(parsed.distinctCallsigns).toBe(2);
+      expect(parsed.allocated).toBe(1);
+      // Breadth is the two distinct source keys; the timeline map carries each
+      // source's record count; both lanes are represented.
+      expect(parsed.sources).toBe(2);
+      expect(parsed.bySource.get('2025-01-01')).toBe(2);
+      expect(parsed.bySource.get('e1')).toBe(1);
+      expect(parsed.lanes).toEqual(['foi', 'open-data']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// The real-archive retirement gate: with the pinned DuckDB CLI present, folding
+// the parse-derived fields must reproduce the committed golden's figures — the
+// proof the fold (not a parse of the golden) produces the numbers, so the section
+// can retire the legacy computation once every value-catalogue field has migrated.
+describe.skipIf(!duckDbAvailable())('parse-derived fields fold — real-archive retirement gate', () => {
+  let foldedFields: Map<string, FieldCatalogue>;
+  beforeAll(() => {
+    foldedFields = buildValueCatalogueFold(undefined, ref).fields;
+  }, 600_000);
+
+  it('ParseFieldsFold_RealArchive_ReproducesCommittedGoldenFigures', () => {
+    for (const field of FOLDED_PARSE_FIELDS.keys()) {
+      const committed = parseCommittedFieldTable(field);
+      const folded = new Map((foldedFields.get(field)?.values ?? []).map(v => [v.value, v]));
+      expect([...folded.keys()].sort(), `${field} value set`).toEqual([...committed.keys()].sort());
+      for (const [value, c] of committed) {
+        const f = folded.get(value);
+        expect(f, `folded ${field}/${value}`).toBeDefined();
+        expect({ records: f?.count, callsigns: f?.distinctCallsigns, allocated: f?.allocated, sources: f?.sources }, `${field}/${value}`)
+          .toEqual({ records: c.records, callsigns: c.callsigns, allocated: c.allocated, sources: c.sources });
+      }
     }
   });
 });
