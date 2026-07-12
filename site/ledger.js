@@ -215,10 +215,104 @@ export async function runLookup(query, typed) {
   return resolved;
 }
 
+// ---- Shareable deep-link params (issues #440, #333, #397) -------------------
+// The lookup is deep-linkable: a search writes ?c=<callsign> to the URL, so the
+// address bar always carries a shareable/copyable link to the current search,
+// and back/forward step between searches. The param handling is pure and
+// exported so the whole state<->URL round-trip is unit-testable without a
+// database worker (mirroring the Explore/Compare deep-link helpers, #420).
+
+// Read the deep-link callsign from URL params. Accepts ?c= (canonical) AND
+// ?callsign= (legacy alias, aligning with the Lookup page's
+// `params.get('c') ?? params.get('callsign')`). Total by construction: a blank
+// or absent param yields null so a bare load degrades gracefully to the sample
+// chip rather than throwing. The value is trimmed and upper-cased to the
+// canonical callsign form the register uses.
+export function parseLedgerParams(params) {
+  const raw = params.get('c') ?? params.get('callsign');
+  const callsign = (raw !== null && raw.trim() !== '') ? raw.trim().toUpperCase() : null;
+  return { callsign };
+}
+
+// The URL a search for `callsign` should show: the current location with its
+// query reduced to ?c=<callsign>, hash preserved. Pure (returns a string); the
+// caller decides pushState vs replaceState. URLSearchParams percent-encodes the
+// value, so a callsign is carried literally and can never smuggle markup.
+export function ledgerSearchUrl(baseHref, callsign) {
+  const url = new URL(baseHref);
+  url.search = new URLSearchParams({ c: callsign }).toString();
+  return url.toString();
+}
+
+// Wire the search form, sample chips, the ?c=/?callsign= deep link and
+// back/forward to a single search runner, keeping the URL in lockstep with the
+// resolved callsign. Dependency-injected (doc, win, and the async runSearch
+// callback) so the state<->URL round-trip is unit-testable without a database
+// worker. runSearch(callsign) performs the live lookup; this layer only reads
+// URL params and writes the input value (never innerHTML), so a hostile param
+// can never reach the DOM as markup.
+export function wireLedgerSearch({ doc, win, runSearch }) {
+  const getInput = () => doc.getElementById('callsign-input');
+  const first = doc.querySelector('#resolver .chip');
+  const fallback = first ? first.dataset.cs : '';
+
+  // mode: 'push' adds a history entry (a user-initiated search, so Back returns
+  // to the previous search); 'replace' rewrites the current entry (the initial
+  // load, so it adds no spurious entry); 'none' leaves history untouched (a
+  // popstate restore, whose URL is already the target).
+  const writeUrl = (callsign, mode) => {
+    if (mode === 'none') return;
+    const next = ledgerSearchUrl(win.location.href, callsign);
+    if (next === win.location.href) return;
+    if (mode === 'replace') win.history.replaceState(null, '', next);
+    else win.history.pushState(null, '', next);
+  };
+
+  const search = (typed, mode) => {
+    const value = typed.trim().toUpperCase();
+    if (value === '') return Promise.resolve();
+    const input = getInput();
+    if (input) input.value = value;
+    writeUrl(value, mode);
+    return runSearch(value);
+  };
+
+  const resolver = doc.getElementById('resolver');
+  if (resolver) {
+    resolver.addEventListener('click', (e) => {
+      const chip = e.target.closest('button.chip');
+      if (!chip) return;
+      void search(chip.dataset.cs, 'push');
+    });
+  }
+  const form = doc.getElementById('lookup-form');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = getInput();
+      void search(input ? input.value : '', 'push');
+    });
+  }
+
+  // Back/forward: re-read the URL's callsign and re-run the lookup for it, so
+  // history navigation actually replays searches. A blank/absent param (having
+  // navigated back to a bare URL) falls back to the sample chip.
+  win.addEventListener('popstate', () => {
+    const target = parseLedgerParams(new URLSearchParams(win.location.search)).callsign ?? fallback;
+    void search(target, 'none');
+  });
+
+  // Initial view: a deep-link ?c=/?callsign=, else the first sample chip. Either
+  // way the URL is normalised with replaceState so the shown callsign is always
+  // reflected in a shareable link, without adding a history entry.
+  const initial = parseLedgerParams(new URLSearchParams(win.location.search)).callsign ?? fallback;
+  if (initial !== '') void search(initial, 'replace');
+}
+
 // ---- Browser bootstrap (guarded) -------------------------------------------
 // Runs only in a real browser with the httpVFS loader present. A unit/JSDOM
-// test importing this module for its render functions never trips this, so
-// importing the module opens no worker.
+// test importing this module for its render/param functions never trips this,
+// so importing the module opens no worker.
 function initLedgerPage() {
   const status = document.getElementById('lookup-status');
   const setStatus = (text, isError) => {
@@ -236,54 +330,25 @@ function initLedgerPage() {
     }
   })();
 
-  const lookup = async (typed) => {
-    const value = typed.trim();
+  const lookup = async (value) => {
     if (value === '') return;
-    setStatus(`Querying the ledger for ${value.toUpperCase()}…`);
+    setStatus(`Querying the ledger for ${value}…`);
     try {
       const query = await queryPromise;
       const resolved = await runLookup(query, value);
       setStatus(resolved.entity === null
-        ? `No observation for ${value.toUpperCase()} in the subset.`
-        : `Resolved ${value.toUpperCase()} → ${resolved.entity}.`);
+        ? `No observation for ${value} in the subset.`
+        : `Resolved ${value} → ${resolved.entity}.`);
       for (const chip of document.querySelectorAll('#resolver .chip')) {
-        chip.setAttribute('aria-pressed', String(chip.dataset.cs === value.toUpperCase()));
+        chip.setAttribute('aria-pressed', String(chip.dataset.cs === value));
       }
     } catch (err) {
       console.error(err);
-      setStatus(`The lookup for ${value.toUpperCase()} failed. Try reloading the page.`, true);
+      setStatus(`The lookup for ${value} failed. Try reloading the page.`, true);
     }
   };
 
-  const resolver = document.getElementById('resolver');
-  if (resolver) {
-    resolver.addEventListener('click', (e) => {
-      const chip = e.target.closest('button.chip');
-      if (!chip) return;
-      const input = document.getElementById('callsign-input');
-      if (input) input.value = chip.dataset.cs;
-      void lookup(chip.dataset.cs);
-    });
-  }
-  const form = document.getElementById('lookup-form');
-  if (form) {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const input = document.getElementById('callsign-input');
-      void lookup(input ? input.value : '');
-    });
-  }
-
-  // Initial view: a deep-link ?c=, else the first sample chip.
-  const params = new URLSearchParams(window.location.search);
-  const deepLink = params.get('c');
-  const first = document.querySelector('#resolver .chip');
-  const initial = (deepLink && deepLink.trim() !== '') ? deepLink.trim() : (first ? first.dataset.cs : '');
-  if (initial !== '') {
-    const input = document.getElementById('callsign-input');
-    if (input) input.value = initial;
-    void lookup(initial);
-  }
+  wireLedgerSearch({ doc: document, win: window, runSearch: lookup });
 }
 
 if (typeof window !== 'undefined' && typeof window.createDbWorker === 'function') {
