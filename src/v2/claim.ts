@@ -3,9 +3,17 @@
  *
  * The inversion: today snapshots are canonical and temporal reasoning is bolted
  * on; here the atom is a CLAIM and every published table becomes a fold over a
- * ledger of claims. This module supplies the typed model plus the emit step
+ * ledger of claims. This module supplies the typed model plus the core emit step
  * (published-source rows -> claims). project-normalised.ts supplies the inverse
  * fold; serialise.ts the canonical (JSONL) and derived (N-Quads) serialisations.
+ *
+ * This module is the STABLE surface: the claim/provenance TYPES, the shared
+ * predicate/rule vocabulary, the confidence readout, and the core + derived-tier
+ * emit. The cohesive layers that fidelity lanes evolve independently live in
+ * companion modules and are re-exported here so the public import surface is one
+ * module: provenance.ts (the #436 provenance helpers), file-manifest.ts (the
+ * #434 file-level manifest layer), parse-attribute-emit.ts (the #406 T1
+ * parse-attribute tier).
  *
  * Three load-bearing decisions, each forced into the open by the round-trip POC
  * on the real corpus (see rebuild design notes / issue #361):
@@ -31,6 +39,31 @@
 
 import { cleanedCallsign, parseCallsign, normaliseLicenceCategory, NON_PLAIN_RE, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { callsignPattern } from '../shared/stats.ts';
+import { provenanceFor, anchorProvenance } from './provenance.ts';
+import { emitParseAttributeClaims } from './parse-attribute-emit.ts';
+
+// Re-export the cohesive companion layers so the public surface stays a single
+// module (import stability): consumers continue to import every symbol from
+// './claim.ts' whether it lives here or in a companion module.
+export { provenanceFor, anchorProvenance } from './provenance.ts';
+export {
+  FILE_LEVEL_ORDINAL,
+  COLUMN_PREDICATE_PREFIX,
+  SUBJECT_PREDICATE,
+  IGNORED_PREDICATE,
+  columnPredicate,
+  columnIndexOf,
+  isFileLevelClaim,
+  emitFileManifestClaims,
+} from './file-manifest.ts';
+export {
+  PREFIX_SERIES_PREDICATE,
+  IMPLIED_CLASS_PREDICATE,
+  PARSE_STATUS_PREDICATE,
+  RSL_PREDICATE,
+  PARSE_CALLSIGN_RULE,
+  emitParseAttributeClaims,
+} from './parse-attribute-emit.ts';
 
 // A claim is either a verbatim source assertion ('raw') or one computed by a
 // named rule ('derived'). The layer flag lets a consumer trust raw claims as
@@ -139,60 +172,6 @@ export const LISTED_PREDICATE = '@listed';
 // The normalisation-edge predicate.
 export const NORMALISES_TO_PREDICATE = 'normalises_to';
 
-// ---- File-level claim convention (issue #434, ADR 0016) ---------------------
-//
-// A FILE-LEVEL claim describes the source FILE - its verbatim as-published
-// header, which column is the subject, the curated furniture the loader strips -
-// rather than any single observation row. It is the shared infrastructure the
-// fidelity programme (#431/#434) reuses to attest the structural framing the
-// per-row claim stream deliberately omits (the header set/order/exact strings,
-// the subject column's name/position, the footer/blank lines).
-//
-// The convention that keeps a file-level claim unambiguously NOT an observation:
-// its provenance ordinal is the sentinel FILE_LEVEL_ORDINAL (-1). Observations
-// occupy the gap-free range 0..n-1, so -1 can never collide with one, and an
-// ordinal-keyed fold (the @listed existence fold, the reconstruction's gap-free
-// row-count) rejects it with the same 0.. bound it already enforces. Consumers
-// test membership through isFileLevelClaim rather than open-coding the sentinel,
-// so the multiset that folds see stays exactly the observation claims and the
-// #404 no-inflation invariant is untouched (a file-level claim is layer:'raw',
-// carries no rule, and reads out As-published - a header string IS a source byte,
-// not a derivation).
-export const FILE_LEVEL_ORDINAL = -1;
-
-// The reserved file-level predicate vocabulary. @column carries the column INDEX
-// in the predicate (@column/<index>), NOT a delimiter inside the object, because
-// a header may itself contain whitespace or tabs - encoding the index in the
-// predicate keeps both the order and the exact string stored facts. @subject
-// names the subject column's verbatim header (its index falls out of the @column
-// set). @ignored carries one curated/blank line verbatim in its object,
-// positioned by its source line on the shared provenance (issue #431/#436).
-export const COLUMN_PREDICATE_PREFIX = '@column/';
-export const SUBJECT_PREDICATE = '@subject';
-export const IGNORED_PREDICATE = '@ignored';
-
-// The predicate encoding a header column at a given zero-based index.
-export function columnPredicate(index: number): string {
-  return `${COLUMN_PREDICATE_PREFIX}${index}`;
-}
-
-// The zero-based column index a @column/<index> predicate encodes, or undefined
-// when the predicate is not a column predicate. The strict integer check means a
-// stray predicate can never be mistaken for a positioned header.
-export function columnIndexOf(predicate: string): number | undefined {
-  if (!predicate.startsWith(COLUMN_PREDICATE_PREFIX)) return undefined;
-  const rest = predicate.slice(COLUMN_PREDICATE_PREFIX.length);
-  if (!/^\d+$/.test(rest)) return undefined;
-  return Number(rest);
-}
-
-// Whether a claim is a file-level (non-observation) claim - the one test every
-// ordinal-keyed fold uses to exclude the manifest stream from the observation
-// multiset.
-export function isFileLevelClaim(claim: Claim): boolean {
-  return claim.provenance.ordinal === FILE_LEVEL_ORDINAL;
-}
-
 // Named rules for the derived normalisation edges, matching the lifted logic in
 // components.ts. Naming them (rather than describing them inline) keeps the
 // derived claims auditable and the rule set enumerable.
@@ -214,47 +193,12 @@ export const LICENCE_CATEGORY_PREDICATE = 'licence_category';
 // rather than inventing a vocabulary of its own.
 export const LICENCE_CATEGORY_RULE = 'licence-category';
 
-// The T1 PARSE-DERIVED attribute predicates (issue #406). Beside the verbatim
-// raw layer, the ledger carries the per-callsign attributes parseCallsign
-// COMPUTES from the raw token - its prefix series, implied station class, parse
-// status, and each data-quality flag - so entity-level report fields can fold
-// from the ledger (each later with its own equivalence oracle, like the
-// licence-category tier). The parse output is CONSUMED here, never re-derived:
-// the whole tier is a projection of parseCallsign (components.ts) into
-// rule-attributed derived claims, so any change to what a callsign parses to is
-// owned by components.ts alone.
-//
-//   - prefix_series : the join key into prefix-formats.csv ('M7', 'G0', '20',
-//                     'GB'), emitted only when the parse resolved one.
-//   - implied_class : the station level the prefix series implies ('Foundation',
-//                     'Full', ...), emitted only when the series is known.
-//   - parse_status  : the parser's synthesised determination of the token's
-//                     callsign formation ('parsed' / 'visitor' / 'special-event'
-//                     / 'unparseable'), present for every non-empty token.
-//   - flag          : one claim per raised flag, the closed data-quality
-//                     vocabulary (reference-data/flags.md); its OBJECT is the
-//                     flag name, so a report folds "callsigns carrying flag X"
-//                     by object rather than by a per-flag predicate.
-//   - rsl           : the Regional Secondary Locator letter the parse split out
-//                     of the token (the 'W' in MW7TEE, the country letter in a
-//                     MW/-visitor call), emitted only where the parse resolved a
-//                     non-empty one - an RSL-less core call (M7TEE) or a token
-//                     that carries no RSL slot (GB special-event) yields none.
-//                     Unblocks the regional-identifiers fold (#422).
-export const PREFIX_SERIES_PREDICATE = 'prefix_series';
-export const IMPLIED_CLASS_PREDICATE = 'implied_class';
-export const PARSE_STATUS_PREDICATE = 'parse_status';
+// The shared data-quality flag predicate: its OBJECT is the flag name, so a
+// report folds "callsigns carrying flag X" by object rather than by a per-flag
+// predicate. It is core vocabulary because more than one derived tier raises
+// flags through it - the per-token parse-attribute tier (parse-attribute-emit.ts)
+// and the whole-source stripped-collision tier below.
 export const FLAG_PREDICATE = 'flag';
-export const RSL_PREDICATE = 'rsl';
-
-// The one named rule attributing every parse-derived claim to parseCallsign
-// (components.ts). A SINGLE rule - not one per attribute - because one
-// deterministic computation produces prefix series, implied class, parse status
-// and flags together from the same parse; naming it keeps the tier's production
-// method a COMPUTATION (never a reference-table lookup, so it reads out Computed,
-// never As-published) and its rule set enumerable beside the normalisation and
-// licence-category rules.
-export const PARSE_CALLSIGN_RULE = 'parse-callsign';
 
 // The DERIVED callsign-pattern predicate (issue #422): the character-shape
 // taxonomy of a raw callsign token - uppercase->A, lowercase->a, digit->N, with
@@ -385,33 +329,6 @@ export interface SourceObservationSet {
   encoding?: BufferEncoding;
 }
 
-// Build the bare provenance for one observation of a source. Centralised so
-// every emit path constructs the (sourceFile, ordinal, vintage) key identically.
-export function provenanceFor(source: SourceObservationSet, ordinal: number): Provenance {
-  return { sourceFile: source.sourceFile, ordinal, vintage: source.vintage };
-}
-
-// The provenance for an observation's @listed ANCHOR claim, ENRICHED with its
-// source position when the loader captured line numbers (issue #431). Position
-// is a property of the observation KEY - every claim of the observation shares
-// it - so it is carried ONCE, on the anchor, rather than on each of the ~15
-// claims an observation emits: that keeps the (uncommitted) JSONL from doubling
-// (a single 160k-row source would otherwise overflow V8's max string length),
-// and the compact-DB loader reads the position off the anchor into the single
-// observation row regardless. For a CSV source the position is the 1-based
-// physical line and the viewAnchor points a deep-link at that same line of the
-// real repo file; a source without line numbers yields the bare provenance
-// unchanged (legacy behaviour).
-export function anchorProvenance(source: SourceObservationSet, ordinal: number): Provenance {
-  const provenance = provenanceFor(source, ordinal);
-  const line = source.lineNumbers?.[ordinal];
-  if (line !== undefined) {
-    provenance.position = { kind: 'csv-line', line };
-    if (source.repoPath !== undefined) provenance.viewAnchor = { repoPath: source.repoPath, line };
-  }
-  return provenance;
-}
-
 // Emit the raw-layer claims for a source: one existence claim per observation
 // (anchoring it, and carrying the raw subject) plus one attribute claim per
 // non-empty non-subject cell. Empty cells emit no claim — absence of evidence,
@@ -434,41 +351,6 @@ export function emitClaims(source: SourceObservationSet): Claim[] {
       claims.push({ layer: 'raw', rawSubject, predicate: column, object: value, provenance });
     }
   });
-  return claims;
-}
-
-// Emit the FILE-LEVEL manifest claims for a source (issue #434): the verbatim
-// as-published structure the per-row claim stream omits, all layer:'raw' on the
-// FILE_LEVEL_ORDINAL sentinel so they never enter the observation multiset. One
-// @column/<index> claim per header column (object = the verbatim as-published
-// header string, index in the predicate so both order and the exact string are
-// stored facts); one @subject claim naming the subject column's verbatim header;
-// and one @ignored claim per curated/blank line, object = the verbatim content,
-// positioned by its source line on the shared provenance. These read out
-// As-published under #404's no-inflation invariant - a header/furniture string
-// IS a source byte, not a derivation - and together with emitClaims's per-row
-// claims let a reconstruction rebuild the original text from the claim stream
-// alone (the reconstruction oracle, src/ci/reconstruction-oracle.ts).
-export function emitFileManifestClaims(source: SourceObservationSet): Claim[] {
-  const claims: Claim[] = [];
-  const headerProvenance = (): Provenance => {
-    const provenance: Provenance = { sourceFile: source.sourceFile, ordinal: FILE_LEVEL_ORDINAL, vintage: source.vintage };
-    if (source.headerLine !== undefined) provenance.position = { kind: 'csv-line', line: source.headerLine };
-    return provenance;
-  };
-  source.columns.forEach((header, index) => {
-    claims.push({ layer: 'raw', rawSubject: '', predicate: columnPredicate(index), object: header, provenance: headerProvenance() });
-  });
-  claims.push({ layer: 'raw', rawSubject: '', predicate: SUBJECT_PREDICATE, object: source.subjectColumn, provenance: headerProvenance() });
-  for (const ignored of source.ignoredLines ?? []) {
-    const provenance: Provenance = {
-      sourceFile: source.sourceFile,
-      ordinal: FILE_LEVEL_ORDINAL,
-      vintage: source.vintage,
-      position: { kind: 'csv-line', line: ignored.line },
-    };
-    claims.push({ layer: 'raw', rawSubject: '', predicate: IGNORED_PREDICATE, object: ignored.content, provenance });
-  }
   return claims;
 }
 
@@ -528,56 +410,6 @@ export function emitLicenceCategoryClaims(source: SourceObservationSet, ref: Ref
     const rawSubject = row[source.subjectColumn] ?? '';
     const provenance = provenanceFor(source, ordinal);
     claims.push({ layer: 'derived', rawSubject, predicate: LICENCE_CATEGORY_PREDICATE, object: category, provenance, rule: LICENCE_CATEGORY_RULE });
-  });
-  return claims;
-}
-
-// The DERIVED T1 parse-attribute claims for a source (issue #406): for each
-// observation whose raw subject is a callsign token, the per-callsign attributes
-// parseCallsign COMPUTES — its prefix series, implied class, parse status and
-// each raised flag — projected into rule-attributed derived claims. The parse is
-// LIFTED whole from components.ts and CONSUMED here, never re-derived; the token
-// is parsed WITH the source's disclosed product (source.categoryColumn) so a
-// class-vs-product mismatch the parser detects rides as a real flag claim rather
-// than being invisible, and WITH the source's disclosed original start date
-// (source.originalStartDateColumn) so the temporal
-// forbidden-suffix-issued-after-first-known-list flag - which parseCallsign
-// already computes from that date and the per-suffix first-known-forbidden
-// reference - rides too. Both extra flags join parsed.flags under the ONE
-// parse-callsign rule; no new predicate or rule is introduced for them.
-//
-// The tier NEVER invents: a claim rides only where the parse actually yields a
-// value. parse_status is the sole always-present attribute (every non-empty
-// token resolves to one determination), so it is emitted for every observation;
-// prefix_series, implied_class and rsl emit only when the parse resolved one (a
-// visitor or unparseable token yields neither series nor class; an RSL-less core
-// call or a GB special-event token yields no rsl), and a flag claim only for a
-// flag actually raised. An empty subject (an all-blank anchor row) yields
-// nothing, mirroring how the normalisation edges skip it — there is no callsign
-// to parse.
-export function emitParseAttributeClaims(source: SourceObservationSet, ref: ReferenceData): Claim[] {
-  const claims: Claim[] = [];
-  const productColumn = source.categoryColumn;
-  const startDateColumn = source.originalStartDateColumn;
-  source.rows.forEach((row, ordinal) => {
-    const rawSubject = row[source.subjectColumn] ?? '';
-    if (rawSubject === '') return;
-    const product = productColumn !== undefined ? (row[productColumn] ?? '') : '';
-    // The RAW original-start-date cell (verbatim, under Ofcom's own header) is
-    // passed as parseCallsign's fourth argument so the temporal
-    // forbidden-suffix-issued-after-first-known-list flag can fire; a source
-    // that discloses no such column passes '' and the parser withholds the flag.
-    const originalStartDate = startDateColumn !== undefined ? (row[startDateColumn] ?? '') : '';
-    const parsed = parseCallsign(rawSubject, product, ref, originalStartDate);
-    const provenance = provenanceFor(source, ordinal);
-    const emit = (predicate: string, object: string): void => {
-      claims.push({ layer: 'derived', rawSubject, predicate, object, provenance, rule: PARSE_CALLSIGN_RULE });
-    };
-    emit(PARSE_STATUS_PREDICATE, parsed.parseStatus);
-    if (parsed.prefixSeries !== '') emit(PREFIX_SERIES_PREDICATE, parsed.prefixSeries);
-    if (parsed.impliedClass !== '') emit(IMPLIED_CLASS_PREDICATE, parsed.impliedClass);
-    if (parsed.rsl !== '') emit(RSL_PREDICATE, parsed.rsl);
-    for (const flag of parsed.flags) emit(FLAG_PREDICATE, flag);
   });
   return claims;
 }
