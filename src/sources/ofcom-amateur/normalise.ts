@@ -107,6 +107,16 @@ const CALLSIGN_COLUMN_NAMES: ReadonlySet<string> = new Set(
     Object.entries(mapping).filter(([, canonical]) => canonical === 'callsign').map(([raw]) => raw)),
 );
 
+// Every raw column name that means "product / licence class", derived from the
+// variant registry so a new variant keeps this in sync automatically. A ledger
+// consumer (the class-product-mismatch fold, issue #361) reads the raw product
+// claim by header without re-guessing which raw header carried the product; the
+// oldest v2022-minimal variant declares none, so it contributes nothing.
+export const PRODUCT_COLUMN_NAMES: ReadonlySet<string> = new Set(
+  Object.values(VARIANTS).flatMap(mapping =>
+    Object.entries(mapping).filter(([, canonical]) => canonical === 'product').map(([raw]) => raw)),
+);
+
 // Find the callsign column by NAME regardless of position (issue #4): an
 // upstream column reorder must not silently change what sorted derivatives
 // are sorted by. Matches through a leading BOM (callers that parse without
