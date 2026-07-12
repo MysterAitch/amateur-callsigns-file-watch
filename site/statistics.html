@@ -61,7 +61,10 @@
       all-dot rows and columns are the sparsity signal, not noise; · means
       zero; ⚠ marks locators observed in the data but absent from
       <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/reference-data">reference data</a>.
-      Excluded records are counted beneath the table.</p>
+      Excluded records are counted beneath the table. See the same figures as a
+      live query in the
+      <a href="explore.html?db=latest&amp;sql=SELECT+series,+rsl,+n+FROM+rsl_matrix+ORDER+BY+series,+rsl">Explore console</a>
+      (it opens pre-filled and runs).</p>
       <div id="rsl-matrix-table">generated at deploy time — build the site to populate</div>
     </section>
 
@@ -114,7 +117,10 @@
       <a href="reports/data-quality.html">data-quality rollup</a> and
       <a href="reports/value-catalogue.html">value catalogue</a>, which expand
       these figures across the whole corpus. Per-entry summaries are on the
-      <a href="datasets/index.html">dataset index</a>.</p>
+      <a href="datasets/index.html">dataset index</a>. To watch one cohort move
+      between publications, open the
+      <a href="compare.html?view=%7B%22t%22%3A%5B%22forbidden%22%5D%7D">forbidden-suffix cohort compared across publications</a>
+      — the Compare tool opens pre-filtered to that view.</p>
       <div id="flags-table">generated at deploy time — build the site to populate</div>
     </section>
 
