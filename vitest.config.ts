@@ -36,6 +36,11 @@ const shared = {
   // functionality - so tests compress at level 1 for a large speed-up. The
   // deploy (which sets no such env var) keeps level 9.
   env: { TIERS_GZIP_LEVEL: '1' },
+  // Bridge a repo-local `npm run setup:duckdb` install to DUCKDB_BIN before any
+  // test file is collected, so the DuckDB-backed suites find the binary and run
+  // (or skip honestly) instead of failing with ENOENT. The single "not
+  // installed" hint is emitted by globalSetup below, not here.
+  setupFiles: ['./src/testing/vitest-duckdb.ts'],
   // This suite is data-heavy by design: golden masters and deploy-artefact
   // builds routinely parse multi-hundred-thousand-row CSVs from the real archive
   // inside tests and hooks. The 5s/10s vitest defaults are tuned for unit tests
@@ -52,6 +57,9 @@ const shared = {
 
 export default defineConfig({
   test: {
+    // Emit the single "DuckDB not installed" hint once for the whole run (the
+    // per-worker DUCKDB_BIN bridging is in the setupFiles above).
+    globalSetup: ['./src/testing/vitest-duckdb-global.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],

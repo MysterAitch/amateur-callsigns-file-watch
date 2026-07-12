@@ -6,6 +6,7 @@ import * as path from 'path';
 import { runNormaliseSweep, mdCell } from './normalise-sweep.ts';
 import { CONSTANTS } from '../shared/utils.ts';
 import { type EntryStats } from '../shared/stats.ts';
+import { duckDbAvailable } from '../testing/duckdb.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -65,7 +66,12 @@ afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 });
 
-describe('runNormaliseSweep', () => {
+// runNormaliseSweep now folds the value catalogue and cross-dataset invariants
+// via DuckDB, so every case here transitively needs the pinned CLI. Where it is
+// absent - a fresh worktree that has not run `npm run setup:duckdb` - these
+// cases skip rather than fail with a cryptic ENOENT. The pure mdCell cases below
+// carry no such dependency and always run.
+describe.skipIf(!duckDbAvailable())('runNormaliseSweep', () => {
   it('Sweep_WhenEntryHasNoNormalisedFile_CreatesItAndDeclaresInMeta', () => {
     writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
     const report = runNormaliseSweep();
@@ -734,22 +740,6 @@ describe('runNormaliseSweep', () => {
     expect(report.failed[0].key).toBe('2026-02-02');
   });
 
-  it('MdCell_WhenTextExceedsLimit_TruncatedWithoutDanglingEscapeArtefacts', () => {
-    // Truncation must happen BEFORE escaping: slicing escaped output can
-    // bisect a two-character escape and leave a lone trailing backslash that
-    // escapes the closing cell delimiter.
-    const hostile = 'x'.repeat(159) + '\\'.repeat(50);
-    const cell = mdCell(hostile);
-    const trailingBackslashes = cell.match(/\\+$/)?.[0].length ?? 0;
-    expect(trailingBackslashes % 2).toBe(0);
-    expect(cell.length).toBeLessThanOrEqual(2 * 160);
-  });
-
-  it('MdCell_WhenTextShort_UnchangedApartFromEscaping', () => {
-    expect(mdCell('plain text')).toBe('plain text');
-    expect(mdCell('a|b')).toBe('a\\|b');
-  });
-
   it('Sweep_WhenFailureReasonContainsMarkdownHostileCharacters_TableRowStaysWellFormed', () => {
     // Error messages can contain pipes, backslashes, and newlines (CSV parse
     // errors quote raw content); the coverage table must stay one row per
@@ -775,5 +765,25 @@ describe('runNormaliseSweep', () => {
     const report = runNormaliseSweep();
     expect(report.changed).toEqual(['2026-01-01']);
     expect(report.coverageMarkdown).toContain('PARTIAL raw coverage');
+  });
+});
+
+// mdCell is a pure markdown table-cell sanitiser with no DuckDB dependency, so
+// it runs regardless of whether the CLI is installed.
+describe('mdCell', () => {
+  it('MdCell_WhenTextExceedsLimit_TruncatedWithoutDanglingEscapeArtefacts', () => {
+    // Truncation must happen BEFORE escaping: slicing escaped output can
+    // bisect a two-character escape and leave a lone trailing backslash that
+    // escapes the closing cell delimiter.
+    const hostile = 'x'.repeat(159) + '\\'.repeat(50);
+    const cell = mdCell(hostile);
+    const trailingBackslashes = cell.match(/\\+$/)?.[0].length ?? 0;
+    expect(trailingBackslashes % 2).toBe(0);
+    expect(cell.length).toBeLessThanOrEqual(2 * 160);
+  });
+
+  it('MdCell_WhenTextShort_UnchangedApartFromEscaping', () => {
+    expect(mdCell('plain text')).toBe('plain text');
+    expect(mdCell('a|b')).toBe('a\\|b');
   });
 });
