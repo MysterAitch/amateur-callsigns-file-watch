@@ -112,7 +112,8 @@
         <h3 class="pg-h3">The <span class="mono">claims</span> view — the flat contract</h3>
         <div class="dmg-wrap">
           <table class="dmg">
-            <thead><tr><th>column</th><th>meaning</th></tr></thead>
+            <caption class="table-caption">Columns of the flat <span class="mono">claims</span> view</caption>
+            <thead><tr><th scope="col">column</th><th scope="col">meaning</th></tr></thead>
             <tbody>
               <tr><td>layer</td><td>raw (as Ofcom published it) or derived (a normalisation the ledger computed)</td></tr>
               <tr><td>raw_subject</td><td>the token exactly as published — kept verbatim, whitespace and all (indexed)</td></tr>
@@ -129,7 +130,8 @@
         <h3 class="pg-h3">Base tables</h3>
         <div class="dmg-wrap">
           <table class="dmg">
-            <thead><tr><th>table</th><th>what it holds</th></tr></thead>
+            <caption class="table-caption">Base tables the <span class="mono">claims</span> view is reconstructed from</caption>
+            <thead><tr><th scope="col">table</th><th scope="col">what it holds</th></tr></thead>
             <tbody>
               <tr><td>observation</td><td>one published register row — its raw_subject, resolved cleaned/entity, and source (the indexes live here)</td></tr>
               <tr><td>attr</td><td>the real attribute claims against an observation, predicate/object dictionary-encoded</td></tr>

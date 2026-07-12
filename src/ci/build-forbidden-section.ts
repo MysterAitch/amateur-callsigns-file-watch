@@ -60,6 +60,7 @@ import {
   callsignPill,
   humanDate,
   glossaryTerm,
+  tableCaption,
 } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -327,6 +328,7 @@ function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): strin
     '<h2>Disclosures timeline</h2>',
     '<p>One row per forbidden-list disclosure, oldest first — each links to its own page. <b>Distinct</b> is the suffix vocabulary; <b>rows</b> exceeds it only where the source duplicated a row (surfaced, never silently deduplicated). <b>Added / removed</b> are the set difference against the previous disclosure.</p>',
     '<table>',
+    tableCaption('Forbidden-suffix disclosures over time, oldest first'),
     '<tr><th scope="col">disclosure</th><th scope="col">distinct</th><th scope="col">rows</th><th scope="col">duplicated</th><th scope="col">added</th><th scope="col">removed</th></tr>',
     ...timelineRows,
     '</table>',
@@ -339,6 +341,7 @@ function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): strin
     '<h3>First known forbidden — distribution</h3>',
     '<p>For every suffix in the union, the earliest disclosure or <code>LastModifiedDate</code> at which it is known to have been forbidden, bucketed by date. The shape (an origin bulk plus a couple of later points) is the finding.</p>',
     '<table>',
+    tableCaption('When each union suffix was first known to be forbidden'),
     '<tr><th scope="col">first known forbidden</th><th scope="col">suffixes</th><th scope="col">which</th></tr>',
     ...fkRows,
     '</table>',
@@ -360,6 +363,7 @@ function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): strin
     body.push('<h3>Forbidden, yet carrying Allocated callsigns</h3>');
     body.push(`<p>${num(withAllocated.length)} union suffixes carry at least one <b>Allocated</b> callsign somewhere in the corpus — most predating the withholding, a few (notably <a href="${suffixHref('QNF', 'index')}"><code>QNF</code></a>) issued <em>after</em> the suffix was de-listed. Declared, not verified.</p>`);
     body.push('<table>');
+    body.push(tableCaption('Forbidden suffixes that nonetheless carry Allocated callsigns'));
     body.push('<tr><th scope="col">suffix</th><th scope="col">Allocated callsigns</th></tr>');
     for (const x of withAllocated.slice(0, 40)) {
       body.push(`<tr><td><a href="${suffixHref(x.suffix, 'index')}"><code>${escapeHtml(x.suffix)}</code></a></td><td>${num(x.allocated)}</td></tr>`);
@@ -431,6 +435,7 @@ function suffixHistorySection(suffix: string, h: ForbiddenSuffixHistory, a: Suff
     '<section><h2>Forbidden-list history</h2>',
     `<p class="lead">First known forbidden <b>${escapeHtml(fk.displayValue)}</b> <span class="gap">(${escapeHtml(fk.basis)})</span>. ${statusLine}</p>`,
     '<table>',
+    tableCaption(`Which disclosures list the ${suffix} suffix`),
     '<tr><th scope="col">disclosure</th><th scope="col">this suffix</th></tr>',
     ...rows,
     '</table>',
@@ -510,6 +515,7 @@ function suffixCallsignsSection(info: SuffixCallsignInfo, ref: ReferenceData): s
     breakdownRows(breakdown, info.total),
     '</div>',
     '<table>',
+    tableCaption('Every callsign witnessed carrying this suffix'),
     '<tr><th scope="col">callsign</th><th scope="col">latest status</th><th scope="col">original start</th><th scope="col">in current register</th><th scope="col">witnessed in</th></tr>',
     ...rows,
     '</table>',

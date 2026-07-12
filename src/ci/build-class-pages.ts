@@ -32,7 +32,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, FOI_DATASET_CLASSES } from '../shared/foi-archive.ts';
-import { escapeHtml, humanDate, humaniseLabel, breadcrumbHtml, htmlPage, glossaryTerm } from './site-render.ts';
+import { escapeHtml, humanDate, humaniseLabel, breadcrumbHtml, htmlPage, glossaryTerm, tableCaption } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
@@ -114,7 +114,7 @@ function classPage(cls: string, members: ClassMember[]): string {
     const alsoCell = otherClasses.length === 0
       ? '<span style="color:var(--muted)">—</span>'
       : otherClasses.map(c => `<a href="${classSlug(c)}.html"><code>${escapeHtml(c)}</code></a>`).join(', ');
-    return `<tr><td><a href="${href}">${escapeHtml(m.title)}</a><br><code>${escapeHtml(m.key)}</code></td><td>${escapeHtml(LANE_LABEL[m.lane])}</td><td>${vintageCell}</td><td>${alsoCell}</td></tr>`;
+    return `<tr><th scope="row"><a href="${href}">${escapeHtml(m.title)}</a><br><code>${escapeHtml(m.key)}</code></th><td>${escapeHtml(LANE_LABEL[m.lane])}</td><td>${vintageCell}</td><td>${alsoCell}</td></tr>`;
   });
 
   const registerSnapshotNote = cls === OPEN_DATA_IMPLICIT_CLASS
@@ -131,8 +131,13 @@ function classPage(cls: string, members: ClassMember[]): string {
     registerSnapshotNote,
     `<p>${carrying.length} ${carrying.length === 1 ? 'entry' : 'entries'} carry this class — ${openDataCount} open-data, ${foiCount} FOI.</p>`,
     '<table>',
-    '<tr><th scope="col">entry</th><th scope="col">collection</th><th scope="col">vintage</th><th scope="col">other classes</th></tr>',
+    tableCaption(`Archived entries carrying the ${cls} class`),
+    '<thead>',
+    `<tr><th scope="col">entry</th><th scope="col">collection</th><th scope="col">${glossaryTerm('vintage', 2, { label: 'vintage' })}</th><th scope="col">${glossaryTerm('dataset-class', 2, { label: 'other classes' })}</th></tr>`,
+    '</thead>',
+    '<tbody>',
     ...rows,
+    '</tbody>',
     '</table>',
     '<p><a href="index.html">All dataset classes →</a></p>',
   ].filter(s => s !== '');
@@ -144,15 +149,20 @@ function classPage(cls: string, members: ClassMember[]): string {
 function classIndexPage(present: { cls: string; count: number }[]): string {
   const rows = present.map(({ cls, count }) => {
     const definition = FOI_DATASET_CLASSES[cls];
-    return `<tr><td><a href="${classSlug(cls)}.html"><code>${escapeHtml(cls)}</code></a></td><td>${definition === undefined ? '<span style="color:var(--muted)">—</span>' : escapeHtml(definition)}</td><td>${count}</td></tr>`;
+    return `<tr><th scope="row"><a href="${classSlug(cls)}.html"><code>${escapeHtml(cls)}</code></a></th><td>${definition === undefined ? '<span style="color:var(--muted)">—</span>' : escapeHtml(definition)}</td><td class="n">${count}</td></tr>`;
   });
   const body = [
     breadcrumbHtml([['Datasets', '../index.html'], ['Dataset classes', undefined]]),
     '<h1>Dataset classes</h1>',
     `<p>Every archived dataset carries one or more ${glossaryTerm('dataset-class', 2, { label: 'dataset classes' })} — the entry-level vocabulary that says what kind of data it is (a ${glossaryTerm('register-snapshot', 2, { label: 'register snapshot' })}, an availability pool, a ${glossaryTerm('forbidden-suffix', 2, { label: 'forbidden-suffix' })} list, and so on). Each class below lists every entry that carries it, across both the Ofcom open-data and the FOI collections. The definitions are the authored vocabulary the FOI validator enforces; membership is <b>declared</b>, not verified.</p>`,
     '<table>',
-    '<tr><th scope="col">class</th><th scope="col">definition</th><th scope="col">entries</th></tr>',
+    tableCaption('Dataset classes in the vocabulary, with a definition and entry count'),
+    '<thead>',
+    `<tr><th scope="col">${glossaryTerm('dataset-class', 2, { label: 'class' })}</th><th scope="col">definition</th><th scope="col" class="n">entries</th></tr>`,
+    '</thead>',
+    '<tbody>',
     ...rows,
+    '</tbody>',
     '</table>',
     '<p><a href="../index.html">← Back to the dataset index</a></p>',
   ];

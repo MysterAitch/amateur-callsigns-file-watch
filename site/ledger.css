@@ -298,6 +298,11 @@
   color: var(--faint); font-weight: 600; }
 .ledger th[scope="row"] { font-weight: 600; color: var(--ink); }
 .ledger td.num, .ledger th.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* Table caption (issue #334): names each data table for assistive tech and
+   sighted readers alike. Left-aligned, small and muted so it reads as a label
+   above the grid rather than a heading; --muted clears the AA bar on --bg. */
+.ledger caption.table-caption { caption-side: top; text-align: left; color: var(--muted);
+  font-size: 12px; line-height: 1.35; padding: 0 0 5px; }
 
 /* Flag / status pills injected into the statistics tables. */
 .ledger .flag { display: inline-block; font-family: var(--mono); font-size: 11.5px; padding: 1px 8px;
