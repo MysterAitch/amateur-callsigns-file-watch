@@ -32,7 +32,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, FOI_DATASET_CLASSES } from '../shared/foi-archive.ts';
-import { escapeHtml, humanDate, humaniseLabel, breadcrumbHtml, htmlPage, glossaryTerm, tableCaption } from './site-render.ts';
+import { escapeHtml, humanDate, humaniseLabel, breadcrumbHtml, htmlPage, glossaryTerm, tableCaption, datasetLabel } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
@@ -114,7 +114,7 @@ function classPage(cls: string, members: ClassMember[]): string {
     const alsoCell = otherClasses.length === 0
       ? '<span style="color:var(--muted)">—</span>'
       : otherClasses.map(c => `<a href="${classSlug(c)}.html"><code>${escapeHtml(c)}</code></a>`).join(', ');
-    return `<tr><th scope="row"><a href="${href}">${escapeHtml(m.title)}</a><br><code>${escapeHtml(m.key)}</code></th><td>${escapeHtml(LANE_LABEL[m.lane])}</td><td>${vintageCell}</td><td>${alsoCell}</td></tr>`;
+    return `<tr><th scope="row" class="dskey">${datasetLabel(m.title, m.key, { href })}</th><td>${escapeHtml(LANE_LABEL[m.lane])}</td><td>${vintageCell}</td><td>${alsoCell}</td></tr>`;
   });
 
   const registerSnapshotNote = cls === OPEN_DATA_IMPLICIT_CLASS

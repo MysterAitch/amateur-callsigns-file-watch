@@ -201,10 +201,12 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', () =>
     expect(page).toContain('First known forbidden <b>2016-09</b>');
     expect(page).toContain('<b>De-listed</b> by the December 2024 disclosure');
     // The arc callout names both post-de-listing callsigns with their 2025
-    // original-start dates, and frames it as a reconciliation candidate.
+    // original-start dates, and frames it as a reconciliation candidate. The
+    // callsigns render through the shared pill (issue #310), not an ad-hoc
+    // anchor, so the callout reads like the section's tables.
     expect(page).toContain('Forbidden, then de-listed, then issued.');
-    expect(page).toContain('<a href="../../../index.html?c=M3QNF"><code>M3QNF</code></a> (original start 20 November 2025)');
-    expect(page).toContain('<a href="../../../index.html?c=M7QNF"><code>M7QNF</code></a> (original start 7 February 2025)');
+    expect(page).toContain('<a class="callsign-pill" href="../../../index.html?c=M3QNF" title="M3QNF — prefix series M3 · suffix QNF · Foundation">M3QNF</a> (original start 20 November 2025)');
+    expect(page).toContain('<a class="callsign-pill" href="../../../index.html?c=M7QNF" title="M7QNF — prefix series M7 · suffix QNF · Foundation">M7QNF</a> (original start 7 February 2025)');
     expect(page).toContain('A reconciliation candidate');
     // The flag rationale is accurate post phase-4 refit: the row-level
     // forbidden-suffix flag keys off the ever-forbidden union (NOT the old 2019
@@ -228,8 +230,8 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', () =>
     // M3QNF's status transition (Forbidden in 2016, Allocated now) is surfaced,
     // not flattened away.
     expect(page).toContain('Allocated <small class="gap">(was Forbidden)</small>');
-    // Every callsign deep-links into the register lookup.
-    expect(page).toContain('<a href="../../../index.html?c=M3QNF">');
+    // Every callsign deep-links into the register lookup, through the shared pill.
+    expect(page).toContain('<a class="callsign-pill" href="../../../index.html?c=M3QNF"');
   });
 
   it('SuffixPage_QNF_CrossLinksToDisclosuresAndFoiObservations', () => {

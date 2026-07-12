@@ -54,6 +54,7 @@ import {
   htmlPage,
   entryPage,
   callsignPill,
+  datasetLabel,
   glossaryTerm,
   tableCaption,
   type CallsignComponents,
@@ -1308,7 +1309,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;
     pageUrls.push(`${baseUrl}/datasets/open-data/${key}/index.html`);
-    openDataRows.push(`<tr><th scope="row"><a href="open-data/${key}/index.html">Publication of ${humanDate(key)}</a> <code>${key}</code></th><td class="n">${files.length}</td><td class="n">${formatBytes(files.reduce((s, f) => s + f.bytes, 0))}</td></tr>`);
+    openDataRows.push(`<tr><th scope="row" class="dskey">${datasetLabel(`Publication of ${humanDate(key)}`, key, { href: `open-data/${key}/index.html` })}</th><td class="n">${files.length}</td><td class="n">${formatBytes(files.reduce((s, f) => s + f.bytes, 0))}</td></tr>`);
   }
 
   const foiRows: string[] = [];
@@ -1317,7 +1318,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;
     pageUrls.push(`${baseUrl}/datasets/foi/${key}/index.html`);
-    foiRows.push(`<tr><th scope="row"><a href="foi/${encodeURIComponent(key)}/index.html">${escapeHtml(meta.title)}</a><br><code>${escapeHtml(key)}</code></th><td>${escapeHtml(meta.dataVintage ?? '—')}</td><td>${meta.datasetClasses.map(c => classChipLink(c, '')).join(', ')}</td></tr>`);
+    foiRows.push(`<tr><th scope="row" class="dskey">${datasetLabel(meta.title, key, { href: `foi/${encodeURIComponent(key)}/index.html` })}</th><td>${escapeHtml(meta.dataVintage ?? '—')}</td><td>${meta.datasetClasses.map(c => classChipLink(c, '')).join(', ')}</td></tr>`);
   }
 
   if (totalBytes > MAX_TOTAL_BYTES) {
