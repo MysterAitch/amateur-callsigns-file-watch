@@ -26,6 +26,9 @@ import {
   NON_PLAIN_RE,
 } from '../sources/ofcom-amateur/components.ts';
 import { checkNoInflationClaims } from '../ci/trust-rating.ts';
+import { collectOpenDataRegisterSources } from './collectors/open-data-register.ts';
+import { CONSTANTS } from '../shared/utils.ts';
+import { parse as parseCsv } from 'csv-parse/sync';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
 //
@@ -202,13 +205,37 @@ describe('temporal tier — forbidden-suffix-issued-after-first-known-list rides
     expect(claims.some(c => c.object === 'forbidden-suffix')).toBe(true);
   });
 
-  it('TemporalFlag_WhenRawDateIsNonIso_WithholdsTheFlag', () => {
-    // The open-data raw renders the date DD/MM/YYYY; parseCallsign's ISO-only
-    // comparison treats it as no-date and withholds the flag - honest silence,
-    // the documented conservative behaviour, not a misfire.
+  it('TemporalFlag_WhenRawDateIsOpenDataDayFirstAfterFirstKnown_Fires', () => {
+    // The open-data raw renders the date DD/MM/YYYY and travels verbatim into the
+    // ledger. 01/05/2020 is 1 May 2020, after ASS's 2016-07 first-known-forbidden
+    // month, so the ledger fires the flag - matching the ISO-normalised lane
+    // rather than under-firing on the raw rendering (#429 gap).
     const rows = [{ [SUBJECT]: 'M7ASS', [PRODUCT]: 'Amateur Foundation Radio Licence', [START_DATE]: '01/05/2020' }];
     const claims = emitParseAttributeClaims(withStartDate(rows), REF);
+    expect(hasTemporalFlag(claims, 'M7ASS')).toBe(true);
+    // Equivalence: the day-first raw judges identically to the ISO rendering.
+    const iso = [{ [SUBJECT]: 'M7ASS', [PRODUCT]: 'Amateur Foundation Radio Licence', [START_DATE]: '2020-05-01' }];
+    expect(hasTemporalFlag(emitParseAttributeClaims(withStartDate(iso), REF), 'M7ASS')).toBe(true);
+  });
+
+  it('TemporalFlag_WhenRawDateIsOpenDataDayFirstBeforeFirstKnown_DoesNotFire', () => {
+    // A day-first date BEFORE the suffix's first-known month is the benign
+    // long-standing allocation: 01/05/2010 predates ASS's 2016-07 boundary, so
+    // no flag - the raw rendering does not create a false positive either.
+    const rows = [{ [SUBJECT]: 'M7ASS', [PRODUCT]: 'Amateur Foundation Radio Licence', [START_DATE]: '01/05/2010' }];
+    const claims = emitParseAttributeClaims(withStartDate(rows), REF);
     expect(hasTemporalFlag(claims, 'M7ASS')).toBe(false);
+    expect(claims.some(c => c.object === 'forbidden-suffix')).toBe(true);
+  });
+
+  it('TemporalFlag_WhenRawDateIsGenuinelyUnparseable_WithholdsTheFlag', () => {
+    // A date matching NEITHER known source rendering (here a US month-first-shaped
+    // token with an impossible day-first reading) is not coerced: the parser
+    // withholds the flag - honest silence, never a guess.
+    const rows = [{ [SUBJECT]: 'M7ASS', [PRODUCT]: 'Amateur Foundation Radio Licence', [START_DATE]: 'May 1 2020' }];
+    const claims = emitParseAttributeClaims(withStartDate(rows), REF);
+    expect(hasTemporalFlag(claims, 'M7ASS')).toBe(false);
+    expect(claims.some(c => c.object === 'forbidden-suffix')).toBe(true);
   });
 
   it('TemporalFlag_WhenSuffixOnlyLateKnownForbidden_KeysOffItsOwnFirstKnownDate', () => {
@@ -220,6 +247,42 @@ describe('temporal tier — forbidden-suffix-issued-after-first-known-list rides
     expect(hasTemporalFlag(emitParseAttributeClaims(before, REF), 'M7JIZ')).toBe(false);
     expect(hasTemporalFlag(emitParseAttributeClaims(after, REF), 'M7JIZ')).toBe(true);
   });
+
+  it('TemporalFlag_OverRealOpenDataLane_FiresExactlyWhereLegacyComponentsCsvDoes', () => {
+    // The legacy-match oracle for #429's gap. On the open-data lane the raw
+    // original-start-date renders UK day-first (DD/MM/YYYY), and the ledger reads
+    // that raw cell verbatim; the committed components.csv is built from the same
+    // rows with the date ISO-normalised first. The temporal flag must therefore
+    // fire on EXACTLY the same callsigns through the ledger's raw day-first read
+    // as through the normalised (legacy) ISO read - the multiset match below is
+    // the proof, computed over the whole real open-data lane. Before this fix the
+    // ledger fired ZERO temporal flags here (the ISO-only rule rejected every
+    // DD/MM/YYYY date); it now matches the 106 the legacy path carries on the one
+    // snapshot whose variant discloses the date column.
+    const TEMPORAL = 'forbidden-suffix-issued-after-first-known-list';
+    let snapshotsExercised = 0;
+    for (const source of collectOpenDataRegisterSources()) {
+      const componentsPath = path.join(CONSTANTS.DIRS.archive, source.entry, 'components.csv');
+      if (!fs.existsSync(componentsPath)) continue;
+      const componentRows = parseCsv(fs.readFileSync(componentsPath, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[];
+      // Legacy side: the committed components.csv temporal-flagged callsigns, as a
+      // sorted multiset (row-parallel with the raw rows, so multiplicity matters).
+      const legacy = componentRows
+        .filter(r => (r.flags ?? '').split(';').includes(TEMPORAL))
+        .map(r => r.callsign)
+        .sort();
+      // Ledger side: emit over the RAW bytes (day-first dates travel verbatim).
+      const ledger = emitParseAttributeClaims(source.load(), REF)
+        .filter(c => c.predicate === FLAG_PREDICATE && c.object === TEMPORAL)
+        .map(c => c.rawSubject)
+        .sort();
+      expect(ledger, `${source.entry}: ledger temporal fires vs legacy components.csv`).toEqual(legacy);
+      if (legacy.length > 0) snapshotsExercised += 1;
+    }
+    // A green result must be non-vacuous: at least one snapshot genuinely raises
+    // the flag (the 2026 variant, which discloses the original-start-date column).
+    expect(snapshotsExercised, 'no open-data snapshot exercised the temporal flag').toBeGreaterThan(0);
+  }, 120_000);
 });
 
 describe('both new tiers — the no-inflation invariant (ADR 0014)', () => {

@@ -21,6 +21,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
+import { parseUkDateTime } from '../../shared/normalise.ts';
 
 export const COMPONENTS_SCHEMA_VERSION = 5;
 
@@ -154,21 +155,53 @@ const EXCEL_DATE_RE = /^\d{1,2}-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec
 // with String.prototype.replace, which resets lastIndex on every call.
 export const NON_PLAIN_RE = /[^A-Za-z0-9/#]/gu;
 
-// True when a call sign's original start date (ISO yyyy-mm-dd[ hh:mm]) falls in
-// a month strictly after the month a SPECIFIC suffix was first known to be
-// forbidden - the per-suffix temporal anchor from
-// reference-data/forbidden-suffixes.csv (derived from every disclosure held;
-// see src/ci/forbidden-suffix-history.ts). Keying off the suffix's own
-// first-known-forbidden date rather than a single global boundary means a
-// callsign predating ALL known lists (e.g. a 1980 issue) is correctly not the
-// anomaly, and a suffix first seen only in 2020 (JIZ) is judged against 2020,
-// not 2016. A blank or non-ISO date, or a suffix with no known first date,
-// asserts nothing - absence of a date is not evidence of a post-list issuance,
-// so it yields honest silence, never a guessed determination.
-export function isAfterFirstKnownForbidden(originalStartDateIso: string, firstKnownForbidden: string | undefined): boolean {
+// Reduce a call sign's raw original-start-date to the ISO year-month the
+// temporal comparison needs, across the date renderings the register actually
+// uses, or null when the value asserts no usable month. This DERIVED rule
+// interprets the raw date for its own computation; the raw date CLAIM stored
+// elsewhere is never rewritten. The two known source formats are:
+//   - ISO yyyy-mm-dd[ hh:mm] - the FOI lane, and the open-data NORMALISED form:
+//     the leading yyyy-mm is taken directly.
+//   - UK day-first dd/mm/yyyy[ hh:mm] - the open-data RAW rendering that travels
+//     verbatim into the claim ledger. It is converted through the repository's
+//     single strict day-first parser (parseUkDateTime, the same one the
+//     ofcom-amateur normaliser uses) so the ledger judges the SAME month the
+//     normalised lane does, regardless of how the raw token happens to render.
+// A blank, an unrecognised shape, or a day-first value the strict parser
+// rejects (an impossible day/month) yields null - honest silence, never a
+// guessed determination. Only these known, unambiguous source formats are
+// parsed; nothing is coerced.
+function issuedMonthIso(originalStartDate: string): string | null {
+  const trimmed = originalStartDate.trim();
+  if (trimmed === '') return null;
+  if (/^\d{4}-\d{2}/.test(trimmed)) return trimmed.slice(0, 7);
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(trimmed)) {
+    try {
+      return parseUkDateTime(trimmed).slice(0, 7);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+// True when a call sign's original start date falls in a month strictly after
+// the month a SPECIFIC suffix was first known to be forbidden - the per-suffix
+// temporal anchor from reference-data/forbidden-suffixes.csv (derived from every
+// disclosure held; see src/ci/forbidden-suffix-history.ts). Keying off the
+// suffix's own first-known-forbidden date rather than a single global boundary
+// means a callsign predating ALL known lists (e.g. a 1980 issue) is correctly
+// not the anomaly, and a suffix first seen only in 2020 (JIZ) is judged against
+// 2020, not 2016. The date is interpreted from its known source rendering (ISO
+// or UK day-first) by issuedMonthIso, so the comparison holds whether the raw
+// value arrives already-ISO (normalised lane / FOI) or as the open-data raw
+// dd/mm/yyyy. A blank, an unparseable date, or a suffix with no known first date
+// asserts nothing - absence of a usable date is not evidence of a post-list
+// issuance, so it yields honest silence, never a guess.
+export function isAfterFirstKnownForbidden(originalStartDate: string, firstKnownForbidden: string | undefined): boolean {
   if (firstKnownForbidden === undefined) return false;
-  const issuedMonth = originalStartDateIso.slice(0, 7);
-  if (!/^\d{4}-\d{2}$/.test(issuedMonth)) return false;
+  const issuedMonth = issuedMonthIso(originalStartDate);
+  if (issuedMonth === null) return false;
   const firstKnownMonth = firstKnownForbidden.slice(0, 7);
   if (!/^\d{4}-\d{2}$/.test(firstKnownMonth)) return false;
   return issuedMonth > firstKnownMonth;
