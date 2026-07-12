@@ -151,6 +151,14 @@ export interface ParsedRawRegister {
   mapping: Readonly<Record<string, CanonicalColumn>>;
   headerLines: { line: number; content: string }[];
   ignoredLines: IgnoredRawLine[];
+  // The 1-based physical line of each record, parallel to `records` by index -
+  // the ordered list of lines that are neither the header nor ignored (issue
+  // #431). The same exact line-accounting invariant that guarantees
+  // `1 data record = 1 physical line` (asserted below) proves this mapping
+  // sound: `dataLineNumbers.length === records.length` by construction, so a
+  // consumer (the raw-keyed claim ledger) can attest each observation's source
+  // line without re-parsing.
+  dataLineNumbers: number[];
 }
 
 // Strip the curated + blank non-data lines, parse the remainder under Ofcom's
@@ -193,16 +201,25 @@ export function parseRawRegister(rawContent: string, curatedIgnores: IgnoredRawL
 
   const ignoredLines = [...ignoredByLine.values()].sort((a, b) => a.line - b.line);
 
+  // The ordered 1-based physical line of each surviving data line, in the SAME
+  // order the parser emitted the records (the stripped `effective` text kept
+  // that order), so dataLineNumbers[k] is the source line of records[k].
+  const dataLineNumbers: number[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!ignoredByLine.has(i + 1)) dataLineNumbers.push(i + 1);
+  }
+
   // Count invariant - exact arithmetic, no inference: every physical line
   // is exactly one of header / data row / ignored. A mismatch means the
   // one-line-per-record model does not hold (e.g. a quoted multi-line cell)
-  // and the enumeration cannot be trusted: fail loudly.
+  // and the enumeration cannot be trusted: fail loudly. The same arithmetic
+  // proves dataLineNumbers lines up with records one-for-one.
   const headerLineCount = 1;
   if (lines.length - headerLineCount !== records.length + ignoredLines.length) {
     throw new Error(`raw line accounting failed: ${lines.length - headerLineCount} data lines != ${records.length} records + ${ignoredLines.length} ignored - does a quoted cell span lines?`);
   }
 
-  return { records, headers, variant, mapping, headerLines: [{ line: 1, content: lines[0] }], ignoredLines };
+  return { records, headers, variant, mapping, headerLines: [{ line: 1, content: lines[0] }], ignoredLines, dataLineNumbers };
 }
 
 export interface ConvertContext {
