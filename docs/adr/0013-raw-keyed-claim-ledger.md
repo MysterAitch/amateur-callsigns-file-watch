@@ -266,7 +266,20 @@ positions, and the named rule that produced it — reconstructed on read
 ([ADR 0017](0017-show-the-working-behind-derived-claims.md)), guarded by a
 fail-loud self-check oracle which already earned its keep by forcing a
 completeness gap into the open: a callsign-pattern rule the design's own
-inventory had missed.
+inventory had missed. Each column's inferred interpretation (`{type, format}`)
+is now itself attested as a *Looked-up* file-level claim, and within-table
+date-format mixing and normalisation collisions are surfaced as loud,
+non-fatal doubt flags — cross-file terminology drift stays data, not a defect
+([ADR 0018](0018-attest-column-interpretation-and-within-table-flags.md)).
+
+With this, the fidelity **emit** foundation is complete: the ledger attests
+source position (ADR 0015), attests file structure and reconstructs all 44 text
+sources (ADR 0016), explains every derived claim (ADR 0017), and attests column
+interpretation with within-table integrity flags (ADR 0018). The next arc —
+surfacing that fidelity to readers inline and in linked deep-dive pages
+([#438](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/438),
+[#439](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/439))
+— is in design, not yet built.
 
 Remaining: the reviewed canonical vocabularies and coverage-aware gating the
 temporal fold depends on; the continued onboarding through the registry of
