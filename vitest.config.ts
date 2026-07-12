@@ -16,6 +16,7 @@ const HEAVY_BUILD_TESTS = [
   'src/v2/build-ledger-db-compact.test.ts',
   'src/v2/licence-category-tier.test.ts',
   'src/ci/build-sqlite.tiers.test.ts',
+  'src/ci/reconstruction-oracle.test.ts',
   'src/ci/build-forbidden-section.test.ts',
   'src/ci/cross-dataset-invariants.test.ts',
   'src/ci/value-catalogue-fold.test.ts',

@@ -80,6 +80,17 @@ export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta
     // deep-link's viewAnchor (canonical location, independent of a custom
     // archiveDir a test may pass).
     repoPath: `archive/${key}/raw.csv`,
+    // The verbatim structural framing the per-row claim stream omits (issue
+    // #434): the curated + enumerated footer/blank lines parseRawRegister
+    // stripped, and the header's physical line. Both come straight from the
+    // authored parse - the same line accounting that proves the record count -
+    // so the file-manifest emit attests them without a re-parse, and a
+    // reconstruction can reinstate the footer positionally.
+    ignoredLines: parsed.ignoredLines,
+    headerLine: parsed.headerLines[0]?.line,
+    // parseRawRegister reads the raw bytes as utf-8 (with BOM strip), so a
+    // fidelity oracle re-reads the original identically (issue #434, G6).
+    encoding: 'utf8',
   };
 }
 
