@@ -291,7 +291,7 @@ describe('FOI markdown-table transcriptions reconstruct their table region (issu
     // cell value (thousands separators, en-dashes) must match.
     const source = collectFoiMarkdownTableSources()
       .map(resolved => resolved.load())
-      .find(s => s.repoPath.endsWith('raw-extract-number-of-licences-coleman.md'));
+      .find(s => s.repoPath?.endsWith('raw-extract-number-of-licences-coleman.md') === true);
     expect(source).toBeDefined();
     if (source === undefined) return;
     const result = reconstructionResultFor(source);
@@ -307,7 +307,7 @@ describe('FOI markdown-table transcriptions reconstruct their table region (issu
     // so the whole table region round-trips.
     const source = collectFoiMarkdownTableSources()
       .map(resolved => resolved.load())
-      .find(s => s.repoPath.endsWith('raw-extract-applicants-old-call-signs.md'));
+      .find(s => s.repoPath?.endsWith('raw-extract-applicants-old-call-signs.md') === true);
     expect(source).toBeDefined();
     if (source === undefined) return;
     expect(source.columns).toContain('Title');
@@ -333,7 +333,7 @@ describe('FOI markdown-table transcriptions reconstruct their table region (issu
     // stream yields exactly the canonicalised table region of the original file.
     const source = collectFoiMarkdownTableSources()
       .map(resolved => resolved.load())
-      .find(s => s.repoPath.endsWith('raw-extract-number-of-licences-coleman.md'));
+      .find(s => s.repoPath?.endsWith('raw-extract-number-of-licences-coleman.md') === true);
     expect(source).toBeDefined();
     if (source === undefined) return;
     const claims = [...emitClaims(source), ...emitFileManifestClaims(source)];
