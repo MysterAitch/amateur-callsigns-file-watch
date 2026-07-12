@@ -19,6 +19,8 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { errorMessage } from '../shared/utils.ts';
 
 // The DuckDB CLI to invoke: the pinned binary the setup-duckdb action installs
@@ -65,6 +67,71 @@ export function foldQuery<Row>(sql: string): Row[] {
 // needed.
 export function csvFileList(files: readonly string[]): string {
   return `[${files.map(file => `'${file.replace(/\\/g, '/')}'`).join(', ')}]`;
+}
+
+// The claim-ledger column schema every fold reads, DECLARED rather than sniffed:
+// raw claims omit the optional `rule`, so a sampled inference over JSONL would
+// miss it. Pinning the columns makes `rule` present-and-NULL wherever a claim
+// asserts none, and — the property issue #403 turns on — makes a fold's SQL the
+// SAME whether its claim rows arrive as per-source JSONL (read_json) or as the
+// shared deploy-time Parquet (read_parquet), which build-ledger-db writes with
+// this identical column set.
+export const LEDGER_COLUMNS = "{layer: 'VARCHAR', rawSubject: 'VARCHAR', predicate: 'VARCHAR', object: 'VARCHAR', sourceFile: 'VARCHAR', ordinal: 'BIGINT', vintage: 'VARCHAR', rule: 'VARCHAR'}";
+
+// Where a fold reads its claim rows from — two shapes behind one query surface:
+//   - 'parquet': the single claims.parquet build-ledger-db emits ONCE per deploy
+//     run, shared across every report fold (issue #403), so the multi-GB ledger
+//     is materialised once rather than re-emitted per report.
+//   - 'ledger': a directory of per-source JSONL ledgers (the shape build-ledger
+//     writes into <outputDir>/ledger/) — the on-demand fallback for local dev,
+//     tests, and any run where the pre-built Parquet is absent.
+export type ClaimsSource =
+  | { readonly kind: 'parquet'; readonly path: string }
+  | { readonly kind: 'ledger'; readonly dir: string };
+
+// Normalise a fold's public argument to a ClaimsSource: a bare string is a ledger
+// directory (the long-standing signature the tests and CLI mains pass), an object
+// is already a source. Lets every fold accept a Parquet source without breaking a
+// single string-dir caller.
+export function toClaimsSource(source: string | ClaimsSource): ClaimsSource {
+  return typeof source === 'string' ? { kind: 'ledger', dir: source } : source;
+}
+
+// The DuckDB relation expression yielding a source's claim rows. A fold splices
+// this in place of its former inline read_json(...), so the SAME fold SQL runs
+// over the shared Parquet or an on-demand JSONL ledger — the byte-identity
+// contract (issue #403) rests on both relations exposing LEDGER_COLUMNS.
+export function claimsRelation(source: ClaimsSource): string {
+  if (source.kind === 'parquet') {
+    return `read_parquet('${source.path.replace(/\\/g, '/').replace(/'/g, "''")}')`;
+  }
+  const glob = path.join(source.dir, '*.jsonl').replace(/\\/g, '/').replace(/'/g, "''");
+  return `read_json('${glob}', format='newline_delimited', columns=${LEDGER_COLUMNS})`;
+}
+
+// Whether a source holds any claims to fold. An absent/empty ledger yields the
+// empty report rather than reaching DuckDB, whose read_json errors on a glob that
+// matches nothing; read_parquet on a present file never errors, so a Parquet
+// source counts as present iff its file exists. Folds guard on this exactly as
+// they did on the JSONL-directory check.
+export function claimsSourcePresent(source: ClaimsSource): boolean {
+  if (source.kind === 'parquet') return fs.existsSync(source.path);
+  return fs.existsSync(source.dir) && fs.readdirSync(source.dir).some(name => name.endsWith('.jsonl'));
+}
+
+// The environment variable naming the shared deploy-time claims.parquet. The
+// workflow step that builds the Parquet once (issue #403) exports it; folds read
+// it here so their call sites never change.
+export const CLAIMS_PARQUET_ENV = 'CLAIMS_PARQUET';
+
+// The shared deploy-time Parquet source when one is configured and present, else
+// null (local dev, tests, any run without the pre-built artefact). A fold given
+// no explicit ledger directory consults this: present → read the shared Parquet
+// once; null → materialise the ledger on demand exactly as before.
+export function deployClaimsSource(): ClaimsSource | null {
+  const configured = process.env[CLAIMS_PARQUET_ENV];
+  if (configured === undefined || configured.trim() === '') return null;
+  return fs.existsSync(configured) ? { kind: 'parquet', path: configured } : null;
 }
 
 // The SQL that reproduces cleanedCallsign() from components.ts — uppercase, then

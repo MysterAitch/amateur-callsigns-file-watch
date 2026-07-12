@@ -1,5 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import { csvFileList, cleanedKeyExpr, foldQuery, duckDbAvailable } from './report-fold.ts';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import {
+  csvFileList,
+  cleanedKeyExpr,
+  foldQuery,
+  duckDbAvailable,
+  claimsRelation,
+  claimsSourcePresent,
+  toClaimsSource,
+  deployClaimsSource,
+  LEDGER_COLUMNS,
+  CLAIMS_PARQUET_ENV,
+} from './report-fold.ts';
 
 // The reusable "fold a report from the claim data via DuckDB" scaffold (issue
 // #361). The pure SQL-fragment builders always run; the query runner is gated on
@@ -17,6 +31,76 @@ describe('report-fold — SQL fragment builders', () => {
     // expression rather than re-deriving the join key by hand.
     expect(cleanedKeyExpr()).toBe("regexp_replace(upper(callsign), '[^A-Z0-9/]', '', 'g')");
     expect(cleanedKeyExpr('raw_subject')).toBe("regexp_replace(upper(raw_subject), '[^A-Z0-9/]', '', 'g')");
+  });
+});
+
+describe('report-fold — claims source resolution (issue #403)', () => {
+  it('ClaimsRelation_LedgerDirectory_EmitsForwardSlashedReadJsonGlobWithDeclaredColumns', () => {
+    // A ledger directory reads its per-source JSONL through read_json with the
+    // columns DECLARED (not sniffed), forward-slashed on every platform.
+    expect(claimsRelation({ kind: 'ledger', dir: 'a\\b\\ledger' }))
+      .toBe(`read_json('a/b/ledger/*.jsonl', format='newline_delimited', columns=${LEDGER_COLUMNS})`);
+  });
+
+  it('ClaimsRelation_Parquet_EmitsForwardSlashedReadParquet', () => {
+    // The shared deploy-time Parquet reads through read_parquet, which needs no
+    // column declaration (Parquet is self-describing) yet exposes the SAME columns
+    // — the property the byte-identity guarantee rests on.
+    expect(claimsRelation({ kind: 'parquet', path: 'C:\\tmp\\claims.parquet' }))
+      .toBe("read_parquet('C:/tmp/claims.parquet')");
+  });
+
+  it('ToClaimsSource_BareString_TreatedAsLedgerDirectory', () => {
+    expect(toClaimsSource('some/dir')).toEqual({ kind: 'ledger', dir: 'some/dir' });
+    expect(toClaimsSource({ kind: 'parquet', path: 'p.parquet' })).toEqual({ kind: 'parquet', path: 'p.parquet' });
+  });
+
+  it('ClaimsSourcePresent_ReflectsFilesystemForBothKinds', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claims-present-'));
+    try {
+      // An empty ledger directory is not present (read_json would error on a glob
+      // matching nothing); one holding a .jsonl is.
+      expect(claimsSourcePresent({ kind: 'ledger', dir })).toBe(false);
+      fs.writeFileSync(path.join(dir, 'x.jsonl'), '');
+      expect(claimsSourcePresent({ kind: 'ledger', dir })).toBe(true);
+      // A Parquet source is present iff its file exists.
+      const parquet = path.join(dir, 'claims.parquet');
+      expect(claimsSourcePresent({ kind: 'parquet', path: parquet })).toBe(false);
+      fs.writeFileSync(parquet, '');
+      expect(claimsSourcePresent({ kind: 'parquet', path: parquet })).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('DeployClaimsSource_EnvUnsetOrMissingFile_YieldsNullSoFoldsFallBackToOnDemand', () => {
+    const original = process.env[CLAIMS_PARQUET_ENV];
+    try {
+      delete process.env[CLAIMS_PARQUET_ENV];
+      expect(deployClaimsSource()).toBeNull();
+      // A configured-but-absent path is null too: the fold materialises on demand
+      // rather than pointing DuckDB at a file that is not there.
+      process.env[CLAIMS_PARQUET_ENV] = path.join(os.tmpdir(), 'definitely-absent-claims.parquet');
+      expect(deployClaimsSource()).toBeNull();
+    } finally {
+      if (original === undefined) delete process.env[CLAIMS_PARQUET_ENV];
+      else process.env[CLAIMS_PARQUET_ENV] = original;
+    }
+  });
+
+  it('DeployClaimsSource_EnvNamesExistingFile_YieldsParquetSource', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claims-env-'));
+    const parquet = path.join(dir, 'claims.parquet');
+    fs.writeFileSync(parquet, '');
+    const original = process.env[CLAIMS_PARQUET_ENV];
+    try {
+      process.env[CLAIMS_PARQUET_ENV] = parquet;
+      expect(deployClaimsSource()).toEqual({ kind: 'parquet', path: parquet });
+    } finally {
+      if (original === undefined) delete process.env[CLAIMS_PARQUET_ENV];
+      else process.env[CLAIMS_PARQUET_ENV] = original;
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

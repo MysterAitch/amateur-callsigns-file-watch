@@ -42,7 +42,15 @@ import {
   PARSE_STATUS_PREDICATE,
   PREFIX_SERIES_PREDICATE,
 } from '../v2/claim.ts';
-import { foldQuery, cleanedKeyExpr } from '../v2/report-fold.ts';
+import {
+  foldQuery,
+  cleanedKeyExpr,
+  claimsRelation,
+  claimsSourcePresent,
+  toClaimsSource,
+  deployClaimsSource,
+  type ClaimsSource,
+} from '../v2/report-fold.ts';
 import { loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import type { FieldCatalogue, ValueTally } from './value-catalogue.ts';
 
@@ -70,19 +78,6 @@ export interface FoldedCategory {
   callsigns: number;
   allocated: number;
   variants: FoldedVariant[];
-}
-
-// The claim-ledger JSONL column schema, declared rather than sniffed for the
-// same reason build-ledger-db.writeParquetScript declares it: raw claims omit
-// the optional `rule`, so a sampled inference would miss it. Pinning the columns
-// makes `rule` NULL wherever a claim asserts none.
-const LEDGER_COLUMNS = "{layer: 'VARCHAR', rawSubject: 'VARCHAR', predicate: 'VARCHAR', object: 'VARCHAR', sourceFile: 'VARCHAR', ordinal: 'BIGINT', vintage: 'VARCHAR', rule: 'VARCHAR'}";
-
-// A DuckDB glob over one ledger directory's per-source JSONL files, forward-
-// slashed and single-quote escaped (DuckDB accepts forward slashes on every
-// platform).
-function ledgerGlob(ledgerDir: string): string {
-  return `'${path.join(ledgerDir, '*.jsonl').replace(/\\/g, '/').replace(/'/g, "''")}'`;
 }
 
 // A DuckDB comma-separated list of single-quoted string literals.
@@ -121,11 +116,10 @@ export function recognisedProducts(ref: ReferenceData): string[] {
 // cell), so the per-variant records sum back to the category total. GROUPING SETS
 // yields both grains; the total ORDER BY (report-fold's determinism contract)
 // runs category, then totals before variants, then records, then product.
-function foldSql(ledgerDir: string, products: readonly string[]): string {
-  const glob = ledgerGlob(ledgerDir);
+function foldSql(source: ClaimsSource, products: readonly string[]): string {
   const key = cleanedKeyExpr('rawSubject');
   return `WITH claims AS (
-  SELECT * FROM read_json(${glob}, format='newline_delimited', columns=${LEDGER_COLUMNS})
+  SELECT * FROM ${claimsRelation(source)}
 ),
 cat AS (
   SELECT sourceFile, ordinal, object AS category, ${key} AS ck
@@ -192,26 +186,23 @@ function assembleCategories(rows: readonly FoldRow[]): FoldedCategory[] {
 // entries were skipped as malformed) yields no categories — returned as the
 // empty table rather than handed to DuckDB, whose read_json errors on a glob
 // that matches nothing.
-export function foldLicenceCategories(ledgerDir: string, ref: ReferenceData = loadReferenceData()): FoldedCategory[] {
-  const hasClaims = fs.existsSync(ledgerDir)
-    && fs.readdirSync(ledgerDir).some(name => name.endsWith('.jsonl'));
-  if (!hasClaims) return [];
-  const rows = foldQuery<FoldRow>(foldSql(ledgerDir, recognisedProducts(ref)));
+export function foldLicenceCategories(source: string | ClaimsSource, ref: ReferenceData = loadReferenceData()): FoldedCategory[] {
+  const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return [];
+  const rows = foldQuery<FoldRow>(foldSql(claims, recognisedProducts(ref)));
   return assembleCategories(rows);
 }
 
-// Build the licence-category fold, materialising the ledger first when no
-// pre-built directory is supplied. A caller that already holds a ledger (the
-// normalise sweep, once it emits one upstream; a test with a fixture) passes its
-// directory to avoid the rebuild; the standalone path builds the full corpus to
-// a temp directory and cleans it up.
-//
-// The interim rebuild is the honest cost of the strangler's first step: the
-// ledger is not yet a committed/cached artefact, so a self-contained run emits
-// it on demand. The eventual path consumes the deploy-time claims artefact
-// (build-ledger-db) rather than re-emitting JSONL — noted in the migration map.
+// Build the licence-category fold. A caller that already holds a ledger (a test
+// with a fixture) passes its directory to fold that directly. Otherwise the fold
+// consumes the shared deploy-time claims.parquet when the workflow has built one
+// (issue #403: materialised ONCE across every report, read here via read_parquet),
+// and falls back to materialising the full-corpus ledger to a temp directory only
+// when no pre-built Parquet is present (local dev, tests).
 export function buildLicenceCategoryFold(ledgerDir?: string, ref: ReferenceData = loadReferenceData()): FoldedCategory[] {
   if (ledgerDir !== undefined) return foldLicenceCategories(ledgerDir, ref);
+  const shared = deployClaimsSource();
+  if (shared !== null) return foldLicenceCategories(shared, ref);
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'value-catalogue-ledger-'));
   try {
     // skipFailedSources: the fold consumes the archive the same way the
@@ -298,11 +289,10 @@ interface FieldFoldRow {
 //     licence-category fold counts allocation).
 // GROUPING SETS yields the per-value total and per-source grains in one scan; the
 // total ORDER BY keeps the byte output deterministic (report-fold's contract).
-function fieldFoldSql(ledgerDir: string, predicate: string): string {
-  const glob = ledgerGlob(ledgerDir);
+function fieldFoldSql(source: ClaimsSource, predicate: string): string {
   const key = cleanedKeyExpr('rawSubject');
   return `WITH claims AS (
-  SELECT * FROM read_json(${glob}, format='newline_delimited', columns=${LEDGER_COLUMNS})
+  SELECT * FROM ${claimsRelation(source)}
 ),
 alloc AS (
   SELECT DISTINCT sourceFile, ordinal FROM claims WHERE layer='raw' AND object='${ALLOCATED_STATUS}'
@@ -361,28 +351,28 @@ function assembleFieldCatalogue(field: string, rows: readonly FieldFoldRow[]): F
 // Fold one parse-derived field's value distribution from a ledger directory. An
 // empty ledger (no JSONL) yields an empty catalogue rather than reaching DuckDB,
 // mirroring foldLicenceCategories.
-export function foldFieldDistribution(ledgerDir: string, field: string, predicate: string): FieldCatalogue {
-  const hasClaims = fs.existsSync(ledgerDir)
-    && fs.readdirSync(ledgerDir).some(name => name.endsWith('.jsonl'));
-  if (!hasClaims) return { field, distinct: 0, total: 0, values: [] };
-  return assembleFieldCatalogue(field, foldQuery<FieldFoldRow>(fieldFoldSql(ledgerDir, predicate)));
+export function foldFieldDistribution(source: string | ClaimsSource, field: string, predicate: string): FieldCatalogue {
+  const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return { field, distinct: 0, total: 0, values: [] };
+  return assembleFieldCatalogue(field, foldQuery<FieldFoldRow>(fieldFoldSql(claims, predicate)));
 }
 
-// Fold every migrated parse-derived field from a ledger directory.
-export function foldParseFields(ledgerDir: string): FoldedFields {
+// Fold every migrated parse-derived field from a claims source.
+export function foldParseFields(source: string | ClaimsSource): FoldedFields {
+  const claims = toClaimsSource(source);
   const folded: FoldedFields = new Map();
   for (const [field, predicate] of FOLDED_PARSE_FIELDS) {
-    folded.set(field, foldFieldDistribution(ledgerDir, field, predicate));
+    folded.set(field, foldFieldDistribution(claims, field, predicate));
   }
   return folded;
 }
 
 // The whole value-catalogue fold: the licence-category table plus the migrated
-// parse-derived field distributions, materialising the ledger ONCE when no
-// pre-built directory is supplied (the standalone / sweep path) so the corpus is
-// emitted a single time and every fold reads the same ledger. A caller holding a
-// ledger passes its directory to skip the rebuild (a test fixture, or a future
-// deploy-time claims artefact).
+// parse-derived field distributions. Both sections read ONE claims source — the
+// shared deploy-time claims.parquet when the workflow built one (issue #403), a
+// caller-supplied ledger directory (a test fixture), or a full-corpus ledger
+// materialised once to a temp directory as the fallback — so the corpus is read a
+// single time and every section folds from the same claims.
 export interface ValueCatalogueFold {
   categories: FoldedCategory[];
   fields: FoldedFields;
@@ -391,6 +381,10 @@ export interface ValueCatalogueFold {
 export function buildValueCatalogueFold(ledgerDir?: string, ref: ReferenceData = loadReferenceData()): ValueCatalogueFold {
   if (ledgerDir !== undefined) {
     return { categories: foldLicenceCategories(ledgerDir, ref), fields: foldParseFields(ledgerDir) };
+  }
+  const shared = deployClaimsSource();
+  if (shared !== null) {
+    return { categories: foldLicenceCategories(shared, ref), fields: foldParseFields(shared) };
   }
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'value-catalogue-ledger-'));
   try {
