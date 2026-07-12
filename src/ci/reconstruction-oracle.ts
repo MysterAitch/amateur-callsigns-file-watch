@@ -17,15 +17,21 @@
  * manifest claims (emitFileManifestClaims, claim.ts); the data grid from the
  * per-row claims (emitClaims).
  *
- * SCOPE (Phase 0 + Phase 1, CSV lanes only). The three CSV-producing families -
- * open-data register, FOI-CSV register, attribute-addendum - reconstruct and
- * pass here. The other text shapes the fidelity programme names (FOI
- * markdown-table, preamble, and prefixed/synthesised-callsign sources) emit NO
- * claims today, so they cannot be reconstructed: listNotYetCovered enumerates
- * them EXPLICITLY as honest non-coverage (never a silent pass), pending the
- * ingest work (issue #434 Phase 3 / E3). Comparison is at DECODED-TEXT level
- * (each source read with the encoding its loader used); a byte-level mode is a
- * later phase (#434 Phase 2 / G6).
+ * SCOPE. The three CSV-producing families - open-data register, FOI-CSV
+ * register, attribute-addendum - reconstruct through the CSV serialiser. Phase 3
+ * (issue #434 / E3) adds the remaining text shapes the fidelity programme names:
+ * the FOI preamble/prefixed sheets reconstruct through the SAME CSV serialiser
+ * (a faithful verbatim mirror of them is ingested by
+ * collectors/foi-verbatim-csv.ts, storing the raw suffix/label token as the
+ * subject, not the synthesised call sign), and the FOI markdown-table
+ * transcriptions reconstruct through a dedicated markdown serialiser that
+ * compares the TABLE REGION ONLY (collectors/foi-markdown-table.ts). The prose
+ * surrounding a markdown table is explicitly OUTSIDE the ledger's fidelity claim
+ * (MARKDOWN_PROSE_SCOPE_NOTE, design E4) - declared, never silently dropped.
+ * listNotYetCovered now cross-checks that every E3 shape is genuinely in the
+ * corpus (an empty result is the coverage guarantee). Comparison is at
+ * DECODED-TEXT level (each source read with the encoding its loader used); a
+ * byte-level mode is a later phase (#434 Phase 2 / G6).
  *
  * The checks are pure over their inputs (a SourceObservationSet, or the resolved
  * corpus), so the committed test runs them over the real archive and
@@ -51,17 +57,37 @@ import {
 import { collectOpenDataRegisterSources } from '../v2/collectors/open-data-register.ts';
 import { collectFoiRegisterSources } from '../v2/collectors/foi-register.ts';
 import { collectAttributeAddendumSources } from '../v2/collectors/attribute-addendum.ts';
+import { collectFoiVerbatimCsvSources, verbatimCsvSourcesFor } from '../v2/collectors/foi-verbatim-csv.ts';
+import { collectFoiMarkdownTableSources, markdownTableSourcesFor } from '../v2/collectors/foi-markdown-table.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
-import { FOI_ENTRY_CONVERSIONS } from '../shared/foi-normalise.ts';
+import { FOI_ENTRY_CONVERSIONS, parseMarkdownTable } from '../shared/foi-normalise.ts';
 
 // The repo root, two levels up from src/ci/, so a source's repo-relative
 // repoPath resolves to the real archived file.
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 
-// The CSV-producing families this phase covers. A family not listed here has no
-// reconstruction path yet (see listNotYetCovered).
-export const COVERED_FAMILIES: readonly string[] = ['open-data-register', 'foi-register', 'attribute-addendum'];
+// The families the oracle reconstructs. The three CSV lanes and the FOI
+// verbatim-CSV mirror reconstruct through the CSV serialiser; the FOI
+// markdown-table mirror through the markdown serialiser. A family not listed
+// here has no reconstruction path yet (see listNotYetCovered).
+export const COVERED_FAMILIES: readonly string[] = [
+  'open-data-register',
+  'foi-register',
+  'attribute-addendum',
+  'foi-verbatim-csv',
+  'foi-markdown-table',
+];
+
+// The families reconstructed through the CSV serialiser (canonicaliseCsvText +
+// reconstructCsvFromClaims), as opposed to the markdown serialiser.
+export const CSV_SERIALISED_FAMILIES: readonly string[] = ['open-data-register', 'foi-register', 'attribute-addendum', 'foi-verbatim-csv'];
+
+// The scope boundary the oracle declares for markdown sources (design E4): only
+// the single table block is a dataset the ledger claims; the surrounding prose
+// is deliberately not attested and not reconstructed. Surfaced on every markdown
+// result so the exclusion is explicit, never a silent omission.
+export const MARKDOWN_PROSE_SCOPE_NOTE = 'table region only; surrounding prose is outside the ledger fidelity claim (issue #434 E4)';
 
 // ---- Cosmetic normalisation (design §4) -------------------------------------
 
@@ -109,6 +135,7 @@ function getOrCreate<K, V>(map: Map<K, V>, key: K, make: () => V): V {
 export function reconstructCsvFromClaims(claims: readonly Claim[]): string {
   const headerByIndex = new Map<number, string>();
   let subjectColumn: string | undefined;
+  let headerLine: number | undefined;
   const ignoredLines: { line: number; content: string }[] = [];
 
   for (const claim of claims) {
@@ -116,10 +143,12 @@ export function reconstructCsvFromClaims(claims: readonly Claim[]): string {
     const columnIndex = columnIndexOf(claim.predicate);
     if (columnIndex !== undefined) {
       headerByIndex.set(columnIndex, claim.object);
+      if (claim.provenance.position?.kind === 'csv-line') headerLine = claim.provenance.position.line;
       continue;
     }
     if (claim.predicate === SUBJECT_PREDICATE) {
       subjectColumn = claim.object;
+      if (claim.provenance.position?.kind === 'csv-line') headerLine = claim.provenance.position.line;
       continue;
     }
     if (claim.predicate === IGNORED_PREDICATE) {
@@ -143,7 +172,124 @@ export function reconstructCsvFromClaims(claims: readonly Claim[]): string {
   }
 
   // Group the raw per-row claims by ordinal: the subject rides every claim as
-  // rawSubject; the other columns come from their matching predicate's object.
+  // rawSubject; the other columns come from their matching predicate's object;
+  // the @listed anchor carries the row's source line (issue #431) for positional
+  // placement.
+  const attributesByOrdinal = new Map<number, Map<string, string>>();
+  const subjectByOrdinal = new Map<number, string>();
+  const lineByOrdinal = new Map<number, number>();
+  let maxOrdinal = -1;
+  for (const claim of claims) {
+    if (claim.layer !== 'raw' || isFileLevelClaim(claim)) continue;
+    const ordinal = claim.provenance.ordinal;
+    if (ordinal > maxOrdinal) maxOrdinal = ordinal;
+    subjectByOrdinal.set(ordinal, claim.rawSubject);
+    const attributes = getOrCreate(attributesByOrdinal, ordinal, () => new Map<string, string>());
+    if (claim.predicate === LISTED_PREDICATE) {
+      const position = claim.provenance.position;
+      if (position !== undefined && position.kind === 'csv-line') lineByOrdinal.set(ordinal, position.line);
+      continue;
+    }
+    attributes.set(claim.predicate, claim.object);
+  }
+
+  const headerRow = columns.map(renderCell).join(',');
+  const dataRows: string[] = [];
+  for (let ordinal = 0; ordinal <= maxOrdinal; ordinal += 1) {
+    const attributes = attributesByOrdinal.get(ordinal);
+    if (attributes === undefined) {
+      throw new Error(`gap-free ordinal invariant broken: no claim for ordinal ${ordinal} in 0..${maxOrdinal}`);
+    }
+    const subject = subjectByOrdinal.get(ordinal) ?? '';
+    const cells = columns.map(column => (column === subjectColumn ? subject : attributes.get(column) ?? ''));
+    dataRows.push(cells.map(renderCell).join(','));
+  }
+
+  // Positional reinstatement (design §7.5): when the header line and every data
+  // row's line are attested, place the header, the data rows and the curated
+  // furniture at their true source lines and emit in line order. This reproduces
+  // furniture WHEREVER it sits - a pre-header preamble (the FOI prefix/suffix and
+  // pre-war annex sheets) as faithfully as an end-of-file export footer - rather
+  // than assuming end-of-file. A stable sort keeps the header-before-data,
+  // data-in-ordinal-order sequence for the (distinct, ascending) CSV-lane lines,
+  // so those lanes are byte-identical to the append order they used before.
+  const positional = headerLine !== undefined && dataRows.every((_row, ordinal) => lineByOrdinal.has(ordinal));
+  if (positional && headerLine !== undefined) {
+    const placed: { line: number; seq: number; content: string }[] = [];
+    let seq = 0;
+    placed.push({ line: headerLine, seq: seq += 1, content: headerRow });
+    dataRows.forEach((content, ordinal) => {
+      const line = lineByOrdinal.get(ordinal);
+      if (line === undefined) throw new Error(`positional reconstruction lost the line for ordinal ${ordinal}`);
+      placed.push({ line, seq: seq += 1, content });
+    });
+    for (const ignored of ignoredLines) placed.push({ line: ignored.line, seq: seq += 1, content: ignored.content });
+    placed.sort((a, b) => a.line - b.line || a.seq - b.seq);
+    return placed.map(entry => entry.content).join('\n') + '\n';
+  }
+
+  // Fallback (a source without attested line numbers, e.g. a synthetic fixture):
+  // header, data in ordinal order, then furniture appended in line order.
+  const lines = [headerRow, ...dataRows];
+  for (const ignored of [...ignoredLines].sort((a, b) => a.line - b.line)) lines.push(ignored.content);
+  return lines.join('\n') + '\n';
+}
+
+// ---- Markdown-table reconstruction (design §7 markdown-table) ---------------
+
+// Render a header + data grid as a CANONICAL markdown table: a single-space-
+// padded header row, a separator of one '---' per column, and one single-space-
+// padded row per record. This is the ONE canonical form both the reconstruction
+// (from claims) and the original (via canonicaliseMarkdownTable) render into, so
+// cell padding/alignment and separator dash-count - the declared markdown
+// cosmetic axes (§4.5) - never register as a difference.
+function renderCanonicalMarkdownTable(header: readonly string[], rows: readonly (readonly string[])[]): string {
+  const renderRow = (cells: readonly string[]): string => `| ${cells.join(' | ')} |`;
+  const separator = `| ${header.map(() => '---').join(' | ')} |`;
+  const lines = [renderRow(header), separator, ...rows.map(renderRow)];
+  return lines.join('\n') + '\n';
+}
+
+// Canonicalise the single markdown table in an ORIGINAL extract: locate the
+// table block exactly as parseMarkdownTable does (the surrounding prose is out
+// of scope, design E4), strip the structural cell padding it already removes,
+// and re-render through the one canonical renderer. Applied to the original;
+// the reconstruction renders straight into the same form.
+export function canonicaliseMarkdownTable(text: string, sourceFile: string): string {
+  const records = parseMarkdownTable(text, sourceFile);
+  const header = Object.keys(records[0]);
+  const rows = records.map(record => header.map(column => record[column] ?? ''));
+  return renderCanonicalMarkdownTable(header, rows);
+}
+
+// Rebuild the canonical markdown TABLE from a source's claim stream ALONE: the
+// header/subject from the file-level manifest, the data grid from the per-row
+// claims grouped by ordinal (identical grid assembly to the CSV serialiser), then
+// the canonical markdown render. Derived claims are ignored; a hole in the header
+// index range or the ordinal range is a corruption, not a blank - fail loud.
+export function reconstructMarkdownTableFromClaims(claims: readonly Claim[]): string {
+  const headerByIndex = new Map<number, string>();
+  let subjectColumn: string | undefined;
+  for (const claim of claims) {
+    if (!isFileLevelClaim(claim)) continue;
+    const columnIndex = columnIndexOf(claim.predicate);
+    if (columnIndex !== undefined) {
+      headerByIndex.set(columnIndex, claim.object);
+      continue;
+    }
+    if (claim.predicate === SUBJECT_PREDICATE) subjectColumn = claim.object;
+  }
+  if (headerByIndex.size === 0) throw new Error('no @column manifest claims - cannot reconstruct the table header');
+  if (subjectColumn === undefined) throw new Error('no @subject manifest claim - cannot place the subject column');
+
+  const maxColumnIndex = Math.max(...headerByIndex.keys());
+  const columns: string[] = [];
+  for (let index = 0; index <= maxColumnIndex; index += 1) {
+    const header = headerByIndex.get(index);
+    if (header === undefined) throw new Error(`missing @column/${index} - the table header set has a hole`);
+    columns.push(header);
+  }
+
   const attributesByOrdinal = new Map<number, Map<string, string>>();
   const subjectByOrdinal = new Map<number, string>();
   let maxOrdinal = -1;
@@ -157,22 +303,17 @@ export function reconstructCsvFromClaims(claims: readonly Claim[]): string {
     attributes.set(claim.predicate, claim.object);
   }
 
-  const lines: string[] = [columns.map(renderCell).join(',')];
+  const rows: string[][] = [];
   for (let ordinal = 0; ordinal <= maxOrdinal; ordinal += 1) {
     const attributes = attributesByOrdinal.get(ordinal);
     if (attributes === undefined) {
       throw new Error(`gap-free ordinal invariant broken: no claim for ordinal ${ordinal} in 0..${maxOrdinal}`);
     }
     const subject = subjectByOrdinal.get(ordinal) ?? '';
-    const cells = columns.map(column => (column === subjectColumn ? subject : attributes.get(column) ?? ''));
-    lines.push(cells.map(renderCell).join(','));
+    rows.push(columns.map(column => (column === subjectColumn ? subject : attributes.get(column) ?? '')));
   }
 
-  // Reinstate the curated/blank furniture at its line - today's CSV furniture is
-  // end-of-file, so appending after the data block in line order reproduces it.
-  for (const ignored of [...ignoredLines].sort((a, b) => a.line - b.line)) lines.push(ignored.content);
-
-  return lines.join('\n') + '\n';
+  return renderCanonicalMarkdownTable(columns, rows);
 }
 
 // ---- The oracle over one source ---------------------------------------------
@@ -184,21 +325,45 @@ export interface ReconstructionResult {
   // First-diff detail when ok is false - enough to locate the drift without
   // dumping a 150k-line file.
   detail?: string;
+  // The declared scope caveat for a markdown source: the compare is the table
+  // region only, the prose is out of scope (design E4). Absent for CSV sources,
+  // which reconstruct in full. Surfaced so the exclusion is explicit on the
+  // result, never a silent omission.
+  scopeNote?: string;
+}
+
+// Whether a source reconstructs through the markdown serialiser (its original is
+// a committed markdown-table extract) rather than the CSV serialiser. Keyed off
+// the real file extension, so no format field need be threaded onto the shared
+// SourceObservationSet type.
+function isMarkdownSource(repoPath: string): boolean {
+  return repoPath.toLowerCase().endsWith('.md');
 }
 
 // Reconstruct one source from its claims and compare, modulo cosmetics, to the
-// original raw bytes decoded with the loader's encoding (decoded-text level).
+// original raw bytes decoded with the loader's encoding (decoded-text level). A
+// markdown-table source is rebuilt and compared over its TABLE REGION only (the
+// prose is out of scope, design E4); every other source through the CSV
+// serialiser.
 export function reconstructionResultFor(source: SourceObservationSet): ReconstructionResult {
   const repoPath = source.repoPath;
   if (repoPath === undefined) {
     return { sourceFile: source.sourceFile, repoPath: '', ok: false, detail: 'source attests no repoPath - cannot locate the original raw file' };
   }
   const claims: Claim[] = [...emitClaims(source), ...emitFileManifestClaims(source)];
-  const reconstruction = reconstructCsvFromClaims(claims);
-
   const originalBytes = fs.readFileSync(path.join(REPO_ROOT, repoPath));
   const original = originalBytes.toString(source.encoding ?? 'utf8');
 
+  if (isMarkdownSource(repoPath)) {
+    const canonicalOriginal = canonicaliseMarkdownTable(original, source.sourceFile);
+    const reconstruction = reconstructMarkdownTableFromClaims(claims);
+    if (canonicalOriginal === reconstruction) {
+      return { sourceFile: source.sourceFile, repoPath, ok: true, scopeNote: MARKDOWN_PROSE_SCOPE_NOTE };
+    }
+    return { sourceFile: source.sourceFile, repoPath, ok: false, detail: firstDiff(canonicalOriginal, reconstruction), scopeNote: MARKDOWN_PROSE_SCOPE_NOTE };
+  }
+
+  const reconstruction = reconstructCsvFromClaims(claims);
   const canonicalOriginal = canonicaliseCsvText(original);
   const canonicalReconstruction = canonicaliseCsvText(reconstruction);
   if (canonicalOriginal === canonicalReconstruction) {
@@ -231,6 +396,19 @@ export function collectCsvReconstructionSources(): ResolvedLedgerSource[] {
   ];
 }
 
+// Every source the oracle reconstructs, across all covered families, in a stable
+// order: the three CSV lanes, then the FOI verbatim-CSV mirror (preamble/prefixed
+// sheets), then the FOI markdown-table mirror. The markdown sources are last and
+// self-identify by their .md repoPath, so reconstructionResultFor routes them to
+// the markdown serialiser.
+export function collectReconstructionSources(foiDir: string = defaultFoiDir()): ResolvedLedgerSource[] {
+  return [
+    ...collectCsvReconstructionSources(),
+    ...collectFoiVerbatimCsvSources(foiDir),
+    ...collectFoiMarkdownTableSources(foiDir),
+  ];
+}
+
 export interface UncoveredSource {
   entry: string;
   sourceFile: string;
@@ -238,12 +416,24 @@ export interface UncoveredSource {
   reason: string;
 }
 
-// Enumerate the text sources that emit NO claims today, so their non-coverage is
-// a surfaced, checkable fact rather than a silent gap. These are the FOI shapes
-// registerSourcesFor deliberately skips: markdown-table transcriptions,
-// preamble-bearing sheets, and prefixed (synthesised-callsign) suffix lists.
-// Reconstructing them is blocked on first ingesting them into the ledger (issue
-// #434 Phase 3 / E3); until then the oracle reports them here.
+// The shape of an FOI conversion, among the three the fidelity programme named as
+// Phase 3 work (issue #434 / E3), or undefined for a shape already covered by the
+// CSV lanes. The order mirrors the collectors' selection: a markdown table first,
+// then a preamble-bearing sheet, then a prefixed (synthesised-callsign) list.
+function e3ShapeOf(conversion: { format?: string; preamble?: unknown; columns: readonly { output: string; kind: string }[] }): UncoveredSource['shape'] | undefined {
+  if (conversion.format === 'markdown-table') return 'markdown-table';
+  if (conversion.preamble !== undefined) return 'preamble';
+  const callsignSpec = conversion.columns.find(column => column.output === 'callsign');
+  if (callsignSpec !== undefined && callsignSpec.kind === 'prefixed') return 'prefixed-callsign';
+  return undefined;
+}
+
+// Cross-check that every Phase 3 text shape (markdown-table, preamble, prefixed)
+// is genuinely ingested into the reconstruction corpus, and report any that is
+// NOT - a surfaced, checkable fact rather than a silent gap. Since E3 landed the
+// verbatim-CSV and markdown-table mirrors, this is EMPTY on the current archive:
+// an empty result is the coverage guarantee. A future conversion whose shape
+// slips both mirrors' selection would surface here rather than pass unnoticed.
 export function listNotYetCovered(foiDir: string = defaultFoiDir()): UncoveredSource[] {
   const uncovered: UncoveredSource[] = [];
   for (const entry of listFoiEntryKeys(foiDir)) {
@@ -252,19 +442,17 @@ export function listNotYetCovered(foiDir: string = defaultFoiDir()): UncoveredSo
     if (variant === undefined || variant === null) continue;
     const conversions = FOI_ENTRY_CONVERSIONS[variant];
     if (conversions === undefined) continue;
+    // The source files the E3 mirrors resolve for this entry - the coverage the
+    // cross-check is measured against.
+    const mirrored = new Set<string>([
+      ...verbatimCsvSourcesFor(meta).map(conversion => conversion.sourceFile),
+      ...markdownTableSourcesFor(meta).map(conversion => conversion.sourceFile),
+    ]);
     for (const conversion of conversions) {
-      if (conversion.format === 'markdown-table') {
-        uncovered.push({ entry, sourceFile: conversion.sourceFile, shape: 'markdown-table', reason: 'markdown-table sources emit no claims today (issue #434 Phase 3 / E3)' });
-        continue;
-      }
-      if (conversion.preamble !== undefined) {
-        uncovered.push({ entry, sourceFile: conversion.sourceFile, shape: 'preamble', reason: 'preamble-bearing sources emit no claims today (issue #434 Phase 3 / E3)' });
-        continue;
-      }
-      const callsignSpec = conversion.columns.find(column => column.output === 'callsign');
-      if (callsignSpec !== undefined && callsignSpec.kind === 'prefixed') {
-        uncovered.push({ entry, sourceFile: conversion.sourceFile, shape: 'prefixed-callsign', reason: 'prefixed (synthesised-callsign) sources emit no claims today (issue #434 Phase 3 / E3)' });
-      }
+      const shape = e3ShapeOf(conversion);
+      if (shape === undefined) continue;
+      if (mirrored.has(conversion.sourceFile)) continue;
+      uncovered.push({ entry, sourceFile: conversion.sourceFile, shape, reason: `${shape} source is not ingested by any reconstruction mirror (issue #434 Phase 3 / E3)` });
     }
   }
   return uncovered;
@@ -286,11 +474,11 @@ export function assertReconstruction(sources: readonly SourceObservationSet[]): 
 }
 
 if (import.meta.main) {
-  const sources = collectCsvReconstructionSources().map(resolved => resolved.load());
+  const sources = collectReconstructionSources().map(resolved => resolved.load());
   const results = assertReconstruction(sources);
   const uncovered = listNotYetCovered();
-  console.log(`reconstruction-oracle: ${results.length} CSV source(s) round-trip byte-identical modulo cosmetics`);
-  for (const result of results) console.log(`  OK  ${result.sourceFile}`);
-  console.log(`not-yet-covered (honest non-coverage, no claims emitted today): ${uncovered.length} source(s)`);
+  console.log(`reconstruction-oracle: ${results.length} source(s) round-trip modulo cosmetics (CSV byte-identical; markdown table-region)`);
+  for (const result of results) console.log(`  OK  ${result.sourceFile}${result.scopeNote !== undefined ? `  [${result.scopeNote}]` : ''}`);
+  console.log(`not-yet-covered (Phase 3 shapes still outside every mirror): ${uncovered.length} source(s)`);
   for (const item of uncovered) console.log(`  --  [${item.shape}] ${item.entry}/${item.sourceFile}`);
 }

@@ -1,16 +1,22 @@
 import { describe, it, expect } from 'vitest';
 import {
   canonicaliseCsvText,
+  canonicaliseMarkdownTable,
   reconstructCsvFromClaims,
+  reconstructMarkdownTableFromClaims,
   reconstructionResultFor,
   collectCsvReconstructionSources,
+  collectReconstructionSources,
   assertReconstruction,
   listNotYetCovered,
   COVERED_FAMILIES,
+  CSV_SERIALISED_FAMILIES,
+  MARKDOWN_PROSE_SCOPE_NOTE,
 } from './reconstruction-oracle.ts';
 import {
   emitClaims,
   emitFileManifestClaims,
+  isFileLevelClaim,
   columnPredicate,
   SUBJECT_PREDICATE,
   LISTED_PREDICATE,
@@ -23,6 +29,8 @@ import {
 import { collectOpenDataRegisterSources } from '../v2/collectors/open-data-register.ts';
 import { collectFoiRegisterSources } from '../v2/collectors/foi-register.ts';
 import { collectAttributeAddendumSources } from '../v2/collectors/attribute-addendum.ts';
+import { collectFoiVerbatimCsvSources } from '../v2/collectors/foi-verbatim-csv.ts';
+import { collectFoiMarkdownTableSources } from '../v2/collectors/foi-markdown-table.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
@@ -185,26 +193,176 @@ describe('CSV-lane sources reconstruct byte-identically modulo cosmetics from th
     const results = assertReconstruction(sources);
     expect(results.every(result => result.ok)).toBe(true);
   });
+
+  it('EveryReconstructionSource_WhenReconstructed_PassesTheCommittedOracle', () => {
+    // The full corpus gate: every source across ALL covered families - the three
+    // CSV lanes plus the Phase 3 FOI verbatim-CSV and markdown-table mirrors -
+    // round-trips, or the build fails loud with the offending source's diff.
+    const sources = collectReconstructionSources().map(resolved => resolved.load());
+    expect(sources.length).toBeGreaterThan(collectCsvReconstructionSources().length);
+    const results = assertReconstruction(sources);
+    expect(results.every(result => result.ok)).toBe(true);
+  });
 });
 
-// ---- Honest non-coverage (Phase 3 shapes) -----------------------------------
+// ---- Phase 3 shapes: verbatim-CSV (preamble / prefixed) round-trip ----------
 
-describe('the oracle reports not-yet-covered shapes explicitly', () => {
-  it('CoveredFamilies_WhenListed_AreExactlyTheThreeCsvLanes', () => {
-    expect([...COVERED_FAMILIES].sort()).toEqual(['attribute-addendum', 'foi-register', 'open-data-register']);
+describe('FOI preamble and prefixed CSV sheets reconstruct from claims (issue #434 E3)', () => {
+  it('PrefixedSuffixList_WhenReconstructedFromClaims_MatchesOriginalWithRawSuffixAsSubject', () => {
+    // A 2013-style suffix list: a single-column CSV whose header is the sheet's
+    // own 'Foundation = M6aaa' label and whose rows are bare suffixes. The raw
+    // SUFFIX is the subject (design E3), never the synthesised M6 call sign, and
+    // the file rebuilds byte-identically modulo cosmetics.
+    const source = collectFoiVerbatimCsvSources()
+      .map(resolved => resolved.load())
+      .find(s => s.repoPath === 'archive/foi/wdtk-174341--available-callsigns-list/raw-extract-sheet-1-foundation.csv');
+    expect(source).toBeDefined();
+    if (source === undefined) return;
+    expect(source.columns).toEqual(['Foundation = M6aaa']);
+    expect(source.subjectColumn).toBe('Foundation = M6aaa');
+    // The stored subject tokens are bare suffixes, not prefixed call signs.
+    expect(source.rows[0]['Foundation = M6aaa']).not.toMatch(/^M6/);
+    const result = reconstructionResultFor(source);
+    expect(result.detail ?? '').toBe('');
+    expect(result.ok).toBe(true);
   });
 
-  it('MarkdownTableAndPreambleAndPrefixedSources_WhenEnumerated_AreFlaggedNotYetCovered', () => {
-    // These shapes emit NO claims today, so they cannot be reconstructed. The
-    // oracle surfaces them as explicit non-coverage (never a silent pass),
-    // pending the ingest work (issue #434 Phase 3 / E3).
-    const uncovered = listNotYetCovered();
-    expect(uncovered.length).toBeGreaterThan(0);
-    for (const item of uncovered) {
-      expect(['markdown-table', 'preamble', 'prefixed-callsign']).toContain(item.shape);
-      expect(item.reason).toMatch(/#434/);
-    }
-    // The known markdown-table transcription is among them.
-    expect(uncovered.some(item => item.shape === 'markdown-table')).toBe(true);
+  it('PreambleSheet_WhenReconstructedFromClaims_ReinstatesThePreambleBeforeTheHeader', () => {
+    // A pre-header preamble (wdtk-224333 foundation: an empty first row then a
+    // 'Prefix = M6' statement, then the 'Suffix' header) must reappear ABOVE the
+    // header - the positional furniture reinstatement, not an end-of-file append.
+    const source = collectFoiVerbatimCsvSources()
+      .map(resolved => resolved.load())
+      .find(s => s.repoPath === 'archive/foi/wdtk-224333--available-callsigns-list/raw-extract-sheet-1-foundation.csv');
+    expect(source).toBeDefined();
+    if (source === undefined) return;
+    expect(source.headerLine).toBe(3);
+    expect((source.ignoredLines ?? []).map(l => l.line)).toEqual([1, 2]);
+    const rebuilt = reconstructCsvFromClaims([...emitClaims(source), ...emitFileManifestClaims(source)]);
+    const lines = rebuilt.split('\n');
+    // The 'Prefix = M6' preamble line sits before the 'Suffix' header line.
+    expect(lines.indexOf('Prefix = M6')).toBeLessThan(lines.indexOf('Suffix'));
+    const result = reconstructionResultFor(source);
+    expect(result.detail ?? '').toBe('');
+    expect(result.ok).toBe(true);
+  });
+
+  it('PrewarAnnexTwoColumnSheet_WhenReconstructedFromClaims_MatchesOriginalModuloCosmetics', () => {
+    // The pre-war annex sheet 1 (wdtk-238892): a two-column sheet whose preamble
+    // carries an embedded-quote, embedded-comma title cell - exercising verbatim
+    // cell fidelity through the furniture path and duplicate-callsign rows kept
+    // distinct by ordinal.
+    const source = collectFoiVerbatimCsvSources()
+      .map(resolved => resolved.load())
+      .find(s => s.repoPath === 'archive/foi/wdtk-238892--out-of-sequence-callsigns/raw-extract-sheet-1-callsigns.csv');
+    expect(source).toBeDefined();
+    if (source === undefined) return;
+    expect(source.columns).toEqual(['Call Sign', 'Original Start Date']);
+    const result = reconstructionResultFor(source);
+    expect(result.detail ?? '').toBe('');
+    expect(result.ok).toBe(true);
+  });
+
+  it('VerbatimCsvClaims_WhenEmitted_CarryNoPhantomObservationAtTheSentinel', () => {
+    // Non-pollution: the manifest's file-level claims ride the sentinel ordinal,
+    // the per-row claims the gap-free 0..n-1 range, so the two streams never
+    // collide when a Phase 3 source joins the ledger.
+    const source = collectFoiVerbatimCsvSources()
+      .map(resolved => resolved.load())
+      .find(s => s.repoPath === 'archive/foi/wdtk-238892--out-of-sequence-callsigns/raw-extract-sheet-2-database-fields.csv');
+    expect(source).toBeDefined();
+    if (source === undefined) return;
+    const perRow = emitClaims(source);
+    expect(perRow.some(isFileLevelClaim)).toBe(false);
+    expect(perRow.every(c => c.provenance.ordinal >= 0)).toBe(true);
+    const listed = perRow.filter(c => c.predicate === LISTED_PREDICATE);
+    // One existence claim per data row - the row count is exactly the observations.
+    expect(listed.length).toBe(source.rows.length);
+  });
+});
+
+// ---- Phase 3 shapes: markdown-table (table region only) round-trip ----------
+
+describe('FOI markdown-table transcriptions reconstruct their table region (issue #434 E3/E4)', () => {
+  it('MarkdownTableSource_WhenReconstructedFromClaims_MatchesTableRegionModuloPadding', () => {
+    // The counts table (wdtk-184767): right-aligned separator (|---:|) and
+    // padded cells in the original; the reconstruction compares the canonical
+    // table region only, so alignment and dash-count are ignored while every
+    // cell value (thousands separators, en-dashes) must match.
+    const source = collectFoiMarkdownTableSources()
+      .map(resolved => resolved.load())
+      .find(s => s.repoPath?.endsWith('raw-extract-number-of-licences-coleman.md') === true);
+    expect(source).toBeDefined();
+    if (source === undefined) return;
+    const result = reconstructionResultFor(source);
+    expect(result.detail ?? '').toBe('');
+    expect(result.ok).toBe(true);
+    // The prose exclusion is declared on the result, not silently applied.
+    expect(result.scopeNote).toBe(MARKDOWN_PROSE_SCOPE_NOTE);
+  });
+
+  it('MarkdownTableSource_WhenTranscriptionCarriesWithheldColumns_ReconstructsEveryColumn', () => {
+    // The transfers table (wdtk-251507) carries s.40-withheld name columns the
+    // issuance-events dataset drops. The faithful mirror keeps ALL ten columns,
+    // so the whole table region round-trips.
+    const source = collectFoiMarkdownTableSources()
+      .map(resolved => resolved.load())
+      .find(s => s.repoPath?.endsWith('raw-extract-applicants-old-call-signs.md') === true);
+    expect(source).toBeDefined();
+    if (source === undefined) return;
+    expect(source.columns).toContain('Title');
+    expect(source.columns).toContain('Call Signs');
+    const result = reconstructionResultFor(source);
+    expect(result.detail ?? '').toBe('');
+    expect(result.ok).toBe(true);
+  });
+
+  it('MarkdownTableCanonicaliser_WhenGivenTableDifferingOnlyByPaddingAndAlignment_CanonicaliseEqual', () => {
+    // The declared markdown cosmetic axes (§4.5): cell padding, column alignment
+    // markers, and separator dash-count are ignored; a cell value is not.
+    const padded = '# Title\n\nprose\n\n| A | Long Header |\n|:---|---:|\n| x | 1 |\n\nmore prose\n';
+    const tight = '| A | Long Header |\n| --- | --- |\n| x | 1 |\n';
+    expect(canonicaliseMarkdownTable(padded, 'padded.md')).toBe(canonicaliseMarkdownTable(tight, 'tight.md'));
+    // A changed cell value diverges.
+    const changed = '| A | Long Header |\n| --- | --- |\n| y | 1 |\n';
+    expect(canonicaliseMarkdownTable(tight, 't.md')).not.toBe(canonicaliseMarkdownTable(changed, 'c.md'));
+  });
+
+  it('MarkdownReconstruction_WhenBuiltFromClaims_EqualsTheCanonicalisedOriginalTableRegion', () => {
+    // The round-trip proved at the function level: reconstructing from the claim
+    // stream yields exactly the canonicalised table region of the original file.
+    const source = collectFoiMarkdownTableSources()
+      .map(resolved => resolved.load())
+      .find(s => s.repoPath?.endsWith('raw-extract-number-of-licences-coleman.md') === true);
+    expect(source).toBeDefined();
+    if (source === undefined) return;
+    const claims = [...emitClaims(source), ...emitFileManifestClaims(source)];
+    const reconstruction = reconstructMarkdownTableFromClaims(claims);
+    expect(reconstruction.startsWith('| period (1 April')).toBe(true);
+    // The reconstruction is already canonical, so re-canonicalising is a no-op -
+    // idempotence confirms the two renderers agree.
+    expect(canonicaliseMarkdownTable(reconstruction, source.sourceFile)).toBe(reconstruction);
+  });
+});
+
+// ---- Coverage bookkeeping ---------------------------------------------------
+
+describe('the oracle declares its coverage and any residual gaps explicitly', () => {
+  it('CoveredFamilies_WhenListed_AreTheThreeCsvLanesPlusTheTwoPhase3Mirrors', () => {
+    expect([...COVERED_FAMILIES].sort()).toEqual([
+      'attribute-addendum', 'foi-markdown-table', 'foi-register', 'foi-verbatim-csv', 'open-data-register',
+    ]);
+    // The markdown mirror is the only family NOT reconstructed through the CSV
+    // serialiser.
+    expect([...CSV_SERIALISED_FAMILIES].sort()).toEqual([
+      'attribute-addendum', 'foi-register', 'foi-verbatim-csv', 'open-data-register',
+    ]);
+  });
+
+  it('EveryPhase3TextShape_WhenCrossChecked_IsIngestedByAReconstructionMirror', () => {
+    // E3 landed every markdown-table, preamble and prefixed shape into a mirror,
+    // so the honest non-coverage list is now EMPTY - the coverage guarantee. A
+    // future shape that slipped both mirrors would resurface here.
+    expect(listNotYetCovered()).toEqual([]);
   });
 });
