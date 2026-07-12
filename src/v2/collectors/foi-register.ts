@@ -137,10 +137,17 @@ export function loadRegisterSource(foiDir: string, entry: string, meta: FoiEntry
   const { conversion, callsignColumn } = source;
   const filePath = path.join(foiDir, entry, conversion.sourceFile);
   const text = fs.readFileSync(filePath).toString(conversion.encoding);
-  const rows = parse(text, { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
-  if (rows.length === 0) {
+  // `info: true` yields each record beside csv-parse's own physical-line tally
+  // (issue #431): info.lines is the 1-based physical line at the record's end,
+  // and skip_empty_lines still counts skipped lines in that tally, so it is the
+  // TRUE source line - captured while parsing, no re-parse. Each element is
+  // { record, info }; the records reproject exactly as before.
+  const parsed = parse(text, { columns: true, skip_empty_lines: true, bom: true, info: true }) as { record: Record<string, string>; info: { lines: number } }[];
+  if (parsed.length === 0) {
     throw new Error(`${filePath}: parsed to zero rows - a register source must not be empty`);
   }
+  const rows = parsed.map(entryRow => entryRow.record);
+  const lineNumbers = parsed.map(entryRow => entryRow.info.lines);
   const columns = Object.keys(rows[0]);
   if (!columns.includes(callsignColumn)) {
     throw new Error(`${filePath}: authored callsign column "${callsignColumn}" absent from raw headers (${columns.join(', ')})`);
@@ -159,6 +166,13 @@ export function loadRegisterSource(foiDir: string, entry: string, meta: FoiEntry
     rows,
     categoryColumn: source.productColumn ?? undefined,
     originalStartDateColumn: source.startDateColumn ?? undefined,
+    // The 1-based physical source line of each record (issue #431), from
+    // csv-parse's info tally - parallel to `rows` by index.
+    lineNumbers,
+    // The REAL repo path of the raw source file, which the logical `sourceFile`
+    // key abstracts by dropping the 'archive/' prefix; carried for the
+    // deep-link's viewAnchor (issue #431 §4.5).
+    repoPath: `archive/foi/${entry}/${conversion.sourceFile}`,
   };
 }
 

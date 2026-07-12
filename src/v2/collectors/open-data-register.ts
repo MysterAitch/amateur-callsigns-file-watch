@@ -70,6 +70,16 @@ export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta
     rows: parsed.records,
     categoryColumn: productColumn,
     originalStartDateColumn,
+    // The 1-based physical source line of each record (issue #431), captured by
+    // the line-accounting model parseRawRegister already proves - never a
+    // re-parse. dataLineNumbers[k] is the source line of records[k].
+    lineNumbers: parsed.dataLineNumbers,
+    // The REAL repo path of the raw file. The `sourceFile` key rewrites the
+    // open-data lane's on-disk 'archive/<key>/raw.csv' to a logical
+    // 'opendata/<key>/raw.csv', so the true path is carried here for the
+    // deep-link's viewAnchor (canonical location, independent of a custom
+    // archiveDir a test may pass).
+    repoPath: `archive/${key}/raw.csv`,
   };
 }
 

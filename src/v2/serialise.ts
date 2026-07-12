@@ -12,7 +12,7 @@
  * store runs in production; this is a downloadable lens only.
  */
 
-import type { Claim } from './claim.ts';
+import type { Claim, SourcePosition, ViewAnchor } from './claim.ts';
 
 // One JSON object per line, keys in a fixed order for a stable, diffable file.
 // Emitting the object by hand (rather than JSON.stringify over an arbitrary
@@ -30,6 +30,12 @@ export function serialiseClaimsJsonl(claims: readonly Claim[]): string {
       vintage: claim.provenance.vintage,
     };
     if (claim.rule !== undefined) ordered.rule = claim.rule;
+    // The source-position enrichment (issue #431), emitted only when the loader
+    // attested it - additive exactly like `rule`, so legacy ledgers round-trip
+    // unchanged. position is the source-intrinsic coordinate; viewAnchor is the
+    // line-viewable repo target a deep-link points at (§4.5).
+    if (claim.provenance.position !== undefined) ordered.position = claim.provenance.position;
+    if (claim.provenance.viewAnchor !== undefined) ordered.viewAnchor = claim.provenance.viewAnchor;
     return JSON.stringify(ordered);
   }).join('\n') + (claims.length > 0 ? '\n' : '');
 }
@@ -41,6 +47,7 @@ export function parseClaimsJsonl(jsonl: string): Claim[] {
     const parsed = JSON.parse(line) as {
       layer: Claim['layer']; rawSubject: string; predicate: string; object: string;
       sourceFile: string; ordinal: number; vintage: string; rule?: string;
+      position?: SourcePosition; viewAnchor?: ViewAnchor;
     };
     const claim: Claim = {
       layer: parsed.layer,
@@ -50,6 +57,8 @@ export function parseClaimsJsonl(jsonl: string): Claim[] {
       provenance: { sourceFile: parsed.sourceFile, ordinal: parsed.ordinal, vintage: parsed.vintage },
     };
     if (parsed.rule !== undefined) claim.rule = parsed.rule;
+    if (parsed.position !== undefined) claim.provenance.position = parsed.position;
+    if (parsed.viewAnchor !== undefined) claim.provenance.viewAnchor = parsed.viewAnchor;
     return claim;
   });
 }

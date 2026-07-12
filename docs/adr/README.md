@@ -33,6 +33,7 @@ enforcement companion to 0013's confidence model.
 | [0012](0012-supply-chain-posture.md) | Supply-chain posture: a minimal, auditable dependency and write surface | accepted | 2026-07-10 |
 | [0013](0013-raw-keyed-claim-ledger.md) | A raw-keyed claim ledger as the canonical record, everything else a derived fold | accepted (migration in progress) | 2026-07-11 |
 | [0014](0014-trust-rating-safety-net.md) | The trust-rating model, derived from provenance and guarded against inflation | accepted | 2026-07-12 |
+| [0015](0015-source-intrinsic-vs-archive-provenance.md) | Source-intrinsic vs archive/processing provenance, with the filesystem-stat origin made unrepresentable | proposed | 2026-07-12 |
 
 ## Related documentation
 

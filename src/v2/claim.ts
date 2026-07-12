@@ -42,12 +42,58 @@ export type ClaimLayer = 'raw' | 'derived';
 //   canonical key). Each edge names the rule that produced it.
 export type NormalisationForm = 'cleaned' | 'placeholder';
 
+// The SOURCE-INTRINSIC location of an observation within its original (issue
+// #431, ADR 0015). Every field names a coordinate the SOURCE itself defines - a
+// physical line, a spreadsheet cell - never one our filesystem produced, so it
+// carries no timestamp and can never be confused with a processing artefact.
+// `kind` picks the coordinate family; optional so pre-position ledgers still
+// parse. Phase P1 builds the `csv-line` arm; the later arms are RESERVED in the
+// type so adding them (P2 xlsx, and later PDF/image) is a union arm plus a
+// loader, not a model change.
+export type SourcePosition =
+  // A 1-based physical line in a text CSV source (open-data raw.csv, an FOI
+  // raw-extract CSV). Built now (P1).
+  | { kind: 'csv-line'; line: number }
+  // RESERVED - P2. A 1-based spreadsheet cell in a binary workbook: the sheet
+  // number + title, the row and column, and the A1 column letter. The honest
+  // source coordinate for an xlsx observation (its viewAnchor points instead at
+  // the committed text extract - see ViewAnchor).
+  | { kind: 'sheet-cell'; sheet: number; sheetName: string; row: number; column: number; columnRef: string }
+  // RESERVED - later. A markdown-table source: the physical line plus the
+  // logical table-row index. No such family folds into the register ledger yet.
+  | { kind: 'markdown-row'; line: number; tableRow: number }
+  // RESERVED - later. No PDF-transcription or image source is ingested today.
+  | { kind: 'pdf'; page: number; x: number; y: number }
+  | { kind: 'image'; x: number; y: number; w: number; h: number };
+
+// The line-viewable anchor a source deep-link points at (issue #431 §4.5). For a
+// TEXT source this is the source file itself; for a BINARY xlsx it is the
+// committed text EXTRACT whose line corresponds to the attested sheet-cell (the
+// .xlsx is not line-viewable on GitHub). `repoPath` is REPO-RELATIVE (e.g.
+// 'archive/foi/<entry>/raw.csv'), which is deliberately NOT the same as
+// Provenance.sourceFile - a logical key that drops the 'archive/' prefix (and,
+// for the open-data lane, rewrites it to 'opendata/'). The anchor carries the
+// REAL repo path so a permalink is buildable (the permalink itself is composed
+// on read in P4, never stored).
+export interface ViewAnchor {
+  repoPath: string;
+  line: number;
+  endLine?: number;
+}
+
 // Where a claim came from: the observation that carries it. (source_file,
 // ordinal) is the observation key; vintage is the as-of knowledge time.
+// `position`/`viewAnchor` ENRICH the key with the observation's precise source
+// location (issue #431) - they are additive (absent on legacy ledgers) and are
+// NOT per-observation claims: position is a finer statement of the SAME key, not
+// an assertion about the callsign, so it never enters the claim multiset and the
+// #404 no-inflation invariant is untouched.
 export interface Provenance {
   sourceFile: string;
   ordinal: number;
   vintage: string;
+  position?: SourcePosition;
+  viewAnchor?: ViewAnchor;
 }
 
 // One row of one published source. Identity is (sourceFile, ordinal); the raw
@@ -255,6 +301,46 @@ export interface SourceObservationSet {
   // withholds the flag on a blank or genuinely unparseable date rather than
   // guessing, the conservative silence isAfterFirstKnownForbidden documents.
   originalStartDateColumn?: string;
+  // The 1-based physical source line of each row, parallel to `rows` by index
+  // (issue #431, P1). Supplied by a CSV-lane loader that captures the line while
+  // parsing (open-data via the line-accounting model, FOI via csv-parse's
+  // `info`); absent for a source whose loader does not yet attest position, in
+  // which case the emit path attaches no position. When present it must be the
+  // same length as `rows`.
+  lineNumbers?: readonly number[];
+  // The REPO-RELATIVE path of the source file (e.g. 'archive/foi/<entry>/<file>'
+  // or 'archive/<date>/raw.csv'), the true on-disk path the logical `sourceFile`
+  // key abstracts away. Carried so the observation's viewAnchor can point a
+  // deep-link at the real file (issue #431 §4.5); absent when the loader supplies
+  // no line numbers, since there is then no line-viewable anchor to build.
+  repoPath?: string;
+}
+
+// Build the bare provenance for one observation of a source. Centralised so
+// every emit path constructs the (sourceFile, ordinal, vintage) key identically.
+export function provenanceFor(source: SourceObservationSet, ordinal: number): Provenance {
+  return { sourceFile: source.sourceFile, ordinal, vintage: source.vintage };
+}
+
+// The provenance for an observation's @listed ANCHOR claim, ENRICHED with its
+// source position when the loader captured line numbers (issue #431). Position
+// is a property of the observation KEY - every claim of the observation shares
+// it - so it is carried ONCE, on the anchor, rather than on each of the ~15
+// claims an observation emits: that keeps the (uncommitted) JSONL from doubling
+// (a single 160k-row source would otherwise overflow V8's max string length),
+// and the compact-DB loader reads the position off the anchor into the single
+// observation row regardless. For a CSV source the position is the 1-based
+// physical line and the viewAnchor points a deep-link at that same line of the
+// real repo file; a source without line numbers yields the bare provenance
+// unchanged (legacy behaviour).
+export function anchorProvenance(source: SourceObservationSet, ordinal: number): Provenance {
+  const provenance = provenanceFor(source, ordinal);
+  const line = source.lineNumbers?.[ordinal];
+  if (line !== undefined) {
+    provenance.position = { kind: 'csv-line', line };
+    if (source.repoPath !== undefined) provenance.viewAnchor = { repoPath: source.repoPath, line };
+  }
+  return provenance;
 }
 
 // Emit the raw-layer claims for a source: one existence claim per observation
@@ -266,8 +352,12 @@ export function emitClaims(source: SourceObservationSet): Claim[] {
   const claims: Claim[] = [];
   source.rows.forEach((row, ordinal) => {
     const rawSubject = row[source.subjectColumn] ?? '';
-    const provenance: Provenance = { sourceFile: source.sourceFile, ordinal, vintage: source.vintage };
-    claims.push({ layer: 'raw', rawSubject, predicate: LISTED_PREDICATE, object: '', provenance });
+    // The @listed anchor carries the source-position enrichment (issue #431);
+    // the attribute claims of the same observation share its (source_file,
+    // ordinal) key and so its position - carried once on the anchor, not
+    // repeated on every claim.
+    claims.push({ layer: 'raw', rawSubject, predicate: LISTED_PREDICATE, object: '', provenance: anchorProvenance(source, ordinal) });
+    const provenance = provenanceFor(source, ordinal);
     for (const column of source.columns) {
       if (column === source.subjectColumn) continue;
       const value = row[column] ?? '';
@@ -332,7 +422,7 @@ export function emitLicenceCategoryClaims(source: SourceObservationSet, ref: Ref
     const category = normaliseLicenceCategory(row[categoryColumn] ?? '', ref);
     if (category === null) return;
     const rawSubject = row[source.subjectColumn] ?? '';
-    const provenance: Provenance = { sourceFile: source.sourceFile, ordinal, vintage: source.vintage };
+    const provenance = provenanceFor(source, ordinal);
     claims.push({ layer: 'derived', rawSubject, predicate: LICENCE_CATEGORY_PREDICATE, object: category, provenance, rule: LICENCE_CATEGORY_RULE });
   });
   return claims;
@@ -375,7 +465,7 @@ export function emitParseAttributeClaims(source: SourceObservationSet, ref: Refe
     // that discloses no such column passes '' and the parser withholds the flag.
     const originalStartDate = startDateColumn !== undefined ? (row[startDateColumn] ?? '') : '';
     const parsed = parseCallsign(rawSubject, product, ref, originalStartDate);
-    const provenance: Provenance = { sourceFile: source.sourceFile, ordinal, vintage: source.vintage };
+    const provenance = provenanceFor(source, ordinal);
     const emit = (predicate: string, object: string): void => {
       claims.push({ layer: 'derived', rawSubject, predicate, object, provenance, rule: PARSE_CALLSIGN_RULE });
     };
@@ -409,7 +499,7 @@ export function emitCallsignPatternClaims(source: SourceObservationSet): Claim[]
     if (rawSubject === '') return;
     const pattern = callsignPattern(rawSubject);
     if (pattern === '') return;
-    const provenance: Provenance = { sourceFile: source.sourceFile, ordinal, vintage: source.vintage };
+    const provenance = provenanceFor(source, ordinal);
     claims.push({ layer: 'derived', rawSubject, predicate: CALLSIGN_PATTERN_PREDICATE, object: pattern, provenance, rule: CALLSIGN_PATTERN_RULE });
   });
   return claims;
@@ -456,7 +546,7 @@ export function emitLedger(source: SourceObservationSet, ref: ReferenceData): Cl
   source.rows.forEach((row, ordinal) => {
     const rawSubject = row[source.subjectColumn] ?? '';
     if (rawSubject === '') return;
-    const provenance: Provenance = { sourceFile: source.sourceFile, ordinal, vintage: source.vintage };
+    const provenance = provenanceFor(source, ordinal);
     for (const edge of normalisationEdgesFor(rawSubject, provenance, ref)) {
       claims.push(edgeToClaim(edge));
     }

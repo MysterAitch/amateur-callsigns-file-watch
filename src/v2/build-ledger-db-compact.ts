@@ -76,7 +76,13 @@ const CREATE_SCHEMA = `
 CREATE TABLE source (
   source_id INTEGER PRIMARY KEY,
   source_file TEXT NOT NULL,
-  vintage TEXT NOT NULL
+  vintage TEXT NOT NULL,
+  -- The REAL repo-relative path of the raw source file (issue #431), the true
+  -- on-disk path the logical source_file key abstracts. One value per source
+  -- (all its observations share it), so it rides here rather than on every
+  -- observation row. It is the deep-link's viewAnchor path (§4.5); NULL for a
+  -- legacy source whose loader attested no position.
+  repo_path TEXT
 );
 CREATE TABLE predicate (
   predicate_id INTEGER PRIMARY KEY,
@@ -97,7 +103,16 @@ CREATE TABLE observation (
   raw_subject TEXT NOT NULL,
   cleaned TEXT NOT NULL,
   entity TEXT NOT NULL,
-  parses INTEGER NOT NULL
+  parses INTEGER NOT NULL,
+  -- The SOURCE-INTRINSIC position of this observation in its original (issue
+  -- #431, ADR 0015). pos_kind names the coordinate family ('csv-line' in P1);
+  -- pos_line is the 1-based physical line for the CSV lane. Both NULL for an
+  -- observation whose loader attested no position (a legacy or not-yet-covered
+  -- lane). These ENRICH the observation - they do NOT enter the claims VIEW,
+  -- so the reconstructed multiset stays byte-identical and no query changes.
+  -- P2 adds pos_sheet / pos_row / pos_col / pos_col_ref here for the xlsx lane.
+  pos_kind TEXT,
+  pos_line INTEGER
 );
 CREATE TABLE attr (
   obs_id INTEGER NOT NULL,
@@ -241,6 +256,11 @@ interface ObservationRecord {
   // own licence_category claim (never re-derived here); '' when none was
   // emitted, so the VIEW omits the derived row exactly as the ledger did.
   licenceCategory: string;
+  // The source-intrinsic position (issue #431), read from the observation's
+  // @listed anchor claim (position rides on the shared provenance). NULL kind
+  // means the loader attested no position for this lane.
+  posKind: string | null;
+  posLine: number | null;
 }
 
 // A dictionary that assigns a stable 1-based integer id to each distinct string
@@ -270,9 +290,9 @@ class Dictionary {
   }
 }
 
-function bindMany(stmt: ReturnType<DatabaseSync['prepare']>, rows: (string | number)[][], width: number): void {
+function bindMany(stmt: ReturnType<DatabaseSync['prepare']>, rows: (string | number | null)[][], width: number): void {
   if (rows.length === 0) return;
-  const flat = new Array<string | number>(rows.length * width);
+  const flat = new Array<string | number | null>(rows.length * width);
   let p = 0;
   for (const row of rows) {
     for (let c = 0; c < width; c += 1) { flat[p] = row[c]; p += 1; }
@@ -283,7 +303,7 @@ function bindMany(stmt: ReturnType<DatabaseSync['prepare']>, rows: (string | num
 // Insert `rows` through a fixed-size multi-row prepared statement, plus a
 // per-row remainder statement for the tail. `sqlBase` is "INSERT INTO t VALUES"
 // and each row is `width` bound columns.
-function insertBatched(db: DatabaseSync, table: string, width: number, rows: (string | number)[][]): void {
+function insertBatched(db: DatabaseSync, table: string, width: number, rows: (string | number | null)[][]): void {
   if (rows.length === 0) return;
   const oneRow = `(${Array.from({ length: width }, () => '?').join(', ')})`;
   const bulkStmt = db.prepare(`INSERT INTO ${table} VALUES ${Array.from({ length: INSERT_BATCH_ROWS }, () => oneRow).join(', ')}`);
@@ -311,7 +331,7 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
   const predicates = new Dictionary();
   const objects = new Dictionary();
   const rules = new Dictionary();
-  const insertSource = db.prepare('INSERT INTO source VALUES (?, ?, ?)');
+  const insertSource = db.prepare('INSERT INTO source VALUES (?, ?, ?, ?)');
   const insertPredicate = db.prepare('INSERT INTO predicate VALUES (?, ?)');
   const insertObject = db.prepare('INSERT INTO object VALUES (?, ?)');
   const insertRule = db.prepare('INSERT INTO rule VALUES (?, ?)');
@@ -337,13 +357,23 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
     const observations = new Map<number, ObservationRecord>();
     let sourceFile = '';
     let vintage = '';
+    // The source's real repo path, read from the @listed anchor's viewAnchor
+    // (issue #431); one value per source. NULL when the lane attested none.
+    let repoPath: string | null = null;
     for (const claim of claims) {
       const { ordinal, sourceFile: sf, vintage: vt } = claim.provenance;
       if (sourceFile === '') { sourceFile = sf; vintage = vt; }
       if (claim.predicate === LISTED_PREDICATE) {
         const { cleaned, entity } = keysOf(claim.rawSubject);
-        observations.set(ordinal, { ordinal, rawSubject: claim.rawSubject, cleaned, entity, parses: false, phObject: null, licenceCategory: '' });
+        // Read the source position off the anchor's provenance. csv-line is the
+        // only kind emitted in P1; a later kind (xlsx sheet-cell) will populate
+        // the reserved pos_* columns here.
+        const position = claim.provenance.position;
+        const posKind = position !== undefined ? position.kind : null;
+        const posLine = position !== undefined && position.kind === 'csv-line' ? position.line : null;
+        observations.set(ordinal, { ordinal, rawSubject: claim.rawSubject, cleaned, entity, parses: false, phObject: null, licenceCategory: '', posKind, posLine });
         entities.add(entity);
+        if (repoPath === null && claim.provenance.viewAnchor !== undefined) repoPath = claim.provenance.viewAnchor.repoPath;
       }
     }
     for (const claim of claims) {
@@ -356,16 +386,16 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
       }
     }
 
-    insertSource.run(sourceId, sourceFile, vintage);
+    insertSource.run(sourceId, sourceFile, vintage, repoPath);
 
     // Assign obs_ids in ordinal order and insert the observations.
     const obsIdByOrdinal = new Map<number, number>();
-    const obsRows: (string | number)[][] = [];
+    const obsRows: (string | number | null)[][] = [];
     for (const obs of [...observations.values()].sort((a, b) => a.ordinal - b.ordinal)) {
       const obsId = nextObsId;
       nextObsId += 1;
       obsIdByOrdinal.set(obs.ordinal, obsId);
-      obsRows.push([obsId, sourceId, obs.ordinal, obs.rawSubject, obs.cleaned, obs.entity, obs.parses ? 1 : 0]);
+      obsRows.push([obsId, sourceId, obs.ordinal, obs.rawSubject, obs.cleaned, obs.entity, obs.parses ? 1 : 0, obs.posKind, obs.posLine]);
       // The sparse licence-category satellite: only observations that mapped to
       // a category contribute a row, so a product-less source adds none.
       if (obs.licenceCategory !== '') {
@@ -379,7 +409,7 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
         overrides += 1;
       }
     }
-    insertBatched(db, 'observation', 7, obsRows);
+    insertBatched(db, 'observation', 9, obsRows);
     totalObservations += obsRows.length;
 
     // Insert the real attribute claims (raw layer, not @listed, not a

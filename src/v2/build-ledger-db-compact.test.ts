@@ -2,11 +2,15 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { parse } from 'csv-parse/sync';
 import { DatabaseSync } from 'node:sqlite';
 import { buildLedger } from './build-ledger.ts';
 import { buildLedgerSqlite, subsetSelector } from './build-ledger-db.ts';
 import { buildCompactLedgerSqlite, type CompactLedgerSummary } from './build-ledger-db-compact.ts';
 import { loadReferenceData, parseCallsign } from '../sources/ofcom-amateur/components.ts';
+import { physicalLines } from '../sources/ofcom-amateur/normalise.ts';
+
+const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
 //
@@ -87,6 +91,71 @@ describe('compact claim-ledger schema', () => {
       const claims = Number((db.prepare('SELECT COUNT(*) c FROM claims').get() as { c: number | bigint }).c);
       expect(observations).toBeLessThan(claims / 3);
       expect(compact.observations).toBe(observations);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe('source position is stored on the observation and round-trips (issue #431)', () => {
+  it('ObservationAndSource_WhenBuilt_GainOnlyThePositionColumns', () => {
+    // The golden delta: the observation table gains exactly pos_kind + pos_line
+    // beside its original seven columns, and source gains exactly repo_path -
+    // nothing else moves, and the claims VIEW (asserted unchanged above) keeps
+    // its ten columns, so position enriches without disturbing any query.
+    const db = openDb(compactPath);
+    try {
+      const obsColumns = (db.prepare("SELECT name FROM pragma_table_info('observation')").all() as { name: string }[]).map(c => c.name);
+      expect(obsColumns).toEqual(['obs_id', 'source_id', 'ordinal', 'raw_subject', 'cleaned', 'entity', 'parses', 'pos_kind', 'pos_line']);
+      const sourceColumns = (db.prepare("SELECT name FROM pragma_table_info('source')").all() as { name: string }[]).map(c => c.name);
+      expect(sourceColumns).toEqual(['source_id', 'source_file', 'vintage', 'repo_path']);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('EveryObservation_WhenBuiltFromCsvLane_CarriesACsvLinePositionAndRepoPath', () => {
+    const db = openDb(compactPath);
+    try {
+      // The subset is entirely CSV-lane sources, so no observation may be left
+      // without a position - a NULL here would be a silently dropped attestation.
+      const missing = Number((db.prepare("SELECT COUNT(*) c FROM observation WHERE pos_kind IS NOT 'csv-line' OR pos_line IS NULL").get() as { c: number | bigint }).c);
+      expect(missing).toBe(0);
+      const sourcesMissingPath = Number((db.prepare('SELECT COUNT(*) c FROM source WHERE repo_path IS NULL').get() as { c: number | bigint }).c);
+      expect(sourcesMissingPath).toBe(0);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('StoredPosition_WhenReadBackFromTheDb_LandsOnTheRowThatProducedTheRawSubject', () => {
+    // The DB-level round-trip: join observation to source, read the real file at
+    // the stored line, and confirm the raw subject appears on it. Sampled evenly
+    // so a large source is covered without re-reading the file per row.
+    const db = openDb(compactPath);
+    try {
+      const rows = db.prepare(`
+        SELECT o.raw_subject AS raw, o.pos_line AS line, s.repo_path AS repoPath
+        FROM observation o JOIN source s ON s.source_id = o.source_id
+        WHERE o.raw_subject <> '' ORDER BY o.obs_id
+      `).all() as { raw: string; line: number; repoPath: string }[];
+      expect(rows.length).toBeGreaterThan(0);
+      const linesByPath = new Map<string, string[]>();
+      const step = Math.max(1, Math.floor(rows.length / 300));
+      let checked = 0;
+      for (let i = 0; i < rows.length; i += step) {
+        const { raw, line, repoPath } = rows[i];
+        let lines = linesByPath.get(repoPath);
+        if (lines === undefined) {
+          lines = physicalLines(fs.readFileSync(path.join(REPO_ROOT, repoPath), 'utf8'));
+          linesByPath.set(repoPath, lines);
+        }
+        const record = (parse(`${lines[0]}\n${lines[line - 1]}\n`, { columns: true, bom: true, relax_column_count: true }) as Record<string, string>[])[0] ?? {};
+        // The raw subject must be one of the cells of the attested line.
+        expect(Object.values(record)).toContain(raw);
+        checked += 1;
+      }
+      expect(checked).toBeGreaterThan(0);
     } finally {
       db.close();
     }
