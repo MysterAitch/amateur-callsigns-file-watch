@@ -173,6 +173,17 @@ export function loadRegisterSource(foiDir: string, entry: string, meta: FoiEntry
     // key abstracts by dropping the 'archive/' prefix; carried for the
     // deep-link's viewAnchor (issue #431 §4.5).
     repoPath: `archive/foi/${entry}/${conversion.sourceFile}`,
+    // The FOI CSV lane's raw sources are clean grids - header on line 1, one
+    // data row per line, no curated footer or interior blank lines (unlike the
+    // open-data export's salesforce footer). So the file manifest attests an
+    // empty furniture set (issue #434); a source that ever grew furniture would
+    // fail the reconstruction oracle loudly rather than round-trip silently.
+    ignoredLines: [],
+    headerLine: 1,
+    // The encoding the raw bytes were decoded with (verbatim from the authored
+    // converter binding: utf-8 or latin-1), so a fidelity oracle re-reads the
+    // original at the same DECODED-TEXT level the ledger stored (issue #434, G6).
+    encoding: conversion.encoding,
   };
 }
 

@@ -16,7 +16,7 @@
  */
 
 import type { Claim } from './claim.ts';
-import { LISTED_PREDICATE } from './claim.ts';
+import { LISTED_PREDICATE, isFileLevelClaim } from './claim.ts';
 
 // A reprojected record: column name -> value, plus the source ordinal that
 // fixes its position. Every declared column is present (blank when the source
@@ -47,6 +47,11 @@ export function projectNormalised(claims: readonly Claim[], columns: readonly st
 
   for (const claim of claims) {
     if (claim.layer !== 'raw') continue;
+    // File-level manifest claims (issue #434) describe the source FILE, not a
+    // row - they ride the FILE_LEVEL_ORDINAL sentinel, so excluding them here
+    // keeps the reprojected record set exactly the observation rows (the
+    // row-count/existence invariant is unpolluted when the two streams mix).
+    if (isFileLevelClaim(claim)) continue;
     const record = recordFor(claim.provenance.ordinal);
     record.values[subjectColumn] = claim.rawSubject;
     if (claim.predicate === LISTED_PREDICATE) continue;

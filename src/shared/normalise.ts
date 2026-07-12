@@ -72,8 +72,10 @@ export function parseUkDateTime(value: string): string {
 
 // Minimal RFC-4180 rendering: quote only when the value contains a comma,
 // quote, or newline; escape quotes by doubling; LF line endings; trailing
-// newline. Byte-deterministic by construction.
-function renderCell(value: string): string {
+// newline. Byte-deterministic by construction. Exported so the reconstruction
+// oracle (issue #434) canonicalises quoting on BOTH the original and the
+// reconstruction through the ONE renderer, never a second copy that could drift.
+export function renderCell(value: string): string {
   if (/[",\n\r]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
   }
