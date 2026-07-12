@@ -19,6 +19,7 @@ const HEAVY_BUILD_TESTS = [
   'src/ci/build-forbidden-section.test.ts',
   'src/ci/cross-dataset-invariants.test.ts',
   'src/ci/value-catalogue-fold.test.ts',
+  'src/ci/data-quality-fold.test.ts',
 ];
 
 // Options every project shares. Kept in one place so the fast and heavy pools
