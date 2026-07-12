@@ -61,7 +61,14 @@ import * as os from 'os';
 import * as path from 'path';
 import { buildLedger } from '../v2/build-ledger.ts';
 import { LISTED_PREDICATE, FLAG_PREDICATE, PARSE_STATUS_PREDICATE } from '../v2/claim.ts';
-import { foldQuery } from '../v2/report-fold.ts';
+import {
+  foldQuery,
+  claimsRelation,
+  claimsSourcePresent,
+  toClaimsSource,
+  deployClaimsSource,
+  type ClaimsSource,
+} from '../v2/report-fold.ts';
 import { markUnprintables } from '../shared/stats.ts';
 import { loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 
@@ -129,17 +136,6 @@ export const DETECTOR_KEYS: readonly string[] = [
   'lowercaseBearing',
 ];
 
-// The claim-ledger JSONL column schema, declared rather than sniffed (raw claims
-// omit the optional `rule`, so a sampled inference would miss it), matching the
-// other folds and build-ledger-db.writeParquetScript.
-const LEDGER_COLUMNS = "{layer: 'VARCHAR', rawSubject: 'VARCHAR', predicate: 'VARCHAR', object: 'VARCHAR', sourceFile: 'VARCHAR', ordinal: 'BIGINT', vintage: 'VARCHAR', rule: 'VARCHAR'}";
-
-// A DuckDB glob over one ledger directory's per-source JSONL files, forward-
-// slashed and single-quote escaped (DuckDB accepts forward slashes everywhere).
-function ledgerGlob(ledgerDir: string): string {
-  return `'${path.join(ledgerDir, '*.jsonl').replace(/\\/g, '/').replace(/'/g, "''")}'`;
-}
-
 // A DuckDB comma-separated list of single-quoted string literals.
 function sqlStringList(values: readonly string[]): string {
   return values.map(value => `'${value.replace(/'/g, "''")}'`).join(', ');
@@ -151,13 +147,6 @@ function sqlStringList(values: readonly string[]): string {
 // contract as quality-report-fold.
 const OPEN_DATA_LANE = `sourceFile LIKE 'opendata/%'`;
 const DATE_EXPR = `split_part(sourceFile, '/', 2)`;
-
-// Whether a ledger directory holds any per-source JSONL to fold. An empty ledger
-// yields an empty rollup rather than reaching DuckDB, whose read_json errors on a
-// glob that matches nothing — mirroring the other folds.
-function hasClaims(ledgerDir: string): boolean {
-  return fs.existsSync(ledgerDir) && fs.readdirSync(ledgerDir).some(name => name.endsWith('.jsonl'));
-}
 
 // --- Fold SQL ---------------------------------------------------------------
 
@@ -172,10 +161,9 @@ interface RecordsRow {
   empties: number;
 }
 
-function recordsSql(ledgerDir: string): string {
-  const glob = ledgerGlob(ledgerDir);
+function recordsSql(source: ClaimsSource): string {
   return `WITH claims AS (
-  SELECT * FROM read_json(${glob}, format='newline_delimited', columns=${LEDGER_COLUMNS})
+  SELECT * FROM ${claimsRelation(source)}
 ),
 obs AS (
   SELECT sourceFile, ordinal, ${DATE_EXPR} AS date
@@ -202,10 +190,9 @@ interface AggregateRow {
   records: number;
 }
 
-function aggregateSql(ledgerDir: string, predicate: string): string {
-  const glob = ledgerGlob(ledgerDir);
+function aggregateSql(source: ClaimsSource, predicate: string): string {
   return `WITH claims AS (
-  SELECT * FROM read_json(${glob}, format='newline_delimited', columns=${LEDGER_COLUMNS})
+  SELECT * FROM ${claimsRelation(source)}
 )
 SELECT ${DATE_EXPR} AS date, object AS object, count(*) AS records
 FROM claims
@@ -225,10 +212,9 @@ interface OffenderRow {
   rawSubject: string;
 }
 
-function offendersSql(ledgerDir: string, flags: readonly string[]): string {
-  const glob = ledgerGlob(ledgerDir);
+function offendersSql(source: ClaimsSource, flags: readonly string[]): string {
   return `WITH claims AS (
-  SELECT * FROM read_json(${glob}, format='newline_delimited', columns=${LEDGER_COLUMNS})
+  SELECT * FROM ${claimsRelation(source)}
 )
 SELECT ${DATE_EXPR} AS date, object AS flag, rawSubject AS rawSubject
 FROM claims
@@ -314,30 +300,30 @@ function assemble(
 }
 
 // Fold the data-quality rollup from a directory of per-source ledger JSONL files.
-export function foldDataQuality(ledgerDir: string): DataQualityFold {
-  if (!hasClaims(ledgerDir)) {
+export function foldDataQuality(source: string | ClaimsSource): DataQualityFold {
+  const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) {
     return { dates: [], recordCounts: new Map(), detectors: new Map(), flags: new Map(), parseStatuses: new Map() };
   }
   const detectorFlags = [...DETECTOR_FLAG_SOURCES.values()];
-  const recordsRows = foldQuery<RecordsRow>(recordsSql(ledgerDir));
-  const flagRows = foldQuery<AggregateRow>(aggregateSql(ledgerDir, FLAG_PREDICATE));
-  const statusRows = foldQuery<AggregateRow>(aggregateSql(ledgerDir, PARSE_STATUS_PREDICATE));
-  const offenderRows = foldQuery<OffenderRow>(offendersSql(ledgerDir, detectorFlags));
+  const recordsRows = foldQuery<RecordsRow>(recordsSql(claims));
+  const flagRows = foldQuery<AggregateRow>(aggregateSql(claims, FLAG_PREDICATE));
+  const statusRows = foldQuery<AggregateRow>(aggregateSql(claims, PARSE_STATUS_PREDICATE));
+  const offenderRows = foldQuery<OffenderRow>(offendersSql(claims, detectorFlags));
   return assemble(recordsRows, flagRows, statusRows, offenderRows);
 }
 
-// Build the data-quality fold, materialising the ledger ONCE when no pre-built
-// directory is supplied (the standalone / oracle path) so the corpus is emitted a
-// single time. A caller holding a ledger passes its directory to skip the rebuild.
-//
-// The interim rebuild is the strangler's honest cost, exactly as the other folds
-// document: the ledger is not yet a committed/cached artefact, so a self-contained
-// run emits it on demand; the eventual path consumes the deploy-time claims
-// artefact (build-ledger-db). skipFailedSources matches the normalise sweep's
-// per-entry independence — a malformed entry the sweep already reports is skipped,
-// not a reason to crash the whole report.
+// Build the data-quality fold from ONE claims source. A caller holding a ledger
+// passes its directory (a test fixture); otherwise the shared deploy-time
+// claims.parquet is read when the workflow built one (issue #403), and only in
+// its absence (local dev, tests) is the full-corpus ledger materialised once to a
+// scratch directory. skipFailedSources matches the normalise sweep's per-entry
+// independence — a malformed entry the sweep already reports is skipped, not a
+// reason to crash the whole report.
 export function buildDataQualityFold(ledgerDir?: string, ref: ReferenceData = loadReferenceData()): DataQualityFold {
   if (ledgerDir !== undefined) return foldDataQuality(ledgerDir);
+  const shared = deployClaimsSource();
+  if (shared !== null) return foldDataQuality(shared);
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'data-quality-ledger-'));
   try {
     buildLedger(scratch, undefined, ref, undefined, true);

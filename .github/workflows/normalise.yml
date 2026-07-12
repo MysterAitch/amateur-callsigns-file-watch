@@ -51,10 +51,20 @@ jobs:
       # static binary, no native npm build (ADR 0002).
       - uses: ./.github/actions/setup-duckdb
 
+      # Build the shared claim-ledger Parquet ONCE (issue #403). Every report the
+      # sweep folds from the ledger - the value catalogue, the prefix / mismatch /
+      # regional / callsign-pattern distributions, and the forbidden-suffix history
+      # - reads this single artefact via CLAIMS_PARQUET below, instead of each
+      # re-materialising the multi-GB ledger. Built here, not committed: the
+      # Parquet is a build-time intermediate that lives only for this run.
+      - name: Build shared claim-ledger Parquet
+        run: node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only
+
       - name: Run normalise sweep
         id: sweep
         env:
           COVERAGE_MARKDOWN_FILE: /tmp/coverage-opendata.md
+          CLAIMS_PARQUET: ${{ runner.temp }}/claims.parquet
         run: |
           set +e
           npm run normalise:sweep

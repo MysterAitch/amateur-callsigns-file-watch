@@ -71,7 +71,12 @@ import { parse } from 'csv-parse/sync';
 import { defaultFoiDir, listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
 import { parseUkDateTime } from '../shared/normalise.ts';
 import { normalisedFileNameFor } from '../shared/foi-normalise.ts';
-import { foldQuery } from '../v2/report-fold.ts';
+import {
+  foldQuery,
+  claimsRelation,
+  deployClaimsSource,
+  type ClaimsSource,
+} from '../v2/report-fold.ts';
 import { emitClaims, LISTED_PREDICATE } from '../v2/claim.ts';
 import { serialiseClaimsJsonl } from '../v2/serialise.ts';
 import { jsonlStem } from '../v2/collectors/util.ts';
@@ -306,6 +311,12 @@ export interface ForbiddenLedgerSource {
   vintage: string;
   normalisedFileName: string;
   jsonlStem: string;
+  // The corpus-unique sourceFile the family's claims carry in the ledger
+  // (`foi/<entry>/<file>`, exactly as loadForbiddenSource stamps it). The
+  // shared-Parquet fold (issue #403) selects this source's rows by it, since the
+  // Parquet holds the whole corpus rather than one file per source. Optional so a
+  // hand-built fixture folding the per-file JSONL directly need not supply it.
+  sourceFile?: string;
   emit: () => ReturnType<typeof emitClaims>;
 }
 
@@ -323,6 +334,7 @@ function enumerateForbiddenLedgerSources(foiDir: string): ForbiddenLedgerSource[
         vintage: meta.dataVintage ?? '—',
         normalisedFileName: normalisedFileNameFor(source.conversion.sourceFile),
         jsonlStem: jsonlStem('forbidden', entry, source.conversion.sourceFile),
+        sourceFile: `foi/${entry}/${source.conversion.sourceFile}`,
         emit: () => emitClaims(loadForbiddenSource(foiDir, entry, meta, source)),
       });
     }
@@ -339,27 +351,20 @@ interface ForbiddenFoldRow {
   rawLastModified: string | null;
 }
 
-// One JSONL file's read branch, tagged with its disclosure index so a single
-// query folds every disclosure at once. Each forbidden source writes exactly one
-// JSONL file, so a file IS a disclosure.
-function readBranch(file: string, didx: number): string {
-  const escaped = file.replace(/\\/g, '/').replace(/'/g, "''");
-  return `SELECT ${didx} AS didx, ordinal, layer, predicate, rawSubject, object `
-    + `FROM read_json('${escaped}', format='newline_delimited', columns=${LEDGER_COLUMNS})`;
-}
-
-// Fold the per-observation (suffix, last-modified) projection out of the ledger:
-// join each `@listed` existence claim to its row's last-modified attribute claim
-// on the observation key (didx, ordinal). A forbidden source emits only the
+// The per-observation (suffix, last-modified) projection shared by both fold
+// paths: join each `@listed` existence claim to its row's last-modified attribute
+// claim on the observation key (didx, ordinal). A forbidden source emits only the
 // existence claim and - for the 2024 export - the LastModifiedDate attribute, so
 // "the raw claim that is not `@listed`" is exactly the last-modified value; the
-// LEFT JOIN yields NULL for the earlier lists that carry none. The total ORDER
-// BY satisfies report-fold's determinism contract (the reduction is set-based,
-// but a stable fold output keeps the fold itself reproducible run to run).
-function foldSql(files: readonly string[]): string {
-  const branches = files.map((file, index) => readBranch(file, index)).join('\nUNION ALL\n');
+// LEFT JOIN yields NULL for the earlier lists that carry none. The total ORDER BY
+// satisfies report-fold's determinism contract (the reduction is set-based, but a
+// stable fold output keeps the fold itself reproducible run to run). `claimsCte`
+// supplies the `claims` relation carrying a `didx` disclosure index — from per-
+// file JSONL branches (the ledger path) or a sourceFile→index tag over the shared
+// Parquet — so the reduction below is identical whichever source fed it.
+function foldSqlOver(claimsCte: string): string {
   return `WITH claims AS (
-${branches}
+${claimsCte}
 ),
 listed AS (SELECT didx, ordinal, rawSubject FROM claims WHERE predicate = '${LISTED_PREDICATE}'),
 lastmod AS (SELECT didx, ordinal, object FROM claims WHERE layer = 'raw' AND predicate <> '${LISTED_PREDICATE}')
@@ -369,6 +374,47 @@ LEFT JOIN lastmod lm ON lm.didx = l.didx AND lm.ordinal = l.ordinal
 ORDER BY l.didx, l.ordinal`;
 }
 
+// One JSONL file's read branch, tagged with its disclosure index so a single
+// query folds every disclosure at once. Each forbidden source writes exactly one
+// JSONL file, so a file IS a disclosure.
+function readBranch(file: string, didx: number): string {
+  const escaped = file.replace(/\\/g, '/').replace(/'/g, "''");
+  return `SELECT ${didx} AS didx, ordinal, layer, predicate, rawSubject, object `
+    + `FROM read_json('${escaped}', format='newline_delimited', columns=${LEDGER_COLUMNS})`;
+}
+
+// The ledger-directory `claims` CTE: one UNION ALL read branch per source's JSONL
+// file, tagged by array index — the didx a disclosure keys on.
+function ledgerClaimsCte(files: readonly string[]): string {
+  return files.map((file, index) => readBranch(file, index)).join('\nUNION ALL\n');
+}
+
+// The shared-Parquet `claims` CTE (issue #403): the Parquet holds the whole
+// corpus, so this selects just the forbidden family's rows by their corpus-unique
+// sourceFile and re-derives the SAME didx array-index tag via a sourceFile→index
+// CASE. The projected columns and the didx numbering match the per-file branches
+// exactly, so the reduction — and thus the folded report — is byte-identical to
+// the ledger path.
+function parquetClaimsCte(source: ClaimsSource, sourceFiles: readonly string[]): string {
+  const literal = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+  const cases = sourceFiles.map((sf, index) => `WHEN ${literal(sf)} THEN ${index}`).join(' ');
+  const inList = sourceFiles.map(literal).join(', ');
+  return `SELECT CASE sourceFile ${cases} END AS didx, ordinal, layer, predicate, rawSubject, object
+  FROM ${claimsRelation(source)}
+  WHERE sourceFile IN (${inList})`;
+}
+
+// The corpus-unique sourceFile a forbidden source's claims carry in the Parquet.
+// Required for the shared-Parquet fold (the whole corpus is in one file, so rows
+// are selected by sourceFile); the enumerator sets it, so its absence is a
+// programming error rather than a data condition.
+function sourceFileOf(source: ForbiddenLedgerSource): string {
+  if (source.sourceFile === undefined) {
+    throw new Error(`forbidden source ${source.entry} has no sourceFile — cannot fold it from the shared claims Parquet`);
+  }
+  return source.sourceFile;
+}
+
 // The verbatim column's only transform, mirroring foi-normalise.ts's
 // EDGE_WHITESPACE_RE (`\s` covers the NBSP the FOI trim also strips): the ledger
 // stores the suffix token untrimmed, so the fold re-applies the same edge trim
@@ -376,17 +422,15 @@ ORDER BY l.didx, l.ordinal`;
 // report counts.
 const EDGE_WHITESPACE_RE = /^\s+|\s+$/g;
 
-// Reproject the folded rows into the per-disclosure RawDisclosure shape the
-// reducer consumes, applying - each on its OWN authoritative rule, never re-
-// derived - the two transforms the normalised store baked in: the suffix edge
-// trim, and parseUkDateTime for the day-first raw last-modified value. A
-// disclosure with no fold rows (defensive; every real forbidden source lists at
-// least one suffix) reprojects to an empty row set.
-export function collectRawDisclosuresFromLedger(ledgerDir: string, sources: readonly ForbiddenLedgerSource[]): RawDisclosure[] {
-  if (sources.length === 0) return [];
-  const files = sources.map(source => path.join(ledgerDir, `${source.jsonlStem}.jsonl`));
+// Reproject the folded (didx, suffix, last-modified) rows into the per-disclosure
+// RawDisclosure shape the reducer consumes, applying - each on its OWN
+// authoritative rule, never re-derived - the two transforms the normalised store
+// baked in: the suffix edge trim, and parseUkDateTime for the day-first raw
+// last-modified value. A disclosure with no fold rows (defensive; every real
+// forbidden source lists at least one suffix) reprojects to an empty row set.
+function reprojectDisclosures(foldRows: readonly ForbiddenFoldRow[], sources: readonly ForbiddenLedgerSource[]): RawDisclosure[] {
   const rowsByDisclosure = new Map<number, RawDisclosure['rows']>();
-  for (const row of foldQuery<ForbiddenFoldRow>(foldSql(files))) {
+  for (const row of foldRows) {
     const rows = rowsByDisclosure.get(row.didx) ?? [];
     rows.push({
       suffix: row.rawSuffix.replace(EDGE_WHITESPACE_RE, ''),
@@ -402,18 +446,41 @@ export function collectRawDisclosuresFromLedger(ledgerDir: string, sources: read
   }));
 }
 
-// Build the history by folding the claim ledger. A caller that already holds a
-// ledger directory (the normalise sweep once it emits one upstream; a test with
-// a fixture) passes it, and the fold reads that ledger's forbidden JSONL files
-// directly. Otherwise the forbidden family's claims are emitted to a scratch
-// ledger on demand and folded from there - the same honest interim cost the
-// value-catalogue fold documents, scoped to JUST the forbidden sources so the
-// register-and-forbidden container entries' large callsign sheets are never
-// materialised to read four suffix lists.
+// Fold the disclosures from a directory of per-source JSONL ledgers (the shape
+// build-ledger writes, and the fixture the oracle builds): one read branch per
+// source file, reduced then reprojected.
+export function collectRawDisclosuresFromLedger(ledgerDir: string, sources: readonly ForbiddenLedgerSource[]): RawDisclosure[] {
+  if (sources.length === 0) return [];
+  const files = sources.map(source => path.join(ledgerDir, `${source.jsonlStem}.jsonl`));
+  return reprojectDisclosures(foldQuery<ForbiddenFoldRow>(foldSqlOver(ledgerClaimsCte(files))), sources);
+}
+
+// Fold the disclosures from the shared deploy-time claims Parquet (issue #403),
+// selecting the forbidden family's rows by sourceFile rather than materialising
+// their JSONL. Byte-identical to the ledger path (same projection, same didx
+// numbering, same reduction).
+export function collectRawDisclosuresFromParquet(source: ClaimsSource, sources: readonly ForbiddenLedgerSource[]): RawDisclosure[] {
+  if (sources.length === 0) return [];
+  const cte = parquetClaimsCte(source, sources.map(sourceFileOf));
+  return reprojectDisclosures(foldQuery<ForbiddenFoldRow>(foldSqlOver(cte)), sources);
+}
+
+// Build the history by folding the claim data. A caller holding a ledger
+// directory (a test fixture) passes it, and the fold reads that ledger's
+// forbidden JSONL files directly. Otherwise the shared deploy-time claims.parquet
+// is read when the workflow built one (issue #403), selecting just the forbidden
+// family's rows. Only in the Parquet's absence (local dev, tests) are the
+// forbidden family's claims emitted to a scratch ledger on demand — scoped to
+// JUST the forbidden sources, so the register-and-forbidden container entries'
+// large callsign sheets are never materialised to read four suffix lists.
 export function buildForbiddenSuffixHistoryFold(ledgerDir?: string, foiDir: string = defaultFoiDir()): ForbiddenSuffixHistory {
   const sources = enumerateForbiddenLedgerSources(foiDir);
   if (ledgerDir !== undefined) {
     return historyFromDisclosures(collectRawDisclosuresFromLedger(ledgerDir, sources));
+  }
+  const shared = deployClaimsSource();
+  if (shared !== null) {
+    return historyFromDisclosures(collectRawDisclosuresFromParquet(shared, sources));
   }
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'forbidden-suffix-ledger-'));
   try {

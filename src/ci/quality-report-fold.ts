@@ -61,7 +61,14 @@ import {
   RSL_PREDICATE,
   CALLSIGN_PATTERN_PREDICATE,
 } from '../v2/claim.ts';
-import { foldQuery } from '../v2/report-fold.ts';
+import {
+  foldQuery,
+  claimsRelation,
+  claimsSourcePresent,
+  toClaimsSource,
+  deployClaimsSource,
+  type ClaimsSource,
+} from '../v2/report-fold.ts';
 import { PRODUCT_COLUMN_NAMES } from '../sources/ofcom-amateur/normalise.ts';
 import { loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 
@@ -69,17 +76,6 @@ import { loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/
 // vocabulary token components.ts raises when a prefix-implied class disagrees
 // with the declared product (reference-data/flags.md).
 const CLASS_PRODUCT_MISMATCH_FLAG = 'class-product-mismatch';
-
-// The claim-ledger JSONL column schema, declared rather than sniffed (raw claims
-// omit the optional `rule`, so a sampled inference would miss it), matching
-// value-catalogue-fold's declaration and build-ledger-db.writeParquetScript.
-const LEDGER_COLUMNS = "{layer: 'VARCHAR', rawSubject: 'VARCHAR', predicate: 'VARCHAR', object: 'VARCHAR', sourceFile: 'VARCHAR', ordinal: 'BIGINT', vintage: 'VARCHAR', rule: 'VARCHAR'}";
-
-// A DuckDB glob over one ledger directory's per-source JSONL files, forward-
-// slashed and single-quote escaped (DuckDB accepts forward slashes everywhere).
-function ledgerGlob(ledgerDir: string): string {
-  return `'${path.join(ledgerDir, '*.jsonl').replace(/\\/g, '/').replace(/'/g, "''")}'`;
-}
 
 // A DuckDB comma-separated list of single-quoted string literals.
 function sqlStringList(values: readonly string[]): string {
@@ -93,14 +89,6 @@ function sqlStringList(values: readonly string[]): string {
 // restrict to `opendata/%`, matching the open-data-only legacy generators.
 const OPEN_DATA_LANE = `sourceFile LIKE 'opendata/%'`;
 const DATE_EXPR = `split_part(sourceFile, '/', 2)`;
-
-// Whether a ledger directory holds any per-source JSONL to fold. An empty ledger
-// (an archive with no register-bearing entries) yields empty reports rather than
-// reaching DuckDB, whose read_json errors on a glob that matches nothing —
-// mirroring value-catalogue-fold.
-function hasClaims(ledgerDir: string): boolean {
-  return fs.existsSync(ledgerDir) && fs.readdirSync(ledgerDir).some(name => name.endsWith('.jsonl'));
-}
 
 // --- reports/prefixes.md ----------------------------------------------------
 
@@ -135,10 +123,9 @@ interface PrefixFoldRow {
 // The joins are one-to-one on the observation key, so count(*) per group is the
 // record count. The total ORDER BY keeps DuckDB's output deterministic; the row
 // label and final sort are assembled in TypeScript to match the legacy key sort.
-function prefixFoldSql(ledgerDir: string): string {
-  const glob = ledgerGlob(ledgerDir);
+function prefixFoldSql(source: ClaimsSource): string {
   return `WITH claims AS (
-  SELECT * FROM read_json(${glob}, format='newline_delimited', columns=${LEDGER_COLUMNS})
+  SELECT * FROM ${claimsRelation(source)}
 ),
 obs AS (
   SELECT sourceFile, ordinal, ${DATE_EXPR} AS date
@@ -183,9 +170,10 @@ function assemblePrefixDistribution(foldRows: readonly PrefixFoldRow[]): PrefixD
 }
 
 // Fold the prefix distribution from a directory of per-source ledger JSONL files.
-export function foldPrefixDistribution(ledgerDir: string): PrefixDistributionFold {
-  if (!hasClaims(ledgerDir)) return { dates: [], rows: new Map() };
-  return assemblePrefixDistribution(foldQuery<PrefixFoldRow>(prefixFoldSql(ledgerDir)));
+export function foldPrefixDistribution(source: string | ClaimsSource): PrefixDistributionFold {
+  const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return { dates: [], rows: new Map() };
+  return assemblePrefixDistribution(foldQuery<PrefixFoldRow>(prefixFoldSql(claims)));
 }
 
 // --- reports/class-product-mismatches.md ------------------------------------
@@ -229,10 +217,9 @@ interface MismatchFoldRow {
 // A flagged observation always has a series, an implied class and a declared
 // product (the flag is raised only when the implied class contradicts a declared
 // product), so the joins resolve; the report shows all four verbatim.
-function mismatchFoldSql(ledgerDir: string, productHeaders: readonly string[]): string {
-  const glob = ledgerGlob(ledgerDir);
+function mismatchFoldSql(source: ClaimsSource, productHeaders: readonly string[]): string {
   return `WITH claims AS (
-  SELECT * FROM read_json(${glob}, format='newline_delimited', columns=${LEDGER_COLUMNS})
+  SELECT * FROM ${claimsRelation(source)}
 ),
 mm AS (
   SELECT DISTINCT sourceFile, ordinal, ${DATE_EXPR} AS date
@@ -269,9 +256,9 @@ function codepointCompare(a: string, b: string): number {
 // The SQL for every open-data publication date the ledger carries — the full
 // column set the mismatch report enumerates, so a dataset with no affected rows
 // still gets its `(none)` section (an absence the report deliberately shows).
-function openDataDatesSql(ledgerDir: string): string {
+function openDataDatesSql(source: ClaimsSource): string {
   return `SELECT DISTINCT ${DATE_EXPR} AS date
-FROM read_json(${ledgerGlob(ledgerDir)}, format='newline_delimited', columns=${LEDGER_COLUMNS})
+FROM ${claimsRelation(source)}
 WHERE layer='raw' AND predicate='${LISTED_PREDICATE}' AND ${OPEN_DATA_LANE}
 ORDER BY date`;
 }
@@ -295,11 +282,12 @@ function assembleMismatches(dates: readonly string[], foldRows: readonly Mismatc
 // Fold the class-product-mismatch rows from a directory of per-source ledger
 // JSONL files. Two passes: the full open-data date set (the report's columns)
 // and the affected rows.
-export function foldClassProductMismatches(ledgerDir: string): MismatchFold {
-  if (!hasClaims(ledgerDir)) return { dates: [], byDate: new Map() };
+export function foldClassProductMismatches(source: string | ClaimsSource): MismatchFold {
+  const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return { dates: [], byDate: new Map() };
   const productHeaders = [...PRODUCT_COLUMN_NAMES].sort();
-  const dates = foldQuery<{ date: string }>(openDataDatesSql(ledgerDir)).map(r => r.date);
-  return assembleMismatches(dates, foldQuery<MismatchFoldRow>(mismatchFoldSql(ledgerDir, productHeaders)));
+  const dates = foldQuery<{ date: string }>(openDataDatesSql(claims)).map(r => r.date);
+  return assembleMismatches(dates, foldQuery<MismatchFoldRow>(mismatchFoldSql(claims, productHeaders)));
 }
 
 // --- reports/regional-identifiers.md ----------------------------------------
@@ -336,10 +324,9 @@ interface RegionalFoldRow {
 // The joins are one-to-one on the observation key, so count(*) per group is the
 // record count. The rendered label and final sort are assembled in TypeScript to
 // match the legacy key sort.
-function regionalFoldSql(ledgerDir: string): string {
-  const glob = ledgerGlob(ledgerDir);
+function regionalFoldSql(source: ClaimsSource): string {
   return `WITH claims AS (
-  SELECT * FROM read_json(${glob}, format='newline_delimited', columns=${LEDGER_COLUMNS})
+  SELECT * FROM ${claimsRelation(source)}
 ),
 obs AS (
   SELECT sourceFile, ordinal, ${DATE_EXPR} AS date
@@ -403,10 +390,11 @@ function assembleRegionalIdentifiers(dates: readonly string[], foldRows: readonl
 // Fold the regional-identifier distribution from a directory of per-source ledger
 // JSONL files. Two passes: the full open-data date set (the report's columns, so
 // a zero-parsed dataset still renders) and the parsed-record rows.
-export function foldRegionalIdentifiers(ledgerDir: string): RegionalIdentifierFold {
-  if (!hasClaims(ledgerDir)) return { dates: [], rows: new Map() };
-  const dates = foldQuery<{ date: string }>(openDataDatesSql(ledgerDir)).map(r => r.date);
-  return assembleRegionalIdentifiers(dates, foldQuery<RegionalFoldRow>(regionalFoldSql(ledgerDir)));
+export function foldRegionalIdentifiers(source: string | ClaimsSource): RegionalIdentifierFold {
+  const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return { dates: [], rows: new Map() };
+  const dates = foldQuery<{ date: string }>(openDataDatesSql(claims)).map(r => r.date);
+  return assembleRegionalIdentifiers(dates, foldQuery<RegionalFoldRow>(regionalFoldSql(claims)));
 }
 
 // --- reports/callsign-patterns.md -------------------------------------------
@@ -442,10 +430,9 @@ interface PatternFoldRow {
 // empty token), so count(*) per (date, pattern) group is the record count and the
 // per-date sum is the record count. Every record lands in exactly one pattern
 // bucket — the legacy invariant — the blank ones under the recovered '' bucket.
-function callsignPatternSeriesSql(ledgerDir: string): string {
-  const glob = ledgerGlob(ledgerDir);
+function callsignPatternSeriesSql(source: ClaimsSource): string {
   return `WITH claims AS (
-  SELECT * FROM read_json(${glob}, format='newline_delimited', columns=${LEDGER_COLUMNS})
+  SELECT * FROM ${claimsRelation(source)}
 ),
 obs AS (
   SELECT sourceFile, ordinal, ${DATE_EXPR} AS date
@@ -481,9 +468,10 @@ function assembleCallsignPatternSeries(foldRows: readonly PatternFoldRow[]): Cal
 
 // Fold the callsign-pattern time-series from a directory of per-source ledger
 // JSONL files.
-export function foldCallsignPatternSeries(ledgerDir: string): CallsignPatternSeriesFold {
-  if (!hasClaims(ledgerDir)) return { keys: [], recordCounts: new Map(), patterns: new Map() };
-  return assembleCallsignPatternSeries(foldQuery<PatternFoldRow>(callsignPatternSeriesSql(ledgerDir)));
+export function foldCallsignPatternSeries(source: string | ClaimsSource): CallsignPatternSeriesFold {
+  const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return { keys: [], recordCounts: new Map(), patterns: new Map() };
+  return assembleCallsignPatternSeries(foldQuery<PatternFoldRow>(callsignPatternSeriesSql(claims)));
 }
 
 // --- The whole quality-report fold ------------------------------------------
@@ -495,26 +483,26 @@ export interface QualityReportFold {
   callsignPatterns: CallsignPatternSeriesFold;
 }
 
-// Fold both reports from a ledger directory (a caller holding a pre-built ledger
-// passes its directory), or materialise the corpus ledger ONCE to a scratch
-// directory and fold both from it (the standalone / sweep path). One ledger is
-// emitted and both folds read it, so the corpus is parsed a single time.
-//
-// The interim rebuild is the strangler's honest cost, exactly as
-// value-catalogue-fold documents: the ledger is not yet a committed/cached
-// artefact, so a self-contained run emits it on demand; the eventual path
-// consumes the deploy-time claims artefact (build-ledger-db). skipFailedSources
-// matches the normalise sweep's per-entry independence — a malformed entry the
-// sweep already reports is skipped, not a reason to crash the whole report.
+// Fold all four reports from ONE claims source, so the corpus is read a single
+// time. A caller holding a ledger passes its directory (a test fixture);
+// otherwise the shared deploy-time claims.parquet is read when the workflow built
+// one (issue #403), and only in its absence (local dev, tests) is the full-corpus
+// ledger materialised once to a scratch directory. skipFailedSources matches the
+// normalise sweep's per-entry independence — a malformed entry the sweep already
+// reports is skipped, not a reason to crash the whole report.
 export function buildQualityReportFold(ledgerDir?: string, ref: ReferenceData = loadReferenceData()): QualityReportFold {
-  const foldAll = (dir: string): QualityReportFold => ({
-    prefixes: foldPrefixDistribution(dir),
-    mismatches: foldClassProductMismatches(dir),
-    regionalIdentifiers: foldRegionalIdentifiers(dir),
-    callsignPatterns: foldCallsignPatternSeries(dir),
+  const foldAll = (source: string | ClaimsSource): QualityReportFold => ({
+    prefixes: foldPrefixDistribution(source),
+    mismatches: foldClassProductMismatches(source),
+    regionalIdentifiers: foldRegionalIdentifiers(source),
+    callsignPatterns: foldCallsignPatternSeries(source),
   });
   if (ledgerDir !== undefined) {
     return foldAll(ledgerDir);
+  }
+  const shared = deployClaimsSource();
+  if (shared !== null) {
+    return foldAll(shared);
   }
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'quality-report-ledger-'));
   try {

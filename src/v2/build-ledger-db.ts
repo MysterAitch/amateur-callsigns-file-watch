@@ -31,6 +31,7 @@
  *
  * Usage:
  *   node src/v2/build-ledger-db.ts [output.sqlite.png] [--subset] [--parquet]
+ *   node src/v2/build-ledger-db.ts [output.parquet] --parquet-only [--subset]
  */
 
 import * as fs from 'fs';
@@ -362,30 +363,69 @@ export function buildLedgerDb(dbPath: string, options: BuildLedgerDbOptions = {}
   }
 }
 
+export interface BuildClaimsParquetResult {
+  parquet: ParquetSummary;
+  sizeBytes: number;
+}
+
+// Build ONLY the shared claims.parquet (issue #403): materialise the ledger ONCE
+// and emit the Parquet the report folds consume, WITHOUT the SQLite the deploy
+// database build produces. This is the single materialisation the folds share —
+// a workflow runs it once and exports its path as CLAIMS_PARQUET, so every fold
+// reads it via read_parquet instead of re-emitting the multi-GB ledger per
+// report. skipFailedSources matches how the folds materialise on demand, so the
+// Parquet carries the exact claims a fold's fallback would have emitted. Throws
+// when no DuckDB CLI is available (the Parquet lane needs the engine, ADR 0002).
+export function buildClaimsParquet(parquetPath: string, options: { selectEntry?: EntrySelector } = {}): BuildClaimsParquetResult {
+  const bin = findDuckdb();
+  if (bin === null) {
+    throw new Error('no DuckDB CLI available (set DUCKDB_BIN or put `duckdb` on PATH) - required to build the shared claims.parquet');
+  }
+  const ledgerRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'v2-claims-parquet-'));
+  try {
+    buildLedger(ledgerRoot, undefined, undefined, options.selectEntry, true);
+    const parquet = emitClaimsParquet(path.join(ledgerRoot, 'ledger'), parquetPath, bin);
+    return { parquet, sizeBytes: fs.statSync(parquet.parquetPath).size };
+  } finally {
+    fs.rmSync(ledgerRoot, { recursive: true, force: true });
+  }
+}
+
 if (import.meta.main) {
   const args = process.argv.slice(2).filter(a => a.trim().length > 0);
   const flags = new Set(args.filter(a => a.startsWith('--')));
   const positional = args.filter(a => !a.startsWith('--'));
-  const dbPath = positional[0] ?? path.join('_site', 'data', 'claim-ledger.sqlite.png');
   const useSubset = flags.has('--subset');
-  const wantParquet = flags.has('--parquet');
 
-  // Keep the ledger for the Parquet lane so DuckDB reads the same JSONL the
-  // SQLite loaded, rather than re-emitting it.
-  const ledgerDir = wantParquet ? fs.mkdtempSync(path.join(os.tmpdir(), 'v2-ledger-db-cli-')) : undefined;
-  try {
-    const result = buildLedgerDb(dbPath, {
-      selectEntry: useSubset ? subsetSelector() : undefined,
-      ledgerDir,
-      parquet: wantParquet,
-    });
-    console.log(`built claim-ledger SQLite ${result.dbPath} (${useSubset ? 'subset' : 'full corpus'})`);
-    console.log(`  claims: ${result.sqlite.claims}, entities: ${result.sqlite.entities}, sources: ${result.sqlite.sources}, analyzed: ${result.sqlite.analyzed}`);
-    console.log(`  sqlite: ${result.sizes.sqlite} bytes, gz twin: ${result.sizes.gz} bytes`);
-    if (result.parquet !== null) console.log(`  parquet: ${result.parquet.rows} rows, ${result.sizes.parquet} bytes`);
-    else if (wantParquet) console.log('  parquet: skipped - no DuckDB CLI (set DUCKDB_BIN or put `duckdb` on PATH)');
-  } finally {
-    if (ledgerDir !== undefined) fs.rmSync(ledgerDir, { recursive: true, force: true });
+  // Parquet-only mode (issue #403): build just the shared claims.parquet the
+  // report folds consume, skipping the SQLite database build entirely. The
+  // positional argument is the Parquet path.
+  if (flags.has('--parquet-only')) {
+    const parquetPath = positional[0] ?? path.join('_site', 'data', 'claims.parquet');
+    const result = buildClaimsParquet(parquetPath, { selectEntry: useSubset ? subsetSelector() : undefined });
+    console.log(`built shared claims.parquet ${result.parquet.parquetPath} (${useSubset ? 'subset' : 'full corpus'})`);
+    console.log(`  rows: ${result.parquet.rows}, ${result.sizeBytes} bytes`);
+  } else {
+    const dbPath = positional[0] ?? path.join('_site', 'data', 'claim-ledger.sqlite.png');
+    const wantParquet = flags.has('--parquet');
+
+    // Keep the ledger for the Parquet lane so DuckDB reads the same JSONL the
+    // SQLite loaded, rather than re-emitting it.
+    const ledgerDir = wantParquet ? fs.mkdtempSync(path.join(os.tmpdir(), 'v2-ledger-db-cli-')) : undefined;
+    try {
+      const result = buildLedgerDb(dbPath, {
+        selectEntry: useSubset ? subsetSelector() : undefined,
+        ledgerDir,
+        parquet: wantParquet,
+      });
+      console.log(`built claim-ledger SQLite ${result.dbPath} (${useSubset ? 'subset' : 'full corpus'})`);
+      console.log(`  claims: ${result.sqlite.claims}, entities: ${result.sqlite.entities}, sources: ${result.sqlite.sources}, analyzed: ${result.sqlite.analyzed}`);
+      console.log(`  sqlite: ${result.sizes.sqlite} bytes, gz twin: ${result.sizes.gz} bytes`);
+      if (result.parquet !== null) console.log(`  parquet: ${result.parquet.rows} rows, ${result.sizes.parquet} bytes`);
+      else if (wantParquet) console.log('  parquet: skipped - no DuckDB CLI (set DUCKDB_BIN or put `duckdb` on PATH)');
+    } finally {
+      if (ledgerDir !== undefined) fs.rmSync(ledgerDir, { recursive: true, force: true });
+    }
   }
 }
 
