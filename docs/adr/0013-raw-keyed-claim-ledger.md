@@ -228,9 +228,11 @@ disclosures), and the issuance-events family (callsign-subject dated licensing
 events) — each joined through a shared collector registry
 (`src/v2/collectors/`) in which adding a family is adding a module plus one
 registry line, so the source-family-extension pattern is now proven across the
-corpus rather than on a single family. The reports-fold cutover has since begun:
-the value catalogue's licence-category table now folds from the ledger with a
-committed equivalence oracle, following the cross-dataset-invariants report. And
+corpus rather than on a single family. The reports-fold cutover is under way:
+following the cross-dataset-invariants report, the value catalogue's
+licence-category and parse-derived field tables now fold from the ledger, and the
+forbidden-suffix history report folds byte-identically — each with a committed
+equivalence oracle. And
 a trust-rating safety net derives source authority and claim confidence from
 provenance and fails loud on any inflation ([ADR 0014](0014-trust-rating-safety-net.md)),
 making the confidence-partition model above enforceable rather than merely
