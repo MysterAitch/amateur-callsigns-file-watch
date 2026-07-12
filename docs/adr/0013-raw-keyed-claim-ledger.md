@@ -246,12 +246,18 @@ parse-dependent quality-report folds. Source-position provenance is now attested
 per observation — the exact CSV line or spreadsheet cell an observation came
 from — with source-intrinsic facts kept rigorously distinct from
 archive/processing artefacts ([ADR 0015](0015-source-intrinsic-vs-archive-provenance.md)).
-A committed reconstruction oracle now rebuilds the CSV-lane text sources (the
-open-data, FOI-CSV and addendum lanes — 31 sources) from their claims alone,
-byte-identical modulo cosmetic quoting/line-ending differences, with the
-verbatim as-published header attested as a file-level claim
-([ADR 0016](0016-file-level-claims-and-reconstruction-oracle.md)) — so for those
-lanes the raw layer is proven canonical, not merely asserted.
+A committed reconstruction oracle now rebuilds every text source — 44 across the
+open-data, FOI-CSV, addendum and FOI free-text lanes (markdown-table, preamble,
+prefixed-suffix) — from claims alone, byte-identical modulo cosmetic
+quoting/line-ending differences, with the verbatim as-published header attested
+as a file-level claim
+([ADR 0016](0016-file-level-claims-and-reconstruction-oracle.md)). For the CSV
+lanes this proves the *main ledger's* raw layer canonical, not merely asserted.
+For the 13 FOI free-text sources, however, the lossless projection is currently
+built by the oracle alone rather than promoted into the main ledger (whose
+claims for these sources remain lossy), so the oracle mirror — not the ledger —
+is canonical for them today; closing that gap against the inversion premise is
+tracked in [#455](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/455).
 
 Remaining: the reviewed canonical vocabularies and coverage-aware gating the
 temporal fold depends on; the continued onboarding through the registry of
