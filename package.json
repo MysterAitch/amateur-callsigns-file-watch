@@ -9,6 +9,7 @@
     "process": "node src/sources/ofcom-amateur/process.ts",
     "migrate-archive": "node src/sources/ofcom-amateur/migrate-archive.ts",
     "scheduled": "node src/scheduled-run.ts",
+    "setup:duckdb": "node src/tools/setup-duckdb.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

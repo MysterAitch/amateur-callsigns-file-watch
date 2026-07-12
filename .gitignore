@@ -11,6 +11,9 @@ ofcom_page.html
 # Vitest coverage output (local + CI runs; never committed)
 coverage/
 
+# Locally bootstrapped DuckDB CLI (npm run setup:duckdb); CI installs its own.
+.duckdb/
+
 # Local-only drop zone for pre-ingestion source material (see
 # docs/source-register.md). NEVER committed: contains WDTK json/html
 # save-pages and original attachments, which carry personal-data artefacts

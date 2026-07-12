@@ -20,3 +20,9 @@ afterthought.
 
 Don't turn this into a tickbox exercise: delete sections that don't apply and
 don't pad. Pragmatism wins.
+
+## Running the tests
+
+Run `npm run setup:duckdb` once to install the pinned DuckDB CLI locally; the
+report-fold and normalise-sweep tests fold committed reports through it and skip
+(with a pointer back to this command) until it is present.
