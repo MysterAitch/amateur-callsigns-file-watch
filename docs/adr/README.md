@@ -12,7 +12,10 @@ CSV, query databases, reports and pages all become derived folds. It is
 accepted, and its implementation is a strangler migration running alongside the
 snapshot-canonical flow the earlier ADRs (notably [0001](0001-post-fetch-processing-in-repo.md)
 and [0010](0010-archive-contract.md)) describe — so read those as the current
-baseline, and 0013 as the direction of travel.
+baseline, and 0013 as the direction of travel. The two trust axes that model
+surfaces — source authority and claim confidence — are derived from provenance
+and guarded against inflation by [ADR 0014](0014-trust-rating-safety-net.md), the
+enforcement companion to 0013's confidence model.
 
 | ADR | Decision | Status | Date |
 |---|---|---|---|
