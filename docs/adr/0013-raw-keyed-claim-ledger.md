@@ -228,12 +228,13 @@ disclosures), and the issuance-events family (callsign-subject dated licensing
 events) — each joined through a shared collector registry
 (`src/v2/collectors/`) in which adding a family is adding a module plus one
 registry line, so the source-family-extension pattern is now proven across the
-corpus rather than on a single family. The reports-fold cutover is under way:
-following the cross-dataset-invariants report, the value catalogue's
-licence-category and parse-derived field tables now fold from the ledger, the
-forbidden-suffix history report folds byte-identically, and the quality reports
-largely fold (prefix-series, class-product-mismatches, regional-identifiers and
-callsign-patterns) — each with a committed equivalence oracle. And
+corpus rather than on a single family. The reports-fold cutover is complete:
+every report generator now folds from the raw-keyed claim ledger — the value
+catalogue (licence-category and parse-derived field tables), the byte-identical
+forbidden-suffix history report, and the quality reports (prefix-series,
+class-product-mismatches, regional-identifiers, callsign-patterns and
+data-quality) — each verified by a committed equivalence oracle, alongside the
+cross-dataset-invariants report that began the cutover. And
 a trust-rating safety net derives source authority and claim confidence from
 provenance and fails loud on any inflation ([ADR 0014](0014-trust-rating-safety-net.md)),
 making the confidence-partition model above enforceable rather than merely
@@ -241,11 +242,15 @@ declared. The T1 parse-attribute tier now emits as rule-attributed derived
 claims (`prefix_series`, `implied_class`, `parse_status`, and per-row `flag`
 claims from a single `parse-callsign` rule, reading out *Computed*, later
 extended with `rsl` and `callsign-pattern` claims), unblocking the
-parse-dependent quality-report folds.
+parse-dependent quality-report folds. Source-position provenance is now attested
+per observation — the exact CSV line or spreadsheet cell an observation came
+from — with source-intrinsic facts kept rigorously distinct from
+archive/processing artefacts ([ADR 0015](0015-source-intrinsic-vs-archive-provenance.md)).
 
-Remaining: migration of the remaining reports and pages onto ledger folds; the
-reviewed canonical vocabularies and coverage-aware gating the temporal fold
-depends on; the continued onboarding through the registry of heterogeneous
-sources still pending intake (tracked in `docs/source-register.md`); and, only
-once each legacy projection is reproduced against its golden, retirement of the
-legacy snapshot-canonical flow.
+Remaining: the reviewed canonical vocabularies and coverage-aware gating the
+temporal fold depends on; the continued onboarding through the registry of
+heterogeneous sources still pending intake (tracked in
+`docs/source-register.md`); and retirement of the legacy snapshot-canonical
+flow — now that every report folds, its code and data-flows can be removed
+against each fold's committed equivalence oracle, while the committed golden
+derivatives are deliberately retained as the durable comparison baseline.
