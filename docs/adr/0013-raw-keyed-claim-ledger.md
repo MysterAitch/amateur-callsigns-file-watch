@@ -228,7 +228,13 @@ disclosures), and the issuance-events family (callsign-subject dated licensing
 events) — each joined through a shared collector registry
 (`src/v2/collectors/`) in which adding a family is adding a module plus one
 registry line, so the source-family-extension pattern is now proven across the
-corpus rather than on a single family.
+corpus rather than on a single family. The reports-fold cutover has since begun:
+the value catalogue's licence-category table now folds from the ledger with a
+committed equivalence oracle, following the cross-dataset-invariants report. And
+a trust-rating safety net derives source authority and claim confidence from
+provenance and fails loud on any inflation ([ADR 0014](0014-trust-rating-safety-net.md)),
+making the confidence-partition model above enforceable rather than merely
+declared.
 
 Remaining: migration of the remaining reports and pages onto ledger folds; the
 reviewed canonical vocabularies and coverage-aware gating the temporal fold
