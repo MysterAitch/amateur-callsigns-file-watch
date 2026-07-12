@@ -56,8 +56,9 @@ export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta
   // read from the same authored raw->canonical binding as the callsign/product
   // columns (never re-guessed). Only the 2026 variant declares one; older
   // variants map no such column and derive no temporal flag. The open-data raw
-  // renders this date DD/MM/YYYY, which parseCallsign treats as a non-ISO date
-  // and conservatively withholds the flag on - honest silence, not a misfire.
+  // renders this date DD/MM/YYYY; parseCallsign interprets that known day-first
+  // rendering for the temporal comparison (the raw claim stays verbatim), so the
+  // flag fires on the same entries the ISO-normalised lane does.
   const originalStartDateColumn = rawColumnForCanonical(parsed.mapping, 'licence_version_original_start_date');
   return {
     // Corpus-unique, self-locating provenance parallel to the FOI lane's

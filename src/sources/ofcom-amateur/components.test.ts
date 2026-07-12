@@ -177,6 +177,48 @@ describe('parseCallsign', () => {
     expect(r.flags).toContain('forbidden-suffix-issued-after-first-known-list');
   });
 
+  it('Parse_WhenForbiddenSuffixIssuedAfterFirstKnownList_DayFirstDateFlaggedLikeIso', () => {
+    // The open-data lane renders original-start-date UK day-first (DD/MM/YYYY);
+    // the rule must interpret that known rendering identically to ISO. 01/05/2020
+    // is 1 May 2020, after ASS's 2016-07 first-known-forbidden month, so it earns
+    // the flag - and does so identically to the equivalent ISO date (#429 gap).
+    const dayFirst = parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '01/05/2020');
+    expect(dayFirst.flags).toContain('forbidden-suffix-issued-after-first-known-list');
+    const iso = parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '2020-05-01');
+    expect(dayFirst.flags).toEqual(iso.flags);
+  });
+
+  it('Parse_WhenForbiddenSuffixIssuedBeforeFirstKnownList_DayFirstDateNotFlagged', () => {
+    // A day-first date BEFORE the suffix's first-known month must not gain the
+    // flag: 01/05/2010 predates ASS's 2016-07 boundary. The comparison uses the
+    // day-first MONTH (05), not a month-first misreading - proven by the fact a
+    // month-first read of 01/05/2010 (January) would land in the same benign era,
+    // while 08/08/2016 below (unambiguous day>12-free but past the boundary) does
+    // flag, confirming real day-first month extraction downstream.
+    const early = parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '01/05/2010');
+    expect(early.flags).toContain('forbidden-suffix');
+    expect(early.flags).not.toContain('forbidden-suffix-issued-after-first-known-list');
+  });
+
+  it('Parse_WhenForbiddenSuffixDayFirstDateUnambiguousDayProvesDayFirstMonth', () => {
+    // A day>12 value can only be read day-first, pinning the month unambiguously:
+    // 31/08/2016 is 31 August 2016, one month after ASS's 2016-07 boundary, so it
+    // flags; 31/07/2016 is within the boundary month and does not. This is the
+    // guard that the rule reads month from the SECOND field, not the first.
+    expect(parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '31/08/2016').flags)
+      .toContain('forbidden-suffix-issued-after-first-known-list');
+    expect(parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, '31/07/2016').flags)
+      .not.toContain('forbidden-suffix-issued-after-first-known-list');
+  });
+
+  it('Parse_WhenForbiddenSuffixDateGenuinelyUnparseable_PostListWithheld', () => {
+    // A date matching neither known source rendering is not coerced: the flag is
+    // honestly withheld while the ordinary forbidden-suffix flag still rides.
+    const r = parseCallsign('M7ASS', 'Amateur Foundation Radio Licence', REF, 'May 1 2020');
+    expect(r.flags).toContain('forbidden-suffix');
+    expect(r.flags).not.toContain('forbidden-suffix-issued-after-first-known-list');
+  });
+
   it('Parse_WhenForbiddenSuffixIssuedBeforeAnyKnownList_PostListNotFlagged', () => {
     // The bulk forbidden-suffix rows are long-standing allocations that predate
     // the lists - a pre-2016 original start date is exactly this benign case

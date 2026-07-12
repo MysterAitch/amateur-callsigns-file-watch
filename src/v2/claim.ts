@@ -250,9 +250,10 @@ export interface SourceObservationSet {
   // `forbidden-suffix-issued-after-first-known-list` flag; absent when the
   // source discloses no such date (the reduced Value/Status/Type snapshots), in
   // which case that flag is honestly never derivable for the source. The RAW
-  // cell travels verbatim to the parser, which withholds the flag on a blank or
-  // NON-ISO date (e.g. an open-data DD/MM/YYYY rendering) rather than guessing -
-  // the same conservative silence isAfterFirstKnownForbidden documents.
+  // cell travels verbatim to the parser, which interprets its known rendering -
+  // ISO or the open-data day-first DD/MM/YYYY - for the comparison, and still
+  // withholds the flag on a blank or genuinely unparseable date rather than
+  // guessing, the conservative silence isAfterFirstKnownForbidden documents.
   originalStartDateColumn?: string;
 }
 
