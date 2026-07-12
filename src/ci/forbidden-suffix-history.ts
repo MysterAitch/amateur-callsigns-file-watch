@@ -5,11 +5,33 @@
  *
  * The forbidden list is a first-class dataset category (#288), not only a
  * per-callsign flag. This report makes "has the disallowed vocabulary
- * evolved, and when?" answerable from committed data alone: it reads the
- * normalised suffix files of the FOI `forbidden-list` entries - never the
- * gitignored `landing/` drop zone - so the comparison is traceable and a
- * change in a PR diff is a drift signal, exactly like the cross-dataset
- * invariants (#241) it mirrors.
+ * evolved, and when?" answerable from committed data alone: it is traceable to
+ * the committed FOI `forbidden-list` entries - never the gitignored `landing/`
+ * drop zone - so a change in a PR diff is a drift signal, exactly like the
+ * cross-dataset invariants (#241) it mirrors.
+ *
+ * FOLD FROM THE CLAIM LEDGER (issue #361, migration map step 3). The committed
+ * report is FOLDED from the raw-keyed claim ledger via the DuckDB primitive in
+ * src/v2/report-fold.ts (the pattern cross-dataset-invariants #373 and
+ * value-catalogue-fold #402/#414 established): the `forbidden-list` family emits,
+ * per (suffix, disclosure-vintage), a raw `@listed` existence claim plus - where
+ * the source carries one - a raw LastModifiedDate attribute claim, and every
+ * computed view here (per-disclosure distinct/rows/duplicate counts, the
+ * cross-disclosure set diff, the LastModifiedDate distribution, the ever-
+ * forbidden union, first-known-forbidden per suffix, and the changed-suffix
+ * matrix) is a fold over those per-(suffix, vintage) claims.
+ *
+ * EQUIVALENCE IS SEMANTIC, not byte-forced (issue #361). The ledger stores the
+ * suffix token and the LastModifiedDate VERBATIM, so the fold re-applies the two
+ * transforms the normalised store baked in, each on its OWN authoritative rule
+ * rather than re-derived: the verbatim column's edge-whitespace trim, and the
+ * day-first date rule parseUkDateTime (shared/normalise.ts). With those, the
+ * fold reproduces the committed report exactly; the durable oracle
+ * (forbidden-suffix-history-fold.test.ts) pins the fold ≤ legacy / never-invents
+ * invariants and an explained allow-list so any NEW drift trips CI. The legacy
+ * collector (collectRawDisclosures, reading the normalised suffix files) is
+ * RETAINED as that equivalence reference and remains the path the forbidden-
+ * section page renderer consumes.
  *
  * Per disclosure it surfaces: the distinct-suffix count (with any duplicate
  * rows called out as a within-disclosure data-quality artefact, never
@@ -43,9 +65,17 @@
  */
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { defaultFoiDir, listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
+import { parseUkDateTime } from '../shared/normalise.ts';
+import { normalisedFileNameFor } from '../shared/foi-normalise.ts';
+import { foldQuery } from '../v2/report-fold.ts';
+import { emitClaims, LISTED_PREDICATE } from '../v2/claim.ts';
+import { serialiseClaimsJsonl } from '../v2/serialise.ts';
+import { jsonlStem } from '../v2/collectors/util.ts';
+import { forbiddenListEntries, forbiddenSourcesFor, loadForbiddenSource } from '../v2/collectors/forbidden-list.ts';
 
 // One forbidden-suffix disclosure: a single FOI entry's suffix file, with the
 // diff against its predecessor and the last-modified distribution where the
@@ -113,8 +143,11 @@ function readCsv(file: string): Record<string, string>[] {
 }
 
 // Every FOI `forbidden-list` entry's normalised suffix file (a normalised
-// file whose header carries a `suffix` column). Ordered by (vintage, entry)
-// so consecutive diffs read chronologically and regeneration is stable.
+// file whose header carries a `suffix` column). This is the LEGACY collector,
+// retained as the fold's equivalence reference (and still the source the
+// forbidden-section page renderer consumes): it reads the committed normalised
+// projections, whose suffix and last-modified values are already the trimmed /
+// day-first-normalised forms the report shows.
 function collectRawDisclosures(foiDir: string): RawDisclosure[] {
   const out: RawDisclosure[] = [];
   for (const entry of listFoiEntryKeys(foiDir)) {
@@ -133,8 +166,16 @@ function collectRawDisclosures(foiDir: string): RawDisclosure[] {
       });
     }
   }
-  out.sort((a, b) => a.vintage.localeCompare(b.vintage) || a.entry.localeCompare(b.entry) || a.sourceFile.localeCompare(b.sourceFile));
   return out;
+}
+
+// Chronological corpus order: (vintage, entry, sourceFile) so consecutive diffs
+// read oldest-first and regeneration is stable. Applied by the shared reducer,
+// so the legacy collector and the ledger fold order identically regardless of
+// the order each discovers its disclosures in.
+function sortRawDisclosures(raw: readonly RawDisclosure[]): RawDisclosure[] {
+  return [...raw].sort((a, b) =>
+    a.vintage.localeCompare(b.vintage) || a.entry.localeCompare(b.entry) || a.sourceFile.localeCompare(b.sourceFile));
 }
 
 function lastModifiedDistribution(rows: RawDisclosure['rows']): ForbiddenDisclosure['lastModified'] {
@@ -172,8 +213,16 @@ function firstKnownFor(suffix: string, disclosures: ForbiddenDisclosure[]): Suff
   return candidates[0];
 }
 
-export function buildForbiddenSuffixHistory(foiDir: string = defaultFoiDir()): ForbiddenSuffixHistory {
-  const raw = collectRawDisclosures(foiDir);
+// The pure reducer: fold a set of per-disclosure suffix rows into every history
+// view. Shared by BOTH the legacy normalised-file collector and the ledger fold
+// so the two paths differ ONLY in how they source the rows - the
+// distinct/duplicate/diff/union/first-known/matrix reductions are one
+// implementation, which is exactly what makes the fold provably equivalent to
+// the legacy computation. Input rows carry the already-normalised suffix and
+// last-modified forms (trimmed / day-first-normalised); this reducer never
+// transforms a value, only counts and diffs them.
+export function historyFromDisclosures(rawDisclosures: readonly RawDisclosure[]): ForbiddenSuffixHistory {
+  const raw = sortRawDisclosures(rawDisclosures);
   const disclosures: ForbiddenDisclosure[] = [];
   const changed = new Set<string>();
   const union = new Set<string>();
@@ -220,6 +269,163 @@ export function buildForbiddenSuffixHistory(foiDir: string = defaultFoiDir()): F
     changedSuffixes: [...changed].sort(),
     firstKnownForbidden,
   };
+}
+
+// The LEGACY build: fold the history from the committed normalised suffix files.
+// Retained as the fold's equivalence reference and the path the forbidden-
+// section page renderer (build-forbidden-section.ts) consumes, so its output
+// shape - including the normalised `sourceFile` name that page keys its download
+// links off - is unchanged.
+export function buildForbiddenSuffixHistory(foiDir: string = defaultFoiDir()): ForbiddenSuffixHistory {
+  return historyFromDisclosures(collectRawDisclosures(foiDir));
+}
+
+// --- Ledger fold (issue #361, migration map step 3) ------------------------
+//
+// The committed report is folded from the raw-keyed claim ledger: the
+// `forbidden-list` family's per-(suffix, vintage) `@listed` existence claims
+// (one per source row, carrying the raw suffix token) plus the raw
+// LastModifiedDate attribute claim where the disclosure supplies one. The heavy
+// read - scanning the per-source JSONL and joining each row's existence claim to
+// its last-modified claim on the observation key - runs in DuckDB via
+// report-fold.ts; the small, per-corpus reduction (distinct/diff/union/matrix)
+// stays in the shared reducer above, identical to the legacy path.
+
+// The declared claim-ledger JSONL column schema (as value-catalogue-fold pins
+// it): raw claims omit the optional `rule`, so a sampled inference would miss
+// it; pinning the columns makes `rule` NULL wherever a claim asserts none.
+const LEDGER_COLUMNS = "{layer: 'VARCHAR', rawSubject: 'VARCHAR', predicate: 'VARCHAR', object: 'VARCHAR', sourceFile: 'VARCHAR', ordinal: 'BIGINT', vintage: 'VARCHAR', rule: 'VARCHAR'}";
+
+// One forbidden-list disclosure resolved for the fold: its chronological
+// identity (entry / vintage), the normalised file name the ForbiddenDisclosure
+// shape reports (so the fold and legacy objects match field-for-field), the
+// ledger JSONL stem the family's claims land under, and a thunk that emits those
+// claims (used only when materialising a ledger on demand).
+export interface ForbiddenLedgerSource {
+  entry: string;
+  vintage: string;
+  normalisedFileName: string;
+  jsonlStem: string;
+  emit: () => ReturnType<typeof emitClaims>;
+}
+
+// The forbidden-list sources, discovered exactly as the ledger collector does
+// (forbiddenListEntries + forbiddenSourcesFor), so a class-declaring entry with
+// no authored suffix converter - the byte-identical as-published duplicate
+// ofcom-337399 - yields no source here, matching the legacy collector's skip of
+// an entry with no normalised suffix file.
+function enumerateForbiddenLedgerSources(foiDir: string): ForbiddenLedgerSource[] {
+  const sources: ForbiddenLedgerSource[] = [];
+  for (const { entry, meta } of forbiddenListEntries(foiDir)) {
+    for (const source of forbiddenSourcesFor(meta)) {
+      sources.push({
+        entry,
+        vintage: meta.dataVintage ?? '—',
+        normalisedFileName: normalisedFileNameFor(source.conversion.sourceFile),
+        jsonlStem: jsonlStem('forbidden', entry, source.conversion.sourceFile),
+        emit: () => emitClaims(loadForbiddenSource(foiDir, entry, meta, source)),
+      });
+    }
+  }
+  return sources;
+}
+
+// One folded observation as DuckDB returns it: the disclosure index, its raw
+// suffix token, and the raw last-modified value (NULL where the disclosure
+// carries no last-modified column).
+interface ForbiddenFoldRow {
+  didx: number;
+  rawSuffix: string;
+  rawLastModified: string | null;
+}
+
+// One JSONL file's read branch, tagged with its disclosure index so a single
+// query folds every disclosure at once. Each forbidden source writes exactly one
+// JSONL file, so a file IS a disclosure.
+function readBranch(file: string, didx: number): string {
+  const escaped = file.replace(/\\/g, '/').replace(/'/g, "''");
+  return `SELECT ${didx} AS didx, ordinal, layer, predicate, rawSubject, object `
+    + `FROM read_json('${escaped}', format='newline_delimited', columns=${LEDGER_COLUMNS})`;
+}
+
+// Fold the per-observation (suffix, last-modified) projection out of the ledger:
+// join each `@listed` existence claim to its row's last-modified attribute claim
+// on the observation key (didx, ordinal). A forbidden source emits only the
+// existence claim and - for the 2024 export - the LastModifiedDate attribute, so
+// "the raw claim that is not `@listed`" is exactly the last-modified value; the
+// LEFT JOIN yields NULL for the earlier lists that carry none. The total ORDER
+// BY satisfies report-fold's determinism contract (the reduction is set-based,
+// but a stable fold output keeps the fold itself reproducible run to run).
+function foldSql(files: readonly string[]): string {
+  const branches = files.map((file, index) => readBranch(file, index)).join('\nUNION ALL\n');
+  return `WITH claims AS (
+${branches}
+),
+listed AS (SELECT didx, ordinal, rawSubject FROM claims WHERE predicate = '${LISTED_PREDICATE}'),
+lastmod AS (SELECT didx, ordinal, object FROM claims WHERE layer = 'raw' AND predicate <> '${LISTED_PREDICATE}')
+SELECT l.didx AS didx, l.rawSubject AS rawSuffix, lm.object AS rawLastModified
+FROM listed l
+LEFT JOIN lastmod lm ON lm.didx = l.didx AND lm.ordinal = l.ordinal
+ORDER BY l.didx, l.ordinal`;
+}
+
+// The verbatim column's only transform, mirroring foi-normalise.ts's
+// EDGE_WHITESPACE_RE (`\s` covers the NBSP the FOI trim also strips): the ledger
+// stores the suffix token untrimmed, so the fold re-applies the same edge trim
+// the normalised store baked in, keeping "  ZIT " and "ZIT" the one suffix the
+// report counts.
+const EDGE_WHITESPACE_RE = /^\s+|\s+$/g;
+
+// Reproject the folded rows into the per-disclosure RawDisclosure shape the
+// reducer consumes, applying - each on its OWN authoritative rule, never re-
+// derived - the two transforms the normalised store baked in: the suffix edge
+// trim, and parseUkDateTime for the day-first raw last-modified value. A
+// disclosure with no fold rows (defensive; every real forbidden source lists at
+// least one suffix) reprojects to an empty row set.
+export function collectRawDisclosuresFromLedger(ledgerDir: string, sources: readonly ForbiddenLedgerSource[]): RawDisclosure[] {
+  if (sources.length === 0) return [];
+  const files = sources.map(source => path.join(ledgerDir, `${source.jsonlStem}.jsonl`));
+  const rowsByDisclosure = new Map<number, RawDisclosure['rows']>();
+  for (const row of foldQuery<ForbiddenFoldRow>(foldSql(files))) {
+    const rows = rowsByDisclosure.get(row.didx) ?? [];
+    rows.push({
+      suffix: row.rawSuffix.replace(EDGE_WHITESPACE_RE, ''),
+      lastModified: row.rawLastModified === null ? undefined : parseUkDateTime(row.rawLastModified),
+    });
+    rowsByDisclosure.set(row.didx, rows);
+  }
+  return sources.map((source, index) => ({
+    entry: source.entry,
+    vintage: source.vintage,
+    sourceFile: source.normalisedFileName,
+    rows: rowsByDisclosure.get(index) ?? [],
+  }));
+}
+
+// Build the history by folding the claim ledger. A caller that already holds a
+// ledger directory (the normalise sweep once it emits one upstream; a test with
+// a fixture) passes it, and the fold reads that ledger's forbidden JSONL files
+// directly. Otherwise the forbidden family's claims are emitted to a scratch
+// ledger on demand and folded from there - the same honest interim cost the
+// value-catalogue fold documents, scoped to JUST the forbidden sources so the
+// register-and-forbidden container entries' large callsign sheets are never
+// materialised to read four suffix lists.
+export function buildForbiddenSuffixHistoryFold(ledgerDir?: string, foiDir: string = defaultFoiDir()): ForbiddenSuffixHistory {
+  const sources = enumerateForbiddenLedgerSources(foiDir);
+  if (ledgerDir !== undefined) {
+    return historyFromDisclosures(collectRawDisclosuresFromLedger(ledgerDir, sources));
+  }
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'forbidden-suffix-ledger-'));
+  try {
+    const dir = path.join(scratch, 'ledger');
+    fs.mkdirSync(dir, { recursive: true });
+    for (const source of sources) {
+      fs.writeFileSync(path.join(dir, `${source.jsonlStem}.jsonl`), serialiseClaimsJsonl(source.emit()));
+    }
+    return historyFromDisclosures(collectRawDisclosuresFromLedger(dir, sources));
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
 }
 
 function suffixList(suffixes: string[]): string {
@@ -376,8 +582,14 @@ export function renderForbiddenSuffixHistory(h: ForbiddenSuffixHistory): string 
 
 export const FORBIDDEN_SUFFIX_HISTORY_PATH = 'reports/forbidden-suffix-history.md';
 
-export function writeForbiddenSuffixHistory(): { path: string; changed: boolean } {
-  const markdown = renderForbiddenSuffixHistory(buildForbiddenSuffixHistory());
+// Regenerate and commit the report, FOLDED from the claim ledger (issue #361).
+// A caller with a pre-built ledger directory passes it to avoid re-emitting the
+// forbidden claims; otherwise the fold materialises the forbidden slice on
+// demand. Written relative to the working directory - the same root the fold
+// reads archive/foi from - so a sweep run against a fixture archive in a temp
+// cwd writes ITS history there, never clobbering the committed real one.
+export function writeForbiddenSuffixHistory(ledgerDir?: string): { path: string; changed: boolean } {
+  const markdown = renderForbiddenSuffixHistory(buildForbiddenSuffixHistoryFold(ledgerDir));
   const target = path.resolve(process.cwd(), FORBIDDEN_SUFFIX_HISTORY_PATH);
   fs.mkdirSync(path.dirname(target), { recursive: true });
   const existing = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : undefined;
@@ -387,6 +599,10 @@ export function writeForbiddenSuffixHistory(): { path: string; changed: boolean 
 }
 
 if (import.meta.main) {
-  const { path: written, changed } = writeForbiddenSuffixHistory();
+  // An optional pre-built ledger directory (from `node src/v2/build-ledger.ts
+  // <dir>`) lets a run fold without re-emitting the forbidden claims; omit it
+  // and the fold materialises its own.
+  const [ledgerDir] = process.argv.slice(2).filter(arg => arg.trim().length > 0);
+  const { path: written, changed } = writeForbiddenSuffixHistory(ledgerDir);
   console.log(`${changed ? 'wrote' : 'up to date'}: ${written}`);
 }
