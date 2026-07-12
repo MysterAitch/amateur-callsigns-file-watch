@@ -1,8 +1,8 @@
 # 0015. Source-intrinsic vs archive/processing provenance
 
-Status: proposed
+Status: accepted
 Date: 2026-07-12
-Relates: #431, #361 (raw-keyed claim ledger), #404 (trust-rating net), ADR 0013, ADR 0014
+Relates: #431, #361 (raw-keyed claim ledger), #404 (trust-rating net), ADR 0013, ADR 0014, ADR 0016 (file-level claims + reconstruction oracle — the companion #431 fidelity infrastructure)
 
 ## Context
 
