@@ -63,9 +63,21 @@ const PAIRS: [name: string, fg: string, bg: string][] = [
   ['faint small headers on the surface', 'faint', 'surface'],
 ];
 
-describe('ledger.css contrast guard (issue #407)', () => {
+// The sibling status pills - raw (birth/observed), change (moved/churn) and
+// steady (flat/done) - each render their coloured label on the matching *-soft
+// fill. The #397 audit's flagged set (above) did not include these, but the
+// #411 follow-up measured all three below AA in the light theme. Guarding them
+// as (label token, soft-fill token) pairs stops a palette edit dropping them
+// back under 4.5 unnoticed. Each is small monospace text, so the bar is 4.5.
+const PILL_PAIRS: [name: string, fg: string, bg: string][] = [
+  ['raw pill: raw text on raw-soft', 'raw', 'raw-soft'],
+  ['change pill: change text on change-soft', 'change', 'change-soft'],
+  ['steady pill: steady text on steady-soft', 'steady', 'steady-soft'],
+];
+
+describe('ledger.css contrast guard (issues #407 / #411)', () => {
   for (const [theme, body] of [['light', LIGHT], ['dark', DARK]] as const) {
-    for (const [label, fg, bg] of PAIRS) {
+    for (const [label, fg, bg] of [...PAIRS, ...PILL_PAIRS]) {
       it(`Contrast_${theme}Theme_${fg}On${bg}_MeetsAA`, () => {
         const ratio = contrast(token(body, fg), token(body, bg));
         expect(ratio, `${label} (${theme}): ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(AA_NORMAL);
@@ -76,7 +88,8 @@ describe('ledger.css contrast guard (issue #407)', () => {
   // The OS-default blocks and their explicit data-theme twins must agree, or a
   // partial palette edit could pass the guard yet ship a low-contrast theme to
   // visitors who use the site-wide theme toggle.
-  const GUARDED = ['signal', 'signal-soft', 'surface', 'surface-2', 'faint', 'on-signal'];
+  const GUARDED = ['signal', 'signal-soft', 'surface', 'surface-2', 'faint', 'on-signal',
+    'raw', 'raw-soft', 'change', 'change-soft', 'steady', 'steady-soft'];
   it('Palette_OsDefaultAndDataThemeBlocks_CarryIdenticalGuardedTokens', () => {
     for (const name of GUARDED) {
       expect(token(LIGHT, name), `light --${name}`).toBe(token(LIGHT_THEMED, name));
