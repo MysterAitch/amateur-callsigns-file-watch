@@ -64,6 +64,94 @@ function rawCallsign(raw) {
 }
 const nf = (n) => Number(n).toLocaleString('en-GB');
 
+// ---- Change-magnitude indicator (issue #409) -------------------------------
+// A reusable, at-a-glance readout of how much a value has CHANGED against a
+// baseline, after the convention in clinical lab-result readouts: three
+// severity tiers × direction. Severity AND direction are carried in SHAPE/TEXT
+// — a directional caret (↑/↓) and, for a substantial deviation, a filled badge
+// — never colour alone, so the signal survives for colour-blind readers,
+// greyscale and forced-colours (issues #409/#397/#334). The semantic severity
+// colours live in site/ledger.css (--dev-mild / --dev-strong / --on-dev-strong,
+// the .chg-* classes), separate from the ledger accent, and are held to
+// WCAG-AA in both themes by site/ledger-a11y.test.ts.
+//
+// The classifier is exported and pure so it is unit-tested directly and can be
+// lifted into a shared module when a second surface adopts it. This is the
+// visualisation layer for the baseline cross-dataset diffs of #330.
+//
+// PHASE 1 (this change): a THRESHOLD heuristic against a baseline — here the
+// prior snapshot in the side-by-side counts. Deriving the TYPICAL per-period
+// change and flagging deviation from that derived trend is PHASE 2, deferred to
+// #210; this component does not attempt it.
+
+// Default thresholds, as a fraction of the baseline. A FIRST-DRAFT heuristic to
+// refine later (#210), stated explicitly so the boundary is visible: a register
+// grows or shrinks a few percent between neighbouring snapshots as a matter of
+// course, so under 2% reads as "within the expected range"; 2–10% is a mild
+// deviation worth a glance; 10%+ is a substantial swing (e.g. the ~45k
+// blank-product omission — #330).
+export const CHANGE_THRESHOLDS = { mild: 0.02, substantial: 0.10 };
+
+// Classify a value against a baseline. Returns the severity tier
+// ('in-range' | 'mild' | 'substantial'), the direction ('up' | 'down' | 'none')
+// and the signed/relative delta. Pure. A zero baseline that becomes non-zero is
+// a substantial "appeared from none" (no ratio exists, but a population
+// arriving from nothing is a strong signal); both zero is in-range.
+export function classifyDelta(value, baseline, thresholds = CHANGE_THRESHOLDS) {
+  const delta = value - baseline;
+  const direction = delta > 0 ? 'up' : delta < 0 ? 'down' : 'none';
+  if (delta === 0) return { severity: 'in-range', direction, delta, ratio: 0 };
+  if (baseline === 0) return { severity: 'substantial', direction, delta, ratio: Infinity };
+  const ratio = Math.abs(delta) / baseline;
+  const severity = ratio >= thresholds.substantial ? 'substantial'
+    : ratio >= thresholds.mild ? 'mild' : 'in-range';
+  return { severity, direction, delta, ratio };
+}
+
+const CARET = { up: '↑', down: '↓', none: '' };
+const formatPct = (ratio) => `${(ratio * 100).toFixed(1)}%`;
+// A signed percentage using a true minus sign, for the plain in-range reading.
+const signedPct = (c) => `${c.direction === 'down' ? '−' : c.direction === 'up' ? '+' : ''}${formatPct(c.ratio)}`;
+
+// The accessible name a screen-reader announces for a classified change — the
+// full "up 12%, substantial" phrasing the #409 spec calls for, so severity and
+// direction never depend on colour or the caret glyph alone.
+export function describeChange(c) {
+  const dir = c.direction === 'up' ? 'up' : c.direction === 'down' ? 'down' : 'no change';
+  if (c.severity === 'in-range') return c.direction === 'none' ? 'no change' : `${dir} ${formatPct(c.ratio)}, within the expected range`;
+  const tier = c.severity === 'substantial' ? 'substantial deviation' : 'mild deviation';
+  const magnitude = c.ratio === Infinity ? `${dir} ${nf(Math.abs(c.delta))} from none` : `${dir} ${formatPct(c.ratio)}`;
+  return `${magnitude}, ${tier}`;
+}
+
+// The render-ready description of a change: the severity class, the visible
+// text (caret + magnitude), and the accessible label. Kept separate from the
+// DOM build so it can be asserted without a document.
+export function changeIndicatorSpec(value, baseline, thresholds = CHANGE_THRESHOLDS) {
+  const c = classifyDelta(value, baseline, thresholds);
+  const caret = CARET[c.direction];
+  const magnitude = c.ratio === Infinity ? `${c.delta > 0 ? '+' : ''}${nf(c.delta)}` : (c.severity === 'in-range' ? signedPct(c) : formatPct(c.ratio));
+  // In range: plain text, no caret marker; mild/substantial: caret + magnitude.
+  const visible = c.severity === 'in-range' ? magnitude : `${caret} ${magnitude}`.trim();
+  return { severity: c.severity, direction: c.direction, visible, label: describeChange(c) };
+}
+
+// Build the indicator as a DOM node for a table cell. In range renders plain
+// muted text (the signed percentage, read literally by a screen-reader); mild
+// and substantial hide the visible caret+magnitude from assistive tech and
+// carry the full accessible phrase in a visually-hidden span instead, so the
+// announcement is "up 12.0%, substantial deviation", not "up-arrow 12 percent".
+export function changeIndicator(value, baseline, thresholds = CHANGE_THRESHOLDS) {
+  const spec = changeIndicatorSpec(value, baseline, thresholds);
+  const cls = spec.severity === 'in-range' ? 'chg chg-inrange'
+    : spec.severity === 'mild' ? 'chg chg-mild' : 'chg chg-substantial';
+  const span = el('span', { class: cls });
+  if (spec.severity === 'in-range') { span.textContent = spec.visible; return span; }
+  span.append(el('span', { 'aria-hidden': 'true', text: spec.visible }));
+  span.append(el('span', { class: 'visually-hidden', text: spec.label }));
+  return span;
+}
+
 // A cohort larger than this per side is not set-diffed in the browser: the
 // scan is honest work better done on the downloaded database. Counts still
 // show; the diff panel explains why and points to the download.
@@ -306,16 +394,41 @@ async function renderCounts(chosen, pred) {
   countCache.clear();
   for (const r of rows) countCache.set(r.key, r.matching);
 
-  const thead = el('thead', {}, [el('tr', {}, ['publication', 'matching rows', 'of total', '% of publication', 'scope'].map(h => el('th', { text: h })))]);
-  const tbody = el('tbody', {}, rows.map(r => el('tr', {}, [
+  const thead = el('thead', {}, [el('tr', {}, ['publication', 'matching rows', 'of total', '% of publication', 'change vs prior', 'scope'].map(h => el('th', { text: h })))]);
+  // The "change vs prior" cell carries the change-magnitude indicator (#409):
+  // each row against the row above it (rows run oldest→newest), so it reads as
+  // "how much this snapshot moved from the prior one" — Phase-1 threshold
+  // classification against the prior snapshot as baseline. The first row is the
+  // baseline (no prior). A row is only classified when NEITHER it nor its
+  // baseline carries a scope caveat: a declared-partial / coverage-affecting
+  // publication's count is scope, not a real-world change, so a swing across
+  // one (e.g. the blank-product omission, #330) is shown as a plain delta
+  // marked "scope differs" rather than dressed up as a substantial deviation.
+  const changeCell = (r, prior) => {
+    if (prior === undefined) return el('td', { class: 'muted', text: 'baseline' });
+    if (r.caveat !== null || prior.caveat !== null) {
+      const c = classifyDelta(r.matching, prior.matching);
+      return el('td', { class: 'muted', title: 'a scope caveat on either side makes this delta scope, not a real-world change' }, [signedPct(c), ' (scope differs)']);
+    }
+    return el('td', {}, [changeIndicator(r.matching, prior.matching)]);
+  };
+  const tbody = el('tbody', {}, rows.map((r, i) => el('tr', {}, [
     el('td', {}, [code(r.key)]),
     el('td', { text: nf(r.matching) }),
     el('td', { class: 'muted', text: nf(r.total) }),
     el('td', { text: r.total > 0 ? `${(100 * r.matching / r.total).toFixed(2)}%` : '—' }),
+    changeCell(r, rows[i - 1]),
     el('td', { class: 'muted', text: r.caveat ?? '' }),
   ])));
-  const wrap = el('div', { class: 'overflow', style: 'overflow-x:auto' }, [el('table', {}, [thead, tbody])]);
-  countsResult.replaceChildren(wrap);
+  const table = el('table', {}, [thead, tbody]);
+  table.prepend(el('caption', { class: 'table-caption', text: 'Matching rows per publication (oldest→newest), with the change of each against the prior snapshot.' }));
+  const wrap = el('div', { class: 'overflow', style: 'overflow-x:auto' }, [table]);
+  // State the first-draft thresholds on the surface itself, so the heuristic is
+  // visible and adjustable rather than hidden in the code (#409 Phase 1).
+  const note = el('p', { class: 'muted', style: 'font-size:.83rem' }, [
+    'Change vs prior classifies each snapshot against the one above it: under 2% of the baseline reads as within the expected range (plain), 2–10% as a mild deviation (coloured, with a ↑/↓ caret), 10%+ as a substantial deviation (a filled badge). First-draft thresholds; deriving the typical per-period change is later work (#210).',
+  ]);
+  countsResult.replaceChildren(wrap, note);
 }
 const countCache = new Map();
 

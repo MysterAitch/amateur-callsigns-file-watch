@@ -23,6 +23,7 @@
   --derived: #905713; --derived-soft: #F6E6CF;
   --change: #A74155; --change-soft: #F5DDE2;
   --steady: #407154; --steady-soft: #DDECE1;
+  --dev-mild: #B02A2A; --dev-strong: #9A1F2B; --on-dev-strong: #FFFFFF;
   --shadow: 0 1px 2px rgba(20,30,45,.06), 0 6px 20px rgba(20,30,45,.05);
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
   --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -41,6 +42,7 @@
     --derived: #E8A24A; --derived-soft: #33291A;
     --change: #D9748A; --change-soft: #331e24;
     --steady: #6FB086; --steady-soft: #172a1f;
+    --dev-mild: #EE8A6F; --dev-strong: #E5705F; --on-dev-strong: #161B21;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
   }
 }
@@ -50,6 +52,7 @@
   --signal: #905713; --signal-soft: #F4E4CE; --on-signal: #FFFFFF;
   --raw: #3B69A6; --raw-soft: #E1EAF5; --derived: #905713; --derived-soft: #F6E6CF;
   --change: #A74155; --change-soft: #F5DDE2; --steady: #407154; --steady-soft: #DDECE1;
+  --dev-mild: #B02A2A; --dev-strong: #9A1F2B; --on-dev-strong: #FFFFFF;
   --shadow: 0 1px 2px rgba(20,30,45,.06), 0 6px 20px rgba(20,30,45,.05);
 }
 :root[data-theme="dark"] .ledger {
@@ -58,6 +61,7 @@
   --signal: #E8A24A; --signal-soft: #33291A; --on-signal: #161B21;
   --raw: #6C9BD6; --raw-soft: #182432; --derived: #E8A24A; --derived-soft: #33291A;
   --change: #D9748A; --change-soft: #331e24; --steady: #6FB086; --steady-soft: #172a1f;
+  --dev-mild: #EE8A6F; --dev-strong: #E5705F; --on-dev-strong: #161B21;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
 }
 .ledger *, .ledger *::before, .ledger *::after { box-sizing: border-box; }
@@ -500,3 +504,23 @@
 .ledger .gloss-cue-link:hover .gloss-cue { text-decoration: underline; }
 .ledger .gloss-term:focus-visible, .ledger .gloss-cue-link:focus-visible {
   outline: 2px solid var(--raw); outline-offset: 2px; border-radius: 3px; }
+
+/* Change-magnitude indicator (issue #409): an at-a-glance readout of how much a
+   value has CHANGED against a baseline on the cross-dataset diff surfaces,
+   after the convention in clinical lab-result readouts. Three severity tiers ×
+   direction:
+     - in expected range -> plain text, no marker (.chg on its own);
+     - mild deviation     -> coloured value + a directional caret (.chg-mild);
+     - substantial        -> a filled/inverted badge + caret (.chg-substantial).
+   Severity AND direction are carried in SHAPE/TEXT — the caret glyph and, for a
+   substantial deviation, the filled badge — so the signal survives without
+   colour (colour-blind readers, greyscale, forced-colours). The semantic
+   severity colours (--dev-mild / --dev-strong / --on-dev-strong) are separate
+   from the ledger accent (--signal) and are held to WCAG-AA in both themes by
+   site/ledger-a11y.test.ts. */
+.ledger .chg { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ledger .chg-caret { font-style: normal; margin-right: .12em; }
+.ledger .chg-mild { color: var(--dev-mild); font-weight: 600; }
+.ledger .chg-substantial { display: inline-block; padding: 1px 7px; border-radius: 6px;
+  background: var(--dev-strong); color: var(--on-dev-strong); font-weight: 700; }
+.ledger .chg-baseline, .ledger .chg-inrange { color: var(--muted); }

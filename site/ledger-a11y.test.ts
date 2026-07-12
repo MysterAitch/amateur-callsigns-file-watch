@@ -1,6 +1,8 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import { classifyDelta, describeChange, changeIndicatorSpec, changeIndicator, CHANGE_THRESHOLDS } from './compare.js';
 
 // Durable accessibility guards for the ledger visual language and the
 // interactive tool pages (issues #407 / #397). The contrast checks parse the
@@ -75,9 +77,19 @@ const PILL_PAIRS: [name: string, fg: string, bg: string][] = [
   ['steady pill: steady text on steady-soft', 'steady', 'steady-soft'],
 ];
 
+// The change-magnitude indicator's semantic severity colours (issue #409),
+// separate from the ledger accent. The mild tier is a coloured value sitting on
+// the table cell's surface; the substantial tier is a filled badge, its label
+// on the strong fill. Both are small text, so the bar is 4.5 - guarded here so
+// a palette edit that drops either under AA (in either theme) fails CI.
+const DEV_PAIRS: [name: string, fg: string, bg: string][] = [
+  ['mild-deviation value on the surface', 'dev-mild', 'surface'],
+  ['substantial-deviation badge label on the strong fill', 'on-dev-strong', 'dev-strong'],
+];
+
 describe('ledger.css contrast guard (issues #407 / #411)', () => {
   for (const [theme, body] of [['light', LIGHT], ['dark', DARK]] as const) {
-    for (const [label, fg, bg] of [...PAIRS, ...PILL_PAIRS]) {
+    for (const [label, fg, bg] of [...PAIRS, ...PILL_PAIRS, ...DEV_PAIRS]) {
       it(`Contrast_${theme}Theme_${fg}On${bg}_MeetsAA`, () => {
         const ratio = contrast(token(body, fg), token(body, bg));
         expect(ratio, `${label} (${theme}): ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(AA_NORMAL);
@@ -89,7 +101,8 @@ describe('ledger.css contrast guard (issues #407 / #411)', () => {
   // partial palette edit could pass the guard yet ship a low-contrast theme to
   // visitors who use the site-wide theme toggle.
   const GUARDED = ['signal', 'signal-soft', 'surface', 'surface-2', 'faint', 'on-signal',
-    'raw', 'raw-soft', 'change', 'change-soft', 'steady', 'steady-soft'];
+    'raw', 'raw-soft', 'change', 'change-soft', 'steady', 'steady-soft',
+    'dev-mild', 'dev-strong', 'on-dev-strong'];
   it('Palette_OsDefaultAndDataThemeBlocks_CarryIdenticalGuardedTokens', () => {
     for (const name of GUARDED) {
       expect(token(LIGHT, name), `light --${name}`).toBe(token(LIGHT_THEMED, name));
@@ -124,4 +137,79 @@ describe('interactive-page accessibility fallbacks (issues #407 / #397)', () => 
       expect(footer?.[1]).toContain('datasets/index.html');
     });
   }
+});
+
+// The change-magnitude indicator (issue #409): the classifier must sort
+// representative deltas into the right tier and direction against the stated
+// thresholds (in-range < 2% ≤ mild < 10% ≤ substantial), and the rendered
+// readout must state severity AND direction in TEXT (the accessible label),
+// not colour alone. Test names follow Subject_Scenario_Outcome.
+describe('change-magnitude classifier and label (issue #409)', () => {
+  it('ClassifyDelta_WhenWithinTwoPercent_IsInRange', () => {
+    expect(classifyDelta(1015, 1000).severity).toBe('in-range'); // +1.5%
+    expect(classifyDelta(1000, 1000)).toMatchObject({ severity: 'in-range', direction: 'none' });
+  });
+  it('ClassifyDelta_WhenBetweenTwoAndTenPercent_IsMild', () => {
+    expect(classifyDelta(1050, 1000)).toMatchObject({ severity: 'mild', direction: 'up' }); // +5%
+    expect(classifyDelta(940, 1000)).toMatchObject({ severity: 'mild', direction: 'down' }); // −6%
+  });
+  it('ClassifyDelta_WhenTenPercentOrMore_IsSubstantial', () => {
+    expect(classifyDelta(1200, 1000)).toMatchObject({ severity: 'substantial', direction: 'up' }); // +20%
+    expect(classifyDelta(56000, 100000)).toMatchObject({ severity: 'substantial', direction: 'down' }); // −44%, the #330 swing
+  });
+  it('ClassifyDelta_WhenBaselineIsZeroAndValueAppears_IsSubstantialUp', () => {
+    expect(classifyDelta(1234, 0)).toMatchObject({ severity: 'substantial', direction: 'up' });
+    expect(classifyDelta(0, 0)).toMatchObject({ severity: 'in-range', direction: 'none' });
+  });
+  it('ClassifyDelta_AtEachThresholdBoundary_TakesTheHigherTier', () => {
+    expect(classifyDelta(1020, 1000).severity).toBe('mild');        // exactly +2%
+    expect(classifyDelta(1100, 1000).severity).toBe('substantial'); // exactly +10%
+  });
+
+  it('DescribeChange_ForEachTierAndDirection_StatesSeverityAndDirectionInText', () => {
+    // The accessible name carries the meaning without colour or the caret glyph.
+    expect(describeChange(classifyDelta(1200, 1000))).toBe('up 20.0%, substantial deviation');
+    expect(describeChange(classifyDelta(940, 1000))).toBe('down 6.0%, mild deviation');
+    expect(describeChange(classifyDelta(1015, 1000))).toBe('up 1.5%, within the expected range');
+    expect(describeChange(classifyDelta(1000, 1000))).toBe('no change');
+    expect(describeChange(classifyDelta(1234, 0))).toBe('up 1,234 from none, substantial deviation');
+  });
+
+  it('ChangeIndicatorSpec_ForMildAndSubstantial_ShowsACaretNotColourAlone', () => {
+    const mild = changeIndicatorSpec(1050, 1000);
+    expect(mild.visible).toContain('↑');
+    expect(mild.label).toBe('up 5.0%, mild deviation');
+    const down = changeIndicatorSpec(800, 1000);
+    expect(down.visible).toContain('↓');
+    expect(down.severity).toBe('substantial');
+  });
+  it('ChangeIndicatorSpec_WhenInRange_ShowsPlainSignedTextWithNoCaret', () => {
+    const spec = changeIndicatorSpec(1015, 1000);
+    expect(spec.severity).toBe('in-range');
+    expect(spec.visible).toBe('+1.5%');
+    expect(spec.visible).not.toContain('↑');
+  });
+
+  it('ChangeIndicator_ForASubstantialDeviation_HidesTheGlyphAndCarriesTheLabelForAssistiveTech', () => {
+    // The rendered node must announce "up …, substantial deviation" through a
+    // visually-hidden span while the visible caret+magnitude is aria-hidden, so
+    // the meaning never rides on colour or the glyph alone.
+    const node = changeIndicator(1200, 1000);
+    expect(node.className).toBe('chg chg-substantial');
+    const hidden = node.querySelector('.visually-hidden');
+    expect(hidden?.textContent).toBe('up 20.0%, substantial deviation');
+    const glyph = node.querySelector('[aria-hidden="true"]');
+    expect(glyph?.textContent).toContain('↑');
+  });
+  it('ChangeIndicator_WhenInRange_RendersPlainTextWithNoHiddenBadge', () => {
+    const node = changeIndicator(1015, 1000);
+    expect(node.className).toBe('chg chg-inrange');
+    expect(node.querySelector('.visually-hidden')).toBeNull();
+    expect(node.textContent).toBe('+1.5%');
+  });
+
+  it('ChangeThresholds_AreTheStatedFirstDraftBoundaries', () => {
+    // Pin the documented Phase-1 heuristic so a change to it is a deliberate edit.
+    expect(CHANGE_THRESHOLDS).toEqual({ mild: 0.02, substantial: 0.10 });
+  });
 });
