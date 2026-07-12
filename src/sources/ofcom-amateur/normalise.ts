@@ -18,6 +18,7 @@ import { parseUkDateTimeDetailed, type ParsedUkDateTime, renderCsv, codepointCom
 import { computeEntryStats, type EntryStats } from '../../shared/stats.ts';
 import { errorMessage, type IgnoredRawLine } from '../../shared/utils.ts';
 import { parseCallsign, componentsFlagsForRows, componentRowToCells, loadReferenceData, COMPONENT_COLUMNS, COMPONENTS_SCHEMA_VERSION } from './components.ts';
+import { type ColumnInterpretation } from '../../v2/claim.ts';
 
 export const NORMALISED_SCHEMA_VERSION = 1;
 
@@ -220,6 +221,30 @@ export function parseRawRegister(rawContent: string, curatedIgnores: IgnoredRawL
   }
 
   return { records, headers, variant, mapping, headerLines: [{ line: 1, content: lines[0] }], ignoredLines, dataLineNumbers };
+}
+
+// The open-data lane's inferred interpretation of each column (issue #435), the
+// LIFT the open-data half of interpretColumns projects into an @interpretation
+// claim. Single-sourced HERE, where the interpretation actually lives: the
+// callsign subject is the callsign-token; the product column is an enumerated
+// category (the exact-match input to the licence-category tier); every date
+// column is parsed strict UK day-first, so its format is DD/MM/YYYY (the fixed
+// fact stated in this module's header); status/type and any other column are
+// carried as verbatim strings. Indexed 1:1 to `headers` so it aligns with the
+// @column manifest. The loader stores the result on the SourceObservationSet, so
+// interpretColumns reads it back rather than re-deriving.
+export function interpretOpenDataColumns(
+  headers: readonly string[],
+  mapping: Readonly<Record<string, CanonicalColumn>>,
+  options: { subjectColumn: string; categoryColumn?: string },
+): ColumnInterpretation[] {
+  return headers.map(header => {
+    if (header === options.subjectColumn) return { type: 'callsign-token' };
+    if (options.categoryColumn !== undefined && header === options.categoryColumn) return { type: 'enumerated-category' };
+    const canonical = mapping[header];
+    if (canonical !== undefined && DATE_COLUMNS.has(canonical)) return { type: 'date', format: 'DD/MM/YYYY' };
+    return { type: 'string' };
+  });
 }
 
 export interface ConvertContext {

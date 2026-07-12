@@ -14,7 +14,7 @@ import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { type SourceObservationSet } from '../claim.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, type FoiEntryMeta } from '../../shared/foi-archive.ts';
-import { FOI_ENTRY_CONVERSIONS, type FoiSourceConversion } from '../../shared/foi-normalise.ts';
+import { FOI_ENTRY_CONVERSIONS, interpretFoiColumns, type FoiSourceConversion } from '../../shared/foi-normalise.ts';
 import type { LedgerCollector, ResolvedLedgerSource } from './types.ts';
 import { jsonlStem } from './util.ts';
 
@@ -184,6 +184,10 @@ export function loadRegisterSource(foiDir: string, entry: string, meta: FoiEntry
     // converter binding: utf-8 or latin-1), so a fidelity oracle re-reads the
     // original at the same DECODED-TEXT level the ledger stored (issue #434, G6).
     encoding: conversion.encoding,
+    // The authored per-column interpretation (issue #435), lifted from this
+    // source's FoiColumnSpec.kind set, so an @interpretation/<index> claim can be
+    // attested beside each @column header.
+    columnInterpretations: interpretFoiColumns(conversion, columns, { subjectColumn: callsignColumn, categoryColumn: source.productColumn ?? undefined }),
   };
 }
 

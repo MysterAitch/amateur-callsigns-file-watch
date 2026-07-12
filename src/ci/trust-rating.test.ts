@@ -140,6 +140,32 @@ describe('trust-rating claim no-inflation invariant', () => {
     expect(checkNoInflationClaims([listed('M7TEE'), rawProduct('M7TEE'), legit])).toEqual([]);
   });
 
+  // --- File-level derived claims ground in their @column basis (issue #435). ---
+
+  const fileLevelColumn = (index: number, object: string): Claim => ({
+    layer: 'raw', rawSubject: '', predicate: `@column/${index}`, object,
+    provenance: { sourceFile: 'opendata/2026-06-23/raw.csv', ordinal: -1, vintage: '2026-06-23' },
+  });
+  const fileLevelInterpretation = (index: number, object: string): Claim => ({
+    layer: 'derived', rawSubject: '', predicate: `@interpretation/${index}`, object,
+    rule: 'column-interpretation',
+    provenance: { sourceFile: 'opendata/2026-06-23/raw.csv', ordinal: -1, vintage: '2026-06-23' },
+  });
+
+  it('FileLevelInterpretation_WhenGroundedInItsColumnHeader_Passes', () => {
+    // A derived @interpretation grounds in the raw @column for the same file -
+    // not in an observation subject (its rawSubject is '', its ordinal the
+    // sentinel), so the observation trace must not flag it as an invented subject.
+    const stream = [fileLevelColumn(0, 'Callsign'), fileLevelInterpretation(0, 'callsign-token')];
+    expect(checkNoInflationClaims(stream)).toEqual([]);
+  });
+
+  it('FileLevelInterpretation_WhenItsColumnHeaderIsMissing_IsCaughtAsAnInventedColumn', () => {
+    const stream = [fileLevelInterpretation(7, 'date:DD/MM/YYYY')];
+    const violations = checkNoInflationClaims(stream);
+    expect(violations.some(v => /invented column/.test(v.detail))).toBe(true);
+  });
+
   it('AssertTrustRating_WhenClaimsCarryInflatedRating_ThrowsLoud', () => {
     const inflated: Claim = {
       layer: 'raw', rawSubject: 'M7TEE', predicate: NORMALISES_TO_PREDICATE, object: 'M7TEE',

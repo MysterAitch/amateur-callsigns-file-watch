@@ -41,6 +41,7 @@ import { cleanedCallsign, parseCallsign, normaliseLicenceCategory, NON_PLAIN_RE,
 import { callsignPattern } from '../shared/stats.ts';
 import { provenanceFor, anchorProvenance } from './provenance.ts';
 import { emitParseAttributeClaims } from './parse-attribute-emit.ts';
+import { COLUMN_INTERPRETATION_RULE, type ColumnInterpretation } from './interpretation.ts';
 
 // Re-export the cohesive companion layers so the public surface stays a single
 // module (import stability): consumers continue to import every symbol from
@@ -64,6 +65,19 @@ export {
   PARSE_CALLSIGN_RULE,
   emitParseAttributeClaims,
 } from './parse-attribute-emit.ts';
+export {
+  INTERPRETATION_PREDICATE_PREFIX,
+  COLUMN_INTERPRETATION_RULE,
+  interpretationPredicate,
+  interpretationIndexOf,
+  encodeInterpretation,
+  decodeInterpretation,
+  interpretColumns,
+  hasColumnInterpretations,
+  emitInterpretationClaims,
+  type ColumnInterpretation,
+  type ColumnInterpretationType,
+} from './interpretation.ts';
 
 // A claim is either a verbatim source assertion ('raw') or one computed by a
 // named rule ('derived'). The layer flag lets a consumer trust raw claims as
@@ -250,11 +264,14 @@ export const CONFIDENCE_ORDER: readonly ClaimConfidence[] = [
   'Best-guess',
 ];
 
-// The named rules that resolve a value via a reference table (a LOOKUP, the
-// 'Looked-up' rung); every other named derived rule is a deterministic
-// COMPUTATION (the 'Computed' rung). Today only the licence-category tier is a
-// lookup (reference-data/licence-category.csv, via normaliseLicenceCategory).
-const LOOKUP_RULES: ReadonlySet<string> = new Set<string>([LICENCE_CATEGORY_RULE]);
+// The named rules that resolve a value from an authored registry/reference table
+// (a LOOKUP, the 'Looked-up' rung); every other named derived rule is a
+// deterministic COMPUTATION (the 'Computed' rung). The licence-category tier
+// resolves via reference-data/licence-category.csv (normaliseLicenceCategory);
+// the column-interpretation tier (issue #435) resolves each column's {type,
+// format} from our authored column spec (DATE_COLUMNS/VARIANTS, FoiColumnSpec) -
+// asserted, not inferred from the data, so it too reads out Looked-up.
+const LOOKUP_RULES: ReadonlySet<string> = new Set<string>([LICENCE_CATEGORY_RULE, COLUMN_INTERPRETATION_RULE]);
 
 // The confidence readout for a claim, from its layer and rule alone:
 //   - raw            -> As-published (the verbatim source token, untouched)
@@ -327,6 +344,14 @@ export interface SourceObservationSet {
   // round-trip compares at DECODED-TEXT level (the encoding itself is not
   // attested as a claim in this phase); absent means the raw bytes are utf-8.
   encoding?: BufferEncoding;
+  // The authored per-column INTERPRETATION (issue #435), parallel to `columns`
+  // by index: each column's inferred {type, format} we read it under. Populated
+  // by the loader lane that owns the spec (interpretOpenDataColumns for the
+  // open-data lane, interpretFoiColumns for the FOI lane) so interpretColumns
+  // reads a stored authored fact rather than re-deriving one; absent for a family
+  // that attests no interpretation, in which case emitInterpretationClaims emits
+  // nothing. When present it must be the same length as `columns`.
+  columnInterpretations?: readonly ColumnInterpretation[];
 }
 
 // Emit the raw-layer claims for a source: one existence claim per observation
