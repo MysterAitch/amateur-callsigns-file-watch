@@ -15,7 +15,10 @@ and [0010](0010-archive-contract.md)) describe — so read those as the current
 baseline, and 0013 as the direction of travel. The two trust axes that model
 surfaces — source authority and claim confidence — are derived from provenance
 and guarded against inflation by [ADR 0014](0014-trust-rating-safety-net.md), the
-enforcement companion to 0013's confidence model.
+enforcement companion to 0013's confidence model; and [ADR 0015](0015-source-intrinsic-vs-archive-provenance.md)
+keeps source-intrinsic provenance rigorously distinct from archive/processing
+artefacts (a filesystem-stat origin is made unrepresentable, not merely
+discouraged).
 
 | ADR | Decision | Status | Date |
 |---|---|---|---|
