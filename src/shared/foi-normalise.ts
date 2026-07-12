@@ -35,6 +35,7 @@ import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { parseUkDateTimeDetailed, type ParsedUkDateTime, renderCsv, codepointCompare } from './normalise.ts';
 import { calculateContentHash, errorMessage } from './utils.ts';
+import { type ColumnInterpretation } from '../v2/claim.ts';
 
 export const FOI_NORMALISED_SCHEMA_VERSION = 1;
 
@@ -1219,6 +1220,44 @@ export const FOI_EXTENSION_COLUMNS: Readonly<Record<string, FoiExtensionColumn>>
     families: ['counts-aggregate'],
   },
 };
+
+// The interpretation a single FOI FoiColumnSpec.kind attests (issue #435): the
+// authored, PR-reviewed per-column reading, projected to {type, format}. This is
+// the FOI half of interpretColumns, single-sourced HERE beside the kind it lifts.
+// Date columns are parsed UK day-first (DD/MM/YYYY); iso-date columns are typed at
+// source and rendered YYYY-MM-DD; counts are thousands-separated integers;
+// prefixed columns construct a callsign; verbatim columns are opaque strings.
+function interpretationForFoiKind(kind: FoiColumnSpec['kind']): ColumnInterpretation {
+  switch (kind) {
+    case 'date': return { type: 'date', format: 'DD/MM/YYYY' };
+    case 'iso-date': return { type: 'date', format: 'YYYY-MM-DD' };
+    case 'count': return { type: 'integer', format: 'thousands-separated-integer' };
+    case 'prefixed': return { type: 'constructed-callsign' };
+    case 'verbatim': return { type: 'string' };
+  }
+}
+
+// The FOI lane's inferred interpretation of each RAW header (issue #435), indexed
+// 1:1 to `headers` so it aligns with the @column manifest. `headers` are the raw
+// file's headers (the carried source columns plus the required-present-but-not-
+// carried ignoredColumns), so every header resolves: the callsign subject is the
+// callsign-token; the product column is an enumerated category (the licence-
+// category tier's exact-match input); a carried column takes its FoiColumnSpec
+// kind's interpretation; a required-but-ignored column is an opaque string (we
+// read it as nothing). The loader stores the result on the SourceObservationSet.
+export function interpretFoiColumns(
+  conversion: FoiSourceConversion,
+  headers: readonly string[],
+  options: { subjectColumn: string; categoryColumn?: string },
+): ColumnInterpretation[] {
+  return headers.map(header => {
+    if (header === options.subjectColumn) return { type: 'callsign-token' };
+    if (options.categoryColumn !== undefined && header === options.categoryColumn) return { type: 'enumerated-category' };
+    const carried = conversion.columns.find(column => column.source === header);
+    if (carried !== undefined) return interpretationForFoiKind(carried.kind);
+    return { type: 'string' };
+  });
+}
 
 export function conversionFor(variantName: string, sourceFile: string): FoiSourceConversion {
   const conversions = FOI_ENTRY_CONVERSIONS[variantName];

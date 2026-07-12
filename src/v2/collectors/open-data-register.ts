@@ -10,7 +10,7 @@ import * as path from 'path';
 import { type SourceObservationSet } from '../claim.ts';
 import { listArchiveKeys } from '../../shared/archive.ts';
 import { CONSTANTS, type ArchiveMeta } from '../../shared/utils.ts';
-import { parseRawRegister, rawColumnForCanonical } from '../../sources/ofcom-amateur/normalise.ts';
+import { parseRawRegister, rawColumnForCanonical, interpretOpenDataColumns } from '../../sources/ofcom-amateur/normalise.ts';
 import type { LedgerCollector, ResolvedLedgerSource } from './types.ts';
 import { jsonlStem } from './util.ts';
 
@@ -91,6 +91,10 @@ export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta
     // parseRawRegister reads the raw bytes as utf-8 (with BOM strip), so a
     // fidelity oracle re-reads the original identically (issue #434, G6).
     encoding: 'utf8',
+    // The authored per-column interpretation (issue #435), lifted from the
+    // variant's raw->canonical mapping + the fixed open-data date ordering, so an
+    // @interpretation/<index> claim can be attested beside each @column header.
+    columnInterpretations: interpretOpenDataColumns(parsed.headers, parsed.mapping, { subjectColumn: callsignColumn, categoryColumn: productColumn }),
   };
 }
 
