@@ -230,16 +230,18 @@ events) — each joined through a shared collector registry
 registry line, so the source-family-extension pattern is now proven across the
 corpus rather than on a single family. The reports-fold cutover is under way:
 following the cross-dataset-invariants report, the value catalogue's
-licence-category and parse-derived field tables now fold from the ledger, and the
-forbidden-suffix history report folds byte-identically — each with a committed
-equivalence oracle. And
+licence-category and parse-derived field tables now fold from the ledger, the
+forbidden-suffix history report folds byte-identically, and the first quality
+reports (prefix-series and class-product-mismatches) now fold — each with a
+committed equivalence oracle. And
 a trust-rating safety net derives source authority and claim confidence from
 provenance and fails loud on any inflation ([ADR 0014](0014-trust-rating-safety-net.md)),
 making the confidence-partition model above enforceable rather than merely
 declared. The T1 parse-attribute tier now emits as rule-attributed derived
 claims (`prefix_series`, `implied_class`, `parse_status`, and per-row `flag`
-claims from a single `parse-callsign` rule, reading out *Computed*), unblocking
-the parse-dependent quality-report folds.
+claims from a single `parse-callsign` rule, reading out *Computed*, later
+extended with `rsl` and `callsign-pattern` claims), unblocking the
+parse-dependent quality-report folds.
 
 Remaining: migration of the remaining reports and pages onto ledger folds; the
 reviewed canonical vocabularies and coverage-aware gating the temporal fold
