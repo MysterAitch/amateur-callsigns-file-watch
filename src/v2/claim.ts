@@ -30,6 +30,7 @@
  */
 
 import { cleanedCallsign, parseCallsign, normaliseLicenceCategory, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { callsignPattern } from '../shared/stats.ts';
 
 // A claim is either a verbatim source assertion ('raw') or one computed by a
 // named rule ('derived'). The layer flag lets a consumer trust raw claims as
@@ -134,10 +135,17 @@ export const LICENCE_CATEGORY_RULE = 'licence-category';
 //                     vocabulary (reference-data/flags.md); its OBJECT is the
 //                     flag name, so a report folds "callsigns carrying flag X"
 //                     by object rather than by a per-flag predicate.
+//   - rsl           : the Regional Secondary Locator letter the parse split out
+//                     of the token (the 'W' in MW7TEE, the country letter in a
+//                     MW/-visitor call), emitted only where the parse resolved a
+//                     non-empty one - an RSL-less core call (M7TEE) or a token
+//                     that carries no RSL slot (GB special-event) yields none.
+//                     Unblocks the regional-identifiers fold (#422).
 export const PREFIX_SERIES_PREDICATE = 'prefix_series';
 export const IMPLIED_CLASS_PREDICATE = 'implied_class';
 export const PARSE_STATUS_PREDICATE = 'parse_status';
 export const FLAG_PREDICATE = 'flag';
+export const RSL_PREDICATE = 'rsl';
 
 // The one named rule attributing every parse-derived claim to parseCallsign
 // (components.ts). A SINGLE rule - not one per attribute - because one
@@ -147,6 +155,22 @@ export const FLAG_PREDICATE = 'flag';
 // never As-published) and its rule set enumerable beside the normalisation and
 // licence-category rules.
 export const PARSE_CALLSIGN_RULE = 'parse-callsign';
+
+// The DERIVED callsign-pattern predicate (issue #422): the character-shape
+// taxonomy of a raw callsign token - uppercase->A, lowercase->a, digit->N, with
+// whitespace/unprintable/invisible characters exploded to explicit {U+XXXX}
+// markers. It rides beside the verbatim raw layer so the callsign-patterns fold
+// (#361 Phase B) can aggregate shapes from the ledger, and it is computed from
+// the RAW token (not the cleaned entity) precisely so the whitespace/encoding
+// artefacts the taxonomy exists to surface stay visible.
+export const CALLSIGN_PATTERN_PREDICATE = 'callsign-pattern';
+
+// The named rule attributing every callsign-pattern claim to callsignPattern
+// (src/shared/stats.ts), the ONE character-shape mapping the stats aggregate
+// already applies to the callsign column. It is LIFTED whole and CONSUMED here,
+// never re-derived, so the tier stays a projection of that function; naming it a
+// COMPUTATION (not a reference-table lookup) keeps it reading out Computed.
+export const CALLSIGN_PATTERN_RULE = 'callsign-pattern';
 
 // The five claim-confidence rungs, best-to-worst, fixed by site/glossary.html
 // (the #axes panel). Confidence is a READOUT of source authority × how the
@@ -294,10 +318,12 @@ export function emitLicenceCategoryClaims(source: SourceObservationSet, ref: Ref
 // The tier NEVER invents: a claim rides only where the parse actually yields a
 // value. parse_status is the sole always-present attribute (every non-empty
 // token resolves to one determination), so it is emitted for every observation;
-// prefix_series and implied_class emit only when the parse resolved one (a
-// visitor or unparseable token yields neither), and a flag claim only for a flag
-// actually raised. An empty subject (an all-blank anchor row) yields nothing,
-// mirroring how the normalisation edges skip it — there is no callsign to parse.
+// prefix_series, implied_class and rsl emit only when the parse resolved one (a
+// visitor or unparseable token yields neither series nor class; an RSL-less core
+// call or a GB special-event token yields no rsl), and a flag claim only for a
+// flag actually raised. An empty subject (an all-blank anchor row) yields
+// nothing, mirroring how the normalisation edges skip it — there is no callsign
+// to parse.
 export function emitParseAttributeClaims(source: SourceObservationSet, ref: ReferenceData): Claim[] {
   const claims: Claim[] = [];
   const productColumn = source.categoryColumn;
@@ -313,17 +339,46 @@ export function emitParseAttributeClaims(source: SourceObservationSet, ref: Refe
     emit(PARSE_STATUS_PREDICATE, parsed.parseStatus);
     if (parsed.prefixSeries !== '') emit(PREFIX_SERIES_PREDICATE, parsed.prefixSeries);
     if (parsed.impliedClass !== '') emit(IMPLIED_CLASS_PREDICATE, parsed.impliedClass);
+    if (parsed.rsl !== '') emit(RSL_PREDICATE, parsed.rsl);
     for (const flag of parsed.flags) emit(FLAG_PREDICATE, flag);
+  });
+  return claims;
+}
+
+// The DERIVED callsign-pattern claims for a source (issue #422): for each
+// observation with a non-empty raw subject, one derived claim carrying the
+// character-shape taxonomy of that raw token. The pattern is computed by
+// callsignPattern (src/shared/stats.ts) over the RAW subject — the same mapping
+// the stats aggregate applies to the callsign column — LIFTED whole and never
+// re-derived, so any change to the taxonomy is owned by stats.ts alone.
+//
+// The tier NEVER invents: callsignPattern of a non-empty token always resolves a
+// non-empty shape (every character maps to A/a/N or a {U+XXXX} marker), so a
+// claim rides for every non-empty subject; a blank anchor row yields the empty
+// pattern and therefore no claim, mirroring the parse-attribute tier's silence
+// on an empty subject. Unlike the parse attributes, the shape is defined for an
+// UNPARSEABLE token too (its raw characters still have shapes), so — like the
+// stats taxonomy — such a token is described, never dropped.
+export function emitCallsignPatternClaims(source: SourceObservationSet): Claim[] {
+  const claims: Claim[] = [];
+  source.rows.forEach((row, ordinal) => {
+    const rawSubject = row[source.subjectColumn] ?? '';
+    if (rawSubject === '') return;
+    const pattern = callsignPattern(rawSubject);
+    if (pattern === '') return;
+    const provenance: Provenance = { sourceFile: source.sourceFile, ordinal, vintage: source.vintage };
+    claims.push({ layer: 'derived', rawSubject, predicate: CALLSIGN_PATTERN_PREDICATE, object: pattern, provenance, rule: CALLSIGN_PATTERN_RULE });
   });
   return claims;
 }
 
 // The full ledger for a source: the raw attribute/existence claims plus the
 // derived claims — the normalisation edges for every observation's raw subject,
-// the T1 parse-attribute tier, and the canonical licence-category tier where the
-// source discloses a product. This is what a canonical claims.jsonl for the
-// source contains — both layers in one file, the derived layer reproducible from
-// the raw layer and the lifted rules.
+// the T1 parse-attribute tier (including the rsl attribute), the callsign-pattern
+// tier, and the canonical licence-category tier where the source discloses a
+// product. This is what a canonical claims.jsonl for the source contains — both
+// layers in one file, the derived layer reproducible from the raw layer and the
+// lifted rules.
 export function emitLedger(source: SourceObservationSet, ref: ReferenceData): Claim[] {
   const claims = emitClaims(source);
   source.rows.forEach((row, ordinal) => {
@@ -335,6 +390,7 @@ export function emitLedger(source: SourceObservationSet, ref: ReferenceData): Cl
     }
   });
   for (const claim of emitParseAttributeClaims(source, ref)) claims.push(claim);
+  for (const claim of emitCallsignPatternClaims(source)) claims.push(claim);
   for (const claim of emitLicenceCategoryClaims(source, ref)) claims.push(claim);
   return claims;
 }
