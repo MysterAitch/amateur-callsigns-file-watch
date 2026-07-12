@@ -231,9 +231,9 @@ registry line, so the source-family-extension pattern is now proven across the
 corpus rather than on a single family. The reports-fold cutover is under way:
 following the cross-dataset-invariants report, the value catalogue's
 licence-category and parse-derived field tables now fold from the ledger, the
-forbidden-suffix history report folds byte-identically, and the first quality
-reports (prefix-series and class-product-mismatches) now fold — each with a
-committed equivalence oracle. And
+forbidden-suffix history report folds byte-identically, and the quality reports
+largely fold (prefix-series, class-product-mismatches, regional-identifiers and
+callsign-patterns) — each with a committed equivalence oracle. And
 a trust-rating safety net derives source authority and claim confidence from
 provenance and fails loud on any inflation ([ADR 0014](0014-trust-rating-safety-net.md)),
 making the confidence-partition model above enforceable rather than merely
