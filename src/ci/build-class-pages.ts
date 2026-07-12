@@ -32,7 +32,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, FOI_DATASET_CLASSES } from '../shared/foi-archive.ts';
-import { escapeHtml, humanDate, humaniseLabel, breadcrumbHtml, htmlPage } from './site-render.ts';
+import { escapeHtml, humanDate, humaniseLabel, breadcrumbHtml, htmlPage, glossaryTerm } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
@@ -118,7 +118,7 @@ function classPage(cls: string, members: ClassMember[]): string {
   });
 
   const registerSnapshotNote = cls === OPEN_DATA_IMPLICIT_CLASS
-    ? '<p>The Ofcom open-data publications carry no dataset-class field of their own: each is, by construction, the register state at a vintage, so it is classified here as a <code>register-snapshot</code>. That classification is <b>declared</b> from the lane’s shape, not asserted in each publication’s <code>meta.json</code>.</p>'
+    ? `<p>The Ofcom open-data publications carry no ${glossaryTerm('dataset-class', 2, { label: 'dataset-class' })} field of their own: each is, by construction, the register state at a ${glossaryTerm('vintage', 2)}, so it is classified here as a <code>register-snapshot</code>. That classification is <b>declared</b> from the lane’s shape, not asserted in each publication’s <code>meta.json</code>.</p>`
     : '';
 
   const body = [
@@ -149,7 +149,7 @@ function classIndexPage(present: { cls: string; count: number }[]): string {
   const body = [
     breadcrumbHtml([['Datasets', '../index.html'], ['Dataset classes', undefined]]),
     '<h1>Dataset classes</h1>',
-    '<p>Every archived dataset carries one or more <b>dataset classes</b> — the entry-level vocabulary that says what kind of data it is (a register snapshot, an availability pool, a forbidden-suffix list, and so on). Each class below lists every entry that carries it, across both the Ofcom open-data and the FOI collections. The definitions are the authored vocabulary the FOI validator enforces; membership is <b>declared</b>, not verified.</p>',
+    `<p>Every archived dataset carries one or more ${glossaryTerm('dataset-class', 2, { label: 'dataset classes' })} — the entry-level vocabulary that says what kind of data it is (a ${glossaryTerm('register-snapshot', 2, { label: 'register snapshot' })}, an availability pool, a ${glossaryTerm('forbidden-suffix', 2, { label: 'forbidden-suffix' })} list, and so on). Each class below lists every entry that carries it, across both the Ofcom open-data and the FOI collections. The definitions are the authored vocabulary the FOI validator enforces; membership is <b>declared</b>, not verified.</p>`,
     '<table>',
     '<tr><th scope="col">class</th><th scope="col">definition</th><th scope="col">entries</th></tr>',
     ...rows,

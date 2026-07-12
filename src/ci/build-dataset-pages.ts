@@ -54,6 +54,7 @@ import {
   htmlPage,
   entryPage,
   callsignPill,
+  glossaryTerm,
   type CallsignComponents,
 } from './site-render.ts';
 
@@ -535,15 +536,15 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
     '<section>',
     '<h2>At a glance</h2>',
     `<div class="headline">${bd.recordCount.toLocaleString('en-GB')} <small>register rows · ${allocatedCount.toLocaleString('en-GB')} allocated</small></div>`,
-    bd.status.length > 0 ? `<div class="bd"><h3>Status</h3>${breakdownRows(bd.status, bd.recordCount, undefined, label => facetAttr('status', label))}</div>` : '',
-    bd.impliedClass.length > 0 ? `<div class="bd"><h3>Licence level (implied)</h3>${breakdownRows(bd.impliedClass, bd.recordCount, undefined, label => facetAttr('implied_class', label))}</div>` : '',
-    bd.declared.length > 0 ? `<div class="bd"><h3>Licence level (declared)</h3>${declaredRows}</div>` : '',
-    bd.prefixes.length > 0 ? `<div class="bd"><h3>Prefixes <small class="lvl">— all ${bd.prefixes.length}, with inferred level</small></h3><div class="prefixscroll">${prefixRows}</div><div class="brow"><a href="../../../series/index.html">all series →</a></div></div>` : '',
+    bd.status.length > 0 ? `<div class="bd"><h3>${glossaryTerm('status-values', 3, { label: 'Status' })}</h3>${breakdownRows(bd.status, bd.recordCount, undefined, label => facetAttr('status', label))}</div>` : '',
+    bd.impliedClass.length > 0 ? `<div class="bd"><h3>${glossaryTerm('licence-class', 3, { label: 'Licence level' })} (implied)</h3>${breakdownRows(bd.impliedClass, bd.recordCount, undefined, label => facetAttr('implied_class', label))}</div>` : '',
+    bd.declared.length > 0 ? `<div class="bd"><h3>${glossaryTerm('licence-class', 3, { label: 'Licence level' })} (declared)</h3>${declaredRows}</div>` : '',
+    bd.prefixes.length > 0 ? `<div class="bd"><h3>${glossaryTerm('prefix-series', 3, { label: 'Prefixes' })} <small class="lvl">— all ${bd.prefixes.length}, with inferred level</small></h3><div class="prefixscroll">${prefixRows}</div><div class="brow"><a href="../../../series/index.html">all series →</a></div></div>` : '',
     bd.international > 0 ? `<div class="bd"><h3>International / visitor</h3><div class="brow" data-filter-expr="${escapeHtml(intlExpr)}" data-filter-val="yes" data-filter-label="international" role="button" tabindex="0"><span class="lab">contain <code>/</code> (e.g. <code>M/</code>) — country lookup planned</span>${bar(bd.international)}</div></div>` : '',
     // Dataset class: an open-data publication is the register state at a
     // vintage, so it is classified (declared, from the lane's shape) as a
     // register-snapshot; the chip links to every entry of that class.
-    `<div class="bd"><h3>Dataset class</h3><div class="brow"><span class="lab">${classChipLink('register-snapshot', '../../')} <small class="lvl">declared</small></span></div></div>`,
+    `<div class="bd"><h3>${glossaryTerm('dataset-class', 3, { label: 'Dataset class' })}</h3><div class="brow"><span class="lab">${classChipLink('register-snapshot', '../../')} <small class="lvl">declared</small></span></div></div>`,
     '<div class="attr">',
     `<div><b>Source</b> · ${meta.sourceUrl !== undefined ? `<a href="${escapeHtml(meta.sourceUrl)}">Ofcom open-data page →</a>` : 'Ofcom open-data page'}</div>`,
     `<div>Published ${escapeHtml(humanDate(publishedIso))}${meta.fetchedAt !== undefined ? ` · fetched ${escapeHtml(humanDate(meta.fetchedAt.slice(0, 10)))}` : ''}</div>`,
@@ -742,8 +743,8 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
   const atAGlance = [
     '<section><h2>At a glance</h2>',
     `<div class="headline">${escapeHtml(meta.outcome)} <small>FOI outcome</small></div>`,
-    `<div class="bd"><h3>Data vintage</h3><div class="brow"><span class="lab">${escapeHtml(meta.dataVintage ?? 'not stated')}</span></div></div>`,
-    `<div class="bd"><h3>Dataset classes</h3>${meta.datasetClasses.map(c => `<div class="brow"><span class="lab">${classChipLink(c, '../../')}</span></div>`).join('')}</div>`,
+    `<div class="bd"><h3>Data ${glossaryTerm('vintage', 3, { label: 'vintage' })}</h3><div class="brow"><span class="lab">${escapeHtml(meta.dataVintage ?? 'not stated')}</span></div></div>`,
+    `<div class="bd"><h3>${glossaryTerm('dataset-class', 3, { label: 'Dataset classes' })}</h3>${meta.datasetClasses.map(c => `<div class="brow"><span class="lab">${classChipLink(c, '../../')}</span></div>`).join('')}</div>`,
     '<div class="attr">',
     meta.requestUrl !== null ? `<div><b>Source</b> · <a href="${escapeHtml(meta.requestUrl)}">request on WhatDoTheyKnow →</a></div>` : '',
     meta.publicationUrl !== undefined ? `<div><a href="${escapeHtml(meta.publicationUrl)}">also published by Ofcom →</a></div>` : '',
@@ -1131,9 +1132,9 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
     if (ref !== undefined) {
       facts.push(
         '<table>',
-        `<tr><th>station level</th><td>${escapeHtml(ref.station_level)}</td></tr>`,
+        `<tr><th>${glossaryTerm('licence-class', 1, { label: 'station level' })}</th><td>${escapeHtml(ref.station_level)}</td></tr>`,
         `<tr><th>issuing status</th><td>${escapeHtml(ref.issuing_status)}</td></tr>`,
-        `<tr><th>RSL required</th><td>${escapeHtml(ref.rsl_required)}</td></tr>`,
+        `<tr><th>${glossaryTerm('rsl', 1, { label: 'RSL' })} required</th><td>${escapeHtml(ref.rsl_required)}</td></tr>`,
         ...(ref.notes ? [`<tr><th>notes</th><td>${escapeHtml(ref.notes)}</td></tr>`] : []),
         '</table>',
       );
@@ -1151,7 +1152,7 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
       ];
     const body = [
       `<h1>Prefix series ${escapeHtml(display)}</h1>`,
-      '<p><code>#</code> marks where the Regional Secondary Locator sits when one is present. Reference facts are hand-curated; numbers derive from the latest archived publication and regenerate on every deploy.</p>',
+      `<p><code>#</code> marks where the ${glossaryTerm('rsl', 1, { label: 'Regional Secondary Locator' })} sits when one is present. Reference facts are hand-curated; numbers derive from the latest archived publication and regenerate on every deploy.</p>`,
       ...facts,
       ...numbers,
       '<p>See the <a href="../statistics.html">statistics page</a> for the all-series locator matrix, or <a href="index.html">all series</a>.</p>',
@@ -1163,7 +1164,7 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
 
   const indexBody = [
     '<h1>Prefix series</h1>',
-    `<p>One page per callsign prefix series — hand-curated reference facts joined with numbers derived from the latest archived publication (${escapeHtml(newest)}). <code>#</code> marks the RSL slot.</p>`,
+    `<p>One page per callsign ${glossaryTerm('prefix-series', 1, { label: 'prefix series' })} — hand-curated reference facts joined with numbers derived from the latest archived publication (${escapeHtml(newest)}). <code>#</code> marks the ${glossaryTerm('rsl', 1, { label: 'RSL' })} slot.</p>`,
     '<table>',
     '<tr><th>series</th><th>station level</th><th>issuing status</th><th>rows</th></tr>',
     ...indexRows,
@@ -1379,11 +1380,11 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     'publishes point-in-time callsign data periodically — the open data section above. This section archives',
     'amateur-radio FOI requests and responses recovered from Ofcom’s own published responses, the UK',
     'Government Web Archive, and third-party sites such as',
-    '<a href="https://www.whatdotheyknow.com/">WhatDoTheyKnow</a> — a decade of register snapshots,',
+    `<a href="https://www.whatdotheyknow.com/">WhatDoTheyKnow</a> — a decade of ${glossaryTerm('register-snapshot', 1, { label: 'register snapshots' })},`,
     'availability lists and issuance records predating the open data page. Where, when and how each file',
     'was retrieved is recorded alongside it: machine-readably in the entry’s hash-pinned <code>meta.json</code>,',
     'and narratively in its correspondence record.</p>',
-    '<table><tr><th>entry</th><th>vintage</th><th>dataset classes</th></tr>',
+    `<table><tr><th>entry</th><th>${glossaryTerm('vintage', 1, { label: 'vintage' })}</th><th>${glossaryTerm('dataset-class', 1, { label: 'dataset classes' })}</th></tr>`,
     ...foiRows,
     '</table>',
   ];

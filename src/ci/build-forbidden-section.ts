@@ -59,6 +59,7 @@ import {
   breakdownRows,
   callsignPill,
   humanDate,
+  glossaryTerm,
 } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -204,9 +205,9 @@ function listSection(d: ForbiddenDisclosure): string {
   const more = d.distinctCount - preview.length;
   return [
     '<section><h2>The list</h2>',
-    `<p class="lead">${num(d.distinctCount)} distinct three-letter suffixes withheld from issue in this disclosure. A callsign already carrying one predates the withholding — see the <a href="../index.html">ever-forbidden note</a> on the section index. Each suffix links to its detail page.</p>`,
+    `<p class="lead">${num(d.distinctCount)} distinct three-letter ${glossaryTerm('forbidden-suffix', 2, { label: 'suffixes' })} withheld from issue in this disclosure. A callsign already carrying one predates the withholding — see the <a href="../index.html">ever-forbidden note</a> on the section index. Each suffix links to its detail page.</p>`,
     `<p>${suffixLinks(preview, 'disclosure')}${more > 0 ? ` … <span class="gap">and ${num(more)} more — download the full list below, or browse them from the <a href="../index.html">section index</a></span>` : ''}</p>`,
-    '<p class="dcap">Each per-suffix page lists every callsign carrying the suffix, broken down by status (Allocated / Reserved / Available / Forbidden) — never a bare total, since a rise could be a Reserved spike, or a batch of Forbidden prohibition rows, rather than new issuance.</p>',
+    `<p class="dcap">Each per-suffix page lists every callsign carrying the suffix, broken down by ${glossaryTerm('status-values', 2, { label: 'status' })} (Allocated / Reserved / Available / Forbidden) — never a bare total, since a rise could be a Reserved spike, or a batch of Forbidden prohibition rows, rather than new issuance.</p>`,
     '</section>',
   ].join('\n');
 }
@@ -320,7 +321,7 @@ function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): strin
 
   const body = [
     '<h1>Forbidden-suffix lists</h1>',
-    '<p>The forbidden-suffix list is the set of three-letter callsign suffixes Ofcom withholds from issue. This section tracks it as a first-class dataset, across every disclosure the mirror holds — built from the committed FOI <code>forbidden-list</code> entries, so a change in the data is a visible drift signal. Every figure below is <b>declared, not verified</b>; the absence of a suffix from a disclosure is not evidence that it may be issued.</p>',
+    `<p>The ${glossaryTerm('forbidden-suffix', 1, { label: 'forbidden-suffix' })} list is the set of three-letter callsign ${glossaryTerm('suffix', 1, { label: 'suffixes' })} Ofcom withholds from issue. This section tracks it as a first-class dataset, across every disclosure the mirror holds — built from the committed FOI <code>forbidden-list</code> entries, so a change in the data is a visible drift signal. Every figure below is <b>declared, not verified</b>; the absence of a suffix from a disclosure is not evidence that it may be issued.</p>`,
     '<p>The disallowed vocabulary is <b>not static</b>, and both invariance and drift are findings: it is unchanged from 2016 to 2019, then differs by the December 2024 disclosure.</p>',
 
     '<h2>Disclosures timeline</h2>',
@@ -343,7 +344,7 @@ function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): strin
     '</table>',
 
     '<h2>Per-suffix detail</h2>',
-    '<p>Every ever-forbidden union suffix has its own detail page: its forbidden-list history (which disclosures list it, first known forbidden, whether it was de-listed) plus every callsign carrying it, <b>broken down by status</b> (Allocated / Reserved / Available / Forbidden), cross-linked to the register lookup and the FOI observations. A count is never bare: a rise could be a spike in <em>Reserved</em> rows, or a batch of <em>Forbidden</em> prohibition rows, rather than new <em>Allocated</em> issuance — a very different meaning.</p>',
+    `<p>Every ever-forbidden union suffix has its own detail page: its forbidden-list history (which disclosures list it, first known forbidden, whether it was de-listed) plus every callsign carrying it, <b>broken down by ${glossaryTerm('status-values', 1, { label: 'status' })}</b> (Allocated / Reserved / Available / Forbidden), cross-linked to the register lookup and the FOI observations. A count is never bare: a rise could be a spike in <em>Reserved</em> rows, or a batch of <em>Forbidden</em> prohibition rows, rather than new <em>Allocated</em> issuance — a very different meaning.</p>`,
   ];
 
   // The surprise worth surfacing on the index: forbidden suffixes that
@@ -504,7 +505,7 @@ function suffixCallsignsSection(info: SuffixCallsignInfo, ref: ReferenceData): s
     : '';
   return [
     '<section><h2>Callsigns carrying this suffix</h2>',
-    `<p class="lead">${num(info.total)} distinct callsign${info.total === 1 ? '' : 's'} witnessed carrying this suffix across the corpus, <b>broken down by latest-known status</b> — never a bare total, since Allocated (issued), Reserved, Available and Forbidden (the prohibition itself, expressed as a callsign row) mean very different things.</p>`,
+    `<p class="lead">${num(info.total)} distinct callsign${info.total === 1 ? '' : 's'} witnessed carrying this suffix across the corpus, <b>broken down by latest-known ${glossaryTerm('status-values', 3, { label: 'status' })}</b> — never a bare total, since Allocated (issued), Reserved, Available and Forbidden (the prohibition itself, expressed as a callsign row) mean very different things.</p>`,
     '<div class="bd"><h3>By latest-known status</h3>',
     breakdownRows(breakdown, info.total),
     '</div>',
@@ -550,7 +551,7 @@ export function suffixPage(suffix: string, h: ForbiddenSuffixHistory, info: Suff
   const body = [
     breadcrumbHtml([['Forbidden suffixes', '../../index.html'], [suffix, undefined]]),
     `<h1>Forbidden suffix <code>${escapeHtml(suffix)}</code></h1>`,
-    `<p class="subtitle">A three-letter callsign suffix on the ever-forbidden union — withheld from issue in at least one disclosure the mirror holds. Every figure is <b>declared, not verified</b>.</p>`,
+    `<p class="subtitle">A three-letter callsign ${glossaryTerm('suffix', 3, { label: 'suffix' })} on the ever-forbidden union — a ${glossaryTerm('forbidden-suffix', 3, { label: 'forbidden suffix' })} withheld from issue in at least one disclosure the mirror holds. Every figure is <b>declared, not verified</b>.</p>`,
     noticeStrip(false, 'Freedom-of-Information + open-data derived — point-in-time snapshots, not a live feed. Absence of a callsign is not evidence a suffix may be issued.'),
     arcCallout(suffix, a),
     '<div class="main-region">',

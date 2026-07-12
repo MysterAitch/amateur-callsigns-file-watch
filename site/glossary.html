@@ -68,26 +68,26 @@
         work-queue. A stage that has not run is shown as a fact, never implied
         complete.</p>
         <dl class="gloss">
-          <dt>Read</dt>
+          <dt id="proc-read">Read</dt>
           <dd>Raw bytes archived and openable: turned into machine-readable
           rows — a container opened, sheets or CSV extracted. A PDF scan stays
           not-read until it is transcribed or OCR'd.</dd>
-          <dt>Understood</dt>
+          <dt id="proc-understood">Understood</dt>
           <dd>The shape, columns, encoding and meaning are known: the domain
           fields in the extract are identified and mapped to the canonical shape
           — which column is the callsign, which the status, which the licence
           class.</dd>
-          <dt>Validated</dt>
+          <dt id="proc-validated">Validated</dt>
           <dd>The extract passes the committed integrity contract — the
           invariants and sanity gates: <a href="#observation">line and row</a>
           accounting reconciles and values parse, enforced by the validators in
           continuous integration.</dd>
-          <dt>Normalised</dt>
+          <dt id="proc-normalised">Normalised</dt>
           <dd>A canonical <a href="#normalised">normalised</a> view exists,
           mapped into the shared schema and joinable across snapshots —
           deterministic transforms only: <a href="#cleaned">clean</a> the
           callsign, carry status and class verbatim, render dates ISO.</dd>
-          <dt>Enriched</dt>
+          <dt id="proc-enriched">Enriched</dt>
           <dd>Derived attributes computed by authoritative reference joins —
           <a href="#prefix-series">prefix</a>→country (ITU), <a href="#rsl">RSL</a>→region,
           suffix→<a href="#forbidden-suffix">forbidden-suffix</a> membership —
@@ -117,19 +117,19 @@
         <em>origin</em>. Authority then combines with how a value was produced to
         give a claim's confidence (axis 3).</p>
         <dl class="gloss">
-          <dt>Official</dt>
+          <dt id="auth-official">Official</dt>
           <dd>Ofcom's own published open data — the register export it releases
           periodically as open data.</dd>
-          <dt>FOI</dt>
+          <dt id="auth-foi">FOI</dt>
           <dd>Released under a Freedom-of-Information request: Ofcom's disclosure
           log or the <a href="https://www.whatdotheyknow.com/">WhatDoTheyKnow</a>
           request archive.</dd>
-          <dt>Reference</dt>
+          <dt id="auth-reference">Reference</dt>
           <dd>Authoritative external standards — the ITU callsign series,
           published licence conditions, RSGB guidance.</dd>
-          <dt>Community</dt>
+          <dt id="auth-community">Community</dt>
           <dd>Contributed or collated by the amateur-radio community.</dd>
-          <dt>Self</dt>
+          <dt id="auth-self">Self</dt>
           <dd>Derived or asserted by this project itself — the lowest-authority
           origin, and always attributable to a rule or note here.</dd>
         </dl>
@@ -155,18 +155,18 @@
         produced: a high-authority source can still yield a low-confidence claim,
         which is exactly why this axis is kept apart from the other two.</p>
         <dl class="gloss">
-          <dt>As-published</dt>
+          <dt id="conf-as-published">As-published</dt>
           <dd>The raw token exactly as the source gave it — verbatim, untouched.</dd>
-          <dt>Computed</dt>
+          <dt id="conf-computed">Computed</dt>
           <dd>Deterministically derived by an attributed rule — for example the
           <a href="#cleaned">cleaned</a> or <a href="#normalised">normalised</a>
           form of a raw value.</dd>
-          <dt>Looked-up</dt>
+          <dt id="conf-looked-up">Looked-up</dt>
           <dd>Resolved via a reference table — for example a licence category
           derived from the product code.</dd>
-          <dt>Community</dt>
+          <dt id="conf-community">Community</dt>
           <dd>Drawn from community knowledge rather than a published source.</dd>
-          <dt>Best-guess</dt>
+          <dt id="conf-best-guess">Best-guess</dt>
           <dd>An inferred fallback where nothing better exists — always flagged
           as such, never presented as fact.</dd>
         </dl>
@@ -242,6 +242,18 @@
         <code>M0</code>. One <a href="series/index.html">series page</a> exists
         per series, pairing reference facts with current counts.</dd>
 
+        <dt id="licence-class">Licence class — Foundation, Intermediate, Full</dt>
+        <dd>The UK amateur licence level a callsign was issued under, in
+        ascending privilege: <strong>Foundation</strong> (entry level, e.g. the
+        <code>M7</code> and <code>2E0</code>-era series),
+        <strong>Intermediate</strong>, and <strong>Full</strong> (e.g.
+        <code>M0</code>). The class governs power limits and permitted
+        activities; a callsign's <a href="#prefix-series">prefix series</a>
+        usually signals it, though a holder may upgrade class while keeping an
+        older callsign, and Ofcom also issues non-standard classes (club,
+        reciprocal, and so on). The mirror carries the class verbatim wherever a
+        source states it.</dd>
+
         <dt id="rsl">RSL — Regional Secondary Locator</dt>
         <dd>The optional letter inserted after the first character to show the
         UK nation of operation (e.g. <code>M</code> for England,
@@ -280,10 +292,23 @@
         casing derived from the archived original, which is always preserved
         verbatim alongside it. Normalisation never overwrites the raw bytes.</dd>
 
+        <dt id="dataset-class">Dataset class</dt>
+        <dd>The entry-level vocabulary saying what <em>kind</em> of data an
+        archived dataset is — a <a href="#register-snapshot">register
+        snapshot</a>, an availability pool, a
+        <a href="#forbidden-suffix">forbidden-suffix</a> list, and so on. One
+        dataset may carry several. The classes and their definitions are the
+        authored vocabulary the FOI validator enforces; the
+        <a href="datasets/classes/index.html">dataset-class index</a> lists
+        every archived entry carrying each. Distinct from a value's
+        <a href="#axis-confidence">claim confidence</a> or its source's
+        <a href="#axis-authority">authority</a>.</dd>
+
         <dt id="register-snapshot">Register snapshot</dt>
-        <dd>A dataset class: a point-in-time copy of (part of) the register, as
-        disclosed via FOI or published as open data. What it describes is fixed
-        at its <a href="#vintage">vintage</a>; it is not live.</dd>
+        <dd>A <a href="#dataset-class">dataset class</a>: a point-in-time copy of
+        (part of) the register, as disclosed via FOI or published as open data.
+        What it describes is fixed at its <a href="#vintage">vintage</a>; it is
+        not live.</dd>
 
         <dt id="observation">Observation</dt>
         <dd>A single assertion witnessed in an FOI-disclosed dataset — one
