@@ -11,6 +11,16 @@
 // by cohort size (a whole-register diff belongs on the downloaded database),
 // and declared-partial / coverage-affecting publications carry a loud caveat
 // because absence there is scope, not removal (issues #182-#184).
+//
+// Deep links (issues #333/#397): the page reads the shareable ?view= filter,
+// ?datasets= selection and ?pred= override on load and applies them, so a
+// report or a hand-authored page can link a pre-filtered comparison, not just
+// the generic tool. Params are validated before use - a ?pred= carrying a
+// statement separator is rejected and an unknown publication key is dropped,
+// each reported through the status region rather than silently applied - and
+// the pure validators are exported for unit tests. The browser bootstrap at the
+// tail runs only when the httpvfs loader is present (mirroring playground.js),
+// so importing this module in a test opens no worker.
 
 import { buildPredicate, stateToViewParam, viewParamToState, applyViewToState, matchingCountSql, setDiffSql, callsignCharMarker, TOGGLES } from './browser-query.js';
 import { createHistorySync } from './history-sync.js';
@@ -70,6 +80,39 @@ let datasets = [];               // [{ dataset, record_count, intended_complete,
 // state - so a comparison whose inherited filter matched nothing can be fixed
 // in place without a round-trip to a publication browser.
 let customPredicate = null;
+// Human notes about pieces DROPPED from a deep link (an unsafe ?pred=, an
+// unknown ?datasets= key) - surfaced in the filter note so a stale or mangled
+// link is honest about what it could not honour rather than failing silently.
+let linkIssues = [];
+
+// A URL-supplied ?pred= is applied verbatim as a SQL WHERE condition, so it
+// gets the SAME guard the hand-edit "Apply filter" button uses: a single
+// condition, no statement separator. A link carrying a ';' is rejected (the
+// comparison degrades to its inherited filter) rather than smuggling a second
+// statement into the read-only query. Pure, so it is unit-tested. Returns the
+// usable predicate (or null) and the rejected raw value (or null) for a note.
+export function sanitiseComparePredicate(rawPred) {
+  if (rawPred === null || rawPred === '') return { predicate: null, rejected: null };
+  if (rawPred.includes(';')) return { predicate: null, rejected: rawPred };
+  return { predicate: rawPred, rejected: null };
+}
+
+// Split a ?datasets= selection into keys that exist in the loaded publication
+// list and keys that do not (a stale link naming a since-removed publication).
+// Unknown keys are dropped from the selection and reported, never silently
+// applied. Pure; order-preserving and de-duplicated.
+export function partitionSelectedDatasets(rawSets, knownKeys) {
+  const known = new Set(knownKeys);
+  const chosen = [];
+  const unknown = [];
+  const seen = new Set();
+  for (const k of (rawSets ?? '').split(',')) {
+    if (k === '' || seen.has(k)) continue;
+    seen.add(k);
+    (known.has(k) ? chosen : unknown).push(k);
+  }
+  return { chosen, unknown };
+}
 
 const setup = document.getElementById('setup');
 const picker = document.getElementById('dataset-picker');
@@ -108,12 +151,19 @@ function predicate() { return customPredicate ?? buildPredicate(state); }
 // state exactly rather than accumulating a stale selection.
 function readStateFromUrl() {
   const url = new URL(window.location.href);
+  linkIssues = [];
   applyViewToState(state, viewParamToState(url.searchParams.get('view')));
   selected.clear();
-  const rawSets = url.searchParams.get('datasets');
-  if (rawSets !== null) for (const k of rawSets.split(',')) if (k !== '') selected.add(k);
-  const rawPred = url.searchParams.get('pred');
-  customPredicate = (rawPred !== null && rawPred !== '') ? rawPred : null;
+  const { chosen, unknown } = partitionSelectedDatasets(url.searchParams.get('datasets'), datasets.map(d => d.dataset));
+  for (const k of chosen) selected.add(k);
+  if (unknown.length > 0) {
+    linkIssues.push(`ignored ${unknown.length} unknown publication${unknown.length === 1 ? '' : 's'} in the link (${unknown.join(', ')})`);
+  }
+  const { predicate, rejected } = sanitiseComparePredicate(url.searchParams.get('pred'));
+  customPredicate = predicate;
+  if (rejected !== null) {
+    linkIssues.push('ignored an unsafe filter in the link (a filter must be a single condition, no “;”)');
+  }
 }
 // The single restore path shared by popstate (first load routes through boot,
 // which also applies its default selection). Re-render's own sync() is a no-op
@@ -121,7 +171,7 @@ function readStateFromUrl() {
 function restore() {
   readStateFromUrl();
   if (predInput !== null) predInput.value = customPredicate ?? '';
-  filterNote.textContent = `Comparing: ${describeFilter()}.`;
+  updateFilterNote();
   renderPicker();
   void refresh();
 }
@@ -154,6 +204,16 @@ function describeFilter() {
   return parts.length === 0 ? 'all rows (no filter — add filters in a publication browser and choose “compare”)' : parts.join('; ');
 }
 
+// Write the filter note into the status region (role="status" in compare.html,
+// so a deep-linked pre-filtered state is announced to assistive tech), and
+// append any notes about pieces a deep link could not honour so the degradation
+// is visible rather than silent.
+function updateFilterNote() {
+  let text = `Comparing: ${describeFilter()}.`;
+  if (linkIssues.length > 0) text += ` From the shared link: ${linkIssues.join('; ')}.`;
+  filterNote.textContent = text;
+}
+
 async function boot() {
   try {
     const worker = await openMaster();
@@ -171,7 +231,7 @@ async function boot() {
     for (const d of (clean.length >= 2 ? clean : datasets).slice(0, 2)) selected.add(d.dataset);
   }
   bootStatus.hidden = true;
-  filterNote.textContent = `Comparing: ${describeFilter()}.`;
+  updateFilterNote();
   renderPicker();
   setup.hidden = false;
   void refresh();
@@ -338,32 +398,44 @@ function renderSql(chosen, pred) {
   sqlText.textContent = counts + '\nORDER BY publication;';
 }
 
-// The editable filter: apply a hand-typed WHERE condition (read-only - a
-// single condition, no statement terminator), or reset to the inherited
-// filter. Safe like the entry browser's literal SQL: the VFS is read-only, so
-// the worst a crafted condition does is run another read-only read.
-document.getElementById('pred-apply').addEventListener('click', () => {
-  const raw = predInput.value.trim();
-  if (raw.includes(';')) { scopeNote.textContent = 'Filter must be a single condition (no “;”).'; return; }
-  customPredicate = raw === '' ? null : raw;
-  filterNote.textContent = `Comparing: ${describeFilter()}.`;
-  void refresh();
-});
-document.getElementById('pred-reset').addEventListener('click', () => {
-  customPredicate = null;
-  filterNote.textContent = `Comparing: ${describeFilter()}.`;
-  void refresh();
-});
+// ---- Browser bootstrap (guarded) -------------------------------------------
+// Runs only in a real browser with the httpvfs loader present (which attaches
+// createDbWorker), exactly like playground.js. A unit/JSDOM test importing this
+// module for the pure validators never trips this, so importing it opens no
+// worker.
+function initCompare() {
+  // The editable filter: apply a hand-typed WHERE condition (read-only - a
+  // single condition, no statement terminator), or reset to the inherited
+  // filter. Safe like the entry browser's literal SQL: the VFS is read-only, so
+  // the worst a crafted condition does is run another read-only read. A manual
+  // edit supersedes the deep link, so its dropped-param notes are cleared.
+  document.getElementById('pred-apply').addEventListener('click', () => {
+    const raw = predInput.value.trim();
+    if (raw.includes(';')) { scopeNote.textContent = 'Filter must be a single condition (no “;”).'; return; }
+    customPredicate = raw === '' ? null : raw;
+    linkIssues = [];
+    updateFilterNote();
+    void refresh();
+  });
+  document.getElementById('pred-reset').addEventListener('click', () => {
+    customPredicate = null;
+    linkIssues = [];
+    updateFilterNote();
+    void refresh();
+  });
 
-boot();
+  boot();
 
-// Signal a successful start: cancel the startup-warning timer (compare.html) and
-// hide the warning if it was already shown. Reaching here means the module
-// loaded and its top-level wiring ran; if a module had failed to load, none of
-// this executes and the warning surfaces. boot() reports its own data-loading
-// errors separately, so a database that fails to open still shows those.
-if (typeof window !== 'undefined' && window.__compareReadyTimer !== undefined) {
-  clearTimeout(window.__compareReadyTimer);
+  // Signal a successful start: cancel the startup-warning timer (compare.html)
+  // and hide the warning if it was already shown. Reaching here means the module
+  // loaded and its wiring ran; if a module had failed to load, none of this
+  // executes and the warning surfaces. boot() reports its own data-loading
+  // errors separately, so a database that fails to open still shows those.
+  if (window.__compareReadyTimer !== undefined) clearTimeout(window.__compareReadyTimer);
+  const startupWarning = document.getElementById('startup-warning');
+  if (startupWarning !== null) startupWarning.hidden = true;
 }
-const startupWarning = document.getElementById('startup-warning');
-if (startupWarning !== null) startupWarning.hidden = true;
+
+if (typeof window !== 'undefined' && typeof window.createDbWorker === 'function') {
+  initCompare();
+}

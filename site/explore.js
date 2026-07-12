@@ -6,6 +6,15 @@
 // belongs on the downloaded databases. The small worker-opening helpers
 // are deliberately duplicated from app.js rather than shared: both files
 // stay dependency-free classic modules, and the duplication is ~20 lines.
+//
+// Deep links (issues #333/#397): the console reads ?db= and ?sql= on load,
+// pre-fills the controls, announces via the status region and auto-runs a
+// well-formed query - so a report or a hand-authored page can link a SPECIFIC
+// query, not just the generic tool, exactly as the lookup page deep-links a
+// callsign or a filtered view. The param parsing is pure and exported so it is
+// unit-tested, and the browser bootstrap at the tail runs only when the httpvfs
+// loader is present (mirroring playground.js), so importing this module in a
+// test opens no worker.
 
 const { createDbWorker } = window;
 
@@ -68,8 +77,9 @@ const ROW_CAP = 500;
 // Read-only by construction (the VFS cannot write back), but reject
 // non-query statements anyway so error messages stay honest, and cap the
 // result set - an unbounded scan over range requests cannot be cancelled,
-// only avoided.
-function prepareSql(raw) {
+// only avoided. Exported so the deep-link exemplar test can assert every
+// hand-authored explore.html?sql= link passes the very guard the console runs.
+export function prepareSql(raw) {
   const sql = raw.trim().replace(/;+\s*$/, '');
   if (!/^\s*(select|with)\b/i.test(sql)) {
     throw new Error('read-only console: queries must start with SELECT or WITH');
@@ -152,27 +162,88 @@ function renderExamples() {
   }
 }
 
-document.getElementById('sql-form').addEventListener('submit', (event) => {
-  event.preventDefault();
-  void run();
-});
-renderExamples();
-
-// Offline-first (ADR 0008): register the service worker so the static shell
-// (this page, its scripts and the vendored library) is cached and the site
-// loads offline. The database itself is only cached when the visitor opts in
-// from the lookup page; once cached, the worker serves it here too.
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register(new URL('./sw.js', document.baseURI).href).catch(() => {});
+// --- shareable deep-link params (issues #333/#397) ---------------------------
+// Parse ?db= (which database) and ?sql= (the query) from the URL. Pure and
+// total so a stale or hand-mangled link degrades rather than throwing: an
+// unknown ?db= is reported (not applied), and an absent/blank ?sql= yields null
+// so a bare page load is untouched. Mirrors the lookup page's ?c=/?series=
+// deep-link parsing (app.js).
+export function parseExploreParams(params) {
+  const rawDb = params.get('db');
+  const known = Object.prototype.hasOwnProperty.call(DB_FILES, rawDb ?? '');
+  const db = known ? rawDb : null;
+  const unknownDb = (rawDb !== null && rawDb !== '' && !known) ? rawDb : null;
+  const rawSql = params.get('sql');
+  const sql = (rawSql !== null && rawSql.trim() !== '') ? rawSql : null;
+  return { db, sql, unknownDb };
 }
 
-// Signal a successful start: cancel the startup-warning timer (explore.html) and
-// hide the warning if it was already shown. Reaching here means the module
-// loaded and its top-level wiring — the form handler and worked examples — ran;
-// if a module had failed to load, none of this executes and the warning
-// surfaces. Query failures are reported inline by run(), independently of this.
-if (typeof window !== 'undefined' && window.__exploreReadyTimer !== undefined) {
-  clearTimeout(window.__exploreReadyTimer);
+// Apply parsed deep-link params to the console controls and ANNOUNCE the result
+// through the status region (role="status" in explore.html, so assistive tech
+// hears the pre-filled state). Safe by construction: the query is written to the
+// textarea's value (never innerHTML, so a '<' in it can never become markup) and
+// the database is a whitelisted key, so nothing from the link reaches the DOM as
+// markup or the query engine unchecked - and whatever runs still passes the
+// read-only SELECT/WITH guard in prepareSql. Returns true only for a WELL-FORMED
+// query link (a valid or absent db, plus a query): a link naming an unknown
+// database pre-fills and reports but does NOT auto-run, so the reader sees what
+// was ignored before pressing Run. Pure aside from the passed-in elements.
+export function applyExploreParams({ dbSelect, input, statusEl }, params) {
+  const { db, sql, unknownDb } = parseExploreParams(params);
+  if (db === null && sql === null && unknownDb === null) return false;
+  if (db !== null && dbSelect) dbSelect.value = db;
+  if (sql !== null && input) input.value = sql;
+  const notes = [];
+  if (unknownDb !== null) {
+    const using = dbSelect ? dbSelect.value : 'latest';
+    notes.push(`Ignored an unknown database “${unknownDb}” in the link; using the ${using} database.`);
+  }
+  if (sql !== null && unknownDb === null) notes.push('Loaded a shared query — running…');
+  else if (sql !== null) notes.push('Loaded a shared query — review it and press Run.');
+  else if (db !== null) notes.push(`Selected the ${db} database — enter a query and press Run.`);
+  if (statusEl && notes.length > 0) statusEl.textContent = notes.join(' ');
+  return sql !== null && unknownDb === null;
 }
-const startupWarning = document.getElementById('startup-warning');
-if (startupWarning !== null) startupWarning.hidden = true;
+
+// ---- Browser bootstrap (guarded) -------------------------------------------
+// Runs only in a real browser with the httpvfs loader present (which attaches
+// createDbWorker), exactly like playground.js. A unit/JSDOM test importing this
+// module for the pure param helpers never trips this, so importing it opens no
+// worker.
+function initExplore() {
+  document.getElementById('sql-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    void run();
+  });
+  renderExamples();
+
+  // A shareable deep link pre-fills the controls, announces via the status
+  // region and auto-runs a well-formed query so the link opens a pre-run view.
+  const shouldRun = applyExploreParams({
+    dbSelect: document.getElementById('db-select'),
+    input: document.getElementById('sql-input'),
+    statusEl: document.getElementById('sql-status'),
+  }, new URLSearchParams(window.location.search));
+  if (shouldRun) void run();
+
+  // Offline-first (ADR 0008): register the service worker so the static shell
+  // (this page, its scripts and the vendored library) is cached and the site
+  // loads offline. The database itself is only cached when the visitor opts in
+  // from the lookup page; once cached, the worker serves it here too.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register(new URL('./sw.js', document.baseURI).href).catch(() => {});
+  }
+
+  // Signal a successful start: cancel the startup-warning timer (explore.html)
+  // and hide the warning if it was already shown. Reaching here means the module
+  // loaded and its wiring ran; if a module had failed to load, none of this
+  // executes and the warning surfaces. Query failures are reported inline by
+  // run(), independently of this.
+  if (window.__exploreReadyTimer !== undefined) clearTimeout(window.__exploreReadyTimer);
+  const startupWarning = document.getElementById('startup-warning');
+  if (startupWarning !== null) startupWarning.hidden = true;
+}
+
+if (typeof window !== 'undefined' && typeof window.createDbWorker === 'function') {
+  initExplore();
+}
