@@ -29,7 +29,7 @@ import { renderStatsJson, compareStats, markUnprintables, type EntryStats } from
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
 import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { writeValueCatalogue } from './value-catalogue.ts';
-import { buildQualityReportFold, type PrefixDistributionFold, type MismatchFold } from './quality-report-fold.ts';
+import { buildQualityReportFold, type PrefixDistributionFold, type MismatchFold, type RegionalIdentifierFold, type CallsignPatternSeriesFold } from './quality-report-fold.ts';
 import { writeCrossDatasetInvariants } from './cross-dataset-invariants.ts';
 import { writeForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { mdCell } from '../shared/markdown.ts';
@@ -425,16 +425,18 @@ function writeQualityReports(keys: string[]): void {
   }
 
   const keysWithStats = keys.filter(k => statsByKey.has(k));
-  // FOLD (issue #361, migration step 5): the prefix-series distribution and the
-  // class-product-mismatch table take their numbers from the raw-keyed claim
-  // ledger's T1 parse-attribute tier. One ledger is materialised here and both
-  // reports fold from it; the callsign-pattern time-series, data-quality rollup
-  // and regional-identifier table stay on the legacy stats/components path (they
-  // need attributes the T1 tier does not yet emit — see quality-report-fold.ts).
+  // FOLD (issue #361, migration step 5 + Phase B): the prefix-series distribution,
+  // the class-product-mismatch table, the regional-identifier distribution and the
+  // callsign-pattern time-series all take their numbers from the raw-keyed claim
+  // ledger's T1 parse-attribute tier (prefix_series / implied_class / parse_status
+  // / rsl / flag, #406+#422) and the callsign-pattern derived claim. One ledger is
+  // materialised here and all four reports fold from it; only the data-quality
+  // rollup stays on the legacy stats/components path (it reads callsignQuality
+  // detectors the tier does not yet emit — see quality-report-fold.ts / writeQualityRollup).
   const fold = buildQualityReportFold();
-  writePatternTimeSeries(keysWithStats, statsByKey);
+  writePatternTimeSeries(keysWithStats, statsByKey, fold.callsignPatterns);
   writeQualityRollup(keysWithStats, statsByKey, fold.mismatches);
-  writeComponentDistributions([...keysWithStats].reverse(), fold.prefixes);
+  writeComponentDistributions([...keysWithStats].reverse(), fold.prefixes, fold.regionalIdentifiers);
   writeReportsIndex([...keysWithStats].reverse(), statsByKey);
 }
 
@@ -705,59 +707,45 @@ export function renderPrefixDistributions(dates: string[], rows: Map<string, Map
   ].join('\n');
 }
 
-// Prefix-series and regional-identifier distributions (issue #51), both
-// derived from components.csv in one pass per dataset. Columns are datasets
-// newest leftmost, matching the other rollups.
-//
-// FOLD, not re-derive (issue #361, migration step 5): when `foldedPrefixes` is
-// supplied, the prefix table's figures come from the raw-keyed claim ledger's T1
-// parse-attribute tier (quality-report-fold.ts) rather than the legacy
-// components.csv tally. The regional-identifier table stays on the legacy path —
-// it needs the per-record `rsl`, which the T1 tier does not yet emit as its own
-// claim (see quality-report-fold.ts / the migration map); folding it would
-// require a second parse.
-function writeComponentDistributions(columnsNewestFirst: string[], foldedPrefixes?: PrefixDistributionFold): void {
-  const rslCounts = new Map<string, Map<string, number>>();
-  const bump = (map: Map<string, Map<string, number>>, row: string, key: string): void => {
-    const perKey = map.get(row) ?? new Map<string, number>();
+// The legacy regional-identifier distribution, read from components.csv (one row
+// per rendered prefix+RSL identifier over PARSED records only) — the single
+// source of truth for the legacy figures, shared by the fallback path and the
+// equivalence oracle's legacy side. The rendered identifier is the prefix+RSL
+// combination (GM, MW, 2E, ...), bare 20/21 for RSL-less intermediates, and an
+// aggregate for RSL-less G/M cores (the register stores cores by design).
+export function legacyRegionalIdentifierDistribution(columnsNewestFirst: string[]): RegionalIdentifierFold {
+  const rows = new Map<string, Map<string, number>>();
+  const dates: string[] = [];
+  const bump = (row: string, key: string): void => {
+    const perKey = rows.get(row) ?? new Map<string, number>();
     perKey.set(key, (perKey.get(key) ?? 0) + 1);
-    map.set(row, perKey);
+    rows.set(row, perKey);
   };
-
-  // The regional-identifier table stays on the legacy components.csv path (it
-  // needs the per-record `rsl`, which the T1 tier does not yet emit); this pass
-  // also establishes the dated columns shared with the (legacy-fallback) prefix
-  // table.
-  const withComponents: string[] = [];
   for (const key of columnsNewestFirst) {
     const componentsPath = path.join(CONSTANTS.DIRS.archive, key, 'components.csv');
     if (!fs.existsSync(componentsPath)) continue;
-    withComponents.push(key);
+    dates.push(key);
     for (const r of parseCsvRecords(componentsPath)) {
       if (r.parse_status !== 'parsed') continue;
-      // Regional identifiers: the rendered prefix+RSL combination (GM, MW,
-      // 2E, ...), bare 20/21 for RSL-less intermediates, and an aggregate
-      // for RSL-less G/M cores (the register stores cores by design).
       if (r.prefix_series.startsWith('2')) {
         // Series names are stored bare (20/21), so the trailing digit is
         // everything after the leading 2.
-        bump(rslCounts, r.rsl !== '' ? `\`2${r.rsl}\`` : `\`${r.prefix_series}\` _(bare)_`, key);
+        bump(r.rsl !== '' ? `\`2${r.rsl}\`` : `\`${r.prefix_series}\` _(bare)_`, key);
       } else if (r.rsl !== '') {
-        bump(rslCounts, `\`${r.prefix_series[0]}${r.rsl}\``, key);
+        bump(`\`${r.prefix_series[0]}${r.rsl}\``, key);
       } else {
-        bump(rslCounts, '_(G/M core, no RSL)_', key);
+        bump('_(G/M core, no RSL)_', key);
       }
     }
   }
-  if (withComponents.length === 0) return;
+  return { dates, rows };
+}
 
-  const prefix = foldedPrefixes ?? legacyPrefixDistribution(columnsNewestFirst);
-  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'prefixes.md'), renderPrefixDistributions(prefix.dates, prefix.rows));
-
-  const table = (map: Map<string, Map<string, number>>, header: string): string[] =>
-    distributionTable(withComponents, map, header);
-
-  const rslLines = [
+// The regional-identifier distribution markdown, from whichever source supplied
+// the per-label per-date counts (the ledger fold in the sweep, a legacy tally in
+// the presentation tests).
+export function renderRegionalIdentifiers(dates: string[], rows: Map<string, Map<string, number>>): string {
+  return [
     '# Regional-identifier distributions',
     '',
     '<!-- Generated by the normalise sweep (issue #51); regenerated wholesale, so hand edits are overwritten. -->',
@@ -769,10 +757,29 @@ function writeComponentDistributions(columnsNewestFirst: string[], foldedPrefixe
     '`docs/reference/callsign-structure/`). RSL semantics:',
     '`reference-data/rsl.csv`.',
     '',
-    ...table(rslCounts, 'identifier'),
+    ...distributionTable(dates, rows, 'identifier'),
     '',
-  ];
-  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'regional-identifiers.md'), rslLines.join('\n'));
+  ].join('\n');
+}
+
+// Prefix-series and regional-identifier distributions (issue #51). Columns are
+// datasets newest leftmost, matching the other rollups.
+//
+// FOLD, not re-derive (issue #361, migration step 5 + Phase B): when the folded
+// arguments are supplied, both tables' figures come from the raw-keyed claim
+// ledger's T1 parse-attribute tier (quality-report-fold.ts) rather than the
+// legacy components.csv tally — the prefix table from prefix_series/parse_status,
+// the regional table from the same joined to the per-record `rsl` claim (#422).
+// Each falls back to its legacy computation (the presentation tests exercise that
+// path); the fold reproduces the committed goldens (quality-report-fold.test.ts).
+function writeComponentDistributions(columnsNewestFirst: string[], foldedPrefixes?: PrefixDistributionFold, foldedRegional?: RegionalIdentifierFold): void {
+  const prefix = foldedPrefixes ?? legacyPrefixDistribution(columnsNewestFirst);
+  const regional = foldedRegional ?? legacyRegionalIdentifierDistribution(columnsNewestFirst);
+  // Both reports need at least one dated open-data column; a bare archive with no
+  // register-bearing entries writes neither (mirroring the folds' empty return).
+  if (regional.dates.length === 0) return;
+  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'prefixes.md'), renderPrefixDistributions(prefix.dates, prefix.rows));
+  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'regional-identifiers.md'), renderRegionalIdentifiers(regional.dates, regional.rows));
 }
 
 // Overview index for the reports directory (issue #51): headline numbers
@@ -1078,30 +1085,55 @@ function parseCsvRecords(filePath: string): Record<string, string>[] {
   return parse(fs.readFileSync(filePath, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[];
 }
 
+// The legacy callsign-pattern time-series, read from stats.json's callsignPatterns
+// (one bucket per character-shape, per dataset) — the single source of truth for
+// the legacy figures, shared by the fallback path (the presentation tests) and
+// the equivalence oracle's legacy side. Keys stay CHRONOLOGICAL (oldest-first):
+// the renderer reverses to newest-first. recordCount rides straight from stats;
+// it equals the sum of the pattern buckets (every row lands in exactly one),
+// which is what the fold reconstructs from the @listed anchors.
+export function legacyCallsignPatternSeries(keys: string[], statsByKey: Map<string, EntryStats>): CallsignPatternSeriesFold {
+  const recordCounts = new Map<string, number>();
+  const patterns = new Map<string, Map<string, number>>();
+  for (const k of keys) {
+    const stats = statsByKey.get(k);
+    if (stats === undefined) continue;
+    recordCounts.set(k, stats.recordCount);
+    patterns.set(k, new Map(Object.entries(stats.callsignPatterns)));
+  }
+  return { keys: [...keys], recordCounts, patterns };
+}
+
 // Full pattern time-series (issue #51's callsign-patterns drill-down): one
 // column per dataset - ALL of them, not a window - with plain counts and no
 // baseline, so distribution changes over time read directly. Two views: raw
 // patterns (per-codepoint precision), and a folded companion where every
 // {U+XXXX} marker collapses to a single U class, so the same shape
 // contaminated by DIFFERENT whitespace codepoints across eras merges into
-// one row (the phenomenon's continuity). Future dimensions (callsign prefix
-// distributions, regional secondary identifiers) will join this file.
+// one row (the phenomenon's continuity).
 //
-// NOT folded from the ledger (issue #361, migration step 5): this report keys on
-// the callsign CHARACTER-SHAPE taxonomy (callsignPattern in shared/stats.ts —
-// A/a/N with per-codepoint {U+XXXX} markers), which is a SEPARATE derivation from
-// parseCallsign, not one of the T1 parse-attribute claims (prefix_series /
-// implied_class / parse_status / flag). Folding it would require re-deriving the
-// marker taxonomy in SQL — a second derivation the fold discipline forbids — so it
-// is blocked until the character-shape pattern emits as its own derived claim.
-function writePatternTimeSeries(keys: string[], statsByKey: Map<string, EntryStats>): void {
+// FOLD, not re-derive (issue #361, Phase B): the per-dataset pattern counts come
+// from the raw-keyed claim ledger's callsign-pattern derived claim (#422) rather
+// than the legacy stats.json tally, supplied as a CallsignPatternSeriesFold. The
+// blank-callsign bucket (`_(empty)_`) is recovered from the @listed anchor — the
+// tier emits no callsign-pattern claim for an empty token — so no finding is
+// dropped. The classification/descriptor logic (formatFor/patternClass), the
+// marker-fold transform and the character key are pure functions of the pattern
+// STRING, so they render identically whichever source supplied the counts.
+export function renderCallsignPatternSeries(series: CallsignPatternSeriesFold): string {
+  const { keys } = series;
+  const patternsOf = (k: string): Map<string, number> => series.patterns.get(k) ?? new Map<string, number>();
+  const recordCell = (k: string): string => {
+    const count = series.recordCounts.get(k);
+    return count === undefined ? '—' : String(count);
+  };
   const foldMarkers = (pattern: string): string => pattern.replace(/\{U\+[0-9A-F]+\}/g, 'U');
 
   const table = (transform: (pattern: string) => string): string[] => {
     const perKey = new Map<string, Map<string, number>>();
     for (const k of keys) {
       const agg = new Map<string, number>();
-      for (const [p, c] of Object.entries(statsByKey.get(k)?.callsignPatterns ?? {})) {
+      for (const [p, c] of patternsOf(k)) {
         const t = transform(p);
         agg.set(t, (agg.get(t) ?? 0) + c);
       }
@@ -1117,7 +1149,7 @@ function writePatternTimeSeries(keys: string[], statsByKey: Map<string, EntrySta
     return [
       `| pattern | ${columns.join(' | ')} |`,
       `|---|${columns.map(() => '---:').join('|')}|`,
-      `| _records_ | ${columns.map(k => statsByKey.get(k)?.recordCount ?? '—').join(' | ')} |`,
+      `| _records_ | ${columns.map(recordCell).join(' | ')} |`,
       ...patterns.map(p => `| ${patternLabel(p)} | ${columns.map(k => perKey.get(k)?.get(p) ?? '—').join(' | ')} |`),
     ];
   };
@@ -1129,13 +1161,13 @@ function writePatternTimeSeries(keys: string[], statsByKey: Map<string, EntrySta
   // not classification.
   const columns = [...keys].reverse();
   const newest = keys[keys.length - 1];
-  const newestCounts = statsByKey.get(newest)?.callsignPatterns ?? {};
+  const newestCounts = patternsOf(newest);
   const union = new Set<string>();
-  for (const k of keys) for (const p of Object.keys(statsByKey.get(k)?.callsignPatterns ?? {})) union.add(p);
+  for (const k of keys) for (const p of patternsOf(k).keys()) union.add(p);
   const sortByNewest = (a: string, b: string): number =>
-    ((newestCounts[b] ?? 0) - (newestCounts[a] ?? 0)) || (a < b ? -1 : 1);
+    ((newestCounts.get(b) ?? 0) - (newestCounts.get(a) ?? 0)) || (a < b ? -1 : 1);
   const countsFor = (p: string): string =>
-    columns.map(k => statsByKey.get(k)?.callsignPatterns[p] ?? '—').join(' | ');
+    columns.map(k => patternsOf(k).get(p) ?? '—').join(' | ');
 
   const byClass: Record<PatternClass, string[]> = { uk: [], visitor: [], unknown: [] };
   for (const p of union) byClass[patternClass(formatFor(p))].push(p);
@@ -1166,7 +1198,7 @@ function writePatternTimeSeries(keys: string[], statsByKey: Map<string, EntrySta
     '',
     `| dataset | ${columns.join(' | ')} |`,
     `|---|${columns.map(() => '---:').join('|')}|`,
-    `| _records_ | ${columns.map(k => statsByKey.get(k)?.recordCount ?? '—').join(' | ')} |`,
+    `| _records_ | ${columns.map(recordCell).join(' | ')} |`,
     '',
     '## Patterns by class',
     '',
@@ -1209,7 +1241,15 @@ function writePatternTimeSeries(keys: string[], statsByKey: Map<string, EntrySta
     '</details>',
     '',
   ];
-  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'callsign-patterns.md'), withCharacterKey(lines).join('\n'));
+  return withCharacterKey(lines).join('\n');
+}
+
+// Write the callsign-pattern time-series, folding from the ledger's callsign-
+// pattern claim when supplied and falling back to the legacy stats tally
+// otherwise (the presentation tests exercise the fallback).
+function writePatternTimeSeries(keys: string[], statsByKey: Map<string, EntryStats>, foldedSeries?: CallsignPatternSeriesFold): void {
+  const series = foldedSeries ?? legacyCallsignPatternSeries(keys, statsByKey);
+  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'callsign-patterns.md'), renderCallsignPatternSeries(series));
 }
 
 // PR-body/dashboard guidance for changed entries: the window matrix and RSL

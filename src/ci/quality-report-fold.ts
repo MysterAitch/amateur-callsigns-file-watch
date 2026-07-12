@@ -1,11 +1,26 @@
 /**
  * Fold the parse-attribute quality reports from the raw-keyed claim ledger
  * (issue #361, migration-map step 5): the open-data prefix-series distribution
- * (reports/prefixes.md) and the class-product-mismatch standing table
- * (reports/class-product-mismatches.md). Both are computable ENTIRELY from the
- * T1 parse-attribute tier (claim.ts / issue #406): prefix_series, implied_class,
- * parse_status and the per-flag `flag` claim, joined to the raw @listed anchor
- * and the raw product cell.
+ * (reports/prefixes.md), the class-product-mismatch standing table
+ * (reports/class-product-mismatches.md), the regional-identifier distribution
+ * (reports/regional-identifiers.md) and the callsign-pattern time-series
+ * (reports/callsign-patterns.md). All are computable ENTIRELY from the T1
+ * parse-attribute tier (claim.ts / issues #406, #422): prefix_series,
+ * implied_class, parse_status, rsl and the per-flag `flag` claim, plus the
+ * callsign-pattern derived claim, joined to the raw @listed anchor and the raw
+ * product cell.
+ *
+ * The regional-identifier and callsign-pattern folds join #422's rsl and
+ * callsign-pattern derived claims (#424 emitted them). They are the same open-
+ * data-only, record-counting class as the prefix distribution: the ofcom-amateur
+ * normaliser copies the callsign VERBATIM and is row-preserving, so the ledger
+ * parses the same token over the same rows the legacy generators tally from
+ * components.csv / stats.json. Both recover a "no value" bucket from the @listed
+ * anchor rather than inventing or dropping it — the regional table has no such
+ * bucket (it counts PARSED records only), but the callsign-pattern series does:
+ * a blank callsign carries an @listed anchor but no callsign-pattern claim (the
+ * tier emits none for an empty token), so the fold recovers the legacy
+ * `_(empty)_` bucket from the anchor, exactly as the prefix fold recovers its own.
  *
  * WHY these two, and why they fold to ZERO residual divergence (unlike the
  * value catalogue). The legacy generators read the NORMALISED components.csv /
@@ -43,6 +58,8 @@ import {
   PREFIX_SERIES_PREDICATE,
   IMPLIED_CLASS_PREDICATE,
   FLAG_PREDICATE,
+  RSL_PREDICATE,
+  CALLSIGN_PATTERN_PREDICATE,
 } from '../v2/claim.ts';
 import { foldQuery } from '../v2/report-fold.ts';
 import { PRODUCT_COLUMN_NAMES } from '../sources/ofcom-amateur/normalise.ts';
@@ -285,11 +302,197 @@ export function foldClassProductMismatches(ledgerDir: string): MismatchFold {
   return assembleMismatches(dates, foldQuery<MismatchFoldRow>(mismatchFoldSql(ledgerDir, productHeaders)));
 }
 
+// --- reports/regional-identifiers.md ----------------------------------------
+
+// The regional-identifier distribution as the report renders it: the dated
+// open-data columns (newest first) and, per rendered identifier LABEL, the
+// PARSED record count in each date. The label is the rendered prefix+RSL
+// combination the legacy writeComponentDistributions bumps — exactly the same
+// row key, so the table renders shape-for-shape the same.
+export interface RegionalIdentifierFold {
+  dates: string[];
+  rows: Map<string, Map<string, number>>;
+}
+
+// One folded regional-identifier row as DuckDB returns it: a (date, series, rsl,
+// count) quad over PARSED observations only. `series` is the resolved prefix
+// series; `rsl` is the Regional Secondary Locator letter, COALESCEd to '' where
+// the parse resolved none (an RSL-less core call carries no rsl claim).
+interface RegionalFoldRow {
+  date: string;
+  series: string | null;
+  rsl: string;
+  records: number;
+}
+
+// The fold SQL for the regional-identifier distribution. One pass over the
+// open-data lane restricted to PARSED observations (the legacy table counts
+// parsed records only — non-parsed rows are excluded, not bucketed):
+//   - obs  : every @listed anchor (one per published row).
+//   - ps   : the parse_status claim (INNER JOIN + status='parsed' is the parsed
+//            restriction — every parsed token carries the claim).
+//   - pfx  : the resolved prefix series (present for a parsed token).
+//   - rslc : the resolved RSL letter (absent for an RSL-less core call).
+// The joins are one-to-one on the observation key, so count(*) per group is the
+// record count. The rendered label and final sort are assembled in TypeScript to
+// match the legacy key sort.
+function regionalFoldSql(ledgerDir: string): string {
+  const glob = ledgerGlob(ledgerDir);
+  return `WITH claims AS (
+  SELECT * FROM read_json(${glob}, format='newline_delimited', columns=${LEDGER_COLUMNS})
+),
+obs AS (
+  SELECT sourceFile, ordinal, ${DATE_EXPR} AS date
+  FROM claims WHERE layer='raw' AND predicate='${LISTED_PREDICATE}' AND ${OPEN_DATA_LANE}
+),
+ps AS (
+  SELECT sourceFile, ordinal, object AS status
+  FROM claims WHERE layer='derived' AND predicate='${PARSE_STATUS_PREDICATE}'
+),
+pfx AS (
+  SELECT sourceFile, ordinal, object AS series
+  FROM claims WHERE layer='derived' AND predicate='${PREFIX_SERIES_PREDICATE}'
+),
+rslc AS (
+  SELECT sourceFile, ordinal, object AS rsl
+  FROM claims WHERE layer='derived' AND predicate='${RSL_PREDICATE}'
+)
+SELECT o.date, p.series AS series, COALESCE(r.rsl, '') AS rsl, count(*) AS records
+FROM obs o
+JOIN ps s USING (sourceFile, ordinal)
+LEFT JOIN pfx p USING (sourceFile, ordinal)
+LEFT JOIN rslc r USING (sourceFile, ordinal)
+WHERE s.status = 'parsed'
+GROUP BY o.date, p.series, COALESCE(r.rsl, '')
+ORDER BY o.date, series, rsl`;
+}
+
+// The rendered identifier label for a folded row — the identical branching the
+// legacy writeComponentDistributions applies to a parsed components.csv row:
+// series-2 intermediates render as their digit-led combo (`2E`) or bare
+// (`20`/`21`) where the RSL is absent; other series render their first-letter+RSL
+// combo (`MW`); an RSL-less G/M core collapses into one aggregate bucket.
+function regionalRowLabel(row: RegionalFoldRow): string {
+  const series = row.series ?? '';
+  if (series.startsWith('2')) {
+    return row.rsl !== '' ? `\`2${row.rsl}\`` : `\`${series}\` _(bare)_`;
+  }
+  if (row.rsl !== '') {
+    return `\`${series[0]}${row.rsl}\``;
+  }
+  return '_(G/M core, no RSL)_';
+}
+
+// Assemble the folded rows into the report's shape: every open-data date
+// newest-first (so a dataset with no parsed records still gets its column, an
+// all-zero absence the legacy table also shows) and a per-label per-date count
+// map. The row set is left unsorted here — the renderer sorts labels the same
+// way the legacy does (distributionTable's lexicographic sort).
+function assembleRegionalIdentifiers(dates: readonly string[], foldRows: readonly RegionalFoldRow[]): RegionalIdentifierFold {
+  const orderedDates = [...dates].sort().reverse();
+  const rows = new Map<string, Map<string, number>>();
+  for (const row of foldRows) {
+    const label = regionalRowLabel(row);
+    const byDate = rows.get(label) ?? new Map<string, number>();
+    byDate.set(row.date, (byDate.get(row.date) ?? 0) + row.records);
+    rows.set(label, byDate);
+  }
+  return { dates: orderedDates, rows };
+}
+
+// Fold the regional-identifier distribution from a directory of per-source ledger
+// JSONL files. Two passes: the full open-data date set (the report's columns, so
+// a zero-parsed dataset still renders) and the parsed-record rows.
+export function foldRegionalIdentifiers(ledgerDir: string): RegionalIdentifierFold {
+  if (!hasClaims(ledgerDir)) return { dates: [], rows: new Map() };
+  const dates = foldQuery<{ date: string }>(openDataDatesSql(ledgerDir)).map(r => r.date);
+  return assembleRegionalIdentifiers(dates, foldQuery<RegionalFoldRow>(regionalFoldSql(ledgerDir)));
+}
+
+// --- reports/callsign-patterns.md -------------------------------------------
+
+// The callsign-pattern time-series as the report renders it. The report keys on
+// the character-shape taxonomy (callsignPattern in shared/stats.ts) per dataset,
+// so the fold supplies, per open-data date: the total record count and the per-
+// pattern counts. `keys` are the dated columns in CHRONOLOGICAL (oldest-first)
+// order — the order the sweep passes keysWithStats and the renderer reverses to
+// newest-first, matching the legacy path.
+export interface CallsignPatternSeriesFold {
+  keys: string[];
+  recordCounts: Map<string, number>;
+  patterns: Map<string, Map<string, number>>;
+}
+
+// One folded callsign-pattern row as DuckDB returns it: a (date, pattern, count)
+// triple. `pattern` is the character-shape claim's object, COALESCEd to '' for
+// the blank-token anchor that carries no callsign-pattern claim (the tier's
+// pattern-iff-non-empty contract) — the renderer labels '' as `_(empty)_`,
+// recovering the legacy blank-callsign bucket rather than dropping it.
+interface PatternFoldRow {
+  date: string;
+  pattern: string;
+  records: number;
+}
+
+// The fold SQL for the callsign-pattern series. One pass over the open-data lane:
+//   - obs : every @listed anchor (one per published row — the full record set).
+//   - cp  : each observation's callsign-pattern derived claim (absent for a blank
+//           token).
+// The LEFT JOIN is one-to-one on the observation key (one pattern claim per non-
+// empty token), so count(*) per (date, pattern) group is the record count and the
+// per-date sum is the record count. Every record lands in exactly one pattern
+// bucket — the legacy invariant — the blank ones under the recovered '' bucket.
+function callsignPatternSeriesSql(ledgerDir: string): string {
+  const glob = ledgerGlob(ledgerDir);
+  return `WITH claims AS (
+  SELECT * FROM read_json(${glob}, format='newline_delimited', columns=${LEDGER_COLUMNS})
+),
+obs AS (
+  SELECT sourceFile, ordinal, ${DATE_EXPR} AS date
+  FROM claims WHERE layer='raw' AND predicate='${LISTED_PREDICATE}' AND ${OPEN_DATA_LANE}
+),
+cp AS (
+  SELECT sourceFile, ordinal, object AS pattern
+  FROM claims WHERE layer='derived' AND predicate='${CALLSIGN_PATTERN_PREDICATE}'
+)
+SELECT o.date, COALESCE(c.pattern, '') AS pattern, count(*) AS records
+FROM obs o
+LEFT JOIN cp c USING (sourceFile, ordinal)
+GROUP BY o.date, COALESCE(c.pattern, '')
+ORDER BY o.date, pattern`;
+}
+
+// Assemble the folded rows into the report's shape: dates chronological (the
+// renderer reverses to newest-first), a per-date pattern->count map, and a per-
+// date record count summed from the pattern buckets (every observation lands in
+// exactly one bucket, so the sum is the @listed count — the legacy recordCount).
+function assembleCallsignPatternSeries(foldRows: readonly PatternFoldRow[]): CallsignPatternSeriesFold {
+  const keys = [...new Set(foldRows.map(r => r.date))].sort();
+  const recordCounts = new Map<string, number>();
+  const patterns = new Map<string, Map<string, number>>();
+  for (const row of foldRows) {
+    const byPattern = patterns.get(row.date) ?? new Map<string, number>();
+    byPattern.set(row.pattern, (byPattern.get(row.pattern) ?? 0) + row.records);
+    patterns.set(row.date, byPattern);
+    recordCounts.set(row.date, (recordCounts.get(row.date) ?? 0) + row.records);
+  }
+  return { keys, recordCounts, patterns };
+}
+
+// Fold the callsign-pattern time-series from a directory of per-source ledger
+// JSONL files.
+export function foldCallsignPatternSeries(ledgerDir: string): CallsignPatternSeriesFold {
+  if (!hasClaims(ledgerDir)) return { keys: [], recordCounts: new Map(), patterns: new Map() };
+  return assembleCallsignPatternSeries(foldQuery<PatternFoldRow>(callsignPatternSeriesSql(ledgerDir)));
+}
+
 // --- The whole quality-report fold ------------------------------------------
 
 export interface QualityReportFold {
   prefixes: PrefixDistributionFold;
   mismatches: MismatchFold;
+  regionalIdentifiers: RegionalIdentifierFold;
+  callsignPatterns: CallsignPatternSeriesFold;
 }
 
 // Fold both reports from a ledger directory (a caller holding a pre-built ledger
@@ -304,14 +507,19 @@ export interface QualityReportFold {
 // matches the normalise sweep's per-entry independence — a malformed entry the
 // sweep already reports is skipped, not a reason to crash the whole report.
 export function buildQualityReportFold(ledgerDir?: string, ref: ReferenceData = loadReferenceData()): QualityReportFold {
+  const foldAll = (dir: string): QualityReportFold => ({
+    prefixes: foldPrefixDistribution(dir),
+    mismatches: foldClassProductMismatches(dir),
+    regionalIdentifiers: foldRegionalIdentifiers(dir),
+    callsignPatterns: foldCallsignPatternSeries(dir),
+  });
   if (ledgerDir !== undefined) {
-    return { prefixes: foldPrefixDistribution(ledgerDir), mismatches: foldClassProductMismatches(ledgerDir) };
+    return foldAll(ledgerDir);
   }
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'quality-report-ledger-'));
   try {
     buildLedger(scratch, undefined, ref, undefined, true);
-    const dir = path.join(scratch, 'ledger');
-    return { prefixes: foldPrefixDistribution(dir), mismatches: foldClassProductMismatches(dir) };
+    return foldAll(path.join(scratch, 'ledger'));
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
   }
