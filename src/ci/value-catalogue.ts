@@ -20,6 +20,7 @@ import { listArchiveKeys } from '../shared/archive.ts';
 import { buildFoiObservations } from '../shared/foi-observations.ts';
 import { parseCallsign, cleanedCallsign, loadReferenceData, normaliseLicenceCategory, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { mdCode } from '../shared/markdown.ts';
+import { buildLicenceCategoryFold } from './value-catalogue-fold.ts';
 
 // A blank source value is data (the source asserted an empty string); a value
 // the source does not carry at all is a different thing. Both render legibly.
@@ -47,7 +48,7 @@ export interface FieldCatalogue { field: string; distinct: number; total: number
 // callsigns / allocatedCallsigns are optional so hand-built fixtures (and any
 // caller that only cares about counts/breadth) stay valid; they default to
 // empty, yielding a zero breakdown.
-interface Cell { lanes: Set<string>; bySource: Map<string, number>; callsigns?: Set<string>; allocatedCallsigns?: Set<string> }
+export interface Cell { lanes: Set<string>; bySource: Map<string, number>; callsigns?: Set<string>; allocatedCallsigns?: Set<string> }
 type Tallies = Map<string, Map<string, Cell>>;
 // A bump carries, beyond the value itself, the callsign the value belongs to
 // and whether that callsign's record is `Allocated` - the raw material for the
@@ -87,7 +88,7 @@ const ALLOCATED_STATUS = 'Allocated';
 // The fields profiled and the lane each source contributes. `product` (open
 // data) and `licence_class` (FOI) describe the same concept under different
 // vocabularies, so they share one field to make the drift visible.
-const PRODUCT_FIELD = 'product / licence_class';
+export const PRODUCT_FIELD = 'product / licence_class';
 
 function tallyOpenData(bump: Bump, key: string): void {
   const dir = path.join(CONSTANTS.DIRS.archive, key);
@@ -190,16 +191,31 @@ function notableSection(cats: Map<string, FieldCatalogue>, ref: ReferenceData): 
   return lines;
 }
 
-// The "describe, then do" of the licence vocabulary drift (issue #232): the
-// raw product/licence_class variants surfaced in Notable and the product table,
-// collapsed to their canonical category via reference-data/licence-category.csv.
-// The raw values are still carried verbatim (source fidelity); this is the
-// derived, canonical view beside them, made visible so the normalisation is a
-// reviewable artefact rather than a hidden mapping. A non-blank variant with no
-// category is flagged, never silently dropped.
-function licenceCategorySection(cats: Map<string, FieldCatalogue>, ref: ReferenceData, productCells?: Map<string, Cell>): string[] {
-  const product = cats.get(PRODUCT_FIELD);
-  if (product === undefined) return [];
+// One normalised licence category as the report renders it: records (rows),
+// callsigns (distinct), allocated (the live-register slice) and the raw
+// spellings it folds in with their record counts. The shape is common to the
+// legacy computation and the ledger fold (value-catalogue-fold.ts), so the
+// renderer draws the table the same way whichever path supplied the figures.
+export interface LicenceCategoryFigures {
+  category: string;
+  records: number;
+  callsigns: number;
+  allocated: number;
+  variants: { product: string; records: number }[];
+}
+
+// The legacy licence-category computation, factored out so both the renderer's
+// fallback and the equivalence oracle (value-catalogue-fold.test.ts) share one
+// definition. Collapses the product tally to canonical categories, unioning
+// callsigns/allocated across the folded variants (never a double-counting sum),
+// and returns the categories plus the blank and unmapped residues the section
+// narrates.
+export function computeLegacyLicenceCategories(
+  product: FieldCatalogue | undefined,
+  ref: ReferenceData,
+  productCells?: Map<string, Cell>,
+): { categories: LicenceCategoryFigures[]; blank?: ValueTally; unmapped: ValueTally[] } {
+  if (product === undefined) return { categories: [], unmapped: [] };
   const byCategory = new Map<string, { total: number; variants: ValueTally[] }>();
   const unmapped: ValueTally[] = [];
   let blank: ValueTally | undefined;
@@ -212,10 +228,48 @@ function licenceCategorySection(cats: Map<string, FieldCatalogue>, ref: Referenc
     bucket.variants.push(v);
     byCategory.set(category, bucket);
   }
-  const categories = [...byCategory.entries()]
-    .map(([category, b]) => ({ category, total: b.total, variants: b.variants }))
-    .sort((a, b) => b.total - a.total || a.category.localeCompare(b.category));
+  const categories: LicenceCategoryFigures[] = [...byCategory.entries()]
+    .map(([category, b]) => {
+      const callsigns = new Set<string>();
+      const allocated = new Set<string>();
+      for (const v of b.variants) {
+        const cell = productCells?.get(v.value);
+        cell?.callsigns?.forEach(x => callsigns.add(x));
+        cell?.allocatedCallsigns?.forEach(x => allocated.add(x));
+      }
+      const variants = [...b.variants]
+        .sort((a, c) => c.count - a.count || a.value.localeCompare(c.value))
+        .map(v => ({ product: v.value, records: v.count }));
+      return { category, records: b.total, callsigns: callsigns.size, allocated: allocated.size, variants };
+    })
+    .sort((a, b) => b.records - a.records || a.category.localeCompare(b.category));
+  return { categories, blank, unmapped };
+}
+
+// The "describe, then do" of the licence vocabulary drift (issue #232): the
+// raw product/licence_class variants surfaced in Notable and the product table,
+// collapsed to their canonical category via reference-data/licence-category.csv.
+// The raw values are still carried verbatim (source fidelity); this is the
+// derived, canonical view beside them, made visible so the normalisation is a
+// reviewable artefact rather than a hidden mapping. A non-blank variant with no
+// category is flagged, never silently dropped.
+//
+// FOLD, not re-derive (issue #361): when `folded` is supplied, the category
+// table's figures come from the raw-keyed claim ledger's `licence_category`
+// derived claim (value-catalogue-fold.ts) rather than the legacy product tally.
+// The blank and unmapped residues are still read from the product tally — they
+// describe the product FIELD (kept legacy for now), not the category derivation.
+function licenceCategorySection(
+  cats: Map<string, FieldCatalogue>,
+  ref: ReferenceData,
+  productCells?: Map<string, Cell>,
+  folded?: LicenceCategoryFigures[],
+): string[] {
+  const legacy = computeLegacyLicenceCategories(cats.get(PRODUCT_FIELD), ref, productCells);
+  const categories = folded ?? legacy.categories;
   if (categories.length === 0) return [];
+  const blank = legacy.blank;
+  const unmapped = legacy.unmapped;
 
   const mapped = categories.reduce((n, c) => n + c.variants.length, 0);
   const lines: string[] = [];
@@ -233,18 +287,10 @@ function licenceCategorySection(cats: Map<string, FieldCatalogue>, ref: Referenc
   lines.push('| normalised category | records | callsigns | allocated | folds in |');
   lines.push('|---|---:|---:|---:|---|');
   for (const c of categories) {
-    const callsigns = new Set<string>();
-    const allocated = new Set<string>();
-    for (const v of c.variants) {
-      const cell = productCells?.get(v.value);
-      cell?.callsigns?.forEach(x => callsigns.add(x));
-      cell?.allocatedCallsigns?.forEach(x => allocated.add(x));
-    }
-    const variants = [...c.variants]
-      .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
-      .map(v => `${mdCode(v.value)} (${v.count.toLocaleString('en-GB')})`)
+    const variants = c.variants
+      .map(v => `${mdCode(v.product)} (${v.records.toLocaleString('en-GB')})`)
       .join(', ');
-    lines.push(`| ${mdCode(c.category)} | ${c.total.toLocaleString('en-GB')} | ${callsigns.size.toLocaleString('en-GB')} | ${allocated.size.toLocaleString('en-GB')} | ${variants} |`);
+    lines.push(`| ${mdCode(c.category)} | ${c.records.toLocaleString('en-GB')} | ${c.callsigns.toLocaleString('en-GB')} | ${c.allocated.toLocaleString('en-GB')} | ${variants} |`);
   }
   lines.push('');
   if (blank !== undefined) {
@@ -343,7 +389,7 @@ function normalisationFidelitySection(fidelity: EntryFidelity[]): string[] {
   return out;
 }
 
-export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timeline: string[] = [], fidelity: EntryFidelity[] = []): string {
+export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timeline: string[] = [], fidelity: EntryFidelity[] = [], foldedCategories?: LicenceCategoryFigures[]): string {
   const FIELD_ORDER = ['status', PRODUCT_FIELD, 'implied_class', 'parse_status', 'prefix_series', 'flags'];
   const cats = new Map<string, FieldCatalogue>();
   for (const field of FIELD_ORDER) {
@@ -392,7 +438,7 @@ export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timel
     out.push('');
   }
 
-  out.push(...licenceCategorySection(cats, ref, tallies.get(PRODUCT_FIELD)));
+  out.push(...licenceCategorySection(cats, ref, tallies.get(PRODUCT_FIELD), foldedCategories));
 
   out.push(...normalisationFidelitySection(fidelity));
 
@@ -418,9 +464,14 @@ export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timel
 
 export const VALUE_CATALOGUE_PATH = 'reports/value-catalogue.md';
 
-export function writeValueCatalogue(): { path: string; changed: boolean } {
+export function writeValueCatalogue(ledgerDir?: string): { path: string; changed: boolean } {
   const ref = loadReferenceData();
-  const markdown = renderValueCatalogue(buildFieldTallies(), ref, openDataTimeline(), buildNormalisationFidelity());
+  // The "Normalised licence category" table folds from the raw-keyed claim
+  // ledger (issue #361); everything else stays on the legacy tally for now (see
+  // value-catalogue-fold.ts / the migration map). A caller with a pre-built
+  // ledger passes its directory; otherwise the fold materialises one.
+  const foldedCategories = buildLicenceCategoryFold(ledgerDir, ref);
+  const markdown = renderValueCatalogue(buildFieldTallies(), ref, openDataTimeline(), buildNormalisationFidelity(), foldedCategories);
   // Written relative to the working directory - the SAME root the tallies read
   // archive/ from (CONSTANTS.DIRS.archive is relative). So a sweep run against
   // a fixture archive in a temp cwd writes ITS catalogue there, never
@@ -434,6 +485,10 @@ export function writeValueCatalogue(): { path: string; changed: boolean } {
 }
 
 if (import.meta.main) {
-  const { path: written, changed } = writeValueCatalogue();
+  // An optional pre-built ledger directory (from `node src/v2/build-ledger.ts
+  // <dir>`) lets a run fold the licence-category table without re-emitting the
+  // corpus; omit it and the fold materialises its own.
+  const [ledgerDir] = process.argv.slice(2).filter(a => a.trim().length > 0);
+  const { path: written, changed } = writeValueCatalogue(ledgerDir);
   console.log(`${changed ? 'wrote' : 'up to date'}: ${written}`);
 }

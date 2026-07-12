@@ -71,6 +71,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { emitLedger, emitClaims, type Claim } from './claim.ts';
 import { serialiseClaimsJsonl } from './serialise.ts';
+import { errorMessage } from '../shared/utils.ts';
 import { defaultFoiDir } from '../shared/foi-archive.ts';
 import { loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { COLLECTORS, collectLedgerSources } from './collectors/index.ts';
@@ -105,6 +106,16 @@ export interface LedgerBuildSummary {
   totalDerivedClaims: number;
   totalClaims: number;
   perSource: SourceLedgerSummary[];
+  // Sources whose load/emit threw and were skipped — empty unless a caller
+  // opted into skipFailedSources. Surfaced (not swallowed) so a lenient build
+  // still reports what it could not process.
+  skipped: SkippedSource[];
+}
+
+export interface SkippedSource {
+  family: string;
+  entry: string;
+  error: string;
 }
 
 function tallyLayers(claims: readonly Claim[]): { raw: number; derived: number } {
@@ -139,29 +150,46 @@ function emptyFamilyTally(): Record<string, number> {
 // so a subset naming FOI entry keys naturally excludes the open-data lane.
 export type EntrySelector = (entry: string) => boolean;
 
+// Whether a source whose load/emit throws aborts the whole build (the default —
+// a real-archive integrity failure must fail loud) or is skipped and recorded so
+// the build produces a ledger of what it COULD process. Only a downstream
+// consumer that must tolerate a partially-malformed archive with the same
+// per-entry independence the normalise sweep guarantees (a report fold running
+// over a sweep's working archive) opts in; the real-archive CLI/artefact builds
+// keep the fail-loud default.
 export function buildLedger(
   outputDir: string,
   foiDir: string = defaultFoiDir(),
   ref: ReferenceData = loadReferenceData(),
   selectEntry?: EntrySelector,
+  skipFailedSources = false,
 ): LedgerBuildSummary {
   const ledgerDir = path.join(outputDir, 'ledger');
   fs.mkdirSync(ledgerDir, { recursive: true });
 
   const perSource: SourceLedgerSummary[] = [];
+  const skipped: SkippedSource[] = [];
   const entriesSeen: Record<string, Set<string>> = {};
   for (const family of FAMILIES) entriesSeen[family] = new Set();
 
   const roots: LedgerRoots = { foiDir, archiveDir: defaultArchiveDir() };
   for (const source of collectLedgerSources(roots)) {
     if (selectEntry !== undefined && !selectEntry(source.entry)) continue;
-    const observationSet = source.load();
-    // A callsign subject runs the full emit path (cleanedCallsign +
-    // normalises_to edges); any other subject kind emits the raw observation
-    // claims only, so a non-callsign token is never mis-normalised AS a
-    // callsign. Every covered family is 'callsign' today, so this is the full
-    // path for the whole corpus.
-    const claims = source.subjectKind === 'callsign' ? emitLedger(observationSet, ref) : emitClaims(observationSet);
+    let observationSet;
+    let claims;
+    try {
+      observationSet = source.load();
+      // A callsign subject runs the full emit path (cleanedCallsign +
+      // normalises_to edges); any other subject kind emits the raw observation
+      // claims only, so a non-callsign token is never mis-normalised AS a
+      // callsign. Every covered family is 'callsign' today, so this is the full
+      // path for the whole corpus.
+      claims = source.subjectKind === 'callsign' ? emitLedger(observationSet, ref) : emitClaims(observationSet);
+    } catch (err) {
+      if (!skipFailedSources) throw err;
+      skipped.push({ family: source.family, entry: source.entry, error: errorMessage(err) });
+      continue;
+    }
     const { raw, derived } = tallyLayers(claims);
     fs.writeFileSync(path.join(ledgerDir, `${source.jsonlStem}.jsonl`), serialiseClaimsJsonl(claims));
     entriesSeen[source.family].add(source.entry);
@@ -196,6 +224,7 @@ export function buildLedger(
     totalDerivedClaims,
     totalClaims: totalRawClaims + totalDerivedClaims,
     perSource,
+    skipped,
   };
 }
 
