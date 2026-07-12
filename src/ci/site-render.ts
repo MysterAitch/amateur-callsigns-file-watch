@@ -62,6 +62,7 @@ export const GLOSSARY_ANCHORS = {
   'placeholder-form': 'the placeholder (#) form',
   'cleaned': 'the cleaned join key',
   'normalised': 'the normalised view',
+  'canonical-form': 'the canonical form',
   'register-snapshot': 'a register snapshot',
   'dataset-class': 'a dataset class',
   'licence-class': 'the licence class',

@@ -17,7 +17,9 @@ import {
   observationsOf,
   foldObservations,
   anatomyOf,
-  flagsOf,
+  fidelityOf,
+  sourceFileUrl,
+  reportIssueUrl,
 } from './ledger-query.js';
 
 const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
@@ -39,6 +41,37 @@ const appendRawToken = (parent, str) => {
   flush();
   return parent;
 };
+
+// An external link that opens in a new tab and announces that to assistive
+// tech, mirroring the generated pages' externalLink helper. Text is set with
+// textContent, so a database-derived label can never smuggle markup.
+const extLink = (href, label) => {
+  const a = el('a', null, label);
+  a.href = href;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.append(' ');
+  const marker = el('span', 'ext-marker', '↗');
+  marker.setAttribute('aria-hidden', 'true');
+  a.appendChild(marker);
+  a.appendChild(el('span', 'visually-hidden', ' (opens in a new tab)'));
+  return a;
+};
+
+// A glossary deep-link for a term, in the shared gloss-term affordance idiom
+// (dotted underline + aria-hidden "?" cue + visually-hidden accessible name),
+// matching site-render.ts's glossaryTerm so the term reads and behaves the same
+// wherever it appears.
+const glossTerm = (anchor, label, accessibleName) => {
+  const a = el('a', 'gloss-term', label);
+  a.href = `glossary.html#${anchor}`;
+  const cue = el('span', 'gloss-cue', '?');
+  cue.setAttribute('aria-hidden', 'true');
+  a.appendChild(cue);
+  a.appendChild(el('span', 'visually-hidden', ` (definition of ${accessibleName} in the glossary)`));
+  return a;
+};
+
 const showRaw = t => t.replace(/ /g, '[NBSP]').replace(/ /g, '[SP]');
 
 // ---- Entity timeline (temporal fold) ---------------------------------------
@@ -154,7 +187,7 @@ function renderDossier(host, resolved, claims) {
 
   const facts = section('what the ledger asserts');
   facts.appendChild(row('entity', [b(resolved.entity), ' — the RSL-less placeholder key every regional rendering collapses to']));
-  facts.appendChild(row('cleaned', [b(resolved.cleaned), ' — the human-readable canonical (direct-lookup key)']));
+  facts.appendChild(row('canonical form', [b(resolved.cleaned), ' — the reference form this callsign is matched on (', glossTerm('canonical-form', 'canonical form', 'the canonical form'), ')']));
   const variants = [...new Set(claims.map(c => c.raw_subject))];
   const variantVal = el('span');
   variants.forEach((t, i) => { if (i > 0) variantVal.append('  ·  '); appendRawToken(variantVal, t); });
@@ -163,23 +196,115 @@ function renderDossier(host, resolved, claims) {
   facts.appendChild(row('snapshots', [b(vintages.length), vintages.length > 0 ? ` · ${vintages[0]} → ${vintages.at(-1)}` : '']));
   body.appendChild(facts);
 
-  const flags = flagsOf(claims, resolved.cleaned);
-  const fs2 = section('notable observations');
-  if (flags.length > 0) {
-    for (const f of flags) {
-      const fc = el('div', 'flagcard');
-      const t = el('div'); t.style.display = 'flex'; t.style.justifyContent = 'space-between'; t.style.gap = '8px';
-      t.appendChild(el('span', 'fn', f.flag)); t.appendChild(el('span', 'tb d', 'derived'));
-      fc.appendChild(t);
-      fc.appendChild(el('div', 'fg', f.gloss));
-      fs2.appendChild(fc);
-    }
-  } else {
-    fs2.appendChild(el('p', 'obs-mini', 'None — a clean, unremarkable record.'));
-  }
-  body.appendChild(fs2);
+  renderFidelity(body, resolved, claims);
   card.appendChild(body);
   host.appendChild(card);
+}
+
+// ---- Record fidelity affordance (issue #438) -------------------------------
+// The inline, selectively-disclosed fidelity surface. Nothing is added for the
+// clean, unremarkable record (the ~99% case): the section is omitted entirely
+// so there is no "canonical form" noise and nothing that could read as "your
+// record was changed". When a published form diverges from the canonical form,
+// or a derived observation applies, it surfaces a standing non-accusatory
+// preamble, the canonical form (glossary-linked), each note with its plain
+// gloss and a JS-free "show the working" disclosure, and a basic examine/report
+// right-of-reply hook. Exported so the DOM output is unit-testable without a
+// database worker. Deliberately carries NO lookalike / "did you mean"
+// suggestion.
+export function renderFidelity(body, resolved, claims) {
+  const fidelity = fidelityOf(claims, resolved);
+  if (!fidelity.disclose) return; // selective disclosure: surface nothing
+
+  const sec = el('div', 'dsec fidelity');
+  sec.appendChild(el('h4', null, 'record fidelity'));
+  sec.appendChild(el('p', 'fid-preamble', fidelity.preamble));
+
+  if (fidelity.canonical) {
+    const c = el('div', 'fid-canonical');
+    const line = el('p', 'fid-line');
+    line.append('The register published this callsign in a form that differs from its ');
+    line.appendChild(glossTerm('canonical-form', 'canonical form', 'the canonical form'));
+    line.append('. The reference form is ');
+    line.appendChild(b(fidelity.canonical.canonicalForm));
+    line.append('. Each published form is kept exactly as it appeared:');
+    c.appendChild(line);
+    for (const v of fidelity.canonical.variants) {
+      const vrow = el('div', 'fid-variant');
+      const raw = appendRawToken(el('span', 'fid-raw'), v.raw);
+      vrow.appendChild(raw);
+      vrow.appendChild(renderWorking(v.working));
+      c.appendChild(vrow);
+    }
+    sec.appendChild(c);
+  }
+
+  for (const note of fidelity.notes) {
+    const fc = el('div', 'flagcard fid-note');
+    const t = el('div', 'fid-note-head');
+    t.appendChild(el('span', 'fn', note.label));
+    t.appendChild(el('span', 'tb d', 'derived'));
+    fc.appendChild(t);
+    if (note.gloss) fc.appendChild(el('div', 'fg', note.gloss));
+    if (note.working) fc.appendChild(renderWorking(note.working));
+    sec.appendChild(fc);
+  }
+
+  // Right-of-reply hook (issue #439 basic form): raise a neutral, pre-filled
+  // public issue. No response-time expectation is set.
+  const actions = el('p', 'fid-actions');
+  actions.appendChild(extLink(reportIssueUrl(resolved.cleaned), 'Report an observation about this callsign'));
+  actions.append(' — opens a public GitHub issue; this project mirrors Ofcom’s published snapshots and cannot change the official register.');
+  sec.appendChild(actions);
+
+  body.appendChild(sec);
+}
+
+// The JS-free "show the working" disclosure behind one derived value: a native
+// <details>/<summary> (works with JavaScript off), revealing the rule gloss,
+// the inputs it consumed, the reproduced result, and a link to examine the
+// source rows the observation was seen in. Built from the emitted claims, so it
+// shows exactly what the model asserts.
+function renderWorking(working) {
+  const d = el('details', 'fid-why');
+  const sum = el('summary');
+  sum.append('Show the working');
+  d.appendChild(sum);
+
+  const panel = el('div', 'fid-work');
+  panel.appendChild(row2('rule', working.ruleGloss));
+
+  const inputsVal = el('span');
+  working.inputs.forEach((inp, i) => {
+    if (i > 0) inputsVal.append('  ·  ');
+    inputsVal.append(inp.role + ': ');
+    appendRawToken(inputsVal, inp.value);
+  });
+  panel.appendChild(row2('inputs', inputsVal));
+  panel.appendChild(row2('result', appendRawToken(el('span'), working.result)));
+
+  if (working.sources.length > 0) {
+    const srcVal = el('span');
+    working.sources.forEach((s, i) => {
+      if (i > 0) srcVal.append('; ');
+      srcVal.append(`row ${s.ordinal} of `);
+      srcVal.appendChild(extLink(sourceFileUrl(s.sourceFile), s.sourceFile));
+      srcVal.append(` (${s.vintage})`);
+    });
+    panel.appendChild(row2('seen in', srcVal));
+  }
+  d.appendChild(panel);
+  return d;
+}
+
+// One label/value line inside a working panel.
+function row2(lab, value) {
+  const r = el('div', 'fid-work-row');
+  r.appendChild(el('span', 'k', lab));
+  const v = el('span', 'v');
+  if (typeof value === 'string') v.textContent = value; else v.appendChild(value);
+  r.appendChild(v);
+  return r;
 }
 
 // ---- Orchestration ---------------------------------------------------------

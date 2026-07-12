@@ -258,6 +258,288 @@ export function flagsOf(claims, cleaned) {
   return flags;
 }
 
+// ---- Record fidelity: the inline, selectively-disclosed affordance (#438) --
+//
+// A callsign's record is faithful the overwhelming majority of the time: the
+// form the register published equals its canonical reference form and it
+// carries no notable observation. In that case this surface says NOTHING about
+// forms or fidelity (selective disclosure, ADR ethics decision 8) - the reader
+// just sees their callsign, with no "M7TEE -> M7TEE" noise and nothing that
+// could read as "your record was changed".
+//
+// A fidelity note is surfaced ONLY when the raw form differs from the canonical
+// form, OR a derived data-quality observation applies. The framing is
+// non-accusatory throughout: every sentence locates an observation and where it
+// was seen, imputes no intent to any licensee or to the publisher, is hedged,
+// and is safe if quoted in isolation. Wording is drawn from the flag registry
+// (reference-data/flags.md), which is deliberately "records the discrepancy,
+// not a verdict". No lookalike / "did you mean" suggestion is offered: the
+// plausible-correction target of an unusual token often already exists as a
+// distinct, live record for possibly a different person (MOGCQ vs the separate
+// live M0GCQ), so conflating them would be a real harm.
+
+export const REPO_URL = 'https://github.com/MysterAitch/amateur-callsigns-file-watch';
+
+// The predicate/rule tokens the ledger stores, mirrored here so this DOM-free
+// module needs no TypeScript import (as cleanCallsign mirrors the cleaning
+// rule). Source of truth: src/v2/claim.ts and src/v2/parse-attribute-emit.ts.
+const FLAG_PREDICATE = 'flag';
+const PARSE_STATUS_PREDICATE = 'parse_status';
+const CLEANED_CALLSIGN_RULE = 'cleaned-callsign';
+
+// The standing framing preamble (ADR ethics decision 2). It defuses the
+// "my record was corrupted" reading before any potentially-surprising note.
+export const FIDELITY_PREAMBLE =
+  'These notes describe what the archived register snapshots record for this '
+  + 'callsign, and where. They locate an observation rather than assign fault, and '
+  + 'impute nothing to any licensee or to the publisher. A callsign’s history '
+  + 'may also span more than one licensee over time. The form each source published '
+  + 'is always kept verbatim; nothing here alters a record.';
+
+// A plain-English gloss per derivation rule (kept in step with src/v2/explain.ts
+// RULE_GLOSSES). Used to head the "show the working" panel.
+const RULE_GLOSSES = {
+  [CLEANED_CALLSIGN_RULE]: 'Upper-cased and reduced to the plain callsign alphabet (A–Z, 0–9, /).',
+  'placeholder-form': 'Parsed the callsign and moved the regional secondary locator to the # placeholder slot.',
+  'callsign-pattern': 'Mapped each character to its shape class (letter, digit, invisibles marked).',
+  'licence-category': 'Looked up the published product value in the licence-category reference table.',
+  'parse-callsign': 'Computed by the callsign parser from the published form (with the reference tables).',
+  'stripped-collision': 'The plain-character form of this value coexists as its own row in the same source.',
+};
+
+// Non-accusatory notes for the derived data-quality flags the ledger can carry
+// (predicate `flag`), keyed by the flag token stored in the database. `label`
+// is neutral plain English (no "malformed"/"unparseable"/"defect" review tone);
+// `gloss` is a short, hedged, source-located sentence drawn from
+// reference-data/flags.md. Absent keys fall back to the raw token so a newly
+// added flag surfaces honestly rather than silently vanishing.
+const FLAG_NOTES = {
+  'lowercase': {
+    label: 'Lowercase letters in the published form',
+    gloss: 'The register published this callsign with one or more lowercase letters. It is read case-insensitively; the observation is recorded, not corrected.',
+  },
+  'whitespace': {
+    label: 'Whitespace in the published form',
+    gloss: 'The published form carries a space or other invisible character. It is kept verbatim and noted here rather than silently removed.',
+  },
+  'encoding-failure': {
+    label: 'Replacement character in the published form',
+    gloss: 'The published form contains a Unicode replacement character (U+FFFD), which usually marks a text-encoding step that could not represent the original byte. Recorded as observed; the raw form is kept verbatim.',
+  },
+  'excel-date-shape': {
+    label: 'Reads as a spreadsheet date',
+    gloss: 'In this snapshot the value appears in the shape a spreadsheet uses to show a date (for example 20-Apr) rather than a callsign. Adjacent snapshots may render it differently. The value is kept exactly as published and located here.',
+  },
+  'spreadsheet-error-token': {
+    label: 'Spreadsheet error token in the callsign column',
+    gloss: 'The value is a spreadsheet formula-error literal (such as #REF!) that appears in the callsign column of this export — a source artefact preserved verbatim, not a callsign. It is left as-is rather than guessed at or dropped.',
+  },
+  'rsl-in-register': {
+    label: 'Regional locator present in the published form',
+    gloss: 'The register normally stores the locator-less core callsign, so a published form that includes an explicit regional secondary locator is the notable case and is recorded here.',
+  },
+  'unknown-rsl': {
+    label: 'Regional locator not in the reference list',
+    gloss: 'The regional secondary locator letter is not one enumerated in the reference table (some temporary or special locators are deliberately not listed). Recorded as an honest unknown, not an error.',
+  },
+  'unknown-prefix-series': {
+    label: 'Prefix series not in the reference table',
+    gloss: 'The prefix series is not present in Ofcom’s current prefix table, so no licence class is implied from it. Recorded as an honest unknown.',
+  },
+  'forbidden-suffix': {
+    label: 'Suffix appears on a withheld-suffix list',
+    gloss: 'The suffix appears on the combined list of suffixes Ofcom’s disclosures have withheld from new issuance. On its own this is unremarkable: many long-standing allocations carry such a suffix, so the list evidently governs new issuance rather than existing holdings. Recorded, not a verdict.',
+  },
+  'forbidden-suffix-issued-after-first-known-list': {
+    label: 'Start date appears to post-date the suffix’s first-known withheld month',
+    gloss: 'A candidate for scrutiny, not a verdict: the recorded original start date appears to fall after the month this suffix is first known to have been withheld. Innocent explanations come first — a heritage re-issue under a letter of consent, a publisher date artefact, or a version start date that resets on a later change rather than recording first issuance.',
+  },
+  'suffix-length-abnormal': {
+    label: 'Suffix length outside the usual range',
+    gloss: 'The suffix is outside the usual two-to-three-letter range. Two-letter forms are heritage; recorded here for reference.',
+  },
+  'class-product-mismatch': {
+    label: 'Prefix-implied class differs from the product column',
+    gloss: 'The licence class implied by the prefix series differs from the product recorded in this snapshot. This records the discrepancy, not a verdict: the cause is unknown — plausibly an issuance-time entry left uncorrected, plausibly a legitimate arrangement not stated publicly.',
+  },
+  'stripped-collision': {
+    label: 'A plain-character twin coexists in the same source',
+    gloss: 'Reduced to plain characters, this value matches another row in the same snapshot — the register lists the same callsign twice, once verbatim and once carrying extra characters. Both are shown; neither is dropped.',
+  },
+  'malformed-home-callsign': {
+    label: 'Visitor row whose home-callsign portion is unusual',
+    gloss: 'This is a visitor (M/…) row whose home-callsign portion does not take the shape of a callsign. Recorded as observed.',
+  },
+  'hash-in-register': {
+    label: 'Placeholder character after the slash in a visitor row',
+    gloss: 'A visitor row carrying a literal # immediately after the slash, which reads as a reserved template placeholder rather than a callsign character. It is set aside and the home portion parsed normally; recorded here.',
+  },
+};
+
+// Parse-status values worth surfacing. `parsed`, `visitor` and `special-event`
+// are the normal outcomes and are NOT surfaced (selective disclosure). Only the
+// two that mean "the register lists a token the parser could not resolve" are.
+const NOTABLE_PARSE_STATUS = {
+  'unparseable': {
+    label: 'Not resolved to a standard callsign',
+    gloss: 'The register lists this token, but the callsign parser could not resolve it to a standard callsign formation. It is kept exactly as published and recorded here rather than reshaped into a guess.',
+  },
+  'empty': {
+    label: 'Empty callsign field',
+    gloss: 'The callsign field for this row is empty in the source. Recorded as observed.',
+  },
+};
+
+// Labels for the cross-record observations flagsOf computes (these are not
+// per-row database flags but genuine multi-observation findings). The gloss for
+// each comes from flagsOf itself, so its wording stays single-sourced.
+const COMPUTED_LABELS = {
+  'multiple-raw-variants': 'Published under more than one form',
+  'co-temporal-status-divergence': 'Forms disagree on status within one snapshot',
+};
+
+// The real repository path of a source file. The logical `source_file` key the
+// ledger stores rewrites the open-data lane's on-disk 'archive/<key>/raw.csv' to
+// 'opendata/<key>/raw.csv'; the FOI lane keeps its 'foi/<entry>/<file>' path
+// under archive/. So the repo path is 'archive/' + the key with any leading
+// 'opendata/' removed. (Mirrors the collectors' `repoPath`.)
+export function sourceRepoPath(sourceFile) {
+  return 'archive/' + String(sourceFile).replace(/^opendata\//, '');
+}
+
+// A link to examine the exact source file on GitHub. The database does not carry
+// a per-row line number, so this points at the file (the working names the row
+// ordinal in prose); it is framed as "examine the source", not a pinned
+// permalink, to stay honest about that.
+export function sourceFileUrl(sourceFile) {
+  return `${REPO_URL}/blob/main/${sourceRepoPath(sourceFile)}`;
+}
+
+// A pre-filled "report an observation" GitHub issue URL (ADR ethics decision 4,
+// the basic right-of-reply hook). The body is neutral - it states the fact and
+// sets expectations honestly (public issue; we mirror Ofcom and cannot change
+// the official register; no set response time) - and pre-fills NO grievance
+// framing on the reporter's behalf. Labels are omitted so an unknown label
+// never trips GitHub's chooser.
+export function reportIssueUrl(callsign) {
+  const body = [
+    `This is a public GitHub issue about the archived register record for ${callsign}.`,
+    '',
+    'What did you observe? (please describe)',
+    '',
+    '',
+    'Please note: this project mirrors Ofcom’s published register snapshots. It cannot '
+    + 'change the official register, and any correction upstream is outside its control. '
+    + 'There is no set response time, and this issue is public.',
+  ].join('\n');
+  const params = new URLSearchParams({ title: `Observation about ${callsign}`, body });
+  return `${REPO_URL}/issues/new?${params.toString()}`;
+}
+
+// The observations (source_file / ordinal / vintage) that carry a given raw
+// token, de-duplicated and ordered - the "where it was seen" of a working.
+function sourcesForRaw(claims, rawSubject) {
+  const seen = new Map();
+  for (const c of claims) {
+    if (c.raw_subject !== rawSubject || c.predicate !== '@listed') continue;
+    const key = `${c.source_file}#${c.ordinal}`;
+    if (!seen.has(key)) seen.set(key, { sourceFile: c.source_file, ordinal: c.ordinal, vintage: c.vintage });
+  }
+  return [...seen.values()];
+}
+
+function ruleGlossFor(rule) {
+  return RULE_GLOSSES[rule] ?? rule ?? '';
+}
+
+// The structured fidelity model for a resolved callsign, ready for the surface
+// to render. `disclose` is false for the clean, unremarkable case (nothing is
+// surfaced then). `canonical` describes any divergence between a published form
+// and the canonical reference form, with the working behind the normalisation.
+// `notes` are the non-accusatory data-quality observations, each optionally
+// carrying a "working" (inputs -> rule -> result, with the source rows it was
+// seen in). Nothing is re-derived here: every note is read from the derived
+// claims the ledger already emitted (the same emit path src/v2/explain.ts
+// reconstructs), so the surface cannot drift from what the model asserts.
+export function fidelityOf(claims, resolved) {
+  const cleaned = resolved.cleaned;
+
+  // Canonical-form divergence: a published (raw) form that differs from the
+  // canonical reference form. Each divergent form keeps the working behind its
+  // cleaned-callsign normalises_to edge.
+  const rawTokens = [...new Set(claims.map(c => c.raw_subject))];
+  const divergent = rawTokens.filter(t => t !== cleaned && t !== '');
+  const canonical = divergent.length === 0 ? null : {
+    canonicalForm: cleaned,
+    variants: divergent.map(raw => ({
+      raw,
+      bytes: bytesHex(raw),
+      working: {
+        rule: CLEANED_CALLSIGN_RULE,
+        ruleGloss: ruleGlossFor(CLEANED_CALLSIGN_RULE),
+        inputs: [{ role: 'published form', value: raw }],
+        result: cleaned,
+        sources: sourcesForRaw(claims, raw),
+      },
+    })),
+  };
+
+  const notes = [];
+
+  // Derived per-row flags carried in the database (predicate `flag`).
+  const flagObjects = [...new Set(claims
+    .filter(c => c.layer === 'derived' && c.predicate === FLAG_PREDICATE)
+    .map(c => c.object))].sort();
+  for (const flag of flagObjects) {
+    const meta = FLAG_NOTES[flag] ?? { label: flag, gloss: '' };
+    const carriers = claims.filter(c => c.layer === 'derived' && c.predicate === FLAG_PREDICATE && c.object === flag);
+    const raw = carriers[0]?.raw_subject ?? '';
+    notes.push({
+      id: flag,
+      label: meta.label,
+      gloss: meta.gloss,
+      working: {
+        rule: carriers[0]?.rule ?? '',
+        ruleGloss: ruleGlossFor(carriers[0]?.rule ?? ''),
+        inputs: [{ role: 'published form', value: raw }],
+        result: flag,
+        sources: sourcesForRaw(claims, raw),
+      },
+    });
+  }
+
+  // Notable parse statuses (unparseable / empty). The normal outcomes are not
+  // surfaced. Deliberately NO lookalike or "did you mean" is offered here.
+  const statusClaims = claims.filter(c => c.layer === 'derived' && c.predicate === PARSE_STATUS_PREDICATE);
+  const notableStatuses = [...new Set(statusClaims.map(c => c.object))].filter(s => NOTABLE_PARSE_STATUS[s]);
+  for (const status of notableStatuses.sort()) {
+    const meta = NOTABLE_PARSE_STATUS[status];
+    const carrier = statusClaims.find(c => c.object === status);
+    const raw = carrier?.raw_subject ?? '';
+    notes.push({
+      id: `parse-status-${status}`,
+      label: meta.label,
+      gloss: meta.gloss,
+      working: {
+        rule: carrier?.rule ?? '',
+        ruleGloss: ruleGlossFor(carrier?.rule ?? ''),
+        inputs: [{ role: 'published form', value: raw }],
+        result: status,
+        sources: sourcesForRaw(claims, raw),
+      },
+    });
+  }
+
+  // Cross-record observations flagsOf computes. `raw-differs-from-cleaned` is
+  // represented by the canonical block above, so it is not repeated as a note.
+  for (const f of flagsOf(claims, cleaned)) {
+    if (f.flag === 'raw-differs-from-cleaned') continue;
+    notes.push({ id: f.flag, label: COMPUTED_LABELS[f.flag] ?? f.flag, gloss: f.gloss, working: null });
+  }
+
+  return { disclose: canonical !== null || notes.length > 0, preamble: FIDELITY_PREAMBLE, canonical, notes };
+}
+
 // --- browser-only: open the shipped claim-ledger `.png` over sql.js-httpvfs ---
 // Mirrors app.js's opener: the worker resolves relative URLs against vendor/, so
 // the database URL is absolute, and each deploy's ?v=<sha> makes the database a
