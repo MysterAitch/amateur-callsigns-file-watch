@@ -19,10 +19,10 @@
   --bg: #F4F6F8; --surface: #FFFFFF; --surface-2: #EEF1F4;
   --ink: #161B21; --muted: #5C6773; --faint: #6C7581; --hair: #E0E5EA;
   --signal: #905713; --signal-soft: #F4E4CE; --on-signal: #FFFFFF;
-  --raw: #3F6FB0; --raw-soft: #E1EAF5;
+  --raw: #3B69A6; --raw-soft: #E1EAF5;
   --derived: #905713; --derived-soft: #F6E6CF;
-  --change: #B84A5F; --change-soft: #F5DDE2;
-  --steady: #4E8A66; --steady-soft: #DDECE1;
+  --change: #A74155; --change-soft: #F5DDE2;
+  --steady: #407154; --steady-soft: #DDECE1;
   --shadow: 0 1px 2px rgba(20,30,45,.06), 0 6px 20px rgba(20,30,45,.05);
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
   --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -48,8 +48,8 @@
   --bg: #F4F6F8; --surface: #FFFFFF; --surface-2: #EEF1F4;
   --ink: #161B21; --muted: #5C6773; --faint: #6C7581; --hair: #E0E5EA;
   --signal: #905713; --signal-soft: #F4E4CE; --on-signal: #FFFFFF;
-  --raw: #3F6FB0; --raw-soft: #E1EAF5; --derived: #905713; --derived-soft: #F6E6CF;
-  --change: #B84A5F; --change-soft: #F5DDE2; --steady: #4E8A66; --steady-soft: #DDECE1;
+  --raw: #3B69A6; --raw-soft: #E1EAF5; --derived: #905713; --derived-soft: #F6E6CF;
+  --change: #A74155; --change-soft: #F5DDE2; --steady: #407154; --steady-soft: #DDECE1;
   --shadow: 0 1px 2px rgba(20,30,45,.06), 0 6px 20px rgba(20,30,45,.05);
 }
 :root[data-theme="dark"] .ledger {
