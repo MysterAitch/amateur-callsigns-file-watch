@@ -25,11 +25,12 @@ import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS, type ArchiveMeta, type IgnoredRawLine, calculateContentHash, errorMessage, saveJsonFileSync } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
-import { renderStatsJson, compareStats, markUnprintables, type EntryStats } from '../shared/stats.ts';
+import { renderStatsJson, compareStats, markUnprintables, type EntryStats, type CallsignQuality } from '../shared/stats.ts';
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
 import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { writeValueCatalogue } from './value-catalogue.ts';
 import { buildQualityReportFold, type PrefixDistributionFold, type MismatchFold, type RegionalIdentifierFold, type CallsignPatternSeriesFold } from './quality-report-fold.ts';
+import { DETECTOR_KEYS, type DataQualityFold, type DetectorResult } from './data-quality-fold.ts';
 import { writeCrossDatasetInvariants } from './cross-dataset-invariants.ts';
 import { writeForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { mdCell } from '../shared/markdown.ts';
@@ -898,36 +899,83 @@ function withCharacterKey(lines: string[]): string[] {
 // a defect class observed in real exports; a class appearing or vanishing
 // between publications is a pipeline-change signal in its own right.
 //
-// NOT folded from the ledger yet (issue #361, migration step 5), for two
-// reasons. (1) The defect-detector table reads callsignQuality signals the T1
-// parse-attribute tier does not emit — the cross-row `postNormalisationDuplicates`
-// (the stripped-collision, which needs the whole register in view) and the
-// character detectors (excel-date-shape, encoding-failure, whitespace-bearing,
-// lowercase-bearing, empty); folding it from T1 alone would silently drop those
-// real findings. (2) The Component-parse flags and Parse statuses sub-tables ARE
-// T1-derivable, but flagAggregateTables emits them BYTE-IDENTICALLY into the
-// sweep PR body too, and that consistency contract means a partial fold of one
-// copy would desync the surfaces — so this report migrates wholesale once those
-// higher-tier quality signals emit as their own claims, not piecemeal. The
-// class-product-mismatch table below IS folded (its flag is a T1 claim).
+// Generated here from the LEGACY stats.json path (legacyDataQuality) - the
+// current-best generator. The equivalence oracle in data-quality-fold.test.ts
+// proves the raw-keyed claim ledger reproduces this same rollup byte-for-byte
+// (issue #361): the defect-detector matrix is a RELABELLING of the ledger's T1
+// flag/parse-status claims (excel-date-shape, encoding-failure, whitespace,
+// stripped-collision, lowercase, and the recovered `empty` status), the flag and
+// parse-status registries fold from those same claims, and the example tables
+// fold from the flagged observations' raw subjects (see data-quality-fold.ts for
+// the full detector -> claim mapping and the single classified `lowercase`
+// superset subtlety). Retiring this generator in favour of the fold is a separate
+// Phase C step; for now the fold ADDS the oracle and the generator stays.
 function writeQualityRollup(keys: string[], statsByKey: Map<string, EntryStats>, foldedMismatches?: MismatchFold): void {
   const columns = [...keys].reverse();
-  const detectors = [
+  const dataQuality = legacyDataQuality(columns, statsByKey);
+  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'data-quality.md'), renderDataQualityRollup(dataQuality));
+
+  writeMismatchReport(columns, foldedMismatches);
+}
+
+// The legacy data-quality rollup figures, read from stats.json's callsignQuality
+// detectors, callsignFlags and parseStatuses - the single source of truth for the
+// legacy numbers, shared by the generator above and the equivalence oracle's
+// legacy side (data-quality-fold.test.ts). Columns stay in the order supplied
+// (the sweep passes datasets newest-first); a dataset without stats contributes
+// no figures, so its cells fall back to the renderer's `—`/`0` defaults exactly
+// as the previous inline computation did.
+export function legacyDataQuality(columnsNewestFirst: string[], statsByKey: Map<string, EntryStats>): DataQualityFold {
+  const dates = [...columnsNewestFirst];
+  const recordCounts = new Map<string, number>();
+  const detectors = new Map<string, Map<string, DetectorResult>>();
+  for (const detectorKey of DETECTOR_KEYS) detectors.set(detectorKey, new Map());
+  const flags = new Map<string, Map<string, number>>();
+  const parseStatuses = new Map<string, Map<string, number>>();
+  const bump = (map: Map<string, Map<string, number>>, name: string, date: string, count: number): void => {
+    const byDate = map.get(name) ?? new Map<string, number>();
+    byDate.set(date, count);
+    map.set(name, byDate);
+  };
+  for (const date of dates) {
+    const stats = statsByKey.get(date);
+    if (stats === undefined) continue;
+    recordCounts.set(date, stats.recordCount);
+    for (const detectorKey of DETECTOR_KEYS) {
+      const result = stats.callsignQuality[detectorKey as keyof CallsignQuality];
+      detectors.get(detectorKey)?.set(date, { count: result.count, examples: [...result.examples] });
+    }
+    for (const [flag, count] of Object.entries(stats.callsignFlags ?? {})) bump(flags, flag, date, count);
+    for (const [status, count] of Object.entries(stats.parseStatuses ?? {})) bump(parseStatuses, status, date, count);
+  }
+  return { dates, recordCounts, detectors, flags, parseStatuses };
+}
+
+// The data-quality rollup markdown, from whichever source supplied the figures
+// (the legacy stats tally in the sweep, the raw-keyed claim ledger fold in the
+// oracle). Pure function of the DataQualityFold, so the folded and legacy inputs
+// render byte-for-byte identically - the retirement gate the oracle pins.
+export function renderDataQualityRollup(dq: DataQualityFold): string {
+  const columns = dq.dates;
+  const detectorLabels: readonly [string, string][] = [
     ['excelDateShaped', 'Excel-date-shaped callsigns'],
     ['encodingFailure', 'encoding-failure characters'],
     ['whitespaceBearing', 'whitespace/invisible-bearing'],
     ['postNormalisationDuplicates', 'post-normalisation duplicates'],
     ['emptyCallsign', 'empty callsigns'],
     ['lowercaseBearing', 'lowercase-bearing'],
-  ] as const;
+  ];
+  const detectorCell = (detectorKey: string, date: string): string => {
+    const result = dq.detectors.get(detectorKey)?.get(date);
+    return result === undefined ? '—' : String(result.count);
+  };
+  const countRow = (detectorKey: string, label: string): string =>
+    `| ${label} | ${columns.map(k => detectorCell(detectorKey, k)).join(' | ')} |`;
 
-  const countRow = (detector: (typeof detectors)[number][0], label: string): string =>
-    `| ${label} | ${columns.map(k => statsByKey.get(k)?.callsignQuality?.[detector].count ?? '—').join(' | ')} |`;
-
-  const exampleSections = detectors.flatMap(([detector, label]) => {
+  const exampleSections = detectorLabels.flatMap(([detectorKey, label]) => {
     const rows = columns.flatMap((k) => {
-      const result = statsByKey.get(k)?.callsignQuality?.[detector];
-      if (!result || result.count === 0) return [];
+      const result = dq.detectors.get(detectorKey)?.get(k);
+      if (result === undefined || result.count === 0) return [];
       const suffix = result.count > result.examples.length ? ` (+${result.count - result.examples.length} more)` : '';
       // Examples use the human-readable marker form - this is the review
       // surface; per-codepoint precision remains in stats.json.
@@ -947,6 +995,11 @@ function writeQualityRollup(keys: string[], statsByKey: Map<string, EntryStats>,
     ];
   });
 
+  const recordCell = (k: string): string => {
+    const count = dq.recordCounts.get(k);
+    return count === undefined ? '—' : String(count);
+  };
+
   const lines = [
     '# Data-quality rollup (callsign defect detectors)',
     '',
@@ -958,16 +1011,14 @@ function writeQualityRollup(keys: string[], statsByKey: Map<string, EntryStats>,
     '',
     `| detector | ${columns.join(' | ')} |`,
     `|---|${columns.map(() => '---:').join('|')}|`,
-    `| _records_ | ${columns.map(k => statsByKey.get(k)?.recordCount ?? '—').join(' | ')} |`,
-    ...detectors.map(([detector, label]) => countRow(detector, label)),
+    `| _records_ | ${columns.map(recordCell).join(' | ')} |`,
+    ...detectorLabels.map(([detectorKey, label]) => countRow(detectorKey, label)),
     '',
-    ...flagAggregateTables(columns, statsByKey),
+    ...renderFlagStatusTables(columns, dq.flags, dq.parseStatuses),
     ...exampleSections,
     '',
   ];
-  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'data-quality.md'), withCharacterKey(lines).join('\n'));
-
-  writeMismatchReport(columns, foldedMismatches);
+  return withCharacterKey(lines).join('\n');
 }
 
 // Component-parse aggregates (flag vocabulary: reference-data/flags.md):
@@ -976,12 +1027,21 @@ function writeQualityRollup(keys: string[], statsByKey: Map<string, EntryStats>,
 // Shared between the committed rollup and sweep PR bodies - the same table
 // on every surface (consistency review).
 function flagAggregateTables(columnsNewestFirst: string[], statsByKey: Map<string, EntryStats>): string[] {
-  const columns = columnsNewestFirst;
-  const unionKeysOf = (pick: (s: EntryStats) => Record<string, number>): string[] =>
-    [...new Set(columns.flatMap(k => Object.keys(pick(statsByKey.get(k) as EntryStats) ?? {})))].sort();
-  const aggregateRows = (pick: (s: EntryStats) => Record<string, number>): string[] =>
-    unionKeysOf(pick).map(name =>
-      `| \`${name}\` | ${columns.map(k => pick(statsByKey.get(k) as EntryStats)?.[name] ?? 0).join(' | ')} |`);
+  const dq = legacyDataQuality(columnsNewestFirst, statsByKey);
+  return renderFlagStatusTables(dq.dates, dq.flags, dq.parseStatuses);
+}
+
+// Render the flag and parse-status registries from per-row-name per-date count
+// maps (the flag object / status name -> date -> count shape both the legacy
+// stats tally and the ledger fold produce). One row per name observed anywhere
+// (keys sorted so a class appearing or disappearing is a visible trend line), a
+// cell per column defaulting to 0 when the name is absent from that dataset -
+// exactly the previous inline aggregation, now the single source of truth shared
+// by the committed rollup and the sweep PR body (the consistency contract).
+function renderFlagStatusTables(columns: string[], flags: Map<string, Map<string, number>>, statuses: Map<string, Map<string, number>>): string[] {
+  const rows = (map: Map<string, Map<string, number>>): string[] =>
+    [...map.keys()].sort().map(name =>
+      `| \`${name}\` | ${columns.map(k => map.get(name)?.get(k) ?? 0).join(' | ')} |`);
   return [
     '## Component-parse flags',
     '',
@@ -991,13 +1051,13 @@ function flagAggregateTables(columnsNewestFirst: string[], statsByKey: Map<strin
     '',
     `| flag | ${columns.join(' | ')} |`,
     `|---|${columns.map(() => '---:').join('|')}|`,
-    ...aggregateRows(s => s.callsignFlags ?? {}),
+    ...rows(flags),
     '',
     '## Parse statuses',
     '',
     `| status | ${columns.join(' | ')} |`,
     `|---|${columns.map(() => '---:').join('|')}|`,
-    ...aggregateRows(s => s.parseStatuses ?? {}),
+    ...rows(statuses),
   ];
 }
 
