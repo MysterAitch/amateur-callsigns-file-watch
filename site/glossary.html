@@ -245,8 +245,9 @@
         <dt id="licence-class">Licence class — Foundation, Intermediate, Full</dt>
         <dd>The UK amateur licence level a callsign was issued under, in
         ascending privilege: <strong>Foundation</strong> (entry level, e.g. the
-        <code>M7</code> and <code>2E0</code>-era series),
-        <strong>Intermediate</strong>, and <strong>Full</strong> (e.g.
+        <code>M6</code>/<code>M7</code> series), <strong>Intermediate</strong>
+        (e.g. <code>2E0</code>/<code>2E1</code> and the
+        <code>M8</code>/<code>M9</code> series), and <strong>Full</strong> (e.g.
         <code>M0</code>). The class governs power limits and permitted
         activities; a callsign's <a href="#prefix-series">prefix series</a>
         usually signals it, though a holder may upgrade class while keeping an
@@ -256,18 +257,23 @@
 
         <dt id="rsl">RSL — Regional Secondary Locator</dt>
         <dd>The optional letter inserted after the first character to show the
-        UK nation of operation (e.g. <code>M</code> for England,
-        <code>MW</code> Wales, <code>MM</code> Scotland). The register stores
-        the RSL-less <em>core</em> callsign; a rendering with an RSL is an
-        interchangeable form of the same licence.</dd>
+        UK nation of operation (e.g. <code>E</code> for England, <code>W</code>
+        for Wales, <code>M</code> for Scotland). England is unusual in that it is
+        also the implied default when no RSL is shown, so a bare form such as
+        <code>M7TEE</code> is ambiguous — it may be an England station, or any
+        holder simply not showing their RSL — whereas <code>MW7TEE</code> is
+        unambiguously Wales. The register stores the RSL-less <em>core</em>
+        callsign; a rendering with an RSL is an interchangeable form of the same
+        licence.</dd>
 
         <dt id="placeholder-form">Placeholder form (the <code>#</code> notation)</dt>
         <dd>A single display of a callsign that stands for every regional
         rendering at once, with <code>#</code> marking the
         <a href="#rsl">RSL</a> slot — so <code>M7TEE</code>,
-        <code>MW7TEE</code> and <code>ME7TEE</code> all normalise to
-        <code>M#7TEE</code>. It is the mirror's uniform join key across regional
-        variants, not a callsign you would transmit.</dd>
+        <code>MW7TEE</code> and <code>ME7TEE</code> all normalise to the
+        <a href="#canonical-form">canonical form</a> <code>M#7TEE</code>, which
+        the mirror uses across the site as a consistent value for comparisons and
+        analyses. It is not a callsign you would transmit.</dd>
 
         <dt id="suffix">Suffix</dt>
         <dd>The trailing letters after the digit (the <code>TEE</code> of
@@ -283,13 +289,13 @@
         <dt id="cleaned">Cleaned</dt>
         <dd>An artefact-safe join key: the callsign uppercased with everything
         outside <code>A–Z</code>, <code>0–9</code> and <code>/</code> stripped,
-        so longitudinal joins survive publisher whitespace and encoding damage.
-        Duplicates are expected — it is a join key, deliberately not an
+        so longitudinal joins survive differences in publisher whitespace and
+        encoding. Duplicates are expected — it is a join key, deliberately not an
         identity.</dd>
 
         <dt id="normalised">Normalised</dt>
-        <dd>The mirror's tidied view of a raw source: consistent columns and
-        casing derived from the archived original, which is always preserved
+        <dd>A consistent view of a raw source: its columns and casing brought
+        into line — derived from the archived original, which is always preserved
         verbatim alongside it. Normalisation never overwrites the raw bytes.</dd>
 
         <dt id="canonical-form">Canonical form</dt>
