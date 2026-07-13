@@ -325,10 +325,11 @@ export const FIDELITY_PREAMBLE = [
   'What you see below describes what an official register — published by Ofcom, the UK '
   + 'regulator — actually recorded for this ',
   lnk('callsign', FAQ_CALLSIGN_STRUCTURE),
-  ', and which file we found it in. Each note points to something in the data and says where it '
-  + 'is, and describes what the register contains. A single callsign can also belong to different '
-  + 'people at different times, because callsigns are re-issued over the years. We always keep the '
-  + 'data exactly as it was published; nothing here changes any record.',
+  ', and which file we found it in. The notes are things we note or observe in the published data; '
+  + 'where a value looks inconsistent with the rules we derive, we flag the discrepancy and draw no '
+  + 'conclusion about why. A single callsign can also belong to different people at different times, '
+  + 'because callsigns are re-issued over the years. We always keep the data exactly as it was '
+  + 'published; nothing here changes any record.',
 ];
 
 // A plain-English gloss per derivation rule (kept in step with src/v2/explain.ts
@@ -393,14 +394,14 @@ const FLAG_NOTES = {
   },
   'forbidden-suffix': {
     label: 'Suffix appears on a withheld-suffix list',
-    gloss: ['This callsign’s ', lnk('suffix', FAQ_CALLSIGN_STRUCTURE),
-      ' is on a combined list of suffixes Ofcom has withheld from new licences. On its own this is unremarkable: many long-standing callsigns carry such a suffix, so the list governs new issues, not existing ones.'],
+    gloss: ['We note this callsign’s ', lnk('suffix', FAQ_CALLSIGN_STRUCTURE),
+      ' is on the combined list of suffixes Ofcom has withheld from new licences. On its own this is unremarkable: many long-standing callsigns carry such a suffix, so the list governs new issues, not existing ones.'],
   },
   'forbidden-suffix-issued-after-first-known-list': {
     label: 'Start date looks later than when the suffix was first withheld',
-    gloss: ['The recorded start date looks like it comes after the month this ',
+    gloss: ['We note an apparent discrepancy: the start date recorded in the source is later than the earliest date we have seen this ',
       lnk('suffix', FAQ_CALLSIGN_STRUCTURE),
-      ' was first known to be withheld from new licences. The reason is not known from the data — possible explanations include a re-issue to a family member with permission, a date artefact from the publisher, or a start date reset by a later change rather than recording the first issue.'],
+      ' withheld, so on our reading it was issued after the suffix was already being held back. We draw no conclusion — the reason isn’t clear from the data, and our reading of the withholding timeline is itself a best-effort derivation.'],
   },
   'suffix-length-abnormal': {
     label: 'The suffix is an unusual length',
@@ -409,8 +410,9 @@ const FLAG_NOTES = {
   },
   'class-product-mismatch': {
     label: 'Licence class from the callsign differs from the product column',
-    gloss: ['The licence ', lnk('class', FAQ_CALLSIGN_STRUCTURE), ' suggested by the callsign’s ', lnk('prefix', FAQ_CALLSIGN_STRUCTURE),
-      ' differs from the product recorded in this snapshot. The cause is unknown — perhaps an old entry left uncorrected, perhaps a legitimate arrangement not stated in the public data.'],
+    gloss: ['We flag a discrepancy between the product recorded in this snapshot and the licence ',
+      lnk('class', FAQ_CALLSIGN_STRUCTURE), ' our ', lnk('prefix', FAQ_CALLSIGN_STRUCTURE),
+      ' analysis implies. We draw no conclusion — the cause is unknown, and our prefix-to-class mapping is itself a best-effort derivation, so the difference could sit on either side: perhaps an old entry left uncorrected, perhaps a legitimate arrangement not stated in the public data.'],
   },
   'stripped-collision': {
     label: 'The same callsign appears twice in one file',
@@ -435,9 +437,9 @@ const FLAG_NOTES = {
 const NOTABLE_PARSE_STATUS = {
   'unparseable': {
     label: 'We could not read this as a standard callsign',
-    gloss: ['The register lists this entry, but it does not match the usual shape of a UK ',
+    gloss: ['We note the register lists this entry, but our parser could not read it as a standard UK ',
       lnk('callsign', FAQ_CALLSIGN_STRUCTURE),
-      ', so we could not read it as one. We keep it exactly as published rather than reshape it into a guess — and we do not suggest a “corrected” callsign, because a similar-looking one may be a different, real licence held by someone else.'],
+      ', so we keep it exactly as published rather than reshape it into a guess — and we do not suggest a “corrected” callsign, because a similar-looking one may be a different, real licence held by someone else.'],
   },
   'empty': {
     label: 'The callsign field is empty',
@@ -547,7 +549,7 @@ export function fidelityOf(claims, resolved) {
   const canonical = divergent.length === 0 ? null : {
     canonicalForm: cleaned,
     intro: [
-      'This entry contains ', lnk('characters not normally found in a UK callsign', FAQ_CALLSIGN_STRUCTURE),
+      'We observe this entry contains ', lnk('characters not normally found in a UK callsign', FAQ_CALLSIGN_STRUCTURE),
       ' — a callsign is normally upper-case letters and digits, sometimes with a “/”. Taking out the '
       + 'characters that do not belong leaves the form we recognise and match on — the ',
       lnk('canonical form', 'glossary.html#canonical-form'), '.',

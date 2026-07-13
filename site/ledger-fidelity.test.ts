@@ -135,6 +135,29 @@ describe('fidelityOf — a derived flag (forbidden suffix)', () => {
   });
 });
 
+describe('fidelityOf — mismatch cases use the source-vs-derivation model', () => {
+  const resolved = { typed: 'G8XYZ', cleaned: 'G8XYZ', entity: 'G#8XYZ', matched: 'cleaned' as const };
+  const noteFor = (flag: string) => fidelityOf([
+    raw('G8XYZ', 'G8XYZ', 'G#8XYZ', '@listed', '', 1),
+    derived('G8XYZ', 'G8XYZ', 'G#8XYZ', 'flag', flag, 'parse-callsign', 1),
+  ], resolved).notes.find(n => n.id === flag);
+
+  it('ClassProductMismatch_FlagsADiscrepancyAndOwnsOurFallibility', () => {
+    const g = glossText(noteFor('class-product-mismatch')?.gloss);
+    expect(g).toContain('flag a discrepancy');
+    expect(g).toContain('draw no conclusion');
+    expect(g).toContain('best-effort derivation');
+    expect(g).toContain('either side'); // either the source or our mapping could be imperfect
+  });
+
+  it('ForbiddenSuffixTemporal_NotesTheDiscrepancyAndDrawsNoConclusion', () => {
+    const g = glossText(noteFor('forbidden-suffix-issued-after-first-known-list')?.gloss);
+    expect(g).toContain('We note an apparent discrepancy');
+    expect(g).toContain('draw no conclusion');
+    expect(g).toContain('best-effort derivation');
+  });
+});
+
 describe('fidelityOf — no judgement-negating meta-tags in any gloss', () => {
   // Guard: neutrality is carried by plain factual statements, so no user-facing
   // gloss should contain "verdict" (nor "not a verdict"-style framing).
@@ -205,10 +228,13 @@ describe('record-fidelity render — framing and right-of-reply hook', () => {
     renderFidelity(host, resolved, claims);
     const preamble = segmentsText(FIDELITY_PREAMBLE);
     expect(host.textContent).toContain(preamble);
-    // Positively framed: it states plainly what the note describes and admits a
-    // callsign may belong to different people over time. It carries no
-    // judgement-negating meta-tag ("not a verdict"/"not a judgement").
-    expect(preamble).toContain('describes what the register contains');
+    // Framed with the neutral vocabulary: the notes are things we note/observe;
+    // an inconsistency with our derived rules is a flagged discrepancy about which
+    // we draw no conclusion. It admits a callsign may belong to different people
+    // over time and carries no judgement-negating meta-tag.
+    expect(preamble).toContain('note or observe');
+    expect(preamble).toContain('flag the discrepancy');
+    expect(preamble).toContain('draw no conclusion');
     expect(preamble).toContain('belong to');
     expect(preamble).toContain('different people');
     expect(preamble.toLowerCase()).not.toContain('verdict');
