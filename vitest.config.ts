@@ -74,6 +74,17 @@ export default defineConfig({
     // Emit the single "DuckDB not installed" hint once for the whole run (the
     // per-worker DUCKDB_BIN bridging is in the setupFiles above).
     globalSetup: ['./src/testing/vitest-duckdb-global.ts'],
+    // Test taxonomy (issue #478). The declared vocabulary a test may carry as a
+    // `{ tags: [...] }` option on describe/test; strictTags (default) rejects any
+    // tag not listed here, so a typo fails loudly. Declaring them changes no
+    // behaviour - tags are inert until a `--tags-filter` selects on them.
+    // Environments follow a gated local -> full-data staging model (see
+    // src/testing/TEST-TAXONOMY.md).
+    tags: [
+      { name: 'unit', description: 'Code-correctness guard: fixture in, assert the transform; no real dataset (local tier).' },
+      { name: 'ui', description: 'Browser/DOM helper under site/ (jsdom); no real dataset (local tier).' },
+      { name: 'data-validity', description: 'Validates the real full dataset / pipeline against encoded assumptions (full-data tier).' },
+    ],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],

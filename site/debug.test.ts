@@ -26,7 +26,7 @@ function toggleButton(win: Window): Element | null {
   return win.document.querySelector('button[aria-label="Toggle debug console"]');
 }
 
-describe('on-screen debug console', () => {
+describe('on-screen debug console', { tags: ['ui'] }, () => {
   it('DebugConsole_WhenDebugParamEnabled_ShowsToggleAndPersistsFlag', () => {
     const win = load('https://example.org/?debug=1');
     expect(toggleButton(win)).not.toBeNull();

@@ -19,7 +19,7 @@ import {
 // render when it finds the injected content. These tests run against the
 // real archive - the same inputs the deploy uses.
 
-describe('Home-page aggregate pre-rendering', () => {
+describe('Home-page aggregate pre-rendering', { tags: ['unit'] }, () => {
   it('FlagsTable_RealArchive_PivotsEveryPublicationWithRecordsRow', () => {
     const html = renderFlagsTableHtml();
     // Dataset column headers link to their entry pages.

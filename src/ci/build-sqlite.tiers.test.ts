@@ -33,7 +33,7 @@ afterAll(() => {
   fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
-describe('Published data tiers', () => {
+describe('Published data tiers', { tags: ['unit', 'data-validity'] }, () => {
   it('Tiers_UnionCsv_GunzipsToFullHeaderAndDeclaredRowCount', { timeout: 120_000 }, () => {
     // The full-archive union exceeds V8's maximum single-string length, so it
     // is inspected as bytes: the header is the first newline-delimited line and
