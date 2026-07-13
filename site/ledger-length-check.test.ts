@@ -8,7 +8,7 @@ import { validateLedgerLength } from './ledger-query.js';
 // lands inside a real final chunk - a Range read of the last byte must return
 // 206 - so a stale manifest or a truncated split fails LOUD rather than silently
 // yielding a too-short (malformed) database.
-describe('validateLedgerLength (issue #475 self-check)', () => {
+describe('validateLedgerLength (issue #475 self-check)', { tags: ['ui'] }, () => {
   // databaseLengthBytes 100, serverChunkSize 40 → final byte is index 99, which
   // sits in chunk floor(99/40)=2 at offset 99%40=19.
   const manifest = { databaseLengthBytes: 100, serverChunkSize: 40, suffixLength: 3 };

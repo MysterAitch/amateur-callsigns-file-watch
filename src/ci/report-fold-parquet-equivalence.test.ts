@@ -139,7 +139,7 @@ function runAllFolds(source: string | ClaimsSource): unknown {
   };
 }
 
-describe.skipIf(!duckDbAvailable())('report folds — shared-Parquet vs on-demand ledger (issue #403)', () => {
+describe.skipIf(!duckDbAvailable())('report folds — shared-Parquet vs on-demand ledger (issue #403)', { tags: ['unit'] }, () => {
   let root: string;
   let ledgerDir: string;
   let parquetSource: ClaimsSource;

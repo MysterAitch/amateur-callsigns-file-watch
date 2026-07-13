@@ -8,7 +8,7 @@ import { renderMarkdown } from './render-markdown.ts';
 // archive's own markdown subset; unknown constructs degrade to escaped
 // text - the verbatim .md remains the record.
 
-describe('Markdown renderer', () => {
+describe('Markdown renderer', { tags: ['unit'] }, () => {
   it('RenderMarkdown_HeadingsRulesAndParagraphs_ProduceStructuralHtml', () => {
     const html = renderMarkdown('# Title\n\nSome text\nover two lines.\n\n---\n\n## Section');
     expect(html).toContain('<h1>Title</h1>');

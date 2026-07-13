@@ -7,7 +7,7 @@ import { errorMessage } from './utils.ts';
 // caught value - anything can be thrown, so every shape must produce
 // something readable rather than crashing the error path itself.
 
-describe('errorMessage', () => {
+describe('errorMessage', { tags: ['unit'] }, () => {
   it('ErrorMessage_WhenErrorInstance_ReturnsItsMessage', () => {
     expect(errorMessage(new Error('disk full'))).toBe('disk full');
   });

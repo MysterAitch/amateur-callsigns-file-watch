@@ -11,7 +11,7 @@ import { FOI_DATASET_CLASSES } from '../shared/foi-archive.ts';
 // The freshness check makes "the schemas doc is always current" a CI
 // property, exactly like dataset-status.md.
 
-describe('FOI schema registry doc', () => {
+describe('FOI schema registry doc', { tags: ['unit'] }, () => {
   it('FoiSchemas_CommittedFile_MatchesRegenerationExactly', () => {
     const committed = fs.readFileSync(SCHEMAS_FILE, 'utf8');
     expect(

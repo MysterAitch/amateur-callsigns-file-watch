@@ -13,7 +13,7 @@ import { findStaleRegisterRows, REGISTER_FILE } from './register-crosscheck.ts';
 // (The earlier synthetic-only stance existed only to avoid failing the PR
 // that first tidied a then-dirty register; that tidy is complete.)
 
-describe('Source-register cross-check', () => {
+describe('Source-register cross-check', { tags: ['unit'] }, () => {
   it('RegisterCrosscheck_PendingRowNamingIngestedIdInFirstCell_IsFlagged', () => {
     const synthetic = [
       '| WDTK 596532 (someone) | 2019 | pending-ingest | notes |',

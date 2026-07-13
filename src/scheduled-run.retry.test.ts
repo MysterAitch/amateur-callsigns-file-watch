@@ -7,7 +7,7 @@ import { retryOnce } from './scheduled-run.ts';
 // concurrent-pull race seen on 2026-07-10: a one-off failure is retried and
 // swallowed, while a persistent failure still surfaces after one retry.
 
-describe('retryOnce', () => {
+describe('retryOnce', { tags: ['unit'] }, () => {
   it('RetryOnce_WhenFirstCallSucceeds_ReturnsResultAndDoesNotRetry', () => {
     const onRetry = vi.fn();
 

@@ -13,7 +13,7 @@ import { sweepFoiLane, sweepFoiLaneAt, FOI_ARCHIVE_DIR } from './foi-sweep.ts';
 // which must always verify clean - and against a deliberately corrupted
 // copy of an entry, which must be called out as drift.
 
-describe('FOI derivation sweep', () => {
+describe('FOI derivation sweep', { tags: ['unit'] }, () => {
   const report = sweepFoiLane();
 
   it('FoiSweep_RealArchive_EveryEntryReportsAndNoneFailOrDrift', { timeout: 600_000 }, () => {

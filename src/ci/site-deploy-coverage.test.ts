@@ -36,7 +36,7 @@ function shellAssets(): string[] {
   return [...block[1].matchAll(/'([^']+)'/g)].map(m => m[1]);
 }
 
-describe('site deploy coverage', () => {
+describe('site deploy coverage', { tags: ['unit'] }, () => {
   it('SiteModuleImports_EveryTarget_ResolvesToAShippedFile', () => {
     const present = new Set(fs.readdirSync(SITE_DIR));
     for (const mod of [...browserModules(), 'sw.js']) {

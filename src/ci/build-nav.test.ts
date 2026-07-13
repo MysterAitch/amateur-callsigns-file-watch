@@ -28,7 +28,7 @@ function scratchPage(name: string): string {
   return dest;
 }
 
-describe('Deploy-time nav injection', () => {
+describe('Deploy-time nav injection', { tags: ['unit'] }, () => {
   it('InjectNav_HandAuthoredPage_YieldsFullCanonicalNavIncludingNewEntries', () => {
     const page = scratchPage('index.html');
     injectNavIntoFile(page);
