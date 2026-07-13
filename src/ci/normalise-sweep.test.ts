@@ -54,16 +54,28 @@ function readMeta(root: string, key: string): TestMeta {
 
 let tmpRoot: string;
 let originalCwd: string;
+let savedClaimsParquet: string | undefined;
 
 beforeEach(() => {
   originalCwd = process.cwd();
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'callsigns-norm-sweep-'));
   process.chdir(tmpRoot);
+  // These cases sweep a FIXTURE archive (the temp cwd above), so the folds inside
+  // runNormaliseSweep must build from that fixture - not from the ambient shared
+  // claims Parquet (#478), which is built once from the REAL archive and exposed
+  // to every suite via CLAIMS_PARQUET. Without this, deployClaimsSource() would
+  // hand the folds real-archive claims and the fixture assertions would read
+  // real dates/patterns. Save + restore (not just delete) so this never leaks
+  // out to the real-archive fold suites that legitimately consume the Parquet.
+  savedClaimsParquet = process.env.CLAIMS_PARQUET;
+  delete process.env.CLAIMS_PARQUET;
 });
 
 afterEach(() => {
   process.chdir(originalCwd);
   fs.rmSync(tmpRoot, { recursive: true, force: true });
+  if (savedClaimsParquet === undefined) delete process.env.CLAIMS_PARQUET;
+  else process.env.CLAIMS_PARQUET = savedClaimsParquet;
 });
 
 // runNormaliseSweep now folds the value catalogue and cross-dataset invariants
