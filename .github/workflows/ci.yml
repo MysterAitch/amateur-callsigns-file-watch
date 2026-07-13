@@ -174,7 +174,8 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
-  # Sharded heavy tests (#478): tests whose independent cases fan across N runners.
+  # Sharded heavy tests (#478; full rationale + mental model in
+  # src/testing/CI-SHARDING.md): tests whose independent cases fan across N runners.
   # The file reads RECON_SHARD="i/N" and processes only its 1/N slice, so its
   # per-execution cost (incl. v8-coverage overhead) parallelises instead of
   # capping the pipeline as one long job. A rebuild test - no Parquet, no

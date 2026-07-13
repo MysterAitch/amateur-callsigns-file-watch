@@ -32,8 +32,11 @@ import { collectFoiVerbatimCsvSources } from '../v2/collectors/foi-verbatim-csv.
 import { collectFoiMarkdownTableSources } from '../v2/collectors/foi-markdown-table.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
 
-// CI parallelism (#478): the full-corpus reconstruction gates are embarrassingly
-// parallel - every source round-trips independently, no cross-source sequencing.
+// CI parallelism (#478; full rationale + mental model in src/testing/CI-SHARDING.md
+// - read it before changing the shard setup, esp. why the parallelism lives at the
+// CI-job level, not the test-case level). The full-corpus reconstruction gates are
+// embarrassingly parallel - every source round-trips independently, no cross-source
+// sequencing.
 // When RECON_SHARD="i/N" is set (CI fans the gate across N jobs), a gate
 // reconstructs only its 1/N slice, chosen by index modulo N so every source lands
 // in exactly ONE shard and the union across shards is the whole corpus. Unset
