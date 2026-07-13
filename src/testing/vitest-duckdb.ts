@@ -10,7 +10,9 @@
  * `.duckdb/` install to the same env var the tests already read.
  */
 
+import * as fs from 'fs';
 import { resolveBootstrappedDuckdb } from '../tools/setup-duckdb.ts';
+import { SHARED_CLAIMS_PARQUET } from './shared-claims.ts';
 
 // Prefer an explicit DUCKDB_BIN (CI, or a contributor's own install); otherwise
 // fall back to the repo-local bootstrapped binary if one is present. Silent by
@@ -19,4 +21,12 @@ import { resolveBootstrappedDuckdb } from '../tools/setup-duckdb.ts';
 if (!process.env.DUCKDB_BIN) {
   const bootstrapped = resolveBootstrappedDuckdb();
   if (bootstrapped !== undefined) process.env.DUCKDB_BIN = bootstrapped;
+}
+
+// Point the fold suites at the ONE shared claims Parquet the global setup built
+// (#478), via the env their deployClaimsSource() already reads - so each fold
+// reads the pre-built artefact instead of re-materialising the whole archive.
+// Respect an externally-set CLAIMS_PARQUET (e.g. an actions/cache restore).
+if (!process.env.CLAIMS_PARQUET && fs.existsSync(SHARED_CLAIMS_PARQUET)) {
+  process.env.CLAIMS_PARQUET = SHARED_CLAIMS_PARQUET;
 }

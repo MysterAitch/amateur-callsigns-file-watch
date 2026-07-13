@@ -8,8 +8,9 @@
 
 import { resolveBootstrappedDuckdb } from '../tools/setup-duckdb.ts';
 import { duckDbAvailable, DUCKDB_SETUP_HINT } from './duckdb.ts';
+import { buildSharedClaimsParquet } from './shared-claims.ts';
 
-export default function (): void {
+export default async function (): Promise<void> {
   // Mirror the worker's resolution so the availability probe reflects what the
   // suites will actually see.
   if (!process.env.DUCKDB_BIN) {
@@ -18,5 +19,22 @@ export default function (): void {
   }
   if (!duckDbAvailable()) {
     process.stderr.write(`[duckdb] ${DUCKDB_SETUP_HINT}\n`);
+    return;
+  }
+  // Build the ONE shared claims Parquet the fold suites read (#478), so each of
+  // them stops re-materialising the whole archive (~11 GB JSONL, ~98 s, ×N folds
+  // - the bulk of the CI `tests` job). This is a WHOLE-RUN optimisation: it only
+  // pays off when the run includes the real-archive fold suites, so it is opt-in
+  // (ACF_SHARED_CLAIMS, set by the CI `tests` step). A targeted local run - a
+  // single `-t` test, a non-fold file - must NOT pay a full-archive build just to
+  // start vitest; without the opt-in the folds keep their on-demand per-suite
+  // materialisation exactly as before. Skip too if an outer layer already
+  // provided one (e.g. a future actions/cache restore that exports CLAIMS_PARQUET).
+  const optedIn = process.env.ACF_SHARED_CLAIMS === '1';
+  if (optedIn && !process.env.CLAIMS_PARQUET) {
+    const started = Date.now();
+    process.stderr.write('[claims] building the shared claims Parquet once for the fold suites…\n');
+    await buildSharedClaimsParquet();
+    process.stderr.write(`[claims] shared claims Parquet ready in ${((Date.now() - started) / 1000).toFixed(0)}s\n`);
   }
 }

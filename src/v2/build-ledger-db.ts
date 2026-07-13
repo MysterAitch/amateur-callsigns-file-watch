@@ -296,7 +296,25 @@ export function emitClaimsParquet(ledgerDir: string, parquetPath: string, duckdb
   fs.mkdirSync(path.dirname(parquetPath), { recursive: true });
   fs.rmSync(parquetPath, { force: true });
   const glob = path.join(ledgerDir, '*.jsonl');
-  execFileSync(bin, ['-no-stdin', '-c', writeParquetScript(glob, parquetPath)], { stdio: 'ignore' });
+  // Quiet on success, loud on failure: capture DuckDB's stderr and surface it in
+  // the thrown error rather than letting `stdio: 'ignore'` swallow it into an
+  // opaque non-zero exit - a silent COPY failure (e.g. no scratch space for the
+  // sort spill, or a malformed source row) is exactly the integrity fault that
+  // must fail loudly, naming what broke.
+  try {
+    execFileSync(bin, ['-no-stdin', '-c', writeParquetScript(glob, parquetPath)], {
+      // Capture both streams: the DuckDB CLI reports a failed `-c` command on
+      // stdout ("IO Error: …"), not stderr, so ignoring stdout would drop the
+      // one line that names what broke.
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    });
+  } catch (err) {
+    const e = err as { stdout?: string; stderr?: string };
+    const detail = [e.stdout, e.stderr].map(s => (s ?? '').trim()).filter(Boolean).join('\n');
+    throw new Error(`DuckDB failed to write Parquet ${parquetPath} from ${glob}: ${detail || String(err)}`);
+  }
   const countScript = `SELECT COUNT(*) AS n FROM parquet_scan('${parquetPath.replace(/\\/g, '/').replace(/'/g, "''")}');`;
   const out = execFileSync(bin, ['-no-stdin', '-noheader', '-list', '-c', countScript], { encoding: 'utf8' });
   return { parquetPath, rows: Number(out.trim()) };
