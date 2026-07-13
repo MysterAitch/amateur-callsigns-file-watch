@@ -7,7 +7,7 @@
 // It reuses two established patterns, deliberately:
 //   - the DB-open path from ledger-query.js (openLedgerQuery opens the same
 //     `claim-ledger.sqlite.png` costume over sql.js-httpvfs range requests, so
-//     the 548 MB database is never downloaded whole); and
+//     only the pages each query needs are fetched, never the whole database); and
 //   - the read-only SELECT/WITH guard the Explore console (explore.js) applies,
 //     reproduced here in prepareSql so a non-query statement is rejected with an
 //     honest message. The guard is safety, not decoration: the range-request VFS
@@ -229,6 +229,47 @@ function renderExamples(listEl, inputEl, statusEl) {
   }
 }
 
+// Wire the Run form to an injected database-opener. Kept separate from
+// initPlayground (and exported) so a DOM test can drive the exact submit path
+// with a controlled opener - asserting the page reacts the instant Run is
+// pressed, before the database has opened, rather than sitting silent while the
+// range-request VFS spins up on the first query.
+export function wireConsole({ form, input, statusEl, resultEl, runBtn, openDatabase }) {
+  // Open the database lazily, on the first Run, so merely loading the page costs
+  // nothing until a query is issued; memoised so later Runs reuse the open.
+  let queryPromise = null;
+  const getQuery = () => (queryPromise ??= openDatabase());
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    // Guard the query BEFORE opening the database, so an empty or non-SELECT
+    // query is refused instantly and the VFS is never spun up just to reject it.
+    try {
+      prepareSql(input.value);
+    } catch (err) {
+      if (statusEl) statusEl.textContent = String(err.message ?? err);
+      return;
+    }
+    // A valid query. The first Run opens the database (fetching pages over range
+    // requests), which runQuery cannot report until it resolves - so show an
+    // immediate affordance here and hold the button, rather than look inert.
+    const firstOpen = queryPromise === null;
+    if (statusEl && firstOpen) statusEl.textContent = 'Opening the database…';
+    if (runBtn) runBtn.disabled = true;
+    void (async () => {
+      try {
+        const query = await getQuery();
+        await runQuery(query, input.value, { statusEl, resultEl });
+      } catch (err) {
+        console.error(err);
+        if (statusEl) statusEl.textContent = 'The claim-ledger database could not be loaded. Try reloading the page.';
+      } finally {
+        if (runBtn) runBtn.disabled = false;
+      }
+    })();
+  });
+}
+
 // ---- Browser bootstrap (guarded) -------------------------------------------
 // Runs only in a real browser with the httpvfs loader present, exactly like
 // ledger.js. A unit/JSDOM test importing this module for prepareSql/runQuery
@@ -241,27 +282,9 @@ function initPlayground() {
   const listEl = document.getElementById('example-list');
   if (listEl && input) renderExamples(listEl, input, statusEl);
 
-  // Open the database lazily, on the first Run, so merely loading the page
-  // costs nothing until a query is actually issued.
-  let queryPromise = null;
-  const getQuery = () => {
-    queryPromise ??= openLedgerQuery();
-    return queryPromise;
-  };
-
   if (form && input) {
-    form.addEventListener('submit', (event) => {
-      event.preventDefault();
-      void (async () => {
-        try {
-          const query = await getQuery();
-          await runQuery(query, input.value, { statusEl, resultEl });
-        } catch (err) {
-          console.error(err);
-          if (statusEl) statusEl.textContent = 'The claim-ledger database could not be loaded. Try reloading the page.';
-        }
-      })();
-    });
+    const runBtn = form.querySelector('button[type="submit"]');
+    wireConsole({ form, input, statusEl, resultEl, runBtn, openDatabase: openLedgerQuery });
   }
 
   // Signal a successful start: cancel the startup-warning timer (playground.html)
