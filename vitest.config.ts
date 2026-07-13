@@ -10,17 +10,26 @@ import { defineConfig, defaultExclude } from 'vitest/config';
 // heavy build always has the cores to itself. `npm test` still runs everything;
 // the two pools simply never contend. Isolation, not a raised ceiling, is the
 // fix - bumping timeouts is the whack-a-mole this pattern already outgrew.
+// TRIAL (#478): the ISOLATED heavy files - each gets its own parallel CI job
+// (see .github/workflows/ci.yml), pulling the pre-built claims Parquet artifact.
+// This is the top of the measured duration distribution (>~90 s each in the
+// baseline); the ~78 remaining files run together in the sharded `fast` pool.
+// Two trivial members of the old list (licence-category-tier ~6 s,
+// cross-dataset-invariants ~2 s) move back to `fast` - not worth a whole job.
 const HEAVY_BUILD_TESTS = [
-  'src/v2/build-ledger.test.ts',
-  'src/v2/build-ledger-db.test.ts',
-  'src/v2/build-ledger-db-compact.test.ts',
-  'src/v2/licence-category-tier.test.ts',
-  'src/ci/build-sqlite.tiers.test.ts',
   'src/ci/reconstruction-oracle.test.ts',
-  'src/ci/build-forbidden-section.test.ts',
-  'src/ci/cross-dataset-invariants.test.ts',
   'src/ci/value-catalogue-fold.test.ts',
+  'src/ci/quality-report-fold.test.ts',
+  'src/ci/interpretation-oracle.test.ts',
+  'src/ci/build-sqlite.tiers.test.ts',
+  'src/ci/build-dataset-pages.test.ts',
+  'src/v2/build-ledger.test.ts',
   'src/ci/data-quality-fold.test.ts',
+  'src/ci/build-forbidden-section.test.ts',
+  'src/ci/forbidden-suffix-callsigns.test.ts',
+  'src/shared/foi-normalise.test.ts',
+  'src/v2/build-ledger-db-compact.test.ts',
+  'src/v2/build-ledger-db.test.ts',
 ];
 
 // Options every project shares. Kept in one place so the fast and heavy pools
