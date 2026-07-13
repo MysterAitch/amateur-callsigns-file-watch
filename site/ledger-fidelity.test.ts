@@ -93,6 +93,9 @@ describe('fidelityOf — canonical-form divergence (trailing whitespace)', () =>
     expect(prose).toContain('Canonical form');
     // The working reproduces the canonical form from the published form.
     expect(variant?.working.result).toBe('G0TQK');
+    // The canonical working's result is a callsign, so it is shown verbatim
+    // (invisible characters marked) — unlike a flag working's label result.
+    expect(variant?.working.resultVerbatim).toBe(true);
     expect(variant?.working.inputs[0]?.value).toBe('G0TQK ');
     expect(variant?.working.sources[0]).toMatchObject({ sourceFile: SRC, ordinal: 20, vintage: V });
   });
@@ -148,6 +151,9 @@ describe('fidelityOf — a derived flag (forbidden suffix)', () => {
     expect(glossText(note?.gloss)).toContain('the list governs new issues, not existing ones');
     expect(glossText(note?.gloss).toLowerCase()).not.toContain('verdict');
     expect(note?.working?.result).toBe('forbidden-suffix');
+    // A flag working's result is a label token, rendered as plain text (not a
+    // verbatim callsign), so it must not be marked resultVerbatim.
+    expect(note?.working?.resultVerbatim).toBeFalsy();
     // No divergence, so no canonical block - just the note.
     expect(f.canonical).toBeNull();
   });

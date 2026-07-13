@@ -293,7 +293,11 @@ function renderWorking(working) {
     appendRawToken(inputsVal, inp.value);
   });
   panel.appendChild(row2('inputs', inputsVal));
-  panel.appendChild(row2('result', appendRawToken(el('span'), working.result)));
+  // The result is a verbatim callsign only for the canonical-divergence working
+  // (resultVerbatim), where its invisible characters should be shown. For a flag
+  // or parse-status working the result is a label token (e.g. 'forbidden-suffix'
+  // / 'unparseable'), rendered as plain text.
+  panel.appendChild(row2('result', working.resultVerbatim ? appendRawToken(el('span'), working.result) : working.result));
 
   if (working.sources.length > 0) {
     const srcVal = el('span');

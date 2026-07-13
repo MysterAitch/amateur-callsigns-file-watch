@@ -271,9 +271,12 @@ export function flagsOf(claims, cleaned) {
 // form, OR a derived data-quality observation applies. The framing is
 // non-accusatory throughout: every sentence locates an observation and where it
 // was seen, imputes no intent to any licensee or to the publisher, is hedged,
-// and is safe if quoted in isolation. Wording is drawn from the flag registry
-// (reference-data/flags.md), which is deliberately "records the discrepancy,
-// not a verdict". No lookalike / "did you mean" suggestion is offered: the
+// and is safe if quoted in isolation. Wording is grounded in the flag registry
+// (reference-data/flags.md) but uses a neutral vocabulary on the surface: we
+// "note"/"observe" a fact, "flag a discrepancy" between the published source and
+// our own best-effort derivation, and "draw no conclusion" where the cause is
+// unknown — with no judgement disclaimer, which would only invoke the frame it
+// denies. No lookalike / "did you mean" suggestion is offered: the
 // plausible-correction target of an unusual token often already exists as a
 // distinct, live record for possibly a different person (MOGCQ vs the separate
 // live M0GCQ), so conflating them would be a real harm.
@@ -349,7 +352,8 @@ const RULE_GLOSSES = {
 // `gloss` is a short, hedged, source-located sentence (segments), drawn from
 // reference-data/flags.md and kept deliberately tight - the depth on any linked
 // term lives in the explainer page, so the inline note stays plain AND short.
-// Wording that already read well is kept ("Recorded, not a verdict"). Absent
+// The neutrality is carried by the plain factual statement (and, for a mismatch,
+// the source-vs-derivation framing), never by a judgement disclaimer. Absent
 // keys fall back to the raw token so a newly added flag surfaces honestly.
 const FLAG_NOTES = {
   'lowercase': {
@@ -561,7 +565,6 @@ export function fidelityOf(claims, resolved) {
       const hasInvisible = /[\s\u00a0\u0000-\u001f\u007f-\u009f\ufffd]/.test(raw);
       return {
         raw,
-        bytes: bytesHex(raw),
         // Side-by-side prose: the entry exactly as published, then the canonical
         // form we use. Invisible characters (if any) are shown, linked to the
         // explainer that says how.
@@ -571,11 +574,15 @@ export function fidelityOf(claims, resolved) {
           ...(sources.length > 0 ? [' — in ', ...sourceSegments(sources)] : []),
           '. Canonical form: ', codeSeg(cleaned), '.',
         ],
+        // resultVerbatim: the result of THIS working is a callsign token, so the
+        // surface should show its invisible characters (unlike a flag working,
+        // whose result is a label like 'forbidden-suffix').
         working: {
           rule: CLEANED_CALLSIGN_RULE,
           ruleGloss: ruleGlossFor(CLEANED_CALLSIGN_RULE),
           inputs: [{ role: 'published form', value: raw }],
           result: cleaned,
+          resultVerbatim: true,
           sources,
         },
       };
