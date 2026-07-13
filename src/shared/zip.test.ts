@@ -20,7 +20,7 @@ function extractWith(systemTool: boolean, zipPath: string, destDir: string): voi
   }
 }
 
-describe('Deterministic zip writer', () => {
+describe('Deterministic zip writer', { tags: ['unit'] }, () => {
   it('BuildZip_MixedContent_RoundTripsThroughAnIndependentExtractor', () => {
     const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'zip-'));
     try {

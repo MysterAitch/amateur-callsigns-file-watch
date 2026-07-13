@@ -11,7 +11,7 @@ function obs(callsign: string, values: Record<string, string | null> = {}, entry
   return { callsign, entry, sourceFile: 'snapshot.csv', datasetClasses: 'register-snapshot', vintage: '2019-08-12', values };
 }
 
-describe('FOI observations component enrichment', () => {
+describe('FOI observations component enrichment', { tags: ['unit'] }, () => {
   const db = new DatabaseSync(':memory:');
   fillObservations(db, [
     obs('M7TEE', { licence_class: 'Amateur Foundation Radio Licence' }),

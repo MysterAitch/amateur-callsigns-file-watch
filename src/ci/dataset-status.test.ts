@@ -9,7 +9,7 @@ import { renderDatasetStatus, STATUS_FILE } from './dataset-status.ts';
 // rather than aspirational - archive changes without a regenerated table
 // fail here.
 
-describe('Dataset status overview', () => {
+describe('Dataset status overview', { tags: ['unit'] }, () => {
   it('DatasetStatus_CommittedFile_MatchesRegenerationExactly', () => {
     const committed = fs.readFileSync(STATUS_FILE, 'utf8');
     expect(

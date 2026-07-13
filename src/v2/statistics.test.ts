@@ -54,7 +54,7 @@ function statisticsSource() {
   return sources[0];
 }
 
-describe('statistics-aggregate family: raw period + count claims, verbatim, no callsign edges', () => {
+describe('statistics-aggregate family: raw period + count claims, verbatim, no callsign edges', { tags: ['unit', 'data-validity'] }, () => {
   it('AggregateSource_WhenLoaded_CarriesPeriodSubjectAndVerbatimCountsUnderOutputNames', () => {
     const observationSet = statisticsSource().load();
 

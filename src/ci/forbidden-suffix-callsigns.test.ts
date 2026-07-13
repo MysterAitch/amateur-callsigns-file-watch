@@ -8,7 +8,7 @@ import { buildSuffixCallsignIndex, type SuffixCallsignIndex } from './forbidden-
 // render, so a data drift surfaces here too. Test names follow
 // Subject_Scenario_Outcome.
 
-describe('forbidden-suffix callsign index — real archive', () => {
+describe('forbidden-suffix callsign index — real archive', { tags: ['data-validity'] }, () => {
   let index: SuffixCallsignIndex;
   beforeAll(() => {
     index = buildSuffixCallsignIndex(buildForbiddenSuffixHistory().everForbiddenUnion);

@@ -12,7 +12,7 @@ import { buildFoiObservations, renderObservationsCsv, renderObservationsCsvBuffe
 
 const REAL_FOI_DIR = path.resolve(import.meta.dirname, '..', '..', 'archive', 'foi');
 
-describe('FOI observations projection', () => {
+describe('FOI observations projection', { tags: ['unit'] }, () => {
   const rows = buildFoiObservations(REAL_FOI_DIR);
 
   it('FoiObservations_RealArchive_ProjectsEveryCallsignBearingNormalisedRow', () => {
