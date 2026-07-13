@@ -45,7 +45,9 @@ jobs:
       # that single artefact instead of each re-materialising ~11 GB of JSONL
       # (#478). Opt-in because it only pays off for a full run including those
       # suites; a targeted local run leaves it unset and keeps the on-demand path.
-      - run: npm run test:coverage
+      # TRIAL (#478): coverage OFF the PR critical path - v8 instruments every
+      # src module, and coverage is a nightly/main concern, not a per-PR gate.
+      - run: npm test
         env:
           ACF_SHARED_CLAIMS: '1'
 
