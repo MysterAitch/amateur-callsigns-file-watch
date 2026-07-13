@@ -40,7 +40,14 @@ jobs:
       - uses: ./.github/actions/setup-duckdb
       - run: npx tsc --noEmit
       - run: npm run lint
+      # ACF_SHARED_CLAIMS: build the whole-archive claim ledger to ONE shared
+      # Parquet in vitest's global setup, so the real-archive fold suites read
+      # that single artefact instead of each re-materialising ~11 GB of JSONL
+      # (#478). Opt-in because it only pays off for a full run including those
+      # suites; a targeted local run leaves it unset and keeps the on-demand path.
       - run: npm run test:coverage
+        env:
+          ACF_SHARED_CLAIMS: '1'
 
   # Workflow hygiene auditors. Not required status checks (they gate the
   # workflows, not the data), but red runs demand attention:

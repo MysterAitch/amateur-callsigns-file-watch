@@ -332,4 +332,33 @@ describe('DuckDB -> Parquet bulk lane', () => {
     const parquet = emitClaimsParquet(path.join(ledgerDir, 'ledger'), path.join(workDir, 'claims.parquet'), bin);
     expect(parquet.rows).toBe(summary.claims);
   }, 180_000);
+
+  it('EmitClaimsParquet_WhenDuckdbCopyFails_ThrowsNamingTheUnderlyingCauseNotAnOpaqueExit', () => {
+    // Fail loud: a COPY that fails (here, a ledger directory with no JSONL for the
+    // glob to match) must surface DuckDB's own diagnostic, not a bare non-zero
+    // exit. This guards the stderr-capture that replaced `stdio: 'ignore'` - a
+    // silent COPY failure is exactly the integrity fault that must name what broke.
+    const bin = findDuckdb();
+    if (bin === null) {
+      expect(bin).toBeNull();
+      return;
+    }
+    const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'acf-empty-ledger-'));
+    try {
+      let message = '';
+      expect(() => {
+        try {
+          emitClaimsParquet(emptyDir, path.join(emptyDir, 'out.parquet'), bin);
+        } catch (err) {
+          message = String((err as Error).message);
+          throw err;
+        }
+      }).toThrow(/DuckDB failed to write Parquet/);
+      // The thrown message carries DuckDB's actual complaint (the empty glob), so
+      // a failure is diagnosable rather than an inscrutable `status: 1`.
+      expect(message.toLowerCase()).toMatch(/no files found|io error|glob/);
+    } finally {
+      fs.rmSync(emptyDir, { recursive: true, force: true });
+    }
+  });
 });
