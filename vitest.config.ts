@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs';
 import { defineConfig, defaultExclude } from 'vitest/config';
 
 // The real-archive build tests each parse multi-hundred-thousand-row CSVs and
@@ -10,18 +11,18 @@ import { defineConfig, defaultExclude } from 'vitest/config';
 // heavy build always has the cores to itself. `npm test` still runs everything;
 // the two pools simply never contend. Isolation, not a raised ceiling, is the
 // fix - bumping timeouts is the whack-a-mole this pattern already outgrew.
-const HEAVY_BUILD_TESTS = [
-  'src/v2/build-ledger.test.ts',
-  'src/v2/build-ledger-db.test.ts',
-  'src/v2/build-ledger-db-compact.test.ts',
-  'src/v2/licence-category-tier.test.ts',
-  'src/ci/build-sqlite.tiers.test.ts',
-  'src/ci/reconstruction-oracle.test.ts',
-  'src/ci/build-forbidden-section.test.ts',
-  'src/ci/cross-dataset-invariants.test.ts',
-  'src/ci/value-catalogue-fold.test.ts',
-  'src/ci/data-quality-fold.test.ts',
-];
+// TRIAL (#478): the ISOLATED heavy files - each gets its own parallel CI job
+// (see .github/workflows/ci.yml), pulling the pre-built claims Parquet artifact.
+// This is the top of the measured duration distribution (>~90 s each in the
+// baseline); the ~78 remaining files run together in the sharded `fast` pool.
+//
+// SINGLE SOURCE OF TRUTH: the list lives in src/testing/heavy-tests.json so this
+// config (which excludes them from `fast`) and the CI matrix (which spawns one
+// job per entry) read the identical set - the yml never hardcodes file paths, it
+// derives its matrix from this file. Add or remove a heavy file in one place.
+const HEAVY_BUILD_TESTS: string[] = JSON.parse(
+  readFileSync(new URL('./src/testing/heavy-tests.json', import.meta.url), 'utf8'),
+);
 
 // Options every project shares. Kept in one place so the fast and heavy pools
 // run under identical semantics - only their file selection and scheduling

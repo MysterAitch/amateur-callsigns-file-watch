@@ -22,8 +22,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  tests:
-    name: tests
+  # TRIAL (#478): fan-out architecture. Build the shared claims Parquet ONCE,
+  # publish it as a workflow artifact, and let every downstream test job pull it
+  # and run in parallel - each heavy file in its own job, the ~78 trivial files
+  # sharded. Wall-clock collapses toward the single slowest file rather than the
+  # serial sum. tsc + lint run as their own parallel job off the critical path.
+  build-claims:
+    name: build-claims
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -34,20 +39,123 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      # DuckDB CLI: the cross-dataset-invariants report is folded from the claim
-      # data via DuckDB, and its byte-identity test (the #361 retirement gate)
-      # runs here. Pinned static binary, no native npm build (ADR 0002).
       - uses: ./.github/actions/setup-duckdb
+      # Full-corpus claims Parquet (issue #403 buildClaimsParquet), the one
+      # artefact every fold job reads via CLAIMS_PARQUET.
+      - run: node src/v2/build-ledger-db.ts claims.parquet --parquet-only
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: claims-parquet
+          path: claims.parquet
+          retention-days: 1
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run lint
-      # ACF_SHARED_CLAIMS: build the whole-archive claim ledger to ONE shared
-      # Parquet in vitest's global setup, so the real-archive fold suites read
-      # that single artefact instead of each re-materialising ~11 GB of JSONL
-      # (#478). Opt-in because it only pays off for a full run including those
-      # suites; a targeted local run leaves it unset and keeps the on-demand path.
-      - run: npm run test:coverage
+
+  # Derive the heavy matrix from the single source of truth
+  # (src/testing/heavy-tests.json) so the yml never hardcodes the file list -
+  # add/remove a heavy file there and both this matrix and vitest's fast-pool
+  # exclude follow.
+  matrix-setup:
+    name: matrix-setup
+    runs-on: ubuntu-latest
+    outputs:
+      files: ${{ steps.list.outputs.files }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - id: list
+        run: echo "files=$(jq -c . src/testing/heavy-tests.json)" >> "$GITHUB_OUTPUT"
+
+  heavy:
+    name: heavy
+    needs: [build-claims, matrix-setup]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        file: ${{ fromJSON(needs.matrix-setup.outputs.files) }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: ./.github/actions/setup-duckdb
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: claims-parquet
+      # The fold files read the pre-built Parquet; the non-fold heavy files
+      # ignore CLAIMS_PARQUET and rebuild their own inputs - either way, one file
+      # per job runs the archive work alone, uncontended.
+      - run: npx vitest run "${{ matrix.file }}"
         env:
-          ACF_SHARED_CLAIMS: '1'
+          CLAIMS_PARQUET: ${{ github.workspace }}/claims.parquet
+
+  fast:
+    name: fast
+    needs: build-claims
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: ./.github/actions/setup-duckdb
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: claims-parquet
+      # The ~78 trivial files (the fast project excludes the isolated heavy list),
+      # sharded across 2 runners. Folds among them (e.g. cross-dataset-invariants)
+      # read the shared Parquet too.
+      - run: npx vitest run --project fast --shard=${{ matrix.shard }}/2
+        env:
+          CLAIMS_PARQUET: ${{ github.workspace }}/claims.parquet
+
+  # Aggregator gate: the single required `tests` check branch protection needs.
+  # The suite is fanned out across typecheck / build-claims / heavy / fast (#478),
+  # so this job passes iff every one of them passed - one status to require
+  # instead of listing each matrix leg in the ruleset. `if: always()` so it still
+  # runs (and fails) when an upstream job fails rather than being skipped, which
+  # branch protection would otherwise treat as a pass.
+  tests:
+    name: tests
+    needs: [typecheck, build-claims, matrix-setup, heavy, fast]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every fan-out job to have passed
+        run: |
+          results='${{ join(needs.*.result, ",") }}'
+          echo "fan-out results: $results"
+          case "$results" in
+            *failure*|*cancelled*) echo "::error::a fan-out test job did not pass"; exit 1 ;;
+          esac
+          echo "all fan-out test jobs passed"
 
   # Workflow hygiene auditors. Not required status checks (they gate the
   # workflows, not the data), but red runs demand attention:
