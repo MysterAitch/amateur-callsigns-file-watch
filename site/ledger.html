@@ -110,7 +110,7 @@
           the <span class="mono">normalises_to</span> edges the ledger derived from it (raw → cleaned →
           entity, each carrying its named rule). Where two tokens differ only in invisible characters — a
           trailing space, a non-breaking space — the current normalised CSV shows both as the same clean form,
-          so you can no longer tell which was damaged. The ledger keeps the raw token, the rule and the
+          so you can no longer tell which one carried the extra characters. The ledger keeps the raw token, the rule and the
           attributes together, so nothing is quietly lost.</p>
         <div class="layers" id="anatomy"></div>
         <div class="callout">Every observation is real. The entity view shows them all, with provenance — it
@@ -120,10 +120,14 @@
       <section class="panel">
         <div class="eyebrow">callsign dossier</div>
         <h2>The full background for one callsign</h2>
-        <p class="panel-sub">What the ledger asserts for the resolved entity, plus derived notable observations
-          — each computed from the claims themselves, not hard-coded. A <span class="tb d">derived</span>
-          observation is produced from the query result today; cross-source links (FOI correspondence, ITU
-          home-country resolution) are a later sub-stage and are noted, not shown.</p>
+        <p class="panel-sub">What the ledger asserts for the resolved entity. Where a published form differs from its
+          canonical form, or a derived observation applies, a <b>record fidelity</b> note appears — each computed
+          from the claims themselves, with a "show the working" disclosure and a link to examine the source. A
+          clean, unremarkable record shows no such note. The notes are things we note or observe in the
+          published data; where a value looks inconsistent with the rules we derive, we flag the discrepancy and
+          draw no conclusion about why. A <span class="tb d">derived</span> observation is
+          produced from the query result today; cross-source links (FOI correspondence, ITU home-country
+          resolution) are a later sub-stage and are noted, not shown.</p>
         <div id="dossier"></div>
       </section>
 

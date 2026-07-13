@@ -211,7 +211,12 @@ describe('Ledger page render (JSDOM smoke test, live query)', () => {
 
     const dossier = document.getElementById('dossier');
     expect(dossier?.textContent).toContain('G#0TQK');
-    expect(dossier?.textContent).toContain('raw-differs-from-cleaned');
+    // The trailing-space twin diverges from the canonical form, so the
+    // selectively-disclosed record-fidelity affordance surfaces it (as a
+    // non-accusatory canonical-form note, not the internal flag id).
+    expect(dossier?.textContent).toContain('record fidelity');
+    expect(dossier?.textContent).toContain('canonical form');
+    expect(dossier?.querySelector('details.fid-why')).not.toBeNull();
 
     // A miss clears the views and states the register-snapshot scope honestly
     // rather than hanging.
