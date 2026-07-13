@@ -7,7 +7,6 @@ import {
   reconstructionResultFor,
   collectCsvReconstructionSources,
   collectReconstructionSources,
-  assertReconstruction,
   listNotYetCovered,
   COVERED_FAMILIES,
   CSV_SERIALISED_FAMILIES,
@@ -204,28 +203,43 @@ describe('CSV-lane sources reconstruct byte-identically modulo cosmetics from th
     expect(bomSheet.ok).toBe(true);
   });
 
-  it('EveryCoveredCsvSource_WhenReconstructed_PassesTheCommittedOracle', () => {
-    // The committed corpus gate: every source across the three CSV families
-    // round-trips, or the build fails loud with the offending source's diff.
-    // Completeness is asserted unsliced; the reconstruction runs this shard's slice.
-    const resolved = collectCsvReconstructionSources();
-    expect(resolved.length).toBeGreaterThan(0);
-    const sources = shardResolved(resolved).map(resolved => resolved.load());
-    const results = assertReconstruction(sources);
-    expect(results.every(result => result.ok)).toBe(true);
+  // The corpus gates as PER-SOURCE cases (it.each over a runtime-generated list):
+  // each source round-trips independently, so the report names exactly which
+  // file(s) fail rather than one aggregate assertion, and the cases shard across
+  // CI jobs (RECON_SHARD, see shardResolved). Completeness is asserted unsliced.
+  const csvAll = collectCsvReconstructionSources();
+  const fullAll = collectReconstructionSources();
+  const csvShard = shardResolved(csvAll);
+  const fullShard = shardResolved(fullAll);
+  // Observability: on a sharded run, record which slice this job carries.
+  process.stderr.write(
+    `[recon] shard ${process.env.RECON_SHARD ?? 'all'}: committed-CSV ${csvShard.length}/${csvAll.length}, ` +
+      `full-corpus ${fullShard.length}/${fullAll.length} source(s) this run\n`,
+  );
+
+  it('TheCommittedCsvCorpus_IsNonEmpty', () => {
+    expect(csvAll.length).toBeGreaterThan(0);
   });
 
-  it('EveryReconstructionSource_WhenReconstructed_PassesTheCommittedOracle', () => {
-    // The full corpus gate: every source across ALL covered families - the three
-    // CSV lanes plus the Phase 3 FOI verbatim-CSV and markdown-table mirrors -
-    // round-trips, or the build fails loud with the offending source's diff.
-    // Completeness (unsliced): the full corpus spans more than the CSV lanes.
-    const resolved = collectReconstructionSources();
-    expect(resolved.length).toBeGreaterThan(collectCsvReconstructionSources().length);
-    const sources = shardResolved(resolved).map(resolved => resolved.load());
-    const results = assertReconstruction(sources);
-    expect(results.every(result => result.ok)).toBe(true);
+  it('TheFullCorpus_SpansMoreThanTheCsvLanes', () => {
+    expect(fullAll.length).toBeGreaterThan(csvAll.length);
   });
+
+  it.each(csvShard)(
+    'committed CSV corpus: $family/$jsonlStem reconstructs byte-identically modulo cosmetics',
+    (resolved) => {
+      const result = reconstructionResultFor(resolved.load());
+      expect(result.ok, result.detail).toBe(true);
+    },
+  );
+
+  it.each(fullShard)(
+    'full corpus: $family/$jsonlStem reconstructs byte-identically modulo cosmetics',
+    (resolved) => {
+      const result = reconstructionResultFor(resolved.load());
+      expect(result.ok, result.detail).toBe(true);
+    },
+  );
 });
 
 // ---- Phase 3 shapes: verbatim-CSV (preamble / prefixed) round-trip ----------
