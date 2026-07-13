@@ -97,6 +97,7 @@ export default defineConfig({
         // not product code, and do not belong in the product-coverage denominator.
         'src/ci/smoke-test.ts',
         'src/ci/console-check.ts',
+        'src/ci/functionality-check.ts',
       ],
       // Regression floor, set just below measured coverage (pure modules are well
       // covered; the I/O-heavy scrape / process / orchestrator bodies are not).
