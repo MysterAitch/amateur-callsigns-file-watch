@@ -25,6 +25,13 @@ jobs:
   tests:
     name: tests
     runs-on: ubuntu-latest
+    # TRIAL (#478): shard the suite across 3 runners so its files distribute and
+    # wall-clock -> slowest shard. fail-fast off so one slow shard doesn't mask
+    # the others' timings.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -38,16 +45,16 @@ jobs:
       # data via DuckDB, and its byte-identity test (the #361 retirement gate)
       # runs here. Pinned static binary, no native npm build (ADR 0002).
       - uses: ./.github/actions/setup-duckdb
-      - run: npx tsc --noEmit
-      - run: npm run lint
-      # ACF_SHARED_CLAIMS: build the whole-archive claim ledger to ONE shared
-      # Parquet in vitest's global setup, so the real-archive fold suites read
-      # that single artefact instead of each re-materialising ~11 GB of JSONL
-      # (#478). Opt-in because it only pays off for a full run including those
-      # suites; a targeted local run leaves it unset and keeps the on-demand path.
-      # TRIAL (#478): coverage OFF the PR critical path - v8 instruments every
-      # src module, and coverage is a nightly/main concern, not a per-PR gate.
-      - run: npm test
+      # tsc + lint aren't sharded - run them once, on shard 1 only.
+      - if: ${{ matrix.shard == 1 }}
+        run: npx tsc --noEmit
+      - if: ${{ matrix.shard == 1 }}
+        run: npm run lint
+      # TRIAL (#478): each shard runs its third of the test files. ACF_SHARED_CLAIMS
+      # builds the shared Parquet per shard (a per-shard tax the follow-up
+      # actions/cache layer would remove); coverage is off (v8 can't merge across
+      # shards without extra tooling - a nightly/main concern anyway).
+      - run: npx vitest run --shard=${{ matrix.shard }}/3
         env:
           ACF_SHARED_CLAIMS: '1'
 
