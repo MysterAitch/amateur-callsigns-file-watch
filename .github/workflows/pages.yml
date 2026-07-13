@@ -165,3 +165,30 @@ jobs:
       - run: node src/ci/smoke-test.ts "$PAGES_URL"
         env:
           PAGES_URL: ${{ needs.deploy.outputs.page_url }}
+
+  # Post-deploy browser-console check (issue #497 follow-up): loads a selection of
+  # pages in headless Chromium (Playwright) against the LIVE deployment and fails
+  # on console errors/warnings, uncaught page errors, or failed requests - the
+  # runtime faults (broken imports, CSP violations, missing assets, database load
+  # failures) a fetch-only smoke test cannot see. The allow list in the script is
+  # calibrated against the live site (one documented HEAD/gzip exception, #475), so
+  # it asserts zero UNEXPECTED console output. Separate from smoke because it needs
+  # a browser; post-deploy, no repo writes. Chromium is installed explicitly:
+  # ignore-scripts=true (ADR 0002) stops Playwright's postinstall auto-downloading
+  # it, so the fetch is a deliberate, visible step.
+  console-check:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node src/ci/console-check.ts "$PAGES_URL"
+        env:
+          PAGES_URL: ${{ needs.deploy.outputs.page_url }}

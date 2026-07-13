@@ -88,7 +88,16 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts'],
+      exclude: [
+        'src/**/*.test.ts',
+        // Live-deployment verification harnesses (the post-deploy smoke and
+        // browser-console checks): they run against the real Pages site from
+        // pages.yml - hitting the network and a real browser - so they are
+        // exercised there, not unit-tested. Like *.test.ts they are test code,
+        // not product code, and do not belong in the product-coverage denominator.
+        'src/ci/smoke-test.ts',
+        'src/ci/console-check.ts',
+      ],
       // Regression floor, set just below measured coverage (pure modules are well
       // covered; the I/O-heavy scrape / process / orchestrator bodies are not).
       // Raise as coverage grows - never lower without a written reason.
