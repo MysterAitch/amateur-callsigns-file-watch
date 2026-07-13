@@ -1,0 +1,209 @@
+/**
+ * Post-deploy smoke test (issue #497): light liveness + integrity checks against
+ * the LIVE Pages deployment, run after actions/deploy-pages in pages.yml. It is
+ * deliberately NOT a functional test - it confirms the deploy SUCCEEDED and
+ * shipped the right, correctly PACKAGED bytes, which are the publish concerns the
+ * per-PR suite does not cover since the tier verification moved to a raw build
+ * (#478/#496). It reports EVERY failing check, then exits non-zero if any failed,
+ * so one run surfaces the whole picture rather than the first fault only.
+ *
+ * Usage: node src/ci/smoke-test.ts <base-url>   (GITHUB_SHA read from env)
+ *   base-url is the deploy job's page_url, e.g.
+ *   https://mysteraitch.github.io/amateur-callsigns-file-watch/
+ */
+
+const GZIP_MAGIC = [0x1f, 0x8b] as const;
+// A just-live deploy can 404 at a CDN edge for a few seconds. We first poll the
+// home page until it is live (propagation), then give each individual check only
+// a couple of quick retries - once the site is confirmed live, a 404 is a real
+// fault, not propagation, and should not cost a long wait.
+const LIVE_ATTEMPTS = 12;
+const LIVE_DELAY_MS = 10_000;
+const CHECK_ATTEMPTS = 3;
+const CHECK_DELAY_MS = 3_000;
+
+const base = process.argv[2];
+if (base === undefined || base.trim() === '') {
+  console.error('smoke-test: base URL required as the first argument');
+  process.exit(2);
+}
+const baseUrl = base.endsWith('/') ? base : `${base}/`;
+const expectedSha = process.env.GITHUB_SHA ?? '';
+
+const failures: string[] = [];
+const fail = (check: string, detail: string): void => { failures.push(`${check}: ${detail}`); console.error(`  FAIL ${check} - ${detail}`); };
+const pass = (check: string, detail = ''): void => { console.log(`  ok   ${check}${detail !== '' ? ` - ${detail}` : ''}`); };
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+const abs = (pathRel: string): string => new URL(pathRel, baseUrl).toString();
+
+// Fetch with bounded retries. A response with status < 500 (and not 404) is
+// returned immediately; 404/5xx/network errors are retried, since those are the
+// shapes CDN propagation and transient edge faults take.
+async function fetchRetry(pathRel: string, init: RequestInit, attempts: number, delayMs: number): Promise<Response> {
+  let last: Response | undefined;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const res = await fetch(abs(pathRel), init);
+      if (res.status < 500 && res.status !== 404) return res;
+      last = res;
+    } catch {
+      last = undefined;
+    }
+    if (attempt < attempts) await delay(delayMs);
+  }
+  if (last !== undefined) return last;
+  throw new Error(`no response after ${attempts} attempts`);
+}
+
+// Identity encoding keeps Pages from negotiating a gzip variant: for large
+// objects that variant is a slow CDN miss (issue #475), and for the compression
+// checks we want the stored byte size, not a re-compressed one.
+const IDENTITY = { 'Accept-Encoding': 'identity' } as const;
+
+async function waitForLive(): Promise<void> {
+  for (let attempt = 1; attempt <= LIVE_ATTEMPTS; attempt += 1) {
+    try {
+      const res = await fetch(abs(''), { method: 'GET', headers: { ...IDENTITY } });
+      if (res.status === 200) { pass('home page live', `after ${attempt} attempt(s)`); return; }
+    } catch {
+      // fall through to retry
+    }
+    if (attempt < LIVE_ATTEMPTS) await delay(LIVE_DELAY_MS);
+  }
+  fail('home page live', `still not 200 after ${LIVE_ATTEMPTS} attempts`);
+}
+
+async function expectOk(pathRel: string, label = pathRel): Promise<void> {
+  try {
+    const res = await fetchRetry(pathRel, { method: 'GET', headers: { ...IDENTITY } }, CHECK_ATTEMPTS, CHECK_DELAY_MS);
+    if (res.status === 200) pass(`GET ${label}`, '200');
+    else fail(`GET ${label}`, `status ${res.status}`);
+  } catch (e) {
+    fail(`GET ${label}`, String(e));
+  }
+}
+
+// A 0-0 Range returns 206 with the full size in Content-Range (bytes 0-0/TOTAL),
+// so a large file's reachability and size are checked without downloading it.
+async function rangeTotal(pathRel: string): Promise<number | undefined> {
+  try {
+    const res = await fetchRetry(pathRel, { method: 'GET', headers: { ...IDENTITY, Range: 'bytes=0-0' } }, CHECK_ATTEMPTS, CHECK_DELAY_MS);
+    if (res.status !== 206) { fail(`range ${pathRel}`, `expected 206, got ${res.status}`); return undefined; }
+    const contentRange = res.headers.get('content-range') ?? '';
+    const match = contentRange.match(/\/(\d+)\s*$/);
+    if (match === null) { fail(`range ${pathRel}`, `no total in Content-Range "${contentRange}"`); return undefined; }
+    return Number(match[1]);
+  } catch (e) {
+    fail(`range ${pathRel}`, String(e));
+    return undefined;
+  }
+}
+
+async function firstBytes(pathRel: string, n: number): Promise<Uint8Array | undefined> {
+  try {
+    const res = await fetchRetry(pathRel, { method: 'GET', headers: { ...IDENTITY, Range: `bytes=0-${n - 1}` } }, CHECK_ATTEMPTS, CHECK_DELAY_MS);
+    if (res.status !== 206 && res.status !== 200) { fail(`bytes ${pathRel}`, `status ${res.status}`); return undefined; }
+    return new Uint8Array(await res.arrayBuffer());
+  } catch (e) {
+    fail(`bytes ${pathRel}`, String(e));
+    return undefined;
+  }
+}
+
+// Confirm a .gz artefact is genuinely compressed, catching an uncompressed file
+// shipped under a .gz name two ways: the gzip magic bytes must be present (a raw
+// CSV/SQLite would fail this), and, where a ceiling is given, the stored size
+// must be well under what the uncompressed data would be (a level-0/stored file
+// would fail this).
+async function expectGzip(pathRel: string, maxBytes?: number): Promise<void> {
+  const head = await firstBytes(pathRel, 2);
+  if (head !== undefined) {
+    if (head.length >= 2 && head[0] === GZIP_MAGIC[0] && head[1] === GZIP_MAGIC[1]) pass(`gzip-magic ${pathRel}`);
+    else fail(`gzip-magic ${pathRel}`, `first bytes [${[...head].map(b => b.toString(16).padStart(2, '0')).join(' ')}] are not gzip - uncompressed shipped?`);
+  }
+  if (maxBytes !== undefined) {
+    const total = await rangeTotal(pathRel);
+    if (total !== undefined) {
+      if (total < maxBytes) pass(`gzip-size ${pathRel}`, `${total} bytes`);
+      else fail(`gzip-size ${pathRel}`, `${total} bytes >= ${maxBytes} ceiling - looks uncompressed`);
+    }
+  }
+}
+
+async function main(): Promise<void> {
+  console.log(`smoke-test against ${baseUrl}`);
+  await waitForLive();
+
+  // 1. Liveness: home + the key hand-authored pages.
+  for (const p of ['index.html', 'statistics.html', 'explore.html', 'compare.html', 'ledger.html', 'data-status.html', 'glossary.html', 'about.html']) {
+    await expectOk(p);
+  }
+
+  // 2. Assets: scripts, styles, the service worker, the manifest, the vendored
+  //    query engine, and the small data manifests.
+  for (const p of ['app.js', 'style.css', 'tokens.css', 'sw.js', 'manifest.webmanifest', 'vendor/sql-wasm.wasm', 'vendor/sqlite.worker.js', 'data/version.txt', 'data/claim-ledger.chunks.json']) {
+    await expectOk(p);
+  }
+
+  // 3. The range-served headline database is reachable and non-empty.
+  const dbTotal = await rangeTotal('data/callsigns.sqlite.png');
+  if (dbTotal !== undefined) {
+    if (dbTotal > 0) pass('range data/callsigns.sqlite.png', `${dbTotal} bytes`);
+    else fail('range data/callsigns.sqlite.png', 'zero length');
+  }
+
+  // 4. Version stamp: version.txt equals the deployed commit and the footer
+  //    carries the short SHA, so we can tell the deploy actually superseded the
+  //    previous one rather than serving a stale build.
+  try {
+    const res = await fetchRetry('data/version.txt', { method: 'GET', headers: { ...IDENTITY } }, CHECK_ATTEMPTS, CHECK_DELAY_MS);
+    const body = (await res.text()).trim();
+    if (expectedSha === '') pass('version.txt', `no GITHUB_SHA to compare against; served ${body}`);
+    else if (body === expectedSha) pass('version.txt', 'matches GITHUB_SHA');
+    else fail('version.txt', `"${body}" does not match GITHUB_SHA "${expectedSha}"`);
+  } catch (e) {
+    fail('version.txt', String(e));
+  }
+  if (expectedSha !== '') {
+    // The generated pages carry the SHA-stamped footer (site-render.ts's
+    // footerHtml: "commit <code>{9-char SHA}</code>"); the hand-authored pages
+    // (index, about, glossary) do not, so the footer check targets a generated
+    // page. BUILD_SHA is the first 9 characters of the commit SHA.
+    const shortSha = expectedSha.slice(0, 9);
+    try {
+      const res = await fetchRetry('statistics.html', { method: 'GET', headers: { ...IDENTITY } }, CHECK_ATTEMPTS, CHECK_DELAY_MS);
+      const html = await res.text();
+      if (html.includes(`<code>${shortSha}</code>`)) pass('footer-sha', `statistics.html footer carries ${shortSha}`);
+      else fail('footer-sha', `statistics.html footer does not contain the short SHA ${shortSha}`);
+    } catch (e) {
+      fail('footer-sha', String(e));
+    }
+  }
+
+  // 5. Compression sanity - the gzipped artefacts must actually be compressed.
+  await expectGzip('data/foi-observations.csv.gz', 100 * 1024 * 1024); // raw union CSV is ~0.6 GB; compressed is tens of MB.
+  await expectGzip('data/datasets/foi--ofcom-498906--reciprocal-licences-since-2010.sqlite.gz');
+  await expectGzip('data/master.sqlite.gz');
+  // The master download twin must be smaller than the uncompressed .png it mirrors.
+  const gz = await rangeTotal('data/master.sqlite.gz');
+  const png = await rangeTotal('data/master.sqlite.png');
+  if (gz !== undefined && png !== undefined) {
+    if (gz < png) pass('gzip-vs-raw master', `${gz} < ${png}`);
+    else fail('gzip-vs-raw master', `master.sqlite.gz ${gz} is not smaller than master.sqlite.png ${png}`);
+  }
+
+  console.log('');
+  if (failures.length > 0) {
+    console.error(`smoke-test FAILED: ${failures.length} check(s) failed`);
+    process.exit(1);
+  }
+  console.log(`smoke-test passed (${baseUrl})`);
+}
+
+if (import.meta.main) {
+  void main();
+}
