@@ -50,8 +50,12 @@ const ALLOW: { pattern: RegExp; reason: string }[] = [
 ];
 
 const VERBOSE = process.env.CONSOLE_CHECK_VERBOSE === '1';
-// Time to let a page's scripts run and any async load settle before judging it.
-const SETTLE_MS = 6_000;
+// After load, wait for the page to reach network idle so async console output has
+// time to appear - but as a SOFT budget, not a gate. The data pages open a
+// range-served database that legitimately keeps streaming (the ledger never
+// idles), so a timeout here just means "judged while still loading". The settle
+// time is printed for every page, so an unexpectedly slow load is visible.
+const SETTLE_TIMEOUT_MS = 12_000;
 const NAV_TIMEOUT_MS = 45_000;
 
 const base = process.argv[2] ?? process.env.PAGES_URL;
@@ -64,10 +68,6 @@ const baseUrl = base.endsWith('/') ? base : `${base}/`;
 interface Issue { page: string; kind: string; text: string; }
 
 const allowed = (text: string): boolean => ALLOW.some(a => a.pattern.test(text));
-
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 async function main(): Promise<void> {
   console.log(`console-check against ${baseUrl}${VERBOSE ? ' (verbose)' : ''}`);
@@ -87,28 +87,27 @@ async function main(): Promise<void> {
         if (type === 'error' || type === 'warning') record(`console.${type}`, msg.text());
       });
       page.on('pageerror', err => record('pageerror', err.message));
-      page.on('requestfailed', req => {
-        const failure = req.failure();
-        const errorText = failure !== null ? failure.errorText : 'unknown';
-        // ERR_ABORTED is a CANCELLED request, not a fault: pages start the
-        // sql.js-httpvfs range-load and it is still in flight when we move on, so
-        // the browser aborts it. Real reachability is covered by smoke-test.ts;
-        // here it would be pure noise. Genuine network failures (DNS, refused,
-        // blocked) surface under other error codes and are still recorded.
-        if (errorText.includes('ERR_ABORTED')) return;
-        record('requestfailed', `${req.url()} - ${errorText}`);
-      });
+      // We watch the browser CONSOLE (console.error/warning + uncaught pageerror),
+      // which is the ask - and which already includes Chrome's own "Failed to load
+      // resource" errors for genuinely failed requests. Raw requestfailed events
+      // are deliberately NOT watched: a cancelled request (ERR_ABORTED, e.g. an
+      // in-flight database range-read when we move on) is not a console message
+      // and not a fault, so watching them would just mean filtering that noise.
 
+      const started = Date.now();
       try {
         await page.goto(new URL(pageRel, baseUrl).toString(), { waitUntil: 'load', timeout: NAV_TIMEOUT_MS });
-        await delay(SETTLE_MS);
       } catch (e) {
         record('navigation', String(e));
       }
+      // Soft settle: give async output time to appear; a still-streaming database
+      // page simply gets judged mid-stream (see the SETTLE_TIMEOUT_MS note).
+      await page.waitForLoadState('networkidle', { timeout: SETTLE_TIMEOUT_MS }).catch(() => undefined);
+      const settleMs = Date.now() - started;
 
       const real = captured.filter(i => !allowed(i.text));
-      if (real.length === 0) console.log(`  ok   ${pageRel}`);
-      else { for (const i of real) console.error(`  FAIL ${pageRel} ${i.kind}: ${i.text}`); issues.push(...real); }
+      if (real.length === 0) console.log(`  ok   ${pageRel} (${settleMs}ms)`);
+      else { for (const i of real) console.error(`  FAIL ${pageRel} (${settleMs}ms) ${i.kind}: ${i.text}`); issues.push(...real); }
 
       await context.close();
     }
