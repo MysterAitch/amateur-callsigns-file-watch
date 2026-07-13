@@ -14,7 +14,7 @@
  * Usage: node src/ci/functionality-check.ts <base-url>
  */
 
-import { chromium, type ConsoleMessage, type Page } from '@playwright/test';
+import { chromium, expect, type ConsoleMessage, type Page } from '@playwright/test';
 
 // Benign console output shared with console-check.ts. Keep tight + documented.
 const ALLOW: { pattern: RegExp; reason: string }[] = [
@@ -82,8 +82,13 @@ const failures: string[] = [];
 const fail = (page: string, detail: string): void => { failures.push(`${page}: ${detail}`); console.error(`  FAIL ${page} - ${detail}`); };
 const allowed = (text: string): boolean => ALLOW.some(a => a.pattern.test(text));
 
-// True once the selector exists and carries non-whitespace text content.
-const NON_EMPTY = (selector: string): string => `(() => { const n = document.querySelector(${JSON.stringify(selector)}); return !!n && (n.textContent || '').trim().length > 0; })()`;
+// Wait until the selector carries non-whitespace text. Uses Playwright's native
+// locator assertion (the selector is passed as DATA, never interpolated into an
+// evaluated code string), auto-retrying until the timeout. The /\S/ pattern
+// matches any element text containing a non-whitespace character.
+async function waitForText(page: Page, selector: string, timeout: number): Promise<void> {
+  await expect(page.locator(selector)).toHaveText(/\S/, { timeout });
+}
 
 async function run(browser: Awaited<ReturnType<typeof chromium.launch>>, check: Check): Promise<void> {
   const context = await browser.newContext();
@@ -104,7 +109,7 @@ async function run(browser: Awaited<ReturnType<typeof chromium.launch>>, check: 
     //    within this budget; a miss means the action was not acknowledged.
     let acknowledged = true;
     try {
-      await page.waitForFunction(NON_EMPTY(check.progressSelector), undefined, { timeout: PROGRESS_TIMEOUT_MS, polling: 50 });
+      await waitForText(page, check.progressSelector, PROGRESS_TIMEOUT_MS);
       console.log(`  ok   ${check.page} acknowledged (${check.progressSelector})`);
     } catch {
       acknowledged = false;
@@ -113,7 +118,7 @@ async function run(browser: Awaited<ReturnType<typeof chromium.launch>>, check: 
 
     // 2. Transition to a result: the result region renders some data.
     try {
-      await page.waitForFunction(NON_EMPTY(check.resultSelector), undefined, { timeout: RESULT_TIMEOUT_MS, polling: 100 });
+      await waitForText(page, check.resultSelector, RESULT_TIMEOUT_MS);
       if (acknowledged) console.log(`  ok   ${check.page} rendered results (${check.resultSelector})`);
     } catch {
       fail(check.page, `no result rendered in ${check.resultSelector} within ${RESULT_TIMEOUT_MS}ms`);
