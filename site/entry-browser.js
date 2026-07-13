@@ -59,7 +59,7 @@ function renderRawCallsign(raw) {
 function describeDiff(raw, cleaned) {
   const notes = [];
   if (/ /.test(raw)) notes.push('non-breaking space');
-  if (/�/.test(raw)) notes.push('replacement character (encoding damage)');
+  if (/�/.test(raw)) notes.push('replacement character (encoding failure)');
   else if (/^\s|\s$/.test(raw)) notes.push('leading/trailing whitespace');
   else if (/\S[  ]+\S/.test(raw)) notes.push('space mid-callsign');
   if (raw.toUpperCase() !== raw) notes.push('lowercase letters');
