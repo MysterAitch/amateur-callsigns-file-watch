@@ -174,13 +174,14 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
-  # Sharded heavy tests (#478; full rationale + mental model in
-  # src/testing/CI-SHARDING.md): tests whose independent cases fan across N runners.
-  # The file reads RECON_SHARD="i/N" and processes only its 1/N slice, so its
-  # per-execution cost (incl. v8-coverage overhead) parallelises instead of
-  # capping the pipeline as one long job. A rebuild test - no Parquet, no
-  # build-claims wait. The (file, shard, total) combos come from matrix-setup,
-  # derived from sharded-tests.json's declared shard counts.
+  # Sharded heavy tests (#478). KEY POINT (the counter-intuitive bit): vitest
+  # parallelises whole FILES across workers, NOT test-cases within a file, so this
+  # is a CI-LEVEL data split, not a vitest feature - the matrix spawns N jobs and
+  # the file reads RECON_SHARD="i/N" to process only its 1/N slice. N is tuned to
+  # drop the file below the NEXT-slowest test, not to the source count. A rebuild
+  # test - no Parquet, no build-claims wait. The (file, shard, total) combos come
+  # from matrix-setup, derived from sharded-tests.json's declared shard counts.
+  # Full rationale, mental model and how-to: src/testing/CI-SHARDING.md.
   heavy-shard:
     name: heavy-shard
     needs: [matrix-setup]
