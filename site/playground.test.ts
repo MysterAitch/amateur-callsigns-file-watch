@@ -241,6 +241,55 @@ describe('Playground console (live, against a built SQLite)', () => {
     expect(statusEl.textContent).toMatch(/enter a query/);
     expect(runBtn.disabled).toBe(false);
   });
+
+  it('Console_WhenWarmedAhead_OpensOnceInTheBackgroundSoRunNeedsNoWait', async () => {
+    const { statusEl, resultEl } = hostFromPage();
+    const { form, input, runBtn } = consoleControls();
+    let opens = 0;
+    const { warmUp } = wireConsole({
+      form, input, statusEl, resultEl, runBtn,
+      openDatabase: () => { opens += 1; return Promise.resolve(query); },
+    });
+
+    // Warming opens the database ahead of any Run, in the background...
+    warmUp();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(opens).toBe(1);
+
+    // ...so pressing Run goes straight to a result and does not open a second
+    // time - the wait was paid off the critical path, not on it.
+    input.value = 'SELECT 1';
+    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(opens).toBe(1);
+    expect(statusEl.textContent).toMatch(/row/);
+  });
+
+  it('Console_WhenAnOpenFails_DoesNotCacheTheFailureSoTheNextRunRetries', async () => {
+    const { statusEl, resultEl } = hostFromPage();
+    const { form, input, runBtn } = consoleControls();
+    let attempts = 0;
+    const { warmUp } = wireConsole({
+      form, input, statusEl, resultEl, runBtn,
+      // First open (the warm-up) fails; the next one succeeds.
+      openDatabase: () => {
+        attempts += 1;
+        return attempts === 1 ? Promise.reject(new Error('cold')) : Promise.resolve(query);
+      },
+    });
+
+    // A failed warm-up must not poison later Runs.
+    warmUp();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(attempts).toBe(1);
+
+    input.value = 'SELECT 1';
+    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    // The Run retried the open (attempt 2) and rendered a result.
+    expect(attempts).toBe(2);
+    expect(statusEl.textContent).toMatch(/row/);
+  });
 });
 
 describe('Playground page deploy integrity', () => {
