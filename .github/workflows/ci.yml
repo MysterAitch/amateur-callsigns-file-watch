@@ -26,7 +26,10 @@ jobs:
   # as a workflow artifact, and let every downstream test job pull it and run in
   # parallel - each heavy file in its own job, the ~78 trivial files sharded. tsc +
   # lint run as their own parallel job off the critical path. Wall-clock collapses
-  # toward the single slowest file rather than the serial sum. Each test job emits
+  # toward the single slowest file rather than the serial sum. The two expensive
+  # builds - the claims Parquet and the SQLite tiers - are additionally cached by
+  # input closure (actions/cache), so a PR that touches neither the committed data
+  # nor the builder code skips them entirely and restores from cache (#478). Each test job emits
   # a coverage blob; the `coverage` job merges them so the coverage floor stays
   # enforced per-PR despite the split. The `tests` job aggregates all of these into
   # the single required status check the branch ruleset gates on.
@@ -42,10 +45,26 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - uses: ./.github/actions/setup-duckdb
-      # Full-corpus claims Parquet (issue #403 buildClaimsParquet), the one
-      # artefact every fold job reads via CLAIMS_PARQUET.
-      - run: node src/v2/build-ledger-db.ts claims.parquet --parquet-only
+      # Layered build cache (#478): the full-corpus claims Parquet (issue #403
+      # buildClaimsParquet) is the one artefact every fold job reads via
+      # CLAIMS_PARQUET. Cache it keyed by its input closure - the committed archive
+      # + reference-data (the data) and the claim-emission code that shapes it.
+      # Most PRs touch none of those, so the ~148s build (and the DuckDB setup it
+      # needs) is skipped and the artefact is served from cache; a change to the
+      # data or the emitter busts the key and rebuilds, which is exactly when the
+      # Parquet can differ. Repo-scoped by key, so re-runs and sibling branches on
+      # the same closure share the one build.
+      - id: parquet-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: claims.parquet
+          # .nvmrc + the pinned DuckDB action are in the key too: a node or engine
+          # bump can change the built bytes without touching the hashed source.
+          key: claims-parquet-v1-${{ hashFiles('archive/**', 'reference-data/**', 'src/v2/**', 'src/sources/**', 'src/shared/**', 'package-lock.json', '.nvmrc', '.github/actions/setup-duckdb/action.yml') }}
+      - if: steps.parquet-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup-duckdb
+      - if: steps.parquet-cache.outputs.cache-hit != 'true'
+        run: node src/v2/build-ledger-db.ts claims.parquet --parquet-only
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: claims-parquet
@@ -95,8 +114,13 @@ jobs:
           # adds runners. The files come out of the non-fold pool.
           sharded_files=$(jq -c '[.[].file]' src/testing/sharded-tests.json)
           shardmatrix=$(jq -c '[.[] | .file as $f | .shards as $n | range(1; $n + 1) | {file: $f, shard: ., total: $n}]' src/testing/sharded-tests.json)
-          # non-folds = heavy set minus the Parquet folds minus the sharded files.
-          nonfolds=$(jq -cn --argjson all "$(jq -c . src/testing/heavy-tests.json)" --argjson f "$folds" --argjson s "$sharded_files" '$all - $f - $s')
+          # The tier build has its own dedicated CACHED job (build-sqlite-tiers,
+          # #478), so it leaves the generic non-fold pool too. A single special
+          # case - not yet worth its own JSON list; generalise if a second
+          # cached-build test appears.
+          cached='["src/ci/build-sqlite.tiers.test.ts"]'
+          # non-folds = heavy set minus the Parquet folds, the sharded files and the cached builds.
+          nonfolds=$(jq -cn --argjson all "$(jq -c . src/testing/heavy-tests.json)" --argjson f "$folds" --argjson s "$sharded_files" --argjson c "$cached" '$all - $f - $s - $c')
           {
             echo "folds=$folds"
             echo "nonfolds=$nonfolds"
@@ -213,6 +237,55 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
+  # The published SQLite tiers (master DB + per-dataset DBs + union CSV) are built
+  # and verified here in one dedicated, CACHED job rather than the generic
+  # non-fold pool (#478). The build is ~230s and measured ~64% gzip, but its
+  # inputs - the committed archive, reference-data and the builder closure -
+  # change on few PRs, so actions/cache restores the built directory whenever that
+  # closure is unchanged (same key) and the test verifies the RESTORED build
+  # instead of paying the rebuild; the build is deterministic in the hashed
+  # inputs, so anything that could change the tiers also changes the key. On a
+  # miss, TIERS_GZIP_LEVEL=1 keeps the rebuild cheap - every assertion gunzips and
+  # compares CONTENTS, so the compression LEVEL is immaterial here. No DuckDB
+  # (node:sqlite only). NB the key is 'verify'-scoped precisely because this build
+  # is level-1: the Pages deploy needs level-9 tiers for hosted size, a DIFFERENT
+  # output, so it must NOT share this cache - a deploy-side cache is a separate
+  # follow-up with its own key. Kept separate deliberately (workflows stay apart).
+  build-sqlite-tiers:
+    name: build-sqlite-tiers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tier-cache
+          # 'verify' = the level-1 build this job consumes (see the job comment);
+          # .nvmrc in the key too since node's zlib/SQLite output can shift across
+          # versions without any hashed source changing.
+          key: sqlite-tiers-verify-v1-${{ hashFiles('archive/**', 'reference-data/**', 'src/ci/build-sqlite.ts', 'src/shared/**', 'src/sources/**', 'package-lock.json', '.nvmrc') }}
+      # TIERS_CACHE_DIR: the test builds here on a miss (the post-job save then
+      # persists it) or verifies the restored build on a hit - see the reuse
+      # contract in the test's beforeAll. --coverage + blob so the merged coverage
+      # floor still counts this file; matrix-free (a fixed file), starts at t=0.
+      - run: npx vitest run src/ci/build-sqlite.tiers.test.ts --coverage --reporter=blob --outputFile=".vitest-reports/tiers.json"
+        env:
+          TIERS_CACHE_DIR: ${{ github.workspace }}/.tier-cache
+          TIERS_GZIP_LEVEL: '1'
+          COVERAGE_SKIP_THRESHOLDS: '1'
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-blob-tiers
+          path: .vitest-reports/
+          include-hidden-files: true
+          retention-days: 1
+
   fast:
     name: fast
     needs: build-claims
@@ -259,7 +332,7 @@ jobs:
   # the merge keeps the gate pre-merge. Fails iff merged coverage is below floor.
   coverage:
     name: coverage
-    needs: [heavy-fold, heavy-nonfold, heavy-shard, fast]
+    needs: [heavy-fold, heavy-nonfold, heavy-shard, build-sqlite-tiers, fast]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -285,7 +358,7 @@ jobs:
   # branch protection would otherwise treat as a pass.
   tests:
     name: tests
-    needs: [typecheck, build-claims, matrix-setup, heavy-fold, heavy-nonfold, heavy-shard, fast, coverage]
+    needs: [typecheck, build-claims, matrix-setup, heavy-fold, heavy-nonfold, heavy-shard, build-sqlite-tiers, fast, coverage]
     if: always()
     runs-on: ubuntu-latest
     steps:

@@ -17,20 +17,41 @@ import { OBSERVATION_VALUE_COLUMNS } from '../shared/foi-observations.ts';
 let dataDir: string;
 let summary: Record<string, number>;
 
-// The full-corpus build is heavy and grows with each ingested dataset; under
-// coverage instrumentation on a shared CI runner (competing with other
-// real-archive test files for cores) its wall-clock tipped past the previous
-// 480s ceiling once the archive passed ~46 FOI entries. The headroom keeps the
-// build honest without masking a real slowdown — a genuine regression would
-// still blow past this. The durable fix is cutting the build's CI cost (e.g.
-// running it uninstrumented), tracked under the perf initiative (#354).
+// The tier build is heavy (~230s, and measured ~64% gzip - #478) and grows with
+// each ingested dataset, but its inputs - the committed archive, reference-data
+// and the builder closure - change on few PRs. CI therefore caches the built
+// directory under a key hashing exactly that closure (see the build-sqlite-tiers
+// job in ci.yml) and hands the restored directory to this test via
+// TIERS_CACHE_DIR. On a cache HIT we VERIFY the restored build instead of
+// rebuilding it - equivalent, because the build is deterministic in the hashed
+// inputs, so anything that could change the output also changes the key and
+// forces a fresh build. On a MISS we build into that directory (and the job's
+// TIERS_GZIP_LEVEL=1 keeps the miss cheap: every assertion below gunzips and
+// compares CONTENTS, so the compression LEVEL is immaterial here - the deploy
+// keeps level 9 for hosted size). With no TIERS_CACHE_DIR (local runs) it builds
+// into throwaway scratch exactly as before. The summary (row counts asserted
+// below) is persisted beside the build so a cache hit still has it.
+const SUMMARY_FILE = 'tiers-summary.json';
+let ownsScratch = false;
 beforeAll(() => {
-  dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-tiers-'));
+  const cacheDir = process.env.TIERS_CACHE_DIR;
+  const summaryPath = cacheDir ? path.join(cacheDir, SUMMARY_FILE) : '';
+  if (cacheDir && fs.existsSync(summaryPath)) {
+    dataDir = cacheDir;
+    summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8')) as Record<string, number>;
+    return;
+  }
+  dataDir = cacheDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-tiers-'));
+  ownsScratch = cacheDir === undefined;
+  fs.mkdirSync(dataDir, { recursive: true });
   summary = buildPublishedTiers(dataDir);
+  if (cacheDir) fs.writeFileSync(summaryPath, JSON.stringify(summary));
 }, 900_000);
 
 afterAll(() => {
-  fs.rmSync(dataDir, { recursive: true, force: true });
+  // Only delete scratch we created; a cache directory is owned by the runner
+  // and is saved by actions/cache after the job.
+  if (ownsScratch) fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
 describe('Published data tiers', { tags: ['unit', 'data-validity'] }, () => {
