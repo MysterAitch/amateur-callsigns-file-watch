@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs';
 import { defineConfig, defaultExclude } from 'vitest/config';
 
 // The real-archive build tests each parse multi-hundred-thousand-row CSVs and
@@ -14,23 +15,14 @@ import { defineConfig, defaultExclude } from 'vitest/config';
 // (see .github/workflows/ci.yml), pulling the pre-built claims Parquet artifact.
 // This is the top of the measured duration distribution (>~90 s each in the
 // baseline); the ~78 remaining files run together in the sharded `fast` pool.
-// Two trivial members of the old list (licence-category-tier ~6 s,
-// cross-dataset-invariants ~2 s) move back to `fast` - not worth a whole job.
-const HEAVY_BUILD_TESTS = [
-  'src/ci/reconstruction-oracle.test.ts',
-  'src/ci/value-catalogue-fold.test.ts',
-  'src/ci/quality-report-fold.test.ts',
-  'src/ci/interpretation-oracle.test.ts',
-  'src/ci/build-sqlite.tiers.test.ts',
-  'src/ci/build-dataset-pages.test.ts',
-  'src/v2/build-ledger.test.ts',
-  'src/ci/data-quality-fold.test.ts',
-  'src/ci/build-forbidden-section.test.ts',
-  'src/ci/forbidden-suffix-callsigns.test.ts',
-  'src/shared/foi-normalise.test.ts',
-  'src/v2/build-ledger-db-compact.test.ts',
-  'src/v2/build-ledger-db.test.ts',
-];
+//
+// SINGLE SOURCE OF TRUTH: the list lives in src/testing/heavy-tests.json so this
+// config (which excludes them from `fast`) and the CI matrix (which spawns one
+// job per entry) read the identical set - the yml never hardcodes file paths, it
+// derives its matrix from this file. Add or remove a heavy file in one place.
+const HEAVY_BUILD_TESTS: string[] = JSON.parse(
+  readFileSync(new URL('./src/testing/heavy-tests.json', import.meta.url), 'utf8'),
+);
 
 // Options every project shares. Kept in one place so the fast and heavy pools
 // run under identical semantics - only their file selection and scheduling

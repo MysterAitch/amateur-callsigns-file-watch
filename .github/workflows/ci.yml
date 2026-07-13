@@ -64,27 +64,30 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run lint
 
+  # Derive the heavy matrix from the single source of truth
+  # (src/testing/heavy-tests.json) so the yml never hardcodes the file list -
+  # add/remove a heavy file there and both this matrix and vitest's fast-pool
+  # exclude follow.
+  matrix-setup:
+    name: matrix-setup
+    runs-on: ubuntu-latest
+    outputs:
+      files: ${{ steps.list.outputs.files }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - id: list
+        run: echo "files=$(jq -c . src/testing/heavy-tests.json)" >> "$GITHUB_OUTPUT"
+
   heavy:
     name: heavy
-    needs: build-claims
+    needs: [build-claims, matrix-setup]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        file:
-          - src/ci/reconstruction-oracle.test.ts
-          - src/ci/value-catalogue-fold.test.ts
-          - src/ci/quality-report-fold.test.ts
-          - src/ci/interpretation-oracle.test.ts
-          - src/ci/build-sqlite.tiers.test.ts
-          - src/ci/build-dataset-pages.test.ts
-          - src/v2/build-ledger.test.ts
-          - src/ci/data-quality-fold.test.ts
-          - src/ci/build-forbidden-section.test.ts
-          - src/ci/forbidden-suffix-callsigns.test.ts
-          - src/shared/foi-normalise.test.ts
-          - src/v2/build-ledger-db-compact.test.ts
-          - src/v2/build-ledger-db.test.ts
+        file: ${{ fromJSON(needs.matrix-setup.outputs.files) }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
