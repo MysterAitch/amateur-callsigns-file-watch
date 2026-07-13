@@ -79,7 +79,7 @@ jobs:
     outputs:
       folds: ${{ steps.lists.outputs.folds }}
       nonfolds: ${{ steps.lists.outputs.nonfolds }}
-      sharded: ${{ steps.lists.outputs.sharded }}
+      shardmatrix: ${{ steps.lists.outputs.shardmatrix }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -88,15 +88,20 @@ jobs:
         run: |
           set -euo pipefail
           folds=$(jq -c . src/testing/fold-tests.json)
-          # sharded-tests.json: heavy tests too expensive for one job, run as a
-          # per-file shard matrix (heavy-shard) that fans their independent cases
-          # across N runners. They come out of both fold and non-fold pools.
-          sharded=$(jq -c . src/testing/sharded-tests.json)
-          # non-folds = heavy set minus the Parquet folds minus the sharded set.
-          nonfolds=$(jq -cn --argjson all "$(jq -c . src/testing/heavy-tests.json)" --argjson f "$folds" --argjson s "$sharded" '$all - $f - $s')
-          echo "folds=$folds" >> "$GITHUB_OUTPUT"
-          echo "nonfolds=$nonfolds" >> "$GITHUB_OUTPUT"
-          echo "sharded=$sharded" >> "$GITHUB_OUTPUT"
+          # sharded-tests.json declares each too-expensive heavy file WITH its shard
+          # count { file, shards }. shardmatrix expands that into one CI job per
+          # (file, shard) - the SINGLE source of truth for both the file list and N,
+          # so adding a source just makes each shard bigger and bumping "shards"
+          # adds runners. The files come out of the non-fold pool.
+          sharded_files=$(jq -c '[.[].file]' src/testing/sharded-tests.json)
+          shardmatrix=$(jq -c '[.[] | .file as $f | .shards as $n | range(1; $n + 1) | {file: $f, shard: ., total: $n}]' src/testing/sharded-tests.json)
+          # non-folds = heavy set minus the Parquet folds minus the sharded files.
+          nonfolds=$(jq -cn --argjson all "$(jq -c . src/testing/heavy-tests.json)" --argjson f "$folds" --argjson s "$sharded_files" '$all - $f - $s')
+          {
+            echo "folds=$folds"
+            echo "nonfolds=$nonfolds"
+            echo "shardmatrix=$shardmatrix"
+          } >> "$GITHUB_OUTPUT"
 
   # The Parquet folds: read the shared artefact, so they wait for build-claims.
   heavy-fold:
@@ -173,7 +178,8 @@ jobs:
   # The file reads RECON_SHARD="i/N" and processes only its 1/N slice, so its
   # per-execution cost (incl. v8-coverage overhead) parallelises instead of
   # capping the pipeline as one long job. A rebuild test - no Parquet, no
-  # build-claims wait. N is fixed at 4 (matrix shard list and the /4 must agree).
+  # build-claims wait. The (file, shard, total) combos come from matrix-setup,
+  # derived from sharded-tests.json's declared shard counts.
   heavy-shard:
     name: heavy-shard
     needs: [matrix-setup]
@@ -181,8 +187,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        file: ${{ fromJSON(needs.matrix-setup.outputs.sharded) }}
-        shard: [1, 2, 3, 4]
+        include: ${{ fromJSON(needs.matrix-setup.outputs.shardmatrix) }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -197,7 +202,7 @@ jobs:
         env:
           HEAVY_FILE: ${{ matrix.file }}
           JOB_INDEX: ${{ strategy.job-index }}
-          RECON_SHARD: ${{ matrix.shard }}/4
+          RECON_SHARD: ${{ matrix.shard }}/${{ matrix.total }}
           COVERAGE_SKIP_THRESHOLDS: '1'
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
