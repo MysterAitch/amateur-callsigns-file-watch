@@ -50,6 +50,10 @@ jobs:
         with:
           name: claims-parquet
           path: claims.parquet
+          # The Parquet is a single, already-zstd-compressed file, so skip the
+          # artifact zip (upload-artifact v7). download-artifact v8 detects the
+          # non-zipped artifact and pulls it directly - no wasted (de)compression.
+          archive: false
           retention-days: 1
 
   typecheck:
