@@ -33,6 +33,25 @@ import { collectFoiVerbatimCsvSources } from '../v2/collectors/foi-verbatim-csv.
 import { collectFoiMarkdownTableSources } from '../v2/collectors/foi-markdown-table.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
 
+// CI parallelism (#478): the full-corpus reconstruction gates are embarrassingly
+// parallel - every source round-trips independently, no cross-source sequencing.
+// When RECON_SHARD="i/N" is set (CI fans the gate across N jobs), a gate
+// reconstructs only its 1/N slice, chosen by index modulo N so every source lands
+// in exactly ONE shard and the union across shards is the whole corpus. Unset
+// (local / single run) reconstructs everything. Slicing the RESOLVED sources
+// BEFORE .load() means each shard also parses only its slice - the load/parse is
+// where much of the (v8-coverage-heavy) cost lives. An empty slice is a valid
+// no-op (a shard count above the source count just leaves some shards idle).
+function shardResolved(resolved: readonly ResolvedLedgerSource[]): ResolvedLedgerSource[] {
+  const spec = process.env.RECON_SHARD;
+  if (spec === undefined || spec.trim() === '') return [...resolved];
+  const [i, n] = spec.split('/').map(Number);
+  if (!Number.isInteger(i) || !Number.isInteger(n) || i < 1 || n < 1 || i > n) {
+    throw new Error(`RECON_SHARD must be "i/N" with 1 <= i <= N, got "${spec}"`);
+  }
+  return resolved.filter((_, idx) => idx % n === i - 1);
+}
+
 // Test names follow the project's Subject_Scenario_Outcome convention.
 //
 // The reconstruction oracle (issue #434) rebuilds each TEXT source from its
@@ -188,8 +207,10 @@ describe('CSV-lane sources reconstruct byte-identically modulo cosmetics from th
   it('EveryCoveredCsvSource_WhenReconstructed_PassesTheCommittedOracle', () => {
     // The committed corpus gate: every source across the three CSV families
     // round-trips, or the build fails loud with the offending source's diff.
-    const sources = collectCsvReconstructionSources().map(resolved => resolved.load());
-    expect(sources.length).toBeGreaterThan(0);
+    // Completeness is asserted unsliced; the reconstruction runs this shard's slice.
+    const resolved = collectCsvReconstructionSources();
+    expect(resolved.length).toBeGreaterThan(0);
+    const sources = shardResolved(resolved).map(resolved => resolved.load());
     const results = assertReconstruction(sources);
     expect(results.every(result => result.ok)).toBe(true);
   });
@@ -198,8 +219,10 @@ describe('CSV-lane sources reconstruct byte-identically modulo cosmetics from th
     // The full corpus gate: every source across ALL covered families - the three
     // CSV lanes plus the Phase 3 FOI verbatim-CSV and markdown-table mirrors -
     // round-trips, or the build fails loud with the offending source's diff.
-    const sources = collectReconstructionSources().map(resolved => resolved.load());
-    expect(sources.length).toBeGreaterThan(collectCsvReconstructionSources().length);
+    // Completeness (unsliced): the full corpus spans more than the CSV lanes.
+    const resolved = collectReconstructionSources();
+    expect(resolved.length).toBeGreaterThan(collectCsvReconstructionSources().length);
+    const sources = shardResolved(resolved).map(resolved => resolved.load());
     const results = assertReconstruction(sources);
     expect(results.every(result => result.ok)).toBe(true);
   });
