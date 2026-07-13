@@ -1,0 +1,149 @@
+/**
+ * Post-deploy functionality check (issue #497 follow-up): drives the primary
+ * interaction on each dynamic page in headless Chromium (Playwright) against the
+ * LIVE deployment and verifies three things, content-agnostically:
+ *   1. the action is ACKNOWLEDGED immediately - a progress/"querying…" indicator
+ *      appears as soon as the handler fires (the user knows they were heard);
+ *   2. it TRANSITIONS to a result - some data renders in the result region
+ *      (the click handler ran end to end and did not error);
+ *   3. no unexpected console error/warning is emitted during the interaction.
+ * It does NOT assert WHAT renders - only that a working flow produced output, so
+ * it stays robust as the data changes. It is the interaction counterpart to
+ * console-check.ts (page loads clean) and smoke-test.ts (bytes are served).
+ *
+ * Usage: node src/ci/functionality-check.ts <base-url>
+ */
+
+import { chromium, type ConsoleMessage, type Page } from '@playwright/test';
+
+// Benign console output shared with console-check.ts. Keep tight + documented.
+const ALLOW: { pattern: RegExp; reason: string }[] = [
+  {
+    // sql.js-httpvfs full-mode HEAD/gzip warning on Pages - expected until the
+    // range-served databases move to chunked loading. Tracked in #475 / #499.
+    pattern: /server responded with gzip encoding to a HEAD request/i,
+    reason: 'sql.js-httpvfs HEAD/gzip warning on Pages (#475); removal tracked in #499',
+  },
+];
+
+interface Check {
+  page: string;
+  // The primary interaction: fill/click the real control(s) and submit.
+  interact: (page: Page) => Promise<void>;
+  // The immediate acknowledgement: this selector's text becomes non-empty
+  // (a progress/"querying…" indicator) right after the action fires.
+  progressSelector: string;
+  // The result region: this becomes non-empty (some data rendered).
+  resultSelector: string;
+}
+
+const CHECKS: Check[] = [
+  {
+    page: 'index.html',
+    interact: async page => {
+      await page.fill('#callsign', 'M7TEE');
+      await page.click('#lookup-form button[type="submit"]');
+    },
+    progressSelector: '#result',
+    resultSelector: '#result',
+  },
+  {
+    page: 'explore.html',
+    interact: async page => {
+      await page.fill('#sql-input', 'SELECT 1 AS ok');
+      await page.click('#sql-form button[type="submit"]');
+    },
+    progressSelector: '#sql-status',
+    resultSelector: '#sql-result',
+  },
+  {
+    page: 'playground.html',
+    interact: async page => {
+      await page.fill('#sql-input', 'SELECT 1 AS ok');
+      await page.click('#sql-form button[type="submit"]');
+    },
+    progressSelector: '#sql-status',
+    resultSelector: '#sql-result',
+  },
+];
+
+const NAV_TIMEOUT_MS = 45_000;
+const PROGRESS_TIMEOUT_MS = 8_000;
+const RESULT_TIMEOUT_MS = 40_000;
+
+const base = process.argv[2];
+if (base === undefined || base.trim() === '') {
+  console.error('functionality-check: base URL required as the first argument');
+  process.exit(2);
+}
+const baseUrl = base.endsWith('/') ? base : `${base}/`;
+
+const failures: string[] = [];
+const fail = (page: string, detail: string): void => { failures.push(`${page}: ${detail}`); console.error(`  FAIL ${page} - ${detail}`); };
+const allowed = (text: string): boolean => ALLOW.some(a => a.pattern.test(text));
+
+// True once the selector exists and carries non-whitespace text content.
+const NON_EMPTY = (selector: string): string => `(() => { const n = document.querySelector(${JSON.stringify(selector)}); return !!n && (n.textContent || '').trim().length > 0; })()`;
+
+async function run(browser: Awaited<ReturnType<typeof chromium.launch>>, check: Check): Promise<void> {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const consoleIssues: string[] = [];
+  page.on('console', (msg: ConsoleMessage) => {
+    const type = msg.type();
+    if ((type === 'error' || type === 'warning') && !allowed(msg.text())) consoleIssues.push(`console.${type}: ${msg.text()}`);
+  });
+  page.on('pageerror', err => { if (!allowed(err.message)) consoleIssues.push(`pageerror: ${err.message}`); });
+
+  try {
+    await page.goto(new URL(check.page, baseUrl).toString(), { waitUntil: 'load', timeout: NAV_TIMEOUT_MS });
+    await check.interact(page);
+
+    // 1. Immediate acknowledgement: the progress indicator shows activity. On a
+    //    cold page the first query loads database pages, so it is visible well
+    //    within this budget; a miss means the action was not acknowledged.
+    let acknowledged = true;
+    try {
+      await page.waitForFunction(NON_EMPTY(check.progressSelector), undefined, { timeout: PROGRESS_TIMEOUT_MS, polling: 50 });
+      console.log(`  ok   ${check.page} acknowledged (${check.progressSelector})`);
+    } catch {
+      acknowledged = false;
+      fail(check.page, `no immediate indicator in ${check.progressSelector} within ${PROGRESS_TIMEOUT_MS}ms`);
+    }
+
+    // 2. Transition to a result: the result region renders some data.
+    try {
+      await page.waitForFunction(NON_EMPTY(check.resultSelector), undefined, { timeout: RESULT_TIMEOUT_MS, polling: 100 });
+      if (acknowledged) console.log(`  ok   ${check.page} rendered results (${check.resultSelector})`);
+    } catch {
+      fail(check.page, `no result rendered in ${check.resultSelector} within ${RESULT_TIMEOUT_MS}ms`);
+    }
+  } catch (e) {
+    fail(check.page, `interaction failed: ${String(e)}`);
+  }
+
+  // 3. No unexpected console output during the interaction.
+  for (const issue of consoleIssues) fail(check.page, issue);
+  await context.close();
+}
+
+async function main(): Promise<void> {
+  console.log(`functionality-check against ${baseUrl}`);
+  const browser = await chromium.launch();
+  try {
+    for (const check of CHECKS) await run(browser, check);
+  } finally {
+    await browser.close();
+  }
+
+  console.log('');
+  if (failures.length > 0) {
+    console.error(`functionality-check FAILED: ${failures.length} issue(s)`);
+    process.exit(1);
+  }
+  console.log(`functionality-check passed (${CHECKS.length} interactions)`);
+}
+
+if (import.meta.main) {
+  void main();
+}
