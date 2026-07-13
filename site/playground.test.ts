@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { DatabaseSync } from 'node:sqlite';
-import { prepareSql, runQuery, EXAMPLES, ROW_CAP } from './playground.js';
+import { prepareSql, runQuery, wireConsole, EXAMPLES, ROW_CAP } from './playground.js';
 import { cleanCallsign } from './ledger-query.js';
 import { buildCompactLedgerSqlite } from '../src/v2/build-ledger-db-compact.ts';
 import { serialiseClaimsJsonl } from '../src/v2/serialise.ts';
@@ -152,6 +152,18 @@ describe('Playground console (live, against a built SQLite)', () => {
     return found;
   }
 
+  // The Run form's controls, narrowed loudly - so a test never silently drives a
+  // renamed or missing element.
+  function consoleControls(): { form: HTMLFormElement; input: HTMLTextAreaElement; runBtn: HTMLButtonElement } {
+    const form = document.getElementById('sql-form');
+    const input = document.getElementById('sql-input');
+    const runBtn = form?.querySelector('button[type="submit"]') ?? null;
+    if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLTextAreaElement) || !(runBtn instanceof HTMLButtonElement)) {
+      throw new Error('playground console form controls missing from playground.html');
+    }
+    return { form, input, runBtn };
+  }
+
   it('Console_WhenPerEntityDossierExampleRun_RendersRowsIntoTheResultTable', async () => {
     const { statusEl, resultEl } = hostFromPage();
     const rows = await runQuery(query, example('Per-entity dossier').sql, { statusEl, resultEl });
@@ -188,6 +200,95 @@ describe('Playground console (live, against a built SQLite)', () => {
     expect(rows.length).toBe(0);
     expect(statusEl.textContent).toMatch(/must start with SELECT or WITH/);
     expect(resultEl.querySelector('table')).toBeNull();
+  });
+
+  it('Console_WhenRunPressed_ShowsAnImmediateOpeningAffordanceBeforeTheDatabaseOpens', async () => {
+    const { statusEl, resultEl } = hostFromPage();
+    const { form, input, runBtn } = consoleControls();
+    // A database opener held shut, so the interval between Run and the open is
+    // observable: the user must already see that something is happening.
+    let release: (() => void) | undefined;
+    const opened = new Promise<void>(resolve => { release = resolve; });
+    wireConsole({ form, input, statusEl, resultEl, runBtn, openDatabase: () => opened.then(() => query) });
+
+    input.value = 'SELECT 1';
+    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+
+    // Immediately - before the database has opened - progress is shown and the
+    // button is held so a second Run cannot stack a second open.
+    expect(statusEl.textContent).toMatch(/opening/i);
+    expect(runBtn.disabled).toBe(true);
+
+    // Let the open finish; the query then runs and the button frees up.
+    release?.();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(statusEl.textContent).toMatch(/row/);
+    expect(runBtn.disabled).toBe(false);
+  });
+
+  it('Console_WhenEmptyQueryRun_RefusesWithoutOpeningTheDatabase', () => {
+    const { statusEl, resultEl } = hostFromPage();
+    const { form, input, runBtn } = consoleControls();
+    let opened = false;
+    wireConsole({ form, input, statusEl, resultEl, runBtn, openDatabase: () => { opened = true; return Promise.resolve(query); } });
+
+    input.value = '   ';
+    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+
+    // An empty box is refused instantly - the database is never opened just to
+    // reject it, and the button is not left stuck disabled.
+    expect(opened).toBe(false);
+    expect(statusEl.textContent).toMatch(/enter a query/);
+    expect(runBtn.disabled).toBe(false);
+  });
+
+  it('Console_WhenWarmedAhead_OpensOnceInTheBackgroundSoRunNeedsNoWait', async () => {
+    const { statusEl, resultEl } = hostFromPage();
+    const { form, input, runBtn } = consoleControls();
+    let opens = 0;
+    const { warmUp } = wireConsole({
+      form, input, statusEl, resultEl, runBtn,
+      openDatabase: () => { opens += 1; return Promise.resolve(query); },
+    });
+
+    // Warming opens the database ahead of any Run, in the background...
+    warmUp();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(opens).toBe(1);
+
+    // ...so pressing Run goes straight to a result and does not open a second
+    // time - the wait was paid off the critical path, not on it.
+    input.value = 'SELECT 1';
+    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(opens).toBe(1);
+    expect(statusEl.textContent).toMatch(/row/);
+  });
+
+  it('Console_WhenAnOpenFails_DoesNotCacheTheFailureSoTheNextRunRetries', async () => {
+    const { statusEl, resultEl } = hostFromPage();
+    const { form, input, runBtn } = consoleControls();
+    let attempts = 0;
+    const { warmUp } = wireConsole({
+      form, input, statusEl, resultEl, runBtn,
+      // First open (the warm-up) fails; the next one succeeds.
+      openDatabase: () => {
+        attempts += 1;
+        return attempts === 1 ? Promise.reject(new Error('cold')) : Promise.resolve(query);
+      },
+    });
+
+    // A failed warm-up must not poison later Runs.
+    warmUp();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(attempts).toBe(1);
+
+    input.value = 'SELECT 1';
+    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    // The Run retried the open (attempt 2) and rendered a result.
+    expect(attempts).toBe(2);
+    expect(statusEl.textContent).toMatch(/row/);
   });
 });
 
