@@ -78,10 +78,13 @@ describe('fidelityOf — canonical-form divergence (trailing whitespace)', () =>
     const f = fidelityOf(claims, resolved);
     expect(f.disclose).toBe(true);
     expect(f.canonical?.canonicalForm).toBe('G0TQK');
-    // The intro explains once and links to the structure + canonical explainers.
+    // The intro explains the transformation accurately — both upper-casing AND
+    // removing out-of-set characters — so it is correct for a casing-only
+    // divergence (m7tee -> M7TEE) where nothing is removed.
     const intro = glossText(f.canonical?.intro);
-    expect(intro).toContain('characters not normally found in a UK callsign');
+    expect(intro).toContain('upper-case the letters');
     expect(intro).toContain('canonical form');
+    expect(intro).toContain('standard callsign set');
     const variant = f.canonical?.variants.find(v => v.raw === 'G0TQK ');
     expect(variant).toBeDefined();
     // The side-by-side prose shows the verbatim form and the canonical form.
@@ -92,6 +95,21 @@ describe('fidelityOf — canonical-form divergence (trailing whitespace)', () =>
     expect(variant?.working.result).toBe('G0TQK');
     expect(variant?.working.inputs[0]?.value).toBe('G0TQK ');
     expect(variant?.working.sources[0]).toMatchObject({ sourceFile: SRC, ordinal: 20, vintage: V });
+  });
+
+  it('WhenDivergenceIsCasingOnly_StillDisclosesWithAnAccurateIntro', () => {
+    // m7tee -> M7TEE: nothing is removed, only upper-cased. The affordance must
+    // still disclose, and the intro must not claim characters were taken out.
+    const casing = { typed: 'M7TEE', cleaned: 'M7TEE', entity: 'M#7TEE', matched: 'cleaned' as const };
+    const f = fidelityOf([
+      raw('m7tee', 'M7TEE', 'M#7TEE', '@listed', '', SRC, 5, V),
+      derived('m7tee', 'M7TEE', 'M#7TEE', 'normalises_to', 'M7TEE', 'cleaned-callsign', SRC, 5, V),
+    ], casing);
+    expect(f.disclose).toBe(true);
+    expect(f.canonical?.canonicalForm).toBe('M7TEE');
+    expect(f.canonical?.variants[0]?.raw).toBe('m7tee');
+    expect(f.canonical?.variants[0]?.working.result).toBe('M7TEE');
+    expect(glossText(f.canonical?.intro)).toContain('upper-case the letters');
   });
 
   it('WhenPublishedFormDiffers_TheRenderedTextUsesNoJudgementalVocabulary', () => {
@@ -138,8 +156,8 @@ describe('fidelityOf — a derived flag (forbidden suffix)', () => {
 describe('fidelityOf — mismatch cases use the source-vs-derivation model', () => {
   const resolved = { typed: 'G8XYZ', cleaned: 'G8XYZ', entity: 'G#8XYZ', matched: 'cleaned' as const };
   const noteFor = (flag: string) => fidelityOf([
-    raw('G8XYZ', 'G8XYZ', 'G#8XYZ', '@listed', '', 1),
-    derived('G8XYZ', 'G8XYZ', 'G#8XYZ', 'flag', flag, 'parse-callsign', 1),
+    raw('G8XYZ', 'G8XYZ', 'G#8XYZ', '@listed', '', SRC, 1, V),
+    derived('G8XYZ', 'G8XYZ', 'G#8XYZ', 'flag', flag, 'parse-callsign', SRC, 1, V),
   ], resolved).notes.find(n => n.id === flag);
 
   it('ClassProductMismatch_FlagsADiscrepancyAndOwnsOurFallibility', () => {
@@ -169,8 +187,8 @@ describe('fidelityOf — no judgement-negating meta-tags in any gloss', () => {
     const resolved = { typed: 'G8XYZ', cleaned: 'G8XYZ', entity: 'G#8XYZ', matched: 'cleaned' as const };
     for (const flag of FLAG_IDS) {
       const claims: Row[] = [
-        raw('G8XYZ', 'G8XYZ', 'G#8XYZ', '@listed', '', 1),
-        derived('G8XYZ', 'G8XYZ', 'G#8XYZ', 'flag', flag, 'parse-callsign', 1),
+        raw('G8XYZ', 'G8XYZ', 'G#8XYZ', '@listed', '', SRC, 1, V),
+        derived('G8XYZ', 'G8XYZ', 'G#8XYZ', 'flag', flag, 'parse-callsign', SRC, 1, V),
       ];
       const note = fidelityOf(claims, resolved).notes.find(n => n.id === flag);
       expect(glossText(note?.gloss).toLowerCase(), `${flag} gloss should not say "verdict"`).not.toContain('verdict');

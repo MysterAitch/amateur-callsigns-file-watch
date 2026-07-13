@@ -38,17 +38,21 @@
       <h2>The parts of a callsign</h2>
       <p>A UK amateur callsign is a short identifier for one licence, made of
         <strong>capital letters and digits</strong> with no spaces. It has three core parts:</p>
-      <ul>
-        <li>a <strong>prefix</strong> — the opening character(s); for the UK these begin
-          <code>G</code>, <code>M</code> or <code>2</code>;</li>
-        <li>a <strong>digit</strong>; and</li>
-        <li>a <strong>suffix</strong> — the ending letters (for example the <code>TEE</code> in an
-          <code>M7TEE</code>-shaped call). This is the sense of "suffix" used across this site.</li>
-      </ul>
-      <p>A callsign may also carry a <strong>Regional Secondary Locator (RSL)</strong> — a letter
-        inserted after the first character to show which UK nation or Crown Dependency the station is
-        in. Ofcom defines it as "a letter, that is inserted after the initial character of the call
-        sign … to convey the location of the Radio Equipment".
+      <dl class="anatomy-parts">
+        <dt><dfn>prefix</dfn></dt>
+        <dd>the opening character(s); for the UK these begin <code>G</code>, <code>M</code> or
+          <code>2</code>.</dd>
+        <dt><dfn>digit</dfn></dt>
+        <dd>a single number.</dd>
+        <dt><dfn>suffix</dfn></dt>
+        <dd>the ending letters (for example the <code>TEE</code> in an <code>M7TEE</code>-shaped
+          call). This is the sense of "suffix" used across this site.</dd>
+      </dl>
+      <p>A callsign may also carry a <dfn>Regional Secondary Locator</dfn>
+        (<abbr title="Regional Secondary Locator">RSL</abbr>) — a letter inserted after the first
+        character to show which UK nation or Crown Dependency the station is in. Ofcom defines it as
+        "a letter, that is inserted after the initial character of the call sign … to convey the
+        location of the Radio Equipment".
         <span class="src">Authoritative — Ofcom, <em>Amateur Radio Wireless Telegraphy Licence
         Conditions Booklet</em> (OFW611, 21 February 2024), definitions, cl. (w).</span></p>
 
@@ -64,7 +68,8 @@
     <section class="panel" id="rsl">
       <div class="eyebrow">regional secondary locator</div>
       <h2>Regional Secondary Locators, and the club difference</h2>
-      <p>Where an RSL is used it must be one of the letters below. There are <strong>two sets</strong>:
+      <p>Where an <abbr title="Regional Secondary Locator">RSL</abbr> is used it must be one of the
+        letters below. There are <strong>two sets</strong>:
         a letter available to all licences, and — the point most often missed — an
         <strong>additional letter available only to a Full (Club) Licence</strong>.
         <span class="src">Authoritative — Ofcom OFW611, cl. 24 (pp 7–8).</span></p>
@@ -83,9 +88,11 @@
         </tbody>
       </table>
       </div>
-      <p>Using an RSL is normally optional; but for an Intermediate callsign beginning with
-        <code>2</code>, an RSL <em>must</em> be inserted as the new second character. Ofcom may also
-        notify a licensee of a different character to use "in place of an RSL".
+      <p>Using an <abbr title="Regional Secondary Locator">RSL</abbr> is normally optional; but for an
+        Intermediate callsign beginning with <code>2</code>, an
+        <abbr title="Regional Secondary Locator">RSL</abbr> <em>must</em> be inserted as the new
+        second character. Ofcom may also notify a licensee of a different character to use "in place
+        of an RSL".
         <span class="src">Authoritative — Ofcom OFW611, cl. 22, 23 and 25 (pp 7–8).</span></p>
     </section>
 
@@ -109,6 +116,10 @@
         </tbody>
       </table>
       </div>
+      <p>The class scheme has changed over the years, so older or historical records may show legacy
+        categories or callsign formats that are not part of the current three-class scheme.
+        <span class="src">Best available; the detail of past schemes is not researched here.
+        Confidence: low.</span></p>
       <p>A Full (Club) callsign is <code>G</code> or <code>M</code> followed by three letters (two by
         heritage). In Ofcom's table the Intermediate format is written <code>2#0</code>/<code>2#1</code>,
         where the <code>#</code> stands for the <a href="#rsl">RSL</a> position — the second-character
@@ -130,9 +141,18 @@
         examples, not a fixed list, and they are "not mandated by, or referenced in, the amateur radio
         licence".
         <span class="src">Authoritative — Ofcom OFW611, cl. 26 (p 8); Ofcom guidance, §5.8 Suffixes.</span></p>
+      <p>This "any addition" position is current; the post-slash suffix was previously drawn from a
+        more limited, conventional set. <span class="src">Best available; the earlier history is not
+        dug into here. Confidence: low.</span></p>
       <p>The <code>#</code> you may see is not a letter of the callsign: it marks the
         <a href="#rsl">RSL</a> slot in Ofcom's format notation (as in <code>2#0</code>) and in this
-        mirror's <a href="glossary.html#placeholder-form">placeholder form</a>. Anything else —
+        mirror's <a href="glossary.html#placeholder-form">placeholder form</a>. The <code>#</code>
+        notation is optional and style-dependent — some sources use it consistently, some omit it, and
+        some mix the two. Our reading is that "no <abbr title="Regional Secondary Locator">RSL</abbr>"
+        is the common default for Foundation and Full holders (especially in England, the largest
+        population), whereas Intermediate callsigns require the RSL letter for everyone, so it appears
+        consistently there. <span class="src">Our reading / best available — not a rigorously
+        published rule. Confidence: low.</span> Anything else —
         lower-case letters, ordinary spaces, other punctuation, or
         <a href="invisible-characters.html">characters you cannot see</a> — is not part of a normal
         callsign. Where the published data contains such characters, this site keeps the entry
@@ -143,8 +163,10 @@
     <section class="panel" id="slashes">
       <div class="eyebrow">operating away or abroad</div>
       <h2>More than one slash: operating away or abroad</h2>
-      <p>A callsign can carry more than one slash. Operating overseas under CEPT Recommendation
-        T/R 61-01, a UK amateur must place "the appropriate country prefix before your call sign"
+      <p>A callsign can carry more than one slash. Operating overseas under
+        <abbr title="European Conference of Postal and Telecommunications Administrations">CEPT</abbr>
+        Recommendation T/R 61-01, a UK amateur must place "the appropriate country prefix before your
+        call sign"
         (for example <code>F/M0ABC</code> in France) and may still add an operating suffix — so the
         transmitted call has both a prefix-slash and a suffix-slash.
         <span class="src">Authoritative — Ofcom guidance, §7.3 (Your call sign beyond UK jurisdiction).</span></p>
@@ -160,25 +182,32 @@
     <section class="panel" id="who">
       <div class="eyebrow">who decides</div>
       <h2>Who decides what is allowed</h2>
-      <ul>
-        <li><strong>The International Telecommunication Union (ITU)</strong> allocates blocks of
-          call-sign series to countries in the Radio Regulations, so a callsign's opening shows which
-          country issued it. The UK's amateur prefixes are <code>G</code>, <code>M</code> and
-          <code>2</code>. <span class="src">Authoritative (instrument) — ITU Radio Regulations,
-          Appendix 42, <a href="https://www.itu.int/en/ITU-R/terrestrial/fmd/Pages/call_sign_series.aspx">Table
-          of International Call Sign Series</a>; UK amateur prefixes per Ofcom guidance, Table 1. The
-          full enumerated UK ranges (<code>GAA–GZZ</code>, <code>MAA–MZZ</code>, <code>2AA–2ZZ</code>,
-          and territory blocks such as <code>VP/VS/ZB/ZN/ZQ</code>) — best available (Wikipedia,
+      <dl>
+        <dt>The International Telecommunication Union
+          (<abbr title="International Telecommunication Union">ITU</abbr>)</dt>
+        <dd>allocates blocks of call-sign series to countries in the Radio Regulations, so a
+          callsign's opening shows which country issued it. The UK's amateur prefixes are
+          <code>G</code>, <code>M</code> and <code>2</code>. <span class="src">Authoritative
+          (instrument) — ITU Radio Regulations, Appendix 42,
+          <a href="https://www.itu.int/en/ITU-R/terrestrial/fmd/Pages/call_sign_series.aspx">Table of
+          International Call Sign Series</a>; UK amateur prefixes per Ofcom guidance, Table 1. The full
+          enumerated UK ranges (<code>GAA–GZZ</code>, <code>MAA–MZZ</code>, <code>2AA–2ZZ</code>, and
+          territory blocks such as <code>VP/VS/ZB/ZN/ZQ</code>) — best available (Wikipedia,
           <a href="https://en.wikipedia.org/wiki/Call_signs_in_the_United_Kingdom">Call signs in the
-          United Kingdom</a>); confidence: medium.</span></li>
-        <li><strong>Ofcom</strong> — the UK regulator — issues the licences and sets the callsign
-          rules. <span class="src">Authoritative — Ofcom OFW611; Ofcom <em>Licensing guidance
-          document for amateur radio</em>; UK Interface Requirement 2028.</span></li>
-        <li><strong>The Radio Society of Great Britain (RSGB)</strong> administers the amateur exams
-          and publishes operating guidance. <span class="src">Best available — RSGB
+          United Kingdom</a>); confidence: medium.</span></dd>
+        <dt>Ofcom</dt>
+        <dd>the UK regulator — issues the licences and sets the callsign rules.
+          <span class="src">Authoritative — Ofcom OFW611; Ofcom <em>Licensing guidance document for
+          amateur radio</em>; UK Interface Requirement 2028. See the
+          <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info">Ofcom amateur
+          radio licensing page</a>.</span></dd>
+        <dt>The Radio Society of Great Britain
+          (<abbr title="Radio Society of Great Britain">RSGB</abbr>)</dt>
+        <dd>administers the amateur exams and publishes operating guidance. <span class="src">Best
+          available — RSGB
           (<a href="https://rsgb.org/main/operating/licensing-novs-visitors/international-prefixes/">rsgb.org</a>);
-          the exam-administration role is institutional knowledge.</span></li>
-      </ul>
+          the exam-administration role is institutional knowledge.</span></dd>
+      </dl>
       <p>This site is an <a href="about.html">independent mirror</a>; it follows these rules to read
         the data but does not set them, and is not affiliated with any of these bodies.</p>
     </section>
@@ -186,12 +215,23 @@
     <section class="panel" id="sources">
       <div class="eyebrow">sources</div>
       <h2>Sources</h2>
+      <p class="muted">Each Ofcom citation gives a stable landing page and, where we have the exact
+        artifact, the direct PDF.</p>
       <ul>
         <li><strong>Authoritative</strong> — Ofcom, <em>Amateur Radio Wireless Telegraphy Licence
           Conditions Booklet</em> (OFW611, published 21 February 2024): RSLs cl. 22–26, pp 7–8;
-          definition cl. (w).</li>
+          definition cl. (w). —
+          <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info">landing page</a>
+          ·
+          <a href="https://www.ofcom.org.uk/siteassets/resources/documents/spectrum/emf/emf-amateur-licence-terms-and-conditions.pdf">direct PDF</a>.</li>
         <li><strong>Authoritative</strong> — Ofcom, <em>Licensing guidance document for amateur
-          radio</em>: callsign formats §5 Table 1; post-slash suffixes §5.8; operating abroad §7.3.</li>
+          radio</em>: callsign formats §5 Table 1; post-slash suffixes §5.8; operating abroad §7.3. —
+          <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info">landing page</a>
+          (direct PDF link to be confirmed).</li>
+        <li><strong>Authoritative</strong> — Ofcom, <em>UK Interface Requirement 2028</em> (amateur
+          radio licence parameters). —
+          <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info">landing page</a>
+          (direct PDF link to be confirmed).</li>
         <li><strong>Authoritative (instrument)</strong> — ITU Radio Regulations, Appendix 42:
           <a href="https://www.itu.int/en/ITU-R/terrestrial/fmd/Pages/call_sign_series.aspx">Table of
           International Call Sign Series</a>.</li>

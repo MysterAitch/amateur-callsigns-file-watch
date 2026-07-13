@@ -549,10 +549,10 @@ export function fidelityOf(claims, resolved) {
   const canonical = divergent.length === 0 ? null : {
     canonicalForm: cleaned,
     intro: [
-      'We observe this entry contains ', lnk('characters not normally found in a UK callsign', FAQ_CALLSIGN_STRUCTURE),
-      ' — a callsign is normally upper-case letters and digits, sometimes with a “/”. Taking out the '
-      + 'characters that do not belong leaves the form we recognise and match on — the ',
-      lnk('canonical form', 'glossary.html#canonical-form'), '.',
+      'We observe the published form differs from its ', lnk('canonical form', 'glossary.html#canonical-form'),
+      '. The canonical form is what we match on: we upper-case the letters and drop anything outside the ',
+      lnk('standard callsign set', FAQ_CALLSIGN_STRUCTURE),
+      ' (A–Z, 0–9 and “/”). A difference can be as small as a lower-case letter, or a stray character that is removed.',
     ],
     variants: divergent.map(raw => {
       const sources = sourcesForRaw(claims, raw);
