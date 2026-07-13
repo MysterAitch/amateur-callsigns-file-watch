@@ -46,7 +46,7 @@ jobs:
       # Full-corpus claims Parquet (issue #403 buildClaimsParquet), the one
       # artefact every fold job reads via CLAIMS_PARQUET.
       - run: node src/v2/build-ledger-db.ts claims.parquet --parquet-only
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: claims-parquet
           path: claims.parquet
@@ -119,7 +119,7 @@ jobs:
           # Collect coverage into the blob but don't gate on the floor here - one
           # file can't meet it. The `coverage` job applies the floor to the merge.
           COVERAGE_SKIP_THRESHOLDS: '1'
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-blob-heavy-${{ strategy.job-index }}
           path: .vitest-reports/
@@ -159,7 +159,7 @@ jobs:
           # Collect coverage into the blob; the floor is applied at the merge, not
           # per-shard (a shard can't meet it alone).
           COVERAGE_SKIP_THRESHOLDS: '1'
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-blob-fast-${{ matrix.shard }}
           path: .vitest-reports/
