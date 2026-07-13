@@ -239,18 +239,18 @@ jobs:
 
   # The published SQLite tiers (master DB + per-dataset DBs + union CSV) are built
   # and verified here in one dedicated, CACHED job rather than the generic
-  # non-fold pool (#478). The build is ~230s and measured ~64% gzip, but its
-  # inputs - the committed archive, reference-data and the builder closure -
-  # change on few PRs, so actions/cache restores the built directory whenever that
-  # closure is unchanged (same key) and the test verifies the RESTORED build
-  # instead of paying the rebuild; the build is deterministic in the hashed
-  # inputs, so anything that could change the tiers also changes the key. On a
-  # miss, TIERS_GZIP_LEVEL=1 keeps the rebuild cheap - every assertion gunzips and
-  # compares CONTENTS, so the compression LEVEL is immaterial here. No DuckDB
-  # (node:sqlite only). NB the key is 'verify'-scoped precisely because this build
-  # is level-1: the Pages deploy needs level-9 tiers for hosted size, a DIFFERENT
-  # output, so it must NOT share this cache - a deploy-side cache is a separate
-  # follow-up with its own key. Kept separate deliberately (workflows stay apart).
+  # non-fold pool (#478). Its inputs - the committed archive, reference-data and
+  # the builder closure - change on few PRs, so actions/cache restores the built
+  # directory whenever that closure is unchanged (same key) and the test verifies
+  # the RESTORED build instead of paying the rebuild; the build is deterministic
+  # in the hashed inputs, so anything that could change the tiers also changes the
+  # key. On a miss the test builds with compress:false - RAW databases + CSV, no
+  # gzip - dropping the publish-only work (the master download twin and the 45
+  # per-dataset gzips, ~61% of the build) that no data assertion needs. No DuckDB
+  # (node:sqlite only). NB the key is 'verify'-scoped because this raw build is a
+  # DIFFERENT output from the Pages deploy's compressed tiers, so it must NOT share
+  # this cache - a deploy-side cache is a separate follow-up with its own key.
+  # Workflows stay apart deliberately.
   build-sqlite-tiers:
     name: build-sqlite-tiers
     runs-on: ubuntu-latest
@@ -266,9 +266,10 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .tier-cache
-          # 'verify' = the level-1 build this job consumes (see the job comment);
-          # .nvmrc in the key too since node's zlib/SQLite output can shift across
-          # versions without any hashed source changing.
+          # 'verify' = the raw (uncompressed) build this job consumes, distinct
+          # from the deploy's compressed tiers (see the job comment); .nvmrc in the
+          # key too since node's SQLite output can shift across versions without any
+          # hashed source changing.
           key: sqlite-tiers-verify-v1-${{ hashFiles('archive/**', 'reference-data/**', 'src/ci/build-sqlite.ts', 'src/shared/**', 'src/sources/**', 'package-lock.json', '.nvmrc') }}
       # TIERS_CACHE_DIR: the test builds here on a miss (the post-job save then
       # persists it) or verifies the restored build on a hit - see the reuse
@@ -277,7 +278,6 @@ jobs:
       - run: npx vitest run src/ci/build-sqlite.tiers.test.ts --coverage --reporter=blob --outputFile=".vitest-reports/tiers.json"
         env:
           TIERS_CACHE_DIR: ${{ github.workspace }}/.tier-cache
-          TIERS_GZIP_LEVEL: '1'
           COVERAGE_SKIP_THRESHOLDS: '1'
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
