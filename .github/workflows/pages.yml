@@ -50,7 +50,7 @@ jobs:
           # same range-request VFS, in the same .png costume as the databases
           # above. The COMPACT build (ADR-tracked spike #368) folds the FULL
           # corpus - every archived register-snapshot publication (~17.9M claims)
-          # - into ~548 MB by splitting provenance onto an observation row and
+          # - into a ~1.4 GB file (grows with ingestion) by splitting provenance onto an observation row and
           # reconstructing the derived layer through a `claims` VIEW, so it fits
           # the range-served Pages lane. Never committed (SQLite is not
           # byte-deterministic), derived fresh here from the archive.
