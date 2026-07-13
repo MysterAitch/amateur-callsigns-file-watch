@@ -148,14 +148,14 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      # Fails iff any needed job failed or was cancelled. The step is skipped when
+      # they all passed, so the job succeeds - single-quoted string literals as
+      # GitHub expression syntax requires.
       - name: Require every fan-out job to have passed
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: |
-          results='${{ join(needs.*.result, ",") }}'
-          echo "fan-out results: $results"
-          case "$results" in
-            *failure*|*cancelled*) echo "::error::a fan-out test job did not pass"; exit 1 ;;
-          esac
-          echo "all fan-out test jobs passed"
+          echo "::error::a fan-out test job did not pass"
+          exit 1
 
   # Workflow hygiene auditors. Not required status checks (they gate the
   # workflows, not the data), but red runs demand attention:
