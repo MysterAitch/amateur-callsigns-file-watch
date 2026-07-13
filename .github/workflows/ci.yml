@@ -123,6 +123,9 @@ jobs:
         with:
           name: coverage-blob-heavy-${{ strategy.job-index }}
           path: .vitest-reports/
+          # .vitest-reports is dot-prefixed; upload-artifact@v4 excludes hidden
+          # files by default, so without this the blob uploads nothing.
+          include-hidden-files: true
           retention-days: 1
 
   fast:
@@ -160,6 +163,8 @@ jobs:
         with:
           name: coverage-blob-fast-${{ matrix.shard }}
           path: .vitest-reports/
+          # See the heavy job: .vitest-reports is hidden, so include it explicitly.
+          include-hidden-files: true
           retention-days: 1
 
   # Collate coverage across the fan-out (#478): download every job's blob and
