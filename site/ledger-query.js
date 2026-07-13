@@ -684,16 +684,62 @@ async function ledgerVersion() {
   return 'dev';
 }
 
+// The deploy splits the database into fixed-size chunk files and writes this
+// manifest beside them: the total byte length (so the worker takes it from here
+// and never HEADs the whole object - a HEAD on GitHub Pages negotiates a
+// compressed `Vary: Accept-Encoding` variant that is a persistent ~30s CDN MISS,
+// issue #475), the chunk-file size, and the numeric-suffix width.
+async function ledgerChunks() {
+  const res = await fetch(new URL('./data/claim-ledger.chunks.json', document.baseURI), { cache: 'no-store' });
+  if (!res.ok) throw new Error('claim-ledger chunk manifest is missing');
+  return res.json();
+}
+
+// Self-check (issue #475): a range read of the final byte the manifest's length
+// implies must return 206 from a real last chunk. Guards against a stale manifest
+// or a truncated split leaving the declared length past the actual bytes - which
+// SQLite would otherwise surface as "database disk image is malformed", or worse,
+// as silently short reads. Runs off the open's critical path and fails LOUD
+// rather than letting a wrong length pass unnoticed. Uses a Range GET (identity,
+// fast), never a HEAD.
+export async function validateLedgerLength({ databaseLengthBytes, serverChunkSize, suffixLength }, urlPrefix, version) {
+  const lastIndex = Math.floor((databaseLengthBytes - 1) / serverChunkSize);
+  const lastByte = (databaseLengthBytes - 1) % serverChunkSize;
+  const url = `${urlPrefix}${String(lastIndex).padStart(suffixLength, '0')}?cb=${encodeURIComponent(version)}`;
+  try {
+    const res = await fetch(url, { headers: { Range: `bytes=${lastByte}-${lastByte}` } });
+    if (res.status !== 206) {
+      console.error(`claim-ledger length self-check FAILED: the manifest length (${databaseLengthBytes}) is not readable from the final chunk (HTTP ${res.status}). The database may be truncated or the manifest stale - query results should not be trusted.`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('claim-ledger length self-check could not run:', err);
+    return false;
+  }
+}
+
 export async function openLedgerQuery() {
   const { createDbWorker } = window;
   const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
   const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
-  const version = await ledgerVersion();
-  const dbUrl = new URL(`./data/${LEDGER_DB_FILE}?v=${encodeURIComponent(version)}`, document.baseURI);
+  const [version, chunks] = await Promise.all([ledgerVersion(), ledgerChunks()]);
+  const urlPrefix = new URL(`./data/${LEDGER_DB_FILE}.`, document.baseURI).toString();
   const worker = await createDbWorker(
-    [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
+    [{ from: 'inline', config: {
+      serverMode: 'chunked',
+      urlPrefix,
+      suffixLength: chunks.suffixLength,
+      serverChunkSize: chunks.serverChunkSize,
+      requestChunkSize: 4096,
+      databaseLengthBytes: chunks.databaseLengthBytes,
+      cacheBust: version,
+    } }],
     workerUrl.toString(),
     wasmUrl.toString(),
   );
+  // Fire-and-forget the length self-check; it warns loudly on mismatch without
+  // blocking the first query.
+  void validateLedgerLength(chunks, urlPrefix, version);
   return (sql, params = []) => worker.db.query(sql, params);
 }

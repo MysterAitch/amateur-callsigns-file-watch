@@ -269,6 +269,13 @@ describe('Ledger page deploy integrity', () => {
     // The COMPACT claim-ledger database is built as a deploy artefact for the
     // page (the full corpus that fits the range-served Pages lane).
     expect(wf).toMatch(/build-ledger-db-compact\.ts[^\n]*claim-ledger\.sqlite\.png/);
+    // Issue #475: the monolith is split into range-served chunk files with a
+    // length manifest (so the browser never HEADs the whole object - a HEAD of a
+    // large object on Pages is a ~30s compressed-variant CDN miss), then removed
+    // so the deployed site carries the chunks only.
+    expect(wf).toMatch(/split\b[^\n]*claim-ledger\.sqlite\.png\./);
+    expect(wf).toMatch(/claim-ledger\.chunks\.json/);
+    expect(wf).toMatch(/rm -f[^\n]*claim-ledger\.sqlite\.png\b/);
     // The nav injector must be handed the page, or its deployed copy carries a
     // stale hand-written nav.
     expect(wf).toMatch(/build-nav\.ts[^\n]*\b_site\/ledger\.html\b/);
