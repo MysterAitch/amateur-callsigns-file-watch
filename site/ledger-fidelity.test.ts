@@ -6,6 +6,7 @@ import {
   fidelityOf,
   sourceRepoPath,
   sourceFileUrl,
+  sourceLabel,
   reportIssueUrl,
   segmentsText,
   FIDELITY_PREAMBLE,
@@ -333,6 +334,79 @@ describe('explainer pages (reusable FAQ section)', () => {
   it('ExplainerPages_ArePrecachedInTheOfflineShell', () => {
     const sw = fs.readFileSync(path.join(SITE, 'sw.js'), 'utf8');
     for (const page of PAGES) expect(sw).toContain(`'${page}'`);
+  });
+});
+
+describe('sourceLabel — humanises the logical source path', () => {
+  it('OpenDataSnapshot_LabelsAsOfcomOpenData', () => {
+    expect(sourceLabel('opendata/2025-06-04/raw.csv')).toBe('Ofcom open data');
+  });
+  it('OfcomFoiDownload_LabelsAsOfcomFoi', () => {
+    expect(sourceLabel('foi/ofcom-01667041--data-download/raw-extract.csv')).toBe('Ofcom FOI');
+  });
+  it('WdtkRequest_LabelsWithTheRequestId', () => {
+    expect(sourceLabel('foi/wdtk-123456--list-of-licences/response.csv')).toBe('FOI · WDTK 123456');
+  });
+  it('UnrecognisedPath_FallsBackToTheFullPathRatherThanInventingALabel', () => {
+    expect(sourceLabel('something/else.csv')).toBe('something/else.csv');
+  });
+});
+
+describe('record-fidelity render — the source list is a clean bulleted list (#438)', () => {
+  const resolved = { typed: 'G0TQK', cleaned: 'G0TQK', entity: 'G#0TQK', matched: 'cleaned' as const };
+  const claims: Row[] = [
+    ...cleanObservation('G0TQK', 'G#0TQK', 10),
+    raw('G0TQK ', 'G0TQK', 'G#0TQK', '@listed', '', SRC, 20, V),
+    derived('G0TQK ', 'G0TQK', 'G#0TQK', 'normalises_to', 'G0TQK', 'cleaned-callsign', SRC, 20, V),
+  ];
+
+  it('RendersEachSourceAsAListItem_WithAHumanisedLabelThatKeepsTheFullPath', () => {
+    const host = document.createElement('div');
+    renderFidelity(host, resolved, claims);
+    const items = [...host.querySelectorAll('ul.fid-source-list li.fid-source')];
+    expect(items.length).toBeGreaterThan(0);
+    const first = items[0];
+    // "row {ordinal} · {label} · {vintage}", one source per line.
+    expect(first?.textContent).toContain('row 20');
+    expect(first?.textContent).toContain(V);
+    const link = first?.querySelector('a');
+    // The humanised label is the VISIBLE link text; the long path never appears
+    // as run-on text but is kept losslessly on the href and title.
+    expect(link?.textContent).toContain('Ofcom open data');
+    expect(link?.textContent).not.toContain('opendata/2025-06-04/raw.csv');
+    expect(link?.getAttribute('title')).toBe(SRC);
+    expect(link?.getAttribute('href')).toContain('blob/main/archive/2025-06-04/raw.csv');
+  });
+});
+
+describe('record-fidelity render — a many-snapshot source list collapses (#438)', () => {
+  const resolved = { typed: 'G0TQK', cleaned: 'G0TQK', entity: 'G#0TQK', matched: 'cleaned' as const };
+  const vintages = ['2019-01-01', '2020-01-01', '2021-01-01', '2022-01-01', '2023-01-01', '2024-01-01', '2025-01-01'];
+  const claims: Row[] = [
+    ...cleanObservation('G0TQK', 'G#0TQK', 10),
+    ...vintages.flatMap((vin, i): Row[] => {
+      const src = `opendata/${vin}/raw.csv`;
+      return [
+        raw('G0TQK ', 'G0TQK', 'G#0TQK', '@listed', '', src, 20 + i, vin),
+        derived('G0TQK ', 'G0TQK', 'G#0TQK', 'normalises_to', 'G0TQK', 'cleaned-callsign', src, 20 + i, vin),
+      ];
+    }),
+  ];
+
+  it('ShowsTheFirstFiveInline_AndTucksTheRestBehindAJsFreeDetails', () => {
+    const host = document.createElement('div');
+    renderFidelity(host, resolved, claims);
+    const seen = host.querySelector('.fid-seen .fid-sources');
+    expect(seen).toBeTruthy();
+    // The first five stay directly visible under the wrapper's first list.
+    const firstList = seen?.querySelector(':scope > ul.fid-source-list');
+    expect(firstList?.querySelectorAll('li').length).toBe(5);
+    // The overflow (two more) is tucked behind a native <details> so it reveals
+    // with JavaScript off, with a summary naming the full count.
+    const details = seen?.querySelector('details.fid-more-sources');
+    expect(details?.tagName.toLowerCase()).toBe('details');
+    expect(details?.querySelector('summary')?.textContent).toContain('Show all 7 sources');
+    expect(details?.querySelectorAll('ul.fid-source-list li').length).toBe(2);
   });
 });
 

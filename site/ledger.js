@@ -18,7 +18,6 @@ import {
   foldObservations,
   anatomyOf,
   fidelityOf,
-  sourceFileUrl,
   reportIssueUrl,
 } from './ledger-query.js';
 
@@ -89,6 +88,46 @@ const appendSegments = (parent, segments) => {
     if (s.code !== undefined) { parent.appendChild(el('span', 'fid-code', s.code)); continue; }
   }
   return parent;
+};
+
+// Render a "where it was seen" source list (the structured items ledger-query
+// supplies) as a clean bulleted list, one source per line:
+//   row {ordinal} · {humanised source label, linked} · {vintage}
+// The visible label is short and human ("Ofcom open data"); the FULL logical
+// path is preserved as the link's href and title attribute, so the long path
+// stops being run-on visible text without being lost. When a value was seen in
+// more than COLLAPSE_SOURCES_AFTER snapshots the first few stay visible and the
+// remainder tuck behind a native <details> (works with JavaScript off) so a
+// many-snapshot variant never dominates. Shared by the canonical-divergence
+// block and the "show the working" panel so both read identically.
+const COLLAPSE_SOURCES_AFTER = 5;
+const sourceListItem = (s) => {
+  const li = el('li', 'fid-source');
+  li.append(`row ${s.ordinal} · `);
+  const a = extLink(s.url, s.label);
+  a.title = s.sourceFile;
+  li.appendChild(a);
+  li.append(` · ${s.vintage}`);
+  return li;
+};
+const sourceListUl = (items) => {
+  const ul = el('ul', 'fid-source-list');
+  for (const s of items) ul.appendChild(sourceListItem(s));
+  return ul;
+};
+const renderSourceList = (sources) => {
+  const wrap = el('div', 'fid-sources');
+  wrap.appendChild(sourceListUl(sources.slice(0, COLLAPSE_SOURCES_AFTER)));
+  const rest = sources.slice(COLLAPSE_SOURCES_AFTER);
+  if (rest.length > 0) {
+    const d = el('details', 'fid-more-sources');
+    const sum = el('summary');
+    sum.append(`Show all ${sources.length} sources`);
+    d.appendChild(sum);
+    d.appendChild(sourceListUl(rest));
+    wrap.appendChild(d);
+  }
+  return wrap;
 };
 
 const showRaw = t => t.replace(/ /g, '[NBSP]').replace(/ /g, '[SP]');
@@ -245,6 +284,12 @@ export function renderFidelity(body, resolved, claims) {
     for (const v of fidelity.canonical.variants) {
       const vrow = el('div', 'fid-variant');
       vrow.appendChild(appendSegments(el('p', 'fid-line'), v.prose));
+      if (v.sources.length > 0) {
+        const seen = el('div', 'fid-seen');
+        seen.appendChild(el('span', 'fid-seen-label', 'Seen in'));
+        seen.appendChild(renderSourceList(v.sources));
+        vrow.appendChild(seen);
+      }
       vrow.appendChild(renderWorking(v.working));
       c.appendChild(vrow);
     }
@@ -300,14 +345,10 @@ function renderWorking(working) {
   panel.appendChild(row2('result', working.resultVerbatim ? appendRawToken(el('span'), working.result) : working.result));
 
   if (working.sources.length > 0) {
-    const srcVal = el('span');
-    working.sources.forEach((s, i) => {
-      if (i > 0) srcVal.append('; ');
-      srcVal.append(`row ${s.ordinal} of `);
-      srcVal.appendChild(extLink(sourceFileUrl(s.sourceFile), s.sourceFile));
-      srcVal.append(` (${s.vintage})`);
-    });
-    panel.appendChild(row2('seen in', srcVal));
+    const r = el('div', 'fid-work-row');
+    r.appendChild(el('span', 'k', 'seen in'));
+    r.appendChild(renderSourceList(working.sources));
+    panel.appendChild(r);
   }
   d.appendChild(panel);
   return d;

@@ -520,15 +520,37 @@ function ruleGlossFor(rule) {
   return RULE_GLOSSES[rule] ?? rule ?? '';
 }
 
-// Prose segments naming where a value was seen: "row 20 of <file link> (2025-06-04)",
-// joined with "; " for more than one. The file is an examine-source link.
-function sourceSegments(sources) {
-  const out = [];
-  sources.forEach((s, i) => {
-    if (i > 0) out.push('; ');
-    out.push(`row ${s.ordinal} of `, lnk(s.sourceFile, sourceFileUrl(s.sourceFile)), ` (${s.vintage})`);
-  });
-  return out;
+// A short, human-readable label for a source file, derived purely from its
+// logical path. The long repository path is unreadable inline ("opendata/
+// 2025-06-04/raw.csv"); this collapses it to the lane it belongs to — "Ofcom
+// open data" for the register snapshots, "Ofcom FOI" for a disclosure-log
+// download, "FOI · WDTK <id>" for a WhatDoTheyKnow request — so a list of
+// sources reads at a glance. The FULL path is never discarded here: callers keep
+// it as the link's href and title, so the label loses nothing. An unrecognised
+// path falls back to itself rather than an invented label. Pure.
+export function sourceLabel(sourceFile) {
+  const s = String(sourceFile);
+  if (/^opendata\//.test(s)) return 'Ofcom open data';
+  const wdtk = s.match(/^foi\/wdtk-(.+?)(?:--|\/|$)/);
+  if (wdtk) return `FOI · WDTK ${wdtk[1]}`;
+  if (/^foi\/ofcom-/.test(s)) return 'Ofcom FOI';
+  return s;
+}
+
+// Structured "where it was seen" items for the DOM to render as a bulleted list,
+// one source per line. Each item carries the row ordinal, the humanised label,
+// the examine-source URL, the full logical path (kept for the link's title so
+// nothing is lost) and the vintage. The rendering (bullets, and the collapse of
+// a long list behind a disclosure) lives in the DOM layer; the model just
+// supplies the fields. Pure.
+function sourceItems(sources) {
+  return sources.map(s => ({
+    ordinal: s.ordinal,
+    sourceFile: s.sourceFile,
+    label: sourceLabel(s.sourceFile),
+    url: sourceFileUrl(s.sourceFile),
+    vintage: s.vintage,
+  }));
 }
 
 // The structured fidelity model for a resolved callsign, ready for the surface
@@ -559,7 +581,7 @@ export function fidelityOf(claims, resolved) {
       ' (A–Z, 0–9 and “/”). A difference can be as small as a lower-case letter, or a stray character that is removed.',
     ],
     variants: divergent.map(raw => {
-      const sources = sourcesForRaw(claims, raw);
+      const sources = sourceItems(sourcesForRaw(claims, raw));
       // Only mention "invisible characters shown" when the form actually carries
       // whitespace/invisible characters (the marker is only then meaningful).
       const hasInvisible = /[\s\u00a0\u0000-\u001f\u007f-\u009f\ufffd]/.test(raw);
@@ -567,13 +589,15 @@ export function fidelityOf(claims, resolved) {
         raw,
         // Side-by-side prose: the entry exactly as published, then the canonical
         // form we use. Invisible characters (if any) are shown, linked to the
-        // explainer that says how.
+        // explainer that says how. Where it was seen is NOT crammed into this
+        // sentence: the surface renders `sources` as a bulleted list so long file
+        // paths do not turn the line into a run-on.
         prose: [
           'As published: ', rawSeg(raw),
           ...(hasInvisible ? [' (', lnk('invisible characters shown', FAQ_INVISIBLE_CHARACTERS), ')'] : []),
-          ...(sources.length > 0 ? [' — in ', ...sourceSegments(sources)] : []),
           '. Canonical form: ', codeSeg(cleaned), '.',
         ],
+        sources,
         // resultVerbatim: the result of THIS working is a callsign token, so the
         // surface should show its invisible characters (unlike a flag working,
         // whose result is a label like 'forbidden-suffix').
@@ -608,7 +632,7 @@ export function fidelityOf(claims, resolved) {
         ruleGloss: ruleGlossFor(carriers[0]?.rule ?? ''),
         inputs: [{ role: 'published form', value: raw }],
         result: flag,
-        sources: sourcesForRaw(claims, raw),
+        sources: sourceItems(sourcesForRaw(claims, raw)),
       },
     });
   }
@@ -630,7 +654,7 @@ export function fidelityOf(claims, resolved) {
         ruleGloss: ruleGlossFor(carrier?.rule ?? ''),
         inputs: [{ role: 'published form', value: raw }],
         result: status,
-        sources: sourcesForRaw(claims, raw),
+        sources: sourceItems(sourcesForRaw(claims, raw)),
       },
     });
   }
