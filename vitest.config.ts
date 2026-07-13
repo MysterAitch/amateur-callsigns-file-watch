@@ -89,15 +89,23 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts'],
-      // Regression floor, set just below measured coverage
-      // (pure modules are well covered; the I/O-heavy scrape / process /
-      // orchestrator bodies are not). Raise as coverage grows - never lower without a written reason.
-      thresholds: {
-        statements: 28,
-        branches: 26,
-        functions: 23,
-        lines: 28,
-      },
+      // Regression floor, set just below measured coverage (pure modules are well
+      // covered; the I/O-heavy scrape / process / orchestrator bodies are not).
+      // Raise as coverage grows - never lower without a written reason.
+      //
+      // ENFORCED ONLY ON THE MERGED REPORT. The fan-out CI (#478) runs each
+      // heavy/fast job over a SUBSET with --coverage, so applying the floor
+      // per-job would fail every job (one file covers ~6% of src). Those jobs set
+      // COVERAGE_SKIP_THRESHOLDS=1 to collect coverage without gating; the
+      // `coverage` job then merges every blob and applies the floor to the whole.
+      thresholds: process.env.COVERAGE_SKIP_THRESHOLDS
+        ? undefined
+        : {
+            statements: 28,
+            branches: 26,
+            functions: 23,
+            lines: 28,
+          },
     },
     projects: [
       {

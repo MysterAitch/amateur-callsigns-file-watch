@@ -116,6 +116,9 @@ jobs:
           HEAVY_FILE: ${{ matrix.file }}
           JOB_INDEX: ${{ strategy.job-index }}
           CLAIMS_PARQUET: ${{ github.workspace }}/claims.parquet
+          # Collect coverage into the blob but don't gate on the floor here - one
+          # file can't meet it. The `coverage` job applies the floor to the merge.
+          COVERAGE_SKIP_THRESHOLDS: '1'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-blob-heavy-${{ strategy.job-index }}
@@ -150,6 +153,9 @@ jobs:
         env:
           SHARD: ${{ matrix.shard }}
           CLAIMS_PARQUET: ${{ github.workspace }}/claims.parquet
+          # Collect coverage into the blob; the floor is applied at the merge, not
+          # per-shard (a shard can't meet it alone).
+          COVERAGE_SKIP_THRESHOLDS: '1'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-blob-fast-${{ matrix.shard }}
