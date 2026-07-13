@@ -2,44 +2,64 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import * as zlib from 'zlib';
 import { DatabaseSync } from 'node:sqlite';
 import { buildPublishedTiers } from './build-sqlite.ts';
 import { OBSERVATION_VALUE_COLUMNS } from '../shared/foi-observations.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
-// The published data tiers (issue #149 item 4): the gzipped flat union CSV,
-// one SQLite per archive entry, and the master database. Built here from
-// the real archive exactly as the Pages workflow does. Deliberately a
-// separate test file: the build is heavy (hundreds of MB into scratch).
+// The published data tiers (issue #149 item 4): the flat union CSV, one SQLite
+// per archive entry, and the master database. Built here from the real archive
+// with compress:false - the deploy adds the gzipped download twins on top (a
+// publish responsibility), but every assertion here is about DATA, so it reads
+// the raw databases and CSV directly. Deliberately a separate, heavy test file.
 
 let dataDir: string;
 let summary: Record<string, number>;
 
-// The full-corpus build is heavy and grows with each ingested dataset; under
-// coverage instrumentation on a shared CI runner (competing with other
-// real-archive test files for cores) its wall-clock tipped past the previous
-// 480s ceiling once the archive passed ~46 FOI entries. The headroom keeps the
-// build honest without masking a real slowdown — a genuine regression would
-// still blow past this. The durable fix is cutting the build's CI cost (e.g.
-// running it uninstrumented), tracked under the perf initiative (#354).
+// The tier build is heavy and grows with each ingested dataset, but its inputs -
+// the committed archive, reference-data and the builder closure - change on few
+// PRs. CI therefore caches the built directory under a key hashing exactly that
+// closure (see the build-sqlite-tiers job in ci.yml) and hands the restored
+// directory to this test via TIERS_CACHE_DIR. On a cache HIT we VERIFY the
+// restored build instead of rebuilding it - equivalent, because the build is
+// deterministic in the hashed inputs, so anything that could change the output
+// also changes the key and forces a fresh build. On a MISS we build with
+// compress:false: the raw build skips the publish-only gzip work (the master
+// download twin and the 45 per-dataset gzips are ~61% of the build and no data
+// assertion depends on them - #478). With no TIERS_CACHE_DIR (local runs) it
+// builds into throwaway scratch. The summary (row counts asserted below) is
+// persisted beside the build so a cache hit still has it.
+const SUMMARY_FILE = 'tiers-summary.json';
+let ownsScratch = false;
 beforeAll(() => {
-  dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-tiers-'));
-  summary = buildPublishedTiers(dataDir);
+  const cacheDir = process.env.TIERS_CACHE_DIR;
+  const summaryPath = cacheDir ? path.join(cacheDir, SUMMARY_FILE) : '';
+  if (cacheDir && fs.existsSync(summaryPath)) {
+    dataDir = cacheDir;
+    summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8')) as Record<string, number>;
+    return;
+  }
+  dataDir = cacheDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-tiers-'));
+  ownsScratch = cacheDir === undefined;
+  fs.mkdirSync(dataDir, { recursive: true });
+  summary = buildPublishedTiers(dataDir, { compress: false });
+  if (cacheDir) fs.writeFileSync(summaryPath, JSON.stringify(summary));
 }, 900_000);
 
 afterAll(() => {
-  fs.rmSync(dataDir, { recursive: true, force: true });
+  // Only delete scratch we created; a cache directory is owned by the runner
+  // and is saved by actions/cache after the job.
+  if (ownsScratch) fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
 describe('Published data tiers', { tags: ['unit', 'data-validity'] }, () => {
-  it('Tiers_UnionCsv_GunzipsToFullHeaderAndDeclaredRowCount', { timeout: 120_000 }, () => {
+  it('Tiers_UnionCsv_HasFullHeaderAndDeclaredRowCount', { timeout: 120_000 }, () => {
     // The full-archive union exceeds V8's maximum single-string length, so it
     // is inspected as bytes: the header is the first newline-delimited line and
     // every line (header included) is newline-terminated, so the data-row count
     // is the newline total minus the header.
-    const buf = zlib.gunzipSync(fs.readFileSync(path.join(dataDir, 'foi-observations.csv.gz')));
+    const buf = fs.readFileSync(path.join(dataDir, 'foi-observations.csv'));
     const firstNewline = buf.indexOf(0x0a);
     expect(buf.subarray(0, firstNewline).toString('utf8')).toBe(['callsign', 'entry', 'source_file', 'dataset_classes', 'vintage', ...OBSERVATION_VALUE_COLUMNS].join(','));
     let newlines = 0;
@@ -97,12 +117,10 @@ describe('Published data tiers', { tags: ['unit', 'data-validity'] }, () => {
 
   it('Tiers_PerDatasetDatabases_CarryOneTablePerCsvUnderHonestNames', { timeout: 120_000 }, () => {
     expect(summary['per-dataset databases']).toBeGreaterThanOrEqual(25);
-    // Download artefacts wear honest names (.sqlite.gz); only the site's
-    // range-queried databases need the .png workaround.
-    const gzPath = path.join(dataDir, 'datasets', 'foi--ofcom-498906--reciprocal-licences-since-2010.sqlite.gz');
-    const sqlitePath = path.join(dataDir, 'unpacked-test.sqlite');
-    fs.writeFileSync(sqlitePath, zlib.gunzipSync(fs.readFileSync(gzPath)));
-    const db = new DatabaseSync(sqlitePath, { readOnly: true });
+    // Each archive entry becomes one database with a table per CSV. The deploy
+    // gzips these for download (.sqlite.gz); the verification build keeps them
+    // raw and reads the tables directly.
+    const db = new DatabaseSync(path.join(dataDir, 'datasets', 'foi--ofcom-498906--reciprocal-licences-since-2010.sqlite'), { readOnly: true });
     try {
       const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[]).map(t => t.name);
       expect(tables).toContain('normalised_sheet_1_sheet1');
@@ -114,9 +132,9 @@ describe('Published data tiers', { tags: ['unit', 'data-validity'] }, () => {
     }
   });
 
-  it('Tiers_MasterDownloadTwin_GunzipsByteIdenticalToTheRangeRequestVariant', { timeout: 120_000 }, () => {
-    const gunzipped = zlib.gunzipSync(fs.readFileSync(path.join(dataDir, 'master.sqlite.gz')));
-    const png = fs.readFileSync(path.join(dataDir, 'master.sqlite.png'));
-    expect(gunzipped.equals(png)).toBe(true);
-  });
+  // The master download twin (master.sqlite.gz) and its byte-identity to the
+  // range-request .png variant are a PUBLISH concern, not a data one: the twin is
+  // gzip of the .png, so it can only ever gunzip back to it (tautological here).
+  // The deploy builds it (compress:true) and is where that packaging is
+  // exercised; this verification build stays raw and does not assert it.
 });

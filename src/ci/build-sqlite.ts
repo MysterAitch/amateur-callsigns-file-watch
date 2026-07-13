@@ -288,7 +288,16 @@ export function fillObservations(db: DatabaseSync, rows: FoiObservationRow[]): n
 // The remaining published tiers (issue #149 item 4 + the composed-stack
 // decision): the mandatory flat union CSV, one SQLite per archive entry,
 // and the master database. All derived at deploy time, never committed.
-export function buildPublishedTiers(dataDir: string): Record<string, number> {
+// compress (default true) controls the PUBLISH packaging: the gzipped download
+// twins (master.sqlite.gz, the per-dataset .sqlite.gz, the union .csv.gz). The
+// deploy needs them; the CI verification build passes compress:false to emit the
+// raw databases + CSV only. That skips the two dominant, publish-only costs - the
+// master twin's gzip and the 45 per-dataset gzips (~61% of the build, measured
+// #478) - none of which any data assertion depends on (they gunzip and compare
+// CONTENTS, which the raw files carry directly). The tables/rows built are
+// identical either way; only the on-disk packaging differs.
+export function buildPublishedTiers(dataDir: string, options: { compress?: boolean } = {}): Record<string, number> {
+  const compress = options.compress ?? true;
   const summary: Record<string, number> = {};
   const foiDir = path.join(CONSTANTS.DIRS.archive, 'foi');
   const observations = buildFoiObservations(foiDir);
@@ -302,7 +311,11 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
   // master database.
   fs.mkdirSync(dataDir, { recursive: true });
   const unionBuffer = time('foi-observations:render', () => renderObservationsCsvBuffer(observations), observations.length);
-  fs.writeFileSync(path.join(dataDir, 'foi-observations.csv.gz'), time('gzip:union-csv', () => zlib.gzipSync(unionBuffer, { level: GZIP_LEVEL }), unionBuffer.length));
+  if (compress) {
+    fs.writeFileSync(path.join(dataDir, 'foi-observations.csv.gz'), time('gzip:union-csv', () => zlib.gzipSync(unionBuffer, { level: GZIP_LEVEL }), unionBuffer.length));
+  } else {
+    fs.writeFileSync(path.join(dataDir, 'foi-observations.csv'), unionBuffer);
+  }
   summary['foi-observations.csv.gz rows'] = observations.length;
 
   // One database per archive entry (both lanes): every CSV in the entry
@@ -340,9 +353,16 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
     }
     db.close();
     if (tables > 0) {
-      fs.writeFileSync(path.join(perDatasetDir, `${name}.sqlite.gz`), time('gzip:per-dataset', () => zlib.gzipSync(fs.readFileSync(buildPath), { level: GZIP_LEVEL })));
+      if (compress) {
+        fs.writeFileSync(path.join(perDatasetDir, `${name}.sqlite.gz`), time('gzip:per-dataset', () => zlib.gzipSync(fs.readFileSync(buildPath), { level: GZIP_LEVEL })));
+      } else {
+        // Raw database: keep it under its honest name, no gzip - the verification
+        // build reads the tables directly.
+        fs.renameSync(buildPath, path.join(perDatasetDir, `${name}.sqlite`));
+      }
       perDataset += 1;
     }
+    // No-op when renamed away (force); removes the scratch DB in the compress path.
     fs.rmSync(buildPath, { force: true });
   }
   summary['per-dataset databases'] = perDataset;
@@ -455,9 +475,13 @@ export function buildPublishedTiers(dataDir: string): Record<string, number> {
   summary['master register_history'] = historyRows;
   master.close();
 
-  // Download twin of the master: honest name, gzipped - the .png variant
-  // exists solely for the site's range-request path.
-  fs.writeFileSync(path.join(dataDir, 'master.sqlite.gz'), time('gzip:master', () => zlib.gzipSync(fs.readFileSync(masterPath), { level: GZIP_LEVEL })));
+  // Download twin of the master: honest name, gzipped - the .png variant exists
+  // solely for the site's range-request path. Publish-only (the twin is gzip of
+  // the .png, so it can only ever gunzip back to it), so the raw verification
+  // build skips it - it is the single most expensive step in the build (#478).
+  if (compress) {
+    fs.writeFileSync(path.join(dataDir, 'master.sqlite.gz'), time('gzip:master', () => zlib.gzipSync(fs.readFileSync(masterPath), { level: GZIP_LEVEL })));
+  }
 
   return summary;
 }
