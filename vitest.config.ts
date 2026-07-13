@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs';
 import { defineConfig, defaultExclude } from 'vitest/config';
 
 // The real-archive build tests each parse multi-hundred-thousand-row CSVs and
@@ -10,18 +11,29 @@ import { defineConfig, defaultExclude } from 'vitest/config';
 // heavy build always has the cores to itself. `npm test` still runs everything;
 // the two pools simply never contend. Isolation, not a raised ceiling, is the
 // fix - bumping timeouts is the whack-a-mole this pattern already outgrew.
-const HEAVY_BUILD_TESTS = [
-  'src/v2/build-ledger.test.ts',
-  'src/v2/build-ledger-db.test.ts',
-  'src/v2/build-ledger-db-compact.test.ts',
-  'src/v2/licence-category-tier.test.ts',
-  'src/ci/build-sqlite.tiers.test.ts',
-  'src/ci/reconstruction-oracle.test.ts',
-  'src/ci/build-forbidden-section.test.ts',
-  'src/ci/cross-dataset-invariants.test.ts',
-  'src/ci/value-catalogue-fold.test.ts',
-  'src/ci/data-quality-fold.test.ts',
-];
+// TRIAL (#478): the ISOLATED heavy files - each gets its own parallel CI job
+// (see .github/workflows/ci.yml), pulling the pre-built claims Parquet artifact.
+// This is the top of the measured duration distribution (>~90 s each in the
+// baseline); the ~78 remaining files run together in the sharded `fast` pool.
+//
+// SINGLE SOURCE OF TRUTH: the list lives in src/testing/heavy-tests.json so this
+// config (which excludes them from `fast`) and the CI matrix (which spawns one
+// job per entry) read the identical set - the yml never hardcodes file paths, it
+// derives its matrix from this file. Add or remove a heavy file in one place.
+function loadHeavyTests(): string[] {
+  const url = new URL('./src/testing/heavy-tests.json', import.meta.url);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(url, 'utf8'));
+  } catch (err) {
+    throw new Error(`Could not read/parse the heavy-test list ${url.pathname}: ${(err as Error).message}`);
+  }
+  if (!Array.isArray(parsed) || !parsed.every((entry): entry is string => typeof entry === 'string')) {
+    throw new Error(`${url.pathname} must be a JSON array of test-file path strings.`);
+  }
+  return parsed;
+}
+const HEAVY_BUILD_TESTS = loadHeavyTests();
 
 // Options every project shares. Kept in one place so the fast and heavy pools
 // run under identical semantics - only their file selection and scheduling
@@ -77,15 +89,23 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts'],
-      // Regression floor, set just below measured coverage
-      // (pure modules are well covered; the I/O-heavy scrape / process /
-      // orchestrator bodies are not). Raise as coverage grows - never lower without a written reason.
-      thresholds: {
-        statements: 28,
-        branches: 26,
-        functions: 23,
-        lines: 28,
-      },
+      // Regression floor, set just below measured coverage (pure modules are well
+      // covered; the I/O-heavy scrape / process / orchestrator bodies are not).
+      // Raise as coverage grows - never lower without a written reason.
+      //
+      // ENFORCED ONLY ON THE MERGED REPORT. The fan-out CI (#478) runs each
+      // heavy/fast job over a SUBSET with --coverage, so applying the floor
+      // per-job would fail every job (one file covers ~6% of src). Those jobs set
+      // COVERAGE_SKIP_THRESHOLDS=1 to collect coverage without gating; the
+      // `coverage` job then merges every blob and applies the floor to the whole.
+      thresholds: process.env.COVERAGE_SKIP_THRESHOLDS
+        ? undefined
+        : {
+            statements: 28,
+            branches: 26,
+            functions: 23,
+            lines: 28,
+          },
     },
     projects: [
       {
