@@ -22,11 +22,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # TRIAL (#478): fan-out architecture. Build the shared claims Parquet ONCE,
-  # publish it as a workflow artifact, and let every downstream test job pull it
-  # and run in parallel - each heavy file in its own job, the ~78 trivial files
-  # sharded. Wall-clock collapses toward the single slowest file rather than the
-  # serial sum. tsc + lint run as their own parallel job off the critical path.
+  # Fan-out architecture (#478): build the shared claims Parquet ONCE, publish it
+  # as a workflow artifact, and let every downstream test job pull it and run in
+  # parallel - each heavy file in its own job, the ~78 trivial files sharded. tsc +
+  # lint run as their own parallel job off the critical path. Wall-clock collapses
+  # toward the single slowest file rather than the serial sum. Each test job emits
+  # a coverage blob; the `coverage` job merges them so the coverage floor stays
+  # enforced per-PR despite the split. The `tests` job aggregates all of these into
+  # the single required status check the branch ruleset gates on.
   build-claims:
     name: build-claims
     runs-on: ubuntu-latest
@@ -103,13 +106,21 @@ jobs:
           name: claims-parquet
       # The fold files read the pre-built Parquet; the non-fold heavy files
       # ignore CLAIMS_PARQUET and rebuild their own inputs - either way, one file
-      # per job runs the archive work alone, uncontended. The matrix value is
-      # passed via env (not interpolated into the run script) so zizmor's
-      # template-injection audit stays clean.
-      - run: npx vitest run "$HEAVY_FILE"
+      # per job runs the archive work alone, uncontended. --coverage + the blob
+      # reporter capture this job's coverage; the `coverage` job merges every
+      # job's blob back into one report (#478). Matrix values go via env (not
+      # interpolated into the run script) so zizmor's template-injection audit
+      # stays clean; the blob is uniquely named per job so the merge never collides.
+      - run: npx vitest run "$HEAVY_FILE" --coverage --reporter=blob --outputFile=".vitest-reports/heavy-${JOB_INDEX}.json"
         env:
           HEAVY_FILE: ${{ matrix.file }}
+          JOB_INDEX: ${{ strategy.job-index }}
           CLAIMS_PARQUET: ${{ github.workspace }}/claims.parquet
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-blob-heavy-${{ strategy.job-index }}
+          path: .vitest-reports/
+          retention-days: 1
 
   fast:
     name: fast
@@ -134,11 +145,41 @@ jobs:
           name: claims-parquet
       # The ~78 trivial files (the fast project excludes the isolated heavy list),
       # sharded across 2 runners. Folds among them (e.g. cross-dataset-invariants)
-      # read the shared Parquet too.
-      - run: npx vitest run --project fast --shard="${SHARD}/2"
+      # read the shared Parquet too. --coverage + blob as above; merged in `coverage`.
+      - run: npx vitest run --project fast --shard="${SHARD}/2" --coverage --reporter=blob --outputFile=".vitest-reports/fast-${SHARD}.json"
         env:
           SHARD: ${{ matrix.shard }}
           CLAIMS_PARQUET: ${{ github.workspace }}/claims.parquet
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-blob-fast-${{ matrix.shard }}
+          path: .vitest-reports/
+          retention-days: 1
+
+  # Collate coverage across the fan-out (#478): download every job's blob and
+  # merge them into one v8 report, applying the thresholds in vitest.config. This
+  # keeps the coverage floor enforced PER-PR despite the tests being split across
+  # jobs - the alternative (a nightly/main-only coverage run) was rejected since
+  # the merge keeps the gate pre-merge. Fails iff merged coverage is below floor.
+  coverage:
+    name: coverage
+    needs: [heavy, fast]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: coverage-blob-*
+          merge-multiple: true
+          path: .vitest-reports
+      - run: npx vitest --merge-reports --coverage
 
   # Aggregator gate: the single required `tests` check branch protection needs.
   # The suite is fanned out across typecheck / build-claims / heavy / fast (#478),
@@ -148,7 +189,7 @@ jobs:
   # branch protection would otherwise treat as a pass.
   tests:
     name: tests
-    needs: [typecheck, build-claims, matrix-setup, heavy, fast]
+    needs: [typecheck, build-claims, matrix-setup, heavy, fast, coverage]
     if: always()
     runs-on: ubuntu-latest
     steps:

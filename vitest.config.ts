@@ -20,9 +20,20 @@ import { defineConfig, defaultExclude } from 'vitest/config';
 // config (which excludes them from `fast`) and the CI matrix (which spawns one
 // job per entry) read the identical set - the yml never hardcodes file paths, it
 // derives its matrix from this file. Add or remove a heavy file in one place.
-const HEAVY_BUILD_TESTS: string[] = JSON.parse(
-  readFileSync(new URL('./src/testing/heavy-tests.json', import.meta.url), 'utf8'),
-);
+function loadHeavyTests(): string[] {
+  const url = new URL('./src/testing/heavy-tests.json', import.meta.url);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(url, 'utf8'));
+  } catch (err) {
+    throw new Error(`Could not read/parse the heavy-test list ${url.pathname}: ${(err as Error).message}`);
+  }
+  if (!Array.isArray(parsed) || !parsed.every((entry): entry is string => typeof entry === 'string')) {
+    throw new Error(`${url.pathname} must be a JSON array of test-file path strings.`);
+  }
+  return parsed;
+}
+const HEAVY_BUILD_TESTS = loadHeavyTests();
 
 // Options every project shares. Kept in one place so the fast and heavy pools
 // run under identical semantics - only their file selection and scheduling
