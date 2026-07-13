@@ -103,9 +103,12 @@ jobs:
           name: claims-parquet
       # The fold files read the pre-built Parquet; the non-fold heavy files
       # ignore CLAIMS_PARQUET and rebuild their own inputs - either way, one file
-      # per job runs the archive work alone, uncontended.
-      - run: npx vitest run "${{ matrix.file }}"
+      # per job runs the archive work alone, uncontended. The matrix value is
+      # passed via env (not interpolated into the run script) so zizmor's
+      # template-injection audit stays clean.
+      - run: npx vitest run "$HEAVY_FILE"
         env:
+          HEAVY_FILE: ${{ matrix.file }}
           CLAIMS_PARQUET: ${{ github.workspace }}/claims.parquet
 
   fast:
@@ -132,8 +135,9 @@ jobs:
       # The ~78 trivial files (the fast project excludes the isolated heavy list),
       # sharded across 2 runners. Folds among them (e.g. cross-dataset-invariants)
       # read the shared Parquet too.
-      - run: npx vitest run --project fast --shard=${{ matrix.shard }}/2
+      - run: npx vitest run --project fast --shard="${SHARD}/2"
         env:
+          SHARD: ${{ matrix.shard }}
           CLAIMS_PARQUET: ${{ github.workspace }}/claims.parquet
 
   # Aggregator gate: the single required `tests` check branch protection needs.
