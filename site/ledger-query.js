@@ -325,11 +325,10 @@ export const FIDELITY_PREAMBLE = [
   'What you see below describes what an official register — published by Ofcom, the UK '
   + 'regulator — actually recorded for this ',
   lnk('callsign', FAQ_CALLSIGN_STRUCTURE),
-  ', and which file we found it in. These are observations, not judgements: each one points '
-  + 'to something in the data and says where it is, without blaming the licence holder or the '
-  + 'publisher, and without saying anything is wrong. A single callsign can also belong to '
-  + 'different people at different times, because callsigns are re-issued over the years. We '
-  + 'always keep the data exactly as it was published; nothing here changes any record.',
+  ', and which file we found it in. Each note points to something in the data and says where it '
+  + 'is, and describes what the register contains. A single callsign can also belong to different '
+  + 'people at different times, because callsigns are re-issued over the years. We always keep the '
+  + 'data exactly as it was published; nothing here changes any record.',
 ];
 
 // A plain-English gloss per derivation rule (kept in step with src/v2/explain.ts
@@ -395,13 +394,13 @@ const FLAG_NOTES = {
   'forbidden-suffix': {
     label: 'Suffix appears on a withheld-suffix list',
     gloss: ['This callsign’s ', lnk('suffix', FAQ_CALLSIGN_STRUCTURE),
-      ' is on a combined list of suffixes Ofcom has withheld from new licences. On its own this is unremarkable: many long-standing callsigns carry such a suffix, so the list governs new issues, not existing ones. Recorded, not a verdict.'],
+      ' is on a combined list of suffixes Ofcom has withheld from new licences. On its own this is unremarkable: many long-standing callsigns carry such a suffix, so the list governs new issues, not existing ones.'],
   },
   'forbidden-suffix-issued-after-first-known-list': {
     label: 'Start date looks later than when the suffix was first withheld',
-    gloss: ['A candidate for scrutiny, not a verdict: the recorded start date looks like it comes after the month this ',
+    gloss: ['The recorded start date looks like it comes after the month this ',
       lnk('suffix', FAQ_CALLSIGN_STRUCTURE),
-      ' was first known to be withheld from new licences. Ordinary explanations come first — a re-issue to a family member with permission, a date artefact from the publisher, or a start date reset by a later change rather than recording the first issue.'],
+      ' was first known to be withheld from new licences. The reason is not known from the data — possible explanations include a re-issue to a family member with permission, a date artefact from the publisher, or a start date reset by a later change rather than recording the first issue.'],
   },
   'suffix-length-abnormal': {
     label: 'The suffix is an unusual length',
@@ -411,7 +410,7 @@ const FLAG_NOTES = {
   'class-product-mismatch': {
     label: 'Licence class from the callsign differs from the product column',
     gloss: ['The licence ', lnk('class', FAQ_CALLSIGN_STRUCTURE), ' suggested by the callsign’s ', lnk('prefix', FAQ_CALLSIGN_STRUCTURE),
-      ' differs from the product recorded in this snapshot. This records the discrepancy, not a verdict: the cause is unknown — perhaps an old entry left uncorrected, perhaps a legitimate arrangement not stated in the public data.'],
+      ' differs from the product recorded in this snapshot. The cause is unknown — perhaps an old entry left uncorrected, perhaps a legitimate arrangement not stated in the public data.'],
   },
   'stripped-collision': {
     label: 'The same callsign appears twice in one file',

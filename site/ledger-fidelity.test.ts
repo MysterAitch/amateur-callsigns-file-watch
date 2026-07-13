@@ -124,12 +124,34 @@ describe('fidelityOf — a derived flag (forbidden suffix)', () => {
     const note = f.notes.find(n => n.id === 'forbidden-suffix');
     expect(note).toBeDefined();
     // Precise domain term "suffix" (the callsign's ending letters), linked to the
-    // Anatomy explainer; the tight, already-clear phrasing is kept verbatim.
+    // Anatomy explainer. The neutrality is carried by the plain factual statement,
+    // not by a "not a verdict" disclaimer (which would invoke the frame it denies).
     expect(note?.label).toBe('Suffix appears on a withheld-suffix list');
-    expect(glossText(note?.gloss)).toContain('Recorded, not a verdict');
+    expect(glossText(note?.gloss)).toContain('the list governs new issues, not existing ones');
+    expect(glossText(note?.gloss).toLowerCase()).not.toContain('verdict');
     expect(note?.working?.result).toBe('forbidden-suffix');
     // No divergence, so no canonical block - just the note.
     expect(f.canonical).toBeNull();
+  });
+});
+
+describe('fidelityOf — no judgement-negating meta-tags in any gloss', () => {
+  // Guard: neutrality is carried by plain factual statements, so no user-facing
+  // gloss should contain "verdict" (nor "not a verdict"-style framing).
+  const FLAG_IDS = ['lowercase', 'whitespace', 'encoding-failure', 'excel-date-shape',
+    'spreadsheet-error-token', 'rsl-in-register', 'unknown-rsl', 'unknown-prefix-series',
+    'forbidden-suffix', 'forbidden-suffix-issued-after-first-known-list', 'suffix-length-abnormal',
+    'class-product-mismatch', 'stripped-collision', 'malformed-home-callsign', 'hash-in-register'];
+  it('EveryFlagGloss_ContainsNoVerdictMetaTag', () => {
+    const resolved = { typed: 'G8XYZ', cleaned: 'G8XYZ', entity: 'G#8XYZ', matched: 'cleaned' as const };
+    for (const flag of FLAG_IDS) {
+      const claims: Row[] = [
+        raw('G8XYZ', 'G8XYZ', 'G#8XYZ', '@listed', '', 1),
+        derived('G8XYZ', 'G8XYZ', 'G#8XYZ', 'flag', flag, 'parse-callsign', 1),
+      ];
+      const note = fidelityOf(claims, resolved).notes.find(n => n.id === flag);
+      expect(glossText(note?.gloss).toLowerCase(), `${flag} gloss should not say "verdict"`).not.toContain('verdict');
+    }
   });
 });
 
@@ -183,12 +205,14 @@ describe('record-fidelity render — framing and right-of-reply hook', () => {
     renderFidelity(host, resolved, claims);
     const preamble = segmentsText(FIDELITY_PREAMBLE);
     expect(host.textContent).toContain(preamble);
-    // The preamble is observation-not-judgement, blames no-one, and admits that
-    // a callsign may belong to different people over time.
-    expect(preamble).toContain('observations, not judgements');
-    expect(preamble).toContain('without blaming the licence holder or the publisher');
+    // Positively framed: it states plainly what the note describes and admits a
+    // callsign may belong to different people over time. It carries no
+    // judgement-negating meta-tag ("not a verdict"/"not a judgement").
+    expect(preamble).toContain('describes what the register contains');
     expect(preamble).toContain('belong to');
     expect(preamble).toContain('different people');
+    expect(preamble.toLowerCase()).not.toContain('verdict');
+    expect(preamble.toLowerCase()).not.toContain('not judgements');
   });
 
   it('OffersAnExamineSourceLinkAndAReportHookWithoutOverpromising', () => {
