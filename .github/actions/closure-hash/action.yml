@@ -1,0 +1,49 @@
+# Content hash of a build stage's INPUT CLOSURE, for use as an actions/cache key.
+# It hashes the NAMES and CONTENTS of the tracked files under the given paths,
+# but EXCLUDES test files (`*.test.ts` / `*.test.js`): a test asserts on the built
+# artefact, it never changes it, so editing or adding a test must not invalidate a
+# build cache (that is the "adding a data assertion should not rebuild the corpus"
+# property). This replaces a bare hashFiles(...) glob, which would include the
+# co-located test files and so rebuild the world on a test-only change.
+#
+# It is deliberately CONSERVATIVE: only files matching the test-name pattern are
+# dropped, so a real builder input can never be excluded by accident. A too-narrow
+# key would risk a stale-artefact false hit (worse than a false miss); excluding
+# only test files cannot cause that, because tests are never build inputs.
+name: Closure hash
+description: Content hash of an input closure (tracked files under the given paths), excluding test files.
+
+inputs:
+  paths:
+    description: Space-separated tracked files/directories to hash (as passed to `git ls-files`).
+    required: true
+
+outputs:
+  hash:
+    description: Hex digest of the closure contents, test files excluded.
+    value: ${{ steps.compute.outputs.hash }}
+
+runs:
+  using: composite
+  steps:
+    - id: compute
+      shell: bash
+      env:
+        # Passed via env, not interpolated into the script, so the path list can
+        # never be read as code (the template-injection posture the workflows hold).
+        PATHS: ${{ inputs.paths }}
+      run: |
+        set -euo pipefail
+        # git ls-files enumerates only TRACKED files (the committed inputs), NUL-
+        # separated so paths with unusual characters are safe; drop the test files;
+        # sort for a stable order; then hash each file's contents and hash the lot.
+        # PATHS is a controlled, space-separated path list, so word-splitting it is
+        # intended here.
+        # shellcheck disable=SC2086
+        digest=$(git ls-files -z -- $PATHS \
+          | grep -zvE '\.test\.(ts|js)$' \
+          | LC_ALL=C sort -z \
+          | xargs -0 sha256sum \
+          | sha256sum \
+          | cut -d' ' -f1)
+        echo "hash=$digest" >> "$GITHUB_OUTPUT"

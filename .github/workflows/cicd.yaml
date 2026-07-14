@@ -63,13 +63,19 @@ jobs:
       # data or the emitter busts the key and rebuilds, which is exactly when the
       # Parquet can differ. Repo-scoped by key, so re-runs and sibling branches on
       # the same closure share the one build.
+      # The cache key is the input closure's content hash with TEST FILES EXCLUDED
+      # (see the closure-hash action): a data-assertion or any other test edit runs
+      # against the restored build instead of busting it. .nvmrc + the pinned DuckDB
+      # action are in the paths so a node/engine bump still rekeys.
+      - id: closure
+        uses: ./.github/actions/closure-hash
+        with:
+          paths: archive reference-data src/v2 src/sources src/shared package-lock.json .nvmrc .github/actions/setup-duckdb/action.yml
       - id: parquet-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: claims.parquet
-          # .nvmrc + the pinned DuckDB action are in the key too: a node or engine
-          # bump can change the built bytes without touching the hashed source.
-          key: claims-parquet-v1-${{ hashFiles('archive/**', 'reference-data/**', 'src/v2/**', 'src/sources/**', 'src/shared/**', 'package-lock.json', '.nvmrc', '.github/actions/setup-duckdb/action.yml') }}
+          key: claims-parquet-v2-${{ steps.closure.outputs.hash }}
       - if: steps.parquet-cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/setup-duckdb
       - if: steps.parquet-cache.outputs.cache-hit != 'true'
@@ -276,14 +282,19 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # 'verify' = the raw (uncompressed) build this job consumes, distinct from the
+      # deploy's compressed tiers (see the job comment). The key is the closure hash
+      # with test files excluded (closure-hash action); .nvmrc is in the paths since
+      # node's SQLite output can shift across versions without any hashed source
+      # changing.
+      - id: closure
+        uses: ./.github/actions/closure-hash
+        with:
+          paths: archive reference-data src/ci/build-sqlite.ts src/shared src/sources package-lock.json .nvmrc
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .tier-cache
-          # 'verify' = the raw (uncompressed) build this job consumes, distinct
-          # from the deploy's compressed tiers (see the job comment); .nvmrc in the
-          # key too since node's SQLite output can shift across versions without any
-          # hashed source changing.
-          key: sqlite-tiers-verify-v1-${{ hashFiles('archive/**', 'reference-data/**', 'src/ci/build-sqlite.ts', 'src/shared/**', 'src/sources/**', 'package-lock.json', '.nvmrc') }}
+          key: sqlite-tiers-verify-v2-${{ steps.closure.outputs.hash }}
       # TIERS_CACHE_DIR: the test builds here on a miss (the post-job save then
       # persists it) or verifies the restored build on a hit - see the reuse
       # contract in the test's beforeAll. --coverage + blob so the merged coverage
@@ -321,14 +332,18 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # The build-claims input closure minus the DuckDB action (this build never
+      # shells out to DuckDB): the committed data plus the emit-path source tree.
+      # The key is the closure hash with test files excluded (closure-hash action);
+      # .nvmrc is in the paths since a node bump can shift the emitted bytes.
+      - id: closure
+        uses: ./.github/actions/closure-hash
+        with:
+          paths: archive reference-data src/v2 src/sources src/shared package-lock.json .nvmrc
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ledger-cache
-          # The build-claims input closure minus the DuckDB action (this build
-          # never shells out to DuckDB): the committed data plus the emit-path
-          # source tree. .nvmrc in the key too since a node bump can shift the
-          # emitted bytes without any hashed source changing.
-          key: ledger-corpus-v1-${{ hashFiles('archive/**', 'reference-data/**', 'src/v2/**', 'src/sources/**', 'src/shared/**', 'package-lock.json', '.nvmrc') }}
+          key: ledger-corpus-v2-${{ steps.closure.outputs.hash }}
       # LEDGER_CACHE_DIR: the corpus-scale test builds here on a miss (the post-job
       # save then persists it) or verifies the restored build on a hit - see the
       # reuse contract in the test's beforeAll. --coverage + blob so the merged
@@ -517,16 +532,24 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # The closure hash with test files excluded (closure-hash action): the
+      # regeneration is a pure function of the committed data + the sweep/fold code,
+      # so a src/ci test edit no longer reruns the sweep - the drift check still runs
+      # against the restored reports, so the gate stays honest either way. The DuckDB
+      # action is in the paths because the sweep folds the cross-dataset invariants
+      # (and quality reports) through it, so a CLI change shifts the regenerated bytes.
+      - id: closure
+        uses: ./.github/actions/closure-hash
+        with:
+          paths: archive reference-data src/ci src/v2 src/shared src/sources package-lock.json .nvmrc .github/actions/setup-duckdb/action.yml
       - id: reports-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # A side directory holds the regeneration snapshot; the committed
           # reports/ working tree is left untouched until the drift check overlays
-          # this onto it. The DuckDB action is in the key because the sweep folds
-          # the cross-dataset invariants (and the quality reports) through it, so
-          # a CLI change can shift the regenerated bytes without touching source.
+          # this onto it.
           path: .golden-cache/reports
-          key: golden-reports-v1-${{ hashFiles('archive/**', 'reference-data/**', 'src/ci/**', 'src/v2/**', 'src/shared/**', 'src/sources/**', 'package-lock.json', '.nvmrc', '.github/actions/setup-duckdb/action.yml') }}
+          key: golden-reports-v2-${{ steps.closure.outputs.hash }}
       # The cross-dataset-invariants report is folded via DuckDB, so a MISS - which
       # reruns the sweep - needs the pinned CLI to reproduce it (issue #361). A hit
       # restores the regeneration and never invokes the sweep, so it needs no CLI.
@@ -599,12 +622,18 @@ jobs:
       # builders rekeys the cache and rebuilds. .dbstage carries the FINAL packaged
       # artefacts (gzipped, and the ledger already split into chunks), so a hit
       # skips the compression and chunking too.
+      - id: closure
+        uses: ./.github/actions/closure-hash
+        with:
+          paths: archive reference-data src/ci/build-sqlite.ts src/v2 src/shared src/sources package-lock.json .nvmrc
       - name: Restore built databases
         id: db-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .dbstage
-          key: pages-db-v1-${{ hashFiles('archive/**', 'reference-data/**', 'src/ci/build-sqlite.ts', 'src/v2/**', 'src/shared/**', 'src/sources/**', 'package-lock.json', '.nvmrc') }}
+          # Closure hash with test files excluded (closure-hash action), so a
+          # test-only edit no longer forces a full ~22 min database rebuild.
+          key: pages-db-v2-${{ steps.closure.outputs.hash }}
       - name: Build databases
         if: steps.db-cache.outputs.cache-hit != 'true'
         run: |
