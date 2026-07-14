@@ -44,7 +44,7 @@ function source(rows: readonly Record<string, string>[]): SourceObservationSet {
   };
 }
 
-describe('a date column that mixes formats within one table raises a loud, non-fatal flag (P2)', () => {
+describe('a date column that mixes formats within one table raises a loud, non-fatal flag (P2)', { tags: ['unit'] }, () => {
   it('DateColumn_WhenFormatsMixWithinOneTable_RaisesADoubtFlagWithoutFailingTheBuild', () => {
     // 15/01 forces day-first (day 15 > 12); 01/15 forces month-first (15 in the
     // month slot). The pass SEES the contradiction the strict converter would
@@ -100,7 +100,7 @@ describe('a date column that mixes formats within one table raises a loud, non-f
   });
 });
 
-describe('two distinct raw values collapsing to one canonical inside one table is flagged (P3)', () => {
+describe('two distinct raw values collapsing to one canonical inside one table is flagged (P3)', { tags: ['unit'] }, () => {
   it('NormalisationCollision_WhenTwoRawValuesCollapseToOneCanonicalInOneTable_RaisesAFlagNamingTheCanonical', () => {
     const collided = source([
       { Callsign: 'M7TEE', Product: 'Amateur Full Radio Licence', Status: 'Allocated', CreatedDate: '15/01/2019' },
@@ -125,7 +125,7 @@ describe('two distinct raw values collapsing to one canonical inside one table i
   });
 });
 
-describe('the within-table scope is enforced structurally: cross-file variation is never a defect', () => {
+describe('the within-table scope is enforced structurally: cross-file variation is never a defect', { tags: ['unit'] }, () => {
   it('NormalisationCollision_WhenTheTwoFormsAreInSeparateTables_RaisesNothing', () => {
     // The cross-file scope guard (ADR 0018). Source A uses the short form, source
     // B the long form - the legitimate open-data-vs-FOI drift. Each pass sees ONE
@@ -154,7 +154,7 @@ describe('the within-table scope is enforced structurally: cross-file variation 
   });
 });
 
-describe('a raised flag reconstructs its evidence on read (composition with #433)', () => {
+describe('a raised flag reconstructs its evidence on read (composition with #433)', { tags: ['unit'] }, () => {
   it('ExplainColumnFlag_WhenGivenADateMixingFlag_ReproducesTheFindingWithEvidence', () => {
     const mixed = source([
       { Callsign: 'M7TEE', Product: 'Full', Status: 'Allocated', CreatedDate: '15/01/2019' },

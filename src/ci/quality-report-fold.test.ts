@@ -70,7 +70,7 @@ function writeLedger(sources: SourceObservationSet[]): string {
   return dir;
 }
 
-describe.skipIf(!duckDbAvailable())('prefix-series distribution fold — fixture ledger', () => {
+describe.skipIf(!duckDbAvailable())('prefix-series distribution fold — fixture ledger', { tags: ['unit'] }, () => {
   it('PrefixFold_ParsedVisitorAndBlankRows_LandEachRecordInExactlyOneRowRecoveringTheEmptyBucket', () => {
     // A Foundation M7 (parsed series), a visitor token (a status, no series), and
     // a BLANK callsign (the T1 tier emits no parse_status for it). Every record
@@ -111,7 +111,7 @@ describe.skipIf(!duckDbAvailable())('prefix-series distribution fold — fixture
   });
 });
 
-describe.skipIf(!duckDbAvailable())('class-product-mismatch fold — fixture ledger', () => {
+describe.skipIf(!duckDbAvailable())('class-product-mismatch fold — fixture ledger', { tags: ['unit'] }, () => {
   it('MismatchFold_FlaggedRow_CarriesCallsignSeriesImpliedClassAndRawProduct', () => {
     // A Foundation M7 sold under a Full product raises class-product-mismatch;
     // the fold surfaces the callsign, its resolved series/class and the RAW
@@ -150,7 +150,7 @@ describe.skipIf(!duckDbAvailable())('class-product-mismatch fold — fixture led
   });
 });
 
-describe.skipIf(!duckDbAvailable())('regional-identifier distribution fold — fixture ledger', () => {
+describe.skipIf(!duckDbAvailable())('regional-identifier distribution fold — fixture ledger', { tags: ['unit'] }, () => {
   it('RegionalFold_CoreIntermediateAndVisitorRows_RenderCombosBareAndCoreAggregateExcludingNonParsed', () => {
     // MW7ABC → first-letter+RSL combo `MW`; 20DLQ → bare `20` (RSL-less
     // intermediate); 2E0XYZ → digit-led `2E`; M7TEE → RSL-less G/M core
@@ -197,7 +197,7 @@ describe.skipIf(!duckDbAvailable())('regional-identifier distribution fold — f
   });
 });
 
-describe.skipIf(!duckDbAvailable())('callsign-pattern series fold — fixture ledger', () => {
+describe.skipIf(!duckDbAvailable())('callsign-pattern series fold — fixture ledger', { tags: ['unit'] }, () => {
   it('PatternSeriesFold_NonEmptyAndBlankRows_CountShapesRecoveringTheEmptyBucket', () => {
     // Two ANAAA cores, one visitor A/ANAAA, and a BLANK callsign (the tier emits
     // no callsign-pattern claim for it). Each shape is counted, and the blank is
@@ -360,7 +360,7 @@ function parseCommittedPatternsRaw(): Map<string, Map<string, number>> {
   return byPattern;
 }
 
-describe('quality reports — ledger vs legacy equivalence oracle', () => {
+describe('quality reports — ledger vs legacy equivalence oracle', { tags: ['data-validity'] }, () => {
   // Always-on: recompute the legacy figures live over the real archive (no
   // DuckDB) and read the committed folded goldens. Any drift in either path —
   // beyond a regenerated golden — trips here.
@@ -474,7 +474,7 @@ describe('quality reports — ledger vs legacy equivalence oracle', () => {
 // must reproduce the committed goldens byte-for-byte — the proof the FOLD (not a
 // legacy recompute) produces the numbers, so the reports can retire the legacy
 // path.
-describe.skipIf(!duckDbAvailable())('quality reports — real-archive fold retirement gate', () => {
+describe.skipIf(!duckDbAvailable())('quality reports — real-archive fold retirement gate', { tags: ['data-validity'] }, () => {
   let fold: ReturnType<typeof buildQualityReportFold>;
   beforeAll(() => {
     fold = buildQualityReportFold();

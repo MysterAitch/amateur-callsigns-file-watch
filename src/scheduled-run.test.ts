@@ -5,7 +5,7 @@ import { shouldRunNow, shouldNotifyDrift, shouldNotifyGitFailure } from './sched
 // scheduled-run decision function is pure - state and a Date in, decision out -
 // so it's exhaustively testable without any environment setup.
 
-describe('shouldRunNow', () => {
+describe('shouldRunNow', { tags: ['unit'] }, () => {
   const emptyState = { consecutiveFailures: 0 };
 
   describe('scheduled-window boundaries', () => {
@@ -112,7 +112,7 @@ describe('shouldRunNow', () => {
   });
 });
 
-describe('shouldNotifyDrift', () => {
+describe('shouldNotifyDrift', { tags: ['unit'] }, () => {
   const NOW = new Date('2026-07-06T12:00:00Z');
   const drift = { drifted: true, fingerprint: 'abc123', summary: 'foo.service' };
 
@@ -165,7 +165,7 @@ describe('shouldNotifyDrift', () => {
   });
 });
 
-describe('shouldNotifyGitFailure', () => {
+describe('shouldNotifyGitFailure', { tags: ['unit'] }, () => {
   const NOW = new Date('2026-07-06T12:00:00Z');
   const FP = 'a1b2c3d4e5f6';
 

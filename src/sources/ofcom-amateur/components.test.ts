@@ -15,7 +15,7 @@ function parsed(callsign: string, product = 'Amateur Foundation Radio Licence') 
   return parseCallsign(callsign, product, REF);
 }
 
-describe('parseCallsign', () => {
+describe('parseCallsign', { tags: ['unit'] }, () => {
   it('Parse_WhenStandardFoundationCallsign_SplitsComponentsAndImpliesClass', () => {
     const r = parsed('M7TEE');
     expect(r).toMatchObject({
@@ -388,7 +388,7 @@ describe('parseCallsign', () => {
   });
 });
 
-describe('componentsFlagsForRows', () => {
+describe('componentsFlagsForRows', { tags: ['unit'] }, () => {
   it('CrossRowFlags_WhenStrippedFormCoexists_FlaggedStrippedCollision', () => {
     // Confirmed double-listings: the junk-stripped form of an anomalous
     // value also exists as its own row.
@@ -404,7 +404,7 @@ describe('componentsFlagsForRows', () => {
   });
 });
 
-describe('reference data loading', () => {
+describe('reference data loading', { tags: ['unit'] }, () => {
   it('ReferenceData_LoadsFromRepoRootRegardlessOfCwd', () => {
     expect(REF.rslLetters.has('W')).toBe(true);
     expect(REF.prefixSeries.get('M7')?.stationLevel).toBe('Foundation');
@@ -425,7 +425,7 @@ describe('reference data loading', () => {
   });
 });
 
-describe('forbidden-suffix reference data vs disclosures', () => {
+describe('forbidden-suffix reference data vs disclosures', { tags: ['unit'] }, () => {
   // The curated reference-data/forbidden-suffixes.csv is derived one-time from
   // the forbidden-list disclosures held. This guard fails loudly if it ever
   // drifts from those disclosures: the ever-forbidden union and each suffix's
@@ -445,7 +445,7 @@ describe('forbidden-suffix reference data vs disclosures', () => {
   });
 });
 
-describe('normaliseLicenceCategory', () => {
+describe('normaliseLicenceCategory', { tags: ['unit'] }, () => {
   it('LicenceCategory_WhenSourceVintagesDiffer_CollapseToOneCategory', () => {
     // The same class written differently by source vintage maps to one
     // canonical category (the vocabulary-drift collapse).
@@ -475,7 +475,7 @@ describe('normaliseLicenceCategory', () => {
   });
 });
 
-describe('schema constants', () => {
+describe('schema constants', { tags: ['unit'] }, () => {
   it('ComponentColumns_StableContract', () => {
     expect(COMPONENT_COLUMNS).toEqual(['callsign', 'cleaned', 'parse_status', 'prefix_series', 'rsl', 'suffix', 'placeholder_form', 'home_callsign', 'implied_class', 'flags']);
     expect(COMPONENTS_SCHEMA_VERSION).toBe(5);

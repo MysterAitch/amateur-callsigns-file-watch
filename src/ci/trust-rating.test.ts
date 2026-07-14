@@ -44,7 +44,7 @@ function representativeLedger(): Claim[] {
   return [...emitLedger(foiSource, REF), ...emitLedger(openSource, REF)];
 }
 
-describe('trust-rating archive authority gate', () => {
+describe('trust-rating archive authority gate', { tags: ['data-validity'] }, () => {
   it('EveryArchiveEntry_WhenClassified_ResolvesToExactlyOneAuthority', () => {
     // Totality: no open-data or FOI entry is left unclassified, and none
     // trips the lane/sourceKey inflation guard.
@@ -58,7 +58,7 @@ describe('trust-rating archive authority gate', () => {
   });
 });
 
-describe('trust-rating claim no-inflation invariant', () => {
+describe('trust-rating claim no-inflation invariant', { tags: ['data-validity'] }, () => {
   it('RepresentativeLedger_WhenBuiltFromRealSources_CarriesEveryClaimShapeAndPasses', () => {
     const ledger = representativeLedger();
 

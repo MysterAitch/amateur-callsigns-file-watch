@@ -23,7 +23,7 @@ const ITU = [
   { series: 'PTA - PTZ', allocated_to: 'Brazil (Federative Republic of)' },
 ];
 
-describe('stripVisitorPrefix', () => {
+describe('stripVisitorPrefix', { tags: ['ui'] }, () => {
   it('StripVisitorPrefix_WhenPlainMPrefix_RemovesIt', () => {
     expect(stripVisitorPrefix('M/EI8DJ')).toBe('EI8DJ');
   });
@@ -44,7 +44,7 @@ describe('stripVisitorPrefix', () => {
   });
 });
 
-describe('parseSeries', () => {
+describe('parseSeries', { tags: ['ui'] }, () => {
   it('ParseSeries_WhenRangeCell_SplitsStartAndEnd', () => {
     expect(parseSeries('EIA - EIZ')).toEqual({ start: 'EIA', end: 'EIZ' });
   });
@@ -53,7 +53,7 @@ describe('parseSeries', () => {
   });
 });
 
-describe('countryForCallsign', () => {
+describe('countryForCallsign', { tags: ['ui'] }, () => {
   it('VisitorCallsign_WhenIrishHomeCall_ResolvesToIreland', () => {
     // The worked example: M/EI8DJ -> EI8DJ -> EI block -> Ireland.
     const r = countryForCallsign('M/EI8DJ', ITU);
@@ -135,7 +135,7 @@ describe('countryForCallsign', () => {
   });
 });
 
-describe('countryForCallsign — RSL placeholder and hash artifact', () => {
+describe('countryForCallsign — RSL placeholder and hash artifact', { tags: ['ui'] }, () => {
   it('CanonicalPlaceholderPrefix_WhenHashBeforeSlash_ResolvesWithNoArtifact', () => {
     // M#/ is the ITU-canonical visitor placeholder (ADR 0005): the '#' is part
     // of the prefix and strips cleanly, leaving no artifact.

@@ -83,7 +83,7 @@ afterEach(() => {
 // absent - a fresh worktree that has not run `npm run setup:duckdb` - these
 // cases skip rather than fail with a cryptic ENOENT. The pure mdCell cases below
 // carry no such dependency and always run.
-describe.skipIf(!duckDbAvailable())('runNormaliseSweep', () => {
+describe.skipIf(!duckDbAvailable())('runNormaliseSweep', { tags: ['data-validity'] }, () => {
   it('Sweep_WhenEntryHasNoNormalisedFile_CreatesItAndDeclaresInMeta', () => {
     writeEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
     const report = runNormaliseSweep();
@@ -782,7 +782,7 @@ describe.skipIf(!duckDbAvailable())('runNormaliseSweep', () => {
 
 // mdCell is a pure markdown table-cell sanitiser with no DuckDB dependency, so
 // it runs regardless of whether the CLI is installed.
-describe('mdCell', () => {
+describe('mdCell', { tags: ['unit'] }, () => {
   it('MdCell_WhenTextExceedsLimit_TruncatedWithoutDanglingEscapeArtefacts', () => {
     // Truncation must happen BEFORE escaping: slicing escaped output can
     // bisect a two-character escape and leave a lone trailing backslash that

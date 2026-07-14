@@ -65,7 +65,7 @@ function shardResolved(resolved: readonly ResolvedLedgerSource[]): ResolvedLedge
 
 // ---- Cosmetic normaliser: ignore the declared axes, nothing more ------------
 
-describe('the cosmetic normaliser ignores exactly the declared axes', () => {
+describe('the cosmetic normaliser ignores exactly the declared axes', { tags: ['unit'] }, () => {
   it('CsvText_WhenDifferingOnlyByBomLineEndingsQuotingAndTrailingNewline_CanonicaliseEqual', () => {
     const crlf = 'Value,Status\r\nM7TEE,Allocated\r\n';
     const withBom = '﻿Value,Status\nM7TEE,Allocated';
@@ -105,7 +105,7 @@ function tinySource(): SourceObservationSet {
   };
 }
 
-describe('a source reconstructs from its claim stream alone', () => {
+describe('a source reconstructs from its claim stream alone', { tags: ['unit'] }, () => {
   it('SyntheticSource_WhenReconstructedFromClaims_MatchesTheOriginalModuloCosmetics', () => {
     const source = tinySource();
     const original = 'Status,Call Sign,Note\nAllocated,M7TEE,"has, comma"\nReserved,G0ABC,\n';
@@ -168,7 +168,7 @@ function loadByEntry(resolved: readonly ResolvedLedgerSource[], entry: string, s
   return picked.load();
 }
 
-describe('CSV-lane sources reconstruct byte-identically modulo cosmetics from the real archive', () => {
+describe('CSV-lane sources reconstruct byte-identically modulo cosmetics from the real archive', { tags: ['data-validity'] }, () => {
   it('OpenDataRawSource_WhenReconstructedFromClaims_MatchesOriginalModuloCosmetics', () => {
     // The strongest lane: parseRawRegister's line-accounting invariant rules out
     // multiline cells, so the CSV serialiser has no undetectable hazard. The
@@ -247,7 +247,7 @@ describe('CSV-lane sources reconstruct byte-identically modulo cosmetics from th
 
 // ---- Phase 3 shapes: verbatim-CSV (preamble / prefixed) round-trip ----------
 
-describe('FOI preamble and prefixed CSV sheets reconstruct from claims (issue #434 E3)', () => {
+describe('FOI preamble and prefixed CSV sheets reconstruct from claims (issue #434 E3)', { tags: ['data-validity'] }, () => {
   it('PrefixedSuffixList_WhenReconstructedFromClaims_MatchesOriginalWithRawSuffixAsSubject', () => {
     // A 2013-style suffix list: a single-column CSV whose header is the sheet's
     // own 'Foundation = M6aaa' label and whose rows are bare suffixes. The raw
@@ -323,7 +323,7 @@ describe('FOI preamble and prefixed CSV sheets reconstruct from claims (issue #4
 
 // ---- Phase 3 shapes: markdown-table (table region only) round-trip ----------
 
-describe('FOI markdown-table transcriptions reconstruct their table region (issue #434 E3/E4)', () => {
+describe('FOI markdown-table transcriptions reconstruct their table region (issue #434 E3/E4)', { tags: ['data-validity'] }, () => {
   it('MarkdownTableSource_WhenReconstructedFromClaims_MatchesTableRegionModuloPadding', () => {
     // The counts table (wdtk-184767): right-aligned separator (|---:|) and
     // padded cells in the original; the reconstruction compares the canonical
@@ -387,7 +387,7 @@ describe('FOI markdown-table transcriptions reconstruct their table region (issu
 
 // ---- Coverage bookkeeping ---------------------------------------------------
 
-describe('the oracle declares its coverage and any residual gaps explicitly', () => {
+describe('the oracle declares its coverage and any residual gaps explicitly', { tags: ['unit'] }, () => {
   it('CoveredFamilies_WhenListed_AreTheThreeCsvLanesPlusTheTwoPhase3Mirrors', () => {
     expect([...COVERED_FAMILIES].sort()).toEqual([
       'attribute-addendum', 'foi-markdown-table', 'foi-register', 'foi-verbatim-csv', 'open-data-register',

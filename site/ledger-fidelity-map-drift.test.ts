@@ -106,7 +106,7 @@ function claimsWithParseStatus(status: string): Row[] {
 }
 const glossText = (segments: unknown): string => segmentsText(segments as never);
 
-describe('fidelity-map drift guard — flags (#465)', () => {
+describe('fidelity-map drift guard — flags (#465)', { tags: ['ui'] }, () => {
   const registry = flagsFromRegistry();
   const parser = flagsFromParser();
   const emitted = [...new Set([...registry, ...parser])].sort();
@@ -144,7 +144,7 @@ describe('fidelity-map drift guard — flags (#465)', () => {
   });
 });
 
-describe('fidelity-map drift guard — rules (#465)', () => {
+describe('fidelity-map drift guard — rules (#465)', { tags: ['ui'] }, () => {
   it('EveryEmittedRule_HasASiteGloss_SoNoWorkingShowsABareRuleName', () => {
     const missing = EMITTED_RULES.filter(rule => !Object.prototype.hasOwnProperty.call(RULE_GLOSSES, rule));
     expect(missing, `rules emitted by the ledger but absent from RULE_GLOSSES: ${missing.join(', ')}`).toEqual([]);
@@ -180,7 +180,7 @@ describe('fidelity-map drift guard — rules (#465)', () => {
   });
 });
 
-describe('fidelity-map drift guard — parse statuses (#465)', () => {
+describe('fidelity-map drift guard — parse statuses (#465)', { tags: ['ui'] }, () => {
   const emitted = parseStatusesFromParser();
 
   it('EveryNotableStatus_IsARealEmittedStatus', () => {

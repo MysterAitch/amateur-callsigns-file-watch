@@ -65,7 +65,7 @@ function multisetsEqual(a: Map<string, number>, b: Map<string, number>): boolean
   return true;
 }
 
-describe('the forbidden-list family covers exactly the classed disclosures', () => {
+describe('the forbidden-list family covers exactly the classed disclosures', { tags: ['data-validity'] }, () => {
   it('ForbiddenListFamily_WhenCollected_CoversTheFourForbiddenClassedDisclosures', () => {
     const sources = collectForbiddenListSources(FOI_DIR);
 
@@ -102,7 +102,7 @@ describe('the forbidden-list family covers exactly the classed disclosures', () 
   });
 });
 
-describe('forbidden-suffix claims are raw-only and carry their tokens verbatim', () => {
+describe('forbidden-suffix claims are raw-only and carry their tokens verbatim', { tags: ['data-validity'] }, () => {
   it('ForbiddenSuffixClaims_WhenDatedDisclosureEmitted_ListEachSuffixAndCarryLastModifiedDateVerbatim', () => {
     const meta = readFoiEntryMeta(FOI_DIR, STANDALONE_DATED_ENTRY);
     const source = forbiddenSourcesFor(meta)[0];
@@ -173,7 +173,7 @@ describe('forbidden-suffix claims are raw-only and carry their tokens verbatim',
   });
 });
 
-describe('the forbidden-list family builds through buildLedger with no callsign edge on any suffix', () => {
+describe('the forbidden-list family builds through buildLedger with no callsign edge on any suffix', { tags: ['data-validity'] }, () => {
   let outputDir: string;
 
   beforeAll(() => {

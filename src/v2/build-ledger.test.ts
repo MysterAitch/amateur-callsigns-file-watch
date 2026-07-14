@@ -82,7 +82,7 @@ const ROUND_TRIP_ENTRIES = [
   { entry: 'ofcom-2016-09-20--callsign-database--all-callsigns', label: 'SparseTwoColumnSnapshot' },
 ];
 
-describe('raw->claims->normalised round-trip on real register snapshots', () => {
+describe('raw->claims->normalised round-trip on real register snapshots', { tags: ['data-validity'] }, () => {
   for (const { entry, label } of ROUND_TRIP_ENTRIES) {
     it(`NormalisedTable_When${label}_IsRecoverableFromRawKeyedLedger`, () => {
       const meta = readFoiEntryMeta(FOI_DIR, entry);
@@ -151,7 +151,7 @@ function readArchiveMetaSync(key: string): ArchiveMeta {
   return JSON.parse(fs.readFileSync(path.join(ARCHIVE_DIR, key, 'meta.json'), 'utf8')) as ArchiveMeta;
 }
 
-describe('raw->claims->normalised round-trip on real open-data register publications', () => {
+describe('raw->claims->normalised round-trip on real open-data register publications', { tags: ['data-validity'] }, () => {
   for (const { key, label } of OPEN_DATA_ROUND_TRIP_ENTRIES) {
     it(`NormalisedTable_When${label}_IsRecoverableFromRawKeyedLedger`, () => {
       const meta = readArchiveMetaSync(key);
@@ -226,7 +226,7 @@ const ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES = [
   { entry: 'ofcom-756622--published-register-csv', label: 'PublishedRegisterWithIssueDates' },
 ];
 
-describe('raw->claims->normalised round-trip on real attribute-addendum entries', () => {
+describe('raw->claims->normalised round-trip on real attribute-addendum entries', { tags: ['data-validity'] }, () => {
   for (const { entry, label } of ATTRIBUTE_ADDENDUM_ROUND_TRIP_ENTRIES) {
     it(`NormalisedTable_When${label}_IsRecoverableFromRawKeyedLedger`, () => {
       const meta = readFoiEntryMeta(FOI_DIR, entry);
@@ -303,7 +303,7 @@ describe('raw->claims->normalised round-trip on real attribute-addendum entries'
   });
 });
 
-describe('raw-keyed fidelity the normalised store discards (G0TQK)', () => {
+describe('raw-keyed fidelity the normalised store discards (G0TQK)', { tags: ['data-validity'] }, () => {
   it('RawCallsignTokens_WhenNbspTwinInSource_YieldTwoObservationsBothNormalisingToOneEntity', () => {
     // The 2022-03 register lists the entity G0TQK under two DISTINCT raw tokens
     // - "G0TQK" and "G0TQK" with a trailing non-breaking space - one Allocated,
@@ -347,7 +347,7 @@ describe('raw-keyed fidelity the normalised store discards (G0TQK)', () => {
   });
 });
 
-describe('corpus scale sanity', () => {
+describe('corpus scale sanity', { tags: ['data-validity'] }, () => {
   // The whole-archive ledger build is this file's heavy work (millions of claims
   // across every source family). Its inputs - the committed archive,
   // reference-data and the emit-path closure - change on few PRs, so CI caches the

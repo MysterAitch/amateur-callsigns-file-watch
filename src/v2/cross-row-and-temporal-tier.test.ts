@@ -78,7 +78,7 @@ function hasTemporalFlag(claims: readonly Claim[], rawSubject: string): boolean 
     && c.object === 'forbidden-suffix-issued-after-first-known-list');
 }
 
-describe('stripped-collision tier — within-source cross-row equivalence to componentsFlagsForRows', () => {
+describe('stripped-collision tier — within-source cross-row equivalence to componentsFlagsForRows', { tags: ['unit'] }, () => {
   it('StrippedCollision_WhenJunkTokenTwinPresent_FlagsTheJunkRowNotTheCleanRow', () => {
     // The documented double-listing: G0TQK and its trailing-NBSP twin both
     // appear. The junk-bearing row flags (its NBSP-stripped form is the clean
@@ -166,7 +166,7 @@ describe('stripped-collision tier — within-source cross-row equivalence to com
   });
 });
 
-describe('temporal tier — forbidden-suffix-issued-after-first-known-list rides the wired original-start-date', () => {
+describe('temporal tier — forbidden-suffix-issued-after-first-known-list rides the wired original-start-date', { tags: ['data-validity'] }, () => {
   const columns = [SUBJECT, PRODUCT, START_DATE];
 
   function withStartDate(rows: readonly Record<string, string>[]): SourceObservationSet {
@@ -285,7 +285,7 @@ describe('temporal tier — forbidden-suffix-issued-after-first-known-list rides
   }, 120_000);
 });
 
-describe('both new tiers — the no-inflation invariant (ADR 0014)', () => {
+describe('both new tiers — the no-inflation invariant (ADR 0014)', { tags: ['unit'] }, () => {
   it('ExtendedLedger_WhenCarryingBothNewFlags_PassesTheTrustRatingNoInflationCheck', () => {
     // A fixture that genuinely raises BOTH new flags, so a green result is
     // meaningful: a collision pair plus a post-list forbidden-suffix issue.
@@ -307,7 +307,7 @@ describe('both new tiers — the no-inflation invariant (ADR 0014)', () => {
   });
 });
 
-describe('both new tiers — compact-DB parity', () => {
+describe('both new tiers — compact-DB parity', { tags: ['unit'] }, () => {
   it('CompactClaimsView_WhenLedgerHasBothNewFlags_ReconstructsThemIdenticallyToFatTable', () => {
     // Both flags are ordinary derived flag claims, so they land as derived_attr
     // rows and reconstruct through the VIEW. Parity asserts the fat table and

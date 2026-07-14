@@ -17,7 +17,7 @@ function readRegisterMeta(key: string): ArchiveMeta {
   return JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'archive', key, 'meta.json'), 'utf8')) as ArchiveMeta;
 }
 
-describe('the 2025-06-04 coverage-affecting defect (acceptance criteria D1 / D3)', () => {
+describe('the 2025-06-04 coverage-affecting defect (acceptance criteria D1 / D3)', { tags: ['data-validity'] }, () => {
   const meta = readRegisterMeta('2025-06-04');
 
   it('Coverage_WhenBlankProductRecordsSilentlyDropped_IntentRemainsDeclaredComplete', () => {
@@ -38,7 +38,7 @@ describe('the 2025-06-04 coverage-affecting defect (acceptance criteria D1 / D3)
   });
 });
 
-describe('declared-partial register publications (acceptance criteria D1 / D2)', () => {
+describe('declared-partial register publications (acceptance criteria D1 / D2)', { tags: ['data-validity'] }, () => {
   it('Coverage_WhenTruncatedPublication_DeclaredPartialWithScopeNotes', () => {
     // The two truncated 1,074-row publications are knowingly partial: their
     // missing rows are scope, not revocations, and scopeNotes says what the
@@ -51,7 +51,7 @@ describe('declared-partial register publications (acceptance criteria D1 / D2)',
   });
 });
 
-describe('FOI dataset-recovery states (acceptance criterion C5 / D-appendix)', () => {
+describe('FOI dataset-recovery states (acceptance criterion C5 / D-appendix)', { tags: ['data-validity'] }, () => {
   const foiDir = path.join(REPO_ROOT, 'archive', 'foi');
 
   function foiMetaFor(prefix: string) {

@@ -37,26 +37,47 @@ low-fidelity guards fail fast and gate the realistic-data tiers.
   tags dissolve the conflation: the fixture `describe` gets `unit`, the real-archive `describe`
   gets `data-validity`.
 
-## Applied so far (first cut)
+## Applied (issues #336 / #398)
 
-The **20 files with a single top-level `describe`** are tagged now, inline on that describe — the
-obvious, clean cases (mostly `unit`). The remaining **71 files have 2–26 sibling top-level
-`describe`s** (median 3), so tagging each one accurately is per-`describe` work that belongs to the
-**deep-dive split**, where every describe's kind is decided anyway. Tagging them now would be
-coarse repetition; deferring keeps each tag honest.
+Every `*.test.ts` is now tagged **per top-level `describe`**, classified by kind:
 
-Rough proportions (89 files; runtime from the pre-split baseline): `unit` ~48% of files / ~1% of
-time; `ui` ~18% / ~0%; `data-validity`-bearing (incl. the dual-tagged) ~34% of files / **~99% of
-the runtime**. The whole cost is in the real-archive tests.
+- **GUARD (`unit`)** — pure/fixture guards over small inputs: most of `src/shared`, `src/sources`,
+  `src/scheduled-run.*`, `src/tools`, the `src/v2` emit/tier tests, and the pure `src/ci`
+  render/structure tests. Inside a mixed file, the fixture-fold `describe`s (e.g. the
+  "controlled ledger" folds) carry `unit` while their real-archive siblings carry `data-validity`.
+- **GUARD (`ui`)** — the `site/**` browser tests (jsdom and the DOM-free browser helpers).
+- **VALIDATION (`data-validity`)** — whole-corpus / DuckDB-fold / deploy-artefact-building tests:
+  the `heavy-tests.json` files, plus the cheap-but-full-corpus ones that stay in the fast pool
+  (`forbidden-suffix-history`, `trust-rating`, `cross-dataset-invariants`'s real-archive fold, the
+  collector families, the `src/acceptance` suite).
+
+A file that mixes kinds carries **both** across its sibling `describe`s — the fixture `describe`
+gets `unit`, the real-archive `describe` gets `data-validity`. A meta-test,
+`src/testing/test-taxonomy.test.ts`, pins the invariants (every file tagged, every heavy file a
+data validation, the lane union covering every file) so a future validation cannot be silently
+mis-tiered.
+
+The whole runtime cost still sits in the `data-validity` real-archive tests; `unit` + `ui` are the
+millisecond guard lane, run locally by `npm run test:unit` (the `fast` project filtered to
+`unit || ui`).
+
+### The one exemption
+
+`src/ci/build-dataset-pages.test.ts` is intentionally left untagged while a separate change owns it;
+the self-check encodes that exemption explicitly (`UNTAGGED_EXEMPT`). Tagging it is a tracked
+follow-up.
 
 ## Open items
 
-- **`acceptance/`** — the repo already has an `acceptance/` suite (`callsign-normalisation`,
-  `coverage-semantics`, `edge-cases`, `forbidden-union`, `invariants-and-vocabularies`,
-  `licence-vocabulary`). It's a natural higher-environment tier; formalise an `acceptance` tag when
-  the split reaches it, rather than folding it into `data-validity`.
-- **Equivalence / migration oracles** (`reconstruction-oracle`, the fold-equivalence tests) need
+- **`acceptance/`** — the `acceptance/` suite validates the real pipeline/reference data against
+  acceptance criteria, so it is tagged **`data-validity`** for now (its definition fits, and it
+  belongs above the local guard lane). A distinct `acceptance` tag is deferred until there is a
+  concrete lane that treats it separately — introducing a fourth tag now would only add a
+  vocabulary the local lane does not consume.
+- **Equivalence / migration oracles** (`reconstruction-oracle`, the fold-equivalence oracles) need
   the full dataset but guard *code* (equivalence), not data quality — they straddle the tiers.
-  Left as `data-validity` for now (unresolved).
-- **Wiring the lanes** — a later CI change runs `--tags-filter` to gate `full-data` behind `local`
-  (like the `heavy-tests.json` fan-out). Not wired yet; these tags are labels-first.
+  Their real-archive `describe`s are `data-validity`; their fixture-fold `describe`s are `unit`.
+- **Wiring the CI lanes** — the local `test:unit` lane exists (step 3). A later CI change (step 4)
+  runs `--tagsFilter` to gate `full-data` behind `local`, and step 5 extends the input-closure
+  cache; both are measure-first follow-ups on the fan-out (#478) and are **not** part of this
+  labelling pass.

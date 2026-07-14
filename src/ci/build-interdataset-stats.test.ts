@@ -25,7 +25,7 @@ afterAll(() => {
   fs.rmSync(outputDir, { recursive: true, force: true });
 });
 
-describe('Inter-dataset statistics — blank-product join (the lead statistic)', () => {
+describe('Inter-dataset statistics — blank-product join (the lead statistic)', { tags: ['data-validity'] }, () => {
   it('BlankProductTable_RealArchive_ReproducesThePerPublicationCounts', () => {
     const page = read();
     // The figures from the issue table, reproduced from the committed data
@@ -59,7 +59,7 @@ describe('Inter-dataset statistics — blank-product join (the lead statistic)',
   });
 });
 
-describe('Inter-dataset statistics — declared-partial publications', () => {
+describe('Inter-dataset statistics — declared-partial publications', { tags: ['data-validity'] }, () => {
   it('PartialPublications_InEveryTable_AreFlaggedSoZerosReadAsIncomplete', () => {
     const page = read();
     // The two declared-partial exports (1,074 rows) are marked so their zeros
@@ -81,7 +81,7 @@ describe('Inter-dataset statistics — declared-partial publications', () => {
   });
 });
 
-describe('Inter-dataset statistics — the other cross-publication comparisons', () => {
+describe('Inter-dataset statistics — the other cross-publication comparisons', { tags: ['data-validity'] }, () => {
   it('FlagEvolution_RealArchive_RendersAFlagByPublicationMatrixWithAbsenceMarked', () => {
     const page = read();
     expect(page).toContain('<h2 id="flags">Data-quality flag evolution</h2>');
@@ -119,7 +119,7 @@ describe('Inter-dataset statistics — the other cross-publication comparisons',
   });
 });
 
-describe('Inter-dataset statistics — static, discoverable, accessible', () => {
+describe('Inter-dataset statistics — static, discoverable, accessible', { tags: ['data-validity'] }, () => {
   it('Page_HasNoScripts_SoArchivedCapturesAreComplete', () => {
     const page = read();
     expect(page).not.toContain('<script');

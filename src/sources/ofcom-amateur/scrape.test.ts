@@ -5,7 +5,7 @@ import {
 } from './scrape.ts';
 import type { ScrapeOptions } from '../../shared/utils.ts';
 
-describe('extractVersionParam', () => {
+describe('extractVersionParam', { tags: ['unit'] }, () => {
   it('ExtractV_WhenTypicalOfcomUrl_ReturnsVValue', () => {
     const url = 'https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list.csv?v=419818';
     expect(extractVersionParam(url)).toBe('419818');
@@ -26,7 +26,7 @@ describe('extractVersionParam', () => {
   });
 });
 
-describe('decideVersionCheckPath', () => {
+describe('decideVersionCheckPath', { tags: ['unit'] }, () => {
   const NOW = new Date('2026-07-05T12:00:00Z');
 
   describe('no prior state', () => {

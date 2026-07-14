@@ -17,7 +17,7 @@ interface LookupWindow { __lookupReadyTimer?: ReturnType<typeof setTimeout>; }
 function readyWindow(): LookupWindow { return window as unknown as LookupWindow; }
 const warning = (): HTMLElement | null => document.getElementById('startup-warning');
 
-describe('startup warning behaviour', () => {
+describe('startup warning behaviour', { tags: ['ui'] }, () => {
   beforeEach(() => {
     vi.useFakeTimers();
     document.body.innerHTML = '<div id="startup-warning" hidden></div>';
@@ -48,7 +48,7 @@ describe('startup warning behaviour', () => {
   });
 });
 
-describe('startup warning wiring', () => {
+describe('startup warning wiring', { tags: ['ui'] }, () => {
   const index = fs.readFileSync(path.join('site', 'index.html'), 'utf8');
   const app = fs.readFileSync(path.join('site', 'app.js'), 'utf8');
 

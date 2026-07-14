@@ -47,7 +47,7 @@ function awkwardSource(): SourceObservationSet {
   };
 }
 
-describe('the file-level manifest attests the verbatim as-published structure', () => {
+describe('the file-level manifest attests the verbatim as-published structure', { tags: ['unit'] }, () => {
   it('FileManifest_WhenEmitted_AttestsEveryColumnVerbatimInSourceOrder', () => {
     const source = awkwardSource();
     const manifest = emitFileManifestClaims(source);
@@ -99,7 +99,7 @@ describe('the file-level manifest attests the verbatim as-published structure', 
   });
 });
 
-describe('file-level claims never pollute the observation folds', () => {
+describe('file-level claims never pollute the observation folds', { tags: ['unit'] }, () => {
   it('ObservationClaims_WhenEmitted_NeverCarryTheFileLevelSentinel', () => {
     // The per-row emit and the file-level emit are disjoint by ordinal: no
     // observation is ever mistaken for file-level, so the existence fold's

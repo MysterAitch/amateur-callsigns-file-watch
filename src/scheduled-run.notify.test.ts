@@ -9,7 +9,7 @@ import { lxcServiceCommand, summariseGitError } from './scheduled-run.ts';
 // the suggested command ran git in the wrong directory, and the message
 // surfaced a benign warning instead of the real cause.
 
-describe('lxcServiceCommand', () => {
+describe('lxcServiceCommand', { tags: ['unit'] }, () => {
   it('LxcServiceCommand_WhenBuildingInvestigationCommand_PutsCdInsideLoginShell', () => {
     const command = lxcServiceCommand('git status');
 
@@ -30,7 +30,7 @@ describe('lxcServiceCommand', () => {
   });
 });
 
-describe('summariseGitError', () => {
+describe('summariseGitError', { tags: ['unit'] }, () => {
   it('SummariseGitError_WhenStderrLeadsWithWarnings_SurfacesTheFatalLine', () => {
     // The exact shape of the 2026-07-10 race: git prints the warning first,
     // then the real reason. The alert must show the reason, not the warning.

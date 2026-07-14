@@ -62,7 +62,7 @@ afterAll(() => {
   fs.rmSync(workDir, { recursive: true, force: true });
 });
 
-describe('compact claim-ledger schema', () => {
+describe('compact claim-ledger schema', { tags: ['data-validity'] }, () => {
   it('Schema_WhenBuilt_NormalisesProvenanceAndReconstructsClaimsThroughAView', () => {
     const db = openDb(compactPath);
     try {
@@ -97,7 +97,7 @@ describe('compact claim-ledger schema', () => {
   });
 });
 
-describe('source position is stored on the observation and round-trips (issue #431)', () => {
+describe('source position is stored on the observation and round-trips (issue #431)', { tags: ['data-validity'] }, () => {
   it('ObservationAndSource_WhenBuilt_GainOnlyThePositionColumns', () => {
     // The golden delta: the observation table gains exactly pos_kind + pos_line
     // beside its original seven columns, and source gains exactly repo_path -
@@ -162,7 +162,7 @@ describe('source position is stored on the observation and round-trips (issue #4
   });
 });
 
-describe('parity with the fat one-row-per-claim schema', () => {
+describe('parity with the fat one-row-per-claim schema', { tags: ['data-validity'] }, () => {
   it('ClaimsView_WhenComparedToFatTable_ReturnsIdenticalMultiset', () => {
     // The strongest oracle: the compact VIEW must be a row-for-row multiset
     // match of the fat table across all ten columns. Computed entirely in SQL
@@ -212,7 +212,7 @@ describe('parity with the fat one-row-per-claim schema', () => {
   });
 });
 
-describe('the four representative queries answer identically on both schemas', () => {
+describe('the four representative queries answer identically on both schemas', { tags: ['data-validity'] }, () => {
   // Each representative query is run against the fat table and the compact VIEW
   // and the result sets must match exactly - the contract that lets the compact
   // schema drop in for the fat one without touching the query layer.
@@ -259,7 +259,7 @@ describe('the four representative queries answer identically on both schemas', (
   });
 });
 
-describe('point lookups still plan onto their indexes after ANALYZE', () => {
+describe('point lookups still plan onto their indexes after ANALYZE', { tags: ['data-validity'] }, () => {
   it('QueryPlanner_AfterAnalyze_PlansPointLookupsOntoObservationIndexes', () => {
     const db = openDb(compactPath);
     try {
@@ -279,7 +279,7 @@ describe('point lookups still plan onto their indexes after ANALYZE', () => {
   });
 });
 
-describe('the compact build is smaller and answers stably', () => {
+describe('the compact build is smaller and answers stably', { tags: ['data-validity'] }, () => {
   it('OnDiskSize_WhenBuiltOnSameLedger_IsFarSmallerThanFat', () => {
     // The whole point: the same ledger, the same answers, a fraction of the
     // bytes. On the subset the fat schema is a well-documented ~230 bytes/claim;

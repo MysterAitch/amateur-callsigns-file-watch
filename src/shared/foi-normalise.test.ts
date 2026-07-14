@@ -69,7 +69,7 @@ const july2024 = conversionFor(JULY_2024_VARIANT, 'call-signs.csv');
 const oct2024 = conversionFor(OCT_2024_VARIANT, 'copy-of-callsigns-21102024.csv');
 const mar2025 = conversionFor(MAR_2025_VARIANT, 'call-signs-13mar2025.csv');
 
-describe('FOI CSV normaliser - column mapping and row order', () => {
+describe('FOI CSV normaliser - column mapping and row order', { tags: ['unit'] }, () => {
   it('FoiNormaliser_Sheet1Rows_MapToObservationSchemaSortedByCallsign', () => {
     const input = utf8BomCrlf([
       'Value,Status,Type,Reserved to Date',
@@ -153,7 +153,7 @@ describe('FOI CSV normaliser - column mapping and row order', () => {
   });
 });
 
-describe('FOI CSV normaliser - value preservation', () => {
+describe('FOI CSV normaliser - value preservation', { tags: ['unit'] }, () => {
   it('FoiNormaliser_RegisterCsvWithBlankStatus_PreservesEmptyStatus', () => {
     // Six blank statuses exist in the real 2019 register - they are data
     // (the source asserts the callsign with no status), never dropped or
@@ -258,7 +258,7 @@ describe('FOI CSV normaliser - value preservation', () => {
   });
 });
 
-describe('FOI CSV normaliser - determinism', () => {
+describe('FOI CSV normaliser - determinism', { tags: ['unit'] }, () => {
   it('FoiNormaliser_CrlfAndLfInputs_ProduceIdenticalLfOutput', () => {
     const rows = [
       'Value,Status,Type,Reserved to Date',
@@ -280,7 +280,7 @@ describe('FOI CSV normaliser - determinism', () => {
   });
 });
 
-describe('FOI CSV normaliser - header discipline', () => {
+describe('FOI CSV normaliser - header discipline', { tags: ['unit'] }, () => {
   it('FoiNormaliser_MissingExpectedHeader_ThrowsNamingTheMissingHeader', () => {
     const input = utf8BomCrlf([
       'Value,Status,Type', // 'Reserved to Date' absent
@@ -316,7 +316,7 @@ describe('FOI CSV normaliser - header discipline', () => {
   });
 });
 
-describe('FOI CSV normaliser - date handling', () => {
+describe('FOI CSV normaliser - date handling', { tags: ['unit'] }, () => {
   it('FoiNormaliser_DateColumns_ReportDayFirstEvidence', () => {
     // Day>12 values prove day-first ordering for their column; both-<=12
     // values are ambiguous alone and lean on the column's verified values.
@@ -394,7 +394,7 @@ function vspBytes(rows: string[], withBom = false): Buffer {
   return Buffer.from((withBom ? BOM : '') + rows.join('\r\n') + '\r\n', 'utf8');
 }
 
-describe('FOI CSV normaliser - value/status/product register shape (2023-24)', () => {
+describe('FOI CSV normaliser - value/status/product register shape (2023-24)', { tags: ['unit'] }, () => {
   it('FoiNormaliser_ValueStatusProductRows_MapToObservationSchemaSortedByCallsign', () => {
     const input = vspBytes([
       VSP_HEADER,
@@ -468,7 +468,7 @@ describe('FOI CSV normaliser - value/status/product register shape (2023-24)', (
   });
 });
 
-describe('FOI CSV normaliser - callsign+product+status register family', () => {
+describe('FOI CSV normaliser - callsign+product+status register family', { tags: ['unit'] }, () => {
   it('FoiNormaliser_July2024CallSignSpaceHeader_MapsToObservationSchema', () => {
     // The July-2024 export spells the callsign column 'Call sign' (with a
     // space) and the date column 'Call Sign MMSI: Last Modified Date'; the
@@ -572,7 +572,7 @@ describe('FOI CSV normaliser - callsign+product+status register family', () => {
   });
 });
 
-describe('FOI CSV normaliser - 2021 dated register annexes', () => {
+describe('FOI CSV normaliser - 2021 dated register annexes', { tags: ['unit'] }, () => {
   // The two 2021 UKGWA-captured annexes carry the register core extended with
   // typed Reserved to Date / Original Start Date / Licence Type columns. They
   // differ ONLY in the case of two headers, so each binds its own variant.
@@ -687,7 +687,7 @@ function sfBytes(rows: string[]): Buffer {
   return Buffer.from(rows.join('\r\n') + '\r\n', 'latin1');
 }
 
-describe('FOI CSV normaliser - Salesforce __c register shape (2024-04)', () => {
+describe('FOI CSV normaliser - Salesforce __c register shape (2024-04)', { tags: ['unit'] }, () => {
   it('FoiNormaliser_SalesforceCcHeader_MapsToObservationSchemaSortedByCallsign', () => {
     const input = sfBytes([
       SF_HEADER,
@@ -771,7 +771,7 @@ function sepBytes(rows: string[]): Buffer {
   return Buffer.from(BOM + rows.join('\r\n') + '\r\n', 'utf8');
 }
 
-describe('FOI CSV normaliser - widest register shape with varying Type (2024-09)', () => {
+describe('FOI CSV normaliser - widest register shape with varying Type (2024-09)', { tags: ['unit'] }, () => {
   it('FoiNormaliser_SeptemberRows_MapToObservationSchemaWithDatesSortedByCallsign', () => {
     const input = sepBytes([
       SEP_HEADER,
@@ -863,7 +863,7 @@ describe('FOI CSV normaliser - widest register shape with varying Type (2024-09)
   });
 });
 
-describe('FOI CSV normaliser - 2016-09-20 two-column database (earliest snapshot)', () => {
+describe('FOI CSV normaliser - 2016-09-20 two-column database (earliest snapshot)', { tags: ['unit'] }, () => {
   // The oldest and sparsest export held: a single worksheet of just Call Sign
   // and Status, with the forbidden values folded straight into the callsign
   // column rather than isolated in a separate suffix sheet.
@@ -928,7 +928,7 @@ describe('FOI CSV normaliser - 2016-09-20 two-column database (earliest snapshot
   });
 });
 
-describe('FOI CSV normaliser - 2025-09-11 Salesforce-flavoured register', () => {
+describe('FOI CSV normaliser - 2025-09-11 Salesforce-flavoured register', { tags: ['unit'] }, () => {
   // The sixth register shape: Salesforce object/field header names, the register
   // core extended with both a last-modified timestamp and the original-start
   // date, disclosed as a workbook so the dates arrive typed (iso-date).
@@ -992,7 +992,7 @@ describe('FOI CSV normaliser - 2025-09-11 Salesforce-flavoured register', () => 
 // Status column is genuine and per-row, carried verbatim - NOT a declared
 // attribution: what is partial is the disclosure's COVERAGE, recorded in the
 // entry meta, not any per-row status certainty.
-describe('FOI CSV normaliser - 2020 status-filtered register exports', () => {
+describe('FOI CSV normaliser - 2020 status-filtered register exports', { tags: ['unit'] }, () => {
   const allocated = conversionFor('ofcom-2020-03-26-allocated', 'raw-extract-sheet-1-allocated-callsign-as-at-260320.csv');
   const reserved = conversionFor('ofcom-2020-10-23-reserved', 'raw-extract-sheet-1-reserved-callsigns-23-10-2020.csv');
 
@@ -1100,7 +1100,7 @@ describe('FOI CSV normaliser - 2020 status-filtered register exports', () => {
   });
 });
 
-describe('FOI CSV normaliser - output naming', () => {
+describe('FOI CSV normaliser - output naming', { tags: ['unit'] }, () => {
   it('SlugifyBasename_MixedCaseSpacesAndExtension_ProducesHyphenatedLowerCaseSlug', () => {
     expect(slugifyBasename('FOI 1900117 Radio amateur licence breakdown by duration held and age sheet 1.csv'))
       .toBe('foi-1900117-radio-amateur-licence-breakdown-by-duration-held-and-age-sheet-1');
@@ -1116,7 +1116,7 @@ describe('FOI CSV normaliser - output naming', () => {
   });
 });
 
-describe('FOI entry conversion', () => {
+describe('FOI entry conversion', { tags: ['unit'] }, () => {
   it('FoiEntry_UnknownVariant_ThrowsWithClearMessage', () => {
     expect(() => convertFoiEntry('does-not-matter', 'no-such-variant')).toThrow(/no-such-variant/);
   });
@@ -1177,7 +1177,7 @@ function transfersRow(conId: string, licenceNumber: string, callsign: string, pr
   return `| ${conId} | ${licenceNumber} | ${callsign} | ${product} | Live | S40 | S40 | S40 | ${startDate} | Letter of consent provided for transfer |`;
 }
 
-describe('FOI markdown-table normaliser - parsing', () => {
+describe('FOI markdown-table normaliser - parsing', { tags: ['unit'] }, () => {
   it('FoiNormaliser_MarkdownExtractTable_MapsToAuthoredSchema', () => {
     const input = mdExtract([
       COUNTS_HEADER,
@@ -1244,7 +1244,7 @@ describe('FOI markdown-table normaliser - parsing', () => {
   });
 });
 
-describe('FOI markdown-table normaliser - counts variant (wdtk-184767)', () => {
+describe('FOI markdown-table normaliser - counts variant (wdtk-184767)', { tags: ['unit'] }, () => {
   it('FoiNormaliser_ThousandsSeparatedCounts_NormalisedToPlainIntegers', () => {
     const input = mdExtract([
       COUNTS_HEADER,
@@ -1283,7 +1283,7 @@ describe('FOI markdown-table normaliser - counts variant (wdtk-184767)', () => {
   });
 });
 
-describe('FOI markdown-table normaliser - transfers variant (wdtk-251507)', () => {
+describe('FOI markdown-table normaliser - transfers variant (wdtk-251507)', { tags: ['unit'] }, () => {
   it('FoiNormaliser_TransfersVariant_EmitsAuthoredReallocatedEvent', () => {
     // The event vocabulary is the covering letter's own word ('applications
     // where an old call sign was reallocated'), authored as a constant.
@@ -1372,7 +1372,7 @@ function extractCsv(lines: string[]): Buffer {
   return Buffer.from(lines.join('\n') + '\n', 'utf8');
 }
 
-describe('FOI workbook-extract normaliser - suffix-shaped available lists', () => {
+describe('FOI workbook-extract normaliser - suffix-shaped available lists', { tags: ['unit'] }, () => {
   it('FoiNormaliser_SuffixListVariant_ConstructsCallsignFromStatedPrefix', () => {
     // The sheet's own first row asserts the prefix rule ('Foundation =
     // M6aaa') and is matched verbatim as the header; the callsign is the
@@ -1416,7 +1416,7 @@ describe('FOI workbook-extract normaliser - suffix-shaped available lists', () =
   });
 });
 
-describe('FOI workbook-extract normaliser - typed exports', () => {
+describe('FOI workbook-extract normaliser - typed exports', { tags: ['unit'] }, () => {
   it('FoiNormaliser_TypedExportVariant_MapsByNameAndSortsByCallsign', () => {
     const input = extractCsv([
       'Country,Current Series,Reference,Value,Type,Product,Status,Allocated Flag',
@@ -1444,7 +1444,7 @@ describe('FOI workbook-extract normaliser - typed exports', () => {
   });
 });
 
-describe('FOI workbook-extract normaliser - ISO date columns', () => {
+describe('FOI workbook-extract normaliser - ISO date columns', { tags: ['unit'] }, () => {
   it('FoiNormaliser_IsoDateColumns_PassThroughDateAndDateTime', () => {
     // Extract dates were typed in the workbook - already ISO, no day-first
     // ambiguity ever existed (so no order-evidence stats are collected).
@@ -1482,7 +1482,7 @@ describe('FOI workbook-extract normaliser - ISO date columns', () => {
   });
 });
 
-describe('FOI workbook-extract normaliser - registers and events', () => {
+describe('FOI workbook-extract normaliser - registers and events', { tags: ['unit'] }, () => {
   it('FoiNormaliser_Register596532_PreservesDateAscendingSourceOrder', () => {
     const input = extractCsv([
       'Call Sign,Status,Licence Class,Licence Issued Dat',
@@ -1518,7 +1518,7 @@ const VST_01420046_VARIANT = 'ofcom-01420046-register';
 const vst2022 = conversionFor(VST_2022_VARIANT, 'raw-extract-sheet-1-report1647268967067.csv');
 const vst01420046 = conversionFor(VST_01420046_VARIANT, 'raw-extract-sheet-1-report1646659776237.csv');
 
-describe('FOI workbook-extract normaliser - Value/Status/Type register snapshots', () => {
+describe('FOI workbook-extract normaliser - Value/Status/Type register snapshots', { tags: ['unit'] }, () => {
   it('FoiNormaliser_ValueStatusTypeWorkbook_MapsToObservationSchemaAndDropsConstantType', () => {
     const input = extractCsv([
       'Value,Status,Type',
@@ -1563,7 +1563,7 @@ const VSP_WB_0818_VARIANT = 'ofcom-2023-08-18-register';
 const vspWb0125 = conversionFor(VSP_WB_0125_VARIANT, 'raw-extract-sheet-1-report1674642037414.csv');
 const vspWb0818 = conversionFor(VSP_WB_0818_VARIANT, 'raw-extract-sheet-1-call-sign-data.csv');
 
-describe('FOI workbook-extract normaliser - Value/Status/Product register snapshots (2023 workbooks)', () => {
+describe('FOI workbook-extract normaliser - Value/Status/Product register snapshots (2023 workbooks)', { tags: ['unit'] }, () => {
   it('FoiNormaliser_FourColumnWorkbookWithoutType_MapsIsoDateObservationSchema', () => {
     // The 25 January 2023 workbook has NO Type column and typed (ISO) dates;
     // no day-first order evidence is collected for an already-ISO column.
@@ -1668,7 +1668,7 @@ describe('FOI workbook-extract normaliser - Value/Status/Product register snapsh
 // Column-name governance (issue #149 Phase A): every output column of every
 // conversion must be core to a row-schema family or registered as an
 // extension - converters cannot invent near-duplicate names.
-describe('FOI schema governance', () => {
+describe('FOI schema governance', { tags: ['unit'] }, () => {
   it('FoiSchemas_EveryConversionOutputColumn_IsFamilyCoreOrRegistered', () => {
     const allowed = new Set<string>([
       ...FOI_ROW_SCHEMA_FAMILIES.flatMap(family => family.coreColumns),
@@ -1701,7 +1701,7 @@ describe('FOI schema governance', () => {
 // reproduce the committed normalised files exactly (re-run policy: outputs
 // are byte-deterministic; a diff means the logic changed and the change is
 // the review artefact).
-describe('FOI archive golden master', () => {
+describe('FOI archive golden master', { tags: ['data-validity'] }, () => {
   const repoRoot = path.resolve(import.meta.dirname, '..', '..');
   const wdtkDir = path.join(repoRoot, 'archive', 'foi', 'wdtk-1180568--licence-breakdown-duration-age');
   const ofcomDir = path.join(repoRoot, 'archive', 'foi', 'ofcom-756622--published-register-csv');

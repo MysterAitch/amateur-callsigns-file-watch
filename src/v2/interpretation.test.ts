@@ -54,7 +54,7 @@ function datedSource(): SourceObservationSet {
   };
 }
 
-describe('the interpretation object is the minimal {type, format} encoding', () => {
+describe('the interpretation object is the minimal {type, format} encoding', { tags: ['unit'] }, () => {
   it('Interpretation_WhenEncoded_IsTypeOptionallyColonFormat', () => {
     expect(encodeInterpretation({ type: 'callsign-token' })).toBe('callsign-token');
     expect(encodeInterpretation({ type: 'enumerated-category' })).toBe('enumerated-category');
@@ -73,7 +73,7 @@ describe('the interpretation object is the minimal {type, format} encoding', () 
   });
 });
 
-describe('the attestation rides the file-level manifest as a derived Looked-up claim', () => {
+describe('the attestation rides the file-level manifest as a derived Looked-up claim', { tags: ['unit'] }, () => {
   it('InterpretationClaim_WhenEmitted_IsDerivedLookedUpOnTheSentinelOrdinal', () => {
     const source = datedSource();
     const claims = emitInterpretationClaims(source);
@@ -116,7 +116,7 @@ describe('the attestation rides the file-level manifest as a derived Looked-up c
   });
 });
 
-describe('the file-level attestation grounds in its @column basis (issue #404 / #435)', () => {
+describe('the file-level attestation grounds in its @column basis (issue #404 / #435)', { tags: ['unit'] }, () => {
   it('InterpretationClaims_WhenAccompaniedByTheManifest_RaiseNoInflationViolation', () => {
     const source = datedSource();
     const stream = [...emitClaims(source), ...emitFileManifestClaims(source), ...emitInterpretationClaims(source)];
@@ -142,7 +142,7 @@ describe('the file-level attestation grounds in its @column basis (issue #404 / 
   });
 });
 
-describe('the attestation leaves the observation stream untouched', () => {
+describe('the attestation leaves the observation stream untouched', { tags: ['unit'] }, () => {
   it('ObservationStream_WhenTheAttestationIsAdded_GainsOnlyFileLevelClaims', () => {
     const source = datedSource();
     const observations = emitClaims(source);

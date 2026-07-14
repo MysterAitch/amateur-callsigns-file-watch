@@ -20,7 +20,7 @@ const ROWS = [
   ['M/#PT2FM', 'Amateur Full Radio Licence', 'Allocated', 'Call Sign - Amateur', '2019-01-20 17:07', '2024-08-03 08:22'],
 ];
 
-describe('computeEntryStats', () => {
+describe('computeEntryStats', { tags: ['unit'] }, () => {
   it('CallsignTaxonomy_WhenMixedFormats_MapsCharacterClassesAndPreservesPunctuation', () => {
     const stats = computeEntryStats(HEADER, ROWS, DATE_COLUMNS);
     expect(stats.callsignPatterns['ANAAA']).toBe(2); // M7TEE, G5ABC
@@ -182,7 +182,7 @@ describe('computeEntryStats', () => {
   });
 });
 
-describe('renderStatsJson', () => {
+describe('renderStatsJson', { tags: ['unit'] }, () => {
   it('Serialisation_WhenCalledTwice_ByteIdentical', () => {
     const stats = computeEntryStats(HEADER, ROWS, DATE_COLUMNS);
     expect(renderStatsJson(stats)).toBe(renderStatsJson(stats));
@@ -198,7 +198,7 @@ describe('renderStatsJson', () => {
   });
 });
 
-describe('compareStats', () => {
+describe('compareStats', { tags: ['unit'] }, () => {
   it('Comparison_WhenNeighbourDiffers_ReportsRecordCountDeltaAndPatternChanges', () => {
     const a = computeEntryStats(HEADER, ROWS, DATE_COLUMNS);
     const b = computeEntryStats(HEADER, ROWS.slice(0, 3), DATE_COLUMNS); // drops g0jrk + M/#PT2FM

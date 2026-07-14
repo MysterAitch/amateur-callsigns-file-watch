@@ -18,7 +18,7 @@ import { FOI_ROW_SCHEMA_FAMILIES, FOI_EXTENSION_COLUMNS, FOI_NORMALISED_SCHEMA_V
 const CTX: ConvertContext = { referenceDateIso: '2026-06-23' };
 const FRIENDLY_HEADER = 'Call sign,Product,Status,Type,CreatedDate,LastModifiedDate';
 
-describe('stable schema contracts (acceptance criteria F5 / F6 / C7)', () => {
+describe('stable schema contracts (acceptance criteria F5 / F6 / C7)', { tags: ['data-validity'] }, () => {
   it('CanonicalColumns_StableContract', () => {
     expect([...CANONICAL_COLUMNS]).toEqual([
       'callsign', 'product', 'status', 'type', 'created_date',
@@ -41,7 +41,7 @@ describe('stable schema contracts (acceptance criteria F5 / F6 / C7)', () => {
   });
 });
 
-describe('line-accounting identity (acceptance criteria F7 / F8)', () => {
+describe('line-accounting identity (acceptance criteria F7 / F8)', { tags: ['data-validity'] }, () => {
   // A publication with a data row, a blank physical line, a syntactically
   // valid all-empty row, and a further data row - exercising every line class.
   const raw = [
@@ -74,7 +74,7 @@ describe('line-accounting identity (acceptance criteria F7 / F8)', () => {
   });
 });
 
-describe('fail-loud refusal guards (acceptance criterion F14)', () => {
+describe('fail-loud refusal guards (acceptance criterion F14)', { tags: ['data-validity'] }, () => {
   it('Convert_WhenNoDataRows_RefusesToNormalise', () => {
     expect(() => convertRawCsv(FRIENDLY_HEADER + '\n', CTX)).toThrow(/empty|zero/i);
   });
@@ -86,7 +86,7 @@ describe('fail-loud refusal guards (acceptance criterion F14)', () => {
   });
 });
 
-describe('FOI controlled vocabularies (acceptance criteria C1 / C2 / C3 / C4)', () => {
+describe('FOI controlled vocabularies (acceptance criteria C1 / C2 / C3 / C4)', { tags: ['data-validity'] }, () => {
   it('FoiFileRoles_ClosedVocabulary', () => {
     expect([...FOI_FILE_ROLES].sort()).toEqual([
       'acknowledgement-letter', 'data', 'data-container', 'extract',

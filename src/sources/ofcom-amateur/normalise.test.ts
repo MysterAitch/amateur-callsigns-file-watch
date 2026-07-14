@@ -37,7 +37,7 @@ function lines(csv: string): string[] {
   return csv.trimEnd().split('\n');
 }
 
-describe('detectHeaderVariant', () => {
+describe('detectHeaderVariant', { tags: ['unit'] }, () => {
   it('HeaderVariant_WhenSalesforceRawHeaders_Detected', () => {
     expect(detectHeaderVariant(['Value__c', 'Product__c', 'Status__c', 'Type__c', 'CreatedDate', 'LastModifiedDate'])).toBe('v2025-salesforce');
   });
@@ -65,7 +65,7 @@ describe('detectHeaderVariant', () => {
   });
 });
 
-describe('callsignColumnFor', () => {
+describe('callsignColumnFor', { tags: ['unit'] }, () => {
   // Issue #4: sorting must find the callsign column by NAME (drawn from the
   // variant registry, so new variants keep it in sync automatically), never
   // by position - an upstream column reorder must not silently change what
@@ -93,7 +93,7 @@ describe('callsignColumnFor', () => {
   });
 });
 
-describe('convertRawCsv', () => {
+describe('convertRawCsv', { tags: ['unit'] }, () => {
   it('Convert_WhenSalesforceVariant_MapsToCanonicalSchemaWithIsoDates', () => {
     const result = convertRawCsv(SALESFORCE_RAW, FETCH_CONTEXT);
     expect(result.headerVariant).toBe('v2025-salesforce');

@@ -96,7 +96,7 @@ afterAll(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-describe('Playground read-only guard', () => {
+describe('Playground read-only guard', { tags: ['ui'] }, () => {
   it('Guard_WhenSelectQuery_IsAcceptedAndBoundedByRowCap', () => {
     const prepared = prepareSql('SELECT 1');
     expect(prepared).toContain('SELECT 1');
@@ -133,7 +133,7 @@ describe('Playground read-only guard', () => {
   });
 });
 
-describe('Playground console (live, against a built SQLite)', () => {
+describe('Playground console (live, against a built SQLite)', { tags: ['ui'] }, () => {
   function hostFromPage(): { statusEl: HTMLElement; resultEl: HTMLElement } {
     const html = siteFile('playground.html');
     const main = html.slice(html.indexOf('<main'), html.indexOf('</main>') + '</main>'.length);
@@ -296,7 +296,7 @@ describe('Playground console (live, against a built SQLite)', () => {
   });
 });
 
-describe('Playground page deploy integrity', () => {
+describe('Playground page deploy integrity', { tags: ['ui'] }, () => {
   it('PlaygroundPage_Assets_AllExistInSite', () => {
     const present = new Set(fs.readdirSync(SITE_DIR));
     for (const asset of ['playground.html', 'playground.js']) {

@@ -17,7 +17,7 @@ interface ExploreWindow { __exploreReadyTimer?: ReturnType<typeof setTimeout>; }
 function readyWindow(): ExploreWindow { return window as unknown as ExploreWindow; }
 const warning = (): HTMLElement | null => document.getElementById('startup-warning');
 
-describe('explore startup warning behaviour', () => {
+describe('explore startup warning behaviour', { tags: ['ui'] }, () => {
   beforeEach(() => {
     vi.useFakeTimers();
     document.body.innerHTML = '<div id="startup-warning" hidden></div>';
@@ -48,7 +48,7 @@ describe('explore startup warning behaviour', () => {
   });
 });
 
-describe('explore startup warning wiring', () => {
+describe('explore startup warning wiring', { tags: ['ui'] }, () => {
   const exploreHtml = fs.readFileSync(path.join('site', 'explore.html'), 'utf8');
   const exploreJs = fs.readFileSync(path.join('site', 'explore.js'), 'utf8');
 

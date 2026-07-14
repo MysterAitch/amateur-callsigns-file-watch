@@ -67,7 +67,7 @@ afterAll(() => {
   fs.rmSync(workDir, { recursive: true, force: true });
 });
 
-describe('claim-ledger SQLite artefact', () => {
+describe('claim-ledger SQLite artefact', { tags: ['data-validity'] }, () => {
   it('BuildOrchestrator_WhenBuilt_ShipsPngCostumeAndByteIdenticalGzipTwin', () => {
     // The .png costume for the httpVFS range-request path plus the honest-named
     // gzip download twin, exactly as the combined database ships. The twin must
@@ -95,7 +95,7 @@ describe('claim-ledger SQLite artefact', () => {
   });
 });
 
-describe('the four representative lookup queries', () => {
+describe('the four representative lookup queries', { tags: ['data-validity'] }, () => {
   it('PerEntityDossier_WhenQueriedByEntity_ReturnsEveryClaimAcrossVintages', () => {
     const db = openDb(dbPath);
     try {
@@ -247,7 +247,7 @@ describe('the four representative lookup queries', () => {
   });
 });
 
-describe('ANALYZE fixes the point-lookup planning', () => {
+describe('ANALYZE fixes the point-lookup planning', { tags: ['data-validity'] }, () => {
   it('QueryPlanner_AfterAnalyze_HasStatisticsAndPlansPointLookupsOntoIndexes', () => {
     const db = openDb(dbPath);
     try {
@@ -272,7 +272,7 @@ describe('ANALYZE fixes the point-lookup planning', () => {
   });
 });
 
-describe('deterministic build', () => {
+describe('deterministic build', { tags: ['data-validity'] }, () => {
   it('Ledger_WhenReEmitted_IsByteIdentical', () => {
     // The canonical JSONL is deterministic (stable key order, stored ordinals),
     // so a re-emit is a byte no-op - a real re-run diff is a genuine signal.
@@ -306,7 +306,7 @@ describe('deterministic build', () => {
   }, 180_000);
 });
 
-describe('DuckDB -> Parquet bulk lane', () => {
+describe('DuckDB -> Parquet bulk lane', { tags: ['data-validity'] }, () => {
   it('ParquetScript_WhenGenerated_ReadsJsonlNativelyAndCopiesToCompactParquet', () => {
     // The DuckDB SQL is deterministic and unit-testable without a DuckDB binary
     // present: it reads the newline-delimited JSONL (union_by_name reconciles

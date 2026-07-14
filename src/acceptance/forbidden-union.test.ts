@@ -11,7 +11,7 @@ import { loadReferenceData, parseCallsign } from '../sources/ofcom-amateur/compo
 const REF = loadReferenceData();
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 
-describe('ever-forbidden union (acceptance criterion F1)', () => {
+describe('ever-forbidden union (acceptance criterion F1)', { tags: ['data-validity'] }, () => {
   it('ForbiddenUnion_WhenLoadedFromReferenceData_HasExactly1466DistinctSuffixes', () => {
     // 1,465 shared across the 2016 and 2019 lists, plus JIZ from 2024.
     expect(REF.forbiddenSuffixes.size).toBe(1466);
@@ -35,7 +35,7 @@ describe('ever-forbidden union (acceptance criterion F1)', () => {
   });
 });
 
-describe('per-suffix first-known-forbidden dates (acceptance criterion F3)', () => {
+describe('per-suffix first-known-forbidden dates (acceptance criterion F3)', { tags: ['data-validity'] }, () => {
   it('ForbiddenFirstKnown_WhenPerSuffixDatesRead_MatchDisclosureVintages', () => {
     // The bulk sit at the 2024 export's 2016-07-29 origin; QNF/ZFJ are known
     // only from the 2016-09 vintage; JIZ from 2020-12-10.
@@ -46,7 +46,7 @@ describe('per-suffix first-known-forbidden dates (acceptance criterion F3)', () 
   });
 });
 
-describe('forbidden-suffix flag rides on the union (acceptance criterion E10)', () => {
+describe('forbidden-suffix flag rides on the union (acceptance criterion E10)', { tags: ['data-validity'] }, () => {
   it('Parse_WhenSuffixDelistedByLaterDisclosure_StillFlaggedFromUnion', () => {
     // A de-listed suffix stays flagged because membership is union-based, not
     // point-in-time.

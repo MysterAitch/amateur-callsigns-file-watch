@@ -72,7 +72,7 @@ const ENTRIES = [
   },
 ];
 
-describe('claim ledger round-trip on real archive entries', () => {
+describe('claim ledger round-trip on real archive entries', { tags: ['data-validity'] }, () => {
   for (const entry of ENTRIES) {
     it(`ReprojectedNormalisedCsv_When${entry.relativePath.includes('foi') ? 'QuotedFieldsFoiDisclosure' : 'RegisterSnapshot'}_IsMultisetEquivalentToSource`, () => {
       const source = loadSource(entry.relativePath, 'callsign', entry.vintage);
@@ -102,7 +102,7 @@ describe('claim ledger round-trip on real archive entries', () => {
   });
 });
 
-describe('single-column membership lists', () => {
+describe('single-column membership lists', { tags: ['unit'] }, () => {
   it('BareMembership_WhenNoAttributes_SurvivesViaExistenceClaim', () => {
     // A one-column roll emits no attribute claims; without the existence
     // predicate the subject would vanish. Assert the observation still

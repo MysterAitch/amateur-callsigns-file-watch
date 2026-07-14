@@ -21,7 +21,7 @@ function el(tag: string, attrs: Record<string, string> = {}, children: Node[] = 
   return node;
 }
 
-describe('callsignPillLink', () => {
+describe('callsignPillLink', { tags: ['ui'] }, () => {
   it('CallsignPill_WhenRenderingACallsign_ProducesPillLinkToLookup', () => {
     const pill = callsignPillLink(el, 'M7TEE');
     expect(pill.tagName).toBe('A');
@@ -68,7 +68,7 @@ describe('callsignPillLink', () => {
   });
 });
 
-describe('callsignPillTitle', () => {
+describe('callsignPillTitle', { tags: ['ui'] }, () => {
   it('CallsignPillTitle_WhenComponentsPresent_ComposesFactsInServerOrder', () => {
     expect(callsignPillTitle('M7TEE', { prefixSeries: 'M7', rsl: 'W', suffix: 'TEE', licenceClass: 'Foundation' }))
       .toBe('M7TEE — prefix series M7 · RSL W · suffix TEE · Foundation');
@@ -82,7 +82,7 @@ describe('callsignPillTitle', () => {
   });
 });
 
-describe('callsignPillRaw', () => {
+describe('callsignPillRaw', { tags: ['ui'] }, () => {
   it('CallsignPillRaw_WhenCallsignIsClean_ProducesNonLinkPillWithVerbatimText', () => {
     const pill = callsignPillRaw(el, 'M7TEE');
     expect(pill.tagName).toBe('CODE');
