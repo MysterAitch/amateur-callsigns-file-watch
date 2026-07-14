@@ -93,6 +93,10 @@
           <button class="chip" type="button" data-cs="21CZS">21CZS</button>
         </div>
         <p class="obs-mini" id="lookup-status" role="status" aria-live="polite" style="margin:12px 4px 0"></p>
+        <!-- Assertive load/query failure region, driven by the shared loading
+             affordance (db-loading.js). Mirrors explore.html's #sql-alert so a
+             failed first-use open reads honestly here too. -->
+        <p class="db-alert" id="lookup-alert" role="alert" hidden></p>
         <div id="miss"></div>
         <div id="entity"></div>
         <div class="legend">
