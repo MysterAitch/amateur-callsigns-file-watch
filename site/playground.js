@@ -221,7 +221,10 @@ function renderExamples(listEl, inputEl, statusEl) {
     const button = el('button', { type: 'button', class: 'chip', text: example.title });
     button.addEventListener('click', () => {
       inputEl.value = example.sql;
-      if (statusEl) statusEl.textContent = 'Loaded — press Run.';
+      // The example QUERY is now in the editor - not "Loaded", which collides
+      // with the loading affordance ("Loading the … database"); nothing has loaded
+      // yet, the query is just ready to run.
+      if (statusEl) statusEl.textContent = 'Example query ready in the editor — press Run.';
       inputEl.focus();
     });
     const row = el('div', { class: 'pg-example' });
