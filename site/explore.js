@@ -16,6 +16,8 @@
 // loader is present (mirroring playground.js), so importing this module in a
 // test opens no worker.
 
+import { withDatabaseLoading } from './db-loading.js';
+
 const { createDbWorker } = window;
 
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
@@ -24,6 +26,13 @@ const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
 const DB_FILES = {
   latest: './data/callsigns.sqlite.png',
   master: './data/master.sqlite.png',
+};
+
+// Human labels for the loading affordance (issue #499): the status names the
+// database being opened so a slow first-use load reads honestly.
+const DB_LABELS = {
+  latest: 'lookup database',
+  master: 'master database',
 };
 
 // The deploy version stamp. Online it is the fresh commit SHA; offline it
@@ -90,9 +99,12 @@ export function prepareSql(raw) {
 async function run() {
   const status = document.getElementById('sql-status');
   const result = document.getElementById('sql-result');
+  const alert = document.getElementById('sql-alert');
+  const runBtn = document.querySelector('#sql-form button[type="submit"]');
   const dbName = document.getElementById('db-select').value;
   const raw = document.getElementById('sql-input').value;
   if (raw.trim() === '') return;
+  if (alert) alert.hidden = true;
 
   let sql;
   try {
@@ -102,12 +114,25 @@ async function run() {
     return;
   }
 
-  status.textContent = `querying ${dbName}… (first use downloads pages of the database as needed)`;
   result.hidden = true;
   const started = performance.now();
   try {
-    const worker = await openDb(dbName);
-    const rows = await worker.db.query(sql);
+    // The shared affordance (#499) disables Run, shows an escalating loading
+    // status while the database opens (a cold master-database open is a measured
+    // ~20s), flips to the running state once the query starts, and raises the
+    // assertive #sql-alert on failure (distinguishing a load from a query error).
+    // The success row-count and table stay this surface's concern.
+    const rows = await withDatabaseLoading({
+      button: runBtn,
+      statusEl: status,
+      alertEl: alert,
+      resultEl: result,
+      label: DB_LABELS[dbName] ?? `${dbName} database`,
+    }, async (markRunning) => {
+      const worker = await openDb(dbName);
+      markRunning();
+      return worker.db.query(sql);
+    });
     const elapsed = ((performance.now() - started) / 1000).toFixed(1);
     const truncated = rows.length > ROW_CAP;
     const shown = truncated ? rows.slice(0, ROW_CAP) : rows;
@@ -125,10 +150,9 @@ async function run() {
       result.replaceChildren(wrap);
     }
     result.hidden = false;
-  } catch (err) {
-    status.textContent = '';
-    result.replaceChildren(el('p', { class: 'error', role: 'alert', text: `Query failed: ${String(err.message ?? err)}` }));
-    result.hidden = false;
+  } catch {
+    // The affordance already raised #sql-alert (load vs query) and reset the
+    // button; the result region stays hidden. Nothing more to render here.
   }
 }
 

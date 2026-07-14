@@ -55,6 +55,7 @@ const SHELL_ASSETS = [
   'ledger.js',
   'ledger-query.js',
   'playground.js',
+  'db-loading.js',
   'history-sync.js',
   'prefix-country.js',
   'style.css',

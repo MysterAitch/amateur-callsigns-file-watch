@@ -21,6 +21,7 @@
 // present, so importing this module in a test opens no worker.
 
 import { openLedgerQuery } from './ledger-query.js';
+import { withDatabaseLoading } from './db-loading.js';
 
 // The result set is capped: a query over range requests cannot be cancelled
 // once issued, only bounded, so the console fetches one page past the cap to
@@ -234,16 +235,21 @@ function renderExamples(listEl, inputEl, statusEl) {
 // with a controlled opener - asserting the page reacts the instant Run is
 // pressed, before the database has opened, rather than sitting silent while the
 // range-request VFS spins up on the first query.
-export function wireConsole({ form, input, statusEl, resultEl, runBtn, openDatabase }) {
+//
+// The open + query run through the shared loading affordance (issue #499), so the
+// wait is communicated exactly as it is on Explore and every other query surface:
+// Run is disabled and reads "Waiting for data…", a polite status escalates if the
+// cold open runs long, and a load failure raises the assertive alert. The read-
+// only guard runs BEFORE the affordance so a bad query is refused without opening
+// the database, and runQuery keeps ownership of the query-phase status, the result
+// table and query-error reporting.
+export function wireConsole({ form, input, statusEl, resultEl, alertEl, runBtn, openDatabase, label = 'claim-ledger database' }) {
   // Open the database once and memoise it. A rejected open is NOT cached: the
   // memo is cleared on failure so a later Run (or the background warm-up) retries
-  // rather than being stuck on a transient error. `ready` lets the submit handler
-  // tell an already-open database from one still opening.
+  // rather than being stuck on a transient error.
   let queryPromise = null;
-  let ready = false;
   const getQuery = () => {
     queryPromise ??= Promise.resolve(openDatabase())
-      .then((db) => { ready = true; return db; })
       .catch((err) => { queryPromise = null; throw err; });
     return queryPromise;
   };
@@ -252,29 +258,24 @@ export function wireConsole({ form, input, statusEl, resultEl, runBtn, openDatab
     event.preventDefault();
     // Guard the query BEFORE opening the database, so an empty or non-SELECT
     // query is refused instantly and the database is never opened just to reject
-    // it.
+    // it. The affordance only wraps the actual open + query.
     try {
       prepareSql(input.value);
     } catch (err) {
       if (statusEl) statusEl.textContent = String(err.message ?? err);
       return;
     }
-    // Until the database is open, say so - whether this is a cold Run or a
-    // background warm-up still in flight - so the wait is never silent. Once it
-    // is open, runQuery's "Querying…" takes over immediately.
-    if (statusEl && !ready) statusEl.textContent = 'Opening the database…';
-    if (runBtn) runBtn.disabled = true;
-    void (async () => {
-      try {
+    void withDatabaseLoading(
+      { button: runBtn, statusEl, alertEl, resultEl, label },
+      async (markRunning) => {
         const query = await getQuery();
-        await runQuery(query, input.value, { statusEl, resultEl });
-      } catch (err) {
-        console.error(err);
-        if (statusEl) statusEl.textContent = 'The claim-ledger database could not be loaded. Try reloading the page.';
-      } finally {
-        if (runBtn) runBtn.disabled = false;
-      }
-    })();
+        markRunning();
+        return runQuery(query, input.value, { statusEl, resultEl });
+      },
+      // The affordance owns the load-failure alert and the button state; a query
+      // failure is rendered inline by runQuery (which does not throw), so it never
+      // reaches here.
+    ).catch(() => {});
   });
 
   // Warm the open ahead of the first Run (fire-and-forget): the worker, the WASM
@@ -295,12 +296,13 @@ function initPlayground() {
   const input = document.getElementById('sql-input');
   const statusEl = document.getElementById('sql-status');
   const resultEl = document.getElementById('sql-result');
+  const alertEl = document.getElementById('sql-alert');
   const listEl = document.getElementById('example-list');
   if (listEl && input) renderExamples(listEl, input, statusEl);
 
   if (form && input) {
     const runBtn = form.querySelector('button[type="submit"]');
-    const { warmUp } = wireConsole({ form, input, statusEl, resultEl, runBtn, openDatabase: openLedgerQuery });
+    const { warmUp } = wireConsole({ form, input, statusEl, resultEl, alertEl, runBtn, openDatabase: openLedgerQuery });
     // Warm the database open once the page is idle, so the first Run is fast: the
     // worker, the WASM and the initial pages load in the background rather than
     // on the critical path of the user's first query.
