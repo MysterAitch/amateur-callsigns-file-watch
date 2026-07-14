@@ -36,7 +36,7 @@
  * to the fat build's and that the point lookups still plan onto their indexes.
  *
  * Usage:
- *   node src/v2/build-ledger-db-compact.ts [output.sqlite.png] [--subset]
+ *   node src/v2/build-ledger-db-compact.ts [output.sqlite.png] [--subset] [--no-gz-twin]
  */
 
 import * as fs from 'fs';
@@ -46,6 +46,8 @@ import * as zlib from 'zlib';
 import { DatabaseSync } from 'node:sqlite';
 import { buildLedger, type EntrySelector } from './build-ledger.ts';
 import { parseClaimsJsonl } from './serialise.ts';
+import { time, perfReport } from '../shared/perf.ts';
+import { applyBuildPragmas } from '../shared/sqlite-build.ts';
 import {
   LISTED_PREDICATE,
   NORMALISES_TO_PREDICATE,
@@ -57,15 +59,19 @@ import {
 } from './claim.ts';
 
 // Same gzip knob as build-sqlite.ts / build-ledger-db.ts: level 9 for the
-// deployed twin, overridable to level 1 so tests (which check contents, not
+// download twin (when a caller wants one - the Pages deploy skips it via
+// --no-gz-twin), overridable to level 1 so tests (which check contents, not
 // size) stay fast. Any level decompresses to identical bytes.
 const GZIP_LEVEL = process.env.TIERS_GZIP_LEVEL !== undefined ? Number(process.env.TIERS_GZIP_LEVEL) : 9;
 
 // Multi-row INSERT batch. Same rationale as the fat build: many rows per
-// prepared statement amortise the JS->native crossing. The widest insert here
-// is the observation (7 bound columns), so a 1000-row batch binds 7,000
-// parameters - well under SQLite's 32,766 ceiling.
-const INSERT_BATCH_ROWS = 1000;
+// prepared statement amortise the JS->native crossing. The ceiling is
+// SQLite's bound-parameter limit (SQLITE_MAX_VARIABLE_NUMBER, 32,766 in the
+// library Node bundles - verified empirically: a 32,766-parameter INSERT
+// prepares, 32,767 fails with "too many SQL variables"). The widest insert
+// here is the observation (9 bound columns), so a 3,000-row batch binds
+// 27,000 parameters - comfortably under the ceiling.
+const INSERT_BATCH_ROWS = 3000;
 
 // The compact schema. Four narrow satellite tables plus a `claims` VIEW that
 // re-presents the fat schema's ten columns so every existing query keeps
@@ -326,6 +332,7 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   fs.rmSync(dbPath, { force: true });
   const db = new DatabaseSync(dbPath);
+  applyBuildPragmas(db);
   db.exec(CREATE_SCHEMA);
 
   const predicates = new Dictionary();
@@ -349,7 +356,7 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
 
   db.exec('BEGIN');
   jsonlFiles.forEach((file, fileIndex) => {
-    const claims = parseClaimsJsonl(fs.readFileSync(path.join(ledgerDir, file), 'utf8'));
+    const claims = time('ledger:parse-jsonl', () => parseClaimsJsonl(fs.readFileSync(path.join(ledgerDir, file), 'utf8')));
     const keysOf = resolveKeys(claims);
     const sourceId = fileIndex + 1;
 
@@ -360,89 +367,98 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
     // The source's real repo path, read from the @listed anchor's viewAnchor
     // (issue #431); one value per source. NULL when the lane attested none.
     let repoPath: string | null = null;
-    for (const claim of claims) {
-      const { ordinal, sourceFile: sf, vintage: vt } = claim.provenance;
-      if (sourceFile === '') { sourceFile = sf; vintage = vt; }
-      if (claim.predicate === LISTED_PREDICATE) {
-        const { cleaned, entity } = keysOf(claim.rawSubject);
-        // Read the source position off the anchor's provenance. csv-line is the
-        // only kind emitted in P1; a later kind (xlsx sheet-cell) will populate
-        // the reserved pos_* columns here.
-        const position = claim.provenance.position;
-        const posKind = position !== undefined ? position.kind : null;
-        const posLine = position !== undefined && position.kind === 'csv-line' ? position.line : null;
-        observations.set(ordinal, { ordinal, rawSubject: claim.rawSubject, cleaned, entity, parses: false, phObject: null, licenceCategory: '', posKind, posLine });
-        entities.add(entity);
-        if (repoPath === null && claim.provenance.viewAnchor !== undefined) repoPath = claim.provenance.viewAnchor.repoPath;
+    time('ledger:distil-observations', () => {
+      for (const claim of claims) {
+        const { ordinal, sourceFile: sf, vintage: vt } = claim.provenance;
+        if (sourceFile === '') { sourceFile = sf; vintage = vt; }
+        if (claim.predicate === LISTED_PREDICATE) {
+          const { cleaned, entity } = keysOf(claim.rawSubject);
+          // Read the source position off the anchor's provenance. csv-line is the
+          // only kind emitted in P1; a later kind (xlsx sheet-cell) will populate
+          // the reserved pos_* columns here.
+          const position = claim.provenance.position;
+          const posKind = position !== undefined ? position.kind : null;
+          const posLine = position !== undefined && position.kind === 'csv-line' ? position.line : null;
+          observations.set(ordinal, { ordinal, rawSubject: claim.rawSubject, cleaned, entity, parses: false, phObject: null, licenceCategory: '', posKind, posLine });
+          entities.add(entity);
+          if (repoPath === null && claim.provenance.viewAnchor !== undefined) repoPath = claim.provenance.viewAnchor.repoPath;
+        }
       }
-    }
-    for (const claim of claims) {
-      if (claim.layer === 'derived' && claim.predicate === NORMALISES_TO_PREDICATE && claim.rule === PLACEHOLDER_FORM_RULE) {
-        const obs = observations.get(claim.provenance.ordinal);
-        if (obs !== undefined) { obs.parses = true; obs.phObject = claim.object; }
-      } else if (claim.layer === 'derived' && claim.predicate === LICENCE_CATEGORY_PREDICATE) {
-        const obs = observations.get(claim.provenance.ordinal);
-        if (obs !== undefined) obs.licenceCategory = claim.object;
+      for (const claim of claims) {
+        if (claim.layer === 'derived' && claim.predicate === NORMALISES_TO_PREDICATE && claim.rule === PLACEHOLDER_FORM_RULE) {
+          const obs = observations.get(claim.provenance.ordinal);
+          if (obs !== undefined) { obs.parses = true; obs.phObject = claim.object; }
+        } else if (claim.layer === 'derived' && claim.predicate === LICENCE_CATEGORY_PREDICATE) {
+          const obs = observations.get(claim.provenance.ordinal);
+          if (obs !== undefined) obs.licenceCategory = claim.object;
+        }
       }
-    }
+    }, claims.length);
 
     insertSource.run(sourceId, sourceFile, vintage, repoPath);
 
-    // Assign obs_ids in ordinal order and insert the observations.
+    // Assign obs_ids in ordinal order and insert the observations (plus their
+    // sparse licence-category / placeholder-override satellites).
     const obsIdByOrdinal = new Map<number, number>();
-    const obsRows: (string | number | null)[][] = [];
-    for (const obs of [...observations.values()].sort((a, b) => a.ordinal - b.ordinal)) {
-      const obsId = nextObsId;
-      nextObsId += 1;
-      obsIdByOrdinal.set(obs.ordinal, obsId);
-      obsRows.push([obsId, sourceId, obs.ordinal, obs.rawSubject, obs.cleaned, obs.entity, obs.parses ? 1 : 0, obs.posKind, obs.posLine]);
-      // The sparse licence-category satellite: only observations that mapped to
-      // a category contribute a row, so a product-less source adds none.
-      if (obs.licenceCategory !== '') {
-        insertCategory.run(obsId, obs.licenceCategory);
-        categories += 1;
+    time('sqlite:obs-insert', () => {
+      const obsRows: (string | number | null)[][] = [];
+      for (const obs of [...observations.values()].sort((a, b) => a.ordinal - b.ordinal)) {
+        const obsId = nextObsId;
+        nextObsId += 1;
+        obsIdByOrdinal.set(obs.ordinal, obsId);
+        obsRows.push([obsId, sourceId, obs.ordinal, obs.rawSubject, obs.cleaned, obs.entity, obs.parses ? 1 : 0, obs.posKind, obs.posLine]);
+        // The sparse licence-category satellite: only observations that mapped to
+        // a category contribute a row, so a product-less source adds none.
+        if (obs.licenceCategory !== '') {
+          insertCategory.run(obsId, obs.licenceCategory);
+          categories += 1;
+        }
+        // The rare divergence the VIEW cannot synthesise: this observation's own
+        // placeholder-form edge object differs from its resolved entity.
+        if (obs.parses && obs.phObject !== null && obs.phObject !== obs.entity) {
+          insertOverride.run(obsId, obs.phObject);
+          overrides += 1;
+        }
       }
-      // The rare divergence the VIEW cannot synthesise: this observation's own
-      // placeholder-form edge object differs from its resolved entity.
-      if (obs.parses && obs.phObject !== null && obs.phObject !== obs.entity) {
-        insertOverride.run(obsId, obs.phObject);
-        overrides += 1;
-      }
-    }
-    insertBatched(db, 'observation', 9, obsRows);
-    totalObservations += obsRows.length;
+      insertBatched(db, 'observation', 9, obsRows);
+      totalObservations += obsRows.length;
+    }, observations.size);
 
-    // Insert the real attribute claims (raw layer, not @listed, not a
+    // Distil the real attribute claims (raw layer, not @listed, not a
     // normalises_to edge), dictionary-encoding predicate and object.
     const attrRows: (string | number)[][] = [];
-    for (const claim of claims) {
-      if (claim.layer !== 'raw') continue;
-      if (claim.predicate === LISTED_PREDICATE) continue;
-      const obsId = obsIdByOrdinal.get(claim.provenance.ordinal);
-      if (obsId === undefined) continue;
-      attrRows.push([obsId, predicates.intern(claim.predicate), objects.intern(claim.object)]);
-    }
-    // The T1 parse-attribute tier: every derived claim that is neither a
-    // normalises_to edge (synthesised by the VIEW) nor a licence_category tier
-    // (its own satellite). Stored explicitly, dictionary-encoded, keyed to the
-    // observation whose raw subject the parse ran on - the VIEW cannot run the
-    // parser, so these rows carry what it reconstructs.
     const derivedAttrRows: (string | number)[][] = [];
-    for (const claim of claims) {
-      if (claim.layer !== 'derived') continue;
-      if (claim.predicate === NORMALISES_TO_PREDICATE || claim.predicate === LICENCE_CATEGORY_PREDICATE) continue;
-      const obsId = obsIdByOrdinal.get(claim.provenance.ordinal);
-      if (obsId === undefined) continue;
-      derivedAttrRows.push([obsId, predicates.intern(claim.predicate), objects.intern(claim.object), rules.intern(claim.rule ?? '')]);
-    }
+    time('ledger:dictionary-encode', () => {
+      for (const claim of claims) {
+        if (claim.layer !== 'raw') continue;
+        if (claim.predicate === LISTED_PREDICATE) continue;
+        const obsId = obsIdByOrdinal.get(claim.provenance.ordinal);
+        if (obsId === undefined) continue;
+        attrRows.push([obsId, predicates.intern(claim.predicate), objects.intern(claim.object)]);
+      }
+      // The T1 parse-attribute tier: every derived claim that is neither a
+      // normalises_to edge (synthesised by the VIEW) nor a licence_category tier
+      // (its own satellite). Stored explicitly, dictionary-encoded, keyed to the
+      // observation whose raw subject the parse ran on - the VIEW cannot run the
+      // parser, so these rows carry what it reconstructs.
+      for (const claim of claims) {
+        if (claim.layer !== 'derived') continue;
+        if (claim.predicate === NORMALISES_TO_PREDICATE || claim.predicate === LICENCE_CATEGORY_PREDICATE) continue;
+        const obsId = obsIdByOrdinal.get(claim.provenance.ordinal);
+        if (obsId === undefined) continue;
+        derivedAttrRows.push([obsId, predicates.intern(claim.predicate), objects.intern(claim.object), rules.intern(claim.rule ?? '')]);
+      }
+    }, claims.length);
 
-    for (const value of predicates.drainPending()) insertPredicate.run(predicates.intern(value), value);
-    for (const value of objects.drainPending()) insertObject.run(objects.intern(value), value);
-    for (const value of rules.drainPending()) insertRule.run(rules.intern(value), value);
-    insertBatched(db, 'attr', 3, attrRows);
-    totalAttrClaims += attrRows.length;
-    insertBatched(db, 'derived_attr', 4, derivedAttrRows);
-    totalDerivedAttrClaims += derivedAttrRows.length;
+    time('sqlite:attr-insert', () => {
+      for (const value of predicates.drainPending()) insertPredicate.run(predicates.intern(value), value);
+      for (const value of objects.drainPending()) insertObject.run(objects.intern(value), value);
+      for (const value of rules.drainPending()) insertRule.run(rules.intern(value), value);
+      insertBatched(db, 'attr', 3, attrRows);
+      totalAttrClaims += attrRows.length;
+      insertBatched(db, 'derived_attr', 4, derivedAttrRows);
+      totalDerivedAttrClaims += derivedAttrRows.length;
+    }, attrRows.length + derivedAttrRows.length);
   });
   db.exec('COMMIT');
 
@@ -453,16 +469,24 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
   // raw_subject / cleaned / entity indexes back the three fat-schema point
   // lookups verbatim through the VIEW; the attr(obs_id) index backs the
   // per-entity join; the predicate index backs the corpus-aggregate GROUP BY.
-  db.exec('CREATE INDEX idx_obs_entity ON observation(entity)');
-  db.exec('CREATE INDEX idx_obs_cleaned ON observation(cleaned)');
-  db.exec('CREATE INDEX idx_obs_raw ON observation(raw_subject)');
-  db.exec('CREATE INDEX idx_attr_obs ON attr(obs_id)');
-  db.exec('CREATE INDEX idx_attr_predicate ON attr(predicate_id)');
-  db.exec('CREATE INDEX idx_derived_attr_obs ON derived_attr(obs_id)');
+  time('sqlite:ledger-indexes', () => {
+    db.exec('CREATE INDEX idx_obs_entity ON observation(entity)');
+    db.exec('CREATE INDEX idx_obs_cleaned ON observation(cleaned)');
+    db.exec('CREATE INDEX idx_obs_raw ON observation(raw_subject)');
+    db.exec('CREATE INDEX idx_attr_obs ON attr(obs_id)');
+    db.exec('CREATE INDEX idx_attr_predicate ON attr(predicate_id)');
+    db.exec('CREATE INDEX idx_derived_attr_obs ON derived_attr(obs_id)');
+  });
 
   // Same load-bearing step as the fat build: without statistics the planner
   // mis-costs the point lookups onto a scan. ANALYZE after the indexes exist.
-  db.exec('ANALYZE');
+  // analysis_limit bounds the per-index row sample: statistics only steer the
+  // planner towards the point-lookup indexes (asserted by the EXPLAIN QUERY
+  // PLAN test), and a 1,000-row sample yields the same plans as a full scan
+  // of every multi-million-row index at a fraction of the cost - SQLite's
+  // documented approximate-ANALYZE mode, recommended for exactly this.
+  db.exec('PRAGMA analysis_limit = 1000');
+  time('sqlite:ledger-analyze', () => db.exec('ANALYZE'));
   const analyzed = (db.prepare("SELECT name FROM sqlite_master WHERE name = 'sqlite_stat1'").get() as { name: string } | undefined) !== undefined;
 
   db.exec('CREATE TABLE build_info (key TEXT, value TEXT)');
@@ -492,35 +516,45 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
 export interface BuildCompactDbOptions {
   selectEntry?: EntrySelector;
   ledgerDir?: string;
+  // Whether to write the gzipped download twin beside the database (default
+  // true). The Pages deploy passes false (--no-gz-twin): chunked serving
+  // (issue #475) replaced the twin there, and the workflow otherwise paid a
+  // full level-9 gzip of the multi-GB database only to delete the result.
+  gzTwin?: boolean;
 }
 
 export interface BuildCompactDbResult {
   dbPath: string;
-  gzPath: string;
+  // null when the twin was skipped (gzTwin: false).
+  gzPath: string | null;
   summary: CompactLedgerSummary;
-  sizes: { sqlite: number; gz: number };
+  sizes: { sqlite: number; gz: number | null };
 }
 
 // The deploy-artefact orchestrator, mirroring buildLedgerDb: emit the ledger
 // (Stage 1), load it into the compact SQLite (in its .png costume), and write
-// the gzip download twin. dbPath should wear the `.png` extension for the
-// httpVFS/Pages range-request path.
+// the gzip download twin unless the caller opted out. dbPath should wear the
+// `.png` extension for the httpVFS/Pages range-request path.
 export function buildCompactLedgerDb(dbPath: string, options: BuildCompactDbOptions = {}): BuildCompactDbResult {
   const ownsLedgerDir = options.ledgerDir === undefined;
   const ledgerRoot = options.ledgerDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'v2-ledger-compact-'));
   try {
-    buildLedger(ledgerRoot, undefined, undefined, options.selectEntry);
+    time('ledger:stage1-emit', () => buildLedger(ledgerRoot, undefined, undefined, options.selectEntry));
     const ledgerDir = path.join(ledgerRoot, 'ledger');
     const summary = buildCompactLedgerSqlite(ledgerDir, dbPath);
 
-    const gzPath = dbPath.replace(/\.png$/, '') + '.gz';
-    fs.writeFileSync(gzPath, zlib.gzipSync(fs.readFileSync(dbPath), { level: GZIP_LEVEL }));
+    let gzPath: string | null = null;
+    if (options.gzTwin ?? true) {
+      const twinPath = dbPath.replace(/\.png$/, '') + '.gz';
+      time('gzip:ledger-twin', () => fs.writeFileSync(twinPath, zlib.gzipSync(fs.readFileSync(dbPath), { level: GZIP_LEVEL })));
+      gzPath = twinPath;
+    }
 
     return {
       dbPath,
       gzPath,
       summary,
-      sizes: { sqlite: fs.statSync(dbPath).size, gz: fs.statSync(gzPath).size },
+      sizes: { sqlite: fs.statSync(dbPath).size, gz: gzPath !== null ? fs.statSync(gzPath).size : null },
     };
   } finally {
     if (ownsLedgerDir) fs.rmSync(ledgerRoot, { recursive: true, force: true });
@@ -534,9 +568,16 @@ if (import.meta.main) {
   const dbPath = positional[0] ?? path.join('_site', 'data', 'claim-ledger.sqlite.png');
   const { subsetSelector } = await import('./build-ledger-db.ts');
   const useSubset = flags.has('--subset');
-  const result = buildCompactLedgerDb(dbPath, { selectEntry: useSubset ? subsetSelector() : undefined });
+  const result = buildCompactLedgerDb(dbPath, {
+    selectEntry: useSubset ? subsetSelector() : undefined,
+    // --no-gz-twin: skip the gzipped download twin. The Pages deploy passes
+    // this because chunked serving (issue #475) replaced the twin there.
+    gzTwin: !flags.has('--no-gz-twin'),
+  });
   console.log(`built COMPACT claim-ledger SQLite ${result.dbPath} (${useSubset ? 'subset' : 'full corpus'})`);
   console.log(`  claims: ${result.summary.claims} (observations ${result.summary.observations}, attr ${result.summary.attrClaims}, parse-attr ${result.summary.derivedAttrClaims}), entities: ${result.summary.entities}, sources: ${result.summary.sources}, analyzed: ${result.summary.analyzed}`);
   console.log(`  dictionaries: predicates ${result.summary.predicates}, objects ${result.summary.objects}`);
-  console.log(`  sqlite: ${result.sizes.sqlite} bytes, gz twin: ${result.sizes.gz} bytes`);
+  console.log(`  sqlite: ${result.sizes.sqlite} bytes${result.sizes.gz !== null ? `, gz twin: ${result.sizes.gz} bytes` : ', gz twin: skipped (--no-gz-twin)'}`);
+  // Self-guarded: prints the profiling breakdown to stderr only under PERF.
+  perfReport();
 }

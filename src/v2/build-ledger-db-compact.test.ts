@@ -2,11 +2,12 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import * as zlib from 'zlib';
 import { parse } from 'csv-parse/sync';
 import { DatabaseSync } from 'node:sqlite';
 import { buildLedger } from './build-ledger.ts';
 import { buildLedgerSqlite, subsetSelector } from './build-ledger-db.ts';
-import { buildCompactLedgerSqlite, type CompactLedgerSummary } from './build-ledger-db-compact.ts';
+import { buildCompactLedgerDb, buildCompactLedgerSqlite, type CompactLedgerSummary } from './build-ledger-db-compact.ts';
 import { loadReferenceData, parseCallsign } from '../sources/ofcom-amateur/components.ts';
 import { physicalLines } from '../sources/ofcom-amateur/normalise.ts';
 
@@ -277,6 +278,57 @@ describe('point lookups still plan onto their indexes after ANALYZE', { tags: ['
       db.close();
     }
   });
+});
+
+describe('the gzip download twin is deploy-optional (issue #533)', { tags: ['data-validity'] }, () => {
+  // Chunked serving (issue #475) replaced the download twin on the deploy
+  // path, which then deleted the twin it had just spent a level-9 gzip of the
+  // full database producing. The orchestrator therefore accepts gzTwin: false
+  // so the deploy never builds it, while every other caller keeps the twin by
+  // default. Built from a single small disclosure so the full orchestrator
+  // (Stage-1 emit included) stays fast; the database CONTENT is covered by
+  // the parity suites above.
+  const selectSmall = (entry: string): boolean => entry === 'ofcom-498906--reciprocal-licences-since-2010';
+
+  it('BuildOrchestrator_WhenGzTwinNotDisabled_ProducesTwinThatGunzipsToTheDatabase', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'compact-gz-twin-on-'));
+    try {
+      const dbPath = path.join(dir, 'claim-ledger.sqlite.png');
+      const result = buildCompactLedgerDb(dbPath, { selectEntry: selectSmall });
+      expect(result.gzPath).not.toBeNull();
+      if (result.gzPath === null) throw new Error('unreachable - asserted non-null above');
+      expect(result.gzPath.endsWith('.sqlite.gz')).toBe(true);
+      // The twin must gunzip byte-identical to the served database - content
+      // equivalence via the decompressed stream, never .gz bytes.
+      const gunzipped = zlib.gunzipSync(fs.readFileSync(result.gzPath));
+      expect(gunzipped.equals(fs.readFileSync(dbPath))).toBe(true);
+      expect(result.sizes.gz).toBe(fs.statSync(result.gzPath).size);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120_000);
+
+  it('BuildOrchestrator_WhenGzTwinDisabled_SkipsTheTwinEntirely', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'compact-gz-twin-off-'));
+    try {
+      const dbPath = path.join(dir, 'claim-ledger.sqlite.png');
+      const result = buildCompactLedgerDb(dbPath, { selectEntry: selectSmall, gzTwin: false });
+      // Skipped means never produced - not produced then deleted.
+      expect(result.gzPath).toBeNull();
+      expect(result.sizes.gz).toBeNull();
+      expect(fs.readdirSync(dir).some(name => name.endsWith('.gz'))).toBe(false);
+      // The database itself is untouched by the skip: present and openable.
+      const db = openDb(dbPath);
+      try {
+        const claims = Number((db.prepare('SELECT COUNT(*) c FROM claims').get() as { c: number | bigint }).c);
+        expect(claims).toBeGreaterThan(0);
+      } finally {
+        db.close();
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120_000);
 });
 
 describe('the compact build is smaller and answers stably', { tags: ['data-validity'] }, () => {
