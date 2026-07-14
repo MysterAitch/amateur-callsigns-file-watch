@@ -19,7 +19,7 @@ import {
 // #361). The pure SQL-fragment builders always run; the query runner is gated on
 // the pinned CLI being present.
 
-describe('report-fold — SQL fragment builders', () => {
+describe('report-fold — SQL fragment builders', { tags: ['unit'] }, () => {
   it('CsvFileList_MixedSlashes_EmitsForwardSlashedDuckDbListLiteral', () => {
     expect(csvFileList(['archive\\a\\normalised.csv', 'archive/b/normalised.csv']))
       .toBe("['archive/a/normalised.csv', 'archive/b/normalised.csv']");
@@ -34,7 +34,7 @@ describe('report-fold — SQL fragment builders', () => {
   });
 });
 
-describe('report-fold — claims source resolution (issue #403)', () => {
+describe('report-fold — claims source resolution (issue #403)', { tags: ['unit'] }, () => {
   it('ClaimsRelation_LedgerDirectory_EmitsForwardSlashedReadJsonGlobWithDeclaredColumns', () => {
     // A ledger directory reads its per-source JSONL through read_json with the
     // columns DECLARED (not sniffed), forward-slashed on every platform.
@@ -104,7 +104,7 @@ describe('report-fold — claims source resolution (issue #403)', () => {
   });
 });
 
-describe.skipIf(!duckDbAvailable())('report-fold — DuckDB query runner', () => {
+describe.skipIf(!duckDbAvailable())('report-fold — DuckDB query runner', { tags: ['unit'] }, () => {
   it('FoldQuery_JsonResult_ParsesRowsAndAppliesCleanedRule', () => {
     // A leading SET statement returns no rows and must not pollute the JSON, and
     // the cleaned-key expression must strip a non-break space exactly as the

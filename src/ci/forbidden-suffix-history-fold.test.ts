@@ -68,7 +68,7 @@ function writeForbiddenFixtureLedger(): { dir: string; sources: ForbiddenLedgerS
   return { dir: root, sources };
 }
 
-describe.skipIf(!duckDbAvailable())('forbidden-suffix history — fold on a controlled ledger', () => {
+describe.skipIf(!duckDbAvailable())('forbidden-suffix history — fold on a controlled ledger', { tags: ['unit'] }, () => {
   it('FoldedHistory_LedgerWithDuplicateDatedAndDelistedSuffix_PreservesDuplicateNormalisesDateAndKeepsUnion', () => {
     const { dir, sources } = writeForbiddenFixtureLedger();
     try {
@@ -186,7 +186,7 @@ function parseCommittedGolden(): { disclosures: ParsedDisclosure[]; union: numbe
   return { disclosures, union, changed };
 }
 
-describe('forbidden-suffix history — ledger vs legacy equivalence oracle', () => {
+describe('forbidden-suffix history — ledger vs legacy equivalence oracle', { tags: ['data-validity'] }, () => {
   // Always-on: recompute the legacy figures live over the real archive (no
   // DuckDB needed for this side) and read the committed folded golden. Any drift
   // in either path — beyond a regenerated golden — trips the allow-list.
@@ -255,7 +255,7 @@ describe('forbidden-suffix history — ledger vs legacy equivalence oracle', () 
 // folding it must reproduce the committed golden byte-for-byte. This is the
 // proof the FOLD — not a parse of the golden — produces the numbers, so the
 // report can retire the legacy computation.
-describe.skipIf(!duckDbAvailable())('forbidden-suffix history — real-archive fold retirement gate', () => {
+describe.skipIf(!duckDbAvailable())('forbidden-suffix history — real-archive fold retirement gate', { tags: ['data-validity'] }, () => {
   it('ForbiddenSuffixHistoryFold_RealArchive_ReproducesCommittedGolden', () => {
     const folded = renderForbiddenSuffixHistory(buildForbiddenSuffixHistoryFold());
     expect(folded).toBe(fs.readFileSync(path.resolve(process.cwd(), FORBIDDEN_SUFFIX_HISTORY_PATH), 'utf8'));

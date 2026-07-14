@@ -13,7 +13,7 @@ import { viewParamToState, applyViewToState, buildPredicate, TOGGLES } from './b
 // unknown ?datasets= key is dropped - and that the exemplar links parse to the
 // intended filter. Test names follow Subject_Scenario_Outcome.
 
-describe('sanitiseComparePredicate', () => {
+describe('sanitiseComparePredicate', { tags: ['ui'] }, () => {
   it('ComparePred_WhenSingleCondition_IsUsedVerbatim', () => {
     expect(sanitiseComparePredicate("status = 'Reserved'"))
       .toEqual({ predicate: "status = 'Reserved'", rejected: null });
@@ -30,7 +30,7 @@ describe('sanitiseComparePredicate', () => {
   });
 });
 
-describe('partitionSelectedDatasets', () => {
+describe('partitionSelectedDatasets', { tags: ['ui'] }, () => {
   const known = ['2026-06-23', '2025-06-04', '2024-04-30'];
   it('DatasetSelection_WhenAllKnown_AreChosen', () => {
     expect(partitionSelectedDatasets('2026-06-23,2025-06-04', known))
@@ -51,7 +51,7 @@ describe('partitionSelectedDatasets', () => {
   });
 });
 
-describe('compare deep-link filter resolution', () => {
+describe('compare deep-link filter resolution', { tags: ['ui'] }, () => {
   function freshState() {
     return {
       facets: new Map(), toggles: new Set<string>(), columnFilters: new Map<string, string>(),
@@ -76,7 +76,7 @@ describe('compare deep-link filter resolution', () => {
   });
 });
 
-describe('compare exemplar deep-links (end-to-end wiring)', () => {
+describe('compare exemplar deep-links (end-to-end wiring)', { tags: ['ui'] }, () => {
   it('CompareExemplars_InHandAuthoredPages_ParseToASafeFilter', () => {
     const links = ['index.html', 'statistics.html'].flatMap((file) => {
       const html = fs.readFileSync(path.join('site', file), 'utf8');

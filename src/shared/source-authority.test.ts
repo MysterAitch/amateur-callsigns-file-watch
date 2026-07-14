@@ -9,7 +9,7 @@ import {
 // of the lane a source lives in, and it never guesses UP when a provenance is
 // ambiguous. Scenarios follow the Subject_Scenario_Outcome convention.
 
-describe('deriveSourceAuthority', () => {
+describe('deriveSourceAuthority', { tags: ['unit'] }, () => {
   it('OpenDataLane_WhenDateKeyedEntryDeclaresOfcomSource_ResolvesToOfficial', () => {
     const resolution = deriveSourceAuthority({ location: '2025-06-04', sourceKey: 'ofcom-amateur-callsigns' });
     expect(resolution).toEqual({ ok: true, lane: 'open-data', authority: 'Official' });
@@ -74,7 +74,7 @@ describe('deriveSourceAuthority', () => {
   });
 });
 
-describe('authorityRank', () => {
+describe('authorityRank', { tags: ['unit'] }, () => {
   it('Rungs_WhenRanked_OrderOfficialHighestSelfLowest', () => {
     expect(authorityRank('Official')).toBeLessThan(authorityRank('FOI'));
     expect(authorityRank('FOI')).toBeLessThan(authorityRank('Reference'));

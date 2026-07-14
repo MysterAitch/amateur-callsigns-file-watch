@@ -74,7 +74,7 @@ function assertPositionsRoundTrip(source: SourceObservationSet, ordinals: number
   }
 }
 
-describe('CSV source line captured while parsing round-trips to the source row', () => {
+describe('CSV source line captured while parsing round-trips to the source row', { tags: ['data-validity'] }, () => {
   it('OpenDataLane_WhenSmallSnapshotFullyChecked_EveryObservationLineYieldsItsRawSubject', () => {
     const source = openDataSource(OPEN_DATA_SMALL_KEY);
     assertPositionsRoundTrip(source, sampleOrdinals(source.rows.length, source.rows.length));
@@ -91,7 +91,7 @@ describe('CSV source line captured while parsing round-trips to the source row',
   });
 });
 
-describe('the captured line accounting is complete and consistent', () => {
+describe('the captured line accounting is complete and consistent', { tags: ['data-validity'] }, () => {
   for (const [label, load] of [
     ['open-data', () => openDataSource(OPEN_DATA_SMALL_KEY)],
     ['FOI', () => foiSource(FOI_ENTRY)],
@@ -119,7 +119,7 @@ describe('the captured line accounting is complete and consistent', () => {
   }
 });
 
-describe('position enriches only the anchor, and survives JSONL round-trip', () => {
+describe('position enriches only the anchor, and survives JSONL round-trip', { tags: ['data-validity'] }, () => {
   it('EmittedClaims_WhenObservationEmitted_CarryPositionOnTheListedAnchorOnly', () => {
     const source = foiSource(FOI_ENTRY);
     const claims = emitClaims(source);

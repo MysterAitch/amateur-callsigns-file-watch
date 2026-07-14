@@ -9,7 +9,7 @@ import { parseUkDateTime, renderCsv } from './normalise.ts';
 // renderer (LF endings, minimal RFC-4180 quoting, no library dependence so
 // dependency bumps cannot churn golden-master outputs).
 
-describe('parseUkDateTime', () => {
+describe('parseUkDateTime', { tags: ['unit'] }, () => {
   it('UkDate_WhenDateOnly_ReturnsIsoDate', () => {
     expect(parseUkDateTime('20/01/2019')).toBe('2019-01-20');
   });
@@ -56,7 +56,7 @@ describe('parseUkDateTime', () => {
   });
 });
 
-describe('renderCsv', () => {
+describe('renderCsv', { tags: ['unit'] }, () => {
   it('RenderCsv_WhenSimpleRows_ProducesLfTerminatedOutput', () => {
     const out = renderCsv(['a', 'b'], [['1', '2'], ['3', '4']]);
     expect(out).toBe('a,b\n1,2\n3,4\n');

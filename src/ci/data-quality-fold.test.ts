@@ -70,7 +70,7 @@ function fixtureLedgerDir(): string {
   return dir;
 }
 
-describe.skipIf(!duckDbAvailable())('data-quality rollup fold — fixture ledger', () => {
+describe.skipIf(!duckDbAvailable())('data-quality rollup fold — fixture ledger', { tags: ['unit'] }, () => {
   it('DetectorMatrix_FoldedFromLedger_RelabelsTheFlagAndStatusClaimCounts', () => {
     // Each detector row is the count of its backing flag/status claim: the
     // Excel-date token, the encoding-failure token, the whitespace token and the
@@ -184,7 +184,7 @@ function loadStatsByKey(): Map<string, EntryStats> {
   return byKey;
 }
 
-describe('data-quality rollup — ledger vs legacy equivalence oracle', () => {
+describe('data-quality rollup — ledger vs legacy equivalence oracle', { tags: ['data-validity'] }, () => {
   // Always-on: recompute the legacy figures live over the real archive (no
   // DuckDB) and render them. Any drift in either path — beyond a regenerated
   // golden — trips here.
@@ -209,7 +209,7 @@ describe('data-quality rollup — ledger vs legacy equivalence oracle', () => {
 // must reproduce the committed golden byte-for-byte — the proof the FOLD (not a
 // legacy recompute) produces the numbers, so the report can retire the legacy
 // path once Phase C arms it.
-describe.skipIf(!duckDbAvailable())('data-quality rollup — real-archive fold retirement gate', () => {
+describe.skipIf(!duckDbAvailable())('data-quality rollup — real-archive fold retirement gate', { tags: ['data-validity'] }, () => {
   let fold: DataQualityFold;
   beforeAll(() => {
     fold = buildDataQualityFold();

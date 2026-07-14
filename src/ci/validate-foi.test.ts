@@ -83,7 +83,7 @@ function writeRecordOnlyEntry(key: string, mutate?: (meta: FoiEntryMeta) => void
   fs.rmSync(path.join(foiDir, key, 'data.csv'));
 }
 
-describe('validateFoiEntry - shape and vocabularies', () => {
+describe('validateFoiEntry - shape and vocabularies', { tags: ['unit'] }, () => {
   it('FoiEntry_WellFormedFixture_Passes', () => {
     writeFoiEntry();
     expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
@@ -156,7 +156,7 @@ describe('validateFoiEntry - shape and vocabularies', () => {
   });
 });
 
-describe('validateFoiEntry - dates', () => {
+describe('validateFoiEntry - dates', { tags: ['unit'] }, () => {
   it('FoiEntry_NullRespondedAtWithoutNote_Fails', () => {
     writeFoiEntry(undefined, meta => { meta.respondedAt = null; });
     expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/respondedAt is null without a respondedAtNote/);
@@ -179,7 +179,7 @@ describe('validateFoiEntry - dates', () => {
   });
 });
 
-describe('validateFoiEntry - dataVintage and datasetRecovery', () => {
+describe('validateFoiEntry - dataVintage and datasetRecovery', { tags: ['unit'] }, () => {
   it('FoiEntry_DataFileWithNullDataVintage_Fails', () => {
     writeFoiEntry(undefined, meta => { meta.dataVintage = null; });
     expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/dataVintage is null but the entry declares data files/);
@@ -217,7 +217,7 @@ describe('validateFoiEntry - dataVintage and datasetRecovery', () => {
   });
 });
 
-describe('validateFoiEntry - referential integrity', () => {
+describe('validateFoiEntry - referential integrity', { tags: ['unit'] }, () => {
   it('FoiEntry_UnknownConverterVariant_Fails', () => {
     writeFoiEntry(undefined, meta => { meta.converter = { script: 'src/shared/foi-normalise.ts', variant: 'no-such-variant' }; });
     expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/"no-such-variant" is not in the conversion registry/);
@@ -254,7 +254,7 @@ describe('validateFoiEntry - referential integrity', () => {
   });
 });
 
-describe('validateFoiEntry - byte integrity', () => {
+describe('validateFoiEntry - byte integrity', { tags: ['unit'] }, () => {
   it('FoiEntry_TamperedFileContent_FailsWithSha256Mismatch', () => {
     const dir = writeFoiEntry();
     // Same length, different bytes: the hash is the only witness.
@@ -288,7 +288,7 @@ describe('validateFoiEntry - byte integrity', () => {
   });
 });
 
-describe('validateFoiLaneAt', () => {
+describe('validateFoiLaneAt', { tags: ['data-validity'] }, () => {
   it('FoiLane_MissingFoiDirectory_PassesWithZeroEntries', () => {
     const result = validateFoiLaneAt(path.join(foiDir, 'does-not-exist'));
     expect(result.problems).toEqual([]);

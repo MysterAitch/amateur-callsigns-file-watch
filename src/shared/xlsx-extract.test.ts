@@ -91,7 +91,7 @@ function workbookOf(sheets: FixtureSheet[], options: { sharedStrings?: string[];
   return storedZip(files);
 }
 
-describe('xlsx extractor - cell rendering', () => {
+describe('xlsx extractor - cell rendering', { tags: ['unit'] }, () => {
   it('XlsxExtract_SharedAndInlineStrings_RenderVerbatim', () => {
     const workbook = workbookOf(
       [{ name: 'Sheet1', cells: '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="inlineStr"><is><t>G6 FMU</t></is></c></row>' }],
@@ -154,7 +154,7 @@ describe('xlsx extractor - cell rendering', () => {
   });
 });
 
-describe('xlsx extractor - sheet shaping', () => {
+describe('xlsx extractor - sheet shaping', { tags: ['unit'] }, () => {
   it('XlsxExtract_TrailingDimensionNoise_DroppedButInteriorBlanksKept', () => {
     // A phantom empty trailing column and row (Excel dimension noise) are
     // dropped; the interior blank row is structure and stays.
@@ -191,7 +191,7 @@ describe('xlsx extractor - sheet shaping', () => {
   });
 });
 
-describe('xlsx extractor - CSV framing', () => {
+describe('xlsx extractor - CSV framing', { tags: ['unit'] }, () => {
   it('XlsxExtractCsv_SpecialCharacters_QuotedMinimally', () => {
     expect(toCsvBytes([['plain', 'a,b', 'say "hi"', 'two\nlines']]).toString('utf8'))
       .toBe('plain,"a,b","say ""hi""","two\nlines"\n');
@@ -204,7 +204,7 @@ describe('xlsx extractor - CSV framing', () => {
   });
 });
 
-describe('xlsx extractor - date machinery', () => {
+describe('xlsx extractor - date machinery', { tags: ['unit'] }, () => {
   it('ExcelSerialToIso_KnownSerials_MatchCalendar', () => {
     expect(excelSerialToIso(1219)).toBe('1903-05-03');
     expect(excelSerialToIso(43687)).toBe('2019-08-10');
@@ -234,7 +234,7 @@ describe('xlsx extractor - date machinery', () => {
 // extras and none missing. This closes ADR 0004's derivation chain in CI
 // (raw -> extract -> normalised) and is the permanent differential test
 // against the openpyxl implementation that originally produced the files.
-describe('xlsx extractor - archive golden master', () => {
+describe('xlsx extractor - archive golden master', { tags: ['data-validity'] }, () => {
   const foiRoot = path.resolve(import.meta.dirname, '..', '..', 'archive', 'foi');
   const workbookEntries = fs.readdirSync(foiRoot)
     .filter(entry => fs.readdirSync(path.join(foiRoot, entry)).some(f => f.endsWith('.xlsx')));

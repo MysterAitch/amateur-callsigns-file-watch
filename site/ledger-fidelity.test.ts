@@ -48,7 +48,7 @@ function cleanObservation(callsign: string, entity: string, ordinal: number): Ro
 
 const CLEAN_RESOLVED = { typed: 'M7TEE', cleaned: 'M7TEE', entity: 'M#7TEE', matched: 'cleaned' as const };
 
-describe('fidelityOf — selective disclosure (ethics decision 8)', () => {
+describe('fidelityOf — selective disclosure (ethics decision 8)', { tags: ['ui'] }, () => {
   it('CleanCallsign_WhenRawEqualsCanonicalAndNoFlags_SurfacesNothing', () => {
     const claims = cleanObservation('M7TEE', 'M#7TEE', 1);
     const f = fidelityOf(claims, CLEAN_RESOLVED);
@@ -66,7 +66,7 @@ describe('fidelityOf — selective disclosure (ethics decision 8)', () => {
   });
 });
 
-describe('fidelityOf — canonical-form divergence (trailing whitespace)', () => {
+describe('fidelityOf — canonical-form divergence (trailing whitespace)', { tags: ['ui'] }, () => {
   const resolved = { typed: 'G0TQK', cleaned: 'G0TQK', entity: 'G#0TQK', matched: 'cleaned' as const };
   const claims: Row[] = [
     ...cleanObservation('G0TQK', 'G#0TQK', 10),
@@ -134,7 +134,7 @@ describe('fidelityOf — canonical-form divergence (trailing whitespace)', () =>
   });
 });
 
-describe('fidelityOf — a derived flag (forbidden suffix)', () => {
+describe('fidelityOf — a derived flag (forbidden suffix)', { tags: ['ui'] }, () => {
   const resolved = { typed: 'G8XYZ', cleaned: 'G8XYZ', entity: 'G#8XYZ', matched: 'cleaned' as const };
   const claims: Row[] = [
     ...cleanObservation('G8XYZ', 'G#8XYZ', 30),
@@ -160,7 +160,7 @@ describe('fidelityOf — a derived flag (forbidden suffix)', () => {
   });
 });
 
-describe('fidelityOf — mismatch cases use the source-vs-derivation model', () => {
+describe('fidelityOf — mismatch cases use the source-vs-derivation model', { tags: ['ui'] }, () => {
   const resolved = { typed: 'G8XYZ', cleaned: 'G8XYZ', entity: 'G#8XYZ', matched: 'cleaned' as const };
   const noteFor = (flag: string) => fidelityOf([
     raw('G8XYZ', 'G8XYZ', 'G#8XYZ', '@listed', '', SRC, 1, V),
@@ -183,7 +183,7 @@ describe('fidelityOf — mismatch cases use the source-vs-derivation model', () 
   });
 });
 
-describe('fidelityOf — no judgement-negating meta-tags in any gloss', () => {
+describe('fidelityOf — no judgement-negating meta-tags in any gloss', { tags: ['ui'] }, () => {
   // Guard: neutrality is carried by plain factual statements, so no user-facing
   // gloss should contain "verdict" (nor "not a verdict"-style framing).
   const FLAG_IDS = ['lowercase', 'whitespace', 'encoding-failure', 'excel-date-shape',
@@ -203,7 +203,7 @@ describe('fidelityOf — no judgement-negating meta-tags in any gloss', () => {
   });
 });
 
-describe('fidelityOf — unparseable token (MOGCQ) shows no lookalike', () => {
+describe('fidelityOf — unparseable token (MOGCQ) shows no lookalike', { tags: ['ui'] }, () => {
   // MOGCQ carries an O/0 confusion; M0GCQ exists as a distinct, live record for
   // possibly a different person. The affordance must NOT suggest or link it.
   const resolved = { typed: 'MOGCQ', cleaned: 'MOGCQ', entity: 'MOGCQ', matched: 'cleaned' as const };
@@ -240,7 +240,7 @@ describe('fidelityOf — unparseable token (MOGCQ) shows no lookalike', () => {
   });
 });
 
-describe('record-fidelity render — framing and right-of-reply hook', () => {
+describe('record-fidelity render — framing and right-of-reply hook', { tags: ['ui'] }, () => {
   const resolved = { typed: 'G0TQK', cleaned: 'G0TQK', entity: 'G#0TQK', matched: 'cleaned' as const };
   const claims: Row[] = [
     ...cleanObservation('G0TQK', 'G#0TQK', 10),
@@ -292,7 +292,7 @@ describe('record-fidelity render — framing and right-of-reply hook', () => {
   });
 });
 
-describe('explainer pages (reusable FAQ section)', () => {
+describe('explainer pages (reusable FAQ section)', { tags: ['ui'] }, () => {
   const SITE = 'site';
   const PAGES = ['callsign-structure.html', 'invisible-characters.html'];
   for (const page of PAGES) {
@@ -337,7 +337,7 @@ describe('explainer pages (reusable FAQ section)', () => {
   });
 });
 
-describe('sourceLabel — humanises the logical source path', () => {
+describe('sourceLabel — humanises the logical source path', { tags: ['ui'] }, () => {
   it('OpenDataSnapshot_LabelsAsOfcomOpenData', () => {
     expect(sourceLabel('opendata/2025-06-04/raw.csv')).toBe('Ofcom open data');
   });
@@ -352,7 +352,7 @@ describe('sourceLabel — humanises the logical source path', () => {
   });
 });
 
-describe('record-fidelity render — the source list is a clean bulleted list (#438)', () => {
+describe('record-fidelity render — the source list is a clean bulleted list (#438)', { tags: ['ui'] }, () => {
   const resolved = { typed: 'G0TQK', cleaned: 'G0TQK', entity: 'G#0TQK', matched: 'cleaned' as const };
   const claims: Row[] = [
     ...cleanObservation('G0TQK', 'G#0TQK', 10),
@@ -379,7 +379,7 @@ describe('record-fidelity render — the source list is a clean bulleted list (#
   });
 });
 
-describe('record-fidelity render — a many-snapshot source list collapses (#438)', () => {
+describe('record-fidelity render — a many-snapshot source list collapses (#438)', { tags: ['ui'] }, () => {
   const resolved = { typed: 'G0TQK', cleaned: 'G0TQK', entity: 'G#0TQK', matched: 'cleaned' as const };
   const vintages = ['2019-01-01', '2020-01-01', '2021-01-01', '2022-01-01', '2023-01-01', '2024-01-01', '2025-01-01'];
   const claims: Row[] = [
@@ -410,7 +410,7 @@ describe('record-fidelity render — a many-snapshot source list collapses (#438
   });
 });
 
-describe('source and report URL helpers', () => {
+describe('source and report URL helpers', { tags: ['ui'] }, () => {
   it('SourceRepoPath_ForOpenDataKey_MapsToArchiveRoot', () => {
     expect(sourceRepoPath('opendata/2025-06-04/raw.csv')).toBe('archive/2025-06-04/raw.csv');
   });

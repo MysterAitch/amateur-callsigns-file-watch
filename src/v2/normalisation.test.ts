@@ -25,7 +25,7 @@ const REF = loadReferenceData();
 
 const RAW_EXTRACT = 'foi/ofcom-01420046--allocated-reserved-callsigns/raw-extract-sheet-1-report1646659776237.csv';
 
-describe('G0TQK NBSP twin', () => {
+describe('G0TQK NBSP twin', { tags: ['unit'] }, () => {
   it('RawTokens_WhenNbspVariantPresent_YieldTwoObservationsBothNormalisingToOneEntity', () => {
     const content = fs.readFileSync(path.join(ARCHIVE_DIR, RAW_EXTRACT), 'utf8');
     const allRows = parse(content, { columns: true, bom: true }) as Record<string, string>[];
@@ -68,7 +68,7 @@ describe('G0TQK NBSP twin', () => {
   });
 });
 
-describe('lifted normalisation rules', () => {
+describe('lifted normalisation rules', { tags: ['unit'] }, () => {
   const provenance: Provenance = { sourceFile: 'synthetic', ordinal: 0, vintage: '2026-07-11' };
 
   it('NormalisationEdges_WhenRegionalRendering_CollapseToOneRslLessPlaceholder', () => {
@@ -91,7 +91,7 @@ describe('lifted normalisation rules', () => {
   });
 });
 
-describe('serialisation', () => {
+describe('serialisation', { tags: ['unit'] }, () => {
   const source: SourceObservationSet = {
     sourceFile: 'synthetic/tiny.csv',
     vintage: '2026-07-11',

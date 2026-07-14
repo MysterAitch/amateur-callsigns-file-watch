@@ -50,7 +50,7 @@ function headerGlossaryFragments(table: string): string[] {
   return fragments;
 }
 
-describe('tableCaption helper (issue #334)', () => {
+describe('tableCaption helper (issue #334)', { tags: ['unit'] }, () => {
   it('TableCaption_ByDefault_EscapesTextAndTagsForStyling', () => {
     expect(tableCaption('Rows & columns')).toBe('<caption class="table-caption">Rows &amp; columns</caption>');
   });
@@ -63,7 +63,7 @@ describe('tableCaption helper (issue #334)', () => {
   });
 });
 
-describe('generated tables — self-evidence contract (issues #334 / #397)', () => {
+describe('generated tables — self-evidence contract (issues #334 / #397)', { tags: ['data-validity'] }, () => {
   let classIndex: string;
   let classPage: string;
 
@@ -127,7 +127,7 @@ describe('generated tables — self-evidence contract (issues #334 / #397)', () 
 // the real generated markup rather than a fixture. Each generator renders every
 // one of its tables here (including those folded into <details>), so a future
 // edit that adds an uncaptioned table, or drops a caption, fails CI.
-describe('census / rollup tables — self-evidence contract (issue #418)', () => {
+describe('census / rollup tables — self-evidence contract (issue #418)', { tags: ['data-validity'] }, () => {
   let statisticsPage: string;
   let dataStatusPage: string;
   let interDatasetPage: string;
@@ -177,7 +177,7 @@ describe('census / rollup tables — self-evidence contract (issue #418)', () =>
   });
 });
 
-describe('hand-authored tables — self-evidence contract (issues #334 / #397)', () => {
+describe('hand-authored tables — self-evidence contract (issues #334 / #397)', { tags: ['unit'] }, () => {
   it('Playground_EveryDataTable_HasCaptionAndScopedHeaders', () => {
     const html = fs.readFileSync(path.join(SITE_DIR, 'playground.html'), 'utf8');
     const found = tables(html);
@@ -200,7 +200,7 @@ describe('hand-authored tables — self-evidence contract (issues #334 / #397)',
 
 // Guard the helper's escaping stays wired to the shared escapeHtml, so a
 // caption can never inject unescaped angle brackets by default.
-describe('tableCaption escaping (issue #334)', () => {
+describe('tableCaption escaping (issue #334)', { tags: ['unit'] }, () => {
   it('TableCaption_EscapesAngleBrackets_LikeTheSharedEscaper', () => {
     const raw = 'a < b > c';
     expect(tableCaption(raw)).toContain(escapeHtml(raw));

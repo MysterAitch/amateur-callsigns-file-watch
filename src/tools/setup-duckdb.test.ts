@@ -52,7 +52,7 @@ function makeZip(name: string, data: Buffer, method: 0 | 8): Buffer {
   return Buffer.concat([localBlock, centralBlock, eocd]);
 }
 
-describe('setup-duckdb — checksum gate', () => {
+describe('setup-duckdb — checksum gate', { tags: ['unit'] }, () => {
   it('VerifyChecksum_WhenHashMatches_DoesNotThrow', () => {
     expect(() => verifyChecksum(KNOWN, KNOWN_SHA)).not.toThrow();
   });
@@ -64,7 +64,7 @@ describe('setup-duckdb — checksum gate', () => {
   });
 });
 
-describe('setup-duckdb — ZIP extraction', () => {
+describe('setup-duckdb — ZIP extraction', { tags: ['unit'] }, () => {
   it('ExtractZipEntry_StoredEntry_ReturnsExactBytes', () => {
     const zip = makeZip('duckdb', KNOWN, 0);
     expect(extractZipEntry(zip, 'duckdb').equals(KNOWN)).toBe(true);
@@ -82,7 +82,7 @@ describe('setup-duckdb — ZIP extraction', () => {
   });
 });
 
-describe('setup-duckdb — bootstrapped-binary resolution', () => {
+describe('setup-duckdb — bootstrapped-binary resolution', { tags: ['unit'] }, () => {
   let root: string;
   beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), 'duckdb-setup-')); });
   afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });

@@ -11,6 +11,7 @@
     "scheduled": "node src/scheduled-run.ts",
     "setup:duckdb": "node src/tools/setup-duckdb.ts",
     "test": "vitest run",
+    "test:unit": "vitest run --project fast --tagsFilter \"unit || ui\"",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src/",

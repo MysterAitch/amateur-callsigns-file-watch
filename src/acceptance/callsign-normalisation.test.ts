@@ -20,7 +20,7 @@ function parse(callsign: string, product = '') {
   return parseCallsign(callsign, product, REF);
 }
 
-describe('cleaned join key (acceptance criterion A3)', () => {
+describe('cleaned join key (acceptance criterion A3)', { tags: ['data-validity'] }, () => {
   it('CleanedKey_WhenPublisherArtefactsPresent_FoldsCaseWhitespaceAndPunctuation', () => {
     // The cleaned key upper-cases and strips everything outside A-Z 0-9 /.
     // Every example below is a value class observed in the real register.
@@ -50,7 +50,7 @@ describe('cleaned join key (acceptance criterion A3)', () => {
   });
 });
 
-describe('verbatim raw value (acceptance criteria A1 / A2 / E3)', () => {
+describe('verbatim raw value (acceptance criteria A1 / A2 / E3)', { tags: ['data-validity'] }, () => {
   it('RawValue_WhenLowerOrMixedCase_IsCarriedByteForByte', () => {
     // Case is never changed on the stored value - a case change would invent
     // an assertion the source did not make.
@@ -65,7 +65,7 @@ describe('verbatim raw value (acceptance criteria A1 / A2 / E3)', () => {
   });
 });
 
-describe('placeholder-form unification (acceptance criterion F9)', () => {
+describe('placeholder-form unification (acceptance criterion F9)', { tags: ['data-validity'] }, () => {
   it('Placeholder_WhenRegionalRenderingsOfOneCore_CollapseToSingleKey', () => {
     // M7TEE and every regional rendering share one RSL-less placeholder form;
     // the '#' is the documented RSL slot, not junk.
@@ -85,7 +85,7 @@ describe('placeholder-form unification (acceptance criterion F9)', () => {
   });
 });
 
-describe('tolerant-then-honest parsing (acceptance criteria A4 / A6 / E5 / E12)', () => {
+describe('tolerant-then-honest parsing (acceptance criteria A4 / A6 / E5 / E12)', { tags: ['data-validity'] }, () => {
   it('Parse_WhenLowercaseValue_ParsedCaseInsensitivelyAndFlagged', () => {
     const r = parse('g0jrk', 'Amateur Full Radio Licence');
     expect(r.parseStatus).toBe('parsed');
@@ -127,7 +127,7 @@ describe('tolerant-then-honest parsing (acceptance criteria A4 / A6 / E5 / E12)'
   });
 });
 
-describe('stripped-collision cross-row finding (acceptance criteria E1 / E3)', () => {
+describe('stripped-collision cross-row finding (acceptance criteria E1 / E3)', { tags: ['data-validity'] }, () => {
   it('CrossRowFlags_WhenStrippedFormCoexists_FlaggedStrippedCollision', () => {
     // The junk-bearing value and its stripped form both appear as register
     // rows; the register effectively lists one callsign twice, and that stays

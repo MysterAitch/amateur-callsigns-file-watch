@@ -25,7 +25,7 @@ import {
 // the same inputs the deploy uses - so a status that drifts from the artefacts
 // on disk fails here.
 
-describe('data-status: held-dataset inventory & processing grid', () => {
+describe('data-status: held-dataset inventory & processing grid', { tags: ['data-validity'] }, () => {
   it('OpenDataRows_RealArchive_AreFullyProcessedRegisterSnapshots', () => {
     const rows = buildOpenDataRows();
     expect(rows.length).toBeGreaterThan(0);
@@ -106,7 +106,7 @@ describe('data-status: held-dataset inventory & processing grid', () => {
   });
 });
 
-describe('data-status: known-but-absent (parsed from the source register)', () => {
+describe('data-status: known-but-absent (parsed from the source register)', { tags: ['data-validity'] }, () => {
   const REGISTER = `
 ## FOI datasets — register snapshots
 
@@ -196,7 +196,7 @@ prose interruption that splits the table
   });
 });
 
-describe('data-status: series coverage & gaps', () => {
+describe('data-status: series coverage & gaps', { tags: ['data-validity'] }, () => {
   it('BuildSeries_RealArchive_OrdersVintagesAndFlagsLongGaps', () => {
     const rows = buildHeldRows();
     const series = buildSeries(rows, readKnownAbsent());
@@ -219,7 +219,7 @@ describe('data-status: series coverage & gaps', () => {
   });
 });
 
-describe('data-status: page injection', () => {
+describe('data-status: page injection', { tags: ['data-validity'] }, () => {
   it('InjectDataStatus_RealArchive_ReplacesEveryPlaceholderAndStaysScriptFree', () => {
     const scratch = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'data-status-')), 'data-status.html');
     fs.copyFileSync(path.join('site', 'data-status.html'), scratch);

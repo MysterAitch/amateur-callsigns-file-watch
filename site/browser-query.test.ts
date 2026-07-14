@@ -33,7 +33,7 @@ function facet(key: string, values: string[], extra: Record<string, unknown> = {
   return { key, field: key, isExpr: false, label: key, values: new Set(values), exclude: false, ...extra };
 }
 
-describe('quote', () => {
+describe('quote', { tags: ['ui'] }, () => {
   it('Quote_WhenPlainValue_WrapsInSingleQuotes', () => {
     expect(quote('Reserved')).toBe("'Reserved'");
   });
@@ -43,7 +43,7 @@ describe('quote', () => {
   });
 });
 
-describe('parseColumnFilter', () => {
+describe('parseColumnFilter', { tags: ['ui'] }, () => {
   it('ColumnFilter_WhenEmpty_ReturnsNull', () => {
     expect(parseColumnFilter('callsign', '   ')).toBeNull();
   });
@@ -83,7 +83,7 @@ describe('parseColumnFilter', () => {
 // The callsign RSL-normalisation shared with the index lookup (issue #213):
 // the pure core both the lookup (app.js) and the per-dataset browser
 // (entry-browser.js) resolve regional variants through.
-describe('placeholderOf', () => {
+describe('placeholderOf', { tags: ['ui'] }, () => {
   it('Placeholder_WhenRegionalVariant_NormalisesToRslSlotForm', () => {
     expect(placeholderOf('MW7TEE')).toBe('M#7TEE');
     expect(placeholderOf('M7TEE')).toBe('M#7TEE');
@@ -97,7 +97,7 @@ describe('placeholderOf', () => {
   });
 });
 
-describe('canonicalCallsign', () => {
+describe('canonicalCallsign', { tags: ['ui'] }, () => {
   it('Canonical_WhenRegionalVariant_ResolvesToRslLessCore', () => {
     // MW7TEE (Welsh regional rendering) resolves to the M7TEE core the
     // register stores.
@@ -115,7 +115,7 @@ describe('canonicalCallsign', () => {
   });
 });
 
-describe('resolvedCallsignCore', () => {
+describe('resolvedCallsignCore', { tags: ['ui'] }, () => {
   it('ResolvedCore_WhenRegionalVariant_ReturnsCanonicalCore', () => {
     expect(resolvedCallsignCore('callsign', 'MW7TEE')).toBe('M7TEE');
   });
@@ -138,7 +138,7 @@ describe('resolvedCallsignCore', () => {
   });
 });
 
-describe('buildPredicate', () => {
+describe('buildPredicate', { tags: ['ui'] }, () => {
   it('Predicate_WhenNoFiltersAndNoDataset_IsAlwaysTrue', () => {
     // The comparison surface builds a dataset-agnostic predicate; an empty
     // one must still be a valid, droppable WHERE clause.
@@ -184,7 +184,7 @@ describe('buildPredicate', () => {
   });
 });
 
-describe('isDefaultSort', () => {
+describe('isDefaultSort', { tags: ['ui'] }, () => {
   it('DefaultSort_WhenCallsignAsc_IsTrue', () => {
     expect(isDefaultSort([{ col: 'callsign', dir: 'ASC' }])).toBe(true);
   });
@@ -195,7 +195,7 @@ describe('isDefaultSort', () => {
   });
 });
 
-describe('callsignCharMarker', () => {
+describe('callsignCharMarker', { tags: ['ui'] }, () => {
   it('CharMarker_PlainGlyph_PassesThrough', () => {
     // Ordinary callsign characters render as themselves (null = no marker).
     for (const ch of 'M7TEE/2E0ABC') expect(callsignCharMarker(ch)).toBeNull();
@@ -212,7 +212,7 @@ describe('callsignCharMarker', () => {
   });
 });
 
-describe('callsignCharMarker — unicode edge cases', () => {
+describe('callsignCharMarker — unicode edge cases', { tags: ['ui'] }, () => {
   it('CharMarker_LowercaseAndHash_PassThrough', () => {
     for (const ch of 'abc#') expect(callsignCharMarker(ch)).toBeNull();
   });
@@ -231,7 +231,7 @@ describe('callsignCharMarker — unicode edge cases', () => {
   });
 });
 
-describe('matchingCountSql', () => {
+describe('matchingCountSql', { tags: ['ui'] }, () => {
   it('CountSql_ScopesToDatasetAndPredicate', () => {
     expect(matchingCountSql('2026-06-23', `"status" IN ('Reserved')`))
       .toBe(`SELECT COUNT(*) AS n FROM register_history WHERE dataset = '2026-06-23' AND ("status" IN ('Reserved'))`);
@@ -242,7 +242,7 @@ describe('matchingCountSql', () => {
   });
 });
 
-describe('setDiffSql', () => {
+describe('setDiffSql', { tags: ['ui'] }, () => {
   const pred = `"status" IN ('Reserved')`;
   const diff = setDiffSql('2025-06-04', '2026-06-23', pred);
 
@@ -271,7 +271,7 @@ describe('setDiffSql', () => {
   });
 });
 
-describe('serialize/parse round-trip', () => {
+describe('serialize/parse round-trip', { tags: ['ui'] }, () => {
   it('Serialize_WhenPristineState_ProducesEmptyObject', () => {
     // A pristine view must serialise to {} so the ?view= param is dropped.
     expect(serializeFilterState(state())).toEqual({});
@@ -310,7 +310,7 @@ describe('serialize/parse round-trip', () => {
 // The shared ?view= round-trip (issue #214): both browsers turn state into the
 // query-param value, restore state FROM the param on first load and on
 // back/forward, and decide whether a sync should touch the History API.
-describe('stateToViewParam / viewParamToState round-trip', () => {
+describe('stateToViewParam / viewParamToState round-trip', { tags: ['ui'] }, () => {
   it('ViewParam_WhenPristineState_IsNull', () => {
     // A pristine view emits no param, so the caller deletes ?view= entirely.
     expect(stateToViewParam(state())).toBeNull();
@@ -350,7 +350,7 @@ describe('stateToViewParam / viewParamToState round-trip', () => {
   });
 });
 
-describe('applyViewToState', () => {
+describe('applyViewToState', { tags: ['ui'] }, () => {
   it('ApplyView_WhenPieceAbsentFromLink_ResetsItToDefault', () => {
     // Back/forward must restore each state exactly: navigating to a link that
     // omits a facet has to CLEAR a facet left over from a later state, not keep
@@ -372,7 +372,7 @@ describe('applyViewToState', () => {
   });
 });
 
-describe('historySyncAction', () => {
+describe('historySyncAction', { tags: ['ui'] }, () => {
   it('HistorySync_WhenUrlUnchanged_WritesNothing', () => {
     // A no-op / programmatic sync (paginating, first load, an idempotent
     // refresh) leaves history alone rather than duplicating an entry.

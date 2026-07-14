@@ -109,13 +109,13 @@ afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 });
 
-describe('dataBranchName', () => {
+describe('dataBranchName', { tags: ['unit'] }, () => {
   it('DataBranchName_WhenArchiveKeyGiven_ReturnsDataPrefixedBranch', () => {
     expect(dataBranchName('2026-07-06')).toBe('data/2026-07-06');
   });
 });
 
-describe('gitCommitAndPush (PR-based landing, issue #14)', () => {
+describe('gitCommitAndPush (PR-based landing, issue #14)', { tags: ['unit'] }, () => {
   it('Publication_WhenNewArchiveEntryCommitted_LandsOnDataBranchNotMain', () => {
     simulatePublication(clone, '2026-07-06');
     const mainBefore = git(origin, 'rev-parse', 'refs/heads/main');
@@ -185,7 +185,7 @@ describe('gitCommitAndPush (PR-based landing, issue #14)', () => {
   });
 });
 
-describe('fetch-host convergence after PR merge', () => {
+describe('fetch-host convergence after PR merge', { tags: ['unit'] }, () => {
   it('FetchHost_WhenDataBranchMergedViaMergeCommit_FastForwardPullConverges', () => {
     // The whole point of the merge-commit method: the pushed data commit
     // becomes a parent of the merge commit, so the fetch host's local main

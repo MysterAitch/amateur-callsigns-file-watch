@@ -41,7 +41,7 @@ function talliesBySource(field: string, spec: Record<string, Record<string, numb
   return new Map([[field, m]]);
 }
 
-describe('value catalogue', () => {
+describe('value catalogue', { tags: ['unit'] }, () => {
   const ref = loadReferenceData();
 
   it('CatalogueField_OrdersByCountThenValue', () => {
@@ -213,7 +213,7 @@ describe('value catalogue', () => {
   });
 });
 
-describe('buildNormalisationFidelity over the real archive', () => {
+describe('buildNormalisationFidelity over the real archive', { tags: ['data-validity'] }, () => {
   it('RealArchive_2022Export_DropsFiveFurnitureLinesOthersFaithful', async () => {
     const { buildNormalisationFidelity } = await import('./value-catalogue.ts');
     const fidelity = buildNormalisationFidelity();

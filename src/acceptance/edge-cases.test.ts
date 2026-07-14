@@ -16,7 +16,7 @@ function friendlyCsv(dataRows: string[]): string {
   return [FRIENDLY_HEADER, ...dataRows].join('\n') + '\n';
 }
 
-describe('over-length special-event callsigns (acceptance criterion E7)', () => {
+describe('over-length special-event callsigns (acceptance criterion E7)', { tags: ['data-validity'] }, () => {
   it('Parse_WhenCallsignExceedsUsualLength_CarriedVerbatimNeverRejected', () => {
     // EDUCATIONAL (11) and ENVIRONMENTS (12) are real Special Event Station
     // callsigns; they are never rejected on length - the value passes through
@@ -26,7 +26,7 @@ describe('over-length special-event callsigns (acceptance criterion E7)', () => 
   });
 });
 
-describe('class-product mismatch novelty (acceptance criterion E6)', () => {
+describe('class-product mismatch novelty (acceptance criterion E6)', { tags: ['data-validity'] }, () => {
   it('Parse_WhenPrefixImpliesFullButProductIsFoundation_FlaggedMismatch', () => {
     // M5SHA is the officially-acknowledged format-does-not-fit-class novelty:
     // the M5 series implies Full, so a Foundation product disagrees and is
@@ -37,7 +37,7 @@ describe('class-product mismatch novelty (acceptance criterion E6)', () => {
   });
 });
 
-describe('date plausibility bounds (acceptance criteria A9 / E13 / E15)', () => {
+describe('date plausibility bounds (acceptance criteria A9 / E13 / E15)', { tags: ['data-validity'] }, () => {
   it('DateParse_WhenRegistersOpeningDate_ParsesAsDayFirst', () => {
     // 3 May 1903 is the register's famous opening date - a genuine record that
     // parses under strict UK day-first ordering.

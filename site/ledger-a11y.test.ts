@@ -87,7 +87,7 @@ const DEV_PAIRS: [name: string, fg: string, bg: string][] = [
   ['substantial-deviation badge label on the strong fill', 'on-dev-strong', 'dev-strong'],
 ];
 
-describe('ledger.css contrast guard (issues #407 / #411)', () => {
+describe('ledger.css contrast guard (issues #407 / #411)', { tags: ['ui'] }, () => {
   for (const [theme, body] of [['light', LIGHT], ['dark', DARK]] as const) {
     for (const [label, fg, bg] of [...PAIRS, ...PILL_PAIRS, ...DEV_PAIRS]) {
       it(`Contrast_${theme}Theme_${fg}On${bg}_MeetsAA`, () => {
@@ -119,7 +119,7 @@ describe('ledger.css contrast guard (issues #407 / #411)', () => {
   });
 });
 
-describe('interactive-page accessibility fallbacks (issues #407 / #397)', () => {
+describe('interactive-page accessibility fallbacks (issues #407 / #397)', { tags: ['ui'] }, () => {
   it('LedgerPage_BeingJsDriven_CarriesANoscriptFallback', () => {
     const html = siteFile('ledger.html');
     expect(html).toContain('<noscript>');
@@ -144,7 +144,7 @@ describe('interactive-page accessibility fallbacks (issues #407 / #397)', () => 
 // thresholds (in-range < 2% ≤ mild < 10% ≤ substantial), and the rendered
 // readout must state severity AND direction in TEXT (the accessible label),
 // not colour alone. Test names follow Subject_Scenario_Outcome.
-describe('change-magnitude classifier and label (issue #409)', () => {
+describe('change-magnitude classifier and label (issue #409)', { tags: ['ui'] }, () => {
   it('ClassifyDelta_WhenWithinTwoPercent_IsInRange', () => {
     expect(classifyDelta(1015, 1000).severity).toBe('in-range'); // +1.5%
     expect(classifyDelta(1000, 1000)).toMatchObject({ severity: 'in-range', direction: 'none' });

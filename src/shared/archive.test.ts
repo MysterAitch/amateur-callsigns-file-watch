@@ -10,7 +10,7 @@ import {
   listArchiveKeys,
 } from './archive.ts';
 
-describe('listArchiveKeys', () => {
+describe('listArchiveKeys', { tags: ['unit'] }, () => {
   let tmpRoot: string | undefined;
   const originalCwd = process.cwd();
 
@@ -44,7 +44,7 @@ describe('listArchiveKeys', () => {
   });
 });
 
-describe('parseOfcomHumanDate', () => {
+describe('parseOfcomHumanDate', { tags: ['unit'] }, () => {
   it('ParseOfcomHumanDate_WhenGivenTypicalOfcomDate_ReturnsIsoDate', () => {
     expect(parseOfcomHumanDate('23 June 2026')).toBe('2026-06-23');
   });
@@ -90,7 +90,7 @@ describe('parseOfcomHumanDate', () => {
   });
 });
 
-describe('extractOfcomDateFromCommitMessage', () => {
+describe('extractOfcomDateFromCommitMessage', { tags: ['unit'] }, () => {
   it('ExtractOfcomDate_WhenCommitMessageMatchesLiveCommitFormat_ReturnsIsoDate', () => {
     const msg = 'Update amateur callsigns CSV (Ofcom updated: 23 June 2026), size: 11.27MB';
     expect(extractOfcomDateFromCommitMessage(msg)).toBe('2026-06-23');
@@ -110,7 +110,7 @@ describe('extractOfcomDateFromCommitMessage', () => {
   });
 });
 
-describe('archiveKeyForDate', () => {
+describe('archiveKeyForDate', { tags: ['unit'] }, () => {
   it('ArchiveKey_WhenOfcomDateKnown_PrefersOfcomDate', () => {
     expect(archiveKeyForDate('2026-06-23', '2026-07-04')).toBe('2026-06-23');
   });
@@ -126,7 +126,7 @@ describe('archiveKeyForDate', () => {
   });
 });
 
-describe('buildDiffSummary', () => {
+describe('buildDiffSummary', { tags: ['unit'] }, () => {
   const currentRecords = [
     { Callsign: 'M0AAA', Product: 'A', Status: 'Active' },
     { Callsign: 'M0BBB', Product: 'A', Status: 'Active' },

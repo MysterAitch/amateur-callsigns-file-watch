@@ -17,7 +17,7 @@ interface CompareWindow { __compareReadyTimer?: ReturnType<typeof setTimeout>; }
 function readyWindow(): CompareWindow { return window as unknown as CompareWindow; }
 const warning = (): HTMLElement | null => document.getElementById('startup-warning');
 
-describe('compare startup warning behaviour', () => {
+describe('compare startup warning behaviour', { tags: ['ui'] }, () => {
   beforeEach(() => {
     vi.useFakeTimers();
     document.body.innerHTML = '<div id="startup-warning" hidden></div>';
@@ -48,7 +48,7 @@ describe('compare startup warning behaviour', () => {
   });
 });
 
-describe('compare startup warning wiring', () => {
+describe('compare startup warning wiring', { tags: ['ui'] }, () => {
   const compareHtml = fs.readFileSync(path.join('site', 'compare.html'), 'utf8');
   const compareJs = fs.readFileSync(path.join('site', 'compare.js'), 'utf8');
 

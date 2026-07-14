@@ -11,7 +11,7 @@ import { duckDbAvailable } from '../v2/report-fold.ts';
 
 // The renderers are pure functions of already-computed structs, so they need no
 // DuckDB and always run — they lock the committed report's exact formatting.
-describe('cross-dataset invariants — renderers', () => {
+describe('cross-dataset invariants — renderers', { tags: ['unit'] }, () => {
   it('Render_AllSections_ShowDepletionDecompositionAndDateInvariant', () => {
     const md = renderCrossDatasetInvariants({
       register: '2026-06-23', allocatedTotal: 105332,
@@ -70,7 +70,7 @@ describe('cross-dataset invariants — renderers', () => {
 // PATH, installed in CI by .github/actions/setup-duckdb). Where the binary is
 // absent — a bare local checkout — these cases skip rather than pretend the fold
 // was verified. CI always has it, so the byte-identity gate always runs there.
-describe.skipIf(!duckDbAvailable())('cross-dataset invariants — real-archive fold', () => {
+describe.skipIf(!duckDbAvailable())('cross-dataset invariants — real-archive fold', { tags: ['data-validity'] }, () => {
   // The real-archive fold reads every FOI snapshot and the ~158k-row registers;
   // build each struct once and share it across the assertions rather than
   // re-folding per test. Generous hook timeout: a congested CI runner can be

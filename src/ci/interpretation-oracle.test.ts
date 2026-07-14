@@ -27,7 +27,7 @@ import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 
 const REF = loadReferenceData();
 
-describe('the interpretation oracle holds over the whole real corpus', () => {
+describe('the interpretation oracle holds over the whole real corpus', { tags: ['data-validity'] }, () => {
   it('EveryInterpretedSource_WhenCheckedAgainstItsData_PassesAllInterpretationSelfChecks', () => {
     const report = assertInterpretationOracle(collectInterpretedSources(), REF);
     // The corpus genuinely exercises the checks: interpreted sources are present,
@@ -68,7 +68,7 @@ function source(rows: readonly Record<string, string>[]): SourceObservationSet {
   };
 }
 
-describe('the load-bearing re-parse check catches a wrong or mixed date attestation', () => {
+describe('the load-bearing re-parse check catches a wrong or mixed date attestation', { tags: ['unit'] }, () => {
   it('AttestedDayFirstColumn_WhenAValueIsIsoShaped_IsCaught', () => {
     // A YYYY-MM-DD value in a column attested DD/MM/YYYY - the attestation is
     // wrong (or the column mixes). The re-parse check must fail loud.
@@ -89,7 +89,7 @@ describe('the load-bearing re-parse check catches a wrong or mixed date attestat
   });
 });
 
-describe('the drift check catches a stored interpretation disagreeing with the code', () => {
+describe('the drift check catches a stored interpretation disagreeing with the code', { tags: ['unit'] }, () => {
   it('StoredInterpretation_WhenItDisagreesWithTheCode_IsCaught', () => {
     const src = source([{ Callsign: 'M7TEE', Product: 'Full', Status: 'Allocated', CreatedDate: '15/01/2019' }]);
     // A stale committed claim: the CreatedDate column stored as an integer.
@@ -107,7 +107,7 @@ describe('the drift check catches a stored interpretation disagreeing with the c
   });
 });
 
-describe('the flag reproducibility + completeness check holds on a constructed collision', () => {
+describe('the flag reproducibility + completeness check holds on a constructed collision', { tags: ['unit'] }, () => {
   it('CollidingProductColumn_WhenSwept_RaisesAReproducibleCompleteFlag', () => {
     const collided = source([
       { Callsign: 'M7TEE', Product: 'Amateur Full Radio Licence', Status: 'Allocated', CreatedDate: '15/01/2019' },
@@ -120,7 +120,7 @@ describe('the flag reproducibility + completeness check holds on a constructed c
   });
 });
 
-describe('the attestation adds only file-level claims across the real corpus', () => {
+describe('the attestation adds only file-level claims across the real corpus', { tags: ['data-validity'] }, () => {
   it('EveryInterpretationClaim_WhenEmittedOverTheCorpus_RidesTheSentinelOrdinalAsDerivedLookedUp', () => {
     for (const src of collectInterpretedSources()) {
       for (const claim of emitInterpretationClaims(src)) {

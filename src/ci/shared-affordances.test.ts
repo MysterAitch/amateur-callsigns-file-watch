@@ -26,7 +26,7 @@ const OWNING_GENERATORS = [
   'build-data-status.ts',
 ];
 
-describe('datasetLabel component (issue #328)', () => {
+describe('datasetLabel component (issue #328)', { tags: ['unit'] }, () => {
   it('DatasetLabel_WithHref_LeadsWithHumanNameAndFollowsWithRawKey', () => {
     const html = datasetLabel('Publication of 23 June 2026', 'ofcom-2026-06-23--call-sign-list', { href: 'open-data/x/index.html' });
     // The human name reads first, linked to the dataset's detail page.
@@ -57,7 +57,7 @@ describe('datasetLabel component (issue #328)', () => {
   });
 });
 
-describe('callsignPill component (issue #310)', () => {
+describe('callsignPill component (issue #310)', { tags: ['unit'] }, () => {
   it('CallsignPill_Always_RendersAWellFormedLookupLinkAsAPill', () => {
     const pill = callsignPill('M7TEE', 3);
     expect(pill).toBe('<a class="callsign-pill" href="../../../index.html?c=M7TEE">M7TEE</a>');
@@ -74,7 +74,7 @@ describe('callsignPill component (issue #310)', () => {
 // The register-lookup URL lives in callsignPill alone; no owning generator may
 // hand-roll a `?c=` anchor. This is the anti-drift guard: a bespoke callsign
 // link reintroduced in any of these generators fails here.
-describe('callsign rendering routes through the shared pill (issue #310)', () => {
+describe('callsign rendering routes through the shared pill (issue #310)', { tags: ['unit'] }, () => {
   it('OwningGenerators_RenderCallsigns_OnlyViaTheSharedPillNotAdHocAnchors', () => {
     for (const file of OWNING_GENERATORS) {
       const src = fs.readFileSync(path.join(CI_DIR, file), 'utf8');
@@ -83,7 +83,7 @@ describe('callsign rendering routes through the shared pill (issue #310)', () =>
   });
 });
 
-describe('dataset identifiers route through the shared label on generated surfaces (issues #328 / #310)', () => {
+describe('dataset identifiers route through the shared label on generated surfaces (issues #328 / #310)', { tags: ['unit'] }, () => {
   let classIndex: string;
   let classPage: string;
 

@@ -63,7 +63,7 @@ function categoryClaimsOf(claims: readonly Claim[]): Claim[] {
   return claims.filter(claim => claim.predicate === LICENCE_CATEGORY_PREDICATE);
 }
 
-describe('derived licence-category tier equivalence to the lifted map', () => {
+describe('derived licence-category tier equivalence to the lifted map', { tags: ['unit'] }, () => {
   it('LicenceCategoryClaims_WhenProductMaps_MatchNormaliseLicenceCategoryOutput', () => {
     const categoryClaims = categoryClaimsOf(emitLicenceCategoryClaims(FIXTURE_SOURCE, REF));
 
@@ -118,7 +118,7 @@ describe('derived licence-category tier equivalence to the lifted map', () => {
   });
 });
 
-describe('raw and derived tiers coexist unchanged', () => {
+describe('raw and derived tiers coexist unchanged', { tags: ['unit'] }, () => {
   it('RawProductClaims_WhenCategoryTierAdded_SurviveVerbatimBesideTheDerivedClaims', () => {
     const ledger = emitLedger(FIXTURE_SOURCE, REF);
 
@@ -139,7 +139,7 @@ describe('raw and derived tiers coexist unchanged', () => {
   });
 });
 
-describe('the derived tier over a real product-bearing register snapshot', () => {
+describe('the derived tier over a real product-bearing register snapshot', { tags: ['data-validity'] }, () => {
   it('LicenceCategoryClaims_WhenBuiltFromRealSnapshot_MatchTheMapOverEveryProductCell', () => {
     // ofcom-2023-12-07 is a full register whose raw source carries a 'Product'
     // column, so registerSourcesFor binds a product column and the tier fires.
@@ -172,7 +172,7 @@ describe('the derived tier over a real product-bearing register snapshot', () =>
   });
 });
 
-describe('compact-DB parity on the derived licence-category tier', () => {
+describe('compact-DB parity on the derived licence-category tier', { tags: ['unit'] }, () => {
   it('CompactClaimsView_WhenLedgerHasCategoryClaims_ReconstructsThemIdenticallyToFatTable', () => {
     // A tiny synthetic ledger written to disk exercises the compact VIEW's
     // reconstruction of the derived category rows without a whole-corpus build.

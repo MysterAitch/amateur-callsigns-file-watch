@@ -87,7 +87,7 @@ function writeAccountedEntry(root: string, key: string, metaOverrides: Record<st
   fs.writeFileSync(path.join(root, CONSTANTS.DIRS.archive, key, 'normalised.csv'), normalised);
 }
 
-describe('validateArchiveEntry', () => {
+describe('validateArchiveEntry', { tags: ['unit'] }, () => {
   it('ArchiveEntry_WhenWellFormed_PassesValidation', () => {
     writeEntry(tmpRoot, '2026-06-23', CSV);
     const problems = validateArchiveEntry('2026-06-23');
@@ -260,7 +260,7 @@ describe('validateArchiveEntry', () => {
   });
 });
 
-describe('deepValidateEntryCsv', () => {
+describe('deepValidateEntryCsv', { tags: ['unit'] }, () => {
   it('DeepValidation_WhenCsvParsesWithRecords_Passes', () => {
     writeEntry(tmpRoot, '2026-06-23', CSV);
     expect(deepValidateEntryCsv('2026-06-23')).toEqual([]);
@@ -326,7 +326,7 @@ describe('deepValidateEntryCsv', () => {
   });
 });
 
-describe('validateLatestPointers', () => {
+describe('validateLatestPointers', { tags: ['unit'] }, () => {
   it('LatestPointers_WhenConsistentWithNewestEntry_Pass', () => {
     writeEntry(tmpRoot, '2026-06-23', CSV);
     writeLatestSet(tmpRoot, '2026-06-23');
@@ -352,7 +352,7 @@ describe('validateLatestPointers', () => {
   });
 });
 
-describe('validateRepoData (orchestrating check used by CI)', () => {
+describe('validateRepoData (orchestrating check used by CI)', { tags: ['unit'] }, () => {
   it('RepoData_WhenAllEntriesAndPointersWellFormed_ReportsOk', () => {
     writeEntry(tmpRoot, '2025-06-08', CSV);
     writeEntry(tmpRoot, '2026-06-23', CSV);

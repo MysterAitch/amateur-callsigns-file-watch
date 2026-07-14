@@ -77,7 +77,7 @@ function writeFixtureLedger(): string {
   return dir;
 }
 
-describe('licence-category fold — reference products', () => {
+describe('licence-category fold — reference products', { tags: ['unit'] }, () => {
   it('RecognisedProducts_ReferenceMap_EnumeratesEveryMappedSpelling', () => {
     const products = recognisedProducts(ref);
     // Every spelling the section can fold in is a key of the reference map.
@@ -88,7 +88,7 @@ describe('licence-category fold — reference products', () => {
   });
 });
 
-describe.skipIf(!duckDbAvailable())('licence-category fold — fixture ledger', () => {
+describe.skipIf(!duckDbAvailable())('licence-category fold — fixture ledger', { tags: ['unit'] }, () => {
   it('LicenceCategoryFold_SyntheticLedger_CountsRecordsDistinctCallsignsAllocatedAndFoldsIn', () => {
     const dir = writeFixtureLedger();
     try {
@@ -210,7 +210,7 @@ function parseCommittedFolded(): Map<string, LicenceCategoryFigures> {
   return byCategory;
 }
 
-describe('licence-category — ledger vs legacy equivalence oracle', () => {
+describe('licence-category — ledger vs legacy equivalence oracle', { tags: ['data-validity'] }, () => {
   // Always-on: reads the committed folded golden and recomputes the legacy
   // figures live over the real archive (no DuckDB needed for this side). Any
   // drift in either path — beyond a regenerated golden — trips the allow-list.
@@ -280,7 +280,7 @@ describe('licence-category — ledger vs legacy equivalence oracle', () => {
 // must reproduce the committed golden's figures. This is the proof the fold —
 // not a parse of the golden — produces the numbers, so the section can retire
 // the legacy computation once every value-catalogue field has migrated.
-describe.skipIf(!duckDbAvailable())('licence-category fold — real-archive retirement gate', () => {
+describe.skipIf(!duckDbAvailable())('licence-category fold — real-archive retirement gate', { tags: ['data-validity'] }, () => {
   let folded: Map<string, FoldedCategory>;
   beforeAll(() => {
     folded = new Map(buildLicenceCategoryFold(undefined, ref).map(c => [c.category, c]));
@@ -365,7 +365,7 @@ function parseCommittedFieldTable(field: string): Map<string, FieldFigures> {
   return byValue;
 }
 
-describe('parse-derived fields — ledger vs legacy equivalence oracle', () => {
+describe('parse-derived fields — ledger vs legacy equivalence oracle', { tags: ['data-validity'] }, () => {
   // Always-on: reads the committed folded golden and recomputes the legacy field
   // catalogues live over the real archive (no DuckDB needed for this side).
   let legacyByField: Map<string, FieldCatalogue>;
@@ -462,7 +462,7 @@ function writeParseFixtureLedger(): string {
   return dir;
 }
 
-describe.skipIf(!duckDbAvailable())('parse-derived field fold — fixture ledger', () => {
+describe.skipIf(!duckDbAvailable())('parse-derived field fold — fixture ledger', { tags: ['unit'] }, () => {
   it('FieldFold_SyntheticLedger_CountsRecordsDistinctCallsignsAllocatedAndBreadth', () => {
     const dir = writeParseFixtureLedger();
     try {
@@ -491,7 +491,7 @@ describe.skipIf(!duckDbAvailable())('parse-derived field fold — fixture ledger
 // the parse-derived fields must reproduce the committed golden's figures — the
 // proof the fold (not a parse of the golden) produces the numbers, so the section
 // can retire the legacy computation once every value-catalogue field has migrated.
-describe.skipIf(!duckDbAvailable())('parse-derived fields fold — real-archive retirement gate', () => {
+describe.skipIf(!duckDbAvailable())('parse-derived fields fold — real-archive retirement gate', { tags: ['data-validity'] }, () => {
   let foldedFields: Map<string, FieldCatalogue>;
   beforeAll(() => {
     foldedFields = buildValueCatalogueFold(undefined, ref).fields;

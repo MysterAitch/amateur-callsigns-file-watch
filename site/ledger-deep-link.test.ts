@@ -26,7 +26,7 @@ function makeDom(search = '') {
   return { win: dom.window, doc: dom.window.document };
 }
 
-describe('parseLedgerParams', () => {
+describe('parseLedgerParams', { tags: ['ui'] }, () => {
   it('LedgerParams_WhenC_IsReturnedUpperCased', () => {
     expect(parseLedgerParams(new URLSearchParams('c=g0tqk'))).toEqual({ callsign: 'G0TQK' });
   });
@@ -44,7 +44,7 @@ describe('parseLedgerParams', () => {
   });
 });
 
-describe('ledgerSearchUrl', () => {
+describe('ledgerSearchUrl', { tags: ['ui'] }, () => {
   it('LedgerSearchUrl_WhenGivenCallsign_ReducesQueryToC', () => {
     expect(ledgerSearchUrl('https://example.test/ledger.html', 'M7TEE'))
       .toBe('https://example.test/ledger.html?c=M7TEE');
@@ -55,7 +55,7 @@ describe('ledgerSearchUrl', () => {
   });
 });
 
-describe('wireLedgerSearch (state <-> URL round-trip)', () => {
+describe('wireLedgerSearch (state <-> URL round-trip)', { tags: ['ui'] }, () => {
   it('LedgerSearch_WhenFormSubmitted_PutsResolvedCallsignInUrlQuery', () => {
     const { win, doc } = makeDom();
     const runSearch = vi.fn(() => Promise.resolve());

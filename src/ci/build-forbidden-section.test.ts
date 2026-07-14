@@ -33,7 +33,7 @@ afterAll(() => {
   fs.rmSync(outputDir, { recursive: true, force: true });
 });
 
-describe('Forbidden-suffix section — index', () => {
+describe('Forbidden-suffix section — index', { tags: ['data-validity'] }, () => {
   it('ForbiddenSectionIndex_RealArchive_RendersTimelineUnionAndHeadlineDiff', () => {
     const index = read('forbidden', 'index.html');
     // The disclosures timeline lists every disclosure and links to its page.
@@ -77,7 +77,7 @@ describe('Forbidden-suffix section — index', () => {
   });
 });
 
-describe('Forbidden-suffix section — 2024 disclosure page', () => {
+describe('Forbidden-suffix section — 2024 disclosure page', { tags: ['data-validity'] }, () => {
   it('ForbiddenSection2024Page_RealArchive_RendersAddedRemovedNotable', () => {
     const page = read('forbidden', D2024, 'index.html');
     // The notable diff versus the previous (September 2019) disclosure.
@@ -140,7 +140,7 @@ describe('Forbidden-suffix section — 2024 disclosure page', () => {
   });
 });
 
-describe('Forbidden-suffix section — 2016 disclosure page', () => {
+describe('Forbidden-suffix section — 2016 disclosure page', { tags: ['data-validity'] }, () => {
   it('ForbiddenSection2016Page_RealArchive_SurfacesTheZitDuplicateHonestly', () => {
     const page = read('forbidden', D2016, 'index.html');
     // 1,466 rows for 1,465 distinct suffixes: the ZIT duplicate is surfaced.
@@ -151,7 +151,7 @@ describe('Forbidden-suffix section — 2016 disclosure page', () => {
   });
 });
 
-describe('Forbidden-suffix section — cross-cutting', () => {
+describe('Forbidden-suffix section — cross-cutting', { tags: ['data-validity'] }, () => {
   it('ForbiddenSectionPages_Accessibility_CarrySkipLinkAndMainLandmark', () => {
     for (const rel of [['forbidden', 'index.html'], ['forbidden', D2024, 'index.html']]) {
       const html = read(...rel);
@@ -194,7 +194,7 @@ describe('Forbidden-suffix section — cross-cutting', () => {
   });
 });
 
-describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', () => {
+describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tags: ['data-validity'] }, () => {
   it('SuffixPage_QNF_TellsTheForbiddenThenDelistedThenIssuedArc', () => {
     const page = read('forbidden', 'suffix', 'QNF', 'index.html');
     // The forbidden-list history: first known forbidden and the de-listing.

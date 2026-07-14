@@ -43,7 +43,7 @@ const VALID_IDS = glossaryIds();
 // The hand-authored pages that carry glossary deep-links, read once.
 const HAND_AUTHORED = fs.readdirSync(SITE_DIR).filter(f => f.endsWith('.html'));
 
-describe('glossary anchor registry (issue #329)', () => {
+describe('glossary anchor registry (issue #329)', { tags: ['ui'] }, () => {
   it('GlossaryRegistry_EveryAnchor_ResolvesToARealGlossaryId', () => {
     for (const anchor of Object.keys(GLOSSARY_ANCHORS)) {
       expect(VALID_IDS.has(anchor), `registry anchor #${anchor} has no matching id in glossary.html`).toBe(true);
@@ -59,7 +59,7 @@ describe('glossary anchor registry (issue #329)', () => {
   });
 });
 
-describe('hand-authored pages glossary links (issues #329 / #397)', () => {
+describe('hand-authored pages glossary links (issues #329 / #397)', { tags: ['ui'] }, () => {
   it('HandAuthoredPages_EveryGlossaryDeepLink_ResolvesToARealGlossaryId', () => {
     for (const file of HAND_AUTHORED) {
       const html = fs.readFileSync(path.join(SITE_DIR, file), 'utf8');
@@ -99,7 +99,7 @@ describe('hand-authored pages glossary links (issues #329 / #397)', () => {
   });
 });
 
-describe('generated pages glossary links (issues #329 / #397)', () => {
+describe('generated pages glossary links (issues #329 / #397)', { tags: ['ui'] }, () => {
   let outputDir: string;
   let classIndex: string;
 

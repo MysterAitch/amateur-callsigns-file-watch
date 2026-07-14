@@ -63,7 +63,7 @@ function derivedWithObject(ledger: readonly Claim[], predicate: string, object: 
   return found;
 }
 
-describe('every derived claim in a source reproduces its object from its working', () => {
+describe('every derived claim in a source reproduces its object from its working', { tags: ['unit'] }, () => {
   it('EveryDerivedClaim_WhenExplained_ReproducesItsObject', () => {
     const ledger = ledgerFor(fixtureSource());
     const derived = ledger.filter(c => c.layer === 'derived');
@@ -85,7 +85,7 @@ describe('every derived claim in a source reproduces its object from its working
   });
 });
 
-describe('the normalisation-edge rules reconstruct from the raw token', () => {
+describe('the normalisation-edge rules reconstruct from the raw token', { tags: ['unit'] }, () => {
   it('CleanedCallsignClaim_WhenExplained_TracesToTheRawSubjectClaim', () => {
     const ledger = ledgerFor(fixtureSource());
     const claim = ledger.find(c => c.rule === CLEANED_CALLSIGN_RULE && c.rawSubject === 'm7tee');
@@ -118,7 +118,7 @@ describe('the normalisation-edge rules reconstruct from the raw token', () => {
   });
 });
 
-describe('the licence-category rule reconstructs from the product cell and the reference row', () => {
+describe('the licence-category rule reconstructs from the product cell and the reference row', { tags: ['unit'] }, () => {
   it('DerivedLicenceCategoryClaim_WhenExplained_ReproducesItsObjectFromTheReferenceRow', () => {
     const ledger = ledgerFor(fixtureSource());
     const claim = derivedWithObject(ledger, LICENCE_CATEGORY_PREDICATE, 'Foundation');
@@ -132,7 +132,7 @@ describe('the licence-category rule reconstructs from the product cell and the r
   });
 });
 
-describe('the parse-callsign fan-out reconstructs each attribute and flag', () => {
+describe('the parse-callsign fan-out reconstructs each attribute and flag', { tags: ['unit'] }, () => {
   it('ParseStatusClaim_WhenExplained_ReproducesTheStatusFromTheToken', () => {
     const ledger = ledgerFor(fixtureSource());
     const claim = ledger.find(c => c.rule === PARSE_CALLSIGN_RULE && c.predicate === PARSE_STATUS_PREDICATE && c.rawSubject === 'M7TEE');
@@ -200,7 +200,7 @@ describe('the parse-callsign fan-out reconstructs each attribute and flag', () =
   });
 });
 
-describe('the stripped-collision rule resolves a sibling observation over the source ledger', () => {
+describe('the stripped-collision rule resolves a sibling observation over the source ledger', { tags: ['unit'] }, () => {
   it('StrippedCollisionFlag_WhenExplained_PointsToTheSiblingRowWhoseSubjectIsTheStrippedForm', () => {
     const ledger = ledgerFor(fixtureSource());
     const claim = ledger.find(c => c.rule === STRIPPED_COLLISION_RULE && c.rawSubject === 'M7TEE ');
@@ -219,7 +219,7 @@ describe('the stripped-collision rule resolves a sibling observation over the so
   });
 });
 
-describe('explain fails loud on anything it cannot honestly reconstruct', () => {
+describe('explain fails loud on anything it cannot honestly reconstruct', { tags: ['unit'] }, () => {
   it('RawClaim_WhenExplained_ThrowsRatherThanInventingAWorking', () => {
     const ledger = ledgerFor(fixtureSource());
     const raw = ledger.find(c => c.layer === 'raw' && c.predicate === LISTED_PREDICATE);

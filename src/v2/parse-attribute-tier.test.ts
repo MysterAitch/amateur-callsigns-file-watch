@@ -80,7 +80,7 @@ function objectsFor(claims: readonly Claim[], rawSubject: string, predicate: str
   return claimsFor(claims, rawSubject).filter(c => c.predicate === predicate).map(c => c.object).sort();
 }
 
-describe('T1 parse-attribute tier — equivalence to parseCallsign', () => {
+describe('T1 parse-attribute tier — equivalence to parseCallsign', { tags: ['unit'] }, () => {
   it('ParseAttributeClaims_ForEveryCallsign_ProjectExactlyParseCallsignOutput', () => {
     // The whole tier is a projection of parseCallsign, built as an equivalence
     // assertion against the lifted parser (not hard-coded strings): for each
@@ -180,7 +180,7 @@ describe('T1 parse-attribute tier — equivalence to parseCallsign', () => {
   });
 });
 
-describe('T1 parse-attribute tier — equivalence over a real register snapshot', () => {
+describe('T1 parse-attribute tier — equivalence over a real register snapshot', { tags: ['data-validity'] }, () => {
   it('ParseAttributeClaims_WhenBuiltFromRealSnapshot_ProjectExactlyParseCallsignOverEveryRow', () => {
     // The corpus-scale correctness gate (issue #406), mirroring the
     // licence-category tier's real-snapshot oracle: over a FULL real register the
@@ -272,7 +272,7 @@ describe('T1 parse-attribute tier — equivalence over a real register snapshot'
   }, 120_000);
 });
 
-describe('T1 parse-attribute tier — coexists with the existing layers', () => {
+describe('T1 parse-attribute tier — coexists with the existing layers', { tags: ['unit'] }, () => {
   it('Ledger_WhenT1TierAdded_KeepsRawAndExistingDerivedClaimsUnchanged', () => {
     const ledger = emitLedger(FIXTURE_SOURCE, REF);
     // The raw layer is untouched: every subject keeps its verbatim @listed anchor
@@ -287,7 +287,7 @@ describe('T1 parse-attribute tier — coexists with the existing layers', () => 
   });
 });
 
-describe('T1 parse-attribute tier — the no-inflation invariant (ADR 0014)', () => {
+describe('T1 parse-attribute tier — the no-inflation invariant (ADR 0014)', { tags: ['unit'] }, () => {
   it('ExtendedLedger_WhenCarryingT1Claims_PassesTheTrustRatingNoInflationCheck', () => {
     const ledger = emitLedger(FIXTURE_SOURCE, REF);
     // The sample genuinely carries T1 derived claims, so a green result is
@@ -298,7 +298,7 @@ describe('T1 parse-attribute tier — the no-inflation invariant (ADR 0014)', ()
   });
 });
 
-describe('T1 parse-attribute tier — serialisation round-trip', () => {
+describe('T1 parse-attribute tier — serialisation round-trip', { tags: ['unit'] }, () => {
   it('T1Claims_WhenSerialisedAndReparsed_SurviveIdentically', () => {
     const ledger = emitLedger(FIXTURE_SOURCE, REF);
     const reparsed = parseClaimsJsonl(serialiseClaimsJsonl(ledger));
@@ -306,7 +306,7 @@ describe('T1 parse-attribute tier — serialisation round-trip', () => {
   });
 });
 
-describe('T1 parse-attribute tier — compact-DB parity', () => {
+describe('T1 parse-attribute tier — compact-DB parity', { tags: ['unit'] }, () => {
   it('CompactClaimsView_WhenLedgerHasT1Claims_ReconstructsThemIdenticallyToFatTable', () => {
     // The compact schema cannot run the parser in its reconstruction VIEW, so the
     // T1 claims are stored explicitly (dictionary-encoded) and reconstructed. This

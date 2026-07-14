@@ -48,7 +48,7 @@ function sourceFor(entry: string, sheetMatch: (file: string) => boolean) {
   return source;
 }
 
-describe('available-pool family collection', () => {
+describe('available-pool family collection', { tags: ['data-validity'] }, () => {
   it('AvailablePoolFamily_WhenCollected_CoversEveryAvailablePoolDisclosureAsPoolSlots', () => {
     // The family is discovered from datasetClasses, not a hard-coded list, so a
     // newly-classed disclosure is covered automatically.
@@ -84,7 +84,7 @@ describe('available-pool family collection', () => {
   });
 });
 
-describe('sub-shape A - the 2013/14 suffix-shaped lists', () => {
+describe('sub-shape A - the 2013/14 suffix-shaped lists', { tags: ['data-validity'] }, () => {
   it('SuffixList_WhenEmitted_YieldsExistenceAndClassPrefixClaimsKeyedOnTheBareSuffix', () => {
     const source = sourceFor(SUFFIX_ENTRY, file => file.includes('foundation'));
     const obs = source.load();
@@ -114,7 +114,7 @@ describe('sub-shape A - the 2013/14 suffix-shaped lists', () => {
   });
 });
 
-describe('sub-shape B - the 2015/16 typed Siebel exports', () => {
+describe('sub-shape B - the 2015/16 typed Siebel exports', { tags: ['data-validity'] }, () => {
   it('TypedExport_WhenEmitted_YieldsExistenceClassAndSuffixClaimsKeyedOnTheFullCallSign', () => {
     const source = sourceFor(TYPED_ENTRY, file => file.includes('foundation'));
     const obs = source.load();
@@ -143,7 +143,7 @@ describe('sub-shape B - the 2015/16 typed Siebel exports', () => {
   });
 });
 
-describe('pool-slot subjects stay edge-free (the epistemic guard)', () => {
+describe('pool-slot subjects stay edge-free (the epistemic guard)', { tags: ['data-validity'] }, () => {
   it('TypedExportCallSign_WhenTreatedAsPoolSlot_AcquiresNoRegisterNormalisationOrCategoryEdge', () => {
     const source = sourceFor(TYPED_ENTRY, file => file.includes('foundation'));
     const obs = source.load();
@@ -172,7 +172,7 @@ describe('pool-slot subjects stay edge-free (the epistemic guard)', () => {
   });
 });
 
-describe('available-pool family through buildLedger', () => {
+describe('available-pool family through buildLedger', { tags: ['data-validity'] }, () => {
   it('AvailablePoolLedger_WhenBuiltForItsEntries_EmitsRawClaimsOnlyWithNoDerivedLayer', () => {
     const wanted = new Set(AVAILABLE_POOL_ENTRY_KEYS);
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'available-pool-ledger-'));

@@ -47,7 +47,7 @@ function sourceFor(entry: string) {
   return source;
 }
 
-describe('issuance-events family collection', () => {
+describe('issuance-events family collection', { tags: ['data-validity'] }, () => {
   it('IssuanceEventsFamily_WhenCollected_CoversEveryIssuanceEventsDisclosureAsCallsigns', () => {
     // The family is discovered from datasetClasses, not a hard-coded list, so a
     // newly-classed disclosure is covered automatically.
@@ -93,7 +93,7 @@ describe('issuance-events family collection', () => {
   });
 });
 
-describe('the CSV workbook exports (ofcom-498903 / ofcom-498906)', () => {
+describe('the CSV workbook exports (ofcom-498903 / ofcom-498906)', { tags: ['data-validity'] }, () => {
   it('ReIssueEvents_WhenEmitted_CarryVerbatimCallsignEventAndTimezoneArtefactDate', () => {
     const obs = sourceFor(REISSUE_ENTRY).load();
     expect(obs.columns).toEqual(['callsign', 'event', 'event_date']);
@@ -134,7 +134,7 @@ describe('the CSV workbook exports (ofcom-498903 / ofcom-498906)', () => {
   });
 });
 
-describe('the WDTK heritage-transfers table (wdtk-251507, markdown-table)', () => {
+describe('the WDTK heritage-transfers table (wdtk-251507, markdown-table)', { tags: ['data-validity'] }, () => {
   it('Reallocations_WhenEmitted_CarryVerbatimCallsignDayFirstDateAndDisclosedProduct', () => {
     const obs = sourceFor(TRANSFERS_ENTRY).load();
     // The full disclosed column set, minus the s.40-withheld name columns the
@@ -169,7 +169,7 @@ describe('the WDTK heritage-transfers table (wdtk-251507, markdown-table)', () =
   });
 });
 
-describe('issuance-events family through buildLedger', () => {
+describe('issuance-events family through buildLedger', { tags: ['data-validity'] }, () => {
   it('IssuanceEventsLedger_WhenBuiltForItsEntries_EmitsRawClaimsWithCallsignNormalisationOnly', () => {
     const wanted = new Set(ISSUANCE_EVENTS_ENTRY_KEYS);
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'issuance-events-ledger-'));

@@ -10,7 +10,7 @@ import { loadReferenceData, normaliseLicenceCategory } from '../sources/ofcom-am
 
 const REF = loadReferenceData();
 
-describe('canonical licence-category map (acceptance criterion B2)', () => {
+describe('canonical licence-category map (acceptance criterion B2)', { tags: ['data-validity'] }, () => {
   it('LicenceCategory_WhenSourceVintagesDiffer_CollapseToOneCategory', () => {
     // The register writes the same class differently by vintage; both
     // spellings map to one canonical category while remaining distinct raw
@@ -26,7 +26,7 @@ describe('canonical licence-category map (acceptance criterion B2)', () => {
   });
 });
 
-describe('reciprocal distinction (acceptance criterion B3)', () => {
+describe('reciprocal distinction (acceptance criterion B3)', { tags: ['data-validity'] }, () => {
   it('LicenceCategory_WhenTemporaryReciprocalVersusFullReciprocal_MustNotCollapse', () => {
     // A temporary visitor authorisation (phased out) and a permanent
     // full-on-reciprocal licence (HAREC / T-R 61-02) are different products;
@@ -39,7 +39,7 @@ describe('reciprocal distinction (acceptance criterion B3)', () => {
   });
 });
 
-describe('blank versus unmapped products (acceptance criteria B4 / B5)', () => {
+describe('blank versus unmapped products (acceptance criteria B4 / B5)', { tags: ['data-validity'] }, () => {
   it('LicenceCategory_WhenBlankProduct_IsNotACategory', () => {
     // A blank product asserts no class (many live allocations carry one); it
     // is not forced into a bucket.

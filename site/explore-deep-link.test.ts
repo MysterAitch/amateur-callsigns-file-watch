@@ -25,7 +25,7 @@ function host(): { dbSelect: HTMLSelectElement; input: HTMLTextAreaElement; stat
   };
 }
 
-describe('parseExploreParams', () => {
+describe('parseExploreParams', { tags: ['ui'] }, () => {
   it('ExploreParams_WhenKnownDbAndSql_AreReturned', () => {
     const p = parseExploreParams(new URLSearchParams('db=combined&sql=SELECT 1'));
     expect(p).toEqual({ db: 'combined', sql: 'SELECT 1', unknownDb: null });
@@ -49,7 +49,7 @@ describe('parseExploreParams', () => {
   });
 });
 
-describe('applyExploreParams', () => {
+describe('applyExploreParams', { tags: ['ui'] }, () => {
   it('ExploreDeepLink_WhenDbAndSqlParams_PreFillsControlsAndSignalsRun', () => {
     const dom = host();
     const shouldRun = applyExploreParams(dom, new URLSearchParams('db=combined&sql=SELECT * FROM register_history LIMIT 5'));
@@ -105,7 +105,7 @@ describe('applyExploreParams', () => {
   });
 });
 
-describe('explore exemplar deep-links (end-to-end wiring)', () => {
+describe('explore exemplar deep-links (end-to-end wiring)', { tags: ['ui'] }, () => {
   it('ExploreExemplars_InHandAuthoredPages_CarryQueriesTheConsoleGuardAccepts', () => {
     // Every explore.html?…sql= link a hand-authored page ships must name a valid
     // database and a query the console's own read-only guard accepts, or the

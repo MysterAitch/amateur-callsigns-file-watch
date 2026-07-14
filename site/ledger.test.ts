@@ -111,7 +111,7 @@ afterAll(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-describe('claim-ledger query layer (live, against a built SQLite)', () => {
+describe('claim-ledger query layer (live, against a built SQLite)', { tags: ['ui'] }, () => {
   it('Lookup_WhenTypedLiteralCallsign_ResolvesToEntityViaCleanedIndex', async () => {
     const resolved = await resolveEntity(query, 'G0TQK');
     expect(resolved.entity).toBe('G#0TQK');
@@ -187,7 +187,7 @@ describe('claim-ledger query layer (live, against a built SQLite)', () => {
   });
 });
 
-describe('Ledger page render (JSDOM smoke test, live query)', () => {
+describe('Ledger page render (JSDOM smoke test, live query)', { tags: ['ui'] }, () => {
   it('LedgerPage_WhenRealCallsignLookedUp_PopulatesTimelineAnatomyAndDossier', async () => {
     // Seed the document with the page's real host structure, then drive the
     // exported lookup against the node:sqlite-backed executor - the same code
@@ -227,7 +227,7 @@ describe('Ledger page render (JSDOM smoke test, live query)', () => {
   });
 });
 
-describe('Ledger page deploy integrity', () => {
+describe('Ledger page deploy integrity', { tags: ['ui'] }, () => {
   it('LedgerPage_Assets_AllExistInSite', () => {
     const present = new Set(fs.readdirSync(SITE_DIR));
     for (const asset of ['ledger.html', 'ledger.js', 'ledger.css', 'ledger-query.js']) {

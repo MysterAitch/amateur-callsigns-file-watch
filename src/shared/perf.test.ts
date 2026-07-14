@@ -20,7 +20,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('time', () => {
+describe('time', { tags: ['unit'] }, () => {
   it('Time_WhenDisabled_ReturnsValueUnchanged', () => {
     delete process.env.PERF;
     expect(time('label', () => 6 * 7)).toBe(42);
@@ -83,7 +83,7 @@ describe('time', () => {
   });
 });
 
-describe('timeAsync', () => {
+describe('timeAsync', { tags: ['unit'] }, () => {
   it('TimeAsync_WhenEnabled_ResolvesValueAndRecordsSpan', async () => {
     process.env.PERF = '1';
     const value = await timeAsync('async-op', () => Promise.resolve('done'));
@@ -99,7 +99,7 @@ describe('timeAsync', () => {
   });
 });
 
-describe('perfReport', () => {
+describe('perfReport', { tags: ['unit'] }, () => {
   it('PerfReport_WhenDisabled_WritesNothingToStderr', () => {
     delete process.env.PERF;
     const write = vi.spyOn(process.stderr, 'write').mockReturnValue(true);

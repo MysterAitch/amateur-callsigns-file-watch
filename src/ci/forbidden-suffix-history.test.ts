@@ -10,7 +10,7 @@ import {
 // PR cites, against the committed FOI entries. Test names follow
 // Subject_Scenario_Outcome.
 
-describe('forbidden-suffix history — real archive', () => {
+describe('forbidden-suffix history — real archive', { tags: ['data-validity'] }, () => {
   let h: ForbiddenSuffixHistory;
   beforeAll(() => { h = buildForbiddenSuffixHistory(); });
 
@@ -86,7 +86,7 @@ describe('forbidden-suffix history — real archive', () => {
   });
 });
 
-describe('forbidden-suffix history — rendering', () => {
+describe('forbidden-suffix history — rendering', { tags: ['unit'] }, () => {
   it('Render_AllSections_ShowDisclosuresUnionDiffAndDistributions', () => {
     const md = renderForbiddenSuffixHistory({
       disclosures: [

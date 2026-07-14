@@ -86,7 +86,7 @@ function patternObjectsFor(claims: readonly Claim[], rawSubject: string): string
     .map(c => c.object);
 }
 
-describe('rsl tier — equivalence to parseCallsign', () => {
+describe('rsl tier — equivalence to parseCallsign', { tags: ['unit'] }, () => {
   it('RslClaims_ForEveryCallsign_ProjectExactlyParseCallsignRsl', () => {
     // The tier is a projection of parseCallsign.rsl: for each subject the rsl
     // claim rides iff (and equals) the non-empty rsl the lifted parser resolved.
@@ -133,7 +133,7 @@ describe('rsl tier — equivalence to parseCallsign', () => {
   });
 });
 
-describe('callsign-pattern tier — equivalence to callsignPattern', () => {
+describe('callsign-pattern tier — equivalence to callsignPattern', { tags: ['unit'] }, () => {
   it('PatternClaims_ForEveryNonEmptyToken_ProjectExactlyCallsignPattern', () => {
     // The tier is a projection of callsignPattern over the RAW token: one claim
     // per non-empty subject, its object the lifted shape verbatim.
@@ -176,7 +176,7 @@ describe('callsign-pattern tier — equivalence to callsignPattern', () => {
   });
 });
 
-describe('the two tiers — coexist with the existing layers', () => {
+describe('the two tiers — coexist with the existing layers', { tags: ['unit'] }, () => {
   it('Ledger_WhenTiersAdded_KeepRawAndExistingDerivedClaimsUnchanged', () => {
     const ledger = emitLedger(FIXTURE_SOURCE, REF);
     // The raw layer is untouched.
@@ -190,7 +190,7 @@ describe('the two tiers — coexist with the existing layers', () => {
   });
 });
 
-describe('the two tiers — the no-inflation invariant (#404)', () => {
+describe('the two tiers — the no-inflation invariant (#404)', { tags: ['unit'] }, () => {
   it('ExtendedLedger_WhenCarryingRslAndPatternClaims_PassesTheNoInflationCheck', () => {
     const ledger = emitLedger(FIXTURE_SOURCE, REF);
     // The sample genuinely carries both new tiers, so a green result is
@@ -202,7 +202,7 @@ describe('the two tiers — the no-inflation invariant (#404)', () => {
   });
 });
 
-describe('the two tiers — serialisation round-trip', () => {
+describe('the two tiers — serialisation round-trip', { tags: ['unit'] }, () => {
   it('RslAndPatternClaims_WhenSerialisedAndReparsed_SurviveIdentically', () => {
     const ledger = emitLedger(FIXTURE_SOURCE, REF);
     const reparsed = parseClaimsJsonl(serialiseClaimsJsonl(ledger));
@@ -212,7 +212,7 @@ describe('the two tiers — serialisation round-trip', () => {
   });
 });
 
-describe('the two tiers — compact-DB parity', () => {
+describe('the two tiers — compact-DB parity', { tags: ['unit'] }, () => {
   it('CompactClaimsView_WhenLedgerHasRslAndPatternClaims_ReconstructsThemIdenticallyToFatTable', () => {
     // The compact schema cannot run the derivations in its reconstruction VIEW,
     // so both tiers are stored explicitly (dictionary-encoded) and reconstructed.
