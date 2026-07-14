@@ -9,6 +9,7 @@ import {
   PARSE_STATUS_PREDICATE,
   PREFIX_SERIES_PREDICATE,
   IMPLIED_CLASS_PREDICATE,
+  RSL_PREDICATE,
   FLAG_PREDICATE,
   PARSE_CALLSIGN_RULE,
   type Claim,
@@ -17,6 +18,8 @@ import {
 import { serialiseClaimsJsonl, parseClaimsJsonl } from './serialise.ts';
 import { buildLedgerSqlite } from './build-ledger-db.ts';
 import { buildCompactLedgerSqlite } from './build-ledger-db-compact.ts';
+import { registerSourcesFor, loadRegisterSource } from './collectors/foi-register.ts';
+import { readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
 import { loadReferenceData, parseCallsign } from '../sources/ofcom-amateur/components.ts';
 import { checkNoInflationClaims } from '../ci/trust-rating.ts';
 
@@ -175,6 +178,98 @@ describe('T1 parse-attribute tier — equivalence to parseCallsign', () => {
     };
     expect(emitParseAttributeClaims(blankSource, REF)).toEqual([]);
   });
+});
+
+describe('T1 parse-attribute tier — equivalence over a real register snapshot', () => {
+  it('ParseAttributeClaims_WhenBuiltFromRealSnapshot_ProjectExactlyParseCallsignOverEveryRow', () => {
+    // The corpus-scale correctness gate (issue #406), mirroring the
+    // licence-category tier's real-snapshot oracle: over a FULL real register the
+    // emitted T1 tier must be EQUIVALENT to parseCallsign itself — the same
+    // attributes carrying the same values, per observation — never a fresh
+    // vocabulary and never drifting from the lifted parser. The equivalence is
+    // built from parseCallsign directly (not hard-coded strings), so a green
+    // result proves the ledger projection tracks the parser row-for-row.
+    // ofcom-2023-12-07 is a full register disclosing both a product and an
+    // original-start-date column, so every parse input the emit consumes is
+    // present and both extra flags (class-product-mismatch, the temporal
+    // forbidden-suffix flag) are reachable.
+    const entry = 'ofcom-2023-12-07--open-data-call-sign-list--all-callsigns';
+    const meta = readFoiEntryMeta(defaultFoiDir(), entry);
+    const source = registerSourcesFor(meta).find(s => s.productColumn !== null);
+    expect(source).toBeDefined();
+    if (source === undefined) return;
+
+    const observationSet = loadRegisterSource(defaultFoiDir(), entry, meta, source);
+    const ledger = emitLedger(observationSet, REF);
+
+    const subjectColumn = observationSet.subjectColumn;
+    const productColumn = observationSet.categoryColumn;
+    const startDateColumn = observationSet.originalStartDateColumn;
+
+    // Reduce a set of claims to one signature per OBSERVATION, keyed by ordinal —
+    // a raw subject can recur across rows but an observation cannot, so keying by
+    // ordinal keeps genuine double-listings apart. Each signature is a
+    // predicate -> sorted-objects map (flag order is not significant).
+    type Signature = Record<number, Record<string, string[]>>;
+    const put = (sig: Map<number, Map<string, string[]>>, ordinal: number, predicate: string, object: string): void => {
+      const byPred = sig.get(ordinal) ?? new Map<string, string[]>();
+      const objects = byPred.get(predicate) ?? [];
+      objects.push(object);
+      byPred.set(predicate, objects);
+      sig.set(ordinal, byPred);
+    };
+    const canonicalise = (sig: Map<number, Map<string, string[]>>): Signature => {
+      const out: Signature = {};
+      for (const [ordinal, byPred] of sig) {
+        const record: Record<string, string[]> = {};
+        for (const [predicate, objects] of byPred) record[predicate] = [...objects].sort();
+        out[ordinal] = record;
+      }
+      return out;
+    };
+
+    // ACTUAL: the T1 claims the ledger emitted. The four attribute predicates
+    // belong solely to the parse tier, so each MUST carry the one parse rule (a
+    // leak would fail loudly here); the flag predicate is SHARED with the
+    // stripped-collision tier, so only flag claims attributed to the parse rule
+    // are the parse tier's — the rule filter separates them at corpus scale.
+    const attributePredicates = new Set([PARSE_STATUS_PREDICATE, PREFIX_SERIES_PREDICATE, IMPLIED_CLASS_PREDICATE, RSL_PREDICATE]);
+    const actual = new Map<number, Map<string, string[]>>();
+    for (const claim of ledger) {
+      if (claim.layer !== 'derived') continue;
+      if (attributePredicates.has(claim.predicate)) {
+        expect(claim.rule, `${claim.rawSubject} ${claim.predicate}`).toBe(PARSE_CALLSIGN_RULE);
+        put(actual, claim.provenance.ordinal, claim.predicate, claim.object);
+      } else if (claim.predicate === FLAG_PREDICATE && claim.rule === PARSE_CALLSIGN_RULE) {
+        put(actual, claim.provenance.ordinal, claim.predicate, claim.object);
+      }
+    }
+
+    // EXPECTED: parseCallsign applied directly to every row, with the SAME
+    // disclosed product and original-start-date the emit consumes, projected by
+    // the SAME no-invention rules (an attribute rides only where the parse yields
+    // a non-empty value; one flag claim per raised flag; a blank subject emits
+    // nothing). If the two disagree on any observation, the tier has drifted.
+    const expected = new Map<number, Map<string, string[]>>();
+    observationSet.rows.forEach((row, ordinal) => {
+      const rawSubject = row[subjectColumn] ?? '';
+      if (rawSubject === '') return;
+      const product = productColumn !== undefined ? (row[productColumn] ?? '') : '';
+      const originalStartDate = startDateColumn !== undefined ? (row[startDateColumn] ?? '') : '';
+      const parsed = parseCallsign(rawSubject, product, REF, originalStartDate);
+      put(expected, ordinal, PARSE_STATUS_PREDICATE, parsed.parseStatus);
+      if (parsed.prefixSeries !== '') put(expected, ordinal, PREFIX_SERIES_PREDICATE, parsed.prefixSeries);
+      if (parsed.impliedClass !== '') put(expected, ordinal, IMPLIED_CLASS_PREDICATE, parsed.impliedClass);
+      if (parsed.rsl !== '') put(expected, ordinal, RSL_PREDICATE, parsed.rsl);
+      for (const flag of parsed.flags) put(expected, ordinal, FLAG_PREDICATE, flag);
+    });
+
+    const expectedCanon = canonicalise(expected);
+    expect(canonicalise(actual)).toEqual(expectedCanon);
+    // The snapshot genuinely exercised the tier at corpus scale, so equivalence is
+    // meaningful rather than vacuously true over an empty set.
+    expect(Object.keys(expectedCanon).length).toBeGreaterThan(1000);
+  }, 120_000);
 });
 
 describe('T1 parse-attribute tier — coexists with the existing layers', () => {
