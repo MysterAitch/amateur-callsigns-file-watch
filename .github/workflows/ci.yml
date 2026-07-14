@@ -114,11 +114,12 @@ jobs:
           # adds runners. The files come out of the non-fold pool.
           sharded_files=$(jq -c '[.[].file]' src/testing/sharded-tests.json)
           shardmatrix=$(jq -c '[.[] | .file as $f | .shards as $n | range(1; $n + 1) | {file: $f, shard: ., total: $n}]' src/testing/sharded-tests.json)
-          # The tier build has its own dedicated CACHED job (build-sqlite-tiers,
-          # #478), so it leaves the generic non-fold pool too. A single special
-          # case - not yet worth its own JSON list; generalise if a second
-          # cached-build test appears.
-          cached='["src/ci/build-sqlite.tiers.test.ts"]'
+          # The tier build and the whole-archive ledger build each have their own
+          # dedicated CACHED job (build-sqlite-tiers + build-ledger, #478), so both
+          # leave the generic non-fold pool - they verify a cache-restored build
+          # keyed by input closure rather than rebuilding in the matrix. A short
+          # special-case list; promote to its own JSON file if it keeps growing.
+          cached='["src/ci/build-sqlite.tiers.test.ts", "src/v2/build-ledger.test.ts"]'
           # non-folds = heavy set minus the Parquet folds, the sharded files and the cached builds.
           nonfolds=$(jq -cn --argjson all "$(jq -c . src/testing/heavy-tests.json)" --argjson f "$folds" --argjson s "$sharded_files" --argjson c "$cached" '$all - $f - $s - $c')
           {
@@ -286,6 +287,51 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
+  # The whole-archive raw-keyed claim ledger (issue #361 buildLedger) is built
+  # and verified here in one dedicated, CACHED job rather than the generic
+  # non-fold pool (#478). Its inputs - the committed archive, reference-data and
+  # the emit-path source closure - change on few PRs, so actions/cache restores
+  # the built ledger directory whenever that closure is unchanged (same key) and
+  # the corpus-scale test verifies the RESTORED build instead of paying the full
+  # rebuild (~395s, the file's dominant cost); buildLedger is deterministic in the
+  # hashed inputs, so anything that could change the emitted ledger also changes
+  # the key and forces a fresh build. No DuckDB: buildLedger emits JSONL straight
+  # from the raw bytes (node only), so unlike the fold jobs it needs no CLI.
+  build-ledger:
+    name: build-ledger
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ledger-cache
+          # The build-claims input closure minus the DuckDB action (this build
+          # never shells out to DuckDB): the committed data plus the emit-path
+          # source tree. .nvmrc in the key too since a node bump can shift the
+          # emitted bytes without any hashed source changing.
+          key: ledger-corpus-v1-${{ hashFiles('archive/**', 'reference-data/**', 'src/v2/**', 'src/sources/**', 'src/shared/**', 'package-lock.json', '.nvmrc') }}
+      # LEDGER_CACHE_DIR: the corpus-scale test builds here on a miss (the post-job
+      # save then persists it) or verifies the restored build on a hit - see the
+      # reuse contract in the test's beforeAll. --coverage + blob so the merged
+      # coverage floor still counts this file; matrix-free (a fixed file), t=0.
+      - run: npx vitest run src/v2/build-ledger.test.ts --coverage --reporter=blob --outputFile=".vitest-reports/ledger.json"
+        env:
+          LEDGER_CACHE_DIR: ${{ github.workspace }}/.ledger-cache
+          COVERAGE_SKIP_THRESHOLDS: '1'
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-blob-ledger
+          path: .vitest-reports/
+          include-hidden-files: true
+          retention-days: 1
+
   fast:
     name: fast
     needs: build-claims
@@ -332,7 +378,7 @@ jobs:
   # the merge keeps the gate pre-merge. Fails iff merged coverage is below floor.
   coverage:
     name: coverage
-    needs: [heavy-fold, heavy-nonfold, heavy-shard, build-sqlite-tiers, fast]
+    needs: [heavy-fold, heavy-nonfold, heavy-shard, build-sqlite-tiers, build-ledger, fast]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -358,7 +404,7 @@ jobs:
   # branch protection would otherwise treat as a pass.
   tests:
     name: tests
-    needs: [typecheck, build-claims, matrix-setup, heavy-fold, heavy-nonfold, heavy-shard, build-sqlite-tiers, fast, coverage]
+    needs: [typecheck, build-claims, matrix-setup, heavy-fold, heavy-nonfold, heavy-shard, build-sqlite-tiers, build-ledger, fast, coverage]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -435,6 +481,18 @@ jobs:
   # caught on the PR that introduced it. The assertion is scoped to reports/:
   # archive re-derivation is a separate, human-reviewed concern owned by the
   # scheduled sweep, so this gate never hard-fails a PR on archive drift.
+  #
+  # CACHED regeneration (#478): the sweep is the job's whole cost, and its output
+  # is a pure function of its input closure - the committed archive/ +
+  # reference-data/ and the sweep + fold code (src/ci, and the ledger folds it
+  # calls under src/v2, plus src/shared / src/sources). actions/cache stores the
+  # regenerated reports keyed by exactly that closure; on a hit the (byte-
+  # identical) regeneration is restored instead of recomputed. Crucially the
+  # committed reports are NOT part of the key, so the drift gate stays honest: the
+  # git diff always compares the committed tree against a fresh-or-restored
+  # regeneration, and a stale or hand-edited committed report still diffs and
+  # fails. A hit means "regeneration for this closure would be byte-identical", so
+  # restoring it and diffing catches drift exactly as a fresh sweep would.
   golden-master:
     name: golden-master
     runs-on: ubuntu-latest
@@ -447,19 +505,49 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      # The cross-dataset-invariants report is folded via DuckDB, so the sweep
-      # that regenerates reports/ needs the pinned CLI to reproduce it (issue
-      # #361). Without it the sweep would fail loudly rather than emit a report
-      # that silently differs from the committed golden.
-      - uses: ./.github/actions/setup-duckdb
-      - name: Regenerate golden-master reports and fail on drift
+      - id: reports-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          # A side directory holds the regeneration snapshot; the committed
+          # reports/ working tree is left untouched until the drift check overlays
+          # this onto it. The DuckDB action is in the key because the sweep folds
+          # the cross-dataset invariants (and the quality reports) through it, so
+          # a CLI change can shift the regenerated bytes without touching source.
+          path: .golden-cache/reports
+          key: golden-reports-v1-${{ hashFiles('archive/**', 'reference-data/**', 'src/ci/**', 'src/v2/**', 'src/shared/**', 'src/sources/**', 'package-lock.json', '.nvmrc', '.github/actions/setup-duckdb/action.yml') }}
+      # The cross-dataset-invariants report is folded via DuckDB, so a MISS - which
+      # reruns the sweep - needs the pinned CLI to reproduce it (issue #361). A hit
+      # restores the regeneration and never invokes the sweep, so it needs no CLI.
+      - if: steps.reports-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup-duckdb
+      - name: Regenerate reports (cache miss) and snapshot for the cache
+        if: steps.reports-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          # The normalise sweep regenerates the full reports/ set - the cross-
-          # lane value catalogue AND the standing reports - from the committed
-          # archive/ + reference-data/. Byte-identical regeneration leaves the
-          # tree clean; any difference means a committed report is stale.
+          # The normalise sweep regenerates the full reports/ set - the cross-lane
+          # value catalogue AND the standing reports - from the committed archive/
+          # + reference-data/, in place over the clean checkout. Snapshot the
+          # result so the post-job cache save persists this closure's regeneration.
           npm run normalise:sweep
+          rm -rf .golden-cache/reports
+          mkdir -p .golden-cache
+          cp -r reports .golden-cache/reports
+      - name: Restore cached regeneration (cache hit)
+        if: steps.reports-cache.outputs.cache-hit == 'true'
+        run: |
+          set -euo pipefail
+          # Overlay the restored regeneration onto the committed working tree, so
+          # the drift check below compares committed against a regeneration exactly
+          # as it would after a fresh sweep.
+          rm -rf reports
+          cp -r .golden-cache/reports reports
+      - name: Fail on golden-master drift
+        run: |
+          set -euo pipefail
+          # Byte-identical regeneration leaves the tree clean; any difference means
+          # a committed report is stale (or was hand-edited). Same assertion on hit
+          # and miss - the cache only changes HOW the regeneration was produced,
+          # never WHAT it is compared against.
           if ! git diff --quiet -- reports/; then
             echo "::error::Committed golden-master reports under reports/ are stale. Regenerate with 'npm run normalise:sweep' (or 'node src/ci/value-catalogue.ts' for the value catalogue alone) and commit the result. Drift below:"
             git --no-pager diff -- reports/
