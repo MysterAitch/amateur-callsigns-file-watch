@@ -343,7 +343,7 @@ export interface BuildLedgerDbResult {
 // The deploy-artefact orchestrator: emit the ledger (Stage 1), load it into the
 // claim-ledger SQLite (in its .png costume), write the gzip download twin, and
 // optionally the Parquet bulk lane. dbPath should wear the `.png` extension for
-// the httpVFS/Pages range-request path, exactly as the master database does.
+// the httpVFS/Pages range-request path, exactly as the combined database does.
 export function buildLedgerDb(dbPath: string, options: BuildLedgerDbOptions = {}): BuildLedgerDbResult {
   const ownsLedgerDir = options.ledgerDir === undefined;
   const ledgerRoot = options.ledgerDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'v2-ledger-db-'));
@@ -355,7 +355,7 @@ export function buildLedgerDb(dbPath: string, options: BuildLedgerDbOptions = {}
     // The download twin: honest name, gzipped. The .png variant exists solely
     // for the site's range-request path (Pages gzip-transcodes text-like
     // content types, corrupting httpVFS reads; image types are never
-    // re-compressed). Same rationale as the master database.
+    // re-compressed). Same rationale as the combined database.
     const gzPath = dbPath.replace(/\.png$/, '') + '.gz';
     fs.writeFileSync(gzPath, zlib.gzipSync(fs.readFileSync(dbPath), { level: GZIP_LEVEL }));
 

@@ -75,7 +75,7 @@ export function resetFoiObservationsCache(): void {
 
 export function buildFoiObservations(foiDir: string): FoiObservationRow[] {
   // Several build steps fold the same FOI files into this union within one
-  // process (the master/tiers build, the forbidden-suffix cohort, the value
+  // process (the combined/tiers build, the forbidden-suffix cohort, the value
   // catalogue). Memoise by directory + input signature so repeats reuse the
   // first build's rows; every consumer reads them without mutating in place, so
   // a shared array is byte-identical to rebuilding. Edited inputs rebuild.

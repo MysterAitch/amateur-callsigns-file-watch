@@ -1,6 +1,6 @@
 // Stamp each range-served database's REAL current byte size into the site's size
 // labels at deploy time (issue #499), so they never drift as the databases grow
-// with ingestion (the master database was labelled "257 MB" long after it passed
+// with ingestion (the combined database was labelled "257 MB" long after it passed
 // 1 GB). The deploy has already built the databases into _site/data; this stats
 // them, humanises the size, and substitutes the `[[db-size:<name>]]` placeholders
 // the hand-authored pages carry - failing loudly if a database is missing (the
@@ -11,7 +11,7 @@ import * as path from 'path';
 // name -> the built file under _site/data.
 export const SIZED_DATABASES: Record<string, string> = {
   callsigns: 'callsigns.sqlite.png',
-  master: 'master.sqlite.png',
+  combined: 'combined.sqlite.png',
 };
 
 // Match the site's existing phrasing ("28 MB", "257 MB"): whole MB below a GiB,

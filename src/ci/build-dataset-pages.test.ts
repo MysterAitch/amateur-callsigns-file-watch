@@ -179,13 +179,13 @@ describe('Dataset pages build', () => {
   it('DatasetPages_OpenDataEntryPage_CarriesScopedBrowserEnhancement', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
     // The browse section is marked with its dataset key and the browser
-    // scripts are loaded, so entry-browser.js can query master scoped to it.
+    // scripts are loaded, so entry-browser.js can query the combined database scoped to it.
     expect(page).toContain('class="browser" data-dataset="2026-06-23"');
     expect(page).toContain('src="../../../vendor/index.js"');
     expect(page).toContain('src="../../../entry-browser.js"');
     // The static preview remains as the no-JS/crawlable fallback.
     expect(page).toContain('class="browser-static"');
-    // The eager browser opens the master database with no trigger button, so a
+    // The eager browser opens the combined database with no trigger button, so a
     // slow-load failure surfaces through the shared affordance's assertive
     // alert (issue #499). These pages do NOT link site/style.css, so its
     // .db-alert styling and the --waiting-* status tokens must be inlined here.

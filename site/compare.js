@@ -31,14 +31,14 @@ const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
 const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
 
 let workerPromise = null;
-async function openMaster() {
+async function openCombined() {
   workerPromise ??= (async () => {
     let version = 'dev';
     try {
       const res = await fetch(new URL('./data/version.txt', document.baseURI), { cache: 'no-store' });
       if (res.ok) version = (await res.text()).trim();
     } catch { /* fall back to unversioned */ }
-    const dbUrl = new URL(`./data/master.sqlite.png?v=${encodeURIComponent(version)}`, document.baseURI);
+    const dbUrl = new URL(`./data/combined.sqlite.png?v=${encodeURIComponent(version)}`, document.baseURI);
     return createDbWorker(
       [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
       workerUrl.toString(), wasmUrl.toString());
@@ -304,8 +304,8 @@ function updateFilterNote() {
   filterNote.textContent = text;
 }
 
-// Open the master database and read the publication list. This is the page's
-// EAGER, no-button first load, and it is the cold one: the master database is
+// Open the combined database and read the publication list. This is the page's
+// EAGER, no-button first load, and it is the cold one: the combined database is
 // the large ~1 GB costume whose first open over HTTP range requests is a
 // measured ~20s (issue #475). It runs through the shared loading affordance
 // (issue #499) so the wait is communicated exactly as it is on Explore and the
@@ -317,7 +317,7 @@ function updateFilterNote() {
 // opener without spinning up a real worker.
 export function loadDatasets({ statusEl, alertEl, resultEl, openDatabase }) {
   return withDatabaseLoading(
-    { statusEl, alertEl, resultEl, label: 'master database' },
+    { statusEl, alertEl, resultEl, label: 'combined database' },
     async (markRunning) => {
       const worker = await openDatabase();
       markRunning();
@@ -328,7 +328,7 @@ export function loadDatasets({ statusEl, alertEl, resultEl, openDatabase }) {
 
 async function boot() {
   try {
-    datasets = await loadDatasets({ statusEl: bootStatus, alertEl: bootAlert, resultEl: setup, openDatabase: openMaster });
+    datasets = await loadDatasets({ statusEl: bootStatus, alertEl: bootAlert, resultEl: setup, openDatabase: openCombined });
   } catch {
     // The shared affordance already raised the assertive #boot-alert (a transient
     // load failure vs a query failure) and cleared the boot status; the setup
@@ -408,7 +408,7 @@ async function renderCounts(chosen, pred) {
     let matching = total;
     if (!trivial) {
       try {
-        worker ??= await openMaster();
+        worker ??= await openCombined();
         const r = await worker.db.query(matchingCountSql(key, pred));
         matching = Number(r[0].n);
       } catch (err) { countsResult.replaceChildren(el('p', { class: 'muted', text: `Query failed: ${String(err.message ?? err)}` })); return; }
@@ -475,14 +475,14 @@ async function renderDiff(chosen, pred) {
   if (Math.max(sizeA, sizeB) > DIFF_CAP) {
     diffResult.replaceChildren(el('p', { class: 'muted' }, [
       `The filtered cohort is large (${nf(Math.max(sizeA, sizeB))} rows) — an in-browser set-diff over HTTP range requests would be slow. Narrow the filter, or run it on the `,
-      el('a', { href: 'datasets/index.html', text: 'downloaded master database' }), '.',
+      el('a', { href: 'datasets/index.html', text: 'downloaded combined database' }), '.',
     ]));
     return;
   }
 
   diffResult.replaceChildren(el('p', { class: 'muted', text: `Comparing ${a} → ${b}…` }));
   let worker;
-  try { worker = await openMaster(); } catch (err) { diffResult.replaceChildren(el('p', { class: 'muted', text: String(err.message ?? err) })); return; }
+  try { worker = await openCombined(); } catch (err) { diffResult.replaceChildren(el('p', { class: 'muted', text: String(err.message ?? err) })); return; }
 
   const diff = setDiffSql(a, b, pred);
   let appeared; let disappeared; let changed;

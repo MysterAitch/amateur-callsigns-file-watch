@@ -15,7 +15,7 @@ import { parseExploreParams, applyExploreParams, prepareSql } from './explore.js
 // A minimal stand-in for the console controls the page owns.
 function host(): { dbSelect: HTMLSelectElement; input: HTMLTextAreaElement; statusEl: HTMLElement } {
   document.body.innerHTML = `
-    <select id="db-select"><option value="latest">latest</option><option value="master">master</option></select>
+    <select id="db-select"><option value="latest">latest</option><option value="combined">combined</option></select>
     <textarea id="sql-input"></textarea>
     <span id="sql-status" role="status"></span>`;
   return {
@@ -27,8 +27,15 @@ function host(): { dbSelect: HTMLSelectElement; input: HTMLTextAreaElement; stat
 
 describe('parseExploreParams', () => {
   it('ExploreParams_WhenKnownDbAndSql_AreReturned', () => {
+    const p = parseExploreParams(new URLSearchParams('db=combined&sql=SELECT 1'));
+    expect(p).toEqual({ db: 'combined', sql: 'SELECT 1', unknownDb: null });
+  });
+  it('ExploreParams_WhenLegacyMasterDb_ResolvesToCombined', () => {
+    // The combined database was historically named "master". An old shared link
+    // carrying ?db=master must still resolve to the combined database (not be
+    // reported as an unknown database), so existing links keep working.
     const p = parseExploreParams(new URLSearchParams('db=master&sql=SELECT 1'));
-    expect(p).toEqual({ db: 'master', sql: 'SELECT 1', unknownDb: null });
+    expect(p).toEqual({ db: 'combined', sql: 'SELECT 1', unknownDb: null });
   });
   it('ExploreParams_WhenUnknownDb_IsReportedNotApplied', () => {
     const p = parseExploreParams(new URLSearchParams('db=postgres&sql=SELECT 1'));
@@ -45,10 +52,19 @@ describe('parseExploreParams', () => {
 describe('applyExploreParams', () => {
   it('ExploreDeepLink_WhenDbAndSqlParams_PreFillsControlsAndSignalsRun', () => {
     const dom = host();
-    const shouldRun = applyExploreParams(dom, new URLSearchParams('db=master&sql=SELECT * FROM register_history LIMIT 5'));
-    expect(dom.dbSelect.value).toBe('master');
+    const shouldRun = applyExploreParams(dom, new URLSearchParams('db=combined&sql=SELECT * FROM register_history LIMIT 5'));
+    expect(dom.dbSelect.value).toBe('combined');
     expect(dom.input.value).toBe('SELECT * FROM register_history LIMIT 5');
     expect(dom.statusEl.textContent).toMatch(/running/i);
+    expect(shouldRun).toBe(true);
+  });
+
+  it('ExploreDeepLink_WhenLegacyMasterDbInLink_SelectsTheCombinedDatabaseAndRuns', () => {
+    // A shared link from before the rename (?db=master) selects the combined
+    // database and auto-runs, exactly as a current ?db=combined link would.
+    const dom = host();
+    const shouldRun = applyExploreParams(dom, new URLSearchParams('db=master&sql=SELECT * FROM register_history LIMIT 5'));
+    expect(dom.dbSelect.value).toBe('combined');
     expect(shouldRun).toBe(true);
   });
 
@@ -103,7 +119,7 @@ describe('explore exemplar deep-links (end-to-end wiring)', () => {
       const params = new URLSearchParams(qs.replace(/&amp;/g, '&'));
       const { db, sql, unknownDb } = parseExploreParams(params);
       expect(unknownDb, `${qs} names an unknown database`).toBeNull();
-      expect(db === null || db === 'latest' || db === 'master').toBe(true);
+      expect(db === null || db === 'latest' || db === 'combined').toBe(true);
       if (sql !== null) expect(() => prepareSql(sql), qs).not.toThrow();
     }
   });

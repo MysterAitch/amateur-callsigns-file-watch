@@ -70,7 +70,7 @@
         <label for="db-select">Database</label>
         <select id="db-select">
           <option value="latest">latest — current publication + reference data ([[db-size:callsigns]])</option>
-          <option value="master">master — every publication + FOI observations ([[db-size:master]])</option>
+          <option value="combined">combined — every publication + FOI observations ([[db-size:combined]])</option>
         </select>
         <label for="sql-input">SQL query</label>
         <textarea id="sql-input" rows="6" spellcheck="false" placeholder="SELECT … (read-only; results capped at 500 rows)"></textarea>
@@ -94,11 +94,11 @@
       <h2>Join keys and semantics</h2>
       <p><strong>Join keys:</strong> <code>callsign</code> joins everything —
       the latest database's <code>normalised</code> ↔ <code>components</code>
-      tables, and the master database's <code>register_history</code>
+      tables, and the combined database's <code>register_history</code>
       (one row per callsign per publication, keyed by <code>dataset</code>)
       ↔ <code>observations</code> (one row per FOI-witnessed assertion,
       keyed by <code>entry</code>).</p>
-      <p><strong>NULL vs empty string</strong> (master
+      <p><strong>NULL vs empty string</strong> (combined
       <code>observations</code>): <code>NULL</code> means the source dataset
       never asserted that column; <code>''</code> means the source asserted
       a blank value. The distinction is the point — a blank status in the
@@ -125,7 +125,7 @@
       lives in
       <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/reference-data/licence-category.csv">reference-data/licence-category.csv</a>.</p>
       <p><strong>A cohort worth reproducing</strong> (heavy — run it on the
-      <a href="datasets/index.html">downloaded master database</a>, not
+      <a href="datasets/index.html">downloaded combined database</a>, not
       here): forbidden-suffix callsigns in the current register that were
       absent from the August 2019 FOI snapshot — the "issued after the
       withheld list existed" candidates (each needs per-member checking:

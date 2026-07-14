@@ -4,9 +4,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { loadDatasets } from './compare.js';
 
-// The Compare page opens the master database EAGERLY on load - no trigger button,
+// The Compare page opens the combined database EAGERLY on load - no trigger button,
 // just boot() reaching for the publication list the instant the page appears. That
-// first open is the cold one (the master database is the large ~1 GB costume whose
+// first open is the cold one (the combined database is the large ~1 GB costume whose
 // first HTTP-range open is a measured ~20s, issue #475), so it must be communicated
 // exactly as every other query surface communicates a slow load (issue #499): the
 // boot status shows an escalating loading message, the results region carries
@@ -38,11 +38,11 @@ function fakeWorker(rows: Record<string, unknown>[]): { db: { query: () => Promi
   return { db: { query: () => Promise.resolve(rows) } };
 }
 
-describe('compare eager master-database load', { tags: ['ui'] }, () => {
-  it('CompareBoot_WhileOpeningTheMasterDatabase_ShowsTheLoadingAffordanceAndMarksTheResultsBusy', async () => {
+describe('compare eager combined-database load', { tags: ['ui'] }, () => {
+  it('CompareBoot_WhileOpeningTheCombinedDatabase_ShowsTheLoadingAffordanceAndMarksTheResultsBusy', async () => {
     const { statusEl, alertEl, resultEl } = bootHost();
     // Hold the open shut so the interval before it completes is observable: the
-    // user must already see that the master database is loading.
+    // user must already see that the combined database is loading.
     let release: (() => void) | undefined;
     const opened = new Promise<void>(resolve => { release = resolve; });
     const rows = [{ dataset: '2026-06-23', record_count: 1 }];
@@ -53,7 +53,7 @@ describe('compare eager master-database load', { tags: ['ui'] }, () => {
 
     // Immediately - before the database has opened - the eager, no-button
     // affordance drives the boot status and rides the results region's aria-busy.
-    expect(statusEl.textContent).toMatch(/loading the master database/i);
+    expect(statusEl.textContent).toMatch(/loading the combined database/i);
     expect(resultEl.getAttribute('aria-busy')).toBe('true');
 
     release?.();
@@ -84,7 +84,7 @@ describe('compare eager master-database load', { tags: ['ui'] }, () => {
     }
   });
 
-  it('CompareBoot_WhenTheMasterDatabaseFailsToOpen_RaisesTheAssertiveTransientLoadAlert', async () => {
+  it('CompareBoot_WhenTheCombinedDatabaseFailsToOpen_RaisesTheAssertiveTransientLoadAlert', async () => {
     const { statusEl, alertEl, resultEl } = bootHost();
     await expect(loadDatasets({
       statusEl, alertEl, resultEl,

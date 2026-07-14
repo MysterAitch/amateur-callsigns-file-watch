@@ -3,7 +3,7 @@
 // COMMUNICATED rather than hidden: the trigger button shows its state (ready /
 // loading / running), a status escalates to a first-use reassurance if the load
 // runs long, and failures surface honestly (assertively, and more strongly for
-// integrity failures). We do not try to eliminate the latency - the master
+// integrity failures). We do not try to eliminate the latency - the combined
 // database's cold HEAD on GitHub Pages is a measured ~20s (issue #475) - because
 // users tolerate a wait they can see is progressing.
 //
