@@ -185,6 +185,12 @@ describe('Dataset pages build', () => {
     expect(page).toContain('src="../../../entry-browser.js"');
     // The static preview remains as the no-JS/crawlable fallback.
     expect(page).toContain('class="browser-static"');
+    // The eager browser opens the master database with no trigger button, so a
+    // slow-load failure surfaces through the shared affordance's assertive
+    // alert (issue #499). These pages do NOT link site/style.css, so its
+    // .db-alert styling and the --waiting-* status tokens must be inlined here.
+    expect(page).toContain('.db-alert{');
+    expect(page).toContain('--waiting-');
     // Breakdown rows are click-to-filter targets feeding the browser facets.
     expect(page).toContain('data-filter-col="status" data-filter-val="Allocated"');
     expect(page).toContain('data-filter-col="implied_class" data-filter-val="Full"');
