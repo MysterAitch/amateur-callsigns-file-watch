@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-06
-- Related: ADR 0001, issues #14, #15; PR #28 (implementation); PR #29 (first end-to-end data PR)
+- Related: ADR 0001, ADR 0019 (the unified CI/CD pipeline these checks now live in); issues #14, #15; PR #28 (implementation); PR #29 (first end-to-end data PR)
 
 ## Context
 
@@ -23,9 +23,11 @@ set the way it is, and how to recreate them.
 - **Target**: default branch.
 - **Rules**: require a pull request before merging (0 required approvals); require the
   status checks `tests` and `data-validation` (the job names in
-  `.github/workflows/ci.yml` — renaming those jobs without updating the ruleset blocks
-  all merges); block force pushes; block deletion. Allowed merge methods: merge /
-  squash / rebase.
+  `.github/workflows/cicd.yaml`, the unified CI/CD pipeline — renaming those jobs
+  without updating the ruleset blocks all merges; that same workflow also holds the
+  Pages `deploy` job, gated to `main`, so a single file now carries both the required
+  checks and the deploy, ADR 0019); block force pushes; block deletion. Allowed merge
+  methods: merge / squash / rebase.
 - **Bypass**: repository **admin** role only, mode "always".
 
 Rationale:

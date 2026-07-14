@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-10
-- Related: ADR 0001 (PR-gated processing), ADR 0002 (repository write controls), ADR 0003 (frameworkless site), ADR 0009 (branch relay), ADR 0010 (archive contract); issue #47 (item 4)
+- Related: ADR 0001 (PR-gated processing), ADR 0002 (repository write controls), ADR 0003 (frameworkless site), ADR 0009 (branch relay), ADR 0010 (archive contract), ADR 0019 (unified `cicd.yaml` — preserves the read-only-CI posture via job-level permissions); issue #47 (item 4)
 
 ## Context
 

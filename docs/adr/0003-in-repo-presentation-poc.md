@@ -2,7 +2,7 @@
 
 Date: 2026-07-07
 Status: accepted
-Related: ADR 0002 (write posture), ADR 0008 (offline-first PWA over the same SQLite), ADR 0013 (raw-keyed claim ledger — reuses this vendored `sql.js-httpvfs` range-read path for the in-browser ledger query lane)
+Related: ADR 0002 (write posture), ADR 0008 (offline-first PWA over the same SQLite), ADR 0013 (raw-keyed claim ledger — reuses this vendored `sql.js-httpvfs` range-read path for the in-browser ledger query lane), ADR 0019 (the deploy workflow named below is now the `deploy` job of the unified `cicd.yaml`, with a layered build cache)
 
 ## Context
 
@@ -36,10 +36,13 @@ inside this repository than outside it, because what it demonstrates is
    the deploy artefact) — no CDN script tags, nothing vendored into git.
    It queries the database via HTTP range requests, so browsers fetch
    kilobytes, not the full ~24 MB file.
-5. **Deploy workflow** (`.github/workflows/pages.yml`): builds on pushes to
-   main; `contents: read` throughout; only the deploy job holds
-   `pages: write` + `id-token: write`. No repository writeback — consistent
-   with ADR 0002's write posture. Actions are digest-pinned per repository
+5. **Deploy workflow**: originally the standalone `.github/workflows/pages.yml`,
+   now the site-build and `deploy` jobs of the unified
+   `.github/workflows/cicd.yaml` (ADR 0019). The site assembles on every push and
+   pull request (giving the deploy path pre-merge coverage), but the configure /
+   upload / deploy steps are gated to `main`. `contents: read` throughout; only the
+   deploy job holds `pages: write` + `id-token: write`. No repository writeback —
+   consistent with ADR 0002's write posture. Actions are digest-pinned per repository
    convention.
 
 ## Repository settings changed
