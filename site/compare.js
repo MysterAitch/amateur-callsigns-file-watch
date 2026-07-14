@@ -24,6 +24,7 @@
 
 import { buildPredicate, stateToViewParam, viewParamToState, applyViewToState, matchingCountSql, setDiffSql, callsignCharMarker, TOGGLES } from './browser-query.js';
 import { createHistorySync } from './history-sync.js';
+import { withDatabaseLoading } from './db-loading.js';
 
 const { createDbWorker } = window;
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
@@ -214,6 +215,7 @@ const sqlSection = document.getElementById('sql');
 const sqlText = document.getElementById('sql-text');
 const predInput = document.getElementById('pred-input');
 const bootStatus = document.getElementById('boot-status');
+const bootAlert = document.getElementById('boot-alert');
 
 // A publication whose declared coverage is partial, or that carries a
 // coverage-affecting quality observation: presence differences against it are
@@ -302,12 +304,35 @@ function updateFilterNote() {
   filterNote.textContent = text;
 }
 
+// Open the master database and read the publication list. This is the page's
+// EAGER, no-button first load, and it is the cold one: the master database is
+// the large ~1 GB costume whose first open over HTTP range requests is a
+// measured ~20s (issue #475). It runs through the shared loading affordance
+// (issue #499) so the wait is communicated exactly as it is on Explore and the
+// Playground - with no trigger button, the affordance drives the boot status
+// (escalating to a first-use reassurance if the open runs long) and rides the
+// results region's aria-busy, and a failed open raises the honest assertive
+// alert instead of a bare status line. Exported (with its opener and elements
+// injected) so a DOM test drives this exact eager path against a controlled
+// opener without spinning up a real worker.
+export function loadDatasets({ statusEl, alertEl, resultEl, openDatabase }) {
+  return withDatabaseLoading(
+    { statusEl, alertEl, resultEl, label: 'master database' },
+    async (markRunning) => {
+      const worker = await openDatabase();
+      markRunning();
+      return worker.db.query('SELECT dataset, record_count, intended_complete, scope_notes, coverage_affecting FROM history_datasets ORDER BY dataset DESC');
+    },
+  );
+}
+
 async function boot() {
   try {
-    const worker = await openMaster();
-    datasets = await worker.db.query('SELECT dataset, record_count, intended_complete, scope_notes, coverage_affecting FROM history_datasets ORDER BY dataset DESC');
-  } catch (err) {
-    bootStatus.textContent = `Could not load publications: ${String(err.message ?? err)}`;
+    datasets = await loadDatasets({ statusEl: bootStatus, alertEl: bootAlert, resultEl: setup, openDatabase: openMaster });
+  } catch {
+    // The shared affordance already raised the assertive #boot-alert (a transient
+    // load failure vs a query failure) and cleared the boot status; the setup
+    // panel stays hidden. Nothing more to report here.
     return;
   }
   readStateFromUrl();
