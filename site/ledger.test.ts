@@ -135,10 +135,10 @@ describe('claim-ledger query layer (live, against a built SQLite)', () => {
 
   it('EntityClaims_WhenNbspTwinExists_KeepsBothRawTokensUnderOneEntity', async () => {
     const claims = await entityClaims(query, 'G#0TQK');
-    const rawTokens = new Set(claims.map(c => c.raw_subject));
+    const rawTokens = new Set(claims.map((c: Record<string, unknown>) => c.raw_subject));
     expect(rawTokens.has('G0TQK')).toBe(true);
     expect(rawTokens.has('G0TQK ')).toBe(true); // the trailing-space twin, verbatim
-    const vintages = [...new Set(claims.map(c => c.vintage))].sort();
+    const vintages = [...new Set(claims.map((c: Record<string, unknown>) => c.vintage))].sort();
     expect(vintages).toEqual([V_2016, V_2022, V_2024]);
   });
 
@@ -149,7 +149,7 @@ describe('claim-ledger query layer (live, against a built SQLite)', () => {
     expect(fold.variants.size).toBe(2); // clean token + trailing-space twin
     // Both statuses observed at 2022 (Reserved clean, Allocated twin).
     const at2022 = fold.byV.get(V_2022) ?? [];
-    const statuses = at2022.map(o => o.status).sort();
+    const statuses = at2022.map((o: { status: string }) => o.status).sort();
     expect(statuses).toEqual(['Allocated', 'Reserved']);
   });
 
@@ -175,7 +175,7 @@ describe('claim-ledger query layer (live, against a built SQLite)', () => {
     expect(twin?.bytes.endsWith('20')).toBe(true);
     expect(bytesHex('G0TQK ')).toBe(twin?.bytes);
     // It carries the cleaned-callsign edge back to the clean form.
-    expect(twin?.edges.some(e => e.rule === CLEANED_CALLSIGN_RULE && e.object === 'G0TQK')).toBe(true);
+    expect(twin?.edges.some((e: { rule: string; object: string }) => e.rule === CLEANED_CALLSIGN_RULE && e.object === 'G0TQK')).toBe(true);
   });
 
   it('Flags_WhenRawTokensDivergeFromCleaned_SurfaceDerivedNotableObservations', async () => {

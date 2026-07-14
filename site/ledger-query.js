@@ -640,6 +640,9 @@ export function fidelityOf(claims, resolved) {
         ruleGloss: ruleGlossFor(carriers[0]?.rule ?? ''),
         inputs: [{ role: 'published form', value: raw }],
         result: flag,
+        // A flag working's result is a label token (e.g. 'forbidden-suffix'),
+        // rendered as plain text, so it is NOT shown verbatim like a callsign.
+        resultVerbatim: false,
         sources: sourceItems(sourcesForRaw(claims, raw)),
       },
     });
@@ -662,6 +665,9 @@ export function fidelityOf(claims, resolved) {
         ruleGloss: ruleGlossFor(carrier?.rule ?? ''),
         inputs: [{ role: 'published form', value: raw }],
         result: status,
+        // The result is a status label, not a callsign, so it is not verbatim
+        // (consistent with the flag working above).
+        resultVerbatim: false,
         sources: sourceItems(sourcesForRaw(claims, raw)),
       },
     });

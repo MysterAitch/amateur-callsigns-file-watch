@@ -1,0 +1,25 @@
+{
+  // The browser site (issue #464). The root tsconfig checks only src/** (the
+  // node-side pipeline), so all of site/ - the .js modules AND the site/*.test.ts
+  // files - went unchecked, and a real arity error in a site test reached main
+  // uncaught. This project brings site/ under tsc so type and arity errors in the
+  // site code and its tests fail CI.
+  //
+  // It is separate from the root project (not just an added include) because the
+  // site is a DIFFERENT environment: it needs the DOM lib and reads its browser
+  // modules through allowJs, neither of which belongs in the node-only src build.
+  //
+  // allowJs (not checkJs): tsc reads the .js modules so the .ts tests are checked
+  // against their REAL signatures - which is what catches an arity/shape error in
+  // a test. checkJs (reporting errors INSIDE the .js modules) is deliberately left
+  // off for now: it surfaces a large pre-existing backlog across the runtime
+  // modules that is its own body of work (tracked as a follow-up to #464).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": ["site/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

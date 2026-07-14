@@ -24,6 +24,16 @@ const DEFAULT_SLOW_AFTER_MS = 1200;
 const WAITING_LABEL = 'Waiting for data…';
 const RUNNING_LABEL = 'Running…';
 
+/**
+ * Every element is optional: a surface passes only the affordances it owns (an
+ * eager dataset-entry page has a status line but no trigger button), and each is
+ * guarded before use. `label` names the database in the user-facing messages.
+ * `task` receives markRunning() to signal the open -> query transition.
+ * @template T
+ * @param {{ button?: HTMLButtonElement, statusEl?: HTMLElement, alertEl?: HTMLElement, resultEl?: HTMLElement, label: string, slowAfterMs?: number }} elements
+ * @param {(markRunning: () => void) => Promise<T>} task
+ * @returns {Promise<T>}
+ */
 export async function withDatabaseLoading({ button, statusEl, alertEl, resultEl, label, slowAfterMs = DEFAULT_SLOW_AFTER_MS }, task) {
   const originalLabel = button ? button.textContent : '';
   // markRunning() flips this: an error before it is a LOAD failure ("couldn't
