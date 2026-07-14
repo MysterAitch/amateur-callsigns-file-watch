@@ -80,7 +80,7 @@ const offlineDbUrls = new Set();
 const dbBuffers = new Map();
 
 function isDbPath(pathname) {
-  return /\/data\/(callsigns|master)\.sqlite\.png$/.test(pathname);
+  return /\/data\/(callsigns|combined)\.sqlite\.png$/.test(pathname);
 }
 
 function isShellRequest(url) {

@@ -187,13 +187,13 @@ async function main(): Promise<void> {
   // 5. Compression sanity - the gzipped artefacts must actually be compressed.
   await expectGzip('data/foi-observations.csv.gz', 100 * 1024 * 1024); // raw union CSV is ~0.6 GB; compressed is tens of MB.
   await expectGzip('data/datasets/foi--ofcom-498906--reciprocal-licences-since-2010.sqlite.gz');
-  await expectGzip('data/master.sqlite.gz');
-  // The master download twin must be smaller than the uncompressed .png it mirrors.
-  const gz = await rangeTotal('data/master.sqlite.gz');
-  const png = await rangeTotal('data/master.sqlite.png');
+  await expectGzip('data/combined.sqlite.gz');
+  // The combined download twin must be smaller than the uncompressed .png it mirrors.
+  const gz = await rangeTotal('data/combined.sqlite.gz');
+  const png = await rangeTotal('data/combined.sqlite.png');
   if (gz !== undefined && png !== undefined) {
-    if (gz < png) pass('gzip-vs-raw master', `${gz} < ${png}`);
-    else fail('gzip-vs-raw master', `master.sqlite.gz ${gz} is not smaller than master.sqlite.png ${png}`);
+    if (gz < png) pass('gzip-vs-raw combined', `${gz} < ${png}`);
+    else fail('gzip-vs-raw combined', `combined.sqlite.gz ${gz} is not smaller than combined.sqlite.png ${png}`);
   }
 
   console.log('');

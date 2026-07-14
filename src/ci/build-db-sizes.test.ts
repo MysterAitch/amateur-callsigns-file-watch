@@ -12,7 +12,7 @@ describe('humaniseSize', { tags: ['unit'] }, () => {
   });
 
   it('DatabaseSize_JustUnderAGibibyte_StillReadsAsMegabytes', () => {
-    // The master database at ~1.06 GB (decimal) is 1011 MiB - under 1 GiB.
+    // The combined database at ~1.06 GB (decimal) is 1011 MiB - under 1 GiB.
     expect(humaniseSize(1_060_401_152)).toBe('1011 MB');
   });
 
@@ -24,19 +24,19 @@ describe('humaniseSize', { tags: ['unit'] }, () => {
 
 describe('stampSizes', { tags: ['unit'] }, () => {
   it('SizeLabel_WithAPlaceholder_IsReplacedByTheHumanisedSize', () => {
-    const { html, count } = stampSizes('master — every publication ([[db-size:master]])', { master: '1.03 GB' });
-    expect(html).toBe('master — every publication (1.03 GB)');
+    const { html, count } = stampSizes('combined — every publication ([[db-size:combined]])', { combined: '1.03 GB' });
+    expect(html).toBe('combined — every publication (1.03 GB)');
     expect(count).toBe(1);
   });
 
   it('SizeLabel_WithNoPlaceholder_IsLeftUnchanged', () => {
-    const { html, count } = stampSizes('no tokens here', { master: '1.03 GB' });
+    const { html, count } = stampSizes('no tokens here', { combined: '1.03 GB' });
     expect(html).toBe('no tokens here');
     expect(count).toBe(0);
   });
 
   it('SizeLabel_WithMultipleDatabases_ReplacesEach', () => {
-    const { html, count } = stampSizes('([[db-size:callsigns]]) and ([[db-size:master]])', { callsigns: '28 MB', master: '1.03 GB' });
+    const { html, count } = stampSizes('([[db-size:callsigns]]) and ([[db-size:combined]])', { callsigns: '28 MB', combined: '1.03 GB' });
     expect(html).toBe('(28 MB) and (1.03 GB)');
     expect(count).toBe(2);
   });

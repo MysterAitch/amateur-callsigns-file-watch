@@ -42,7 +42,7 @@
  * workbook, or the CSV-native disclosure itself), under Ofcom's OWN column
  * names, and calls emitLedger from claim.ts. The raw callsign token travels
  * verbatim, so the ledger preserves distinctions the normalised store discards
- * (the G0TQK trailing-NBSP twin). The master SQLite is generated FROM the
+ * (the G0TQK trailing-NBSP twin). The combined SQLite is generated FROM the
  * normalised CSVs and keyed to the normalised callsign, so it is deliberately
  * NOT a dependency here - the whole point is to work from raw.
  *

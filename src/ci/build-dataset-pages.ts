@@ -1044,7 +1044,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     '</div>',
     related.length > 0 ? `<section><h2>Related</h2>${related.join('')}</section>` : '',
     '<a class="linkout" href="../../../statistics.html">Register structure (prefix series × RSL) → on the statistics page (near-constant across publications, not a property of this one).</a>',
-    // Progressive enhancement: the scoped data browser queries the master
+    // Progressive enhancement: the scoped data browser queries the combined
     // database (filtered to this publication) over range requests. With JS
     // off, the static preview above is the complete, crawlable record.
     '<script src="../../../vendor/index.js"></script>',
@@ -1368,13 +1368,13 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     ...dictionarySection,
     '<h2>Bulk downloads</h2>',
     '<ul>',
-    `<li><a href="../data/foi-observations.csv.gz">foi-observations.csv.gz</a>${sizeOf(path.join(outputDir, 'data', 'foi-observations.csv.gz'))} — the flat union of every callsign-bearing FOI normalised row (one CSV, gzipped; empty cells conflate not-asserted with asserted-blank — the master database keeps them distinct as NULL vs empty string).</li>`,
-    `<li><a href="../data/master.sqlite.gz">master.sqlite.gz</a>${sizeOf(path.join(outputDir, 'data', 'master.sqlite.gz'))} — one SQLite database of everything: the FOI observations union plus every open-data publication’s normalised rows (<code>register_history</code>).</li>`,
+    `<li><a href="../data/foi-observations.csv.gz">foi-observations.csv.gz</a>${sizeOf(path.join(outputDir, 'data', 'foi-observations.csv.gz'))} — the flat union of every callsign-bearing FOI normalised row (one CSV, gzipped; empty cells conflate not-asserted with asserted-blank — the combined database keeps them distinct as NULL vs empty string).</li>`,
+    `<li><a href="../data/combined.sqlite.gz">combined.sqlite.gz</a>${sizeOf(path.join(outputDir, 'data', 'combined.sqlite.gz'))} — one SQLite database of everything: the FOI observations union plus every open-data publication’s normalised rows (<code>register_history</code>).</li>`,
     '<li>One SQLite database per archive entry (one table per CSV), offered with its size from each entry’s own page below.</li>',
     '</ul>',
-    '<!-- Reading the source? The site also serves callsigns.sqlite.png and master.sqlite.png: those ARE plain SQLite databases, byte-identical to the honest-named downloads once gunzipped. The .png extension defeats GitHub Pages\' gzip transcoding of Range responses, which corrupts the lookup\'s HTTP range-request reads (sql.js-httpvfs). Use the .sqlite.gz downloads above; the .png files exist for the in-browser lookup. -->',
+    '<!-- Reading the source? The site also serves callsigns.sqlite.png and combined.sqlite.png: those ARE plain SQLite databases, byte-identical to the honest-named downloads once gunzipped. The .png extension defeats GitHub Pages\' gzip transcoding of Range responses, which corrupts the lookup\'s HTTP range-request reads (sql.js-httpvfs). Use the .sqlite.gz downloads above; the .png files exist for the in-browser lookup. -->',
     '<details><summary>Why do the site’s own database files end in <code>.png</code>?</summary>',
-    '<p>The in-browser lookup queries its databases over HTTP <em>range requests</em> without downloading them whole. GitHub Pages gzip-transcodes text-like content types — including their range responses, which corrupts partial reads — but never re-compresses image types, so the databases the site queries live (<code>callsigns.sqlite.png</code>, <code>master.sqlite.png</code>) wear a <code>.png</code> name. They are plain SQLite files, byte-identical to the gzipped downloads above; if you ended up with one, rename it to <code>.sqlite</code> and it will open normally.</p>',
+    '<p>The in-browser lookup queries its databases over HTTP <em>range requests</em> without downloading them whole. GitHub Pages gzip-transcodes text-like content types — including their range responses, which corrupts partial reads — but never re-compresses image types, so the databases the site queries live (<code>callsigns.sqlite.png</code>, <code>combined.sqlite.png</code>) wear a <code>.png</code> name. They are plain SQLite files, byte-identical to the gzipped downloads above; if you ended up with one, rename it to <code>.sqlite</code> and it will open normally.</p>',
     '</details>',
     `<h2 id="open-data">Ofcom open data (${openDataKeys.length} publications)</h2>`,
     '<p>Ofcom publish the current amateur radio callsign dataset on their',

@@ -2,7 +2,7 @@
 // pages. Progressive enhancement over the static "Browse the data" preview:
 // a SQL-as-model engine where every affordance - facet chip, sidebar
 // breakdown row, chart bar, per-column input - composes ONE query against
-// the published master database scoped to THIS publication
+// the published combined database scoped to THIS publication
 // (WHERE dataset = key), run over HTTP range requests (same engine as the
 // Explore page). With JS off the static preview is the complete, crawlable
 // record; this only adds interactivity. Frameworkless; d3/crossfilter belong
@@ -25,14 +25,14 @@ const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
 const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
 
 let workerPromise = null;
-async function openMaster() {
+async function openCombined() {
   workerPromise ??= (async () => {
     let version = 'dev';
     try {
       const res = await fetch(new URL('./data/version.txt', import.meta.url), { cache: 'no-store' });
       if (res.ok) version = (await res.text()).trim();
     } catch { /* fall back to unversioned */ }
-    const dbUrl = new URL(`./data/master.sqlite.png?v=${encodeURIComponent(version)}`, import.meta.url);
+    const dbUrl = new URL(`./data/combined.sqlite.png?v=${encodeURIComponent(version)}`, import.meta.url);
     return createDbWorker(
       [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
       workerUrl.toString(), wasmUrl.toString());
@@ -71,11 +71,11 @@ function describeDiff(raw, cleaned) {
 const bootSection = document.querySelector('.browser[data-dataset]');
 if (bootSection !== null) enhance(bootSection);
 
-// Exported (and the master opener is injectable) so a JSDOM test can drive the
+// Exported (and the combined opener is injectable) so a JSDOM test can drive the
 // eager first-load path against a controlled opener - asserting the shared
 // loading affordance is engaged - without opening a real range-request worker.
-// In the browser it runs with the module's memoised openMaster.
-export function enhance(section, { openMaster: openMasterFn = openMaster } = {}) {
+// In the browser it runs with the module's memoised openCombined.
+export function enhance(section, { openCombined: openCombinedFn = openCombined } = {}) {
   const dataset = section.getAttribute('data-dataset');
   const staticView = section.querySelector('.browser-static');
   if (staticView === null) return;
@@ -100,7 +100,7 @@ export function enhance(section, { openMaster: openMasterFn = openMaster } = {})
   const statusLine = el('p', { class: 'browser-status', role: 'status' });
   // Assertive alert for a load FAILURE, owned by the shared loading affordance
   // (issue #499). Hidden until raised; role="alert" so assistive tech announces
-  // a failed cold open of the master database, distinct from the polite status.
+  // a failed cold open of the combined database, distinct from the polite status.
   const alertEl = el('p', { class: 'db-alert', role: 'alert', hidden: '' });
   const result = el('div', { class: 'browser-result' });
   section.insertBefore(chips, staticView);
@@ -135,9 +135,9 @@ export function enhance(section, { openMaster: openMasterFn = openMaster } = {})
 
   // Schema reference (collapsible): the queryable surface a hand-written
   // query can reach, so composing SQL needs no trip to the data dictionary.
-  // Two column groups mirror how the master's register_history is built:
+  // Two column groups mirror how the combined's register_history is built:
   // canonical keys the mirror derives for EVERY publication, and source
-  // columns carried from Ofcom's publication into the master's UNION schema -
+  // columns carried from Ofcom's publication into the combined's UNION schema -
   // present as columns for all rows but populated only for the publications
   // that actually carried them (e.g. the licence_version_* dates).
   const columnList = (cols) => el('ul', { class: 'schema-cols' },
@@ -145,7 +145,7 @@ export function enhance(section, { openMaster: openMasterFn = openMaster } = {})
   const schemaBox = el('details', { class: 'schema-ref' });
   schemaBox.append(el('summary', { text: 'Tables & columns' }));
   schemaBox.append(
-    el('p', { class: 'browser-status', text: `Queries run against the published master database. In filters mode the scope is limited to this publication (WHERE dataset = '${dataset}') automatically; a hand-written query reaches every publication unless you add that clause yourself.` }),
+    el('p', { class: 'browser-status', text: `Queries run against the published combined database. In filters mode the scope is limited to this publication (WHERE dataset = '${dataset}') automatically; a hand-written query reaches every publication unless you add that clause yourself.` }),
     el('h4', { text: 'register_history' }),
     el('p', { class: 'browser-status', text: 'One row per callsign per publication.' }),
     el('p', { class: 'schema-group', text: 'Canonical keys (derived by the mirror, present for every publication):' }),
@@ -183,7 +183,7 @@ export function enhance(section, { openMaster: openMasterFn = openMaster } = {})
     { title: 'Callsigns whose raw form needed cleaning', sql: `SELECT callsign, cleaned, status\nFROM register_history WHERE dataset = '${dataset}' AND callsign != cleaned\nORDER BY callsign` },
     // Dates + whether the callsign predates the forbidden list's first known
     // publication (Ofcom's August 2019 FOI). NULL start date -> 'unknown', not
-    // a false 'no'. Date columns exist in the master's UNION schema (NULL for
+    // a false 'no'. Date columns exist in the combined's UNION schema (NULL for
     // publications that did not carry them).
     { title: 'Withheld-suffix callsigns — issued before the 2019 list?', sql: `SELECT callsign, status,\n  licence_version_original_start_date AS issued,\n  last_modified_date AS last_modified,\n  CASE WHEN licence_version_original_start_date IS NULL THEN 'unknown'\n       WHEN licence_version_original_start_date < '2019-08-01' THEN 'yes'\n       ELSE 'no' END AS predates_2019_list\nFROM register_history WHERE dataset = '${dataset}'\n  AND suffix IN (SELECT suffix FROM ref_forbidden_suffixes)\nORDER BY issued` },
     { title: 'Longest callsigns first', sql: `SELECT callsign, LENGTH(callsign) AS len, status, implied_class\nFROM register_history WHERE dataset = '${dataset}'\nORDER BY len DESC, callsign` },
@@ -229,14 +229,14 @@ export function enhance(section, { openMaster: openMasterFn = openMaster } = {})
       inner = q.inner;
       countSql = `SELECT COUNT(*) AS n FROM register_history WHERE ${q.where}`;
     }
-    // Route the master-database open + query through the shared loading
+    // Route the combined-database open + query through the shared loading
     // affordance (issue #499), consistent with Explore and Playground. There is
     // no trigger button - the browser refreshes eagerly on first load and on
     // every filter change - so the affordance runs button-less: it drives the
     // polite statusLine (a first-use reassurance escalates if the cold open runs
     // long, a measured ~20s on GitHub Pages, issue #475), marks the result region
     // aria-busy, and on a LOAD failure raises the assertive alert. markRunning()
-    // marks the open -> query transition. openMaster() is memoised, so after the
+    // marks the open -> query transition. openCombined() is memoised, so after the
     // first refresh it is warm and the affordance is momentary; routing every
     // refresh through it keeps the behaviour uniform. `opened` distinguishes a
     // query-phase failure (keep the honest inline "Query failed" message) from a
@@ -245,9 +245,9 @@ export function enhance(section, { openMaster: openMasterFn = openMaster } = {})
     let opened = false;
     try {
       const { rows, total } = await withDatabaseLoading(
-        { statusEl: statusLine, alertEl, resultEl: result, label: 'master database' },
+        { statusEl: statusLine, alertEl, resultEl: result, label: 'combined database' },
         async (markRunning) => {
-          const worker = await openMasterFn();
+          const worker = await openCombinedFn();
           opened = true;
           markRunning();
           const totalRows = Number((await worker.db.query(countSql))[0].n);
@@ -463,7 +463,7 @@ export function enhance(section, { openMaster: openMasterFn = openMaster } = {})
     dlBtn.disabled = true; dlBtn.textContent = '…';
     try {
       const inner = state.customSql !== null ? state.customSql : filtersSql().inner;
-      const worker = await openMasterFn();
+      const worker = await openCombinedFn();
       const rows = await worker.db.query(`SELECT * FROM (${inner}) LIMIT ${DOWNLOAD_CAP + 1}`);
       const truncated = rows.length > DOWNLOAD_CAP;
       const shown = truncated ? rows.slice(0, DOWNLOAD_CAP) : rows;

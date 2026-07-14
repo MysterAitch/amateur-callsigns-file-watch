@@ -306,7 +306,7 @@ export function buildFoiRows(foiDir: string = FOI_ARCHIVE_DIR): DatasetRow[] {
 
       const enrichable = classes.some(c => ENRICHABLE_CLASSES.has(c));
       const enrichedCell: StageCell = (s.hasNormalised && enrichable)
-        ? { state: 'partial', detail: 'enriched collectively in the master database (reference joins, components, flags) rather than as a per-entry file' }
+        ? { state: 'partial', detail: 'enriched collectively in the combined database (reference joins, components, flags) rather than as a per-entry file' }
         : { state: 'none', detail: 'no reference-enrichment artefact' };
 
       stages = {

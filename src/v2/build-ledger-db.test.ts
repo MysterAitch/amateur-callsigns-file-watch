@@ -70,7 +70,7 @@ afterAll(() => {
 describe('claim-ledger SQLite artefact', () => {
   it('BuildOrchestrator_WhenBuilt_ShipsPngCostumeAndByteIdenticalGzipTwin', () => {
     // The .png costume for the httpVFS range-request path plus the honest-named
-    // gzip download twin, exactly as the master database ships. The twin must
+    // gzip download twin, exactly as the combined database ships. The twin must
     // gunzip byte-identical to the range-request variant.
     expect(dbPath.endsWith('.sqlite.png')).toBe(true);
     expect(fs.existsSync(dbPath)).toBe(true);

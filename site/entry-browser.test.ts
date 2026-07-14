@@ -2,12 +2,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { enhance } from './entry-browser.js';
 
-// The coordinated entry-page browser (entry-browser.js) opens the master
+// The coordinated entry-page browser (entry-browser.js) opens the combined
 // database eagerly on first render - there is no trigger button. issue #499
 // requires that slow cold open to be COMMUNICATED, not hidden, so it routes the
 // open + query through the shared loading affordance (withDatabaseLoading). These
 // tests build the real `.browser[data-dataset]` scaffold, run enhance with a
-// controlled master opener, and assert what a user (and assistive tech) would
+// controlled combined opener, and assert what a user (and assistive tech) would
 // perceive: the polite loading status, the escalation, aria-busy on the result
 // region, and the assertive alert when the cold open fails. The opener is
 // injected so no real range-request worker is touched.
@@ -42,16 +42,16 @@ describe('entry-browser eager load affordance', { tags: ['ui'] }, () => {
     const section = buildScaffold();
     let release = (): void => undefined;
     const gate = new Promise<void>(resolve => { release = resolve; });
-    const openMaster = (): Promise<ReturnType<typeof fakeWorker>> => gate.then(() => fakeWorker());
+    const openCombined = (): Promise<ReturnType<typeof fakeWorker>> => gate.then(() => fakeWorker());
 
-    enhance(section, { openMaster });
+    enhance(section, { openCombined });
 
-    // enhance restores eagerly (restore -> refresh); the master open is gated, so
+    // enhance restores eagerly (restore -> refresh); the combined open is gated, so
     // the affordance's synchronous head has already run: the polite status names
     // the load and the result region is marked busy, before any data arrives.
     const statusLine = section.querySelector('[role="status"]');
     const result = section.querySelector('.browser-result');
-    expect(statusLine?.textContent).toContain('Loading the master database');
+    expect(statusLine?.textContent).toContain('Loading the combined database');
     expect(result?.getAttribute('aria-busy')).toBe('true');
 
     release();
@@ -69,9 +69,9 @@ describe('entry-browser eager load affordance', { tags: ['ui'] }, () => {
       const section = buildScaffold();
       let release = (): void => undefined;
       const gate = new Promise<void>(resolve => { release = resolve; });
-      const openMaster = (): Promise<ReturnType<typeof fakeWorker>> => gate.then(() => fakeWorker());
+      const openCombined = (): Promise<ReturnType<typeof fakeWorker>> => gate.then(() => fakeWorker());
 
-      enhance(section, { openMaster });
+      enhance(section, { openCombined });
       const statusLine = section.querySelector('[role="status"]');
 
       // Past the slow-open threshold the polite status escalates to the first-use
@@ -86,11 +86,11 @@ describe('entry-browser eager load affordance', { tags: ['ui'] }, () => {
     }
   });
 
-  it('EntryBrowser_WhenTheMasterDatabaseFailsToOpen_RaisesTheAssertiveLoadAlert', async () => {
+  it('EntryBrowser_WhenTheCombinedDatabaseFailsToOpen_RaisesTheAssertiveLoadAlert', async () => {
     const section = buildScaffold();
-    const openMaster = (): Promise<never> => Promise.reject(new Error('offline'));
+    const openCombined = (): Promise<never> => Promise.reject(new Error('offline'));
 
-    enhance(section, { openMaster });
+    enhance(section, { openCombined });
     await flush();
 
     // A failed cold open raises the assertive alert (role="alert") with the
@@ -100,7 +100,7 @@ describe('entry-browser eager load affordance', { tags: ['ui'] }, () => {
     const statusLine = section.querySelector('[role="status"]');
     expect(alertEl?.hasAttribute('hidden')).toBe(false);
     expect((alertEl as HTMLElement).dataset.severity).toBe('transient');
-    expect(alertEl?.textContent).toMatch(/couldn.t load the master database/i);
+    expect(alertEl?.textContent).toMatch(/couldn.t load the combined database/i);
     expect(statusLine?.textContent ?? '').not.toMatch(/query failed/i);
   });
 });

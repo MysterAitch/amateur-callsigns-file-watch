@@ -22,7 +22,7 @@ describe('withDatabaseLoading', { tags: ['ui'] }, () => {
   it('DatabaseLoad_WhileOpening_DisablesTheButtonInAWaitingStateAndMarksTheResultBusy', async () => {
     const { button, statusEl, resultEl } = setup();
     let midFlight = { disabled: false, state: '', text: '', busy: '', status: '' };
-    await withDatabaseLoading({ button, statusEl, resultEl, label: 'master database' }, async () => {
+    await withDatabaseLoading({ button, statusEl, resultEl, label: 'combined database' }, async () => {
       midFlight = {
         disabled: button.disabled,
         state: button.dataset.state ?? '',
@@ -35,7 +35,7 @@ describe('withDatabaseLoading', { tags: ['ui'] }, () => {
     expect(midFlight.state).toBe('loading');
     expect(midFlight.text).toBe('Waiting for data…');
     expect(midFlight.busy).toBe('true');
-    expect(midFlight.status).toContain('Loading the master database');
+    expect(midFlight.status).toContain('Loading the combined database');
   });
 
   it('DatabaseLoad_WhenTheQueryStarts_SwitchesTheButtonToTheRunningState', async () => {
@@ -57,7 +57,7 @@ describe('withDatabaseLoading', { tags: ['ui'] }, () => {
       const { button, statusEl } = setup();
       let release = (): void => undefined;
       const pending = new Promise<void>(resolve => { release = resolve; });
-      const call = withDatabaseLoading({ button, statusEl, label: 'master database', slowAfterMs: 1000 }, () => pending);
+      const call = withDatabaseLoading({ button, statusEl, label: 'combined database', slowAfterMs: 1000 }, () => pending);
       await vi.advanceTimersByTimeAsync(1000);
       expect(statusEl.textContent).toMatch(/first use/i);
       release();
@@ -79,7 +79,7 @@ describe('withDatabaseLoading', { tags: ['ui'] }, () => {
 
   it('DatabaseLoad_OnATransientFailure_ReEnablesTheButtonAndRaisesAnAssertiveRetryableAlert', async () => {
     const { button, statusEl, alertEl } = setup();
-    await expect(withDatabaseLoading({ button, statusEl, alertEl, label: 'master database' }, async () => {
+    await expect(withDatabaseLoading({ button, statusEl, alertEl, label: 'combined database' }, async () => {
       throw new Error('offline');
     })).rejects.toThrow('offline');
     expect(button.disabled).toBe(false);
@@ -113,7 +113,7 @@ describe('withDatabaseLoading', { tags: ['ui'] }, () => {
 
   it('DatabaseLoad_WithNoButton_StillDrivesTheStatusForAnEagerLoad', async () => {
     const statusEl = document.createElement('p');
-    await withDatabaseLoading({ statusEl, label: 'master database' }, async () => undefined);
+    await withDatabaseLoading({ statusEl, label: 'combined database' }, async () => undefined);
     // No throw, and the status was driven (an eager dataset-entry page has no
     // button to hang the message on, only the status line).
     expect(statusEl).toBeTruthy();

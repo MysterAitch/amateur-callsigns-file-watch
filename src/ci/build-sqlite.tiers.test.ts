@@ -9,7 +9,7 @@ import { OBSERVATION_VALUE_COLUMNS } from '../shared/foi-observations.ts';
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
 // The published data tiers (issue #149 item 4): the flat union CSV, one SQLite
-// per archive entry, and the master database. Built here from the real archive
+// per archive entry, and the combined database. Built here from the real archive
 // with compress:false - the deploy adds the gzipped download twins on top (a
 // publish responsibility), but every assertion here is about DATA, so it reads
 // the raw databases and CSV directly. Deliberately a separate, heavy test file.
@@ -25,7 +25,7 @@ let summary: Record<string, number>;
 // restored build instead of rebuilding it - equivalent, because the build is
 // deterministic in the hashed inputs, so anything that could change the output
 // also changes the key and forces a fresh build. On a MISS we build with
-// compress:false: the raw build skips the publish-only gzip work (the master
+// compress:false: the raw build skips the publish-only gzip work (the combined
 // download twin and the 45 per-dataset gzips are ~61% of the build and no data
 // assertion depends on them - #478). With no TIERS_CACHE_DIR (local runs) it
 // builds into throwaway scratch. The summary (row counts asserted below) is
@@ -69,12 +69,12 @@ describe('Published data tiers', { tags: ['unit', 'data-validity'] }, () => {
     expect(newlines - 1).toBe(summary['foi-observations.csv.gz rows']);
   });
 
-  it('Tiers_MasterObservations_KeepNullVsAssertedBlankDistinct', { timeout: 120_000 }, () => {
-    const db = new DatabaseSync(path.join(dataDir, 'master.sqlite.png'), { readOnly: true });
+  it('Tiers_CombinedObservations_KeepNullVsAssertedBlankDistinct', { timeout: 120_000 }, () => {
+    const db = new DatabaseSync(path.join(dataDir, 'combined.sqlite.png'), { readOnly: true });
     try {
       // The 2019-08 register asserts blank statuses (''); the re-issue
       // events file has no status column at all (NULL). SQL can tell them
-      // apart - that is the whole point of the master form.
+      // apart - that is the whole point of the combined form.
       const blank = db.prepare("SELECT COUNT(*) AS c FROM observations WHERE entry = 'wdtk-596532--allocated-reserved-forbidden' AND status = ''").get() as { c: number | bigint };
       expect(Number(blank.c)).toBe(6);
       const notAsserted = db.prepare("SELECT COUNT(*) AS c FROM observations WHERE entry = 'ofcom-498903--reissued-callsigns-since-2010' AND status IS NULL").get() as { c: number | bigint };
@@ -97,11 +97,11 @@ describe('Published data tiers', { tags: ['unit', 'data-validity'] }, () => {
       // Longitudinal join keys: cleaned unifies publisher artefacts
       // (2E1HON and its NBSP-damaged 2022 twin share one key), suffix
       // enables cohort joins against the withheld list, which rides into
-      // the master so those queries run in one database.
+      // the combined so those queries run in one database.
       const cleanedTwins = db.prepare("SELECT COUNT(DISTINCT callsign) AS c FROM register_history WHERE cleaned = '2E1HON'").get() as { c: number | bigint };
       expect(Number(cleanedTwins.c)).toBeGreaterThanOrEqual(2);
       // The ever-forbidden union (1,465 shared 2016/2019 set plus JIZ) rides
-      // into the master from reference-data/forbidden-suffixes.csv.
+      // into the combined from reference-data/forbidden-suffixes.csv.
       const forbidden = db.prepare('SELECT COUNT(*) AS c FROM ref_forbidden_suffixes').get() as { c: number | bigint };
       expect(Number(forbidden.c)).toBe(1466);
       // 2,826 on the shared set plus 4 JIZ-suffix rows the union now joins.
@@ -134,7 +134,7 @@ describe('Published data tiers', { tags: ['unit', 'data-validity'] }, () => {
     }
   });
 
-  // The master download twin (master.sqlite.gz) and its byte-identity to the
+  // The combined download twin (combined.sqlite.gz) and its byte-identity to the
   // range-request .png variant are a PUBLISH concern, not a data one: the twin is
   // gzip of the .png, so it can only ever gunzip back to it (tautological here).
   // The deploy builds it (compress:true) and is where that packaging is

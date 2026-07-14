@@ -253,7 +253,7 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
-  # The published SQLite tiers (master DB + per-dataset DBs + union CSV) are built
+  # The published SQLite tiers (combined DB + per-dataset DBs + union CSV) are built
   # and verified here in one dedicated, CACHED job rather than the generic
   # non-fold pool (#478). Its inputs - the committed archive, reference-data and
   # the builder closure - change on few PRs, so actions/cache restores the built
@@ -261,7 +261,7 @@ jobs:
   # the RESTORED build instead of paying the rebuild; the build is deterministic
   # in the hashed inputs, so anything that could change the tiers also changes the
   # key. On a miss the test builds with compress:false - RAW databases + CSV, no
-  # gzip - dropping the publish-only work (the master download twin and the 45
+  # gzip - dropping the publish-only work (the combined download twin and the 45
   # per-dataset gzips, ~61% of the build) that no data assertion needs. No DuckDB
   # (node:sqlite only). NB the key is 'verify'-scoped because this raw build is a
   # DIFFERENT output from the deploy's compressed tiers, so it must NOT share this
@@ -614,7 +614,7 @@ jobs:
       # builder sources, so restore them from a content-addressed cache keyed on
       # that input closure (mirroring the build-sqlite-tiers/build-ledger verify
       # caches above, and the same actions/cache pin). A deploy that changes only
-      # the site (HTML/JS/CSS) then restores the ~1 GB master and the full ledger
+      # the site (HTML/JS/CSS) then restores the ~1 GB combined and the full ledger
       # fold in seconds instead of rebuilding them (~24 min). SQLite is not byte-
       # deterministic, but any build of the same inputs is equivalent, and each
       # deploy serves one internally-consistent set under its own ?v= stamp, so a
@@ -642,7 +642,7 @@ jobs:
           # INCLUDING their Range responses (verified live), which corrupts
           # sql.js-httpvfs reads. Image types are never re-compressed, so the plain
           # SQLite file wears a .png name. See site/app.js. --tiers additionally
-          # builds the master database (all datasets + the FOI observations union),
+          # builds the combined database (all datasets + the FOI observations union),
           # one database per archive entry, and the gzipped flat union CSV (#149).
           node src/ci/build-sqlite.ts .dbstage/callsigns.sqlite.png --tiers
           # The raw-keyed claim-ledger database (issue #361, Stage 3a): the deploy
@@ -695,7 +695,7 @@ jobs:
           cp site/*.html site/*.js site/*.css site/*.webmanifest _site/
           # Stamp the real, current database sizes into the [[db-size:*]]
           # placeholders the size labels carry (issue #499), so they never drift as
-          # the databases grow - the master database was labelled "257 MB" long
+          # the databases grow - the combined database was labelled "257 MB" long
           # after it passed 1 GB. Reads the published databases; fails loudly if one
           # is missing.
           node src/ci/build-db-sizes.ts _site

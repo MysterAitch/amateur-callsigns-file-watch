@@ -169,26 +169,26 @@ async function query(sql, params = []) {
   return worker.db.query(sql, params);
 }
 
-// The master database (all datasets + the FOI observations union) is much
+// The combined database (all datasets + the FOI observations union) is much
 // larger than the lookup database, so it is opened LAZILY - only when a
 // lookup first needs FOI history - and queried over the same range-request
 // VFS. Same .png/?v= hosting workarounds as the main database.
-let masterDbPromise = null;
-function openMasterDatabase() {
-  masterDbPromise ??= (async () => {
+let combinedDbPromise = null;
+function openCombinedDatabase() {
+  combinedDbPromise ??= (async () => {
     const version = await getVersion();
-    const dbUrl = new URL(`./data/master.sqlite.png?v=${encodeURIComponent(version)}`, document.baseURI);
+    const dbUrl = new URL(`./data/combined.sqlite.png?v=${encodeURIComponent(version)}`, document.baseURI);
     return createDbWorker(
       [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
       workerUrl.toString(),
       wasmUrl.toString(),
     );
   })();
-  return masterDbPromise;
+  return combinedDbPromise;
 }
 
-async function queryMaster(sql, params = []) {
-  const worker = await openMasterDatabase();
+async function queryCombined(sql, params = []) {
+  const worker = await openCombinedDatabase();
   return worker.db.query(sql, params);
 }
 
@@ -199,7 +199,7 @@ async function queryMaster(sql, params = []) {
 // ~150k register. Cached after the first query.
 let historyDatasetsPromise = null;
 function historyDatasets() {
-  historyDatasetsPromise ??= queryMaster(
+  historyDatasetsPromise ??= queryCombined(
     'SELECT dataset, record_count, intended_complete, coverage_affecting FROM history_datasets ORDER BY dataset');
   return historyDatasetsPromise;
 }
@@ -210,7 +210,7 @@ function historyDatasets() {
 // 2023 is itself an event). Deliberately neutral on WHY a transition
 // happened - Allocated -> Reserved can be surrender, progression to a new
 // licence level under a different callsign, or death; the register does
-// not say which. Soft-fails to null (master-database hiccup never breaks
+// not say which. Soft-fails to null (combined-database hiccup never breaks
 // the lookup).
 async function registerHistoryCard(callsigns) {
   try {
@@ -218,7 +218,7 @@ async function registerHistoryCard(callsigns) {
     if (distinct.length === 0) return null;
     const [datasets, rows] = await Promise.all([
       historyDatasets(),
-      queryMaster(
+      queryCombined(
         `SELECT dataset, callsign, status, product FROM register_history
          WHERE callsign IN (${distinct.map(() => '?').join(',')}) ORDER BY dataset, callsign`, distinct),
     ]);
@@ -287,12 +287,12 @@ async function registerHistoryCard(callsigns) {
 // FOI-witnessed history for a callsign: every observation row across the
 // FOI lane's normalised datasets (register snapshots, available lists,
 // issuance events), oldest vintage first, each linked to its entry page.
-// Soft-fails to null so a master-database hiccup never breaks the lookup.
+// Soft-fails to null so a combined-database hiccup never breaks the lookup.
 async function foiHistoryCard(callsigns) {
   try {
     const distinct = [...new Set(callsigns.filter(Boolean))];
     if (distinct.length === 0) return null;
-    const rows = await queryMaster(
+    const rows = await queryCombined(
       `SELECT callsign, entry, dataset_classes, vintage, status, licence_class, event, event_date
        FROM observations WHERE callsign IN (${distinct.map(() => '?').join(',')})
        ORDER BY vintage IS NULL, vintage, entry`, distinct);
@@ -438,12 +438,12 @@ async function suffixMatrix(suffix, result) {
   }
 
   // Longitudinal presence per candidate callsign, one IN query over the
-  // master's register_history: which archived publications carry it, and
+  // combined's register_history: which archived publications carry it, and
   // whether its status ever varied. Soft-fails to an empty map.
   const candidates = seriesList.map(s => `${s.prefix.replace('#', '')}${suffix}`);
   const historyByCallsign = new Map();
   try {
-    const historyRows = await queryMaster(
+    const historyRows = await queryCombined(
       `SELECT callsign, dataset, status FROM register_history
        WHERE callsign IN (${candidates.map(() => '?').join(',')}) ORDER BY dataset`, candidates);
     for (const h of historyRows) {
@@ -452,7 +452,7 @@ async function suffixMatrix(suffix, result) {
       acc.statuses.add(h.status);
       historyByCallsign.set(h.callsign, acc);
     }
-  } catch { /* master unavailable - history column degrades to blank */ }
+  } catch { /* combined unavailable - history column degrades to blank */ }
 
   const rows = seriesList.map((s) => {
     // Series names are stored bare (20, M7); the # RSL-slot marker is the
@@ -905,10 +905,10 @@ function applyParamsToForm(params) {
 // wireConsole; the bootstrap passes the page's real elements, the eagerly-opened
 // dbPromise and the real lookup renderer.
 //
-// Only the SMALL lookup database's open is wrapped. The lazy master-database
+// Only the SMALL lookup database's open is wrapped. The lazy combined-database
 // opens behind the register-history and FOI-history cards are deliberately left
 // soft-failing to null (see registerHistoryCard / foiHistoryCard / suffixMatrix),
-// so a master hiccup annotates a card as unavailable but never trips this
+// so a combined hiccup annotates a card as unavailable but never trips this
 // affordance or breaks the lookup.
 export function makeRunLookup({ button, statusEl, alertEl, resultEl, open, lookup: lookupFn, label = 'lookup database' }) {
   return async function runLookup(criteria) {
@@ -1032,7 +1032,7 @@ function initLookup() {
 
 const OFFLINE_DBS = {
   latest: { file: 'callsigns.sqlite.png', label: 'lookup database' },
-  master: { file: 'master.sqlite.png', label: 'master database' },
+  combined: { file: 'combined.sqlite.png', label: 'combined database' },
 };
 
 function offlineSupported() {
@@ -1181,7 +1181,7 @@ function initOffline() {
   const section = document.getElementById('offline');
   if (!section) return;
   const downloadBtn = document.getElementById('offline-download');
-  const masterBtn = document.getElementById('offline-download-master');
+  const combinedBtn = document.getElementById('offline-download-combined');
   const removeBtn = document.getElementById('offline-remove');
   const controls = document.getElementById('offline-controls');
   if (!offlineSupported()) {
@@ -1195,9 +1195,9 @@ function initOffline() {
   }
   navigator.serviceWorker.register(new URL('./sw.js', document.baseURI).href)
     .catch(err => console.error('Service worker registration failed', err));
-  const buttons = [downloadBtn, masterBtn, removeBtn];
+  const buttons = [downloadBtn, combinedBtn, removeBtn];
   downloadBtn?.addEventListener('click', () => void downloadForOffline('latest', buttons));
-  masterBtn?.addEventListener('click', () => void downloadForOffline('master', buttons));
+  combinedBtn?.addEventListener('click', () => void downloadForOffline('combined', buttons));
   removeBtn?.addEventListener('click', () => void removeOffline(buttons));
   void renderOfflineState();
   void annotateOfflineSize();

@@ -63,7 +63,7 @@ const MAX_BULK_PARAMS = 20_000;
 // single remainder statement for the tail so the count need not be a multiple
 // of the batch size. Byte-identical to per-row inserts — a multi-row VALUES
 // list is exactly sugar for the individual inserts, same rows in the same
-// order — and shared by the master, per-dataset and register-history loops.
+// order — and shared by the combined, per-dataset and register-history loops.
 // The caller owns the surrounding transaction; `tableToken` is the table
 // identifier exactly as it must follow INSERT INTO (already quoted where the
 // name needs it). `toValues` returns one row's column values, left to right.
@@ -287,12 +287,12 @@ export function fillObservations(db: DatabaseSync, rows: FoiObservationRow[]): n
 
 // The remaining published tiers (issue #149 item 4 + the composed-stack
 // decision): the mandatory flat union CSV, one SQLite per archive entry,
-// and the master database. All derived at deploy time, never committed.
+// and the combined database. All derived at deploy time, never committed.
 // compress (default true) controls the PUBLISH packaging: the gzipped download
-// twins (master.sqlite.gz, the per-dataset .sqlite.gz, the union .csv.gz). The
+// twins (combined.sqlite.gz, the per-dataset .sqlite.gz, the union .csv.gz). The
 // deploy needs them; the CI verification build passes compress:false to emit the
 // raw databases + CSV only. That skips the two dominant, publish-only costs - the
-// master twin's gzip and the 45 per-dataset gzips (~61% of the build, measured
+// combined twin's gzip and the 45 per-dataset gzips (~61% of the build, measured
 // #478) - none of which any data assertion depends on (they gunzip and compare
 // CONTENTS, which the raw files carry directly). The tables/rows built are
 // identical either way; only the on-disk packaging differs.
@@ -308,7 +308,7 @@ export function buildPublishedTiers(dataDir: string, options: { compress?: boole
   // no-SQL property (universally decompressible) at a fraction of the size.
   // The union exceeds V8's maximum single-string length, so it is assembled
   // as a Buffer in row batches. The faithful NULL-vs-blank form lives in the
-  // master database.
+  // combined database.
   fs.mkdirSync(dataDir, { recursive: true });
   const unionBuffer = time('foi-observations:render', () => renderObservationsCsvBuffer(observations), observations.length);
   if (compress) {
@@ -367,12 +367,12 @@ export function buildPublishedTiers(dataDir: string, options: { compress?: boole
   }
   summary['per-dataset databases'] = perDataset;
 
-  // The master database: the observations union + every open-data
+  // The combined database: the observations union + every open-data
   // publication's normalised rows as one dataset-keyed history table.
-  const masterPath = path.join(dataDir, 'master.sqlite.png');
-  fs.rmSync(masterPath, { force: true });
-  const master = new DatabaseSync(masterPath);
-  summary['master observations'] = time('sqlite:master-observations', () => fillObservations(master, observations), observations.length);
+  const combinedPath = path.join(dataDir, 'combined.sqlite.png');
+  fs.rmSync(combinedPath, { force: true });
+  const combined = new DatabaseSync(combinedPath);
+  summary['combined observations'] = time('sqlite:combined-observations', () => fillObservations(combined, observations), observations.length);
   // Longitudinal join keys ride along: each publication's components.csv
   // contributes the derived cleaned (artefact-unifying) and suffix keys,
   // so cross-publication cohort queries (e.g. the forbidden-suffix
@@ -410,8 +410,8 @@ export function buildPublishedTiers(dataDir: string, options: { compress?: boole
   // the publication omits records it claims to hold (the 2025-06-04
   // blank-product filter): absence there is not evidence, exactly as for a
   // declared-partial, even though intent said complete.
-  master.exec('CREATE TABLE history_datasets (dataset TEXT, record_count TEXT, intended_complete TEXT, scope_notes TEXT, coverage_affecting TEXT)');
-  const insertDataset = master.prepare('INSERT INTO history_datasets VALUES (?, ?, ?, ?, ?)');
+  combined.exec('CREATE TABLE history_datasets (dataset TEXT, record_count TEXT, intended_complete TEXT, scope_notes TEXT, coverage_affecting TEXT)');
+  const insertDataset = combined.prepare('INSERT INTO history_datasets VALUES (?, ?, ?, ?, ?)');
   for (const publication of publications) {
     const metaPath = path.join(CONSTANTS.DIRS.archive, publication.key, 'meta.json');
     const meta = fs.existsSync(metaPath)
@@ -432,12 +432,12 @@ export function buildPublishedTiers(dataDir: string, options: { compress?: boole
   }
 
   const historyColumnList = [...historyColumns];
-  master.exec(`CREATE TABLE register_history (${historyColumnList.map(c => `"${c}" TEXT`).join(', ')})`);
+  combined.exec(`CREATE TABLE register_history (${historyColumnList.map(c => `"${c}" TEXT`).join(', ')})`);
   let historyRows = 0;
   time('sqlite:register-history-insert', () => {
-    master.exec('BEGIN');
+    combined.exec('BEGIN');
     for (const publication of publications) {
-      insertBatched(master, 'register_history', historyColumnList.length, publication.records, record => {
+      insertBatched(combined, 'register_history', historyColumnList.length, publication.records, record => {
         const keys = publication.componentKeys.get(record.callsign);
         return historyColumnList.map(c => {
           if (c === 'dataset') return publication.key;
@@ -452,35 +452,35 @@ export function buildPublishedTiers(dataDir: string, options: { compress?: boole
       });
       historyRows += publication.records.length;
     }
-    master.exec('COMMIT');
+    combined.exec('COMMIT');
   });
-  master.exec('CREATE INDEX idx_register_history_callsign ON register_history("callsign")');
-  master.exec('CREATE INDEX idx_register_history_cleaned ON register_history("cleaned")');
+  combined.exec('CREATE INDEX idx_register_history_callsign ON register_history("callsign")');
+  combined.exec('CREATE INDEX idx_register_history_cleaned ON register_history("cleaned")');
   // Scoped-browser lookups filter one publication at a time
   // (WHERE dataset = ?); index it so the entry-page data browser reads
   // pages instead of scanning the whole cross-publication history.
-  master.exec('CREATE INDEX idx_register_history_dataset ON register_history("dataset")');
+  combined.exec('CREATE INDEX idx_register_history_dataset ON register_history("dataset")');
 
-  // The withheld-suffix list rides into the master so cohort queries
+  // The withheld-suffix list rides into the combined so cohort queries
   // (join register_history/observations against it) run in one database.
-  const masterForbidden = parse(fs.readFileSync(path.join(REFERENCE_DATA_DIR, 'forbidden-suffixes.csv'), 'utf8'),
+  const combinedForbidden = parse(fs.readFileSync(path.join(REFERENCE_DATA_DIR, 'forbidden-suffixes.csv'), 'utf8'),
     { columns: true, skip_empty_lines: true }) as Record<string, string>[];
-  master.exec('CREATE TABLE ref_forbidden_suffixes (suffix TEXT)');
-  const insertForbidden = master.prepare('INSERT INTO ref_forbidden_suffixes VALUES (?)');
-  master.exec('BEGIN');
-  for (const r of masterForbidden) insertForbidden.run(r.suffix);
-  master.exec('COMMIT');
-  master.exec('CREATE INDEX idx_master_forbidden ON ref_forbidden_suffixes("suffix")');
-  summary['master ref_forbidden_suffixes'] = masterForbidden.length;
-  summary['master register_history'] = historyRows;
-  master.close();
+  combined.exec('CREATE TABLE ref_forbidden_suffixes (suffix TEXT)');
+  const insertForbidden = combined.prepare('INSERT INTO ref_forbidden_suffixes VALUES (?)');
+  combined.exec('BEGIN');
+  for (const r of combinedForbidden) insertForbidden.run(r.suffix);
+  combined.exec('COMMIT');
+  combined.exec('CREATE INDEX idx_combined_forbidden ON ref_forbidden_suffixes("suffix")');
+  summary['combined ref_forbidden_suffixes'] = combinedForbidden.length;
+  summary['combined register_history'] = historyRows;
+  combined.close();
 
-  // Download twin of the master: honest name, gzipped - the .png variant exists
+  // Download twin of the combined: honest name, gzipped - the .png variant exists
   // solely for the site's range-request path. Publish-only (the twin is gzip of
   // the .png, so it can only ever gunzip back to it), so the raw verification
   // build skips it - it is the single most expensive step in the build (#478).
   if (compress) {
-    fs.writeFileSync(path.join(dataDir, 'master.sqlite.gz'), time('gzip:master', () => zlib.gzipSync(fs.readFileSync(masterPath), { level: GZIP_LEVEL })));
+    fs.writeFileSync(path.join(dataDir, 'combined.sqlite.gz'), time('gzip:combined', () => zlib.gzipSync(fs.readFileSync(combinedPath), { level: GZIP_LEVEL })));
   }
 
   return summary;

@@ -30,7 +30,7 @@
           export?". This page runs the <em>same</em> filter against several
           publications at once and surfaces the differences — the longitudinal
           question the register-history timeline only hints at. It queries the
-          published <code>master</code> database read-only <em>in your browser</em>
+          published <code>combined</code> database read-only <em>in your browser</em>
           via HTTP range requests, the same engine as the
           <a href="explore.html">Explore</a> console.
         </p>
@@ -100,7 +100,7 @@
     </section>
 
     <p id="boot-status" class="muted">Loading publications…</p>
-    <!-- Assertive failure region for the eager master-database open, owned by the
+    <!-- Assertive failure region for the eager combined-database open, owned by the
          shared loading affordance (db-loading.js, issue #499): a load that cannot
          complete surfaces here honestly rather than in the polite boot status. -->
     <p class="db-alert" id="boot-alert" role="alert" hidden></p>

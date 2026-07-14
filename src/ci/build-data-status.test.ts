@@ -49,10 +49,10 @@ describe('data-status: held-dataset inventory & processing grid', () => {
     expect(snapshot.stages.understood.state).toBe('done');
     expect(snapshot.stages.validated.state).toBe('done');
     expect(snapshot.stages.normalised.state).toBe('done');
-    // FOI register snapshots are enriched collectively in the master database,
+    // FOI register snapshots are enriched collectively in the combined database,
     // not as a per-entry file - honestly partial, never claimed complete.
     expect(snapshot.stages.enriched.state).toBe('partial');
-    expect(snapshot.stages.enriched.detail).toContain('master database');
+    expect(snapshot.stages.enriched.detail).toContain('combined database');
   });
 
   it('FoiRow_PdfOnlyHeldSnapshot_IsSurfacedAsHeldButUnprocessed', () => {
