@@ -181,11 +181,13 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
   const EXAMPLES = [
     { title: 'Status × licence level (counts and %)', sql: `SELECT status, implied_class, COUNT(*) AS n,\n  ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1) AS pct\nFROM register_history WHERE dataset = '${dataset}'\nGROUP BY status, implied_class ORDER BY n DESC` },
     { title: 'Callsigns whose raw form needed cleaning', sql: `SELECT callsign, cleaned, status\nFROM register_history WHERE dataset = '${dataset}' AND callsign != cleaned\nORDER BY callsign` },
-    // Dates + whether the callsign predates the forbidden list's first known
-    // publication (Ofcom's August 2019 FOI). NULL start date -> 'unknown', not
-    // a false 'no'. Date columns exist in the combined's UNION schema (NULL for
-    // publications that did not carry them).
-    { title: 'Withheld-suffix callsigns — issued before the 2019 list?', sql: `SELECT callsign, status,\n  licence_version_original_start_date AS issued,\n  last_modified_date AS last_modified,\n  CASE WHEN licence_version_original_start_date IS NULL THEN 'unknown'\n       WHEN licence_version_original_start_date < '2019-08-01' THEN 'yes'\n       ELSE 'no' END AS predates_2019_list\nFROM register_history WHERE dataset = '${dataset}'\n  AND suffix IN (SELECT suffix FROM ref_forbidden_suffixes)\nORDER BY issued` },
+    // Dates + whether each withheld-suffix callsign was issued after its own
+    // suffix's first-known-forbidden date, read straight from the
+    // forbidden-suffix-issued-after-first-known-list flag (per-suffix, not a
+    // flat list-wide date). NULL start date -> 'unknown', not a false answer.
+    // Date columns exist in the combined's UNION schema (NULL for publications
+    // that did not carry them).
+    { title: 'Withheld-suffix callsigns — issued before or after first known forbidden?', sql: `SELECT callsign, status,\n  licence_version_original_start_date AS issued,\n  last_modified_date AS last_modified,\n  CASE WHEN ';' || flags || ';' LIKE '%;forbidden-suffix-issued-after-first-known-list;%' THEN 'issued after'\n       WHEN licence_version_original_start_date IS NULL THEN 'unknown'\n       ELSE 'predates' END AS relative_to_withholding\nFROM register_history WHERE dataset = '${dataset}'\n  AND suffix IN (SELECT suffix FROM ref_forbidden_suffixes)\nORDER BY issued` },
     { title: 'Longest callsigns first', sql: `SELECT callsign, LENGTH(callsign) AS len, status, implied_class\nFROM register_history WHERE dataset = '${dataset}'\nORDER BY len DESC, callsign` },
     { title: 'Reserved callsigns by prefix (with level and %)', sql: `SELECT prefix_series, implied_class AS level, COUNT(*) AS n,\n  ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1) AS pct\nFROM register_history WHERE dataset = '${dataset}' AND status = 'Reserved'\nGROUP BY prefix_series ORDER BY n DESC` },
   ];

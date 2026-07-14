@@ -349,10 +349,6 @@ function facetAttr(col: string, value: string): string {
 // prefix_series). The RSL matrix used to be the components consumer on
 // entry pages; it has moved to the statistics home, so this read replaces
 // it rather than adding one.
-// The forbidden/withheld suffix list's first KNOWN publication: Ofcom's
-// August 2019 FOI disclosure (wdtk-596532). A withheld-suffix callsign
-// issued on/after this is the "issued while the list existed" case.
-const FORBIDDEN_LIST_FIRST_KNOWN = '2019-08-01';
 
 function openDataBreakdowns(sourceDir: string): {
   recordCount: number;
@@ -383,18 +379,18 @@ function openDataBreakdowns(sourceDir: string): {
   }
   const flaggedRows = componentRows.filter(r => (r.flags ?? '') !== '').length;
   const international = componentRows.filter(r => (r.callsign ?? '').includes('/')).length;
-  // Forbidden-suffix cohort: the whole flagged set, and the subset issued
-  // on/after the withheld list's first known publication (Ofcom's August
-  // 2019 FOI) - the "issued while the list existed" cases worth inspecting
-  // (re-issues and artefacts are innocent explanations; see issue #179).
-  const startDateCol = ['licence_version_original_start_date', 'created_date'].find(c => statusRows.some(r => (r[c] ?? '') !== ''));
-  const startByCallsign = new Map(statusRows.map(r => [r.callsign, startDateCol === undefined ? '' : (r[startDateCol] ?? '')]));
+  // Forbidden-suffix cohort: the whole flagged set, and the subset that also
+  // carries the forbidden-suffix-issued-after-first-known-list flag - issued
+  // after the suffix's own first-known-forbidden date rather than a flat
+  // list-wide boundary (re-issues and artefacts are innocent explanations;
+  // see issue #179). Counting the flag keeps this affordance in step with the
+  // per-suffix flag population its drill-down links to.
   let forbiddenTotal = 0; let forbiddenSince = 0;
   for (const r of componentRows) {
-    if (!(r.flags ?? '').split(';').includes('forbidden-suffix')) continue;
+    const flags = (r.flags ?? '').split(';');
+    if (!flags.includes('forbidden-suffix')) continue;
     forbiddenTotal += 1;
-    const d = startByCallsign.get(r.callsign) ?? '';
-    if (d !== '' && d >= FORBIDDEN_LIST_FIRST_KNOWN) forbiddenSince += 1;
+    if (flags.includes('forbidden-suffix-issued-after-first-known-list')) forbiddenSince += 1;
   }
   const sortDesc = (m: Map<string, number>, n?: number): [string, number][] =>
     [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, n);
@@ -497,9 +493,9 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
   // the withheld list existed" subset (the second only when non-empty).
   if (bd.forbiddenTotal > 0) {
     const allSql = `SELECT callsign, cleaned, status, prefix_series, implied_class FROM register_history WHERE dataset = '${key}' AND suffix IN (SELECT suffix FROM ref_forbidden_suffixes) ORDER BY callsign`;
-    const sinceSql = `SELECT callsign, status, prefix_series, licence_version_original_start_date AS issued FROM register_history WHERE dataset = '${key}' AND suffix IN (SELECT suffix FROM ref_forbidden_suffixes) AND licence_version_original_start_date >= '${FORBIDDEN_LIST_FIRST_KNOWN}' ORDER BY issued`;
+    const sinceSql = `SELECT callsign, status, prefix_series, licence_version_original_start_date AS issued FROM register_history WHERE dataset = '${key}' AND ';' || flags || ';' LIKE '%;forbidden-suffix-issued-after-first-known-list;%' ORDER BY issued`;
     const sinceLink = bd.forbiddenSince > 0
-      ? ` — <a href="#" data-browser-sql="${escapeHtml(sinceSql)}"><b>${bd.forbiddenSince.toLocaleString('en-GB')}</b> issued since the 2019 list</a>, worth a look`
+      ? ` — <a href="#" data-browser-sql="${escapeHtml(sinceSql)}"><b>${bd.forbiddenSince.toLocaleString('en-GB')}</b> issued after the suffix was first withheld</a>, worth a look`
       : '';
     notable.push(`<li><a href="#" data-browser-sql="${escapeHtml(allSql)}"><b>${bd.forbiddenTotal.toLocaleString('en-GB')}</b> withheld-suffix</a> (mostly legacy holders)${sinceLink}.</li>`);
   }
