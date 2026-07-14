@@ -19,7 +19,7 @@ afterEach(() => {
   fs.rmSync(workDir, { recursive: true, force: true });
 });
 
-describe('published tiers packaging', () => {
+describe('published tiers packaging', { tags: ['unit'] }, () => {
   it('PublishedTiers_WhenRawBuildAlreadyExists_PackagesDeployArtefactsWithoutRebuilding', () => {
     const summary = packagePublishedTiers(workDir);
 

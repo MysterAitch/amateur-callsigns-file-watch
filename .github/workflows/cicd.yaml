@@ -664,6 +664,12 @@ jobs:
           key: ledger-corpus-v2-${{ steps.ledger-closure.outputs.hash }}
       - name: Build databases
         if: steps.db-cache.outputs.cache-hit != 'true'
+        # Step outputs reach the script via env, not ${{ }} interpolation inside
+        # run: — expression injection into bash is exactly what the workflow
+        # audit (zizmor template-injection) rejects.
+        env:
+          TIERS_REUSE_HIT: ${{ steps.tiers-reuse.outputs.cache-hit }}
+          LEDGER_REUSE_HIT: ${{ steps.ledger-reuse.outputs.cache-hit }}
         run: |
           mkdir -p .dbstage
           # .png extension: GitHub Pages gzip-transcodes text-like content types
@@ -672,7 +678,7 @@ jobs:
           # SQLite file wears a .png name. See site/app.js. When the raw tiers cache
           # from build-sqlite-tiers is available, reuse it and only package it into
           # the deploy shape; otherwise fall back to the original all-in-one build.
-          if [ "${{ steps.tiers-reuse.outputs.cache-hit }}" = 'true' ]; then
+          if [ "$TIERS_REUSE_HIT" = 'true' ]; then
             cp -a .tier-cache/. .dbstage/
             PERF=1 node src/ci/build-sqlite.ts .dbstage/callsigns.sqlite.png
             PERF=1 node src/ci/build-sqlite.ts .dbstage/callsigns.sqlite.png --package-existing-tiers
@@ -685,7 +691,7 @@ jobs:
           # the FULL corpus into a range-served SQLite by splitting provenance onto
           # an observation row and reconstructing the derived layer through a
           # `claims` VIEW. Never committed (SQLite is not byte-deterministic).
-          if [ "${{ steps.ledger-reuse.outputs.cache-hit }}" = 'true' ]; then
+          if [ "$LEDGER_REUSE_HIT" = 'true' ]; then
             PERF=1 node src/v2/build-ledger-db-compact.ts .dbstage/claim-ledger.sqlite.png --ledger-dir .ledger-cache
           else
             PERF=1 node src/v2/build-ledger-db-compact.ts .dbstage/claim-ledger.sqlite.png
