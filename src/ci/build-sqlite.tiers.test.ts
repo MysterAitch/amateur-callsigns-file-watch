@@ -33,7 +33,9 @@ let summary: Record<string, number>;
 const SUMMARY_FILE = 'tiers-summary.json';
 let ownsScratch = false;
 beforeAll(() => {
-  const cacheDir = process.env.TIERS_CACHE_DIR;
+  // Empty/whitespace reads as unset: ?? below would otherwise pass '' straight
+  // into path building. A real path is used as-is; absent falls back to scratch.
+  const cacheDir = process.env.TIERS_CACHE_DIR?.trim() || undefined;
   const summaryPath = cacheDir ? path.join(cacheDir, SUMMARY_FILE) : '';
   if (cacheDir && fs.existsSync(summaryPath)) {
     dataDir = cacheDir;
