@@ -204,6 +204,22 @@ const SHARED_AFFORDANCE_CSS = [
   '.ext-marker{font-size:.85em;line-height:1;text-decoration:none}',
 ].join('');
 
+// The shared database-loading alert (issue #499), inlined so the generated
+// entry pages - which run the eager coordinated browser (entry-browser.js) but
+// do NOT link site/style.css - surface a slow-load failure with the same
+// assertive styling the hand-authored query pages carry. Mirrors the .db-alert
+// block in site/style.css. The --warn tint the alert draws on is defined
+// alongside the entry palette below (a fallback where ledger.css, which maps
+// --warn to its signal colour under .ledger, has not loaded); the --waiting-*
+// status tokens arrive with the shared palette (SHARED_TOKENS_CSS/tokens.css).
+// The eager browser has no trigger button, so the button[data-state] rules are
+// omitted - only the alert styling is needed here.
+const SHARED_DB_ALERT_CSS = [
+  '.db-alert{margin:.6rem 0 0;padding:.55rem .75rem;border-radius:6px;font-size:.9rem;background:color-mix(in srgb,var(--warn) 12%,var(--paper));border:1px solid color-mix(in srgb,var(--warn) 40%,var(--paper));color:var(--warn)}',
+  '.db-alert[data-severity="integrity"]{border-width:2px;font-weight:600}',
+  '.db-alert[hidden]{display:none}',
+].join('');
+
 // The callsign-pill styling (issue #310): a small monospace, subtly tinted and
 // bordered chip. Layered onto every stylesheet that renders callsigns as
 // content - the entry-page shell (ENTRY_STYLE) and the plainer page shell
@@ -397,8 +413,10 @@ const ENTRY_STYLE = [
   // --muted, light + dark) comes first so entry pages match the rest of the
   // site; the entry-only tokens below (cards, slots, warnings) layer on top.
   SHARED_TOKENS_CSS,
-  ':root{--card:#fff;--slot:#faf9f6;--good:#3f7d55;--warnbg:#fbeee2;--warnline:#c98a3f;--warnink:#7a3d00;--note:#eef3f4;--bar:#c9d7dc;--marker:#b23}',
-  '@media(prefers-color-scheme:dark){:root{--card:#191919;--slot:#141414;--good:#7fbf97;--warnbg:#2a2016;--warnline:#8a5a1f;--warnink:#e8b877;--note:#15211f;--bar:#2c4048;--marker:#e58}}',
+  // --warn (the alert tint) mirrors site/style.css so the shared db-alert reads
+  // the same here; ledger.css remaps it under .ledger, this is the fallback.
+  ':root{--card:#fff;--slot:#faf9f6;--good:#3f7d55;--warn:#8a3c00;--warnbg:#fbeee2;--warnline:#c98a3f;--warnink:#7a3d00;--note:#eef3f4;--bar:#c9d7dc;--marker:#b23}',
+  '@media(prefers-color-scheme:dark){:root{--card:#191919;--slot:#141414;--good:#7fbf97;--warn:#e8a35c;--warnbg:#2a2016;--warnline:#8a5a1f;--warnink:#e8b877;--note:#15211f;--bar:#2c4048;--marker:#e58}}',
   '*{box-sizing:border-box}body{font-family:system-ui,sans-serif;margin:0;color:var(--ink);background:var(--paper);line-height:1.55}',
   '.wrap{max-width:76rem;margin:0 auto;padding:1.4rem 1.2rem 3rem}',
   'nav{font-size:.92rem;color:var(--muted)}nav a{color:var(--accent);text-decoration:none;display:inline-block;padding:.3rem .15rem}a{color:var(--accent)}',
@@ -474,6 +492,7 @@ const ENTRY_STYLE = [
   '.linkout{display:block;margin:.1rem 0 1.05rem;padding:.7rem 1.1rem;border:1px dashed var(--line);border-radius:12px;font-size:.9rem}',
   'footer{color:var(--muted);font-size:.83rem;margin-top:.6rem;line-height:1.6}footer a{color:var(--accent)}',
   SHARED_AFFORDANCE_CSS,
+  SHARED_DB_ALERT_CSS,
   CALLSIGN_PILL_CSS,
   '</style>',
 ].join('');

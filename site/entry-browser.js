@@ -18,6 +18,7 @@
 import { COLUMNS, TOGGLES, PAGE_SIZES, buildPredicate, stateToViewParam, viewParamToState, applyViewToState, resolvedCallsignCore } from './browser-query.js';
 import { callsignPillRaw } from './callsign-pill.js';
 import { createHistorySync } from './history-sync.js';
+import { withDatabaseLoading } from './db-loading.js';
 
 const { createDbWorker } = window;
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
@@ -67,10 +68,14 @@ function describeDiff(raw, cleaned) {
   return notes.length > 0 ? notes.join('; ') : 'differs after cleaning';
 }
 
-const section = document.querySelector('.browser[data-dataset]');
-if (section !== null) enhance(section);
+const bootSection = document.querySelector('.browser[data-dataset]');
+if (bootSection !== null) enhance(bootSection);
 
-function enhance(section) {
+// Exported (and the master opener is injectable) so a JSDOM test can drive the
+// eager first-load path against a controlled opener - asserting the shared
+// loading affordance is engaged - without opening a real range-request worker.
+// In the browser it runs with the module's memoised openMaster.
+export function enhance(section, { openMaster: openMasterFn = openMaster } = {}) {
   const dataset = section.getAttribute('data-dataset');
   const staticView = section.querySelector('.browser-static');
   if (staticView === null) return;
@@ -93,11 +98,16 @@ function enhance(section) {
   // the matching-row count - whether from a filter action or a back/forward
   // restore - is announced to assistive technology.
   const statusLine = el('p', { class: 'browser-status', role: 'status' });
+  // Assertive alert for a load FAILURE, owned by the shared loading affordance
+  // (issue #499). Hidden until raised; role="alert" so assistive tech announces
+  // a failed cold open of the master database, distinct from the polite status.
+  const alertEl = el('p', { class: 'db-alert', role: 'alert', hidden: '' });
   const result = el('div', { class: 'browser-result' });
   section.insertBefore(chips, staticView);
   section.insertBefore(pills, staticView);
   section.insertBefore(toolbar, staticView);
   section.insertBefore(statusLine, staticView);
+  section.insertBefore(alertEl, staticView);
   staticView.after(result);
   // The static preview was the no-JS fallback; once the live browser takes
   // over it is redundant, so hide it (it stays in the DOM for crawlers).
@@ -219,17 +229,38 @@ function enhance(section) {
       inner = q.inner;
       countSql = `SELECT COUNT(*) AS n FROM register_history WHERE ${q.where}`;
     }
+    // Route the master-database open + query through the shared loading
+    // affordance (issue #499), consistent with Explore and Playground. There is
+    // no trigger button - the browser refreshes eagerly on first load and on
+    // every filter change - so the affordance runs button-less: it drives the
+    // polite statusLine (a first-use reassurance escalates if the cold open runs
+    // long, a measured ~20s on GitHub Pages, issue #475), marks the result region
+    // aria-busy, and on a LOAD failure raises the assertive alert. markRunning()
+    // marks the open -> query transition. openMaster() is memoised, so after the
+    // first refresh it is warm and the affordance is momentary; routing every
+    // refresh through it keeps the behaviour uniform. `opened` distinguishes a
+    // query-phase failure (keep the honest inline "Query failed" message) from a
+    // load failure (the affordance already alerted and cleared the status).
+    const started = performance.now();
+    let opened = false;
     try {
-      const started = performance.now();
-      const worker = await openMaster();
-      const total = Number((await worker.db.query(countSql))[0].n);
-      const maxPage = Math.max(0, Math.ceil(total / state.pageSize) - 1);
-      if (state.page > maxPage) state.page = maxPage;
-      const rows = await worker.db.query(`SELECT * FROM (${inner}) LIMIT ${state.pageSize} OFFSET ${state.page * state.pageSize}`);
+      const { rows, total } = await withDatabaseLoading(
+        { statusEl: statusLine, alertEl, resultEl: result, label: 'master database' },
+        async (markRunning) => {
+          const worker = await openMasterFn();
+          opened = true;
+          markRunning();
+          const totalRows = Number((await worker.db.query(countSql))[0].n);
+          const maxPage = Math.max(0, Math.ceil(totalRows / state.pageSize) - 1);
+          if (state.page > maxPage) state.page = maxPage;
+          const pageRows = await worker.db.query(`SELECT * FROM (${inner}) LIMIT ${state.pageSize} OFFSET ${state.page * state.pageSize}`);
+          return { rows: pageRows, total: totalRows };
+        },
+      );
       const elapsed = ((performance.now() - started) / 1000).toFixed(1);
       renderRows(rows, total, elapsed);
     } catch (err) {
-      statusLine.textContent = `Query failed: ${String(err.message ?? err)}`;
+      if (opened) statusLine.textContent = `Query failed: ${String(err.message ?? err)}`;
     }
   }
 
@@ -432,7 +463,7 @@ function enhance(section) {
     dlBtn.disabled = true; dlBtn.textContent = '…';
     try {
       const inner = state.customSql !== null ? state.customSql : filtersSql().inner;
-      const worker = await openMaster();
+      const worker = await openMasterFn();
       const rows = await worker.db.query(`SELECT * FROM (${inner}) LIMIT ${DOWNLOAD_CAP + 1}`);
       const truncated = rows.length > DOWNLOAD_CAP;
       const shown = truncated ? rows.slice(0, DOWNLOAD_CAP) : rows;
