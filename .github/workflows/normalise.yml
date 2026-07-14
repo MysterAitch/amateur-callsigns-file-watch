@@ -18,7 +18,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
-  # actions:write solely to dispatch ci.yml onto the derivation branch:
+  # actions:write solely to dispatch cicd.yaml onto the derivation branch:
   # pull_request runs from github-actions[bot]-authored PRs park in
   # action_required under the repository's contributor-approval policy, but
   # workflow_dispatch runs are not subject to that gate - and required
@@ -132,7 +132,7 @@ jobs:
           # the branch explicitly: workflow_dispatch is exempt from that
           # gate, and the ruleset's required checks match by name whatever
           # event produced them.
-          gh workflow run ci.yml --ref "$branch"
+          gh workflow run cicd.yaml --ref "$branch"
 
       - name: Update rolling coverage issue
         env:

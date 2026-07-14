@@ -352,7 +352,7 @@ describe('corpus scale sanity', () => {
   // across every source family). Its inputs - the committed archive,
   // reference-data and the emit-path closure - change on few PRs, so CI caches the
   // built ledger directory under a key hashing exactly that closure (see the
-  // build-ledger job in ci.yml) and hands the restored directory to this test via
+  // build-ledger job in cicd.yaml) and hands the restored directory to this test via
   // LEDGER_CACHE_DIR. On a cache HIT we VERIFY the restored build instead of
   // rebuilding it - equivalent, because buildLedger is deterministic in the hashed
   // inputs, so anything that could change the ledger also changes the key and

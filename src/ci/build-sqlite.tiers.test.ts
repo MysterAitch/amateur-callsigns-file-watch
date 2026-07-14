@@ -20,7 +20,7 @@ let summary: Record<string, number>;
 // The tier build is heavy and grows with each ingested dataset, but its inputs -
 // the committed archive, reference-data and the builder closure - change on few
 // PRs. CI therefore caches the built directory under a key hashing exactly that
-// closure (see the build-sqlite-tiers job in ci.yml) and hands the restored
+// closure (see the build-sqlite-tiers job in cicd.yaml) and hands the restored
 // directory to this test via TIERS_CACHE_DIR. On a cache HIT we VERIFY the
 // restored build instead of rebuilding it - equivalent, because the build is
 // deterministic in the hashed inputs, so anything that could change the output

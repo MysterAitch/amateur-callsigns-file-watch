@@ -19,7 +19,7 @@
 //     the cached whole-file response by slicing it into 206 Partial Content
 //     responses here - the honest cost is holding the file in memory once read.
 
-// Rewritten to the commit SHA at deploy time by pages.yml (the literal is
+// Rewritten to the commit SHA at deploy time by cicd.yaml (the literal is
 // matched exactly there); 'dev' is the local, unstamped value.
 const DEPLOY_VERSION = 'dev';
 
