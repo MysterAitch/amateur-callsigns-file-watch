@@ -37,7 +37,7 @@
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@types/jsdom": "^28.0.3",
-    "@types/node": "^26.1.0",
+    "@types/node": "^26.1.1",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.7.0",
     "sql.js-httpvfs": "^0.8.12",
