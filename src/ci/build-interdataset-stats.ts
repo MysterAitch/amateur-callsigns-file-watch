@@ -41,7 +41,7 @@ import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { CONSTANTS } from '../shared/utils.ts';
 import { compareStats, type EntryStats } from '../shared/stats.ts';
-import { escapeHtml, humanDate, entryPage, noticeStrip } from './site-render.ts';
+import { escapeHtml, humanDate, entryPage, noticeStrip, tableCaption } from './site-render.ts';
 
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
 
@@ -217,6 +217,7 @@ function blankProductSection(pubs: PubStat[]): string[] {
     '<p>Ofcom\'s register lists a <b>product</b> (the licensing product) against most callsigns, but leaves it blank for a large minority. Joining the per-publication blank-product count across the archive is one query with one policy-relevant discovery: the publication that declared complete coverage while silently dropping every blank-product record.</p>',
     ...narratives,
     '<table>',
+    tableCaption('Blank-product record counts for every archived publication'),
     '<tr><th scope="col">publication</th><th scope="col" class="n">records</th><th scope="col" class="n">blank product</th><th scope="col">reading</th></tr>',
     ...rows,
     '</table>',
@@ -251,6 +252,7 @@ function recordCountSection(pubs: PubStat[]): string[] {
     '<h2 id="record-count">Record count across publications</h2>',
     '<p>Row counts over time, with each complete publication\'s change measured against the previous complete one. Declared-partial exports are shown for completeness but carry no delta — their small counts are the publisher\'s stated scope, not a register that shrank.</p>',
     '<table>',
+    tableCaption('Record count for every publication, with the change against the previous complete publication'),
     '<tr><th scope="col">publication</th><th scope="col">declared</th><th scope="col" class="n">records</th><th scope="col">change vs previous complete</th></tr>',
     ...rows,
     '</table>',
@@ -271,6 +273,7 @@ function columnDriftSection(pubs: PubStat[]): string[] {
     '<h2 id="vocabulary">Column vocabulary and emptiness drift</h2>',
     `<p>For the three categorical columns, the number of distinct values and the number of blanks in each publication — a distribution, not a bare total. A distinct-count that moves is a vocabulary-drift signal (a new status or product term appearing, or one retiring); a blank-count that moves is an emptiness signal. The distinct <em>values</em> themselves, and their counts, live on the <a href="${ROOT}reports/value-catalogue.html">value catalogue</a> — this page shows the shape over time, not the vocabulary in full.</p>`,
     '<table>',
+    tableCaption('Distinct values and blank counts for the product, status and type columns across publications'),
     '<tr><th scope="col">publication</th><th scope="col">product</th><th scope="col">status</th><th scope="col">type</th></tr>',
     ...rows,
     '</table>',
@@ -300,6 +303,7 @@ function flagEvolutionSection(pubs: PubStat[]): string[] {
     '<h2 id="flags">Data-quality flag evolution</h2>',
     `<p>How many rows trip each anomaly detector in each publication (flag meanings in the <a href="${ROOT}datasets/docs/flags.html">flag registry</a>). A flag that appears or disappears between publications, or whose count jumps, is a drift signal worth a look — declared-partial columns (⚠) tally over a tiny scope, so read their figures as of that scope, not the register.</p>`,
     '<table>',
+    tableCaption('Data-quality flag counts for every archived publication'),
     header,
     ...rows,
     '</table>',
@@ -340,6 +344,7 @@ function patternDriftSection(pubs: PubStat[]): string[] {
     '<h2 id="patterns">Callsign-pattern appearance and disappearance</h2>',
     '<p>Each callsign is reduced to a structural pattern (uppercase→<code>A</code>, digit→<code>N</code>, invisibles marked <code>{U+XXXX}</code>). Comparing the pattern vocabulary between consecutive complete publications surfaces the rare shapes that appear or vanish — usually encoding artefacts or one-off oddities, exactly the kind of surprise worth catching. New and lost patterns are the set difference (reusing the shared comparison used by the normalise sweep), over the complete-publication timeline.</p>',
     '<table>',
+    tableCaption('Callsign patterns that appeared or vanished between consecutive complete publications'),
     '<tr><th scope="col">transition</th><th scope="col">new patterns</th><th scope="col">lost patterns</th></tr>',
     ...rows,
     '</table>',
