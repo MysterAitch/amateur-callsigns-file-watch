@@ -198,11 +198,14 @@ describe('Dataset pages build', () => {
     // The prefix label filters on click; only the small ↗ navigates to the
     // series page (so the row is a filter, not a surprise navigation).
     expect(page).toContain('class="seriesnav" href="../../../series/M3.html"');
-    // The Notable forbidden-suffix line is a cohort with two filter links:
-    // the whole set, and the "issued since the 2019 list" subset.
+    // The Notable forbidden-suffix line is a cohort with two filter links: the
+    // whole withheld set, and the subset carrying the per-suffix
+    // forbidden-suffix-issued-after-first-known-list flag (not a flat 2019 date).
     expect(page).toMatch(/data-browser-sql="SELECT[^"]*suffix IN \(SELECT suffix FROM ref_forbidden_suffixes\)[^"]*ORDER BY callsign"/);
-    expect(page).toContain('issued since the 2019 list');
-    expect(page).toContain("licence_version_original_start_date &gt;= '2019-08-01'");
+    expect(page).toContain('issued after the suffix was first withheld');
+    expect(page).toContain('forbidden-suffix-issued-after-first-known-list');
+    // The stale flat-2019 basis must not resurface on a live page.
+    expect(page).not.toContain('issued since the 2019 list');
   });
 
   it('DatasetPages_OpenDataRegisterPreview_RendersCallsignsAsPillsLinkingToRegisterLookup', () => {
