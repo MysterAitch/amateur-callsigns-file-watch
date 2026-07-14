@@ -92,6 +92,12 @@ jobs:
           # is deployed automatically, so a missing import can no longer break
           # the live pages. The site-deploy-coverage test guards this contract.
           cp site/*.html site/*.js site/*.css site/*.webmanifest _site/
+          # Stamp the real, current database sizes into the [[db-size:*]]
+          # placeholders the size labels carry (issue #499), so they never drift
+          # as the databases grow - the master database was labelled "257 MB" long
+          # after it passed 1 GB. Runs after the databases are built and the HTML
+          # is copied; fails loudly if a database is missing.
+          node src/ci/build-db-sizes.ts _site
           # Version-stamp the service worker (ADR 0008). The browser re-installs
           # a worker only when its script bytes change, so writing the commit
           # SHA into DEPLOY_VERSION makes each deploy supersede the last: it

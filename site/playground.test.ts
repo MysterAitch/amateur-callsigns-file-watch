@@ -214,16 +214,20 @@ describe('Playground console (live, against a built SQLite)', () => {
     input.value = 'SELECT 1';
     form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
 
-    // Immediately - before the database has opened - progress is shown and the
-    // button is held so a second Run cannot stack a second open.
-    expect(statusEl.textContent).toMatch(/opening/i);
+    // Immediately - before the database has opened - the shared loading
+    // affordance shows progress, disables Run and gives it the waiting label, so
+    // the user sees the wait and a second Run cannot stack a second open.
+    expect(statusEl.textContent).toMatch(/loading/i);
     expect(runBtn.disabled).toBe(true);
+    expect(runBtn.dataset.state).toBe('loading');
+    expect(runBtn.textContent).toMatch(/waiting/i);
 
     // Let the open finish; the query then runs and the button frees up.
     release?.();
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(statusEl.textContent).toMatch(/row/);
     expect(runBtn.disabled).toBe(false);
+    expect(runBtn.dataset.state).toBe('ready');
   });
 
   it('Console_WhenEmptyQueryRun_RefusesWithoutOpeningTheDatabase', () => {

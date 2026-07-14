@@ -14,6 +14,15 @@
   --accent: #14506e;
   --line: #d8d8d8;
   --muted: #6b6b6b;
+  /* The "waiting for data" semantic (issue #499): a pastel sunflower, distinct
+     from the accent (ready/go) and the warn tint (error). Used by the shared
+     database-loading affordance so a slow first-use open reads as waiting, not
+     hung. The bg/line derive from --paper via color-mix, so they follow the
+     theme; only the ink needs a per-theme value. */
+  --waiting-seed: #e19c00;
+  --waiting-bg: color-mix(in srgb, var(--waiting-seed) 26%, var(--paper));
+  --waiting-line: color-mix(in srgb, var(--waiting-seed) 55%, var(--paper));
+  --waiting-ink: #7a5300;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -22,5 +31,6 @@
     --accent: #7fbcd9;
     --line: #3a3a3a;
     --muted: #9a9a9a;
+    --waiting-ink: color-mix(in srgb, var(--waiting-seed) 78%, white);
   }
 }

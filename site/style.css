@@ -67,6 +67,35 @@ button {
   color: var(--paper);
   cursor: pointer;
 }
+
+/* Database-loading affordance (issue #499). The trigger button reflects its
+   state via the data-state attribute the shared db-loading.js sets: a pastel
+   "waiting" sunflower while opening or running (disabled, so a second run is
+   impossible), a gentle pulse while the query runs, back to the accent when
+   ready. Progress stays in the polite role="status" line; a failure raises the
+   assertive .db-alert. Together they keep a slow load legible, not hung. */
+button[data-state="loading"],
+button[data-state="running"] {
+  background: var(--waiting-bg);
+  border-color: var(--waiting-line);
+  color: var(--waiting-ink);
+  cursor: progress;
+}
+button[data-state="running"] { animation: db-loading-pulse 1.15s ease-in-out infinite; }
+@keyframes db-loading-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.62; } }
+@media (prefers-reduced-motion: reduce) { button[data-state="running"] { animation: none; } }
+
+.db-alert {
+  margin: 0.6rem 0 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: color-mix(in srgb, var(--warn) 12%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--paper));
+  color: var(--warn);
+}
+.db-alert[data-severity="integrity"] { border-width: 2px; font-weight: 600; }
+.db-alert[hidden] { display: none; }
 #filters { flex-basis: 100%; }
 #filters summary { cursor: pointer; font-size: 0.9em; }
 #filters fieldset {

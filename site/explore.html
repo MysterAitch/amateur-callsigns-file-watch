@@ -69,14 +69,15 @@
       <form id="sql-form">
         <label for="db-select">Database</label>
         <select id="db-select">
-          <option value="latest">latest — current publication + reference data (28 MB)</option>
-          <option value="master">master — every publication + FOI observations (257 MB)</option>
+          <option value="latest">latest — current publication + reference data ([[db-size:callsigns]])</option>
+          <option value="master">master — every publication + FOI observations ([[db-size:master]])</option>
         </select>
         <label for="sql-input">SQL query</label>
         <textarea id="sql-input" rows="6" spellcheck="false" placeholder="SELECT … (read-only; results capped at 500 rows)"></textarea>
         <button type="submit">Run</button>
         <span id="sql-status" class="muted" role="status"></span>
       </form>
+      <p class="db-alert" id="sql-alert" role="alert" hidden></p>
       <div id="sql-result" hidden></div>
     </section>
 
