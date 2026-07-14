@@ -25,6 +25,7 @@ import { type EntryStats } from '../shared/stats.ts';
 import { buildFoiObservations, renderObservationsCsvBuffer, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
 import { time, perfReport } from '../shared/perf.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
+import { applyBuildPragmas } from '../shared/sqlite-build.ts';
 import { cleanedCallsign, parseCallsign, loadReferenceData, normaliseLicenceCategory, componentsFlagsForRows, type ComponentRow } from '../sources/ofcom-amateur/components.ts';
 
 // Gzip level for the published .gz download artefacts. The deploy uses maximum
@@ -53,11 +54,14 @@ function readCsv(filePath: string): Record<string, string>[] {
 // plus one bytecode execution, so binding N rows in a single statement instead
 // of N statements cuts that fixed per-row overhead ~N-fold — the dominant cost
 // once the whole load already rides in one transaction.
-const INSERT_BATCH_ROWS = 500;
-// SQLite's bundled bound-parameter ceiling is 32,766; stay well under it so a
-// wide table transparently shrinks its batch (BATCH × columns never nears the
-// limit) rather than failing to prepare.
-const MAX_BULK_PARAMS = 20_000;
+const INSERT_BATCH_ROWS = 2000;
+// SQLite's bound-parameter ceiling (SQLITE_MAX_VARIABLE_NUMBER) is 32,766 in
+// the library Node bundles - verified empirically: a 32,766-parameter INSERT
+// prepares, 32,767 fails with "too many SQL variables". Stay comfortably
+// under it so a wide table transparently shrinks its batch (BATCH × columns
+// never nears the limit) rather than failing to prepare: at 30,000 the widest
+// published table (19 columns) still batches ~1,500 rows per statement.
+const MAX_BULK_PARAMS = 30_000;
 
 // Insert many rows through a fixed-size multi-row prepared statement, with a
 // single remainder statement for the tail so the count need not be a multiple
@@ -119,6 +123,7 @@ export function buildSqlite(outputPath: string): { datasetKey: string; tables: R
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.rmSync(outputPath, { force: true });
   const db = new DatabaseSync(outputPath);
+  applyBuildPragmas(db);
   const counts: Record<string, number> = {};
 
   const createAndFill = (table: string, columns: string[], rows: string[][], indexColumn?: string): void => {
@@ -336,6 +341,7 @@ export function buildPublishedTiers(dataDir: string, options: { compress?: boole
     const buildPath = path.join(perDatasetDir, `${name}.sqlite.tmp`);
     fs.rmSync(buildPath, { force: true });
     const db = new DatabaseSync(buildPath);
+    applyBuildPragmas(db);
     let tables = 0;
     for (const file of fs.readdirSync(dir).sort()) {
       if (!file.endsWith('.csv')) continue;
@@ -372,6 +378,7 @@ export function buildPublishedTiers(dataDir: string, options: { compress?: boole
   const combinedPath = path.join(dataDir, 'combined.sqlite.png');
   fs.rmSync(combinedPath, { force: true });
   const combined = new DatabaseSync(combinedPath);
+  applyBuildPragmas(combined);
   summary['combined observations'] = time('sqlite:combined-observations', () => fillObservations(combined, observations), observations.length);
   // Longitudinal join keys ride along: each publication's components.csv
   // contributes the derived cleaned (artefact-unifying) and suffix keys,
