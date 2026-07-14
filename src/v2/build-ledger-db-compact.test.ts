@@ -6,7 +6,7 @@ import { parse } from 'csv-parse/sync';
 import { DatabaseSync } from 'node:sqlite';
 import { buildLedger } from './build-ledger.ts';
 import { buildLedgerSqlite, subsetSelector } from './build-ledger-db.ts';
-import { buildCompactLedgerSqlite, type CompactLedgerSummary } from './build-ledger-db-compact.ts';
+import { buildCompactLedgerDb, buildCompactLedgerSqlite, type CompactLedgerSummary } from './build-ledger-db-compact.ts';
 import { loadReferenceData, parseCallsign } from '../sources/ofcom-amateur/components.ts';
 import { physicalLines } from '../sources/ofcom-amateur/normalise.ts';
 
@@ -32,6 +32,7 @@ const REF = loadReferenceData();
 const G0TQK_ENTITY = parseCallsign('G0TQK', '', REF).placeholderForm;
 
 let workDir: string;
+let ledgerRoot: string;
 let ledgerDir: string;
 let fatPath: string;
 let compactPath: string;
@@ -47,11 +48,11 @@ const CLAIM_COLUMNS = "layer, raw_subject, cleaned, entity, predicate, object, I
 
 beforeAll(() => {
   workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'build-ledger-db-compact-'));
-  const root = path.join(workDir, 'root');
+  ledgerRoot = path.join(workDir, 'root');
   // One subset ledger, both schemas built from it, so any difference is the
   // schema's - not a different corpus underneath.
-  buildLedger(root, undefined, undefined, subsetSelector());
-  ledgerDir = path.join(root, 'ledger');
+  buildLedger(ledgerRoot, undefined, undefined, subsetSelector());
+  ledgerDir = path.join(ledgerRoot, 'ledger');
   fatPath = path.join(workDir, 'fat.sqlite');
   compactPath = path.join(workDir, 'compact.sqlite.png');
   buildLedgerSqlite(ledgerDir, fatPath);
@@ -94,6 +95,12 @@ describe('compact claim-ledger schema', () => {
     } finally {
       db.close();
     }
+  });
+
+  it('BuildCompactLedgerDb_WhenGivenExistingLedgerRoot_ReusesStage1Output', () => {
+    const reusedPath = path.join(workDir, 'reused.sqlite.png');
+    const reused = buildCompactLedgerDb(reusedPath, { ledgerDir: ledgerRoot, selectEntry: () => false });
+    expect(reused.summary).toEqual(compact);
   });
 });
 

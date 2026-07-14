@@ -36,7 +36,7 @@
  * to the fat build's and that the point lookups still plan onto their indexes.
  *
  * Usage:
- *   node src/v2/build-ledger-db-compact.ts [output.sqlite.png] [--subset]
+ *   node src/v2/build-ledger-db-compact.ts [output.sqlite.png] [--subset] [--ledger-dir <build-output-dir>]
  */
 
 import * as fs from 'fs';
@@ -46,6 +46,7 @@ import * as zlib from 'zlib';
 import { DatabaseSync } from 'node:sqlite';
 import { buildLedger, type EntrySelector } from './build-ledger.ts';
 import { parseClaimsJsonl } from './serialise.ts';
+import { time, perfReport } from '../shared/perf.ts';
 import {
   LISTED_PREDICATE,
   NORMALISES_TO_PREDICATE,
@@ -508,13 +509,15 @@ export interface BuildCompactDbResult {
 export function buildCompactLedgerDb(dbPath: string, options: BuildCompactDbOptions = {}): BuildCompactDbResult {
   const ownsLedgerDir = options.ledgerDir === undefined;
   const ledgerRoot = options.ledgerDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'v2-ledger-compact-'));
+  const ledgerDir = path.join(ledgerRoot, 'ledger');
   try {
-    buildLedger(ledgerRoot, undefined, undefined, options.selectEntry);
-    const ledgerDir = path.join(ledgerRoot, 'ledger');
-    const summary = buildCompactLedgerSqlite(ledgerDir, dbPath);
+    if (!fs.existsSync(ledgerDir)) {
+      time('compact-ledger:stage1-ledger', () => buildLedger(ledgerRoot, undefined, undefined, options.selectEntry));
+    }
+    const summary = time('compact-ledger:sqlite-load', () => buildCompactLedgerSqlite(ledgerDir, dbPath));
 
     const gzPath = dbPath.replace(/\.png$/, '') + '.gz';
-    fs.writeFileSync(gzPath, zlib.gzipSync(fs.readFileSync(dbPath), { level: GZIP_LEVEL }));
+    fs.writeFileSync(gzPath, time('compact-ledger:gzip', () => zlib.gzipSync(fs.readFileSync(dbPath), { level: GZIP_LEVEL })));
 
     return {
       dbPath,
@@ -529,14 +532,36 @@ export function buildCompactLedgerDb(dbPath: string, options: BuildCompactDbOpti
 
 if (import.meta.main) {
   const args = process.argv.slice(2).filter(a => a.trim().length > 0);
-  const flags = new Set(args.filter(a => a.startsWith('--')));
-  const positional = args.filter(a => !a.startsWith('--'));
+  const flags = new Set<string>();
+  const positional: string[] = [];
+  let ledgerDir: string | undefined;
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === '--ledger-dir') {
+      const value = args[i + 1];
+      if (value === undefined || value.startsWith('--')) throw new Error('--ledger-dir requires a value');
+      ledgerDir = value;
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith('--ledger-dir=')) {
+      ledgerDir = arg.slice('--ledger-dir='.length);
+      if (ledgerDir.length === 0) throw new Error('--ledger-dir requires a value');
+      continue;
+    }
+    if (arg.startsWith('--')) {
+      flags.add(arg);
+      continue;
+    }
+    positional.push(arg);
+  }
   const dbPath = positional[0] ?? path.join('_site', 'data', 'claim-ledger.sqlite.png');
   const { subsetSelector } = await import('./build-ledger-db.ts');
   const useSubset = flags.has('--subset');
-  const result = buildCompactLedgerDb(dbPath, { selectEntry: useSubset ? subsetSelector() : undefined });
+  const result = buildCompactLedgerDb(dbPath, { selectEntry: useSubset ? subsetSelector() : undefined, ledgerDir });
   console.log(`built COMPACT claim-ledger SQLite ${result.dbPath} (${useSubset ? 'subset' : 'full corpus'})`);
   console.log(`  claims: ${result.summary.claims} (observations ${result.summary.observations}, attr ${result.summary.attrClaims}, parse-attr ${result.summary.derivedAttrClaims}), entities: ${result.summary.entities}, sources: ${result.summary.sources}, analyzed: ${result.summary.analyzed}`);
   console.log(`  dictionaries: predicates ${result.summary.predicates}, objects ${result.summary.objects}`);
   console.log(`  sqlite: ${result.sizes.sqlite} bytes, gz twin: ${result.sizes.gz} bytes`);
+  perfReport();
 }

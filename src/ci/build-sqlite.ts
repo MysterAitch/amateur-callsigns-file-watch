@@ -486,16 +486,54 @@ export function buildPublishedTiers(dataDir: string, options: { compress?: boole
   return summary;
 }
 
+// Package a pre-built RAW tiers directory into the deploy shape: gzip the
+// publish-only download artefacts and drop the raw union/per-dataset files the
+// site never serves directly. This lets the deploy reuse the verification job's
+// raw build instead of recomputing it.
+export function packagePublishedTiers(dataDir: string): Record<string, number> {
+  const summary: Record<string, number> = {};
+
+  const unionPath = path.join(dataDir, 'foi-observations.csv');
+  const unionBuffer = fs.readFileSync(unionPath);
+  fs.writeFileSync(`${unionPath}.gz`, time('gzip:union-csv', () => zlib.gzipSync(unionBuffer, { level: GZIP_LEVEL }), unionBuffer.length));
+  fs.rmSync(unionPath, { force: true });
+  summary['packaged union csv'] = 1;
+
+  const perDatasetDir = path.join(dataDir, 'datasets');
+  let perDataset = 0;
+  for (const file of fs.readdirSync(perDatasetDir).sort()) {
+    if (!file.endsWith('.sqlite')) continue;
+    const dbPath = path.join(perDatasetDir, file);
+    fs.writeFileSync(`${dbPath}.gz`, time('gzip:per-dataset', () => zlib.gzipSync(fs.readFileSync(dbPath), { level: GZIP_LEVEL })));
+    fs.rmSync(dbPath, { force: true });
+    perDataset += 1;
+  }
+  summary['packaged per-dataset databases'] = perDataset;
+
+  const combinedPath = path.join(dataDir, 'combined.sqlite.png');
+  fs.writeFileSync(path.join(dataDir, 'combined.sqlite.gz'), time('gzip:combined', () => zlib.gzipSync(fs.readFileSync(combinedPath), { level: GZIP_LEVEL })));
+  summary['packaged combined download twin'] = 1;
+
+  return summary;
+}
+
 if (import.meta.main) {
   const args = process.argv.slice(2).filter(a => a.trim().length > 0);
   const tiersFlag = args.indexOf('--tiers');
+  const packageExistingTiersFlag = args.indexOf('--package-existing-tiers');
   const output = args.find(a => !a.startsWith('--')) ?? path.join('_site', 'data', 'callsigns.sqlite');
-  const result = buildSqlite(output);
-  console.log(`built ${output} from dataset ${result.datasetKey}`);
-  for (const [table, n] of Object.entries(result.tables)) console.log(`  ${table}: ${n} rows`);
+  if (packageExistingTiersFlag === -1) {
+    const result = buildSqlite(output);
+    console.log(`built ${output} from dataset ${result.datasetKey}`);
+    for (const [table, n] of Object.entries(result.tables)) console.log(`  ${table}: ${n} rows`);
+  }
   if (tiersFlag !== -1) {
     const tiers = buildPublishedTiers(path.dirname(output));
     for (const [what, n] of Object.entries(tiers)) console.log(`  tiers: ${what}: ${n}`);
+  }
+  if (packageExistingTiersFlag !== -1) {
+    const packaged = packagePublishedTiers(path.dirname(output));
+    for (const [what, n] of Object.entries(packaged)) console.log(`  tiers: ${what}: ${n}`);
   }
   // Self-guarded: prints the profiling breakdown to stderr only under PERF.
   perfReport();
