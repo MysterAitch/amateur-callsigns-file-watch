@@ -1,6 +1,6 @@
 # ADR 0019 — Layered, content-addressed build cache and a unified CI/CD pipeline
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-07-14
 - Related: ADR 0002 (repository write controls), ADR 0003 (in-repo presentation / Pages deploy), ADR 0012 (supply-chain posture); issues #478 (CI performance), #497 (post-deploy verification), #499 (loading affordance); PRs #507 (smoke-test exit), #513 (deploy database cache)
 
@@ -87,4 +87,4 @@ Reusing CI's raw layer means the databases are constructed **once** per input cl
 - The deploy cache holds only the incremental compressed layer, **reducing cache footprint** and easing the 10 GB ceiling.
 - This **reverses the "workflows stay separate"** stance recorded during #478 — which existed to prevent *accidental* cache sharing. We now share *deliberately*, in one file, with the keys co-located.
 - The read-only-CI posture (ADR 0012) is preserved via **job-level permissions**, not workflow-level isolation — a reviewer must read the job permissions, not the file boundary, to confirm the verify path cannot write.
-- **Implementation is incremental.** #507 (smoke-test prompt exit) and #513 (the deploy packaged-layer cache in the standalone `pages.yml`) are shipped. The `cicd.yaml` unification and the full raw-layer reuse (the walk-down's middle step) are the remaining work, to land as their own PRs against this ADR.
+- **Implementation is incremental.** Shipped: #507 (smoke-test prompt exit), #513 (the deploy packaged-layer cache), #516 (the `cicd.yaml` unification — `ci.yml` + `pages.yml` merged into one file, deploy gated on `main`, verified live), and #517 (keying the build caches on a test-excluding closure hash, so a test-only change no longer rebuilds the corpus). Remaining: the **raw-layer reuse** — the walk-down's middle step, where the deploy restores CI's raw `.tier-cache` and only gzips/chunks it instead of rebuilding the databases. That, and any finer per-stage key scoping, are the deferred refinements, to land as their own PRs against this ADR.
