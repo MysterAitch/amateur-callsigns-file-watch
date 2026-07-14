@@ -6,7 +6,7 @@
 
 ## Context
 
-The query databases are a **deploy artefact, derived fresh** and never committed — SQLite is not byte-deterministic, so it lives outside the golden-master lane (ADR 0003, ADR 0010). Building them is expensive: the ~1 GB master database, the per-dataset tiers, and the full compact claim-ledger fold together take **~22 minutes** in the Pages build job (measured: #513's first deploy, 12:52→13:14 UTC).
+The query databases are a **deploy artefact, derived fresh** and never committed — SQLite is not byte-deterministic, so it lives outside the golden-master lane (ADR 0003, ADR 0010). Building them is expensive: the ~1 GB combined database, the per-dataset tiers, and the full compact claim-ledger fold together take **~22 minutes** in the Pages build job (measured: #513's first deploy, 12:52→13:14 UTC).
 
 Until #513 that cost was paid on **every** deploy, including deploys that changed only the site (HTML/JS/CSS) — where the databases are byte-for-byte determined by *unchanged* inputs. The recent #499 affordance rollout was five consecutive site-only deploys, each rebuilding a 1 GB database that had not changed.
 
