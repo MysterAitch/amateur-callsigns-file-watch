@@ -336,8 +336,10 @@ export const FIDELITY_PREAMBLE = [
 ];
 
 // A plain-English gloss per derivation rule (kept in step with src/v2/explain.ts
-// RULE_GLOSSES). Used to head the "show the working" panel.
-const RULE_GLOSSES = {
+// RULE_GLOSSES). Used to head the "show the working" panel. Exported so the
+// fidelity-map drift guard (issue #465) can assert it covers every rule the
+// ledger emits — a rule with no gloss would surface to a reader as a bare token.
+export const RULE_GLOSSES = {
   [CLEANED_CALLSIGN_RULE]: 'Upper-cased and reduced to the plain callsign alphabet (A–Z, 0–9, /).',
   'placeholder-form': 'Parsed the callsign and moved the regional secondary locator to the # placeholder slot.',
   'callsign-pattern': 'Mapped each character to its shape class (letter, digit, invisibles marked).',
@@ -355,7 +357,10 @@ const RULE_GLOSSES = {
 // The neutrality is carried by the plain factual statement (and, for a mismatch,
 // the source-vs-derivation framing), never by a judgement disclaimer. Absent
 // keys fall back to the raw token so a newly added flag surfaces honestly.
-const FLAG_NOTES = {
+// Exported so the fidelity-map drift guard (issue #465) can assert it covers the
+// whole emitted flag vocabulary (reference-data/flags.md), keeping that honest
+// fallback from ever actually firing in front of a reader.
+export const FLAG_NOTES = {
   'lowercase': {
     label: 'Lower-case letters in the published form',
     gloss: ['The register normally writes a ', lnk('callsign', FAQ_CALLSIGN_STRUCTURE),
@@ -438,7 +443,10 @@ const FLAG_NOTES = {
 // Parse-status values worth surfacing. `parsed`, `visitor` and `special-event`
 // are the normal outcomes and are NOT surfaced (selective disclosure). Only the
 // two that mean "the register lists a token we could not read as a callsign" are.
-const NOTABLE_PARSE_STATUS = {
+// Exported so the fidelity-map drift guard (issue #465) can assert every key is a
+// real emitted parse status (no stale entry) — the guard cannot demand the whole
+// vocabulary here precisely because the surfacing is deliberately selective.
+export const NOTABLE_PARSE_STATUS = {
   'unparseable': {
     label: 'We could not read this as a standard callsign',
     gloss: ['We note the register lists this entry, but our parser could not read it as a standard UK ',
