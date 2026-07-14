@@ -20,3 +20,6 @@ coverage/
 # (requester addresses etc.) and must not be published; only properly
 # provenanced bytes graduate into archive/ or reference-data/ via PRs.
 landing/
+
+# Deploy build staging (pages.yml database cache) - never committed
+.dbstage/
