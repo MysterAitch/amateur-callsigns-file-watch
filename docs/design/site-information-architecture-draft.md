@@ -71,7 +71,7 @@ issue-date-column inversion) came from **correlating datasets**, not
 reading one. The site must serve unbounded exploration, not only
 presentation:
 
-- The master database is the join surface; an **Explore** affordance
+- The combined database is the join surface; an **Explore** affordance
   documents it: join keys (callsign; entry/dataset), NULL-vs-blank
   semantics, worked example queries (e.g. "callsigns Allocated in 2019's
   FOI snapshot but absent from the 2026 register"), and where to run them
@@ -194,7 +194,7 @@ blank-product records, +380 drift — counts table on issue #177):
   reviewed like reference data. `intendedCoverage` is NEVER retro-edited:
   intent stays intent; verified quality is a separate axis (as that
   field's docs always promised).
-- The master's `history_datasets` carries `coverage_affecting_observation`;
+- The combined's `history_datasets` carries `coverage_affecting_observation`;
   the timeline treats such publications like declared-partials —
   **absence is not evidence there** (today a blank-product callsign
   absent from 2025-06-04 gets a false "(absent)" annotation).
@@ -291,7 +291,7 @@ The page's core (header, coverage notice, Notable, Inspect schemas, download gri
 | About / provenance | J4 | "what is this project? why trust it? how to cite?" | mission, integrity model (hash-pinned meta, verbatim raw, fail-loud), citation guidance, what the site is NOT | implementation minutiae (link to repo) |
 | dictionary pages | J3 | column meanings | as now | — |
 
-| Explore (SQL/join guide) | J6/J3 | "how do I correlate these datasets myself?" | join keys, semantics, worked queries, master DB pointer | hosted query execution (downstream's job) |
+| Explore (SQL/join guide) | J6/J3 | "how do I correlate these datasets myself?" | join keys, semantics, worked queries, combined DB pointer | hosted query execution (downstream's job) |
 
 New curated inputs: story hooks file; conventions/inference-rules
 registry (date-anchored, cited, sourced-vs-recollection marked);
@@ -320,7 +320,7 @@ README/ADRs). All reviewed like reference data.
       value (series, suffix, renderings, placeholder, home callsign) and
       every matrix/history callsign becomes a navigable edge.
    b. **In-browser SQL console**: arbitrary read-only SQL over the
-      latest + master databases via the existing range-request workers
+      latest + combined databases via the existing range-request workers
       (textarea + results table; each Explore-guide example becomes a
       "run this" link). The highest exploration-per-effort item.
    c. **Filter deep-links** (`?series=…&status=…&flags=…`): every

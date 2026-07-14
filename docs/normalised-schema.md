@@ -211,7 +211,7 @@ publication silently omits records it claims to hold — the confirmed case is
 2025-06-04, which declared complete but filtered out every blank-product row
 (~45,000, many live allocations, identified by the automated change-tracking analysis). Consumers must then treat
 that publication's absences exactly like a declared-partial's: **not
-evidence.** The published `master.sqlite`'s `history_datasets` table carries
+evidence.** The published `combined.sqlite`'s `history_datasets` table carries
 this so the register-history timeline demotes such publications
 automatically, and entry pages surface the observation under their heading.
 
