@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -10,7 +10,7 @@ import {
   CLEANED_CALLSIGN_RULE,
 } from './claim.ts';
 import { projectNormalised } from './project-normalised.ts';
-import { buildLedger } from './build-ledger.ts';
+import { buildLedger, type LedgerBuildSummary } from './build-ledger.ts';
 import {
   registerSourcesFor,
   loadRegisterSource,
@@ -348,11 +348,44 @@ describe('raw-keyed fidelity the normalised store discards (G0TQK)', () => {
 });
 
 describe('corpus scale sanity', () => {
-  it('RegisterLedger_WhenBuiltFromWholeArchive_ReachesMillionsOfClaimsWithNoEmptySource', () => {
-    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'v2-ledger-'));
-    try {
-      const summary = buildLedger(outputDir, FOI_DIR, REF);
+  // The whole-archive ledger build is this file's heavy work (millions of claims
+  // across every source family). Its inputs - the committed archive,
+  // reference-data and the emit-path closure - change on few PRs, so CI caches the
+  // built ledger directory under a key hashing exactly that closure (see the
+  // build-ledger job in ci.yml) and hands the restored directory to this test via
+  // LEDGER_CACHE_DIR. On a cache HIT we VERIFY the restored build instead of
+  // rebuilding it - equivalent, because buildLedger is deterministic in the hashed
+  // inputs, so anything that could change the ledger also changes the key and
+  // forces a fresh build. The summary (asserted below) is persisted beside the
+  // JSONL so a hit still has it. With no LEDGER_CACHE_DIR (local runs) it builds
+  // into throwaway scratch.
+  const SUMMARY_FILE = 'ledger-summary.json';
+  let outputDir: string;
+  let summary: LedgerBuildSummary;
+  let ownsScratch = false;
 
+  beforeAll(() => {
+    const cacheDir = process.env.LEDGER_CACHE_DIR;
+    const summaryPath = cacheDir ? path.join(cacheDir, SUMMARY_FILE) : '';
+    if (cacheDir && fs.existsSync(summaryPath)) {
+      outputDir = cacheDir;
+      summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8')) as LedgerBuildSummary;
+      return;
+    }
+    outputDir = cacheDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'v2-ledger-'));
+    ownsScratch = cacheDir === undefined;
+    fs.mkdirSync(outputDir, { recursive: true });
+    summary = buildLedger(outputDir, FOI_DIR, REF);
+    if (cacheDir) fs.writeFileSync(summaryPath, JSON.stringify(summary));
+  }, 300_000);
+
+  afterAll(() => {
+    // Only delete scratch we created; a cache directory is owned by the runner
+    // and is saved by actions/cache after the job.
+    if (ownsScratch) fs.rmSync(outputDir, { recursive: true, force: true });
+  });
+
+  it('RegisterLedger_WhenBuiltFromWholeArchive_ReachesMillionsOfClaimsWithNoEmptySource', () => {
       // All three families contribute. Every qualifying FOI register entry
       // produced at least one source; the open-data-register family adds every
       // mirrored Ofcom open-data publication; the attribute-addendum family adds
@@ -413,8 +446,5 @@ describe('corpus scale sanity', () => {
       // shape), never committed to the repo.
       const written = fs.readdirSync(path.join(outputDir, 'ledger')).filter(name => name.endsWith('.jsonl'));
       expect(written.length).toBe(summary.sourcesProcessed);
-    } finally {
-      fs.rmSync(outputDir, { recursive: true, force: true });
-    }
-  }, 300_000);
+  });
 });
