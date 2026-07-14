@@ -664,6 +664,8 @@ jobs:
         if: steps.db-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p .dbstage
+          test -f .tier-cache/combined.sqlite.png
+          test -d .ledger-cache/ledger
           cp -a .tier-cache/. .dbstage/
           # .png extension: GitHub Pages gzip-transcodes text-like content types
           # INCLUDING their Range responses (verified live), which corrupts
