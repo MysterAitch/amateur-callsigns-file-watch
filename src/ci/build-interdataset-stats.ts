@@ -29,7 +29,7 @@
  * absence of a record from a partial publication is not evidence of anything.
  *
  * Wired into buildDatasetPages like the series/reports/forbidden/class sections
- * (one generator, one call), so no pages.yml change is needed. Deterministic for
+ * (one generator, one call), so no cicd.yaml change is needed. Deterministic for
  * unchanged inputs (no timestamps), so re-crawls only see changes when the data
  * changed.
  *

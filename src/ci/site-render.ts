@@ -294,7 +294,7 @@ function deployProvenance(): string {
 // generated pages adopt it too (issue #394): they keep their own inline layout
 // (PAGE_STYLE / ENTRY_STYLE) but link this one stylesheet - copied to the
 // artefact root by the deploy alongside the hand-authored pages that link the
-// same file (pages.yml) - so the ledger palette, header/panel chrome and
+// same file (cicd.yaml) - so the ledger palette, header/panel chrome and
 // census tables apply once the content is wrapped in `.ledger`. The href is
 // resolved to the site root from the page's own depth, matching every other
 // depth-relative link the shells emit. In the test/dev build the stylesheet is

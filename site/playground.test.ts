@@ -23,7 +23,7 @@ import { placeholderOf } from './browser-query.js';
 // deploy-wired so it is reachable and offline-cached.
 
 const SITE_DIR = 'site';
-const PAGES_WORKFLOW = path.join('.github', 'workflows', 'pages.yml');
+const PAGES_WORKFLOW = path.join('.github', 'workflows', 'cicd.yaml');
 
 function siteFile(name: string): string {
   return fs.readFileSync(path.join(SITE_DIR, name), 'utf8');

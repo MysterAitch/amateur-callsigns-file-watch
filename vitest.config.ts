@@ -12,7 +12,7 @@ import { defineConfig, defaultExclude } from 'vitest/config';
 // the two pools simply never contend. Isolation, not a raised ceiling, is the
 // fix - bumping timeouts is the whack-a-mole this pattern already outgrew.
 // TRIAL (#478): the ISOLATED heavy files - each gets its own parallel CI job
-// (see .github/workflows/ci.yml), pulling the pre-built claims Parquet artifact.
+// (see .github/workflows/cicd.yaml), pulling the pre-built claims Parquet artifact.
 // This is the top of the measured duration distribution (>~90 s each in the
 // baseline); the ~78 remaining files run together in the sharded `fast` pool.
 //
@@ -92,7 +92,7 @@ export default defineConfig({
         'src/**/*.test.ts',
         // Live-deployment verification harnesses (the post-deploy smoke and
         // browser-console checks): they run against the real Pages site from
-        // pages.yml - hitting the network and a real browser - so they are
+        // cicd.yaml - hitting the network and a real browser - so they are
         // exercised there, not unit-tested. Like *.test.ts they are test code,
         // not product code, and do not belong in the product-coverage denominator.
         'src/ci/smoke-test.ts',

@@ -1409,7 +1409,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
 
   // The forbidden-suffix section (issue #291 phase 2): a discrete, static,
   // crawlable section built like series/reports — one generator, wired here so
-  // no pages.yml change is needed. It links its downloads to the FOI entry
+  // no cicd.yaml change is needed. It links its downloads to the FOI entry
   // copies published in the loop above, so it must build after them.
   pageUrls.push(...time('dataset-pages:forbidden-section', () => buildForbiddenSection(outputDir, baseUrl)));
 

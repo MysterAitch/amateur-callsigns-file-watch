@@ -1,7 +1,7 @@
 # CI test sharding — how and why (read before changing the shard setup)
 
 This explains how a single expensive test file is fanned across several CI jobs
-(`.github/workflows/ci.yml` → the `heavy-shard` job), driven by
+(`.github/workflows/cicd.yaml` → the `heavy-shard` job), driven by
 [`sharded-tests.json`](./sharded-tests.json). It front-loads the **mental model**,
 because the intuition from JUnit/xUnit is subtly wrong for vitest and it's easy to
 expect the wrong thing.
@@ -63,10 +63,10 @@ Two reasons you do **not** want N = 44:
 sharded-tests.json          [ { "file": "…reconstruction-oracle.test.ts", "shards": 4 } ]
    │  (single source of truth: which file, and N)
    ▼
-matrix-setup (ci.yml)       emits `shardmatrix` = [ {file, shard:1, total:4}, … {shard:4} ]
+matrix-setup (cicd.yaml)    emits `shardmatrix` = [ {file, shard:1, total:4}, … {shard:4} ]
    │                        and removes the file from the non-fold pool
    ▼
-heavy-shard job (ci.yml)    matrix: include: <shardmatrix>  → one job per (file, shard)
+heavy-shard job (cicd.yaml) matrix: include: <shardmatrix>  → one job per (file, shard)
    │                        env RECON_SHARD = "${shard}/${total}"   (e.g. "2/4")
    ▼
 reconstruction-oracle.test.ts   shardResolved() reads RECON_SHARD and keeps only the

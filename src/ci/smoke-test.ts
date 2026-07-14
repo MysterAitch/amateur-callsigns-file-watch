@@ -1,6 +1,6 @@
 /**
  * Post-deploy smoke test (issue #497): light liveness + integrity checks against
- * the LIVE Pages deployment, run after actions/deploy-pages in pages.yml. It is
+ * the LIVE Pages deployment, run after actions/deploy-pages in cicd.yaml. It is
  * deliberately NOT a functional test - it confirms the deploy SUCCEEDED and
  * shipped the right, correctly PACKAGED bytes, which are the publish concerns the
  * per-PR suite does not cover since the tier verification moved to a raw build

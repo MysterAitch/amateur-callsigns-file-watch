@@ -14,7 +14,7 @@ import * as path from 'path';
 //   (c) precached by the service worker, so the offline shell is complete.
 
 const SITE_DIR = 'site';
-const PAGES_WORKFLOW = path.join('.github', 'workflows', 'pages.yml');
+const PAGES_WORKFLOW = path.join('.github', 'workflows', 'cicd.yaml');
 
 // Every browser module in site/. The service worker is deployed but never
 // precaches itself, and *.test.ts are tooling, not shipped assets.

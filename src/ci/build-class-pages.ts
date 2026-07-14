@@ -23,7 +23,7 @@
  * DELIBERATELY NOT COMMITTED, like the rest of the dataset-pages build: derived
  * at deploy time from committed data, deterministic for unchanged inputs (no
  * timestamps), and wired into the site build via buildDatasetPages so no
- * pages.yml change is needed. Shared render helpers (nav, breadcrumb, page
+ * cicd.yaml change is needed. Shared render helpers (nav, breadcrumb, page
  * shell, the a11y skip-link / <main> scaffolding, the shared design tokens)
  * come from site-render.ts so the section reads as one product with the site.
  */
