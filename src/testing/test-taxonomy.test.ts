@@ -44,7 +44,7 @@ function testFilesUnder(dir: string): string[] {
 // so the discovered set is exactly what the projects can run.
 const ALL_TEST_FILES = [...testFilesUnder('src'), ...testFilesUnder('site')].sort();
 
-const HEAVY_LIST: string[] = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, HEAVY_TESTS_JSON), 'utf8'));
+const HEAVY_LIST = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, HEAVY_TESTS_JSON), 'utf8')) as string[];
 
 // Extract every tag applied anywhere in a file's `{ tags: [...] }` describe/test
 // options. Source-text parsing (not execution) keeps the check cheap and lets it
