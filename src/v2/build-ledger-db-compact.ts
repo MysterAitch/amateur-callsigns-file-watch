@@ -539,14 +539,14 @@ if (import.meta.main) {
     const arg = args[i];
     if (arg === '--ledger-dir') {
       const value = args[i + 1];
-      if (value === undefined || value.startsWith('--')) throw new Error('--ledger-dir requires a value');
+      if (value === undefined || value.startsWith('--')) throw new Error(`--ledger-dir requires a value, got ${value === undefined ? 'nothing' : value}`);
       ledgerDir = value;
       i += 1;
       continue;
     }
     if (arg.startsWith('--ledger-dir=')) {
       ledgerDir = arg.slice('--ledger-dir='.length);
-      if (ledgerDir.length === 0) throw new Error('--ledger-dir requires a value');
+      if (ledgerDir.length === 0) throw new Error('--ledger-dir requires a non-empty value');
       continue;
     }
     if (arg.startsWith('--')) {
