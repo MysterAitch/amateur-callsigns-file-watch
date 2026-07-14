@@ -19,10 +19,14 @@ import { chromium, expect, type ConsoleMessage, type Page } from '@playwright/te
 // Benign console output shared with console-check.ts. Keep tight + documented.
 const ALLOW: { pattern: RegExp; reason: string }[] = [
   {
-    // sql.js-httpvfs full-mode HEAD/gzip warning on Pages - expected until the
-    // range-served databases move to chunked loading. Tracked in #475 / #499.
+    // sql.js-httpvfs full-mode probes the database with a HEAD that Pages
+    // gzip-transcodes; the library warns and ignores it (Range reads are
+    // unaffected). An ACCEPTED cosmetic warning, not a pending fix: full mode
+    // ignores a supplied length so the HEAD cannot be configured away (#475),
+    // and the cold-open latency it hints at is communicated by the loading
+    // affordance (#499), not eliminated.
     pattern: /server responded with gzip encoding to a HEAD request/i,
-    reason: 'sql.js-httpvfs HEAD/gzip warning on Pages (#475); removal tracked in #499',
+    reason: 'sql.js-httpvfs HEAD/gzip warning on Pages - accepted cosmetic (#475)',
   },
 ];
 
@@ -44,7 +48,13 @@ const CHECKS: Check[] = [
       await page.fill('#callsign', 'M7TEE');
       await page.click('#lookup-form button[type="submit"]');
     },
-    progressSelector: '#result',
+    // The lookup routes through the shared loading affordance (issue #499), which
+    // acknowledges the click SYNCHRONOUSLY in the polite status region - before
+    // the database open - so the acknowledgement is asserted there, not in the
+    // result region (which only fills once the query has actually rendered, and
+    // so would race a cold database open). explore/playground do the same via
+    // #sql-status.
+    progressSelector: '#lookup-status',
     resultSelector: '#result',
   },
   {
@@ -69,7 +79,12 @@ const CHECKS: Check[] = [
 
 const NAV_TIMEOUT_MS = 45_000;
 const PROGRESS_TIMEOUT_MS = 8_000;
-const RESULT_TIMEOUT_MS = 40_000;
+// A cold, just-deployed database is served from a fresh CDN cache object; its
+// first in-browser open over range requests can legitimately take tens of
+// seconds (the very latency the loading affordance communicates), so the result
+// budget is generous - the acknowledgement above is what proves the handler
+// fired promptly; this only proves the flow completes.
+const RESULT_TIMEOUT_MS = 60_000;
 
 const base = process.argv[2];
 if (base === undefined || base.trim() === '') {
@@ -104,9 +119,10 @@ async function run(browser: Awaited<ReturnType<typeof chromium.launch>>, check: 
     await page.goto(new URL(check.page, baseUrl).toString(), { waitUntil: 'load', timeout: NAV_TIMEOUT_MS });
     await check.interact(page);
 
-    // 1. Immediate acknowledgement: the progress indicator shows activity. On a
-    //    cold page the first query loads database pages, so it is visible well
-    //    within this budget; a miss means the action was not acknowledged.
+    // 1. Immediate acknowledgement: the progress indicator shows activity. The
+    //    loading affordance writes it synchronously when the handler fires (before
+    //    the database opens), so it is well within this budget; a miss means the
+    //    action was not acknowledged.
     let acknowledged = true;
     try {
       await waitForText(page, check.progressSelector, PROGRESS_TIMEOUT_MS);
