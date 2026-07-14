@@ -41,11 +41,14 @@ const ALLOW: { pattern: RegExp; reason: string }[] = [
     // sql.js-httpvfs full-mode probes the database with a HEAD, and GitHub Pages
     // gzip-transcodes that HEAD response; the library detects this, warns, and
     // ignores it (its Range reads are unaffected). It appears on every deploy of
-    // the range-served databases, so it is expected, not a per-deploy fault. The
-    // underlying hosting quirk is #475; #499 tracks removing the HEAD (and so this
-    // exception) by supplying the database length via config.
+    // the range-served databases, so it is expected, not a per-deploy fault. This
+    // is an ACCEPTED cosmetic warning, not a pending fix: the library's full mode
+    // ignores a supplied database length, so the HEAD cannot be configured away
+    // (the underlying hosting quirk is #475), and the cold-open latency it hints
+    // at is instead COMMUNICATED to the user by the shared loading affordance
+    // (#499) rather than eliminated.
     pattern: /server responded with gzip encoding to a HEAD request/i,
-    reason: 'sql.js-httpvfs HEAD/gzip warning on Pages - expected (#475); removal tracked in #499',
+    reason: 'sql.js-httpvfs HEAD/gzip warning on Pages - accepted cosmetic (#475); cold-open latency is communicated via the loading affordance (#499)',
   },
 ];
 
