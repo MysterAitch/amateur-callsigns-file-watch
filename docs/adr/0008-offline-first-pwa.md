@@ -38,8 +38,9 @@ Two constraints shape the design:
 ## Decision
 
 Add a service worker (`site/sw.js`) and a web-app manifest
-(`site/manifest.webmanifest`), copied into the deploy by `pages.yml` and linked
-from every hand-authored page. The design has four parts.
+(`site/manifest.webmanifest`), copied into the deploy by the site-build job of
+`.github/workflows/cicd.yaml` (ADR 0019) and linked from every hand-authored page.
+The design has four parts.
 
 1. **Default-online; opt-in offline database.** The worker does **not** touch
    the database by default. The range-request lookup goes straight to the
