@@ -8,7 +8,7 @@ Status: accepted
 The lookup and Explore pages query a published SQLite database directly from
 the browser using `sql.js-httpvfs`, which fetches only the pages it touches via
 HTTP Range requests (`serverMode: 'full'`, 4 KiB chunks). The database is large
-(~28–32 MB for the lookup database, ~257 MB for the master database) and is
+(~28–32 MB for the lookup database, ~257 MB for the combined database) and is
 never committed — it is derived fresh each deploy and served from GitHub Pages,
 with two hosting workarounds: a `.png` extension (so the CDN does not
 gzip-transcode the Range responses and corrupt reads) and a `?v=<commit-sha>`
@@ -45,7 +45,7 @@ The design has four parts.
 1. **Default-online; opt-in offline database.** The worker does **not** touch
    the database by default. The range-request lookup goes straight to the
    network exactly as before. A control on the lookup page lets the visitor
-   download the whole database (lookup database prominently; master database
+   download the whole database (lookup database prominently; combined database
    behind an "advanced" disclosure, clearly labelled ~257 MB). The download
    streams the response, showing the byte size up front (a `HEAD` probe) and a
    progress bar during transfer, stores the whole file in the Cache API, and
@@ -94,7 +94,7 @@ The design has four parts.
   code path.
 - **Memory cost of Range-from-cache.** To avoid re-reading the Cache API on
   every 4 KiB Range request, the worker holds the whole file in memory once
-  read. That is acceptable for the opt-in lookup database (~32 MB); the master
+  read. That is acceptable for the opt-in lookup database (~32 MB); the combined
   database (~257 MB) is a deliberate, clearly-labelled power-user choice and
   will use correspondingly more memory. If this proves heavy on constrained
   devices, a future refinement could slice from a `Blob`/`ReadableStream`
