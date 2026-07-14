@@ -183,7 +183,7 @@ describe('Playground console (live, against a built SQLite)', () => {
     const { statusEl, resultEl } = hostFromPage();
     const rows = await runQuery(query, example('Corpus aggregate').sql, { statusEl, resultEl });
     // One row per snapshot vintage, so the base-table join and GROUP BY run.
-    expect(rows.map(r => r.vintage).sort()).toEqual([V_2016, V_2022, V_2024]);
+    expect(rows.map((r: Record<string, unknown>) => r.vintage).sort()).toEqual([V_2016, V_2022, V_2024]);
   });
 
   it('Console_WhenStatusFoldWindowExampleRun_EvaluatesTheWindowFunction', async () => {

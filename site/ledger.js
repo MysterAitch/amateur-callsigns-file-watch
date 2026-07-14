@@ -510,6 +510,13 @@ export function wireLedgerSearch({ doc, win, runSearch }) {
 // the exact affordance path without a real database worker. runLookup is the
 // default lookup runner; a test may substitute a stub to assert the affordance
 // in isolation.
+/**
+ * The affordance elements are optional (passed straight to withDatabaseLoading,
+ * which guards each); `openDatabase` opens the query worker and is required.
+ * `performLookup` defaults to runLookup and is dependency-injected in tests - the
+ * runner only reads `.entity` off its result, so that is all the contract needs.
+ * @param {{ button?: HTMLButtonElement, statusEl?: HTMLElement, alertEl?: HTMLElement, resultEl?: HTMLElement, doc?: Document, openDatabase: () => unknown, performLookup?: (query: unknown, value: string) => Promise<{ entity: string | null }>, label?: string }} options
+ */
 export function makeLedgerLookup({
   button, statusEl, alertEl, resultEl, doc = document,
   openDatabase, performLookup = runLookup, label = 'claim-ledger database',

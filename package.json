@@ -4,7 +4,7 @@
   "description": "",
   "author": "Roger Howell (M7TEE)",
   "scripts": {
-    "typecheck": "tsc",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.site.json",
     "pull": "node src/sources/ofcom-amateur/scrape.ts",
     "process": "node src/sources/ofcom-amateur/process.ts",
     "migrate-archive": "node src/sources/ofcom-amateur/migrate-archive.ts",

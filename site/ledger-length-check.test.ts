@@ -23,7 +23,9 @@ describe('validateLedgerLength (issue #475 self-check)', { tags: ['ui'] }, () =>
     globalThis.fetch = vi.fn((url: string, opts: { headers: { Range: string } }) => {
       calls.push({ url, opts });
       return Promise.resolve({ status: 206 } as Response);
-    }) as typeof fetch;
+      // The narrow test mock does not model fetch's full overloaded signature, so
+      // bridge through unknown - the self-check only ever calls it as (url, opts).
+    }) as unknown as typeof fetch;
 
     const ok = await validateLedgerLength(manifest, 'https://host/db.', 'sha7');
 

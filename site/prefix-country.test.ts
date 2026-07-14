@@ -99,7 +99,7 @@ describe('countryForCallsign', () => {
     // alone cannot choose between Eswatini and Fiji - list both, never guess.
     const r = countryForCallsign('M/3D2AB', ITU);
     expect(r.status).toBe('ambiguous');
-    expect(r.candidates.map((c) => c.country).sort()).toEqual(['Eswatini (Kingdom of)', 'Fiji (Republic of)']);
+    expect(r.candidates.map((c: { country: string }) => c.country).sort()).toEqual(['Eswatini (Kingdom of)', 'Fiji (Republic of)']);
   });
 
   it('OverlappingRanges_WhenBroadAndNarrowBothContain_NarrowerWins', () => {

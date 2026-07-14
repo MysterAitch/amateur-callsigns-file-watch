@@ -246,6 +246,12 @@ function renderExamples(listEl, inputEl, statusEl) {
 // only guard runs BEFORE the affordance so a bad query is refused without opening
 // the database, and runQuery keeps ownership of the query-phase status, the result
 // table and query-error reporting.
+/**
+ * `form`, `input` and `openDatabase` are required; the remaining affordance
+ * elements are optional (passed through to withDatabaseLoading, which guards
+ * each). `label` names the database in the user-facing messages.
+ * @param {{ form: HTMLFormElement, input: HTMLTextAreaElement, statusEl?: HTMLElement, resultEl?: HTMLElement, alertEl?: HTMLElement, runBtn?: HTMLButtonElement, openDatabase: () => unknown, label?: string }} options
+ */
 export function wireConsole({ form, input, statusEl, resultEl, alertEl, runBtn, openDatabase, label = 'claim-ledger database' }) {
   // Open the database once and memoise it. A rejected open is NOT cached: the
   // memo is cleared on failure so a later Run (or the background warm-up) retries

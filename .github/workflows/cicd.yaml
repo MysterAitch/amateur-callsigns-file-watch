@@ -98,7 +98,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx tsc --noEmit
+      # Both tsc projects: the node-side src build (tsconfig.json) AND the browser
+      # site + its tests (tsconfig.site.json, issue #464). noEmit is set in the
+      # configs, so this is a pure type check.
+      - run: npm run typecheck
       - run: npm run lint
 
   # Derive the heavy matrices from the single source of truth. heavy-tests.json
