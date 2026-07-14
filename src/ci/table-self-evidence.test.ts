@@ -3,6 +3,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { buildClassPages } from './build-class-pages.ts';
+import { injectHomeAggregates } from './build-home-aggregates.ts';
+import { injectDataStatus } from './build-data-status.ts';
+import { buildInterdatasetStats } from './build-interdataset-stats.ts';
 import { tableCaption, escapeHtml } from './site-render.ts';
 
 // Table self-evidence contract (issues #334 / #397). A data table is
@@ -114,6 +117,61 @@ describe('generated tables — self-evidence contract (issues #334 / #397)', () 
       // component's `class="dskey"` wrapper (issues #328 / #310).
       for (const th of html.matchAll(/<th scope="row"[^>]*>([\s\S]*?)<\/th>/g)) {
         expect(th[1], `a row-header identifier is dead text: ${th[0]}`).toContain('<a href="');
+      }
+    }
+  });
+});
+
+// The census / rollup pages (issue #418) build their tables from the committed
+// archive — the same inputs the deploy uses — so the caption guard runs against
+// the real generated markup rather than a fixture. Each generator renders every
+// one of its tables here (including those folded into <details>), so a future
+// edit that adds an uncaptioned table, or drops a caption, fails CI.
+describe('census / rollup tables — self-evidence contract (issue #418)', () => {
+  let statisticsPage: string;
+  let dataStatusPage: string;
+  let interDatasetPage: string;
+
+  beforeAll(() => {
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'census-self-evidence-'));
+    try {
+      const statisticsPath = path.join(scratch, 'statistics.html');
+      fs.copyFileSync(path.join(SITE_DIR, 'statistics.html'), statisticsPath);
+      injectHomeAggregates(statisticsPath);
+      statisticsPage = fs.readFileSync(statisticsPath, 'utf8');
+
+      const dataStatusPath = path.join(scratch, 'data-status.html');
+      fs.copyFileSync(path.join(SITE_DIR, 'data-status.html'), dataStatusPath);
+      injectDataStatus(dataStatusPath);
+      dataStatusPage = fs.readFileSync(dataStatusPath, 'utf8');
+
+      buildInterdatasetStats(scratch, 'https://example.test/site');
+      interDatasetPage = fs.readFileSync(path.join(scratch, 'statistics', 'inter-dataset.html'), 'utf8');
+    } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  }, 600_000);
+
+  it('CensusTables_EveryDataTable_CarriesACaptionNamingIt', () => {
+    for (const [label, html] of [
+      ['statistics page', () => statisticsPage],
+      ['data-status page', () => dataStatusPage],
+      ['inter-dataset statistics page', () => interDatasetPage],
+    ] as const) {
+      const found = tables(html());
+      expect(found.length, `${label} rendered no tables`).toBeGreaterThan(0);
+      for (const table of found) {
+        expect(table, `a table on the ${label} has no <caption>`).toContain('<caption class="table-caption">');
+      }
+    }
+  });
+
+  it('CensusTables_EveryHeaderCell_IsScoped', () => {
+    for (const html of [statisticsPage, dataStatusPage, interDatasetPage]) {
+      for (const table of tables(html)) {
+        for (const th of table.matchAll(/<th(\s[^>]*)?>/g)) {
+          expect(th[1] ?? '', `a header cell is missing scope: ${th[0]}`).toMatch(/scope="(col|row|colgroup|rowgroup)"/);
+        }
       }
     }
   });

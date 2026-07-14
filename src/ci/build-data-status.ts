@@ -35,7 +35,7 @@ import {
   listFoiEntryKeys,
   readFoiEntryMeta,
 } from '../shared/foi-archive.ts';
-import { escapeHtml, humanDate, datasetLabel } from './site-render.ts';
+import { escapeHtml, humanDate, datasetLabel, tableCaption } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const FOI_ARCHIVE_DIR = path.join(REPO_ROOT, 'archive', 'foi');
@@ -589,7 +589,7 @@ export function renderInventoryGrid(rows: DatasetRow[]): string {
       + '</tbody>',
     );
   }
-  return `<div class="overflow"><table class="grid">${head}${sections.join('')}</table></div>`;
+  return `<div class="overflow"><table class="grid">${tableCaption('Every held dataset, grouped by data type, with its vintage, source and processing-stage status')}${head}${sections.join('')}</table></div>`;
 }
 
 // Per-type rollup: for each data type, how many datasets it holds and, per
@@ -612,7 +612,7 @@ export function renderRollup(rows: DatasetRow[]): string {
     bodyRows.push(`<tr><th scope="row">${escapeHtml(CLASS_LABELS[classKey] ?? classKey)}</th>`
       + `<td class="num">${members.length}</td>${cells}</tr>`);
   }
-  return `<div class="overflow"><table><thead><tr><th scope="col">Data type</th>`
+  return `<div class="overflow"><table>${tableCaption('Per data type, how many datasets are held and how many have completed each processing stage')}<thead><tr><th scope="col">Data type</th>`
     + `<th scope="col" class="num">Datasets</th>${stageHead}</tr></thead><tbody>${bodyRows.join('')}</tbody></table></div>`
     + '<p class="muted">Per stage: how many datasets of that type are fully done (✓) and, where relevant, partial (~). Records that are not datasets are excluded.</p>';
 }
@@ -629,7 +629,7 @@ export function renderKnownAbsent(items: KnownAbsent[]): string {
     + `<td>${humaniseVintage(k.vintage)}</td>`
     + `<td><code>${escapeHtml(k.status)}</code></td>`
     + `<td>${escapeHtml(k.action)}</td></tr>`).join('');
-  return `<div class="overflow"><table><thead><tr>`
+  return `<div class="overflow"><table>${tableCaption('Datasets the source register names but the processed archive does not yet hold')}<thead><tr>`
     + '<th scope="col">Dataset (from the register)</th><th scope="col">Vintage</th>'
     + '<th scope="col">Register status</th><th scope="col">Suggested next step</th>'
     + `</tr></thead><tbody>${rows}</tbody></table></div>`

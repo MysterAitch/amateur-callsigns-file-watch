@@ -26,7 +26,7 @@ import {
   type DateColumnStats,
   type CallsignQuality,
 } from '../shared/stats.ts';
-import { humanDate, humaniseLabel } from './site-render.ts';
+import { humanDate, humaniseLabel, tableCaption } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const REFERENCE_DATA_DIR = path.join(REPO_ROOT, 'reference-data');
@@ -52,7 +52,7 @@ function explode(value: string): string {
 // rowHeader emits the first cell of each body row as a <th scope="row"> so a
 // screen reader can resolve which row (e.g. which prefix series) a data cell
 // belongs to - essential for the 2-D locator matrix.
-function tableHtml(headers: string[], rows: (string | number)[][], numericFrom = 1, rawHeaders = false, rawFirstColumn = false, rowHeader = false): string {
+function tableHtml(caption: string, headers: string[], rows: (string | number)[][], numericFrom = 1, rawHeaders = false, rawFirstColumn = false, rowHeader = false): string {
   const th = headers.map((h, i) => `<th scope="col"${i >= numericFrom ? ' class="num"' : ''}>${rawHeaders ? h : escapeHtml(h)}</th>`).join('');
   const body = rows.map(row =>
     `<tr>${row.map((c, i) => {
@@ -60,7 +60,7 @@ function tableHtml(headers: string[], rows: (string | number)[][], numericFrom =
       const cls = i >= numericFrom ? ' class="num"' : '';
       return rowHeader && i === 0 ? `<th scope="row"${cls}>${content}</th>` : `<td${cls}>${content}</td>`;
     }).join('')}</tr>`).join('\n');
-  return `<div class="overflow"><table><thead><tr>${th}</tr></thead>\n<tbody>${body}</tbody></table></div>`;
+  return `<div class="overflow"><table>${tableCaption(caption)}<thead><tr>${th}</tr></thead>\n<tbody>${body}</tbody></table></div>`;
 }
 
 // A richer sibling of tableHtml for the latest-publication statistics
@@ -76,7 +76,7 @@ interface ColumnDef {
   rowHeader?: boolean;
 }
 
-function dataTable(columns: ColumnDef[], rows: (string | number)[][]): string {
+function dataTable(caption: string, columns: ColumnDef[], rows: (string | number)[][]): string {
   const th = columns.map(c => `<th scope="col"${c.num ? ' class="num"' : ''}>${escapeHtml(c.label)}</th>`).join('');
   const body = rows.map(row =>
     `<tr>${row.map((cell, i) => {
@@ -85,7 +85,7 @@ function dataTable(columns: ColumnDef[], rows: (string | number)[][]): string {
       const cls = c.num ? ' class="num"' : '';
       return c.rowHeader ? `<th scope="row"${cls}>${content}</th>` : `<td${cls}>${content}</td>`;
     }).join('')}</tr>`).join('\n');
-  return `<div class="overflow"><table><thead><tr>${th}</tr></thead>\n<tbody>${body}</tbody></table></div>`;
+  return `<div class="overflow"><table>${tableCaption(caption)}<thead><tr>${th}</tr></thead>\n<tbody>${body}</tbody></table></div>`;
 }
 
 // A whole-number percentage share, humanised at the extremes: an exact zero
@@ -149,6 +149,7 @@ export function renderFlagsTableHtml(): string {
   // Each dataset column header links straight to that publication's entry
   // page - the aggregate connects to its provenance in one click.
   return tableHtml(
+    'Data-quality flag counts for every archived open-data publication, newest first',
     ['flag', ...datasets.map(d => `<a href="datasets/open-data/${d.key}/index.html">${d.key}</a>`)],
     [
       ['records', ...datasets.map(d => d.recordCount)],
@@ -222,7 +223,7 @@ export function renderRslMatrixHtml(): string {
   bearing.sort((a, b) => a.callsign.localeCompare(b.callsign));
   if (bearing.length > 0 && bearing.length <= 50) {
     details.push(`<details><summary>RSL-bearing records (${bearing.length})</summary>`
-      + tableHtml(['callsign', 'series', 'RSL'], bearing.map(r => [explode(r.callsign), r.series, r.rsl]), 99)
+      + tableHtml('Records carrying a Regional Secondary Locator in the latest publication', ['callsign', 'series', 'RSL'], bearing.map(r => [explode(r.callsign), r.series, r.rsl]), 99)
       + '</details>');
   }
   for (const [status, n] of excludedEntries) {
@@ -232,7 +233,7 @@ export function renderRslMatrixHtml(): string {
       + `<p class="mono">${escapeHtml(examples.join(', '))}</p></details>`);
   }
 
-  return tableHtml(['series', ...refRsl, ...unknownRsl.map(r => `${escapeHtml(r)} <abbr title="observed in the register but absent from reference data">⚠</abbr>`), '(none)', 'total'], rows, 1, true, true, true)
+  return tableHtml('Callsign counts by prefix series and Regional Secondary Locator in the latest publication', ['series', ...refRsl, ...unknownRsl.map(r => `${escapeHtml(r)} <abbr title="observed in the register but absent from reference data">⚠</abbr>`), '(none)', 'total'], rows, 1, true, true, true)
     + `<p class="muted">In the series column, # marks where the Regional Secondary Locator sits when one is present; (none) = no RSL letter stored on the row — each series links to its own page. Excluded from this table: ${escapeHtml(excludedText)} (populations over 50 are not enumerated below).</p>`
     + details.join('\n');
 }
@@ -255,6 +256,7 @@ export function renderLatestProfileHtml(): string {
   const total = stats.recordCount;
 
   const glance = dataTable(
+    'The latest publication at a glance',
     [{ label: 'measure', rowHeader: true }, { label: 'value', raw: true }],
     [
       ['Publication', `<a href="datasets/open-data/${key}/index.html">${escapeHtml(key)}</a> (${escapeHtml(humanDate(key))})`],
@@ -274,6 +276,7 @@ export function renderLatestProfileHtml(): string {
     `<span class="mono" aria-hidden="true">${asciiBar(n, maxStatus)}</span>`,
   ]);
   const statusTable = dataTable(
+    'How the callsign parser classified each record of the latest publication',
     [
       { label: 'parse status', rowHeader: true },
       { label: 'records', num: true },
@@ -319,6 +322,7 @@ export function renderColumnProfilesHtml(): string {
     ];
   });
   return dataTable(
+    'Population and value range of every column in the latest publication',
     [
       { label: 'column', rowHeader: true },
       { label: 'distinct', num: true },
@@ -351,6 +355,7 @@ export function renderCallsignTaxonomyHtml(): string {
     `<span class="mono" aria-hidden="true">${asciiBar(n, maxTop)}</span>`,
   ]);
   const topTable = dataTable(
+    'The most common callsign shapes in the latest publication',
     [
       { label: 'shape', rowHeader: true, raw: true },
       { label: 'records', num: true },
@@ -366,6 +371,7 @@ export function renderCallsignTaxonomyHtml(): string {
     sharePct(n, total),
   ]);
   const fullTable = dataTable(
+    'Every callsign shape in the latest publication, with record counts',
     [
       { label: 'shape', rowHeader: true, raw: true },
       { label: 'records', num: true },
@@ -404,6 +410,7 @@ export function renderCallsignQualityHtml(): string {
     return [label, result.count.toLocaleString('en-GB'), examples];
   });
   return dataTable(
+    'Callsign-quality detector hit counts for the latest publication',
     [
       { label: 'detector', rowHeader: true },
       { label: 'rows flagged', num: true },
