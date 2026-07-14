@@ -8,6 +8,7 @@
 import { countryForCallsign, stripVisitorPrefix } from './prefix-country.js';
 import { placeholderOf } from './browser-query.js';
 import { callsignPillLink } from './callsign-pill.js';
+import { withDatabaseLoading } from './db-loading.js';
 
 const { createDbWorker } = window;
 
@@ -73,7 +74,12 @@ async function openDatabase() {
   );
 }
 
-const dbPromise = openDatabase();
+// The lookup database's open, kicked off once by the browser bootstrap
+// (initLookup). Held here so the shared query() helper can await it. It is a
+// `let` so importing this module in a test opens no worker: the eager open only
+// happens inside the guarded bootstrap, exactly as it does on Explore and the
+// Playground console.
+let dbPromise = null;
 
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -885,78 +891,137 @@ function applyParamsToForm(params) {
   }
 }
 
-// Any failure in a lookup — most likely the database could not be loaded — is
-// shown loudly (as an alert) in the result region, rather than leaving the
-// "querying…" placeholder to hang silently. This is the fail-loud contract.
-async function runLookup(criteria) {
-  const result = document.getElementById('result');
-  try {
-    await lookup(criteria);
-  } catch (err) {
+// Build the primary lookup runner, routing the database open + query through the
+// shared loading affordance (issue #499): the Look-up button reflects its state
+// (disabled + "Waiting for data…" while the lookup database opens, "Running…"
+// once the query starts), a polite status escalates if the cold open runs long,
+// and a load, query or integrity failure raises the assertive #lookup-alert -
+// identical to Explore and the Playground console. The affordance now OWNS the
+// load-failure announcement, so the in-result fallback below keeps the datasets
+// escape hatch but carries no second role="alert" (assistive tech is not told
+// twice); the "querying…" placeholder can therefore never hang, preserving the
+// fail-loud contract. Dependency-injected and exported so a DOM test can drive
+// the exact submit path with a controlled opener, mirroring playground.js's
+// wireConsole; the bootstrap passes the page's real elements, the eagerly-opened
+// dbPromise and the real lookup renderer.
+//
+// Only the SMALL lookup database's open is wrapped. The lazy master-database
+// opens behind the register-history and FOI-history cards are deliberately left
+// soft-failing to null (see registerHistoryCard / foiHistoryCard / suffixMatrix),
+// so a master hiccup annotates a card as unavailable but never trips this
+// affordance or breaks the lookup.
+export function makeRunLookup({ button, statusEl, alertEl, resultEl, open, lookup: lookupFn, label = 'lookup database' }) {
+  return async function runLookup(criteria) {
+    try {
+      await withDatabaseLoading(
+        { button, statusEl, alertEl, resultEl, label },
+        async (markRunning) => {
+          await open(); // force the cold open before the query starts
+          markRunning();
+          await lookupFn(criteria);
+        },
+      );
+    } catch (err) {
+      console.error(err);
+      // The affordance already raised the assertive #lookup-alert (load vs query
+      // vs integrity) and reset the button; this fallback replaces the "querying…"
+      // placeholder with the datasets escape hatch and carries no role="alert" of
+      // its own, so the failure is announced once, not twice.
+      resultEl.hidden = false;
+      resultEl.replaceChildren(el('div', { class: 'error' }, [
+        'The lookup database could not be loaded or queried. Try reloading the page, or ',
+        el('a', { href: 'datasets/index.html', text: 'browse the datasets' }),
+        ' instead.',
+      ]));
+    }
+    return resultEl;
+  };
+}
+
+// Browser bootstrap. Runs only when the httpvfs UMD loader is present (it
+// attaches createDbWorker), exactly like explore.js and playground.js - so
+// importing this module in a test opens no worker and wires no DOM, leaving the
+// exported helpers (makeRunLookup, the pure query builders) unit-testable.
+function initLookup() {
+  // Kick off the cold open once; the shared query() helper awaits this promise.
+  dbPromise = openDatabase();
+
+  const runLookup = makeRunLookup({
+    button: document.querySelector('#lookup-form button[type="submit"]'),
+    statusEl: document.getElementById('lookup-status'),
+    alertEl: document.getElementById('lookup-alert'),
+    resultEl: document.getElementById('result'),
+    open: () => dbPromise,
+    lookup,
+  });
+
+  document.getElementById('lookup-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const criteria = gatherCriteria();
+    if (criteria.value !== '' || criteriaActive(criteria)) {
+      const url = new URL(window.location.href);
+      url.search = criteriaToParams(criteria).toString();
+      window.history.replaceState(null, '', url);
+      void runLookup(criteria);
+    }
+  });
+
+  void renderBuildInfo();
+
+  const initialParams = new URLSearchParams(window.location.search);
+  // The form field is named "c", so a native submit produces the canonical ?c=.
+  // ?callsign= is also honoured as a legacy alias (older links, and any URL left
+  // from before the field was renamed), so a reload recovers the lookup rather
+  // than ignoring the param. Neither key counts as a filter.
+  const hasFilterParams = [...initialParams.keys()].some(k => k !== 'c' && k !== 'callsign');
+
+  // Fast path: a callsign-only deep link runs immediately (a callsign
+  // lookup ignores filters), without waiting for the filter panel's DISTINCT
+  // scans. The title and scroll make it read as that callsign's own page.
+  if (!hasFilterParams) {
+    const c = initialParams.get('c') ?? initialParams.get('callsign');
+    if (c !== null && c.trim() !== '') {
+      const value = c.trim().toUpperCase();
+      document.getElementById('callsign').value = value;
+      document.title = `${value} — UK amateur callsign`;
+      void runLookup(gatherCriteria()).then(() => document.getElementById('result').scrollIntoView({ block: 'start' }));
+    }
+  }
+
+  // Filter deep links must wait for the checkboxes to exist before ticking
+  // them; a shared filtered-view URL then reproduces the exact result set.
+  populateFilters().then(() => {
+    if (!hasFilterParams) return;
+    applyParamsToForm(initialParams);
+    const criteria = gatherCriteria();
+    if (criteria.value === '' && !criteriaActive(criteria)) return;
+    void runLookup(criteria).then(() => document.getElementById('result').scrollIntoView({ block: 'start' }));
+  }).catch((err) => {
+    // Only reached if wiring the filter panel itself fails (the database-load
+    // path is now owned by runLookup's affordance); surface it loudly rather
+    // than leaving the panel silently empty.
     console.error(err);
+    const result = document.getElementById('result');
     result.hidden = false;
     result.replaceChildren(el('div', { class: 'error', role: 'alert' }, [
-      'The lookup database could not be loaded or queried. Try reloading the page, or ',
+      'The lookup database could not be loaded. Try reloading the page, or ',
       el('a', { href: 'datasets/index.html', text: 'browse the datasets' }),
       ' instead.',
     ]));
+  });
+
+  initOffline();
+
+  // Signal a successful start: cancel the startup-warning timer (index.html) and
+  // hide the warning if it was already shown. Reaching here means the module
+  // loaded and its wiring ran; if a module had failed to load, none of this
+  // executes and the warning surfaces.
+  if (typeof window !== 'undefined' && window.__lookupReadyTimer !== undefined) {
+    clearTimeout(window.__lookupReadyTimer);
   }
-  return result;
+  const startupWarning = document.getElementById('startup-warning');
+  if (startupWarning !== null) startupWarning.hidden = true;
 }
-
-document.getElementById('lookup-form').addEventListener('submit', (event) => {
-  event.preventDefault();
-  const criteria = gatherCriteria();
-  if (criteria.value !== '' || criteriaActive(criteria)) {
-    const url = new URL(window.location.href);
-    url.search = criteriaToParams(criteria).toString();
-    window.history.replaceState(null, '', url);
-    void runLookup(criteria);
-  }
-});
-
-void renderBuildInfo();
-
-const initialParams = new URLSearchParams(window.location.search);
-// The form field is named "c", so a native submit produces the canonical ?c=.
-// ?callsign= is also honoured as a legacy alias (older links, and any URL left
-// from before the field was renamed), so a reload recovers the lookup rather
-// than ignoring the param. Neither key counts as a filter.
-const hasFilterParams = [...initialParams.keys()].some(k => k !== 'c' && k !== 'callsign');
-
-// Fast path: a callsign-only deep link runs immediately (a callsign
-// lookup ignores filters), without waiting for the filter panel's DISTINCT
-// scans. The title and scroll make it read as that callsign's own page.
-if (!hasFilterParams) {
-  const c = initialParams.get('c') ?? initialParams.get('callsign');
-  if (c !== null && c.trim() !== '') {
-    const value = c.trim().toUpperCase();
-    document.getElementById('callsign').value = value;
-    document.title = `${value} — UK amateur callsign`;
-    void runLookup(gatherCriteria()).then(() => document.getElementById('result').scrollIntoView({ block: 'start' }));
-  }
-}
-
-// Filter deep links must wait for the checkboxes to exist before ticking
-// them; a shared filtered-view URL then reproduces the exact result set.
-populateFilters().then(() => {
-  if (!hasFilterParams) return;
-  applyParamsToForm(initialParams);
-  const criteria = gatherCriteria();
-  if (criteria.value === '' && !criteriaActive(criteria)) return;
-  void runLookup(criteria).then(() => document.getElementById('result').scrollIntoView({ block: 'start' }));
-}).catch((err) => {
-  // A database load failure would otherwise leave the filter panel silently
-  // empty; surface it loudly instead.
-  console.error(err);
-  const result = document.getElementById('result');
-  result.hidden = false;
-  result.replaceChildren(el('div', { class: 'error', role: 'alert' }, [
-    'The lookup database could not be loaded. Try reloading the page, or ',
-    el('a', { href: 'datasets/index.html', text: 'browse the datasets' }),
-    ' instead.',
-  ]));
-});
 
 // ---- Offline-first (ADR 0008) ------------------------------------------
 // Registers the service worker (static-shell precache) and drives the
@@ -1138,14 +1203,11 @@ function initOffline() {
   void annotateOfflineSize();
 }
 
-initOffline();
-
-// Signal a successful start: cancel the startup-warning timer (index.html) and
-// hide the warning if it was already shown. Reaching here means the module
-// loaded and its top-level wiring ran; if a module had failed to load, none of
-// this executes and the warning surfaces.
-if (typeof window !== 'undefined' && window.__lookupReadyTimer !== undefined) {
-  clearTimeout(window.__lookupReadyTimer);
+// Run the browser bootstrap only when the httpvfs loader has attached
+// createDbWorker (as vendor/index.js does before this module loads). Guarding it
+// keeps the module import-safe: a unit/JSDOM test importing it for makeRunLookup
+// or the pure query builders opens no worker and wires no DOM. Mirrors
+// explore.js and playground.js.
+if (typeof window !== 'undefined' && typeof window.createDbWorker === 'function') {
+  initLookup();
 }
-const startupWarning = document.getElementById('startup-warning');
-if (startupWarning !== null) startupWarning.hidden = true;

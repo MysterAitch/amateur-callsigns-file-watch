@@ -110,6 +110,12 @@
       register. The <span class="mono">#</span> in a
       <a href="glossary.html#placeholder-form">placeholder form</a> marks the
       optional Regional Secondary Locator slot.</p>
+      <!-- Loading affordance regions (issue #499), shared with Explore and the
+           Playground console: a polite status while the lookup database opens and
+           runs, and an assertive alert if the load or query fails. app.js drives
+           both through db-loading.js. -->
+      <p id="lookup-status" class="muted" role="status"></p>
+      <p class="db-alert" id="lookup-alert" role="alert" hidden></p>
       <div id="result" hidden></div>
     </section>
 
