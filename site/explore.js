@@ -179,7 +179,11 @@ function renderExamples() {
     button.addEventListener('click', () => {
       document.getElementById('db-select').value = example.db;
       document.getElementById('sql-input').value = example.sql;
-      document.getElementById('sql-status').textContent = `loaded (${example.db} database) — press Run`;
+      // Say plainly what happened: the example QUERY is now in the editor (and
+      // which database it selected). "loaded" alone collides with the loading
+      // affordance's "Loading the … database" - here nothing has been loaded yet,
+      // the query is just ready to run.
+      document.getElementById('sql-status').textContent = `Example query ready in the editor — ${DB_LABELS[example.db] ?? example.db} selected. Press Run.`;
     });
     list.append(button, el('span', { class: 'muted', text: ` ${example.db} ` }));
     list.append(el('br'));
