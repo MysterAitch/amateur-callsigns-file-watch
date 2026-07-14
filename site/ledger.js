@@ -20,6 +20,7 @@ import {
   fidelityOf,
   reportIssueUrl,
 } from './ledger-query.js';
+import { withDatabaseLoading } from './db-loading.js';
 
 const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
 // A bold node carrying safe text. Every database-derived value is written with
@@ -491,44 +492,80 @@ export function wireLedgerSearch({ doc, win, runSearch }) {
   if (initial !== '') void search(initial, 'replace');
 }
 
+// ---- Lookup runner (loading affordance) ------------------------------------
+// Build the callsign-lookup runner that the search wiring drives. The database
+// open + lookup run through the shared loading affordance (issue #499), so the
+// first-use wait is communicated exactly as it is on Explore and the Playground:
+// the Look up button is disabled and reads "Waiting for data…" while the
+// database opens, flips to "Running…" once the query starts, a polite status
+// escalates if the cold open runs long, and a load failure raises the assertive
+// #lookup-alert. The surface keeps ownership of its own result rendering
+// (runLookup populates the timeline / anatomy / dossier) and the resolved-status
+// messaging. The claim-ledger database is served chunked (a fast length, no cold
+// HEAD stall), but the affordance is applied anyway so every query surface reads
+// identically.
+//
+// Dependency-injected (the button/status/alert/result elements, the async
+// database opener, and the lookup runner) and exported, so a JSDOM test drives
+// the exact affordance path without a real database worker. runLookup is the
+// default lookup runner; a test may substitute a stub to assert the affordance
+// in isolation.
+export function makeLedgerLookup({
+  button, statusEl, alertEl, resultEl, doc = document,
+  openDatabase, performLookup = runLookup, label = 'claim-ledger database',
+}) {
+  // Open the database once and memoise it. A rejected open is NOT cached: the
+  // memo is cleared on failure so a later search retries rather than being stuck
+  // on a transient error. A subsequent search reuses the warm open.
+  let queryPromise = null;
+  const getQuery = () => {
+    queryPromise ??= Promise.resolve(openDatabase())
+      .catch((err) => { queryPromise = null; throw err; });
+    return queryPromise;
+  };
+
+  const lookup = (value) => {
+    if (value === '') return Promise.resolve();
+    return withDatabaseLoading(
+      { button, statusEl, alertEl, resultEl, label },
+      async (markRunning) => {
+        const query = await getQuery();
+        markRunning();
+        const resolved = await performLookup(query, value);
+        // The surface owns its resolved-status line; the affordance leaves the
+        // status untouched on success, so this is the message the user is left
+        // with (the miss text is rendered into #miss by the lookup runner).
+        if (statusEl) {
+          statusEl.textContent = resolved.entity === null
+            ? `No observation for ${value} in the subset.`
+            : `Resolved ${value} → ${resolved.entity}.`;
+        }
+        for (const chip of doc.querySelectorAll('#resolver .chip')) {
+          chip.setAttribute('aria-pressed', String(chip.dataset.cs === value));
+        }
+        return resolved;
+      },
+      // The affordance owns the load-failure alert and the button state; there
+      // is nothing more to render here, so swallow the rethrow.
+    ).catch(() => {});
+  };
+
+  return { lookup };
+}
+
 // ---- Browser bootstrap (guarded) -------------------------------------------
 // Runs only in a real browser with the httpVFS loader present. A unit/JSDOM
 // test importing this module for its render/param functions never trips this,
 // so importing the module opens no worker.
 function initLedgerPage() {
-  const status = document.getElementById('lookup-status');
-  const setStatus = (text, isError) => {
-    if (!status) return;
-    status.textContent = text;
-    status.classList.toggle('is-error', isError === true);
-  };
-  const queryPromise = (async () => {
-    try {
-      return await openLedgerQuery();
-    } catch (err) {
-      console.error(err);
-      setStatus('The claim-ledger database could not be loaded. Try reloading the page.', true);
-      throw err;
-    }
-  })();
-
-  const lookup = async (value) => {
-    if (value === '') return;
-    setStatus(`Querying the ledger for ${value}…`);
-    try {
-      const query = await queryPromise;
-      const resolved = await runLookup(query, value);
-      setStatus(resolved.entity === null
-        ? `No observation for ${value} in the subset.`
-        : `Resolved ${value} → ${resolved.entity}.`);
-      for (const chip of document.querySelectorAll('#resolver .chip')) {
-        chip.setAttribute('aria-pressed', String(chip.dataset.cs === value));
-      }
-    } catch (err) {
-      console.error(err);
-      setStatus(`The lookup for ${value} failed. Try reloading the page.`, true);
-    }
-  };
+  const { lookup } = makeLedgerLookup({
+    button: document.querySelector('#lookup-form button'),
+    statusEl: document.getElementById('lookup-status'),
+    alertEl: document.getElementById('lookup-alert'),
+    resultEl: document.getElementById('entity'),
+    openDatabase: openLedgerQuery,
+    label: 'claim-ledger database',
+  });
 
   wireLedgerSearch({ doc: document, win: window, runSearch: lookup });
 }
