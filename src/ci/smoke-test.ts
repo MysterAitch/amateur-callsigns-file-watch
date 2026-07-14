@@ -202,6 +202,12 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   console.log(`smoke-test passed (${baseUrl})`);
+  // Exit explicitly on success, as the failure paths above already do. Node's
+  // global fetch (undici) keeps its connection pool's sockets alive after the
+  // last request, and those open handles keep the event loop - and so the
+  // process, and the CI job - running until they idle out many minutes later.
+  // The checks are complete here, so terminate rather than linger on keep-alive.
+  process.exit(0);
 }
 
 if (import.meta.main) {
