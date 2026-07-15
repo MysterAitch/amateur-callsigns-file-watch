@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { buildClassPages } from './build-class-pages.ts';
 import { setAsideLinesSection } from './build-dataset-pages.ts';
-import { datasetLabel, callsignPill, escapeHtml } from './site-render.ts';
+import { datasetLabel, callsignPill, escapeHtml, exploreDeepLink } from './site-render.ts';
 
 // Shared affordance layer (issues #310 / #328). The site renders callsigns and
 // dataset identifiers on many surfaces; the value of the shared components is
@@ -55,6 +55,40 @@ describe('datasetLabel component (issue #328)', { tags: ['unit'] }, () => {
   it('DatasetLabel_Trailing_SlotsCallerMarkupBetweenNameAndKey', () => {
     const html = datasetLabel('Name', 'key', { href: 'h', trailing: ' <span class="muted">(also X)</span>' });
     expect(html).toBe('<a href="h">Name</a> <span class="muted">(also X)</span><span class="dstitle"><span class="mono">key</span></span>');
+  });
+});
+
+// The Explore-console deep link (issue #333): a report reference that describes
+// a SPECIFIC filtered view should send the reader to exactly that pre-filtered
+// query in the interactive console, not the empty tool they must re-filter. The
+// helper builds the ?db=/?sql= link the console (site/explore.js) reads on load;
+// these guards pin the round-trip so a generated href always decodes back to the
+// exact database and query — the "lands on the RIGHT set" contract.
+describe('exploreDeepLink component (issue #333)', { tags: ['unit'] }, () => {
+  it('ExploreDeepLink_WithDbAndQuery_BuildsAConsoleUrlThatDecodesBackToThem', () => {
+    const sql = "SELECT * FROM register_history WHERE dataset = '2026-06-23' ORDER BY callsign";
+    const href = exploreDeepLink('../../../', 'combined', sql);
+    // The console lives at the caller's relative depth and carries both params.
+    expect(href.startsWith('../../../explore.html?')).toBe(true);
+    // The params are joined with the HTML entity so the href is valid inside a
+    // double-quoted attribute (the site-wide convention for hand-authored links).
+    expect(href).toContain('&amp;');
+    // Parsing the href the way the browser (and explore.js) does recovers the
+    // EXACT database and query — so the link lands on precisely the described set.
+    const params = new URLSearchParams(href.split('?')[1].replace(/&amp;/g, '&'));
+    expect(params.get('db')).toBe('combined');
+    expect(params.get('sql')).toBe(sql);
+  });
+
+  it('ExploreDeepLink_QueryWithSpacesAndOperators_IsPercentEncodedNotRawInTheHref', () => {
+    // A raw space or & in the query would break the attribute or the param
+    // boundary; the encoded href must still round-trip to the original query.
+    const sql = "SELECT * FROM t WHERE a = 'x' AND b = 'y'";
+    const href = exploreDeepLink('', 'latest', sql);
+    expect(href).not.toContain('sql=SELECT *'); // spaces encoded, never literal
+    const params = new URLSearchParams(href.split('?')[1].replace(/&amp;/g, '&'));
+    expect(params.get('db')).toBe('latest');
+    expect(params.get('sql')).toBe(sql);
   });
 });
 

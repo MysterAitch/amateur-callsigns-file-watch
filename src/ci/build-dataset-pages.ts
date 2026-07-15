@@ -55,6 +55,7 @@ import {
   entryPage,
   callsignPill,
   datasetLabel,
+  exploreDeepLink,
   glossaryTerm,
   tableCaption,
   type CallsignComponents,
@@ -1038,7 +1039,12 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     datasetNavSidebar(key, summaries, foiEntries),
     '<div class="col">',
     `<section class="browser" data-dataset="${escapeHtml(key)}"><h2>Browse the data</h2>`,
-    `<p class="lead">The <b>normalised</b> register — the canonical shape, not the raw file (inspect <code>raw.csv</code> below for that). Showing the first rows of ${stats.recordCount.toLocaleString('en-GB')} (${(summaries.find(s => s.key === key)?.allocated ?? 0).toLocaleString('en-GB')} allocated callsigns); download <code>normalised.csv</code> for all, or query it on the <a href="../../../explore.html">Explore</a> page.</p>`,
+    // Deep-link the "query it" hand-off (issue #333) to the Explore console
+    // PRE-FILTERED to this publication's rows, rather than the empty tool the
+    // reader must then re-scope. register_history holds one row per normalised
+    // record keyed by `dataset`, so `WHERE dataset = <key>` is exactly this
+    // publication's normalised register — the very set the sentence names.
+    `<p class="lead">The <b>normalised</b> register — the canonical shape, not the raw file (inspect <code>raw.csv</code> below for that). Showing the first rows of ${stats.recordCount.toLocaleString('en-GB')} (${(summaries.find(s => s.key === key)?.allocated ?? 0).toLocaleString('en-GB')} allocated callsigns); download <code>normalised.csv</code> for all, or <a href="${exploreDeepLink('../../../', 'combined', `SELECT * FROM register_history WHERE dataset = '${key.replace(/'/g, "''")}' ORDER BY callsign`)}">query this publication on the Explore console</a> — pre-filtered to its rows.</p>`,
     `<div class="browser-static">${csvPreviewTable(path.join(sourceDir, 'normalised.csv'), 3)}</div>`,
     ignoredNote,
     '</section>',

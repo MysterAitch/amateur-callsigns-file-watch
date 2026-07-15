@@ -30,3 +30,19 @@ export function externalLink(href: string, text: string, options: { escapeText?:
   const label = options.escapeText === false ? text : escapeHtml(text);
   return `<a href="${href}" target="_blank" rel="noopener">${label} <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>`;
 }
+
+// A deep link into the interactive Explore SQL console (site/explore.js),
+// pre-filled with a specific database and query (issue #333). When a report
+// sentence describes a SPECIFIC filtered view, it should send the reader to
+// exactly that pre-filtered query rather than the empty tool they must
+// re-filter; the console reads ?db= and ?sql= on load, pre-fills its controls,
+// announces the pre-filled state and auto-runs a well-formed query. `relToRoot`
+// places explore.html at the caller's relative depth (e.g. '../../../' from a
+// dataset entry page). The query is percent-encoded and the two params are
+// joined with the &amp; entity so the href is valid inside a double-quoted
+// attribute — the same convention the hand-authored explore.html?…sql= links
+// use. With JavaScript off the link still lands on the console with the query
+// visible and editable, so the no-JS fallback stays meaningful.
+export function exploreDeepLink(relToRoot: string, db: string, sql: string): string {
+  return `${relToRoot}explore.html?db=${encodeURIComponent(db)}&amp;sql=${encodeURIComponent(sql)}`;
+}
