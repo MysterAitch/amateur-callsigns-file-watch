@@ -3,9 +3,12 @@
 /**
  * Builds the published SQLite database for the GitHub Pages lookup
  * (issue #17 proof of concept): the latest dataset's normalised rows and
- * components, statistics for every dataset, and the reference-data tables -
- * everything the presentation stratum needs to answer "tell me about
- * M7TEE" with one database.
+ * components, the precomputed series x RSL matrix, and the reference-data
+ * tables - everything the in-browser lookup joins against to answer "tell me
+ * about M7TEE" with one database. The per-publication statistics pivot the
+ * lookup once carried here now folds directly from the committed stats.json
+ * (renderFlagsTableHtml in build-home-aggregates.ts), so those tables no
+ * longer ship in this database.
  *
  * DELIBERATELY NOT COMMITTED: SQLite files are not byte-deterministic, so
  * the database lives outside the golden-master lane - it is built fresh by
@@ -20,7 +23,6 @@ import { DatabaseSync } from 'node:sqlite';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
-import { type EntryStats } from '../shared/stats.ts';
 import { buildFoiObservations, renderObservationsCsvBuffer, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
 import { time, timeAsync, perfReport } from '../shared/perf.ts';
 import { gzipFileToFile, gzipBufferToFile, gzipManyFilesToFiles, type GzipJob } from '../shared/gzip.ts';
@@ -160,33 +162,12 @@ export function buildSqlite(outputPath: string): { datasetKey: string; tables: R
   // Plain index, never UNIQUE: duplicates are expected and deliberate.
   db.exec('CREATE INDEX idx_components_cleaned ON components("cleaned")');
 
-  // Statistics for EVERY dataset (long format - easy to pivot in SQL).
-  const datasets: string[][] = [];
-  const statsFlags: string[][] = [];
-  const statsStatuses: string[][] = [];
-  const statsPatterns: string[][] = [];
-  for (const key of keys) {
-    const statsPath = path.join(CONSTANTS.DIRS.archive, key, 'stats.json');
-    if (!fs.existsSync(statsPath)) continue;
-    const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8')) as EntryStats;
-    datasets.push([key, String(stats.recordCount), String(stats.statsSchemaVersion)]);
-    for (const [flag, count] of Object.entries(stats.callsignFlags ?? {})) statsFlags.push([key, flag, String(count)]);
-    for (const [status, count] of Object.entries(stats.parseStatuses ?? {})) statsStatuses.push([key, status, String(count)]);
-    for (const [pattern, count] of Object.entries(stats.callsignPatterns)) statsPatterns.push([key, pattern, String(count)]);
-  }
-  createAndFill('datasets', ['key', 'record_count', 'stats_schema_version'], datasets);
-  createAndFill('stats_flags', ['dataset', 'flag', 'count'], statsFlags, 'flag');
-  createAndFill('stats_statuses', ['dataset', 'status', 'count'], statsStatuses);
-  createAndFill('stats_patterns', ['dataset', 'pattern', 'count'], statsPatterns, 'pattern');
-
   // Reference data (the meanings the lookup joins against).
   const ref = (name: string): Record<string, string>[] => readCsv(path.join(REFERENCE_DATA_DIR, name));
   const rsl = ref('rsl.csv');
   createAndFill('ref_rsl', Object.keys(rsl[0]), objectRows(rsl, Object.keys(rsl[0])), 'rsl');
   const prefixes = ref('prefix-formats.csv');
   createAndFill('ref_prefix_formats', Object.keys(prefixes[0]), objectRows(prefixes, Object.keys(prefixes[0])), 'prefix');
-  const special = ref('special-formats.csv');
-  createAndFill('ref_special_formats', Object.keys(special[0]), objectRows(special, Object.keys(special[0])));
   const forbidden = ref('forbidden-suffixes.csv');
   createAndFill('ref_forbidden_suffixes', ['suffix'], forbidden.map(r => [r.suffix]), 'suffix');
   const itu = ref('itu-call-sign-series.csv');
@@ -195,36 +176,16 @@ export function buildSqlite(outputPath: string): { datasetKey: string; tables: R
   const registry = parseFlagRegistry();
   createAndFill('flag_registry', ['flag', 'meaning', 'grounding'], registry.map(r => [r.flag, r.meaning, r.grounding]), 'flag');
 
-  // Precomputed primary-by-secondary locator matrix: a GROUP BY over the
-  // full components table would be prohibitively chatty over the site's
-  // range-request VFS, so the handful of aggregate rows ship ready-made.
+  // Precomputed series x RSL locator matrix: a GROUP BY over the full
+  // components table would be prohibitively chatty over the site's
+  // range-request VFS, so the handful of aggregate rows ship ready-made
+  // for the interactive query examples (site/explore.js).
   time('sqlite:aggregate-tables', () => {
   db.exec(`CREATE TABLE rsl_matrix AS
     SELECT prefix_series AS series, rsl, COUNT(*) AS n
     FROM components WHERE parse_status = 'parsed'
     GROUP BY prefix_series, rsl`);
   counts['rsl_matrix'] = Number((db.prepare('SELECT COUNT(*) AS c FROM rsl_matrix').get() as { c: number | bigint }).c);
-
-  // Matrix elaborations, also precomputed for the same reason: exclusion
-  // counts for the caption, capped example lists, and the (few) RSL-bearing
-  // rows enumerated in full - the interesting finds behind a details block.
-  db.exec(`CREATE TABLE matrix_excluded AS
-    SELECT parse_status AS status, COUNT(*) AS n
-    FROM components WHERE parse_status != 'parsed'
-    GROUP BY parse_status`);
-  db.exec(`CREATE TABLE excluded_examples AS
-    SELECT status, callsign FROM (
-      SELECT parse_status AS status, callsign,
-             ROW_NUMBER() OVER (PARTITION BY parse_status ORDER BY callsign) AS rn
-      FROM components WHERE parse_status != 'parsed'
-    ) WHERE rn <= 50`);
-  db.exec(`CREATE TABLE rsl_bearing AS
-    SELECT callsign, prefix_series AS series, rsl
-    FROM components WHERE parse_status = 'parsed' AND rsl != ''
-    ORDER BY callsign`);
-  for (const table of ['matrix_excluded', 'excluded_examples', 'rsl_bearing']) {
-    counts[table] = Number((db.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get() as { c: number | bigint }).c);
-  }
   });
 
   db.exec('CREATE TABLE build_info (key TEXT, value TEXT)');
