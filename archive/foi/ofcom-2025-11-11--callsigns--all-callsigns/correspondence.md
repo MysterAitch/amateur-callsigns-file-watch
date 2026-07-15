@@ -48,16 +48,22 @@
     callsign — a spreadsheet artefact that duplicated the mangled value into an
     adjacent row's overflow column. Each token also appears exactly once as its
     own proper field-1 callsign row, so these 29 occurrences are **redundant
-    stray copies — no unique callsign survives only here.** Preserved verbatim
-    in the raw; dropped from the normalised projection (the projection carries
-    the six documented columns). Recorded here rather than silently discarded.
-    Deserialisation fidelity was checked directly: fields 7–10 are empty on
-    every one of the 159,895 rows (only the 11th ever carries), the five
-    trailing columns collapse to a single unnamed column holding that 11th
-    value, and the six documented columns — column 6 `Original_start_date__c`
-    in particular — match the raw bytes on every row, including all 29 anomaly
-    rows (zero mismatches). The collapse therefore loses nothing of substance
-    from the recorded columns.
+    stray copies — no unique callsign survives only here.** They are preserved
+    verbatim in the raw and carried into the claim ledger (in `unknown-5`, see
+    below); the normalised projection drops them (it carries the six documented
+    columns). Recorded here, never silently discarded.
+  - **Round-trip fidelity via a shape-only extract.** The raw export appends
+    five empty-named trailing columns; a naïve CSV parse collapses those five
+    duplicate empty headers into one, losing the true column count so the raw
+    cannot be reconstructed losslessly. The remedy is a committed
+    `raw-extract-*.csv` that is **byte-for-byte the raw with only the five empty
+    header names filled in** (`unknown-1…unknown-5`) and LF endings — a
+    shape/parsing edit, **no data cell touched** (proven row-for-row by a
+    committed self-check). All eleven columns then survive distinctly: the
+    six documented ones map to the normalised projection, `unknown-1…4` are
+    empty on every row, and `unknown-5` holds the 29 stray tokens. The claim
+    ledger and the reconstruction oracle read this extract, so the source
+    round-trips byte-identically and nothing — including the strays — is lost.
   - **16 callsigns with lower-case letters**; preserved letter-for-letter.
   - **3 callsigns carrying a trailing non-breaking space** (`G7IWE`, `G0TQK`,
     `2E1HON`) — the file's non-ASCII content; the trailing `0xA0` is trimmed

@@ -918,7 +918,15 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
   // original-start column carries the recurring 1903-05-03 migration floor.
   'ofcom-2025-11-11-register': [
     {
-      sourceFile: 'amateur-callsigns-11-nov-2025.csv',
+      // The converter reads raw-extract-*.csv, not the raw file directly: the
+      // raw open-data CSV appends five empty-named trailing columns, which
+      // csv-parse collapses to one, losing the true column count so the raw
+      // cannot round-trip. The extract is byte-for-byte the raw with only the
+      // five empty header names filled in (unknown-1..5) - a shape/parsing-only
+      // edit, no data touched (asserted row-for-row by the entry's round-trip
+      // self-check). All eleven columns then survive distinctly and the source
+      // reconstructs losslessly.
+      sourceFile: 'raw-extract-amateur-callsigns-11-nov-2025.csv',
       encoding: 'utf8',
       columns: [
         { source: 'Callsign', output: 'callsign', kind: 'verbatim' },
@@ -927,9 +935,11 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
         { source: 'Licence_Version.LastModifiedDate', output: 'last_modified_date', kind: 'date' },
         { source: 'Licence_Version.Original_start_date__c', output: 'original_start_date', kind: 'date' },
       ],
-      // 'Type__c' is 'Call Sign - Amateur' on every row; '' is the collapsed
-      // trailing empty-column artefact of the open-data CSV export.
-      ignoredColumns: ['Type__c', ''],
+      // 'Type__c' is 'Call Sign - Amateur' on every row; unknown-1..5 are the
+      // five empty trailing columns (empty except a stray Excel-mangled token
+      // on 29 rows in unknown-5 - carried in the ledger, dropped from this
+      // projection).
+      ignoredColumns: ['Type__c', 'unknown-1', 'unknown-2', 'unknown-3', 'unknown-4', 'unknown-5'],
       rowOrder: 'sorted-by-first-column',
       orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability',
       referenceDateIso: '2025-11-11',
