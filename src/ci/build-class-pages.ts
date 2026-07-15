@@ -33,6 +33,7 @@ import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, FOI_DATASET_CLASSES } from '../shared/foi-archive.ts';
 import { escapeHtml, humanDate, humaniseLabel, breadcrumbHtml, htmlPage, glossaryTerm, tableCaption, datasetLabel } from './site-render.ts';
+import { datasetClassOverview, humaniseClassKey, type DatasetClassOverview } from './dataset-class-overviews.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
@@ -96,11 +97,40 @@ const LANE_LABEL: Record<ClassMember['lane'], string> = {
   'foi': 'FOI',
 };
 
-// One per-class page: the class prose as the header, then a table of every
-// entry (both lanes) carrying the class, newest first. Depth 2
-// (datasets/classes/), so entries are one level up under their lane.
+// The authored overview body for a dataset type (issue #470): the shape of a
+// row, its provenance and quirks, the sibling types it relates to, and the
+// glossary terms worth a click. Returns the section fragments to splice into
+// the page; empty when a class has no authored overview yet (defensive — the
+// completeness test pins one to every vocabulary class), so such a class still
+// renders as the definition-plus-listing it always was.
+function overviewSection(cls: string, overview: DatasetClassOverview | undefined): string[] {
+  if (overview === undefined) return [];
+  // Only relate to types that are real vocabulary members, so a link can never
+  // dangle even if the authored copy references a retired class.
+  const related = overview.relatedTypes
+    .filter(rt => Object.prototype.hasOwnProperty.call(FOI_DATASET_CLASSES, rt.cls))
+    .map(rt => `<li><a href="${classSlug(rt.cls)}.html">${escapeHtml(humaniseClassKey(rt.cls))}</a> (<code>${escapeHtml(rt.cls)}</code>) — ${escapeHtml(rt.relation)}</li>`);
+  const glossaryLinks = overview.glossary.map(anchor => glossaryTerm(anchor, 2)).join(', ');
+  return [
+    '<h2>Shape of the data</h2>',
+    `<p>${escapeHtml(overview.shape)}</p>`,
+    '<h2>Provenance and quirks</h2>',
+    `<p>${escapeHtml(overview.provenanceAndQuirks)}</p>`,
+    related.length === 0 ? '' : '<h2>How it relates to other dataset types</h2>',
+    related.length === 0 ? '' : `<ul>${related.join('')}</ul>`,
+    glossaryLinks === '' ? '' : `<p><small>Related glossary terms: ${glossaryLinks}.</small></p>`,
+  ].filter(s => s !== '');
+}
+
+// One per-type page: a full dataset overview (issue #470) — what this kind of
+// data is, the shape of a row, its provenance and quirks, and how it relates to
+// the other types — followed by a table of every entry (both lanes) that
+// carries the type, newest first. Depth 2 (datasets/classes/), so entries are
+// one level up under their lane.
 function classPage(cls: string, members: ClassMember[]): string {
   const definition = FOI_DATASET_CLASSES[cls];
+  const overview = datasetClassOverview(cls);
+  const human = humaniseClassKey(cls);
   const carrying = members.filter(m => m.classes.includes(cls)).sort(byVintageDesc);
   const openDataCount = carrying.filter(m => m.lane === 'open-data').length;
   const foiCount = carrying.length - openDataCount;
@@ -122,26 +152,33 @@ function classPage(cls: string, members: ClassMember[]): string {
     : '';
 
   const body = [
-    breadcrumbHtml([['Datasets', '../index.html'], ['Dataset classes', 'index.html'], [cls, undefined]]),
-    `<h1>Dataset class <code>${escapeHtml(cls)}</code></h1>`,
+    breadcrumbHtml([['Datasets', '../index.html'], ['Dataset classes', 'index.html'], [human, undefined]]),
+    // Human-readable type name as the heading, with the exact vocabulary key
+    // kept alongside so the code term (used in meta.json and the validator) is
+    // never lost.
+    `<h1>${escapeHtml(human)} <small class="typekey"><code>${escapeHtml(cls)}</code></small></h1>`,
+    `<p class="lead">An overview of the <b>${escapeHtml(human)}</b> dataset type: what it is, the shape of its data, where it comes from and its quirks, and how it relates to the other ${glossaryTerm('dataset-class', 2, { label: 'dataset types' })} — with every archived entry that carries it.</p>`,
+    '<h2>What it is</h2>',
     definition === undefined
-      ? `<p>No registry definition exists for this class; it is listed plainly, by name.</p>`
+      ? `<p>No registry definition exists for this type; it is listed plainly, by name.</p>`
       : `<p>${escapeHtml(definition)}.</p>`,
     `<p><small>Definition from the dataset-class vocabulary in <a href="../docs/foi-schemas.html">the FOI dataset schemas</a> — the same object the FOI validator enforces. Membership is <b>declared</b> (from each entry’s <code>meta.json</code>, or, for the open-data lane, from its shape), not verified.</small></p>`,
     registerSnapshotNote,
-    `<p>${carrying.length} ${carrying.length === 1 ? 'entry' : 'entries'} carry this class — ${openDataCount} open-data, ${foiCount} FOI.</p>`,
+    ...overviewSection(cls, overview),
+    `<h2>Archived entries of this type</h2>`,
+    `<p>${carrying.length} ${carrying.length === 1 ? 'entry carries' : 'entries carry'} this type — ${openDataCount} open-data, ${foiCount} FOI.</p>`,
     '<table>',
-    tableCaption(`Archived entries carrying the ${cls} class`),
+    tableCaption(`Archived entries carrying the ${cls} type`),
     '<thead>',
-    `<tr><th scope="col">entry</th><th scope="col">collection</th><th scope="col">${glossaryTerm('vintage', 2, { label: 'vintage' })}</th><th scope="col">${glossaryTerm('dataset-class', 2, { label: 'other classes' })}</th></tr>`,
+    `<tr><th scope="col">entry</th><th scope="col">collection</th><th scope="col">${glossaryTerm('vintage', 2, { label: 'vintage' })}</th><th scope="col">${glossaryTerm('dataset-class', 2, { label: 'other types' })}</th></tr>`,
     '</thead>',
     '<tbody>',
     ...rows,
     '</tbody>',
     '</table>',
-    '<p><a href="index.html">All dataset classes →</a></p>',
+    '<p><a href="index.html">All dataset types →</a></p>',
   ].filter(s => s !== '');
-  return htmlPage(`Dataset class ${cls}`, 2, body, { currentNav: 'Dataset index', sourcePath: 'archive' });
+  return htmlPage(`${human} dataset overview`, 2, body, { currentNav: 'Dataset index', sourcePath: 'archive' });
 }
 
 // The class index: every class in the vocabulary that has at least one entry,
@@ -149,12 +186,14 @@ function classPage(cls: string, members: ClassMember[]): string {
 function classIndexPage(present: { cls: string; count: number }[]): string {
   const rows = present.map(({ cls, count }) => {
     const definition = FOI_DATASET_CLASSES[cls];
-    return `<tr><th scope="row"><a href="${classSlug(cls)}.html"><code>${escapeHtml(cls)}</code></a></th><td>${definition === undefined ? '<span style="color:var(--muted)">—</span>' : escapeHtml(definition)}</td><td class="n">${count}</td></tr>`;
+    // The exact vocabulary key stays the linked <code> chip (used everywhere and
+    // asserted by the affordance tests); the humanised name reads alongside it.
+    return `<tr><th scope="row"><a href="${classSlug(cls)}.html"><code>${escapeHtml(cls)}</code></a> <span class="typename">${escapeHtml(humaniseClassKey(cls))}</span></th><td>${definition === undefined ? '<span style="color:var(--muted)">—</span>' : escapeHtml(definition)}</td><td class="n">${count}</td></tr>`;
   });
   const body = [
     breadcrumbHtml([['Datasets', '../index.html'], ['Dataset classes', undefined]]),
-    '<h1>Dataset classes</h1>',
-    `<p>Every archived dataset carries one or more ${glossaryTerm('dataset-class', 2, { label: 'dataset classes' })} — the entry-level vocabulary that says what kind of data it is (a ${glossaryTerm('register-snapshot', 2, { label: 'register snapshot' })}, an availability pool, a ${glossaryTerm('forbidden-suffix', 2, { label: 'forbidden-suffix' })} list, and so on). Each class below lists every entry that carries it, across both the Ofcom open-data and the FOI collections. The definitions are the authored vocabulary the FOI validator enforces; membership is <b>declared</b>, not verified.</p>`,
+    '<h1>Dataset types</h1>',
+    `<p>Every archived dataset carries one or more ${glossaryTerm('dataset-class', 2, { label: 'dataset types' })} — the entry-level vocabulary that says what kind of data it is (a ${glossaryTerm('register-snapshot', 2, { label: 'register snapshot' })}, an availability pool, a ${glossaryTerm('forbidden-suffix', 2, { label: 'forbidden-suffix' })} list, and so on). Each type below links to a full <b>overview</b> — what that kind of data is, the shape of a row, its provenance and quirks, and every entry that carries it, across both the Ofcom open-data and the FOI collections. The definitions are the authored vocabulary the FOI validator enforces; membership is <b>declared</b>, not verified.</p>`,
     '<table>',
     tableCaption('Dataset classes in the vocabulary, with a definition and entry count'),
     '<thead>',
