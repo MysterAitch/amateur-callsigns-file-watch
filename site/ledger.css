@@ -123,15 +123,50 @@
 .ledger .verdict.flat { background: var(--steady-soft); color: var(--steady); }
 .ledger .verdict.moved { background: var(--change-soft); color: var(--change); }
 
-/* Timeline */
-.ledger .tl { padding: 6px 4px; }
-/* minmax(0,1fr) + min-width:0 let the body column shrink so its chips wrap
-   instead of overflowing and being clipped along the card's rounded edge. */
-.ledger .tl-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; align-items: start;
-  padding: 7px 14px; position: relative; }
-.ledger .tl-row .vint { font-family: var(--mono); font-size: 12.5px; color: var(--muted); padding-top: 2px;
-  font-variant-numeric: tabular-nums; }
-.ledger .tl-row .body { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+/* Activity-style vertical timeline (issue #466). The entity STATUS timeline and
+   the per-note "seen in" SOURCE lists share this one component: a connecting
+   spine down the left, a dot per event, the event + its context on the left and
+   its date on the right (with an optional de-emphasised precise timestamp
+   below). Grouped by year; a long list tucks its overflow years behind a
+   <details>. The markup is semantic (<ol>/<li> + <time>) so it reads with no
+   JavaScript and conveys order/dates to assistive tech; the spine and dots are
+   aria-hidden decoration, and every event carries a text lead, so no meaning
+   rides on colour alone. Palette tokens are the shared ones, so both themes are
+   covered by the same declarations. */
+.ledger .tl-wrap { padding: 4px 4px 6px; }
+.ledger ol.tl, .ledger ol.tl-events { list-style: none; margin: 0; padding: 0; }
+.ledger .tl-period { margin: 12px 0 2px; padding-left: 26px; font-family: var(--mono); font-size: 11px;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+.ledger .tl-group:first-child .tl-period { margin-top: 2px; }
+.ledger .tl-period time { font-variant-numeric: tabular-nums; }
+/* The spine runs down each year's events list; every event hangs a dot on it. */
+.ledger ol.tl-events { position: relative; padding-left: 26px; }
+.ledger ol.tl-events::before { content: ""; position: absolute; left: 7px; top: 4px; bottom: 4px; width: 2px;
+  background: var(--hair); border-radius: 2px; }
+/* minmax(0,1fr) + the min-width:0 body let the lead column shrink so its chips
+   wrap instead of overflowing and being clipped along the card's rounded edge. */
+.ledger .tl-event { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 14px; align-items: start; padding: 6px 0; }
+.ledger .tl-dot { position: absolute; left: -23px; top: 8px; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--faint); box-sizing: border-box; }
+.ledger .tl-dot-birth { border-color: var(--raw); }
+.ledger .tl-dot-change { border-color: var(--change); background: var(--change); }
+.ledger .tl-dot-admin { border-color: var(--faint); }
+.ledger .tl-dot-cont { border-color: var(--hair); }
+.ledger .tl-dot-parallel { border-style: dashed; border-color: var(--faint); }
+.ledger .tl-dot-source { border-color: var(--raw); }
+.ledger .tl-lead { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+.ledger .tl-when { text-align: right; font-family: var(--mono); font-size: 12.5px; color: var(--muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 1px; }
+.ledger .tl-date { display: block; }
+.ledger .tl-precise { display: block; font-size: 11px; color: var(--faint); margin-top: 1px; }
+.ledger .tl-event.parallel { opacity: .68; }
+.ledger .tl-event.parallel .tl-lead { border-left: 2px dashed var(--hair); padding-left: 10px; margin-left: -4px; }
+/* Source-list events read a touch quieter than status events. */
+.ledger .tl-event.tl-source .tl-lead { font-size: 12.5px; color: var(--muted); }
+.ledger .tl-more { margin: 4px 0 0; }
+.ledger .tl-more > summary { cursor: pointer; font-size: 12px; color: var(--signal); padding-left: 26px; }
+.ledger .tl-more > summary:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
 .ledger .ev { font-family: var(--mono); font-size: 12px; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
 .ledger .ev.birth { background: var(--raw-soft); color: var(--raw); }
 .ledger .ev.change { background: var(--change-soft); color: var(--change); font-weight: 600; }
@@ -142,8 +177,6 @@
 .ledger .ev.admin { background: transparent; color: var(--faint); border: 1px dashed var(--hair); font-weight: 400; }
 .ledger .variant-tag { font-family: var(--mono); font-size: 11px; color: var(--derived); background: var(--derived-soft);
   padding: 2px 7px; border-radius: 6px; letter-spacing: .02em; }
-.ledger .tl-row.parallel { opacity: .68; }
-.ledger .tl-row.parallel .body { border-left: 2px dashed var(--hair); padding-left: 10px; margin-left: -4px; }
 .ledger .obs-mini { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
 
 /* Layer anatomy */
@@ -279,19 +312,15 @@
 .ledger .fid-work-row .v { color: var(--ink); word-break: break-word; }
 .ledger .fid-actions { font-size: 12.5px; color: var(--muted); margin: 14px 0 0; }
 
-/* "Seen in" source lists: one source per line so long repository paths never
-   run the sentence on. Used both under a canonical-divergence line and inside a
-   "show the working" panel; the humanised label is the visible link text while
-   the full path stays on the link's title. A many-snapshot variant collapses its
-   overflow behind a JS-free <details>. */
+/* "Seen in" source lists: the humanised label is the visible link text while the
+   full repository path stays on the link's title, so a long path never runs the
+   sentence on. The list itself is the shared activity timeline (see the .tl block
+   above), reused both under a canonical-divergence line and inside a "show the
+   working" panel; only the label wrapper is styled here. */
 .ledger .fid-seen { margin: 6px 0 2px; }
 .ledger .fid-seen-label { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .06em;
   text-transform: uppercase; color: var(--faint); margin-bottom: 3px; }
-.ledger .fid-source-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
-.ledger .fid-source-list li.fid-source { font-size: 12.5px; color: var(--muted); }
-.ledger .fid-more-sources { margin: 4px 0 0; }
-.ledger .fid-more-sources > summary { cursor: pointer; font-size: 12px; color: var(--signal); }
-.ledger .fid-more-sources > summary:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+.ledger .fid-sources.tl-wrap { padding: 0; }
 
 /* Inline source + confidence-tier label on the explainer pages: a quiet, smaller
    note trailing a sentence, so the fact reads first and its provenance follows. */

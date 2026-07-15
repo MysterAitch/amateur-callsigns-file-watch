@@ -7,7 +7,7 @@ import { JSDOM } from 'jsdom';
 import { DatabaseSync } from 'node:sqlite';
 import {
   cleanCallsign, resolveEntity, entityClaims, observationsOf,
-  foldObservations, anatomyOf, flagsOf, bytesHex,
+  foldObservations, anatomyOf, flagsOf, bytesHex, groupByYear,
 } from './ledger-query.js';
 import { runLookup } from './ledger.js';
 import { buildCompactLedgerSqlite } from '../src/v2/build-ledger-db-compact.ts';
@@ -187,6 +187,25 @@ describe('claim-ledger query layer (live, against a built SQLite)', { tags: ['ui
   });
 });
 
+describe('groupByYear — the shared timeline grouping (issue #466)', { tags: ['unit'] }, () => {
+  it('GroupByYear_WhenEntriesSpanYears_BucketsThemByYearInChronologicalOrder', () => {
+    const groups = groupByYear([
+      { vintage: '2022-03-07', tag: 'b' },
+      { vintage: '2016-09', tag: 'a' },
+      { vintage: '2022-11-01', tag: 'c' },
+    ]);
+    // Periods ascending, the four-digit year as the label.
+    expect(groups.map(g => g.period)).toEqual(['2016', '2022']);
+    // Input order is preserved WITHIN a year (b before c) and every entry is kept.
+    expect(groups[1]?.entries.map((e: { tag: string }) => e.tag)).toEqual(['b', 'c']);
+    expect(groups[0]?.entries.map((e: { tag: string }) => e.tag)).toEqual(['a']);
+  });
+
+  it('GroupByYear_WhenGivenNoEntries_ReturnsNoGroups', () => {
+    expect(groupByYear([])).toEqual([]);
+  });
+});
+
 describe('Ledger page render (JSDOM smoke test, live query)', { tags: ['ui'] }, () => {
   it('LedgerPage_WhenRealCallsignLookedUp_PopulatesTimelineAnatomyAndDossier', async () => {
     // Seed the document with the page's real host structure, then drive the
@@ -224,6 +243,48 @@ describe('Ledger page render (JSDOM smoke test, live query)', { tags: ['ui'] }, 
     expect(miss.entity).toBeNull();
     expect(document.getElementById('miss')?.textContent).toContain('register-snapshot publications only');
     expect(document.getElementById('entity')?.textContent).toBe('');
+  });
+});
+
+describe('Ledger entity timeline — vertical activity-feed layout (issue #466)', { tags: ['ui'] }, () => {
+  it('EntityTimeline_WhenRendered_IsASemanticYearGroupedListWithDatedEvents', async () => {
+    const html = siteFile('ledger.html');
+    const main = html.slice(html.indexOf('<main'), html.indexOf('</main>') + '</main>'.length);
+    document.body.innerHTML = main;
+    await runLookup(query, 'G0TQK');
+
+    const entity = document.getElementById('entity');
+    // Semantic markup: an ordered list of year groups, each an ordered list of
+    // events - so order and dates survive with no JavaScript / to assistive tech.
+    const timeline = entity?.querySelector('ol.tl');
+    expect(timeline).not.toBeNull();
+    const events = [...(entity?.querySelectorAll('ol.tl-events > li.tl-event') ?? [])];
+    expect(events.length).toBeGreaterThan(0);
+
+    // Grouped by year: the three vintages (2016, 2022, 2024) yield three period
+    // labels, each a four-digit year, in chronological order.
+    const periods = [...(entity?.querySelectorAll('.tl-period time') ?? [])].map(t => t.textContent);
+    expect(periods).toEqual(['2016', '2022', '2024']);
+
+    // Every event places its date on the right in a <time datetime=…>, and its
+    // content (the event chips) on the left in a .tl-lead.
+    const first = events[0];
+    expect(first?.querySelector('.tl-lead .ev')).not.toBeNull();
+    const when = first?.querySelector('time.tl-date');
+    expect(when?.getAttribute('datetime')).toBe(V_2016);
+    expect(when?.textContent).toBe(V_2016);
+
+    // The spine dot is decorative: hidden from assistive tech, meaning carried by
+    // the text chip beside it (not by colour alone).
+    const dot = first?.querySelector('.tl-dot');
+    expect(dot?.getAttribute('aria-hidden')).toBe('true');
+
+    // The 2022 vintage carries the co-temporal twin: two events in that year, one
+    // flagged as the de-emphasised parallel stream.
+    const twenty22 = [...(entity?.querySelectorAll('.tl-group') ?? [])]
+      .find(g => g.querySelector('.tl-period time')?.textContent === '2022');
+    expect(twenty22?.querySelectorAll('li.tl-event').length).toBe(2);
+    expect(twenty22?.querySelector('li.tl-event.parallel')).not.toBeNull();
   });
 });
 

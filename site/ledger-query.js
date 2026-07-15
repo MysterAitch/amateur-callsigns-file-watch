@@ -173,6 +173,24 @@ export function foldObservations(observations, cleaned) {
   return { byV, vints, births, changes, admin, snaps: obs.length, variants: new Set(obs.map(o => o.rawToken)) };
 }
 
+// Group timeline entries into chronological period buckets by the YEAR of their
+// vintage, preserving input order within a period. The shape the activity-style
+// vertical timeline renders from: an array of { period, entries }, periods
+// ascending. Pure, so the grouping is unit-tested without a DOM. Shared by the
+// entity status timeline AND the per-note "seen in" source lists, so both read
+// as one component (issue #466). An entry is any object carrying a `vintage`
+// string; the fields the DOM layer needs (lead, date, class) ride along untouched.
+export function groupByYear(entries) {
+  const byYear = new Map();
+  for (const entry of entries) {
+    const period = String(entry.vintage).slice(0, 4);
+    let bucket = byYear.get(period);
+    if (bucket === undefined) { bucket = []; byYear.set(period, bucket); }
+    bucket.push(entry);
+  }
+  return [...byYear.keys()].sort().map(period => ({ period, entries: byYear.get(period) ?? [] }));
+}
+
 // The UTF-8 bytes of a raw token, as space-separated lower-case hex - the
 // evidence that a "damaged" variant differs from its clean twin in the bytes,
 // not merely in appearance (G0TQK vs "G0TQK " differ by a trailing 20). Pure.
