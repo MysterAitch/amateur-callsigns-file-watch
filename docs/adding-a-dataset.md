@@ -2,9 +2,10 @@
 
 How to add a new callsign dataset to the archive, end to end, so it validates
 and its derived goldens stay current. This is the step-by-step companion to the
-architecture in [ADR 0004](adr/0004-foi-source-lane.md) (the FOI/recovered
-lane), [ADR 0001](adr/0001-post-fetch-processing-in-repo.md) (post-fetch
-processing) and [`normalised-schema.md`](normalised-schema.md).
+architecture in [ADR 0001](adr/0001-post-fetch-processing-in-repo.md)
+(post-fetch processing), [ADR 0004](adr/0004-foi-source-lane.md) (the FOI
+lane), [`data-flow.md`](data-flow.md) (the pipeline and its stage-gates) and
+[`normalised-schema.md`](normalised-schema.md).
 
 ## Prerequisites: the DuckDB CLI
 
@@ -23,138 +24,158 @@ value-catalogue fold, the cross-dataset invariants):
 export DUCKDB_BIN="$(pwd)/.duckdb/duckdb.exe"   # or .../duckdb on Linux/macOS
 ```
 
-## Step 1 — choose the lane
+## Step 1 — choose the lane by WHAT the dataset is
 
-There are two archive lanes:
+- **Open-data lane** (`archive/{YYYY-MM-DD}/`): a publication of Ofcom's
+  **open-data amateur callsign list** — however it was obtained. A live fetch
+  is `provenance: "live"`; a copy recovered from a web archive is
+  `provenance: "recovered-from-web-archive"` with `witnesses[]` recording the
+  capture; a maintainer's retained download is
+  `reconstructed-from-prior-download`. Historical recovered copies are how the
+  older backlog here was populated; **back-dated insertion is supported** —
+  older keys sort before the newest entry, so the `latest-*` pointers and the
+  diff chain are untouched (a back-dated entry simply omits `diffSummary`,
+  like `archive/2022-05-30/`).
+- **FOI lane** (`archive/foi/{key}/`): material from an **FOI request or
+  disclosure** — request-keyed entries with `meta.json` + `correspondence.md`
+  always, data optional ([ADR 0004](adr/0004-foi-source-lane.md)).
 
-- **Open-data lane** (`archive/{YYYY-MM-DD}/`): a snapshot fetched **live** from
-  Ofcom's open-data page on that date. `raw.csv` verbatim plus generated
-  `normalised.csv` / `components.csv` / `stats.json`. Its `diffSummary` chain is
-  newest-only and its `latest-*` pointers assume the newest entry.
-- **FOI / recovered lane** (`archive/foi/{key}/`): everything else — FOI
-  disclosures, and snapshots **recovered from a web archive** (Internet Archive,
-  UK Government Web Archive). Per-entry `meta.json` + `correspondence.md`, every
-  file hash-declared, `witnesses[]` recording where each copy came from, and no
-  newest-only diff chain.
+The lane is chosen by what the dataset *is* (an open-data-page publication vs
+FOI material), never by how it was fetched.
 
-**A web-archive-recovered snapshot goes in the FOI/recovered lane** — even a
-CSV, even though the bytes are "open data" — because the open-data lane cannot
-represent web-archive provenance and back-dated insertion corrupts its
-`latest-*` pointers. Only a genuinely-live fetch of the newest snapshot uses the
-open-data lane.
+## Step 2 — add an open-data entry
 
-## Step 2 — add the entry (FOI/recovered lane)
+Key the directory by the publication's data vintage: `archive/{YYYY-MM-DD}/`.
 
-Key the directory `archive/foi/ofcom-{vintage}--{slug}/` (an `ofcom-` prefix
-means `sourceKey: "ofcom-foi"`, `requestId: null`). Then:
+1. **Archive the publication verbatim, in the format Ofcom published.** A CSV
+   is `raw.csv`; a workbook is `raw.xlsx` — the publisher's format is never
+   converted away.
 
-1. **Drop the verbatim raw file in.** For an `.xlsx`, also run the mechanical
-   extractor and note the printed bytes/sha256:
+2. **Add a parse-source extract when the raw cannot be parsed directly**
+   (declared in `files{}` with `role: "extract"`, `extractOf`, and
+   `extractedBy` where a tool produced it):
+   - A **workbook**: run the shared extractor —
+     `node src/shared/xlsx-extract.ts archive/{date}` — which writes
+     `raw-extract-sheet-N-{slug}.csv` and prints its bytes/sha256.
+   - A **CSV with empty-named trailing columns** (a parser collapses duplicate
+     empty header names, losing the true column count): commit a **shape-only
+     header fill** — byte-for-byte the raw with only the empty header names
+     filled (`unknown-1`, `unknown-2`, …) and LF line endings, **no data cell
+     changed**.
+   The sweep, validator, line accounting and ledger all parse the declared
+   extract (`parseSourceFileName` in `src/shared/archive.ts`); entries without
+   one parse `raw.csv` as always.
 
-   ```
-   node src/shared/xlsx-extract.ts archive/foi/{key}
-   ```
+3. **Bind the converter when auto-detection cannot.** The lane's default is
+   header auto-detection against the variant registry (`VARIANTS` in
+   [`src/sources/ofcom-amateur/normalise.ts`](../src/sources/ofcom-amateur/normalise.ts)).
+   A genuinely new header shape means a new registry variant (with tests).
+   Two registered shapes that share identical headers but differ in date
+   rendering (a workbook extract's ISO dates vs the CSV day-first rendering)
+   are indistinguishable to auto-detection — the entry binds its variant
+   explicitly in `meta.json`:
 
-   It writes `raw-extract-sheet-N-{slug}.csv` (`role: "extract"`).
-
-2. **Add a converter variant** to `FOI_ENTRY_CONVERSIONS` in
-   [`src/shared/foi-normalise.ts`](../src/shared/foi-normalise.ts). Columns are
-   matched by exact header name. Use `kind: 'date'` for day-first `DD/MM/YYYY`
-   CSV values, `kind: 'iso-date'` for workbook-extract values already ISO.
-   Anything present but not projected goes in `ignoredColumns`. Set
-   `referenceDateIso` to the vintage — dates must not postdate it.
-
-3. **Author `meta.json`** (copy the closest sibling as a template —
-   `ofcom-2024-04-30--copy-all-callsigns--all-callsigns` for a CSV,
-   `ofcom-2025-09-11--callsigns--all-callsigns` for a workbook). Required:
-   `schemaVersion`, `sourceKey`, `requestId` (null for ofcom), `title`,
-   `outcome`, `dataVintage` + `dataVintageNote`, `datasetClasses`, `converter`
-   `{script, variant}`, `relatedEntries` (**only to siblings already on `main`**
-   — see gotchas), `publicationUrl`, and `files{}` with per-file
-   `bytes`/`sha256`/`role`, derivation refs, and `witnesses[]` (`channel`,
-   `url`, `fetchedAt`; `channel` is free text, so `wayback`/`ukgwa` are fine).
-
-4. **Author `correspondence.md`** (`role: "transcript"`, always required — it is
-   the provenance record even when there is no request/response thread).
-
-5. **Generate the normalised file** — reads `converter.variant` from `meta.json`,
-   writes `normalised--{stem}.csv`, and prints the bytes/sha256 (and a `notes`
-   block of blank/NBSP/date-ambiguity counts — the authoritative anomaly report;
-   base your `contentsIndicative` prose on it):
-
-   ```
-   node src/shared/foi-normalise.ts archive/foi/{key}
+   ```json
+   "converter": { "script": "src/sources/ofcom-amateur/normalise.ts", "variant": "v2026-licence-version-iso" }
    ```
 
-   Paste the printed hash/bytes into `meta.json`.
+   A bound variant is still verified against the actual headers — a wrong
+   binding fails as loudly as an unknown shape. Registry variants may map a
+   column to `null`: required-present export padding, not carried into the
+   normalised projection (the ledger still carries every raw column verbatim).
 
-## Step 2a — a raw CSV with empty/duplicate trailing headers
+4. **Hand-author `meta.json`** (template: `archive/2025-11-11/` for a
+   recovered CSV, `archive/2026-01-14/` for a recovered workbook,
+   `archive/2022-05-30/` for a prior-download reconstruction): `schemaVersion`,
+   `sourceKey: "ofcom-amateur-callsigns"`, the honest `provenance`,
+   `intendedCoverage`, `fetchedAt` (the retrieval time),
+   `ofcomReportedUpdateIso` (the data vintage — also the date-plausibility
+   bound), `publicationUrl`, `witnesses[]` (required for web-archive
+   recoveries: channel, replay URL, fetchedAt), `reconstructionNotes`, and the
+   `files{}` declarations (size + sha256 for the raw and any extract). **No
+   `diffSummary`** on a back-dated entry.
 
-Some open-data CSV exports append empty-named trailing columns. A CSV parser
-collapses duplicate empty headers into one, losing the true column count, so the
-raw cannot round-trip and the reconstruction oracle rejects it. The remedy is a
-committed **shape-only extract**: byte-for-byte the raw with only the empty
-header names filled in (`unknown-1`, `unknown-2`, …) and LF line endings — **no
-data cell changed**. Point the converter's `sourceFile` at that extract, add the
-`unknown-*` names to `ignoredColumns`, and declare the extract `role: "extract"`,
-`extractOf: <raw>`. All columns then survive distinctly and the source
-reconstructs losslessly (any stray content lands in its own column, carried in
-the ledger). The self-check in
-[`foi-csv-extract-shape-only.test.ts`](../src/ci/foi-csv-extract-shape-only.test.ts)
-proves, row for row, that such an extract changed only the shape.
+5. **Attest what the data genuinely carries.** If the publication repeats
+   callsigns (publisher duplicates), validation fails until a curated
+   `qualityObservations[]` entry attests the fact (a statement mentioning the
+   duplicate callsigns + evidence) — duplicates are preserved faithfully,
+   never repaired, but always loudly. Verify — never assume — that "padding"
+   columns are actually empty before ignoring them; document any stray
+   content.
+
+6. **Generate the derived files:** `npm run normalise:sweep` produces
+   `normalised.csv`, `components.csv`, `stats.json` and augments `meta.json`.
+   A second run must be a no-op (`changed=0`) — that is the byte-determinism
+   check.
+
+## Step 2b — add an FOI entry
+
+The FOI lane's converter binding lives in `FOI_ENTRY_CONVERSIONS`
+(`src/shared/foi-normalise.ts`), bound per entry via `meta.json`'s
+`converter: {script, variant}`; entries carry `correspondence.md` (role
+`transcript`) always, per-file roles/hashes, and per-file `witnesses[]`.
+Generate the normalised file with
+`node src/shared/foi-normalise.ts archive/foi/{key}` and verify with
+`npm run foi:sweep`. Template entries:
+`archive/foi/ofcom-2025-09-11--callsigns--all-callsigns` (workbook),
+`archive/foi/ofcom-2024-04-30--copy-all-callsigns--all-callsigns` (CSV).
 
 ## Step 3 — regenerate the corpus goldens
 
-Adding a dataset shifts several corpus-wide goldens. These trip CI **by design**
-(a new dataset must be noticed, not slip through), so regenerate and commit them
-in the same PR — the diffs are the reviewable evidence. Run:
+Adding a dataset shifts several corpus-wide goldens. These trip CI **by
+design** (a new dataset must be noticed, not slip through), so regenerate and
+commit them in the same PR — the diffs are the reviewable evidence. Run:
 
 ```
 npm run regen          # normalise:sweep + foi:schemas + dataset:status
 ```
 
-That covers:
-
-- `reports/**` — the value catalogue and cross-dataset-invariants reports
-  (the **golden-master** gate). The sweep is the slow step (minutes; it folds
-  the whole corpus through DuckDB).
-- `docs/dataset-status.md` and `docs/foi-schemas.md`.
+That covers `reports/**` (the golden-master gate; the sweep is the slow step —
+several minutes, whole-corpus DuckDB folds), `docs/dataset-status.md` and
+`docs/foi-schemas.md`.
 
 Then hand-update the **hand-authored goldens** the sweep does not regenerate:
 
 - `EXPECTED_CATEGORIES` in
-  [`value-catalogue-fold.test.ts`](../src/ci/value-catalogue-fold.test.ts) — the
-  licence-category legacy + folded figures. Running that test on a drift prints
-  a paste-ready block; copy it in (variants and reasons are unchanged).
+  [`value-catalogue-fold.test.ts`](../src/ci/value-catalogue-fold.test.ts) —
+  the licence-category legacy + folded figures. Running that test on a drift
+  prints a paste-ready block; copy it in (variants and reasons are unchanged).
 - The register-column count in
   [`cross-dataset-invariants.test.ts`](../src/ci/cross-dataset-invariants.test.ts)
-  — an FOI-lane register snapshot bumps the total and the FOI count by one;
-  open-data stays put.
-- [`source-register.md`](source-register.md) — add a row for the new snapshot.
-  **This one has no freshness test**, so nothing fails CI if you forget it; keep
-  it current by hand as part of the same PR.
+  — a register snapshot bumps the total and its lane's count by one.
+- [`source-register.md`](source-register.md) — add a row for the new dataset.
+  **This one has no freshness test**, so nothing fails CI if you forget it;
+  keep it current by hand as part of the same PR.
+- Neighbour-sensitive page expectations (e.g. the newest entry's
+  "Compare with" baseline in
+  [`build-dataset-pages.test.ts`](../src/ci/build-dataset-pages.test.ts))
+  when the new entry changes an existing entry's chronological neighbour.
 
 ## Step 4 — verify
 
-- `npm run foi:sweep` — re-derives every extract and normalised file from the
-  committed bytes and byte-compares (must report `verified`).
-- `npm run validate:data` — meta shape, byte integrity, no undeclared files,
-  `relatedEntries` resolve, line accounting.
+- `npm run normalise:sweep` twice — the second run must report `changed=0`.
+- `npm run validate:data` — meta shape, witnesses, byte integrity, extract
+  declarations, line accounting against the parse source, attested-duplicates
+  policy. (FOI lane: `npm run foi:sweep` re-derives every extract and
+  normalised file byte-identically.)
 - The reconstruction oracle
-  ([`reconstruction-oracle.test.ts`](../src/ci/reconstruction-oracle.test.ts)) —
-  the source must reconstruct byte-identically from the ledger (modulo
-  cosmetics). **Round-trip fidelity is non-negotiable.**
-- The FOI golden master (`foi-normalise.test.ts`), `tsc --noEmit`, and `eslint`.
+  ([`reconstruction-oracle.test.ts`](../src/ci/reconstruction-oracle.test.ts))
+  — the source must reconstruct byte-identically from the ledger (modulo
+  cosmetics). **Round-trip fidelity is non-negotiable**; a manual, recorded
+  step (like the shape-only extract) to achieve it is fine.
+- `tsc --noEmit` and `eslint` when the converter registry changed.
 
 ## Gotchas
 
 - **Reference only siblings already on `main`.** The validator requires
-  `relatedEntries` targets to exist, and the internal-link guard flags dead
-  links. Two in-flight datasets that reference each other create a merge-order
-  trap — add the bidirectional link once both have landed.
-- **Verify "ignored" columns are actually empty** before ignoring them —
-  don't assume. A column assumed empty may carry stray data on a few rows;
-  preserve and document it rather than dropping it silently.
-- **Do not use the live open-data ingest for a back-dated snapshot** — it
-  clobbers the `latest-*` pointers.
+  referenced entries to exist, and the internal-link guard flags dead links.
+  Two in-flight datasets that reference each other create a merge-order trap —
+  add the bidirectional link once both have landed.
+- **Verify "ignored" columns are actually empty** before ignoring them — a
+  column assumed empty may carry stray data on a few rows; preserve and
+  document it rather than dropping it silently.
+- **Do not use the live open-data ingest (`npm run process`) for a back-dated
+  entry** — it derives the key from download metadata and rewrites the
+  `latest-*` pointers unconditionally. Hand-author the entry and let the sweep
+  generate the derivations.
 - Long sweeps/folds should run in the foreground with a generous timeout.
