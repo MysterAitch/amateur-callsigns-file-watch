@@ -8,7 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { type SourceObservationSet } from '../claim.ts';
-import { listArchiveKeys } from '../../shared/archive.ts';
+import { listArchiveKeys, parseSourceFileName } from '../../shared/archive.ts';
 import { CONSTANTS, type ArchiveMeta } from '../../shared/utils.ts';
 import { parseRawRegister, rawColumnForCanonical, interpretOpenDataColumns } from '../../sources/ofcom-amateur/normalise.ts';
 import type { LedgerCollector, ResolvedLedgerSource } from './types.ts';
@@ -45,7 +45,12 @@ function readOpenDataMeta(archiveDir: string, key: string): OpenDataMeta {
 // are exactly the rows the committed normalisation was derived from, and the
 // raw callsign token still travels verbatim (BOM/whitespace artefacts intact).
 export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta: OpenDataMeta): SourceObservationSet {
-  const rawContent = fs.readFileSync(path.join(archiveDir, key, 'raw.csv'), 'utf8');
+  // The parse source is the declared extract when one exists (workbook sheet
+  // extract / shape-only header fill), else raw.csv - the same file the
+  // normalise sweep and validator parse, so the ledger's observations key off
+  // exactly the rows the committed normalisation was derived from.
+  const parseSource = parseSourceFileName(meta);
+  const rawContent = fs.readFileSync(path.join(archiveDir, key, parseSource), 'utf8');
   const parsed = parseRawRegister(rawContent, meta.ignoredLines ?? []);
   const callsignColumn = rawColumnForCanonical(parsed.mapping, 'callsign');
   if (callsignColumn === undefined) {
@@ -62,8 +67,9 @@ export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta
   const originalStartDateColumn = rawColumnForCanonical(parsed.mapping, 'licence_version_original_start_date');
   return {
     // Corpus-unique, self-locating provenance parallel to the FOI lane's
-    // foi/<entry>/<file>.
-    sourceFile: `opendata/${key}/raw.csv`,
+    // foi/<entry>/<file>. Names the parse source, so line numbers and
+    // reconstruction targets always refer to the file actually parsed.
+    sourceFile: `opendata/${key}/${parseSource}`,
     vintage: meta.ofcomReportedUpdateIso ?? key,
     columns: parsed.headers,
     subjectColumn: callsignColumn,
@@ -74,12 +80,12 @@ export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta
     // the line-accounting model parseRawRegister already proves - never a
     // re-parse. dataLineNumbers[k] is the source line of records[k].
     lineNumbers: parsed.dataLineNumbers,
-    // The REAL repo path of the raw file. The `sourceFile` key rewrites the
-    // open-data lane's on-disk 'archive/<key>/raw.csv' to a logical
-    // 'opendata/<key>/raw.csv', so the true path is carried here for the
+    // The REAL repo path of the parsed file. The `sourceFile` key rewrites the
+    // open-data lane's on-disk 'archive/<key>/<parseSource>' to a logical
+    // 'opendata/<key>/<parseSource>', so the true path is carried here for the
     // deep-link's viewAnchor (canonical location, independent of a custom
     // archiveDir a test may pass).
-    repoPath: `archive/${key}/raw.csv`,
+    repoPath: `archive/${key}/${parseSource}`,
     // The verbatim structural framing the per-row claim stream omits (issue
     // #434): the curated + enumerated footer/blank lines parseRawRegister
     // stripped, and the header's physical line. Both come straight from the

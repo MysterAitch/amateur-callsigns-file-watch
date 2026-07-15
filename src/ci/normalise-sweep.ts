@@ -24,7 +24,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS, type ArchiveMeta, type IgnoredRawLine, calculateContentHash, errorMessage, saveJsonFileSync } from '../shared/utils.ts';
-import { listArchiveKeys } from '../shared/archive.ts';
+import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
 import { renderStatsJson, compareStats, markUnprintables, type EntryStats } from '../shared/stats.ts';
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
 import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/components.ts';
@@ -107,7 +107,10 @@ export function runNormaliseSweep(): SweepReport {
         throw new Error('meta.json has no files map to declare normalised.csv in');
       }
 
-      const raw = fs.readFileSync(path.join(dir, 'raw.csv'), 'utf8');
+      // The parse source is the declared extract when one exists (a workbook's
+      // mechanical sheet extract, or a shape-only header fill of a collapsing
+      // CSV), else raw.csv - the verbatim publication stays untouched either way.
+      const raw = fs.readFileSync(path.join(dir, parseSourceFileName(meta)), 'utf8');
       const result: ConvertResult = time('sweep:convert', () => converter.convert(raw, referenceDate, meta.ignoredLines ?? []));
 
       const outPath = path.join(dir, 'normalised.csv');

@@ -88,6 +88,18 @@ export function computeCsvFileMeta(filePath: string, sortedBy?: string): Archive
   return meta;
 }
 
+// The file the normaliser/validator/collector actually PARSE for an entry:
+// the declared extract when one exists (a workbook's mechanical sheet
+// extract, or a shape-only header fill of a CSV whose duplicate empty header
+// names would collapse under parsing), else raw.csv. The verbatim publication
+// (raw.csv or raw.xlsx) is always archived untouched; the extract is a
+// hash-pinned mechanical projection of it, so parsing the extract never
+// weakens the raw record.
+export function parseSourceFileName(meta: Pick<ArchiveMeta, 'files'>): string {
+  const extract = Object.entries(meta.files ?? {}).find(([, f]) => f.role === 'extract');
+  return extract === undefined ? 'raw.csv' : extract[0];
+}
+
 export function computeJsonFileMeta(filePath: string): ArchivedFileMeta {
   return {
     size: fsSync.statSync(filePath).size,

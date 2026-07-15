@@ -78,12 +78,22 @@ export interface ProcessingMetadata {
 export interface ArchivedFileMeta {
   size: number;
   sha256: string;
-  format?: 'csv' | 'json' | 'sqlite' | 'other';
+  format?: 'csv' | 'json' | 'sqlite' | 'xlsx' | 'other';
   columnCount?: number;
   columnNames?: string[];
   recordCount?: number;
   // For sorted derivatives: name of the column the data is sorted on.
   sortedBy?: string;
+  // Derivation role, mirroring the FOI lane's vocabulary: 'extract' marks a
+  // mechanical, hash-pinned projection of a raw file that the normaliser
+  // parses in its stead - a sheet extract of a raw workbook, or a shape-only
+  // header fill of a CSV whose duplicate empty header names would otherwise
+  // collapse under parsing. Absent on ordinary files.
+  role?: 'extract';
+  // For role 'extract': the raw file this was mechanically derived from.
+  extractOf?: string;
+  // For role 'extract': the tool that produced it (e.g. src/shared/xlsx-extract.ts).
+  extractedBy?: string;
 }
 
 // Semantic diff of this publication vs the archive entry immediately preceding
@@ -174,11 +184,14 @@ export interface ArchiveMeta {
   // 'live' entries were fetched by the current codebase; 'reconstructed-from-git-history'
   // entries were materialised retroactively from prior git blobs;
   // 'reconstructed-from-prior-download' entries were imported from downloads the
-  // maintainer retained outside this repository. Reconstructed entries of either kind
-  // may be missing fields (sourceUrl, ?v= value, etc.) that only live fetches capture,
-  // and their fetchedAt records the import time - reconstructionNotes carries what is
-  // known about when and how the bytes were originally obtained.
-  provenance: 'live' | 'reconstructed-from-git-history' | 'reconstructed-from-prior-download';
+  // maintainer retained outside this repository; 'recovered-from-web-archive'
+  // entries were retrieved verbatim from a public web archive's capture of the
+  // publication (Internet Archive Wayback, UK Government Web Archive) - the
+  // capture and replay coordinates live in witnesses[]. Non-live entries may be
+  // missing fields (sourceUrl, ?v= value, etc.) that only live fetches capture,
+  // and their fetchedAt records the import/retrieval time - reconstructionNotes
+  // carries what is known about when and how the bytes were originally obtained.
+  provenance: 'live' | 'reconstructed-from-git-history' | 'reconstructed-from-prior-download' | 'recovered-from-web-archive';
   // INTENDED scope of the raw record as published: complete=true means the
   // publisher presented it as the full dataset (e.g. Ofcom's opendata
   // export), complete=false means it is knowingly partial (e.g. an FOI
@@ -203,6 +216,15 @@ export interface ArchiveMeta {
   // For reconstructed entries only: the commit these files were extracted from.
   gitCommitSha?: string;
   reconstructionNotes?: string;
+  // The publication's own URL on the publisher's site (the FOI lane's
+  // vocabulary): for recovered-from-web-archive entries this is the ORIGINAL
+  // Ofcom URL the archive captured, while witnesses[] carries the capture.
+  publicationUrl?: string;
+  // Independent copies of this publication and where each was obtained -
+  // channel (e.g. 'wayback', 'ukgwa', 'live'), the retrieval/replay URL, and
+  // when it was fetched. The FOI lane records these per file; the open-data
+  // lane's entry is a single publication, so they sit at entry level.
+  witnesses?: { channel: string; url: string; fetchedAt: string; note?: string }[];
   files: Record<string, ArchivedFileMeta>;
   diffSummary?: DiffSummary;
   // The verbatim header line(s) of raw.csv (terminators excluded) - makes
