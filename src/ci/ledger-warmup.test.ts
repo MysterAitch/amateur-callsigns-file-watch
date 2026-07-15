@@ -6,7 +6,7 @@ import { ledgerWarmupTargets, type LedgerChunkManifest } from './ledger-warmup.t
 // warm open rather than the one-off cold deploy (the #475 cold-open latency).
 // ledgerWarmupTargets decides WHICH chunk byte-ranges to prime from the served
 // manifest; these tests pin that decision without touching the network.
-describe('ledgerWarmupTargets (issue #537 CDN warm-up)', () => {
+describe('ledgerWarmupTargets (issue #537 CDN warm-up)', { tags: ['unit'] }, () => {
   // A production-scale manifest: 90 MiB chunks over a multi-GB database, matching
   // the deploy's serverChunkSize (see .github/workflows/cicd.yaml).
   const serverChunkSize = 94_371_840;
