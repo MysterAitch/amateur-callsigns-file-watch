@@ -1394,7 +1394,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   const indexBody = [
     '<h1>Dataset index</h1>',
     '<p>Every archived dataset in both collections below, with the raw, extract and normalised files published verbatim at stable URLs. Integrity: each entry’s <code>meta.json</code> declares sha256 for every file; each entry ships a <a href="https://datapackage.org/">Frictionless</a> <code>datapackage.json</code> and a one-click <code>.zip</code> of everything.</p>',
-    '<p>Prefer to browse by kind of data? Every entry carries one or more <a href="classes/index.html">dataset classes</a> — a register snapshot, an availability pool, a forbidden-suffix list, and so on — each with a page listing every entry that carries it, across both collections.</p>',
+    '<p>Prefer to browse by kind of data? Every entry carries one or more <a href="classes/index.html">dataset types</a> — a register snapshot, an availability pool, a forbidden-suffix list, and so on — each with a full overview page: what that kind of data is, the shape of a row, its provenance and quirks, and every entry that carries it, across both collections.</p>',
     '<p>Comparing publications rather than browsing one? The <a href="../statistics/inter-dataset.html">inter-dataset statistics</a> page sets the archived publications side by side — blank-product filtering, record-count deltas, and flag and pattern drift.</p>',
     ...dictionarySection,
     '<h2>Bulk downloads</h2>',

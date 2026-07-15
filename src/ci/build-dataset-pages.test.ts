@@ -785,4 +785,12 @@ describe('Dataset class pages', () => {
     const sitemap = fs.readFileSync(path.join(outputDir, 'sitemap.xml'), 'utf8');
     expect(sitemap).toContain('<loc>https://example.test/site/datasets/classes/register-snapshot.html</loc>');
   });
+
+  it('DatasetIndex_PointsAtTheTypeOverviews', () => {
+    // The dataset index routes browse-by-kind to the type index, now described
+    // as full overviews (issue #470).
+    const index = fs.readFileSync(path.join(outputDir, 'datasets', 'index.html'), 'utf8');
+    expect(index).toContain('href="classes/index.html">dataset types</a>');
+    expect(index).toContain('full overview page');
+  });
 });
