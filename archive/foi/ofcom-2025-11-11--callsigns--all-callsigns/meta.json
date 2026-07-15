@@ -19,6 +19,7 @@
   "datasetClasses": ["register-snapshot"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2025-11-11-register" },
   "relatedEntries": [
+    { "entry": "ofcom-2026-01-14--callsign-list--all-callsigns", "relation": "the next complete-register snapshot (14 January 2026), the open-data workbook of the same register - ~13,478 fewer records, a net removal (allocated -9,561, reserved -3,950) consistent with the single-callsign-per-licensee change" },
     { "entry": "ofcom-2025-09-11--callsigns--all-callsigns", "relation": "the previous complete-register snapshot (11 September 2025), the same six columns in a Salesforce-flavoured workbook shape but with ISO dates typed at source rather than day-first CSV strings" },
     { "entry": "ofcom-2024-04-30--copy-all-callsigns--all-callsigns", "relation": "an earlier open-data/disclosure register CSV in a related Salesforce object-export shape (Value__c,Product__c,Status__c,Type__c), without the licence-version date columns" }
   ],
