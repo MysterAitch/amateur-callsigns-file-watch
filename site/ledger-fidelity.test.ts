@@ -352,7 +352,7 @@ describe('sourceLabel — humanises the logical source path', { tags: ['ui'] }, 
   });
 });
 
-describe('record-fidelity render — the source list is a clean bulleted list (#438)', { tags: ['ui'] }, () => {
+describe('record-fidelity render — the source list is the shared vertical timeline (#466)', { tags: ['ui'] }, () => {
   const resolved = { typed: 'G0TQK', cleaned: 'G0TQK', entity: 'G#0TQK', matched: 'cleaned' as const };
   const claims: Row[] = [
     ...cleanObservation('G0TQK', 'G#0TQK', 10),
@@ -360,15 +360,20 @@ describe('record-fidelity render — the source list is a clean bulleted list (#
     derived('G0TQK ', 'G0TQK', 'G#0TQK', 'normalises_to', 'G0TQK', 'cleaned-callsign', SRC, 20, V),
   ];
 
-  it('RendersEachSourceAsAListItem_WithAHumanisedLabelThatKeepsTheFullPath', () => {
+  it('RendersEachSourceAsATimelineEvent_WithAHumanisedLabelThatKeepsTheFullPath', () => {
     const host = document.createElement('div');
     renderFidelity(host, resolved, claims);
-    const items = [...host.querySelectorAll('ul.fid-source-list li.fid-source')];
-    expect(items.length).toBeGreaterThan(0);
-    const first = items[0];
-    // "row {ordinal} · {label} · {vintage}", one source per line.
-    expect(first?.textContent).toContain('row 20');
-    expect(first?.textContent).toContain(V);
+    // The "seen in" list is now the shared activity timeline: a semantic <ol> of
+    // year groups, each an <ol> of source events, with the date in a <time>.
+    const events = [...host.querySelectorAll('.fid-sources ol.tl li.tl-event.tl-source')];
+    expect(events.length).toBeGreaterThan(0);
+    const first = events[0];
+    // The lead reads "row {ordinal} · {label}"; the date sits on the right in <time>.
+    expect(first?.querySelector('.tl-lead')?.textContent).toContain('row 20');
+    expect(first?.querySelector('time.tl-date')?.textContent).toBe(V);
+    expect(first?.querySelector('time.tl-date')?.getAttribute('datetime')).toBe(V);
+    // Grouped by year: the period label carries the four-digit year.
+    expect(host.querySelector('.fid-sources .tl-period time')?.textContent).toBe('2025');
     const link = first?.querySelector('a');
     // The humanised label is the VISIBLE link text; the long path never appears
     // as run-on text but is kept losslessly on the href and title.
@@ -379,7 +384,7 @@ describe('record-fidelity render — the source list is a clean bulleted list (#
   });
 });
 
-describe('record-fidelity render — a many-snapshot source list collapses (#438)', { tags: ['ui'] }, () => {
+describe('record-fidelity render — a many-snapshot source timeline collapses (#466)', { tags: ['ui'] }, () => {
   const resolved = { typed: 'G0TQK', cleaned: 'G0TQK', entity: 'G#0TQK', matched: 'cleaned' as const };
   const vintages = ['2019-01-01', '2020-01-01', '2021-01-01', '2022-01-01', '2023-01-01', '2024-01-01', '2025-01-01'];
   const claims: Row[] = [
@@ -393,20 +398,21 @@ describe('record-fidelity render — a many-snapshot source list collapses (#438
     }),
   ];
 
-  it('ShowsTheFirstFiveInline_AndTucksTheRestBehindAJsFreeDetails', () => {
+  it('ShowsTheFirstFiveEventsInline_AndTucksTheRestBehindAJsFreeDetails', () => {
     const host = document.createElement('div');
     renderFidelity(host, resolved, claims);
     const seen = host.querySelector('.fid-seen .fid-sources');
     expect(seen).toBeTruthy();
-    // The first five stay directly visible under the wrapper's first list.
-    const firstList = seen?.querySelector(':scope > ul.fid-source-list');
-    expect(firstList?.querySelectorAll('li').length).toBe(5);
+    // Each snapshot is a distinct year, so the first five years (five events)
+    // stay directly visible under the wrapper's first timeline.
+    const firstTimeline = seen?.querySelector(':scope > ol.tl');
+    expect(firstTimeline?.querySelectorAll('li.tl-event').length).toBe(5);
     // The overflow (two more) is tucked behind a native <details> so it reveals
     // with JavaScript off, with a summary naming the full count.
-    const details = seen?.querySelector('details.fid-more-sources');
+    const details = seen?.querySelector('details.tl-more');
     expect(details?.tagName.toLowerCase()).toBe('details');
     expect(details?.querySelector('summary')?.textContent).toContain('Show all 7 sources');
-    expect(details?.querySelectorAll('ul.fid-source-list li').length).toBe(2);
+    expect(details?.querySelectorAll('li.tl-event').length).toBe(2);
   });
 });
 

@@ -19,6 +19,7 @@ import {
   anatomyOf,
   fidelityOf,
   reportIssueUrl,
+  groupByYear,
 } from './ledger-query.js';
 import { withDatabaseLoading } from './db-loading.js';
 
@@ -91,49 +92,132 @@ const appendSegments = (parent, segments) => {
   return parent;
 };
 
-// Render a "where it was seen" source list (the structured items ledger-query
-// supplies) as a clean bulleted list, one source per line:
-//   row {ordinal} · {humanised source label, linked} · {vintage}
-// The visible label is short and human ("Ofcom open data"); the FULL logical
-// path is preserved as the link's href and title attribute, so the long path
-// stops being run-on visible text without being lost. When a value was seen in
-// more than COLLAPSE_SOURCES_AFTER snapshots the first few stay visible and the
-// remainder tuck behind a native <details> (works with JavaScript off) so a
-// many-snapshot variant never dominates. Shared by the canonical-divergence
-// block and the "show the working" panel so both read identically.
-const COLLAPSE_SOURCES_AFTER = 5;
-const sourceListItem = (s) => {
-  const li = el('li', 'fid-source');
-  li.append(`row ${s.ordinal} · `);
-  const a = extLink(s.url, s.label);
-  a.title = s.sourceFile;
-  li.appendChild(a);
-  li.append(` · ${s.vintage}`);
+// ---- Shared activity-style vertical timeline (issue #466) ------------------
+// A chronological list of events on a connecting spine, grouped by year: each
+// event places its content (the lead node) on the LEFT and its date on the
+// RIGHT, with an optional de-emphasised precise timestamp below the date. The
+// markup is a semantic ordered list of years, each an ordered list of that
+// year's events, with a <time> for every date, so order and dates reach
+// assistive tech and the whole thing reads with no JavaScript. The spine and its
+// dots are decoration (aria-hidden), and every event carries a text lead, so the
+// meaning never rides on colour alone. When there are more entries than
+// `collapseAfter` the overflow (whole years only, never a split year) tucks
+// behind a native <details> so a long history never dominates. This one
+// component backs BOTH the entity status timeline and the per-note "seen in"
+// source lists, so they read identically.
+
+// One event row: the spine dot, the lead content on the left, and the date on
+// the right. A precise timestamp, when present, is a source's OWN date (e.g. a
+// spreadsheet's recorded modified time), shown below the vintage, de-emphasised
+// and kept clearly distinct from our fetch/processing date.
+const timelineEvent = (entry) => {
+  const li = el('li', 'tl-event' + (entry.className ? ' ' + entry.className : ''));
+  const dot = el('span', 'tl-dot' + (entry.dotClass ? ' tl-dot-' + entry.dotClass : ''));
+  dot.setAttribute('aria-hidden', 'true');
+  li.appendChild(dot);
+  const lead = el('div', 'tl-lead');
+  lead.appendChild(entry.lead);
+  li.appendChild(lead);
+  const when = el('div', 'tl-when');
+  const date = el('time', 'tl-date', entry.dateText);
+  if (entry.datetime) date.setAttribute('datetime', entry.datetime);
+  when.appendChild(date);
+  if (entry.preciseText) when.appendChild(el('span', 'tl-precise', entry.preciseText));
+  li.appendChild(when);
   return li;
 };
-const sourceListUl = (items) => {
-  const ul = el('ul', 'fid-source-list');
-  for (const s of items) ul.appendChild(sourceListItem(s));
-  return ul;
+
+// Render year-grouped entries into an <ol class="tl">: each year is a group
+// carrying its period label and a nested <ol> of that year's events.
+const timelineGroups = (entries) => {
+  const ol = el('ol', 'tl');
+  for (const { period, entries: bucket } of groupByYear(entries)) {
+    const group = el('li', 'tl-group');
+    const label = el('p', 'tl-period');
+    label.appendChild(el('time', null, period));
+    group.appendChild(label);
+    const events = el('ol', 'tl-events');
+    for (const entry of bucket) events.appendChild(timelineEvent(entry));
+    group.appendChild(events);
+    ol.appendChild(group);
+  }
+  return ol;
 };
-const renderSourceList = (sources) => {
-  const wrap = el('div', 'fid-sources');
-  wrap.appendChild(sourceListUl(sources.slice(0, COLLAPSE_SOURCES_AFTER)));
-  const rest = sources.slice(COLLAPSE_SOURCES_AFTER);
-  if (rest.length > 0) {
-    const d = el('details', 'fid-more-sources');
-    const sum = el('summary');
-    sum.append(`Show all ${sources.length} sources`);
-    d.appendChild(sum);
-    d.appendChild(sourceListUl(rest));
-    wrap.appendChild(d);
+
+// The full timeline for a set of entries: the visible year-groups, plus - when
+// there are more than `collapseAfter` entries - the overflow years inside a
+// JS-free <details>. The split falls on a year boundary so a year is never torn
+// across the fold. `collapseNoun` names the tucked items in the summary
+// ("sources", "events"). Returns a wrapper so the <details> can sit beside the
+// list (an <ol> may not hold a <details> as a direct child).
+const renderTimeline = (entries, { ariaLabel, collapseAfter = Infinity, collapseNoun = 'events' } = {}) => {
+  const wrap = el('div', 'tl-wrap');
+  const visible = [];
+  const hidden = [];
+  let shown = 0;
+  for (const group of groupByYear(entries)) {
+    if (shown >= collapseAfter && visible.length > 0) { hidden.push(group); }
+    else { visible.push(group); shown += group.entries.length; }
+  }
+  const head = timelineGroups(visible.flatMap(g => g.entries));
+  if (ariaLabel) head.setAttribute('aria-label', ariaLabel);
+  wrap.appendChild(head);
+  if (hidden.length > 0) {
+    const details = el('details', 'tl-more');
+    const summary = el('summary');
+    summary.append(`Show all ${entries.length} ${collapseNoun}`);
+    details.appendChild(summary);
+    details.appendChild(timelineGroups(hidden.flatMap(g => g.entries)));
+    wrap.appendChild(details);
   }
   return wrap;
 };
 
+// A "where it was seen" source list, rendered as the shared timeline: one event
+// per source, "row {ordinal} · {humanised label, linked}" on the left and the
+// vintage on the right, grouped by year. The visible label is short and human
+// ("Ofcom open data"); the FULL logical path is preserved as the link's href and
+// title, so the long path never becomes run-on visible text yet is not lost. A
+// many-snapshot variant collapses its overflow years behind a <details>. Shared
+// by the canonical-divergence block and the "show the working" panel.
+const COLLAPSE_SOURCES_AFTER = 5;
+const sourceEntry = (s) => {
+  const lead = document.createDocumentFragment();
+  lead.append(`row ${s.ordinal} · `);
+  const a = extLink(s.url, s.label);
+  a.title = s.sourceFile;
+  lead.appendChild(a);
+  return { lead, vintage: s.vintage, dateText: s.vintage, datetime: s.vintage, className: 'tl-source', dotClass: 'source' };
+};
+const renderSourceList = (sources) => {
+  const timeline = renderTimeline(sources.map(sourceEntry),
+    { ariaLabel: 'Where it was seen, by snapshot', collapseAfter: COLLAPSE_SOURCES_AFTER, collapseNoun: 'sources' });
+  timeline.classList.add('fid-sources');
+  return timeline;
+};
+
 const showRaw = t => t.replace(/ /g, '[NBSP]').replace(/ /g, '[SP]');
 
+// The primary event class of a folded observation, driving its spine dot's
+// appearance. A real licence-state move (change) leads, then a first sighting
+// (birth), then an admin-only update, then an unchanged continuation; a parallel
+// (de-emphasised) stream is marked as such. The dot only ECHOES the meaning the
+// event chips already carry in text, so nothing rides on the dot's colour.
+const primaryDotClass = (ob) => {
+  if (ob.role === 'parallel') return 'parallel';
+  const classes = ob.evs.map(e => e.cls);
+  if (classes.includes('change')) return 'change';
+  if (classes.includes('birth')) return 'birth';
+  if (classes.includes('admin')) return 'admin';
+  return 'cont';
+};
+
 // ---- Entity timeline (temporal fold) ---------------------------------------
+// The status timeline as a vertical activity feed (issue #466): each folded
+// observation is one event on the shared timeline, its event chips + any raw
+// variant tag on the left and its snapshot vintage on the right, grouped by
+// year. The event chips keep the model's colour-plus-text vocabulary; the spine
+// dot echoes the primary event class.
 function renderEntity(host, resolved, claims) {
   host.textContent = '';
   const observations = observationsOf(claims);
@@ -151,20 +235,28 @@ function renderEntity(host, resolved, claims) {
   head.appendChild(verdict);
   card.appendChild(head);
 
-  const tl = el('div', 'tl');
+  const entries = [];
   for (const v of f.vints) {
-    const list = f.byV.get(v);
-    list.forEach((ob, idx) => {
-      const row = el('div', 'tl-row' + (ob.role === 'parallel' ? ' parallel' : ''));
-      row.appendChild(el('div', 'vint', idx === 0 ? v : ''));
-      const body = el('div', 'body');
-      if (ob.variant) { const vt = el('span', 'variant-tag'); vt.textContent = 'raw variant ' + showRaw(ob.variant); body.appendChild(vt); }
-      if (ob.role === 'parallel') body.appendChild(el('span', 'ev split-inactive', ob.status + ' · parallel'));
-      for (const e of ob.evs) body.appendChild(el('span', 'ev ' + e.cls, e.t));
-      row.appendChild(body); tl.appendChild(row);
-    });
+    for (const ob of f.byV.get(v) ?? []) {
+      const lead = document.createDocumentFragment();
+      if (ob.variant) {
+        const vt = el('span', 'variant-tag');
+        vt.textContent = 'raw variant ' + showRaw(ob.variant);
+        lead.appendChild(vt);
+      }
+      if (ob.role === 'parallel') lead.appendChild(el('span', 'ev split-inactive', ob.status + ' · parallel'));
+      for (const e of ob.evs) lead.appendChild(el('span', 'ev ' + e.cls, e.t));
+      entries.push({
+        lead,
+        vintage: v,
+        dateText: v,
+        datetime: v,
+        className: ob.role === 'parallel' ? 'parallel' : '',
+        dotClass: primaryDotClass(ob),
+      });
+    }
   }
-  card.appendChild(tl);
+  card.appendChild(renderTimeline(entries, { ariaLabel: 'Status timeline across the snapshots' }));
   host.appendChild(card);
 }
 
