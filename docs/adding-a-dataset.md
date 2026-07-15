@@ -120,7 +120,7 @@ That covers:
   the whole corpus through DuckDB).
 - `docs/dataset-status.md` and `docs/foi-schemas.md`.
 
-Then hand-update the two **reviewed count guards** the sweep does not regenerate:
+Then hand-update the **hand-authored goldens** the sweep does not regenerate:
 
 - `EXPECTED_CATEGORIES` in
   [`value-catalogue-fold.test.ts`](../src/ci/value-catalogue-fold.test.ts) — the
@@ -130,6 +130,9 @@ Then hand-update the two **reviewed count guards** the sweep does not regenerate
   [`cross-dataset-invariants.test.ts`](../src/ci/cross-dataset-invariants.test.ts)
   — an FOI-lane register snapshot bumps the total and the FOI count by one;
   open-data stays put.
+- [`source-register.md`](source-register.md) — add a row for the new snapshot.
+  **This one has no freshness test**, so nothing fails CI if you forget it; keep
+  it current by hand as part of the same PR.
 
 ## Step 4 — verify
 
