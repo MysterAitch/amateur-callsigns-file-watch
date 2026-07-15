@@ -4,6 +4,14 @@ import * as os from 'os';
 import * as path from 'path';
 import { buildDatasetPages, dayGap, signedDelta, type DatasetPagesSummary } from './build-dataset-pages.ts';
 import { externalLink } from './site-render.ts';
+import {
+  extractLinks,
+  classifyLink,
+  resolveInternalLink,
+  resolveEmittedFile,
+  anchorIds,
+  listFilesRelative,
+} from './internal-link-crawl.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -792,5 +800,97 @@ describe('Dataset class pages', () => {
     const index = fs.readFileSync(path.join(outputDir, 'datasets', 'index.html'), 'utf8');
     expect(index).toContain('href="classes/index.html">dataset types</a>');
     expect(index).toContain('full overview page');
+  });
+});
+
+describe('Internal link integrity across the built site (issue #561)', { tags: ['data-validity'] }, () => {
+  // A site-wide net for dead internal crosslinks. The generated pages are densely
+  // cross-linked - reports → per-suffix / per-dataset / per-class pages,
+  // breadcrumbs, series nav, glossary cues - and a renamed page, a dropped
+  // generator output, or a hand-authored typo would ship a dead link silently,
+  // degrading the very cross-linking the site is built around (issues #234, #310,
+  // #333, #334). This crawls the whole generated tree (reusing the beforeAll
+  // build) and asserts every internal href/src resolves to an emitted file, and
+  // every in-page #anchor to a real id on its target.
+
+  // Asset trees populated by other deploy steps, out of scope for the
+  // generated-page crosslink guard: the databases (build-sqlite → _site/data) and
+  // the vendored sql.js runtime (npm → _site/vendor). A link under these prefixes
+  // is treated as satisfied rather than crawled.
+  const ASSET_PREFIXES = ['data/', 'vendor/'];
+
+  let unresolvedFiles: string[];
+  let unresolvedAnchors: string[];
+  let internalLinksChecked: number;
+
+  beforeAll(() => {
+    // The emitted set is the generated tree PLUS the hand-authored root assets the
+    // deploy copies from site/ verbatim (index, glossary, the browser modules and
+    // stylesheets). Generated pages link to both, so both count as emitted.
+    const emitted = new Set<string>(listFilesRelative(outputDir));
+    for (const f of fs.readdirSync('site')) {
+      if (/\.(html|js|css|webmanifest)$/.test(f)) emitted.add(f);
+    }
+    const htmlOnDisk = (rel: string): string | null => {
+      if (!rel.endsWith('.html') || !emitted.has(rel)) return null;
+      const generated = path.join(outputDir, rel);
+      return fs.existsSync(generated) ? generated : path.join('site', rel);
+    };
+    const anchorCache = new Map<string, Set<string> | null>();
+    const anchorsFor = (rel: string): Set<string> | null => {
+      const cached = anchorCache.get(rel);
+      if (cached !== undefined) return cached;
+      const disk = htmlOnDisk(rel);
+      const ids = disk === null ? null : anchorIds(fs.readFileSync(disk, 'utf8'));
+      anchorCache.set(rel, ids);
+      return ids;
+    };
+
+    unresolvedFiles = [];
+    unresolvedAnchors = [];
+    internalLinksChecked = 0;
+    // Sources are the GENERATED pages (the high-fan-out crosslinks this guards).
+    // The hand-authored site/*.html pages are excluded as sources: their static
+    // links come from one shared nav strip and their glossary deep-links are
+    // already guarded (site/glossary-links.test.ts), while they also carry
+    // app-driven hrefs built at runtime that a static crawl cannot resolve.
+    for (const rel of listFilesRelative(outputDir).filter(r => r.endsWith('.html'))) {
+      const html = fs.readFileSync(path.join(outputDir, rel), 'utf8');
+      for (const { raw } of extractLinks(html)) {
+        if (classifyLink(raw) !== 'internal') continue;
+        internalLinksChecked += 1;
+        const { path: target, fragment } = resolveInternalLink(rel, raw);
+        if (ASSET_PREFIXES.some(p => target.startsWith(p))) continue;
+        const key = resolveEmittedFile(target, emitted);
+        if (key === null) {
+          unresolvedFiles.push(`${rel} -> ${raw}`);
+          continue;
+        }
+        if (fragment !== null && fragment !== '') {
+          const ids = anchorsFor(key);
+          // Only assert when the target reads as HTML on disk; a fragment on a
+          // non-HTML target is out of scope here.
+          if (ids !== null && !ids.has(fragment)) {
+            unresolvedAnchors.push(`${rel} -> ${raw} (#${fragment} absent on ${key})`);
+          }
+        }
+      }
+    }
+  }, 60_000);
+
+  it('BuiltSite_EveryInternalLinkOnAGeneratedPage_ResolvesToAnEmittedFile', () => {
+    // Guard against a silent no-op crawl (a broken extractor passing vacuously).
+    expect(internalLinksChecked).toBeGreaterThan(1000);
+    expect(
+      unresolvedFiles,
+      `dead internal links (${unresolvedFiles.length}):\n${unresolvedFiles.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('BuiltSite_EveryInPageAnchorLink_ResolvesToAnAnchorOnItsTargetPage', () => {
+    expect(
+      unresolvedAnchors,
+      `dangling #fragment links (${unresolvedAnchors.length}):\n${unresolvedAnchors.join('\n')}`,
+    ).toEqual([]);
   });
 });
