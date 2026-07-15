@@ -210,6 +210,44 @@ function parseCommittedFolded(): Map<string, LicenceCategoryFigures> {
   return byCategory;
 }
 
+// Thousands-underscored integer literal (1417346 -> "1_417_346") so the emitted
+// figures paste straight into the numeric-separator style above.
+function underscored(n: number | undefined): string {
+  return (n ?? 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '_');
+}
+
+// When a new dataset shifts the corpus, the committed EXPECTED_CATEGORIES figures
+// go stale and the assertions below fail. To make the (deliberate, human-reviewed)
+// allow-list update a copy rather than a hand-count, emit a paste-ready block of
+// the freshly-computed legacy + committed-folded figures whenever any category
+// drifts. Variants and reasons are structural, not counts, so they carry over
+// unchanged and are echoed for convenience.
+function emitRegeneratedAllowListOnDrift(
+  legacyByCategory: Map<string, LicenceCategoryFigures>,
+  committedFolded: Map<string, LicenceCategoryFigures>,
+): void {
+  const drifted = Object.entries(EXPECTED_CATEGORIES).some(([cat, exp]) => {
+    const l = legacyByCategory.get(cat);
+    const f = committedFolded.get(cat);
+    return l === undefined || f === undefined
+      || l.records !== exp.legacy.records || l.callsigns !== exp.legacy.callsigns || l.allocated !== exp.legacy.allocated
+      || f.records !== exp.folded.records || f.callsigns !== exp.folded.callsigns || f.allocated !== exp.folded.allocated;
+  });
+  if (!drifted) return;
+  const out = ['', 'EXPECTED_CATEGORIES drift — paste-ready regenerated figures (verify before committing):'];
+  for (const [cat, exp] of Object.entries(EXPECTED_CATEGORIES)) {
+    const l = legacyByCategory.get(cat);
+    const f = committedFolded.get(cat);
+    out.push(`  '${cat}': {`);
+    out.push(`    legacy: { records: ${underscored(l?.records)}, callsigns: ${underscored(l?.callsigns)}, allocated: ${underscored(l?.allocated)} },`);
+    out.push(`    folded: { records: ${underscored(f?.records)}, callsigns: ${underscored(f?.callsigns)}, allocated: ${underscored(f?.allocated)} },`);
+    out.push(`    variants: ${JSON.stringify(exp.variants)},`);
+    out.push(`    reason: ${JSON.stringify(exp.reason)},`);
+    out.push('  },');
+  }
+  console.log(out.join('\n'));
+}
+
 describe('licence-category — ledger vs legacy equivalence oracle', { tags: ['data-validity'] }, () => {
   // Always-on: reads the committed folded golden and recomputes the legacy
   // figures live over the real archive (no DuckDB needed for this side). Any
@@ -223,6 +261,7 @@ describe('licence-category — ledger vs legacy equivalence oracle', { tags: ['d
     const legacy = computeLegacyLicenceCategories(productCatalogue, ref, productCells);
     legacyByCategory = new Map(legacy.categories.map(c => [c.category, c]));
     committedFolded = parseCommittedFolded();
+    emitRegeneratedAllowListOnDrift(legacyByCategory, committedFolded);
   }, 600_000);
 
   it('LicenceCategories_LegacyAndFolded_ShareTheSameCategoryAndVariantSets', () => {
