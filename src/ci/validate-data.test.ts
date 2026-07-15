@@ -140,7 +140,9 @@ describe('validateArchiveEntry', { tags: ['unit'] }, () => {
     // loss in the derivation chain) breaks the arithmetic.
     writeAccountedEntry(tmpRoot, '2026-06-23', { ignoredLines: undefined });
     const problems = validateArchiveEntry('2026-06-23');
-    expect(problems.some(p => p.problem.includes('raw line accounting failed'))).toBe(true);
+    // The message names the parse source (raw.csv here; an extract when an
+    // entry declares one), so match on the invariant clause.
+    expect(problems.some(p => p.problem.includes('line accounting failed'))).toBe(true);
   });
 
   it('ArchiveEntry_WhenHeaderLineDrifts_Fails', () => {

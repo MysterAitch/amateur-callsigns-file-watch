@@ -982,6 +982,9 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
   const descriptions = new Map<string, string>([
     ['raw.csv', "Ofcom's bytes, verbatim"],
+    ['raw.xlsx', "Ofcom's bytes, verbatim (published as a workbook)"],
+    ['raw-extract.csv', 'mechanical parse-source extract of the raw file'],
+    ['raw-extract-sheet-1-sheet1.csv', 'mechanical sheet extract of the raw workbook'],
     ['meta.json', 'provenance + shape + diff summary'],
     ['normalised.csv', 'canonical schema derivation — see the data dictionary'],
     ['components.csv', 'per-callsign component decomposition'],
@@ -1018,8 +1021,19 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     const shown = q.examples.slice(0, 5).map(e => (e === '' ? '<em>(empty value)</em>' : `<code>${escapeHtml(e)}</code>`));
     return `<li>${escapeHtml(check)}: ${q.count.toLocaleString('en-GB')}${shown.length > 0 ? ` — e.g. ${shown.join(', ')}` : ''}</li>`;
   }).join('')}</ul>`;
+  // The raw publication may be a CSV (schema panel over its own bytes) or a
+  // workbook (verbatim binary - the schema panel shows its mechanical extract,
+  // the file the normaliser parses).
+  const rawIsCsv = fs.existsSync(path.join(sourceDir, 'raw.csv'));
+  const extractName = fs.readdirSync(sourceDir).find(n => n.startsWith('raw-extract') && n.endsWith('.csv'));
+  const rawTabs: InspectTab[] = rawIsCsv
+    ? [{ id: 'i-raw', label: 'raw.csv', panel: csvSchemaPanel(path.join(sourceDir, 'raw.csv'), "Ofcom's bytes, verbatim") }]
+    : [{ id: 'i-raw', label: 'raw.xlsx', panel: '<p class="lead">Published as a workbook and archived verbatim — no CSV schema of its own. The mechanical sheet extract below is the parse source.</p>' }];
+  if (extractName !== undefined) {
+    rawTabs.push({ id: 'i-extract', label: extractName, panel: csvSchemaPanel(path.join(sourceDir, extractName), 'Mechanical parse-source extract of the raw publication') });
+  }
   const tabs: InspectTab[] = [
-    { id: 'i-raw', label: 'raw.csv', panel: csvSchemaPanel(path.join(sourceDir, 'raw.csv'), "Ofcom's bytes, verbatim") },
+    ...rawTabs,
     { id: 'i-norm', label: 'normalised.csv', panel: csvSchemaPanel(path.join(sourceDir, 'normalised.csv'), 'Canonical schema — one stable shape across every publication') },
     { id: 'i-comp', label: 'components.csv', panel: csvSchemaPanel(path.join(sourceDir, 'components.csv'), 'Per-callsign decomposition + join keys') },
     { id: 'i-stats', label: 'stats.json', panel: `<p class="lead">Parse statuses: ${parseStatuses}.</p>${anomalyFlagsHtml(stats.callsignFlags)}${qualityHtml}` },
@@ -1062,7 +1076,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
       dl('meta.json', 'JSON', 'provenance & integrity'),
     ]),
     downloadTier('Source & bundles', [
-      dl('raw.csv', 'CSV', "Ofcom's bytes, verbatim"),
+      rawIsCsv ? dl('raw.csv', 'CSV', "Ofcom's bytes, verbatim") : dl('raw.xlsx', 'XLSX', "Ofcom's bytes, verbatim (workbook)"),
       dbSize !== '' ? downloadSlot(dbName, `../../../data/datasets/${encodeURIComponent(dbName)}`, `SQLite${dbSize}`, 'one database, one table per CSV') : placeholderSlot('SQLite', 'built at deploy'),
       downloadSlot(`${key}.zip`, encodeURIComponent(`${key}.zip`), `ZIP ${formatBytes(zipBytes)}`, 'everything + descriptor + dictionary'),
       downloadSlot('datapackage.json', 'datapackage.json', 'Frictionless', 'machine-readable manifest with schemas'),

@@ -176,11 +176,12 @@ describe.skipIf(!duckDbAvailable())('cross-dataset invariants — real-archive f
   it('OverlapMatrix_RealArchive_HasNinePoolRowsAndVintageOrderedRegisterColumns', () => {
     // Nine available-pool snapshots (2013–2016) as rows.
     expect(m.pools.length).toBe(9);
-    // Thirty surviving register columns: seven open-data publications plus
-    // twenty-three FOI register-snapshots (two FOI snapshots that hold no
-    // callsign union are dropped, not shown as all-zero columns).
-    expect(m.registers.length).toBe(30);
-    expect(m.registers.filter(r => r.kind === 'open-data')).toHaveLength(7);
+    // Thirty-two surviving register columns: nine open-data publications
+    // (including the two web-archive-recovered vintages, 2025-11-11 and
+    // 2026-01-14) plus twenty-three FOI register-snapshots (two FOI snapshots
+    // that hold no callsign union are dropped, not shown as all-zero columns).
+    expect(m.registers.length).toBe(32);
+    expect(m.registers.filter(r => r.kind === 'open-data')).toHaveLength(9);
     expect(m.registers.filter(r => r.kind === 'foi')).toHaveLength(23);
     // Every pool row carries exactly one cell per register column.
     expect(m.present.length).toBe(m.pools.length);

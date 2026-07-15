@@ -6,15 +6,15 @@ exports. Rows are detectors, columns are datasets (newest leftmost).
 A class appearing or vanishing between publications is a pipeline-change
 signal in its own right.
 
-| detector | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152084 | 151152 |
-| Excel-date-shaped callsigns | 0 | 0 | 0 | 0 | 16 | 15 | 15 |
-| encoding-failure characters | 0 | 0 | 2 | 0 | 3 | 3 | 3 |
-| whitespace/invisible-bearing | 5 | 0 | 2 | 0 | 2 | 1 | 1 |
-| post-normalisation duplicates | 4 | 0 | 1 | 0 | 4 | 4 | 4 |
-| empty callsigns | 0 | 0 | 0 | 0 | 0 | 2 | 4 |
-| lowercase-bearing | 2 | 0 | 2 | 0 | 18 | 17 | 17 |
+| detector | 2026-06-23 | 2026-01-14 | 2025-11-11 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| _records_ | 158318 | 146417 | 159895 | 1074 | 112650 | 1074 | 157427 | 152084 | 151152 |
+| Excel-date-shaped callsigns | 0 | 0 | 15 | 0 | 0 | 0 | 16 | 15 | 15 |
+| encoding-failure characters | 0 | 0 | 0 | 0 | 2 | 0 | 3 | 3 | 3 |
+| whitespace/invisible-bearing | 5 | 5 | 5 | 0 | 2 | 0 | 2 | 1 | 1 |
+| post-normalisation duplicates | 4 | 2 | 2 | 0 | 1 | 0 | 4 | 4 | 4 |
+| empty callsigns | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 4 |
+| lowercase-bearing | 2 | 1 | 16 | 0 | 2 | 0 | 18 | 17 | 17 |
 
 ## Component-parse flags
 
@@ -22,35 +22,36 @@ Per-row flags from `components.csv` (vocabulary and semantics:
 `reference-data/flags.md` - notably, `forbidden-suffix` is mostly
 long-standing allocations, not an anomaly by itself).
 
-| flag | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| `class-product-mismatch` | 24 | 0 | 5 | 0 | 5 | 3 | 0 |
-| `encoding-failure` | 0 | 0 | 2 | 0 | 3 | 3 | 3 |
-| `excel-date-shape` | 0 | 0 | 0 | 0 | 16 | 15 | 15 |
-| `forbidden-suffix` | 2830 | 1 | 3149 | 1 | 3170 | 3156 | 3154 |
-| `forbidden-suffix-issued-after-first-known-list` | 106 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `hash-in-register` | 3 | 0 | 3 | 0 | 3 | 3 | 3 |
-| `lowercase` | 2 | 0 | 2 | 0 | 18 | 17 | 17 |
-| `malformed-home-callsign` | 7 | 1 | 10 | 1 | 10 | 7 | 7 |
-| `rsl-in-register` | 22 | 1 | 23 | 1 | 23 | 22 | 22 |
-| `stripped-collision` | 4 | 0 | 1 | 0 | 4 | 4 | 4 |
-| `unknown-prefix-series` | 1 | 0 | 0 | 0 | 1 | 1 | 1 |
-| `whitespace` | 5 | 0 | 2 | 0 | 2 | 1 | 1 |
+| flag | 2026-06-23 | 2026-01-14 | 2025-11-11 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `class-product-mismatch` | 24 | 22 | 26 | 0 | 5 | 0 | 5 | 3 | 0 |
+| `encoding-failure` | 0 | 0 | 0 | 0 | 2 | 0 | 3 | 3 | 3 |
+| `excel-date-shape` | 0 | 0 | 15 | 0 | 0 | 0 | 16 | 15 | 15 |
+| `forbidden-suffix` | 2830 | 424 | 3169 | 1 | 3149 | 1 | 3170 | 3156 | 3154 |
+| `forbidden-suffix-issued-after-first-known-list` | 106 | 36 | 101 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `hash-in-register` | 3 | 1 | 1 | 0 | 3 | 0 | 3 | 3 | 3 |
+| `lowercase` | 2 | 1 | 16 | 0 | 2 | 0 | 18 | 17 | 17 |
+| `malformed-home-callsign` | 7 | 4 | 5 | 1 | 10 | 1 | 10 | 7 | 7 |
+| `rsl-in-register` | 22 | 12 | 15 | 1 | 23 | 1 | 23 | 22 | 22 |
+| `stripped-collision` | 4 | 2 | 2 | 0 | 1 | 0 | 4 | 4 | 4 |
+| `unknown-prefix-series` | 1 | 1 | 1 | 0 | 0 | 0 | 1 | 1 | 1 |
+| `whitespace` | 5 | 5 | 5 | 0 | 2 | 0 | 2 | 1 | 1 |
 
 ## Parse statuses
 
-| status | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| `empty` | 0 | 0 | 0 | 0 | 0 | 2 | 4 |
-| `parsed` | 158208 | 1070 | 112523 | 1070 | 157282 | 151981 | 151050 |
-| `unparseable` | 10 | 0 | 11 | 0 | 32 | 26 | 26 |
-| `visitor` | 100 | 4 | 116 | 4 | 113 | 75 | 72 |
+| status | 2026-06-23 | 2026-01-14 | 2025-11-11 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `empty` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 4 |
+| `parsed` | 158208 | 146369 | 159821 | 1070 | 112523 | 1070 | 157282 | 151981 | 151050 |
+| `unparseable` | 10 | 11 | 27 | 0 | 11 | 0 | 32 | 26 | 26 |
+| `visitor` | 100 | 37 | 47 | 4 | 116 | 4 | 113 | 75 | 72 |
 
 <details>
 <summary>Examples: Excel-date-shaped callsigns</summary>
 
 | dataset | examples |
 |---|---|
+| 2025-11-11 | `20-Apr`, `20-Aug`, `20-Dec`, `20-Feb`, `20-Jan` (+10 more) |
 | 2025-04-08 | `20-Apr`, `20-Aug`, `20-Dec`, `20-Feb`, `20-Jan` (+11 more) |
 | 2023-02-20 | `20-Apr`, `20-Aug`, `20-Dec`, `20-Feb`, `20-Jan` (+10 more) |
 | 2022-05-30 | `20-Apr`, `20-Aug`, `20-Dec`, `20-Feb`, `20-Jan` (+10 more) |
@@ -75,6 +76,8 @@ long-standing allocations, not an anomaly by itself).
 | dataset | examples |
 |---|---|
 | 2026-06-23 | `2E1HON{nbsp}`, `G0TQK{nbsp}`, `G6{space}FMU`, `G7IWE{nbsp}`, `M/TKG{space}2021` |
+| 2026-01-14 | `2E1HON{nbsp}`, `G0TQK{nbsp}`, `G6{space}FMU`, `G7IWE{nbsp}`, `M/TKG{space}2021` |
+| 2025-11-11 | `2E1HON{nbsp}`, `G0TQK{nbsp}`, `G6{space}FMU`, `G7IWE{nbsp}`, `M/TKG{space}2021` |
 | 2025-06-04 | `G6{space}FMU`, `M/TKG{space}2021` |
 | 2025-04-08 | `G6{space}FMU`, `M/TKG{space}2021` |
 | 2023-02-20 | `G6{space}FMU` |
@@ -88,6 +91,8 @@ long-standing allocations, not an anomaly by itself).
 | dataset | examples |
 |---|---|
 | 2026-06-23 | `G0TQK{nbsp}`, `G6{space}FMU`, `G7IWE{nbsp}`, `M/EI-8-DJ` |
+| 2026-01-14 | `G0TQK{nbsp}`, `G6{space}FMU` |
+| 2025-11-11 | `G0TQK{nbsp}`, `G6{space}FMU` |
 | 2025-06-04 | `M/EI-8-DJ` |
 | 2025-04-08 | `G0TQK{U+FFFD}`, `G6{space}FMU`, `G7IWE{U+FFFD}`, `M/EI-8-DJ` |
 | 2023-02-20 | `G0TQK{U+FFFD}`, `G6{space}FMU`, `G7IWE{U+FFFD}`, `M/EI-8-DJ` |
@@ -111,6 +116,8 @@ long-standing allocations, not an anomaly by itself).
 | dataset | examples |
 |---|---|
 | 2026-06-23 | `2e1GTD`, `g0jrk` |
+| 2026-01-14 | `g0jrk` |
+| 2025-11-11 | `20-Apr`, `20-Aug`, `20-Dec`, `20-Feb`, `20-Jan` (+11 more) |
 | 2025-06-04 | `2e1GTD`, `g0jrk` |
 | 2025-04-08 | `20-Apr`, `20-Aug`, `20-Dec`, `20-Feb`, `20-Jan` (+13 more) |
 | 2023-02-20 | `20-Apr`, `20-Aug`, `20-Dec`, `20-Feb`, `20-Jan` (+12 more) |

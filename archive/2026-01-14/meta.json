@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-amateur-callsigns",
+  "provenance": "recovered-from-web-archive",
+  "intendedCoverage": {
+    "complete": true
+  },
+  "fetchedAt": "2026-07-15T11:22:00.000Z",
+  "ofcomReportedUpdateIso": "2026-01-14",
+  "converter": {
+    "script": "src/sources/ofcom-amateur/normalise.ts",
+    "variant": "v2026-licence-version-iso"
+  },
+  "publicationUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list.xlsx?v=410856",
+  "witnesses": [
+    {
+      "channel": "ukgwa",
+      "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20260204175503id_/https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list.xlsx?v=410856",
+      "fetchedAt": "2026-07-15",
+      "note": "UK Government Web Archive capture 2026-02-04; the id_ (raw) replay served the workbook verbatim (sha256 matches). Single witness - no other mirror of this specific dated workbook was found."
+    }
+  ],
+  "reconstructionNotes": "Recovered verbatim from the UK Government Web Archive's capture of Ofcom's open-data amateur callsign list, published in this period as a WORKBOOK (amateur-callsign-list.xlsx) - archived exactly as published. The data vintage 2026-01-14 is corroborated by the workbook's dcterms:created and the maximum Licence_Version.LastModifiedDate in the data agreeing. raw-extract-sheet-1-sheet1.csv is the mechanical sheet extract (src/shared/xlsx-extract.ts) and the parse source; the workbook's typed date cells render ISO in the extract. Notably ~13,478 fewer records than the 2025-11-11 publication (allocated -9,561, reserved -3,950) - a net removal, not a shift into the reserved/available pools; flagged for longitudinal analysis, not reconciled here.",
+  "qualityObservations": [
+    {
+      "observedAt": "2026-07-15",
+      "statement": "194 duplicate callsign values: the publication repeats 194 distinct callsigns on more than one row (publisher duplicates, preserved verbatim in normalised.csv - join consumers must expect multiple rows per callsign in this vintage).",
+      "evidence": "Distinct Callsign values appearing on 2+ data rows of the sheet extract (e.g. 20CAM, 20NAE, 20TWA, 21DQG); the neighbouring 2025-11-11 recovered vintage carries 213, while no live open-data publication carries any - a property of these recovered vintages.",
+      "coverageAffecting": false
+    }
+  ],
+  "files": {
+    "raw.xlsx": {
+      "size": 4873877,
+      "sha256": "f6febb629edef7eb120eb5c8ae17d9d7bf200c8a6ceef60c2d37428ee538be45",
+      "format": "xlsx"
+    },
+    "raw-extract-sheet-1-sheet1.csv": {
+      "size": 10668582,
+      "sha256": "d4974a3a8d4058ef52646140e9ab72a70d147d748dc1cfbd2aa08a8a2746cf8f",
+      "format": "csv",
+      "role": "extract",
+      "extractOf": "raw.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts",
+      "columnCount": 6,
+      "columnNames": [
+        "Callsign",
+        "Product__c",
+        "Status",
+        "Type__c",
+        "Licence_Version.LastModifiedDate",
+        "Licence_Version.Original_start_date__c"
+      ],
+      "recordCount": 146417
+    },
+    "normalised.csv": {
+      "size": 10961441,
+      "sha256": "ff38b26e21c2d3ceb8ca9e325e0180e029a10a1d6ca9c2d83de4e43b684dc758",
+      "format": "csv",
+      "columnCount": 8,
+      "columnNames": [
+        "callsign",
+        "product",
+        "status",
+        "type",
+        "created_date",
+        "last_modified_date",
+        "licence_version_last_modified_date",
+        "licence_version_original_start_date"
+      ],
+      "recordCount": 146417,
+      "sortedBy": "callsign"
+    },
+    "stats.json": {
+      "size": 2799,
+      "sha256": "9152c3a023afa05286b828ceabb74665ddedaa20e7112136e8f32f359ad43439",
+      "format": "json"
+    },
+    "components.csv": {
+      "size": 6408104,
+      "sha256": "1d0ae9474f2b4c0e44c1e8191b509e4b1be7fd936a6eae973a0fdd986859c7c9",
+      "format": "csv",
+      "columnCount": 10,
+      "columnNames": [
+        "callsign",
+        "cleaned",
+        "parse_status",
+        "prefix_series",
+        "rsl",
+        "suffix",
+        "placeholder_form",
+        "home_callsign",
+        "implied_class",
+        "flags"
+      ],
+      "recordCount": 146417,
+      "sortedBy": "callsign"
+    }
+  },
+  "normalised": {
+    "schemaVersion": 1,
+    "headerVariant": "v2026-licence-version-iso",
+    "statsSchemaVersion": 6,
+    "componentsSchemaVersion": 5
+  },
+  "headerLines": [
+    {
+      "line": 1,
+      "content": "Callsign,Product__c,Status,Type__c,Licence_Version.LastModifiedDate,Licence_Version.Original_start_date__c"
+    }
+  ]
+}

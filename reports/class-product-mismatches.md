@@ -36,6 +36,64 @@ a verdict.
 | `M7VVH` | M7 | Foundation | Amateur Full Radio Licence |
 | `M7XBO` | M7 | Foundation | Amateur Full Radio Licence |
 
+## 2026-01-14 (22)
+
+| callsign | prefix series | implied class | product |
+|---|---|---|---|
+| `21EXG` | 21 | Intermediate | Amateur Foundation Radio Licence |
+| `21FNR` | 21 | Intermediate | Amateur Foundation Radio Licence |
+| `21IEM` | 21 | Intermediate | Amateur Foundation Radio Licence |
+| `G1MOK` | G1 | Full | Amateur Intermediate Radio Licence |
+| `G1THP` | G1 | Full | Amateur Intermediate Radio Licence |
+| `G1XPH` | G1 | Full | Amateur Foundation Radio Licence |
+| `G6JRC` | G6 | Full | Amateur Foundation Radio Licence |
+| `G6WHR` | G6 | Full | Amateur Foundation Radio Licence |
+| `G7POQ` | G7 | Full | Amateur Foundation Radio Licence |
+| `G8UAY` | G8 | Full | Amateur Intermediate Radio Licence |
+| `M1CUB` | M1 | Full | Amateur Intermediate Radio Licence |
+| `M3AWA` | M3 | Foundation | Amateur Full Radio Licence |
+| `M3DNA` | M3 | Foundation | Amateur Full Radio Licence |
+| `M3GFG` | M3 | Foundation | Amateur Full Radio Licence |
+| `M3JAN` | M3 | Foundation | Amateur Full Radio Licence |
+| `M5CLO` | M5 | Full | Amateur Intermediate Radio Licence |
+| `M5CLO` | M5 | Full | Amateur Intermediate Radio Licence |
+| `M5SHA` | M5 | Full | Amateur Foundation Radio Licence |
+| `M6ODV` | M6 | Foundation | Amateur Full Radio Licence |
+| `M7LRJ` | M7 | Foundation | Amateur Full Radio Licence |
+| `M7VVH` | M7 | Foundation | Amateur Full Radio Licence |
+| `M7XBO` | M7 | Foundation | Amateur Full Radio Licence |
+
+## 2025-11-11 (26)
+
+| callsign | prefix series | implied class | product |
+|---|---|---|---|
+| `21CZS` | 21 | Intermediate | Amateur Full Radio Licence |
+| `21EXG` | 21 | Intermediate | Amateur Foundation Radio Licence |
+| `21FNR` | 21 | Intermediate | Amateur Foundation Radio Licence |
+| `21IEM` | 21 | Intermediate | Amateur Foundation Radio Licence |
+| `2E1CZS` | 21 | Intermediate | Amateur Full Radio Licence |
+| `G1MOK` | G1 | Full | Amateur Intermediate Radio Licence |
+| `G1THP` | G1 | Full | Amateur Intermediate Radio Licence |
+| `G1XPH` | G1 | Full | Amateur Foundation Radio Licence |
+| `G6JRC` | G6 | Full | Amateur Foundation Radio Licence |
+| `G6WHR` | G6 | Full | Amateur Foundation Radio Licence |
+| `G7DZI` | G7 | Full | Amateur Intermediate Radio Licence |
+| `G7POQ` | G7 | Full | Amateur Foundation Radio Licence |
+| `G8UAY` | G8 | Full | Amateur Intermediate Radio Licence |
+| `M1CUB` | M1 | Full | Amateur Intermediate Radio Licence |
+| `M3AWA` | M3 | Foundation | Amateur Full Radio Licence |
+| `M3DNA` | M3 | Foundation | Amateur Full Radio Licence |
+| `M3GFG` | M3 | Foundation | Amateur Full Radio Licence |
+| `M3JAN` | M3 | Foundation | Amateur Full Radio Licence |
+| `M5CLO` | M5 | Full | Amateur Intermediate Radio Licence |
+| `M5CLO` | M5 | Full | Amateur Intermediate Radio Licence |
+| `M5SHA` | M5 | Full | Amateur Foundation Radio Licence |
+| `M6ODV` | M6 | Foundation | Amateur Full Radio Licence |
+| `M7LKZ` | M7 | Foundation | Amateur Full Radio Licence |
+| `M7LRJ` | M7 | Foundation | Amateur Full Radio Licence |
+| `M7VVH` | M7 | Foundation | Amateur Full Radio Licence |
+| `M7XBO` | M7 | Foundation | Amateur Full Radio Licence |
+
 ## 2025-06-08 (0)
 
 (none)
