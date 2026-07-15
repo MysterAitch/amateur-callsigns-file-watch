@@ -46,6 +46,7 @@ export const ACTIVE_NAV: Record<string, string> = {
   'ledger.html': 'Ledger',
   'playground.html': 'Playground',
   'data-status.html': 'Data status',
+  'callsign-structure.html': 'Anatomy',
   'glossary.html': 'Glossary',
   'about.html': 'About',
 };
