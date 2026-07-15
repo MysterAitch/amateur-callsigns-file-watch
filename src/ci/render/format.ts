@@ -22,6 +22,20 @@ export function humanDate(isoDate: string): string {
   return `${Number(match[3])} ${MONTHS[Number(match[2]) - 1]} ${match[1]}`;
 }
 
+// '2016-09' or '2016-09-20' -> 'September 2016' (deterministic, month precision).
+// Overview surfaces read cleanly only when every vintage renders at the same
+// granularity; some sources report a month, others a full day, so month is the
+// finest shared precision. The exact day, where known, belongs in the detail
+// views, not the overview timeline. Input that is not a leading ISO year-month
+// (a prose range, an empty cell) is returned untouched so nothing is faked.
+export function monthYear(isoMonth: string): string {
+  const match = /^(\d{4})-(\d{2})/.exec(isoMonth);
+  if (match === null) return isoMonth;
+  const monthNumber = Number(match[2]);
+  if (monthNumber < 1 || monthNumber > 12) return isoMonth;
+  return `${MONTHS[monthNumber - 1]} ${match[1]}`;
+}
+
 // Download links always show a size; navigation links never do - the
 // consistent pattern that tells a visitor what a click will do.
 export function sizeOf(filePath: string): string {

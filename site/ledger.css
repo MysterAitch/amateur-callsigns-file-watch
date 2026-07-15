@@ -505,6 +505,11 @@
 .ledger table.grid td.vintage, .ledger table.grid td.auth { white-space: nowrap; font-size: 12.5px; color: var(--muted); }
 .ledger table.grid tr.grouprow th { background: var(--surface-2); font-family: var(--mono); font-size: 11px;
   letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+/* A plain-English blurb (issue #469) sits directly under each group heading,
+   sharing its surface so the two read as one header block; the prose itself is
+   quiet and readable, not the uppercase monospace of the heading above it. */
+.ledger table.grid tr.groupblurb td { background: var(--surface-2); padding: 0 10px 10px; }
+.ledger table.grid .blurb { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); max-width: 90ch; }
 /* The shared dataset-label component (issues #328 / #310, datasetLabel in
    site-render.ts). The human name leads, so its link reads as a plain readable
    label; the raw archive key follows in .dstitle as a secondary monospace

@@ -4,6 +4,9 @@ import * as os from 'os';
 import * as path from 'path';
 import {
   STAGES,
+  type DatasetRow,
+  type StageCell,
+  type StageKey,
   buildOpenDataRows,
   buildFoiRows,
   buildHeldRows,
@@ -216,6 +219,84 @@ describe('data-status: series coverage & gaps', { tags: ['data-validity'] }, () 
     const html = renderSeriesGaps(series);
     expect(html).toMatch(/Gap of \d+ months between/);
     expect(html).toContain('consider recovering an intervening snapshot');
+  });
+});
+
+// These tests drive the pure render functions with small fabricated rows (no
+// real archive), so they classify as `unit`: fixture in, assert the transform.
+// They pin the issue #469 behaviour — a per-type blurb under each group heading,
+// and every vintage rendered at one consistent granularity.
+describe('data-status: per-type blurbs & de-jarred vintages (issue #469)', { tags: ['unit'] }, () => {
+  function stagesAllDone(): Record<StageKey, StageCell> {
+    const cell: StageCell = { state: 'done', detail: 'test cell' };
+    return { read: cell, understood: cell, validated: cell, normalised: cell, enriched: cell };
+  }
+
+  function makeRow(over: { key: string; vintage: string | null; primaryClass: string } & Partial<DatasetRow>): DatasetRow {
+    return {
+      key: over.key,
+      lane: over.lane ?? 'open-data',
+      title: over.title ?? 'Test dataset',
+      datasetClasses: over.datasetClasses ?? [over.primaryClass],
+      primaryClass: over.primaryClass,
+      recordOnly: over.recordOnly ?? false,
+      vintage: over.vintage,
+      authority: over.authority ?? { label: 'Official', detail: 'test authority' },
+      entryHref: over.entryHref ?? 'datasets/open-data/test/index.html',
+      metaHref: over.metaHref ?? 'https://example.test/meta.json',
+      stages: over.stages ?? stagesAllDone(),
+    };
+  }
+
+  it('Grid_EachDatasetClassGroup_ShowsAPlainEnglishBlurbUnderItsHeading', () => {
+    const rows = [
+      makeRow({ key: 'reg-2016-09', vintage: '2016-09', primaryClass: 'register-snapshot' }),
+      makeRow({ key: 'avail-2016-01', vintage: '2016-01', primaryClass: 'available-pool' }),
+    ];
+    const html = renderInventoryGrid(rows);
+    // The blurb is its own row, attached under the group heading.
+    expect(html).toContain('<tr class="groupblurb">');
+    // The register-snapshot blurb explains the open-data vs FOI provenance split
+    // and resolves the WDTK nuance the issue asks about.
+    expect(html).toContain('hosted on that open-data page');
+    expect(html).toContain('WhatDoTheyKnow (WDTK)');
+    // The available-pool blurb states the series is closed, not merely stale.
+    expect(html).toContain('no longer produced');
+  });
+
+  it('Grid_GroupHeading_LinksTheDatasetClassTermToTheGlossary', () => {
+    const rows = [makeRow({ key: 'reg-2016-09', vintage: '2016-09', primaryClass: 'register-snapshot' })];
+    const html = renderInventoryGrid(rows);
+    expect(html).toContain('glossary.html#dataset-class');
+  });
+
+  it('Grid_MixedPrecisionVintages_AllRenderAtConsistentMonthPrecision', () => {
+    const rows = [
+      makeRow({ key: 'reg-2016-09', vintage: '2016-09', primaryClass: 'register-snapshot' }),
+      makeRow({ key: 'reg-2016-09-20', vintage: '2016-09-20', primaryClass: 'register-snapshot' }),
+    ];
+    const html = renderInventoryGrid(rows);
+    // Both the month-only key and the full ISO date display as one format.
+    expect(html).toContain('September 2016');
+    // Neither the raw month key nor the day-precise humanisation appears as the
+    // visible cell label (the day survives only in the cell's exact-date title).
+    expect(html).not.toMatch(/>2016-09</);
+    expect(html).not.toMatch(/>20 September 2016</);
+    expect(html).toContain('Exact reported date: 20 September 2016');
+  });
+
+  it('SeriesTimeline_MixedPrecisionVintages_ReadAsOneConsistentFormat', () => {
+    const rows = [
+      makeRow({ key: 'reg-2016-09', vintage: '2016-09', primaryClass: 'register-snapshot' }),
+      makeRow({ key: 'reg-2017-04-24', vintage: '2017-04-24', primaryClass: 'register-snapshot' }),
+    ];
+    const series = buildSeries(rows, []);
+    const html = renderSeriesGaps(series);
+    // Timeline pills are normalised to month precision, so a full ISO vintage no
+    // longer sits jarringly beside a month-only one.
+    expect(html).toContain('>September 2016<');
+    expect(html).toContain('>April 2017<');
+    expect(html).not.toMatch(/>24 April 2017</);
   });
 });
 
