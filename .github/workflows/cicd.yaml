@@ -579,19 +579,38 @@ jobs:
           # as it would after a fresh sweep.
           rm -rf reports
           cp -r .golden-cache/reports reports
-      - name: Fail on golden-master drift
+      - name: Check golden-master drift
+        id: golden-drift
         run: |
           set -euo pipefail
           # Byte-identical regeneration leaves the tree clean; any difference means
           # a committed report is stale (or was hand-edited). Same assertion on hit
           # and miss - the cache only changes HOW the regeneration was produced,
-          # never WHAT it is compared against.
+          # never WHAT it is compared against. On drift the regenerated reports/ are
+          # the working-tree copy here, so the next step uploads them as an artifact
+          # for a follow-up commit to land BEFORE this job fails: CI surfaces the
+          # fresh goldens and the verify pipeline never writes to the repo itself
+          # (ADR 0012 read-only posture; issue #581).
           if ! git diff --quiet -- reports/; then
-            echo "::error::Committed golden-master reports under reports/ are stale. Regenerate with 'npm run normalise:sweep' (or 'node src/ci/value-catalogue.ts' for the value catalogue alone) and commit the result. Drift below:"
+            echo "drifted=true" >> "$GITHUB_OUTPUT"
+            echo "::error::Committed golden-master reports under reports/ are stale. The regenerated reports are attached as the 'regenerated-goldens' artifact - download it ('gh run download --name regenerated-goldens') and commit it over reports/, or regenerate locally with 'npm run setup:duckdb && npm run normalise:sweep'. Drift below:"
             git --no-pager diff -- reports/
-            exit 1
+          else
+            echo "drifted=false" >> "$GITHUB_OUTPUT"
+            echo "Golden-master reports under reports/ are up to date."
           fi
-          echo "Golden-master reports under reports/ are up to date."
+      - name: Surface regenerated goldens for the follow-up commit (drift only)
+        if: steps.golden-drift.outputs.drifted == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: regenerated-goldens
+          path: reports/
+          if-no-files-found: error
+      - name: Fail on golden-master drift
+        if: steps.golden-drift.outputs.drifted == 'true'
+        run: |
+          echo "::error::Golden-master drift - regenerated reports/ uploaded as the 'regenerated-goldens' artifact; land them in the PR (see the 'Check golden-master drift' step for the diff)."
+          exit 1
 
   # GitHub Pages deploy build (ADR 0003): builds the published SQLite databases
   # and assembles the static lookup site as a DEPLOY ARTEFACT. It runs on ALL
