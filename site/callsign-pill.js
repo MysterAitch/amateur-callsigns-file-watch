@@ -1,3 +1,4 @@
+// @ts-check
 // The shared callsign "pill" for the hand-authored browser surfaces (issue
 // #310): the visual identity of a callsign rendered as content, matching the
 // server-side callsignPill in src/ci/site-render.ts so a callsign looks and
@@ -7,6 +8,20 @@
 // import directly, served verbatim.
 
 import { callsignCharMarker } from './browser-query.js';
+
+// The parsed component facts a pill may carry, all optional: a pill degrades to
+// the bare callsign when none are supplied.
+/**
+ * @typedef {object} CallsignComponents
+ * @property {string} [prefixSeries]
+ * @property {string} [rsl]
+ * @property {string} [suffix]
+ * @property {string} [licenceClass]
+ */
+
+// The caller's own element factory, so this module makes no assumption about how
+// a node is built: given a tag and optional attributes it returns the element.
+/** @typedef {(tag: string, attrs?: Record<string, string>) => HTMLElement} ElementFactory */
 
 // The single source of truth for the pill's CSS class, so the lookup's pill
 // LINKS and the entry browser's raw-form pill CHIP always target the same
@@ -20,6 +35,11 @@ export const CALLSIGN_PILL_CLASS = 'callsign-pill';
 // element's own text); these facts are supplementary only, and the pill
 // degrades to just the callsign when no components are given. Pure (no DOM), so
 // it is unit-tested directly.
+/**
+ * @param {string} callsign
+ * @param {CallsignComponents} [components]
+ * @returns {string | null}
+ */
 export function callsignPillTitle(callsign, components = {}) {
   const facts = [];
   if (components.prefixSeries) facts.push(`prefix series ${components.prefixSeries}`);
@@ -35,7 +55,13 @@ export function callsignPillTitle(callsign, components = {}) {
 // own element factory, so this module makes no assumption about how a node is
 // built. The link text is the bare callsign, so the accessible name IS the
 // callsign; any component data becomes the supplementary title only.
+/**
+ * @param {ElementFactory} el
+ * @param {string} callsign
+ * @param {CallsignComponents} [components]
+ */
 export function callsignPillLink(el, callsign, components = {}) {
+  /** @type {Record<string, string>} */
   const attrs = { class: CALLSIGN_PILL_CLASS, href: `?c=${encodeURIComponent(callsign)}`, text: callsign };
   const title = callsignPillTitle(callsign, components);
   if (title !== null) attrs.title = title;
@@ -51,6 +77,10 @@ export function callsignPillLink(el, callsign, components = {}) {
 // navigation target, and its accessible name is the raw text WITH its markers,
 // preserving the browser's transparency view. `el` is the caller's element
 // factory.
+/**
+ * @param {ElementFactory} el
+ * @param {string} raw
+ */
 export function callsignPillRaw(el, raw) {
   const node = el('code', { class: CALLSIGN_PILL_CLASS });
   for (const ch of raw) {

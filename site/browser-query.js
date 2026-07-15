@@ -1,3 +1,4 @@
+// @ts-check
 // Shared query/state core for the coordinated data browser (entry-browser.js,
 // one publication) and the cross-publication comparison surface (issue #199).
 // Pure by construction - no DOM, no window - so it is unit-testable in node
@@ -10,8 +11,49 @@
 // clause and applies `dataset = <d>` itself, once per publication, so the same
 // user selection runs identically across many datasets.
 
+// A single sort instruction: which column, and the SQL direction keyword to
+// order it by ('ASC' or 'DESC' in practice; typed as the string the UI carries).
+/** @typedef {{ col: string, dir: string }} SortEntry */
+
+// One facet in the filter state: a set of selected values for a field, either
+// included or excluded, where the field may be a plain column or a SQL expression.
+/**
+ * @typedef {object} Facet
+ * @property {string} key
+ * @property {string} field
+ * @property {boolean} isExpr
+ * @property {string} label
+ * @property {Set<string>} values
+ * @property {boolean} exclude
+ */
+
+// A facet as it appears in the compact serialised ?view= object (short keys, and
+// values as a plain array rather than a Set), the inverse of serializeFilterState.
+/**
+ * @typedef {object} SerializedFacet
+ * @property {string} k
+ * @property {string} field
+ * @property {boolean} x
+ * @property {string} l
+ * @property {string[]} v
+ * @property {boolean} e
+ */
+
+// The live filter state both front-ends hold and this module reads. The pieces
+// are native collections so they mutate in place and serialise compactly.
+/**
+ * @typedef {object} FilterState
+ * @property {Map<string, Facet>} facets
+ * @property {Set<string>} toggles
+ * @property {Map<string, string>} columnFilters
+ * @property {SortEntry[]} sort
+ * @property {number} pageSize
+ * @property {string | null} customSql
+ */
+
 export const COLUMNS = ['callsign', 'cleaned', 'status', 'product', 'implied_class', 'prefix_series'];
 
+/** @type {Record<string, { label: string, sql: string }>} */
 export const TOGGLES = {
   'raw-cleaned': { label: 'raw ≠ cleaned', sql: 'callsign != cleaned' },
   forbidden: { label: 'forbidden-suffix', sql: 'suffix IN (SELECT suffix FROM ref_forbidden_suffixes)' },
@@ -26,6 +68,7 @@ export const PAGE_SIZES = [25, 50, 100, 250, 500, 1000];
 // (what to omit from ?view=), the front-ends' initial state, and the restore
 // path (what to reset an absent piece back to) all agree on one definition.
 export const DEFAULT_PAGE_SIZE = 25;
+/** @returns {SortEntry[]} */
 export function defaultSort() { return [{ col: 'callsign', dir: 'ASC' }]; }
 
 // --- rendering helper shared by both browsers ---
@@ -37,10 +80,15 @@ export function defaultSort() { return [{ col: 'callsign', dir: 'ASC' }]; }
 // itself for a visible stray (a hyphen, dot, star) which stays readable but
 // is shown highlighted. Pure, so it is unit-tested; the DOM assembly and the
 // highlight styling live in each browser.
+/** @type {Record<number, string>} */
 const CALLSIGN_CHAR_NAMES = { 0x09: 'TAB', 0x0a: 'LF', 0x0d: 'CR', 0x20: 'SP', 0xa0: 'NBSP', 0xfeff: 'BOM', 0xfffd: 'U+FFFD' };
+/** @param {string} ch */
 export function callsignCharMarker(ch) {
   if (/[a-zA-Z0-9#/]/.test(ch)) return null;
   const cp = ch.codePointAt(0);
+  // An empty input has no code point and so no marker; guarding it also lets the
+  // lookups below treat cp as a definite number.
+  if (cp === undefined) return null;
   const named = CALLSIGN_CHAR_NAMES[cp];
   if (named !== undefined) return `{${named}}`;
   // Characters with no standalone glyph get the codepoint: \p{C}
@@ -61,6 +109,7 @@ export function callsignCharMarker(ch) {
 // (the VFS cannot write) and every statement passes the SELECT/WITH guard,
 // so the worst a crafted value could do is run another read-only query the
 // user could already run in SQL mode.
+/** @param {unknown} value */
 export function quote(value) { return `'${String(value).replace(/'/g, "''")}'`; }
 
 // --- callsign RSL-normalisation shared by the index lookup (app.js) and the
@@ -76,6 +125,7 @@ export function quote(value) { return `'${String(value).replace(/'/g, "''")}'`; 
 // canonical M/ register row. Pure (no DOM, no reference data), so both
 // front-ends share it; expects an already-upper-cased value (the callers
 // upper-case user input before calling).
+/** @param {string} value */
 export function placeholderOf(value) {
   const gm = /^([GM])(?:([A-Z#])?)(\d)([A-Z]+)$/.exec(value);
   if (gm) return `${gm[1]}#${gm[3]}${gm[4]}`;
@@ -91,6 +141,7 @@ export function placeholderOf(value) {
 // search's core against a `callsign` column resolves a regional variant to its
 // canonical row. Returns null when the value is not a recognised callsign
 // rendering (nothing to resolve).
+/** @param {string} value */
 export function canonicalCallsign(value) {
   const placeholder = placeholderOf(value);
   return placeholder === null ? null : placeholder.replace('#', '');
@@ -103,6 +154,10 @@ export function canonicalCallsign(value) {
 // parseColumnFilter (to widen the predicate) and the browser UI (to show the
 // "MW7TEE -> M7TEE" resolution), so the two never disagree on when a variant
 // resolves.
+/**
+ * @param {string} col
+ * @param {string} raw
+ */
 export function resolvedCallsignCore(col, raw) {
   if (col !== 'callsign') return null;
   const s = raw.trim();
@@ -118,6 +173,10 @@ export function resolvedCallsignCore(col, raw) {
 // SQL mode. A plain callsign search that names a regional variant also matches
 // its canonical register core, so a search there resolves the same way the
 // index lookup does.
+/**
+ * @param {string} col
+ * @param {string} raw
+ */
 export function parseColumnFilter(col, raw) {
   const s = raw.trim();
   if (s === '') return null;
@@ -137,6 +196,10 @@ export function parseColumnFilter(col, raw) {
 // to one publication; omit it for a dataset-agnostic predicate the caller
 // combines with its own `dataset = <d>`. Returns a clause always safe to drop
 // after WHERE - '1=1' when nothing is selected.
+/**
+ * @param {FilterState} state
+ * @param {{ dataset?: string }} [opts]
+ */
 export function buildPredicate(state, opts = {}) {
   const clauses = [];
   if (opts.dataset !== undefined) clauses.push(`dataset = ${quote(opts.dataset)}`);
@@ -155,6 +218,7 @@ export function buildPredicate(state, opts = {}) {
 }
 
 // The default sort the ?view= link omits (so a pristine view has no param).
+/** @param {SortEntry[]} sort */
 export function isDefaultSort(sort) {
   return sort.length === 1 && sort[0].col === 'callsign' && sort[0].dir === 'ASC';
 }
@@ -162,6 +226,7 @@ export function isDefaultSort(sort) {
 // Serialise filter state to the compact object stored in the ?view= query
 // param. Only non-default facets/toggles/filters/sort/size/customSql are
 // emitted, so an untouched view serialises to {} (no param at all).
+/** @param {FilterState} state */
 export function serializeFilterState(state) {
   const obj = {};
   const facets = [...state.facets.values()].filter(f => f.values.size > 0)
@@ -184,6 +249,10 @@ export function serializeFilterState(state) {
 // single-publication browser builds drops straight in.
 
 // Rows in one publication matching the predicate.
+/**
+ * @param {string} dataset
+ * @param {string} predicate
+ */
 export function matchingCountSql(dataset, predicate) {
   return `SELECT COUNT(*) AS n FROM register_history WHERE dataset = ${quote(dataset)} AND (${predicate})`;
 }
@@ -192,6 +261,11 @@ export function matchingCountSql(dataset, predicate) {
 // later `comparison` publication: rows whose cleaned key appeared, disappeared,
 // or whose status changed. NOT IN is safe here because `cleaned` is never NULL
 // (it is a derived key, blank at worst, never absent).
+/**
+ * @param {string} baseline
+ * @param {string} comparison
+ * @param {string} predicate
+ */
 export function setDiffSql(baseline, comparison, predicate) {
   const inBaseline = `SELECT cleaned FROM register_history WHERE dataset = ${quote(baseline)} AND (${predicate})`;
   const inComparison = `SELECT cleaned FROM register_history WHERE dataset = ${quote(comparison)} AND (${predicate})`;
@@ -209,12 +283,20 @@ export function setDiffSql(baseline, comparison, predicate) {
 // ?view= object. Returns only the pieces present, as native Map/Set/array, so
 // the caller merges them into its own live state and syncs its UI. Unknown
 // toggle ids are dropped (schema drift safety).
+/**
+ * The argument is untrusted parsed JSON of unknown shape (a possibly stale or
+ * hand-mangled ?view= link), typed `any` at this JSON boundary because every
+ * piece is instead runtime-guarded (Array.isArray / typeof) before use.
+ * @param {any} obj
+ * @returns {Partial<FilterState>}
+ */
 export function parseFilterState(obj) {
+  /** @type {Partial<FilterState>} */
   const out = {};
   if (Array.isArray(obj.f)) {
-    out.facets = new Map(obj.f.map(f => [f.k, { key: f.k, field: f.field, isExpr: f.x, label: f.l, values: new Set(f.v), exclude: f.e }]));
+    out.facets = new Map(obj.f.map((/** @type {SerializedFacet} */ f) => [f.k, { key: f.k, field: f.field, isExpr: f.x, label: f.l, values: new Set(f.v), exclude: f.e }]));
   }
-  if (Array.isArray(obj.t)) out.toggles = new Set(obj.t.filter(id => TOGGLES[id] !== undefined));
+  if (Array.isArray(obj.t)) out.toggles = new Set(obj.t.filter((/** @type {string} */ id) => TOGGLES[id] !== undefined));
   if (Array.isArray(obj.c)) out.columnFilters = new Map(obj.c);
   if (Array.isArray(obj.s)) out.sort = obj.s;
   if (typeof obj.z === 'number') out.pageSize = obj.z;
@@ -230,6 +312,7 @@ export function parseFilterState(obj) {
 
 // The value for the ?view= query param, or null when the view is pristine (so
 // the caller deletes the param rather than emitting an empty {}).
+/** @param {FilterState} state */
 export function stateToViewParam(state) {
   const obj = serializeFilterState(state);
   return Object.keys(obj).length === 0 ? null : JSON.stringify(obj);
@@ -238,6 +321,10 @@ export function stateToViewParam(state) {
 // Inverse of stateToViewParam: a raw ?view= string (or null/absent) becomes
 // the parsed state pieces. A malformed or non-object link yields {} so a stale
 // or hand-mangled share link degrades to the pristine view rather than throwing.
+/**
+ * @param {string | null | undefined} raw
+ * @returns {Partial<FilterState>}
+ */
 export function viewParamToState(raw) {
   if (raw === null || raw === undefined) return {};
   let obj;
@@ -250,6 +337,10 @@ export function viewParamToState(raw) {
 // ABSENT from the link resets to its default rather than keeping the previous
 // value, so back/forward navigation restores each state exactly (the URL fully
 // determines the filter state) instead of accumulating stale facets.
+/**
+ * @param {FilterState} state
+ * @param {Partial<FilterState>} parsed
+ */
 export function applyViewToState(state, parsed) {
   state.facets = parsed.facets ?? new Map();
   state.toggles = parsed.toggles ?? new Set();
@@ -267,6 +358,11 @@ export function applyViewToState(state, parsed) {
 // step rather than one per action. Pure, so the push/replace/none decision is
 // unit-tested without a DOM; the front-ends own the timer and the actual
 // pushState/replaceState calls.
+/**
+ * @param {string} currentHref
+ * @param {string} nextHref
+ * @param {boolean} burstActive
+ */
 export function historySyncAction(currentHref, nextHref, burstActive) {
   if (nextHref === currentHref) return 'none';
   return burstActive ? 'replace' : 'push';
