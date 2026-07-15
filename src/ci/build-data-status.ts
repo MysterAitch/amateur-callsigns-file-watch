@@ -35,7 +35,7 @@ import {
   listFoiEntryKeys,
   readFoiEntryMeta,
 } from '../shared/foi-archive.ts';
-import { escapeHtml, humanDate, monthYear, datasetLabel, tableCaption, glossaryCue, glossaryTerm } from './site-render.ts';
+import { escapeHtml, monthYear, dateTime, datasetLabel, tableCaption, glossaryCue, glossaryTerm } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const FOI_ARCHIVE_DIR = path.join(REPO_ROOT, 'archive', 'foi');
@@ -595,13 +595,21 @@ function humaniseVintage(v: string | null): string {
 
 // The month-precision label, plus — when a full day is known — that exact date
 // as a hover/title so the normalised display never hides the finer date it came
-// from. Used wherever a single vintage is shown against its dataset.
+// from. Used wherever a single vintage is shown against its dataset. Routes
+// through the shared date/time wrapper (#553): year-month precision is PINNED
+// EXPLICITLY (the drift-guard rule) so this #469/#550 cell stays month-precise
+// even if the shared default later moves, and the exact reported date rides
+// along in the title. A month-only vintage carries just its exact month in the
+// title (no "reported date" label, since there is no finer day to reveal);
+// anything that is not a leading ISO date falls back to humaniseVintage.
 function vintageWithExactTitle(v: string | null): string {
-  const shown = humaniseVintage(v);
   if (v !== null && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
-    return `<span title="${escapeHtml(`Exact reported date: ${humanDate(v)}`)}">${shown}</span>`;
+    return dateTime(v, { precision: 'year-month', exactLabel: 'Exact reported date' });
   }
-  return shown;
+  if (v !== null && /^\d{4}-\d{2}$/.test(v)) {
+    return dateTime(v, { precision: 'year-month' });
+  }
+  return humaniseVintage(v);
 }
 
 function rowHtml(row: DatasetRow): string {

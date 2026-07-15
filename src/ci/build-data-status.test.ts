@@ -282,7 +282,9 @@ describe('data-status: per-type blurbs & de-jarred vintages (issue #469)', { tag
     // visible cell label (the day survives only in the cell's exact-date title).
     expect(html).not.toMatch(/>2016-09</);
     expect(html).not.toMatch(/>20 September 2016</);
-    expect(html).toContain('Exact reported date: 20 September 2016');
+    // The shared date/time wrapper (#553) carries the exact reported date as the
+    // lossless ISO value in the title - transparency, machine-precise.
+    expect(html).toContain('title="Exact reported date: 2016-09-20"');
   });
 
   it('SeriesTimeline_MixedPrecisionVintages_ReadAsOneConsistentFormat', () => {
