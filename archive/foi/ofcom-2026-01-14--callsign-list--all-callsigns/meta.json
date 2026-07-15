@@ -19,7 +19,8 @@
   "datasetClasses": ["register-snapshot"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2026-01-14-register" },
   "relatedEntries": [
-    { "entry": "ofcom-2025-09-11--callsigns--all-callsigns", "relation": "the previous complete-register workbook snapshot (11 September 2025), the same Salesforce-flavoured six-column shape with ISO dates typed at source" }
+    { "entry": "ofcom-2025-11-11--callsigns--all-callsigns", "relation": "the previous complete-register snapshot (11 November 2025), the open-data CSV export of the same register - day-first dates and the Excel-mangled callsigns / trailing-column artefacts this workbook form lacks; ~13,478 more records than this snapshot (a net removal between the two)" },
+    { "entry": "ofcom-2025-09-11--callsigns--all-callsigns", "relation": "the earlier complete-register workbook snapshot (11 September 2025), the same Salesforce-flavoured six-column shape with ISO dates typed at source" }
   ],
   "files": {
     "amateur-callsign-list.xlsx": {

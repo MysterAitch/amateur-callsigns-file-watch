@@ -21,7 +21,7 @@ This documents **what exists**. Whether each derivation still *verifies* is the
 | 2025-06-08 | ✔ | ✔ | ✔ | ✔ |
 | 2026-06-23 | ✔ | ✔ | ✔ | ✔ |
 
-## FOI lane (49 entries)
+## FOI lane (50 entries)
 
 Extracts: `mech` = mechanically re-derivable (xlsx, via `src/shared/xlsx-extract.ts`);
 `transcr` = attested transcription of a PDF (see the entry's raw-extract file).
@@ -52,6 +52,7 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | ofcom-2025-03-13--callsigns--all-callsigns | successful | register-snapshot | 2025-03-13 | ✔ 1 | — | `ofcom-2025-03-13-register` | ✔ 1 |
 | ofcom-2025-09-11--callsigns--all-callsigns | successful | register-snapshot | 2025-09-11 | ✔ 1 | 1 mech | `ofcom-2025-09-11-register` | ✔ 1 |
 | ofcom-2025-11-11--callsigns--all-callsigns | successful | register-snapshot | 2025-11-11 | ✔ 1 | 1 transcr | `ofcom-2025-11-11-register` | ✔ 1 |
+| ofcom-2026-01-14--callsign-list--all-callsigns | successful | register-snapshot | 2026-01-14 | ✔ 1 | 1 mech | `ofcom-2026-01-14-register` | ✔ 1 |
 | ofcom-285990--available-list-jun-2016 | successful | reference-context | 2016-06-29 | — | 1 transcr | — | — |
 | ofcom-299351--available-list-referral | successful | reference-context | — | — | 1 transcr | — | — |
 | ofcom-337399--all-callsigns-published-copy | successful | register-snapshot, forbidden-list | 2016-09 | ✔ 1 | 1 transcr | — | — |
