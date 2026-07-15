@@ -50,6 +50,25 @@ describe('Dataset navigation sidebar helpers', () => {
   });
 });
 
+describe('Explore deep-link on the dataset browse section (issue #333)', { tags: ['data-validity'] }, () => {
+  it('DatasetPage_BrowseHandOff_DeepLinksToTheExploreConsolePreFilteredToThisPublication', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    // The "query it" hand-off now points at the Explore console rather than the
+    // empty tool — carrying the ?db=/?sql= deep-link params the console reads.
+    const m = /<a href="(\.\.\/\.\.\/\.\.\/explore\.html\?[^"]+)">query this publication on the Explore console<\/a>/.exec(page);
+    if (m === null) throw new Error('browse hand-off does not deep-link to the Explore console');
+    // Decoding the href the way the browser (and explore.js) does must recover
+    // the combined database and a query scoped to EXACTLY this publication's
+    // rows — the "lands on the RIGHT set" contract for the referenced cohort.
+    const params = new URLSearchParams(m[1].split('?')[1].replace(/&amp;/g, '&'));
+    expect(params.get('db')).toBe('combined');
+    expect(params.get('sql')).toBe("SELECT * FROM register_history WHERE dataset = '2026-06-23' ORDER BY callsign");
+    // The generic, un-filtered browse hand-off the section used before is gone
+    // (the site-nav Explore link is a separate, legitimately generic entry).
+    expect(page).not.toContain('query it on the <a href="../../../explore.html">Explore</a> page');
+  });
+});
+
 describe('Dataset pages build', () => {
   it('DatasetPages_OpenDataEntryPage_CarriesNavigationSidebarWithDeltasAndAllocatedCounts', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
