@@ -123,6 +123,29 @@ describe('Dataset pages build', () => {
     expect(page).toMatch(/partial exports?<\/summary>[\s\S]*?href="\.\.\/\.\.\/open-data\/2025-06-08\/index\.html"/);
   });
 
+  it('DatasetPages_EntryWithCuratedIgnoredLines_ShowsSetAsideRowsWithTintAndTextBadge', () => {
+    // 2022-05-30 carries five curated ignoredLines (the salesforce export
+    // footer). Each is displayed as a set-aside row: the amber-tint class PLUS
+    // a visible "set aside" badge, so a reader sees they were intentionally
+    // excluded, not lost — and colour is never the sole indicator (issue #331).
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2022-05-30', 'index.html'), 'utf8');
+    expect(page).toContain('<tr class="set-aside">');
+    expect(page).toContain('<span class="tb setaside">set aside</span>');
+    // The verbatim furniture line is shown, escaped and monospace.
+    expect(page).toContain('<code>Call Sign List for Open Data,,</code>');
+    // The count reads in the always-visible summary; the term links to the glossary.
+    expect(page).toMatch(/5 raw lines set aside as non-data/);
+    expect(page).toContain('glossary.html#ignored-line');
+  });
+
+  it('DatasetPages_EntryWithoutIgnoredLines_HasNoSetAsideAffordance', () => {
+    // A live publication with no curated ignores carries no set-aside markup —
+    // the affordance is strictly opt-in on the presence of ignoredLines.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(page).not.toContain('class="set-aside"');
+    expect(page).not.toContain('set aside as non-data');
+  });
+
   it('DatasetPages_OpenDataEntryPage_CarriesAccessibleDistributionCharts', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
     expect(page).toContain('<h2>Distributions</h2>');

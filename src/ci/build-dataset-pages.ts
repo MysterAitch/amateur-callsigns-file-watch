@@ -942,6 +942,37 @@ function datasetNavSidebar(currentKey: string, summaries: PublicationSummary[], 
   return `<nav class="nav-side" aria-label="Publications"><h2>Publications</h2><ol class="dlist">${timeline.map(item).join('')}</ol>${partialsBlock}${foiBlock}</nav>`;
 }
 
+// The set-aside (ignored) raw-line affordance (issue #331). Lines the
+// normalisation deliberately excluded — blank lines and curated export
+// furniture, the ignoredLines vocabulary — are shown, when present, as their
+// own JS-free disclosure so a reader sees they were intentionally set aside,
+// not lost. Each line is one table row carrying BOTH a pale amber tint (the
+// `.set-aside` class, styled in site/ledger.css) and a visible "set aside"
+// text badge, so colour is never the sole indicator (WCAG 1.4.1). The count
+// reads in the always-visible summary; the enumeration and the reason each was
+// excluded are one click away. Empty for a publication with no curated ignores
+// (the ~always case), so nothing that could read as a data caveat appears
+// there. `depthToRoot` places the glossary link at the caller's relative depth.
+export function setAsideLinesSection(ignored: { line: number; content: string; reason: string }[], depthToRoot: number): string {
+  if (ignored.length === 0) return '';
+  const noun = ignored.length === 1 ? 'line' : 'lines';
+  const reasons = [...new Set(ignored.map(l => l.reason))].map(escapeHtml).join('; ');
+  const term = glossaryTerm('ignored-line', depthToRoot, { label: 'set aside as non-data' });
+  const rows = ignored.map(l => {
+    // A blank source line is itself information; humanise it rather than
+    // rendering an empty cell (matches the site-wide humanising convention).
+    const content = l.content === '' ? '<em>(blank line)</em>' : `<code>${escapeHtml(l.content)}</code>`;
+    return `<tr class="set-aside"><th scope="row" class="n">${l.line.toLocaleString('en-GB')}</th>`
+      + `<td><span class="tb setaside">set aside</span> ${content}</td>`
+      + `<td>${escapeHtml(l.reason)}</td></tr>`;
+  }).join('');
+  return `<details class="set-aside-lines"><summary>${ignored.length} raw ${noun} set aside as non-data</summary>`
+    + `<p class="lead">These raw lines were deliberately excluded from the register during normalisation (${reasons}) — ${term}, enumerated verbatim here and in <a href="meta.json">meta.json</a>. Every other raw line is a header or a data row, so the line accounting stays exact and nothing is silently dropped.</p>`
+    + `<table>${tableCaption('Raw lines set aside as non-data, with the reason each was excluded')}`
+    + '<thead><tr><th scope="col" class="n">raw line</th><th scope="col">content</th><th scope="col">reason set aside</th></tr></thead>'
+    + `<tbody>${rows}</tbody></table></details>`;
+}
+
 function buildOpenDataEntry(outputDir: string, key: string, previousKey: string | undefined, summaries: PublicationSummary[], foiEntries: FoiNavEntry[]): { files: CopiedFile[]; zipBytes: number } {
   const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
   const descriptions = new Map<string, string>([
@@ -990,9 +1021,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     { id: 'i-meta', label: 'meta.json', panel: `<table>${tableCaption('meta.json — this publication’s declared facts')}<tbody><tr><th scope="row">provenance</th><td>${escapeHtml(meta.provenance ?? 'live')}</td></tr><tr><th scope="row">${glossaryTerm('declared-complete', 3, { label: 'declared coverage' })}</th><td>${meta.intendedCoverage === undefined ? '—' : `${meta.intendedCoverage.complete ? 'complete' : 'partial'} (intent, not verified)`}</td></tr></tbody></table>` },
   ].filter(t => t.panel !== '');
 
-  const ignored = meta.ignoredLines ?? [];
-  const ignoredNote = ignored.length > 0
-    ? `<p class="lead">${ignored.length} raw line${ignored.length === 1 ? '' : 's'} excluded as non-data (${[...new Set(ignored.map(l => l.reason))].map(escapeHtml).join('; ')}) — enumerated in <a href="meta.json">meta.json</a>.</p>` : '';
+  const ignoredNote = setAsideLinesSection(meta.ignoredLines ?? [], 3);
 
   const related: string[] = [];
   if (previousKey !== undefined) related.push(`<p style="margin:.1rem 0;font-size:.9rem"><b>Chronological:</b> ← <a href="../${escapeHtml(previousKey)}/index.html">Publication of ${humanDate(previousKey)}</a>.</p>`);
