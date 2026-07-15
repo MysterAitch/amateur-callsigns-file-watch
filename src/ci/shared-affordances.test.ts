@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { buildClassPages } from './build-class-pages.ts';
+import { setAsideLinesSection } from './build-dataset-pages.ts';
 import { datasetLabel, callsignPill, escapeHtml } from './site-render.ts';
 
 // Shared affordance layer (issues #310 / #328). The site renders callsigns and
@@ -80,6 +81,75 @@ describe('callsign rendering routes through the shared pill (issue #310)', { tag
       const src = fs.readFileSync(path.join(CI_DIR, file), 'utf8');
       expect(src.includes('index.html?c='), `${file} builds a register-lookup href by hand; render callsigns via callsignPill instead`).toBe(false);
     }
+  });
+});
+
+// Set-aside (ignored) raw-line affordance (issue #331). Lines a normalisation
+// deliberately set aside (the curated ignoredLines vocabulary) must read as
+// "intentionally excluded, not lost" at a glance wherever the lines themselves
+// are displayed: a pale amber row tint PLUS a textual "set aside" badge, so
+// colour is never the sole indicator (WCAG 1.4.1).
+describe('setAsideLinesSection component (issue #331)', { tags: ['unit'] }, () => {
+  const CURATED = [
+    { line: 151154, content: 'Call Sign List for Open Data,,', reason: 'export footer furniture, not a register assertion (curated)' },
+    { line: 151155, content: 'Ofcom,,', reason: 'export footer furniture, not a register assertion (curated)' },
+  ];
+
+  it('SetAsideLines_WithCuratedIgnoredLines_RendersTintClassAndTextBadgePerRow', () => {
+    const html = setAsideLinesSection(CURATED, 3);
+    // Every set-aside line is one row carrying the affordance class (the amber
+    // tint hook) — and only those rows.
+    expect(html.match(/<tr class="set-aside">/g)?.length).toBe(2);
+    // The non-colour indicator: a visible textual badge on each row, so the
+    // meaning survives greyscale, forced-colours and colour-blindness.
+    expect(html.match(/<span class="tb setaside">set aside<\/span>/g)?.length).toBe(2);
+    // The verbatim content and the curated reason are both shown.
+    expect(html).toContain('<code>Call Sign List for Open Data,,</code>');
+    expect(html).toContain('export footer furniture, not a register assertion (curated)');
+    // Self-evident table contract (#334): caption + scoped headers.
+    expect(html).toContain('<caption class="table-caption">');
+    expect(html).toMatch(/<th scope="col">/);
+    expect(html).toMatch(/<th scope="row"/);
+    // The count reads in the always-visible summary, with the enumeration one
+    // JS-free <details> click away.
+    expect(html).toMatch(/<summary>2 raw lines set aside as non-data[^<]*<\/summary>/);
+    // The term links to its glossary explanation at the entry-page depth.
+    expect(html).toContain('glossary.html#ignored-line');
+  });
+
+  it('SetAsideLines_NoIgnoredLines_EmitsNothing', () => {
+    // The ~always case: a publication with no curated ignores carries no
+    // affordance markup at all — nothing that could read as a data caveat.
+    expect(setAsideLinesSection([], 3)).toBe('');
+  });
+
+  it('SetAsideLines_BlankLineContent_IsHumanisedNotAnEmptyCell', () => {
+    // A blank source line is itself information; never render an empty cell.
+    const html = setAsideLinesSection([{ line: 6, content: '', reason: 'blank' }], 3);
+    expect(html).toContain('(blank line)');
+    expect(html).not.toContain('<code></code>');
+  });
+
+  it('SetAsideLines_ContentWithMarkup_IsEscapedAgainstInjection', () => {
+    const html = setAsideLinesSection([{ line: 2, content: '<b>&"x</b>', reason: 'r <i>y</i>' }], 3);
+    expect(html).toContain(escapeHtml('<b>&"x</b>'));
+    expect(html).not.toContain('<b>&');
+    expect(html).not.toContain('<i>y</i>');
+  });
+
+  it('SetAsideLines_SingleLine_ReadsSingularInTheSummary', () => {
+    const html = setAsideLinesSection([{ line: 4, content: 'footer,,', reason: 'furniture' }], 3);
+    expect(html).toMatch(/<summary>1 raw line set aside as non-data/);
+  });
+
+  it('LedgerStylesheet_SetAsideAffordance_IsStyledWithThemeMappedSignalTokens', () => {
+    // The tint and badge live in site/ledger.css under `.ledger`, drawn from
+    // the signal (amber) token pair — which the stylesheet maps for BOTH the
+    // light and dark themes — never a raw hex only one theme can carry.
+    const css = fs.readFileSync(path.join(CI_DIR, '..', '..', 'site', 'ledger.css'), 'utf8');
+    const tintRule = /\.ledger tr\.set-aside[^{]*\{[^}]*var\(--signal-soft\)[^}]*\}/;
+    expect(css).toMatch(tintRule);
+    expect(css).toContain('.tb.setaside');
   });
 });
 

@@ -233,6 +233,15 @@
   font-weight: 700; padding: 1px 6px; border-radius: 5px; }
 .ledger .tb.d { background: var(--steady-soft); color: var(--steady); }
 .ledger .tb.p { background: var(--derived-soft); color: var(--derived); border: 1px dashed var(--derived); }
+/* Set-aside (ignored) raw-line affordance (issue #331): a line the
+   normalisation deliberately excluded (blank lines, curated export furniture).
+   The row carries a pale amber/corn tint (the signal-soft token, mapped for
+   both themes above) so it reads at a glance as intentionally set aside; the
+   .tb.setaside badge is the NON-COLOUR indicator riding alongside, so the
+   meaning survives greyscale, forced-colours and colour-blindness (WCAG 1.4.1).
+   Deliberately calm, not an alarm - a set-aside line is not a data defect. */
+.ledger tr.set-aside > th, .ledger tr.set-aside > td { background: var(--signal-soft); }
+.ledger .tb.setaside { background: var(--signal-soft); color: var(--signal); border: 1px solid var(--signal); }
 .ledger .dsec { margin-top: 16px; }
 .ledger .dsec h4 { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
   color: var(--faint); margin: 0 0 8px; font-weight: 600; }
