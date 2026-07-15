@@ -205,7 +205,10 @@ describe('raw->claims->normalised round-trip on real open-data register publicat
       const observationSet = source.load();
       expect(observationSet.rows.length).toBeGreaterThan(0);
       expect(observationSet.subjectColumn.length).toBeGreaterThan(0);
-      expect(observationSet.sourceFile).toBe(`opendata/${source.entry}/raw.csv`);
+      // The sourceFile names the entry's PARSE SOURCE: raw.csv for ordinary
+      // publications, the declared extract for a workbook or a shape-only
+      // header fill - the file the line numbers and reconstruction refer to.
+      expect(observationSet.sourceFile).toMatch(new RegExp(`^opendata/${source.entry}/(raw\\.csv|raw-extract[^/]*\\.csv)$`));
     }
   });
 });

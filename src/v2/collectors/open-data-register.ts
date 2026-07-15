@@ -100,7 +100,7 @@ export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta
     // The authored per-column interpretation (issue #435), lifted from the
     // variant's raw->canonical mapping + the fixed open-data date ordering, so an
     // @interpretation/<index> claim can be attested beside each @column header.
-    columnInterpretations: interpretOpenDataColumns(parsed.headers, parsed.mapping, { subjectColumn: callsignColumn, categoryColumn: productColumn }),
+    columnInterpretations: interpretOpenDataColumns(parsed.headers, parsed.mapping, { subjectColumn: callsignColumn, categoryColumn: productColumn, variant: parsed.variant }),
   };
 }
 

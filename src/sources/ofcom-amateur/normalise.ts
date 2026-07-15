@@ -296,13 +296,19 @@ export function parseRawRegister(rawContent: string, curatedIgnores: IgnoredRawL
 export function interpretOpenDataColumns(
   headers: readonly string[],
   mapping: Readonly<Record<string, CanonicalColumn | null>>,
-  options: { subjectColumn: string; categoryColumn?: string },
+  options: { subjectColumn: string; categoryColumn?: string; variant?: string },
 ): ColumnInterpretation[] {
+  // Date columns attest the format the VARIANT actually carries: the UK
+  // day-first CSV rendering for ordinary exports, ISO for workbook extracts
+  // (typed date cells rendered YYYY-MM-DD by the mechanical extract). The
+  // attestation is load-bearing - the interpretation oracle re-parses every
+  // value under it - so it must state the true format, never a default.
+  const dateFormat = options.variant !== undefined && ISO_DATE_VARIANTS.has(options.variant) ? 'YYYY-MM-DD' : 'DD/MM/YYYY';
   return headers.map(header => {
     if (header === options.subjectColumn) return { type: 'callsign-token' };
     if (options.categoryColumn !== undefined && header === options.categoryColumn) return { type: 'enumerated-category' };
     const canonical = mapping[header];
-    if (canonical !== undefined && canonical !== null && DATE_COLUMNS.has(canonical)) return { type: 'date', format: 'DD/MM/YYYY' };
+    if (canonical !== undefined && canonical !== null && DATE_COLUMNS.has(canonical)) return { type: 'date', format: dateFormat };
     return { type: 'string' };
   });
 }

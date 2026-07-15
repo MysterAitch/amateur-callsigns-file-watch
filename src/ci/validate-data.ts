@@ -281,13 +281,17 @@ export function deepValidateEntryCsv(key: string): ValidationProblem[] {
   // Callsign uniqueness: NOTED on raw (the stats detectors record publisher
   // duplicates as a data-quality fact) but ENFORCED on normalised - the
   // normalised dataset is this repository's contract and downstream joins
-  // (components.csv and beyond) key on callsign. The converter is the
-  // decision point for resolving publisher duplicates; this check turns an
-  // unresolved duplicate into an invalid PR rather than a silently broken
-  // join. Empty callsigns are exempt: multiple empties exist in real
-  // publications (2023-02-20 carries two), their handling policy is
-  // deliberately undecided, and they are surfaced by the emptyCallsign
-  // detector - join consumers must exclude them.
+  // (components.csv and beyond) key on callsign. This check turns an
+  // unattested duplicate into an invalid PR rather than a silently broken
+  // join. Publications that GENUINELY carry duplicate callsign rows (the
+  // recovered 2025-11-11 / 2026-01-14 register vintages each repeat a couple
+  // of hundred callsigns) are preserved faithfully, never repaired - but only
+  // behind an explicit, curated qualityObservation attesting the duplicates
+  // (statement mentioning duplicate callsigns + evidence), so the fact is
+  // loud, reviewed and machine-visible to join consumers. Empty callsigns are
+  // exempt: multiple empties exist in real publications (2023-02-20 carries
+  // two), their handling policy is deliberately undecided, and they are
+  // surfaced by the emptyCallsign detector - join consumers must exclude them.
   const normalisedPath = path.join(entryDir(key), 'normalised.csv');
   if (fs.existsSync(normalisedPath)) {
     try {
@@ -301,11 +305,14 @@ export function deepValidateEntryCsv(key: string): ValidationProblem[] {
         else seen.add(callsign);
       }
       if (duplicated.size > 0) {
-        const sample = [...duplicated].sort().slice(0, 5).join(', ');
-        problems.push({
-          path: normalisedPath,
-          problem: `duplicate callsign values in normalised.csv (downstream joins key on callsign): ${duplicated.size} duplicated value(s), e.g. ${sample}`,
-        });
+        const attested = (meta?.qualityObservations ?? []).some(o => /duplicate callsign/i.test(o.statement));
+        if (!attested) {
+          const sample = [...duplicated].sort().slice(0, 5).join(', ');
+          problems.push({
+            path: normalisedPath,
+            problem: `duplicate callsign values in normalised.csv (downstream joins key on callsign): ${duplicated.size} duplicated value(s), e.g. ${sample} - preserve them faithfully by attesting the fact in a qualityObservation (statement mentioning duplicate callsigns), or resolve them in the converter`,
+          });
+        }
       }
     } catch (err) {
       problems.push({ path: normalisedPath, problem: `normalised.csv failed to parse as CSV: ${errorMessage(err)}` });

@@ -142,9 +142,11 @@ describe('Dataset pages build', () => {
     expect(page).toContain('2,830');
     // The re-fetch check points at the most recent INTENDED-COMPLETE
     // earlier publication - 2025-06-08 is a declared-partial 1,074-row
-    // truncation and must NOT be the changes-since baseline.
+    // truncation and must NOT be the changes-since baseline. Since the two
+    // web-archive-recovered vintages landed, the newest entry's chronological
+    // comparison baseline is the 2026-01-14 recovered workbook publication.
     expect(page).toContain('byte-identical to the earlier fetch');
-    expect(page).toContain('Compare with <a href="../2025-06-04/index.html">');
+    expect(page).toContain('Compare with <a href="../2026-01-14/index.html">');
     // The partial 2025-06-08 snapshot is reachable only from the collapsed
     // "partial exports" section of the navigation, never as the diff baseline.
     expect(page).toMatch(/partial exports?<\/summary>[\s\S]*?href="\.\.\/\.\.\/open-data\/2025-06-08\/index\.html"/);

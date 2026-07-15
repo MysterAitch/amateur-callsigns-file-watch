@@ -17,6 +17,14 @@
     }
   ],
   "reconstructionNotes": "Recovered verbatim from the Internet Archive's capture of Ofcom's open-data amateur callsign list (the dated 'amateur-callsigns-11-nov-2025.csv' publication). The data vintage 2025-11-11 is corroborated by the filename and the maximum Licence_Version.LastModifiedDate in the data agreeing. The raw export appends five empty-named trailing columns which a CSV parse would collapse (duplicate empty header names), so raw-extract.csv - byte-for-byte the raw with only the five empty header names filled in (unknown-1..5) and LF line endings, no data cell changed - is the parse source; the padding columns are empty on all but 29 rows, which carry a stray Excel-mangled month token (20-Oct, 21-Jan ...) in the last column, each a redundant copy of one of the 15 month-suffix Intermediate callsigns already present as their own rows.",
+  "qualityObservations": [
+    {
+      "observedAt": "2026-07-15",
+      "statement": "213 duplicate callsign values: the publication repeats 213 distinct callsigns on more than one row (publisher duplicates, preserved verbatim in normalised.csv - join consumers must expect multiple rows per callsign in this vintage).",
+      "evidence": "Distinct field-1 values appearing on 2+ data rows of the raw export (e.g. 20CAM, 20NAE, 20TWA, 21DQG, G0AAW); no earlier live open-data publication carries duplicates, so this is a property of this recovered vintage, not of the lane.",
+      "coverageAffecting": false
+    }
+  ],
   "files": {
     "raw.csv": {
       "size": 12643451,

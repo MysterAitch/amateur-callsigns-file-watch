@@ -21,6 +21,14 @@
     }
   ],
   "reconstructionNotes": "Recovered verbatim from the UK Government Web Archive's capture of Ofcom's open-data amateur callsign list, published in this period as a WORKBOOK (amateur-callsign-list.xlsx) - archived exactly as published. The data vintage 2026-01-14 is corroborated by the workbook's dcterms:created and the maximum Licence_Version.LastModifiedDate in the data agreeing. raw-extract-sheet-1-sheet1.csv is the mechanical sheet extract (src/shared/xlsx-extract.ts) and the parse source; the workbook's typed date cells render ISO in the extract. Notably ~13,478 fewer records than the 2025-11-11 publication (allocated -9,561, reserved -3,950) - a net removal, not a shift into the reserved/available pools; flagged for longitudinal analysis, not reconciled here.",
+  "qualityObservations": [
+    {
+      "observedAt": "2026-07-15",
+      "statement": "194 duplicate callsign values: the publication repeats 194 distinct callsigns on more than one row (publisher duplicates, preserved verbatim in normalised.csv - join consumers must expect multiple rows per callsign in this vintage).",
+      "evidence": "Distinct Callsign values appearing on 2+ data rows of the sheet extract (e.g. 20CAM, 20NAE, 20TWA, 21DQG); the neighbouring 2025-11-11 recovered vintage carries 213, while no live open-data publication carries any - a property of these recovered vintages.",
+      "coverageAffecting": false
+    }
+  ],
   "files": {
     "raw.xlsx": {
       "size": 4873877,
