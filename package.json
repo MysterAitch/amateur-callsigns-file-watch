@@ -20,6 +20,7 @@
     "foi:sweep": "node src/ci/foi-sweep.ts",
     "dataset:status": "node src/ci/dataset-status.ts",
     "foi:schemas": "node src/ci/foi-schemas.ts",
+    "labels:pr": "node src/ci/pr-dataset-labels.ts",
     "regen": "npm run normalise:sweep && npm run foi:schemas && npm run dataset:status",
     "all": "npm run pull && npm run process"
   },

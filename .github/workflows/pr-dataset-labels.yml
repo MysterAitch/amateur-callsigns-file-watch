@@ -1,0 +1,50 @@
+# Dataset-class PR labels (issue #158): a scheduled labelling step alongside the
+# data sweep. Dataset-class labels are a DERIVED surface - like the generated
+# docs - computed from each open PR's changed `archive/**/meta.json` and
+# reconciled on every pass, so a meta edit updates the labels automatically.
+#
+# Security shape (ADR 0001 / 0002): this runs only reviewed code from `main` on
+# a schedule - never in response to a push - and reads each PR's changed
+# meta.json via the GitHub *contents* API as pure JSON data (never a branch
+# checkout or execution). Its only writes are label create-if-missing and
+# `gh pr edit --add-label/--remove-label`; it cannot touch `main`. This is why
+# the reconciler lives here and not in a PR-triggered workflow, which would hold
+# a write token while unreviewed branch content is in scope.
+name: Dataset-class PR labels
+
+on:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+
+# Labels are an issues-API object (create/edit); applying them to a PR needs the
+# pull-requests scope. contents:read is for the checkout and the contents API.
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: pr-dataset-labels
+  cancel-in-progress: false
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      # No persisted git credentials: npm ci runs third-party code, which must
+      # never execute with a write-capable token in .git/config. The reconciler
+      # authenticates to the GitHub API through GH_TOKEN in its own step below.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Reconcile dataset-class labels on open data PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run labels:pr
