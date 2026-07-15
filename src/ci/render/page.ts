@@ -165,6 +165,7 @@ export function navHtml(depthToRoot: number, currentNav?: string): string {
     ['Data status', `${rootPath}data-status.html`],
     ['Ledger', `${rootPath}ledger.html`],
     ['Playground', `${rootPath}playground.html`],
+    ['Anatomy', `${rootPath}callsign-structure.html`],
     ['Glossary', `${rootPath}glossary.html`],
     ['About', `${rootPath}about.html`],
     ['Repository', REPO_URL],

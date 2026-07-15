@@ -24,6 +24,7 @@
   --change: #A74155; --change-soft: #F5DDE2;
   --steady: #407154; --steady-soft: #DDECE1;
   --dev-mild: #B02A2A; --dev-strong: #9A1F2B; --on-dev-strong: #FFFFFF;
+  --anat-prefix: #3B69A6; --anat-rsl: #407154; --anat-digit: #905713; --anat-suffix: #A74155; --anat-op: #6B4FA3;
   --shadow: 0 1px 2px rgba(20,30,45,.06), 0 6px 20px rgba(20,30,45,.05);
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
   --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -43,6 +44,7 @@
     --change: #D9748A; --change-soft: #331e24;
     --steady: #6FB086; --steady-soft: #172a1f;
     --dev-mild: #EE8A6F; --dev-strong: #E5705F; --on-dev-strong: #161B21;
+    --anat-prefix: #6C9BD6; --anat-rsl: #6FB086; --anat-digit: #E8A24A; --anat-suffix: #D9748A; --anat-op: #A98FD6;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
   }
 }
@@ -53,6 +55,7 @@
   --raw: #3B69A6; --raw-soft: #E1EAF5; --derived: #905713; --derived-soft: #F6E6CF;
   --change: #A74155; --change-soft: #F5DDE2; --steady: #407154; --steady-soft: #DDECE1;
   --dev-mild: #B02A2A; --dev-strong: #9A1F2B; --on-dev-strong: #FFFFFF;
+  --anat-prefix: #3B69A6; --anat-rsl: #407154; --anat-digit: #905713; --anat-suffix: #A74155; --anat-op: #6B4FA3;
   --shadow: 0 1px 2px rgba(20,30,45,.06), 0 6px 20px rgba(20,30,45,.05);
 }
 :root[data-theme="dark"] .ledger {
@@ -62,6 +65,7 @@
   --raw: #6C9BD6; --raw-soft: #182432; --derived: #E8A24A; --derived-soft: #33291A;
   --change: #D9748A; --change-soft: #331e24; --steady: #6FB086; --steady-soft: #172a1f;
   --dev-mild: #EE8A6F; --dev-strong: #E5705F; --on-dev-strong: #161B21;
+  --anat-prefix: #6C9BD6; --anat-rsl: #6FB086; --anat-digit: #E8A24A; --anat-suffix: #D9748A; --anat-op: #A98FD6;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
 }
 .ledger *, .ledger *::before, .ledger *::after { box-sizing: border-box; }
@@ -589,3 +593,16 @@
 .ledger .chg-substantial { display: inline-block; padding: 1px 7px; border-radius: 6px;
   background: var(--dev-strong); color: var(--on-dev-strong); font-weight: 700; }
 .ledger .chg-baseline, .ledger .chg-inrange { color: var(--muted); }
+
+/* Callsign-anatomy figure (issue #468): the labelled, colour-grouped SVG
+   diagram of a callsign and its always-visible key table. Colour is never the
+   sole cue - each part is labelled in words on the diagram and named (with its
+   colour spelled out) in the table - so the figure meets WCAG 1.4.1 and reads
+   with no colour, no SVG and no scripts. The --anat-* group colours are defined
+   with the other tokens above and flip with the theme. */
+.ledger .anatomy-figure { margin: 0; }
+.ledger .anatomy-figure figcaption { color: var(--muted); font-size: 13px; margin: 0 0 12px; max-width: 72ch; }
+.ledger .anatomy-figure svg { display: block; width: 100%; max-width: 560px; height: auto; margin: 0 auto 16px; }
+.ledger .anatomy-figure table { margin-top: 0; }
+.ledger .anatomy-figure .anat-swatch { display: inline-block; width: .8em; height: .8em; border-radius: 3px;
+  margin-right: .4em; vertical-align: -.04em; border: 1px solid var(--hair); }
