@@ -346,7 +346,7 @@ describe('Playground page deploy integrity', { tags: ['ui'] }, () => {
   });
 
   it('PlaygroundPage_IsInTheSingleSourceNav', () => {
-    const nav = fs.readFileSync(path.join('src', 'ci', 'site-render.ts'), 'utf8');
+    const nav = fs.readFileSync(path.join('src', 'ci', 'render', 'page.ts'), 'utf8');
     expect(nav).toMatch(/\['Playground', `\$\{rootPath\}playground\.html`\]/);
     const buildNav = fs.readFileSync(path.join('src', 'ci', 'build-nav.ts'), 'utf8');
     expect(buildNav).toContain("'playground.html': 'Playground'");
