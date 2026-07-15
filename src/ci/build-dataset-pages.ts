@@ -527,7 +527,11 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
   const prefixRows = bd.prefixes.map(([p, n]) => {
     const level = bd.prefixLevel.get(p) ?? '';
     const tag = level === '' ? '' : ` <small class="lvl">${escapeHtml(level.toLowerCase())}</small>`;
-    return `<div class="brow"${facetAttr('prefix_series', p)}><span class="lab">${escapeHtml(displaySeries(p))}${tag} <a class="seriesnav" href="../../../series/${seriesSlug(p)}.html" aria-label="${escapeHtml(displaySeries(p))} series page">↗</a></span>${bar(n)}</div>`;
+    // A blank prefix series has no series page (the series generator skips it),
+    // so it carries no ↗ series-nav link - the row stays a filter-only target
+    // rather than pointing at a non-existent series/.html.
+    const seriesNav = seriesSlug(p) === '' ? '' : ` <a class="seriesnav" href="../../../series/${seriesSlug(p)}.html" aria-label="${escapeHtml(displaySeries(p))} series page">↗</a>`;
+    return `<div class="brow"${facetAttr('prefix_series', p)}><span class="lab">${escapeHtml(displaySeries(p))}${tag}${seriesNav}</span>${bar(n)}</div>`;
   }).join('');
   const declaredRows = bd.declared.map(([p, n]) => `<div class="brow"${facetAttr('product', p)}><span class="lab">${escapeHtml(shortProduct(p))}</span>${bar(n)}</div>`).join('');
   const intlExpr = "CASE WHEN callsign LIKE '%/%' THEN 'yes' ELSE 'no' END";
@@ -1372,6 +1376,12 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     for (const sibling of DICTIONARY_DOCS) {
       rendered = rendered.replaceAll(`href="${path.basename(sibling.source)}"`, `href="${sibling.slug}.html"`);
     }
+    // Any remaining relative .md link (e.g. an ADR under docs/adr/) has no
+    // rendered page on the site; point it at the authoritative repo copy rather
+    // than a 404 - matching how the standing reports rewrite their sibling docs.
+    const docSourceDir = path.posix.dirname(doc.source.replace(/\\/g, '/'));
+    rendered = rendered.replace(/href="([^":/?#][^":?#]*\.md)"/g, (_m, target: string) =>
+      `href="${REPO_URL}/blob/main/${docSourceDir}/${target}"`);
     for (const key of foiKeys) {
       rendered = rendered.replaceAll(`<code>${key}</code>`, `<a href="../foi/${encodeURIComponent(key)}/index.html"><code>${key}</code></a>`);
     }
