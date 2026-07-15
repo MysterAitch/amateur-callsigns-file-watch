@@ -138,3 +138,42 @@ Register snapshots (columns), by vintage:
 | `wdtk-294011--available-callsigns-list` | 2015-10-13 | 21,481 | 16.7% | 16.7% | 19.4% | 37.4% | 37.4% | 38.5% | 1.5% | 44.5% | 46.1% | 49.4% | 49.4% | 50.8% | 51.8% | 51.8% | 53.4% | 53.5% | 53.6% | 54.1% | 55.0% | 55.6% | 56.3% | 56.4% | 56.5% | 57.5% | 57.6% | 1.6% | 57.6% | 1.6% | 58.8% | 58.8% |
 | `wdtk-299321--available-callsigns-list` | 2015-10-13 | 21,481 | 16.7% | 16.7% | 19.4% | 37.4% | 37.4% | 38.5% | 1.5% | 44.5% | 46.1% | 49.4% | 49.4% | 50.8% | 51.8% | 51.8% | 53.4% | 53.5% | 53.6% | 54.1% | 55.0% | 55.6% | 56.3% | 56.4% | 56.5% | 57.5% | 57.6% | 1.6% | 57.6% | 1.6% | 58.8% | 58.8% |
 | `wdtk-309076--available-callsigns-list` | 2016-01-21 | 20,734 | 13.6% | 13.6% | 16.5% | 35.1% | 35.1% | 36.4% | 1.4% | 42.5% | 44.2% | 47.6% | 47.6% | 49.0% | 50.1% | 50.1% | 51.7% | 51.8% | 51.9% | 52.5% | 53.4% | 54.0% | 54.7% | 54.9% | 54.9% | 56.0% | 56.1% | 1.7% | 56.1% | 1.7% | 57.4% | 57.4% |
+
+## Same-vintage complementarity (documented residual)
+
+The invariant: at a single vintage the separately-published
+available-callsigns list and the register's occupied set (Allocated
+plus Reserved) should be **complementary** — a callsign is either
+available for issue or already taken, not both — so the available list
+and the occupied register together account for the issuable space,
+leaving only a small complement (the ~14% #223 set out to check).
+
+This probe stays a **documented residual**: testing complementarity
+needs an available list AND a register snapshot of the *same* vintage,
+and we hold no such pairing. The available-pool snapshots are
+2013–2016; the earliest register snapshot we hold is later, and no
+register vintage coincides with any pool vintage. Rather than force it
+against a mismatched vintage — which the overlap matrix above already
+covers as a cross-vintage presence gradient — the gap that blocks it
+is committed here precisely: for each pool, the nearest register
+snapshot held and how far after the pool it falls.
+
+The probe **unblocks automatically** if a register snapshot of a
+pool's vintage is ever added (the gap reaches zero); a self-check
+guards that condition, so the residual cannot be silently assumed once
+holdings change. Partial vintages are normalised to the first day of
+their period for the day count.
+
+| available-pool snapshot | vintage | nearest register snapshot | register vintage | gap (days) |
+|---|---|---|---|---:|
+| `wdtk-174341--available-callsigns-list` | 2013-09-06 | `wdtk-356636--all-callsigns-plus-forbidden` | 2016-09 | 1,091 |
+| `wdtk-197896--available-callsigns-list` | 2014-03-14 | `wdtk-356636--all-callsigns-plus-forbidden` | 2016-09 | 902 |
+| `wdtk-224333--available-callsigns-list` | 2014-08-18 | `wdtk-356636--all-callsigns-plus-forbidden` | 2016-09 | 745 |
+| `wdtk-247308--available-callsigns-list` | 2015-02-25 | `wdtk-356636--all-callsigns-plus-forbidden` | 2016-09 | 554 |
+| `wdtk-261814--available-callsigns-list` | 2015-04-16 | `wdtk-356636--all-callsigns-plus-forbidden` | 2016-09 | 504 |
+| `wdtk-271469--available-callsigns-list` | 2015-06-11 | `wdtk-356636--all-callsigns-plus-forbidden` | 2016-09 | 448 |
+| `wdtk-294011--available-callsigns-list` | 2015-10-13 | `wdtk-356636--all-callsigns-plus-forbidden` | 2016-09 | 324 |
+| `wdtk-299321--available-callsigns-list` | 2015-10-13 | `wdtk-356636--all-callsigns-plus-forbidden` | 2016-09 | 324 |
+| `wdtk-309076--available-callsigns-list` | 2016-01-21 | `wdtk-356636--all-callsigns-plus-forbidden` | 2016-09 | 224 |
+
+No register snapshot shares a pool vintage, so the complementarity check remains un-computable from current holdings — a documented residual, not an omission.

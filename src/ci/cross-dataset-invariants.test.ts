@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { buildDepletion, buildOverlapMatrix, renderCrossDatasetInvariants, CROSS_DATASET_INVARIANTS_PATH, type CrossDataset, type OverlapMatrix } from './cross-dataset-invariants.ts';
+import { buildDepletion, buildOverlapMatrix, buildComplementarity, renderCrossDatasetInvariants, CROSS_DATASET_INVARIANTS_PATH, type CrossDataset, type OverlapMatrix, type Complementarity } from './cross-dataset-invariants.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
+import { CONSTANTS } from '../shared/utils.ts';
 
 // Issue #241: the cross-dataset probes join each FOI available snapshot against
 // the latest register on the cleaned callsign key. Issue #361: the join is now a
@@ -64,6 +65,51 @@ describe('cross-dataset invariants — renderers', { tags: ['unit'] }, () => {
     expect(md).toContain('- `2025-05-27` ⚠ — open-data `2025-05-27` (1,074 keys, partial publication)');
     expect(md).toContain('| `pool-a` | 2013-09-06 | 100 | 1.0% | 66.0% |');
   });
+
+  it('ComplementarityRender_BlockedResidual_ExplainsInvariantAndShowsVintageGap', () => {
+    const md = renderCrossDatasetInvariants(
+      { register: '2026-06-23', allocatedTotal: 0, rows: [] },
+      undefined,
+      {
+        pools: [{ entry: 'pool-a', poolVintage: '2016-01-21', nearestRegisterKey: 'reg-2016-09', nearestRegisterVintage: '2016-09', gapDays: 224 }],
+        matched: false,
+      },
+    );
+    expect(md).toContain('## Same-vintage complementarity (documented residual)');
+    expect(md).toContain('should be **complementary**');
+    expect(md).toContain('| `pool-a` | 2016-01-21 | `reg-2016-09` | 2016-09 | 224 |');
+    expect(md).toContain('No register snapshot shares a pool vintage');
+  });
+
+  it('ComplementarityRender_MatchedVintage_SignalsProbeIsNowComputable', () => {
+    // The opposite scenario: once a register shares a pool vintage the residual
+    // must announce it is computable rather than restate the block.
+    const md = renderCrossDatasetInvariants(
+      { register: '2026-06-23', allocatedTotal: 0, rows: [] },
+      undefined,
+      {
+        pools: [{ entry: 'pool-a', poolVintage: '2016-09', nearestRegisterKey: 'reg-2016-09', nearestRegisterVintage: '2016-09', gapDays: 0 }],
+        matched: true,
+      },
+    );
+    expect(md).toContain('**A register snapshot now shares a pool vintage**');
+    expect(md).toContain('| `pool-a` | 2016-09 | `reg-2016-09` | 2016-09 | 0 |');
+    expect(md).not.toContain('No register snapshot shares a pool vintage');
+  });
+
+  it('ComplementarityRender_UnparseableVintage_RendersGapAsUnknown', () => {
+    // A pool whose vintage cannot be parsed to a date yields an unknown gap
+    // rather than a fabricated day count.
+    const md = renderCrossDatasetInvariants(
+      { register: '2026-06-23', allocatedTotal: 0, rows: [] },
+      undefined,
+      {
+        pools: [{ entry: 'pool-x', poolVintage: '—', nearestRegisterKey: 'reg-2016-09', nearestRegisterVintage: '2016-09', gapDays: undefined }],
+        matched: false,
+      },
+    );
+    expect(md).toContain('| `pool-x` | — | `reg-2016-09` | 2016-09 | — |');
+  });
 });
 
 // The real-archive fold needs the pinned DuckDB CLI (DUCKDB_BIN / `duckdb` on
@@ -77,14 +123,15 @@ describe.skipIf(!duckDbAvailable())('cross-dataset invariants — real-archive f
   // slow, matching the allowance the build-sqlite tiers hook uses.
   let d: CrossDataset;
   let m: OverlapMatrix;
-  beforeAll(() => { d = buildDepletion(); m = buildOverlapMatrix(); }, 480_000);
+  let c: Complementarity;
+  beforeAll(() => { d = buildDepletion(); m = buildOverlapMatrix(); c = buildComplementarity(); }, 480_000);
 
   // The retirement gate (issue #361): the report folded from the claim data via
   // DuckDB must equal the committed golden byte-for-byte. This IS the proof that
   // the fold reproduces the legacy join, so the legacy generator can retire.
   it('CrossDatasetInvariants_FoldedFromClaimData_MatchesCommittedGoldenByteForByte', () => {
     const golden = fs.readFileSync(path.resolve(process.cwd(), CROSS_DATASET_INVARIANTS_PATH), 'utf8');
-    expect(renderCrossDatasetInvariants(d, m)).toBe(golden);
+    expect(renderCrossDatasetInvariants(d, m, c)).toBe(golden);
   });
 
   it('AvailablePool_2013Snapshot_DepletionMatchesIndependentJoin', () => {
@@ -174,5 +221,29 @@ describe.skipIf(!duckDbAvailable())('cross-dataset invariants — real-archive f
     for (let pi = 0; pi < m.pools.length; pi += 1) {
       expect(m.present[pi][latest]).toBeGreaterThan(m.present[pi][earliest]);
     }
+  });
+});
+
+// The same-vintage complementarity probe (issue #241) is a documented residual:
+// un-computable without a register snapshot matching an available-pool vintage,
+// which the holdings lack. Its build reads only vintage metadata (no DuckDB), so
+// this guard runs wherever the archive is checked out, and asserts the residual
+// stays honest — the moment a matched-vintage snapshot lands, `matched` flips and
+// this fails, signalling the real probe is now due.
+describe.skipIf(!fs.existsSync(path.join(CONSTANTS.DIRS.archive, 'foi')))('cross-dataset invariants — complementarity residual (real archive)', { tags: ['data-validity'] }, () => {
+  it('SameVintageComplementarity_NoRegisterSharesAPoolVintage_ProbeRemainsBlocked', () => {
+    const c = buildComplementarity();
+    // The residual is only honest while genuinely un-computable: no register
+    // snapshot may share an available-pool vintage.
+    expect(c.matched).toBe(false);
+    expect(c.pools.length).toBeGreaterThan(0);
+    for (const p of c.pools) {
+      // Every pool has a nearest register strictly later than it — a positive
+      // gap; a zero gap would be a matched vintage, which `matched` would catch.
+      expect(p.gapDays).toBeGreaterThan(0);
+      expect(p.nearestRegisterKey).not.toBe('');
+    }
+    // Every 2013–2016 available pool is nearest to the earliest register held.
+    expect(new Set(c.pools.map(p => p.nearestRegisterVintage))).toEqual(new Set(['2016-09']));
   });
 });

@@ -9,10 +9,14 @@
  * invariant, and the available x record-of overlap matrix (each available
  * pool against every register vintage - the open-data publications and the
  * FOI register-snapshots). The last #241 probe, same-vintage complementarity,
- * stays blocked: it needs a register snapshot of the same vintage as an
- * available list, and none exists (available lists are 2013-2016; the
- * open-data register starts 2022, and no FOI register-snapshot matches those
- * early vintages). See the issue.
+ * is un-computable from current holdings and is committed as a DOCUMENTED
+ * RESIDUAL: it needs a register snapshot of the same vintage as an available
+ * list, and none exists (available lists are 2013-2016; the earliest register
+ * snapshot is 2016-09, and no register vintage coincides with any pool
+ * vintage). Rather than force it against a mismatched vintage, the section
+ * commits the precise gap that blocks it (each pool's nearest register and how
+ * far after it falls) and a self-check guards the block, so the probe unblocks
+ * the moment a matched-vintage snapshot is ever added. See the issue.
  *
  * FOLD, not re-parse (issue #361): the per-vintage entity sets this report joins
  * are computed by a build-time DuckDB fold over the normalised register/pool
@@ -343,6 +347,94 @@ ORDER BY pidx, ridx`;
   return { pools: outPools, registers: outRegisters, present };
 }
 
+// --- Probe 3: same-vintage complementarity (documented residual) -----------
+//
+// The invariant: at a single vintage the separately-published available-
+// callsigns list and the register's occupied set (Allocated + Reserved) should
+// be COMPLEMENTARY — a callsign is either available for issue or already taken,
+// not both — so the available list and the occupied register together account
+// for the issuable space, leaving only a small complement (the ~14% #223 set
+// out to check). Testing it needs an available list AND a register snapshot of
+// the SAME vintage.
+//
+// We hold no such pairing: the available-pool snapshots are 2013–2016, the
+// earliest register snapshot is later, and no register vintage coincides with
+// any pool vintage. So the probe is a DOCUMENTED RESIDUAL — un-computable from
+// current holdings, never fabricated. What IS computable, and what this section
+// commits, is the precise size of the gap that blocks it: for each pool, the
+// nearest register snapshot held and how far after the pool it falls. The probe
+// unblocks automatically once a register vintage equals a pool vintage (the gap
+// reaches zero), a condition a self-check guards.
+
+export interface ComplementarityGap {
+  entry: string;
+  poolVintage: string;
+  nearestRegisterKey: string;
+  nearestRegisterVintage: string;
+  // Whole days between the pool vintage and the nearest register vintage;
+  // undefined when either vintage is unparseable (e.g. the '—' placeholder).
+  gapDays: number | undefined;
+}
+// `matched` is the unblock signal: true once any register snapshot shares a
+// pool's vintage, at which point the complementarity check becomes computable
+// and this residual must be replaced by the real probe.
+export interface Complementarity { pools: ComplementarityGap[]; matched: boolean }
+
+// A vintage as a whole-day UTC ordinal for gap arithmetic. Vintages carry mixed
+// precision (YYYY, YYYY-MM, YYYY-MM-DD); a partial vintage is normalised to the
+// first day of its period — a documented convention that keeps the gap
+// deterministic. An unparseable vintage yields undefined so the gap renders as
+// unknown rather than a misleading number.
+function vintageToDayOrdinal(vintage: string): number | undefined {
+  const match = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/.exec(vintage);
+  if (match === null) return undefined;
+  const year = Number(match[1]);
+  const month = match[2] === undefined ? 1 : Number(match[2]);
+  const day = match[3] === undefined ? 1 : Number(match[3]);
+  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
+}
+
+// Build the same-vintage complementarity residual: pure vintage metadata (no
+// DuckDB fold), because the probe is blocked precisely on which vintages we
+// hold. For each available-pool snapshot it records the nearest register
+// snapshot and the gap, and reports whether any register vintage now matches a
+// pool vintage (the unblock signal).
+export function buildComplementarity(): Complementarity {
+  const foiDir = path.join(CONSTANTS.DIRS.archive, 'foi');
+  const pools = enumeratePools(foiDir);
+  // Only a register that actually carries callsign rows could serve as a
+  // comparison snapshot; an empty-file enumeration entry is not one.
+  const registers = enumerateRegisters(foiDir).filter(register => register.files.length > 0);
+
+  const gaps: ComplementarityGap[] = pools.map(pool => {
+    const poolOrdinal = vintageToDayOrdinal(pool.vintage);
+    // The nearest register by absolute vintage distance, computed generally
+    // rather than assuming every register is later — so a future same-or-earlier
+    // register would be chosen correctly. registers are pre-sorted by vintage
+    // then key, so the first-seen minimum makes ties deterministic.
+    let nearest: { register: RegisterSource; gap: number | undefined } | undefined;
+    for (const register of registers) {
+      const registerOrdinal = vintageToDayOrdinal(register.vintage);
+      const gap = poolOrdinal === undefined || registerOrdinal === undefined
+        ? undefined
+        : Math.abs(registerOrdinal - poolOrdinal);
+      if (nearest === undefined) { nearest = { register, gap }; continue; }
+      if (gap !== undefined && (nearest.gap === undefined || gap < nearest.gap)) nearest = { register, gap };
+    }
+    return {
+      entry: pool.entry,
+      poolVintage: pool.vintage,
+      nearestRegisterKey: nearest?.register.key ?? '',
+      nearestRegisterVintage: nearest?.register.vintage ?? '—',
+      gapDays: nearest?.gap,
+    };
+  });
+
+  const poolVintages = new Set(pools.map(pool => pool.vintage));
+  const matched = registers.some(register => poolVintages.has(register.vintage));
+  return { pools: gaps, matched };
+}
+
 function pct(n: number, d: number): string {
   return d === 0 ? '—' : `${((n / d) * 100).toFixed(1)}%`;
 }
@@ -397,7 +489,50 @@ function renderOverlapMatrix(m: OverlapMatrix): string[] {
   return out;
 }
 
-export function renderCrossDatasetInvariants(d: CrossDataset, overlap?: OverlapMatrix): string {
+function renderComplementarity(c: Complementarity): string[] {
+  const out: string[] = [];
+  out.push('## Same-vintage complementarity (documented residual)');
+  out.push('');
+  out.push('The invariant: at a single vintage the separately-published');
+  out.push('available-callsigns list and the register\'s occupied set (Allocated');
+  out.push('plus Reserved) should be **complementary** — a callsign is either');
+  out.push('available for issue or already taken, not both — so the available list');
+  out.push('and the occupied register together account for the issuable space,');
+  out.push('leaving only a small complement (the ~14% #223 set out to check).');
+  out.push('');
+  out.push('This probe stays a **documented residual**: testing complementarity');
+  out.push('needs an available list AND a register snapshot of the *same* vintage,');
+  out.push('and we hold no such pairing. The available-pool snapshots are');
+  out.push('2013–2016; the earliest register snapshot we hold is later, and no');
+  out.push('register vintage coincides with any pool vintage. Rather than force it');
+  out.push('against a mismatched vintage — which the overlap matrix above already');
+  out.push('covers as a cross-vintage presence gradient — the gap that blocks it');
+  out.push('is committed here precisely: for each pool, the nearest register');
+  out.push('snapshot held and how far after the pool it falls.');
+  out.push('');
+  out.push('The probe **unblocks automatically** if a register snapshot of a');
+  out.push('pool\'s vintage is ever added (the gap reaches zero); a self-check');
+  out.push('guards that condition, so the residual cannot be silently assumed once');
+  out.push('holdings change. Partial vintages are normalised to the first day of');
+  out.push('their period for the day count.');
+  out.push('');
+  out.push('| available-pool snapshot | vintage | nearest register snapshot | register vintage | gap (days) |');
+  out.push('|---|---|---|---|---:|');
+  for (const p of c.pools) {
+    out.push(`| \`${p.entry}\` | ${p.poolVintage} | \`${p.nearestRegisterKey}\` | ${p.nearestRegisterVintage} | ${p.gapDays === undefined ? '—' : num(p.gapDays)} |`);
+  }
+  out.push('');
+  out.push(c.matched
+    ? '**A register snapshot now shares a pool vintage** — the complementarity '
+      + 'check is computable, and this residual must be replaced by the real probe.'
+    : 'No register snapshot shares a pool vintage, so the complementarity check '
+      + 'remains un-computable from current holdings — a documented residual, not '
+      + 'an omission.');
+  out.push('');
+  return out;
+}
+
+export function renderCrossDatasetInvariants(d: CrossDataset, overlap?: OverlapMatrix, complementarity?: Complementarity): string {
   const out: string[] = [];
   out.push('# Cross-dataset invariants');
   out.push('');
@@ -458,6 +593,7 @@ export function renderCrossDatasetInvariants(d: CrossDataset, overlap?: OverlapM
   out.push('');
 
   if (overlap !== undefined) out.push(...renderOverlapMatrix(overlap));
+  if (complementarity !== undefined) out.push(...renderComplementarity(complementarity));
 
   return out.join('\n');
 }
@@ -465,7 +601,7 @@ export function renderCrossDatasetInvariants(d: CrossDataset, overlap?: OverlapM
 export const CROSS_DATASET_INVARIANTS_PATH = 'reports/cross-dataset-invariants.md';
 
 export function writeCrossDatasetInvariants(): { path: string; changed: boolean } {
-  const markdown = renderCrossDatasetInvariants(buildDepletion(), buildOverlapMatrix());
+  const markdown = renderCrossDatasetInvariants(buildDepletion(), buildOverlapMatrix(), buildComplementarity());
   const target = path.resolve(process.cwd(), CROSS_DATASET_INVARIANTS_PATH);
   fs.mkdirSync(path.dirname(target), { recursive: true });
   const existing = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : undefined;
