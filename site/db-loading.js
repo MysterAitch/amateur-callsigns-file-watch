@@ -1,3 +1,4 @@
+// @ts-check
 // Shared database-loading affordance (issue #499). Every query surface routes
 // its database open + query through this, so a slow first-use load is always
 // COMMUNICATED rather than hidden: the trigger button shows its state (ready /
@@ -41,13 +42,16 @@ export async function withDatabaseLoading({ button, statusEl, alertEl, resultEl,
   // different, non-connectivity message. Integrity failures override both.
   let opened = false;
 
+  /** @type {(state: string, text?: string) => void} */
   const setState = (state, text) => {
     if (!button) return;
     button.dataset.state = state;
     button.disabled = state === 'loading' || state === 'running';
     if (text !== undefined) button.textContent = text;
   };
+  /** @type {(text: string) => void} */
   const say = text => { if (statusEl) statusEl.textContent = text; };
+  /** @type {(text: string, severity: string) => void} */
   const raise = (text, severity) => {
     if (alertEl) { alertEl.textContent = text; alertEl.dataset.severity = severity; alertEl.hidden = false; }
     else say(text);
@@ -74,8 +78,13 @@ export async function withDatabaseLoading({ button, statusEl, alertEl, resultEl,
     if (resultEl) resultEl.removeAttribute('aria-busy');
     setState('ready', originalLabel);
     say('');
-    const detail = (error && error.message) ? error.message : String(error);
-    if (error && error.integrity) {
+    // A thrown value is `unknown`; read the fields we care about through a
+    // narrowed view (an integrity failure carries `.integrity === true`).
+    const err = /** @type {{ message?: string, integrity?: boolean }} */ (
+      (typeof error === 'object' && error !== null) ? error : {}
+    );
+    const detail = err.message ? err.message : String(error);
+    if (err.integrity) {
       raise(`The ${label} loaded but failed its integrity check — results may be wrong. Reload the page before trusting anything shown.`, 'integrity');
     } else if (opened) {
       raise(`The query failed: ${detail}.`, 'query');

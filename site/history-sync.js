@@ -1,3 +1,4 @@
+// @ts-check
 // Thin History-API wiring shared by the data browser (entry-browser.js) and
 // the cross-publication comparison surface (compare.js), issue #214. The pure
 // state<->URL mapping and the push/replace decision live in browser-query.js;
@@ -19,7 +20,15 @@
 
 import { historySyncAction } from './browser-query.js';
 
+/**
+ * @param {object} options
+ * @param {() => string} options.getUrl - the URL the current filter state maps to
+ * @param {() => void} options.onPopState - re-applies the URL to state and re-renders
+ * @param {number} [options.debounceMs] - burst window collapsing rapid changes to one history step
+ * @returns {{ sync: () => void }}
+ */
 export function createHistorySync({ getUrl, onPopState, debounceMs = 400 }) {
+  /** @type {ReturnType<typeof setTimeout> | null} */
   let burstTimer = null;
   let restoring = false;
 
