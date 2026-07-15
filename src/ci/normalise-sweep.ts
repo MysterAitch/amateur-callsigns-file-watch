@@ -25,12 +25,12 @@ import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS, type ArchiveMeta, type IgnoredRawLine, calculateContentHash, errorMessage, saveJsonFileSync } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
-import { renderStatsJson, compareStats, markUnprintables, type EntryStats, type CallsignQuality } from '../shared/stats.ts';
+import { renderStatsJson, compareStats, markUnprintables, type EntryStats } from '../shared/stats.ts';
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
 import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { writeValueCatalogue } from './value-catalogue.ts';
 import { buildQualityReportFold, type PrefixDistributionFold, type MismatchFold, type RegionalIdentifierFold, type CallsignPatternSeriesFold } from './quality-report-fold.ts';
-import { DETECTOR_KEYS, type DataQualityFold, type DetectorResult } from './data-quality-fold.ts';
+import { buildDataQualityFold, type DataQualityFold } from './data-quality-fold.ts';
 import { writeCrossDatasetInvariants } from './cross-dataset-invariants.ts';
 import { writeForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { mdCell } from '../shared/markdown.ts';
@@ -190,11 +190,18 @@ export function runNormaliseSweep(): SweepReport {
     fs.copyFileSync(path.join(CONSTANTS.DIRS.archive, newest, 'meta.json'), CONSTANTS.FILES.latestMeta);
   }
 
+  // The data-quality rollup folds from the raw-keyed claim ledger's T1
+  // flag/parse-status claims (data-quality-fold.ts, #442). Folded once here so the
+  // committed reports/data-quality.md AND the sweep PR body's flag/status trend
+  // tables read the SAME figures (the consistency contract), the corpus scanned a
+  // single time rather than per surface.
+  const dataQualityFold = time('reports:data-quality-fold', () => buildDataQualityFold());
+
   // Committed quality reports (issue #46): reports/{key}.md per entry with
   // stats - the durable, diffable, browsable home for the pattern matrix and
   // pairwise comparisons. Regenerated wholesale each run; byte-identical
   // regeneration means no git change, so unchanged windows never churn.
-  time('reports:quality-reports', () => writeQualityReports(keys));
+  time('reports:quality-reports', () => writeQualityReports(keys, dataQualityFold));
 
   // The cross-lane value catalogue (issues #43/#223): every distinct value of
   // the tracked fields across both lanes, regenerated and committed here so a
@@ -238,18 +245,13 @@ export function runNormaliseSweep(): SweepReport {
   }
 
   // The flag/status trend tables ride every sweep PR body (consistency with
-  // reports/data-quality.md - same generator, same tables).
-  const statsForBody = new Map<string, EntryStats>();
-  for (const k of keys) {
-    const s = readStats(k);
-    if (s) statsForBody.set(k, s);
-  }
-  const flagBlock = statsForBody.size === 0 ? [] : [
+  // reports/data-quality.md - the same folded figures, the same tables).
+  const flagBlock = dataQualityFold.dates.length === 0 ? [] : [
     '',
     '<details>',
     '<summary>Data-quality flags per dataset</summary>',
     '',
-    ...flagAggregateTables([...keys].filter(k => statsForBody.has(k)).reverse(), statsForBody),
+    ...renderFlagStatusTables(dataQualityFold.dates, dataQualityFold.flags, dataQualityFold.parseStatuses),
     '',
     '</details>',
   ];
@@ -379,7 +381,7 @@ function matrixTable(key: string, window: string[], statsByKey: Map<string, Entr
 // One committed report per entry: its own full pattern table, the window
 // matrix, and pairwise comparisons. Deterministic (no timestamps, stable
 // ordering) so unchanged windows regenerate byte-identically.
-function writeQualityReports(keys: string[]): void {
+function writeQualityReports(keys: string[], dataQuality: DataQualityFold): void {
   const statsByKey = new Map<string, EntryStats>();
   for (const k of keys) {
     const s = readStats(k);
@@ -426,18 +428,19 @@ function writeQualityReports(keys: string[]): void {
   }
 
   const keysWithStats = keys.filter(k => statsByKey.has(k));
-  // FOLD (issue #361, migration step 5 + Phase B): the prefix-series distribution,
-  // the class-product-mismatch table, the regional-identifier distribution and the
-  // callsign-pattern time-series all take their numbers from the raw-keyed claim
-  // ledger's T1 parse-attribute tier (prefix_series / implied_class / parse_status
-  // / rsl / flag, #406+#422) and the callsign-pattern derived claim. One ledger is
-  // materialised here and all four reports fold from it; only the data-quality
-  // rollup stays on the legacy stats/components path (it reads callsignQuality
-  // detectors the tier does not yet emit — see quality-report-fold.ts / writeQualityRollup).
+  // FOLD (issue #361, migration steps 3/5 + Phase B/C): the prefix-series
+  // distribution, the class-product-mismatch table, the regional-identifier
+  // distribution and the callsign-pattern time-series all take their numbers from
+  // the raw-keyed claim ledger's T1 parse-attribute tier (prefix_series /
+  // implied_class / parse_status / rsl / flag, #406+#422) and the callsign-pattern
+  // derived claim; the data-quality rollup folds from the same tier's flag /
+  // parse-status claims (data-quality-fold.ts, #442), supplied by the caller so the
+  // corpus is folded once. Each report's equivalence oracle pins the fold against
+  // the committed golden as its retirement gate (#444).
   const fold = buildQualityReportFold();
-  writePatternTimeSeries(keysWithStats, statsByKey, fold.callsignPatterns);
-  writeQualityRollup(keysWithStats, statsByKey, fold.mismatches);
-  writeComponentDistributions([...keysWithStats].reverse(), fold.prefixes, fold.regionalIdentifiers);
+  writePatternTimeSeries(fold.callsignPatterns);
+  writeQualityRollup(dataQuality, fold.mismatches);
+  writeComponentDistributions(fold.prefixes, fold.regionalIdentifiers);
   writeReportsIndex([...keysWithStats].reverse(), statsByKey);
 }
 
@@ -667,32 +670,9 @@ function distributionTable(dates: string[], rows: Map<string, Map<string, number
   ];
 }
 
-// The legacy prefix-series distribution, read from components.csv (one row per
-// prefix series, non-parsed records under their parse status) — the single
-// source of truth for the legacy figures, shared by the fallback path and the
-// equivalence oracle's legacy side.
-export function legacyPrefixDistribution(columnsNewestFirst: string[]): PrefixDistributionFold {
-  const rows = new Map<string, Map<string, number>>();
-  const dates: string[] = [];
-  const bump = (row: string, key: string): void => {
-    const perKey = rows.get(row) ?? new Map<string, number>();
-    perKey.set(key, (perKey.get(key) ?? 0) + 1);
-    rows.set(row, perKey);
-  };
-  for (const key of columnsNewestFirst) {
-    const componentsPath = path.join(CONSTANTS.DIRS.archive, key, 'components.csv');
-    if (!fs.existsSync(componentsPath)) continue;
-    dates.push(key);
-    for (const r of parseCsvRecords(componentsPath)) {
-      bump(r.prefix_series !== '' ? `\`${r.prefix_series}\`` : `_(${r.parse_status})_`, key);
-    }
-  }
-  return { dates, rows };
-}
-
-// The prefix-series distribution markdown, from whichever source supplied the
-// per-label per-date counts (the ledger fold in the sweep, a legacy tally in the
-// presentation tests).
+// The prefix-series distribution markdown, from the ledger fold's per-label
+// per-date counts (quality-report-fold.ts). A pure function of the fold shape, so
+// the equivalence oracle renders the committed golden through this same path.
 export function renderPrefixDistributions(dates: string[], rows: Map<string, Map<string, number>>): string {
   return [
     '# Prefix-series distributions',
@@ -708,43 +688,11 @@ export function renderPrefixDistributions(dates: string[], rows: Map<string, Map
   ].join('\n');
 }
 
-// The legacy regional-identifier distribution, read from components.csv (one row
-// per rendered prefix+RSL identifier over PARSED records only) — the single
-// source of truth for the legacy figures, shared by the fallback path and the
-// equivalence oracle's legacy side. The rendered identifier is the prefix+RSL
-// combination (GM, MW, 2E, ...), bare 20/21 for RSL-less intermediates, and an
-// aggregate for RSL-less G/M cores (the register stores cores by design).
-export function legacyRegionalIdentifierDistribution(columnsNewestFirst: string[]): RegionalIdentifierFold {
-  const rows = new Map<string, Map<string, number>>();
-  const dates: string[] = [];
-  const bump = (row: string, key: string): void => {
-    const perKey = rows.get(row) ?? new Map<string, number>();
-    perKey.set(key, (perKey.get(key) ?? 0) + 1);
-    rows.set(row, perKey);
-  };
-  for (const key of columnsNewestFirst) {
-    const componentsPath = path.join(CONSTANTS.DIRS.archive, key, 'components.csv');
-    if (!fs.existsSync(componentsPath)) continue;
-    dates.push(key);
-    for (const r of parseCsvRecords(componentsPath)) {
-      if (r.parse_status !== 'parsed') continue;
-      if (r.prefix_series.startsWith('2')) {
-        // Series names are stored bare (20/21), so the trailing digit is
-        // everything after the leading 2.
-        bump(r.rsl !== '' ? `\`2${r.rsl}\`` : `\`${r.prefix_series}\` _(bare)_`, key);
-      } else if (r.rsl !== '') {
-        bump(`\`${r.prefix_series[0]}${r.rsl}\``, key);
-      } else {
-        bump('_(G/M core, no RSL)_', key);
-      }
-    }
-  }
-  return { dates, rows };
-}
-
-// The regional-identifier distribution markdown, from whichever source supplied
-// the per-label per-date counts (the ledger fold in the sweep, a legacy tally in
-// the presentation tests).
+// The regional-identifier distribution markdown, from the ledger fold's per-label
+// per-date counts (quality-report-fold.ts). The rendered identifier is the
+// prefix+RSL combination (GM, MW, 2E, ...), bare 20/21 for RSL-less intermediates,
+// and an aggregate for RSL-less G/M cores; a pure function of the fold shape, so
+// the equivalence oracle renders the committed golden through this same path.
 export function renderRegionalIdentifiers(dates: string[], rows: Map<string, Map<string, number>>): string {
   return [
     '# Regional-identifier distributions',
@@ -766,16 +714,13 @@ export function renderRegionalIdentifiers(dates: string[], rows: Map<string, Map
 // Prefix-series and regional-identifier distributions (issue #51). Columns are
 // datasets newest leftmost, matching the other rollups.
 //
-// FOLD, not re-derive (issue #361, migration step 5 + Phase B): when the folded
-// arguments are supplied, both tables' figures come from the raw-keyed claim
-// ledger's T1 parse-attribute tier (quality-report-fold.ts) rather than the
-// legacy components.csv tally — the prefix table from prefix_series/parse_status,
-// the regional table from the same joined to the per-record `rsl` claim (#422).
-// Each falls back to its legacy computation (the presentation tests exercise that
-// path); the fold reproduces the committed goldens (quality-report-fold.test.ts).
-function writeComponentDistributions(columnsNewestFirst: string[], foldedPrefixes?: PrefixDistributionFold, foldedRegional?: RegionalIdentifierFold): void {
-  const prefix = foldedPrefixes ?? legacyPrefixDistribution(columnsNewestFirst);
-  const regional = foldedRegional ?? legacyRegionalIdentifierDistribution(columnsNewestFirst);
+// FOLD, not re-derive (issue #361, migration step 5 + Phase B): both tables' figures
+// come from the raw-keyed claim ledger's T1 parse-attribute tier
+// (quality-report-fold.ts) — the prefix table from prefix_series/parse_status, the
+// regional table from the same joined to the per-record `rsl` claim (#422). The
+// equivalence oracle pins the fold against the committed goldens
+// (quality-report-fold.test.ts).
+function writeComponentDistributions(prefix: PrefixDistributionFold, regional: RegionalIdentifierFold): void {
   // Both reports need at least one dated open-data column; a bare archive with no
   // register-bearing entries writes neither (mirroring the folds' empty return).
   if (regional.dates.length === 0) return;
@@ -899,62 +844,24 @@ function withCharacterKey(lines: string[]): string[] {
 // a defect class observed in real exports; a class appearing or vanishing
 // between publications is a pipeline-change signal in its own right.
 //
-// Generated here from the LEGACY stats.json path (legacyDataQuality) - the
-// current-best generator. The equivalence oracle in data-quality-fold.test.ts
-// proves the raw-keyed claim ledger reproduces this same rollup byte-for-byte
-// (issue #361): the defect-detector matrix is a RELABELLING of the ledger's T1
-// flag/parse-status claims (excel-date-shape, encoding-failure, whitespace,
-// stripped-collision, lowercase, and the recovered `empty` status), the flag and
-// parse-status registries fold from those same claims, and the example tables
-// fold from the flagged observations' raw subjects (see data-quality-fold.ts for
-// the full detector -> claim mapping and the single classified `lowercase`
-// superset subtlety). Retiring this generator in favour of the fold is a separate
-// Phase C step; for now the fold ADDS the oracle and the generator stays.
-function writeQualityRollup(keys: string[], statsByKey: Map<string, EntryStats>, foldedMismatches?: MismatchFold): void {
-  const columns = [...keys].reverse();
-  const dataQuality = legacyDataQuality(columns, statsByKey);
+// FOLD from the raw-keyed claim ledger (data-quality-fold.ts, #442/#444): the
+// defect-detector matrix is a RELABELLING of the ledger's T1 flag/parse-status
+// claims (excel-date-shape, encoding-failure, whitespace, stripped-collision,
+// lowercase, and the recovered `empty` status), the flag and parse-status
+// registries fold from those same claims, and the example tables fold from the
+// flagged observations' raw subjects (see data-quality-fold.ts for the full
+// detector -> claim mapping and the single classified `lowercase` superset
+// subtlety). The equivalence oracle pins the fold against the committed golden.
+function writeQualityRollup(dataQuality: DataQualityFold, foldedMismatches: MismatchFold): void {
   fs.writeFileSync(path.join(REPORTS_DIR, '..', 'data-quality.md'), renderDataQualityRollup(dataQuality));
 
-  writeMismatchReport(columns, foldedMismatches);
+  writeMismatchReport(foldedMismatches);
 }
 
-// The legacy data-quality rollup figures, read from stats.json's callsignQuality
-// detectors, callsignFlags and parseStatuses - the single source of truth for the
-// legacy numbers, shared by the generator above and the equivalence oracle's
-// legacy side (data-quality-fold.test.ts). Columns stay in the order supplied
-// (the sweep passes datasets newest-first); a dataset without stats contributes
-// no figures, so its cells fall back to the renderer's `—`/`0` defaults exactly
-// as the previous inline computation did.
-export function legacyDataQuality(columnsNewestFirst: string[], statsByKey: Map<string, EntryStats>): DataQualityFold {
-  const dates = [...columnsNewestFirst];
-  const recordCounts = new Map<string, number>();
-  const detectors = new Map<string, Map<string, DetectorResult>>();
-  for (const detectorKey of DETECTOR_KEYS) detectors.set(detectorKey, new Map());
-  const flags = new Map<string, Map<string, number>>();
-  const parseStatuses = new Map<string, Map<string, number>>();
-  const bump = (map: Map<string, Map<string, number>>, name: string, date: string, count: number): void => {
-    const byDate = map.get(name) ?? new Map<string, number>();
-    byDate.set(date, count);
-    map.set(name, byDate);
-  };
-  for (const date of dates) {
-    const stats = statsByKey.get(date);
-    if (stats === undefined) continue;
-    recordCounts.set(date, stats.recordCount);
-    for (const detectorKey of DETECTOR_KEYS) {
-      const result = stats.callsignQuality[detectorKey as keyof CallsignQuality];
-      detectors.get(detectorKey)?.set(date, { count: result.count, examples: [...result.examples] });
-    }
-    for (const [flag, count] of Object.entries(stats.callsignFlags ?? {})) bump(flags, flag, date, count);
-    for (const [status, count] of Object.entries(stats.parseStatuses ?? {})) bump(parseStatuses, status, date, count);
-  }
-  return { dates, recordCounts, detectors, flags, parseStatuses };
-}
-
-// The data-quality rollup markdown, from whichever source supplied the figures
-// (the legacy stats tally in the sweep, the raw-keyed claim ledger fold in the
-// oracle). Pure function of the DataQualityFold, so the folded and legacy inputs
-// render byte-for-byte identically - the retirement gate the oracle pins.
+// The data-quality rollup markdown, rendered from the raw-keyed claim ledger fold
+// (data-quality-fold.ts). A pure function of the DataQualityFold, so the sweep and
+// the equivalence oracle render the same fold shape identically - the retirement
+// gate the oracle pins.
 export function renderDataQualityRollup(dq: DataQualityFold): string {
   const columns = dq.dates;
   const detectorLabels: readonly [string, string][] = [
@@ -1021,19 +928,9 @@ export function renderDataQualityRollup(dq: DataQualityFold): string {
   return withCharacterKey(lines).join('\n');
 }
 
-// Component-parse aggregates (flag vocabulary: reference-data/flags.md):
-// one row per flag/status observed anywhere in the archive, so a class
-// appearing or disappearing between publications is a visible trend line.
-// Shared between the committed rollup and sweep PR bodies - the same table
-// on every surface (consistency review).
-function flagAggregateTables(columnsNewestFirst: string[], statsByKey: Map<string, EntryStats>): string[] {
-  const dq = legacyDataQuality(columnsNewestFirst, statsByKey);
-  return renderFlagStatusTables(dq.dates, dq.flags, dq.parseStatuses);
-}
-
 // Render the flag and parse-status registries from per-row-name per-date count
-// maps (the flag object / status name -> date -> count shape both the legacy
-// stats tally and the ledger fold produce). One row per name observed anywhere
+// maps (the flag object / status name -> date -> count shape the ledger fold
+// produces). One row per name observed anywhere
 // (keys sorted so a class appearing or disappearing is a visible trend line), a
 // cell per column defaulting to 0 when the name is absent from that dataset -
 // exactly the previous inline aggregation, now the single source of truth shared
@@ -1068,8 +965,8 @@ function renderFlagStatusTables(columns: string[], flags: Map<string, Map<string
 // not publicly stated (e.g. permission to use a deceased relative's callsign
 // at the holder's own licence level) - the table records the discrepancy,
 // not a verdict.
-// One per-dataset mismatch section's rows, in the shape common to the legacy
-// computation and the ledger fold (quality-report-fold.ts).
+// One per-dataset mismatch section's rows, as the ledger fold supplies them
+// (quality-report-fold.ts).
 export interface MismatchSection { key: string; rows: MismatchRow[] }
 export interface MismatchRow { callsign: string; prefixSeries: string; impliedClass: string; product: string }
 
@@ -1108,60 +1005,21 @@ export function renderMismatchReport(sections: MismatchSection[]): string {
   return withCharacterKey(lines).join('\n');
 }
 
-// The legacy per-dataset mismatch sections, read from components.csv joined to
-// normalised.csv by callsign — factored out so it is both the fallback for the
-// presentation tests and the equivalence oracle's legacy side.
-export function legacyMismatchSections(columnsNewestFirst: string[]): MismatchSection[] {
-  const sections: MismatchSection[] = [];
-  for (const key of columnsNewestFirst) {
-    const componentsPath = path.join(CONSTANTS.DIRS.archive, key, 'components.csv');
-    const normalisedPath = path.join(CONSTANTS.DIRS.archive, key, 'normalised.csv');
-    if (!fs.existsSync(componentsPath) || !fs.existsSync(normalisedPath)) continue;
-    const components = parseCsvRecords(componentsPath);
-    const productByCallsign = new Map(parseCsvRecords(normalisedPath).map(r => [r.callsign, r.product]));
-    const rows = components
-      .filter(r => r.flags.split(';').includes('class-product-mismatch'))
-      .map(r => ({ callsign: r.callsign, prefixSeries: r.prefix_series, impliedClass: r.implied_class, product: productByCallsign.get(r.callsign) ?? '' }));
-    sections.push({ key, rows });
-  }
-  return sections;
-}
-
-// FOLD, not re-derive (issue #361, migration step 5): when `foldedMismatches` is
-// supplied, the sections come from the raw-keyed claim ledger's T1 tier — the
-// class-product-mismatch `flag` claim joined to the observation's prefix_series /
-// implied_class derived claims and its raw product cell — rather than the legacy
-// components.csv/normalised.csv join. The ofcom-amateur normaliser copies the
-// callsign verbatim and is row-preserving, so the fold parses the same token over
-// the same rows and reproduces the committed golden (quality-report-fold.test.ts).
-function writeMismatchReport(columnsNewestFirst: string[], foldedMismatches?: MismatchFold): void {
-  const sections = foldedMismatches !== undefined
-    ? foldedMismatches.dates.map(date => ({ key: date, rows: foldedMismatches.byDate.get(date) ?? [] }))
-    : legacyMismatchSections(columnsNewestFirst);
+// FOLD, not re-derive (issue #361, migration step 5): the sections come from the
+// raw-keyed claim ledger's T1 tier — the class-product-mismatch `flag` claim
+// joined to the observation's prefix_series / implied_class derived claims and its
+// raw product cell. The ofcom-amateur normaliser copies the callsign verbatim and
+// is row-preserving, so the fold parses the same token over the same rows and
+// reproduces the committed golden (quality-report-fold.test.ts).
+function writeMismatchReport(foldedMismatches: MismatchFold): void {
+  const sections = foldedMismatches.dates.map(date => ({ key: date, rows: foldedMismatches.byDate.get(date) ?? [] }));
   fs.writeFileSync(path.join(REPORTS_DIR, '..', 'class-product-mismatches.md'), renderMismatchReport(sections));
 }
 
+// Parse a committed derivative CSV into header-keyed records — the per-entry RSL
+// matrix reads components.csv this way.
 function parseCsvRecords(filePath: string): Record<string, string>[] {
   return parse(fs.readFileSync(filePath, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[];
-}
-
-// The legacy callsign-pattern time-series, read from stats.json's callsignPatterns
-// (one bucket per character-shape, per dataset) — the single source of truth for
-// the legacy figures, shared by the fallback path (the presentation tests) and
-// the equivalence oracle's legacy side. Keys stay CHRONOLOGICAL (oldest-first):
-// the renderer reverses to newest-first. recordCount rides straight from stats;
-// it equals the sum of the pattern buckets (every row lands in exactly one),
-// which is what the fold reconstructs from the @listed anchors.
-export function legacyCallsignPatternSeries(keys: string[], statsByKey: Map<string, EntryStats>): CallsignPatternSeriesFold {
-  const recordCounts = new Map<string, number>();
-  const patterns = new Map<string, Map<string, number>>();
-  for (const k of keys) {
-    const stats = statsByKey.get(k);
-    if (stats === undefined) continue;
-    recordCounts.set(k, stats.recordCount);
-    patterns.set(k, new Map(Object.entries(stats.callsignPatterns)));
-  }
-  return { keys: [...keys], recordCounts, patterns };
 }
 
 // Full pattern time-series (issue #51's callsign-patterns drill-down): one
@@ -1305,10 +1163,9 @@ export function renderCallsignPatternSeries(series: CallsignPatternSeriesFold): 
 }
 
 // Write the callsign-pattern time-series, folding from the ledger's callsign-
-// pattern claim when supplied and falling back to the legacy stats tally
-// otherwise (the presentation tests exercise the fallback).
-function writePatternTimeSeries(keys: string[], statsByKey: Map<string, EntryStats>, foldedSeries?: CallsignPatternSeriesFold): void {
-  const series = foldedSeries ?? legacyCallsignPatternSeries(keys, statsByKey);
+// pattern derived claim (quality-report-fold.ts); the equivalence oracle pins the
+// fold against the committed golden.
+function writePatternTimeSeries(series: CallsignPatternSeriesFold): void {
   fs.writeFileSync(path.join(REPORTS_DIR, '..', 'callsign-patterns.md'), renderCallsignPatternSeries(series));
 }
 

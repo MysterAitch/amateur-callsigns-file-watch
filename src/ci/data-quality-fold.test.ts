@@ -5,25 +5,21 @@ import * as path from 'path';
 import {
   foldDataQuality,
   buildDataQualityFold,
-  DETECTOR_KEYS,
   EMPTY_DETECTOR_KEY,
   type DataQualityFold,
-  type DetectorResult,
 } from './data-quality-fold.ts';
-import { legacyDataQuality, renderDataQualityRollup } from './normalise-sweep.ts';
+import { renderDataQualityRollup } from './normalise-sweep.ts';
 import { emitLedger, type SourceObservationSet } from '../v2/claim.ts';
 import { serialiseClaimsJsonl } from '../v2/serialise.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
-import { listArchiveKeys } from '../shared/archive.ts';
-import { CONSTANTS } from '../shared/utils.ts';
-import { type EntryStats } from '../shared/stats.ts';
 
 // Issue #361 (migration-map: the LAST Phase-B report to gain a ledger fold): the
 // data-quality rollup (reports/data-quality.md) folds from the raw-keyed claim
 // ledger's T1 flag/parse-status claims (data-quality-fold.ts) via DuckDB
-// (report-fold.ts) rather than the legacy stats.json callsignQuality/callsignFlags/
-// parseStatuses. This is the durable equivalence oracle — the retirement gate.
+// (report-fold.ts). The legacy stats.json callsignQuality/callsignFlags/
+// parseStatuses generator it replaced was retired in #444; the durable retirement
+// gate below folds the real archive and asserts the committed golden byte-for-byte.
 // Test names follow Subject_Scenario_Outcome.
 
 const REF = loadReferenceData();
@@ -148,67 +144,16 @@ describe.skipIf(!duckDbAvailable())('data-quality rollup fold — fixture ledger
   });
 });
 
-// --- The durable equivalence oracle -----------------------------------------
-//
-// The retirement gate for this report (issue #361): the ledger fold is
-// SEMANTICALLY equivalent to the legacy stats computation, and the classification
-// resolves to ZERO residual byte divergence. The ofcom-amateur normaliser copies
-// the callsign VERBATIM and is row-preserving (normalise.ts), so the ledger parses
-// the SAME raw token stats.json's detectors saw; the rollup is open-data-only and
-// counts records, so the fold reads the identical parse over the identical rows
-// and reproduces the committed golden exactly.
-//
-// The one classified subtlety (data-quality-fold.ts header): the `lowercase-bearing`
-// detector tests ASCII `/[a-z]/` while the backing `lowercase` flag fires on any
-// case-difference, so the flag is a strict superset. They coincide on the whole
-// current corpus, so the fold reproduces the golden byte-for-byte; a future
-// non-ASCII case-bearing token would trip the oracle rather than drift silently.
-
-// The dated open-data column keys, newest-first — mirroring the sweep
-// (keysWithStats reversed), the columns the committed report carries.
-function openDataColumns(): string[] {
-  return listArchiveKeys()
-    .sort()
-    .filter(key => fs.existsSync(path.join(CONSTANTS.DIRS.archive, key, 'stats.json')))
-    .reverse();
-}
-
-// The stats.json aggregates over the real archive, keyed by date — the legacy
-// data-quality rollup reads from these, so the oracle loads them once.
-function loadStatsByKey(): Map<string, EntryStats> {
-  const byKey = new Map<string, EntryStats>();
-  for (const key of listArchiveKeys().sort()) {
-    const p = path.join(CONSTANTS.DIRS.archive, key, 'stats.json');
-    if (fs.existsSync(p)) byKey.set(key, JSON.parse(fs.readFileSync(p, 'utf8')) as EntryStats);
-  }
-  return byKey;
-}
-
-describe('data-quality rollup — ledger vs legacy equivalence oracle', { tags: ['data-validity'] }, () => {
-  // Always-on: recompute the legacy figures live over the real archive (no
-  // DuckDB) and render them. Any drift in either path — beyond a regenerated
-  // golden — trips here.
-  let columns: string[];
-  let statsByKey: Map<string, EntryStats>;
-  beforeAll(() => {
-    columns = openDataColumns();
-    statsByKey = loadStatsByKey();
-  }, 600_000);
-
-  it('DataQualityReport_LegacyComputation_ReproducesTheCommittedGolden', () => {
-    // The load-bearing equivalence assertion for the legacy side: rendering the
-    // live legacy computation is byte-identical to the committed report (the
-    // fold's output, guarded by the freshness gate).
-    expect(renderDataQualityRollup(legacyDataQuality(columns, statsByKey)))
-      .toBe(fs.readFileSync(path.resolve(process.cwd(), DATA_QUALITY_PATH), 'utf8'));
-  });
-});
-
 // The real-archive fold retirement gate: with the pinned DuckDB CLI present (CI
 // always; a bare local checkout skips), materialising the ledger and folding it
-// must reproduce the committed golden byte-for-byte — the proof the FOLD (not a
-// legacy recompute) produces the numbers, so the report can retire the legacy
-// path once Phase C arms it.
+// must reproduce the committed golden byte-for-byte — the proof the FOLD produces
+// the numbers, which is what let the report retire the legacy stats path (#444).
+//
+// The one classified subtlety (data-quality-fold.ts header): the `lowercase-bearing`
+// detector tested ASCII `/[a-z]/` while the backing `lowercase` flag fires on any
+// case-difference, so the flag is a strict superset. They coincide on the whole
+// current corpus, so the fold reproduces the golden byte-for-byte; a future
+// non-ASCII case-bearing token would trip this gate rather than drift silently.
 describe.skipIf(!duckDbAvailable())('data-quality rollup — real-archive fold retirement gate', { tags: ['data-validity'] }, () => {
   let fold: DataQualityFold;
   beforeAll(() => {
@@ -218,34 +163,5 @@ describe.skipIf(!duckDbAvailable())('data-quality rollup — real-archive fold r
   it('DataQualityReport_WhenFoldedFromLedger_ReproducesTheCommittedGoldenByteForByte', () => {
     expect(renderDataQualityRollup(fold))
       .toBe(fs.readFileSync(path.resolve(process.cwd(), DATA_QUALITY_PATH), 'utf8'));
-  });
-
-  it('DataQuality_FoldedNeverInvents_RowsSubsetOfLegacyAndCountsNeverExceed', () => {
-    // The never-invents direction: every folded flag/status/detector row is one
-    // the legacy path also carries, and no folded count exceeds the legacy count
-    // for that (row, date). Equal here (zero divergence); an inversion would mean
-    // the fold gained records the legacy path lacks.
-    const legacy = legacyDataQuality(openDataColumns(), loadStatsByKey());
-    const subset = (folded: Map<string, Map<string, number>>, base: Map<string, Map<string, number>>, kind: string): void => {
-      for (const [name, byDate] of folded) {
-        expect(base.has(name), `folded ${kind} row absent from legacy: ${name}`).toBe(true);
-        for (const [date, count] of byDate) {
-          expect(count, `${kind} ${name}/${date}`).toBeLessThanOrEqual(base.get(name)?.get(date) ?? 0);
-        }
-      }
-    };
-    subset(fold.flags, legacy.flags, 'flag');
-    subset(fold.parseStatuses, legacy.parseStatuses, 'status');
-    for (const detector of DETECTOR_KEYS) {
-      const foldedByDate = fold.detectors.get(detector) ?? new Map<string, DetectorResult>();
-      const legacyByDate = legacy.detectors.get(detector) ?? new Map<string, DetectorResult>();
-      for (const [date, result] of foldedByDate) {
-        expect(result.count, `detector ${detector}/${date}`).toBeLessThanOrEqual(legacyByDate.get(date)?.count ?? 0);
-      }
-    }
-    // The recovered `empty` status is never dropped where the legacy carries it.
-    if (legacy.parseStatuses.has('empty')) {
-      expect(fold.parseStatuses.has('empty'), 'fold dropped the recovered empty status').toBe(true);
-    }
   });
 });
