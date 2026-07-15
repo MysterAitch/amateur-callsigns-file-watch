@@ -32,7 +32,7 @@ let summary: Record<string, number>;
 // persisted beside the build so a cache hit still has it.
 const SUMMARY_FILE = 'tiers-summary.json';
 let ownsScratch = false;
-beforeAll(() => {
+beforeAll(async () => {
   // Empty/whitespace reads as unset: ?? below would otherwise pass '' straight
   // into path building. A real path is used as-is; absent falls back to scratch.
   const cacheDir = process.env.TIERS_CACHE_DIR?.trim() || undefined;
@@ -45,7 +45,7 @@ beforeAll(() => {
   dataDir = cacheDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-tiers-'));
   ownsScratch = cacheDir === undefined;
   fs.mkdirSync(dataDir, { recursive: true });
-  summary = buildPublishedTiers(dataDir, { compress: false });
+  summary = await buildPublishedTiers(dataDir, { compress: false });
   if (cacheDir) fs.writeFileSync(summaryPath, JSON.stringify(summary));
 }, 900_000);
 

@@ -42,11 +42,11 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import * as zlib from 'zlib';
 import { DatabaseSync } from 'node:sqlite';
 import { buildLedger, type EntrySelector } from './build-ledger.ts';
 import { parseClaimsJsonl } from './serialise.ts';
-import { time, perfReport } from '../shared/perf.ts';
+import { time, timeAsync, perfReport } from '../shared/perf.ts';
+import { gzipFileToFile } from '../shared/gzip.ts';
 import { applyBuildPragmas } from '../shared/sqlite-build.ts';
 import {
   LISTED_PREDICATE,
@@ -535,7 +535,7 @@ export interface BuildCompactDbResult {
 // (Stage 1), load it into the compact SQLite (in its .png costume), and write
 // the gzip download twin unless the caller opted out. dbPath should wear the
 // `.png` extension for the httpVFS/Pages range-request path.
-export function buildCompactLedgerDb(dbPath: string, options: BuildCompactDbOptions = {}): BuildCompactDbResult {
+export async function buildCompactLedgerDb(dbPath: string, options: BuildCompactDbOptions = {}): Promise<BuildCompactDbResult> {
   const ownsLedgerDir = options.ledgerDir === undefined;
   const ledgerRoot = options.ledgerDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'v2-ledger-compact-'));
   try {
@@ -546,7 +546,10 @@ export function buildCompactLedgerDb(dbPath: string, options: BuildCompactDbOpti
     let gzPath: string | null = null;
     if (options.gzTwin ?? true) {
       const twinPath = dbPath.replace(/\.png$/, '') + '.gz';
-      time('gzip:ledger-twin', () => fs.writeFileSync(twinPath, zlib.gzipSync(fs.readFileSync(dbPath), { level: GZIP_LEVEL })));
+      // One big stream (a multi-GB database when the twin is built), so pigz
+      // splits it across cores when available and a streamed zlib is the
+      // fallback - the same parallel gzip the tiers build uses (#546).
+      await timeAsync('gzip:ledger-twin', () => gzipFileToFile(dbPath, twinPath, GZIP_LEVEL));
       gzPath = twinPath;
     }
 
@@ -568,7 +571,7 @@ if (import.meta.main) {
   const dbPath = positional[0] ?? path.join('_site', 'data', 'claim-ledger.sqlite.png');
   const { subsetSelector } = await import('./build-ledger-db.ts');
   const useSubset = flags.has('--subset');
-  const result = buildCompactLedgerDb(dbPath, {
+  const result = await buildCompactLedgerDb(dbPath, {
     selectEntry: useSubset ? subsetSelector() : undefined,
     // --no-gz-twin: skip the gzipped download twin. The Pages deploy passes
     // this because chunked serving (issue #475) replaced the twin there.

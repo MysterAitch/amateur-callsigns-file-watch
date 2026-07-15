@@ -16,14 +16,14 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as zlib from 'zlib';
 import { DatabaseSync } from 'node:sqlite';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { type EntryStats } from '../shared/stats.ts';
 import { buildFoiObservations, renderObservationsCsvBuffer, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
-import { time, perfReport } from '../shared/perf.ts';
+import { time, timeAsync, perfReport } from '../shared/perf.ts';
+import { gzipFileToFile, gzipBufferToFile, gzipManyFilesToFiles, type GzipJob } from '../shared/gzip.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
 import { applyBuildPragmas } from '../shared/sqlite-build.ts';
 import { cleanedCallsign, parseCallsign, loadReferenceData, normaliseLicenceCategory, componentsFlagsForRows, type ComponentRow } from '../sources/ofcom-amateur/components.ts';
@@ -301,7 +301,7 @@ export function fillObservations(db: DatabaseSync, rows: FoiObservationRow[]): n
 // #478) - none of which any data assertion depends on (they gunzip and compare
 // CONTENTS, which the raw files carry directly). The tables/rows built are
 // identical either way; only the on-disk packaging differs.
-export function buildPublishedTiers(dataDir: string, options: { compress?: boolean } = {}): Record<string, number> {
+export async function buildPublishedTiers(dataDir: string, options: { compress?: boolean } = {}): Promise<Record<string, number>> {
   const compress = options.compress ?? true;
   const summary: Record<string, number> = {};
   const foiDir = path.join(CONSTANTS.DIRS.archive, 'foi');
@@ -317,7 +317,7 @@ export function buildPublishedTiers(dataDir: string, options: { compress?: boole
   fs.mkdirSync(dataDir, { recursive: true });
   const unionBuffer = time('foi-observations:render', () => renderObservationsCsvBuffer(observations), observations.length);
   if (compress) {
-    fs.writeFileSync(path.join(dataDir, 'foi-observations.csv.gz'), time('gzip:union-csv', () => zlib.gzipSync(unionBuffer, { level: GZIP_LEVEL }), unionBuffer.length));
+    await timeAsync('gzip:union-csv', () => gzipBufferToFile(unionBuffer, path.join(dataDir, 'foi-observations.csv.gz'), GZIP_LEVEL), unionBuffer.length);
   } else {
     fs.writeFileSync(path.join(dataDir, 'foi-observations.csv'), unionBuffer);
   }
@@ -332,6 +332,10 @@ export function buildPublishedTiers(dataDir: string, options: { compress?: boole
   const perDatasetDir = path.join(dataDir, 'datasets');
   fs.mkdirSync(perDatasetDir, { recursive: true });
   let perDataset = 0;
+  // The per-dataset gzips are independent, so they are collected here and
+  // compressed concurrently after every database is built (see below) rather
+  // than one-at-a-time in this loop - the many-independent-files parallelism.
+  const perDatasetGzipJobs: GzipJob[] = [];
   const entryDirs: { name: string; dir: string }[] = [
     ...listArchiveKeys().sort().map(key => ({ name: `open-data--${key}`, dir: path.join(CONSTANTS.DIRS.archive, key) })),
     ...fs.readdirSync(foiDir).filter(n => fs.statSync(path.join(foiDir, n)).isDirectory()).sort()
@@ -360,16 +364,27 @@ export function buildPublishedTiers(dataDir: string, options: { compress?: boole
     db.close();
     if (tables > 0) {
       if (compress) {
-        fs.writeFileSync(path.join(perDatasetDir, `${name}.sqlite.gz`), time('gzip:per-dataset', () => zlib.gzipSync(fs.readFileSync(buildPath), { level: GZIP_LEVEL })));
+        // Defer the gzip: the scratch database stays on disk until the parallel
+        // batch below compresses it, then every buildPath is removed together.
+        perDatasetGzipJobs.push({ inputPath: buildPath, outPath: path.join(perDatasetDir, `${name}.sqlite.gz`) });
       } else {
         // Raw database: keep it under its honest name, no gzip - the verification
         // build reads the tables directly.
         fs.renameSync(buildPath, path.join(perDatasetDir, `${name}.sqlite`));
+        // No-op when renamed away (force); nothing else uses the scratch path.
+        fs.rmSync(buildPath, { force: true });
       }
       perDataset += 1;
+    } else {
+      // No tables built: drop the empty scratch database.
+      fs.rmSync(buildPath, { force: true });
     }
-    // No-op when renamed away (force); removes the scratch DB in the compress path.
-    fs.rmSync(buildPath, { force: true });
+  }
+  // Compress the per-dataset databases concurrently across cores, then remove the
+  // scratch databases once their gzips exist.
+  if (perDatasetGzipJobs.length > 0) {
+    await timeAsync('gzip:per-dataset', () => gzipManyFilesToFiles(perDatasetGzipJobs, GZIP_LEVEL));
+    for (const job of perDatasetGzipJobs) fs.rmSync(job.inputPath, { force: true });
   }
   summary['per-dataset databases'] = perDataset;
 
@@ -487,7 +502,10 @@ export function buildPublishedTiers(dataDir: string, options: { compress?: boole
   // the .png, so it can only ever gunzip back to it), so the raw verification
   // build skips it - it is the single most expensive step in the build (#478).
   if (compress) {
-    fs.writeFileSync(path.join(dataDir, 'combined.sqlite.gz'), time('gzip:combined', () => zlib.gzipSync(fs.readFileSync(combinedPath), { level: GZIP_LEVEL })));
+    // The single most expensive step (#478): one big stream, which zlib cannot
+    // split across cores - so gzipFileToFile prefers pigz (all cores on one
+    // stream) and streams a zlib fallback when pigz is absent.
+    await timeAsync('gzip:combined', () => gzipFileToFile(combinedPath, path.join(dataDir, 'combined.sqlite.gz'), GZIP_LEVEL));
   }
 
   return summary;
@@ -501,7 +519,7 @@ if (import.meta.main) {
   console.log(`built ${output} from dataset ${result.datasetKey}`);
   for (const [table, n] of Object.entries(result.tables)) console.log(`  ${table}: ${n} rows`);
   if (tiersFlag !== -1) {
-    const tiers = buildPublishedTiers(path.dirname(output));
+    const tiers = await buildPublishedTiers(path.dirname(output));
     for (const [what, n] of Object.entries(tiers)) console.log(`  tiers: ${what}: ${n}`);
   }
   // Self-guarded: prints the profiling breakdown to stderr only under PERF.
