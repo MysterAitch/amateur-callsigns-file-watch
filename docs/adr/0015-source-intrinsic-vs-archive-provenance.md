@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-07-12
-Relates: #431, #361 (raw-keyed claim ledger), #404 (trust-rating net), ADR 0013, ADR 0014, ADR 0016 (file-level claims + reconstruction oracle — the companion #431 fidelity infrastructure)
+Relates: #431, #361 (raw-keyed claim ledger), #404 (trust-rating net), ADR 0013, ADR 0014, ADR 0016 (file-level claims + reconstruction oracle — the companion #431 fidelity infrastructure), ADR 0017 (#433 show-the-working — the downstream consumer that turns the P4 permalink into a per-claim evidence link)
 
 ## Context
 
