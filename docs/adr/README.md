@@ -48,7 +48,7 @@ the #431 programme.
 | [0016](0016-file-level-claims-and-reconstruction-oracle.md) | File-level claims (sentinel ordinal, `@column`/`@subject`/`@ignored`) and the reconstruction oracle | accepted | 2026-07-12 |
 | [0017](0017-show-the-working-behind-derived-claims.md) | Show the working behind derived claims by reconstructing it on read, with a self-checking oracle | proposed | 2026-07-12 |
 | [0018](0018-attest-column-interpretation-and-within-table-flags.md) | Attest each column's inferred `{type, format}` as a derived file-level claim, and flag within-table date-format mixing / normalisation collisions | proposed | 2026-07-12 |
-| [0019](0019-layered-build-cache-and-unified-cicd.md) | Layered, content-addressed build cache with a stepped deploy fallback, and a unified `cicd.yaml` gating deploy on `main` | proposed | 2026-07-14 |
+| [0019](0019-layered-build-cache-and-unified-cicd.md) | Layered, content-addressed build cache with a stepped deploy fallback, and a unified `cicd.yaml` gating deploy on `main` | accepted | 2026-07-14 |
 
 ## Related documentation
 
