@@ -295,7 +295,7 @@ describe('Ledger page deploy integrity', { tags: ['ui'] }, () => {
   });
 
   it('LedgerPage_IsInTheSingleSourceNav', () => {
-    const nav = fs.readFileSync(path.join('src', 'ci', 'site-render.ts'), 'utf8');
+    const nav = fs.readFileSync(path.join('src', 'ci', 'render', 'page.ts'), 'utf8');
     expect(nav).toMatch(/\['Ledger', `\$\{rootPath\}ledger\.html`\]/);
     const buildNav = fs.readFileSync(path.join('src', 'ci', 'build-nav.ts'), 'utf8');
     expect(buildNav).toContain("'ledger.html': 'Ledger'");
