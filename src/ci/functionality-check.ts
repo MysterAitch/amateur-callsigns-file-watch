@@ -25,6 +25,7 @@
  */
 
 import { chromium, expect, type ConsoleMessage, type Page } from '@playwright/test';
+import { primeLedgerCdn } from './ledger-warmup.ts';
 
 // Benign console output shared with console-check.ts. Keep tight + documented.
 const ALLOW: { pattern: RegExp; reason: string }[] = [
@@ -65,10 +66,14 @@ interface Check {
 // The claim ledger is the 1.44 GB raw-keyed database (issue #361). Its cold
 // in-browser open plus the first streamed query legitimately runs for tens of
 // seconds over range requests, so the default-sample SETTLE budget is well
-// beyond the 60s the lighter pages use. The post-click TRANSITION reuses the
-// warm open, but a fresh query on a database this size still streams, so it too
-// gets a generous, database-sized budget. Declared before CHECKS so the ledger
-// entry can carry them as its change-detection budgets.
+// beyond the 60s the lighter pages use. The check primes the CDN edge before
+// navigating (see primeLedgerCdn, issue #537), so this budget is expected to
+// measure a WARM open; it is nonetheless RETAINED at its cold-safe size as the
+// safety net, so a genuine hang - not merely a cold deploy - still fails. The
+// post-click TRANSITION reuses the warm open, but a fresh query on a database
+// this size still streams, so it too gets a generous, database-sized budget.
+// Declared before CHECKS so the ledger entry can carry them as its
+// change-detection budgets.
 const LEDGER_SETTLE_TIMEOUT_MS = 120_000;
 const LEDGER_TRANSITION_TIMEOUT_MS = 90_000;
 
@@ -242,6 +247,17 @@ async function run(browser: Awaited<ReturnType<typeof chromium.launch>>, check: 
   page.on('pageerror', err => { if (!allowed(err.message)) consoleIssues.push(`pageerror: ${err.message}`); });
 
   try {
+    // Warm the CDN edge BEFORE the browser navigates and cold-opens the ledger,
+    // so the timed settle assertion measures a warm open (what a returning user
+    // experiences) rather than the one-off cold deploy's origin round-trips
+    // (issue #537, the #475 cold-open latency surfacing as a false-alarm CI
+    // failure). Bounded and best-effort - a warm-up failure logs and proceeds,
+    // and the settle timeout below is retained as the real safety net for a
+    // genuine hang. Only the ledger (changeDetection) needs it; the other pages
+    // are small.
+    if (check.changeDetection !== undefined) {
+      await primeLedgerCdn(baseUrl);
+    }
     await page.goto(new URL(check.page, baseUrl).toString(), { waitUntil: 'load', timeout: NAV_TIMEOUT_MS });
     if (check.changeDetection !== undefined) {
       await verifyTransition(page, check, check.changeDetection);
