@@ -35,7 +35,7 @@ import {
   listFoiEntryKeys,
   readFoiEntryMeta,
 } from '../shared/foi-archive.ts';
-import { escapeHtml, humanDate, datasetLabel, tableCaption } from './site-render.ts';
+import { escapeHtml, humanDate, monthYear, datasetLabel, tableCaption, glossaryCue, glossaryTerm } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const FOI_ARCHIVE_DIR = path.join(REPO_ROOT, 'archive', 'foi');
@@ -478,6 +478,46 @@ const CLASS_ORDER = [
   'statistics-aggregate', 'attribute-addendum', 'reference-context',
 ];
 
+// data-status.html sits at the site root, so every glossary deep-link it emits
+// is zero directories below the root.
+const GLOSSARY_DEPTH_FROM_ROOT = 0;
+
+// A short, plain-English explanation of what each dataset class typically holds
+// and how it differs from its neighbours, shown under the group heading so a
+// reader is never left to infer a type from its raw key (issue #469). Rendered
+// as trusted HTML (they carry glossary links), never escaped. Where a class has
+// two distinct provenance streams (register snapshots), the blurb names both so
+// the "Ofcom open-data vs FOI dataset" distinction is explained in place.
+export const CLASS_BLURBS: Readonly<Record<string, string>> = {
+  'register-snapshot':
+    'The full published register of amateur call signs at a point in time. These reach the mirror by two routes. '
+    + '<strong>Ofcom open-data files</strong> are the snapshots on Ofcom’s open-data page, together with earlier editions '
+    + 'recovered from the UK Government Web Archive / National Archives. '
+    + '<strong>FOI datasets</strong> are still officially released by Ofcom but are <em>not</em> hosted on that open-data page: '
+    + 'they surface through Ofcom’s FOI disclosure log (and its web-archive mirror), and occasionally via a '
+    + 'WhatDoTheyKnow (WDTK) request thread — WDTK being the correspondence channel, not a publisher of the data itself.',
+  'available-pool':
+    'Lists of call signs marked available for issue. Historically produced when Ofcom ran a different computer system; they are '
+    + 'no longer produced, so this series is closed rather than merely stale. Read an “available” marking with care — see '
+    + `${glossaryTerm('available', GLOSSARY_DEPTH_FROM_ROOT, { label: 'the availability trap' })}.`,
+  'forbidden-list':
+    'The set of call-sign '
+    + `${glossaryTerm('forbidden-suffix', GLOSSARY_DEPTH_FROM_ROOT, { label: 'suffixes Ofcom withholds from issue' })} `
+    + '(offensive or otherwise reserved combinations). A membership list of suffixes, not a register of licences.',
+  'issuance-events':
+    'Records of individual grant or change events — call signs issued or amended over a period — rather than a full '
+    + 'point-in-time register.',
+  'statistics-aggregate':
+    'Summary counts and aggregates (totals by licence class, region or status) rather than the per-call-sign records they '
+    + 'summarise.',
+  'attribute-addendum':
+    'Supplementary attribute data keyed to call signs or their components — extra fields that enrich the register rather than '
+    + 'replace it.',
+  'reference-context':
+    'Held records and context — FOI responses that are referrals, not-held answers or policy signposts. Kept for provenance; '
+    + 'there is no dataset here to carry through the pipeline.',
+};
+
 function monthIndex(vintage: string): number | null {
   const m = /^(\d{4})-(\d{2})/.exec(vintage);
   return m === null ? null : Number(m[1]) * 12 + (Number(m[2]) - 1);
@@ -542,9 +582,26 @@ function cellHtml(stageLabel: string, cell: StageCell): string {
     + '</span></td>';
 }
 
+// A vintage always renders at MONTH precision on this overview so a column or a
+// timeline of them reads as one consistent format rather than jumbling raw
+// month keys ("2016-09") against fully humanised days ("20 September 2016") —
+// the "de-jarring" issue #469 asks for. A full ISO date degrades to its month;
+// the exact day is preserved for traceability in the cell's title (see
+// vintageWithExactTitle) and on each dataset's entry page, never silently lost.
 function humaniseVintage(v: string | null): string {
   if (v === null) return '<span class="muted">not dated</span>';
-  return /^\d{4}-\d{2}-\d{2}$/.test(v) ? escapeHtml(humanDate(v)) : escapeHtml(v);
+  return /^\d{4}-\d{2}(-\d{2})?$/.test(v) ? escapeHtml(monthYear(v)) : escapeHtml(v);
+}
+
+// The month-precision label, plus — when a full day is known — that exact date
+// as a hover/title so the normalised display never hides the finer date it came
+// from. Used wherever a single vintage is shown against its dataset.
+function vintageWithExactTitle(v: string | null): string {
+  const shown = humaniseVintage(v);
+  if (v !== null && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    return `<span title="${escapeHtml(`Exact reported date: ${humanDate(v)}`)}">${shown}</span>`;
+  }
+  return shown;
 }
 
 function rowHtml(row: DatasetRow): string {
@@ -558,7 +615,7 @@ function rowHtml(row: DatasetRow): string {
   // page for provenance.
   return `<tr>`
     + `<th scope="row" class="dskey">${datasetLabel(row.title, row.key, { href: row.entryHref, trailing: classNote })}</th>`
-    + `<td class="vintage">${humaniseVintage(row.vintage)}</td>`
+    + `<td class="vintage">${vintageWithExactTitle(row.vintage)}</td>`
     + `<td class="auth"><span class="atag" title="${escapeHtml(`Axis 2 (source authority): ${row.authority.detail}`)}">${escapeHtml(row.authority.label)}</span></td>`
     + cells
     + '</tr>';
@@ -576,6 +633,7 @@ export function renderInventoryGrid(rows: DatasetRow[]): string {
   const groups = [...CLASS_ORDER];
   for (const r of rows) if (!groups.includes(r.primaryClass)) groups.push(r.primaryClass);
 
+  const colspan = 3 + STAGES.length;
   const sections: string[] = [];
   for (const classKey of groups) {
     const members = rows
@@ -583,8 +641,16 @@ export function renderInventoryGrid(rows: DatasetRow[]): string {
       .sort((a, b) => (a.vintage ?? '￿').localeCompare(b.vintage ?? '￿') || a.key.localeCompare(b.key));
     if (members.length === 0) continue;
     const label = CLASS_LABELS[classKey] ?? classKey;
+    // The heading names the dataset class and links out to its glossary
+    // definition; a plain-English blurb follows on its own row so a reader knows
+    // what this type holds before scanning its rows (issue #469).
+    const heading = `${escapeHtml(label)} ${glossaryCue('dataset-class', GLOSSARY_DEPTH_FROM_ROOT)} <span class="muted">(${members.length})</span>`;
+    const blurb = CLASS_BLURBS[classKey];
+    const blurbRow = blurb === undefined ? ''
+      : `<tr class="groupblurb"><td colspan="${colspan}"><p class="blurb">${blurb}</p></td></tr>`;
     sections.push(
-      `<tbody><tr class="grouprow"><th scope="colgroup" colspan="${3 + STAGES.length}">${escapeHtml(label)} <span class="muted">(${members.length})</span></th></tr>`
+      `<tbody><tr class="grouprow"><th scope="colgroup" colspan="${colspan}">${heading}</th></tr>`
+      + blurbRow
       + members.map(rowHtml).join('')
       + '</tbody>',
     );
