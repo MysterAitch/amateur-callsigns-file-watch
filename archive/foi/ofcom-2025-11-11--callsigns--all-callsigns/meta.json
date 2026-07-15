@@ -46,8 +46,8 @@
       "contentsIndicative": "header callsign,status,licence_class,last_modified_date,original_start_date; 159,895 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product__c) carried verbatim, blank where the source asserts none (42,956 blank licence_class, 11 blank status). Type__c is required-present but not carried (constant service discriminator). Both licence-version dates rendered ISO from day-first DD/MM/YYYY, blank on 54,179 non-allocated rows. The Excel-mangled callsigns, the M/-visitor and '#'-marked callsigns, the lower-case callsigns and the three trailing-NBSP callsigns (trimmed) are all preserved."
     },
     "correspondence.md": {
-      "bytes": 4894,
-      "sha256": "fa3dd775c8285e6a6a87a8a84a65a424dc38c2d16319036e1ea212931b93b79d",
+      "bytes": 5390,
+      "sha256": "c7306f0b3852db7938af4e1443fe3cac2b35a15175630b12ae503e27c986f7cc",
       "role": "transcript"
     }
   }

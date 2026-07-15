@@ -51,6 +51,13 @@
     stray copies — no unique callsign survives only here.** Preserved verbatim
     in the raw; dropped from the normalised projection (the projection carries
     the six documented columns). Recorded here rather than silently discarded.
+    Deserialisation fidelity was checked directly: fields 7–10 are empty on
+    every one of the 159,895 rows (only the 11th ever carries), the five
+    trailing columns collapse to a single unnamed column holding that 11th
+    value, and the six documented columns — column 6 `Original_start_date__c`
+    in particular — match the raw bytes on every row, including all 29 anomaly
+    rows (zero mismatches). The collapse therefore loses nothing of substance
+    from the recorded columns.
   - **16 callsigns with lower-case letters**; preserved letter-for-letter.
   - **3 callsigns carrying a trailing non-breaking space** (`G7IWE`, `G0TQK`,
     `2E1HON`) — the file's non-ASCII content; the trailing `0xA0` is trimmed
