@@ -1,0 +1,143 @@
+{
+  "callsignFlags": {
+    "class-product-mismatch": 22,
+    "forbidden-suffix": 424,
+    "forbidden-suffix-issued-after-first-known-list": 36,
+    "hash-in-register": 1,
+    "lowercase": 1,
+    "malformed-home-callsign": 4,
+    "rsl-in-register": 12,
+    "stripped-collision": 2,
+    "unknown-prefix-series": 1,
+    "whitespace": 5
+  },
+  "callsignPatterns": {
+    "A/#AANAA": 1,
+    "A/A/AANAA": 1,
+    "A/AA-N-AA": 1,
+    "A/AAA": 1,
+    "A/AAA{U+0020}NNNN": 1,
+    "A/AANAA": 4,
+    "A/AANAAA": 16,
+    "A/ANAA": 2,
+    "A/ANAAA": 6,
+    "A/ANNAAA": 1,
+    "A/NAAA": 1,
+    "A/NANAAA": 1,
+    "A/NNNN": 1,
+    "AAAA": 3,
+    "AAAAA": 2,
+    "AAAAAAAAAAA": 1,
+    "AAAAAAAAAAAA": 1,
+    "AANAAA": 5,
+    "ANAA": 427,
+    "ANAAA": 127953,
+    "ANAAA{U+00A0}": 2,
+    "ANAAN": 1,
+    "ANNAAA": 1,
+    "AN{U+0020}AAA": 1,
+    "N#NAAA": 1,
+    "NAAAA": 1,
+    "NANAAA": 6,
+    "NANAAA{U+00A0}": 1,
+    "NNAA": 4,
+    "NNAAA": 17969,
+    "aNaaa": 1
+  },
+  "callsignQuality": {
+    "emptyCallsign": {
+      "count": 0,
+      "examples": []
+    },
+    "encodingFailure": {
+      "count": 0,
+      "examples": []
+    },
+    "excelDateShaped": {
+      "count": 0,
+      "examples": []
+    },
+    "lowercaseBearing": {
+      "count": 1,
+      "examples": [
+        "g0jrk"
+      ]
+    },
+    "postNormalisationDuplicates": {
+      "count": 2,
+      "examples": [
+        "G0TQK{U+00A0}",
+        "G6{U+0020}FMU"
+      ]
+    },
+    "whitespaceBearing": {
+      "count": 5,
+      "examples": [
+        "2E1HON{U+00A0}",
+        "G0TQK{U+00A0}",
+        "G6{U+0020}FMU",
+        "G7IWE{U+00A0}",
+        "M/TKG{U+0020}2021"
+      ]
+    }
+  },
+  "columns": {
+    "callsign": {
+      "distinct": 146219,
+      "empty": 0,
+      "maxLength": 12,
+      "minLength": 4
+    },
+    "created_date": {
+      "distinct": 0,
+      "empty": 146417,
+      "max": "",
+      "min": ""
+    },
+    "last_modified_date": {
+      "distinct": 0,
+      "empty": 146417,
+      "max": "",
+      "min": ""
+    },
+    "licence_version_last_modified_date": {
+      "distinct": 101,
+      "empty": 50262,
+      "max": "2026-01-14",
+      "min": "2017-01-27"
+    },
+    "licence_version_original_start_date": {
+      "distinct": 14917,
+      "empty": 50262,
+      "max": "2026-01-14",
+      "min": "1903-05-03"
+    },
+    "product": {
+      "distinct": 6,
+      "empty": 39987,
+      "maxLength": 42,
+      "minLength": 21
+    },
+    "status": {
+      "distinct": 3,
+      "empty": 10,
+      "maxLength": 9,
+      "minLength": 8
+    },
+    "type": {
+      "distinct": 1,
+      "empty": 0,
+      "maxLength": 19,
+      "minLength": 19
+    }
+  },
+  "emptyRecords": 0,
+  "nonEmptyRecords": 146417,
+  "parseStatuses": {
+    "parsed": 146369,
+    "unparseable": 11,
+    "visitor": 37
+  },
+  "recordCount": 146417,
+  "statsSchemaVersion": 6
+}
