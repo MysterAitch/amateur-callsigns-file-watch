@@ -14,10 +14,9 @@
   licence-version dates. The single data sheet carries the open-data export's
   Salesforce-flavoured columns
   `Callsign,Product__c,Status,Type__c,Licence_Version.LastModifiedDate,Licence_Version.Original_start_date__c`.
-  It follows the 11 November 2025 CSV snapshot
-  ([`ofcom-2025-11-11`](../ofcom-2025-11-11--callsigns--all-callsigns/)) and
-  shares the six-column shape of the 11 September 2025 workbook
-  ([`ofcom-2025-09-11`](../ofcom-2025-09-11--callsigns--all-callsigns/)).
+  It shares the six-column shape of the 11 September 2025 workbook
+  ([`ofcom-2025-09-11`](../ofcom-2025-09-11--callsigns--all-callsigns/)) and
+  follows the 11 November 2025 CSV snapshot in the register timeline.
 - **Contents**: 146,417 records — 96,155 `Allocated`, 49,723 `Reserved`,
   529 `Available`, 10 blank status. `Product__c` carries the licence-product
   vocabulary verbatim (Full 55,907 / Foundation 34,719 / Intermediate 13,645 /

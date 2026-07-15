@@ -19,8 +19,7 @@
   "datasetClasses": ["register-snapshot"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2026-01-14-register" },
   "relatedEntries": [
-    { "entry": "ofcom-2025-11-11--callsigns--all-callsigns", "relation": "the previous complete-register snapshot (11 November 2025), the same six columns in the open-data CSV export (day-first dates, Excel-mangled callsigns and trailing-column artefacts this workbook form lacks)" },
-    { "entry": "ofcom-2025-09-11--callsigns--all-callsigns", "relation": "the earlier complete-register workbook snapshot (11 September 2025), the same Salesforce-flavoured six-column shape with ISO dates typed at source" }
+    { "entry": "ofcom-2025-09-11--callsigns--all-callsigns", "relation": "the previous complete-register workbook snapshot (11 September 2025), the same Salesforce-flavoured six-column shape with ISO dates typed at source" }
   ],
   "files": {
     "amateur-callsign-list.xlsx": {
@@ -56,8 +55,8 @@
       "contentsIndicative": "header callsign,status,licence_class,last_modified_date,original_start_date; 146,417 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product__c) carried verbatim, blank where the source asserts none (39,987 blank licence_class, 10 blank status). Type__c is required-present but not carried (constant service discriminator). Both licence-version dates carried ISO (typed at source), blank on 50,262 non-allocated rows. The M/-visitor and '#'-marked callsigns, the lower-case callsign and the three trailing-NBSP callsigns (trimmed) are all preserved."
     },
     "correspondence.md": {
-      "bytes": 3655,
-      "sha256": "96e4c71d46cf4042d51c1de017ea9c3e30a7c4f5bdaeb8ebebd15c4acb8cd9a8",
+      "bytes": 3607,
+      "sha256": "10df2b4c19fec6811b9e8ed4339321ee544229b97cb9aeca4767b11ed8840114",
       "role": "transcript"
     }
   }
