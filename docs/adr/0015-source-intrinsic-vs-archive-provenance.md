@@ -72,10 +72,15 @@ than reopening it.
    committed text extract's line while still attesting the true sheet/row/col;
    text sources link to their own line. The SHA is pinned (not "latest") for
    durability, valid because raw files are byte-stable across commits per the
-   archive contract (ADR 0010). `Provenance.viewAnchor` carries the true
-   repo-relative path that the logical `sourceFile` key abstracts away (it drops
-   the `archive/` prefix, and rewrites the open-data lane's path to
-   `opendata/…`), so the permalink is buildable.
+   archive contract (ADR 0010). The pinned SHA is the commit that introduced the
+   file AT ITS CURRENT PATH — renames are deliberately NOT followed, because a
+   followed rename resolves to the file's original addition under a *different*
+   path, a commit at which the current path does not exist and the permalink would
+   404. The addition of the current path is a commit where the path is guaranteed
+   to resolve. `Provenance.viewAnchor` carries the true repo-relative path that the
+   logical `sourceFile` key abstracts away (it drops the `archive/` prefix, and
+   rewrites the open-data lane's path to `opendata/…`), so the permalink is
+   buildable.
 
 7. **Self-enforced.** The trust-rating gate asserts the namespace/intrinsic/
    origin correspondence and that no filesystem-stat-derived timestamp exists
@@ -98,5 +103,15 @@ than reopening it.
 - P1 delivers `Provenance.position` (the `csv-line` arm), `Provenance.viewAnchor`,
   and the compact-DB `observation.pos_kind`/`pos_line` + `source.repo_path`
   columns. The reserved `SourcePosition` arms (`sheet-cell`, `markdown-row`,
-  `pdf`, `image`) and the file-provenance stream are named here but built in
-  later phases.
+  `pdf`, `image`) are named here but built in later phases.
+- P4 delivers `src/v2/source-link.ts`: the pure `sourcePermalink` /
+  `permalinkForProvenance` composers (position + pinned SHA → the blob permalink,
+  the `github-blob-permalink` Computed rule), and `introducingCommit` (the archive
+  fact, `archive:introducedInCommit`, whose `origin` type admits only `git-log`).
+  It is derive-on-read: nothing is added to the ledger, so the golden/N-Quads bytes
+  and #404 are untouched. Its self-check (`source-link.test.ts`) round-trips a
+  composed permalink to the observation's raw subject by re-reading the PINNED
+  commit's blob (`git show {sha}:{path}`), so the durable link is proven to land on
+  the exact source cell. The file-provenance *source-intrinsic* stream (P3: OOXML
+  `dcterms:*` document dates, container-preserved mtimes) remains named here but
+  built later, keeping the honesty-rule namespace separation this ADR fixes.

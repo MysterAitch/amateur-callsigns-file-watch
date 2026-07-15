@@ -22,6 +22,8 @@
  *  - licence-category-emit.ts — the canonical licence-category tier.
  *  - emit-ledger.ts           — the emitLedger orchestrator over the tiers.
  *  - provenance.ts            — the #436 provenance helpers.
+ *  - source-link.ts           — the #431 P4 source deep-link (position ->
+ *                               pinned GitHub blob permalink) + archive provenance.
  *  - file-manifest.ts         — the #434 file-level manifest layer.
  *  - interpretation.ts        — the #435 column-interpretation tier.
  */
@@ -83,6 +85,15 @@ export { emitLedger } from './emit-ledger.ts';
 // module: consumers continue to import every symbol from './claim.ts' whether it
 // lives here or in a companion module.
 export { provenanceFor, anchorProvenance } from './provenance.ts';
+export {
+  SOURCE_REPO_URL,
+  SOURCE_PERMALINK_RULE,
+  ARCHIVE_INTRODUCED_IN_COMMIT,
+  sourcePermalink,
+  permalinkForProvenance,
+  introducingCommit,
+  type ArchiveProvenance,
+} from './source-link.ts';
 export {
   FILE_LEVEL_ORDINAL,
   COLUMN_PREDICATE_PREFIX,
