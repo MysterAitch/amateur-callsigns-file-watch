@@ -51,7 +51,7 @@ export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta
   // exactly the rows the committed normalisation was derived from.
   const parseSource = parseSourceFileName(meta);
   const rawContent = fs.readFileSync(path.join(archiveDir, key, parseSource), 'utf8');
-  const parsed = parseRawRegister(rawContent, meta.ignoredLines ?? []);
+  const parsed = parseRawRegister(rawContent, meta.ignoredLines ?? [], meta.converter?.variant);
   const callsignColumn = rawColumnForCanonical(parsed.mapping, 'callsign');
   if (callsignColumn === undefined) {
     throw new Error(`archive/${key}: variant "${parsed.variant}" maps no raw header to callsign`);

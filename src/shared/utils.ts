@@ -216,6 +216,12 @@ export interface ArchiveMeta {
   // For reconstructed entries only: the commit these files were extracted from.
   gitCommitSha?: string;
   reconstructionNotes?: string;
+  // Optional explicit converter binding (the FOI lane's model): the default is
+  // the lane's registered converter with header auto-detection; an entry whose
+  // shape auto-detection cannot distinguish (identical headers, different date
+  // rendering) binds its variant here. Verified against the actual headers at
+  // conversion time - a wrong binding fails as loudly as an unknown shape.
+  converter?: { script?: string; variant?: string };
   // The publication's own URL on the publisher's site (the FOI lane's
   // vocabulary): for recovered-from-web-archive entries this is the ORIGINAL
   // Ofcom URL the archive captured, while witnesses[] carries the capture.

@@ -41,7 +41,7 @@ interface SourceConverter {
   // curatedIgnores: meta.json's hand-curated ignoredLines - an INPUT to
   // conversion (syntactically valid lines a human judged to be export
   // furniture), byte-verified against raw by the converter.
-  convert(rawContent: string, referenceDateIso: string, curatedIgnores: IgnoredRawLine[]): ConvertResult;
+  convert(rawContent: string, referenceDateIso: string, curatedIgnores: IgnoredRawLine[], forcedVariant?: string): ConvertResult;
 }
 
 // Converter registry, keyed by meta.sourceKey. Future sources (FOI xlsx via
@@ -49,7 +49,7 @@ interface SourceConverter {
 const CONVERTERS: Record<string, SourceConverter> = {
   [CONSTANTS.SOURCES.OFCOM_AMATEUR]: {
     schemaVersion: NORMALISED_SCHEMA_VERSION,
-    convert: (rawContent, referenceDateIso, curatedIgnores) => convertRawCsv(rawContent, { referenceDateIso }, curatedIgnores),
+    convert: (rawContent, referenceDateIso, curatedIgnores, forcedVariant) => convertRawCsv(rawContent, { referenceDateIso }, curatedIgnores, forcedVariant),
   },
 };
 
@@ -111,7 +111,7 @@ export function runNormaliseSweep(): SweepReport {
       // mechanical sheet extract, or a shape-only header fill of a collapsing
       // CSV), else raw.csv - the verbatim publication stays untouched either way.
       const raw = fs.readFileSync(path.join(dir, parseSourceFileName(meta)), 'utf8');
-      const result: ConvertResult = time('sweep:convert', () => converter.convert(raw, referenceDate, meta.ignoredLines ?? []));
+      const result: ConvertResult = time('sweep:convert', () => converter.convert(raw, referenceDate, meta.ignoredLines ?? [], meta.converter?.variant));
 
       const outPath = path.join(dir, 'normalised.csv');
       const statsPath = path.join(dir, 'stats.json');

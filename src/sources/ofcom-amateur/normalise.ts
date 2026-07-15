@@ -43,10 +43,14 @@ const DATE_COLUMNS: ReadonlySet<CanonicalColumn> = new Set([
 ] as CanonicalColumn[]);
 
 // Registry of known raw header variants. Keys are the exact raw column names
-// (post BOM-strip); values are the canonical columns they populate. Header
-// match is exact and order-sensitive - Ofcom's exports are machine-generated,
-// so any deviation is a genuinely new variant deserving review.
-const VARIANTS: Record<string, Record<string, CanonicalColumn>> = {
+// (post BOM-strip); values are the canonical columns they populate, or null
+// for a column that is required-present but not carried into the normalised
+// projection (export padding; the ledger still carries every raw column
+// verbatim, so nothing is lost - the FOI lane's ignoredColumns concept).
+// Header match is exact and order-sensitive - Ofcom's exports are
+// machine-generated, so any deviation is a genuinely new variant deserving
+// review.
+const VARIANTS: Record<string, Record<string, CanonicalColumn | null>> = {
   // 2022 opendata export (oldest known variant): three columns only - no
   // product, no dates. Recovered from a prior download (see the 2022-05-30
   // archive entry's reconstructionNotes).
@@ -89,7 +93,44 @@ const VARIANTS: Record<string, Record<string, CanonicalColumn>> = {
     'Licence_Version.LastModifiedDate': 'licence_version_last_modified_date',
     'Licence_Version.Original_start_date__c': 'licence_version_original_start_date',
   },
+  // The 2025-11-11 web-archived export: the v2026-licence-version columns plus
+  // five empty-named trailing padding columns. Parsed via a shape-only
+  // raw-extract that fills the empty header names (unknown-1..5) so csv-parse
+  // cannot collapse them; the padding columns are required-present but carry
+  // no canonical data (empty on all but 29 rows bearing a stray Excel-mangled
+  // month token, documented in the entry meta and carried in the ledger).
+  'v2026-licence-version-padded': {
+    'Callsign': 'callsign',
+    'Product__c': 'product',
+    'Status': 'status',
+    'Type__c': 'type',
+    'Licence_Version.LastModifiedDate': 'licence_version_last_modified_date',
+    'Licence_Version.Original_start_date__c': 'licence_version_original_start_date',
+    'unknown-1': null,
+    'unknown-2': null,
+    'unknown-3': null,
+    'unknown-4': null,
+    'unknown-5': null,
+  },
+  // The same six columns as v2026-licence-version but with ISO dates - the
+  // shape a WORKBOOK publication's mechanical extract renders (typed date
+  // cells become YYYY-MM-DD[ HH:MM:SS]). Identical headers to the day-first
+  // variant, so auto-detection can never choose it: an entry binds it
+  // explicitly via meta.json's converter.variant override.
+  'v2026-licence-version-iso': {
+    'Callsign': 'callsign',
+    'Product__c': 'product',
+    'Status': 'status',
+    'Type__c': 'type',
+    'Licence_Version.LastModifiedDate': 'licence_version_last_modified_date',
+    'Licence_Version.Original_start_date__c': 'licence_version_original_start_date',
+  },
 };
+
+// Variants whose date columns arrive ISO (workbook extracts render typed date
+// cells as YYYY-MM-DD[ HH:MM:SS]); every other variant's dates are the UK
+// day-first CSV rendering.
+const ISO_DATE_VARIANTS: ReadonlySet<string> = new Set(['v2026-licence-version-iso']);
 
 export function detectHeaderVariant(headers: string[]): string | undefined {
   for (const [variant, mapping] of Object.entries(VARIANTS)) {
@@ -133,7 +174,7 @@ export function callsignColumnFor(headers: readonly string[]): string | undefine
 // export declares no product). Lets a consumer read the authored raw->canonical
 // binding by canonical name without re-deriving which raw header means what.
 export function rawColumnForCanonical(
-  mapping: Readonly<Record<string, CanonicalColumn>>,
+  mapping: Readonly<Record<string, CanonicalColumn | null>>,
   canonical: CanonicalColumn,
 ): string | undefined {
   return Object.entries(mapping).find(([, target]) => target === canonical)?.[0];
@@ -149,7 +190,7 @@ export interface ParsedRawRegister {
   records: Record<string, string>[];
   headers: string[];
   variant: string;
-  mapping: Readonly<Record<string, CanonicalColumn>>;
+  mapping: Readonly<Record<string, CanonicalColumn | null>>;
   headerLines: { line: number; content: string }[];
   ignoredLines: IgnoredRawLine[];
   // The 1-based physical line of each record, parallel to `records` by index -
@@ -168,7 +209,7 @@ export interface ParsedRawRegister {
 // byte-verified against the raw content (stale curation fails loudly), and an
 // unknown header variant or a broken line count throws rather than guessing:
 // the same discipline whether the caller is normalising or emitting claims.
-export function parseRawRegister(rawContent: string, curatedIgnores: IgnoredRawLine[] = []): ParsedRawRegister {
+export function parseRawRegister(rawContent: string, curatedIgnores: IgnoredRawLine[] = [], forcedVariant?: string): ParsedRawRegister {
   const lines = physicalLines(rawContent);
   const ignoredByLine = new Map<number, IgnoredRawLine>();
   for (const curated of curatedIgnores) {
@@ -194,9 +235,28 @@ export function parseRawRegister(rawContent: string, curatedIgnores: IgnoredRawL
   }
 
   const headers = Object.keys(records[0]);
-  const variant = detectHeaderVariant(headers);
-  if (variant === undefined) {
-    throw new Error(`unknown raw header variant [${headers.join(', ')}] - extend the variant registry (with tests) to support it`);
+  // An entry may bind its variant explicitly (meta.json converter.variant) -
+  // the per-dataset override for shapes auto-detection cannot distinguish
+  // (e.g. identical headers whose date rendering differs). The override is
+  // still verified against the actual headers: a forced variant that does not
+  // match the file fails as loudly as an unknown one.
+  let variant: string;
+  if (forcedVariant !== undefined) {
+    const forced = VARIANTS[forcedVariant];
+    if (forced === undefined) {
+      throw new Error(`converter.variant "${forcedVariant}" is not in the variant registry`);
+    }
+    const expected = Object.keys(forced);
+    if (!(headers.length === expected.length && headers.every((h, i) => h === expected[i]))) {
+      throw new Error(`converter.variant "${forcedVariant}" does not match the raw headers [${headers.join(', ')}]`);
+    }
+    variant = forcedVariant;
+  } else {
+    const detected = detectHeaderVariant(headers);
+    if (detected === undefined) {
+      throw new Error(`unknown raw header variant [${headers.join(', ')}] - extend the variant registry (with tests) to support it`);
+    }
+    variant = detected;
   }
   const mapping = VARIANTS[variant];
 
@@ -235,14 +295,14 @@ export function parseRawRegister(rawContent: string, curatedIgnores: IgnoredRawL
 // interpretColumns reads it back rather than re-deriving.
 export function interpretOpenDataColumns(
   headers: readonly string[],
-  mapping: Readonly<Record<string, CanonicalColumn>>,
+  mapping: Readonly<Record<string, CanonicalColumn | null>>,
   options: { subjectColumn: string; categoryColumn?: string },
 ): ColumnInterpretation[] {
   return headers.map(header => {
     if (header === options.subjectColumn) return { type: 'callsign-token' };
     if (options.categoryColumn !== undefined && header === options.categoryColumn) return { type: 'enumerated-category' };
     const canonical = mapping[header];
-    if (canonical !== undefined && DATE_COLUMNS.has(canonical)) return { type: 'date', format: 'DD/MM/YYYY' };
+    if (canonical !== undefined && canonical !== null && DATE_COLUMNS.has(canonical)) return { type: 'date', format: 'DD/MM/YYYY' };
     return { type: 'string' };
   });
 }
@@ -313,20 +373,36 @@ export function physicalLines(rawContent: string): string[] {
 //     byte-match the raw line; stale curation fails loudly. There is no
 //     mechanical predicate that can make this call - explicitness plus PR
 //     review is the guard.
-export function convertRawCsv(rawContent: string, context: ConvertContext, curatedIgnores: IgnoredRawLine[] = []): ConvertResult {
-  const { records, variant, mapping, headerLines, ignoredLines } = parseRawRegister(rawContent, curatedIgnores);
+export function convertRawCsv(rawContent: string, context: ConvertContext, curatedIgnores: IgnoredRawLine[] = [], forcedVariant?: string): ConvertResult {
+  const { records, variant, mapping, headerLines, ignoredLines } = parseRawRegister(rawContent, curatedIgnores, forcedVariant);
+  const isoDates = ISO_DATE_VARIANTS.has(variant);
 
   const dateStats: Partial<Record<CanonicalColumn, { disambiguated: number; ambiguous: number }>> = {};
   const rows: string[][] = records.map((record, index) => {
     const canonical: Record<string, string> = {};
     for (const [rawColumn, canonicalColumn] of Object.entries(mapping)) {
+      // null-mapped columns are required-present export padding: not carried
+      // into the normalised projection (the ledger carries them verbatim).
+      if (canonicalColumn === null) continue;
       const rawValue = record[rawColumn] ?? '';
       if (DATE_COLUMNS.has(canonicalColumn) && rawValue.trim() !== '') {
         let parsed: ParsedUkDateTime;
-        try {
-          parsed = parseUkDateTimeDetailed(rawValue);
-        } catch (err) {
-          throw new Error(`row ${index + 2} (${record[Object.keys(mapping)[0]] ?? '?'}): ${errorMessage(err)}`);
+        if (isoDates) {
+          // Workbook-extract dates arrive ISO (typed at source, rendered by
+          // the mechanical extract) - validated and carried verbatim, with no
+          // day-first ordering to disambiguate.
+          const trimmed = rawValue.trim();
+          const match = /^\d{4}-(\d{2})-(\d{2})( \d{2}:\d{2}:\d{2})?$/.exec(trimmed);
+          if (match === null || Number(match[1]) < 1 || Number(match[1]) > 12 || Number(match[2]) < 1 || Number(match[2]) > 31) {
+            throw new Error(`row ${index + 2} (${record[Object.keys(mapping)[0]] ?? '?'}): "${trimmed}" is not a well-formed ISO extract date`);
+          }
+          parsed = { iso: trimmed, ambiguous: false };
+        } else {
+          try {
+            parsed = parseUkDateTimeDetailed(rawValue);
+          } catch (err) {
+            throw new Error(`row ${index + 2} (${record[Object.keys(mapping)[0]] ?? '?'}): ${errorMessage(err)}`);
+          }
         }
         const datePart = parsed.iso.slice(0, 10);
         if (datePart > context.referenceDateIso) {
