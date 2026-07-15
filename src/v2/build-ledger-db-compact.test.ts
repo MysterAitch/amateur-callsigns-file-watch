@@ -290,11 +290,11 @@ describe('the gzip download twin is deploy-optional (issue #533)', { tags: ['dat
   // the parity suites above.
   const selectSmall = (entry: string): boolean => entry === 'ofcom-498906--reciprocal-licences-since-2010';
 
-  it('BuildOrchestrator_WhenGzTwinNotDisabled_ProducesTwinThatGunzipsToTheDatabase', () => {
+  it('BuildOrchestrator_WhenGzTwinNotDisabled_ProducesTwinThatGunzipsToTheDatabase', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'compact-gz-twin-on-'));
     try {
       const dbPath = path.join(dir, 'claim-ledger.sqlite.png');
-      const result = buildCompactLedgerDb(dbPath, { selectEntry: selectSmall });
+      const result = await buildCompactLedgerDb(dbPath, { selectEntry: selectSmall });
       expect(result.gzPath).not.toBeNull();
       if (result.gzPath === null) throw new Error('unreachable - asserted non-null above');
       expect(result.gzPath.endsWith('.sqlite.gz')).toBe(true);
@@ -308,11 +308,11 @@ describe('the gzip download twin is deploy-optional (issue #533)', { tags: ['dat
     }
   }, 120_000);
 
-  it('BuildOrchestrator_WhenGzTwinDisabled_SkipsTheTwinEntirely', () => {
+  it('BuildOrchestrator_WhenGzTwinDisabled_SkipsTheTwinEntirely', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'compact-gz-twin-off-'));
     try {
       const dbPath = path.join(dir, 'claim-ledger.sqlite.png');
-      const result = buildCompactLedgerDb(dbPath, { selectEntry: selectSmall, gzTwin: false });
+      const result = await buildCompactLedgerDb(dbPath, { selectEntry: selectSmall, gzTwin: false });
       // Skipped means never produced - not produced then deleted.
       expect(result.gzPath).toBeNull();
       expect(result.sizes.gz).toBeNull();
