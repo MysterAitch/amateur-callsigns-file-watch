@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no FOI reference; this is Ofcom's open-data amateur callsign list published as 'amateur-callsign-list.xlsx' (?v=410856), recovered from a UK Government Web Archive (UKGWA) capture and keyed by its data vintage",
+  "requestUrl": null,
+  "requestUrlNote": "not an FOI request thread - an open-data publication recovered from a web archive; the capture/replay URL is recorded per-file under witnesses[] and the original Ofcom URL under publicationUrl",
+  "publicationUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list.xlsx?v=410856",
+  "title": "Amateur callsign list (Ofcom open data, 'amateur-callsign-list.xlsx', January 2026)",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "not held; an open-data publication with no request thread",
+  "respondedAt": null,
+  "respondedAtNote": "no response date; the workbook is an open-data export dated 14 January 2026 by its docProps and by the maximum last-modified date in the data",
+  "outcome": "successful",
+  "dataVintage": "2026-01-14",
+  "dataVintageNote": "corroborated: the workbook's dcterms:created (2026-01-14) and the maximum Licence_Version.LastModifiedDate in the data (2026-01-14) agree. Both date columns are bounded by that vintage; Original_start_date carries the recurring 1903-05-03 migration-placeholder floor.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2026-01-14-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2025-11-11--callsigns--all-callsigns", "relation": "the previous complete-register snapshot (11 November 2025), the open-data CSV export of the same register - day-first dates and the Excel-mangled callsigns / trailing-column artefacts this workbook form lacks; ~13,478 more records than this snapshot (a net removal between the two)" },
+    { "entry": "ofcom-2025-09-11--callsigns--all-callsigns", "relation": "the earlier complete-register workbook snapshot (11 September 2025), the same Salesforce-flavoured six-column shape with ISO dates typed at source" }
+  ],
+  "files": {
+    "amateur-callsign-list.xlsx": {
+      "bytes": 4873877,
+      "sha256": "f6febb629edef7eb120eb5c8ae17d9d7bf200c8a6ceef60c2d37428ee538be45",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "sheetsIndicative": {
+        "note": "one data worksheet ('Sheet1'): header Callsign,Product__c,Status,Type__c,Licence_Version.LastModifiedDate,Licence_Version.Original_start_date__c then 146,417 data rows - the Salesforce-flavoured open-data register shape. Status Allocated (96,155), Reserved (49,723), Available (529), blank (10). Product__c carries the licence product verbatim (Full 55,907 / Foundation 34,719 / Intermediate 13,645 / Club 2,119 / Temporary Reciprocal 37 / Special Event Station 3) with 39,987 blank. Type__c is 'Call Sign - Amateur' on every row (verified constant). Both licence-version dates are ISO (typed at source), populated on 96,155 rows and blank on 50,262; last-modified spans to 2026-01-14, original-start 1903-05-03 (migration floor) to 2026-01-14. Unlike the 2025-11-11 CSV export this workbook carries no Excel-mangled callsigns and no trailing-column artefacts. Anomalies preserved verbatim: 37 M/-prefixed visitor/reciprocal callsigns; 2 callsigns carrying a '#' RSL/secondary marker; 1 lower-case callsign; 3 callsigns with a trailing non-breaking space (G7IWE, G0TQK, 2E1HON), trimmed and counted; 194 distinct duplicate callsigns in the source (195 in the sorted normalised projection after the NBSP trim). ~13,478 fewer records than the 11 November 2025 snapshot (a net removal, not a shift into reserved/available) - flagged for longitudinal analysis, not reconciled here.",
+        "sheets": [{ "name": "Sheet1", "dataRows": 146417, "cols": "A:F", "datasetClass": "register-snapshot" }]
+      },
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20260204175503id_/https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list.xlsx?v=410856",
+          "fetchedAt": "2026-07-15",
+          "note": "UK Government Web Archive capture 2026-02-04; the id_ (raw) replay served the workbook verbatim (sha256 matches). Single witness - no other mirror of this specific dated workbook was found."
+        }
+      ]
+    },
+    "raw-extract-sheet-1-sheet1.csv": {
+      "bytes": 10668582,
+      "sha256": "d4974a3a8d4058ef52646140e9ab72a70d147d748dc1cfbd2aa08a8a2746cf8f",
+      "role": "extract",
+      "extractOf": "amateur-callsign-list.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts"
+    },
+    "normalised--sheet-1-sheet1.csv": {
+      "bytes": 7740198,
+      "sha256": "525935d183418a7efb52c0485624fd12c9c2427fcc6a5ecac1e091463347b823",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-sheet1.csv",
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date,original_start_date; 146,417 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product__c) carried verbatim, blank where the source asserts none (39,987 blank licence_class, 10 blank status). Type__c is required-present but not carried (constant service discriminator). Both licence-version dates carried ISO (typed at source), blank on 50,262 non-allocated rows. The M/-visitor and '#'-marked callsigns, the lower-case callsign and the three trailing-NBSP callsigns (trimmed) are all preserved."
+    },
+    "correspondence.md": {
+      "bytes": 3607,
+      "sha256": "10df2b4c19fec6811b9e8ed4339321ee544229b97cb9aeca4767b11ed8840114",
+      "role": "transcript"
+    }
+  }
+}

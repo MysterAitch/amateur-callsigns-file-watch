@@ -100,6 +100,7 @@ fail the conversion.
 | `ofcom-2025-03-13-register` | `ofcom-2025-03-13--callsigns--all-callsigns` |
 | `ofcom-2025-09-11-register` | `ofcom-2025-09-11--callsigns--all-callsigns` |
 | `ofcom-2025-11-11-register` | `ofcom-2025-11-11--callsigns--all-callsigns` |
+| `ofcom-2026-01-14-register` | `ofcom-2026-01-14--callsign-list--all-callsigns` |
 | `ofcom-498903-reissue-events` | `ofcom-498903--reissued-callsigns-since-2010` |
 | `ofcom-498906-reciprocal-events` | `ofcom-498906--reciprocal-licences-since-2010` |
 | `ofcom-756622-register-and-forbidden` | `ofcom-756622--published-register-csv` |
@@ -566,6 +567,24 @@ Required-present but not carried: `Type__c`, `unknown-1`, `unknown-2`, `unknown-
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability.
 
 Date plausibility bound: 2025-11-11.
+
+### `ofcom-2026-01-14-register`
+
+**`raw-extract-sheet-1-sheet1.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Callsign` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | `Product__c` | verbatim |
+| `last_modified_date` | `Licence_Version.LastModifiedDate` | iso-date |
+| `original_start_date` | `Licence_Version.Original_start_date__c` | iso-date |
+
+Required-present but not carried: `Type__c`.
+
+Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability.
+
+Date plausibility bound: 2026-01-14.
 
 ### `ofcom-498903-reissue-events`
 

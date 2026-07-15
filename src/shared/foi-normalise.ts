@@ -906,16 +906,15 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
   // headers carry the source system's object/field names - 'Callsign',
   // 'Product__c', 'Status', 'Type__c', and the dotted
   // 'Licence_Version.LastModifiedDate' / 'Licence_Version.Original_start_date__c'
-  // - and the export appends five empty trailing columns (csv-parse collapses
-  // them to a single unnamed column, listed in ignoredColumns as ''). Unlike
-  // the 2025-09-11 workbook, the dates arrive day-first (DD/MM/YYYY) as CSV
-  // strings, so they take the 'date' kind (day-first parse, ambiguity tracked)
-  // rather than 'iso-date'. Product__c is the licence product/class carried
-  // verbatim, blank on the reserved/available pool; Type__c is
-  // 'Call Sign - Amateur' on every row (the service discriminator, required-
-  // present not carried). Both dates are bounded by the 2025-11-11 vintage,
-  // which the filename and the data's maximum LastModifiedDate agree on; the
-  // original-start column carries the recurring 1903-05-03 migration floor.
+  // - and the export appends five empty trailing columns. Unlike the 2025-09-11
+  // workbook, the dates arrive day-first (DD/MM/YYYY) as CSV strings, so they
+  // take the 'date' kind (day-first parse, ambiguity tracked) rather than
+  // 'iso-date'. Product__c is the licence product/class carried verbatim, blank
+  // on the reserved/available pool; Type__c is 'Call Sign - Amateur' on every
+  // row (the service discriminator, required-present not carried). Both dates
+  // are bounded by the 2025-11-11 vintage, which the filename and the data's
+  // maximum LastModifiedDate agree on; the original-start column carries the
+  // recurring 1903-05-03 migration floor.
   'ofcom-2025-11-11-register': [
     {
       // The converter reads raw-extract-*.csv, not the raw file directly: the
@@ -943,6 +942,35 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       rowOrder: 'sorted-by-first-column',
       orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability',
       referenceDateIso: '2025-11-11',
+    },
+  ],
+  // ofcom-2026-01-14 (Ofcom open-data amateur callsign list, recovered from a
+  // UKGWA capture as 'amateur-callsign-list.xlsx'): the full register in the
+  // same Salesforce-flavoured six-column shape as the 2025-09-11 and 2025-11-11
+  // snapshots, but as a workbook. The mechanical extract renders the two
+  // licence-version dates ISO (typed at source), so they take 'iso-date'.
+  // Product__c is the licence product/class carried verbatim, blank on the
+  // reserved/available pool; Type__c is 'Call Sign - Amateur' on every row
+  // (verified constant - the service discriminator, required-present not
+  // carried). The workbook carries none of the CSV export's Excel-mangled
+  // callsigns or trailing-column artefacts. Both dates are bounded by the
+  // 2026-01-14 vintage (docProps and the data's maximum last-modified agree);
+  // original-start carries the recurring 1903-05-03 migration floor.
+  'ofcom-2026-01-14-register': [
+    {
+      sourceFile: 'raw-extract-sheet-1-sheet1.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Callsign', output: 'callsign', kind: 'verbatim' },
+        { source: 'Status', output: 'status', kind: 'verbatim' },
+        { source: 'Product__c', output: 'licence_class', kind: 'verbatim' },
+        { source: 'Licence_Version.LastModifiedDate', output: 'last_modified_date', kind: 'iso-date' },
+        { source: 'Licence_Version.Original_start_date__c', output: 'original_start_date', kind: 'iso-date' },
+      ],
+      ignoredColumns: ['Type__c'],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability',
+      referenceDateIso: '2026-01-14',
     },
   ],
 };
