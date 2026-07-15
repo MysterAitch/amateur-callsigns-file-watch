@@ -10,11 +10,13 @@
 # the main ruleset - renaming a job here without updating the ruleset will block
 # all merges.
 #
-# Write posture (ADR 0012): the workflow's default scope is contents:read. Only
-# the deploy job elevates (pages:write + id-token:write), at the job level, so
-# every verify job stays read-only and no repository writeback is possible. The
-# deploy and post-deploy jobs are gated `if: github.ref == 'refs/heads/main'`,
-# so PR runs execute build + verify and stop before deploying.
+# Write posture (ADR 0012): the workflow's default scope is contents:read, so
+# no verify job can write repository CONTENTS. Two jobs elevate at the job level
+# and neither writes contents: the deploy job (pages:write + id-token:write) and
+# flag-golden-drift (pull-requests:write, to add a LABEL when reports/ drift -
+# issue #581). The deploy and post-deploy jobs are gated
+# `if: github.ref == 'refs/heads/main'`, so PR runs execute build + verify and
+# stop before deploying.
 name: CI/CD
 
 on:
@@ -526,6 +528,11 @@ jobs:
   golden-master:
     name: golden-master
     runs-on: ubuntu-latest
+    # Exposes whether reports/ drifted so the sibling flag-golden-drift job can
+    # label the PR. This job itself stays read-only (contents:read); the PR-write
+    # is isolated to that sibling (issue #581).
+    outputs:
+      drifted: ${{ steps.golden-drift.outputs.drifted }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -611,6 +618,27 @@ jobs:
         run: |
           echo "::error::Golden-master drift - regenerated reports/ uploaded as the 'regenerated-goldens' artifact; land them in the PR (see the 'Check golden-master drift' step for the diff)."
           exit 1
+
+  # Flags a PR whose golden data-count figures drifted, so the label-triggered
+  # sweep (.github/workflows/sweep-on-label.yml) regenerates and commits them.
+  # This is the ONLY job with pull-requests:write, and it writes a LABEL, never
+  # repository contents - so the verify pipeline's read-only posture (ADR 0012)
+  # holds for every job that touches the tree (issue #581).
+  flag-golden-drift:
+    name: flag-golden-drift
+    needs: golden-master
+    if: always() && github.event_name == 'pull_request' && needs.golden-master.outputs.drifted == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Add the "needs data count update" label
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr edit "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --add-label "needs data count update"
 
   # GitHub Pages deploy build (ADR 0003): builds the published SQLite databases
   # and assembles the static lookup site as a DEPLOY ARTEFACT. It runs on ALL
