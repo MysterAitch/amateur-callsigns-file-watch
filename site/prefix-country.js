@@ -1,3 +1,4 @@
+// @ts-check
 // Name the ITU-allocated holder of a visitor call sign's international series.
 //
 // Source: ITU Appendix 42 (Table of allocation of international call sign
@@ -22,10 +23,19 @@
 // MW/ and MW#/ are recognised. The home call follows.
 const VISITOR_PREFIX = /^M[A-Z]?#?\//i;
 
+// One row of the itu_series table: a "XAA - XAZ" series cell and its
+// ITU-declared holder.
+/** @typedef {{ series: string, allocated_to: string }} ItuSeriesRow */
+
+// A parsed series range joined back to its holder, once parseSeries has
+// succeeded on the row's series cell.
+/** @typedef {{ start: string, end: string, country: string, series: string }} SeriesRange */
+
 // Strip the UK visitor prefix from a call sign, leaving the foreign home call.
 // A call sign without the prefix (e.g. a home call passed in directly) is
 // returned unchanged. Only the leading visitor prefix is removed - a later
 // slash (a portable/mobile suffix) is left for the caller/prefix extractor.
+/** @param {unknown} callsign */
 export function stripVisitorPrefix(callsign) {
   const s = String(callsign ?? '').trim();
   const m = VISITOR_PREFIX.exec(s);
@@ -33,6 +43,7 @@ export function stripVisitorPrefix(callsign) {
 }
 
 // Parse one "XAA - XAZ" series cell into { start, end }; null if malformed.
+/** @param {unknown} text */
 export function parseSeries(text) {
   const m = /^\s*([A-Za-z0-9]+)\s*-\s*([A-Za-z0-9]+)\s*$/.exec(String(text ?? ''));
   return m ? { start: m[1].toUpperCase(), end: m[2].toUpperCase() } : null;
@@ -40,12 +51,20 @@ export function parseSeries(text) {
 
 // Length of the shared leading run of two strings - how tightly a range pins
 // its call signs, and so how specific a match against it is.
+/**
+ * @param {string} a
+ * @param {string} b
+ */
 function commonPrefixLength(a, b) {
   let i = 0;
   while (i < a.length && i < b.length && a[i] === b[i]) i += 1;
   return i;
 }
 
+/**
+ * @template T
+ * @param {T[]} values
+ */
 function distinct(values) {
   return [...new Set(values)];
 }
@@ -67,6 +86,10 @@ function distinct(values) {
 // instead of before it), `canonical` (the corrected form, e.g. M#/EI8DJ), and
 // `artifactNote` (a human sentence). The '#' is canonicalised to derive the
 // country but never silently discarded - it is always surfaced.
+/**
+ * @param {unknown} callsign
+ * @param {ItuSeriesRow[] | null | undefined} rows
+ */
 export function countryForCallsign(callsign, rows) {
   const input = String(callsign ?? '');
   const trimmed = input.trim();
@@ -91,10 +114,24 @@ export function countryForCallsign(callsign, rows) {
     ? `Raw form carried a "#" RSL placeholder after the slash; the canonical form is ${canonical}. Home country derived from the canonicalised call.`
     : null;
 
-  const base = { input, home, visitorPrefix, cleaned, artifact, canonical, artifactNote, country: null, series: null, candidates: [] };
+  // The candidate list an ambiguous result carries; the base holds it empty.
+  /** @type {{ series: string, country: string }[]} */
+  const noCandidates = [];
+  const base = { input, home, visitorPrefix, cleaned, artifact, canonical, artifactNote, country: /** @type {string | null} */ (null), series: /** @type {string | null} */ (null), candidates: noCandidates };
+  /** @param {string} message */
   const malformed = (message) => ({ ...base, status: 'malformed', basis: message });
+  /** @param {string} message */
   const unallocated = (message) => ({ ...base, status: 'unallocated', basis: message });
+  /**
+   * @param {string} country
+   * @param {string | null} series
+   * @param {string} basis
+   */
   const resolved = (country, series, basis) => ({ ...base, status: 'resolved', country, series, basis });
+  /**
+   * @param {{ series: string, country: string }[]} candidates
+   * @param {string} basis
+   */
   const ambiguous = (candidates, basis) => ({ ...base, status: 'ambiguous', candidates, basis });
 
   if (cleaned.length === 0) {
@@ -104,7 +141,7 @@ export function countryForCallsign(callsign, rows) {
   const first = cleaned[0];
   const ranges = (rows ?? [])
     .map((r) => ({ ...parseSeries(r.series), country: r.allocated_to, series: r.series }))
-    .filter((r) => r.start !== undefined && r.start[0] === first);
+    .filter(/** @returns {r is SeriesRange} */ (r) => r.start !== undefined && r.start[0] === first);
   if (ranges.length === 0) {
     return unallocated(`"${cleaned}" begins with a prefix outside the ITU call-sign series table.`);
   }
@@ -126,6 +163,7 @@ export function countryForCallsign(callsign, rows) {
     const code = cleaned.slice(0, 3);
     const hits = ranges.filter((r) => code >= r.start && code <= r.end);
     if (hits.length > 0) {
+      /** @param {SeriesRange} r */
       const specificity = (r) => commonPrefixLength(r.start, r.end);
       const maxSpec = Math.max(...hits.map(specificity));
       const best = hits.filter((r) => specificity(r) === maxSpec);

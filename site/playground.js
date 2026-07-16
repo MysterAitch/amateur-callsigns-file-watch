@@ -1,3 +1,4 @@
+// @ts-check
 // Playground / data explorer (issue #361, Stage 3b): an in-browser, read-only
 // SQL console over the deployed raw-keyed claim-ledger SQLite. It is the
 // power-user companion to the guided Ledger page (ledger.html): the Ledger
@@ -23,6 +24,10 @@
 import { openLedgerQuery } from './ledger-query.js';
 import { withDatabaseLoading } from './db-loading.js';
 
+// The read-only SQL executor this console runs against, shared with the Ledger
+// page's query layer (the browser binds it to httpvfs; tests to node:sqlite).
+/** @typedef {import('./ledger-query.js').QueryExecutor} QueryExecutor */
+
 // The result set is capped: a query over range requests cannot be cancelled
 // once issued, only bounded, so the console fetches one page past the cap to
 // detect (and honestly report) truncation. Mirrors explore.js's ROW_CAP.
@@ -33,6 +38,7 @@ export const ROW_CAP = 500;
 // explanatory `-- …` line or a `/* … */` block; that must not be mistaken for a
 // non-SELECT statement. Only the LEADING run is stripped - comments inside the
 // query are left for SQLite.
+/** @param {string} sql */
 function firstToken(sql) {
   let s = sql;
   for (;;) {
@@ -51,6 +57,7 @@ function firstToken(sql) {
 // statement, so only one read ever runs. The wrap puts the closing paren on its
 // own line so a query ending in a `-- …` comment does not swallow it. Pure:
 // unit-tested without a DOM.
+/** @param {unknown} raw */
 export function prepareSql(raw) {
   const sql = String(raw).trim().replace(/;+\s*$/, '');
   if (sql === '') throw new Error('enter a query first');
@@ -146,6 +153,11 @@ LIMIT 200`,
   },
 ];
 
+/**
+ * @param {string} tag
+ * @param {Record<string, string>} [attrs]
+ * @param {(Node | string)[]} [children]
+ */
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -161,6 +173,11 @@ function el(tag, attrs = {}, children = []) {
 // register value carrying '<' or '&' is shown literally, never interpreted as
 // markup. NULL is shown as a muted 'NULL' so it reads distinctly from a blank
 // string the source actually asserted.
+/**
+ * @param {HTMLElement} resultEl
+ * @param {Record<string, unknown>[]} rows
+ * @param {boolean} [truncated]
+ */
 export function renderResults(resultEl, rows, truncated = false) {
   if (rows.length === 0) {
     resultEl.replaceChildren(el('p', { class: 'obs-mini', text: 'No rows.' }));
@@ -184,12 +201,19 @@ export function renderResults(resultEl, rows, truncated = false) {
 // database (node:sqlite as the executor), minus the httpvfs transport. Returns
 // the rendered rows (empty on a guarded/failed query) so a caller/test can
 // assert without scraping the DOM.
+/**
+ * @param {QueryExecutor} query
+ * @param {unknown} rawSql
+ * @param {{ statusEl?: HTMLElement, resultEl?: HTMLElement }} hosts
+ */
 export async function runQuery(query, rawSql, { statusEl, resultEl }) {
   let sql;
   try {
     sql = prepareSql(rawSql);
   } catch (err) {
-    if (statusEl) statusEl.textContent = String(err.message ?? err);
+    // A thrown value is `unknown`; read the message through a narrowed view.
+    const thrown = /** @type {{ message?: string }} */ ((typeof err === 'object' && err !== null) ? err : {});
+    if (statusEl) statusEl.textContent = String(thrown.message ?? err);
     return [];
   }
   if (statusEl) statusEl.textContent = 'Querying… (the first read fetches pages of the database as needed).';
@@ -205,9 +229,11 @@ export async function runQuery(query, rawSql, { statusEl, resultEl }) {
     if (resultEl) renderResults(resultEl, rows, truncated);
     return rows;
   } catch (err) {
+    // Same narrowed view of the unknown thrown value as the guard above.
+    const thrown = /** @type {{ message?: string }} */ ((typeof err === 'object' && err !== null) ? err : {});
     if (statusEl) statusEl.textContent = '';
     if (resultEl) {
-      resultEl.replaceChildren(el('p', { class: 'pg-error', role: 'alert', text: `Query failed: ${String(err.message ?? err)}` }));
+      resultEl.replaceChildren(el('p', { class: 'pg-error', role: 'alert', text: `Query failed: ${String(thrown.message ?? err)}` }));
     }
     return [];
   }
@@ -216,6 +242,11 @@ export async function runQuery(query, rawSql, { statusEl, resultEl }) {
 // Populate the one-click example starters. Clicking one loads its SQL into the
 // textarea (ready to Run) rather than running it immediately, so a heavier
 // example is never fired without the user seeing it first.
+/**
+ * @param {HTMLElement} listEl
+ * @param {HTMLTextAreaElement} inputEl
+ * @param {HTMLElement} [statusEl]
+ */
 function renderExamples(listEl, inputEl, statusEl) {
   for (const example of EXAMPLES) {
     const button = el('button', { type: 'button', class: 'chip', text: example.title });
@@ -250,12 +281,13 @@ function renderExamples(listEl, inputEl, statusEl) {
  * `form`, `input` and `openDatabase` are required; the remaining affordance
  * elements are optional (passed through to withDatabaseLoading, which guards
  * each). `label` names the database in the user-facing messages.
- * @param {{ form: HTMLFormElement, input: HTMLTextAreaElement, statusEl?: HTMLElement, resultEl?: HTMLElement, alertEl?: HTMLElement, runBtn?: HTMLButtonElement, openDatabase: () => unknown, label?: string }} options
+ * @param {{ form: HTMLFormElement, input: HTMLTextAreaElement, statusEl?: HTMLElement, resultEl?: HTMLElement, alertEl?: HTMLElement, runBtn?: HTMLButtonElement, openDatabase: () => Promise<QueryExecutor> | QueryExecutor, label?: string }} options
  */
 export function wireConsole({ form, input, statusEl, resultEl, alertEl, runBtn, openDatabase, label = 'claim-ledger database' }) {
   // Open the database once and memoise it. A rejected open is NOT cached: the
   // memo is cleared on failure so a later Run (or the background warm-up) retries
   // rather than being stuck on a transient error.
+  /** @type {Promise<QueryExecutor> | null} */
   let queryPromise = null;
   const getQuery = () => {
     queryPromise ??= Promise.resolve(openDatabase())
@@ -271,7 +303,9 @@ export function wireConsole({ form, input, statusEl, resultEl, alertEl, runBtn, 
     try {
       prepareSql(input.value);
     } catch (err) {
-      if (statusEl) statusEl.textContent = String(err.message ?? err);
+      // A thrown value is `unknown`; read the message through a narrowed view.
+      const thrown = /** @type {{ message?: string }} */ ((typeof err === 'object' && err !== null) ? err : {});
+      if (statusEl) statusEl.textContent = String(thrown.message ?? err);
       return;
     }
     void withDatabaseLoading(
@@ -301,16 +335,20 @@ export function wireConsole({ form, input, statusEl, resultEl, alertEl, runBtn, 
 // ledger.js. A unit/JSDOM test importing this module for prepareSql/runQuery
 // never trips this, so importing the module opens no worker.
 function initPlayground() {
+  // The console's own elements, narrowed to what the wiring needs: the form and
+  // textarea by instanceof (their concrete interfaces are used), the passive
+  // hosts to undefined-if-absent (each consumer guards them).
   const form = document.getElementById('sql-form');
   const input = document.getElementById('sql-input');
-  const statusEl = document.getElementById('sql-status');
-  const resultEl = document.getElementById('sql-result');
-  const alertEl = document.getElementById('sql-alert');
+  const statusEl = document.getElementById('sql-status') ?? undefined;
+  const resultEl = document.getElementById('sql-result') ?? undefined;
+  const alertEl = document.getElementById('sql-alert') ?? undefined;
   const listEl = document.getElementById('example-list');
-  if (listEl && input) renderExamples(listEl, input, statusEl);
+  if (listEl && input instanceof HTMLTextAreaElement) renderExamples(listEl, input, statusEl);
 
-  if (form && input) {
-    const runBtn = form.querySelector('button[type="submit"]');
+  if (form instanceof HTMLFormElement && input instanceof HTMLTextAreaElement) {
+    const submit = form.querySelector('button[type="submit"]');
+    const runBtn = submit instanceof HTMLButtonElement ? submit : undefined;
     const { warmUp } = wireConsole({ form, input, statusEl, resultEl, alertEl, runBtn, openDatabase: openLedgerQuery });
     // Warm the database open once the page is idle, so the first Run is fast: the
     // worker, the WASM and the initial pages load in the background rather than
@@ -322,7 +360,10 @@ function initPlayground() {
   // Signal a successful start: cancel the startup-warning timer (playground.html)
   // and hide the warning if it was already shown. Reaching here means the module
   // loaded and its wiring ran; if it had failed to load, the warning surfaces.
-  if (window.__playgroundReadyTimer !== undefined) clearTimeout(window.__playgroundReadyTimer);
+  // The timer handle is an ad-hoc window global the page's inline script sets,
+  // so it is read through a typed view of that boundary.
+  const pageGlobals = /** @type {{ __playgroundReadyTimer?: ReturnType<typeof setTimeout> }} */ (/** @type {unknown} */ (window));
+  if (pageGlobals.__playgroundReadyTimer !== undefined) clearTimeout(pageGlobals.__playgroundReadyTimer);
   const startupWarning = document.getElementById('startup-warning');
   if (startupWarning !== null) startupWarning.hidden = true;
 
@@ -335,6 +376,12 @@ function initPlayground() {
   }
 }
 
-if (typeof window !== 'undefined' && typeof window.createDbWorker === 'function') {
+// The httpvfs UMD loader attaches createDbWorker to window (vendor global, no
+// shipped types); its presence gates the bootstrap, so it is probed through an
+// optional view of that boundary.
+const vendorGlobals = typeof window !== 'undefined'
+  ? /** @type {{ createDbWorker?: unknown }} */ (/** @type {unknown} */ (window))
+  : undefined;
+if (vendorGlobals !== undefined && typeof vendorGlobals.createDbWorker === 'function') {
   initPlayground();
 }

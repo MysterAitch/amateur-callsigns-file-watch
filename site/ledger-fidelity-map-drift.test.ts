@@ -91,7 +91,7 @@ const SRC = 'opendata/2025-06-04/raw.csv';
 const V = '2025-06-04';
 const RESOLVED = { typed: 'G8XYZ', cleaned: 'G8XYZ', entity: 'G#8XYZ', matched: 'cleaned' as const };
 
-type Row = Record<string, unknown>;
+type Row = import('./ledger-query.js').ClaimRow;
 function claimsRaisingFlag(flag: string): Row[] {
   return [
     { layer: 'raw', raw_subject: 'G8XYZ', cleaned: 'G8XYZ', entity: 'G#8XYZ', predicate: '@listed', object: '', rule: null, source_file: SRC, ordinal: 1, vintage: V },
