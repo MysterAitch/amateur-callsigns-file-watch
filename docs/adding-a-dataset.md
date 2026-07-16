@@ -149,11 +149,95 @@ FOI `meta.json` also declares a top-level `datasetClasses` array against the
 vocabulary in
 [`foi-schemas.md`](foi-schemas.md#dataset-classes-entry-level-vocabulary) —
 the same field the [scheduled dataset-class labels](../CONTRIBUTING.md#dataset-class-labels)
-mirror onto the entry's PR. Generate the normalised file with
+mirror onto the entry's PR.
+
+**Bind the parse source when the raw cannot be parsed directly**, exactly as the
+open-data lane does (step 2, point 2): declare the extract in `files{}` with
+`role: "extract"`, `extractOf` (the raw it derives from) and `extractedBy`
+(the tool, where one produced it). The raw stays the truth; the extract is only
+the parse source. Three extract idioms are in use:
+
+- a **workbook** → the shared extractor (`node src/shared/xlsx-extract.ts
+  archive/foi/{key}`), writing `raw-extract-sheet-N-{slug}.csv`;
+- a **spreadsheet Save-As-PDF table** — the **PDF-disclosure class** (#668) —
+  → the PDF-table extractor
+  [`src/shared/pdf-table-extract.ts`](../src/shared/pdf-table-extract.ts): the
+  raw PDF stays the truth and a byte-deterministic CSV transcription is
+  committed as the parse source (`role: "extract"`, `extractOf` the PDF,
+  `extractedBy: "src/shared/pdf-table-extract.ts"`). The extractor runs a full
+  content-stream interpreter (Node built-ins only, no third-party PDF library),
+  so any deviation from the expected table shape **surfaces loudly** rather than
+  mis-parsing. Its committed **self-check**
+  ([`pdf-table-extract.test.ts`](../src/shared/pdf-table-extract.test.ts))
+  re-runs it over the committed PDF and asserts the CSV reproduces
+  byte-identically, with the reconciliation arithmetic as assertions — row and
+  text-operator totals, the per-status counts, the recurring/blank-key/oddity
+  counts, and the page-1 opening anchor. Reach for this class when a disclosure
+  arrives **only** as a PDF rendering of a table and no native workbook/CSV
+  attachment can be obtained (check WhatDoTheyKnow and the disclosure log first);
+- a **letter or prose PDF** → a mechanical markdown transcription
+  (`raw-extract-*.md`, `role: "extract"`, `extractOf` the letter; substantive
+  text verbatim, standard boilerplate footer omitted and noted), or a
+  **markdown-table transcription** for a tabular PDF the interpreter does not
+  cover (bound as the converter's `markdown-table` parse source — see the
+  `wdtk-184767`/`wdtk-251507` variants in [`foi-schemas.md`](foi-schemas.md)).
+
+Generate the normalised file with
 `node src/shared/foi-normalise.ts archive/foi/{key}` and verify with
-`npm run foi:sweep`. Template entries:
+`npm run foi:sweep` (it re-derives every extract and normalised file
+byte-identically). Template entries:
 `archive/foi/ofcom-2025-09-11--callsigns--all-callsigns` (workbook),
-`archive/foi/ofcom-2024-04-30--copy-all-callsigns--all-callsigns` (CSV).
+`archive/foi/ofcom-2024-04-30--copy-all-callsigns--all-callsigns` (CSV),
+`archive/foi/ofcom-2020-04-23--club-call-signs` (a Save-As-PDF disclosure with
+a byte-deterministic CSV extract and a transcribed response letter).
+
+## Step 2c — collect corroborating or divergent copies (optional)
+
+Independent of adding an entry, the mirror **collects copies** of publications
+it already holds: a second copy from another channel either corroborates the
+held bytes or is a genuinely divergent copy that must be recorded. The
+collection tooling — [`src/tools/collect-witness.ts`](../src/tools/collect-witness.ts)
+(#618/#619) — makes that mechanical. Given a URL and the held file the copy
+claims to be, it fetches the bytes, hashes them, compares the hash against the
+bytes the mirror already holds, and emits the declaration the metadata needs:
+
+```
+node src/tools/collect-witness.ts \
+  --url <copy-url> --publisher <register-id> --held-file <name> --held <sha256>…
+```
+
+- **Byte-identical to a held copy → a corroborating witness.** It emits a
+  `witnesses[]` record (`channel`, `url`, `fetchedAt`, `sha256`,
+  `originalFilename`) to add to the held file — the copy is **not** stored a
+  second time (store-once, witness-many). The `channel` is resolved through the
+  register (`--channel` is required only when the publisher owns several
+  channels).
+- **Differing at all (even one byte) → a divergent copy.** It emits a
+  `role: "divergent-copy"` file declaration (`divergesFrom` the faithful held
+  copy) plus a **stub `divergences[]` record** to complete by hand — the tool
+  can prove *that* a copy differs, never *what* differs, so the `summary` and
+  `enumeration` land as `TODO` to be characterised by hand (the
+  divergence-pairing rule in step 4 then holds until they are filled in).
+
+Fetching is courtesy-paced by design: one request per URL, an honest
+identifying User-Agent (no browser spoof — WhatDoTheyKnow rejects those), a
+hard abort on the first blocking status (403/429/5xx), and a pause between
+sequential requests to one host. A 404/410 is a legitimate "not held" answer,
+not a block.
+
+**When a copy cannot yet be redistributed** (its redistribution basis is not
+cleared), reach for `--local-only`: the bytes are held in the **gitignored**
+`archive/local-holdings/bytes/` area and their existence is recorded in the
+**public** index [`archive/local-holdings/index.json`](../archive/local-holdings/index.json)
+(sha256, size, `originalFilename`, `publisher`, `obtainFrom`, `fetchedAt`,
+`withheldReason`), so the availability claim stays public and re-verifiable
+even though the bytes are withheld. Republication is always a deliberate,
+manual, per-item decision — never performed by the tool.
+
+Reach for this tooling to **corroborate or record a copy of an
+already-held publication**; it does not graduate a new dataset. A copy that
+turns out to be a genuinely new publication (a new vintage, a new shape) is a
+full entry via step 2 or 2b, not a witness.
 
 ## Step 3 — regenerate the corpus goldens
 
@@ -166,10 +250,19 @@ npm run regen          # normalise:sweep + foi:schemas + dataset:status
 ```
 
 That covers `reports/**` (the golden-master gate; the sweep is the slow step —
-several minutes, whole-corpus DuckDB folds), `docs/dataset-status.md` and
-`docs/foi-schemas.md`.
+several minutes, whole-corpus DuckDB folds): the new entry's own
+`reports/entries/{key}.md` drill-down, the cross-lane
+[`reports/value-catalogue.md`](../reports/value-catalogue.md) and
+[`reports/data-quality.md`](../reports/data-quality.md), and the standing
+reports (`prefixes.md`, `regional-identifiers.md`, `class-product-mismatches.md`,
+`callsign-patterns.md`, `forbidden-suffix-history.md`, `cross-dataset-invariants.md`,
+`README.md`) — plus `docs/dataset-status.md` and `docs/foi-schemas.md` (the
+latter re-rendered from the converter registry). **Every** dataset — open-data
+or FOI — trips the `reports/**` set, so run `regen` on any intake.
 
-Then hand-update the **hand-authored goldens** the sweep does not regenerate:
+Then hand-update the **hand-authored goldens** the sweep does not regenerate.
+Each fires only when the intake actually shifts it, so check every one against
+this dataset — the historical pain was discovering them one CI round at a time:
 
 - `EXPECTED_CATEGORIES` in
   [`value-catalogue-fold.test.ts`](../src/ci/value-catalogue-fold.test.ts) —
@@ -201,6 +294,31 @@ Then hand-update the **hand-authored goldens** the sweep does not regenerate:
   step (like the shape-only extract) to achieve it is fine.
 - `tsc --noEmit` and `eslint` when the converter registry changed.
 
+## Publisher-register touchpoints
+
+When an intake records a witness on a **new channel** — or names a **new
+publisher** in a `divergences[]` counterpart or the local-holdings index — that
+channel and publisher must exist in
+[`reference-data/publishers.json`](../reference-data/publishers.json) **first**,
+or `validate:data` fails loudly (`src/ci/validate-publishers.ts` enforces that
+every witness channel across both lanes resolves to exactly one publisher). Add
+the entry with a stable `id`, `name`, `roles`, the `channels` token(s) the
+witness uses, an `authorityCeiling` (the [ADR 0014](adr/0014-trust-rating-safety-net.md)
+rung material witnessed only via this publisher may at most carry), and the
+licence fields.
+
+A publisher's `licenceStatement`/`licenceBasis` is a **public claim about
+another party's terms**, so cite the governing terms in `licenceUrl`; where a
+basis has not been established, record it as `unverified` rather than asserting
+one (fail-honest). The basis is the publisher's default/typical one — a specific
+publication may override it. Adding or renaming a publisher also shifts the
+deploy-time About-page acknowledgement generated from the register:
+[`build-about-acknowledgement.test.ts`](../src/ci/build-about-acknowledgement.test.ts)
+asserts the About page names every publisher and its licence basis, so a
+register edit that leaves the page stale fails there. The register's own
+provenance discipline is in
+[`reference-data/README.md`](../reference-data/README.md#publishersjson--the-publisher-register-618).
+
 ## Gotchas
 
 - **Reference only siblings already on `main`.** The validator requires
@@ -214,4 +332,22 @@ Then hand-update the **hand-authored goldens** the sweep does not regenerate:
   entry** — it derives the key from download metadata and rewrites the
   `latest-*` pointers unconditionally. Hand-author the entry and let the sweep
   generate the derivations.
+- **Commit the raw bytes verbatim, first.** The publisher's exact bytes are the
+  authoritative record and are admitted on **provenance, not processability**
+  ([ADR 0001](adr/0001-post-fetch-processing-in-repo.md),
+  [ADR 0010](adr/0010-archive-contract.md)): a raw you cannot yet parse is still
+  archived, with the parse deferred to a committed extract (step 2 point 2,
+  step 2b). Every derivation — extract, `normalised.csv`, reports — must
+  regenerate from that raw; never edit the raw to make a converter happy.
+- **Fetching is unrestricted; redistribution is gated.** Opportunistically
+  fetching a copy is fine (equivalent to viewing it), but never commit bytes
+  whose redistribution basis is not cleared — hold them in the gitignored
+  local-holdings area with a public index entry instead
+  (`collect-witness --local-only`, step 2c). Republication is a deliberate,
+  manual, per-item decision.
+- **Link the PR to its issue** ([CONTRIBUTING](../CONTRIBUTING.md)): `Closes #N`
+  when the PR fully resolves the issue, `Addresses #N` / `Part of #N` with what
+  remains for a partial contribution (multiple targeted PRs to one issue are
+  fine). Include the reviewable evidence — before/after counts, the regenerated
+  diffs — in the body.
 - Long sweeps/folds should run in the foreground with a generous timeout.
