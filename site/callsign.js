@@ -332,7 +332,9 @@ async function fetchJson(name) {
   const res = await fetch(new URL(`${DATA_BASE}${name}`, document.baseURI).toString());
   if (!res.ok) throw new Error(`could not fetch ${name} (HTTP ${res.status})`);
   const text = await res.text();
-  return { json: JSON.parse(text), bytes: text.length };
+  /** @type {unknown} */
+  const json = JSON.parse(text);
+  return { json, bytes: text.length };
 }
 
 /** @returns {Promise<ShardManifest>} */
@@ -347,7 +349,9 @@ function loadManifest() {
 function loadShard(name) {
   let cached = shardCache.get(name);
   if (cached === undefined) {
-    cached = fetchJson(`${name}.json`).catch(err => { shardCache.delete(name); throw err; });
+    cached = fetchJson(`${name}.json`)
+      .then(r => ({ json: /** @type {{ shard: string, callsigns: Record<string, CallsignRecord> }} */ (r.json), bytes: r.bytes }))
+      .catch(err => { shardCache.delete(name); throw err; });
     shardCache.set(name, cached);
   }
   return cached;
