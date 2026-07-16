@@ -89,8 +89,8 @@ describe('fail-loud refusal guards (acceptance criterion F14)', { tags: ['data-v
 describe('FOI controlled vocabularies (acceptance criteria C1 / C2 / C3 / C4)', { tags: ['data-validity'] }, () => {
   it('FoiFileRoles_ClosedVocabulary', () => {
     expect([...FOI_FILE_ROLES].sort()).toEqual([
-      'acknowledgement-letter', 'data', 'data-container', 'extract',
-      'normalised', 'response-letter', 'transcript',
+      'acknowledgement-letter', 'data', 'data-container', 'divergent-copy',
+      'extract', 'normalised', 'response-letter', 'transcript',
     ]);
   });
 
