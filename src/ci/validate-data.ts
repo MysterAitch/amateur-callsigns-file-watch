@@ -27,6 +27,7 @@ import { CONSTANTS, calculateFileHash, type ArchiveMeta , errorMessage } from '.
 import { physicalLines } from '../sources/ofcom-amateur/normalise.ts';
 import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
 import { validateFoiLaneAt } from './validate-foi.ts';
+import { validatePublishersAt } from './validate-publishers.ts';
 
 export interface ValidationProblem {
   path: string;
@@ -400,6 +401,9 @@ export function validateRepoData(deepKeys: string[]): ValidationReport {
   // hash verification of every declared file, every run.
   const foi = validateFoiLaneAt();
   problems.push(...foi.problems);
+  // The publisher register (#618): its own shape and vocabularies, plus that
+  // every witness channel across both lanes resolves through it.
+  problems.push(...validatePublishersAt());
   return { ok: problems.length === 0, problems, checkedEntries: keys.length, checkedFoiEntries: foi.checkedEntries };
 }
 
