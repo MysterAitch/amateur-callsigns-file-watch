@@ -33,8 +33,9 @@ describe('Home-page aggregate pre-rendering', { tags: ['unit'] }, () => {
   it('RslMatrix_RealArchive_CarriesReferenceDrivenRowsTotalsAndExclusions', () => {
     const html = renderRslMatrixHtml();
     // Series stored bare (20), displayed with the # slot marker, linked
-    // to the series entity page.
-    expect(html).toContain('<a href="series/20.html">2#0</a>');
+    // to the series entity page via the shared prefix-series field wrapper
+    // (#644) - the same stable class family (CALLSIGN_CLASS) a callsign wears.
+    expect(html).toContain('<a class="cs cs-pfx" href="series/20.html">2#0</a>');
     expect(html).toContain('·'); // zero-marker convention preserved
     expect(html).toContain('Excluded from this table:');
     expect(html).toContain('unparseable');
@@ -43,7 +44,7 @@ describe('Home-page aggregate pre-rendering', { tags: ['unit'] }, () => {
     // which series a data cell belongs to.
     expect(html).toContain('<th scope="col"');
     expect(html).toContain('<th scope="row">total</th>');
-    expect(html).toMatch(/<th scope="row"[^>]*><a href="series\/20\.html">/);
+    expect(html).toMatch(/<th scope="row"[^>]*><a class="cs cs-pfx" href="series\/20\.html">/);
     // The observed-but-unreferenced warning carries a text alternative, not a
     // bare glyph that reads as "warning sign".
     expect(html).toContain('<abbr title="observed in the register but absent from reference data">⚠</abbr>');

@@ -26,7 +26,7 @@ import {
   type DateColumnStats,
   type CallsignQuality,
 } from '../shared/stats.ts';
-import { humanDate, humaniseLabel, tableCaption, callsignField, callsignDisplay } from './site-render.ts';
+import { humanDate, humaniseLabel, tableCaption, callsignField, callsignDisplay, prefixSeriesField } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const REFERENCE_DATA_DIR = path.join(REPO_ROOT, 'reference-data');
@@ -38,16 +38,18 @@ function escapeHtml(text: string): string {
 // Mirrors app.js renderTable: thead/tbody, 'num' class from numericFrom,
 // wrapped in div.overflow. rawHeaders lets a caller pass pre-built header
 // HTML (the flags table links its dataset-date columns to entry pages);
-// rawFirstColumn does the same for row labels (the matrix links its
-// series rows to their entity pages).
+// rawColumns does the same for specific body-cell columns by index (the
+// matrix links its series rows to their entity pages via the shared
+// prefix-series field wrapper, #644; the RSL-bearing details table pre-renders
+// both its callsign AND series cells this way).
 // rowHeader emits the first cell of each body row as a <th scope="row"> so a
 // screen reader can resolve which row (e.g. which prefix series) a data cell
 // belongs to - essential for the 2-D locator matrix.
-function tableHtml(caption: string, headers: string[], rows: (string | number)[][], numericFrom = 1, rawHeaders = false, rawFirstColumn = false, rowHeader = false): string {
+function tableHtml(caption: string, headers: string[], rows: (string | number)[][], numericFrom = 1, rawHeaders = false, rawColumns: ReadonlySet<number> = new Set(), rowHeader = false): string {
   const th = headers.map((h, i) => `<th scope="col"${i >= numericFrom ? ' class="num"' : ''}>${rawHeaders ? h : escapeHtml(h)}</th>`).join('');
   const body = rows.map(row =>
     `<tr>${row.map((c, i) => {
-      const content = rawFirstColumn && i === 0 ? String(c) : escapeHtml(String(c));
+      const content = rawColumns.has(i) ? String(c) : escapeHtml(String(c));
       const cls = i >= numericFrom ? ' class="num"' : '';
       return rowHeader && i === 0 ? `<th scope="row"${cls}>${content}</th>` : `<td${cls}>${content}</td>`;
     }).join('')}</tr>`).join('\n');
@@ -115,15 +117,6 @@ function readCsv(filePath: string): Record<string, string>[] {
   return parse(fs.readFileSync(filePath, 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
 }
 
-// Display form of a prefix series: names are stored BARE for every series
-// (20, G0, M7); the # RSL-slot marker is the uniform display convention,
-// inserted after the leading character - it marks where an RSL letter
-// sits when one is present.
-export function displaySeries(series: string): string {
-  if (series.includes('#') || series.length < 2) return series;
-  return `${series[0]}#${series.slice(1)}`;
-}
-
 // The data-quality-flags-per-publication table: one column per archived
 // dataset (newest first), a records row, then per-flag counts - the same
 // pivot app.js built from the datasets/stats_flags tables.
@@ -189,12 +182,12 @@ export function renderRslMatrixHtml(): string {
 
   const count = (series: string, rsl: string): number => counts.get(`${series}|${rsl}`) ?? 0;
   const quiet = (n: number): string | number => (n === 0 ? '·' : n);
-  // Series row labels link to their entity pages (statistics.html sits at
-  // the site root, so series/ is a sibling directory). Honest here because
-  // both describe the LATEST publication; the per-entry historical
-  // matrices deliberately stay unlinked.
+  // Series row labels link to their entity pages via the shared prefix-series
+  // field wrapper (#644; statistics.html sits at the site root, so series/ is
+  // a sibling directory). Honest here because both describe the LATEST
+  // publication; the per-entry historical matrices deliberately stay unlinked.
   const rows: (string | number)[][] = seriesRows.map(series => [
-    `<a href="series/${series.replace(/#/g, '')}.html">${escapeHtml(displaySeries(series))}</a>${refSeries.includes(series) ? '' : ' <abbr title="observed in the register but absent from reference data">⚠</abbr>'}`,
+    `${prefixSeriesField(series, { link: { depthToRoot: 0 } })}${refSeries.includes(series) ? '' : ' <abbr title="observed in the register but absent from reference data">⚠</abbr>'}`,
     ...columns.map(rsl => quiet(count(series, rsl))),
     quiet(columns.reduce((sum, rsl) => sum + count(series, rsl), 0)),
   ]);
@@ -215,9 +208,14 @@ export function renderRslMatrixHtml(): string {
   if (bearing.length > 0 && bearing.length <= 50) {
     // Each callsign routes through the shared field wrapper (#553) as a
     // register-lookup pill (statistics.html sits at the site root); its odd
-    // characters follow the wrapper's shared marking convention.
+    // characters follow the wrapper's shared marking convention. Its series
+    // routes through the shared prefix-series field wrapper (#644), unlinked -
+    // this row is ABOUT the series column already shown in the matrix above,
+    // so a second link to the same page would be redundant, not a new
+    // affordance (the same reasoning ./render/licence.ts gives for not
+    // auto-linking a value already explained by its section heading).
     details.push(`<details><summary>RSL-bearing records (${bearing.length})</summary>`
-      + tableHtml('Records carrying a Regional Secondary Locator in the latest publication', ['callsign', 'series', 'RSL'], bearing.map(r => [callsignField(r.callsign, { lookup: { depthToRoot: 0 } }), r.series, r.rsl]), 99, false, true)
+      + tableHtml('Records carrying a Regional Secondary Locator in the latest publication', ['callsign', 'series', 'RSL'], bearing.map(r => [callsignField(r.callsign, { lookup: { depthToRoot: 0 } }), prefixSeriesField(r.series), r.rsl]), 99, false, new Set([0, 1]))
       + '</details>');
   }
   for (const [status, n] of excludedEntries) {
@@ -233,7 +231,7 @@ export function renderRslMatrixHtml(): string {
       + `<p>${examples.join(', ')}</p></details>`);
   }
 
-  return tableHtml('Callsign counts by prefix series and Regional Secondary Locator in the latest publication', ['series', ...refRsl, ...unknownRsl.map(r => `${escapeHtml(r)} <abbr title="observed in the register but absent from reference data">⚠</abbr>`), '(none)', 'total'], rows, 1, true, true, true)
+  return tableHtml('Callsign counts by prefix series and Regional Secondary Locator in the latest publication', ['series', ...refRsl, ...unknownRsl.map(r => `${escapeHtml(r)} <abbr title="observed in the register but absent from reference data">⚠</abbr>`), '(none)', 'total'], rows, 1, true, new Set([0]), true)
     + `<p class="muted">In the series column, # marks where the Regional Secondary Locator sits when one is present; (none) = no RSL letter stored on the row — each series links to its own page. Excluded from this table: ${escapeHtml(excludedText)} (populations over 50 are not enumerated below).</p>`
     + details.join('\n');
 }

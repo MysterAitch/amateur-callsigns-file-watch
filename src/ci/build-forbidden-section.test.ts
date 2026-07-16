@@ -43,7 +43,7 @@ describe('Forbidden-suffix section — index', { tags: ['data-validity'] }, () =
     // 2024 change (+JIZ, −QNF, −ZFJ) → 1,464. The changed suffixes are now
     // links to their per-suffix pages (phase 3).
     expect(index).toContain('held steady at <b>1,465</b> suffixes');
-    expect(index).toMatch(/added <a href="suffix\/JIZ\/index.html"><code>JIZ<\/code><\/a>; removed <a href="suffix\/QNF\/index.html"><code>QNF<\/code><\/a>, <a href="suffix\/ZFJ\/index.html"><code>ZFJ<\/code><\/a> → <b>1,464<\/b>/);
+    expect(index).toMatch(/added <a class="cs cs-sfx" href="suffix\/JIZ\/index.html">JIZ<\/a>; removed <a class="cs cs-sfx" href="suffix\/QNF\/index.html">QNF<\/a>, <a class="cs cs-sfx" href="suffix\/ZFJ\/index.html">ZFJ<\/a> → <b>1,464<\/b>/);
     // The ever-forbidden union headline figure.
     expect(index).toContain('<b>1,466</b> distinct suffixes have been forbidden');
     // The ~2020 currency caveat is surfaced on the index too.
@@ -68,7 +68,7 @@ describe('Forbidden-suffix section — index', { tags: ['data-validity'] }, () =
   it('ForbiddenSectionIndex_PerSuffixPages_AreLinkedAndCrawlable', () => {
     const index = read('forbidden', 'index.html');
     // The per-suffix drill-downs now exist and are linked (phase 3).
-    expect(index).toContain('<a href="suffix/QNF/index.html"><code>QNF</code></a>');
+    expect(index).toContain('<a class="cs cs-sfx" href="suffix/QNF/index.html">QNF</a>');
     // The A–Z browse block makes every union suffix reachable by a crawler.
     expect(index).toContain('Browse every forbidden suffix (A–Z)');
     // The surprise the index surfaces: forbidden suffixes that nonetheless
@@ -82,8 +82,8 @@ describe('Forbidden-suffix section — 2024 disclosure page', { tags: ['data-val
     const page = read('forbidden', D2024, 'index.html');
     // The notable diff versus the previous (September 2019) disclosure.
     expect(page).toContain('vs 12 September 2019:');
-    expect(page).toContain('added <a href="../suffix/JIZ/index.html"><code>JIZ</code></a>');
-    expect(page).toContain('removed <a href="../suffix/QNF/index.html"><code>QNF</code></a>, <a href="../suffix/ZFJ/index.html"><code>ZFJ</code></a>');
+    expect(page).toContain('added <a class="cs cs-sfx" href="../suffix/JIZ/index.html">JIZ</a>');
+    expect(page).toContain('removed <a class="cs cs-sfx" href="../suffix/QNF/index.html">QNF</a>, <a class="cs cs-sfx" href="../suffix/ZFJ/index.html">ZFJ</a>');
     // The de-listing is called out as the standout.
     expect(page).toContain('The de-listing is the standout.');
   });
@@ -144,7 +144,7 @@ describe('Forbidden-suffix section — 2016 disclosure page', { tags: ['data-val
   it('ForbiddenSection2016Page_RealArchive_SurfacesTheZitDuplicateHonestly', () => {
     const page = read('forbidden', D2016, 'index.html');
     // 1,466 rows for 1,465 distinct suffixes: the ZIT duplicate is surfaced.
-    expect(page).toContain('1,466 rows — <code>ZIT</code> listed twice');
+    expect(page).toContain('1,466 rows — <code class="cs cs-sfx">ZIT</code> listed twice');
     expect(page).toContain('never silently deduplicated');
     // As the baseline it has no prior disclosure to diff against.
     expect(page).toContain('Baseline');

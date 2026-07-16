@@ -718,9 +718,12 @@ describe('Dataset pages build', () => {
   it('SeriesPages_RealArchive_OnePagePerSeriesWithFactsAndCounts', () => {
     const index = fs.readFileSync(path.join(outputDir, 'series', 'index.html'), 'utf8');
     // Reference-known and observed-only series both get pages; the slug
-    // drops the # (a URL fragment delimiter), the display keeps it.
-    expect(index).toContain('<a href="20.html"><code>2#0</code></a>');
-    expect(index).toContain('<a href="M7.html"><code>M#7</code></a>');
+    // drops the # (a URL fragment delimiter), the display keeps it. The
+    // shared prefix-series field wrapper (#644) supplies the visual (the
+    // same CALLSIGN_CLASS family a callsign wears), nested inside this
+    // page-local anchor.
+    expect(index).toContain('<a href="20.html"><span class="cs cs-pfx">2#0</span></a>');
+    expect(index).toContain('<a href="M7.html"><span class="cs cs-pfx">M#7</span></a>');
     const m7 = fs.readFileSync(path.join(outputDir, 'series', 'M7.html'), 'utf8');
     expect(m7).toContain('Foundation'); // reference facts
     expect(m7).toContain('Status breakdown');
