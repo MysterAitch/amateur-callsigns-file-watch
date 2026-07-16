@@ -8,15 +8,22 @@
  * Odd-character transparency is the load-bearing guarantee: a whitespace,
  * control, format or replacement character in a published callsign must never
  * hide (the fail-fast/transparency rule) - it renders as a visible highlighted
- * {marker} by the SAME convention the browser surfaces use (callsignCharMarker
- * in site/browser-query.js, mirrored here so a damaged callsign reads
- * identically on a generated page and in the interactive browsers).
+ * {marker} by the SAME convention the browser surfaces use. The marker
+ * vocabulary is not duplicated here: callsignCharMarker and the friendly-name
+ * translation are IMPORTED from site/browser-query.js, the single source of
+ * truth (issue #610), so a damaged callsign reads identically on a generated
+ * page and in the interactive browsers by construction.
  *
  * The #310 callsign pill is the linked instance of this wrapper: callsignPill
  * delegates here, so the lookup URL and the pill markup stay defined once.
  */
 
 import { escapeHtml } from './html.ts';
+import { callsignCharMarker, translateMarkerToken } from '../../../site/browser-query.js';
+
+// Re-exported so callers (and the drift-guard tests) reach the marker convention
+// through the render module, while its one definition stays in browser-query.js.
+export { callsignCharMarker };
 
 // The single source of truth for the wrapper's stable CSS class: every
 // callsign rendered as content - linked pill or plain chip - carries it, so
@@ -26,10 +33,13 @@ export const CALLSIGN_CLASS = 'cs';
 // How the wrapper treats characters outside the plain callsign alphabet.
 //  - 'marked' (the default): the value is raw, as published; anything outside
 //    [A-Za-z0-9/#] is made visible as a highlighted marker ({SP}, {NBSP},
-//    {U+200B}, or the stray glyph itself), so damage cannot hide.
-//  - 'pre-marked': the value ALREADY carries {…} markers (e.g. a stats.json
-//    example, marked at derivation time); the wrapper highlights those tokens
-//    without re-marking, so a literal brace in a marker is never double-marked.
+//    {ZWSP}, {U+XXXX} for the unnamed, or the stray glyph itself), so damage
+//    cannot hide.
+//  - 'pre-marked': the value ALREADY carries {U+XXXX} markers (e.g. a
+//    stats.json example, marked at derivation time); the wrapper highlights
+//    those tokens - translating each to its friendly name at the edge (#610)
+//    while keeping the code point in the title - without re-marking, so a
+//    literal brace in a marker is never double-marked.
 //  - 'verbatim': no marking at all - for a value known to be clean by
 //    construction (e.g. a curated reference callsign), stated explicitly.
 export type CallsignOddCharacters = 'marked' | 'pre-marked' | 'verbatim';
@@ -73,38 +83,6 @@ export interface CallsignFieldOptions {
   extraClass?: string;
 }
 
-// Friendly names for the odd characters observed in real register exports;
-// anything else invisible falls back to its {U+XXXX} code point. Mirrors
-// CALLSIGN_CHAR_NAMES in site/browser-query.js.
-const CALLSIGN_CHAR_NAMES: Record<number, string> = {
-  0x09: 'TAB', 0x0a: 'LF', 0x0d: 'CR', 0x20: 'SP', 0xa0: 'NBSP', 0xfeff: 'BOM', 0xfffd: 'U+FFFD',
-};
-
-// The marker for one character of a callsign - the server twin of
-// callsignCharMarker in site/browser-query.js, so generated pages and the
-// interactive browsers flag exactly the same characters the same way.
-// Returns null for a plain glyph (letters, digits, / and #: pass through
-// unchanged); a {friendly-name} or {U+XXXX} label for an INVISIBLE character
-// (whitespace, control, format, replacement - no glyph of its own); or the
-// character itself for a visible stray (a hyphen, dot, star), which stays
-// readable but is highlighted by the caller.
-export function callsignCharMarker(ch: string): string | null {
-  if (/[a-zA-Z0-9#/]/.test(ch)) return null;
-  const cp = ch.codePointAt(0);
-  // An empty input has no code point and so no marker; guarding it also lets
-  // the lookups below treat cp as a definite number.
-  if (cp === undefined) return null;
-  const named = CALLSIGN_CHAR_NAMES[cp];
-  if (named !== undefined) return `{${named}}`;
-  // Characters with no standalone glyph get the codepoint: \p{C}
-  // (control/format, incl. zero-width chars \s misses), \p{Z} (all
-  // separators), and \p{M} (combining marks - a lone accent would otherwise
-  // float onto the marker span). Any other non-plain character is a visible
-  // glyph of its own, shown as-is and highlighted.
-  if (/[\p{C}\p{Z}\p{M}]/u.test(ch)) return `{U+${cp.toString(16).toUpperCase().padStart(4, '0')}}`;
-  return ch;
-}
-
 // A {…} marker token in a pre-marked value (the split's capture group keeps
 // the tokens in the output so they can be highlighted).
 const PRE_MARKED_TOKEN_RE = /(\{[^{}]+\})/;
@@ -115,8 +93,19 @@ const PRE_MARKED_TOKEN_RE = /(\{[^{}]+\})/;
 export function callsignDisplay(value: string, oddCharacters: CallsignOddCharacters = 'marked'): string {
   if (oddCharacters === 'verbatim') return escapeHtml(value);
   if (oddCharacters === 'pre-marked') {
+    // The value already carries {…} markers from derivation time (#553): the
+    // wrapper highlights those tokens without re-marking. At the edge (#610) a
+    // {U+XXXX} token is translated to its friendly name where one exists, with
+    // the exact code point kept in the marker's title; a token with no friendly
+    // name, an already-friendly token, or a literal brace passes through
+    // untouched, so the no-double-marking guarantee holds.
     return value.split(PRE_MARKED_TOKEN_RE)
-      .map(part => (PRE_MARKED_TOKEN_RE.test(part) ? `<span class="marker">${escapeHtml(part)}</span>` : escapeHtml(part)))
+      .map(part => {
+        if (!PRE_MARKED_TOKEN_RE.test(part)) return escapeHtml(part);
+        const { text, title } = translateMarkerToken(part);
+        const titleAttr = title === null ? '' : ` title="${escapeHtml(title)}"`;
+        return `<span class="marker"${titleAttr}>${escapeHtml(text)}</span>`;
+      })
       .join('');
   }
   let html = '';

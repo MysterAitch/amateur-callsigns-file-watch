@@ -116,15 +116,26 @@ describe('Home-page aggregate pre-rendering', { tags: ['unit'] }, () => {
     expect(html).toContain('<details><summary>Full taxonomy');
     // A rare anomaly shape lives in the full list but not the top table.
     expect(html).toContain('AAAAAAAAAAA');
+    // A shape carrying an invisible character shows the friendly marker at the
+    // edge (#610), the exact code point kept on the tooltip - the same {NBSP}
+    // the quality examples and the raw-marked RSL trio show, so the vocabulary
+    // is one everywhere.
+    expect(html).toContain('<span class="mono">ANAAA<span class="marker" title="non-breaking space (U+00A0)">{NBSP}</span></span>');
   });
 
   it('CallsignQuality_RealArchive_ShowsDetectorHitsAndExamplesDeclaredNotVerified', () => {
     const html = renderCallsignQualityHtml();
     // Each detector is a scoped row header with a count and example values.
     expect(html).toContain('<th scope="row">Whitespace or invisible character present</th>');
-    // Example values wear the shared callsign field wrapper (#553), with the
-    // {U+XXXX} markers stats.json applied at derivation time now highlighted.
-    expect(html).toContain('<code class="cs">G6<span class="marker">{U+0020}</span>FMU</code>');
+    // Example values wear the shared callsign field wrapper (#553); the
+    // {U+XXXX} markers stats.json applied at derivation time are highlighted and
+    // translated to their friendly names at the edge (#610), the exact code
+    // point kept on the marker's title.
+    expect(html).toContain('<code class="cs">G6<span class="marker" title="space (U+0020)">{SP}</span>FMU</code>');
+    // A representative NBSP example on the generated statistics page renders
+    // {NBSP} with the code point on its tooltip - the visible consistency #610
+    // delivers (the same {NBSP} the raw-marked RSL trio shows).
+    expect(html).toContain('<code class="cs">2E1HON<span class="marker" title="non-breaking space (U+00A0)">{NBSP}</span></code>');
     // Counts are framed as detected, not verified.
     expect(html).toContain('declared but not independently verified against Ofcom');
     // A zero-hit detector still appears, with its examples humanised to an em dash.

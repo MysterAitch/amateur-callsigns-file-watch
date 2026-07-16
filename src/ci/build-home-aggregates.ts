@@ -26,7 +26,7 @@ import {
   type DateColumnStats,
   type CallsignQuality,
 } from '../shared/stats.ts';
-import { humanDate, humaniseLabel, tableCaption, callsignField } from './site-render.ts';
+import { humanDate, humaniseLabel, tableCaption, callsignField, callsignDisplay } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const REFERENCE_DATA_DIR = path.join(REPO_ROOT, 'reference-data');
@@ -336,9 +336,12 @@ export function renderColumnProfilesHtml(): string {
 
 // Callsign format taxonomy of the latest publication: the callsign column
 // abstracted to its shape (A = upper-case letter, a = lower-case, N = digit;
-// a space or invisible character becomes an explicit {U+XXXX} marker), the
-// most common shapes ranked, and the full taxonomy folded into a details
-// block so the long tail of anomalies stays archived on the static page.
+// a space or invisible character becomes an explicit marker), the most common
+// shapes ranked, and the full taxonomy folded into a details block so the long
+// tail of anomalies stays archived on the static page. The shape strings are
+// baked codepoints-only ({U+XXXX}); the friendly name is applied at render
+// (#610) via the shared pre-marked translation, so a {U+00A0} shape reads as
+// {NBSP} here exactly as it does among the quality examples.
 export function renderCallsignTaxonomyHtml(): string {
   const { stats } = newestStats();
   const total = stats.recordCount;
@@ -349,7 +352,7 @@ export function renderCallsignTaxonomyHtml(): string {
   const maxTop = Math.max(1, ...top.map(([, n]) => n));
 
   const topRows: (string | number)[][] = top.map(([pattern, n]) => [
-    `<span class="mono">${escapeHtml(pattern)}</span>`,
+    `<span class="mono">${callsignDisplay(pattern, 'pre-marked')}</span>`,
     n.toLocaleString('en-GB'),
     sharePct(n, total),
     `<span class="mono" aria-hidden="true">${asciiBar(n, maxTop)}</span>`,
@@ -366,7 +369,7 @@ export function renderCallsignTaxonomyHtml(): string {
   );
 
   const fullRows: (string | number)[][] = patterns.map(([pattern, n]) => [
-    `<span class="mono">${escapeHtml(pattern)}</span>`,
+    `<span class="mono">${callsignDisplay(pattern, 'pre-marked')}</span>`,
     n.toLocaleString('en-GB'),
     sharePct(n, total),
   ]);
@@ -381,7 +384,7 @@ export function renderCallsignTaxonomyHtml(): string {
   );
 
   const caption = `<p class="muted">${distinct.toLocaleString('en-GB')} distinct shapes across ${total.toLocaleString('en-GB')} records; the ${TOP} most common are shown. `
-    + 'In a shape, <code>A</code> is an upper-case letter, <code>a</code> a lower-case letter and <code>N</code> a digit; a space or invisible character is shown as its <code>{U+XXXX}</code> code point, so a tab anomaly and a non-breaking-space anomaly stay distinct rows.</p>';
+    + 'In a shape, <code>A</code> is an upper-case letter, <code>a</code> a lower-case letter and <code>N</code> a digit; a space or invisible character is shown as a named marker where it has a recognised name (<code>{SP}</code>, <code>{NBSP}</code>, <code>{ZWSP}</code>, …) and otherwise as its <code>{U+XXXX}</code> code point, with the exact code point on the marker’s tooltip, so a tab anomaly and a non-breaking-space anomaly stay distinct rows.</p>';
   return caption
     + topTable
     + `<details><summary>Full taxonomy (${distinct.toLocaleString('en-GB')} shapes)</summary>${fullTable}</details>`;
@@ -389,8 +392,9 @@ export function renderCallsignTaxonomyHtml(): string {
 
 // Callsign quality detectors of the latest publication: each heuristic
 // detector's hit count and up to five example values (spaces and invisibles
-// already marked {U+XXXX}). These are DETECTED occurrences of a defect
-// shape, not verified defects, and a zero is itself a result worth showing.
+// marked at derivation time as {U+XXXX}, then translated to their friendly
+// names at render). These are DETECTED occurrences of a defect shape, not
+// verified defects, and a zero is itself a result worth showing.
 export function renderCallsignQualityHtml(): string {
   const { stats } = newestStats();
   const q = stats.callsignQuality;
@@ -407,8 +411,10 @@ export function renderCallsignQualityHtml(): string {
     // Detector examples come from stats.json with their {U+XXXX} markers
     // already applied at derivation time, so the shared field wrapper (#553)
     // is pinned to 'pre-marked': it highlights those markers without
-    // re-marking. Deliberately no lookup link - a defect shape (a spreadsheet
-    // date, an empty value) is not necessarily a resolvable callsign.
+    // re-marking, translating each to its friendly name at the edge (#610)
+    // with the exact code point kept on the tooltip. Deliberately no lookup
+    // link - a defect shape (a spreadsheet date, an empty value) is not
+    // necessarily a resolvable callsign.
     const examples = result.examples.length === 0
       ? '<span class="muted">—</span>'
       : result.examples.map(e => callsignField(e, { oddCharacters: 'pre-marked' })).join(', ');
@@ -422,7 +428,7 @@ export function renderCallsignQualityHtml(): string {
       { label: 'examples', raw: true },
     ],
     rows,
-  ) + '<p class="muted">Heuristic detectors run over the callsign column: the counts are detected occurrences of a defect shape, declared but not independently verified against Ofcom, and a zero is a genuine result. Up to five example values are shown per detector, with spaces and invisible characters marked <code>{U+XXXX}</code>.</p>';
+  ) + '<p class="muted">Heuristic detectors run over the callsign column: the counts are detected occurrences of a defect shape, declared but not independently verified against Ofcom, and a zero is a genuine result. Up to five example values are shown per detector, with spaces and invisible characters shown as named markers where recognised (<code>{SP}</code>, <code>{NBSP}</code>, <code>{ZWSP}</code>, …) and otherwise as their <code>{U+XXXX}</code> code point, each marker’s exact code point on its tooltip.</p>';
 }
 
 const PLACEHOLDER_TEXT = 'generated at deploy time — build the site to populate';
