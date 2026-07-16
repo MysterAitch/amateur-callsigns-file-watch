@@ -2,7 +2,16 @@
 
 Date: 2026-07-07
 Status: accepted
-Related: ADR 0002 (write posture), ADR 0008 (offline-first PWA over the same SQLite), ADR 0013 (raw-keyed claim ledger — reuses this vendored `sql.js-httpvfs` range-read path for the in-browser ledger query lane), ADR 0019 (the deploy workflow named below is now the `deploy` job of the unified `cicd.yaml`, with a layered build cache)
+Related: ADR 0002 (write posture), ADR 0008 (offline-first PWA over the same SQLite), ADR 0013 (raw-keyed claim ledger — reuses this vendored `sql.js-httpvfs` range-read path for the in-browser ledger query lane), ADR 0019 (the deploy workflow named below is now the `deploy` job of the unified `cicd.yaml`, with a layered build cache), ADR 0020 (the sharded static-JSON serving projection that now answers the single-callsign intent)
+
+> *(Amended 2026-07-16.)* This ADR records the original proof of concept, in
+> which the published SQLite database was *the* site data source. That framing
+> has since moved on: [ADR 0013](0013-raw-keyed-claim-ledger.md) (see its status
+> section) makes the raw-keyed claim ledger canonical and the databases one
+> derived projection among several, and [ADR 0020](0020-sharded-static-json-serving.md)
+> records the sharded static-JSON projection that now serves the common
+> single-callsign intent with no database on that path. Read the historical
+> content below in that light.
 
 ## Context
 
