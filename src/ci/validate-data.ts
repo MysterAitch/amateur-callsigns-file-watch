@@ -25,8 +25,9 @@ import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS, calculateFileHash, type ArchiveMeta , errorMessage } from '../shared/utils.ts';
 import { physicalLines } from '../sources/ofcom-amateur/normalise.ts';
-import { listArchiveKeys } from '../shared/archive.ts';
+import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
 import { validateFoiLaneAt } from './validate-foi.ts';
+import { validatePublishersAt } from './validate-publishers.ts';
 
 export interface ValidationProblem {
   path: string;
@@ -40,22 +41,30 @@ export interface ValidationReport {
   checkedFoiEntries: number;
 }
 
-const VALID_PROVENANCE = new Set(['live', 'reconstructed-from-git-history', 'reconstructed-from-prior-download']);
+const VALID_PROVENANCE = new Set(['live', 'reconstructed-from-git-history', 'reconstructed-from-prior-download', 'recovered-from-web-archive']);
 
 function entryDir(key: string): string {
   return path.join(CONSTANTS.DIRS.archive, key);
+}
+
+// The verbatim publication file: raw.csv for CSV publications, raw.xlsx for
+// workbook publications (archived exactly as published, per the archive
+// contract - the publisher's format is never converted away).
+export function rawFileNameFor(dir: string): string {
+  return fs.existsSync(path.join(dir, 'raw.xlsx')) && !fs.existsSync(path.join(dir, 'raw.csv')) ? 'raw.xlsx' : 'raw.csv';
 }
 
 export function validateArchiveEntry(key: string): ValidationProblem[] {
   const problems: ValidationProblem[] = [];
   const dir = entryDir(key);
   const metaPath = path.join(dir, 'meta.json');
-  const rawPath = path.join(dir, 'raw.csv');
+  const rawName = rawFileNameFor(dir);
+  const rawPath = path.join(dir, rawName);
 
   if (!fs.existsSync(rawPath)) {
-    problems.push({ path: rawPath, problem: 'raw.csv is missing' });
+    problems.push({ path: rawPath, problem: `${rawName} is missing` });
   } else if (fs.statSync(rawPath).size === 0) {
-    problems.push({ path: rawPath, problem: 'raw.csv is empty' });
+    problems.push({ path: rawPath, problem: `${rawName} is empty` });
   }
 
   if (!fs.existsSync(metaPath)) {
@@ -80,9 +89,42 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
   if (meta.intendedCoverage !== undefined && typeof meta.intendedCoverage?.complete !== 'boolean') {
     problems.push({ path: metaPath, problem: 'intendedCoverage.complete must be a boolean when intendedCoverage is declared' });
   }
-  if (typeof meta.files !== 'object' || meta.files === null || !meta.files['raw.csv']) {
-    problems.push({ path: metaPath, problem: 'files map is missing a raw.csv declaration' });
+  if (typeof meta.files !== 'object' || meta.files === null || !meta.files[rawName]) {
+    problems.push({ path: metaPath, problem: `files map is missing a ${rawName} declaration` });
     return problems;
+  }
+
+  // Witnesses (recovered/reconstructed copies): each needs the channel it came
+  // through, the retrieval/replay URL, and when it was fetched - the same
+  // shape the FOI lane records per file.
+  for (const [i, witness] of (meta.witnesses ?? []).entries()) {
+    const at = `witnesses[${i}]`;
+    if (typeof witness.channel !== 'string' || witness.channel.trim() === '') {
+      problems.push({ path: metaPath, problem: `${at}.channel is missing or empty` });
+    }
+    if (typeof witness.url !== 'string' || witness.url.trim() === '') {
+      problems.push({ path: metaPath, problem: `${at}.url is missing or empty` });
+    }
+    if (!witness.fetchedAt || Number.isNaN(Date.parse(witness.fetchedAt))) {
+      problems.push({ path: metaPath, problem: `${at}.fetchedAt is missing or not a date: ${witness.fetchedAt}` });
+    }
+  }
+  // A web-archive recovery must say where it was recovered from.
+  if (meta.provenance === 'recovered-from-web-archive' && (meta.witnesses ?? []).length === 0) {
+    problems.push({ path: metaPath, problem: 'provenance recovered-from-web-archive requires at least one witness (capture channel + replay URL + fetchedAt)' });
+  }
+
+  // Extract declarations: an extract must name a declared raw sibling as its
+  // source, and at most one extract may exist (it is THE parse source).
+  const extractNames = Object.entries(meta.files).filter(([, f]) => f.role === 'extract').map(([n]) => n);
+  if (extractNames.length > 1) {
+    problems.push({ path: metaPath, problem: `multiple files declare role extract (${extractNames.join(', ')}) - exactly one parse source is allowed` });
+  }
+  for (const name of extractNames) {
+    const declared = meta.files[name];
+    if (typeof declared.extractOf !== 'string' || !meta.files[declared.extractOf]) {
+      problems.push({ path: metaPath, problem: `files["${name}"].extractOf must name a declared sibling file, got ${String(declared.extractOf)}` });
+    }
   }
 
   // Byte integrity: every declared file exists and matches its recorded
@@ -150,7 +192,12 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
 function validateIgnoredLines(dir: string, meta: ArchiveMeta): ValidationProblem[] {
   const problems: ValidationProblem[] = [];
   const metaPath = path.join(dir, 'meta.json');
-  const rawPath = path.join(dir, 'raw.csv');
+  // Line accounting runs against the PARSE SOURCE - the declared extract when
+  // one exists, else raw.csv - because that is the text the normaliser reads
+  // and whose every physical line the invariant accounts for. The verbatim
+  // raw file's integrity is separately pinned by its sha256 declaration.
+  const parseSource = parseSourceFileName(meta);
+  const rawPath = path.join(dir, parseSource);
   const normalisedDecl = meta.files['normalised.csv'];
   const ignored = meta.ignoredLines ?? [];
   if (normalisedDecl === undefined && ignored.length === 0) return problems;
@@ -159,13 +206,13 @@ function validateIgnoredLines(dir: string, meta: ArchiveMeta): ValidationProblem
   const lines = physicalLines(fs.readFileSync(rawPath, 'utf8'));
   for (const header of meta.headerLines ?? []) {
     if (lines[header.line - 1] !== header.content) {
-      problems.push({ path: metaPath, problem: `headerLines: line ${header.line} content mismatch - meta declares ${JSON.stringify(header.content)}, raw.csv has ${JSON.stringify(lines[header.line - 1])}` });
+      problems.push({ path: metaPath, problem: `headerLines: line ${header.line} content mismatch - meta declares ${JSON.stringify(header.content)}, ${parseSource} has ${JSON.stringify(lines[header.line - 1])}` });
     }
   }
   const seen = new Set<number>();
   for (const entry of ignored) {
     if (!Number.isInteger(entry.line) || entry.line < 2 || entry.line > lines.length) {
-      problems.push({ path: metaPath, problem: `ignoredLines: line ${entry.line} is out of range for raw.csv (${lines.length} lines)` });
+      problems.push({ path: metaPath, problem: `ignoredLines: line ${entry.line} is out of range for ${parseSource} (${lines.length} lines)` });
       continue;
     }
     if (seen.has(entry.line)) {
@@ -174,7 +221,7 @@ function validateIgnoredLines(dir: string, meta: ArchiveMeta): ValidationProblem
     }
     seen.add(entry.line);
     if (lines[entry.line - 1] !== entry.content) {
-      problems.push({ path: metaPath, problem: `ignoredLines: line ${entry.line} content mismatch - meta declares ${JSON.stringify(entry.content)}, raw.csv has ${JSON.stringify(lines[entry.line - 1])}` });
+      problems.push({ path: metaPath, problem: `ignoredLines: line ${entry.line} content mismatch - meta declares ${JSON.stringify(entry.content)}, ${parseSource} has ${JSON.stringify(lines[entry.line - 1])}` });
       continue;
     }
     // Validity is syntactic-vs-semantic (ratified 2026-07-08): blank lines
@@ -193,7 +240,7 @@ function validateIgnoredLines(dir: string, meta: ArchiveMeta): ValidationProblem
     const headerCount = meta.headerLines?.length ?? 1;
     const expected = headerCount + normalisedDecl.recordCount + ignored.length;
     if (lines.length !== expected) {
-      problems.push({ path: rawPath, problem: `raw line accounting failed: ${lines.length} physical lines but ${headerCount} header + ${normalisedDecl.recordCount} normalised rows + ${ignored.length} ignored = ${expected} - rows are being lost or invented somewhere` });
+      problems.push({ path: rawPath, problem: `${parseSource} line accounting failed: ${lines.length} physical lines but ${headerCount} header + ${normalisedDecl.recordCount} normalised rows + ${ignored.length} ignored = ${expected} - rows are being lost or invented somewhere` });
     }
   }
   return problems;
@@ -201,41 +248,51 @@ function validateIgnoredLines(dir: string, meta: ArchiveMeta): ValidationProblem
 
 export function deepValidateEntryCsv(key: string): ValidationProblem[] {
   const problems: ValidationProblem[] = [];
-  const rawPath = path.join(entryDir(key), 'raw.csv');
-  if (!fs.existsSync(rawPath)) return [{ path: rawPath, problem: 'raw.csv is missing' }];
+  const metaPath = path.join(entryDir(key), 'meta.json');
+  // Deep-parse the PARSE SOURCE (the declared extract when one exists, else
+  // raw.csv) - the text the normaliser actually reads. A raw.xlsx publication
+  // is byte-pinned by its sha256; its parseability is proven via the extract.
+  let parseSource = 'raw.csv';
+  let meta: ArchiveMeta | undefined;
+  try {
+    meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ArchiveMeta;
+    parseSource = parseSourceFileName(meta);
+  } catch {
+    // Structural validation reports unreadable meta; parse raw.csv below.
+  }
+  const rawPath = path.join(entryDir(key), parseSource);
+  if (!fs.existsSync(rawPath)) return [{ path: rawPath, problem: `${parseSource} is missing` }];
 
   let records: unknown[];
   try {
     records = parse(fs.readFileSync(rawPath, 'utf8'), { columns: true, skip_empty_lines: true });
   } catch (err) {
-    problems.push({ path: rawPath, problem: `raw.csv failed to parse as CSV: ${errorMessage(err)}` });
+    problems.push({ path: rawPath, problem: `${parseSource} failed to parse as CSV: ${errorMessage(err)}` });
     return problems;
   }
   if (records.length === 0) {
-    problems.push({ path: rawPath, problem: 'raw.csv parsed to zero records' });
+    problems.push({ path: rawPath, problem: `${parseSource} parsed to zero records` });
   }
 
-  const metaPath = path.join(entryDir(key), 'meta.json');
-  try {
-    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ArchiveMeta;
-    const declared = meta.files?.['raw.csv']?.recordCount;
-    if (declared !== undefined && declared !== records.length) {
-      problems.push({ path: rawPath, problem: `recordCount mismatch: meta declares ${declared}, CSV parses to ${records.length}` });
-    }
-  } catch {
-    // Structural validation reports unreadable meta; no duplicate here.
+  const declared = meta?.files?.[parseSource]?.recordCount;
+  if (declared !== undefined && declared !== records.length) {
+    problems.push({ path: rawPath, problem: `recordCount mismatch: meta declares ${declared}, CSV parses to ${records.length}` });
   }
 
   // Callsign uniqueness: NOTED on raw (the stats detectors record publisher
   // duplicates as a data-quality fact) but ENFORCED on normalised - the
   // normalised dataset is this repository's contract and downstream joins
-  // (components.csv and beyond) key on callsign. The converter is the
-  // decision point for resolving publisher duplicates; this check turns an
-  // unresolved duplicate into an invalid PR rather than a silently broken
-  // join. Empty callsigns are exempt: multiple empties exist in real
-  // publications (2023-02-20 carries two), their handling policy is
-  // deliberately undecided, and they are surfaced by the emptyCallsign
-  // detector - join consumers must exclude them.
+  // (components.csv and beyond) key on callsign. This check turns an
+  // unattested duplicate into an invalid PR rather than a silently broken
+  // join. Publications that GENUINELY carry duplicate callsign rows (the
+  // recovered 2025-11-11 / 2026-01-14 register vintages each repeat a couple
+  // of hundred callsigns) are preserved faithfully, never repaired - but only
+  // behind an explicit, curated qualityObservation attesting the duplicates
+  // (statement mentioning duplicate callsigns + evidence), so the fact is
+  // loud, reviewed and machine-visible to join consumers. Empty callsigns are
+  // exempt: multiple empties exist in real publications (2023-02-20 carries
+  // two), their handling policy is deliberately undecided, and they are
+  // surfaced by the emptyCallsign detector - join consumers must exclude them.
   const normalisedPath = path.join(entryDir(key), 'normalised.csv');
   if (fs.existsSync(normalisedPath)) {
     try {
@@ -249,11 +306,14 @@ export function deepValidateEntryCsv(key: string): ValidationProblem[] {
         else seen.add(callsign);
       }
       if (duplicated.size > 0) {
-        const sample = [...duplicated].sort().slice(0, 5).join(', ');
-        problems.push({
-          path: normalisedPath,
-          problem: `duplicate callsign values in normalised.csv (downstream joins key on callsign): ${duplicated.size} duplicated value(s), e.g. ${sample}`,
-        });
+        const attested = (meta?.qualityObservations ?? []).some(o => /duplicate callsign/i.test(o.statement));
+        if (!attested) {
+          const sample = [...duplicated].sort().slice(0, 5).join(', ');
+          problems.push({
+            path: normalisedPath,
+            problem: `duplicate callsign values in normalised.csv (downstream joins key on callsign): ${duplicated.size} duplicated value(s), e.g. ${sample} - preserve them faithfully by attesting the fact in a qualityObservation (statement mentioning duplicate callsigns), or resolve them in the converter`,
+          });
+        }
       }
     } catch (err) {
       problems.push({ path: normalisedPath, problem: `normalised.csv failed to parse as CSV: ${errorMessage(err)}` });
@@ -341,6 +401,9 @@ export function validateRepoData(deepKeys: string[]): ValidationReport {
   // hash verification of every declared file, every run.
   const foi = validateFoiLaneAt();
   problems.push(...foi.problems);
+  // The publisher register (#618): its own shape and vocabularies, plus that
+  // every witness channel across both lanes resolves through it.
+  problems.push(...validatePublishersAt());
   return { ok: problems.length === 0, problems, checkedEntries: keys.length, checkedFoiEntries: foi.checkedEntries };
 }
 

@@ -1,3 +1,4 @@
+// @ts-check
 // In-browser SQL console over the published databases (exploration quick
 // win b in the information-architecture draft). Frameworkless like
 // app.js; sql.js-httpvfs runs
@@ -18,18 +19,28 @@
 
 import { withDatabaseLoading } from './db-loading.js';
 
+// The row shape read back off the httpvfs worker's query() is not typed by the
+// vendored library (no shipped types); every SELECT here states its own column
+// use inline, so the row itself stays `any` at this one driver boundary,
+// exactly as ledger-query.js's QueryExecutor does for the ledger database.
+// window.createDbWorker's own signature is declared once in global.d.ts, shared
+// with app.js/compare.js/entry-browser.js.
+/** @typedef {{ db: { query: (sql: string, params?: unknown[]) => Promise<any[]> } }} DbWorker */
+
 const { createDbWorker } = window;
 
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
 const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
 
+/** @type {Record<string, string>} */
 const DB_FILES = {
-  latest: './data/callsigns.sqlite.png',
-  combined: './data/combined.sqlite.png',
+  latest: './data/ledger-lookup.sqlite.png',
+  combined: './data/ledger-history.sqlite.png',
 };
 
 // Human labels for the loading affordance (issue #499): the status names the
 // database being opened so a slow first-use load reads honestly.
+/** @type {Record<string, string>} */
 const DB_LABELS = {
   latest: 'lookup database',
   combined: 'combined database',
@@ -57,7 +68,9 @@ function getVersion() {
 }
 
 // Same .png / ?v= hosting workarounds as app.js (see the comments there).
+/** @type {Record<string, Promise<DbWorker>>} */
 const workers = {};
+/** @param {string} name */
 async function openDb(name) {
   workers[name] ??= (async () => {
     const version = await getVersion();
@@ -71,6 +84,11 @@ async function openDb(name) {
   return workers[name];
 }
 
+/**
+ * @param {string} tag
+ * @param {Record<string, string>} [attrs]
+ * @param {(Node | string)[]} [children]
+ */
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -88,6 +106,7 @@ const ROW_CAP = 500;
 // result set - an unbounded scan over range requests cannot be cancelled,
 // only avoided. Exported so the deep-link exemplar test can assert every
 // hand-authored explore.html?sql= link passes the very guard the console runs.
+/** @param {string} raw */
 export function prepareSql(raw) {
   const sql = raw.trim().replace(/;+\s*$/, '');
   if (!/^\s*(select|with)\b/i.test(sql)) {
@@ -100,9 +119,11 @@ async function run() {
   const status = document.getElementById('sql-status');
   const result = document.getElementById('sql-result');
   const alert = document.getElementById('sql-alert');
-  const runBtn = document.querySelector('#sql-form button[type="submit"]');
-  const dbName = document.getElementById('db-select').value;
-  const raw = document.getElementById('sql-input').value;
+  const runBtn = /** @type {HTMLButtonElement | null} */ (document.querySelector('#sql-form button[type="submit"]'));
+  const dbSelect = /** @type {HTMLSelectElement | null} */ (document.getElementById('db-select'));
+  const sqlInput = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('sql-input'));
+  const dbName = dbSelect ? dbSelect.value : 'latest';
+  const raw = sqlInput ? sqlInput.value : '';
   if (raw.trim() === '') return;
   if (alert) alert.hidden = true;
 
@@ -110,11 +131,14 @@ async function run() {
   try {
     sql = prepareSql(raw);
   } catch (err) {
-    status.textContent = String(err.message ?? err);
+    // Caught value is `unknown`; read `.message` through the same narrowed view
+    // db-loading.js uses at the same kind of boundary.
+    const message = /** @type {{ message?: string }} */ ((typeof err === 'object' && err !== null) ? err : {}).message;
+    if (status) status.textContent = message ?? String(err);
     return;
   }
 
-  result.hidden = true;
+  if (result) result.hidden = true;
   const started = performance.now();
   try {
     // The shared affordance (#499) disables Run, shows an escalating loading
@@ -122,11 +146,12 @@ async function run() {
     // ~20s), flips to the running state once the query starts, and raises the
     // assertive #sql-alert on failure (distinguishing a load from a query error).
     // The success row-count and table stay this surface's concern.
+    /** @type {any[]} */
     const rows = await withDatabaseLoading({
-      button: runBtn,
-      statusEl: status,
-      alertEl: alert,
-      resultEl: result,
+      button: runBtn ?? undefined,
+      statusEl: status ?? undefined,
+      alertEl: alert ?? undefined,
+      resultEl: result ?? undefined,
       label: DB_LABELS[dbName] ?? `${dbName} database`,
     }, async (markRunning) => {
       const worker = await openDb(dbName);
@@ -136,20 +161,22 @@ async function run() {
     const elapsed = ((performance.now() - started) / 1000).toFixed(1);
     const truncated = rows.length > ROW_CAP;
     const shown = truncated ? rows.slice(0, ROW_CAP) : rows;
-    status.textContent = `${shown.length}${truncated ? `+ (capped at ${ROW_CAP})` : ''} row${shown.length === 1 ? '' : 's'} in ${elapsed}s`;
-    if (shown.length === 0) {
-      result.replaceChildren(el('p', { class: 'muted', text: 'No rows.' }));
-    } else {
-      const headers = Object.keys(shown[0]);
-      const table = el('table');
-      table.append(el('thead', {}, [el('tr', {}, headers.map(h => el('th', { text: h })))]));
-      table.append(el('tbody', {}, shown.map(r => el('tr', {}, headers.map(h =>
-        el('td', { text: r[h] === null ? 'NULL' : String(r[h]), class: r[h] === null ? 'muted' : '' }))))));
-      const wrap = el('div', { class: 'overflow' });
-      wrap.append(table);
-      result.replaceChildren(wrap);
+    if (status) status.textContent = `${shown.length}${truncated ? `+ (capped at ${ROW_CAP})` : ''} row${shown.length === 1 ? '' : 's'} in ${elapsed}s`;
+    if (result) {
+      if (shown.length === 0) {
+        result.replaceChildren(el('p', { class: 'muted', text: 'No rows.' }));
+      } else {
+        const headers = Object.keys(shown[0]);
+        const table = el('table');
+        table.append(el('thead', {}, [el('tr', {}, headers.map(h => el('th', { text: h })))]));
+        table.append(el('tbody', {}, shown.map(r => el('tr', {}, headers.map(h =>
+          el('td', { text: r[h] === null ? 'NULL' : String(r[h]), class: r[h] === null ? 'muted' : '' }))))));
+        const wrap = el('div', { class: 'overflow' });
+        wrap.append(table);
+        result.replaceChildren(wrap);
+      }
+      result.hidden = false;
     }
-    result.hidden = false;
   } catch {
     // The affordance already raised #sql-alert (load vs query) and reset the
     // button; the result region stays hidden. Nothing more to render here.
@@ -177,16 +204,21 @@ function renderExamples() {
   for (const example of EXAMPLES) {
     const button = el('button', { type: 'button', class: 'example', text: example.title });
     button.addEventListener('click', () => {
-      document.getElementById('db-select').value = example.db;
-      document.getElementById('sql-input').value = example.sql;
+      const dbSelect = /** @type {HTMLSelectElement | null} */ (document.getElementById('db-select'));
+      const sqlInput = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('sql-input'));
+      const sqlStatus = document.getElementById('sql-status');
+      if (dbSelect) dbSelect.value = example.db;
+      if (sqlInput) sqlInput.value = example.sql;
       // Say plainly what happened: the example QUERY is now in the editor (and
       // which database it selected). "loaded" alone collides with the loading
       // affordance's "Loading the … database" - here nothing has been loaded yet,
       // the query is just ready to run.
-      document.getElementById('sql-status').textContent = `Example query ready in the editor — ${DB_LABELS[example.db] ?? example.db} selected. Press Run.`;
+      if (sqlStatus) sqlStatus.textContent = `Example query ready in the editor — ${DB_LABELS[example.db] ?? example.db} selected. Press Run.`;
     });
-    list.append(button, el('span', { class: 'muted', text: ` ${example.db} ` }));
-    list.append(el('br'));
+    if (list) {
+      list.append(button, el('span', { class: 'muted', text: ` ${example.db} ` }));
+      list.append(el('br'));
+    }
   }
 }
 
@@ -196,6 +228,11 @@ function renderExamples() {
 // unknown ?db= is reported (not applied), and an absent/blank ?sql= yields null
 // so a bare page load is untouched. Mirrors the lookup page's ?c=/?series=
 // deep-link parsing (app.js).
+/** @typedef {{ db: string | null, sql: string | null, unknownDb: string | null }} ExploreParams */
+/**
+ * @param {URLSearchParams} params
+ * @returns {ExploreParams}
+ */
 export function parseExploreParams(params) {
   const rawDb = params.get('db');
   // Legacy alias: the combined database was historically named "master", so an
@@ -220,6 +257,10 @@ export function parseExploreParams(params) {
 // query link (a valid or absent db, plus a query): a link naming an unknown
 // database pre-fills and reports but does NOT auto-run, so the reader sees what
 // was ignored before pressing Run. Pure aside from the passed-in elements.
+/**
+ * @param {{ dbSelect?: HTMLSelectElement, input?: HTMLTextAreaElement, statusEl?: HTMLElement }} elements
+ * @param {URLSearchParams} params
+ */
 export function applyExploreParams({ dbSelect, input, statusEl }, params) {
   const { db, sql, unknownDb } = parseExploreParams(params);
   if (db === null && sql === null && unknownDb === null) return false;
@@ -243,7 +284,7 @@ export function applyExploreParams({ dbSelect, input, statusEl }, params) {
 // module for the pure param helpers never trips this, so importing it opens no
 // worker.
 function initExplore() {
-  document.getElementById('sql-form').addEventListener('submit', (event) => {
+  document.getElementById('sql-form')?.addEventListener('submit', (event) => {
     event.preventDefault();
     void run();
   });
@@ -252,9 +293,9 @@ function initExplore() {
   // A shareable deep link pre-fills the controls, announces via the status
   // region and auto-runs a well-formed query so the link opens a pre-run view.
   const shouldRun = applyExploreParams({
-    dbSelect: document.getElementById('db-select'),
-    input: document.getElementById('sql-input'),
-    statusEl: document.getElementById('sql-status'),
+    dbSelect: /** @type {HTMLSelectElement | null} */ (document.getElementById('db-select')) ?? undefined,
+    input: /** @type {HTMLTextAreaElement | null} */ (document.getElementById('sql-input')) ?? undefined,
+    statusEl: document.getElementById('sql-status') ?? undefined,
   }, new URLSearchParams(window.location.search));
   if (shouldRun) void run();
 

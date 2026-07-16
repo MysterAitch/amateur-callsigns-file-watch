@@ -1,4 +1,5 @@
 [
+  "src/ci/build-callsign-shards.corpus.test.ts",
   "src/ci/reconstruction-oracle.test.ts",
   "src/ci/value-catalogue-fold.test.ts",
   "src/ci/quality-report-fold.test.ts",
@@ -11,5 +12,6 @@
   "src/ci/forbidden-suffix-callsigns.test.ts",
   "src/shared/foi-normalise.test.ts",
   "src/v2/build-ledger-db-compact.test.ts",
-  "src/v2/build-ledger-db.test.ts"
+  "src/v2/build-ledger-db.test.ts",
+  "src/v2/projection-invariants.test.ts"
 ]

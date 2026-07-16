@@ -49,6 +49,23 @@ describe('Home-page aggregate pre-rendering', { tags: ['unit'] }, () => {
     expect(html).toContain('<abbr title="observed in the register but absent from reference data">⚠</abbr>');
   });
 
+  it('RslMatrix_RslBearingRecords_RenderAsSharedLookupPillsWithOddCharactersMarked', () => {
+    // The RSL-bearing enumeration presents each callsign via the shared field
+    // wrapper (#553): a register-lookup pill (statistics.html sits at the site
+    // root) rather than the old ad-hoc exploded plain text.
+    const html = renderRslMatrixHtml();
+    expect(html).toMatch(/<a class="cs callsign-pill" href="index\.html\?c=[^"]+">/);
+  });
+
+  it('RslMatrix_ExcludedValueEnumerations_WearTheSharedWrapperAsNonLinkChips', () => {
+    // A set-aside value is data to inspect, not a navigation target: the
+    // wrapper renders it as a marked, non-link chip.
+    const html = renderRslMatrixHtml();
+    const excluded = html.slice(html.indexOf('<details><summary>Excluded:'));
+    expect(excluded).toContain('<code class="cs">');
+    expect(excluded).not.toMatch(/Excluded:[^]*?<a class="cs callsign-pill"/);
+  });
+
   it('LatestProfile_RealArchive_CarriesHeadlineFiguresAndParseStatusDistribution', () => {
     const html = renderLatestProfileHtml();
     // The newest publication is named and linked to its entry page, with a
@@ -99,13 +116,26 @@ describe('Home-page aggregate pre-rendering', { tags: ['unit'] }, () => {
     expect(html).toContain('<details><summary>Full taxonomy');
     // A rare anomaly shape lives in the full list but not the top table.
     expect(html).toContain('AAAAAAAAAAA');
+    // A shape carrying an invisible character shows the friendly marker at the
+    // edge (#610), the exact code point kept on the tooltip - the same {NBSP}
+    // the quality examples and the raw-marked RSL trio show, so the vocabulary
+    // is one everywhere.
+    expect(html).toContain('<span class="mono">ANAAA<span class="marker" title="non-breaking space (U+00A0)">{NBSP}</span></span>');
   });
 
   it('CallsignQuality_RealArchive_ShowsDetectorHitsAndExamplesDeclaredNotVerified', () => {
     const html = renderCallsignQualityHtml();
     // Each detector is a scoped row header with a count and example values.
     expect(html).toContain('<th scope="row">Whitespace or invisible character present</th>');
-    expect(html).toContain('G6{U+0020}FMU');
+    // Example values wear the shared callsign field wrapper (#553); the
+    // {U+XXXX} markers stats.json applied at derivation time are highlighted and
+    // translated to their friendly names at the edge (#610), the exact code
+    // point kept on the marker's title.
+    expect(html).toContain('<code class="cs">G6<span class="marker" title="space (U+0020)">{SP}</span>FMU</code>');
+    // A representative NBSP example on the generated statistics page renders
+    // {NBSP} with the code point on its tooltip - the visible consistency #610
+    // delivers (the same {NBSP} the raw-marked RSL trio shows).
+    expect(html).toContain('<code class="cs">2E1HON<span class="marker" title="non-breaking space (U+00A0)">{NBSP}</span></code>');
     // Counts are framed as detected, not verified.
     expect(html).toContain('declared but not independently verified against Ofcom');
     // A zero-hit detector still appears, with its examples humanised to an em dash.

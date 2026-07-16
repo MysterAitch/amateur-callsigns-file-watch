@@ -9,7 +9,7 @@ This documents **what exists**. Whether each derivation still *verifies* is the
 (daily sweeps); intake that has not reached the archive yet is tracked in
 [`source-register.md`](source-register.md).
 
-## Open-data lane (7 entries)
+## Open-data lane (9 entries)
 
 | entry | raw | meta | normalised | components |
 |---|---|---|---|---|
@@ -19,6 +19,8 @@ This documents **what exists**. Whether each derivation still *verifies* is the
 | 2025-05-27 | ✔ | ✔ | ✔ | ✔ |
 | 2025-06-04 | ✔ | ✔ | ✔ | ✔ |
 | 2025-06-08 | ✔ | ✔ | ✔ | ✔ |
+| 2025-11-11 | ✔ | ✔ | ✔ | ✔ |
+| 2026-01-14 | — | ✔ | ✔ | ✔ |
 | 2026-06-23 | ✔ | ✔ | ✔ | ✔ |
 
 ## FOI lane (48 entries)

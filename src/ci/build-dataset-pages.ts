@@ -27,6 +27,7 @@ import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
+import { readPublisherRegister, channelIndex, channelDisplayName, type PublisherEntry } from '../shared/publishers.ts';
 import { renderMarkdown, renderInline } from '../shared/render-markdown.ts';
 import { parseFlagRegistry } from './build-sqlite.ts';
 import { displaySeries } from './build-home-aggregates.ts';
@@ -35,6 +36,8 @@ import { buildZip } from '../shared/zip.ts';
 import { buildForbiddenSection } from './build-forbidden-section.ts';
 import { buildClassPages, classChipLink } from './build-class-pages.ts';
 import { buildInterdatasetStats } from './build-interdataset-stats.ts';
+import { buildFidelityPage } from './build-fidelity-page.ts';
+import { fidelityHref, fidelityNudge, flagNudges } from './render/fidelity.ts';
 import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { time, perfReport } from '../shared/perf.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
@@ -54,6 +57,9 @@ import {
   htmlPage,
   entryPage,
   callsignPill,
+  callsignField,
+  statusField,
+  licenceField,
   datasetLabel,
   exploreDeepLink,
   glossaryTerm,
@@ -132,11 +138,16 @@ interface CopiedFile {
   witnessHtml?: string;
 }
 
-const WITNESS_CHANNEL_NAMES: Record<string, string> = {
-  wdtk: 'WhatDoTheyKnow',
-  ukgwa: 'UK Government Web Archive',
-  ofcom: 'ofcom.org.uk',
-};
+// Witness channel display names come from the publisher register (#618): the
+// register is the single vocabulary that turns a channel token into a publisher
+// name, so a token can no longer drift from an ad-hoc rendering map (issue
+// #620). The register is validated in validate:data, so every token a page
+// renders here is one the register knows; the index is read once, lazily.
+let cachedChannelIndex: Map<string, PublisherEntry> | undefined;
+function witnessChannelIndex(): Map<string, PublisherEntry> {
+  cachedChannelIndex ??= channelIndex(readPublisherRegister());
+  return cachedChannelIndex;
+}
 
 // "recovered from <channel>, capture/fetched <date>" as a clickable link.
 // UKGWA URLs embed the capture timestamp - surface that; otherwise the
@@ -144,7 +155,7 @@ const WITNESS_CHANNEL_NAMES: Record<string, string> = {
 function witnessLinks(witnesses: FoiWitness[] | undefined): string {
   if (witnesses === undefined || witnesses.length === 0) return '';
   return witnesses.map(w => {
-    const channelName = WITNESS_CHANNEL_NAMES[w.channel] ?? w.channel;
+    const channelName = channelDisplayName(witnessChannelIndex(), w.channel);
     const capture = /\/ukgwa\/(\d{4})(\d{2})(\d{2})/.exec(w.url);
     const label = capture === null
       ? `${channelName}, fetched ${w.fetchedAt}`
@@ -284,7 +295,7 @@ function reconstructionNotice(provenance: string, reconstructionNotes?: string, 
   const detail: string[] = [];
   if (reconstructionNotes !== undefined) detail.push(`<p>${escapeHtml(reconstructionNotes)}</p>`);
   if (gitCommitSha !== undefined) detail.push(`<p>Recovered from git commit <code>${escapeHtml(gitCommitSha)}</code>.</p>`);
-  detail.push(`<p><small>Full provenance and integrity record in <a href="meta.json">meta.json</a>.</small></p>`);
+  detail.push(`<p><small>Full provenance and integrity record in <a href="meta.json">meta.json</a> · <a href="${fidelityHref(3, 'provenance')}">how the mirror records provenance and custody</a>.</small></p>`);
   return `<details class="notice provenance"><summary><span aria-hidden="true">ⓘ</span> ${caveat}</summary><div class="pdetail">${detail.join('')}</div></details>`;
 }
 
@@ -421,20 +432,36 @@ function referenceData(): ReferenceData {
   return cachedReferenceData;
 }
 
+// The registered flag names (reference-data/flags.md), read at most once per
+// build: the per-record fidelity nudges deep-link a registered flag to its own
+// row on the deep-dive page, and land an unregistered one on the section
+// heading instead (the anchor-honesty rule in render/fidelity.ts).
+let cachedRegisteredFlags: ReadonlySet<string> | undefined;
+function registeredFlags(): ReadonlySet<string> {
+  cachedRegisteredFlags ??= new Set(parseFlagRegistry().map(r => r.flag));
+  return cachedRegisteredFlags;
+}
+
 // A callsign preview cell: the shared pill (accessible name = the bare
 // callsign, linking to the register lookup at the given depth), with the
 // supplementary title built from the same parser used everywhere. A blank
 // callsign carries no pill - there is nothing to look up - and an unparseable
-// value degrades to the bare callsign with no title.
-function callsignCell(callsign: string, licenceClass: string, depthToRoot: number): string {
+// value degrades to the bare callsign with no title. When the record carries
+// data-quality flags they follow the pill as inline fidelity nudges (issue
+// #438) — each linking to that flag's row on the deep-dive page — and a
+// record with no flags renders the pill alone, so the affordance never
+// manufactures doubt where no observation exists.
+function callsignCell(callsign: string, licenceClass: string, depthToRoot: number, flags: readonly string[] = []): string {
   if (callsign === '') return '<td></td>';
   const comp = parseCallsign(callsign, licenceClass, referenceData());
-  return `<td>${callsignPill(callsign, depthToRoot, {
+  const pill = callsignPill(callsign, depthToRoot, {
     prefixSeries: comp.prefixSeries,
     rsl: comp.rsl,
     suffix: comp.suffix,
     licenceClass: comp.impliedClass,
-  })}</td>`;
+  });
+  const nudges = flagNudges(flags, depthToRoot, registeredFlags());
+  return `<td>${pill}${nudges === '' ? '' : ` ${nudges}`}</td>`;
 }
 
 // Static, crawlable preview of a normalised CSV's first rows. When
@@ -442,8 +469,12 @@ function callsignCell(callsign: string, licenceClass: string, depthToRoot: numbe
 // callsign pill (issue #310) so the register/observation tables present a
 // callsign the same way as the rest of the site; omit it (the default) and the
 // table is byte-for-byte the plain-text form, so previews with no callsign
-// column - and callers that do not opt in - are unchanged.
-function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSize = 12): string {
+// column - and callers that do not opt in - are unchanged. `flagsByCallsign`
+// (issue #438) joins each previewed record to its data-quality flags
+// (components.csv), rendered as inline fidelity nudges beside the pill; omit
+// it for sources with no per-record flag join (e.g. FOI extracts), whose
+// previews are then unchanged.
+function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSize = 12, flagsByCallsign?: ReadonlyMap<string, string>): string {
   if (!fs.existsSync(filePath)) return '';
   const fd = fs.openSync(filePath, 'r');
   const buffer = Buffer.alloc(128 * 1024);
@@ -454,10 +485,21 @@ function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSiz
   const rows = parse(lines.join('\n'), { columns: true, bom: true }) as Record<string, string>[];
   const headers = Object.keys(rows[0]).filter(h => rows.some(r => (r[h] ?? '') !== ''));
   const head = headers.map(h => `<th scope="col">${escapeHtml(h)}</th>`).join('');
-  const body = rows.map(r => `<tr>${headers.map(h =>
-    pillCallsignDepth !== undefined && h === 'callsign'
-      ? callsignCell(r[h] ?? '', r['licence_class'] ?? '', pillCallsignDepth)
-      : `<td>${escapeHtml(r[h] ?? '')}</td>`).join('')}</tr>`).join('');
+  const flagsFor = (callsign: string): string[] => {
+    const joined = flagsByCallsign?.get(callsign) ?? '';
+    return joined === '' ? [] : joined.split(';');
+  };
+  // A 'status' or licence-class/product column (#553) routes through the
+  // shared field wrappers so a previewed raw row reads consistently with the
+  // rest of the site. Status is pinned to 'plain' (drift-guard): this preview
+  // repeats the same handful of values across up to `sampleSize` rows, where
+  // the glossary affordance on every one would be noise, not help.
+  const body = rows.map(r => `<tr>${headers.map(h => {
+    if (pillCallsignDepth !== undefined && h === 'callsign') return callsignCell(r[h] ?? '', r['licence_class'] ?? '', pillCallsignDepth, flagsFor(r[h] ?? ''));
+    if (h === 'status') return `<td>${statusField(r[h] ?? '', { glossaryLinking: 'plain' })}</td>`;
+    if (h === 'product' || h === 'licence_class') return `<td>${licenceField(r[h] ?? '')}</td>`;
+    return `<td>${escapeHtml(r[h] ?? '')}</td>`;
+  }).join('')}</tr>`).join('');
   return `<div style="overflow-x:auto"><table>${tableCaption(`Preview — first ${rows.length} rows of this file`)}<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
@@ -519,7 +561,11 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
     const pct = bd.recordCount > 0 ? Math.round((n / bd.recordCount) * 100) : 0;
     return `<span class="pct">${pct === 0 && n > 0 ? '<1%' : `${pct}%`}</span><b>${n.toLocaleString('en-GB')}</b><span class="barbg" style="width:${Math.min(pct, 100)}%"></span>`;
   };
-  const shortProduct = (p: string): string => p === '' ? '(blank)' : p.replace(/^Amateur /, '').replace(/ Radio Licence$/, '');
+  // The shared licence field wrapper (#553), pinned to the shortened form
+  // (drift-guard): this row is tight on width and would otherwise repeat the
+  // source's own boilerplate ('Amateur … Radio Licence') on every line; the
+  // full declared string still rides in the title, never dropped.
+  const shortProduct = (p: string): string => licenceField(p, { form: 'shortened' });
   // The prefix label FILTERS on click (the row is the facet trigger); the
   // small ↗ is the only link, to the series page (the row handler ignores
   // clicks on <a>). Previously the whole label navigated, surprising anyone
@@ -533,14 +579,18 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
     const seriesNav = seriesSlug(p) === '' ? '' : ` <a class="seriesnav" href="../../../series/${seriesSlug(p)}.html" aria-label="${escapeHtml(displaySeries(p))} series page">↗</a>`;
     return `<div class="brow"${facetAttr('prefix_series', p)}><span class="lab">${escapeHtml(displaySeries(p))}${tag}${seriesNav}</span>${bar(n)}</div>`;
   }).join('');
-  const declaredRows = bd.declared.map(([p, n]) => `<div class="brow"${facetAttr('product', p)}><span class="lab">${escapeHtml(shortProduct(p))}</span>${bar(n)}</div>`).join('');
+  const declaredRows = bd.declared.map(([p, n]) => `<div class="brow"${facetAttr('product', p)}><span class="lab">${shortProduct(p)}</span>${bar(n)}</div>`).join('');
   const intlExpr = "CASE WHEN callsign LIKE '%/%' THEN 'yes' ELSE 'no' END";
   return [
     '<section>',
     '<h2>At a glance</h2>',
     `<div class="headline">${bd.recordCount.toLocaleString('en-GB')} <small>register rows · ${allocatedCount.toLocaleString('en-GB')} allocated</small></div>`,
-    bd.status.length > 0 ? `<div class="bd"><h3>${glossaryTerm('status-values', 3, { label: 'Status' })}</h3>${breakdownRows(bd.status, bd.recordCount, undefined, label => facetAttr('status', label))}</div>` : '',
-    bd.impliedClass.length > 0 ? `<div class="bd"><h3>${glossaryTerm('licence-class', 3, { label: 'Licence level' })} (implied)</h3>${breakdownRows(bd.impliedClass, bd.recordCount, undefined, label => facetAttr('implied_class', label))}</div>` : '',
+    // Both breakdowns route their labels through the shared field wrapper
+    // (#553). Status is pinned to 'plain' (drift-guard): each row is itself a
+    // click-to-filter role="button" target (facetAttr), and a glossary <a>
+    // nested inside one would be a nested-interactive-control anti-pattern.
+    bd.status.length > 0 ? `<div class="bd"><h3>${glossaryTerm('status-values', 3, { label: 'Status' })}</h3>${breakdownRows(bd.status, bd.recordCount, undefined, label => facetAttr('status', label), label => statusField(label, { glossaryLinking: 'plain' }))}</div>` : '',
+    bd.impliedClass.length > 0 ? `<div class="bd"><h3>${glossaryTerm('licence-class', 3, { label: 'Licence level' })} (implied)</h3>${breakdownRows(bd.impliedClass, bd.recordCount, undefined, label => facetAttr('implied_class', label), label => licenceField(label))}</div>` : '',
     bd.declared.length > 0 ? `<div class="bd"><h3>${glossaryTerm('licence-class', 3, { label: 'Licence level' })} (declared)</h3>${declaredRows}</div>` : '',
     bd.prefixes.length > 0 ? `<div class="bd"><h3>${glossaryTerm('prefix-series', 3, { label: 'Prefixes' })} <small class="lvl">— all ${bd.prefixes.length}, with inferred level</small></h3><div class="prefixscroll">${prefixRows}</div><div class="brow"><a href="../../../series/index.html">all series →</a></div></div>` : '',
     bd.international > 0 ? `<div class="bd"><h3>International / visitor</h3><div class="brow" data-filter-expr="${escapeHtml(intlExpr)}" data-filter-val="yes" data-filter-label="international" role="button" tabindex="0"><span class="lab">contain <code>/</code> (e.g. <code>M/</code>) — country lookup planned</span>${bar(bd.international)}</div></div>` : '',
@@ -551,7 +601,7 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
     '<div class="attr">',
     `<div><b>Source</b> · ${meta.sourceUrl !== undefined ? `<a href="${escapeHtml(meta.sourceUrl)}">Ofcom open-data page →</a>` : 'Ofcom open-data page'}</div>`,
     `<div>Published ${escapeHtml(humanDate(publishedIso))}${meta.fetchedAt !== undefined ? ` · fetched ${escapeHtml(humanDate(meta.fetchedAt.slice(0, 10)))}` : ''}</div>`,
-    `<div>${bd.flaggedRows.toLocaleString('en-GB')} rows carry a quality flag</div>`,
+    `<div>${bd.flaggedRows.toLocaleString('en-GB')} rows carry a quality flag · ${fidelityNudge(3, { section: 'flags', label: 'what flags mean', about: 'what data-quality flags mean (observations, not verdicts)' })}</div>`,
     '</div>',
     notable.length > 0 ? `<div class="notable"><h3>Notable</h3><ul>${notable.join('')}</ul></div>` : '',
     '</section>',
@@ -664,7 +714,7 @@ function distributionsSection(sourceDir: string, key: string): string[] {
     dist.length.length > 0 ? svgBarChart('dist-length', 'Callsign length', `Number of callsigns of each length in characters, from ${dist.length[0][0]} to ${dist.length[dist.length.length - 1][0]}.`, 'length (characters)', dist.length, 'CAST(LENGTH(callsign) AS TEXT)') : '',
     dist.suffixLength.length > 0 ? svgBarChart('dist-suffixlen', 'Suffix length', 'Callsigns by suffix length — 2-letter suffixes are heritage (G2 series and older holders), 3-letter the modern allocations.', 'suffix length', dist.suffixLength, 'CAST(LENGTH(suffix) AS TEXT)') : '',
     dist.issueYear.length > 0 && dist.dateColumn !== undefined ? svgBarChart('dist-year', `Issue year (by ${dateLabel})`, `Callsigns by year of ${dateLabel}, from ${dist.issueYear[0][0]} to ${dist.issueYear[dist.issueYear.length - 1][0]}.`, 'year', dist.issueYear, `substr("${dist.dateColumn}", 1, 4)`) : '',
-    dist.recentByClass.length > 0 ? `<h3 style="font-size:.92rem;margin:.3rem 0 .4rem">New in the 12 months to ${escapeHtml(humanDate(key))}, by licence level (${recentTotal.toLocaleString('en-GB')} total)</h3>${breakdownRows(dist.recentByClass, recentTotal)}` : '',
+    dist.recentByClass.length > 0 ? `<h3 style="font-size:.92rem;margin:.3rem 0 .4rem">New in the 12 months to ${escapeHtml(humanDate(key))}, by licence level (${recentTotal.toLocaleString('en-GB')} total)</h3>${breakdownRows(dist.recentByClass, recentTotal, undefined, undefined, label => licenceField(label))}` : '',
     '</section>',
   ].filter(s => s !== '');
 }
@@ -982,6 +1032,9 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
   const descriptions = new Map<string, string>([
     ['raw.csv', "Ofcom's bytes, verbatim"],
+    ['raw.xlsx', "Ofcom's bytes, verbatim (published as a workbook)"],
+    ['raw-extract.csv', 'mechanical parse-source extract of the raw file'],
+    ['raw-extract-sheet-1-sheet1.csv', 'mechanical sheet extract of the raw workbook'],
     ['meta.json', 'provenance + shape + diff summary'],
     ['normalised.csv', 'canonical schema derivation — see the data dictionary'],
     ['components.csv', 'per-callsign component decomposition'],
@@ -1015,11 +1068,26 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   const parseStatuses = Object.entries(stats.parseStatuses).sort().map(([s, n]) => `${n.toLocaleString('en-GB')} ${escapeHtml(s)}`).join(' · ');
   const quality = Object.entries(stats.callsignQuality).filter(([, q]) => q.count > 0).sort();
   const qualityHtml = quality.length === 0 ? '' : `<h3 style="font-size:.9rem;margin-top:.8rem">Value-level checks</h3><ul>${quality.map(([check, q]) => {
-    const shown = q.examples.slice(0, 5).map(e => (e === '' ? '<em>(empty value)</em>' : `<code>${escapeHtml(e)}</code>`));
+    // Stats examples carry their {U+XXXX} markers from derivation time, so the
+    // shared callsign field wrapper (#553) is pinned to 'pre-marked' (highlight,
+    // never re-mark); this surface's established blank wording is likewise
+    // pinned rather than left to the wrapper's movable default.
+    const shown = q.examples.slice(0, 5).map(e => callsignField(e, { oddCharacters: 'pre-marked', blankLabel: '(empty value)' }));
     return `<li>${escapeHtml(check)}: ${q.count.toLocaleString('en-GB')}${shown.length > 0 ? ` — e.g. ${shown.join(', ')}` : ''}</li>`;
   }).join('')}</ul>`;
+  // The raw publication may be a CSV (schema panel over its own bytes) or a
+  // workbook (verbatim binary - the schema panel shows its mechanical extract,
+  // the file the normaliser parses).
+  const rawIsCsv = fs.existsSync(path.join(sourceDir, 'raw.csv'));
+  const extractName = fs.readdirSync(sourceDir).find(n => n.startsWith('raw-extract') && n.endsWith('.csv'));
+  const rawTabs: InspectTab[] = rawIsCsv
+    ? [{ id: 'i-raw', label: 'raw.csv', panel: csvSchemaPanel(path.join(sourceDir, 'raw.csv'), "Ofcom's bytes, verbatim") }]
+    : [{ id: 'i-raw', label: 'raw.xlsx', panel: '<p class="lead">Published as a workbook and archived verbatim — no CSV schema of its own. The mechanical sheet extract below is the parse source.</p>' }];
+  if (extractName !== undefined) {
+    rawTabs.push({ id: 'i-extract', label: extractName, panel: csvSchemaPanel(path.join(sourceDir, extractName), 'Mechanical parse-source extract of the raw publication') });
+  }
   const tabs: InspectTab[] = [
-    { id: 'i-raw', label: 'raw.csv', panel: csvSchemaPanel(path.join(sourceDir, 'raw.csv'), "Ofcom's bytes, verbatim") },
+    ...rawTabs,
     { id: 'i-norm', label: 'normalised.csv', panel: csvSchemaPanel(path.join(sourceDir, 'normalised.csv'), 'Canonical schema — one stable shape across every publication') },
     { id: 'i-comp', label: 'components.csv', panel: csvSchemaPanel(path.join(sourceDir, 'components.csv'), 'Per-callsign decomposition + join keys') },
     { id: 'i-stats', label: 'stats.json', panel: `<p class="lead">Parse statuses: ${parseStatuses}.</p>${anomalyFlagsHtml(stats.callsignFlags)}${qualityHtml}` },
@@ -1027,6 +1095,16 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   ].filter(t => t.panel !== '');
 
   const ignoredNote = setAsideLinesSection(meta.ignoredLines ?? [], 3);
+
+  // The per-record flag join for the browse preview's fidelity nudges (issue
+  // #438): components.csv carries each record's data-quality flags keyed by the
+  // same callsign the normalised preview rows show. Only flagged records enter
+  // the map, so an unflagged preview row costs nothing and renders unchanged.
+  const flagsByCallsign = new Map<string, string>();
+  for (const r of parseArchiveCsv(path.join(sourceDir, 'components.csv'))) {
+    const flags = (r.flags ?? '').trim();
+    if (flags !== '') flagsByCallsign.set(r.callsign ?? '', flags);
+  }
 
   const related: string[] = [];
   if (previousKey !== undefined) related.push(`<p style="margin:.1rem 0;font-size:.9rem"><b>Chronological:</b> ← <a href="../${escapeHtml(previousKey)}/index.html">Publication of ${humanDate(previousKey)}</a>.</p>`);
@@ -1049,7 +1127,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     // record keyed by `dataset`, so `WHERE dataset = <key>` is exactly this
     // publication's normalised register — the very set the sentence names.
     `<p class="lead">The <b>normalised</b> register — the canonical shape, not the raw file (inspect <code>raw.csv</code> below for that). Showing the first rows of ${stats.recordCount.toLocaleString('en-GB')} (${(summaries.find(s => s.key === key)?.allocated ?? 0).toLocaleString('en-GB')} allocated callsigns); download <code>normalised.csv</code> for all, or <a href="${exploreDeepLink('../../../', 'combined', `SELECT * FROM register_history WHERE dataset = '${key.replace(/'/g, "''")}' ORDER BY callsign`)}">query this publication on the Explore console</a> — pre-filtered to its rows.</p>`,
-    `<div class="browser-static">${csvPreviewTable(path.join(sourceDir, 'normalised.csv'), 3)}</div>`,
+    `<div class="browser-static">${csvPreviewTable(path.join(sourceDir, 'normalised.csv'), 3, 12, flagsByCallsign)}</div>`,
     ignoredNote,
     '</section>',
     inspectTabsHtml(tabs),
@@ -1062,7 +1140,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
       dl('meta.json', 'JSON', 'provenance & integrity'),
     ]),
     downloadTier('Source & bundles', [
-      dl('raw.csv', 'CSV', "Ofcom's bytes, verbatim"),
+      rawIsCsv ? dl('raw.csv', 'CSV', "Ofcom's bytes, verbatim") : dl('raw.xlsx', 'XLSX', "Ofcom's bytes, verbatim (workbook)"),
       dbSize !== '' ? downloadSlot(dbName, `../../../data/datasets/${encodeURIComponent(dbName)}`, `SQLite${dbSize}`, 'one database, one table per CSV') : placeholderSlot('SQLite', 'built at deploy'),
       downloadSlot(`${key}.zip`, encodeURIComponent(`${key}.zip`), `ZIP ${formatBytes(zipBytes)}`, 'everything + descriptor + dictionary'),
       downloadSlot('datapackage.json', 'datapackage.json', 'Frictionless', 'machine-readable manifest with schemas'),
@@ -1146,14 +1224,19 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
 
   // linkFor turns each count into a filtered-lookup link ("which N?"):
   // a return of undefined (synthetic values like "(unknown)") stays plain.
-  const countTable = (title: string, counts: Map<string, number>, linkFor?: (value: string) => string | undefined): string[] => {
+  // labelFor, when given, supplies the value cell's inner HTML directly (the
+  // shared status field wrapper, #553) instead of plain escaped text - safe
+  // here because the value sits in its own plain <td>, not a click-to-filter
+  // row (the count cell carries that behaviour via linkFor).
+  const countTable = (title: string, counts: Map<string, number>, linkFor?: (value: string) => string | undefined, labelFor?: (value: string) => string): string[] => {
     if (counts.size === 0) return [];
     const rows = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     return [`<h2>${escapeHtml(title)}</h2>`, '<table>', tableCaption(title), '<thead>', `<tr><th scope="col">value</th><th scope="col" class="n">rows</th></tr>`, '</thead>', '<tbody>',
       ...rows.map(([value, n]) => {
         const count = n.toLocaleString('en-GB');
         const href = linkFor?.(value);
-        return `<tr><td>${escapeHtml(value)}</td><td class="n">${href === undefined ? count : `<a href="${href}">${count}</a>`}</td></tr>`;
+        const shown = labelFor !== undefined ? labelFor(value) : escapeHtml(value);
+        return `<tr><td>${shown}</td><td class="n">${href === undefined ? count : `<a href="${href}">${count}</a>`}</td></tr>`;
       }), '</tbody>', '</table>'];
   };
   const filterLink = (series: string, param: 'status' | 'flags', value: string): string | undefined =>
@@ -1171,7 +1254,7 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
         '<table>',
         tableCaption('Reference facts for this prefix series'),
         '<tbody>',
-        `<tr><th scope="row">${glossaryTerm('licence-class', 1, { label: 'station level' })}</th><td>${escapeHtml(ref.station_level)}</td></tr>`,
+        `<tr><th scope="row">${glossaryTerm('licence-class', 1, { label: 'station level' })}</th><td>${licenceField(ref.station_level)}</td></tr>`,
         `<tr><th scope="row">issuing status</th><td>${escapeHtml(ref.issuing_status)}</td></tr>`,
         `<tr><th scope="row">${glossaryTerm('rsl', 1, { label: 'RSL' })} required</th><td>${escapeHtml(ref.rsl_required)}</td></tr>`,
         ...(ref.notes ? [`<tr><th scope="row">notes</th><td>${escapeHtml(ref.notes)}</td></tr>`] : []),
@@ -1185,7 +1268,10 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
       ? ['<p>No parsed register rows in the latest publication carry this series.</p>']
       : [
         `<p>${acc.total.toLocaleString('en-GB')} parsed register rows in the latest publication (${escapeHtml(newest)}). Counts link to the matching rows in the live lookup.</p>`,
-        ...countTable('Status breakdown', acc.statuses, status => filterLink(series, 'status', status)),
+        // The shared status field wrapper (#553): a bounded list of distinct
+        // status values, sitting in a plain <td>, so the default 'linked'
+        // treatment crosslinks a recognised one to its glossary definition.
+        ...countTable('Status breakdown', acc.statuses, status => filterLink(series, 'status', status), status => statusField(status, { depthToRoot: 1 })),
         ...countTable('Stored RSL letters', acc.rsls),
         ...countTable('Data-quality flags within this series', acc.flags, flag => filterLink(series, 'flags', flag)),
         `<p>Examples, as stored in the register (the RSL letter, where one applies, is stored separately from the row): ${acc.examples.map(e => callsignPill(e.callsign, 1, e.components)).join(', ')} — each opens the live lookup.</p>`,
@@ -1199,7 +1285,7 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
     ];
     fs.writeFileSync(path.join(seriesDir, `${slug}.html`), htmlPage(`Prefix series ${display}`, 1, body, { currentNav: 'Series', sourcePath: 'reference-data/prefix-formats.csv' }));
     urls.push(`${baseUrl}/series/${slug}.html`);
-    indexRows.push(`<tr><th scope="row"><a href="${slug}.html"><code>${escapeHtml(display)}</code></a></th><td>${ref === undefined ? '⚠ unreferenced' : escapeHtml(ref.station_level)}</td><td>${ref === undefined ? '—' : escapeHtml(ref.issuing_status)}</td><td class="n">${(acc?.total ?? 0).toLocaleString('en-GB')}</td></tr>`);
+    indexRows.push(`<tr><th scope="row"><a href="${slug}.html"><code>${escapeHtml(display)}</code></a></th><td>${ref === undefined ? '⚠ unreferenced' : licenceField(ref.station_level)}</td><td>${ref === undefined ? '—' : escapeHtml(ref.issuing_status)}</td><td class="n">${(acc?.total ?? 0).toLocaleString('en-GB')}</td></tr>`);
   }
 
   const indexBody = [
@@ -1305,6 +1391,8 @@ export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: st
       : []),
     '<h2>Register status</h2>',
     ...listOf(STATUS_DOCS, ''),
+    '<h2>Fidelity &amp; integrity</h2>',
+    `<p><a href="../fidelity.html">Fidelity &amp; integrity</a> — what the data-quality flags mean, the provenance chain behind every value, worked "show the working" examples from real records, the reconstruction self-check, and how to re-verify any of it. The small fidelity notes beside records across the site all land here.</p>`,
     '<h2>Data dictionary</h2>',
     '<p>The schemas and vocabularies that make the datasets interpretable — cited in context throughout the site, and collected here.</p>',
     ...listOf(DICTIONARY_DOCS, '../datasets/docs/'),
@@ -1413,9 +1501,9 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     `<li><a href="../data/combined.sqlite.gz">combined.sqlite.gz</a>${sizeOf(path.join(outputDir, 'data', 'combined.sqlite.gz'))} — one SQLite database of everything: the FOI observations union plus every open-data publication’s normalised rows (<code>register_history</code>).</li>`,
     '<li>One SQLite database per archive entry (one table per CSV), offered with its size from each entry’s own page below.</li>',
     '</ul>',
-    '<!-- Reading the source? The site also serves callsigns.sqlite.png and combined.sqlite.png: those ARE plain SQLite databases, byte-identical to the honest-named downloads once gunzipped. The .png extension defeats GitHub Pages\' gzip transcoding of Range responses, which corrupts the lookup\'s HTTP range-request reads (sql.js-httpvfs). Use the .sqlite.gz downloads above; the .png files exist for the in-browser lookup. -->',
+    '<!-- Reading the source? The site also serves ledger-lookup.sqlite.png and ledger-history.sqlite.png: those ARE plain SQLite databases (folded from the claim ledger), served for the in-browser surfaces\' HTTP range-request reads (sql.js-httpvfs). The .png extension defeats GitHub Pages\' gzip transcoding of Range responses, which corrupts partial reads. For a whole-database download use the .sqlite.gz downloads above; the .png files exist for the in-browser surfaces. -->',
     '<details><summary>Why do the site’s own database files end in <code>.png</code>?</summary>',
-    '<p>The in-browser lookup queries its databases over HTTP <em>range requests</em> without downloading them whole. GitHub Pages gzip-transcodes text-like content types — including their range responses, which corrupts partial reads — but never re-compresses image types, so the databases the site queries live (<code>callsigns.sqlite.png</code>, <code>combined.sqlite.png</code>) wear a <code>.png</code> name. They are plain SQLite files, byte-identical to the gzipped downloads above; if you ended up with one, rename it to <code>.sqlite</code> and it will open normally.</p>',
+    '<p>The in-browser surfaces query their databases over HTTP <em>range requests</em> without downloading them whole. GitHub Pages gzip-transcodes text-like content types — including their range responses, which corrupts partial reads — but never re-compresses image types, so the databases the site queries live (<code>ledger-lookup.sqlite.png</code>, <code>ledger-history.sqlite.png</code>) wear a <code>.png</code> name. They are plain SQLite files; if you ended up with one, rename it to <code>.sqlite</code> and it will open normally. For a whole-database download, prefer the gzipped downloads above.</p>',
     '</details>',
     `<h2 id="open-data">Ofcom open data (${openDataKeys.length} publications)</h2>`,
     '<p>Ofcom publish the current amateur radio callsign dataset on their',
@@ -1460,6 +1548,13 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   // It writes under datasets/classes/, so it must run after the dataset
   // entry pages the chips link back to.
   pageUrls.push(...time('dataset-pages:class-pages', () => buildClassPages(outputDir, baseUrl)));
+
+  // The fidelity & integrity deep-dive (issue #438): the one page the inline
+  // fidelity nudges land on — flag meanings, the provenance chain, worked
+  // show-the-working examples from the newest publication, and the
+  // reconstruction status. Built like the sections above; it reads the
+  // committed archive + reference data, so ordering does not matter.
+  pageUrls.push(...time('dataset-pages:fidelity', () => buildFidelityPage(outputDir, baseUrl)));
 
   // The inter-dataset statistics page (issue #177, Surface 2): a discrete,
   // static, crawlable view of statistics ACROSS publications (blank-product

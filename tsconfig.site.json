@@ -11,19 +11,23 @@
   //
   // allowJs (not checkJs): tsc reads the .js modules so the .ts tests are checked
   // against their REAL signatures - which is what catches an arity/shape error in
-  // a test. checkJs (reporting errors INSIDE the .js modules) is deliberately left
-  // off GLOBALLY: turning it on at once surfaces a large pre-existing backlog
-  // across the runtime modules. Instead each module is being brought under
-  // checking one at a time with a per-file `// @ts-check` (which opts THAT file
-  // in even while the global flag is off) plus JSDoc annotations, progressively,
-  // until every module checks clean and the global flag can be flipped (#530,
-  // follow-up to #464).
+  // a test. checkJs (reporting errors INSIDE the .js modules) was brought in
+  // module-by-module (#530, follow-up to #464): each module was annotated with
+  // JSDoc and opted in via a per-file `// @ts-check` until it checked clean,
+  // rather than a single big-bang flip that would have surfaced the ~634
+  // pre-existing errors across the runtime modules at once. Every module now
+  // checks clean, so checkJs is on globally here; the per-file `// @ts-check`
+  // pragmas left on individual modules are redundant but harmless.
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "allowJs": true,
-    "checkJs": false
+    "checkJs": true
   },
+  // site/sw.js is excluded: it runs in the service-worker global scope, not the
+  // DOM this project's `lib` targets, and is checked separately by
+  // tsconfig.site-worker.json (see that file for why it cannot share a program
+  // with this one).
   "include": ["site/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "site/sw.js"]
 }

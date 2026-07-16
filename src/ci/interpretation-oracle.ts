@@ -236,7 +236,11 @@ export function runInterpretationOracle(
   for (const source of sources) {
     if (!hasColumnInterpretations(source)) continue;
     sourcesChecked += 1;
-    violations.push(...checkInterpretationSource(source, ref));
+    // Loop, not spread: a badly-attested column over a ~160k-row source can
+    // yield hundreds of thousands of violations, and spreading that into
+    // push() overflows the call stack - the oracle must REPORT a huge
+    // violation set, never crash on it.
+    for (const violation of checkInterpretationSource(source, ref)) violations.push(violation);
     for (const claim of [...emitDateFormatMixingClaims(source), ...emitNormalisationCollisionClaims(source, ref)]) {
       const index = columnFlagIndexOf(claim.predicate) ?? -1;
       surfacedFlags.push({ sourceFile: source.sourceFile, columnHeader: source.columns[index] ?? '?', rule: claim.rule ?? '', object: claim.object });

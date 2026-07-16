@@ -80,8 +80,18 @@ export function defaultSort() { return [{ col: 'callsign', dir: 'ASC' }]; }
 // itself for a visible stray (a hyphen, dot, star) which stays readable but
 // is shown highlighted. Pure, so it is unit-tested; the DOM assembly and the
 // highlight styling live in each browser.
+// The single source of truth for the friendly marker vocabulary (issue #610):
+// the server render layer (src/ci/render/callsign.ts) imports this table and
+// the translation helper below rather than mirroring them, so a marker reads
+// identically on a generated page and in the interactive browsers by
+// construction. Only invisibles with a widely-recognised abbreviation are
+// named; ZWSP (zero-width space, U+200B) earns one on the same grounds as BOM -
+// a completely invisible character whose {U+200B} form gives the reader no
+// intuition, whereas {ZWSP} names the culprit. Anything else invisible falls
+// back to its {U+XXXX} code point (U+FFFD, the replacement character, is left
+// as its bare code point on purpose - it already reads unambiguously).
 /** @type {Record<number, string>} */
-const CALLSIGN_CHAR_NAMES = { 0x09: 'TAB', 0x0a: 'LF', 0x0d: 'CR', 0x20: 'SP', 0xa0: 'NBSP', 0xfeff: 'BOM', 0xfffd: 'U+FFFD' };
+export const CALLSIGN_CHAR_NAMES = { 0x09: 'TAB', 0x0a: 'LF', 0x0d: 'CR', 0x20: 'SP', 0xa0: 'NBSP', 0x200b: 'ZWSP', 0xfeff: 'BOM', 0xfffd: 'U+FFFD' };
 /** @param {string} ch */
 export function callsignCharMarker(ch) {
   if (/[a-zA-Z0-9#/]/.test(ch)) return null;
@@ -100,6 +110,49 @@ export function callsignCharMarker(ch) {
   // an astral emoji is one unit here.
   if (/[\p{C}\p{Z}\p{M}]/u.test(ch)) return `{U+${cp.toString(16).toUpperCase().padStart(4, '0')}}`;
   return ch;
+}
+
+// Long-form descriptions for the friendly-named invisibles, so a marker
+// translated to its friendly name can still spell out the exact code point in
+// its title ('non-breaking space (U+00A0)'). Keyed by code point; every entry
+// with a real friendly name in CALLSIGN_CHAR_NAMES carries one.
+/** @type {Record<number, string>} */
+const CALLSIGN_CHAR_DESCRIPTIONS = {
+  0x09: 'tab', 0x0a: 'line feed', 0x0d: 'carriage return', 0x20: 'space',
+  0xa0: 'non-breaking space', 0x200b: 'zero-width space', 0xfeff: 'byte-order mark',
+};
+
+// A pre-marked {U+XXXX} code-point token, capturing the hex. Anchored, so only
+// a whole token translates - a literal brace or a fragment of surrounding text
+// never does.
+const CODEPOINT_MARKER_TOKEN_RE = /^\{U\+([0-9A-Fa-f]{4,6})\}$/;
+
+/** @param {number} cp */
+function codepointLabel(cp) { return `U+${cp.toString(16).toUpperCase().padStart(4, '0')}`; }
+
+// Translate ONE pre-marked marker token to its friendly presentation - the
+// render-time half of issue #610. Derivation stores the unambiguous {U+XXXX}
+// code point (as UTC is stored and the timezone applied at the edge); the
+// friendly name is applied as close to the reader as reasonably possible. A
+// {U+XXXX} token whose code point has a friendly name becomes {NAME} with a
+// title that STILL spells the exact code point ('non-breaking space (U+00A0)');
+// every other token - a {U+XXXX} with no friendly name, an already-friendly
+// {SP}/{NBSP}, a malformed {U+} fragment, or a non-token string - is returned
+// unchanged with no title. Pure, so the generated pages and the browsers
+// translate identically.
+/** @param {string} token @returns {{ text: string, title: string | null }} */
+export function translateMarkerToken(token) {
+  const match = CODEPOINT_MARKER_TOKEN_RE.exec(token);
+  if (match === null) return { text: token, title: null };
+  const cp = parseInt(match[1], 16);
+  const named = CALLSIGN_CHAR_NAMES[cp];
+  // No friendly name, or a "name" that is itself the bare U+ label (U+FFFD):
+  // the code point already reads unambiguously, so leave it exactly as
+  // derivation wrote it.
+  if (named === undefined || named.startsWith('U+')) return { text: token, title: null };
+  const description = CALLSIGN_CHAR_DESCRIPTIONS[cp];
+  const gloss = description === undefined ? codepointLabel(cp) : `${description} (${codepointLabel(cp)})`;
+  return { text: `{${named}}`, title: gloss };
 }
 
 // A SQL string literal, single quotes doubled. Values come from the data or

@@ -175,7 +175,7 @@ describe('claim-ledger query layer (live, against a built SQLite)', { tags: ['ui
     expect(twin?.bytes.endsWith('20')).toBe(true);
     expect(bytesHex('G0TQK ')).toBe(twin?.bytes);
     // It carries the cleaned-callsign edge back to the clean form.
-    expect(twin?.edges.some((e: { rule: string; object: string }) => e.rule === CLEANED_CALLSIGN_RULE && e.object === 'G0TQK')).toBe(true);
+    expect(twin?.edges.some(e => e.rule === CLEANED_CALLSIGN_RULE && e.object === 'G0TQK')).toBe(true);
   });
 
   it('Flags_WhenRawTokensDivergeFromCleaned_SurfaceDerivedNotableObservations', async () => {

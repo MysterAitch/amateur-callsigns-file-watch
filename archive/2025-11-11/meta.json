@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-amateur-callsigns",
+  "provenance": "recovered-from-web-archive",
+  "intendedCoverage": {
+    "complete": true
+  },
+  "fetchedAt": "2026-07-15T11:20:00.000Z",
+  "ofcomReportedUpdateIso": "2025-11-11",
+  "publicationUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsigns-11-nov-2025.csv?v=407704",
+  "witnesses": [
+    {
+      "channel": "wayback",
+      "url": "https://web.archive.org/web/20251202133710id_/https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsigns-11-nov-2025.csv?v=407704",
+      "fetchedAt": "2026-07-15",
+      "note": "Internet Archive Wayback capture 2025-12-02; the id_ (raw) replay served the file verbatim (sha256 matches). Single witness - no UKGWA mirror of this specific dated CSV was found."
+    }
+  ],
+  "reconstructionNotes": "Recovered verbatim from the Internet Archive's capture of Ofcom's open-data amateur callsign list (the dated 'amateur-callsigns-11-nov-2025.csv' publication). The data vintage 2025-11-11 is corroborated by the filename and the maximum Licence_Version.LastModifiedDate in the data agreeing. The raw export appends five empty-named trailing columns which a CSV parse would collapse (duplicate empty header names), so raw-extract.csv - byte-for-byte the raw with only the five empty header names filled in (unknown-1..5) and LF line endings, no data cell changed - is the parse source; the padding columns are empty on all but 29 rows, which carry a stray Excel-mangled month token (20-Oct, 21-Jan ...) in the last column, each a redundant copy of one of the 15 month-suffix Intermediate callsigns already present as their own rows.",
+  "qualityObservations": [
+    {
+      "observedAt": "2026-07-15",
+      "statement": "213 duplicate callsign values: the publication repeats 213 distinct callsigns on more than one row (publisher duplicates, preserved verbatim in normalised.csv - join consumers must expect multiple rows per callsign in this vintage).",
+      "evidence": "Distinct field-1 values appearing on 2+ data rows of the raw export (e.g. 20CAM, 20NAE, 20TWA, 21DQG, G0AAW); no earlier live open-data publication carries duplicates, so this is a property of this recovered vintage, not of the lane.",
+      "coverageAffecting": false
+    }
+  ],
+  "files": {
+    "raw.csv": {
+      "size": 12643451,
+      "sha256": "0bca5a263834284e1bdb32be3fda2da4940d7d23a1b7ee94206351961f9573bf",
+      "format": "csv",
+      "columnCount": 11,
+      "columnNames": [
+        "﻿Callsign",
+        "Product__c",
+        "Status",
+        "Type__c",
+        "Licence_Version.LastModifiedDate",
+        "Licence_Version.Original_start_date__c",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "recordCount": 159895
+    },
+    "raw-extract.csv": {
+      "size": 12483597,
+      "sha256": "382908b7d91c4a1f7d60df361dd2ba765789754e7dfb1d734e8a6b184771976d",
+      "format": "csv",
+      "role": "extract",
+      "extractOf": "raw.csv",
+      "columnCount": 11,
+      "columnNames": [
+        "Callsign",
+        "Product__c",
+        "Status",
+        "Type__c",
+        "Licence_Version.LastModifiedDate",
+        "Licence_Version.Original_start_date__c",
+        "unknown-1",
+        "unknown-2",
+        "unknown-3",
+        "unknown-4",
+        "unknown-5"
+      ],
+      "recordCount": 159895
+    },
+    "normalised.csv": {
+      "size": 12003713,
+      "sha256": "d5ae3b7ee2e440d503596cabaea99aad3167a5c1b5e6859dadd8abca41468f0f",
+      "format": "csv",
+      "columnCount": 8,
+      "columnNames": [
+        "callsign",
+        "product",
+        "status",
+        "type",
+        "created_date",
+        "last_modified_date",
+        "licence_version_last_modified_date",
+        "licence_version_original_start_date"
+      ],
+      "recordCount": 159895,
+      "sortedBy": "callsign"
+    },
+    "stats.json": {
+      "size": 3047,
+      "sha256": "50836435a7726df93409fb38dfdea2eac974a70eada04ed08a2a023e1641cbd6",
+      "format": "json"
+    },
+    "components.csv": {
+      "size": 7041390,
+      "sha256": "7b9a7f3818ac3a0d7dba4509b90cc7eacab40c719c38905741b1fb996ba6e479",
+      "format": "csv",
+      "columnCount": 10,
+      "columnNames": [
+        "callsign",
+        "cleaned",
+        "parse_status",
+        "prefix_series",
+        "rsl",
+        "suffix",
+        "placeholder_form",
+        "home_callsign",
+        "implied_class",
+        "flags"
+      ],
+      "recordCount": 159895,
+      "sortedBy": "callsign"
+    }
+  },
+  "normalised": {
+    "schemaVersion": 1,
+    "headerVariant": "v2026-licence-version-padded",
+    "statsSchemaVersion": 6,
+    "componentsSchemaVersion": 5
+  },
+  "headerLines": [
+    {
+      "line": 1,
+      "content": "Callsign,Product__c,Status,Type__c,Licence_Version.LastModifiedDate,Licence_Version.Original_start_date__c,unknown-1,unknown-2,unknown-3,unknown-4,unknown-5"
+    }
+  ]
+}

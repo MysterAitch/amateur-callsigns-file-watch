@@ -142,9 +142,11 @@ describe('Dataset pages build', () => {
     expect(page).toContain('2,830');
     // The re-fetch check points at the most recent INTENDED-COMPLETE
     // earlier publication - 2025-06-08 is a declared-partial 1,074-row
-    // truncation and must NOT be the changes-since baseline.
+    // truncation and must NOT be the changes-since baseline. Since the two
+    // web-archive-recovered vintages landed, the newest entry's chronological
+    // comparison baseline is the 2026-01-14 recovered workbook publication.
     expect(page).toContain('byte-identical to the earlier fetch');
-    expect(page).toContain('Compare with <a href="../2025-06-04/index.html">');
+    expect(page).toContain('Compare with <a href="../2026-01-14/index.html">');
     // The partial 2025-06-08 snapshot is reachable only from the collapsed
     // "partial exports" section of the navigation, never as the diff baseline.
     expect(page).toMatch(/partial exports?<\/summary>[\s\S]*?href="\.\.\/\.\.\/open-data\/2025-06-08\/index\.html"/);
@@ -263,10 +265,10 @@ describe('Dataset pages build', () => {
     const preview = page.slice(page.indexOf('class="browser-static"'));
     // Every callsign in the crawlable register preview is the shared pill,
     // linking to the register lookup at the entry page's depth (three up).
-    expect(preview).toContain('<a class="callsign-pill" href="../../../index.html?c=');
+    expect(preview).toContain('<a class="cs callsign-pill" href="../../../index.html?c=');
     // The pill's accessible name is the bare callsign: the link text and the
     // ?c= lookup target decode to the same callsign.
-    const m = /<a class="callsign-pill" href="\.\.\/\.\.\/\.\.\/index\.html\?c=([^"]+)"[^>]*>([^<]+)<\/a>/.exec(preview);
+    const m = /<a class="cs callsign-pill" href="\.\.\/\.\.\/\.\.\/index\.html\?c=([^"]+)"[^>]*>([^<]+)<\/a>/.exec(preview);
     if (m === null) throw new Error('expected a callsign pill in the register preview');
     expect(decodeURIComponent(m[1])).toBe(m[2]);
   });
@@ -277,7 +279,7 @@ describe('Dataset pages build', () => {
     // A parseable callsign carries a supplementary title (prefix series ·
     // suffix · implied class) that opens with the callsign itself; the link
     // text — the accessible name — stays the bare callsign, never the title.
-    const m = /<a class="callsign-pill" href="[^"]*\?c=([^"]+)" title="([^"]*)">([^<]+)<\/a>/.exec(preview);
+    const m = /<a class="cs callsign-pill" href="[^"]*\?c=([^"]+)" title="([^"]*)">([^<]+)<\/a>/.exec(preview);
     if (m === null) throw new Error('expected a titled callsign pill in the register preview');
     const callsign = m[3];
     expect(decodeURIComponent(m[1])).toBe(callsign);
@@ -290,7 +292,7 @@ describe('Dataset pages build', () => {
     // date) presents its callsign column with the same pill as the register.
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'ofcom-498906--reciprocal-licences-since-2010', 'index.html'), 'utf8');
     const preview = page.slice(page.indexOf('Browse the data'));
-    expect(preview).toContain('<a class="callsign-pill" href="../../../index.html?c=');
+    expect(preview).toContain('<a class="cs callsign-pill" href="../../../index.html?c=');
   });
 
   it('DatasetPages_PreviewWithoutCallsignColumn_RendersNoCallsignPills', () => {
@@ -299,7 +301,7 @@ describe('Dataset pages build', () => {
     // markup and the preview is unchanged.
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'wdtk-184767--annual-licence-counts', 'index.html'), 'utf8');
     expect(page).toContain('Browse the data');
-    expect(page).not.toContain('class="callsign-pill" href');
+    expect(page).not.toContain('class="cs callsign-pill" href');
   });
 
   it('DatasetPages_FoiEntryPage_HasNoScopedBrowser', () => {
@@ -657,7 +659,7 @@ describe('Dataset pages build', () => {
     // pill (issue #310), linking to the register lookup at the series depth
     // (../index.html?c=…), so it looks and behaves like callsigns elsewhere.
     const m7 = fs.readFileSync(path.join(outputDir, 'series', 'M7.html'), 'utf8');
-    expect(m7).toMatch(/<a class="callsign-pill" href="\.\.\/index\.html\?c=M7[A-Z0-9]+"/);
+    expect(m7).toMatch(/<a class="cs callsign-pill" href="\.\.\/index\.html\?c=M7[A-Z0-9]+"/);
     // The examples are no longer bare <code> anchors.
     expect(m7).not.toMatch(/<a href="\.\.\/index\.html\?c=[^"]+"><code>/);
   });
@@ -667,7 +669,7 @@ describe('Dataset pages build', () => {
     // parsed components (prefix series · suffix · implied class) are a
     // supplementary title only, built from the same fields used site-wide.
     const m7 = fs.readFileSync(path.join(outputDir, 'series', 'M7.html'), 'utf8');
-    const m = /<a class="callsign-pill" href="\.\.\/index\.html\?c=([^"]+)" title="([^"]*)">([^<]+)<\/a>/.exec(m7);
+    const m = /<a class="cs callsign-pill" href="\.\.\/index\.html\?c=([^"]+)" title="([^"]*)">([^<]+)<\/a>/.exec(m7);
     expect(m).not.toBeNull();
     const [, hrefCall, title, text] = m as RegExpExecArray;
     // The link text (accessible name) equals the callsign in the href.
@@ -693,7 +695,7 @@ describe('Dataset pages build', () => {
     // gains the style token but renders no pill markup.
     const index = fs.readFileSync(path.join(outputDir, 'datasets', 'index.html'), 'utf8');
     expect(index).toContain('.callsign-pill{');
-    expect(index).not.toContain('class="callsign-pill"');
+    expect(index).not.toContain('class="cs callsign-pill"');
   });
 
   it('DatasetPages_Sitemap_ListsEveryEntryPageUnderTheBaseUrl', () => {
@@ -803,6 +805,20 @@ describe('Dataset class pages', () => {
   });
 });
 
+describe('Value-level check examples wear the shared callsign wrapper (issue #553)', { tags: ['data-validity'] }, () => {
+  it('EntryPage_QualityCheckExamples_HighlightTheirDerivationTimeMarkersViaTheWrapper', () => {
+    // The entry page's value-level check examples come from stats.json with
+    // {U+XXXX} markers already applied; the shared callsign field wrapper
+    // (pinned 'pre-marked') highlights them AND translates each to its friendly
+    // name at the edge (#610), keeping the exact code point on the marker's
+    // title, so an invisible character in a published callsign is both visible
+    // and named at a glance.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(page).toContain('<code class="cs">G6<span class="marker" title="space (U+0020)">{SP}</span>FMU</code>');
+    expect(page).toContain('<code class="cs">2E1HON<span class="marker" title="non-breaking space (U+00A0)">{NBSP}</span></code>');
+  });
+});
+
 describe('Internal link integrity across the built site (issue #561)', { tags: ['data-validity'] }, () => {
   // A site-wide net for dead internal crosslinks. The generated pages are densely
   // cross-linked - reports → per-suffix / per-dataset / per-class pages,
@@ -892,5 +908,54 @@ describe('Internal link integrity across the built site (issue #561)', { tags: [
       unresolvedAnchors,
       `dangling #fragment links (${unresolvedAnchors.length}):\n${unresolvedAnchors.join('\n')}`,
     ).toEqual([]);
+  });
+});
+
+describe('Inline fidelity nudges + the deep-dive page (issue #438)', { tags: ['data-validity'] }, () => {
+  it('BuiltSite_FidelityDeepDive_IsEmittedAndInTheSitemap', () => {
+    expect(fs.existsSync(path.join(outputDir, 'fidelity.html'))).toBe(true);
+    const sitemap = fs.readFileSync(path.join(outputDir, 'sitemap.xml'), 'utf8');
+    expect(sitemap).toContain('<loc>https://example.test/site/fidelity.html</loc>');
+    // The reports hub lists it, so the page is discoverable without a nudge.
+    const hub = fs.readFileSync(path.join(outputDir, 'reports', 'index.html'), 'utf8');
+    expect(hub).toContain('href="../fidelity.html"');
+  });
+
+  it('OpenDataEntryPage_AtAGlanceFlagCount_NudgesInlineToTheFlagsSection', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    // The standing "N rows carry a quality flag" figure now links, in situ, to
+    // the deep-dive's flags section rather than leaving the reader to hunt.
+    expect(page).toMatch(/rows carry a quality flag · <a class="fid-nudge" href="\.\.\/\.\.\/\.\.\/fidelity\.html#flags">/);
+  });
+
+  it('OpenDataEntryPage_FlaggedRecordInThePreview_CarriesPerRecordFlagNudges', () => {
+    // The 2025-04-08 publication's first preview rows include the committed
+    // excel-date-shape artefacts ("20-Apr" et al), so its preview must carry
+    // the per-record badge beside the pill, deep-linked to that flag's row.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2025-04-08', 'index.html'), 'utf8');
+    expect(page).toContain('<span class="tb fid">excel-date-shape</span>');
+    expect(page).toContain('href="../../../fidelity.html#flag-excel-date-shape"');
+    // The badge is a supplement to the shared pill, never a replacement: the
+    // nudge follows immediately after the pill's closing anchor. The pill's
+    // inner markup (odd-character marking, the cs wrapper) belongs to the
+    // shared callsign field and is pinned by its own tests, not re-pinned here.
+    expect(page).toMatch(/callsign-pill" href="\.\.\/\.\.\/\.\.\/index\.html\?c=20-Apr">[^]*?<\/a> <a class="fid-nudge" href="\.\.\/\.\.\/\.\.\/fidelity\.html#flag-excel-date-shape">/);
+  });
+
+  it('OpenDataEntryPage_UnflaggedRecords_CarryNoFidelityNudge', () => {
+    // Selective disclosure: the latest publication's first preview rows carry
+    // no flags, so its preview renders pills alone — the affordance never
+    // manufactures doubt where no observation exists.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    const preview = /<div class="browser-static">([\s\S]*?)<\/div>/.exec(page);
+    expect(preview).not.toBeNull();
+    expect(preview?.[1] ?? '').not.toContain('tb fid');
+  });
+
+  it('ReconstructedEntry_ProvenanceNotice_LinksTheCustodyExplanation', () => {
+    // 2025-04-08 is a reconstructed-provenance entry; its notice's disclosure
+    // offers the deep-dive's provenance section alongside meta.json.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2025-04-08', 'index.html'), 'utf8');
+    expect(page).toContain('href="../../../fidelity.html#provenance"');
   });
 });

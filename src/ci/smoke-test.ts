@@ -139,21 +139,25 @@ async function main(): Promise<void> {
   await waitForLive();
 
   // 1. Liveness: home + the key hand-authored pages.
-  for (const p of ['index.html', 'statistics.html', 'explore.html', 'compare.html', 'ledger.html', 'data-status.html', 'glossary.html', 'about.html']) {
+  for (const p of ['index.html', 'statistics.html', 'explore.html', 'compare.html', 'ledger.html', 'callsign.html', 'data-status.html', 'glossary.html', 'about.html']) {
     await expectOk(p);
   }
 
   // 2. Assets: scripts, styles, the service worker, the manifest, the vendored
-  //    query engine, and the small data manifests.
-  for (const p of ['app.js', 'style.css', 'tokens.css', 'sw.js', 'manifest.webmanifest', 'vendor/sql-wasm.wasm', 'vendor/sqlite.worker.js', 'data/version.txt', 'data/claim-ledger.chunks.json']) {
+  //    query engine, and the small data manifests (including the callsign
+  //    page's shard manifest, #594).
+  for (const p of ['app.js', 'style.css', 'tokens.css', 'sw.js', 'manifest.webmanifest', 'vendor/sql-wasm.wasm', 'vendor/sqlite.worker.js', 'data/version.txt', 'data/claim-ledger.chunks.json', 'callsign/data/datasets.json']) {
     await expectOk(p);
   }
 
-  // 3. The range-served headline database is reachable and non-empty.
-  const dbTotal = await rangeTotal('data/callsigns.sqlite.png');
-  if (dbTotal !== undefined) {
-    if (dbTotal > 0) pass('range data/callsigns.sqlite.png', `${dbTotal} bytes`);
-    else fail('range data/callsigns.sqlite.png', 'zero length');
+  // 3. The range-served runtime databases the interactive surfaces query - the
+  //    ledger-derived projection pair (issue #572) - are reachable and non-empty.
+  for (const db of ['data/ledger-lookup.sqlite.png', 'data/ledger-history.sqlite.png']) {
+    const dbTotal = await rangeTotal(db);
+    if (dbTotal !== undefined) {
+      if (dbTotal > 0) pass(`range ${db}`, `${dbTotal} bytes`);
+      else fail(`range ${db}`, 'zero length');
+    }
   }
 
   // 4. Version stamp: version.txt equals the deployed commit and the footer
@@ -184,17 +188,13 @@ async function main(): Promise<void> {
     }
   }
 
-  // 5. Compression sanity - the gzipped artefacts must actually be compressed.
+  // 5. Compression sanity - the gzipped DOWNLOAD artefacts must actually be
+  //    compressed. The combined runtime .png was retired (issue #445); its
+  //    download twin (combined.sqlite.gz) still ships, so its gzip magic and
+  //    size ceiling stand in for the old twin-vs-raw comparison.
   await expectGzip('data/foi-observations.csv.gz', 100 * 1024 * 1024); // raw union CSV is ~0.6 GB; compressed is tens of MB.
   await expectGzip('data/datasets/foi--ofcom-498906--reciprocal-licences-since-2010.sqlite.gz');
-  await expectGzip('data/combined.sqlite.gz');
-  // The combined download twin must be smaller than the uncompressed .png it mirrors.
-  const gz = await rangeTotal('data/combined.sqlite.gz');
-  const png = await rangeTotal('data/combined.sqlite.png');
-  if (gz !== undefined && png !== undefined) {
-    if (gz < png) pass('gzip-vs-raw combined', `${gz} < ${png}`);
-    else fail('gzip-vs-raw combined', `combined.sqlite.gz ${gz} is not smaller than combined.sqlite.png ${png}`);
-  }
+  await expectGzip('data/combined.sqlite.gz', 1024 * 1024 * 1024); // the raw combined is ~1.1 GB; its gzip twin is well under a GB.
 
   console.log('');
   if (failures.length > 0) {

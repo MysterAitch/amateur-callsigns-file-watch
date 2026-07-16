@@ -15,8 +15,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { CONSTANTS } from '../shared/utils.ts';
-import { listArchiveKeys } from '../shared/archive.ts';
+import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
+import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
 import { buildFoiObservations } from '../shared/foi-observations.ts';
 import { parseCallsign, cleanedCallsign, loadReferenceData, normaliseLicenceCategory, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { mdCode } from '../shared/markdown.ts';
@@ -335,7 +335,12 @@ export function buildNormalisationFidelity(): EntryFidelity[] {
   const result: EntryFidelity[] = [];
   for (const key of listArchiveKeys().sort()) {
     const dir = path.join(CONSTANTS.DIRS.archive, key);
-    const rawPath = path.join(dir, 'raw.csv');
+    // The parse source (the declared extract for a workbook or shape-only
+    // header fill, else raw.csv) - so a workbook publication's fidelity is
+    // checked rather than silently skipped.
+    const metaPath = path.join(dir, 'meta.json');
+    const meta = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ArchiveMeta : undefined;
+    const rawPath = path.join(dir, meta === undefined ? 'raw.csv' : parseSourceFileName(meta));
     const normPath = path.join(dir, 'normalised.csv');
     if (!fs.existsSync(rawPath) || !fs.existsSync(normPath)) continue;
     const rawRows = (parse(fs.readFileSync(rawPath, 'utf8'), { bom: true, skip_empty_lines: true, relax_column_count: true }) as string[][])

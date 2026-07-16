@@ -1,8 +1,8 @@
 # 0017. Show the working behind derived claims (reconstruct-on-read)
 
-Status: proposed
+Status: accepted
 Date: 2026-07-12
-Relates: #433, #361 (raw-keyed claim ledger, ADR 0013), #404 (trust-rating net, ADR 0014), #431/#436 (source position + permalinks, ADR 0015), #434 (file-level claims + reconstruction oracle, ADR 0016), #310/#329 (shared affordances + glossary cue)
+Relates: #433 (backend engine + oracle), #438 (P4 surface: inline nudges + deep-dive that render this working), #361 (raw-keyed claim ledger, ADR 0013), #404 (trust-rating net, ADR 0014), #431/#436 (source position + permalinks, ADR 0015), #434 (file-level claims + reconstruction oracle, ADR 0016), #310/#329 (shared affordances + glossary cue)
 
 ## Context
 
@@ -59,10 +59,15 @@ existing inputs into a re-verifiable trace.
 
 6. **Clickable chain via #431 (the surface's job).** Each `WorkingInput.origin`
    carries the coordinates (a raw-claim `(sourceFile, ordinal, predicate)`, a
-   reference-row `(file, key)`, or a sibling-observation key). Turning an origin
-   into a computed-on-read permalink, and rendering the JS-free "show working"
-   disclosure, is the surface affordance (P4), deferred to a follow-up lane;
-   `explain` returns only the origins.
+   reference-row `(file, key)`, or a sibling-observation key); `explain` returns
+   only the origins. The reusable P4 render engine that turns each origin into a
+   computed-on-read permalink and renders the JS-free "show working" disclosure
+   landed with #562 (`src/ci/render/show-working.ts`, composing #431's
+   `permalinkForProvenance`). The fidelity and integrity deep-dive
+   (`fidelity.html#show-working`) is its first production consumer — rendering real
+   derived claims from the newest archived publication through this engine (#438,
+   #601); wiring the disclosure into the remaining generated surfaces continues
+   under #438.
 
 7. **Self-checked by a committed oracle.** A CI self-check beside
    `trust-rating.ts` (`src/ci/explain-oracle.test.ts`) asserts, over a
@@ -93,6 +98,9 @@ existing inputs into a re-verifiable trace.
   original design enumerated: the fail-loud "no derived claim is unexplainable"
   invariant forces completeness, so the #422 callsign-pattern rule is explained
   too.
-- Scope is the backend engine plus its oracle (design phases P1–P3). The P4 UI
-  affordance (the "show working" disclosure, permalinks, glossary-sourced gloss)
-  is a separate follow-up.
+- The backend engine plus its oracle (design phases P1–P3) and the reusable P4
+  render engine — the "show working" disclosure and its permalink resolver
+  (#562) — have landed, and the fidelity and integrity deep-dive (#438, #601) is
+  the render engine's first production consumer. Wiring the disclosure into the
+  remaining generated surfaces continues under #438's inline-nudge + deep-dive
+  work.

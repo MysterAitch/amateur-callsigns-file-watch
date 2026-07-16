@@ -26,6 +26,7 @@ const PAGES = [
   'explore.html',
   'compare.html',
   'ledger.html',
+  'callsign.html',
   'playground.html',
   'data-status.html',
   'glossary.html',

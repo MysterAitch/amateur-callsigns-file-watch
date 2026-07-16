@@ -1,3 +1,4 @@
+// @ts-check
 // On-screen debug console for field diagnostics — built for mobile, where the
 // browser devtools console is out of reach. Enable with ?debug=1 (remembered in
 // localStorage, so it survives navigation and deep links); disable with
@@ -31,9 +32,14 @@
   if (!active) return;
 
   // --- Ring buffer of captured entries. ---
+  /** @typedef {{ t: string, level: string, msg: string }} DebugEntry */
+  /** @type {DebugEntry[]} */
   var entries = [];
+  /** @type {HTMLElement | null} */
   var logEl = null;
+  /** @type {HTMLElement | null} */
   var countEl = null;
+  /** @type {HTMLElement | null} */
   var badgeEl = null;
   var errorCount = 0;
 
@@ -45,6 +51,10 @@
     badgeEl.style.display = errorCount > 0 ? 'flex' : 'none';
   }
 
+  /**
+   * @param {number | string} n
+   * @param {number} [width]
+   */
   function pad(n, width) {
     n = String(n);
     while (n.length < (width || 2)) n = '0' + n;
@@ -54,6 +64,7 @@
     var d = new Date();
     return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + '.' + pad(d.getMilliseconds(), 3);
   }
+  /** @param {unknown} a */
   function stringify(a) {
     try {
       if (a instanceof Error) return a.stack || (a.name + ': ' + a.message);
@@ -63,8 +74,13 @@
       return '[unstringifiable ' + (typeof a) + ']';
     }
   }
+  /** @type {Record<string, string>} */
   var LEVEL_COLOUR = { error: '#ff6b6b', warn: '#ffd166', info: '#8ecae6', log: '#d0d0d0', debug: '#9aa0a6', ok: '#95d5b2' };
 
+  /**
+   * @param {string} level
+   * @param {IArguments | unknown[]} parts
+   */
   function record(level, parts) {
     var msg = Array.prototype.slice.call(parts).map(stringify).join(' ');
     var entry = { t: stamp(), level: level, msg: msg };
@@ -75,7 +91,9 @@
     if (level === 'error') { errorCount += 1; updateBadge(); }
   }
 
+  /** @param {DebugEntry} entry */
   function appendRow(entry) {
+    if (!logEl) return;
     var row = document.createElement('div');
     row.style.cssText = 'padding:2px 0;border-bottom:1px solid #2a2a2a;white-space:pre-wrap;word-break:break-word';
     var when = document.createElement('span');
@@ -92,24 +110,34 @@
     logEl.scrollTop = logEl.scrollHeight;
   }
   function trimRows() {
-    while (logEl.childNodes.length > MAX_ENTRIES) logEl.removeChild(logEl.firstChild);
+    if (!logEl) return;
+    while (logEl.childNodes.length > MAX_ENTRIES && logEl.firstChild) logEl.removeChild(logEl.firstChild);
   }
 
   // --- Capture: console methods, uncaught errors (incl. resource 404s), and
   //     unhandled promise rejections. Installed before anything else runs. ---
-  ['log', 'info', 'warn', 'error', 'debug'].forEach(function (name) {
-    var original = console[name] ? console[name].bind(console) : function () {};
+  /** @type {('log' | 'info' | 'warn' | 'error' | 'debug')[]} */
+  var CONSOLE_LEVELS = ['log', 'info', 'warn', 'error', 'debug'];
+  CONSOLE_LEVELS.forEach(function (name) {
+    // The no-op fallback is widened to the variadic console-method shape so
+    // the wrapper below forwards its arguments to either branch.
+    var original = /** @type {(...args: unknown[]) => void} */ (console[name] ? console[name].bind(console) : function () {});
     console[name] = function () {
       record(name === 'debug' ? 'debug' : name, arguments);
-      original.apply(null, arguments);
+      // The arguments object is array-like, not an array; apply accepts it at
+      // runtime, so it is passed through as-is under an array-typed view.
+      original.apply(null, /** @type {unknown[]} */ (/** @type {unknown} */ (arguments)));
     };
   });
 
   window.addEventListener('error', function (event) {
     // Resource load failures (a 404 on a script/style/image) surface here with
     // the failing element as target but no message — exactly the class that took
-    // the lookup down. Distinguish them from thrown script errors.
-    var target = event.target;
+    // the lookup down. Distinguish them from thrown script errors. The target is
+    // read through a widened view: which of src/href/tagName exist depends on
+    // the failing element's kind, and the truthiness checks below carry the
+    // runtime narrowing.
+    var target = /** @type {(EventTarget & { src?: string, href?: string, tagName?: string }) | null} */ (event.target);
     if (target && target !== window && (target.src || target.href)) {
       record('error', ['RESOURCE FAILED TO LOAD: ' + (target.src || target.href) + ' <' + (target.tagName || '?').toLowerCase() + '>']);
       return;
@@ -124,15 +152,23 @@
 
   // --- Active diagnostics: probe the things that break in the field, so the
   //     panel answers "404 vs DB unreachable vs vendor missing vs logic". ---
+  /** @param {string} path */
   function base(path) {
     return new URL(path, document.baseURI).href;
   }
+  /**
+   * @param {string} label
+   * @param {string} path
+   * @param {RequestInit} [opts]
+   */
   function probe(label, path, opts) {
     var pending;
     try {
       pending = fetch(base(path), opts || { cache: 'no-store' });
     } catch (err) {
-      record('error', ['FAIL  ' + label + '  (' + path + ')  ' + (err && err.message ? err.message : String(err))]);
+      // A thrown value is `unknown`; read the message through a narrowed view.
+      var thrown = /** @type {{ message?: string }} */ ((typeof err === 'object' && err !== null) ? err : {});
+      record('error', ['FAIL  ' + label + '  (' + path + ')  ' + (thrown.message ? thrown.message : String(err))]);
       return Promise.resolve(false);
     }
     return pending.then(function (res) {
@@ -150,7 +186,11 @@
 
   function runDiagnostics() {
     record('info', ['— diagnostics —']);
-    record('info', ['createDbWorker (vendor) is a ' + typeof window.createDbWorker + (typeof window.createDbWorker === 'function' ? ' ✓' : ' ✗ — the lookup cannot run without it')]);
+    // The httpvfs UMD loader attaches createDbWorker to window (vendor global,
+    // no shipped types); probing its presence is this diagnostic's whole point,
+    // so the global is read through an optional view.
+    var vendorGlobals = /** @type {{ createDbWorker?: unknown }} */ (/** @type {unknown} */ (window));
+    record('info', ['createDbWorker (vendor) is a ' + typeof vendorGlobals.createDbWorker + (typeof vendorGlobals.createDbWorker === 'function' ? ' ✓' : ' ✗ — the lookup cannot run without it')]);
     record('info', ['service worker: ' + (navigator.serviceWorker ? (navigator.serviceWorker.controller ? 'controlling this page' : 'registered, not controlling') : 'unsupported')]);
     record('info', ['network: ' + (navigator.onLine ? 'online' : 'OFFLINE')]);
     // Modules the pages import (a 404 here is the deploy-coverage failure mode).
@@ -160,10 +200,14 @@
     probe('data version', 'data/version.txt');
     // The database is served under a .png costume and read by HTTP Range; a HEAD
     // tells us it exists and whether Range is offered (httpvfs needs it).
-    probe('lookup database', 'data/callsigns.sqlite.png', { method: 'HEAD', cache: 'no-store' });
+    probe('lookup database', 'data/ledger-lookup.sqlite.png', { method: 'HEAD', cache: 'no-store' });
   }
 
   // --- UI: a floating toggle and a collapsible panel, all inline-styled. ---
+  /**
+   * @param {string} label
+   * @param {() => void} handler
+   */
   function button(label, handler) {
     var b = document.createElement('button');
     b.textContent = label;
@@ -195,7 +239,7 @@
         navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
       } else { fallbackCopy(text); done(); }
     }));
-    bar.appendChild(button('Clear', function () { entries.length = 0; logEl.textContent = ''; countEl.textContent = '0'; }));
+    bar.appendChild(button('Clear', function () { entries.length = 0; if (logEl) logEl.textContent = ''; if (countEl) countEl.textContent = '0'; }));
     bar.appendChild(button('Off', function () {
       try { localStorage.removeItem(STORE_KEY); } catch (e) {}
       panel.remove(); toggle.remove();
@@ -230,6 +274,7 @@
     return { panel: panel, toggle: toggle };
   }
 
+  /** @param {string} text */
   function fallbackCopy(text) {
     try {
       var ta = document.createElement('textarea');

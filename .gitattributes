@@ -29,6 +29,13 @@ archive/foi/**/normalised--*.csv      text diff merge eol=lf
 # records its sha256/size and the sweep no-op check is byte equality) while
 # staying diffable text - pin LF, never smudge to CRLF on checkout.
 archive/**/normalised.csv text eol=lf
+# Open-data lane mechanical extracts (workbook sheet extracts, shape-only
+# header fills): hash-declared in meta.json like normalised.csv - pin LF so a
+# Windows checkout cannot smudge the bytes away from the declared sha256.
+# (The FOI lane pins its raw-extract-*.csv the same way above; meta.json is
+# pinned repo-wide as JSON text.)
+archive/**/raw-extract*.csv text eol=lf
+archive/**/meta.json text eol=lf
 # stats.json and quality reports: byte-compared derivatives like normalised.csv
 # - pin LF so Windows checkouts cannot break no-op detection or meta hashes.
 archive/**/stats.json  text eol=lf

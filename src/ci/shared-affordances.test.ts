@@ -25,6 +25,7 @@ const OWNING_GENERATORS = [
   'build-dataset-pages.ts',
   'build-class-pages.ts',
   'build-data-status.ts',
+  'build-home-aggregates.ts',
 ];
 
 describe('datasetLabel component (issue #328)', { tags: ['unit'] }, () => {
@@ -95,7 +96,7 @@ describe('exploreDeepLink component (issue #333)', { tags: ['unit'] }, () => {
 describe('callsignPill component (issue #310)', { tags: ['unit'] }, () => {
   it('CallsignPill_Always_RendersAWellFormedLookupLinkAsAPill', () => {
     const pill = callsignPill('M7TEE', 3);
-    expect(pill).toBe('<a class="callsign-pill" href="../../../index.html?c=M7TEE">M7TEE</a>');
+    expect(pill).toBe('<a class="cs callsign-pill" href="../../../index.html?c=M7TEE">M7TEE</a>');
   });
 
   it('CallsignPill_EncodesTheCallsignInTheLookupHref', () => {
@@ -113,7 +114,7 @@ describe('callsign rendering routes through the shared pill (issue #310)', { tag
   it('OwningGenerators_RenderCallsigns_OnlyViaTheSharedPillNotAdHocAnchors', () => {
     for (const file of OWNING_GENERATORS) {
       const src = fs.readFileSync(path.join(CI_DIR, file), 'utf8');
-      expect(src.includes('index.html?c='), `${file} builds a register-lookup href by hand; render callsigns via callsignPill instead`).toBe(false);
+      expect(src.includes('index.html?c='), `${file} builds a register-lookup href by hand; render callsigns via the shared callsign field wrapper (callsignField/callsignPill) instead`).toBe(false);
     }
   });
 });

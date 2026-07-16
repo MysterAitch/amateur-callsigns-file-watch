@@ -9,9 +9,9 @@ are sorted by the newest dataset's counts.
 
 ## Records per dataset
 
-| dataset | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152084 | 151152 |
+| dataset | 2026-06-23 | 2026-01-14 | 2025-11-11 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| _records_ | 158318 | 146417 | 159895 | 1074 | 112650 | 1074 | 157427 | 152084 | 151152 |
 
 ## Patterns by class
 
@@ -22,233 +22,237 @@ curated descriptor is surfaced as unknown, never bucketed silently.
 
 ### UK patterns (6)
 
-| pattern | descriptor | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| `ANAAA` | single-letter prefix + digit + three-letter suffix - the standard core callsign shape (G/M series) | 138209 | 827 | 97773 | 827 | 136896 | 132379 | 131583 |
-| `NNAAA` | 2-format Intermediate core stored without the RSL (20... / 21...) | 19497 | 242 | 14368 | 242 | 19882 | 19100 | 18965 |
-| `ANAA` | heritage two-letter suffix (early G-series allocations) | 471 | — | 352 | — | 473 | 472 | 472 |
-| `NANAAA` | 2-format Intermediate with its mandatory-in-use RSL (2E0... / 2W1...) | 13 | 1 | 14 | 1 | 14 | 13 | 13 |
-| `AANAAA` | standard core with a Regional Secondary Locator inserted (MW7... / GM0...) | 7 | — | 7 | — | 7 | 7 | 7 |
-| `AANNN` | GB special event series (GB + digits + suffix) | — | — | 1 | — | 1 | — | — |
+| pattern | descriptor | 2026-06-23 | 2026-01-14 | 2025-11-11 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `ANAAA` | single-letter prefix + digit + three-letter suffix - the standard core callsign shape (G/M series) | 138209 | 127953 | 139798 | 827 | 97773 | 827 | 136896 | 132379 | 131583 |
+| `NNAAA` | 2-format Intermediate core stored without the RSL (20... / 21...) | 19497 | 17969 | 19549 | 242 | 14368 | 242 | 19882 | 19100 | 18965 |
+| `ANAA` | heritage two-letter suffix (early G-series allocations) | 471 | 427 | 452 | — | 352 | — | 473 | 472 | 472 |
+| `NANAAA` | 2-format Intermediate with its mandatory-in-use RSL (2E0... / 2W1...) | 13 | 6 | 9 | 1 | 14 | 1 | 14 | 13 | 13 |
+| `AANAAA` | standard core with a Regional Secondary Locator inserted (MW7... / GM0...) | 7 | 5 | 5 | — | 7 | — | 7 | 7 | 7 |
+| `AANNN` | GB special event series (GB + digits + suffix) | — | — | 1 | — | 1 | — | 1 | — | — |
 
 ### Visitor patterns (23)
 
-| pattern | descriptor | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| `A/AANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 38 | 3 | 49 | 3 | 48 | 31 | 29 |
-| `A/AANAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 19 | — | 21 | — | 20 | 11 | 11 |
-| `A/ANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 14 | — | 16 | — | 16 | 12 | 12 |
-| `A/NAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 4 | — | 4 | — | 4 | 2 | 2 |
-| `A/AANA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 3 | — | 1 | — | 1 | — | — |
-| `A/ANAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 3 | — | 3 | — | 3 | 3 | 3 |
-| `A/ANNAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 3 | — | 2 | — | 2 | 2 | 1 |
-| `A/NANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 3 | — | 3 | — | 2 | 2 | 2 |
-| `A/#AANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 2 | — | 2 | — | 2 | 2 | 2 |
-| `A/NNNN` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 2 | — | 2 | — | 2 | 2 | 2 |
-| `A/#AANAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/A/AANAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/AA-N-AA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/AAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/AAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | 1 | 2 | 1 | 2 | 2 | 2 |
-| `A/AAA{U+0020}NNNN` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | — | 1 | — | 1 | — | — |
-| `A/AANNN` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/ANAAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/NANAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | — | — | — | — | — | — |
-| `A/A#AANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | — | — | 1 | — | 1 | — | — |
-| `A/A/AANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | — | — | 1 | — | 1 | — | — |
-| `A/AAANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | — | — | 1 | — | 1 | — | — |
-| `A/ANNAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | — | — | 1 | — | 1 | — | — |
+| pattern | descriptor | 2026-06-23 | 2026-01-14 | 2025-11-11 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `A/AANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 38 | 16 | 18 | 3 | 49 | 3 | 48 | 31 | 29 |
+| `A/AANAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 19 | 4 | 7 | — | 21 | — | 20 | 11 | 11 |
+| `A/ANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 14 | 6 | 7 | — | 16 | — | 16 | 12 | 12 |
+| `A/NAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 4 | 1 | 2 | — | 4 | — | 4 | 2 | 2 |
+| `A/AANA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 3 | — | 1 | — | 1 | — | 1 | — | — |
+| `A/ANAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 3 | 2 | 2 | — | 3 | — | 3 | 3 | 3 |
+| `A/ANNAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 3 | 1 | 1 | — | 2 | — | 2 | 2 | 1 |
+| `A/NANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 3 | 1 | 1 | — | 3 | — | 2 | 2 | 2 |
+| `A/#AANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 2 | — | — | — | 2 | — | 2 | 2 | 2 |
+| `A/NNNN` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 2 | 1 | 1 | — | 2 | — | 2 | 2 | 2 |
+| `A/#AANAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/A/AANAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/AA-N-AA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/AAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/AAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | — | — | 1 | 2 | 1 | 2 | 2 | 2 |
+| `A/AAA{U+0020}NNNN` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | 1 | 1 | — | 1 | — | 1 | — | — |
+| `A/AANNN` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | — | — | — | 1 | — | 1 | 1 | 1 |
+| `A/ANAAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | — | — | — | 1 | — | 1 | 1 | 1 |
+| `A/NANAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | 1 | — | — | — | — | — | — | — | — |
+| `A/A#AANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | — | — | — | — | 1 | — | 1 | — | — |
+| `A/A/AANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | — | — | 1 | — | 1 | — | 1 | — | — |
+| `A/AAANAAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | — | — | 1 | — | 1 | — | 1 | — | — |
+| `A/ANNAA` | visitor / temporary-reciprocal format - single-letter UK country prefix + / + home callsign | — | — | — | — | 1 | — | 1 | — | — |
 
-### Unknown / unexpected patterns (19)
+### Unknown / unexpected patterns (20)
 
-| pattern | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| `NNAA` | 5 | — | 4 | — | 5 | 5 | 5 |
-| `AAAA` | 3 | — | — | — | 3 | 3 | 3 |
-| `AAAAA` | 3 | — | 4 | — | 4 | 4 | 4 |
-| `ANAAA{U+00A0}` | 2 | — | — | — | — | — | — |
-| `AAAAAAAAAAA` | 1 | — | — | — | 1 | — | — |
-| `AAAAAAAAAAAA` | 1 | — | — | — | 1 | — | — |
-| `ANAAN` | 1 | — | 2 | — | 2 | 1 | 1 |
-| `AN{U+0020}AAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `NAAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `NANAAA{U+00A0}` | 1 | — | — | — | — | — | — |
-| `NaNAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `aNaaa` | 1 | — | 1 | — | 1 | 1 | 1 |
-| _(empty)_ | — | — | — | — | — | 2 | 4 |
-| `,,` | — | — | 1 | — | — | 1 | 1 |
-| `ANAAA{U+FFFD}` | — | — | 1 | — | 2 | 2 | 2 |
-| `ANNAAA` | — | — | 1 | — | 1 | — | — |
-| `NANAAA{U+FFFD}` | — | — | 1 | — | 1 | 1 | 1 |
-| `NN-Aaa` | — | — | — | — | 16 | 15 | 15 |
-| `NNNNNNNN` | — | — | 1 | — | 1 | — | — |
+| pattern | 2026-06-23 | 2026-01-14 | 2025-11-11 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `NNAA` | 5 | 4 | 4 | — | 4 | — | 5 | 5 | 5 |
+| `AAAA` | 3 | 3 | 3 | — | — | — | 3 | 3 | 3 |
+| `AAAAA` | 3 | 2 | 2 | — | 4 | — | 4 | 4 | 4 |
+| `ANAAA{U+00A0}` | 2 | 2 | 2 | — | — | — | — | — | — |
+| `AAAAAAAAAAA` | 1 | 1 | — | — | — | — | 1 | — | — |
+| `AAAAAAAAAAAA` | 1 | 1 | — | — | — | — | 1 | — | — |
+| `ANAAN` | 1 | 1 | 2 | — | 2 | — | 2 | 1 | 1 |
+| `AN{U+0020}AAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `NAAAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `NANAAA{U+00A0}` | 1 | 1 | 1 | — | — | — | — | — | — |
+| `NaNAAA` | 1 | — | — | — | 1 | — | 1 | 1 | 1 |
+| `aNaaa` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| _(empty)_ | — | — | — | — | — | — | — | 2 | 4 |
+| `,,` | — | — | — | — | 1 | — | — | 1 | 1 |
+| `ANAAA{U+FFFD}` | — | — | — | — | 1 | — | 2 | 2 | 2 |
+| `ANNAAA` | — | 1 | 1 | — | 1 | — | 1 | — | — |
+| `N#NAAA` | — | 1 | 1 | — | — | — | — | — | — |
+| `NANAAA{U+FFFD}` | — | — | — | — | 1 | — | 1 | 1 | 1 |
+| `NN-Aaa` | — | — | 15 | — | — | — | 16 | 15 | 15 |
+| `NNNNNNNN` | — | — | — | — | 1 | — | 1 | — | — |
 
 <details>
 <summary>Raw patterns (per-codepoint precision, ungrouped)</summary>
 
-| pattern | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152084 | 151152 |
-| `ANAAA` | 138209 | 827 | 97773 | 827 | 136896 | 132379 | 131583 |
-| `NNAAA` | 19497 | 242 | 14368 | 242 | 19882 | 19100 | 18965 |
-| `ANAA` | 471 | — | 352 | — | 473 | 472 | 472 |
-| `A/AANAAA` | 38 | 3 | 49 | 3 | 48 | 31 | 29 |
-| `A/AANAA` | 19 | — | 21 | — | 20 | 11 | 11 |
-| `A/ANAAA` | 14 | — | 16 | — | 16 | 12 | 12 |
-| `NANAAA` | 13 | 1 | 14 | 1 | 14 | 13 | 13 |
-| `AANAAA` | 7 | — | 7 | — | 7 | 7 | 7 |
-| `NNAA` | 5 | — | 4 | — | 5 | 5 | 5 |
-| `A/NAAA` | 4 | — | 4 | — | 4 | 2 | 2 |
-| `A/AANA` | 3 | — | 1 | — | 1 | — | — |
-| `A/ANAA` | 3 | — | 3 | — | 3 | 3 | 3 |
-| `A/ANNAAA` | 3 | — | 2 | — | 2 | 2 | 1 |
-| `A/NANAAA` | 3 | — | 3 | — | 2 | 2 | 2 |
-| `AAAA` | 3 | — | — | — | 3 | 3 | 3 |
-| `AAAAA` | 3 | — | 4 | — | 4 | 4 | 4 |
-| `A/#AANAAA` | 2 | — | 2 | — | 2 | 2 | 2 |
-| `A/NNNN` | 2 | — | 2 | — | 2 | 2 | 2 |
-| `ANAAA{U+00A0}` | 2 | — | — | — | — | — | — |
-| `A/#AANAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/A/AANAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/AA-N-AA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/AAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/AAAA` | 1 | 1 | 2 | 1 | 2 | 2 | 2 |
-| `A/AAA{U+0020}NNNN` | 1 | — | 1 | — | 1 | — | — |
-| `A/AANNN` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/ANAAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/NANAA` | 1 | — | — | — | — | — | — |
-| `AAAAAAAAAAA` | 1 | — | — | — | 1 | — | — |
-| `AAAAAAAAAAAA` | 1 | — | — | — | 1 | — | — |
-| `ANAAN` | 1 | — | 2 | — | 2 | 1 | 1 |
-| `AN{U+0020}AAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `NAAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `NANAAA{U+00A0}` | 1 | — | — | — | — | — | — |
-| `NaNAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `aNaaa` | 1 | — | 1 | — | 1 | 1 | 1 |
-| _(empty)_ | — | — | — | — | — | 2 | 4 |
-| `,,` | — | — | 1 | — | — | 1 | 1 |
-| `A/A#AANAAA` | — | — | 1 | — | 1 | — | — |
-| `A/A/AANAAA` | — | — | 1 | — | 1 | — | — |
-| `A/AAANAAA` | — | — | 1 | — | 1 | — | — |
-| `A/ANNAA` | — | — | 1 | — | 1 | — | — |
-| `AANNN` | — | — | 1 | — | 1 | — | — |
-| `ANAAA{U+FFFD}` | — | — | 1 | — | 2 | 2 | 2 |
-| `ANNAAA` | — | — | 1 | — | 1 | — | — |
-| `NANAAA{U+FFFD}` | — | — | 1 | — | 1 | 1 | 1 |
-| `NN-Aaa` | — | — | — | — | 16 | 15 | 15 |
-| `NNNNNNNN` | — | — | 1 | — | 1 | — | — |
+| pattern | 2026-06-23 | 2026-01-14 | 2025-11-11 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| _records_ | 158318 | 146417 | 159895 | 1074 | 112650 | 1074 | 157427 | 152084 | 151152 |
+| `ANAAA` | 138209 | 127953 | 139798 | 827 | 97773 | 827 | 136896 | 132379 | 131583 |
+| `NNAAA` | 19497 | 17969 | 19549 | 242 | 14368 | 242 | 19882 | 19100 | 18965 |
+| `ANAA` | 471 | 427 | 452 | — | 352 | — | 473 | 472 | 472 |
+| `A/AANAAA` | 38 | 16 | 18 | 3 | 49 | 3 | 48 | 31 | 29 |
+| `A/AANAA` | 19 | 4 | 7 | — | 21 | — | 20 | 11 | 11 |
+| `A/ANAAA` | 14 | 6 | 7 | — | 16 | — | 16 | 12 | 12 |
+| `NANAAA` | 13 | 6 | 9 | 1 | 14 | 1 | 14 | 13 | 13 |
+| `AANAAA` | 7 | 5 | 5 | — | 7 | — | 7 | 7 | 7 |
+| `NNAA` | 5 | 4 | 4 | — | 4 | — | 5 | 5 | 5 |
+| `A/NAAA` | 4 | 1 | 2 | — | 4 | — | 4 | 2 | 2 |
+| `A/AANA` | 3 | — | 1 | — | 1 | — | 1 | — | — |
+| `A/ANAA` | 3 | 2 | 2 | — | 3 | — | 3 | 3 | 3 |
+| `A/ANNAAA` | 3 | 1 | 1 | — | 2 | — | 2 | 2 | 1 |
+| `A/NANAAA` | 3 | 1 | 1 | — | 3 | — | 2 | 2 | 2 |
+| `AAAA` | 3 | 3 | 3 | — | — | — | 3 | 3 | 3 |
+| `AAAAA` | 3 | 2 | 2 | — | 4 | — | 4 | 4 | 4 |
+| `A/#AANAAA` | 2 | — | — | — | 2 | — | 2 | 2 | 2 |
+| `A/NNNN` | 2 | 1 | 1 | — | 2 | — | 2 | 2 | 2 |
+| `ANAAA{U+00A0}` | 2 | 2 | 2 | — | — | — | — | — | — |
+| `A/#AANAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/A/AANAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/AA-N-AA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/AAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/AAAA` | 1 | — | — | 1 | 2 | 1 | 2 | 2 | 2 |
+| `A/AAA{U+0020}NNNN` | 1 | 1 | 1 | — | 1 | — | 1 | — | — |
+| `A/AANNN` | 1 | — | — | — | 1 | — | 1 | 1 | 1 |
+| `A/ANAAAA` | 1 | — | — | — | 1 | — | 1 | 1 | 1 |
+| `A/NANAA` | 1 | — | — | — | — | — | — | — | — |
+| `AAAAAAAAAAA` | 1 | 1 | — | — | — | — | 1 | — | — |
+| `AAAAAAAAAAAA` | 1 | 1 | — | — | — | — | 1 | — | — |
+| `ANAAN` | 1 | 1 | 2 | — | 2 | — | 2 | 1 | 1 |
+| `AN{U+0020}AAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `NAAAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `NANAAA{U+00A0}` | 1 | 1 | 1 | — | — | — | — | — | — |
+| `NaNAAA` | 1 | — | — | — | 1 | — | 1 | 1 | 1 |
+| `aNaaa` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| _(empty)_ | — | — | — | — | — | — | — | 2 | 4 |
+| `,,` | — | — | — | — | 1 | — | — | 1 | 1 |
+| `A/A#AANAAA` | — | — | — | — | 1 | — | 1 | — | — |
+| `A/A/AANAAA` | — | — | 1 | — | 1 | — | 1 | — | — |
+| `A/AAANAAA` | — | — | 1 | — | 1 | — | 1 | — | — |
+| `A/ANNAA` | — | — | — | — | 1 | — | 1 | — | — |
+| `AANNN` | — | — | 1 | — | 1 | — | 1 | — | — |
+| `ANAAA{U+FFFD}` | — | — | — | — | 1 | — | 2 | 2 | 2 |
+| `ANNAAA` | — | 1 | 1 | — | 1 | — | 1 | — | — |
+| `N#NAAA` | — | 1 | 1 | — | — | — | — | — | — |
+| `NANAAA{U+FFFD}` | — | — | — | — | 1 | — | 1 | 1 | 1 |
+| `NN-Aaa` | — | — | 15 | — | — | — | 16 | 15 | 15 |
+| `NNNNNNNN` | — | — | — | — | 1 | — | 1 | — | — |
 
 </details>
 
 <details>
 <summary>Raw patterns (human-readable markers: {nbsp}, {space}, ...)</summary>
 
-| pattern | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152084 | 151152 |
-| `ANAAA` | 138209 | 827 | 97773 | 827 | 136896 | 132379 | 131583 |
-| `NNAAA` | 19497 | 242 | 14368 | 242 | 19882 | 19100 | 18965 |
-| `ANAA` | 471 | — | 352 | — | 473 | 472 | 472 |
-| `A/AANAAA` | 38 | 3 | 49 | 3 | 48 | 31 | 29 |
-| `A/AANAA` | 19 | — | 21 | — | 20 | 11 | 11 |
-| `A/ANAAA` | 14 | — | 16 | — | 16 | 12 | 12 |
-| `NANAAA` | 13 | 1 | 14 | 1 | 14 | 13 | 13 |
-| `AANAAA` | 7 | — | 7 | — | 7 | 7 | 7 |
-| `NNAA` | 5 | — | 4 | — | 5 | 5 | 5 |
-| `A/NAAA` | 4 | — | 4 | — | 4 | 2 | 2 |
-| `A/AANA` | 3 | — | 1 | — | 1 | — | — |
-| `A/ANAA` | 3 | — | 3 | — | 3 | 3 | 3 |
-| `A/ANNAAA` | 3 | — | 2 | — | 2 | 2 | 1 |
-| `A/NANAAA` | 3 | — | 3 | — | 2 | 2 | 2 |
-| `AAAA` | 3 | — | — | — | 3 | 3 | 3 |
-| `AAAAA` | 3 | — | 4 | — | 4 | 4 | 4 |
-| `A/#AANAAA` | 2 | — | 2 | — | 2 | 2 | 2 |
-| `A/NNNN` | 2 | — | 2 | — | 2 | 2 | 2 |
-| `ANAAA{nbsp}` | 2 | — | — | — | — | — | — |
-| `A/#AANAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/A/AANAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/AA-N-AA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/AAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/AAAA` | 1 | 1 | 2 | 1 | 2 | 2 | 2 |
-| `A/AAA{space}NNNN` | 1 | — | 1 | — | 1 | — | — |
-| `A/AANNN` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/ANAAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/NANAA` | 1 | — | — | — | — | — | — |
-| `AAAAAAAAAAA` | 1 | — | — | — | 1 | — | — |
-| `AAAAAAAAAAAA` | 1 | — | — | — | 1 | — | — |
-| `ANAAN` | 1 | — | 2 | — | 2 | 1 | 1 |
-| `AN{space}AAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `NAAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `NANAAA{nbsp}` | 1 | — | — | — | — | — | — |
-| `NaNAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `aNaaa` | 1 | — | 1 | — | 1 | 1 | 1 |
-| _(empty)_ | — | — | — | — | — | 2 | 4 |
-| `,,` | — | — | 1 | — | — | 1 | 1 |
-| `A/A#AANAAA` | — | — | 1 | — | 1 | — | — |
-| `A/A/AANAAA` | — | — | 1 | — | 1 | — | — |
-| `A/AAANAAA` | — | — | 1 | — | 1 | — | — |
-| `A/ANNAA` | — | — | 1 | — | 1 | — | — |
-| `AANNN` | — | — | 1 | — | 1 | — | — |
-| `ANAAA{U+FFFD}` | — | — | 1 | — | 2 | 2 | 2 |
-| `ANNAAA` | — | — | 1 | — | 1 | — | — |
-| `NANAAA{U+FFFD}` | — | — | 1 | — | 1 | 1 | 1 |
-| `NN-Aaa` | — | — | — | — | 16 | 15 | 15 |
-| `NNNNNNNN` | — | — | 1 | — | 1 | — | — |
+| pattern | 2026-06-23 | 2026-01-14 | 2025-11-11 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| _records_ | 158318 | 146417 | 159895 | 1074 | 112650 | 1074 | 157427 | 152084 | 151152 |
+| `ANAAA` | 138209 | 127953 | 139798 | 827 | 97773 | 827 | 136896 | 132379 | 131583 |
+| `NNAAA` | 19497 | 17969 | 19549 | 242 | 14368 | 242 | 19882 | 19100 | 18965 |
+| `ANAA` | 471 | 427 | 452 | — | 352 | — | 473 | 472 | 472 |
+| `A/AANAAA` | 38 | 16 | 18 | 3 | 49 | 3 | 48 | 31 | 29 |
+| `A/AANAA` | 19 | 4 | 7 | — | 21 | — | 20 | 11 | 11 |
+| `A/ANAAA` | 14 | 6 | 7 | — | 16 | — | 16 | 12 | 12 |
+| `NANAAA` | 13 | 6 | 9 | 1 | 14 | 1 | 14 | 13 | 13 |
+| `AANAAA` | 7 | 5 | 5 | — | 7 | — | 7 | 7 | 7 |
+| `NNAA` | 5 | 4 | 4 | — | 4 | — | 5 | 5 | 5 |
+| `A/NAAA` | 4 | 1 | 2 | — | 4 | — | 4 | 2 | 2 |
+| `A/AANA` | 3 | — | 1 | — | 1 | — | 1 | — | — |
+| `A/ANAA` | 3 | 2 | 2 | — | 3 | — | 3 | 3 | 3 |
+| `A/ANNAAA` | 3 | 1 | 1 | — | 2 | — | 2 | 2 | 1 |
+| `A/NANAAA` | 3 | 1 | 1 | — | 3 | — | 2 | 2 | 2 |
+| `AAAA` | 3 | 3 | 3 | — | — | — | 3 | 3 | 3 |
+| `AAAAA` | 3 | 2 | 2 | — | 4 | — | 4 | 4 | 4 |
+| `A/#AANAAA` | 2 | — | — | — | 2 | — | 2 | 2 | 2 |
+| `A/NNNN` | 2 | 1 | 1 | — | 2 | — | 2 | 2 | 2 |
+| `ANAAA{nbsp}` | 2 | 2 | 2 | — | — | — | — | — | — |
+| `A/#AANAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/A/AANAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/AA-N-AA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/AAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/AAAA` | 1 | — | — | 1 | 2 | 1 | 2 | 2 | 2 |
+| `A/AAA{space}NNNN` | 1 | 1 | 1 | — | 1 | — | 1 | — | — |
+| `A/AANNN` | 1 | — | — | — | 1 | — | 1 | 1 | 1 |
+| `A/ANAAAA` | 1 | — | — | — | 1 | — | 1 | 1 | 1 |
+| `A/NANAA` | 1 | — | — | — | — | — | — | — | — |
+| `AAAAAAAAAAA` | 1 | 1 | — | — | — | — | 1 | — | — |
+| `AAAAAAAAAAAA` | 1 | 1 | — | — | — | — | 1 | — | — |
+| `ANAAN` | 1 | 1 | 2 | — | 2 | — | 2 | 1 | 1 |
+| `AN{space}AAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `NAAAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `NANAAA{nbsp}` | 1 | 1 | 1 | — | — | — | — | — | — |
+| `NaNAAA` | 1 | — | — | — | 1 | — | 1 | 1 | 1 |
+| `aNaaa` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| _(empty)_ | — | — | — | — | — | — | — | 2 | 4 |
+| `,,` | — | — | — | — | 1 | — | — | 1 | 1 |
+| `A/A#AANAAA` | — | — | — | — | 1 | — | 1 | — | — |
+| `A/A/AANAAA` | — | — | 1 | — | 1 | — | 1 | — | — |
+| `A/AAANAAA` | — | — | 1 | — | 1 | — | 1 | — | — |
+| `A/ANNAA` | — | — | — | — | 1 | — | 1 | — | — |
+| `AANNN` | — | — | 1 | — | 1 | — | 1 | — | — |
+| `ANAAA{U+FFFD}` | — | — | — | — | 1 | — | 2 | 2 | 2 |
+| `ANNAAA` | — | 1 | 1 | — | 1 | — | 1 | — | — |
+| `N#NAAA` | — | 1 | 1 | — | — | — | — | — | — |
+| `NANAAA{U+FFFD}` | — | — | — | — | 1 | — | 1 | 1 | 1 |
+| `NN-Aaa` | — | — | 15 | — | — | — | 16 | 15 | 15 |
+| `NNNNNNNN` | — | — | — | — | 1 | — | 1 | — | — |
 
 </details>
 
 <details>
 <summary>Folded patterns (every {U+XXXX} marker collapsed to U)</summary>
 
-| pattern | 2026-06-23 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| _records_ | 158318 | 1074 | 112650 | 1074 | 157427 | 152084 | 151152 |
-| `ANAAA` | 138209 | 827 | 97773 | 827 | 136896 | 132379 | 131583 |
-| `NNAAA` | 19497 | 242 | 14368 | 242 | 19882 | 19100 | 18965 |
-| `ANAA` | 471 | — | 352 | — | 473 | 472 | 472 |
-| `A/AANAAA` | 38 | 3 | 49 | 3 | 48 | 31 | 29 |
-| `A/AANAA` | 19 | — | 21 | — | 20 | 11 | 11 |
-| `A/ANAAA` | 14 | — | 16 | — | 16 | 12 | 12 |
-| `NANAAA` | 13 | 1 | 14 | 1 | 14 | 13 | 13 |
-| `AANAAA` | 7 | — | 7 | — | 7 | 7 | 7 |
-| `NNAA` | 5 | — | 4 | — | 5 | 5 | 5 |
-| `A/NAAA` | 4 | — | 4 | — | 4 | 2 | 2 |
-| `A/AANA` | 3 | — | 1 | — | 1 | — | — |
-| `A/ANAA` | 3 | — | 3 | — | 3 | 3 | 3 |
-| `A/ANNAAA` | 3 | — | 2 | — | 2 | 2 | 1 |
-| `A/NANAAA` | 3 | — | 3 | — | 2 | 2 | 2 |
-| `AAAA` | 3 | — | — | — | 3 | 3 | 3 |
-| `AAAAA` | 3 | — | 4 | — | 4 | 4 | 4 |
-| `A/#AANAAA` | 2 | — | 2 | — | 2 | 2 | 2 |
-| `A/NNNN` | 2 | — | 2 | — | 2 | 2 | 2 |
-| `ANAAAU` | 2 | — | 1 | — | 2 | 2 | 2 |
-| `A/#AANAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/A/AANAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/AA-N-AA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/AAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/AAAA` | 1 | 1 | 2 | 1 | 2 | 2 | 2 |
-| `A/AAAUNNNN` | 1 | — | 1 | — | 1 | — | — |
-| `A/AANNN` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/ANAAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `A/NANAA` | 1 | — | — | — | — | — | — |
-| `AAAAAAAAAAA` | 1 | — | — | — | 1 | — | — |
-| `AAAAAAAAAAAA` | 1 | — | — | — | 1 | — | — |
-| `ANAAN` | 1 | — | 2 | — | 2 | 1 | 1 |
-| `ANUAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `NAAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `NANAAAU` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `NaNAAA` | 1 | — | 1 | — | 1 | 1 | 1 |
-| `aNaaa` | 1 | — | 1 | — | 1 | 1 | 1 |
-| _(empty)_ | — | — | — | — | — | 2 | 4 |
-| `,,` | — | — | 1 | — | — | 1 | 1 |
-| `A/A#AANAAA` | — | — | 1 | — | 1 | — | — |
-| `A/A/AANAAA` | — | — | 1 | — | 1 | — | — |
-| `A/AAANAAA` | — | — | 1 | — | 1 | — | — |
-| `A/ANNAA` | — | — | 1 | — | 1 | — | — |
-| `AANNN` | — | — | 1 | — | 1 | — | — |
-| `ANNAAA` | — | — | 1 | — | 1 | — | — |
-| `NN-Aaa` | — | — | — | — | 16 | 15 | 15 |
-| `NNNNNNNN` | — | — | 1 | — | 1 | — | — |
+| pattern | 2026-06-23 | 2026-01-14 | 2025-11-11 | 2025-06-08 | 2025-06-04 | 2025-05-27 | 2025-04-08 | 2023-02-20 | 2022-05-30 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| _records_ | 158318 | 146417 | 159895 | 1074 | 112650 | 1074 | 157427 | 152084 | 151152 |
+| `ANAAA` | 138209 | 127953 | 139798 | 827 | 97773 | 827 | 136896 | 132379 | 131583 |
+| `NNAAA` | 19497 | 17969 | 19549 | 242 | 14368 | 242 | 19882 | 19100 | 18965 |
+| `ANAA` | 471 | 427 | 452 | — | 352 | — | 473 | 472 | 472 |
+| `A/AANAAA` | 38 | 16 | 18 | 3 | 49 | 3 | 48 | 31 | 29 |
+| `A/AANAA` | 19 | 4 | 7 | — | 21 | — | 20 | 11 | 11 |
+| `A/ANAAA` | 14 | 6 | 7 | — | 16 | — | 16 | 12 | 12 |
+| `NANAAA` | 13 | 6 | 9 | 1 | 14 | 1 | 14 | 13 | 13 |
+| `AANAAA` | 7 | 5 | 5 | — | 7 | — | 7 | 7 | 7 |
+| `NNAA` | 5 | 4 | 4 | — | 4 | — | 5 | 5 | 5 |
+| `A/NAAA` | 4 | 1 | 2 | — | 4 | — | 4 | 2 | 2 |
+| `A/AANA` | 3 | — | 1 | — | 1 | — | 1 | — | — |
+| `A/ANAA` | 3 | 2 | 2 | — | 3 | — | 3 | 3 | 3 |
+| `A/ANNAAA` | 3 | 1 | 1 | — | 2 | — | 2 | 2 | 1 |
+| `A/NANAAA` | 3 | 1 | 1 | — | 3 | — | 2 | 2 | 2 |
+| `AAAA` | 3 | 3 | 3 | — | — | — | 3 | 3 | 3 |
+| `AAAAA` | 3 | 2 | 2 | — | 4 | — | 4 | 4 | 4 |
+| `A/#AANAAA` | 2 | — | — | — | 2 | — | 2 | 2 | 2 |
+| `A/NNNN` | 2 | 1 | 1 | — | 2 | — | 2 | 2 | 2 |
+| `ANAAAU` | 2 | 2 | 2 | — | 1 | — | 2 | 2 | 2 |
+| `A/#AANAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/A/AANAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/AA-N-AA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/AAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `A/AAAA` | 1 | — | — | 1 | 2 | 1 | 2 | 2 | 2 |
+| `A/AAAUNNNN` | 1 | 1 | 1 | — | 1 | — | 1 | — | — |
+| `A/AANNN` | 1 | — | — | — | 1 | — | 1 | 1 | 1 |
+| `A/ANAAAA` | 1 | — | — | — | 1 | — | 1 | 1 | 1 |
+| `A/NANAA` | 1 | — | — | — | — | — | — | — | — |
+| `AAAAAAAAAAA` | 1 | 1 | — | — | — | — | 1 | — | — |
+| `AAAAAAAAAAAA` | 1 | 1 | — | — | — | — | 1 | — | — |
+| `ANAAN` | 1 | 1 | 2 | — | 2 | — | 2 | 1 | 1 |
+| `ANUAAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `NAAAA` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `NANAAAU` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| `NaNAAA` | 1 | — | — | — | 1 | — | 1 | 1 | 1 |
+| `aNaaa` | 1 | 1 | 1 | — | 1 | — | 1 | 1 | 1 |
+| _(empty)_ | — | — | — | — | — | — | — | 2 | 4 |
+| `,,` | — | — | — | — | 1 | — | — | 1 | 1 |
+| `A/A#AANAAA` | — | — | — | — | 1 | — | 1 | — | — |
+| `A/A/AANAAA` | — | — | 1 | — | 1 | — | 1 | — | — |
+| `A/AAANAAA` | — | — | 1 | — | 1 | — | 1 | — | — |
+| `A/ANNAA` | — | — | — | — | 1 | — | 1 | — | — |
+| `AANNN` | — | — | 1 | — | 1 | — | 1 | — | — |
+| `ANNAAA` | — | 1 | 1 | — | 1 | — | 1 | — | — |
+| `N#NAAA` | — | 1 | 1 | — | — | — | — | — | — |
+| `NN-Aaa` | — | — | 15 | — | — | — | 16 | 15 | 15 |
+| `NNNNNNNN` | — | — | — | — | 1 | — | 1 | — | — |
 
 </details>
 

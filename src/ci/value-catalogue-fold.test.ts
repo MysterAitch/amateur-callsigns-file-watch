@@ -145,38 +145,38 @@ const EXACT_MATCH = 'no availability-list class for this category; equal but for
 
 const EXPECTED_CATEGORIES: Record<string, CategoryExpectation> = {
   Full: {
-    legacy: { records: 1_361_439, callsigns: 98_747, allocated: 59_495 },
-    folded: { records: 1_295_732, callsigns: 94_764, allocated: 59_492 },
+    legacy: { records: 1_479_200, callsigns: 98_748, allocated: 59_514 },
+    folded: { records: 1_413_493, callsigns: 94_766, allocated: 59_511 },
     variants: ['Amateur Full Radio Licence', 'Full'],
     reason: AVAILABLE_POOL_CLASS,
   },
   Foundation: {
-    legacy: { records: 778_772, callsigns: 47_342, allocated: 37_936 },
-    folded: { records: 715_656, callsigns: 45_331, allocated: 37_935 },
+    legacy: { records: 851_486, callsigns: 47_349, allocated: 37_980 },
+    folded: { records: 788_370, callsigns: 45_338, allocated: 37_979 },
     variants: ['Amateur Foundation Radio Licence', 'Foundation'],
     reason: AVAILABLE_POOL_CLASS,
   },
   Intermediate: {
-    legacy: { records: 374_176, callsigns: 24_056, allocated: 15_286 },
-    folded: { records: 295_213, callsigns: 21_136, allocated: 15_273 },
+    legacy: { records: 402_637, callsigns: 24_110, allocated: 15_351 },
+    folded: { records: 323_674, callsigns: 21_190, allocated: 15_338 },
     variants: ['Amateur Intermediate Radio Licence', 'Intermediate'],
     reason: AVAILABLE_POOL_CLASS,
   },
   Club: {
-    legacy: { records: 35_754, callsigns: 2_459, allocated: 2_143 },
-    folded: { records: 35_737, callsigns: 2_460, allocated: 2_143 },
+    legacy: { records: 40_095, callsigns: 2_459, allocated: 2_146 },
+    folded: { records: 40_078, callsigns: 2_460, allocated: 2_146 },
     variants: ['Amateur Club Radio Licence'],
     reason: CLEANED_KEY,
   },
   'Temporary Reciprocal': {
-    legacy: { records: 1_436, callsigns: 126, allocated: 83 },
-    folded: { records: 1_436, callsigns: 122, allocated: 82 },
+    legacy: { records: 1_520, callsigns: 127, allocated: 84 },
+    folded: { records: 1_520, callsigns: 123, allocated: 83 },
     variants: ['Amateur Temporary Reciprocal Radio Licence'],
     reason: CLEANED_KEY,
   },
   'Special Event': {
-    legacy: { records: 1_333, callsigns: 1_316, allocated: 54 },
-    folded: { records: 1_333, callsigns: 1_316, allocated: 54 },
+    legacy: { records: 1_341, callsigns: 1_316, allocated: 54 },
+    folded: { records: 1_341, callsigns: 1_316, allocated: 54 },
     variants: ['Special Event Station'],
     reason: EXACT_MATCH,
   },
@@ -210,6 +210,44 @@ function parseCommittedFolded(): Map<string, LicenceCategoryFigures> {
   return byCategory;
 }
 
+// Thousands-underscored integer literal (1417346 -> "1_417_346") so the emitted
+// figures paste straight into the numeric-separator style above.
+function underscored(n: number | undefined): string {
+  return (n ?? 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '_');
+}
+
+// When a new dataset shifts the corpus, the committed EXPECTED_CATEGORIES figures
+// go stale and the assertions below fail. To make the (deliberate, human-reviewed)
+// allow-list update a copy rather than a hand-count, emit a paste-ready block of
+// the freshly-computed legacy + committed-folded figures whenever any category
+// drifts. Variants and reasons are structural, not counts, so they carry over
+// unchanged and are echoed for convenience.
+function emitRegeneratedAllowListOnDrift(
+  legacyByCategory: Map<string, LicenceCategoryFigures>,
+  committedFolded: Map<string, LicenceCategoryFigures>,
+): void {
+  const drifted = Object.entries(EXPECTED_CATEGORIES).some(([cat, exp]) => {
+    const l = legacyByCategory.get(cat);
+    const f = committedFolded.get(cat);
+    return l === undefined || f === undefined
+      || l.records !== exp.legacy.records || l.callsigns !== exp.legacy.callsigns || l.allocated !== exp.legacy.allocated
+      || f.records !== exp.folded.records || f.callsigns !== exp.folded.callsigns || f.allocated !== exp.folded.allocated;
+  });
+  if (!drifted) return;
+  const out = ['', 'EXPECTED_CATEGORIES drift — paste-ready regenerated figures (verify before committing):'];
+  for (const [cat, exp] of Object.entries(EXPECTED_CATEGORIES)) {
+    const l = legacyByCategory.get(cat);
+    const f = committedFolded.get(cat);
+    out.push(`  '${cat}': {`);
+    out.push(`    legacy: { records: ${underscored(l?.records)}, callsigns: ${underscored(l?.callsigns)}, allocated: ${underscored(l?.allocated)} },`);
+    out.push(`    folded: { records: ${underscored(f?.records)}, callsigns: ${underscored(f?.callsigns)}, allocated: ${underscored(f?.allocated)} },`);
+    out.push(`    variants: ${JSON.stringify(exp.variants)},`);
+    out.push(`    reason: ${JSON.stringify(exp.reason)},`);
+    out.push('  },');
+  }
+  console.log(out.join('\n'));
+}
+
 describe('licence-category — ledger vs legacy equivalence oracle', { tags: ['data-validity'] }, () => {
   // Always-on: reads the committed folded golden and recomputes the legacy
   // figures live over the real archive (no DuckDB needed for this side). Any
@@ -223,6 +261,7 @@ describe('licence-category — ledger vs legacy equivalence oracle', { tags: ['d
     const legacy = computeLegacyLicenceCategories(productCatalogue, ref, productCells);
     legacyByCategory = new Map(legacy.categories.map(c => [c.category, c]));
     committedFolded = parseCommittedFolded();
+    emitRegeneratedAllowListOnDrift(legacyByCategory, committedFolded);
   }, 600_000);
 
   it('LicenceCategories_LegacyAndFolded_ShareTheSameCategoryAndVariantSets', () => {

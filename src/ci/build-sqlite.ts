@@ -1,20 +1,27 @@
 #!/usr/bin/env node
 
 /**
- * Builds the published SQLite database for the GitHub Pages lookup
- * (issue #17 proof of concept): the latest dataset's normalised rows and
- * components, the precomputed series x RSL matrix, and the reference-data
- * tables - everything the in-browser lookup joins against to answer "tell me
- * about M7TEE" with one database. The per-publication statistics pivot the
- * lookup once carried here now folds directly from the committed stats.json
- * (renderFlagsTableHtml in build-home-aggregates.ts), so those tables no
- * longer ship in this database.
+ * Builds the published DOWNLOAD data tiers for the GitHub Pages site
+ * (issue #149 item 4): the flat union CSV, one SQLite per archive entry, and
+ * the combined database's gzipped download twin. These are the no-SQL and
+ * archival download artefacts, not the range-queried runtime databases: the
+ * interactive lookup/compare/browser/explore surfaces now read the
+ * ledger-derived projection databases (src/v2/build-projection-db.ts, issue
+ * #572), so the legacy runtime pair (callsigns.sqlite.png, combined.sqlite.png)
+ * this build once served has been retired (issue #445). The download tiers'
+ * own future - folding the FOI observations union from the ledger - is
+ * follow-on work (#446/#447/#448).
+ *
+ * The combined database is still built here as the intermediate the gzipped
+ * download twin (combined.sqlite.gz) compresses from, then removed in the
+ * PUBLISH build so the runtime .png never reaches the deploy; the raw
+ * verification build keeps it for the tiers oracle to read directly.
  *
  * DELIBERATELY NOT COMMITTED: SQLite files are not byte-deterministic, so
- * the database lives outside the golden-master lane - it is built fresh by
- * the Pages deploy workflow as an artefact, derived from committed data.
+ * these artefacts live outside the golden-master lane - they are built fresh by
+ * the Pages deploy workflow, derived from committed data.
  *
- * Usage: node src/ci/build-sqlite.ts [output-path]
+ * Usage: node src/ci/build-sqlite.ts [data-dir]
  */
 
 import * as fs from 'fs';
@@ -41,16 +48,6 @@ const GZIP_LEVEL = process.env.TIERS_GZIP_LEVEL !== undefined ? Number(process.e
 // Reference data is repo-anchored (same convention as the component parser).
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const REFERENCE_DATA_DIR = path.join(REPO_ROOT, 'reference-data');
-
-// Shared with the register-history table below through the process-wide parse
-// memo, so the newest publication's normalised.csv and components.csv - parsed
-// here for the latest-dataset tables and again for the history table - are read
-// once. Callers that want the parse attributed to a perf label wrap the call
-// themselves (parse:register / parse:components); reference-data reads stay
-// untimed, exactly as before.
-function readCsv(filePath: string): Record<string, string>[] {
-  return parseCsvCached(filePath, { columns: true, skip_empty_lines: true });
-}
 
 // Rows per multi-row INSERT statement. Each `.run()` is one JS→native crossing
 // plus one bytecode execution, so binding N rows in a single statement instead
@@ -115,87 +112,6 @@ export function parseFlagRegistry(): { flag: string; meaning: string; grounding:
   }
   if (rows.length === 0) throw new Error('parsed zero flag-registry rows from reference-data/flags.md - table format changed?');
   return rows;
-}
-
-export function buildSqlite(outputPath: string): { datasetKey: string; tables: Record<string, number> } {
-  const keys = listArchiveKeys().sort();
-  const newest = keys[keys.length - 1];
-  if (newest === undefined) throw new Error('no archive entries found');
-
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.rmSync(outputPath, { force: true });
-  const db = new DatabaseSync(outputPath);
-  applyBuildPragmas(db);
-  const counts: Record<string, number> = {};
-
-  const createAndFill = (table: string, columns: string[], rows: string[][], indexColumn?: string): void => {
-    db.exec(`CREATE TABLE ${table} (${columns.map(c => `"${c}" TEXT`).join(', ')})`);
-    // One transaction per table: without it every insert commits separately
-    // and a 158k-row table takes minutes instead of milliseconds.
-    time('sqlite:createAndFill-insert', () => {
-      db.exec('BEGIN');
-      insertBatched(db, table, columns.length, rows, row => row);
-      db.exec('COMMIT');
-    }, rows.length);
-    if (indexColumn) db.exec(`CREATE INDEX idx_${table}_${indexColumn} ON ${table}("${indexColumn}")`);
-    counts[table] = rows.length;
-  };
-
-  const objectRows = (records: Record<string, string>[], columns: string[]): string[][] =>
-    records.map(r => columns.map(c => r[c] ?? ''));
-
-  // Latest dataset: normalised + components, joined by callsign.
-  const normalisedRecords = time('parse:register', () => readCsv(path.join(CONSTANTS.DIRS.archive, newest, 'normalised.csv')));
-  const normalisedColumns = Object.keys(normalisedRecords[0]);
-  createAndFill('normalised', normalisedColumns, objectRows(normalisedRecords, normalisedColumns), 'callsign');
-
-  const componentRecords = time('parse:components', () => readCsv(path.join(CONSTANTS.DIRS.archive, newest, 'components.csv')));
-  const componentColumns = Object.keys(componentRecords[0]);
-  createAndFill('components', componentColumns, objectRows(componentRecords, componentColumns), 'callsign');
-  // Second lookup path: the RSL-placeholder form unifies every regional
-  // rendering of a callsign, so variant searches are one indexed equality.
-  db.exec('CREATE INDEX idx_components_placeholder ON components("placeholder_form")');
-  // Third lookup path: suffix search (*TEE) powers the availability matrix.
-  db.exec('CREATE INDEX idx_components_suffix ON components("suffix")');
-  // Fourth: the artefact-unifying cleaned key ("did you mean" recovery -
-  // whitespace/encoding-artefact rows found from a clean search input).
-  // Plain index, never UNIQUE: duplicates are expected and deliberate.
-  db.exec('CREATE INDEX idx_components_cleaned ON components("cleaned")');
-
-  // Reference data (the meanings the lookup joins against).
-  const ref = (name: string): Record<string, string>[] => readCsv(path.join(REFERENCE_DATA_DIR, name));
-  const rsl = ref('rsl.csv');
-  createAndFill('ref_rsl', Object.keys(rsl[0]), objectRows(rsl, Object.keys(rsl[0])), 'rsl');
-  const prefixes = ref('prefix-formats.csv');
-  createAndFill('ref_prefix_formats', Object.keys(prefixes[0]), objectRows(prefixes, Object.keys(prefixes[0])), 'prefix');
-  const forbidden = ref('forbidden-suffixes.csv');
-  createAndFill('ref_forbidden_suffixes', ['suffix'], forbidden.map(r => [r.suffix]), 'suffix');
-  const itu = ref('itu-call-sign-series.csv');
-  createAndFill('itu_series', ['series', 'allocated_to'], itu.map(r => [r.series, r.allocated_to]));
-
-  const registry = parseFlagRegistry();
-  createAndFill('flag_registry', ['flag', 'meaning', 'grounding'], registry.map(r => [r.flag, r.meaning, r.grounding]), 'flag');
-
-  // Precomputed series x RSL locator matrix: a GROUP BY over the full
-  // components table would be prohibitively chatty over the site's
-  // range-request VFS, so the handful of aggregate rows ship ready-made
-  // for the interactive query examples (site/explore.js).
-  time('sqlite:aggregate-tables', () => {
-  db.exec(`CREATE TABLE rsl_matrix AS
-    SELECT prefix_series AS series, rsl, COUNT(*) AS n
-    FROM components WHERE parse_status = 'parsed'
-    GROUP BY prefix_series, rsl`);
-  counts['rsl_matrix'] = Number((db.prepare('SELECT COUNT(*) AS c FROM rsl_matrix').get() as { c: number | bigint }).c);
-  });
-
-  db.exec('CREATE TABLE build_info (key TEXT, value TEXT)');
-  const info = db.prepare('INSERT INTO build_info VALUES (?, ?)');
-  info.run('dataset', newest);
-  info.run('generated_at', new Date().toISOString());
-  info.run('commit', process.env.GITHUB_SHA ?? 'local');
-
-  db.close();
-  return { datasetKey: newest, tables: counts };
 }
 
 // The component fields FOI observations gain by running every callsign
@@ -458,15 +374,23 @@ export async function buildPublishedTiers(dataDir: string, options: { compress?:
   summary['combined register_history'] = historyRows;
   combined.close();
 
-  // Download twin of the combined: honest name, gzipped - the .png variant exists
-  // solely for the site's range-request path. Publish-only (the twin is gzip of
-  // the .png, so it can only ever gunzip back to it), so the raw verification
-  // build skips it - it is the single most expensive step in the build (#478).
+  // Download twin of the combined: honest name, gzipped. The combined database
+  // is built above only as the intermediate this twin compresses from - the
+  // interactive surfaces now read the ledger-history projection (issue #572),
+  // so the legacy combined.sqlite.png runtime database no longer serves the
+  // site and must not reach the deploy (issue #445). Publish-only (the twin is
+  // gzip of the raw database, so it can only ever gunzip back to it), so the
+  // raw verification build skips both the gzip - the single most expensive step
+  // in the build (#478) - and the removal, keeping the raw database for the
+  // tiers oracle to read directly.
   if (compress) {
     // The single most expensive step (#478): one big stream, which zlib cannot
     // split across cores - so gzipFileToFile prefers pigz (all cores on one
     // stream) and streams a zlib fallback when pigz is absent.
     await timeAsync('gzip:combined', () => gzipFileToFile(combinedPath, path.join(dataDir, 'combined.sqlite.gz'), GZIP_LEVEL));
+    // Drop the runtime .png once the download twin exists: it is retired from
+    // the served site, so the deploy carries the twin only, not both.
+    fs.rmSync(combinedPath, { force: true });
   }
 
   return summary;
@@ -474,15 +398,10 @@ export async function buildPublishedTiers(dataDir: string, options: { compress?:
 
 if (import.meta.main) {
   const args = process.argv.slice(2).filter(a => a.trim().length > 0);
-  const tiersFlag = args.indexOf('--tiers');
-  const output = args.find(a => !a.startsWith('--')) ?? path.join('_site', 'data', 'callsigns.sqlite');
-  const result = buildSqlite(output);
-  console.log(`built ${output} from dataset ${result.datasetKey}`);
-  for (const [table, n] of Object.entries(result.tables)) console.log(`  ${table}: ${n} rows`);
-  if (tiersFlag !== -1) {
-    const tiers = await buildPublishedTiers(path.dirname(output));
-    for (const [what, n] of Object.entries(tiers)) console.log(`  tiers: ${what}: ${n}`);
-  }
+  const dataDir = args.find(a => !a.startsWith('--')) ?? path.join('_site', 'data');
+  const tiers = await buildPublishedTiers(dataDir);
+  console.log(`built the download data tiers into ${dataDir}`);
+  for (const [what, n] of Object.entries(tiers)) console.log(`  tiers: ${what}: ${n}`);
   // Self-guarded: prints the profiling breakdown to stderr only under PERF.
   perfReport();
 }

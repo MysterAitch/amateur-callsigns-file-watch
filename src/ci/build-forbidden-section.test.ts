@@ -205,8 +205,8 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     // callsigns render through the shared pill (issue #310), not an ad-hoc
     // anchor, so the callout reads like the section's tables.
     expect(page).toContain('Forbidden, then de-listed, then issued.');
-    expect(page).toContain('<a class="callsign-pill" href="../../../index.html?c=M3QNF" title="M3QNF — prefix series M3 · suffix QNF · Foundation">M3QNF</a> (original start 20 November 2025)');
-    expect(page).toContain('<a class="callsign-pill" href="../../../index.html?c=M7QNF" title="M7QNF — prefix series M7 · suffix QNF · Foundation">M7QNF</a> (original start 7 February 2025)');
+    expect(page).toContain('<a class="cs callsign-pill" href="../../../index.html?c=M3QNF" title="M3QNF — prefix series M3 · suffix QNF · Foundation">M3QNF</a> (original start 20 November 2025)');
+    expect(page).toContain('<a class="cs callsign-pill" href="../../../index.html?c=M7QNF" title="M7QNF — prefix series M7 · suffix QNF · Foundation">M7QNF</a> (original start 7 February 2025)');
     expect(page).toContain('A reconciliation candidate');
     // The flag rationale is accurate post phase-4 refit: the row-level
     // forbidden-suffix flag keys off the ever-forbidden union (NOT the old 2019
@@ -224,14 +224,20 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     // "status" in the lead carries the shared glossary affordance (issue #329).
     expect(page).toContain('broken down by latest-known <a class="gloss-term" href="../../../glossary.html#status-values">status');
     expect(page).toMatch(/By latest-known status/);
-    // Both status buckets render as breakdown rows with their counts.
-    expect(page).toMatch(/<span class="lab">Allocated<\/span><span class="pct">[^<]*<\/span><b>2<\/b>/);
-    expect(page).toMatch(/<span class="lab">Forbidden<\/span><span class="pct">[^<]*<\/span><b>3<\/b>/);
+    // Both status buckets render as breakdown rows with their counts, their
+    // labels routed through the shared status field wrapper (issue #553) - a
+    // bounded distinct-value list, so 'Allocated' and 'Forbidden' are linked
+    // to their glossary definitions (Forbidden's being the honestly-undefined
+    // one, #status-forbidden).
+    expect(page).toMatch(/<span class="lab"><span class="stat"><a class="gloss-term" href="\.\.\/\.\.\/\.\.\/glossary\.html#allocated">Allocated.*?<\/a><\/span><\/span><span class="pct">[^<]*<\/span><b>2<\/b>/);
+    expect(page).toMatch(/<span class="lab"><span class="stat"><a class="gloss-term" href="\.\.\/\.\.\/\.\.\/glossary\.html#status-forbidden">Forbidden.*?<\/a><\/span><\/span><span class="pct">[^<]*<\/span><b>3<\/b>/);
     // M3QNF's status transition (Forbidden in 2016, Allocated now) is surfaced,
-    // not flattened away.
-    expect(page).toContain('Allocated <small class="gap">(was Forbidden)</small>');
+    // not flattened away. This per-callsign cell is pinned to the wrapper's
+    // 'plain' treatment (no glossary link): the table can list many rows
+    // repeating the same handful of status values.
+    expect(page).toContain('<span class="stat">Allocated</span> <small class="gap">(was <span class="stat">Forbidden</span>)</small>');
     // Every callsign deep-links into the register lookup, through the shared pill.
-    expect(page).toContain('<a class="callsign-pill" href="../../../index.html?c=M3QNF"');
+    expect(page).toContain('<a class="cs callsign-pill" href="../../../index.html?c=M3QNF"');
   });
 
   it('SuffixPage_QNF_CrossLinksToDisclosuresAndFoiObservations', () => {
@@ -260,10 +266,10 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     // bare callsign, with a supplementary title built from the parsed
     // components, deep-linking into the register lookup (?c=).
     const page = read('forbidden', 'suffix', 'QNF', 'index.html');
-    expect(page).toContain('<a class="callsign-pill" href="../../../index.html?c=M3QNF" title="M3QNF — prefix series M3 · suffix QNF · Foundation">M3QNF</a>');
+    expect(page).toContain('<a class="cs callsign-pill" href="../../../index.html?c=M3QNF" title="M3QNF — prefix series M3 · suffix QNF · Foundation">M3QNF</a>');
     // The accessible name is the callsign itself (the link text), not the
     // title — the pill carries no aria-label that would override it.
-    expect(page).not.toMatch(/class="callsign-pill"[^>]*aria-label=/);
+    expect(page).not.toMatch(/class="cs callsign-pill"[^>]*aria-label=/);
     // The pill styling is present in the (entry) stylesheet the page uses.
     expect(page).toContain('.callsign-pill{');
   });
@@ -272,7 +278,7 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     // With no component data, the pill is just the callsign linking to the
     // lookup at the given relative depth — no supplementary title is fabricated.
     const pill = callsignPill('M7TEE', 3);
-    expect(pill).toBe('<a class="callsign-pill" href="../../../index.html?c=M7TEE">M7TEE</a>');
+    expect(pill).toBe('<a class="cs callsign-pill" href="../../../index.html?c=M7TEE">M7TEE</a>');
   });
 
   it('CallsignPill_WithParsedComponents_AddsSupplementaryTitleButKeepsCallsignAsAccessibleName', () => {
@@ -280,7 +286,7 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     // enrich the supplementary title, and absent fields are omitted rather than
     // rendered blank.
     const pill = callsignPill('M7TEE', 1, { prefixSeries: 'M7', suffix: 'TEE', licenceClass: 'Foundation' });
-    expect(pill).toBe('<a class="callsign-pill" href="../index.html?c=M7TEE" title="M7TEE — prefix series M7 · suffix TEE · Foundation">M7TEE</a>');
+    expect(pill).toBe('<a class="cs callsign-pill" href="../index.html?c=M7TEE" title="M7TEE — prefix series M7 · suffix TEE · Foundation">M7TEE</a>');
     expect(pill).not.toContain('aria-label');
   });
 
@@ -293,5 +299,16 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     // Data tables carry scoped column headers.
     expect(page).toContain('<th scope="col">callsign</th>');
     expect(page).toContain('<th scope="col">latest status</th>');
+  });
+});
+
+describe('Forbidden-suffix section — inline fidelity nudge (issue #438)', { tags: ['data-validity'] }, () => {
+  it('SuffixPage_CallsignsList_NudgesInlineToTheForbiddenSuffixFlagRow', () => {
+    // Every callsign on a per-suffix page carries the row-level
+    // forbidden-suffix flag; the lead says so in calm, non-accusatory terms and
+    // deep-links the flag's own row on the fidelity deep-dive page.
+    const page = read('forbidden', 'suffix', 'QNF', 'index.html');
+    expect(page).toContain('an observation locating the suffix on the ever-forbidden union, not a verdict');
+    expect(page).toContain('<a class="fid-nudge" href="../../../fidelity.html#flag-forbidden-suffix">');
   });
 });

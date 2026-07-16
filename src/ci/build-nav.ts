@@ -44,6 +44,9 @@ export const ACTIVE_NAV: Record<string, string> = {
   'explore.html': 'Explore',
   'compare.html': 'Compare',
   'ledger.html': 'Ledger',
+  // The instant per-callsign page (issue #594) is the Lookup's fast summary
+  // surface; there is no nav item of its own, so Lookup is marked current.
+  'callsign.html': 'Lookup',
   'playground.html': 'Playground',
   'data-status.html': 'Data status',
   'callsign-structure.html': 'Anatomy',

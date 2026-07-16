@@ -45,6 +45,14 @@ export const GLOSSARY_ANCHORS = {
   'reserved': 'the Reserved status',
   'available': 'the Available status (and the availability trap)',
   'status-values': 'the register status values',
+  // Observed register-status values the glossary is explicit have NO
+  // canonical meaning established (site/glossary.html#status) - registered
+  // here (issue #553) so the shared status field wrapper (./status.ts) can
+  // crosslink a RENDERED "Live"/"Forbidden"/"Quarantine" value to that honest
+  // explanation, not just leave the reader to guess.
+  'status-live': 'the Live status (no canonical meaning established)',
+  'status-forbidden': 'the Forbidden status (no canonical meaning established)',
+  'status-quarantine': 'the Quarantine status (no canonical meaning established)',
   'axis-processing': 'the processing-progress axis',
   'axis-authority': 'the source-authority axis',
   'axis-confidence': 'the claim-confidence axis',

@@ -18,7 +18,7 @@ The project's logical pieces:
 - **Read-only CI**: every PR must pass `tests` (typecheck + unit tests) and `data-validation` — for the open-data lane: archive-entry completeness, size + sha256 byte integrity against each entry's `meta.json`, CSV parseability, latest-pointer consistency; for the FOI lane: meta shape and vocabularies, referential integrity (converter bindings, derivation references, entry cross-links) and the same full byte integrity (every declared file hash-verified on every run). Also runnable locally via `npm run validate:data`. Both are required status checks on `main`, so the sweep's auto-merge only completes on green. See [`.github/workflows/cicd.yaml`](.github/workflows/cicd.yaml), [`src/ci/validate-foi.ts`](src/ci/validate-foi.ts), and [ADR 0002](docs/adr/0002-repo-level-write-controls.md) for the repository-level write controls this slots into (and [ADR 0012](docs/adr/0012-supply-chain-posture.md) for the read-only, minimal-dependency posture CI holds to). The verification and Pages deploy now share one pipeline with a layered, content-addressed build cache — see [ADR 0019](docs/adr/0019-layered-build-cache-and-unified-cicd.md).
 - **Normalise sweep**: a daily workflow re-derives `archive/{key}/normalised.csv` — one canonical schema (stable columns, ISO-ordered dates) across every publication regardless of Ofcom's per-publication header drift. Byte-identical output is a no-op; changes become an always-human-reviewed PR whose cross-entry diff is the review artefact (golden-master semantics, ADR 0001). Coverage (intended vs achieved schema version per entry) lives on a rolling dashboard issue. Converter: [`src/sources/ofcom-amateur/normalise.ts`](src/sources/ofcom-amateur/normalise.ts); sweep: [`src/ci/normalise-sweep.ts`](src/ci/normalise-sweep.ts) (`npm run normalise:sweep`).
 - **FOI derivation chain**: raw disclosure files → mechanical extraction (`src/shared/xlsx-extract.ts`, a dependency-free workbook reader; PDF tables are transcribed into committed `raw-extract-*.md` files) → deterministic converters (`src/shared/foi-normalise.ts`, authored per-entry bindings in each `meta.json`) → `normalised--*.csv` in the published per-class schemas ([`docs/foi-schemas.md`](docs/foi-schemas.md)). Every arrow is re-derived and byte-compared by golden-master tests on every CI run, and daily by the FOI sweep (`npm run foi:sweep`), which reports both lanes to the coverage dashboard.
-- **Presentation** ([ADR 0003](docs/adr/0003-in-repo-presentation-poc.md)): every push to `main` builds a SQLite database from the archive + reference data and deploys it with a frameworkless lookup site ([`site/`](site/)) to [GitHub Pages](https://mysteraitch.github.io/amateur-callsigns-file-watch/) — callsign lookup with regional-variant resolution, filtered browse, suffix availability and RSL matrices, per-publication data-quality flags, per-class dataset index pages (clickable class tags), and a dedicated forbidden-suffix section (an index, one page per forbidden-list disclosure, and one per ever-forbidden suffix with notable-change drill-downs). Shared page-render helpers (nav, breadcrumb, page shell, design tokens) live in [`src/ci/site-render.ts`](src/ci/site-render.ts) so every generated section reads as one product.
+- **Presentation** ([ADR 0003](docs/adr/0003-in-repo-presentation-poc.md)): every push to `main` builds a SQLite database from the archive + reference data and deploys it with a frameworkless lookup site ([`site/`](site/)) to [GitHub Pages](https://mysteraitch.github.io/amateur-callsigns-file-watch/) — callsign lookup with regional-variant resolution, an instant per-callsign page answered from prefix-sharded static JSON (no database on that path), filtered browse, suffix availability and RSL matrices, per-publication data-quality flags, per-class dataset index pages (clickable class tags), a fidelity and integrity deep-dive, and a dedicated forbidden-suffix section (an index, one page per forbidden-list disclosure, and one per ever-forbidden suffix with notable-change drill-downs). Shared page-render helpers (nav, breadcrumb, page shell, design tokens) live in [`src/ci/site-render.ts`](src/ci/site-render.ts) so every generated section reads as one product.
 
 ## Repository layout
 
@@ -41,7 +41,7 @@ latest-raw-sorted.json                 ...raw content as JSON (sorted)
 latest-meta.json                       ...the newest entry's meta
 reference-data/                     <- hand-curated reference tables (RSLs, prefix formats, ITU series...)
 reports/                            <- generated golden-master reports (value catalogue, drill-downs); published at /reports/
-site/                               <- the GitHub Pages site (ADR 0003): lookup, statistics, explore, compare, series, datasets (+ per-class pages), forbidden suffixes, reports, glossary, about
+site/                               <- the GitHub Pages site (ADR 0003): lookup, instant per-callsign page, statistics, explore, compare, series, datasets (+ per-class pages), forbidden suffixes, fidelity/integrity, reports, glossary, about
 src/
   scheduled-run.ts                  <- Pattern-2 orchestrator; the systemd timer's ExecStart
   shared/                           <- source-agnostic archive, utils, FOI converters + extractor
@@ -82,6 +82,28 @@ The scheduled orchestrator can be run manually from any machine (Windows / macOS
 ```bash
 npm run scheduled                   # one tick; decides whether to actually do anything
 ```
+
+### Serving the built site locally
+
+`_site/` (the Pages build output — see the CI/CD workflow's `build-site-databases`
+and `Assemble the site` steps) is never committed, so there is no way to
+browser-load a real page without a local static server. `npm run serve:site`
+is a small committed one (`src/tools/serve-site.ts`, node:http + node:fs only —
+no new dependency): fixed default port (`4600`, overridable via a `SITE_PORT`
+env var or a positional argument), correct MIME types for everything the site
+ships — including the `.sqlite.png` costume the range-served SQLite databases
+wear so GitHub Pages never gzip-transcodes them (`site/app.js`) — and HTTP
+Range support (206 partial content) so sql.js-httpvfs can query a database
+without downloading it whole. Directory URLs (`/foo/`) resolve to that
+directory's `index.html`.
+
+```bash
+npm run serve:site                  # serves _site/ at http://localhost:4600/
+SITE_PORT=5000 npm run serve:site   # or: node src/tools/serve-site.ts 5000
+```
+
+A fixed default port means a browser's "allow this origin" permission only
+needs granting once, rather than for a fresh ephemeral port every run.
 
 ### Cross-platform lock-file discipline
 
@@ -322,7 +344,7 @@ Still open:
 
 ### Backlog
 
-Open work items are tracked as [GitHub Issues](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues) rather than in-repo files. Use the labels `enhancement`, `refactor`, `research`, `docs`, `discussion` to distinguish work types.
+Open work items are tracked as [GitHub Issues](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues) rather than in-repo files. Use the labels `enhancement`, `refactor`, `research`, `docs`, `discussion` to distinguish work types. Data PRs additionally carry a separate, automatically-applied dataset-class label axis — see [CONTRIBUTING.md](CONTRIBUTING.md#dataset-class-labels).
 
 ## Design notes
 
