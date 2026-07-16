@@ -4,8 +4,9 @@
 |---|---|
 | **Ofcom reference** | 01649066 |
 | **Publication channel** | Ofcom FOI disclosure log, filed under August 2023 |
-| **Response date** | not held precisely (filed under August 2023; see the vintage note below) |
-| **Requester** | not attributed on the disclosure log |
+| **Requested** | 2023-07-24 (recovered from the now-held response letter) |
+| **Response date** | 2023-08-21 (letter date; data generated 18 August 2023) |
+| **Requester** | not named on the disclosure log or in the letter |
 | **Data vintage** | **2023-08-18** — declared and well-supported (see below) |
 
 ## Overview
@@ -43,5 +44,19 @@
 
 ## Exchange
 
-No request/response email thread is held for this disclosure. The record is the
-disclosed workbook and its provenance, captured above and in `meta.json`.
+The **response letter is now held**
+([raw extract](raw-extract-amateur-radio-callsign-allocation-as-of-july-2023.md)):
+it records the request as received **24 July 2023**, is dated **21 August
+2023**, and states the data was generated on **18 August 2023** — the vintage
+this entry carries. The request wording is quoted within it: *"a list of all UK
+amateur radio callsigns previously allocated as of July 2023, showing the type
+of the licence, the current status (e.g. allocated, reserved), and, where
+possible, the date of allocation for each callsign."* No requester-side email
+thread is held (the requester is not named), and the disclosed workbook itself
+remains double-witnessed and byte-identical across the live disclosure log and
+the UK Government Web Archive, as captured above and in `meta.json`.
+
+A later request, [`wdtk-1021241`](../wdtk-1021241--licence-class-format-mismatch-not-held/)
+(FOI 01667041, September 2023), builds directly on this disclosure — citing it
+by reference and picking out M5SHA in it as a Foundation licence carrying a
+Full-format callsign.

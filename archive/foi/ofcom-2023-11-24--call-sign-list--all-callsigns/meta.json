@@ -2,32 +2,66 @@
   "schemaVersion": 1,
   "sourceKey": "ofcom-foi",
   "requestId": null,
-  "ofcomReference": null,
-  "ofcomReferenceNote": "no FOI reference number appears on the disclosure; the file is published as 'call-sign-list-241123.csv' under Ofcom's FOI/disclosure area for December 2023 and the entry is keyed by its data vintage",
-  "requestUrl": null,
+  "ofcomReference": "01713103",
+  "ofcomReferenceNote": "recovered via the WhatDoTheyKnow thread (request 1045020, Andrew Robinson): the response letter served on that thread carries reference 01713103 for the same 24 November 2023 report. The disclosure-log CSV's own filename ('call-sign-list-241123.csv') carries no reference, and the disclosure-log copy differs from the WDTK-served copy by a two-byte re-encoding (see divergences), so the two are distinct byte-copies of the one 01713103 disclosure.",
+  "requestUrl": "https://www.whatdotheyknow.com/request/callsign_allocation_data",
   "title": "Amateur callsign list (Ofcom disclosure log, 'Call sign list 241123')",
-  "requester": null,
-  "requestedAt": null,
-  "requestedAtNote": "not held; the disclosure carries no request thread. The source register associates it with a WhatDoTheyKnow request (Andrew Robinson, November 2023) but no exact request date is recorded.",
-  "respondedAt": null,
-  "respondedAtNote": "no response date is stated; the file sits under the December 2023 disclosure/open-data area",
+  "requester": "andrew_robinson_7",
+  "requestedAt": "2023-11-08",
+  "requestedAtNote": "recovered from the WDTK-served copy's response letter (FOI 01713103, requester Andrew Robinson), which records the request as received 8 November 2023. The disclosure-log copy itself carries no request thread; the date attaches to the byte-divergent WDTK copy of the same disclosure held here.",
+  "respondedAt": "2023-12-05",
+  "respondedAtNote": "the WDTK-served response letter is dated 5 December 2023 (the data was generated 24 November 2023, which the filename and dataVintage carry). The disclosure-log copy sits under Ofcom's December 2023 area, consistent with the 5 December response.",
   "outcome": "successful",
   "dataVintage": "2023-11-24",
   "dataVintageNote": "high confidence: the filename's '241123' reads as 24 November 2023 and the latest 'Call Sign MMSI: Last Modified Date' in the data is exactly 2023-11-24, so the two independent signals agree",
-  "datasetClasses": ["register-snapshot"],
-  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2023-11-24-register" },
+  "datasetClasses": [
+    "register-snapshot"
+  ],
+  "converter": {
+    "script": "src/shared/foi-normalise.ts",
+    "variant": "ofcom-2023-11-24-register"
+  },
   "relatedEntries": [
-    { "entry": "ofcom-2023-12-07--open-data-call-sign-list--all-callsigns", "relation": "the next snapshot in the same Value,Status,Product,Type,Last-Modified shape, published thirteen days later as open data (70 more records)" },
-    { "entry": "ofcom-2024-01--foi-1734722--all-callsigns", "relation": "the January 2024 FOI 1734722 disclosure in the same shape - the complete register including the reserved pool this list omits" },
-    { "entry": "ofcom-756622--published-register-csv", "relation": "the previous published register generation (2019-09), a different header shape (Call Sign,Status,Licence Class,Licence Issued Dat)" },
-    { "entry": "wdtk-1180568--licence-breakdown-duration-age", "relation": "the later FOI 1900117 register (2024-10) whose sheet 1 shares the Value,Status,Type core" }
+    {
+      "entry": "ofcom-2023-12-07--open-data-call-sign-list--all-callsigns",
+      "relation": "the next snapshot in the same Value,Status,Product,Type,Last-Modified shape, published thirteen days later as open data (70 more records)"
+    },
+    {
+      "entry": "ofcom-2024-01--foi-1734722--all-callsigns",
+      "relation": "the January 2024 FOI 1734722 disclosure in the same shape - the complete register including the reserved pool this list omits"
+    },
+    {
+      "entry": "ofcom-756622--published-register-csv",
+      "relation": "the previous published register generation (2019-09), a different header shape (Call Sign,Status,Licence Class,Licence Issued Dat)"
+    },
+    {
+      "entry": "wdtk-1180568--licence-breakdown-duration-age",
+      "relation": "the later FOI 1900117 register (2024-10) whose sheet 1 shares the Value,Status,Type core"
+    }
+  ],
+  "divergences": [
+    {
+      "file": "call-sign-list-241123.csv",
+      "counterpart": {
+        "publisher": "whatdotheyknow",
+        "url": "https://www.whatdotheyknow.com/request/callsign_allocation_data/response/2485340/attach/4/Call%20sign%20list%20241123.csv",
+        "sha256": "a9f2349bf46ba8911d28aee62a49533639ac2b9c23358ec44bfe05f91768d471",
+        "originalFilename": "Call sign list 241123.csv",
+        "heldAs": "wdtk-1045020-call-sign-list-241123.csv"
+      },
+      "level": "bytes",
+      "summary": "The same 24 November 2023 disclosure was served two ways: the disclosure-log copy held as the faithful parse source (call-sign-list-241123.csv) and this copy attached to the WhatDoTheyKnow thread (FOI 01713103, requester Andrew Robinson). Both carry the identical 108,922 rows in the identical order, with identical line counts and CRLF terminators; they differ by exactly two bytes. On two heritage callsigns the disclosure-log copy encodes a trailing non-breaking space as a lone 0xA0 byte (invalid UTF-8 / Latin-1), while the WDTK-served copy encodes the same trailing non-breaking space as the well-formed UTF-8 sequence 0xC2 0xA0 - so the WDTK copy is two bytes larger. The difference is a byte-encoding artefact only; both normalise identically (the trailing non-breaking space is trimmed at convert time). Which copy is designated the parse source is stated, not adjudicated - both are held so a reader can compare them directly.",
+      "enumeration": "call-sign-list-241123.csv line 99345 'G0TQK' + 0xA0 vs wdtk-1045020-call-sign-list-241123.csv 'G0TQK' + 0xC2 0xA0; line 101998 '2E1HON' + 0xA0 vs '2E1HON' + 0xC2 0xA0. No other byte differs."
+    }
   ],
   "files": {
     "call-sign-list-241123.csv": {
       "bytes": 8477624,
       "sha256": "e438c141a645bacdeef7efdc5f474c629744f4328e60fe5f091ba38194dd6061",
       "role": "data",
-      "datasetClasses": ["register-snapshot"],
+      "datasetClasses": [
+        "register-snapshot"
+      ],
       "contentsIndicative": "header Value,Status,Product,Type,Call Sign MMSI: Last Modified Date (no BOM, CRLF, UTF-8); 108,922 data rows - 99,529 Allocated, 9,148 Reserved, 235 Available, 10 blank statuses. Product is the licence-product vocabulary verbatim (Amateur Foundation/Intermediate/Full/Club/Temporary Reciprocal Radio Licence), no blanks. Type is 'Call Sign - Amateur' throughout (service discriminator). Last-modified dates day-first DD/MM/YYYY spanning 2016-07-23..2023-11-24 (day-first verified: 63,988 rows carry a day>12). Anomalies preserved verbatim: 13 Excel-mangled callsigns (Intermediate 20xxx suffixes reading as months, served as 20-Apr/20-May/20-Nov/21-Jan etc.); 'G6 FMU' interior space; lower-case 'g0jrk'; six-to-nine-character reciprocal/regional callsigns.",
       "witnesses": [
         {
@@ -51,9 +85,46 @@
       "normalisedFrom": "call-sign-list-241123.csv",
       "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 108,922 rows sorted by callsign (source order carries no meaning - grouped but neither callsign-sorted nor date-ordered). Status and licence_class (from Product) carried verbatim; last_modified_date ISO-rendered from the day-first source. Type is required-present but not carried (constant discriminator, described above). The 10 blank statuses and the Excel-mangled callsigns are preserved."
     },
+    "wdtk-1045020-call-sign-list-241123.csv": {
+      "bytes": 8477626,
+      "sha256": "a9f2349bf46ba8911d28aee62a49533639ac2b9c23358ec44bfe05f91768d471",
+      "role": "divergent-copy",
+      "divergesFrom": "call-sign-list-241123.csv",
+      "contentsIndicative": "the WhatDoTheyKnow-served copy of the 24 November 2023 disclosure (FOI 01713103, request 1045020). Byte-for-byte identical to the held disclosure-log copy except that the trailing non-breaking space on G0TQK and 2E1HON is encoded as well-formed UTF-8 (0xC2 0xA0) rather than the disclosure-log copy's lone 0xA0 byte - two extra bytes in total. Held in full so the encoding difference is re-verifiable; see divergences[0].",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/callsign_allocation_data/response/2485340/attach/4/Call%20sign%20list%20241123.csv",
+          "sha256": "a9f2349bf46ba8911d28aee62a49533639ac2b9c23358ec44bfe05f91768d471",
+          "originalFilename": "Call sign list 241123.csv",
+          "fetchedAt": "2026-07-16"
+        }
+      ]
+    },
+    "foi-01713103-callsign-allocation-data.pdf": {
+      "bytes": 203501,
+      "sha256": "80f966e92748ba5742a152bf108a01298b070eb7d73a42f6d4ea1ff9d82e8d18",
+      "role": "response-letter",
+      "contentsIndicative": "the FOI 01713103 response letter (dated 5 December 2023) served on the WDTK thread to Andrew Robinson: records the request as received 8 November 2023, states the data was generated 24 November 2023, and includes Ofcom's explanation that a callsign is marked Reserved following surrender of a licence and generally stays reserved for two years. Recovered the request/response dates the entry previously recorded as not held.",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/callsign_allocation_data/response/2485340/attach/3/callsign%20allocation%20data.pdf",
+          "sha256": "80f966e92748ba5742a152bf108a01298b070eb7d73a42f6d4ea1ff9d82e8d18",
+          "originalFilename": "callsign allocation data.pdf",
+          "fetchedAt": "2026-07-16"
+        }
+      ]
+    },
+    "raw-extract-foi-01713103-callsign-allocation-data.md": {
+      "bytes": 1804,
+      "sha256": "5131cbafe9bd3ca00fba7da6ce97b6a3dcdec0118c1bdccca7d5a9825c6bf415",
+      "role": "extract",
+      "extractOf": "foi-01713103-callsign-allocation-data.pdf"
+    },
     "correspondence.md": {
-      "bytes": 2815,
-      "sha256": "5d1844fdfb05107c9fc34b06a1b3e1852a879f1bf4d806f8be7a8adcb02d2911",
+      "bytes": 4488,
+      "sha256": "83e9a8e1fbad7a0db0d5f77b97fa3ac588f4b7a545fca12009a5adddd92d93a2",
       "role": "transcript"
     }
   }

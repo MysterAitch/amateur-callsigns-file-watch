@@ -7,30 +7,55 @@
   "publicationUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2023/august/copy-of-call-sign-list-18-08-2023.xlsx?v=215149",
   "title": "Call sign list, 18 August 2023 (Ofcom FOI 01649066)",
   "requester": null,
-  "requestedAt": null,
-  "requestedAtNote": "not held; the request thread is not recovered. The disclosure appears on Ofcom's FOI log with no requester or request date stated (the request necessarily predates the August 2023 response).",
-  "respondedAt": null,
-  "respondedAtNote": "not stated in the held material; the file is served under Ofcom's 2023/august disclosure-log path, and the served filename dates the export 18-08-2023 (see dataVintage).",
+  "requestedAt": "2023-07-24",
+  "requestedAtNote": "recovered from the now-held response letter, which records the request as received on 24 July 2023. The requester is not named on the disclosure log or in the letter, so requester remains null.",
+  "respondedAt": "2023-08-21",
+  "respondedAtNote": "the response letter is dated 21 August 2023 (the data was generated 18 August 2023, which the served filename and dataVintage carry). Both the letter date and the data-generation date are held; they differ by the ordinary drafting-to-issue lag.",
   "outcome": "successful",
   "dataVintage": "2023-08-18",
   "dataVintageNote": "declared, well-supported. The worksheet name ('Call Sign Data') embeds no timestamp, but the served filename dates the export 18-08-2023 and the latest 'Call Sign MMSI: Last Modified Date' in the data is 2023-08-17 - a firm lower bound sitting one day inside the filename date. The disclosed bytes are identical across the live disclosure-log copy and the UK Government Web Archive capture (both sha256 016c51c3…), so the vintage is corroborated by two independent retrievals.",
-  "datasetClasses": ["register-snapshot"],
-  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-2023-08-18-register" },
+  "datasetClasses": [
+    "register-snapshot"
+  ],
+  "converter": {
+    "script": "src/shared/foi-normalise.ts",
+    "variant": "ofcom-2023-08-18-register"
+  },
   "relatedEntries": [
-    { "entry": "ofcom-2023-01-25--call-sign-list-with-status--all-callsigns", "relation": "the previous register snapshot held (2023-01-25) in the same Value/Status/Product family; that four-column workbook omits the constant Type column this one carries." },
-    { "entry": "ofcom-2023-11-24--call-sign-list--all-callsigns", "relation": "the next snapshot in the same five-column shape, disclosed as a CSV (day-first dates) rather than a workbook (typed ISO dates)." },
-    { "entry": "ofcom-2024-01--foi-1734722--all-callsigns", "relation": "the complete-register snapshot in the same family (2024-01); both carry the reserved pool with a blank Product." }
+    {
+      "entry": "ofcom-2023-01-25--call-sign-list-with-status--all-callsigns",
+      "relation": "the previous register snapshot held (2023-01-25) in the same Value/Status/Product family; that four-column workbook omits the constant Type column this one carries."
+    },
+    {
+      "entry": "ofcom-2023-11-24--call-sign-list--all-callsigns",
+      "relation": "the next snapshot in the same five-column shape, disclosed as a CSV (day-first dates) rather than a workbook (typed ISO dates)."
+    },
+    {
+      "entry": "ofcom-2024-01--foi-1734722--all-callsigns",
+      "relation": "the complete-register snapshot in the same family (2024-01); both carry the reserved pool with a blank Product."
+    },
+    {
+      "entry": "wdtk-1021241--licence-class-format-mismatch-not-held",
+      "relation": "a later request (FOI 01667041, Sep 2023) that cites this disclosure by reference (01649066) and picks out M5SHA in it as a Foundation licence carrying a Full-format callsign; Ofcom refused to enumerate such format/class mismatches under Section 84."
+    }
   ],
   "files": {
     "copy-of-call-sign-list-18-08-2023.xlsx": {
       "bytes": 4521889,
       "sha256": "016c51c3c27ce6347321ea273ee46d5cdc2ed665bee00938a3c2da58223150ad",
       "role": "data",
-      "datasetClasses": ["register-snapshot"],
+      "datasetClasses": [
+        "register-snapshot"
+      ],
       "sheetsIndicative": {
         "note": "one worksheet ('Call Sign Data'): header Value,Product,Status,Type,Call Sign MMSI: Last Modified Date then 153,248 data rows. Preserved verbatim as a raw extract and normalised into the register-snapshot dataset.",
         "sheets": [
-          { "name": "Call Sign Data", "dataRows": 153248, "cols": "A:E", "datasetClass": "register-snapshot" }
+          {
+            "name": "Call Sign Data",
+            "dataRows": 153248,
+            "cols": "A:E",
+            "datasetClass": "register-snapshot"
+          }
         ]
       },
       "witnesses": [
@@ -60,13 +85,36 @@
       "bytes": 7436245,
       "sha256": "3930329680b0fb25d367341cd3f456df191882d4942550953dfbd786426fb85e",
       "role": "normalised",
-      "datasetClasses": ["register-snapshot"],
+      "datasetClasses": [
+        "register-snapshot"
+      ],
       "normalisedFrom": "raw-extract-sheet-1-call-sign-data.csv",
       "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 153,248 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product) carried verbatim - 42,502 blank licence_class values (the reserved pool) and 11 blank statuses preserved. last_modified_date carried verbatim from the ISO-rendered workbook extract. Type is required-present but not carried. The trailing-NBSP trio is trimmed (the sole canonicalisation, counted at convert time) and passes through as G0TQK/G7IWE/2E1HON; 'G6 FMU' keeps its interior space."
     },
+    "amateur-radio-callsign-allocation-as-of-july-2023.pdf": {
+      "bytes": 205205,
+      "sha256": "2ece9272a9209f45b6eb841f48521a1b2e98244e24608c6194b104c8f0e73629",
+      "role": "response-letter",
+      "contentsIndicative": "the 01649066 response letter (dated 21 August 2023): records the request as received 24 July 2023, states the data was generated on 18 August 2023, and describes the attached list as all UK amateur radio callsigns showing callsign, licence type, current status and the date each callsign attained that status. Recovered from Ofcom's FOI disclosure-log siteassets area; it fills the request/response dates the entry previously recorded as not held.",
+      "witnesses": [
+        {
+          "channel": "ofcom-disclosure-log",
+          "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2023/august/amateur-radio-callsign-allocation-as-of-july-2023.pdf",
+          "sha256": "2ece9272a9209f45b6eb841f48521a1b2e98244e24608c6194b104c8f0e73629",
+          "originalFilename": "amateur-radio-callsign-allocation-as-of-july-2023.pdf",
+          "fetchedAt": "2026-07-16"
+        }
+      ]
+    },
+    "raw-extract-amateur-radio-callsign-allocation-as-of-july-2023.md": {
+      "bytes": 1462,
+      "sha256": "321cf1ba2caf2b84581e69340022c9365474b9d36086f394f19181bd246d8ed0",
+      "role": "extract",
+      "extractOf": "amateur-radio-callsign-allocation-as-of-july-2023.pdf"
+    },
     "correspondence.md": {
-      "bytes": 2863,
-      "sha256": "ef5d31b7d20f09447505398e8c457b5f1be8af7a8eb1897896a3bbefac879103",
+      "bytes": 3864,
+      "sha256": "5b75ba8a5f4d38473a10edcfcac1645eb41c6f37e64f0335323317f63e8e9315",
       "role": "transcript"
     }
   }

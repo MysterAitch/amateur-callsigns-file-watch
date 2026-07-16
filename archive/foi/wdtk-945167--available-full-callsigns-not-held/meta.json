@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 945167,
+  "ofcomReference": "1562825",
+  "requestUrl": "https://www.whatdotheyknow.com/request/amateur_radio_full_licence_calls",
+  "title": "Available formerly-issued Full callsigns (Ofcom FOI 1562825, not held)",
+  "requester": "mark_savage",
+  "requestedAt": "2023-02-02",
+  "respondedAt": "2023-03-01",
+  "outcome": "not held",
+  "dataVintage": null,
+  "datasetClasses": [
+    "reference-context"
+  ],
+  "converter": null,
+  "relatedEntries": [
+    {
+      "entry": "ofcom-612185--unallocated-callsigns-not-held",
+      "relation": "the same not-held answer to a request for a list of available callsigns: Ofcom holds no discrete list of formerly-issued or unallocated callsigns, the licensing system generating them on demand."
+    }
+  ],
+  "files": {
+    "foi-1562825-available-full-callsigns.pdf": {
+      "bytes": 213435,
+      "sha256": "197cb1d8275f9ccd0354c6c6bb0102aae1a6be37d7a20be06a25f9c8ece556f3",
+      "role": "response-letter",
+      "contentsIndicative": "record-only not-held response (Gloria Akinyemi, Information Rights Adviser): Ofcom holds no discrete list of formerly-issued Full callsigns available to request. Explains the Allocated/Reserved/Available status vocabulary, the default prefixes (M7 Foundation, 20 Intermediate, M0 Full) and the paper-application route (a one-off GBP 20 fee for a callsign with a non-default prefix).",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/amateur_radio_full_licence_calls/response/2249504/attach/12/FOI%201562825%20Amateur%20Radio%20Full%20Licence%20Callsigns%20which%20are%20available.pdf",
+          "sha256": "197cb1d8275f9ccd0354c6c6bb0102aae1a6be37d7a20be06a25f9c8ece556f3",
+          "originalFilename": "FOI 1562825 Amateur Radio Full Licence Callsigns which are available.pdf",
+          "fetchedAt": "2026-07-16"
+        }
+      ]
+    },
+    "raw-extract-foi-1562825-available-full-callsigns.md": {
+      "bytes": 1877,
+      "sha256": "96bc0513c7022bd00bee211b04170e63c12163f71be07e95a918ec450beb8cd4",
+      "role": "extract",
+      "extractOf": "foi-1562825-available-full-callsigns.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 1771,
+      "sha256": "ce7f58218892756d374ca05ff4fac628ef34f051d103bbe2590676fb60d9ff76",
+      "role": "transcript"
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 1021241,
+  "ofcomReference": "01667041",
+  "requestUrl": "https://www.whatdotheyknow.com/request/amateur_radio_licence_errors",
+  "title": "Callsigns whose format does not fit the licence class (Ofcom FOI 01667041, not held)",
+  "requester": "billy_mcfarland",
+  "requestedAt": "2023-09-04",
+  "respondedAt": "2023-10-02",
+  "outcome": "not held",
+  "dataVintage": null,
+  "datasetClasses": [
+    "reference-context"
+  ],
+  "converter": null,
+  "relatedEntries": [
+    {
+      "entry": "ofcom-2023-08-18--call-sign-list--all-callsigns",
+      "relation": "the disclosure this request builds on: it cites 'your FOI response dated 21/08/23 reference 01649066' (the held 18 August 2023 register snapshot) and picks out M5SHA, listed there as a Foundation licence but carrying a Full-format callsign, as the example of a format-vs-class mismatch."
+    }
+  ],
+  "files": {
+    "foi-01667041-licence-class-format-mismatch.pdf": {
+      "bytes": 225542,
+      "sha256": "3849c6ad375e6c27ea71e632feabeec605774adf2295291522baff9168d2809b",
+      "role": "response-letter",
+      "contentsIndicative": "record-only Section 84 refusal: Ofcom does not record which issued callsigns have a format that does not match their licence class, and is not required to create that information to answer a request; the reply signposts the published amateur callsign allocation page. The request itself records the M5SHA observation (a Foundation licence carrying a Full-format callsign) and cites the 01649066 response of 21 August 2023.",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/amateur_radio_licence_errors/response/2434886/attach/9/List%20of%20amateur%20radio%20call%20signs%20where%20the%20format%20doesnt%20fit%20the%20licence%20class.pdf",
+          "sha256": "3849c6ad375e6c27ea71e632feabeec605774adf2295291522baff9168d2809b",
+          "originalFilename": "List of amateur radio call signs where the format doesnt fit the licence class.pdf",
+          "fetchedAt": "2026-07-16"
+        }
+      ]
+    },
+    "raw-extract-foi-01667041-licence-class-format-mismatch.md": {
+      "bytes": 1745,
+      "sha256": "b0b75fed21f38bfef949a2bdb5d91a07404b14a945fa2217fe8e339c29519f0a",
+      "role": "extract",
+      "extractOf": "foi-01667041-licence-class-format-mismatch.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 1854,
+      "sha256": "77f6eedf9fd9beba33fada804ce5dec99a2a6e9e632337327a76b8d13069c6b1",
+      "role": "transcript"
+    }
+  }
+}

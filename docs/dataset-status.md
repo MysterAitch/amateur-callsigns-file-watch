@@ -23,7 +23,7 @@ This documents **what exists**. Whether each derivation still *verifies* is the
 | 2026-01-14 | — | ✔ | ✔ | ✔ |
 | 2026-06-23 | ✔ | ✔ | ✔ | ✔ |
 
-## FOI lane (49 entries)
+## FOI lane (51 entries)
 
 Extracts: `mech` = mechanically re-derivable (xlsx, via `src/shared/xlsx-extract.ts`);
 `transcr` = attested transcription of a PDF (see the entry's raw-extract file).
@@ -43,8 +43,8 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | ofcom-2021-04--all-callsigns | successful | register-snapshot | 2021-04-21 | ✔ 1 | 1 mech | `ofcom-2021-04-register` | ✔ 1 |
 | ofcom-2022-03-14--available-and-registered--all-callsigns | successful | register-snapshot | 2022-03-14 | ✔ 1 | 1 mech | `ofcom-2022-03-14-register` | ✔ 1 |
 | ofcom-2023-01-25--call-sign-list-with-status--all-callsigns | successful | register-snapshot | 2023-01-25 | ✔ 1 | 1 mech | `ofcom-2023-01-25-register` | ✔ 1 |
-| ofcom-2023-08-18--call-sign-list--all-callsigns | successful | register-snapshot | 2023-08-18 | ✔ 1 | 1 mech | `ofcom-2023-08-18-register` | ✔ 1 |
-| ofcom-2023-11-24--call-sign-list--all-callsigns | successful | register-snapshot | 2023-11-24 | ✔ 1 | — | `ofcom-2023-11-24-register` | ✔ 1 |
+| ofcom-2023-08-18--call-sign-list--all-callsigns | successful | register-snapshot | 2023-08-18 | ✔ 1 | 1 mech + 1 transcr | `ofcom-2023-08-18-register` | ✔ 1 |
+| ofcom-2023-11-24--call-sign-list--all-callsigns | successful | register-snapshot | 2023-11-24 | ✔ 1 | 1 transcr | `ofcom-2023-11-24-register` | ✔ 1 |
 | ofcom-2023-12-07--open-data-call-sign-list--all-callsigns | successful | register-snapshot | 2023-12-07 | ✔ 1 | — | `ofcom-2023-12-07-register` | ✔ 1 |
 | ofcom-2024-01--foi-1734722--all-callsigns | successful | register-snapshot | 2024-01 | ✔ 1 | — | `ofcom-2024-01-register` | ✔ 1 |
 | ofcom-2024-04-30--copy-all-callsigns--all-callsigns | successful | register-snapshot | 2024-04-30 | ✔ 1 | — | `ofcom-2024-04-30-register` | ✔ 1 |
@@ -64,6 +64,7 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | ofcom-632469--suffix-availability-not-held | not held | reference-context | — | — | 1 transcr | — | — |
 | ofcom-671462--suffix-availability-not-held | not held | reference-context | — | — | 1 transcr | — | — |
 | ofcom-756622--published-register-csv | successful | register-snapshot, forbidden-list, attribute-addendum | 2019-09-12 | ✔ 2 | — | `ofcom-756622-register-and-forbidden` | ✔ 2 |
+| wdtk-1021241--licence-class-format-mismatch-not-held | not held | reference-context | — | — | 1 transcr | — | — |
 | wdtk-1180568--licence-breakdown-duration-age | successful | register-snapshot, attribute-addendum | 2024-10 | ✔ 2 | 1 transcr | `wdtk-1180568-csv-pair` | ✔ 2 |
 | wdtk-174341--available-callsigns-list | successful | available-pool | 2013-09-06 | ✔ 1 | 3 mech + 2 transcr | `available-suffix-lists-2013-style` | ✔ 3 |
 | wdtk-174543--licence-statistics | successful | statistics-aggregate | 2013-08-28 | ✔ 1 | 2 transcr | — | — |
@@ -81,3 +82,4 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | wdtk-309076--available-callsigns-list | successful | available-pool | 2016-01-21 | ✔ 1 | 1 mech | `wdtk-309076-combined-list` | ✔ 1 |
 | wdtk-356636--all-callsigns-plus-forbidden | successful | register-snapshot, forbidden-list | 2016-09 | ✔ 1 | 3 mech + 1 transcr | `wdtk-356636-register-and-forbidden` | ✔ 2 |
 | wdtk-596532--allocated-reserved-forbidden | successful | register-snapshot, forbidden-list | 2019-08-12 | ✔ 1 | 2 mech + 1 transcr | `wdtk-596532-register-and-forbidden` | ✔ 2 |
+| wdtk-945167--available-full-callsigns-not-held | not held | reference-context | — | — | 1 transcr | — | — |
