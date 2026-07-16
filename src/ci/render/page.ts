@@ -66,6 +66,15 @@ const CALLSIGN_CSS = [
   '.callsign-pill:focus-visible{outline:2px solid var(--accent);outline-offset:1px}',
 ].join('');
 
+// The register-status and licence-class/category field wrappers (issue #553):
+// each carries its own stable class so a status/licence value never wraps
+// mid-token; the blank forms (stat-blank/lic-blank) are plain <em> and need no
+// styling of their own, matching the callsign wrapper's cs-blank precedent.
+const STATUS_LICENCE_CSS = [
+  '.stat{white-space:nowrap}',
+  '.lic{white-space:nowrap}',
+].join('');
+
 // The minimal per-page stylesheet. It opens with the shared palette
 // (SHARED_TOKENS_CSS) so adjacent pages read as one product, then layers a
 // page-only --code tint and the bottom-ruled tables on top. The full entry
@@ -86,6 +95,7 @@ const PAGE_STYLE = [
   '.breadcrumb{font-size:.9rem;color:var(--muted);margin:.6rem 0 .2rem}.breadcrumb a{color:var(--accent)}',
   SHARED_AFFORDANCE_CSS,
   CALLSIGN_CSS,
+  STATUS_LICENCE_CSS,
   '</style>',
 ].join('');
 
@@ -330,6 +340,7 @@ const ENTRY_STYLE = [
   SHARED_AFFORDANCE_CSS,
   SHARED_DB_ALERT_CSS,
   CALLSIGN_CSS,
+  STATUS_LICENCE_CSS,
   '</style>',
 ].join('');
 

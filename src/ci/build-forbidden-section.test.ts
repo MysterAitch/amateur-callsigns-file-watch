@@ -224,12 +224,18 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     // "status" in the lead carries the shared glossary affordance (issue #329).
     expect(page).toContain('broken down by latest-known <a class="gloss-term" href="../../../glossary.html#status-values">status');
     expect(page).toMatch(/By latest-known status/);
-    // Both status buckets render as breakdown rows with their counts.
-    expect(page).toMatch(/<span class="lab">Allocated<\/span><span class="pct">[^<]*<\/span><b>2<\/b>/);
-    expect(page).toMatch(/<span class="lab">Forbidden<\/span><span class="pct">[^<]*<\/span><b>3<\/b>/);
+    // Both status buckets render as breakdown rows with their counts, their
+    // labels routed through the shared status field wrapper (issue #553) - a
+    // bounded distinct-value list, so 'Allocated' and 'Forbidden' are linked
+    // to their glossary definitions (Forbidden's being the honestly-undefined
+    // one, #status-forbidden).
+    expect(page).toMatch(/<span class="lab"><span class="stat"><a class="gloss-term" href="\.\.\/\.\.\/\.\.\/glossary\.html#allocated">Allocated.*?<\/a><\/span><\/span><span class="pct">[^<]*<\/span><b>2<\/b>/);
+    expect(page).toMatch(/<span class="lab"><span class="stat"><a class="gloss-term" href="\.\.\/\.\.\/\.\.\/glossary\.html#status-forbidden">Forbidden.*?<\/a><\/span><\/span><span class="pct">[^<]*<\/span><b>3<\/b>/);
     // M3QNF's status transition (Forbidden in 2016, Allocated now) is surfaced,
-    // not flattened away.
-    expect(page).toContain('Allocated <small class="gap">(was Forbidden)</small>');
+    // not flattened away. This per-callsign cell is pinned to the wrapper's
+    // 'plain' treatment (no glossary link): the table can list many rows
+    // repeating the same handful of status values.
+    expect(page).toContain('<span class="stat">Allocated</span> <small class="gap">(was <span class="stat">Forbidden</span>)</small>');
     // Every callsign deep-links into the register lookup, through the shared pill.
     expect(page).toContain('<a class="cs callsign-pill" href="../../../index.html?c=M3QNF"');
   });
