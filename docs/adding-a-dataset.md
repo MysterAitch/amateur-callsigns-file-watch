@@ -113,8 +113,12 @@ Key the directory by the publication's data vintage: `archive/{YYYY-MM-DD}/`.
 The FOI lane's converter binding lives in `FOI_ENTRY_CONVERSIONS`
 (`src/shared/foi-normalise.ts`), bound per entry via `meta.json`'s
 `converter: {script, variant}`; entries carry `correspondence.md` (role
-`transcript`) always, per-file roles/hashes, and per-file `witnesses[]`.
-Generate the normalised file with
+`transcript`) always, per-file roles/hashes, and per-file `witnesses[]`. Every
+FOI `meta.json` also declares a top-level `datasetClasses` array against the
+vocabulary in
+[`foi-schemas.md`](foi-schemas.md#dataset-classes-entry-level-vocabulary) —
+the same field the [scheduled dataset-class labels](../CONTRIBUTING.md#dataset-class-labels)
+mirror onto the entry's PR. Generate the normalised file with
 `node src/shared/foi-normalise.ts archive/foi/{key}` and verify with
 `npm run foi:sweep`. Template entries:
 `archive/foi/ofcom-2025-09-11--callsigns--all-callsigns` (workbook),

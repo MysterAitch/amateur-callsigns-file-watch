@@ -344,7 +344,7 @@ Still open:
 
 ### Backlog
 
-Open work items are tracked as [GitHub Issues](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues) rather than in-repo files. Use the labels `enhancement`, `refactor`, `research`, `docs`, `discussion` to distinguish work types.
+Open work items are tracked as [GitHub Issues](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues) rather than in-repo files. Use the labels `enhancement`, `refactor`, `research`, `docs`, `discussion` to distinguish work types. Data PRs additionally carry a separate, automatically-applied dataset-class label axis — see [CONTRIBUTING.md](CONTRIBUTING.md#dataset-class-labels).
 
 ## Design notes
 
