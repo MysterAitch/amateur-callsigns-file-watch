@@ -6,9 +6,9 @@
       "name": "Ofcom",
       "roles": ["originator"],
       "url": "https://www.ofcom.org.uk",
-      "channels": ["live", "ofcom-disclosure-log"],
+      "channels": ["ofcom-open-data-page", "ofcom-disclosure-log"],
       "licenceBasis": "ofcom-terms",
-      "licenceStatement": "Ofcom originates the amateur-radio register and the FOI disclosures the mirror holds, and serves them itself — the open-data register from ofcom.org.uk (the `live` channel) and the FOI disclosure log (the `ofcom-disclosure-log` channel). This states Ofcom's current terms of use, as the publisher's default basis; a specific publication — particularly a historical vintage — may have been published under different terms and can override it. Ofcom's terms of use permit its website material to be reproduced free of charge in any format, provided it is reproduced accurately, not used in a misleading context, and Ofcom copyright is acknowledged. The disclosure-log material is additionally FOI-disclosed public-authority information; where such material is Crown copyright it is separately re-usable under the Open Government Licence, but Ofcom's own terms of use are the permission this mirror cites and relies on by default.",
+      "licenceStatement": "Ofcom originates the amateur-radio register and the FOI disclosures the mirror holds, and serves them itself — the open-data register from ofcom.org.uk (the `ofcom-open-data-page` channel) and the FOI disclosure log (the `ofcom-disclosure-log` channel). This states Ofcom's current terms of use, as the publisher's default basis; a specific publication — particularly a historical vintage — may have been published under different terms and can override it. Ofcom's terms of use permit its website material to be reproduced free of charge in any format, provided it is reproduced accurately, not used in a misleading context, and Ofcom copyright is acknowledged. The disclosure-log material is additionally FOI-disclosed public-authority information; where such material is Crown copyright it is separately re-usable under the Open Government Licence, but Ofcom's own terms of use are the permission this mirror cites and relies on by default.",
       "licenceUrl": "https://www.ofcom.org.uk/about-ofcom/website/terms-of-use",
       "licenceCitations": [
         {
@@ -115,17 +115,17 @@
       "roles": ["originator"],
       "url": "https://www.itu.int",
       "channels": [],
-      "licenceBasis": "copyright-cite-only",
-      "licenceStatement": "The ITU originates the international call-sign-series table (Appendix 42 to the Radio Regulations), reproduced in reference-data/itu-call-sign-series.csv. The table is © ITU and is cited with acknowledgement, not redistributed as bulk ITU data beyond the extracted allocation rows the reference table needs. It is seeded here so existing reference-data citations of the ITU gain a publisher entry.",
+      "licenceBasis": "unverified",
+      "licenceStatement": "The ITU originates the international call-sign-series table (Appendix 42 to the Radio Regulations). The mirror does not hold a bounded extract: reference-data/itu-call-sign-series.csv reproduces the complete ~952-row Appendix 42 table, and that full table is served publicly (baked into the published query database, site/prefix-country.js). ITU's own terms assert copyright over the material with reproduction permission-required by default (requests to jur@itu.int), the only carve-out being newsroom content; the Radio Regulations' free PDF access is a separate, narrower concession for personal use, not a redistribution grant. No open licence or public-domain dedication was found covering Appendix 42 specifically. Permission to reproduce the table in this form is being sought from ITU; until a reply is held, the basis is recorded as unverified — a fail-honest description of what has actually been established, not a flattering guess.",
       "licenceUrl": "https://www.itu.int/en/Pages/copyright.aspx",
       "licenceCitations": [
         {
           "url": "https://www.itu.int/en/Pages/copyright.aspx",
-          "note": "The ITU copyright page — loaded and verified to state the ITU holds copyright in its website information unless otherwise stated, with reproduction by permission (jur@itu.int) except newsroom content usable with acknowledgement; the reference table cites the Appendix 42 allocation rows with acknowledgement and does not redistribute bulk ITU data."
+          "note": "The ITU copyright page — loaded and verified to state the ITU holds copyright in its website information unless otherwise stated, with reproduction by permission (jur@itu.int) except newsroom content usable with acknowledgement. Neither the Radio Regulations publication page nor the Appendix 42 call-sign-series landing page states any broader re-use licence, so this general policy is the operative one for the reproduced table."
         }
       ],
       "authorityCeiling": "Reference",
-      "notes": "Citation-only in increment 1 (no witness channels). Matches the reference-data provenance policy's 'cite-don't-commit' treatment of ITU material."
+      "notes": "Findings from issue #563: the register previously understated the mirror's own usage, describing it as a bounded 'extracted rows' citation when the held CSV and the database it feeds carry the entire Appendix 42 table. Corrected here to state that plainly rather than continue describing a narrower usage than actually happens. Permission is being sought (correspondence queued to jur@itu.int); this entry records the interim, honest posture — keep serving with the exposure stated accurately — pending a reply, per the register's fail-honest discipline. No witness channel is assigned; the CSV/database pathway is a de facto distribution channel not yet named as one."
     },
     {
       "id": "rsgb",
