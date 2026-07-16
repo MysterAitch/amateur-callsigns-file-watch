@@ -62,6 +62,7 @@ import {
   glossaryTerm,
   tableCaption,
 } from './site-render.ts';
+import { fidelityNudge, flagAnchor } from './render/fidelity.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
@@ -516,7 +517,7 @@ function suffixCallsignsSection(info: SuffixCallsignInfo, ref: ReferenceData): s
     : '';
   return [
     '<section><h2>Callsigns carrying this suffix</h2>',
-    `<p class="lead">${num(info.total)} distinct callsign${info.total === 1 ? '' : 's'} witnessed carrying this suffix across the corpus, <b>broken down by latest-known ${glossaryTerm('status-values', 3, { label: 'status' })}</b> — never a bare total, since Allocated (issued), Reserved, Available and Forbidden (the prohibition itself, expressed as a callsign row) mean very different things.</p>`,
+    `<p class="lead">${num(info.total)} distinct callsign${info.total === 1 ? '' : 's'} witnessed carrying this suffix across the corpus, <b>broken down by latest-known ${glossaryTerm('status-values', 3, { label: 'status' })}</b> — never a bare total, since Allocated (issued), Reserved, Available and Forbidden (the prohibition itself, expressed as a callsign row) mean very different things. Each of these records carries the row-level <code>forbidden-suffix</code> data-quality flag — an observation locating the suffix on the ever-forbidden union, not a verdict about the callsign or its holder · ${fidelityNudge(3, { section: flagAnchor('forbidden-suffix'), label: 'about this flag', about: 'about the forbidden-suffix data-quality flag' })}.</p>`,
     '<div class="bd"><h3>By latest-known status</h3>',
     breakdownRows(breakdown, info.total),
     '</div>',

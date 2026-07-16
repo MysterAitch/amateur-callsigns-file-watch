@@ -295,3 +295,14 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     expect(page).toContain('<th scope="col">latest status</th>');
   });
 });
+
+describe('Forbidden-suffix section — inline fidelity nudge (issue #438)', { tags: ['data-validity'] }, () => {
+  it('SuffixPage_CallsignsList_NudgesInlineToTheForbiddenSuffixFlagRow', () => {
+    // Every callsign on a per-suffix page carries the row-level
+    // forbidden-suffix flag; the lead says so in calm, non-accusatory terms and
+    // deep-links the flag's own row on the fidelity deep-dive page.
+    const page = read('forbidden', 'suffix', 'QNF', 'index.html');
+    expect(page).toContain('an observation locating the suffix on the ever-forbidden union, not a verdict');
+    expect(page).toContain('<a class="fid-nudge" href="../../../fidelity.html#flag-forbidden-suffix">');
+  });
+});

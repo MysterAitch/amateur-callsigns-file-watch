@@ -35,6 +35,8 @@ import { buildZip } from '../shared/zip.ts';
 import { buildForbiddenSection } from './build-forbidden-section.ts';
 import { buildClassPages, classChipLink } from './build-class-pages.ts';
 import { buildInterdatasetStats } from './build-interdataset-stats.ts';
+import { buildFidelityPage } from './build-fidelity-page.ts';
+import { fidelityHref, fidelityNudge, flagNudges } from './render/fidelity.ts';
 import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { time, perfReport } from '../shared/perf.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
@@ -284,7 +286,7 @@ function reconstructionNotice(provenance: string, reconstructionNotes?: string, 
   const detail: string[] = [];
   if (reconstructionNotes !== undefined) detail.push(`<p>${escapeHtml(reconstructionNotes)}</p>`);
   if (gitCommitSha !== undefined) detail.push(`<p>Recovered from git commit <code>${escapeHtml(gitCommitSha)}</code>.</p>`);
-  detail.push(`<p><small>Full provenance and integrity record in <a href="meta.json">meta.json</a>.</small></p>`);
+  detail.push(`<p><small>Full provenance and integrity record in <a href="meta.json">meta.json</a> · <a href="${fidelityHref(3, 'provenance')}">how the mirror records provenance and custody</a>.</small></p>`);
   return `<details class="notice provenance"><summary><span aria-hidden="true">ⓘ</span> ${caveat}</summary><div class="pdetail">${detail.join('')}</div></details>`;
 }
 
@@ -421,20 +423,36 @@ function referenceData(): ReferenceData {
   return cachedReferenceData;
 }
 
+// The registered flag names (reference-data/flags.md), read at most once per
+// build: the per-record fidelity nudges deep-link a registered flag to its own
+// row on the deep-dive page, and land an unregistered one on the section
+// heading instead (the anchor-honesty rule in render/fidelity.ts).
+let cachedRegisteredFlags: ReadonlySet<string> | undefined;
+function registeredFlags(): ReadonlySet<string> {
+  cachedRegisteredFlags ??= new Set(parseFlagRegistry().map(r => r.flag));
+  return cachedRegisteredFlags;
+}
+
 // A callsign preview cell: the shared pill (accessible name = the bare
 // callsign, linking to the register lookup at the given depth), with the
 // supplementary title built from the same parser used everywhere. A blank
 // callsign carries no pill - there is nothing to look up - and an unparseable
-// value degrades to the bare callsign with no title.
-function callsignCell(callsign: string, licenceClass: string, depthToRoot: number): string {
+// value degrades to the bare callsign with no title. When the record carries
+// data-quality flags they follow the pill as inline fidelity nudges (issue
+// #438) — each linking to that flag's row on the deep-dive page — and a
+// record with no flags renders the pill alone, so the affordance never
+// manufactures doubt where no observation exists.
+function callsignCell(callsign: string, licenceClass: string, depthToRoot: number, flags: readonly string[] = []): string {
   if (callsign === '') return '<td></td>';
   const comp = parseCallsign(callsign, licenceClass, referenceData());
-  return `<td>${callsignPill(callsign, depthToRoot, {
+  const pill = callsignPill(callsign, depthToRoot, {
     prefixSeries: comp.prefixSeries,
     rsl: comp.rsl,
     suffix: comp.suffix,
     licenceClass: comp.impliedClass,
-  })}</td>`;
+  });
+  const nudges = flagNudges(flags, depthToRoot, registeredFlags());
+  return `<td>${pill}${nudges === '' ? '' : ` ${nudges}`}</td>`;
 }
 
 // Static, crawlable preview of a normalised CSV's first rows. When
@@ -442,8 +460,12 @@ function callsignCell(callsign: string, licenceClass: string, depthToRoot: numbe
 // callsign pill (issue #310) so the register/observation tables present a
 // callsign the same way as the rest of the site; omit it (the default) and the
 // table is byte-for-byte the plain-text form, so previews with no callsign
-// column - and callers that do not opt in - are unchanged.
-function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSize = 12): string {
+// column - and callers that do not opt in - are unchanged. `flagsByCallsign`
+// (issue #438) joins each previewed record to its data-quality flags
+// (components.csv), rendered as inline fidelity nudges beside the pill; omit
+// it for sources with no per-record flag join (e.g. FOI extracts), whose
+// previews are then unchanged.
+function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSize = 12, flagsByCallsign?: ReadonlyMap<string, string>): string {
   if (!fs.existsSync(filePath)) return '';
   const fd = fs.openSync(filePath, 'r');
   const buffer = Buffer.alloc(128 * 1024);
@@ -454,9 +476,13 @@ function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSiz
   const rows = parse(lines.join('\n'), { columns: true, bom: true }) as Record<string, string>[];
   const headers = Object.keys(rows[0]).filter(h => rows.some(r => (r[h] ?? '') !== ''));
   const head = headers.map(h => `<th scope="col">${escapeHtml(h)}</th>`).join('');
+  const flagsFor = (callsign: string): string[] => {
+    const joined = flagsByCallsign?.get(callsign) ?? '';
+    return joined === '' ? [] : joined.split(';');
+  };
   const body = rows.map(r => `<tr>${headers.map(h =>
     pillCallsignDepth !== undefined && h === 'callsign'
-      ? callsignCell(r[h] ?? '', r['licence_class'] ?? '', pillCallsignDepth)
+      ? callsignCell(r[h] ?? '', r['licence_class'] ?? '', pillCallsignDepth, flagsFor(r[h] ?? ''))
       : `<td>${escapeHtml(r[h] ?? '')}</td>`).join('')}</tr>`).join('');
   return `<div style="overflow-x:auto"><table>${tableCaption(`Preview — first ${rows.length} rows of this file`)}<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
@@ -551,7 +577,7 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
     '<div class="attr">',
     `<div><b>Source</b> · ${meta.sourceUrl !== undefined ? `<a href="${escapeHtml(meta.sourceUrl)}">Ofcom open-data page →</a>` : 'Ofcom open-data page'}</div>`,
     `<div>Published ${escapeHtml(humanDate(publishedIso))}${meta.fetchedAt !== undefined ? ` · fetched ${escapeHtml(humanDate(meta.fetchedAt.slice(0, 10)))}` : ''}</div>`,
-    `<div>${bd.flaggedRows.toLocaleString('en-GB')} rows carry a quality flag</div>`,
+    `<div>${bd.flaggedRows.toLocaleString('en-GB')} rows carry a quality flag · ${fidelityNudge(3, { section: 'flags', label: 'what flags mean', about: 'what data-quality flags mean (observations, not verdicts)' })}</div>`,
     '</div>',
     notable.length > 0 ? `<div class="notable"><h3>Notable</h3><ul>${notable.join('')}</ul></div>` : '',
     '</section>',
@@ -1042,6 +1068,16 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
 
   const ignoredNote = setAsideLinesSection(meta.ignoredLines ?? [], 3);
 
+  // The per-record flag join for the browse preview's fidelity nudges (issue
+  // #438): components.csv carries each record's data-quality flags keyed by the
+  // same callsign the normalised preview rows show. Only flagged records enter
+  // the map, so an unflagged preview row costs nothing and renders unchanged.
+  const flagsByCallsign = new Map<string, string>();
+  for (const r of parseArchiveCsv(path.join(sourceDir, 'components.csv'))) {
+    const flags = (r.flags ?? '').trim();
+    if (flags !== '') flagsByCallsign.set(r.callsign ?? '', flags);
+  }
+
   const related: string[] = [];
   if (previousKey !== undefined) related.push(`<p style="margin:.1rem 0;font-size:.9rem"><b>Chronological:</b> ← <a href="../${escapeHtml(previousKey)}/index.html">Publication of ${humanDate(previousKey)}</a>.</p>`);
   if (fs.existsSync(path.join(REPO_ROOT, 'reports', 'entries', `${key}.md`))) {
@@ -1063,7 +1099,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     // record keyed by `dataset`, so `WHERE dataset = <key>` is exactly this
     // publication's normalised register — the very set the sentence names.
     `<p class="lead">The <b>normalised</b> register — the canonical shape, not the raw file (inspect <code>raw.csv</code> below for that). Showing the first rows of ${stats.recordCount.toLocaleString('en-GB')} (${(summaries.find(s => s.key === key)?.allocated ?? 0).toLocaleString('en-GB')} allocated callsigns); download <code>normalised.csv</code> for all, or <a href="${exploreDeepLink('../../../', 'combined', `SELECT * FROM register_history WHERE dataset = '${key.replace(/'/g, "''")}' ORDER BY callsign`)}">query this publication on the Explore console</a> — pre-filtered to its rows.</p>`,
-    `<div class="browser-static">${csvPreviewTable(path.join(sourceDir, 'normalised.csv'), 3)}</div>`,
+    `<div class="browser-static">${csvPreviewTable(path.join(sourceDir, 'normalised.csv'), 3, 12, flagsByCallsign)}</div>`,
     ignoredNote,
     '</section>',
     inspectTabsHtml(tabs),
@@ -1319,6 +1355,8 @@ export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: st
       : []),
     '<h2>Register status</h2>',
     ...listOf(STATUS_DOCS, ''),
+    '<h2>Fidelity &amp; integrity</h2>',
+    `<p><a href="../fidelity.html">Fidelity &amp; integrity</a> — what the data-quality flags mean, the provenance chain behind every value, worked "show the working" examples from real records, the reconstruction self-check, and how to re-verify any of it. The small fidelity notes beside records across the site all land here.</p>`,
     '<h2>Data dictionary</h2>',
     '<p>The schemas and vocabularies that make the datasets interpretable — cited in context throughout the site, and collected here.</p>',
     ...listOf(DICTIONARY_DOCS, '../datasets/docs/'),
@@ -1474,6 +1512,13 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   // It writes under datasets/classes/, so it must run after the dataset
   // entry pages the chips link back to.
   pageUrls.push(...time('dataset-pages:class-pages', () => buildClassPages(outputDir, baseUrl)));
+
+  // The fidelity & integrity deep-dive (issue #438): the one page the inline
+  // fidelity nudges land on — flag meanings, the provenance chain, worked
+  // show-the-working examples from the newest publication, and the
+  // reconstruction status. Built like the sections above; it reads the
+  // committed archive + reference data, so ordering does not matter.
+  pageUrls.push(...time('dataset-pages:fidelity', () => buildFidelityPage(outputDir, baseUrl)));
 
   // The inter-dataset statistics page (issue #177, Surface 2): a discrete,
   // static, crawlable view of statistics ACROSS publications (blank-product
