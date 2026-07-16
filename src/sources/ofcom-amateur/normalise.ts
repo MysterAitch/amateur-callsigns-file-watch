@@ -17,7 +17,7 @@ import { parse } from 'csv-parse/sync';
 import { parseUkDateTimeDetailed, type ParsedUkDateTime, renderCsv, codepointCompare } from '../../shared/normalise.ts';
 import { computeEntryStats, type EntryStats } from '../../shared/stats.ts';
 import { errorMessage, type IgnoredRawLine } from '../../shared/utils.ts';
-import { parseCallsign, componentsFlagsForRows, componentRowToCells, loadReferenceData, COMPONENT_COLUMNS, COMPONENTS_SCHEMA_VERSION } from './components.ts';
+import { parseCallsign, componentsFlagsForRows, componentRowToCells, loadReferenceData, COMPONENT_COLUMNS, COMPONENTS_SCHEMA_VERSION, type ComponentRow } from './components.ts';
 import { type ColumnInterpretation } from '../../v2/claim.ts';
 
 export const NORMALISED_SCHEMA_VERSION = 1;
@@ -41,6 +41,16 @@ const DATE_COLUMNS: ReadonlySet<CanonicalColumn> = new Set([
   'licence_version_last_modified_date',
   'licence_version_original_start_date',
 ] as CanonicalColumn[]);
+
+// The per-entry statistics aggregate over canonical rows and their component
+// decomposition - the exact computation whose output the sweep archives as
+// stats.json. Owned HERE, beside the canonical schema it aggregates, so a
+// consumer reproducing stats from another representation of the same rows
+// (the claim-ledger projection) derives them through the identical column and
+// date-column knowledge rather than a copy that could drift.
+export function entryStatsForCanonicalRows(rows: readonly (readonly string[])[], componentRows: readonly ComponentRow[]): EntryStats {
+  return computeEntryStats(CANONICAL_COLUMNS, rows, DATE_COLUMNS, componentRows);
+}
 
 // Registry of known raw header variants. Keys are the exact raw column names
 // (post BOM-strip); values are the canonical columns they populate, or null
@@ -464,7 +474,7 @@ export function convertRawCsv(rawContent: string, context: ConvertContext, curat
     ignoredLines,
     dateStats,
     unverifiedDateColumns,
-    stats: computeEntryStats(CANONICAL_COLUMNS, rows, DATE_COLUMNS, componentRows),
+    stats: entryStatsForCanonicalRows(rows, componentRows),
     componentsCsv: renderCsv([...COMPONENT_COLUMNS], componentRows.map(componentRowToCells)),
     componentsSchemaVersion: COMPONENTS_SCHEMA_VERSION,
   };
