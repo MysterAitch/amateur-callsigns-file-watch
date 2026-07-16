@@ -131,8 +131,8 @@ The defect-detector matrix above is open-data only (one column per
 register-snapshot publication) — the FOI lane (`archive/foi/`) carries no
 detector matrix of its own. The same unkeyable test the callsign-shard
 build applies (a callsign cell that, cleaned, carries no `A-Z0-9/`
-character at all - a blank cell, or a token of punctuation alone) finds **30**
-unkeyable rows across **16** FOI files. Each is carried in its file's own
+character at all - a blank cell, or a token of punctuation alone) finds **42**
+unkeyable rows across **17** FOI files. Each is carried in its file's own
 record count and never dropped - it is simply not addressable by
 callsign, so it never reaches a callsign-shard entry or lookup.
 
@@ -140,6 +140,7 @@ callsign, so it never reaches a callsign-shard entry or lookup.
 |---|---|---:|
 | `ofcom-01420046--allocated-reserved-callsigns` | `normalised--sheet-1-report1646659776237.csv` | 1 |
 | `ofcom-2017-07-13--all-callsigns` | `normalised--amateur-call-signs-for-foi-request-13-jul-17.csv` | 1 |
+| `ofcom-2020-04-23--club-call-signs` | `normalised--club-callsigns.csv` | 12 |
 | `ofcom-2020-10-23--reserved-callsigns` | `normalised--sheet-1-reserved-callsigns-23-10-2020.csv` | 1 |
 | `ofcom-2021-01--all-callsigns` | `normalised--sheet-1-callsigns.csv` | 2 |
 | `ofcom-2021-04--all-callsigns` | `normalised--sheet-1-sheet1.csv` | 2 |

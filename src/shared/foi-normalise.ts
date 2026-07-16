@@ -123,6 +123,34 @@ export interface FoiSourceConversion {
 // convertible source files (CSV-native data files, or committed
 // raw-extract-*.md table transcriptions).
 export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[]> = {
+  // archive/foi/ofcom-2020-04-23--club-call-signs (FOI 00896085, vintage
+  // 2020-04-23). The disclosure arrived as a spreadsheet Save-As-PDF; the
+  // parse source is the transcription extract club-callsigns.csv, produced by
+  // the committed PDF-table extractor (src/shared/pdf-table-extract.ts) and
+  // gated by its self-check. This is a per-licence-RECORD list (live licences
+  // plus licences cancelled after 1 April 2014), NOT a per-callsign register
+  // snapshot: callsigns legitimately recur (a club callsign re-issued to a new
+  // club appears once per licence), and the status vocabulary is the source's
+  // own Live / Surrendered / Terminated. The extract's page/row_on_page columns
+  // are positional provenance from the PDF layout, required-present but not a
+  // per-row assertion, so they are not carried into the normalised projection.
+  'ofcom-2020-04-23-club-callsigns': [
+    {
+      sourceFile: 'club-callsigns.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'callsign', output: 'callsign', kind: 'verbatim' },
+        // The source's own three-value status vocabulary, carried verbatim: the
+        // 12 rows with an empty callsign cell keep their status observation.
+        { source: 'status', output: 'status', kind: 'verbatim' },
+      ],
+      // Positional layout provenance from the Save-As-PDF, required-present but
+      // not a per-row assertion; recorded in contentsIndicative, not normalised.
+      ignoredColumns: ['page', 'row_on_page'],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'the source order is the PDF page/row layout, not a meaningful assertion order; sorted by callsign for diffability, with the whole row as tie-break so the recurring per-licence records (and the blank-callsign rows) are all preserved',
+    },
+  ],
   // archive/foi/wdtk-1180568--licence-breakdown-duration-age (FOI 1900117,
   // vintage 2024-10; referenceDateIso is the response date, 2024-10-28).
   'wdtk-1180568-csv-pair': [
