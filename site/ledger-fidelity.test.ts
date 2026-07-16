@@ -23,8 +23,9 @@ const glossText = (segments: unknown): string => segmentsText(segments as never)
 // working" disclosure, the examine/report hook, and the ABSENCE of any lookalike
 // / "did you mean" suggestion.
 
-// A database-shaped claim row, as the shipped SQLite `claims` view yields it.
-type Row = Record<string, unknown>;
+// A database-shaped claim row, as the shipped SQLite `claims` view yields it -
+// the query layer's own row type, so these fixtures track the real shape.
+type Row = import('./ledger-query.js').ClaimRow;
 function raw(rawSubject: string, cleaned: string, entity: string, predicate: string, object: string,
   sourceFile: string, ordinal: number, vintage: string): Row {
   return { layer: 'raw', raw_subject: rawSubject, cleaned, entity, predicate, object, rule: null, source_file: sourceFile, ordinal, vintage };
