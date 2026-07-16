@@ -1,12 +1,10 @@
 /**
- * The shared table/label affordances (issues #310/#328/#334): the accessible
- * table caption, the callsign pill, the humanised dataset label, the blank
- * humaniser, and the vertical breakdown rows. One definition each, reused
- * across sections so a table, a callsign or a dataset is presented the same way
- * wherever it appears.
- *
- * No behaviour of its own - these are the same helpers the site build has
- * always emitted, so the generated HTML is byte-for-byte unchanged.
+ * The shared table/label affordances (issues #328/#334): the accessible
+ * table caption, the humanised dataset label, the blank humaniser, and the
+ * vertical breakdown rows. One definition each, reused across sections so a
+ * table or a dataset is presented the same way wherever it appears. (The
+ * callsign family - the field wrapper and the #310 pill - lives in
+ * ./callsign.ts.)
  */
 
 import { escapeHtml } from './html.ts';
@@ -20,36 +18,6 @@ import { escapeHtml } from './html.ts';
 export function tableCaption(text: string, options: { escape?: boolean } = {}): string {
   const shown = options.escape === false ? text : escapeHtml(text);
   return `<caption class="table-caption">${shown}</caption>`;
-}
-
-// The parsed callsign components a caller may have to hand for a pill's
-// supplementary title. Every field is optional: the pill uses whatever is
-// present and degrades to the bare callsign when none is.
-export interface CallsignComponents {
-  prefixSeries?: string;
-  rsl?: string;
-  suffix?: string;
-  // The human licence class / station level (e.g. 'Foundation'), where known.
-  licenceClass?: string;
-}
-
-// A callsign rendered as a small monospace pill that links to the register
-// lookup (?c=<callsign>), so a callsign looks and behaves the same wherever it
-// is presented as content. `depthToRoot` places the lookup link at the right
-// relative depth. The ACCESSIBLE NAME is always the bare callsign (the link
-// text); any parsed component data the caller supplies becomes a supplementary
-// title only ("M7TEE — prefix series M7 · suffix TEE · Foundation"), never the
-// accessible name, and the pill degrades gracefully to just the callsign when
-// no components are given.
-export function callsignPill(callsign: string, depthToRoot: number, components: CallsignComponents = {}): string {
-  const href = `${'../'.repeat(depthToRoot)}index.html?c=${encodeURIComponent(callsign)}`;
-  const facts: string[] = [];
-  if (components.prefixSeries !== undefined && components.prefixSeries !== '') facts.push(`prefix series ${components.prefixSeries}`);
-  if (components.rsl !== undefined && components.rsl !== '') facts.push(`RSL ${components.rsl}`);
-  if (components.suffix !== undefined && components.suffix !== '') facts.push(`suffix ${components.suffix}`);
-  if (components.licenceClass !== undefined && components.licenceClass !== '') facts.push(components.licenceClass);
-  const title = facts.length > 0 ? ` title="${escapeHtml(`${callsign} — ${facts.join(' · ')}`)}"` : '';
-  return `<a class="callsign-pill" href="${href}"${title}>${escapeHtml(callsign)}</a>`;
 }
 
 // A dataset identifier rendered as its humanised label (issue #328). The human

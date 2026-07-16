@@ -1,3 +1,4 @@
+// @ts-check
 // Browser query layer for the raw-keyed claim-ledger database (issue #361,
 // Stage 3a). It plays the same role for the claim ledger that app.js's opener
 // plays for the lookup database: it opens the shipped SQLite `.png` costume
@@ -23,6 +24,74 @@
 
 import { placeholderOf } from './browser-query.js';
 
+// One flat row of the shipped `claims` table (or the compact builder's `claims`
+// VIEW), exactly as the SELECTs here read it back. `rule` names the derivation
+// rule on derived claims and reads back null on the raw layer.
+/**
+ * @typedef {object} ClaimRow
+ * @property {string} layer
+ * @property {string} raw_subject
+ * @property {string} cleaned
+ * @property {string} entity
+ * @property {string} predicate
+ * @property {string} object
+ * @property {string | null} rule
+ * @property {string} source_file
+ * @property {number} ordinal
+ * @property {string} vintage
+ */
+
+// The injected read-only SQL executor the shaping helpers run against: the
+// browser half binds it to the httpvfs worker (async), the tests bind it to
+// node:sqlite (sync). Rows are untyped at the driver boundary - each caller
+// states the shape its own SELECT returns - so the row type is any[] here,
+// exactly once, rather than a per-call cast.
+/** @typedef {(sql: string, params?: unknown[]) => Promise<any[]> | any[]} QueryExecutor */
+
+// resolveEntity's answer: how (and whether) a typed value resolved to a ledger
+// entity. `entity` is null and `matched` is 'none' on an honest miss.
+/**
+ * @typedef {object} ResolvedEntity
+ * @property {string} typed
+ * @property {string} cleaned
+ * @property {string | null} entity
+ * @property {'cleaned' | 'placeholder' | 'none'} matched
+ */
+
+// One register observation after the per-row fold: a (vintage, source row)
+// group of raw claims collapsed to the fields the timeline reads. classCanon /
+// lastModified / created are intentionally blank for now (see STATUS_PREDICATES).
+/**
+ * @typedef {object} Observation
+ * @property {string} vintage
+ * @property {string} rawToken
+ * @property {string} status
+ * @property {string | null} classCanon
+ * @property {string} lastModified
+ * @property {string} created
+ */
+
+// One per-variant timeline entry within a vintage. `role` is stamped in a second
+// pass, once the vintage's full variant list is known (solo / active / parallel).
+/**
+ * @typedef {object} TimelineEntry
+ * @property {string | null} variant
+ * @property {string} status
+ * @property {boolean} active
+ * @property {{ cls: string, t: string }[]} evs
+ * @property {string} [role]
+ */
+
+// One "where it was seen" source reference: the observation rows that carried a
+// raw token, de-duplicated to (source file, ordinal, vintage).
+/** @typedef {{ sourceFile: string, ordinal: number, vintage: string }} SourceRef */
+
+// A piece of note/gloss prose. A plain string is literal text; the object forms
+// carry an inline link, a verbatim raw token (invisible characters shown), or a
+// monospace code value. Modelled as one optional-property shape so a renderer
+// probes `s.link` / `s.raw` / `s.code` directly (see segmentsText).
+/** @typedef {string | { link?: { text: string, href: string }, raw?: string, code?: string }} Segment */
+
 // The shipped database's costume name. The `.png` extension is the same
 // deliberate lie app.js tells the CDN: GitHub Pages gzip-transcodes text-like
 // content types (corrupting httpvfs range reads) but never re-compresses image
@@ -34,6 +103,7 @@ const LEDGER_DB_FILE = 'claim-ledger.sqlite.png';
 // a typed callsign is matched against the `cleaned` index in the exact form the
 // builder stored: upper-case, then drop every character except A-Z, 0-9 and /.
 // (See CLEANED_CALLSIGN_RULE in src/v2/claim.ts.)
+/** @param {unknown} value */
 export function cleanCallsign(value) {
   return String(value).toUpperCase().replace(/[^A-Z0-9/]/g, '');
 }
@@ -47,6 +117,11 @@ export function cleanCallsign(value) {
 // Returns { typed, cleaned, entity, matched }, with entity null and matched
 // 'none' when the ledger holds no observation for the value (an honest miss,
 // not an invented row).
+/**
+ * @param {QueryExecutor} query
+ * @param {string} typed
+ * @returns {Promise<ResolvedEntity>}
+ */
 export async function resolveEntity(query, typed) {
   const cleaned = cleanCallsign(typed);
   if (cleaned === '') return { typed, cleaned, entity: null, matched: 'none' };
@@ -66,6 +141,11 @@ export async function resolveEntity(query, typed) {
 // then the source row ordinal), so a single indexed query on `entity` backs the
 // whole dossier + timeline. The page shapes this one result set three ways
 // rather than round-tripping the VFS per view.
+/**
+ * @param {QueryExecutor} query
+ * @param {string} entity
+ * @returns {Promise<ClaimRow[]>}
+ */
 export async function entityClaims(query, entity) {
   return query(
     `SELECT layer, raw_subject, cleaned, entity, predicate, object, rule, source_file, ordinal, vintage
@@ -88,6 +168,10 @@ export async function entityClaims(query, entity) {
 // to blank rather than being guessed.
 const STATUS_PREDICATES = ['Status', 'Final Status', 'Status__c'];
 
+/**
+ * @param {Map<string, string>} byPredicate
+ * @param {string[]} names
+ */
 function firstObject(byPredicate, names) {
   for (const name of names) {
     const value = byPredicate.get(name);
@@ -102,7 +186,12 @@ function firstObject(byPredicate, names) {
 // carrying the status the fold reads. Raw layer only - the derived
 // normalises_to edges are the anatomy's business, not the timeline's. class /
 // timestamps are intentionally left null/blank (see STATUS_PREDICATES).
+/**
+ * @param {ClaimRow[]} claims
+ * @returns {Observation[]}
+ */
 export function observationsOf(claims) {
+  /** @type {Map<string, { vintage: string, rawToken: string, byPredicate: Map<string, string> }>} */
   const byRow = new Map();
   for (const c of claims) {
     if (c.layer !== 'raw') continue;
@@ -131,10 +220,17 @@ export function observationsOf(claims) {
 // timestamp-only move is a de-emphasised admin update. `cleaned` is the
 // human-readable canonical, so any raw token differing from it is tagged a raw
 // variant. Pure: no DOM, so it is unit-tested directly.
+/**
+ * @param {Observation[]} observations
+ * @param {string} cleaned
+ */
 export function foldObservations(observations, cleaned) {
   const obs = observations.map((o, i) => ({ ...o, i }))
     .sort((a, b) => (a.vintage < b.vintage ? -1 : a.vintage > b.vintage ? 1 : a.i - b.i));
-  const state = new Map(); // rawToken -> { status, klass, stamp }
+  // rawToken -> the variant's last-seen licence state
+  /** @type {Map<string, { status?: string, klass?: string | null, stamp?: string }>} */
+  const state = new Map();
+  /** @type {Map<string, TimelineEntry[]>} */
   const byV = new Map();
   let births = 0, changes = 0, admin = 0;
   for (const o of obs) {
@@ -161,12 +257,13 @@ export function foldObservations(observations, cleaned) {
     if (hasStamp || st.stamp === undefined) st.stamp = stamp;
     state.set(o.rawToken, st);
     if (evs.length === 0) evs.push({ cls: 'cont', t: 'unchanged' });
-    if (!byV.has(o.vintage)) byV.set(o.vintage, []);
-    byV.get(o.vintage).push({ variant: o.rawToken !== cleaned ? o.rawToken : null, status: o.status, active: o.status === 'Allocated', evs });
+    let entries = byV.get(o.vintage);
+    if (entries === undefined) { entries = []; byV.set(o.vintage, entries); }
+    entries.push({ variant: o.rawToken !== cleaned ? o.rawToken : null, status: o.status, active: o.status === 'Allocated', evs });
   }
   const vints = [...byV.keys()].sort();
   for (const v of vints) {
-    const list = byV.get(v);
+    const list = byV.get(v) ?? [];
     const multi = list.length > 1;
     for (const ob of list) ob.role = !multi ? 'solo' : (ob.active ? 'active' : 'parallel');
   }
@@ -180,7 +277,13 @@ export function foldObservations(observations, cleaned) {
 // entity status timeline AND the per-note "seen in" source lists, so both read
 // as one component (issue #466). An entry is any object carrying a `vintage`
 // string; the fields the DOM layer needs (lead, date, class) ride along untouched.
+/**
+ * @template {{ vintage: string }} T
+ * @param {T[]} entries
+ * @returns {{ period: string, entries: T[] }[]}
+ */
 export function groupByYear(entries) {
+  /** @type {Map<string, T[]>} */
   const byYear = new Map();
   for (const entry of entries) {
     const period = String(entry.vintage).slice(0, 4);
@@ -194,6 +297,7 @@ export function groupByYear(entries) {
 // The UTF-8 bytes of a raw token, as space-separated lower-case hex - the
 // evidence that a "damaged" variant differs from its clean twin in the bytes,
 // not merely in appearance (G0TQK vs "G0TQK " differ by a trailing 20). Pure.
+/** @param {string} str */
 export function bytesHex(str) {
   return [...new TextEncoder().encode(str)].map(b => b.toString(16).padStart(2, '0')).join(' ');
 }
@@ -207,7 +311,9 @@ export function bytesHex(str) {
 // VALUES are not shown here: one token recurs across many snapshots with
 // differing values, so a single value would misrepresent the set - the
 // per-vintage view is the timeline's job.
+/** @param {ClaimRow[]} claims */
 export function anatomyOf(claims) {
+  /** @type {Map<string, { raw: string, cleaned: string, bytes: string, edges: { rule: string | null, subject: string, object: string }[], observations: Set<string> }>} */
   const variants = new Map();
   for (const c of claims) {
     let v = variants.get(c.raw_subject);
@@ -237,7 +343,12 @@ export function anatomyOf(claims) {
 // each flag is a fact the query result exhibits, with a plain-English gloss.
 // This is the transparency-first stance - a damaged raw token is surfaced as a
 // flagged observation rather than silently presented as its clean form.
+/**
+ * @param {ClaimRow[]} claims
+ * @param {string} cleaned
+ */
 export function flagsOf(claims, cleaned) {
+  /** @type {{ flag: string, gloss: string }[]} */
   const flags = [];
   const rawTokens = new Set(claims.map(c => c.raw_subject));
   const damaged = [...rawTokens].filter(t => t !== cleaned);
@@ -258,6 +369,7 @@ export function flagsOf(claims, cleaned) {
   // Co-temporal status divergence: within one vintage, two raw variants asserting
   // different statuses (e.g. a clean token Reserved beside a damaged twin marked
   // Allocated) - a lead worth scrutiny, surfaced not resolved.
+  /** @type {Map<string, Set<string>>} */
   const byVintage = new Map();
   for (const o of observationsOf(claims)) {
     if (o.status === '') continue;
@@ -321,12 +433,16 @@ export const FAQ_INVISIBLE_CHARACTERS = 'invisible-characters.html';
 //   link:  a hyperlink { text, href }  (http… opens in a new tab; else same-tab)
 //   raw:   a verbatim register token, invisible characters shown
 //   code:  a monospace value (e.g. the canonical form)
+/** @type {(text: string, href: string) => Segment} */
 const lnk = (text, href) => ({ link: { text, href } });
+/** @type {(value: string) => Segment} */
 const rawSeg = (value) => ({ raw: value });
+/** @type {(value: string) => Segment} */
 const codeSeg = (value) => ({ code: value });
 
 // The readable text of a segment list (the link text and values, in order),
 // for accessible-name building and for tests. Pure.
+/** @param {Segment[]} segments */
 export function segmentsText(segments) {
   return segments.map(s => {
     if (typeof s === 'string') return s;
@@ -342,6 +458,7 @@ export function segmentsText(segments) {
 // says plainly whose data this is, that the notes are observations not
 // judgements, that a callsign can belong to different people over time, and
 // that nothing here changes a record.
+/** @type {Segment[]} */
 export const FIDELITY_PREAMBLE = [
   'What you see below describes what an official register — published by Ofcom, the UK '
   + 'regulator — actually recorded for this ',
@@ -357,6 +474,7 @@ export const FIDELITY_PREAMBLE = [
 // RULE_GLOSSES). Used to head the "show the working" panel. Exported so the
 // fidelity-map drift guard (issue #465) can assert it covers every rule the
 // ledger emits — a rule with no gloss would surface to a reader as a bare token.
+/** @type {Record<string, string>} */
 export const RULE_GLOSSES = {
   [CLEANED_CALLSIGN_RULE]: 'Upper-cased and reduced to the plain callsign alphabet (A–Z, 0–9, /).',
   'placeholder-form': 'Parsed the callsign and moved the regional secondary locator to the # placeholder slot.',
@@ -378,6 +496,7 @@ export const RULE_GLOSSES = {
 // Exported so the fidelity-map drift guard (issue #465) can assert it covers the
 // whole emitted flag vocabulary (reference-data/flags.md), keeping that honest
 // fallback from ever actually firing in front of a reader.
+/** @type {Record<string, { label: string, gloss: Segment[] }>} */
 export const FLAG_NOTES = {
   'lowercase': {
     label: 'Lower-case letters in the published form',
@@ -464,6 +583,7 @@ export const FLAG_NOTES = {
 // Exported so the fidelity-map drift guard (issue #465) can assert every key is a
 // real emitted parse status (no stale entry) — the guard cannot demand the whole
 // vocabulary here precisely because the surfacing is deliberately selective.
+/** @type {Record<string, { label: string, gloss: Segment[] }>} */
 export const NOTABLE_PARSE_STATUS = {
   'unparseable': {
     label: 'We could not read this as a standard callsign',
@@ -481,6 +601,7 @@ export const NOTABLE_PARSE_STATUS = {
 // per-row database flags but genuine multi-observation findings). flagsOf's own
 // glosses use model jargon ("raw tokens", "the entity view"); these plainer
 // versions read better for a lay reader while staying precise.
+/** @type {Record<string, { label: string, gloss: Segment[] }>} */
 const COMPUTED_NOTES = {
   'multiple-raw-variants': {
     label: 'Published in more than one form',
@@ -497,6 +618,7 @@ const COMPUTED_NOTES = {
 // 'opendata/<key>/raw.csv'; the FOI lane keeps its 'foi/<entry>/<file>' path
 // under archive/. So the repo path is 'archive/' + the key with any leading
 // 'opendata/' removed. (Mirrors the collectors' `repoPath`.)
+/** @param {string} sourceFile */
 export function sourceRepoPath(sourceFile) {
   return 'archive/' + String(sourceFile).replace(/^opendata\//, '');
 }
@@ -505,6 +627,7 @@ export function sourceRepoPath(sourceFile) {
 // a per-row line number, so this points at the file (the working names the row
 // ordinal in prose); it is framed as "examine the source", not a pinned
 // permalink, to stay honest about that.
+/** @param {string} sourceFile */
 export function sourceFileUrl(sourceFile) {
   return `${REPO_URL}/blob/main/${sourceRepoPath(sourceFile)}`;
 }
@@ -515,6 +638,7 @@ export function sourceFileUrl(sourceFile) {
 // the official register; no set response time) - and pre-fills NO grievance
 // framing on the reporter's behalf. Labels are omitted so an unknown label
 // never trips GitHub's chooser.
+/** @param {string} callsign */
 export function reportIssueUrl(callsign) {
   const body = [
     `This is a public GitHub issue about the archived register record for ${callsign}.`,
@@ -532,7 +656,13 @@ export function reportIssueUrl(callsign) {
 
 // The observations (source_file / ordinal / vintage) that carry a given raw
 // token, de-duplicated and ordered - the "where it was seen" of a working.
+/**
+ * @param {ClaimRow[]} claims
+ * @param {string} rawSubject
+ * @returns {SourceRef[]}
+ */
 function sourcesForRaw(claims, rawSubject) {
+  /** @type {Map<string, SourceRef>} */
   const seen = new Map();
   for (const c of claims) {
     if (c.raw_subject !== rawSubject || c.predicate !== '@listed') continue;
@@ -542,6 +672,7 @@ function sourcesForRaw(claims, rawSubject) {
   return [...seen.values()];
 }
 
+/** @param {string} rule */
 function ruleGlossFor(rule) {
   return RULE_GLOSSES[rule] ?? rule ?? '';
 }
@@ -554,6 +685,7 @@ function ruleGlossFor(rule) {
 // sources reads at a glance. The FULL path is never discarded here: callers keep
 // it as the link's href and title, so the label loses nothing. An unrecognised
 // path falls back to itself rather than an invented label. Pure.
+/** @param {string} sourceFile */
 export function sourceLabel(sourceFile) {
   const s = String(sourceFile);
   if (/^opendata\//.test(s)) return 'Ofcom open data';
@@ -569,6 +701,7 @@ export function sourceLabel(sourceFile) {
 // nothing is lost) and the vintage. The rendering (bullets, and the collapse of
 // a long list behind a disclosure) lives in the DOM layer; the model just
 // supplies the fields. Pure.
+/** @param {SourceRef[]} sources */
 function sourceItems(sources) {
   return sources.map(s => ({
     ordinal: s.ordinal,
@@ -588,6 +721,10 @@ function sourceItems(sources) {
 // seen in). Nothing is re-derived here: every note is read from the derived
 // claims the ledger already emitted (the same emit path src/v2/explain.ts
 // reconstructs), so the surface cannot drift from what the model asserts.
+/**
+ * @param {ClaimRow[]} claims
+ * @param {ResolvedEntity} resolved
+ */
 export function fidelityOf(claims, resolved) {
   const cleaned = resolved.cleaned;
 
@@ -721,6 +858,8 @@ async function ledgerVersion() {
 // and never HEADs the whole object - a HEAD on GitHub Pages negotiates a
 // compressed `Vary: Accept-Encoding` variant that is a persistent ~30s CDN MISS,
 // issue #475), the chunk-file size, and the numeric-suffix width.
+/** @typedef {{ databaseLengthBytes: number, serverChunkSize: number, suffixLength: number }} ChunkManifest */
+/** @returns {Promise<ChunkManifest>} */
 async function ledgerChunks() {
   const res = await fetch(new URL('./data/claim-ledger.chunks.json', document.baseURI), { cache: 'no-store' });
   if (!res.ok) throw new Error('claim-ledger chunk manifest is missing');
@@ -734,6 +873,11 @@ async function ledgerChunks() {
 // as silently short reads. Runs off the open's critical path and fails LOUD
 // rather than letting a wrong length pass unnoticed. Uses a Range GET (identity,
 // fast), never a HEAD.
+/**
+ * @param {ChunkManifest} chunks
+ * @param {string} urlPrefix
+ * @param {string} version
+ */
 export async function validateLedgerLength({ databaseLengthBytes, serverChunkSize, suffixLength }, urlPrefix, version) {
   const lastIndex = Math.floor((databaseLengthBytes - 1) / serverChunkSize);
   const lastByte = (databaseLengthBytes - 1) % serverChunkSize;
@@ -751,8 +895,12 @@ export async function validateLedgerLength({ databaseLengthBytes, serverChunkSiz
   }
 }
 
+/** @returns {Promise<QueryExecutor>} */
 export async function openLedgerQuery() {
-  const { createDbWorker } = window;
+  // The httpvfs UMD loader (vendor/, no shipped types) attaches createDbWorker
+  // to window, so it is read through a typed view of that global here - the one
+  // place the untyped vendor boundary is crossed.
+  const { createDbWorker } = /** @type {{ createDbWorker: (configs: unknown[], workerUrl: string, wasmUrl: string) => Promise<{ db: { query: QueryExecutor } }> }} */ (/** @type {unknown} */ (window));
   const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
   const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
   const [version, chunks] = await Promise.all([ledgerVersion(), ledgerChunks()]);

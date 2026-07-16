@@ -265,10 +265,10 @@ describe('Dataset pages build', () => {
     const preview = page.slice(page.indexOf('class="browser-static"'));
     // Every callsign in the crawlable register preview is the shared pill,
     // linking to the register lookup at the entry page's depth (three up).
-    expect(preview).toContain('<a class="callsign-pill" href="../../../index.html?c=');
+    expect(preview).toContain('<a class="cs callsign-pill" href="../../../index.html?c=');
     // The pill's accessible name is the bare callsign: the link text and the
     // ?c= lookup target decode to the same callsign.
-    const m = /<a class="callsign-pill" href="\.\.\/\.\.\/\.\.\/index\.html\?c=([^"]+)"[^>]*>([^<]+)<\/a>/.exec(preview);
+    const m = /<a class="cs callsign-pill" href="\.\.\/\.\.\/\.\.\/index\.html\?c=([^"]+)"[^>]*>([^<]+)<\/a>/.exec(preview);
     if (m === null) throw new Error('expected a callsign pill in the register preview');
     expect(decodeURIComponent(m[1])).toBe(m[2]);
   });
@@ -279,7 +279,7 @@ describe('Dataset pages build', () => {
     // A parseable callsign carries a supplementary title (prefix series ·
     // suffix · implied class) that opens with the callsign itself; the link
     // text — the accessible name — stays the bare callsign, never the title.
-    const m = /<a class="callsign-pill" href="[^"]*\?c=([^"]+)" title="([^"]*)">([^<]+)<\/a>/.exec(preview);
+    const m = /<a class="cs callsign-pill" href="[^"]*\?c=([^"]+)" title="([^"]*)">([^<]+)<\/a>/.exec(preview);
     if (m === null) throw new Error('expected a titled callsign pill in the register preview');
     const callsign = m[3];
     expect(decodeURIComponent(m[1])).toBe(callsign);
@@ -292,7 +292,7 @@ describe('Dataset pages build', () => {
     // date) presents its callsign column with the same pill as the register.
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'ofcom-498906--reciprocal-licences-since-2010', 'index.html'), 'utf8');
     const preview = page.slice(page.indexOf('Browse the data'));
-    expect(preview).toContain('<a class="callsign-pill" href="../../../index.html?c=');
+    expect(preview).toContain('<a class="cs callsign-pill" href="../../../index.html?c=');
   });
 
   it('DatasetPages_PreviewWithoutCallsignColumn_RendersNoCallsignPills', () => {
@@ -301,7 +301,7 @@ describe('Dataset pages build', () => {
     // markup and the preview is unchanged.
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'wdtk-184767--annual-licence-counts', 'index.html'), 'utf8');
     expect(page).toContain('Browse the data');
-    expect(page).not.toContain('class="callsign-pill" href');
+    expect(page).not.toContain('class="cs callsign-pill" href');
   });
 
   it('DatasetPages_FoiEntryPage_HasNoScopedBrowser', () => {
@@ -659,7 +659,7 @@ describe('Dataset pages build', () => {
     // pill (issue #310), linking to the register lookup at the series depth
     // (../index.html?c=…), so it looks and behaves like callsigns elsewhere.
     const m7 = fs.readFileSync(path.join(outputDir, 'series', 'M7.html'), 'utf8');
-    expect(m7).toMatch(/<a class="callsign-pill" href="\.\.\/index\.html\?c=M7[A-Z0-9]+"/);
+    expect(m7).toMatch(/<a class="cs callsign-pill" href="\.\.\/index\.html\?c=M7[A-Z0-9]+"/);
     // The examples are no longer bare <code> anchors.
     expect(m7).not.toMatch(/<a href="\.\.\/index\.html\?c=[^"]+"><code>/);
   });
@@ -669,7 +669,7 @@ describe('Dataset pages build', () => {
     // parsed components (prefix series · suffix · implied class) are a
     // supplementary title only, built from the same fields used site-wide.
     const m7 = fs.readFileSync(path.join(outputDir, 'series', 'M7.html'), 'utf8');
-    const m = /<a class="callsign-pill" href="\.\.\/index\.html\?c=([^"]+)" title="([^"]*)">([^<]+)<\/a>/.exec(m7);
+    const m = /<a class="cs callsign-pill" href="\.\.\/index\.html\?c=([^"]+)" title="([^"]*)">([^<]+)<\/a>/.exec(m7);
     expect(m).not.toBeNull();
     const [, hrefCall, title, text] = m as RegExpExecArray;
     // The link text (accessible name) equals the callsign in the href.
@@ -695,7 +695,7 @@ describe('Dataset pages build', () => {
     // gains the style token but renders no pill markup.
     const index = fs.readFileSync(path.join(outputDir, 'datasets', 'index.html'), 'utf8');
     expect(index).toContain('.callsign-pill{');
-    expect(index).not.toContain('class="callsign-pill"');
+    expect(index).not.toContain('class="cs callsign-pill"');
   });
 
   it('DatasetPages_Sitemap_ListsEveryEntryPageUnderTheBaseUrl', () => {
@@ -802,6 +802,17 @@ describe('Dataset class pages', () => {
     const index = fs.readFileSync(path.join(outputDir, 'datasets', 'index.html'), 'utf8');
     expect(index).toContain('href="classes/index.html">dataset types</a>');
     expect(index).toContain('full overview page');
+  });
+});
+
+describe('Value-level check examples wear the shared callsign wrapper (issue #553)', { tags: ['data-validity'] }, () => {
+  it('EntryPage_QualityCheckExamples_HighlightTheirDerivationTimeMarkersViaTheWrapper', () => {
+    // The entry page's value-level check examples come from stats.json with
+    // {U+XXXX} markers already applied; the shared callsign field wrapper
+    // (pinned 'pre-marked') renders them as highlighted, non-link chips so an
+    // invisible character in a published callsign is visible at a glance.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(page).toContain('<code class="cs">G6<span class="marker">{U+0020}</span>FMU</code>');
   });
 });
 
