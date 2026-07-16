@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": "00896085",
+  "requestUrl": "https://www.whatdotheyknow.com/request/club_amateur_radio_call_signs",
+  "title": "Club amateur radio call sign licence records, 23 April 2020 (Ofcom FOI 00896085)",
+  "requester": "billy_mcfarland",
+  "requestedAt": "2020-04-08",
+  "respondedAt": "2020-04-30",
+  "outcome": "successful",
+  "dataVintage": "2020-04-23",
+  "dataVintageNote": "the disclosed list is named 'Copy of Club Call Signs 23 04 20', dating the export 23 April 2020; the response letter (received 8 April 2020, dated 30 April 2020) states it holds licences live or cancelled after 1 April 2014. The 23 April export date sits between request and response, consistent with a report generated to answer the request.",
+  "datasetClasses": [
+    "attribute-addendum"
+  ],
+  "converter": {
+    "script": "src/shared/foi-normalise.ts",
+    "variant": "ofcom-2020-04-23-club-callsigns"
+  },
+  "relatedEntries": [
+    {
+      "entry": "ofcom-2020-03-26--allocated-callsigns",
+      "relation": "the nearest general amateur-register snapshot held (allocated callsigns, 26 March 2020); this club-only disclosure is a scoped subset - club licence records rather than the whole register - from four weeks later."
+    }
+  ],
+  "files": {
+    "copy-of-club-call-signs-23-04-20.pdf": {
+      "bytes": 496186,
+      "sha256": "585a933cea6089ebaedfcc77fb7805807f1224d3ffd3d7f25eb1595e17d17410",
+      "role": "data",
+      "datasetClasses": [
+        "attribute-addendum"
+      ],
+      "contentsIndicative": "the disclosed club-callsigns list itself, as an Excel-for-Office-365 Save-As-PDF (41 pages, two columns 'Call sign / T-number' | 'Status'). 2,049 data records: 1,613 Live, 258 Surrendered, 178 Terminated. It is a per-licence-record list (live licences plus licences cancelled after 1 April 2014), so 209 callsigns recur - G0TRG appears four times (Live once, Surrendered twice, Terminated once). 12 records carry a status with an empty callsign cell (all Terminated, on pages 39-41), a genuine feature of the disclosed document confirmed by two independent routes. The column header names 'T-number' but no T-number token appears in the data - every non-blank value matches the ordinary callsign shape. Preserved verbatim; the parse source is the transcription extract club-callsigns.csv."
+    },
+    "club-callsigns.csv": {
+      "bytes": 38714,
+      "sha256": "3b339e3b84f5c8384c847bc15f2744409f2a319948bea6f8e110dcd0ed942793",
+      "role": "extract",
+      "extractOf": "copy-of-club-call-signs-23-04-20.pdf",
+      "extractedBy": "src/shared/pdf-table-extract.ts",
+      "datasetClasses": [
+        "attribute-addendum"
+      ],
+      "contentsIndicative": "byte-deterministic transcription extract of the Save-As-PDF (header callsign,status,page,row_on_page; CRLF; 2,049 data rows). page and row_on_page are the record's position in the disclosed document (positional provenance), carried in the extract but not into the normalised projection. Reproduces byte-identically from the committed PDF via the committed extractor (self-check src/shared/pdf-table-extract.test.ts): 2,049 rows, per-status counts Live 1,613 / Surrendered 258 / Terminated 178, 4,088 text operators reconciling to 4,088 shows, 209 recurring callsigns, 12 blank-callsign rows, 0 shape oddities."
+    },
+    "normalised--club-callsigns.csv": {
+      "bytes": 25171,
+      "sha256": "385e6c2bfbd4b8b0f5d58df8ad6c5dd2525aee1ee56f9bdb17216913e7ce10a2",
+      "role": "normalised",
+      "normalisedFrom": "club-callsigns.csv",
+      "datasetClasses": [
+        "attribute-addendum"
+      ],
+      "contentsIndicative": "header callsign,status; 2,049 rows sorted by callsign (the PDF page/row order is layout, not a meaningful assertion order) with the whole row as tie-break, so the recurring per-licence records and the 12 blank-callsign rows are all preserved. Status carries the source's own Live / Surrendered / Terminated verbatim. No whitespace trimming was needed."
+    },
+    "00896085-club-amateur-radio-call-signs.pdf": {
+      "bytes": 198067,
+      "sha256": "125bc1fd5f88a09ee44d971861cada722a0ee5ca60931f5197fda9e59ff853ae",
+      "role": "response-letter",
+      "contentsIndicative": "the 00896085 response letter (Emma Leech, Information Rights Adviser, dated 30 April 2020): records the request as received 8 April 2020 and states the attached list holds all club amateur radio callsigns that are live or were cancelled after 1 April 2014 - Ofcom does not hold records of licences cancelled before that date."
+    },
+    "raw-extract-00896085-club-amateur-radio-call-signs.md": {
+      "bytes": 1126,
+      "sha256": "8d040cfc38cd71eb75ab37577296507791352e5daf081446eb879af96c2eef34",
+      "role": "extract",
+      "extractOf": "00896085-club-amateur-radio-call-signs.pdf"
+    },
+    "correspondence.md": {
+      "bytes": 3058,
+      "sha256": "b6d56a626938d91d0d91bc2351d25432d9e5e23e4380d0ef0ba0c63f7d2ea167",
+      "role": "transcript"
+    }
+  }
+}

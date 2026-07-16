@@ -83,6 +83,7 @@ fail the conversion.
 | `ofcom-2016-09-20-register` | `ofcom-2016-09-20--callsign-database--all-callsigns` |
 | `ofcom-2017-07-13-register` | `ofcom-2017-07-13--all-callsigns` |
 | `ofcom-2020-03-26-allocated` | `ofcom-2020-03-26--allocated-callsigns` |
+| `ofcom-2020-04-23-club-callsigns` | `ofcom-2020-04-23--club-call-signs` |
 | `ofcom-2020-10-23-reserved` | `ofcom-2020-10-23--reserved-callsigns` |
 | `ofcom-2021-01-register` | `ofcom-2021-01--all-callsigns` |
 | `ofcom-2021-04-register` | `ofcom-2021-04--all-callsigns` |
@@ -280,6 +281,19 @@ Row order: **sorted-by-first-column** — source rows arrive grouped by suffix b
 | `licence_class` | *(emitted empty)* | verbatim |
 
 Row order: **sorted-by-first-column** — the source is already grouped by suffix but carries no meaningful publication order (no dates); sorted by callsign for diffability and cross-snapshot comparability.
+
+### `ofcom-2020-04-23-club-callsigns`
+
+**`club-callsigns.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `callsign` | verbatim |
+| `status` | `status` | verbatim |
+
+Required-present but not carried: `page`, `row_on_page`.
+
+Row order: **sorted-by-first-column** — the source order is the PDF page/row layout, not a meaningful assertion order; sorted by callsign for diffability, with the whole row as tie-break so the recurring per-licence records (and the blank-callsign rows) are all preserved.
 
 ### `ofcom-2020-10-23-reserved`
 
