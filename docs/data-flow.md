@@ -124,31 +124,42 @@ below).
   (`data-sweep.yml:10-15`).
 - **Permissions:** `contents: write`, `pull-requests: write`
   (`data-sweep.yml:23-25`).
-- **What it does** (`data-sweep.yml:39-93`): discovers `data/*` branches; deletes
+- **What it does** (`data-sweep.yml:39-96`): discovers `data/*` branches; deletes
   any that are already fully merged or empty; opens one merge-commit PR per
   remaining branch; classifies the branch's diff against a **path allowlist**
   (`archive/*`, the `latest-*` pointer set, `amateur-callsigns-raw.csv`,
   `metadata-download-info.json` — `data-sweep.yml:70-75`).
 - **Gate — the allowlist decides the path:**
   - **Data-only diff:** enables auto-merge with `gh pr merge --auto --merge
-    --delete-branch`, which waits for required checks; if `--auto` is refused it
-    falls back to an immediate `gh pr merge --merge` (`data-sweep.yml:84-89`).
+    --delete-branch`, which waits for required checks. If enabling auto-merge
+    fails for any reason, the sweep fails **closed** (#648): it comments that the
+    PR is parked for attention and fails the job (`exit 1`) rather than merging
+    past a possibly-still-pending check — there is no direct-merge fallback
+    (`data-sweep.yml:84-92`).
   - **Diff touches any non-data path:** posts a comment that auto-merge is **not**
-    enabled and the PR needs human review (`data-sweep.yml:90-92`).
+    enabled and the PR needs human review (`data-sweep.yml:93-95`).
 - **Governing ADR:** [ADR 0009](adr/0009-data-landing-via-branches-and-sweep.md)
   (the landing flow), [ADR 0001](adr/0001-post-fetch-processing-in-repo.md)
   (schedule-not-push, PR-only writeback).
-- **Human in the loop:** **no** for data-only publications — they auto-merge on
-  green checks with no reviewer assigned and no notification beyond the PR
-  itself; **yes** for any diff that strays outside the allowlist.
+- **Human in the loop:** **no** for data-only publications that auto-merge
+  cleanly — they merge on green checks with no reviewer assigned and no
+  notification beyond the PR itself; **yes** for any diff that strays outside
+  the allowlist, and **yes** (via the failed job) for a data-only PR whose
+  auto-merge could not be enabled — it is parked, not merged, and the job
+  failure is the notification.
 
 > **Depends on GitHub settings.** Auto-merge only *waits* for a gate if required
-> status checks are configured on `main`; the `|| gh pr merge --merge` fallback
-> merges immediately when none are. [ADR 0009](adr/0009-data-landing-via-branches-and-sweep.md)
+> status checks are configured on `main` — that GitHub-side configuration is
+> what makes the wait real, not this workflow. [ADR 0009](adr/0009-data-landing-via-branches-and-sweep.md)
 > §5 states the `tests` and `data-validation` checks are required and that this
 > is what makes the gate real — that requirement lives in the ruleset
 > ([ADR 0002](adr/0002-repo-level-write-controls.md)), not in this repository.
-> Merge-commit-only (no squash/rebase) is likewise a ruleset guarantee
+> If enabling auto-merge ever fails regardless of that configuration (a
+> transient API error, or auto-merge disabled on the repository), the sweep no
+> longer merges around it: parking the PR with a comment and failing the job is
+> the whole response (#648) — a stalled data PR is strictly better than
+> unverified bytes on `main`. Merge-commit-only (no squash/rebase) is likewise a
+> ruleset guarantee
 > ([ADR 0009](adr/0009-data-landing-via-branches-and-sweep.md) §4); it keeps the
 > fetch host's local `main` a strict ancestor of `origin/main` so its next
 > `git pull --ff-only` converges.
@@ -278,7 +289,7 @@ shape as the data sweep ([ADR 0001](adr/0001-post-fetch-processing-in-repo.md) /
 | Stage | Workflow / actor | Trigger | Gate / check | Governing ADR | Human? |
 |---|---|---|---|---|---|
 | Fetch + sanity-gate | Fetch host (LXC) | Upstream change | Sanity-gate; provenance-only acceptance | 0001, 0010, 0011 | No |
-| Open PR + gate auto-merge | `data-sweep.yml` | cron 15 min | Data-path allowlist | 0009, 0001 | No (data-only) / Yes (else) |
+| Open PR + gate auto-merge | `data-sweep.yml` | cron 15 min | Data-path allowlist; fails closed if auto-merge can't be enabled | 0009, 0001 | No (data-only, clean) / Yes (else, or parked on failure) |
 | Verify | `cicd.yaml` | Every PR + push to main | `tests`, `data-validation` (required); `golden-master`, reconstruction, `workflow-audit` | 0019, 0012 | No |
 | Merge | GitHub ruleset | Checks green | No direct/force push, merge-commit only, required checks | 0002, 0009 | Depends on PR class |
 | Deploy | `cicd.yaml` `deploy` | Push to main | Post-deploy smoke / console / functionality | 0003, 0013, 0019, 0020 | No |
