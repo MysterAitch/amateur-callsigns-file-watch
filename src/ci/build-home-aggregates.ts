@@ -26,22 +26,13 @@ import {
   type DateColumnStats,
   type CallsignQuality,
 } from '../shared/stats.ts';
-import { humanDate, humaniseLabel, tableCaption } from './site-render.ts';
+import { humanDate, humaniseLabel, tableCaption, callsignField } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const REFERENCE_DATA_DIR = path.join(REPO_ROOT, 'reference-data');
 
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-// Invisible characters explode to {U+XXXX} markers wherever they sit -
-// the same convention as app.js and the reports.
-function explode(value: string): string {
-  return [...value].map(ch =>
-    /[\p{C}\p{Z}]/u.test(ch)
-      ? `{U+${(ch.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}}`
-      : ch).join('');
 }
 
 // Mirrors app.js renderTable: thead/tbody, 'num' class from numericFrom,
@@ -222,15 +213,24 @@ export function renderRslMatrixHtml(): string {
   const details: string[] = [];
   bearing.sort((a, b) => a.callsign.localeCompare(b.callsign));
   if (bearing.length > 0 && bearing.length <= 50) {
+    // Each callsign routes through the shared field wrapper (#553) as a
+    // register-lookup pill (statistics.html sits at the site root); its odd
+    // characters follow the wrapper's shared marking convention.
     details.push(`<details><summary>RSL-bearing records (${bearing.length})</summary>`
-      + tableHtml('Records carrying a Regional Secondary Locator in the latest publication', ['callsign', 'series', 'RSL'], bearing.map(r => [explode(r.callsign), r.series, r.rsl]), 99)
+      + tableHtml('Records carrying a Regional Secondary Locator in the latest publication', ['callsign', 'series', 'RSL'], bearing.map(r => [callsignField(r.callsign, { lookup: { depthToRoot: 0 } }), r.series, r.rsl]), 99, false, true)
       + '</details>');
   }
   for (const [status, n] of excludedEntries) {
     if (n === 0 || n > 50) continue;
-    const examples = (excludedExamples.get(status) ?? []).sort((a, b) => a.localeCompare(b)).map(explode);
+    // These enumerations exist to expose the values a parse set aside, so
+    // odd-character marking is REQUIRED here and pinned explicitly (the #553
+    // drift-guard rule) rather than left to the wrapper's movable default.
+    // Deliberately no lookup link: a set-aside value is data to inspect, not
+    // a navigation target.
+    const examples = (excludedExamples.get(status) ?? []).sort((a, b) => a.localeCompare(b))
+      .map(c => callsignField(c, { oddCharacters: 'marked' }));
     details.push(`<details><summary>Excluded: ${escapeHtml(status)} (${n})</summary>`
-      + `<p class="mono">${escapeHtml(examples.join(', '))}</p></details>`);
+      + `<p>${examples.join(', ')}</p></details>`);
   }
 
   return tableHtml('Callsign counts by prefix series and Regional Secondary Locator in the latest publication', ['series', ...refRsl, ...unknownRsl.map(r => `${escapeHtml(r)} <abbr title="observed in the register but absent from reference data">⚠</abbr>`), '(none)', 'total'], rows, 1, true, true, true)
@@ -404,9 +404,14 @@ export function renderCallsignQualityHtml(): string {
   ];
   const rows: (string | number)[][] = detectors.map(([detectorKey, label]) => {
     const result = q[detectorKey];
+    // Detector examples come from stats.json with their {U+XXXX} markers
+    // already applied at derivation time, so the shared field wrapper (#553)
+    // is pinned to 'pre-marked': it highlights those markers without
+    // re-marking. Deliberately no lookup link - a defect shape (a spreadsheet
+    // date, an empty value) is not necessarily a resolvable callsign.
     const examples = result.examples.length === 0
       ? '<span class="muted">—</span>'
-      : `<span class="mono">${escapeHtml(result.examples.join(', '))}</span>`;
+      : result.examples.map(e => callsignField(e, { oddCharacters: 'pre-marked' })).join(', ');
     return [label, result.count.toLocaleString('en-GB'), examples];
   });
   return dataTable(

@@ -50,12 +50,17 @@ const SHARED_DB_ALERT_CSS = [
   '.db-alert[hidden]{display:none}',
 ].join('');
 
-// The callsign-pill styling (issue #310): a small monospace, subtly tinted and
-// bordered chip. Layered onto every stylesheet that renders callsigns as
-// content - the entry-page shell (ENTRY_STYLE) and the plainer page shell
-// (PAGE_STYLE, e.g. series pages) - each of which supplies --slot alongside
-// the shared --line/--accent; focus-visible gives keyboard users a clear ring.
-const CALLSIGN_PILL_CSS = [
+// The callsign family styling: the shared field wrapper's stable class
+// (issue #553 - a callsign never wraps mid-value, and its odd-character
+// `.marker` highlights draw the --marker signal colour) and the pill chip
+// (issue #310: small monospace, subtly tinted and bordered). Layered onto
+// every stylesheet that renders callsigns as content - the entry-page shell
+// (ENTRY_STYLE) and the plainer page shell (PAGE_STYLE, e.g. series pages) -
+// each of which supplies --slot/--marker alongside the shared --line/--accent;
+// focus-visible gives keyboard users a clear ring.
+const CALLSIGN_CSS = [
+  '.cs{white-space:nowrap}',
+  '.marker{color:var(--marker)}',
   '.callsign-pill{display:inline-block;font-family:ui-monospace,monospace;font-size:.86rem;line-height:1.4;padding:.02rem .35rem;border:1px solid var(--line);border-radius:6px;background:var(--slot);color:var(--accent);text-decoration:none;white-space:nowrap}',
   '.callsign-pill:hover{border-color:var(--accent)}',
   '.callsign-pill:focus-visible{outline:2px solid var(--accent);outline-offset:1px}',
@@ -71,7 +76,7 @@ const PAGE_STYLE = [
   SHARED_TOKENS_CSS,
   // --slot (the pill's tint) is defined here as well as on the entry shell so
   // the shared callsign pill renders identically on the plainer page shell.
-  ':root{--code:#f4f4f4;--slot:#faf9f6}@media(prefers-color-scheme:dark){:root{--code:#222;--slot:#141414}}',
+  ':root{--code:#f4f4f4;--slot:#faf9f6;--marker:#b23}@media(prefers-color-scheme:dark){:root{--code:#222;--slot:#141414;--marker:#e58}}',
   'body{font-family:system-ui,sans-serif;max-width:60rem;margin:2rem auto;padding:0 1rem;line-height:1.5;color:var(--ink);background:var(--paper)}',
   'a{color:var(--accent)}',
   'table{border-collapse:collapse;width:100%;margin:.75rem 0}td,th{border-bottom:1px solid var(--line);padding:.3rem .6rem;text-align:left;vertical-align:top}th{font-weight:600}',
@@ -80,7 +85,7 @@ const PAGE_STYLE = [
   '.skip{position:absolute;left:-999px;top:0;z-index:10;padding:.5rem .8rem;background:Canvas;color:CanvasText;border:1px solid GrayText}.skip:focus{left:0}',
   '.breadcrumb{font-size:.9rem;color:var(--muted);margin:.6rem 0 .2rem}.breadcrumb a{color:var(--accent)}',
   SHARED_AFFORDANCE_CSS,
-  CALLSIGN_PILL_CSS,
+  CALLSIGN_CSS,
   '</style>',
 ].join('');
 
@@ -287,7 +292,7 @@ const ENTRY_STYLE = [
   '.panel{display:none;scroll-margin-top:5rem}.panel:target{display:block}.tabs:not(:has(.panel:target)) .panel.first{display:block}',
   '.panel .lead{font-size:.9rem;color:var(--muted);margin:.1rem 0 .6rem}',
   'table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{text-align:left;padding:.28rem .5rem;border-bottom:1px solid var(--line);vertical-align:top}th{font-weight:600}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}',
-  'code{font-size:.92em}.marker{color:var(--marker)}',
+  'code{font-size:.92em}',
   // Scoped data browser (progressive enhancement)
   '.chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:.6rem 0 .5rem}',
   '.chip{font-size:.82rem;padding:.25rem .6rem;border:1px solid var(--line);border-radius:6px;color:var(--muted);cursor:pointer;background:var(--slot)}',
@@ -324,7 +329,7 @@ const ENTRY_STYLE = [
   'footer{color:var(--muted);font-size:.83rem;margin-top:.6rem;line-height:1.6}footer a{color:var(--accent)}',
   SHARED_AFFORDANCE_CSS,
   SHARED_DB_ALERT_CSS,
-  CALLSIGN_PILL_CSS,
+  CALLSIGN_CSS,
   '</style>',
 ].join('');
 

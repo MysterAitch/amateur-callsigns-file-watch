@@ -49,6 +49,23 @@ describe('Home-page aggregate pre-rendering', { tags: ['unit'] }, () => {
     expect(html).toContain('<abbr title="observed in the register but absent from reference data">⚠</abbr>');
   });
 
+  it('RslMatrix_RslBearingRecords_RenderAsSharedLookupPillsWithOddCharactersMarked', () => {
+    // The RSL-bearing enumeration presents each callsign via the shared field
+    // wrapper (#553): a register-lookup pill (statistics.html sits at the site
+    // root) rather than the old ad-hoc exploded plain text.
+    const html = renderRslMatrixHtml();
+    expect(html).toMatch(/<a class="cs callsign-pill" href="index\.html\?c=[^"]+">/);
+  });
+
+  it('RslMatrix_ExcludedValueEnumerations_WearTheSharedWrapperAsNonLinkChips', () => {
+    // A set-aside value is data to inspect, not a navigation target: the
+    // wrapper renders it as a marked, non-link chip.
+    const html = renderRslMatrixHtml();
+    const excluded = html.slice(html.indexOf('<details><summary>Excluded:'));
+    expect(excluded).toContain('<code class="cs">');
+    expect(excluded).not.toMatch(/Excluded:[^]*?<a class="cs callsign-pill"/);
+  });
+
   it('LatestProfile_RealArchive_CarriesHeadlineFiguresAndParseStatusDistribution', () => {
     const html = renderLatestProfileHtml();
     // The newest publication is named and linked to its entry page, with a
@@ -105,7 +122,9 @@ describe('Home-page aggregate pre-rendering', { tags: ['unit'] }, () => {
     const html = renderCallsignQualityHtml();
     // Each detector is a scoped row header with a count and example values.
     expect(html).toContain('<th scope="row">Whitespace or invisible character present</th>');
-    expect(html).toContain('G6{U+0020}FMU');
+    // Example values wear the shared callsign field wrapper (#553), with the
+    // {U+XXXX} markers stats.json applied at derivation time now highlighted.
+    expect(html).toContain('<code class="cs">G6<span class="marker">{U+0020}</span>FMU</code>');
     // Counts are framed as detected, not verified.
     expect(html).toContain('declared but not independently verified against Ofcom');
     // A zero-hit detector still appears, with its examples humanised to an em dash.

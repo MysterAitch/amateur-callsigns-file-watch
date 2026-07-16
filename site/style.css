@@ -39,8 +39,13 @@ nav a { display: inline-block; padding: 0.3rem 0.15rem; }
 /* Skip-to-content link: off-screen until focused, then visible top-left. */
 .skip { position: absolute; left: -999px; top: 0; z-index: 10; padding: 0.5rem 0.8rem; background: var(--paper); color: var(--accent); border: 1px solid var(--line); }
 .skip:focus { left: 0; }
+/* The shared callsign field wrapper (issue #553): every callsign rendered as
+   content wears this one stable class, so the family reads alike everywhere.
+   Light-touch - a callsign never wraps mid-value; its odd-character highlights
+   come from the .marker rule further down. */
+.cs { white-space: nowrap; }
 /* Callsign pill (issue #310): a small monospace, subtly tinted and bordered
-   chip, matching CALLSIGN_PILL_CSS in src/ci/site-render.ts so a callsign looks
+   chip, matching CALLSIGN_CSS in src/ci/site-render.ts so a callsign looks
    the same on the JS-rendered lookup and entry browser as on the generated
    pages. focus-visible gives keyboard users a clear ring on the linked pills. */
 .callsign-pill { display: inline-block; font-family: ui-monospace, monospace; font-size: 0.86rem; line-height: 1.4; padding: 0.02rem 0.35rem; border: 1px solid var(--line); border-radius: 6px; background: var(--slot); color: var(--accent); text-decoration: none; white-space: nowrap; }
