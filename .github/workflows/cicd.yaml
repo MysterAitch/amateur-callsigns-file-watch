@@ -723,8 +723,14 @@ jobs:
         run: |
           mkdir -p _site/data _site/vendor
           # Publish the built databases - restored from the cache above, or freshly
-          # built on a miss. cp -a preserves the datasets/ subtree and the chunks.
-          cp -a .dbstage/. _site/data/
+          # built on a miss. -l HARDLINKS instead of copying: .dbstage and _site
+          # share one filesystem, so the multi-GB databases are named twice, not
+          # duplicated on disk (issue #646). Nothing rewrites these files in place
+          # afterwards - build-db-sizes.ts only reads them, and version.txt is a
+          # fresh separate file - so the shared inodes are safe and the .dbstage
+          # the cache re-saves is unchanged. -a preserves the datasets/ subtree
+          # and the chunks.
+          cp -al .dbstage/. _site/data/
           # Version stamp: the app appends ?v=<sha> to the database URL so each
           # deploy is a distinct CDN cache object - two deploys inside the Pages
           # max-age window otherwise mix range chunks from different database
