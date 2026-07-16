@@ -18,7 +18,7 @@
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
-  <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <strong>Explore</strong> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch" target="_blank" rel="noopener">Repository <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></p></nav>
+  <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <strong>Explore</strong> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="publishers/index.html">Publishers</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch" target="_blank" rel="noopener">Repository <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></p></nav>
   <!-- nav:end -->
   <main id="main" class="ledger">
     <header>
@@ -130,14 +130,14 @@
       absent from the August 2019 FOI snapshot — the "issued after the
       withheld list existed" candidates (each needs per-member checking:
       artefact fixes and heritage re-issues are innocent explanations):</p>
-      <pre><code>SELECT rh.callsign, rh.status, rh.licence_version_original_start_date
+      <div class="overflow" style="overflow-x:auto"><pre><code>SELECT rh.callsign, rh.status, rh.licence_version_original_start_date
 FROM register_history rh
 JOIN ref_forbidden_suffixes f ON f.suffix = rh.suffix
 WHERE rh.dataset = '2026-06-23'
   AND rh.cleaned NOT IN (
     SELECT cleaned FROM observations
     WHERE entry = 'wdtk-596532--allocated-reserved-forbidden')
-ORDER BY rh.licence_version_original_start_date;</code></pre>
+ORDER BY rh.licence_version_original_start_date;</code></pre></div>
       <p>Column meanings live in the
       <a href="datasets/docs/normalised-schema.html">data dictionary</a>
       and <a href="datasets/docs/flags.html">flag registry</a>.</p>

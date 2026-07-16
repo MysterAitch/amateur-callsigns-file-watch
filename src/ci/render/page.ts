@@ -100,6 +100,9 @@ const PAGE_STYLE = [
   'nav{color:var(--muted)}nav a{color:var(--accent);display:inline-block;padding:.3rem .15rem}',
   '.skip{position:absolute;left:-999px;top:0;z-index:10;padding:.5rem .8rem;background:Canvas;color:CanvasText;border:1px solid GrayText}.skip:focus{left:0}',
   '.breadcrumb{font-size:.9rem;color:var(--muted);margin:.6rem 0 .2rem}.breadcrumb a{color:var(--accent)}',
+  // Matches ENTRY_STYLE's footer rule so the provenance line reads the same
+  // whichever shell a generated page uses (#650).
+  'footer{color:var(--muted);font-size:.83rem;margin-top:.6rem;line-height:1.6}footer a{color:var(--accent)}',
   SHARED_AFFORDANCE_CSS,
   CALLSIGN_CSS,
   STATUS_LICENCE_CSS,
@@ -181,6 +184,7 @@ export function navHtml(depthToRoot: number, currentNav?: string): string {
     ['Explore', `${rootPath}explore.html`],
     ['Compare', `${rootPath}compare.html`],
     ['Dataset index', `${rootPath}datasets/index.html`],
+    ['Publishers', `${rootPath}publishers/index.html`],
     ['Series', `${rootPath}series/index.html`],
     ['Forbidden suffixes', `${rootPath}forbidden/index.html`],
     ['Reports', `${rootPath}reports/index.html`],
@@ -230,7 +234,9 @@ function footerHtml(metaJsonHref?: string, sourcePath?: string): string {
   const lead = isEntry
     ? `Derived from the committed archive; provenance and integrity hashes live in this entry's <a href="${metaJsonHref}"><code>meta.json</code></a>.`
     : 'Generated from the committed archive.';
-  return `<p><small>${lead}${sourceLink} ${deployProvenance()} Maintained by Roger Howell (M7TEE).</small></p>`;
+  // A <footer> landmark, not a bare <p><small>, so every generated page - entry
+  // or otherwise - exposes the same single contentinfo region (#650).
+  return `<footer>${lead}${sourceLink} ${deployProvenance()} Maintained by Roger Howell (M7TEE).</footer>`;
 }
 
 export function htmlPage(title: string, depthToRoot: number, body: string[], options: PageOptions = {}): string {
@@ -337,9 +343,15 @@ const ENTRY_STYLE = [
   '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:.5rem}',
   '.slot{border:1px solid var(--line);border-radius:9px;padding:.5rem .65rem;background:var(--slot);min-height:3.6rem}.slot .name{font-weight:650}.slot .meta{color:var(--muted);font-size:.77rem}.slot .desc{color:var(--muted);font-size:.78rem;line-height:1.25;margin-top:.15rem}',
   '.slot.empty{border-style:dashed}.slot.empty .name{color:var(--muted);font-weight:600}.slot.empty .tag{font-size:.74rem;color:var(--muted);font-style:italic}',
-  // Distribution charts (accessible static SVG)
+  // Distribution charts (accessible static SVG). The axis-tick and bar-value
+  // labels are set in SVG user units (font-size="9" against the 600x190
+  // viewBox), so letting the SVG shrink below its native size at narrow
+  // viewports scales the text down with it into illegibility (#655). A
+  // min-width pinned to the viewBox width keeps the chart at native scale at
+  // every viewport, falling back to the same horizontal-scroll convention
+  // (.overflow, site/ledger.css) used for wide tables elsewhere on the site.
   '.chart{margin:0 0 1.1rem}.chart figcaption{font-weight:600;font-size:.92rem;margin:0 0 .3rem}',
-  '.chart svg{width:100%;height:auto;max-height:190px;display:block}',
+  '.chart svg{width:100%;min-width:600px;height:auto;max-height:190px;display:block}',
   '.chart details{margin-top:.3rem}.chart summary{cursor:pointer;color:var(--accent);font-size:.84rem}',
   '.chart details table{margin-top:.4rem;max-width:22rem}.chart tr.explore{cursor:pointer}.chart tr.explore:hover td:first-child{text-decoration:underline;color:var(--accent)}',
   '.linkout{display:block;margin:.1rem 0 1.05rem;padding:.7rem 1.1rem;border:1px dashed var(--line);border-radius:12px;font-size:.9rem}',
@@ -374,7 +386,7 @@ export function entryPage(title: string, body: string[], options: PageOptions = 
     '<main id="main" class="ledger">',
     ...body,
     '</main>',
-    footerHtml(metaJsonHref, sourcePath).replace('<p><small>', '<footer>').replace('</small></p>', '</footer>'),
+    footerHtml(metaJsonHref, sourcePath),
     '</div>',
     '</body>',
     '</html>',
