@@ -31,6 +31,7 @@ import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/c
 import { writeValueCatalogue } from './value-catalogue.ts';
 import { buildQualityReportFold, type PrefixDistributionFold, type MismatchFold, type RegionalIdentifierFold, type CallsignPatternSeriesFold } from './quality-report-fold.ts';
 import { buildDataQualityFold, type DataQualityFold } from './data-quality-fold.ts';
+import { buildFoiUnkeyableSummary, type FoiUnkeyableSummary } from './foi-unkeyable-fold.ts';
 import { writeCrossDatasetInvariants } from './cross-dataset-invariants.ts';
 import { writeForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { mdCell } from '../shared/markdown.ts';
@@ -441,8 +442,12 @@ function writeQualityReports(keys: string[], dataQuality: DataQualityFold): void
   // corpus is folded once. Each report's equivalence oracle pins the fold against
   // the committed golden as its retirement gate (#444).
   const fold = buildQualityReportFold();
+  // The FOI lane's unkeyable-row addendum (issue #632) folds independently of
+  // the claim ledger (foi-unkeyable-fold.ts) - a lightweight pass over the
+  // same buildFoiObservations union the callsign-shard build folds.
+  const foiUnkeyable = time('reports:foi-unkeyable-fold', () => buildFoiUnkeyableSummary());
   writePatternTimeSeries(fold.callsignPatterns);
-  writeQualityRollup(dataQuality, fold.mismatches);
+  writeQualityRollup(dataQuality, fold.mismatches, foiUnkeyable);
   writeComponentDistributions(fold.prefixes, fold.regionalIdentifiers);
   writeReportsIndex([...keysWithStats].reverse(), statsByKey);
 }
@@ -855,17 +860,47 @@ function withCharacterKey(lines: string[]): string[] {
 // flagged observations' raw subjects (see data-quality-fold.ts for the full
 // detector -> claim mapping and the single classified `lowercase` superset
 // subtlety). The equivalence oracle pins the fold against the committed golden.
-function writeQualityRollup(dataQuality: DataQualityFold, foldedMismatches: MismatchFold): void {
-  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'data-quality.md'), renderDataQualityRollup(dataQuality));
+function writeQualityRollup(dataQuality: DataQualityFold, foldedMismatches: MismatchFold, foiUnkeyable: FoiUnkeyableSummary): void {
+  fs.writeFileSync(path.join(REPORTS_DIR, '..', 'data-quality.md'), renderDataQualityRollup(dataQuality, foiUnkeyable));
 
   writeMismatchReport(foldedMismatches);
 }
 
+// The FOI-lane unkeyable-row addendum (issue #632): the defect-detector
+// matrix above is open-data only by design (data-quality-fold.ts's
+// OPEN_DATA_LANE), so the FOI lane's share of the same unkeyable-row test the
+// callsign-shard build applies (foi-unkeyable-fold.ts) had no committed home.
+// Omitted entirely when the FOI archive carries none - the common state for
+// any one file, though not for the lane as a whole.
+function renderFoiUnkeyableSection(foi: FoiUnkeyableSummary | undefined): string[] {
+  if (foi === undefined || foi.total === 0) return [];
+  const rowNoun = foi.total === 1 ? 'row' : 'rows';
+  const fileNoun = foi.files.length === 1 ? 'file' : 'files';
+  return [
+    '',
+    '## FOI lane',
+    '',
+    'The defect-detector matrix above is open-data only (one column per',
+    'register-snapshot publication) — the FOI lane (`archive/foi/`) carries no',
+    'detector matrix of its own. The same unkeyable test the callsign-shard',
+    'build applies (a callsign cell that, cleaned, carries no `A-Z0-9/`',
+    `character at all - a blank cell, or a token of punctuation alone) finds **${foi.total.toLocaleString('en-GB')}**`,
+    `unkeyable ${rowNoun} across **${foi.files.length}** FOI ${fileNoun}. Each is carried in its file's own`,
+    'record count and never dropped - it is simply not addressable by',
+    'callsign, so it never reaches a callsign-shard entry or lookup.',
+    '',
+    '| entry | file | unkeyable rows |',
+    '|---|---|---:|',
+    ...foi.files.map(f => `| \`${f.entry}\` | \`${f.file}\` | ${f.count.toLocaleString('en-GB')} |`),
+  ];
+}
+
 // The data-quality rollup markdown, rendered from the raw-keyed claim ledger fold
-// (data-quality-fold.ts). A pure function of the DataQualityFold, so the sweep and
-// the equivalence oracle render the same fold shape identically - the retirement
-// gate the oracle pins.
-export function renderDataQualityRollup(dq: DataQualityFold): string {
+// (data-quality-fold.ts), plus the FOI-lane addendum above (folded separately -
+// foi-unkeyable-fold.ts - since it is not open-data/claim-ledger sourced). A
+// pure function of its inputs, so the sweep and the equivalence oracle render
+// the same fold shape identically - the retirement gate the oracle pins.
+export function renderDataQualityRollup(dq: DataQualityFold, foiUnkeyable?: FoiUnkeyableSummary): string {
   const columns = dq.dates;
   const detectorLabels: readonly [string, string][] = [
     ['excelDateShaped', 'Excel-date-shaped callsigns'],
@@ -926,6 +961,7 @@ export function renderDataQualityRollup(dq: DataQualityFold): string {
     '',
     ...renderFlagStatusTables(columns, dq.flags, dq.parseStatuses),
     ...exampleSections,
+    ...renderFoiUnkeyableSection(foiUnkeyable),
     '',
   ];
   return withCharacterKey(lines).join('\n');

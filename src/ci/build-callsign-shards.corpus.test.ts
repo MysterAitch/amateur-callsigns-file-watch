@@ -34,6 +34,7 @@ interface Record594 {
   a?: { ps?: string; pre?: string; rsl?: string; sfx?: string; ph?: string; hc?: string; ic?: number };
   f?: string[];
   v?: string[];
+  tw?: { r: string; s?: string; m?: string; p?: number }[];
   m?: number[];
 }
 
@@ -205,6 +206,71 @@ describe('callsign shards over the real archive', { tags: ['data-validity'] }, (
     if (record === undefined) return;
     expect(record.v ?? []).toContain('G6 FMU');
     expect((record.m ?? []).length).toBeGreaterThan(0);
+  });
+
+  it('Lookup_StrippedCollisionTwin_CarriesTheLatestSnapshotConflictBreakdown', () => {
+    // The twin breakdown (issue #633) records the latest register snapshot's
+    // per-variant rows so the page can annotate the conflict: the abnormal
+    // 'G6 FMU' spelling holds an Allocated Full licence with a modified date,
+    // while the canonical form sits in the pool (Available) and is undated.
+    const record = findRecord('G6FMU');
+    expect(record).toBeDefined();
+    if (record === undefined) return;
+    const tw = record.tw ?? [];
+    expect(tw.length).toBe(2);
+    const abnormal = tw.find(t => t.r === 'G6 FMU');
+    const normal = tw.find(t => t.r === 'G6FMU');
+    expect(abnormal).toBeDefined();
+    expect(normal).toBeDefined();
+    if (abnormal === undefined || normal === undefined) return;
+    // The abnormal twin is the Allocated, dated, Full-licence-bearing row.
+    expect(abnormal.s !== undefined && manifest.legend.statuses[abnormal.s]).toBe('Allocated');
+    expect(abnormal.m).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(abnormal.p !== undefined && manifest.vocab.product[abnormal.p]).toBe('Amateur Full Radio Licence');
+    // The canonical form is the pool row: Available, undated (no `m`).
+    expect(normal.s !== undefined && manifest.legend.statuses[normal.s]).toBe('Available');
+    expect(normal.m).toBeUndefined();
+  });
+
+  it('Lookup_SecondLiveDisagreeingTwin_SurfacesTheSameInversion', () => {
+    // G7IWE is the second currently-disagreeing group: the trailing-space
+    // spelling holds the Allocated licence (dated) while the canonical form is
+    // Reserved (a pool status, undated) - the same abnormal-holds-the-licence
+    // shape as G6FMU.
+    const record = findRecord('G7IWE');
+    expect(record).toBeDefined();
+    if (record === undefined) return;
+    const tw = record.tw ?? [];
+    const abnormal = tw.find(t => t.r !== 'G7IWE');
+    const normal = tw.find(t => t.r === 'G7IWE');
+    expect(abnormal).toBeDefined();
+    expect(normal).toBeDefined();
+    if (abnormal === undefined || normal === undefined) return;
+    expect(abnormal.s !== undefined && manifest.legend.statuses[abnormal.s]).toBe('Allocated');
+    expect(abnormal.m).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(normal.s !== undefined && manifest.legend.statuses[normal.s]).toBe('Reserved');
+  });
+
+  it('Lookup_AgreeingTwin_CarriesTheBreakdownButNoStatusDisagreement', () => {
+    // G0TQK lists its cleaned form twice but both rows agree (Reserved): the
+    // breakdown is present, yet the page must read no conflict from it (no
+    // manufactured doubt).
+    const record = findRecord('G0TQK');
+    expect(record).toBeDefined();
+    if (record === undefined) return;
+    const tw = record.tw ?? [];
+    expect(tw.length).toBeGreaterThan(1);
+    const statuses = new Set(tw.map(t => (t.s !== undefined ? manifest.legend.statuses[t.s] : '')));
+    expect([...statuses]).toEqual(['Reserved']);
+  });
+
+  it('Lookup_SingleMemberCallsign_HasNoTwinBreakdown', () => {
+    // A callsign listed once in its latest snapshot carries no twin breakdown -
+    // there is nothing to annotate.
+    const record = findRecord('M7TEE');
+    expect(record).toBeDefined();
+    if (record === undefined) return;
+    expect(record.tw).toBeUndefined();
   });
 
   it('ShardSizing_LargestShard_StaysFetchSized', () => {

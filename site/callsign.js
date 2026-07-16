@@ -61,7 +61,30 @@ import { anatomyFigureHtml } from './callsign-pill.js';
  * @property {{ ps?: string, pre?: string, rsl?: string, sfx?: string, ph?: string, hc?: string, ic?: number }} [a]
  * @property {string[]} [f]
  * @property {string[]} [v]
+ * @property {TwinRow[]} [tw]
  * @property {number[]} [m]
+ */
+
+/**
+ * One conflicting twin row of the latest register snapshot (the builder's `tw`,
+ * present only when that snapshot lists the cleaned form more than once).
+ * @typedef {object} TwinRow
+ * @property {string} r    raw form verbatim
+ * @property {string} [s]  status letter (into legend.statuses)
+ * @property {string} [m]  source-intrinsic last-modified date
+ * @property {number} [p]  product vocab index
+ */
+
+/**
+ * One twin variant resolved for display: its raw form, whether it is the
+ * format-normal token (equal to the cleaned key), and its resolved status,
+ * product and modified date.
+ * @typedef {object} TwinVariantView
+ * @property {string} raw
+ * @property {boolean} normal
+ * @property {string} status
+ * @property {string | null} product
+ * @property {string} modified
  */
 
 /**
@@ -144,6 +167,24 @@ export function describeCell(ch, dataset, manifest) {
   return { kind: 'status', text: isPool ? `${status} (availability list)` : status, detail: '' };
 }
 
+// A dataset-level aside for a non-zero unkeyable-row count (issue #632):
+// rows whose callsign cell, cleaned, carries no A-Z0-9/ character at all — a
+// blank cell, or a punctuation-only token such as a literal ",,". They are
+// carried faithfully in the dataset's own row count (ShardDataset.rows /
+// .unkeyable together account for every row) and never dropped; they simply
+// have no key to join a callsign lookup by, so this dataset row is the only
+// place they become visible. Independent of which callsign was searched —
+// every dataset row in the census table carries the same figure. Null when
+// the dataset has none.
+/**
+ * @param {ShardDataset} dataset
+ * @returns {{ count: number, noun: string } | null}
+ */
+export function unkeyableRowInfo(dataset) {
+  if (dataset.unkeyable <= 0) return null;
+  return { count: dataset.unkeyable, noun: dataset.unkeyable === 1 ? 'row' : 'rows' };
+}
+
 // First/last sightings and coverage counts, derived from the history string.
 /**
  * @param {CallsignRecord} record
@@ -183,6 +224,73 @@ export function latestSummary(record, manifest) {
   const products = (l.p ?? []).map(i => manifest.vocab.product[i] ?? '(unknown product)');
   const types = (l.t ?? []).map(i => manifest.vocab.type[i] ?? '(unknown type)');
   return { dataset, statuses, products, types };
+}
+
+// The cleaned-key twin conflict of the latest register snapshot, resolved for
+// annotation (issue #633). The projection carries `tw` only when the latest
+// register snapshot lists the cleaned form more than once; this resolves each
+// row's status/product through the manifest, orders the format-normal form
+// first (rule 1: the normal form leads the presentation), and classifies the
+// two annotation axes - format normality and recency - WITHOUT adjudicating
+// which row is right. Returns null when there is no twin group, or when the
+// group agrees on status (a duplicate, not a conflict - no manufactured doubt).
+//
+// recency.kind:
+//   'ordered'  every row is dated and one is unambiguously the most recent.
+//   'tied'     every row is dated but they share the newest date.
+//   'partial'  some rows are dated and some are not - undated is characteristic
+//              of pool rows (Available/Reserved), so it is not staleness.
+//   'none'     no row carries a date, so recency cannot order them.
+/**
+ * @param {CallsignRecord} record
+ * @param {string} key
+ * @param {ShardManifest} manifest
+ * @returns {null | { snapshot: ShardDataset, variants: TwinVariantView[], normalitySplit: boolean, recency: { kind: 'ordered' | 'tied' | 'partial' | 'none', newest: TwinVariantView | null } }}
+ */
+export function twinConflict(record, key, manifest) {
+  const tw = record.tw;
+  const l = record.l;
+  if (tw === undefined || tw.length < 2 || l === undefined) return null;
+  const snapshot = manifest.datasets[l.d];
+  if (snapshot === undefined) return null;
+
+  /** @type {TwinVariantView[]} */
+  const variants = tw.map(t => ({
+    raw: t.r,
+    normal: t.r === key,
+    status: t.s !== undefined && Object.hasOwn(manifest.legend.statuses, t.s) ? manifest.legend.statuses[t.s] : '',
+    product: t.p !== undefined ? (manifest.vocab.product[t.p] ?? null) : null,
+    modified: t.m ?? '',
+  }));
+
+  // A conflict only where the rows assert DIFFERENT statuses; equal statuses are
+  // a duplicate the "listed more than once" note already covers, and annotating
+  // it would manufacture doubt where the register carries none.
+  const statuses = new Set(variants.map(v => v.status).filter(s => s !== ''));
+  if (statuses.size < 2) return null;
+
+  // Normal-form primacy in presentation order (stable within each group).
+  const ordered = [...variants].sort((a, b) => (a.normal === b.normal ? 0 : a.normal ? -1 : 1));
+  const normalitySplit = variants.some(v => v.normal) && variants.some(v => !v.normal);
+
+  const dated = ordered.filter(v => v.modified !== '');
+  const undated = ordered.filter(v => v.modified === '');
+  /** @type {'ordered' | 'tied' | 'partial' | 'none'} */
+  let kind;
+  /** @type {TwinVariantView | null} */
+  let newest = null;
+  if (dated.length === 0) {
+    kind = 'none';
+  } else if (undated.length > 0) {
+    kind = 'partial';
+  } else {
+    const newestDate = dated.reduce((max, v) => (v.modified > max ? v.modified : max), dated[0].modified);
+    const atNewest = dated.filter(v => v.modified === newestDate);
+    if (atNewest.length === 1) { kind = 'ordered'; newest = atNewest[0]; }
+    else kind = 'tied';
+  }
+
+  return { snapshot, variants: ordered, normalitySplit, recency: { kind, newest } };
 }
 
 // ---------------------------------------------------------------------------
@@ -620,6 +728,14 @@ function renderHistory(host, res, manifest) {
     dsLink.setAttribute('href', dataset.href);
     dsTd.appendChild(dsLink);
     dsTd.append(` — ${datasetClassLabel(dataset)}`);
+    const unkeyable = unkeyableRowInfo(dataset);
+    if (unkeyable !== null) {
+      dsTd.append(' · ');
+      const unkeyableLink = el('a', null, `${unkeyable.count.toLocaleString('en-GB')} unkeyable ${unkeyable.noun}`);
+      unkeyableLink.setAttribute('href', 'glossary.html#unkeyable-row');
+      dsTd.appendChild(unkeyableLink);
+      dsTd.append(' (blank or punctuation-only callsign cell — carried here, but not addressable by callsign)');
+    }
     tr.appendChild(dsTd);
     const whatTd = el('td');
     if (cell.kind === 'status') whatTd.appendChild(b(cell.text));
@@ -639,12 +755,155 @@ function renderHistory(host, res, manifest) {
   host.appendChild(note);
 }
 
+// One label/value line inside a "show the working" panel (the ledger's row2
+// idiom, reused so the two surfaces read as one component).
+/** @param {string} lab @param {Node | string} value */
+const workRow = (lab, value) => {
+  const r = el('div', 'fid-work-row');
+  r.appendChild(el('span', 'k', lab));
+  const v = el('span', 'v');
+  if (typeof value === 'string') v.textContent = value; else v.appendChild(value);
+  r.appendChild(v);
+  return r;
+};
+
+// A short human phrase for one twin variant's licence state: its status and,
+// where the register carries one, its product.
+/** @param {TwinVariantView} v */
+function variantStatePhrase(v) {
+  const status = v.status !== '' ? v.status : '(no status recorded)';
+  return v.product !== null && v.product !== '' ? `${status} (${v.product})` : status;
+}
+
+// The cleaned-key twin-conflict annotation card (issue #633): a derived-claim
+// note that ADDS format-normality and recency context to a within-snapshot
+// status conflict without ever downgrading the conflict or picking a winner.
+// The gloss leads with the user-meaningful fact (rule 3), the recency line
+// shows its working from the register's own dates (rule 2, with the pool-row
+// caveat), and a "show the working" panel exposes every row verbatim with
+// linkable evidence (rule 5).
+/**
+ * @param {NonNullable<ReturnType<typeof twinConflict>>} conflict
+ * @param {string} key
+ */
+function twinConflictCard(conflict, key) {
+  const { snapshot, variants, normalitySplit, recency } = conflict;
+  const vintage = snapshot.vintage ?? 'an undated snapshot';
+  const abnormal = variants.filter(v => !v.normal);
+  const normal = variants.filter(v => v.normal);
+  const abnormalActive = abnormal.filter(v => v.status === 'Allocated');
+  const normalActive = normal.some(v => v.status === 'Allocated');
+  const inversion = normalitySplit && abnormalActive.length > 0 && !normalActive;
+
+  const label = inversion
+    ? 'A non-standard spelling holds the active licence'
+    : normalitySplit
+      ? 'The written forms differ in format and status'
+      : 'Two written forms disagree on status';
+
+  const card = el('div', 'flagcard fid-note');
+  const head = el('div', 'fid-note-head');
+  head.appendChild(el('span', 'fn', label));
+  head.appendChild(el('span', 'tb d', 'derived'));
+  card.appendChild(head);
+
+  const gloss = el('div', 'fg');
+
+  // Normality annotation (rule 3): lead with the fact that the abnormal
+  // variant(s) carry the attributes they carry, then the canonical form's.
+  if (normalitySplit) {
+    gloss.append(`In the latest register snapshot (${vintage}), `);
+    abnormal.forEach((v, i) => {
+      if (i > 0) gloss.append(i === abnormal.length - 1 ? ' and ' : ', ');
+      gloss.append('the variant ');
+      gloss.appendChild(appendRawToken(el('span', 'fid-code'), v.raw));
+      gloss.append(` — a non-standard spelling — is listed ${variantStatePhrase(v)}`);
+    });
+    gloss.append(', while the canonical form ');
+    gloss.appendChild(el('span', 'fid-code', key));
+    const normalStates = [...new Set(normal.map(variantStatePhrase))];
+    gloss.append(` is listed ${normalStates.length > 0 ? normalStates.join(' / ') : '(no status recorded)'}. `);
+  } else {
+    // No format split: two same-shaped forms simply disagree. State it plainly.
+    const states = variants.map(v => variantStatePhrase(v));
+    gloss.append(`In the latest register snapshot (${vintage}), two rows of this callsign disagree on status (${states.join(' vs ')}). `);
+  }
+
+  // Recency annotation (rule 2), with its working shown from the register's own
+  // dates and the pool-row caveat where a row is undated.
+  if (recency.kind === 'ordered' && recency.newest !== null) {
+    const others = variants.filter(v => v !== recency.newest);
+    gloss.append('By the register’s own last-modified dates, the most recently modified row is ');
+    gloss.appendChild(appendRawToken(el('span', 'fid-code'), recency.newest.raw));
+    gloss.append(` (modified ${recency.newest.modified}), listed ${variantStatePhrase(recency.newest)}`);
+    const olderDates = others.map(v => v.modified).filter(d => d !== '');
+    if (olderDates.length > 0) gloss.append(`; the other row was last modified ${olderDates.join(', ')}`);
+    gloss.append('. ');
+  } else if (recency.kind === 'tied') {
+    const date = variants.find(v => v.modified !== '')?.modified ?? '';
+    gloss.append(`Both rows carry the same last-modified date (${date}), so recency does not order them. `);
+  } else if (recency.kind === 'partial') {
+    const dated = variants.filter(v => v.modified !== '');
+    const undated = variants.filter(v => v.modified === '');
+    gloss.append(`Only the ${dated.length > 1 ? 'rows' : 'row'} `);
+    dated.forEach((v, i) => { if (i > 0) gloss.append(', '); gloss.appendChild(appendRawToken(el('span', 'fid-code'), v.raw)); });
+    const datedDates = [...new Set(dated.map(v => v.modified))];
+    gloss.append(` carr${dated.length > 1 ? 'y' : 'ies'} a last-modified date (${datedDates.join(', ')}); the `);
+    undated.forEach((v, i) => { if (i > 0) gloss.append(', '); gloss.appendChild(appendRawToken(el('span', 'fid-code'), v.raw)); });
+    gloss.append(` ${undated.length > 1 ? 'rows are' : 'form is'} undated. Undated rows are characteristic of pool entries `
+      + '(Available/Reserved), so the missing date is not evidence of staleness. ');
+  } else {
+    gloss.append('Neither row carries a last-modified date, so recency cannot order them. ');
+  }
+
+  // The conflict is never resolved here; the annotation only adds context.
+  gloss.append('Both rows are kept exactly as published; neither is treated as the winner. The ');
+  const ledgerA = el('a', null, 'ledger shows each one verbatim');
+  ledgerA.setAttribute('href', `ledger.html?c=${encodeURIComponent(key)}`);
+  gloss.append(ledgerA, '.');
+  card.appendChild(gloss);
+
+  // Show the working (rule 5): the derived claim's inputs - each row verbatim
+  // with its status, product and date - and linkable evidence (the snapshot and
+  // the ledger). A native <details>, so it works with JavaScript off.
+  const why = el('details', 'fid-why');
+  const summary = el('summary');
+  summary.append('Show the working');
+  why.appendChild(summary);
+  const work = el('div', 'fid-work');
+  const snapLink = el('a', null, snapshot.title);
+  snapLink.setAttribute('href', snapshot.href);
+  work.appendChild(workRow('snapshot', snapLink));
+  variants.forEach((v, i) => {
+    const val = el('span');
+    appendRawToken(val, v.raw);
+    val.append(` — ${v.normal ? 'canonical form' : 'non-standard spelling'} · ${variantStatePhrase(v)}`
+      + (v.modified !== '' ? ` · modified ${v.modified}` : ' · undated'));
+    work.appendChild(workRow(`row ${i + 1}`, val));
+  });
+  const seen = el('div', 'fid-work-row');
+  seen.appendChild(el('span', 'k', 'evidence'));
+  const seenV = el('span', 'v');
+  const dsA = el('a', null, 'the snapshot');
+  dsA.setAttribute('href', snapshot.href);
+  const ledA = el('a', null, 'the ledger, byte by byte');
+  ledA.setAttribute('href', `ledger.html?c=${encodeURIComponent(key)}`);
+  seenV.append('Examine ', dsA, ' or ', ledA, '.');
+  seen.appendChild(seenV);
+  work.appendChild(seen);
+  why.appendChild(work);
+  card.appendChild(why);
+
+  return card;
+}
+
 /**
  * @param {HTMLElement} host
  * @param {HTMLElement} panel
  * @param {Resolution} res
+ * @param {ShardManifest} manifest
  */
-function renderNotes(host, panel, res) {
+function renderNotes(host, panel, res, manifest) {
   host.textContent = '';
   const record = res.record;
   const key = res.key;
@@ -661,6 +920,12 @@ function renderNotes(host, panel, res) {
     card.appendChild(gloss);
     cards.push(card);
   };
+
+  // The twin-conflict annotation leads the notes: it is the most salient
+  // observation when the latest snapshot lists the cleaned form more than once
+  // with disagreeing statuses (issue #633).
+  const conflict = twinConflict(record, key, manifest);
+  if (conflict !== null) cards.push(twinConflictCard(conflict, key));
 
   for (const flag of record.f ?? []) {
     const meta = Object.hasOwn(FLAG_NOTES, flag) ? FLAG_NOTES[/** @type {keyof typeof FLAG_NOTES} */ (flag)] : { label: flag, gloss: [] };
@@ -809,7 +1074,7 @@ export async function runLookup(typed) {
   if (hosts.anatomyFigure) renderAnatomyFigure(hosts.anatomyFigure, res);
   if (hosts.anatomy) renderAnatomy(hosts.anatomy, res, manifest);
   if (hosts.history) renderHistory(hosts.history, res, manifest);
-  if (hosts.notes && hosts.notesPanel) renderNotes(hosts.notes, hosts.notesPanel, res);
+  if (hosts.notes && hosts.notesPanel) renderNotes(hosts.notes, hosts.notesPanel, res, manifest);
   if (hosts.links) renderLinks(hosts.links, res);
   const elapsed = Math.max(1, Math.round(performance.now() - started));
   const status = document.getElementById('lookup-status');

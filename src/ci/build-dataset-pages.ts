@@ -41,7 +41,7 @@ import { buildInterdatasetStats } from './build-interdataset-stats.ts';
 import { buildFidelityPage } from './build-fidelity-page.ts';
 import { fidelityHref, fidelityNudge, flagNudges } from './render/fidelity.ts';
 import { reportAffordance } from './render/report.ts';
-import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { parseCallsign, cleanedCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { time, perfReport } from '../shared/perf.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
 import {
@@ -355,7 +355,7 @@ const DICTIONARY_DOCS: RenderedDoc[] = [
 // nav link lands on.
 const STANDING_REPORTS: RenderedDoc[] = [
   { source: 'reports/value-catalogue.md', slug: 'value-catalogue', label: 'Value catalogue', blurb: 'every distinct value of the tracked fields across both lanes, with counts — a new one appearing in the diff is a drift signal.' },
-  { source: 'reports/data-quality.md', slug: 'data-quality', label: 'Data-quality rollup', blurb: 'the callsign defect detectors, flag instances and parse statuses across the whole corpus.' },
+  { source: 'reports/data-quality.md', slug: 'data-quality', label: 'Data-quality rollup', blurb: 'the callsign defect detectors, flag instances and parse statuses across the open-data lane, plus the FOI lane’s own unkeyable-row share.' },
   { source: 'reports/callsign-patterns.md', slug: 'callsign-patterns', label: 'Callsign pattern time-series', blurb: 'the distribution of structural callsign patterns across every publication.' },
   { source: 'reports/prefixes.md', slug: 'prefixes', label: 'Prefix-series distributions', blurb: 'how callsigns divide across prefix series (M0, 2E0, …) in each publication.' },
   { source: 'reports/regional-identifiers.md', slug: 'regional-identifiers', label: 'Regional-identifier distributions', blurb: 'the national/regional secondary locators seen across the corpus.' },
@@ -967,13 +967,18 @@ interface OpenDataDiffSummary {
 
 // A lean per-publication summary for the dataset-navigation sidebar - the
 // headline figures every page compares itself against. Parses normalised.csv
-// once (row count + status -> allocated) and reads meta for the known-issues
-// / partial-scope signals; deltas are computed at render time relative to
-// whichever publication's page is showing.
+// once (row count + status -> allocated, plus the unkeyable-row count, issue
+// #632) and reads meta for the known-issues / partial-scope signals; deltas
+// are computed at render time relative to whichever publication's page is
+// showing.
 interface PublicationSummary {
   key: string;
   recordCount: number;
   allocated: number;
+  // Rows whose callsign cell, cleaned, carries no A-Z0-9/ character at all
+  // (a blank cell, or a punctuation-only token) - counted in recordCount
+  // above and never dropped, but not addressable by callsign (issue #632).
+  unkeyable: number;
   knownIssues: boolean;
   partial: boolean;
 }
@@ -982,7 +987,11 @@ function publicationSummary(key: string): PublicationSummary {
   const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
   const rows = parseArchiveCsv(path.join(sourceDir, 'normalised.csv'));
   let allocated = 0;
-  for (const r of rows) if ((r.status ?? '').trim() === 'Allocated') allocated += 1;
+  let unkeyable = 0;
+  for (const r of rows) {
+    if ((r.status ?? '').trim() === 'Allocated') allocated += 1;
+    if (cleanedCallsign(r.callsign ?? '') === '') unkeyable += 1;
+  }
   const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as {
     intendedCoverage?: { complete: boolean };
     qualityObservations?: unknown[];
@@ -991,6 +1000,7 @@ function publicationSummary(key: string): PublicationSummary {
     key,
     recordCount: rows.length,
     allocated,
+    unkeyable,
     knownIssues: (meta.qualityObservations?.length ?? 0) > 0,
     partial: meta.intendedCoverage?.complete === false,
   };
@@ -1140,6 +1150,24 @@ export function setAsideLinesSection(ignored: { line: number; content: string; r
     + `<tbody>${rows}</tbody></table></details>`;
 }
 
+// The unkeyable-row aside (issue #632), completing the same row-accounting
+// narrative as setAsideLinesSection above: a row whose callsign cell, cleaned,
+// carries no A-Z0-9/ character at all (a blank cell, or a punctuation-only
+// token such as a literal ",,") is counted in the record count shown above
+// and never dropped - it simply has no key to join a callsign lookup by, so
+// this is the only place its existence becomes visible for this publication.
+// Empty for the common case of zero, so nothing that could read as a data
+// caveat appears there. `depthToRoot` places the glossary link at the
+// caller's relative depth.
+export function unkeyableRowsNote(unkeyable: number, depthToRoot: number): string {
+  if (unkeyable <= 0) return '';
+  const verb = unkeyable === 1 ? 'has' : 'have';
+  const term = glossaryTerm('unkeyable-row', depthToRoot, { label: 'unkeyable' });
+  return `<p class="lead"><b>${unkeyable.toLocaleString('en-GB')}</b> of the rows above ${verb} no usable `
+    + `callsign (blank or punctuation-only) — ${term}, carried in the row count above, but not addressable `
+    + 'by callsign, so it never reaches a callsign-shard entry or lookup.</p>';
+}
+
 function buildOpenDataEntry(outputDir: string, key: string, previousKey: string | undefined, summaries: PublicationSummary[], foiEntries: FoiNavEntry[], pageUrl: string): { files: CopiedFile[]; zipBytes: number } {
   const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
   const descriptions = new Map<string, string>([
@@ -1213,6 +1241,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   ].filter(t => t.panel !== '');
 
   const ignoredNote = setAsideLinesSection(meta.ignoredLines ?? [], 3);
+  const unkeyableNote = unkeyableRowsNote(summaries.find(s => s.key === key)?.unkeyable ?? 0, 3);
 
   // The per-record flag join for the browse preview's fidelity nudges (issue
   // #438): components.csv carries each record's data-quality flags keyed by the
@@ -1247,6 +1276,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     // publication's normalised register — the very set the sentence names.
     `<p class="lead">The <b>normalised</b> register — the canonical shape, not the raw file (inspect <code>raw.csv</code> below for that). Showing the first rows of ${stats.recordCount.toLocaleString('en-GB')} (${(summaries.find(s => s.key === key)?.allocated ?? 0).toLocaleString('en-GB')} allocated callsigns); download <code>normalised.csv</code> for all, or <a href="${exploreDeepLink('../../../', 'combined', `SELECT * FROM register_history WHERE dataset = '${key.replace(/'/g, "''")}' ORDER BY callsign`)}">query this publication on the Explore console</a> — pre-filtered to its rows.</p>`,
     `<div class="browser-static">${csvPreviewTable(path.join(sourceDir, 'normalised.csv'), 3, 12, flagsByCallsign)}</div>`,
+    unkeyableNote,
     ignoredNote,
     '</section>',
     inspectTabsHtml(tabs),

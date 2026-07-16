@@ -9,6 +9,7 @@ import {
   type DataQualityFold,
 } from './data-quality-fold.ts';
 import { renderDataQualityRollup } from './normalise-sweep.ts';
+import { buildFoiUnkeyableSummary } from './foi-unkeyable-fold.ts';
 import { emitLedger, type SourceObservationSet } from '../v2/claim.ts';
 import { serialiseClaimsJsonl } from '../v2/serialise.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
@@ -161,7 +162,11 @@ describe.skipIf(!duckDbAvailable())('data-quality rollup — real-archive fold r
   }, 600_000);
 
   it('DataQualityReport_WhenFoldedFromLedger_ReproducesTheCommittedGoldenByteForByte', () => {
-    expect(renderDataQualityRollup(fold))
+    // The FOI-lane addendum (issue #632) folds independently of the ledger
+    // (foi-unkeyable-fold.ts), over the real archive/foi, alongside the
+    // open-data ledger fold above.
+    const foiUnkeyable = buildFoiUnkeyableSummary();
+    expect(renderDataQualityRollup(fold, foiUnkeyable))
       .toBe(fs.readFileSync(path.resolve(process.cwd(), DATA_QUALITY_PATH), 'utf8'));
   });
 });
