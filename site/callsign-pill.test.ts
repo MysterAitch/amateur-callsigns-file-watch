@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { callsignPillTitle, callsignPillLink, callsignPillRaw, CALLSIGN_PILL_CLASS } from './callsign-pill.js';
+import { callsignPillTitle, callsignPillLink, callsignPillRaw, CALLSIGN_PILL_CLASS, CALLSIGN_CLASS, appendMarkedChars } from './callsign-pill.js';
 
 // The shared callsign pill (issue #310) gives a callsign the same visual
 // identity on the hand-authored browser surfaces (index lookup, per-dataset
@@ -8,6 +8,11 @@ import { callsignPillTitle, callsignPillLink, callsignPillRaw, CALLSIGN_PILL_CLA
 // pages. These tests pin the rendered markup and, above all, that the pill
 // never steals the callsign's accessible name. Test names follow the
 // Subject_Scenario_Outcome convention.
+//
+// Issue #658 closed a confirmed gap #652 flagged: the pill did not carry the
+// shared `cs` base class every callsign-family value wears (a callsign, and
+// now a prefix series/forbidden suffix) - so every className/outerHTML
+// assertion below pins BOTH classes together, not CALLSIGN_PILL_CLASS alone.
 
 // The element factory the front-ends hold (app.js / entry-browser.js), mirrored
 // so the pill helpers are exercised exactly as they are in the browser.
@@ -28,9 +33,9 @@ describe('callsignPillLink', { tags: ['ui'] }, () => {
     // callsign as a link now points inbound at the same per-callsign page.
     const pill = callsignPillLink(el, 'M7TEE');
     expect(pill.tagName).toBe('A');
-    expect(pill.className).toBe(CALLSIGN_PILL_CLASS);
+    expect(pill.className).toBe(`${CALLSIGN_CLASS} ${CALLSIGN_PILL_CLASS}`);
     expect(pill.getAttribute('href')).toBe('callsign.html?c=M7TEE');
-    expect(pill.outerHTML).toBe('<a class="callsign-pill" href="callsign.html?c=M7TEE">M7TEE</a>');
+    expect(pill.outerHTML).toBe('<a class="cs callsign-pill" href="callsign.html?c=M7TEE">M7TEE</a>');
   });
 
   it('CallsignPill_WhenRenderingACallsign_AccessibleNameIsTheBareCallsign', () => {
@@ -89,7 +94,7 @@ describe('callsignPillRaw', { tags: ['ui'] }, () => {
   it('CallsignPillRaw_WhenCallsignIsClean_ProducesNonLinkPillWithVerbatimText', () => {
     const pill = callsignPillRaw(el, 'M7TEE');
     expect(pill.tagName).toBe('CODE');
-    expect(pill.className).toBe(CALLSIGN_PILL_CLASS);
+    expect(pill.className).toBe(`${CALLSIGN_CLASS} ${CALLSIGN_PILL_CLASS}`);
     // A non-link chip: no href, so it adds no navigation behaviour.
     expect(pill.hasAttribute('href')).toBe(false);
     expect(pill.textContent).toBe('M7TEE');
@@ -104,5 +109,44 @@ describe('callsignPillRaw', { tags: ['ui'] }, () => {
     expect(markers.length).toBe(1);
     expect(markers[0].textContent).toBe('{SP}');
     expect(pill.textContent).toBe('M7TEE{SP}');
+  });
+
+  it('CallsignPillRaw_WhenCallsignEmpty_ProducesEmptyPillWithNoMarkers', () => {
+    // Edge case: nothing to iterate, nothing to mark - not an error.
+    const pill = callsignPillRaw(el, '');
+    expect(pill.textContent).toBe('');
+    expect(pill.querySelectorAll('.marker').length).toBe(0);
+  });
+});
+
+describe('appendMarkedChars', { tags: ['ui'] }, () => {
+  // The shared character-marking loop (issue #658) callsignPillRaw above and
+  // field-wrappers.js's suffixField both draw on - exercised directly here so
+  // its own contract (append onto a CALLER-supplied host, return that host)
+  // is pinned independently of either caller.
+  it('AppendMarkedChars_WhenValueIsClean_AppendsVerbatimTextAndReturnsTheSameHost', () => {
+    const host = el('span');
+    const returned = appendMarkedChars(el, host, 'M7TEE');
+    expect(returned).toBe(host);
+    expect(host.textContent).toBe('M7TEE');
+    expect(host.querySelectorAll('.marker').length).toBe(0);
+  });
+
+  it('AppendMarkedChars_WhenValueCarriesMixedCleanAndOddCharacters_MarksOnlyTheOddOnes', () => {
+    const host = el('span');
+    appendMarkedChars(el, host, 'M7 TEE');
+    const markers = [...host.querySelectorAll('.marker')];
+    expect(markers.length).toBe(1);
+    expect(markers[0].textContent).toBe('{NBSP}');
+    expect(host.textContent).toBe('M7{NBSP}TEE');
+  });
+
+  it('AppendMarkedChars_WhenHostAlreadyHasContent_AppendsAfterRatherThanReplacing', () => {
+    // Non-happy path: this is an APPEND, not a replace - a caller building a
+    // link that already carries other children keeps them.
+    const host = el('a', { href: '#' });
+    host.append('prefix-');
+    appendMarkedChars(el, host, 'M7TEE');
+    expect(host.textContent).toBe('prefix-M7TEE');
   });
 });

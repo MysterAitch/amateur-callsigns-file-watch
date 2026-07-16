@@ -8,9 +8,9 @@
 
 import { countryForCallsign, stripVisitorPrefix } from './prefix-country.js';
 import { placeholderOf } from './browser-query.js';
-import { callsignPillLink } from './callsign-pill.js';
+import { callsignPillLink, CALLSIGN_CLASS, appendMarkedChars } from './callsign-pill.js';
 import { withDatabaseLoading } from './db-loading.js';
-import { licenceField, statusField } from './field-wrappers.js';
+import { licenceField, statusField, prefixSeriesField, prefixSeriesDisplay, prefixSeriesSlug, SUFFIX_CLASS } from './field-wrappers.js';
 
 // The row shape read back off the httpvfs worker's query() is not typed by the
 // vendored library (no shipped types); every SELECT here states its own column
@@ -167,19 +167,24 @@ function renderTable(headers, rows, numericFrom = 1) {
 function csLink(callsign) {
   return callsignPillLink(el, callsign);
 }
+// The forbidden-suffix component's own affordance: unlike suffixField's own
+// `link` option (field-wrappers.js, issue #658), which resolves to the
+// per-suffix DETAIL page, this lookup already has a component VALUE in hand -
+// linking it to the availability-matrix search (every prefix series this
+// suffix appears under) is the more useful action here. A deliberate
+// divergence from suffixField's link shape (this row is not that crosslink),
+// sharing its classes and character-marking convention rather than its href.
+// Exported (like registerHistoryHeader below) purely so this pure DOM-builder
+// is directly unit-testable - app.js is otherwise a side-effect bootstrap
+// module whose deep query-driven rendering has no dependency-injection seam.
 /** @param {string} suffix */
-function suffixLink(suffix) {
-  return el('a', { href: `?c=${encodeURIComponent('*' + suffix)}`, text: suffix, title: `availability matrix for *${suffix}` });
-}
-// Series names are stored bare (20, M7); the # RSL-slot marker is the
-// uniform display convention, inserted after the leading character.
-/** @param {string} series */
-function displaySeries(series) {
-  return series.includes('#') || series.length < 2 ? series : `${series[0]}#${series.slice(1)}`;
+export function suffixLink(suffix) {
+  const a = el('a', { href: `?c=${encodeURIComponent('*' + suffix)}`, class: `${CALLSIGN_CLASS} ${SUFFIX_CLASS}`, title: `availability matrix for *${suffix}` });
+  return appendMarkedChars(el, a, suffix);
 }
 /** @param {string} series */
-function seriesLink(series) {
-  return el('a', { href: `series/${series.replace(/#/g, '')}.html`, text: displaySeries(series), title: `prefix series ${displaySeries(series)}` });
+export function seriesLink(series) {
+  return prefixSeriesField(el, series, { link: { depthToRoot: 0 } });
 }
 
 // Humanise an ISO date (or timestamp) as "23 June 2026" for the data-currency
@@ -922,7 +927,10 @@ async function lookup(criteria) {
   const componentRows = [['parse status', row.parse_status]];
   if (row.prefix_series) componentRows.push([glossLabel('prefix series', 'prefix-series'), seriesLink(row.prefix_series)]);
   if (row.rsl) componentRows.push([glossLabel('regional secondary locator', 'rsl'), row.rsl]);
-  if (row.cs_suffix) componentRows.push(['suffix', suffixLink(row.cs_suffix)]);
+  // Consistency fix (#658): every other component row here already carries a
+  // glossary-linked label (prefix series, RSL, placeholder form) - the suffix
+  // row alone lacked one, despite glossary.html#suffix existing all along.
+  if (row.cs_suffix) componentRows.push([glossLabel('suffix', 'suffix'), suffixLink(row.cs_suffix)]);
   if (row.placeholder_form) componentRows.push([glossLabel('placeholder form', 'placeholder-form'), csLink(row.placeholder_form)]);
   if (row.home_callsign) componentRows.push(['home callsign (visitor)', csLink(row.home_callsign)]);
   if (row.implied_class) componentRows.push(['implied licence class', licenceField(el, row.implied_class)]);
@@ -953,14 +961,14 @@ async function lookup(criteria) {
     const seriesRows = await query('SELECT * FROM ref_prefix_formats WHERE prefix = ?', [row.prefix_series]);
     const [series] = seriesRows;
     if (series) {
-      sections.push(card(`Prefix series ${displaySeries(series.prefix)}`, [renderTable(['fact', 'value'], [
+      sections.push(card(`Prefix series ${prefixSeriesDisplay(series.prefix)}`, [renderTable(['fact', 'value'], [
         ['station level', series.station_level],
         ['issuing status', series.issuing_status],
         ['RSL required', series.rsl_required],
         ...(series.notes ? [['notes', series.notes]] : []),
       ], 99),
       el('p', { class: 'muted' }, [
-        el('a', { href: `series/${series.prefix.replace(/#/g, '')}.html`, text: `Series ${series.prefix} page` }),
+        el('a', { href: `series/${prefixSeriesSlug(series.prefix)}.html`, text: `Series ${series.prefix} page` }),
         ' — reference facts joined with latest-publication counts.',
       ])]));
     }
@@ -1044,7 +1052,7 @@ async function populateFilters() {
     const seriesSelect = /** @type {HTMLSelectElement | null} */ (document.getElementById('series-filter'));
     /** @type {{ prefix_series: string }[]} */
     const series = await query(`SELECT DISTINCT prefix_series FROM components WHERE prefix_series != '' ORDER BY prefix_series`);
-    for (const r of series) seriesSelect?.append(el('option', { value: r.prefix_series, text: displaySeries(r.prefix_series) }));
+    for (const r of series) seriesSelect?.append(el('option', { value: r.prefix_series, text: prefixSeriesDisplay(r.prefix_series) }));
   } catch {
     /* filters stay empty if the database can't load */
   }

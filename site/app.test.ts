@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { makeRunLookup, registerHistoryHeader } from './app.js';
+import { makeRunLookup, registerHistoryHeader, seriesLink, suffixLink } from './app.js';
 
 // The lookup page routes its PRIMARY database open + query through the shared
 // loading affordance (issues #499/#506), exactly as Explore and the Playground
@@ -147,5 +147,49 @@ describe('register-history multi-callsign header (#594)', { tags: ['ui'] }, () =
     // still surface as the link's own visible/accessible text, unaltered.
     const header = registerHistoryHeader('gb100abcde');
     expect(header.querySelector('a')?.textContent).toBe('gb100abcde');
+  });
+});
+
+describe('lookup component links adopt the shared callsign-part wrappers (#658)', { tags: ['ui'] }, () => {
+  it('SeriesLink_WhenRenderingASeries_RendersTheSharedCsPfxFieldLinkedToTheSeriesPage', () => {
+    // Retiring app.js's own pre-#658 displaySeries/seriesLink duplicate in
+    // favour of field-wrappers.js's prefixSeriesField: the `cs cs-pfx` classes
+    // and the `#` RSL-slot display convention now come from the ONE shared
+    // implementation rather than a second copy of the same logic.
+    const link = seriesLink('M7');
+    expect(link.tagName).toBe('A');
+    expect(link.className).toBe('cs cs-pfx');
+    expect(link.getAttribute('href')).toBe('series/M7.html');
+    expect(link.textContent).toBe('M#7');
+  });
+
+  it('SeriesLink_WhenSeriesIsASingleCharacter_IsShownUnchanged', () => {
+    // Non-happy path: prefixSeriesDisplay's own guard - nothing to insert the
+    // `#` marker before.
+    expect(seriesLink('M').textContent).toBe('M');
+  });
+
+  it('SuffixLink_WhenRenderingASuffix_RendersTheSharedCsSfxFieldLinkedToTheAvailabilityMatrixSearch', () => {
+    // Deliberate divergence from suffixField's own `link` option (#658): this
+    // row already has a resolved component VALUE, so it links to the
+    // availability-matrix search across every series, not the per-suffix
+    // detail page - while still sharing the family's classes.
+    const link = suffixLink('TEE');
+    expect(link.tagName).toBe('A');
+    expect(link.className).toBe('cs cs-sfx');
+    expect(link.getAttribute('href')).toBe('?c=*TEE');
+    expect(link.getAttribute('title')).toBe('availability matrix for *TEE');
+    expect(link.textContent).toBe('TEE');
+  });
+
+  it('SuffixLink_WhenSuffixCarriesAnOddCharacter_MarksItRatherThanHidingIt', () => {
+    // Non-happy path: a suffix is raw text lifted verbatim from a
+    // publication/register row - the same transparency guarantee a whole
+    // callsign carries, now shared via appendMarkedChars.
+    const link = suffixLink('TE E');
+    const markers = [...link.querySelectorAll('.marker')];
+    expect(markers.length).toBe(1);
+    expect(markers[0].textContent).toBe('{NBSP}');
+    expect(link.textContent).toBe('TE{NBSP}E');
   });
 });
