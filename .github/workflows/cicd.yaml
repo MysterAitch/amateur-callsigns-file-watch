@@ -663,7 +663,16 @@ jobs:
           # --no-gz-twin: chunked serving (below, #475) replaced the gzipped
           # download twin on this path, so the deploy skips the level-9 gzip
           # of the multi-GB database it previously built and then deleted.
-          node src/v2/build-ledger-db-compact.ts .dbstage/claim-ledger.sqlite.png --no-gz-twin
+          # --ledger-dir keeps the Stage-1 JSONL emit so the surface projection
+          # build below folds the SAME emit instead of paying for a second one.
+          node src/v2/build-ledger-db-compact.ts .dbstage/claim-ledger.sqlite.png --no-gz-twin --ledger-dir="$RUNNER_TEMP/v2-ledger-emit"
+          # The ledger-derived surface projection databases (issue #572): the
+          # lookup and history databases the interactive surfaces (app.js,
+          # compare.js, entry-browser.js, explore.js) query over the same
+          # range-request VFS, folded from the claim ledger emitted above. The
+          # legacy build-sqlite.ts databases keep building beside them during
+          # the transition; #445 retires the legacy pair once nothing reads them.
+          node src/v2/build-projection-db.ts .dbstage/ledger-lookup.sqlite.png .dbstage/ledger-history.sqlite.png --ledger-dir="$RUNNER_TEMP/v2-ledger-emit"
           # Serve the ledger CHUNKED, not as one file (issue #475). A HEAD of a
           # large object on Pages negotiates a compressed variant that is a
           # persistent CDN cache MISS, stalling the in-browser open ~30s. Chunked
