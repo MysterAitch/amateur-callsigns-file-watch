@@ -706,6 +706,16 @@ jobs:
           # build-sqlite.ts step above builds the download tiers alone, not a
           # parallel runtime pair (the legacy runtime pair is retired, #445).
           node src/v2/build-projection-db.ts .dbstage/ledger-lookup.sqlite.png .dbstage/ledger-history.sqlite.png --ledger-dir="$RUNNER_TEMP/v2-ledger-emit"
+          # Peak-flattening (issue #646): the Stage-1 JSONL emit was kept
+          # (--ledger-dir) only so the projection build folds the SAME emit the
+          # compact-ledger build did, rather than re-emitting the corpus. The
+          # projection build above is its last consumer, so drop it here - its
+          # high-water share (the whole-corpus emit) is freed before the
+          # remaining stages and the site assembly write. The compact-ledger
+          # and projection builders are the only readers; the raw-verification
+          # tiers oracle (a separate job) emits its own, so nothing downstream
+          # in this job needs it.
+          rm -rf "$RUNNER_TEMP/v2-ledger-emit"
           # Serve the ledger CHUNKED, not as one file (issue #475). A HEAD of a
           # large object on Pages negotiates a compressed variant that is a
           # persistent CDN cache MISS, stalling the in-browser open ~30s. Chunked
@@ -723,8 +733,14 @@ jobs:
         run: |
           mkdir -p _site/data _site/vendor
           # Publish the built databases - restored from the cache above, or freshly
-          # built on a miss. cp -a preserves the datasets/ subtree and the chunks.
-          cp -a .dbstage/. _site/data/
+          # built on a miss. -l HARDLINKS instead of copying: .dbstage and _site
+          # share one filesystem, so the multi-GB databases are named twice, not
+          # duplicated on disk (issue #646). Nothing rewrites these files in place
+          # afterwards - build-db-sizes.ts only reads them, and version.txt is a
+          # fresh separate file - so the shared inodes are safe and the .dbstage
+          # the cache re-saves is unchanged. -a preserves the datasets/ subtree
+          # and the chunks.
+          cp -al .dbstage/. _site/data/
           # Version stamp: the app appends ?v=<sha> to the database URL so each
           # deploy is a distinct CDN cache object - two deploys inside the Pages
           # max-age window otherwise mix range chunks from different database

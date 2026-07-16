@@ -26,6 +26,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { CONSTANTS } from '../shared/utils.ts';
+import { linkOrCopyFileSync } from '../shared/link-or-copy.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
 import { readPublisherRegister, channelIndex, publisherIndexById, publisherForChannel, authorPublisherId, type PublisherEntry } from '../shared/publishers.ts';
 import { classifyWitnessAgreement, heldHashSet, type WitnessAgreement } from '../shared/witness-agreement.ts';
@@ -269,8 +270,11 @@ function publishedByBlock(sourceKey: string, witnesses: FoiWitness[], heldHashes
   ].join('\n');
 }
 
-// Copies every file of an entry directory into the output tree and returns
-// the manifest used by both the page and the descriptor. Markdown files
+// Places every file of an entry directory into the output tree and returns
+// the manifest used by both the page and the descriptor. Each archived file is
+// taken verbatim, so it is hardlinked to share the checkout's blocks rather
+// than duplicated on disk (issue #646), falling back to a copy where linking is
+// unavailable; either way the published bytes are identical. Markdown files
 // (correspondence records, PDF transcription extracts) additionally get a
 // rendered .html sibling for browsing; the verbatim .md remains the
 // published record.
@@ -278,7 +282,7 @@ function copyEntryFiles(sourceDir: string, targetDir: string, descriptions: Map<
   fs.mkdirSync(targetDir, { recursive: true });
   return fs.readdirSync(sourceDir).sort().map(name => {
     const sourcePath = path.join(sourceDir, name);
-    fs.copyFileSync(sourcePath, path.join(targetDir, name));
+    linkOrCopyFileSync(sourcePath, path.join(targetDir, name));
     const bytes = fs.statSync(sourcePath).size;
     const schemaFields = name.endsWith('.csv') ? csvHeaderFields(sourcePath) : undefined;
     let renderedName: string | undefined;
