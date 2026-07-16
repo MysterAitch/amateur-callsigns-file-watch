@@ -279,12 +279,24 @@ interpretation with within-table integrity flags (ADR 0018). The next arc —
 surfacing that fidelity to readers inline and in linked deep-dive pages
 ([#438](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/438),
 [#439](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/439))
-— is in design, not yet built.
+— has begun: the first increment landed a fidelity and integrity deep-dive
+(`fidelity.html`) reachable by inline nudges from the highest-traffic generated
+surfaces, with the ADR 0017 "show the working" disclosure wired into a real
+generated page end to end
+([#601](https://github.com/MysterAitch/amateur-callsigns-file-watch/pull/601));
+the remaining surfaces continue under #438.
 
 Remaining: the reviewed canonical vocabularies and coverage-aware gating the
 temporal fold depends on; the continued onboarding through the registry of
 heterogeneous sources still pending intake (tracked in
 `docs/source-register.md`); and retirement of the legacy snapshot-canonical
-flow — now that every report folds, its code and data-flows can be removed
-against each fold's committed equivalence oracle, while the committed golden
-derivatives are deliberately retained as the durable comparison baseline.
+flow — every report now folds, and the interactive query surfaces (lookup,
+comparison, entry browser, Explore) have been repointed onto ledger-derived
+projection databases folded from the claim ledger, verified against the legacy
+databases by a full-corpus parity oracle
+([#572](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/572));
+the legacy `build-sqlite.ts` serving build still runs beside the projections
+through the transition, with its retirement tracked on
+[#445](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/445),
+while the committed golden derivatives are deliberately retained as the durable
+comparison baseline.

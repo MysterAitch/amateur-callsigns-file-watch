@@ -63,8 +63,11 @@ existing inputs into a re-verifiable trace.
    only the origins. The reusable P4 render engine that turns each origin into a
    computed-on-read permalink and renders the JS-free "show working" disclosure
    landed with #562 (`src/ci/render/show-working.ts`, composing #431's
-   `permalinkForProvenance`). Wiring that disclosure into specific generated
-   pages is the remaining surface work, owned by #438.
+   `permalinkForProvenance`). The fidelity and integrity deep-dive
+   (`fidelity.html#show-working`) is its first production consumer — rendering real
+   derived claims from the newest archived publication through this engine (#438,
+   #601); wiring the disclosure into the remaining generated surfaces continues
+   under #438.
 
 7. **Self-checked by a committed oracle.** A CI self-check beside
    `trust-rating.ts` (`src/ci/explain-oracle.test.ts`) asserts, over a
@@ -97,5 +100,7 @@ existing inputs into a re-verifiable trace.
   too.
 - The backend engine plus its oracle (design phases P1–P3) and the reusable P4
   render engine — the "show working" disclosure and its permalink resolver
-  (#562) — have landed. What remains is wiring that disclosure into specific
-  generated surfaces, sequenced as part of #438's inline-nudge + deep-dive work.
+  (#562) — have landed, and the fidelity and integrity deep-dive (#438, #601) is
+  the render engine's first production consumer. Wiring the disclosure into the
+  remaining generated surfaces continues under #438's inline-nudge + deep-dive
+  work.

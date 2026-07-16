@@ -213,12 +213,19 @@ via their own reviewed consolidation PRs (`data-sweep.yml:5-8`).
 - **Trigger:** the `push`-to-`main` run of `cicd.yaml`; the `deploy`,
   `build-site-databases` upload, and post-deploy jobs are gated
   `if: github.ref == 'refs/heads/main'` (`cicd.yaml:740-748`).
-- **What it does:** builds the published SQLite databases fresh from committed
-  data (never committed — SQLite is not byte-deterministic), assembles the static
-  site, uploads and deploys the Pages artefact, then runs post-deploy `smoke`,
-  `console-check` and `functionality-check` against the live deployment
-  (`cicd.yaml:596-841`).
+- **What it does:** builds the published databases fresh from committed data
+  (never committed — SQLite is not byte-deterministic). The interactive surfaces
+  (lookup, compare, entry browser, Explore) now read **ledger-derived projection
+  databases** (`ledger-lookup.sqlite.png` / `ledger-history.sqlite.png`) folded
+  from the raw-keyed claim ledger (ADR 0013, `cicd.yaml:669-675`); the legacy
+  `build-sqlite.ts` pair still builds beside them through the transition, with its
+  retirement tracked on #445. The deploy also emits the prefix-sharded per-callsign
+  static JSON that answers the instant per-callsign lookup with no database at all
+  (`cicd.yaml:736-741`). It then assembles the static site, uploads and deploys the
+  Pages artefact, and runs post-deploy `smoke`, `console-check` and
+  `functionality-check` against the live deployment (`cicd.yaml:596-841`).
 - **Governing ADR:** [ADR 0003](adr/0003-in-repo-presentation-poc.md),
+  [ADR 0013](adr/0013-raw-keyed-claim-ledger.md),
   [ADR 0019](adr/0019-layered-build-cache-and-unified-cicd.md).
 - **Human in the loop:** no.
 
