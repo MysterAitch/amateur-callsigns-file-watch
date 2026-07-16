@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "description": "Public index of copies held locally but not (yet) redistributed: the bytes are gitignored under bytes/, this index records their existence so the availability claim stays public and re-verifiable. Obtain and verify a copy yourself from obtainFrom against the recorded sha256. Redistribution is a deliberate, manual, per-item decision (issue #618/#619).",
+  "entries": []
+}
