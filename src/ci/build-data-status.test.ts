@@ -52,10 +52,13 @@ describe('data-status: held-dataset inventory & processing grid', { tags: ['data
     expect(snapshot.stages.understood.state).toBe('done');
     expect(snapshot.stages.validated.state).toBe('done');
     expect(snapshot.stages.normalised.state).toBe('done');
-    // FOI register snapshots are enriched collectively in the combined database,
-    // not as a per-entry file - honestly partial, never claimed complete.
+    // FOI register snapshots are enriched collectively in the full-history
+    // database, not as a per-entry file - honestly partial, never claimed complete.
     expect(snapshot.stages.enriched.state).toBe('partial');
-    expect(snapshot.stages.enriched.detail).toContain('combined database');
+    expect(snapshot.stages.enriched.detail).toContain('full-history database');
+    // Pin the projection-accurate wording (#608): the interactive surfaces now
+    // read the ledger-history projection, not a "combined" database.
+    expect(snapshot.stages.enriched.detail).not.toContain('combined');
   });
 
   it('FoiRow_PdfOnlyHeldSnapshot_IsSurfacedAsHeldButUnprocessed', () => {
