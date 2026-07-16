@@ -39,6 +39,7 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20230904223900/https://www.ofcom.org.uk/__data/assets/file/0016/214225/annex-a-list-of-all-call-signs.xlsx",
+          "sha256": "ebd4143cb36b0dfdf8c79a27dd0e1f05ab7c2db8f995be557ed1accf666ff36e",
           "fetchedAt": "2026-07-07"
         }
       ]

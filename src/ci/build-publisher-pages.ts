@@ -50,6 +50,12 @@ import {
   type PublisherRegister,
 } from '../shared/publishers.ts';
 import {
+  classifyWitnessAgreement,
+  heldHashSet,
+  type WitnessAgreement,
+  type WitnessLike,
+} from '../shared/witness-agreement.ts';
+import {
   escapeHtml,
   externalLink,
   humanDate,
@@ -128,6 +134,11 @@ export interface Holding {
   // from the witness channel tokens. Empty when the entry carries no witness
   // (an open-data publication fetched live directly from its author).
   witnessPublisherIds: string[];
+  // The strongest agreement class of the copies witnessed through each publisher
+  // (#618 increment 3), derived on read against the entry's held bytes:
+  // corroborating (byte-identical held) beats divergent beats citation-grade.
+  // Keyed by publisher id, for every id in witnessPublisherIds.
+  witnessAgreementByPublisher: Record<string, WitnessAgreement>;
   // Witness channel tokens that did NOT resolve to any publisher — surfaced, not
   // dropped (the validator is the loud line of defence; this keeps the page
   // honest if it is ever built against an unvalidated register).
@@ -212,23 +223,44 @@ function entryHref(holding: Holding): string {
     : `datasets/foi/${encodeURIComponent(holding.key)}/index.html`;
 }
 
+// The precedence used to fold several witnesses of one publisher into a single
+// agreement class for a holding: a corroborating copy (byte-identical held) is
+// the strongest statement of availability, a divergent one the next-strongest
+// finding, citation-grade the weakest (a location only).
+const AGREEMENT_PRECEDENCE: Record<WitnessAgreement, number> = {
+  'corroborating': 2,
+  'divergent': 1,
+  'citation-grade': 0,
+};
+
+function strongerAgreement(a: WitnessAgreement, b: WitnessAgreement): WitnessAgreement {
+  return AGREEMENT_PRECEDENCE[a] >= AGREEMENT_PRECEDENCE[b] ? a : b;
+}
+
 // Resolve the distinct publisher ids (and any unresolved tokens) for a set of
-// witness channel tokens, deduplicated and register-ordered by first sight.
+// witnesses, deduplicated and register-ordered by first sight, tracking the
+// strongest agreement class witnessed through each publisher (derived on read
+// against the entry's held bytes).
 function resolveWitnessPublishers(
-  channels: string[],
+  witnesses: WitnessLike[],
   chIndex: Map<string, PublisherEntry>,
-): { ids: string[]; unresolved: string[] } {
+  heldHashes: ReadonlySet<string>,
+): { ids: string[]; unresolved: string[]; agreementByPublisher: Record<string, WitnessAgreement> } {
   const ids: string[] = [];
   const unresolved: string[] = [];
-  for (const channel of channels) {
-    const publisher = chIndex.get(channel);
+  const agreementByPublisher: Record<string, WitnessAgreement> = {};
+  for (const witness of witnesses) {
+    const publisher = chIndex.get(witness.channel);
     if (publisher === undefined) {
-      if (!unresolved.includes(channel)) unresolved.push(channel);
-    } else if (!ids.includes(publisher.id)) {
-      ids.push(publisher.id);
+      if (!unresolved.includes(witness.channel)) unresolved.push(witness.channel);
+      continue;
     }
+    if (!ids.includes(publisher.id)) ids.push(publisher.id);
+    const agreement = classifyWitnessAgreement(witness.sha256, heldHashes);
+    const existing = agreementByPublisher[publisher.id];
+    agreementByPublisher[publisher.id] = existing === undefined ? agreement : strongerAgreement(existing, agreement);
   }
-  return { ids, unresolved };
+  return { ids, unresolved, agreementByPublisher };
 }
 
 // Sweep both lanes into the flat holdings list, resolving each entry's author
@@ -244,8 +276,10 @@ export function collectHoldings(
 
   for (const key of listArchiveKeys().sort()) {
     const meta = JSON.parse(fs.readFileSync(path.join(archiveDir, key, 'meta.json'), 'utf8')) as ArchiveMeta;
-    const channels = (meta.witnesses ?? []).map(w => w.channel);
-    const { ids, unresolved } = resolveWitnessPublishers(channels, chIndex);
+    const heldHashes = heldHashSet(Object.values(meta.files).map(f => f.sha256));
+    const witnesses = meta.witnesses ?? [];
+    const channels = witnesses.map(w => w.channel);
+    const { ids, unresolved, agreementByPublisher } = resolveWitnessPublishers(witnesses, chIndex, heldHashes);
     // Open-data scale is the declared record count of the normalised register;
     // no CSV parse needed. The lane's shape IS a register snapshot at a vintage
     // keyed by the publication date.
@@ -258,6 +292,7 @@ export function collectHoldings(
       authorId: authorPublisherId(meta.sourceKey),
       sourceKey: meta.sourceKey,
       witnessPublisherIds: ids,
+      witnessAgreementByPublisher: agreementByPublisher,
       unresolvedChannels: unresolved,
       datasetClasses: [OPEN_DATA_IMPLICIT_CLASS],
       vintage: key,
@@ -275,10 +310,12 @@ export function collectHoldings(
 
   for (const key of listFoiEntryKeys(foiDir)) {
     const meta = readFoiEntryMeta(foiDir, key);
-    // FOI witnesses live per file; a publisher witnessed the ENTRY if it
-    // witnessed any of its files.
-    const channels = Object.values(meta.files).flatMap(f => (f.witnesses ?? []).map(w => w.channel));
-    const { ids, unresolved } = resolveWitnessPublishers(channels, chIndex);
+    // witnessed any of its files. Agreement is against the union of the entry's
+    // held file hashes, so a copy the mirror holds anywhere corroborates.
+    const heldHashes = heldHashSet(Object.values(meta.files).map(f => f.sha256));
+    const witnesses = Object.values(meta.files).flatMap(f => f.witnesses ?? []);
+    const channels = witnesses.map(w => w.channel);
+    const { ids, unresolved, agreementByPublisher } = resolveWitnessPublishers(witnesses, chIndex, heldHashes);
     // FOI scale is counted from the normalised tables at build time (the lane
     // carries no recordCount). The reported figure is the LARGEST SINGLE table,
     // never the sum across sheets — a callsign on two sheets must not be counted
@@ -294,6 +331,7 @@ export function collectHoldings(
       authorId: authorPublisherId(meta.sourceKey),
       sourceKey: meta.sourceKey,
       witnessPublisherIds: ids,
+      witnessAgreementByPublisher: agreementByPublisher,
       unresolvedChannels: unresolved,
       datasetClasses: meta.datasetClasses,
       vintage: meta.dataVintage ?? undefined,
@@ -376,12 +414,23 @@ function licenceSection(entry: PublisherEntry): string {
   const terms = entry.licenceUrl !== undefined
     ? `<p>Governing terms: ${externalLink(entry.licenceUrl, entry.licenceUrl)}.</p>`
     : `<p>No settled terms document to cite (the basis is <code>unverified</code>).</p>`;
+  // How to verify this: the pages a human would visit to reach the same
+  // conclusion, each with what it establishes. No licence claim rests on
+  // evidence the public cannot check; an unverified basis says so honestly.
+  const citations = entry.licenceCitations.length > 0
+    ? [
+      '<h3>How to verify this</h3>',
+      `<p>Each source below has been read and confirmed to say what its note claims — follow the links to check for yourself:</p>`,
+      `<ul>${entry.licenceCitations.map(c => `<li>${externalLink(c.url, c.url)} — ${escapeHtml(c.note)}</li>`).join('')}</ul>`,
+    ].join('\n')
+    : `<p><small>No verifiable licence source is cited: the basis is <code>unverified</code>, so a citation would overstate what has been checked. The statement above records what was sought and not found.</small></p>`;
   const notes = entry.notes !== undefined ? `<p><small>${escapeHtml(entry.notes)}</small></p>` : '';
   return [
     '<h2>Licence basis</h2>',
     basisLine,
     statement,
     terms,
+    citations,
     notes,
   ].filter(s => s !== '').join('\n');
 }
@@ -473,6 +522,10 @@ const HOLDINGS_STYLE = [
   '.hold-flag--note{color:#7a3d00;background:#fbeee2;border:1px solid #e6c9a8}',
   '.hold-flag--issue{color:#7a3d00;background:#fbeee2;border:1px solid #c98a3f;font-weight:600;text-decoration:none}',
   '.hold-flag--issue:hover{border-color:#7a3d00}',
+  // Corroboration pill (#618 increment 3): a hosted copy proven byte-identical
+  // to a held one — a calm POSITIVE green, distinct from the orange note/issue
+  // pills, because provable availability is not an exception to flag.
+  '.hold-flag--held{color:#2c6a45;background:#e8f3ec;border:1px solid #b6dcc4}',
   // Body: title with a demoted key, the derived blurb, calm kind pills on their own line.
   '.hold-body{margin-top:.45rem}',
   '.hold-title{font-size:1rem;font-weight:600;text-decoration:none;color:var(--accent)}.hold-title:hover{text-decoration:underline}',
@@ -487,6 +540,7 @@ const HOLDINGS_STYLE = [
   '.hold-cov--complete{color:#7fbf97}.hold-cov--partial{color:#e8a35c}',
   '.hold-flag--note{color:#e8b877;background:#2a2016;border-color:#6a4a1f}',
   '.hold-flag--issue{color:#e8b877;background:#2a2016;border-color:#8a5a1f}.hold-flag--issue:hover{border-color:#e8b877}',
+  '.hold-flag--held{color:#7fbf97;background:#16261c;border-color:#2f5a3f}',
   '.hold-tag{color:#9dc4d8;background:#16242c;border-color:#2c4048}.hold-tag:hover{border-color:#9dc4d8}',
   '}',
   // Narrow viewport: a light reflow so nothing overflows; full refinement deferred.
@@ -637,7 +691,7 @@ function coverageCell(h: Holding): string {
 // deliberately interrupt the vertical scan. Notability markers each carry their
 // own words; several data-quality observations fold into a single COUNT rather
 // than stacking, linking to the fidelity page.
-function flagsCell(h: Holding, depthToRoot: number, marks: HoldingMarks): string {
+function flagsCell(h: Holding, depthToRoot: number, marks: HoldingMarks, forPublisherId?: string): string {
   const notes: string[] = [];
   if (marks.earliestKey === h.key) notes.push('★ earliest holding');
   if (marks.largestKey === h.key) notes.push('▲ largest single table');
@@ -649,6 +703,20 @@ function flagsCell(h: Holding, depthToRoot: number, marks: HoldingMarks): string
   if (marks.firstXlsxKey === h.key) notes.push('first spreadsheet');
 
   const pills = notes.map(n => `<span class="hold-flag hold-flag--note">${n}</span>`);
+
+  // Witness agreement of the copy witnessed through THIS publisher (#618
+  // increment 3), on the hosted composite only (forPublisherId set): a
+  // corroborating copy is byte-identical to a held one — provable availability,
+  // shown as a calm positive pill; a divergent copy is flagged. A citation-grade
+  // copy adds nothing, so no doubt is manufactured where none exists.
+  if (forPublisherId !== undefined) {
+    const agreement = h.witnessAgreementByPublisher[forPublisherId];
+    if (agreement === 'corroborating') {
+      pills.push('<span class="hold-flag hold-flag--held"><span aria-hidden="true">✓</span> corroborating · bytes held</span>');
+    } else if (agreement === 'divergent') {
+      pills.push(`<a class="hold-flag hold-flag--issue" href="${fidelityHref(depthToRoot, 'divergence')}"><span aria-hidden="true">⚑</span> divergent · differs from held</a>`);
+    }
+  }
 
   const q = h.qualityCount ?? 0;
   if (q > 0) {
@@ -675,7 +743,7 @@ function kindTags(h: Holding, rel: string): string {
 // One dataset row: the aligned scan strip, then the title with a demoted key,
 // the derived blurb and the calm kind pills. The id anchors the overview map's
 // cell (:target highlights it).
-function holdingRow(h: Holding, depthToRoot: number, idPrefix: string, marks: HoldingMarks): string {
+function holdingRow(h: Holding, depthToRoot: number, idPrefix: string, marks: HoldingMarks, forPublisherId?: string): string {
   const rel = '../'.repeat(depthToRoot);
   return [
     `<li class="hold-row" id="${escapeHtml(`${idPrefix}-hold-${h.key}`)}">`,
@@ -683,7 +751,7 @@ function holdingRow(h: Holding, depthToRoot: number, idPrefix: string, marks: Ho
     vintageCell(h),
     scaleCell(h),
     coverageCell(h),
-    flagsCell(h, depthToRoot, marks),
+    flagsCell(h, depthToRoot, marks, forPublisherId),
     '</div>',
     '<div class="hold-body">',
     `<a class="hold-title" href="${rel}${entryHref(h)}">${escapeHtml(h.title)}</a> <code class="hold-key">${escapeHtml(h.key)}</code>`,
@@ -759,7 +827,7 @@ function holdingsMap(holdings: Holding[], depthToRoot: number, idPrefix: string,
 // The composite for one set of holdings (authored or hosted): the overview map,
 // then the vintage timeline of scan-strip rows. idPrefix namespaces the row ids
 // so an entry that is both authored and hosted never collides.
-function holdingsComposite(holdings: Holding[], depthToRoot: number, idPrefix: string, name: string): string {
+function holdingsComposite(holdings: Holding[], depthToRoot: number, idPrefix: string, name: string, forPublisherId?: string): string {
   if (holdings.length === 0) return '';
 
   const dated = holdings.filter(h => h.vintage !== undefined);
@@ -780,12 +848,12 @@ function holdingsComposite(holdings: Holding[], depthToRoot: number, idPrefix: s
   const groups: string[] = [];
   for (const year of years) {
     const inYear = dated.filter(h => vintageYear(h) === year).sort(byVintageThenKeyDesc);
-    const rows = inYear.map(h => holdingRow(h, depthToRoot, idPrefix, marks)).join('');
+    const rows = inYear.map(h => holdingRow(h, depthToRoot, idPrefix, marks, forPublisherId)).join('');
     groups.push(`<li class="hold-yeargroup"><h4 class="hold-yearhead"><span class="hold-yearnum">${year}</span> <span class="hold-yearcount">${inYear.length} dataset${inYear.length > 1 ? 's' : ''}</span></h4><ol class="hold-rows">${rows}</ol></li>`);
   }
   const undated = holdings.filter(h => h.vintage === undefined).sort((a, b) => a.key.localeCompare(b.key));
   if (undated.length > 0) {
-    const rows = undated.map(h => holdingRow(h, depthToRoot, idPrefix, marks)).join('');
+    const rows = undated.map(h => holdingRow(h, depthToRoot, idPrefix, marks, forPublisherId)).join('');
     groups.push(`<li class="hold-yeargroup hold-yeargroup--undated"><h4 class="hold-yearhead"><span class="hold-yearnum">Undated</span> <span class="hold-yearcount">${undated.length} dataset${undated.length > 1 ? 's' : ''}</span></h4><ol class="hold-rows">${rows}</ol></li>`);
   }
 
@@ -821,8 +889,8 @@ function holdingsSection(entry: PublisherEntry, holdings: PublisherHoldings): st
   if (hostedCount === 0) {
     out.push(`<p>None — no copy the mirror holds was obtained through ${escapeHtml(entry.name)}'s channels.</p>`);
   } else {
-    out.push(`<p><b>${hostedCount}</b> ${hostedCount === 1 ? 'copy was' : 'copies were'} obtained <b>directly</b> through ${escapeHtml(entry.name)} — a copy fetched straight from this publisher's channels, resolved from each entry's recorded witnesses. Transitive corroboration (a copy shown to correspond to an authoritative original via an intermediary) will be labelled distinctly from these direct copies when it lands.</p>`);
-    out.push(holdingsComposite(holdings.hosted, PUBLISHER_PAGE_DEPTH, 'h', entry.name));
+    out.push(`<p><b>${hostedCount}</b> ${hostedCount === 1 ? 'copy was' : 'copies were'} obtained <b>directly</b> through ${escapeHtml(entry.name)} — a copy fetched straight from this publisher's channels, resolved from each entry's recorded witnesses. A copy marked <em>corroborating</em> is byte-identical to what the mirror holds (sha256 verified) — provable availability, not an assumption; a <em>divergent</em> copy is flagged with its own record. Transitive corroboration (a copy shown to correspond to an authoritative original via an intermediary) will be labelled distinctly from these direct copies when it lands.</p>`);
+    out.push(holdingsComposite(holdings.hosted, PUBLISHER_PAGE_DEPTH, 'h', entry.name, entry.id));
   }
 
   return out.filter(s => s !== '').join('\n');

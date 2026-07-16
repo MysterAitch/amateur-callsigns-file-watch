@@ -49,6 +49,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio/response/428992/attach/1/Ofcom%20UK%20Amateur%20Radio%20Call%20sign%20list%20available%20as%20at%206%20September%202013.xlsx",
+          "sha256": "b19e7d3f6f15ac162873453ec77ea548ebff8c581bb26ee68ad1dd0bf06e7789",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -103,6 +104,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio/response/428992/attach/2/FoI%201%20241825298%20Full%20Response.pdf",
+          "sha256": "e3201db20aa0b1cb976cab90d116bac05649bd63b5e1878bd1d2d7e64c030641",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -115,6 +117,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/list_of_available_amateur_radio/response/423957/attach/1/FoI%201%20241825298%20Letter%20of%20Acknowledgement.pdf",
+          "sha256": "95c0f77ece1a09719b548fbedf0e74e5f29e6e7a1cac0fe1718ab1f4c17a2e7f",
           "fetchedAt": "2026-07-07"
         }
       ]

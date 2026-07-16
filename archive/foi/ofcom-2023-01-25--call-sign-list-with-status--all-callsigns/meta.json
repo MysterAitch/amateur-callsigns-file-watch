@@ -38,6 +38,7 @@
         {
           "channel": "live",
           "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2023/february/call-sign-list-with-status-25-01-2023.xlsx?v=72804",
+          "sha256": "73d17c0ccb2f1675d5205cf199d2e30015b68fcba17531ee50ed72ab790c3f1d",
           "note": "the disclosure-log copy served directly from Ofcom; ingested here as the primary raw"
         },
         {

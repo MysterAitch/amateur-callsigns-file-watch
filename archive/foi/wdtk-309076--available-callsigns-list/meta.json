@@ -34,6 +34,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/available_amateur_radio_call_sig/response/759317/attach/2/Available%20Call%20Signs%2021%2001%2016.xlsx",
+          "sha256": "01776c05e0331f2cfa8a82a89bc9916706259fde871a19c3e901104f0c2df737",
           "fetchedAt": "2026-07-07"
         }
       ]

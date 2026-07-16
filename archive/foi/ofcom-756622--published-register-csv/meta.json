@@ -28,6 +28,7 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20211213223006id_/https://www.ofcom.org.uk/__data/assets/file/0027/166572/allocated-reserved-forbidden-call-sign-foi-20190912.csv",
+          "sha256": "22b1467f14f36035377bff9dc659bbafcfbe1c7cac7065ae6f9145c0842320dd",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -49,6 +50,7 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20211213223006id_/https://www.ofcom.org.uk/__data/assets/file/0026/165734/allocated-reserved-forbidden-call-sign.csv",
+          "sha256": "c981597e9bda0cf57e4a2dd0378865ddae035fa866d5a5eab784c799dd2d8d44",
           "fetchedAt": "2026-07-07"
         }
       ]

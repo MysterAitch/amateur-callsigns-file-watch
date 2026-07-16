@@ -28,6 +28,7 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0027/54459/299351-available-amateur-call0-signs.pdf",
+          "sha256": "cfdee3d0b43f06a3ac1a56286637698a96fbdbb0b7880bc80cd6f83439d15a6f",
           "fetchedAt": "2026-07-07"
         }
       ]

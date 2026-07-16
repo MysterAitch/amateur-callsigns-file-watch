@@ -37,6 +37,8 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20230904223900/https://www.ofcom.org.uk/__data/assets/file/0023/234734/Available-and-registered-UK-amateur-radio-callsigns-case-01432624.xlsx",
+          "sha256": "6a4fa060c1d5a2bf6b3a158461f59b853b3ce0af2a6b92a12f4ec806ee9bf169",
+          "originalFilename": "Available-and-registered-UK-amateur-radio-callsigns-case-01432624.xlsx",
           "fetchedAt": "2026-07-07",
           "note": "the only channel holding this workbook; the disclosure-log copy of case 01432624 that survives on the live site is the companion PDF, not this data annex, so no live-copy byte cross-check is possible"
         }

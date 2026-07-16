@@ -135,6 +135,31 @@ export function validatePublisherRegister(register: PublisherRegister, registerP
       problems.push({ path: registerPath, problem: `${at}.licenceUrl is required unless licenceBasis is "unverified" (basis "${String(publisher.licenceBasis)}" must cite its governing terms)` });
     }
 
+    // Licence citations (#618): the pages a human would visit to reach the same
+    // conclusion. Each must be a well-formed URL with a non-empty note; any basis
+    // other than the fail-honest `unverified` must carry at least one — no
+    // licence claim rests on evidence the public cannot check.
+    if (!Array.isArray(publisher.licenceCitations)) {
+      problems.push({ path: registerPath, problem: `${at}.licenceCitations must be an array` });
+    } else {
+      for (const [j, citation] of publisher.licenceCitations.entries()) {
+        const cAt = `${at}.licenceCitations[${j}]`;
+        if (typeof citation !== 'object' || citation === null) {
+          problems.push({ path: registerPath, problem: `${cAt} must be an object with url and note` });
+          continue;
+        }
+        if (!isNonEmptyString(citation.url) || !isWellFormedUrl(citation.url)) {
+          problems.push({ path: registerPath, problem: `${cAt}.url is not a well-formed http(s) URL: ${String(citation.url)}` });
+        }
+        if (!isNonEmptyString(citation.note)) {
+          problems.push({ path: registerPath, problem: `${cAt}.note is missing or empty (a citation must say what the page establishes)` });
+        }
+      }
+      if (publisher.licenceBasis !== 'unverified' && publisher.licenceCitations.length === 0) {
+        problems.push({ path: registerPath, problem: `${at}.licenceCitations must name at least one verifiable source unless licenceBasis is "unverified" (basis "${String(publisher.licenceBasis)}" must be checkable by the public)` });
+      }
+    }
+
     if (!AUTHORITY_CEILINGS.includes(publisher.authorityCeiling)) {
       problems.push({ path: registerPath, problem: `${at}.authorityCeiling "${String(publisher.authorityCeiling)}" is not a valid ADR 0014 rung (${AUTHORITY_CEILINGS.join(', ')})` });
     }

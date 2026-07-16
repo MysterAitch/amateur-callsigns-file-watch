@@ -31,6 +31,7 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0024/38229/285990-amateur-call-signs.pdf",
+          "sha256": "7d59085b6bea1fb6a7e4e7f8ea14cb196a8fab3bc5c5a9d0ecfc33faffea76bd",
           "fetchedAt": "2026-07-07"
         }
       ]

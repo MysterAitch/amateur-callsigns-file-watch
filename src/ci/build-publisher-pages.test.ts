@@ -32,6 +32,7 @@ const OFCOM: PublisherEntry = {
   licenceBasis: 'ofcom-terms',
   licenceStatement: 'Ofcom originates the register and serves it itself.',
   licenceUrl: 'https://www.ofcom.org.uk/terms',
+  licenceCitations: [{ url: 'https://www.ofcom.org.uk/terms', note: 'Ofcom terms of use — free accurate reproduction with acknowledgement.' }],
   authorityCeiling: 'Official',
 };
 
@@ -45,6 +46,7 @@ const UKGWA: PublisherEntry = {
   licenceBasis: 'ogl-v3',
   licenceStatement: 'Crown copyright, re-usable under the Open Government Licence.',
   licenceUrl: 'https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/',
+  licenceCitations: [{ url: 'https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/', note: 'The Open Government Licence v3.0 text.' }],
   authorityCeiling: 'Official',
 };
 
@@ -57,13 +59,14 @@ const GITHUB: PublisherEntry = {
   channels: [],
   licenceBasis: 'unverified',
   licenceStatement: 'The re-use terms of a hosted copy depend on that repository’s own licence.',
+  licenceCitations: [],
   authorityCeiling: 'Community',
 };
 
 const HOLDINGS: Holding[] = [
-  { key: '2026-06-23', lane: 'open-data', title: 'Publication of 23 June 2026', authorId: 'ofcom', sourceKey: 'ofcom-amateur-callsigns', witnessPublisherIds: [], unresolvedChannels: [] },
-  { key: 'ofcom-2016--all', lane: 'foi', title: 'All callsigns 2016', authorId: 'ofcom', sourceKey: 'ofcom-foi', witnessPublisherIds: ['ukgwa'], unresolvedChannels: [], datasetClasses: ['register-snapshot'], vintage: '2016-09' },
-  { key: 'wdtk-174341--available', lane: 'foi', title: 'Available callsigns list', authorId: 'ofcom', sourceKey: 'wdtk-foi', witnessPublisherIds: ['whatdotheyknow'], unresolvedChannels: [], datasetClasses: ['available-pool'] },
+  { key: '2026-06-23', lane: 'open-data', title: 'Publication of 23 June 2026', authorId: 'ofcom', sourceKey: 'ofcom-amateur-callsigns', witnessPublisherIds: [], witnessAgreementByPublisher: {}, unresolvedChannels: [] },
+  { key: 'ofcom-2016--all', lane: 'foi', title: 'All callsigns 2016', authorId: 'ofcom', sourceKey: 'ofcom-foi', witnessPublisherIds: ['ukgwa'], witnessAgreementByPublisher: { ukgwa: 'corroborating' }, unresolvedChannels: [], datasetClasses: ['register-snapshot'], vintage: '2016-09' },
+  { key: 'wdtk-174341--available', lane: 'foi', title: 'Available callsigns list', authorId: 'ofcom', sourceKey: 'wdtk-foi', witnessPublisherIds: ['whatdotheyknow'], witnessAgreementByPublisher: { whatdotheyknow: 'citation-grade' }, unresolvedChannels: [], datasetClasses: ['available-pool'] },
 ];
 
 // ---- Author derivation -----------------------------------------------------
@@ -120,28 +123,28 @@ describe('holdingsForPublisher — partitioning holdings by relationship', { tag
 const COMPOSITE: Holding[] = [
   {
     key: '2026-06-23', lane: 'open-data', title: 'Publication of 23 June 2026', authorId: 'ofcom',
-    sourceKey: 'ofcom-amateur-callsigns', witnessPublisherIds: [], unresolvedChannels: [],
+    sourceKey: 'ofcom-amateur-callsigns', witnessPublisherIds: [], witnessAgreementByPublisher: {}, unresolvedChannels: [],
     datasetClasses: ['register-snapshot'], vintage: '2026-06-23', recordCount: 158318, tableCount: 1,
     coverage: { complete: true }, hasCoverageField: true, qualityCount: 0, coverageAffecting: false,
     provenance: 'live', recoveredChannels: [], hasXlsx: false,
   },
   {
     key: '2025-06-04', lane: 'open-data', title: 'Publication of 4 June 2025', authorId: 'ofcom',
-    sourceKey: 'ofcom-amateur-callsigns', witnessPublisherIds: [], unresolvedChannels: [],
+    sourceKey: 'ofcom-amateur-callsigns', witnessPublisherIds: [], witnessAgreementByPublisher: {}, unresolvedChannels: [],
     datasetClasses: ['register-snapshot'], vintage: '2025-06-04', recordCount: 112650, tableCount: 1,
     coverage: { complete: false, scopeNotes: 'allocated licences only' }, hasCoverageField: true,
     qualityCount: 3, coverageAffecting: true, provenance: 'live', recoveredChannels: [], hasXlsx: false,
   },
   {
     key: 'ofcom-2016-09--all', lane: 'foi', title: 'Callsign database 2016', authorId: 'ofcom',
-    sourceKey: 'ofcom-foi', witnessPublisherIds: ['ukgwa'], unresolvedChannels: [],
+    sourceKey: 'ofcom-foi', witnessPublisherIds: ['ukgwa'], witnessAgreementByPublisher: { ukgwa: 'corroborating' }, unresolvedChannels: [],
     datasetClasses: ['register-snapshot', 'forbidden-list'], vintage: '2016-09-20', recordCount: 141295,
     tableCount: 2, hasCoverageField: false, qualityCount: 0, coverageAffecting: false,
     recoveredChannels: ['UKGWA'], hasXlsx: true, outcome: 'successful',
   },
   {
     key: 'ofcom-612185--not-held', lane: 'foi', title: 'Unallocated call signs (not held)', authorId: 'ofcom',
-    sourceKey: 'ofcom-foi', witnessPublisherIds: [], unresolvedChannels: [],
+    sourceKey: 'ofcom-foi', witnessPublisherIds: [], witnessAgreementByPublisher: {}, unresolvedChannels: [],
     datasetClasses: ['reference-context'], vintage: undefined, recordCount: undefined, tableCount: 0,
     hasCoverageField: false, qualityCount: 0, coverageAffecting: false, recoveredChannels: [],
     hasXlsx: false, outcome: 'not held',
@@ -299,7 +302,7 @@ describe('publisherPage composite — non-happy paths (#637)', { tags: ['unit'] 
 describe('publisherPage — a publisher with holdings', { tags: ['unit'] }, () => {
   const html = publisherPage(OFCOM, {
     authored: HOLDINGS,
-    hosted: [{ key: 'ofcom-hosted', lane: 'foi', title: 'A copy Ofcom hosts', authorId: 'ofcom', sourceKey: 'ofcom-foi', witnessPublisherIds: ['ofcom'], unresolvedChannels: [] }],
+    hosted: [{ key: 'ofcom-hosted', lane: 'foi', title: 'A copy Ofcom hosts', authorId: 'ofcom', sourceKey: 'ofcom-foi', witnessPublisherIds: ['ofcom'], witnessAgreementByPublisher: { ofcom: 'corroborating' }, unresolvedChannels: [] }],
   });
 
   it('PublisherPage_PublisherWithAuthoredAndHostedHoldings_ListsBothWithCountsAndDeepLinks', () => {
@@ -318,6 +321,24 @@ describe('publisherPage — a publisher with holdings', { tags: ['unit'] }, () =
     // Only direct relationships exist in the data; the wording reserves room for
     // transitive corroboration later.
     expect(html).toMatch(/Transitive corroboration.*will be labelled distinctly/);
+  });
+
+  it('PublisherPage_HostedCorroboratingCopy_CarriesTheCorroborationPillInTheComposite', () => {
+    // A hosted copy whose witness hash matches a held copy is flagged
+    // corroborating on its composite row (#618 increment 3) — provable
+    // availability, shown as a calm positive pill, not a claim.
+    expect(html).toContain('corroborating · bytes held');
+  });
+});
+
+describe('publisherPage — hosted copies carry their agreement class', { tags: ['unit'] }, () => {
+  it('PublisherPage_HostedCitationGradeCopy_RendersNoAgreementMarkerSoNoDoubtIsManufactured', () => {
+    const html = publisherPage(UKGWA, {
+      authored: [],
+      hosted: [{ key: 'ofcom-2016--all', lane: 'foi', title: 'All callsigns 2016', authorId: 'ofcom', sourceKey: 'ofcom-foi', witnessPublisherIds: ['ukgwa'], witnessAgreementByPublisher: { ukgwa: 'citation-grade' }, unresolvedChannels: [] }],
+    });
+    expect(html).toContain('#h-hold-ofcom-2016--all');
+    expect(html).not.toContain('corroborating · bytes held');
   });
 });
 
@@ -349,6 +370,21 @@ describe('publisherPage — the licence basis wording', { tags: ['unit'] }, () =
     expect(html).toContain('Ofcom’s terms of use');
     // The register's own statement is the source, rendered verbatim.
     expect(html).toContain('Ofcom originates the register and serves it itself.');
+  });
+
+  it('PublisherPage_AssertedLicenceBasis_LinksItsCitationsUnderHowToVerifyThis', () => {
+    const html = publisherPage(OFCOM, { authored: [], hosted: [] });
+    expect(html).toContain('How to verify this');
+    expect(html).toContain('read and confirmed to say what its note claims');
+    // The citation URL is rendered as a link with its "what it establishes" note.
+    expect(html).toContain('href="https://www.ofcom.org.uk/terms"');
+    expect(html).toContain('free accurate reproduction with acknowledgement');
+  });
+
+  it('PublisherPage_UnverifiedBasis_SaysNoCitationRatherThanOverstating', () => {
+    const html = publisherPage(GITHUB, { authored: [], hosted: [] });
+    expect(html).not.toContain('How to verify this');
+    expect(html).toContain('No verifiable licence source is cited');
   });
 });
 

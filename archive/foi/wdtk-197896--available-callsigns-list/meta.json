@@ -30,6 +30,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/amateur_radio_callsigns/response/494466/attach/1/Ofcom%20Amateur%20Radio%20Call%20Sign%20list%20available%20as%20at%2014%20March%202014.xlsx",
+          "sha256": "73a591e05d23ae73be82dc1d04da035e2bae196d974ffd15c3d71687a9514a6f",
           "fetchedAt": "2026-07-07"
         }
       ]

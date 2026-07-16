@@ -26,6 +26,7 @@ function validEntry(overrides: Partial<PublisherEntry> = {}): PublisherEntry {
     licenceBasis: 'ofcom-terms',
     licenceStatement: 'Ofcom originates and serves the material.',
     licenceUrl: 'https://www.ofcom.org.uk/about-ofcom/website/terms-of-use',
+    licenceCitations: [{ url: 'https://www.ofcom.org.uk/about-ofcom/website/terms-of-use', note: 'Ofcom terms of use — free accurate reproduction with acknowledgement.' }],
     authorityCeiling: 'Official',
     ...overrides,
   };
@@ -39,14 +40,14 @@ describe('validatePublisherRegister - a well-formed register', { tags: ['unit'] 
   it('Register_WhenEveryEntryWellFormed_PassesWithNoProblems', () => {
     const problems = validatePublisherRegister(register(
       validEntry(),
-      validEntry({ id: 'wdtk', name: 'WhatDoTheyKnow', roles: ['foi-aggregator'], channels: ['wdtk'], licenceBasis: 'ogl-v3', licenceUrl: 'https://www.whatdotheyknow.com/help/officers', authorityCeiling: 'FOI' }),
+      validEntry({ id: 'wdtk', name: 'WhatDoTheyKnow', roles: ['foi-aggregator'], channels: ['wdtk'], licenceBasis: 'ogl-v3', licenceUrl: 'https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/', licenceCitations: [{ url: 'https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/', note: 'The Open Government Licence v3.0.' }], authorityCeiling: 'FOI' }),
     ));
     expect(problems).toEqual([]);
   });
 
   it('Register_WhenBasisUnverifiedAndNoLicenceUrl_PassesWithoutRequiringACitation', () => {
     const problems = validatePublisherRegister(register(
-      validEntry({ id: 'github', name: 'GitHub', roles: ['incidental-host'], channels: [], licenceBasis: 'unverified', licenceUrl: undefined, authorityCeiling: 'Community' }),
+      validEntry({ id: 'github', name: 'GitHub', roles: ['incidental-host'], channels: [], licenceBasis: 'unverified', licenceUrl: undefined, licenceCitations: [], authorityCeiling: 'Community' }),
     ));
     expect(problems).toEqual([]);
   });
@@ -101,6 +102,26 @@ describe('validatePublisherRegister - shape and vocabularies', { tags: ['unit'] 
   it('Publisher_WhenLicenceUrlMalformed_Fails', () => {
     const problems = validatePublisherRegister(register(validEntry({ licenceUrl: 'javascript:alert(1)' })));
     expect(problems.some(p => /licenceUrl is not a well-formed http\(s\) URL/.test(p.problem))).toBe(true);
+  });
+
+  it('Publisher_WhenAssertedBasisHasNoLicenceCitations_Fails', () => {
+    const problems = validatePublisherRegister(register(validEntry({ licenceBasis: 'ofcom-terms', licenceCitations: [] })));
+    expect(problems.some(p => /licenceCitations must name at least one verifiable source/.test(p.problem))).toBe(true);
+  });
+
+  it('Publisher_WhenLicenceCitationUrlMalformed_Fails', () => {
+    const problems = validatePublisherRegister(register(validEntry({ licenceCitations: [{ url: 'not-a-url', note: 'a note' }] })));
+    expect(problems.some(p => /licenceCitations\[0\]\.url is not a well-formed http\(s\) URL/.test(p.problem))).toBe(true);
+  });
+
+  it('Publisher_WhenLicenceCitationNoteEmpty_Fails', () => {
+    const problems = validatePublisherRegister(register(validEntry({ licenceCitations: [{ url: 'https://example.org/terms', note: '' }] })));
+    expect(problems.some(p => /licenceCitations\[0\]\.note is missing or empty/.test(p.problem))).toBe(true);
+  });
+
+  it('Publisher_WhenBasisUnverifiedAndNoCitations_PassesTheCitationRule', () => {
+    const problems = validatePublisherRegister(register(validEntry({ id: 'oarc-wiki', name: 'OARC Wiki', roles: ['community-documentation'], channels: [], licenceBasis: 'unverified', licenceUrl: undefined, licenceCitations: [] })));
+    expect(problems.some(p => /licenceCitations must name at least one verifiable source/.test(p.problem))).toBe(false);
   });
 
   it('Publisher_WhenNameEmpty_Fails', () => {

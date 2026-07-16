@@ -27,6 +27,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/policy_and_practice_for_the_re_i/response/623126/attach/3/policy%20for%20old%20call%20signs.pdf",
+          "sha256": "5954c79267239b95226952e809745d36d3a57bdc0010a8f8f92d4478e9db9887",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -41,6 +42,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/policy_and_practice_for_the_re_i/response/623126/attach/4/applicants%20old%20call%20signs.pdf",
+          "sha256": "2adcc39d4dfd86452f1d76ad3b51e23060ca12e0c2e824d72fe1ce151f11170d",
           "fetchedAt": "2026-07-07"
         }
       ]

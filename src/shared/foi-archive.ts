@@ -14,6 +14,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { CONSTANTS } from './utils.ts';
+import type { DivergenceRecord } from './witness-agreement.ts';
 
 // Default FOI lane location, cwd-relative (matching validate-data's
 // convention); REPO_ROOT-anchored callers pass their own dir instead.
@@ -29,6 +30,15 @@ export interface FoiWitness {
   // renderer must degrade honestly ("fetch date not recorded"), never fabricate
   // a date or emit "undefined".
   fetchedAt?: string;
+  // The hash of the bytes THIS witness served (#618 increment 3): present where
+  // the copy's bytes are verifiable from what the mirror holds (the ingestion
+  // source of the held file), absent where the witness is a location only
+  // (citation-grade). Agreement is DERIVED ON READ against the held file hashes
+  // (src/shared/witness-agreement.ts), never stored as a verdict.
+  sha256?: string;
+  // The name the copy carried at its source (#619) - provenance the held
+  // filename may have sanitised away. Absent where not known or identical.
+  originalFilename?: string;
   // Some witnesses carry a free-text note (why this copy was ingested as the
   // primary raw, whether a mirror was found); surfaced where useful, never
   // required.
@@ -81,6 +91,10 @@ export interface FoiEntryMeta {
   datasetClasses: string[];
   converter: { script?: string; variant?: string } | null;
   relatedEntries?: FoiRelatedEntry[];
+  // Structured records of copies claiming to be a disclosed file that DIFFER
+  // from the held copy (#618 increment 4 / #619). A divergent witness (its
+  // sha256 matches no held copy) must be paired here, else validation fails.
+  divergences?: DivergenceRecord[];
   files: Record<string, FoiFileDeclaration>;
 }
 

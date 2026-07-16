@@ -22,6 +22,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/list_of_licencees_of_the_amateur/response/610102/attach/3/150126%20Response%20to%20MW%20Ofcom%20Amateur%20Call%20Book%201%20277622422.pdf",
+          "sha256": "87fc9eaa0234b741adccc641568de1457b6688af1785e9f99d2e54ee210b28f5",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -36,6 +37,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/list_of_licencees_of_the_amateur/response/610102/attach/4/Amateur%20Radio%20Callbook%20PSI%201.pdf",
+          "sha256": "a10f3e6a50a411f9caf8cb79f8e41889d7233b32afbaa98d0cf89ddebcebd53c",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -48,6 +50,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/list_of_licencees_of_the_amateur/response/609679/attach/3/150114%20acknowledgement%20to%20Mr%20M%20Witton%201%20277622422.pdf",
+          "sha256": "9adf1889d6b862a4e8a1916c659261ee67d625d50fcab6938ad6324086e27851",
           "fetchedAt": "2026-07-07"
         }
       ]

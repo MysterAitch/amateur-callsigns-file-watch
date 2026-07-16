@@ -33,6 +33,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/out_of_sequence_amateur_radio_ca/response/608326/attach/3/Pre%20War%20Callsigns.xlsx",
+          "sha256": "6538a6ef55252fa82e49b2d8b57362ba6f47143b0db721880393de4375cff504",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -73,6 +74,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/out_of_sequence_amateur_radio_ca/response/596988/attach/3/Call%20signs%20series%20before%20WW2.pdf",
+          "sha256": "da207551c6d20bdbc522eeb9092cf6c3352eb949b388be5bf3a32e28dc078193",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -85,6 +87,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/out_of_sequence_amateur_radio_ca/response/597834/attach/3/Response%20callsigns%20out%20of%20sequential%20order%20181214.pdf",
+          "sha256": "e91897f2b17249a5b0a95894440fd9dfbc9b7c46865f58e611ff4e9cc4b96132",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -97,6 +100,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/out_of_sequence_amateur_radio_ca/response/608326/attach/4/2014%2001%2019%201%20276484403.pdf",
+          "sha256": "75675fa1a0370fecd6676974b9fb2fd506d1a8ae9449fc5fb2a6c533784d4b12",
           "fetchedAt": "2026-07-07"
         }
       ]

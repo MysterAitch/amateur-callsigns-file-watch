@@ -28,6 +28,12 @@ import {
   FOI_DATASET_RECOVERY,
 } from '../shared/foi-archive.ts';
 import { FOI_ENTRY_CONVERSIONS } from '../shared/foi-normalise.ts';
+import {
+  heldHashSet,
+  normaliseWitnessHash,
+  divergenceRecordProblems,
+  unpairedDivergentWitnessProblems,
+} from '../shared/witness-agreement.ts';
 import type { ValidationProblem } from './validate-data.ts';
 
 const SHA256_RE = /^[0-9a-f]{64}$/;
@@ -205,8 +211,23 @@ export function validateFoiEntry(foiDir: string, key: string): ValidationProblem
       if (typeof witness.channel !== 'string' || witness.channel.length === 0 || typeof witness.url !== 'string' || witness.url.length === 0) {
         problems.push({ path: metaPath, problem: `${label}: witness entries need non-empty channel and url` });
       }
+      // The optional witness hash, when present, must be a well-formed sha256:
+      // agreement is derived from it (#618 increment 3).
+      if (witness.sha256 !== undefined && !SHA256_RE.test(witness.sha256)) {
+        problems.push({ path: metaPath, problem: `${label}: witness sha256 must be 64 lowercase hex characters when present, got ${JSON.stringify(witness.sha256)}` });
+      }
     }
   }
+
+  // Derived witness agreement (#618 increment 3 / #619): a witness whose bytes
+  // match no held copy is DIVERGENT and must be paired with a divergence record.
+  // FOI witnesses are per file; agreement is compared against the union of the
+  // entry's held file hashes, so a copy the mirror holds anywhere corroborates.
+  const heldHashes = heldHashSet(Object.values(files).map(f => f.sha256));
+  problems.push(...divergenceRecordProblems(meta.divergences, declaredNames).map(problem => ({ path: metaPath, problem })));
+  const witnessContexts = Object.entries(files).flatMap(([name, decl]) =>
+    (decl.witnesses ?? []).map((w, i) => ({ label: `files["${name}"].witnesses[${i}]`, sha256: normaliseWitnessHash(w.sha256), heldHashes })));
+  problems.push(...unpairedDivergentWitnessProblems(witnessContexts, meta.divergences ?? []).map(problem => ({ path: metaPath, problem })));
 
   // 13: byte integrity - the ADR 0004 point-4 commitment. Same shape as the
   // open-data validator: exists, size-match (skip hash on mismatch - report

@@ -36,6 +36,9 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/file/0019/91324/337399-FOI-All-Call-Signs.zip",
+          "sha256": "5f773c2e65d75508704d6dc03ad9017a3c5501b2f0f12a6add6ac7d5874629bb",
+          "originalFilename": "337399-FOI-All-Call-Signs.zip",
+          "sha256": "ff6d5deec4f9f49fd4c58812fc8d477fa7a9b8f24c3578d16b3ca346c55523cf",
           "fetchedAt": "2026-07-07"
         }
       ]

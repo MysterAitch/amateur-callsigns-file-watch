@@ -30,6 +30,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/unallocated_uk_amateur_radio_cal/response/664819/attach/4/List%20of%20Available%20Amateur%20Call%20signs%2011%20June%2015.xlsx",
+          "sha256": "98ada5cd77ddeef08311557885707688d2467a90048524c7dd6d4d86035eae2a",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -84,6 +85,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/unallocated_uk_amateur_radio_cal/response/664819/attach/3/Unallocated%20call%20signs%20Sullivan.pdf",
+          "sha256": "71e820e4dde2da4c2e9e80deccb4aa97522e8f42f0d4e60ffb01f6b1beab8f39",
           "fetchedAt": "2026-07-07"
         }
       ]

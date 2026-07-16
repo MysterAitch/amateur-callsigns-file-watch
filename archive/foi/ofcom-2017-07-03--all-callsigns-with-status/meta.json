@@ -30,6 +30,7 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0005/101300/Copy-of-Call-Signs.pdf",
+          "sha256": "adb538d42c0871a67710dc27f80377f634576aa9a6709feb3ad6a87aa55897c2",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -43,6 +44,7 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0020/106283/Amatuer-Radio-Callsigns.pdf",
+          "sha256": "9402b201ab7b1f069104f90f8c77e615e09dd98b477ab00d1f211a2a129e8ad1",
           "fetchedAt": "2026-07-07"
         }
       ]

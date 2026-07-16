@@ -34,6 +34,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/issued_and_available_uk_amateur/response/1427939/attach/2/Allocated%20reserved%20forbidden%20Call%20Sign%20FOI%20Aug19.xlsx",
+          "sha256": "865141ed22151e349453180fd108b66f7da86ff3924ce013b32209191b282ca7",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -75,6 +76,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/issued_and_available_uk_amateur/response/1427939/attach/1/Amateur%20Radio%20callsigns%20Howell.pdf",
+          "sha256": "a6567e9ba2a496a6b12736a06f04fc53ffa907d72f36372a0f4f64c43fd806ae",
           "fetchedAt": "2026-07-07"
         }
       ]

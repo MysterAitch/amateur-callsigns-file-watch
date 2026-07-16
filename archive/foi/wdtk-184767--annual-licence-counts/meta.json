@@ -23,6 +23,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/number_of_licences/response/460006/attach/1/Number%20of%20licences%20Coleman.pdf",
+          "sha256": "1d9241a812defb08bf827217dcd847f64acae01fd7d071fb0946bb2b6ae3ac74",
           "fetchedAt": "2026-07-07"
         }
       ]

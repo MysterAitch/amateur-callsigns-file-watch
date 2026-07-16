@@ -28,6 +28,7 @@ import { listArchiveKeys } from '../shared/archive.ts';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
 import { readPublisherRegister, channelIndex, publisherIndexById, publisherForChannel, authorPublisherId, type PublisherEntry } from '../shared/publishers.ts';
+import { classifyWitnessAgreement, heldHashSet, type WitnessAgreement } from '../shared/witness-agreement.ts';
 import { buildPublisherPages, publisherHref } from './build-publisher-pages.ts';
 import { renderMarkdown, renderInline } from '../shared/render-markdown.ts';
 import { parseFlagRegistry } from './build-sqlite.ts';
@@ -177,7 +178,24 @@ function witnessWhen(w: FoiWitness, capture: RegExpExecArray | null): string {
   return w.fetchedAt !== undefined && w.fetchedAt !== '' ? `fetched ${escapeHtml(w.fetchedAt)}` : 'fetch date not recorded';
 }
 
-function witnessLinks(witnesses: FoiWitness[] | undefined, depthToRoot = 3): string {
+// The agreement class a witness carries, phrased quietly (issue #618 increment
+// 3). A corroborating witness says so — the mirror holds those exact bytes, and
+// #619's "provable availability" is exactly this fact made visible. A divergent
+// witness (a differing hash, always paired with a divergence record) is marked
+// as differing. A citation-grade witness (no hash) renders nothing extra, so the
+// affordance never manufactures doubt where no observation exists.
+function agreementMarker(agreement: WitnessAgreement): string {
+  switch (agreement) {
+    case 'corroborating':
+      return ' <small class="gap">(corroborating — the mirror holds these exact bytes, sha256 verified)</small>';
+    case 'divergent':
+      return ' <small class="gap">(diverges from the held copy — see the divergence record)</small>';
+    case 'citation-grade':
+      return '';
+  }
+}
+
+function witnessLinks(witnesses: FoiWitness[] | undefined, heldHashes: ReadonlySet<string>, depthToRoot = 3): string {
   if (witnesses === undefined || witnesses.length === 0) return '';
   return witnesses.map(w => {
     const publisher = publisherForChannel(witnessChannelIndex(), w.channel);
@@ -187,7 +205,7 @@ function witnessLinks(witnesses: FoiWitness[] | undefined, depthToRoot = 3): str
     const publisherLink = publisher === undefined
       ? escapeHtml(channelName)
       : `<a href="${publisherHref(publisher.id, depthToRoot)}">${escapeHtml(channelName)}</a>`;
-    return ` · recovered from ${publisherLink} — <a href="${escapeHtml(w.url)}">${when}</a>`;
+    return ` · recovered from ${publisherLink} — <a href="${escapeHtml(w.url)}">${when}</a>${agreementMarker(classifyWitnessAgreement(w.sha256, heldHashes))}`;
   }).join('');
 }
 
@@ -198,7 +216,7 @@ function witnessLinks(witnesses: FoiWitness[] | undefined, depthToRoot = 3): str
 // the wording labels them direct — transitive corroboration slots in later
 // without re-architecting. Distinct witnesses are keyed by (channel, url) so a
 // copy witnessed by several files lists once.
-function publishedByBlock(sourceKey: string, witnesses: FoiWitness[], depthToRoot: number): string {
+function publishedByBlock(sourceKey: string, witnesses: FoiWitness[], heldHashes: ReadonlySet<string>, depthToRoot: number): string {
   const index = witnessChannelIndex();
   const authorId = authorPublisherId(sourceKey);
   // The author is resolved by id (not by channel): an author may originate a
@@ -222,12 +240,12 @@ function publishedByBlock(sourceKey: string, witnesses: FoiWitness[], depthToRoo
     const nameLink = publisher === undefined
       ? escapeHtml(name)
       : `<a href="${publisherHref(publisher.id, depthToRoot)}">${escapeHtml(name)}</a>`;
-    items.push(`<li>${nameLink} — <a href="${escapeHtml(w.url)}">${when}</a></li>`);
+    items.push(`<li>${nameLink} — <a href="${escapeHtml(w.url)}">${when}</a>${agreementMarker(classifyWitnessAgreement(w.sha256, heldHashes))}</li>`);
   }
 
   const hostLine = items.length === 0
     ? `<p><b>Witnessed at:</b> obtained directly from the author; no separate third-party witness is recorded for this copy.</p>`
-    : `<p><b>Witnessed at:</b> ${items.length === 1 ? 'a copy was' : 'copies were'} obtained <b>directly</b> from the following ${items.length === 1 ? 'publisher' : 'publishers'} — a copy fetched straight from that venue. Transitive corroboration will be labelled distinctly when it lands.</p><ul>${items.join('')}</ul>`;
+    : `<p><b>Witnessed at:</b> ${items.length === 1 ? 'a copy was' : 'copies were'} obtained <b>directly</b> from the following ${items.length === 1 ? 'publisher' : 'publishers'} — a copy fetched straight from that venue. A copy marked <em>corroborating</em> is byte-identical to what the mirror holds (sha256 verified); transitive corroboration will be labelled distinctly when it lands.</p><ul>${items.join('')}</ul>`;
 
   return [
     '<section><h2>Published by / witnessed at</h2>',
@@ -808,6 +826,10 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     hashes.set(name, decl.sha256);
   }
   descriptions.set('meta.json', 'provenance, outcome, and hash-pinned file declarations');
+  // The bytes the mirror holds for this entry, for deriving witness agreement on
+  // read (#618 increment 3): a witness whose sha256 matches any held copy is
+  // corroborating.
+  const heldHashes = heldHashSet(Object.values(meta.files).map(f => f.sha256));
   const targetDir = path.join(outputDir, 'datasets', 'foi', key);
   const files = copyEntryFiles(path.join(foiDir, key), targetDir, descriptions, hashes, meta.title);
 
@@ -842,7 +864,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     }
     // Witness provenance (recovered-from links) belongs on every file's
     // panel, whatever its type - it is how a reader verifies the source.
-    return { id: `i-${i}`, label: name, panel: panel + witnessLinks(decl.witnesses) };
+    return { id: `i-${i}`, label: name, panel: panel + witnessLinks(decl.witnesses, heldHashes) };
   });
   dataTabs.push({ id: 'i-meta', label: 'meta.json', panel: `<table>${tableCaption('meta.json — this entry’s declared facts')}<tbody><tr><th scope="row">outcome</th><td>${escapeHtml(meta.outcome)}</td></tr><tr><th scope="row">${glossaryTerm('dataset-class', 3, { label: 'dataset classes' })}</th><td>${meta.datasetClasses.map(c => classChipLink(c, '../../')).join(', ')}</td></tr><tr><th scope="row">data ${glossaryTerm('vintage', 3, { label: 'vintage' })}</th><td>${escapeHtml(meta.dataVintage ?? '—')}</td></tr></tbody></table>` });
 
@@ -912,7 +934,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     `<h1>${escapeHtml(meta.title)}</h1>`,
     `<p class="subtitle">Freedom-of-Information response from Ofcom, recovered and mirrored. FOI archive entry <code>${escapeHtml(key)}</code> · <a href="datapackage.json">datapackage.json</a>.</p>`,
     ...recoveryNotice,
-    publishedByBlock(meta.sourceKey, foiWitnesses, 3),
+    publishedByBlock(meta.sourceKey, foiWitnesses, heldHashes, 3),
     '<div class="main-region">',
     datasetNavSidebar(key, summaries, foiEntries),
     '<div class="col">',
@@ -1179,10 +1201,14 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     intendedCoverage?: { complete: boolean; scopeNotes?: string };
     qualityObservations?: { statement: string; evidence: string; coverageAffecting?: boolean }[];
     sourceUrl?: string; ofcomReportedUpdateIso?: string; ofcomReportedUpdate?: string; fetchedAt?: string;
-    witnesses?: { channel: string; url: string; fetchedAt: string; note?: string }[];
+    witnesses?: { channel: string; url: string; fetchedAt: string; sha256?: string; originalFilename?: string; note?: string }[];
+    files?: Record<string, { sha256?: string }>;
     diffSummary?: OpenDataDiffSummary;
     ignoredLines?: { line: number; content: string; reason: string }[];
   };
+  // The bytes the mirror holds for this publication, for deriving witness
+  // agreement on read (#618 increment 3).
+  const heldHashes = heldHashSet(Object.values(meta.files ?? {}).map(f => f.sha256 ?? ''));
   const stats = fs.existsSync(path.join(sourceDir, 'stats.json'))
     ? JSON.parse(fs.readFileSync(path.join(sourceDir, 'stats.json'), 'utf8')) as OpenDataStats
     : { recordCount: 0, parseStatuses: {}, callsignFlags: {}, callsignQuality: {} };
@@ -1246,7 +1272,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     `<h1>${escapeHtml(pageTitle)}</h1>`,
     `<p class="subtitle">Ofcom amateur-radio callsign register, mirrored byte-for-byte. Archive entry <code>${escapeHtml(key)}</code> · <a href="datapackage.json">datapackage.json</a>.</p>`,
     ...coverageNotices(meta),
-    publishedByBlock(meta.sourceKey ?? 'ofcom-amateur-callsigns', meta.witnesses ?? [], 3),
+    publishedByBlock(meta.sourceKey ?? 'ofcom-amateur-callsigns', meta.witnesses ?? [], heldHashes, 3),
     '<div class="main-region">',
     datasetNavSidebar(key, summaries, foiEntries),
     '<div class="col">',

@@ -35,6 +35,7 @@
         {
           "channel": "ofcom-disclosure-log",
           "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/september/copy-of-callsigns-21102024.csv?v=383861",
+          "sha256": "44d416b83f11ad1b80ad0d71e886dd35f3acf2119e87fe4a2c660fa31066b7ed",
           "fetchedAt": "2026-07-07"
         }
       ]

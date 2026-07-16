@@ -16,6 +16,8 @@
     {
       "channel": "ukgwa",
       "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20260204175503id_/https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list.xlsx?v=410856",
+      "sha256": "f6febb629edef7eb120eb5c8ae17d9d7bf200c8a6ceef60c2d37428ee538be45",
+      "originalFilename": "amateur-callsign-list.xlsx",
       "fetchedAt": "2026-07-15",
       "note": "UK Government Web Archive capture 2026-02-04; the id_ (raw) replay served the workbook verbatim (sha256 matches). Single witness - no other mirror of this specific dated workbook was found."
     }

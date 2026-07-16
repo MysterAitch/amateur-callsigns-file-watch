@@ -36,6 +36,7 @@
         {
           "channel": "ofcom-disclosure-log",
           "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/december/forbidden-amateur-radio-callsigns.csv?v=386925",
+          "sha256": "533452f6c39cc754ebcb5ed9d356bec45a0ab94dc4a364b366e4f781c6c634cb",
           "fetchedAt": "2026-07-07"
         }
       ]

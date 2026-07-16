@@ -37,6 +37,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/list_of_all_amateur_radio_callsi/response/875470/attach/2/All%20Call%20Signs%20Assigned%20plus%20forbidden.xlsx",
+          "sha256": "9ec1df14722a09f0da4071d3d5e4e45a2e88924be6dbbeea4b98cd6ae3a40f93",
           "fetchedAt": "2026-07-07",
           "note": "hash-identical to the copy fetched circa 2020 - one artefact, two dated fetch events"
         }
@@ -86,6 +87,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/list_of_all_amateur_radio_callsi/response/875470/attach/1/all%20call%20sign%20list%20Nan%20Smith.pdf",
+          "sha256": "b3a723f309967d7c2ac5c1a2e185a29688c9d4ab8b2027a9f759e2728182cf01",
           "fetchedAt": "2026-07-07"
         }
       ]

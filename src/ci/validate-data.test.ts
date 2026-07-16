@@ -262,6 +262,42 @@ describe('validateArchiveEntry', { tags: ['unit'] }, () => {
   });
 });
 
+describe('validateArchiveEntry - witness agreement and divergence (#618 increment 3)', { tags: ['unit'] }, () => {
+  it('Witness_WhenHashMatchesTheHeldRaw_PassesAsCorroborating', () => {
+    writeEntry(tmpRoot, '2026-06-23', CSV, {
+      witnesses: [{ channel: 'wayback', url: 'https://web.archive.org/x/raw.csv', fetchedAt: '2026-07-06', sha256: sha256(CSV) }],
+    });
+    expect(validateArchiveEntry('2026-06-23')).toEqual([]);
+  });
+
+  it('Witness_WhenWitnessSha256Malformed_Fails', () => {
+    writeEntry(tmpRoot, '2026-06-23', CSV, {
+      witnesses: [{ channel: 'wayback', url: 'https://web.archive.org/x/raw.csv', fetchedAt: '2026-07-06', sha256: 'NOTHEX' }],
+    });
+    expect(validateArchiveEntry('2026-06-23').map(p => p.problem).join()).toMatch(/witnesses\[0\]\.sha256 must be 64 lowercase hex/);
+  });
+
+  it('Witness_WhenHashMatchesNoHeldCopyAndNoDivergenceRecord_FailsLoudly', () => {
+    writeEntry(tmpRoot, '2026-06-23', CSV, {
+      witnesses: [{ channel: 'wayback', url: 'https://web.archive.org/x/other.csv', fetchedAt: '2026-07-06', sha256: 'e'.repeat(64) }],
+    });
+    expect(validateArchiveEntry('2026-06-23').map(p => p.problem).join()).toMatch(/divergent.*but no divergence record explains it/);
+  });
+
+  it('Witness_WhenDivergentHashPairedWithADivergenceRecord_Passes', () => {
+    writeEntry(tmpRoot, '2026-06-23', CSV, {
+      witnesses: [{ channel: 'wayback', url: 'https://web.archive.org/x/other.csv', fetchedAt: '2026-07-06', sha256: 'e'.repeat(64) }],
+      divergences: [{
+        file: 'raw.csv',
+        counterpart: { publisher: 'internet-archive', url: 'https://web.archive.org/x/other.csv', sha256: 'e'.repeat(64) },
+        level: 'bytes',
+        summary: 'a differing capture claiming to be the same publication',
+      }],
+    });
+    expect(validateArchiveEntry('2026-06-23')).toEqual([]);
+  });
+});
+
 describe('deepValidateEntryCsv', { tags: ['unit'] }, () => {
   it('DeepValidation_WhenCsvParsesWithRecords_Passes', () => {
     writeEntry(tmpRoot, '2026-06-23', CSV);
