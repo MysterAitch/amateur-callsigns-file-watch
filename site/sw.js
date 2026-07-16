@@ -98,10 +98,10 @@ const dbBuffers = new Map();
 
 /** @param {string} pathname */
 function isDbPath(pathname) {
-  // The ledger-derived projection databases the surfaces query (issue #572);
-  // the legacy callsigns/combined names stay recognised so an offline copy
-  // cached under a previous deploy is still intercepted until it is replaced.
-  return /\/data\/(ledger-lookup|ledger-history|callsigns|combined)\.sqlite\.png$/.test(pathname);
+  // The ledger-derived projection databases the surfaces query (issue #572).
+  // The legacy callsigns/combined runtime databases were retired (issue #445),
+  // so they are no longer served or intercepted.
+  return /\/data\/(ledger-lookup|ledger-history)\.sqlite\.png$/.test(pathname);
 }
 
 /** @param {URL} url */

@@ -8,10 +8,10 @@ import { placeholderOf } from '../../site/browser-query.js';
 //
 // The claims->canonical-rows fold behind the ledger projection databases (issue
 // #572): fixture claims in, canonical register rows and components out. The
-// full-corpus equivalence against the legacy build lives in the heavy parity
-// suite (projection-parity.test.ts); these tests pin the fold's own semantics -
-// column mapping, date rendering, ordering, padding exclusion, fail-loud paths -
-// on synthetic sources.
+// full-corpus invariants (schema, relational row counts, the exact surface
+// queries) live in the heavy suite (projection-invariants.test.ts); these tests
+// pin the fold's own semantics - column mapping, date rendering, ordering,
+// padding exclusion, fail-loud paths - on synthetic sources.
 
 const REF = loadReferenceData();
 

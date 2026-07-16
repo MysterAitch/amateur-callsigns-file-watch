@@ -13,5 +13,5 @@
   "src/shared/foi-normalise.test.ts",
   "src/v2/build-ledger-db-compact.test.ts",
   "src/v2/build-ledger-db.test.ts",
-  "src/v2/projection-parity.test.ts"
+  "src/v2/projection-invariants.test.ts"
 ]

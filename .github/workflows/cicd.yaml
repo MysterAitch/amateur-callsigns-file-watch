@@ -647,13 +647,14 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=12288
         run: |
           mkdir -p .dbstage
-          # .png extension: GitHub Pages gzip-transcodes text-like content types
-          # INCLUDING their Range responses (verified live), which corrupts
-          # sql.js-httpvfs reads. Image types are never re-compressed, so the plain
-          # SQLite file wears a .png name. See site/app.js. --tiers additionally
-          # builds the combined database (all datasets + the FOI observations union),
-          # one database per archive entry, and the gzipped flat union CSV (#149).
-          node src/ci/build-sqlite.ts .dbstage/callsigns.sqlite.png --tiers
+          # The published DOWNLOAD data tiers (#149): the gzipped flat union CSV,
+          # one gzipped SQLite per archive entry, and the combined database's
+          # gzipped download twin. The interactive surfaces read the ledger
+          # projection databases built below (#572), so the legacy runtime pair
+          # (callsigns.sqlite.png, combined.sqlite.png) is retired (#445): the
+          # combined database is built only as the twin's intermediate and removed
+          # before it reaches the deploy.
+          node src/ci/build-sqlite.ts .dbstage
           # The raw-keyed claim-ledger database (issue #361, Stage 3a): the deploy
           # artefact the Ledger page queries in the browser over the same range-
           # request VFS, in the same .png costume. The COMPACT build (#368) folds

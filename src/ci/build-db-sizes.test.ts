@@ -24,19 +24,19 @@ describe('humaniseSize', { tags: ['unit'] }, () => {
 
 describe('stampSizes', { tags: ['unit'] }, () => {
   it('SizeLabel_WithAPlaceholder_IsReplacedByTheHumanisedSize', () => {
-    const { html, count } = stampSizes('combined — every publication ([[db-size:combined]])', { combined: '1.03 GB' });
+    const { html, count } = stampSizes('combined — every publication ([[db-size:history]])', { history: '1.03 GB' });
     expect(html).toBe('combined — every publication (1.03 GB)');
     expect(count).toBe(1);
   });
 
   it('SizeLabel_WithNoPlaceholder_IsLeftUnchanged', () => {
-    const { html, count } = stampSizes('no tokens here', { combined: '1.03 GB' });
+    const { html, count } = stampSizes('no tokens here', { history: '1.03 GB' });
     expect(html).toBe('no tokens here');
     expect(count).toBe(0);
   });
 
   it('SizeLabel_WithMultipleDatabases_ReplacesEach', () => {
-    const { html, count } = stampSizes('([[db-size:callsigns]]) and ([[db-size:combined]])', { callsigns: '28 MB', combined: '1.03 GB' });
+    const { html, count } = stampSizes('([[db-size:lookup]]) and ([[db-size:history]])', { lookup: '28 MB', history: '1.03 GB' });
     expect(html).toBe('(28 MB) and (1.03 GB)');
     expect(count).toBe(2);
   });
