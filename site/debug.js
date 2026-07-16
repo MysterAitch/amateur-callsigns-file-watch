@@ -22,11 +22,11 @@
     if (params.has('debug')) {
       var v = params.get('debug');
       active = v !== '0' && v !== 'false' && v !== 'off';
-      try { active ? localStorage.setItem(STORE_KEY, '1') : localStorage.removeItem(STORE_KEY); } catch (e) { /* private mode */ }
+      try { if (active) localStorage.setItem(STORE_KEY, '1'); else localStorage.removeItem(STORE_KEY); } catch { /* private mode */ }
     } else {
       active = localStorage.getItem(STORE_KEY) === '1';
     }
-  } catch (e) {
+  } catch {
     active = false;
   }
   if (!active) return;
@@ -70,7 +70,7 @@
       if (a instanceof Error) return a.stack || (a.name + ': ' + a.message);
       if (typeof a === 'object' && a !== null) return JSON.stringify(a);
       return String(a);
-    } catch (e) {
+    } catch {
       return '[unstringifiable ' + (typeof a) + ']';
     }
   }
@@ -146,7 +146,9 @@
   }, true); // capture phase: resource errors do not bubble
 
   window.addEventListener('unhandledrejection', function (event) {
-    var r = event.reason;
+    // event.reason is `any` (DOM lib); narrowed here the same way a caught
+    // value is narrowed elsewhere in this file.
+    var r = /** @type {unknown} */ (event.reason);
     record('error', ['UNHANDLED PROMISE REJECTION: ' + (r instanceof Error ? (r.stack || r.message) : stringify(r))]);
   });
 
@@ -178,8 +180,11 @@
       if (ct) extra += ' type=' + ct.split(';')[0];
       record(res.ok ? 'ok' : 'error', [(res.ok ? 'OK   ' : 'FAIL ') + res.status + '  ' + label + '  (' + path + ')' + extra]);
       return res.ok;
-    }).catch(function (err) {
-      record('error', ['FAIL  ' + label + '  (' + path + ')  ' + (err && err.message ? err.message : String(err))]);
+      // A rejected value is `unknown`; read the message through the same
+      // narrowed view used in the try/catch branch above.
+    }).catch(/** @param {unknown} err */ function (err) {
+      var thrown = /** @type {{ message?: string }} */ ((typeof err === 'object' && err !== null) ? err : {});
+      record('error', ['FAIL  ' + label + '  (' + path + ')  ' + (thrown.message ? thrown.message : String(err))]);
       return false;
     });
   }
@@ -193,14 +198,15 @@
     record('info', ['createDbWorker (vendor) is a ' + typeof vendorGlobals.createDbWorker + (typeof vendorGlobals.createDbWorker === 'function' ? ' ✓' : ' ✗ — the lookup cannot run without it')]);
     record('info', ['service worker: ' + (navigator.serviceWorker ? (navigator.serviceWorker.controller ? 'controlling this page' : 'registered, not controlling') : 'unsupported')]);
     record('info', ['network: ' + (navigator.onLine ? 'online' : 'OFFLINE')]);
-    // Modules the pages import (a 404 here is the deploy-coverage failure mode).
-    ['app.js', 'browser-query.js', 'prefix-country.js', 'history-sync.js', 'entry-browser.js', 'callsign-pill.js'].forEach(function (m) { probe('module ' + m, m); });
-    probe('vendor bundle', 'vendor/index.js');
-    probe('sqlite wasm', 'vendor/sql-wasm.wasm', { method: 'HEAD', cache: 'no-store' });
-    probe('data version', 'data/version.txt');
+    // Each probe settles (and records) internally via its own .then/.catch, so
+    // none of these need awaiting here; `void` marks that deliberate.
+    ['app.js', 'browser-query.js', 'prefix-country.js', 'history-sync.js', 'entry-browser.js', 'callsign-pill.js'].forEach(function (m) { void probe('module ' + m, m); });
+    void probe('vendor bundle', 'vendor/index.js');
+    void probe('sqlite wasm', 'vendor/sql-wasm.wasm', { method: 'HEAD', cache: 'no-store' });
+    void probe('data version', 'data/version.txt');
     // The database is served under a .png costume and read by HTTP Range; a HEAD
     // tells us it exists and whether Range is offered (httpvfs needs it).
-    probe('lookup database', 'data/ledger-lookup.sqlite.png', { method: 'HEAD', cache: 'no-store' });
+    void probe('lookup database', 'data/ledger-lookup.sqlite.png', { method: 'HEAD', cache: 'no-store' });
   }
 
   // --- UI: a floating toggle and a collapsible panel, all inline-styled. ---
@@ -241,7 +247,7 @@
     }));
     bar.appendChild(button('Clear', function () { entries.length = 0; if (logEl) logEl.textContent = ''; if (countEl) countEl.textContent = '0'; }));
     bar.appendChild(button('Off', function () {
-      try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+      try { localStorage.removeItem(STORE_KEY); } catch { /* private mode */ }
       panel.remove(); toggle.remove();
     }));
 
@@ -284,13 +290,11 @@
       ta.select();
       document.execCommand('copy');
       document.body.removeChild(ta);
-    } catch (e) { /* nothing more we can do */ }
+    } catch { /* nothing more we can do */ }
   }
 
-  var toggle;
   function start() {
-    var ui = build();
-    toggle = ui.toggle;
+    build();
     record('info', ['debug console active — ' + window.location.href]);
     record('info', [navigator.userAgent]);
     // A first automatic pass so the panel is useful the moment it opens.
