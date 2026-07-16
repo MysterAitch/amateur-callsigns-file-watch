@@ -1,0 +1,23 @@
+{
+  // site/sw.js runs in the SERVICE WORKER global scope, not the DOM
+  // tsconfig.site.json's project checks the rest of site/ against. A single
+  // tsc program cannot check DOM-scoped and worker-scoped code together: `self`,
+  // `location`, `URL` and friends are declared incompatibly between the `DOM`
+  // and `webworker` libs, so mixing both `lib` entries in one program produces
+  // hundreds of duplicate-declaration errors from the lib files themselves, not
+  // from any real project code.
+  //
+  // So this is a THIRD project, alongside the root (node) and tsconfig.site.json
+  // (DOM) ones - same rationale as that split (a different global environment),
+  // scoped to only the file(s) that actually run in a worker. checkJs stays off
+  // globally and is opted in per file with `// @ts-check`, mirroring
+  // tsconfig.site.json's module-by-module rollout (#530).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "WebWorker"],
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": ["site/sw.js"],
+  "exclude": ["node_modules", "dist"]
+}
