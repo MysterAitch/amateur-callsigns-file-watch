@@ -68,6 +68,12 @@
  *      vocabulary); omitted when none.
  *   v  raw published forms that differ from the cleaned key (verbatim, so
  *      whitespace/case artefacts stay visible); omitted when none.
+ *   tw the latest register snapshot's per-variant rows, present ONLY when that
+ *      snapshot lists the cleaned form more than once: [{ r: raw form verbatim,
+ *      s: status letter, m: source-intrinsic last-modified date, p: product
+ *      vocab index }] (blank s/m/p omitted). Lets the page annotate a
+ *      cleaned-key conflict with format-normality and recency context (#633) -
+ *      surfaced, never adjudicated. Rows are in file order.
  *   m  dataset indices where this cleaned form appears MORE THAN ONCE
  *      (e.g. a clean row beside a stripped-collision twin); omitted when none.
  *
@@ -111,6 +117,11 @@ interface SourceRow {
   type: string | null;
   created: string | null;
   modified: string | null;
+  // The licence-version's own last-modified stamp (2026-schema
+  // `licence_version_last_modified_date`), which populates for allocated rows
+  // where the plain `modified` column is blank; the source-intrinsic timestamp
+  // the twin-conflict recency annotation reads (#633).
+  versionModified: string | null;
   originalStart: string | null;
 }
 
@@ -161,11 +172,27 @@ interface LatestObservation {
   types: string[];
 }
 
+// One conflicting twin row of the latest register snapshot: the raw token
+// verbatim (so an abnormal spelling stays visible), its status and product, and
+// its source-intrinsic last-modified stamp. Surfaced so the page can annotate a
+// cleaned-key conflict with normality and recency context (#633) - never to
+// pick a winner.
+interface TwinVariant {
+  raw: string;
+  status: string;
+  product: string;
+  modified: string;
+}
+
 interface EntityAcc {
   h: string; // grows dataset by dataset; padded to full length at emit
   forms: Set<string> | null;
   latest: LatestObservation | null;
   dates: { c: string; m: string; o: string } | null;
+  // The latest register snapshot's per-variant rows, ONLY when that snapshot
+  // lists the cleaned form more than once (else null). Refreshed each register
+  // snapshot so it always tracks `latest`.
+  twins: TwinVariant[] | null;
   multi: number[];
 }
 
@@ -177,6 +204,7 @@ interface CellAgg {
   products: Set<string>;
   types: Set<string>;
   onlyRow: SourceRow | null; // the row, only while count === 1
+  rows: SourceRow[]; // every row of this cleaned form, for the twin breakdown
 }
 
 export interface ShardBuildSummary {
@@ -229,6 +257,7 @@ function openDataSources(archiveDir: string): DatasetSource[] {
           type: r.type ?? null,
           created: r.created_date ?? null,
           modified: r.last_modified_date ?? null,
+          versionModified: r.licence_version_last_modified_date ?? null,
           originalStart: r.licence_version_original_start_date ?? null,
         }));
       },
@@ -275,6 +304,7 @@ function foiSources(foiDir: string): DatasetSource[] {
         type: null,
         created: null,
         modified: null,
+        versionModified: null,
         originalStart: null,
       })),
     });
@@ -423,18 +453,19 @@ export function buildCallsignShards(
       dataset.rows += 1;
       let cell = cells.get(cleaned);
       if (cell === undefined) {
-        cell = { count: 0, statuses: new Set(), products: new Set(), types: new Set(), onlyRow: null };
+        cell = { count: 0, statuses: new Set(), products: new Set(), types: new Set(), onlyRow: null, rows: [] };
         cells.set(cleaned, cell);
       }
       cell.count += 1;
       cell.onlyRow = cell.count === 1 ? row : null;
+      cell.rows.push(row);
       if (row.status !== null) cell.statuses.add(row.status.trim());
       if (row.product !== null && row.product.trim() !== '') cell.products.add(row.product.trim());
       if (row.type !== null && row.type.trim() !== '') cell.types.add(row.type.trim());
 
       let entity = entities.get(cleaned);
       if (entity === undefined) {
-        entity = { h: '', forms: null, latest: null, dates: null, multi: [] };
+        entity = { h: '', forms: null, latest: null, dates: null, twins: null, multi: [] };
         entities.set(cleaned, entity);
       }
       if (row.callsign !== cleaned) {
@@ -456,6 +487,19 @@ export function buildCallsignShards(
           products: [...cell.products].sort(),
           types: [...cell.types].sort(),
         };
+        // The twin breakdown tracks the latest register snapshot: refreshed
+        // whenever a register snapshot lists this form more than once, and
+        // cleared to null when a later snapshot lists it exactly once (so the
+        // annotation never shows a stale conflict). Rows are kept in file order
+        // - the page orders the format-normal form first for presentation.
+        entity.twins = cell.count > 1
+          ? cell.rows.map(r => ({
+              raw: r.callsign,
+              status: (r.status ?? '').trim(),
+              product: (r.product ?? '').trim(),
+              modified: (r.versionModified ?? '').trim() || (r.modified ?? '').trim(),
+            }))
+          : null;
       }
       if (dataset.lane === 'open-data') {
         // Dates travel only when the publication lists the form exactly once -
@@ -532,6 +576,20 @@ export function buildCallsignShards(
       if (components.flags.length > 0) record.f = components.flags;
     }
     if (entity.forms !== null) record.v = [...entity.forms].sort();
+    // The latest register snapshot's per-variant conflict breakdown (#633).
+    // Every status here is already in `l.s` (same snapshot), so letterFor is a
+    // no-op assignment and the legend cannot shift; every non-blank product is
+    // already in that snapshot's product set, so its index resolves.
+    if (entity.twins !== null) {
+      record.tw = entity.twins.map(t => {
+        const tw: Record<string, unknown> = { r: t.raw };
+        if (t.status !== '') tw.s = letters.letterFor(t.status);
+        if (t.modified !== '') tw.m = t.modified;
+        const pi = productIndex.get(t.product);
+        if (pi !== undefined) tw.p = pi;
+        return tw;
+      });
+    }
     if (entity.multi.length > 0) record.m = entity.multi;
     return record;
   };

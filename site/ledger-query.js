@@ -731,6 +731,96 @@ function sourceItems(sources) {
   }));
 }
 
+// Enrich the co-temporal-status-divergence note (issue #633): where a snapshot
+// lists two written forms of one callsign with different statuses, LEAD with the
+// user-meaningful fact - that the format-normal (canonical) form and a
+// non-standard spelling carry the statuses they carry - and attach a working
+// with the per-form statuses and the source rows behind them. Format normality
+// orders the presentation (the canonical form is the entity's identity) but
+// NEVER resolves the conflict: both forms are shown exactly as published. The
+// ledger deliberately does not fold the register's timestamps (see
+// STATUS_PREDICATES), so recency is not asserted here - the divergence stays a
+// plainly flagged conflict, now with format context. Returns null when there is
+// no diverging vintage. Pure.
+/**
+ * @param {ClaimRow[]} claims
+ * @param {string} cleaned
+ * @returns {null | { label: string, gloss: Segment[], working: { rule: string, ruleGloss: string, inputs: { role: string, value: string }[], result: string, resultVerbatim: boolean, sources: ReturnType<typeof sourceItems> } }}
+ */
+export function coTemporalDivergenceNote(claims, cleaned) {
+  /** @type {Map<string, { rawToken: string, status: string }[]>} */
+  const byVintage = new Map();
+  for (const o of observationsOf(claims)) {
+    if (o.status === '') continue;
+    const list = byVintage.get(o.vintage) ?? [];
+    list.push({ rawToken: o.rawToken, status: o.status });
+    byVintage.set(o.vintage, list);
+  }
+  const diverging = [...byVintage.entries()]
+    .filter(([, rows]) => new Set(rows.map(r => r.status)).size > 1)
+    .map(([v]) => v)
+    .sort();
+  if (diverging.length === 0) return null;
+
+  // Lead with the most recent diverging snapshot - the one that best answers
+  // "what does the register say now".
+  const vintage = diverging[diverging.length - 1];
+  const rows = byVintage.get(vintage) ?? [];
+  // Distinct (form, status) pairs, format-normal first (rule 1).
+  /** @type {Map<string, { rawToken: string, status: string, normal: boolean }>} */
+  const distinct = new Map();
+  for (const r of rows) {
+    const k = `${r.rawToken} ${r.status}`;
+    if (!distinct.has(k)) distinct.set(k, { rawToken: r.rawToken, status: r.status, normal: r.rawToken === cleaned });
+  }
+  const forms = [...distinct.values()].sort((a, b) => (a.normal === b.normal ? 0 : a.normal ? -1 : 1));
+  const abnormal = forms.filter(f => !f.normal);
+  const normal = forms.filter(f => f.normal);
+
+  /** @type {Segment[]} */
+  const gloss = [];
+  if (abnormal.length > 0 && normal.length > 0) {
+    gloss.push(`Within the ${vintage} snapshot, `);
+    abnormal.forEach((f, i) => {
+      if (i > 0) gloss.push(i === abnormal.length - 1 ? ' and ' : ', ');
+      gloss.push('the variant ', rawSeg(f.rawToken), ` — a non-standard spelling — is listed ${f.status}`);
+    });
+    const normalStatuses = [...new Set(normal.map(f => f.status))].join(' / ');
+    gloss.push(', while the canonical form ', codeSeg(cleaned), ` is listed ${normalStatuses}. `);
+    gloss.push('The register publishes both; we show each exactly as published and do not decide which is right.');
+  } else {
+    const pairs = forms.map(f => f.status).join(' vs ');
+    gloss.push(`Within the ${vintage} snapshot, two written forms of this callsign are listed with different statuses (${pairs}). `);
+    gloss.push('We show both exactly as published rather than decide which is right.');
+  }
+
+  // Working: the per-form statuses that make up the divergence, and the source
+  // rows they were seen in (linkable evidence, rule 5).
+  /** @type {Map<string, SourceRef>} */
+  const sourceKeys = new Map();
+  for (const c of claims) {
+    if (c.vintage !== vintage || c.predicate !== '@listed') continue;
+    const key = `${c.source_file}#${c.ordinal}`;
+    if (!sourceKeys.has(key)) sourceKeys.set(key, { sourceFile: c.source_file, ordinal: c.ordinal, vintage: c.vintage });
+  }
+  const sources = sourceItems([...sourceKeys.values()]);
+
+  return {
+    label: (abnormal.length > 0 && normal.length > 0)
+      ? 'A non-standard spelling carries a different status'
+      : 'Two forms disagree on status in one snapshot',
+    gloss,
+    working: {
+      rule: 'co-temporal-status-divergence',
+      ruleGloss: 'Two written forms of one callsign are listed with different statuses within a single snapshot — read from the register’s own rows, not derived.',
+      inputs: forms.map(f => ({ role: f.status, value: f.rawToken })),
+      result: `statuses disagree at ${vintage}`,
+      resultVerbatim: false,
+      sources,
+    },
+  };
+}
+
 // The structured fidelity model for a resolved callsign, ready for the surface
 // to render. `disclose` is false for the clean, unremarkable case (nothing is
 // surfaced then). `canonical` describes any divergence between a published form
@@ -851,6 +941,17 @@ export function fidelityOf(claims, resolved) {
   // represented by the canonical block above, so it is not repeated as a note.
   for (const f of flagsOf(claims, cleaned)) {
     if (f.flag === 'raw-differs-from-cleaned') continue;
+    // The co-temporal status divergence is enriched (#633): its presentation
+    // leads with the format-normality fact and carries a working with the
+    // per-form statuses and the source rows behind them, rather than a bare
+    // gloss.
+    if (f.flag === 'co-temporal-status-divergence') {
+      const enriched = coTemporalDivergenceNote(claims, cleaned);
+      if (enriched !== null) {
+        notes.push({ id: f.flag, label: enriched.label, gloss: enriched.gloss, working: enriched.working });
+        continue;
+      }
+    }
     const meta = COMPUTED_NOTES[f.flag] ?? { label: f.flag, gloss: [f.gloss] };
     notes.push({ id: f.flag, label: meta.label, gloss: meta.gloss, working: null });
   }
