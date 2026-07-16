@@ -14,7 +14,7 @@ function inlineTimerScript(): string {
 }
 
 interface CompareWindow { __compareReadyTimer?: ReturnType<typeof setTimeout>; }
-function readyWindow(): CompareWindow { return window as unknown as CompareWindow; }
+function readyWindow(): CompareWindow { return window; }
 const warning = (): HTMLElement | null => document.getElementById('startup-warning');
 
 describe('compare startup warning behaviour', { tags: ['ui'] }, () => {
@@ -30,6 +30,7 @@ describe('compare startup warning behaviour', { tags: ['ui'] }, () => {
 
   it('StartupWarning_WhenModuleNeverSignalsReady_IsRevealedAfterTimeout', () => {
     // JavaScript is on (this inline script runs) but no module cleared the timer.
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call -- deliberately executes the SHIPPED inline script text (not a hand-copied reimplementation), so the test exercises the real markup.
     new Function(inlineTimerScript())();
     const before = warning();
     expect(before !== null && before.hidden).toBe(true);
@@ -40,6 +41,7 @@ describe('compare startup warning behaviour', { tags: ['ui'] }, () => {
 
   it('StartupWarning_WhenReadyTimerClearedByModule_StaysHidden', () => {
     // compare.js clears the timer on successful init, so a normal load never flashes.
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call -- deliberately executes the SHIPPED inline script text (not a hand-copied reimplementation), so the test exercises the real markup.
     new Function(inlineTimerScript())();
     clearTimeout(readyWindow().__compareReadyTimer);
     vi.advanceTimersByTime(10000);
