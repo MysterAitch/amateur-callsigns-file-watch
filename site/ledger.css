@@ -635,3 +635,38 @@
 .ledger .anatomy-figure table { margin-top: 0; }
 .ledger .anatomy-figure .anat-swatch { display: inline-block; width: .8em; height: .8em; border-radius: 3px;
   margin-right: .4em; vertical-align: -.04em; border: 1px solid var(--hair); }
+
+/* Inline fidelity nudge (issue #438): the small, quiet badge marking a rendered
+   value or record as carrying a data-quality / fidelity observation, linking to
+   the matching section of the fidelity deep-dive page. Same calm register as
+   the dossier's record-fidelity surface above: a nudge locates an observation,
+   it is not an alarm, so it wears the shared .tb badge look in the muted
+   derived tint - never the change-red. The non-badge form (.fid-nudge without a
+   .tb child) is a plain quiet link for prose call sites. */
+.ledger .fid-nudge { text-decoration: none; }
+.ledger .fid-nudge:hover .tb.fid { border-color: var(--derived); }
+.ledger .fid-nudge:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+.ledger .tb.fid { background: var(--derived-soft); color: var(--derived); border: 1px solid transparent; }
+
+/* "Show the working" disclosure (issues #433/#438, ADR 0017): the JS-free
+   <details> that opens a derived claim's evidence - the named rule, the inputs
+   (each linked to its exact source line or reference-table row), the ordered
+   transformation trace and the reproduced result. Styled like the dossier's
+   fid-work panel: a quiet left-ruled card in the derived tint, monospace for
+   the machine tokens, and an honest muted note where a position is not held. */
+.ledger details.show-working { margin: 10px 0 2px; }
+.ledger details.show-working > summary { cursor: pointer; font-family: var(--mono); font-size: 12px; color: var(--raw); }
+.ledger details.show-working > summary:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+.ledger .working-body { margin: 8px 0 2px; padding: 10px 14px; border-left: 3px solid var(--derived);
+  background: var(--surface); border-radius: 0 8px 8px 0; }
+.ledger .working-body .working-rule { margin: 0 0 6px; font-size: 13px; }
+.ledger .working-body .working-heading { font-family: var(--mono); font-size: 11px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--faint); margin: 10px 0 4px; font-weight: 600; }
+.ledger .working-body .working-inputs, .ledger .working-body .working-steps { margin: 0; padding-left: 1.3em; font-size: 13px; }
+.ledger .working-body .working-inputs li, .ledger .working-body .working-steps li { margin: 2px 0; }
+.ledger .working-role { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.ledger .working-from, .ledger .working-transform { color: var(--muted); font-size: 12.5px; }
+.ledger .working-locus-absent { color: var(--muted); font-style: italic; }
+.ledger .working-confidence { color: var(--muted); }
+.ledger .working-result { margin: 8px 0 0; font-size: 13px; }
+.ledger .working-note { margin: 8px 0 0; font-size: 12px; color: var(--muted); max-width: 72ch; }

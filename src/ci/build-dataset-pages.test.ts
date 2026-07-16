@@ -907,3 +907,52 @@ describe('Internal link integrity across the built site (issue #561)', { tags: [
     ).toEqual([]);
   });
 });
+
+describe('Inline fidelity nudges + the deep-dive page (issue #438)', { tags: ['data-validity'] }, () => {
+  it('BuiltSite_FidelityDeepDive_IsEmittedAndInTheSitemap', () => {
+    expect(fs.existsSync(path.join(outputDir, 'fidelity.html'))).toBe(true);
+    const sitemap = fs.readFileSync(path.join(outputDir, 'sitemap.xml'), 'utf8');
+    expect(sitemap).toContain('<loc>https://example.test/site/fidelity.html</loc>');
+    // The reports hub lists it, so the page is discoverable without a nudge.
+    const hub = fs.readFileSync(path.join(outputDir, 'reports', 'index.html'), 'utf8');
+    expect(hub).toContain('href="../fidelity.html"');
+  });
+
+  it('OpenDataEntryPage_AtAGlanceFlagCount_NudgesInlineToTheFlagsSection', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    // The standing "N rows carry a quality flag" figure now links, in situ, to
+    // the deep-dive's flags section rather than leaving the reader to hunt.
+    expect(page).toMatch(/rows carry a quality flag · <a class="fid-nudge" href="\.\.\/\.\.\/\.\.\/fidelity\.html#flags">/);
+  });
+
+  it('OpenDataEntryPage_FlaggedRecordInThePreview_CarriesPerRecordFlagNudges', () => {
+    // The 2025-04-08 publication's first preview rows include the committed
+    // excel-date-shape artefacts ("20-Apr" et al), so its preview must carry
+    // the per-record badge beside the pill, deep-linked to that flag's row.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2025-04-08', 'index.html'), 'utf8');
+    expect(page).toContain('<span class="tb fid">excel-date-shape</span>');
+    expect(page).toContain('href="../../../fidelity.html#flag-excel-date-shape"');
+    // The badge is a supplement to the shared pill, never a replacement: the
+    // nudge follows immediately after the pill's closing anchor. The pill's
+    // inner markup (odd-character marking, the cs wrapper) belongs to the
+    // shared callsign field and is pinned by its own tests, not re-pinned here.
+    expect(page).toMatch(/callsign-pill" href="\.\.\/\.\.\/\.\.\/index\.html\?c=20-Apr">[^]*?<\/a> <a class="fid-nudge" href="\.\.\/\.\.\/\.\.\/fidelity\.html#flag-excel-date-shape">/);
+  });
+
+  it('OpenDataEntryPage_UnflaggedRecords_CarryNoFidelityNudge', () => {
+    // Selective disclosure: the latest publication's first preview rows carry
+    // no flags, so its preview renders pills alone — the affordance never
+    // manufactures doubt where no observation exists.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    const preview = /<div class="browser-static">([\s\S]*?)<\/div>/.exec(page);
+    expect(preview).not.toBeNull();
+    expect(preview?.[1] ?? '').not.toContain('tb fid');
+  });
+
+  it('ReconstructedEntry_ProvenanceNotice_LinksTheCustodyExplanation', () => {
+    // 2025-04-08 is a reconstructed-provenance entry; its notice's disclosure
+    // offers the deep-dive's provenance section alongside meta.json.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2025-04-08', 'index.html'), 'utf8');
+    expect(page).toContain('href="../../../fidelity.html#provenance"');
+  });
+});
