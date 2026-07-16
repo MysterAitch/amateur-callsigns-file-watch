@@ -82,11 +82,14 @@ jobs:
             echo "Opened $pr_url"
 
             if [ "$data_only" = true ]; then
-              # --auto waits for required checks; if none are configured yet
-              # the PR is immediately mergeable and gh refuses --auto, so fall
-              # back to merging directly.
-              gh pr merge --auto --merge --delete-branch "$pr_url" \
-                || gh pr merge --merge --delete-branch "$pr_url"
+              # --auto waits for required checks (tests + data-validation are
+              # required contexts). If enabling auto-merge fails for ANY
+              # reason, fail closed and loudly: a direct-merge fallback would
+              # bypass still-pending checks, which is worse than a stalled PR.
+              if ! gh pr merge --auto --merge --delete-branch "$pr_url"; then
+                gh pr comment "$pr_url" --body "Auto-merge could not be enabled - this data PR is parked for attention rather than merged past its checks."
+                exit 1
+              fi
             else
               gh pr comment "$pr_url" --body "Diff touches non-data paths - auto-merge NOT enabled. This needs human review."
             fi
