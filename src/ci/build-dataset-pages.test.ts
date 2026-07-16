@@ -932,8 +932,11 @@ describe('Inline fidelity nudges + the deep-dive page (issue #438)', { tags: ['d
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2025-04-08', 'index.html'), 'utf8');
     expect(page).toContain('<span class="tb fid">excel-date-shape</span>');
     expect(page).toContain('href="../../../fidelity.html#flag-excel-date-shape"');
-    // The badge is a supplement to the shared pill, never a replacement.
-    expect(page).toMatch(/class="callsign-pill"[^>]*>20-Apr<\/a> <a class="fid-nudge"/);
+    // The badge is a supplement to the shared pill, never a replacement: the
+    // nudge follows immediately after the pill's closing anchor. The pill's
+    // inner markup (odd-character marking, the cs wrapper) belongs to the
+    // shared callsign field and is pinned by its own tests, not re-pinned here.
+    expect(page).toMatch(/callsign-pill" href="\.\.\/\.\.\/\.\.\/index\.html\?c=20-Apr">[^]*?<\/a> <a class="fid-nudge" href="\.\.\/\.\.\/\.\.\/fidelity\.html#flag-excel-date-shape">/);
   });
 
   it('OpenDataEntryPage_UnflaggedRecords_CarryNoFidelityNudge', () => {
