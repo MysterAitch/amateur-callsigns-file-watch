@@ -12,6 +12,8 @@
     {
       "channel": "wayback",
       "url": "https://web.archive.org/web/20251202133710id_/https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsigns-11-nov-2025.csv?v=407704",
+      "sha256": "0bca5a263834284e1bdb32be3fda2da4940d7d23a1b7ee94206351961f9573bf",
+      "originalFilename": "amateur-callsigns-11-nov-2025.csv",
       "fetchedAt": "2026-07-15",
       "note": "Internet Archive Wayback capture 2025-12-02; the id_ (raw) replay served the file verbatim (sha256 matches). Single witness - no UKGWA mirror of this specific dated CSV was found."
     }

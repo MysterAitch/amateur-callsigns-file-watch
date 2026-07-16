@@ -32,6 +32,7 @@
         {
           "channel": "live",
           "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/january/foi-1734722-amateur-call-signs.csv?v=215395",
+          "sha256": "b4f26479887472e92f631ee4c1632b0faf01c2629b9656eb7b7b4d84f6ab32a1",
           "note": "the disclosure-log copy served directly from Ofcom; ingested here as the primary raw"
         },
         {

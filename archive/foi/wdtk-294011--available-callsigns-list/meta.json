@@ -33,6 +33,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/unallocated_uk_amateur_radio_cal_2/response/722643/attach/2/Amateur%20Available%20Call%20signs.xlsx",
+          "sha256": "23b711b3446a493d6a6204d20cbb677908b32d93e66bd854d002ef6a4c8a1f74",
           "fetchedAt": "2026-07-07"
         }
       ]

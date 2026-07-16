@@ -25,6 +25,7 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20211213223006id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0017/139310/amateur-radio-call-sign-allocation-foi.pdf",
+          "sha256": "336b621be087f55426d1f4c9f3b7852cb4bd86454ea87cd655144ea256058c28",
           "fetchedAt": "2026-07-07"
         }
       ]

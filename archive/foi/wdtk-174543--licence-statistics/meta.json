@@ -27,6 +27,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/amateur_radio_licence_statistics/response/430808/attach/1/FoI%201%20241858032%20Full%20Response.pdf",
+          "sha256": "7260f7d3cdb62728817c87d51f0dbc132b04043250ed395482908ce9cd4401b0",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -39,6 +40,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/amateur_radio_licence_statistics/response/424001/attach/1/FoI%201%20241858032%20Letter%20of%20Acknowledgement.pdf",
+          "sha256": "2f0664f7fa8150bfe77db32cd6e0b761e1c7e364ea8a56f86a5bdfb328c17fc7",
           "fetchedAt": "2026-07-07"
         }
       ]

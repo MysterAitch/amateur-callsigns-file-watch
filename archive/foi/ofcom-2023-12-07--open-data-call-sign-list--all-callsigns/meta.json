@@ -32,6 +32,7 @@
         {
           "channel": "live",
           "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2023/december/call-sign-list-for-open-data-07-12-23.csv?v=215333",
+          "sha256": "855875658a00a2cce28574c45d3c18d003f900621945b25ba516f03cacc19fbc",
           "note": "the disclosure-log/open-data copy served directly from Ofcom; ingested here as the primary raw"
         },
         {

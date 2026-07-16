@@ -39,6 +39,7 @@
         {
           "channel": "ofcom-disclosure-log",
           "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2022/march/foi-list-of-allocated-and-reserved-amateur-radio-callsigns-spreadsheet-01420046.xlsx?v=72369",
+          "sha256": "8a61da944220c655a5b8ec2a787451729de7e6269f180dc8394f03c35b0ead35",
           "fetchedAt": "2026-07-07"
         },
         {

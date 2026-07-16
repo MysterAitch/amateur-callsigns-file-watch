@@ -34,6 +34,7 @@
         {
           "channel": "ofcom-disclosure-log",
           "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2025/january/call-signs-13mar2025.csv?v=392973",
+          "sha256": "706682445edae9ace5fc1fe6557e55e425590b968d16e0c4bf6f60a880ab4621",
           "fetchedAt": "2026-07-07"
         }
       ]

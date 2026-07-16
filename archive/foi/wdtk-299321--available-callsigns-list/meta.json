@@ -34,6 +34,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/list_of_currently_available_amat/response/726411/attach/2/Amateur%20Available%20Call%20signs.xlsx",
+          "sha256": "8da7507f3b6a3dadf8d2212e4da6079ad51a08675c10bb0492d09a1c1d45a848",
           "fetchedAt": "2026-07-07"
         }
       ]

@@ -27,6 +27,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/radio_amateur_licence_breakdown/response/2807049/attach/13/FOI%201900117%20Radio%20amateur%20licence%20breakdown%20by%20duration%20held%20and%20age%20sheet%201.csv",
+          "sha256": "b04c1b2881769c8a5eee30889629e967d6d27f0c1c7cfdcae953fe57d1be5e02",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -48,6 +49,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/radio_amateur_licence_breakdown/response/2807049/attach/14/FOI%201900117%20Radio%20amateur%20licence%20breakdown%20by%20duration%20held%20and%20age%20sheet%202.csv",
+          "sha256": "a6c853fbc67dac85eb7526e71b9849c36f39526433df77e7c38c0d94b7fabd1b",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -68,6 +70,7 @@
         {
           "channel": "wdtk",
           "url": "https://www.whatdotheyknow.com/request/radio_amateur_licence_breakdown/response/2807049/attach/12/FOI%201900117%20Radio%20amateur%20licence%20breakdown%20by%20duration%20held%20and%20age.pdf",
+          "sha256": "6b5caa4df19d70e5df59aca341aa2ac29a3e0f8232bdf1438f59103f2af0289e",
           "fetchedAt": "2026-07-07"
         }
       ]

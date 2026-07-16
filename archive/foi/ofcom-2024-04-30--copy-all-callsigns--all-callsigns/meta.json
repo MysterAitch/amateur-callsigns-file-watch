@@ -32,6 +32,7 @@
         {
           "channel": "live",
           "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/may/copy-all-callsigns-30-apr-24.csv?v=356445",
+          "sha256": "df10e3cac383097123c56fbcb802a0e87f27a88504b246d32b498cf1acd70620",
           "note": "the disclosure-log copy served directly from Ofcom; ingested here as the primary raw. No UKGWA mirror of this specific 2024-04-30 export was found (a single witness)."
         }
       ]

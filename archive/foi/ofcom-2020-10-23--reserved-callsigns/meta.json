@@ -35,6 +35,7 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20230103113243/https://www.ofcom.org.uk/__data/assets/file/0018/206901/list-of-amateur-radio-call-signs.xlsx",
+          "sha256": "344d190a8d8f56c869643016de68ab84294ae26ea8cd6f39cdc7938d07dfd04e",
           "fetchedAt": "2026-07-07"
         }
       ]

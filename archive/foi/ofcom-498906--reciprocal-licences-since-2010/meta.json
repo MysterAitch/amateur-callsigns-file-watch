@@ -35,6 +35,7 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/excel_doc/0020/109028/list-reciprocal-licences-since-2010.xlsx",
+          "sha256": "158a9aba0fb541a49cd72a0acf5054c154bac28a90d63e44410ba539de0b436b",
           "fetchedAt": "2026-07-07"
         }
       ]
@@ -62,6 +63,7 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042id_/https://www.ofcom.org.uk/__data/assets/pdf_file/0013/109030/reciprocal-licences-since-2010.pdf",
+          "sha256": "0e20aa8da2dc9b6f52ff1bf398fdd26a3d4b4d6ae776491ecf9a263593ef99ad",
           "fetchedAt": "2026-07-07"
         }
       ]

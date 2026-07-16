@@ -35,6 +35,8 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20230103113243/https://www.ofcom.org.uk/__data/assets/excel_doc/0031/196168/List-of-Allocated-amateur-radio-callsigns.xlsx",
+          "sha256": "80921c08f0556e4ccfa2c59989b15010cc180615314d0a7196b5a0d28fae2ced",
+          "originalFilename": "List-of-Allocated-amateur-radio-callsigns.xlsx",
           "fetchedAt": "2026-07-07"
         }
       ]

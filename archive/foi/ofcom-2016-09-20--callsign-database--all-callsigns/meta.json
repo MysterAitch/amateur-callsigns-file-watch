@@ -38,6 +38,8 @@
         {
           "channel": "ukgwa",
           "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20200410122042/https://www.ofcom.org.uk/__data/assets/excel_doc/0028/90397/Callsign-database-20-Sep.xlsx",
+          "sha256": "ebd9e04ba63b7f79b23ea01e5468682bbf5e22f0011aa43c502ffafacd82795f",
+          "originalFilename": "Callsign-database-20-Sep.xlsx",
           "fetchedAt": "2026-07-07"
         }
       ]

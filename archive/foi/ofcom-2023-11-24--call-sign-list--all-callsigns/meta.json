@@ -33,6 +33,7 @@
         {
           "channel": "live",
           "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2023/december/call-sign-list-241123.csv?v=215321",
+          "sha256": "e438c141a645bacdeef7efdc5f474c629744f4328e60fe5f091ba38194dd6061",
           "note": "the disclosure-log copy served directly from Ofcom; ingested here as the primary raw"
         },
         {
