@@ -625,6 +625,18 @@ jobs:
   build-site-databases:
     runs-on: ubuntu-latest
     steps:
+      # Reclaim runner disk before anything writes: the packaged databases plus
+      # the archive (now including copies held in full) leave little headroom on
+      # the default image, and the assembly has failed with ENOSPC. Delete the
+      # large preinstalled toolchains this job never uses; each path is guarded
+      # (|| true) so a future image that drops one is not a failure, and setup-node
+      # below reinstalls Node into the tool cache after it is cleared. df -h is
+      # echoed before and after so any recurrence is diagnosable from the log.
+      - name: Free runner disk space
+        run: |
+          echo "== disk before =="; df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}" || true
+          echo "== disk after =="; df -h /
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
