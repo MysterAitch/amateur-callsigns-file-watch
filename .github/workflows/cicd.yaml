@@ -670,9 +670,10 @@ jobs:
           # The ledger-derived surface projection databases (issue #572): the
           # lookup and history databases the interactive surfaces (app.js,
           # compare.js, entry-browser.js, explore.js) query over the same
-          # range-request VFS, folded from the claim ledger emitted above. The
-          # legacy build-sqlite.ts databases keep building beside them during
-          # the transition; #445 retires the legacy pair once nothing reads them.
+          # range-request VFS, folded from the claim ledger emitted above.
+          # These are the only runtime databases the surfaces load: the
+          # build-sqlite.ts step above builds the download tiers alone, not a
+          # parallel runtime pair (the legacy runtime pair is retired, #445).
           node src/v2/build-projection-db.ts .dbstage/ledger-lookup.sqlite.png .dbstage/ledger-history.sqlite.png --ledger-dir="$RUNNER_TEMP/v2-ledger-emit"
           # Serve the ledger CHUNKED, not as one file (issue #475). A HEAD of a
           # large object on Pages negotiates a compressed variant that is a
