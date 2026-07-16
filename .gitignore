@@ -24,6 +24,10 @@ landing/
 # Deploy build staging (cicd.yaml database cache) - never committed
 .dbstage/
 
+# Builder-facing ledger projection output (build-builder-projection.ts) -
+# a build artefact re-derived from the ledger on demand, never committed
+_projection/
+
 # Local holdings byte store (issue #618/#619): copies fetched but not yet
 # cleared for redistribution. The bytes are NEVER committed; their existence is
 # recorded publicly in archive/local-holdings/index.json instead (hash,
