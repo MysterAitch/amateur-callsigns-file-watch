@@ -26,55 +26,69 @@
 //     responses here - the honest cost is holding the file in memory once read.
 
 // Rewritten to the commit SHA at deploy time by cicd.yaml (the literal is
-// matched exactly there); 'dev' is the local, unstamped value.
+// matched exactly there); 'dev' is the local, unstamped value. It makes THIS
+// FILE change bytes each deploy (forcing the browser to re-install the worker,
+// so activate can prune superseded caches) and keys the offline-database `?v=`
+// match; the STATIC SHELL cache is keyed by SHELL_VERSION below, not by this.
 const DEPLOY_VERSION = 'dev';
 
-const SHELL_CACHE = `callsign-shell-${DEPLOY_VERSION}`;
-// The offline database cache is NOT named by version: it is pruned per-entry
-// on activate (any entry whose `?v=` no longer matches this deploy is dropped),
-// so a superseded download is discarded but the cache object itself is stable.
-const OFFLINE_DB_CACHE = 'callsign-offline-db';
-
-// The static shell, relative to the worker's scope (the site root). './'
-// captures the directory (root navigation); the rest are the hand-authored
-// pages, their scripts, the shared stylesheet and the vendored library.
+// precache:start (SHELL_VERSION + SHELL_ASSETS stamped at deploy by src/ci/build-sw-precache.ts)
+// SHELL_VERSION is a content hash over the precached set (its asset paths and
+// their bytes), and SHELL_ASSETS is that set - the static shell relative to the
+// worker's scope: './' captures the root navigation, the rest are the shipped
+// pages, scripts, styles, the web manifest and the vendored sql.js-httpvfs
+// library. Both are rewritten at deploy by build-sw-precache.ts from what is
+// actually shipped, so a newly-added site module is precached automatically and
+// no lane hand-edits this list (issue #614). The committed values are a valid
+// fallback for local/no-deploy viewing (`serve:site` against an un-stamped
+// tree): 'dev' names a stable local shell cache and the list is complete as
+// committed. A deploy re-derives both, busting the shell cache whenever the
+// precached set or any precached file's content changes.
+const SHELL_VERSION = 'dev';
 const SHELL_ASSETS = [
   './',
-  'index.html',
-  'statistics.html',
-  'explore.html',
-  'compare.html',
   'about.html',
-  'glossary.html',
-  'ledger.html',
-  'callsign.html',
-  'playground.html',
-  'data-status.html',
   'callsign-structure.html',
+  'callsign.html',
+  'compare.html',
+  'data-status.html',
+  'explore.html',
+  'glossary.html',
+  'index.html',
   'invisible-characters.html',
-  'debug.js',
+  'ledger.html',
+  'playground.html',
+  'statistics.html',
   'app.js',
-  'callsign-pill.js',
-  'datetime.js',
   'browser-query.js',
+  'callsign-pill.js',
+  'callsign.js',
+  'compare.js',
+  'datetime.js',
+  'db-loading.js',
+  'debug.js',
   'entry-browser.js',
   'explore.js',
-  'compare.js',
-  'ledger.js',
-  'ledger-query.js',
-  'callsign.js',
-  'playground.js',
-  'db-loading.js',
   'history-sync.js',
+  'ledger-query.js',
+  'ledger.js',
+  'playground.js',
   'prefix-country.js',
-  'style.css',
   'ledger.css',
+  'style.css',
   'tokens.css',
   'manifest.webmanifest',
   'vendor/index.js',
   'vendor/sqlite.worker.js',
   'vendor/sql-wasm.wasm',
 ];
+// precache:end
+
+const SHELL_CACHE = `callsign-shell-${SHELL_VERSION}`;
+// The offline database cache is NOT named by version: it is pruned per-entry
+// on activate (any entry whose `?v=` no longer matches this deploy is dropped),
+// so a superseded download is discarded but the cache object itself is stable.
+const OFFLINE_DB_CACHE = 'callsign-offline-db';
 
 // `self` is typed generically (WorkerGlobalScope) by the webworker lib; a
 // service worker's actual global scope is the more specific
