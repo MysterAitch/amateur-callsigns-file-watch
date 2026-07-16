@@ -12,8 +12,20 @@
 // callsign-pill.js/datetime.js use - so this module makes no assumption about
 // how a node is built; nesting (the glossary-linked case) is done with the
 // element's own native `.append()`, which every factory's output supports.
+//
+// Also here (issue #658): the callsign-PART field wrappers, mirroring
+// src/ci/render/prefix-series.ts and src/ci/render/suffix.ts (issue #644) so a
+// prefix series or forbidden suffix carries the SAME shared visual identity in
+// the browser it already carries on the generated pages - the interactive gap
+// #644 itself flagged and left for this follow-on. Both import the family's
+// base class (CALLSIGN_CLASS) and, for the suffix wrapper's odd-character
+// transparency, the shared marking loop (appendMarkedChars) from
+// callsign-pill.js - the browser counterpart of callsign.ts, exactly as
+// suffix.ts imports callsignDisplay from callsign.ts rather than copying it.
 
 /** @typedef {(tag: string, attrs?: Record<string, string>) => HTMLElement} ElementFactory */
+
+import { CALLSIGN_CLASS, appendMarkedChars } from './callsign-pill.js';
 
 // The single source of truth for each wrapper's stable CSS class, matching
 // LICENCE_CLASS/STATUS_CLASS in src/ci/render/licence.ts and status.ts so
@@ -170,4 +182,157 @@ export function statusField(el, value, options = {}) {
     return wrap;
   }
   return el('span', { class: `${STATUS_CLASS}${extra}`, text: value });
+}
+
+// ---------------------------------------------------------------------------
+// Prefix series (issue #658, mirroring src/ci/render/prefix-series.ts, #644).
+//
+// A series name is stored bare everywhere (20, M7); `prefixSeriesDisplay`
+// inserts the `#` RSL-slot marker purely for display, after the leading
+// character - the uniform convention already established by app.js's own
+// pre-#658 `displaySeries` (retired in favour of this shared one) and the
+// generated pages alike. Deliberately no odd-character marking, for the same
+// reason prefix-series.ts gives: a series is never raw free text lifted
+// verbatim from a publication - it is hand-curated reference data or set only
+// once a callsign is recognised as a standard UK form, so its character set is
+// already controlled by the time this wrapper ever sees it.
+
+// The stable class every prefix-series value carries alongside CALLSIGN_CLASS.
+export const PREFIX_SERIES_CLASS = 'cs-pfx';
+
+/** @typedef {'displayed' | 'bare'} PrefixSeriesForm */
+
+/**
+ * @typedef {object} PrefixSeriesFieldOptions
+ * @property {PrefixSeriesForm} [form] Which form to render. Omitting it
+ *   FOLLOWS THE DEFAULT ('displayed'), which may move over time. DRIFT-GUARD
+ *   (#658, following the #553/#644 convention): a usage that genuinely
+ *   REQUIRES the bare form must state it here explicitly.
+ * @property {{ depthToRoot: number }} [link] The series entity-page crosslink,
+ *   opt-in where the context wants one: renders as a link to
+ *   `series/<slug>.html` resolved `depthToRoot` levels up. Omitted, the series
+ *   is plain content to read, not a navigation target. A blank value or one
+ *   whose slug resolves empty never manufactures a link even when this is given.
+ * @property {string} [blankLabel] What a blank prefix series reads as (default
+ *   '(blank)') - a blank value is itself information (an unparseable callsign
+ *   has no series), so it is never rendered as an empty element.
+ * @property {string} [extraClass] Extra class(es) appended after the stable classes.
+ */
+
+// The visible text a `prefixSeriesField` would show, without the surrounding
+// element. Mirrors prefixSeriesDisplay in src/ci/render/prefix-series.ts.
+/**
+ * @param {string} value
+ * @param {PrefixSeriesForm} [form]
+ * @returns {string}
+ */
+export function prefixSeriesDisplay(value, form = 'displayed') {
+  if (form === 'bare' || value === '' || value.includes('#') || value.length < 2) return value;
+  return `${value[0]}#${value.slice(1)}`;
+}
+
+// URL-safe slug for a prefix series' entity page (series/<slug>.html). Names
+// are stored bare, so this is normally the identity; the `#` strip stays as a
+// guard for any display-form input reaching here directly. Mirrors
+// prefixSeriesSlug in src/ci/render/prefix-series.ts.
+/**
+ * @param {string} series
+ * @returns {string}
+ */
+export function prefixSeriesSlug(series) {
+  return series.replace(/#/g, '');
+}
+
+// The shared prefix-series field wrapper (#658/#644). Emits one of:
+//   <em class="cs cs-pfx-blank">(blank)</em>          - a blank value, humanised
+//   <span class="cs cs-pfx">…value…</span>            - plain content (default)
+//   <a class="cs cs-pfx" href="…series/…">…value…</a> - the opt-in series-page link
+// See PrefixSeriesFieldOptions for the drift-guard rule.
+/**
+ * @param {ElementFactory} el
+ * @param {string} value
+ * @param {PrefixSeriesFieldOptions} [options]
+ * @returns {HTMLElement}
+ */
+export function prefixSeriesField(el, value, options = {}) {
+  const extra = options.extraClass === undefined ? '' : ` ${options.extraClass}`;
+  if (value === '') {
+    return el('em', { class: `${CALLSIGN_CLASS} ${PREFIX_SERIES_CLASS}-blank${extra}`, text: options.blankLabel ?? '(blank)' });
+  }
+  const form = options.form ?? 'displayed';
+  const shown = prefixSeriesDisplay(value, form);
+  if (options.link !== undefined) {
+    const slug = prefixSeriesSlug(value);
+    if (slug !== '') {
+      const href = `${'../'.repeat(options.link.depthToRoot)}series/${encodeURIComponent(slug)}.html`;
+      return el('a', { class: `${CALLSIGN_CLASS} ${PREFIX_SERIES_CLASS}${extra}`, href, text: shown });
+    }
+  }
+  return el('span', { class: `${CALLSIGN_CLASS} ${PREFIX_SERIES_CLASS}${extra}`, text: shown });
+}
+
+// ---------------------------------------------------------------------------
+// Forbidden suffix (issue #658, mirroring src/ci/render/suffix.ts, #644).
+//
+// Unlike the prefix series above, a suffix here IS raw free text lifted
+// verbatim from a published FOI disclosure or parsed straight off a register
+// row - the same risk profile as a raw callsign, so odd-character
+// transparency matters here too. Marking is delegated to appendMarkedChars
+// (callsign-pill.js) - the SAME loop, not a copy, so a marked character reads
+// identically wherever it appears.
+//
+// The per-suffix detail page lives at forbidden/suffix/<SUFFIX>/index.html,
+// built at the site root - a DIFFERENT tree to the one the generated pages'
+// own SuffixLinkOrigin resolves within (forbidden/index.html,
+// forbidden/<entry>/index.html, forbidden/suffix/<OTHER>/index.html). The
+// hand-authored surfaces this wrapper serves (index.html, callsign.html) sit
+// at their OWN, generally shallower depths outside that tree entirely, so this
+// wrapper resolves its link the same way every other browser-family crosslink
+// does - `depthToRoot` from the site root - rather than reusing the generated
+// wrapper's tree-relative origin enum. A deliberate divergence, not an
+// oversight: the two geometries solve the same problem for two different trees.
+
+// The stable class every suffix value carries alongside CALLSIGN_CLASS.
+export const SUFFIX_CLASS = 'cs-sfx';
+
+/** @typedef {'marked' | 'verbatim'} SuffixOddCharacters */
+
+/**
+ * @typedef {object} SuffixFieldOptions
+ * @property {SuffixOddCharacters} [oddCharacters] How odd characters are made
+ *   visible. Omitting it FOLLOWS THE DEFAULT ('marked'), which may move over
+ *   time. DRIFT-GUARD (#658, following the #553/#644 convention): a usage that
+ *   genuinely REQUIRES no marking (a value known clean by construction) must
+ *   state it here explicitly.
+ * @property {{ depthToRoot: number }} [link] The per-suffix detail-page
+ *   crosslink, opt-in where the context wants one AND knows the page exists
+ *   (every ever-forbidden union suffix has one; nothing else does). Omitted,
+ *   the suffix is plain content to read, not a navigation target.
+ * @property {string} [blankLabel] What a blank suffix reads as (default '(blank)').
+ * @property {string} [extraClass] Extra class(es) appended after the stable classes.
+ */
+
+// The shared suffix field wrapper (#658/#644). Emits one of:
+//   <em class="cs cs-sfx-blank">(blank)</em>            - a blank value, humanised
+//   <code class="cs cs-sfx">…marked characters…</code>  - plain content (default)
+//   <a class="cs cs-sfx" href="…forbidden/suffix/…">…marked…</a> - the opt-in per-suffix-page link
+// See SuffixFieldOptions for the drift-guard rule.
+/**
+ * @param {ElementFactory} el
+ * @param {string} value
+ * @param {SuffixFieldOptions} [options]
+ * @returns {HTMLElement}
+ */
+export function suffixField(el, value, options = {}) {
+  const extra = options.extraClass === undefined ? '' : ` ${options.extraClass}`;
+  if (value === '') {
+    return el('em', { class: `${CALLSIGN_CLASS} ${SUFFIX_CLASS}-blank${extra}`, text: options.blankLabel ?? '(blank)' });
+  }
+  const oddCharacters = options.oddCharacters ?? 'marked';
+  const cls = `${CALLSIGN_CLASS} ${SUFFIX_CLASS}${extra}`;
+  const host = options.link === undefined
+    ? el('code', { class: cls })
+    : el('a', { class: cls, href: `${'../'.repeat(options.link.depthToRoot)}forbidden/suffix/${encodeURIComponent(value)}/index.html` });
+  if (oddCharacters === 'verbatim') { host.append(value); return host; }
+  return appendMarkedChars(el, host, value);
 }

@@ -19,7 +19,7 @@ import { cleanCallsign, reportIssueUrl, FLAG_NOTES, NOTABLE_PARSE_STATUS } from 
 import { canonicalCallsign } from './browser-query.js';
 import { wireLedgerSearch } from './ledger.js';
 import { anatomyFigureHtml } from './callsign-pill.js';
-import { licenceField, statusField, LICENCE_CLASS } from './field-wrappers.js';
+import { licenceField, statusField, LICENCE_CLASS, prefixSeriesField, suffixField } from './field-wrappers.js';
 
 // ---------------------------------------------------------------------------
 // Shapes (mirroring src/ci/build-callsign-shards.ts).
@@ -718,16 +718,28 @@ function renderAnatomy(host, res, manifest) {
     sec.appendChild(note);
   }
   if (a.pre !== undefined) {
-    const seriesLink = el('a', null, a.pre);
-    seriesLink.setAttribute('href', `series/${encodeURIComponent(a.pre)}.html`);
-    sec.appendChild(drow('prefix series', [seriesLink, ' — the letters-and-digit block that implies the licence level']));
+    // The shared prefix-series field wrapper (#644/#658): fixes a genuine
+    // divergence this row carried before - the bare stored value (M7) was
+    // shown as-is, with no `#` RSL-slot marker, unlike every other surface's
+    // "M#7" display convention - and adds the family's `cs cs-pfx` classes.
+    const seriesField = prefixSeriesField(elAttrs, a.pre, { link: { depthToRoot: 0 } });
+    sec.appendChild(drow('prefix series', [seriesField, ' — the letters-and-digit block that implies the licence level']));
   }
   if (a.rsl !== undefined) {
     const rslLink = el('a', null, a.rsl);
     rslLink.setAttribute('href', 'callsign-structure.html');
     sec.appendChild(drow('RSL', [rslLink, ' — Regional Secondary Locator, shown in this register form (usually the register stores the core without it)']));
   }
-  if (a.sfx !== undefined) sec.appendChild(drow('suffix', [b(a.sfx), ' — the callsign’s personal tail']));
+  if (a.sfx !== undefined) {
+    // The shared suffix field wrapper (#644/#658): odd-character transparency
+    // plus the family's `cs cs-sfx` classes, in place of a plain bold span. The
+    // per-suffix detail page link is opt-in ONLY when this callsign's own
+    // suffix is actually on the forbidden list (record.f), matching the same
+    // guard renderLinks below already applies - a suffix with no such page
+    // never gets a fabricated link.
+    const suffixOptions = (record.f ?? []).includes('forbidden-suffix') ? { link: { depthToRoot: 0 } } : {};
+    sec.appendChild(drow('suffix', [suffixField(elAttrs, a.sfx, suffixOptions), ' — the callsign’s personal tail']));
+  }
   if (a.hc !== undefined) sec.appendChild(drow('home callsign', [b(a.hc), ' — this is a visitor/reciprocal entry: M/ then the visitor’s own callsign']));
   if (a.ph !== undefined) {
     sec.appendChild(drow('placeholder form', [el('span', 'fid-code', a.ph), ' — the # marks the RSL slot; every regional rendering collapses to this one key']));

@@ -17,6 +17,12 @@
 // module the front-ends import directly, served verbatim - and, for the
 // anatomy figure, imported by the node-side build too, so there is exactly
 // one source of the markup.
+//
+// This module is also the browser-side counterpart of src/ci/render/callsign.ts
+// (issue #658): CALLSIGN_CLASS and appendMarkedChars are the base class and
+// the character-marking loop the callsign-PART wrappers in field-wrappers.js
+// (a prefix series, a forbidden suffix) share, so a part reads with the same
+// visual identity as the whole callsign it is a fragment of - here too.
 
 import { callsignCharMarker } from './browser-query.js';
 
@@ -34,10 +40,45 @@ import { callsignCharMarker } from './browser-query.js';
 // a node is built: given a tag and optional attributes it returns the element.
 /** @typedef {(tag: string, attrs?: Record<string, string>) => HTMLElement} ElementFactory */
 
+// The stable class every callsign-FAMILY value carries - the whole callsign
+// here, and (issue #658) a prefix series or forbidden suffix in
+// field-wrappers.js - mirroring CALLSIGN_CLASS in src/ci/render/callsign.ts so
+// a part reads with the SAME visual identity as the callsign it is a fragment
+// of, on the hand-authored surfaces exactly as it already does on the
+// generated pages. Confirmed gap (issue #652's own residual note on #644): the
+// pill below did not carry this class before #658, so a browser-rendered
+// callsign and a browser-rendered series/suffix could never be styled as one
+// family via a shared selector - only this one export fixes that for all three.
+export const CALLSIGN_CLASS = 'cs';
+
 // The single source of truth for the pill's CSS class, so the lookup's pill
 // LINKS and the entry browser's raw-form pill CHIP always target the same
 // selector the stylesheet (site/style.css) styles, and can never drift apart.
 export const CALLSIGN_PILL_CLASS = 'callsign-pill';
+
+// Append `value`'s characters into `host`, making any whitespace, control,
+// format or replacement character visible as a highlighted {marker} span
+// (callsignCharMarker, browser-query.js) - the DOM-node equivalent of
+// src/ci/render/callsign.ts's callsignDisplay('marked'), restated here (not
+// duplicated) as the ONE character-marking loop every browser wrapper that
+// needs odd-character transparency draws on: this module's own raw pill chip
+// below, and (issue #658) the suffix field wrapper in field-wrappers.js, whose
+// values carry the same "raw text lifted verbatim from a publication" risk
+// profile a whole callsign does. `el` is the caller's element factory.
+/**
+ * @param {ElementFactory} el
+ * @param {HTMLElement} host
+ * @param {string} value
+ * @returns {HTMLElement}
+ */
+export function appendMarkedChars(el, host, value) {
+  for (const ch of value) {
+    const marker = callsignCharMarker(ch);
+    if (marker !== null) host.append(el('span', { class: 'marker', text: marker }));
+    else host.append(ch);
+  }
+  return host;
+}
 
 // The supplementary title (hover / assistive-technology description) a pill
 // carries when parsed component data is to hand, or null when none is -
@@ -75,7 +116,7 @@ export function callsignPillTitle(callsign, components = {}) {
  */
 export function callsignPillLink(el, callsign, components = {}) {
   /** @type {Record<string, string>} */
-  const attrs = { class: CALLSIGN_PILL_CLASS, href: `callsign.html?c=${encodeURIComponent(callsign)}`, text: callsign };
+  const attrs = { class: `${CALLSIGN_CLASS} ${CALLSIGN_PILL_CLASS}`, href: `callsign.html?c=${encodeURIComponent(callsign)}`, text: callsign };
   const title = callsignPillTitle(callsign, components);
   if (title !== null) attrs.title = title;
   return el('a', attrs);
@@ -95,13 +136,8 @@ export function callsignPillLink(el, callsign, components = {}) {
  * @param {string} raw
  */
 export function callsignPillRaw(el, raw) {
-  const node = el('code', { class: CALLSIGN_PILL_CLASS });
-  for (const ch of raw) {
-    const marker = callsignCharMarker(ch);
-    if (marker !== null) node.append(el('span', { class: 'marker', text: marker }));
-    else node.append(document.createTextNode(ch));
-  }
-  return node;
+  const node = el('code', { class: `${CALLSIGN_CLASS} ${CALLSIGN_PILL_CLASS}` });
+  return appendMarkedChars(el, node, raw);
 }
 
 // ---------------------------------------------------------------------------

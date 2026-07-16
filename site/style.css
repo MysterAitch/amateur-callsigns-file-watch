@@ -57,6 +57,13 @@ input[type="checkbox"] { width: 1.5rem; height: 1.5rem; vertical-align: middle; 
 .callsign-pill { display: inline-block; font-family: ui-monospace, monospace; font-size: 0.86rem; line-height: 1.4; padding: 0.02rem 0.35rem; border: 1px solid var(--line); border-radius: 6px; background: var(--slot); color: var(--accent); text-decoration: none; white-space: nowrap; }
 .callsign-pill:hover { border-color: var(--accent); }
 .callsign-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* The callsign-PART field wrappers (issue #658, mirroring CALLSIGN_CSS in
+   src/ci/render/page.ts): a prefix series or forbidden suffix shares the .cs
+   base class above, plus this modifier's own monospace font-family - a plain
+   <span>/<a>/<code> does not inherit it the way the pill's <code> does by
+   default. The blank forms (cs-pfx-blank/cs-sfx-blank) are plain <em> and need
+   no styling of their own, matching the cs-blank precedent. */
+.cs-pfx, .cs-sfx { font-family: ui-monospace, monospace; }
 
 /* The shared date/time wrapper (issues #553, #551): every timestamp on the site
    - server-rendered or JS-rendered - wears this one class, so they read as one
