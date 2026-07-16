@@ -20,6 +20,7 @@ export * from './render/html.ts';
 export * from './render/glossary.ts';
 export * from './render/anatomy.ts';
 export * from './render/tables.ts';
+export * from './render/callsign.ts';
 export * from './render/format.ts';
 export * from './render/page.ts';
 export * from './render/download.ts';

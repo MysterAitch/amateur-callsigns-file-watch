@@ -205,8 +205,8 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     // callsigns render through the shared pill (issue #310), not an ad-hoc
     // anchor, so the callout reads like the section's tables.
     expect(page).toContain('Forbidden, then de-listed, then issued.');
-    expect(page).toContain('<a class="callsign-pill" href="../../../index.html?c=M3QNF" title="M3QNF — prefix series M3 · suffix QNF · Foundation">M3QNF</a> (original start 20 November 2025)');
-    expect(page).toContain('<a class="callsign-pill" href="../../../index.html?c=M7QNF" title="M7QNF — prefix series M7 · suffix QNF · Foundation">M7QNF</a> (original start 7 February 2025)');
+    expect(page).toContain('<a class="cs callsign-pill" href="../../../index.html?c=M3QNF" title="M3QNF — prefix series M3 · suffix QNF · Foundation">M3QNF</a> (original start 20 November 2025)');
+    expect(page).toContain('<a class="cs callsign-pill" href="../../../index.html?c=M7QNF" title="M7QNF — prefix series M7 · suffix QNF · Foundation">M7QNF</a> (original start 7 February 2025)');
     expect(page).toContain('A reconciliation candidate');
     // The flag rationale is accurate post phase-4 refit: the row-level
     // forbidden-suffix flag keys off the ever-forbidden union (NOT the old 2019
@@ -231,7 +231,7 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     // not flattened away.
     expect(page).toContain('Allocated <small class="gap">(was Forbidden)</small>');
     // Every callsign deep-links into the register lookup, through the shared pill.
-    expect(page).toContain('<a class="callsign-pill" href="../../../index.html?c=M3QNF"');
+    expect(page).toContain('<a class="cs callsign-pill" href="../../../index.html?c=M3QNF"');
   });
 
   it('SuffixPage_QNF_CrossLinksToDisclosuresAndFoiObservations', () => {
@@ -260,10 +260,10 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     // bare callsign, with a supplementary title built from the parsed
     // components, deep-linking into the register lookup (?c=).
     const page = read('forbidden', 'suffix', 'QNF', 'index.html');
-    expect(page).toContain('<a class="callsign-pill" href="../../../index.html?c=M3QNF" title="M3QNF — prefix series M3 · suffix QNF · Foundation">M3QNF</a>');
+    expect(page).toContain('<a class="cs callsign-pill" href="../../../index.html?c=M3QNF" title="M3QNF — prefix series M3 · suffix QNF · Foundation">M3QNF</a>');
     // The accessible name is the callsign itself (the link text), not the
     // title — the pill carries no aria-label that would override it.
-    expect(page).not.toMatch(/class="callsign-pill"[^>]*aria-label=/);
+    expect(page).not.toMatch(/class="cs callsign-pill"[^>]*aria-label=/);
     // The pill styling is present in the (entry) stylesheet the page uses.
     expect(page).toContain('.callsign-pill{');
   });
@@ -272,7 +272,7 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     // With no component data, the pill is just the callsign linking to the
     // lookup at the given relative depth — no supplementary title is fabricated.
     const pill = callsignPill('M7TEE', 3);
-    expect(pill).toBe('<a class="callsign-pill" href="../../../index.html?c=M7TEE">M7TEE</a>');
+    expect(pill).toBe('<a class="cs callsign-pill" href="../../../index.html?c=M7TEE">M7TEE</a>');
   });
 
   it('CallsignPill_WithParsedComponents_AddsSupplementaryTitleButKeepsCallsignAsAccessibleName', () => {
@@ -280,7 +280,7 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     // enrich the supplementary title, and absent fields are omitted rather than
     // rendered blank.
     const pill = callsignPill('M7TEE', 1, { prefixSeries: 'M7', suffix: 'TEE', licenceClass: 'Foundation' });
-    expect(pill).toBe('<a class="callsign-pill" href="../index.html?c=M7TEE" title="M7TEE — prefix series M7 · suffix TEE · Foundation">M7TEE</a>');
+    expect(pill).toBe('<a class="cs callsign-pill" href="../index.html?c=M7TEE" title="M7TEE — prefix series M7 · suffix TEE · Foundation">M7TEE</a>');
     expect(pill).not.toContain('aria-label');
   });
 

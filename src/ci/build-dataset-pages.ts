@@ -54,6 +54,7 @@ import {
   htmlPage,
   entryPage,
   callsignPill,
+  callsignField,
   datasetLabel,
   exploreDeepLink,
   glossaryTerm,
@@ -1018,7 +1019,11 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   const parseStatuses = Object.entries(stats.parseStatuses).sort().map(([s, n]) => `${n.toLocaleString('en-GB')} ${escapeHtml(s)}`).join(' · ');
   const quality = Object.entries(stats.callsignQuality).filter(([, q]) => q.count > 0).sort();
   const qualityHtml = quality.length === 0 ? '' : `<h3 style="font-size:.9rem;margin-top:.8rem">Value-level checks</h3><ul>${quality.map(([check, q]) => {
-    const shown = q.examples.slice(0, 5).map(e => (e === '' ? '<em>(empty value)</em>' : `<code>${escapeHtml(e)}</code>`));
+    // Stats examples carry their {U+XXXX} markers from derivation time, so the
+    // shared callsign field wrapper (#553) is pinned to 'pre-marked' (highlight,
+    // never re-mark); this surface's established blank wording is likewise
+    // pinned rather than left to the wrapper's movable default.
+    const shown = q.examples.slice(0, 5).map(e => callsignField(e, { oddCharacters: 'pre-marked', blankLabel: '(empty value)' }));
     return `<li>${escapeHtml(check)}: ${q.count.toLocaleString('en-GB')}${shown.length > 0 ? ` — e.g. ${shown.join(', ')}` : ''}</li>`;
   }).join('')}</ul>`;
   // The raw publication may be a CSV (schema panel over its own bytes) or a
