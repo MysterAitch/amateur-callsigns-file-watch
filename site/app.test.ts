@@ -48,7 +48,7 @@ describe('lookup loading affordance', { tags: ['ui'] }, () => {
     const runLookup = makeRunLookup({
       button, statusEl, alertEl, resultEl,
       open: () => opened,
-      lookup: async () => undefined,
+      lookup: async () => { await Promise.resolve(); return undefined; },
     });
 
     const pending = runLookup({});
@@ -80,6 +80,7 @@ describe('lookup loading affordance', { tags: ['ui'] }, () => {
       // lookup runs only after markRunning(), so the button is in its running
       // state by the time the query renders.
       lookup: async () => {
+        await Promise.resolve();
         runningState = button.dataset.state ?? '';
         runningText = button.textContent ?? '';
       },
@@ -94,7 +95,7 @@ describe('lookup loading affordance', { tags: ['ui'] }, () => {
     const runLookup = makeRunLookup({
       button, statusEl, alertEl, resultEl,
       open: () => Promise.reject(new Error('offline')),
-      lookup: async () => undefined,
+      lookup: async () => { await Promise.resolve(); return undefined; },
     });
     // makeRunLookup swallows the rethrow (fail-loud is delegated to the alert), so
     // the runner resolves rather than rejecting.
@@ -117,7 +118,7 @@ describe('lookup loading affordance', { tags: ['ui'] }, () => {
       open: () => Promise.resolve(),
       // The database opened, so a thrown query error is reported as such, not as a
       // connectivity failure.
-      lookup: async () => { throw new Error('no such table: normalised'); },
+      lookup: async () => { await Promise.resolve(); throw new Error('no such table: normalised'); },
     });
     await runLookup({});
     expect(alertEl.hidden).toBe(false);

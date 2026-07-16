@@ -38,7 +38,11 @@ const OFFLINE_MARKER_KEY = 'offline-db-state';
  */
 /** @returns {OfflineMarkers} */
 function readOfflineMarkers() {
-  try { return JSON.parse(localStorage.getItem(OFFLINE_MARKER_KEY) ?? '{}') ?? {}; }
+  try {
+    /** @type {unknown} */
+    const parsed = JSON.parse(localStorage.getItem(OFFLINE_MARKER_KEY) ?? '{}');
+    return /** @type {OfflineMarkers} */ (parsed ?? {});
+  }
   catch { return {}; }
 }
 /** @param {OfflineMarkers} markers */
@@ -207,7 +211,7 @@ const STATUS_ANCHORS = {
   allocated: 'allocated', reserved: 'reserved', available: 'available',
   live: 'status-live', forbidden: 'status-forbidden', quarantine: 'status-quarantine',
 };
-/** @param {unknown} status */
+/** @param {string | null | undefined} status */
 function statusCell(status) {
   if (status === '' || status == null) return status;
   const anchor = STATUS_ANCHORS[String(status).toLowerCase()] ?? 'status-values';
@@ -271,7 +275,16 @@ async function queryCombined(sql, params = []) {
 // absence is only meaningful relative to what a publication intended to
 // cover: Ofcom has published declared-partial ~1k-row truncations of a
 // ~150k register. Cached after the first query.
-/** @type {Promise<any[]> | null} */
+// One row of history_datasets, exactly as this SELECT reads it back (see
+// compare.js's HistoryDatasetRow for the same table read more widely).
+/**
+ * @typedef {object} HistoryDatasetRow
+ * @property {string} dataset
+ * @property {number} record_count
+ * @property {string} intended_complete
+ * @property {string} coverage_affecting
+ */
+/** @type {Promise<HistoryDatasetRow[]> | null} */
 let historyDatasetsPromise = null;
 function historyDatasets() {
   historyDatasetsPromise ??= queryCombined(
@@ -287,11 +300,20 @@ function historyDatasets() {
 // licence level under a different callsign, or death; the register does
 // not say which. Soft-fails to null (combined-database hiccup never breaks
 // the lookup).
+// One row of register_history, exactly as this SELECT reads it back.
+/**
+ * @typedef {object} RegisterHistoryRow
+ * @property {string} dataset
+ * @property {string} callsign
+ * @property {string} status
+ * @property {string} product
+ */
 /** @param {(string | null | undefined)[]} callsigns */
 async function registerHistoryCard(callsigns) {
   try {
     const distinct = [...new Set(callsigns.filter(Boolean))];
     if (distinct.length === 0) return null;
+    /** @type {[HistoryDatasetRow[], RegisterHistoryRow[]]} */
     const [datasets, rows] = await Promise.all([
       historyDatasets(),
       queryCombined(
@@ -364,11 +386,25 @@ async function registerHistoryCard(callsigns) {
 // FOI lane's normalised datasets (register snapshots, available lists,
 // issuance events), oldest vintage first, each linked to its entry page.
 // Soft-fails to null so a combined-database hiccup never breaks the lookup.
+// One row of observations, exactly as this SELECT reads it back. NULL means
+// the source did not assert the column at all (distinct from an asserted blank).
+/**
+ * @typedef {object} ObservationRow
+ * @property {string} callsign
+ * @property {string} entry
+ * @property {string} dataset_classes
+ * @property {string | null} vintage
+ * @property {string | null} status
+ * @property {string | null} licence_class
+ * @property {string | null} event
+ * @property {string | null} event_date
+ */
 /** @param {(string | null | undefined)[]} callsigns */
 async function foiHistoryCard(callsigns) {
   try {
     const distinct = [...new Set(callsigns.filter(Boolean))];
     if (distinct.length === 0) return null;
+    /** @type {ObservationRow[]} */
     const rows = await queryCombined(
       `SELECT callsign, entry, dataset_classes, vintage, status, licence_class, event, event_date
        FROM observations WHERE callsign IN (${distinct.map(() => '?').join(',')})
@@ -409,6 +445,7 @@ async function foiHistoryCard(callsigns) {
 
 async function renderBuildInfo() {
   try {
+    /** @type {{ key: string, value: string }[]} */
     const info = await query('SELECT key, value FROM build_info');
     /** @param {string} k */
     const get = k => info.find(r => r.key === k)?.value ?? '?';
@@ -441,6 +478,28 @@ const ROW_SELECT =
           c.placeholder_form, c.home_callsign, c.implied_class, c.flags
    FROM components c JOIN normalised n ON n.callsign = c.callsign`;
 
+// One row of ROW_SELECT, exactly as the columns it and its callers read back
+// (n.* carries other normalised columns too, but only these are ever touched).
+/**
+ * @typedef {object} LookupRow
+ * @property {string} callsign
+ * @property {string} product
+ * @property {string} status
+ * @property {string} type
+ * @property {string} created_date
+ * @property {string} last_modified_date
+ * @property {string} licence_version_last_modified_date
+ * @property {string} licence_version_original_start_date
+ * @property {string} parse_status
+ * @property {string} prefix_series
+ * @property {string} rsl
+ * @property {string} cs_suffix
+ * @property {string} placeholder_form
+ * @property {string} home_callsign
+ * @property {string} implied_class
+ * @property {string} flags
+ */
+
 // Callsign RSL-normalisation (placeholderOf) is shared with the per-dataset
 // browser through the DOM-free query core; see site/browser-query.js. The
 // lookup passes it an upper-cased value and matches c.placeholder_form.
@@ -460,6 +519,7 @@ async function visitorHomeCard(homeCallsign) {
   const home = stripVisitorPrefix(homeCallsign);
   const first = (home.match(/[A-Za-z0-9]/)?.[0] ?? '').toUpperCase();
   // All series sharing the first character (at most ~50 rows).
+  /** @type {{ series: string, allocated_to: string }[]} */
   const rows = first
     ? await query('SELECT series, allocated_to FROM itu_series WHERE series LIKE ?', [`${first}%`])
     : [];
@@ -507,7 +567,9 @@ async function visitorHomeCard(homeCallsign) {
  * @param {HTMLElement} result
  */
 async function suffixMatrix(suffix, result) {
+  /** @type {{ prefix: string, station_level: string, issuing_status: string }[]} */
   const seriesList = await query('SELECT prefix, station_level, issuing_status FROM ref_prefix_formats');
+  /** @type {{ prefix_series: string, placeholder_form: string, flags: string, callsign: string, status: string, product: string, modified: string | null }[]} */
   const matches = await query(
     `SELECT c.prefix_series, c.placeholder_form, c.flags, n.callsign, n.status, n.product,
             COALESCE(NULLIF(n.last_modified_date, ''), n.licence_version_last_modified_date) AS modified
@@ -517,7 +579,9 @@ async function suffixMatrix(suffix, result) {
 
   /** @type {HTMLElement[]} */
   const sections = [];
-  const [forbidden] = await query('SELECT 1 AS hit FROM ref_forbidden_suffixes WHERE suffix = ?', [suffix]);
+  /** @type {{ hit: number }[]} */
+  const forbiddenRows = await query('SELECT 1 AS hit FROM ref_forbidden_suffixes WHERE suffix = ?', [suffix]);
+  const [forbidden] = forbiddenRows;
   if (forbidden) {
     sections.push(card('Withheld suffix', [el('p', { text:
       `"${suffix}" appears on Ofcom's August 2019 FOI withheld-suffixes list - unlikely to be newly issued, though existing allocations stand.` })]));
@@ -534,6 +598,7 @@ async function suffixMatrix(suffix, result) {
   /** @type {Map<string, { datasets: string[], statuses: Set<string> }>} */
   const historyByCallsign = new Map();
   try {
+    /** @type {{ callsign: string, dataset: string, status: string }[]} */
     const historyRows = await queryCombined(
       `SELECT callsign, dataset, status FROM register_history
        WHERE callsign IN (${candidates.map(() => '?').join(',')}) ORDER BY dataset`, candidates);
@@ -693,8 +758,11 @@ function describeCriteria(criteria) {
 async function filteredList(criteria, page, result) {
   const { conds, params } = buildConds(criteria);
   const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : '';
-  const [count] = await query(
+  /** @type {{ n: number }[]} */
+  const countRows = await query(
     `SELECT COUNT(*) AS n FROM components c JOIN normalised n ON n.callsign = c.callsign ${where}`, params);
+  const [count] = countRows;
+  /** @type {{ callsign: string, status: string, product: string, parse_status: string, flags: string }[]} */
   const rows = await query(
     `SELECT c.callsign, n.status, n.product, c.parse_status, c.flags
      FROM components c JOIN normalised n ON n.callsign = c.callsign
@@ -749,12 +817,15 @@ async function lookup(criteria) {
     return;
   }
 
-  let [row] = await query(`${ROW_SELECT} WHERE c.callsign = ? LIMIT 1`, [value]);
+  /** @type {LookupRow[]} */
+  const exact = await query(`${ROW_SELECT} WHERE c.callsign = ? LIMIT 1`, [value]);
+  let [row] = exact;
   let fallbackNote = null;
 
   if (!row) {
     const placeholder = placeholderOf(value);
     if (placeholder) {
+      /** @type {LookupRow[]} */
       const matches = await query(`${ROW_SELECT} WHERE c.placeholder_form = ? ORDER BY n.callsign LIMIT 5`, [placeholder]);
       if (matches.length > 0) {
         row = matches[0];
@@ -781,6 +852,7 @@ async function lookup(criteria) {
     let artefactNote = null;
     const cleanedInput = value.toUpperCase().replace(/[^A-Z0-9/]/g, '');
     if (cleanedInput !== '') {
+      /** @type {LookupRow[]} */
       const likely = await query(
         `${ROW_SELECT} WHERE c.cleaned = ? AND n.callsign != ? ORDER BY n.callsign LIMIT 5`,
         [cleanedInput, value]);
@@ -834,6 +906,7 @@ async function lookup(criteria) {
       ['licence version start', row.licence_version_original_start_date]].filter(([, v]) => v !== ''),
     99)]));
 
+  /** @type {(string | Node)[][]} */
   const componentRows = [['parse status', row.parse_status]];
   if (row.prefix_series) componentRows.push([glossLabel('prefix series', 'prefix-series'), seriesLink(row.prefix_series)]);
   if (row.rsl) componentRows.push([glossLabel('regional secondary locator', 'rsl'), row.rsl]);
@@ -852,6 +925,7 @@ async function lookup(criteria) {
   // substituting personal-scope RSL letters at the # position.
   if (row.parse_status === 'parsed' && row.placeholder_form) {
     const isTwoSeries = row.placeholder_form.startsWith('2');
+    /** @type {{ rsl: string, region: string }[]} */
     const rsls = await query(`SELECT rsl, region FROM ref_rsl WHERE scope = 'all' ORDER BY region`);
     const variants = rsls.map(r => [csLink(row.placeholder_form.replace('#', r.rsl)), r.region]);
     sections.push(card(`Regional renderings (${row.placeholder_form})`, [
@@ -863,7 +937,9 @@ async function lookup(criteria) {
   }
 
   if (row.prefix_series) {
-    const [series] = await query('SELECT * FROM ref_prefix_formats WHERE prefix = ?', [row.prefix_series]);
+    /** @type {{ prefix: string, station_level: string, issuing_status: string, rsl_required: string, notes: string }[]} */
+    const seriesRows = await query('SELECT * FROM ref_prefix_formats WHERE prefix = ?', [row.prefix_series]);
+    const [series] = seriesRows;
     if (series) {
       sections.push(card(`Prefix series ${displaySeries(series.prefix)}`, [renderTable(['fact', 'value'], [
         ['station level', series.station_level],
@@ -879,7 +955,9 @@ async function lookup(criteria) {
   }
 
   if (row.rsl) {
-    const [rsl] = await query('SELECT * FROM ref_rsl WHERE rsl = ?', [row.rsl]);
+    /** @type {{ rsl: string, region: string, scope: string, notes: string }[]} */
+    const rslRows = await query('SELECT * FROM ref_rsl WHERE rsl = ?', [row.rsl]);
+    const [rsl] = rslRows;
     sections.push(card(`RSL "${row.rsl}"`, [
       rsl
         ? renderTable(['fact', 'value'], [['region', rsl.region], ['scope', rsl.scope], ...(rsl.notes ? [['notes', rsl.notes]] : [])], 99)
@@ -888,7 +966,9 @@ async function lookup(criteria) {
   }
 
   if (row.cs_suffix) {
-    const [forbidden] = await query('SELECT 1 AS hit FROM ref_forbidden_suffixes WHERE suffix = ?', [row.cs_suffix]);
+    /** @type {{ hit: number }[]} */
+    const forbiddenRows = await query('SELECT 1 AS hit FROM ref_forbidden_suffixes WHERE suffix = ?', [row.cs_suffix]);
+    const [forbidden] = forbiddenRows;
     if (forbidden) {
       sections.push(card('Suffix note', [el('p', { text:
         `"${row.cs_suffix}" appears on Ofcom's August 2019 FOI withheld-suffixes list. Most such register rows are long-standing allocations - the list evidently governs new issuance, not existing holdings.` })]));
@@ -897,6 +977,7 @@ async function lookup(criteria) {
 
   const flagList = row.flags ? row.flags.split(';') : [];
   if (flagList.length > 0) {
+    /** @type {{ flag: string, meaning: string }[]} */
     const registry = await query(
       `SELECT flag, meaning FROM flag_registry WHERE flag IN (${flagList.map(() => '?').join(',')})`, flagList);
     const meanings = new Map(registry.map(r => [r.flag, r.meaning]));
@@ -936,16 +1017,20 @@ function addCheckbox(fieldset, value, title) {
 // self-maintains as datasets evolve - new statuses or series just appear.
 async function populateFilters() {
   try {
+    /** @type {{ flag: string, meaning: string }[]} */
     const registry = await query('SELECT flag, meaning FROM flag_registry ORDER BY flag');
     for (const r of registry) addCheckbox(document.getElementById('flag-filters'), r.flag, r.meaning);
 
+    /** @type {{ status: string }[]} */
     const statuses = await query('SELECT DISTINCT status FROM normalised ORDER BY status');
     for (const r of statuses) addCheckbox(document.getElementById('status-filters'), r.status);
 
+    /** @type {{ parse_status: string }[]} */
     const parses = await query('SELECT DISTINCT parse_status FROM components ORDER BY parse_status');
     for (const r of parses) addCheckbox(document.getElementById('parse-filters'), r.parse_status);
 
     const seriesSelect = /** @type {HTMLSelectElement | null} */ (document.getElementById('series-filter'));
+    /** @type {{ prefix_series: string }[]} */
     const series = await query(`SELECT DISTINCT prefix_series FROM components WHERE prefix_series != '' ORDER BY prefix_series`);
     for (const r of series) seriesSelect?.append(el('option', { value: r.prefix_series, text: displaySeries(r.prefix_series) }));
   } catch {
