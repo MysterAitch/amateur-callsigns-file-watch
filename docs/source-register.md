@@ -22,6 +22,14 @@ live in `archive/` or `reference-data/`.
 
 ## Acquisition channels (surveyed 2026-07-07)
 
+The authoritative channel-to-publisher mapping is
+[`reference-data/publishers.json`](../reference-data/publishers.json) — every
+witness `channel` token resolves through it to exactly one publisher entry
+(name, licence basis, authority ceiling), and `src/ci/validate-publishers.ts`
+(run inside `validate:data`) freshness-tests that resolution against the real
+archive. The table below is the narrative survey of the same channels; treat
+the register as authoritative on which publisher a channel resolves to.
+
 | channel | coverage | notes |
 |---|---|---|
 | Ofcom open data page | 2022→ (live watcher) | the original lane; residential-IP-only (Cloudflare) |

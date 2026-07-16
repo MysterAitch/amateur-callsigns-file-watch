@@ -164,7 +164,7 @@ via their own reviewed consolidation PRs (`data-sweep.yml:5-8`).
   `workflow_dispatch` (`.github/workflows/cicd.yaml:20-24`).
 - **Write posture:** the workflow's default permission is `contents: read`
   (`cicd.yaml:26-27`). Only the `deploy` job elevates, and only to `pages: write`
-  + `id-token: write` (`cicd.yaml:751-753`) — **no job in this workflow can write
+  + `id-token: write` (`cicd.yaml:776-778`) — **no job in this workflow can write
   repository contents.** This preserves the read-only-CI posture of
   [ADR 0012](adr/0012-supply-chain-posture.md) at the job level rather than by
   keeping verify in a separate file ([ADR 0019](adr/0019-layered-build-cache-and-unified-cicd.md) §3).
@@ -212,21 +212,29 @@ via their own reviewed consolidation PRs (`data-sweep.yml:5-8`).
 
 - **Trigger:** the `push`-to-`main` run of `cicd.yaml`; the `deploy`,
   `build-site-databases` upload, and post-deploy jobs are gated
-  `if: github.ref == 'refs/heads/main'` (`cicd.yaml:740-748`).
+  `if: github.ref == 'refs/heads/main'` (`cicd.yaml:763-767`).
 - **What it does:** builds the published databases fresh from committed data
   (never committed — SQLite is not byte-deterministic). The interactive surfaces
-  (lookup, compare, entry browser, Explore) now read **ledger-derived projection
+  (lookup, compare, entry browser, Explore) read **ledger-derived projection
   databases** (`ledger-lookup.sqlite.png` / `ledger-history.sqlite.png`) folded
-  from the raw-keyed claim ledger (ADR 0013, `cicd.yaml:669-675`); the legacy
-  `build-sqlite.ts` pair still builds beside them through the transition, with its
-  retirement tracked on #445. The deploy also emits the prefix-sharded per-callsign
-  static JSON that answers the instant per-callsign lookup with no database at all
-  (`cicd.yaml:736-741`). It then assembles the static site, uploads and deploys the
+  from the raw-keyed claim ledger (ADR 0013, `cicd.yaml:670-676`). The legacy
+  runtime pair is retired from the deploy (#445): `buildSqlite` no longer exists,
+  and `build-sqlite.ts` (`cicd.yaml:650-657`) now builds only the download
+  tiers — `combined.sqlite.png` is built solely as the gzipped download twin's
+  intermediate and removed before it reaches the deploy artefact; the download
+  tiers' own retirement is tracked on #446–#448. The deploy also emits the
+  prefix-sharded per-callsign static JSON that answers the instant per-callsign
+  lookup with no database at all (ADR 0020, `cicd.yaml:737-742`). It then
+  assembles the static site — stamping, as its final step, the service worker's
+  precache manifest into `sw.js` (`cicd.yaml:754-762`), the same build-time
+  marker-stamping mechanism `build-nav.ts` uses for the nav strip, run last so
+  its content hash covers every other stamped asset — uploads and deploys the
   Pages artefact, and runs post-deploy `smoke`, `console-check` and
-  `functionality-check` against the live deployment (`cicd.yaml:596-841`).
+  `functionality-check` against the live deployment (`cicd.yaml:596-866`).
 - **Governing ADR:** [ADR 0003](adr/0003-in-repo-presentation-poc.md),
   [ADR 0013](adr/0013-raw-keyed-claim-ledger.md),
-  [ADR 0019](adr/0019-layered-build-cache-and-unified-cicd.md).
+  [ADR 0019](adr/0019-layered-build-cache-and-unified-cicd.md),
+  [ADR 0020](adr/0020-sharded-static-json-serving.md).
 - **Human in the loop:** no.
 
 ### 6. Scheduled normalise sweep (`normalise.yml`)
@@ -273,7 +281,7 @@ shape as the data sweep ([ADR 0001](adr/0001-post-fetch-processing-in-repo.md) /
 | Open PR + gate auto-merge | `data-sweep.yml` | cron 15 min | Data-path allowlist | 0009, 0001 | No (data-only) / Yes (else) |
 | Verify | `cicd.yaml` | Every PR + push to main | `tests`, `data-validation` (required); `golden-master`, reconstruction, `workflow-audit` | 0019, 0012 | No |
 | Merge | GitHub ruleset | Checks green | No direct/force push, merge-commit only, required checks | 0002, 0009 | Depends on PR class |
-| Deploy | `cicd.yaml` `deploy` | Push to main | Post-deploy smoke / console / functionality | 0003, 0019 | No |
+| Deploy | `cicd.yaml` `deploy` | Push to main | Post-deploy smoke / console / functionality | 0003, 0013, 0019, 0020 | No |
 | Normalise sweep | `normalise.yml` | cron daily 06:30 | Always-human-reviewed PR; run reddens on failure | 0001, 0004 | Yes, always |
 
 ## Write surfaces at a glance

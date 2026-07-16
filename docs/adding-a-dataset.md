@@ -95,6 +95,13 @@ Key the directory by the publication's data vintage: `archive/{YYYY-MM-DD}/`.
    `files{}` declarations (size + sha256 for the raw and any extract). **No
    `diffSummary`** on a back-dated entry.
 
+   A witness's `channel` is a **validated closed vocabulary**, not free text:
+   every channel token must resolve to a publisher entry in
+   [`reference-data/publishers.json`](../reference-data/publishers.json), and
+   `npm run validate:data` fails loudly on one that does not. Check the
+   register for the current valid tokens, and add a publisher entry there
+   before introducing a new channel.
+
 5. **Attest what the data genuinely carries.** If the publication repeats
    callsigns (publisher duplicates), validation fails until a curated
    `qualityObservations[]` entry attests the fact (a statement mentioning the
