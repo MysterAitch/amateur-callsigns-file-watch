@@ -167,6 +167,24 @@ export function describeCell(ch, dataset, manifest) {
   return { kind: 'status', text: isPool ? `${status} (availability list)` : status, detail: '' };
 }
 
+// A dataset-level aside for a non-zero unkeyable-row count (issue #632):
+// rows whose callsign cell, cleaned, carries no A-Z0-9/ character at all — a
+// blank cell, or a punctuation-only token such as a literal ",,". They are
+// carried faithfully in the dataset's own row count (ShardDataset.rows /
+// .unkeyable together account for every row) and never dropped; they simply
+// have no key to join a callsign lookup by, so this dataset row is the only
+// place they become visible. Independent of which callsign was searched —
+// every dataset row in the census table carries the same figure. Null when
+// the dataset has none.
+/**
+ * @param {ShardDataset} dataset
+ * @returns {{ count: number, noun: string } | null}
+ */
+export function unkeyableRowInfo(dataset) {
+  if (dataset.unkeyable <= 0) return null;
+  return { count: dataset.unkeyable, noun: dataset.unkeyable === 1 ? 'row' : 'rows' };
+}
+
 // First/last sightings and coverage counts, derived from the history string.
 /**
  * @param {CallsignRecord} record
@@ -710,6 +728,14 @@ function renderHistory(host, res, manifest) {
     dsLink.setAttribute('href', dataset.href);
     dsTd.appendChild(dsLink);
     dsTd.append(` — ${datasetClassLabel(dataset)}`);
+    const unkeyable = unkeyableRowInfo(dataset);
+    if (unkeyable !== null) {
+      dsTd.append(' · ');
+      const unkeyableLink = el('a', null, `${unkeyable.count.toLocaleString('en-GB')} unkeyable ${unkeyable.noun}`);
+      unkeyableLink.setAttribute('href', 'glossary.html#unkeyable-row');
+      dsTd.appendChild(unkeyableLink);
+      dsTd.append(' (blank or punctuation-only callsign cell — carried here, but not addressable by callsign)');
+    }
     tr.appendChild(dsTd);
     const whatTd = el('td');
     if (cell.kind === 'status') whatTd.appendChild(b(cell.text));

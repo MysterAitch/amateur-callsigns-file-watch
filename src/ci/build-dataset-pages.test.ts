@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { buildDatasetPages, dayGap, signedDelta, type DatasetPagesSummary } from './build-dataset-pages.ts';
+import { buildDatasetPages, dayGap, signedDelta, unkeyableRowsNote, type DatasetPagesSummary } from './build-dataset-pages.ts';
 import { externalLink } from './site-render.ts';
 import {
   extractLinks,
@@ -55,6 +55,28 @@ describe('Dataset navigation sidebar helpers', () => {
   it('SignedDelta_ZeroReference_OmitsPercent', () => {
     // Avoid a divide-by-zero producing Infinity% in the caption.
     expect(signedDelta(5, 0)).toBe(' (+5)');
+  });
+});
+
+describe('unkeyableRowsNote (issue #632)', { tags: ['unit'] }, () => {
+  it('UnkeyableRowsNote_ZeroCount_RendersNothing', () => {
+    // The common case: nothing that could read as a data caveat appears.
+    expect(unkeyableRowsNote(0, 3)).toBe('');
+  });
+
+  it('UnkeyableRowsNote_SingleRow_UsesSingularGrammar', () => {
+    const html = unkeyableRowsNote(1, 3);
+    expect(html).toContain('<b>1</b> of the rows above has no usable callsign');
+    expect(html).not.toContain('have no usable callsign');
+  });
+
+  it('UnkeyableRowsNote_MultipleRows_UsesPluralGrammarAndLinksTheGlossaryAtTheGivenDepth', () => {
+    const html = unkeyableRowsNote(5, 3);
+    expect(html).toContain('<b>5</b> of the rows above have no usable callsign');
+    expect(html).toContain('href="../../../glossary.html#unkeyable-row"');
+    // Faithfully-carried framing, not manufactured alarm: never dropped, just
+    // not addressable by callsign.
+    expect(html).toMatch(/carried in the row count above, but not addressable/);
   });
 });
 
@@ -196,6 +218,23 @@ describe('Dataset pages build', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
     expect(page).not.toContain('class="set-aside"');
     expect(page).not.toContain('set aside as non-data');
+  });
+
+  it('DatasetPages_EntryWithUnkeyableRows_StatesTheCountAndLinksTheGlossary', () => {
+    // Issue #632: 2022-05-30 carries five rows whose callsign cell, cleaned,
+    // has no addressable character (four blank cells, one literal ",,").
+    // They are counted in the record count above and never dropped, but this
+    // is the only place their existence becomes visible.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2022-05-30', 'index.html'), 'utf8');
+    expect(page).toMatch(/<b>5<\/b> of the rows above have no usable callsign/);
+    expect(page).toContain('glossary.html#unkeyable-row');
+  });
+
+  it('DatasetPages_EntryWithoutUnkeyableRows_HasNoUnkeyableAffordance', () => {
+    // The common case (zero) renders nothing that could read as a data caveat.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(page).not.toContain('usable callsign');
+    expect(page).not.toContain('glossary.html#unkeyable-row');
   });
 
   it('DatasetPages_OpenDataEntryPage_CarriesAccessibleDistributionCharts', () => {

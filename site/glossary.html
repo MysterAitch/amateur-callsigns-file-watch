@@ -293,6 +293,18 @@
         encoding. Duplicates are expected — it is a join key, deliberately not an
         identity.</dd>
 
+        <dt id="unkeyable-row">Unkeyable row</dt>
+        <dd>A row whose callsign cell, once <a href="#cleaned">cleaned</a>, carries
+        no <code>A–Z</code>, <code>0–9</code> or <code>/</code> character at all — a
+        blank cell, or a punctuation-only token such as a literal
+        <code>,,</code>. It is carried faithfully in its dataset's own row count and
+        never dropped, but it has no key to join a callsign lookup by, so it never
+        appears in the per-callsign shard or any lookup result. Counts are shown,
+        where non-zero, on the <a href="callsign.html">per-callsign page</a>'s
+        sightings table and in the
+        <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/reports/data-quality.md">data-quality
+        rollup<span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>.</dd>
+
         <dt id="normalised">Normalised</dt>
         <dd>A consistent view of a raw source: its columns and casing brought
         into line — derived from the archived original, which is always preserved

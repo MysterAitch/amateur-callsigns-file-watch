@@ -125,6 +125,36 @@ long-standing allocations, not an anomaly by itself).
 
 </details>
 
+## FOI lane
+
+The defect-detector matrix above is open-data only (one column per
+register-snapshot publication) — the FOI lane (`archive/foi/`) carries no
+detector matrix of its own. The same unkeyable test the callsign-shard
+build applies (a callsign cell that, cleaned, carries no `A-Z0-9/`
+character at all - a blank cell, or a token of punctuation alone) finds **30**
+unkeyable rows across **16** FOI files. Each is carried in its file's own
+record count and never dropped - it is simply not addressable by
+callsign, so it never reaches a callsign-shard entry or lookup.
+
+| entry | file | unkeyable rows |
+|---|---|---:|
+| `ofcom-01420046--allocated-reserved-callsigns` | `normalised--sheet-1-report1646659776237.csv` | 1 |
+| `ofcom-2017-07-13--all-callsigns` | `normalised--amateur-call-signs-for-foi-request-13-jul-17.csv` | 1 |
+| `ofcom-2020-10-23--reserved-callsigns` | `normalised--sheet-1-reserved-callsigns-23-10-2020.csv` | 1 |
+| `ofcom-2021-01--all-callsigns` | `normalised--sheet-1-callsigns.csv` | 2 |
+| `ofcom-2021-04--all-callsigns` | `normalised--sheet-1-sheet1.csv` | 2 |
+| `ofcom-2022-03-14--available-and-registered--all-callsigns` | `normalised--sheet-1-report1647268967067.csv` | 1 |
+| `ofcom-2023-01-25--call-sign-list-with-status--all-callsigns` | `normalised--sheet-1-report1674642037414.csv` | 3 |
+| `ofcom-2024-09--every-radio-callsign--all-callsigns` | `normalised--every-radio-callsign-spreadsheet.csv` | 3 |
+| `ofcom-2025-09-11--callsigns--all-callsigns` | `normalised--sheet-1-amateur-callsgn-11092025.csv` | 1 |
+| `wdtk-1180568--licence-breakdown-duration-age` | `normalised--foi-1900117-radio-amateur-licence-breakdown-by-duration-held-and-age-sheet-1.csv` | 3 |
+| `wdtk-1180568--licence-breakdown-duration-age` | `normalised--foi-1900117-radio-amateur-licence-breakdown-by-duration-held-and-age-sheet-2.csv` | 2 |
+| `wdtk-247308--available-callsigns-list` | `normalised--sheet-3-full.csv` | 2 |
+| `wdtk-271469--available-callsigns-list` | `normalised--sheet-3-amateur-full.csv` | 2 |
+| `wdtk-294011--available-callsigns-list` | `normalised--sheet-3-full.csv` | 2 |
+| `wdtk-299321--available-callsigns-list` | `normalised--sheet-3-full.csv` | 2 |
+| `wdtk-309076--available-callsigns-list` | `normalised--sheet-1-sheet1.csv` | 2 |
+
 ## Character key
 
 | appears as | codepoint | name |
