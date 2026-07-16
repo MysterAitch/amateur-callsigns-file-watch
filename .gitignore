@@ -23,3 +23,9 @@ landing/
 
 # Deploy build staging (cicd.yaml database cache) - never committed
 .dbstage/
+
+# Local holdings byte store (issue #618/#619): copies fetched but not yet
+# cleared for redistribution. The bytes are NEVER committed; their existence is
+# recorded publicly in archive/local-holdings/index.json instead (hash,
+# provenance, obtain-from pointer). See archive/local-holdings/README.md.
+archive/local-holdings/bytes/
