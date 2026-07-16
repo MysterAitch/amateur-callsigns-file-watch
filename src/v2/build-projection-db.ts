@@ -566,7 +566,10 @@ export interface BuildProjectionResult {
 }
 
 // Whether a ledger root already carries emitted per-source JSONL files.
-function hasEmittedLedger(ledgerRoot: string): boolean {
+// Shared with the builder-facing projection (build-builder-projection.ts) so
+// both projections make the identical reuse-or-emit decision over a shared
+// --ledger-dir.
+export function hasEmittedLedger(ledgerRoot: string): boolean {
   const ledgerDir = path.join(ledgerRoot, 'ledger');
   return fs.existsSync(ledgerDir) && fs.readdirSync(ledgerDir).some(name => name.endsWith('.jsonl'));
 }
