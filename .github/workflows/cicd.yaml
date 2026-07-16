@@ -724,9 +724,15 @@ jobs:
           # series/gap view - all derived here from the committed archive and the
           # source register, never hand-maintained.
           node src/ci/build-data-status.ts _site/data-status.html
+          # The instant per-callsign page's data (issue #594): prefix-sharded
+          # static JSON + the datasets.json manifest, a deterministic projection
+          # of the same archived publications the databases fold. Built fresh
+          # each deploy (fast, byte-deterministic) rather than riding the
+          # .dbstage cache, whose key does not cover this builder.
+          node src/ci/build-callsign-shards.ts _site/callsign/data
           # Stamp the canonical nav strip (the single source, navHtml in
           # site-render.ts) into every hand-authored page (issue #308).
-          node src/ci/build-nav.ts _site/index.html _site/statistics.html _site/explore.html _site/compare.html _site/ledger.html _site/playground.html _site/data-status.html _site/glossary.html _site/about.html
+          node src/ci/build-nav.ts _site/index.html _site/statistics.html _site/explore.html _site/compare.html _site/ledger.html _site/callsign.html _site/playground.html _site/data-status.html _site/glossary.html _site/about.html
           # sql.js-httpvfs is served from the npm-audited package, vendored at build
           # time - no CDN scripts, nothing committed. The sourcemap is included so
           # browser devtools stop 404ing for it.
