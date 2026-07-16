@@ -31,7 +31,6 @@ import { readPublisherRegister, channelIndex, publisherIndexById, publisherForCh
 import { buildPublisherPages, publisherHref } from './build-publisher-pages.ts';
 import { renderMarkdown, renderInline } from '../shared/render-markdown.ts';
 import { parseFlagRegistry } from './build-sqlite.ts';
-import { displaySeries } from './build-home-aggregates.ts';
 import { parse } from 'csv-parse/sync';
 import { buildZip } from '../shared/zip.ts';
 import { buildForbiddenSection } from './build-forbidden-section.ts';
@@ -62,6 +61,9 @@ import {
   callsignField,
   statusField,
   licenceField,
+  prefixSeriesField,
+  prefixSeriesDisplay,
+  prefixSeriesSlug,
   datasetLabel,
   exploreDeepLink,
   glossaryTerm,
@@ -646,9 +648,15 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
     const tag = level === '' ? '' : ` <small class="lvl">${escapeHtml(level.toLowerCase())}</small>`;
     // A blank prefix series has no series page (the series generator skips it),
     // so it carries no ↗ series-nav link - the row stays a filter-only target
-    // rather than pointing at a non-existent series/.html.
-    const seriesNav = seriesSlug(p) === '' ? '' : ` <a class="seriesnav" href="../../../series/${seriesSlug(p)}.html" aria-label="${escapeHtml(displaySeries(p))} series page">↗</a>`;
-    return `<div class="brow"${facetAttr('prefix_series', p)}><span class="lab">${escapeHtml(displaySeries(p))}${tag}${seriesNav}</span>${bar(n)}</div>`;
+    // rather than pointing at a non-existent series/.html. The label itself
+    // routes through the shared prefix-series field wrapper (#644), so a
+    // blank bucket (an unparseable callsign has no series) is humanised
+    // rather than rendering an invisible label. The row is its own
+    // click-to-filter facet target (role="button"), so the label stays plain
+    // content - not the wrapper's own opt-in link - matching the ↗ arrow
+    // staying the one navigation affordance beside it.
+    const seriesNav = prefixSeriesSlug(p) === '' ? '' : ` <a class="seriesnav" href="../../../series/${prefixSeriesSlug(p)}.html" aria-label="${escapeHtml(prefixSeriesDisplay(p))} series page">↗</a>`;
+    return `<div class="brow"${facetAttr('prefix_series', p)}><span class="lab">${prefixSeriesField(p, { blankLabel: '(unparseable — no series)' })}${tag}${seriesNav}</span>${bar(n)}</div>`;
   }).join('');
   const declaredRows = bd.declared.map(([p, n]) => `<div class="brow"${facetAttr('product', p)}><span class="lab">${shortProduct(p)}</span>${bar(n)}</div>`).join('');
   const intlExpr = "CASE WHEN callsign LIKE '%/%' THEN 'yes' ELSE 'no' END";
@@ -1301,13 +1309,6 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   return { files, zipBytes };
 }
 
-// URL-safe slug for a prefix series. Names are now stored bare (20, M7),
-// so this is normally the identity; the # strip stays as a guard for any
-// display-form input.
-export function seriesSlug(series: string): string {
-  return series.replace(/#/g, '');
-}
-
 // Precomputed per-series entity pages (the static half of the entity-pages
 // plan; callsigns stay dynamic behind ?c= deep links because 158k static
 // pages would alone exceed the Pages size cap): reference-data facts plus
@@ -1377,10 +1378,13 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
 
   const indexRows: string[] = [];
   for (const series of allSeries) {
-    const slug = seriesSlug(series);
+    const slug = prefixSeriesSlug(series);
     const ref = reference.get(series);
     const acc = bySeries.get(series);
-    const display = displaySeries(series);
+    // A plain-text form for contexts that cannot carry HTML (the <title>
+    // element, this page's own document title): the field wrapper itself
+    // handles every place the series is rendered as content.
+    const display = prefixSeriesDisplay(series);
     const facts: string[] = [];
     if (ref !== undefined) {
       facts.push(
@@ -1410,7 +1414,10 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
         `<p>Examples, as stored in the register (the RSL letter, where one applies, is stored separately from the row): ${acc.examples.map(e => callsignPill(e.callsign, 1, e.components)).join(', ')} — each opens the live lookup.</p>`,
       ];
     const body = [
-      `<h1>Prefix series ${escapeHtml(display)}</h1>`,
+      // Self-referential (this IS the series' own page), so the field
+      // wrapper renders unlinked here - the opt-in crosslink is for OTHER
+      // pages pointing at this one (the breakdown row, the index table below).
+      `<h1>Prefix series ${prefixSeriesField(series)}</h1>`,
       `<p><code>#</code> marks where the ${glossaryTerm('rsl', 1, { label: 'Regional Secondary Locator' })} sits when one is present. Reference facts are hand-curated; numbers derive from the latest archived publication and regenerate on every deploy.</p>`,
       ...facts,
       ...numbers,
@@ -1418,7 +1425,14 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
     ];
     fs.writeFileSync(path.join(seriesDir, `${slug}.html`), htmlPage(`Prefix series ${display}`, 1, body, { currentNav: 'Series', sourcePath: 'reference-data/prefix-formats.csv' }));
     urls.push(`${baseUrl}/series/${slug}.html`);
-    indexRows.push(`<tr><th scope="row"><a href="${slug}.html"><code>${escapeHtml(display)}</code></a></th><td>${ref === undefined ? '⚠ unreferenced' : licenceField(ref.station_level)}</td><td>${ref === undefined ? '—' : escapeHtml(ref.issuing_status)}</td><td class="n">${(acc?.total ?? 0).toLocaleString('en-GB')}</td></tr>`);
+    // This index sits IN series/ alongside the page it links to (slug.html,
+    // same directory), so the plain relative href is built directly rather
+    // than through the wrapper's own `link` option - that option's href
+    // always resolves from the SITE ROOT (matching every other adoption site,
+    // which sits elsewhere), which would double back through series/ needlessly
+    // from here. The wrapper still supplies the shared visual as an unlinked
+    // span, nested inside this page-local anchor.
+    indexRows.push(`<tr><th scope="row"><a href="${slug}.html">${prefixSeriesField(series)}</a></th><td>${ref === undefined ? '⚠ unreferenced' : licenceField(ref.station_level)}</td><td>${ref === undefined ? '—' : escapeHtml(ref.issuing_status)}</td><td class="n">${(acc?.total ?? 0).toLocaleString('en-GB')}</td></tr>`);
   }
 
   const indexBody = [
@@ -1455,7 +1469,7 @@ function linkKnownEntities(html: string, foiKeys: ReadonlySet<string>, series: R
   return html.replace(/<code>([^<]+)<\/code>/g, (whole: string, token: string, offset: number, full: string) => {
     if (/<a\b[^>]*>\s*$/.test(full.slice(Math.max(0, offset - 80), offset))) return whole; // already linked
     if (foiKeys.has(token)) return `<a href="${rel}datasets/foi/${encodeURIComponent(token)}/index.html">${whole}</a>`;
-    if (series.has(token)) return `<a href="${rel}series/${seriesSlug(token)}.html">${whole}</a>`;
+    if (series.has(token)) return `<a href="${rel}series/${prefixSeriesSlug(token)}.html">${whole}</a>`;
     if (flags.has(token)) return `<a href="${rel}datasets/docs/flags.html">${whole}</a>`;
     return whole;
   });

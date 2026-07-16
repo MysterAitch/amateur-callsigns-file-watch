@@ -23,6 +23,8 @@ export * from './render/tables.ts';
 export * from './render/callsign.ts';
 export * from './render/status.ts';
 export * from './render/licence.ts';
+export * from './render/prefix-series.ts';
+export * from './render/suffix.ts';
 export * from './render/format.ts';
 export * from './render/page.ts';
 export * from './render/download.ts';

@@ -58,9 +58,16 @@ const SHARED_DB_ALERT_CSS = [
 // (ENTRY_STYLE) and the plainer page shell (PAGE_STYLE, e.g. series pages) -
 // each of which supplies --slot/--marker alongside the shared --line/--accent;
 // focus-visible gives keyboard users a clear ring.
+//
+// The callsign-PART wrappers (issue #644 - a prefix series, a forbidden
+// suffix) share this same `.cs` base class, so a part reads with the
+// identical visual identity as the whole callsign it is a fragment of; the
+// `.cs-pfx`/`.cs-sfx` modifiers only need to add the monospace font-family a
+// plain `<span>`/link does not inherit the way `<code>` does by default.
 const CALLSIGN_CSS = [
   '.cs{white-space:nowrap}',
   '.marker{color:var(--marker)}',
+  '.cs-pfx,.cs-sfx{font-family:ui-monospace,monospace}',
   '.callsign-pill{display:inline-block;font-family:ui-monospace,monospace;font-size:.86rem;line-height:1.4;padding:.02rem .35rem;border:1px solid var(--line);border-radius:6px;background:var(--slot);color:var(--accent);text-decoration:none;white-space:nowrap}',
   '.callsign-pill:hover{border-color:var(--accent)}',
   '.callsign-pill:focus-visible{outline:2px solid var(--accent);outline-offset:1px}',
