@@ -1,3 +1,9 @@
+// @ts-check
+// This file runs in the service-worker global scope, not the DOM the rest of
+// site/ shares, so it is checked as its own tsconfig.site-worker.json project
+// (see that file for why it cannot share a program with the DOM-scoped one) -
+// which is what supplies the worker globals (self, caches, fetch, Response, ...).
+
 // Service worker for the callsign data mirror (ADR 0008).
 //
 // Two responsibilities, deliberately separate:
@@ -68,7 +74,15 @@ const SHELL_ASSETS = [
   'vendor/sql-wasm.wasm',
 ];
 
-const scopeUrl = new URL('./', self.location.href);
+// `self` is typed generically (WorkerGlobalScope) by the webworker lib; a
+// service worker's actual global scope is the more specific
+// ServiceWorkerGlobalScope (skipWaiting, clients, and the
+// install/activate/fetch/message event map), so it is read through a
+// narrowed view here, once - the same "typed view of an untyped/under-typed
+// global" idiom the DOM-side modules use at their own boundaries.
+const sw = /** @type {ServiceWorkerGlobalScope} */ (/** @type {unknown} */ (self));
+
+const scopeUrl = new URL('./', sw.location.href);
 const SHELL_URLS = new Set(SHELL_ASSETS.map(asset => new URL(asset, scopeUrl).href));
 
 // Hrefs whose Range requests the worker may satisfy from the offline cache -
@@ -80,15 +94,17 @@ const offlineDbUrls = new Set();
 // per-request slice does not re-read the Cache API each time.
 const dbBuffers = new Map();
 
+/** @param {string} pathname */
 function isDbPath(pathname) {
   return /\/data\/(callsigns|combined)\.sqlite\.png$/.test(pathname);
 }
 
+/** @param {URL} url */
 function isShellRequest(url) {
   return SHELL_URLS.has(url.origin + url.pathname);
 }
 
-self.addEventListener('install', (event) => {
+sw.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL_CACHE);
     // Resilient precache: fetch each asset fresh (bypassing the HTTP cache) and
@@ -100,7 +116,7 @@ self.addEventListener('install', (event) => {
         if (res.ok) await cache.put(asset === './' ? scopeUrl.href : new URL(asset, scopeUrl).href, res.clone());
       } catch { /* asset unavailable at install time - skip it */ }
     }));
-    await self.skipWaiting();
+    await sw.skipWaiting();
   })());
 });
 
@@ -121,18 +137,20 @@ async function refreshOfflineDbState() {
   }));
 }
 
-self.addEventListener('activate', (event) => {
+sw.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const names = await caches.keys();
     await Promise.all(names.map((name) =>
       (name === SHELL_CACHE || name === OFFLINE_DB_CACHE) ? undefined : caches.delete(name)));
     await refreshOfflineDbState();
-    await self.clients.claim();
+    await sw.clients.claim();
   })());
 });
 
-self.addEventListener('message', (event) => {
-  const data = event.data || {};
+sw.addEventListener('message', (event) => {
+  // event.data is `any` (its shape is whatever the page posted); narrowed here
+  // to the two message shapes this worker actually handles.
+  const data = /** @type {{ type?: string, url?: string }} */ (event.data || {});
   if (data.type === 'offline-db-added' && typeof data.url === 'string') {
     offlineDbUrls.add(data.url);
     dbBuffers.delete(data.url);
@@ -142,6 +160,7 @@ self.addEventListener('message', (event) => {
   }
 });
 
+/** @param {string} href */
 async function getFullDbBuffer(href) {
   if (dbBuffers.has(href)) return dbBuffers.get(href);
   const cache = await caches.open(OFFLINE_DB_CACHE);
@@ -152,6 +171,7 @@ async function getFullDbBuffer(href) {
   return buffer;
 }
 
+/** @param {Record<string, string>} extra */
 function dbResponseHeaders(extra) {
   return new Headers(Object.assign({
     'Content-Type': 'image/png',
@@ -163,6 +183,11 @@ function dbResponseHeaders(extra) {
 // Satisfy sql.js-httpvfs's Range requests from the cached whole file. httpvfs
 // learns the file size from the `Content-Range` total, so that header must be
 // correct or every read is misaligned.
+/**
+ * @param {Request} request
+ * @param {string} href
+ * @returns {Promise<Response>}
+ */
 async function serveDbFromCache(request, href) {
   const buffer = await getFullDbBuffer(href);
   if (!buffer) return fetch(request); // cache lost between the check and now
@@ -193,6 +218,10 @@ async function serveDbFromCache(request, href) {
   });
 }
 
+/**
+ * @param {Request} request
+ * @returns {Promise<Response>}
+ */
 async function cacheFirst(request) {
   const cache = await caches.open(SHELL_CACHE);
   const hit = await cache.match(request, { ignoreSearch: true });
@@ -204,6 +233,10 @@ async function cacheFirst(request) {
 
 // Navigations prefer the network (so a live visitor gets the freshest page),
 // falling back to the precached shell when offline.
+/**
+ * @param {Request} request
+ * @returns {Promise<Response>}
+ */
 async function networkFirst(request) {
   const cache = await caches.open(SHELL_CACHE);
   try {
@@ -215,11 +248,11 @@ async function networkFirst(request) {
   }
 }
 
-self.addEventListener('fetch', (event) => {
+sw.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== sw.location.origin) return;
 
   // Database: intercept ONLY when the visitor has opted into offline use. When
   // they have not, do nothing - the request goes to the network exactly as if

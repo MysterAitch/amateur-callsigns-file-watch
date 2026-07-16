@@ -1,3 +1,4 @@
+// @ts-check
 // Claim-ledger page (issue #361, Stage 3a): a callsign lookup that serves LIVE
 // data end-to-end from the raw-keyed claim-ledger SQLite - raw bytes -> claims
 // -> SQLite -> sql.js-httpvfs -> this page. There is no embedded data object:
@@ -23,15 +24,75 @@ import {
 } from './ledger-query.js';
 import { withDatabaseLoading } from './db-loading.js';
 
+/** @typedef {import('./ledger-query.js').ClaimRow} ClaimRow */
+/** @typedef {import('./ledger-query.js').QueryExecutor} QueryExecutor */
+/** @typedef {import('./ledger-query.js').ResolvedEntity} ResolvedEntity */
+/** @typedef {import('./ledger-query.js').Observation} Observation */
+/** @typedef {import('./ledger-query.js').TimelineEntry} TimelineEntry */
+/** @typedef {import('./ledger-query.js').Segment} Segment */
+
+// One event this module renders onto the shared vertical timeline (see
+// renderTimeline below): either a folded status observation or a "seen in"
+// source reference, both shaped down to the same display fields.
+/**
+ * @typedef {object} TimelineDisplayEntry
+ * @property {Node} lead
+ * @property {string} vintage
+ * @property {string} dateText
+ * @property {string} [datetime]
+ * @property {string} [className]
+ * @property {string} [dotClass]
+ * @property {string} [preciseText]
+ */
+
+// One "where it was seen" source item, exactly as ledger-query.js's fidelityOf
+// (via its internal sourceItems) shapes a SourceRef for display.
+/**
+ * @typedef {object} DisplaySource
+ * @property {number} ordinal
+ * @property {string} sourceFile
+ * @property {string} label
+ * @property {string} url
+ * @property {string} vintage
+ */
+
+// The "show the working" model behind one derived value, exactly as
+// ledger-query.js's fidelityOf shapes it: the rule that produced it, its plain
+// gloss, the inputs it consumed, the reproduced result (verbatim only for a
+// canonical-form divergence), and the source rows it was seen in.
+/**
+ * @typedef {object} Working
+ * @property {string} rule
+ * @property {string} ruleGloss
+ * @property {{ role: string, value: string }[]} inputs
+ * @property {string} result
+ * @property {boolean} resultVerbatim
+ * @property {DisplaySource[]} sources
+ */
+
+/**
+ * @template {keyof HTMLElementTagNameMap} K
+ * @param {K} t
+ * @param {string | null} [c]
+ * @param {string | null} [txt]
+ * @returns {HTMLElementTagNameMap[K]}
+ */
 const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
 // A bold node carrying safe text. Every database-derived value is written with
 // textContent (never innerHTML), so a raw '<' or '&' that register data can
 // carry is never interpreted as markup.
+/** @param {unknown} txt */
 const b = txt => el('b', null, String(txt));
 
 // Render an actual raw register token, surfacing any literal whitespace or
 // non-breaking space it carries as a visible marker rather than an invisible
 // gap - so the value is driven by the observation's own bytes.
+/**
+ * @template {ParentNode} T
+ * @param {T} parent
+ * @param {string} str
+ * @returns {T}
+ */
 const appendRawToken = (parent, str) => {
   let run = '';
   const flush = () => { if (run) { parent.append(run); run = ''; } };
@@ -46,6 +107,11 @@ const appendRawToken = (parent, str) => {
 // An external link that opens in a new tab and announces that to assistive
 // tech, mirroring the generated pages' externalLink helper. Text is set with
 // textContent, so a database-derived label can never smuggle markup.
+/**
+ * @param {string} href
+ * @param {string} label
+ * @returns {HTMLAnchorElement}
+ */
 const extLink = (href, label) => {
   const a = el('a', null, label);
   a.href = href;
@@ -63,6 +129,12 @@ const extLink = (href, label) => {
 // (dotted underline + aria-hidden "?" cue + visually-hidden accessible name),
 // matching site-render.ts's glossaryTerm so the term reads and behaves the same
 // wherever it appears.
+/**
+ * @param {string} anchor
+ * @param {string} label
+ * @param {string} accessibleName
+ * @returns {HTMLAnchorElement}
+ */
 const glossTerm = (anchor, label, accessibleName) => {
   const a = el('a', 'gloss-term', label);
   a.href = `glossary.html#${anchor}`;
@@ -78,6 +150,12 @@ const glossTerm = (anchor, label, accessibleName) => {
 // new tab, an on-site link stays in the tab); a `raw` value is a verbatim
 // register token with its invisible characters made visible; a `code` value is
 // a monospace span. Every value is written with textContent, never innerHTML.
+/**
+ * @template {ParentNode} T
+ * @param {T} parent
+ * @param {Segment[]} segments
+ * @returns {T}
+ */
 const appendSegments = (parent, segments) => {
   for (const s of segments) {
     if (typeof s === 'string') { parent.append(s); continue; }
@@ -110,6 +188,10 @@ const appendSegments = (parent, segments) => {
 // the right. A precise timestamp, when present, is a source's OWN date (e.g. a
 // spreadsheet's recorded modified time), shown below the vintage, de-emphasised
 // and kept clearly distinct from our fetch/processing date.
+/**
+ * @param {TimelineDisplayEntry} entry
+ * @returns {HTMLLIElement}
+ */
 const timelineEvent = (entry) => {
   const li = el('li', 'tl-event' + (entry.className ? ' ' + entry.className : ''));
   const dot = el('span', 'tl-dot' + (entry.dotClass ? ' tl-dot-' + entry.dotClass : ''));
@@ -129,6 +211,10 @@ const timelineEvent = (entry) => {
 
 // Render year-grouped entries into an <ol class="tl">: each year is a group
 // carrying its period label and a nested <ol> of that year's events.
+/**
+ * @param {TimelineDisplayEntry[]} entries
+ * @returns {HTMLOListElement}
+ */
 const timelineGroups = (entries) => {
   const ol = el('ol', 'tl');
   for (const { period, entries: bucket } of groupByYear(entries)) {
@@ -150,9 +236,16 @@ const timelineGroups = (entries) => {
 // across the fold. `collapseNoun` names the tucked items in the summary
 // ("sources", "events"). Returns a wrapper so the <details> can sit beside the
 // list (an <ol> may not hold a <details> as a direct child).
+/**
+ * @param {TimelineDisplayEntry[]} entries
+ * @param {{ ariaLabel?: string, collapseAfter?: number, collapseNoun?: string }} [options]
+ * @returns {HTMLDivElement}
+ */
 const renderTimeline = (entries, { ariaLabel, collapseAfter = Infinity, collapseNoun = 'events' } = {}) => {
   const wrap = el('div', 'tl-wrap');
+  /** @type {{ period: string, entries: TimelineDisplayEntry[] }[]} */
   const visible = [];
+  /** @type {{ period: string, entries: TimelineDisplayEntry[] }[]} */
   const hidden = [];
   let shown = 0;
   for (const group of groupByYear(entries)) {
@@ -181,6 +274,10 @@ const renderTimeline = (entries, { ariaLabel, collapseAfter = Infinity, collapse
 // many-snapshot variant collapses its overflow years behind a <details>. Shared
 // by the canonical-divergence block and the "show the working" panel.
 const COLLAPSE_SOURCES_AFTER = 5;
+/**
+ * @param {DisplaySource} s
+ * @returns {TimelineDisplayEntry}
+ */
 const sourceEntry = (s) => {
   const lead = document.createDocumentFragment();
   lead.append(`row ${s.ordinal} · `);
@@ -189,6 +286,10 @@ const sourceEntry = (s) => {
   lead.appendChild(a);
   return { lead, vintage: s.vintage, dateText: s.vintage, datetime: s.vintage, className: 'tl-source', dotClass: 'source' };
 };
+/**
+ * @param {DisplaySource[]} sources
+ * @returns {HTMLDivElement}
+ */
 const renderSourceList = (sources) => {
   const timeline = renderTimeline(sources.map(sourceEntry),
     { ariaLabel: 'Where it was seen, by snapshot', collapseAfter: COLLAPSE_SOURCES_AFTER, collapseNoun: 'sources' });
@@ -196,6 +297,7 @@ const renderSourceList = (sources) => {
   return timeline;
 };
 
+/** @param {string} t */
 const showRaw = t => t.replace(/ /g, '[NBSP]').replace(/ /g, '[SP]');
 
 // The primary event class of a folded observation, driving its spine dot's
@@ -203,6 +305,7 @@ const showRaw = t => t.replace(/ /g, '[NBSP]').replace(/ /g, '[SP]');
 // (birth), then an admin-only update, then an unchanged continuation; a parallel
 // (de-emphasised) stream is marked as such. The dot only ECHOES the meaning the
 // event chips already carry in text, so nothing rides on the dot's colour.
+/** @param {TimelineEntry} ob */
 const primaryDotClass = (ob) => {
   if (ob.role === 'parallel') return 'parallel';
   const classes = ob.evs.map(e => e.cls);
@@ -218,6 +321,11 @@ const primaryDotClass = (ob) => {
 // variant tag on the left and its snapshot vintage on the right, grouped by
 // year. The event chips keep the model's colour-plus-text vocabulary; the spine
 // dot echoes the primary event class.
+/**
+ * @param {HTMLElement} host
+ * @param {ResolvedEntity} resolved
+ * @param {ClaimRow[]} claims
+ */
 function renderEntity(host, resolved, claims) {
   host.textContent = '';
   const observations = observationsOf(claims);
@@ -235,6 +343,7 @@ function renderEntity(host, resolved, claims) {
   head.appendChild(verdict);
   card.appendChild(head);
 
+  /** @type {TimelineDisplayEntry[]} */
   const entries = [];
   for (const v of f.vints) {
     for (const ob of f.byV.get(v) ?? []) {
@@ -261,6 +370,11 @@ function renderEntity(host, resolved, claims) {
 }
 
 // ---- Layer anatomy: raw token -> normalises_to edges -> entity -------------
+/**
+ * @param {HTMLElement} host
+ * @param {ResolvedEntity} resolved
+ * @param {ClaimRow[]} claims
+ */
 function renderAnatomy(host, resolved, claims) {
   host.textContent = '';
   const variants = anatomyOf(claims);
@@ -298,6 +412,11 @@ function renderAnatomy(host, resolved, claims) {
 }
 
 // ---- Dossier: attributes + derived notable observations (flags) ------------
+/**
+ * @param {HTMLElement} host
+ * @param {ResolvedEntity} resolved
+ * @param {ClaimRow[]} claims
+ */
 function renderDossier(host, resolved, claims) {
   host.textContent = '';
   const card = el('div', 'entity');
@@ -314,7 +433,7 @@ function renderDossier(host, resolved, claims) {
       .filter(o => o.vintage === latestVintage && o.status !== '')
       .map(o => o.status))].sort();
     st.append(b(latestStatuses.length > 0 ? latestStatuses.join(' / ') : '(no status)'));
-    st.append(' · latest snapshot ', latestVintage);
+    st.append(' · latest snapshot ', latestVintage ?? '');
   } else {
     st.append('no observations');
   }
@@ -326,7 +445,12 @@ function renderDossier(host, resolved, claims) {
   note.textContent = `Resolved from "${resolved.typed}" via the ${resolved.matched === 'placeholder' ? 'placeholder-form (entity)' : 'cleaned'} index.`;
   body.appendChild(note);
 
+  /** @param {string} title */
   const section = (title) => { const s = el('div', 'dsec'); s.appendChild(el('h4', null, title)); return s; };
+  /**
+   * @param {string} lab
+   * @param {Node | string | (Node | string)[]} parts
+   */
   const row = (lab, parts) => {
     const r = el('div', 'drow');
     r.appendChild(el('span', 'lab', lab));
@@ -363,6 +487,11 @@ function renderDossier(host, resolved, claims) {
 // right-of-reply hook. Exported so the DOM output is unit-testable without a
 // database worker. Deliberately carries NO lookalike / "did you mean"
 // suggestion.
+/**
+ * @param {HTMLElement} body
+ * @param {ResolvedEntity} resolved
+ * @param {ClaimRow[]} claims
+ */
 export function renderFidelity(body, resolved, claims) {
   const fidelity = fidelityOf(claims, resolved);
   if (!fidelity.disclose) return; // selective disclosure: surface nothing
@@ -415,6 +544,7 @@ export function renderFidelity(body, resolved, claims) {
 // the inputs it consumed, the reproduced result, and a link to examine the
 // source rows the observation was seen in. Built from the emitted claims, so it
 // shows exactly what the model asserts.
+/** @param {Working} working */
 function renderWorking(working) {
   const d = el('details', 'fid-why');
   const sum = el('summary');
@@ -448,6 +578,11 @@ function renderWorking(working) {
 }
 
 // One label/value line inside a working panel.
+/**
+ * @param {string} lab
+ * @param {string | Node} value
+ * @returns {HTMLDivElement}
+ */
 function row2(lab, value) {
   const r = el('div', 'fid-work-row');
   r.appendChild(el('span', 'k', lab));
@@ -462,6 +597,11 @@ function row2(lab, value) {
 // from that single result set. Exported so a JSDOM test can run the full lookup
 // against a node:sqlite-backed executor without the browser worker. Returns the
 // resolution so callers can react (e.g. update the URL / title).
+/**
+ * @param {QueryExecutor} query
+ * @param {string} typed
+ * @returns {Promise<ResolvedEntity>}
+ */
 export async function runLookup(query, typed) {
   const entityHost = document.getElementById('entity');
   const anatomyHost = document.getElementById('anatomy');
@@ -503,6 +643,10 @@ export async function runLookup(query, typed) {
 // or absent param yields null so a bare load degrades gracefully to the sample
 // chip rather than throwing. The value is trimmed and upper-cased to the
 // canonical callsign form the register uses.
+/**
+ * @param {URLSearchParams} params
+ * @returns {{ callsign: string | null }}
+ */
 export function parseLedgerParams(params) {
   const raw = params.get('c') ?? params.get('callsign');
   const callsign = (raw !== null && raw.trim() !== '') ? raw.trim().toUpperCase() : null;
@@ -513,6 +657,11 @@ export function parseLedgerParams(params) {
 // query reduced to ?c=<callsign>, hash preserved. Pure (returns a string); the
 // caller decides pushState vs replaceState. URLSearchParams percent-encodes the
 // value, so a callsign is carried literally and can never smuggle markup.
+/**
+ * @param {string} baseHref
+ * @param {string} callsign
+ * @returns {string}
+ */
 export function ledgerSearchUrl(baseHref, callsign) {
   const url = new URL(baseHref);
   url.search = new URLSearchParams({ c: callsign }).toString();
@@ -526,15 +675,24 @@ export function ledgerSearchUrl(baseHref, callsign) {
 // worker. runSearch(callsign) performs the live lookup; this layer only reads
 // URL params and writes the input value (never innerHTML), so a hostile param
 // can never reach the DOM as markup.
+/**
+ * @param {{ doc: Document, win: Window, runSearch: (callsign: string) => Promise<unknown> }} options
+ */
 export function wireLedgerSearch({ doc, win, runSearch }) {
-  const getInput = () => doc.getElementById('callsign-input');
-  const first = doc.querySelector('#resolver .chip');
-  const fallback = first ? first.dataset.cs : '';
+  // `doc` may be a JSDOM document from another realm than this module's own
+  // ambient DOM globals (tests inject their own JSDOM instance), where
+  // `instanceof HTMLInputElement`/`HTMLElement` would wrongly say no - these
+  // elements are asserted from the page's known markup shape (ledger.html)
+  // rather than verified by constructor identity.
+  const getInput = () => /** @type {HTMLInputElement | null} */ (doc.getElementById('callsign-input'));
+  const first = /** @type {HTMLElement | null} */ (doc.querySelector('#resolver .chip'));
+  const fallback = first ? (first.dataset.cs ?? '') : '';
 
   // mode: 'push' adds a history entry (a user-initiated search, so Back returns
   // to the previous search); 'replace' rewrites the current entry (the initial
   // load, so it adds no spurious entry); 'none' leaves history untouched (a
   // popstate restore, whose URL is already the target).
+  /** @param {string} callsign @param {'push' | 'replace' | 'none'} mode */
   const writeUrl = (callsign, mode) => {
     if (mode === 'none') return;
     const next = ledgerSearchUrl(win.location.href, callsign);
@@ -543,6 +701,7 @@ export function wireLedgerSearch({ doc, win, runSearch }) {
     else win.history.pushState(null, '', next);
   };
 
+  /** @param {string} typed @param {'push' | 'replace' | 'none'} mode */
   const search = (typed, mode) => {
     const value = typed.trim().toUpperCase();
     if (value === '') return Promise.resolve();
@@ -555,9 +714,10 @@ export function wireLedgerSearch({ doc, win, runSearch }) {
   const resolver = doc.getElementById('resolver');
   if (resolver) {
     resolver.addEventListener('click', (e) => {
-      const chip = e.target.closest('button.chip');
+      const target = /** @type {HTMLElement | null} */ (e.target);
+      const chip = /** @type {HTMLElement | null} */ (target ? target.closest('button.chip') : null);
       if (!chip) return;
-      void search(chip.dataset.cs, 'push');
+      void search(chip.dataset.cs ?? '', 'push');
     });
   }
   const form = doc.getElementById('lookup-form');
@@ -607,7 +767,7 @@ export function wireLedgerSearch({ doc, win, runSearch }) {
  * which guards each); `openDatabase` opens the query worker and is required.
  * `performLookup` defaults to runLookup and is dependency-injected in tests - the
  * runner only reads `.entity` off its result, so that is all the contract needs.
- * @param {{ button?: HTMLButtonElement, statusEl?: HTMLElement, alertEl?: HTMLElement, resultEl?: HTMLElement, doc?: Document, openDatabase: () => unknown, performLookup?: (query: unknown, value: string) => Promise<{ entity: string | null }>, label?: string }} options
+ * @param {{ button?: HTMLButtonElement, statusEl?: HTMLElement, alertEl?: HTMLElement, resultEl?: HTMLElement, doc?: Document, openDatabase: () => Promise<QueryExecutor> | QueryExecutor, performLookup?: (query: QueryExecutor, value: string) => Promise<{ entity: string | null }>, label?: string }} options
  */
 export function makeLedgerLookup({
   button, statusEl, alertEl, resultEl, doc = document,
@@ -616,6 +776,7 @@ export function makeLedgerLookup({
   // Open the database once and memoise it. A rejected open is NOT cached: the
   // memo is cleared on failure so a later search retries rather than being stuck
   // on a transient error. A subsequent search reuses the warm open.
+  /** @type {Promise<QueryExecutor> | null} */
   let queryPromise = null;
   const getQuery = () => {
     queryPromise ??= Promise.resolve(openDatabase())
@@ -623,6 +784,7 @@ export function makeLedgerLookup({
     return queryPromise;
   };
 
+  /** @param {string} value */
   const lookup = (value) => {
     if (value === '') return Promise.resolve();
     return withDatabaseLoading(
@@ -639,7 +801,8 @@ export function makeLedgerLookup({
             ? `No observation for ${value} in the subset.`
             : `Resolved ${value} → ${resolved.entity}.`;
         }
-        for (const chip of doc.querySelectorAll('#resolver .chip')) {
+        for (const rawChip of doc.querySelectorAll('#resolver .chip')) {
+          const chip = /** @type {HTMLElement} */ (rawChip);
           chip.setAttribute('aria-pressed', String(chip.dataset.cs === value));
         }
         return resolved;
@@ -657,11 +820,12 @@ export function makeLedgerLookup({
 // test importing this module for its render/param functions never trips this,
 // so importing the module opens no worker.
 function initLedgerPage() {
+  const lookupButton = document.querySelector('#lookup-form button');
   const { lookup } = makeLedgerLookup({
-    button: document.querySelector('#lookup-form button'),
-    statusEl: document.getElementById('lookup-status'),
-    alertEl: document.getElementById('lookup-alert'),
-    resultEl: document.getElementById('entity'),
+    button: lookupButton instanceof HTMLButtonElement ? lookupButton : undefined,
+    statusEl: document.getElementById('lookup-status') ?? undefined,
+    alertEl: document.getElementById('lookup-alert') ?? undefined,
+    resultEl: document.getElementById('entity') ?? undefined,
     openDatabase: openLedgerQuery,
     label: 'claim-ledger database',
   });
@@ -669,6 +833,15 @@ function initLedgerPage() {
   wireLedgerSearch({ doc: document, win: window, runSearch: lookup });
 }
 
-if (typeof window !== 'undefined' && typeof window.createDbWorker === 'function') {
-  initLedgerPage();
+// The httpvfs UMD loader (vendor/, no shipped types) attaches createDbWorker to
+// window at runtime; read through a typed view of that global, mirroring the
+// same boundary crossing in ledger-query.js's openLedgerQuery. The outer
+// `typeof window` guard must run first and short-circuit, unevaluated, so this
+// module never throws when imported somewhere window does not exist at all
+// (a plain node process, as opposed to a jsdom test).
+if (typeof window !== 'undefined') {
+  const pageGlobals = /** @type {{ createDbWorker?: unknown }} */ (/** @type {unknown} */ (window));
+  if (typeof pageGlobals.createDbWorker === 'function') {
+    initLedgerPage();
+  }
 }

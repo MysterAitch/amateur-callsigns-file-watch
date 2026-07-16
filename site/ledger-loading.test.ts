@@ -16,6 +16,11 @@ const SITE_DIR = 'site';
 const LEDGER_HTML = fs.readFileSync(path.join(SITE_DIR, 'ledger.html'), 'utf8');
 const MAIN = LEDGER_HTML.slice(LEDGER_HTML.indexOf('<main'), LEDGER_HTML.indexOf('</main>') + '</main>'.length);
 
+// A stand-in database handle: these tests supply their own `performLookup`
+// stub, so the opened "database" is never actually queried - it only needs to
+// satisfy makeLedgerLookup's QueryExecutor-shaped openDatabase contract.
+const stubQuery = () => [];
+
 // Seed the document with the page's real search markup (form, button, status,
 // alert, result host and sample chips), then narrow the elements the affordance
 // drives - failing loudly if any is missing, so a renamed element never silently
@@ -44,7 +49,7 @@ describe('Ledger lookup loading affordance (issues #499/#506)', { tags: ['ui'] }
     const performLookup = vi.fn(async () => ({ entity: 'G#0TQK' }));
     const { lookup } = makeLedgerLookup({
       button, statusEl, alertEl, resultEl, doc: document, performLookup,
-      openDatabase: () => opened.then(() => ({})),
+      openDatabase: () => opened.then(() => stubQuery),
     });
 
     const pending = lookup('G0TQK');
@@ -98,7 +103,7 @@ describe('Ledger lookup loading affordance (issues #499/#506)', { tags: ['ui'] }
       ({ entity: value === 'G0TQK' ? 'G#0TQK' : null }));
     const { lookup } = makeLedgerLookup({
       button, statusEl, alertEl, resultEl, doc: document, performLookup,
-      openDatabase: () => { opens += 1; return Promise.resolve({}); },
+      openDatabase: () => { opens += 1; return Promise.resolve(stubQuery); },
     });
 
     await lookup('G0TQK');

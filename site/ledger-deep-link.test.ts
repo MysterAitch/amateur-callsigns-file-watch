@@ -23,7 +23,8 @@ function makeDom(search = '') {
   const dom = new JSDOM(`<!DOCTYPE html><html><body>${MAIN}</body></html>`, {
     url: `https://example.test/ledger.html${search}`,
   });
-  return { win: dom.window, doc: dom.window.document };
+  const win = dom.window as unknown as Window & typeof globalThis;
+  return { win, doc: win.document };
 }
 
 describe('parseLedgerParams', { tags: ['ui'] }, () => {
