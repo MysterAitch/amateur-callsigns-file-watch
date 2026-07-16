@@ -751,6 +751,15 @@ jobs:
              node_modules/sql.js-httpvfs/dist/sqlite.worker.js \
              node_modules/sql.js-httpvfs/dist/sql-wasm.wasm \
              _site/vendor/
+          # Stamp the service-worker precache manifest (issue #614). Enumerates
+          # the shipped static shell by the same rule the deploy-coverage guard
+          # enforces and injects it into sw.js's SHELL_ASSETS, plus a content-hash
+          # SHELL_VERSION that busts the shell cache exactly when the precached
+          # set or any precached file changes - so no lane hand-edits sw.js.
+          # Runs LAST, after every asset (incl. vendored library and the nav/
+          # db-size/aggregate-stamped pages) is in place, so the hash covers the
+          # final deployed bytes.
+          node src/ci/build-sw-precache.ts _site/sw.js
       # Pages upload is a deploy-only concern: gated to main so a PR builds and
       # assembles _site (the pre-merge coverage) but never uploads an artefact.
       - if: github.ref == 'refs/heads/main'
