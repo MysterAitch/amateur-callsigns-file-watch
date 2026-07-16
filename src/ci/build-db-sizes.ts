@@ -9,12 +9,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 // name -> the built file under _site/data. The lookup/history names are the
-// ledger-derived projection databases the surfaces query (issue #572); the
-// legacy callsigns/combined names stay stampable while both builds run during
-// the transition (#445 retires them).
+// ledger-derived projection databases the interactive surfaces query (issue
+// #572); the legacy callsigns/combined runtime databases have been retired
+// (issue #445), so only the projection pair is stamped.
 export const SIZED_DATABASES: Record<string, string> = {
-  callsigns: 'callsigns.sqlite.png',
-  combined: 'combined.sqlite.png',
   lookup: 'ledger-lookup.sqlite.png',
   history: 'ledger-history.sqlite.png',
 };
