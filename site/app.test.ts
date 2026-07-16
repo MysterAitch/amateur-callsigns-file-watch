@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { makeRunLookup } from './app.js';
+import { makeRunLookup, registerHistoryHeader } from './app.js';
 
 // The lookup page routes its PRIMARY database open + query through the shared
 // loading affordance (issues #499/#506), exactly as Explore and the Playground
@@ -125,5 +125,27 @@ describe('lookup loading affordance', { tags: ['ui'] }, () => {
     expect(alertEl.dataset.severity).toBe('query');
     expect(alertEl.textContent).toMatch(/query failed/i);
     expect(alertEl.textContent).toContain('no such table');
+  });
+});
+
+describe('register-history multi-callsign header (#594)', { tags: ['ui'] }, () => {
+  it('RegisterHistoryHeader_WhenRenderingACallsign_LinksToTheCanonicalPerCallsignPage', () => {
+    // The register-history card shows this bolded header row above each
+    // callsign's own block of publications only when more than one callsign is
+    // in play (e.g. an as-typed value alongside its resolved register row) -
+    // it must link to that callsign's own canonical page, not just repeat it
+    // as inert text.
+    const header = registerHistoryHeader('M7TEE');
+    expect(header.tagName).toBe('STRONG');
+    const link = header.querySelector('a');
+    expect(link?.getAttribute('href')).toBe('callsign.html?c=M7TEE');
+    expect(link?.textContent).toBe('M7TEE');
+  });
+
+  it('RegisterHistoryHeader_AccessibleName_IsTheBareCallsign', () => {
+    // Non-happy-path guard: an unusual (lowercase, over-long) callsign must
+    // still surface as the link's own visible/accessible text, unaltered.
+    const header = registerHistoryHeader('gb100abcde');
+    expect(header.querySelector('a')?.textContent).toBe('gb100abcde');
   });
 });

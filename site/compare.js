@@ -27,6 +27,7 @@ import { buildPredicate, stateToViewParam, viewParamToState, applyViewToState, m
 import { createHistorySync } from './history-sync.js';
 import { withDatabaseLoading } from './db-loading.js';
 import { statusField } from './field-wrappers.js';
+import { callsignPillLink } from './callsign-pill.js';
 
 /** @typedef {import('./browser-query.js').FilterState} FilterState */
 
@@ -96,6 +97,16 @@ function code(v) {
   // eslint-disable-next-line @typescript-eslint/no-base-to-string -- `v` is deliberately `unknown` (any displayable value); a non-primitive intentionally falls back to its default stringification here rather than being excluded from display.
   c.textContent = v == null ? '' : String(v);
   return c;
+}
+// The cleaned (artefact-stripped join key) column: this IS the register's own
+// callsign, so - unlike the raw callsign column below - it links to its
+// canonical per-callsign page (callsign.html, issue #594). `v` is deliberately
+// `unknown` at this display boundary (an arbitrary named column in practice
+// always a string here); a non-string falls back to the existing generic cell
+// rather than being coerced into a broken link.
+/** @param {unknown} v */
+function cleanedCallsignCell(v) {
+  return typeof v === 'string' ? callsignPillLink(el, v) : code(v);
 }
 // A callsign with whitespace/odd characters made legible (shared classifier),
 // so a damaged value in a set-difference sample doesn't hide.
@@ -695,7 +706,7 @@ export function diffBlock(title, rows, columns) {
   const thead = el('thead', {}, [el('tr', {}, columns.map(h => el('th', { text: h })))]);
   const tbody = el('tbody', {}, shown.map(r => el('tr', {}, columns.map(h => {
     if (h === 'callsign') return el('td', {}, [rawCallsign(r[h])]);
-    if (h === 'cleaned') return el('td', {}, [code(r[h])]);
+    if (h === 'cleaned') return el('td', {}, [cleanedCallsignCell(r[h])]);
     // A status column (#553/#625) routes through the shared field wrapper -
     // 'plain' linking, since this sample table repeats the same handful of
     // status values down up to SAMPLE rows.

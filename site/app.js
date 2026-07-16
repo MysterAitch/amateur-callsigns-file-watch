@@ -160,9 +160,9 @@ function renderTable(headers, rows, numericFrom = 1) {
 }
 
 // Edge navigation: the graph is latent in the components - every value
-// links to the surface that explores it (callsigns and placeholder forms
-// to their own ?c= pages, suffixes to the availability matrix, series to
-// their entity pages).
+// links to the surface that explores it (callsigns and placeholder forms to
+// their own canonical per-callsign page, callsign.html, issue #594; suffixes
+// to the availability matrix; series to their entity pages).
 /** @param {string} callsign */
 function csLink(callsign) {
   return callsignPillLink(el, callsign);
@@ -295,6 +295,18 @@ function historyDatasets() {
  * @property {string} status
  * @property {string} product
  */
+// The per-callsign header row shown above its own block of publications
+// whenever a register-history card covers more than one callsign (e.g. an
+// as-typed value alongside its resolved register row) - bolded and, since
+// issue #594, LINKED to that callsign's own canonical page, so a reader
+// scanning several callsigns' histories side by side can jump straight to
+// either one's full dossier. Exported so this is exercised directly, without
+// needing a combined-database worker.
+/** @param {string} callsign */
+export function registerHistoryHeader(callsign) {
+  return el('strong', {}, [csLink(callsign)]);
+}
+
 /** @param {(string | null | undefined)[]} callsigns */
 async function registerHistoryCard(callsigns) {
   try {
@@ -316,7 +328,7 @@ async function registerHistoryCard(callsigns) {
     const tbody = el('tbody');
     for (const callsign of found) {
       if (found.length > 1) {
-        tbody.append(el('tr', {}, [el('td', { colspan: '4' }, [el('strong', { text: callsign })])]));
+        tbody.append(el('tr', {}, [el('td', { colspan: '4' }, [registerHistoryHeader(callsign)])]));
       }
       // previous = last state KNOWN from evidence: presence anywhere is
       // evidence; absence is evidence only in an intended-complete
@@ -895,10 +907,12 @@ async function lookup(criteria) {
   // value rather than hiding the row (unlike the other optional facts below,
   // filtered out here only when genuinely empty). This page sits at the site
   // root, so the glossary resolves at depth 0; the lookup shows one row, so
-  // the default 'linked' crosslinking (not 'plain') is the right call.
+  // the default 'linked' crosslinking (not 'plain') is the right call. The
+  // callsign itself links to its own canonical per-callsign page (issue #594),
+  // so the primary lookup result is never a display-only dead end.
   sections.push(card('Register row (normalised)', [renderTable(
     ['field', 'value'],
-    [['callsign', row.callsign], ['product', licenceField(el, row.product)], ['status', statusField(el, row.status, { depthToRoot: 0 })], ['type', row.type],
+    [['callsign', csLink(row.callsign)], ['product', licenceField(el, row.product)], ['status', statusField(el, row.status, { depthToRoot: 0 })], ['type', row.type],
       ['created', row.created_date], ['last modified', row.last_modified_date],
       ['licence version modified', row.licence_version_last_modified_date],
       ['licence version start', row.licence_version_original_start_date]].filter(([, v]) => v !== ''),

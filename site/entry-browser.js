@@ -17,7 +17,7 @@
 // the same as app.js.
 
 import { COLUMNS, TOGGLES, PAGE_SIZES, buildPredicate, stateToViewParam, viewParamToState, applyViewToState, resolvedCallsignCore } from './browser-query.js';
-import { callsignPillRaw } from './callsign-pill.js';
+import { callsignPillLink, callsignPillRaw } from './callsign-pill.js';
 import { createHistorySync } from './history-sync.js';
 import { withDatabaseLoading } from './db-loading.js';
 import { licenceField, statusField } from './field-wrappers.js';
@@ -121,6 +121,14 @@ function codeCell(value) {
 /** @param {string} raw */
 function renderRawCallsign(raw) {
   return callsignPillRaw(el, raw);
+}
+// The cleaned (artefact-stripped join key) column: this IS the register's own
+// callsign, so - unlike the raw column above - it links to its canonical
+// per-callsign page (callsign.html, issue #594), the same shared pill every
+// other results surface uses.
+/** @param {string} cleaned */
+function renderCleanedCallsign(cleaned) {
+  return callsignPillLink(el, cleaned);
 }
 /** @param {string} raw */
 function describeDiff(raw) {
@@ -416,7 +424,7 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
       ? el('tbody', {}, [el('tr', {}, [el('td', { colspan: String(headers.length), class: 'browser-status', text: 'No matching rows — adjust or clear the filters above.' })])])
       : el('tbody', {}, rows.map(r => el('tr', {}, headers.map(h => {
         if (h === 'callsign') return el('td', {}, [renderRawCallsign(r.callsign)]);
-        if (h === 'cleaned') return el('td', {}, [codeCell(r.cleaned)]);
+        if (h === 'cleaned') return el('td', {}, [renderCleanedCallsign(r.cleaned)]);
         if (h === 'difference') return el('td', { class: 'diffnote', text: describeDiff(r.callsign) });
         // A 'status' or licence-class/product column (#553/#625) routes
         // through the shared field wrappers, mirroring the generated pages'
