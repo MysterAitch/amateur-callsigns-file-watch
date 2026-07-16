@@ -23,6 +23,7 @@ import {
   groupByYear,
 } from './ledger-query.js';
 import { withDatabaseLoading } from './db-loading.js';
+import { statusField } from './field-wrappers.js';
 
 /** @typedef {import('./ledger-query.js').ClaimRow} ClaimRow */
 /** @typedef {import('./ledger-query.js').QueryExecutor} QueryExecutor */
@@ -83,6 +84,24 @@ const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.classN
 // carry is never interpreted as markup.
 /** @param {unknown} txt */
 const b = txt => el('b', null, String(txt));
+
+// The ElementFactory shape the shared field wrappers (field-wrappers.js,
+// issue #625) expect - attrs-object rather than this file's own positional
+// (tag, className, text) `el` - so the wrappers render identically here as on
+// every other front-end that already holds that shape (app.js/entry-browser.js).
+/**
+ * @param {string} tag
+ * @param {Record<string, string>} [attrs]
+ * @returns {HTMLElement}
+ */
+const elAttrs = (tag, attrs = {}) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'text') e.textContent = v;
+    else e.setAttribute(k, v);
+  }
+  return e;
+};
 
 // Render an actual raw register token, surfacing any literal whitespace or
 // non-breaking space it carries as a visible marker rather than an invisible
@@ -432,7 +451,19 @@ function renderDossier(host, resolved, claims) {
     const latestStatuses = [...new Set(observations
       .filter(o => o.vintage === latestVintage && o.status !== '')
       .map(o => o.status))].sort();
-    st.append(b(latestStatuses.length > 0 ? latestStatuses.join(' / ') : '(no status)'));
+    // The shared status field wrapper (#553/#625): the dossier shows only
+    // this one summary line (never a repeated per-row column), so the default
+    // 'linked' crosslinking is the right call, at the site root (depth 0).
+    if (latestStatuses.length > 0) {
+      const statusVal = el('b');
+      latestStatuses.forEach((s, i) => {
+        if (i > 0) statusVal.append(' / ');
+        statusVal.append(statusField(elAttrs, s, { depthToRoot: 0 }));
+      });
+      st.append(statusVal);
+    } else {
+      st.append(b('(no status)'));
+    }
     st.append(' · latest snapshot ', latestVintage ?? '');
   } else {
     st.append('no observations');

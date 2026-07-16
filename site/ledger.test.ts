@@ -272,6 +272,22 @@ describe('Ledger page render (JSDOM smoke test, live query)', { tags: ['ui'] }, 
     expect(document.getElementById('miss')?.textContent).toContain('register-snapshot publications only');
     expect(document.getElementById('entity')?.textContent).toBe('');
   });
+
+  it('Dossier_LatestStatusSummary_RendersTheSharedStatFieldLinkedToItsGlossaryDefinition', async () => {
+    // The shared status field wrapper (#553/#625): the dossier shows only ONE
+    // summary line (never a repeated per-row column), so - unlike the entry
+    // browser/compare per-row tables - it uses the default 'linked' crosslink.
+    const html = siteFile('ledger.html');
+    const main = html.slice(html.indexOf('<main'), html.indexOf('</main>') + '</main>'.length);
+    document.body.innerHTML = main;
+    await runLookup(query, 'G0TQK');
+
+    // G0TQK's latest snapshot (2024-04-30) carries a single status: Allocated.
+    const statField = document.querySelector('#dossier .entity-head .stat .stat');
+    expect(statField?.textContent).toContain('Allocated');
+    const link = statField?.querySelector('a.gloss-term');
+    expect(link?.getAttribute('href')).toBe('glossary.html#allocated');
+  });
 });
 
 describe('Ledger entity timeline — vertical activity-feed layout (issue #466)', { tags: ['ui'] }, () => {

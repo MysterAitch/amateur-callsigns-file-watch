@@ -26,6 +26,7 @@
 import { buildPredicate, stateToViewParam, viewParamToState, applyViewToState, matchingCountSql, setDiffSql, callsignCharMarker, TOGGLES } from './browser-query.js';
 import { createHistorySync } from './history-sync.js';
 import { withDatabaseLoading } from './db-loading.js';
+import { statusField } from './field-wrappers.js';
 
 /** @typedef {import('./browser-query.js').FilterState} FilterState */
 
@@ -679,11 +680,14 @@ async function renderDiff(chosen, pred) {
 }
 
 /**
+ * One set-difference/change sample table (callsign/cleaned/status columns),
+ * rendered as a collapsible `<details>`. Exported so the field-wrapper
+ * adoption on its status columns (#625) is exercised directly.
  * @param {string} title
  * @param {Record<string, unknown>[]} rows
  * @param {string[]} columns
  */
-function diffBlock(title, rows, columns) {
+export function diffBlock(title, rows, columns) {
   const shown = rows.slice(0, SAMPLE);
   const details = el('details', { class: 'cmp-diffblock' });
   details.append(el('summary', {}, [el('strong', { text: `${nf(rows.length)} ` }), title]));
@@ -692,6 +696,12 @@ function diffBlock(title, rows, columns) {
   const tbody = el('tbody', {}, shown.map(r => el('tr', {}, columns.map(h => {
     if (h === 'callsign') return el('td', {}, [rawCallsign(r[h])]);
     if (h === 'cleaned') return el('td', {}, [code(r[h])]);
+    // A status column (#553/#625) routes through the shared field wrapper -
+    // 'plain' linking, since this sample table repeats the same handful of
+    // status values down up to SAMPLE rows.
+    if ((h === 'status' || h === 'status_before' || h === 'status_after') && typeof r[h] === 'string') {
+      return el('td', {}, [statusField(el, r[h], { glossaryLinking: 'plain' })]);
+    }
     // eslint-disable-next-line @typescript-eslint/no-base-to-string -- row values are deliberately `unknown` (an arbitrary named column); a non-primitive intentionally falls back to its default stringification rather than being excluded from the cell.
     return el('td', { text: r[h] === null ? 'NULL' : String(r[h]) });
   }))));

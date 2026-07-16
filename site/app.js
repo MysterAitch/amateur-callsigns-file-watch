@@ -10,6 +10,7 @@ import { countryForCallsign, stripVisitorPrefix } from './prefix-country.js';
 import { placeholderOf } from './browser-query.js';
 import { callsignPillLink } from './callsign-pill.js';
 import { withDatabaseLoading } from './db-loading.js';
+import { licenceField, statusField } from './field-wrappers.js';
 
 // The row shape read back off the httpvfs worker's query() is not typed by the
 // vendored library (no shipped types); every SELECT here states its own column
@@ -206,20 +207,6 @@ function glossLabel(text, anchor) {
     el('a', { href: `glossary.html#${anchor}`, class: 'muted hint', title: `glossary: ${text}`, text: '(?)' }),
   ]);
 }
-/** @type {Record<string, string>} */
-const STATUS_ANCHORS = {
-  allocated: 'allocated', reserved: 'reserved', available: 'available',
-  live: 'status-live', forbidden: 'status-forbidden', quarantine: 'status-quarantine',
-};
-/** @param {string | null | undefined} status */
-function statusCell(status) {
-  if (status === '' || status == null) return status;
-  const anchor = STATUS_ANCHORS[String(status).toLowerCase()] ?? 'status-values';
-  return el('span', {}, [
-    String(status) + ' ',
-    el('a', { href: `glossary.html#${anchor}`, class: 'muted hint', title: 'what this register status means', text: '(what this means)' }),
-  ]);
-}
 // Extract the suffix (trailing letter run after the last digit) from a typed
 // callsign, so a not-found lookup can route to that suffix's availability
 // matrix (issue #261). Returns null when there is no clear suffix.
@@ -357,13 +344,18 @@ async function registerHistoryCard(callsigns) {
         const notEvidenceReason = (d.coverage_affecting ?? '') !== ''
           ? 'known to omit records it declares (see the publication page)'
           : `${d.intended_complete === 'false' ? 'declared partial' : 'undeclared scope'}, ${Number(d.record_count).toLocaleString('en-GB')} rows`;
-        const statusText = row ? (status === '' ? '(blank status)' : status)
-          : complete ? '(absent from this publication)'
-            : `(not in this publication — ${notEvidenceReason}; not evidence of absence)`;
+        // A genuine status value (this publication carries a row) routes
+        // through the shared field wrapper - 'plain' linking, since this
+        // table repeats the same handful of values down one callsign's whole
+        // history. The no-row cases are narrative about the PUBLICATION
+        // (absent / out of scope), not a status value, so they stay plain text.
+        const statusCell = row
+          ? statusField(el, status, { glossaryLinking: 'plain', blankLabel: '(blank status)' })
+          : el('span', { text: complete ? '(absent from this publication)' : `(not in this publication — ${notEvidenceReason}; not evidence of absence)` });
         tbody.append(el('tr', {}, [
           el('td', {}, [link]),
-          el('td', { text: statusText }),
-          el('td', { text: row ? row.product : '' }),
+          el('td', {}, [statusCell]),
+          el('td', {}, row ? [licenceField(el, row.product)] : []),
           el('td', { text: change, class: change === '' ? '' : 'flag' }),
         ]));
         if (informative) previous = status;
@@ -898,9 +890,15 @@ async function lookup(criteria) {
   const sections = [];
   if (fallbackNote) sections.push(fallbackNote);
 
+  // The shared field wrappers (#553/#625): product/status route through the
+  // same licenceField/statusField the generated pages use, humanising a blank
+  // value rather than hiding the row (unlike the other optional facts below,
+  // filtered out here only when genuinely empty). This page sits at the site
+  // root, so the glossary resolves at depth 0; the lookup shows one row, so
+  // the default 'linked' crosslinking (not 'plain') is the right call.
   sections.push(card('Register row (normalised)', [renderTable(
     ['field', 'value'],
-    [['callsign', row.callsign], ['product', row.product], ['status', statusCell(row.status)], ['type', row.type],
+    [['callsign', row.callsign], ['product', licenceField(el, row.product)], ['status', statusField(el, row.status, { depthToRoot: 0 })], ['type', row.type],
       ['created', row.created_date], ['last modified', row.last_modified_date],
       ['licence version modified', row.licence_version_last_modified_date],
       ['licence version start', row.licence_version_original_start_date]].filter(([, v]) => v !== ''),
@@ -913,7 +911,7 @@ async function lookup(criteria) {
   if (row.cs_suffix) componentRows.push(['suffix', suffixLink(row.cs_suffix)]);
   if (row.placeholder_form) componentRows.push([glossLabel('placeholder form', 'placeholder-form'), csLink(row.placeholder_form)]);
   if (row.home_callsign) componentRows.push(['home callsign (visitor)', csLink(row.home_callsign)]);
-  if (row.implied_class) componentRows.push(['implied licence class', row.implied_class]);
+  if (row.implied_class) componentRows.push(['implied licence class', licenceField(el, row.implied_class)]);
   sections.push(card('Components', [renderTable(['part', 'value'], componentRows, 99)]));
 
   if (row.home_callsign) {
