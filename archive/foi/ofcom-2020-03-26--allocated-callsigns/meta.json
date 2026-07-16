@@ -30,7 +30,7 @@
       "sha256": "80921c08f0556e4ccfa2c59989b15010cc180615314d0a7196b5a0d28fae2ced",
       "role": "data",
       "datasetClasses": ["register-snapshot"],
-      "contentsIndicative": "one worksheet, 'Allocated CallSign as at 260320': header Value,Status then 92,318 data rows, Status 'Allocated' on every row. This is the faithful witness (Ofcom asset id 196168). A companion asset (id 194533, amateur-radio-allocated-call-signs.xlsx, sha256 8e7ddcfccc1a4d3f80a88e924f4a39297ba5142bf1b608bdedbc4dccfbc0638c, published at https://www.ofcom.org.uk/__data/assets/excel_doc/0025/194533/amateur-radio-allocated-call-signs.xlsx) carries the same 92,318 logical callsigns but with eleven suffix-month callsigns mangled by Excel into date serials (20JAN,21JAN,20FEB,20MAR,21MAR,20APR,20MAY,20JUL,20SEP,20OCT,20DEC -> 2020-01-20,2020-01-21,2020-02-20,2020-03-20,2020-03-21,2020-04-20,2020-05-20,2020-07-20,2020-09-20,2020-10-20,2020-12-20); it is not ingested (identical worksheet title would collide on extraction, and it is a strictly-corrupted variant). Anomalies in this faithful copy, preserved verbatim: three trailing non-breaking spaces (2E1HON, G0TQK, G7IWE), one interior space (G6 FMU), two non-uppercase callsigns (2e1GTD, g0jrk), 388 four-character heritage callsigns and 51 callsigns of six to nine characters (mostly reciprocal M/... forms).",
+      "contentsIndicative": "one worksheet, 'Allocated CallSign as at 260320': header Value,Status then 92,318 data rows, Status 'Allocated' on every row. This is the faithful witness (Ofcom asset id 196168). Ofcom also published a strictly-corrupted companion of the same disclosure (asset id 194533), now held in full as amateur-radio-allocated-call-signs.xlsx and recorded in this entry's divergences[] - it is not ingested. Anomalies in this faithful copy, preserved verbatim: three trailing non-breaking spaces (2E1HON, G0TQK, G7IWE), one interior space (G6 FMU), two non-uppercase callsigns (2e1GTD, g0jrk), 388 four-character heritage callsigns and 51 callsigns of six to nine characters (mostly reciprocal M/... forms).",
       "witnesses": [
         {
           "channel": "ukgwa",
@@ -57,10 +57,41 @@
       "normalisedFrom": "raw-extract-sheet-1-allocated-callsign-as-at-260320.csv",
       "contentsIndicative": "header callsign,status,licence_class; 92,318 rows sorted by callsign (source order carries no meaning). Status carried verbatim ('Allocated' on every row - a genuine per-row column, not a declared attribution); licence_class emitted empty (no class disclosed). Three trailing non-breaking spaces were trimmed from callsigns and counted in the converter notes (never silent); the interior-space 'G6 FMU' and the non-uppercase callsigns are preserved verbatim."
     },
+    "amateur-radio-allocated-call-signs.xlsx": {
+      "bytes": 1434959,
+      "sha256": "8e7ddcfccc1a4d3f80a88e924f4a39297ba5142bf1b608bdedbc4dccfbc0638c",
+      "role": "divergent-copy",
+      "divergesFrom": "list-of-allocated-amateur-radio-callsigns.xlsx",
+      "contentsIndicative": "Ofcom companion asset id 194533, held in full so the divergence is re-verifiable forever. Carries the same 92,318 logical callsigns as the faithful copy, but eleven suffix-month callsigns were mangled by Excel into date serials (enumerated in the divergences[] record). Deliberately not the entry's parse source - a strictly-corrupted variant kept as evidence, never ingested. Recovered byte-identical (sha256 matches) from the UK Government Web Archive's id_ (raw) replay of the Ofcom asset.",
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20230103113243id_/https://www.ofcom.org.uk/__data/assets/excel_doc/0025/194533/amateur-radio-allocated-call-signs.xlsx",
+          "sha256": "8e7ddcfccc1a4d3f80a88e924f4a39297ba5142bf1b608bdedbc4dccfbc0638c",
+          "originalFilename": "amateur-radio-allocated-call-signs.xlsx",
+          "fetchedAt": "2026-07-16"
+        }
+      ]
+    },
     "correspondence.md": {
       "bytes": 4248,
       "sha256": "d705a4ab0211519b50720672a7a76cd08b704e386ed7b54006db2642665353e4",
       "role": "transcript"
     }
-  }
+  },
+  "divergences": [
+    {
+      "file": "list-of-allocated-amateur-radio-callsigns.xlsx",
+      "counterpart": {
+        "publisher": "ofcom",
+        "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20230103113243id_/https://www.ofcom.org.uk/__data/assets/excel_doc/0025/194533/amateur-radio-allocated-call-signs.xlsx",
+        "sha256": "8e7ddcfccc1a4d3f80a88e924f4a39297ba5142bf1b608bdedbc4dccfbc0638c",
+        "originalFilename": "amateur-radio-allocated-call-signs.xlsx",
+        "heldAs": "amateur-radio-allocated-call-signs.xlsx"
+      },
+      "level": "cells",
+      "summary": "Ofcom published two copies of this disclosure: the faithful asset 196168 and a companion asset 194533 in which eleven suffix-month callsigns were mangled by Excel into date serials. Both carry the same 92,318 logical callsigns; only these eleven cells differ. Which copy is faithful is stated, not adjudicated - both are held so a reader can compare them directly.",
+      "enumeration": "20JAN->2020-01-20, 21JAN->2020-01-21, 20FEB->2020-02-20, 20MAR->2020-03-20, 21MAR->2020-03-21, 20APR->2020-04-20, 20MAY->2020-05-20, 20JUL->2020-07-20, 20SEP->2020-09-20, 20OCT->2020-10-20, 20DEC->2020-12-20"
+    }
+  ]
 }
