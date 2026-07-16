@@ -9,14 +9,15 @@
   //
   // So this is a THIRD project, alongside the root (node) and tsconfig.site.json
   // (DOM) ones - same rationale as that split (a different global environment),
-  // scoped to only the file(s) that actually run in a worker. checkJs stays off
-  // globally and is opted in per file with `// @ts-check`, mirroring
-  // tsconfig.site.json's module-by-module rollout (#530).
+  // scoped to only the file(s) that actually run in a worker. checkJs mirrors
+  // tsconfig.site.json's now-completed module-by-module rollout (#530): sw.js
+  // checks clean, so checkJs is on here too (this project only ever covers the
+  // one file, so there was never more than one module to bring in).
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "lib": ["ES2022", "WebWorker"],
     "allowJs": true,
-    "checkJs": false
+    "checkJs": true
   },
   "include": ["site/sw.js"],
   "exclude": ["node_modules", "dist"]
