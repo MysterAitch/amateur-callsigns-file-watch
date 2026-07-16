@@ -24,7 +24,15 @@ export function defaultFoiDir(): string {
 export interface FoiWitness {
   channel: string;
   url: string;
-  fetchedAt: string;
+  // Optional: some disclosure-log `live` copies are recorded without a fetch
+  // timestamp (the FOI-lane validator requires only channel and url). A
+  // renderer must degrade honestly ("fetch date not recorded"), never fabricate
+  // a date or emit "undefined".
+  fetchedAt?: string;
+  // Some witnesses carry a free-text note (why this copy was ingested as the
+  // primary raw, whether a mirror was found); surfaced where useful, never
+  // required.
+  note?: string;
 }
 
 export interface FoiRelatedEntry {

@@ -27,7 +27,8 @@ import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
-import { readPublisherRegister, channelIndex, channelDisplayName, type PublisherEntry } from '../shared/publishers.ts';
+import { readPublisherRegister, channelIndex, publisherIndexById, publisherForChannel, authorPublisherId, type PublisherEntry } from '../shared/publishers.ts';
+import { buildPublisherPages, publisherHref } from './build-publisher-pages.ts';
 import { renderMarkdown, renderInline } from '../shared/render-markdown.ts';
 import { parseFlagRegistry } from './build-sqlite.ts';
 import { displaySeries } from './build-home-aggregates.ts';
@@ -149,19 +150,88 @@ function witnessChannelIndex(): Map<string, PublisherEntry> {
   return cachedChannelIndex;
 }
 
-// "recovered from <channel>, capture/fetched <date>" as a clickable link.
-// UKGWA URLs embed the capture timestamp - surface that; otherwise the
-// fetch date from the witness record.
-function witnessLinks(witnesses: FoiWitness[] | undefined): string {
+// The register keyed by publisher id, read once, lazily — used to name an
+// entry's author (resolved by id from its sourceKey) on the published-by block.
+let cachedPublisherById: Map<string, PublisherEntry> | undefined;
+function publisherById(): Map<string, PublisherEntry> {
+  cachedPublisherById ??= publisherIndexById(readPublisherRegister());
+  return cachedPublisherById;
+}
+
+// "recovered from <publisher>, capture/fetched <date>" as clickable links. The
+// resolved publisher name links to its page (issue #618, increment 2) — so a
+// witness is a two-way link: the capture URL to verify the bytes, the publisher
+// name to see everything else that publisher hosts and what basis the mirror
+// holds it on. UKGWA URLs embed the capture timestamp - surface that; otherwise
+// the fetch date. An unresolved token (never expected past validation) keeps the
+// raw token with no page link rather than manufacturing one.
+// The "when" clause for a witness: the capture date embedded in a UKGWA replay
+// URL where present, else the recorded fetch date, else an honest "date not
+// recorded" (some disclosure-log `live` copies carry no fetch timestamp) — never
+// a fabricated or "undefined" date. Returns escaped, ready to render.
+function witnessWhen(w: FoiWitness, capture: RegExpExecArray | null): string {
+  if (capture !== null) return `capture ${capture[1]}-${capture[2]}-${capture[3]}`;
+  return w.fetchedAt !== undefined && w.fetchedAt !== '' ? `fetched ${escapeHtml(w.fetchedAt)}` : 'fetch date not recorded';
+}
+
+function witnessLinks(witnesses: FoiWitness[] | undefined, depthToRoot = 3): string {
   if (witnesses === undefined || witnesses.length === 0) return '';
   return witnesses.map(w => {
-    const channelName = channelDisplayName(witnessChannelIndex(), w.channel);
+    const publisher = publisherForChannel(witnessChannelIndex(), w.channel);
+    const channelName = publisher?.name ?? w.channel;
     const capture = /\/ukgwa\/(\d{4})(\d{2})(\d{2})/.exec(w.url);
-    const label = capture === null
-      ? `${channelName}, fetched ${w.fetchedAt}`
-      : `${channelName}, capture ${capture[1]}-${capture[2]}-${capture[3]}`;
-    return ` · recovered from <a href="${escapeHtml(w.url)}">${escapeHtml(label)}</a>`;
+    const when = witnessWhen(w, capture);
+    const publisherLink = publisher === undefined
+      ? escapeHtml(channelName)
+      : `<a href="${publisherHref(publisher.id, depthToRoot)}">${escapeHtml(channelName)}</a>`;
+    return ` · recovered from ${publisherLink} — <a href="${escapeHtml(w.url)}">${when}</a>`;
   }).join('');
+}
+
+// The "Published by / witnessed at" block for an entry page (issue #618,
+// increment 2): the AUTHOR (origin, derived from sourceKey) and the HOSTS
+// (copies obtained, resolved from witness channels) as separate axes, each
+// linking to its publisher page. Only DIRECT relationships exist in the data, so
+// the wording labels them direct — transitive corroboration slots in later
+// without re-architecting. Distinct witnesses are keyed by (channel, url) so a
+// copy witnessed by several files lists once.
+function publishedByBlock(sourceKey: string, witnesses: FoiWitness[], depthToRoot: number): string {
+  const index = witnessChannelIndex();
+  const authorId = authorPublisherId(sourceKey);
+  // The author is resolved by id (not by channel): an author may originate a
+  // dataset without operating any witness channel of its own.
+  const authorName = authorId === undefined ? undefined : (publisherById().get(authorId)?.name ?? authorId);
+
+  const authorLine = authorId === undefined
+    ? `<p><b>Author:</b> not resolved from source key <code>${escapeHtml(sourceKey)}</code> — flagged, not guessed. A dataset from an unmapped source is surfaced here rather than assigned a flattering author.</p>`
+    : `<p><b>Author:</b> <a href="${publisherHref(authorId, depthToRoot)}">${escapeHtml(authorName ?? authorId)}</a> originated this dataset. Authorship is a claim about origin — it holds wherever a copy is held, and does not change with the venue a copy was served from. <small class="gap">(Direct.)</small></p>`;
+
+  const seen = new Set<string>();
+  const items: string[] = [];
+  for (const w of witnesses) {
+    const dedupeKey = `${w.channel} ${w.url}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    const publisher = publisherForChannel(index, w.channel);
+    const name = publisher?.name ?? w.channel;
+    const capture = /\/ukgwa\/(\d{4})(\d{2})(\d{2})/.exec(w.url);
+    const when = witnessWhen(w, capture);
+    const nameLink = publisher === undefined
+      ? escapeHtml(name)
+      : `<a href="${publisherHref(publisher.id, depthToRoot)}">${escapeHtml(name)}</a>`;
+    items.push(`<li>${nameLink} — <a href="${escapeHtml(w.url)}">${when}</a></li>`);
+  }
+
+  const hostLine = items.length === 0
+    ? `<p><b>Witnessed at:</b> obtained directly from the author; no separate third-party witness is recorded for this copy.</p>`
+    : `<p><b>Witnessed at:</b> ${items.length === 1 ? 'a copy was' : 'copies were'} obtained <b>directly</b> from the following ${items.length === 1 ? 'publisher' : 'publishers'} — a copy fetched straight from that venue. Transitive corroboration will be labelled distinctly when it lands.</p><ul>${items.join('')}</ul>`;
+
+  return [
+    '<section><h2>Published by / witnessed at</h2>',
+    authorLine,
+    hostLine,
+    '</section>',
+  ].join('\n');
 }
 
 // Copies every file of an entry directory into the output tree and returns
@@ -811,11 +881,15 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     ? [noticeStrip(true, `<b>Dataset ${escapeHtml(meta.datasetRecovery)}:</b> the response data itself is not held in this entry (the correspondence and provenance are). Absence of data here is a recovery state, not evidence about the register.`)]
     : [noticeStrip(false, `Freedom-of-Information disclosure — a point-in-time snapshot, not a live feed.`)];
 
+  // Provenance interlink (issue #618): FOI witnesses live per file, so the
+  // entry's copies are the union across every declared file.
+  const foiWitnesses = Object.values(meta.files).flatMap(f => f.witnesses ?? []);
   const body = [
     breadcrumbHtml([['Datasets', '../../index.html'], ['FOI requests', '../../index.html#foi'], [key, undefined]]),
     `<h1>${escapeHtml(meta.title)}</h1>`,
     `<p class="subtitle">Freedom-of-Information response from Ofcom, recovered and mirrored. FOI archive entry <code>${escapeHtml(key)}</code> · <a href="datapackage.json">datapackage.json</a>.</p>`,
     ...recoveryNotice,
+    publishedByBlock(meta.sourceKey, foiWitnesses, 3),
     '<div class="main-region">',
     datasetNavSidebar(key, summaries, foiEntries),
     '<div class="col">',
@@ -1049,9 +1123,11 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     provenance?: string;
     reconstructionNotes?: string;
     gitCommitSha?: string;
+    sourceKey?: string;
     intendedCoverage?: { complete: boolean; scopeNotes?: string };
     qualityObservations?: { statement: string; evidence: string; coverageAffecting?: boolean }[];
     sourceUrl?: string; ofcomReportedUpdateIso?: string; ofcomReportedUpdate?: string; fetchedAt?: string;
+    witnesses?: { channel: string; url: string; fetchedAt: string; note?: string }[];
     diffSummary?: OpenDataDiffSummary;
     ignoredLines?: { line: number; content: string; reason: string }[];
   };
@@ -1117,6 +1193,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     `<h1>${escapeHtml(pageTitle)}</h1>`,
     `<p class="subtitle">Ofcom amateur-radio callsign register, mirrored byte-for-byte. Archive entry <code>${escapeHtml(key)}</code> · <a href="datapackage.json">datapackage.json</a>.</p>`,
     ...coverageNotices(meta),
+    publishedByBlock(meta.sourceKey ?? 'ofcom-amateur-callsigns', meta.witnesses ?? [], 3),
     '<div class="main-region">',
     datasetNavSidebar(key, summaries, foiEntries),
     '<div class="col">',
@@ -1391,6 +1468,8 @@ export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: st
       : []),
     '<h2>Register status</h2>',
     ...listOf(STATUS_DOCS, ''),
+    '<h2>Publishers</h2>',
+    '<p>The <a href="../publishers/index.html">publisher register</a> — the bodies that originate, archive, aggregate or host the mirrored material, each with the licence basis on which the mirror holds it, its authority ceiling, and the datasets it authored or hosted. Author, publication channel and host are kept as separate axes.</p>',
     '<h2>Fidelity &amp; integrity</h2>',
     `<p><a href="../fidelity.html">Fidelity &amp; integrity</a> — what the data-quality flags mean, the provenance chain behind every value, worked "show the working" examples from real records, the reconstruction self-check, and how to re-verify any of it. The small fidelity notes beside records across the site all land here.</p>`,
     '<h2>Data dictionary</h2>',
@@ -1494,6 +1573,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     '<p>Every archived dataset in both collections below, with the raw, extract and normalised files published verbatim at stable URLs. Integrity: each entry’s <code>meta.json</code> declares sha256 for every file; each entry ships a <a href="https://datapackage.org/">Frictionless</a> <code>datapackage.json</code> and a one-click <code>.zip</code> of everything.</p>',
     '<p>Prefer to browse by kind of data? Every entry carries one or more <a href="classes/index.html">dataset types</a> — a register snapshot, an availability pool, a forbidden-suffix list, and so on — each with a full overview page: what that kind of data is, the shape of a row, its provenance and quirks, and every entry that carries it, across both collections.</p>',
     '<p>Comparing publications rather than browsing one? The <a href="../statistics/inter-dataset.html">inter-dataset statistics</a> page sets the archived publications side by side — blank-product filtering, record-count deltas, and flag and pattern drift.</p>',
+    '<p>Want to know who published what? Every dataset here is <a href="../publishers/index.html">authored by, and witnessed through, a publisher</a> — Ofcom originates the data, and copies are held via its open-data page, the UK Government Web Archive, WhatDoTheyKnow and others. Each publisher page states the basis on which the mirror holds its material and lists every related holding.</p>',
     ...dictionarySection,
     '<h2>Bulk downloads</h2>',
     '<ul>',
@@ -1562,6 +1642,13 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   // the latest-publication statistics page. Built like the sections above; it
   // reads only the committed stats.json/meta.json, so ordering does not matter.
   pageUrls.push(...time('dataset-pages:interdataset-stats', () => buildInterdatasetStats(outputDir, baseUrl)));
+
+  // The publisher section (issue #618, increment 2): one page per register
+  // entry plus an index, cross-linking datasets to the bodies that authored or
+  // hosted them. Built like the sections above — one generator, wired here so no
+  // workflow change is needed; it reads the committed register + archive metas,
+  // so ordering does not matter.
+  pageUrls.push(...time('dataset-pages:publisher-pages', () => buildPublisherPages(outputDir, baseUrl)));
 
   const sitemap = [
     '<?xml version="1.0" encoding="UTF-8"?>',
