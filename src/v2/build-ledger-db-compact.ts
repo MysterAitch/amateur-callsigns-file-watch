@@ -36,7 +36,13 @@
  * to the fat build's and that the point lookups still plan onto their indexes.
  *
  * Usage:
- *   node src/v2/build-ledger-db-compact.ts [output.sqlite.png] [--subset] [--no-gz-twin]
+ *   node src/v2/build-ledger-db-compact.ts [output.sqlite.png] [--subset] [--no-gz-twin] [--ledger-dir=<dir>]
+ *
+ * --ledger-dir names where the intermediate per-source JSONL ledgers land (and
+ * are KEPT, not cleaned up), so a sibling build step - the surface projection
+ * databases (build-projection-db.ts, issue #572) - can fold the SAME Stage-1
+ * emit instead of paying for a second one. Omitted, a temp directory is used
+ * and cleaned as before.
  */
 
 import * as fs from 'fs';
@@ -571,8 +577,14 @@ if (import.meta.main) {
   const dbPath = positional[0] ?? path.join('_site', 'data', 'claim-ledger.sqlite.png');
   const { subsetSelector } = await import('./build-ledger-db.ts');
   const useSubset = flags.has('--subset');
+  // --ledger-dir=<dir>: emit the intermediate JSONL ledgers there and KEEP them
+  // (buildCompactLedgerDb only cleans a directory it created itself), so the
+  // surface-projection build (build-projection-db.ts, issue #572) can fold the
+  // same Stage-1 emit rather than re-emitting the corpus.
+  const ledgerDirFlag = args.find(a => a.startsWith('--ledger-dir='));
   const result = await buildCompactLedgerDb(dbPath, {
     selectEntry: useSubset ? subsetSelector() : undefined,
+    ledgerDir: ledgerDirFlag?.slice('--ledger-dir='.length),
     // --no-gz-twin: skip the gzipped download twin. The Pages deploy passes
     // this because chunked serving (issue #475) replaced the twin there.
     gzTwin: !flags.has('--no-gz-twin'),
