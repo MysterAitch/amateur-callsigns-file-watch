@@ -102,6 +102,28 @@ Key the directory by the publication's data vintage: `archive/{YYYY-MM-DD}/`.
    register for the current valid tokens, and add a publisher entry there
    before introducing a new channel.
 
+   Beyond `channel`/`url`/`fetchedAt`, a witness carries two optional fields:
+   `sha256` — the hash of the bytes *that witness served* — and
+   `originalFilename` — the name the copy carried at its source (provenance the
+   held filename may itself have sanitised away). Neither is required, but
+   together they let a witness's **agreement** with the held copy be *derived
+   on read* (`src/shared/witness-agreement.ts`), never hand-declared:
+
+   - no `sha256` → **citation-grade** (a location only, unverified);
+   - `sha256` matches a held copy's hash → **corroborating** (byte-identity
+     mechanically proven);
+   - `sha256` matches no held copy → **divergent** (a genuinely differing
+     copy).
+
+   A **divergent** witness cannot stand alone: it must be paired with an
+   entry-level `divergences[]` record (`file`, a `counterpart` naming the
+   diverging publisher/url/sha256, a `level` — `bytes`/`cells`/`rows`/
+   `format-shifted` — and a plain-English `summary`) whose counterpart hash
+   equals the witness's. An unpaired divergent witness — a differing hash with
+   no explanation — is a hard validation failure by design (the fail-fast-
+   fail-loud rule, issues #618/#619): a copy that disagrees with the held bytes
+   is exactly the case that must never pass silently.
+
 5. **Attest what the data genuinely carries.** If the publication repeats
    callsigns (publisher duplicates), validation fails until a curated
    `qualityObservations[]` entry attests the fact (a statement mentioning the
@@ -120,7 +142,9 @@ Key the directory by the publication's data vintage: `archive/{YYYY-MM-DD}/`.
 The FOI lane's converter binding lives in `FOI_ENTRY_CONVERSIONS`
 (`src/shared/foi-normalise.ts`), bound per entry via `meta.json`'s
 `converter: {script, variant}`; entries carry `correspondence.md` (role
-`transcript`) always, per-file roles/hashes, and per-file `witnesses[]`. Every
+`transcript`) always, per-file roles/hashes, and per-file `witnesses[]` (same
+schema, agreement classes and divergence-pairing rule as the open-data lane's
+entry-level witnesses — see step 4). Every
 FOI `meta.json` also declares a top-level `datasetClasses` array against the
 vocabulary in
 [`foi-schemas.md`](foi-schemas.md#dataset-classes-entry-level-vocabulary) —
@@ -165,10 +189,11 @@ Then hand-update the **hand-authored goldens** the sweep does not regenerate:
 ## Step 4 — verify
 
 - `npm run normalise:sweep` twice — the second run must report `changed=0`.
-- `npm run validate:data` — meta shape, witnesses, byte integrity, extract
-  declarations, line accounting against the parse source, attested-duplicates
-  policy. (FOI lane: `npm run foi:sweep` re-derives every extract and
-  normalised file byte-identically.)
+- `npm run validate:data` — meta shape, witnesses (including that every
+  divergent witness is paired with a `divergences[]` record), byte integrity,
+  extract declarations, line accounting against the parse source,
+  attested-duplicates policy. (FOI lane: `npm run foi:sweep` re-derives every
+  extract and normalised file byte-identically.)
 - The reconstruction oracle
   ([`reconstruction-oracle.test.ts`](../src/ci/reconstruction-oracle.test.ts))
   — the source must reconstruct byte-identically from the ledger (modulo
