@@ -139,13 +139,14 @@ async function main(): Promise<void> {
   await waitForLive();
 
   // 1. Liveness: home + the key hand-authored pages.
-  for (const p of ['index.html', 'statistics.html', 'explore.html', 'compare.html', 'ledger.html', 'data-status.html', 'glossary.html', 'about.html']) {
+  for (const p of ['index.html', 'statistics.html', 'explore.html', 'compare.html', 'ledger.html', 'callsign.html', 'data-status.html', 'glossary.html', 'about.html']) {
     await expectOk(p);
   }
 
   // 2. Assets: scripts, styles, the service worker, the manifest, the vendored
-  //    query engine, and the small data manifests.
-  for (const p of ['app.js', 'style.css', 'tokens.css', 'sw.js', 'manifest.webmanifest', 'vendor/sql-wasm.wasm', 'vendor/sqlite.worker.js', 'data/version.txt', 'data/claim-ledger.chunks.json']) {
+  //    query engine, and the small data manifests (including the callsign
+  //    page's shard manifest, #594).
+  for (const p of ['app.js', 'style.css', 'tokens.css', 'sw.js', 'manifest.webmanifest', 'vendor/sql-wasm.wasm', 'vendor/sqlite.worker.js', 'data/version.txt', 'data/claim-ledger.chunks.json', 'callsign/data/datasets.json']) {
     await expectOk(p);
   }
 
