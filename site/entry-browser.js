@@ -32,7 +32,7 @@ async function openCombined() {
       const res = await fetch(new URL('./data/version.txt', import.meta.url), { cache: 'no-store' });
       if (res.ok) version = (await res.text()).trim();
     } catch { /* fall back to unversioned */ }
-    const dbUrl = new URL(`./data/combined.sqlite.png?v=${encodeURIComponent(version)}`, import.meta.url);
+    const dbUrl = new URL(`./data/ledger-history.sqlite.png?v=${encodeURIComponent(version)}`, import.meta.url);
     return createDbWorker(
       [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
       workerUrl.toString(), wasmUrl.toString());

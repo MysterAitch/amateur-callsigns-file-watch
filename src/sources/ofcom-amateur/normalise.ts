@@ -132,6 +132,15 @@ const VARIANTS: Record<string, Record<string, CanonicalColumn | null>> = {
 // day-first CSV rendering.
 const ISO_DATE_VARIANTS: ReadonlySet<string> = new Set(['v2026-licence-version-iso']);
 
+// The authored raw->canonical binding for a registered variant, or undefined
+// for an unknown name. Lets a consumer that already knows a variant (or has
+// detected one from a stored header manifest, e.g. the claim-ledger projection
+// in src/v2/build-projection-db.ts) read the same mapping convertRawCsv uses,
+// never re-guessing which raw header means what.
+export function mappingForVariant(variant: string): Readonly<Record<string, CanonicalColumn | null>> | undefined {
+  return VARIANTS[variant];
+}
+
 export function detectHeaderVariant(headers: string[]): string | undefined {
   for (const [variant, mapping] of Object.entries(VARIANTS)) {
     const expected = Object.keys(mapping);

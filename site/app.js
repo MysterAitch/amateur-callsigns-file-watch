@@ -66,7 +66,7 @@ function getVersion() {
 // written by the deploy workflow and fetched uncached.
 async function openDatabase() {
   const version = await getVersion();
-  const dbUrl = new URL(`./data/callsigns.sqlite.png?v=${encodeURIComponent(version)}`, document.baseURI);
+  const dbUrl = new URL(`./data/ledger-lookup.sqlite.png?v=${encodeURIComponent(version)}`, document.baseURI);
   return createDbWorker(
     [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
     workerUrl.toString(),
@@ -169,7 +169,7 @@ async function query(sql, params = []) {
   return worker.db.query(sql, params);
 }
 
-// The combined database (all datasets + the FOI observations union) is much
+// The history database (all datasets + the FOI observations union) is much
 // larger than the lookup database, so it is opened LAZILY - only when a
 // lookup first needs FOI history - and queried over the same range-request
 // VFS. Same .png/?v= hosting workarounds as the main database.
@@ -177,7 +177,7 @@ let combinedDbPromise = null;
 function openCombinedDatabase() {
   combinedDbPromise ??= (async () => {
     const version = await getVersion();
-    const dbUrl = new URL(`./data/combined.sqlite.png?v=${encodeURIComponent(version)}`, document.baseURI);
+    const dbUrl = new URL(`./data/ledger-history.sqlite.png?v=${encodeURIComponent(version)}`, document.baseURI);
     return createDbWorker(
       [{ from: 'inline', config: { serverMode: 'full', url: dbUrl.toString(), requestChunkSize: 4096 } }],
       workerUrl.toString(),
@@ -1031,8 +1031,8 @@ function initLookup() {
 // before.
 
 const OFFLINE_DBS = {
-  latest: { file: 'callsigns.sqlite.png', label: 'lookup database' },
-  combined: { file: 'combined.sqlite.png', label: 'combined database' },
+  latest: { file: 'ledger-lookup.sqlite.png', label: 'lookup database' },
+  combined: { file: 'ledger-history.sqlite.png', label: 'combined database' },
 };
 
 function offlineSupported() {

@@ -24,8 +24,8 @@ const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
 const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
 
 const DB_FILES = {
-  latest: './data/callsigns.sqlite.png',
-  combined: './data/combined.sqlite.png',
+  latest: './data/ledger-lookup.sqlite.png',
+  combined: './data/ledger-history.sqlite.png',
 };
 
 // Human labels for the loading affordance (issue #499): the status names the

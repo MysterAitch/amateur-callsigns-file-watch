@@ -200,7 +200,7 @@
     probe('data version', 'data/version.txt');
     // The database is served under a .png costume and read by HTTP Range; a HEAD
     // tells us it exists and whether Range is offered (httpvfs needs it).
-    probe('lookup database', 'data/callsigns.sqlite.png', { method: 'HEAD', cache: 'no-store' });
+    probe('lookup database', 'data/ledger-lookup.sqlite.png', { method: 'HEAD', cache: 'no-store' });
   }
 
   // --- UI: a floating toggle and a collapsible panel, all inline-styled. ---

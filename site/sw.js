@@ -83,7 +83,10 @@ const offlineDbUrls = new Set();
 const dbBuffers = new Map();
 
 function isDbPath(pathname) {
-  return /\/data\/(callsigns|combined)\.sqlite\.png$/.test(pathname);
+  // The ledger-derived projection databases the surfaces query (issue #572);
+  // the legacy callsigns/combined names stay recognised so an offline copy
+  // cached under a previous deploy is still intercepted until it is replaced.
+  return /\/data\/(ledger-lookup|ledger-history|callsigns|combined)\.sqlite\.png$/.test(pathname);
 }
 
 function isShellRequest(url) {
