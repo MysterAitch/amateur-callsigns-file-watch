@@ -41,6 +41,20 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
     expect(wf, 'the required check job `data-validation` is missing/renamed').toMatch(/\n {2}data-validation:\n/);
   });
 
+  it('GoldenMaster_ReportsAStable_NonMatrixContext', () => {
+    // golden-master is the pending required-check candidate (#588 part 2): a
+    // ruleset matches a required status check on its EXACT reported context
+    // string. A bare job (no `strategy:`) reports that context as its job
+    // name alone - stable across runs. Guard both the name and the absence of
+    // a matrix, since a matrix strategy suffixes the reported context per leg
+    // (e.g. "golden-master (ubuntu-latest)") and would silently break any
+    // ruleset entry keyed on the bare name.
+    const wf = workflow();
+    expect(wf, 'the golden-master job is missing/renamed').toMatch(/\n {2}golden-master:\n {4}name: golden-master\n/);
+    const block = jobBlock(wf, 'golden-master');
+    expect(block, 'golden-master gained a matrix strategy - its reported check context would no longer be a single stable string').not.toMatch(/\n\s+strategy:\n/);
+  });
+
   it('Deploy_IsGatedToMain_AndHoldsTheOnlyWritePermissions', () => {
     const wf = workflow();
     const deploy = jobBlock(wf, 'deploy');

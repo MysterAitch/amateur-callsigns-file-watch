@@ -23,6 +23,10 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # issues: write is solely for the rolling data-landings digest comment
+  # (Option A visibility, #583/#588) - the digest is the one additive,
+  # ADR 0009-compatible notification this workflow posts.
+  issues: write
 
 concurrency:
   group: data-sweep
@@ -90,6 +94,34 @@ jobs:
                 gh pr comment "$pr_url" --body "Auto-merge could not be enabled - this data PR is parked for attention rather than merged past its checks."
                 exit 1
               fi
+
+              # Option A visibility (#583, conditional on #588 part 2): the PR
+              # still lands unattended, but a landing must never go unseen.
+              # Two additive, ADR 0009-compatible signals - nothing here
+              # touches the merge decision itself:
+              #   1. the assignee mechanism, so the PR surfaces for a
+              #      post-hoc look even though it already merged;
+              #   2. one line on a rolling "data landings" digest issue, so
+              #      every landing has a durable, chronological record.
+              # The digest reuses the same search-title / edit-or-create
+              # upsert normalise.yml already uses for its rolling coverage
+              # dashboard (normalise.yml:137-157), but APPENDS a comment per
+              # landing instead of replacing the issue body: a running log
+              # reads naturally as comments, and it needs no read-modify-write
+              # of prior entries (the workflow's own `concurrency` group
+              # already serialises sweep runs, so no race is possible either
+              # way).
+              assignee="$(gh api "repos/$GITHUB_REPOSITORY" --jq .owner.login)"
+              gh pr edit "$pr_url" --add-assignee "$assignee" || echo "::warning::Could not assign $pr_url to $assignee - landing still recorded on the digest."
+
+              digest_title="Data landings (rolling digest)"
+              digest_number="$(gh issue list --state open --search "in:title \"$digest_title\"" --json number,title --jq ".[] | select(.title == \"$digest_title\") | .number" | head -1)"
+              if [ -z "$digest_number" ]; then
+                digest_url="$(gh issue create --title "$digest_title" \
+                  --body "Maintained automatically by the data-sweep workflow - do not edit the issue body by hand. Each comment below records one auto-merged data-only landing, newest last.")"
+                digest_number="${digest_url##*/}"
+              fi
+              gh issue comment "$digest_number" --body "$(date -u +%Y-%m-%dT%H:%M:%SZ) - $pr_url (\`$branch\`) - data-only diff, auto-merge enabled (merges once required checks are green)."
             else
               gh pr comment "$pr_url" --body "Diff touches non-data paths - auto-merge NOT enabled. This needs human review."
             fi

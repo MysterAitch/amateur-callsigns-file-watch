@@ -122,9 +122,9 @@ below).
   push-triggered, so it only ever runs reviewed code from `main` and branch
   content can influence *what* merges but never *what executes*
   (`data-sweep.yml:10-15`).
-- **Permissions:** `contents: write`, `pull-requests: write`
-  (`data-sweep.yml:23-25`).
-- **What it does** (`data-sweep.yml:39-96`): discovers `data/*` branches; deletes
+- **Permissions:** `contents: write`, `pull-requests: write`, `issues: write`
+  (`data-sweep.yml:23-29` — the last is solely for the landings digest below).
+- **What it does** (`data-sweep.yml:39-128`): discovers `data/*` branches; deletes
   any that are already fully merged or empty; opens one merge-commit PR per
   remaining branch; classifies the branch's diff against a **path allowlist**
   (`archive/*`, the `latest-*` pointer set, `amateur-callsigns-raw.csv`,
@@ -135,18 +135,39 @@ below).
     fails for any reason, the sweep fails **closed** (#648): it comments that the
     PR is parked for attention and fails the job (`exit 1`) rather than merging
     past a possibly-still-pending check — there is no direct-merge fallback
-    (`data-sweep.yml:84-92`).
+    (`data-sweep.yml:88-96`).
   - **Diff touches any non-data path:** posts a comment that auto-merge is **not**
-    enabled and the PR needs human review (`data-sweep.yml:93-95`).
+    enabled and the PR needs human review (`data-sweep.yml:125-127`).
+- **Landing visibility (Option A, #583/#588):** the moment auto-merge is
+  successfully enabled on a data-only PR (which may complete the merge
+  immediately, if checks are already green, or leave it pending), the sweep
+  adds two purely additive signals — neither can affect whether or what merges
+  (`data-sweep.yml:98-124`):
+  - assigns the PR (`gh pr edit --add-assignee`, resolved from the
+    repository's own owner field rather than a hardcoded login), so it
+    surfaces for a look whether or not it has finished merging yet;
+  - appends one line to a rolling "Data landings (rolling digest)" issue
+    (searched by title, created once if absent, then a comment per landing —
+    never an overwrite), reusing the search-title / create-if-missing upsert
+    the scheduled normalise sweep (stage 6 below) already uses for its
+    coverage dashboard (`normalise.yml:137-157`).
 - **Governing ADR:** [ADR 0009](adr/0009-data-landing-via-branches-and-sweep.md)
   (the landing flow), [ADR 0001](adr/0001-post-fetch-processing-in-repo.md)
   (schedule-not-push, PR-only writeback).
-- **Human in the loop:** **no** for data-only publications that auto-merge
-  cleanly — they merge on green checks with no reviewer assigned and no
-  notification beyond the PR itself; **yes** for any diff that strays outside
+- **Human in the loop:** **no** human blocks a data-only publication before it
+  merges — it lands on green checks alone; but it is no longer silent: the PR
+  is assigned and logged on the rolling digest as soon as auto-merge is
+  enabled, so the notification exists independently of exactly when the merge
+  itself completes. **Yes** (before merge) for any diff that strays outside
   the allowlist, and **yes** (via the failed job) for a data-only PR whose
   auto-merge could not be enabled — it is parked, not merged, and the job
   failure is the notification.
+
+> **golden-master is not yet a required check.** The gate genuinely blocks a
+> data-only landing only on `tests` and `data-validation` (ADR 0002); a red
+> `golden-master` run (stage 3) does not by itself hold one open. Making
+> `golden-master` required is the other half of #588 part 2 — see stage 3 and
+> [ADR 0002](adr/0002-repo-level-write-controls.md) for the exact setting.
 
 > **Depends on GitHub settings.** Auto-merge only *waits* for a gate if required
 > status checks are configured on `main` — that GitHub-side configuration is
@@ -172,16 +193,16 @@ via their own reviewed consolidation PRs (`data-sweep.yml:5-8`).
 ### 3. Verify pipeline (`cicd.yaml`)
 
 - **Trigger:** every `pull_request`, every `push` to `main`, and
-  `workflow_dispatch` (`.github/workflows/cicd.yaml:20-24`).
+  `workflow_dispatch` (`.github/workflows/cicd.yaml:23-27`).
 - **Write posture:** the workflow's default permission is `contents: read`
-  (`cicd.yaml:26-27`). Only the `deploy` job elevates, and only to `pages: write`
-  + `id-token: write` (`cicd.yaml:776-778`) — **no job in this workflow can write
+  (`cicd.yaml:29-30`). Only the `deploy` job elevates, and only to `pages: write`
+  + `id-token: write` — **no job in this workflow can write
   repository contents.** This preserves the read-only-CI posture of
   [ADR 0012](adr/0012-supply-chain-posture.md) at the job level rather than by
   keeping verify in a separate file ([ADR 0019](adr/0019-layered-build-cache-and-unified-cicd.md) §3).
 - **Verify gates:**
   - **`tests`** — the single aggregate required check
-    (`cicd.yaml:435-448`). The suite is fanned out across `typecheck`,
+    (`cicd.yaml:438-451`). The suite is fanned out across `typecheck`,
     `build-claims`, the heavy/fold/shard/fast matrices, the cached
     `build-sqlite-tiers` and `build-ledger` jobs, and `coverage`; `tests` passes
     only if every one of them did. The **reconstruction oracle**
@@ -189,18 +210,25 @@ via their own reviewed consolidation PRs (`data-sweep.yml:5-8`).
     ways under `heavy-shard` — so round-trip fidelity gates through `tests`
     ([ADR 0016](adr/0016-file-level-claims-and-reconstruction-oracle.md); see
     [`adding-a-dataset.md`](adding-a-dataset.md) §4).
-  - **`data-validation`** — a required check (`cicd.yaml:476-500`): structural and
+  - **`data-validation`** — a required check (`cicd.yaml:479-503`): structural and
     byte-integrity validation over every archive entry, with deep CSV parsing on
     the entries a PR touches (or the newest entry on a push to `main`). Governs
     the line-accounting invariant in
     [`normalised-schema.md`](normalised-schema.md).
-  - **`golden-master`** — the drift gate (`cicd.yaml:526-594`): re-runs the report
+  - **`golden-master`** — the drift gate (`cicd.yaml:540-608`): re-runs the report
     generators against the committed `archive/` + `reference-data/` and fails if
     the working tree then differs from what is committed under `reports/`, so a
     stale committed golden master is caught on the PR that introduced it
     ([ADR 0001](adr/0001-post-fetch-processing-in-repo.md) re-run semantics).
+    **Not yet a required check** (#588 part 2): it is a single, non-matrixed
+    job, so it reports one stable context — the exact string `golden-master`
+    — and is ready to add to the ruleset's required-status-checks set
+    alongside `tests` and `data-validation`
+    ([ADR 0002](adr/0002-repo-level-write-controls.md)); until that setting
+    changes, a red `golden-master` run does not by itself hold open a PR that
+    the two required checks already pass.
   - **`workflow-audit`** — `actionlint` + `zizmor` over the workflow YAML
-    (`cicd.yaml:456-474`). Explicitly *not* a required status check (it gates the
+    (`cicd.yaml:459-477`). Explicitly *not* a required status check (it gates the
     workflows, not the data) but red runs demand attention.
 - **Governing ADR:** [ADR 0019](adr/0019-layered-build-cache-and-unified-cicd.md)
   (unified pipeline, job-level permissions, content-addressed caches),
@@ -289,8 +317,8 @@ shape as the data sweep ([ADR 0001](adr/0001-post-fetch-processing-in-repo.md) /
 | Stage | Workflow / actor | Trigger | Gate / check | Governing ADR | Human? |
 |---|---|---|---|---|---|
 | Fetch + sanity-gate | Fetch host (LXC) | Upstream change | Sanity-gate; provenance-only acceptance | 0001, 0010, 0011 | No |
-| Open PR + gate auto-merge | `data-sweep.yml` | cron 15 min | Data-path allowlist; fails closed if auto-merge can't be enabled | 0009, 0001 | No (data-only, clean) / Yes (else, or parked on failure) |
-| Verify | `cicd.yaml` | Every PR + push to main | `tests`, `data-validation` (required); `golden-master`, reconstruction, `workflow-audit` | 0019, 0012 | No |
+| Open PR + gate auto-merge | `data-sweep.yml` | cron 15 min | Data-path allowlist; fails closed if auto-merge can't be enabled; PR assigned + logged on the rolling digest once auto-merge is enabled | 0009, 0001 | No before merge (data-only, clean; notified once auto-merge is on) / Yes (else, or parked on failure) |
+| Verify | `cicd.yaml` | Every PR + push to main | `tests`, `data-validation` (required); `golden-master` (drift gate, not yet required — #588 part 2), reconstruction, `workflow-audit` | 0019, 0012 | No |
 | Merge | GitHub ruleset | Checks green | No direct/force push, merge-commit only, required checks | 0002, 0009 | Depends on PR class |
 | Deploy | `cicd.yaml` `deploy` | Push to main | Post-deploy smoke / console / functionality | 0003, 0013, 0019, 0020 | No |
 | Normalise sweep | `normalise.yml` | cron daily 06:30 | Always-human-reviewed PR; run reddens on failure | 0001, 0004 | Yes, always |
