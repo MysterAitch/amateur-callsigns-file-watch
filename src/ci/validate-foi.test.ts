@@ -323,6 +323,40 @@ describe('validateFoiEntry - witness agreement and divergence (#618 increment 3)
     expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
   });
 
+  it('FoiEntry_WhenDivergentCopyHeldInFullWithValidDivergesFrom_Passes', () => {
+    const DIVERGENT = DATA_CSV.replace('Available', 'Allocated');
+    writeFoiEntry(undefined, meta => {
+      meta.files['divergent-copy.csv'] = {
+        bytes: Buffer.byteLength(DIVERGENT),
+        sha256: sha256(DIVERGENT),
+        role: 'divergent-copy',
+        divergesFrom: 'data.csv',
+      };
+      meta.divergences = [{
+        file: 'data.csv',
+        counterpart: { publisher: 'ofcom', url: 'https://example.org/copy.csv', sha256: sha256(DIVERGENT), heldAs: 'divergent-copy.csv' },
+        level: 'cells',
+        summary: 'the status column differs',
+      }];
+    });
+    fs.writeFileSync(path.join(foiDir, 'wdtk-123456--test-entry', 'divergent-copy.csv'), DIVERGENT);
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
+  });
+
+  it('FoiEntry_WhenDivergesFromReferencesAnUndeclaredFile_Fails', () => {
+    const DIVERGENT = DATA_CSV.replace('Available', 'Allocated');
+    writeFoiEntry(undefined, meta => {
+      meta.files['divergent-copy.csv'] = {
+        bytes: Buffer.byteLength(DIVERGENT),
+        sha256: sha256(DIVERGENT),
+        role: 'divergent-copy',
+        divergesFrom: 'ghost.csv',
+      };
+    });
+    fs.writeFileSync(path.join(foiDir, 'wdtk-123456--test-entry', 'divergent-copy.csv'), DIVERGENT);
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/divergesFrom references "ghost.csv" which is not declared/);
+  });
+
   it('FoiEntry_WhenDivergenceRecordNamesAnUndeclaredFile_Fails', () => {
     writeFoiEntry(undefined, meta => {
       meta.divergences = [{

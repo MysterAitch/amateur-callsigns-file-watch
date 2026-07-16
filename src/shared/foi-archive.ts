@@ -66,6 +66,10 @@ export interface FoiFileDeclaration {
   extractedBy?: string;
   extractedFrom?: string;
   normalisedFrom?: string;
+  // For role 'divergent-copy' (#618 increment 4): the faithful held file this
+  // copy diverges from. The divergent bytes are held in full so the difference
+  // is re-verifiable forever; the paired divergences[] record says what differs.
+  divergesFrom?: string;
 }
 
 export interface FoiEntryMeta {
@@ -109,6 +113,10 @@ export const FOI_FILE_ROLES: readonly string[] = [
   'response-letter',
   'acknowledgement-letter',
   'transcript',
+  // A copy claiming to be a disclosed file that DIFFERS from the faithful held
+  // copy, held in full so the difference is re-verifiable (#618 increment 4 /
+  // #619). Never the entry's parse source; paired with a divergences[] record.
+  'divergent-copy',
 ];
 
 // FOI-transaction outcomes (a historical fact about the request; extended

@@ -246,8 +246,13 @@ describe('xlsx extractor - archive golden master', { tags: ['data-validity'] }, 
     expect(workbookEntries.length).toBeGreaterThanOrEqual(13);
     for (const entry of workbookEntries) {
       const entryDir = path.join(foiRoot, entry);
+      // A 'divergent-copy' workbook is held for re-verification, deliberately
+      // NOT a parse source (its sheet title can collide with the faithful copy's
+      // - which is exactly why it is not ingested), so it is excluded from the
+      // extraction golden master. Roles come from the entry's meta.json.
+      const roles = (JSON.parse(fs.readFileSync(path.join(entryDir, 'meta.json'), 'utf8')) as { files?: Record<string, { role?: string }> }).files ?? {};
       const produced = new Set<string>();
-      for (const workbook of fs.readdirSync(entryDir).filter(f => f.endsWith('.xlsx'))) {
+      for (const workbook of fs.readdirSync(entryDir).filter(f => f.endsWith('.xlsx') && roles[f]?.role !== 'divergent-copy')) {
         for (const sheet of extractWorkbook(fs.readFileSync(path.join(entryDir, workbook)))) {
           if (sheet.rows === null) continue;
           const name = extractFileNameFor(sheet);

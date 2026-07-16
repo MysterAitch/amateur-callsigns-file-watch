@@ -201,7 +201,7 @@ export function validateFoiEntry(foiDir: string, key: string): ValidationProblem
     for (const cls of declared.datasetClasses ?? []) {
       if (FOI_DATASET_CLASSES[cls] === undefined) problems.push({ path: metaPath, problem: `${label}: unknown dataset class "${cls}"` });
     }
-    for (const refField of ['extractOf', 'extractedFrom', 'normalisedFrom'] as const) {
+    for (const refField of ['extractOf', 'extractedFrom', 'normalisedFrom', 'divergesFrom'] as const) {
       const ref = declared[refField];
       if (ref !== undefined && !declaredNames.has(ref)) {
         problems.push({ path: metaPath, problem: `${label}: ${refField} references "${ref}" which is not declared` });

@@ -29,6 +29,8 @@ import { CONSTANTS } from '../shared/utils.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
 import { readPublisherRegister, channelIndex, publisherIndexById, publisherForChannel, authorPublisherId, type PublisherEntry } from '../shared/publishers.ts';
 import { classifyWitnessAgreement, heldHashSet, type WitnessAgreement } from '../shared/witness-agreement.ts';
+import { deriveTransitiveAuthority, renderTransitiveAuthority, transitiveVariantFromEnv } from './render/transitive-authority.ts';
+import type { SourceAuthority } from '../shared/source-authority.ts';
 import { buildPublisherPages, publisherHref } from './build-publisher-pages.ts';
 import { renderMarkdown, renderInline } from '../shared/render-markdown.ts';
 import { parseFlagRegistry } from './build-sqlite.ts';
@@ -216,8 +218,9 @@ function witnessLinks(witnesses: FoiWitness[] | undefined, heldHashes: ReadonlyS
 // the wording labels them direct — transitive corroboration slots in later
 // without re-architecting. Distinct witnesses are keyed by (channel, url) so a
 // copy witnessed by several files lists once.
-function publishedByBlock(sourceKey: string, witnesses: FoiWitness[], heldHashes: ReadonlySet<string>, depthToRoot: number): string {
+function publishedByBlock(sourceKey: string, witnesses: FoiWitness[], heldHashes: ReadonlySet<string>, entryAuthority: SourceAuthority, depthToRoot: number): string {
   const index = witnessChannelIndex();
+  const variant = transitiveVariantFromEnv();
   const authorId = authorPublisherId(sourceKey);
   // The author is resolved by id (not by channel): an author may originate a
   // dataset without operating any witness channel of its own.
@@ -240,7 +243,18 @@ function publishedByBlock(sourceKey: string, witnesses: FoiWitness[], heldHashes
     const nameLink = publisher === undefined
       ? escapeHtml(name)
       : `<a href="${publisherHref(publisher.id, depthToRoot)}">${escapeHtml(name)}</a>`;
-    items.push(`<li>${nameLink} — <a href="${escapeHtml(w.url)}">${when}</a>${agreementMarker(classifyWitnessAgreement(w.sha256, heldHashes))}</li>`);
+    const agreement = classifyWitnessAgreement(w.sha256, heldHashes);
+    // Transitive authority (#618 increment 4): a corroborating copy proven
+    // byte-identical to this entry's held bytes borrows their authority where
+    // its own publisher ceiling is lower. Derived on read from the hash match;
+    // the marker is always shown with its evidence link, own standing intact.
+    const own = publisher?.authorityCeiling as SourceAuthority | undefined;
+    const transitive = own === undefined ? '' : renderTransitiveAuthority(
+      variant,
+      deriveTransitiveAuthority(own, agreement === 'corroborating' ? entryAuthority : undefined),
+      depthToRoot,
+    );
+    items.push(`<li>${nameLink} — <a href="${escapeHtml(w.url)}">${when}</a>${agreementMarker(agreement)}${transitive === '' ? '' : ` ${transitive}`}</li>`);
   }
 
   const hostLine = items.length === 0
@@ -926,6 +940,15 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     ? [noticeStrip(true, `<b>Dataset ${escapeHtml(meta.datasetRecovery)}:</b> the response data itself is not held in this entry (the correspondence and provenance are). Absence of data here is a recovery state, not evidence about the register.`)]
     : [noticeStrip(false, `Freedom-of-Information disclosure — a point-in-time snapshot, not a live feed.`)];
 
+  // A calm divergence notice (issue #618 increment 4 / #619): where another copy
+  // of this disclosure differs from the faithful one held here. Flag, never
+  // adjudicate — both copies are held so the difference is re-verifiable, and the
+  // fidelity nudge links the deep-dive. Absent when nothing diverges.
+  const divergenceCount = (meta.divergences ?? []).length;
+  const divergenceNotice = divergenceCount === 0 ? [] : [noticeStrip(false,
+    `<b>${divergenceCount === 1 ? 'A divergent copy is' : `${divergenceCount} divergent copies are`} on record:</b> another copy claiming to be this disclosure differs from the faithful one held here. Both copies are held so the difference is re-verifiable — the mirror states which it parses, it does not adjudicate. `
+    + fidelityNudge(3, { section: 'divergence', label: 'what differs, and why', about: 'the divergence between two copies of this publication' }))];
+
   // Provenance interlink (issue #618): FOI witnesses live per file, so the
   // entry's copies are the union across every declared file.
   const foiWitnesses = Object.values(meta.files).flatMap(f => f.witnesses ?? []);
@@ -934,7 +957,8 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     `<h1>${escapeHtml(meta.title)}</h1>`,
     `<p class="subtitle">Freedom-of-Information response from Ofcom, recovered and mirrored. FOI archive entry <code>${escapeHtml(key)}</code> · <a href="datapackage.json">datapackage.json</a>.</p>`,
     ...recoveryNotice,
-    publishedByBlock(meta.sourceKey, foiWitnesses, heldHashes, 3),
+    ...divergenceNotice,
+    publishedByBlock(meta.sourceKey, foiWitnesses, heldHashes, 'FOI', 3),
     '<div class="main-region">',
     datasetNavSidebar(key, summaries, foiEntries),
     '<div class="col">',
@@ -1272,7 +1296,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     `<h1>${escapeHtml(pageTitle)}</h1>`,
     `<p class="subtitle">Ofcom amateur-radio callsign register, mirrored byte-for-byte. Archive entry <code>${escapeHtml(key)}</code> · <a href="datapackage.json">datapackage.json</a>.</p>`,
     ...coverageNotices(meta),
-    publishedByBlock(meta.sourceKey ?? 'ofcom-amateur-callsigns', meta.witnesses ?? [], heldHashes, 3),
+    publishedByBlock(meta.sourceKey ?? 'ofcom-amateur-callsigns', meta.witnesses ?? [], heldHashes, 'Official', 3),
     '<div class="main-region">',
     datasetNavSidebar(key, summaries, foiEntries),
     '<div class="col">',
