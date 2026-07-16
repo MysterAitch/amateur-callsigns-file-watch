@@ -104,3 +104,53 @@ describe('entry-browser eager load affordance', { tags: ['ui'] }, () => {
     expect(statusLine?.textContent ?? '').not.toMatch(/query failed/i);
   });
 });
+
+// A worker whose page query answers with one real register-history row, so the
+// filters-mode table actually draws 'status'/'product'/'implied_class' cells.
+function rowWorker(row: Record<string, string>): { db: { query: (sql: string) => Promise<unknown[]> } } {
+  return {
+    db: {
+      query: async (sql: string) => {
+        await Promise.resolve();
+        return /^SELECT COUNT/i.test(sql) ? [{ n: 1 }] : [row];
+      },
+    },
+  };
+}
+
+describe('entry-browser field wrappers adoption (#625)', { tags: ['ui'] }, () => {
+  it('EntryBrowserRow_StatusColumn_RendersTheSharedStatFieldUnlinked', async () => {
+    const section = buildScaffold();
+    const row = { callsign: 'M7TEE', cleaned: 'M7TEE', status: 'Allocated', product: 'Amateur Full Radio Licence', implied_class: 'Full', prefix_series: 'M7' };
+    enhance(section, { openCombined: () => Promise.resolve(rowWorker(row)) });
+    await flush();
+
+    const statCell = section.querySelector('td .stat');
+    // 'plain' linking (#553/#625 drift-guard): this table repeats the same
+    // handful of status values down a page of rows, so - matching the
+    // generated raw-preview convention - the value is never glossary-linked
+    // here even though 'Allocated' is a recognised value.
+    expect(statCell?.textContent).toBe('Allocated');
+    expect(statCell?.querySelector('a')).toBeNull();
+  });
+
+  it('EntryBrowserRow_ProductAndImpliedClassColumns_RenderTheSharedLicField', async () => {
+    const section = buildScaffold();
+    const row = { callsign: 'M7TEE', cleaned: 'M7TEE', status: 'Allocated', product: 'Amateur Full Radio Licence', implied_class: 'Full', prefix_series: 'M7' };
+    enhance(section, { openCombined: () => Promise.resolve(rowWorker(row)) });
+    await flush();
+
+    const licCells = [...section.querySelectorAll('td .lic')];
+    expect(licCells.map(c => c.textContent)).toEqual(['Amateur Full Radio Licence', 'Full']);
+  });
+
+  it('EntryBrowserRow_BlankStatusOrProduct_HumanisesRatherThanRenderingAnEmptyCell', async () => {
+    const section = buildScaffold();
+    const row = { callsign: 'M7TEE', cleaned: 'M7TEE', status: '', product: '', implied_class: 'Full', prefix_series: 'M7' };
+    enhance(section, { openCombined: () => Promise.resolve(rowWorker(row)) });
+    await flush();
+
+    expect(section.querySelector('td .stat-blank')?.textContent).toBe('(blank)');
+    expect(section.querySelector('td .lic-blank')?.textContent).toBe('(blank)');
+  });
+});

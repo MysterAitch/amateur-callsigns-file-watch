@@ -20,6 +20,7 @@ import { COLUMNS, TOGGLES, PAGE_SIZES, buildPredicate, stateToViewParam, viewPar
 import { callsignPillRaw } from './callsign-pill.js';
 import { createHistorySync } from './history-sync.js';
 import { withDatabaseLoading } from './db-loading.js';
+import { licenceField, statusField } from './field-wrappers.js';
 
 /** @typedef {import('./browser-query.js').FilterState} FilterState */
 /** @typedef {import('./browser-query.js').Facet} Facet */
@@ -417,6 +418,16 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
         if (h === 'callsign') return el('td', {}, [renderRawCallsign(r.callsign)]);
         if (h === 'cleaned') return el('td', {}, [codeCell(r.cleaned)]);
         if (h === 'difference') return el('td', { class: 'diffnote', text: describeDiff(r.callsign) });
+        // A 'status' or licence-class/product column (#553/#625) routes
+        // through the shared field wrappers, mirroring the generated pages'
+        // raw-preview convention (build-dataset-pages.ts) so a previewed row
+        // reads consistently with the rest of the site - status is pinned to
+        // 'plain' for the same reason that preview pins it: this table repeats
+        // the same handful of values across a page of rows. NULL ("not
+        // asserted by this row's source") is untouched by the wrapper, which
+        // only humanises an ASSERTED blank ('').
+        if (typeof r[h] === 'string' && h === 'status') return el('td', {}, [statusField(el, r[h], { glossaryLinking: 'plain' })]);
+        if (typeof r[h] === 'string' && (h === 'product' || h === 'licence_class' || h === 'implied_class')) return el('td', {}, [licenceField(el, r[h])]);
         return el('td', { text: r[h] === null ? 'NULL' : String(r[h]), class: r[h] === null ? 'browser-status' : '' });
       }))));
     const wrap = el('div', { class: 'overflow', style: 'overflow-x:auto' });

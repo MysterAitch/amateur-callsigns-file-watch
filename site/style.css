@@ -61,6 +61,15 @@ nav a { display: inline-block; padding: 0.3rem 0.15rem; }
    prose without disturbing their layout. */
 .ts { white-space: nowrap; }
 .ts[title] { cursor: help; }
+
+/* The shared licence/status field wrappers (issues #553, #625), matching
+   STATUS_LICENCE_CSS in src/ci/render/page.ts so a licence/status value reads
+   the same on the JS-rendered surfaces as on the generated pages. As
+   light-touch as the callsign/date wrappers above: a stable hook so a value
+   never wraps mid-token, with no chrome of its own (the blank forms are plain
+   <em>, matching the lic-blank/stat-blank precedent). */
+.lic { white-space: nowrap; }
+.stat { white-space: nowrap; }
 form { display: flex; gap: 0.5rem; align-items: center; margin: 1rem 0; flex-wrap: wrap; }
 input[type="text"] {
   font: inherit;

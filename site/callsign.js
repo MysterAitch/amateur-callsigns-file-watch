@@ -19,6 +19,7 @@ import { cleanCallsign, reportIssueUrl, FLAG_NOTES, NOTABLE_PARSE_STATUS } from 
 import { canonicalCallsign } from './browser-query.js';
 import { wireLedgerSearch } from './ledger.js';
 import { anatomyFigureHtml } from './callsign-pill.js';
+import { licenceField, statusField, LICENCE_CLASS } from './field-wrappers.js';
 
 // ---------------------------------------------------------------------------
 // Shapes (mirroring src/ci/build-callsign-shards.ts).
@@ -350,6 +351,36 @@ const el = (tag, cls, txt) => {
 /** @param {string | number} txt */
 const b = (txt) => el('b', null, String(txt));
 
+// The ElementFactory shape the shared field wrappers (field-wrappers.js,
+// issue #625) expect - attrs-object rather than this file's own positional
+// (tag, className, text) `el` - so the wrappers render identically here as on
+// every other front-end that already holds that shape (app.js/entry-browser.js).
+/**
+ * @param {string} tag
+ * @param {Record<string, string>} [attrs]
+ * @returns {HTMLElement}
+ */
+const elAttrs = (tag, attrs = {}) => {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'text') node.textContent = v;
+    else node.setAttribute(k, v);
+  }
+  return node;
+};
+
+// A run of licence/status field-wrapper nodes joined by ' / ', for a summary
+// line that may name more than one distinct value at once (e.g. a snapshot
+// carrying two co-temporal raw variants with different statuses).
+/**
+ * @template O
+ * @param {(el: typeof elAttrs, value: string, options?: O) => HTMLElement} field
+ * @param {string[]} values
+ * @param {O} [options]
+ * @returns {(Node | string)[]}
+ */
+const joinedFields = (field, values, options) => values.flatMap((v, i) => i === 0 ? [field(elAttrs, v, options)] : [' / ', field(elAttrs, v, options)]);
+
 // Render a raw register token with literal spaces/non-breaking spaces made
 // visible (same marker the ledger uses), so a damaged form never renders as an
 // invisible gap.
@@ -507,8 +538,16 @@ function renderGlance(host, res, manifest) {
   const latest = latestSummary(record, manifest);
   const stat = el('div', 'stat');
   if (latest !== null) {
-    stat.append(b(latest.statuses.length > 0 ? latest.statuses.join(' / ') : '(no status recorded)'));
-    if (latest.products.length > 0) stat.append(' · ' + latest.products.join(' / '));
+    // The shared field wrappers (#553/#625): the glance card shows only this
+    // one summary line (never a repeated per-row column), so status uses the
+    // default 'linked' crosslink, at the site root (depth 0). The established
+    // "(no status recorded)" wording is pinned as the blank label.
+    const statusVal = el('b');
+    statusVal.append(...(latest.statuses.length > 0
+      ? joinedFields(statusField, latest.statuses, { depthToRoot: 0 })
+      : [statusField(elAttrs, '', { blankLabel: '(no status recorded)', depthToRoot: 0 })]));
+    stat.append(statusVal);
+    if (latest.products.length > 0) { stat.append(' · '); stat.append(...joinedFields(licenceField, latest.products)); }
     stat.append(` · latest register snapshot ${latest.dataset.vintage ?? '(vintage unknown)'}`);
   } else {
     stat.append('never seen in a register snapshot we hold');
@@ -530,9 +569,17 @@ function renderGlance(host, res, manifest) {
   }
 
   if (latest !== null) {
-    body.appendChild(drow('status', [b(latest.statuses.length > 0 ? latest.statuses.join(' / ') : '(no status recorded)'),
+    const statusParts = latest.statuses.length > 0
+      ? joinedFields(statusField, latest.statuses, { depthToRoot: 0 })
+      : [statusField(elAttrs, '', { blankLabel: '(no status recorded)', depthToRoot: 0 })];
+    const statusVal = el('b');
+    statusVal.append(...statusParts);
+    body.appendChild(drow('status', [statusVal,
       latest.statuses.length > 1 ? ' — more than one row in that snapshot; see the notes below' : '']));
-    body.appendChild(drow('product', [latest.products.length > 0 ? latest.products.join(' / ') : '(no product recorded — many legitimate allocations carry a blank product)']));
+    const productParts = latest.products.length > 0
+      ? joinedFields(licenceField, latest.products)
+      : [licenceField(elAttrs, '', { blankLabel: '(no product recorded — many legitimate allocations carry a blank product)' })];
+    body.appendChild(drow('product', productParts));
     if (latest.types.length > 0) body.appendChild(drow('type', [latest.types.join(' / ')]));
     const datasetLink = el('a', null, latest.dataset.title);
     datasetLink.setAttribute('href', latest.dataset.href);
@@ -671,7 +718,14 @@ function renderAnatomy(host, res, manifest) {
     const cls = manifest.vocab.impliedClass[a.ic] ?? '(unknown)';
     const clsLink = el('a', null, cls);
     clsLink.setAttribute('href', 'glossary.html#licence-class');
-    sec.appendChild(drow('implied class', [clsLink, ' — read from the prefix series via the reference tables; a best-effort derivation, not a register assertion']));
+    // The shared LICENCE_CLASS hook (#553/#625) is carried here for consistent
+    // styling, alongside - not instead of - this row's own established link
+    // straight to the licence-class AXIS anchor: a deliberate divergence from
+    // licenceField's usual no-auto-link behaviour, since this is the one row
+    // that already exists to explain what "implied class" means.
+    const clsWrap = el('span', LICENCE_CLASS);
+    clsWrap.appendChild(clsLink);
+    sec.appendChild(drow('implied class', [clsWrap, ' — read from the prefix series via the reference tables; a best-effort derivation, not a register assertion']));
   }
   if (Object.keys(a).length === 0) {
     sec.appendChild(el('p', 'muted', 'No components could be read from this form.'));
