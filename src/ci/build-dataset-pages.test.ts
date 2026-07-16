@@ -809,10 +809,13 @@ describe('Value-level check examples wear the shared callsign wrapper (issue #55
   it('EntryPage_QualityCheckExamples_HighlightTheirDerivationTimeMarkersViaTheWrapper', () => {
     // The entry page's value-level check examples come from stats.json with
     // {U+XXXX} markers already applied; the shared callsign field wrapper
-    // (pinned 'pre-marked') renders them as highlighted, non-link chips so an
-    // invisible character in a published callsign is visible at a glance.
+    // (pinned 'pre-marked') highlights them AND translates each to its friendly
+    // name at the edge (#610), keeping the exact code point on the marker's
+    // title, so an invisible character in a published callsign is both visible
+    // and named at a glance.
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
-    expect(page).toContain('<code class="cs">G6<span class="marker">{U+0020}</span>FMU</code>');
+    expect(page).toContain('<code class="cs">G6<span class="marker" title="space (U+0020)">{SP}</span>FMU</code>');
+    expect(page).toContain('<code class="cs">2E1HON<span class="marker" title="non-breaking space (U+00A0)">{NBSP}</span></code>');
   });
 });
 
