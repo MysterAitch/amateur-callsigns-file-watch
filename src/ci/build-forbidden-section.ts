@@ -64,6 +64,7 @@ import {
   tableCaption,
 } from './site-render.ts';
 import { fidelityNudge, flagAnchor } from './render/fidelity.ts';
+import { reportAffordance } from './render/report.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
@@ -567,9 +568,27 @@ function suffixAtAGlance(suffix: string, h: ForbiddenSuffixHistory, info: Suffix
 // the entry-page card shell so it matches the disclosure and dataset pages.
 // Exported so the no-callsign branch can be exercised directly in tests (no
 // real union suffix is callsign-free).
-export function suffixPage(suffix: string, h: ForbiddenSuffixHistory, info: SuffixCallsignInfo, ref: ReferenceData = loadReferenceData()): string {
+export function suffixPage(
+  suffix: string,
+  h: ForbiddenSuffixHistory,
+  info: SuffixCallsignInfo,
+  ref: ReferenceData = loadReferenceData(),
+  pageUrl: string = `${DEFAULT_BASE_URL}/forbidden/suffix/${encodeURIComponent(suffix)}/index.html`,
+): string {
   const a = analyseSuffix(suffix, h, info);
   const title = `Forbidden suffix ${suffix}`;
+  // The report-this invite (issue #439): pre-filled with this exact suffix so a
+  // report about a callsign or the withholding shown here is located to its hop.
+  const reportSection = [
+    '<section class="report-invite">',
+    '<h2>See something worth a closer look?</h2>',
+    reportAffordance(
+      { surface: 'a forbidden-suffix page', subject: `the withheld suffix ${suffix}`, pageUrl },
+      3,
+      { label: 'Report or examine this suffix' },
+    ),
+    '</section>',
+  ].join('\n');
   const body = [
     breadcrumbHtml([['Forbidden suffixes', '../../index.html'], [suffix, undefined]]),
     `<h1>Forbidden suffix <code>${escapeHtml(suffix)}</code></h1>`,
@@ -580,6 +599,7 @@ export function suffixPage(suffix: string, h: ForbiddenSuffixHistory, info: Suff
     '<div class="col">',
     suffixHistorySection(suffix, h, a),
     suffixCallsignsSection(info, ref),
+    reportSection,
     '</div>',
     `<div class="side">${suffixAtAGlance(suffix, h, info, a)}</div>`,
     '</div>',
@@ -620,8 +640,9 @@ export function buildForbiddenSection(outputDir: string, baseUrl: string = DEFAU
     if (info === undefined) continue;
     const pageDir = path.join(suffixDir, suffix);
     fs.mkdirSync(pageDir, { recursive: true });
-    fs.writeFileSync(path.join(pageDir, 'index.html'), suffixPage(suffix, history, info, ref));
-    urls.push(`${baseUrl}/forbidden/suffix/${encodeURIComponent(suffix)}/index.html`);
+    const pageUrl = `${baseUrl}/forbidden/suffix/${encodeURIComponent(suffix)}/index.html`;
+    fs.writeFileSync(path.join(pageDir, 'index.html'), suffixPage(suffix, history, info, ref, pageUrl));
+    urls.push(pageUrl);
   }
 
   return urls;

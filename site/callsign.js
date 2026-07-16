@@ -469,6 +469,20 @@ function renderGlance(host, res, manifest) {
     ]));
   }
 
+  // The report-this affordance (issue #439): a calm, always-present invitation
+  // to report a suspected problem or examine this record further, pre-filled
+  // with this callsign and the exact page so a report is located to its hop.
+  // Mirrors the server-rendered affordance (src/ci/render/report.ts) on the
+  // dataset and forbidden-suffix pages.
+  const report = el('p', 'report-affordance');
+  const pageUrl = typeof location === 'undefined' ? '' : location.href;
+  report.appendChild(extLink(reportIssueUrl(key, { surface: 'the per-callsign page', pageUrl }), 'Report or examine this record'));
+  report.append(' — opens a pre-filled GitHub issue naming this callsign and page. A report is an observation for investigation, not a verdict. ');
+  const reportingLink = el('a', null, 'What happens to a report');
+  reportingLink.setAttribute('href', 'fidelity.html#reporting');
+  report.append(reportingLink, '.');
+  body.appendChild(report);
+
   card.appendChild(body);
   host.appendChild(card);
 }
@@ -696,10 +710,9 @@ function renderNotes(host, panel, res) {
   host.appendChild(preamble);
   for (const card of cards) host.appendChild(card);
 
-  const actions = el('p', 'fid-actions');
-  actions.appendChild(extLink(reportIssueUrl(key), 'Report an observation about this callsign'));
-  actions.append(' — opens a public GitHub issue; this project mirrors Ofcom’s published snapshots and cannot change the official register.');
-  host.appendChild(actions);
+  // The report-this affordance rides in the record's context block (renderGlance)
+  // so it is present for every resolved record, not only a flagged one; the
+  // notes panel therefore carries no separate report link (issue #439).
   panel.hidden = false;
 }
 

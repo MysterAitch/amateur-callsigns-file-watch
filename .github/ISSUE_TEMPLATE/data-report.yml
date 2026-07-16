@@ -1,0 +1,61 @@
+name: Data report
+description: Report a suspected problem, or something worth examining, in the mirrored data — an observation for investigation, not a verdict.
+title: "Data report: "
+labels: ["data-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping check the mirror.
+
+        A report is an **observation for investigation, not a verdict**. This project mirrors what Ofcom and other sources *published*; it cannot change the official register, and any correction lands by **adding a source** — a later publication, an FOI disclosure, a witnessed copy — never by silently editing a record. Reports are public GitHub issues, and there is no set response time.
+
+        If you followed a **report this** link from a page, the location fields below may already be filled in — please leave them in place so the report stays locatable.
+  - type: input
+    id: surface
+    attributes:
+      label: Where you saw it (surface)
+      description: Which page or surface were you looking at?
+      placeholder: the per-callsign page / a dataset entry page / a forbidden-suffix page
+    validations:
+      required: false
+  - type: input
+    id: subject
+    attributes:
+      label: Record or subject
+      description: The record in view — a callsign, a suffix, a dataset.
+      placeholder: M7TEE
+    validations:
+      required: false
+  - type: input
+    id: page-url
+    attributes:
+      label: Page URL
+      description: The address of the page you were on.
+    validations:
+      required: false
+  - type: textarea
+    id: observed
+    attributes:
+      label: What you observed
+      description: Describe what you saw that looks off, or worth a closer look. Your own words are fine.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected (optional)
+      description: What did you expect to see instead, and why?
+    validations:
+      required: false
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Source or evidence (optional)
+      description: A link, a document, or a publication date that supports the observation. This is how a correction becomes addable.
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: |
+        A couple of standing reminders that shape how a report is read: the mirror reflects **what its sources published** (a figure a publisher declared is intent, not a guarantee), and **absence is not evidence** — a record missing from a snapshot tells you about the snapshot, not the world. Thank you.

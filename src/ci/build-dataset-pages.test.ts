@@ -101,6 +101,29 @@ describe('Dataset pages build', () => {
     expect(page).toMatch(/first rows of [\d,]+ \([\d,]+ allocated callsigns\)/);
   });
 
+  it('DatasetPages_OpenDataEntryPage_OffersALocatablePreFilledReportAffordance', () => {
+    // Issue #439: every entry page carries the calm report-this invite, its
+    // pre-filled issue naming this exact publication and page so a report is
+    // located to its hop, and linking through to the fidelity reporting section.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(page).toContain('class="report-invite"');
+    expect(page).toContain('class="report-affordance"');
+    expect(page).toContain('Report or examine this publication');
+    expect(page).toContain('/issues/new?title=Data+report');
+    expect(page).toContain('../../../fidelity.html#reporting');
+    expect(page).toContain('observation for investigation, not a verdict');
+    // The account-less reader still gets an honest, read-only fallback.
+    expect(page).toContain('read the issues already filed');
+  });
+
+  it('DatasetPages_FoiEntryPage_OffersALocatablePreFilledReportAffordance', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'wdtk-1180568--licence-breakdown-duration-age', 'index.html'), 'utf8');
+    expect(page).toContain('class="report-affordance"');
+    expect(page).toContain('Report or examine this dataset');
+    expect(page).toContain('/issues/new?title=Data+report');
+    expect(page).toContain('../../../fidelity.html#reporting');
+  });
+
   it('DatasetPages_FoiEntryPage_CarriesSameNavigationSidebar', () => {
     // Parity: FOI entry pages get the same left navigation, linking back to
     // the open-data timeline, with deltas measured against the latest complete

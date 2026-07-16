@@ -248,6 +248,23 @@ describe('Forbidden-suffix section — per-suffix detail pages (phase 3)', { tag
     expect(page).toContain(`../../../datasets/foi/${D2016}/index.html`);
   });
 
+  it('SuffixPage_QNF_OffersALocatablePreFilledReportAffordance', () => {
+    // Issue #439: the report-this invite names this exact suffix and its page,
+    // so a report arrives located to its hop; it also links through to the
+    // reporting section of the fidelity deep-dive.
+    const page = read('forbidden', 'suffix', 'QNF', 'index.html');
+    expect(page).toContain('class="report-affordance"');
+    expect(page).toContain('Report or examine this suffix');
+    // The pre-filled issue URL carries the suffix as its subject (percent-
+    // encoded: spaces become +, the QNF token survives literally).
+    expect(page).toContain('/issues/new?title=Data+report');
+    expect(page).toContain('suffix+QNF');
+    // The reporting deep-dive link is depth-resolved to the site root.
+    expect(page).toContain('../../../fidelity.html#reporting');
+    // Calm framing: an observation, not a verdict.
+    expect(page).toContain('observation for investigation, not a verdict');
+  });
+
   it('SuffixPage_NoCallsignSuffix_SaysSoRatherThanFabricating', () => {
     // A suffix with no callsign is informative in itself. No real union suffix
     // is callsign-free (the 2016 all-callsigns snapshot lists them as

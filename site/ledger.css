@@ -316,6 +316,14 @@
 .ledger .fid-work-row .v { color: var(--ink); word-break: break-word; }
 .ledger .fid-actions { font-size: 12.5px; color: var(--muted); margin: 14px 0 0; }
 
+/* Report-this affordance (issue #439): the calm, low-friction invitation to
+   turn a doubt into a contribution. It shares the muted register of the
+   fidelity notes - an invitation, never an alarm - and never draws the
+   change-red. */
+.ledger .report-affordance { font-size: 12.5px; color: var(--muted); margin: 0; max-width: 78ch; line-height: 1.5; }
+.ledger .report-affordance a { color: var(--accent); }
+.ledger .report-affordance a:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+
 /* "Seen in" source lists: the humanised label is the visible link text while the
    full repository path stays on the link's title, so a long path never runs the
    sentence on. The list itself is the shared activity timeline (see the .tl block

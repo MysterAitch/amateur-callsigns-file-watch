@@ -167,6 +167,24 @@ describe('Anatomy figure on the per-callsign page', { tags: ['ui'] }, () => {
     expect(host.textContent).toBe('');
   });
 
+  it('CallsignPage_ResolvedRecord_OffersALocatablePreFilledReportAffordanceInTheGlance', async () => {
+    // Issue #439: the record's context block carries the calm report-this
+    // invite for every resolved record — pre-filled with this callsign, this
+    // surface and the page URL so a report is located to its hop, and linking
+    // through to the fidelity page's reporting section.
+    document.body.innerHTML = MAIN;
+    await runLookup('M7TEE');
+    const report = document.getElementById('result')?.querySelector('.report-affordance');
+    expect(report).not.toBeNull();
+    const href = report?.querySelector('a[href*="issues/new"]')?.getAttribute('href') ?? '';
+    const params = new URLSearchParams(href.slice(href.indexOf('?') + 1));
+    expect(params.get('title')).toBe('Observation about M7TEE');
+    expect(params.get('body') ?? '').toContain('Surface: the per-callsign page');
+    expect(report?.querySelector('a[href="fidelity.html#reporting"]')).not.toBeNull();
+    // Calm framing, matching the server-rendered affordance's language.
+    expect(report?.textContent).toContain('observation for investigation, not a verdict');
+  });
+
   it('CallsignPage_WithoutJavaScript_FigureSlotStaysHiddenSoTheStaticPageStands', () => {
     // The slot ships hidden and empty in the committed markup: with scripts
     // off the figure simply never appears, and the textual components list

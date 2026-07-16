@@ -633,15 +633,32 @@ export function sourceFileUrl(sourceFile) {
 }
 
 // A pre-filled "report an observation" GitHub issue URL (ADR ethics decision 4,
-// the basic right-of-reply hook). The body is neutral - it states the fact and
-// sets expectations honestly (public issue; we mirror Ofcom and cannot change
-// the official register; no set response time) - and pre-fills NO grievance
-// framing on the reporter's behalf. Labels are omitted so an unknown label
-// never trips GitHub's chooser.
-/** @param {string} callsign */
-export function reportIssueUrl(callsign) {
+// the basic right-of-reply hook; issue #439). The body is neutral - it states
+// the fact and sets expectations honestly (public issue; we mirror Ofcom and
+// cannot change the official register; no set response time) - and pre-fills NO
+// grievance framing on the reporter's behalf. Labels are omitted so an unknown
+// label never trips GitHub's chooser.
+//
+// The optional `context` adds a "Where you saw it" block (the surface and the
+// page URL) so a report from a client-rendered page arrives located to its hop
+// (the error-locability principle) - the client half of the shared #439
+// affordance whose server half lives in src/ci/render/report.ts. Omitting it
+// leaves the URL byte-identical to the original callsign-only form, so callers
+// that pass just a callsign are unaffected.
+/**
+ * @param {string} callsign
+ * @param {{ surface?: string, pageUrl?: string }} [context]
+ */
+export function reportIssueUrl(callsign, context) {
+  const where = context === undefined ? [] : [
+    '',
+    'Where you saw it:',
+    ...(context.surface ? [`- Surface: ${context.surface}`] : []),
+    ...(context.pageUrl ? [`- Page: ${context.pageUrl}`] : []),
+  ];
   const body = [
     `This is a public GitHub issue about the archived register record for ${callsign}.`,
+    ...where,
     '',
     'What did you observe? (please describe)',
     '',
