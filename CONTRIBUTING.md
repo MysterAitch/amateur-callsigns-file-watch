@@ -1,5 +1,13 @@
 # Contributing
 
+## Adding a dataset
+
+To add a new callsign dataset to the archive, follow
+[Adding a dataset](docs/adding-a-dataset.md) — it covers which lane to use, the
+converter binding, `meta.json`/`correspondence.md` authoring, generating and
+verifying the derived files, and regenerating the corpus-wide goldens the change
+shifts.
+
 ## Pull requests
 
 Every PR body follows [`.github/pull_request_template.md`](.github/pull_request_template.md).
