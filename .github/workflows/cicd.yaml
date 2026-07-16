@@ -8,7 +8,10 @@
 #
 # The two job names below (tests, data-validation) are required status checks in
 # the main ruleset - renaming a job here without updating the ruleset will block
-# all merges.
+# all merges. `golden-master` is a pending required-check candidate (#588 part
+# 2, #583): it is a single, non-matrixed job, so its reported check context is
+# the stable string "golden-master" - see that job's comment for the ruleset
+# addition this enables.
 #
 # Write posture (ADR 0012): the workflow's default scope is contents:read. Only
 # the deploy job elevates (pages:write + id-token:write), at the job level, so
@@ -523,6 +526,17 @@ jobs:
   # regeneration, and a stale or hand-edited committed report still diffs and
   # fails. A hit means "regeneration for this closure would be byte-identical", so
   # restoring it and diffing catches drift exactly as a fresh sweep would.
+  #
+  # Required-check candidate (#588 part 2). This job is not yet in the main
+  # ruleset's required-status-checks list (ADR 0002), so a red golden-master
+  # run does not by itself hold open a PR that `tests` + `data-validation`
+  # already pass - including an auto-merged data-only PR. It is a single job
+  # with no `strategy:` matrix, so it reports one stable context: the exact
+  # string "golden-master" (guarded by the cicd-workflow-structure suite).
+  # Adding that string to the ruleset's required-status-checks set (Settings ->
+  # Rules -> Rulesets -> "main: pull requests only" -> Require status checks
+  # to pass -> add checks -> "golden-master") is the activation step; record
+  # it in ADR 0002 alongside `tests` and `data-validation` once added.
   golden-master:
     name: golden-master
     runs-on: ubuntu-latest
