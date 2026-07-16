@@ -28,6 +28,14 @@ import { physicalLines } from '../sources/ofcom-amateur/normalise.ts';
 import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
 import { validateFoiLaneAt } from './validate-foi.ts';
 import { validatePublishersAt } from './validate-publishers.ts';
+import {
+  heldHashSet,
+  normaliseWitnessHash,
+  divergenceRecordProblems,
+  unpairedDivergentWitnessProblems,
+} from '../shared/witness-agreement.ts';
+
+const SHA256_RE = /^[0-9a-f]{64}$/;
 
 export interface ValidationProblem {
   path: string;
@@ -108,11 +116,29 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
     if (!witness.fetchedAt || Number.isNaN(Date.parse(witness.fetchedAt))) {
       problems.push({ path: metaPath, problem: `${at}.fetchedAt is missing or not a date: ${witness.fetchedAt}` });
     }
+    // The optional witness hash, when present, must be a well-formed sha256:
+    // agreement is derived from it, so a malformed token is caught here rather
+    // than silently mis-classifying (#618 increment 3).
+    if (witness.sha256 !== undefined && !SHA256_RE.test(witness.sha256)) {
+      problems.push({ path: metaPath, problem: `${at}.sha256 must be 64 lowercase hex characters when present, got ${JSON.stringify(witness.sha256)}` });
+    }
   }
   // A web-archive recovery must say where it was recovered from.
   if (meta.provenance === 'recovered-from-web-archive' && (meta.witnesses ?? []).length === 0) {
     problems.push({ path: metaPath, problem: 'provenance recovered-from-web-archive requires at least one witness (capture channel + replay URL + fetchedAt)' });
   }
+
+  // Derived witness agreement (#618 increment 3 / #619): a witness whose bytes
+  // match no held copy is DIVERGENT and must be paired with a divergence record;
+  // the divergence records themselves must be well-formed. Agreement is compared
+  // against the union of the entry's held file hashes.
+  const declaredNames = new Set(Object.keys(meta.files));
+  const heldHashes = heldHashSet(Object.values(meta.files).map(f => f.sha256));
+  problems.push(...divergenceRecordProblems(meta.divergences, declaredNames).map(problem => ({ path: metaPath, problem })));
+  problems.push(...unpairedDivergentWitnessProblems(
+    (meta.witnesses ?? []).map((w, i) => ({ label: `witnesses[${i}]`, sha256: normaliseWitnessHash(w.sha256), heldHashes })),
+    meta.divergences ?? [],
+  ).map(problem => ({ path: metaPath, problem })));
 
   // Extract declarations: an extract must name a declared raw sibling as its
   // source, and at most one extract may exist (it is THE parse source).

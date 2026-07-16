@@ -3,6 +3,7 @@ import * as fs from 'fs/promises';
 import * as crypto from 'crypto';
 import * as util from 'util';
 import * as dotenv from 'dotenv';
+import type { DivergenceRecord } from './witness-agreement.ts';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -230,7 +231,19 @@ export interface ArchiveMeta {
   // channel (e.g. 'wayback', 'ukgwa', 'live'), the retrieval/replay URL, and
   // when it was fetched. The FOI lane records these per file; the open-data
   // lane's entry is a single publication, so they sit at entry level.
-  witnesses?: { channel: string; url: string; fetchedAt: string; note?: string }[];
+  //
+  // sha256 is the hash of the bytes THAT witness served (#618 increment 3):
+  // present where the copy's bytes are verifiable from what the mirror holds,
+  // absent where the witness is a location only (citation-grade). Agreement is
+  // DERIVED ON READ (src/shared/witness-agreement.ts), never stored.
+  // originalFilename records the name the copy carried at its source (#619) -
+  // provenance the held filename may have sanitised away.
+  witnesses?: { channel: string; url: string; fetchedAt: string; sha256?: string; originalFilename?: string; note?: string }[];
+  // Structured records of copies claiming to be this publication that DIFFER
+  // from the held copy (#618 increment 4 / #619). A divergent witness (its
+  // sha256 matches no held copy) must be paired here, else validation fails.
+  // Empty/absent when every witnessed copy is byte-identical to a held one.
+  divergences?: DivergenceRecord[];
   files: Record<string, ArchivedFileMeta>;
   diffSummary?: DiffSummary;
   // The verbatim header line(s) of raw.csv (terminators excluded) - makes

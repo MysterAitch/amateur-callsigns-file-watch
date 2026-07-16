@@ -49,6 +49,12 @@ import {
   type PublisherRegister,
 } from '../shared/publishers.ts';
 import {
+  classifyWitnessAgreement,
+  heldHashSet,
+  type WitnessAgreement,
+  type WitnessLike,
+} from '../shared/witness-agreement.ts';
+import {
   escapeHtml,
   externalLink,
   humanDate,
@@ -123,6 +129,11 @@ export interface Holding {
   // from the witness channel tokens. Empty when the entry carries no witness
   // (an open-data publication fetched live directly from its author).
   witnessPublisherIds: string[];
+  // The strongest agreement class of the copies witnessed through each publisher
+  // (#618 increment 3), derived on read against the entry's held bytes:
+  // corroborating (byte-identical held) beats divergent beats citation-grade.
+  // Keyed by publisher id, for every id in witnessPublisherIds.
+  witnessAgreementByPublisher: Record<string, WitnessAgreement>;
   // Witness channel tokens that did NOT resolve to any publisher — surfaced, not
   // dropped (the validator is the loud line of defence; this keeps the page
   // honest if it is ever built against an unvalidated register).
@@ -139,23 +150,44 @@ function entryHref(holding: Holding): string {
     : `datasets/foi/${encodeURIComponent(holding.key)}/index.html`;
 }
 
+// The precedence used to fold several witnesses of one publisher into a single
+// agreement class for a holding: a corroborating copy (byte-identical held) is
+// the strongest statement of availability, a divergent one the next-strongest
+// finding, citation-grade the weakest (a location only).
+const AGREEMENT_PRECEDENCE: Record<WitnessAgreement, number> = {
+  'corroborating': 2,
+  'divergent': 1,
+  'citation-grade': 0,
+};
+
+function strongerAgreement(a: WitnessAgreement, b: WitnessAgreement): WitnessAgreement {
+  return AGREEMENT_PRECEDENCE[a] >= AGREEMENT_PRECEDENCE[b] ? a : b;
+}
+
 // Resolve the distinct publisher ids (and any unresolved tokens) for a set of
-// witness channel tokens, deduplicated and register-ordered by first sight.
+// witnesses, deduplicated and register-ordered by first sight, tracking the
+// strongest agreement class witnessed through each publisher (derived on read
+// against the entry's held bytes).
 function resolveWitnessPublishers(
-  channels: string[],
+  witnesses: WitnessLike[],
   chIndex: Map<string, PublisherEntry>,
-): { ids: string[]; unresolved: string[] } {
+  heldHashes: ReadonlySet<string>,
+): { ids: string[]; unresolved: string[]; agreementByPublisher: Record<string, WitnessAgreement> } {
   const ids: string[] = [];
   const unresolved: string[] = [];
-  for (const channel of channels) {
-    const publisher = chIndex.get(channel);
+  const agreementByPublisher: Record<string, WitnessAgreement> = {};
+  for (const witness of witnesses) {
+    const publisher = chIndex.get(witness.channel);
     if (publisher === undefined) {
-      if (!unresolved.includes(channel)) unresolved.push(channel);
-    } else if (!ids.includes(publisher.id)) {
-      ids.push(publisher.id);
+      if (!unresolved.includes(witness.channel)) unresolved.push(witness.channel);
+      continue;
     }
+    if (!ids.includes(publisher.id)) ids.push(publisher.id);
+    const agreement = classifyWitnessAgreement(witness.sha256, heldHashes);
+    const existing = agreementByPublisher[publisher.id];
+    agreementByPublisher[publisher.id] = existing === undefined ? agreement : strongerAgreement(existing, agreement);
   }
-  return { ids, unresolved };
+  return { ids, unresolved, agreementByPublisher };
 }
 
 // Sweep both lanes into the flat holdings list, resolving each entry's author
@@ -171,8 +203,8 @@ export function collectHoldings(
 
   for (const key of listArchiveKeys().sort()) {
     const meta = JSON.parse(fs.readFileSync(path.join(archiveDir, key, 'meta.json'), 'utf8')) as ArchiveMeta;
-    const channels = (meta.witnesses ?? []).map(w => w.channel);
-    const { ids, unresolved } = resolveWitnessPublishers(channels, chIndex);
+    const heldHashes = heldHashSet(Object.values(meta.files).map(f => f.sha256));
+    const { ids, unresolved, agreementByPublisher } = resolveWitnessPublishers(meta.witnesses ?? [], chIndex, heldHashes);
     holdings.push({
       key,
       lane: 'open-data',
@@ -180,6 +212,7 @@ export function collectHoldings(
       authorId: authorPublisherId(meta.sourceKey),
       sourceKey: meta.sourceKey,
       witnessPublisherIds: ids,
+      witnessAgreementByPublisher: agreementByPublisher,
       unresolvedChannels: unresolved,
     });
   }
@@ -187,9 +220,11 @@ export function collectHoldings(
   for (const key of listFoiEntryKeys(foiDir)) {
     const meta = readFoiEntryMeta(foiDir, key);
     // FOI witnesses live per file; a publisher witnessed the ENTRY if it
-    // witnessed any of its files.
-    const channels = Object.values(meta.files).flatMap(f => (f.witnesses ?? []).map(w => w.channel));
-    const { ids, unresolved } = resolveWitnessPublishers(channels, chIndex);
+    // witnessed any of its files. Agreement is against the union of the entry's
+    // held file hashes, so a copy the mirror holds anywhere corroborates.
+    const heldHashes = heldHashSet(Object.values(meta.files).map(f => f.sha256));
+    const witnesses = Object.values(meta.files).flatMap(f => f.witnesses ?? []);
+    const { ids, unresolved, agreementByPublisher } = resolveWitnessPublishers(witnesses, chIndex, heldHashes);
     holdings.push({
       key,
       lane: 'foi',
@@ -197,6 +232,7 @@ export function collectHoldings(
       authorId: authorPublisherId(meta.sourceKey),
       sourceKey: meta.sourceKey,
       witnessPublisherIds: ids,
+      witnessAgreementByPublisher: agreementByPublisher,
       unresolvedChannels: unresolved,
       datasetClasses: meta.datasetClasses,
       vintage: meta.dataVintage ?? undefined,
@@ -270,12 +306,23 @@ function licenceSection(entry: PublisherEntry): string {
   const terms = entry.licenceUrl !== undefined
     ? `<p>Governing terms: ${externalLink(entry.licenceUrl, entry.licenceUrl)}.</p>`
     : `<p>No settled terms document to cite (the basis is <code>unverified</code>).</p>`;
+  // How to verify this: the pages a human would visit to reach the same
+  // conclusion, each with what it establishes. No licence claim rests on
+  // evidence the public cannot check; an unverified basis says so honestly.
+  const citations = entry.licenceCitations.length > 0
+    ? [
+      '<h3>How to verify this</h3>',
+      `<p>Each source below has been read and confirmed to say what its note claims — follow the links to check for yourself:</p>`,
+      `<ul>${entry.licenceCitations.map(c => `<li>${externalLink(c.url, c.url)} — ${escapeHtml(c.note)}</li>`).join('')}</ul>`,
+    ].join('\n')
+    : `<p><small>No verifiable licence source is cited: the basis is <code>unverified</code>, so a citation would overstate what has been checked. The statement above records what was sought and not found.</small></p>`;
   const notes = entry.notes !== undefined ? `<p><small>${escapeHtml(entry.notes)}</small></p>` : '';
   return [
     '<h2>Licence basis</h2>',
     basisLine,
     statement,
     terms,
+    citations,
     notes,
   ].filter(s => s !== '').join('\n');
 }
@@ -289,9 +336,21 @@ function trustSection(entry: PublisherEntry): string {
   ].join('\n');
 }
 
+// The agreement class of a copy witnessed through a publisher, phrased quietly
+// (#618 increment 3). A corroborating copy says so — the mirror holds those
+// exact bytes; a divergent one is flagged; a citation-grade one (a location
+// only) renders nothing extra, so no doubt is manufactured where none exists.
+const AGREEMENT_HOSTED_LABEL: Record<WitnessAgreement, string> = {
+  'corroborating': ' <small class="gap">— corroborating: the mirror holds these exact bytes (sha256 verified)</small>',
+  'divergent': ' <small class="gap">— diverges from the held copy (see its divergence record)</small>',
+  'citation-grade': '',
+};
+
 // A compact, crawlable list of holdings grouped by lane, each entry linking to
-// its own page. Every holding is reachable so no page is orphaned.
-function holdingsList(holdings: Holding[], depthToRoot: number): string {
+// its own page. Every holding is reachable so no page is orphaned. When
+// `forPublisherId` is given (the hosted list of a publisher page), each entry
+// carries the agreement class of the copy witnessed through that publisher.
+function holdingsList(holdings: Holding[], depthToRoot: number, forPublisherId?: string): string {
   if (holdings.length === 0) return '';
   const rel = '../'.repeat(depthToRoot);
   const openData = holdings.filter(h => h.lane === 'open-data');
@@ -302,7 +361,8 @@ function holdingsList(holdings: Holding[], depthToRoot: number): string {
       const classes = (h.datasetClasses ?? []).length > 0
         ? ` <small class="gap">(${h.datasetClasses?.map(c => escapeHtml(c)).join(', ')})</small>`
         : '';
-      return `<li><a href="${rel}${entryHref(h)}">${escapeHtml(h.title)}</a> — <code>${escapeHtml(h.key)}</code>${classes}</li>`;
+      const agreement = forPublisherId === undefined ? '' : (AGREEMENT_HOSTED_LABEL[h.witnessAgreementByPublisher[forPublisherId]] ?? '');
+      return `<li><a href="${rel}${entryHref(h)}">${escapeHtml(h.title)}</a> — <code>${escapeHtml(h.key)}</code>${classes}${agreement}</li>`;
     }).join('');
     return `<h4>${escapeHtml(label)} (${group.length})</h4><ul>${items}</ul>`;
   };
@@ -331,8 +391,8 @@ function holdingsSection(entry: PublisherEntry, holdings: PublisherHoldings): st
   if (hostedCount === 0) {
     out.push(`<p>None — no copy the mirror holds was obtained through ${escapeHtml(entry.name)}'s channels.</p>`);
   } else {
-    out.push(`<p><b>${hostedCount}</b> ${hostedCount === 1 ? 'copy was' : 'copies were'} obtained <b>directly</b> through ${escapeHtml(entry.name)} — a copy fetched straight from this publisher's channels, resolved from each entry's recorded witnesses. Transitive corroboration (a copy shown to correspond to an authoritative original via an intermediary) will be labelled distinctly from these direct copies when it lands.</p>`);
-    out.push(holdingsList(holdings.hosted, PUBLISHER_PAGE_DEPTH));
+    out.push(`<p><b>${hostedCount}</b> ${hostedCount === 1 ? 'copy was' : 'copies were'} obtained <b>directly</b> through ${escapeHtml(entry.name)} — a copy fetched straight from this publisher's channels, resolved from each entry's recorded witnesses. A copy marked <em>corroborating</em> is byte-identical to what the mirror holds (sha256 verified) — provable availability, not an assumption; a <em>divergent</em> copy is flagged with its own record. Transitive corroboration (a copy shown to correspond to an authoritative original via an intermediary) will be labelled distinctly from these direct copies when it lands.</p>`);
+    out.push(holdingsList(holdings.hosted, PUBLISHER_PAGE_DEPTH, entry.id));
   }
 
   return out.filter(s => s !== '').join('\n');

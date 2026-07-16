@@ -100,6 +100,14 @@ export interface PublisherEntry {
   // The governing terms document. Optional only for publishers whose basis is
   // `unverified` (there is, by definition, no settled terms document to cite).
   licenceUrl?: string;
+  // The pages a human would need to visit to reach the same licensing
+  // conclusion (#618): each `{ url, note }` names what that page establishes.
+  // Only pages that have actually been loaded and verified to say what the note
+  // claims are cited (fail-honest). Required to be non-empty for any basis other
+  // than `unverified`; an `unverified` publisher carries an empty list, with the
+  // licenceStatement/notes recording what was sought and not found. Rendered as
+  // the "How to verify this" links on the publisher page's licence section.
+  licenceCitations: { url: string; note: string }[];
   // The highest ADR 0014 rung material witnessed ONLY via this publisher may
   // carry. A cross-check ceiling, not a persisted rung (composed in later
   // increments; never inflates a lane-derived rung).

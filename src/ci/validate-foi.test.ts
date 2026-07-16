@@ -288,6 +288,54 @@ describe('validateFoiEntry - byte integrity', { tags: ['unit'] }, () => {
   });
 });
 
+describe('validateFoiEntry - witness agreement and divergence (#618 increment 3)', { tags: ['unit'] }, () => {
+  it('FoiWitness_WhenHashMatchesTheHeldFile_PassesAsCorroborating', () => {
+    writeFoiEntry(undefined, meta => {
+      meta.files['data.csv'].witnesses = [{ channel: 'wdtk', url: 'https://example.org/data.csv', sha256: sha256(DATA_CSV) }];
+    });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
+  });
+
+  it('FoiWitness_WhenWitnessSha256Malformed_Fails', () => {
+    writeFoiEntry(undefined, meta => {
+      meta.files['data.csv'].witnesses = [{ channel: 'wdtk', url: 'https://example.org/data.csv', sha256: 'NOTAHASH' }];
+    });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/witness sha256 must be 64 lowercase hex/);
+  });
+
+  it('FoiWitness_WhenHashMatchesNoHeldCopyAndNoDivergenceRecord_FailsLoudly', () => {
+    writeFoiEntry(undefined, meta => {
+      meta.files['data.csv'].witnesses = [{ channel: 'wdtk', url: 'https://example.org/other.csv', sha256: 'f'.repeat(64) }];
+    });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/divergent.*but no divergence record explains it/);
+  });
+
+  it('FoiWitness_WhenDivergentHashPairedWithADivergenceRecord_Passes', () => {
+    writeFoiEntry(undefined, meta => {
+      meta.files['data.csv'].witnesses = [{ channel: 'wdtk', url: 'https://example.org/other.csv', sha256: 'f'.repeat(64) }];
+      meta.divergences = [{
+        file: 'data.csv',
+        counterpart: { publisher: 'ofcom', url: 'https://example.org/other.csv', sha256: 'f'.repeat(64) },
+        level: 'cells',
+        summary: 'a differing copy of the same disclosure',
+      }];
+    });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
+  });
+
+  it('FoiEntry_WhenDivergenceRecordNamesAnUndeclaredFile_Fails', () => {
+    writeFoiEntry(undefined, meta => {
+      meta.divergences = [{
+        file: 'ghost.csv',
+        counterpart: { publisher: 'ofcom', url: 'https://example.org/other.csv', sha256: 'f'.repeat(64) },
+        level: 'bytes',
+        summary: 'names a file that does not exist',
+      }];
+    });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/divergences\[0\]\.file "ghost.csv" does not name a declared file/);
+  });
+});
+
 describe('validateFoiLaneAt', { tags: ['data-validity'] }, () => {
   it('FoiLane_MissingFoiDirectory_PassesWithZeroEntries', () => {
     const result = validateFoiLaneAt(path.join(foiDir, 'does-not-exist'));

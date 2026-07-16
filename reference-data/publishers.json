@@ -10,6 +10,12 @@
       "licenceBasis": "ofcom-terms",
       "licenceStatement": "Ofcom originates the amateur-radio register and the FOI disclosures the mirror holds, and serves them itself — the open-data register from ofcom.org.uk (the `live` channel) and the FOI disclosure log (the `ofcom-disclosure-log` channel). This states Ofcom's current terms of use, as the publisher's default basis; a specific publication — particularly a historical vintage — may have been published under different terms and can override it. Ofcom's terms of use permit its website material to be reproduced free of charge in any format, provided it is reproduced accurately, not used in a misleading context, and Ofcom copyright is acknowledged. The disclosure-log material is additionally FOI-disclosed public-authority information; where such material is Crown copyright it is separately re-usable under the Open Government Licence, but Ofcom's own terms of use are the permission this mirror cites and relies on by default.",
       "licenceUrl": "https://www.ofcom.org.uk/about-ofcom/website/terms-of-use",
+      "licenceCitations": [
+        {
+          "url": "https://www.ofcom.org.uk/about-ofcom/website/terms-of-use",
+          "note": "Ofcom's terms of use — loaded and verified to state that material on the website may be reproduced free of charge in any format or medium provided it is reproduced accurately, not used in a misleading context, and acknowledged as Ofcom copyright with the document title specified."
+        }
+      ],
       "authorityCeiling": "Official",
       "fetchConstraints": "The live register and disclosure log require a residential IP: Cloudflare blocks datacentre ASNs. Fetch targeted known URLs, respect robots and rate limits; never crawl.",
       "notes": "This is the default/typical basis, describing Ofcom's current terms; historical publications may have carried different terms and a per-publication basis overrides this. Ofcom asserts its own copyright (© Ofcom) over website content; whether specific material is Crown copyright rather than Ofcom's own copyright is not settled here, so the Open Government Licence is noted as a consideration for the FOI material, not asserted as the operative licence. Verified against Ofcom's terms-of-use page, which permits free accurate reproduction with acknowledgement and does not itself invoke the Open Government Licence."
@@ -24,6 +30,16 @@
       "licenceBasis": "ogl-v3",
       "licenceStatement": "The UK Government Web Archive, operated by The National Archives, captures and replays UK government websites. It states that most archived content is Crown copyright and, unless otherwise stated, may be re-used freely under the Open Government Licence v3; third-party (non-Crown) material carried on an archived site is excluded. The captures this mirror holds are of Ofcom's own register and disclosure pages, whose underlying content is additionally governed by Ofcom's terms of use.",
       "licenceUrl": "https://www.nationalarchives.gov.uk/webarchive/find-a-website/re-using-content/",
+      "licenceCitations": [
+        {
+          "url": "https://www.nationalarchives.gov.uk/webarchive/find-a-website/re-using-content/",
+          "note": "The National Archives' guidance for re-using UK Government Web Archive content — loaded and verified to state that most archived content is Crown copyright and, unless otherwise stated, re-usable under the Open Government Licence, while third-party (non-Crown) content is excluded and needs separate consent."
+        },
+        {
+          "url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+          "note": "The Open Government Licence v3.0 text — loaded and verified to grant freedom to copy, publish, distribute, adapt and exploit the information commercially and non-commercially, subject to an attribution condition."
+        }
+      ],
       "authorityCeiling": "Official",
       "fetchConstraints": "Targeted known-URL replay only (served via CloudFront, which mirrors Ofcom captures without the residential-IP constraint); no crawling. UKGWA replay URLs embed the capture timestamp.",
       "notes": "UKGWA replays official government publications; its official-archive status places the ceiling at Official for the Ofcom bytes it holds. Increment 3's witness hashes will let byte-identity against an official copy be proven per capture."
@@ -37,6 +53,12 @@
       "licenceBasis": "ogl-v3",
       "licenceStatement": "The National Archives is the UK government's official archive and the operator of the UK Government Web Archive. It is the authority for Crown copyright and maintains the Open Government Licence under which most UK government information is re-usable. It is seeded here as the operator body behind the `ukgwa` channel and as the issuer of the Open Government Licence the register cites; no witness resolves directly to it.",
       "licenceUrl": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+      "licenceCitations": [
+        {
+          "url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+          "note": "The Open Government Licence v3.0 that The National Archives issues and maintains — loaded and verified to grant re-use of public-sector information under an attribution condition."
+        }
+      ],
       "authorityCeiling": "Official",
       "notes": "Citation-only in increment 1 (no witness channels). Present so the operator link from `ukgwa` and the Open Government Licence citations elsewhere resolve to a publisher entry."
     },
@@ -48,7 +70,17 @@
       "channels": ["wayback"],
       "licenceBasis": "site-terms",
       "licenceStatement": "The Internet Archive's Wayback Machine replays third-party captures. The Archive makes no guarantee as to the copyright status of items it holds and disclaims warranties of accuracy; re-use is at the user's own risk and governed by the underlying material's own terms. The single capture this mirror holds via the Wayback Machine is of Ofcom material, so Ofcom's terms of use are the operative permission for those bytes; the Internet Archive's site terms govern use of the replay itself.",
-      "licenceUrl": "https://archive.org/about/terms",
+      "licenceUrl": "https://help.archive.org/help/rights/",
+      "licenceCitations": [
+        {
+          "url": "https://help.archive.org/help/rights/",
+          "note": "The Internet Archive's rights help page — loaded and verified to state the Archive makes no guarantees as to the copyright status of items and that use of its collections is at the user's own risk, to be ensured non-infringing by the user."
+        },
+        {
+          "url": "https://www.ofcom.org.uk/about-ofcom/website/terms-of-use",
+          "note": "The single Wayback copy the mirror holds is Ofcom material, so Ofcom's terms of use are the operative permission for those bytes — loaded and verified to permit free accurate reproduction with acknowledgement."
+        }
+      ],
       "authorityCeiling": "Reference",
       "fetchConstraints": "Wayback replay of specific captures by timestamped URL; rate-limited, no crawling.",
       "notes": "Ceiling is provisional pending the queued maintainer decision on rung assignments (issue #618, decision 3b). The ratified working rule is that unproven replays take the archive's own ceiling and only proven byte-identity against an official copy lifts a replay to the originator's rung. The Internet Archive is not a government-official archive, and byte-identity is not yet machine-proven (increment 3), so its own standing — Reference — is recorded here rather than Official."
@@ -62,7 +94,17 @@
       "channels": ["wdtk"],
       "licenceBasis": "ogl-v3",
       "licenceStatement": "WhatDoTheyKnow, run by mySociety, publishes and archives Freedom of Information requests and the public authorities' responses. It is an aggregating conduit: it asserts no copyright of its own over the responses, whose copyright rests with the responding authority. The material this mirror holds via WhatDoTheyKnow is Ofcom's FOI disclosures; WhatDoTheyKnow's own guidance is that Crown copyright FOI information may be reproduced under the Open Government Licence, with Ofcom's terms of use as a fallback permission for Ofcom-copyright material.",
-      "licenceUrl": "https://www.whatdotheyknow.com/help/officers",
+      "licenceUrl": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+      "licenceCitations": [
+        {
+          "url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+          "note": "The Open Government Licence v3.0 — loaded and verified to grant re-use of Crown-copyright public-sector information; WhatDoTheyKnow is a conduit and the FOI responses' copyright rests with the responding authority (Ofcom), so this is the basis the held disclosures rest on."
+        },
+        {
+          "url": "https://www.ofcom.org.uk/about-ofcom/website/terms-of-use",
+          "note": "Ofcom's terms of use — loaded and verified to permit free accurate reproduction with acknowledgement — the fallback permission for any Ofcom-copyright (rather than Crown-copyright) material within the disclosures."
+        }
+      ],
       "authorityCeiling": "FOI",
       "fetchConstraints": "Per-request public pages; respect site load and rate limits, no bulk scraping.",
       "notes": "Ceiling FOI reflects the FOI lane the wdtk-keyed disclosures live in (ADR 0014). The licence basis rests on the originator (Ofcom) and the FOI-disclosure status, not on WhatDoTheyKnow, which is a conduit."
@@ -76,6 +118,12 @@
       "licenceBasis": "copyright-cite-only",
       "licenceStatement": "The ITU originates the international call-sign-series table (Appendix 42 to the Radio Regulations), reproduced in reference-data/itu-call-sign-series.csv. The table is © ITU and is cited with acknowledgement, not redistributed as bulk ITU data beyond the extracted allocation rows the reference table needs. It is seeded here so existing reference-data citations of the ITU gain a publisher entry.",
       "licenceUrl": "https://www.itu.int/en/Pages/copyright.aspx",
+      "licenceCitations": [
+        {
+          "url": "https://www.itu.int/en/Pages/copyright.aspx",
+          "note": "The ITU copyright page — loaded and verified to state the ITU holds copyright in its website information unless otherwise stated, with reproduction by permission (jur@itu.int) except newsroom content usable with acknowledgement; the reference table cites the Appendix 42 allocation rows with acknowledgement and does not redistribute bulk ITU data."
+        }
+      ],
       "authorityCeiling": "Reference",
       "notes": "Citation-only in increment 1 (no witness channels). Matches the reference-data provenance policy's 'cite-don't-commit' treatment of ITU material."
     },
@@ -88,6 +136,12 @@
       "licenceBasis": "copyright-cite-only",
       "licenceStatement": "The RSGB is the UK's national amateur-radio society. Its operating guidance (visitor and reciprocal-operating rules, CEPT T/R 61-01 vs 61-02) is cited as an authoritative reference in reference-data — the licence-category and RSL derivations, and the visitor-callsign sourcing of ADR 0005. Its material is © RSGB and is cited with acknowledgement, not redistributed.",
       "licenceUrl": "https://rsgb.org",
+      "licenceCitations": [
+        {
+          "url": "https://rsgb.org",
+          "note": "The RSGB website — loaded and verified to carry the footer notice '© Radio Society of Great Britain. All rights reserved.'; its guidance is under RSGB copyright and is cited with acknowledgement, not redistributed."
+        }
+      ],
       "authorityCeiling": "Reference",
       "notes": "Role is community-documentation, but its guidance is used as a cited reference (Reference ceiling) rather than mirrored bulk. Citation-only in increment 1 (no witness channels)."
     },
@@ -100,6 +154,7 @@
       "channels": [],
       "licenceBasis": "unverified",
       "licenceStatement": "The OARC (Online Amateur Radio Community) wiki is a community-authored reference on UK call-sign structure and conventions. Its re-use terms have not been established here, so the basis is recorded as unverified rather than asserted; facts drawn from it are cited and tiered Community, not redistributed. A basis must be settled before any of its content is mirrored.",
+      "licenceCitations": [],
       "authorityCeiling": "Community",
       "notes": "Fail-honest: licenceBasis is unverified pending a check of the wiki's re-use terms. Citation-only in increment 1 (no witness channels)."
     },
@@ -113,6 +168,12 @@
       "licenceBasis": "copyright-cite-only",
       "licenceStatement": "Wikipedia is a community-authored encyclopaedia. Its article text is available under the Creative Commons Attribution-ShareAlike licence; the mirror cites Wikipedia as a Community-tier reference and does not redistribute its content, so re-use here is citation with acknowledgement rather than reliance on redistribution terms.",
       "licenceUrl": "https://en.wikipedia.org/wiki/Wikipedia:Reusing_Wikipedia_content",
+      "licenceCitations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Wikipedia:Reusing_Wikipedia_content",
+          "note": "Wikipedia's 'Reusing Wikipedia content' page — loaded and verified to state article text is available under the Creative Commons Attribution-ShareAlike licence (CC BY-SA) with attribution and share-alike conditions; the mirror cites facts with acknowledgement rather than redistributing text."
+        }
+      ],
       "authorityCeiling": "Community",
       "notes": "Article text is CC BY-SA; recorded as cite-only because the mirror cites facts rather than redistributing text. Citation-only in increment 1 (no witness channels)."
     },
@@ -125,6 +186,7 @@
       "channels": [],
       "licenceBasis": "unverified",
       "licenceStatement": "GitHub incidentally hosts repositories that may carry copies of relevant material. The re-use terms of any hosted copy depend on that repository's own licence, which varies per repository and must be checked at the point of use; the platform hosting a file confers no licence of its own. The basis is therefore recorded as unverified at the publisher level.",
+      "licenceCitations": [],
       "authorityCeiling": "Community",
       "notes": "Fail-honest: licenceBasis is unverified because it is per-repository, not a platform-wide licence. Citation-only in increment 1 (no witness channels)."
     },
@@ -137,6 +199,16 @@
       "licenceBasis": "site-terms",
       "licenceStatement": "This project is itself a publisher: it archives Ofcom's amateur-radio publications and originates the derived artefacts (normalised CSVs, query databases, statistics and dataset packages) built from them. The project's own code is MIT-licensed; the redistributed source data remains governed by its originators' terms (Ofcom's terms of use, ITU copyright). Seeding the mirror as a `self` publisher gives its published dataset packages and any onward archival (e.g. archive.org forwarding) an honest place in the publisher graph at the Self rung.",
       "licenceUrl": "https://github.com/MysterAitch/amateur-callsigns-file-watch",
+      "licenceCitations": [
+        {
+          "url": "https://github.com/MysterAitch/amateur-callsigns-file-watch",
+          "note": "The project repository — its package.json declares the MIT licence for the project's own code (verified in-repo); the code licence is distinct from the upstream source-data terms."
+        },
+        {
+          "url": "https://www.ofcom.org.uk/about-ofcom/website/terms-of-use",
+          "note": "The redistributed source data remains governed by its originators' terms; Ofcom's terms of use are loaded and verified to permit free accurate reproduction with acknowledgement."
+        }
+      ],
       "authorityCeiling": "Self",
       "notes": "Ceiling Self matches ADR 0014's Self rung for project-derived material. Data-reuse posture is being settled under issue #560; the code licence (MIT) and the upstream data terms are distinct. Citation-only in increment 1 (no witness channels)."
     }
