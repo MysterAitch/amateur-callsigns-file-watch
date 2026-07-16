@@ -381,7 +381,10 @@ function renderGlance(host, res, manifest) {
     if (latest.types.length > 0) body.appendChild(drow('type', [latest.types.join(' / ')]));
     const datasetLink = el('a', null, latest.dataset.title);
     datasetLink.setAttribute('href', latest.dataset.href);
-    body.appendChild(drow('recorded in', [datasetLink, ` (${latest.dataset.vintage ?? 'vintage unknown'})`]));
+    // Only append the vintage when the dataset's title does not already carry
+    // it (the open-data titles do; the FOI entry keys often do not).
+    const vintage = latest.dataset.vintage ?? 'vintage unknown';
+    body.appendChild(drow('recorded in', latest.dataset.title.includes(vintage) ? [datasetLink] : [datasetLink, ` (${vintage})`]));
   } else {
     const seen = seenSummary(record, manifest);
     body.appendChild(drow('register state', [
