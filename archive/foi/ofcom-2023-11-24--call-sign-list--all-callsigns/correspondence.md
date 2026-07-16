@@ -2,10 +2,12 @@
 
 | | |
 |---|---|
-| **Ofcom reference** | none stated on the disclosure; the file is published as `call-sign-list-241123.csv` under Ofcom's FOI/disclosure area for December 2023 |
-| **Publication channel** | a CSV served directly from Ofcom's website; the same bytes are mirrored on the UK Government Web Archive (UKGWA) |
+| **Ofcom reference** | **01713103** (recovered via the WhatDoTheyKnow thread; the disclosure-log filename carries none) |
+| **Publication channel** | a CSV served directly from Ofcom's website; the same bytes are mirrored on the UK Government Web Archive (UKGWA), and a byte-divergent copy of the same disclosure was served on the WDTK thread |
+| **Requested** | 2023-11-08 (received; from the recovered response letter) |
+| **Responded** | 2023-12-05 (letter date; data generated 24 November 2023) |
 | **Data vintage** | **2023-11-24** — the filename's `241123` and the latest `Last Modified Date` in the data (2023-11-24) agree |
-| **Requester** | not known (a disclosure-log/open-data style publication, no requester named) |
+| **Requester** | Andrew Robinson (WDTK user `andrew_robinson_7`) |
 
 ## Overview
 
@@ -33,12 +35,35 @@
   - `G6 FMU` carries an interior space (a separate `G6FMU` also exists); `g0jrk`
     is lower-case. Both preserved letter-for-letter.
   - 10 rows assert a callsign with a blank status — data, never backfilled.
-- **Provenance witnesses agree**: the copy served live from Ofcom and the copy
-  mirrored on UKGWA are **byte-identical** (sha256
-  `e438c141…`). The live copy is ingested as the primary raw; the UKGWA mirror
-  is the corroborating witness.
+- **Provenance witnesses**: the copy served live from Ofcom and the copy
+  mirrored on UKGWA are **byte-identical** (sha256 `e438c141…`) — the live copy
+  is ingested as the primary raw and the UKGWA mirror corroborates it. A **third
+  copy**, served on the WhatDoTheyKnow thread (FOI 01713103), is the *same
+  disclosure* but **not byte-identical**: it differs by two bytes (see below),
+  so it is retained in full as a divergent copy rather than folded into the
+  witness set.
 
 ## Exchange
 
-No request/response email thread is held; the record is the published CSV itself
-and its provenance (captured above and in `meta.json`).
+The **request/response thread is now recovered** via WhatDoTheyKnow
+([request 1045020](https://www.whatdotheyknow.com/request/callsign_allocation_data),
+requester Andrew Robinson). The FOI 01713103 response letter
+([raw extract](raw-extract-foi-01713103-callsign-allocation-data.md)) records
+the request as received **8 November 2023**, is dated **5 December 2023**, and
+states the data was generated on **24 November 2023** — the vintage this entry
+carries. It also preserves Ofcom's explanation that a callsign is marked
+Reserved following a licence surrender and generally stays reserved for two
+years.
+
+## Divergent copy (collect-all-copies)
+
+The WDTK-served copy `wdtk-1045020-call-sign-list-241123.csv` carries the
+identical 108,922 rows in the identical order but is **two bytes larger** than
+the held disclosure-log copy. The difference is a byte-encoding artefact on two
+heritage callsigns: the disclosure-log copy encodes the trailing non-breaking
+space on **G0TQK** (line 99345) and **2E1HON** (line 101998) as a lone `0xA0`
+byte (invalid UTF-8 / Latin-1), while the WDTK copy encodes the same trailing
+non-breaking space as the well-formed UTF-8 sequence `0xC2 0xA0`. Both copies
+normalise identically (the trailing non-breaking space is trimmed at convert
+time), so the divergence is cosmetic; both are held so the difference is
+directly verifiable. See `divergences[0]` in `meta.json`.
