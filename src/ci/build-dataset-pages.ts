@@ -39,6 +39,7 @@ import { buildClassPages, classChipLink } from './build-class-pages.ts';
 import { buildInterdatasetStats } from './build-interdataset-stats.ts';
 import { buildFidelityPage } from './build-fidelity-page.ts';
 import { fidelityHref, fidelityNudge, flagNudges } from './render/fidelity.ts';
+import { reportAffordance } from './render/report.ts';
 import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { time, perfReport } from '../shared/perf.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
@@ -789,7 +790,7 @@ function distributionsSection(sourceDir: string, key: string): string[] {
   ].filter(s => s !== '');
 }
 
-function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries: PublicationSummary[], foiEntries: FoiNavEntry[]): { files: CopiedFile[]; meta: FoiEntryMeta; zipBytes: number } {
+function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries: PublicationSummary[], foiEntries: FoiNavEntry[], pageUrl: string): { files: CopiedFile[]; meta: FoiEntryMeta; zipBytes: number } {
   const meta = readFoiEntryMeta(foiDir, key);
   const descriptions = new Map<string, string>();
   const hashes = new Map<string, string>();
@@ -877,6 +878,20 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     '</section>',
   ].filter(s => s !== '').join('\n');
 
+  // The report-this invite (issue #439): a calm, always-present affordance to
+  // report a suspected problem or examine this entry further, pre-filled with
+  // this exact FOI entry so a report is located to its hop.
+  const reportSection = [
+    '<section class="report-invite">',
+    '<h2>See something worth a closer look?</h2>',
+    reportAffordance(
+      { surface: 'a Freedom-of-Information dataset entry page', subject: meta.title, datasetKey: key, pageUrl },
+      3,
+      { label: 'Report or examine this dataset' },
+    ),
+    '</section>',
+  ].join('\n');
+
   const recoveryNotice = meta.datasetRecovery !== undefined && meta.datasetRecovery !== 'recovered'
     ? [noticeStrip(true, `<b>Dataset ${escapeHtml(meta.datasetRecovery)}:</b> the response data itself is not held in this entry (the correspondence and provenance are). Absence of data here is a recovery state, not evidence about the register.`)]
     : [noticeStrip(false, `Freedom-of-Information disclosure — a point-in-time snapshot, not a live feed.`)];
@@ -900,6 +915,7 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     downloadTier('Derived & bundles', derivedSlots),
     downloadTier('Not applicable to this entry', [placeholderSlot('raw.csv', 'n/a — source is not a single CSV'), placeholderSlot('components.csv', 'n/a — FOI snapshot, not the parsed register')]),
     '</section>',
+    reportSection,
     '</div>',
     `<div class="side">${atAGlance}</div>`,
     '</div>',
@@ -1102,7 +1118,7 @@ export function setAsideLinesSection(ignored: { line: number; content: string; r
     + `<tbody>${rows}</tbody></table></details>`;
 }
 
-function buildOpenDataEntry(outputDir: string, key: string, previousKey: string | undefined, summaries: PublicationSummary[], foiEntries: FoiNavEntry[]): { files: CopiedFile[]; zipBytes: number } {
+function buildOpenDataEntry(outputDir: string, key: string, previousKey: string | undefined, summaries: PublicationSummary[], foiEntries: FoiNavEntry[], pageUrl: string): { files: CopiedFile[]; zipBytes: number } {
   const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
   const descriptions = new Map<string, string>([
     ['raw.csv', "Ofcom's bytes, verbatim"],
@@ -1226,6 +1242,16 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
       placeholderSlot('source documents', 'none — open-data is one CSV'),
       placeholderSlot('edges.csv', 'planned — graph export'),
     ]),
+    '</section>',
+    // The report-this invite (issue #439): pre-filled with this exact
+    // publication so a report about a record or figure here is located to it.
+    '<section class="report-invite">',
+    '<h2>See something worth a closer look?</h2>',
+    reportAffordance(
+      { surface: 'an Ofcom open-data publication entry page', subject: `the register publication of ${humanDate(key)}`, datasetKey: key, pageUrl },
+      3,
+      { label: 'Report or examine this publication' },
+    ),
     '</section>',
     '</div>',
     '<div class="side">',
@@ -1505,7 +1531,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     return { key: k, title: m.title, vintage: m.dataVintage, classes: m.datasetClasses, approxRecords: foiApproxRecords(m.files) };
   }).filter(e => e.classes.length > 0);
   for (const key of openDataKeys) {
-    const { files, zipBytes } = time('dataset-pages:open-data-entry', () => buildOpenDataEntry(outputDir, key, lastCompleteKey, summaries, foiNav));
+    const { files, zipBytes } = time('dataset-pages:open-data-entry', () => buildOpenDataEntry(outputDir, key, lastCompleteKey, summaries, foiNav, `${baseUrl}/datasets/open-data/${key}/index.html`));
     const entryMeta = JSON.parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, key, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete: boolean } };
     if (entryMeta.intendedCoverage?.complete !== false) lastCompleteKey = key;
     fileCount += files.length;
@@ -1516,7 +1542,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
 
   const foiRows: string[] = [];
   for (const key of foiKeys) {
-    const { files, meta, zipBytes } = time('dataset-pages:foi-entry', () => buildFoiEntry(outputDir, foiDir, key, summaries, foiNav));
+    const { files, meta, zipBytes } = time('dataset-pages:foi-entry', () => buildFoiEntry(outputDir, foiDir, key, summaries, foiNav, `${baseUrl}/datasets/foi/${encodeURIComponent(key)}/index.html`));
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;
     pageUrls.push(`${baseUrl}/datasets/foi/${key}/index.html`);

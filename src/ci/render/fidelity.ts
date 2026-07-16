@@ -36,7 +36,8 @@ export type FidelitySection =
   | 'consistency'
   | 'show-working'
   | 'reconstruction'
-  | 'reverify';
+  | 'reverify'
+  | 'reporting';
 
 // The fragment id of one registered flag's row on the deep-dive page. Flags are
 // machine tokens (lowercase letters, digits, hyphens); anything else is

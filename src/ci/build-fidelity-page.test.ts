@@ -118,7 +118,7 @@ describe('the built fidelity page over the real archive', { tags: ['data-validit
   });
 
   it('FidelityPage_WhenBuilt_CarriesEveryDeclaredSectionAnchor', () => {
-    for (const anchor of ['about', 'provenance', 'flags', 'consistency', 'show-working', 'reconstruction', 'reverify']) {
+    for (const anchor of ['about', 'provenance', 'flags', 'consistency', 'show-working', 'reconstruction', 'reverify', 'reporting']) {
       expect(page, anchor).toContain(`id="${anchor}"`);
     }
   });

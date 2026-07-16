@@ -302,8 +302,34 @@ function reverifySection(): string[] {
     '<li><b>Follow a permalink.</b> Every “show the working” evidence link lands on the exact line of the archived source file at a pinned commit — the byte the claim rests on.</li>',
     `<li><b>Query the data yourself.</b> The <a href="${exploreHref}">Explore console</a> runs SQL over the combined database in your browser; every published figure should be reproducible from it.</li>`,
     '<li><b>Re-run the checks.</b> Clone ' + externalLink(REPO_URL, 'the repository') + ' and run the test suite: the reconstruction oracle, the explain oracle (every derived claim’s working reproduces its value) and the golden-master report checks all run from the committed data.</li>',
-    '<li><b>Report something that looks wrong.</b> If a record, a flag or a figure looks off, ' + externalLink(`${REPO_URL}/issues`, 'open an issue') + ' — corrections land by adding sources, never by silently editing the record.</li>',
+    '<li><b>Report something that looks off.</b> If a record, a flag or a figure does not look right, the <b>report this</b> link beside it opens a <a href="#reporting">pre-filled issue located to that exact place</a> — corrections land by adding sources, never by silently editing the record.</li>',
     '</ul>',
+  ];
+}
+
+// The reporting section (issue #439): what the "report this" affordance shown
+// beside records across the site does, what happens to a report, and what makes
+// a good one. Framing is the mirror's standing ethics — a report is an
+// observation for investigation, not a verdict; the right-of-reply ethos and
+// correction-by-adding-a-source rule are stated plainly.
+function reportingSection(): string[] {
+  return [
+    '<h2 id="reporting">Reporting — turn a doubt into a contribution</h2>',
+    '<p>Across the site, a record-bearing surface offers a <b>report this</b> link. It opens a pre-filled GitHub issue that already names the exact surface, record and page you were looking at, so your report arrives <b>located to its hop</b> — a maintainer can go straight to what you saw, rather than having to place a context-free note first.</p>',
+    '<h3>What a report is</h3>',
+    '<p>A report is an <b>observation for investigation, not a verdict</b>. The mirror reflects what its sources published; it cannot change the official register, and any correction lands by <b>adding a source</b> — a later publication, an FOI disclosure, a witnessed copy — never by silently editing a record. Nothing you report rewrites what a snapshot recorded; it helps the mirror explain, or add to, the picture.</p>',
+    '<h3>What makes a good report</h3>',
+    '<ul>',
+    '<li><b>What you observed</b>, in your own words — the value or figure that looks off, and what you were doing when you saw it.</li>',
+    '<li><b>Where</b> — the pre-filled issue already carries the page URL, the surface and (where the page has one) the dataset key; please leave them in place.</li>',
+    '<li><b>What you expected</b>, if you can say — and why. This is optional.</li>',
+    '<li><b>A source or evidence</b>, if you have one — a link, a document, a publication date. Optional, but it is how a correction becomes addable.</li>',
+    '</ul>',
+    '<p>Reports are public GitHub issues, and there is no set response time. Filing needs a free GitHub account; without one you can still '
+      + externalLink(`${REPO_URL}/issues`, 'read the issues already filed')
+      + '. Filing from scratch (rather than through a <b>report this</b> link) uses the '
+      + externalLink(`${REPO_URL}/issues/new/choose`, 'data-report template')
+      + ', which asks for the same handful of things.</p>',
   ];
 }
 
@@ -354,6 +380,7 @@ export function buildFidelityPage(outputDir: string, baseUrl: string = DEFAULT_B
     ...showWorkingSection(rendered),
     ...reconstructionSection(),
     ...reverifySection(),
+    ...reportingSection(),
   ];
 
   fs.mkdirSync(outputDir, { recursive: true });
