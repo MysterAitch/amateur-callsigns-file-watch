@@ -94,6 +94,21 @@ const CHECKS: Check[] = [
     resultSelector: '#result',
   },
   {
+    // The instant per-callsign page (issue #594): no database, one static JSON
+    // shard fetch. Like the ledger it AUTO-LOADS its first sample chip on page
+    // load, so a plain non-emptiness check would pass trivially - change
+    // detection is used instead: wait for the default (M7TEE) to settle, click
+    // a different sample, assert the result region transitions. The budgets are
+    // fetch-sized, not database-sized: the whole flow is two small static JSON
+    // requests.
+    page: 'callsign.html',
+    interact: async page => {
+      await page.click('#resolver button[data-cs="G0TQK"]');
+    },
+    resultSelector: '#result',
+    changeDetection: { settleTimeoutMs: 30_000, transitionTimeoutMs: 15_000 },
+  },
+  {
     page: 'explore.html',
     interact: async page => {
       await page.fill('#sql-input', 'SELECT 1 AS ok');
@@ -253,9 +268,9 @@ async function run(browser: Awaited<ReturnType<typeof chromium.launch>>, check: 
     // (issue #537, the #475 cold-open latency surfacing as a false-alarm CI
     // failure). Bounded and best-effort - a warm-up failure logs and proceeds,
     // and the settle timeout below is retained as the real safety net for a
-    // genuine hang. Only the ledger (changeDetection) needs it; the other pages
-    // are small.
-    if (check.changeDetection !== undefined) {
+    // genuine hang. Only the ledger needs it; the other pages (including the
+    // static-shard callsign page, which also uses change detection) are small.
+    if (check.page === 'ledger.html') {
       await primeLedgerCdn(baseUrl);
     }
     await page.goto(new URL(check.page, baseUrl).toString(), { waitUntil: 'load', timeout: NAV_TIMEOUT_MS });

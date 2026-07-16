@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>Callsign — UK amateur callsign data mirror</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- The instant callsign page adopts the ledger visual language; those styles
+       are scoped under .ledger in ledger.css so they never collide with the
+       shared tokens/style that back the nav and skip link. -->
+  <link rel="stylesheet" href="ledger.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#14506e">
+  <script src="debug.js"></script>
+  <!-- Deliberately NO sql.js-httpvfs loader here: this page answers from one
+       small static JSON fetch (issue #594). The database-backed deep dives
+       live on the Lookup and Ledger pages. -->
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
+  <nav><p><a href="index.html">Lookup</a> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch" target="_blank" rel="noopener">Repository <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></p></nav>
+  <!-- nav:end -->
+
+  <main id="main" class="ledger" data-page="callsign">
+    <header>
+      <div class="head-inner">
+        <div class="eyebrow">UK amateur-radio register · instant answer</div>
+        <h1>One callsign, answered in one small fetch</h1>
+        <p class="lede">Type a callsign and get the at-a-glance answer — latest register state, parsed
+          anatomy, and where and when it has been seen across every archived publication — served from
+          <b>prefix-sharded static JSON</b>. No database opens on this page: the answer is one fetch of a few
+          kilobytes. The full raw-byte provenance and timeline live on the
+          <a href="ledger.html">Ledger</a>; the database-backed joins live on the
+          <a href="index.html">register lookup</a>.</p>
+        <div class="held"><b>Instant</b> · one shard fetch, resolved in your browser — no SQLite worker,
+          no range requests. Everything shown is a projection of the same archived publications the
+          databases fold; values are as published, not independently verified.</div>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+      <section class="panel" aria-labelledby="lookup-heading">
+        <div class="eyebrow">look up a callsign</div>
+        <h2 id="lookup-heading">Ask about one callsign</h2>
+        <p class="panel-sub">The input is cleaned to the
+          <a href="glossary.html#canonical-form">canonical form</a> (upper-case; A–Z, 0–9 and “/” only),
+          its two-character prefix picks one shard, and that single fetch answers. A regional rendering
+          (MW7TEE, 2E1…) resolves to the register’s core record.</p>
+
+        <!-- No-JS fallback: the instant lookup fetches a JSON shard in your
+             browser and needs JavaScript. The archived publications remain
+             browsable without it from the dataset index. -->
+        <noscript>
+          <p class="muted">This instant lookup runs in your browser and needs JavaScript. Without it, the
+          archived publications are browsable from the <a href="datasets/index.html">dataset index</a>,
+          and the same record is available via the <a href="ledger.html">Ledger</a> and
+          <a href="index.html">register lookup</a> pages (which also need JavaScript) or the downloadable
+          databases.</p>
+        </noscript>
+
+        <form id="lookup-form" role="search">
+          <label for="callsign-input" class="visually-hidden">Callsign</label>
+          <div class="chips" style="align-items:center">
+            <input id="callsign-input" type="text" inputmode="latin" autocomplete="off" spellcheck="false"
+                   placeholder="e.g. M7TEE" aria-label="Callsign to look up"
+                   style="font-family:var(--mono);font-size:14px;padding:8px 12px;border-radius:10px;border:1px solid var(--hair);background:var(--surface-2);color:var(--ink);min-width:160px">
+            <button class="chip" type="submit" aria-label="Look up this callsign">Look up</button>
+          </div>
+        </form>
+
+        <p class="panel-sub" style="margin:14px 0 6px">Sample callsigns:</p>
+        <div class="chips" id="resolver" role="group" aria-label="Choose a sample callsign">
+          <button class="chip" type="button" data-cs="M7TEE" aria-pressed="true">M7TEE</button>
+          <button class="chip" type="button" data-cs="G0TQK">G0TQK</button>
+          <button class="chip" type="button" data-cs="20APR">20APR</button>
+          <button class="chip" type="button" data-cs="2E0ADR">2E0ADR</button>
+        </div>
+        <p class="obs-mini" id="lookup-status" role="status" aria-live="polite" style="margin:12px 4px 0"></p>
+        <p class="db-alert" id="lookup-alert" role="alert" hidden></p>
+        <div id="miss"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="glance-heading">
+        <div class="eyebrow">at a glance</div>
+        <h2 id="glance-heading">The short answer</h2>
+        <p class="panel-sub">The latest register-snapshot observation for this callsign — status, product
+          and dates exactly as published — plus how long it has been in view. For every raw byte behind
+          these values, follow the ledger link below.</p>
+        <div id="result"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="anatomy-heading">
+        <div class="eyebrow">anatomy</div>
+        <h2 id="anatomy-heading">What the parts mean</h2>
+        <p class="panel-sub">The components the build-time parser read from the canonical form — the same
+          decomposition the archive’s derivatives carry, precomputed so nothing is re-derived in your
+          browser. The <a href="callsign-structure.html">anatomy explainer</a> walks the format in full.</p>
+        <!-- Slot for the live anatomy figure (issue #595): the parameterised SVG
+             component mounts into #anatomy-figure, driven by the same parsed
+             components rendered textually below. The textual list remains the
+             accessible baseline once the figure lands. -->
+        <div id="anatomy-figure" data-slot="anatomy-svg" hidden></div>
+        <div id="anatomy"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="history-heading">
+        <div class="eyebrow">sightings</div>
+        <h2 id="history-heading">Where and when it was seen</h2>
+        <p class="panel-sub">One row per archived dataset, oldest first: register snapshots, availability
+          lists and other callsign-bearing disclosures. Absence is read scope-aware — a callsign missing
+          from a partial or undeclared-scope publication is not evidence of anything, and even a
+          declared-complete export is intent, not verified fact. Presence in an <b>availability list</b>
+          means the callsign was offered as available (not licensed) at that date.</p>
+        <div id="history"></div>
+      </section>
+
+      <section class="panel" id="notes-panel" aria-labelledby="notes-heading" hidden>
+        <div class="eyebrow">record fidelity</div>
+        <h2 id="notes-heading">Notes on this record</h2>
+        <p class="panel-sub">Things we note or observe in the published data. Where a value looks
+          inconsistent with the rules we derive, we flag the discrepancy and draw no conclusion about why.
+          Nothing here changes any record; the register is kept exactly as published.</p>
+        <div id="notes"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="links-heading">
+        <div class="eyebrow">dig deeper</div>
+        <h2 id="links-heading">Full provenance and related views</h2>
+        <p class="panel-sub">This page is the fast summary. Every claim on it can be traced to the byte
+          that asserted it in the deeper, database-backed views.</p>
+        <ul id="links" class="panel-sub" style="margin-top:0"></ul>
+      </section>
+
+      <footer>
+        <div class="mono" style="font-size:12px; letter-spacing:.04em; color:var(--faint)">
+          amateur-callsigns-file-watch · instant per-callsign page (issue #594) · prefix-sharded static JSON, no database on this path</div>
+        <p style="margin:10px 0 0; max-width:66ch">Values shown are declared by the sources, not independently
+          verified. This page is a compact projection of the archived publications; the raw-keyed claim
+          ledger remains the provenance surface, and absence here is never evidence about the register
+          itself.</p>
+      </footer>
+    </div>
+  </main>
+
+  <!-- Offline-first (ADR 0008): register the service worker so the static shell
+       is cached and the page loads offline. The JSON shards themselves are
+       fetched online (small, and fresh per deploy). -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
+  <script type="module" src="callsign.js"></script>
+</body>
+</html>

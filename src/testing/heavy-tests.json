@@ -1,4 +1,5 @@
 [
+  "src/ci/build-callsign-shards.corpus.test.ts",
   "src/ci/reconstruction-oracle.test.ts",
   "src/ci/value-catalogue-fold.test.ts",
   "src/ci/quality-report-fold.test.ts",
