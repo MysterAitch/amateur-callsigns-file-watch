@@ -91,7 +91,9 @@ const ROLE_DESCRIPTIONS: Readonly<Record<string, string>> = {
 // The machine licence-basis tokens (src/shared/publishers.ts LICENCE_BASES)
 // rendered in plain English. `unverified` is the deliberate fail-honest value:
 // it states the basis has NOT been established, never a flattering guess.
-const LICENCE_BASIS_LABELS: Readonly<Record<string, string>> = {
+// Exported so the About page's register-derived acknowledgement (issue #560)
+// reuses this one vocabulary rather than keeping a second copy that could drift.
+export const LICENCE_BASIS_LABELS: Readonly<Record<string, string>> = {
   'ogl-v3': 'Open Government Licence v3',
   'ofcom-terms': 'Ofcom’s terms of use',
   'crown-copyright': 'Crown copyright',

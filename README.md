@@ -358,4 +358,11 @@ Selected rationale worth knowing before making changes:
 
 ## Licence
 
-MIT.
+Code and data carry different terms, so the licensing is split by scope:
+
+| Scope | Licence |
+| --- | --- |
+| This repository's code and original documentation | [MIT](LICENSE) |
+| `archive/` (mirrored publisher data) | Not MIT — each publisher's own terms, recorded per publisher and per entry rather than restated here; see [`archive/LICENSE.md`](archive/LICENSE.md) |
+
+[`reference-data/publishers.json`](reference-data/publishers.json) is the register of verified per-publisher terms; the site's [About page](https://mysteraitch.github.io/amateur-callsigns-file-watch/about.html) carries an acknowledgement derived from it, so it cannot drift out of step with the register.
