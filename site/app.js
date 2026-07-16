@@ -1177,7 +1177,7 @@ function initLookup() {
 /** @type {Record<string, OfflineDbSpec>} */
 const OFFLINE_DBS = {
   latest: { file: 'ledger-lookup.sqlite.png', label: 'lookup database' },
-  combined: { file: 'ledger-history.sqlite.png', label: 'combined database' },
+  combined: { file: 'ledger-history.sqlite.png', label: 'full-history database' },
 };
 
 function offlineSupported() {
