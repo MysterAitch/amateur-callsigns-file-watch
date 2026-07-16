@@ -58,6 +58,7 @@ import {
   downloadTier,
   breakdownRows,
   callsignPill,
+  statusField,
   humanDate,
   glossaryTerm,
   tableCaption,
@@ -480,18 +481,24 @@ function suffixCallsignsSection(info: SuffixCallsignInfo, ref: ReferenceData): s
     ].join('\n');
   }
   const breakdown: [string, number][] = info.byStatus.map(b => [b.status, b.count]);
+  // The shared status field wrapper (#553), pinned to 'plain' (drift-guard):
+  // this per-callsign table can list hundreds of rows, each repeating one of
+  // a handful of status values - a glossary link (and its "(definition of …
+  // in the glossary)" accessible text) on every single one would be noise,
+  // not help. The countTable-style breakdown BELOW (a bounded list of
+  // distinct values) uses the default linked treatment instead.
   const rows = info.callsigns.map(c => {
     const distinctStatuses = [...new Set(c.observations.map(o => o.status))];
     const earliest = c.observations[0].status;
     const wasNote = distinctStatuses.length > 1 && earliest !== c.latestStatus
-      ? ` <small class="gap">(was ${escapeHtml(earliest === '' ? '(blank)' : earliest)})</small>`
+      ? ` <small class="gap">(was ${statusField(earliest, { glossaryLinking: 'plain' })})</small>`
       : '';
     const openData = new Set(c.observations.filter(o => o.lane === 'open-data').map(o => o.source)).size;
     const foi = new Set(c.observations.filter(o => o.lane === 'foi').map(o => o.source)).size;
     const seenParts: string[] = [];
     if (openData > 0) seenParts.push(`${openData} open-data`);
     if (foi > 0) seenParts.push(`${foi} FOI`);
-    const statusCell = `${escapeHtml(c.latestStatus === '' ? '(blank)' : c.latestStatus)}${wasNote}`;
+    const statusCell = `${statusField(c.latestStatus, { glossaryLinking: 'plain' })}${wasNote}`;
     const startCell = c.startDate === '' ? '<span class="gap">—</span>' : escapeHtml(humanDate(c.startDate));
     const regCell = c.inCurrentRegister ? '✓' : '<span class="gap">—</span>';
     // The shared callsign pill: accessible name is the bare callsign, with a
@@ -519,7 +526,9 @@ function suffixCallsignsSection(info: SuffixCallsignInfo, ref: ReferenceData): s
     '<section><h2>Callsigns carrying this suffix</h2>',
     `<p class="lead">${num(info.total)} distinct callsign${info.total === 1 ? '' : 's'} witnessed carrying this suffix across the corpus, <b>broken down by latest-known ${glossaryTerm('status-values', 3, { label: 'status' })}</b> — never a bare total, since Allocated (issued), Reserved, Available and Forbidden (the prohibition itself, expressed as a callsign row) mean very different things. Each of these records carries the row-level <code>forbidden-suffix</code> data-quality flag — an observation locating the suffix on the ever-forbidden union, not a verdict about the callsign or its holder · ${fidelityNudge(3, { section: flagAnchor('forbidden-suffix'), label: 'about this flag', about: 'about the forbidden-suffix data-quality flag' })}.</p>`,
     '<div class="bd"><h3>By latest-known status</h3>',
-    breakdownRows(breakdown, info.total),
+    // A bounded list of distinct status values (unlike the per-callsign rows
+    // above), so the shared wrapper's default 'linked' treatment applies.
+    breakdownRows(breakdown, info.total, undefined, undefined, status => statusField(status, { depthToRoot: SUFFIX_PAGE_DEPTH })),
     '</div>',
     '<table>',
     tableCaption('Every callsign witnessed carrying this suffix'),
@@ -537,7 +546,7 @@ function suffixCallsignsSection(info: SuffixCallsignInfo, ref: ReferenceData): s
 function suffixAtAGlance(suffix: string, h: ForbiddenSuffixHistory, info: SuffixCallsignInfo, a: SuffixAnalysis): string {
   const fk = h.firstKnownForbidden[suffix];
   const breakdown: [string, number][] = info.byStatus.map(b => [b.status, b.count]);
-  const statusBar = breakdownRows(breakdown, info.total);
+  const statusBar = breakdownRows(breakdown, info.total, undefined, undefined, status => statusField(status, { depthToRoot: SUFFIX_PAGE_DEPTH }));
   const statusBlock = info.total === 0
     ? '<div class="bd"><h3>By status</h3><div class="brow"><span class="lab gap">no callsigns witnessed</span></div></div>'
     : '<div class="bd"><h3>By latest-known status</h3>' + statusBar + '</div>';

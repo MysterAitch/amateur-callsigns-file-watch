@@ -57,6 +57,8 @@ import {
   entryPage,
   callsignPill,
   callsignField,
+  statusField,
+  licenceField,
   datasetLabel,
   exploreDeepLink,
   glossaryTerm,
@@ -481,10 +483,17 @@ function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSiz
     const joined = flagsByCallsign?.get(callsign) ?? '';
     return joined === '' ? [] : joined.split(';');
   };
-  const body = rows.map(r => `<tr>${headers.map(h =>
-    pillCallsignDepth !== undefined && h === 'callsign'
-      ? callsignCell(r[h] ?? '', r['licence_class'] ?? '', pillCallsignDepth, flagsFor(r[h] ?? ''))
-      : `<td>${escapeHtml(r[h] ?? '')}</td>`).join('')}</tr>`).join('');
+  // A 'status' or licence-class/product column (#553) routes through the
+  // shared field wrappers so a previewed raw row reads consistently with the
+  // rest of the site. Status is pinned to 'plain' (drift-guard): this preview
+  // repeats the same handful of values across up to `sampleSize` rows, where
+  // the glossary affordance on every one would be noise, not help.
+  const body = rows.map(r => `<tr>${headers.map(h => {
+    if (pillCallsignDepth !== undefined && h === 'callsign') return callsignCell(r[h] ?? '', r['licence_class'] ?? '', pillCallsignDepth, flagsFor(r[h] ?? ''));
+    if (h === 'status') return `<td>${statusField(r[h] ?? '', { glossaryLinking: 'plain' })}</td>`;
+    if (h === 'product' || h === 'licence_class') return `<td>${licenceField(r[h] ?? '')}</td>`;
+    return `<td>${escapeHtml(r[h] ?? '')}</td>`;
+  }).join('')}</tr>`).join('');
   return `<div style="overflow-x:auto"><table>${tableCaption(`Preview — first ${rows.length} rows of this file`)}<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
@@ -546,7 +555,11 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
     const pct = bd.recordCount > 0 ? Math.round((n / bd.recordCount) * 100) : 0;
     return `<span class="pct">${pct === 0 && n > 0 ? '<1%' : `${pct}%`}</span><b>${n.toLocaleString('en-GB')}</b><span class="barbg" style="width:${Math.min(pct, 100)}%"></span>`;
   };
-  const shortProduct = (p: string): string => p === '' ? '(blank)' : p.replace(/^Amateur /, '').replace(/ Radio Licence$/, '');
+  // The shared licence field wrapper (#553), pinned to the shortened form
+  // (drift-guard): this row is tight on width and would otherwise repeat the
+  // source's own boilerplate ('Amateur … Radio Licence') on every line; the
+  // full declared string still rides in the title, never dropped.
+  const shortProduct = (p: string): string => licenceField(p, { form: 'shortened' });
   // The prefix label FILTERS on click (the row is the facet trigger); the
   // small ↗ is the only link, to the series page (the row handler ignores
   // clicks on <a>). Previously the whole label navigated, surprising anyone
@@ -560,14 +573,18 @@ function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string |
     const seriesNav = seriesSlug(p) === '' ? '' : ` <a class="seriesnav" href="../../../series/${seriesSlug(p)}.html" aria-label="${escapeHtml(displaySeries(p))} series page">↗</a>`;
     return `<div class="brow"${facetAttr('prefix_series', p)}><span class="lab">${escapeHtml(displaySeries(p))}${tag}${seriesNav}</span>${bar(n)}</div>`;
   }).join('');
-  const declaredRows = bd.declared.map(([p, n]) => `<div class="brow"${facetAttr('product', p)}><span class="lab">${escapeHtml(shortProduct(p))}</span>${bar(n)}</div>`).join('');
+  const declaredRows = bd.declared.map(([p, n]) => `<div class="brow"${facetAttr('product', p)}><span class="lab">${shortProduct(p)}</span>${bar(n)}</div>`).join('');
   const intlExpr = "CASE WHEN callsign LIKE '%/%' THEN 'yes' ELSE 'no' END";
   return [
     '<section>',
     '<h2>At a glance</h2>',
     `<div class="headline">${bd.recordCount.toLocaleString('en-GB')} <small>register rows · ${allocatedCount.toLocaleString('en-GB')} allocated</small></div>`,
-    bd.status.length > 0 ? `<div class="bd"><h3>${glossaryTerm('status-values', 3, { label: 'Status' })}</h3>${breakdownRows(bd.status, bd.recordCount, undefined, label => facetAttr('status', label))}</div>` : '',
-    bd.impliedClass.length > 0 ? `<div class="bd"><h3>${glossaryTerm('licence-class', 3, { label: 'Licence level' })} (implied)</h3>${breakdownRows(bd.impliedClass, bd.recordCount, undefined, label => facetAttr('implied_class', label))}</div>` : '',
+    // Both breakdowns route their labels through the shared field wrapper
+    // (#553). Status is pinned to 'plain' (drift-guard): each row is itself a
+    // click-to-filter role="button" target (facetAttr), and a glossary <a>
+    // nested inside one would be a nested-interactive-control anti-pattern.
+    bd.status.length > 0 ? `<div class="bd"><h3>${glossaryTerm('status-values', 3, { label: 'Status' })}</h3>${breakdownRows(bd.status, bd.recordCount, undefined, label => facetAttr('status', label), label => statusField(label, { glossaryLinking: 'plain' }))}</div>` : '',
+    bd.impliedClass.length > 0 ? `<div class="bd"><h3>${glossaryTerm('licence-class', 3, { label: 'Licence level' })} (implied)</h3>${breakdownRows(bd.impliedClass, bd.recordCount, undefined, label => facetAttr('implied_class', label), label => licenceField(label))}</div>` : '',
     bd.declared.length > 0 ? `<div class="bd"><h3>${glossaryTerm('licence-class', 3, { label: 'Licence level' })} (declared)</h3>${declaredRows}</div>` : '',
     bd.prefixes.length > 0 ? `<div class="bd"><h3>${glossaryTerm('prefix-series', 3, { label: 'Prefixes' })} <small class="lvl">— all ${bd.prefixes.length}, with inferred level</small></h3><div class="prefixscroll">${prefixRows}</div><div class="brow"><a href="../../../series/index.html">all series →</a></div></div>` : '',
     bd.international > 0 ? `<div class="bd"><h3>International / visitor</h3><div class="brow" data-filter-expr="${escapeHtml(intlExpr)}" data-filter-val="yes" data-filter-label="international" role="button" tabindex="0"><span class="lab">contain <code>/</code> (e.g. <code>M/</code>) — country lookup planned</span>${bar(bd.international)}</div></div>` : '',
@@ -691,7 +708,7 @@ function distributionsSection(sourceDir: string, key: string): string[] {
     dist.length.length > 0 ? svgBarChart('dist-length', 'Callsign length', `Number of callsigns of each length in characters, from ${dist.length[0][0]} to ${dist.length[dist.length.length - 1][0]}.`, 'length (characters)', dist.length, 'CAST(LENGTH(callsign) AS TEXT)') : '',
     dist.suffixLength.length > 0 ? svgBarChart('dist-suffixlen', 'Suffix length', 'Callsigns by suffix length — 2-letter suffixes are heritage (G2 series and older holders), 3-letter the modern allocations.', 'suffix length', dist.suffixLength, 'CAST(LENGTH(suffix) AS TEXT)') : '',
     dist.issueYear.length > 0 && dist.dateColumn !== undefined ? svgBarChart('dist-year', `Issue year (by ${dateLabel})`, `Callsigns by year of ${dateLabel}, from ${dist.issueYear[0][0]} to ${dist.issueYear[dist.issueYear.length - 1][0]}.`, 'year', dist.issueYear, `substr("${dist.dateColumn}", 1, 4)`) : '',
-    dist.recentByClass.length > 0 ? `<h3 style="font-size:.92rem;margin:.3rem 0 .4rem">New in the 12 months to ${escapeHtml(humanDate(key))}, by licence level (${recentTotal.toLocaleString('en-GB')} total)</h3>${breakdownRows(dist.recentByClass, recentTotal)}` : '',
+    dist.recentByClass.length > 0 ? `<h3 style="font-size:.92rem;margin:.3rem 0 .4rem">New in the 12 months to ${escapeHtml(humanDate(key))}, by licence level (${recentTotal.toLocaleString('en-GB')} total)</h3>${breakdownRows(dist.recentByClass, recentTotal, undefined, undefined, label => licenceField(label))}` : '',
     '</section>',
   ].filter(s => s !== '');
 }
@@ -1201,14 +1218,19 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
 
   // linkFor turns each count into a filtered-lookup link ("which N?"):
   // a return of undefined (synthetic values like "(unknown)") stays plain.
-  const countTable = (title: string, counts: Map<string, number>, linkFor?: (value: string) => string | undefined): string[] => {
+  // labelFor, when given, supplies the value cell's inner HTML directly (the
+  // shared status field wrapper, #553) instead of plain escaped text - safe
+  // here because the value sits in its own plain <td>, not a click-to-filter
+  // row (the count cell carries that behaviour via linkFor).
+  const countTable = (title: string, counts: Map<string, number>, linkFor?: (value: string) => string | undefined, labelFor?: (value: string) => string): string[] => {
     if (counts.size === 0) return [];
     const rows = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     return [`<h2>${escapeHtml(title)}</h2>`, '<table>', tableCaption(title), '<thead>', `<tr><th scope="col">value</th><th scope="col" class="n">rows</th></tr>`, '</thead>', '<tbody>',
       ...rows.map(([value, n]) => {
         const count = n.toLocaleString('en-GB');
         const href = linkFor?.(value);
-        return `<tr><td>${escapeHtml(value)}</td><td class="n">${href === undefined ? count : `<a href="${href}">${count}</a>`}</td></tr>`;
+        const shown = labelFor !== undefined ? labelFor(value) : escapeHtml(value);
+        return `<tr><td>${shown}</td><td class="n">${href === undefined ? count : `<a href="${href}">${count}</a>`}</td></tr>`;
       }), '</tbody>', '</table>'];
   };
   const filterLink = (series: string, param: 'status' | 'flags', value: string): string | undefined =>
@@ -1226,7 +1248,7 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
         '<table>',
         tableCaption('Reference facts for this prefix series'),
         '<tbody>',
-        `<tr><th scope="row">${glossaryTerm('licence-class', 1, { label: 'station level' })}</th><td>${escapeHtml(ref.station_level)}</td></tr>`,
+        `<tr><th scope="row">${glossaryTerm('licence-class', 1, { label: 'station level' })}</th><td>${licenceField(ref.station_level)}</td></tr>`,
         `<tr><th scope="row">issuing status</th><td>${escapeHtml(ref.issuing_status)}</td></tr>`,
         `<tr><th scope="row">${glossaryTerm('rsl', 1, { label: 'RSL' })} required</th><td>${escapeHtml(ref.rsl_required)}</td></tr>`,
         ...(ref.notes ? [`<tr><th scope="row">notes</th><td>${escapeHtml(ref.notes)}</td></tr>`] : []),
@@ -1240,7 +1262,10 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
       ? ['<p>No parsed register rows in the latest publication carry this series.</p>']
       : [
         `<p>${acc.total.toLocaleString('en-GB')} parsed register rows in the latest publication (${escapeHtml(newest)}). Counts link to the matching rows in the live lookup.</p>`,
-        ...countTable('Status breakdown', acc.statuses, status => filterLink(series, 'status', status)),
+        // The shared status field wrapper (#553): a bounded list of distinct
+        // status values, sitting in a plain <td>, so the default 'linked'
+        // treatment crosslinks a recognised one to its glossary definition.
+        ...countTable('Status breakdown', acc.statuses, status => filterLink(series, 'status', status), status => statusField(status, { depthToRoot: 1 })),
         ...countTable('Stored RSL letters', acc.rsls),
         ...countTable('Data-quality flags within this series', acc.flags, flag => filterLink(series, 'flags', flag)),
         `<p>Examples, as stored in the register (the RSL letter, where one applies, is stored separately from the row): ${acc.examples.map(e => callsignPill(e.callsign, 1, e.components)).join(', ')} — each opens the live lookup.</p>`,
@@ -1254,7 +1279,7 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
     ];
     fs.writeFileSync(path.join(seriesDir, `${slug}.html`), htmlPage(`Prefix series ${display}`, 1, body, { currentNav: 'Series', sourcePath: 'reference-data/prefix-formats.csv' }));
     urls.push(`${baseUrl}/series/${slug}.html`);
-    indexRows.push(`<tr><th scope="row"><a href="${slug}.html"><code>${escapeHtml(display)}</code></a></th><td>${ref === undefined ? '⚠ unreferenced' : escapeHtml(ref.station_level)}</td><td>${ref === undefined ? '—' : escapeHtml(ref.issuing_status)}</td><td class="n">${(acc?.total ?? 0).toLocaleString('en-GB')}</td></tr>`);
+    indexRows.push(`<tr><th scope="row"><a href="${slug}.html"><code>${escapeHtml(display)}</code></a></th><td>${ref === undefined ? '⚠ unreferenced' : licenceField(ref.station_level)}</td><td>${ref === undefined ? '—' : escapeHtml(ref.issuing_status)}</td><td class="n">${(acc?.total ?? 0).toLocaleString('en-GB')}</td></tr>`);
   }
 
   const indexBody = [

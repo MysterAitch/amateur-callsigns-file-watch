@@ -46,12 +46,18 @@ export function humaniseLabel(value: string): string {
   return value === '' ? '(blank)' : value;
 }
 
-export function breakdownRows(counts: [string, number][], total: number, linkFor?: (v: string) => string | undefined, rowAttr?: (v: string) => string): string {
+// `labelFor`, when given, supplies the label's inner HTML directly (e.g. the
+// shared status/licence field wrapper - issue #553), bypassing the default
+// escapeHtml(humaniseLabel(…)) text. Omitted, every existing caller's output
+// is unchanged. Not meant to combine with `linkFor` on the same call: a
+// caller opting into the field wrapper renders its own element and supplies
+// no separate href for that label.
+export function breakdownRows(counts: [string, number][], total: number, linkFor?: (v: string) => string | undefined, rowAttr?: (v: string) => string, labelFor?: (v: string) => string): string {
   return counts.map(([label, n]) => {
     const pct = total > 0 ? Math.round((n / total) * 100) : 0;
     const pctText = pct === 0 && n > 0 ? '<1%' : `${pct}%`;
     const href = linkFor?.(label);
-    const shown = escapeHtml(humaniseLabel(label));
+    const shown = labelFor !== undefined ? labelFor(label) : escapeHtml(humaniseLabel(label));
     const lab = href === undefined ? shown : `<a href="${href}">${shown}</a>`;
     return `<div class="brow"${rowAttr?.(label) ?? ''}><span class="lab">${lab}</span><span class="pct">${pctText}</span><b>${n.toLocaleString('en-GB')}</b><span class="barbg" style="width:${Math.min(pct, 100)}%"></span></div>`;
   }).join('');
