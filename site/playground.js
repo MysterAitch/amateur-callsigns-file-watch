@@ -187,6 +187,7 @@ export function renderResults(resultEl, rows, truncated = false) {
   const table = el('table', { class: 'pg-table' });
   table.append(el('thead', {}, [el('tr', {}, headers.map(h => el('th', { text: h })))]));
   table.append(el('tbody', {}, rows.map(r => el('tr', {}, headers.map(h =>
+    // eslint-disable-next-line @typescript-eslint/no-base-to-string -- row values are deliberately `unknown` (an arbitrary named column); a non-primitive intentionally falls back to its default stringification rather than being excluded from the cell.
     el('td', { text: r[h] === null ? 'NULL' : String(r[h]), class: r[h] === null ? 'pg-null' : '' }))))));
   const wrap = el('div', { class: 'overflow' });
   wrap.append(table);
@@ -219,6 +220,7 @@ export async function runQuery(query, rawSql, { statusEl, resultEl }) {
   if (statusEl) statusEl.textContent = 'Querying… (the first read fetches pages of the database as needed).';
   const started = Date.now();
   try {
+    /** @type {Record<string, unknown>[]} */
     const raw = await query(sql);
     const truncated = raw.length > ROW_CAP;
     const rows = truncated ? raw.slice(0, ROW_CAP) : raw;
