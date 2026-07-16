@@ -84,9 +84,18 @@ export interface PublisherEntry {
   // the register is the channel vocabulary. Empty for citation-only publishers
   // that no witness is recorded through.
   channels: string[];
+  // The publisher's DEFAULT/TYPICAL licence basis, not a blanket claim over its
+  // whole catalogue: licensing is publication-specific — a publisher's current
+  // publications may carry one licence while historical ones carry another. Each
+  // dataset/publication can override this default with its own basis (the
+  // per-publication licence fields arrive in a later increment); until then this
+  // is the fallback a holding inherits when it declares nothing of its own.
   licenceBasis: string;
-  // Plain-English statement of why the mirror may hold and republish this
-  // publisher's material, with the governing terms linked from licenceUrl.
+  // Plain-English statement of why the mirror may, by default, hold and
+  // republish this publisher's material, with the governing terms linked from
+  // licenceUrl. It describes the publisher's typical/current terms; a specific
+  // publication may differ (notably historical vintages), and a per-publication
+  // basis overrides this when present.
   licenceStatement: string;
   // The governing terms document. Optional only for publishers whose basis is
   // `unverified` (there is, by definition, no settled terms document to cite).

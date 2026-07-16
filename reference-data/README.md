@@ -32,7 +32,12 @@ because it distils an authoritative dataset. Its own provenance discipline is
 different in kind: the licence statements it makes are **public claims about
 other parties' terms**, so each entry cites the governing terms it relies on
 (`licenceUrl`), and a basis that has not been established is recorded as
-`unverified` rather than asserted (fail-honest). Increment 1 of #618.
+`unverified` rather than asserted (fail-honest). A publisher entry's
+`licenceBasis`/`licenceStatement` is the **default/typical** basis, not a
+blanket claim over its whole catalogue: licensing is publication-specific —
+current publications may carry one licence while historical ones carry another
+— so each dataset/publication may override the default with its own basis (the
+per-publication licence fields land in a later increment). Increment 1 of #618.
 
 ## Datasets
 
@@ -190,10 +195,11 @@ carries: `id` (a stable slug referenced elsewhere), `name`, `roles`
 (multi-valued: `originator` / `official-archive` / `web-archive` /
 `foi-aggregator` / `community-documentation` / `incidental-host`), optional
 `operator`, `url`, `channels` (the witness `channel` tokens that resolve to
-this publisher), `licenceBasis` (a closed token), `licenceStatement` with a
-cited `licenceUrl`, `authorityCeiling` (the ADR 0014 rung material witnessed
-only via this publisher may at most carry), optional `fetchConstraints`, and
-`notes`.
+this publisher), `licenceBasis` (a closed token — the publisher's
+default/typical basis, which a specific publication may override),
+`licenceStatement` with a cited `licenceUrl`, `authorityCeiling` (the ADR 0014
+rung material witnessed only via this publisher may at most carry), optional
+`fetchConstraints`, and `notes`.
 
 It is JSON, not CSV, because `roles` and `channels` are multi-valued and
 `licenceStatement` is multi-sentence prose. It is the **vocabulary** every
