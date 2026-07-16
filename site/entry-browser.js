@@ -37,6 +37,13 @@ import { withDatabaseLoading } from './db-loading.js';
 // global.d.ts, shared with app.js/compare.js/explore.js.
 /** @typedef {{ db: { query: (sql: string, params?: unknown[]) => Promise<any[]> } }} DbWorker */
 
+// A row from either the filters-mode SELECT (whose columns are exactly
+// COLUMNS - all textual register columns) or a hand-written custom query
+// (whose columns are named by the query itself, e.g. a COUNT(*) alias). The
+// two columns the rendering special-cases by name are always textual
+// register data; anything else is read generically as text, number or NULL.
+/** @typedef {{ callsign: string, cleaned: string, [column: string]: string | number | null }} QueryRow */
+
 const { createDbWorker } = window;
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
 const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
@@ -92,7 +99,17 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 /** @param {unknown} value */
-function codeCell(value) { const c = el('code'); c.textContent = value == null ? '' : String(value); return c; }
+function codeCell(value) {
+  const c = el('code');
+  if (value == null) { c.textContent = ''; return c; }
+  // Narrowed to a type with its own toString() (not TS's `{}`/Object.prototype
+  // reading), so the display value renders exactly as `String(value)` always
+  // has - including "[object Object]" for the rare non-primitive.
+  /** @type {{ toString(): string }} */
+  const displayable = value;
+  c.textContent = String(displayable);
+  return c;
+}
 
 // The raw callsign column: every character legible (whitespace, control,
 // format and replacement characters become visible {markers}) inside the shared
@@ -104,11 +121,8 @@ function codeCell(value) { const c = el('code'); c.textContent = value == null ?
 function renderRawCallsign(raw) {
   return callsignPillRaw(el, raw);
 }
-/**
- * @param {string} raw
- * @param {string} cleaned
- */
-function describeDiff(raw, cleaned) {
+/** @param {string} raw */
+function describeDiff(raw) {
   const notes = [];
   if (/ /.test(raw)) notes.push('non-breaking space');
   if (/�/.test(raw)) notes.push('replacement character (encoding failure)');
@@ -306,19 +320,24 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
     const started = performance.now();
     let opened = false;
     try {
-      const { rows, total } = await withDatabaseLoading(
+      /** @type {{ rows: QueryRow[], total: number }} */
+      const outcome = await withDatabaseLoading(
         { statusEl: statusLine, alertEl, resultEl: result, label: 'combined database' },
         async (markRunning) => {
           const worker = await openCombinedFn();
           opened = true;
           markRunning();
-          const totalRows = Number((await worker.db.query(countSql))[0].n);
+          /** @type {{ n: number }[]} */
+          const countRows = await worker.db.query(countSql);
+          const totalRows = Number(countRows[0].n);
           const maxPage = Math.max(0, Math.ceil(totalRows / state.pageSize) - 1);
           if (state.page > maxPage) state.page = maxPage;
+          /** @type {QueryRow[]} */
           const pageRows = await worker.db.query(`SELECT * FROM (${inner}) LIMIT ${state.pageSize} OFFSET ${state.page * state.pageSize}`);
           return { rows: pageRows, total: totalRows };
         },
       );
+      const { rows, total } = outcome;
       const elapsed = ((performance.now() - started) / 1000).toFixed(1);
       renderRows(rows, total, elapsed);
     } catch (err) {
@@ -330,7 +349,7 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
   }
 
   /**
-   * @param {any[]} rows
+   * @param {QueryRow[]} rows
    * @param {number} total
    * @param {string} elapsed
    */
@@ -397,7 +416,7 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
       : el('tbody', {}, rows.map(r => el('tr', {}, headers.map(h => {
         if (h === 'callsign') return el('td', {}, [renderRawCallsign(r.callsign)]);
         if (h === 'cleaned') return el('td', {}, [codeCell(r.cleaned)]);
-        if (h === 'difference') return el('td', { class: 'diffnote', text: describeDiff(r.callsign, r.cleaned ?? '') });
+        if (h === 'difference') return el('td', { class: 'diffnote', text: describeDiff(r.callsign) });
         return el('td', { text: r[h] === null ? 'NULL' : String(r[h]), class: r[h] === null ? 'browser-status' : '' });
       }))));
     const wrap = el('div', { class: 'overflow', style: 'overflow-x:auto' });
@@ -555,13 +574,22 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
   // --- download the current view as CSV, with a query/meta comment header ---
   const DOWNLOAD_CAP = 20000;
   /** @param {unknown} v */
-  const csvField = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const csvField = (v) => {
+    if (v === null || v === undefined) return '';
+    // Narrowed to a type with its own toString() (not TS's `{}`/Object.prototype
+    // reading), so this renders exactly as `String(v)` always has.
+    /** @type {{ toString(): string }} */
+    const displayable = v;
+    const s = String(displayable);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
   async function downloadCsv() {
     const prev = dlBtn.textContent;
     dlBtn.disabled = true; dlBtn.textContent = '…';
     try {
       const inner = state.customSql !== null ? state.customSql : filtersSql().inner;
       const worker = await openCombinedFn();
+      /** @type {QueryRow[]} */
       const rows = await worker.db.query(`SELECT * FROM (${inner}) LIMIT ${DOWNLOAD_CAP + 1}`);
       const truncated = rows.length > DOWNLOAD_CAP;
       const shown = truncated ? rows.slice(0, DOWNLOAD_CAP) : rows;
