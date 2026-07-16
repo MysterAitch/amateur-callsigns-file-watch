@@ -37,6 +37,7 @@ const VISITOR_PREFIX = /^M[A-Z]?#?\//i;
 // slash (a portable/mobile suffix) is left for the caller/prefix extractor.
 /** @param {unknown} callsign */
 export function stripVisitorPrefix(callsign) {
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string -- `callsign` is deliberately `unknown` at this public boundary; a non-primitive intentionally falls back to its default stringification rather than throwing.
   const s = String(callsign ?? '').trim();
   const m = VISITOR_PREFIX.exec(s);
   return m ? s.slice(m[0].length) : s;
@@ -45,6 +46,7 @@ export function stripVisitorPrefix(callsign) {
 // Parse one "XAA - XAZ" series cell into { start, end }; null if malformed.
 /** @param {unknown} text */
 export function parseSeries(text) {
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string -- `text` is deliberately `unknown` at this public boundary; a non-primitive intentionally falls back to its default stringification rather than throwing.
   const m = /^\s*([A-Za-z0-9]+)\s*-\s*([A-Za-z0-9]+)\s*$/.exec(String(text ?? ''));
   return m ? { start: m[1].toUpperCase(), end: m[2].toUpperCase() } : null;
 }
@@ -91,6 +93,7 @@ function distinct(values) {
  * @param {ItuSeriesRow[] | null | undefined} rows
  */
 export function countryForCallsign(callsign, rows) {
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string -- `callsign` is deliberately `unknown` at this public boundary; a non-primitive intentionally falls back to its default stringification rather than throwing.
   const input = String(callsign ?? '');
   const trimmed = input.trim();
   const home = stripVisitorPrefix(trimmed);
