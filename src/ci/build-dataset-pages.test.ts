@@ -4,6 +4,8 @@ import * as os from 'os';
 import * as path from 'path';
 import { buildDatasetPages, dayGap, signedDelta, unkeyableRowsNote, type DatasetPagesSummary } from './build-dataset-pages.ts';
 import { externalLink } from './site-render.ts';
+import { listArchiveKeys } from '../shared/archive.ts';
+import { CONSTANTS } from '../shared/utils.ts';
 import {
   extractLinks,
   classifyLink,
@@ -1042,5 +1044,62 @@ describe('Inline fidelity nudges + the deep-dive page (issue #438)', { tags: ['d
     // offers the deep-dive's provenance section alongside meta.json.
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2025-04-08', 'index.html'), 'utf8');
     expect(page).toContain('href="../../../fidelity.html#provenance"');
+  });
+});
+
+// The site assembly takes ~583 MB of files byte-for-byte out of archive/; on one
+// filesystem it hardlinks each rather than duplicating it (issue #646), so the
+// assembled tree shares the checkout's blocks. These checks measure that from
+// the real built tree and guard against a silent regression to copying. Where
+// the scratch output lands on a different device from the checkout (a runner
+// whose temp is a separate mount), linking is impossible and the copy fallback
+// is the correct outcome - so each assertion is made against the actual device
+// relationship, never assuming one.
+describe('Verbatim dataset files hardlink into the assembly (issue #646)', { tags: ['data-validity'] }, () => {
+  // Paths resolve inside each test: outputDir is set by the suite's beforeAll,
+  // which runs after this describe body is collected.
+  const sampleKey = (): string => listArchiveKeys().sort()[0];
+  const openDataDir = (): string => path.join(outputDir, 'datasets', 'open-data');
+  const oneFilesystem = (): boolean =>
+    fs.statSync(CONSTANTS.DIRS.archive).dev === fs.statSync(openDataDir()).dev;
+
+  it('AssembledDatasetFile_SharesTheCheckoutInode_OnOneFilesystem', () => {
+    const source = path.join(CONSTANTS.DIRS.archive, sampleKey(), 'meta.json');
+    const assembled = path.join(openDataDir(), sampleKey(), 'meta.json');
+    // Same bytes whichever path served it.
+    expect(fs.readFileSync(assembled).equals(fs.readFileSync(source))).toBe(true);
+    const src = fs.statSync(source);
+    const dst = fs.statSync(assembled);
+    if (src.dev === dst.dev) {
+      // One filesystem: the assembled file is a hardlink to the checkout - the
+      // shared inode is the block-level deduplication the fix depends on.
+      expect(dst.ino).toBe(src.ino);
+    } else {
+      // Cross-device: linking cannot span devices, so the fallback copy ran -
+      // an independent inode carrying identical bytes.
+      expect(dst.ino).not.toBe(src.ino);
+    }
+  });
+
+  it('AssembledDatasetTree_DeduplicatesHundredsOfMegabytes_OnOneFilesystem', () => {
+    // A regression guard: were the assembly to revert to copying, none of the
+    // verbatim files would share the checkout's blocks and this floor would
+    // fall to zero. Only meaningful on one filesystem; a cross-device runner
+    // legitimately copies, so the measurement is skipped there.
+    if (!oneFilesystem()) return;
+    let deduplicatedBytes = 0;
+    for (const key of listArchiveKeys()) {
+      const dir = path.join(openDataDir(), key);
+      if (!fs.existsSync(dir)) continue;
+      for (const name of fs.readdirSync(dir)) {
+        const stat = fs.statSync(path.join(dir, name));
+        // A verbatim file linked from the checkout reports a link count above
+        // one; the freshly written page/descriptor/zip artefacts report one.
+        if (stat.isFile() && stat.nlink >= 2) deduplicatedBytes += stat.size;
+      }
+    }
+    // The published register files alone are hundreds of MB; a floor rather than
+    // an exact figure, which grows with each ingested snapshot.
+    expect(deduplicatedBytes).toBeGreaterThan(100 * 1024 * 1024);
   });
 });

@@ -30,7 +30,7 @@ afterEach(() => {
   fs.rmSync(workDir, { recursive: true, force: true });
 });
 
-describe('linkOrCopyFileSync', () => {
+describe('linkOrCopyFileSync', { tags: ['unit'] }, () => {
   it('AssembledFile_WhenLinkingSucceeds_SharesTheSourceInode', () => {
     const targetPath = path.join(workDir, 'target.csv');
 
