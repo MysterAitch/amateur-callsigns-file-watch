@@ -90,12 +90,18 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 /** @param {unknown} v */
-function code(v) { const c = el('code'); c.textContent = v == null ? '' : String(v); return c; }
+function code(v) {
+  const c = el('code');
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string -- `v` is deliberately `unknown` (any displayable value); a non-primitive intentionally falls back to its default stringification here rather than being excluded from display.
+  c.textContent = v == null ? '' : String(v);
+  return c;
+}
 // A callsign with whitespace/odd characters made legible (shared classifier),
 // so a damaged value in a set-difference sample doesn't hide.
 /** @param {unknown} raw */
 function rawCallsign(raw) {
   const span = el('code');
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string -- `raw` is deliberately `unknown` at this display boundary; a non-primitive intentionally falls back to its default stringification rather than being excluded from the sample.
   for (const ch of String(raw ?? '')) {
     const marker = callsignCharMarker(ch);
     span.append(marker !== null ? el('span', { class: 'marker', text: marker }) : document.createTextNode(ch));
@@ -423,7 +429,9 @@ export function loadDatasets({ statusEl, alertEl, resultEl, openDatabase }) {
     async (markRunning) => {
       const worker = await openDatabase();
       markRunning();
-      return worker.db.query('SELECT dataset, record_count, intended_complete, scope_notes, coverage_affecting FROM history_datasets ORDER BY dataset DESC');
+      /** @type {HistoryDatasetRow[]} */
+      const rows = await worker.db.query('SELECT dataset, record_count, intended_complete, scope_notes, coverage_affecting FROM history_datasets ORDER BY dataset DESC');
+      return rows;
     },
   );
 }
@@ -527,6 +535,7 @@ async function renderCounts(chosen, pred) {
     if (!trivial) {
       try {
         worker ??= await openCombined();
+        /** @type {{ n: number }[]} */
         const r = await worker.db.query(matchingCountSql(key, pred));
         matching = Number(r[0].n);
       } catch (err) {
@@ -626,16 +635,22 @@ async function renderDiff(chosen, pred) {
   }
 
   const diff = setDiffSql(a, b, pred);
-  /** @type {any[]} */
+  /** @type {Record<string, unknown>[]} */
   let appeared;
-  /** @type {any[]} */
+  /** @type {Record<string, unknown>[]} */
   let disappeared;
-  /** @type {any[]} */
+  /** @type {Record<string, unknown>[]} */
   let changed;
   try {
-    appeared = await worker.db.query(diff.appeared);
-    disappeared = await worker.db.query(diff.disappeared);
-    changed = await worker.db.query(diff.changed);
+    /** @type {Record<string, unknown>[]} */
+    const appearedRows = await worker.db.query(diff.appeared);
+    /** @type {Record<string, unknown>[]} */
+    const disappearedRows = await worker.db.query(diff.disappeared);
+    /** @type {Record<string, unknown>[]} */
+    const changedRows = await worker.db.query(diff.changed);
+    appeared = appearedRows;
+    disappeared = disappearedRows;
+    changed = changedRows;
   } catch (err) {
     // Caught value is `unknown`; read `.message` through the same narrowed view
     // db-loading.js uses at the same kind of boundary.
@@ -665,7 +680,7 @@ async function renderDiff(chosen, pred) {
 
 /**
  * @param {string} title
- * @param {any[]} rows
+ * @param {Record<string, unknown>[]} rows
  * @param {string[]} columns
  */
 function diffBlock(title, rows, columns) {
@@ -677,6 +692,7 @@ function diffBlock(title, rows, columns) {
   const tbody = el('tbody', {}, shown.map(r => el('tr', {}, columns.map(h => {
     if (h === 'callsign') return el('td', {}, [rawCallsign(r[h])]);
     if (h === 'cleaned') return el('td', {}, [code(r[h])]);
+    // eslint-disable-next-line @typescript-eslint/no-base-to-string -- row values are deliberately `unknown` (an arbitrary named column); a non-primitive intentionally falls back to its default stringification rather than being excluded from the cell.
     return el('td', { text: r[h] === null ? 'NULL' : String(r[h]) });
   }))));
   details.append(el('div', { class: 'overflow', style: 'overflow-x:auto' }, [el('table', {}, [thead, tbody])]));
@@ -723,7 +739,7 @@ function initCompare() {
     void refresh();
   });
 
-  boot();
+  void boot();
 
   // Signal a successful start: cancel the startup-warning timer (compare.html)
   // and hide the warning if it was already shown. Reaching here means the module

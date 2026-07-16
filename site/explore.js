@@ -51,7 +51,9 @@ const DB_LABELS = {
 // localStorage by the lookup page's offline control), so the database URL
 // keeps matching the service worker's cached bytes. Mirrors app.js's
 // getVersion - deliberately duplicated to keep both files dependency-free.
+/** @type {Promise<string> | null} */
 let versionPromise = null;
+/** @returns {Promise<string>} */
 function getVersion() {
   versionPromise ??= (async () => {
     try {
@@ -59,7 +61,11 @@ function getVersion() {
       if (res.ok) return (await res.text()).trim();
     } catch { /* offline or missing - fall through to the offline marker */ }
     try {
-      const markers = JSON.parse(localStorage.getItem('offline-db-state') ?? '{}');
+      // localStorage.getItem's value is untrusted parsed JSON of unknown shape,
+      // so it stays `unknown` at this boundary and is runtime-guarded before use.
+      /** @type {unknown} */
+      const parsed = JSON.parse(localStorage.getItem('offline-db-state') ?? '{}');
+      const markers = /** @type {{ version?: unknown }} */ (parsed);
       if (markers && typeof markers.version === 'string') return markers.version;
     } catch { /* storage unavailable */ }
     return 'dev';
@@ -146,7 +152,9 @@ async function run() {
     // ~20s), flips to the running state once the query starts, and raises the
     // assertive #sql-alert on failure (distinguishing a load from a query error).
     // The success row-count and table stay this surface's concern.
-    /** @type {any[]} */
+    // Column names and types are whatever the hand-written query selects, so
+    // each row is read generically as text, number or NULL.
+    /** @type {Record<string, string | number | null>[]} */
     const rows = await withDatabaseLoading({
       button: runBtn ?? undefined,
       statusEl: status ?? undefined,
@@ -156,7 +164,9 @@ async function run() {
     }, async (markRunning) => {
       const worker = await openDb(dbName);
       markRunning();
-      return worker.db.query(sql);
+      /** @type {Record<string, string | number | null>[]} */
+      const queried = await worker.db.query(sql);
+      return queried;
     });
     const elapsed = ((performance.now() - started) / 1000).toFixed(1);
     const truncated = rows.length > ROW_CAP;

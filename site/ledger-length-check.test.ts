@@ -38,7 +38,7 @@ describe('validateLedgerLength (issue #475 self-check)', { tags: ['ui'] }, () =>
   });
 
   it('Selfcheck_WhenFinalByteMissing_FailsLoud', async () => {
-    globalThis.fetch = vi.fn(() => Promise.resolve({ status: 416 } as Response)) as typeof fetch;
+    globalThis.fetch = vi.fn(() => Promise.resolve({ status: 416 } as Response));
     const err = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const ok = await validateLedgerLength(manifest, 'https://host/db.', 'sha7');
@@ -48,7 +48,7 @@ describe('validateLedgerLength (issue #475 self-check)', { tags: ['ui'] }, () =>
   });
 
   it('Selfcheck_WhenRequestThrows_FailsLoudNotSilent', async () => {
-    globalThis.fetch = vi.fn(() => Promise.reject(new Error('network'))) as typeof fetch;
+    globalThis.fetch = vi.fn(() => Promise.reject(new Error('network')));
     const err = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const ok = await validateLedgerLength(manifest, 'https://host/db.', 'sha7');

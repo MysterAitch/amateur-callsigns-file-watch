@@ -20,6 +20,7 @@ import {
   applyViewToState,
   historySyncAction,
 } from './browser-query.js';
+import type { Facet } from './browser-query.js';
 
 // The shared query core turns a data-browser's filter state into SQL and
 // round-trips it through the ?view= share link. These are the pure pieces
@@ -28,7 +29,7 @@ import {
 // any DOM. Test names follow Subject_Scenario_Outcome per project convention.
 
 // A minimal filter-state shape matching what the front-ends hold.
-function state({ facets = new Map(), toggles = new Set<string>(), columnFilters = new Map<string, string>(), sort = [{ col: 'callsign', dir: 'ASC' }], pageSize = 25, customSql = null as string | null } = {}) {
+function state({ facets = new Map<string, Facet>(), toggles = new Set<string>(), columnFilters = new Map<string, string>(), sort = [{ col: 'callsign', dir: 'ASC' }], pageSize = 25, customSql = null as string | null } = {}) {
   return { facets, toggles, columnFilters, sort, pageSize, customSql };
 }
 function facet(key: string, values: string[], extra: Record<string, unknown> = {}) {
@@ -322,7 +323,7 @@ describe('serialize/parse round-trip', { tags: ['ui'] }, () => {
       pageSize: 100,
       customSql: null,
     });
-    const restored = parseFilterState(serializeFilterState(original));
+    const restored = parseFilterState(serializeFilterState(original) as unknown as Record<string, unknown>);
     const statusFacet = restored.facets?.get('status');
     expect(statusFacet).toMatchObject({ key: 'status', field: 'status', isExpr: false, exclude: true });
     expect([...(statusFacet?.values ?? [])]).toEqual(['Reserved', 'Allocated']);
@@ -333,7 +334,7 @@ describe('serialize/parse round-trip', { tags: ['ui'] }, () => {
   });
   it('RoundTrip_WhenCustomSql_PreservesQuery', () => {
     const original = state({ customSql: 'SELECT * FROM register_history LIMIT 5' });
-    const restored = parseFilterState(serializeFilterState(original));
+    const restored = parseFilterState(serializeFilterState(original) as unknown as Record<string, unknown>);
     expect(restored.customSql).toBe('SELECT * FROM register_history LIMIT 5');
   });
   it('Parse_WhenUnknownToggleInLink_DropsIt', () => {

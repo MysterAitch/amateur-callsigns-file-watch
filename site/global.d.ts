@@ -25,6 +25,7 @@ interface Window {
     configs: unknown[],
     workerUrl: string,
     wasmUrl: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the vendored library ships no types (see the module comment above); every caller states its own row shape at the point it reads a query() result, exactly as ledger-query.js's QueryExecutor does.
   ) => Promise<{ db: { query: (sql: string, params?: unknown[]) => Promise<any[]> } }>;
   __lookupReadyTimer?: ReturnType<typeof setTimeout>;
   __compareReadyTimer?: ReturnType<typeof setTimeout>;

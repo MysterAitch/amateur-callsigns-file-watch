@@ -66,7 +66,7 @@ let db: InstanceType<typeof DatabaseSync>;
 // browser httpvfs worker exposes, so the DOM console runs unchanged against a
 // real database in Node.
 const query = (sql: string): Record<string, unknown>[] =>
-  db.prepare(sql).all() as Record<string, unknown>[];
+  db.prepare(sql).all();
 
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'playground-test-'));

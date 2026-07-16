@@ -3,7 +3,6 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { JSDOM } from 'jsdom';
 import { DatabaseSync } from 'node:sqlite';
 import {
   cleanCallsign, resolveEntity, entityClaims, observationsOf,
@@ -74,7 +73,7 @@ let db: InstanceType<typeof DatabaseSync>;
 // the browser httpvfs worker exposes, so the DOM-free query layer runs
 // unchanged against a real database in Node.
 const query = (sql: string, params: unknown[] = []): Record<string, unknown>[] =>
-  db.prepare(sql).all(...(params as (string | number)[])) as Record<string, unknown>[];
+  db.prepare(sql).all(...(params as (string | number)[]));
 
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-page-test-'));

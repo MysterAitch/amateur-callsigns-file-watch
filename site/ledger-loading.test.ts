@@ -46,7 +46,7 @@ describe('Ledger lookup loading affordance (issues #499/#506)', { tags: ['ui'] }
     // is observable: the user must already see that something is happening.
     let release: (() => void) | undefined;
     const opened = new Promise<void>(resolve => { release = resolve; });
-    const performLookup = vi.fn(async () => ({ entity: 'G#0TQK' }));
+    const performLookup = vi.fn(async () => { await Promise.resolve(); return { entity: 'G#0TQK' }; });
     const { lookup } = makeLedgerLookup({
       button, statusEl, alertEl, resultEl, doc: document, performLookup,
       openDatabase: () => opened.then(() => stubQuery),
@@ -99,8 +99,10 @@ describe('Ledger lookup loading affordance (issues #499/#506)', { tags: ['ui'] }
   it('LedgerLookup_WhenSearchedAgain_ReusesTheWarmOpenWithoutReopening', async () => {
     const { button, statusEl, alertEl, resultEl } = hostFromPage();
     let opens = 0;
-    const performLookup = vi.fn(async (_query: unknown, value: string) =>
-      ({ entity: value === 'G0TQK' ? 'G#0TQK' : null }));
+    const performLookup = vi.fn(async (_query: unknown, value: string) => {
+      await Promise.resolve();
+      return { entity: value === 'G0TQK' ? 'G#0TQK' : null };
+    });
     const { lookup } = makeLedgerLookup({
       button, statusEl, alertEl, resultEl, doc: document, performLookup,
       openDatabase: () => { opens += 1; return Promise.resolve(stubQuery); },

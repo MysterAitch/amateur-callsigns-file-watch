@@ -108,6 +108,7 @@ const SHELL_URLS = new Set(SHELL_ASSETS.map(asset => new URL(asset, scopeUrl).hr
 const offlineDbUrls = new Set();
 // In-memory whole-file buffers, filled lazily on first Range request so the
 // per-request slice does not re-read the Cache API each time.
+/** @type {Map<string, ArrayBuffer>} */
 const dbBuffers = new Map();
 
 /** @param {string} pathname */
@@ -160,16 +161,18 @@ sw.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const names = await caches.keys();
     await Promise.all(names.map((name) =>
-      (name === SHELL_CACHE || name === OFFLINE_DB_CACHE) ? undefined : caches.delete(name)));
+      (name === SHELL_CACHE || name === OFFLINE_DB_CACHE) ? Promise.resolve() : caches.delete(name)));
     await refreshOfflineDbState();
     await sw.clients.claim();
   })());
 });
 
 sw.addEventListener('message', (event) => {
-  // event.data is `any` (its shape is whatever the page posted); narrowed here
-  // to the two message shapes this worker actually handles.
-  const data = /** @type {{ type?: string, url?: string }} */ (event.data || {});
+  // event.data is `any` (its shape is whatever the page posted); narrowed via
+  // `unknown` first (same two-step view used for a caught/rejected value) to
+  // the two message shapes this worker actually handles.
+  const raw = /** @type {unknown} */ (event.data);
+  const data = /** @type {{ type?: string, url?: string }} */ ((typeof raw === 'object' && raw !== null) ? raw : {});
   if (data.type === 'offline-db-added' && typeof data.url === 'string') {
     offlineDbUrls.add(data.url);
     dbBuffers.delete(data.url);
@@ -246,7 +249,9 @@ async function cacheFirst(request) {
   const hit = await cache.match(request, { ignoreSearch: true });
   if (hit) return hit;
   const res = await fetch(request);
-  if (res.ok) cache.put(request, res.clone());
+  // Populating the cache does not gate the response - the visitor gets the
+  // fetched page immediately, the cache catches up in the background.
+  if (res.ok) void cache.put(request, res.clone());
   return res;
 }
 

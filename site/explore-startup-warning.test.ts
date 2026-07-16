@@ -14,7 +14,7 @@ function inlineTimerScript(): string {
 }
 
 interface ExploreWindow { __exploreReadyTimer?: ReturnType<typeof setTimeout>; }
-function readyWindow(): ExploreWindow { return window as unknown as ExploreWindow; }
+function readyWindow(): ExploreWindow { return window; }
 const warning = (): HTMLElement | null => document.getElementById('startup-warning');
 
 describe('explore startup warning behaviour', { tags: ['ui'] }, () => {
@@ -30,6 +30,7 @@ describe('explore startup warning behaviour', { tags: ['ui'] }, () => {
 
   it('StartupWarning_WhenModuleNeverSignalsReady_IsRevealedAfterTimeout', () => {
     // JavaScript is on (this inline script runs) but no module cleared the timer.
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call -- deliberately executes the SHIPPED inline script text (not a hand-copied reimplementation), so the test exercises the real markup.
     new Function(inlineTimerScript())();
     const before = warning();
     expect(before !== null && before.hidden).toBe(true);
@@ -40,6 +41,7 @@ describe('explore startup warning behaviour', { tags: ['ui'] }, () => {
 
   it('StartupWarning_WhenReadyTimerClearedByModule_StaysHidden', () => {
     // explore.js clears the timer on successful init, so a normal load never flashes.
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call -- deliberately executes the SHIPPED inline script text (not a hand-copied reimplementation), so the test exercises the real markup.
     new Function(inlineTimerScript())();
     clearTimeout(readyWindow().__exploreReadyTimer);
     vi.advanceTimersByTime(10000);

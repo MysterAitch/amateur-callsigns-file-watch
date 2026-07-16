@@ -62,7 +62,7 @@ describe('on-screen debug console', { tags: ['ui'] }, () => {
     // The exact failure that took the lookup down: an error event whose target
     // is an element with a src, which does not bubble and carries no message.
     const el = win.document.createElement('script');
-    (el as HTMLScriptElement).src = 'https://example.org/prefix-country.js';
+    el.src = 'https://example.org/prefix-country.js';
     const ev = new win.Event('error');
     Object.defineProperty(ev, 'target', { value: el });
     win.dispatchEvent(ev);

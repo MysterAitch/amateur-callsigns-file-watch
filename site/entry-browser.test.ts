@@ -28,7 +28,7 @@ function buildScaffold(dataset = '2026-06-23'): HTMLElement {
 // and the row page. An empty result set is enough - renderRows then draws the
 // "no matching rows" table without needing real register data.
 function fakeWorker(): { db: { query: (sql: string) => Promise<unknown[]> } } {
-  return { db: { query: async (sql: string) => (/^SELECT COUNT/i.test(sql) ? [{ n: 0 }] : []) } };
+  return { db: { query: async (sql: string) => { await Promise.resolve(); return /^SELECT COUNT/i.test(sql) ? [{ n: 0 }] : []; } } };
 }
 
 const flush = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0));

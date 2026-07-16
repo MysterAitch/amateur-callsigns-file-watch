@@ -338,9 +338,9 @@ export function setDiffSql(baseline, comparison, predicate) {
 // toggle ids are dropped (schema drift safety).
 /**
  * The argument is untrusted parsed JSON of unknown shape (a possibly stale or
- * hand-mangled ?view= link), typed `any` at this JSON boundary because every
- * piece is instead runtime-guarded (Array.isArray / typeof) before use.
- * @param {any} obj
+ * hand-mangled ?view= link), so every piece is `unknown` at this JSON boundary
+ * and is runtime-guarded (Array.isArray / typeof) before use.
+ * @param {Record<string, unknown>} obj
  * @returns {Partial<FilterState>}
  */
 export function parseFilterState(obj) {
@@ -380,10 +380,11 @@ export function stateToViewParam(state) {
  */
 export function viewParamToState(raw) {
   if (raw === null || raw === undefined) return {};
+  /** @type {unknown} */
   let obj;
   try { obj = JSON.parse(raw); } catch { return {}; }
   if (obj === null || typeof obj !== 'object') return {};
-  return parseFilterState(obj);
+  return parseFilterState(/** @type {Record<string, unknown>} */ (obj));
 }
 
 // Apply parsed ?view= pieces onto a live state object. Total by design: a piece
@@ -395,9 +396,16 @@ export function viewParamToState(raw) {
  * @param {Partial<FilterState>} parsed
  */
 export function applyViewToState(state, parsed) {
-  state.facets = parsed.facets ?? new Map();
+  // `new Map()`/`new Set()` with no arguments infer <any, any> / <any> rather
+  // than picking up the assignment's contextual type, hence the explicitly
+  // typed empty fallbacks below.
+  /** @type {Map<string, Facet>} */
+  const emptyFacets = new Map();
+  state.facets = parsed.facets ?? emptyFacets;
   state.toggles = parsed.toggles ?? new Set();
-  state.columnFilters = parsed.columnFilters ?? new Map();
+  /** @type {Map<string, string>} */
+  const emptyColumnFilters = new Map();
+  state.columnFilters = parsed.columnFilters ?? emptyColumnFilters;
   state.sort = parsed.sort ?? defaultSort();
   state.pageSize = parsed.pageSize ?? DEFAULT_PAGE_SIZE;
   state.customSql = parsed.customSql ?? null;
