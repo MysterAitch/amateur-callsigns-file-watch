@@ -83,6 +83,28 @@ The scheduled orchestrator can be run manually from any machine (Windows / macOS
 npm run scheduled                   # one tick; decides whether to actually do anything
 ```
 
+### Serving the built site locally
+
+`_site/` (the Pages build output — see the CI/CD workflow's `build-site-databases`
+and `Assemble the site` steps) is never committed, so there is no way to
+browser-load a real page without a local static server. `npm run serve:site`
+is a small committed one (`src/tools/serve-site.ts`, node:http + node:fs only —
+no new dependency): fixed default port (`4600`, overridable via a `SITE_PORT`
+env var or a positional argument), correct MIME types for everything the site
+ships — including the `.sqlite.png` costume the range-served SQLite databases
+wear so GitHub Pages never gzip-transcodes them (`site/app.js`) — and HTTP
+Range support (206 partial content) so sql.js-httpvfs can query a database
+without downloading it whole. Directory URLs (`/foo/`) resolve to that
+directory's `index.html`.
+
+```bash
+npm run serve:site                  # serves _site/ at http://localhost:4600/
+SITE_PORT=5000 npm run serve:site   # or: node src/tools/serve-site.ts 5000
+```
+
+A fixed default port means a browser's "allow this origin" permission only
+needs granting once, rather than for a fresh ephemeral port every run.
+
 ### Cross-platform lock-file discipline
 
 `package-lock.json` is checked in and honoured on both Windows and Linux. Modern npm (v7+) stores platform-conditional optional dependencies (e.g. `@emnapi/*` on Linux) with `os`/`cpu` constraints; both platforms' entries can coexist in one lock. To keep it that way:

@@ -10,6 +10,7 @@
     "migrate-archive": "node src/sources/ofcom-amateur/migrate-archive.ts",
     "scheduled": "node src/scheduled-run.ts",
     "setup:duckdb": "node src/tools/setup-duckdb.ts",
+    "serve:site": "node src/tools/serve-site.ts",
     "test": "vitest run",
     "test:unit": "vitest run --project fast --tagsFilter \"unit || ui\"",
     "test:watch": "vitest",
