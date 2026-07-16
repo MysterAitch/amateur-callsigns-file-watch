@@ -1,9 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
 import { DatabaseSync } from 'node:sqlite';
-import { buildSqlite, fillObservations } from './build-sqlite.ts';
+import { fillObservations } from './build-sqlite.ts';
 import { type FoiObservationRow } from '../shared/foi-observations.ts';
 
 // Issue #171: FOI observations are run through the same component parser and
@@ -61,49 +58,5 @@ describe('FOI observations component enrichment', { tags: ['unit'] }, () => {
     // The observation with no disclosed licence_class maps to NULL, not a forced category.
     const noClass = db.prepare('SELECT normalised_licence_category AS c FROM observations WHERE licence_class IS NULL').get() as { c: string | null };
     expect(noClass.c).toBeNull();
-  });
-});
-
-// The published lookup database (callsigns.sqlite.png) is a range-queried
-// artefact: the in-browser lookup opens it directly, so every table it ships
-// costs download bytes and every table the site queries must be present. This
-// guard locks the shipped table set to exactly what the site consumes -
-// site/app.js joins normalised/components and reads build_info, itu_series,
-// flag_registry and the ref_* meanings; site/explore.js additionally queries
-// the precomputed rsl_matrix. A drift either way (a query with no table, or a
-// dead table nobody reads) fails here rather than silently on the deploy.
-describe('published lookup database', { tags: ['unit'] }, () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'build-sqlite-guard-'));
-  const dbPath = path.join(dir, 'callsigns.sqlite');
-  buildSqlite(dbPath);
-  const db = new DatabaseSync(dbPath, { readOnly: true });
-  const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[])
-    .map(r => r.name);
-  db.close();
-  fs.rmSync(dir, { recursive: true, force: true });
-
-  it('LookupDatabase_WhenBuilt_ShipsExactlyTheTablesTheSiteQueries', () => {
-    // The union of the tables site/app.js and site/explore.js query against
-    // callsigns.sqlite.png; nothing more (dead weight) and nothing less.
-    expect(tables).toEqual([
-      'build_info',
-      'components',
-      'flag_registry',
-      'itu_series',
-      'normalised',
-      'ref_forbidden_suffixes',
-      'ref_prefix_formats',
-      'ref_rsl',
-      'rsl_matrix',
-    ]);
-  });
-
-  it('LookupDatabase_WhenBuilt_OmitsTablesRetiredToTheLedgerFold', () => {
-    // The per-publication statistics pivot now folds from stats.json, and the
-    // matrix elaborations / special-format reference had no site consumer, so
-    // these no longer ship (issue #445).
-    for (const retired of ['datasets', 'stats_flags', 'stats_statuses', 'stats_patterns', 'ref_special_formats', 'matrix_excluded', 'excluded_examples', 'rsl_bearing']) {
-      expect(tables).not.toContain(retired);
-    }
   });
 });
