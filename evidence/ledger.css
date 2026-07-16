@@ -1,0 +1,689 @@
+/* Bespoke stylesheet for the claim-ledger preview (issue #361).
+ *
+ * This page keeps its own, deliberately distinct visual language - a
+ * slate/amber signal palette, monospace signatures, and a family of pills and
+ * badges (status chips, callsign IDs, derived/proposed tier badges, timeline
+ * event chips, variant tags) that carry the meaning of the model. That look is
+ * intentional and self-contained, so it lives here rather than in the shared
+ * style.css. Everything is scoped under `.ledger` and its palette custom
+ * properties are declared on `.ledger` too, so these tokens never collide with
+ * the site-wide tokens.css that backs the shared nav and skip link.
+ *
+ * Theme: OS-driven via prefers-color-scheme, matching the rest of the site
+ * (there is no in-page theme toggle). The data-theme selectors are retained so
+ * the palette still follows a future site-wide toggle that stamps data-theme
+ * on the document root.
+ */
+
+.ledger {
+  --bg: #F4F6F8; --surface: #FFFFFF; --surface-2: #EEF1F4;
+  --ink: #161B21; --muted: #5C6773; --faint: #6C7581; --hair: #E0E5EA;
+  --signal: #905713; --signal-soft: #F4E4CE; --on-signal: #FFFFFF;
+  --raw: #3B69A6; --raw-soft: #E1EAF5;
+  --derived: #905713; --derived-soft: #F6E6CF;
+  --change: #A74155; --change-soft: #F5DDE2;
+  --steady: #407154; --steady-soft: #DDECE1;
+  --dev-mild: #B02A2A; --dev-strong: #9A1F2B; --on-dev-strong: #FFFFFF;
+  --anat-prefix: #3B69A6; --anat-rsl: #407154; --anat-digit: #905713; --anat-suffix: #A74155; --anat-op: #6B4FA3;
+  --shadow: 0 1px 2px rgba(20,30,45,.06), 0 6px 20px rgba(20,30,45,.05);
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --maxw: 1000px;
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+@media (prefers-color-scheme: dark) {
+  .ledger {
+    --bg: #0E1319; --surface: #161D26; --surface-2: #1D2731;
+    --ink: #E7ECF1; --muted: #939EAA; --faint: #7E8995; --hair: #26313C;
+    --signal: #E8A24A; --signal-soft: #33291A; --on-signal: #161B21;
+    --raw: #6C9BD6; --raw-soft: #182432;
+    --derived: #E8A24A; --derived-soft: #33291A;
+    --change: #D9748A; --change-soft: #331e24;
+    --steady: #6FB086; --steady-soft: #172a1f;
+    --dev-mild: #EE8A6F; --dev-strong: #E5705F; --on-dev-strong: #161B21;
+    --anat-prefix: #6C9BD6; --anat-rsl: #6FB086; --anat-digit: #E8A24A; --anat-suffix: #D9748A; --anat-op: #A98FD6;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
+  }
+}
+:root[data-theme="light"] .ledger {
+  --bg: #F4F6F8; --surface: #FFFFFF; --surface-2: #EEF1F4;
+  --ink: #161B21; --muted: #5C6773; --faint: #6C7581; --hair: #E0E5EA;
+  --signal: #905713; --signal-soft: #F4E4CE; --on-signal: #FFFFFF;
+  --raw: #3B69A6; --raw-soft: #E1EAF5; --derived: #905713; --derived-soft: #F6E6CF;
+  --change: #A74155; --change-soft: #F5DDE2; --steady: #407154; --steady-soft: #DDECE1;
+  --dev-mild: #B02A2A; --dev-strong: #9A1F2B; --on-dev-strong: #FFFFFF;
+  --anat-prefix: #3B69A6; --anat-rsl: #407154; --anat-digit: #905713; --anat-suffix: #A74155; --anat-op: #6B4FA3;
+  --shadow: 0 1px 2px rgba(20,30,45,.06), 0 6px 20px rgba(20,30,45,.05);
+}
+:root[data-theme="dark"] .ledger {
+  --bg: #0E1319; --surface: #161D26; --surface-2: #1D2731;
+  --ink: #E7ECF1; --muted: #939EAA; --faint: #7E8995; --hair: #26313C;
+  --signal: #E8A24A; --signal-soft: #33291A; --on-signal: #161B21;
+  --raw: #6C9BD6; --raw-soft: #182432; --derived: #E8A24A; --derived-soft: #33291A;
+  --change: #D9748A; --change-soft: #331e24; --steady: #6FB086; --steady-soft: #172a1f;
+  --dev-mild: #EE8A6F; --dev-strong: #E5705F; --on-dev-strong: #161B21;
+  --anat-prefix: #6C9BD6; --anat-rsl: #6FB086; --anat-digit: #E8A24A; --anat-suffix: #D9748A; --anat-op: #A98FD6;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
+}
+.ledger *, .ledger *::before, .ledger *::after { box-sizing: border-box; }
+.ledger .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 20px; }
+.ledger .mono { font-family: var(--mono); }
+.ledger .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--signal); font-weight: 600; }
+.ledger h1, .ledger h2, .ledger h3 { text-wrap: balance; line-height: 1.15; letter-spacing: -.01em; }
+.ledger a { color: var(--raw); }
+
+/* Header / thesis */
+.ledger header { border-bottom: 1px solid var(--hair); background:
+  linear-gradient(180deg, var(--surface), var(--bg)); border-radius: 16px; }
+.ledger .head-inner { padding: 40px 20px 32px; max-width: var(--maxw); margin: 0 auto; }
+.ledger h1 { font-size: clamp(28px, 5vw, 44px); margin: 12px 0 10px; font-weight: 700; }
+.ledger .lede { font-size: clamp(16px, 2.4vw, 19px); color: var(--muted); max-width: 60ch; margin: 0; }
+.ledger .held { display: inline-flex; gap: 8px; align-items: center; margin-top: 20px; padding: 6px 12px;
+  border: 1px dashed var(--hair); border-radius: 12px; font-family: var(--mono); font-size: 11.5px;
+  color: var(--muted); background: var(--surface); flex-wrap: wrap; }
+.ledger .held b { color: var(--signal); font-weight: 600; }
+.ledger .held a { color: var(--signal); }
+
+/* Pipeline diagram */
+.ledger .pipe { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin-top: 26px; }
+.ledger .pipe .node { flex: 1 1 150px; border-radius: 12px; padding: 12px 14px; background: var(--surface);
+  border: 1px solid var(--hair); box-shadow: var(--shadow); }
+.ledger .pipe .node .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; }
+.ledger .pipe .node .v { font-weight: 600; margin-top: 3px; font-size: 14.5px; }
+.ledger .pipe .node small { color: var(--muted); font-size: 12px; }
+.ledger .pipe .node.raw { border-left: 3px solid var(--raw); } .ledger .pipe .node.raw .k { color: var(--raw); }
+.ledger .pipe .node.der { border-left: 3px solid var(--derived); } .ledger .pipe .node.der .k { color: var(--derived); }
+.ledger .pipe .node.ent { border-left: 3px solid var(--signal); } .ledger .pipe .node.ent .k { color: var(--signal); }
+.ledger .pipe .arrow { align-self: center; color: var(--faint); font-family: var(--mono); font-weight: 700; }
+@media (max-width: 620px) { .ledger .pipe .arrow { display: none; } }
+
+.ledger main { padding: 8px 0 64px; }
+.ledger section.panel { background: var(--surface); border: 1px solid var(--hair); border-radius: 16px;
+  padding: 26px; margin-top: 22px; box-shadow: var(--shadow); }
+.ledger section.panel > h2 { font-size: 21px; margin: 6px 0 4px; }
+.ledger .panel-sub { color: var(--muted); margin: 0 0 20px; max-width: 68ch; }
+
+/* Chips / controls */
+.ledger .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ledger button.chip { font-family: var(--mono); font-size: 13.5px; font-weight: 600; cursor: pointer;
+  padding: 8px 14px; border-radius: 10px; border: 1px solid var(--hair); background: var(--surface-2);
+  color: var(--ink); transition: transform .08s ease, border-color .12s, background .12s; }
+.ledger button.chip:hover { border-color: var(--signal); transform: translateY(-1px); }
+.ledger button.chip[aria-pressed="true"] { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
+.ledger button.chip:focus-visible, .ledger a:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+/* Entity card */
+.ledger .entity { margin-top: 18px; border: 1px solid var(--hair); border-radius: 12px; overflow: hidden; }
+.ledger .entity-head { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: baseline;
+  padding: 16px 18px; background: var(--surface-2); border-bottom: 1px solid var(--hair); }
+.ledger .entity-head .id { font-family: var(--mono); font-size: 22px; font-weight: 700; letter-spacing: .02em; }
+.ledger .entity-head .stat { font-size: 13px; color: var(--muted); }
+.ledger .entity-head .stat b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.ledger .verdict { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 7px; }
+.ledger .verdict.flat { background: var(--steady-soft); color: var(--steady); }
+.ledger .verdict.moved { background: var(--change-soft); color: var(--change); }
+
+/* Activity-style vertical timeline (issue #466). The entity STATUS timeline and
+   the per-note "seen in" SOURCE lists share this one component: a connecting
+   spine down the left, a dot per event, the event + its context on the left and
+   its date on the right (with an optional de-emphasised precise timestamp
+   below). Grouped by year; a long list tucks its overflow years behind a
+   <details>. The markup is semantic (<ol>/<li> + <time>) so it reads with no
+   JavaScript and conveys order/dates to assistive tech; the spine and dots are
+   aria-hidden decoration, and every event carries a text lead, so no meaning
+   rides on colour alone. Palette tokens are the shared ones, so both themes are
+   covered by the same declarations. */
+.ledger .tl-wrap { padding: 4px 4px 6px; }
+.ledger ol.tl, .ledger ol.tl-events { list-style: none; margin: 0; padding: 0; }
+.ledger .tl-period { margin: 12px 0 2px; padding-left: 26px; font-family: var(--mono); font-size: 11px;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+.ledger .tl-group:first-child .tl-period { margin-top: 2px; }
+.ledger .tl-period time { font-variant-numeric: tabular-nums; }
+/* The spine runs down each year's events list; every event hangs a dot on it. */
+.ledger ol.tl-events { position: relative; padding-left: 26px; }
+.ledger ol.tl-events::before { content: ""; position: absolute; left: 7px; top: 4px; bottom: 4px; width: 2px;
+  background: var(--hair); border-radius: 2px; }
+/* minmax(0,1fr) + the min-width:0 body let the lead column shrink so its chips
+   wrap instead of overflowing and being clipped along the card's rounded edge. */
+.ledger .tl-event { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 14px; align-items: start; padding: 6px 0; }
+.ledger .tl-dot { position: absolute; left: -23px; top: 8px; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--faint); box-sizing: border-box; }
+.ledger .tl-dot-birth { border-color: var(--raw); }
+.ledger .tl-dot-change { border-color: var(--change); background: var(--change); }
+.ledger .tl-dot-admin { border-color: var(--faint); }
+.ledger .tl-dot-cont { border-color: var(--hair); }
+.ledger .tl-dot-parallel { border-style: dashed; border-color: var(--faint); }
+.ledger .tl-dot-source { border-color: var(--raw); }
+.ledger .tl-lead { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+.ledger .tl-when { text-align: right; font-family: var(--mono); font-size: 12.5px; color: var(--muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 1px; }
+.ledger .tl-date { display: block; }
+.ledger .tl-precise { display: block; font-size: 11px; color: var(--faint); margin-top: 1px; }
+.ledger .tl-event.parallel { opacity: .68; }
+.ledger .tl-event.parallel .tl-lead { border-left: 2px dashed var(--hair); padding-left: 10px; margin-left: -4px; }
+/* Source-list events read a touch quieter than status events. */
+.ledger .tl-event.tl-source .tl-lead { font-size: 12.5px; color: var(--muted); }
+.ledger .tl-more { margin: 4px 0 0; }
+.ledger .tl-more > summary { cursor: pointer; font-size: 12px; color: var(--signal); padding-left: 26px; }
+.ledger .tl-more > summary:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+.ledger .ev { font-family: var(--mono); font-size: 12px; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+.ledger .ev.birth { background: var(--raw-soft); color: var(--raw); }
+.ledger .ev.change { background: var(--change-soft); color: var(--change); font-weight: 600; }
+.ledger .ev.cont { background: var(--surface-2); color: var(--faint); }
+.ledger .ev.split-active { background: var(--change-soft); color: var(--change); font-weight: 600; }
+.ledger .ev.split-inactive { background: transparent; color: var(--faint); border: 1px dashed var(--hair);
+  font-weight: 400; opacity: .7; }
+.ledger .ev.admin { background: transparent; color: var(--faint); border: 1px dashed var(--hair); font-weight: 400; }
+.ledger .variant-tag { font-family: var(--mono); font-size: 11px; color: var(--derived); background: var(--derived-soft);
+  padding: 2px 7px; border-radius: 6px; letter-spacing: .02em; }
+.ledger .obs-mini { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+
+/* Layer anatomy */
+.ledger .layers { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 700px) { .ledger .layers { grid-template-columns: 1fr 1fr; } }
+.ledger .obs { border: 1px solid var(--hair); border-radius: 12px; padding: 14px 16px; background: var(--surface); }
+.ledger .obs .badge { font-family: var(--mono); font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+  font-weight: 700; padding: 2px 7px; border-radius: 5px; }
+.ledger .badge.raw { background: var(--raw-soft); color: var(--raw); }
+.ledger .badge.derived { background: var(--derived-soft); color: var(--derived); }
+.ledger .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin-top: 10px;
+  font-family: var(--mono); font-size: 13px; }
+.ledger .kv .k { color: var(--faint); }
+.ledger .kv .v { color: var(--ink); word-break: break-all; }
+.ledger .bytes { display: inline-block; background: var(--surface-2); border-radius: 6px; padding: 1px 7px;
+  color: var(--muted); max-width: 100%; overflow-wrap: anywhere; }
+.ledger .nbsp { color: var(--change); font-weight: 700; }
+.ledger .edge { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--derived-soft);
+  border: 1px dashed var(--derived); font-family: var(--mono); font-size: 12.5px; }
+.ledger .edge .rel { color: var(--derived); font-weight: 700; }
+.ledger .callout { margin-top: 14px; padding: 12px 16px; border-left: 3px solid var(--signal);
+  background: var(--surface-2); border-radius: 0 10px 10px 0; font-size: 14px; }
+
+/* Vocabulary / query */
+.ledger .census { width: 100%; border-collapse: collapse; margin-top: 6px; }
+.ledger .census th, .ledger .census td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--hair);
+  font-size: 13.5px; }
+.ledger .census th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--faint); font-weight: 600; }
+.ledger .census td.n { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.ledger .census tr.sel td { background: var(--signal-soft); }
+.ledger .census td .cn { font-weight: 600; }
+/* The canonical-type cell is a real button (keyboard/AT control) styled to read
+   as the plain bold label it replaced; the row's .sel tint remains the visual
+   selection cue, and focus-visible gives keyboard users a clear ring. */
+.ledger .census td .cn-btn { font: inherit; font-weight: 600; color: var(--ink); background: none;
+  border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left; }
+.ledger .census td .cn-btn:hover { color: var(--signal); }
+.ledger .census td .cn-btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.ledger .spellings { margin-top: 14px; }
+.ledger .spellings .lab { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.ledger .spellings .raws { display: flex; flex-wrap: wrap; gap: 6px; }
+.ledger .rawpill { font-family: var(--mono); font-size: 12px; background: var(--raw-soft); color: var(--raw);
+  padding: 3px 9px; border-radius: 7px; }
+.ledger .arrow-to { color: var(--faint); align-self: center; padding: 0 4px; }
+.ledger .canonpill { font-family: var(--mono); font-size: 12.5px; font-weight: 700; background: var(--signal-soft);
+  color: var(--signal); padding: 3px 10px; border-radius: 7px; }
+.ledger .samples { margin-top: 12px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+.ledger .samples b { color: var(--ink); }
+
+/* Damage catalogue */
+.ledger .dmg { width: 100%; border-collapse: collapse; }
+.ledger .dmg-wrap { overflow-x: auto; }
+.ledger .dmg th, .ledger .dmg td { padding: 9px 12px; border-bottom: 1px solid var(--hair); font-size: 13px; text-align: left;
+  white-space: nowrap; }
+.ledger .dmg th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--faint); }
+.ledger .dmg td { font-family: var(--mono); }
+
+/* Playground console (playground.html) - shares this bespoke visual language.
+   The read-only SQL surface: a monospace textarea, a result table styled like
+   the census/damage tables, and the one-click example starters. */
+.ledger .pg-h3 { font-size: 15px; margin: 20px 0 8px; }
+.ledger .pg-input { width: 100%; resize: vertical; min-height: 120px; font-size: 13.5px; line-height: 1.5;
+  padding: 12px 14px; border-radius: 10px; border: 1px solid var(--hair); background: var(--surface-2);
+  color: var(--ink); }
+.ledger .pg-input:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.ledger .pg-result { margin-top: 16px; }
+.ledger .pg-table { width: 100%; border-collapse: collapse; }
+.ledger .pg-table th, .ledger .pg-table td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--hair);
+  font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+.ledger .pg-table th { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint);
+  font-weight: 600; position: sticky; top: 0; background: var(--surface); }
+.ledger .pg-table td.pg-null { color: var(--faint); font-style: italic; }
+.ledger .pg-error { color: var(--change); font-family: var(--mono); font-size: 13px; }
+.ledger .pg-examples { display: grid; gap: 8px; grid-template-columns: 1fr; }
+@media (min-width: 700px) { .ledger .pg-examples { grid-template-columns: 1fr 1fr; } }
+.ledger .pg-example { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ledger .pg-example .chip { flex: 0 1 auto; text-align: left; }
+
+.ledger footer { border-top: 1px solid var(--hair); padding: 26px 0 40px; color: var(--muted); font-size: 13px; margin-top: 22px; }
+.ledger .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0 0; font-size: 12.5px; color: var(--muted); }
+.ledger .legend span { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); }
+.ledger .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+.ledger .tb { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  font-weight: 700; padding: 1px 6px; border-radius: 5px; }
+.ledger .tb.d { background: var(--steady-soft); color: var(--steady); }
+.ledger .tb.p { background: var(--derived-soft); color: var(--derived); border: 1px dashed var(--derived); }
+/* Transitive-authority badges (issue #618 increment 4): a copy's OWN direct
+   standing wears the neutral steady tint; its EFFECTIVE (borrowed) standing
+   wears the derived tint with a dashed edge, so the borrowed value is always
+   visually marked as derived and never mistaken for a direct claim. The
+   derivation link that must accompany any borrowed value carries the same
+   derived colour and resolves to the correspondence evidence. */
+.ledger .tb.auth-own { background: var(--steady-soft); color: var(--steady); text-transform: none; letter-spacing: 0; }
+.ledger .tb.auth-effective { background: var(--derived-soft); color: var(--derived); border: 1px dashed var(--derived); text-transform: none; letter-spacing: 0; }
+.ledger .derived-derivation { color: var(--derived); text-decoration: underline dotted; }
+/* Set-aside (ignored) raw-line affordance (issue #331): a line the
+   normalisation deliberately excluded (blank lines, curated export furniture).
+   The row carries a pale amber/corn tint (the signal-soft token, mapped for
+   both themes above) so it reads at a glance as intentionally set aside; the
+   .tb.setaside badge is the NON-COLOUR indicator riding alongside, so the
+   meaning survives greyscale, forced-colours and colour-blindness (WCAG 1.4.1).
+   Deliberately calm, not an alarm - a set-aside line is not a data defect. */
+.ledger tr.set-aside > th, .ledger tr.set-aside > td { background: var(--signal-soft); }
+.ledger .tb.setaside { background: var(--signal-soft); color: var(--signal); border: 1px solid var(--signal); }
+.ledger .dsec { margin-top: 16px; }
+.ledger .dsec h4 { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--faint); margin: 0 0 8px; font-weight: 600; }
+.ledger .drow { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+.ledger .drow .lab { font-family: var(--mono); font-size: 12px; color: var(--muted); min-width: 84px; }
+.ledger .drow .val { flex: 1; min-width: 220px; }
+.ledger .drow .val b { color: var(--ink); }
+.ledger .flagcard { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); margin-top: 8px; }
+.ledger .flagcard .fn { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--change); }
+.ledger .flagcard .fg { font-size: 13px; color: var(--muted); margin-top: 3px; }
+/* Record fidelity affordance (issue #438): the inline, selectively-disclosed
+   fidelity surface in the dossier. Framing is deliberately calm - the note
+   label uses the muted ink, NOT the alarming change-red, because a fidelity
+   note locates an observation, it is not a verdict against a licensee. */
+.ledger .fidelity .fid-preamble { font-size: 13px; color: var(--muted); margin: 0 0 12px; max-width: 72ch; }
+.ledger .fid-canonical { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); margin-top: 8px; }
+.ledger .fid-canonical .fid-line { margin: 0 0 8px; font-size: 13.5px; max-width: 72ch; }
+.ledger .fid-canonical .fid-line:last-child { margin-bottom: 0; }
+.ledger .fid-variant { padding: 6px 0; }
+/* Verbatim and canonical values, side by side in the prose: a monospace chip
+   that shows invisible characters (via the .nbsp marker) without a loud pill. */
+.ledger .fid-code { font-family: var(--mono); font-size: 12.5px; background: var(--surface);
+  border: 1px solid var(--hair); border-radius: 6px; padding: 1px 6px; word-break: break-all; }
+.ledger .fid-note .fid-note-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.ledger .fid-note .fn { color: var(--ink); }
+.ledger .fid-why { margin: 8px 0 0; }
+.ledger .fid-why > summary { cursor: pointer; font-family: var(--mono); font-size: 12px; color: var(--raw); }
+.ledger .fid-why > summary:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+.ledger .fid-work { margin: 8px 0 2px; padding: 10px 12px; border-left: 3px solid var(--derived);
+  background: var(--surface); border-radius: 0 8px 8px 0; }
+.ledger .fid-work-row { display: grid; grid-template-columns: 76px 1fr; gap: 4px 12px; padding: 3px 0;
+  font-size: 12.5px; align-items: baseline; }
+.ledger .fid-work-row .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--faint); }
+.ledger .fid-work-row .v { color: var(--ink); word-break: break-word; }
+.ledger .fid-actions { font-size: 12.5px; color: var(--muted); margin: 14px 0 0; }
+
+/* Report-this affordance (issue #439): the calm, low-friction invitation to
+   turn a doubt into a contribution. It shares the muted register of the
+   fidelity notes - an invitation, never an alarm - and never draws the
+   change-red. */
+.ledger .report-affordance { font-size: 12.5px; color: var(--muted); margin: 0; max-width: 78ch; line-height: 1.5; }
+.ledger .report-affordance a { color: var(--accent); }
+.ledger .report-affordance a:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+
+/* "Seen in" source lists: the humanised label is the visible link text while the
+   full repository path stays on the link's title, so a long path never runs the
+   sentence on. The list itself is the shared activity timeline (see the .tl block
+   above), reused both under a canonical-divergence line and inside a "show the
+   working" panel; only the label wrapper is styled here. */
+.ledger .fid-seen { margin: 6px 0 2px; }
+.ledger .fid-seen-label { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--faint); margin-bottom: 3px; }
+.ledger .fid-sources.tl-wrap { padding: 0; }
+
+/* Inline source + confidence-tier label on the explainer pages: a quiet, smaller
+   note trailing a sentence, so the fact reads first and its provenance follows. */
+.ledger .src { display: block; margin-top: 3px; font-size: 12px; color: var(--faint); }
+.ledger .src a { color: var(--muted); }
+
+/* Term/definition lists on the explainer pages (the glossary's own dl.gloss is
+   more specific and keeps its styling). dt names the term; dd is its prose. */
+.ledger .panel dl { margin: 0 0 12px; max-width: 72ch; }
+.ledger .panel dt { font-weight: 600; color: var(--ink); margin-top: 10px; }
+.ledger .panel dd { margin: 2px 0 0; color: var(--muted); }
+.ledger .churn { display: inline-flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.ledger .cdot { font-family: var(--mono); font-size: 11px; padding: 1px 6px; border-radius: 5px; }
+.ledger .cdot.on { background: var(--change-soft); color: var(--change); }
+.ledger .cdot.off { background: transparent; color: var(--faint); border: 1px dashed var(--hair); }
+@media (prefers-reduced-motion: reduce) { .ledger * { transition: none !important; } }
+
+/* ---------------------------------------------------------------------------
+   Shared content surfaces. The hand-authored content pages - About, Glossary
+   and the static Statistics page - adopt this visual language by wrapping their
+   main content in `.ledger` and reusing the panel / eyebrow / callout family
+   above. These rules extend the vocabulary to the components those pages carry
+   that the claim-ledger preview did not: prose inside panels, definition lists,
+   inline code, and the shared data tables and flag pills the Statistics build
+   injects. Everything stays scoped under `.ledger`, so the shared nav and skip
+   link keep their tokens.css styling untouched.
+   --------------------------------------------------------------------------- */
+
+/* Prose inside a panel: a readable measure, muted secondary text. */
+.ledger .panel p { margin: 0 0 12px; max-width: 72ch; }
+.ledger .panel > p:last-child { margin-bottom: 0; }
+.ledger .panel ul { margin: 0 0 12px; padding-left: 1.2em; max-width: 72ch; }
+.ledger .panel li { margin: 4px 0; }
+.ledger .panel li::marker { color: var(--faint); }
+.ledger .panel strong { color: var(--ink); font-weight: 600; }
+.ledger .panel h2 { margin: 6px 0 4px; }
+
+/* Inline code / monospace tokens, tinted like the ledger's byte chips. */
+.ledger code { font-family: var(--mono); font-size: .92em; background: var(--surface-2);
+  border: 1px solid var(--hair); border-radius: 6px; padding: 1px 6px; color: var(--muted); }
+.ledger .muted { color: var(--muted); }
+.ledger small { font-size: 12.5px; }
+
+/* Definition list (Glossary): terms as monospace signatures, definitions as
+   prose. A :target term lights up in the signal tint so a deep-linked #anchor
+   is obvious on arrival. */
+.ledger dl.gloss { margin: 6px 0 0; }
+.ledger dl.gloss dt { font-family: var(--mono); font-weight: 600; font-size: 14px; color: var(--ink);
+  margin-top: 18px; letter-spacing: .01em; }
+.ledger dl.gloss dt:first-of-type { margin-top: 4px; }
+.ledger dl.gloss dt:target { background: var(--signal-soft); color: var(--signal); border-radius: 6px;
+  padding: 2px 8px; margin-left: -8px; }
+.ledger dl.gloss dd { margin: 5px 0 0; color: var(--muted); max-width: 72ch; }
+.ledger dl.gloss dd ul { margin: 6px 0 0; padding-left: 1.2em; }
+.ledger dl.gloss dd strong { color: var(--ink); }
+.ledger dl.gloss dd code { color: var(--muted); }
+
+/* Shared data tables. The Statistics build injects these under `.overflow`
+   with the plain table / th / td / .num / .flag classes from style.css; here
+   they render in the ledger's census-table idiom - monospace uppercase headers,
+   hairline rows, tabular figures. The page's own .census / .dmg / .pg-table
+   selectors are more specific, so those tables keep their bespoke styling. */
+.ledger .overflow { overflow-x: auto; margin: 6px 0 4px; }
+.ledger table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+.ledger th, .ledger td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--hair);
+  font-size: 13.5px; vertical-align: top; }
+.ledger thead th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--faint); font-weight: 600; }
+.ledger th[scope="row"] { font-weight: 600; color: var(--ink); }
+.ledger td.num, .ledger th.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* Table caption (issue #334): names each data table for assistive tech and
+   sighted readers alike. Left-aligned, small and muted so it reads as a label
+   above the grid rather than a heading; --muted clears the AA bar on --bg. */
+.ledger caption.table-caption { caption-side: top; text-align: left; color: var(--muted);
+  font-size: 12px; line-height: 1.35; padding: 0 0 5px; }
+
+/* Flag / status pills injected into the statistics tables. */
+.ledger .flag { display: inline-block; font-family: var(--mono); font-size: 11.5px; padding: 1px 8px;
+  margin: 0 4px 4px 0; border-radius: 999px; background: var(--signal-soft); color: var(--signal); }
+.ledger .status-ok { color: var(--steady); }
+
+/* Collapsible detail blocks (e.g. the full callsign-shape taxonomy). */
+.ledger details { margin: 8px 0; }
+.ledger details > summary { cursor: pointer; font-family: var(--mono); font-size: 12.5px; color: var(--signal); }
+.ledger abbr { cursor: help; }
+
+/* ---------------------------------------------------------------------------
+   Interactive tool surfaces (Lookup, Explore, Compare). These pages carry the
+   live controls the hand-authored content pages do not - text and number
+   inputs, database and series selects, the SQL query textareas, filter
+   fieldsets, and primary/secondary action buttons - plus the cards and
+   comparison widgets their scripts render at runtime. The base layout and
+   behaviour still come from style.css; the rules here re-tint those controls
+   into the ledger idiom.
+
+   Rather than out-specify the id-level selectors in style.css control by
+   control, this block first bridges the few shared palette tokens style.css
+   consumes (--accent / --line / --slot / --warn) to their ledger equivalents,
+   so every control adopts the ledger palette with no specificity contest. Real
+   error signals keep their own hard-coded red, so nothing alarming is softened.
+   Everything stays scoped under .ledger, leaving the shared nav/skip and the
+   content pages (which carry none of these controls) untouched.
+   --------------------------------------------------------------------------- */
+.ledger {
+  --accent: var(--raw);
+  --line: var(--hair);
+  --slot: var(--surface-2);
+  --warn: var(--signal);
+}
+
+/* ---------------------------------------------------------------------------
+   Generated-page token bridge (issue #394). The generated pages (the dataset
+   index and entry pages, the class, series, forbidden-suffix, report and
+   inter-dataset sections) keep their own inline layout - the card grids,
+   sidebars, breakdown bars, download slots, distribution charts and the scoped
+   data browser rendered by src/ci/site-render.ts - but link this stylesheet and
+   wrap their content in `.ledger`, so the shared palette, header/panel chrome
+   and census tables apply. Those inline shells consume a few extra palette
+   tokens beyond the four bridged above; mapping them to the ledger palette here
+   re-tints every generated surface with no specificity contest, the same
+   technique the tool-page bridge uses for style.css.
+
+   Additive custom properties only: the hand-authored pages neither define nor
+   consume any of these inside `.ledger` (their control styling is bridged via
+   --accent/--line/--slot/--warn above, and ledger.css itself uses the
+   --surface/--signal/--change names directly), so their appearance is
+   unchanged. Real error reds keep their own hard-coded values in the shells, so
+   nothing alarming is softened. --paper is deliberately not bridged: the
+   generated body backdrop stays the site paper, with ledger panels floating on
+   it, exactly as on the hand-authored pages. */
+.ledger {
+  --card: var(--surface);
+  --code: var(--surface-2);
+  --note: var(--surface-2);
+  --bar: var(--hair);
+  --good: var(--steady);
+  --marker: var(--change);
+  --warnbg: var(--signal-soft);
+  --warnline: var(--signal);
+  --warnink: var(--signal);
+}
+
+/* The query and callsign fields are the signature input surfaces: give them the
+   ledger's inset panel fill rather than the transparent default. */
+.ledger #sql-input, .ledger #pred-input, .ledger #callsign { background: var(--surface-2); }
+
+/* One consistent focus ring across every control, matching the ledger's links
+   and chips. */
+.ledger input:focus-visible, .ledger select:focus-visible,
+.ledger textarea:focus-visible, .ledger button:focus-visible {
+  outline: 2px solid var(--signal); outline-offset: 2px;
+}
+
+/* Each tool's hero action (Look up / Run) in the ledger's signal amber - the
+   same treatment as a pressed chip - so it reads as the primary call to action;
+   utility buttons keep the bridged link-blue. The label uses --on-signal (white
+   on the darker light-theme amber, near-black ink on the brighter dark-theme
+   amber) so it clears WCAG AA against the fill in either theme. */
+.ledger button[type="submit"] { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
+
+/* Runtime-rendered result cards (lookup matches, register/FOI history) read as
+   ledger sub-panels within their surrounding panel. */
+.ledger .card { background: var(--surface); border: 1px solid var(--hair); border-radius: 12px;
+  box-shadow: var(--shadow); }
+.ledger .card h3 { font-size: 15px; margin: 0 0 8px; }
+
+/* The three-axis model (glossary): each axis is a labelled block whose rungs are
+   shown as ordered tier badges - a monospace signature pill with a leading
+   sequence number - so the ladder reads left to right. The connective arrows are
+   muted and drop away when the rungs wrap on a narrow screen. */
+.ledger .axis { margin-top: 18px; }
+.ledger .axis:first-of-type { margin-top: 6px; }
+.ledger .axis > h3 { font-size: 16px; margin: 0 0 2px; }
+.ledger .axis .axis-q { color: var(--muted); font-style: italic; margin: 0 0 6px; }
+.ledger .axis .axis-where { font-size: 13px; margin: 0 0 12px; }
+.ledger .ladder { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 10px; }
+.ledger .rung { display: inline-flex; align-items: baseline; gap: 7px; font-family: var(--mono);
+  font-size: 12.5px; padding: 4px 11px; border-radius: 8px; background: var(--surface-2);
+  border: 1px solid var(--hair); }
+.ledger .rung .seq { font-size: 10px; font-weight: 700; color: var(--faint); font-variant-numeric: tabular-nums; }
+.ledger .rung .name { font-weight: 600; color: var(--ink); }
+.ledger .ladder .sep { color: var(--faint); font-family: var(--mono); font-weight: 700; }
+@media (max-width: 620px) { .ledger .ladder .sep { display: none; } }
+/* The processing axis is tinted like a derived stage, authority like an observed
+   source, confidence like the signal, so the three ladders are told apart at a
+   glance without relying on their labels alone. */
+.ledger .axis.processing .rung { border-left: 3px solid var(--derived); }
+.ledger .axis.authority .rung { border-left: 3px solid var(--raw); }
+.ledger .axis.confidence .rung { border-left: 3px solid var(--signal); }
+
+/* ---------------------------------------------------------------------------
+   Coverage grid (data-status page). The processing-coverage tracker adopts the
+   ledger shell - header, panels, the shared census tables and the three-axis
+   ladder above - and carries this family for the one surface the shared
+   vocabulary does not cover: the inventory grid of per-stage cells and the
+   series-and-gaps timeline. The four cell states bridge to the ledger's signal
+   palette - done -> steady (green), partial -> signal (amber), absent -> change
+   (red), not-applicable -> faint - so a cell carries the same meaning here as a
+   verdict or event chip does elsewhere, in either theme. Everything stays scoped
+   under .ledger, so the shared nav and skip link keep their tokens.css styling.
+   --------------------------------------------------------------------------- */
+
+/* The build-derived summary line that introduces the panels below the header. */
+.ledger .lead { font-size: 15px; color: var(--muted); margin: 18px 0 6px; }
+.ledger .lead b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Inventory grid: the stage columns are centred; everything else inherits the
+   shared census-table idiom (monospace headers, hairline rows) defined above. */
+.ledger table.grid { font-size: 13px; }
+.ledger table.grid th.cell, .ledger table.grid td.cell { text-align: center; padding: 6px 7px; }
+.ledger table.grid td.vintage, .ledger table.grid td.auth { white-space: nowrap; font-size: 12.5px; color: var(--muted); }
+.ledger table.grid tr.grouprow th { background: var(--surface-2); font-family: var(--mono); font-size: 11px;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+/* A plain-English blurb (issue #469) sits directly under each group heading,
+   sharing its surface so the two read as one header block; the prose itself is
+   quiet and readable, not the uppercase monospace of the heading above it. */
+.ledger table.grid tr.groupblurb td { background: var(--surface-2); padding: 0 10px 10px; }
+.ledger table.grid .blurb { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); max-width: 90ch; }
+/* The shared dataset-label component (issues #328 / #310, datasetLabel in
+   site-render.ts). The human name leads, so its link reads as a plain readable
+   label; the raw archive key follows in .dstitle as a secondary monospace
+   identifier. Styled once here and worn by every surface that names a dataset
+   (the data-status inventory, the class pages, the dataset index). */
+.ledger .dskey a { font-weight: 600; font-size: 13.5px; }
+.ledger .dstitle { display: block; font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 2px; max-width: 40ch; }
+.ledger .dstitle .mono { font-size: 11.5px; }
+
+/* Source-authority tag (axis 2): a quiet outline pill, kept visually distinct
+   from the stage pills so the two axes are never read as one. */
+.ledger .atag { font-family: var(--mono); font-size: 11px; padding: 1px 7px; border: 1px solid var(--hair);
+  border-radius: 999px; color: var(--muted); cursor: help; }
+
+/* Stage-state pill: a glyph whose colour carries its state. */
+.ledger .pill { display: inline-block; min-width: 1.5em; font-family: var(--mono); font-weight: 700;
+  border-radius: 6px; padding: 1px 6px; text-align: center; cursor: help; }
+.ledger .pill.st-done { color: var(--steady); background: var(--steady-soft); }
+.ledger .pill.st-partial { color: var(--signal); background: var(--signal-soft); }
+.ledger .pill.st-none { color: var(--change); background: var(--change-soft); }
+.ledger .pill.st-na { color: var(--faint); background: transparent; }
+
+/* The pill legend under the grid heading, in its own class so it never inherits
+   the footer .legend spacing. */
+.ledger .cov-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 6px 0 14px; font-size: 12.5px; color: var(--muted); }
+.ledger .cov-legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Series coverage & gaps: a stack of series, each a wrapping row of vintage
+   pills with any long-silence gaps called out beneath. */
+.ledger .series { margin: 0 0 14px; padding-bottom: 12px; border-bottom: 1px solid var(--hair); }
+.ledger .series:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+.ledger .series h3 { font-size: 15px; margin: 4px 0 8px; }
+.ledger .series .timeline { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.ledger a.vpill { font-family: var(--mono); font-size: 12px; padding: 2px 8px; border: 1px solid var(--hair);
+  border-radius: 6px; background: var(--surface-2); color: var(--ink); text-decoration: none; }
+.ledger a.vpill:hover { border-color: var(--signal); }
+.ledger ul.gaps { margin: 8px 0; }
+.ledger ul.gaps li { margin: 4px 0; }
+
+/* Glossary-term affordance (issue #329): the ONE standardised way a jargon
+   term links to its definition in the glossary. Emitted by glossaryTerm /
+   glossaryCue (src/ci/site-render.ts) on the generated pages and written by
+   hand into the site/*.html pages; both wrap their content in `.ledger`, so
+   this single scoped block styles the affordance everywhere.
+
+   Accessibility: the cue is a "(?)" GLYPH, not a colour — the term also keeps
+   a dotted underline — so the affordance never relies on colour alone. It
+   reuses the --raw link token, which the #407 contrast guard already checks
+   for AA in both themes, and gives keyboard users a visible focus ring. */
+.ledger .gloss-term { color: var(--raw); text-decoration: underline dotted;
+  text-underline-offset: 2px; text-decoration-thickness: from-font; }
+.ledger .gloss-term:hover, .ledger .gloss-term:focus-visible { text-decoration-style: solid; }
+.ledger .gloss-cue { font-family: var(--mono); font-weight: 700; font-size: .72em;
+  line-height: 0; vertical-align: super; margin-left: .12em; color: var(--raw); }
+.ledger .gloss-cue::before { content: "("; } .ledger .gloss-cue::after { content: ")"; }
+.ledger .gloss-cue-link { text-decoration: none; }
+.ledger .gloss-cue-link:hover .gloss-cue { text-decoration: underline; }
+.ledger .gloss-term:focus-visible, .ledger .gloss-cue-link:focus-visible {
+  outline: 2px solid var(--raw); outline-offset: 2px; border-radius: 3px; }
+
+/* Change-magnitude indicator (issue #409): an at-a-glance readout of how much a
+   value has CHANGED against a baseline on the cross-dataset diff surfaces,
+   after the convention in clinical lab-result readouts. Three severity tiers ×
+   direction:
+     - in expected range -> plain text, no marker (.chg on its own);
+     - mild deviation     -> coloured value + a directional caret (.chg-mild);
+     - substantial        -> a filled/inverted badge + caret (.chg-substantial).
+   Severity AND direction are carried in SHAPE/TEXT — the caret glyph and, for a
+   substantial deviation, the filled badge — so the signal survives without
+   colour (colour-blind readers, greyscale, forced-colours). The semantic
+   severity colours (--dev-mild / --dev-strong / --on-dev-strong) are separate
+   from the ledger accent (--signal) and are held to WCAG-AA in both themes by
+   site/ledger-a11y.test.ts. */
+.ledger .chg { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ledger .chg-caret { font-style: normal; margin-right: .12em; }
+.ledger .chg-mild { color: var(--dev-mild); font-weight: 600; }
+.ledger .chg-substantial { display: inline-block; padding: 1px 7px; border-radius: 6px;
+  background: var(--dev-strong); color: var(--on-dev-strong); font-weight: 700; }
+.ledger .chg-baseline, .ledger .chg-inrange { color: var(--muted); }
+
+/* Callsign-anatomy figure (issue #468): the labelled, colour-grouped SVG
+   diagram of a callsign and its always-visible key table. Colour is never the
+   sole cue - each part is labelled in words on the diagram and named (with its
+   colour spelled out) in the table - so the figure meets WCAG 1.4.1 and reads
+   with no colour, no SVG and no scripts. The --anat-* group colours are defined
+   with the other tokens above and flip with the theme. */
+.ledger .anatomy-figure { margin: 0; }
+.ledger .anatomy-figure figcaption { color: var(--muted); font-size: 13px; margin: 0 0 12px; max-width: 72ch; }
+.ledger .anatomy-figure svg { display: block; width: 100%; max-width: 560px; height: auto; margin: 0 auto 16px; }
+.ledger .anatomy-figure table { margin-top: 0; }
+.ledger .anatomy-figure .anat-swatch { display: inline-block; width: .8em; height: .8em; border-radius: 3px;
+  margin-right: .4em; vertical-align: -.04em; border: 1px solid var(--hair); }
+
+/* Inline fidelity nudge (issue #438): the small, quiet badge marking a rendered
+   value or record as carrying a data-quality / fidelity observation, linking to
+   the matching section of the fidelity deep-dive page. Same calm register as
+   the dossier's record-fidelity surface above: a nudge locates an observation,
+   it is not an alarm, so it wears the shared .tb badge look in the muted
+   derived tint - never the change-red. The non-badge form (.fid-nudge without a
+   .tb child) is a plain quiet link for prose call sites. */
+.ledger .fid-nudge { text-decoration: none; }
+.ledger .fid-nudge:hover .tb.fid { border-color: var(--derived); }
+.ledger .fid-nudge:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+.ledger .tb.fid { background: var(--derived-soft); color: var(--derived); border: 1px solid transparent; }
+
+/* "Show the working" disclosure (issues #433/#438, ADR 0017): the JS-free
+   <details> that opens a derived claim's evidence - the named rule, the inputs
+   (each linked to its exact source line or reference-table row), the ordered
+   transformation trace and the reproduced result. Styled like the dossier's
+   fid-work panel: a quiet left-ruled card in the derived tint, monospace for
+   the machine tokens, and an honest muted note where a position is not held. */
+.ledger details.show-working { margin: 10px 0 2px; }
+.ledger details.show-working > summary { cursor: pointer; font-family: var(--mono); font-size: 12px; color: var(--raw); }
+.ledger details.show-working > summary:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+.ledger .working-body { margin: 8px 0 2px; padding: 10px 14px; border-left: 3px solid var(--derived);
+  background: var(--surface); border-radius: 0 8px 8px 0; }
+.ledger .working-body .working-rule { margin: 0 0 6px; font-size: 13px; }
+.ledger .working-body .working-heading { font-family: var(--mono); font-size: 11px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--faint); margin: 10px 0 4px; font-weight: 600; }
+.ledger .working-body .working-inputs, .ledger .working-body .working-steps { margin: 0; padding-left: 1.3em; font-size: 13px; }
+.ledger .working-body .working-inputs li, .ledger .working-body .working-steps li { margin: 2px 0; }
+.ledger .working-role { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.ledger .working-from, .ledger .working-transform { color: var(--muted); font-size: 12.5px; }
+.ledger .working-locus-absent { color: var(--muted); font-style: italic; }
+.ledger .working-confidence { color: var(--muted); }
+.ledger .working-result { margin: 8px 0 0; font-size: 13px; }
+.ledger .working-note { margin: 8px 0 0; font-size: 12px; color: var(--muted); max-width: 72ch; }
