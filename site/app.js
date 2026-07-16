@@ -1,3 +1,4 @@
+// @ts-check
 // UK amateur callsign lookup - proof of concept over the published SQLite.
 // Frameworkless by design; the only dependency is sql.js-httpvfs (vendored
 // into vendor/ by the Pages build from the npm-audited package), which
@@ -9,6 +10,13 @@ import { countryForCallsign, stripVisitorPrefix } from './prefix-country.js';
 import { placeholderOf } from './browser-query.js';
 import { callsignPillLink } from './callsign-pill.js';
 import { withDatabaseLoading } from './db-loading.js';
+
+// The row shape read back off the httpvfs worker's query() is not typed by the
+// vendored library (no shipped types); every SELECT here states its own column
+// use inline, exactly as ledger-query.js's QueryExecutor does for the ledger
+// database. window.createDbWorker's own signature is declared once in
+// global.d.ts, shared with compare.js/entry-browser.js/explore.js.
+/** @typedef {{ db: { query: (sql: string, params?: unknown[]) => Promise<any[]> } }} DbWorker */
 
 const { createDbWorker } = window;
 
@@ -23,10 +31,17 @@ const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
 // match it. The marker's version is the offline fallback.
 const OFFLINE_DB_CACHE = 'callsign-offline-db';
 const OFFLINE_MARKER_KEY = 'offline-db-state';
+/**
+ * @typedef {object} OfflineMarkers
+ * @property {string} [version]
+ * @property {Record<string, { date: string, size: number }>} [files]
+ */
+/** @returns {OfflineMarkers} */
 function readOfflineMarkers() {
   try { return JSON.parse(localStorage.getItem(OFFLINE_MARKER_KEY) ?? '{}') ?? {}; }
   catch { return {}; }
 }
+/** @param {OfflineMarkers} markers */
 function writeOfflineMarkers(markers) {
   try { localStorage.setItem(OFFLINE_MARKER_KEY, JSON.stringify(markers)); }
   catch { /* storage unavailable - offline state simply is not remembered */ }
@@ -36,7 +51,9 @@ function writeOfflineMarkers(markers) {
 // build). Resolved once. Online it is the fresh commit SHA; offline it falls
 // back to the version an offline copy was downloaded under, so the database
 // URL keeps matching the cached bytes. Shared by every database opener.
+/** @type {Promise<string> | null} */
 let versionPromise = null;
+/** @returns {Promise<string>} */
 function getVersion() {
   versionPromise ??= (async () => {
     try {
@@ -64,6 +81,7 @@ function getVersion() {
 // let the worker stitch 4 KiB chunks from DIFFERENT database versions -
 // observed live as "database disk image is malformed". version.txt is
 // written by the deploy workflow and fetched uncached.
+/** @returns {Promise<DbWorker>} */
 async function openDatabase() {
   const version = await getVersion();
   const dbUrl = new URL(`./data/ledger-lookup.sqlite.png?v=${encodeURIComponent(version)}`, document.baseURI);
@@ -79,8 +97,34 @@ async function openDatabase() {
 // `let` so importing this module in a test opens no worker: the eager open only
 // happens inside the guarded bootstrap, exactly as it does on Explore and the
 // Playground console.
+/** @type {Promise<DbWorker> | null} */
 let dbPromise = null;
 
+// Mirrors document.createElement's own overload shape: a known tag name
+// returns its specific HTMLElement subtype (so callers get .value/.hidden etc.
+// without a cast), while the plain-string fallback overload keeps this
+// assignable as the dependency-injected ElementFactory shape callsignPillLink
+// expects.
+/**
+ * @template {keyof HTMLElementTagNameMap} K
+ * @overload
+ * @param {K} tag
+ * @param {Record<string, string>} [attrs]
+ * @param {(Node | string)[]} [children]
+ * @returns {HTMLElementTagNameMap[K]}
+ */
+/**
+ * @overload
+ * @param {string} tag
+ * @param {Record<string, string>} [attrs]
+ * @param {(Node | string)[]} [children]
+ * @returns {HTMLElement}
+ */
+/**
+ * @param {string} tag
+ * @param {Record<string, string>} [attrs]
+ * @param {(Node | string)[]} [children]
+ */
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -91,6 +135,11 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
+/**
+ * @param {string[]} headers
+ * @param {any[][]} rows
+ * @param {number} [numericFrom]
+ */
 function renderTable(headers, rows, numericFrom = 1) {
   const table = el('table');
   table.append(el('thead', {}, [el('tr', {}, headers.map((h, i) => el('th', { text: h, class: i >= numericFrom ? 'num' : '' })))]));
@@ -109,17 +158,21 @@ function renderTable(headers, rows, numericFrom = 1) {
 // links to the surface that explores it (callsigns and placeholder forms
 // to their own ?c= pages, suffixes to the availability matrix, series to
 // their entity pages).
+/** @param {string} callsign */
 function csLink(callsign) {
   return callsignPillLink(el, callsign);
 }
+/** @param {string} suffix */
 function suffixLink(suffix) {
   return el('a', { href: `?c=${encodeURIComponent('*' + suffix)}`, text: suffix, title: `availability matrix for *${suffix}` });
 }
 // Series names are stored bare (20, M7); the # RSL-slot marker is the
 // uniform display convention, inserted after the leading character.
+/** @param {string} series */
 function displaySeries(series) {
   return series.includes('#') || series.length < 2 ? series : `${series[0]}#${series.slice(1)}`;
 }
+/** @param {string} series */
 function seriesLink(series) {
   return el('a', { href: `series/${series.replace(/#/g, '')}.html`, text: displaySeries(series), title: `prefix series ${displaySeries(series)}` });
 }
@@ -128,6 +181,7 @@ function seriesLink(series) {
 // line; leaves anything unparseable untouched. Mirrors the dataset pages' phrasing.
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
+/** @param {unknown} iso */
 function humanDate(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
   return m ? `${Number(m[3])} ${MONTH_NAMES[Number(m[2]) - 1]} ${m[1]}` : String(iso);
@@ -138,16 +192,22 @@ function humanDate(iso) {
 // what a word means without leaving the result. The status value additionally
 // links to the register-status glossary, which resolves the "Available"
 // overload (the literal status vs the inferred "no record → maybe free").
+/**
+ * @param {string} text
+ * @param {string} anchor
+ */
 function glossLabel(text, anchor) {
   return el('span', {}, [
     text + ' ',
     el('a', { href: `glossary.html#${anchor}`, class: 'muted hint', title: `glossary: ${text}`, text: '(?)' }),
   ]);
 }
+/** @type {Record<string, string>} */
 const STATUS_ANCHORS = {
   allocated: 'allocated', reserved: 'reserved', available: 'available',
   live: 'status-live', forbidden: 'status-forbidden', quarantine: 'status-quarantine',
 };
+/** @param {unknown} status */
 function statusCell(status) {
   if (status === '' || status == null) return status;
   const anchor = STATUS_ANCHORS[String(status).toLowerCase()] ?? 'status-values';
@@ -159,13 +219,21 @@ function statusCell(status) {
 // Extract the suffix (trailing letter run after the last digit) from a typed
 // callsign, so a not-found lookup can route to that suffix's availability
 // matrix (issue #261). Returns null when there is no clear suffix.
+/** @param {string} value */
 function suffixOf(value) {
   const m = /[0-9]([A-Z]+)$/.exec(String(value).toUpperCase().replace(/[^A-Z0-9/]/g, ''));
   return m ? m[1] : null;
 }
 
+/**
+ * @param {string} sql
+ * @param {unknown[]} [params]
+ */
 async function query(sql, params = []) {
-  const worker = await dbPromise;
+  // dbPromise is set by initLookup() before the bootstrap wires up anything
+  // that could reach query() (the lookup form, the filter panel); it is only
+  // ever null in the window before that assignment runs.
+  const worker = /** @type {DbWorker} */ (await dbPromise);
   return worker.db.query(sql, params);
 }
 
@@ -173,7 +241,9 @@ async function query(sql, params = []) {
 // larger than the lookup database, so it is opened LAZILY - only when a
 // lookup first needs FOI history - and queried over the same range-request
 // VFS. Same .png/?v= hosting workarounds as the main database.
+/** @type {Promise<DbWorker> | null} */
 let combinedDbPromise = null;
+/** @returns {Promise<DbWorker>} */
 function openCombinedDatabase() {
   combinedDbPromise ??= (async () => {
     const version = await getVersion();
@@ -187,6 +257,10 @@ function openCombinedDatabase() {
   return combinedDbPromise;
 }
 
+/**
+ * @param {string} sql
+ * @param {unknown[]} [params]
+ */
 async function queryCombined(sql, params = []) {
   const worker = await openCombinedDatabase();
   return worker.db.query(sql, params);
@@ -197,6 +271,7 @@ async function queryCombined(sql, params = []) {
 // absence is only meaningful relative to what a publication intended to
 // cover: Ofcom has published declared-partial ~1k-row truncations of a
 // ~150k register. Cached after the first query.
+/** @type {Promise<any[]> | null} */
 let historyDatasetsPromise = null;
 function historyDatasets() {
   historyDatasetsPromise ??= queryCombined(
@@ -212,6 +287,7 @@ function historyDatasets() {
 // licence level under a different callsign, or death; the register does
 // not say which. Soft-fails to null (combined-database hiccup never breaks
 // the lookup).
+/** @param {(string | null | undefined)[]} callsigns */
 async function registerHistoryCard(callsigns) {
   try {
     const distinct = [...new Set(callsigns.filter(Boolean))];
@@ -288,6 +364,7 @@ async function registerHistoryCard(callsigns) {
 // FOI lane's normalised datasets (register snapshots, available lists,
 // issuance events), oldest vintage first, each linked to its entry page.
 // Soft-fails to null so a combined-database hiccup never breaks the lookup.
+/** @param {(string | null | undefined)[]} callsigns */
 async function foiHistoryCard(callsigns) {
   try {
     const distinct = [...new Set(callsigns.filter(Boolean))];
@@ -333,8 +410,11 @@ async function foiHistoryCard(callsigns) {
 async function renderBuildInfo() {
   try {
     const info = await query('SELECT key, value FROM build_info');
+    /** @param {string} k */
     const get = k => info.find(r => r.key === k)?.value ?? '?';
-    document.getElementById('build-info').textContent =
+    // Guaranteed present in index.html; never null-guarded here originally.
+    const buildInfoEl = /** @type {HTMLElement} */ (document.getElementById('build-info'));
+    buildInfoEl.textContent =
       `Dataset ${get('dataset')} · built ${get('generated_at')} · commit ${String(get('commit')).slice(0, 9)}`;
     // Near-header data-currency line (issue #259): the same figures phrased
     // for a human — when Ofcom published this register, and when we mirrored it.
@@ -348,6 +428,10 @@ async function renderBuildInfo() {
   }
 }
 
+/**
+ * @param {string} title
+ * @param {Node[]} children
+ */
 function card(title, children) {
   return el('div', { class: 'card' }, [el('h3', { text: title }), ...children]);
 }
@@ -371,6 +455,7 @@ const ROW_SELECT =
 const ITU_SOURCE_NOTE = 'Source: ITU Appendix 42 (Table of allocation of international call sign series). '
   + 'This names the holder of the call sign series, not a verified claim about the operator\'s licence.';
 
+/** @param {unknown} homeCallsign */
 async function visitorHomeCard(homeCallsign) {
   const home = stripVisitorPrefix(homeCallsign);
   const first = (home.match(/[A-Za-z0-9]/)?.[0] ?? '').toUpperCase();
@@ -417,6 +502,10 @@ async function visitorHomeCard(homeCallsign) {
 // exists the register simply holds no record - Ofcom does not routinely
 // store records for never-allocated callsigns - which is a hopeful but NOT
 // guaranteed signal of availability.
+/**
+ * @param {string} suffix
+ * @param {HTMLElement} result
+ */
 async function suffixMatrix(suffix, result) {
   const seriesList = await query('SELECT prefix, station_level, issuing_status FROM ref_prefix_formats');
   const matches = await query(
@@ -426,6 +515,7 @@ async function suffixMatrix(suffix, result) {
      WHERE c.suffix = ? AND c.parse_status = 'parsed'`, [suffix]);
   const bySeries = new Map(matches.map(m => [m.prefix_series, m]));
 
+  /** @type {HTMLElement[]} */
   const sections = [];
   const [forbidden] = await query('SELECT 1 AS hit FROM ref_forbidden_suffixes WHERE suffix = ?', [suffix]);
   if (forbidden) {
@@ -441,6 +531,7 @@ async function suffixMatrix(suffix, result) {
   // combined's register_history: which archived publications carry it, and
   // whether its status ever varied. Soft-fails to an empty map.
   const candidates = seriesList.map(s => `${s.prefix.replace('#', '')}${suffix}`);
+  /** @type {Map<string, { datasets: string[], statuses: Set<string> }>} */
   const historyByCallsign = new Map();
   try {
     const historyRows = await queryCombined(
@@ -506,9 +597,24 @@ async function suffixMatrix(suffix, result) {
 
 const PAGE_SIZE = 50;
 
+// The lookup form's gathered search criteria, as read by gatherCriteria() and
+// carried through buildConds/describeCriteria/filteredList/lookup.
+/**
+ * @typedef {object} LookupCriteria
+ * @property {string} value
+ * @property {string[]} flags
+ * @property {string[]} statuses
+ * @property {string[]} parseStatuses
+ * @property {string} series
+ * @property {string} length
+ * @property {string} pattern
+ * @property {boolean} abnormal
+ */
+
 // Translate the pattern notation to a SQLite GLOB: A = letter, N = digit,
 // * = any run; anything else is literal. GLOB metacharacters in literals
 // are wrapped in a character class so they cannot widen the match.
+/** @param {string} pattern */
 function patternToGlob(pattern) {
   return [...pattern].map(ch =>
     ch === 'A' ? '[A-Za-z]'
@@ -524,8 +630,11 @@ function patternToGlob(pattern) {
 // matching rows. Flags are the exception: they AND individually, since one
 // row can carry several. Flags are stored semicolon-separated, so each
 // token match wraps both sides in ';' for exactness.
+/** @param {LookupCriteria} criteria */
 function buildConds(criteria) {
+  /** @type {string[]} */
   const conds = [];
+  /** @type {unknown[]} */
   const params = [];
   if (criteria.value !== '') {
     conds.push(`c.callsign LIKE ? ESCAPE '\\'`);
@@ -561,6 +670,7 @@ function buildConds(criteria) {
   return { conds, params };
 }
 
+/** @param {LookupCriteria} criteria */
 function describeCriteria(criteria) {
   return [
     criteria.value !== '' ? `"${criteria.value}"` : null,
@@ -575,6 +685,11 @@ function describeCriteria(criteria) {
 }
 
 // Paginated list of register rows matching the criteria.
+/**
+ * @param {LookupCriteria} criteria
+ * @param {number} page
+ * @param {HTMLElement} result
+ */
 async function filteredList(criteria, page, result) {
   const { conds, params } = buildConds(criteria);
   const where = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : '';
@@ -609,13 +724,16 @@ async function filteredList(criteria, page, result) {
   ]));
 }
 
+/** @param {LookupCriteria} criteria */
 function criteriaActive(criteria) {
   return criteria.flags.length > 0 || criteria.statuses.length > 0 || criteria.parseStatuses.length > 0
     || criteria.series !== '' || criteria.length !== '' || criteria.pattern !== '' || criteria.abnormal;
 }
 
+/** @param {LookupCriteria} criteria */
 async function lookup(criteria) {
-  const result = document.getElementById('result');
+  // Guaranteed present in index.html; never null-guarded here originally.
+  const result = /** @type {HTMLElement} */ (document.getElementById('result'));
   result.hidden = false;
   result.replaceChildren(el('p', { class: 'muted', text: 'querying…' }));
 
@@ -782,7 +900,7 @@ async function lookup(criteria) {
     const registry = await query(
       `SELECT flag, meaning FROM flag_registry WHERE flag IN (${flagList.map(() => '?').join(',')})`, flagList);
     const meanings = new Map(registry.map(r => [r.flag, r.meaning]));
-    sections.push(card('Flags', flagList.map(f => el('p', {}, [
+    sections.push(card('Flags', flagList.map((/** @type {string} */ f) => el('p', {}, [
       el('span', { class: 'flag', text: f }),
       el('span', { class: 'muted', text: ' ' + (meanings.get(f) ?? '') }),
     ]))));
@@ -804,9 +922,14 @@ async function lookup(criteria) {
   result.replaceChildren(...sections);
 }
 
+/**
+ * @param {HTMLElement | null} fieldset
+ * @param {string} value
+ * @param {string} [title]
+ */
 function addCheckbox(fieldset, value, title) {
   const box = el('input', { type: 'checkbox', value });
-  fieldset.append(el('label', title ? { title } : {}, [box, value]));
+  fieldset?.append(el('label', title ? { title } : {}, [box, value]));
 }
 
 // Facet values come from the data itself (DISTINCT queries), so the panel
@@ -822,28 +945,30 @@ async function populateFilters() {
     const parses = await query('SELECT DISTINCT parse_status FROM components ORDER BY parse_status');
     for (const r of parses) addCheckbox(document.getElementById('parse-filters'), r.parse_status);
 
-    const seriesSelect = document.getElementById('series-filter');
+    const seriesSelect = /** @type {HTMLSelectElement | null} */ (document.getElementById('series-filter'));
     const series = await query(`SELECT DISTINCT prefix_series FROM components WHERE prefix_series != '' ORDER BY prefix_series`);
-    for (const r of series) seriesSelect.append(el('option', { value: r.prefix_series, text: displaySeries(r.prefix_series) }));
+    for (const r of series) seriesSelect?.append(el('option', { value: r.prefix_series, text: displaySeries(r.prefix_series) }));
   } catch {
     /* filters stay empty if the database can't load */
   }
 }
 
+/** @param {string} fieldsetId */
 function checked(fieldsetId) {
-  return [...document.querySelectorAll(`#${fieldsetId} input:checked`)].map(box => box.value);
+  return [...document.querySelectorAll(`#${fieldsetId} input:checked`)].map(box => /** @type {HTMLInputElement} */ (box).value);
 }
 
+/** @returns {LookupCriteria} */
 function gatherCriteria() {
   return {
-    value: document.getElementById('callsign').value.trim().toUpperCase(),
+    value: /** @type {HTMLInputElement} */ (document.getElementById('callsign')).value.trim().toUpperCase(),
     flags: checked('flag-filters'),
     statuses: checked('status-filters'),
     parseStatuses: checked('parse-filters'),
-    series: document.getElementById('series-filter').value,
-    length: document.getElementById('length-filter').value.trim(),
-    pattern: document.getElementById('pattern-filter').value.trim(),
-    abnormal: document.getElementById('abnormal-filter').checked,
+    series: /** @type {HTMLSelectElement} */ (document.getElementById('series-filter')).value,
+    length: /** @type {HTMLInputElement} */ (document.getElementById('length-filter')).value.trim(),
+    pattern: /** @type {HTMLInputElement} */ (document.getElementById('pattern-filter')).value.trim(),
+    abnormal: /** @type {HTMLInputElement} */ (document.getElementById('abnormal-filter')).checked,
   };
 }
 
@@ -852,6 +977,7 @@ function gatherCriteria() {
 // is the dynamic half of the entity-pages plan (precomputing 158k static
 // callsign pages would alone exceed the Pages cap) AND the answer to
 // "which N?" - every count on a series/statistics page links to its rows.
+/** @param {LookupCriteria} criteria */
 function criteriaToParams(criteria) {
   const params = new URLSearchParams();
   if (criteria.value) params.set('c', criteria.value);
@@ -865,28 +991,34 @@ function criteriaToParams(criteria) {
   return params;
 }
 
+/**
+ * @param {string} fieldsetId
+ * @param {string[]} values
+ */
 function tickBoxes(fieldsetId, values) {
   const wanted = new Set(values);
   for (const box of document.querySelectorAll(`#${fieldsetId} input`)) {
-    if (wanted.has(box.value)) box.checked = true;
+    const input = /** @type {HTMLInputElement} */ (box);
+    if (wanted.has(input.value)) input.checked = true;
   }
 }
 
 // Restore form state from URL params (checkboxes must already exist, so
 // this runs after populateFilters). Opens the filter panel when any facet
 // is set so the applied conditions are visible, not hidden.
+/** @param {URLSearchParams} params */
 function applyParamsToForm(params) {
   const c = params.get('c') ?? params.get('callsign');
-  if (c) document.getElementById('callsign').value = c.trim().toUpperCase();
-  if (params.get('series')) document.getElementById('series-filter').value = params.get('series');
-  if (params.get('len')) document.getElementById('length-filter').value = params.get('len');
-  if (params.get('pattern')) document.getElementById('pattern-filter').value = params.get('pattern');
-  if (params.get('abnormal') === '1') document.getElementById('abnormal-filter').checked = true;
+  if (c) /** @type {HTMLInputElement} */ (document.getElementById('callsign')).value = c.trim().toUpperCase();
+  if (params.get('series')) /** @type {HTMLSelectElement} */ (document.getElementById('series-filter')).value = params.get('series') ?? '';
+  if (params.get('len')) /** @type {HTMLInputElement} */ (document.getElementById('length-filter')).value = params.get('len') ?? '';
+  if (params.get('pattern')) /** @type {HTMLInputElement} */ (document.getElementById('pattern-filter')).value = params.get('pattern') ?? '';
+  if (params.get('abnormal') === '1') /** @type {HTMLInputElement} */ (document.getElementById('abnormal-filter')).checked = true;
   tickBoxes('status-filters', (params.get('status') ?? '').split(',').filter(Boolean));
   tickBoxes('parse-filters', (params.get('parse') ?? '').split(',').filter(Boolean));
   tickBoxes('flag-filters', (params.get('flags') ?? '').split(',').filter(Boolean));
   if ([...params.keys()].some(k => k !== 'c')) {
-    const details = document.getElementById('filters');
+    const details = /** @type {HTMLDetailsElement | null} */ (document.getElementById('filters'));
     if (details) details.open = true;
   }
 }
@@ -910,7 +1042,17 @@ function applyParamsToForm(params) {
 // soft-failing to null (see registerHistoryCard / foiHistoryCard / suffixMatrix),
 // so a combined hiccup annotates a card as unavailable but never trips this
 // affordance or breaks the lookup.
+/**
+ * The criteria shape is generic (C): makeRunLookup only ever forwards it,
+ * whole, to the caller's own `lookup`, so the real shape - LookupCriteria at
+ * the production call site below - is inferred from whichever `lookup` is
+ * passed in, exactly as a DOM test's own stub infers its own (unconstrained)
+ * shape.
+ * @template C
+ * @param {{ button?: HTMLButtonElement, statusEl?: HTMLElement, alertEl?: HTMLElement, resultEl: HTMLElement, open: () => unknown, lookup: (criteria: C) => Promise<void>, label?: string }} config
+ */
 export function makeRunLookup({ button, statusEl, alertEl, resultEl, open, lookup: lookupFn, label = 'lookup database' }) {
+  /** @param {C} criteria */
   return async function runLookup(criteria) {
     try {
       await withDatabaseLoading(
@@ -946,16 +1088,18 @@ function initLookup() {
   // Kick off the cold open once; the shared query() helper awaits this promise.
   dbPromise = openDatabase();
 
+  // Guaranteed present in index.html; never null-guarded here originally.
+  const resultEl = /** @type {HTMLElement} */ (document.getElementById('result'));
   const runLookup = makeRunLookup({
-    button: document.querySelector('#lookup-form button[type="submit"]'),
-    statusEl: document.getElementById('lookup-status'),
-    alertEl: document.getElementById('lookup-alert'),
-    resultEl: document.getElementById('result'),
+    button: /** @type {HTMLButtonElement | null} */ (document.querySelector('#lookup-form button[type="submit"]')) ?? undefined,
+    statusEl: document.getElementById('lookup-status') ?? undefined,
+    alertEl: document.getElementById('lookup-alert') ?? undefined,
+    resultEl,
     open: () => dbPromise,
     lookup,
   });
 
-  document.getElementById('lookup-form').addEventListener('submit', (event) => {
+  document.getElementById('lookup-form')?.addEventListener('submit', (event) => {
     event.preventDefault();
     const criteria = gatherCriteria();
     if (criteria.value !== '' || criteriaActive(criteria)) {
@@ -982,9 +1126,9 @@ function initLookup() {
     const c = initialParams.get('c') ?? initialParams.get('callsign');
     if (c !== null && c.trim() !== '') {
       const value = c.trim().toUpperCase();
-      document.getElementById('callsign').value = value;
+      /** @type {HTMLInputElement} */ (document.getElementById('callsign')).value = value;
       document.title = `${value} — UK amateur callsign`;
-      void runLookup(gatherCriteria()).then(() => document.getElementById('result').scrollIntoView({ block: 'start' }));
+      void runLookup(gatherCriteria()).then(() => resultEl.scrollIntoView({ block: 'start' }));
     }
   }
 
@@ -995,15 +1139,14 @@ function initLookup() {
     applyParamsToForm(initialParams);
     const criteria = gatherCriteria();
     if (criteria.value === '' && !criteriaActive(criteria)) return;
-    void runLookup(criteria).then(() => document.getElementById('result').scrollIntoView({ block: 'start' }));
+    void runLookup(criteria).then(() => resultEl.scrollIntoView({ block: 'start' }));
   }).catch((err) => {
     // Only reached if wiring the filter panel itself fails (the database-load
     // path is now owned by runLookup's affordance); surface it loudly rather
     // than leaving the panel silently empty.
     console.error(err);
-    const result = document.getElementById('result');
-    result.hidden = false;
-    result.replaceChildren(el('div', { class: 'error', role: 'alert' }, [
+    resultEl.hidden = false;
+    resultEl.replaceChildren(el('div', { class: 'error', role: 'alert' }, [
       'The lookup database could not be loaded. Try reloading the page, or ',
       el('a', { href: 'datasets/index.html', text: 'browse the datasets' }),
       ' instead.',
@@ -1030,6 +1173,8 @@ function initLookup() {
 // service workers are unavailable the lookup carries on online exactly as
 // before.
 
+/** @typedef {{ file: string, label: string }} OfflineDbSpec */
+/** @type {Record<string, OfflineDbSpec>} */
 const OFFLINE_DBS = {
   latest: { file: 'ledger-lookup.sqlite.png', label: 'lookup database' },
   combined: { file: 'ledger-history.sqlite.png', label: 'combined database' },
@@ -1039,16 +1184,22 @@ function offlineSupported() {
   return 'serviceWorker' in navigator && 'caches' in window && typeof Response !== 'undefined';
 }
 
+/**
+ * @param {string} file
+ * @param {string} version
+ */
 function offlineDbUrl(file, version) {
   return new URL(`./data/${file}?v=${encodeURIComponent(version)}`, document.baseURI).href;
 }
 
+/** @param {number} bytes */
 function humanBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) return '';
   const mb = bytes / (1024 * 1024);
   return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
 }
 
+/** @param {unknown} message */
 async function notifyServiceWorker(message) {
   try {
     const reg = await navigator.serviceWorker.ready;
@@ -1066,6 +1217,7 @@ async function renderOfflineState() {
   const version = await getVersion();
   const markers = readOfflineMarkers();
   const cache = await caches.open(OFFLINE_DB_CACHE);
+  /** @type {Record<string, boolean>} */
   const cached = {};
   for (const [key, { file }] of Object.entries(OFFLINE_DBS)) {
     cached[key] = !!(await cache.match(offlineDbUrl(file, version)));
@@ -1091,10 +1243,14 @@ async function renderOfflineState() {
   }
 }
 
+/**
+ * @param {string} which
+ * @param {(HTMLButtonElement | null)[]} buttons
+ */
 async function downloadForOffline(which, buttons) {
   const { file, label } = OFFLINE_DBS[which];
   const wrap = document.getElementById('offline-progress-wrap');
-  const bar = document.getElementById('offline-progress');
+  const bar = /** @type {HTMLProgressElement | null} */ (document.getElementById('offline-progress'));
   const progressLabel = document.getElementById('offline-progress-label');
   const state = document.getElementById('offline-state');
   buttons.forEach(b => { if (b) b.disabled = true; });
@@ -1108,6 +1264,7 @@ async function downloadForOffline(which, buttons) {
     if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
     const total = Number(res.headers.get('Content-Length')) || 0;
     const reader = res.body.getReader();
+    /** @type {Uint8Array[]} */
     const chunks = [];
     let received = 0;
     for (;;) {
@@ -1123,7 +1280,10 @@ async function downloadForOffline(which, buttons) {
           : `Downloading the ${label}: ${humanBytes(received)}…`;
       }
     }
-    const blob = new Blob(chunks, { type: 'image/png' });
+    // Cast: a fetch body reader's chunks are always regular ArrayBuffer-backed
+    // (never SharedArrayBuffer), but ReadableStreamReadResult's `value` is typed
+    // over the wider ArrayBufferLike, which Blob's BlobPart does not accept.
+    const blob = new Blob(/** @type {BlobPart[]} */ (chunks), { type: 'image/png' });
     const cache = await caches.open(OFFLINE_DB_CACHE);
     await cache.put(url, new Response(blob, {
       headers: { 'Content-Type': 'image/png', 'Content-Length': String(blob.size), 'Accept-Ranges': 'bytes' },
@@ -1141,13 +1301,17 @@ async function downloadForOffline(which, buttons) {
   } catch (err) {
     console.error(err);
     if (wrap) wrap.hidden = true;
+    // Caught value is `unknown`; read `.message` through the same narrowed view
+    // db-loading.js uses at the same kind of boundary.
+    const message = /** @type {{ message?: string }} */ ((typeof err === 'object' && err !== null) ? err : {}).message;
     if (state) state.textContent =
-      `The offline download failed (${String(err?.message ?? err)}). The lookup still works online — try again.`;
+      `The offline download failed (${message ?? String(err)}). The lookup still works online — try again.`;
   } finally {
     buttons.forEach(b => { if (b) b.disabled = false; });
   }
 }
 
+/** @param {(HTMLButtonElement | null)[]} buttons */
 async function removeOffline(buttons) {
   buttons.forEach(b => { if (b) b.disabled = true; });
   try {
@@ -1167,7 +1331,7 @@ async function removeOffline(buttons) {
 
 // Best-effort: show the download size up front, so the choice is informed.
 async function annotateOfflineSize() {
-  const downloadBtn = document.getElementById('offline-download');
+  const downloadBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('offline-download'));
   if (!downloadBtn) return;
   try {
     const version = await getVersion();
@@ -1180,9 +1344,9 @@ async function annotateOfflineSize() {
 function initOffline() {
   const section = document.getElementById('offline');
   if (!section) return;
-  const downloadBtn = document.getElementById('offline-download');
-  const combinedBtn = document.getElementById('offline-download-combined');
-  const removeBtn = document.getElementById('offline-remove');
+  const downloadBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('offline-download'));
+  const combinedBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('offline-download-combined'));
+  const removeBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('offline-remove'));
   const controls = document.getElementById('offline-controls');
   if (!offlineSupported()) {
     const state = document.getElementById('offline-state');
