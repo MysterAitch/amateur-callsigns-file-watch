@@ -12,6 +12,8 @@ import {
   matchingCountSql,
   setDiffSql,
   callsignCharMarker,
+  translateMarkerToken,
+  CALLSIGN_CHAR_NAMES,
   TOGGLES,
   stateToViewParam,
   viewParamToState,
@@ -204,11 +206,46 @@ describe('callsignCharMarker', { tags: ['ui'] }, () => {
     expect(callsignCharMarker(' ')).toBe('{SP}');       // U+0020 plain space
     expect(callsignCharMarker(' ')).toBe('{NBSP}'); // non-breaking space
     expect(callsignCharMarker('\t')).toBe('{TAB}');
+    expect(callsignCharMarker(String.fromCodePoint(0x200b))).toBe('{ZWSP}'); // zero-width space, friendly-named (#610)
   });
   it('CharMarker_ReplacementAndControl_AreMarked', () => {
-    expect(callsignCharMarker('�')).toBe('{U+FFFD}');   // encoding damage
-    expect(callsignCharMarker('​')).toBe('{U+200B}');   // zero-width space (whitespace, no friendly name)
-    expect(callsignCharMarker('')).toBe('{U+0007}');   // control char
+    expect(callsignCharMarker(String.fromCodePoint(0xfffd))).toBe('{U+FFFD}'); // encoding damage: left as its bare code point
+    expect(callsignCharMarker(String.fromCodePoint(0x200c))).toBe('{U+200C}'); // zero-width non-joiner: no friendly name
+    expect(callsignCharMarker(String.fromCodePoint(0x07))).toBe('{U+0007}');   // control char
+  });
+});
+
+describe('translateMarkerToken (friendly names at the edge, #610)', { tags: ['ui'] }, () => {
+  it('TranslateMarkerToken_CodepointTokenWithAFriendlyName_BecomesTheNameWithTheCodepointInTitle', () => {
+    // A derivation-time {U+XXXX} token is presented by its friendly name, the
+    // exact code point retained in the title so nothing is lost on inspection.
+    expect(translateMarkerToken('{U+00A0}')).toEqual({ text: '{NBSP}', title: 'non-breaking space (U+00A0)' });
+    expect(translateMarkerToken('{U+0020}')).toEqual({ text: '{SP}', title: 'space (U+0020)' });
+    expect(translateMarkerToken('{U+200B}')).toEqual({ text: '{ZWSP}', title: 'zero-width space (U+200B)' });
+  });
+  it('TranslateMarkerToken_LowercaseHexToken_IsTranslatedToo', () => {
+    // Hex case is not load-bearing: a lowercase token translates identically.
+    expect(translateMarkerToken('{U+00a0}')).toEqual({ text: '{NBSP}', title: 'non-breaking space (U+00A0)' });
+  });
+  it('TranslateMarkerToken_TokenWithNoFriendlyName_IsReturnedUnchangedWithoutTitle', () => {
+    // No recognised name (and U+FFFD, whose name is its own code point) stays
+    // exactly as derivation wrote it.
+    expect(translateMarkerToken('{U+200C}')).toEqual({ text: '{U+200C}', title: null });
+    expect(translateMarkerToken('{U+FFFD}')).toEqual({ text: '{U+FFFD}', title: null });
+  });
+  it('TranslateMarkerToken_MalformedOrNonToken_IsReturnedUnchanged', () => {
+    // A malformed {U+} fragment, an already-friendly token, a literal brace and
+    // a bare string are all left untouched - the render layer never re-marks.
+    expect(translateMarkerToken('{U+}')).toEqual({ text: '{U+}', title: null });
+    expect(translateMarkerToken('{NBSP}')).toEqual({ text: '{NBSP}', title: null });
+    expect(translateMarkerToken('{FOO}')).toEqual({ text: '{FOO}', title: null });
+    expect(translateMarkerToken('G6')).toEqual({ text: 'G6', title: null });
+  });
+  it('TranslateMarkerToken_AndCallsignCharMarker_AgreeThroughTheOneTable', () => {
+    // The pre-marked translation and the raw-marking function resolve names
+    // through the same CALLSIGN_CHAR_NAMES table, so they cannot disagree.
+    expect(CALLSIGN_CHAR_NAMES[0xa0]).toBe('NBSP');
+    expect(translateMarkerToken('{U+00A0}').text).toBe(callsignCharMarker(String.fromCodePoint(0xa0)));
   });
 });
 
