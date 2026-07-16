@@ -22,12 +22,15 @@ function el(tag: string, attrs: Record<string, string> = {}, children: Node[] = 
 }
 
 describe('callsignPillLink', { tags: ['ui'] }, () => {
-  it('CallsignPill_WhenRenderingACallsign_ProducesPillLinkToLookup', () => {
+  it('CallsignPill_WhenRenderingACallsign_ProducesPillLinkToTheCanonicalPerCallsignPage', () => {
+    // issue #594: the pill link's canonical target is callsign.html, not the
+    // interactive lookup's own ?c= self-search - every surface that renders a
+    // callsign as a link now points inbound at the same per-callsign page.
     const pill = callsignPillLink(el, 'M7TEE');
     expect(pill.tagName).toBe('A');
     expect(pill.className).toBe(CALLSIGN_PILL_CLASS);
-    expect(pill.getAttribute('href')).toBe('?c=M7TEE');
-    expect(pill.outerHTML).toBe('<a class="callsign-pill" href="?c=M7TEE">M7TEE</a>');
+    expect(pill.getAttribute('href')).toBe('callsign.html?c=M7TEE');
+    expect(pill.outerHTML).toBe('<a class="callsign-pill" href="callsign.html?c=M7TEE">M7TEE</a>');
   });
 
   it('CallsignPill_WhenRenderingACallsign_AccessibleNameIsTheBareCallsign', () => {
@@ -55,7 +58,7 @@ describe('callsignPillLink', { tags: ['ui'] }, () => {
     // label, and the href must be percent-encoded so it round-trips.
     const pill = callsignPillLink(el, 'gb100abcde');
     expect(pill.textContent).toBe('gb100abcde');
-    expect(pill.getAttribute('href')).toBe('?c=gb100abcde');
+    expect(pill.getAttribute('href')).toBe('callsign.html?c=gb100abcde');
   });
 
   it('CallsignPill_WhenCallsignEmpty_ProducesEmptyLabelledPillWithoutTitle', () => {
@@ -63,7 +66,7 @@ describe('callsignPillLink', { tags: ['ui'] }, () => {
     // misleading one, and carries no supplementary title.
     const pill = callsignPillLink(el, '');
     expect(pill.textContent).toBe('');
-    expect(pill.getAttribute('href')).toBe('?c=');
+    expect(pill.getAttribute('href')).toBe('callsign.html?c=');
     expect(pill.hasAttribute('title')).toBe(false);
   });
 });

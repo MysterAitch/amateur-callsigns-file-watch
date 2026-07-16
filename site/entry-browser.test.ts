@@ -154,3 +154,32 @@ describe('entry-browser field wrappers adoption (#625)', { tags: ['ui'] }, () =>
     expect(section.querySelector('td .lic-blank')?.textContent).toBe('(blank)');
   });
 });
+
+describe('entry-browser inbound callsign links (#594)', { tags: ['ui'] }, () => {
+  it('EntryBrowserRow_CleanedColumn_LinksToTheCanonicalPerCallsignPage', async () => {
+    const section = buildScaffold();
+    const row = { callsign: 'M7TEE', cleaned: 'M7TEE', status: 'Allocated', product: 'Amateur Full Radio Licence', implied_class: 'Full', prefix_series: 'M7' };
+    enhance(section, { openCombined: () => Promise.resolve(rowWorker(row)) });
+    await flush();
+
+    // The cleaned column IS the register's own callsign (the artefact-stripped
+    // join key), so it now links to its canonical per-callsign page.
+    const cleanedLink = section.querySelector('td a.callsign-pill');
+    expect(cleanedLink?.getAttribute('href')).toBe('callsign.html?c=M7TEE');
+    expect(cleanedLink?.textContent).toBe('M7TEE');
+  });
+
+  it('EntryBrowserRow_RawCallsignColumn_RemainsANonLinkChip', async () => {
+    const section = buildScaffold();
+    const row = { callsign: 'M7TEE', cleaned: 'M7TEE', status: 'Allocated', product: 'Amateur Full Radio Licence', implied_class: 'Full', prefix_series: 'M7' };
+    enhance(section, { openCombined: () => Promise.resolve(rowWorker(row)) });
+    await flush();
+
+    // The raw as-published callsign column stays a non-link chip (issue #310):
+    // it is data to inspect, never a navigation target, so #594's new inbound
+    // linking must not touch it.
+    const rawChip = section.querySelector('td code.callsign-pill');
+    expect(rawChip).not.toBeNull();
+    expect(rawChip?.tagName).toBe('CODE');
+  });
+});

@@ -60,12 +60,14 @@ export function callsignPillTitle(callsign, components = {}) {
   return facts.length > 0 ? `${callsign} — ${facts.join(' · ')}` : null;
 }
 
-// A callsign rendered as a pill LINK to the register lookup (?c=<callsign>) -
-// the browser-surface counterpart of the server callsignPill, used on the
-// index lookup wherever a callsign links to its own entry. `el` is the caller's
-// own element factory, so this module makes no assumption about how a node is
-// built. The link text is the bare callsign, so the accessible name IS the
-// callsign; any component data becomes the supplementary title only.
+// A callsign rendered as a pill LINK to its canonical per-callsign page
+// (callsign.html?c=<callsign>, issue #594) - the browser-surface counterpart
+// of the server callsignPill, used wherever an interactive surface's results
+// link a callsign to its own entry (the lookup, the entry browser, Explore,
+// Compare). `el` is the caller's own element factory, so this module makes no
+// assumption about how a node is built. The link text is the bare callsign, so
+// the accessible name IS the callsign; any component data becomes the
+// supplementary title only.
 /**
  * @param {ElementFactory} el
  * @param {string} callsign
@@ -73,7 +75,7 @@ export function callsignPillTitle(callsign, components = {}) {
  */
 export function callsignPillLink(el, callsign, components = {}) {
   /** @type {Record<string, string>} */
-  const attrs = { class: CALLSIGN_PILL_CLASS, href: `?c=${encodeURIComponent(callsign)}`, text: callsign };
+  const attrs = { class: CALLSIGN_PILL_CLASS, href: `callsign.html?c=${encodeURIComponent(callsign)}`, text: callsign };
   const title = callsignPillTitle(callsign, components);
   if (title !== null) attrs.title = title;
   return el('a', attrs);

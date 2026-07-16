@@ -44,3 +44,35 @@ describe('compare diffBlock field wrapper adoption (#625)', { tags: ['ui'] }, ()
     expect(details.querySelector('.stat')).toBeNull();
   });
 });
+
+describe('compare diffBlock inbound callsign links (#594)', { tags: ['ui'] }, () => {
+  it('DiffBlock_CleanedColumn_LinksToTheCanonicalPerCallsignPage', () => {
+    // The cleaned column IS the register's own callsign (the artefact-stripped
+    // join key), so it now links to its canonical per-callsign page.
+    const details = diffBlock('appeared', [{ callsign: 'M7TEE', cleaned: 'M7TEE', status: 'Allocated' }], ['callsign', 'cleaned', 'status']);
+    const cleanedLink = details.querySelector('td a.callsign-pill');
+    expect(cleanedLink?.getAttribute('href')).toBe('callsign.html?c=M7TEE');
+    expect(cleanedLink?.textContent).toBe('M7TEE');
+  });
+
+  it('DiffBlock_RawCallsignColumn_RemainsANonLinkChip', () => {
+    // The raw as-published callsign column stays a non-link chip: it is data
+    // to inspect, never a navigation target, so #594's new inbound linking on
+    // the cleaned column must not touch it.
+    const details = diffBlock('appeared', [{ callsign: 'M7TEE ', cleaned: 'M7TEE', status: 'Allocated' }], ['callsign', 'cleaned', 'status']);
+    const cells = [...details.querySelectorAll('tbody td')];
+    const rawCell = cells[0];
+    expect(rawCell.querySelector('a')).toBeNull();
+    expect(rawCell.querySelector('code')).not.toBeNull();
+  });
+
+  it('DiffBlock_CleanedValueThatIsNotAString_FallsBackToTheGenericCodeCell', () => {
+    // Defensive branch: a diff row's cleaned column is always a string in
+    // practice, but a NULL from the database is `null`, not `''` - it must
+    // stay the existing plain code cell rather than being coerced into a
+    // broken link.
+    const details = diffBlock('appeared', [{ callsign: 'M7TEE', cleaned: null, status: 'Allocated' }], ['callsign', 'cleaned', 'status']);
+    expect(details.querySelector('td a.callsign-pill')).toBeNull();
+    expect(details.querySelectorAll('tbody td code')[1]?.textContent).toBe('');
+  });
+});

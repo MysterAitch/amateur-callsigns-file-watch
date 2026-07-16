@@ -18,6 +18,7 @@
 // test opens no worker.
 
 import { withDatabaseLoading } from './db-loading.js';
+import { callsignPillLink } from './callsign-pill.js';
 
 // The row shape read back off the httpvfs worker's query() is not typed by the
 // vendored library (no shipped types); every SELECT here states its own column
@@ -105,6 +106,25 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
+// One result cell. A column literally named "callsign" links to its canonical
+// per-callsign page (issue #594) - the same shared pill every other results
+// surface uses - so a hand-written query's callsign column is never a
+// display-only dead end; any other column (including one merely CONTAINING
+// "callsign" in its name, e.g. "home_callsign") stays the existing generic
+// NULL-aware text cell, since an arbitrary query's column can hold anything.
+// Exported so the callsign-column adoption is exercised directly, without
+// needing a range-request worker.
+/**
+ * @param {string} header
+ * @param {string | number | null} value
+ */
+export function resultCell(header, value) {
+  if (header === 'callsign' && typeof value === 'string' && value !== '') {
+    return el('td', {}, [callsignPillLink(el, value)]);
+  }
+  return el('td', { text: value === null ? 'NULL' : String(value), class: value === null ? 'muted' : '' });
+}
+
 const ROW_CAP = 500;
 
 // Read-only by construction (the VFS cannot write back), but reject
@@ -179,8 +199,7 @@ async function run() {
         const headers = Object.keys(shown[0]);
         const table = el('table');
         table.append(el('thead', {}, [el('tr', {}, headers.map(h => el('th', { text: h })))]));
-        table.append(el('tbody', {}, shown.map(r => el('tr', {}, headers.map(h =>
-          el('td', { text: r[h] === null ? 'NULL' : String(r[h]), class: r[h] === null ? 'muted' : '' }))))));
+        table.append(el('tbody', {}, shown.map(r => el('tr', {}, headers.map(h => resultCell(h, r[h]))))));
         const wrap = el('div', { class: 'overflow' });
         wrap.append(table);
         result.replaceChildren(wrap);
