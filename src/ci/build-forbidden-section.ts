@@ -317,11 +317,13 @@ function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): strin
 
     '<h2>Disclosures timeline</h2>',
     '<p>One row per forbidden-list disclosure, oldest first — each links to its own page. <b>Distinct</b> is the suffix vocabulary; <b>rows</b> exceeds it only where the source duplicated a row (surfaced, never silently deduplicated). <b>Added / removed</b> are the set difference against the previous disclosure.</p>',
+    '<div class="overflow">',
     '<table>',
     tableCaption('Forbidden-suffix disclosures over time, oldest first'),
     '<tr><th scope="col">disclosure</th><th scope="col">distinct</th><th scope="col">rows</th><th scope="col">duplicated</th><th scope="col">added</th><th scope="col">removed</th></tr>',
     ...timelineRows,
     '</table>',
+    '</div>',
 
     '<h2>Headline changes</h2>',
     ...headline,
@@ -330,11 +332,13 @@ function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): strin
     `<p>Across every disclosure held, <b>${num(h.everForbiddenUnion.length)}</b> distinct suffixes have been forbidden at some point. This union — not any single list — is the intended basis for the row-level <code>forbidden-suffix</code> flag: flagging against "ever forbidden" is robust to churn and to suspected omission errors. A suffix on the 2016/2019 lists but absent from 2024 (the working theory is that the <code>QNF</code>/<code>ZFJ</code> de-listing is an artefact, not a deliberate policy change) stays in the union, and so stays flagged.</p>`,
     '<h3>First known forbidden — distribution</h3>',
     '<p>For every suffix in the union, the earliest disclosure or <code>LastModifiedDate</code> at which it is known to have been forbidden, bucketed by date. The shape (an origin bulk plus a couple of later points) is the finding.</p>',
+    '<div class="overflow">',
     '<table>',
     tableCaption('When each union suffix was first known to be forbidden'),
     '<tr><th scope="col">first known forbidden</th><th scope="col">suffixes</th><th scope="col">which</th></tr>',
     ...fkRows,
     '</table>',
+    '</div>',
 
     '<h2>Per-suffix detail</h2>',
     `<p>Every ever-forbidden union suffix has its own detail page: its forbidden-list history (which disclosures list it, first known forbidden, whether it was de-listed) plus every callsign carrying it, <b>broken down by ${glossaryTerm('status-values', 1, { label: 'status' })}</b> (Allocated / Reserved / Available / Forbidden), cross-linked to the register lookup and the FOI observations. A count is never bare: a rise could be a spike in <em>Reserved</em> rows, or a batch of <em>Forbidden</em> prohibition rows, rather than new <em>Allocated</em> issuance — a very different meaning.</p>`,
@@ -352,6 +356,7 @@ function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): strin
   if (withAllocated.length > 0) {
     body.push('<h3>Forbidden, yet carrying Allocated callsigns</h3>');
     body.push(`<p>${num(withAllocated.length)} union suffixes carry at least one <b>Allocated</b> callsign somewhere in the corpus — most predating the withholding, a few (notably ${suffixField('QNF', { link: { from: 'index' } })}) issued <em>after</em> the suffix was de-listed. Declared, not verified.</p>`);
+    body.push('<div class="overflow">');
     body.push('<table>');
     body.push(tableCaption('Forbidden suffixes that nonetheless carry Allocated callsigns'));
     body.push('<tr><th scope="col">suffix</th><th scope="col">Allocated callsigns</th></tr>');
@@ -359,6 +364,7 @@ function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): strin
       body.push(`<tr><td>${suffixField(x.suffix, { link: { from: 'index' } })}</td><td>${num(x.allocated)}</td></tr>`);
     }
     body.push('</table>');
+    body.push('</div>');
     if (withAllocated.length > 40) body.push(`<p class="dcap">Showing the 40 with the most Allocated callsigns; the rest are reachable from the A–Z list below.</p>`);
   }
 
@@ -424,11 +430,13 @@ function suffixHistorySection(suffix: string, h: ForbiddenSuffixHistory, a: Suff
   return [
     '<section><h2>Forbidden-list history</h2>',
     `<p class="lead">First known forbidden <b>${escapeHtml(fk.displayValue)}</b> <span class="gap">(${escapeHtml(fk.basis)})</span>. ${statusLine}</p>`,
+    '<div class="overflow">',
     '<table>',
     tableCaption(`Which disclosures list the ${suffix} suffix`),
     '<tr><th scope="col">disclosure</th><th scope="col">this suffix</th></tr>',
     ...rows,
     '</table>',
+    '</div>',
     '</section>',
   ].join('\n');
 }
@@ -524,11 +532,13 @@ function suffixCallsignsSection(info: SuffixCallsignInfo, ref: ReferenceData): s
     // above), so the shared wrapper's default 'linked' treatment applies.
     breakdownRows(breakdown, info.total, undefined, undefined, status => statusField(status, { depthToRoot: SUFFIX_PAGE_DEPTH })),
     '</div>',
+    '<div class="overflow">',
     '<table>',
     tableCaption('Every callsign witnessed carrying this suffix'),
     '<tr><th scope="col">callsign</th><th scope="col">latest status</th><th scope="col">original start</th><th scope="col">in current register</th><th scope="col">witnessed in</th></tr>',
     ...rows,
     '</table>',
+    '</div>',
     '<p class="dcap">Each callsign opens the register lookup (<code>?c=</code>) for its full recorded history. A status shown as "(was …)" changed across snapshots — for example Forbidden in an early register export, Allocated later.</p>',
     foiNote,
     '</section>',

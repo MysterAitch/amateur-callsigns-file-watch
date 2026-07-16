@@ -758,9 +758,15 @@ function svgBarChart(idBase: string, heading: string, summary: string, unit: str
     return `<tr${attrs}><td>${escapeHtml(humaniseLabel(label))}</td><td class="n">${n.toLocaleString('en-GB')}</td></tr>`;
   }).join('');
   const exploreHint = facetExpr === undefined ? '' : ' — click a bar or row to filter the browser above';
+  // The SVG is pinned to its native min-width (page.ts's `.chart svg`, #655)
+  // so its labels never shrink below legibility; below that width the
+  // overflow wrapper scrolls the chart horizontally rather than the whole
+  // page, matching the convention used for wide tables elsewhere.
   return `<figure class="chart"><figcaption>${escapeHtml(heading)}</figcaption>`
+    + `<div class="overflow" style="overflow-x:auto">`
     + `<svg viewBox="0 0 ${width} ${padTop + chartH + padBottom}" role="img" aria-labelledby="${idBase}-t ${idBase}-d" preserveAspectRatio="xMidYMid meet">`
     + `<title id="${idBase}-t">${escapeHtml(heading)}</title><desc id="${idBase}-d">${escapeHtml(summary)}</desc>${parts}</svg>`
+    + `</div>`
     + `<details><summary>Data table${exploreHint}</summary><table>${tableCaption(`${heading} — the figures behind the chart`)}<thead><tr><th scope="col">${escapeHtml(unit)}</th><th scope="col" class="n">callsigns</th></tr></thead><tbody>${tableRows}</tbody></table></details></figure>`;
 }
 

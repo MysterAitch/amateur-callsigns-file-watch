@@ -29,6 +29,12 @@ h1 { margin-bottom: 0.25rem; }
 a { color: var(--accent); }
 /* Nav links get a larger tap area (WCAG 2.5.8) without restructuring the strip. */
 nav a { display: inline-block; padding: 0.3rem 0.15rem; }
+/* Native checkboxes (the home filter, the compare dataset picker) default to
+   the browser's ~13px control, well under the WCAG 2.5.8 24px minimum target
+   size; unlike inline text links, a checkbox is a standalone control with no
+   exception. Sized explicitly rather than padded, so the visible control
+   itself - not just its surrounding label - meets the minimum. */
+input[type="checkbox"] { width: 1.5rem; height: 1.5rem; vertical-align: middle; }
 /* Shared affordances (issue #310), matching the generated pages: the
    visually-hidden utility carries text alternatives (e.g. the external-link
    "(opens in a new tab)") off-screen but available to assistive tech, and the
@@ -176,7 +182,12 @@ footer { margin-top: 2rem; font-size: 0.85em; color: color-mix(in srgb, var(--in
 /* Explore page: SQL console */
 #sql-form { flex-direction: column; align-items: stretch; }
 #sql-form label { font-weight: 600; }
-#sql-form select { font: inherit; padding: 0.35rem 0.5rem; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: inherit; max-width: 34rem; }
+/* width:100% + min-width:0 so the long option text (the [[db-size:*]]
+   labels) sets the select's preferred width, not a hard floor the flex
+   column can't shrink below - otherwise the whole page gains horizontal
+   scroll at narrow viewports (#654) even with the SQL block's own overflow
+   wrapper in place. */
+#sql-form select { font: inherit; padding: 0.35rem 0.5rem; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: inherit; max-width: 34rem; width: 100%; min-width: 0; }
 #sql-input { font-family: ui-monospace, monospace; font-size: 0.95em; padding: 0.6rem; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: inherit; width: 100%; box-sizing: border-box; }
 #sql-form button { align-self: flex-start; }
 button.example { font: inherit; font-size: 0.92em; background: transparent; border: none; color: var(--accent); text-decoration: underline; cursor: pointer; padding: 0.15rem 0; }

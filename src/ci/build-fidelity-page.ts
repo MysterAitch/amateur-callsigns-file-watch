@@ -218,6 +218,7 @@ function flagsSection(newestKey: string, newestStats: Record<string, number>): s
     '<h2 id="flags">Data-quality flags — what a flagged record means</h2>',
     '<p>A flag is a <b>recorded observation</b> about a value as the source published it — never a correction, and never a verdict about a record or its holder. The mirror’s rule is to <b>resolve and flag</b>: the verbatim value is kept, the derived views work from a cleaned form, and the flag says exactly what was observed so nothing is silently transformed or dropped.</p>',
     `<p>Each flag’s full meaning and grounding lives in the <a href="datasets/docs/flags.html">flag registry</a> (the authoritative, committed copy). The counts below are from the latest archived publication (${escapeHtml(newestKey)}); a count of “none” means the flag did not fire there, not that it never fires.</p>`,
+    '<div class="overflow">',
     '<table>',
     tableCaption('Every registered data-quality flag, with its meaning and its row count in the latest publication'),
     '<thead><tr><th scope="col">flag</th><th scope="col">meaning (first sentence)</th><th scope="col" class="n">rows in latest publication</th></tr></thead>',
@@ -225,6 +226,7 @@ function flagsSection(newestKey: string, newestStats: Record<string, number>): s
     ...rows,
     '</tbody>',
     '</table>',
+    '</div>',
     `<p>Where the site shows a flagged record inline — a badge beside a callsign in a preview, a note on a ${glossaryTerm('prefix-series', 0, { label: 'series' })} page — the badge links straight back to the flag’s row above.</p>`,
   ];
 }
@@ -317,11 +319,13 @@ function divergenceSection(divergences: CollectedDivergence[]): string[] {
   });
   return [
     ...intro,
+    '<div class="overflow">',
     '<table>',
     tableCaption('Every divergence on record, with the two copies, the level at which they differ, and what differs'),
     '<thead><tr><th scope="col">entry</th><th scope="col">copies</th><th scope="col">level</th><th scope="col">what differs</th></tr></thead>',
     `<tbody>${rows.join('')}</tbody>`,
     '</table>',
+    '</div>',
     '<p>Comparison is byte-level first (hashes exist per file); format-shifted copies (a workbook versus a CSV of the same disclosure) are compared at the reconstruction level instead. Divergence corroborated only across <em>dependent</em> witnesses (a web archive replaying the publisher) is stated as such — witness independence is itself a fact the record makes visible.</p>',
   ];
 }

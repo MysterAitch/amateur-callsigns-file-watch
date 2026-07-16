@@ -779,7 +779,7 @@ function byVintageThenKeyDesc(a: Holding, b: Holding): number {
 // stacked on a CONTINUOUS vintage axis so a year holding nothing renders as a
 // visible gap. Each cell links to its row (:target highlights it) and spells out
 // title, kind and vintage for assistive tech; a legend maps letter+tint to kind.
-function holdingsMap(holdings: Holding[], depthToRoot: number, idPrefix: string, name: string): string {
+function holdingsMap(holdings: Holding[], depthToRoot: number, idPrefix: string, overviewLabel: string): string {
   const dated = holdings.filter(h => h.vintage !== undefined);
   const undated = holdings.filter(h => h.vintage === undefined);
 
@@ -816,7 +816,7 @@ function holdingsMap(holdings: Holding[], depthToRoot: number, idPrefix: string,
     .join('');
 
   return [
-    `<nav class="hold-map" aria-label="Overview of ${escapeHtml(name)}'s datasets by vintage year">`,
+    `<nav class="hold-map" aria-label="${escapeHtml(overviewLabel)}">`,
     '<p class="hold-map-lead">Every dataset at a glance, stacked by data vintage — one cell each, lettered and tinted by kind. Empty years are left as gaps. Select a cell to jump to its row.</p>',
     `<ol class="hold-map-grid">${yearRows.join('')}</ol>`,
     `<ul class="hold-legend">${legend}</ul>`,
@@ -827,7 +827,7 @@ function holdingsMap(holdings: Holding[], depthToRoot: number, idPrefix: string,
 // The composite for one set of holdings (authored or hosted): the overview map,
 // then the vintage timeline of scan-strip rows. idPrefix namespaces the row ids
 // so an entry that is both authored and hosted never collides.
-function holdingsComposite(holdings: Holding[], depthToRoot: number, idPrefix: string, name: string, forPublisherId?: string): string {
+function holdingsComposite(holdings: Holding[], depthToRoot: number, idPrefix: string, overviewLabel: string, forPublisherId?: string): string {
   if (holdings.length === 0) return '';
 
   const dated = holdings.filter(h => h.vintage !== undefined);
@@ -858,7 +858,7 @@ function holdingsComposite(holdings: Holding[], depthToRoot: number, idPrefix: s
   }
 
   return [
-    holdingsMap(holdings, depthToRoot, idPrefix, name),
+    holdingsMap(holdings, depthToRoot, idPrefix, overviewLabel),
     `<ol class="hold-timeline">${groups.join('')}</ol>`,
   ].join('\n');
 }
@@ -882,7 +882,7 @@ function holdingsSection(entry: PublisherEntry, holdings: PublisherHoldings): st
     out.push(`<p>None — no dataset the mirror holds is authored by ${escapeHtml(entry.name)}. (It appears here as a host of copies, below.)</p>`);
   } else {
     out.push(`<p><b>${authoredCount}</b> ${authoredCount === 1 ? 'dataset originates' : 'datasets originate'} from ${escapeHtml(entry.name)} — a <b>direct</b> authorship claim derived from each entry's source. This holds wherever a copy surfaced: the author is a fact about origin, not about which venue served the bytes.</p>`);
-    out.push(holdingsComposite(holdings.authored, PUBLISHER_PAGE_DEPTH, 'a', entry.name));
+    out.push(holdingsComposite(holdings.authored, PUBLISHER_PAGE_DEPTH, 'a', `Datasets authored by ${entry.name}, by vintage year`));
   }
 
   out.push('<h3>Copies hosted or witnessed here</h3>');
@@ -890,7 +890,7 @@ function holdingsSection(entry: PublisherEntry, holdings: PublisherHoldings): st
     out.push(`<p>None — no copy the mirror holds was obtained through ${escapeHtml(entry.name)}'s channels.</p>`);
   } else {
     out.push(`<p><b>${hostedCount}</b> ${hostedCount === 1 ? 'copy was' : 'copies were'} obtained <b>directly</b> through ${escapeHtml(entry.name)} — a copy fetched straight from this publisher's channels, resolved from each entry's recorded witnesses. A copy marked <em>corroborating</em> is byte-identical to what the mirror holds (sha256 verified) — provable availability, not an assumption; a <em>divergent</em> copy is flagged with its own record. Transitive corroboration (a copy shown to correspond to an authoritative original via an intermediary) will be labelled distinctly from these direct copies when it lands.</p>`);
-    out.push(holdingsComposite(holdings.hosted, PUBLISHER_PAGE_DEPTH, 'h', entry.name, entry.id));
+    out.push(holdingsComposite(holdings.hosted, PUBLISHER_PAGE_DEPTH, 'h', `Copies of others' datasets hosted or witnessed by ${entry.name}, by vintage year`, entry.id));
   }
 
   return out.filter(s => s !== '').join('\n');
@@ -910,7 +910,7 @@ export function publisherPage(entry: PublisherEntry, holdings: PublisherHoldings
     `<p><small>See every publisher on the <a href="../index.html">publishers index</a>, or browse the data on the <a href="../../datasets/index.html">dataset index</a>.</small></p>`,
   ];
   return htmlPage(`${entry.name} — publisher`, PUBLISHER_PAGE_DEPTH, body, {
-    currentNav: 'Dataset index',
+    currentNav: 'Publishers',
     sourcePath: 'reference-data/publishers.json',
   });
 }
@@ -928,12 +928,12 @@ export function publishersIndexPage(register: PublisherRegister, holdings: Holdi
     '<h1>Publishers</h1>',
     `<p>The bodies that originate, archive, aggregate or host the material this project mirrors — a hand-curated, code-reviewed register. Each entry says what the organisation is, the ${glossaryTerm('axis-authority', PUBLISHER_INDEX_DEPTH, { label: 'authority' })} its material can carry, and the mirror's holdings related to it. <b>Author</b>, publication channel and <b>host</b> are separate axes: every dataset the mirror holds is <em>authored</em> by Ofcom, whichever venue a copy was obtained from.</p>`,
     '<p>Licensing shown here is each publisher\'s <em>default/typical</em> basis; a specific publication may carry a different one. An <code>unverified</code> basis is stated honestly as not-established, never guessed.</p>',
-    `<table>${tableCaption('Publishers in the register, with roles, default licence basis, authority ceiling, and holding counts')}<thead><tr><th scope="col">publisher</th><th scope="col">roles</th><th scope="col">default licence basis</th><th scope="col">authority ceiling</th><th scope="col" class="n">authored</th><th scope="col" class="n">hosted copies</th></tr></thead><tbody>${rows}</tbody></table>`,
+    `<div class="overflow"><table>${tableCaption('Publishers in the register, with roles, default licence basis, authority ceiling, and holding counts')}<thead><tr><th scope="col">publisher</th><th scope="col">roles</th><th scope="col">default licence basis</th><th scope="col">authority ceiling</th><th scope="col" class="n">authored</th><th scope="col" class="n">hosted copies</th></tr></thead><tbody>${rows}</tbody></table></div>`,
     '<p><small><b>Authored</b> counts the datasets a publisher originates; <b>hosted copies</b> counts the entries a copy of which was obtained through its channels — the same entry can appear under both (Ofcom both authors and self-hosts). Both are direct relationships in the data today.</small></p>',
     `<p><small>Back to the <a href="../datasets/index.html">dataset index</a> · the <a href="../reports/index.html">reports hub</a>.</small></p>`,
   ];
   return htmlPage('Publishers', PUBLISHER_INDEX_DEPTH, body, {
-    currentNav: 'Dataset index',
+    currentNav: 'Publishers',
     sourcePath: 'reference-data/publishers.json',
   });
 }
