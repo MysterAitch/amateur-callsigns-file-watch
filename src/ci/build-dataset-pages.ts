@@ -27,6 +27,7 @@ import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
+import { readPublisherRegister, channelIndex, channelDisplayName, type PublisherEntry } from '../shared/publishers.ts';
 import { renderMarkdown, renderInline } from '../shared/render-markdown.ts';
 import { parseFlagRegistry } from './build-sqlite.ts';
 import { displaySeries } from './build-home-aggregates.ts';
@@ -135,11 +136,16 @@ interface CopiedFile {
   witnessHtml?: string;
 }
 
-const WITNESS_CHANNEL_NAMES: Record<string, string> = {
-  wdtk: 'WhatDoTheyKnow',
-  ukgwa: 'UK Government Web Archive',
-  ofcom: 'ofcom.org.uk',
-};
+// Witness channel display names come from the publisher register (#618): the
+// register is the single vocabulary that turns a channel token into a publisher
+// name, so a token can no longer drift from an ad-hoc rendering map (issue
+// #620). The register is validated in validate:data, so every token a page
+// renders here is one the register knows; the index is read once, lazily.
+let cachedChannelIndex: Map<string, PublisherEntry> | undefined;
+function witnessChannelIndex(): Map<string, PublisherEntry> {
+  cachedChannelIndex ??= channelIndex(readPublisherRegister());
+  return cachedChannelIndex;
+}
 
 // "recovered from <channel>, capture/fetched <date>" as a clickable link.
 // UKGWA URLs embed the capture timestamp - surface that; otherwise the
@@ -147,7 +153,7 @@ const WITNESS_CHANNEL_NAMES: Record<string, string> = {
 function witnessLinks(witnesses: FoiWitness[] | undefined): string {
   if (witnesses === undefined || witnesses.length === 0) return '';
   return witnesses.map(w => {
-    const channelName = WITNESS_CHANNEL_NAMES[w.channel] ?? w.channel;
+    const channelName = channelDisplayName(witnessChannelIndex(), w.channel);
     const capture = /\/ukgwa\/(\d{4})(\d{2})(\d{2})/.exec(w.url);
     const label = capture === null
       ? `${channelName}, fetched ${w.fetchedAt}`

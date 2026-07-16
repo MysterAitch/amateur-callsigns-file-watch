@@ -18,6 +18,22 @@ club conventions) is deliberately **excluded** from this directory and will
 be proposed separately, where faithfulness to the original authors and
 shareability can be reviewed on their own merits.
 
+**Carve-out — `publishers.json`**: this file is the one exception, and
+deliberately so. It is not *distilled source data* at all — it holds no
+callsigns, allocations or facts drawn from any source. It is project-authored
+metadata **about** the sources: who originates, archives, aggregates or hosts
+the material the mirror holds, and under what terms it may be republished. The
+Ofcom/ITU-only rule governs data lifted *from* a source; it does not govern the
+project's own description *of* those sources, which necessarily names
+community and third-party bodies (WhatDoTheyKnow, the Internet Archive, RSGB,
+Wikipedia). It lives here because it is a hand-curated, code-reviewed
+vocabulary consumed like the others (a typed reader plus a validator), not
+because it distils an authoritative dataset. Its own provenance discipline is
+different in kind: the licence statements it makes are **public claims about
+other parties' terms**, so each entry cites the governing terms it relies on
+(`licenceUrl`), and a basis that has not been established is recorded as
+`unverified` rather than asserted (fail-honest). Increment 1 of #618.
+
 ## Datasets
 
 ### `rsl.csv` — Regional Secondary Locators
@@ -163,6 +179,38 @@ flagging (never assuming away) anything outside the permitted set. This also
 supplies the Article 19 primary source the `itu-call-sign-series.csv` open
 question above asks for on the *alphabet* (the fuller series-to-formation
 mapping still merits its own verification). Source cited in the file.
+
+### `publishers.json` — the publisher register (#618)
+
+One hand-curated entry per body that originates, archives, aggregates or hosts
+the material the mirror holds — Ofcom, the UK Government Web Archive, The
+National Archives, the Internet Archive, WhatDoTheyKnow, the ITU, RSGB, the
+OARC wiki, Wikipedia, GitHub, and the mirror itself (`self`). Each entry
+carries: `id` (a stable slug referenced elsewhere), `name`, `roles`
+(multi-valued: `originator` / `official-archive` / `web-archive` /
+`foi-aggregator` / `community-documentation` / `incidental-host`), optional
+`operator`, `url`, `channels` (the witness `channel` tokens that resolve to
+this publisher), `licenceBasis` (a closed token), `licenceStatement` with a
+cited `licenceUrl`, `authorityCeiling` (the ADR 0014 rung material witnessed
+only via this publisher may at most carry), optional `fetchConstraints`, and
+`notes`.
+
+It is JSON, not CSV, because `roles` and `channels` are multi-valued and
+`licenceStatement` is multi-sentence prose. It is the **vocabulary** every
+witness `channel` resolves through: `src/ci/validate-publishers.ts` (run inside
+`validate:data`) enforces unique ids, one publisher per channel token, the
+closed role/licence/ceiling vocabularies, well-formed URLs, and that every
+witness channel recorded across both archive lanes resolves to an entry — so
+an unknown channel fails loudly rather than rendering as a raw token. The
+typed reader is `src/shared/publishers.ts`.
+
+The `authorityCeiling` reuses ADR 0014's source-authority rungs verbatim
+(`Official` / `FOI` / `Reference` / `Community` / `Self`) — it is a
+cross-check ceiling, never a persisted trust rung. Ceiling assignments for
+archive replays (e.g. whether a proven-byte-identical Internet Archive replay
+of an official publication sits at the official rung) are subject to the
+queued maintainer decision on #618; the Internet Archive's ceiling is recorded
+provisionally at `Reference` pending it.
 
 ## Conventions
 
