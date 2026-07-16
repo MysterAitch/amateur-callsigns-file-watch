@@ -126,11 +126,13 @@ export async function resolveEntity(query, typed) {
   const cleaned = cleanCallsign(typed);
   if (cleaned === '') return { typed, cleaned, entity: null, matched: 'none' };
 
+  /** @type {{ entity: string }[]} */
   const byCleaned = await query('SELECT DISTINCT entity FROM claims WHERE cleaned = ? LIMIT 1', [cleaned]);
   if (byCleaned.length > 0) return { typed, cleaned, entity: byCleaned[0].entity, matched: 'cleaned' };
 
   const placeholder = placeholderOf(cleaned);
   if (placeholder !== null) {
+    /** @type {{ entity: string }[]} */
     const byEntity = await query('SELECT DISTINCT entity FROM claims WHERE entity = ? LIMIT 1', [placeholder]);
     if (byEntity.length > 0) return { typed, cleaned, entity: byEntity[0].entity, matched: 'placeholder' };
   }
@@ -863,7 +865,12 @@ async function ledgerVersion() {
 async function ledgerChunks() {
   const res = await fetch(new URL('./data/claim-ledger.chunks.json', document.baseURI), { cache: 'no-store' });
   if (!res.ok) throw new Error('claim-ledger chunk manifest is missing');
-  return res.json();
+  // res.json() resolves `any`; routed through `unknown` first so the cast to
+  // the manifest shape is a narrowing (of a genuinely unknown value), not an
+  // assertion straight off `any`.
+  /** @type {unknown} */
+  const raw = await res.json();
+  return /** @type {ChunkManifest} */ (raw);
 }
 
 // Self-check (issue #475): a range read of the final byte the manifest's length
