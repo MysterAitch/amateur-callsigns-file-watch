@@ -22,13 +22,19 @@
       "note": "UK Government Web Archive capture 2026-02-04; the id_ (raw) replay served the workbook verbatim (sha256 matches). Single witness - no other mirror of this specific dated workbook was found."
     }
   ],
-  "reconstructionNotes": "Recovered verbatim from the UK Government Web Archive's capture of Ofcom's open-data amateur callsign list, published in this period as a WORKBOOK (amateur-callsign-list.xlsx) - archived exactly as published. The data vintage 2026-01-14 is corroborated by the workbook's dcterms:created and the maximum Licence_Version.LastModifiedDate in the data agreeing. raw-extract-sheet-1-sheet1.csv is the mechanical sheet extract (src/shared/xlsx-extract.ts) and the parse source; the workbook's typed date cells render ISO in the extract. Notably ~13,478 fewer records than the 2025-11-11 publication (allocated -9,561, reserved -3,950) - a net removal, not a shift into the reserved/available pools; flagged for longitudinal analysis, not reconciled here.",
+  "reconstructionNotes": "Recovered verbatim from the UK Government Web Archive's capture of Ofcom's open-data amateur callsign list, published in this period as a WORKBOOK (amateur-callsign-list.xlsx) - archived exactly as published. The data vintage 2026-01-14 is corroborated by the workbook's dcterms:created and the maximum Licence_Version.LastModifiedDate in the data agreeing. raw-extract-sheet-1-sheet1.csv is the mechanical sheet extract (src/shared/xlsx-extract.ts) and the parse source; the workbook's typed date cells render ISO in the extract. Notably ~13,478 fewer records than the 2025-11-11 publication (allocated -9,561, reserved -3,950) - a net removal, not a shift into the reserved/available pools. This is now reconciled (see qualityObservations): the removal is the Z-in-suffix omission - every Z-suffix callsign (14,178 in the 2025-11-11 baseline) is absent here while non-Z rows grew by ~700, netting the -13,478.",
   "qualityObservations": [
     {
       "observedAt": "2026-07-15",
       "statement": "194 duplicate callsign values: the publication repeats 194 distinct callsigns on more than one row (publisher duplicates, preserved verbatim in normalised.csv - join consumers must expect multiple rows per callsign in this vintage).",
       "evidence": "Distinct Callsign values appearing on 2+ data rows of the sheet extract (e.g. 20CAM, 20NAE, 20TWA, 21DQG); the neighbouring 2025-11-11 recovered vintage carries 213, while no live open-data publication carries any - a property of these recovered vintages.",
       "coverageAffecting": false
+    },
+    {
+      "observedAt": "2026-07-16",
+      "statement": "Z-in-suffix omission: this vintage omits every callsign whose suffix contains the letter Z - 0 of the 146,417 rows carry a Z anywhere in the callsign, where the neighbouring vintages carry ~10,000-14,000. The omission is upstream in Ofcom's published file (present in the raw extract before any of this project's parsing), not an artefact of normalisation, so records the publication claims to include are absent (issue #564).",
+      "evidence": "read_csv_auto on raw-extract-sheet-1-sheet1.csv WHERE Callsign LIKE '%Z%' returns 0 of 146,417 rows (Z never appears in UK prefixes/RSLs, so this is a whole-suffix-letter dropout). Neighbour Z-suffix counts from components.csv: 2025-11-11 = 14,178, this vintage = 0, 2026-06-23 = 9,882; every other suffix letter checked here (A, Q, X, Y) sits in the normal ~10k-19k range. The arithmetic reconciles the entry's net-removal note: Z-suffix rows 14,178 -> 0 while non-Z rows grew 145,717 -> 146,417 (+700), netting the recorded -13,478. Corroborated by the OARC wiki (fetched live): 'In February 2026 callsigns with a Z in the suffix were omitted from the spreadsheet, the cause is unknown.' The Reserved-and-Z-suffix cohort remains at 0 in the 2026-06-23 snapshot, an open watch item beyond OARC's reported May resolution.",
+      "coverageAffecting": true
     }
   ],
   "files": {
