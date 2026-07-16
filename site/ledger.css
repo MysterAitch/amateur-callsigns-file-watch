@@ -270,6 +270,15 @@
   font-weight: 700; padding: 1px 6px; border-radius: 5px; }
 .ledger .tb.d { background: var(--steady-soft); color: var(--steady); }
 .ledger .tb.p { background: var(--derived-soft); color: var(--derived); border: 1px dashed var(--derived); }
+/* Transitive-authority badges (issue #618 increment 4): a copy's OWN direct
+   standing wears the neutral steady tint; its EFFECTIVE (borrowed) standing
+   wears the derived tint with a dashed edge, so the borrowed value is always
+   visually marked as derived and never mistaken for a direct claim. The
+   derivation link that must accompany any borrowed value carries the same
+   derived colour and resolves to the correspondence evidence. */
+.ledger .tb.auth-own { background: var(--steady-soft); color: var(--steady); text-transform: none; letter-spacing: 0; }
+.ledger .tb.auth-effective { background: var(--derived-soft); color: var(--derived); border: 1px dashed var(--derived); text-transform: none; letter-spacing: 0; }
+.ledger .derived-derivation { color: var(--derived); text-decoration: underline dotted; }
 /* Set-aside (ignored) raw-line affordance (issue #331): a line the
    normalisation deliberately excluded (blank lines, curated export furniture).
    The row carries a pale amber/corn tint (the signal-soft token, mapped for

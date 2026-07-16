@@ -118,9 +118,19 @@ describe('the built fidelity page over the real archive', { tags: ['data-validit
   });
 
   it('FidelityPage_WhenBuilt_CarriesEveryDeclaredSectionAnchor', () => {
-    for (const anchor of ['about', 'provenance', 'flags', 'consistency', 'show-working', 'reconstruction', 'reverify', 'reporting']) {
+    for (const anchor of ['about', 'provenance', 'flags', 'consistency', 'divergence', 'show-working', 'reconstruction', 'reverify', 'reporting']) {
       expect(page, anchor).toContain(`id="${anchor}"`);
     }
+  });
+
+  it('FidelityPage_DivergenceSection_ListsTheMigratedKnownCaseFlaggedNotAdjudicated', () => {
+    // The 2020-03-26 case: Ofcom's two copies of one disclosure, the differing
+    // copy held in full, the eleven mangled cells summarised — an observation,
+    // both copies held for the reader to compare, never a verdict.
+    expect(page).toContain('id="divergence"');
+    expect(page).toContain('amateur-radio-allocated-call-signs.xlsx');
+    expect(page).toContain('date serials');
+    expect(page).toMatch(/never adjudicated|does not.*verdict|not.*adjudicate/i);
   });
 
   it('FidelityPage_FlagRegistry_GivesEveryRegisteredFlagItsOwnAnchoredRow', () => {

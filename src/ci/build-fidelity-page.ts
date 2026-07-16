@@ -45,6 +45,8 @@ import { loadOpenDataRegisterSource, defaultArchiveDir } from '../v2/collectors/
 import { COVERED_FAMILIES, MARKDOWN_PROSE_SCOPE_NOTE } from './reconstruction-oracle.ts';
 import { parseFlagRegistry } from './build-sqlite.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
+import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
+import type { DivergenceRecord } from '../shared/witness-agreement.ts';
 import type { ArchiveMeta } from '../shared/utils.ts';
 import {
   cleanedCallsign,
@@ -254,6 +256,76 @@ function consistencySection(): string[] {
   ];
 }
 
+// One divergence to list on the page: where the differing copy sits (lane +
+// entry), and the record itself. Collected across both lanes so a reader sees
+// every divergence the mirror holds, with links to the entries that hold both
+// copies.
+interface CollectedDivergence {
+  lane: 'open-data' | 'foi';
+  entryKey: string;
+  entryTitle: string;
+  record: DivergenceRecord;
+}
+
+export function collectDivergences(archiveDir: string, foiDir: string): CollectedDivergence[] {
+  const out: CollectedDivergence[] = [];
+  for (const key of listArchiveKeys().sort()) {
+    const metaPath = path.join(archiveDir, key, 'meta.json');
+    if (!fs.existsSync(metaPath)) continue;
+    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ArchiveMeta;
+    for (const record of meta.divergences ?? []) {
+      out.push({ lane: 'open-data', entryKey: key, entryTitle: `Publication of ${key}`, record });
+    }
+  }
+  if (fs.existsSync(foiDir)) {
+    for (const key of listFoiEntryKeys(foiDir)) {
+      const meta = readFoiEntryMeta(foiDir, key);
+      for (const record of meta.divergences ?? []) {
+        out.push({ lane: 'foi', entryKey: key, entryTitle: meta.title, record });
+      }
+    }
+  }
+  return out;
+}
+
+// The divergence section (#618 increment 4 / #619): copies claiming to be the
+// same publication that DIFFER. Flag-don't-adjudicate — the mirror holds both
+// copies so a reader can compare them; it states which it parses and why, and
+// never issues a verdict. A byte-identical copy corroborates (increment 3);
+// this section is only the copies that do not agree.
+function divergenceSection(divergences: CollectedDivergence[]): string[] {
+  const intro = [
+    '<h2 id="divergence">Divergence — when two copies of one publication disagree</h2>',
+    '<p>Some publications survive in more than one copy — the original publisher, a web archive, an FOI aggregator, a community rehost. A copy whose bytes are <b>identical</b> to one the mirror holds <em>corroborates</em> it (proven by matching sha256). A copy that <b>differs</b> is a first-class finding, recorded here — never silently reconciled, and never adjudicated: the mirror holds <b>both</b> copies so anyone can compare them directly, and states which one it parses and why.</p>',
+    '<p>This is an observation about what the sources published, not a verdict about a record or a licensee — the same register as every other fidelity note.</p>',
+  ];
+  if (divergences.length === 0) {
+    intro.push('<p class="gap">No divergence is on record: every witnessed copy the mirror has hash-checked is byte-identical to a held copy.</p>');
+    return intro;
+  }
+  const rows = divergences.map(d => {
+    const href = d.lane === 'open-data'
+      ? `datasets/open-data/${encodeURIComponent(d.entryKey)}/index.html`
+      : `datasets/foi/${encodeURIComponent(d.entryKey)}/index.html`;
+    const held = d.record.counterpart.heldAs !== undefined
+      ? `held in full as <code>${escapeHtml(d.record.counterpart.heldAs)}</code>`
+      : 'not redistributed (a public index of its existence, verifiable from the source)';
+    return `<tr><th scope="row"><a href="${href}">${escapeHtml(d.entryTitle)}</a></th>`
+      + `<td><code>${escapeHtml(d.record.file)}</code> vs the differing copy — ${held}</td>`
+      + `<td><code>${escapeHtml(d.record.level)}</code></td>`
+      + `<td>${escapeHtml(d.record.summary)}</td></tr>`;
+  });
+  return [
+    ...intro,
+    '<table>',
+    tableCaption('Every divergence on record, with the two copies, the level at which they differ, and what differs'),
+    '<thead><tr><th scope="col">entry</th><th scope="col">copies</th><th scope="col">level</th><th scope="col">what differs</th></tr></thead>',
+    `<tbody>${rows.join('')}</tbody>`,
+    '</table>',
+    '<p>Comparison is byte-level first (hashes exist per file); format-shifted copies (a workbook versus a CSV of the same disclosure) are compared at the reconstruction level instead. Divergence corroborated only across <em>dependent</em> witnesses (a web archive replaying the publisher) is stated as such — witness independence is itself a fact the record makes visible.</p>',
+  ];
+}
+
 function showWorkingSection(examples: { heading: string; blurb: string; context: string; html: string }[]): string[] {
   const body = [
     '<h2 id="show-working">Show the working — the evidence behind a derived value</h2>',
@@ -377,6 +449,7 @@ export function buildFidelityPage(outputDir: string, baseUrl: string = DEFAULT_B
     ...provenanceSection(),
     ...flagsSection(newestKey ?? '(no archive entries)', newestStats),
     ...consistencySection(),
+    ...divergenceSection(collectDivergences(archiveDir, defaultFoiDir())),
     ...showWorkingSection(rendered),
     ...reconstructionSection(),
     ...reverifySection(),
