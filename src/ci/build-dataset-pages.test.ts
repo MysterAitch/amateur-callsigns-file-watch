@@ -332,11 +332,31 @@ describe('Dataset pages build', () => {
 
   it('DatasetPages_FoiEntryPage_LinksWitnessCapturesAndOwnMeta', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'ofcom-756622--published-register-csv', 'index.html'), 'utf8');
-    // Recovered-from provenance is clickable, derived from meta witnesses.
-    expect(page).toContain('recovered from <a href="https://webarchive.nationalarchives.gov.uk/ukgwa/20211213223006id_/');
-    expect(page).toContain('UK Government Web Archive, capture 2021-12-13');
+    // Recovered-from provenance is clickable, derived from meta witnesses: the
+    // publisher name links to its page (issue #618), the capture link verifies
+    // the bytes.
+    expect(page).toContain('recovered from <a href="../../../publishers/ukgwa/index.html">UK Government Web Archive</a> — <a href="https://webarchive.nationalarchives.gov.uk/ukgwa/20211213223006id_/');
+    expect(page).toContain('>capture 2021-12-13</a>');
     // The footer's meta.json mention links to this entry's own meta.
     expect(page).toContain('<a href="meta.json"><code>meta.json</code></a>');
+  });
+
+  it('DatasetPages_FoiEntryPage_PublishedByBlock_SeparatesAuthorFromHost', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'ofcom-756622--published-register-csv', 'index.html'), 'utf8');
+    // The block names Ofcom as the author (origin) and links its publisher page,
+    // and lists the UKGWA copy as a direct host — the two axes kept distinct.
+    expect(page).toContain('Published by / witnessed at');
+    expect(page).toContain('<b>Author:</b> <a href="../../../publishers/ofcom/index.html">Ofcom</a>');
+    expect(page).toContain('<b>Witnessed at:</b>');
+    expect(page).toContain('<a href="../../../publishers/ukgwa/index.html">UK Government Web Archive</a>');
+  });
+
+  it('DatasetPages_OpenDataEntryPage_PublishedByBlock_LinksTheWitnessingPublisher', () => {
+    // The 11 November 2025 publication carries a single Wayback witness, so its
+    // published-by block links the Internet Archive publisher page.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2025-11-11', 'index.html'), 'utf8');
+    expect(page).toContain('<b>Author:</b> <a href="../../../publishers/ofcom/index.html">Ofcom</a>');
+    expect(page).toContain('<a href="../../../publishers/internet-archive/index.html">Internet Archive</a>');
   });
 
   it('DatasetPages_ArchivedFiles_CopiedByteForByte', () => {

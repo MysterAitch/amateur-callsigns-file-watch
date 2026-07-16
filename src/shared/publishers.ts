@@ -148,3 +148,29 @@ export function publisherForChannel(index: Map<string, PublisherEntry>, channel:
 export function channelDisplayName(index: Map<string, PublisherEntry>, channel: string): string {
   return index.get(channel)?.name ?? channel;
 }
+
+// An id -> publisher index, so a holding's author id (or a channel's resolved
+// publisher id) can be looked up once rather than scanned per reference. Ids are
+// unique (the validator enforces it), so a sound register builds a sound index.
+export function publisherIndexById(register: PublisherRegister): Map<string, PublisherEntry> {
+  return new Map(register.publishers.map(p => [p.id, p]));
+}
+
+// The AUTHOR (originator) of an archive entry, derived purely from its
+// sourceKey (issue #618). Author, publication channel and host are separate
+// axes: the sourceKey names the dataset series and its FOI serving channel, from
+// which the ORIGINATING publisher is derived — never the serving channel, which
+// witnesses carry instead. Every dataset the mirror currently holds originates
+// from Ofcom: the open-data register (`ofcom-amateur-callsigns`) and the FOI
+// disclosures Ofcom answered, whether served via its own disclosure log
+// (`ofcom-foi`) or a WhatDoTheyKnow thread (`wdtk-*`). An unmapped sourceKey
+// resolves to undefined so the caller FLAGS it rather than defaulting to a
+// flattering author (ADR 0014's flag-never-guess discipline); an explicit
+// per-entry author field is introduced when the first non-Ofcom-originated
+// dataset lands.
+export function authorPublisherId(sourceKey: string): string | undefined {
+  if (sourceKey === 'ofcom-amateur-callsigns') return 'ofcom';
+  if (sourceKey === 'ofcom-foi') return 'ofcom';
+  if (sourceKey.startsWith('wdtk')) return 'ofcom';
+  return undefined;
+}
