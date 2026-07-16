@@ -30,7 +30,7 @@
       "contentsIndicative": "header Value,Status,Product,Type,Call Sign MMSI: Last Modified Date (leading UTF-8 BOM, CRLF, UTF-8); 153,938 data rows - 101,947 Allocated, 51,533 Reserved, 447 Available, 11 blank statuses. This is the COMPLETE register: ~45k more rows than the December lists because it carries the full reserved pool (44,860 rows have a blank Product, almost all Reserved). Product vocabulary is the five Amateur products plus three 'Special Event Station' rows (G4ZUL, G6DGK, M0MBB). Type is 'Call Sign - Amateur' throughout. Last-modified dates day-first DD/MM/YYYY spanning 2016-07-23..2023-12-19 (day-first verified: 66,117 rows carry a day>12). Anomalies preserved verbatim: the NBSP trio 2E1HON/G0TQK/G7IWE (trailing non-breaking space, trimmed-and-counted at normalise time); the W-prefix callsign W4WNZ in the reserved pool; 'G6 FMU' interior space; lower-case 'g0jrk'; a ten-character and several seven-to-nine-character reciprocal/regional callsigns.",
       "witnesses": [
         {
-          "channel": "live",
+          "channel": "ofcom-open-data-page",
           "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/january/foi-1734722-amateur-call-signs.csv?v=215395",
           "sha256": "b4f26479887472e92f631ee4c1632b0faf01c2629b9656eb7b7b4d84f6ab32a1",
           "note": "the disclosure-log copy served directly from Ofcom; ingested here as the primary raw"

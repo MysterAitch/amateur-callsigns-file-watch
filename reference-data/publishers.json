@@ -6,9 +6,9 @@
       "name": "Ofcom",
       "roles": ["originator"],
       "url": "https://www.ofcom.org.uk",
-      "channels": ["live", "ofcom-disclosure-log"],
+      "channels": ["ofcom-open-data-page", "ofcom-disclosure-log"],
       "licenceBasis": "ofcom-terms",
-      "licenceStatement": "Ofcom originates the amateur-radio register and the FOI disclosures the mirror holds, and serves them itself — the open-data register from ofcom.org.uk (the `live` channel) and the FOI disclosure log (the `ofcom-disclosure-log` channel). This states Ofcom's current terms of use, as the publisher's default basis; a specific publication — particularly a historical vintage — may have been published under different terms and can override it. Ofcom's terms of use permit its website material to be reproduced free of charge in any format, provided it is reproduced accurately, not used in a misleading context, and Ofcom copyright is acknowledged. The disclosure-log material is additionally FOI-disclosed public-authority information; where such material is Crown copyright it is separately re-usable under the Open Government Licence, but Ofcom's own terms of use are the permission this mirror cites and relies on by default.",
+      "licenceStatement": "Ofcom originates the amateur-radio register and the FOI disclosures the mirror holds, and serves them itself — the open-data register from ofcom.org.uk (the `ofcom-open-data-page` channel) and the FOI disclosure log (the `ofcom-disclosure-log` channel). This states Ofcom's current terms of use, as the publisher's default basis; a specific publication — particularly a historical vintage — may have been published under different terms and can override it. Ofcom's terms of use permit its website material to be reproduced free of charge in any format, provided it is reproduced accurately, not used in a misleading context, and Ofcom copyright is acknowledged. The disclosure-log material is additionally FOI-disclosed public-authority information; where such material is Crown copyright it is separately re-usable under the Open Government Licence, but Ofcom's own terms of use are the permission this mirror cites and relies on by default.",
       "licenceUrl": "https://www.ofcom.org.uk/about-ofcom/website/terms-of-use",
       "licenceCitations": [
         {

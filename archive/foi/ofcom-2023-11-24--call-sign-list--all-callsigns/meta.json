@@ -31,7 +31,7 @@
       "contentsIndicative": "header Value,Status,Product,Type,Call Sign MMSI: Last Modified Date (no BOM, CRLF, UTF-8); 108,922 data rows - 99,529 Allocated, 9,148 Reserved, 235 Available, 10 blank statuses. Product is the licence-product vocabulary verbatim (Amateur Foundation/Intermediate/Full/Club/Temporary Reciprocal Radio Licence), no blanks. Type is 'Call Sign - Amateur' throughout (service discriminator). Last-modified dates day-first DD/MM/YYYY spanning 2016-07-23..2023-11-24 (day-first verified: 63,988 rows carry a day>12). Anomalies preserved verbatim: 13 Excel-mangled callsigns (Intermediate 20xxx suffixes reading as months, served as 20-Apr/20-May/20-Nov/21-Jan etc.); 'G6 FMU' interior space; lower-case 'g0jrk'; six-to-nine-character reciprocal/regional callsigns.",
       "witnesses": [
         {
-          "channel": "live",
+          "channel": "ofcom-open-data-page",
           "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2023/december/call-sign-list-241123.csv?v=215321",
           "sha256": "e438c141a645bacdeef7efdc5f474c629744f4328e60fe5f091ba38194dd6061",
           "note": "the disclosure-log copy served directly from Ofcom; ingested here as the primary raw"

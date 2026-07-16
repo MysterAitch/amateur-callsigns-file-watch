@@ -30,7 +30,7 @@
       "contentsIndicative": "header Value__c,Product__c,Status__c,Type__c (Salesforce object export, the '__c' custom-field suffix; no BOM, CRLF, latin-1). 154,582 data rows - 102,533 Allocated, 51,903 Reserved, 145 Available, 1 blank status. Product__c is the licence-product vocabulary verbatim (Full 58,928 / Foundation 35,075 / Intermediate 13,975 / Club 1,821 / Special Event Station 5 / Temporary Reciprocal 1) and blank on 44,777 rows (the reserved pool). Type__c is 'Call Sign - Amateur' throughout (service discriminator). No date columns. Anomalies preserved verbatim: 15 Excel-mangled Intermediate callsigns served as dates (20-Apr, 20-Nov, 21-Jan etc.); two over-length callsigns EDUCATIONAL and ENVIRONMENTS; lower-case 'g0jrk'; one callsign 'G7IWE' with a trailing raw 0xA0 (latin-1 NBSP, the file's only high byte) - trimmed and counted, after which G7IWE and G0TQK each appear twice (duplicate callsigns on the record).",
       "witnesses": [
         {
-          "channel": "live",
+          "channel": "ofcom-open-data-page",
           "url": "https://www.ofcom.org.uk/siteassets/resources/documents/about-ofcom/foi/2024/may/copy-all-callsigns-30-apr-24.csv?v=356445",
           "sha256": "df10e3cac383097123c56fbcb802a0e87f27a88504b246d32b498cf1acd70620",
           "note": "the disclosure-log copy served directly from Ofcom; ingested here as the primary raw. No UKGWA mirror of this specific 2024-04-30 export was found (a single witness)."
