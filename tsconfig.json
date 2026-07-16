@@ -25,11 +25,12 @@
     // The projection invariant suite (src/v2/projection-invariants.test.ts)
     // imports the site's shared query core (site/browser-query.js) so it runs the
     // EXACT SQL the surfaces build, not a copy that could drift. allowJs lets
-    // this program read that JSDoc-annotated module's real signatures;
-    // checkJs stays off exactly as in tsconfig.site.json (modules opt in
-    // per-file via @ts-check, #530).
+    // this program read that JSDoc-annotated module's real signatures; checkJs
+    // is on for the same reason it now is in tsconfig.site.json - every site/
+    // module #530 brought under checking is clean, so this program's one
+    // incidental .js dependency is checked too rather than left as a blind spot.
     "allowJs": true,
-    "checkJs": false
+    "checkJs": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

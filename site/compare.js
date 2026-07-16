@@ -1,3 +1,4 @@
+// @ts-check
 // Cross-publication comparison surface (issue #199): run ONE filter across
 // several publications and surface the differences. Progressive enhancement,
 // frameworkless, same sql.js-httpvfs range-request engine as explore.js /
@@ -26,11 +27,22 @@ import { buildPredicate, stateToViewParam, viewParamToState, applyViewToState, m
 import { createHistorySync } from './history-sync.js';
 import { withDatabaseLoading } from './db-loading.js';
 
+/** @typedef {import('./browser-query.js').FilterState} FilterState */
+
+// The row shape read back off the httpvfs worker's query() is not typed by the
+// vendored library (no shipped types); every SELECT here states its own column
+// use inline, exactly as ledger-query.js's QueryExecutor does for the ledger
+// database. window.createDbWorker's own signature is declared once in
+// global.d.ts, shared with app.js/entry-browser.js/explore.js.
+/** @typedef {{ db: { query: (sql: string, params?: unknown[]) => Promise<any[]> } }} DbWorker */
+
 const { createDbWorker } = window;
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
 const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
 
+/** @type {Promise<DbWorker> | null} */
 let workerPromise = null;
+/** @returns {Promise<DbWorker>} */
 async function openCombined() {
   workerPromise ??= (async () => {
     let version = 'dev';
@@ -46,15 +58,42 @@ async function openCombined() {
   return workerPromise;
 }
 
+// Mirrors document.createElement's own overload shape: a known tag name
+// returns its specific HTMLElement subtype (so callers get .value/.hidden etc.
+// without a cast), while the plain-string fallback overload keeps this
+// assignable as a generic ElementFactory (none of this module's callers need
+// that, but the shape matches entry-browser.js/explore.js for consistency).
+/**
+ * @template {keyof HTMLElementTagNameMap} K
+ * @overload
+ * @param {K} tag
+ * @param {Record<string, string>} [attrs]
+ * @param {(Node | string)[]} [children]
+ * @returns {HTMLElementTagNameMap[K]}
+ */
+/**
+ * @overload
+ * @param {string} tag
+ * @param {Record<string, string>} [attrs]
+ * @param {(Node | string)[]} [children]
+ * @returns {HTMLElement}
+ */
+/**
+ * @param {string} tag
+ * @param {Record<string, string>} [attrs]
+ * @param {(Node | string)[]} [children]
+ */
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) { if (k === 'text') node.textContent = v; else node.setAttribute(k, v); }
   for (const c of children) node.append(c);
   return node;
 }
-function code(v) { const c = el('code'); c.textContent = v ?? ''; return c; }
+/** @param {unknown} v */
+function code(v) { const c = el('code'); c.textContent = v == null ? '' : String(v); return c; }
 // A callsign with whitespace/odd characters made legible (shared classifier),
 // so a damaged value in a set-difference sample doesn't hide.
+/** @param {unknown} raw */
 function rawCallsign(raw) {
   const span = el('code');
   for (const ch of String(raw ?? '')) {
@@ -63,6 +102,7 @@ function rawCallsign(raw) {
   }
   return span;
 }
+/** @param {number} n */
 const nf = (n) => Number(n).toLocaleString('en-GB');
 
 // ---- Change-magnitude indicator (issue #409) -------------------------------
@@ -91,13 +131,31 @@ const nf = (n) => Number(n).toLocaleString('en-GB');
 // course, so under 2% reads as "within the expected range"; 2–10% is a mild
 // deviation worth a glance; 10%+ is a substantial swing (e.g. the ~45k
 // blank-product omission — #330).
+/** @typedef {{ mild: number, substantial: number }} ChangeThresholds */
+/** @type {ChangeThresholds} */
 export const CHANGE_THRESHOLDS = { mild: 0.02, substantial: 0.10 };
+
+/** @typedef {'in-range' | 'mild' | 'substantial'} ChangeSeverity */
+/** @typedef {'up' | 'down' | 'none'} ChangeDirection */
+/**
+ * @typedef {object} DeltaClassification
+ * @property {ChangeSeverity} severity
+ * @property {ChangeDirection} direction
+ * @property {number} delta
+ * @property {number} ratio
+ */
 
 // Classify a value against a baseline. Returns the severity tier
 // ('in-range' | 'mild' | 'substantial'), the direction ('up' | 'down' | 'none')
 // and the signed/relative delta. Pure. A zero baseline that becomes non-zero is
 // a substantial "appeared from none" (no ratio exists, but a population
 // arriving from nothing is a strong signal); both zero is in-range.
+/**
+ * @param {number} value
+ * @param {number} baseline
+ * @param {ChangeThresholds} [thresholds]
+ * @returns {DeltaClassification}
+ */
 export function classifyDelta(value, baseline, thresholds = CHANGE_THRESHOLDS) {
   const delta = value - baseline;
   const direction = delta > 0 ? 'up' : delta < 0 ? 'down' : 'none';
@@ -109,14 +167,18 @@ export function classifyDelta(value, baseline, thresholds = CHANGE_THRESHOLDS) {
   return { severity, direction, delta, ratio };
 }
 
+/** @type {Record<ChangeDirection, string>} */
 const CARET = { up: '↑', down: '↓', none: '' };
+/** @param {number} ratio */
 const formatPct = (ratio) => `${(ratio * 100).toFixed(1)}%`;
 // A signed percentage using a true minus sign, for the plain in-range reading.
+/** @param {DeltaClassification} c */
 const signedPct = (c) => `${c.direction === 'down' ? '−' : c.direction === 'up' ? '+' : ''}${formatPct(c.ratio)}`;
 
 // The accessible name a screen-reader announces for a classified change — the
 // full "up 12%, substantial" phrasing the #409 spec calls for, so severity and
 // direction never depend on colour or the caret glyph alone.
+/** @param {DeltaClassification} c */
 export function describeChange(c) {
   const dir = c.direction === 'up' ? 'up' : c.direction === 'down' ? 'down' : 'no change';
   if (c.severity === 'in-range') return c.direction === 'none' ? 'no change' : `${dir} ${formatPct(c.ratio)}, within the expected range`;
@@ -128,6 +190,11 @@ export function describeChange(c) {
 // The render-ready description of a change: the severity class, the visible
 // text (caret + magnitude), and the accessible label. Kept separate from the
 // DOM build so it can be asserted without a document.
+/**
+ * @param {number} value
+ * @param {number} baseline
+ * @param {ChangeThresholds} [thresholds]
+ */
 export function changeIndicatorSpec(value, baseline, thresholds = CHANGE_THRESHOLDS) {
   const c = classifyDelta(value, baseline, thresholds);
   const caret = CARET[c.direction];
@@ -142,6 +209,11 @@ export function changeIndicatorSpec(value, baseline, thresholds = CHANGE_THRESHO
 // and substantial hide the visible caret+magnitude from assistive tech and
 // carry the full accessible phrase in a visually-hidden span instead, so the
 // announcement is "up 12.0%, substantial deviation", not "up-arrow 12 percent".
+/**
+ * @param {number} value
+ * @param {number} baseline
+ * @param {ChangeThresholds} [thresholds]
+ */
 export function changeIndicator(value, baseline, thresholds = CHANGE_THRESHOLDS) {
   const spec = changeIndicatorSpec(value, baseline, thresholds);
   const cls = spec.severity === 'in-range' ? 'chg chg-inrange'
@@ -159,19 +231,33 @@ export function changeIndicator(value, baseline, thresholds = CHANGE_THRESHOLDS)
 const DIFF_CAP = 25000;
 const SAMPLE = 50; // rows shown per difference category
 
+/** @type {FilterState} */
 const state = {
   facets: new Map(), toggles: new Set(), columnFilters: new Map(),
   sort: [{ col: 'callsign', dir: 'ASC' }], pageSize: 25, customSql: null,
 };
+/** @type {Set<string>} */
 const selected = new Set();      // dataset keys chosen for comparison
-let datasets = [];               // [{ dataset, record_count, intended_complete, scope_notes, coverage_affecting }]
+// One row of history_datasets, exactly as loadDatasets' SELECT reads it back.
+/**
+ * @typedef {object} HistoryDatasetRow
+ * @property {string} dataset
+ * @property {number} record_count
+ * @property {string} intended_complete
+ * @property {string} scope_notes
+ * @property {string} coverage_affecting
+ */
+/** @type {HistoryDatasetRow[]} */
+let datasets = [];
 // A hand-edited filter condition that overrides the inherited facet/toggle
 // state - so a comparison whose inherited filter matched nothing can be fixed
 // in place without a round-trip to a publication browser.
+/** @type {string | null} */
 let customPredicate = null;
 // Human notes about pieces DROPPED from a deep link (an unsafe ?pred=, an
 // unknown ?datasets= key) - surfaced in the filter note so a stale or mangled
 // link is honest about what it could not honour rather than failing silently.
+/** @type {string[]} */
 let linkIssues = [];
 
 // A URL-supplied ?pred= is applied verbatim as a SQL WHERE condition, so it
@@ -180,6 +266,7 @@ let linkIssues = [];
 // comparison degrades to its inherited filter) rather than smuggling a second
 // statement into the read-only query. Pure, so it is unit-tested. Returns the
 // usable predicate (or null) and the rejected raw value (or null) for a note.
+/** @param {string | null} rawPred */
 export function sanitiseComparePredicate(rawPred) {
   if (rawPred === null || rawPred === '') return { predicate: null, rejected: null };
   if (rawPred.includes(';')) return { predicate: null, rejected: rawPred };
@@ -190,9 +277,15 @@ export function sanitiseComparePredicate(rawPred) {
 // list and keys that do not (a stale link naming a since-removed publication).
 // Unknown keys are dropped from the selection and reported, never silently
 // applied. Pure; order-preserving and de-duplicated.
+/**
+ * @param {string | null} rawSets
+ * @param {string[]} knownKeys
+ */
 export function partitionSelectedDatasets(rawSets, knownKeys) {
   const known = new Set(knownKeys);
+  /** @type {string[]} */
   const chosen = [];
+  /** @type {string[]} */
   const unknown = [];
   const seen = new Set();
   for (const k of (rawSets ?? '').split(',')) {
@@ -203,23 +296,27 @@ export function partitionSelectedDatasets(rawSets, knownKeys) {
   return { chosen, unknown };
 }
 
-const setup = document.getElementById('setup');
-const picker = document.getElementById('dataset-picker');
-const filterNote = document.getElementById('filter-note');
-const scopeNote = document.getElementById('scope-note');
-const countsSection = document.getElementById('counts');
-const countsResult = document.getElementById('counts-result');
-const diffSection = document.getElementById('diff');
-const diffResult = document.getElementById('diff-result');
-const sqlSection = document.getElementById('sql');
-const sqlText = document.getElementById('sql-text');
-const predInput = document.getElementById('pred-input');
-const bootStatus = document.getElementById('boot-status');
-const bootAlert = document.getElementById('boot-alert');
+// Guaranteed present: compare.html always ships this fixed panel scaffold, and
+// nothing here has ever null-guarded these (a page missing one of them is not
+// a state this module tries to run in).
+const setup = /** @type {HTMLElement} */ (document.getElementById('setup'));
+const picker = /** @type {HTMLElement} */ (document.getElementById('dataset-picker'));
+const filterNote = /** @type {HTMLElement} */ (document.getElementById('filter-note'));
+const scopeNote = /** @type {HTMLElement} */ (document.getElementById('scope-note'));
+const countsSection = /** @type {HTMLElement} */ (document.getElementById('counts'));
+const countsResult = /** @type {HTMLElement} */ (document.getElementById('counts-result'));
+const diffSection = /** @type {HTMLElement} */ (document.getElementById('diff'));
+const diffResult = /** @type {HTMLElement} */ (document.getElementById('diff-result'));
+const sqlSection = /** @type {HTMLElement} */ (document.getElementById('sql'));
+const sqlText = /** @type {HTMLElement} */ (document.getElementById('sql-text'));
+const predInput = /** @type {HTMLTextAreaElement} */ (document.getElementById('pred-input'));
+const bootStatus = /** @type {HTMLElement} */ (document.getElementById('boot-status'));
+const bootAlert = /** @type {HTMLElement} */ (document.getElementById('boot-alert'));
 
 // A publication whose declared coverage is partial, or that carries a
 // coverage-affecting quality observation: presence differences against it are
 // not add/remove events.
+/** @param {HistoryDatasetRow} [d] */
 function scopeCaveat(d) {
   if (d === undefined) return null;
   if (d.intended_complete === 'false') return 'declared partial';
@@ -227,6 +324,7 @@ function scopeCaveat(d) {
   if (d.intended_complete === '' || d.intended_complete === undefined) return 'coverage not declared';
   return null;
 }
+/** @param {string} key */
 function datasetOf(key) { return datasets.find(d => d.dataset === key); }
 
 // The dataset-agnostic predicate applied to every publication. A hand-edited
@@ -315,6 +413,10 @@ function updateFilterNote() {
 // alert instead of a bare status line. Exported (with its opener and elements
 // injected) so a DOM test drives this exact eager path against a controlled
 // opener without spinning up a real worker.
+/**
+ * @param {{ statusEl?: HTMLElement, alertEl?: HTMLElement, resultEl?: HTMLElement, openDatabase: () => Promise<DbWorker> }} elements
+ * @returns {Promise<HistoryDatasetRow[]>}
+ */
 export function loadDatasets({ statusEl, alertEl, resultEl, openDatabase }) {
   return withDatabaseLoading(
     { statusEl, alertEl, resultEl, label: 'combined database' },
@@ -393,6 +495,20 @@ async function refresh() {
   await renderDiff(chosen, pred);
 }
 
+// One row of the counts table: a publication's matching/total cohort size and
+// its scope caveat (null when the publication carries none).
+/**
+ * @typedef {object} CountRow
+ * @property {string} key
+ * @property {number} matching
+ * @property {number} total
+ * @property {string | null} caveat
+ */
+
+/**
+ * @param {string[]} chosen
+ * @param {string} pred
+ */
 async function renderCounts(chosen, pred) {
   countsSection.hidden = false;
   // A trivial predicate matches every row, so the answer is already known -
@@ -400,7 +516,9 @@ async function renderCounts(chosen, pred) {
   // requests is needed. Only a real filter costs a query.
   const trivial = pred === '1=1';
   if (!trivial) countsResult.replaceChildren(el('p', { class: 'muted', text: 'Counting… (scans each publication over HTTP range requests — a few seconds)' }));
+  /** @type {CountRow[]} */
   const rows = [];
+  /** @type {DbWorker | null} */
   let worker = null;
   for (const key of chosen) {
     const d = datasetOf(key);
@@ -411,7 +529,12 @@ async function renderCounts(chosen, pred) {
         worker ??= await openCombined();
         const r = await worker.db.query(matchingCountSql(key, pred));
         matching = Number(r[0].n);
-      } catch (err) { countsResult.replaceChildren(el('p', { class: 'muted', text: `Query failed: ${String(err.message ?? err)}` })); return; }
+      } catch (err) {
+        // Caught value is `unknown`; read `.message` through the same narrowed
+        // view db-loading.js uses at the same kind of boundary.
+        const message = /** @type {{ message?: string }} */ ((typeof err === 'object' && err !== null) ? err : {}).message;
+        countsResult.replaceChildren(el('p', { class: 'muted', text: `Query failed: ${message ?? String(err)}` })); return;
+      }
     }
     rows.push({ key, matching, total, caveat: scopeCaveat(d) });
   }
@@ -429,6 +552,10 @@ async function renderCounts(chosen, pred) {
   // publication's count is scope, not a real-world change, so a swing across
   // one (e.g. the blank-product omission, #330) is shown as a plain delta
   // marked "scope differs" rather than dressed up as a substantial deviation.
+  /**
+   * @param {CountRow} r
+   * @param {CountRow} [prior]
+   */
   const changeCell = (r, prior) => {
     if (prior === undefined) return el('td', { class: 'muted', text: 'baseline' });
     if (r.caveat !== null || prior.caveat !== null) {
@@ -455,8 +582,13 @@ async function renderCounts(chosen, pred) {
   ]);
   countsResult.replaceChildren(wrap, note);
 }
+/** @type {Map<string, number>} */
 const countCache = new Map();
 
+/**
+ * @param {string[]} chosen
+ * @param {string} pred
+ */
 async function renderDiff(chosen, pred) {
   if (chosen.length !== 2) {
     diffSection.hidden = false;
@@ -466,6 +598,7 @@ async function renderDiff(chosen, pred) {
   diffSection.hidden = false;
   const [a, b] = chosen; // chosen is sorted ascending, so a is the earlier baseline
   const da = datasetOf(a); const db = datasetOf(b);
+  /** @type {string[]} */
   const caveats = [];
   if (scopeCaveat(da) !== null) caveats.push(`${a} is ${scopeCaveat(da)}`);
   if (scopeCaveat(db) !== null) caveats.push(`${b} is ${scopeCaveat(db)}`);
@@ -481,17 +614,36 @@ async function renderDiff(chosen, pred) {
   }
 
   diffResult.replaceChildren(el('p', { class: 'muted', text: `Comparing ${a} → ${b}…` }));
+  /** @type {DbWorker} */
   let worker;
-  try { worker = await openCombined(); } catch (err) { diffResult.replaceChildren(el('p', { class: 'muted', text: String(err.message ?? err) })); return; }
+  try {
+    worker = await openCombined();
+  } catch (err) {
+    // Caught value is `unknown`; read `.message` through the same narrowed view
+    // db-loading.js uses at the same kind of boundary.
+    const message = /** @type {{ message?: string }} */ ((typeof err === 'object' && err !== null) ? err : {}).message;
+    diffResult.replaceChildren(el('p', { class: 'muted', text: message ?? String(err) })); return;
+  }
 
   const diff = setDiffSql(a, b, pred);
-  let appeared; let disappeared; let changed;
+  /** @type {any[]} */
+  let appeared;
+  /** @type {any[]} */
+  let disappeared;
+  /** @type {any[]} */
+  let changed;
   try {
     appeared = await worker.db.query(diff.appeared);
     disappeared = await worker.db.query(diff.disappeared);
     changed = await worker.db.query(diff.changed);
-  } catch (err) { diffResult.replaceChildren(el('p', { class: 'muted', text: `Diff failed: ${String(err.message ?? err)}` })); return; }
+  } catch (err) {
+    // Caught value is `unknown`; read `.message` through the same narrowed view
+    // db-loading.js uses at the same kind of boundary.
+    const message = /** @type {{ message?: string }} */ ((typeof err === 'object' && err !== null) ? err : {}).message;
+    diffResult.replaceChildren(el('p', { class: 'muted', text: `Diff failed: ${message ?? String(err)}` })); return;
+  }
 
+  /** @type {Node[]} */
   const nodes = [];
   if (caveats.length > 0) {
     nodes.push(el('p', { class: 'cmp-warn' }, [
@@ -511,6 +663,11 @@ async function renderDiff(chosen, pred) {
   diffResult.replaceChildren(...nodes);
 }
 
+/**
+ * @param {string} title
+ * @param {any[]} rows
+ * @param {string[]} columns
+ */
 function diffBlock(title, rows, columns) {
   const shown = rows.slice(0, SAMPLE);
   const details = el('details', { class: 'cmp-diffblock' });
@@ -527,6 +684,10 @@ function diffBlock(title, rows, columns) {
   return details;
 }
 
+/**
+ * @param {string[]} chosen
+ * @param {string} pred
+ */
 function renderSql(chosen, pred) {
   sqlSection.hidden = false;
   // Keep the editable filter box in step with the active predicate (unless the
@@ -547,7 +708,7 @@ function initCompare() {
   // filter. Safe like the entry browser's literal SQL: the VFS is read-only, so
   // the worst a crafted condition does is run another read-only read. A manual
   // edit supersedes the deep link, so its dropped-param notes are cleared.
-  document.getElementById('pred-apply').addEventListener('click', () => {
+  document.getElementById('pred-apply')?.addEventListener('click', () => {
     const raw = predInput.value.trim();
     if (raw.includes(';')) { scopeNote.textContent = 'Filter must be a single condition (no “;”).'; return; }
     customPredicate = raw === '' ? null : raw;
@@ -555,7 +716,7 @@ function initCompare() {
     updateFilterNote();
     void refresh();
   });
-  document.getElementById('pred-reset').addEventListener('click', () => {
+  document.getElementById('pred-reset')?.addEventListener('click', () => {
     customPredicate = null;
     linkIssues = [];
     updateFilterNote();

@@ -1,3 +1,4 @@
+// @ts-check
 // Coordinated data browser ("hand-made crossfilter") for open-data entry
 // pages. Progressive enhancement over the static "Browse the data" preview:
 // a SQL-as-model engine where every affordance - facet chip, sidebar
@@ -20,11 +21,29 @@ import { callsignPillRaw } from './callsign-pill.js';
 import { createHistorySync } from './history-sync.js';
 import { withDatabaseLoading } from './db-loading.js';
 
+/** @typedef {import('./browser-query.js').FilterState} FilterState */
+/** @typedef {import('./browser-query.js').Facet} Facet */
+
+// The live state this browser holds: the shared FilterState (facets/toggles/
+// columnFilters/sort/pageSize/customSql - see browser-query.js) plus the
+// current page, which is this surface's own concern (the comparison surface
+// has no pagination).
+/** @typedef {FilterState & { page: number }} EntryBrowserState */
+
+// The row shape read back off the httpvfs worker's query() is not typed by the
+// vendored library (no shipped types); every SELECT here states its own column
+// use inline, exactly as ledger-query.js's QueryExecutor does for the ledger
+// database. window.createDbWorker's own signature is declared once in
+// global.d.ts, shared with app.js/compare.js/explore.js.
+/** @typedef {{ db: { query: (sql: string, params?: unknown[]) => Promise<any[]> } }} DbWorker */
+
 const { createDbWorker } = window;
 const workerUrl = new URL('./vendor/sqlite.worker.js', import.meta.url);
 const wasmUrl = new URL('./vendor/sql-wasm.wasm', import.meta.url);
 
+/** @type {Promise<DbWorker> | null} */
 let workerPromise = null;
+/** @returns {Promise<DbWorker>} */
 async function openCombined() {
   workerPromise ??= (async () => {
     let version = 'dev';
@@ -40,13 +59,40 @@ async function openCombined() {
   return workerPromise;
 }
 
+// Mirrors document.createElement's own overload shape: a known tag name
+// returns its specific HTMLElement subtype (so callers get .value/.open/
+// .disabled etc. without a cast), while the plain-string fallback overload
+// keeps this assignable where a caller wants the dependency-injected
+// ElementFactory shape (e.g. callsignPillRaw), which knows only "some tag,
+// some HTMLElement".
+/**
+ * @template {keyof HTMLElementTagNameMap} K
+ * @overload
+ * @param {K} tag
+ * @param {Record<string, string>} [attrs]
+ * @param {(Node | string)[]} [children]
+ * @returns {HTMLElementTagNameMap[K]}
+ */
+/**
+ * @overload
+ * @param {string} tag
+ * @param {Record<string, string>} [attrs]
+ * @param {(Node | string)[]} [children]
+ * @returns {HTMLElement}
+ */
+/**
+ * @param {string} tag
+ * @param {Record<string, string>} [attrs]
+ * @param {(Node | string)[]} [children]
+ */
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) { if (k === 'text') node.textContent = v; else node.setAttribute(k, v); }
   for (const c of children) node.append(c);
   return node;
 }
-function codeCell(value) { const c = el('code'); c.textContent = value ?? ''; return c; }
+/** @param {unknown} value */
+function codeCell(value) { const c = el('code'); c.textContent = value == null ? '' : String(value); return c; }
 
 // The raw callsign column: every character legible (whitespace, control,
 // format and replacement characters become visible {markers}) inside the shared
@@ -54,9 +100,14 @@ function codeCell(value) { const c = el('code'); c.textContent = value ?? ''; re
 // bytes are data to inspect, not a navigation target - so the browser's
 // transparency view is preserved while a callsign looks the same as everywhere
 // else on the site.
+/** @param {string} raw */
 function renderRawCallsign(raw) {
   return callsignPillRaw(el, raw);
 }
+/**
+ * @param {string} raw
+ * @param {string} cleaned
+ */
 function describeDiff(raw, cleaned) {
   const notes = [];
   if (/ /.test(raw)) notes.push('non-breaking space');
@@ -68,18 +119,26 @@ function describeDiff(raw, cleaned) {
   return notes.length > 0 ? notes.join('; ') : 'differs after cleaning';
 }
 
-const bootSection = document.querySelector('.browser[data-dataset]');
+const bootSection = /** @type {HTMLElement | null} */ (document.querySelector('.browser[data-dataset]'));
 if (bootSection !== null) enhance(bootSection);
 
 // Exported (and the combined opener is injectable) so a JSDOM test can drive the
 // eager first-load path against a controlled opener - asserting the shared
 // loading affordance is engaged - without opening a real range-request worker.
 // In the browser it runs with the module's memoised openCombined.
+/**
+ * @param {HTMLElement} section
+ * @param {{ openCombined?: () => Promise<DbWorker> }} [options]
+ */
 export function enhance(section, { openCombined: openCombinedFn = openCombined } = {}) {
-  const dataset = section.getAttribute('data-dataset');
-  const staticView = section.querySelector('.browser-static');
+  // Guaranteed present: this module only ever enhances a `.browser[data-dataset]`
+  // section (the module's own bootstrap selector, or the test scaffold that
+  // mirrors it), and the server-rendered markup always stamps the attribute.
+  const dataset = /** @type {string} */ (section.getAttribute('data-dataset'));
+  const staticView = /** @type {HTMLElement | null} */ (section.querySelector('.browser-static'));
   if (staticView === null) return;
 
+  /** @type {EntryBrowserState} */
   const state = {
     facets: new Map(),        // key -> { field, isExpr, values:Set, exclude:bool }
     toggles: new Set(),       // toggle ids present = active
@@ -140,6 +199,7 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
   // columns carried from Ofcom's publication into the combined's UNION schema -
   // present as columns for all rows but populated only for the publications
   // that actually carried them (e.g. the licence_version_* dates).
+  /** @param {[string, string?][]} cols */
   const columnList = (cols) => el('ul', { class: 'schema-cols' },
     cols.map(([name, note]) => el('li', {}, note === undefined ? [codeCell(name)] : [codeCell(name), ` — ${note}`])));
   const schemaBox = el('details', { class: 'schema-ref' });
@@ -262,10 +322,18 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
       const elapsed = ((performance.now() - started) / 1000).toFixed(1);
       renderRows(rows, total, elapsed);
     } catch (err) {
-      if (opened) statusLine.textContent = `Query failed: ${String(err.message ?? err)}`;
+      // Caught value is `unknown`; read `.message` through the same narrowed view
+      // db-loading.js uses at the same kind of boundary.
+      const message = /** @type {{ message?: string }} */ ((typeof err === 'object' && err !== null) ? err : {}).message;
+      if (opened) statusLine.textContent = `Query failed: ${message ?? String(err)}`;
     }
   }
 
+  /**
+   * @param {any[]} rows
+   * @param {number} total
+   * @param {string} elapsed
+   */
   function renderRows(rows, total, elapsed) {
     const from = total === 0 ? 0 : state.page * state.pageSize + 1;
     const to = state.page * state.pageSize + rows.length;
@@ -292,6 +360,7 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
       if (sortable) {
         // Shift/Ctrl/Alt-click appends a secondary sort; plain click resets
         // to a single-column sort, toggling direction if already sorting by it.
+        /** @param {boolean} multi */
         const sortBy = (multi) => {
           const idx = state.sort.findIndex(s => s.col === h);
           if (multi) {
@@ -343,13 +412,17 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
     pills.replaceChildren();
     if (state.customSql !== null) {
       const pill = el('span', { class: 'pill custom' }, ['custom SQL — ', el('button', { type: 'button', 'aria-label': 'back to filters', text: 'reset ✕' })]);
-      pill.querySelector('button').addEventListener('click', () => { state.customSql = null; state.page = 0; void refresh(); });
+      pill.querySelector('button')?.addEventListener('click', () => { state.customSql = null; state.page = 0; void refresh(); });
       pills.append(pill);
       return;
     }
+    /**
+     * @param {string} label
+     * @param {() => void} remove
+     */
     const add = (label, remove) => {
       const pill = el('span', { class: 'pill' }, [label, ' ', el('button', { type: 'button', 'aria-label': `remove ${label}`, text: '✕' })]);
-      pill.querySelector('button').addEventListener('click', () => { remove(); state.page = 0; void refresh(); });
+      pill.querySelector('button')?.addEventListener('click', () => { remove(); state.page = 0; void refresh(); });
       pills.append(pill);
     };
     for (const f of state.facets.values()) {
@@ -366,16 +439,25 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
   }
 
   // --- filter triggers (sidebar rows, chart bars, chips) ---
+  /**
+   * @param {Element} node
+   * @returns {{ key: string, field: string, isExpr: boolean, label: string }}
+   */
   function facetKeyOf(node) {
     const explicit = node.getAttribute('data-filter-label');
     const expr = node.getAttribute('data-filter-expr');
     if (expr !== null) return { key: expr, field: expr, isExpr: true, label: explicit ?? node.closest('.bd,figure')?.querySelector('h3,figcaption')?.textContent?.trim() ?? expr };
-    const col = node.getAttribute('data-filter-col');
+    // Guaranteed present: reached only for a node matched via [data-filter-col]
+    // (the caller's selector below), never [data-filter-expr] alone.
+    const col = /** @type {string} */ (node.getAttribute('data-filter-col'));
     return { key: col, field: col, isExpr: false, label: explicit ?? col };
   }
+  /** @param {Element} node */
   function toggleFacetValue(node) {
     const { key, field, isExpr, label } = facetKeyOf(node);
-    const value = node.getAttribute('data-filter-val');
+    // Guaranteed present: every filter-trigger node carries its value alongside
+    // data-filter-col/data-filter-expr (site-render.ts stamps them together).
+    const value = /** @type {string} */ (node.getAttribute('data-filter-val'));
     let facet = state.facets.get(key);
     if (facet === undefined) { facet = { key, field, isExpr, label, values: new Set(), exclude: false }; state.facets.set(key, facet); }
     if (facet.values.has(value)) facet.values.delete(value); else facet.values.add(value);
@@ -383,41 +465,54 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
     state.customSql = null; state.page = 0; void refresh();
     section.scrollIntoView({ block: 'start' });
   }
-  for (const node of document.querySelectorAll('[data-filter-col],[data-filter-expr]')) {
-    const trigger = (e) => { if (e.target.closest('a') !== null) return; toggleFacetValue(node); };
+  // Cast to HTMLElement (not the plain Element the compound selector's overload
+  // returns): every filter-trigger node in the rendered markup is an HTML
+  // element, and keydown lives on HTMLElement's event map, not Element's.
+  for (const node of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('[data-filter-col],[data-filter-expr]'))) {
+    /** @param {Event} e */
+    const trigger = (e) => {
+      const target = /** @type {Element | null} */ (e.target);
+      if (target !== null && target.closest('a') !== null) return;
+      toggleFacetValue(node);
+    };
     node.addEventListener('click', trigger);
-    node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger(e); } });
+    node.addEventListener('keydown', (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger(e); } });
   }
 
   // Notable "compound filter" links carry a full data-browser-sql query (a
   // preset that facets can't express as one predicate, e.g. forbidden AND
   // issued-since-2019). Clicking loads it as a custom query and runs it;
   // <a href="#"> for link styling, so preventDefault the jump.
-  for (const node of document.querySelectorAll('[data-browser-sql]')) {
-    const sql = node.getAttribute('data-browser-sql');
+  for (const node of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('[data-browser-sql]'))) {
+    // Guaranteed present: reached only for a node matched via [data-browser-sql].
+    const sql = /** @type {string} */ (node.getAttribute('data-browser-sql'));
+    /** @param {Event} [e] */
     const go = (e) => { if (e) e.preventDefault(); textarea.value = sql; sqlBox.open = true; state.customSql = sql; state.page = 0; void refresh(); section.scrollIntoView({ block: 'start' }); };
     node.addEventListener('click', go);
-    node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(e); } });
+    node.addEventListener('keydown', (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(e); } });
   }
 
   // Quick chips: reset + the two boolean toggles.
+  /** @typedef {{ label: string, run: () => void } | { label: string, toggle: string }} ChipDef */
+  /** @type {ChipDef[]} */
   const chipDefs = [
     { label: 'clear filters', run: () => { state.facets.clear(); state.toggles.clear(); state.columnFilters.clear(); state.customSql = null; state.page = 0; } },
     ...Object.entries(TOGGLES).map(([id, t]) => ({ label: t.label, toggle: id })),
   ];
+  /** @type {{ def: ChipDef, chip: HTMLElement }[]} */
   const chipEls = [];
   for (const def of chipDefs) {
     const chip = el('span', { class: 'chip', role: 'button', tabindex: '0', text: def.label });
     const fire = () => {
-      if (def.run) def.run();
+      if ('run' in def) def.run();
       else { if (state.toggles.has(def.toggle)) state.toggles.delete(def.toggle); else state.toggles.add(def.toggle); state.customSql = null; state.page = 0; }
       syncChips(); void refresh();
     };
     chip.addEventListener('click', fire);
-    chip.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(); } });
+    chip.addEventListener('keydown', (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(); } });
     chipEls.push({ def, chip }); chips.append(chip);
   }
-  function syncChips() { for (const { def, chip } of chipEls) chip.classList.toggle('active', def.toggle !== undefined && state.toggles.has(def.toggle)); }
+  function syncChips() { for (const { def, chip } of chipEls) chip.classList.toggle('active', 'toggle' in def && state.toggles.has(def.toggle)); }
 
   // Toolbar wiring.
   sizeInput.addEventListener('change', () => { const n = Math.max(1, Math.min(1000, Number(sizeInput.value) || 25)); state.pageSize = n; sizeInput.value = String(n); state.page = 0; void refresh(); });
@@ -459,6 +554,7 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
 
   // --- download the current view as CSV, with a query/meta comment header ---
   const DOWNLOAD_CAP = 20000;
+  /** @param {unknown} v */
   const csvField = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   async function downloadCsv() {
     const prev = dlBtn.textContent;
@@ -486,7 +582,10 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
       URL.revokeObjectURL(url);
       if (truncated) statusLine.textContent = `Downloaded ${DOWNLOAD_CAP.toLocaleString('en-GB')} rows (capped) — narrow the filters for the full set.`;
     } catch (err) {
-      statusLine.textContent = `Download failed: ${String(err.message ?? err)}`;
+      // Caught value is `unknown`; read `.message` through the same narrowed view
+      // db-loading.js uses at the same kind of boundary.
+      const message = /** @type {{ message?: string }} */ ((typeof err === 'object' && err !== null) ? err : {}).message;
+      statusLine.textContent = `Download failed: ${message ?? String(err)}`;
     } finally {
       dlBtn.disabled = false; dlBtn.textContent = prev;
     }
