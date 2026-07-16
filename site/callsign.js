@@ -10,11 +10,15 @@
 // The record/manifest shapes are the builder's compact projection; the JSDoc
 // typedefs below mirror the builder's module header and the two must be kept
 // in step. Everything data-derived is written with textContent, never
-// innerHTML, so register bytes can never smuggle markup.
+// innerHTML, so register bytes can never smuggle markup - with ONE audited
+// exception, the anatomy figure, whose markup comes from the shared escaping
+// renderer over segments that must reassemble the cleaned key exactly (see
+// renderAnatomyFigure).
 
 import { cleanCallsign, reportIssueUrl, FLAG_NOTES, NOTABLE_PARSE_STATUS } from './ledger-query.js';
 import { canonicalCallsign } from './browser-query.js';
 import { wireLedgerSearch } from './ledger.js';
+import { anatomyFigureHtml } from './callsign-pill.js';
 
 // ---------------------------------------------------------------------------
 // Shapes (mirroring src/ci/build-callsign-shards.ts).
@@ -179,6 +183,63 @@ export function latestSummary(record, manifest) {
   const products = (l.p ?? []).map(i => manifest.vocab.product[i] ?? '(unknown product)');
   const types = (l.t ?? []).map(i => manifest.vocab.type[i] ?? '(unknown type)');
   return { dataset, statuses, products, types };
+}
+
+// ---------------------------------------------------------------------------
+// The live anatomy figure (issue #595): the record's precomputed components
+// mapped onto the shared segments-driven renderer (site/callsign-pill.js — the
+// same implementation behind the structure page's example figure), so the
+// diagram always agrees with the decomposition the site attests elsewhere.
+// Segmentation is NEVER re-derived here: the parts come from the build-time
+// parser via the shard record, and they are accepted only when their
+// concatenation reproduces the resolved key exactly — anything else renders
+// the explicit "no confident decomposition" state, never a guess.
+
+// The figure vocabulary: same colour tokens, names and plain-English meanings
+// as the structure page's example, with links resolved for this page (site
+// root). Fixed caller vocabulary — never register-derived bytes.
+const FIGURE_PART_META = {
+  prefix: { token: 'prefix', colourName: 'blue', shortLabel: 'Prefix', name: 'Prefix',
+    meaning: 'The UK country block — G, M or 2, allocated by the ITU.',
+    nameHref: 'callsign-structure.html#parts' },
+  rsl: { token: 'rsl', colourName: 'green', shortLabel: 'RSL', name: 'Regional Secondary Locator',
+    meaning: 'A nation letter after the first character.',
+    nameHref: 'callsign-structure.html#rsl', glossaryHref: 'glossary.html#rsl' },
+  digit: { token: 'digit', colourName: 'amber', shortLabel: 'Digit', name: 'Digit',
+    meaning: 'A single number.',
+    nameHref: 'callsign-structure.html#parts' },
+  suffix: { token: 'suffix', colourName: 'red', shortLabel: 'Suffix', name: 'Suffix',
+    meaning: 'The ending letters — the sense of “suffix” this site always means.',
+    nameHref: 'callsign-structure.html#parts', glossaryHref: 'glossary.html#suffix' },
+};
+
+/**
+ * The diagram's part list for one resolved record, or null when there is no
+ * confident standard decomposition to draw. Null whenever the build-time
+ * parser reported anything but a clean parse (visitor, special-event, empty,
+ * unparseable — their shapes are not the prefix–digit–suffix diagram), and
+ * whenever the components do not reassemble into the resolved key exactly
+ * (defence in depth: a figure that does not spell the callsign is a guess,
+ * and a guess is never drawn).
+ * @param {string} key the resolved record key (the cleaned register form)
+ * @param {NonNullable<CallsignRecord['a']>} a the record's parsed components
+ * @returns {import('./callsign-pill.js').AnatomyPartSpec[] | null}
+ */
+export function anatomyFigureParts(key, a) {
+  if (a.ps !== undefined) return null;
+  const pre = a.pre ?? '';
+  const sfx = a.sfx ?? '';
+  const rsl = a.rsl ?? '';
+  // A parsed prefix series is always one country letter plus one digit (M7,
+  // G0, 20, …); anything else is not the shape this diagram draws.
+  if (pre.length !== 2 || sfx === '') return null;
+  if (pre[0] + rsl + pre[1] + sfx !== key) return null;
+  /** @type {import('./callsign-pill.js').AnatomyPartSpec[]} */
+  const parts = [{ ...FIGURE_PART_META.prefix, chars: pre[0] }];
+  if (rsl !== '') parts.push({ ...FIGURE_PART_META.rsl, chars: rsl });
+  parts.push({ ...FIGURE_PART_META.digit, chars: pre[1] });
+  parts.push({ ...FIGURE_PART_META.suffix, chars: sfx });
+  return parts;
 }
 
 // ---------------------------------------------------------------------------
@@ -410,6 +471,58 @@ function renderGlance(host, res, manifest) {
 
   card.appendChild(body);
   host.appendChild(card);
+}
+
+/**
+ * The anatomy figure slot (#anatomy-figure): the viewed callsign's own
+ * labelled, colour-grouped diagram, or the explicit no-decomposition state.
+ * The slot is a progressive enhancement over the textual components list
+ * (renderAnatomy below), which remains the JS-free baseline.
+ * @param {HTMLElement} host
+ * @param {Resolution} res
+ */
+function renderAnatomyFigure(host, res) {
+  host.textContent = '';
+  const record = res.record;
+  const key = res.key;
+  if (record === null || key === null) { host.hidden = true; return; }
+
+  const parts = anatomyFigureParts(key, record.a ?? {});
+  if (parts === null) {
+    // Fail loud but friendly: name the shape the parser DID read where it read
+    // one, and never draw a fabricated segmentation.
+    const ps = record.a?.ps;
+    const note = el('p', 'muted');
+    if (ps === 'visitor') {
+      note.append('No diagram: this is a visitor/reciprocal form — M/ followed by the visitor’s own home '
+        + 'callsign — not the prefix–digit–suffix shape this diagram draws. The components below show what '
+        + 'the parser did read.');
+    } else if (ps === 'special-event') {
+      note.append('No diagram: this is a special-event GB form, outside the prefix–digit–suffix shape this '
+        + 'diagram draws. The components below show what the parser did read.');
+    } else {
+      note.append('No confident decomposition: the parser could not read this as a standard UK callsign, so '
+        + 'no diagram is drawn — a guessed segmentation would be worse than none. The form is kept exactly '
+        + 'as published.');
+    }
+    host.appendChild(note);
+    host.hidden = false;
+    return;
+  }
+
+  // The one deliberate innerHTML on this page: the markup comes from the
+  // shared renderer, which HTML-escapes every interpolated value, and the
+  // segments above are accepted only when they reassemble the cleaned key
+  // (alphabet A–Z 0–9 /) exactly — so register bytes cannot smuggle markup.
+  host.innerHTML = anatomyFigureHtml({
+    parts,
+    idPrefix: 'anat',
+    titleText: `Anatomy of the callsign ${key}`,
+    descLead: `The callsign ${key}`,
+    figcaptionLead: `The parts of ${key}, as read by the build-time parser`,
+    display: key,
+  });
+  host.hidden = false;
 }
 
 /**
@@ -666,6 +779,7 @@ export async function runLookup(typed) {
   const res = await resolveCallsign(typed);
   const hosts = {
     result: document.getElementById('result'),
+    anatomyFigure: document.getElementById('anatomy-figure'),
     anatomy: document.getElementById('anatomy'),
     history: document.getElementById('history'),
     notes: document.getElementById('notes'),
@@ -675,6 +789,7 @@ export async function runLookup(typed) {
   };
   if (hosts.miss) renderMiss(hosts.miss, res, manifest);
   if (hosts.result) renderGlance(hosts.result, res, manifest);
+  if (hosts.anatomyFigure) renderAnatomyFigure(hosts.anatomyFigure, res);
   if (hosts.anatomy) renderAnatomy(hosts.anatomy, res, manifest);
   if (hosts.history) renderHistory(hosts.history, res, manifest);
   if (hosts.notes && hosts.notesPanel) renderNotes(hosts.notes, hosts.notesPanel, res);
