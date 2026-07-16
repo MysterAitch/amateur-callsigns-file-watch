@@ -22,8 +22,8 @@
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true,
 
-    // The projection parity suite (src/v2/projection-parity.test.ts) imports
-    // the site's shared query core (site/browser-query.js) so it runs the
+    // The projection invariant suite (src/v2/projection-invariants.test.ts)
+    // imports the site's shared query core (site/browser-query.js) so it runs the
     // EXACT SQL the surfaces build, not a copy that could drift. allowJs lets
     // this program read that JSDoc-annotated module's real signatures;
     // checkJs stays off exactly as in tsconfig.site.json (modules opt in

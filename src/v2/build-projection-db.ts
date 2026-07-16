@@ -9,12 +9,12 @@
  * history cards) - as a FOLD OVER THE CLAIM LEDGER rather than a parallel
  * normalised build.
  *
- * The table names, schemas and indexes deliberately mirror what the legacy
- * build (src/ci/build-sqlite.ts) exposes, so the surfaces' SQL runs unchanged;
- * only the database URL moves. Equivalence against the legacy build is asserted
- * by the parity suite (projection-parity.test.ts) - the merge gate the
- * migration rides on - and the legacy build keeps running beside this one until
- * that retirement lands (#445).
+ * The table names, schemas and indexes deliberately mirror the register-shaped
+ * tables the surfaces expect (the shape the retired legacy build once exposed),
+ * so the surfaces' SQL runs unchanged; only the database URL moves. The
+ * projection databases' own correctness is asserted by the invariant suite
+ * (projection-invariants.test.ts); the legacy runtime build was retired once
+ * that gate was in place (#445).
  *
  * WHAT FOLDS FROM THE LEDGER (the canonical source, ADR 0013):
  *  - Each open-data publication's canonical register rows: the raw-layer claims
