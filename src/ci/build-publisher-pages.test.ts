@@ -112,6 +112,191 @@ describe('holdingsForPublisher — partitioning holdings by relationship', { tag
   });
 });
 
+// ---- Composite holdings layout (#637) + derived blurbs (#636) --------------
+
+// A fixture spanning the branches the composite must handle: a full complete
+// open-data snapshot (largest), a declared-partial snapshot carrying several
+// data-quality observations, a multi-class multi-table FOI entry recovered from
+// a web archive (earliest, first spreadsheet), and an undated not-held FOI
+// response. The vintage span leaves a run of empty years between 2016 and 2025,
+// so the continuous map axis must show gaps.
+const COMPOSITE: Holding[] = [
+  {
+    key: '2026-06-23', lane: 'open-data', title: 'Publication of 23 June 2026', authorId: 'ofcom',
+    sourceKey: 'ofcom-amateur-callsigns', witnessPublisherIds: [], witnessAgreementByPublisher: {}, unresolvedChannels: [],
+    datasetClasses: ['register-snapshot'], vintage: '2026-06-23', recordCount: 158318, tableCount: 1,
+    coverage: { complete: true }, hasCoverageField: true, qualityCount: 0, coverageAffecting: false,
+    provenance: 'live', recoveredChannels: [], hasXlsx: false,
+  },
+  {
+    key: '2025-06-04', lane: 'open-data', title: 'Publication of 4 June 2025', authorId: 'ofcom',
+    sourceKey: 'ofcom-amateur-callsigns', witnessPublisherIds: [], witnessAgreementByPublisher: {}, unresolvedChannels: [],
+    datasetClasses: ['register-snapshot'], vintage: '2025-06-04', recordCount: 112650, tableCount: 1,
+    coverage: { complete: false, scopeNotes: 'allocated licences only' }, hasCoverageField: true,
+    qualityCount: 3, coverageAffecting: true, provenance: 'live', recoveredChannels: [], hasXlsx: false,
+  },
+  {
+    key: 'ofcom-2016-09--all', lane: 'foi', title: 'Callsign database 2016', authorId: 'ofcom',
+    sourceKey: 'ofcom-foi', witnessPublisherIds: ['ukgwa'], witnessAgreementByPublisher: { ukgwa: 'corroborating' }, unresolvedChannels: [],
+    datasetClasses: ['register-snapshot', 'forbidden-list'], vintage: '2016-09-20', recordCount: 141295,
+    tableCount: 2, hasCoverageField: false, qualityCount: 0, coverageAffecting: false,
+    recoveredChannels: ['UKGWA'], hasXlsx: true, outcome: 'successful',
+  },
+  {
+    key: 'ofcom-612185--not-held', lane: 'foi', title: 'Unallocated call signs (not held)', authorId: 'ofcom',
+    sourceKey: 'ofcom-foi', witnessPublisherIds: [], witnessAgreementByPublisher: {}, unresolvedChannels: [],
+    datasetClasses: ['reference-context'], vintage: undefined, recordCount: undefined, tableCount: 0,
+    hasCoverageField: false, qualityCount: 0, coverageAffecting: false, recoveredChannels: [],
+    hasXlsx: false, outcome: 'not held',
+  },
+];
+const compositeHtml = publisherPage(OFCOM, { authored: COMPOSITE, hosted: [] });
+
+describe('publisherPage composite — derived per-dataset blurbs (#636)', { tags: ['unit'] }, () => {
+  it('Blurb_RegisterSnapshot_ReadsKindScaleAndVintageInPlainEnglish', () => {
+    expect(compositeHtml).toContain('A register snapshot of ~158,000 callsigns as published 23 June 2026.');
+  });
+
+  it('Blurb_MultiClassEntry_NamesEveryKindOnceAndCaveatsTheLargestTable', () => {
+    // Counted once, both classes named, and the scale is the largest single
+    // table (never the cross-sheet sum).
+    expect(compositeHtml).toContain('A register snapshot and list of forbidden suffixes of ~141,000 callsigns (its largest of 2 tables) as at 20 September 2016.');
+  });
+
+  it('Blurb_DeclaredPartialSnapshot_AppendsTheDeclaredScope', () => {
+    expect(compositeHtml).toContain('A register snapshot of ~113,000 callsigns as published 4 June 2025, allocated licences only.');
+  });
+
+  it('Blurb_NotHeldResponse_SaysWhatIsKnownRatherThanPadding', () => {
+    expect(compositeHtml).toContain('A Freedom-of-Information response recording that Ofcom does not hold this data.');
+  });
+});
+
+describe('publisherPage composite — the scan strip signals (#637)', { tags: ['unit'] }, () => {
+  it('Scale_MultiTableEntry_ReportsTheLargestSingleTableNeverTheCrossSheetSum', () => {
+    // Honesty rule: the largest single table (141,295), never 141,295 + 1,465.
+    expect(compositeHtml).toContain('<b>141,295</b>');
+    expect(compositeHtml).not.toContain('142,760');
+    expect(compositeHtml).toContain('largest of 2 tables');
+  });
+
+  it('Scale_EntryWithNoTabularData_SaysSoRatherThanShowingZero', () => {
+    expect(compositeHtml).toContain('no tabular data');
+  });
+
+  it('Coverage_OpenDataComplete_ShowsGlyphAndWordsNotColourAlone', () => {
+    expect(compositeHtml).toContain('declared complete');
+    // The glyph is paired with words, never carrying the meaning by colour alone.
+    expect(compositeHtml).toMatch(/aria-hidden="true">✓<\/span> declared complete/);
+  });
+
+  it('Coverage_OpenDataPartial_ShowsPartialWithTheScopeInTheTitle', () => {
+    expect(compositeHtml).toContain('declared partial');
+    expect(compositeHtml).toContain('title="allocated licences only"');
+  });
+
+  it('Coverage_FoiEntry_ReadsNotDeclaredBecauseTheLaneHasNoSuchField', () => {
+    // FOI carries no intendedCoverage field, so it can honestly say no more.
+    expect(compositeHtml).toContain('not declared');
+  });
+
+  it('QualityFlags_SeveralObservations_FoldIntoOneCountPillLinkingToFidelity', () => {
+    // Multiple observations show a count, not a stack; coverage-affecting is
+    // surfaced distinctly; the pill links to the fidelity page.
+    expect(compositeHtml).toContain('3 data-quality flags · coverage-affecting');
+    expect(compositeHtml).toMatch(/hold-flag--issue" href="[^"]*fidelity\.html"/);
+  });
+
+  it('Notability_ComputedMarkers_FlagEarliestLargestRecoveredFirstSpreadsheetAndNotHeld', () => {
+    expect(compositeHtml).toContain('★ earliest holding');
+    expect(compositeHtml).toContain('▲ largest single table');
+    expect(compositeHtml).toContain('recovered · UKGWA');
+    expect(compositeHtml).toContain('first spreadsheet');
+    expect(compositeHtml).toContain('not held');
+  });
+
+  it('MetadataPills_KindTags_AreCalmLinksDistinctFromTheOrangeFlagPills', () => {
+    // Two distinct pill classes: calm kind tags (own line) vs. orange flags.
+    expect(compositeHtml).toMatch(/hold-tag" href="[^"]*datasets\/classes\/forbidden-list\.html">forbidden list/);
+    expect(compositeHtml).toContain('class="hold-flag hold-flag--note"');
+  });
+
+  it('DatasetKey_InTheRowBody_IsDemotedNotProminentInTheStrip', () => {
+    // The internal key is demoted to a small muted code element in the body,
+    // not a scan-strip signal.
+    expect(compositeHtml).toContain('<code class="hold-key">2026-06-23</code>');
+  });
+});
+
+describe('publisherPage composite — overview map on a continuous vintage axis (#637)', { tags: ['unit'] }, () => {
+  it('Map_ContinuousAxis_RendersEmptyYearsAsVisibleGaps', () => {
+    // 2016 then 2025/2026 leaves 2017–2024 empty; each is a visible gap row.
+    expect(compositeHtml).toContain('hold-map-yr--empty');
+    expect(compositeHtml).toMatch(/hold-map-yr hold-map-yr--empty"><span class="hold-map-yrlab">2020<\/span>/);
+  });
+
+  it('Map_EachCell_CarriesAKindLetterAndAnAccessibleNameSoColourIsNeverTheSoleCue', () => {
+    // The letter carries the kind; the accessible name spells out title, kind
+    // and vintage.
+    expect(compositeHtml).toMatch(/hold-cell" data-kind="register-snapshot" href="#a-hold-2026-06-23" aria-label="Publication of 23 June 2026 — Register snapshot — 23 June 2026"/);
+    expect(compositeHtml).toContain('data-kind="forbidden-list"');
+  });
+
+  it('Map_Cell_LinksToItsRowAnchorForTargetHighlighting', () => {
+    // The cell anchors the row; the stylesheet highlights the :target row.
+    expect(compositeHtml).toContain('href="#a-hold-ofcom-612185--not-held"');
+    expect(compositeHtml).toContain('id="a-hold-ofcom-612185--not-held"');
+    expect(compositeHtml).toContain('.hold-row:target');
+  });
+
+  it('Map_Legend_ListsOnlyTheKindsPresent', () => {
+    expect(compositeHtml).toContain('hold-legend');
+    expect(compositeHtml).toContain('hold-cell--legend');
+  });
+});
+
+describe('publisherPage composite — the vintage timeline structure (#637)', { tags: ['unit'] }, () => {
+  it('Timeline_YearGroups_AreOrderedNewestFirst', () => {
+    const y2026 = compositeHtml.indexOf('>2026</span>');
+    const y2016 = compositeHtml.indexOf('>2016</span>');
+    expect(y2026).toBeGreaterThan(-1);
+    expect(y2016).toBeGreaterThan(y2026);
+  });
+
+  it('Timeline_MultiClassEntry_IsCountedOnceInItsYear', () => {
+    // The 2016 entry carries two classes but counts once towards its year.
+    expect(compositeHtml).toMatch(/<span class="hold-yearnum">2016<\/span> <span class="hold-yearcount">1 dataset<\/span>/);
+  });
+
+  it('Timeline_UndatedEntries_CloseTheListUnderTheirOwnHeading', () => {
+    expect(compositeHtml).toContain('hold-yeargroup--undated');
+    expect(compositeHtml).toMatch(/<span class="hold-yearnum">Undated<\/span>/);
+  });
+});
+
+describe('publisherPage composite — non-happy paths (#637)', { tags: ['unit'] }, () => {
+  it('Composite_SingleHolding_RendersAMapAndTimelineWithOneCellAndRow', () => {
+    const html = publisherPage(OFCOM, { authored: [COMPOSITE[0]], hosted: [] });
+    expect(html).toContain('hold-map');
+    expect(html).toContain('hold-timeline');
+    expect(html).toMatch(/<span class="hold-yearnum">2026<\/span> <span class="hold-yearcount">1 dataset<\/span>/);
+    expect(html).toContain('id="a-hold-2026-06-23"');
+  });
+
+  it('Composite_UndatedOnlyHoldings_StillRenderAnUndatedGroupAndNoDatedYears', () => {
+    const html = publisherPage(OFCOM, { authored: [COMPOSITE[3]], hosted: [] });
+    expect(html).toContain('hold-yeargroup--undated');
+    expect(html).toContain('undated');
+  });
+
+  it('Composite_AuthoredAndHosted_NamespaceRowIdsSoADualRoleEntryNeverCollides', () => {
+    // The same entry authored and hosted gets distinct anchors per relationship.
+    const html = publisherPage(OFCOM, { authored: [COMPOSITE[0]], hosted: [COMPOSITE[0]] });
+    expect(html).toContain('id="a-hold-2026-06-23"');
+    expect(html).toContain('id="h-hold-2026-06-23"');
+  });
+});
+
 // ---- Per-publisher page ----------------------------------------------------
 
 describe('publisherPage — a publisher with holdings', { tags: ['unit'] }, () => {
@@ -138,10 +323,11 @@ describe('publisherPage — a publisher with holdings', { tags: ['unit'] }, () =
     expect(html).toMatch(/Transitive corroboration.*will be labelled distinctly/);
   });
 
-  it('PublisherPage_HostedCorroboratingCopy_SaysTheMirrorHoldsTheExactBytes', () => {
-    // A hosted copy whose witness hash matches a held copy is marked
-    // corroborating (#618 increment 3) — provable availability, not a claim.
-    expect(html).toContain('corroborating: the mirror holds these exact bytes (sha256 verified)');
+  it('PublisherPage_HostedCorroboratingCopy_CarriesTheCorroborationPillInTheComposite', () => {
+    // A hosted copy whose witness hash matches a held copy is flagged
+    // corroborating on its composite row (#618 increment 3) — provable
+    // availability, shown as a calm positive pill, not a claim.
+    expect(html).toContain('corroborating · bytes held');
   });
 });
 
@@ -151,8 +337,8 @@ describe('publisherPage — hosted copies carry their agreement class', { tags: 
       authored: [],
       hosted: [{ key: 'ofcom-2016--all', lane: 'foi', title: 'All callsigns 2016', authorId: 'ofcom', sourceKey: 'ofcom-foi', witnessPublisherIds: ['ukgwa'], witnessAgreementByPublisher: { ukgwa: 'citation-grade' }, unresolvedChannels: [] }],
     });
-    expect(html).toContain('href="../../datasets/foi/ofcom-2016--all/index.html"');
-    expect(html).not.toContain('corroborating: the mirror holds these exact bytes');
+    expect(html).toContain('#h-hold-ofcom-2016--all');
+    expect(html).not.toContain('corroborating · bytes held');
   });
 });
 

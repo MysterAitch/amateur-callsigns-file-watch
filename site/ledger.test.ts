@@ -7,6 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import {
   cleanCallsign, resolveEntity, entityClaims, observationsOf,
   foldObservations, anatomyOf, flagsOf, bytesHex, groupByYear,
+  coTemporalDivergenceNote, segmentsText,
 } from './ledger-query.js';
 import { runLookup } from './ledger.js';
 import { buildCompactLedgerSqlite } from '../src/v2/build-ledger-db-compact.ts';
@@ -183,6 +184,34 @@ describe('claim-ledger query layer (live, against a built SQLite)', { tags: ['ui
     expect(flags).toContain('raw-differs-from-cleaned');
     expect(flags).toContain('multiple-raw-variants');
     expect(flags).toContain('co-temporal-status-divergence');
+  });
+
+  it('CoTemporalDivergence_WhenAbnormalTwinDisagrees_LeadsWithFormNormalityAndCarriesLinkableWorking', async () => {
+    // Issue #633: the enriched note leads with the user-meaningful fact - the
+    // non-standard 'G0TQK ' spelling is Allocated while the canonical form is
+    // Reserved within the 2022 snapshot - and carries a working with the
+    // per-form statuses and the source rows behind them (linkable evidence).
+    const claims = await entityClaims(query, 'G#0TQK');
+    const note = coTemporalDivergenceNote(claims, 'G0TQK');
+    expect(note).not.toBeNull();
+    if (note === null) return;
+    expect(note.label).toBe('A non-standard spelling carries a different status');
+    const prose = segmentsText(note.gloss);
+    expect(prose).toContain('G0TQK '); // the abnormal spelling, verbatim
+    expect(prose).toContain('canonical form');
+    expect(prose).toMatch(/Allocated/);
+    expect(prose).toMatch(/Reserved/);
+    // The working reproduces the per-form statuses and cites where they were seen.
+    const inputs = note.working.inputs;
+    expect(inputs).toContainEqual({ role: 'Allocated', value: 'G0TQK ' });
+    expect(inputs).toContainEqual({ role: 'Reserved', value: 'G0TQK' });
+    expect(note.working.sources.length).toBeGreaterThan(0);
+  });
+
+  it('CoTemporalDivergence_WhenNoSnapshotDisagrees_ReturnsNull', async () => {
+    // M7TEE is listed once, with one status - there is no divergence to enrich.
+    const claims = await entityClaims(query, 'M#7TEE');
+    expect(coTemporalDivergenceNote(claims, 'M7TEE')).toBeNull();
   });
 });
 

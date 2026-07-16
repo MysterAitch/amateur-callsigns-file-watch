@@ -32,6 +32,7 @@ export const GLOSSARY_ANCHORS = {
   'forbidden-suffix': 'a forbidden suffix',
   'placeholder-form': 'the placeholder (#) form',
   'cleaned': 'the cleaned join key',
+  'unkeyable-row': 'an unkeyable row',
   'ignored-line': 'an ignored (set-aside) line',
   'normalised': 'the normalised view',
   'canonical-form': 'the canonical form',

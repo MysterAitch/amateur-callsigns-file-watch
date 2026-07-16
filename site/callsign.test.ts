@@ -5,6 +5,7 @@ import {
   describeCell,
   seenSummary,
   latestSummary,
+  twinConflict,
 } from './callsign.js';
 
 // The instant per-callsign page's pure shaping layer (issue #594): the
@@ -141,6 +142,81 @@ describe('seenSummary / latestSummary (record resolution)', { tags: ['ui'] }, ()
 
   it('LatestSummary_WhenNeverSeenInARegisterSnapshot_IsNull', () => {
     expect(latestSummary({ h: '?...' }, m)).toBeNull();
+  });
+});
+
+describe('twinConflict (cleaned-key twin conflict annotation, issue #633)', { tags: ['ui'] }, () => {
+  // A manifest whose legend and product vocabulary cover the twin cases: O is
+  // Allocated (the on-disk letter the real build assigns), A Available, R
+  // Reserved. The latest register snapshot is index 1.
+  function twinManifest() {
+    const base = manifest();
+    return {
+      ...base,
+      legend: { statuses: { O: 'Allocated', A: 'Available', R: 'Reserved' }, markers: base.legend.markers },
+      vocab: { ...base.vocab, product: ['Amateur Foundation Radio Licence', 'Amateur Full Radio Licence'] },
+    };
+  }
+
+  it('TwinConflict_WhenAbnormalVariantHoldsActiveLicenceAndCanonicalIsPool_LeadsWithTheInversionAndPoolRowCaveat', () => {
+    // The G6FMU shape: the abnormal 'G6 FMU' row holds the active Full licence
+    // (dated), the canonical form sits in the pool (Available, undated).
+    const record = {
+      h: '.!', l: { d: 1, s: ['O', 'A'], p: [1] },
+      tw: [{ r: 'G6 FMU', s: 'O', m: '2025-10-11', p: 1 }, { r: 'G6FMU', s: 'A' }],
+    };
+    const c = twinConflict(record, 'G6FMU', twinManifest());
+    expect(c).not.toBeNull();
+    if (c === null) return;
+    // Normal-form primacy: the canonical form leads the presentation order.
+    expect(c.variants[0].normal).toBe(true);
+    expect(c.variants[0].raw).toBe('G6FMU');
+    expect(c.normalitySplit).toBe(true);
+    // The abnormal variant carries the active, dated Full licence.
+    const abnormal = c.variants.find(v => !v.normal);
+    expect(abnormal?.status).toBe('Allocated');
+    expect(abnormal?.product).toBe('Amateur Full Radio Licence');
+    expect(abnormal?.modified).toBe('2025-10-11');
+    // One dated, one undated: recency takes the pool-row caveat, not staleness.
+    expect(c.recency.kind).toBe('partial');
+  });
+
+  it('TwinConflict_WhenBothRowsDatedAndDistinct_NamesTheMostRecentlyModifiedRow', () => {
+    const record = {
+      h: '.!', l: { d: 1, s: ['O', 'R'] },
+      tw: [{ r: 'X1ABC', s: 'R', m: '2019-01-01' }, { r: 'X1ABC ', s: 'O', m: '2024-06-30' }],
+    };
+    const c = twinConflict(record, 'X1ABC', twinManifest());
+    expect(c).not.toBeNull();
+    if (c === null) return;
+    expect(c.recency.kind).toBe('ordered');
+    expect(c.recency.newest?.raw).toBe('X1ABC ');
+    expect(c.recency.newest?.modified).toBe('2024-06-30');
+  });
+
+  it('TwinConflict_WhenVariantsAgreeOnStatus_ReturnsNullSoNoDoubtIsManufactured', () => {
+    // G0TQK: listed twice, both Reserved. A duplicate, not a conflict.
+    const record = {
+      h: '.!', l: { d: 1, s: ['R'] },
+      tw: [{ r: 'G0TQK', s: 'R' }, { r: 'G0TQK ', s: 'R' }],
+    };
+    expect(twinConflict(record, 'G0TQK', twinManifest())).toBeNull();
+  });
+
+  it('TwinConflict_WhenNoRowCarriesADate_StaysAPlainFlaggedConflict', () => {
+    const record = {
+      h: '.!', l: { d: 1, s: ['O', 'R'] },
+      tw: [{ r: 'Z9ZZZ', s: 'R' }, { r: 'Z9 ZZZ', s: 'O' }],
+    };
+    const c = twinConflict(record, 'Z9ZZZ', twinManifest());
+    expect(c).not.toBeNull();
+    if (c === null) return;
+    expect(c.recency.kind).toBe('none');
+    expect(c.recency.newest).toBeNull();
+  });
+
+  it('TwinConflict_WhenNoTwinBreakdownExists_ReturnsNull', () => {
+    expect(twinConflict({ h: '.A', l: { d: 1, s: ['A'] } }, 'M7TEE', twinManifest())).toBeNull();
   });
 });
 
