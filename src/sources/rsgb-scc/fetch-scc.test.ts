@@ -10,18 +10,36 @@ import {
   readCommittedRows,
   summariseIntake,
   defaultUserAgent,
+  buildConditionalRequestHeaders,
   type FetchLike,
+  type FetchLikeResponse,
 } from './fetch-scc.ts';
-import { toCsv, type SccRow } from './parse-scc.ts';
+import { toCsv, toMetaJson, toMeta, parseSccTable, type SccRow, type SccMeta } from './parse-scc.ts';
 
 // A fetch double returning a canned response. Mirrors the subset of Response the
-// module reads (status, content-type header, text body).
-function fetchReturning(body: string, init: { status?: number; contentType?: string } = {}): FetchLike {
+// module reads (status, content-type/etag/last-modified headers, text body).
+function fetchReturning(body: string, init: { status?: number; contentType?: string; etag?: string; lastModified?: string } = {}): FetchLike {
+  const headerValues: Record<string, string | undefined> = {
+    'content-type': init.contentType ?? 'text/html; charset=UTF-8',
+    'etag': init.etag,
+    'last-modified': init.lastModified,
+  };
   return () => Promise.resolve({
     status: init.status ?? 200,
-    headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? (init.contentType ?? 'text/html; charset=UTF-8') : null) },
+    headers: { get: (name: string) => headerValues[name.toLowerCase()] ?? null },
     text: () => Promise.resolve(body),
   });
+}
+
+// A fetch double that records the request init it was called with, so a test
+// can assert which conditional headers (if any) were actually sent.
+function fetchCapturingRequests(response: FetchLikeResponse): { fetchImpl: FetchLike; requests: Array<Record<string, string>> } {
+  const requests: Array<Record<string, string>> = [];
+  const fetchImpl: FetchLike = (_url, init) => {
+    requests.push(init.headers);
+    return Promise.resolve(response);
+  };
+  return { fetchImpl, requests };
 }
 
 // The structural fixture (no RSGB prose; a hand-built stand-in for the page).
@@ -102,7 +120,92 @@ describe('fetchSccPage', { tags: ['unit'] }, () => {
 
   it('WellFormedHtml_WhenFetched_ReturnsTheBody', async () => {
     const body = fixture(TWO_GOOD_ROWS);
-    await expect(fetchSccPage('https://example.test/scc', { fetchImpl: fetchReturning(body) })).resolves.toBe(body);
+    const result = await fetchSccPage('https://example.test/scc', { fetchImpl: fetchReturning(body) });
+    expect(result.status).toBe(200);
+    expect(result.status === 200 && result.body).toBe(body);
+  });
+});
+
+describe('fetchSccPage conditional requests', { tags: ['unit'] }, () => {
+  it('ConditionalValidators_WhenProvided_SendIfNoneMatchAndIfModifiedSince', async () => {
+    const { fetchImpl, requests } = fetchCapturingRequests({
+      status: 200,
+      headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'text/html' : null) },
+      text: () => Promise.resolve(fixture(TWO_GOOD_ROWS)),
+    });
+    await fetchSccPage('https://example.test/scc', { fetchImpl, conditional: { etag: '"abc123"', lastModified: 'Sun, 15 Jun 2026 09:00:00 GMT' } });
+    expect(requests).toHaveLength(1);
+    expect(requests[0]['If-None-Match']).toBe('"abc123"');
+    expect(requests[0]['If-Modified-Since']).toBe('Sun, 15 Jun 2026 09:00:00 GMT');
+  });
+
+  it('NoConditionalValidators_WhenOmitted_SendsNeitherConditionalHeader', async () => {
+    const { fetchImpl, requests } = fetchCapturingRequests({
+      status: 200,
+      headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'text/html' : null) },
+      text: () => Promise.resolve(fixture(TWO_GOOD_ROWS)),
+    });
+    await fetchSccPage('https://example.test/scc', { fetchImpl });
+    expect(requests[0]).not.toHaveProperty('If-None-Match');
+    expect(requests[0]).not.toHaveProperty('If-Modified-Since');
+  });
+
+  it('ServerReturns304_WhenFetched_ReportsNotModifiedWithoutABody', async () => {
+    const result = await fetchSccPage('https://example.test/scc', { fetchImpl: fetchReturning('should never be read', { status: 304 }) });
+    expect(result.status).toBe(304);
+    expect((result as { body?: string }).body).toBeUndefined();
+  });
+
+  it('ServerReturns304_WhenDiagnosticsConfigured_WritesHeadersAloneAndMarksNoBody', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-304-diag-'));
+    try {
+      await fetchSccPage('https://example.test/scc', { fetchImpl: fetchReturning('should never be persisted', { status: 304 }), diagnosticsDir: dir });
+      expect(fs.existsSync(path.join(dir, 'page.shtml'))).toBe(false);
+      const headers = JSON.parse(fs.readFileSync(path.join(dir, 'headers.json'), 'utf8')) as { status: number; hasBody: boolean };
+      expect(headers.status).toBe(304);
+      expect(headers.hasBody).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+});
+
+describe('buildConditionalRequestHeaders', { tags: ['unit'] }, () => {
+  it('EtagAndLastModifiedPresent_WhenBuilt_CarriesBothValidators', () => {
+    const meta = { sourceHeaders: { etag: '"abc"', lastModified: 'Sun, 15 Jun 2026 09:00:00 GMT' } };
+    expect(buildConditionalRequestHeaders(meta)).toEqual({ etag: '"abc"', lastModified: 'Sun, 15 Jun 2026 09:00:00 GMT' });
+  });
+
+  it('OnlyEtagPresent_WhenBuilt_CarriesJustTheEtag', () => {
+    expect(buildConditionalRequestHeaders({ sourceHeaders: { etag: '"abc"' } })).toEqual({ etag: '"abc"', lastModified: undefined });
+  });
+
+  it('NoSourceHeadersKey_WhenBuilt_ReturnsUndefined', () => {
+    expect(buildConditionalRequestHeaders({ schemaVersion: 1 })).toBeUndefined();
+  });
+
+  it('MissingMeta_WhenBuilt_ReturnsUndefined', () => {
+    expect(buildConditionalRequestHeaders(undefined)).toBeUndefined();
+  });
+
+  it('NonObjectMeta_WhenBuilt_ReturnsUndefinedRatherThanThrowing', () => {
+    expect(buildConditionalRequestHeaders('not an object')).toBeUndefined();
+    expect(buildConditionalRequestHeaders(null)).toBeUndefined();
+  });
+
+  it('MalformedSourceHeaders_WhenValuesAreTheWrongType_TreatsThemAsAbsent', () => {
+    // Hand-edited or corrupted metadata should fall back to an unconditional
+    // fetch, never crash the sweep and never send a nonsense validator.
+    expect(buildConditionalRequestHeaders({ sourceHeaders: { etag: 12345, lastModified: null } })).toBeUndefined();
+  });
+
+  it('SourceHeadersIsNotAnObject_WhenBuilt_ReturnsUndefined', () => {
+    expect(buildConditionalRequestHeaders({ sourceHeaders: 'garbage' })).toBeUndefined();
+  });
+
+  it('EmptySourceHeadersObject_WhenBuilt_ReturnsUndefined', () => {
+    expect(buildConditionalRequestHeaders({ sourceHeaders: {} })).toBeUndefined();
   });
 });
 
@@ -255,6 +358,8 @@ describe('runSccIntake', { tags: ['unit'] }, () => {
       const csvPath = path.join(dir, 'scc.csv');
       const metaPath = path.join(dir, 'scc.meta.json');
       const result = await runSccIntake({ fetchImpl: fetchReturning(fixture(TWO_GOOD_ROWS)), csvPath, metaPath, sanityOptions: sanity, dryRun: true });
+      expect(result.notModified).toBe(false);
+      if (result.notModified) throw new Error('unreachable: a 200 response was fetched');
       expect(result.parsed.rows.length).toBe(2);
       expect(fs.existsSync(csvPath)).toBe(false);
     } finally {
@@ -268,5 +373,156 @@ describe('runSccIntake', { tags: ['unit'] }, () => {
     const summary = summariseIntake(result);
     expect(summary).toContain('G4Q: status-typo');
     expect(summary).toContain('Withdrawb=1');
+  });
+
+  it('ResponseHeaders_WhenPresentOnTheProducingFetch_AreRecordedIntoTheCommittedMeta', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-headers-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv');
+      const metaPath = path.join(dir, 'scc.meta.json');
+      await runSccIntake({
+        fetchImpl: fetchReturning(fixture(TWO_GOOD_ROWS), { etag: '"v1"', lastModified: 'Sun, 15 Jun 2026 09:00:00 GMT' }),
+        csvPath, metaPath, sanityOptions: sanity, now: new Date('2026-07-17T00:00:00.000Z'),
+      });
+      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as SccMeta;
+      expect(meta.sourceHeaders).toEqual({ etag: '"v1"', lastModified: 'Sun, 15 Jun 2026 09:00:00 GMT' });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('ResponseWithNoValidators_WhenRecorded_OmitsSourceHeadersEntirely', async () => {
+    // The real source (an .shtml page rendered via SSI) sends no ETag or
+    // Last-Modified today; the field must be absent, not a set of nulls.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-noheaders-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv');
+      const metaPath = path.join(dir, 'scc.meta.json');
+      await runSccIntake({ fetchImpl: fetchReturning(fixture(TWO_GOOD_ROWS)), csvPath, metaPath, sanityOptions: sanity, now: new Date('2026-07-17T00:00:00.000Z') });
+      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as SccMeta;
+      expect(meta.sourceHeaders).toBeUndefined();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('CommittedMetaCarriesValidators_WhenRePolled_SendsConditionalHeadersOnTheNextFetch', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-conditional-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv');
+      const metaPath = path.join(dir, 'scc.meta.json');
+      const page = fixture(TWO_GOOD_ROWS);
+      await runSccIntake({
+        fetchImpl: fetchReturning(page, { etag: '"v1"', lastModified: 'Sun, 15 Jun 2026 09:00:00 GMT' }),
+        csvPath, metaPath, sanityOptions: sanity, now: new Date('2026-07-17T00:00:00.000Z'),
+      });
+
+      const { fetchImpl, requests } = fetchCapturingRequests({
+        status: 200,
+        headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'text/html' : null) },
+        text: () => Promise.resolve(page),
+      });
+      await runSccIntake({ fetchImpl, csvPath, metaPath, sanityOptions: sanity, now: new Date('2026-08-01T00:00:00.000Z') });
+      expect(requests[0]['If-None-Match']).toBe('"v1"');
+      expect(requests[0]['If-Modified-Since']).toBe('Sun, 15 Jun 2026 09:00:00 GMT');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('ServerConfirms304_WhenACommittedTableExists_ReportsProvablyUnchangedAndWritesNothing', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-304-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv');
+      const metaPath = path.join(dir, 'scc.meta.json');
+      const page = fixture(TWO_GOOD_ROWS);
+      await runSccIntake({ fetchImpl: fetchReturning(page, { etag: '"v1"' }), csvPath, metaPath, sanityOptions: sanity, now: new Date('2026-07-17T00:00:00.000Z') });
+      const csvBefore = fs.readFileSync(csvPath, 'utf8');
+      const metaBefore = fs.readFileSync(metaPath, 'utf8');
+
+      const result = await runSccIntake({ fetchImpl: fetchReturning('', { status: 304 }), csvPath, metaPath, sanityOptions: sanity, now: new Date('2026-08-01T00:00:00.000Z') });
+
+      expect(result.notModified).toBe(true);
+      expect(result.changed).toBe(false);
+      expect(fs.readFileSync(csvPath, 'utf8')).toBe(csvBefore);
+      expect(fs.readFileSync(metaPath, 'utf8')).toBe(metaBefore);
+      expect(summariseIntake(result)).toContain('304 Not Modified');
+      expect(summariseIntake(result)).toContain('provably unchanged');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('ServerReturns304_WhenNoCommittedTableExists_FailsLoudRatherThanReportingAFalseUnchanged', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-304-missing-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv');
+      const metaPath = path.join(dir, 'scc.meta.json');
+      await expect(runSccIntake({ fetchImpl: fetchReturning('', { status: 304 }), csvPath, metaPath, sanityOptions: sanity }))
+        .rejects.toThrow(/304 Not Modified.*committed table/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('CommittedMetaPresentButCsvMissing_WhenPolled_DoesNotSendConditionalHeadersBlindly', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-orphan-meta-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv'); // deliberately never written
+      const metaPath = path.join(dir, 'scc.meta.json');
+      const parsed = parseSccTable(fixture(TWO_GOOD_ROWS));
+      fs.writeFileSync(metaPath, toMetaJson(toMeta(parsed, { fetchedAt: '2026-07-01T00:00:00.000Z', headers: { etag: '"orphan"' } })));
+
+      const { fetchImpl, requests } = fetchCapturingRequests({
+        status: 200,
+        headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'text/html' : null) },
+        text: () => Promise.resolve(fixture(TWO_GOOD_ROWS)),
+      });
+      await runSccIntake({ fetchImpl, csvPath, metaPath, sanityOptions: sanity });
+      expect(requests[0]).not.toHaveProperty('If-None-Match');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('MalformedSourceHeadersInCommittedMeta_WhenPolled_FallsBackToAnUnconditionalFetch', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-malformed-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv');
+      const metaPath = path.join(dir, 'scc.meta.json');
+      fs.writeFileSync(csvPath, toCsv(parseSccTable(fixture(TWO_GOOD_ROWS)).rows));
+      fs.writeFileSync(metaPath, JSON.stringify({ schemaVersion: 2, sourceHeaders: { etag: 12345 } }));
+
+      const { fetchImpl, requests } = fetchCapturingRequests({
+        status: 200,
+        headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'text/html' : null) },
+        text: () => Promise.resolve(fixture(TWO_GOOD_ROWS)),
+      });
+      await runSccIntake({ fetchImpl, csvPath, metaPath, sanityOptions: sanity });
+      expect(requests[0]).not.toHaveProperty('If-None-Match');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('CorruptJsonInCommittedMeta_WhenPolled_FallsBackToAnUnconditionalFetchRatherThanThrowing', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-corrupt-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv');
+      const metaPath = path.join(dir, 'scc.meta.json');
+      fs.writeFileSync(csvPath, toCsv(parseSccTable(fixture(TWO_GOOD_ROWS)).rows));
+      fs.writeFileSync(metaPath, '{ not valid json');
+
+      const { fetchImpl, requests } = fetchCapturingRequests({
+        status: 200,
+        headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'text/html' : null) },
+        text: () => Promise.resolve(fixture(TWO_GOOD_ROWS)),
+      });
+      const result = await runSccIntake({ fetchImpl, csvPath, metaPath, sanityOptions: sanity });
+      expect(requests[0]).not.toHaveProperty('If-None-Match');
+      expect(result.notModified).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

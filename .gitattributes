@@ -56,3 +56,10 @@ latest.json                  text eol=lf
 latest-raw-sorted.json       text eol=lf
 latest-meta.json             text eol=lf
 metadata-download-info.json  text eol=lf
+
+# The SCC sweep's committed derived table (issue #693): toCsv/toMetaJson are
+# byte-deterministic by design (LF line endings) and the data-validity suite
+# reads these back verbatim - pin LF so a Windows checkout cannot smudge them
+# to CRLF and break row/notes parsing.
+reference-data/rsgb-special-contest-calls.csv        text eol=lf
+reference-data/rsgb-special-contest-calls.meta.json  text eol=lf
