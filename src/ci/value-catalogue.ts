@@ -91,6 +91,48 @@ const ALLOCATED_STATUS = 'Allocated';
 // vocabularies, so they share one field to make the drift visible.
 export const PRODUCT_FIELD = 'product / licence_class';
 
+// The special-event / Notice-of-Variation licence-category family and its
+// temporal character (issue #344). Ofcom issues these under a Notice of
+// Variation; the non-permanent Special Event Station callsigns are typically
+// event-bounded — a jubilee year, a single commemoration — whereas the
+// permanent variant and the research permit are open-ended. The register's own
+// created_date (record creation) and reserved_to_date (reservation expiry)
+// BRACKET an event window rather than state it, and the snapshot day is only
+// month-level, so any window is attested-or-bracketed, never inferred. The
+// correspondence between the category and its temporal shape is a TENDENCY the
+// register does not enforce (permanent records that nonetheless carry an expiry
+// date, event records that carry none), surfaced beside the category table with
+// the counter-examples flagged rather than smoothed. Keys are canonical
+// categories of licence-category.csv; a category named here that the map no
+// longer emits is a drift the tests catch.
+type SesTemporalCharacter = 'event-bounded' | 'open-ended';
+const SES_TEMPORAL_CHARACTER: ReadonlyMap<string, SesTemporalCharacter> = new Map([
+  ['Special Event Station', 'event-bounded'],
+  ['Permanent Special Event Station', 'open-ended'],
+  ['Special Research Permit', 'open-ended'],
+]);
+
+// One special-event category's attested temporal-window evidence: over the FOI
+// observations whose source STATES a reservation-expiry field (reserved_to_date
+// present, not merely blank), how many carry an actual end date versus leave it
+// open. Records from sources that do not carry the field at all are excluded —
+// the register does not state a window there, so counting them would fabricate a
+// denominator.
+export interface SesWindowAttestation {
+  category: string;
+  character: SesTemporalCharacter;
+  // Records whose source states the reservation-expiry field (the denominator).
+  statingField: number;
+  // Of those, records carrying a reservation-end date (an attested window close).
+  withEndDate: number;
+  // Of those, records leaving the field blank (open-ended within a stating source).
+  openEnded: number;
+}
+
+// The register column that states a reservation's expiry — the attested close of
+// an event window when a special-event callsign carries one.
+const RESERVATION_EXPIRY_COLUMN = 'reserved_to_date';
+
 function tallyOpenData(bump: Bump, key: string): void {
   // Both inputs are derived files, so they resolve through the archive/
   // projection switch (issue #629 phase 2); missing files stay an empty
@@ -143,6 +185,38 @@ export function buildFieldTallies(): Tallies {
   for (const key of listArchiveKeys().sort()) tallyOpenData(bump, key);
   tallyFoi(bump, ref, path.join(CONSTANTS.DIRS.archive, 'foi'));
   return tallies;
+}
+
+// Attest the special-event family's temporal windows (issue #344) from the FOI
+// observations. For each observation whose licence_class maps into a
+// SES_TEMPORAL_CHARACTER category AND whose source states the reservation-expiry
+// field, tally whether it carries an end date or leaves it open. Only the FOI
+// register snapshots carry this field, so the attestation is legitimately sparse
+// — the evidence brackets the window, which is why it is reported beside the
+// category rather than folded into it. Categories with no attesting record are
+// omitted (nothing attested), never shown as a fabricated zero-window.
+export function collectSesWindowAttestation(foiDir: string, ref: ReferenceData): SesWindowAttestation[] {
+  const acc = new Map<string, { statingField: number; withEndDate: number; openEnded: number }>();
+  for (const obs of buildFoiObservations(foiDir)) {
+    const licenceClass = obs.values['licence_class'];
+    if (licenceClass === null || licenceClass === undefined) continue;
+    const category = normaliseLicenceCategory(licenceClass, ref);
+    if (category === null || !SES_TEMPORAL_CHARACTER.has(category)) continue;
+    const expiry = obs.values[RESERVATION_EXPIRY_COLUMN];
+    // null = the source does not carry the field, so it states no window here.
+    if (expiry === null || expiry === undefined) continue;
+    const bucket = acc.get(category) ?? { statingField: 0, withEndDate: 0, openEnded: 0 };
+    bucket.statingField += 1;
+    if (expiry.trim() === '') bucket.openEnded += 1; else bucket.withEndDate += 1;
+    acc.set(category, bucket);
+  }
+  const attestations: SesWindowAttestation[] = [];
+  for (const [category, character] of SES_TEMPORAL_CHARACTER) {
+    const bucket = acc.get(category);
+    if (bucket === undefined) continue;
+    attestations.push({ category, character, ...bucket });
+  }
+  return attestations;
 }
 
 // The dated open-data publications, oldest first: the timeline axis every
@@ -262,11 +336,63 @@ export function computeLegacyLicenceCategories(
 // derived claim (value-catalogue-fold.ts) rather than the legacy product tally.
 // The blank and unmapped residues are still read from the product tally — they
 // describe the product FIELD (kept legacy for now), not the category derivation.
+// The special-event family's temporal-character note (issue #344), rendered
+// beside the category table. It names each category's temporal shape and reports
+// the attested reservation-window coverage, then FLAGS the counter-examples the
+// register carries rather than smoothing them: permanent records that
+// nonetheless expire, event records left open. Absent attestation (no source
+// stating the field) yields no note.
+function sesTemporalCharacterSection(windows: readonly SesWindowAttestation[]): string[] {
+  if (windows.length === 0) return [];
+  const lines: string[] = [];
+  lines.push('### Temporal character of the special-event family');
+  lines.push('');
+  lines.push('The special-event / Notice-of-Variation categories differ in temporal');
+  lines.push('shape. Non-permanent `Special Event Station` callsigns are typically');
+  lines.push('event-bounded — a jubilee year, a single commemoration — whereas');
+  lines.push('`Permanent Special Event Station` and `Special Research Permit` are');
+  lines.push('open-ended. The register\'s own `created_date` (record creation) and');
+  lines.push('`reserved_to_date` (reservation expiry) BRACKET an event window rather');
+  lines.push('than state it, and the snapshot day is only month-level, so any window');
+  lines.push('is attested-or-bracketed, never inferred. Only the register snapshots');
+  lines.push('that state a reservation-expiry field attest a window, so the counts');
+  lines.push('below are that field\'s slice of each category, not its whole population.');
+  lines.push('');
+  lines.push('| category | temporal character | records stating a reservation field | with an end date | left open |');
+  lines.push('|---|---|---:|---:|---:|');
+  for (const w of windows) {
+    lines.push(`| ${mdCode(w.category)} | ${w.character} | ${w.statingField.toLocaleString('en-GB')} | ${w.withEndDate.toLocaleString('en-GB')} | ${w.openEnded.toLocaleString('en-GB')} |`);
+  }
+  lines.push('');
+  // The counter-examples: an event-bounded record left open, or an open-ended
+  // record that nonetheless expires. Resolve AND flag (transparency) — the
+  // window is read per record, never assumed from the category name.
+  const eventOpen = windows.filter(w => w.character === 'event-bounded' && w.openEnded > 0);
+  const permExpiring = windows.filter(w => w.character === 'open-ended' && w.withEndDate > 0);
+  if (eventOpen.length > 0 || permExpiring.length > 0) {
+    // "1 record ... carries" but "36 records ... carry": agree noun and verb so a
+    // lone counter-example still reads correctly. Singular/plural verb given.
+    const records = (n: number, singularVerb: string, pluralVerb: string): string =>
+      `${n.toLocaleString('en-GB')} record${n === 1 ? '' : 's'} ${n === 1 ? singularVerb : pluralVerb}`;
+    const clauses: string[] = [];
+    for (const w of permExpiring) {
+      clauses.push(`${mdCode(w.category)}: ${records(w.withEndDate, 'nonetheless carries', 'nonetheless carry')} an end date`);
+    }
+    for (const w of eventOpen) {
+      clauses.push(`${mdCode(w.category)}: ${records(w.openEnded, 'carries', 'carry')} none`);
+    }
+    lines.push(`⚠ The correspondence is a tendency the register does not enforce, flagged rather than smoothed — ${clauses.join('; ')}. The window is read per record from the register, never assumed from the category.`);
+    lines.push('');
+  }
+  return lines;
+}
+
 function licenceCategorySection(
   cats: Map<string, FieldCatalogue>,
   ref: ReferenceData,
   productCells?: Map<string, Cell>,
   folded?: LicenceCategoryFigures[],
+  sesWindows: readonly SesWindowAttestation[] = [],
 ): string[] {
   const legacy = computeLegacyLicenceCategories(cats.get(PRODUCT_FIELD), ref, productCells);
   const categories = folded ?? legacy.categories;
@@ -304,6 +430,7 @@ function licenceCategorySection(
     lines.push(`⚠ **Unmapped non-blank variants** (no category decided - add a row to \`reference-data/licence-category.csv\`): ${unmapped.map(v => `${mdCode(v.value)} (${v.count.toLocaleString('en-GB')})`).join(', ')}.`);
     lines.push('');
   }
+  lines.push(...sesTemporalCharacterSection(sesWindows));
   return lines;
 }
 
@@ -407,7 +534,7 @@ function normalisationFidelitySection(fidelity: EntryFidelity[]): string[] {
 // tally, so the presentation tests (which pass hand-built tallies) are unaffected.
 // The Notable and licence-category residue sections keep reading the legacy tally
 // — they describe the raw product/status fields, still on the legacy path.
-export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timeline: string[] = [], fidelity: EntryFidelity[] = [], foldedCategories?: LicenceCategoryFigures[], foldedFields?: FoldedFields): string {
+export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timeline: string[] = [], fidelity: EntryFidelity[] = [], foldedCategories?: LicenceCategoryFigures[], foldedFields?: FoldedFields, sesWindows: readonly SesWindowAttestation[] = []): string {
   const FIELD_ORDER = ['status', PRODUCT_FIELD, 'implied_class', 'parse_status', 'prefix_series', 'flags'];
   const cats = new Map<string, FieldCatalogue>();
   for (const field of FIELD_ORDER) {
@@ -456,7 +583,7 @@ export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timel
     out.push('');
   }
 
-  out.push(...licenceCategorySection(cats, ref, tallies.get(PRODUCT_FIELD), foldedCategories));
+  out.push(...licenceCategorySection(cats, ref, tallies.get(PRODUCT_FIELD), foldedCategories, sesWindows));
 
   out.push(...normalisationFidelitySection(fidelity));
 
@@ -495,7 +622,8 @@ export function writeValueCatalogue(ledgerDir?: string): { path: string; changed
   // every section folds from it; a caller with a pre-built ledger passes its
   // directory.
   const { categories: foldedCategories, fields: foldedFields } = buildValueCatalogueFold(ledgerDir, ref);
-  const markdown = renderValueCatalogue(buildFieldTallies(), ref, openDataTimeline(), buildNormalisationFidelity(), foldedCategories, foldedFields);
+  const sesWindows = collectSesWindowAttestation(path.join(CONSTANTS.DIRS.archive, 'foi'), ref);
+  const markdown = renderValueCatalogue(buildFieldTallies(), ref, openDataTimeline(), buildNormalisationFidelity(), foldedCategories, foldedFields, sesWindows);
   // Written relative to the working directory - the SAME root the tallies read
   // archive/ from (CONSTANTS.DIRS.archive is relative). So a sweep run against
   // a fixture archive in a temp cwd writes ITS catalogue there, never

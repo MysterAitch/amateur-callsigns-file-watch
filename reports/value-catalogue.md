@@ -34,7 +34,7 @@ not to this axis). A present-then-gone value is visible at a glance.
 
 ## Normalised licence category
 
-The 10 non-blank product/licence_class variants above collapse to 7 canonical categories via `reference-data/licence-category.csv`. The raw values are still passed through VERBATIM (source fidelity); this is the derived, canonical view beside them - the drift described above, resolved.
+The 15 non-blank product/licence_class variants above collapse to 9 canonical categories via `reference-data/licence-category.csv`. The raw values are still passed through VERBATIM (source fidelity); this is the derived, canonical view beside them - the drift described above, resolved.
 
 Counts use the same denominators as the value tables above - `records`
 (rows), `callsigns` (distinct), `allocated` (the live-register slice) -
@@ -49,13 +49,34 @@ the raw per-variant figures would double-count and mislead.
 | `Foundation` | 823,892 | 45,338 | 37,979 | `Amateur Foundation Radio Licence` (758,368), `Foundation` (65,524) |
 | `Intermediate` | 337,775 | 21,190 | 15,338 | `Amateur Intermediate Radio Licence` (303,547), `Intermediate` (34,228) |
 | `Club` | 41,965 | 2,460 | 2,146 | `Amateur Club Radio Licence` (41,965) |
+| `Special Event Station` | 3,740 | 3,714 | 184 | `NoV Special Event Station` (2,256), `Special Event Station` (1,341), `NoV Special Special Event Station` (143) |
 | `Temporary Reciprocal` | 1,620 | 123 | 83 | `Amateur Temporary Reciprocal Radio Licence` (1,620) |
-| `Special Event` | 1,341 | 1,316 | 54 | `Special Event Station` (1,341) |
+| `Permanent Special Event Station` | 53 | 53 | 18 | `Perm Special Event Station` (32), `NoV Permanent Special Event Station` (21) |
 | `Full Reciprocal` | 15 | 15 | 0 | `Amateur Full (Reciprocal) Radio Licence` (15) |
+| `Special Research Permit` | 1 | 1 | 1 | `Special Research Permit` (1) |
 
 `(blank)` (1,930,551 records, 163,351 callsigns, 109,556 allocated) is not a category - the source asserted no product; it is left as-is.
 
-⚠ **Unmapped non-blank variants** (no category decided - add a row to `reference-data/licence-category.csv`): `NoV Special Event Station` (2,256), `NoV Special Special Event Station` (143), `Perm Special Event Station` (32), `NoV Permanent Special Event Station` (21), `Special Research Permit` (1).
+### Temporal character of the special-event family
+
+The special-event / Notice-of-Variation categories differ in temporal
+shape. Non-permanent `Special Event Station` callsigns are typically
+event-bounded — a jubilee year, a single commemoration — whereas
+`Permanent Special Event Station` and `Special Research Permit` are
+open-ended. The register's own `created_date` (record creation) and
+`reserved_to_date` (reservation expiry) BRACKET an event window rather
+than state it, and the snapshot day is only month-level, so any window
+is attested-or-bracketed, never inferred. Only the register snapshots
+that state a reservation-expiry field attest a window, so the counts
+below are that field's slice of each category, not its whole population.
+
+| category | temporal character | records stating a reservation field | with an end date | left open |
+|---|---|---:|---:|---:|
+| `Special Event Station` | event-bounded | 3,715 | 3,501 | 214 |
+| `Permanent Special Event Station` | open-ended | 53 | 36 | 17 |
+| `Special Research Permit` | open-ended | 1 | 0 | 1 |
+
+⚠ The correspondence is a tendency the register does not enforce, flagged rather than smoothed — `Permanent Special Event Station`: 36 records nonetheless carry an end date; `Special Event Station`: 214 records carry none. The window is read per record from the register, never assumed from the category.
 
 ## Normalisation fidelity (raw → normalised)
 

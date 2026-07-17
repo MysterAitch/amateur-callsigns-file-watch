@@ -174,16 +174,28 @@ const EXPECTED_CATEGORIES: Record<string, CategoryExpectation> = {
     variants: ['Amateur Temporary Reciprocal Radio Licence'],
     reason: CLEANED_KEY,
   },
-  'Special Event': {
-    legacy: { records: 1_341, callsigns: 1_316, allocated: 54 },
-    folded: { records: 1_341, callsigns: 1_316, allocated: 54 },
-    variants: ['Special Event Station'],
-    reason: EXACT_MATCH,
+  'Special Event Station': {
+    legacy: { records: 3_740, callsigns: 3_715, allocated: 184 },
+    folded: { records: 3_740, callsigns: 3_714, allocated: 184 },
+    variants: ['NoV Special Event Station', 'NoV Special Special Event Station', 'Special Event Station'],
+    reason: CLEANED_KEY,
+  },
+  'Permanent Special Event Station': {
+    legacy: { records: 53, callsigns: 53, allocated: 18 },
+    folded: { records: 53, callsigns: 53, allocated: 18 },
+    variants: ['NoV Permanent Special Event Station', 'Perm Special Event Station'],
+    reason: CLEANED_KEY,
   },
   'Full Reciprocal': {
     legacy: { records: 15, callsigns: 15, allocated: 0 },
     folded: { records: 15, callsigns: 15, allocated: 0 },
     variants: ['Amateur Full (Reciprocal) Radio Licence'],
+    reason: EXACT_MATCH,
+  },
+  'Special Research Permit': {
+    legacy: { records: 1, callsigns: 1, allocated: 1 },
+    folded: { records: 1, callsigns: 1, allocated: 1 },
+    variants: ['Special Research Permit'],
     reason: EXACT_MATCH,
   },
 };
