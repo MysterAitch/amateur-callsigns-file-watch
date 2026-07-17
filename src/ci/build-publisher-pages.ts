@@ -38,6 +38,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
+import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
 import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
 import { listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
@@ -268,6 +269,21 @@ function resolveWitnessPublishers(
 // Sweep both lanes into the flat holdings list, resolving each entry's author
 // and witness publishers. Reads the committed archive; deterministic for
 // unchanged inputs.
+// The record count from an entry's mode-resolved stats.json, or undefined when
+// the entry has no derived stats at all (a raw-only source - honest absence).
+// A stats.json that EXISTS but carries no numeric recordCount is an integrity
+// failure and fails loudly: every stats schema version has carried the field,
+// so its absence means corruption, not a legitimate blank.
+function statsRecordCount(key: string, archiveDir: string): number | undefined {
+  if (!derivedEntryFileExists(key, 'stats.json', archiveDir)) return undefined;
+  const statsPath = derivedEntryFile(key, 'stats.json', archiveDir);
+  const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8')) as { recordCount?: unknown };
+  if (typeof stats.recordCount !== 'number') {
+    throw new Error(`${statsPath}: stats.json carries no numeric recordCount - refusing to publish an unaccounted holdings figure`);
+  }
+  return stats.recordCount;
+}
+
 export function collectHoldings(
   register: PublisherRegister,
   archiveDir: string = CONSTANTS.DIRS.archive,
@@ -282,10 +298,12 @@ export function collectHoldings(
     const witnesses = meta.witnesses ?? [];
     const channels = witnesses.map(w => w.channel);
     const { ids, unresolved, agreementByPublisher } = resolveWitnessPublishers(witnesses, chIndex, heldHashes);
-    // Open-data scale is the declared record count of the normalised register;
-    // no CSV parse needed. The lane's shape IS a register snapshot at a vintage
-    // keyed by the publication date.
-    const normalisedCount = meta.files['normalised.csv']?.recordCount;
+    // Open-data scale is the declared record count of the normalised register
+    // (no CSV parse needed) - and for an entry whose meta carries no
+    // declaration (a publication newer than the frozen committed derivatives),
+    // the same figure from the mode-resolved stats.json, so the holdings table
+    // never under-reports an entry the deploy demonstrably serves in full.
+    const normalisedCount = meta.files['normalised.csv']?.recordCount ?? statsRecordCount(key, archiveDir);
     const quality = meta.qualityObservations ?? [];
     holdings.push({
       key,
