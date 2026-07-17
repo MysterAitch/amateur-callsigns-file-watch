@@ -900,17 +900,6 @@ jobs:
           # after it passed 1 GB. Reads the published databases; fails loudly if one
           # is missing.
           node src/ci/build-db-sizes.ts _site
-      # Phase-timing history for the optimisation work (#354): coarse per-
-      # phase reports from the instrumented builders, recorded on every run
-      # that actually built (cache-hit runs produce only the assemble-step
-      # report - absence of the others means "not rebuilt", not zero).
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() }}
-        with:
-          name: perf-reports-site-build
-          path: .perf-reports/
-          retention-days: 90
-          if-no-files-found: ignore
           # Version-stamp the service worker (ADR 0008). The browser re-installs a
           # worker only when its script bytes change, so writing the commit SHA into
           # DEPLOY_VERSION makes each deploy supersede the last. Same rationale as
@@ -964,6 +953,18 @@ jobs:
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
+
+      # Phase-timing history for the optimisation work (#354): coarse per-
+      # phase reports from the instrumented builders, recorded on every run
+      # that actually built (cache-hit runs produce only the assemble-step
+      # report - absence of the others means "not rebuilt", not zero).
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: perf-reports-site-build
+          path: .perf-reports/
+          retention-days: 90
+          if-no-files-found: ignore
 
   deploy:
     if: github.ref == 'refs/heads/main'
