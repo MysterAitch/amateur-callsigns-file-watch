@@ -433,7 +433,7 @@ jobs:
           pattern: coverage-blob-*
           merge-multiple: true
           path: .vitest-reports
-      - run: npx vitest --merge-reports --coverage --reporter=default --reporter=json --outputFile=.vitest-reports/merged-results.json --coverage.reporter=text --coverage.reporter=json-summary
+      - run: npx vitest --merge-reports --coverage --reporter=default --reporter=json --outputFile=.vitest-reports/merged-results.json --coverage.reporter=text --coverage.reporter=json-summary --coverage.reporter=json
       # Fetch the latest successful main run's baseline artefact (read-only,
       # default token) so the summary shows DELTAS vs main — the change is the
       # interesting figure, not the raw number. Best-effort: a missing baseline
@@ -467,6 +467,20 @@ jobs:
         with:
           name: ci-summary-baseline
           path: baseline.json
+          retention-days: 90
+          if-no-files-found: ignore
+      # Full-fidelity companion to the curated baseline: the complete merged
+      # vitest results (every test, status, duration, failure detail) and both
+      # coverage reports including the line-level istanbul data. Kept so later
+      # analysis is never limited to what the baseline chose to curate.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: ci-run-full-results
+          path: |
+            .vitest-reports/merged-results.json
+            coverage/coverage-summary.json
+            coverage/coverage-final.json
           retention-days: 90
           if-no-files-found: ignore
 
