@@ -14,7 +14,7 @@ import {
   renderMismatchReport,
   renderRegionalIdentifiers,
   renderCallsignPatternSeries,
-} from './normalise-sweep.ts';
+} from './report-sweep.ts';
 import { emitLedger, type SourceObservationSet } from '../v2/claim.ts';
 import { serialiseClaimsJsonl } from '../v2/serialise.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
