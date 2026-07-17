@@ -593,17 +593,31 @@ function licenceCategorySection(
 // value's count in that publication, scaled to the value's OWN peak so its
 // temporal shape shows (present-then-gone reads differently from steady). `·`
 // marks a publication where the value is absent - the point of the timeline.
+//
+// The bars alone are a picture of the data, not the data (issue #732): a
+// screen reader has nothing useful to announce for a run of block
+// characters, and nothing on the page states the dates/values behind them.
+// So the bars are wrapped in a self-describing span - `role="img"` +
+// `aria-label` supplies the accessible name (a bare `title` is weakly
+// supported by assistive tech), `title` repeats the same pairs for a mouse
+// hover. Both list EVERY bar's date:count, in bar order, at the timeline's
+// own precision (the archive key strings), thousands-separated -
+// completeness over brevity, since this IS the data the bars stand in for.
 const SPARK_BARS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 function sparkline(bySource: Map<string, number>, timeline: string[]): string {
   const counts = timeline.map(key => bySource.get(key) ?? 0);
   const peak = Math.max(0, ...counts);
-  return counts
+  const bars = counts
     .map(c => {
       if (c === 0) return '·';
       if (peak <= 1) return SPARK_BARS[SPARK_BARS.length - 1];
       return SPARK_BARS[Math.round(((c - 1) / (peak - 1)) * (SPARK_BARS.length - 1))];
     })
     .join('');
+  const pairs = timeline.map((date, i) => `${date}: ${counts[i].toLocaleString('en-GB')}`);
+  const ariaLabel = `timeline across ${timeline.length} publications: ${pairs.join('; ')}`;
+  const title = pairs.join(' · ');
+  return `<span role="img" aria-label="${ariaLabel}" title="${title}">${bars}</span>`;
 }
 
 // The raw-vs-normalised gap (#242). Normalisation renames and sorts columns but
