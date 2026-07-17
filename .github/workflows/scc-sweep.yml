@@ -86,6 +86,9 @@ jobs:
           path: .scc-diagnostics/
           retention-days: 90
           if-no-files-found: ignore
+          # The diagnostics dir is dot-prefixed, and the action excludes hidden
+          # files by default - without this the upload finds nothing at all.
+          include-hidden-files: true
       - name: Open a review PR when the table changed
         env:
           GH_TOKEN: ${{ github.token }}
@@ -114,7 +117,9 @@ jobs:
           git commit -m "data(scc): refresh RSGB Special Contest Calls table"
           git push origin "$branch"
 
-          # shellcheck disable=SC2016 -- the backtick code fence in the format string is literal PR-body markdown, not a command substitution
+          # The backtick code fence in the format string is literal PR-body
+          # markdown, not a command substitution.
+          # shellcheck disable=SC2016
           body="$(printf 'Scheduled refresh of the RSGB Special Contest Calls derived table (cite-don'\''t-copy, issue #693).\n\n```\n%s\n```\n\nReference data is reviewed like code: this PR is for human review, not auto-merge.' "$SUMMARY")"
           pr_url="$(gh pr create --head "$branch" --base main \
             --title "data(scc): refresh RSGB Special Contest Calls table" \
