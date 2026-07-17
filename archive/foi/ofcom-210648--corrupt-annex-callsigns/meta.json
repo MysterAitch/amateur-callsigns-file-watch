@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-foi",
+  "requestId": null,
+  "ofcomReference": null,
+  "ofcomReferenceNote": "no Ofcom FOI case reference is held for this disclosure. It survives only as a UK Government Web Archive capture of an Ofcom-hosted annex workbook, identified there by its Ofcom asset id (210648). The entry is keyed by that asset id. This is the #REF!-corrupted sibling of the clean same-vintage twin ofcom-2021-01 (asset 214225); see #335.",
+  "requestUrl": null,
+  "publicationUrl": "https://www.ofcom.org.uk/__data/assets/file/0021/210648/annex-list-of-uk-amateur-radio-callsigns.xlsx",
+  "title": "List of UK amateur radio call signs, corrupt annex (Ofcom asset 210648, early 2021; fourteen #REF! callsign cells)",
+  "requester": null,
+  "requestedAt": null,
+  "requestedAtNote": "not held; no request thread or covering correspondence survives, only the archived annex workbook.",
+  "respondedAt": null,
+  "respondedAtNote": "not held; the workbook is an Ofcom-hosted annex captured by the UK Government Web Archive on 2021-01-10, but no response date is recorded in the held material.",
+  "outcome": "successful",
+  "dataVintage": "2021-01",
+  "dataVintageNote": "declared, not proven. This three-column 'Value, Status, Type' shape embeds no date column, so no lower bound can be read from the data (unlike the clean twin ofcom-2021-01, dated 2021-01-29 by its Original Start Date column). The vintage is taken as 2021-01, upper-bounded by the UK Government Web Archive capture (memento 20210110045626, 2021-01-10). The disclosure rests on a single web-archive witness; no Ofcom disclosure-log copy is held.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-210648-corrupt-annex-register" },
+  "relatedEntries": [
+    { "entry": "ofcom-2021-01--all-callsigns", "relation": "the clean same-vintage twin (asset 214225, 146,763 records, zero #REF! cells): a WIDER six-column export (Value,Status,Type,Reserved to Date,Original Start Date,Licence Type) of the same early-2021 register. This corrupt asset (210648) is a narrower three-column export, 294 rows fewer, whose fourteen broken CONCATENATE(#REF!,#REF!) callsign cells are enumerated against this twin in divergences[]. The twin is the faithful record; this copy is retained only because it diverges (#335)." },
+    { "entry": "ofcom-2021-04--all-callsigns", "relation": "the spring-2021 sibling register snapshot (asset 219065); with the clean 2021-01 twin it fills the 2021 gap in the register timeline." },
+    { "entry": "ofcom-01420046--allocated-reserved-callsigns", "relation": "the following full register snapshot (2022-03) disclosed in the identical minimal 'Value, Status, Type' three-column shape this asset uses." }
+  ],
+  "divergences": [
+    {
+      "file": "annex-list-of-uk-amateur-radio-callsigns.xlsx",
+      "counterpart": {
+        "publisher": "ukgwa",
+        "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20230904223900/https://www.ofcom.org.uk/__data/assets/file/0016/214225/annex-a-list-of-all-call-signs.xlsx",
+        "sha256": "ebd4143cb36b0dfdf8c79a27dd0e1f05ab7c2db8f995be557ed1accf666ff36e",
+        "originalFilename": "annex-a-list-of-all-call-signs.xlsx"
+      },
+      "level": "format-shifted",
+      "summary": "This asset (210648) carries fourteen #REF! formula-error literals in its call-sign column where the clean same-vintage twin ofcom-2021-01 (asset 214225, counterpart hash ebd4143c…) carries valid call signs and zero error cells. The two are same-vintage register exports but differ in shape and scope — this copy is the minimal three-column Value/Status/Type export (146,469 rows) and the twin is a wider six-column export (146,763 rows, +294) — so the comparison is at register level, not byte or aligned-cell level. The material divergence, and the reason this corrupt copy is held, is the fourteen broken CONCATENATE(#REF!,#REF!) call-sign cells; the corruption is upstream in Ofcom's published file, proven by this web-archive capture (2021-01-10) and an independent Internet Archive capture of the same asset the next day (2021-01-11). No repair or substitution is applied: the #REF! cells are carried verbatim as unkeyable-class records and flagged spreadsheet-error-token.",
+      "enumeration": "Fourteen corrupt call-sign cells in this asset's single sheet, each published as CONCATENATE(#REF!,#REF!) cached to the error value #REF!: A1801 (Allocated), A2405 (Allocated), A5708 (Allocated), A6352 (Allocated), A7464 (Allocated), A50012 (Allocated), A59764 (Allocated), A63856 (Allocated), A72944 (Allocated), A77907 (Allocated), A133723 (Allocated), A138302 (Reserved), A141343 (Reserved), A143282 (Allocated) — twelve Allocated, two Reserved (42 #REF! tokens in the sheet XML: two per formula plus one cached value, across the fourteen cells). The clean twin holds valid call signs and no #REF! cells for the same vintage; because the two exports differ in shape and row scope, the individual corrupt rows are not positionally aligned to specific twin rows and are deliberately NOT reconstructed."
+    }
+  ],
+  "files": {
+    "annex-list-of-uk-amateur-radio-callsigns.xlsx": {
+      "bytes": 2871942,
+      "sha256": "ef1e59c2165409ed912ccd348729da99bbcf779d16c2f3d4460d5d25d0b015ff",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "sheetsIndicative": {
+        "note": "one worksheet (extractor slug 'sheet1'): header Value,Status,Type then 146,469 data rows in the minimal three-column register shape. Status vocabulary Allocated (95,944), Reserved (50,240), Available (275) and blank (10); Type is 'Call Sign - Amateur' on every row. No licence-class or date column. Fourteen Value cells are the formula-error literal #REF! (broken CONCATENATE(#REF!,#REF!)); apart from those, every call sign is distinct.",
+        "sheets": [
+          { "name": "sheet1", "dataRows": 146469, "cols": "A:C", "datasetClass": "register-snapshot" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "ukgwa",
+          "url": "https://webarchive.nationalarchives.gov.uk/ukgwa/20210110045626id_/https://www.ofcom.org.uk/__data/assets/file/0021/210648/annex-list-of-uk-amateur-radio-callsigns.xlsx",
+          "sha256": "ef1e59c2165409ed912ccd348729da99bbcf779d16c2f3d4460d5d25d0b015ff",
+          "originalFilename": "annex-list-of-uk-amateur-radio-callsigns.xlsx",
+          "fetchedAt": "2026-07-17",
+          "note": "fetched via the archive's identity replay (the 20210110045626id_ modifier), which serves the captured raw bytes; the bare-timestamp replay returns an HTML wrapper, not the file."
+        }
+      ]
+    },
+    "raw-extract-sheet-1-sheet1.csv": {
+      "bytes": 5222285,
+      "sha256": "dbc1a7e48617f4e574a7866f4c07bf32667b006b208cdb673c91b78838ab5976",
+      "role": "extract",
+      "extractOf": "annex-list-of-uk-amateur-radio-callsigns.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts",
+      "contentsIndicative": "mechanical extract of the single sheet; header Value,Status,Type then 146,469 rows. The fourteen #REF! error cells are rendered verbatim from their cached formula-error value (the extractor carries a t=\"e\" error cell's cached token, never dropping or guessing it). Three call signs carry a trailing non-breaking space (G0TQK, G7IWE, 2E1HON), as in the clean twin. No date columns."
+    },
+    "normalised--sheet-1-sheet1.csv": {
+      "bytes": 2439380,
+      "sha256": "0ac09dbc56fa8e419e902df3f21b4c21b0e1e4349546859bdee71f2ce8dff443",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-sheet1.csv",
+      "contentsIndicative": "header callsign,status,licence_class; 146,469 rows sorted by callsign (source order carries no meaning - no dates). Status carried verbatim (10 blanks preserved); licence_class emitted empty throughout (this three-column shape discloses no class). The constant Type column is required-present but not carried. The fourteen #REF! call-sign values are carried verbatim as unkeyable-class records (they sort first, '#' being an early codepoint, and share the single '#REF!' key); the call-sign parser flags each spreadsheet-error-token. No repair or substitution. Three trailing non-breaking spaces are trimmed and counted (G0TQK, G7IWE, 2E1HON) - the only canonicalisation; G0TQK and G7IWE each also occur as a bare-callsign row, so those two collapse onto duplicate keys (an honest consequence of trimming, preserved), while 2E1HON's is unique."
+    },
+    "correspondence.md": {
+      "bytes": 4931,
+      "sha256": "bf047e847bc9e99269337f50528da995b922a17e9deda8a6801974b88ce760ee",
+      "role": "transcript"
+    }
+  }
+}

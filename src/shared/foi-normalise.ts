@@ -609,6 +609,23 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
     datedRegisterConversion('raw-extract-sheet-1-sheet1.csv', 'Original start date', 'Licence type', '2021-04-21'),
   ],
 
+  // ofcom-210648 (UK Government Web Archive capture of the ~early-2021 Ofcom
+  // asset 210648, 'annex-list-of-uk-amateur-radio-callsigns.xlsx'): a full
+  // register snapshot in the minimal 'Value, Status, Type' three-column shape -
+  // the same factory as ofcom-01420046 / ofcom-2022-03-14, with no date or
+  // class column. It is the corrupt sibling of the same-vintage clean twin
+  // ofcom-2021-01 (issue #335): fourteen callsign cells were published as the
+  // formula-error literal '#REF!' (broken CONCATENATE(#REF!,#REF!)), proven
+  // upstream by the web-archive capture. They are carried VERBATIM here (kind
+  // 'verbatim') as unkeyable-class records - never repaired, never dropped - and
+  // the callsign parser flags each one `spreadsheet-error-token`
+  // (SPREADSHEET_ERROR_TOKENS, src/sources/ofcom-amateur/components.ts). 'Type'
+  // is 'Call Sign - Amateur' on every row (the service discriminator, recorded
+  // in meta, not carried); no licence class or date is disclosed.
+  'ofcom-210648-corrupt-annex-register': [
+    valueStatusTypeRegisterConversion('raw-extract-sheet-1-sheet1.csv'),
+  ],
+
   // ofcom-2020-03-26 (UK Government Web Archive capture of an Ofcom FOI-log
   // annex, "Allocated CallSign as at 260320"): a STATUS-FILTERED register
   // export - Ofcom disclosed only the Allocated rows, in the minimal
