@@ -174,6 +174,34 @@ describe('Markdown renderer', { tags: ['unit'] }, () => {
     expect(scriptCell).toContain('&lt;script&gt;');
   });
 
+  it('RenderMarkdown_SparklineSpanCell_RendersAriaLabelAndTitleNotEscapedText', () => {
+    // The value catalogue's self-describing sparkline (issue #732): a
+    // role="img" span whose aria-label/title carry the date:count pairs
+    // behind the bars must survive to a live HTML attribute, including the
+    // `·` mid-dot the title uses as its separator - the char the first
+    // implementation attempt found the escaping allowlist silently dropped,
+    // stranding the whole span as escaped text instead of a live tag.
+    const span = '<span role="img" aria-label="timeline across 2 publications: 2022-05-30: 1,234; 2023-02-20: 0" title="2022-05-30: 1,234 · 2023-02-20: 0">██·</span>';
+    const html = renderMarkdown(`| value | timeline |\n|---|---|\n| \`Legacy\` | ${span} |`);
+    expect(html).toContain(span);
+    expect(html).not.toContain('&lt;span');
+    expect(html).not.toContain('&quot;');
+  });
+
+  it('RenderMarkdown_MalformedSparklineSpan_StaysEscapedAndTableIntact', () => {
+    // A hand-corrupted or partially-generated span (missing the title
+    // attribute, a stray unescaped `>`) must not be partially unescaped into
+    // live markup that could break the table - it stays inert escaped text,
+    // and neighbouring cells in the same row are unaffected.
+    const malformed = '<span role="img" aria-label="broken>██·</span>';
+    const html = renderMarkdown(`| value | timeline | note |\n|---|---|---|\n| \`Legacy\` | ${malformed} | ok |`);
+    expect(html).not.toContain('<span role="img"');
+    expect(html).toContain('&lt;span');
+    expect(html).toContain('<td>ok</td>');
+    const bodyRow = html.slice(html.indexOf('<tbody>'));
+    expect((bodyRow.match(/<td>/g) ?? []).length).toBe(3);
+  });
+
   it('RenderMarkdown_HtmlComment_IsSkippedNotRenderedAsText', () => {
     // The generators' "do not edit by hand" stamp lives as an HTML comment; it
     // must not render as escaped &lt;!-- text on the page (single & multi-line).

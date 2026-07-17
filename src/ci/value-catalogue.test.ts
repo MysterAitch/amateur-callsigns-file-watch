@@ -186,8 +186,31 @@ describe('value catalogue', { tags: ['unit'] }, () => {
     expect(md).toContain('| value | records | callsigns | allocated | sources | timeline | lanes |');
     const row = md.split('\n').find(l => l.startsWith('| `Legacy`')) ?? '';
     // timeline is the sixth data column now (records, callsigns, allocated,
-    // sources, timeline).
-    expect(row.split('|')[6].trim()).toBe('██··');
+    // sources, timeline), rendered as a self-describing span (issue #732)
+    // wrapping the bars rather than bare block characters.
+    const cell = row.split('|')[6].trim();
+    expect(cell).toMatch(/^<span role="img" aria-label="[^"]*" title="[^"]*">██··<\/span>$/);
+  });
+
+  it('Sparkline_EveryTimelineEntry_AriaLabelAndTitleCarryItsDateAndCount', () => {
+    // The bars alone are a picture of the data; the accessible name (aria-label,
+    // for role="img") and hover title must carry the SAME data - every bar's
+    // date:count pair, in bar order, including publications where the value
+    // is absent (count 0), thousands-separated. This is what makes the
+    // sparkline self-describing rather than decorative.
+    const timeline = ['2022-05-30', '2023-02-20', '2025-04-08', '2026-06-23'];
+    const md = renderValueCatalogue(talliesBySource('status', {
+      Legacy: { '2022-05-30': 1234, '2023-02-20': 100 },
+    }), ref, timeline);
+    const row = md.split('\n').find(l => l.startsWith('| `Legacy`')) ?? '';
+    const cell = row.split('|')[6].trim();
+    expect(cell).toContain('role="img"');
+    expect(cell).toContain(
+      'aria-label="timeline across 4 publications: 2022-05-30: 1,234; 2023-02-20: 100; 2025-04-08: 0; 2026-06-23: 0"',
+    );
+    expect(cell).toContain(
+      'title="2022-05-30: 1,234 · 2023-02-20: 100 · 2025-04-08: 0 · 2026-06-23: 0"',
+    );
   });
 
   it('Render_ValueWithEdgeWhitespace_IsVisibleInMonospace', () => {
