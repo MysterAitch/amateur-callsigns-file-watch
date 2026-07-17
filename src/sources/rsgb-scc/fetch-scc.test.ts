@@ -40,6 +40,47 @@ const TWO_GOOD_ROWS = `
 
 const CHALLENGE_PAGE = '<!DOCTYPE html><html><head><title>Just a moment...</title></head><body>Checking your browser before accessing.</body></html>';
 
+describe('fetch diagnostics for the run artefact', { tags: ['unit'] }, () => {
+  function tempDir(): string {
+    return fs.mkdtempSync(path.join(os.tmpdir(), 'scc-diag-'));
+  }
+
+  it('Diagnostics_OnSuccessfulFetch_RetainThePageBytesAndResponseHeaders', async () => {
+    const dir = tempDir();
+    const page = fixture(TWO_GOOD_ROWS);
+    const withHeaders: FetchLike = () => Promise.resolve({
+      status: 200,
+      headers: { get: (name: string) => ({ 'content-type': 'text/html', 'etag': '"abc123"', 'last-modified': 'Sun, 15 Jun 2026 09:00:00 GMT', 'server': 'Apache/2.4.41 (Ubuntu)' }[name.toLowerCase()] ?? null) },
+      text: () => Promise.resolve(page),
+    });
+    await fetchSccPage('https://example.test/scc', { fetchImpl: withHeaders, diagnosticsDir: dir });
+    expect(fs.readFileSync(path.join(dir, 'page.shtml'), 'utf8')).toBe(page);
+    const headers = JSON.parse(fs.readFileSync(path.join(dir, 'headers.json'), 'utf8')) as { status: number; url: string; headers: Record<string, string | null> };
+    expect(headers.status).toBe(200);
+    expect(headers.url).toBe('https://example.test/scc');
+    expect(headers.headers['etag']).toBe('"abc123"');
+    expect(headers.headers['last-modified']).toBe('Sun, 15 Jun 2026 09:00:00 GMT');
+    expect(headers.headers['server']).toBe('Apache/2.4.41 (Ubuntu)');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('Diagnostics_WhenTheResponseIsRejected_StillRetainWhatTheFetcherSaw', async () => {
+    // The rejected response is exactly the one worth inspecting later — the
+    // diagnostics must be written BEFORE the status validation throws.
+    const dir = tempDir();
+    await expect(fetchSccPage('https://example.test/scc', { fetchImpl: fetchReturning('gateway error page', { status: 503 }), diagnosticsDir: dir })).rejects.toThrow(/status 503/);
+    expect(fs.readFileSync(path.join(dir, 'page.shtml'), 'utf8')).toBe('gateway error page');
+    expect((JSON.parse(fs.readFileSync(path.join(dir, 'headers.json'), 'utf8')) as { status: number }).status).toBe(503);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('Diagnostics_WhenNoDirIsConfigured_WriteNothing', async () => {
+    // The local/manual path stays side-effect-free: no env, no files.
+    await fetchSccPage('https://example.test/scc', { fetchImpl: fetchReturning(fixture(TWO_GOOD_ROWS)) });
+    expect(fs.existsSync('.scc-diagnostics')).toBe(false);
+  });
+});
+
 describe('fetchSccPage', { tags: ['unit'] }, () => {
   it('HonestUserAgent_WhenBuilt_NamesTheProjectAndSpoofsNoBrowser', () => {
     const ua = defaultUserAgent(undefined);
@@ -166,6 +207,43 @@ describe('runSccIntake', { tags: ['unit'] }, () => {
       const second = await runSccIntake(opts);
       expect(second.changed).toBe(false);
       expect(second.diff).toEqual({ added: [], removed: [], changed: [] });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('UnchangedPage_WhenReRun_LeavesBothTrackedFilesByteIdentical', async () => {
+    // meta.json records the fetch that produced the COMMITTED table, not the
+    // latest poll: a re-run over identical data must not churn fetchedAt (the
+    // first production dispatch opened a no-op monthly PR exactly this way).
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-nochurn-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv');
+      const metaPath = path.join(dir, 'scc.meta.json');
+      const page = fixture(TWO_GOOD_ROWS);
+      await runSccIntake({ fetchImpl: fetchReturning(page), csvPath, metaPath, sanityOptions: sanity, now: new Date('2026-07-17T00:00:00.000Z') });
+      const csvBefore = fs.readFileSync(csvPath, 'utf8');
+      const metaBefore = fs.readFileSync(metaPath, 'utf8');
+      await runSccIntake({ fetchImpl: fetchReturning(page), csvPath, metaPath, sanityOptions: sanity, now: new Date('2026-08-01T06:12:00.000Z') });
+      expect(fs.readFileSync(csvPath, 'utf8')).toBe(csvBefore);
+      expect(fs.readFileSync(metaPath, 'utf8')).toBe(metaBefore);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('ChangedPage_WhenReRun_PromotesBothFilesWithTheNewFetchRecorded', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-change-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv');
+      const metaPath = path.join(dir, 'scc.meta.json');
+      await runSccIntake({ fetchImpl: fetchReturning(fixture(TWO_GOOD_ROWS)), csvPath, metaPath, sanityOptions: sanity, now: new Date('2026-07-17T00:00:00.000Z') });
+      const changedRows = `${TWO_GOOD_ROWS}<tr><td>G0C</td><td>M0ABC</td><td>Issued</td></tr>`;
+      const result = await runSccIntake({ fetchImpl: fetchReturning(fixture(changedRows)), csvPath, metaPath, sanityOptions: sanity, now: new Date('2026-08-01T06:12:00.000Z') });
+      expect(result.changed).toBe(true);
+      expect(result.diff.added).toEqual(['G0C']);
+      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as { fetchedAt: string };
+      expect(meta.fetchedAt).toBe('2026-08-01T06:12:00.000Z');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

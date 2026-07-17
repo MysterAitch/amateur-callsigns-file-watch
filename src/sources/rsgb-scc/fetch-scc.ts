@@ -62,6 +62,34 @@ export interface FetchPageOptions {
   userAgent?: string;
   timeoutMs?: number;
   fetchImpl?: FetchLike;
+  // When set, the raw response body and a headers record are written here for
+  // the run to retain as a diagnostic artefact — BEFORE any validation runs,
+  // so a rejected response (bad status, challenge page) still leaves behind
+  // exactly what the fetcher saw. Never committed: the page's authored prose
+  // is RSGB copyright; this is debugging material, not archive material.
+  diagnosticsDir?: string;
+}
+
+// The response headers worth retaining for debugging: change signals (etag /
+// last-modified / date), identity (server, content-type/length) and caching
+// behaviour (cache-control, expires, vary). Enumerated rather than dumping all
+// headers so the test double's minimal `get()` interface suffices.
+const DIAGNOSTIC_HEADERS = [
+  'etag', 'last-modified', 'date', 'content-type', 'content-length',
+  'server', 'cache-control', 'expires', 'vary',
+] as const;
+
+export interface FetchDiagnostics {
+  url: string;
+  fetchedAt: string;
+  status: number;
+  headers: Record<string, string | null>;
+}
+
+export function writeFetchDiagnostics(dir: string, diagnostics: FetchDiagnostics, body: string): void {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'page.shtml'), body);
+  fs.writeFileSync(path.join(dir, 'headers.json'), JSON.stringify(diagnostics, null, 2) + '\n');
 }
 
 // Fetch the page, following redirects, with the honest UA and a timeout. Rejects
@@ -95,6 +123,21 @@ export async function fetchSccPage(url: string = SCC_SOURCE_URL, opts: FetchPage
     clearTimeout(timer);
   }
 
+  // Read the body and persist diagnostics BEFORE any validation: a rejected
+  // response is exactly the one worth inspecting later (why does the runner's
+  // view differ from a local browser or curl?).
+  const body = await response.text();
+  if (opts.diagnosticsDir !== undefined) {
+    const headers: Record<string, string | null> = {};
+    for (const name of DIAGNOSTIC_HEADERS) headers[name] = response.headers.get(name);
+    writeFetchDiagnostics(opts.diagnosticsDir, {
+      url,
+      fetchedAt: new Date().toISOString(),
+      status: response.status,
+      headers,
+    }, body);
+  }
+
   if (response.status !== 200) {
     throw new Error(`SCC fetch aborted: ${url} returned status ${response.status} (expected 200)`);
   }
@@ -102,7 +145,6 @@ export async function fetchSccPage(url: string = SCC_SOURCE_URL, opts: FetchPage
   if (contentType !== '' && !/text\/html|application\/xhtml\+xml/i.test(contentType)) {
     throw new Error(`SCC fetch aborted: ${url} returned unexpected content-type "${contentType}" (expected HTML)`);
   }
-  const body = await response.text();
   assertNotChallengePage(body);
   return body;
 }
@@ -227,11 +269,12 @@ export async function runSccIntake(opts: {
   csvPath?: string;
   metaPath?: string;
   sanityOptions?: SanityGateOptions;
+  diagnosticsDir?: string;
 } = {}): Promise<IntakeResult> {
   const csvPath = opts.csvPath ?? SCC_CSV_PATH;
   const metaPath = opts.metaPath ?? SCC_META_PATH;
 
-  const html = await fetchSccPage(SCC_SOURCE_URL, { fetchImpl: opts.fetchImpl, userAgent: opts.userAgent });
+  const html = await fetchSccPage(SCC_SOURCE_URL, { fetchImpl: opts.fetchImpl, userAgent: opts.userAgent, diagnosticsDir: opts.diagnosticsDir });
   const parsed = parseSccTable(html);
 
   const problems = sanityGateProblems(parsed, opts.sanityOptions);
@@ -249,7 +292,11 @@ export async function runSccIntake(opts: {
   const existingCsv = fs.existsSync(csvPath) ? fs.readFileSync(csvPath, 'utf8') : '';
   const changed = existingCsv !== csv;
 
-  if (opts.dryRun !== true) {
+  // Promote ONLY when the table itself changed: meta.json records the fetch
+  // that produced the COMMITTED table (its provenance), not the latest poll -
+  // otherwise every scheduled run would churn fetchedAt and open a monthly
+  // no-op PR (observed on the first production dispatch).
+  if (opts.dryRun !== true && changed) {
     promoteAtomically(csvPath, csv);
     promoteAtomically(metaPath, metaJson);
   }
@@ -294,9 +341,12 @@ export function summariseIntake(result: IntakeResult): string {
 
 async function main(): Promise<void> {
   const dryRun = process.argv.includes('--dry-run');
-  const result = await runSccIntake({ dryRun });
+  // SCC_DIAGNOSTICS_DIR (set by the sweep workflow) retains the raw response
+  // as a run artefact for debugging; unset means no diagnostics are written.
+  const diagnosticsDir = process.env.SCC_DIAGNOSTICS_DIR;
+  const result = await runSccIntake({ dryRun, diagnosticsDir: diagnosticsDir === undefined || diagnosticsDir === '' ? undefined : diagnosticsDir });
   process.stdout.write(`${summariseIntake(result)}\n`);
-  if (!dryRun) {
+  if (!dryRun && result.changed) {
     process.stdout.write(`Wrote ${SCC_CSV_PATH}\nWrote ${SCC_META_PATH}\n`);
   }
 }

@@ -57,6 +57,12 @@ jobs:
 
       - name: Fetch, gate, and refresh the SCC table
         id: refresh
+        env:
+          # Retain exactly what the runner saw (page bytes + response headers)
+          # as a run artefact - the upload step below. Debugging material for
+          # when the data looks odd or the runner's view needs comparing with
+          # a local browser or curl; never committed (#716).
+          SCC_DIAGNOSTICS_DIR: .scc-diagnostics
         run: |
           set -euo pipefail
           # The intake fetches the page, runs the sanity gate, and (on success)
@@ -70,6 +76,16 @@ jobs:
             echo 'SCC_EOF'
           } >> "$GITHUB_OUTPUT"
 
+      # The diagnostic copy: uploaded on every outcome except cancellation -
+      # a FAILED fetch is exactly the one worth inspecting. 90-day retention;
+      # missing files (connection-level failure before any response) are fine.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: scc-fetch-diagnostics
+          path: .scc-diagnostics/
+          retention-days: 90
+          if-no-files-found: ignore
       - name: Open a review PR when the table changed
         env:
           GH_TOKEN: ${{ github.token }}
@@ -98,6 +114,7 @@ jobs:
           git commit -m "data(scc): refresh RSGB Special Contest Calls table"
           git push origin "$branch"
 
+          # shellcheck disable=SC2016 -- the backtick code fence in the format string is literal PR-body markdown, not a command substitution
           body="$(printf 'Scheduled refresh of the RSGB Special Contest Calls derived table (cite-don'\''t-copy, issue #693).\n\n```\n%s\n```\n\nReference data is reviewed like code: this PR is for human review, not auto-merge.' "$SUMMARY")"
           pr_url="$(gh pr create --head "$branch" --base main \
             --title "data(scc): refresh RSGB Special Contest Calls table" \
