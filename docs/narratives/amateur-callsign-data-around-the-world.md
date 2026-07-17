@@ -1,6 +1,6 @@
 # Amateur callsign data around the world
 
-*A comparative reference, not a data narrative in the [obs]/[der]/[hyp] sense
+*A comparative reference, not a data narrative in the [observed]/[derived]/[hypothesis] sense
 used elsewhere in this collection — there is no derivation to walk. It exists
 to give the UK/Ofcom model context by setting out, with primary citations, how
 a handful of other national regulators publish (or decline to publish) their
