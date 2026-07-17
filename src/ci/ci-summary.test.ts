@@ -101,7 +101,7 @@ describe('the CI run summary renderer', { tags: ['unit'] }, () => {
 
   it('CurrentBaseline_FromRunOutputs_RecordsShaCountsAndCoverage', () => {
     const b = currentBaseline(results, coverage, 'deadbeefcafe');
-    expect(b).toEqual({
+    expect(b).toMatchObject({
       sha: 'deadbeefcafe',
       tests: { total: 100, passed: 97, failed: 2, skipped: 1 },
       coverage: { lines: 31.2, statements: 31.4, functions: 25.9, branches: 27.8 },
@@ -110,5 +110,85 @@ describe('the CI run summary renderer', { tags: ['unit'] }, () => {
 
   it('CurrentBaseline_WithoutMergedResults_YieldsNothingToUpload', () => {
     expect(currentBaseline(undefined, coverage, 'deadbeef')).toBeUndefined();
+  });
+
+  it('CurrentBaseline_FromRunOutputs_RecordsEveryCaseWithItsStatus', () => {
+    const b = currentBaseline(results, coverage, 'deadbeef');
+    expect(b?.cases).toEqual({
+      'src/shared/perf.test.ts::PerfReport_WhenDestinationUnwritable_ThrowsAfterStderrBreakdown': 'failed',
+      'src/shared/perf.test.ts::PerfReport_WhenFlagOff_WritesNothing': 'passed',
+      'src/ci/value-catalogue.test.ts::ValueCatalogue_RealArchive_Renders': 'failed',
+    });
+  });
+
+  it('Summary_WithPerTestBaseline_ShowsAddedAndRemovedByNameNotJustNet', () => {
+    // Net count: 3 current vs 3 baseline = ±0 — but two were removed and two
+    // added; the name-level sections must surface that granularity.
+    const baseline = {
+      sha: 'abcdef0123456789',
+      tests: { total: 3, passed: 3, failed: 0, skipped: 0 },
+      cases: {
+        'src/shared/perf.test.ts::PerfReport_WhenFlagOff_WritesNothing': 'passed',
+        'src/old.test.ts::OldFeature_WhenExercised_StillWorks': 'passed',
+        'src/old.test.ts::OldFeature_WhenRetired_IsGone': 'passed',
+      },
+    };
+    const md = renderSummary(results, coverage, baseline);
+    expect(md).toContain('### Tests added (2) / removed (2)');
+    expect(md).toContain('PerfReport_WhenDestinationUnwritable_ThrowsAfterStderrBreakdown');
+    expect(md).toContain('OldFeature_WhenRetired_IsGone');
+    expect(md).toContain('A renamed test appears as one removal plus one addition');
+  });
+
+  it('Summary_WithPerTestBaseline_ReportsNewlyFailingAndFixedTransitions', () => {
+    const baseline = {
+      sha: 'abcdef0123456789',
+      tests: { total: 3, passed: 1, failed: 2, skipped: 0 },
+      cases: {
+        'src/shared/perf.test.ts::PerfReport_WhenDestinationUnwritable_ThrowsAfterStderrBreakdown': 'passed',
+        'src/shared/perf.test.ts::PerfReport_WhenFlagOff_WritesNothing': 'failed',
+        'src/ci/value-catalogue.test.ts::ValueCatalogue_RealArchive_Renders': 'failed',
+      },
+    };
+    const md = renderSummary(results, coverage, baseline);
+    expect(md).toContain('### Newly failing vs baseline (1)');
+    expect(md).toContain('### Fixed vs baseline (1)');
+    expect(md).toContain('PerfReport_WhenFlagOff_WritesNothing');
+  });
+
+  it('Summary_WithSkipTransitions_SurfacesNewlySkippedAndUnskipped', () => {
+    const current = {
+      ...results,
+      testResults: [
+        {
+          name: 'src/a.test.ts',
+          status: 'passed',
+          assertionResults: [
+            { fullName: 'Feature_WhenQuietlyDisabled_StopsRunning', status: 'skipped' },
+            { fullName: 'Feature_WhenReenabled_RunsAgain', status: 'passed' },
+          ],
+        },
+      ],
+    };
+    const baseline = {
+      sha: 'abcdef0123456789',
+      tests: { total: 2, passed: 1, failed: 0, skipped: 1 },
+      cases: {
+        'src/a.test.ts::Feature_WhenQuietlyDisabled_StopsRunning': 'passed',
+        'src/a.test.ts::Feature_WhenReenabled_RunsAgain': 'skipped',
+      },
+    };
+    const md = renderSummary(current, coverage, baseline);
+    expect(md).toContain('### Newly skipped (1)');
+    expect(md).toContain('### No longer skipped (1)');
+  });
+
+  it('Summary_WithCountOnlyBaseline_SaysNameLevelDiffUnavailable', () => {
+    const baseline = {
+      sha: 'abcdef0123456789',
+      tests: { total: 100, passed: 97, failed: 2, skipped: 1 },
+    };
+    const md = renderSummary(results, coverage, baseline);
+    expect(md).toContain('name-level differences are unavailable');
   });
 });

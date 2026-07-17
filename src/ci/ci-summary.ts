@@ -35,12 +35,18 @@ interface CoverageSummary {
   total: { lines: CoverageMetric; statements: CoverageMetric; functions: CoverageMetric; branches: CoverageMetric };
 }
 
-// The cross-run comparison record: one run's headline figures, uploaded as a
-// tiny artefact so later runs can diff against the latest main run's copy.
+// The cross-run comparison record: one run's headline figures plus a per-test
+// status map, uploaded as a small artefact so later runs can diff against the
+// latest main run's copy. The status map is what enables the interesting
+// comparisons — tests added/removed by NAME (a net +5 can hide 10 added and 5
+// removed) and status transitions (newly failing, newly fixed). A rename
+// necessarily appears as one removal plus one addition; the summary says so.
 export interface Baseline {
   sha: string;
   tests: { total: number; passed: number; failed: number; skipped: number };
   coverage?: { lines: number; statements: number; functions: number; branches: number };
+  // `file::fullName` -> final status ('passed' | 'failed' | 'skipped' | …).
+  cases?: Record<string, string>;
 }
 
 function readJson<T>(file: string): T | undefined {
@@ -72,6 +78,18 @@ function pctDelta(current: number, previous: number): string {
   return '— ±0pp';
 }
 
+// Flatten the per-file assertion results into the `file::fullName` -> status
+// map used for set differences and status transitions.
+function caseStatuses(results: MergedResults): Record<string, string> {
+  const cases: Record<string, string> = {};
+  for (const f of results.testResults) {
+    for (const a of f.assertionResults) {
+      cases[`${f.name}::${a.fullName}`] = a.status;
+    }
+  }
+  return cases;
+}
+
 export function currentBaseline(results: MergedResults | undefined, coverage: CoverageSummary | undefined, sha: string): Baseline | undefined {
   if (results === undefined) return undefined;
   return {
@@ -88,7 +106,58 @@ export function currentBaseline(results: MergedResults | undefined, coverage: Co
       functions: coverage.total.functions.pct,
       branches: coverage.total.branches.pct,
     },
+    cases: caseStatuses(results),
   };
+}
+
+// A capped bullet list of test-case keys, rendered `fullName` first with the
+// file in brackets — the name identifies the scenario, the file locates it.
+function caseList(keys: readonly string[], cap: number): string[] {
+  const lines = keys.slice(0, cap).map((k) => {
+    const sep = k.indexOf('::');
+    const file = sep >= 0 ? k.slice(0, sep) : '';
+    const test = sep >= 0 ? k.slice(sep + 2) : k;
+    return `- \`${test}\`${file === '' ? '' : ` (${file})`}`;
+  });
+  if (keys.length > cap) lines.push(`- … and ${keys.length - cap} more`);
+  return lines;
+}
+
+// The set-difference and status-transition sections, only renderable when the
+// baseline carries per-test records. A skipped→passed (or passed→skipped)
+// change is reported under transitions too: silently un-skipped or newly
+// skipped tests are exactly the kind of drift worth a glance.
+function caseComparison(current: Record<string, string>, baseline: Record<string, string>): string[] {
+  const lines: string[] = [];
+  const added = Object.keys(current).filter((k) => !(k in baseline)).sort();
+  const removed = Object.keys(baseline).filter((k) => !(k in current)).sort();
+  const common = Object.keys(current).filter((k) => k in baseline);
+  const newlyFailing = common.filter((k) => current[k] === 'failed' && baseline[k] !== 'failed').sort();
+  const newlyFixed = common.filter((k) => current[k] === 'passed' && baseline[k] === 'failed').sort();
+  const newlySkipped = common.filter((k) => (current[k] === 'skipped' || current[k] === 'pending' || current[k] === 'todo') && baseline[k] === 'passed').sort();
+  const unskipped = common.filter((k) => current[k] === 'passed' && (baseline[k] === 'skipped' || baseline[k] === 'pending' || baseline[k] === 'todo')).sort();
+
+  if (added.length + removed.length > 0) {
+    lines.push('', `### Tests added (${added.length}) / removed (${removed.length})`);
+    if (added.length > 0 && removed.length > 0) {
+      lines.push('_A renamed test appears as one removal plus one addition._');
+    }
+    if (added.length > 0) { lines.push('', '**Added:**', ...caseList(added, 15)); }
+    if (removed.length > 0) { lines.push('', '**Removed:**', ...caseList(removed, 15)); }
+  }
+  if (newlyFailing.length > 0) {
+    lines.push('', `### Newly failing vs baseline (${newlyFailing.length})`, ...caseList(newlyFailing, 20));
+  }
+  if (newlyFixed.length > 0) {
+    lines.push('', `### Fixed vs baseline (${newlyFixed.length})`, ...caseList(newlyFixed, 20));
+  }
+  if (newlySkipped.length > 0) {
+    lines.push('', `### Newly skipped (${newlySkipped.length})`, ...caseList(newlySkipped, 10));
+  }
+  if (unskipped.length > 0) {
+    lines.push('', `### No longer skipped (${unskipped.length})`, ...caseList(unskipped, 10));
+  }
+  return lines;
 }
 
 export function renderSummary(results: MergedResults | undefined, coverage: CoverageSummary | undefined, baseline?: Baseline): string {
@@ -109,6 +178,11 @@ export function renderSummary(results: MergedResults | undefined, coverage: Cove
       lines.push('|---|---:|---:|---:|---:|');
       lines.push(`| this run | ${results.numTotalTests} | ${results.numPassedTests} | ${results.numFailedTests} | ${skipped} |`);
       lines.push(`| vs \`${baseline.sha.slice(0, 8)}\` | ${countDelta(results.numTotalTests, b.total)} | ${countDelta(results.numPassedTests, b.passed)} | ${countDelta(results.numFailedTests, b.failed)} | ${countDelta(skipped, b.skipped)} |`);
+      if (baseline.cases !== undefined) {
+        lines.push(...caseComparison(caseStatuses(results), baseline.cases));
+      } else {
+        lines.push('', '_The baseline predates per-test records; name-level differences are unavailable for this comparison._');
+      }
     }
     const failures = results.testResults
       .flatMap((f) => f.assertionResults.filter((a) => a.status === 'failed').map((a) => ({ file: f.name, test: a.fullName })));
