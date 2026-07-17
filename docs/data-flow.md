@@ -163,11 +163,11 @@ below).
   auto-merge could not be enabled — it is parked, not merged, and the job
   failure is the notification.
 
-> **golden-master is not yet a required check.** The gate genuinely blocks a
-> data-only landing only on `tests` and `data-validation` (ADR 0002); a red
-> `golden-master` run (stage 3) does not by itself hold one open. Making
-> `golden-master` required is the other half of #588 part 2 — see stage 3 and
-> [ADR 0002](adr/0002-repo-level-write-controls.md) for the exact setting.
+> **The required checks are `tests`, `data-validation`, `golden-master` and
+> `workflow-audit`** (ADR 0002, the last two added 2026-07-17). A red run of any
+> holds a PR open; `golden-master` gates report-generation drift (the #588 part 2
+> close-out) and `workflow-audit` gates the workflow files themselves — see
+> [ADR 0002](adr/0002-repo-level-write-controls.md) for the exact ruleset.
 
 > **Depends on GitHub settings.** Auto-merge only *waits* for a gate if required
 > status checks are configured on `main` — that GitHub-side configuration is
@@ -220,16 +220,16 @@ via their own reviewed consolidation PRs (`data-sweep.yml:5-8`).
     the working tree then differs from what is committed under `reports/`, so a
     stale committed golden master is caught on the PR that introduced it
     ([ADR 0001](adr/0001-post-fetch-processing-in-repo.md) re-run semantics).
-    **Not yet a required check** (#588 part 2): it is a single, non-matrixed
-    job, so it reports one stable context — the exact string `golden-master`
-    — and is ready to add to the ruleset's required-status-checks set
-    alongside `tests` and `data-validation`
-    ([ADR 0002](adr/0002-repo-level-write-controls.md)); until that setting
-    changes, a red `golden-master` run does not by itself hold open a PR that
-    the two required checks already pass.
+    **A required check** (#588 part 2, since 2026-07-17): it is a single,
+    non-matrixed job reporting one stable context — the exact string
+    `golden-master` — added to the ruleset's required-status-checks set
+    alongside `tests`, `data-validation` and `workflow-audit`
+    ([ADR 0002](adr/0002-repo-level-write-controls.md)); a red `golden-master`
+    run now holds the PR open on its own.
   - **`workflow-audit`** — `actionlint` + `zizmor` over the workflow YAML
-    (`cicd.yaml:459-477`). Explicitly *not* a required status check (it gates the
-    workflows, not the data) but red runs demand attention.
+    (`cicd.yaml:459-477`). A required status check since 2026-07-17 (ADR 0002):
+    the workflows are the security-critical orchestration, so a red audit holds
+    the PR open. Fires only when workflow files change.
 - **Governing ADR:** [ADR 0019](adr/0019-layered-build-cache-and-unified-cicd.md)
   (unified pipeline, job-level permissions, content-addressed caches),
   [ADR 0012](adr/0012-supply-chain-posture.md) (read-only CI, pinned action
@@ -327,7 +327,7 @@ shape as the data sweep ([ADR 0001](adr/0001-post-fetch-processing-in-repo.md) /
 |---|---|---|---|---|---|
 | Fetch + sanity-gate | Fetch host (LXC) | Upstream change | Sanity-gate; provenance-only acceptance | 0001, 0010, 0011 | No |
 | Open PR + gate auto-merge | `data-sweep.yml` | cron 15 min | Data-path allowlist; fails closed if auto-merge can't be enabled; PR assigned + logged on the rolling digest once auto-merge is enabled | 0009, 0001 | No before merge (data-only, clean; notified once auto-merge is on) / Yes (else, or parked on failure) |
-| Verify | `cicd.yaml` | Every PR + push to main | `tests`, `data-validation` (required); `golden-master` (drift gate, not yet required — #588 part 2), reconstruction, `workflow-audit` | 0019, 0012 | No |
+| Verify | `cicd.yaml` | Every PR + push to main | `tests`, `data-validation`, `golden-master`, `workflow-audit` (all required, ADR 0002), plus reconstruction | 0019, 0012 | No |
 | Merge | GitHub ruleset | Checks green | No direct/force push, merge-commit only, required checks | 0002, 0009 | Depends on PR class |
 | Deploy | `cicd.yaml` `deploy` | Push to main | Post-deploy smoke / console / functionality | 0003, 0013, 0019, 0020 | No |
 | Report sweep | `reports-sweep.yml` | cron daily 06:30 | Always-human-reviewed PR; run reddens on failure | 0001, 0004, 0013 | Yes, always |
