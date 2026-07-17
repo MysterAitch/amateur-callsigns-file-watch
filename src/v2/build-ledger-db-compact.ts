@@ -593,6 +593,7 @@ if (import.meta.main) {
   console.log(`  claims: ${result.summary.claims} (observations ${result.summary.observations}, attr ${result.summary.attrClaims}, parse-attr ${result.summary.derivedAttrClaims}), entities: ${result.summary.entities}, sources: ${result.summary.sources}, analyzed: ${result.summary.analyzed}`);
   console.log(`  dictionaries: predicates ${result.summary.predicates}, objects ${result.summary.objects}`);
   console.log(`  sqlite: ${result.sizes.sqlite} bytes${result.sizes.gz !== null ? `, gz twin: ${result.sizes.gz} bytes` : ', gz twin: skipped (--no-gz-twin)'}`);
-  // Self-guarded: prints the profiling breakdown to stderr only under PERF.
-  perfReport();
+  // Self-guarded: prints the profiling breakdown to stderr only under PERF,
+  // and writes the JSON per-run report when PERF_JSON names a path.
+  perfReport({ entrypoint: 'build-ledger-db-compact' });
 }

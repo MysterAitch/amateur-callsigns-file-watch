@@ -2070,8 +2070,9 @@ function main(): void {
   }
   const summary = buildDatasetPages(outputDir, baseUrl);
   console.log(`dataset pages: ${summary.entryCount} entries, ${summary.fileCount} files, ${formatBytes(summary.totalBytes)} (+ index, descriptors, sitemap)`);
-  // Self-guarded: prints the profiling breakdown to stderr only under PERF.
-  perfReport();
+  // Self-guarded: prints the profiling breakdown to stderr only under PERF,
+  // and writes the JSON per-run report when PERF_JSON names a path.
+  perfReport({ entrypoint: 'build-dataset-pages' });
 }
 
 if (import.meta.main) {

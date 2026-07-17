@@ -619,6 +619,7 @@ export function writeCrossDatasetInvariants(): { path: string; changed: boolean 
 if (import.meta.main) {
   const { path: written, changed } = writeCrossDatasetInvariants();
   console.log(`${changed ? 'wrote' : 'up to date'}: ${written}`);
-  // Self-guarded: prints the profiling breakdown to stderr only under PERF.
-  perfReport();
+  // Self-guarded: prints the profiling breakdown to stderr only under PERF,
+  // and writes the JSON per-run report when PERF_JSON names a path.
+  perfReport({ entrypoint: 'cross-dataset-invariants' });
 }

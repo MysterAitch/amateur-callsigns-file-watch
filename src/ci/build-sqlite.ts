@@ -451,6 +451,7 @@ if (import.meta.main) {
   const tiers = await buildPublishedTiers(dataDir);
   console.log(`built the download data tiers into ${dataDir}`);
   for (const [what, n] of Object.entries(tiers)) console.log(`  tiers: ${what}: ${n}`);
-  // Self-guarded: prints the profiling breakdown to stderr only under PERF.
-  perfReport();
+  // Self-guarded: prints the profiling breakdown to stderr only under PERF,
+  // and writes the JSON per-run report when PERF_JSON names a path.
+  perfReport({ entrypoint: 'build-sqlite' });
 }
