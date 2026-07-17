@@ -908,6 +908,13 @@ jobs:
           # The statistics page's aggregates (locator matrix, flags table) are
           # deterministic per deploy - pre-rendered so the page is fully static.
           node src/ci/build-home-aggregates.ts _site/statistics.html
+          # The home page's build-time surfaces (issue #712): the corpus-wide
+          # holdings map (every dataset, one lettered cell deep-linking to its
+          # page) and the headline figures, pre-rendered from the committed
+          # archive so the front door works with JavaScript off. Runs after the
+          # site copy above (which lands index.html in _site) and after
+          # build-dataset-pages, which builds the dataset pages the map links to.
+          node src/ci/build-front-door.ts _site/index.html
           # The /data-status coverage tracker (issue #376): the dataset ×
           # processing-stage grid, per-type rollup, known-but-absent work-queue and
           # series/gap view - all derived here from the committed archive and the

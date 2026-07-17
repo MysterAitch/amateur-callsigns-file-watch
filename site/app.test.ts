@@ -24,7 +24,10 @@ function lookupHost(): {
   resultEl: HTMLElement;
 } {
   const html = fs.readFileSync(path.join('site', 'index.html'), 'utf8');
-  const start = html.indexOf('<section class="panel" id="lookup">');
+  // The front-door redesign (issue #712) moved the lookup into the search band;
+  // the section is matched by its id (the stable hook) rather than an exact
+  // class list that the layout owns and may change.
+  const start = html.search(/<section [^>]*id="lookup"/);
   const end = html.indexOf('</section>', start) + '</section>'.length;
   if (start === -1) throw new Error('lookup section not found in index.html');
   document.body.innerHTML = html.slice(start, end);

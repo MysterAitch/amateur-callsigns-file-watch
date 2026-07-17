@@ -581,8 +581,11 @@ const HOLDINGS_STYLE = [
 
 // One letter per dataset kind, carried on the map cell so kind is legible
 // without relying on the tint (colour is never the sole cue). An unmapped class
-// falls back to its own initial rather than rendering blank.
-const KIND_LETTER: Readonly<Record<string, string>> = {
+// falls back to its own initial rather than rendering blank. Exported so the
+// home-page holdings map (src/ci/build-front-door.ts) reuses this one
+// vocabulary and its cells read as the same component, never a second copy that
+// could drift.
+export const KIND_LETTER: Readonly<Record<string, string>> = {
   'register-snapshot': 'R',
   'available-pool': 'A',
   'issuance-events': 'I',
@@ -616,12 +619,23 @@ interface HoldingMarks {
   firstXlsxKey: string | undefined;
 }
 
-function primaryClass(h: Holding): string {
+// The kind a holding is drawn as: its first declared class, or the lane's
+// default. Exported alongside kindLetter so the home-page holdings map derives
+// each cell's kind exactly as the publisher pages do.
+export function primaryClass(h: Holding): string {
   return (h.datasetClasses ?? [])[0] ?? (h.lane === 'open-data' ? OPEN_DATA_IMPLICIT_CLASS : 'reference-context');
 }
 
-function kindLetter(cls: string): string {
+export function kindLetter(cls: string): string {
   return KIND_LETTER[cls] ?? cls.charAt(0).toUpperCase();
+}
+
+// The site-root-relative dataset-page href of a holding (open-data by
+// publication date, FOI by request key). Exported so the home-page holdings map
+// links each cell to the very page the publisher pages link their rows' titles
+// to — one source for the destination, never a second that could drift.
+export function holdingEntryHref(holding: Holding): string {
+  return entryHref(holding);
 }
 
 // A vintage ISO (date or month) as a month-precision label for the scan surface

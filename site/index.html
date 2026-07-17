@@ -8,9 +8,13 @@
   <link rel="stylesheet" href="style.css">
   <!-- Adopts the bespoke visual language scoped under .ledger (ledger.css); the
        interactive lookup controls and the cards app.js renders pick up the
-       ledger palette there. The shared nav and skip link stay styled by
-       tokens.css/style.css, outside it. -->
+       ledger palette there. The front-door composition — the search hero, the
+       holdings map, the surprise card and the role tabs — carries its own
+       bespoke stylesheet (home.css), scoped under .home and drawing entirely on
+       the shared ledger tokens so it flips light/dark with the rest of the site.
+       The shared nav and skip link stay styled by tokens.css/style.css. -->
   <link rel="stylesheet" href="ledger.css">
+  <link rel="stylesheet" href="home.css">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#14506e">
   <script src="debug.js"></script>
@@ -20,184 +24,287 @@
   <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
   <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="publishers/index.html">Publishers</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch" target="_blank" rel="noopener">Repository <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></p></nav>
   <!-- nav:end -->
-  <main id="main" class="ledger">
-    <header>
-      <div class="head-inner">
-        <div class="eyebrow">UK amateur-radio register · independent mirror</div>
-        <h1>UK amateur callsign lookup</h1>
-        <p class="lede">
-          Look up any UK amateur-radio callsign against Ofcom's published
-          register and a decade of archived FOI disclosures — or type a
-          <a class="gloss-term" href="glossary.html#suffix">suffix<span class="gloss-cue" aria-hidden="true">?</span><span class="visually-hidden"> (definition of a callsign suffix in the glossary)</span></a>
-          like <span class="mono">*TEE</span> to see which
-          <a class="gloss-term" href="glossary.html#prefix-series">prefix series<span class="gloss-cue" aria-hidden="true">?</span><span class="visually-hidden"> (definition of prefix series in the glossary)</span></a>
-          it is free in. This is an <strong>independent</strong> mirror for reference
-          and research: <em>not</em> an authoritative source, and not affiliated
-          with or endorsed by Ofcom. <a href="about.html">About this site</a>.
-        </p>
-        <p id="data-currency" class="muted hint">Current register currency loads with the data…</p>
-      </div>
-    </header>
 
+  <!-- On-this-page jump strip: the offline-download band has real interactive
+       state (it cannot degrade to a static site-nav link), so it earns its own
+       jump link here to the live panel, alongside the page's other landmarks.
+       Page-local — not the shared cross-site nav, whose targets exist on every
+       page — so these anchors resolve only where their sections do. -->
+  <nav class="page-jump" aria-label="On this page">
+    <a href="#lookup">Search</a>
+    <a href="#holdings">Holdings</a>
+    <a href="#ways-in">Ways in</a>
+    <a href="#offline">Download for offline use</a>
+  </nav>
+
+  <main id="main" class="ledger home">
     <div class="wrap">
-    <section class="panel" id="lookup">
-      <div class="eyebrow">callsign lookup</div>
-      <h2>Search the register</h2>
-      <!-- No-JS fallback: the lookup runs in your browser; the data itself is
-           browsable without JavaScript from the dataset index. -->
-      <noscript>
-        <p class="muted">This lookup runs in your browser and needs JavaScript.
-        Every publication is browsable without it from the
-        <a href="datasets/index.html">dataset index</a>, and the databases can be
-        <a href="datasets/index.html">downloaded</a> for offline use.</p>
-      </noscript>
-      <!-- Shown only when JavaScript is enabled but the page's modules failed to
-           start: the timer below reveals it, and app.js clears the timer once it
-           has initialised, so a normal load never flashes it. Complements the
-           <noscript> above, which covers JavaScript being disabled entirely. -->
-      <div id="startup-warning" class="startup-warning" role="alert" hidden>
-        <p>The lookup didn’t start — a script may have failed to load. Try reloading the page. For diagnostics, add <code>?debug=1</code> to the address bar. You can still browse every publication from the <a href="datasets/index.html">dataset index</a>.</p>
+
+      <!-- ============ SEARCH BAND ============ -->
+      <div class="home-hero">
+        <div class="hero-line"><span class="hero-glyph" aria-hidden="true">📻</span><h1>UK amateur callsign lookup</h1></div>
+        <p id="data-currency" class="muted hint">Current register currency loads with the data…</p>
+
+        <section id="lookup" class="search-band" aria-label="Callsign lookup">
+          <!-- No-JS fallback: the lookup runs in your browser; the data itself is
+               browsable without JavaScript from the dataset index. -->
+          <noscript>
+            <p class="muted">This lookup runs in your browser and needs JavaScript.
+            Every publication is browsable without it from the
+            <a href="datasets/index.html">dataset index</a>, and the databases can be
+            <a href="datasets/index.html">downloaded</a> for offline use.</p>
+          </noscript>
+          <!-- Shown only when JavaScript is enabled but the page's modules failed to
+               start: the timer below reveals it, and app.js clears the timer once it
+               has initialised, so a normal load never flashes it. Complements the
+               <noscript> above, which covers JavaScript being disabled entirely. -->
+          <div id="startup-warning" class="startup-warning" role="alert" hidden>
+            <p>The lookup didn’t start — a script may have failed to load. Try reloading the page. For diagnostics, add <code>?debug=1</code> to the address bar. You can still browse every publication from the <a href="datasets/index.html">dataset index</a>.</p>
+          </div>
+          <script>
+            // Reveal the startup warning if the lookup module has not signalled ready
+            // shortly after load. This inline classic script runs before the ES
+            // modules; app.js clears the timer on successful init (see its tail), so
+            // the warning only surfaces when JavaScript is on but a module failed.
+            window.__lookupReadyTimer = window.setTimeout(function () {
+              var warn = document.getElementById('startup-warning');
+              if (warn) warn.hidden = false;
+            }, 6000);
+          </script>
+
+          <div class="search">
+            <form id="lookup-form" role="search" aria-label="Callsign search">
+              <div class="search-row">
+                <label for="callsign" class="visually-hidden">Callsign or suffix</label>
+                <!-- name="c" so a native submit (JavaScript momentarily unavailable)
+                     produces the canonical ?c= the deep-link handler already reads; the
+                     id stays "callsign" for the label and the scripts. The combobox
+                     ARIA is inert without JavaScript (the box is a plain field that
+                     submits the lookup); home.js activates the type-ahead listbox. -->
+                <input id="callsign" name="c" type="text"
+                  role="combobox" aria-expanded="false" aria-controls="suggest" aria-autocomplete="list"
+                  autocomplete="off" spellcheck="false"
+                  placeholder="Type a callsign — e.g. M7TEE — or a suffix like *TEE">
+                <button type="submit" class="go">Look up</button>
+                <ul class="suggest" id="suggest" role="listbox" aria-label="Callsign suggestions" hidden></ul>
+              </div>
+              <!-- Progressive disclosure (issue #730): the plain box is the instant
+                   path; the full filter surface stays one click away behind
+                   "Advanced search", collapsed by default. Every id app.js reads
+                   is preserved, so filtering, wildcard and whole-register browsing
+                   are unchanged. -->
+              <details id="filters">
+                <summary>Advanced search <span class="muted">(filters — within a group: any ticked value matches; across groups: all conditions apply)</span></summary>
+                <fieldset id="status-filters">
+                  <legend class="muted">register status</legend>
+                </fieldset>
+                <fieldset id="parse-filters">
+                  <legend class="muted">parse status</legend>
+                </fieldset>
+                <fieldset id="flag-filters">
+                  <legend class="muted">flags — rows must carry <em>all</em> ticked</legend>
+                </fieldset>
+                <fieldset id="shape-filters">
+                  <legend class="muted">shape</legend>
+                  <label>prefix series
+                    <select id="series-filter"><option value="">any</option></select>
+                  </label>
+                  <label>length
+                    <input id="length-filter" type="number" min="1" max="20" placeholder="any">
+                  </label>
+                  <label title="A = letter, N = digit, other characters literal. e.g. ANAAA or 2NAAA">pattern
+                    <input id="pattern-filter" type="text" placeholder="e.g. ANAAA" spellcheck="false">
+                  </label>
+                  <label title="callsign contains characters outside A-Z and 0-9">
+                    <input id="abnormal-filter" type="checkbox"> abnormal characters
+                  </label>
+                </fieldset>
+              </details>
+            </form>
+          </div>
+
+          <p class="muted hint search-hint">Try a full callsign, or a
+          <a class="gloss-term" href="glossary.html#suffix">suffix<span class="gloss-cue" aria-hidden="true">?</span><span class="visually-hidden"> (definition of a callsign suffix in the glossary)</span></a>
+          like <a href="?c=*TEE">*TEE</a> to check which
+          <a class="gloss-term" href="glossary.html#prefix-series">prefix series<span class="gloss-cue" aria-hidden="true">?</span><span class="visually-hidden"> (definition of prefix series in the glossary)</span></a>
+          that suffix is free in. Wildcard searches (<span class="mono">*</span>) and filters
+          compose; filters on their own (empty callsign) browse the whole
+          register. The <span class="mono">#</span> in a
+          <a href="glossary.html#placeholder-form">placeholder form</a> marks the
+          optional Regional Secondary Locator slot.</p>
+
+          <!-- Returning-visitor "jump back" chips: the visitor's recent lookups,
+               newest first (home.js). An example state shows before any lookup so
+               the affordance is legible; hidden entirely with JavaScript off. -->
+          <div class="jumpback" id="jumpback" hidden></div>
+
+          <!-- Loading affordance regions (issue #499), shared with Explore and the
+               Playground console: a polite status while the lookup database opens and
+               runs, and an assertive alert if the load or query fails. -->
+          <p id="lookup-status" class="muted" role="status"></p>
+          <p class="db-alert" id="lookup-alert" role="alert" hidden></p>
+          <div id="result" hidden></div>
+        </section>
       </div>
-      <script>
-        // Reveal the startup warning if the lookup module has not signalled ready
-        // shortly after load. This inline classic script runs before the ES
-        // modules; app.js clears the timer on successful init (see its tail), so
-        // the warning only surfaces when JavaScript is on but a module failed.
-        window.__lookupReadyTimer = window.setTimeout(function () {
-          var warn = document.getElementById('startup-warning');
-          if (warn) warn.hidden = false;
-        }, 6000);
-      </script>
-      <form id="lookup-form">
-        <label for="callsign">Callsign</label>
-        <!-- name="c" so a native submit (JavaScript momentarily unavailable)
-             produces the canonical ?c= the deep-link handler already reads; the
-             id stays "callsign" for the label and the scripts. -->
-        <input id="callsign" name="c" type="text" placeholder="e.g. M7TEE, MW7TEE, M#7TEE or *TEE" autocomplete="off" spellcheck="false">
-        <button type="submit">Look up</button>
-        <details id="filters">
-          <summary>Filters <span class="muted">(within a group: any ticked value matches; across groups: all conditions apply)</span></summary>
-          <fieldset id="status-filters">
-            <legend class="muted">register status</legend>
-          </fieldset>
-          <fieldset id="parse-filters">
-            <legend class="muted">parse status</legend>
-          </fieldset>
-          <fieldset id="flag-filters">
-            <legend class="muted">flags — rows must carry <em>all</em> ticked</legend>
-          </fieldset>
-          <fieldset id="shape-filters">
-            <legend class="muted">shape</legend>
-            <label>prefix series
-              <select id="series-filter"><option value="">any</option></select>
-            </label>
-            <label>length
-              <input id="length-filter" type="number" min="1" max="20" placeholder="any">
-            </label>
-            <label title="A = letter, N = digit, other characters literal. e.g. ANAAA or 2NAAA">pattern
-              <input id="pattern-filter" type="text" placeholder="e.g. ANAAA" spellcheck="false">
-            </label>
-            <label title="callsign contains characters outside A-Z and 0-9">
-              <input id="abnormal-filter" type="checkbox"> abnormal characters
-            </label>
-          </fieldset>
+
+      <div class="wrap">
+        <!-- ============ ORIENTATION ============ -->
+        <p class="home-orient">An independent mirror of Ofcom’s UK amateur-radio register and a decade of
+          archived FOI disclosures — for reference and research, <em>not</em> an authoritative source, and not
+          affiliated with or endorsed by Ofcom.
+          <a href="about.html">New here? What this is</a> · <a href="explore.html">query it all</a> · <a href="statistics.html">the record at a glance</a>.</p>
+
+        <!-- ============ ACTION CHIPS ============ -->
+        <div class="home-routes">
+          <a class="route" href="datasets/index.html">Browse every dataset →</a>
+          <a class="route" href="statistics.html">The record at a glance →</a>
+          <a class="route" href="reports/index.html">Reports on how it changed →</a>
+          <a class="route" href="explore.html">Query it with SQL →</a>
+        </div>
+
+        <!-- ============ HEADLINE STATS ============ -->
+        <div class="home-stats" aria-label="The record’s headline shape">
+          <span class="fig"><b data-figure="callsigns"><!--home:callsigns--></b> <span>callsigns in the latest register</span></span>
+          <span class="fig"><b data-figure="datasets"><!--home:datasets--></b> <span>datasets folded</span></span>
+          <span class="fig"><b data-figure="span"><!--home:span--></b> <span>span</span></span>
+          <span class="fig"><b data-figure="latest"><!--home:latest--></b> <span>latest snapshot</span></span>
+          <span class="derived-stamp">at the <span><!--home:derivedAt--></span> build</span>
+        </div>
+
+        <hr class="home-rule" aria-hidden="true">
+
+        <!-- ============ SURPRISE CARD ============ -->
+        <div class="home-surprise" aria-live="polite">
+          <div class="k"><span id="s-kicker">reserved, never issued</span>
+            <button type="button" class="s-another" id="s-another">Surprise me again →</button></div>
+          <h2 id="s-title">The M2 prefix has never been issued</h2>
+          <p id="s-body">It appears in the register only as reserved — a whole prefix series held back, never allocated to a licensee.</p>
+          <a class="more" id="s-link" href="series/index.html">Explore this →</a>
+        </div>
+
+        <!-- ============ HOLDINGS MAP ============ -->
+        <section id="holdings" class="home-viz" aria-label="The mirror’s holdings" tabindex="-1">
+          <div class="viz-head">
+            <h2>The mirror’s holdings at a glance</h2>
+            <span class="derived-stamp">at the <span><!--home:derivedAt--></span> build</span>
+          </div>
+          <div class="viz-shape">
+            <span class="fig"><b data-figure="datasets"><!--home:datasets--></b> <span>datasets folded</span></span>
+            <span class="fig"><b data-figure="span"><!--home:span--></b> <span>vintages</span></span>
+            <span class="fig"><b data-figure="latest"><!--home:latest--></b> <span>latest snapshot</span></span>
+          </div>
+          <!-- The corpus-wide holdings map is pre-rendered into this slot at deploy
+               time by src/ci/build-front-door.ts (every dataset, one lettered,
+               kind-tinted cell deep-linking to its own page). Static HTML, so it
+               works with JavaScript off; home.js only layers the hover/focus
+               readout on top. -->
+          <!--home:holdings-map-->
+          <p class="hold-map-fallback"><a href="datasets/index.html">Browse every dataset →</a></p>
+        </section>
+
+        <hr class="home-rule" aria-hidden="true">
+
+        <!-- ============ ROLE TABS ============ -->
+        <div id="ways-in" class="home-tabs">
+          <h2 class="tabs-heading">Ways in</h2>
+          <div class="tablist" role="tablist" aria-label="Choose your path">
+            <button class="tab" role="tab" id="tab-reader" aria-controls="panel-reader" aria-selected="true">Reader</button>
+            <button class="tab" role="tab" id="tab-researcher" aria-controls="panel-researcher" aria-selected="false" tabindex="-1">Researcher</button>
+            <button class="tab" role="tab" id="tab-holder" aria-controls="panel-holder" aria-selected="false" tabindex="-1">Callsign-holder</button>
+          </div>
+
+          <div class="panel" role="tabpanel" id="panel-reader" aria-labelledby="tab-reader">
+            <p class="intro">Just want to look something up? Start with a single callsign for its instant
+              answer, or browse the record in plain language — no SQL, no downloads.</p>
+            <div class="paths">
+              <a class="path reader" href="#callsign" aria-label="Look up one callsign in the search box"><span class="k">Instant</span><h3>Look up one callsign</h3><p>Latest status, parsed anatomy and full history in one small fetch.</p></a>
+              <a class="path reader" href="statistics.html" aria-label="See the record’s shape at a glance"><span class="k">At a glance</span><h3>The record’s shape</h3><p>Aggregate views over the latest publication — the prefix-series × RSL matrix and data-quality flags, no query needed.</p></a>
+              <a class="path reader" href="glossary.html" aria-label="Read what the terms mean in the glossary"><span class="k">Plain English</span><h3>What the terms mean</h3><p>RSL, prefix series, register status — defined without jargon.</p></a>
+            </div>
+          </div>
+
+          <div class="panel" role="tabpanel" id="panel-researcher" aria-labelledby="tab-researcher" hidden>
+            <p class="intro">Want to interrogate the whole record? Query it directly in your browser — a link can
+              carry a query, so a page can point straight at a result (for example
+              <a href="explore.html?db=latest&amp;sql=SELECT+flag,+meaning+FROM+flag_registry+ORDER+BY+flag">the data-quality flag vocabulary</a>
+              opens the console pre-filled and runs it) — compare publications, follow every
+              dataset’s processing, or pull any dataset with its raw, extract and normalised files.</p>
+            <div class="paths">
+              <a class="path researcher" href="explore.html" aria-label="Query the record in your browser with SQL"><span class="k">SQL</span><h3>Query in your browser</h3><p>Read-only SQL over the published databases, worked examples included.</p></a>
+              <a class="path researcher" href="datasets/index.html" aria-label="Browse every dataset, downloadable"><span class="k">Provenance</span><h3>Every dataset, downloadable</h3><p>Open-data publications and FOI disclosures, raw · extract · normalised, at stable URLs with descriptors.</p></a>
+              <a class="path researcher" href="series/index.html" aria-label="Browse the prefix series pages"><span class="k">Reference</span><h3>Prefix series</h3><p>One page per callsign prefix series — reference facts joined with latest-publication counts.</p></a>
+              <a class="path researcher" href="compare.html" aria-label="Compare two publications"><span class="k">Diff</span><h3>Compare publications</h3><p>See what changed between any two archived snapshots of the register.</p></a>
+              <a class="path researcher" href="data-status.html" aria-label="See how far each dataset has been processed"><span class="k">Coverage</span><h3>Data status</h3><p>Every dataset the mirror holds or knows exists, and how far each is carried through processing.</p></a>
+            </div>
+          </div>
+
+          <div class="panel" role="tabpanel" id="panel-holder" aria-labelledby="tab-holder" hidden>
+            <p class="intro">Hold a callsign, or chasing one? Trace your own callsign across every publication,
+              or check which prefix series a wanted suffix is still free in.</p>
+            <div class="paths">
+              <a class="path holder" href="callsign.html?c=M7TEE" aria-label="Trace a callsign over time"><span class="k">Your callsign</span><h3>Trace it over time</h3><p>How a callsign appears across every archived snapshot, with its FOI-witnessed history.</p></a>
+              <a class="path holder" href="?c=*TEE" aria-label="Check whether a wanted suffix is free"><span class="k">Wanted suffix</span><h3>Is a suffix free?</h3><p>Type a suffix like *TEE to see which prefix series carry it and which leave it open.</p></a>
+              <a class="path holder" href="forbidden/index.html" aria-label="See the forbidden suffixes"><span class="k">Off-limits</span><h3>Forbidden suffixes</h3><p>The endings Ofcom will not allocate — before you set your heart on one.</p></a>
+            </div>
+          </div>
+        </div>
+
+        <hr class="home-rule" aria-hidden="true">
+
+        <!-- ============ OFFLINE BAND ============ -->
+        <section class="home-offline" id="offline" tabindex="-1">
+          <div class="eyebrow">offline use</div>
+          <h2>Use this lookup offline</h2>
+          <p class="muted">By default each search fetches only the few kilobytes
+          of the database it needs, so the first load stays light. If you would
+          rather work with no connection — on the air, in the field, or on a poor
+          link — you can download the whole database once and run entirely in your
+          browser afterwards. It stays on this device until a new version is
+          published (which replaces it) or you remove it.</p>
+          <p id="offline-state" class="muted" role="status">Running online: each
+          search fetches only the few kilobytes of the database it touches.</p>
+          <div id="offline-controls">
+            <button type="button" id="offline-download">Download the full dataset for offline use</button>
+            <button type="button" id="offline-remove" class="pg" hidden>Remove offline copy</button>
+          </div>
+          <p id="offline-progress-wrap" hidden>
+            <label for="offline-progress" id="offline-progress-label" class="muted"></label><br>
+            <progress id="offline-progress" max="100" value="0"></progress>
+          </p>
+          <details id="offline-advanced">
+            <summary>Advanced: the full historical database</summary>
+            <p class="muted">The combined database carries every archived
+            publication and all FOI observations — much larger (~[[db-size:history]]). Only
+            download it if you need the longitudinal history (register history and
+            FOI-witnessed observations) available offline too.</p>
+            <button type="button" id="offline-download-combined">Download the combined database for offline use</button>
+          </details>
+          <p class="muted hint">Needs a browser that supports service workers.
+          Where it is unavailable the lookup simply carries on online.</p>
+        </section>
+
+        <!-- How this works — retained from the previous home page, folded in here
+             as a quiet disclosure so nothing is dropped. -->
+        <details id="how-it-works" class="home-how">
+          <summary>How this works — the end-to-end flow, no server in between</summary>
+          <p class="muted">This lookup is a proof of concept: it queries a
+          published SQLite database directly from your browser over HTTP range
+          requests — the full end-to-end flow from Ofcom’s register, through the
+          mirror’s normalisation, component parsing and reference data, to your
+          screen, with no server in between. Full source and provenance are in
+          the <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">repository</a>.</p>
         </details>
-      </form>
-      <p class="muted hint">Try a full callsign, or a suffix like
-      <a href="?c=*TEE">*TEE</a> to check which prefix series that suffix is
-      free in. Wildcard searches (<span class="mono">*</span>) and filters
-      compose; filters on their own (empty callsign) browse the whole
-      register. The <span class="mono">#</span> in a
-      <a href="glossary.html#placeholder-form">placeholder form</a> marks the
-      optional Regional Secondary Locator slot.</p>
-      <!-- Loading affordance regions (issue #499), shared with Explore and the
-           Playground console: a polite status while the lookup database opens and
-           runs, and an assertive alert if the load or query fails. app.js drives
-           both through db-loading.js. -->
-      <p id="lookup-status" class="muted" role="status"></p>
-      <p class="db-alert" id="lookup-alert" role="alert" hidden></p>
-      <div id="result" hidden></div>
-    </section>
 
-    <section class="panel" id="views">
-      <div class="eyebrow">views &amp; tools</div>
-      <h2>Other ways in</h2>
-      <p><a href="statistics.html">Statistics</a> — aggregate views over the
-      archived data (no SQL needed): the prefix-series × RSL matrix and
-      data-quality flags per publication, generated at deploy time.</p>
-      <p><a href="series/index.html">Prefix series</a> — one page per
-      callsign prefix series (no SQL needed): hand-curated reference facts
-      joined with counts from the latest publication.</p>
-      <p><a href="datasets/index.html">Dataset index</a> — every archived
-      dataset (open-data publications and FOI disclosures), published with
-      its raw, extract and normalised files at stable URLs, each entry with
-      a machine-readable descriptor, per-entry metrics, and one-click
-      downloads.</p>
-      <p><a href="data-status.html">Data status</a> — a build-time tracker of
-      every dataset the mirror holds or knows exists, and how far each has been
-      carried through processing.</p>
-      <p><a href="glossary.html">Glossary</a> — plain-language definitions of
-      the recurring terms: RSL, prefix series, placeholder form, register
-      status values, and the three axes the project describes its data by.</p>
-      <p><a href="explore.html">Explore</a> <span class="muted">(for SQL
-      users)</span> — run read-only SQL over the published databases in your
-      browser: join the datasets, follow the worked examples, no install
-      needed. A link can carry a query, so a page can point straight at a
-      result — for example
-      <a href="explore.html?db=latest&amp;sql=SELECT+flag,+meaning+FROM+flag_registry+ORDER+BY+flag">the data-quality flag vocabulary</a>
-      opens the console pre-filled and runs it.</p>
-    </section>
-
-    <section class="panel">
-      <div class="eyebrow">how this works</div>
-      <details id="how-it-works">
-        <summary>The end-to-end flow, no server in between</summary>
-        <p class="muted">This lookup is a proof of concept: it queries a
-        published SQLite database directly from your browser over HTTP range
-        requests — the full end-to-end flow from Ofcom's register, through the
-        mirror's normalisation, component parsing and reference data, to your
-        screen, with no server in between. Full source and provenance are in
-        the <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch">repository</a>.</p>
-      </details>
-    </section>
-
-    <section class="panel" id="offline">
-      <div class="eyebrow">offline use</div>
-      <h2>Use this lookup offline</h2>
-      <p class="muted">By default each search fetches only the few kilobytes
-      of the database it needs, so the first load stays light. If you would
-      rather work with no connection — on the air, in the field, or on a poor
-      link — you can download the whole database once and run entirely in your
-      browser afterwards. It stays on this device until a new version is
-      published (which replaces it) or you remove it.</p>
-      <p id="offline-state" class="muted" role="status">Running online: each
-      search fetches only the few kilobytes of the database it touches.</p>
-      <div id="offline-controls">
-        <button type="button" id="offline-download">Download the full dataset for offline use</button>
-        <button type="button" id="offline-remove" class="pg" hidden>Remove offline copy</button>
+        <!-- Footer — the runtime build stamp alone (app.js fills it from the
+             loaded database's build_info), a single non-fragmenting line. -->
+        <footer id="build-info"></footer>
       </div>
-      <p id="offline-progress-wrap" hidden>
-        <label for="offline-progress" id="offline-progress-label" class="muted"></label><br>
-        <progress id="offline-progress" max="100" value="0"></progress>
-      </p>
-      <details id="offline-advanced">
-        <summary>Advanced: the full historical database</summary>
-        <p class="muted">The combined database carries every archived
-        publication and all FOI observations — much larger (~[[db-size:history]]). Only
-        download it if you need the longitudinal history (register history and
-        FOI-witnessed observations) available offline too.</p>
-        <button type="button" id="offline-download-combined">Download the combined database for offline use</button>
-      </details>
-      <p class="muted hint">Needs a browser that supports service workers.
-      Where it is unavailable the lookup simply carries on online.</p>
-    </section>
-
-    <footer id="build-info"></footer>
     </div>
   </main>
 
   <!-- UMD bundle: attaches createDbWorker to window; must load before app.js -->
   <script src="vendor/index.js"></script>
   <script type="module" src="app.js"></script>
+  <script type="module" src="home.js"></script>
 </body>
 </html>

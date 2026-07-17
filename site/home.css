@@ -1,0 +1,271 @@
+/* Bespoke front-door stylesheet for the home page (issue #712).
+ *
+ * The redesign keeps its own visual language as its own stylesheet rather than
+ * flattening into style.css — the project convention for a reviewed prototype
+ * retrofit. Everything is scoped under `.home`, which the page shares with
+ * `.ledger`, so every colour here draws on the shared ledger tokens
+ * (--surface/--hair/--ink/--muted/--signal/--raw/--shadow/--mono, light + dark).
+ * No colour is hard-coded except the per-kind holdings-map tints, which are
+ * mixed against --surface so they read in both themes — so the whole front door
+ * flips light/dark with the rest of the site, and the page background is the
+ * themed body paper, never a fixed grey.
+ *
+ * Three-step spacing scale (the reviewed F1 rhythm): tight within a band, a card
+ * gap between sibling cards, a section gap paired with a hairline rule between
+ * major bands — so the sections read as distinct groups, not a cramped stack. */
+
+.home {
+  --rhythm-tight: 14px;
+  --rhythm-card: 20px;
+  --rhythm-section: 44px;
+}
+.home *, .home *::before, .home *::after { box-sizing: border-box; }
+.home .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 20px; }
+
+/* ---- Page-local jump strip -------------------------------------------------
+   The offline-download band carries live interactive state, so it earns its own
+   jump link here (Roger's "the download bit could get its own navbar link");
+   page-local, distinct from the shared cross-site nav above. */
+.page-jump { max-width: var(--maxw); margin: 6px auto 0; padding: 0 20px;
+  display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--mono); font-size: 12px; }
+.page-jump a { color: var(--muted); text-decoration: none; padding: 2px 0; }
+.page-jump a:hover { color: var(--signal); text-decoration: underline; }
+.page-jump a:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+
+/* ---- Search band -----------------------------------------------------------
+   The primary control, full content width, above everything. */
+.home-hero { padding: 30px 0 0; }
+.home .hero-line { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; }
+.home .hero-glyph { font-size: 26px; line-height: 1; }
+/* The identity is the document's <h1>; the visual is the compact eyebrow the
+   review approved, so the ledger's big display-heading metrics are reasserted
+   here at a higher specificity. */
+.home .hero-line h1 { margin: 0; font-family: var(--mono); font-size: 12px; font-weight: 600;
+  line-height: 1.2; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.home #data-currency { margin: 0 0 16px; }
+
+.home .search-band { margin: 0; }
+.home .search { position: relative; }
+.home .search form { margin: 0; display: block; }
+.home .search-row { position: relative; display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
+.home .search input#callsign {
+  flex: 1 1 auto; min-width: 0; font: inherit; font-family: var(--mono);
+  text-transform: uppercase; padding: 15px 16px; font-size: 17px; border: 1.5px solid var(--hair);
+  border-radius: 14px; background: var(--surface); color: var(--ink);
+  box-shadow: var(--shadow); transition: border-color .12s, box-shadow .12s;
+}
+.home .search input#callsign::placeholder { text-transform: none; color: var(--faint); }
+.home .search input#callsign:focus, .home .search input#callsign:focus-visible {
+  outline: none; border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-soft), var(--shadow);
+}
+.home .search button.go {
+  flex: 0 0 auto; font: inherit; font-weight: 600; cursor: pointer; padding: 0 22px;
+  border-radius: 14px; border: 1.5px solid var(--signal); background: var(--signal); color: var(--on-signal);
+}
+.home .search button.go:hover { filter: brightness(1.06); }
+.home .search button.go:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+/* Suggestion listbox: drops directly beneath the input row. Deliberately inset
+   below full width so a touch user always has tap-off space beside it to dismiss
+   it (issue #712 mobile note). */
+.home .suggest {
+  list-style: none; margin: 0; padding: 6px; position: absolute; top: calc(100% + 8px);
+  left: 0; width: min(30rem, 100%); z-index: 20; background: var(--surface);
+  border: 1px solid var(--hair); border-radius: 12px; box-shadow: var(--shadow);
+}
+.home .suggest[hidden] { display: none; }
+.home .sug { padding: 9px 12px; border-radius: 8px; cursor: pointer; font-family: var(--mono); font-weight: 600; color: var(--raw); }
+.home .sug[aria-selected="true"], .home .sug:hover { background: var(--surface-2); }
+
+.home .search-hint { margin: 12px 0 0; }
+.home .search-hint a { color: var(--raw); }
+
+/* Returning-visitor "jump back" chips */
+.home .jumpback { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.home .jumpback[hidden] { display: none; }
+.home .jb-label { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+.home .jb-chip { font-family: var(--mono); font-size: 13px; font-weight: 600; text-decoration: none;
+  padding: 5px 11px; border-radius: 999px; border: 1px solid var(--hair); background: var(--surface); color: var(--raw); }
+.home .jb-chip:hover { border-color: var(--signal); }
+.home .jb-chip:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.home .jb-note { font-size: 11.5px; color: var(--faint); font-style: italic; }
+
+/* The runtime lookup result renders below the search band. */
+.home #result { margin-top: 8px; }
+
+/* ---- Orientation, routes, stats (one bound cluster) ------------------------ */
+.home-orient { margin: var(--rhythm-section) 0 0; font-size: 14.5px; color: var(--muted); max-width: 78ch; }
+.home-orient a { color: var(--raw); }
+.home-orient em { font-style: normal; font-weight: 600; color: var(--ink); }
+
+.home-routes { display: flex; flex-wrap: wrap; gap: 10px; margin: var(--rhythm-tight) 0 0; }
+.home .route { font-family: var(--mono); font-size: 13px; text-decoration: none; padding: 8px 14px;
+  border-radius: 10px; border: 1px solid var(--hair); background: var(--surface-2); color: var(--raw); }
+.home .route:hover { border-color: var(--signal); }
+.home .route:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+/* The stats card is purely informational, so it wears a flat tint (no shadow),
+   so a raised card reliably signals "something here acts" (critique 4b). */
+.home-stats { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px;
+  margin: var(--rhythm-tight) 0 0; padding: 12px 16px; border: 1px solid var(--hair);
+  border-radius: 12px; background: var(--surface-2); }
+.home-stats .fig { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.home-stats .fig b { font-weight: 700; font-size: 17px; color: var(--ink); }
+.home-stats .fig span { font-size: 12.5px; color: var(--muted); }
+/* Separators ride WITH the figure that follows, so a mid-dot never dangles at
+   the end of a wrapped line (critique 3a). */
+.home-stats .fig:not(:first-child)::before { content: "·"; color: var(--faint); margin-right: 12px; }
+.home-stats .derived-stamp { margin-left: auto; }
+
+/* Derived-figure stamp: epistemics made visible, and non-fragmenting — the
+   badge and its text stay on one line so the build stamp never splits (critique
+   footer fix carried to every stamp). */
+.home .derived-stamp { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .04em; color: var(--faint); }
+.home .derived-stamp::before { content: "derived"; font-size: 9.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--signal); background: var(--signal-soft);
+  border: 1px solid var(--signal-soft); border-radius: 5px; padding: 1px 5px; font-weight: 600; }
+
+/* ---- Section rule ---------------------------------------------------------- */
+.home-rule { border: 0; border-top: 1px solid var(--hair); margin: var(--rhythm-section) 0 0; }
+@media (prefers-color-scheme: dark) {
+  .home-rule { border-top-color: color-mix(in srgb, var(--hair) 45%, var(--muted)); }
+}
+:root[data-theme="dark"] .home-rule { border-top-color: color-mix(in srgb, var(--hair) 45%, var(--muted)); }
+:root[data-theme="light"] .home-rule { border-top-color: var(--hair); }
+
+/* ---- Surprise card (a real, dated fact reached before any keystroke) -------- */
+.home-surprise { position: relative; margin: var(--rhythm-card) 0 0; border: 1px solid var(--hair);
+  border-left: 3px solid var(--signal); border-radius: 16px; background: var(--surface);
+  box-shadow: var(--shadow); padding: 18px 20px 16px; }
+.home-surprise .k { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--signal); font-weight: 600; }
+.home-surprise h2 { margin: 8px 0 6px; font-size: 20px; }
+.home-surprise p { margin: 0 0 10px; color: var(--muted); font-size: 14.5px; max-width: 72ch; }
+.home-surprise a.more { font-family: var(--mono); font-size: 13px; text-decoration: none; color: var(--raw); }
+.home-surprise a.more:hover { text-decoration: underline; }
+.home-surprise a.more:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+.home .s-another { font: inherit; font-family: var(--mono); font-size: 12px; cursor: pointer;
+  padding: 4px 10px; border-radius: 8px; border: 1px solid var(--hair); background: var(--surface-2); color: var(--ink); }
+.home .s-another:hover { border-color: var(--signal); }
+.home .s-another:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+/* ---- Holdings map card ----------------------------------------------------- */
+.home-viz { margin: var(--rhythm-card) 0 0; padding: 22px 22px 16px; border: 1px solid var(--hair);
+  border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
+.home-viz:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.home .viz-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.home .viz-head h2 { font-size: 17px; margin: 0; }
+.home .viz-shape { display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: baseline; margin-bottom: 6px; }
+.home .viz-shape .fig { font-family: var(--mono); white-space: nowrap; }
+.home .viz-shape .fig b { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.home .viz-shape .fig span { font-size: 11.5px; color: var(--muted); }
+
+.home .hold-map { border: 0; background: transparent; padding: 0; margin: 8px 0 0; }
+.home .hold-map-lead { margin: 0 0 8px; font-size: 12.5px; color: var(--muted); line-height: 1.45; max-width: 78ch; }
+.home .hold-readout { margin: 0 0 12px; min-height: 1.3em; font-family: var(--mono); font-size: 12.5px; color: var(--signal); }
+.home .hold-map-grid { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.home .hold-map-yr { list-style: none; display: grid; grid-template-columns: 3.2rem 1fr; align-items: center; gap: 10px; min-height: 1.55rem; }
+.home .hold-map-yrlab { font-family: var(--mono); font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.home .hold-map-yr--empty { opacity: .6; }
+.home .hold-map-yr--empty .hold-map-cells::before { content: "—"; color: var(--faint); font-size: 12px; }
+.home .hold-map-cells { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; min-height: 1.35rem; align-items: center; }
+.home .hold-map-cells li { list-style: none; margin: 0; }
+/* At-rest affordance: every cell carries a kind tint, a solid border and its
+   kind letter with no hover needed, so it reads as a distinct, selectable token
+   at rest — the hover/focus ring is an addition, not the only cue. */
+.home .hold-cell { display: flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem;
+  border-radius: 5px; font-family: var(--mono); font-size: 12px; font-weight: 700; text-decoration: none;
+  --kh: #8a8f98; background: color-mix(in srgb, var(--kh) 22%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--kh) 55%, var(--surface)); color: var(--ink); }
+/* The page-wide `.ledger a { color: var(--raw) }` otherwise dims the letters;
+   scoping the override to the map's ancestor settles it by specificity. */
+.home .hold-map a.hold-cell { color: var(--ink); }
+.home .hold-cell:hover, .home .hold-cell:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
+/* The latest register snapshot keeps its emphasis — a quiet accent ring. */
+.home .hold-cell--latest { box-shadow: 0 0 0 2px var(--signal); }
+.home .hold-cell[data-kind="register-snapshot"]    { --kh: #3b82c4; }
+.home .hold-cell[data-kind="available-pool"]       { --kh: #3f9d6b; }
+.home .hold-cell[data-kind="issuance-events"]      { --kh: #c07d1a; }
+.home .hold-cell[data-kind="forbidden-list"]       { --kh: #c0485d; }
+.home .hold-cell[data-kind="statistics-aggregate"] { --kh: #7c6bcc; }
+.home .hold-cell[data-kind="attribute-addendum"]   { --kh: #3fa3a3; }
+.home .hold-cell[data-kind="reference-context"]    { --kh: #8a8f98; }
+.home .hold-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 14px 0 0;
+  padding: 12px 0 0; border-top: 1px solid var(--hair); font-size: 12px; color: var(--muted); }
+.home .hold-legend li { list-style: none; margin: 0; display: flex; align-items: center; gap: 6px; }
+.home .hold-cell--legend { width: 1.3rem; height: 1.3rem; font-size: 11px; }
+.home .hold-map-fallback { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+.home .hold-map-fallback a { color: var(--raw); }
+/* Keyboard skip past the ~60 tabbable cells (critique 7b): off-screen until
+   focused, then a visible button. */
+.home .hold-skip { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.home .hold-skip:focus { position: static; width: auto; height: auto; clip: auto; overflow: visible;
+  display: inline-block; margin: 0 0 10px; padding: 6px 12px; border-radius: 8px;
+  font-family: var(--mono); font-size: 12px; background: var(--signal); color: var(--on-signal); text-decoration: none; }
+
+/* ---- Role tabs ------------------------------------------------------------- */
+.home-tabs { margin: var(--rhythm-card) 0 0; }
+.home .tabs-heading { font-size: 17px; margin: 0 0 8px; }
+.home .tablist { display: flex; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--hair); padding-bottom: 2px; }
+.home .tab { font: inherit; font-family: var(--mono); font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: 9px 16px; border: 1px solid transparent; border-bottom: none; border-radius: 10px 10px 0 0;
+  background: transparent; color: var(--muted); }
+.home .tab[aria-selected="true"] { background: var(--surface); color: var(--signal); border-color: var(--hair); box-shadow: var(--shadow); }
+.home .tab:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.home .panel { padding: 18px 2px 2px; }
+.home .panel[hidden] { display: none; }
+.home .panel p.intro { color: var(--muted); margin: 0 0 14px; max-width: 74ch; }
+.home .paths { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+/* Each whole-card link reads unmistakably as clickable: an action "→" nudge, a
+   title underline on hover/focus, a pointer cursor and the shared focus ring;
+   an action-first aria-label gives it an accessible name that is the action. */
+.home .path { position: relative; display: block; text-decoration: none; color: inherit;
+  background: var(--surface); border: 1px solid var(--hair); border-left: 3px solid var(--raw);
+  border-radius: 14px; padding: 18px 42px 16px 18px; box-shadow: var(--shadow); cursor: pointer;
+  transition: transform .08s, border-color .12s; }
+.home .path::after { content: "→"; position: absolute; right: 16px; top: 18px; font-family: var(--mono);
+  font-size: 16px; color: var(--muted); transition: transform .12s ease, color .12s ease; }
+.home .path:hover { transform: translateY(-2px); border-color: var(--signal); }
+.home .path:hover h3, .home .path:focus-visible h3 { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+.home .path:hover::after, .home .path:focus-visible::after { transform: translateX(4px); color: var(--signal); }
+.home .path:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.home .path .k { display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--raw); font-weight: 600; }
+.home .path h3 { margin: 8px 0 6px; font-size: 17px; }
+.home .path p { margin: 0; color: var(--muted); font-size: 14px; }
+.home .path.researcher { border-left-color: var(--derived); } .home .path.researcher .k { color: var(--derived); }
+.home .path.holder { border-left-color: var(--steady); } .home .path.holder .k { color: var(--steady); }
+@media (prefers-reduced-motion: reduce) { .home .path, .home .path::after { transition: none; } }
+
+/* ---- Offline band (its own clear band) ------------------------------------- */
+.home-offline { margin: var(--rhythm-card) 0 0; padding: 24px; border: 1px solid var(--hair);
+  border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
+.home-offline:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.home-offline .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--signal); font-weight: 600; }
+.home-offline h2 { font-size: 19px; margin: 6px 0 10px; }
+.home-offline p { margin: 0 0 12px; max-width: 74ch; }
+.home-offline #offline-controls { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0; }
+.home-offline progress { width: min(24rem, 100%); }
+
+/* ---- How-it-works + footer ------------------------------------------------- */
+.home-how { margin: var(--rhythm-card) 0 0; }
+.home-how > summary { cursor: pointer; font-family: var(--mono); font-size: 12.5px; color: var(--signal); }
+.home-how > summary:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+.home-how p { margin: 10px 0 0; max-width: 74ch; }
+.home footer#build-info { margin-top: var(--rhythm-section); padding-top: 16px; border-top: 1px solid var(--hair);
+  font-family: var(--mono); font-size: 12px; color: var(--faint); white-space: normal; }
+
+/* ---- Mobile (~390px): input near-full-width, button below, popup inset ------
+   The button drops onto its own line beneath a near-full-width input, and the
+   suggestion popup stays inset (~80%) so a touch user has tap-off space beside
+   it to dismiss it. */
+@media (max-width: 460px) {
+  .home .search-row { gap: 8px; }
+  .home .search input#callsign { flex-basis: 100%; }
+  .home .search button.go { flex: 1 1 100%; padding: 12px 22px; }
+  .home .suggest { width: 80%; }
+  .home-stats .derived-stamp { margin-left: 0; }
+}
