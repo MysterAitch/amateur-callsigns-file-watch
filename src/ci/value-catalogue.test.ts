@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
 import {
-  catalogueField, renderValueCatalogue, collectSesWindowAttestation,
+  catalogueField, renderValueCatalogue, collectSesWindowAttestation, sparklineCell,
   type SesWindowAttestation, type FieldCatalogue, type ValueTally, type MembershipVintage,
 } from './value-catalogue.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
@@ -186,8 +186,9 @@ describe('value catalogue', { tags: ['unit'] }, () => {
     expect(md).toContain('| value | records | callsigns | allocated | sources | timeline | lanes |');
     const row = md.split('\n').find(l => l.startsWith('| `Legacy`')) ?? '';
     // timeline is the sixth data column now (records, callsigns, allocated,
-    // sources, timeline).
-    expect(row.split('|')[6].trim()).toBe('██··');
+    // sources, timeline); the bars are wrapped in a self-describing span
+    // (issue #732), so the cell CONTAINS the bars rather than being just them.
+    expect(row.split('|')[6].trim()).toContain('██··');
   });
 
   it('Render_ValueWithEdgeWhitespace_IsVisibleInMonospace', () => {
@@ -443,4 +444,52 @@ describe('buildNormalisationFidelity over the real archive', { tags: ['data-vali
       expect(f.coerced.length).toBe(0);
     }
   }, 600_000);
+});
+
+// Issue #732: the sparkline's ASCII-art bars are a picture with no data behind
+// them for a screen reader (which reads the block characters one by one, or
+// nothing useful) or a sighted reader who cannot recover exact per-bar figures
+// from a peak-scaled bar height. The emitted `<span role="img" aria-label="…"
+// title="…">` carries every bar's own "date: count" pair.
+describe('sparklineCell — self-describing timeline (issue #732)', { tags: ['unit'] }, () => {
+  const ref = loadReferenceData();
+  const timeline = ['2013-09', '2014-03', '2016-01'];
+  const bySource = new Map([['2013-09', 26_646], ['2014-03', 25_391], ['2016-01', 20_737]]);
+
+  it('SparklineCell_AriaLabel_NamesEveryPublicationsDateAndCountInBarOrder', () => {
+    const cell = sparklineCell(bySource, timeline);
+    const label = /aria-label="([^"]+)"/.exec(cell)?.[1];
+    expect(label).toBe('timeline across 3 publications: 2013-09: 26,646; 2014-03: 25,391; 2016-01: 20,737');
+  });
+
+  it('SparklineCell_Title_CarriesTheSamePairsWithADotSeparatorForHover', () => {
+    const cell = sparklineCell(bySource, timeline);
+    const title = /title="([^"]+)"/.exec(cell)?.[1];
+    expect(title).toBe('2013-09: 26,646 · 2014-03: 25,391 · 2016-01: 20,737');
+  });
+
+  it('SparklineCell_AbsentPublication_ReportsZeroRatherThanOmittingTheBar', () => {
+    // Completeness over brevity: every timeline entry gets a pair, including a
+    // publication where the value is absent (the bar renders as `·`).
+    const withGap = sparklineCell(new Map([['2013-09', 100]]), ['2013-09', '2014-03']);
+    expect(withGap).toContain('2013-09: 100');
+    expect(withGap).toContain('2014-03: 0');
+  });
+
+  it('SparklineCell_RoleAndBars_WrapsTheSameBarsTheBareSparklineWouldDraw', () => {
+    const cell = sparklineCell(bySource, timeline);
+    expect(cell).toMatch(/^<span role="img" aria-label="[^"]+" title="[^"]+">[▁▂▃▄▅▆▇█·]+<\/span>$/);
+    // The shrinking pool (26,646 → 25,391 → 20,737), each peak-scaled to the
+    // series' own maximum (26,646) - unchanged from the un-wrapped sparkline.
+    const bars = /">([^<]+)<\/span>$/.exec(cell)?.[1] ?? '';
+    expect(bars).toBe('██▆');
+  });
+
+  it('CrossChecks_RenderedTable_UsesTheSameSelfDescribingSparklineAsOtherTimelineCells', () => {
+    // The value catalogue's ONE sparkline emitter serves every timeline cell -
+    // this pins that the ordinary field tables (not just a standalone unit) get
+    // the accessible wrapper, not bare bars.
+    const md = renderValueCatalogue(talliesBySource('status', { Legacy: { '2022-05-30': 100 } }), ref, ['2022-05-30']);
+    expect(md).toContain('<span role="img" aria-label="timeline across 1 publications: 2022-05-30: 100" title="2022-05-30: 100">');
+  });
 });

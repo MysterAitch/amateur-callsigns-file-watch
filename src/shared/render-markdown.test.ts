@@ -146,6 +146,32 @@ describe('Markdown renderer', { tags: ['unit'] }, () => {
     expect(multi).toContain('<p>After.</p>');
   });
 
+  it('RenderMarkdown_SparklineSpan_PassesThroughWithAriaLabelAndTitle', () => {
+    // The value catalogue's self-describing sparkline (issue #732): a
+    // `role="img"` span with an `aria-label` (screen readers) and a `title`
+    // (mouse hover) must render as real HTML, not literal escaped text (which a
+    // screen reader would otherwise read out character by character).
+    const html = renderMarkdown(
+      '| value | timeline |\n|---|---|\n'
+      + '| `Allocated` | <span role="img" aria-label="timeline across 2 publications: 2013-09: 26,646; 2014-03: 25,391" title="2013-09: 26,646 · 2014-03: 25,391">██</span> |',
+    );
+    expect(html).toContain('<span role="img" aria-label="timeline across 2 publications: 2013-09: 26,646; 2014-03: 25,391" title="2013-09: 26,646 · 2014-03: 25,391">██</span>');
+    expect(html).not.toContain('&lt;span');
+  });
+
+  it('RenderMarkdown_MalformedSparklineSpan_StaysEscapedRatherThanCorruptingTheTable', () => {
+    // A span missing the expected attributes/charset (crafted or corrupt raw
+    // data) must not partially unescape into a broken tag or smuggle a stray
+    // attribute - it simply fails to match the allowlist and stays literal text,
+    // same as any other unrecognised HTML in a cell.
+    const html = renderMarkdown(
+      '| a |\n|---|\n'
+      + '| <span role="img" aria-label="onmouseover=alert(1)" title="x">bars</span> |',
+    );
+    expect(html).not.toContain('<span role="img"');
+    expect(html).toContain('&lt;span');
+  });
+
   it('RenderMarkdown_Table_WrappedInHorizontalScrollContainer', () => {
     // Wide report tables scroll within their own box, not the page body.
     const html = renderMarkdown('| a | b |\n|---|---|\n| 1 | 2 |');

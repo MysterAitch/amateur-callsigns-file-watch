@@ -605,6 +605,32 @@ function sparkline(bySource: Map<string, number>, timeline: string[]): string {
     .join('');
 }
 
+// One "date: count" pair per bar, in bar order, the count with a thousands
+// separator and the date at the timeline's own precision - the exact per-bar
+// data the picture draws, spelled out (issue #732).
+function sparklinePairs(bySource: Map<string, number>, timeline: string[]): string[] {
+  return timeline.map(key => `${key}: ${(bySource.get(key) ?? 0).toLocaleString('en-GB')}`);
+}
+
+// The sparkline, self-describing (issue #732): the ASCII-art bars are a
+// picture with no data behind them for a screen reader (which either reads
+// the block characters one by one, or nothing useful) or a sighted reader who
+// cannot recover the exact per-bar figures from a scaled-to-peak bar height.
+// Wrapping in a `role="img"` span with an `aria-label` (the accessible name -
+// `title` alone is weakly supported by assistive tech, so both are given)
+// and a `title` (mouse hover) carries every bar's date and value, completeness
+// over brevity. Emitted as inline HTML inside the markdown cell; a plain-text
+// reader still sees the bars, the wrapper only adds information. The site
+// renderer's passthrough allowlist (render-markdown.ts) is what lets this
+// survive to real HTML rather than rendering as escaped literal text.
+export function sparklineCell(bySource: Map<string, number>, timeline: string[]): string {
+  const bars = sparkline(bySource, timeline);
+  const pairs = sparklinePairs(bySource, timeline);
+  const ariaLabel = `timeline across ${timeline.length} publications: ${pairs.join('; ')}`;
+  const title = pairs.join(' · ');
+  return `<span role="img" aria-label="${ariaLabel}" title="${title}">${bars}</span>`;
+}
+
 // The raw-vs-normalised gap (#242). Normalisation renames and sorts columns but
 // preserves values, so the meaningful gap is at the callsign level: a source
 // callsign that normalisation drops, or whose form it changes. This is a
@@ -780,7 +806,7 @@ export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timel
     out.push(`| value | records | callsigns | allocated | sources |${hasTimeline ? ' timeline |' : ''} lanes |`);
     out.push(`|---|---:|---:|---:|---:|${hasTimeline ? '---|' : ''}---|`);
     for (const v of attestedValues) {
-      const spark = hasTimeline ? ` ${sparkline(v.bySource, timeline)} |` : '';
+      const spark = hasTimeline ? ` ${sparklineCell(v.bySource, timeline)} |` : '';
       const allocated = allocatable ? v.allocated.toLocaleString('en-GB') : '—';
       out.push(`| ${mdCode(v.value)} | ${v.count.toLocaleString('en-GB')} | ${v.distinctCallsigns.toLocaleString('en-GB')} | ${allocated} | ${v.sources} |${spark} ${v.lanes.join(', ')} |`);
     }
