@@ -928,6 +928,48 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       referenceDateIso: '2025-09-11',
     },
   ],
+
+  // archive/foi/wdtk-1141667--issued-callsigns (Ofcom FOI 01842686, disclosed
+  // via WhatDoTheyKnow request 1141667 as 'Annex 1 All callsigns.xlsx'): a
+  // full register snapshot in a Salesforce-flavoured workbook shape, distinct
+  // from every earlier export - its headers carry the source system's own
+  // field names with the '__c' custom-field suffix on all but the callsign
+  // column: 'Call Sign', 'Product__c', 'Status__c', 'Type__c' and
+  // 'LastModifiedDate'. It is neither a copy of the 2024-07 open-data snapshot
+  // (110,622 data rows here against that snapshot's larger reserved pool) nor
+  // the later 2025-09-11 workbook (which uses unsuffixed 'Callsign'/'Status'
+  // headers, an extra original-start-date column and 'Licence '-prefixed date
+  // fields), so it binds its own variant; columns are matched by exact name.
+  // Product__c is the licence product/class carried verbatim; Status__c is the
+  // source status vocabulary (Allocated/Reserved/Available, with 11 blanks
+  // preserved); Type__c is 'Call Sign - Amateur' on every row (the service
+  // discriminator, required-present not carried). LastModifiedDate is typed at
+  // source and rendered ISO by the extractor with its time-of-day kept
+  // (iso-date); it never postdates the snapshot, so it is bounded by
+  // referenceDateIso. The vintage is 2024-07-22 - the maximum LastModifiedDate
+  // in the data and the as-at date stated in the covering FOI letter agree.
+  'wdtk-1141667-issued-callsigns': [
+    {
+      sourceFile: 'raw-extract-sheet-1-sheet1.csv',
+      encoding: 'utf8',
+      columns: [
+        { source: 'Call Sign', output: 'callsign', kind: 'verbatim' },
+        { source: 'Status__c', output: 'status', kind: 'verbatim' },
+        // The source's own Product vocabulary ('Amateur Full Radio Licence'
+        // etc.), carried verbatim, never canonicalised.
+        { source: 'Product__c', output: 'licence_class', kind: 'verbatim' },
+        // A record last-modified timestamp with time-of-day; cannot postdate
+        // the snapshot.
+        { source: 'LastModifiedDate', output: 'last_modified_date', kind: 'iso-date' },
+      ],
+      // 'Type__c' is 'Call Sign - Amateur' on every row - the product/service
+      // discriminator recorded in meta.json, not a per-row assertion.
+      ignoredColumns: ['Type__c'],
+      rowOrder: 'sorted-by-first-column',
+      orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability',
+      referenceDateIso: '2024-07-22',
+    },
+  ],
 };
 
 // The 2013/14 suffix-list sheets differ only in filename, stated prefix and

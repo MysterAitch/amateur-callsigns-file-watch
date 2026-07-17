@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "wdtk-foi",
+  "requestId": 1141667,
+  "ofcomReference": "01842686",
+  "requestUrl": "https://www.whatdotheyknow.com/request/listing_of_uk_amateur_radio_call",
+  "title": "Listing of UK Amateur Radio Callsigns (issued-scope register snapshot, as at 22 July 2024)",
+  "requester": "andy_pursell",
+  "requestedAt": "2024-06-24",
+  "respondedAt": "2024-07-22",
+  "outcome": "successful",
+  "dataVintage": "2024-07-22",
+  "dataVintageNote": "declared and well-supported by the data: the covering FOI letter (reference 01842686) states the list is of callsigns held 'as of 22 July 2024, which is the date a report was generated from our systems', and the maximum LastModifiedDate in the workbook is exactly 2024-07-22 - the letter and the data agree. Dates run from 2016-07-23 to 2024-07-22.",
+  "datasetClasses": ["register-snapshot"],
+  "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-1141667-issued-callsigns" },
+  "relatedEntries": [
+    { "entry": "ofcom-2024-07--call-signs--all-callsigns", "relation": "the held open-data register snapshot of the same month (2024-07, 155,346 records). This WDTK disclosure is a DISTINCT, previously unheld export, NOT a copy: it is an issued-scope projection (110,622 rows, every row carrying a licence product, only 9,792 Reserved) against that snapshot's fuller register (155,346 rows, 45,001 blank-product rows, 51,955 Reserved) - the reserved-without-a-product pool is absent here. Allocated counts (100,586 vs 102,936) and per-class Full/Foundation/Intermediate totals nearly agree, confirming the same underlying register at a slightly later vintage (max last-modified 2024-07-22 vs 2024-06-14)." },
+    { "entry": "ofcom-2025-09-11--callsigns--all-callsigns", "relation": "the later Salesforce-flavoured workbook snapshot (2025-09-11, 158,470 records). Both carry the source system's own object/field names, but that export uses unsuffixed 'Callsign'/'Status'/'Product__c' headers with an extra original-start-date column and 'Licence '-prefixed date fields, where this 2024 export suffixes every column but the callsign with '__c' (Call Sign,Product__c,Status__c,Type__c,LastModifiedDate) and carries no original-start-date column - hence a separate converter variant." },
+    { "entry": "wdtk-1180568--licence-breakdown-duration-age", "relation": "a later WDTK register-snapshot disclosure from a different requester (2024-10); a Salesforce-era-shape and register-growth comparison point." }
+  ],
+  "files": {
+    "Annex 1 All callsigns.xlsx": {
+      "bytes": 3959425,
+      "sha256": "175d67cb23db667c32b162be7970368c3773ad30b0bd50637d96bed518f456f2",
+      "role": "data",
+      "datasetClasses": ["register-snapshot"],
+      "sheetsIndicative": {
+        "note": "one worksheet (extractor slug 'sheet1'): header Call Sign,Product__c,Status__c,Type__c,LastModifiedDate then 110,622 data rows - a Salesforce-flavoured shape carrying the source system's own custom-field ('__c') names. Status__c vocabulary Allocated (100,586), Reserved (9,792), Available (233) and blank (11); Type__c is 'Call Sign - Amateur' on every row. Product__c (the licence product/class) is populated on every row: Amateur Full Radio Licence (59,012), Amateur Foundation Radio Licence (35,522), Amateur Intermediate Radio Licence (14,101), Amateur Club Radio Licence (1,887), Amateur Temporary Reciprocal Radio Licence (100) - no blank-product pool. LastModifiedDate is populated on every row and carries a time-of-day (e.g. '2024-04-21 19:08:14'); values run 2016-07-23 to 2024-07-22. Callsigns are distinct (no duplicates).",
+        "sheets": [
+          { "name": "sheet1", "dataRows": 110622, "cols": "A:E", "datasetClass": "register-snapshot" }
+        ]
+      },
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/listing_of_uk_amateur_radio_call/response/2707502/attach/10/Annex%201%20All%20callsigns.xlsx",
+          "sha256": "175d67cb23db667c32b162be7970368c3773ad30b0bd50637d96bed518f456f2",
+          "originalFilename": "Annex 1 All callsigns.xlsx",
+          "fetchedAt": "2026-07-17"
+        }
+      ]
+    },
+    "raw-extract-sheet-1-sheet1.csv": {
+      "bytes": 9499191,
+      "sha256": "d12758dd6d4fe541f14d441005d792f732d2bd9e65ea896f5db876fe90020e2e",
+      "role": "extract",
+      "extractOf": "Annex 1 All callsigns.xlsx",
+      "extractedBy": "src/shared/xlsx-extract.ts",
+      "contentsIndicative": "mechanical extract of the single sheet; header Call Sign,Product__c,Status__c,Type__c,LastModifiedDate then 110,622 rows. LastModifiedDate arrives typed and is rendered ISO with its time-of-day kept. Anomalies preserved verbatim: two callsigns (G0TQK, 2E1HON) carry a trailing non-breaking space; a set of callsigns fall outside the plain 3-7-character upper-case shape, almost all reciprocal 'M/...' forms (including doubled 'M/M/PT2FM', hashed 'M/#YO3IES', hyphenated 'M/EI-8-DJ') plus one purely numeric '22032024'. No quoted fields and no duplicate callsigns."
+    },
+    "normalised--sheet-1-sheet1.csv": {
+      "bytes": 7286740,
+      "sha256": "ae1325141060bdf7e3f6b0ae4f82aa929e95b31de6a55ce3e504b09d99acc7c4",
+      "role": "normalised",
+      "normalisedFrom": "raw-extract-sheet-1-sheet1.csv",
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 110,622 rows sorted by callsign (source order carries no meaning - not callsign-sorted, dates not monotonic). Status carried verbatim (Allocated/Reserved/Available and 11 blanks preserved); licence_class is the source Product__c verbatim (no blanks - every row carries a product); last_modified_date carried as ISO from the typed workbook, keeping its time-of-day. The constant Type__c column is required-present but not carried. Two callsigns carrying a trailing non-breaking space (G0TQK, 2E1HON) are trimmed and counted - the only canonicalisation applied, never silent; neither collides with an existing bare-callsign row, so no duplicate keys result. The reciprocal 'M/...' forms, the numeric '22032024' and the other shape anomalies are preserved verbatim."
+    },
+    "The listing of UK Amateur Radio Callsigns.pdf": {
+      "bytes": 142246,
+      "sha256": "ddd1aa9490fe9c092176724c2016d1661945fd01ab3d092a69065686d76f2b93",
+      "role": "response-letter",
+      "contentsIndicative": "the covering FOI response letter (reference 01842686, dated 22 July 2024); quotes the request in full and states the list's scope - callsigns held as of 22 July 2024, excluding 'revoked' (revoked callsigns instead carry a two-year 'reserved' status) and forbidden-suffix callsigns (never issued).",
+      "witnesses": [
+        {
+          "channel": "wdtk",
+          "url": "https://www.whatdotheyknow.com/request/listing_of_uk_amateur_radio_call/response/2707502/attach/11/The%20listing%20of%20UK%20Amateur%20Radio%20Callsigns.pdf",
+          "sha256": "ddd1aa9490fe9c092176724c2016d1661945fd01ab3d092a69065686d76f2b93",
+          "originalFilename": "The listing of UK Amateur Radio Callsigns.pdf",
+          "fetchedAt": "2026-07-17"
+        }
+      ]
+    },
+    "correspondence.md": {
+      "bytes": 5261,
+      "sha256": "a1d3d30274c0a600726ef692ca73641a72bff6263e15244089804bbbf7976581",
+      "role": "transcript"
+    }
+  }
+}

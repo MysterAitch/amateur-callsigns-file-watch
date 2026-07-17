@@ -23,7 +23,7 @@ This documents **what exists**. Whether each derivation still *verifies* is the
 | 2026-01-14 | — | ✔ | ✔ | ✔ |
 | 2026-06-23 | ✔ | ✔ | ✔ | ✔ |
 
-## FOI lane (51 entries)
+## FOI lane (52 entries)
 
 Extracts: `mech` = mechanically re-derivable (xlsx, via `src/shared/xlsx-extract.ts`);
 `transcr` = attested transcription of a PDF (see the entry's raw-extract file).
@@ -65,6 +65,7 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | ofcom-671462--suffix-availability-not-held | not held | reference-context | — | — | 1 transcr | — | — |
 | ofcom-756622--published-register-csv | successful | register-snapshot, forbidden-list, attribute-addendum | 2019-09-12 | ✔ 2 | — | `ofcom-756622-register-and-forbidden` | ✔ 2 |
 | wdtk-1021241--licence-class-format-mismatch-not-held | not held | reference-context | — | — | 1 transcr | — | — |
+| wdtk-1141667--issued-callsigns | successful | register-snapshot | 2024-07-22 | ✔ 1 | 1 mech | `wdtk-1141667-issued-callsigns` | ✔ 1 |
 | wdtk-1180568--licence-breakdown-duration-age | successful | register-snapshot, attribute-addendum | 2024-10 | ✔ 2 | 1 transcr | `wdtk-1180568-csv-pair` | ✔ 2 |
 | wdtk-174341--available-callsigns-list | successful | available-pool | 2013-09-06 | ✔ 1 | 3 mech + 2 transcr | `available-suffix-lists-2013-style` | ✔ 3 |
 | wdtk-174543--licence-statistics | successful | statistics-aggregate | 2013-08-28 | ✔ 1 | 2 transcr | — | — |
