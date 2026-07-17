@@ -29,7 +29,7 @@
   ],
   "files": {
     "raw.csv": {
-      "size": 12643451,
+      "bytes": 12643451,
       "sha256": "0bca5a263834284e1bdb32be3fda2da4940d7d23a1b7ee94206351961f9573bf",
       "format": "csv",
       "columnCount": 11,
@@ -49,7 +49,7 @@
       "recordCount": 159895
     },
     "raw-extract.csv": {
-      "size": 12483597,
+      "bytes": 12483597,
       "sha256": "382908b7d91c4a1f7d60df361dd2ba765789754e7dfb1d734e8a6b184771976d",
       "format": "csv",
       "role": "extract",
@@ -71,7 +71,7 @@
       "recordCount": 159895
     },
     "normalised.csv": {
-      "size": 12003713,
+      "bytes": 12003713,
       "sha256": "d5ae3b7ee2e440d503596cabaea99aad3167a5c1b5e6859dadd8abca41468f0f",
       "format": "csv",
       "columnCount": 8,
@@ -89,12 +89,12 @@
       "sortedBy": "callsign"
     },
     "stats.json": {
-      "size": 3047,
+      "bytes": 3047,
       "sha256": "50836435a7726df93409fb38dfdea2eac974a70eada04ed08a2a023e1641cbd6",
       "format": "json"
     },
     "components.csv": {
-      "size": 7041390,
+      "bytes": 7041390,
       "sha256": "7b9a7f3818ac3a0d7dba4509b90cc7eacab40c719c38905741b1fb996ba6e479",
       "format": "csv",
       "columnCount": 10,

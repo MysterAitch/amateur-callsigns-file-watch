@@ -146,7 +146,7 @@ ranges, date min/max; distinct and ranges consider non-empty values only,
 emptiness being its own counter). It lives in the same golden-master lane:
 committed as part of the frozen baseline for pre-freeze entries and folded
 from the ledger projection for entries after it (ADR 0021), declared in
-`meta.files` (size + sha256), versioned via `normalised.statsSchemaVersion` in
+`meta.files` (bytes + sha256), versioned via `normalised.statsSchemaVersion` in
 meta, serialised with lexicographically sorted keys so diffs between
 publications stay minimal and are themselves a review signal.
 

@@ -60,7 +60,8 @@
       "role": "normalised",
       "datasetClasses": ["register-snapshot"],
       "normalisedFrom": "raw-extract-sheet-1-report1647268967067.csv",
-      "contentsIndicative": "header callsign,status,licence_class; 150,238 rows sorted by callsign (source order carries no meaning - no dates, not callsign-sorted). Status carried verbatim (Allocated/Reserved/Available and 12 blanks preserved); licence_class emitted empty (no class disclosed). The constant Type column is required-present but not carried. Three trailing non-breaking spaces were trimmed from callsigns (counted in the converter notes, never silent); the ',,' Value and the interior-space 'G6 FMU' are preserved verbatim. The ',,' callsign sorts first."
+      "contentsIndicative": "header callsign,status,licence_class; 150,238 rows sorted by callsign (source order carries no meaning - no dates, not callsign-sorted). Status carried verbatim (Allocated/Reserved/Available and 12 blanks preserved); licence_class emitted empty (no class disclosed). The constant Type column is required-present but not carried. Three trailing non-breaking spaces were trimmed from callsigns (counted in the converter notes, never silent); the ',,' Value and the interior-space 'G6 FMU' are preserved verbatim. The ',,' callsign sorts first.",
+      "recordCount": 150238
     },
     "correspondence.md": {
       "bytes": 2974,

@@ -83,7 +83,8 @@
       "sha256": "f5991bbe134b510ef77f3b3339a13aa4d941f9c17a016193728ca2b704b6fc8b",
       "role": "normalised",
       "normalisedFrom": "call-sign-list-241123.csv",
-      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 108,922 rows sorted by callsign (source order carries no meaning - grouped but neither callsign-sorted nor date-ordered). Status and licence_class (from Product) carried verbatim; last_modified_date ISO-rendered from the day-first source. Type is required-present but not carried (constant discriminator, described above). The 10 blank statuses and the Excel-mangled callsigns are preserved."
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 108,922 rows sorted by callsign (source order carries no meaning - grouped but neither callsign-sorted nor date-ordered). Status and licence_class (from Product) carried verbatim; last_modified_date ISO-rendered from the day-first source. Type is required-present but not carried (constant discriminator, described above). The 10 blank statuses and the Excel-mangled callsigns are preserved.",
+      "recordCount": 108922
     },
     "wdtk-1045020-call-sign-list-241123.csv": {
       "bytes": 8477626,

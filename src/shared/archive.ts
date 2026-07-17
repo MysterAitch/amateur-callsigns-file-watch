@@ -73,11 +73,11 @@ export function inspectCsvShape(filePath: string): CsvShape {
 }
 
 export function computeCsvFileMeta(filePath: string, sortedBy?: string): ArchivedFileMeta {
-  const size = fsSync.statSync(filePath).size;
+  const bytes = fsSync.statSync(filePath).size;
   const sha256 = calculateFileHash(filePath);
   const shape = inspectCsvShape(filePath);
   const meta: ArchivedFileMeta = {
-    size,
+    bytes,
     sha256,
     format: 'csv',
     columnCount: shape.columnCount,
@@ -102,7 +102,7 @@ export function parseSourceFileName(meta: Pick<ArchiveMeta, 'files'>): string {
 
 export function computeJsonFileMeta(filePath: string): ArchivedFileMeta {
   return {
-    size: fsSync.statSync(filePath).size,
+    bytes: fsSync.statSync(filePath).size,
     sha256: calculateFileHash(filePath),
     format: 'json',
   };

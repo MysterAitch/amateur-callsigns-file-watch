@@ -49,7 +49,8 @@
       "sha256": "7d2544af5bf129e1b11e6a334b97b809463548e76bfc3acbf4eb8783d582077f",
       "role": "normalised",
       "normalisedFrom": "foi-1734722-amateur-call-signs.csv",
-      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 153,938 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product) carried verbatim - 44,860 blank licence_class values (the reserved pool) and 11 blank statuses preserved. last_modified_date ISO-rendered from the day-first source. Type is required-present but not carried. The NBSP trio is trimmed (the sole canonicalisation, counted at convert time) and passes through as 2E1HON/G0TQK/G7IWE."
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 153,938 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product) carried verbatim - 44,860 blank licence_class values (the reserved pool) and 11 blank statuses preserved. last_modified_date ISO-rendered from the day-first source. Type is required-present but not carried. The NBSP trio is trimmed (the sole canonicalisation, counted at convert time) and passes through as 2E1HON/G0TQK/G7IWE.",
+      "recordCount": 153938
     },
     "correspondence.md": {
       "bytes": 3310,

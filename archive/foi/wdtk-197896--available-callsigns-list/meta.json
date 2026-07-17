@@ -47,7 +47,8 @@
       "sha256": "148bc811e774c1c10d77e76b1abf6708cc238b365df74a2b93beaa639314cb24",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-1-foundation.csv",
-      "contentsIndicative": "header callsign,status,licence_class,suffix; 8,342 rows sorted by callsign; callsign = stated prefix M6 + suffix (sheet label 'Foundation = M6aaa' matched verbatim); status Available and licence_class Foundation authored per issue #139"
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 8,342 rows sorted by callsign; callsign = stated prefix M6 + suffix (sheet label 'Foundation = M6aaa' matched verbatim); status Available and licence_class Foundation authored per issue #139",
+      "recordCount": 8342
     },
     "raw-extract-sheet-2-intermediate.csv": {
       "bytes": 37749,
@@ -61,7 +62,8 @@
       "sha256": "0cf4d705b1d417699b475760217a0741963f94759173507d595e79cabf1d6cd9",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-2-intermediate.csv",
-      "contentsIndicative": "header callsign,status,licence_class,suffix; 9,413 rows sorted by callsign; callsign = stated prefix 20 + suffix (sheet label matched verbatim, incl. its regional-indicator caveat); status Available and licence_class Intermediate authored per issue #139"
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 9,413 rows sorted by callsign; callsign = stated prefix 20 + suffix (sheet label matched verbatim, incl. its regional-indicator caveat); status Available and licence_class Intermediate authored per issue #139",
+      "recordCount": 9413
     },
     "raw-extract-sheet-3-full.csv": {
       "bytes": 30557,
@@ -75,7 +77,8 @@
       "sha256": "aa1208d021428a08946a252921a270bd3ba3ec6eed876508d99248e94419bf1b",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-3-full.csv",
-      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,636 rows sorted by callsign; callsign = stated prefix M0 + suffix (sheet label 'Full = M0aaa' matched verbatim); status Available and licence_class Full authored per issue #139"
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,636 rows sorted by callsign; callsign = stated prefix M0 + suffix (sheet label 'Full = M0aaa' matched verbatim); status Available and licence_class Full authored per issue #139",
+      "recordCount": 7636
     },
     "correspondence.md": {
       "bytes": 3519,

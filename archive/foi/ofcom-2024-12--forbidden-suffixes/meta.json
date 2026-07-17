@@ -46,7 +46,8 @@
       "sha256": "229444fb1ebad64f6708f314c96fe0b9f203e167eeb2ef71fa3607b35f237fa7",
       "role": "normalised",
       "normalisedFrom": "forbidden-amateur-radio-callsigns.csv",
-      "contentsIndicative": "header suffix,last_modified_date; 1,464 data rows sorted by suffix (a near no-op - the source is already alphabetical); LastModifiedDate ISO-rendered with time-of-day kept (29/07/2016 17:19 -> 2016-07-29 17:19); the 2020-12-10 JIZ outlier preserved; forbidden-list (suffix-list) shape per issue #139"
+      "contentsIndicative": "header suffix,last_modified_date; 1,464 data rows sorted by suffix (a near no-op - the source is already alphabetical); LastModifiedDate ISO-rendered with time-of-day kept (29/07/2016 17:19 -> 2016-07-29 17:19); the 2020-12-10 JIZ outlier preserved; forbidden-list (suffix-list) shape per issue #139",
+      "recordCount": 1464
     },
     "correspondence.md": {
       "bytes": 3378,

@@ -11,7 +11,7 @@
   "reconstructionNotes": "Reconstructed from git commit 9c6103e (path at commit: amateur-callsigns.csv). Ofcom-reported publication date unknown at reconstruction; commit author date (2025-04-28) was used as the archive key. Publication date subsequently established as 2025-04-08 from a retained download's recorded metadata (byte-identical content), and the entry was renamed from 2025-04-28 accordingly (2026-07-06).",
   "files": {
     "raw.csv": {
-      "size": 12648906,
+      "bytes": 12648906,
       "sha256": "242decb29b2fd04d2f681458a554d7c651eb7181cb4963e84ab2c425cf14c403",
       "format": "csv",
       "columnCount": 6,
@@ -26,7 +26,7 @@
       "recordCount": 157427
     },
     "normalised.csv": {
-      "size": 12806403,
+      "bytes": 12806403,
       "sha256": "63aea9b5ddd315e7009cc7075f1629aad1d21ef4dfbe6047b4cab25817515d40",
       "format": "csv",
       "columnCount": 8,
@@ -44,12 +44,12 @@
       "sortedBy": "callsign"
     },
     "stats.json": {
-      "size": 3241,
+      "bytes": 3241,
       "sha256": "1709ab83c4c8e93072853db2f1442308b6eba6999bdc0c8ed35a5d3003aa65bc",
       "format": "json"
     },
     "components.csv": {
-      "size": 6922658,
+      "bytes": 6922658,
       "sha256": "99f2a195cbf35e82e7e03504c611940a916693c7553e138e2bf20dda05aa257d",
       "format": "csv",
       "columnCount": 10,

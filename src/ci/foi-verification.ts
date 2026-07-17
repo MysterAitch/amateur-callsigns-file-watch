@@ -95,8 +95,20 @@ function verifyConversions(entryDir: string, variant: string, files: Record<stri
       continue;
     }
     const committed = fs.readFileSync(path.join(entryDir, result.outputFileName), 'utf8');
-    if (result.csv === committed) verified += 1;
-    else drifted.push(result.outputFileName);
+    if (result.csv !== committed) {
+      drifted.push(result.outputFileName);
+      continue;
+    }
+    // A byte-identical re-derivation already implies matching row counts (the
+    // rendered CSV is a pure function of the row array), so this can only
+    // trip on a stale hand-edit of recordCount alone - still worth catching
+    // explicitly and naming (#683: the persisted count this now guards).
+    const declaredCount = files[result.outputFileName]?.recordCount;
+    if (declaredCount !== undefined && declaredCount !== result.recordCount) {
+      drifted.push(`${result.outputFileName} (recordCount: meta declares ${declaredCount}, converter produced ${result.recordCount})`);
+      continue;
+    }
+    verified += 1;
   }
   for (const [name, decl] of Object.entries(files)) {
     if (decl.role === 'normalised' && !produced.has(name)) {

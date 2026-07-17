@@ -10,7 +10,7 @@
   "reconstructionNotes": "Reconstructed from git commit 20c6ef5 (path at commit: amateur-callsigns-raw.csv). Ofcom-reported publication date extracted from commit message.",
   "files": {
     "raw.csv": {
-      "size": 11291123,
+      "bytes": 11291123,
       "sha256": "eebf179499c4aaadd611f02b80a8c6ba8954d95ba1f4543b6f8d285e7f45e082",
       "format": "csv",
       "columnCount": 6,
@@ -25,7 +25,7 @@
       "recordCount": 112650
     },
     "normalised.csv": {
-      "size": 11481175,
+      "bytes": 11481175,
       "sha256": "74f601e1ab3a40aedbd516e2435d4c4b9f01653208af863621b247d618837d84",
       "format": "csv",
       "columnCount": 8,
@@ -43,12 +43,12 @@
       "sortedBy": "callsign"
     },
     "stats.json": {
-      "size": 2883,
+      "bytes": 2883,
       "sha256": "56d3a89a8161ba590cf418e0443a860f2078569cfa30fe3d1234d0788c099977",
       "format": "json"
     },
     "components.csv": {
-      "size": 5006269,
+      "bytes": 5006269,
       "sha256": "f84ef2a32efef2c751fddecd401d0aaaaa0f6500f7fb474144f4a05372abadc2",
       "format": "csv",
       "columnCount": 10,

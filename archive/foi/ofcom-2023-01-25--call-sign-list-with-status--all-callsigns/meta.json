@@ -63,7 +63,8 @@
       "role": "normalised",
       "datasetClasses": ["register-snapshot"],
       "normalisedFrom": "raw-extract-sheet-1-report1674642037414.csv",
-      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 152,084 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product) carried verbatim - 44,712 blank licence_class values (the reserved pool) and 10 blank statuses preserved. last_modified_date carried verbatim from the ISO-rendered workbook extract. Type is absent from this source (the only four-column snapshot). The trailing-NBSP trio is trimmed (the sole canonicalisation, counted at convert time). Two blank-callsign rows sort first, then the ',,' Value; the fifteen Excel-date-mangled callsigns (e.g. 2023-11-20) are carried verbatim, never reconstructed."
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 152,084 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product) carried verbatim - 44,712 blank licence_class values (the reserved pool) and 10 blank statuses preserved. last_modified_date carried verbatim from the ISO-rendered workbook extract. Type is absent from this source (the only four-column snapshot). The trailing-NBSP trio is trimmed (the sole canonicalisation, counted at convert time). Two blank-callsign rows sort first, then the ',,' Value; the fifteen Excel-date-mangled callsigns (e.g. 2023-11-20) are carried verbatim, never reconstructed.",
+      "recordCount": 152084
     },
     "correspondence.md": {
       "bytes": 3127,

@@ -45,7 +45,8 @@
       "sha256": "f0f71d9cb08eacc2a8415363b14cffcb357f2b1ac92ea1937099db6c8279d75c",
       "role": "normalised",
       "normalisedFrom": "call-signs.csv",
-      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 155,346 rows sorted by callsign (source order carries no meaning - not callsign-sorted, no clear date order). Status carried verbatim (Allocated/Reserved/Available and 11 blanks preserved); licence_class is the source Product verbatim (45,001 blanks preserved); last_modified_date ISO-rendered (day-first, verified by 61,880 day>12 values). The constant Type column is required-present but not carried. No whitespace trimming was needed. The Excel date-mangled callsigns ('21-Feb', '21-Oct'), lower-case forms and interior-space 'G6 FMU' are preserved verbatim."
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 155,346 rows sorted by callsign (source order carries no meaning - not callsign-sorted, no clear date order). Status carried verbatim (Allocated/Reserved/Available and 11 blanks preserved); licence_class is the source Product verbatim (45,001 blanks preserved); last_modified_date ISO-rendered (day-first, verified by 61,880 day>12 values). The constant Type column is required-present but not carried. No whitespace trimming was needed. The Excel date-mangled callsigns ('21-Feb', '21-Oct'), lower-case forms and interior-space 'G6 FMU' are preserved verbatim.",
+      "recordCount": 155346
     },
     "correspondence.md": {
       "bytes": 3310,

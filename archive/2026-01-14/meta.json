@@ -39,12 +39,12 @@
   ],
   "files": {
     "raw.xlsx": {
-      "size": 4873877,
+      "bytes": 4873877,
       "sha256": "f6febb629edef7eb120eb5c8ae17d9d7bf200c8a6ceef60c2d37428ee538be45",
       "format": "xlsx"
     },
     "raw-extract-sheet-1-sheet1.csv": {
-      "size": 10668582,
+      "bytes": 10668582,
       "sha256": "d4974a3a8d4058ef52646140e9ab72a70d147d748dc1cfbd2aa08a8a2746cf8f",
       "format": "csv",
       "role": "extract",
@@ -62,7 +62,7 @@
       "recordCount": 146417
     },
     "normalised.csv": {
-      "size": 10961441,
+      "bytes": 10961441,
       "sha256": "ff38b26e21c2d3ceb8ca9e325e0180e029a10a1d6ca9c2d83de4e43b684dc758",
       "format": "csv",
       "columnCount": 8,
@@ -80,12 +80,12 @@
       "sortedBy": "callsign"
     },
     "stats.json": {
-      "size": 2799,
+      "bytes": 2799,
       "sha256": "9152c3a023afa05286b828ceabb74665ddedaa20e7112136e8f32f359ad43439",
       "format": "json"
     },
     "components.csv": {
-      "size": 6408104,
+      "bytes": 6408104,
       "sha256": "1d0ae9474f2b4c0e44c1e8191b509e4b1be7fd936a6eae973a0fdd986859c7c9",
       "format": "csv",
       "columnCount": 10,

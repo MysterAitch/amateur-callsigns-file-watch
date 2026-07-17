@@ -44,7 +44,8 @@
       "sha256": "68f76456d153ad0f87f14348957514688d6296c5b13aa5124d84825a09b863ca",
       "role": "normalised",
       "normalisedFrom": "call-signs-13mar2025.csv",
-      "contentsIndicative": "header callsign,status,licence_class,last_modified_date,created_date; 157,227 rows sorted by callsign. Status carried verbatim (Allocated/Reserved/Available and 14 blanks preserved); licence_class is the source Product verbatim (45,149 blanks preserved); last_modified_date and created_date ISO-rendered (day-first, verified by 70,402 and 104,297 day>12 values respectively). created_date is a registered extension column (record creation timestamp), distinct from last_modified_date. The constant Type column is required-present but not carried. The Excel date-mangled callsigns, over-length reciprocal 'M/TKG 2021', lower-case forms and interior-space 'G6 FMU' are preserved verbatim."
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date,created_date; 157,227 rows sorted by callsign. Status carried verbatim (Allocated/Reserved/Available and 14 blanks preserved); licence_class is the source Product verbatim (45,149 blanks preserved); last_modified_date and created_date ISO-rendered (day-first, verified by 70,402 and 104,297 day>12 values respectively). created_date is a registered extension column (record creation timestamp), distinct from last_modified_date. The constant Type column is required-present but not carried. The Excel date-mangled callsigns, over-length reciprocal 'M/TKG 2021', lower-case forms and interior-space 'G6 FMU' are preserved verbatim.",
+      "recordCount": 157227
     },
     "correspondence.md": {
       "bytes": 3231,

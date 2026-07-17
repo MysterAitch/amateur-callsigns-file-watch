@@ -58,7 +58,8 @@
       "sha256": "c2d6dc794c13f37bc8f1f095961ae4d1add4038cdb922674f3d6781df78d0e17",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-1-callsigns.csv",
-      "contentsIndicative": "header callsign,status,licence_class,reserved_to_date,original_start_date; 146,763 rows sorted by callsign (source order carries no meaning - not callsign-sorted, dates not monotonic). Status carried verbatim (10 blanks preserved); licence_class carries the source product vocabulary verbatim (50,544 blanks); reserved_to_date and original_start_date carried as ISO from the typed workbook. The constant Type column is required-present but not carried. Three trailing non-breaking spaces were trimmed from callsigns (counted in the converter notes, never silent); the empty Value, the ',,' Value and the interior-space 'G6 FMU' are preserved verbatim. The empty callsign sorts first, then ',,'."
+      "contentsIndicative": "header callsign,status,licence_class,reserved_to_date,original_start_date; 146,763 rows sorted by callsign (source order carries no meaning - not callsign-sorted, dates not monotonic). Status carried verbatim (10 blanks preserved); licence_class carries the source product vocabulary verbatim (50,544 blanks); reserved_to_date and original_start_date carried as ISO from the typed workbook. The constant Type column is required-present but not carried. Three trailing non-breaking spaces were trimmed from callsigns (counted in the converter notes, never silent); the empty Value, the ',,' Value and the interior-space 'G6 FMU' are preserved verbatim. The empty callsign sorts first, then ',,'.",
+      "recordCount": 146763
     },
     "correspondence.md": {
       "bytes": 4381,

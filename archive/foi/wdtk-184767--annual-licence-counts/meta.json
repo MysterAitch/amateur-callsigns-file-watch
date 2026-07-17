@@ -39,7 +39,8 @@
       "sha256": "95c430f1dcb13b79442cbf41cb0ccef58f82fc3eb4bfca1f7e684a9ee1d053dc",
       "role": "normalised",
       "normalisedFrom": "raw-extract-number-of-licences-coleman.md",
-      "contentsIndicative": "header period,amateur_radio_licences_issued,business_radio_licences_issued; 10 data rows, financial years 2003/04 to 2012/13 in the letter's chronological order; counts are licences ISSUED per period (both services carried - the disclosed assertion; consumers filter); thousands separators stripped, values otherwise verbatim"
+      "contentsIndicative": "header period,amateur_radio_licences_issued,business_radio_licences_issued; 10 data rows, financial years 2003/04 to 2012/13 in the letter's chronological order; counts are licences ISSUED per period (both services carried - the disclosed assertion; consumers filter); thousands separators stripped, values otherwise verbatim",
+      "recordCount": 10
     },
     "correspondence.md": {
       "bytes": 4645,

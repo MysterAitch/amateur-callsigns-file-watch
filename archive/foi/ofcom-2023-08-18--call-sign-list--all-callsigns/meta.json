@@ -89,7 +89,8 @@
         "register-snapshot"
       ],
       "normalisedFrom": "raw-extract-sheet-1-call-sign-data.csv",
-      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 153,248 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product) carried verbatim - 42,502 blank licence_class values (the reserved pool) and 11 blank statuses preserved. last_modified_date carried verbatim from the ISO-rendered workbook extract. Type is required-present but not carried. The trailing-NBSP trio is trimmed (the sole canonicalisation, counted at convert time) and passes through as G0TQK/G7IWE/2E1HON; 'G6 FMU' keeps its interior space."
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 153,248 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product) carried verbatim - 42,502 blank licence_class values (the reserved pool) and 11 blank statuses preserved. last_modified_date carried verbatim from the ISO-rendered workbook extract. Type is required-present but not carried. The trailing-NBSP trio is trimmed (the sole canonicalisation, counted at convert time) and passes through as G0TQK/G7IWE/2E1HON; 'G6 FMU' keeps its interior space.",
+      "recordCount": 153248
     },
     "amateur-radio-callsign-allocation-as-of-july-2023.pdf": {
       "bytes": 205205,

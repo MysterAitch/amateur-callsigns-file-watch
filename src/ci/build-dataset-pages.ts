@@ -922,9 +922,13 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
   derivedSlots.push(downloadSlot('datapackage.json', 'datapackage.json', 'Frictionless', 'machine-readable manifest'));
 
   // At a glance (FOI): outcome, vintage, classes, attribution, notable.
-  const totalRows = foiApproxRecords(meta.files);
+  const recordTotal = foiRecordTotal(meta.files);
   const notable: string[] = [];
-  if (totalRows > 0) notable.push(`<li><b>~${totalRows.toLocaleString('en-GB')}</b> records across the disclosed sheets.</li>`);
+  if (recordTotal.total > 0) {
+    notable.push(recordTotal.exact
+      ? `<li><b>${recordTotal.total.toLocaleString('en-GB')}</b> records disclosed.</li>`
+      : `<li><b>~${recordTotal.total.toLocaleString('en-GB')}</b> records across the disclosed sheets.</li>`);
+  }
   if (meta.relatedEntries !== undefined && meta.relatedEntries.length > 0) notable.push(`<li><b>${meta.relatedEntries.length}</b> related ${meta.relatedEntries.length === 1 ? 'entry' : 'entries'} — see below.</li>`);
   const atAGlance = [
     '<section><h2>At a glance</h2>',
@@ -1084,16 +1088,59 @@ interface FoiNavEntry {
   title: string;
   vintage: string | null;
   classes: string[];
-  approxRecords: number;
+  records: number;
+  recordsExact: boolean;
 }
 
-// Approximate record count declared for an FOI entry (summed across the
-// disclosed sheets' approxRows). Approximate by nature - it is the publisher's
-// indicative figure - so it is always shown with a leading ~.
-function foiApproxRecords(files: FoiEntryMeta['files']): number {
-  return Object.values(files)
-    .flatMap(d => asSheetsIndicative(d.sheetsIndicative)?.sheets ?? [])
-    .reduce((a, s) => a + (s.approxRows ?? 0), 0);
+interface FoiRecordTotal { total: number; exact: boolean }
+
+// Record total declared for an FOI entry, summed per disclosed sheet across
+// its 'data'/'data-container' files. Exact wherever the converter's own
+// mechanically-counted recordCount (#683) is available for that sheet - via
+// a normalised file's normalisedFrom chain back through its extract, or a
+// normalised file naming a tabular (extract-less) data file directly - and
+// the curated, publisher-indicative sheetsIndicative[].approxRows figure
+// everywhere else: a sheet never mechanically parsed, or one an entry
+// deliberately holds back from conversion (e.g. ofcom-01420046's
+// undisclosed-purpose second sheet - see its sheetsIndicative note). `exact`
+// is true only when every contributing sheet was covered exactly, so the
+// caller knows whether the combined total may drop its leading ~.
+function foiRecordTotal(files: FoiEntryMeta['files']): FoiRecordTotal {
+  let total = 0;
+  let anyApprox = false;
+  const normalisedFrom = (sourceName: string): number | undefined =>
+    Object.values(files).find(d => d.role === 'normalised' && d.normalisedFrom === sourceName)?.recordCount;
+
+  for (const [name, decl] of Object.entries(files)) {
+    if (decl.role !== 'data' && decl.role !== 'data-container') continue;
+    const indicative = asSheetsIndicative(decl.sheetsIndicative);
+
+    if (indicative === undefined) {
+      // No per-sheet breakdown declared (an already-tabular source, e.g. a
+      // disclosed CSV): the only exact figure available is a normalised file
+      // naming this data file directly - there is no extract stage to chain
+      // through.
+      const exact = normalisedFrom(name);
+      if (exact !== undefined) total += exact;
+      continue;
+    }
+
+    const extracts = Object.entries(files).filter(([, d]) => d.role === 'extract' && d.extractOf === name);
+    for (const [i, sheet] of indicative.sheets.entries()) {
+      // Mechanical extract filenames are 1-indexed by sheet POSITION
+      // (src/shared/xlsx-extract.ts's extractFileNameFor), the same order
+      // sheetsIndicative.sheets is authored in.
+      const extract = extracts.find(([extractName]) => extractName.startsWith(`raw-extract-sheet-${i + 1}-`));
+      const exact = extract === undefined ? undefined : normalisedFrom(extract[0]);
+      if (exact !== undefined) {
+        total += exact;
+      } else {
+        total += sheet.approxRows ?? 0;
+        anyApprox = true;
+      }
+    }
+  }
+  return { total, exact: !anyApprox };
 }
 
 // The left dataset-navigation sidebar, shared by both lanes so open-data and
@@ -1146,15 +1193,16 @@ function datasetNavSidebar(currentKey: string, summaries: PublicationSummary[], 
     : `<details class="partials"><summary>${partials.length} partial export${partials.length === 1 ? '' : 's'}</summary><ol class="dlist">${partials.map(item).join('')}</ol></details>`;
   // FOI disclosures are a different lane (request-keyed, various vintages), so
   // a separate collapsed section ordered by data vintage, newest first. Each
-  // shows its ~approximate record count with a delta to the register baseline -
-  // the whole point: a narrow request (say, reciprocal calls only) reads far
-  // below the register, a full snapshot near it. On an FOI page the current
-  // entry is marked and the section starts expanded.
+  // shows its record count (exact where the converter's own recordCount is
+  // mechanically known, #683; ~approximate otherwise) with a delta to the
+  // register baseline - the whole point: a narrow request (say, reciprocal
+  // calls only) reads far below the register, a full snapshot near it. On an
+  // FOI page the current entry is marked and the section starts expanded.
   const foiOnCurrent = !onOpenDataPage && foiEntries.some(e => e.key === currentKey);
   const foiItem = (e: FoiNavEntry): string => {
     const isCurrent = e.key === currentKey;
     const parts: string[] = [];
-    if (e.approxRecords > 0) parts.push(`~${e.approxRecords.toLocaleString('en-GB')} records${rowDelta(e.approxRecords)}`);
+    if (e.records > 0) parts.push(`${e.recordsExact ? '' : '~'}${e.records.toLocaleString('en-GB')} records${rowDelta(e.records)}`);
     parts.push(e.title);
     if (e.classes.length > 0) parts.push(e.classes.join(', '));
     const gapHtml = isCurrent ? ' <small class="gap">this page</small>' : '';
@@ -1654,7 +1702,8 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   // to navigate to); correspondence-only entries stay in the dataset index.
   const foiNav: FoiNavEntry[] = foiKeys.map(k => {
     const m = readFoiEntryMeta(foiDir, k);
-    return { key: k, title: m.title, vintage: m.dataVintage, classes: m.datasetClasses, approxRecords: foiApproxRecords(m.files) };
+    const recordTotal = foiRecordTotal(m.files);
+    return { key: k, title: m.title, vintage: m.dataVintage, classes: m.datasetClasses, records: recordTotal.total, recordsExact: recordTotal.exact };
   }).filter(e => e.classes.length > 0);
   for (const key of openDataKeys) {
     const { files, zipBytes } = time('dataset-pages:open-data-entry', () => buildOpenDataEntry(outputDir, key, lastCompleteKey, summaries, foiNav, `${baseUrl}/datasets/open-data/${key}/index.html`));

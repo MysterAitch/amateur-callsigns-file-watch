@@ -45,7 +45,8 @@
       "sha256": "582a16ed9169c38a0dd546531036b81e31ba36b2794e756c9869710a5da5f02e",
       "role": "normalised",
       "normalisedFrom": "copy-of-callsigns-21102024.csv",
-      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 156,278 rows sorted by callsign. Status carried verbatim (Allocated/Reserved/Available and 12 blanks preserved); licence_class is the source Product verbatim (45,062 blanks preserved); last_modified_date ISO-rendered (day-first, verified by 69,839 day>12 values). The constant Type column is required-present but not carried. The trailing-non-breaking-space trio (G7IWE, G0TQK, 2E1HON) is trimmed - the only canonicalisation applied - and counted in the converter notes, never silent; because each also appears as a bare-callsign row, the three collapse onto duplicate callsign keys here (an honest consequence of trimming, preserved). Lower-case forms and interior-space 'G6 FMU' are preserved verbatim."
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 156,278 rows sorted by callsign. Status carried verbatim (Allocated/Reserved/Available and 12 blanks preserved); licence_class is the source Product verbatim (45,062 blanks preserved); last_modified_date ISO-rendered (day-first, verified by 69,839 day>12 values). The constant Type column is required-present but not carried. The trailing-non-breaking-space trio (G7IWE, G0TQK, 2E1HON) is trimmed - the only canonicalisation applied - and counted in the converter notes, never silent; because each also appears as a bare-callsign row, the three collapse onto duplicate callsign keys here (an honest consequence of trimming, preserved). Lower-case forms and interior-space 'G6 FMU' are preserved verbatim.",
+      "recordCount": 156278
     },
     "correspondence.md": {
       "bytes": 3342,

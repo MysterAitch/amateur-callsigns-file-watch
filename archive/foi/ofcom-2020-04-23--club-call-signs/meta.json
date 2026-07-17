@@ -53,7 +53,8 @@
       "datasetClasses": [
         "attribute-addendum"
       ],
-      "contentsIndicative": "header callsign,status; 2,049 rows sorted by callsign (the PDF page/row order is layout, not a meaningful assertion order) with the whole row as tie-break, so the recurring per-licence records and the 12 blank-callsign rows are all preserved. Status carries the source's own Live / Surrendered / Terminated verbatim. No whitespace trimming was needed."
+      "contentsIndicative": "header callsign,status; 2,049 rows sorted by callsign (the PDF page/row order is layout, not a meaningful assertion order) with the whole row as tie-break, so the recurring per-licence records and the 12 blank-callsign rows are all preserved. Status carries the source's own Live / Surrendered / Terminated verbatim. No whitespace trimming was needed.",
+      "recordCount": 2049
     },
     "00896085-club-amateur-radio-call-signs.pdf": {
       "bytes": 198067,

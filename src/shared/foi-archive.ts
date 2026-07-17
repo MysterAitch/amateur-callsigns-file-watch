@@ -53,8 +53,21 @@ export interface FoiRelatedEntry {
 }
 
 export interface FoiFileDeclaration {
+  // Declared byte length, cross-checked against fs.statSync(...).size by
+  // validateFoiEntry. Named to match the open-data lane's
+  // ArchivedFileMeta.bytes (src/shared/utils.ts) - the same rename that
+  // resolved the two schemas' accidental size/bytes drift (#683).
   bytes: number;
   sha256: string;
+  // For role 'normalised': the exact row count the converter computed while
+  // producing this file (FoiConvertResult.recordCount,
+  // src/shared/foi-normalise.ts), cross-checked by foi-verification.ts's
+  // byte-identical re-derivation. Absent for files never run through a
+  // converter - a mechanical 'extract' (xlsx-extract.ts) has no comparable
+  // count of its own, and PDFs/letters/transcripts were never parsed at all -
+  // those keep only the curated, publisher-indicative
+  // sheetsIndicative[].approxRows figure.
+  recordCount?: number;
   role: string;
   contentsIndicative?: string;
   datasetClasses?: string[];

@@ -52,7 +52,8 @@
       "sha256": "2a8b547ba5f57228468e1842be0a6ca72b3f776b6a8b4d15ad3cc85ee800d59c",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-1-sheet1.csv",
-      "contentsIndicative": "header callsign,event,event_date; 319 reciprocal-licence issue events in source date-ascending order (2010-01-07 to 2016-07-12); event 'reciprocal-licence-issued' authored from the letter's framing; 178 stored 23:00:00 timezone artefacts carried verbatim"
+      "contentsIndicative": "header callsign,event,event_date; 319 reciprocal-licence issue events in source date-ascending order (2010-01-07 to 2016-07-12); event 'reciprocal-licence-issued' authored from the letter's framing; 178 stored 23:00:00 timezone artefacts carried verbatim",
+      "recordCount": 319
     },
     "reciprocal-licences-since-2010.pdf": {
       "bytes": 396271,
