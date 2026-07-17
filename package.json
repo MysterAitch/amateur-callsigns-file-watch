@@ -21,6 +21,7 @@
     "dataset:status": "node src/ci/dataset-status.ts",
     "foi:schemas": "node src/ci/foi-schemas.ts",
     "labels:pr": "node src/ci/pr-dataset-labels.ts",
+    "anomaly-flags": "node src/ci/dataset-anomaly-flags.ts",
     "regen": "node src/ci/report-sweep.ts --build-projection && npm run foi:schemas && npm run dataset:status",
     "all": "npm run pull && npm run process"
   },
