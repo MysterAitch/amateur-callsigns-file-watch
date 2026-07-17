@@ -18,6 +18,16 @@ club conventions) is deliberately **excluded** from this directory and will
 be proposed separately, where faithfulness to the original authors and
 shareability can be reviewed on their own merits.
 
+One further source sits on the **cite-don't-copy** footing the ITU table
+already establishes: the RSGB Special Contest Calls table
+(`rsgb-special-contest-calls.csv`). Its source page is largely RSGB-authored
+prose (eligibility rules, contest lists, an FAQ) which is copyrightable and is
+**never reproduced** — only the uncopyrightable three-column factual layer (the
+SCC-code → base-call → status enumeration) is extracted, cited by URL and fetch
+date. That is the same distinction the ITU inclusion rests on (an uncopyrightable
+factual table, cited, not the surrounding authored material), which is why it
+belongs here and the excluded community-derived material above does not.
+
 **Carve-out — `publishers.json`**: this file is the one exception, and
 deliberately so. It is not *distilled source data* at all — it holds no
 callsigns, allocations or facts drawn from any source. It is project-authored
@@ -216,6 +226,48 @@ Indicator composition of the two letters), so no third-party table is
 reproduced. Completeness against `itu-call-sign-series.csv` and the tricky
 reconciliations are held by
 `src/v2/entity-iso-crosswalk.test.ts` (`data-validity`). See issue #201.
+
+### `rsgb-special-contest-calls.csv` — RSGB Special Contest Calls
+
+The full Special Contest Call (SCC) namespace enumeration extracted from the
+RSGB Special Contest Calls page (<https://rsgbcc.org/hf/information/scc.shtml>).
+One row per SCC code: `scc_code` (e.g. `G3ZME`'s contest call `G3Z`),
+`base_callsign` (the licensee or club call the NoV is layered on, blank when the
+code is unissued), `status` (the raw token as published), and `notes` (a
+closed-vocabulary transparency column, empty for an ordinary row). SCCs are
+RSGB-administered Notices of Variation on an Ofcom-issued base callsign, so this
+table is genuinely independent of the Ofcom register (issue #693; surveyed on
+\#109).
+
+**Cite-don't-copy**: only the uncopyrightable three-column factual table is
+extracted; the page's RSGB-authored prose (rules, FAQ, contest lists) is
+copyrightable and is cited by URL + fetch date, never reproduced. The verbatim
+page bytes are not committed. RSGB's typical terms are recorded in the publisher
+register (`copyright-cite-only`).
+
+**Carry-verbatim-and-flag**: the source is an Excel export pasted into the page
+and carries artefacts that are surfaced, never silently corrected:
+- status values are carried **exactly** as published — a lower-case `withdrawn`
+  and a literal typo `Withdrawb` are both preserved and flagged in `notes`
+  (`status-noncanonical-case` / `status-typo`), not rewritten. A closed status
+  vocabulary (`Issued` / `Available` / `Withdrawn`) is enforced by a
+  case-normalised comparison, with the two known anomalies allow-listed; a status
+  outside that set stops the sweep loudly (a new class or a scrape error);
+- hidden `x:str` cell attributes (leftover Excel content not rendered on the
+  page, e.g. `x:str="Hoover GW3RDB "`) are attested source bytes, so they are
+  **captured** into `notes` as `source-cell-remnant:<column>=<verbatim>` rather
+  than discarded.
+
+**Provenance and currency**: the sidecar `rsgb-special-contest-calls.meta.json`
+records the source URL, the fetch timestamp, the page's own "Updated" banner
+(text + parsed ISO date), and the row/status shape summary. The table is kept
+current by a monthly scheduled sweep (`.github/workflows/scc-sweep.yml`) that
+re-fetches, runs the sanity gate (row count within band, three columns, closed
+status vocabulary, banner present and parseable — temp write then atomic rename),
+and opens a review PR when the table changes. The parser
+(`src/sources/rsgb-scc/parse-scc.ts`) is byte-deterministic and fixture-tested;
+the committed table's invariants are held by
+`src/sources/rsgb-scc/committed-table.test.ts` (`data-validity`).
 
 ### `callsign-format.md` — permitted call-sign characters (ITU Article 19)
 
