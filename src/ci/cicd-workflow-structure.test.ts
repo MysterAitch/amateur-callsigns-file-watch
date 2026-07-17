@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as yaml from 'js-yaml';
 
 // CI/CD structure contract (ADR 0019). The unified `cicd.yaml` carries the
 // highest-blast-radius invariants in the repo: the required-check job NAMES (a
@@ -33,6 +34,26 @@ function jobBlock(wf: string, name: string): string {
 const MAIN_GATE = "if: github.ref == 'refs/heads/main'";
 
 describe('cicd.yaml structure', { tags: ['unit'] }, () => {
+  it('EveryWorkflowFile_WhenParsedAsYaml_IsStructurallyValid', () => {
+    // The line-matching assertions below pass over a file GitHub cannot parse
+    // (observed: an upload step spliced mid-way through a run block killed the
+    // whole workflow before any job - including the actionlint audit that
+    // would have caught it - could start). A real parse is the floor: every
+    // workflow must load as YAML and declare jobs that are maps with steps or
+    // a `uses` reference.
+    const dir = path.join(process.cwd(), '.github', 'workflows');
+    for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'))) {
+      const doc = yaml.load(fs.readFileSync(path.join(dir, file), 'utf8')) as { jobs?: Record<string, { steps?: unknown[]; uses?: string }> };
+      expect(doc, `${file} did not parse to a mapping`).toBeTypeOf('object');
+      expect(doc.jobs, `${file} has no jobs mapping`).toBeTypeOf('object');
+      for (const [name, job] of Object.entries(doc.jobs ?? {})) {
+        const hasSteps = Array.isArray(job.steps) && job.steps.length > 0;
+        const isReusable = typeof job.uses === 'string';
+        expect(hasSteps || isReusable, `${file} job ${name} has neither steps nor uses`).toBe(true);
+      }
+    }
+  });
+
   it('RequiredChecks_JobNames_ArePreserved', () => {
     // The main ruleset requires these two checks BY NAME; renaming either job
     // here without updating the ruleset blocks all merges. Guard the names.
