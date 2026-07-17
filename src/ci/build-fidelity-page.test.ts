@@ -162,4 +162,12 @@ describe('the built fidelity page over the real archive', { tags: ['data-validit
     expect(page).toContain('<caption');
     expect(page).not.toMatch(/<th(?![a-z])(?![^>]*scope=)/);
   });
+
+  it('FidelityPage_ConsistencySection_LinksTheSixTwinsNarrative', () => {
+    // Issue #657's second proposed back-link: the within-table consistency
+    // section points at the narrative that walks a real conflict end to end
+    // (the ledger keeps both rows rather than picking a winner, the same
+    // "review candidate, never auto-corrected" register as this section).
+    expect(page).toContain('href="reports/narratives/the-six-twins.html"');
+  });
 });

@@ -208,6 +208,21 @@ describe('claim-ledger query layer (live, against a built SQLite)', { tags: ['ui
     expect(note.working.sources.length).toBeGreaterThan(0);
   });
 
+  it('CoTemporalDivergence_Gloss_BackLinksTheSixTwinsNarrative', async () => {
+    // Issue #657's third proposed back-link: the "read the story" pointer from
+    // the co-temporal-status-divergence note itself, so a reader who lands on a
+    // real conflicting record (the same shape as G0TQK/G6FMU/G7IWE) can follow
+    // it to the worked-through narrative, not just to the flag registry.
+    const claims = await entityClaims(query, 'G#0TQK');
+    const note = coTemporalDivergenceNote(claims, 'G0TQK');
+    expect(note).not.toBeNull();
+    if (note === null) return;
+    const link = note.gloss.find((s): s is { link: { text: string; href: string } } => typeof s !== 'string' && s.link !== undefined);
+    expect(link).toBeDefined();
+    expect(link?.link.href).toBe('reports/narratives/the-six-twins.html');
+    expect(link?.link.text).toContain('the six twins');
+  });
+
   it('CoTemporalDivergence_WhenNoSnapshotDisagrees_ReturnsNull', async () => {
     // M7TEE is listed once, with one status - there is no divergence to enrich.
     const claims = await entityClaims(query, 'M#7TEE');

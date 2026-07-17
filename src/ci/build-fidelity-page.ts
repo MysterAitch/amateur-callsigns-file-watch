@@ -256,6 +256,7 @@ function consistencySection(): string[] {
     '</ul>',
     '<p>These findings currently live in the claim ledger and its committed self-checks; listing each affected file here, with its evidence, is planned as a follow-up surface. The passes are described in ADR 0018 '
       + externalLink(`${REPO_URL}/blob/main/docs/adr/0018-attest-column-interpretation-and-within-table-flags.md`, '(attest column interpretation and within-table flags)') + '.</p>',
+    '<p>See the walkthrough: <a href="reports/narratives/the-six-twins.html">the six twins</a> — six callsigns kept as two register rows each because a within-snapshot disagreement is a review candidate here too, read fresh from the source rather than resolved to one winner.</p>',
   ];
 }
 
