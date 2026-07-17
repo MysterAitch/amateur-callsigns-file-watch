@@ -7,6 +7,10 @@ import {
   tableToCsv,
   enhanceTable,
   initTableControls,
+  isBlankSortValue,
+  inferSortType,
+  compareSortValues,
+  sortedRowOrder,
 } from './table-controls.js';
 
 // The shared per-table controls (issue #667): download the visible data,
@@ -307,5 +311,236 @@ describe('initTableControls', { tags: ['ui'] }, () => {
     makeTable('<table data-table-controls="codepoints"><caption>C</caption><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>');
     initTableControls();
     expect(document.querySelector('.tc-codepoints')).not.toBeNull();
+  });
+});
+
+// --- column sorting (issue #761): a reader can sort a data table by any column,
+// as a pure enhancement over the already-rendered rows. The pure order/type
+// logic is unit-tested; the injected trigger, its link-safety and its keyboard
+// state are exercised in jsdom. ---
+
+// The last header row's cell for a column — where the sort trigger is injected.
+function headerCell(table: HTMLTableElement, col: number): HTMLTableCellElement {
+  const head = table.tHead;
+  if (head === null) throw new Error('table has no header');
+  return head.rows[head.rows.length - 1].cells[col];
+}
+
+// The sort trigger injected into a column's header.
+function sortButton(table: HTMLTableElement, col: number): HTMLButtonElement {
+  const button = headerCell(table, col).querySelector('button.th-sort');
+  if (button === null) throw new Error(`no sort trigger for column ${col}`);
+  return button as HTMLButtonElement;
+}
+
+// The visible text of one body column, top to bottom — the reader's-eye order.
+function bodyColumn(table: HTMLTableElement, col: number): string[] {
+  return Array.from(table.tBodies[0].rows).map(row => row.cells[col].textContent?.trim() ?? '');
+}
+
+// A two-column table whose second column is numbers deliberately out of order,
+// so a lexical sort (10, 100, 22, 9) is visibly wrong against a numeric one.
+const NUMERIC_TABLE = `
+  <table data-table-controls>
+    <caption>Suffix counts</caption>
+    <thead><tr><th scope="col">Suffix</th><th scope="col">Count</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">ABC</th><td>9</td></tr>
+      <tr><th scope="row">ABD</th><td>10</td></tr>
+      <tr><th scope="row">ABE</th><td>100</td></tr>
+      <tr><th scope="row">ABF</th><td>22</td></tr>
+    </tbody>
+  </table>`;
+
+describe('sort — blank awareness', { tags: ['unit'] }, () => {
+  it('IsBlankSortValue_WhenValueIsAnEmptyOrHumanisedBlank_ReportsItAsBlank', () => {
+    for (const blank of ['', '   ', '(blank)', '(none)', 'N/A', '—', '–']) {
+      expect(isBlankSortValue(blank)).toBe(true);
+    }
+  });
+
+  it('IsBlankSortValue_WhenValueCarriesData_ReportsItAsNotBlank', () => {
+    for (const value of ['0', 'England', '2016-01-01', '-3']) {
+      expect(isBlankSortValue(value)).toBe(false);
+    }
+  });
+});
+
+describe('sort — type inference', { tags: ['unit'] }, () => {
+  it('InferSortType_WhenEveryValueIsANumber_ReportsNumeric', () => {
+    expect(inferSortType(['9', '10', '100', '22'])).toBe('numeric');
+  });
+
+  it('InferSortType_WhenNumbersArePunctuatedByBlanks_StillReportsNumeric', () => {
+    expect(inferSortType(['9', '(blank)', '22', '—'])).toBe('numeric');
+  });
+
+  it('InferSortType_WhenEveryValueIsAnIsoDate_ReportsDate', () => {
+    expect(inferSortType(['2016-01-01', '2020-12-31', '2019-06-30'])).toBe('date');
+  });
+
+  it('InferSortType_WhenValuesAreMixedText_ReportsText', () => {
+    expect(inferSortType(['M3, M6, M7', 'G2', '9'])).toBe('text');
+  });
+});
+
+describe('sort — comparator', { tags: ['unit'] }, () => {
+  it('CompareSortValues_WhenNumeric_OrdersByMagnitudeNotLexically', () => {
+    expect(compareSortValues('9', '100', 'numeric')).toBeLessThan(0);
+    expect(compareSortValues('22', '9', 'numeric')).toBeGreaterThan(0);
+  });
+
+  it('CompareSortValues_WhenDate_OrdersChronologically', () => {
+    expect(compareSortValues('2016-01-01', '2020-12-31', 'date')).toBeLessThan(0);
+  });
+
+  it('CompareSortValues_WhenText_OrdersByLocale', () => {
+    expect(compareSortValues('England', 'Wales', 'text')).toBeLessThan(0);
+  });
+});
+
+describe('sort — row order', { tags: ['unit'] }, () => {
+  it('SortedRowOrder_WhenNumericAscending_ReturnsIndicesInMagnitudeOrder', () => {
+    // keys 9,10,100,22 → ascending magnitude 9,10,22,100 → indices 0,1,3,2.
+    expect(sortedRowOrder(['9', '10', '100', '22'], 'numeric', 'ascending')).toEqual([0, 1, 3, 2]);
+  });
+
+  it('SortedRowOrder_WhenDescending_ReversesTheMeaningfulValuesButKeepsBlanksLast', () => {
+    // keys 5,(blank),2,— → descending 5,2 then blanks in authored order → 0,2,1,3.
+    expect(sortedRowOrder(['5', '(blank)', '2', '—'], 'numeric', 'descending')).toEqual([0, 2, 1, 3]);
+  });
+
+  it('SortedRowOrder_WhenValuesAreEqual_KeepsTheirAuthoredOrder', () => {
+    // A stable sort: the two "b"s and two "a"s keep their authored sequence.
+    expect(sortedRowOrder(['b', 'a', 'b', 'a'], 'text', 'ascending')).toEqual([1, 3, 0, 2]);
+  });
+});
+
+describe('column sorting', { tags: ['ui'] }, () => {
+  it('NumericColumn_WhenSortedAscending_OrdersByMagnitudeNotLexically', () => {
+    const table = makeTable(NUMERIC_TABLE);
+    enhanceTable(table);
+    sortButton(table, 1).click();
+    expect(bodyColumn(table, 1)).toEqual(['9', '10', '22', '100']);
+  });
+
+  it('SortTrigger_WhenClickedRepeatedly_CyclesAscendingThenDescendingThenBackToAuthoredOrder', () => {
+    const table = makeTable(NUMERIC_TABLE);
+    enhanceTable(table);
+    const th = headerCell(table, 1);
+    const button = sortButton(table, 1);
+    const authored = bodyColumn(table, 1);
+
+    button.click();
+    expect(bodyColumn(table, 1)).toEqual(['9', '10', '22', '100']);
+    expect(th.getAttribute('aria-sort')).toBe('ascending');
+    expect(button.getAttribute('aria-label')).toContain('currently sorted ascending');
+
+    button.click();
+    expect(bodyColumn(table, 1)).toEqual(['100', '22', '10', '9']);
+    expect(th.getAttribute('aria-sort')).toBe('descending');
+
+    button.click();
+    expect(bodyColumn(table, 1)).toEqual(authored);
+    expect(th.getAttribute('aria-sort')).toBe('none');
+    expect(button.getAttribute('aria-label')).toContain('currently unsorted');
+  });
+
+  it('ColumnSorting_WhenAColumnMixesNumbersAndBlanks_SortsNumericallyWithBlanksLast', () => {
+    const table = makeTable(`
+      <table data-table-controls>
+        <caption>Sparse counts</caption>
+        <thead><tr><th scope="col">Row</th><th scope="col">Count</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">A</th><td>5</td></tr>
+          <tr><th scope="row">B</th><td>(blank)</td></tr>
+          <tr><th scope="row">C</th><td>2</td></tr>
+          <tr><th scope="row">D</th><td>—</td></tr>
+        </tbody>
+      </table>`);
+    enhanceTable(table);
+    sortButton(table, 1).click();
+    // Numbers ascend, then the two blanks fall to the end in their authored order.
+    expect(bodyColumn(table, 0)).toEqual(['C', 'A', 'B', 'D']);
+  });
+
+  it('SortTrigger_WhenSwitchingToAnotherColumn_UnsortsTheFirstColumn', () => {
+    const table = makeTable(NUMERIC_TABLE);
+    enhanceTable(table);
+    sortButton(table, 1).click();
+    sortButton(table, 0).click();
+    expect(headerCell(table, 1).getAttribute('aria-sort')).toBe('none');
+    expect(headerCell(table, 0).getAttribute('aria-sort')).toBe('ascending');
+  });
+
+  it('SortTrigger_WhenColumnHasFewerThanTwoBodyRows_IsNotInjected', () => {
+    const table = makeTable('<table data-table-controls><caption>One row</caption><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>');
+    enhanceTable(table);
+    expect(table.querySelector('button.th-sort')).toBeNull();
+  });
+});
+
+describe('sort — header links', { tags: ['ui'] }, () => {
+  it('DataHeaderLink_WhenColumnIsMadeSortable_IsNotHijackedAndKeepsItsOwnTabStop', () => {
+    const table = makeTable(`
+      <table data-table-controls>
+        <caption>Linked header</caption>
+        <thead><tr><th scope="col">Name</th><th scope="col"><a href="datasets/foo.html">Dataset</a></th></tr></thead>
+        <tbody>
+          <tr><th scope="row">b</th><td>2</td></tr>
+          <tr><th scope="row">a</th><td>1</td></tr>
+        </tbody>
+      </table>`);
+    enhanceTable(table);
+    const th = headerCell(table, 1);
+    const link = th.querySelector('a');
+    const button = sortButton(table, 1);
+    // The link is untouched, and the sort button is a separate node beside it.
+    expect(link?.getAttribute('href')).toBe('datasets/foo.html');
+    expect(link?.contains(button)).toBe(false);
+    expect(button.contains(link as Node)).toBe(false);
+    // Activating the sort button sorts; it never navigates the link.
+    button.click();
+    expect(th.getAttribute('aria-sort')).toBe('ascending');
+    // The injected glyph never leaks into the CSV projection of the header.
+    expect(tableToCsv(table).split('\n')[0]).toBe('Name,Dataset');
+  });
+
+  it('GlossaryHeaderLink_WhenColumnIsMadeSortable_BecomesAKeyboardFocusableHelpAffordanceWithARealName', () => {
+    const table = makeTable(`
+      <table data-table-controls>
+        <caption>Glossary header</caption>
+        <thead><tr><th scope="col"><a href="glossary.html#rsl">Regional Secondary Locator</a></th><th scope="col">Letter</th></tr></thead>
+        <tbody>
+          <tr><td>Wales</td><td>W</td></tr>
+          <tr><td>England</td><td>E</td></tr>
+        </tbody>
+      </table>`);
+    enhanceTable(table);
+    const th = headerCell(table, 0);
+    // The glossary link is demoted to a compact [?] help affordance, keeping its
+    // destination and gaining a real accessible name — never a bare "?".
+    const help = th.querySelector('a.th-help');
+    expect(help?.getAttribute('href')).toBe('glossary.html#rsl');
+    expect(help?.getAttribute('aria-label')).toBe('what does Regional Secondary Locator mean');
+    expect(help?.textContent?.trim()).not.toBe('');
+    // The header text itself is the sort trigger: a real, named button.
+    const button = sortButton(table, 0);
+    expect(button.getAttribute('aria-label')).toContain('sort by Regional Secondary Locator');
+    button.click();
+    expect(th.getAttribute('aria-sort')).toBe('ascending');
+    expect(bodyColumn(table, 0)).toEqual(['England', 'Wales']);
+    // The header still exports its clean canonical label, not the glyph or [?].
+    expect(tableToCsv(table).split('\n')[0]).toBe('Regional Secondary Locator,Letter');
+  });
+});
+
+describe('sort — progressive enhancement', { tags: ['ui'] }, () => {
+  it('NoJavaScript_WhenTableIsNotEnhanced_HasNoSortTriggerOrSortStateAtAll', () => {
+    const table = makeTable(NUMERIC_TABLE);
+    // No enhanceTable / initTableControls: this is the JavaScript-off table.
+    expect(table.querySelector('button.th-sort')).toBeNull();
+    expect(table.querySelector('a.th-help')).toBeNull();
+    expect(headerCell(table, 1).getAttribute('aria-sort')).toBeNull();
   });
 });

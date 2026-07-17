@@ -142,6 +142,118 @@ export function tableToCsv(table, options = {}) {
   return lines.join('\n');
 }
 
+// --- sorting: pure logic (blank-awareness, type inference, comparator, order) ---
+
+// Canonical tokens that stand in for a deliberately-empty cell rather than a
+// value. A humanised blank ((blank), (none)) or a dash placeholder must sort
+// together and out of the way, not scatter through the values by the accident
+// of its glyph. Matched case-insensitively against the trimmed canonical value.
+const BLANK_SORT_TOKENS = new Set(['', '(blank)', '(none)', '(n/a)', 'n/a', '—', '–']);
+
+// Whether a canonical value reads as an intentional blank rather than data.
+/**
+ * @param {string} value
+ * @returns {boolean}
+ */
+export function isBlankSortValue(value) {
+  return BLANK_SORT_TOKENS.has(value.trim().toLowerCase());
+}
+
+// A value that is a plain number: an optional sign then digits, with at most one
+// decimal point. Deliberately strict — no thousands separators or units — to
+// match the canonical-at-rest export, which carries numbers unformatted.
+const NUMERIC_SORT_RE = /^[+-]?(\d+(\.\d+)?|\.\d+)$/;
+
+// A value that is an ISO-8601 date or date-time (the only date shape the record
+// stores). Requires the year-month-day skeleton so a bare number is read as a
+// number, not a year, and confirms the engine can actually parse it.
+const DATE_SORT_RE = /^\d{4}-\d{2}(-\d{2})?([T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+/**
+ * @param {string} value
+ * @returns {boolean}
+ */
+function isNumericSortValue(value) {
+  return NUMERIC_SORT_RE.test(value.trim());
+}
+
+/**
+ * @param {string} value
+ * @returns {boolean}
+ */
+function isDateSortValue(value) {
+  const trimmed = value.trim();
+  return DATE_SORT_RE.test(trimmed) && !Number.isNaN(Date.parse(trimmed));
+}
+
+// The sort type of a column, inferred from its canonical values: 'numeric' when
+// every non-blank value is a number, 'date' when every non-blank value is an ISO
+// date/date-time, otherwise 'text'. Blank cells are ignored for the inference
+// (and sorted apart by the comparator), so a numeric column punctuated by blanks
+// is still recognised as numeric and sorts by magnitude, not lexically.
+/**
+ * @param {string[]} values
+ * @returns {'numeric' | 'date' | 'text'}
+ */
+export function inferSortType(values) {
+  const meaningful = values.filter(value => !isBlankSortValue(value));
+  if (meaningful.length === 0) return 'text';
+  if (meaningful.every(isNumericSortValue)) return 'numeric';
+  if (meaningful.every(isDateSortValue)) return 'date';
+  return 'text';
+}
+
+// Compare two non-blank canonical values in ascending sense for a given type:
+// numbers by magnitude, dates chronologically, text by locale order (so accented
+// letters fall where a reader expects). Blanks are not passed here — the row
+// ordering keeps them apart — so this stays a total order over real values.
+/**
+ * @param {string} a
+ * @param {string} b
+ * @param {'numeric' | 'date' | 'text'} type
+ * @returns {number}
+ */
+export function compareSortValues(a, b, type) {
+  if (type === 'numeric') {
+    const na = Number(a);
+    const nb = Number(b);
+    return na < nb ? -1 : na > nb ? 1 : 0;
+  }
+  if (type === 'date') {
+    const ta = Date.parse(a);
+    const tb = Date.parse(b);
+    return ta < tb ? -1 : ta > tb ? 1 : 0;
+  }
+  return a.localeCompare(b);
+}
+
+// The order body rows should take for one sort, as indices into the authored
+// `keys` array. A stable sort: equal values keep their authored order, and blank
+// cells always sink to the end whichever direction is chosen, so they never
+// break up the run of values that actually carry meaning.
+/**
+ * @param {string[]} keys canonical value per row, in authored order
+ * @param {'numeric' | 'date' | 'text'} type
+ * @param {'ascending' | 'descending'} direction
+ * @returns {number[]}
+ */
+export function sortedRowOrder(keys, type, direction) {
+  const sign = direction === 'descending' ? -1 : 1;
+  return keys
+    .map((key, index) => ({ key, index }))
+    .sort((a, b) => {
+      const aBlank = isBlankSortValue(a.key);
+      const bBlank = isBlankSortValue(b.key);
+      if (aBlank || bBlank) {
+        if (aBlank && bBlank) return a.index - b.index;
+        return aBlank ? 1 : -1;
+      }
+      const cmp = compareSortValues(a.key, b.key, type);
+      return cmp !== 0 ? sign * cmp : a.index - b.index;
+    })
+    .map(entry => entry.index);
+}
+
 // A small DOM helper local to this module: an element with attributes and text
 // in one call, matching the shape the other browser modules use.
 /**
@@ -202,6 +314,186 @@ function markerSpans(table) {
     }
   }
   return spans;
+}
+
+// --- sorting: DOM wiring ---
+
+/**
+ * @typedef {'none' | 'ascending' | 'descending'} SortDirection
+ */
+
+// The glyph a header shows for each sort state: a muted double-arrow until the
+// column is used, resolving to a single up/down arrow once it drives the order.
+// Decorative only — the state a screen reader hears comes from the `<th>`'s
+// aria-sort and the button's stateful accessible name, not this character.
+/** @type {Record<SortDirection, string>} */
+const SORT_GLYPH = { none: '⇅', ascending: '▲', descending: '▼' };
+
+// The next state in the cycle: unsorted → ascending → descending → unsorted. The
+// authored order is meaningful, so it is a first-class stop in the cycle, not
+// something lost once a column has been sorted.
+/**
+ * @param {SortDirection} current
+ * @returns {SortDirection}
+ */
+function nextSortDirection(current) {
+  if (current === 'ascending') return 'descending';
+  if (current === 'descending') return 'none';
+  return 'ascending';
+}
+
+// The stateful accessible name of a sort trigger: it names the column and what a
+// press will do next, so a screen reader announces the action rather than a bare
+// glyph. The column's meaning is always contained in the name (WCAG 2.5.3).
+/**
+ * @param {string} meaning
+ * @param {SortDirection} direction
+ * @returns {string}
+ */
+function sortButtonName(meaning, direction) {
+  if (direction === 'ascending') {
+    return `sort by ${meaning}: currently sorted ascending, activate to sort descending`;
+  }
+  if (direction === 'descending') {
+    return `sort by ${meaning}: currently sorted descending, activate to restore the original order`;
+  }
+  return `sort by ${meaning}: currently unsorted, activate to sort ascending`;
+}
+
+// The sort type for a column: an explicit `data-sort-type` hint on the header
+// wins (the author has stated it outright), otherwise it is inferred from the
+// column's canonical values. Inference is the norm — it needs no per-table
+// wiring and reads the same values the export does; the hint is the escape hatch
+// for the rare column whose values are ambiguous (all blank, or codes that
+// merely look numeric).
+/**
+ * @param {HTMLTableCellElement} th
+ * @param {string[]} keys
+ * @returns {'numeric' | 'date' | 'text'}
+ */
+function columnSortType(th, keys) {
+  const hint = th.dataset.sortType;
+  if (hint === 'numeric' || hint === 'date' || hint === 'text') return hint;
+  return inferSortType(keys);
+}
+
+// A header's sole link when it is a glossary definition — "what does this column
+// mean" help, as opposed to a link to a filtered search or a dataset page. Only
+// a help link may be demoted to a compact `[?]` affordance; a link that
+// navigates to data must keep its place and take the separate-button treatment.
+// A header mixing a data link with a glossary link keeps both untouched.
+/**
+ * @param {HTMLTableCellElement} th
+ * @returns {HTMLAnchorElement | null}
+ */
+function glossaryHelpLink(th) {
+  const links = /** @type {HTMLAnchorElement[]} */ (Array.from(th.querySelectorAll('a[href]')));
+  if (links.length !== 1) return null;
+  const href = links[0].getAttribute('href') ?? '';
+  return /glossary(\.html)?(#|$)/i.test(href) ? links[0] : null;
+}
+
+// Fit a sort trigger to one header, honouring any link it already carries.
+// Where the header's only link is a glossary definition, that link is demoted to
+// a compact, properly-named `[?]` help affordance and the header text itself
+// becomes the sort button — two clear controls, sort and help. For every other
+// header (plain text, or a link that navigates to data) the header content is
+// left exactly as authored and a separate sort button is appended after it, so a
+// header link and the sort button stay two distinct, unambiguous tab stops.
+/**
+ * @param {HTMLTableCellElement} th
+ * @param {string} meaning
+ * @returns {{ button: HTMLButtonElement; glyph: HTMLElement }}
+ */
+function installSortTrigger(th, meaning) {
+  th.setAttribute('aria-sort', 'none');
+  const glyph = el('span', { class: 'th-sort-glyph', 'aria-hidden': 'true' }, SORT_GLYPH.none);
+
+  const glossary = glossaryHelpLink(th);
+  if (glossary !== null) {
+    const href = glossary.getAttribute('href') ?? '';
+    const button = /** @type {HTMLButtonElement} */ (el('button', { type: 'button', class: 'th-sort th-sort-text' }));
+    button.setAttribute('aria-label', sortButtonName(meaning, 'none'));
+    button.append(document.createTextNode(`${meaning} `), glyph);
+    const help = el('a', { href, class: 'th-help', 'aria-label': `what does ${meaning} mean` }, '?');
+    th.replaceChildren(button, document.createTextNode(' '), help);
+    return { button, glyph };
+  }
+
+  const button = /** @type {HTMLButtonElement} */ (el('button', { type: 'button', class: 'th-sort' }));
+  button.setAttribute('aria-label', sortButtonName(meaning, 'none'));
+  button.append(glyph);
+  th.append(document.createTextNode(' '), button);
+  return { button, glyph };
+}
+
+// Add one-column-at-a-time sorting to an already-enhanced table. Each header
+// gains a keyboard-operable trigger that cycles its column ascending →
+// descending → back to the authored order; only one column sorts at a time, with
+// the authored order as the stable tiebreak. Rows are only ever reordered —
+// never fetched, hidden or altered — so the table with JavaScript off is exactly
+// the table with it on, minus the trigger. Declines silently where there is
+// nothing to reorder (fewer than two body rows).
+/**
+ * @param {HTMLTableElement} table
+ * @param {HTMLTableCellElement[]} header
+ * @param {HTMLElement} status
+ */
+function enableColumnSorting(table, header, status) {
+  if (table.tBodies.length === 0) return;
+  const body = table.tBodies[0];
+  const authoredOrder = Array.from(body.rows);
+  if (authoredOrder.length < 2) return;
+
+  /** @type {{ th: HTMLTableCellElement; button: HTMLButtonElement; glyph: HTMLElement; label: string }[]} */
+  const triggers = [];
+  /** @type {{ column: number; direction: SortDirection }} */
+  const state = { column: -1, direction: 'none' };
+
+  header.forEach((th, i) => {
+    // Read the header's canonical text before injecting anything, then freeze it
+    // as the header's export value so the injected glyph/button never leak into
+    // the CSV projection or the column menu.
+    const canonical = cellExportValue(th);
+    const meaning = canonical || `column ${i + 1}`;
+    if (th.dataset.export === undefined) th.dataset.export = canonical;
+    const { button, glyph } = installSortTrigger(th, meaning);
+    button.addEventListener('click', () => {
+      const current = state.column === i ? state.direction : 'none';
+      applySort(i, nextSortDirection(current));
+    });
+    triggers.push({ th, button, glyph, label: meaning });
+  });
+
+  /**
+   * @param {number} column
+   * @param {SortDirection} direction
+   */
+  function applySort(column, direction) {
+    state.column = direction === 'none' ? -1 : column;
+    state.direction = direction;
+
+    triggers.forEach((trigger, i) => {
+      const dir = i === column && direction !== 'none' ? direction : 'none';
+      trigger.th.setAttribute('aria-sort', dir);
+      trigger.glyph.textContent = SORT_GLYPH[dir];
+      trigger.button.setAttribute('aria-label', sortButtonName(trigger.label, dir));
+    });
+
+    if (direction === 'none') {
+      for (const row of authoredOrder) body.append(row);
+      status.textContent = 'Restored the original row order.';
+      return;
+    }
+
+    const keys = authoredOrder.map(row => {
+      const cell = row.cells[column];
+      return cell !== undefined ? cellExportValue(cell) : '';
+    });
+    const type = columnSortType(triggers[column].th, keys);
+    for (const index of sortedRowOrder(keys, type, direction)) body.append(authoredOrder[index]);
+    status.textContent = `Sorted by ${triggers[column].label}, ${direction}.`;
+  }
 }
 
 /**
@@ -286,6 +578,9 @@ export function enhanceTable(table, options = {}) {
     toggleLabel.append(toggle, document.createTextNode(' Show code points'));
     container.append(toggleLabel);
   }
+
+  // --- column sorting (reorders the rows already present, one column at a time) ---
+  enableColumnSorting(table, header, status);
 
   container.append(status);
 
