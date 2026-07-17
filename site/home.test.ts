@@ -233,7 +233,7 @@ const HOME_CSS = fs.readFileSync(path.join('site', 'home.css'), 'utf8').replace(
 // Matches a bare rule body for the given selector, ignoring any longer
 // selector this one is a prefix of (so `.fig` does not also match `.fig b`).
 function ruleBody(css: string, selector: string): string {
-  const escaped = selector.replace(/[.[\]]/g, '\\$&');
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const m = new RegExp(`(?:^|[,}])\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(css);
   if (!m) throw new Error(`home.css: no rule found for selector "${selector}"`);
   return m[1] ?? '';
