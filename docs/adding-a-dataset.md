@@ -39,9 +39,34 @@ export DUCKDB_BIN="$(pwd)/.duckdb/duckdb.exe"   # or .../duckdb on Linux/macOS
 - **FOI lane** (`archive/foi/{key}/`): material from an **FOI request or
   disclosure** — request-keyed entries with `meta.json` + `correspondence.md`
   always, data optional ([ADR 0004](adr/0004-foi-source-lane.md)).
+- **Reference-data lane** (`reference-data/*.csv`): not an archive entry at
+  all, but a small, hand-curated, **project-authored** table distilling an
+  upstream source's uncopyrightable facts — reviewed like code, kept outside
+  the archive and golden-master lanes. The RSGB Special Contest Calls table
+  (`reference-data/rsgb-special-contest-calls.csv`, issue #693) is the worked
+  example: only the uncopyrightable three-column factual layer (SCC code →
+  base call → status) is extracted from the RSGB Special Contest Calls page —
+  the page's RSGB-authored prose (rules, contest lists, an FAQ) is
+  copyrightable and is **never reproduced**, cited instead by URL and fetch
+  date (**cite-don't-copy**, the same footing the ITU call-sign-series table
+  already establishes in this directory). The verbatim page bytes are held as
+  the transcription's evidential source in the gitignored local-holdings area
+  (`archive/local-holdings/index.json`), not committed. A sidecar
+  `rsgb-special-contest-calls.meta.json` records the source URL, fetch
+  timestamp and the page's own "Updated" banner. The table is kept current by
+  a scheduled, sanity-gated sweep
+  (`.github/workflows/scc-sweep.yml`) — fetch to memory, validate (row count
+  within band, expected column shape, closed status vocabulary, banner
+  present and parseable), then atomic write — on the same scheduled-PR
+  pattern the archive lanes use ([ADR 0001](adr/0001-post-fetch-processing-in-repo.md)):
+  it opens a review PR when the table changes and is deliberately never
+  auto-merged, because reference data is reviewed like code. See
+  [`reference-data/README.md`](../reference-data/README.md) for the full
+  provenance policy and the other tables held under it.
 
-The lane is chosen by what the dataset *is* (an open-data-page publication vs
-FOI material), never by how it was fetched.
+The lane is chosen by what the dataset *is* (an open-data-page publication,
+FOI material, or a project-authored table of an upstream's facts), never by
+how it was fetched.
 
 ## Step 2 — add an open-data entry
 
@@ -331,6 +356,12 @@ this dataset — the historical pain was discovering them one CI round at a time
   cosmetics). **Round-trip fidelity is non-negotiable**; a manual, recorded
   step (like the shape-only extract) to achieve it is fine.
 - `tsc --noEmit` and `eslint` when the converter registry changed.
+- The PR must also clear the branch ruleset's required status checks —
+  `tests`, `data-validation`, `golden-master` and `workflow-audit`
+  ([ADR 0002](adr/0002-repo-level-write-controls.md)). The first three are
+  exercised by the commands above; `workflow-audit` (`actionlint` + `zizmor`
+  over the workflow YAML) only has anything to say when a workflow file
+  changed in the same PR.
 
 ## Publisher-register touchpoints
 
