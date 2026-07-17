@@ -93,6 +93,55 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
     expect(beforeSteps, 'build-site-databases is gated to main — it would lose PR coverage').not.toContain(MAIN_GATE);
   });
 
+  it('BuilderProjection_IsBuiltFromTheSharedEmit_BeforeTheEmitIsDropped', () => {
+    // Issue #629 phase 2: the builder projection reuses the deploy's one
+    // corpus emit (--ledger-dir), and the #646 rm -rf of that emit must come
+    // AFTER it - the projection build is the emit's last consumer. A reorder
+    // (or dropping the reuse flag) would either re-emit the corpus or fold
+    // from an already-deleted directory.
+    const block = jobBlock(workflow(), 'build-site-databases');
+    const projectionBuild = block.indexOf('node src/v2/build-builder-projection.ts .builder-projection --ledger-dir="$RUNNER_TEMP/v2-ledger-emit"');
+    const emitRemoval = block.indexOf('rm -rf "$RUNNER_TEMP/v2-ledger-emit"');
+    expect(projectionBuild, 'the builder-projection build (with --ledger-dir reuse) is missing from build-site-databases').toBeGreaterThan(-1);
+    expect(emitRemoval, 'the #646 shared-emit removal is missing').toBeGreaterThan(-1);
+    expect(emitRemoval, 'the shared emit is removed BEFORE the builder projection folds it').toBeGreaterThan(projectionBuild);
+  });
+
+  it('AssembleStep_ReadsDerivedFilesFromTheProjection_AndTheCacheCarriesIt', () => {
+    // The assemble step's builders resolve derived entry files through
+    // BUILDER_PROJECTION_DIR (issue #629 phase 2). The projection must also be
+    // part of the db-cache path: on a cache hit the build step is skipped
+    // entirely, so an uncached projection would be absent and the assemble
+    // step would (loudly) fail every cache-hit deploy.
+    const block = jobBlock(workflow(), 'build-site-databases');
+    expect(block, 'the assemble step lost its BUILDER_PROJECTION_DIR wiring').toContain('BUILDER_PROJECTION_DIR: ${{ github.workspace }}/.builder-projection');
+    expect(block, 'the db cache no longer carries .builder-projection - cache-hit deploys would have no projection').toMatch(/path: \|\n\s+\.dbstage\n\s+\.builder-projection\n/);
+    // The projection must never ride the published data directory: .dbstage is
+    // hardlinked wholesale into _site/data, so the projection lives beside it.
+    expect(block, 'the builder projection is built INSIDE .dbstage - it would be published under _site/data').not.toContain('build-builder-projection.ts .dbstage');
+  });
+
+  it('GoldenMaster_RegeneratesReportsFromTheProjection_OnACacheMiss', () => {
+    // The golden-flow decision (issue #629 phase 2): report regeneration reads
+    // its derived entry files from the ledger projection, proving pre-merge
+    // the input path that survives the #446 retirement. Byte-equivalence of
+    // the two paths is the parity suite's guarantee, so the drift assertion
+    // is unchanged.
+    const block = jobBlock(workflow(), 'golden-master');
+    const projectionBuild = block.indexOf('node src/v2/build-builder-projection.ts "$RUNNER_TEMP/builder-projection"');
+    const sweep = block.indexOf('BUILDER_PROJECTION_DIR="$RUNNER_TEMP/builder-projection" npm run normalise:sweep');
+    expect(projectionBuild, 'golden-master no longer builds the projection before the sweep').toBeGreaterThan(-1);
+    expect(sweep, 'golden-master runs the sweep without BUILDER_PROJECTION_DIR - reports would regenerate from the committed derivatives').toBeGreaterThan(projectionBuild);
+  });
+
+  it('DataValidation_StaysOnTheCommittedArchive_NoProjectionSwitch', () => {
+    // validate-data gates what a data PR COMMITS, so its derived-file reads
+    // stay archive reads until the committed derivatives retire (#446/#448) -
+    // the job must not export the projection switch.
+    const block = jobBlock(workflow(), 'data-validation');
+    expect(block, 'data-validation gained BUILDER_PROJECTION_DIR - it would validate the projection instead of the committed record').not.toContain('BUILDER_PROJECTION_DIR:');
+  });
+
   it('BuildCaches_UseTheTestExcludingClosureHash_NotBareHashFiles', () => {
     // #517: build-cache keys are the test-excluding closure hash, so a test-only
     // change no longer rebuilds the corpus. A regression to `hashFiles(...)` would
