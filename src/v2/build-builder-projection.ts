@@ -16,7 +16,7 @@
  * makes the later consumer repoint (phase 2) a base-directory change with
  * zero consumer logic touched, and makes the parity obligation the honest
  * maximum: byte equality per entry, provable by hash (the committed files are
- * themselves byte-deterministic - the normalise sweep's no-op re-runs depend
+ * themselves byte-deterministic - the derivation lane's no-op re-runs depended
  * on that).
  *
  * HOW THE BYTES ARE REPRODUCED: the rows and components fold from the ledger

@@ -47,8 +47,8 @@ flowchart TD
 
     CI -->|"green + merge-commit"| MAIN["main"]
 
-    MAIN -->|"cron 06:30 daily"| NORM["normalise.yml<br/>re-derive normalised.csv + reports/"]
-    NORM -->|"any change?"| NORMPR["Open normalise/* PR<br/>ALWAYS human-reviewed"]
+    MAIN -->|"cron 06:30 daily"| NORM["reports-sweep.yml<br/>regenerate reports/ from the ledger projection"]
+    NORM -->|"any change?"| NORMPR["Open reports/* PR<br/>ALWAYS human-reviewed"]
     NORMPR -->|"dispatch"| CI
     NORMPR --> MAIN
 
@@ -86,9 +86,9 @@ Fetch host (LXC)  ──push data/{key}──►  data/* branch on origin
                                      ▼
                                    main ──push──► cicd.yaml deploy → GitHub Pages
                                      │
-                          cron 06:30 │  normalise.yml re-derives goldens
+                          cron 06:30 │  reports-sweep.yml regenerates reports/
                                      ▼
-                        normalise/* PR (always human-reviewed) ──► main
+                        reports/* PR (always human-reviewed) ──► main
 ```
 
 ## Stages
@@ -149,8 +149,8 @@ below).
   - appends one line to a rolling "Data landings (rolling digest)" issue
     (searched by title, created once if absent, then a comment per landing —
     never an overwrite), reusing the search-title / create-if-missing upsert
-    the scheduled normalise sweep (stage 6 below) already uses for its
-    coverage dashboard (`normalise.yml:137-157`).
+    the scheduled report sweep (stage 6 below) already uses for its
+    coverage dashboard (`reports-sweep.yml`).
 - **Governing ADR:** [ADR 0009](adr/0009-data-landing-via-branches-and-sweep.md)
   (the landing flow), [ADR 0001](adr/0001-post-fetch-processing-in-repo.md)
   (schedule-not-push, PR-only writeback).
@@ -276,29 +276,34 @@ via their own reviewed consolidation PRs (`data-sweep.yml:5-8`).
   [ADR 0020](adr/0020-sharded-static-json-serving.md).
 - **Human in the loop:** no.
 
-### 6. Scheduled normalise sweep (`normalise.yml`)
+### 6. Scheduled report sweep (`reports-sweep.yml`)
 
 - **Trigger:** cron daily at 06:30 UTC, plus `workflow_dispatch`
-  (`.github/workflows/normalise.yml:12-15`).
+  (`.github/workflows/reports-sweep.yml`).
 - **Permissions:** `contents: write`, `pull-requests: write`, `issues: write`,
   and `actions: write` — the last solely to `workflow_dispatch` `cicd.yaml` onto
-  the derivation branch, because a bot-authored PR's `pull_request` run otherwise
-  parks in `action_required` under the contributor-approval policy
-  (`normalise.yml:17-26`, `normalise.yml:130-135`).
-- **What it does:** re-derives every entry's `normalised.csv` (open-data lane) and
-  the FOI derivations, re-folds the cross-dataset reports, and — if anything
-  changed — opens a `normalise/{run-id}` PR whose cross-entry diff is the review
-  artefact (`normalise.yml:63-135`). It maintains a rolling "Normalisation
-  coverage" dashboard issue (`normalise.yml:137-157`) and turns the run red if any
-  entry failed to normalise or verify (`normalise.yml:159-167`). Checkout uses
-  `persist-credentials: false`; the write token is injected only at the push step,
-  so third-party converter code never runs with a write-capable token in
-  `.git/config` (`normalise.yml:36-43`, `normalise.yml:121`).
-- **Gate:** the resulting PR is **always human-reviewed, never auto-merged**
-  (`normalise.yml:1-5`). Byte-identical re-derivation is a no-op and opens no PR.
+  the reports branch, because a bot-authored PR's `pull_request` run otherwise
+  parks in `action_required` under the contributor-approval policy.
+- **What it does:** builds the shared claim-ledger Parquet and the builder-facing
+  ledger projection, regenerates every committed standing report under
+  `reports/` from them (so a publication newer than the frozen committed
+  derivatives contributes the moment it lands — issue #446 retired the
+  derivation half this workflow once carried), runs the FOI lane's
+  report-and-verify sweep, and — if any report changed — opens a
+  `reports/{run-id}` PR whose cross-report diff is the review artefact. It
+  maintains a rolling "Normalisation coverage" dashboard issue and turns the
+  run red if any entry failed to report or verify. Checkout uses
+  `persist-credentials: false`; the write token is injected only at the push
+  step, so third-party fold code never runs with a write-capable token in
+  `.git/config`. The workflow's writeback scope is `reports/` alone — the
+  committed archive derivatives are a frozen equivalence baseline this lane
+  never touches (pinned by `reports-sweep-workflow-structure.test.ts`).
+- **Gate:** the resulting PR is **always human-reviewed, never auto-merged**.
+  Byte-identical regeneration is a no-op and opens no PR.
 - **Governing ADR:** [ADR 0001](adr/0001-post-fetch-processing-in-repo.md)
-  (golden-master re-run semantics), with the FOI lane report-and-verify-only per
-  [ADR 0004](adr/0004-foi-source-lane.md).
+  (golden-master re-run semantics), [ADR 0013](adr/0013-raw-keyed-claim-ledger.md)
+  (ledger-canonical; frozen committed baseline), with the FOI lane
+  report-and-verify-only per [ADR 0004](adr/0004-foi-source-lane.md).
 - **Human in the loop:** **yes, always.**
 
 ### Adjacent: dataset-class PR labels (`pr-dataset-labels.yml`)
@@ -321,7 +326,7 @@ shape as the data sweep ([ADR 0001](adr/0001-post-fetch-processing-in-repo.md) /
 | Verify | `cicd.yaml` | Every PR + push to main | `tests`, `data-validation` (required); `golden-master` (drift gate, not yet required — #588 part 2), reconstruction, `workflow-audit` | 0019, 0012 | No |
 | Merge | GitHub ruleset | Checks green | No direct/force push, merge-commit only, required checks | 0002, 0009 | Depends on PR class |
 | Deploy | `cicd.yaml` `deploy` | Push to main | Post-deploy smoke / console / functionality | 0003, 0013, 0019, 0020 | No |
-| Normalise sweep | `normalise.yml` | cron daily 06:30 | Always-human-reviewed PR; run reddens on failure | 0001, 0004 | Yes, always |
+| Report sweep | `reports-sweep.yml` | cron daily 06:30 | Always-human-reviewed PR; run reddens on failure | 0001, 0004, 0013 | Yes, always |
 
 ## Write surfaces at a glance
 
@@ -329,7 +334,7 @@ Only three automated credentials can affect the repository, and none can write
 `main` directly ([ADR 0012](adr/0012-supply-chain-posture.md) §3):
 
 1. The fetch host's SSH deploy key — pushes `data/*` branches only.
-2. `data-sweep.yml` / `normalise.yml` / `pr-dataset-labels.yml` per-run tokens —
+2. `data-sweep.yml` / `reports-sweep.yml` / `pr-dataset-labels.yml` per-run tokens —
    open PRs and (for the data sweep) merge PRs whose diff the allowlist confirms
    is data-only; land on `main` only through the reviewed, ruleset-gated PR.
 3. The `deploy` job token — `pages: write` + `id-token: write` only; publishes

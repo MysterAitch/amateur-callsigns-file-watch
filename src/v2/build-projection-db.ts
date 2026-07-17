@@ -290,7 +290,7 @@ function isOpenDataLedgerFile(filePath: string): boolean {
 // The curated variant declarations an entry's committed meta.json may carry:
 // converter.variant is the authored FORCED binding (for shapes auto-detection
 // cannot distinguish, e.g. the ISO-dated workbook-extract twin), and
-// normalised.headerVariant is the record the normalise sweep wrote beside the
+// normalised.headerVariant is the record the retired derivation lane wrote beside the
 // committed derivatives. Either may be absent - a freshly fetched publication
 // carries neither until (unless) a human curates one.
 interface DeclaredVariants {

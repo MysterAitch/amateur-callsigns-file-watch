@@ -132,10 +132,16 @@ Key the directory by the publication's data vintage: `archive/{YYYY-MM-DD}/`.
    columns are actually empty before ignoring them; document any stray
    content.
 
-6. **Generate the derived files:** `npm run normalise:sweep` produces
-   `normalised.csv`, `components.csv`, `stats.json` and augments `meta.json`.
-   A second run must be a no-op (`changed=0`) — that is the byte-determinism
-   check.
+6. **No derivation step (issue #446).** The committed derived files
+   (`normalised.csv`, `components.csv`, `stats.json`) are a frozen equivalence
+   baseline: a NEW entry never gains committed copies. Its derived views fold
+   from the raw bytes in the ledger projection at build time — provided the
+   authored header binding resolves: the registry detects the variant from the
+   entry's own header row, and only a shape detection cannot distinguish (the
+   ISO-dated workbook-extract twin) needs a curated `converter.variant` in
+   `meta.json`. A genuinely new export shape needs its raw→canonical binding
+   authored first (`VARIANTS`, `src/sources/ofcom-amateur/normalise.ts`) — the
+   projection build refuses loudly, naming the headers, until it is.
 
 ## Step 2b — add an FOI entry
 
@@ -246,11 +252,13 @@ design** (a new dataset must be noticed, not slip through), so regenerate and
 commit them in the same PR — the diffs are the reviewable evidence. Run:
 
 ```
-npm run regen          # normalise:sweep + foi:schemas + dataset:status
+npm run regen          # report sweep (projection-fed) + foi:schemas + dataset:status
 ```
 
 That covers `reports/**` (the golden-master gate; the sweep is the slow step —
-several minutes, whole-corpus DuckDB folds): the new entry's own
+several minutes, a whole-corpus ledger projection build plus DuckDB folds; it
+reads the new entry's derived views from the projection it builds, exactly as
+CI's golden-master gate does): the new entry's own
 `reports/entries/{key}.md` drill-down, the cross-lane
 [`reports/value-catalogue.md`](../reports/value-catalogue.md) and
 [`reports/data-quality.md`](../reports/data-quality.md), and the standing
@@ -281,7 +289,8 @@ this dataset — the historical pain was discovering them one CI round at a time
 
 ## Step 4 — verify
 
-- `npm run normalise:sweep` twice — the second run must report `changed=0`.
+- `npm run regen` twice — the second run must leave `git status` clean over
+  `reports/**` (byte-determinism of the regenerated reports).
 - `npm run validate:data` — meta shape, witnesses (including that every
   divergent witness is paired with a `divergences[]` record), byte integrity,
   extract declarations, line accounting against the parse source,

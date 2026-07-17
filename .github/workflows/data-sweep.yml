@@ -104,8 +104,8 @@ jobs:
               #   2. one line on a rolling "data landings" digest issue, so
               #      every landing has a durable, chronological record.
               # The digest reuses the same search-title / edit-or-create
-              # upsert normalise.yml already uses for its rolling coverage
-              # dashboard (normalise.yml:137-157), but APPENDS a comment per
+              # upsert reports-sweep.yml already uses for its rolling coverage
+              # dashboard, but APPENDS a comment per
               # landing instead of replacing the issue body: a running log
               # reads naturally as comments, and it needs no read-modify-write
               # of prior entries (the workflow's own `concurrency` group

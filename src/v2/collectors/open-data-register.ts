@@ -22,14 +22,15 @@ const OPEN_DATA_SOURCE_KEY = CONSTANTS.SOURCES.OFCOM_AMATEUR;
 // Default open-data lane location: the archive root, where dated register
 // publications live (archive/<date>/), distinct from the FOI lane's
 // archive/foi/. Fixed here as the shared archive helpers anchor it, matching
-// the normalise sweep.
+// the validator and the report lane.
 export function defaultArchiveDir(): string {
   return CONSTANTS.DIRS.archive;
 }
 
 // Read one open-data archive entry's meta.json synchronously (the async
 // readArchiveMeta would force buildLedger async for no gain), tolerating the
-// normalise-sweep's extra `normalised` block the base ArchiveMeta omits.
+// retired derivation lane's extra `normalised` block the base ArchiveMeta
+// omits (frozen baseline entries carry it; fresh publications never gain it).
 type OpenDataMeta = ArchiveMeta & { normalised?: { headerVariant?: string } };
 
 function readOpenDataMeta(archiveDir: string, key: string): OpenDataMeta {
@@ -47,7 +48,8 @@ function readOpenDataMeta(archiveDir: string, key: string): OpenDataMeta {
 export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta: OpenDataMeta): SourceObservationSet {
   // The parse source is the declared extract when one exists (workbook sheet
   // extract / shape-only header fill), else raw.csv - the same file the
-  // normalise sweep and validator parse, so the ledger's observations key off
+  // validator parses and the frozen derivation was produced from, so the
+  // ledger's observations key off
   // exactly the rows the committed normalisation was derived from.
   const parseSource = parseSourceFileName(meta);
   const rawContent = fs.readFileSync(path.join(archiveDir, key, parseSource), 'utf8');
