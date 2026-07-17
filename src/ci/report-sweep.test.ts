@@ -105,6 +105,24 @@ describe.skipIf(!duckDbAvailable())('runReportSweep', { tags: ['data-validity'] 
     expect(report.coverageMarkdown).toMatch(/\| 2026-02-02 \| some-other-source \| raw-only \|/);
   });
 
+  it('Coverage_LedgerCoveredSourceWithNoDerivedView_FailsLoudly', () => {
+    // The ledger lane covers every open-data register entry, so one with NO
+    // derived view at all is never honest raw-only coverage: either the
+    // projection dropped an entry it should have folded, or this is an
+    // archive-mode run over a corpus with a post-freeze publication - both
+    // must turn the run red rather than regenerate reports silently missing
+    // a publication.
+    deriveEntry(tmpRoot, '2026-01-01', SALESFORCE_RAW);
+    writeEntry(tmpRoot, '2026-02-02', SALESFORCE_RAW); // default source key, no derived files
+
+    const report = runReportSweep();
+
+    expect(report.failed).toHaveLength(1);
+    expect(report.failed[0].key).toBe('2026-02-02');
+    expect(report.failed[0].reason).toContain('ledger-covered source');
+    expect(report.coverageMarkdown).toMatch(/\| 2026-02-02 \| ofcom-amateur-callsigns \| FAILED \|/);
+  });
+
   it('Coverage_PartialDerivedView_FailsLoudlyNamingTheMissingFiles', () => {
     // Partial presence is never legitimate: an entry carrying one or two of
     // the three derived files means a botched write or deletion, and must

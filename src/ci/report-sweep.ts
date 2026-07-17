@@ -77,7 +77,18 @@ function entryCoverage(key: string, failed: ReportSweepReport['failed']): EntryC
   }
   const present = derivedEntryFileNamesPresent(key);
   if (present.length === 0) {
-    return { key, sourceKey, state: 'raw-only', note: 'no derived view (no authored converter binding, or not yet folded)' };
+    // The ledger lane covers every entry of the open-data register source, so
+    // ZERO derived files for one is a loud failure, never "raw-only": either
+    // the projection dropped an entry it should have folded (a fold gap), or
+    // this is an archive-mode run over a corpus with a post-freeze
+    // publication (whose derived views exist only in the projection) - both
+    // states must never regenerate reports silently missing a publication.
+    // A foreign source with no authored binding is honest raw-only coverage.
+    if (sourceKey === CONSTANTS.SOURCES.OFCOM_AMATEUR) {
+      failed.push({ key, reason: 'no derived view for a ledger-covered source - a projection fold gap, or an archive-mode run over a post-freeze corpus (run with --build-projection / BUILDER_PROJECTION_DIR)' });
+      return { key, sourceKey, state: 'FAILED', note: 'no derived view for a ledger-covered source' };
+    }
+    return { key, sourceKey, state: 'raw-only', note: 'no derived view (no authored converter binding for this source)' };
   }
   if (present.length < DERIVED_ENTRY_FILES.length) {
     const missing = DERIVED_ENTRY_FILES.filter(name => !present.includes(name));
@@ -1128,18 +1139,21 @@ function main(): void {
   // derivatives, which is complete only while no post-freeze publication
   // exists - the coverage table names any entry that would be missed.
   let scratchProjection: string | undefined;
-  if (process.argv.includes('--build-projection')) {
-    if (derivedEntriesMode() === 'projection') {
-      throw new Error(`--build-projection conflicts with an already-set ${BUILDER_PROJECTION_DIR_ENV} - use one or the other`);
-    }
-    scratchProjection = fs.mkdtempSync(path.join(os.tmpdir(), 'report-sweep-projection-'));
-    console.error(`building the ledger projection to ${scratchProjection} ...`);
-    buildBuilderProjection(scratchProjection);
-    process.env[BUILDER_PROJECTION_DIR_ENV] = scratchProjection;
-  }
   try {
+    if (process.argv.includes('--build-projection')) {
+      if (derivedEntriesMode() === 'projection') {
+        throw new Error(`--build-projection conflicts with an already-set ${BUILDER_PROJECTION_DIR_ENV} - use one or the other`);
+      }
+      scratchProjection = fs.mkdtempSync(path.join(os.tmpdir(), 'report-sweep-projection-'));
+      console.error(`building the ledger projection to ${scratchProjection} ...`);
+      buildBuilderProjection(scratchProjection);
+      process.env[BUILDER_PROJECTION_DIR_ENV] = scratchProjection;
+    }
     mainSweep();
   } finally {
+    // The scratch projection is cleaned up whatever threw - including the
+    // projection build itself (an unauthored binding on a fresh entry), which
+    // would otherwise orphan a multi-hundred-MB directory per failed run.
     if (scratchProjection !== undefined) {
       delete process.env[BUILDER_PROJECTION_DIR_ENV];
       fs.rmSync(scratchProjection, { recursive: true, force: true });
