@@ -23,7 +23,7 @@ This documents **what exists**. Whether each derivation still *verifies* is the
 | 2026-01-14 | — | ✔ | ✔ | ✔ |
 | 2026-06-23 | ✔ | ✔ | ✔ | ✔ |
 
-## FOI lane (52 entries)
+## FOI lane (53 entries)
 
 Extracts: `mech` = mechanically re-derivable (xlsx, via `src/shared/xlsx-extract.ts`);
 `transcr` = attested transcription of a PDF (see the entry's raw-extract file).
