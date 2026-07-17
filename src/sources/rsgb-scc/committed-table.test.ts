@@ -82,7 +82,7 @@ describe('committed SCC table', { tags: ['data-validity'] }, () => {
 
   it('Metadata_WhenChecked_MatchesTheCsvShapeAndCarriesProvenance', () => {
     expect(meta.rowCount).toBe(rows.length);
-    expect(meta.source.url).toBe('https://rsgbcc.org/hf/information/scc.shtml');
+    expect(meta.source.url).toBe('https://www.rsgbcc.org/hf/information/scc.shtml');
     expect(Number.isNaN(Date.parse(meta.fetchedAt))).toBe(false);
     expect(meta.upstreamUpdated.iso).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(Number.isNaN(Date.parse(meta.upstreamUpdated.iso))).toBe(false);
