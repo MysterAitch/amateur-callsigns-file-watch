@@ -85,7 +85,8 @@ import {
 } from '../sources/ofcom-amateur/components.ts';
 import { buildFoiObservations, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
 import { applyBuildPragmas } from '../shared/sqlite-build.ts';
-import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
+import { type ArchiveMeta } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 
 // Reference data is repo-anchored, same convention as the component parser and
 // the legacy build.
@@ -366,7 +367,7 @@ export function resolveEntryVariant(key: string, declared: DeclaredVariants, obs
 export function projectPublicationsFromLedger(
   ledgerDir: string,
   ref: ReferenceData,
-  archiveDir: string = CONSTANTS.DIRS.archive,
+  archiveDir: string = DIRS.archive,
 ): ProjectedPublication[] {
   const jsonlFiles = fs.readdirSync(ledgerDir).filter(name => name.endsWith('.jsonl')).sort();
   const publications: ProjectedPublication[] = [];
@@ -528,8 +529,8 @@ export function buildHistoryDb(
   dbPath: string,
   publications: readonly ProjectedPublication[],
   ref: ReferenceData,
-  foiDir: string = path.join(CONSTANTS.DIRS.archive, 'foi'),
-  archiveDir: string = CONSTANTS.DIRS.archive,
+  foiDir: string = path.join(DIRS.archive, 'foi'),
+  archiveDir: string = DIRS.archive,
 ): Record<string, number> {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   fs.rmSync(dbPath, { force: true });

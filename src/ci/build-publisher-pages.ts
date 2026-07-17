@@ -39,7 +39,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
-import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
+import { type ArchiveMeta } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
 import {
@@ -65,6 +66,7 @@ import {
   breadcrumbHtml,
   glossaryTerm,
   tableCaption,
+  zeroCell,
 } from './site-render.ts';
 import { humaniseClassKey } from './dataset-class-overviews.ts';
 import { classSlug, OPEN_DATA_IMPLICIT_CLASS } from './build-class-pages.ts';
@@ -286,7 +288,7 @@ function statsRecordCount(key: string, archiveDir: string): number | undefined {
 
 export function collectHoldings(
   register: PublisherRegister,
-  archiveDir: string = CONSTANTS.DIRS.archive,
+  archiveDir: string = DIRS.archive,
   foiDir: string = path.join(REPO_ROOT, 'archive', 'foi'),
 ): Holding[] {
   const chIndex = channelIndex(register);
@@ -951,7 +953,7 @@ export function publishersIndexPage(register: PublisherRegister, holdings: Holdi
     const h = holdingsForPublisher(entry.id, holdings);
     const basisLabel = LICENCE_BASIS_LABELS[entry.licenceBasis] ?? humaniseToken(entry.licenceBasis);
     const roleChips = entry.roles.map(r => `<code>${escapeHtml(r)}</code>`).join(' ');
-    return `<tr><th scope="row"><a href="${encodeURIComponent(entry.id)}/index.html">${escapeHtml(entry.name)}</a>${entry.operator === undefined ? '' : `<br><small class="gap">${escapeHtml(entry.operator)}</small>`}</th><td>${roleChips}</td><td>${escapeHtml(basisLabel)}</td><td>${escapeHtml(entry.authorityCeiling)}</td><td class="n">${h.authored.length}</td><td class="n">${h.hosted.length}</td></tr>`;
+    return `<tr><th scope="row"><a href="${encodeURIComponent(entry.id)}/index.html">${escapeHtml(entry.name)}</a>${entry.operator === undefined ? '' : `<br><small class="gap">${escapeHtml(entry.operator)}</small>`}</th><td>${roleChips}</td><td>${escapeHtml(basisLabel)}</td><td>${escapeHtml(entry.authorityCeiling)}</td><td class="n">${zeroCell(h.authored.length)}</td><td class="n">${zeroCell(h.hosted.length)}</td></tr>`;
   }).join('');
   const body = [
     '<h1>Publishers</h1>',

@@ -31,7 +31,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DatabaseSync } from 'node:sqlite';
 import { parse } from 'csv-parse/sync';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists, derivedEntryFileNamesPresent, isDerivedEntryFile } from '../shared/derived-entries.ts';
 import { buildFoiObservations, renderObservationsCsvBuffer, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
@@ -179,7 +179,7 @@ export function fillObservations(db: DatabaseSync, rows: FoiObservationRow[]): n
 // publication newer than the frozen committed baseline) and never drops one.
 // Exported (with the archiveDir seam) so the enumeration is unit-testable in
 // both modes against a scratch corpus.
-export function openDataEntryCsvNames(key: string, archiveDir: string = CONSTANTS.DIRS.archive): string[] {
+export function openDataEntryCsvNames(key: string, archiveDir: string = DIRS.archive): string[] {
   const names = new Set([
     ...fs.readdirSync(path.join(archiveDir, key)),
     ...derivedEntryFileNamesPresent(key, archiveDir),
@@ -190,7 +190,7 @@ export function openDataEntryCsvNames(key: string, archiveDir: string = CONSTANT
 // Where one of those CSVs' bytes come from: derived files through the switch
 // (projection when selected, committed archive otherwise - loud failure on a
 // projection gap), everything else from the committed entry directory.
-export function openDataEntryCsvPath(key: string, file: string, archiveDir: string = CONSTANTS.DIRS.archive): string {
+export function openDataEntryCsvPath(key: string, file: string, archiveDir: string = DIRS.archive): string {
   return isDerivedEntryFile(file) ? derivedEntryFile(key, file, archiveDir) : path.join(archiveDir, key, file);
 }
 
@@ -208,7 +208,7 @@ export function openDataEntryCsvPath(key: string, file: string, archiveDir: stri
 export async function buildPublishedTiers(dataDir: string, options: { compress?: boolean } = {}): Promise<Record<string, number>> {
   const compress = options.compress ?? true;
   const summary: Record<string, number> = {};
-  const foiDir = path.join(CONSTANTS.DIRS.archive, 'foi');
+  const foiDir = path.join(DIRS.archive, 'foi');
   const observations = buildFoiObservations(foiDir);
 
   // Mandatory union CSV - the no-SQL consumption path. Published gzipped:
@@ -361,7 +361,7 @@ export async function buildPublishedTiers(dataDir: string, options: { compress?:
   combined.exec('CREATE TABLE history_datasets (dataset TEXT, record_count TEXT, intended_complete TEXT, scope_notes TEXT, coverage_affecting TEXT)');
   const insertDataset = combined.prepare('INSERT INTO history_datasets VALUES (?, ?, ?, ?, ?)');
   for (const publication of publications) {
-    const metaPath = path.join(CONSTANTS.DIRS.archive, publication.key, 'meta.json');
+    const metaPath = path.join(DIRS.archive, publication.key, 'meta.json');
     const meta = fs.existsSync(metaPath)
       ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as {
         intendedCoverage?: { complete: boolean; scopeNotes?: string };

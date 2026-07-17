@@ -46,6 +46,20 @@ export function humaniseLabel(value: string): string {
   return value === '' ? '(blank)' : value;
 }
 
+// De-emphasises a literal zero in a rendered numeric cell (issue #731): the
+// shared `.zero` class draws the --muted token so the eye lands on non-zero
+// neighbours, without rewording or hiding the value. `shown` is the cell's
+// already-formatted display text (e.g. a toLocaleString'd count); the zero
+// check runs against `raw` - the pre-formatting value - trimmed, so it fires
+// only when the underlying value is exactly zero: a formatted variant like
+// "0%", "0 B" or "~0" is a caller's own judgement call, not this helper's
+// (they keep their existing rendering, muted or not, unchanged). A blank
+// stays a wholly different, separately-humanised state (see humaniseLabel
+// above) - never routed through this helper.
+export function zeroCell(raw: string | number, shown: string = String(raw)): string {
+  return String(raw).trim() === '0' ? `<span class="zero">${shown}</span>` : shown;
+}
+
 // `labelFor`, when given, supplies the label's inner HTML directly (e.g. the
 // shared status/licence field wrapper - issue #553), bypassing the default
 // escapeHtml(humaniseLabel(…)) text. Omitted, every existing caller's output

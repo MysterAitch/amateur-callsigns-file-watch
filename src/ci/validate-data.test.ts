@@ -4,7 +4,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { validateArchiveEntry, deepValidateEntryCsv, validateLatestPointers, validateRepoData } from './validate-data.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
+import { FILES, OFCOM_AMATEUR_SOURCE_KEY } from '../sources/ofcom-amateur/constants.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -20,12 +21,12 @@ function sha256(content: string | Buffer): string {
 }
 
 function writeEntry(root: string, key: string, rawContent: string, metaOverrides: Record<string, unknown> = {}): void {
-  const dir = path.join(root, CONSTANTS.DIRS.archive, key);
+  const dir = path.join(root, DIRS.archive, key);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'raw.csv'), rawContent);
   const meta = {
     schemaVersion: 1,
-    sourceKey: CONSTANTS.SOURCES.OFCOM_AMATEUR,
+    sourceKey: OFCOM_AMATEUR_SOURCE_KEY,
     provenance: 'live',
     fetchedAt: '2026-07-06T18:00:00.000Z',
     files: {
@@ -37,18 +38,18 @@ function writeEntry(root: string, key: string, rawContent: string, metaOverrides
 }
 
 function writeLatestSet(root: string, fromKey: string): void {
-  const entryDir = path.join(root, CONSTANTS.DIRS.archive, fromKey);
-  fs.copyFileSync(path.join(entryDir, 'raw.csv'), path.join(root, CONSTANTS.FILES.latestRawCsv));
-  fs.copyFileSync(path.join(entryDir, 'meta.json'), path.join(root, CONSTANTS.FILES.latestMeta));
+  const entryDir = path.join(root, DIRS.archive, fromKey);
+  fs.copyFileSync(path.join(entryDir, 'raw.csv'), path.join(root, FILES.latestRawCsv));
+  fs.copyFileSync(path.join(entryDir, 'meta.json'), path.join(root, FILES.latestMeta));
   const records = [
     { Value: 'M7TEE', Prefix: 'M7', Suffix: 'TEE', Type: 'Call Sign - Amateur', Status: 'Allocated' },
     { Value: 'G5ABC', Prefix: 'G5', Suffix: 'ABC', Type: 'Call Sign - Amateur', Status: 'Allocated' },
   ];
   const sorted = [...records].sort((a, b) => a.Value.localeCompare(b.Value));
-  fs.writeFileSync(path.join(root, CONSTANTS.FILES.latestJson), JSON.stringify(records));
-  fs.writeFileSync(path.join(root, CONSTANTS.FILES.latestRawSortedJson), JSON.stringify(sorted));
+  fs.writeFileSync(path.join(root, FILES.latestJson), JSON.stringify(records));
+  fs.writeFileSync(path.join(root, FILES.latestRawSortedJson), JSON.stringify(sorted));
   fs.writeFileSync(
-    path.join(root, CONSTANTS.FILES.latestRawSortedCsv),
+    path.join(root, FILES.latestRawSortedCsv),
     'Value,Prefix,Suffix,Type,Status\nG5ABC,G5,ABC,Call Sign - Amateur,Allocated\nM7TEE,M7,TEE,Call Sign - Amateur,Allocated\n',
   );
 }
@@ -84,7 +85,7 @@ function writeAccountedEntry(root: string, key: string, metaOverrides: Record<st
     ignoredLines: [{ line: 4, content: 'footer text,,', reason: 'no companion values (export furniture, not a register assertion)' }],
     ...metaOverrides,
   });
-  fs.writeFileSync(path.join(root, CONSTANTS.DIRS.archive, key, 'normalised.csv'), normalised);
+  fs.writeFileSync(path.join(root, DIRS.archive, key, 'normalised.csv'), normalised);
 }
 
 describe('validateArchiveEntry', { tags: ['unit'] }, () => {
@@ -420,7 +421,7 @@ describe('validateLatestPointers', { tags: ['unit'] }, () => {
     // a divergence means the pointer set and archive moved independently.
     writeEntry(tmpRoot, '2026-06-23', CSV);
     writeLatestSet(tmpRoot, '2026-06-23');
-    fs.appendFileSync(path.join(tmpRoot, CONSTANTS.FILES.latestRawCsv), 'DRIFT,DR,IFT,Call Sign - Amateur,Allocated\n');
+    fs.appendFileSync(path.join(tmpRoot, FILES.latestRawCsv), 'DRIFT,DR,IFT,Call Sign - Amateur,Allocated\n');
     const problems = validateLatestPointers();
     expect(problems.some(p => p.path.includes('latest-raw.csv'))).toBe(true);
   });
@@ -428,7 +429,7 @@ describe('validateLatestPointers', { tags: ['unit'] }, () => {
   it('LatestPointers_WhenLatestJsonMalformed_Fails', () => {
     writeEntry(tmpRoot, '2026-06-23', CSV);
     writeLatestSet(tmpRoot, '2026-06-23');
-    fs.writeFileSync(path.join(tmpRoot, CONSTANTS.FILES.latestJson), '[{ truncated');
+    fs.writeFileSync(path.join(tmpRoot, FILES.latestJson), '[{ truncated');
     const problems = validateLatestPointers();
     expect(problems.some(p => p.path.includes('latest.json'))).toBe(true);
   });

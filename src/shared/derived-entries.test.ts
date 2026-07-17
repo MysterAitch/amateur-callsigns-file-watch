@@ -11,7 +11,7 @@ import {
   derivedEntryFileExists,
   isDerivedEntryFile,
 } from './derived-entries.ts';
-import { CONSTANTS } from './utils.ts';
+import { DIRS } from './constants.ts';
 
 // The derived-entry switch (issue #629 phase 2): with BUILDER_PROJECTION_DIR
 // unset every read resolves to the committed archive exactly as before the
@@ -44,14 +44,14 @@ function writeProjectionEntry(root: string, key: string, names: readonly string[
 describe('derived-entries switch', { tags: ['unit'] }, () => {
   it('Mode_WhenEnvUnset_IsArchive_AndPathsResolveToTheCommittedArchive', () => {
     expect(derivedEntriesMode()).toBe('archive');
-    expect(derivedEntryDir(KEY)).toBe(path.join(CONSTANTS.DIRS.archive, KEY));
-    expect(derivedEntryFile(KEY, 'normalised.csv')).toBe(path.join(CONSTANTS.DIRS.archive, KEY, 'normalised.csv'));
+    expect(derivedEntryDir(KEY)).toBe(path.join(DIRS.archive, KEY));
+    expect(derivedEntryFile(KEY, 'normalised.csv')).toBe(path.join(DIRS.archive, KEY, 'normalised.csv'));
   });
 
   it('Mode_WhenEnvSetToBlank_IsArchive_NotAHalfConfiguredProjection', () => {
     process.env[BUILDER_PROJECTION_DIR_ENV] = '   ';
     expect(derivedEntriesMode()).toBe('archive');
-    expect(derivedEntryDir(KEY)).toBe(path.join(CONSTANTS.DIRS.archive, KEY));
+    expect(derivedEntryDir(KEY)).toBe(path.join(DIRS.archive, KEY));
   });
 
   it('ArchiveMode_WithCustomArchiveDir_ResolvesUnderThatBase', () => {

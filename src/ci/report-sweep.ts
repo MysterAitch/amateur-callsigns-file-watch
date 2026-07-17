@@ -34,7 +34,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { CONSTANTS, type ArchiveMeta, errorMessage } from '../shared/utils.ts';
+import { type ArchiveMeta, errorMessage } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
+import { OFCOM_AMATEUR_SOURCE_KEY } from '../sources/ofcom-amateur/constants.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { BUILDER_PROJECTION_DIR_ENV, DERIVED_ENTRY_FILES, derivedEntriesMode, derivedEntryFile, derivedEntryFileExists, derivedEntryFileNamesPresent } from '../shared/derived-entries.ts';
 import { buildBuilderProjection } from '../v2/build-builder-projection.ts';
@@ -69,7 +71,7 @@ interface EntryCoverage { key: string; sourceKey: string; state: string; note: s
 function entryCoverage(key: string, failed: ReportSweepReport['failed']): EntryCoverage {
   let sourceKey = '?';
   try {
-    const meta = JSON.parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, key, 'meta.json'), 'utf8')) as ArchiveMeta;
+    const meta = JSON.parse(fs.readFileSync(path.join(DIRS.archive, key, 'meta.json'), 'utf8')) as ArchiveMeta;
     sourceKey = meta.sourceKey;
   } catch (err) {
     failed.push({ key, reason: `meta.json unreadable: ${errorMessage(err)}` });
@@ -84,7 +86,7 @@ function entryCoverage(key: string, failed: ReportSweepReport['failed']): EntryC
     // publication (whose derived views exist only in the projection) - both
     // states must never regenerate reports silently missing a publication.
     // A foreign source with no authored binding is honest raw-only coverage.
-    if (sourceKey === CONSTANTS.SOURCES.OFCOM_AMATEUR) {
+    if (sourceKey === OFCOM_AMATEUR_SOURCE_KEY) {
       failed.push({ key, reason: 'no derived view for a ledger-covered source - a projection fold gap, or an archive-mode run over a post-freeze corpus (run with --build-projection / BUILDER_PROJECTION_DIR)' });
       return { key, sourceKey, state: 'FAILED', note: 'no derived view for a ledger-covered source' };
     }
@@ -226,7 +228,7 @@ const WINDOW_CAP = 10;
 
 function isDeclaredIncomplete(key: string): boolean {
   try {
-    const meta = JSON.parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, key, 'meta.json'), 'utf8')) as ArchiveMeta;
+    const meta = JSON.parse(fs.readFileSync(path.join(DIRS.archive, key, 'meta.json'), 'utf8')) as ArchiveMeta;
     return meta.intendedCoverage?.complete === false;
   } catch {
     return false;

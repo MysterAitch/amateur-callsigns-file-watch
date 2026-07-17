@@ -10,7 +10,7 @@ import {
 import type { SourceObservationSet } from '../v2/claim.ts';
 import { externalLink } from './site-render.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import {
   extractLinks,
   classifyLink,
@@ -602,7 +602,9 @@ describe('Dataset pages build', () => {
     // Title comes from the document's own first heading, not a second,
     // hand-typed copy of it.
     expect(page).toContain('<title>The six twins: one callsign, two register rows</title>');
-    expect(page).toContain('<h1>The six twins: one callsign, two register rows</h1>');
+    // The heading also carries a slug id (issue #701), giving in-page anchor
+    // links in narrative prose a real target to land on.
+    expect(page).toContain('<h1 id="the-six-twins-one-callsign-two-register-rows">The six twins: one callsign, two register rows</h1>');
     // The epistemics tagging survives the render (markdown -> HTML, not a
     // re-summary).
     expect(page).toContain('<strong>[obs]</strong>');
@@ -1151,10 +1153,10 @@ describe('Verbatim dataset files hardlink into the assembly (issue #646)', { tag
   const sampleKey = (): string => listArchiveKeys().sort()[0];
   const openDataDir = (): string => path.join(outputDir, 'datasets', 'open-data');
   const oneFilesystem = (): boolean =>
-    fs.statSync(CONSTANTS.DIRS.archive).dev === fs.statSync(openDataDir()).dev;
+    fs.statSync(DIRS.archive).dev === fs.statSync(openDataDir()).dev;
 
   it('AssembledDatasetFile_SharesTheCheckoutInode_OnOneFilesystem', () => {
-    const source = path.join(CONSTANTS.DIRS.archive, sampleKey(), 'meta.json');
+    const source = path.join(DIRS.archive, sampleKey(), 'meta.json');
     const assembled = path.join(openDataDir(), sampleKey(), 'meta.json');
     // Same bytes whichever path served it.
     expect(fs.readFileSync(assembled).equals(fs.readFileSync(source))).toBe(true);

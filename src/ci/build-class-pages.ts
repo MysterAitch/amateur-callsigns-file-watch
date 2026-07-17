@@ -32,7 +32,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, FOI_DATASET_CLASSES } from '../shared/foi-archive.ts';
-import { escapeHtml, humanDate, humaniseLabel, breadcrumbHtml, htmlPage, glossaryTerm, tableCaption, datasetLabel } from './site-render.ts';
+import { escapeHtml, humanDate, humaniseLabel, breadcrumbHtml, htmlPage, glossaryTerm, tableCaption, datasetLabel, zeroCell } from './site-render.ts';
 import { datasetClassOverview, humaniseClassKey, type DatasetClassOverview } from './dataset-class-overviews.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -188,7 +188,7 @@ function classIndexPage(present: { cls: string; count: number }[]): string {
     const definition = FOI_DATASET_CLASSES[cls];
     // The exact vocabulary key stays the linked <code> chip (used everywhere and
     // asserted by the affordance tests); the humanised name reads alongside it.
-    return `<tr><th scope="row"><a href="${classSlug(cls)}.html"><code>${escapeHtml(cls)}</code></a> <span class="typename">${escapeHtml(humaniseClassKey(cls))}</span></th><td>${definition === undefined ? '<span style="color:var(--muted)">—</span>' : escapeHtml(definition)}</td><td class="n">${count}</td></tr>`;
+    return `<tr><th scope="row"><a href="${classSlug(cls)}.html"><code>${escapeHtml(cls)}</code></a> <span class="typename">${escapeHtml(humaniseClassKey(cls))}</span></th><td>${definition === undefined ? '<span style="color:var(--muted)">—</span>' : escapeHtml(definition)}</td><td class="n">${zeroCell(count)}</td></tr>`;
   });
   const body = [
     breadcrumbHtml([['Datasets', '../index.html'], ['Dataset classes', undefined]]),

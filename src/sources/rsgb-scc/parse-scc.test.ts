@@ -9,6 +9,7 @@ import {
   toMetaJson,
   CANONICAL_STATUSES,
   SCC_CSV_HEADER,
+  SCC_META_SCHEMA_VERSION,
 } from './parse-scc.ts';
 
 // A project-authored fixture reproducing the STRUCTURE of the source page — the
@@ -212,5 +213,40 @@ describe('toCsv and toMeta', { tags: ['unit'] }, () => {
   it('Meta_WhenBannerMissing_RefusesToBuildRatherThanInventCurrency', () => {
     const parsed = parseSccTable(buildFixture(ORDINARY_ROWS, { banner: '' }));
     expect(() => toMeta(parsed, { fetchedAt: '2026-07-17T00:00:00.000Z' })).toThrow(/banner/);
+  });
+
+  it('SchemaVersion_IsCurrentlyTwo_MarkingTheAdditiveSourceHeadersField', () => {
+    // v1 metadata (no sourceHeaders key) remains valid; this only documents
+    // that the shape has moved on since (issue #716).
+    expect(SCC_META_SCHEMA_VERSION).toBe(2);
+  });
+
+  it('ResponseHeaders_WhenAllThreePresent_AreRecordedAsSourceHeaders', () => {
+    const parsed = parseSccTable(buildFixture(ORDINARY_ROWS));
+    const meta = toMeta(parsed, {
+      fetchedAt: '2026-07-17T00:00:00.000Z',
+      headers: { etag: '"abc123"', lastModified: 'Sun, 15 Jun 2026 09:00:00 GMT', date: 'Fri, 17 Jul 2026 12:00:00 GMT' },
+    });
+    expect(meta.sourceHeaders).toEqual({ etag: '"abc123"', lastModified: 'Sun, 15 Jun 2026 09:00:00 GMT', date: 'Fri, 17 Jul 2026 12:00:00 GMT' });
+  });
+
+  it('ResponseHeaders_WhenOnlySomePresent_RecordsOnlyWhicheverTheServerSent', () => {
+    const parsed = parseSccTable(buildFixture(ORDINARY_ROWS));
+    const meta = toMeta(parsed, { fetchedAt: '2026-07-17T00:00:00.000Z', headers: { date: 'Fri, 17 Jul 2026 12:00:00 GMT' } });
+    expect(meta.sourceHeaders).toEqual({ date: 'Fri, 17 Jul 2026 12:00:00 GMT' });
+  });
+
+  it('ResponseHeaders_WhenOmittedEntirely_MetaOmitsTheSourceHeadersKey', () => {
+    const parsed = parseSccTable(buildFixture(ORDINARY_ROWS));
+    const meta = toMeta(parsed, { fetchedAt: '2026-07-17T00:00:00.000Z' });
+    expect(meta.sourceHeaders).toBeUndefined();
+    expect(Object.keys(meta)).not.toContain('sourceHeaders');
+  });
+
+  it('ResponseHeaders_WhenAllUndefined_MetaOmitsTheSourceHeadersKeyRatherThanAnEmptyObject', () => {
+    const parsed = parseSccTable(buildFixture(ORDINARY_ROWS));
+    const meta = toMeta(parsed, { fetchedAt: '2026-07-17T00:00:00.000Z', headers: {} });
+    expect(meta.sourceHeaders).toBeUndefined();
+    expect(Object.keys(meta)).not.toContain('sourceHeaders');
   });
 });

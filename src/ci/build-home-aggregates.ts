@@ -18,7 +18,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
 import {
@@ -50,8 +50,14 @@ function tableHtml(caption: string, headers: string[], rows: (string | number)[]
   const th = headers.map((h, i) => `<th scope="col"${i >= numericFrom ? ' class="num"' : ''}>${rawHeaders ? h : escapeHtml(h)}</th>`).join('');
   const body = rows.map(row =>
     `<tr>${row.map((c, i) => {
-      const content = rawColumns.has(i) ? String(c) : escapeHtml(String(c));
-      const cls = i >= numericFrom ? ' class="num"' : '';
+      const numeric = i >= numericFrom;
+      let content = rawColumns.has(i) ? String(c) : escapeHtml(String(c));
+      // A numeric cell whose content is exactly "0" de-emphasises (issue
+      // #731) - fires for a raw or escaped column alike, since escaping a
+      // bare zero is a no-op; a pre-built raw fragment (a link, a bar) is
+      // never literally the string "0" so this never mismatches one.
+      if (numeric && content.trim() === '0') content = `<span class="zero">${content}</span>`;
+      const cls = numeric ? ' class="num"' : '';
       return rowHeader && i === 0 ? `<th scope="row"${cls}>${content}</th>` : `<td${cls}>${content}</td>`;
     }).join('')}</tr>`).join('\n');
   return `<div class="overflow"><table>${tableCaption(caption)}<thead><tr>${th}</tr></thead>\n<tbody>${body}</tbody></table></div>`;
@@ -75,7 +81,10 @@ function dataTable(caption: string, columns: ColumnDef[], rows: (string | number
   const body = rows.map(row =>
     `<tr>${row.map((cell, i) => {
       const c = columns[i];
-      const content = c.raw ? String(cell) : escapeHtml(String(cell));
+      let content = c.raw ? String(cell) : escapeHtml(String(cell));
+      // See tableHtml above: a numeric cell that is exactly "0" mutes
+      // (issue #731), whether raw or escaped.
+      if (c.num === true && content.trim() === '0') content = `<span class="zero">${content}</span>`;
       const cls = c.num ? ' class="num"' : '';
       return c.rowHeader ? `<th scope="row"${cls}>${content}</th>` : `<td${cls}>${content}</td>`;
     }).join('')}</tr>`).join('\n');
@@ -242,7 +251,7 @@ export function renderRslMatrixHtml(): string {
 // every row, not a bare total.
 export function renderLatestProfileHtml(): string {
   const { key, stats } = newestStats();
-  const metaPath = path.join(CONSTANTS.DIRS.archive, key, 'meta.json');
+  const metaPath = path.join(DIRS.archive, key, 'meta.json');
   const meta = fs.existsSync(metaPath)
     ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as { intendedCoverage?: { complete?: boolean } }
     : {};

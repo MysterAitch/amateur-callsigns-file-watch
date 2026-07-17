@@ -5,7 +5,7 @@ import {
   type SesWindowAttestation, type FieldCatalogue, type ValueTally, type MembershipVintage,
 } from './value-catalogue.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { renderMarkdown } from '../shared/render-markdown.ts';
 
 // The value catalogue (issues #43/#223) enumerates every distinct value of the
@@ -231,6 +231,22 @@ describe('value catalogue', { tags: ['unit'] }, () => {
     expect(md).toContain('Ofcom');
   });
 
+  it('NormalisationFidelity_RenderedToHtml_MutesTheZeroCoercedCellButNotTheDroppedCount', () => {
+    // Issue #731's named first case: the normalisation-fidelity table is the
+    // one that prompted the sitewide convention. The committed markdown keeps
+    // its plain "0" (asserted above); only the rendered HTML edge mutes it,
+    // via the shared markdown-renderer table-cell hook, not a bespoke
+    // per-page treatment.
+    const md = renderValueCatalogue(tallies({ status: [['Allocated', 1, ['open-data']]] }), ref, [], [
+      { key: '2022-05-30', rawRows: 151157, normalisedRows: 151152, dropped: ['Ofcom', 'Confidential Information - Do Not Distribute'], coerced: [] },
+    ]);
+    expect(md).toContain('| 2022-05-30 | 151,157 | 151,152 | 2 | 0 |');
+    const html = renderMarkdown(md);
+    expect(html).toContain('<td><span class="zero">0</span></td>');
+    // The dropped count (2, non-zero) stays plain in the same row.
+    expect(html).toMatch(/<td>151,157<\/td><td>151,152<\/td><td>2<\/td><td><span class="zero">0<\/span><\/td>/);
+  });
+
   it('NormalisationFidelity_NoGaps_StatesFaithful', () => {
     const md = renderValueCatalogue(tallies({ status: [['Allocated', 1, ['open-data']]] }), ref, [], [
       { key: '2026-06-23', rawRows: 158318, normalisedRows: 158318, dropped: [], coerced: [] },
@@ -410,7 +426,7 @@ describe('collectSesWindowAttestation over the real archive', { tags: ['data-val
     // expiring records than open ones is the register's own inconsistency,
     // surfaced not smoothed.
     const ref = loadReferenceData();
-    const attestations = collectSesWindowAttestation(path.join(CONSTANTS.DIRS.archive, 'foi'), ref);
+    const attestations = collectSesWindowAttestation(path.join(DIRS.archive, 'foi'), ref);
     const byCategory = new Map(attestations.map(a => [a.category, a]));
     expect([...byCategory.keys()].sort()).toEqual([
       'Permanent Special Event Station', 'Special Event Station', 'Special Research Permit',

@@ -26,7 +26,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists, derivedEntryFileNamesPresent, isDerivedEntryFile } from '../shared/derived-entries.ts';
-import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
+import { type ArchiveMeta } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { linkOrCopyFileSync } from '../shared/link-or-copy.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
 import { readPublisherRegister, channelIndex, publisherIndexById, publisherForChannel, authorPublisherId, type PublisherEntry } from '../shared/publishers.ts';
@@ -76,6 +77,7 @@ import {
   exploreDeepLink,
   glossaryTerm,
   tableCaption,
+  zeroCell,
   type CallsignComponents,
 } from './site-render.ts';
 
@@ -742,7 +744,7 @@ function anomalyFlagsHtml(flags: Record<string, number>): string {
   if (entries.length === 0) return '<p class="lead">No data-quality flags recorded.</p>';
   const rows = entries.map(([flag, count]) => {
     const meaning = (registry.get(flag) ?? '').split(/(?<=\.)\s/, 1)[0];
-    return `<tr><td><code>${escapeHtml(flag)}</code></td><td class="n">${count.toLocaleString('en-GB')}</td><td>${renderInline(meaning)} <a href="../../docs/flags.html">registry →</a></td></tr>`;
+    return `<tr><td><code>${escapeHtml(flag)}</code></td><td class="n">${zeroCell(count, count.toLocaleString('en-GB'))}</td><td>${renderInline(meaning)} <a href="../../docs/flags.html">registry →</a></td></tr>`;
   }).join('');
   return `<table>${tableCaption('Data-quality flags recorded, with row counts and meanings')}<thead><tr><th scope="col">flag</th><th scope="col" class="n">rows</th><th scope="col">meaning</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
@@ -881,7 +883,7 @@ function svgBarChart(idBase: string, heading: string, summary: string, unit: str
   // (crossfilter-style): clicking adds to the current filters, not replaces.
   const tableRows = data.map(([label, n]) => {
     const attrs = facetExpr === undefined ? '' : ` class="explore" role="button" tabindex="0" data-filter-expr="${escapeHtml(facetExpr)}" data-filter-val="${escapeHtml(label)}"`;
-    return `<tr${attrs}><td>${escapeHtml(humaniseLabel(label))}</td><td class="n">${n.toLocaleString('en-GB')}</td></tr>`;
+    return `<tr${attrs}><td>${escapeHtml(humaniseLabel(label))}</td><td class="n">${zeroCell(n, n.toLocaleString('en-GB'))}</td></tr>`;
   }).join('');
   const exploreHint = facetExpr === undefined ? '' : ' — click a bar or row to filter the browser above';
   // The SVG is pinned to its native min-width (page.ts's `.chart svg`, #655)
@@ -1160,7 +1162,7 @@ interface PublicationSummary {
 }
 
 function publicationSummary(key: string): PublicationSummary {
-  const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
+  const sourceDir = path.join(DIRS.archive, key);
   const rows = parseArchiveCsv(derivedEntryFile(key, 'normalised.csv'));
   let allocated = 0;
   let unkeyable = 0;
@@ -1389,7 +1391,7 @@ export function unkeyableRowsNote(unkeyable: number, depthToRoot: number): strin
 }
 
 function buildOpenDataEntry(outputDir: string, key: string, previousKey: string | undefined, summaries: PublicationSummary[], foiEntries: FoiNavEntry[], pageUrl: string): { files: CopiedFile[]; zipBytes: number } {
-  const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
+  const sourceDir = path.join(DIRS.archive, key);
   const descriptions = new Map<string, string>([
     ['raw.csv', "Ofcom's bytes, verbatim"],
     ['raw.xlsx', "Ofcom's bytes, verbatim (published as a workbook)"],
@@ -1495,7 +1497,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   // The pin is the build's own commit, the one pin at which the archived file,
   // the reference tables and the derivation code all provably exist.
   const parsedSource = time('dataset-pages:examine-source', () =>
-    loadOpenDataRegisterSource(CONSTANTS.DIRS.archive, key,
+    loadOpenDataRegisterSource(DIRS.archive, key,
       JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as ArchiveMeta));
   const sourceRepoPath = parsedSource.repoPath;
   const previewExamine: PreviewExamine | undefined = sourceRepoPath === undefined ? undefined : {
@@ -1648,7 +1650,7 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
     const rows = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     return [`<h2>${escapeHtml(title)}</h2>`, '<table>', tableCaption(title), '<thead>', `<tr><th scope="col">value</th><th scope="col" class="n">rows</th></tr>`, '</thead>', '<tbody>',
       ...rows.map(([value, n]) => {
-        const count = n.toLocaleString('en-GB');
+        const count = zeroCell(n, n.toLocaleString('en-GB'));
         const href = linkFor?.(value);
         const shown = labelFor !== undefined ? labelFor(value) : escapeHtml(value);
         return `<tr><td>${shown}</td><td class="n">${href === undefined ? count : `<a href="${href}">${count}</a>`}</td></tr>`;
@@ -1713,7 +1715,7 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
     // which sits elsewhere), which would double back through series/ needlessly
     // from here. The wrapper still supplies the shared visual as an unlinked
     // span, nested inside this page-local anchor.
-    indexRows.push(`<tr><th scope="row"><a href="${slug}.html">${prefixSeriesField(series)}</a></th><td>${ref === undefined ? '⚠ unreferenced' : licenceField(ref.station_level)}</td><td>${ref === undefined ? '—' : escapeHtml(ref.issuing_status)}</td><td class="n">${(acc?.total ?? 0).toLocaleString('en-GB')}</td></tr>`);
+    indexRows.push(`<tr><th scope="row"><a href="${slug}.html">${prefixSeriesField(series)}</a></th><td>${ref === undefined ? '⚠ unreferenced' : licenceField(ref.station_level)}</td><td>${ref === undefined ? '—' : escapeHtml(ref.issuing_status)}</td><td class="n">${zeroCell(acc?.total ?? 0, (acc?.total ?? 0).toLocaleString('en-GB'))}</td></tr>`);
   }
 
   const indexBody = [
@@ -1902,12 +1904,15 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   }).filter(e => e.classes.length > 0);
   for (const key of openDataKeys) {
     const { files, zipBytes } = time('dataset-pages:open-data-entry', () => buildOpenDataEntry(outputDir, key, lastCompleteKey, summaries, foiNav, `${baseUrl}/datasets/open-data/${key}/index.html`));
-    const entryMeta = JSON.parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, key, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete: boolean } };
+    const entryMeta = JSON.parse(fs.readFileSync(path.join(DIRS.archive, key, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete: boolean } };
     if (entryMeta.intendedCoverage?.complete !== false) lastCompleteKey = key;
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;
     pageUrls.push(`${baseUrl}/datasets/open-data/${key}/index.html`);
-    openDataRows.push(`<tr><th scope="row" class="dskey">${datasetLabel(`Publication of ${humanDate(key)}`, key, { href: `open-data/${key}/index.html` })}</th><td class="n">${files.length}</td><td class="n">${formatBytes(files.reduce((s, f) => s + f.bytes, 0))}</td></tr>`);
+    // The size cell (formatBytes) is a unit-suffixed figure ("0 B") rather
+    // than a bare zero, so it is left as-is (issue #731 judgement: only an
+    // exact "0" mutes, not a formatted variant that already carries a unit).
+    openDataRows.push(`<tr><th scope="row" class="dskey">${datasetLabel(`Publication of ${humanDate(key)}`, key, { href: `open-data/${key}/index.html` })}</th><td class="n">${zeroCell(files.length)}</td><td class="n">${formatBytes(files.reduce((s, f) => s + f.bytes, 0))}</td></tr>`);
   }
 
   const foiRows: string[] = [];

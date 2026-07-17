@@ -7,7 +7,6 @@ import { JSDOM } from 'jsdom';
 import {
   calculateFileHash,
   saveJsonFile,
-  CONSTANTS,
   logger,
   fileExistsAndNotEmpty,
   formatFileSize,
@@ -16,10 +15,11 @@ import {
   type ScrapeResult,
   errorMessage,
 } from '../../shared/utils.ts';
+import { FILES, URLS } from './constants.ts';
 
 // Constants
-const { OFCOM_URL, OFCOM_BASE_URL } = CONSTANTS.URLS;
-const OUTPUT_FILES = CONSTANTS.FILES;
+const { OFCOM_URL, OFCOM_BASE_URL } = URLS;
+const OUTPUT_FILES = FILES;
 
 // Browser-like headers to avoid bot-detection / WAF 403s.
 // Ofcom's site blocks requests that look automated (e.g. User-Agent: axios/x.y.z).

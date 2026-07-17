@@ -31,6 +31,7 @@ import {
   type SccRow,
   type ParsedSccTable,
   type SanityGateOptions,
+  type SccSourceHeaders,
 } from './parse-scc.ts';
 
 // The honest, identifying User-Agent — names the project and its purpose and
@@ -58,6 +59,15 @@ export interface FetchLikeResponse {
 }
 export type FetchLike = (url: string, init: { headers: Record<string, string>; redirect: 'follow'; signal: AbortSignal }) => Promise<FetchLikeResponse>;
 
+// The validators a conditional request sends back to the server, read from the
+// committed metadata's sourceHeaders (see buildConditionalRequestHeaders below).
+// Either, both, or neither may be present depending on what the server sent on
+// the fetch that produced the committed table.
+export interface ConditionalValidators {
+  etag?: string;
+  lastModified?: string;
+}
+
 export interface FetchPageOptions {
   userAgent?: string;
   timeoutMs?: number;
@@ -68,6 +78,12 @@ export interface FetchPageOptions {
   // exactly what the fetcher saw. Never committed: the page's authored prose
   // is RSGB copyright; this is debugging material, not archive material.
   diagnosticsDir?: string;
+  // When set, sends If-None-Match / If-Modified-Since so an unchanged upstream
+  // page can answer 304 rather than resending the ~68 KB body. Callers build
+  // this from the committed metadata (buildConditionalRequestHeaders); never
+  // from an unvalidated source, since a spurious 304 would suppress a real
+  // change.
+  conditional?: ConditionalValidators;
 }
 
 // The response headers worth retaining for debugging: change signals (etag /
@@ -84,29 +100,46 @@ export interface FetchDiagnostics {
   fetchedAt: string;
   status: number;
   headers: Record<string, string | null>;
+  // False for a 304: the response carries no body by HTTP semantics, so
+  // page.shtml is not written and the artefact says so rather than silently
+  // omitting the file with no explanation.
+  hasBody: boolean;
 }
 
-export function writeFetchDiagnostics(dir: string, diagnostics: FetchDiagnostics, body: string): void {
+export function writeFetchDiagnostics(dir: string, diagnostics: FetchDiagnostics, body: string | undefined): void {
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'page.shtml'), body);
+  if (body !== undefined) fs.writeFileSync(path.join(dir, 'page.shtml'), body);
   fs.writeFileSync(path.join(dir, 'headers.json'), JSON.stringify(diagnostics, null, 2) + '\n');
 }
 
+// The outcome of a page fetch: either the server returned the page (status 200,
+// gated below for content-type and challenge markers), or it confirmed the
+// conditional request's validators still match (status 304, no body — the
+// "provably unchanged" signal, stronger and cheaper than a byte-compare). Any
+// other status throws.
+export type FetchedSccPage =
+  | { status: 200; body: string; headers: Record<string, string | null> }
+  | { status: 304; headers: Record<string, string | null> };
+
 // Fetch the page, following redirects, with the honest UA and a timeout. Rejects
-// loudly on a non-200 status, an unexpected content-type, or a body that looks
-// like an HTML challenge/gate page (all regression signals for a host that is
-// currently a plain, ungated Apache server).
-export async function fetchSccPage(url: string = SCC_SOURCE_URL, opts: FetchPageOptions = {}): Promise<string> {
+// loudly on a status outside {200, 304}, an unexpected content-type, or a body
+// that looks like an HTML challenge/gate page (all regression signals for a
+// host that is currently a plain, ungated Apache server).
+export async function fetchSccPage(url: string = SCC_SOURCE_URL, opts: FetchPageOptions = {}): Promise<FetchedSccPage> {
   const fetchImpl = opts.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
   const userAgent = opts.userAgent ?? defaultUserAgent();
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+
+  const requestHeaders: Record<string, string> = { 'User-Agent': userAgent, 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8' };
+  if (opts.conditional?.etag !== undefined) requestHeaders['If-None-Match'] = opts.conditional.etag;
+  if (opts.conditional?.lastModified !== undefined) requestHeaders['If-Modified-Since'] = opts.conditional.lastModified;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let response: FetchLikeResponse;
   try {
     response = await fetchImpl(url, {
-      headers: { 'User-Agent': userAgent, 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8' },
+      headers: requestHeaders,
       redirect: 'follow',
       signal: controller.signal,
     });
@@ -123,30 +156,57 @@ export async function fetchSccPage(url: string = SCC_SOURCE_URL, opts: FetchPage
     clearTimeout(timer);
   }
 
+  // A 304 carries no body by HTTP semantics, regardless of what a test double's
+  // text() might resolve to; treat it as absent rather than reading it.
+  const hasBody = response.status !== 304;
+  const body = hasBody ? await response.text() : '';
+
   // Read the body and persist diagnostics BEFORE any validation: a rejected
   // response is exactly the one worth inspecting later (why does the runner's
   // view differ from a local browser or curl?).
-  const body = await response.text();
+  const headers: Record<string, string | null> = {};
+  for (const name of DIAGNOSTIC_HEADERS) headers[name] = response.headers.get(name);
   if (opts.diagnosticsDir !== undefined) {
-    const headers: Record<string, string | null> = {};
-    for (const name of DIAGNOSTIC_HEADERS) headers[name] = response.headers.get(name);
     writeFetchDiagnostics(opts.diagnosticsDir, {
       url,
       fetchedAt: new Date().toISOString(),
       status: response.status,
       headers,
-    }, body);
+      hasBody,
+    }, hasBody ? body : undefined);
   }
 
+  if (response.status === 304) {
+    return { status: 304, headers };
+  }
   if (response.status !== 200) {
-    throw new Error(`SCC fetch aborted: ${url} returned status ${response.status} (expected 200)`);
+    throw new Error(`SCC fetch aborted: ${url} returned status ${response.status} (expected 200 or, for a conditional request, 304)`);
   }
   const contentType = response.headers.get('content-type') ?? '';
   if (contentType !== '' && !/text\/html|application\/xhtml\+xml/i.test(contentType)) {
     throw new Error(`SCC fetch aborted: ${url} returned unexpected content-type "${contentType}" (expected HTML)`);
   }
   assertNotChallengePage(body);
-  return body;
+  return { status: 200, body, headers };
+}
+
+// The committed metadata's sourceHeaders, filtered down to the two validators a
+// conditional request can use, and only when both a committed table and its
+// metadata exist — a fresh/first-ever run has nothing to validate against and
+// must not send conditional headers blindly (an accidental If-None-Match match
+// against unrelated state would wrongly suppress the initial fetch). Malformed
+// input (wrong types, e.g. from hand-edited or corrupted metadata) is treated
+// as absent rather than thrown: falling back to an unconditional fetch is
+// always safe, sending a bad validator is not.
+export function buildConditionalRequestHeaders(meta: unknown): ConditionalValidators | undefined {
+  if (typeof meta !== 'object' || meta === null) return undefined;
+  const sourceHeaders = (meta as { sourceHeaders?: unknown }).sourceHeaders;
+  if (typeof sourceHeaders !== 'object' || sourceHeaders === null) return undefined;
+  const raw = sourceHeaders as { etag?: unknown; lastModified?: unknown };
+  const etag = typeof raw.etag === 'string' && raw.etag.length > 0 ? raw.etag : undefined;
+  const lastModified = typeof raw.lastModified === 'string' && raw.lastModified.length > 0 ? raw.lastModified : undefined;
+  if (etag === undefined && lastModified === undefined) return undefined;
+  return { etag, lastModified };
 }
 
 // A challenge/interstitial page is short and carries a tell-tale phrase; the real
@@ -249,18 +309,50 @@ function parseCsvLine(line: string): string[] {
   return fields;
 }
 
-export interface IntakeResult {
-  parsed: ParsedSccTable;
-  csv: string;
-  metaJson: string;
-  diff: SccDiff;
-  changed: boolean;
+// Discriminated on notModified: a 304 short-circuits before any parsing, so
+// there is no ParsedSccTable to offer and changed is always false (nothing was
+// fetched to compare or promote).
+export type IntakeResult =
+  | { notModified: true; csv: string; metaJson: string; diff: SccDiff; changed: false }
+  | { notModified: false; parsed: ParsedSccTable; csv: string; metaJson: string; diff: SccDiff; changed: boolean };
+
+// The committed metadata, parsed for the conditional-request validators.
+// Anything short of a well-formed JSON object (missing file, corrupt JSON) is
+// "no metadata to read" rather than a thrown error — the caller falls back to
+// an unconditional fetch, which is always the safe default.
+function readCommittedMeta(metaPath: string): unknown {
+  if (!fs.existsSync(metaPath)) return undefined;
+  try {
+    return JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+  } catch {
+    return undefined;
+  }
+}
+
+// The etag/last-modified worth carrying forward into the next fetch's
+// conditional request, from the raw response headers this fetch saw. Absent
+// headers (a null get()) are dropped rather than recorded as null.
+function extractSourceHeaders(headers: Record<string, string | null>): SccSourceHeaders {
+  const result: SccSourceHeaders = {};
+  const etag = headers['etag'];
+  const lastModified = headers['last-modified'];
+  const date = headers['date'];
+  if (etag !== null && etag !== undefined) result.etag = etag;
+  if (lastModified !== null && lastModified !== undefined) result.lastModified = lastModified;
+  if (date !== null && date !== undefined) result.date = date;
+  return result;
 }
 
 // The full intake: fetch, gate, build the artefacts, diff against the committed
 // table, and (unless dryRun) promote atomically. Throws on any gate failure. The
 // paths and sanity band default to production values; they are injectable so the
 // tests exercise the real gate, promotion and diff against a temp directory.
+//
+// Conditional requests (issue #716): when a committed table and metadata carry
+// an ETag/Last-Modified, the fetch sends If-None-Match/If-Modified-Since. A 304
+// answer is recorded as "provably unchanged" - stronger and cheaper than a
+// byte-compare - and the run writes nothing. A 200 proceeds exactly as before
+// (parse, gate, diff, promote-if-changed).
 export async function runSccIntake(opts: {
   fetchImpl?: FetchLike;
   userAgent?: string;
@@ -274,8 +366,32 @@ export async function runSccIntake(opts: {
   const csvPath = opts.csvPath ?? SCC_CSV_PATH;
   const metaPath = opts.metaPath ?? SCC_META_PATH;
 
-  const html = await fetchSccPage(SCC_SOURCE_URL, { fetchImpl: opts.fetchImpl, userAgent: opts.userAgent, diagnosticsDir: opts.diagnosticsDir });
-  const parsed = parseSccTable(html);
+  const csvExists = fs.existsSync(csvPath);
+  // Only ever sent when a committed table exists to validate against - a
+  // first-ever run (or one where the CSV has gone missing) must not send
+  // conditional headers blindly.
+  const conditional = csvExists ? buildConditionalRequestHeaders(readCommittedMeta(metaPath)) : undefined;
+
+  const fetched = await fetchSccPage(SCC_SOURCE_URL, { fetchImpl: opts.fetchImpl, userAgent: opts.userAgent, diagnosticsDir: opts.diagnosticsDir, conditional });
+
+  if (fetched.status === 304) {
+    // Trustworthy only when the table it is vouching for is actually present;
+    // if the committed CSV or metadata has gone missing, the 304 describes
+    // state this run cannot verify, so it fails loud rather than reporting a
+    // false "unchanged".
+    if (!csvExists || !fs.existsSync(metaPath)) {
+      throw new Error('SCC fetch aborted: server reported 304 Not Modified but the committed table and/or its metadata is missing - nothing to treat as unchanged');
+    }
+    return {
+      notModified: true,
+      csv: fs.readFileSync(csvPath, 'utf8'),
+      metaJson: fs.readFileSync(metaPath, 'utf8'),
+      diff: { added: [], removed: [], changed: [] },
+      changed: false,
+    };
+  }
+
+  const parsed = parseSccTable(fetched.body);
 
   const problems = sanityGateProblems(parsed, opts.sanityOptions);
   if (problems.length > 0) {
@@ -284,12 +400,12 @@ export async function runSccIntake(opts: {
 
   const fetchedAt = (opts.now ?? new Date()).toISOString();
   const csv = toCsv(parsed.rows);
-  const metaJson = toMetaJson(toMeta(parsed, { fetchedAt }));
+  const metaJson = toMetaJson(toMeta(parsed, { fetchedAt, headers: extractSourceHeaders(fetched.headers) }));
 
   const previous = readCommittedRows(csvPath);
   const diff = diffSccTables(previous, parsed.rows);
 
-  const existingCsv = fs.existsSync(csvPath) ? fs.readFileSync(csvPath, 'utf8') : '';
+  const existingCsv = csvExists ? fs.readFileSync(csvPath, 'utf8') : '';
   const changed = existingCsv !== csv;
 
   // Promote ONLY when the table itself changed: meta.json records the fetch
@@ -300,7 +416,7 @@ export async function runSccIntake(opts: {
     promoteAtomically(csvPath, csv);
     promoteAtomically(metaPath, metaJson);
   }
-  return { parsed, csv, metaJson, diff, changed };
+  return { notModified: false, parsed, csv, metaJson, diff, changed };
 }
 
 // Write to a temp sibling and atomically rename into place, so a crash mid-write
@@ -319,6 +435,12 @@ function promoteAtomically(targetPath: string, contents: string): void {
 
 // Human-readable summary of the run, for the sweep's stdout and PR body.
 export function summariseIntake(result: IntakeResult): string {
+  if (result.notModified) {
+    return [
+      'Server reported 304 Not Modified: provably unchanged (stronger and cheaper than a byte-compare); nothing fetched or promoted.',
+      'Change vs committed table: no change',
+    ].join('\n');
+  }
   const { parsed, diff, changed } = result;
   const statusLine = Object.entries(parsed.statusCounts)
     .sort(([a], [b]) => a.localeCompare(b))
@@ -346,7 +468,7 @@ async function main(): Promise<void> {
   const diagnosticsDir = process.env.SCC_DIAGNOSTICS_DIR;
   const result = await runSccIntake({ dryRun, diagnosticsDir: diagnosticsDir === undefined || diagnosticsDir === '' ? undefined : diagnosticsDir });
   process.stdout.write(`${summariseIntake(result)}\n`);
-  if (!dryRun && result.changed) {
+  if (!dryRun && !result.notModified && result.changed) {
     process.stdout.write(`Wrote ${SCC_CSV_PATH}\nWrote ${SCC_META_PATH}\n`);
   }
 }

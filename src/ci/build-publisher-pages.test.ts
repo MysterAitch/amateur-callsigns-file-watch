@@ -418,8 +418,16 @@ describe('publishersIndexPage — the register listing', { tags: ['unit'] }, () 
 
   it('PublishersIndex_HoldingCounts_ReflectAuthoredAndHostedPartition', () => {
     // Ofcom: authors all 3, hosts 0. UKGWA: authors 0, hosts 1.
-    expect(html).toMatch(/<a href="ofcom\/index.html">Ofcom<\/a>[\s\S]*?<td class="n">3<\/td><td class="n">0<\/td>/);
-    expect(html).toMatch(/UK Government Web Archive[\s\S]*?<td class="n">0<\/td><td class="n">1<\/td>/);
+    expect(html).toMatch(/<a href="ofcom\/index.html">Ofcom<\/a>[\s\S]*?<td class="n">3<\/td><td class="n"><span class="zero">0<\/span><\/td>/);
+    expect(html).toMatch(/UK Government Web Archive[\s\S]*?<td class="n"><span class="zero">0<\/span><\/td><td class="n">1<\/td>/);
+  });
+
+  it('PublishersIndex_ZeroHoldingCount_DeEmphasisesViaTheSharedZeroClass', () => {
+    // GitHub authors nothing and hosts nothing in this fixture (issue #731):
+    // both its count cells mute, while a non-zero neighbour (e.g. Ofcom's 3)
+    // stays plain.
+    expect(html).toMatch(/GitHub<\/a>[\s\S]*?<td class="n"><span class="zero">0<\/span><\/td><td class="n"><span class="zero">0<\/span><\/td>/);
+    expect(html).not.toMatch(/<span class="zero">3<\/span>/);
   });
 });
 

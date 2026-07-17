@@ -36,7 +36,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { CONSTANTS, calculateFileHash, type ArchiveMeta , errorMessage } from '../shared/utils.ts';
+import { calculateFileHash, type ArchiveMeta , errorMessage } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
+import { FILES } from '../sources/ofcom-amateur/constants.ts';
 import { mappingForVariant, physicalLines, rawColumnForCanonical } from '../sources/ofcom-amateur/normalise.ts';
 import { observeEntryHeader } from '../sources/ofcom-amateur/detect-variant.ts';
 import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
@@ -67,7 +69,7 @@ export interface ValidationReport {
 const VALID_PROVENANCE = new Set(['live', 'reconstructed-from-git-history', 'reconstructed-from-prior-download', 'recovered-from-web-archive']);
 
 function entryDir(key: string): string {
-  return path.join(CONSTANTS.DIRS.archive, key);
+  return path.join(DIRS.archive, key);
 }
 
 // The verbatim publication file: raw.csv for CSV publications, raw.xlsx for
@@ -415,11 +417,11 @@ export function deepValidateEntryCsv(key: string): ValidationProblem[] {
 
 export function validateLatestPointers(): ValidationProblem[] {
   const problems: ValidationProblem[] = [];
-  const F = CONSTANTS.FILES;
+  const F = FILES;
   const keys = listArchiveKeys();
-  if (keys.length === 0) return [{ path: CONSTANTS.DIRS.archive, problem: 'no archive entries found' }];
+  if (keys.length === 0) return [{ path: DIRS.archive, problem: 'no archive entries found' }];
   const newest = [...keys].sort().at(-1);
-  if (newest === undefined) return [{ path: CONSTANTS.DIRS.archive, problem: 'could not determine newest archive entry' }];
+  if (newest === undefined) return [{ path: DIRS.archive, problem: 'could not determine newest archive entry' }];
 
   // latest-raw.csv must be byte-identical to the newest entry's raw.csv.
   const newestRaw = path.join(entryDir(newest), 'raw.csv');
