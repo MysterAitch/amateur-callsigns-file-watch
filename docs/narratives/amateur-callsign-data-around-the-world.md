@@ -356,8 +356,8 @@ justified by personal data as the reason for stopping short.
 - The RSGB Special Contest Calls scheduled-refresh work, a UK-administered
   register-class source surveyed alongside the international material on
   #109: **issue #693**.
-- The reciprocal/asymmetry correction to the "UK relevance" framing across
-  this page, checked against Ofcom's own guidance and 47 CFR §97.107:
+- The two-tier reciprocal/asymmetry framing of "UK relevance" across this
+  page, checked against Ofcom's own guidance and 47 CFR §97.107:
   **issue #762** ([thread](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/762)).
 - This narrative form (curious-reader walkthroughs, published under
   `docs/narratives/` and discovered automatically by the reports hub):
