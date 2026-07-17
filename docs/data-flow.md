@@ -288,22 +288,25 @@ via their own reviewed consolidation PRs (`data-sweep.yml:5-8`).
   ledger projection, regenerates every committed standing report under
   `reports/` from them (so a publication newer than the frozen committed
   derivatives contributes the moment it lands — issue #446 retired the
-  derivation half this workflow once carried), runs the FOI lane's
-  report-and-verify sweep, and — if any report changed — opens a
-  `reports/{run-id}` PR whose cross-report diff is the review artefact. It
-  maintains a rolling "Normalisation coverage" dashboard issue and turns the
-  run red if any entry failed to report or verify. Checkout uses
+  derivation half this workflow once carried), and — if any report changed —
+  opens a `reports/{run-id}` PR whose cross-report diff is the review
+  artefact. It maintains a rolling "Normalisation coverage" dashboard issue
+  and turns the run red if any entry failed to report. Checkout uses
   `persist-credentials: false`; the write token is injected only at the push
   step, so third-party fold code never runs with a write-capable token in
   `.git/config`. The workflow's writeback scope is `reports/` alone — the
   committed archive derivatives are a frozen equivalence baseline this lane
-  never touches (pinned by `reports-sweep-workflow-structure.test.ts`).
+  never touches (pinned by `reports-sweep-workflow-structure.test.ts`). The
+  FOI lane has no scheduled step (issue #447): its whole-lane derivation
+  verification runs as a CI test on every pull request and push
+  (`src/ci/foi-verification.test.ts`) — a tighter cadence than a daily cron
+  for committed bytes that can only change via a merge.
 - **Gate:** the resulting PR is **always human-reviewed, never auto-merged**.
   Byte-identical regeneration is a no-op and opens no PR.
 - **Governing ADR:** [ADR 0001](adr/0001-post-fetch-processing-in-repo.md)
   (golden-master re-run semantics), [ADR 0013](adr/0013-raw-keyed-claim-ledger.md)
   (ledger-canonical; frozen committed baseline), with the FOI lane
-  report-and-verify-only per [ADR 0004](adr/0004-foi-source-lane.md).
+  verify-only per [ADR 0004](adr/0004-foi-source-lane.md).
 - **Human in the loop:** **yes, always.**
 
 ### Adjacent: dataset-class PR labels (`pr-dataset-labels.yml`)

@@ -1,8 +1,8 @@
 /**
  * The FOI archive lane's shared shape (ADR 0004): meta.json interfaces,
  * entry enumeration/reading helpers, and the controlled vocabularies that
- * the validator (src/ci/validate-foi.ts), the derivation sweep
- * (src/ci/foi-sweep.ts), the dataset-status overview
+ * the validator (src/ci/validate-foi.ts), the derivation verification
+ * (src/ci/foi-verification.ts), the dataset-status overview
  * (src/ci/dataset-status.ts) and the schema-registry generator all share -
  * one source of truth, so documentation and validation cannot diverge.
  *

@@ -12,7 +12,8 @@
  * generator asserts nothing the metas do not.
  *
  * Division of labour: this file documents WHAT exists; the #360 dashboard
- * (normalise + FOI sweeps) reports whether the derivations VERIFY; and
+ * (the report sweep) and the per-PR verification suites report whether the
+ * derivations VERIFY; and
  * docs/source-register.md tracks intake that has not reached the archive
  * yet.
  *
