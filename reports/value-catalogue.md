@@ -59,18 +59,20 @@ the raw per-variant figures would double-count and mislead.
 
 ### Temporal character of the special-event family
 
-The special-event / Notice-of-Variation categories differ in temporal
-shape. Non-permanent `Special Event Station` callsigns are typically
-event-bounded — a jubilee year, a single commemoration — whereas
-`Permanent Special Event Station` and `Special Research Permit` are
-open-ended. The register's own `created_date` (record creation) and
+The special-event / Notice-of-Variation category NAMES suggest different
+temporal shapes — `Special Event Station` reads as event-bounded (a
+jubilee year, a single commemoration), `Permanent Special Event Station`
+and `Special Research Permit` as open-ended — but the register does not
+define these terms, so the reading is the name's, not a rule, and the
+per-record evidence below is left for the reader to weigh.
+The register's own `created_date` (record creation) and
 `reserved_to_date` (reservation expiry) BRACKET an event window rather
 than state it, and the snapshot day is only month-level, so any window
 is attested-or-bracketed, never inferred. Only the register snapshots
 that state a reservation-expiry field attest a window, so the counts
 below are that field's slice of each category, not its whole population.
 
-| category | temporal character | records stating a reservation field | with an end date | left open |
+| category | nominal character (from the name) | records stating a reservation field | with an end date | left open |
 |---|---|---:|---:|---:|
 | `Special Event Station` | event-bounded | 3,715 | 3,501 | 214 |
 | `Permanent Special Event Station` | open-ended | 53 | 36 | 17 |
