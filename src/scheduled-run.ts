@@ -43,11 +43,12 @@ import {
   loadJsonFile,
   saveJsonFile,
   calculateFileHash,
-  CONSTANTS,
   type ProcessResult,
   type ScrapeResult,
   errorMessage,
 } from './shared/utils.ts';
+import { DIRS } from './shared/constants.ts';
+import { FILES } from './sources/ofcom-amateur/constants.ts';
 
 //
 // State
@@ -592,9 +593,9 @@ export function gitCommitAndPush(message: string, archiveKey: string): GitResult
   // the sidecar download-info metadata that scrape produces. We deliberately
   // do NOT `git add -A` to avoid accidentally committing anything else that
   // might have landed in the working tree.
-  const F = CONSTANTS.FILES;
+  const F = FILES;
   const paths = [
-    CONSTANTS.DIRS.archive,
+    DIRS.archive,
     F.originalRawCsvFile, // legacy staging path, still tracked for continuity
     F.latestRawCsv,
     F.latestRawSortedCsv,

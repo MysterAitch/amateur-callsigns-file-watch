@@ -6,14 +6,14 @@ import {
   type ArchiveMeta,
   type ArchivedFileMeta,
   type DiffSummary,
-  CONSTANTS,
   calculateFileHash,
   logger,
   saveJsonFile,
   loadJsonFile,
 } from './utils.ts';
+import { DIRS } from './constants.ts';
 
-const ARCHIVE_DIR = CONSTANTS.DIRS.archive;
+const ARCHIVE_DIR = DIRS.archive;
 
 // Directory name for one publication. Prefers Ofcom's own publication date
 // (human-meaningful, sorts chronologically); falls back to a supplied string
@@ -176,16 +176,25 @@ export function listArchiveKeys(): string[] {
 // Normalisation output (future) is a different case - normalisation logic
 // evolves, so archive/{key}/normalised.csv preserves point-in-time output.
 // Sort logic is stable, so the sort variant doesn't need archiving.
-export async function writeLatestPointers(key: string): Promise<void> {
+//
+// The pointer filenames are supplied by the caller rather than read from a
+// global, so this shared helper stays ignorant of any one source's paths - the
+// owning source family passes its own pointer locations (see
+// src/sources/ofcom-amateur/constants.ts).
+export interface LatestPointerTargets {
+  latestRawCsv: string;
+  latestMeta: string;
+}
+
+export async function writeLatestPointers(key: string, pointers: LatestPointerTargets): Promise<void> {
   const src = path.join(ARCHIVE_DIR, key);
   const meta = await readArchiveMeta(key);
   if (!meta) {
     throw new Error(`Cannot write latest pointers: no meta.json at ${src}`);
   }
 
-  const F = CONSTANTS.FILES;
-  await fs.copyFile(path.join(src, 'raw.csv'), F.latestRawCsv);
-  await saveJsonFile(F.latestMeta, meta);
+  await fs.copyFile(path.join(src, 'raw.csv'), pointers.latestRawCsv);
+  await saveJsonFile(pointers.latestMeta, meta);
   logger.info(`Updated latest-raw.csv and latest-meta.json from archive/${key}`);
 }
 

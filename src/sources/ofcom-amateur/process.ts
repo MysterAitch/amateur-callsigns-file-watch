@@ -9,7 +9,6 @@ import {
   calculateFileHash,
   loadJsonFile,
   saveJsonFile,
-  CONSTANTS,
   logger,
   fileExistsAndNotEmpty,
   formatFileSize,
@@ -17,6 +16,8 @@ import {
   type ArchiveMeta,
   type ProcessResult,
 } from '../../shared/utils.ts';
+import { DIRS } from '../../shared/constants.ts';
+import { FILES, OFCOM_AMATEUR_SOURCE_KEY } from './constants.ts';
 import {
   archiveKeyForDate,
   parseOfcomHumanDate,
@@ -30,8 +31,7 @@ import {
 } from '../../shared/archive.ts';
 import { callsignColumnFor } from './normalise.ts';
 
-const FILES = CONSTANTS.FILES;
-const ARCHIVE_DIR = CONSTANTS.DIRS.archive;
+const ARCHIVE_DIR = DIRS.archive;
 
 interface CsvRecord {
   [key: string]: string;
@@ -105,7 +105,7 @@ async function processStagedCsv(downloadMetadata: CsvDownloadMetadata | null): P
   if (existingKey) {
     logger.info(`Raw content already archived at archive/${existingKey}/ - no new entry needed.`);
     const newest = newestArchiveKey();
-    if (newest) await writeLatestPointers(newest);
+    if (newest) await writeLatestPointers(newest, { latestRawCsv: FILES.latestRawCsv, latestMeta: FILES.latestMeta });
     await fs.writeFile(FILES.latestRawSortedCsv, sortedContent);
     await writeLatestJsonDerivatives(records, sortedRecords);
     const existingMeta = await loadJsonFile<ArchiveMeta>(path.join(ARCHIVE_DIR, existingKey, 'meta.json'));
@@ -170,7 +170,7 @@ async function processStagedCsv(downloadMetadata: CsvDownloadMetadata | null): P
 
   const meta: ArchiveMeta = {
     schemaVersion: 1,
-    sourceKey: CONSTANTS.SOURCES.OFCOM_AMATEUR,
+    sourceKey: OFCOM_AMATEUR_SOURCE_KEY,
     provenance: 'live',
     // Ofcom's opendata export is published as the full callsign population,
     // not a scoped subset - unlike e.g. FOI responses, which declare their
@@ -195,7 +195,7 @@ async function processStagedCsv(downloadMetadata: CsvDownloadMetadata | null): P
     'raw.csv': await fs.readFile(FILES.originalRawCsvFile),
   }, meta);
 
-  await writeLatestPointers(finalKey);
+  await writeLatestPointers(finalKey, { latestRawCsv: FILES.latestRawCsv, latestMeta: FILES.latestMeta });
   // The sort variant and JSON derivatives are computed once from the in-memory
   // records here and written directly to latest-* - regenerated on every process
   // run, never archived per-publication.

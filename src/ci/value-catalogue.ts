@@ -15,7 +15,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
+import { type ArchiveMeta } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists, isDerivedEntryFile } from '../shared/derived-entries.ts';
 import { buildFoiObservations } from '../shared/foi-observations.ts';
@@ -192,7 +193,7 @@ export function buildFieldTallies(): Tallies {
   const { tallies, bump } = makeTallies();
   const ref = loadReferenceData();
   for (const key of listArchiveKeys().sort()) tallyOpenData(bump, key);
-  tallyFoi(bump, ref, path.join(CONSTANTS.DIRS.archive, 'foi'));
+  tallyFoi(bump, ref, path.join(DIRS.archive, 'foi'));
   return tallies;
 }
 
@@ -478,7 +479,7 @@ export interface EntryFidelity { key: string; rawRows: number; normalisedRows: n
 export function buildNormalisationFidelity(): EntryFidelity[] {
   const result: EntryFidelity[] = [];
   for (const key of listArchiveKeys().sort()) {
-    const dir = path.join(CONSTANTS.DIRS.archive, key);
+    const dir = path.join(DIRS.archive, key);
     // The parse source (the declared extract for a workbook or shape-only
     // header fill, else raw.csv) - so a workbook publication's fidelity is
     // checked rather than silently skipped.
@@ -663,7 +664,7 @@ export function writeValueCatalogue(ledgerDir?: string): { path: string; changed
   // and every section folds from it; a caller with a pre-built ledger passes its
   // directory.
   const { categories: foldedCategories, fields: foldedFields } = buildValueCatalogueFold(ledgerDir, ref);
-  const sesWindows = collectSesWindowAttestation(path.join(CONSTANTS.DIRS.archive, 'foi'), ref);
+  const sesWindows = collectSesWindowAttestation(path.join(DIRS.archive, 'foi'), ref);
   // Every value-catalogue field now folds from the raw-keyed claim ledger (issues
   // #361 / #444 / #707), so the report is produced entirely from the folds; the
   // legacy full-corpus tally (buildFieldTallies) is retired from the production
@@ -671,7 +672,7 @@ export function writeValueCatalogue(ledgerDir?: string): { path: string; changed
   // empty tally map is passed so the renderer reads the folds for every field.
   const markdown = renderValueCatalogue(new Map(), ref, openDataTimeline(), buildNormalisationFidelity(), foldedCategories, foldedFields, sesWindows);
   // Written relative to the working directory - the SAME root the tallies read
-  // archive/ from (CONSTANTS.DIRS.archive is relative). So a sweep run against
+  // archive/ from (DIRS.archive is relative). So a sweep run against
   // a fixture archive in a temp cwd writes ITS catalogue there, never
   // clobbering the committed real one.
   const target = path.resolve(process.cwd(), VALUE_CATALOGUE_PATH);

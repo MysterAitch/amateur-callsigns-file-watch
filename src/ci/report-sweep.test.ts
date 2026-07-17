@@ -4,7 +4,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { runReportSweep, mdCell } from './report-sweep.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
+import { OFCOM_AMATEUR_SOURCE_KEY } from '../sources/ofcom-amateur/constants.ts';
 import { convertRawCsv } from '../sources/ofcom-amateur/normalise.ts';
 import { renderStatsJson } from '../shared/stats.ts';
 import { duckDbAvailable } from '../testing/duckdb.ts';
@@ -29,12 +30,12 @@ function sha256(content: string | Buffer): string {
 }
 
 function writeEntry(root: string, key: string, rawContent: string, metaOverrides: Record<string, unknown> = {}): void {
-  const dir = path.join(root, CONSTANTS.DIRS.archive, key);
+  const dir = path.join(root, DIRS.archive, key);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'raw.csv'), rawContent);
   const meta = {
     schemaVersion: 1,
-    sourceKey: CONSTANTS.SOURCES.OFCOM_AMATEUR,
+    sourceKey: OFCOM_AMATEUR_SOURCE_KEY,
     provenance: 'live',
     fetchedAt: '2026-07-06T18:00:00.000Z',
     ofcomReportedUpdateIso: key,
@@ -51,7 +52,7 @@ function writeEntry(root: string, key: string, rawContent: string, metaOverrides
 // pre-freeze entry's files. The sweep under test never derives - it reads.
 function deriveEntry(root: string, key: string, rawContent: string, metaOverrides: Record<string, unknown> = {}): void {
   writeEntry(root, key, rawContent, metaOverrides);
-  const dir = path.join(root, CONSTANTS.DIRS.archive, key);
+  const dir = path.join(root, DIRS.archive, key);
   const result = convertRawCsv(rawContent, { referenceDateIso: key });
   fs.writeFileSync(path.join(dir, 'normalised.csv'), result.csv);
   fs.writeFileSync(path.join(dir, 'stats.json'), renderStatsJson(result.stats));

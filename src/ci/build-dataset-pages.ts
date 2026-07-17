@@ -26,7 +26,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists, derivedEntryFileNamesPresent, isDerivedEntryFile } from '../shared/derived-entries.ts';
-import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
+import { type ArchiveMeta } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { linkOrCopyFileSync } from '../shared/link-or-copy.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
 import { readPublisherRegister, channelIndex, publisherIndexById, publisherForChannel, authorPublisherId, type PublisherEntry } from '../shared/publishers.ts';
@@ -1160,7 +1161,7 @@ interface PublicationSummary {
 }
 
 function publicationSummary(key: string): PublicationSummary {
-  const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
+  const sourceDir = path.join(DIRS.archive, key);
   const rows = parseArchiveCsv(derivedEntryFile(key, 'normalised.csv'));
   let allocated = 0;
   let unkeyable = 0;
@@ -1389,7 +1390,7 @@ export function unkeyableRowsNote(unkeyable: number, depthToRoot: number): strin
 }
 
 function buildOpenDataEntry(outputDir: string, key: string, previousKey: string | undefined, summaries: PublicationSummary[], foiEntries: FoiNavEntry[], pageUrl: string): { files: CopiedFile[]; zipBytes: number } {
-  const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
+  const sourceDir = path.join(DIRS.archive, key);
   const descriptions = new Map<string, string>([
     ['raw.csv', "Ofcom's bytes, verbatim"],
     ['raw.xlsx', "Ofcom's bytes, verbatim (published as a workbook)"],
@@ -1495,7 +1496,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   // The pin is the build's own commit, the one pin at which the archived file,
   // the reference tables and the derivation code all provably exist.
   const parsedSource = time('dataset-pages:examine-source', () =>
-    loadOpenDataRegisterSource(CONSTANTS.DIRS.archive, key,
+    loadOpenDataRegisterSource(DIRS.archive, key,
       JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as ArchiveMeta));
   const sourceRepoPath = parsedSource.repoPath;
   const previewExamine: PreviewExamine | undefined = sourceRepoPath === undefined ? undefined : {
@@ -1902,7 +1903,7 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   }).filter(e => e.classes.length > 0);
   for (const key of openDataKeys) {
     const { files, zipBytes } = time('dataset-pages:open-data-entry', () => buildOpenDataEntry(outputDir, key, lastCompleteKey, summaries, foiNav, `${baseUrl}/datasets/open-data/${key}/index.html`));
-    const entryMeta = JSON.parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, key, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete: boolean } };
+    const entryMeta = JSON.parse(fs.readFileSync(path.join(DIRS.archive, key, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete: boolean } };
     if (entryMeta.intendedCoverage?.complete !== false) lastCompleteKey = key;
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;

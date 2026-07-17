@@ -13,13 +13,13 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { CONSTANTS } from './utils.ts';
+import { DIRS } from './constants.ts';
 import type { DivergenceRecord } from './witness-agreement.ts';
 
 // Default FOI lane location, cwd-relative (matching validate-data's
 // convention); REPO_ROOT-anchored callers pass their own dir instead.
 export function defaultFoiDir(): string {
-  return path.join(CONSTANTS.DIRS.archive, 'foi');
+  return path.join(DIRS.archive, 'foi');
 }
 
 export interface FoiWitness {

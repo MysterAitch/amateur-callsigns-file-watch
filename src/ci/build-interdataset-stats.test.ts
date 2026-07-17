@@ -5,7 +5,7 @@ import * as path from 'path';
 import { buildInterdatasetStats } from './build-interdataset-stats.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { BUILDER_PROJECTION_DIR_ENV } from '../shared/derived-entries.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 
 // Issue #177 Surface 2: the STATIC inter-dataset statistics page — statistics
 // ACROSS the archived open-data publications (blank-product filtering,
@@ -192,7 +192,7 @@ describe('Inter-dataset statistics — derived-entry source switch', { tags: ['d
     try {
       for (const key of listArchiveKeys()) {
         fs.mkdirSync(path.join(projection, key), { recursive: true });
-        fs.copyFileSync(path.join(CONSTANTS.DIRS.archive, key, 'stats.json'), path.join(projection, key, 'stats.json'));
+        fs.copyFileSync(path.join(DIRS.archive, key, 'stats.json'), path.join(projection, key, 'stats.json'));
       }
       withProjectionDir(projection, () => buildInterdatasetStats(out, 'https://example.test/site'));
       expect(fs.readFileSync(path.join(out, 'statistics', 'inter-dataset.html'), 'utf8')).toBe(read());
@@ -220,7 +220,7 @@ describe('Inter-dataset statistics — derived-entry source switch', { tags: ['d
       // the remainder as absent data.
       const keys = listArchiveKeys();
       fs.mkdirSync(path.join(projection, keys[0]), { recursive: true });
-      fs.copyFileSync(path.join(CONSTANTS.DIRS.archive, keys[0], 'stats.json'), path.join(projection, keys[0], 'stats.json'));
+      fs.copyFileSync(path.join(DIRS.archive, keys[0], 'stats.json'), path.join(projection, keys[0], 'stats.json'));
       expect(() => withProjectionDir(projection, () => buildInterdatasetStats(out, 'https://example.test/site')))
         .toThrow(/integrity failure/);
     } finally {

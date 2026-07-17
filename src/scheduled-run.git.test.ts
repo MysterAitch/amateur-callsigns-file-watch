@@ -4,7 +4,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { dataBranchName, gitCommitAndPush, tryFastForwardPull } from './scheduled-run.ts';
-import { CONSTANTS } from './shared/utils.ts';
+import { DIRS } from './shared/constants.ts';
+import { FILES } from './sources/ofcom-amateur/constants.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -21,7 +22,7 @@ function git(cwd: string, ...args: string[]): string {
 // Every path that gitCommitAndPush stages must exist in the seed commit,
 // because `git add` fails on pathspecs that match nothing.
 function seedTrackedFiles(repo: string): void {
-  const F = CONSTANTS.FILES;
+  const F = FILES;
   for (const f of [
     F.originalRawCsvFile,
     F.latestRawCsv,
@@ -33,18 +34,18 @@ function seedTrackedFiles(repo: string): void {
   ]) {
     fs.writeFileSync(path.join(repo, f), '');
   }
-  fs.mkdirSync(path.join(repo, CONSTANTS.DIRS.archive, '2026-01-01'), { recursive: true });
-  fs.writeFileSync(path.join(repo, CONSTANTS.DIRS.archive, '2026-01-01', 'raw.csv'), 'seed\n');
+  fs.mkdirSync(path.join(repo, DIRS.archive, '2026-01-01'), { recursive: true });
+  fs.writeFileSync(path.join(repo, DIRS.archive, '2026-01-01', 'raw.csv'), 'seed\n');
 }
 
 // Simulate one Ofcom publication landing in the working tree: a new archive
 // entry plus refreshed latest-* pointers.
 function simulatePublication(repo: string, archiveKey: string): void {
-  const entry = path.join(repo, CONSTANTS.DIRS.archive, archiveKey);
+  const entry = path.join(repo, DIRS.archive, archiveKey);
   fs.mkdirSync(entry, { recursive: true });
   fs.writeFileSync(path.join(entry, 'raw.csv'), `data-for-${archiveKey}\n`);
   fs.writeFileSync(path.join(entry, 'meta.json'), '{}\n');
-  fs.writeFileSync(path.join(repo, CONSTANTS.FILES.latestRawCsv), `data-for-${archiveKey}\n`);
+  fs.writeFileSync(path.join(repo, FILES.latestRawCsv), `data-for-${archiveKey}\n`);
 }
 
 // A pristine origin+clone pair, seeded once. The seed is process-spawn heavy

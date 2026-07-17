@@ -49,7 +49,7 @@ const LANE_AUTHORITY: Readonly<Record<SourceLane, SourceAuthority>> = {
 // carrying any other sourceKey is NOT silently rated Official — it is flagged
 // (deriveSourceAuthority returns ok:false), because the open-data lane is the
 // top authority rung and mis-attributing a foreign source into it is exactly
-// the inflation this net exists to catch. Mirrors CONSTANTS.SOURCES.OFCOM_AMATEUR
+// the inflation this net exists to catch. Mirrors OFCOM_AMATEUR_SOURCE_KEY
 // (kept as a literal here so the shared module carries no CI/const coupling).
 const OPEN_DATA_SOURCE_KEY = 'ofcom-amateur-callsigns';
 

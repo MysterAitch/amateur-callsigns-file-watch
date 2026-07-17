@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { buildBuilderProjection, PROJECTED_ENTRY_FILES } from './build-builder-projection.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -103,7 +103,7 @@ const FROZEN_BASELINE_KEYS = [
 // silent shrinkage is not).
 function baselineKeys(): string[] {
   const scanned = committedKeys.filter(key =>
-    PROJECTED_ENTRY_FILES.some(file => fs.existsSync(path.join(CONSTANTS.DIRS.archive, key, file))));
+    PROJECTED_ENTRY_FILES.some(file => fs.existsSync(path.join(DIRS.archive, key, file))));
   return [...new Set([...FROZEN_BASELINE_KEYS, ...scanned])].sort();
 }
 
@@ -115,7 +115,7 @@ function baselineKeys(): string[] {
 function compareAcrossCorpus(fileName: (typeof PROJECTED_ENTRY_FILES)[number]): string[] {
   const failures: string[] = [];
   for (const key of baselineKeys()) {
-    const committedPath = path.join(CONSTANTS.DIRS.archive, key, fileName);
+    const committedPath = path.join(DIRS.archive, key, fileName);
     const projectedPath = path.join(projectionDir, key, fileName);
     if (!fs.existsSync(committedPath)) {
       failures.push(`${key}/${fileName}: committed file is missing - the entry is in the pinned frozen baseline (or carries sibling derivatives), so its committed derivatives must never disappear`);
@@ -155,7 +155,7 @@ describe('Builder projection parity - full corpus, both lanes', { tags: ['data-v
     // botched retirement); the pin makes shrinkage loud.
     const missing = FROZEN_BASELINE_KEYS.flatMap(key =>
       PROJECTED_ENTRY_FILES
-        .filter(file => !fs.existsSync(path.join(CONSTANTS.DIRS.archive, key, file)))
+        .filter(file => !fs.existsSync(path.join(DIRS.archive, key, file)))
         .map(file => `${key}/${file}`));
     expect(missing).toEqual([]);
   });

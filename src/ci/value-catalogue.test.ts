@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as path from 'path';
 import { catalogueField, renderValueCatalogue, collectSesWindowAttestation, type SesWindowAttestation } from './value-catalogue.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { renderMarkdown } from '../shared/render-markdown.ts';
 
 // The value catalogue (issues #43/#223) enumerates every distinct value of the
@@ -284,7 +284,7 @@ describe('collectSesWindowAttestation over the real archive', { tags: ['data-val
     // expiring records than open ones is the register's own inconsistency,
     // surfaced not smoothed.
     const ref = loadReferenceData();
-    const attestations = collectSesWindowAttestation(path.join(CONSTANTS.DIRS.archive, 'foi'), ref);
+    const attestations = collectSesWindowAttestation(path.join(DIRS.archive, 'foi'), ref);
     const byCategory = new Map(attestations.map(a => [a.category, a]));
     expect([...byCategory.keys()].sort()).toEqual([
       'Permanent Special Event Station', 'Special Event Station', 'Special Research Permit',

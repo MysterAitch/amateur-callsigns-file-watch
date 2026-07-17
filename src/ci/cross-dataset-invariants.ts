@@ -37,7 +37,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
 import { listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
@@ -128,7 +128,7 @@ function enumeratePools(foiDir: string): PoolSource[] {
 function enumerateRegisters(foiDir: string): RegisterSource[] {
   const registers: RegisterSource[] = [];
   for (const key of listArchiveKeys()) {
-    const dir = path.join(CONSTANTS.DIRS.archive, key);
+    const dir = path.join(DIRS.archive, key);
     let partial = false;
     try {
       const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete?: boolean } };
@@ -207,7 +207,7 @@ interface DepletionFoldRow {
 function buildDepletionImpl(): CrossDataset {
   const register = latestRegisterKey();
   if (register === undefined) return { register: '', allocatedTotal: 0, rows: [] };
-  const foiDir = path.join(CONSTANTS.DIRS.archive, 'foi');
+  const foiDir = path.join(DIRS.archive, 'foi');
   const pools = enumeratePools(foiDir);
   if (pools.length === 0) return { register, allocatedTotal: 0, rows: [] };
 
@@ -306,7 +306,7 @@ export function buildOverlapMatrix(): OverlapMatrix {
 interface OverlapFoldRow { pidx: number; ridx: number; n: number }
 
 function buildOverlapMatrixImpl(): OverlapMatrix {
-  const foiDir = path.join(CONSTANTS.DIRS.archive, 'foi');
+  const foiDir = path.join(DIRS.archive, 'foi');
   const pools = enumeratePools(foiDir);
   const registers = enumerateRegisters(foiDir);
   if (pools.length === 0 || registers.length === 0) {
@@ -406,7 +406,7 @@ function vintageToDayOrdinal(vintage: string): number | undefined {
 // snapshot and the gap, and reports whether any register vintage now matches a
 // pool vintage (the unblock signal).
 export function buildComplementarity(): Complementarity {
-  const foiDir = path.join(CONSTANTS.DIRS.archive, 'foi');
+  const foiDir = path.join(DIRS.archive, 'foi');
   const pools = enumeratePools(foiDir);
   // Only a register that actually carries callsign rows could serve as a
   // comparison snapshot; an empty-file enumeration entry is not one.

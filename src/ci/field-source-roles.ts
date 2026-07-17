@@ -46,7 +46,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
+import { type ArchiveMeta } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
+import { OFCOM_AMATEUR_SOURCE_KEY } from '../sources/ofcom-amateur/constants.ts';
 import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
 import { defaultFoiDir } from '../shared/foi-archive.ts';
 import { FOI_ENTRY_CONVERSIONS, type FoiSourceConversion } from '../shared/foi-normalise.ts';
@@ -81,13 +83,13 @@ export interface FieldSourceRoots {
 }
 
 function defaultRoots(): FieldSourceRoots {
-  return { archiveDir: CONSTANTS.DIRS.archive, foiDir: defaultFoiDir() };
+  return { archiveDir: DIRS.archive, foiDir: defaultFoiDir() };
 }
 
 // The open-data source key — the one converter registered for the open-data lane
 // (matching the open-data-register collector). An entry declaring another source
 // belongs to a different family and is skipped.
-const OPEN_DATA_SOURCE_KEY = CONSTANTS.SOURCES.OFCOM_AMATEUR;
+const OPEN_DATA_SOURCE_KEY = OFCOM_AMATEUR_SOURCE_KEY;
 
 // Whether an authored conversion outputs the given canonical column, i.e. its
 // normalised projection carries that field.

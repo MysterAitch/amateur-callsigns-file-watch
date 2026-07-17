@@ -86,7 +86,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as zlib from 'zlib';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile } from '../shared/derived-entries.ts';
 import { buildFoiObservations, type FoiObservationRow } from '../shared/foi-observations.ts';
@@ -431,7 +431,7 @@ export function buildCallsignShards(
   outputDir: string,
   options: { archiveDir?: string; foiDir?: string; ref?: ReferenceData } = {},
 ): ShardBuildSummary {
-  const archiveDir = options.archiveDir ?? CONSTANTS.DIRS.archive;
+  const archiveDir = options.archiveDir ?? DIRS.archive;
   const foiDir = options.foiDir ?? defaultFoiDir();
   const ref = options.ref ?? loadReferenceData();
 

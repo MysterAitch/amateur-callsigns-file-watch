@@ -39,7 +39,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
-import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
+import { type ArchiveMeta } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
 import {
@@ -286,7 +287,7 @@ function statsRecordCount(key: string, archiveDir: string): number | undefined {
 
 export function collectHoldings(
   register: PublisherRegister,
-  archiveDir: string = CONSTANTS.DIRS.archive,
+  archiveDir: string = DIRS.archive,
   foiDir: string = path.join(REPO_ROOT, 'archive', 'foi'),
 ): Holding[] {
   const chIndex = channelIndex(register);
