@@ -92,6 +92,20 @@ is a short-term visitor authorisation (being phased out), whereas `Full
 qualification (HAREC / CEPT T/R 61-02) — different duration, rights and legal
 basis. A blank product is not a category and is left as-is.
 
+The special-event / Notice-of-Variation family is likewise kept in **three
+distinct** categories rather than folded together: `Special Event Station`
+(the event-bounded working — plain and the `NoV …` spellings), `Permanent
+Special Event Station` (the open-ended `Perm …` / `NoV Permanent …`
+spellings), and `Special Research Permit` (a research instrument, not an event
+station). They differ in licence mechanics and temporal character — the
+non-permanent stations are typically bounded by an event window, the permanent
+variant and the research permit are open-ended — so they are held apart on the
+same precedent as the reciprocal pair, with the raw spellings carried verbatim.
+The value catalogue reports each category's attested reservation-window
+coverage beside the table and flags the register's own counter-examples
+(permanent records that nonetheless expire, event records left open) rather
+than smoothing them.
+
 Sources: Ofcom, *Amateur radio licence guidance for licensees* (2025); RSGB,
 *Operating for Visitors* / *Operating Abroad* (CEPT T/R 61-01 vs 61-02).
 

@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { catalogueField, renderValueCatalogue } from './value-catalogue.ts';
+import * as path from 'path';
+import { catalogueField, renderValueCatalogue, collectSesWindowAttestation, type SesWindowAttestation } from './value-catalogue.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { CONSTANTS } from '../shared/utils.ts';
 import { renderMarkdown } from '../shared/render-markdown.ts';
 
 // The value catalogue (issues #43/#223) enumerates every distinct value of the
@@ -211,6 +213,92 @@ describe('value catalogue', { tags: ['unit'] }, () => {
     ]);
     expect(md).toContain('No gaps: normalisation preserved every callsign');
   });
+});
+
+describe('special-event family temporal character (issue #344)', { tags: ['ui'] }, () => {
+  const ref = loadReferenceData();
+  // A product tally so the licence-category section (which the temporal note is
+  // appended to) renders; the temporal note rides beside a real category table.
+  const baseTallies = tallies({
+    status: [['Allocated', 1, ['open-data']]],
+    'product / licence_class': [['Special Event Station', 1, ['foi']]],
+  });
+  const render = (windows: SesWindowAttestation[]): string =>
+    renderValueCatalogue(baseTallies, ref, [], [], undefined, undefined, windows);
+
+  it('TemporalCharacter_WhenNoAttestation_OmitsTheSection', () => {
+    // No source states a reservation window, so the note is not invented.
+    const md = render([]);
+    expect(md).not.toContain('Temporal character of the special-event family');
+  });
+
+  it('TemporalCharacter_WhenWindowsAttested_RendersCharacterAndCoveragePerCategory', () => {
+    const md = render([
+      { category: 'Special Event Station', character: 'event-bounded', statingField: 3_715, withEndDate: 3_501, openEnded: 214 },
+      { category: 'Special Research Permit', character: 'open-ended', statingField: 1, withEndDate: 0, openEnded: 1 },
+    ]);
+    expect(md).toContain('### Temporal character of the special-event family');
+    expect(md).toContain('| `Special Event Station` | event-bounded | 3,715 | 3,501 | 214 |');
+    expect(md).toContain('| `Special Research Permit` | open-ended | 1 | 0 | 1 |');
+  });
+
+  it('TemporalCharacter_WhenPermanentRecordExpiresOrEventRecordOpen_FlagsTheCounterExamples', () => {
+    // The within-table inconsistency is flagged, never smoothed: an open-ended
+    // category whose records nonetheless expire, and an event-bounded category
+    // whose records are left open.
+    const md = render([
+      { category: 'Special Event Station', character: 'event-bounded', statingField: 3_715, withEndDate: 3_501, openEnded: 214 },
+      { category: 'Permanent Special Event Station', character: 'open-ended', statingField: 53, withEndDate: 36, openEnded: 17 },
+    ]);
+    expect(md).toContain('⚠ The correspondence is a tendency the register does not enforce');
+    expect(md).toContain('`Permanent Special Event Station`: 36 records nonetheless carry an end date');
+    expect(md).toContain('`Special Event Station`: 214 records carry none');
+  });
+
+  it('TemporalCharacter_WhenSingleCounterExample_UsesSingularWording', () => {
+    const md = render([
+      { category: 'Permanent Special Event Station', character: 'open-ended', statingField: 1, withEndDate: 1, openEnded: 0 },
+    ]);
+    // Singular "record ... carries" (not "records ... carry") for a count of one.
+    expect(md).toContain('`Permanent Special Event Station`: 1 record nonetheless carries an end date');
+  });
+
+  it('TemporalCharacter_WhenNoCounterExamples_OmitsTheFlagButKeepsTheTable', () => {
+    // A category cleanly matching its character (all event records expire) needs
+    // no inconsistency flag.
+    const md = render([
+      { category: 'Special Event Station', character: 'event-bounded', statingField: 100, withEndDate: 100, openEnded: 0 },
+    ]);
+    expect(md).toContain('### Temporal character of the special-event family');
+    expect(md).not.toContain('⚠ The correspondence is a tendency');
+  });
+});
+
+describe('collectSesWindowAttestation over the real archive', { tags: ['data-validity'] }, () => {
+  it('SesWindowAttestation_RealArchive_AttestsTheThreeCategoriesWithTheirRegisterCoverage', () => {
+    // The register's own reservation-expiry field, read over the whole FOI lane,
+    // attests exactly the three special-event categories and their event-window
+    // coverage. The figures are the corpus's own evidence (the 2024-09 register
+    // snapshot is the sole source that states the field), pinned so a drift in
+    // the mapping or the source trips CI. The permanent category carrying MORE
+    // expiring records than open ones is the register's own inconsistency,
+    // surfaced not smoothed.
+    const ref = loadReferenceData();
+    const attestations = collectSesWindowAttestation(path.join(CONSTANTS.DIRS.archive, 'foi'), ref);
+    const byCategory = new Map(attestations.map(a => [a.category, a]));
+    expect([...byCategory.keys()].sort()).toEqual([
+      'Permanent Special Event Station', 'Special Event Station', 'Special Research Permit',
+    ]);
+    expect(byCategory.get('Special Event Station')).toEqual({
+      category: 'Special Event Station', character: 'event-bounded', statingField: 3_715, withEndDate: 3_501, openEnded: 214,
+    });
+    expect(byCategory.get('Permanent Special Event Station')).toEqual({
+      category: 'Permanent Special Event Station', character: 'open-ended', statingField: 53, withEndDate: 36, openEnded: 17,
+    });
+    expect(byCategory.get('Special Research Permit')).toEqual({
+      category: 'Special Research Permit', character: 'open-ended', statingField: 1, withEndDate: 0, openEnded: 1,
+    });
+  }, 600_000);
 });
 
 describe('buildNormalisationFidelity over the real archive', { tags: ['data-validity'] }, () => {
