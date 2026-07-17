@@ -189,8 +189,10 @@ describe('the built fidelity page over the real archive', { tags: ['data-validit
     const row = page.match(/<tr id="flag-excel-date-shape">[\s\S]*?<\/tr>/)?.[0] ?? '';
     expect(row, 'excel-date-shape row present').toBeTruthy();
     expect(row).toContain('<span class="gap">none</span>');
-    expect(row).not.toContain('?flags=excel-date-shape');
-    expect(row).not.toContain('<a ');
+    // Assert the specific behaviour under test — no deep-link into a filtered
+    // browse view — rather than "no anchor at all": a flag's meaning cell may
+    // legitimately render its own link, which this row's inertness does not.
+    expect(row).not.toContain('?flags=');
   });
 
   it('FidelityPage_ConsistencySection_LinksTheSixTwinsNarrative', () => {

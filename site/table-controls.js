@@ -165,8 +165,9 @@ export function isBlankSortValue(value) {
 const NUMERIC_SORT_RE = /^[+-]?(\d+(\.\d+)?|\.\d+)$/;
 
 // A value that is an ISO-8601 date or date-time (the only date shape the record
-// stores). Requires the year-month-day skeleton so a bare number is read as a
-// number, not a year, and confirms the engine can actually parse it.
+// stores). Requires at least the year-month form (YYYY-MM; the day and time are
+// optional, matching the month-precision dates the record can carry) so a bare
+// number is read as a number, not a year, and confirms the engine can parse it.
 const DATE_SORT_RE = /^\d{4}-\d{2}(-\d{2})?([T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 
 /**
