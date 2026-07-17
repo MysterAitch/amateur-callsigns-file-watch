@@ -8,11 +8,11 @@ people who now hold the callsigns it touches.*
 Every claim below is tagged so you can tell what kind of statement it is and
 check it yourself:
 
-- **[obs]** — an **observation**: something read directly off the archived
+- **[observed]** — an **observation**: something read directly off the archived
   FOI disclosures or register exports. Re-runnable against the files named.
-- **[der]** — a **derivation**: a conclusion drawn by combining observations.
+- **[derived]** — a **derivation**: a conclusion drawn by combining observations.
   The working is shown so the step can be repeated.
-- **[hyp]** — a **hypothesis**: a possible explanation, recorded for
+- **[hypothesis]** — a **hypothesis**: a possible explanation, recorded for
   investigation and **not asserted as fact**.
 
 Every figure quoted here is **declared, not verified** — the same standing
@@ -26,11 +26,11 @@ so it can be regenerated rather than taken on trust.
 ## Summary
 
 `QNF` — a three-letter suffix — sat on Ofcom's forbidden-suffix list in
-September 2016 and again in August/September 2019. **[obs]** By the
+September 2016 and again in August/September 2019. **[observed]** By the
 disclosure Ofcom published in December 2024, it is gone: absent from the
 current list, with no explanation on record.
 
-**[obs]** That would be a quiet footnote on its own. What makes it a story is
+**[observed]** That would be a quiet footnote on its own. What makes it a story is
 what the mirror's archive shows either side of the gap. Back in 2016, the
 register itself — not just the separate suffix list — carried an explicit
 row for `M3QNF` with the status **`Forbidden`**, one of a curated set of
@@ -39,16 +39,21 @@ specific prefix-plus-suffix combinations Ofcom withheld outright. By November
 once marked "forbidden" in the register is now issued to someone. A second
 callsign, `M7QNF`, was allocated even earlier, in February 2025.
 
-**[der]** Both callsigns are still caught by the mirror's own
+**[derived]** Both callsigns are still caught by the mirror's own
 `forbidden-suffix` data-quality flag, because the flag is deliberately keyed
 off the **union** of every disclosure ever held rather than any single
 point-in-time list — a design choice made precisely so that a de-listing like
 this one does not quietly stop being visible.
 
-**[hyp]** Whether `QNF`'s removal was a deliberate policy change or an export
-artefact is **not established** anywhere in the material this mirror holds.
-That is not a gap in this write-up; it is the honest state of the evidence,
-and it is exactly what a fresh, broad FOI request now open
+**[hypothesis]** Whether `QNF`'s removal was a deliberate policy change or an error
+is **not established** anywhere in the material this mirror holds. That is
+not a gap in this write-up; it is the honest state of the evidence. It is
+also not a neutral one: as set out under
+["The hypothesis (recorded, not asserted)"](#the-hypothesis-recorded-not-asserted),
+below, the Q-code exclusion is sourced as a stated *whole-block* policy,
+which makes an error the more probable of the two readings for `QNF`
+specifically — without making it a proven one. It is exactly what a fresh,
+broad FOI request now open
 ([issue #293](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/293))
 asks Ofcom to resolve.
 
@@ -56,9 +61,14 @@ asks Ofcom to resolve.
 
 ## What the forbidden-suffix list is, and why Q matters
 
-**[obs]** Ofcom's own explanation, given in its earliest disclosure of the
-list, is on the record in this mirror's holdings
-([`archive/foi/wdtk-356636--all-callsigns-plus-forbidden/correspondence.md`](../../archive/foi/wdtk-356636--all-callsigns-plus-forbidden/correspondence.md)):
+**[observed]** Ofcom's own explanation is on the record in its FOI response of
+29 September 2016 (Ofcom reference **337399**, replying to WDTK request
+[`List of ALL Amateur radio callsigns`](https://www.whatdotheyknow.com/request/list_of_all_amateur_radio_callsi)
+id 356636, from requester Nan Smith) — the earliest disclosure this mirror
+holds. The exchange is transcribed in
+[`archive/foi/wdtk-356636--all-callsigns-plus-forbidden/correspondence.md`](../../archive/foi/wdtk-356636--all-callsigns-plus-forbidden/correspondence.md),
+and the response letter itself has a browsable rendered copy at
+[`raw-extract-all-call-sign-list-nan-smith.md.html`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md.html):
 
 > We do not hold a policy on reserving unsuitable or inappropriate call
 > signs for allocation. However, as a matter of conventional practice we do
@@ -79,7 +89,7 @@ Q-codes and distress-confusable signals off the air. `QNF` falls in the
 second category — Q-codes are exactly the three-letter, `Q`-prefixed strings
 the letter describes.
 
-**[der]** The archive shows *how* Ofcom implemented the Q-code rule, and it
+**[derived]** The archive shows *how* Ofcom implemented the Q-code rule, and it
 is more sweeping than "block the real Q-codes": every one of the **676**
 possible three-letter strings from `QAA` to `QZZ` is on the 2016 and 2019
 forbidden-suffix disclosures — the entire combinatorial space, not a curated
@@ -95,7 +105,7 @@ duplicated `ZIT` row already noted in
 [`reports/forbidden-suffix-history.md`](../../reports/forbidden-suffix-history.md)) —
 no stated reason for that one is on record.
 
-**[der]** By the December 2024 disclosure, the `Q`-block has dropped to
+**[derived]** By the December 2024 disclosure, the `Q`-block has dropped to
 **675** entries — exactly `QNF` missing, nothing else — and the `Z`-block has
 likewise dropped to 675, missing exactly `ZFJ`
 ([`archive/foi/ofcom-2024-12--forbidden-suffixes/normalised--forbidden-amateur-radio-callsigns.csv`](../../archive/foi/ofcom-2024-12--forbidden-suffixes/normalised--forbidden-amateur-radio-callsigns.csv)).
@@ -108,7 +118,7 @@ Q-code while keeping the other 675.
 
 ## Four disclosures, one list, one gap
 
-**[obs]** Every forbidden-suffix disclosure this mirror holds, and where
+**[observed]** Every forbidden-suffix disclosure this mirror holds, and where
 `QNF` stands in each
 (full table: [`reports/forbidden-suffix-history.md`](../../reports/forbidden-suffix-history.md);
 rendered section: [the forbidden-suffix index](https://mysteraitch.github.io/amateur-callsigns-file-watch/forbidden/index.html)):
@@ -120,19 +130,19 @@ rendered section: [the forbidden-suffix index](https://mysteraitch.github.io/ama
 | 2019-09-12 | [`ofcom-756622--published-register-csv`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-756622--published-register-csv/index.html) | 1,465 | yes |
 | 2024-12 | [`ofcom-2024-12--forbidden-suffixes`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-2024-12--forbidden-suffixes/index.html) | 1,464 | **no** |
 
-**[obs]** The three earliest disclosures agree exactly — the same
+**[observed]** The three earliest disclosures agree exactly — the same
 1,465-suffix set, zero drift, across three years and two separate FOI
 requesters. The December 2024 export is the first to differ at all, and it
 differs by exactly three suffixes: `JIZ` added, `QNF` and `ZFJ` removed. The
 2024 file's own per-suffix `LastModifiedDate` column dates the bulk of the
 list's origin to **29 July 2016** and dates `JIZ`'s addition precisely to
 **10 December 2020** — but it carries no date at all for `QNF` or `ZFJ`,
-because they are simply absent rather than modified. **[der]** So the mirror
+because they are simply absent rather than modified. **[derived]** So the mirror
 can pin *when `JIZ` was added* to the day, but can only bound *when `QNF` was
 removed* to somewhere between the September 2019 disclosure and the December
 2024 one — a five-year window, not a date.
 
-**[obs]** `QNF`'s own detail page,
+**[observed]** `QNF`'s own detail page,
 [`/forbidden/suffix/QNF/`](https://mysteraitch.github.io/amateur-callsigns-file-watch/forbidden/suffix/QNF/index.html),
 records its first-known-forbidden date as **2016-09** (the earliest
 disclosure vintage, since the 2024 export carries no `LastModifiedDate` for a
@@ -144,7 +154,7 @@ data-quality machinery
 
 ## The register once spelled it out: `M3QNF,Forbidden`
 
-**[obs]** The 2016 disclosure did not confine the exclusion to a side list.
+**[observed]** The 2016 disclosure did not confine the exclusion to a side list.
 Its main callsign sheet — otherwise a straightforward
 callsign/status/licence-class export — carries **5,431** rows whose status
 is the literal value `Forbidden`, each one a specific prefix joined to a
@@ -160,7 +170,7 @@ those rows pair a prefix with `QNF` specifically:
 | `M3QNF` | Forbidden |
 | `M6QNF` | Forbidden |
 
-**[der]** `M3QNF` — the exact callsign now Allocated — was one of these four.
+**[derived]** `M3QNF` — the exact callsign now Allocated — was one of these four.
 The 2016 register did not merely fail to mention it; it explicitly recorded
 `M3QNF,Forbidden` as a row in its own right. Note also what is *not* among
 the four: `M7QNF`. The 2016 disclosure's Forbidden-placeholder rows cover
@@ -170,7 +180,7 @@ otherwise. Why `M7` is absent from that 2016 enumeration is **not
 established** from anything this mirror holds; it is recorded here rather
 than assumed.
 
-**[obs]** By 2019, the shape of the disclosure itself had changed: the
+**[observed]** By 2019, the shape of the disclosure itself had changed: the
 register sheet in both the August and September 2019 FOI responses carries
 only the ordinary statuses (`Allocated`, `Available`, `Reserved`) and the
 forbidden suffixes sit in a genuinely separate sheet — bare three-letter
@@ -191,7 +201,7 @@ still assumes today.
 
 ## The re-issuance
 
-**[obs]** Two callsigns carrying the `QNF` suffix are Allocated in the
+**[observed]** Two callsigns carrying the `QNF` suffix are Allocated in the
 mirror's holdings, both Foundation-class licences:
 
 | callsign | product | original start | first seen in this mirror | 2016 register row |
@@ -199,7 +209,7 @@ mirror's holdings, both Foundation-class licences:
 | [`M7QNF`](https://mysteraitch.github.io/amateur-callsigns-file-watch/callsign.html?c=M7QNF) | Amateur Foundation Radio Licence | 2025-02-07 | [2025-04-08](../../archive/2025-04-08/normalised.csv) snapshot | no `M7QNF` row (prefix absent from the 2016 list) |
 | [`M3QNF`](https://mysteraitch.github.io/amateur-callsigns-file-watch/callsign.html?c=M3QNF) | Amateur Foundation Radio Licence | 2025-11-20 | [2026-01-14](../../archive/2026-01-14/normalised.csv) snapshot | `M3QNF,Forbidden` |
 
-**[obs]** `M7QNF` also appears, Allocated, in the independently-held FOI
+**[observed]** `M7QNF` also appears, Allocated, in the independently-held FOI
 snapshots from
 [13 March 2025](../../archive/foi/ofcom-2025-03-13--callsigns--all-callsigns/normalised--call-signs-13mar2025.csv)
 and
@@ -210,7 +220,7 @@ register named `Forbidden` — appears Allocated, Reserved or Available in any
 snapshot held, then or since; only the `M3`- and `M7`-prefixed forms have
 been issued.
 
-**[der]** Both original-start dates fall well after every disclosure that
+**[derived]** Both original-start dates fall well after every disclosure that
 still listed `QNF` as forbidden (the last confirmed sighting is the 2019-09-12
 disclosure). Whether the suffix was already off Ofcom's internal exclusion
 list by the time these licences were issued, or the licences were issued
@@ -223,14 +233,14 @@ dated in between to arbitrate.
 
 ## How the mirror flags this today
 
-**[obs]** Both `M3QNF` and `M7QNF` carry two data-quality flags in the
+**[observed]** Both `M3QNF` and `M7QNF` carry two data-quality flags in the
 mirror's own records
 ([`archive/2026-06-23/components.csv`](../../archive/2026-06-23/components.csv)):
 `forbidden-suffix` and
 `forbidden-suffix-issued-after-first-known-list`
 (defined in [`reference-data/flags.md`](../../reference-data/flags.md)).
 
-**[der]** This is deliberate, and it is worth being explicit about why
+**[derived]** This is deliberate, and it is worth being explicit about why
 neither flag has quietly gone stale now that `QNF` is off the current list.
 `forbidden-suffix` is keyed to the **ever-forbidden union** — every suffix
 that has appeared on *any* disclosure this mirror holds, 1,466 in total —
@@ -257,7 +267,7 @@ and the
 or see both callsigns flagged live on
 [`QNF`'s own detail page](https://mysteraitch.github.io/amateur-callsigns-file-watch/forbidden/suffix/QNF/index.html).
 
-**[obs]** Nothing here is adjudicated. The flag is framed throughout as "a
+**[observed]** Nothing here is adjudicated. The flag is framed throughout as "a
 candidate for scrutiny, not a verdict" — innocent explanations (a heritage
 re-issue, a publisher date artefact, an export omission) are named alongside
 the possibility of a genuine process gap, and the mirror does not pick
@@ -267,7 +277,7 @@ between them.
 
 ## The hypothesis (recorded, not asserted)
 
-**[hyp]** The corpus's own working theory, stated in
+**[hypothesis]** The corpus's own working theory, stated in
 [`reports/forbidden-suffix-history.md`](../../reports/forbidden-suffix-history.md)
 and echoed in the flag definitions, is that the `QNF`/`ZFJ` de-listing is
 **an export artefact rather than a deliberate policy change** — a
@@ -278,12 +288,53 @@ otherwise-complete alphabetic blocks, each missing exactly one entry, with
 no stated reason and no dated modification for either removal — unlike
 `JIZ`'s addition, which the same export dates precisely.
 
-**[hyp]** An alternative is equally undisproven: that Ofcom did deliberately
-review and shorten the list at some point between September 2019 and
-December 2024, and `QNF`/`ZFJ` were judged no longer to warrant exclusion —
-perhaps because they are not, after all, allocated meanings under ITU-R
-M.1172, or for some other reasoned basis this mirror has no record of.
-Nothing held here distinguishes the two readings.
+**[hypothesis]** An alternative was, until recently, equally undisproven: that
+Ofcom did deliberately review and shorten the list at some point between
+September 2019 and December 2024, and `QNF`/`ZFJ` were judged no longer to
+warrant exclusion — perhaps because they are not, after all, allocated
+meanings under ITU-R M.1172, or for some other reasoned basis this mirror
+has no record of.
+
+### A sharper reading, for `QNF` specifically: error is now the more probable one
+
+**[hypothesis]** For `QNF`, the balance between those two readings has
+shifted. Ofcom's FOI response of 29 September 2016 (ref 337399, above) does
+not describe the Q-code exclusion as a curated, suffix-by-suffix judgement;
+it describes a single international obligation applied to the whole Q-code
+family — "our licensing system has been programmed not to allow these as
+suffixes" — and the archive shows that policy implemented literally, as the
+complete 676-strong `QAA`–`QZZ` block in both the 2016 and 2019 disclosures
+(see "What the forbidden-suffix list is, and why Q matters", above). Held
+against a stated *whole-block* policy, `QNF` alone missing from an
+otherwise-complete 675-strong block reads far more consistently with an
+**error** — in Ofcom's own system, or in the list extract — than with a deliberate
+decision to un-forbid exactly one Q-code while leaving the other 675 in
+place. A targeted policy exception for a single arbitrary three-letter
+string, against a policy stated to cover the whole family and with no date
+or reason recorded for the change (unlike `JIZ`'s addition, dated to the
+day), would be a strange choice. This sharper reading is specific to `QNF`:
+`ZFJ`'s block has no sourced whole-block policy on record (above), so the
+same inference does not carry over to it with the same force.
+
+**[hypothesis]** The effect was real, though, and that narrows where the
+error can sit. `M3QNF` and `M7QNF` were subsequently issued as genuine
+Foundation licences — the licensing system cannot issue a callsign it holds
+as `Forbidden` — so whichever error put `QNF` outside the forbidden set, it
+reached as far as the issuing system, not only the document handed to an FOI
+requester. A pure export or transcription glitch confined to a list extract
+would leave Ofcom's own register still refusing `QNF`, and neither callsign
+would exist to be flagged. That both exist points at an **Ofcom-system-side
+removal** of `QNF` from the forbidden set, at some point, that then
+permitted its issuance — not an artefact confined to the paperwork alone.
+
+**[hypothesis]** None of this confirms intent. This mirror holds no
+disclosure that states why `QNF` was removed, and cannot rule out a
+deliberate, undocumented decision confined to that one suffix. But the
+honest "reason unknown" this narrative opened with is no longer neutral
+between the two readings: now that the Q-code exclusion is sourced as a
+stated whole-block policy, a single silent exception to it is the less
+economical explanation, and error is the **more probable** reading of the
+two — without being a proven one.
 
 **What would settle it.** A fresh, broad FOI request is open specifically to
 ask Ofcom this —
@@ -291,8 +342,11 @@ ask Ofcom this —
 requests the current forbidden-suffix list with its change metadata, plus
 the full logic (quarantine periods, format rules, manual holds) the
 licensing system actually uses, precisely because the December 2024 export
-answered "what changed" without ever answering "why." Until that lands, both
-readings above stay open.
+answered "what changed" without ever answering "why." That draft now
+carries the specific question this reasoning raises: whether `QNF`'s removal
+from the forbidden set was intentional, and if not, whether its issuance as
+`M3QNF`/`M7QNF` is a recognised error. Until the request is sent and
+answered, both readings above stay open — recorded, not asserted.
 
 ---
 
@@ -326,6 +380,12 @@ narrative is built on.
 - The open request to ask Ofcom directly why the list changed:
   **issue #293**
   ([thread](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/293)).
+- The rationale work that sourced the Q-code block as a single stated
+  policy, underpinning the sharper reading above: **issue #196**
+  ([thread](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/196)).
+- The likely-error reframing itself, and the specific QNF question added to
+  the FOI draft: **issue #751**
+  ([thread](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/751)).
 
 *Observations were re-derived from the archived disclosures and register
 snapshots for this write-up. The current forbidden-suffix list, and the
