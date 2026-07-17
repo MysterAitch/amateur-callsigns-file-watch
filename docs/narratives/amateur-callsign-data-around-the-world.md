@@ -76,22 +76,48 @@ address, with no nationality field recorded anywhere in ULS; it surfaces as
 an ordinary US licensee, invisible as UK-origin in the data itself.
 
 The UK's own side of this relationship is not symmetric either, and this
-project's own corpus is the evidence. Ofcom's *Amateur Radio Guidance*
-(updated 14 October 2025), §2.1.4, splits inbound visitors into two tiers:
-CEPT T/R 61-01 short stays (under three months) are licence-exempt and leave
-no Ofcom record, exactly like the US case above — but longer stays, CEPT
-T/R 61-02 (HAREC), or a bilateral reciprocal agreement get an Ofcom-issued
-**"Amateur Radio Full (Temporary Reciprocal) Licence"**: a real register
-entry naming a foreign home callsign. This project already holds that
-tier's evidence directly: the
-[`ofcom-498906--reciprocal-licences-since-2010`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-498906--reciprocal-licences-since-2010/index.html)
+project's own corpus is the evidence — though the exact licence-product
+naming needs care, since the corpus deliberately keeps two reciprocal
+categories distinct
+([`reference-data/licence-category.csv`](../../reference-data/licence-category.csv);
+[`reference-data/README.md`](../../reference-data/README.md), the "two
+reciprocal categories" note). Ofcom's *Amateur Radio Guidance* (updated 14
+October 2025), §2.1.4, states plainly that CEPT T/R 61-01 short stays (under
+three months) are licence-exempt and leave no Ofcom record, exactly like the
+US case above, and that the UK's reciprocal-visitor licence is itself
+scheduled for phase-out. Visitors outside that exemption — longer stays, or
+those on a bilateral reciprocal arrangement rather than the CEPT route —
+instead hold an actual **"Amateur Temporary Reciprocal Radio Licence"**: the
+exact product string this project's own register data carries, not a
+paraphrase (`reference-data/licence-category.csv`; the Ofcom formal name is
+understood to add a "(Full)" licence-class qualifier, but that specific
+wording is guidance-derived rather than confirmed against a primary form, so
+this write-up anchors on the register's own citation-grade string). This
+project already holds that tier's evidence directly: the
+`ofcom-498906--reciprocal-licences-since-2010`
 FOI disclosure is precisely that callsign list, and the three `Reserved` rows
 flagged in [ADR 0005](../adr/0005-canonical-callsign-forms.md) — `M/#PT2FM`,
-`M/#VK4VGK`, `M/#YO3IES`, home calls from Brazil, Australia and Romania — are
-register rows from this same tier, not the licence-exempt one. (Ofcom's
-October 2025 guidance also flags this reciprocal-licence tier itself for
-eventual retirement into the licence-exempt model, so the FOI list is best
-read as a historical record rather than an indefinitely-growing one.)
+`M/#VK4VGK`, `M/#YO3IES`, home calls from Brazil, Australia and Romania —
+carry that exact product name in the register (`archive/2023-02-20/normalised.csv`)
+— a real register entry naming a foreign home callsign, not the licence-exempt
+case.
+
+A separate, permanent category — **"Amateur Full (Reciprocal) Radio
+Licence"** — must not be confused with the tier above: it is a permanent UK
+Full licence granted on a recognised foreign qualification (HAREC / CEPT
+T/R 61-02), producing an ordinary UK-format callsign (`G0`/`M0`…), not an
+`M/#` visitor call. An earlier draft of this passage attributed the HAREC/
+T/R 61-02 route to the `M/#` visitor rows and borrowed a hybrid licence name
+from the two categories — both were errors, corrected here against the
+corpus's own category vocabulary rather than free-hand licence naming.
+`reference-data/README.md` keeps `Temporary Reciprocal` and `Full Reciprocal`
+distinct precisely because they differ in duration, rights and legal basis:
+the HAREC/CEPT T/R 61-02 route belongs to `Full Reciprocal`, never to the
+short-term visitor tier the `M/#` rows sit in. This write-up defers to the
+register's own verified product name for any claim about what a specific
+`M/#` row *is*, and cites the guidance only for what it states unambiguously
+here: the T/R 61-01 exemption, and the Temporary Reciprocal tier's scheduled
+phase-out.
 
 So the asymmetry runs one way, not two: the UK records a slice of its
 visitors more explicitly than the FCC records any of the UK's, and no UK
@@ -176,7 +202,7 @@ consistent with a tightening rather than a loosening of terms over time.
 
 UK relevance follows the same asymmetric pattern set out in the FCC section
 above, not the flat "reciprocal only" this page previously stated: the
-current [Radiocommunications (Amateur Stations) Class Licence 2023](https://www.wia.org.au/members/legislation/classlicences/documents/Radiocommunications%20(Amateur%20Stations)%20Class%20Licence%202023.pdf)
+current [Radiocommunications (Amateur Stations) Class Licence 2023](https://www.wia.org.au/members/legislation/classlicences/documents/Radiocommunications%20%28Amateur%20Stations%29%20Class%20Licence%202023.pdf)
 (successor to the [2015 instrument](https://www.legislation.gov.au/Details/F2015L01114))
 is licence-exempt on the same shape as the UK's own short-stay tier: no RRL
 entry, home callsign with a "VK" prefix. ACMA's own guidance gives two
@@ -324,11 +350,23 @@ justified by personal data as the reason for stopping short.
   reasoning: Ofcom's *Amateur Radio Guidance* (updated 14 October 2025,
   §2.1.4), [47 CFR §97.107](https://www.law.cornell.edu/cfr/text/47/97.107),
   this project's own
-  [`ofcom-498906--reciprocal-licences-since-2010`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-498906--reciprocal-licences-since-2010/index.html)
+  `ofcom-498906--reciprocal-licences-since-2010`
   FOI disclosure, and [ADR 0005](../adr/0005-canonical-callsign-forms.md). The
   ACMA long-stay duration discrepancy (365 days vs. 90 days) and whether that
   route creates a register-visible entry remain open, unreconciled leads, not
   asserted findings — see the ACMA section above.
+- **The licence-category correction.** An earlier draft of the FCC-section
+  passage above named the `M/#` visitor tier "Amateur Radio Full (Temporary
+  Reciprocal) Licence" and attributed it to CEPT T/R 61-02 (HAREC) — both
+  wrong, conflating this project's own two deliberately-distinct reciprocal
+  categories. Corrected against
+  [`reference-data/licence-category.csv`](../../reference-data/licence-category.csv)
+  and [`reference-data/README.md`](../../reference-data/README.md): the
+  `M/#` rows carry the exact product string "Amateur Temporary Reciprocal
+  Radio Licence" (verified directly against `archive/2023-02-20/normalised.csv`),
+  a short-term visitor authorisation distinct from the permanent "Amateur
+  Full (Reciprocal) Radio Licence" category that HAREC/CEPT T/R 61-02 actually
+  maps to.
 
 ---
 
