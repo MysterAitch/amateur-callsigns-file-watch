@@ -607,9 +607,9 @@ describe('Dataset pages build', () => {
     expect(page).toContain('<h1 id="the-six-twins-one-callsign-two-register-rows">The six twins: one callsign, two register rows</h1>');
     // The epistemics tagging survives the render (markdown -> HTML, not a
     // re-summary).
-    expect(page).toContain('<strong>[obs]</strong>');
-    expect(page).toContain('<strong>[der]</strong>');
-    expect(page).toContain('<strong>[hyp]</strong>');
+    expect(page).toContain('<strong>[observed]</strong>');
+    expect(page).toContain('<strong>[derived]</strong>');
+    expect(page).toContain('<strong>[hypothesis]</strong>');
     // A repo-relative citation (to the cleaning rule's source file) is
     // rewritten to a followable GitHub blob link, not left as a dead relative
     // path that assumes the repository's own directory layout.

@@ -8,13 +8,13 @@ these stations.*
 Every claim below is tagged so you can tell what kind of statement it is and
 check it yourself:
 
-- **[obs]** — an **observation**: something read directly off the published
+- **[observed]** — an **observation**: something read directly off the published
   register data. Re-runnable against the files named.
-- **[der]** — a **derivation**: a conclusion drawn by combining observations.
+- **[derived]** — a **derivation**: a conclusion drawn by combining observations.
   The working is shown so the step can be repeated.
-- **[hyp]** — a **hypothesis**: a possible explanation, recorded for
+- **[hypothesis]** — a **hypothesis**: a possible explanation, recorded for
   investigation and **not asserted as fact**.
-- **[conf]** — a **confirmation**: a hypothesis subsequently checked against a
+- **[confirmed]** — a **confirmation**: a hypothesis subsequently checked against a
   named, citable authority and found to hold.
 
 Figures carry the vintage they were read from. Where a station's identity is
@@ -25,14 +25,14 @@ plainly rather than smoothed away.
 
 ## Summary
 
-**[obs]** Ofcom's ["Every radio callsign spreadsheet"](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-2024-09--every-radio-callsign--all-callsigns/index.html)
+**[observed]** Ofcom's ["Every radio callsign spreadsheet"](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-2024-09--every-radio-callsign--all-callsigns/index.html)
 — the September-2024 snapshot — classes 53 register rows
 `Permanent Special Event Station`. The class name is a small paradox on its
 own terms: if a station is *permanent*, why does its register row carry a
 finish date? And if the licence is genuinely time-bound, why is the class
 called *permanent*?
 
-**[conf]** The paradox resolves cleanly, and not merely as an educated guess:
+**[confirmed]** The paradox resolves cleanly, and not merely as an educated guess:
 Ofcom's own *Amateur Radio Guidance* (updated 14 October 2025), section 6.3,
 states that Permanent SES variations run a fixed five-year term and that
 Ofcom deliberately batches their expiry dates for review. "Permanent"
@@ -46,7 +46,7 @@ the site's.
 
 ## The puzzle
 
-**[obs]** In the [value catalogue](https://mysteraitch.github.io/amateur-callsigns-file-watch/reports/value-catalogue.html#temporal-character-of-the-special-event-family),
+**[observed]** In the [value catalogue](https://mysteraitch.github.io/amateur-callsigns-file-watch/reports/value-catalogue.html#temporal-character-of-the-special-event-family),
 the licence-category vocabulary includes both an event-bounded
 `Special Event Station` class (3,740 records corpus-wide) and a `Permanent
 Special Event Station` class (53 records). The ordinary class's name reads as
@@ -65,7 +65,7 @@ per-record evidence in the next section is what actually discriminates.
 
 ## The three cohorts
 
-**[obs]** Reading the [2024-09 snapshot](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-2024-09--every-radio-callsign--all-callsigns/index.html)'s
+**[observed]** Reading the [2024-09 snapshot](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-2024-09--every-radio-callsign--all-callsigns/index.html)'s
 53 permanent-SES rows against their [`status`](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#status-values)
 and `reserved_to_date` fields (the disclosure is dated 2024-09-10, so "the
 perspective date" for what follows is around 10 September 2024) splits them
@@ -103,7 +103,7 @@ the pool** — a retrospective termination record, not a forward plan.
 | GB0AMH | Available | 2020-06-30 | 4 years before |
 | GB0SSB | Available | 2024-06-30 | 10 weeks before |
 
-**[der]** Reconciling the two source figures on record for this cohort: 24 of
+**[derived]** Reconciling the two source figures on record for this cohort: 24 of
 29 past-dated permanent-SES rows fall on a 30 June — and 29 is exactly
 cohort 3's 28 `Available` rows plus the one `Allocated` anomaly below (all
 past-dated), not a separate count. So across every past-dated row in the
@@ -118,14 +118,14 @@ Either renewed with a stale field, or held past its stated expiry; the
 snapshot alone cannot decide which, so it is carried as a flagged row, not
 smoothed into either cohort's story.
 
-**[der]** 17 + 7 + 28 + 1 = 53 — the full permanent-SES population for this
+**[derived]** 17 + 7 + 28 + 1 = 53 — the full permanent-SES population for this
 vintage accounts for every row.
 
 ---
 
 ## The conjecture, and its test
 
-**[hyp]** Cohort 2 is the one that does not resolve on inspection alone: why
+**[hypothesis]** Cohort 2 is the one that does not resolve on inspection alone: why
 would a class named *permanent* carry an active forward-looking reservation
 window at all? The candidate resolution, recorded explicitly as conjecture
 before any confirming source was found — **"permanent" describes the
@@ -148,7 +148,7 @@ genuinely dated one-off events, or windows aligning with an event date. A
 definitive answer, it was noted at the time, would need Ofcom's own
 definition of the class.
 
-**[conf]** That definition turned out to already be published. Ofcom's
+**[confirmed]** That definition turned out to already be published. Ofcom's
 *Amateur Radio Guidance* (updated 14 October 2025), section 6.3, "Permanent
 Special Event Station (SES)":
 
@@ -182,7 +182,7 @@ evidence.
 
 ## The seven stations
 
-**[obs]** Per-callsign research (widened past the licensing data itself, into
+**[observed]** Per-callsign research (widened past the licensing data itself, into
 public club, museum and lookup-service pages) identified what each cohort-2
 station is, with its evidence tiered honestly — primary, community, or
 unconfirmed:
@@ -197,7 +197,7 @@ unconfirmed:
 | [GB0YAM](https://mysteraitch.github.io/amateur-callsigns-file-watch/callsign.html?c=GB0YAM) | Yorkshire Air Museum, Elvington — a former WWII Bomber Command airfield, now the UK's largest independent air museum | **Primary-tier**: the museum's own social-media account states directly, "Our radio station call sign is GB0YAM" |
 | [GB0SNB](https://mysteraitch.github.io/amateur-callsigns-file-watch/callsign.html?c=GB0SNB) | Kelvedon Hatch Secret Nuclear Bunker, Essex — a Cold War regional government bunker, with a permanent callsign run by a contest group formed in 2015 | Community-tier: the operating group's own site, a Wikipedia entry for the bunker, and a station-manager's personal page all corroborate |
 
-**[der]** No individual anniversary, centenary, or event-start date was found
+**[derived]** No individual anniversary, centenary, or event-start date was found
 to explain any of the seven cohort-2 dates — every identifiable callsign
 resolved to a genuinely permanent fixture (a museum, fort, mill, or bunker)
 rather than a one-off commemorative event, so there was never a single-day
@@ -205,7 +205,7 @@ anniversary to test the dates against in the first place. That absence is
 itself evidence for the confirmed mechanism: the dates are administrative
 batch boundaries, not event dates, exactly as Ofcom's guidance states.
 
-**[obs]** There is a pleasing symmetry worth noting on the record: of the
+**[observed]** There is a pleasing symmetry worth noting on the record: of the
 seven cohort-2 stations, two are explicitly branded "Secret Nuclear Bunker"
 museums — Kelvedon Hatch (`GB0SNB`) in Essex and Hack Green (`GB2RHQ`) in
 Cheshire — both independently holding permanent SES callsigns, identified via
@@ -216,7 +216,7 @@ scope was widened).
 
 ## The administration chain
 
-**[obs]** A separate source survey ([issue #109](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/109))
+**[observed]** A separate source survey ([issue #109](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/109))
 prompted directly by these seven callsigns asked a wider question: who
 actually administers a Permanent SES grant, and does anyone besides Ofcom
 publish a register of them? Citing Ofcom's own guidance sections 6.1–6.5
@@ -241,7 +241,7 @@ directly:
   where its Emerging Technology Coordination Committee (ETCC) performs the
   technical vetting before forwarding the completed NoV to Ofcom for issue.
 
-**[obs]** That repeater/beacon delegation is not on the strongest possible
+**[observed]** That repeater/beacon delegation is not on the strongest possible
 footing, though: a 2023 Freedom of Information request (WhatDoTheyKnow
 reference 01700326) found Ofcom stating it holds **no formal documented
 agreement — no memorandum of understanding — with RSGB** for this
@@ -249,7 +249,7 @@ arrangement, only internal process maps. The delegation is real in day-to-day
 practice, and it is Ofcom's own account that it is undocumented and informal
 as a matter of contract.
 
-**[der]** The net picture: Ofcom authors every grant across every NoV class
+**[derived]** The net picture: Ofcom authors every grant across every NoV class
 discussed here; RSGB's administrative role ranges from none at all (ordinary
 and Permanent SES) to full delegation (Special Contest Calls, and — on an
 informal, undocumented basis — beacons and repeaters); and RSGB never

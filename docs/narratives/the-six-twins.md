@@ -7,11 +7,11 @@ record-keeping mechanics, not about the people who hold these callsigns.*
 Every claim below is tagged so you can tell what kind of statement it is and
 check it yourself:
 
-- **[obs]** — an **observation**: something read directly off the published
+- **[observed]** — an **observation**: something read directly off the published
   register data. Re-runnable against the files named.
-- **[der]** — a **derivation**: a conclusion drawn by combining observations.
+- **[derived]** — a **derivation**: a conclusion drawn by combining observations.
   The working is shown so the step can be repeated.
-- **[hyp]** — a **hypothesis**: a possible explanation, recorded for
+- **[hypothesis]** — a **hypothesis**: a possible explanation, recorded for
   investigation and **not asserted as fact**.
 
 The numbers here were re-checked against the archived data before publication.
@@ -27,18 +27,18 @@ after cleaning, the same callsign** — for example a row for `G6FMU` and a
 separate row for `G6 FMU`, with an embedded space. Reduce both to the register's
 own cleaned key and they collide on `G6FMU`.
 
-**[obs]** In the 23 June 2026 snapshot there are **six** such cleaned-key groups
+**[observed]** In the 23 June 2026 snapshot there are **six** such cleaned-key groups
 (twelve rows in total), and the **same six callsigns** appear in every snapshot
 checked back to 30 May 2022 — roughly four years. These are long-lived features
 of the published register, republished unchanged, not one-off noise.
 
-**[der]** In most of these pairs the *oddly-shaped* member — the one carrying an
+**[derived]** In most of these pairs the *oddly-shaped* member — the one carrying an
 embedded space, an invisible character, or a stray hyphen — is the one holding
 the **active licence**, while the clean, ordinary-looking form sits **parked**
 in the register's reservation pool. That inverts the naive expectation that the
 tidy form would be the "real" one.
 
-**[hyp]** One recorded explanation — clearly a hypothesis, not a finding — is
+**[hypothesis]** One recorded explanation — clearly a hypothesis, not a finding — is
 that the malformed row may be the genuinely-issued licence, with the clean
 canonical form deliberately held back to stop it being handed out twice. The
 latest snapshot is consistent with this for two of the three UK pairs; the
@@ -59,7 +59,7 @@ one, a placeholder `#`, or a hyphen. To compare callsigns reliably, the mirror
 reduces each one to a **cleaned key**: upper-case it and drop everything that is
 not a letter, a digit, or a `/`.
 
-**[obs]** The exact rule lives in
+**[observed]** The exact rule lives in
 [`src/sources/ofcom-amateur/components.ts`](../../src/sources/ofcom-amateur/components.ts):
 
 ```js
@@ -94,14 +94,14 @@ keeping the keys that occur more than once yields:
 | `M/PT2FM`  | `M/PT2FM` — Reserved · `M/#PT2FM` — Reserved |
 | `M/VK4VGK` | `M/VK4VGK` — Reserved · `M/#VK4VGK` — Reserved |
 
-**[obs]** Six groups, twelve rows. Of these, **two disagree on status** in this
+**[observed]** Six groups, twelve rows. Of these, **two disagree on status** in this
 snapshot — `G6FMU` and `G7IWE` — while the other four now agree (though, as
 below, they do not all agree on the licence *product*).
 
 The odd character in each pair is worth naming precisely, because some of them
 are invisible:
 
-**[obs]**
+**[observed]**
 
 - `G6 FMU` — an ordinary **space** (`U+0020`) sitting inside the callsign.
 - `G7IWE` and `G0TQK` — a trailing **non-breaking space** (`U+00A0`), which
@@ -112,7 +112,7 @@ are invisible:
   notation, sitting mid-token.
 - `M/EI-8-DJ` — stray **hyphens** (`U+002D`).
 
-This is not an artefact of the mirror's processing. **[obs]** Both `G6FMU` rows
+This is not an artefact of the mirror's processing. **[observed]** Both `G6FMU` rows
 are present verbatim in Ofcom's own export,
 [`archive/2026-06-23/raw.csv`](../../archive/2026-06-23/raw.csv) — the lines
 begin `G6FMU,,Available,…` and `G6 FMU,Amateur Full Radio Licence,Allocated,…`.
@@ -124,7 +124,7 @@ The twin is in the source, not introduced downstream.
 
 ### They persist, unchanged, across four years
 
-**[obs]** Regrouping the earlier snapshots the same way, the same six keys recur
+**[observed]** Regrouping the earlier snapshots the same way, the same six keys recur
 throughout:
 
 | snapshot | cleaned-key groups >1 row | of which disagree on status |
@@ -134,7 +134,7 @@ throughout:
 | [2025-04-08](../../archive/2025-04-08/normalised.csv) | 7 (14 rows) | 5 |
 | [2026-06-23](../../archive/2026-06-23/normalised.csv) | 6 (12 rows) | 2 |
 
-**[der]** The six callsigns above appear in all four snapshots — four years of
+**[derived]** The six callsigns above appear in all four snapshots — four years of
 republication with the twin intact. The 2025-04-08 snapshot carries one extra,
 transient group (`M/MKG4BZB` / `M/M#KG4BZB`) that appears in that snapshot alone.
 So the population is stable and small: twin rows are the rare exception across
@@ -143,7 +143,7 @@ a systemic pattern.
 
 ### The odd form usually holds the live licence
 
-**[obs]** Take the five groups that pair one ordinary-shaped token with one
+**[observed]** Take the five groups that pair one ordinary-shaped token with one
 oddly-shaped one (`G0TQK`, `G6FMU`, `G7IWE`, `M/EI8DJ`, and the transient
 `M/MKG4BZB`). In **four of the five**, the oddly-shaped token is the one carrying
 the more active status (`Allocated`) in the snapshots where the pair appears —
@@ -151,7 +151,7 @@ the more active status (`Allocated`) in the snapshots where the pair appears —
 the ordinary-shaped `M/EI8DJ` is the allocated one and the hyphenated form is
 reserved.
 
-**[der]** So `G6FMU`'s shape — the non-standard token holding the live licence,
+**[derived]** So `G6FMU`'s shape — the non-standard token holding the live licence,
 the clean form sitting available — is the *typical* case in this small
 population, not a curiosity. (The remaining two groups, `M/PT2FM` and
 `M/VK4VGK`, pair two *differently-formatted but both expected* reciprocal
@@ -160,19 +160,19 @@ tidy and one malformed, so they are not part of this normal-vs-odd count.)
 
 ### The state is not frozen — read it fresh per snapshot
 
-**[obs]** `G0TQK` illustrates why a single reading is not enough. In the
+**[observed]** `G0TQK` illustrates why a single reading is not enough. In the
 2022, 2023 and 2025 snapshots its non-breaking-space twin is `Allocated`; by
 23 June 2026 **both** rows read `Reserved` — but the twin still carries the
 `Amateur Full Radio Licence` product while the bare form carries none. The status
 agrees; the attributes do not.
 
-**[obs]** Timestamps shift too. `G6FMU`'s allocated row was the *older*-dated of
+**[observed]** Timestamps shift too. `G6FMU`'s allocated row was the *older*-dated of
 the pair at 2023-02-20 (modified 2017-02-21, against the available row's
 2021-05-12), yet by 2025-04-08 it had been touched again (2024-03-20) and become
 the *newer* one. Any "most recently modified" reading has to be taken per
 snapshot, not assumed to hold.
 
-**[obs]** A caution on dates: in the 23 June 2026 snapshot the modification date
+**[observed]** A caution on dates: in the 23 June 2026 snapshot the modification date
 is populated for **exactly the 105,332 `Allocated` rows and no others** — every
 `Reserved` and `Available` row is undated by design. So an undated pool twin is a
 characteristic of the schema, **not** evidence that the row is stale. And the
@@ -183,13 +183,13 @@ rows), a whole-snapshot gap. Absence of a date is not absence of currency.
 
 ## The hypothesis (recorded, not asserted)
 
-**[hyp]** A single mechanism would tie the typical shape together: the malformed
+**[hypothesis]** A single mechanism would tie the typical shape together: the malformed
 row may be the **actually-issued** licence, entered under a slightly-mangled
 callsign, with the register's clean canonical form deliberately parked as
 `Reserved` so the same callsign cannot be issued a second time. Under that
 reading the odd twin is "the licence" and the tidy twin is "the guard".
 
-**[obs]** The latest snapshot's own statuses are consistent with this for two of
+**[observed]** The latest snapshot's own statuses are consistent with this for two of
 the three UK pairs, and pointedly *not* for the third:
 
 - [`G7IWE`](https://mysteraitch.github.io/amateur-callsigns-file-watch/callsign.html?c=G7IWE)
@@ -203,12 +203,12 @@ the three UK pairs, and pointedly *not* for the third:
   hypothesis held here, this would be a *missed* protection rather than a
   deliberate one.
 
-**[der]** `M/EI8DJ` is treated separately: both its rows are `Reserved` and the
+**[derived]** `M/EI8DJ` is treated separately: both its rows are `Reserved` and the
 odd member is a reciprocal-format variant (the hyphenated `M/EI-8-DJ`), so it
 looks like a different mechanism — a formatting variant of a reserved
 reciprocal callsign — rather than the issued-under-a-malformed-key pattern.
 
-**What would verify it.** **[hyp]** The decisive evidence lies outside the
+**What would verify it.** **[hypothesis]** The decisive evidence lies outside the
 mirror's holdings: what the official callsign-application or availability check
 reports for a clean canonical form whose malformed twin is allocated — in
 particular, whether that check strips whitespace before deciding a callsign is
@@ -221,7 +221,7 @@ process, not a claim about any individual.
 
 ## How the record handles it today
 
-**[obs]** Nothing here is dropped, merged, or resolved to a winner:
+**[observed]** Nothing here is dropped, merged, or resolved to a winner:
 
 - The per-callsign page marks a dataset where a cleaned form's statuses disagree
   and shows the note *"listed more than once — statuses disagree … both are kept;
@@ -233,7 +233,7 @@ process, not a claim about any individual.
   within-snapshot conflict, is set out on the
   [fidelity deep-dive](https://mysteraitch.github.io/amateur-callsigns-file-watch/fidelity.html#consistency).
 
-**[der]** The verdict the counts support is a light-touch one: six twins across
+**[derived]** The verdict the counts support is a light-touch one: six twins across
 ~158,000 rows, the same six for four years, is duplication as the rare exception.
 No data-model change is warranted — the raw rows stay distinct, and the conflict
 is surfaced independently in two places with no silent resolution.
