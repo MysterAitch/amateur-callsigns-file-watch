@@ -602,7 +602,9 @@ describe('Dataset pages build', () => {
     // Title comes from the document's own first heading, not a second,
     // hand-typed copy of it.
     expect(page).toContain('<title>The six twins: one callsign, two register rows</title>');
-    expect(page).toContain('<h1>The six twins: one callsign, two register rows</h1>');
+    // The heading also carries a slug id (issue #701), giving in-page anchor
+    // links in narrative prose a real target to land on.
+    expect(page).toContain('<h1 id="the-six-twins-one-callsign-two-register-rows">The six twins: one callsign, two register rows</h1>');
     // The epistemics tagging survives the render (markdown -> HTML, not a
     // re-summary).
     expect(page).toContain('<strong>[obs]</strong>');
