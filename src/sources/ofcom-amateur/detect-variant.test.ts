@@ -63,8 +63,8 @@ describe('observeEntryHeader', { tags: ['unit'] }, () => {
       fs.writeFileSync(path.join(dir, 'raw-extract-sheet-1-sheet1.csv'), 'Value,Status,Type\nM7TEE,Allocated,Amateur\n');
       const meta = {
         files: {
-          'raw.xlsx': { size: 1, sha256: 'x', format: 'xlsx' as const },
-          'raw-extract-sheet-1-sheet1.csv': { size: 1, sha256: 'x', format: 'csv' as const, role: 'extract' as const, extractOf: 'raw.xlsx' },
+          'raw.xlsx': { bytes: 1, sha256: 'x', format: 'xlsx' as const },
+          'raw-extract-sheet-1-sheet1.csv': { bytes: 1, sha256: 'x', format: 'csv' as const, role: 'extract' as const, extractOf: 'raw.xlsx' },
         },
       };
       expect(observeEntryHeader(dir, meta).variant).toBe('v2022-minimal');

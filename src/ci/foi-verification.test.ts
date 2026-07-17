@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { verifyFoiLane, verifyFoiLaneAt, FOI_ARCHIVE_DIR } from './foi-verification.ts';
+import type { FoiEntryMeta } from '../shared/foi-archive.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -39,6 +40,33 @@ describe('FOI derivation verification', { tags: ['unit'] }, () => {
     const recordOnly = report.entries.filter(e => e.state === 'record-only').map(e => e.entryKey);
     expect(recordOnly).toContain('ofcom-518689--suffix-availability-not-held');
     expect(recordOnly).toContain('ofcom-612185--unallocated-callsigns-not-held');
+  });
+
+  it('FoiVerification_TamperedRecordCountDeclaration_ReportedAsDrift', () => {
+    // The committed CSV re-derives byte-identical (so a naive byte check alone
+    // would pass), but the persisted recordCount (#683) no longer matches the
+    // converter's own count for those identical bytes - a hand-edit that must
+    // still be caught and named.
+    const scratchRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'foi-verification-recordcount-'));
+    try {
+      const source = path.join(FOI_ARCHIVE_DIR, 'ofcom-498903--reissued-callsigns-since-2010');
+      const target = path.join(scratchRoot, 'ofcom-498903--reissued-callsigns-since-2010');
+      fs.cpSync(source, target, { recursive: true });
+      const metaPath = path.join(target, 'meta.json');
+      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as FoiEntryMeta;
+      const declared = meta.files['normalised--sheet-1-sheet1.csv'];
+      expect(declared.recordCount).toBeGreaterThan(0);
+      declared.recordCount = 999999;
+      fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+
+      const tamperedReport = verifyFoiLaneAt(scratchRoot);
+      expect(tamperedReport.failed).toHaveLength(1);
+      expect(tamperedReport.failed[0].state).toBe('drift');
+      expect(tamperedReport.failed[0].note).toContain('recordCount');
+      expect(tamperedReport.failed[0].note).toContain('999999');
+    } finally {
+      fs.rmSync(scratchRoot, { recursive: true, force: true });
+    }
   });
 
   it('FoiVerification_TamperedNormalisedFile_ReportedAsDrift', () => {

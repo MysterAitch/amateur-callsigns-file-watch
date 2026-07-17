@@ -77,7 +77,11 @@ export interface ProcessingMetadata {
 
 // Per-file record inside an archive entry's meta.json.
 export interface ArchivedFileMeta {
-  size: number;
+  // Declared byte length, cross-checked against fs.statSync(...).size by
+  // validateArchiveEntry. Named to match the FOI lane's FoiFileDeclaration.bytes
+  // (src/shared/foi-archive.ts) - the two schemas assert the identical concept
+  // and had drifted to different names with no lane-semantic reason (#683).
+  bytes: number;
   sha256: string;
   format?: 'csv' | 'json' | 'sqlite' | 'xlsx' | 'other';
   columnCount?: number;

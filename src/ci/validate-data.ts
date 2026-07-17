@@ -178,8 +178,8 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
       continue;
     }
     const actualSize = fs.statSync(filePath).size;
-    if (actualSize !== declared.size) {
-      problems.push({ path: filePath, problem: `size mismatch: meta declares ${declared.size} bytes, disk has ${actualSize}` });
+    if (actualSize !== declared.bytes) {
+      problems.push({ path: filePath, problem: `size mismatch: meta declares ${declared.bytes} bytes, disk has ${actualSize}` });
       continue; // Hash will trivially mismatch too; report the root cause only.
     }
     const actualHash = calculateFileHash(filePath);

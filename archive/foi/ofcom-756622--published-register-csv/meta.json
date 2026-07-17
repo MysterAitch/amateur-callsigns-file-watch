@@ -38,7 +38,8 @@
       "sha256": "eca72099405f3c924b4052b8420d10e472c8c9b726c42c6bbf682d171995b542",
       "role": "normalised",
       "normalisedFrom": "allocated-reserved-forbidden-call-sign-foi-20190912.csv",
-      "contentsIndicative": "header callsign,status,licence_class,licence_issued_date; 141,295 data rows in SOURCE order (issued-date ascending is a meaningful publication order, preserved); source's truncated Licence Issued Dat header mapped by name; dates ISO-ordered (opens 1903-05-03); 6 blank statuses and 37,392 blank issue dates preserved as data; 3 trailing-NBSP callsigns trimmed and counted (raw 0xA0 latin-1 bytes: G0TQK, G7IWE, 2E1HON)"
+      "contentsIndicative": "header callsign,status,licence_class,licence_issued_date; 141,295 data rows in SOURCE order (issued-date ascending is a meaningful publication order, preserved); source's truncated Licence Issued Dat header mapped by name; dates ISO-ordered (opens 1903-05-03); 6 blank statuses and 37,392 blank issue dates preserved as data; 3 trailing-NBSP callsigns trimmed and counted (raw 0xA0 latin-1 bytes: G0TQK, G7IWE, 2E1HON)",
+      "recordCount": 141295
     },
     "allocated-reserved-forbidden-call-sign.csv": {
       "bytes": 7331,
@@ -60,7 +61,8 @@
       "sha256": "1202b00ce8bb8286ef64e3abc3ab8accb0749647c42f35a05074d7a0b7c02289",
       "role": "normalised",
       "normalisedFrom": "allocated-reserved-forbidden-call-sign.csv",
-      "contentsIndicative": "header suffix; 1,465 data rows sorted by suffix (a no-op - the source is already alphabetical); forbidden-list shape per issue #139 (three-letter suffixes, not callsigns)"
+      "contentsIndicative": "header suffix; 1,465 data rows sorted by suffix (a no-op - the source is already alphabetical); forbidden-list shape per issue #139 (three-letter suffixes, not callsigns)",
+      "recordCount": 1465
     },
     "correspondence.md": {
       "bytes": 2661,

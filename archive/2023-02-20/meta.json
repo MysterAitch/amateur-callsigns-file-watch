@@ -11,7 +11,7 @@
   "reconstructionNotes": "Imported 2026-07-06 from a manual download retained by the maintainer. The download's recorded metadata gives Ofcom's publication date as 2023-02-20 and the source URL above (the pre-cache-buster filename pattern Ofcom used at the time). No diff summary: predates the neighbouring entries' reconstruction axis.",
   "files": {
     "raw.csv": {
-      "size": 7459246,
+      "bytes": 7459246,
       "sha256": "a5fe1d92811606e5a744a4d6039c3774b7467a4b4daeee896f70b2e3ada9735a",
       "format": "csv",
       "columnCount": 4,
@@ -24,7 +24,7 @@
       "recordCount": 152084
     },
     "normalised.csv": {
-      "size": 7915579,
+      "bytes": 7915579,
       "sha256": "ef6bdea303bc3c14a736f146953f34e0341b7dcc3cb0a234d2907abe83dbca87",
       "format": "csv",
       "columnCount": 8,
@@ -42,12 +42,12 @@
       "sortedBy": "callsign"
     },
     "stats.json": {
-      "size": 3030,
+      "bytes": 3030,
       "sha256": "844fc3607c33d23dd5e87ff31257bde954c905f451dcfcd3bfa18472c5a68473",
       "format": "json"
     },
     "components.csv": {
-      "size": 6675263,
+      "bytes": 6675263,
       "sha256": "4a18b911c71ad8fe51ba922ca850221eb69e968f156cfa511d49bd8478e48e7d",
       "format": "csv",
       "columnCount": 10,

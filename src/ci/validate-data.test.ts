@@ -29,7 +29,7 @@ function writeEntry(root: string, key: string, rawContent: string, metaOverrides
     provenance: 'live',
     fetchedAt: '2026-07-06T18:00:00.000Z',
     files: {
-      'raw.csv': { size: Buffer.byteLength(rawContent), sha256: sha256(rawContent), format: 'csv' },
+      'raw.csv': { bytes: Buffer.byteLength(rawContent), sha256: sha256(rawContent), format: 'csv' },
     },
     ...metaOverrides,
   };
@@ -76,8 +76,8 @@ function writeAccountedEntry(root: string, key: string, metaOverrides: Record<st
   const normalised = 'callsign,product,status,type,created_date,last_modified_date,licence_version_last_modified_date,licence_version_original_start_date\nG5ABC,,Allocated,Call Sign - Amateur,,,,\nM7TEE,,Allocated,Call Sign - Amateur,,,,\n';
   writeEntry(root, key, raw, {
     files: {
-      'raw.csv': { size: Buffer.byteLength(raw), sha256: sha256(raw), format: 'csv' },
-      'normalised.csv': { size: Buffer.byteLength(normalised), sha256: sha256(normalised), format: 'csv', recordCount: 2 },
+      'raw.csv': { bytes: Buffer.byteLength(raw), sha256: sha256(raw), format: 'csv' },
+      'normalised.csv': { bytes: Buffer.byteLength(normalised), sha256: sha256(normalised), format: 'csv', recordCount: 2 },
     },
     normalised: { schemaVersion: 1, headerVariant: 'v2022-minimal' },
     headerLines: [{ line: 1, content: 'Value,Status,Type' }],
@@ -210,8 +210,8 @@ describe('validateArchiveEntry', { tags: ['unit'] }, () => {
   it('ArchiveEntry_WhenMetaDeclaresFileAbsentFromDisk_Fails', () => {
     writeEntry(tmpRoot, '2026-06-23', CSV, {
       files: {
-        'raw.csv': { size: Buffer.byteLength(CSV), sha256: sha256(CSV), format: 'csv' },
-        'annex.pdf': { size: 123, sha256: 'abc', format: 'other' },
+        'raw.csv': { bytes: Buffer.byteLength(CSV), sha256: sha256(CSV), format: 'csv' },
+        'annex.pdf': { bytes: 123, sha256: 'abc', format: 'other' },
       },
     });
     const problems = validateArchiveEntry('2026-06-23');
@@ -315,7 +315,7 @@ describe('deepValidateEntryCsv', { tags: ['unit'] }, () => {
 
   it('DeepValidation_WhenRecordCountDisagreesWithMeta_Fails', () => {
     writeEntry(tmpRoot, '2026-06-23', CSV, {
-      files: { 'raw.csv': { size: Buffer.byteLength(CSV), sha256: sha256(CSV), format: 'csv', recordCount: 999 } },
+      files: { 'raw.csv': { bytes: Buffer.byteLength(CSV), sha256: sha256(CSV), format: 'csv', recordCount: 999 } },
     });
     const problems = deepValidateEntryCsv('2026-06-23');
     expect(problems.some(p => p.problem.includes('recordCount'))).toBe(true);

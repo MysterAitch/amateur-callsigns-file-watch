@@ -39,7 +39,7 @@ function writeEntry(root: string, key: string, rawContent: string, metaOverrides
     fetchedAt: '2026-07-06T18:00:00.000Z',
     ofcomReportedUpdateIso: key,
     files: {
-      'raw.csv': { size: Buffer.byteLength(rawContent), sha256: sha256(rawContent), format: 'csv' },
+      'raw.csv': { bytes: Buffer.byteLength(rawContent), sha256: sha256(rawContent), format: 'csv' },
     },
     ...metaOverrides,
   };

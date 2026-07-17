@@ -10,7 +10,7 @@
   "reconstructionNotes": "Recovered from the maintainer's Amateur-Radio-Callsign-Browser repository (commit 3075df0, 2023-05-10, 'Add call sign data, available and re-used under the Open Government Licence v3'; path at commit: 'data/archive/amateur-callsigns -- 2022.05.30.csv'). That repository holds two downloads of this dataset - filenames dated 2022-05-30 and 2022-07-26 - which are byte-identical, so Ofcom's publication predates 2022-05-30 and was unchanged for at least two months. Ofcom's own publication date is unknown; the earliest observed download date (2022-05-30) is used as the archive key, and fetchedAt records that date at midnight UTC for want of a finer timestamp. Oldest known header variant (Value,Status,Type - no product, no dates).",
   "files": {
     "raw.csv": {
-      "size": 5541149,
+      "bytes": 5541149,
       "sha256": "8ccd62b2373d3ea363e72f77d9ac1a61069816fd90c9fde05e9081c809ce2915",
       "format": "csv",
       "columnCount": 3,
@@ -22,7 +22,7 @@
       "recordCount": 151157
     },
     "normalised.csv": {
-      "size": 6145670,
+      "bytes": 6145670,
       "sha256": "3e7ab17c8e242a1e889b30a9ad6b47bb86232b2183b50cff2d0a799d4f4860b9",
       "format": "csv",
       "columnCount": 8,
@@ -40,12 +40,12 @@
       "sortedBy": "callsign"
     },
     "stats.json": {
-      "size": 2975,
+      "bytes": 2975,
       "sha256": "fc7e7ceee55ff0310f7ce98a5711561aa05796a355ad88aad6b48de92e3b990e",
       "format": "json"
     },
     "components.csv": {
-      "size": 6632265,
+      "bytes": 6632265,
       "sha256": "3a141b1655c7dbc72c610df56c77d99d5fabcd705329ce1d4b45279ba96b8d71",
       "format": "csv",
       "columnCount": 10,

@@ -47,7 +47,8 @@
       "sha256": "cdb4d8e7f78ef095b1a946156fd2345975a40d63572dc8247e8718b2ee19a42c",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-1-amateur-foundation.csv",
-      "contentsIndicative": "header callsign,status,licence_class,suffix; 6,498 rows sorted by callsign; Value/Status/Product/Reference carried verbatim; Country/Current Series/Type ('Call Sign')/Allocated Flag ('N') required-present, not carried"
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 6,498 rows sorted by callsign; Value/Status/Product/Reference carried verbatim; Country/Current Series/Type ('Call Sign')/Allocated Flag ('N') required-present, not carried",
+      "recordCount": 6498
     },
     "raw-extract-sheet-2-amateur-intermediate.csv": {
       "bytes": 605937,
@@ -61,7 +62,8 @@
       "sha256": "953d9ef37e6d23e914b0759bd2db24fbb73b9c2d45bed2008e40597c94f6201b",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-2-amateur-intermediate.csv",
-      "contentsIndicative": "header callsign,status,licence_class,suffix; 8,533 rows sorted by callsign; four Value cells stored AS dates at export (Excel 20xxx mangling) carried verbatim; Country/Current Series/Type/Allocated Flag required-present, not carried"
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 8,533 rows sorted by callsign; four Value cells stored AS dates at export (Excel 20xxx mangling) carried verbatim; Country/Current Series/Type/Allocated Flag required-present, not carried",
+      "recordCount": 8533
     },
     "raw-extract-sheet-3-amateur-full.csv": {
       "bytes": 452987,
@@ -75,7 +77,8 @@
       "sha256": "e9a874bff07db163f4d43511c1b600231f9dfdb8424eeae06b32e4486b3cc150",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-3-amateur-full.csv",
-      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,190 rows sorted by callsign; blanks preserved and counted (incl. two blank Type cells in the source); Country/Current Series/Type/Allocated Flag required-present, not carried"
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,190 rows sorted by callsign; blanks preserved and counted (incl. two blank Type cells in the source); Country/Current Series/Type/Allocated Flag required-present, not carried",
+      "recordCount": 7190
     },
     "Unallocated call signs Sullivan.pdf": {
       "bytes": 148374,

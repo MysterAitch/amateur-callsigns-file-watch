@@ -197,6 +197,13 @@ export function validateFoiEntry(foiDir: string, key: string): ValidationProblem
     const label = `files["${name}"]`;
     if (!Number.isInteger(declared.bytes) || declared.bytes < 0) problems.push({ path: metaPath, problem: `${label}: bytes must be a non-negative integer` });
     if (typeof declared.sha256 !== 'string' || !SHA256_RE.test(declared.sha256)) problems.push({ path: metaPath, problem: `${label}: sha256 must be 64 lowercase hex characters` });
+    // recordCount is the mechanically-known row count (present only where a
+    // converter produced this file - #683); the exact re-derivation this
+    // implies is cross-checked against convertFoiEntry's own count by the
+    // whole-lane verification (foi-verification.ts), not here.
+    if (declared.recordCount !== undefined && (!Number.isInteger(declared.recordCount) || declared.recordCount < 0)) {
+      problems.push({ path: metaPath, problem: `${label}: recordCount must be a non-negative integer when present` });
+    }
     if (!FOI_FILE_ROLES.includes(declared.role)) problems.push({ path: metaPath, problem: `${label}: unknown role "${String(declared.role)}"` });
     for (const cls of declared.datasetClasses ?? []) {
       if (FOI_DATASET_CLASSES[cls] === undefined) problems.push({ path: metaPath, problem: `${label}: unknown dataset class "${cls}"` });

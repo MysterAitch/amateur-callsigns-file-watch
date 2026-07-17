@@ -42,7 +42,8 @@
       "sha256": "fc16f8bebef1018e1f3ab40a56c3d64b0b3f60ada07b38865f2fe626edc3e872",
       "role": "normalised",
       "normalisedFrom": "every-radio-callsign-spreadsheet.csv",
-      "contentsIndicative": "header callsign,status,licence_class,call_sign_type,created_date,reserved_to_date; 159,999 rows sorted by callsign. Status and licence_class (from Product) carried verbatim, empty where the source asserts none (45,246 blank licence_class, 14 blank status). call_sign_type carries the verbatim Type ('Call Sign - Amateur'/'Call Sign - NoV') because it varies here and is not derivable from Product (the sole register snapshot where Type is a per-row assertion, not a dropped discriminator). created_date and reserved_to_date ISO-rendered from the day-first source, time-of-day kept; reserved_to_date is a validity END so future values (to 2099-12-31) are accepted. The '.' and blank callsigns, the trimmed trailing-NBSP quartet, the interior-space and Excel-mangled callsigns are all preserved."
+      "contentsIndicative": "header callsign,status,licence_class,call_sign_type,created_date,reserved_to_date; 159,999 rows sorted by callsign. Status and licence_class (from Product) carried verbatim, empty where the source asserts none (45,246 blank licence_class, 14 blank status). call_sign_type carries the verbatim Type ('Call Sign - Amateur'/'Call Sign - NoV') because it varies here and is not derivable from Product (the sole register snapshot where Type is a per-row assertion, not a dropped discriminator). created_date and reserved_to_date ISO-rendered from the day-first source, time-of-day kept; reserved_to_date is a validity END so future values (to 2099-12-31) are accepted. The '.' and blank callsigns, the trimmed trailing-NBSP quartet, the interior-space and Excel-mangled callsigns are all preserved.",
+      "recordCount": 159999
     },
     "correspondence.md": {
       "bytes": 4154,

@@ -42,7 +42,8 @@
       "sha256": "03bb7fbf74ba26def3b9847d3f8279d65cca637dac8639388faca5307cf41c3b",
       "role": "normalised",
       "normalisedFrom": "copy-all-callsigns-30-apr-24.csv",
-      "contentsIndicative": "header callsign,status,licence_class; 154,582 rows sorted by callsign (source order carries no globally meaningful order). Status and licence_class (from Product__c) carried verbatim, empty where the source asserts none (44,777 blank licence_class, 1 blank status). Type__c is required-present but not carried (constant discriminator). The Excel-mangled callsigns, over-length allocations, lower-case 'g0jrk' and the trimmed trailing-NBSP 'G7IWE' are all preserved."
+      "contentsIndicative": "header callsign,status,licence_class; 154,582 rows sorted by callsign (source order carries no globally meaningful order). Status and licence_class (from Product__c) carried verbatim, empty where the source asserts none (44,777 blank licence_class, 1 blank status). Type__c is required-present but not carried (constant discriminator). The Excel-mangled callsigns, over-length allocations, lower-case 'g0jrk' and the trimmed trailing-NBSP 'G7IWE' are all preserved.",
+      "recordCount": 154582
     },
     "correspondence.md": {
       "bytes": 3405,

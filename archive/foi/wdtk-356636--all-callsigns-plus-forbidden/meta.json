@@ -55,7 +55,8 @@
       "sha256": "c896e1ebfc1eb635ca829a6740e7f3675e651912940ae4db422823ebc951455c",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-1-all-call-signs.csv",
-      "contentsIndicative": "header callsign,status,licence_class; 139,758 rows sorted by callsign (source order not meaningful; 13 duplicate callsigns on the record); status vocabulary Allocated/Reserved/Forbidden/Available/Quarantine with 9 blanks preserved; licence_class from SF List verbatim (43,605 blanks preserved)"
+      "contentsIndicative": "header callsign,status,licence_class; 139,758 rows sorted by callsign (source order not meaningful; 13 duplicate callsigns on the record); status vocabulary Allocated/Reserved/Forbidden/Available/Quarantine with 9 blanks preserved; licence_class from SF List verbatim (43,605 blanks preserved)",
+      "recordCount": 139758
     },
     "raw-extract-sheet-2-forbidden-suffixes.csv": {
       "bytes": 20535,
@@ -69,7 +70,8 @@
       "sha256": "bb138f5d0d133ad402e4a7a89f3fca033fd0e5f20a8e18aa1efe43825196cd74",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-2-forbidden-suffixes.csv",
-      "contentsIndicative": "header suffix; 1,466 forbidden suffixes; constant Type column ('Forbidden') not carried; sorted (a no-op; the source is already alphabetical)"
+      "contentsIndicative": "header suffix; 1,466 forbidden suffixes; constant Type column ('Forbidden') not carried; sorted (a no-op; the source is already alphabetical)",
+      "recordCount": 1466
     },
     "raw-extract-sheet-3-sheet1.csv": {
       "bytes": 396,

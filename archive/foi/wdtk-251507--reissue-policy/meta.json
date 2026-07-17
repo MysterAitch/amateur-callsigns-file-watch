@@ -64,7 +64,8 @@
       "sha256": "e0f5ff12697c2ff249d7a9d0cd0d99c36d46a4b277f0caa269b167024e49b159",
       "role": "normalised",
       "normalisedFrom": "raw-extract-applicants-old-call-signs.md",
-      "contentsIndicative": "header callsign,event,event_date,licence_class,status,reason,licence_number,con_id; 20 data rows newest-first (the document's 'last 20 applications' order); event 'reallocated' authored from the covering letter's wording; event_date is the RECEIVING licence's start date, ISO-ordered; s.40-withheld name columns not carried; licence_class verbatim (17 club, 3 full)"
+      "contentsIndicative": "header callsign,event,event_date,licence_class,status,reason,licence_number,con_id; 20 data rows newest-first (the document's 'last 20 applications' order); event 'reallocated' authored from the covering letter's wording; event_date is the RECEIVING licence's start date, ISO-ordered; s.40-withheld name columns not carried; licence_class verbatim (17 club, 3 full)",
+      "recordCount": 20
     },
     "correspondence.md": {
       "bytes": 4427,

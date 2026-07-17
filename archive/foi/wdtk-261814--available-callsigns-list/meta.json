@@ -47,7 +47,8 @@
       "sha256": "de67d15b700bde4523cad141e79bfda4c7d3c78d188d44778677a6069aef7553",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-1-foundation.csv",
-      "contentsIndicative": "header callsign,status,licence_class,suffix; 6,711 rows sorted by callsign; Value/Status/Product/Reference carried verbatim; Country/Current Series/Type ('Call Sign')/Allocated Flag ('N') required-present, not carried"
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 6,711 rows sorted by callsign; Value/Status/Product/Reference carried verbatim; Country/Current Series/Type ('Call Sign')/Allocated Flag ('N') required-present, not carried",
+      "recordCount": 6711
     },
     "raw-extract-sheet-2-intermediate.csv": {
       "bytes": 613889,
@@ -61,7 +62,8 @@
       "sha256": "a09e565cd31121f04148d37cfb79f7f153aa4506b86399575bf1d14a560debce",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-2-intermediate.csv",
-      "contentsIndicative": "header callsign,status,licence_class,suffix; 8,645 rows sorted by callsign; four Value cells stored AS dates at export (Excel 20xxx mangling) carried verbatim; Country/Current Series/Type/Allocated Flag required-present, not carried"
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 8,645 rows sorted by callsign; four Value cells stored AS dates at export (Excel 20xxx mangling) carried verbatim; Country/Current Series/Type/Allocated Flag required-present, not carried",
+      "recordCount": 8645
     },
     "raw-extract-sheet-3-full.csv": {
       "bytes": 455482,
@@ -75,7 +77,8 @@
       "sha256": "5ea24629a79e52186bdd9e8965e5edfb85135925ae639614aa755afcef805ca8",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-3-full.csv",
-      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,229 rows sorted by callsign; Country/Current Series/Type/Allocated Flag required-present, not carried"
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,229 rows sorted by callsign; Country/Current Series/Type/Allocated Flag required-present, not carried",
+      "recordCount": 7229
     },
     "correspondence.md": {
       "bytes": 2363,

@@ -57,7 +57,8 @@
       "sha256": "faa8a58ab46e959519e6d609d4b20356991ea9f01330662c823baec48638b363",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-1-sheet1.csv",
-      "contentsIndicative": "header callsign,status,licence_class; 139,758 rows sorted by callsign (source order carries no meaning - not callsign-sorted; 13 duplicate callsigns on the record). Status carried verbatim (Allocated/Reserved/Forbidden/Available/Quarantine and 9 blanks preserved); licence_class is required-present-empty (the source discloses no class). Nothing was trimmed (no non-breaking spaces); lower-case forms and the interior-space 'G5 ZZ' are preserved verbatim. The 5,431 Forbidden values are folded into the callsign column verbatim, not reshaped into a suffix list."
+      "contentsIndicative": "header callsign,status,licence_class; 139,758 rows sorted by callsign (source order carries no meaning - not callsign-sorted; 13 duplicate callsigns on the record). Status carried verbatim (Allocated/Reserved/Forbidden/Available/Quarantine and 9 blanks preserved); licence_class is required-present-empty (the source discloses no class). Nothing was trimmed (no non-breaking spaces); lower-case forms and the interior-space 'G5 ZZ' are preserved verbatim. The 5,431 Forbidden values are folded into the callsign column verbatim, not reshaped into a suffix list.",
+      "recordCount": 139758
     },
     "correspondence.md": {
       "bytes": 4448,

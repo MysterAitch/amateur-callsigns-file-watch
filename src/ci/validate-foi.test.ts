@@ -288,6 +288,33 @@ describe('validateFoiEntry - byte integrity', { tags: ['unit'] }, () => {
   });
 });
 
+// recordCount (#683): the exact row count a converter computed while
+// producing a normalised file, persisted alongside bytes/sha256 the same way
+// ArchivedFileMeta.recordCount is for the open-data lane.
+describe('validateFoiEntry - recordCount', { tags: ['unit'] }, () => {
+  it('FoiEntry_NoRecordCountDeclared_Passes', () => {
+    // The common case for files that were never mechanically parsed
+    // (letters, transcripts) - recordCount is optional, not required.
+    writeFoiEntry();
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
+  });
+
+  it('FoiEntry_NonNegativeIntegerRecordCount_Passes', () => {
+    writeFoiEntry(undefined, meta => { meta.files['data.csv'].recordCount = 2; });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
+  });
+
+  it('FoiEntry_NegativeRecordCount_Fails', () => {
+    writeFoiEntry(undefined, meta => { meta.files['data.csv'].recordCount = -1; });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/recordCount must be a non-negative integer/);
+  });
+
+  it('FoiEntry_NonIntegerRecordCount_Fails', () => {
+    writeFoiEntry(undefined, meta => { meta.files['data.csv'].recordCount = 1.5; });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/recordCount must be a non-negative integer/);
+  });
+});
+
 describe('validateFoiEntry - witness agreement and divergence (#618 increment 3)', { tags: ['unit'] }, () => {
   it('FoiWitness_WhenHashMatchesTheHeldFile_PassesAsCorroborating', () => {
     writeFoiEntry(undefined, meta => {

@@ -55,7 +55,8 @@
       "role": "normalised",
       "datasetClasses": ["register-snapshot"],
       "normalisedFrom": "raw-extract-sheet-1-allocated-callsign-as-at-260320.csv",
-      "contentsIndicative": "header callsign,status,licence_class; 92,318 rows sorted by callsign (source order carries no meaning). Status carried verbatim ('Allocated' on every row - a genuine per-row column, not a declared attribution); licence_class emitted empty (no class disclosed). Three trailing non-breaking spaces were trimmed from callsigns and counted in the converter notes (never silent); the interior-space 'G6 FMU' and the non-uppercase callsigns are preserved verbatim."
+      "contentsIndicative": "header callsign,status,licence_class; 92,318 rows sorted by callsign (source order carries no meaning). Status carried verbatim ('Allocated' on every row - a genuine per-row column, not a declared attribution); licence_class emitted empty (no class disclosed). Three trailing non-breaking spaces were trimmed from callsigns and counted in the converter notes (never silent); the interior-space 'G6 FMU' and the non-uppercase callsigns are preserved verbatim.",
+      "recordCount": 92318
     },
     "amateur-radio-allocated-call-signs.xlsx": {
       "bytes": 1434959,

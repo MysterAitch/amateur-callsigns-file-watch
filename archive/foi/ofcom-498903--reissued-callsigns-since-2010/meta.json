@@ -53,7 +53,8 @@
       "sha256": "dd95f08b650a91913cc548021d390210cbd121c89b9b028f06e24a025e944e7a",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-1-sheet1.csv",
-      "contentsIndicative": "header callsign,event,event_date; 113 re-issue events in source date-ascending order; event 'reissued' authored; event_date is the RE-ISSUING licence's start date (semantics caveat per issue #139); 53 stored 23:00:00 timezone artefacts carried verbatim"
+      "contentsIndicative": "header callsign,event,event_date; 113 re-issue events in source date-ascending order; event 'reissued' authored; event_date is the RE-ISSUING licence's start date (semantics caveat per issue #139); 53 stored 23:00:00 timezone artefacts carried verbatim",
+      "recordCount": 113
     },
     "foi-re-issue-amateur-radio-call-signs.pdf": {
       "bytes": 397891,

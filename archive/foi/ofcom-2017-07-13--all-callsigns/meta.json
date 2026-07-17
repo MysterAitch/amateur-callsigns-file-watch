@@ -35,7 +35,8 @@
       "sha256": "0715a187826e8a7af3ce966ecdd3a4675cadd0cd50bd7ce6cfba1484d62d3776",
       "role": "normalised",
       "normalisedFrom": "Amateur Call Signs for FOI Request 13 Jul 17.csv",
-      "contentsIndicative": "header callsign,status,licence_class; 135,866 rows sorted by callsign (source order carries no meaning - no dates, not callsign-sorted). Status carried verbatim (Allocated/Reserved/Available); licence_class emitted empty (no class disclosed). The one blank-callsign row is preserved and sorts first. Ofcom's Prefix/Suffix decomposition and the constant Type are required-present but not carried (see the source CSV)."
+      "contentsIndicative": "header callsign,status,licence_class; 135,866 rows sorted by callsign (source order carries no meaning - no dates, not callsign-sorted). Status carried verbatim (Allocated/Reserved/Available); licence_class emitted empty (no class disclosed). The one blank-callsign row is preserved and sorts first. Ofcom's Prefix/Suffix decomposition and the constant Type are required-present but not carried (see the source CSV).",
+      "recordCount": 135866
     },
     "correspondence.md": {
       "bytes": 3505,

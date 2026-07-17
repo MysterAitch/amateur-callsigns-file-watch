@@ -48,7 +48,8 @@
       "sha256": "8b203382491d0fb8b9437afef81a995475e564be6a2ee58b60930d477588fa3a",
       "role": "normalised",
       "normalisedFrom": "call-sign-list-for-open-data-07-12-23.csv",
-      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 108,992 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product) carried verbatim; last_modified_date ISO-rendered from the day-first source. Type is required-present but not carried. The 9 blank statuses are preserved."
+      "contentsIndicative": "header callsign,status,licence_class,last_modified_date; 108,992 rows sorted by callsign (source order carries no meaning). Status and licence_class (from Product) carried verbatim; last_modified_date ISO-rendered from the day-first source. Type is required-present but not carried. The 9 blank statuses are preserved.",
+      "recordCount": 108992
     },
     "correspondence.md": {
       "bytes": 2281,

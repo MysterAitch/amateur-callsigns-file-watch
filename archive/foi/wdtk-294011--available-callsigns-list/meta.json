@@ -50,7 +50,8 @@
       "sha256": "01042167aa8c8fed26ac36a492cd3be5caa9bcb11850f93a0f882f71ef675afe",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-1-foundation.csv",
-      "contentsIndicative": "header callsign,status,licence_class,suffix; 6,077 rows sorted by callsign; Value/Status/Product/Reference carried verbatim; Country/Current Series/Type ('Call Sign') required-present, not carried; byte-identical to the wdtk-299321 output (same disclosed export)"
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 6,077 rows sorted by callsign; Value/Status/Product/Reference carried verbatim; Country/Current Series/Type ('Call Sign') required-present, not carried; byte-identical to the wdtk-299321 output (same disclosed export)",
+      "recordCount": 6077
     },
     "raw-extract-sheet-2-intermediate.csv": {
       "bytes": 577264,
@@ -64,7 +65,8 @@
       "sha256": "bbb8b5bcba8960b771aa4620806d1d3c87b44081147b558e038fbe888be92024",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-2-intermediate.csv",
-      "contentsIndicative": "header callsign,status,licence_class,suffix; 8,365 rows sorted by callsign; four Value cells stored AS dates at export (Excel 20xxx mangling) carried verbatim; byte-identical to the wdtk-299321 output"
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 8,365 rows sorted by callsign; four Value cells stored AS dates at export (Excel 20xxx mangling) carried verbatim; byte-identical to the wdtk-299321 output",
+      "recordCount": 8365
     },
     "raw-extract-sheet-3-full.csv": {
       "bytes": 429564,
@@ -78,7 +80,8 @@
       "sha256": "85e445b800de8756de75ed746388d8550ff2a178d5f8106f989d40ccd2027eaf",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-3-full.csv",
-      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,042 rows sorted by callsign; blanks preserved and counted; byte-identical to the wdtk-299321 output"
+      "contentsIndicative": "header callsign,status,licence_class,suffix; 7,042 rows sorted by callsign; blanks preserved and counted; byte-identical to the wdtk-299321 output",
+      "recordCount": 7042
     },
     "correspondence.md": {
       "bytes": 2369,

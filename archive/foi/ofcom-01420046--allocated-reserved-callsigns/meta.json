@@ -62,7 +62,8 @@
       "sha256": "f51d8ea18d16dd564ce04f54fc64d6216a36beb2686ddb1b50daedc72f17bcf6",
       "role": "normalised",
       "normalisedFrom": "raw-extract-sheet-1-report1646659776237.csv",
-      "contentsIndicative": "header callsign,status,licence_class; 150,181 rows sorted by callsign (source order carries no meaning - not callsign-sorted, no dates). Status carried verbatim (Allocated/Reserved/Available and 12 blanks preserved); licence_class emitted empty (no class disclosed). The constant Type column is required-present but not carried. Three trailing non-breaking spaces were trimmed from callsigns (counted in the converter notes, never silent); the ',,' Value and the interior-space 'G6 FMU' are preserved verbatim. The ',,' callsign sorts first."
+      "contentsIndicative": "header callsign,status,licence_class; 150,181 rows sorted by callsign (source order carries no meaning - not callsign-sorted, no dates). Status carried verbatim (Allocated/Reserved/Available and 12 blanks preserved); licence_class emitted empty (no class disclosed). The constant Type column is required-present but not carried. Three trailing non-breaking spaces were trimmed from callsigns (counted in the converter notes, never silent); the ',,' Value and the interior-space 'G6 FMU' are preserved verbatim. The ',,' callsign sorts first.",
+      "recordCount": 150181
     },
     "raw-extract-sheet-2-sheet1.csv": {
       "bytes": 219141,
