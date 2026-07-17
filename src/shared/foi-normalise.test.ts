@@ -1363,6 +1363,7 @@ const REISSUE_VARIANT = 'ofcom-498903-reissue-events';
 const foundationSuffixes = conversionFor(SUFFIX_2013_VARIANT, 'raw-extract-sheet-1-foundation.csv');
 const prefixHeaderFoundation = conversionFor(PREFIX_HEADER_VARIANT, 'raw-extract-sheet-1-foundation.csv');
 const typedFoundation = conversionFor(TYPED_8COL_VARIANT, 'raw-extract-sheet-1-foundation.csv');
+const typedIntermediate = conversionFor(TYPED_8COL_VARIANT, 'raw-extract-sheet-2-intermediate.csv');
 const register596532 = conversionFor(REGISTER_596532_VARIANT, 'raw-extract-sheet-1-all-callsigns-on-record.csv');
 const prewarCallsigns = conversionFor(PREWAR_VARIANT, 'raw-extract-sheet-1-callsigns.csv');
 const reissueEvents = conversionFor(REISSUE_VARIANT, 'raw-extract-sheet-1-sheet1.csv');
@@ -1434,12 +1435,13 @@ describe('FOI workbook-extract normaliser - typed exports', { tags: ['unit'] }, 
     // The 2015 workbooks genuinely store a few 20xxx callsigns AS dates
     // (Excel mangling at Ofcom's export); the extract renders them ISO and
     // the converter carries the assertion verbatim - never repaired back to
-    // a guessed suffix.
+    // a guessed suffix. Bound to the Intermediate sheet (Country '2'), whose
+    // real data is this row's own shape.
     const input = extractCsv([
       'Country,Current Series,Reference,Value,Type,Product,Status,Allocated Flag',
       '2,0,JUN,2015-06-20,Call Sign,Amateur Intermediate Radio Licence,Available,N',
     ]);
-    const result = convertFoiSource(input, typedFoundation);
+    const result = convertFoiSource(input, typedIntermediate);
     expect(result.csv).toContain('2015-06-20,Available,Amateur Intermediate Radio Licence,JUN');
   });
 });
@@ -1694,6 +1696,71 @@ describe('FOI schema governance', { tags: ['unit'] }, () => {
         expect(familyNames.has(family), `extension ${name} references unknown family "${family}"`).toBe(true);
       }
     }
+  });
+});
+
+// VERIFIED ignoredColumns (issue #577): every declared ignored column's
+// content is checked against its assertion, not merely its presence - so a
+// column silently starting to carry data, or a "constant" silently starting
+// to vary, fails the conversion loudly rather than disappearing without a
+// trace (the 11 Nov 2025 open-data CSV's stray trailing tokens, #575, is the
+// motivating incident this mirrors on the FOI lane).
+describe('FOI CSV normaliser - VERIFIED ignored columns (issue #577)', { tags: ['unit'] }, () => {
+  const COMBINED_LIST_VARIANT = 'wdtk-309076-combined-list';
+  const combinedList = conversionFor(COMBINED_LIST_VARIANT, 'raw-extract-sheet-1-sheet1.csv');
+  const HEADER = 'Value,Status,Product,Reference,Country,Current Series,Type,Allocated Flag,Call Sign Application #,MMSI Application #';
+
+  it('FoiNormaliser_IgnoredColumnsAllMatchDeclaration_ConvertsCleanly', () => {
+    const input = extractCsv([
+      HEADER,
+      'M6AAA,Available,Amateur Foundation Radio Licence,AAA,M,6,Call Sign,N,,',
+    ]);
+    const result = convertFoiSource(input, combinedList);
+    expect(result.csv).toBe('callsign,status,licence_class,suffix\nM6AAA,Available,Amateur Foundation Radio Licence,AAA\n');
+  });
+
+  it('FoiNormaliser_IgnoredColumnDeclaredEmptyButCarriesValue_ThrowsLoud', () => {
+    // 'Call Sign Application #' is verified empty on every row - a value
+    // appearing (the column changing from empty to content-bearing) must
+    // fail the conversion loudly, never vanish unnoticed.
+    const input = extractCsv([
+      HEADER,
+      'M6AAA,Available,Amateur Foundation Radio Licence,AAA,M,6,Call Sign,N,APP-001,',
+    ]);
+    expect(() => convertFoiSource(input, combinedList)).toThrow(/Call Sign Application #.*declared empty.*data row 1/);
+  });
+
+  it('FoiNormaliser_IgnoredColumnDeclaredConstantButVaries_ThrowsLoud', () => {
+    // 'Allocated Flag' is verified constant 'N' - a differing value (the
+    // constant changing) must fail the conversion loudly, never be silently
+    // absorbed as if still the same discriminator.
+    const input = extractCsv([
+      HEADER,
+      'M6AAA,Available,Amateur Foundation Radio Licence,AAA,M,6,Call Sign,Y,,',
+    ]);
+    expect(() => convertFoiSource(input, combinedList)).toThrow(/Allocated Flag.*declared constant "N".*data row 1/);
+  });
+
+  it('FoiNormaliser_ContentBearingIgnoredColumn_AcceptsAnyValueWithoutThrowing', () => {
+    // 'Country'/'Current Series'/'Type' are content-bearing on this combined
+    // sheet - genuinely varying values must NOT throw (only 'empty' and
+    // 'constant' declarations are value-verified).
+    const input = extractCsv([
+      HEADER,
+      'M6AAA,Available,Amateur Foundation Radio Licence,AAA,ZZ,99,Whatever,N,,',
+    ]);
+    expect(() => convertFoiSource(input, combinedList)).not.toThrow();
+  });
+
+  it('FoiNormaliser_IgnoredColumnMissingFromHeader_ThrowsBeforeVerification', () => {
+    // Header-presence discipline still applies first: a declared ignored
+    // column that is simply absent is the pre-existing "genuinely new
+    // shape" failure, not a value-verification failure.
+    const input = extractCsv([
+      'Value,Status,Product,Reference,Country,Current Series,Type,Call Sign Application #,MMSI Application #', // Allocated Flag absent
+      'M6AAA,Available,Amateur Foundation Radio Licence,AAA,M,6,Call Sign,,',
+    ]);
+    expect(() => convertFoiSource(input, combinedList)).toThrow(/Allocated Flag/);
   });
 });
 

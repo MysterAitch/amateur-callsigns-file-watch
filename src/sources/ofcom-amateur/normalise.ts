@@ -16,7 +16,7 @@
 import { parse } from 'csv-parse/sync';
 import { parseUkDateTimeDetailed, type ParsedUkDateTime, renderCsv, codepointCompare } from '../../shared/normalise.ts';
 import { computeEntryStats, type EntryStats } from '../../shared/stats.ts';
-import { errorMessage, type IgnoredRawLine } from '../../shared/utils.ts';
+import { errorMessage, verifyIgnoredColumn, type IgnoredRawLine, type IgnoredColumnVerification } from '../../shared/utils.ts';
 import { parseCallsign, componentsFlagsForRows, componentRowToCells, loadReferenceData, COMPONENT_COLUMNS, COMPONENTS_SCHEMA_VERSION, type ComponentRow } from './components.ts';
 import { type ColumnInterpretation } from '../../v2/claim.ts';
 
@@ -141,6 +141,47 @@ const VARIANTS: Record<string, Record<string, CanonicalColumn | null>> = {
 // cells as YYYY-MM-DD[ HH:MM:SS]); every other variant's dates are the UK
 // day-first CSV rendering.
 const ISO_DATE_VARIANTS: ReadonlySet<string> = new Set(['v2026-licence-version-iso']);
+
+// VERIFIED declarations for every null-mapped ("ignored") column above (issue
+// #577, mirroring the FOI lane's ignoredColumns): every raw header VARIANTS
+// maps to null must have an entry here, checked at parse time - a null
+// mapping alone is a structural "not carried" note, not a reviewed statement
+// of what the column actually contains. The 11 Nov 2025 CSV is the motivating
+// case: four of its five padding columns are genuinely empty throughout, but
+// the fifth carries a stray Excel-mangled month token on 29 of 159,895 rows -
+// a blind ignore-by-null would have dropped that signal without a trace.
+const IGNORED_COLUMN_VERIFICATION: Record<string, Record<string, IgnoredColumnVerification>> = {
+  'v2026-licence-version-padded': {
+    'unknown-1': { kind: 'empty' },
+    'unknown-2': { kind: 'empty' },
+    'unknown-3': { kind: 'empty' },
+    'unknown-4': { kind: 'empty' },
+    'unknown-5': {
+      kind: 'content-bearing',
+      note: '29 of 159,895 rows carry a stray Excel-mangled month token (e.g. "20-Mar") - a spreadsheet artefact of the source export, not a genuine data column; carried verbatim in the raw-keyed claim ledger, never projected into the canonical columns',
+    },
+  },
+};
+
+// Verifies every null-mapped column of `mapping` against its declared
+// assertion in IGNORED_COLUMN_VERIFICATION, failing loudly both when a
+// declaration is missing (an ignored column must be reviewed before it can
+// be ignored, never merely implied by mapping to null) and when the actual
+// records contradict it (a column silently starting to vary, or a "constant"
+// silently changing, must never be dropped without review). Exported so it
+// can be unit-tested directly against a synthetic mapping/records, without
+// needing an entry in the real variant registry.
+export function verifyIgnoredOpenDataColumns(variant: string, mapping: Readonly<Record<string, CanonicalColumn | null>>, records: readonly Record<string, string>[]): void {
+  const declared = IGNORED_COLUMN_VERIFICATION[variant] ?? {};
+  for (const [header, canonical] of Object.entries(mapping)) {
+    if (canonical !== null) continue;
+    const spec = declared[header];
+    if (spec === undefined) {
+      throw new Error(`variant "${variant}" maps column "${header}" to null (required-present but not carried) with no declared verification in IGNORED_COLUMN_VERIFICATION - a column must be reviewed as empty, constant, or content-bearing before it can be ignored`);
+    }
+    verifyIgnoredColumn({ column: header, verification: spec }, records, `variant "${variant}"`);
+  }
+}
 
 // The authored raw->canonical binding for a registered variant, or undefined
 // for an unknown name. Lets a consumer that already knows a variant (or has
@@ -288,6 +329,11 @@ export function parseRawRegister(rawContent: string, curatedIgnores: IgnoredRawL
     variant = detected;
   }
   const mapping = VARIANTS[variant];
+
+  // Every null-mapped ("ignored") column's actual content must match its
+  // declared verification (issue #577) - fails loud on the first row that
+  // contradicts it, or when a null-mapped column has no declaration at all.
+  verifyIgnoredOpenDataColumns(variant, mapping, records);
 
   const ignoredLines = [...ignoredByLine.values()].sort((a, b) => a.line - b.line);
 

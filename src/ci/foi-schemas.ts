@@ -24,6 +24,19 @@ import {
   type FoiSourceConversion,
 } from '../shared/foi-normalise.ts';
 import { FOI_DATASET_CLASSES, listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
+import { type IgnoredColumnVerification } from '../shared/utils.ts';
+
+// Renders a VERIFIED ignored-column declaration (issue #577) for the
+// published schema page - the same {kind} the converter itself checks the
+// raw values against, so the documentation cannot silently drift from what
+// is actually enforced.
+function ignoredColumnVerificationLabel(verification: IgnoredColumnVerification): string {
+  switch (verification.kind) {
+    case 'empty': return 'verified empty on every row';
+    case 'constant': return `verified constant \`${verification.value}\` on every row`;
+    case 'content-bearing': return `content-bearing, not value-verified - ${verification.note}`;
+  }
+}
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const FOI_ARCHIVE_DIR = path.join(REPO_ROOT, 'archive', 'foi');
@@ -49,7 +62,12 @@ function conversionSection(conversion: FoiSourceConversion): string[] {
     '',
   ];
   if (conversion.ignoredColumns.length > 0) {
-    lines.push(`Required-present but not carried: ${conversion.ignoredColumns.map(c => `\`${c}\``).join(', ')}.`, '');
+    lines.push(
+      'Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):',
+      '',
+      ...conversion.ignoredColumns.map(c => `- \`${c.column}\`: ${ignoredColumnVerificationLabel(c.verification)}`),
+      '',
+    );
   }
   lines.push(`Row order: **${conversion.rowOrder}** — ${conversion.orderRationale}.`);
   if (conversion.referenceDateIso !== undefined) {

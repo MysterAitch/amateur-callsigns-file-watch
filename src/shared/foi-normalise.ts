@@ -34,7 +34,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { parseUkDateTimeDetailed, type ParsedUkDateTime, renderCsv, codepointCompare } from './normalise.ts';
-import { calculateContentHash, errorMessage } from './utils.ts';
+import { calculateContentHash, errorMessage, verifyIgnoredColumn, type IgnoredColumnSpec } from './utils.ts';
 import { type ColumnInterpretation } from '../v2/claim.ts';
 
 export const FOI_NORMALISED_SCHEMA_VERSION = 1;
@@ -103,8 +103,12 @@ export interface FoiSourceConversion {
   columns: readonly FoiColumnSpec[];
   // Source columns deliberately not carried into the normalised output.
   // Their presence is still REQUIRED (an absent or extra header means a
-  // genuinely new source shape deserving review, never a guess).
-  ignoredColumns: readonly string[];
+  // genuinely new source shape deserving review, never a guess), and each
+  // one's actual content is VERIFIED against its declared shape - empty,
+  // constant, or content-bearing (issue #577) - so a column silently
+  // starting to carry data, or a "constant" silently starting to vary, fails
+  // the conversion loudly rather than disappearing without a trace.
+  ignoredColumns: readonly IgnoredColumnSpec[];
   // 'sorted-by-first-column': source row order carries no meaning, so rows
   // sort by the first output column (codepoint order, whole-row tie-break).
   // 'source-order': the source order is itself meaningful and is preserved.
@@ -116,6 +120,19 @@ export interface FoiSourceConversion {
   // date-free conversions so variants can be shared across entries with
   // different response dates.
   referenceDateIso?: string;
+}
+
+// Single-line constructors for IgnoredColumnSpec (issue #577), used
+// throughout the registry below so a verified declaration reads as one
+// expression rather than a nested literal repeated at every call site.
+function emptyColumn(column: string): IgnoredColumnSpec {
+  return { column, verification: { kind: 'empty' } };
+}
+function constantColumn(column: string, value: string): IgnoredColumnSpec {
+  return { column, verification: { kind: 'constant', value } };
+}
+function contentBearingColumn(column: string, note: string): IgnoredColumnSpec {
+  return { column, verification: { kind: 'content-bearing', note } };
 }
 
 // Conversion registry, keyed by the variant name authored in each entry's
@@ -146,7 +163,11 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       ],
       // Positional layout provenance from the Save-As-PDF, required-present but
       // not a per-row assertion; recorded in contentsIndicative, not normalised.
-      ignoredColumns: ['page', 'row_on_page'],
+      // Genuinely varying (page 1-41, row_on_page 1-50), so content-bearing.
+      ignoredColumns: [
+        contentBearingColumn('page', 'PDF page number the row was transcribed from - positional layout provenance, not a per-row data assertion'),
+        contentBearingColumn('row_on_page', 'row position within the PDF page - positional layout provenance, not a per-row data assertion'),
+      ],
       rowOrder: 'sorted-by-first-column',
       orderRationale: 'the source order is the PDF page/row layout, not a meaningful assertion order; sorted by callsign for diffability, with the whole row as tie-break so the recurring per-licence records (and the blank-callsign rows) are all preserved',
     },
@@ -169,7 +190,7 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       // 'Type' is 'Call Sign - Amateur' on every row - a product
       // discriminator recorded in meta.json's contentsIndicative, not a
       // per-row assertion.
-      ignoredColumns: ['Type'],
+      ignoredColumns: [constantColumn('Type', 'Call Sign - Amateur')],
       rowOrder: 'sorted-by-first-column',
       orderRationale: 'source rows arrive in no meaningful order; sorted by callsign for diffability',
       referenceDateIso: '2024-10-28',
@@ -279,7 +300,11 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       // Title/First_name/Last_name are 'S40' on every row - the document's
       // marker for names withheld under FOIA s.40. Withholding markers are
       // not data; presence still required.
-      ignoredColumns: ['Title', 'First_name', 'Last_name'],
+      ignoredColumns: [
+        constantColumn('Title', 'S40'),
+        constantColumn('First_name', 'S40'),
+        constantColumn('Last_name', 'S40'),
+      ],
       rowOrder: 'source-order',
       orderRationale: "the document presents 'the last 20 applications' newest-first; a meaningful order, preserved",
       referenceDateIso: '2015-02-27',
@@ -314,33 +339,59 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
 
   // The 2015 typed Siebel exports (wdtk-247308 2015-02, wdtk-261814
   // 2015-04 - shared shape). Country/Current Series are the callsign's own
-  // decomposition (derivable), Type is 'Call Sign' throughout (two blank
-  // cells in the Full sheets), Allocated Flag is 'N' throughout - required
-  // present, not carried. A handful of Value cells are stored AS dates
-  // (Excel's '20JUN' mangling at Ofcom's export) and are carried verbatim.
+  // decomposition (derivable): genuinely constant on the single-class
+  // Foundation/Intermediate sheets, but content-bearing on the combined Full
+  // sheet, which mixes a handful of other classes in (verified against both
+  // archived entries sharing this variant, issue #577). Type is 'Call Sign'
+  // throughout the Foundation/Intermediate sheets but carries two blank
+  // cells on the Full sheet (also content-bearing there); Allocated Flag is
+  // 'N' throughout every sheet - required present, not carried. A handful of
+  // Value cells are stored AS dates (Excel's '20JUN' mangling at Ofcom's
+  // export) and are carried verbatim.
   'available-typed-export-8col': [
-    typedExportConversion('raw-extract-sheet-1-foundation.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag']),
-    typedExportConversion('raw-extract-sheet-2-intermediate.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag']),
-    typedExportConversion('raw-extract-sheet-3-full.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag']),
+    typedExportConversion('raw-extract-sheet-1-foundation.csv', [constantColumn('Country', 'M'), constantColumn('Current Series', '6'), constantColumn('Type', 'Call Sign'), constantColumn('Allocated Flag', 'N')]),
+    typedExportConversion('raw-extract-sheet-2-intermediate.csv', [constantColumn('Country', '2'), contentBearingColumn('Current Series', 'the callsign\'s own series decomposition - constant "0" but for one row carrying "1"'), constantColumn('Type', 'Call Sign'), constantColumn('Allocated Flag', 'N')]),
+    typedExportConversion('raw-extract-sheet-3-full.csv', [
+      contentBearingColumn('Country', "the callsign's own country decomposition - this combined sheet mixes a handful of non-M values in (G, GB, U, and 2 blanks)"),
+      contentBearingColumn('Current Series', "the callsign's own series decomposition - this combined sheet mixes a handful of non-0 values in, plus 6 blanks"),
+      contentBearingColumn('Type', "'Call Sign' throughout except 2 blank cells"),
+      constantColumn('Allocated Flag', 'N'),
+    ]),
   ],
   // wdtk-271469 (2015-06): same 8-column shape, differently named sheets.
   'wdtk-271469-typed-lists': [
-    typedExportConversion('raw-extract-sheet-1-amateur-foundation.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag']),
-    typedExportConversion('raw-extract-sheet-2-amateur-intermediate.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag']),
-    typedExportConversion('raw-extract-sheet-3-amateur-full.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag']),
+    typedExportConversion('raw-extract-sheet-1-amateur-foundation.csv', [constantColumn('Country', 'M'), constantColumn('Current Series', '6'), constantColumn('Type', 'Call Sign'), constantColumn('Allocated Flag', 'N')]),
+    typedExportConversion('raw-extract-sheet-2-amateur-intermediate.csv', [constantColumn('Country', '2'), contentBearingColumn('Current Series', 'the callsign\'s own series decomposition - constant "0" but for one row carrying "1"'), constantColumn('Type', 'Call Sign'), constantColumn('Allocated Flag', 'N')]),
+    typedExportConversion('raw-extract-sheet-3-amateur-full.csv', [
+      contentBearingColumn('Country', "the callsign's own country decomposition - this combined sheet mixes a handful of non-M values in (G, GB, U, and 2 blanks)"),
+      contentBearingColumn('Current Series', "the callsign's own series decomposition - this combined sheet mixes a handful of non-0 values in, plus 4 blanks"),
+      contentBearingColumn('Type', "'Call Sign' throughout except 2 blank cells"),
+      constantColumn('Allocated Flag', 'N'),
+    ]),
   ],
   // The 2015-10 export (wdtk-294011 and wdtk-299321 - byte-identical
   // disclosures, shared variant): 7 columns, no Allocated Flag.
   'available-typed-export-7col': [
-    typedExportConversion('raw-extract-sheet-1-foundation.csv', ['Country', 'Current Series', 'Type']),
-    typedExportConversion('raw-extract-sheet-2-intermediate.csv', ['Country', 'Current Series', 'Type']),
-    typedExportConversion('raw-extract-sheet-3-full.csv', ['Country', 'Current Series', 'Type']),
+    typedExportConversion('raw-extract-sheet-1-foundation.csv', [constantColumn('Country', 'M'), constantColumn('Current Series', '6'), constantColumn('Type', 'Call Sign')]),
+    typedExportConversion('raw-extract-sheet-2-intermediate.csv', [constantColumn('Country', '2'), contentBearingColumn('Current Series', 'the callsign\'s own series decomposition - constant "0" but for a couple of rows carrying "1"'), constantColumn('Type', 'Call Sign')]),
+    typedExportConversion('raw-extract-sheet-3-full.csv', [
+      contentBearingColumn('Country', "the callsign's own country decomposition - this combined sheet mixes a handful of non-M values in (G, GB, U, and blanks)"),
+      contentBearingColumn('Current Series', "the callsign's own series decomposition - this combined sheet mixes a handful of non-0 values in, plus blanks"),
+      contentBearingColumn('Type', "'Call Sign' throughout except a handful of blank cells"),
+    ]),
   ],
   // wdtk-309076 (2016-01): one combined sheet, all classes, plus two
   // entirely-empty application-number columns (required present, not
   // carried - their emptiness is recorded in meta.json).
   'wdtk-309076-combined-list': [
-    typedExportConversion('raw-extract-sheet-1-sheet1.csv', ['Country', 'Current Series', 'Type', 'Allocated Flag', 'Call Sign Application #', 'MMSI Application #']),
+    typedExportConversion('raw-extract-sheet-1-sheet1.csv', [
+      contentBearingColumn('Country', "the callsign's own country decomposition - this all-classes sheet carries M, 2, G and a few other values"),
+      contentBearingColumn('Current Series', "the callsign's own series decomposition - this all-classes sheet carries 0, 6, 1 and a few other values"),
+      contentBearingColumn('Type', "'Call Sign' throughout except 2 blank cells"),
+      constantColumn('Allocated Flag', 'N'),
+      emptyColumn('Call Sign Application #'),
+      emptyColumn('MMSI Application #'),
+    ]),
   ],
 
   // wdtk-356636 (2016-09): the oldest full register snapshot. 'Final
@@ -368,7 +419,7 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       ],
       // 'Forbidden' on every row - the sheet-level discriminator, recorded
       // in meta.json, not a per-row assertion.
-      ignoredColumns: ['Type'],
+      ignoredColumns: [constantColumn('Type', 'Forbidden')],
       rowOrder: 'sorted-by-first-column',
       orderRationale: 'alphabetical source order carries no meaning; sorted by suffix (a no-op for the archived file, kept for rule consistency)',
     },
@@ -551,9 +602,15 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
         { source: null, output: 'licence_class', kind: 'verbatim' },
       ],
       // Prefix/Suffix are Ofcom's own decomposition of the callsign (preserved
-      // verbatim in the archived source CSV, described in meta); Type is the
-      // constant product/service discriminator. Required present, not carried.
-      ignoredColumns: ['Prefix', 'Suffix', 'Type'],
+      // verbatim in the archived source CSV, described in meta) - genuinely
+      // varying per row (27 prefixes, 17,181 distinct suffixes), so
+      // content-bearing; Type is the constant product/service discriminator.
+      // Required present, not carried.
+      ignoredColumns: [
+        contentBearingColumn('Prefix', "Ofcom's own prefix decomposition of the callsign - not the registered `suffix` extension (the split is not uniformly three-letter-suffix-shaped), preserved verbatim in the archived source only"),
+        contentBearingColumn('Suffix', "Ofcom's own suffix decomposition of the callsign - not the registered `suffix` extension, preserved verbatim in the archived source only"),
+        constantColumn('Type', 'Call Sign - Amateur'),
+      ],
       rowOrder: 'sorted-by-first-column',
       orderRationale: 'source rows arrive grouped by suffix but carry no meaningful publication order (no dates, not callsign-sorted); sorted by callsign for diffability and cross-snapshot comparability',
     },
@@ -694,7 +751,7 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       ],
       // 'Type' is 'Call Sign - Amateur' on every row - the product/service
       // discriminator, required present, not carried.
-      ignoredColumns: ['Type'],
+      ignoredColumns: [constantColumn('Type', 'Call Sign - Amateur')],
       rowOrder: 'sorted-by-first-column',
       orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability (the one blank callsign sorts first)',
       referenceDateIso: '2020-10-23',
@@ -808,7 +865,7 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       ],
       // 'Type__c' is 'Call Sign - Amateur' on every row - the product/service
       // discriminator, required present, not carried.
-      ignoredColumns: ['Type__c'],
+      ignoredColumns: [constantColumn('Type__c', 'Call Sign - Amateur')],
       rowOrder: 'sorted-by-first-column',
       orderRationale: 'source rows arrive grouped but carry no globally meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability',
     },
@@ -939,7 +996,7 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       ],
       // 'Type' is 'Call Sign - Amateur' on every row - the product/service
       // discriminator recorded in meta.json, not a per-row assertion.
-      ignoredColumns: ['Type'],
+      ignoredColumns: [constantColumn('Type', 'Call Sign - Amateur')],
       rowOrder: 'sorted-by-first-column',
       orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability',
       referenceDateIso: '2025-09-11',
@@ -981,7 +1038,7 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       ],
       // 'Type__c' is 'Call Sign - Amateur' on every row - the product/service
       // discriminator recorded in meta.json, not a per-row assertion.
-      ignoredColumns: ['Type__c'],
+      ignoredColumns: [constantColumn('Type__c', 'Call Sign - Amateur')],
       rowOrder: 'sorted-by-first-column',
       orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability',
       referenceDateIso: '2024-07-22',
@@ -1084,7 +1141,7 @@ function valueStatusProductRegisterConversion(sourceFile: string, referenceDateI
     // 'Type' is 'Call Sign - Amateur' on every row - the product/service
     // discriminator, recorded in meta.json, not a per-row assertion. Required
     // present where the source carries it; the 2023-01-25 workbook omits it.
-    ignoredColumns: hasType ? ['Type'] : [],
+    ignoredColumns: hasType ? [constantColumn('Type', 'Call Sign - Amateur')] : [],
     rowOrder: 'sorted-by-first-column',
     orderRationale: 'source rows arrive grouped (reserved blocks first) but carry no globally meaningful order (not callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability',
     referenceDateIso,
@@ -1109,7 +1166,7 @@ function valueStatusTypeRegisterConversion(sourceFile: string): FoiSourceConvers
     ],
     // 'Type' is the constant product/service discriminator - required present,
     // not carried.
-    ignoredColumns: ['Type'],
+    ignoredColumns: [constantColumn('Type', 'Call Sign - Amateur')],
     rowOrder: 'sorted-by-first-column',
     orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability',
   };
@@ -1158,7 +1215,7 @@ function callsignProductRegisterConversion(options: CallsignProductRegisterOptio
     columns,
     // 'Type' is 'Call Sign - Amateur' on every row - the product/service
     // discriminator recorded in meta.json, not a per-row assertion.
-    ignoredColumns: ['Type'],
+    ignoredColumns: [constantColumn('Type', 'Call Sign - Amateur')],
     rowOrder: 'sorted-by-first-column',
     orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, no clear date order); sorted by callsign for diffability and cross-snapshot comparability',
     referenceDateIso: options.referenceDateIso,
@@ -1166,8 +1223,12 @@ function callsignProductRegisterConversion(options: CallsignProductRegisterOptio
 }
 
 // The 2015/16 typed Siebel exports share their column vocabulary; only the
-// sheet filenames and the not-carried column set vary.
-function typedExportConversion(sourceFile: string, ignoredColumns: readonly string[]): FoiSourceConversion {
+// sheet filenames and the not-carried columns' verification vary - the
+// Foundation/Intermediate sheets carry genuinely constant Country/Current
+// Series/Type/Allocated Flag values, but the combined Full sheets mix classes
+// so those same columns turn content-bearing there (verified empirically
+// against every archived entry sharing each variant, issue #577).
+function typedExportConversion(sourceFile: string, ignoredColumns: readonly IgnoredColumnSpec[]): FoiSourceConversion {
   return {
     sourceFile,
     encoding: 'utf8',
@@ -1203,7 +1264,7 @@ function datedRegisterConversion(sourceFile: string, originalStartDateHeader: st
     ],
     // 'Type' is 'Call Sign - Amateur' on every row - the product/service
     // discriminator, required present but not carried.
-    ignoredColumns: ['Type'],
+    ignoredColumns: [constantColumn('Type', 'Call Sign - Amateur')],
     rowOrder: 'sorted-by-first-column',
     orderRationale: 'source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability',
     referenceDateIso,
@@ -1521,7 +1582,7 @@ export function convertFoiSource(bytes: Buffer, conversion: FoiSourceConversion)
   const actualHeaders = Object.keys(records[0]);
   const expectedHeaders = [
     ...conversion.columns.flatMap(c => (c.source === null ? [] : [c.source])),
-    ...conversion.ignoredColumns,
+    ...conversion.ignoredColumns.map(c => c.column),
   ];
   for (const expected of expectedHeaders) {
     if (!actualHeaders.includes(expected)) {
@@ -1532,6 +1593,13 @@ export function convertFoiSource(bytes: Buffer, conversion: FoiSourceConversion)
     if (!expectedHeaders.includes(actual)) {
       throw new Error(`${conversion.sourceFile}: unexpected header "${actual}" - extend the conversion registry (with tests) if the source shape has genuinely changed`);
     }
+  }
+
+  // Ignored columns are required-present (checked above) AND their actual
+  // content must match the declared shape - fails loud on the first row that
+  // contradicts it (issue #577).
+  for (const spec of conversion.ignoredColumns) {
+    verifyIgnoredColumn(spec, records, conversion.sourceFile);
   }
 
   const notes: FoiConvertNotes = {
