@@ -45,6 +45,11 @@ import {
   type SuffixCallsignInfo,
   type SuffixCallsign,
 } from './forbidden-suffix-callsigns.ts';
+import {
+  loadForbiddenSuffixRationale,
+  type SuffixRationale,
+  type RationaleCategory,
+} from './forbidden-suffix-rationale.ts';
 import { readFoiEntryMeta, type FoiEntryMeta } from '../shared/foi-archive.ts';
 import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import {
@@ -286,7 +291,53 @@ function browseAllSuffixes(h: ForbiddenSuffixHistory): string[] {
   return out;
 }
 
-function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): string {
+// The "why are these suffixes withheld?" breakdown on the section index
+// (issue #196): Ofcom's own FOI wording, quoted verbatim, then a breakdown of
+// how many union suffixes each SOURCED category accounts for versus the
+// residual left deliberately unclassified. Answers the issue's own framing —
+// "how much is 'just Q-codes' vs genuinely editorial?" — without attributing
+// any individual residual suffix to a category this project cannot cite.
+function rationaleSection(h: ForbiddenSuffixHistory, rationale: Map<string, SuffixRationale>): string[] {
+  const byCategory = new Map<RationaleCategory, string[]>();
+  for (const suffix of h.everForbiddenUnion) {
+    const r = rationale.get(suffix);
+    if (r === undefined) continue;
+    const list = byCategory.get(r.category) ?? [];
+    list.push(suffix);
+    byCategory.set(r.category, list);
+  }
+  const classifiedCount = [...byCategory.values()].reduce((a, l) => a + l.length, 0);
+  const residual = h.everForbiddenUnion.length - classifiedCount;
+  const rows: string[] = [];
+  for (const category of Object.keys(RATIONALE_LABELS) as RationaleCategory[]) {
+    const suffixes = (byCategory.get(category) ?? []).sort();
+    if (suffixes.length === 0) continue;
+    const preview = suffixes.length <= ENUMERATE_LIMIT
+      ? suffixLinks(suffixes, 'index')
+      : `<span class="gap">${num(suffixes.length)} suffixes — browse them from the A–Z list below</span>`;
+    rows.push(`<tr><td>${escapeHtml(RATIONALE_LABELS[category].label)}<br><small class="dcap">${escapeHtml(RATIONALE_LABELS[category].explanation)}</small></td><td>${zeroCell(suffixes.length, num(suffixes.length))}</td><td>${preview}</td></tr>`);
+  }
+  rows.push(`<tr><td>Unclassified <span class="gap">(no citable rationale established for the specific suffix)</span></td><td>${zeroCell(residual, num(residual))}</td><td><span class="gap">not enumerated — see note below</span></td></tr>`);
+  const foiHref = `../datasets/foi/${encodeURIComponent('wdtk-356636--all-callsigns-plus-forbidden')}/index.html`;
+  return [
+    `<section id="rationale"><h2>Why are these suffixes withheld? <small class="lvl">— ${glossaryTerm('forbidden-suffix-rationale', 1, { label: 'rationale' })}</small></h2>`,
+    `<p>Ofcom does not publish a per-suffix reason, but its own FOI response (<a href="${foiHref}">Ofcom FOI 337399, 2016</a>) states the withholding rationale in its own words:</p>`,
+    '<blockquote><p>"…as a matter of conventional practice we do not issue call signs or parts of call signs that might spell out (English) words that we think are likely to be generally offensive or which may lead to undue on-air bullying of the licensee. […] It does change over time, as taste and social tolerance change."</p>'
+      + '<p>"In addition […] we are required by Art 19.46 et seq of the Radio Regulations not to allow call signs that might be confused with internationally accepted signals. […] For example, \'SOS\'. In addition, there is an international list of so-called \'Q-Codes\'. […] Our licensing system has been programmed not to allow these as suffixes."</p></blockquote>',
+    `<p><b>${num(classifiedCount)}</b> of the ${num(h.everForbiddenUnion.length)} union suffixes are traceable to a citable rule from that letter — the ENTIRE QAA–QZZ Q-code block, the ITU-R M.1172 operating abbreviations it links to, and the letter's own "SOS" example. Each per-suffix page names which, where one applies.</p>`,
+    '<div class="overflow">',
+    '<table>',
+    tableCaption('Forbidden suffixes broken down by sourced rationale category'),
+    '<tr><th scope="col">category</th><th scope="col">count</th><th scope="col">suffixes</th></tr>',
+    ...rows,
+    '</table>',
+    '</div>',
+    `<p class="dcap">The remaining <b>${num(residual)}</b> suffixes are <b>not</b> individually attributed to any category by this project. Ofcom's letter confirms a general "conventional practice" of withholding suffixes that might spell out generally offensive or bullying-prone English words — a practice it describes as undocumented per-suffix and changing over time — but publishes no per-suffix mapping, and this project does not guess one. Absence from the breakdown above is not itself a claim about any specific suffix.</p>`,
+    '</section>',
+  ];
+}
+
+function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex, rationale: Map<string, SuffixRationale>): string {
   const timelineRows = h.disclosures.map(d =>
     `<tr><td><a href="${escapeHtml(d.entry)}/index.html">${escapeHtml(humanVintage(d.vintage))}</a><br><code>${escapeHtml(d.entry)}</code></td><td>${zeroCell(d.distinctCount, num(d.distinctCount))}</td><td>${zeroCell(d.rowCount, num(d.rowCount))}</td><td>${suffixCodes(d.duplicates)}</td><td>${suffixLinks(d.added, 'index')}</td><td>${suffixLinks(d.removed, 'index')}</td></tr>`);
 
@@ -342,6 +393,8 @@ function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): strin
     ...fkRows,
     '</table>',
     '</div>',
+
+    ...rationaleSection(h, rationale),
 
     '<h2>Per-suffix detail</h2>',
     `<p>Every ever-forbidden union suffix has its own detail page: its forbidden-list history (which disclosures list it, first known forbidden, whether it was de-listed) plus every callsign carrying it, <b>broken down by ${glossaryTerm('status-values', 1, { label: 'status' })}</b> (Allocated / Reserved / Available / Forbidden), cross-linked to the register lookup and the FOI observations. A count is never bare: a rise could be a spike in <em>Reserved</em> rows, or a batch of <em>Forbidden</em> prohibition rows, rather than new <em>Allocated</em> issuance — a very different meaning.</p>`,
@@ -487,6 +540,55 @@ function suffixHistorySection(suffix: string, h: ForbiddenSuffixHistory, a: Suff
   ].join('\n');
 }
 
+// Rationale categories (issue #196): human-readable label + one-line
+// explanation for each SOURCED family categoriseSuffix can return. Kept here
+// (not in forbidden-suffix-rationale.ts) since it is presentation, not data.
+const RATIONALE_LABELS: Record<RationaleCategory, { label: string; explanation: string }> = {
+  'itu-q-code': {
+    label: 'ITU Q-code series',
+    explanation: 'This suffix falls in the QAA–QZZ block: the internationally reserved Q-code series. Issuing it as a callsign suffix would collide with those operating signals.',
+  },
+  'itu-operational-abbreviation': {
+    label: 'ITU-R M.1172 operating abbreviation',
+    explanation: 'This suffix is a three-letter operating abbreviation ITU-R Recommendation M.1172 separately defines (outside the Q-code series) — an internationally accepted signal a callsign suffix must not be confused with.',
+  },
+  'itu-signal-confusion': {
+    label: 'Internationally accepted signal',
+    explanation: "This suffix is itself an internationally accepted signal — Ofcom's own FOI response names it as the worked example of the signals a callsign suffix must not be confused with.",
+  },
+};
+
+// The FOI entry this section's one primary rationale source resolves to, for
+// linking from every rationale block. Kept as a constant rather than
+// threading a lookup, since it never varies.
+const RATIONALE_SOURCE_ENTRY = 'wdtk-356636--all-callsigns-plus-forbidden';
+
+// The "why is this suffix withheld?" block on a per-suffix page (issue #196).
+// SOURCED categories cite Ofcom's own FOI response and (for the two ITU
+// families) the ITU-R M.1172 document it links to. Everything else says
+// plainly that no rationale is established for THIS suffix — Ofcom does not
+// publish a per-suffix reason, and this project does not invent one — while
+// pointing at the section index's general account of the residual
+// "conventional practice" bucket Ofcom's own letter describes only in
+// general terms.
+function suffixRationaleSection(suffix: string, rationale: SuffixRationale | undefined): string {
+  const foiLink = `<a href="../../../datasets/foi/${encodeURIComponent(RATIONALE_SOURCE_ENTRY)}/index.html">Ofcom's FOI response</a>`;
+  const heading = `<h2>Why is this suffix withheld? <small class="lvl">— ${glossaryTerm('forbidden-suffix-rationale', 3, { label: 'rationale' })}</small></h2>`;
+  if (rationale === undefined) {
+    return [
+      `<section>${heading}`,
+      `<p class="lead">No rationale is established for this specific suffix. Ofcom does not publish a per-suffix reason for the forbidden-suffix list, and this project does not infer one where it cannot cite a source. <span class="gap">See the <a href="../../index.html#rationale">general account</a> of the residual "conventional practice" bucket ${foiLink} describes, on the section index.</span></p>`,
+      '</section>',
+    ].join('\n');
+  }
+  const { label, explanation } = RATIONALE_LABELS[rationale.category];
+  return [
+    `<section>${heading}`,
+    `<p class="lead"><b>${escapeHtml(label)}</b> <span class="gap">— sourced, not this project's inference.</span> ${explanation} Source: ${foiLink}, corroborated by the linked ITU-R M.1172 document. <span class="gap">See the <a href="../../index.html#rationale">rationale breakdown</a> on the section index for how this fits the wider list.</span></p>`,
+    '</section>',
+  ].join('\n');
+}
+
 // The de-listed-then-issued arc callout (the QNF payoff): forbidden → de-listed
 // → then issued, with the callsigns and their post-de-listing dates named, and
 // framed as a reconciliation candidate.
@@ -623,6 +725,7 @@ export function suffixPage(
   info: SuffixCallsignInfo,
   ref: ReferenceData = loadReferenceData(),
   pageUrl: string = `${DEFAULT_BASE_URL}/forbidden/suffix/${encodeURIComponent(suffix)}/index.html`,
+  rationale: Map<string, SuffixRationale> = loadForbiddenSuffixRationale(),
 ): string {
   const a = analyseSuffix(suffix, h, info);
   const title = `Forbidden suffix ${suffix}`;
@@ -647,6 +750,7 @@ export function suffixPage(
     '<div class="main-region">',
     '<div class="col">',
     suffixHistorySection(suffix, h, a, suffixExamineHtml(suffix, buildCommit())),
+    suffixRationaleSection(suffix, rationale.get(suffix)),
     suffixCallsignsSection(info, ref),
     reportSection,
     '</div>',
@@ -667,11 +771,15 @@ export function buildForbiddenSection(outputDir: string, baseUrl: string = DEFAU
   // Loaded once and passed to every per-suffix page so the callsign pills'
   // component titles are derived without re-reading the reference data per page.
   const ref = loadReferenceData();
+  // The rationale categorisation (issue #196), likewise loaded once from the
+  // committed reference-data CSV and shared across the index and every
+  // per-suffix page.
+  const rationale = loadForbiddenSuffixRationale();
   const dir = path.join(outputDir, 'forbidden');
   fs.mkdirSync(dir, { recursive: true });
   const urls: string[] = [];
 
-  fs.writeFileSync(path.join(dir, 'index.html'), indexPage(history, suffixIndex));
+  fs.writeFileSync(path.join(dir, 'index.html'), indexPage(history, suffixIndex, rationale));
   urls.push(`${baseUrl}/forbidden/index.html`);
 
   history.disclosures.forEach((d, i) => {
@@ -690,7 +798,7 @@ export function buildForbiddenSection(outputDir: string, baseUrl: string = DEFAU
     const pageDir = path.join(suffixDir, suffix);
     fs.mkdirSync(pageDir, { recursive: true });
     const pageUrl = `${baseUrl}/forbidden/suffix/${encodeURIComponent(suffix)}/index.html`;
-    fs.writeFileSync(path.join(pageDir, 'index.html'), suffixPage(suffix, history, info, ref, pageUrl));
+    fs.writeFileSync(path.join(pageDir, 'index.html'), suffixPage(suffix, history, info, ref, pageUrl, rationale));
     urls.push(pageUrl);
   }
 
