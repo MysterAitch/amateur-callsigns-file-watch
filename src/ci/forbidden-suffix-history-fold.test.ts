@@ -17,9 +17,13 @@ import { serialiseClaimsJsonl } from '../v2/serialise.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
 
 // Issue #361 (migration map step 3): the forbidden-suffix-history report folds
-// from the raw-keyed claim ledger via DuckDB (report-fold.ts) rather than the
-// legacy normalised suffix files. This is the durable equivalence oracle — the
-// retirement gate for that migration. Test names follow Subject_Scenario_Outcome.
+// from the raw-keyed claim ledger rather than the retired normalised suffix
+// files. Two read mechanisms fold that ledger (issue #444): the committed report
+// through DuckDB (buildForbiddenSuffixHistoryFold, report-fold.ts), and the page
+// renderer / reference-data guard through the DuckDB-free in-memory claim fold
+// (buildForbiddenSuffixHistory). This is the durable equivalence oracle — both
+// mechanisms are pinned to the committed golden byte-for-byte, and to each other.
+// Test names follow Subject_Scenario_Outcome.
 
 // --- Fold logic on a controlled ledger --------------------------------------
 //
@@ -186,22 +190,24 @@ function parseCommittedGolden(): { disclosures: ParsedDisclosure[]; union: numbe
   return { disclosures, union, changed };
 }
 
-describe('forbidden-suffix history — ledger vs legacy equivalence oracle', { tags: ['data-validity'] }, () => {
-  // Always-on: recompute the legacy figures live over the real archive (no
-  // DuckDB needed for this side) and read the committed folded golden. Any drift
-  // in either path — beyond a regenerated golden — trips the allow-list.
-  let legacy: ForbiddenSuffixHistory;
+describe('forbidden-suffix history — DuckDB-free claim fold vs committed golden', { tags: ['data-validity'] }, () => {
+  // Always-on (no DuckDB needed): fold the history live over the real archive
+  // through the in-memory claim fold, and read the committed folded golden. The
+  // committed report is produced by the DuckDB fold, so this pins the DuckDB-free
+  // read mechanism to the DuckDB one byte-for-byte without needing DuckDB present.
+  let duckDbFreeFold: ForbiddenSuffixHistory;
   let committed: { disclosures: ParsedDisclosure[]; union: number; changed: string[] };
   beforeAll(() => {
-    legacy = buildForbiddenSuffixHistory();
+    duckDbFreeFold = buildForbiddenSuffixHistory();
     committed = parseCommittedGolden();
   }, 600_000);
 
-  it('ForbiddenSuffixHistory_CommittedGolden_ReproducesTheLiveLegacyComputation', () => {
-    // The load-bearing equivalence assertion: the committed report (the ledger
-    // fold's output) is byte-identical to rendering the live legacy computation.
-    // The two paths agree on every view — the whole point of the migration.
-    expect(renderForbiddenSuffixHistory(legacy)).toBe(fs.readFileSync(path.resolve(process.cwd(), FORBIDDEN_SUFFIX_HISTORY_PATH), 'utf8'));
+  it('ForbiddenSuffixHistory_DuckDbFreeClaimFold_ReproducesCommittedGoldenByteForByte', () => {
+    // The load-bearing equivalence assertion: the DuckDB-free in-memory claim fold
+    // renders byte-identical to the committed report (the DuckDB fold's output).
+    // Both mechanisms fold the same ledger claims and agree on every view — the
+    // proof the page renderer and reference-data guard need no DuckDB dependency.
+    expect(renderForbiddenSuffixHistory(duckDbFreeFold)).toBe(fs.readFileSync(path.resolve(process.cwd(), FORBIDDEN_SUFFIX_HISTORY_PATH), 'utf8'));
   });
 
   it('ForbiddenSuffixHistory_CommittedFold_MatchesClassifiedAllowList', () => {
@@ -219,45 +225,56 @@ describe('forbidden-suffix history — ledger vs legacy equivalence oracle', { t
     expect(committed.changed).toEqual(EXPECTED_CHANGED);
   });
 
-  it('ForbiddenSuffixHistory_LiveLegacy_MatchesClassifiedAllowList', () => {
-    // The legacy generator still produces the figures the allow-list records; a
-    // drift here means the legacy path changed and the classification is stale.
+  it('ForbiddenSuffixHistory_DuckDbFreeClaimFold_MatchesClassifiedAllowList', () => {
+    // The DuckDB-free claim fold produces the figures the allow-list records; a
+    // drift here means the ledger emit or the in-memory join changed the numbers
+    // and the classification is stale.
     for (const expected of EXPECTED_DISCLOSURES) {
-      const actual = legacy.disclosures.find(d => d.entry === expected.entry);
-      expect(actual, `legacy disclosure ${expected.entry}`).toBeDefined();
+      const actual = duckDbFreeFold.disclosures.find(d => d.entry === expected.entry);
+      expect(actual, `folded disclosure ${expected.entry}`).toBeDefined();
       expect({ distinct: actual?.distinctCount, rows: actual?.rowCount, duplicated: actual?.duplicates, added: actual?.added, removed: actual?.removed }, `${expected.entry} (${expected.reason})`)
         .toEqual({ distinct: expected.distinct, rows: expected.rows, duplicated: expected.duplicated, added: expected.added, removed: expected.removed });
     }
-    expect(legacy.everForbiddenUnion.length).toBe(EXPECTED_UNION);
-    expect(legacy.changedSuffixes).toEqual(EXPECTED_CHANGED);
+    expect(duckDbFreeFold.everForbiddenUnion.length).toBe(EXPECTED_UNION);
+    expect(duckDbFreeFold.changedSuffixes).toEqual(EXPECTED_CHANGED);
   });
 
-  it('ForbiddenSuffixHistory_LedgerNeverInvents_FoldedFiguresNeverExceedLegacy', () => {
-    // The load-bearing direction of the classification: a raw-keyed fold that
-    // re-applies the same normalisation reports only what a source declared, so
-    // its distinct/row counts and its union can never EXCEED the legacy path's.
-    // If this ever inverts, the fold has gained suffixes the legacy path lacks —
-    // a genuine divergence (a dropped trim, a mis-joined last-modified claim), not
-    // a routine regeneration.
-    const legacyByEntry = new Map(legacy.disclosures.map(d => [d.entry, d]));
-    for (const folded of committed.disclosures) {
-      const legacyDisclosure = legacyByEntry.get(folded.entry);
-      expect(legacyDisclosure, `legacy disclosure ${folded.entry}`).toBeDefined();
-      expect(folded.distinct, `folded distinct for ${folded.entry}`).toBeLessThanOrEqual(legacyDisclosure?.distinctCount ?? 0);
-      expect(folded.rows, `folded rows for ${folded.entry}`).toBeLessThanOrEqual(legacyDisclosure?.rowCount ?? 0);
+  it('ForbiddenSuffixHistory_DuckDbFreeClaimFold_AgreesWithCommittedGoldenFigures', () => {
+    // The two read mechanisms fold the same ledger claims and must not drift: the
+    // in-memory claim fold's per-disclosure distinct/row counts and union equal the
+    // committed golden's (the DuckDB fold's). An inequality means the in-memory join
+    // gained or lost observations the DuckDB pass did not — a mis-joined last-modified
+    // claim or a dropped trim, not a routine regeneration.
+    const foldByEntry = new Map(duckDbFreeFold.disclosures.map(d => [d.entry, d]));
+    for (const golden of committed.disclosures) {
+      const folded = foldByEntry.get(golden.entry);
+      expect(folded, `claim-fold disclosure ${golden.entry}`).toBeDefined();
+      expect(folded?.distinctCount, `distinct for ${golden.entry}`).toBe(golden.distinct);
+      expect(folded?.rowCount, `rows for ${golden.entry}`).toBe(golden.rows);
     }
-    expect(committed.union).toBeLessThanOrEqual(legacy.everForbiddenUnion.length);
+    expect(duckDbFreeFold.everForbiddenUnion.length).toBe(committed.union);
   });
 });
 
 // The real-archive fold retirement gate: with the pinned DuckDB CLI present (CI
 // always; a bare local checkout skips), materialising the forbidden ledger and
 // folding it must reproduce the committed golden byte-for-byte. This is the
-// proof the FOLD — not a parse of the golden — produces the numbers, so the
-// report can retire the legacy computation.
+// proof the DuckDB FOLD — not a parse of the golden — produces the numbers, so the
+// report retires the legacy normalised computation. The companion assertion pins
+// the two read mechanisms to each other directly: the DuckDB fold and the
+// DuckDB-free in-memory claim fold render identically (issue #444).
 describe.skipIf(!duckDbAvailable())('forbidden-suffix history — real-archive fold retirement gate', { tags: ['data-validity'] }, () => {
   it('ForbiddenSuffixHistoryFold_RealArchive_ReproducesCommittedGolden', () => {
     const folded = renderForbiddenSuffixHistory(buildForbiddenSuffixHistoryFold());
     expect(folded).toBe(fs.readFileSync(path.resolve(process.cwd(), FORBIDDEN_SUFFIX_HISTORY_PATH), 'utf8'));
+  }, 600_000);
+
+  it('ForbiddenSuffixHistory_DuckDbAndDuckDbFreeFolds_RenderIdentically', () => {
+    // The two read mechanisms over the same ledger claims — the DuckDB pass and the
+    // in-memory claim join — must produce the exact same report. This is the
+    // cross-mechanism equality that the retired fold-vs-normalised witness used to
+    // triangulate, now asserted directly between the folds themselves.
+    expect(renderForbiddenSuffixHistory(buildForbiddenSuffixHistory()))
+      .toBe(renderForbiddenSuffixHistory(buildForbiddenSuffixHistoryFold()));
   }, 600_000);
 });
