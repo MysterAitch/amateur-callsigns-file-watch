@@ -26,6 +26,13 @@
    (entry-proto.css) already styles the label, chips and example note. */
 .f-jump { margin-top: 12px; }
 
+/* Progressive disclosure (issue #730): the plain box stays the instant path,
+   with the full-power search/filter surface deferred behind a quiet link
+   rather than shown up front. */
+.f-advanced { margin: 10px 0 0; font-size: 13px; }
+.f-advanced a { font-family: var(--mono); color: var(--muted); text-decoration: none; }
+.f-advanced a:hover { color: var(--signal); text-decoration: underline; }
+
 /* Headline stats line — derived aggregates, dated to the build. */
 .f-stats { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px;
   margin: 18px 0 6px; padding: 12px 16px; border: 1px solid var(--hair);

@@ -41,7 +41,15 @@
        the timeline hover/focus readout. Deliberate asymmetry on the surprise
        card: "Explore this" navigates away, "Surprise me again" stays put.
 
-       F4 — search is unmistakably first (full-width, top) and is a navigation; the paired band then places the one persistent on-page control (surprise rotation) next to the timeline's inline readout, so the whole second viewport is explorable without leaving before the action chips and tabs offer the onward navigations. -->
+       F4 — search is unmistakably first (full-width, top) and is a navigation; the paired band then places the one persistent on-page control (surprise rotation) next to the timeline's inline readout, so the whole second viewport is explorable without leaving before the action chips and tabs offer the onward navigations.
+
+       F4 also demonstrates the progressive-disclosure pattern from issue #730:
+       the plain box plus its autocomplete stays the single instant path
+       (type/select/submit → callsign.html?c=…), while the full-power search and
+       filters sit behind a quiet "Advanced search & filters" link — a
+       navigation to that surface (explore.html here), deferred behind one click
+       rather than shown up front. The filter panel therefore never competes
+       with the instant box; the box keeps one job, the link owns the rest. -->
   <main id="main" class="ledger proto">
     <div class="wrap">
       <div class="f4-hero">
@@ -56,6 +64,7 @@
           </form>
           <ul class="suggest" id="suggest" role="listbox" aria-label="Suggestions" hidden></ul>
         </div>
+        <p class="f-advanced"><a href="explore.html">Advanced search &amp; filters →</a></p>
         <div class="f-jump"><div class="jumpback" id="jumpback" hidden></div></div>
       </div>
 

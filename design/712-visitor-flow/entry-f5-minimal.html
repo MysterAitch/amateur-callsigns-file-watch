@@ -29,7 +29,7 @@
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
-  <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="publishers/index.html">Publishers</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a></p></nav>
+  <nav><p><strong>Lookup</strong> · <a href="explore.html">Search</a> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="publishers/index.html">Publishers</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a></p></nav>
 
   <!-- Navigation model — the front door is a NAVIGATION hub, not an app shell.
        The search (type-ahead) NAVIGATES to the real instant per-callsign page
@@ -44,7 +44,15 @@
        the timeline hover/focus readout. Deliberate asymmetry on the surprise
        card: "Explore this" navigates away, "Surprise me again" stays put.
 
-       F5 — the purest hub: with the timeline, surprise and tabs removed, EVERY remaining actionable element is a navigation away from the front door (search, jump-back chips, orientation links, action chips). The only on-page behaviour left is the type-ahead opening and closing. Nothing invites the visitor to dwell — the bet is that the fastest exit to the right page is the whole job. -->
+       F5 — the purest hub: with the timeline, surprise and tabs removed, EVERY remaining actionable element is a navigation away from the front door (search, jump-back chips, orientation links, action chips). The only on-page behaviour left is the type-ahead opening and closing. Nothing invites the visitor to dwell — the bet is that the fastest exit to the right page is the whole job.
+
+       F5 also demonstrates the split from issue #730: the front door keeps only
+       the simple instant box (its autocomplete still navigates to
+       callsign.html?c=… on select/submit), while a dedicated "Search" link in
+       the site nav owns the full-power search-and-filter surface. The two do
+       not compete — the box answers "look one thing up", the nav link answers
+       "search and filter the whole record" — and both are navigations, so the
+       back button always returns to this front door. -->
   <main id="main" class="ledger proto">
     <div class="wrap">
       <div class="f5-stage">
