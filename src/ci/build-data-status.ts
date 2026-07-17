@@ -30,7 +30,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFileExists } from '../shared/derived-entries.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { observeEntryHeader } from '../sources/ofcom-amateur/detect-variant.ts';
+import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
 import {
   type FoiEntryMeta,
   listFoiEntryKeys,
@@ -154,6 +155,8 @@ export function buildOpenDataRows(): DatasetRow[] {
         provenance?: string;
         ofcomReportedUpdateIso?: string;
         normalised?: { headerVariant?: string };
+        converter?: { variant?: string };
+        files?: ArchiveMeta['files'];
         linkText?: string;
       }
       : {};
@@ -165,16 +168,25 @@ export function buildOpenDataRows(): DatasetRow[] {
     const hasNormalised = derivedEntryFileExists(key, 'normalised.csv');
     const hasStats = derivedEntryFileExists(key, 'stats.json');
     const hasComponents = derivedEntryFileExists(key, 'components.csv');
-    const headerVariant = meta.normalised?.headerVariant;
+    // Same precedence as the ledger projection (resolveEntryVariant): the
+    // curated forced binding, else the recorded one, else registry detection
+    // from the entry's own header row (observeEntryHeader) - a freshly
+    // fetched publication carries no declaration, but its columns ARE mapped
+    // the moment the registry recognises them, so the grid reports that
+    // honestly rather than "not yet mapped".
+    const declaredVariant = meta.converter?.variant ?? meta.normalised?.headerVariant;
+    const detectedVariant = declaredVariant === undefined && hasRaw ? observeEntryHeader(dir, meta).variant : undefined;
 
     const stages: Record<StageKey, StageCell> = {
       read: hasRaw
         ? { state: 'done', detail: 'raw.csv is machine-readable CSV, already extracted from the source' }
         : { state: 'none', detail: 'no raw.csv held' },
-      understood: headerVariant !== undefined
-        ? { state: 'done', detail: `columns mapped (header variant ${headerVariant})` }
-        : hasRaw ? { state: 'partial', detail: 'columns present but not yet mapped to a header variant' }
-          : { state: 'none', detail: 'nothing to identify' },
+      understood: declaredVariant !== undefined
+        ? { state: 'done', detail: `columns mapped (header variant ${declaredVariant})` }
+        : detectedVariant !== undefined
+          ? { state: 'done', detail: `columns mapped (header variant ${detectedVariant}, detected from the raw header)` }
+          : hasRaw ? { state: 'partial', detail: 'columns present but not yet mapped to a header variant' }
+            : { state: 'none', detail: 'nothing to identify' },
       validated: hasStats
         ? { state: 'done', detail: 'stats.json present; validated by the data validator in CI' }
         : hasRaw ? { state: 'partial', detail: 'raw held but no validation artefact' }

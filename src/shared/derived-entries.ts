@@ -101,3 +101,14 @@ export function derivedEntryFile(key: string, name: DerivedEntryFileName, archiv
 export function derivedEntryFileExists(key: string, name: DerivedEntryFileName, archiveDir: string = CONSTANTS.DIRS.archive): boolean {
   return fs.existsSync(path.join(derivedEntryDir(key, archiveDir), name));
 }
+
+// The derived file names one entry carries in the current mode - the single
+// source of the "union the archive listing with what the switch resolves"
+// rule the enumerating consumers (the download tiers, the published per-entry
+// copies and zips) share. In archive mode these ARE committed names, so a
+// union with a directory listing is a no-op; in projection mode they surface
+// derived files an entry carries only in the projection (a publication newer
+// than the frozen committed baseline).
+export function derivedEntryFileNamesPresent(key: string, archiveDir: string = CONSTANTS.DIRS.archive): DerivedEntryFileName[] {
+  return DERIVED_ENTRY_FILES.filter(name => derivedEntryFileExists(key, name, archiveDir));
+}

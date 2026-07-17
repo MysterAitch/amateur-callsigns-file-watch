@@ -11,18 +11,26 @@ import { CONSTANTS } from '../shared/utils.ts';
 // FULL-CORPUS PARITY GATE for the builder-facing ledger projection (issue
 // #629 phase 1): over the REAL archive, the projection's per-entry derivative
 // files (normalised.csv, components.csv, stats.json) must be BYTE-IDENTICAL
-// to the committed ones the deploy builders and validation read today. Byte
-// identity is the honest bar - the committed files are byte-deterministic by
-// construction (the normalise sweep re-derives them and requires a no-op), so
-// any weaker (semantic) comparison would hide a real divergence. EVERY entry
-// is compared, both lanes, no sampling; a failure names the entry and the
-// first differing line.
+// to the committed ones. Byte identity is the honest bar - the committed
+// files are byte-deterministic by construction (their derivation required a
+// no-op on re-run), so any weaker (semantic) comparison would hide a real
+// divergence. EVERY entry carrying committed derivatives is compared, both
+// lanes, no sampling; a failure names the entry and the first differing line.
 //
-// This gate is the merge condition for the whole legacy-switchover push: only
-// while it holds may phase 2 repoint the consumers (build-dataset-pages,
-// build-callsign-shards, build-home-aggregates, build-data-status,
-// build-interdataset-stats, forbidden-suffix-callsigns, validate-data) at the
-// projection, and only after that may the sweeps retire (#446 -> #447 -> #448).
+// An entry with NO committed derivatives at all is legitimately outside the
+// baseline: a freshly landed publication carries raw + meta only until (and,
+// once #446 freezes the committed baseline, ever after) - the projection must
+// still cover it (the inventory test), but there is nothing committed to
+// byte-compare against; its protection is the projection invariant suite, the
+// reconstruction oracle and the new-entry lane tests. PARTIAL presence (one
+// or two of the three files) is never legitimate and stays a failure, and the
+// baseline itself is pinned entry by entry (FROZEN_BASELINE_KEYS) so no
+// publication can quietly leave it.
+//
+// The gate's standing value: two independent derivation paths - the authored
+// converter lane that wrote the committed files, and the claim-ledger fold -
+// agreeing byte-for-byte over the committed baseline. That agreement is what
+// licenses every consumer to read the projection.
 //
 // Heavy by design (a whole-corpus ledger emit + fold); it runs in the isolated
 // heavy pool (src/testing/heavy-tests.json). BUILDER_PROJECTION_DIR reuses a
@@ -72,16 +80,45 @@ function firstDifferingLine(committed: string, projected: string): string {
   return 'no differing line found - the difference is in raw bytes only (encoding or line terminators)';
 }
 
-// Compare one derivative file across the two lanes for EVERY committed entry,
+// The frozen committed baseline, pinned entry by entry: every dated
+// publication whose derivatives were committed by the derivation lane. A
+// publication landing AFTER the freeze legitimately never joins this list;
+// one LEAVING it (committed derivatives deleted) must fail the gate loudly,
+// which a live directory scan alone could not guarantee.
+const FROZEN_BASELINE_KEYS = [
+  '2022-05-30',
+  '2023-02-20',
+  '2025-04-08',
+  '2025-05-27',
+  '2025-06-04',
+  '2025-06-08',
+  '2025-11-11',
+  '2026-01-14',
+  '2026-06-23',
+] as const;
+
+// The entries carrying a committed baseline: the pinned freeze list plus any
+// later entry that does carry committed derivatives (derivation still runs
+// until #446 lands, so the baseline may still grow - growth is welcome,
+// silent shrinkage is not).
+function baselineKeys(): string[] {
+  const scanned = committedKeys.filter(key =>
+    PROJECTED_ENTRY_FILES.some(file => fs.existsSync(path.join(CONSTANTS.DIRS.archive, key, file))));
+  return [...new Set([...FROZEN_BASELINE_KEYS, ...scanned])].sort();
+}
+
+// Compare one derivative file across the two lanes for every BASELINE entry,
 // returning one named failure per divergent entry. Buffer equality first (the
-// cheap whole-file check), then a line-located message on mismatch.
+// cheap whole-file check), then a line-located message on mismatch. A
+// baseline entry missing this one file is a failure (a partial baseline is
+// never legitimate), as is a projection gap.
 function compareAcrossCorpus(fileName: (typeof PROJECTED_ENTRY_FILES)[number]): string[] {
   const failures: string[] = [];
-  for (const key of committedKeys) {
+  for (const key of baselineKeys()) {
     const committedPath = path.join(CONSTANTS.DIRS.archive, key, fileName);
     const projectedPath = path.join(projectionDir, key, fileName);
     if (!fs.existsSync(committedPath)) {
-      failures.push(`${key}/${fileName}: committed file is missing - every open-data entry is expected to carry it`);
+      failures.push(`${key}/${fileName}: committed file is missing - the entry is in the pinned frozen baseline (or carries sibling derivatives), so its committed derivatives must never disappear`);
       continue;
     }
     if (!fs.existsSync(projectedPath)) {
@@ -101,12 +138,26 @@ describe('Builder projection parity - full corpus, both lanes', { tags: ['data-v
   it('BuilderProjection_CommittedArchiveInventory_IsProjectedExactlyEntryForEntry', () => {
     // Coverage before content: the projection must produce exactly the
     // committed open-data entry set - no entry dropped (a silent fold gap),
-    // none invented (a phantom publication the archive never held).
+    // none invented (a phantom publication the archive never held). This
+    // spans EVERY archive entry, baseline or not: a publication with no
+    // committed derivatives must still fold.
     expect(committedKeys.length).toBeGreaterThanOrEqual(9);
     const projectedKeys = fs.readdirSync(projectionDir)
       .filter(name => fs.statSync(path.join(projectionDir, name)).isDirectory())
       .sort();
     expect(projectedKeys).toEqual(committedKeys);
+  });
+
+  it('BuilderProjection_EveryPinnedBaselineEntry_StillCarriesAllThreeCommittedDerivatives', () => {
+    // The byte-parity oracle is only as strong as its baseline: every pinned
+    // publication must keep all three committed derivatives. A live scan
+    // alone would let an entry leave the baseline silently (a bad merge, a
+    // botched retirement); the pin makes shrinkage loud.
+    const missing = FROZEN_BASELINE_KEYS.flatMap(key =>
+      PROJECTED_ENTRY_FILES
+        .filter(file => !fs.existsSync(path.join(CONSTANTS.DIRS.archive, key, file)))
+        .map(file => `${key}/${file}`));
+    expect(missing).toEqual([]);
   });
 
   it('BuilderProjection_EveryEntryBothLanes_NormalisedCsvIsByteIdentical', () => {

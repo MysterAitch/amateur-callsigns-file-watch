@@ -25,7 +25,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
-import { derivedEntryFile, derivedEntryFileExists, isDerivedEntryFile } from '../shared/derived-entries.ts';
+import { derivedEntryFile, derivedEntryFileExists, derivedEntryFileNamesPresent, isDerivedEntryFile } from '../shared/derived-entries.ts';
 import { CONSTANTS } from '../shared/utils.ts';
 import { linkOrCopyFileSync } from '../shared/link-or-copy.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
@@ -282,10 +282,13 @@ function publishedByBlock(sourceKey: string, witnesses: FoiWitness[], heldHashes
 //
 // resolveSource, when given, maps a file NAME to the path its bytes are taken
 // from (the open-data lane routes its derived files through the archive/
-// projection switch this way); enumeration stays over sourceDir either way.
-function copyEntryFiles(sourceDir: string, targetDir: string, descriptions: Map<string, string>, hashes: Map<string, string>, entryTitle: string, resolveSource?: (name: string) => string): CopiedFile[] {
+// projection switch this way). names, when given, is the caller's own
+// enumeration (the open-data lane unions the archive listing with the derived
+// names present through the switch); the default enumeration is sourceDir's
+// listing.
+function copyEntryFiles(sourceDir: string, targetDir: string, descriptions: Map<string, string>, hashes: Map<string, string>, entryTitle: string, resolveSource?: (name: string) => string, names?: readonly string[]): CopiedFile[] {
   fs.mkdirSync(targetDir, { recursive: true });
-  return fs.readdirSync(sourceDir).sort().map(name => {
+  return [...(names ?? fs.readdirSync(sourceDir).sort())].map(name => {
     const sourcePath = resolveSource === undefined ? path.join(sourceDir, name) : resolveSource(name);
     linkOrCopyFileSync(sourcePath, path.join(targetDir, name));
     const bytes = fs.statSync(sourcePath).size;
@@ -340,8 +343,8 @@ function asSheetsIndicative(value: unknown): SheetsIndicative | undefined {
 // changes - timestamps are pinned by the writer - so a dictionary edit
 // legitimately re-versions every zip that carries it. Returns the zip's
 // byte size.
-function writeEntryZip(sourceDir: string, targetDir: string, key: string, descriptorJson: string, dictionarySources: string[], resolveSource?: (name: string) => string): number {
-  const entries = fs.readdirSync(sourceDir).sort().map(name => ({
+function writeEntryZip(sourceDir: string, targetDir: string, key: string, descriptorJson: string, dictionarySources: string[], resolveSource?: (name: string) => string, names?: readonly string[]): number {
+  const entries = [...(names ?? fs.readdirSync(sourceDir).sort())].map(name => ({
     name,
     data: fs.readFileSync(resolveSource === undefined ? path.join(sourceDir, name) : resolveSource(name)),
   }));
@@ -1232,13 +1235,20 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   // The published copy and the zip take their derived-file bytes through the
   // archive/projection switch (proven byte-identical by the parity gate);
   // raw.*, extracts and meta.json are published from the archive verbatim.
-  // Enumeration stays over the archive entry until the committed derivatives
-  // retire (#446).
+  // Enumeration is the UNION of the archive entry's files and the derived
+  // names present through the switch: an entry whose derivatives exist only
+  // in the projection (a publication newer than the frozen committed
+  // baseline) still publishes and zips all three, and in archive mode the
+  // union is a no-op.
   const resolveSource = (name: string): string =>
     isDerivedEntryFile(name) ? derivedEntryFile(key, name) : path.join(sourceDir, name);
-  const files = copyEntryFiles(sourceDir, targetDir, descriptions, new Map(), pageTitle, resolveSource);
+  const publishNames = [...new Set([
+    ...fs.readdirSync(sourceDir),
+    ...derivedEntryFileNamesPresent(key),
+  ])].sort();
+  const files = copyEntryFiles(sourceDir, targetDir, descriptions, new Map(), pageTitle, resolveSource, publishNames);
   const descriptor = dataPackage(key, `Ofcom open-data publication ${key}`, files);
-  const zipBytes = writeEntryZip(sourceDir, targetDir, key, descriptor, OPEN_DATA_DICTIONARY_SOURCES, resolveSource);
+  const zipBytes = writeEntryZip(sourceDir, targetDir, key, descriptor, OPEN_DATA_DICTIONARY_SOURCES, resolveSource, publishNames);
   const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as {
     provenance?: string;
     reconstructionNotes?: string;

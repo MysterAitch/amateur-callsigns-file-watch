@@ -9,8 +9,11 @@
  * ledger-derived projection databases (src/v2/build-projection-db.ts, issue
  * #572), so the legacy runtime pair (callsigns.sqlite.png, combined.sqlite.png)
  * this build once served has been retired (issue #445). The download tiers'
- * own future - folding the FOI observations union from the ledger - is
- * follow-on work (#446/#447/#448).
+ * own future - which artefacts continue to exist at all - is a decision
+ * tracked on #630; their DERIVED-FILE INPUTS already resolve through the
+ * archive/projection switch (src/shared/derived-entries.ts, issue #629), so
+ * the tiers fold the same bytes whichever home the deploy selects and a
+ * publication newer than the committed derivatives still reaches them.
  *
  * The combined database is still built here as the intermediate the gzipped
  * download twin (combined.sqlite.gz) compresses from, then removed in the
@@ -30,6 +33,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
+import { derivedEntryFile, derivedEntryFileExists, derivedEntryFileNamesPresent, isDerivedEntryFile } from '../shared/derived-entries.ts';
 import { buildFoiObservations, renderObservationsCsvBuffer, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
 import { time, timeAsync, perfReport } from '../shared/perf.ts';
 import { gzipFileToFile, gzipBufferToFile, gzipManyFilesToFiles, type GzipJob } from '../shared/gzip.ts';
@@ -167,6 +171,29 @@ export function fillObservations(db: DatabaseSync, rows: FoiObservationRow[]): n
   return rows.length;
 }
 
+// The CSV file names one open-data entry's download database ingests: the
+// entry's committed CSVs unioned with the derived per-entry files as resolved
+// through the archive/projection switch (issue #629). In archive mode the
+// derived files ARE the committed ones, so the union is a no-op; in projection
+// mode it adds derived files an entry carries only in the projection (a
+// publication newer than the frozen committed baseline) and never drops one.
+// Exported (with the archiveDir seam) so the enumeration is unit-testable in
+// both modes against a scratch corpus.
+export function openDataEntryCsvNames(key: string, archiveDir: string = CONSTANTS.DIRS.archive): string[] {
+  const names = new Set([
+    ...fs.readdirSync(path.join(archiveDir, key)),
+    ...derivedEntryFileNamesPresent(key, archiveDir),
+  ].filter(file => file.endsWith('.csv')));
+  return [...names].sort();
+}
+
+// Where one of those CSVs' bytes come from: derived files through the switch
+// (projection when selected, committed archive otherwise - loud failure on a
+// projection gap), everything else from the committed entry directory.
+export function openDataEntryCsvPath(key: string, file: string, archiveDir: string = CONSTANTS.DIRS.archive): string {
+  return isDerivedEntryFile(file) ? derivedEntryFile(key, file, archiveDir) : path.join(archiveDir, key, file);
+}
+
 // The remaining published tiers (issue #149 item 4 + the composed-stack
 // decision): the mandatory flat union CSV, one SQLite per archive entry,
 // and the combined database. All derived at deploy time, never committed.
@@ -213,20 +240,38 @@ export async function buildPublishedTiers(dataDir: string, options: { compress?:
   // compressed concurrently after every database is built (see below) rather
   // than one-at-a-time in this loop - the many-independent-files parallelism.
   const perDatasetGzipJobs: GzipJob[] = [];
-  const entryDirs: { name: string; dir: string }[] = [
-    ...listArchiveKeys().sort().map(key => ({ name: `open-data--${key}`, dir: path.join(CONSTANTS.DIRS.archive, key) })),
+  // Each entry contributes its CSV file NAMES and a per-name byte source. The
+  // open-data lane's derived files (normalised.csv, components.csv) resolve
+  // through the archive/projection switch: the union with the projection's
+  // names means an entry whose derivatives exist only in the projection (a
+  // publication newer than the frozen committed baseline) still ships them in
+  // its download database, and in archive mode the union is a no-op. The FOI
+  // lane stays a plain directory read (its derivatives are committed files,
+  // not projected - the #445/#447 chain).
+  const entryDirs: { name: string; csvNames: string[]; csvPath: (file: string) => string }[] = [
+    ...listArchiveKeys().sort().map(key => ({
+      name: `open-data--${key}`,
+      csvNames: openDataEntryCsvNames(key),
+      csvPath: (file: string) => openDataEntryCsvPath(key, file),
+    })),
     ...fs.readdirSync(foiDir).filter(n => fs.statSync(path.join(foiDir, n)).isDirectory()).sort()
-      .map(key => ({ name: `foi--${key}`, dir: path.join(foiDir, key) })),
+      .map((key) => {
+        const dir = path.join(foiDir, key);
+        return {
+          name: `foi--${key}`,
+          csvNames: fs.readdirSync(dir).filter(file => file.endsWith('.csv')).sort(),
+          csvPath: (file: string) => path.join(dir, file),
+        };
+      }),
   ];
-  for (const { name, dir } of entryDirs) {
+  for (const { name, csvNames, csvPath } of entryDirs) {
     const buildPath = path.join(perDatasetDir, `${name}.sqlite.tmp`);
     fs.rmSync(buildPath, { force: true });
     const db = new DatabaseSync(buildPath);
     applyBuildPragmas(db);
     let tables = 0;
-    for (const file of fs.readdirSync(dir).sort()) {
-      if (!file.endsWith('.csv')) continue;
-      const records = time('parse:per-dataset-csv', () => parse(fs.readFileSync(path.join(dir, file), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[]);
+    for (const file of csvNames) {
+      const records = time('parse:per-dataset-csv', () => parse(fs.readFileSync(csvPath(file), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[]);
       if (records.length === 0) continue;
       const columns = Object.keys(records[0]);
       const tableName = file.replace(/\.csv$/, '').replace(/[^a-zA-Z0-9]+/g, '_');
@@ -280,20 +325,24 @@ export async function buildPublishedTiers(dataDir: string, options: { compress?:
   // index is plain, never UNIQUE.
   const historyColumns = new Set<string>(['dataset', 'cleaned', 'suffix', 'implied_class', 'prefix_series', 'parse_status', 'normalised_licence_category']);
   const historyRef = loadReferenceData();
+  // Derived-file reads resolve through the archive/projection switch: in
+  // projection mode the register history folds the projection's bytes (proven
+  // byte-identical to the committed files by the parity gate), so it spans
+  // every folded publication - including one newer than the frozen committed
+  // baseline. An entry with no derived register at all (a raw-only source with
+  // no authored converter binding) is legitimately absent in either mode.
   const publications = time('parse:register-history', () => listArchiveKeys().sort()
-    .map(key => ({ key, path: path.join(CONSTANTS.DIRS.archive, key, 'normalised.csv') }))
-    .filter(p => fs.existsSync(p.path))
-    .map(p => {
-      const componentsPath = path.join(CONSTANTS.DIRS.archive, p.key, 'components.csv');
+    .filter(key => derivedEntryFileExists(key, 'normalised.csv'))
+    .map((key) => {
       const componentKeys = new Map<string, { cleaned: string; suffix: string; impliedClass: string; prefixSeries: string; parseStatus: string }>(
-        fs.existsSync(componentsPath)
-          ? parseCsvCached(componentsPath, { columns: true, skip_empty_lines: true })
+        derivedEntryFileExists(key, 'components.csv')
+          ? parseCsvCached(derivedEntryFile(key, 'components.csv'), { columns: true, skip_empty_lines: true })
             .map(c => [c.callsign, { cleaned: c.cleaned ?? cleanedCallsign(c.callsign), suffix: c.suffix ?? '', impliedClass: c.implied_class ?? '', prefixSeries: c.prefix_series ?? '', parseStatus: c.parse_status ?? '' }])
           : []);
       return {
-        key: p.key,
+        key,
         componentKeys,
-        records: parseCsvCached(p.path, { columns: true, skip_empty_lines: true }),
+        records: parseCsvCached(derivedEntryFile(key, 'normalised.csv'), { columns: true, skip_empty_lines: true }),
       };
     }));
   for (const publication of publications) {
