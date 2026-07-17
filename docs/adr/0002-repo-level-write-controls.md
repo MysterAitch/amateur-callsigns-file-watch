@@ -22,7 +22,7 @@ set the way it is, and how to recreate them.
 
 - **Target**: default branch.
 - **Rules**: require a pull request before merging (0 required approvals); require the
-  status checks `tests`, `data-validation` and `golden-master` (the job names in
+  status checks `tests`, `data-validation`, `golden-master` and `workflow-audit` (the job names in
   `.github/workflows/cicd.yaml`, the unified CI/CD pipeline — renaming those jobs
   without updating the ruleset blocks all merges; that same workflow also holds the
   Pages `deploy` job, gated to `main`, so a single file now carries both the required
@@ -43,7 +43,15 @@ Rationale:
   sweep runs, rather than only on the next scheduled round. A red check holds the PR
   open — the branch then IS the preserved record of the anomalous bytes, and merging
   past a red check remains possible as a deliberate, logged admin-bypass act (the "raw
-  record worth keeping despite failing checks" escape hatch).
+  record worth keeping despite failing checks" escape hatch). `workflow-audit`
+  (required since 2026-07-17) gates the workflow files themselves - actionlint
+  (syntax + shellcheck over embedded scripts) and zizmor (security patterns:
+  pwn-requests, credential handling, unpinned actions) - because the workflows
+  ARE the security-critical orchestration: a defect there previously reached
+  `main` silently (red audit runs blocked nothing) and, in one observed case, a
+  workflow-file parse error stopped every check from even registering. Any
+  suppression of an audit finding must carry its rationale inline where the
+  trade-off is visible.
 - *0 required approvals* because a solo maintainer cannot approve their own PRs; a
   required-review rule would deadlock every code change. The review pressure comes from
   the sweep's data-path allowlist (automated PRs) and from the maintainer being the only

@@ -60,6 +60,7 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
     const wf = workflow();
     expect(wf, 'the required check job `tests` is missing/renamed').toMatch(/\n {2}tests:\n/);
     expect(wf, 'the required check job `data-validation` is missing/renamed').toMatch(/\n {2}data-validation:\n/);
+    expect(wf, 'the required check job `workflow-audit` is missing/renamed').toMatch(/\n {2}workflow-audit:\n/);
   });
 
   it('GoldenMaster_ReportsAStable_NonMatrixContext', () => {
