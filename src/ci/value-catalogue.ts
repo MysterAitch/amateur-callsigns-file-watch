@@ -91,11 +91,13 @@ const ALLOCATED_STATUS = 'Allocated';
 // vocabularies, so they share one field to make the drift visible.
 export const PRODUCT_FIELD = 'product / licence_class';
 
-// The special-event / Notice-of-Variation licence-category family and its
-// temporal character (issue #344). Ofcom issues these under a Notice of
-// Variation; the non-permanent Special Event Station callsigns are typically
-// event-bounded — a jubilee year, a single commemoration — whereas the
-// permanent variant and the research permit are open-ended. The register's own
+// The special-event / Notice-of-Variation licence-category family and the
+// temporal character its NAMES suggest (issue #344). Ofcom issues these under
+// a Notice of Variation; the names read as event-bounded (Special Event
+// Station — a jubilee year, a single commemoration) or open-ended (the
+// permanent variant, the research permit), but the register never defines the
+// terms, so the characters below are the names' nominal reading, presented for
+// the reader to weigh against the per-record evidence. The register's own
 // created_date (record creation) and reserved_to_date (reservation expiry)
 // BRACKET an event window rather than state it, and the snapshot day is only
 // month-level, so any window is attested-or-bracketed, never inferred. The
@@ -347,18 +349,20 @@ function sesTemporalCharacterSection(windows: readonly SesWindowAttestation[]): 
   const lines: string[] = [];
   lines.push('### Temporal character of the special-event family');
   lines.push('');
-  lines.push('The special-event / Notice-of-Variation categories differ in temporal');
-  lines.push('shape. Non-permanent `Special Event Station` callsigns are typically');
-  lines.push('event-bounded — a jubilee year, a single commemoration — whereas');
-  lines.push('`Permanent Special Event Station` and `Special Research Permit` are');
-  lines.push('open-ended. The register\'s own `created_date` (record creation) and');
+  lines.push('The special-event / Notice-of-Variation category NAMES suggest different');
+  lines.push('temporal shapes — `Special Event Station` reads as event-bounded (a');
+  lines.push('jubilee year, a single commemoration), `Permanent Special Event Station`');
+  lines.push('and `Special Research Permit` as open-ended — but the register does not');
+  lines.push('define these terms, so the reading is the name\'s, not a rule, and the');
+  lines.push('per-record evidence below is left for the reader to weigh.');
+  lines.push('The register\'s own `created_date` (record creation) and');
   lines.push('`reserved_to_date` (reservation expiry) BRACKET an event window rather');
   lines.push('than state it, and the snapshot day is only month-level, so any window');
   lines.push('is attested-or-bracketed, never inferred. Only the register snapshots');
   lines.push('that state a reservation-expiry field attest a window, so the counts');
   lines.push('below are that field\'s slice of each category, not its whole population.');
   lines.push('');
-  lines.push('| category | temporal character | records stating a reservation field | with an end date | left open |');
+  lines.push('| category | nominal character (from the name) | records stating a reservation field | with an end date | left open |');
   lines.push('|---|---|---:|---:|---:|');
   for (const w of windows) {
     lines.push(`| ${mdCode(w.category)} | ${w.character} | ${w.statingField.toLocaleString('en-GB')} | ${w.withEndDate.toLocaleString('en-GB')} | ${w.openEnded.toLocaleString('en-GB')} |`);
