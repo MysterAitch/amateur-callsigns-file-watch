@@ -1,34 +1,25 @@
-#!/usr/bin/env node
-
 /**
- * FOI-lane derivation sweep (issue #149, item 1): the daily companion to the
- * report sweep, covering `archive/foi/`.
- *
- * For every FOI entry this re-executes the full derivation chain from the
- * committed bytes and verifies it reproduces the committed derivatives
- * byte-for-byte:
+ * FOI-lane derivation verification (issue #149 item 1; converted from the
+ * daily sweep by #447): for every FOI entry this re-executes the full
+ * derivation chain from the committed bytes and verifies it reproduces the
+ * committed derivatives byte-for-byte:
  *
  *   - workbook extracts (declared `extractedBy: src/shared/xlsx-extract.ts`)
  *     are re-derived from their `extractOf` workbook;
  *   - normalised files are re-derived by the entry's authored converter
  *     binding ({script, variant} in meta.json).
  *
- * Unlike the open-data sweep this is REPORT-AND-VERIFY ONLY - no writeback,
- * no PR. In the FOI lane a converter change must regenerate its outputs in
- * the same reviewed PR (the golden-master tests enforce byte-equality on
- * every CI run), so daily drift can only mean environment divergence or
- * archive corruption: either way the run turns red and the coverage
- * dashboard names the entry. Entries that legitimately have nothing to
+ * This is VERIFY ONLY - no writeback: in the FOI lane a converter change
+ * must regenerate its outputs in the same reviewed PR, so drift here can
+ * only mean environment divergence or archive corruption. The whole-lane
+ * verification runs as a CI test on EVERY pull request and push
+ * (foi-verification.test.ts) - a strictly tighter cadence than the retired
+ * daily schedule, since the committed bytes it polices can only change via a
+ * merge, and every merge runs it. Entries that legitimately have nothing to
  * derive are reported honestly rather than omitted: `record-only` (no
  * dataset - not-held/referral responses), `raw-only` (dataset present, no
  * converter yet), and transcription-backed extracts (attested, not
  * mechanically re-derivable).
- *
- * Emits a coverage-markdown section for the workflow to concatenate with the
- * open-data report (COVERAGE_MARKDOWN_FILE, same convention), and exits
- * non-zero if any entry fails or drifts.
- *
- * Usage: node src/ci/foi-sweep.ts
  */
 
 import * as fs from 'fs';
@@ -51,10 +42,9 @@ export interface FoiEntryReport {
   note: string;
 }
 
-export interface FoiSweepReport {
+export interface FoiVerificationReport {
   entries: FoiEntryReport[];
   failed: FoiEntryReport[];
-  coverageMarkdown: string;
 }
 
 // Re-derives every mechanically-extracted file in the entry and returns the
@@ -116,7 +106,7 @@ function verifyConversions(entryDir: string, variant: string, files: Record<stri
   return { drifted, verified };
 }
 
-function sweepEntry(archiveDir: string, entryKey: string): FoiEntryReport {
+function verifyEntry(archiveDir: string, entryKey: string): FoiEntryReport {
   const entryDir = path.join(archiveDir, entryKey);
   const meta = readFoiEntryMeta(archiveDir, entryKey);
   const classes = meta.datasetClasses ?? [];
@@ -157,51 +147,17 @@ function sweepEntry(archiveDir: string, entryKey: string): FoiEntryReport {
 
 // Parameterised for tests (tamper checks run against a scratch archive);
 // production use is always the repo's archive/foi.
-export function sweepFoiLaneAt(archiveDir: string): FoiSweepReport {
+export function verifyFoiLaneAt(archiveDir: string): FoiVerificationReport {
   const entryKeys = fs.readdirSync(archiveDir)
     .filter(name => fs.statSync(path.join(archiveDir, name)).isDirectory())
     .sort();
   if (entryKeys.length === 0) throw new Error('no FOI archive entries found');
 
-  const entries = entryKeys.map(entryKey => sweepEntry(archiveDir, entryKey));
+  const entries = entryKeys.map(entryKey => verifyEntry(archiveDir, entryKey));
   const failed = entries.filter(e => e.state === 'failed' || e.state === 'drift');
-
-  const stateCounts = new Map<string, number>();
-  for (const entry of entries) {
-    stateCounts.set(entry.state, (stateCounts.get(entry.state) ?? 0) + 1);
-  }
-  const summary = [...stateCounts.entries()].map(([state, count]) => `${count} ${state}`).join(', ');
-
-  const lines = [
-    `## FOI lane (${entries.length} entries: ${summary})`,
-    '',
-    'Every derivation re-executed from committed bytes and byte-compared against the committed derivatives (report-and-verify; converter changes ship their regenerated outputs in reviewed PRs, so drift here means environment divergence or corruption).',
-    '',
-    '| entry | classes | state | note |',
-    '|---|---|---|---|',
-    ...entries.map(e => `| ${e.entryKey} | ${e.classes.join(', ')} | ${e.state} | ${e.note} |`),
-  ];
-
-  return { entries, failed, coverageMarkdown: lines.join('\n') };
+  return { entries, failed };
 }
 
-export function sweepFoiLane(): FoiSweepReport {
-  return sweepFoiLaneAt(FOI_ARCHIVE_DIR);
-}
-
-function main(): void {
-  const report = sweepFoiLane();
-  console.log(report.coverageMarkdown);
-  if (process.env.COVERAGE_MARKDOWN_FILE) {
-    fs.writeFileSync(process.env.COVERAGE_MARKDOWN_FILE, report.coverageMarkdown + '\n');
-  }
-  if (report.failed.length > 0) {
-    console.error(`\n${report.failed.length} entry/entries failed or drifted:`);
-    for (const entry of report.failed) console.error(`  ${entry.entryKey}: ${entry.note}`);
-    process.exitCode = 1;
-  }
-}
-
-if (import.meta.main) {
-  main();
+export function verifyFoiLane(): FoiVerificationReport {
+  return verifyFoiLaneAt(FOI_ARCHIVE_DIR);
 }

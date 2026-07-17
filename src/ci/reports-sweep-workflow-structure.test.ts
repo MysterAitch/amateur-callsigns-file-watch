@@ -52,13 +52,16 @@ describe('reports-sweep.yml structure', { tags: ['unit'] }, () => {
     expect(wf, 'the workflow stages latest-meta.json - the pointer mirror is the fetch lane’s, not this one’s').not.toMatch(/git add [^\n]*latest-meta\.json/);
   });
 
-  it('ReportSweep_FoiVerification_StillRunsDaily', () => {
-    // The FOI lane's report-and-verify sweep rides this schedule until #447
-    // converts it; losing the step would silently end the daily
-    // corruption/environment tripwire it provides.
+  it('ReportSweep_FailureGate_TurnsTheRunRedOnAnyEntryFailure', () => {
+    // The sweep's exit code is captured with set +e (so the PR/dashboard
+    // steps still publish the honest state) and the FINAL step re-raises it;
+    // losing that gate would let per-entry failures pass silently green. The
+    // FOI lane deliberately has no step here (#447): its verification runs
+    // per-PR as foi-verification.test.ts.
     const wf = workflow();
-    expect(wf, 'the FOI sweep step is missing').toContain('npm run foi:sweep');
-    expect(wf, 'the run no longer fails when a lane failed').toContain('if [ "$SWEEP_EXITCODE" != "0" ] || [ "$FOI_EXITCODE" != "0" ]; then');
+    expect(wf, 'the sweep exit-code capture is missing').toContain('echo "exitcode=$?" >> "$GITHUB_OUTPUT"');
+    expect(wf, 'the run no longer fails when an entry failed').toContain('if [ "$SWEEP_EXITCODE" != "0" ]; then');
+    expect(wf, 'a scheduled FOI sweep step has reappeared - that lane is verified per-PR (foi-verification.test.ts), not on this schedule').not.toContain('foi:sweep');
   });
 
   it('ReportSweep_CheckoutWithoutPersistedCredentials_TokenOnlyAtPush', () => {

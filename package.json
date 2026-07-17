@@ -18,7 +18,6 @@
     "lint": "eslint src/ site/",
     "validate:data": "node src/ci/validate-data.ts",
     "reports:sweep": "node src/ci/report-sweep.ts",
-    "foi:sweep": "node src/ci/foi-sweep.ts",
     "dataset:status": "node src/ci/dataset-status.ts",
     "foi:schemas": "node src/ci/foi-schemas.ts",
     "labels:pr": "node src/ci/pr-dataset-labels.ts",

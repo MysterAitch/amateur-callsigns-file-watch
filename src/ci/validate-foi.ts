@@ -8,8 +8,8 @@
  * every run, every on-disk file declared.
  *
  * Purely structural/referential by design: whether derivations still
- * REPRODUCE is verified per-PR by the golden-master tests and daily by the
- * FOI sweep. This module answers "is the entry's own record honest?" -
+ * REPRODUCE is verified per-PR by the golden-master tests and the whole-lane
+ * FOI verification. This module answers "is the entry's own record honest?" -
  * which is also what makes scaffolded, half-authored entries unmergeable
  * (TODO placeholders fail the shape checks loudly).
  */

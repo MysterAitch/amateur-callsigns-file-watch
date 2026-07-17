@@ -190,8 +190,9 @@ the parse source. Three extract idioms are in use:
 
 Generate the normalised file with
 `node src/shared/foi-normalise.ts archive/foi/{key}` and verify with
-`npm run foi:sweep` (it re-derives every extract and normalised file
-byte-identically). Template entries:
+`npx vitest run src/ci/foi-verification.test.ts` (it re-derives every
+extract and normalised file across the whole lane and byte-compares them -
+the same gate every PR runs). Template entries:
 `archive/foi/ofcom-2025-09-11--callsigns--all-callsigns` (workbook),
 `archive/foi/ofcom-2024-04-30--copy-all-callsigns--all-callsigns` (CSV),
 `archive/foi/ofcom-2020-04-23--club-call-signs` (a Save-As-PDF disclosure with
@@ -294,8 +295,9 @@ this dataset — the historical pain was discovering them one CI round at a time
 - `npm run validate:data` — meta shape, witnesses (including that every
   divergent witness is paired with a `divergences[]` record), byte integrity,
   extract declarations, line accounting against the parse source,
-  attested-duplicates policy. (FOI lane: `npm run foi:sweep` re-derives every
-  extract and normalised file byte-identically.)
+  attested-duplicates policy. (FOI lane:
+  `npx vitest run src/ci/foi-verification.test.ts` re-derives every extract
+  and normalised file byte-identically.)
 - The reconstruction oracle
   ([`reconstruction-oracle.test.ts`](../src/ci/reconstruction-oracle.test.ts))
   — the source must reconstruct byte-identically from the ledger (modulo

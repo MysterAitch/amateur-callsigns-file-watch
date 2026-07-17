@@ -77,41 +77,23 @@ jobs:
       - name: Build builder projection
         run: node src/v2/build-builder-projection.ts "$RUNNER_TEMP/builder-projection"
 
+      # The FOI lane has no scheduled step (#447): its derivation
+      # verification runs as a CI test on every pull request and push
+      # (foi-verification.test.ts, whole lane, byte-identity) - a tighter
+      # cadence than a daily cron for bytes that can only change via a merge.
       - name: Run report sweep
         id: sweep
         env:
-          COVERAGE_MARKDOWN_FILE: /tmp/coverage-opendata.md
+          # The sweep writes its coverage section even when entries fail; a
+          # missing file means it crashed before reporting, so the steps
+          # below refuse to PR from (or publish) unaccounted state.
+          COVERAGE_MARKDOWN_FILE: /tmp/coverage.md
           CLAIMS_PARQUET: ${{ runner.temp }}/claims.parquet
           BUILDER_PROJECTION_DIR: ${{ runner.temp }}/builder-projection
         run: |
           set +e
           npm run reports:sweep
           echo "exitcode=$?" >> "$GITHUB_OUTPUT"
-
-      # The FOI lane is report-and-verify only (no writeback): converter
-      # changes ship their regenerated outputs in reviewed PRs and the
-      # golden-master tests enforce byte-equality on every CI run, so drift
-      # here means environment divergence or corruption - it turns the run
-      # red and names the entry on the dashboard.
-      - name: Run FOI derivation sweep
-        id: foi
-        env:
-          COVERAGE_MARKDOWN_FILE: /tmp/coverage-foi.md
-        run: |
-          set +e
-          npm run foi:sweep
-          echo "exitcode=$?" >> "$GITHUB_OUTPUT"
-
-      - name: Assemble coverage report
-        run: |
-          set -euo pipefail
-          # Each lane's sweep writes its section even when entries fail;
-          # a missing section means that sweep crashed before reporting, so
-          # leave /tmp/coverage.md absent and the steps below will refuse to
-          # PR from (or publish) unaccounted state.
-          if [ -f /tmp/coverage-opendata.md ] && [ -f /tmp/coverage-foi.md ]; then
-            cat /tmp/coverage-opendata.md /tmp/coverage-foi.md > /tmp/coverage.md
-          fi
 
       - name: Open PR for changed reports
         env:
@@ -177,12 +159,11 @@ jobs:
             gh issue create --title "$title" --body-file /tmp/issue-body.md
           fi
 
-      - name: Fail run if any entry failed or drifted
+      - name: Fail run if any entry failed
         env:
           SWEEP_EXITCODE: ${{ steps.sweep.outputs.exitcode }}
-          FOI_EXITCODE: ${{ steps.foi.outputs.exitcode }}
         run: |
-          if [ "$SWEEP_EXITCODE" != "0" ] || [ "$FOI_EXITCODE" != "0" ]; then
-            echo "::error::One or more entries failed to report or verify - see the sweep step logs and the coverage issue."
+          if [ "$SWEEP_EXITCODE" != "0" ]; then
+            echo "::error::One or more entries failed to report - see the sweep step logs and the coverage issue."
             exit 1
           fi
