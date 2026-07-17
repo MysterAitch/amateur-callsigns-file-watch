@@ -433,7 +433,13 @@ jobs:
           pattern: coverage-blob-*
           merge-multiple: true
           path: .vitest-reports
-      - run: npx vitest --merge-reports --coverage
+      - run: npx vitest --merge-reports --coverage --reporter=default --reporter=json --outputFile=.vitest-reports/merged-results.json --coverage.reporter=text --coverage.reporter=json-summary
+      # Meta-reporting only: renders totals, failure names and merged coverage
+      # onto the run summary page. Runs even when the merge step failed so a
+      # red run still shows WHICH tests failed at a glance; never gates.
+      - name: Write run summary
+        if: ${{ !cancelled() }}
+        run: node --experimental-strip-types src/ci/ci-summary.ts >> "$GITHUB_STEP_SUMMARY"
 
   # Aggregator gate: the single required `tests` check branch protection needs.
   # The suite is fanned out across typecheck / build-claims / heavy / fast (#478),
