@@ -654,10 +654,20 @@ jobs:
           # than the baseline exists only in the projection - reading it here
           # is what keeps this drift gate honest the day one lands.
           node src/v2/build-builder-projection.ts "$RUNNER_TEMP/builder-projection"
-          BUILDER_PROJECTION_DIR="$RUNNER_TEMP/builder-projection" npm run reports:sweep
+          mkdir -p .perf-reports
+          PERF=1 PERF_JSON=.perf-reports/report-sweep.json BUILDER_PROJECTION_DIR="$RUNNER_TEMP/builder-projection" npm run reports:sweep
           rm -rf .golden-cache/reports
           mkdir -p .golden-cache
           cp -r reports .golden-cache/reports
+      # Same phase-timing history for the report sweep (#354); regeneration
+      # is cache-gated, so absence on a run means "not regenerated".
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: perf-reports-golden-master
+          path: .perf-reports/
+          retention-days: 90
+          if-no-files-found: ignore
       - name: Restore cached regeneration (cache hit)
         if: steps.reports-cache.outputs.cache-hit == 'true'
         run: |
@@ -776,7 +786,7 @@ jobs:
           # never thrashes the garbage collector against the default ceiling.
           NODE_OPTIONS: --max-old-space-size=12288
         run: |
-          mkdir -p .dbstage
+          mkdir -p .dbstage .perf-reports
           # The raw-keyed claim-ledger database (issue #361, Stage 3a): the deploy
           # artefact the Ledger page queries in the browser over the same range-
           # request VFS, in the same .png costume. The COMPACT build (#368) folds
@@ -788,7 +798,7 @@ jobs:
           # of the multi-GB database it previously built and then deleted.
           # --ledger-dir keeps the Stage-1 JSONL emit so the projection builds
           # below fold the SAME emit instead of paying for a second one.
-          node src/v2/build-ledger-db-compact.ts .dbstage/claim-ledger.sqlite.png --no-gz-twin --ledger-dir="$RUNNER_TEMP/v2-ledger-emit"
+          PERF=1 PERF_JSON=.perf-reports/build-ledger-db-compact.json node src/v2/build-ledger-db-compact.ts .dbstage/claim-ledger.sqlite.png --no-gz-twin --ledger-dir="$RUNNER_TEMP/v2-ledger-emit"
           # The ledger-derived surface projection databases (issue #572): the
           # lookup and history databases the interactive surfaces (app.js,
           # compare.js, entry-browser.js, explore.js) query over the same
@@ -828,7 +838,7 @@ jobs:
           # inputs resolve to the projection - byte-identical to the committed
           # files by the parity gate, and covering a publication newer than the
           # frozen committed baseline the moment it lands.
-          BUILDER_PROJECTION_DIR="$GITHUB_WORKSPACE/.builder-projection" node src/ci/build-sqlite.ts .dbstage
+          PERF=1 PERF_JSON=.perf-reports/build-sqlite.json BUILDER_PROJECTION_DIR="$GITHUB_WORKSPACE/.builder-projection" node src/ci/build-sqlite.ts .dbstage
           # Serve the ledger CHUNKED, not as one file (issue #475). A HEAD of a
           # large object on Pages negotiates a compressed variant that is a
           # persistent CDN cache MISS, stalling the in-browser open ~30s. Chunked
@@ -852,7 +862,7 @@ jobs:
           # committed archive. meta.json and the raw files stay archive reads.
           BUILDER_PROJECTION_DIR: ${{ github.workspace }}/.builder-projection
         run: |
-          mkdir -p _site/data _site/vendor
+          mkdir -p _site/data _site/vendor .perf-reports
           # Publish the built databases - restored from the cache above, or freshly
           # built on a miss. -l HARDLINKS instead of copying: .dbstage and _site
           # share one filesystem, so the multi-GB databases are named twice, not
@@ -878,7 +888,7 @@ jobs:
           # Dataset index (issue #149 item 3): per-entry pages publishing the
           # archived files verbatim at stable URLs + Frictionless descriptors +
           # sitemap.xml - the Wayback Machine crawl seed.
-          node src/ci/build-dataset-pages.ts _site
+          PERF=1 PERF_JSON=.perf-reports/build-dataset-pages.json node src/ci/build-dataset-pages.ts _site
           # Copy every hand-authored site asset by glob rather than a hand-listed
           # set: a module added later (and imported by app.js et al) is deployed
           # automatically, so a missing import can no longer break the live pages.
@@ -890,6 +900,17 @@ jobs:
           # after it passed 1 GB. Reads the published databases; fails loudly if one
           # is missing.
           node src/ci/build-db-sizes.ts _site
+      # Phase-timing history for the optimisation work (#354): coarse per-
+      # phase reports from the instrumented builders, recorded on every run
+      # that actually built (cache-hit runs produce only the assemble-step
+      # report - absence of the others means "not rebuilt", not zero).
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: perf-reports-site-build
+          path: .perf-reports/
+          retention-days: 90
+          if-no-files-found: ignore
           # Version-stamp the service worker (ADR 0008). The browser re-installs a
           # worker only when its script bytes change, so writing the commit SHA into
           # DEPLOY_VERSION makes each deploy supersede the last. Same rationale as
