@@ -13,7 +13,7 @@
 // all present in the markup. This file only ADDS type-ahead, figure stamping,
 // the timeline dots, surprise rotation and single-panel tab behaviour.
 
-import { attachSearch, stampFigures, renderRecents, PUBLICATIONS, RECORD } from './entry-common.js';
+import { attachSearch, stampFigures, renderRecents, PUBLICATIONS, RECORD, HOLDINGS, KIND_LETTER, KIND_LABEL } from './entry-common.js';
 
 const RECENTS_FALLBACK = ['M7TEE', '2E0AAA', 'GB2RS'];
 
@@ -28,8 +28,74 @@ export function initComposite() {
   renderRecents(document.getElementById('jumpback'), { fallback: RECENTS_FALLBACK });
 
   renderTimeline();
+  renderHoldingsMap();
   renderSurprises();
   wireTabs();
+}
+
+/** Render the corpus-wide HOLDINGS MAP (the lettered-cell grid from the built
+ *  site's publisher pages, adapted here to the whole ~65-dataset corpus): one
+ *  cell per dataset, lettered and tinted by kind, stacked newest vintage year
+ *  first, each cell a genuine deep-link to that dataset's own page. Reuses the
+ *  production component's markup and class names (see src/ci/build-publisher-
+ *  pages.ts). Skipped when the grid hook is absent, so variants without the map
+ *  are unaffected; degrades to the static lead + browse-all link with JS off. */
+function renderHoldingsMap() {
+  const grid = document.getElementById('hold-grid');
+  if (!grid) return;
+
+  const dated = HOLDINGS.filter((h) => typeof h.vintage === 'string');
+  const yearOf = (h) => Number(h.vintage.slice(0, 4));
+  // The single newest register snapshot keeps the removed timeline's "latest
+  // snapshot" signal — a quiet accent ring on its cell.
+  const latestKey = HOLDINGS
+    .filter((h) => h.kind === 'register-snapshot')
+    .reduce((a, b) => (a && a.vintage > b.vintage ? a : b), null)?.key;
+
+  const cell = (h) => {
+    const label = KIND_LABEL[h.kind] ?? h.kind;
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.className = 'hold-cell' + (h.key === latestKey ? ' hold-cell--latest' : '');
+    a.dataset.kind = h.kind;
+    a.href = h.href;
+    a.setAttribute('aria-label', `${label}: ${h.title}`);
+    a.innerHTML = `<span aria-hidden="true">${KIND_LETTER[h.kind] ?? h.kind.charAt(0).toUpperCase()}</span>`;
+    li.appendChild(a);
+    return li;
+  };
+
+  const years = dated.map(yearOf);
+  const minYear = Math.min(...years);
+  const maxYear = Math.max(...years);
+  // Continuous axis, newest year first; an empty year renders as a visible gap.
+  for (let year = maxYear; year >= minYear; year--) {
+    const inYear = dated
+      .filter((h) => yearOf(h) === year)
+      .sort((a, b) => b.vintage.localeCompare(a.vintage) || a.key.localeCompare(b.key));
+    const row = document.createElement('li');
+    row.className = 'hold-map-yr' + (inYear.length === 0 ? ' hold-map-yr--empty' : '');
+    const lab = document.createElement('span');
+    lab.className = 'hold-map-yrlab';
+    lab.textContent = String(year);
+    const cells = document.createElement('ul');
+    cells.className = 'hold-map-cells';
+    inYear.forEach((h) => cells.appendChild(cell(h)));
+    row.append(lab, cells);
+    grid.appendChild(row);
+  }
+
+  // The keyboard skip affordance is only worth showing once the grid actually
+  // holds its tab stops; name the real count so the promise is concrete.
+  const skip = document.getElementById('hold-skip');
+  if (skip) {
+    skip.textContent = `Skip the holdings map (${HOLDINGS.length} datasets)`;
+    skip.hidden = false;
+  }
+  // With the grid populated, the static browse-all fallback is redundant chrome;
+  // JS-on visitors get the live map, so retire it.
+  const fallback = document.getElementById('hold-fallback');
+  if (fallback) fallback.hidden = true;
 }
 
 /** Render the archived publications along a shared time axis (candidate C).
@@ -132,9 +198,16 @@ function wireTabs() {
   tabs.forEach((tab, i) => {
     tab.addEventListener('click', () => select(tab));
     tab.addEventListener('keydown', (e) => {
+      let next;
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      } else if (e.key === 'Home') {
+        next = tabs[0];
+      } else if (e.key === 'End') {
+        next = tabs[tabs.length - 1];
+      }
+      if (next) {
         e.preventDefault();
-        const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
         select(next);
         next.focus();
       }

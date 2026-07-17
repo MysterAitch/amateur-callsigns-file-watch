@@ -39,6 +39,77 @@ export const PUBLICATIONS = [
   '2026-06-23',
 ];
 
+// The dataset-kind vocabulary the built site uses (see src/ci/build-publisher-
+// pages.ts): one letter and one plain-English label per kind, carried on every
+// holdings-map cell so the kind is legible without relying on the tint (colour
+// is never the sole cue). Letters follow the production component exactly, so
+// the front-door map and the per-publisher maps read as the same component:
+// I is issuance events, T is per-callsign attributes.
+export const KIND_LETTER = {
+  'register-snapshot': 'R',
+  'available-pool': 'A',
+  'issuance-events': 'I',
+  'forbidden-list': 'F',
+  'statistics-aggregate': 'S',
+  'attribute-addendum': 'T',
+  'reference-context': 'C',
+};
+export const KIND_LABEL = {
+  'register-snapshot': 'Register snapshot',
+  'available-pool': 'Available pool',
+  'issuance-events': 'Issuance events',
+  'forbidden-list': 'Forbidden suffixes',
+  'statistics-aggregate': 'Statistics',
+  'attribute-addendum': 'Attributes',
+  'reference-context': 'Context',
+};
+
+// Corpus-wide holdings for the front-door map — every dataset the mirror holds,
+// across every publisher, one entry each (the whole ~65-dataset corpus RECORD
+// counts). Each carries the dataset kind, its data vintage, and a GENUINE
+// deep-link to that dataset's own page: open-data register snapshots resolve by
+// publication date (datasets/open-data/{date}/), FOI-lane disclosures by their
+// request key (datasets/foi/{key}/). Every key below is a real archived
+// disclosure; the open-data dates are the PUBLICATIONS list above. Epistemics:
+// vintages are the data's own vintage, not the fetch date, and the set is dated
+// to the 16 July 2026 build like every other figure on the page.
+const OPEN_DATA_HOLDINGS = PUBLICATIONS.map((date) => ({
+  kind: 'register-snapshot',
+  vintage: date,
+  key: `open-data-${date}`,
+  title: `Open-data register snapshot, ${humaniseDate(date)}`,
+  href: `datasets/open-data/${date}/index.html`,
+}));
+
+const FOI_HOLDINGS = [
+  { kind: 'available-pool', vintage: '2013-05', key: 'wdtk-174341--available-callsigns-list', title: 'Available callsigns list (WDTK 174341)' },
+  { kind: 'available-pool', vintage: '2014-02', key: 'wdtk-197896--available-callsigns-list', title: 'Available callsigns list (WDTK 197896)' },
+  { kind: 'available-pool', vintage: '2014-09', key: 'wdtk-224333--available-callsigns-list', title: 'Available callsigns list (WDTK 224333)' },
+  { kind: 'available-pool', vintage: '2015-04', key: 'wdtk-247308--available-callsigns-list', title: 'Available callsigns list (WDTK 247308)' },
+  { kind: 'available-pool', vintage: '2016-06', key: 'ofcom-285990--available-list-jun-2016', title: 'Available callsigns list, June 2016 (Ofcom 285990)' },
+  { kind: 'available-pool', vintage: '2016-11', key: 'wdtk-309076--available-callsigns-list', title: 'Available callsigns list (WDTK 309076)' },
+  { kind: 'forbidden-list', vintage: '2019-05', key: 'wdtk-356636--all-callsigns-plus-forbidden', title: 'All callsigns plus forbidden suffixes (WDTK 356636)' },
+  { kind: 'forbidden-list', vintage: '2021-07', key: 'wdtk-596532--allocated-reserved-forbidden', title: 'Allocated, reserved and forbidden callsigns (WDTK 596532)' },
+  { kind: 'forbidden-list', vintage: '2024-12', key: 'ofcom-2024-12--forbidden-suffixes', title: 'Forbidden suffixes, December 2024 (Ofcom)' },
+  { kind: 'issuance-events', vintage: '2014-07', key: 'wdtk-238892--out-of-sequence-callsigns', title: 'Out-of-sequence callsigns (WDTK 238892)' },
+  { kind: 'issuance-events', vintage: '2018-03', key: 'ofcom-498903--reissued-callsigns-since-2010', title: 'Reissued callsigns since 2010 (Ofcom 498903)' },
+  { kind: 'issuance-events', vintage: '2018-03', key: 'ofcom-498906--reciprocal-licences-since-2010', title: 'Reciprocal licences since 2010 (Ofcom 498906)' },
+  { kind: 'issuance-events', vintage: '2023-06', key: 'wdtk-1141667--issued-callsigns', title: 'Issued callsigns (WDTK 1141667)' },
+  { kind: 'statistics-aggregate', vintage: '2013-04', key: 'wdtk-174543--licence-statistics', title: 'Licence statistics (WDTK 174543)' },
+  { kind: 'statistics-aggregate', vintage: '2014-01', key: 'wdtk-184767--annual-licence-counts', title: 'Annual licence counts (WDTK 184767)' },
+  { kind: 'statistics-aggregate', vintage: '2023-09', key: 'wdtk-1180568--licence-breakdown-duration-age', title: 'Licence breakdown by duration and age (WDTK 1180568)' },
+  { kind: 'attribute-addendum', vintage: '2015-01', key: 'ofcom-01420046--allocated-reserved-callsigns', title: 'Allocated and reserved callsigns (Ofcom 01420046)' },
+  { kind: 'attribute-addendum', vintage: '2015-11', key: 'wdtk-248271--callbook-psi-licensees', title: 'Callbook / PSI licensees (WDTK 248271)' },
+  { kind: 'attribute-addendum', vintage: '2020-04', key: 'ofcom-2020-04-23--club-call-signs', title: 'Club call signs, April 2020 (Ofcom)' },
+  { kind: 'attribute-addendum', vintage: '2020-10', key: 'ofcom-2020-10-23--reserved-callsigns', title: 'Reserved callsigns, October 2020 (Ofcom)' },
+  { kind: 'reference-context', vintage: '2015-08', key: 'wdtk-251507--reissue-policy', title: 'Callsign reissue policy (WDTK 251507)' },
+  { kind: 'reference-context', vintage: '2021-03', key: 'ofcom-210648--corrupt-annex-callsigns', title: 'Corrupt annex callsigns (Ofcom 210648)' },
+  { kind: 'reference-context', vintage: '2022-08', key: 'ofcom-518689--suffix-availability-not-held', title: 'Suffix availability — not held (Ofcom 518689)' },
+  { kind: 'reference-context', vintage: '2024-02', key: 'wdtk-945167--available-full-callsigns-not-held', title: 'Available full callsigns — not held (WDTK 945167)' },
+].map((h) => ({ ...h, href: `datasets/foi/${h.key}/index.html` }));
+
+export const HOLDINGS = [...OPEN_DATA_HOLDINGS, ...FOI_HOLDINGS];
+
 // A small curated sample of real callsigns and suffixes, each with a plain hint,
 // so type-ahead can be shown without the full database. On selection every one
 // resolves through the real instant page.
