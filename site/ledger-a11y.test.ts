@@ -119,6 +119,109 @@ describe('ledger.css contrast guard (issues #407 / #411)', { tags: ['ui'] }, () 
   });
 });
 
+// --- Publisher holdings-map letter cells (issue #687) -----------------------
+// The fix lives in the composite's own module (src/ci/build-publisher-pages.ts),
+// not in this file's ledger.css: every map cell is an <a> (it links to its
+// row), and ledger.css's page-wide `.ledger a{color:var(--raw)}` otherwise
+// beats `.hold-cell`'s own `color:var(--ink)` on specificity, dimming every
+// kind letter to the link colour instead of the intended ink. Two things are
+// guarded, mirroring the token-and-arithmetic pattern above: the override
+// rule out-specifies `.ledger a` (so it wins on the cascade, not a fragile
+// load-order tie), and the ink-on-tint contrast it restores clears AA for
+// every dataset kind, in both themes.
+const BUILD_PUBLISHER_PAGES_TS = fs.readFileSync(path.join('src', 'ci', 'build-publisher-pages.ts'), 'utf8');
+const TOKENS_CSS = fs.readFileSync(path.join(SITE_DIR, 'tokens.css'), 'utf8');
+
+// A minimal selector-specificity count (ids, classes/attrs/pseudo-classes,
+// element types) - enough for the plain compound selectors compared here,
+// not a general CSS parser.
+function specificity(selector: string): [ids: number, classesEtc: number, types: number] {
+  let s = selector;
+  const ids = (s.match(/#[\w-]+/g) ?? []).length;
+  s = s.replace(/#[\w-]+/g, ' ');
+  const classPattern = /\.[\w-]+|\[[^\]]*\]|:(?!:)[\w-]+(?:\([^)]*\))?/g;
+  const classesEtc = (s.match(classPattern) ?? []).length;
+  s = s.replace(classPattern, ' ');
+  const types = (s.match(/(?:^|[\s>+~])([a-zA-Z][\w-]*)/g) ?? []).length;
+  return [ids, classesEtc, types];
+}
+function outSpecifies(a: readonly [number, number, number], b: readonly [number, number, number]): boolean {
+  if (a[0] !== b[0]) return a[0] > b[0];
+  if (a[1] !== b[1]) return a[1] > b[1];
+  return a[2] > b[2];
+}
+
+const LEDGER_A_SELECTOR = '.ledger a';
+const LEDGER_A_SPECIFICITY = specificity(LEDGER_A_SELECTOR);
+
+// The dedicated override rule: a quoted JS string literal (the build script
+// emits its stylesheet as an array of CSS-rule strings) whose ENTIRE
+// declaration is `color:var(--ink)` and whose selector mentions `hold-cell` -
+// i.e. not the base `.hold-cell{…}` rule (which also carries the layout and
+// background declarations), but the higher-specificity rule added to win the
+// cascade against `.ledger a`. Bounded by the surrounding quotes so the match
+// cannot bleed across separate string-literal array entries.
+const HOLD_CELL_INK_OVERRIDE = /'([^']*hold-cell[^']*)\{color:var\(--ink\)\}'/.exec(BUILD_PUBLISHER_PAGES_TS);
+
+const TOKENS_LIGHT = blockBody(TOKENS_CSS, /:root\s*\{([^}]*--paper[^}]*)\}/);
+const TOKENS_DARK = blockBody(TOKENS_CSS, /prefers-color-scheme:\s*dark[^{]*\{\s*:root\s*\{([^}]*)\}/);
+
+// Every dataset-kind tint - (kind, `--kh` hex) pairs, read from the source so
+// a future kind addition or removal is picked up automatically.
+const KIND_TINTS = [...BUILD_PUBLISHER_PAGES_TS.matchAll(/\.hold-cell\[data-kind="([a-z0-9-]+)"\]\{--kh:(#[0-9A-Fa-f]{3,8})\}/g)]
+  .map((m): [kind: string, hex: string] => [m[1], m[2]]);
+
+// The map-cell background: `color-mix(in srgb, var(--kh) P%, var(--paper))`,
+// its percentage read from the base rule so the guard tracks the shipped mix.
+const MIX_PERCENT = Number(/\.hold-cell\{[^}]*background:color-mix\(in srgb,var\(--kh\) (\d+)%,var\(--paper\)\)/.exec(BUILD_PUBLISHER_PAGES_TS)?.[1]);
+
+// `color-mix(in srgb, …)` interpolates the gamma-encoded sRGB channels
+// directly (not linear-light), so a plain per-channel weighted average of the
+// 8-bit values matches what the browser renders.
+function mix(hexA: string, hexB: string, percentA: number): string {
+  const a = hexA.replace('#', '');
+  const b = hexB.replace('#', '');
+  const channelOf = (h: string, i: number): number => parseInt(h.slice(i, i + 2), 16);
+  const mixed = (i: number): number => Math.round((channelOf(a, i) * percentA + channelOf(b, i) * (100 - percentA)) / 100);
+  return `#${[0, 2, 4].map(i => mixed(i).toString(16).padStart(2, '0')).join('')}`;
+}
+
+const REQUIRED_KINDS = [
+  'register-snapshot', 'available-pool', 'issuance-events', 'forbidden-list',
+  'statistics-aggregate', 'attribute-addendum', 'reference-context',
+];
+
+describe('publisher holdings-map letter cells keep the ledger ink colour (issue #687)', { tags: ['ui'] }, () => {
+  it('KindTintsAndMixPercent_ParsedFromSource_CoverEveryDocumentedKind', () => {
+    // A parsing regression (a rewritten stylesheet the regexes above no longer
+    // match) must fail loudly here rather than silently skipping every
+    // contrast assertion below.
+    expect(KIND_TINTS.map(([kind]) => kind)).toEqual(expect.arrayContaining(REQUIRED_KINDS));
+    expect(Number.isInteger(MIX_PERCENT) && MIX_PERCENT > 0, `parsed mix percentage: ${MIX_PERCENT}`).toBe(true);
+  });
+
+  it('HoldCellInkOverride_AgainstLedgerLinkColour_WinsOnSpecificityNotLoadOrder', () => {
+    expect(HOLD_CELL_INK_OVERRIDE, 'no dedicated .hold-cell ink-colour override found in build-publisher-pages.ts').not.toBeNull();
+    const selector = HOLD_CELL_INK_OVERRIDE?.[1].trim() ?? '';
+    const overrideSpecificity = specificity(selector);
+    expect(outSpecifies(overrideSpecificity, LEDGER_A_SPECIFICITY),
+      `"${selector}" (${overrideSpecificity.join(',')}) must out-specify "${LEDGER_A_SELECTOR}" (${LEDGER_A_SPECIFICITY.join(',')}) so the map cells' ink colour wins regardless of stylesheet order`)
+      .toBe(true);
+  });
+
+  for (const theme of ['light', 'dark'] as const) {
+    const ink = token(theme === 'light' ? LIGHT : DARK, 'ink');
+    const paper = token(theme === 'light' ? TOKENS_LIGHT : TOKENS_DARK, 'paper');
+    for (const [kind, kh] of KIND_TINTS) {
+      it(`HoldCell_${theme}Theme_${kind}LetterOnItsTintedBackground_MeetsAA`, () => {
+        const background = mix(kh, paper, MIX_PERCENT);
+        const ratio = contrast(ink, background);
+        expect(ratio, `${kind} (${theme}): ink ${ink} on ${background} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(AA_NORMAL);
+      });
+    }
+  }
+});
+
 describe('interactive-page accessibility fallbacks (issues #407 / #397)', { tags: ['ui'] }, () => {
   it('LedgerPage_BeingJsDriven_CarriesANoscriptFallback', () => {
     const html = siteFile('ledger.html');
