@@ -27,11 +27,22 @@
  * rather than re-derived: the verbatim column's edge-whitespace trim, and the
  * day-first date rule parseUkDateTime (shared/normalise.ts). With those, the
  * fold reproduces the committed report exactly; the durable oracle
- * (forbidden-suffix-history-fold.test.ts) pins the fold ≤ legacy / never-invents
- * invariants and an explained allow-list so any NEW drift trips CI. The legacy
- * collector (collectRawDisclosures, reading the normalised suffix files) is
- * RETAINED as that equivalence reference and remains the path the forbidden-
- * section page renderer consumes.
+ * (forbidden-suffix-history-fold.test.ts) pins the fold against the committed
+ * golden byte-for-byte and an explained allow-list so any NEW drift trips CI.
+ *
+ * TWO READ MECHANISMS, ONE LEDGER (issue #444). The report the scheduled lane
+ * commits folds through DuckDB (buildForbiddenSuffixHistoryFold, over the shared
+ * deploy-time claims Parquet where present). The page renderer and the reference-
+ * data guard need the same history WITHOUT a DuckDB dependency, so
+ * buildForbiddenSuffixHistory folds the SAME per-(suffix, vintage) raw claims in
+ * memory - emitting the forbidden family's claims through the ledger emit path and
+ * joining each row's @listed existence claim to its LastModifiedDate attribute
+ * claim on the observation ordinal. Both paths reduce through historyFromDisclosures
+ * and apply the identical suffix edge trim + day-first date rule, so they differ
+ * ONLY in how they source the rows; the golden gate pins them equivalent. The old
+ * normalised-suffix-file collector this DuckDB-free path replaced is retired - the
+ * report and every consumer now fold from the claim ledger, never the normalised
+ * projection.
  *
  * Per disclosure it surfaces: the distinct-suffix count (with any duplicate
  * rows called out as a within-disclosure data-quality artefact, never
@@ -67,8 +78,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { parse } from 'csv-parse/sync';
-import { defaultFoiDir, listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
+import { defaultFoiDir } from '../shared/foi-archive.ts';
 import { parseUkDateTime } from '../shared/normalise.ts';
 import { normalisedFileNameFor } from '../shared/foi-normalise.ts';
 import {
@@ -77,7 +87,7 @@ import {
   deployClaimsSource,
   type ClaimsSource,
 } from '../v2/report-fold.ts';
-import { emitClaims, LISTED_PREDICATE } from '../v2/claim.ts';
+import { emitClaims, LISTED_PREDICATE, type Claim } from '../v2/claim.ts';
 import { serialiseClaimsJsonl } from '../v2/serialise.ts';
 import { jsonlStem } from '../v2/collectors/util.ts';
 import { forbiddenListEntries, forbiddenSourcesFor, loadForbiddenSource } from '../v2/collectors/forbidden-list.ts';
@@ -141,43 +151,10 @@ function num(n: number): string {
   return n.toLocaleString('en-GB');
 }
 
-function readCsv(file: string): Record<string, string>[] {
-  return fs.existsSync(file)
-    ? parse(fs.readFileSync(file, 'utf8'), { columns: true, bom: true, skip_empty_lines: true }) as Record<string, string>[]
-    : [];
-}
-
-// Every FOI `forbidden-list` entry's normalised suffix file (a normalised
-// file whose header carries a `suffix` column). This is the LEGACY collector,
-// retained as the fold's equivalence reference (and still the source the
-// forbidden-section page renderer consumes): it reads the committed normalised
-// projections, whose suffix and last-modified values are already the trimmed /
-// day-first-normalised forms the report shows.
-function collectRawDisclosures(foiDir: string): RawDisclosure[] {
-  const out: RawDisclosure[] = [];
-  for (const entry of listFoiEntryKeys(foiDir)) {
-    const meta = readFoiEntryMeta(foiDir, entry);
-    if (!(meta.datasetClasses ?? []).includes('forbidden-list')) continue;
-    const entryDir = path.join(foiDir, entry);
-    for (const [fileName, decl] of Object.entries(meta.files)) {
-      if (decl.role !== 'normalised') continue;
-      const records = readCsv(path.join(entryDir, fileName));
-      if (records.length === 0 || records[0]['suffix'] === undefined) continue;
-      out.push({
-        entry,
-        vintage: meta.dataVintage ?? '—',
-        sourceFile: fileName,
-        rows: records.map(r => ({ suffix: r['suffix'], lastModified: r['last_modified_date'] })),
-      });
-    }
-  }
-  return out;
-}
-
 // Chronological corpus order: (vintage, entry, sourceFile) so consecutive diffs
 // read oldest-first and regeneration is stable. Applied by the shared reducer,
-// so the legacy collector and the ledger fold order identically regardless of
-// the order each discovers its disclosures in.
+// so the DuckDB-free claim fold and the DuckDB fold order identically regardless
+// of the order each discovers its disclosures in.
 function sortRawDisclosures(raw: readonly RawDisclosure[]): RawDisclosure[] {
   return [...raw].sort((a, b) =>
     a.vintage.localeCompare(b.vintage) || a.entry.localeCompare(b.entry) || a.sourceFile.localeCompare(b.sourceFile));
@@ -219,13 +196,13 @@ function firstKnownFor(suffix: string, disclosures: ForbiddenDisclosure[]): Suff
 }
 
 // The pure reducer: fold a set of per-disclosure suffix rows into every history
-// view. Shared by BOTH the legacy normalised-file collector and the ledger fold
-// so the two paths differ ONLY in how they source the rows - the
-// distinct/duplicate/diff/union/first-known/matrix reductions are one
-// implementation, which is exactly what makes the fold provably equivalent to
-// the legacy computation. Input rows carry the already-normalised suffix and
-// last-modified forms (trimmed / day-first-normalised); this reducer never
-// transforms a value, only counts and diffs them.
+// view. Shared by BOTH ledger read mechanisms - the DuckDB-free in-memory claim
+// fold and the DuckDB fold - so the two paths differ ONLY in how they source the
+// rows: the distinct/duplicate/diff/union/first-known/matrix reductions are one
+// implementation, which is exactly what makes the two provably equivalent. Input
+// rows carry the already-normalised suffix and last-modified forms (edge-trimmed /
+// day-first-normalised by the caller); this reducer never transforms a value,
+// only counts and diffs them.
 export function historyFromDisclosures(rawDisclosures: readonly RawDisclosure[]): ForbiddenSuffixHistory {
   const raw = sortRawDisclosures(rawDisclosures);
   const disclosures: ForbiddenDisclosure[] = [];
@@ -276,13 +253,18 @@ export function historyFromDisclosures(rawDisclosures: readonly RawDisclosure[])
   };
 }
 
-// The LEGACY build: fold the history from the committed normalised suffix files.
-// Retained as the fold's equivalence reference and the path the forbidden-
-// section page renderer (build-forbidden-section.ts) consumes, so its output
-// shape - including the normalised `sourceFile` name that page keys its download
-// links off - is unchanged.
+// The DuckDB-FREE ledger fold (issue #444): fold the history from the forbidden
+// family's raw claims IN MEMORY, so the forbidden-section page renderer
+// (build-forbidden-section.ts) and the reference-data guard get the history
+// without dragging a DuckDB dependency into their unit tier. Each source's claims
+// are emitted through the same ledger emit path the DuckDB fold reads (emitClaims
+// over loadForbiddenSource), and reprojectSourceClaims below performs the same
+// @listed-to-LastModifiedDate join the DuckDB pass does. Output shape - including
+// the normalised `sourceFile` name the page keys its download links off - matches
+// the DuckDB fold field-for-field; the golden gate pins the two equivalent.
 export function buildForbiddenSuffixHistory(foiDir: string = defaultFoiDir()): ForbiddenSuffixHistory {
-  return historyFromDisclosures(collectRawDisclosures(foiDir));
+  const sources = enumerateForbiddenLedgerSources(foiDir);
+  return historyFromDisclosures(sources.map(source => reprojectSourceClaims(source, source.emit())));
 }
 
 // --- Ledger fold (issue #361, migration map step 3) ------------------------
@@ -294,7 +276,7 @@ export function buildForbiddenSuffixHistory(foiDir: string = defaultFoiDir()): F
 // read - scanning the per-source JSONL and joining each row's existence claim to
 // its last-modified claim on the observation key - runs in DuckDB via
 // report-fold.ts; the small, per-corpus reduction (distinct/diff/union/matrix)
-// stays in the shared reducer above, identical to the legacy path.
+// stays in the shared reducer above, identical to the DuckDB-free claim fold.
 
 // The declared claim-ledger JSONL column schema (as value-catalogue-fold pins
 // it): raw claims omit the optional `rule`, so a sampled inference would miss
@@ -303,9 +285,10 @@ const LEDGER_COLUMNS = "{layer: 'VARCHAR', rawSubject: 'VARCHAR', predicate: 'VA
 
 // One forbidden-list disclosure resolved for the fold: its chronological
 // identity (entry / vintage), the normalised file name the ForbiddenDisclosure
-// shape reports (so the fold and legacy objects match field-for-field), the
-// ledger JSONL stem the family's claims land under, and a thunk that emits those
-// claims (used only when materialising a ledger on demand).
+// shape reports (so both fold read mechanisms match field-for-field), the ledger
+// JSONL stem the family's claims land under, and a thunk that emits those claims
+// (folded in memory by the DuckDB-free path, or serialised to a ledger on demand
+// for the DuckDB path).
 export interface ForbiddenLedgerSource {
   entry: string;
   vintage: string;
@@ -323,8 +306,8 @@ export interface ForbiddenLedgerSource {
 // The forbidden-list sources, discovered exactly as the ledger collector does
 // (forbiddenListEntries + forbiddenSourcesFor), so a class-declaring entry with
 // no authored suffix converter - the byte-identical as-published duplicate
-// ofcom-337399 - yields no source here, matching the legacy collector's skip of
-// an entry with no normalised suffix file.
+// ofcom-337399 - yields no source here, so it contributes no disclosure to the
+// fold (an entry with no forbidden-suffix source has nothing to fold).
 function enumerateForbiddenLedgerSources(foiDir: string): ForbiddenLedgerSource[] {
   const sources: ForbiddenLedgerSource[] = [];
   for (const { entry, meta } of forbiddenListEntries(foiDir)) {
@@ -444,6 +427,33 @@ function reprojectDisclosures(foldRows: readonly ForbiddenFoldRow[], sources: re
     sourceFile: source.normalisedFileName,
     rows: rowsByDisclosure.get(index) ?? [],
   }));
+}
+
+// Reproject one forbidden source's IN-MEMORY raw claims into its RawDisclosure,
+// the DuckDB-free equivalent of foldSqlOver for a single disclosure. The source's
+// @listed existence claims carry the raw suffix token (one per row, in ordinal
+// order); each row's LastModifiedDate rides its single non-@listed raw attribute
+// claim, keyed to the @listed anchor by the shared observation ordinal (the same
+// (didx, ordinal) join the DuckDB pass performs). Applies the identical two
+// transforms - the suffix edge trim and parseUkDateTime for the day-first date -
+// so a source folded here matches the DuckDB fold field-for-field.
+function reprojectSourceClaims(source: ForbiddenLedgerSource, claims: readonly Claim[]): RawDisclosure {
+  const lastModifiedByOrdinal = new Map<number, string>();
+  for (const claim of claims) {
+    if (claim.layer === 'raw' && claim.predicate !== LISTED_PREDICATE) {
+      lastModifiedByOrdinal.set(claim.provenance.ordinal, claim.object);
+    }
+  }
+  const rows = claims
+    .filter(claim => claim.predicate === LISTED_PREDICATE)
+    .map(claim => {
+      const rawLastModified = lastModifiedByOrdinal.get(claim.provenance.ordinal);
+      return {
+        suffix: claim.rawSubject.replace(EDGE_WHITESPACE_RE, ''),
+        lastModified: rawLastModified === undefined ? undefined : parseUkDateTime(rawLastModified),
+      };
+    });
+  return { entry: source.entry, vintage: source.vintage, sourceFile: source.normalisedFileName, rows };
 }
 
 // Fold the disclosures from a directory of per-source JSONL ledgers (the shape
