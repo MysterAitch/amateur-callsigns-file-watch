@@ -13,18 +13,32 @@
  * Check tiers:
  *  - structural (every archive entry, cheap): completeness of the entry file
  *    set, meta.json shape, and byte integrity (size + sha256) of every file
- *    meta.json declares.
- *  - deep (changed entries only, expensive): the raw CSV actually parses and
- *    agrees with meta's recorded record count.
+ *    meta.json declares - which, for the frozen-baseline entries, includes
+ *    their committed derived files (ADR 0021): the baseline the parity gate
+ *    compares the ledger projection against is itself hash-pinned here.
+ *  - deep (changed entries only, expensive): the raw CSV actually parses,
+ *    agrees with meta's recorded record count, and passes the
+ *    callsign-uniqueness attestation gate (on the committed normalised
+ *    contract for frozen entries; on the parse source's own callsign column,
+ *    resolved through the authored binding, for post-freeze entries).
  *  - pointer consistency: the repo-root latest-* set mirrors the newest
  *    archive entry and all derived JSON/CSV files parse.
+ *
+ * #448 resolution: these validators RE-HOME rather than retire. The freeze
+ * (ADR 0021) ended the production of new committed derivatives, not the
+ * committed record itself - and this module is the committed record's gate.
+ * The line-accounting invariant below runs where its meta declarations exist
+ * (the frozen baseline); a post-freeze entry's line accounting is proven
+ * inside the ledger emit's own parse and re-proven byte-for-byte by the
+ * reconstruction oracle.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS, calculateFileHash, type ArchiveMeta , errorMessage } from '../shared/utils.ts';
-import { physicalLines } from '../sources/ofcom-amateur/normalise.ts';
+import { mappingForVariant, physicalLines, rawColumnForCanonical } from '../sources/ofcom-amateur/normalise.ts';
+import { observeEntryHeader } from '../sources/ofcom-amateur/detect-variant.ts';
 import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
 import { validateFoiLaneAt } from './validate-foi.ts';
@@ -273,6 +287,35 @@ function validateIgnoredLines(dir: string, meta: ArchiveMeta): ValidationProblem
   return problems;
 }
 
+// The curated variant declarations deepValidateEntryCsv resolves the callsign
+// column through for a post-freeze entry (ADR 0021): the same precedence the
+// ledger projection uses (forced binding, then the recorded one, then
+// detection from the entry's own header row).
+type DeepValidationMeta = ArchiveMeta & {
+  converter?: { variant?: string };
+  normalised?: { headerVariant?: string };
+};
+
+// The callsigns that appear more than once (the empty token exempt - multiple
+// empties exist in real publications and are surfaced by the emptyCallsign
+// detector instead), in first-seen order.
+function duplicatedCallsigns(callsigns: Iterable<string>): Set<string> {
+  const seen = new Set<string>();
+  const duplicated = new Set<string>();
+  for (const callsign of callsigns) {
+    if (callsign === '') continue;
+    if (seen.has(callsign)) duplicated.add(callsign);
+    else seen.add(callsign);
+  }
+  return duplicated;
+}
+
+// Whether the entry's curation attests publisher duplicates (the statement
+// must mention them), which is what licenses preserving them faithfully.
+function duplicatesAttested(meta: DeepValidationMeta | undefined): boolean {
+  return (meta?.qualityObservations ?? []).some(o => /duplicate callsign/i.test(o.statement));
+}
+
 export function deepValidateEntryCsv(key: string): ValidationProblem[] {
   const problems: ValidationProblem[] = [];
   const metaPath = path.join(entryDir(key), 'meta.json');
@@ -280,9 +323,9 @@ export function deepValidateEntryCsv(key: string): ValidationProblem[] {
   // raw.csv) - the text the normaliser actually reads. A raw.xlsx publication
   // is byte-pinned by its sha256; its parseability is proven via the extract.
   let parseSource = 'raw.csv';
-  let meta: ArchiveMeta | undefined;
+  let meta: DeepValidationMeta | undefined;
   try {
-    meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ArchiveMeta;
+    meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as DeepValidationMeta;
     parseSource = parseSourceFileName(meta);
   } catch {
     // Structural validation reports unreadable meta; parse raw.csv below.
@@ -290,9 +333,9 @@ export function deepValidateEntryCsv(key: string): ValidationProblem[] {
   const rawPath = path.join(entryDir(key), parseSource);
   if (!fs.existsSync(rawPath)) return [{ path: rawPath, problem: `${parseSource} is missing` }];
 
-  let records: unknown[];
+  let records: Record<string, string>[];
   try {
-    records = parse(fs.readFileSync(rawPath, 'utf8'), { columns: true, skip_empty_lines: true });
+    records = parse(fs.readFileSync(rawPath, 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
   } catch (err) {
     problems.push({ path: rawPath, problem: `${parseSource} failed to parse as CSV: ${errorMessage(err)}` });
     return problems;
@@ -307,47 +350,63 @@ export function deepValidateEntryCsv(key: string): ValidationProblem[] {
   }
 
   // Callsign uniqueness: NOTED on raw (the stats detectors record publisher
-  // duplicates as a data-quality fact) but ENFORCED on normalised - the
-  // normalised dataset is this repository's contract and downstream joins
-  // (components.csv and beyond) key on callsign. This check turns an
-  // unattested duplicate into an invalid PR rather than a silently broken
-  // join. Publications that GENUINELY carry duplicate callsign rows (the
-  // recovered 2025-11-11 / 2026-01-14 register vintages each repeat a couple
-  // of hundred callsigns) are preserved faithfully, never repaired - but only
-  // behind an explicit, curated qualityObservation attesting the duplicates
-  // (statement mentioning duplicate callsigns + evidence), so the fact is
-  // loud, reviewed and machine-visible to join consumers. Empty callsigns are
-  // exempt: multiple empties exist in real publications (2023-02-20 carries
-  // two), their handling policy is deliberately undecided, and they are
-  // surfaced by the emptyCallsign detector - join consumers must exclude them.
-  // This is a DERIVED-file read, so it resolves through the archive/projection
-  // switch (issue #629 phase 2). The RAW/META byte-integrity checks above stay
-  // archive reads by design (#448: byte-integrity of the committed record is
-  // never lost) - only the normalised-derivative content check moves.
+  // duplicates as a data-quality fact) but ENFORCED as this repository's
+  // contract - downstream joins (components and beyond) key on callsign.
+  // This check turns an unattested duplicate into an invalid PR rather than
+  // a silently broken join. Publications that GENUINELY carry duplicate
+  // callsign rows (the recovered 2025-11-11 / 2026-01-14 register vintages
+  // each repeat a couple of hundred callsigns) are preserved faithfully,
+  // never repaired - but only behind an explicit, curated qualityObservation
+  // attesting the duplicates (statement mentioning duplicate callsigns +
+  // evidence), so the fact is loud, reviewed and machine-visible to join
+  // consumers. Empty callsigns are exempt: multiple empties exist in real
+  // publications (2023-02-20 carries two), their handling policy is
+  // deliberately undecided, and they are surfaced by the emptyCallsign
+  // detector - join consumers must exclude them.
+  //
+  // Two homes for the check (#448, ADR 0021):
+  //  - a FROZEN-BASELINE entry carries a committed normalised.csv - the
+  //    contractual dataset - so the check reads it (through the
+  //    archive/projection switch, like every derived read);
+  //  - a POST-FREEZE entry carries no committed derivative, so the check
+  //    runs on the parse source's own callsign column, resolved through the
+  //    same authored binding the ledger projection uses (curated variant,
+  //    else detection from the entry's header row). The normaliser copies
+  //    the callsign token verbatim and is row-preserving, so the duplicate
+  //    set is identical either way. An entry whose shape resolves to no
+  //    authored binding is skipped here - the ledger projection refuses it
+  //    loudly before any surface publishes it.
+  // The RAW/META byte-integrity checks above stay archive reads by design:
+  // byte-integrity of the committed record is never lost.
   if (derivedEntryFileExists(key, 'normalised.csv')) {
     const normalisedPath = derivedEntryFile(key, 'normalised.csv');
     try {
       const rows = parse(fs.readFileSync(normalisedPath, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[];
-      const seen = new Set<string>();
-      const duplicated = new Set<string>();
-      for (const row of rows) {
-        const callsign = row['callsign'] ?? '';
-        if (callsign === '') continue;
-        if (seen.has(callsign)) duplicated.add(callsign);
-        else seen.add(callsign);
-      }
-      if (duplicated.size > 0) {
-        const attested = (meta?.qualityObservations ?? []).some(o => /duplicate callsign/i.test(o.statement));
-        if (!attested) {
-          const sample = [...duplicated].sort().slice(0, 5).join(', ');
-          problems.push({
-            path: normalisedPath,
-            problem: `duplicate callsign values in normalised.csv (downstream joins key on callsign): ${duplicated.size} duplicated value(s), e.g. ${sample} - preserve them faithfully by attesting the fact in a qualityObservation (statement mentioning duplicate callsigns), or resolve them in the converter`,
-          });
-        }
+      const duplicated = duplicatedCallsigns(rows.map(row => row['callsign'] ?? ''));
+      if (duplicated.size > 0 && !duplicatesAttested(meta)) {
+        const sample = [...duplicated].sort().slice(0, 5).join(', ');
+        problems.push({
+          path: normalisedPath,
+          problem: `duplicate callsign values in normalised.csv (downstream joins key on callsign): ${duplicated.size} duplicated value(s), e.g. ${sample} - preserve them faithfully by attesting the fact in a qualityObservation (statement mentioning duplicate callsigns), or resolve them in the converter`,
+        });
       }
     } catch (err) {
       problems.push({ path: normalisedPath, problem: `normalised.csv failed to parse as CSV: ${errorMessage(err)}` });
+    }
+  } else {
+    const observed = observeEntryHeader(entryDir(key), { files: meta?.files });
+    const variant = meta?.converter?.variant ?? meta?.normalised?.headerVariant ?? observed.variant;
+    const mapping = variant === undefined ? undefined : mappingForVariant(variant);
+    const callsignColumn = mapping === undefined ? undefined : rawColumnForCanonical(mapping, 'callsign');
+    if (callsignColumn !== undefined) {
+      const duplicated = duplicatedCallsigns(records.map(record => record[callsignColumn] ?? ''));
+      if (duplicated.size > 0 && !duplicatesAttested(meta)) {
+        const sample = [...duplicated].sort().slice(0, 5).join(', ');
+        problems.push({
+          path: rawPath,
+          problem: `duplicate callsign values in ${parseSource} (downstream joins key on callsign; this entry has no committed normalised.csv - ADR 0021): ${duplicated.size} duplicated value(s), e.g. ${sample} - preserve them faithfully by attesting the fact in a qualityObservation (statement mentioning duplicate callsigns)`,
+        });
+      }
     }
   }
 

@@ -356,10 +356,54 @@ describe('deepValidateEntryCsv', { tags: ['unit'] }, () => {
     expect(problems.filter(p => p.problem.includes('duplicate'))).toEqual([]);
   });
 
-  it('DeepValidation_WhenEntryIsRawOnly_UniquenessCheckSkipped', () => {
-    // Raw-only entries (no converter yet, or pre-normalisation) are valid;
-    // the constraint applies only where a normalised.csv exists.
+  it('DeepValidation_WhenEntryShapeMatchesNoAuthoredBinding_UniquenessCheckSkipped', () => {
+    // An entry whose header shape resolves to no authored raw->canonical
+    // binding has no known callsign column to police; the check skips
+    // honestly, and the ledger projection refuses such an entry loudly
+    // before any surface publishes it.
     writeEntry(tmpRoot, '2026-06-23', CSV);
+    expect(deepValidateEntryCsv('2026-06-23')).toEqual([]);
+  });
+
+  it('DeepValidation_PostFreezeEntryWithUnattestedDuplicates_FailsOnTheParseSource', () => {
+    // A post-freeze entry carries no committed normalised.csv (ADR 0021), but
+    // the attestation gate must not retire with the derivation: the callsign
+    // column resolves through the same authored binding the ledger projection
+    // uses (here detected from the entry's own v2022-minimal header row), and
+    // the duplicate set is identical to the one the normalised contract would
+    // have carried - the normaliser copies the token verbatim, row for row.
+    const raw = 'Value,Status,Type\nM7TEE,Allocated,Call Sign - Amateur\nM7TEE,Reserved,Call Sign - Amateur\n';
+    writeEntry(tmpRoot, '2026-06-23', raw);
+
+    const problems = deepValidateEntryCsv('2026-06-23');
+
+    expect(problems.some(p => p.problem.includes('duplicate') && p.problem.includes('M7TEE'))).toBe(true);
+  });
+
+  it('DeepValidation_PostFreezeEntryWithAttestedDuplicates_Passes', () => {
+    // The same publication with the duplicates attested in a curated
+    // qualityObservation is preserved faithfully - loud, reviewed, and
+    // machine-visible to join consumers - exactly as on the frozen baseline.
+    const raw = 'Value,Status,Type\nM7TEE,Allocated,Call Sign - Amateur\nM7TEE,Reserved,Call Sign - Amateur\n';
+    writeEntry(tmpRoot, '2026-06-23', raw, {
+      qualityObservations: [{
+        observedAt: '2026-07-17',
+        statement: 'The publication repeats duplicate callsigns (M7TEE appears twice, Allocated and Reserved).',
+        evidence: 'Rows 2-3 of raw.csv as published.',
+      }],
+    });
+
+    const problems = deepValidateEntryCsv('2026-06-23');
+
+    expect(problems.filter(p => p.problem.includes('duplicate'))).toEqual([]);
+  });
+
+  it('DeepValidation_PostFreezeEntryWithBoundVariantAndUniqueCallsigns_Passes', () => {
+    // The happy path for the next live publication: an authored binding
+    // resolves (detection), the callsign column carries no duplicates, and
+    // the entry validates with nothing committed beyond raw + meta.
+    const raw = 'Value,Status,Type\nG5ABC,Allocated,Call Sign - Amateur\nM7TEE,Allocated,Call Sign - Amateur\n';
+    writeEntry(tmpRoot, '2026-06-23', raw);
     expect(deepValidateEntryCsv('2026-06-23')).toEqual([]);
   });
 });
