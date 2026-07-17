@@ -36,15 +36,31 @@ describe('the interpretation oracle holds over the whole real corpus', { tags: [
   });
 
   it('WithinTableFlags_WhenSweptOverTheRealCorpus_AreReportedNotSwallowed', () => {
-    // The committed archives are clean (the strict converter rejects mixed dates,
-    // and each table uses one product vocabulary), so the sweep surfaces no flags
-    // today - but the report EXPOSES whatever it finds, so a future mixed snapshot
-    // becomes visible data rather than a silent pass.
+    // The strict converter rejects mixed dates, so no date flags survive intake -
+    // but the report EXPOSES whatever it finds, so within-table mixing is visible
+    // data rather than a silent pass.
     const report = runInterpretationOracle(collectInterpretedSources(), REF);
     expect(report.violations).toEqual([]);
-    // A durable, checkable statement of the current corpus: zero within-table
-    // flags. If this ever changes, the surfaced-flags list documents the surprise.
-    expect(report.surfacedFlags).toEqual([]);
+    // A durable, checkable statement of the current corpus. The 2024-09 register
+    // snapshot genuinely mixes raw product spellings that normalise to the same
+    // licence category (the special-event family: plain and NoV spellings fold
+    // together per reference-data/licence-category.csv), and the oracle surfaces
+    // that mixing rather than swallowing it - resolve AND flag. Any change to
+    // this list documents the surprise.
+    expect(report.surfacedFlags).toEqual([
+      {
+        columnHeader: 'Product',
+        object: 'Permanent Special Event Station',
+        rule: 'within-table-normalisation-collision',
+        sourceFile: 'foi/ofcom-2024-09--every-radio-callsign--all-callsigns/every-radio-callsign-spreadsheet.csv',
+      },
+      {
+        columnHeader: 'Product',
+        object: 'Special Event Station',
+        rule: 'within-table-normalisation-collision',
+        sourceFile: 'foi/ofcom-2024-09--every-radio-callsign--all-callsigns/every-radio-callsign-spreadsheet.csv',
+      },
+    ]);
   });
 });
 
