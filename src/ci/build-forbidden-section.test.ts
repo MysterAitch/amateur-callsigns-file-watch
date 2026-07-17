@@ -406,7 +406,7 @@ describe('Forbidden-suffix section — rationale (issue #196)', { tags: ['data-v
     expect(page).toContain('<b>ITU Q-code series</b>');
     expect(page).toContain("sourced, not this project's inference");
     expect(page).toContain('QAA–QZZ block');
-    expect(page).toContain('href="../../../datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/index.html">Ofcom\'s FOI response</a>');
+    expect(page).toContain('href="../../../datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md.html">Ofcom\'s FOI response of 29 September 2016 (Ofcom reference 337399)</a>');
     expect(page).toContain('href="../../index.html#rationale">rationale breakdown</a>');
   });
 
@@ -440,7 +440,7 @@ describe('Forbidden-suffix section — rationale (issue #196)', { tags: ['data-v
     // The verbatim Ofcom quote, cited to the FOI entry.
     expect(index).toContain('conventional practice we do not issue call signs');
     expect(index).toContain('Art 19.46 et seq of the Radio Regulations');
-    expect(index).toContain('href="../datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/index.html">Ofcom FOI 337399, 2016</a>');
+    expect(index).toContain('href="../datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md.html">Ofcom\'s FOI response of 29 September 2016 (Ofcom reference 337399)</a>');
     // The category breakdown: exact figures pinned against the real corpus.
     expect(index).toContain('<td>ITU Q-code series<br>');
     expect(index).toMatch(/ITU Q-code series[\s\S]{0,400}676/);
@@ -450,6 +450,27 @@ describe('Forbidden-suffix section — rationale (issue #196)', { tags: ['data-v
     expect(index).toContain('Unclassified <span class="gap">(no citable rationale established for the specific suffix)</span>');
     expect(index).toMatch(/Unclassified[\s\S]{0,200}767/);
     expect(index).toContain('not itself a claim about any specific suffix');
+  });
+
+  it('RationaleCitation_OnTheSectionIndexAndAPerSuffixPage_IsAnIdentifiedClickableLinkToTheBrowsableFoiResponse', () => {
+    // Issue #750: "Ofcom's own FOI response" must not be bare, uncited prose —
+    // a reader should be able to tell WHICH disclosure is meant (date +
+    // Ofcom's own reference) without following the link, and the link itself
+    // must resolve to the browsable rendered copy of the actual letter (the
+    // FOI entry's `raw-extract-*.md.html` sibling), not merely the entry's
+    // bare index page. (The link's live resolution against the built site is
+    // covered by the internal-link crawl, which exercises the real archive
+    // path this href targets: archive/foi/wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md.)
+    const target = 'datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md.html';
+    const citation = "Ofcom's FOI response of 29 September 2016 (Ofcom reference 337399)";
+
+    const index = read('forbidden', 'index.html');
+    expect(index).toContain(`href="../${target}">${citation}</a>`);
+    expect(index).not.toContain(">Ofcom's own FOI response<");
+
+    const suffixPage = read('forbidden', 'suffix', 'QNF', 'index.html');
+    expect(suffixPage).toContain(`href="../../../${target}">${citation}</a>`);
+    expect(suffixPage).not.toContain(">Ofcom's own FOI response<");
   });
 
   it('ForbiddenSectionIndex_RationaleBreakdown_NeverNamesAnUnclassifiedSuffixAsOffensive', () => {

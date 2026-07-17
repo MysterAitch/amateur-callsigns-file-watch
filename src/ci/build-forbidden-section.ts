@@ -319,10 +319,9 @@ function rationaleSection(h: ForbiddenSuffixHistory, rationale: Map<string, Suff
     rows.push(`<tr><td>${escapeHtml(RATIONALE_LABELS[category].label)}<br><small class="dcap">${escapeHtml(RATIONALE_LABELS[category].explanation)}</small></td><td>${zeroCell(suffixes.length, num(suffixes.length))}</td><td>${preview}</td></tr>`);
   }
   rows.push(`<tr><td>Unclassified <span class="gap">(no citable rationale established for the specific suffix)</span></td><td>${zeroCell(residual, num(residual))}</td><td><span class="gap">not enumerated — see note below</span></td></tr>`);
-  const foiHref = `../datasets/foi/${encodeURIComponent('wdtk-356636--all-callsigns-plus-forbidden')}/index.html`;
   return [
     `<section id="rationale"><h2>Why are these suffixes withheld? <small class="lvl">— ${glossaryTerm('forbidden-suffix-rationale', 1, { label: 'rationale' })}</small></h2>`,
-    `<p>Ofcom does not publish a per-suffix reason, but its own FOI response (<a href="${foiHref}">Ofcom FOI 337399, 2016</a>) states the withholding rationale in its own words:</p>`,
+    `<p>Ofcom does not publish a per-suffix reason, but ${rationaleSourceLink(1)} states the withholding rationale in its own words:</p>`,
     '<blockquote><p>"…as a matter of conventional practice we do not issue call signs or parts of call signs that might spell out (English) words that we think are likely to be generally offensive or which may lead to undue on-air bullying of the licensee. […] It does change over time, as taste and social tolerance change."</p>'
       + '<p>"In addition […] we are required by Art 19.46 et seq of the Radio Regulations not to allow call signs that might be confused with internationally accepted signals. […] For example, \'SOS\'. In addition, there is an international list of so-called \'Q-Codes\'. […] Our licensing system has been programmed not to allow these as suffixes."</p></blockquote>',
     `<p><b>${num(classifiedCount)}</b> of the ${num(h.everForbiddenUnion.length)} union suffixes are traceable to a citable rule from that letter — the ENTIRE QAA–QZZ Q-code block, the ITU-R M.1172 operating abbreviations it links to, and the letter's own "SOS" example. Each per-suffix page names which, where one applies.</p>`,
@@ -566,10 +565,25 @@ const RATIONALE_LABELS: Record<RationaleCategory, { label: string; explanation: 
   },
 };
 
-// The FOI entry this section's one primary rationale source resolves to, for
-// linking from every rationale block. Kept as a constant rather than
-// threading a lookup, since it never varies.
+// The FOI entry — and, within it, the specific rendered document — this
+// section's one primary rationale source resolves to, for linking from every
+// rationale block. A reader must be able to tell WHICH disclosure is being
+// cited without following the link, so every citation names the date and
+// Ofcom's own reference alongside the link, never a bare "FOI response".
+// Kept as constants rather than threading a lookup, since none of this varies.
 const RATIONALE_SOURCE_ENTRY = 'wdtk-356636--all-callsigns-plus-forbidden';
+const RATIONALE_SOURCE_FILE = 'raw-extract-all-call-sign-list-nan-smith.md.html';
+const RATIONALE_SOURCE_LABEL = "Ofcom's FOI response of 29 September 2016 (Ofcom reference 337399)";
+
+// The citation link every rationale block shares, pointing at the same
+// browsable rendered copy of Ofcom's letter — never merely its entry index —
+// so one click from the identifying text lands on the actual sourced words.
+// `depthFromRoot` is how many directory levels the citing page sits below the
+// site root (1 for the section index, 3 for a per-suffix page).
+function rationaleSourceLink(depthFromRoot: number): string {
+  const up = '../'.repeat(depthFromRoot);
+  return `<a href="${up}datasets/foi/${encodeURIComponent(RATIONALE_SOURCE_ENTRY)}/${encodeURIComponent(RATIONALE_SOURCE_FILE)}">${RATIONALE_SOURCE_LABEL}</a>`;
+}
 
 // The "why is this suffix withheld?" block on a per-suffix page (issue #196).
 // SOURCED categories cite Ofcom's own FOI response and (for the two ITU
@@ -580,7 +594,7 @@ const RATIONALE_SOURCE_ENTRY = 'wdtk-356636--all-callsigns-plus-forbidden';
 // "conventional practice" bucket Ofcom's own letter describes only in
 // general terms.
 function suffixRationaleSection(suffix: string, rationale: SuffixRationale | undefined): string {
-  const foiLink = `<a href="../../../datasets/foi/${encodeURIComponent(RATIONALE_SOURCE_ENTRY)}/index.html">Ofcom's FOI response</a>`;
+  const foiLink = rationaleSourceLink(SUFFIX_PAGE_DEPTH);
   const heading = `<h2>Why is this suffix withheld? <small class="lvl">— ${glossaryTerm('forbidden-suffix-rationale', 3, { label: 'rationale' })}</small></h2>`;
   if (rationale === undefined) {
     return [

@@ -1090,6 +1090,22 @@ describe('Internal link integrity across the built site (issue #561)', { tags: [
   });
 });
 
+describe('Glossary citation of the forbidden-suffix FOI source (issue #750)', { tags: ['data-validity'] }, () => {
+  // The glossary's "Forbidden-suffix rationale" entry is a hand-authored page,
+  // so it is deliberately excluded as a SOURCE from the site-wide crawl above
+  // (it is only registered there as a link TARGET). Its own outbound citation
+  // link needs its own guard: it must both name the specific FOI disclosure
+  // and resolve to the browsable rendered copy this build actually emits.
+  it('GlossaryForbiddenSuffixRationale_FoiCitation_IsIdentifiedAndResolvesToTheEmittedBrowsableCopy', () => {
+    const glossary = fs.readFileSync(path.join('site', 'glossary.html'), 'utf8');
+    const target = 'datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md.html';
+    const linkMatch = glossary.match(new RegExp(`href="${target}">([\\s\\S]*?)</a>`));
+    const linkText = linkMatch === null ? undefined : linkMatch[1].replace(/\s+/g, ' ').trim();
+    expect(linkText, 'glossary.html has no link to the FOI response extract').toBe("Ofcom's FOI response of 29 September 2016 (Ofcom reference 337399)");
+    expect(fs.existsSync(path.join(outputDir, target))).toBe(true);
+  });
+});
+
 describe('Inline fidelity nudges + the deep-dive page (issue #438)', { tags: ['data-validity'] }, () => {
   it('BuiltSite_FidelityDeepDive_IsEmittedAndInTheSitemap', () => {
     expect(fs.existsSync(path.join(outputDir, 'fidelity.html'))).toBe(true);
