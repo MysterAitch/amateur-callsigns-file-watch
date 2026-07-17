@@ -324,7 +324,7 @@ function rationaleSection(h: ForbiddenSuffixHistory, rationale: Map<string, Suff
     `<p>Ofcom does not publish a per-suffix reason, but ${rationaleSourceLink(1)} states the withholding rationale in its own words:</p>`,
     '<blockquote><p>"…as a matter of conventional practice we do not issue call signs or parts of call signs that might spell out (English) words that we think are likely to be generally offensive or which may lead to undue on-air bullying of the licensee. […] It does change over time, as taste and social tolerance change."</p>'
       + '<p>"In addition […] we are required by Art 19.46 et seq of the Radio Regulations not to allow call signs that might be confused with internationally accepted signals. […] For example, \'SOS\'. In addition, there is an international list of so-called \'Q-Codes\'. […] Our licensing system has been programmed not to allow these as suffixes."</p></blockquote>',
-    `<p><b>${num(classifiedCount)}</b> of the ${num(h.everForbiddenUnion.length)} union suffixes are traceable to a citable rule from that letter — the ENTIRE QAA–QZZ Q-code block, the ITU-R M.1172 operating abbreviations it links to, and the letter's own "SOS" example. Each per-suffix page names which, where one applies.</p>`,
+    `<p><b>${num(classifiedCount)}</b> of the ${num(h.everForbiddenUnion.length)} union suffixes are traceable to a citable rule from that letter — the ENTIRE QAA–QZZ Q-code block, the ${itu1172Link('ITU-R M.1172 operating abbreviations')} it links to, and the letter's own "SOS" example. Each per-suffix page names which, where one applies.</p>`,
     '<div class="overflow">',
     '<table>',
     tableCaption('Forbidden suffixes broken down by sourced rationale category'),
@@ -417,7 +417,7 @@ function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex, ration
     .filter(x => x.allocated > 0)
     .sort((a, b) => b.allocated - a.allocated || a.suffix.localeCompare(b.suffix));
   if (withAllocated.length > 0) {
-    body.push('<h3>Forbidden, yet carrying Allocated callsigns</h3>');
+    body.push('<h3 id="with-allocated">Forbidden, yet carrying Allocated callsigns</h3>');
     body.push(`<p>${num(withAllocated.length)} union suffixes carry at least one <b>Allocated</b> callsign somewhere in the corpus — most predating the withholding, a few (notably ${suffixField('QNF', { link: { from: 'index' } })}) issued <em>after</em> the suffix was de-listed. Declared, not verified.</p>`);
     body.push('<div class="overflow">');
     body.push('<table>');
@@ -571,18 +571,33 @@ const RATIONALE_LABELS: Record<RationaleCategory, { label: string; explanation: 
 // cited without following the link, so every citation names the date and
 // Ofcom's own reference alongside the link, never a bare "FOI response".
 // Kept as constants rather than threading a lookup, since none of this varies.
-const RATIONALE_SOURCE_ENTRY = 'wdtk-356636--all-callsigns-plus-forbidden';
-const RATIONALE_SOURCE_FILE = 'raw-extract-all-call-sign-list-nan-smith.md.html';
-const RATIONALE_SOURCE_LABEL = "Ofcom's FOI response of 29 September 2016 (Ofcom reference 337399)";
+// Exported so other reader-facing surfaces that restate this same withholding
+// rationale (build-data-status.ts, build-fidelity-page.ts) cite the identical
+// wording and target rather than re-hardcoding a second copy that could drift.
+export const RATIONALE_SOURCE_ENTRY = 'wdtk-356636--all-callsigns-plus-forbidden';
+export const RATIONALE_SOURCE_FILE = 'raw-extract-all-call-sign-list-nan-smith.md.html';
+export const RATIONALE_SOURCE_LABEL = "Ofcom's FOI response of 29 September 2016 (Ofcom reference 337399)";
 
 // The citation link every rationale block shares, pointing at the same
 // browsable rendered copy of Ofcom's letter — never merely its entry index —
 // so one click from the identifying text lands on the actual sourced words.
 // `depthFromRoot` is how many directory levels the citing page sits below the
 // site root (1 for the section index, 3 for a per-suffix page).
-function rationaleSourceLink(depthFromRoot: number): string {
+export function rationaleSourceLink(depthFromRoot: number): string {
   const up = '../'.repeat(depthFromRoot);
   return `<a href="${up}datasets/foi/${encodeURIComponent(RATIONALE_SOURCE_ENTRY)}/${encodeURIComponent(RATIONALE_SOURCE_FILE)}">${RATIONALE_SOURCE_LABEL}</a>`;
+}
+
+// The ITU-R Recommendation M.1172 document ("Miscellaneous abbreviations and
+// signals to be used for radiocommunications in the maritime mobile service")
+// Ofcom's FOI response itself links to as the further-information source for
+// the Q-code and operating-abbreviation rationale families. No local copy is
+// held (reference-data/README.md records a deliberate cite-don't-commit
+// policy for this document), so this is an external link to the ITU's own
+// recommendation page, not a local dataset path.
+const ITU_M1172_URL = 'https://www.itu.int/rec/R-REC-M.1172/en';
+function itu1172Link(label: string): string {
+  return `<a href="${ITU_M1172_URL}">${label}</a>`;
 }
 
 // The "why is this suffix withheld?" block on a per-suffix page (issue #196).
@@ -606,7 +621,7 @@ function suffixRationaleSection(suffix: string, rationale: SuffixRationale | und
   const { label, explanation } = RATIONALE_LABELS[rationale.category];
   return [
     `<section>${heading}`,
-    `<p class="lead"><b>${escapeHtml(label)}</b> <span class="gap">— sourced, not this project's inference.</span> ${explanation} Source: ${foiLink}, corroborated by the linked ITU-R M.1172 document. <span class="gap">See the <a href="../../index.html#rationale">rationale breakdown</a> on the section index for how this fits the wider list.</span></p>`,
+    `<p class="lead"><b>${escapeHtml(label)}</b> <span class="gap">— sourced, not this project's inference.</span> ${explanation} Source: ${foiLink}, corroborated by the linked ${itu1172Link('ITU-R M.1172')} document. <span class="gap">See the <a href="../../index.html#rationale">rationale breakdown</a> on the section index for how this fits the wider list.</span></p>`,
     '</section>',
   ].join('\n');
 }

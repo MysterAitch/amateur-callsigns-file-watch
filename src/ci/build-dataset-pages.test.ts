@@ -627,6 +627,17 @@ describe('Dataset pages build', () => {
     expect(summary.pageUrls.some(u => u.endsWith('/reports/narratives/the-six-twins.html'))).toBe(true);
   });
 
+  it('PermanentSesNarrative_WdtkFoiReference_IsARealLinkNotBareText', () => {
+    // Issue #767: the WhatDoTheyKnow reference 01700326 citation otherwise
+    // names an identifier with no way to follow it. No archived copy of this
+    // request is held in the repository, so the fix is an external link to
+    // the request itself (rather than a local dataset path), with an honest
+    // caveat that no archived copy exists.
+    const page = fs.readFileSync(path.join(outputDir, 'reports', 'narratives', 'permanent-special-event-stations.html'), 'utf8');
+    expect(page).toContain('<a href="https://www.whatdotheyknow.com/request/agreement_between_ofcom_rsgb_to">WhatDoTheyKnow reference 01700326</a>');
+    expect(page).toContain('no archived copy of this request is held in this repository');
+  });
+
   it('FidelityPage_ConsistencySection_BackLinksTheSixTwinsNarrative', () => {
     // The first of the two proposed back-links (PR #647): the fidelity
     // deep-dive's consistency section points readers at the worked example.

@@ -76,6 +76,26 @@ describe('Forbidden-suffix section — index', { tags: ['data-validity'] }, () =
     // The surprise the index surfaces: forbidden suffixes that nonetheless
     // carry Allocated callsigns — QNF is called out by name.
     expect(index).toContain('Forbidden, yet carrying Allocated callsigns');
+    // That section carries an anchor (issue #769) so the fidelity page's
+    // "show the working" example can link straight through to this analysis
+    // rather than restating it as a bare, unlinked assertion.
+    expect(index).toContain('<h3 id="with-allocated">Forbidden, yet carrying Allocated callsigns</h3>');
+  });
+});
+
+describe('ITU-R M.1172 citation is a real link, not prose claiming to be one (issue #768)', { tags: ['data-validity'] }, () => {
+  const ITU_HREF = 'href="https://www.itu.int/rec/R-REC-M.1172/en"';
+
+  it('ForbiddenSectionIndex_ItuM1172Mention_IsARealLinkNotBareText', () => {
+    const index = read('forbidden', 'index.html');
+    expect(index).toContain(`the ${'<a ' + ITU_HREF + '>ITU-R M.1172 operating abbreviations</a>'} it links to`);
+  });
+
+  it('SuffixDetailPage_ItuM1172Corroboration_IsARealLinkNotBareText', () => {
+    // A per-suffix page with a SOURCED rationale (QNF is on the itu-q-code
+    // family) carries the same real link in its "corroborated by" sentence.
+    const page = read('forbidden', 'suffix', 'QNF', 'index.html');
+    expect(page).toContain(`corroborated by the linked ${'<a ' + ITU_HREF + '>ITU-R M.1172</a>'} document`);
   });
 });
 

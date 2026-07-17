@@ -242,12 +242,13 @@ directly:
   technical vetting before forwarding the completed NoV to Ofcom for issue.
 
 **[observed]** That repeater/beacon delegation is not on the strongest possible
-footing, though: a 2023 Freedom of Information request (WhatDoTheyKnow
-reference 01700326) found Ofcom stating it holds **no formal documented
-agreement — no memorandum of understanding — with RSGB** for this
-arrangement, only internal process maps. The delegation is real in day-to-day
-practice, and it is Ofcom's own account that it is undocumented and informal
-as a matter of contract.
+footing, though: a 2023 Freedom of Information request
+([WhatDoTheyKnow reference 01700326](https://www.whatdotheyknow.com/request/agreement_between_ofcom_rsgb_to) —
+no archived copy of this request is held in this repository) found Ofcom
+stating it holds **no formal documented agreement — no memorandum of
+understanding — with RSGB** for this arrangement, only internal process maps.
+The delegation is real in day-to-day practice, and it is Ofcom's own account
+that it is undocumented and informal as a matter of contract.
 
 **[derived]** The net picture: Ofcom authors every grant across every NoV class
 discussed here; RSGB's administrative role ranges from none at all (ordinary

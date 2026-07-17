@@ -171,6 +171,8 @@ export function callsignPillRaw(el, raw) {
  * @property {string} meaning     one-line, plain-English account of the part's role
  * @property {string} nameHref    where the part name links in the table
  * @property {string} [glossaryHref] optional resolved glossary deep-link
+ * @property {string} [citationHref] optional external source citation link
+ * @property {string} [citationLabel] label shown for the citation link; defaults to "source" when omitted
  */
 
 /**
@@ -310,11 +312,13 @@ export function anatomyFigureHtml(spec) {
   const rows = parts.map((p, i) => {
     const gloss = p.glossaryHref === undefined ? ''
       : ` (<a href="${p.glossaryHref}">glossary</a>)`;
+    const citation = p.citationHref === undefined ? ''
+      : ` (<a href="${p.citationHref}">${escapeHtml(p.citationLabel ?? 'source')}</a>)`;
     return `<tr><th scope="row">${i + 1}</th>`
       + `<td><a href="${p.nameHref}">${escapeHtml(p.name)}</a>${gloss}</td>`
       + `<td><code>${escapeHtml(p.chars)}</code></td>`
       + `<td><span class="anat-swatch" style="background:var(--anat-${p.token})" aria-hidden="true"></span>${escapeHtml(p.colourName)}</td>`
-      + `<td>${escapeHtml(p.meaning)}</td></tr>`;
+      + `<td>${escapeHtml(p.meaning)}${citation}</td></tr>`;
   }).join('');
 
   const table = `<table><caption class="table-caption">The parts of ${escapeHtml(spec.display)},`

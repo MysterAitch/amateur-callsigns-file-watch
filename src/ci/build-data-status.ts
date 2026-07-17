@@ -39,6 +39,7 @@ import {
   readFoiEntryMeta,
 } from '../shared/foi-archive.ts';
 import { escapeHtml, monthYear, dateTime, datasetLabel, tableCaption, glossaryCue, glossaryTerm, zeroCell } from './site-render.ts';
+import { rationaleSourceLink } from './build-forbidden-section.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const FOI_ARCHIVE_DIR = path.join(REPO_ROOT, 'archive', 'foi');
@@ -514,6 +515,12 @@ export const CLASS_BLURBS: Readonly<Record<string, string>> = {
     + '<strong>FOI datasets</strong> are still officially released by Ofcom but are <em>not</em> hosted on that open-data page: '
     + 'they surface through Ofcom’s FOI disclosure log (and its web-archive mirror), and occasionally via a '
     + 'WhatDoTheyKnow (WDTK) request thread — WDTK being the correspondence channel, not a publisher of the data itself.',
+  // The "ran a different computer system" clause needs a dated, linkable
+  // source before it can carry one (issue #770). wdtk-238892's correspondence
+  // does describe a 2007 database changeover, but that thread concerns
+  // out-of-sequence callsigns specifically, not the available-pool series'
+  // discontinuation — it is not confirmed as the basis for THIS claim, so it
+  // stays unlinked here rather than citing a source that may not support it.
   'available-pool':
     'Lists of call signs marked available for issue. Historically produced when Ofcom ran a different computer system; they are '
     + 'no longer produced, so this series is closed rather than merely stale. Read an “available” marking with care — see '
@@ -521,7 +528,8 @@ export const CLASS_BLURBS: Readonly<Record<string, string>> = {
   'forbidden-list':
     'The set of call-sign '
     + `${glossaryTerm('forbidden-suffix', GLOSSARY_DEPTH_FROM_ROOT, { label: 'suffixes Ofcom withholds from issue' })} `
-    + '(offensive or otherwise reserved combinations). A membership list of suffixes, not a register of licences.',
+    + `(offensive or otherwise reserved combinations, per ${rationaleSourceLink(GLOSSARY_DEPTH_FROM_ROOT)}). `
+    + 'A membership list of suffixes, not a register of licences.',
   'issuance-events':
     'Records of individual grant or change events — call signs issued or amended over a period — rather than a full '
     + 'point-in-time register.',
