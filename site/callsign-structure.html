@@ -86,7 +86,7 @@
         <strong>additional letter available only to a Full (Club) Licence</strong>.
         <span class="src">Authoritative — Ofcom OFW611, cl. 24 (pp 7–8).</span></p>
       <div class="overflow">
-      <table>
+      <table data-table-controls>
         <caption class="table-caption">Regional Secondary Locator letters (Ofcom OFW611, cl. 24).</caption>
         <thead><tr><th scope="col">Nation / area</th><th scope="col">All licences</th><th scope="col">Full (Club) Licence only</th></tr></thead>
         <tbody>
@@ -118,7 +118,7 @@
         <span class="src">Authoritative — Ofcom, <em>Licensing guidance document for amateur
         radio</em>, §5, Table 1 (Amateur Radio Call sign formats).</span></p>
       <div class="overflow">
-      <table>
+      <table data-table-controls>
         <caption class="table-caption">Callsign initial characters by class (Ofcom guidance, Table 1).</caption>
         <thead><tr><th scope="col">Class</th><th scope="col">Currently issuing</th><th scope="col">Formerly issued</th></tr></thead>
         <tbody>
@@ -269,6 +269,12 @@
         navigator.serviceWorker.register('sw.js').catch(function () {});
       });
     }
+  </script>
+  <!-- Progressive enhancement (issue #667): the reference tables above are fully
+       readable without this; it only ADDS the download / column-selection strip. -->
+  <script type="module">
+    import { initTableControls } from './table-controls.js';
+    initTableControls();
   </script>
 </body>
 </html>
