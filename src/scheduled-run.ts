@@ -32,8 +32,7 @@ import * as fsSync from 'fs';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import axios from 'axios';
-import * as dotenv from 'dotenv';
-dotenv.config();
+import './shared/load-env.ts';
 
 import { runScrape } from './sources/ofcom-amateur/scrape.ts';
 import { runProcess } from './sources/ofcom-amateur/process.ts';
