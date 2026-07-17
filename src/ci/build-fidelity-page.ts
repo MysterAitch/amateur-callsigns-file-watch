@@ -222,7 +222,7 @@ function provenanceSection(): string[] {
     '<ul>',
     `<li><b>Verbatim raw files.</b> Each archive entry keeps the publisher’s bytes untouched; every derived file (the ${glossaryTerm('normalised', 0, { label: 'normalised view' })}, the components decomposition) is regenerated from them and declares its method.</li>`,
     '<li><b>Hash-pinned declarations.</b> Each entry’s <code>meta.json</code> declares a sha256 for every file, alongside where, when and how the file was obtained — including, for recovered material, the witness links (UK Government Web Archive, WhatDoTheyKnow, Ofcom’s own site) a reader can check independently.</li>',
-    '<li><b>Source positions and permalinks.</b> The claim ledger records the physical source line each observation sits on; a permalink back to that exact line is <em>computed on read</em> from the recorded position and a pinned git commit at which our copy provably exists — never a stored string that could drift. A record with no recorded position honestly gets no link.</li>',
+    '<li><b>Source positions and permalinks.</b> The claim ledger records the physical source line each observation sits on; a permalink back to that exact line is <em>generated fresh</em> from the recorded position and a pinned git commit at which our copy provably exists — rather than saved as a fixed string that could drift out of date. A record with no recorded position honestly gets no link.</li>',
     `<li><b>Archive facts stay labelled as ours.</b> When the mirror states when <em>it</em> obtained or first committed a file, that is a fact about the mirror’s handling of its copy — carried under its own <code>archive:</code> namespace, and never presented as a date intrinsic to the source.</li>`,
     '</ul>',
     `<p>Start from the <a href="datasets/index.html">dataset index</a> to browse any entry’s files, hashes and witnesses; the ${glossaryTerm('axis-confidence', 0, { label: 'claim-confidence axis' })} in the glossary explains how As-published, Computed and Looked-up values differ.</p>`,
@@ -284,7 +284,7 @@ function divergenceSection(divergences: CollectedDivergence[]): string[] {
   const intro = [
     '<h2 id="divergence">Divergence — when two copies of one publication disagree</h2>',
     '<p>Some publications survive in more than one copy — the original publisher, a web archive, an FOI aggregator, a community rehost. A copy whose bytes are <b>identical</b> to one the mirror holds <em>corroborates</em> it (proven by matching sha256). A copy that <b>differs</b> is a first-class finding, recorded here — never silently reconciled, and never adjudicated: the mirror holds <b>both</b> copies so anyone can compare them directly, and states which one it parses and why.</p>',
-    '<p>This is an observation about what the sources published, not a verdict about a record or a licensee — the same register as every other fidelity note.</p>',
+    '<p>This is an observation about what the sources published, not a verdict about a record, or about whoever holds or uses the callsign — the same register as every other fidelity note.</p>',
   ];
   if (divergences.length === 0) {
     intro.push('<p class="gap">No divergence is on record: every witnessed copy the mirror has hash-checked is byte-identical to a held copy.</p>');
@@ -436,7 +436,7 @@ export function buildFidelityPage(outputDir: string, baseUrl: string = DEFAULT_B
     '<h1>Fidelity &amp; integrity</h1>',
     '<p class="lead">How the mirror keeps faith with its sources — and how you can check. This page elaborates the small fidelity notes shown beside records across the site: what the flags mean, where every value comes from, how derived values show their working, and how the whole archive is continuously re-verified.</p>',
     '<h2 id="about">What a fidelity note is (and is not)</h2>',
-    '<p>The mirror reports <b>what the sources show</b>. When a value carries a quirk — a lowercase callsign, a spreadsheet artefact, a suffix on a withheld list — the mirror keeps the verbatim value, derives what it can, and <b>flags the observation</b> so nothing is silently transformed, inferred or dropped. A fidelity note is therefore an observation with evidence behind it, never a verdict about a record or the person it concerns.</p>',
+    '<p>The mirror reports <b>what the sources show</b>. When a value carries a quirk — a lowercase callsign, a spreadsheet artefact, a suffix on a withheld list — the mirror keeps the verbatim value, derives what it can, and <b>flags the observation</b> so nothing is silently transformed, inferred or dropped. A fidelity note is therefore an observation with evidence behind it, never a verdict about a record, or about whoever holds or uses the callsign it concerns.</p>',
     `<p>Two standing caveats apply everywhere: figures are <b>declared, not verified</b> (a publisher’s stated coverage is intent, not a guarantee), and <b>absence is not evidence</b> — a record missing from a snapshot tells you about the snapshot, not the world. See ${glossaryTerm('declared-complete', 0)} and the ${glossaryTerm('axis-confidence', 0, { label: 'confidence axis' })} in the glossary.</p>`,
     ...provenanceSection(),
     ...flagsSection(newestKey ?? '(no archive entries)', newestStats),
