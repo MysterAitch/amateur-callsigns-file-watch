@@ -141,20 +141,29 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
+// Exported so the zero-de-emphasis behaviour (issue #731) is exercised
+// directly, without driving a full lookup through the range-request worker -
+// the same reasoning explore.js's resultCell is exported for.
 /**
  * @param {string[]} headers
  * @param {any[][]} rows
  * @param {number} [numericFrom]
  */
-function renderTable(headers, rows, numericFrom = 1) {
+export function renderTable(headers, rows, numericFrom = 1) {
   const table = el('table');
   table.append(el('thead', {}, [el('tr', {}, headers.map((h, i) => el('th', { text: h, class: i >= numericFrom ? 'num' : '' })))]));
   // Cells accept DOM nodes as well as text - the edge-density work turns
-  // component values into navigable links.
-  table.append(el('tbody', {}, rows.map(r => el('tr', {}, r.map((c, i) =>
-    c instanceof Node
-      ? el('td', { class: i >= numericFrom ? 'num' : '' }, [c])
-      : el('td', { text: String(c), class: i >= numericFrom ? 'num' : '' }))))));
+  // component values into navigable links. A numeric cell whose text is
+  // exactly "0" also carries the shared de-emphasis class (issue #731): the
+  // eye should land on non-zero figures, not the zeros between them. A
+  // DOM-node cell (a link, a pill) is never checked - it is never a bare "0".
+  table.append(el('tbody', {}, rows.map(r => el('tr', {}, r.map((c, i) => {
+    const numeric = i >= numericFrom;
+    if (c instanceof Node) return el('td', { class: numeric ? 'num' : '' }, [c]);
+    const text = String(c);
+    const cls = [numeric ? 'num' : '', numeric && text.trim() === '0' ? 'zero' : ''].filter(Boolean).join(' ');
+    return el('td', { text, class: cls });
+  })))));
   const wrap = el('div', { class: 'overflow' });
   wrap.append(table);
   return wrap;

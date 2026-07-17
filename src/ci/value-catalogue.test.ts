@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
-import { catalogueField, renderValueCatalogue, collectSesWindowAttestation, type SesWindowAttestation } from './value-catalogue.ts';
+import {
+  catalogueField, renderValueCatalogue, collectSesWindowAttestation,
+  type SesWindowAttestation, type FieldCatalogue, type ValueTally, type MembershipVintage,
+} from './value-catalogue.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { DIRS } from '../shared/constants.ts';
 import { renderMarkdown } from '../shared/render-markdown.ts';
@@ -41,6 +44,26 @@ function talliesBySource(field: string, spec: Record<string, Record<string, numb
     m.set(value, { lanes: new Set(lanes), bySource: new Map(Object.entries(bySource)) });
   }
   return new Map([[field, m]]);
+}
+
+// A hand-built `status` FieldCatalogue carrying both attested rows and
+// membership-derived projections (issue #707), fed in as `foldedFields` (the
+// only path that carries the `membership` tag - the legacy tally never does).
+// Used to exercise the render-time demotion (issue #722) without a real fold.
+function statusCatalogueWithMembership(values: ValueTally[]): Map<string, FieldCatalogue> {
+  const distinct = values.length;
+  const total = values.reduce((s, v) => s + v.count, 0);
+  return new Map([['status', { field: 'status', distinct, total, values }]]);
+}
+function membershipTally(value: string, membership: string, opts: { records: number; callsigns: number; sources: number; bySource?: Record<string, number> }): ValueTally {
+  return {
+    value, count: opts.records, lanes: ['foi'], sources: opts.sources,
+    bySource: new Map(Object.entries(opts.bySource ?? {})),
+    distinctCallsigns: opts.callsigns, allocated: 0, membership,
+  };
+}
+function attestedTally(value: string, records: number, callsigns: number): ValueTally {
+  return { value, count: records, lanes: ['open-data'], sources: 1, bySource: new Map([['s', records]]), distinctCallsigns: callsigns, allocated: 0 };
 }
 
 describe('value catalogue', { tags: ['unit'] }, () => {
@@ -207,11 +230,129 @@ describe('value catalogue', { tags: ['unit'] }, () => {
     expect(md).toContain('Ofcom');
   });
 
+  it('NormalisationFidelity_RenderedToHtml_MutesTheZeroCoercedCellButNotTheDroppedCount', () => {
+    // Issue #731's named first case: the normalisation-fidelity table is the
+    // one that prompted the sitewide convention. The committed markdown keeps
+    // its plain "0" (asserted above); only the rendered HTML edge mutes it,
+    // via the shared markdown-renderer table-cell hook, not a bespoke
+    // per-page treatment.
+    const md = renderValueCatalogue(tallies({ status: [['Allocated', 1, ['open-data']]] }), ref, [], [
+      { key: '2022-05-30', rawRows: 151157, normalisedRows: 151152, dropped: ['Ofcom', 'Confidential Information - Do Not Distribute'], coerced: [] },
+    ]);
+    expect(md).toContain('| 2022-05-30 | 151,157 | 151,152 | 2 | 0 |');
+    const html = renderMarkdown(md);
+    expect(html).toContain('<td><span class="zero">0</span></td>');
+    // The dropped count (2, non-zero) stays plain in the same row.
+    expect(html).toMatch(/<td>151,157<\/td><td>151,152<\/td><td>2<\/td><td><span class="zero">0<\/span><\/td>/);
+  });
+
   it('NormalisationFidelity_NoGaps_StatesFaithful', () => {
     const md = renderValueCatalogue(tallies({ status: [['Allocated', 1, ['open-data']]] }), ref, [], [
       { key: '2026-06-23', rawRows: 158318, normalisedRows: 158318, dropped: [], coerced: [] },
     ]);
     expect(md).toContain('No gaps: normalisation preserved every callsign');
+  });
+});
+
+// Issue #722: the `status` fold still PROJECTS the membership-derived
+// `Available` / `Forbidden` rows (issue #707) unchanged - only the PUBLISHED
+// presentation demotes them out of the prominent status table into a
+// cross-checks/curio section, led by the meaningful quantities.
+describe('membership-row demotion (issue #722)', { tags: ['unit'] }, () => {
+  const ref = loadReferenceData();
+  const available = membershipTally('Available', 'available-pool', {
+    records: 207_783, callsigns: 35_210, sources: 9,
+    bySource: { 'wdtk-174341--available-callsigns-list': 26_646, 'wdtk-309076--available-callsigns-list': 20_737 },
+  });
+  const forbidden = membershipTally('Forbidden', 'forbidden-list', {
+    records: 5_860, callsigns: 1_466, sources: 4,
+    bySource: { 'wdtk-356636--all-callsigns-plus-forbidden': 1_466, 'ofcom-2024-12--forbidden-suffixes': 1_464 },
+  });
+  const attestedAvailable = attestedTally('Available', 12_933, 3_704);
+  const attestedForbidden = attestedTally('Forbidden', 10_862, 5_431);
+  const allocated = attestedTally('Allocated', 3_061_134, 115_414);
+  const vintages = new Map<string, MembershipVintage>([
+    ['available-pool', { minVintage: '2013-09-06', maxVintage: '2016-01-21', latestEntry: 'wdtk-309076--available-callsigns-list' }],
+    ['forbidden-list', { minVintage: '2016-09', maxVintage: '2024-12', latestEntry: 'ofcom-2024-12--forbidden-suffixes' }],
+  ]);
+  const foldedFields = statusCatalogueWithMembership([allocated, available, attestedAvailable, forbidden, attestedForbidden]);
+
+  it('StatusTable_WhenMembershipRowsPresent_ExcludesThemAndReflectsAttestedCountOnly', () => {
+    const md = renderValueCatalogue(new Map(), ref, [], [], undefined, foldedFields, [], vintages);
+    // `status` has 5 values total but only 3 are attested (Allocated + the two
+    // small register-recorded Available/Forbidden statuses) - the header and the
+    // table both reflect that, not the fold's full count.
+    expect(md).toContain('## `status` — 3 distinct');
+    const statusSection = md.slice(md.indexOf('## `status` — '), md.indexOf('## Cross-checks'));
+    // No TABLE ROW in the status section carries a membership tag (the prose
+    // explaining the demotion may name the families; no row does).
+    const statusRows = statusSection.split('\n').filter(l => l.startsWith('| '));
+    expect(statusRows.some(l => l.includes('membership'))).toBe(false);
+    // The small ATTESTED Available/Forbidden statuses are still shown, plainly.
+    expect(statusSection).toContain('| `Available` | 12,933 |');
+    expect(statusSection).toContain('| `Forbidden` | 10,862 |');
+  });
+
+  it('StatusTable_WhenNoMembershipRows_OmitsTheDemotionNote', () => {
+    const md = renderValueCatalogue(tallies({ status: [['Allocated', 100, ['open-data']]] }), ref);
+    expect(md).toContain('## `status` — 1 distinct');
+    expect(md).not.toContain('demoted');
+  });
+
+  it('CrossChecks_WhenMembershipRowsPresent_RendersSectionLeadingWithCallsignsAndLatestSnapshot', () => {
+    const md = renderValueCatalogue(new Map(), ref, [], [], undefined, foldedFields, [], vintages);
+    expect(md).toContain('## Cross-checks and curiosities');
+    expect(md).toContain('### Membership-derived rows demoted from `status`');
+    // Vintage stated plainly, including the pre-M7/M8/M9 domain fact for the pool.
+    expect(md).toContain('9 pool snapshots, 2013–2016 (pre-M7/M8/M9');
+    // Led by the meaningful quantities: distinct callsigns then latest snapshot,
+    // BEFORE the records-sum cell.
+    const row = md.split('\n').find(l => l.startsWith('| `Available` — available-pool membership'));
+    expect(row).toBeDefined();
+    const cells = (row ?? '').split('|').map(c => c.trim());
+    // cells: ['', row, vintage, callsigns, latest, records, '']
+    expect(cells[3]).toBe('35,210');
+    expect(cells[4]).toBe('20,737 (2016-01-21)');
+    expect(cells[5]).toContain('207,783 rows across 9 held snapshots');
+    expect(cells[5]).toContain('grows with ingestion, not with availability');
+  });
+
+  it('CrossChecks_ForbiddenRow_MarksRecordsAsCorpusCoverageNotForbiddenness', () => {
+    const md = renderValueCatalogue(new Map(), ref, [], [], undefined, foldedFields, [], vintages);
+    const row = md.split('\n').find(l => l.startsWith('| `Forbidden` — forbidden-list membership'));
+    expect(row).toContain('5,860 rows across 4 held snapshots');
+    expect(row).toContain('grows with ingestion, not with forbiddenness');
+    expect(row).toContain('1,466');
+    expect(row).toContain('1,464 (2024-12)');
+  });
+
+  it('CrossChecks_WhenNoMembershipRows_OmitsTheSectionEntirely', () => {
+    const md = renderValueCatalogue(tallies({ status: [['Allocated', 100, ['open-data']]] }), ref);
+    expect(md).not.toContain('Cross-checks and curiosities');
+  });
+
+  it('CrossChecks_WhenNoVintageDataSupplied_FallsBackToSnapshotCountWithoutYearRangeOrLatestSize', () => {
+    // A membership row can arrive with no vintage map (e.g. a caller that has not
+    // wired FOI metadata) - the row still renders, degrading gracefully rather
+    // than throwing or fabricating a year range/latest figure.
+    const md = renderValueCatalogue(new Map(), ref, [], [], undefined, foldedFields, [], new Map());
+    const row = md.split('\n').find(l => l.startsWith('| `Available` — available-pool membership'));
+    expect(row).toBeDefined();
+    const cells = (row ?? '').split('|').map(c => c.trim());
+    expect(cells[2]).toBe('9 pool snapshots'); // no year range, no staleness clause
+    expect(cells[4]).toBe('—'); // no latest-snapshot figure without a vintage
+  });
+
+  it('RecordsVsCallsignsGloss_UsesTheAllocatedRowAsTheTeachingExample', () => {
+    const md = renderValueCatalogue(new Map(), ref, [], [], undefined, foldedFields, [], vintages);
+    expect(md).toContain('teaching example');
+    expect(md).toContain('3,061,134 records');
+    expect(md).toContain('115,414 distinct callsigns');
+  });
+
+  it('RecordsVsCallsignsGloss_WhenNoStatusField_OmitsTheGlossRatherThanFabricatingIt', () => {
+    const md = renderValueCatalogue(tallies({ prefix_series: [['M0', 5, ['open-data']]] }), ref);
+    expect(md).not.toContain('teaching example');
   });
 });
 

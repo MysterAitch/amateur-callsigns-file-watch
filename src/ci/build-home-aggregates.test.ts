@@ -30,6 +30,21 @@ describe('Home-page aggregate pre-rendering', { tags: ['unit'] }, () => {
     expect(html.indexOf('2026-06-23')).toBeLessThan(html.indexOf('2023-02-20'));
   });
 
+  it('FlagsTable_PublicationWithNoHitsForAFlag_DeEmphasisesTheZeroCountCell', () => {
+    // A flag absent from a given publication's stats.json defaults to a
+    // literal 0 (`d.flags[flag] ?? 0`), rendered plainly - the exact case
+    // issue #731 targets: the zero mutes via the shared class rather than
+    // reading as loudly as a non-zero neighbour in the same row.
+    const html = renderFlagsTableHtml();
+    expect(html).toContain('<span class="zero">0</span>');
+    // The records row - never zero for a real archived publication - stays
+    // plain within its own <tr>, proving the mute is conditional on the
+    // cell's own value, not blanket-applied to the whole numeric column.
+    const recordsRow = /<tr>(?:(?!<\/tr>)[\s\S])*?<td>records<\/td>(?:(?!<\/tr>)[\s\S])*?<\/tr>/.exec(html)?.[0];
+    expect(recordsRow).toBeDefined();
+    expect(recordsRow).not.toContain('class="zero"');
+  });
+
   it('RslMatrix_RealArchive_CarriesReferenceDrivenRowsTotalsAndExclusions', () => {
     const html = renderRslMatrixHtml();
     // Series stored bare (20), displayed with the # slot marker, linked

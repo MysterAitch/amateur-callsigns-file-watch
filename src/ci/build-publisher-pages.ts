@@ -66,6 +66,7 @@ import {
   breadcrumbHtml,
   glossaryTerm,
   tableCaption,
+  zeroCell,
 } from './site-render.ts';
 import { humaniseClassKey } from './dataset-class-overviews.ts';
 import { classSlug, OPEN_DATA_IMPLICIT_CLASS } from './build-class-pages.ts';
@@ -952,7 +953,7 @@ export function publishersIndexPage(register: PublisherRegister, holdings: Holdi
     const h = holdingsForPublisher(entry.id, holdings);
     const basisLabel = LICENCE_BASIS_LABELS[entry.licenceBasis] ?? humaniseToken(entry.licenceBasis);
     const roleChips = entry.roles.map(r => `<code>${escapeHtml(r)}</code>`).join(' ');
-    return `<tr><th scope="row"><a href="${encodeURIComponent(entry.id)}/index.html">${escapeHtml(entry.name)}</a>${entry.operator === undefined ? '' : `<br><small class="gap">${escapeHtml(entry.operator)}</small>`}</th><td>${roleChips}</td><td>${escapeHtml(basisLabel)}</td><td>${escapeHtml(entry.authorityCeiling)}</td><td class="n">${h.authored.length}</td><td class="n">${h.hosted.length}</td></tr>`;
+    return `<tr><th scope="row"><a href="${encodeURIComponent(entry.id)}/index.html">${escapeHtml(entry.name)}</a>${entry.operator === undefined ? '' : `<br><small class="gap">${escapeHtml(entry.operator)}</small>`}</th><td>${roleChips}</td><td>${escapeHtml(basisLabel)}</td><td>${escapeHtml(entry.authorityCeiling)}</td><td class="n">${zeroCell(h.authored.length)}</td><td class="n">${zeroCell(h.hosted.length)}</td></tr>`;
   }).join('');
   const body = [
     '<h1>Publishers</h1>',
