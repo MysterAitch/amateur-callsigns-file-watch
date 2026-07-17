@@ -412,6 +412,14 @@
   color: var(--faint); font-weight: 600; }
 .ledger th[scope="row"] { font-weight: 600; color: var(--ink); }
 .ledger td.num, .ledger th.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* Sortable result-table headers (issue #213): the per-dataset browser's
+   multi-column sort brought to the index lookup. The header is an activatable
+   control, so it reads as one - a pointer cursor, a hover colour shift, and a
+   visible focus ring for keyboard use; the ▲/▼ arrow and priority number are
+   rendered inline by app.js. */
+.ledger th.sortable { cursor: pointer; white-space: nowrap; user-select: none; }
+.ledger th.sortable:hover { color: var(--signal); }
+.ledger th.sortable:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
 /* Table caption (issue #334): names each data table for assistive tech and
    sighted readers alike. Left-aligned, small and muted so it reads as a label
    above the grid rather than a heading; --muted clears the AA bar on --bg. */

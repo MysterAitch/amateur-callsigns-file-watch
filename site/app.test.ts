@@ -2,7 +2,8 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { makeRunLookup, registerHistoryHeader, seriesLink, suffixLink } from './app.js';
+import { makeRunLookup, registerHistoryHeader, seriesLink, suffixLink,
+  LIST_SORT_COLUMNS, listOrderBy, nextSort, sortToParam, sortFromParam } from './app.js';
 
 // The lookup page routes its PRIMARY database open + query through the shared
 // loading affordance (issues #499/#506), exactly as Explore and the Playground
@@ -191,5 +192,118 @@ describe('lookup component links adopt the shared callsign-part wrappers (#658)'
     expect(markers.length).toBe(1);
     expect(markers[0].textContent).toBe('{NBSP}');
     expect(link.textContent).toBe('TE{NBSP}E');
+  });
+});
+
+// The index lookup's filtered result list gains the per-dataset browser's
+// multi-column sort (issue #213): whole-register searches were always ordered
+// by callsign; now every result column can be sorted, ascending or descending,
+// with a stable tiebreak, and the choice rides in a shareable ?sort= deep link.
+// These exercise the pure sort core the header clicks and the deep-link
+// round-trip are built on; the interactive header wiring is covered end-to-end
+// by the served-site evidence.
+describe('lookup filtered-list sort ordering (#213)', { tags: ['unit'] }, () => {
+  it('ListOrderBy_WhenNoColumnChosen_OrdersByCallsignAscending', () => {
+    // The prior behaviour is the default: an untouched list still reads A→Z by
+    // callsign, so nothing regresses for a reader who never sorts.
+    expect(listOrderBy([])).toBe('c.callsign ASC');
+  });
+
+  it('ListOrderBy_WhenSortingByAnotherColumn_AppendsCallsignAsAStableTiebreak', () => {
+    // Equal statuses must page deterministically, so callsign backs every sort.
+    expect(listOrderBy([{ key: 'status', dir: 'ASC' }])).toBe('n.status ASC, c.callsign ASC');
+  });
+
+  it('ListOrderBy_WhenSortingByCallsignDescending_DoesNotDuplicateTheTiebreak', () => {
+    expect(listOrderBy([{ key: 'callsign', dir: 'DESC' }])).toBe('c.callsign DESC');
+  });
+
+  it('ListOrderBy_WhenMultipleColumnsChosen_PreservesTheirOrder', () => {
+    expect(listOrderBy([{ key: 'status', dir: 'DESC' }, { key: 'product', dir: 'ASC' }]))
+      .toBe('n.status DESC, n.product ASC, c.callsign ASC');
+  });
+
+  it('ListOrderBy_WhenGivenAnUnknownColumnKey_DropsItRatherThanEmittingIt', () => {
+    // Deep-link drift safety: a stale/hand-mangled key can never widen the SQL.
+    expect(listOrderBy([{ key: 'DROP TABLE', dir: 'ASC' }])).toBe('c.callsign ASC');
+  });
+
+  it('ListOrderBy_WhenGivenAnUnknownDirection_FallsBackToAscending', () => {
+    expect(listOrderBy([{ key: 'status', dir: 'sideways' }])).toBe('n.status ASC, c.callsign ASC');
+  });
+
+  it('ListSortColumns_CoverEveryColumnTheResultTableShows', () => {
+    // The header wiring lines row cells up with LIST_SORT_COLUMNS by position;
+    // this pins the contract so a column added to one is added to the other.
+    expect(LIST_SORT_COLUMNS.map(c => c.key)).toEqual(['callsign', 'status', 'product', 'parse', 'flags']);
+  });
+});
+
+describe('lookup filtered-list sort interaction semantics (#213)', { tags: ['unit'] }, () => {
+  it('NextSort_WhenAPlainHeaderIsActivated_SortsByThatColumnAloneAscending', () => {
+    expect(nextSort([], 'status', false)).toEqual([{ key: 'status', dir: 'ASC' }]);
+  });
+
+  it('NextSort_WhenTheSoleAscendingColumnIsReactivated_TogglesToDescending', () => {
+    expect(nextSort([{ key: 'status', dir: 'ASC' }], 'status', false)).toEqual([{ key: 'status', dir: 'DESC' }]);
+  });
+
+  it('NextSort_WhenADescendingColumnIsPlainActivated_ReturnsToAscending', () => {
+    expect(nextSort([{ key: 'status', dir: 'DESC' }], 'status', false)).toEqual([{ key: 'status', dir: 'ASC' }]);
+  });
+
+  it('NextSort_WhenAPlainHeaderIsActivated_ReplacesAnyExistingMultiColumnSort', () => {
+    expect(nextSort([{ key: 'callsign', dir: 'ASC' }, { key: 'status', dir: 'DESC' }], 'product', false))
+      .toEqual([{ key: 'product', dir: 'ASC' }]);
+  });
+
+  it('NextSort_WhenShiftActivated_AppendsTheColumnAsASecondarySort', () => {
+    expect(nextSort([{ key: 'callsign', dir: 'ASC' }], 'status', true))
+      .toEqual([{ key: 'callsign', dir: 'ASC' }, { key: 'status', dir: 'ASC' }]);
+  });
+
+  it('NextSort_WhenShiftActivatingAnAlreadySortedColumn_TogglesOnlyThatColumn', () => {
+    expect(nextSort([{ key: 'callsign', dir: 'ASC' }, { key: 'status', dir: 'ASC' }], 'status', true))
+      .toEqual([{ key: 'callsign', dir: 'ASC' }, { key: 'status', dir: 'DESC' }]);
+  });
+
+  it('NextSort_WhenTheColumnKeyIsUnknown_LeavesTheSortUntouched', () => {
+    const sort = [{ key: 'callsign', dir: 'ASC' }];
+    expect(nextSort(sort, 'nonsense', false)).toBe(sort);
+  });
+
+  it('NextSort_WhenComputingANewSort_DoesNotMutateTheInput', () => {
+    const sort = [{ key: 'status', dir: 'ASC' }];
+    nextSort(sort, 'status', false);
+    expect(sort).toEqual([{ key: 'status', dir: 'ASC' }]);
+  });
+});
+
+describe('lookup filtered-list sort deep link (#213)', { tags: ['unit'] }, () => {
+  it('SortToParam_WhenTheSortIsPristine_ProducesNoParam', () => {
+    // A default view carries no ?sort=, so shared links stay clean.
+    expect(sortToParam([])).toBe('');
+    expect(sortToParam([{ key: 'callsign', dir: 'ASC' }])).toBe('');
+  });
+
+  it('SortToParam_WhenColumnsAreSorted_EncodesKeyAndDirection', () => {
+    expect(sortToParam([{ key: 'status', dir: 'DESC' }, { key: 'callsign', dir: 'ASC' }]))
+      .toBe('status:desc,callsign:asc');
+  });
+
+  it('SortFromParam_WhenGivenAnEncodedSort_RoundTripsBackToTheSameSpec', () => {
+    const sort = [{ key: 'status', dir: 'DESC' }, { key: 'product', dir: 'ASC' }];
+    expect(sortFromParam(sortToParam(sort))).toEqual(sort);
+  });
+
+  it('SortFromParam_WhenTheParamIsAbsent_YieldsTheDefaultEmptySort', () => {
+    expect(sortFromParam(null)).toEqual([]);
+    expect(sortFromParam('')).toEqual([]);
+  });
+
+  it('SortFromParam_WhenGivenAnUnknownColumnOrMalformedToken_DropsIt', () => {
+    // A stale or hand-edited link degrades to what it can honour, never throws.
+    expect(sortFromParam('bogus:asc,status:desc')).toEqual([{ key: 'status', dir: 'DESC' }]);
+    expect(sortFromParam('status')).toEqual([{ key: 'status', dir: 'ASC' }]);
   });
 });

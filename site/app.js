@@ -713,7 +713,12 @@ const PAGE_SIZE = 50;
  * @property {string} length
  * @property {string} pattern
  * @property {boolean} abnormal
+ * @property {SortEntry[]} sort
  */
+
+// One column of the filtered-list sort: a stable deep-link key and the SQL
+// direction to order it by ('ASC' or 'DESC').
+/** @typedef {{ key: string, dir: string }} SortEntry */
 
 // Translate the pattern notation to a SQLite GLOB: A = letter, N = digit,
 // * = any run; anything else is literal. GLOB metacharacters in literals
@@ -727,6 +732,110 @@ function patternToGlob(pattern) {
           : /[[\]?]/.test(ch) ? `[${ch}]` : ch,
   ).join('');
 }
+
+// The columns the filtered-list result table can be sorted by, in the order
+// they appear across the table. Each pairs a stable deep-link KEY (what a
+// ?sort= link and the header state carry) and column LABEL with the SQL
+// expression the ORDER BY emits. The keys are a closed vocabulary, so neither a
+// header click nor a hand-mangled ?sort= link can widen what SQL is generated -
+// only these fixed expressions are ever ordered by. This mirrors the
+// per-dataset browser's multi-column sort (entry-browser.js), bringing that
+// affordance to the index lookup's whole-register result list.
+/** @type {{ key: string, label: string, sql: string }[]} */
+export const LIST_SORT_COLUMNS = [
+  { key: 'callsign', label: 'callsign', sql: 'c.callsign' },
+  { key: 'status', label: 'status', sql: 'n.status' },
+  { key: 'product', label: 'product', sql: 'n.product' },
+  { key: 'parse', label: 'parse status', sql: 'c.parse_status' },
+  { key: 'flags', label: 'flags', sql: 'c.flags' },
+];
+const LIST_SORT_BY_KEY = new Map(LIST_SORT_COLUMNS.map(c => [c.key, c]));
+
+// Build the ORDER BY clause for the filtered list from a sort spec. Unknown
+// keys are dropped (deep-link drift safety) and the direction is constrained to
+// ASC/DESC, so the emitted SQL is always drawn from the closed column
+// vocabulary above. c.callsign ASC is appended as a stable tiebreak (and is the
+// whole clause when nothing else is selected), so pagination over equal values
+// is deterministic.
+/** @param {SortEntry[]} sort */
+export function listOrderBy(sort) {
+  /** @type {string[]} */
+  const parts = [];
+  for (const s of sort) {
+    const col = LIST_SORT_BY_KEY.get(s.key);
+    if (col === undefined) continue;
+    parts.push(`${col.sql} ${s.dir === 'DESC' ? 'DESC' : 'ASC'}`);
+  }
+  if (!sort.some(s => s.key === 'callsign')) parts.push('c.callsign ASC');
+  return parts.length > 0 ? parts.join(', ') : 'c.callsign ASC';
+}
+
+// The sort state a header interaction produces, matching the per-dataset
+// browser's semantics: a plain activation sorts by that column ALONE (toggling
+// to DESC only when it was already the sole ascending sort); a modified
+// activation (Shift/Ctrl/Alt/Meta) APPENDS the column as a secondary sort, or
+// toggles its direction when already present. Returns a NEW array (never
+// mutates the input); an unknown key is a no-op, returning the input untouched.
+/**
+ * @param {SortEntry[]} sort
+ * @param {string} key
+ * @param {boolean} multi
+ * @returns {SortEntry[]}
+ */
+export function nextSort(sort, key, multi) {
+  if (!LIST_SORT_BY_KEY.has(key)) return sort;
+  const idx = sort.findIndex(s => s.key === key);
+  if (multi) {
+    if (idx >= 0) return sort.map((s, i) => i === idx ? { key: s.key, dir: s.dir === 'ASC' ? 'DESC' : 'ASC' } : s);
+    return [...sort, { key, dir: 'ASC' }];
+  }
+  const wasAscSingle = sort.length === 1 && idx === 0 && sort[0].dir === 'ASC';
+  return [{ key, dir: wasAscSingle ? 'DESC' : 'ASC' }];
+}
+
+// Serialise a sort spec to the compact ?sort= deep-link value
+// ("callsign:asc,status:desc"), or '' when it is the default (empty, or
+// callsign ASC alone) so a pristine list carries no param. Only known columns
+// are emitted.
+/** @param {SortEntry[]} sort */
+export function sortToParam(sort) {
+  const known = sort.filter(s => LIST_SORT_BY_KEY.has(s.key));
+  if (known.length === 0) return '';
+  if (known.length === 1 && known[0].key === 'callsign' && known[0].dir === 'ASC') return '';
+  return known.map(s => `${s.key}:${s.dir === 'DESC' ? 'desc' : 'asc'}`).join(',');
+}
+
+// Inverse of sortToParam: parse a ?sort= value into a sort spec, dropping any
+// unknown column or malformed token so a stale or hand-mangled link degrades to
+// the default rather than erroring.
+/** @param {string | null | undefined} raw */
+export function sortFromParam(raw) {
+  if (!raw) return [];
+  /** @type {SortEntry[]} */
+  const out = [];
+  for (const token of raw.split(',')) {
+    const [key, dir] = token.split(':');
+    if (!LIST_SORT_BY_KEY.has(key)) continue;
+    out.push({ key, dir: (dir ?? '').toUpperCase() === 'DESC' ? 'DESC' : 'ASC' });
+  }
+  return out;
+}
+
+// The pristine sort a fresh list carries: callsign ascending, matching both the
+// prior fixed ordering and the per-dataset browser's default. Seeding this
+// (rather than an empty spec) means a callsign ▲ shows on the result table
+// before the first click, so the columns read as sortable; sortToParam still
+// serialises it to '' so a default view carries no ?sort= param.
+/** @returns {SortEntry[]} */
+function defaultListSort() { return [{ key: 'callsign', dir: 'ASC' }]; }
+
+// The filtered list's current sort, held at module scope because sorting is
+// interaction state on the RESULT table, not a form field: it must survive a
+// re-query (pagination, a header re-sort) and a form re-submit, exactly as the
+// per-dataset browser keeps its sort in its live state object. Seeded from a
+// ?sort= deep link (applyParamsToForm) and read back by gatherCriteria.
+/** @type {SortEntry[]} */
+let listSort = defaultListSort();
 
 // Build WHERE conditions from the criteria object. Facet model: values
 // ticked WITHIN a group are alternatives (IN - a row has one status), while
@@ -805,7 +914,7 @@ async function filteredList(criteria, page, result) {
   const rows = await query(
     `SELECT c.callsign, n.status, n.product, c.parse_status, c.flags
      FROM components c JOIN normalised n ON n.callsign = c.callsign
-     ${where} ORDER BY c.callsign LIMIT ${PAGE_SIZE} OFFSET ${page * PAGE_SIZE}`, params);
+     ${where} ORDER BY ${listOrderBy(criteria.sort)} LIMIT ${PAGE_SIZE} OFFSET ${page * PAGE_SIZE}`, params);
 
   const total = count.n;
   const first = total === 0 ? 0 : page * PAGE_SIZE + 1;
@@ -825,10 +934,56 @@ async function filteredList(criteria, page, result) {
   }
 
   result.replaceChildren(card(`Matches — ${describeCriteria(criteria)}`, [
-    renderTable(['callsign', 'status', 'product', 'parse status', 'flags'],
-      rows.map(r => [csLink(r.callsign), r.status, r.product, r.parse_status, r.flags]), 99),
+    el('p', { class: 'muted hint', text: 'Click a column heading to sort; Shift-click a second heading to add a tie-breaker.' }),
+    sortableMatchesTable(rows, criteria, result),
     nav,
   ]));
+}
+
+// The filtered-list result table, with the header row wired for click /
+// keyboard sorting - the per-dataset browser's affordance brought to the index
+// lookup. A header shows ▲/▼ for its direction and a priority number once more
+// than one column is sorted; activating it recomputes the sort (nextSort),
+// keeps the module-level listSort and the ?sort= deep link in step, and
+// re-queries from page 0. The row cells match LIST_SORT_COLUMNS in order, so a
+// column's heading and its values always line up.
+/**
+ * @param {{ callsign: string, status: string, product: string, parse_status: string, flags: string }[]} rows
+ * @param {LookupCriteria} criteria
+ * @param {HTMLElement} result
+ */
+function sortableMatchesTable(rows, criteria, result) {
+  const headRow = el('tr');
+  for (const spec of LIST_SORT_COLUMNS) {
+    const idx = criteria.sort.findIndex(s => s.key === spec.key);
+    const dir = idx >= 0 ? criteria.sort[idx].dir : null;
+    const arrow = dir === null ? '' : `${dir === 'DESC' ? ' ▼' : ' ▲'}${criteria.sort.length > 1 ? String(idx + 1) : ''}`;
+    const th = el('th', {
+      role: 'button', tabindex: '0', class: 'sortable',
+      'aria-label': `sort by ${spec.label}${dir === null ? '' : dir === 'DESC' ? ', currently descending' : ', currently ascending'}`,
+      title: 'click to sort; Shift-click to add a secondary sort',
+    }, [`${spec.label}${arrow}`]);
+    /** @param {boolean} multi */
+    const sortBy = (multi) => {
+      criteria.sort = nextSort(criteria.sort, spec.key, multi);
+      listSort = criteria.sort;
+      syncCriteriaToUrl(criteria);
+      void filteredList(criteria, 0, result);
+    };
+    th.addEventListener('click', (/** @type {MouseEvent} */ e) => sortBy(e.shiftKey || e.ctrlKey || e.altKey || e.metaKey));
+    th.addEventListener('keydown', (/** @type {KeyboardEvent} */ e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortBy(e.shiftKey); } });
+    headRow.append(th);
+  }
+  const tbody = el('tbody', {}, rows.map(r => el('tr', {}, [
+    el('td', {}, [csLink(r.callsign)]),
+    el('td', { text: r.status }),
+    el('td', { text: r.product }),
+    el('td', { text: r.parse_status }),
+    el('td', { text: r.flags }),
+  ])));
+  const wrap = el('div', { class: 'overflow' });
+  wrap.append(el('table', {}, [el('thead', {}, [headRow]), tbody]));
+  return wrap;
 }
 
 /** @param {LookupCriteria} criteria */
@@ -1104,6 +1259,10 @@ function gatherCriteria() {
     length: /** @type {HTMLInputElement} */ (document.getElementById('length-filter')).value.trim(),
     pattern: /** @type {HTMLInputElement} */ (document.getElementById('pattern-filter')).value.trim(),
     abnormal: /** @type {HTMLInputElement} */ (document.getElementById('abnormal-filter')).checked,
+    // Sorting is result-table state, not a form field, so it is read from the
+    // module-level listSort (seeded by a ?sort= deep link, updated on a header
+    // click) rather than the form - the same object every re-query threads.
+    sort: listSort,
   };
 }
 
@@ -1123,7 +1282,19 @@ function criteriaToParams(criteria) {
   if (criteria.length) params.set('len', criteria.length);
   if (criteria.pattern) params.set('pattern', criteria.pattern);
   if (criteria.abnormal) params.set('abnormal', '1');
+  const sortParam = sortToParam(criteria.sort);
+  if (sortParam) params.set('sort', sortParam);
   return params;
+}
+
+// Rewrite the address bar to the shareable URL for the current criteria,
+// without adding a history entry (replaceState, matching the form-submit path):
+// a sort change re-points the same view rather than stacking Back steps.
+/** @param {LookupCriteria} criteria */
+function syncCriteriaToUrl(criteria) {
+  const url = new URL(window.location.href);
+  url.search = criteriaToParams(criteria).toString();
+  window.history.replaceState(null, '', url);
 }
 
 /**
@@ -1152,7 +1323,12 @@ function applyParamsToForm(params) {
   tickBoxes('status-filters', (params.get('status') ?? '').split(',').filter(Boolean));
   tickBoxes('parse-filters', (params.get('parse') ?? '').split(',').filter(Boolean));
   tickBoxes('flag-filters', (params.get('flags') ?? '').split(',').filter(Boolean));
-  if ([...params.keys()].some(k => k !== 'c')) {
+  const sortParam = params.get('sort');
+  if (sortParam) listSort = sortFromParam(sortParam);
+  // Open the filter panel when a genuine facet is set, so the applied conditions
+  // are visible - but not for `sort` alone (result-table state, no form field to
+  // reveal) nor the callsign itself.
+  if ([...params.keys()].some(k => k !== 'c' && k !== 'sort')) {
     const details = /** @type {HTMLDetailsElement | null} */ (document.getElementById('filters'));
     if (details) details.open = true;
   }
@@ -1238,9 +1414,7 @@ function initLookup() {
     event.preventDefault();
     const criteria = gatherCriteria();
     if (criteria.value !== '' || criteriaActive(criteria)) {
-      const url = new URL(window.location.href);
-      url.search = criteriaToParams(criteria).toString();
-      window.history.replaceState(null, '', url);
+      syncCriteriaToUrl(criteria);
       void runLookup(criteria);
     }
   });
