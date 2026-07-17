@@ -27,7 +27,7 @@ import {
 } from '../sources/ofcom-amateur/components.ts';
 import { checkNoInflationClaims } from '../ci/trust-rating.ts';
 import { collectOpenDataRegisterSources } from './collectors/open-data-register.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { parse as parseCsv } from 'csv-parse/sync';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
@@ -262,7 +262,7 @@ describe('temporal tier — forbidden-suffix-issued-after-first-known-list rides
     const TEMPORAL = 'forbidden-suffix-issued-after-first-known-list';
     let snapshotsExercised = 0;
     for (const source of collectOpenDataRegisterSources()) {
-      const componentsPath = path.join(CONSTANTS.DIRS.archive, source.entry, 'components.csv');
+      const componentsPath = path.join(DIRS.archive, source.entry, 'components.csv');
       if (!fs.existsSync(componentsPath)) continue;
       const componentRows = parseCsv(fs.readFileSync(componentsPath, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[];
       // Legacy side: the committed components.csv temporal-flagged callsigns, as a

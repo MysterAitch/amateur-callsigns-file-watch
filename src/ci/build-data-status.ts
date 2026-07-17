@@ -31,7 +31,8 @@ import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFileExists } from '../shared/derived-entries.ts';
 import { observeEntryHeader } from '../sources/ofcom-amateur/detect-variant.ts';
-import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
+import { type ArchiveMeta } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import {
   type FoiEntryMeta,
   listFoiEntryKeys,
@@ -148,7 +149,7 @@ function foiAuthority(meta: FoiEntryMeta): SourceAuthority {
 // raw.csv, and (once processed) normalised.csv, stats.json and components.csv.
 export function buildOpenDataRows(): DatasetRow[] {
   return listArchiveKeys().map((key) => {
-    const dir = path.join(CONSTANTS.DIRS.archive, key);
+    const dir = path.join(DIRS.archive, key);
     const metaPath = path.join(dir, 'meta.json');
     const meta = fs.existsSync(metaPath)
       ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as {

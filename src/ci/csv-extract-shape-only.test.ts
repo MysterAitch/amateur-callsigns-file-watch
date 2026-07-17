@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { parse } from 'csv-parse/sync';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { defaultFoiDir, listFoiEntryKeys } from '../shared/foi-archive.ts';
 
@@ -41,7 +41,7 @@ interface MetaFilesOnly {
 function csvHeaderSynthesisedExtracts(): QualifyingExtract[] {
   const foiDir = defaultFoiDir();
   const entryDirs = [
-    ...listArchiveKeys().map(key => path.join(CONSTANTS.DIRS.archive, key)),
+    ...listArchiveKeys().map(key => path.join(DIRS.archive, key)),
     ...listFoiEntryKeys(foiDir).map(key => path.join(foiDir, key)),
   ];
   const out: QualifyingExtract[] = [];
@@ -53,7 +53,7 @@ function csvHeaderSynthesisedExtracts(): QualifyingExtract[] {
       if (decl.role !== 'extract' || typeof decl.extractOf !== 'string') continue;
       if (!decl.extractOf.toLowerCase().endsWith('.csv')) continue; // CSV-to-CSV only
       out.push({
-        label: `${path.relative(CONSTANTS.DIRS.archive, entryDir).split(path.sep).join('/')}/${name}`,
+        label: `${path.relative(DIRS.archive, entryDir).split(path.sep).join('/')}/${name}`,
         entryDir,
         extract: name,
         raw: decl.extractOf,

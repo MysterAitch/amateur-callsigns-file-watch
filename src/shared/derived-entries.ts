@@ -31,7 +31,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { CONSTANTS } from './utils.ts';
+import { DIRS } from './constants.ts';
 
 // The derived per-entry files the projection materialises and the consumers
 // read - identical names in both homes, so the switch is a directory change.
@@ -73,7 +73,7 @@ function projectionRoot(): string {
 // the archive absolutely, others relative to the working directory); in
 // projection mode there is exactly one projection, wherever the caller's
 // archive lives.
-export function derivedEntryDir(key: string, archiveDir: string = CONSTANTS.DIRS.archive): string {
+export function derivedEntryDir(key: string, archiveDir: string = DIRS.archive): string {
   return derivedEntriesMode() === 'projection'
     ? path.join(projectionRoot(), key)
     : path.join(archiveDir, key);
@@ -84,7 +84,7 @@ export function derivedEntryDir(key: string, archiveDir: string = CONSTANTS.DIRS
 // mode returns the committed path unchecked, preserving each consumer's
 // existing absent-file handling (deliberate presence checks, or a plain
 // ENOENT at read time).
-export function derivedEntryFile(key: string, name: DerivedEntryFileName, archiveDir: string = CONSTANTS.DIRS.archive): string {
+export function derivedEntryFile(key: string, name: DerivedEntryFileName, archiveDir: string = DIRS.archive): string {
   const filePath = path.join(derivedEntryDir(key, archiveDir), name);
   if (derivedEntriesMode() === 'projection' && !fs.existsSync(filePath)) {
     throw new Error(`${filePath} is missing from the builder projection (${BUILDER_PROJECTION_DIR_ENV}) - the projection materialises all of ${DERIVED_ENTRY_FILES.join(', ')} for every entry it folds, so this is an integrity failure, not a fall-back-to-archive condition`);
@@ -98,7 +98,7 @@ export function derivedEntryFile(key: string, name: DerivedEntryFileName, archiv
 // error. Projection mode still validates the projection root itself, so a
 // missing projection reads as a loud wiring failure, never as "nothing is
 // derived".
-export function derivedEntryFileExists(key: string, name: DerivedEntryFileName, archiveDir: string = CONSTANTS.DIRS.archive): boolean {
+export function derivedEntryFileExists(key: string, name: DerivedEntryFileName, archiveDir: string = DIRS.archive): boolean {
   return fs.existsSync(path.join(derivedEntryDir(key, archiveDir), name));
 }
 
@@ -109,6 +109,6 @@ export function derivedEntryFileExists(key: string, name: DerivedEntryFileName, 
 // union with a directory listing is a no-op; in projection mode they surface
 // derived files an entry carries only in the projection (a publication newer
 // than the frozen committed baseline).
-export function derivedEntryFileNamesPresent(key: string, archiveDir: string = CONSTANTS.DIRS.archive): DerivedEntryFileName[] {
+export function derivedEntryFileNamesPresent(key: string, archiveDir: string = DIRS.archive): DerivedEntryFileName[] {
   return DERIVED_ENTRY_FILES.filter(name => derivedEntryFileExists(key, name, archiveDir));
 }

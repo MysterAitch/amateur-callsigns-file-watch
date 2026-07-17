@@ -23,7 +23,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -35,7 +35,7 @@ const count = (n: number, symbol = '✔'): string => (n === 0 ? '—' : `${symbo
 
 function openDataRows(): string[] {
   return listArchiveKeys().sort().map(key => {
-    const dir = path.join(CONSTANTS.DIRS.archive, key);
+    const dir = path.join(DIRS.archive, key);
     const has = (name: string): boolean => fs.existsSync(path.join(dir, name));
     return `| ${key} | ${tick(has('raw.csv'))} | ${tick(has('meta.json'))} | ${tick(has('normalised.csv'))} | ${tick(has('components.csv'))} |`;
   });

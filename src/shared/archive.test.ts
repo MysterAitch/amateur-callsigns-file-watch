@@ -8,6 +8,7 @@ import {
   archiveKeyForDate,
   buildDiffSummary,
   listArchiveKeys,
+  writeLatestPointers,
 } from './archive.ts';
 
 describe('listArchiveKeys', { tags: ['unit'] }, () => {
@@ -41,6 +42,46 @@ describe('listArchiveKeys', { tags: ['unit'] }, () => {
     fs.mkdirSync('archive/2025-06-04--0a1b2c', { recursive: true });
 
     expect(listArchiveKeys()).toEqual(['2025-06-04--0a1b2c']);
+  });
+});
+
+describe('writeLatestPointers', { tags: ['unit'] }, () => {
+  let tmpRoot: string | undefined;
+  const originalCwd = process.cwd();
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    if (tmpRoot) fs.rmSync(tmpRoot, { recursive: true, force: true });
+    tmpRoot = undefined;
+  });
+
+  it('WriteLatestPointers_WhenGivenCallerPointerTargets_WritesToThoseLocations', async () => {
+    // The pointer filenames are the source family's own, passed in rather than
+    // read from a shared global: the helper must honour whatever the caller
+    // supplies, so a source picking its own pointer names lands its files there.
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'callsigns-pointers-'));
+    process.chdir(tmpRoot);
+    const key = '2026-01-01';
+    const entryDir = path.join('archive', key);
+    fs.mkdirSync(entryDir, { recursive: true });
+    fs.writeFileSync(path.join(entryDir, 'raw.csv'), 'CALL,STATUS\nM7TEE,Live\n');
+    fs.writeFileSync(path.join(entryDir, 'meta.json'), JSON.stringify({ schemaVersion: 1, sourceKey: 'demo', files: {} }));
+
+    await writeLatestPointers(key, { latestRawCsv: 'chosen-latest.csv', latestMeta: 'chosen-meta.json' });
+
+    expect(fs.readFileSync('chosen-latest.csv', 'utf8')).toBe('CALL,STATUS\nM7TEE,Live\n');
+    expect(JSON.parse(fs.readFileSync('chosen-meta.json', 'utf8'))).toMatchObject({ sourceKey: 'demo' });
+  });
+
+  it('WriteLatestPointers_WhenArchiveEntryHasNoMeta_ThrowsAndWritesNothing', async () => {
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'callsigns-pointers-'));
+    process.chdir(tmpRoot);
+    const key = '2026-01-01';
+    fs.mkdirSync(path.join('archive', key), { recursive: true });
+
+    await expect(writeLatestPointers(key, { latestRawCsv: 'chosen-latest.csv', latestMeta: 'chosen-meta.json' }))
+      .rejects.toThrow(/no meta\.json/);
+    expect(fs.existsSync('chosen-latest.csv')).toBe(false);
   });
 });
 

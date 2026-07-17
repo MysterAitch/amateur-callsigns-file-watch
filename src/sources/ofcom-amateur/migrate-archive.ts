@@ -20,11 +20,12 @@ import * as crypto from 'crypto';
 import { execFileSync } from 'child_process';
 import { parse } from 'csv-parse/sync';
 import {
-  CONSTANTS,
   logger,
   type ArchiveMeta,
   errorMessage,
 } from '../../shared/utils.ts';
+import { DIRS } from '../../shared/constants.ts';
+import { FILES, OFCOM_AMATEUR_SOURCE_KEY } from './constants.ts';
 import {
   writeArchiveEntry,
   resolveArchiveKey,
@@ -33,8 +34,8 @@ import {
   computeCsvFileMeta,
 } from '../../shared/archive.ts';
 
-const RAW_CSV_PATH_IN_REPO = CONSTANTS.FILES.originalRawCsvFile;
-const ARCHIVE_DIR = CONSTANTS.DIRS.archive;
+const RAW_CSV_PATH_IN_REPO = FILES.originalRawCsvFile;
+const ARCHIVE_DIR = DIRS.archive;
 
 // Historical filenames the raw CSV has lived under. Order matters: the current
 // name is tried first, older names as fallbacks. Extend this if the file is
@@ -195,7 +196,7 @@ async function main(): Promise<void> {
 
     const meta: ArchiveMeta = {
       schemaVersion: 1,
-      sourceKey: CONSTANTS.SOURCES.OFCOM_AMATEUR,
+      sourceKey: OFCOM_AMATEUR_SOURCE_KEY,
       provenance: 'reconstructed-from-git-history',
       fetchedAt: commit.authorDateIso, // best available - the commit's author date
       gitCommitSha: commit.sha,

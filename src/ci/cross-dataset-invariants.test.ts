@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { buildDepletion, buildOverlapMatrix, buildComplementarity, renderCrossDatasetInvariants, CROSS_DATASET_INVARIANTS_PATH, type CrossDataset, type OverlapMatrix, type Complementarity } from './cross-dataset-invariants.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 
 // Issue #241: the cross-dataset probes join each FOI available snapshot against
 // the latest register on the cleaned callsign key. Issue #361: the join is now a
@@ -231,7 +231,7 @@ describe.skipIf(!duckDbAvailable())('cross-dataset invariants — real-archive f
 // this guard runs wherever the archive is checked out, and asserts the residual
 // stays honest — the moment a matched-vintage snapshot lands, `matched` flips and
 // this fails, signalling the real probe is now due.
-describe.skipIf(!fs.existsSync(path.join(CONSTANTS.DIRS.archive, 'foi')))('cross-dataset invariants — complementarity residual (real archive)', { tags: ['data-validity'] }, () => {
+describe.skipIf(!fs.existsSync(path.join(DIRS.archive, 'foi')))('cross-dataset invariants — complementarity residual (real archive)', { tags: ['data-validity'] }, () => {
   it('SameVintageComplementarity_NoRegisterSharesAPoolVintage_ProbeRemainsBlocked', () => {
     const c = buildComplementarity();
     // The residual is only honest while genuinely un-computable: no register

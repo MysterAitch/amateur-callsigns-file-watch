@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { buildCallsignShards, shardNameFor, MARKERS, type ShardBuildSummary, type ShardDataset } from './build-callsign-shards.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { buildFoiObservations } from '../shared/foi-observations.ts';
 import { defaultFoiDir } from '../shared/foi-archive.ts';
@@ -84,7 +84,7 @@ describe('callsign shards over the real archive', { tags: ['data-validity'] }, (
     // committed self-check).
     const expected = new Set<string>();
     for (const key of listArchiveKeys()) {
-      const rows = parseCsvCached(path.join(CONSTANTS.DIRS.archive, key, 'normalised.csv'), { columns: true, skip_empty_lines: true });
+      const rows = parseCsvCached(path.join(DIRS.archive, key, 'normalised.csv'), { columns: true, skip_empty_lines: true });
       for (const row of rows) {
         const cleaned = cleanedCallsign(row.callsign ?? '');
         if (cleaned !== '') expected.add(cleaned);

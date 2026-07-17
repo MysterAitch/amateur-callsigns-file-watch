@@ -9,7 +9,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { type SourceObservationSet } from '../claim.ts';
 import { listArchiveKeys, parseSourceFileName } from '../../shared/archive.ts';
-import { CONSTANTS, type ArchiveMeta } from '../../shared/utils.ts';
+import { type ArchiveMeta } from '../../shared/utils.ts';
+import { DIRS } from '../../shared/constants.ts';
+import { OFCOM_AMATEUR_SOURCE_KEY } from '../../sources/ofcom-amateur/constants.ts';
 import { parseRawRegister, rawColumnForCanonical, interpretOpenDataColumns } from '../../sources/ofcom-amateur/normalise.ts';
 import type { LedgerCollector, ResolvedLedgerSource } from './types.ts';
 import { jsonlStem } from './util.ts';
@@ -17,14 +19,14 @@ import { jsonlStem } from './util.ts';
 // The open-data source key - the ONE converter registered for the open-data
 // lane (ofcom-amateur/normalise.ts). An archive entry declaring another source
 // belongs to a different family and is skipped here.
-const OPEN_DATA_SOURCE_KEY = CONSTANTS.SOURCES.OFCOM_AMATEUR;
+const OPEN_DATA_SOURCE_KEY = OFCOM_AMATEUR_SOURCE_KEY;
 
 // Default open-data lane location: the archive root, where dated register
 // publications live (archive/<date>/), distinct from the FOI lane's
 // archive/foi/. Fixed here as the shared archive helpers anchor it, matching
 // the validator and the report lane.
 export function defaultArchiveDir(): string {
-  return CONSTANTS.DIRS.archive;
+  return DIRS.archive;
 }
 
 // Read one open-data archive entry's meta.json synchronously (the async

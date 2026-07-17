@@ -8,46 +8,6 @@ import type { DivergenceRecord } from './witness-agreement.ts';
 // Load environment variables from .env file
 dotenv.config();
 
-export const CONSTANTS = {
-  FILES: {
-    // Staging inbox: scrape-and-download writes the freshly-fetched raw CSV here;
-    // process-csv reads from here, produces the archive entry, then updates the
-    // latest-* pointers. Kept at a stable path so scrape and process share a handoff.
-    originalRawCsvFile: 'amateur-callsigns-raw.csv',
-
-    // Convenience "pointer" copies at repo root - always reflect the newest archive
-    // entry. Consumers that just want "the current dataset" read these without
-    // walking archive/.
-    latestRawCsv: 'latest-raw.csv',
-    latestRawSortedCsv: 'latest-raw-sorted.csv',
-    latestJson: 'latest.json',
-    latestRawSortedJson: 'latest-raw-sorted.json',
-    latestMeta: 'latest-meta.json',
-
-    // Per-fetch download context (URL, ?v=, Ofcom-reported date). Written by scrape,
-    // read by process to enrich the archive entry's meta.json.
-    downloadMetadataFile: 'metadata-download-info.json',
-
-    // Debug: last successfully-fetched HTML page from Ofcom's opendata index.
-    htmlOutput: 'ofcom_page.html',
-  },
-  DIRS: {
-    // Per-publication archive. Each subdirectory is one Ofcom publication with
-    // raw.csv, raw-sorted.csv, meta.json (and any future derived artefacts).
-    archive: 'archive',
-  },
-  URLS: {
-    OFCOM_URL: 'https://www.ofcom.org.uk/about-ofcom/our-research/opendata',
-    OFCOM_BASE_URL: 'https://www.ofcom.org.uk'
-  },
-  SOURCES: {
-    // Stable key identifying this source in archive metadata. When we add FOI or
-    // other sources, each will have its own key. Do not change without a migration
-    // pass over existing archive/*/meta.json files.
-    OFCOM_AMATEUR: 'ofcom-amateur-callsigns',
-  },
-};
-
 export interface FileMetadata {
   name: string;
   size: number;

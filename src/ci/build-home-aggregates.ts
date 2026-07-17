@@ -18,7 +18,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { CONSTANTS } from '../shared/utils.ts';
+import { DIRS } from '../shared/constants.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
 import {
@@ -251,7 +251,7 @@ export function renderRslMatrixHtml(): string {
 // every row, not a bare total.
 export function renderLatestProfileHtml(): string {
   const { key, stats } = newestStats();
-  const metaPath = path.join(CONSTANTS.DIRS.archive, key, 'meta.json');
+  const metaPath = path.join(DIRS.archive, key, 'meta.json');
   const meta = fs.existsSync(metaPath)
     ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as { intendedCoverage?: { complete?: boolean } }
     : {};
