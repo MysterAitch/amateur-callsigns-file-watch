@@ -113,7 +113,7 @@
 
         <h3 class="pg-h3">The <span class="mono">claims</span> view — the flat contract</h3>
         <div class="dmg-wrap">
-          <table class="dmg">
+          <table class="dmg" data-table-controls>
             <caption class="table-caption">Columns of the flat <span class="mono">claims</span> view</caption>
             <thead><tr><th scope="col">column</th><th scope="col">meaning</th></tr></thead>
             <tbody>
@@ -131,7 +131,7 @@
 
         <h3 class="pg-h3">Base tables</h3>
         <div class="dmg-wrap">
-          <table class="dmg">
+          <table class="dmg" data-table-controls>
             <caption class="table-caption">Base tables the <span class="mono">claims</span> view is reconstructed from</caption>
             <thead><tr><th scope="col">table</th><th scope="col">what it holds</th></tr></thead>
             <tbody>
@@ -171,5 +171,12 @@
   </main>
 
   <script type="module" src="playground.js"></script>
+  <!-- Progressive enhancement (issue #667): the static schema tables above read
+       without JavaScript; this only ADDS the download / column-selection strip,
+       and runs independently of whether the SQL console's database loads. -->
+  <script type="module">
+    import { initTableControls } from './table-controls.js';
+    initTableControls();
+  </script>
 </body>
 </html>
