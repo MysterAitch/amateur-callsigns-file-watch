@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-06
-- Related: ADR 0001, ADR 0019 (the unified CI/CD pipeline these checks now live in); issues #14, #15; PR #28 (implementation); PR #29 (first end-to-end data PR)
+- Related: ADR 0001, ADR 0019 (the unified CI/CD pipeline these checks now live in); issues #14, #15, #243, #588; PR #28 (implementation); PR #29 (first end-to-end data PR)
 
 ## Context
 
@@ -22,7 +22,7 @@ set the way it is, and how to recreate them.
 
 - **Target**: default branch.
 - **Rules**: require a pull request before merging (0 required approvals); require the
-  status checks `tests` and `data-validation` (the job names in
+  status checks `tests`, `data-validation` and `golden-master` (the job names in
   `.github/workflows/cicd.yaml`, the unified CI/CD pipeline — renaming those jobs
   without updating the ruleset blocks all merges; that same workflow also holds the
   Pages `deploy` job, gated to `main`, so a single file now carries both the required
@@ -37,10 +37,13 @@ Rationale:
 - *Required status checks* make auto-merge genuinely conditional (#15): `tests` gates
   code correctness; `data-validation` gates data integrity (entry completeness,
   meta.json shape, size + sha256 of every declared file, CSV parseability of changed
-  entries, latest-pointer consistency). A red check holds the PR open — the branch then
-  IS the preserved record of the anomalous bytes, and merging past a red check remains
-  possible as a deliberate, logged admin-bypass act (the "raw record worth keeping
-  despite failing checks" escape hatch).
+  entries, latest-pointer consistency); `golden-master` gates report-generation drift
+  (issue #243, #588 part 2) — a PR that changes generation logic or hand-edits a
+  committed report under `reports/` now fails the same freshness check the scheduled
+  sweep runs, rather than only on the next scheduled round. A red check holds the PR
+  open — the branch then IS the preserved record of the anomalous bytes, and merging
+  past a red check remains possible as a deliberate, logged admin-bypass act (the "raw
+  record worth keeping despite failing checks" escape hatch).
 - *0 required approvals* because a solo maintainer cannot approve their own PRs; a
   required-review rule would deadlock every code change. The review pressure comes from
   the sweep's data-path allowlist (automated PRs) and from the maintainer being the only
@@ -175,7 +178,8 @@ gh api -X POST repos/{owner}/{repo}/rulesets --input - <<'JSON'
         "strict_required_status_checks_policy": false,
         "required_status_checks": [
           { "context": "tests" },
-          { "context": "data-validation" }
+          { "context": "data-validation" },
+          { "context": "golden-master" }
         ]
       } },
     { "type": "non_fast_forward" },
@@ -214,6 +218,11 @@ gh api -X PATCH repos/{owner}/{repo}/code-scanning/default-setup -f state=config
 - ~~When #15 (read-only CI) lands, its checks should be added to the ruleset as required
   status checks so auto-merge becomes genuinely gated rather than trivially green.~~
   Done — `tests` and `data-validation` are required checks (see the ruleset section).
+- **Update (2026-07-17)**: `golden-master` joined the required-status-checks set
+  (#588 part 2, #583) alongside `tests` and `data-validation` — see the ruleset
+  section and the job's own comment in `.github/workflows/cicd.yaml` for the
+  activation step. Report-generation drift now holds open the PR that
+  introduced it, rather than only surfacing on the next scheduled sweep.
 - Dependency freshness: Dependabot (`.github/dependabot.yml`) keeps the SHA-pinned
   actions and npm dependencies updated via ordinary gated PRs. Chosen over hosted
   Renovate so no third-party service holds write access to the repository.

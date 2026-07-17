@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
-import { findStaleRegisterRows, REGISTER_FILE } from './register-crosscheck.ts';
+import { findStaleRegisterRows, findUnmatchedIngestedRows, REGISTER_FILE } from './register-crosscheck.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -45,11 +45,107 @@ describe('Source-register cross-check', { tags: ['unit'] }, () => {
     expect(findStaleRegisterRows(synthetic)).toHaveLength(0);
   });
 
+  it('RegisterCrosscheck_PendingRowKeyedByTitleAndOfcomReferenceOnly_IsFlaggedByOfcomReference', () => {
+    // Reproduces the club-callsigns escape (#673): the real
+    // ofcom-2020-04-23--club-call-signs entry's own register row is titled by
+    // requester name plus its Ofcom FOI reference (00896085) - no
+    // `wdtk-{id}`/`ofcom-{ref}`-shaped identifier token anywhere in the first
+    // cell (the entry's own identifier is the date "2020-04-23", which sits
+    // in the vintage cell, not the title). Under the identifier/data-file-only
+    // matcher this row stayed `pending-ingest` unflagged all the way through
+    // the disclosure's actual ingestion (#668), caught only by a manual read.
+    const synthetic = '| Club callsigns / T-numbers (Billy McFarland, Ofcom 00896085) | 2020-04-23 | pending-ingest | not yet ingested |';
+    const rows = findStaleRegisterRows(synthetic);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].matchedEntry).toBe('ofcom-2020-04-23--club-call-signs');
+    expect(rows[0].matchedBy).toBe('ofcom-reference');
+  });
+
+  it('RegisterCrosscheck_ProseMentionOfOfcomReferenceOutsideFirstCell_IsNotFlagged', () => {
+    // Symmetry with the identifier case: an Ofcom reference cited only in the
+    // notes column is context, not a title-cell claim of identity, so it must
+    // not flag the row by ofcom-reference.
+    const synthetic = '| Some other request | 2020 | pending-ingest | related to Ofcom 00896085, the club-callsigns disclosure |';
+    expect(findStaleRegisterRows(synthetic)).toHaveLength(0);
+  });
+
   it('RegisterCrosscheck_LiveRegister_HasNoPendingRowForAnArchivedEntry', () => {
     // The gate (#356): a row still marked pending whose dataset is already in
     // archive/foi is drift. This must stay empty — flip the row to `ingested`
     // in the same PR that archives the entry.
     const stale = findStaleRegisterRows(fs.readFileSync(REGISTER_FILE, 'utf8'));
     expect(stale.map(r => `${r.matchedEntry} (${r.matchedBy})`)).toEqual([]);
+  });
+
+  it('RegisterCrosscheck_IngestedRowInFoiSectionMatchingNoEntry_IsFlaggedAsUnmatched', () => {
+    // The complementary safety net (#673): a row claiming `ingested` inside an
+    // FOI-titled section, whose text names no known entry's identifier,
+    // ofcomReference or data file by any axis — a status the archive cannot
+    // corroborate, exactly the inverse failure to a pending row that DOES
+    // match something.
+    const synthetic = [
+      '## FOI datasets — register snapshots',
+      '',
+      '| source | data vintage | status | notes |',
+      '|---|---|---|---|',
+      '| A dataset nobody archived | 2030-01-01 | ingested | no archive/foi pointer exists for this |',
+    ].join('\n');
+    const rows = findUnmatchedIngestedRows(synthetic);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].firstCell).toBe('A dataset nobody archived');
+  });
+
+  it('RegisterCrosscheck_IngestedRowInFoiSectionMatchingKnownEntry_IsNotFlagged', () => {
+    // The ordinary case: an ingested row citing its real archive/foi pointer
+    // (the established convention — "flip to ingested with a pointer") is
+    // corroborated and must not be flagged.
+    const synthetic = [
+      '## FOI datasets — attribute addenda (join by callsign/prefix/suffix)',
+      '',
+      '| source | date | status | notes |',
+      '|---|---|---|---|',
+      '| Club callsigns / T-numbers (Billy McFarland, Ofcom 00896085) | 2020-04-23 | ingested | ingested as `archive/foi/ofcom-2020-04-23--club-call-signs` |',
+    ].join('\n');
+    expect(findUnmatchedIngestedRows(synthetic)).toHaveLength(0);
+  });
+
+  it('RegisterCrosscheck_IngestedRowOutsideFoiSection_IsNotFlaggedEvenWhenUnmatched', () => {
+    // Scoping guard: the open-data lane keys by date under archive/{date},
+    // not archive/foi, so this tool's identifier/ofcomReference/data-file
+    // axes can never speak to it. Its rows use the identical bare `ingested`
+    // token, so without section-scoping every open-data row would be a false
+    // positive here — the live-register gate below depends on this staying
+    // correctly scoped.
+    const synthetic = [
+      '## Open-data register snapshots (source: Ofcom open data page)',
+      '',
+      '| key | status | notes |',
+      '|---|---|---|',
+      '| 2022-05-30 | ingested | oldest known publication |',
+    ].join('\n');
+    expect(findUnmatchedIngestedRows(synthetic)).toHaveLength(0);
+  });
+
+  it('RegisterCrosscheck_NonIngestedStatusRowInFoiSectionMatchingNoEntry_IsNotFlagged', () => {
+    // `rejected`/`context`/`not-held` rows are legitimate non-matches by
+    // design (a rejected request or a not-held answer often has no archive
+    // entry at all) — only the literal `ingested` claim is checked.
+    const synthetic = [
+      '## FOI responses that are records, not datasets',
+      '',
+      '| source | date | status | notes |',
+      '|---|---|---|---|',
+      '| A refused request (Someone, 2018-01-12) | 2018-01-12 | rejected | refused, no archive entry |',
+    ].join('\n');
+    expect(findUnmatchedIngestedRows(synthetic)).toHaveLength(0);
+  });
+
+  it('RegisterCrosscheck_LiveRegister_HasNoUnmatchedIngestedRowInAnFoiSection', () => {
+    // The gate's other half (#673): every row claiming `ingested` inside an
+    // FOI-titled section must be corroborated by the archive it claims to
+    // describe — an unmatched claim is exactly the club-callsigns failure
+    // mode, just discovered from the opposite direction.
+    const unmatched = findUnmatchedIngestedRows(fs.readFileSync(REGISTER_FILE, 'utf8'));
+    expect(unmatched.map(r => r.firstCell)).toEqual([]);
   });
 });

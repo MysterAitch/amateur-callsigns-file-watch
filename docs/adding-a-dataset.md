@@ -260,14 +260,28 @@ That covers `reports/**` (the golden-master gate; the sweep is the slow step —
 several minutes, a whole-corpus ledger projection build plus DuckDB folds; it
 reads the new entry's derived views from the projection it builds, exactly as
 CI's golden-master gate does): the new entry's own
-`reports/entries/{key}.md` drill-down, the cross-lane
-[`reports/value-catalogue.md`](../reports/value-catalogue.md) and
-[`reports/data-quality.md`](../reports/data-quality.md), and the standing
+`reports/entries/{key}.md` drill-down (**open-data lane only** — an FOI
+intake produces none; the drill-down is keyed off the open-data lane's
+per-entry callsign-pattern derived view, which the FOI lane does not build),
+the cross-lane [`reports/value-catalogue.md`](../reports/value-catalogue.md)
+and [`reports/data-quality.md`](../reports/data-quality.md), and the standing
 reports (`prefixes.md`, `regional-identifiers.md`, `class-product-mismatches.md`,
 `callsign-patterns.md`, `forbidden-suffix-history.md`, `cross-dataset-invariants.md`,
 `README.md`) — plus `docs/dataset-status.md` and `docs/foi-schemas.md` (the
-latter re-rendered from the converter registry). **Every** dataset — open-data
-or FOI — trips the `reports/**` set, so run `regen` on any intake.
+latter re-rendered from the converter registry).
+
+**Every** dataset — open-data or FOI — **runs** the same `regen`, but a run's
+visible diff scope depends on the lane: an open-data intake shifts the whole
+`reports/**` set above, while an FOI intake changes only the cross-lane
+[`reports/cross-dataset-invariants.md`](../reports/cross-dataset-invariants.md)
+and [`reports/value-catalogue.md`](../reports/value-catalogue.md) (the two
+reports that join across both lanes), plus `docs/dataset-status.md` and
+`docs/foi-schemas.md` outside `reports/**`. The other standing reports and the
+per-entry drill-down are open-data-lane derived views and stay byte-unchanged
+by an FOI intake — this is expected, not a sign `regen` was skipped. Run
+`regen` on any intake regardless: its job is to prove the corpus-wide goldens
+are still current, and "nothing changed" is exactly the correct outcome for
+the reports a given lane does not touch.
 
 Then hand-update the **hand-authored goldens** the sweep does not regenerate.
 Each fires only when the intake actually shifts it, so check every one against
@@ -298,6 +312,19 @@ this dataset — the historical pain was discovering them one CI round at a time
   attested-duplicates policy. (FOI lane:
   `npx vitest run src/ci/foi-verification.test.ts` re-derives every extract
   and normalised file byte-identically.)
+- `divergences[]` also stands alone, beyond the witness-pairing case above: a
+  record's `counterpart` may name a file held by a **different** entry
+  entirely — a cross-publication divergence — rather than a divergent witness
+  of this entry's own file. Nothing requires a divergent witness to exist
+  first; `divergenceRecordProblems` (`src/shared/witness-agreement.ts`) only
+  checks the record's own shape (`file` names a file this entry declares,
+  `counterpart` a well-formed publisher/url/sha256). The corrupt 2021 annex
+  (`archive/foi/ofcom-210648--corrupt-annex-callsigns`) is the working
+  example: its `divergences[]` record's `counterpart` names the clean
+  same-vintage twin `ofcom-2021-01--all-callsigns`'s held file and hash,
+  enumerating the fourteen `#REF!`-corrupted call-sign cells against it
+  (issue #335) — neither entry carries a divergent witness of its own file;
+  both entries' witnesses are corroborating.
 - The reconstruction oracle
   ([`reconstruction-oracle.test.ts`](../src/ci/reconstruction-oracle.test.ts))
   — the source must reconstruct byte-identically from the ledger (modulo
