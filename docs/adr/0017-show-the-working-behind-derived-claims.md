@@ -104,3 +104,10 @@ existing inputs into a re-verifiable trace.
   the render engine's first production consumer. Wiring the disclosure into the
   remaining generated surfaces continues under #438's inline-nudge + deep-dive
   work.
+- The render engine also carries the #439 "examine" affordance: a derivation-
+  code register maps each emitted rule to the function whose re-run IS its
+  working (linked as a pinned blob inside every rendered disclosure — the
+  same-code guarantee made clickable), and a shared examine trail walks any
+  displayed record to its pinned source line, its working, and its entry's
+  provenance — degrading honestly to provenance alone where a working is not
+  exposed.
