@@ -1,7 +1,7 @@
 /**
  * Parser for the RSGB Special Contest Calls (SCC) table.
  *
- * The source page (https://rsgbcc.org/hf/information/scc.shtml) carries
+ * The source page (https://www.rsgbcc.org/hf/information/scc.shtml) carries
  * substantial RSGB-authored prose — eligibility rules, contest lists, an FAQ, a
  * news banner — all of which is copyrightable and is NEVER reproduced by this
  * project. Only the uncopyrightable three-column factual table (SCC code, the
@@ -29,7 +29,7 @@ import { JSDOM } from 'jsdom';
 import { stringify } from 'csv-stringify/sync';
 
 // The live source. The page has carried this URL since 2013.
-export const SCC_SOURCE_URL = 'https://rsgbcc.org/hf/information/scc.shtml';
+export const SCC_SOURCE_URL = 'https://www.rsgbcc.org/hf/information/scc.shtml';
 
 // The derived table's columns. `notes` is the project-authored, closed-vocabulary
 // transparency column that carries every anomaly flag and every captured source

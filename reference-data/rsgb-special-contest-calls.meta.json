@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "source": {
     "name": "RSGB Special Contest Calls",
-    "url": "https://rsgbcc.org/hf/information/scc.shtml",
+    "url": "https://www.rsgbcc.org/hf/information/scc.shtml",
     "licenceBasis": "copyright-cite-only",
     "treatment": "Only the uncopyrightable three-column factual table is extracted; the page's RSGB-authored prose (rules, FAQ, contest lists) is cited by URL and fetch date, not reproduced."
   },
-  "fetchedAt": "2026-07-17T11:53:40.551Z",
+  "fetchedAt": "2026-07-17T12:21:00.893Z",
   "upstreamUpdated": {
     "text": "Updated 15 June 2026",
     "iso": "2026-06-15"

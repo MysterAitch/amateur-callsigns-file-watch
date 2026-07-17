@@ -202,7 +202,7 @@ describe('toCsv and toMeta', { tags: ['unit'] }, () => {
   it('Meta_WhenBuilt_RecordsProvenanceAndAShapeSummaryMatchingTheRows', () => {
     const parsed = parseSccTable(buildFixture(ANOMALY_ROWS));
     const meta = toMeta(parsed, { fetchedAt: '2026-07-17T00:00:00.000Z' });
-    expect(meta.source.url).toBe('https://rsgbcc.org/hf/information/scc.shtml');
+    expect(meta.source.url).toBe('https://www.rsgbcc.org/hf/information/scc.shtml');
     expect(meta.upstreamUpdated).toEqual({ text: 'Updated 15 June 2026', iso: '2026-06-15' });
     expect(meta.rowCount).toBe(parsed.rows.length);
     // The serialised metadata ends in a single trailing newline (byte-determinism).

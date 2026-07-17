@@ -82,6 +82,15 @@ export async function fetchSccPage(url: string = SCC_SOURCE_URL, opts: FetchPage
       redirect: 'follow',
       signal: controller.signal,
     });
+  } catch (cause) {
+    // A connection-level failure (DNS, TLS, refused, abort) surfaces from
+    // fetch() as a bare "fetch failed" with the detail hidden in `cause` —
+    // useless in a CI log. Name the URL and the underlying reason so the
+    // fail-loud gate is also fail-diagnosable.
+    const detail = cause instanceof Error
+      ? `${cause.message}${cause.cause instanceof Error ? ` (${cause.cause.message})` : ''}`
+      : String(cause);
+    throw new Error(`SCC fetch aborted: could not connect to ${url}: ${detail}`);
   } finally {
     clearTimeout(timer);
   }
