@@ -60,6 +60,30 @@ export function zeroCell(raw: string | number, shown: string = String(raw)): str
   return String(raw).trim() === '0' ? `<span class="zero">${shown}</span>` : shown;
 }
 
+// A signed count delta against the immediately preceding entry in an
+// already-ordered series (issue #749 - the forbidden-suffix disclosures
+// timeline versus its own predecessor). `previous` is `undefined` for the
+// first entry in the series, which gets nothing: "no predecessor to diff
+// against" is a different state from "compared, unchanged", so the oldest
+// row stays silent rather than claiming a zero. A genuine zero-change routes
+// through the same zero-de-emphasis token a literal-zero cell uses (issue
+// #731, via the shared `.zero` class) so it reads muted rather than blank -
+// a reader can tell "not comparable" (blank) apart from "compared, no
+// movement" (muted). A real change is visible, under the `.delta-increase`/
+// `.delta-decrease` classes: distinguishable by hue as well as by sign glyph,
+// but deliberately calm - the codebase does not colour a count's movement as
+// good/bad (the existing added/removed suffix columns carry no such
+// colouring either), since a suffix vocabulary growing or shrinking is a
+// plain fact here, not a verdict.
+export function countDelta(current: number, previous: number | undefined): string {
+  if (previous === undefined) return '';
+  const diff = current - previous;
+  if (diff === 0) return ' <span class="zero">(±0)</span>';
+  const sign = diff > 0 ? '+' : '−';
+  const cls = diff > 0 ? 'delta-increase' : 'delta-decrease';
+  return ` <span class="${cls}">(${sign}${Math.abs(diff).toLocaleString('en-GB')})</span>`;
+}
+
 // `labelFor`, when given, supplies the label's inner HTML directly (e.g. the
 // shared status/licence field wrapper - issue #553), bypassing the default
 // escapeHtml(humaniseLabel(…)) text. Omitted, every existing caller's output
