@@ -1169,8 +1169,9 @@ function mainSweep(): void {
   for (const f of report.failed) {
     console.error(`FAILED ${f.key}: ${f.reason}`);
   }
-  // Self-guarded: prints the profiling breakdown to stderr only under PERF.
-  perfReport();
+  // Self-guarded: prints the profiling breakdown to stderr only under PERF,
+  // and writes the JSON per-run report when PERF_JSON names a path.
+  perfReport({ entrypoint: 'report-sweep' });
   // Emit the coverage for the workflow to consume (rolling issue + PR body).
   // The workflow's other signals are the shell-captured exit code and git
   // status - no GITHUB_OUTPUT channel is written here.

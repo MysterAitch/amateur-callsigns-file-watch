@@ -9,11 +9,38 @@
  * and are printed, sorted, to stderr only when `perfReport()` is called and
  * only under `PERF`. Nothing here touches stdout or the files a build emits.
  *
+ * Persistent machine-readable report. Passing a destination path in the
+ * `PERF_JSON` environment variable (honoured only while `PERF` is on) makes
+ * `perfReport()` additionally write a per-run JSON report to that path, so
+ * successive runs can be compared over time. File emission is doubly gated —
+ * off unless both `PERF` and `PERF_JSON` are set — so the disabled path writes
+ * nothing and the `PERF`-on-without-`PERF_JSON` path keeps the original
+ * stderr-only behaviour, leaving every golden build byte-identical. The JSON
+ * shape is a stable contract (see {@link PerfReportJson}); the `schema` field
+ * carries its version so consumers can evolve safely:
+ *
+ *   {
+ *     "schema": "perf-report/v1",
+ *     "entrypoint": "build-sqlite" | null,   // which build produced this run
+ *     "generatedAt": "2026-07-17T12:34:56.789Z",  // ISO-8601 UTC, per run
+ *     "node": "v25.0.0",
+ *     "totalMs": 12345.6,                    // grand total across all labels
+ *     "rows": [ { "label", "calls", "totalMs", "size" }, … ]  // sorted desc
+ *   }
+ *
+ * The report is written atomically (temp file + rename) so a reader never sees
+ * a half-written file, and a write failure (e.g. an unwritable path) throws
+ * loudly rather than silently dropping the requested measurements — this only
+ * ever runs under `PERF` + `PERF_JSON`, never on the golden build path.
+ *
  * Spans may nest (a wrapped operation calling another wrapped operation), so a
  * parent's total includes its children's; `perfReport()` says so and the
  * per-label totals still rank the hotspots correctly. Prefer wrapping sibling
  * operations at one granularity to keep the percentages easy to read.
  */
+
+import fs from 'node:fs';
+import path from 'node:path';
 
 interface PerfEntry {
   calls: number;
@@ -86,10 +113,65 @@ export function perfReset(): void {
   entries.clear();
 }
 
+// The current on-disk report schema. Bump the version suffix on any
+// breaking change to the field shape so consumers can branch on it.
+export const PERF_REPORT_SCHEMA = 'perf-report/v1';
+
+// The machine-readable per-run report. Field names are a stable contract so
+// runs stored over weeks/months/years stay comparable; `generatedAt` is the
+// only per-run-varying field and is what makes each report a distinct record.
+export interface PerfReportJson {
+  schema: typeof PERF_REPORT_SCHEMA;
+  entrypoint: string | null;
+  generatedAt: string;
+  node: string;
+  totalMs: number;
+  rows: PerfSnapshotRow[];
+}
+
+// Build the report object from the current snapshot. Pure — no file IO, no
+// flag check — so consumers and tests can inspect the exact bytes that would
+// be persisted. `entrypoint` names the build being profiled (or null).
+export function perfReportJson(entrypoint?: string): PerfReportJson {
+  const rows = perfSnapshot();
+  return {
+    schema: PERF_REPORT_SCHEMA,
+    entrypoint: entrypoint ?? null,
+    generatedAt: new Date().toISOString(),
+    node: process.version,
+    totalMs: rows.reduce((sum, r) => sum + r.totalMs, 0),
+    rows,
+  };
+}
+
+// Write the report to `destination` atomically (temp file + rename), creating
+// any missing parent directories. Throws with a helpful message if the path
+// cannot be written, so a requested profiling record is never silently lost.
+// Callers are responsible for the flag gating; this always writes.
+function writeReportJson(destination: string, entrypoint?: string): void {
+  const target = path.resolve(destination);
+  const report = perfReportJson(entrypoint);
+  const body = JSON.stringify(report, null, 2) + '\n';
+  const tmp = `${target}.${process.pid}.tmp`;
+  try {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(tmp, body);
+    fs.renameSync(tmp, target);
+  } catch (cause) {
+    fs.rmSync(tmp, { force: true });
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    throw new Error(`perf: could not write the PERF_JSON report to ${target}: ${reason}`);
+  }
+}
+
 // Print the sorted breakdown to stderr — one line per label with its call
 // count, total ms, share of the total measured time, and (where supplied) the
 // accumulated size hint. A no-op when PERF is off or nothing was measured.
-export function perfReport(): void {
+//
+// When PERF is on and `PERF_JSON` names a path, a machine-readable per-run
+// report is additionally written there (see the module header). `entrypoint`
+// labels which build produced the run so same-entrypoint runs can be compared.
+export function perfReport(options?: { entrypoint?: string }): void {
   if (!perfEnabled()) return;
   const rows = perfSnapshot();
   if (rows.length === 0) return;
@@ -108,4 +190,11 @@ export function perfReport(): void {
   lines.push(`${'total'.padEnd(labelWidth)}  ${''.padStart(7)}  ${grandTotalMs.toFixed(1).padStart(11)}  ${'100.0%'.padStart(6)}`);
   lines.push('');
   process.stderr.write(lines.join('\n') + '\n');
+  // The persistent record is written last, after the human breakdown is on
+  // screen, so an unwritable PERF_JSON path still leaves the operator the
+  // stderr view before this throws.
+  const jsonPath = process.env.PERF_JSON;
+  if (jsonPath !== undefined && jsonPath !== '') {
+    writeReportJson(jsonPath, options?.entrypoint);
+  }
 }
