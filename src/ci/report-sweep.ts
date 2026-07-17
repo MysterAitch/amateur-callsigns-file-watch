@@ -202,7 +202,10 @@ const REPORTS_DIR = 'reports/entries';
 // Absence is honest (a raw-only entry); unreadability is surfaced as a run
 // failure by entryCoverage above, so this returning undefined never hides an
 // integrity problem.
-function readStats(key: string): EntryStats | undefined {
+//
+// Exported: issue #467's dataset-anomaly-flags module reuses this rather than
+// re-deriving the same "which entries have a readable stats.json" logic.
+export function readStats(key: string): EntryStats | undefined {
   if (!derivedEntryFileExists(key, 'stats.json')) return undefined;
   const p = derivedEntryFile(key, 'stats.json');
   try {
@@ -226,7 +229,8 @@ function readStats(key: string): EntryStats | undefined {
 const COMPLETE_QUOTA = 3;
 const WINDOW_CAP = 10;
 
-function isDeclaredIncomplete(key: string): boolean {
+// Exported alongside readStats/windowFor for #467's reuse.
+export function isDeclaredIncomplete(key: string): boolean {
   try {
     const meta = JSON.parse(fs.readFileSync(path.join(DIRS.archive, key, 'meta.json'), 'utf8')) as ArchiveMeta;
     return meta.intendedCoverage?.complete === false;
@@ -248,7 +252,7 @@ function takeUntilQuota(candidates: string[]): string[] {
   return taken;
 }
 
-function windowFor(key: string, keys: string[]): string[] {
+export function windowFor(key: string, keys: string[]): string[] {
   const index = keys.indexOf(key);
   const before = takeUntilQuota(keys.slice(0, index).reverse()).reverse();
   const after = takeUntilQuota(keys.slice(index + 1));
