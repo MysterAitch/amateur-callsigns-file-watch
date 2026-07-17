@@ -145,32 +145,32 @@ const EXACT_MATCH = 'no availability-list class for this category; equal but for
 
 const EXPECTED_CATEGORIES: Record<string, CategoryExpectation> = {
   Full: {
-    legacy: { records: 1_479_200, callsigns: 98_748, allocated: 59_514 },
-    folded: { records: 1_413_493, callsigns: 94_766, allocated: 59_511 },
+    legacy: { records: 1_538_212, callsigns: 98_748, allocated: 59_514 },
+    folded: { records: 1_472_505, callsigns: 94_766, allocated: 59_511 },
     variants: ['Amateur Full Radio Licence', 'Full'],
     reason: AVAILABLE_POOL_CLASS,
   },
   Foundation: {
-    legacy: { records: 851_486, callsigns: 47_349, allocated: 37_980 },
-    folded: { records: 788_370, callsigns: 45_338, allocated: 37_979 },
+    legacy: { records: 887_008, callsigns: 47_349, allocated: 37_980 },
+    folded: { records: 823_892, callsigns: 45_338, allocated: 37_979 },
     variants: ['Amateur Foundation Radio Licence', 'Foundation'],
     reason: AVAILABLE_POOL_CLASS,
   },
   Intermediate: {
-    legacy: { records: 402_637, callsigns: 24_110, allocated: 15_351 },
-    folded: { records: 323_674, callsigns: 21_190, allocated: 15_338 },
+    legacy: { records: 416_738, callsigns: 24_110, allocated: 15_351 },
+    folded: { records: 337_775, callsigns: 21_190, allocated: 15_338 },
     variants: ['Amateur Intermediate Radio Licence', 'Intermediate'],
     reason: AVAILABLE_POOL_CLASS,
   },
   Club: {
-    legacy: { records: 40_095, callsigns: 2_459, allocated: 2_146 },
-    folded: { records: 40_078, callsigns: 2_460, allocated: 2_146 },
+    legacy: { records: 41_982, callsigns: 2_459, allocated: 2_146 },
+    folded: { records: 41_965, callsigns: 2_460, allocated: 2_146 },
     variants: ['Amateur Club Radio Licence'],
     reason: CLEANED_KEY,
   },
   'Temporary Reciprocal': {
-    legacy: { records: 1_520, callsigns: 127, allocated: 84 },
-    folded: { records: 1_520, callsigns: 123, allocated: 83 },
+    legacy: { records: 1_620, callsigns: 127, allocated: 84 },
+    folded: { records: 1_620, callsigns: 123, allocated: 83 },
     variants: ['Amateur Temporary Reciprocal Radio Licence'],
     reason: CLEANED_KEY,
   },

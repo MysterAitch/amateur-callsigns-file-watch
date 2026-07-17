@@ -103,6 +103,7 @@ fail the conversion.
 | `ofcom-498903-reissue-events` | `ofcom-498903--reissued-callsigns-since-2010` |
 | `ofcom-498906-reciprocal-events` | `ofcom-498906--reciprocal-licences-since-2010` |
 | `ofcom-756622-register-and-forbidden` | `ofcom-756622--published-register-csv` |
+| `wdtk-1141667-issued-callsigns` | `wdtk-1141667--issued-callsigns` |
 | `wdtk-1180568-csv-pair` | `wdtk-1180568--licence-breakdown-duration-age` |
 | `wdtk-184767-counts-table` | `wdtk-184767--annual-licence-counts` |
 | `wdtk-224333-prefix-suffix-lists` | `wdtk-224333--available-callsigns-list` |
@@ -614,6 +615,23 @@ Date plausibility bound: 2019-09-12.
 Row order: **sorted-by-first-column** — alphabetical source order carries no meaning; sorted by suffix (a no-op for the archived file, kept for rule consistency).
 
 Date plausibility bound: 2019-09-12.
+
+### `wdtk-1141667-issued-callsigns`
+
+**`raw-extract-sheet-1-sheet1.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Call Sign` | verbatim |
+| `status` | `Status__c` | verbatim |
+| `licence_class` | `Product__c` | verbatim |
+| `last_modified_date` | `LastModifiedDate` | iso-date |
+
+Required-present but not carried: `Type__c`.
+
+Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability.
+
+Date plausibility bound: 2024-07-22.
 
 ### `wdtk-1180568-csv-pair`
 
