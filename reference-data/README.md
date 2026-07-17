@@ -185,6 +185,38 @@ settle) the question:
   letter-range block — so the mapping from table ranges to transmitted
   prefixes involves formation rules the table alone does not express.
 
+### `itu-entity-iso.csv` — ITU entity → ISO 3166-1 alpha-2 crosswalk
+
+One row per distinct `allocated_to` entity in `itu-call-sign-series.csv`
+(`allocated_to`, `iso_3166_alpha2`), so a resolved call-sign-series allocation
+can render its administration's flag at the display edge. **Canonical-at-rest,
+presentation-at-edge**: this table stores only the two plain ISO letters; the
+flag emoji is composed from them at render time by the Unicode Regional
+Indicator algorithm (`site/country-flag.js`), never stored.
+
+It is a **separate, separately-sourced** bridge, not a rewrite of the ITU data:
+the verbatim ITU entity string stays canonical and authoritative here as
+elsewhere, and this file only pairs it with a code. The pairing is necessary
+because ITU long-form names do not equal ISO short names by string equality
+(`Argentine Republic` → `AR`, `Republic of Türkiye` → `TR`,
+`Democratic People's Republic of Korea` → `KP`), and because rows that
+concatenate a dependency onto its parent resolve to the **dependency's own**
+territory (`… - Hong Kong` → `HK`, `Netherlands (Kingdom of the) - Aruba` →
+`AW`, `New Zealand - Cook Islands` → `CK`).
+
+Three entities hold a call-sign series but have **no national flag** — the
+International Civil Aviation Organization, the United Nations, and the World
+Meteorological Organization — and carry a **blank** code deliberately: they are
+surfaced by name, never with a placeholder glyph.
+
+Source: hand-curated by mapping each verbatim ITU entity to its ISO 3166-1
+alpha-2 code, cross-checked against ISO 3166-1. ISO country codes are facts,
+not a copyrightable table, and the flag itself is algorithmic (the Regional
+Indicator composition of the two letters), so no third-party table is
+reproduced. Completeness against `itu-call-sign-series.csv` and the tricky
+reconciliations are held by
+`src/v2/entity-iso-crosswalk.test.ts` (`data-validity`). See issue #201.
+
 ### `callsign-format.md` — permitted call-sign characters (ITU Article 19)
 
 Not tabular data but a reference note: what characters a call sign may
