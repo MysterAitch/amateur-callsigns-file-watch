@@ -109,8 +109,11 @@
 .home-stats { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px;
   margin: var(--rhythm-tight) 0 0; padding: 12px 16px; border: 1px solid var(--hair);
   border-radius: 12px; background: var(--surface-2); }
-.home-stats .fig { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.home-stats .fig b { font-weight: 700; font-size: 17px; color: var(--ink); }
+/* The nowrap sits on the numeral alone (b), never the whole figure — so
+   "158,318" never breaks mid-number, but its trailing label can still wrap
+   at narrow widths instead of forcing the figure past the viewport (#753). */
+.home-stats .fig { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.home-stats .fig b { font-weight: 700; font-size: 17px; color: var(--ink); white-space: nowrap; }
 .home-stats .fig span { font-size: 12.5px; color: var(--muted); }
 /* Separators ride WITH the figure that follows, so a mid-dot never dangles at
    the end of a wrapped line (critique 3a). */
@@ -158,8 +161,9 @@
 .home .viz-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; }
 .home .viz-head h2 { font-size: 17px; margin: 0; }
 .home .viz-shape { display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: baseline; margin-bottom: 6px; }
-.home .viz-shape .fig { font-family: var(--mono); white-space: nowrap; }
-.home .viz-shape .fig b { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Same nowrap-on-the-numeral-only fix as .home-stats .fig above (#753). */
+.home .viz-shape .fig { font-family: var(--mono); }
+.home .viz-shape .fig b { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .home .viz-shape .fig span { font-size: 11.5px; color: var(--muted); }
 
 .home .hold-map { border: 0; background: transparent; padding: 0; margin: 8px 0 0; }
@@ -268,4 +272,9 @@
   .home .search button.go { flex: 1 1 100%; padding: 12px 22px; }
   .home .suggest { width: 80%; }
   .home-stats .derived-stamp { margin-left: 0; }
+  /* Every derived-stamp keeps the "never splits" rule everywhere it
+     comfortably fits, but on the narrowest phones there is too little width
+     for the whole "derived · at the … build" phrase to stay on one
+     unbreakable line — so here alone it may wrap (#753). */
+  .home .derived-stamp { white-space: normal; }
 }

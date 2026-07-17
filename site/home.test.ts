@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   cleanQuery, readRecents, pushRecent, nextSurpriseIndex, readoutText,
   attachSearch, renderRecents, wireTabs, SURPRISES,
@@ -216,5 +218,45 @@ describe('Role tabs (issue #712)', { tags: ['ui'] }, () => {
     tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     expect(tabs[1].getAttribute('aria-selected')).toBe('true');
     expect(document.activeElement).toBe(tabs[1]);
+  });
+});
+
+// Narrow-viewport overflow guard (issue #753): a visitor on a phone-width
+// screen should never see the front door scroll sideways. jsdom does not lay
+// out CSS, so the true "does the page overflow" scenario is verified with a
+// real browser at build time; this guard instead pins the CSS contract that
+// keeps a headline figure or a derived-build stamp from forcing the page
+// wider than its viewport, so a future edit that re-widens the unbreakable
+// span fails here rather than shipping a regression silently.
+const HOME_CSS = fs.readFileSync(path.join('site', 'home.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+// Matches a bare rule body for the given selector, ignoring any longer
+// selector this one is a prefix of (so `.fig` does not also match `.fig b`).
+function ruleBody(css: string, selector: string): string {
+  const escaped = selector.replace(/[.[\]]/g, '\\$&');
+  const m = new RegExp(`(?:^|[,}])\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(css);
+  if (!m) throw new Error(`home.css: no rule found for selector "${selector}"`);
+  return m[1] ?? '';
+}
+
+describe('Narrow-viewport overflow guards (issue #753)', { tags: ['unit'] }, () => {
+  it('HeadlineFigures_TheWholeStatPhrase_IsNotForcedOntoOneUnbreakableLine', () => {
+    // Only the numeral may carry the nowrap that keeps a figure like
+    // "158,318" from breaking mid-number — its trailing label (e.g.
+    // "callsigns in the latest register") must stay free to wrap, or a
+    // single long stat overflows a phone-width viewport.
+    expect(ruleBody(HOME_CSS, '.home-stats .fig')).not.toMatch(/white-space:\s*nowrap/);
+    expect(ruleBody(HOME_CSS, '.home-stats .fig b')).toMatch(/white-space:\s*nowrap/);
+    expect(ruleBody(HOME_CSS, '.home .viz-shape .fig')).not.toMatch(/white-space:\s*nowrap/);
+    expect(ruleBody(HOME_CSS, '.home .viz-shape .fig b')).toMatch(/white-space:\s*nowrap/);
+  });
+
+  it('DerivedStamp_AtPhoneWidths_MayWrapInsteadOfOverflowing', () => {
+    // The "derived · at the … build" badge stays on one line everywhere it
+    // fits (the padded holdings-map card leaves too little room at the
+    // narrowest phone widths), so the narrow media query alone relaxes it.
+    const mq = /@media \(max-width:\s*460px\)\s*\{([\s\S]*)\}\s*$/.exec(HOME_CSS);
+    expect(mq, 'home.css should carry a max-width: 460px media query').not.toBeNull();
+    expect(mq?.[1]).toMatch(/\.home \.derived-stamp\s*\{[^}]*white-space:\s*normal/);
   });
 });
