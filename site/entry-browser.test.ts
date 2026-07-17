@@ -183,3 +183,42 @@ describe('entry-browser inbound callsign links (#594)', { tags: ['ui'] }, () => 
     expect(rawChip?.tagName).toBe('CODE');
   });
 });
+
+describe('entry-browser custom-query zero de-emphasis (issue #731)', { tags: ['ui'] }, () => {
+  // A hand-written custom query (the SQL box, `custom SQL` mode) can select
+  // arbitrary columns, unlike the fixed filters-mode COLUMNS - the generic
+  // fallback cell is the hook point that must recognise a literal zero.
+  function customQueryWorker(): { db: { query: (sql: string) => Promise<unknown[]> } } {
+    return {
+      db: {
+        query: async (sql: string) => {
+          await Promise.resolve();
+          if (/dropped/i.test(sql)) return /COUNT\(\*\)/i.test(sql) ? [{ n: 1 }] : [{ label: 'x', dropped: 0 }];
+          return /COUNT\(\*\)/i.test(sql) ? [{ n: 0 }] : [];
+        },
+      },
+    };
+  }
+
+  it('EntryBrowserRow_CustomQueryNumericZeroColumn_CarriesTheSharedZeroClass', async () => {
+    const section = buildScaffold();
+    enhance(section, { openCombined: () => Promise.resolve(customQueryWorker()) });
+    await flush();
+
+    const textarea = section.querySelector('textarea[aria-label="SQL query"]');
+    const runBtn = section.querySelector('button.run');
+    if (!(textarea instanceof HTMLTextAreaElement) || !(runBtn instanceof HTMLButtonElement)) {
+      throw new Error('SQL box controls missing from entry-browser scaffold');
+    }
+    textarea.value = 'SELECT \'x\' AS label, 0 AS dropped';
+    runBtn.click();
+    await flush();
+
+    const cells = [...section.querySelectorAll('td')];
+    const labelCell = cells.find(c => c.textContent === 'x');
+    const zeroCell = cells.find(c => c.textContent === '0');
+    expect(zeroCell?.className).toBe('zero');
+    // A non-numeric-looking neighbour column is unaffected.
+    expect(labelCell?.className).toBe('');
+  });
+});

@@ -436,7 +436,13 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
         // only humanises an ASSERTED blank ('').
         if (typeof r[h] === 'string' && h === 'status') return el('td', {}, [statusField(el, r[h], { glossaryLinking: 'plain' })]);
         if (typeof r[h] === 'string' && (h === 'product' || h === 'licence_class' || h === 'implied_class')) return el('td', {}, [licenceField(el, r[h])]);
-        return el('td', { text: r[h] === null ? 'NULL' : String(r[h]), class: r[h] === null ? 'browser-status' : '' });
+        if (r[h] === null) return el('td', { text: 'NULL', class: 'browser-status' });
+        // A custom hand-written query (the `custom` mode above) can select
+        // arbitrary columns, including a numeric one; a literal zero
+        // de-emphasises (issue #731), a state distinct from NULL
+        // ("not asserted", .browser-status above).
+        const text = String(r[h]);
+        return el('td', { text, class: text.trim() === '0' ? 'zero' : '' });
       }))));
     const wrap = el('div', { class: 'overflow', style: 'overflow-x:auto' });
     wrap.append(el('table', {}, [thead, tbody]));

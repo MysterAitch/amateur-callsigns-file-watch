@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { makeRunLookup, registerHistoryHeader, seriesLink, suffixLink,
-  LIST_SORT_COLUMNS, listOrderBy, nextSort, sortToParam, sortFromParam } from './app.js';
+  LIST_SORT_COLUMNS, listOrderBy, nextSort, sortToParam, sortFromParam, renderTable } from './app.js';
 
 // The lookup page routes its PRIMARY database open + query through the shared
 // loading affordance (issues #499/#506), exactly as Explore and the Playground
@@ -305,5 +305,42 @@ describe('lookup filtered-list sort deep link (#213)', { tags: ['unit'] }, () =>
     // A stale or hand-edited link degrades to what it can honour, never throws.
     expect(sortFromParam('bogus:asc,status:desc')).toEqual([{ key: 'status', dir: 'DESC' }]);
     expect(sortFromParam('status')).toEqual([{ key: 'status', dir: 'ASC' }]);
+  });
+});
+
+describe('lookup result table zero de-emphasis (issue #731)', { tags: ['ui'] }, () => {
+  it('RenderTable_NumericCellIsExactlyZero_CarriesTheSharedZeroClass', () => {
+    const wrap = renderTable(['label', 'count'], [['Allocated', 3], ['Suspended', 0]], 1);
+    const cells = wrap.querySelectorAll('td.num');
+    expect(cells[0].className).toBe('num');
+    expect(cells[0].textContent).toBe('3');
+    expect(cells[1].className).toBe('num zero');
+    expect(cells[1].textContent).toBe('0');
+  });
+
+  it('RenderTable_NonNumericColumn_NeverCarriesTheZeroClassEvenWhenTextIsZero', () => {
+    // numericFrom scopes the de-emphasis to columns meant to hold figures - a
+    // label column that happens to read "0" (e.g. a raw code) is untouched.
+    const wrap = renderTable(['code', 'count'], [['0', 5]], 1);
+    const labelCell = wrap.querySelectorAll('td')[0];
+    expect(labelCell.className).toBe('');
+    expect(labelCell.textContent).toBe('0');
+  });
+
+  it('RenderTable_NumericCellContainsZeroWithinLongerText_DoesNotMatch', () => {
+    const wrap = renderTable(['label', 'count'], [['x', '10'], ['y', '0.5']], 1);
+    const cells = wrap.querySelectorAll('td.num');
+    expect(cells[0].className).toBe('num');
+    expect(cells[1].className).toBe('num');
+  });
+
+  it('RenderTable_DomNodeCell_IsNeverCheckedForZero', () => {
+    // A cell carrying a link/pill DOM node (not plain text) is rendered as-is,
+    // regardless of what its own text content happens to be.
+    const link = document.createElement('a');
+    link.textContent = '0';
+    const wrap = renderTable(['label', 'count'], [['x', link]], 1);
+    const cell = wrap.querySelectorAll('td.num')[0];
+    expect(cell.className).toBe('num');
   });
 });

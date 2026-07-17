@@ -53,3 +53,38 @@ describe('resultCell callsign-column linking (#594)', { tags: ['ui'] }, () => {
     expect(nullCell.className).toBe('muted');
   });
 });
+
+// Zero de-emphasis (issue #731): an arbitrary hand-written query can return a
+// literal 0 in any column, so the console's generic cell renderer is the hook
+// point - distinct from NULL, which keeps its own separate `.muted` state.
+describe('resultCell zero de-emphasis (#731)', { tags: ['ui'] }, () => {
+  it('ResultCell_WhenValueIsNumberZero_CarriesTheSharedZeroClass', () => {
+    const cell = resultCell('dropped', 0);
+    expect(cell.textContent).toBe('0');
+    expect(cell.className).toBe('zero');
+  });
+
+  it('ResultCell_WhenValueIsStringZero_CarriesTheSharedZeroClass', () => {
+    const cell = resultCell('code', '0');
+    expect(cell.textContent).toBe('0');
+    expect(cell.className).toBe('zero');
+  });
+
+  it('ResultCell_WhenValueIsNonZeroNumber_RendersPlainWithNoZeroClass', () => {
+    const cell = resultCell('record_count', 42);
+    expect(cell.className).toBe('');
+  });
+
+  it('ResultCell_WhenValueContainsZeroWithinLongerText_DoesNotMatch', () => {
+    expect(resultCell('n', 10).className).toBe('');
+    expect(resultCell('n', '0.5').className).toBe('');
+  });
+
+  it('ResultCell_WhenValueIsNull_StaysMutedNotZero', () => {
+    // NULL ("not asserted") is a different state from a present zero, and
+    // must remain visually distinct - it keeps its own existing class.
+    const cell = resultCell('dropped', null);
+    expect(cell.className).toBe('muted');
+    expect(cell.className).not.toBe('zero');
+  });
+});

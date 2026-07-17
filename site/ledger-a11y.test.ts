@@ -267,6 +267,22 @@ describe('cross-surface secondary tokens live once in tokens.css (issue #257)', 
   }
 });
 
+// The de-emphasised-zero convention (issue #731): a literal zero in a numeric
+// table cell mutes via the `.zero` class, which draws the shared --muted
+// token straight onto the page background (--paper) - the same pairing
+// nav/breadcrumb/footer text already uses. De-emphasised must still mean
+// READABLE, not invisible, so this guard pins that the pairing clears AA for
+// small text in both themes, following the same pattern as the secondary-
+// token guards above.
+describe('zero-value cell de-emphasis contrast (issue #731)', { tags: ['ui'] }, () => {
+  for (const [theme, body] of [['light', TOKENS_LIGHT], ['dark', TOKENS_DARK]] as const) {
+    it(`ZeroCell_${theme}Theme_MutedOnPaper_MeetsAA`, () => {
+      const ratio = contrast(token(body, 'muted'), token(body, 'paper'));
+      expect(ratio, `muted on paper (${theme}): ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(AA_NORMAL);
+    });
+  }
+});
+
 describe('interactive-page accessibility fallbacks (issues #407 / #397)', { tags: ['ui'] }, () => {
   it('LedgerPage_BeingJsDriven_CarriesANoscriptFallback', () => {
     const html = siteFile('ledger.html');
