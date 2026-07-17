@@ -54,6 +54,7 @@ datasets attested but not yet recovered - see each entry's meta and corresponden
 | ofcom-2024-12--forbidden-suffixes | successful | forbidden-list | 2024-12 | ✔ 1 | — | `ofcom-2024-12-forbidden-suffixes` | ✔ 1 |
 | ofcom-2025-03-13--callsigns--all-callsigns | successful | register-snapshot | 2025-03-13 | ✔ 1 | — | `ofcom-2025-03-13-register` | ✔ 1 |
 | ofcom-2025-09-11--callsigns--all-callsigns | successful | register-snapshot | 2025-09-11 | ✔ 1 | 1 mech | `ofcom-2025-09-11-register` | ✔ 1 |
+| ofcom-210648--corrupt-annex-callsigns | successful | register-snapshot | 2021-01 | ✔ 1 | 1 mech | `ofcom-210648-corrupt-annex-register` | ✔ 1 |
 | ofcom-285990--available-list-jun-2016 | successful | reference-context | 2016-06-29 | — | 1 transcr | — | — |
 | ofcom-299351--available-list-referral | successful | reference-context | — | — | 1 transcr | — | — |
 | ofcom-337399--all-callsigns-published-copy | successful | register-snapshot, forbidden-list | 2016-09 | ✔ 1 | 1 transcr | — | — |

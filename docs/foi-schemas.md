@@ -100,6 +100,7 @@ fail the conversion.
 | `ofcom-2024-12-forbidden-suffixes` | `ofcom-2024-12--forbidden-suffixes` |
 | `ofcom-2025-03-13-register` | `ofcom-2025-03-13--callsigns--all-callsigns` |
 | `ofcom-2025-09-11-register` | `ofcom-2025-09-11--callsigns--all-callsigns` |
+| `ofcom-210648-corrupt-annex-register` | `ofcom-210648--corrupt-annex-callsigns` |
 | `ofcom-498903-reissue-events` | `ofcom-498903--reissued-callsigns-since-2010` |
 | `ofcom-498906-reciprocal-events` | `ofcom-498906--reciprocal-licences-since-2010` |
 | `ofcom-756622-register-and-forbidden` | `ofcom-756622--published-register-csv` |
@@ -562,6 +563,20 @@ Required-present but not carried: `Type`.
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability.
 
 Date plausibility bound: 2025-09-11.
+
+### `ofcom-210648-corrupt-annex-register`
+
+**`raw-extract-sheet-1-sheet1.csv`** (csv, utf8)
+
+| output column | source | kind |
+|---|---|---|
+| `callsign` | `Value` | verbatim |
+| `status` | `Status` | verbatim |
+| `licence_class` | *(emitted empty)* | verbatim |
+
+Required-present but not carried: `Type`.
+
+Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability.
 
 ### `ofcom-498903-reissue-events`
 
