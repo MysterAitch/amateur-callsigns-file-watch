@@ -172,7 +172,7 @@ export function callsignPillRaw(el, raw) {
  * @property {string} nameHref    where the part name links in the table
  * @property {string} [glossaryHref] optional resolved glossary deep-link
  * @property {string} [citationHref] optional external source citation link
- * @property {string} [citationLabel] label shown for the citation link (required if citationHref is set)
+ * @property {string} [citationLabel] label shown for the citation link; defaults to "source" when omitted
  */
 
 /**
