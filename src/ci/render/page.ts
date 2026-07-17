@@ -39,6 +39,18 @@ const SHARED_AFFORDANCE_CSS = [
   // Included on both generated shells (PAGE_STYLE/ENTRY_STYLE) so a zero
   // reads the same wherever a CI-rendered table appears.
   '.zero{color:var(--muted)}',
+  // A signed count delta versus the immediately preceding entry in an
+  // ordered series (issue #749): visible (unlike the muted `.zero` above,
+  // which a delta of exactly zero reuses), and a decrease vs an increase
+  // carry distinguishable but calm hues - not a red/green good-or-bad
+  // judgement, since a count moving either way is a plain fact here, not a
+  // verdict. --raw/--derived are ledger.css's own token names (bridged under
+  // `.ledger`, which every generated page's content is wrapped in); the
+  // var() fallback to --accent/--warn covers a class rendering before
+  // ledger.css has loaded, the same defensive pattern SHARED_DB_ALERT_CSS
+  // above uses for --warn.
+  '.delta-increase{color:var(--raw,var(--accent))}',
+  '.delta-decrease{color:var(--derived,var(--warn))}',
 ].join('');
 
 // The shared database-loading alert (issue #499), inlined so the generated

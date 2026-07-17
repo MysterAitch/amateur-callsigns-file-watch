@@ -16,6 +16,8 @@ import { callsignPill } from './site-render.ts';
 
 const D2024 = 'ofcom-2024-12--forbidden-suffixes';
 const D2016 = 'wdtk-356636--all-callsigns-plus-forbidden';
+const D2019A = 'wdtk-596532--allocated-reserved-forbidden';
+const D2019B = 'ofcom-756622--published-register-csv';
 
 let outputDir: string;
 let urls: string[];
@@ -74,6 +76,40 @@ describe('Forbidden-suffix section — index', { tags: ['data-validity'] }, () =
     // The surprise the index surfaces: forbidden suffixes that nonetheless
     // carry Allocated callsigns — QNF is called out by name.
     expect(index).toContain('Forbidden, yet carrying Allocated callsigns');
+  });
+});
+
+describe('Forbidden-suffix section — disclosures-over-time deltas (issue #749)', { tags: ['data-validity'] }, () => {
+  it('DisclosuresTimeline_OldestRow_HasNoPredecessorSoNoDeltaIsShown', () => {
+    // 2016-09 (1,465 distinct / 1,466 rows) is the baseline: no earlier
+    // disclosure to diff against, so neither cell carries a delta span - a
+    // bare, plain count, exactly as it rendered before this feature.
+    const index = read('forbidden', 'index.html');
+    expect(index).toContain(`<code>${D2016}</code></td><td>1,465</td><td>1,466</td><td>`);
+  });
+
+  it('DisclosuresTimeline_DistinctUnchangedButRowsDropped_EachColumnGetsItsOwnIndependentDelta', () => {
+    // The 12 Aug 2019 disclosure (wdtk-596532) carries the same 1,465
+    // distinct suffixes as 2016 (the ZIT duplicate is gone, so rows drops
+    // from 1,466 to 1,465): distinct reads a muted zero-change, rows reads a
+    // visible real decrease - proving the two columns diff independently.
+    const index = read('forbidden', 'index.html');
+    expect(index).toContain(`<code>${D2019A}</code></td><td>1,465 <span class="zero">(±0)</span></td><td>1,465 <span class="delta-decrease">(−1)</span></td>`);
+  });
+
+  it('DisclosuresTimeline_BothCountsIdenticalToThePredecessor_BothColumnsShowAMutedZeroChange', () => {
+    // The 12 Sep 2019 disclosure (ofcom-756622) repeats the prior 1,465
+    // distinct / 1,465 rows exactly - equal counts, muted on both columns,
+    // never blank (there IS a predecessor; it is just unchanged).
+    const index = read('forbidden', 'index.html');
+    expect(index).toContain(`<code>${D2019B}</code></td><td>1,465 <span class="zero">(±0)</span></td><td>1,465 <span class="zero">(±0)</span></td>`);
+  });
+
+  it('DisclosuresTimeline_2024Disclosure_ShowsAVisibleNegativeDeltaOnBothColumns', () => {
+    // 2024-12 drops from 1,465 to 1,464 on both distinct and rows (net of
+    // +JIZ, −QNF, −ZFJ) - a real, visible movement on both columns.
+    const index = read('forbidden', 'index.html');
+    expect(index).toContain(`<code>${D2024}</code></td><td>1,464 <span class="delta-decrease">(−1)</span></td><td>1,464 <span class="delta-decrease">(−1)</span></td>`);
   });
 });
 

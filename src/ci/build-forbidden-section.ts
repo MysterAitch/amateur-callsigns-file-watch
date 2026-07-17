@@ -70,6 +70,7 @@ import {
   glossaryTerm,
   tableCaption,
   zeroCell,
+  countDelta,
 } from './site-render.ts';
 import { fidelityNudge, flagAnchor } from './render/fidelity.ts';
 import { reportAffordance } from './render/report.ts';
@@ -338,8 +339,15 @@ function rationaleSection(h: ForbiddenSuffixHistory, rationale: Map<string, Suff
 }
 
 function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex, rationale: Map<string, SuffixRationale>): string {
-  const timelineRows = h.disclosures.map(d =>
-    `<tr><td><a href="${escapeHtml(d.entry)}/index.html">${escapeHtml(humanVintage(d.vintage))}</a><br><code>${escapeHtml(d.entry)}</code></td><td>${zeroCell(d.distinctCount, num(d.distinctCount))}</td><td>${zeroCell(d.rowCount, num(d.rowCount))}</td><td>${suffixCodes(d.duplicates)}</td><td>${suffixLinks(d.added, 'index')}</td><td>${suffixLinks(d.removed, 'index')}</td></tr>`);
+  const timelineRows = h.disclosures.map((d, i) => {
+    // The previous disclosure in this already-oldest-first ordering (or
+    // undefined for the first row) - reused, not re-derived, as the basis for
+    // each cell's signed delta.
+    const prev = h.disclosures[i - 1];
+    const distinctCell = zeroCell(d.distinctCount, num(d.distinctCount)) + countDelta(d.distinctCount, prev?.distinctCount);
+    const rowsCell = zeroCell(d.rowCount, num(d.rowCount)) + countDelta(d.rowCount, prev?.rowCount);
+    return `<tr><td><a href="${escapeHtml(d.entry)}/index.html">${escapeHtml(humanVintage(d.vintage))}</a><br><code>${escapeHtml(d.entry)}</code></td><td>${distinctCell}</td><td>${rowsCell}</td><td>${suffixCodes(d.duplicates)}</td><td>${suffixLinks(d.added, 'index')}</td><td>${suffixLinks(d.removed, 'index')}</td></tr>`;
+  });
 
   const steady = h.disclosures.filter(d => d.added.length === 0 && d.removed.length === 0);
   const drift = h.disclosures.filter(d => d.added.length > 0 || d.removed.length > 0);
@@ -370,7 +378,7 @@ function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex, ration
     '<p>The disallowed vocabulary is <b>not static</b>, and both invariance and drift are findings: it is unchanged from 2016 to 2019, then differs by the December 2024 disclosure.</p>',
 
     '<h2>Disclosures timeline</h2>',
-    '<p>One row per forbidden-list disclosure, oldest first — each links to its own page. <b>Distinct</b> is the suffix vocabulary; <b>rows</b> exceeds it only where the source duplicated a row (surfaced, never silently deduplicated). <b>Added / removed</b> are the set difference against the previous disclosure.</p>',
+    '<p>One row per forbidden-list disclosure, oldest first — each links to its own page. <b>Distinct</b> is the suffix vocabulary; <b>rows</b> exceeds it only where the source duplicated a row (surfaced, never silently deduplicated). Each carries its signed change versus the immediately preceding disclosure in brackets; the oldest row has no predecessor to diff against. <b>Added / removed</b> are the set difference against the previous disclosure.</p>',
     '<div class="overflow">',
     '<table>',
     tableCaption('Forbidden-suffix disclosures over time, oldest first'),
