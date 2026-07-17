@@ -1,5 +1,17 @@
 {
   "schemaVersion": 1,
   "description": "Public index of copies held locally but not (yet) redistributed: the bytes are gitignored under bytes/, this index records their existence so the availability claim stays public and re-verifiable. Obtain and verify a copy yourself from obtainFrom against the recorded sha256. Redistribution is a deliberate, manual, per-item decision (issue #618/#619).",
-  "entries": []
+  "entries": [
+    {
+      "sha256": "f9171f8f6b47fc2bf91a063449b04bd9f3dc7b1092d32bb340a312733b323485",
+      "bytes": 68303,
+      "originalFilename": "scc.shtml",
+      "heldAs": "rsgb-scc-page-2026-07-17.shtml",
+      "publisher": "rsgb",
+      "obtainFrom": "https://www.rsgbcc.org/hf/information/scc.shtml",
+      "fetchedAt": "2026-07-17T13:04:00Z",
+      "withheldReason": "RSGB-authored prose on the page (rules, FAQ, contest lists) is copyrightable with no stated licence; the factual table is separately published as reference-data/rsgb-special-contest-calls.csv under the cite-do-not-copy treatment (#693). This raw page is the transcription source for that extract - held so the raw truth is verifiable, withheld pending any redistribution clearance.",
+      "relatesTo": "reference-data/rsgb-special-contest-calls.csv"
+    }
+  ]
 }
