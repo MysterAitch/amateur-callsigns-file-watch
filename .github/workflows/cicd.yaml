@@ -389,7 +389,7 @@ jobs:
       # The ~78 trivial files (the fast project excludes the isolated heavy list),
       # sharded across 2 runners. Folds among them (e.g. cross-dataset-invariants)
       # read the shared Parquet too. --coverage + blob as above; merged in `coverage`.
-      - run: npx vitest run --project fast --shard="${SHARD}/2" --coverage --reporter=default --reporter=blob --outputFile=".vitest-reports/fast-${SHARD}.json"
+      - run: npx vitest run --project fast --shard="${SHARD}/2" --coverage --reporter=blob --outputFile=".vitest-reports/fast-${SHARD}.json"
         env:
           SHARD: ${{ matrix.shard }}
           CLAIMS_PARQUET: ${{ github.workspace }}/claims.parquet
