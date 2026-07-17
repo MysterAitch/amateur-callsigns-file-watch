@@ -7,6 +7,7 @@
 // index.html, which attaches createDbWorker to window.
 
 import { countryForCallsign, stripVisitorPrefix } from './prefix-country.js';
+import { flagEmoji, allocationHeadline, ALLOCATION_ATTRIBUTION } from './country-flag.js';
 import { placeholderOf } from './browser-query.js';
 import { callsignPillLink, CALLSIGN_CLASS, appendMarkedChars } from './callsign-pill.js';
 import { withDatabaseLoading } from './db-loading.js';
@@ -518,10 +519,34 @@ const ROW_SELECT =
 // UK visitor prefix, longest-prefix matching the home call against the series
 // ranges, and refusing to guess when a split block is ambiguous - lives in the
 // DOM-free, unit-tested prefix-country module; this wrapper only renders it.
-// The country named is the ITU-allocated HOLDER of the call sign series, a
+// The entity named is the ITU-allocated HOLDER of the call sign series, a
 // declared allocation, not a verified claim about the operator's own licence.
-const ITU_SOURCE_NOTE = 'Source: ITU Appendix 42 (Table of allocation of international call sign series). '
-  + 'This names the holder of the call sign series, not a verified claim about the operator\'s licence.';
+// The flag is composed at the edge (country-flag.js) from a plain ISO alpha-2
+// code held in ref_entity_iso; the reference data stores only the two letters.
+
+// ISO alpha-2 codes for a set of ITU entity strings, as a Map (entity -> code,
+// with '' for organisations that hold a series but have no national flag). The
+// crosswalk is tiny, so this reads only the rows the card is about to render.
+/** @param {(string | null)[]} entities */
+async function entityFlagCodes(entities) {
+  const wanted = [...new Set(entities.filter(/** @returns {e is string} */ (e) => typeof e === 'string' && e.length > 0))];
+  if (wanted.length === 0) return new Map();
+  /** @type {{ allocated_to: string, iso_3166_alpha2: string }[]} */
+  const rows = await query(
+    `SELECT allocated_to, iso_3166_alpha2 FROM ref_entity_iso WHERE allocated_to IN (${wanted.map(() => '?').join(',')})`,
+    wanted);
+  return new Map(rows.map(r => [r.allocated_to, r.iso_3166_alpha2]));
+}
+
+// The standing epistemic + source line, with a point-of-use glossary hook so a
+// reader can learn what a "call sign series" allocation is (and, crucially, is
+// not) without leaving the result.
+function allocationNote() {
+  return el('p', { class: 'muted' }, [
+    ALLOCATION_ATTRIBUTION + ' ',
+    el('a', { href: 'glossary.html#itu-series', class: 'muted hint', title: 'glossary: call sign series', text: '(?)' }),
+  ]);
+}
 
 /** @param {unknown} homeCallsign */
 async function visitorHomeCard(homeCallsign) {
@@ -533,7 +558,7 @@ async function visitorHomeCard(homeCallsign) {
     ? await query('SELECT series, allocated_to FROM itu_series WHERE series LIKE ?', [`${first}%`])
     : [];
   const res = countryForCallsign(homeCallsign, rows);
-  const note = el('p', { class: 'muted', text: ITU_SOURCE_NOTE });
+  const note = allocationNote();
   // A '#' recorded after the slash is a suspected artifact (same as the
   // register's hash-in-register flag; ADR 0005 gives the canonical M#/ form).
   // Surface that the raw data is one thing and the country rests on a manual
@@ -543,22 +568,27 @@ async function visitorHomeCard(homeCallsign) {
     : [];
 
   if (res.status === 'resolved') {
-    const where = res.series ? `falls in ITU series ${res.series}` : res.basis;
+    const country = res.country ?? '';
+    const flags = await entityFlagCodes([country]);
+    const flag = flagEmoji(flags.get(country) ?? '');
     return card('Visitor home callsign', [
-      el('p', { text: `${res.cleaned} ${where}, allocated to ${res.country}.` }),
+      el('p', { text: allocationHeadline({ cleaned: res.cleaned, country, series: res.series }, flag) }),
       ...artifactNote,
       note,
     ]);
   }
   if (res.status === 'ambiguous') {
+    // A split block names more than one holder; list every one with its flag,
+    // never guessing which the call belongs to.
+    const flags = await entityFlagCodes(res.candidates.map(c => c.country));
     return card('Visitor home callsign', [
-      el('p', { text: `${res.cleaned}: the ${res.basis}. The series table alone cannot name one country, so every holder is listed:` }),
-      renderTable(['series', 'allocated to'], res.candidates.map(c => [c.series, c.country]), 99),
+      el('p', { text: `${res.cleaned}: the ${res.basis}. The series table alone cannot name one allocation holder, so every holder is listed:` }),
+      renderTable(['flag', 'series', 'allocated to'], res.candidates.map(c => [flagEmoji(flags.get(c.country) ?? ''), c.series, c.country]), 99),
       ...artifactNote,
       note,
     ]);
   }
-  // Unallocated or malformed: state honestly that no country can be derived.
+  // Unallocated or malformed: state honestly that no allocation can be derived.
   return card('Visitor home callsign', [
     el('p', { class: 'muted', text: res.basis }),
     ...artifactNote,

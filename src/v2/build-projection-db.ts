@@ -431,6 +431,13 @@ export function buildLookupDb(dbPath: string, newest: ProjectedPublication): Rec
   createAndFill('ref_forbidden_suffixes', ['suffix'], forbidden.map(r => [r.suffix]), 'suffix');
   const itu = readReferenceCsv('itu-call-sign-series.csv');
   createAndFill('itu_series', ['series', 'allocated_to'], itu.map(r => [r.series, r.allocated_to]));
+  // The separately-sourced entity -> ISO alpha-2 crosswalk: it lets an ITU
+  // allocation render a flag at the edge (site/country-flag.js composes the
+  // glyph from the code) while the verbatim ITU entity string stays canonical.
+  // Stored plain (two letters), never as a glyph; keyed on the same allocated_to
+  // string as itu_series, so the lookup joins one against the other.
+  const entityIso = readReferenceCsv('itu-entity-iso.csv');
+  createAndFill('ref_entity_iso', ['allocated_to', 'iso_3166_alpha2'], entityIso.map(r => [r.allocated_to, r.iso_3166_alpha2]), 'allocated_to');
   const registry = parseFlagRegistry();
   createAndFill('flag_registry', ['flag', 'meaning', 'grounding'], registry.map(r => [r.flag, r.meaning, r.grounding]), 'flag');
 
