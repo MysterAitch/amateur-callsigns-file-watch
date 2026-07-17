@@ -67,6 +67,8 @@ import {
 } from './site-render.ts';
 import { fidelityNudge, flagAnchor } from './render/fidelity.ts';
 import { reportAffordance } from './render/report.ts';
+import { examineTrail, sourceLineHop, buildCommit, type ExamineHop } from './render/show-working.ts';
+import { REPO_URL } from './render/html.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
@@ -415,10 +417,52 @@ function analyseSuffix(suffix: string, h: ForbiddenSuffixHistory, info: SuffixCa
   return { presence, currentlyListed, delisting, issuedAfterDelisting };
 }
 
+// The 1-based physical line of one suffix's row in the committed
+// reference-data/forbidden-suffixes.csv — the ever-forbidden union row the
+// row-level forbidden-suffix flag machinery consults (the same reference-row
+// locus the show-working engine resolves for that flag). Read once per build.
+// Undefined for a suffix with no row: the caller omits the hop rather than
+// fabricating a line (the honesty rule).
+let cachedSuffixReferenceLines: Map<string, number> | undefined;
+export function forbiddenSuffixReferenceLine(suffix: string): number | undefined {
+  if (cachedSuffixReferenceLines === undefined) {
+    const map = new Map<string, number>();
+    const lines = fs.readFileSync(path.join(REPO_ROOT, 'reference-data', 'forbidden-suffixes.csv'), 'utf8').split(/\r?\n/);
+    lines.forEach((line, index) => {
+      if (index === 0) return; // the header row
+      const key = line.split(',', 1)[0].trim();
+      if (key !== '' && !map.has(key)) map.set(key, index + 1);
+    });
+    cachedSuffixReferenceLines = map;
+  }
+  return cachedSuffixReferenceLines.get(suffix);
+}
+
+// The examine trail for one suffix record (issue #439), in the shared
+// vocabulary: (a) the pinned source line of the suffix's union row, (b) the
+// code that derives the history shown (a pinned blob — this fact's working is
+// code-defined, not yet an ADR 0017 disclosure), and (c) the witnessing
+// disclosures on this very page — the record's provenance context.
+export function suffixExamineHtml(suffix: string, commitSha: string): string {
+  const hops: ExamineHop[] = [];
+  const referenceLine = forbiddenSuffixReferenceLine(suffix);
+  if (referenceLine !== undefined) {
+    hops.push(sourceLineHop({ repoPath: 'reference-data/forbidden-suffixes.csv', line: referenceLine }, commitSha,
+      { note: '(its row on the ever-forbidden union)' }));
+  }
+  hops.push({ href: `${REPO_URL}/blob/${commitSha}/src/ci/forbidden-suffix-history.ts`, label: 'the derivation code', external: true });
+  hops.push({ href: '#history', label: 'the disclosures witnessing it' });
+  return `<p class="examine-under">${examineTrail(hops)} — the union row is the reference byte the row-level `
+    + '<code>forbidden-suffix</code> flag rests on, and the history above is computed from the linked disclosures '
+    + 'by the pinned derivation code, at the commit this page was built from.</p>';
+}
+
 // The forbidden-list history for one suffix: which disclosures list it, first
 // known forbidden, and the de-listing (with the currency caveat). Each
-// disclosure links back to its own page.
-function suffixHistorySection(suffix: string, h: ForbiddenSuffixHistory, a: SuffixAnalysis): string {
+// disclosure links back to its own page. `examineHtml` is the suffix's examine
+// trail (issue #439), housed here because the history table IS the trail's
+// provenance hop.
+function suffixHistorySection(suffix: string, h: ForbiddenSuffixHistory, a: SuffixAnalysis, examineHtml: string): string {
   const fk = h.firstKnownForbidden[suffix];
   const rows = a.presence.map(({ disclosure, present }) =>
     `<tr><td><a href="../../${escapeHtml(disclosure.entry)}/index.html">${escapeHtml(humanVintage(disclosure.vintage))}</a></td><td>${present ? 'on the list' : '<span class="gap">absent</span>'}</td></tr>`);
@@ -428,7 +472,7 @@ function suffixHistorySection(suffix: string, h: ForbiddenSuffixHistory, a: Suff
       ? `<b>De-listed</b> by the ${escapeHtml(humanVintage(a.delisting.vintage))} disclosure — it appears on earlier lists but not this one. The working theory is that such removals may be export artefacts rather than a deliberate policy change, so the ever-forbidden union keeps the suffix flagged. Declared, not verified.`
       : 'Not on the most recent disclosure held.';
   return [
-    '<section><h2>Forbidden-list history</h2>',
+    '<section id="history"><h2>Forbidden-list history</h2>',
     `<p class="lead">First known forbidden <b>${escapeHtml(fk.displayValue)}</b> <span class="gap">(${escapeHtml(fk.basis)})</span>. ${statusLine}</p>`,
     '<div class="overflow">',
     '<table>',
@@ -437,6 +481,7 @@ function suffixHistorySection(suffix: string, h: ForbiddenSuffixHistory, a: Suff
     ...rows,
     '</table>',
     '</div>',
+    examineHtml,
     '</section>',
   ].join('\n');
 }
@@ -600,7 +645,7 @@ export function suffixPage(
     arcCallout(suffix, a, ref),
     '<div class="main-region">',
     '<div class="col">',
-    suffixHistorySection(suffix, h, a),
+    suffixHistorySection(suffix, h, a, suffixExamineHtml(suffix, buildCommit())),
     suffixCallsignsSection(info, ref),
     reportSection,
     '</div>',

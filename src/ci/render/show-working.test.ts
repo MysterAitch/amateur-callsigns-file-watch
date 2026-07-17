@@ -1,12 +1,27 @@
 import { describe, it, expect } from 'vitest';
-import { renderWorking, evidenceLinkFor } from './show-working.ts';
+import * as fs from 'fs';
+import * as path from 'path';
+import {
+  renderWorking,
+  evidenceLinkFor,
+  examineTrail,
+  sourceLineHop,
+  ruleCodeHop,
+  ruleCodeFor,
+  RULE_CODE,
+  type ExamineHop,
+} from './show-working.ts';
 import { explain } from '../../v2/explain.ts';
 import {
   emitLedger,
   LISTED_PREDICATE,
   FLAG_PREDICATE,
   CLEANED_CALLSIGN_RULE,
+  PLACEHOLDER_FORM_RULE,
+  CALLSIGN_PATTERN_RULE,
+  LICENCE_CATEGORY_RULE,
   LICENCE_CATEGORY_PREDICATE,
+  PARSE_CALLSIGN_RULE,
   STRIPPED_COLLISION_RULE,
   SOURCE_REPO_URL,
   type Claim,
@@ -134,15 +149,128 @@ describe('the resolver reports an honest absence when no position is recorded', 
     const link = evidenceLinkFor({ kind: 'raw-claim', sourceFile: source.sourceFile, ordinal: 1, predicate: LISTED_PREDICATE }, ledger, SHA);
     expect(link.href).toBeUndefined();
     expect(link.where).toContain('no source line recorded');
-    // And the rendered HTML shows the absence as plain text, not a dead link.
+    // And the rendered HTML shows the absence as plain text, not a dead link:
+    // no archive-file permalink is fabricated. (The derivation-code line still
+    // links the RULE's source file — that is real code at a real pin, not a
+    // guessed source position.)
     const html = renderWorking(explain(claim, ledger, REF), ledger, SHA);
     expect(html).toContain('working-locus-absent');
-    expect(html).not.toContain('/blob/');
+    expect(html).not.toContain(`/blob/${SHA}/archive/`);
   });
 
   it('ReferenceRowOrigin_WhenResolved_AlwaysLinksTheVersionedTableFile', () => {
     const link = evidenceLinkFor({ kind: 'reference-row', file: 'prefix-formats.csv', key: 'M7', row: {} }, [], SHA);
     expect(link.href).toBe(`${SOURCE_REPO_URL}/blob/${SHA}/reference-data/prefix-formats.csv`);
+  });
+});
+
+describe('the working names its derivation code as a pinned blob link (issue #439)', { tags: ['ui'] }, () => {
+  it('DerivedClaimWorking_KnownRule_NamesTheFunctionAndPinsItsSourceFile', () => {
+    const html = renderFor(c => c.rule === CLEANED_CALLSIGN_RULE && c.rawSubject === 'm7tee');
+    // The (b) hop of the examine path: the very function whose re-run IS the
+    // working, linked at the pinned commit — not a moving branch.
+    expect(html).toContain('<p class="working-code">Derivation code: <code>cleanedCallsign</code>');
+    expect(html).toContain(`${SOURCE_REPO_URL}/blob/${SHA}/src/sources/ofcom-amateur/components.ts`);
+    expect(html).not.toContain('/blob/main/src/');
+  });
+
+  it('DerivedClaimWorking_LicenceCategoryRule_LinksTheLookupFunction', () => {
+    const html = renderFor(c => c.predicate === LICENCE_CATEGORY_PREDICATE && c.object === 'Foundation' && c.rawSubject === 'M7TEE');
+    expect(html).toContain('<code>normaliseLicenceCategory</code>');
+  });
+});
+
+describe('the examine trail — one shared claim-to-evidence vocabulary (issue #439)', { tags: ['ui'] }, () => {
+  const HOPS: ExamineHop[] = [
+    { href: `${SOURCE_REPO_URL}/blob/${SHA}/${REPO_PATH}#L3`, label: 'source line 3', external: true },
+    { href: '../../../ledger.html?c=M7TEE', label: 'working' },
+  ];
+
+  it('ExamineTrail_SourceAndWorkingHops_RendersLeadLinksAndSeparators', () => {
+    const html = examineTrail(HOPS);
+    expect(html).toContain('<span class="examine-trail">');
+    expect(html).toContain('<span class="examine-lead">Examine:</span>');
+    // The external hop leaves the site with the shared affordance; the
+    // internal hop is a plain link — the two stay distinguishable.
+    expect(html).toContain(`href="${SOURCE_REPO_URL}/blob/${SHA}/${REPO_PATH}#L3" target="_blank" rel="noopener"`);
+    expect(html).toContain('<a href="../../../ledger.html?c=M7TEE">working</a>');
+    // The separator is decorative, hidden from assistive tech.
+    expect(html).toContain('<span class="examine-sep" aria-hidden="true">·</span>');
+  });
+
+  it('ExamineTrail_EmptyLead_OmitsTheLeadForContextsThatAlreadySayExamine', () => {
+    const html = examineTrail(HOPS, { lead: '' });
+    expect(html).not.toContain('examine-lead');
+    expect(html).toContain('<span class="examine-trail">');
+  });
+
+  it('ExamineTrail_NoHops_RendersNothingRatherThanAnEmptyShell', () => {
+    expect(examineTrail([])).toBe('');
+  });
+
+  it('ExamineTrail_HopWithANote_RendersThePlainTextQualifierAfterTheLink', () => {
+    const html = examineTrail([{ ...HOPS[0], note: '(first of 2 rows with this form)' }]);
+    expect(html).toContain('<span class="examine-note">(first of 2 rows with this form)</span>');
+  });
+
+  it('ExamineTrail_HostileLabelAndHref_AreEscapedNeverLiveMarkup', () => {
+    const html = examineTrail([{ href: 'x.html?a="><script>', label: '<b>boom</b>' }]);
+    expect(html).not.toContain('<b>boom</b>');
+    expect(html).toContain('&lt;b&gt;boom&lt;/b&gt;');
+    expect(html).not.toContain('"><script>');
+  });
+
+  it('SourceLineHop_WithAnAnchor_ComposesThePinnedPermalinkThroughTheSharedPrimitive', () => {
+    const hop = sourceLineHop({ repoPath: REPO_PATH, line: 1234 }, SHA);
+    expect(hop.href).toBe(`${SOURCE_REPO_URL}/blob/${SHA}/${REPO_PATH}#L1234`);
+    // The label humanises the figure (en-GB grouping) and the hop leaves the site.
+    expect(hop.label).toBe('source line 1,234');
+    expect(hop.external).toBe(true);
+  });
+
+  it('RuleCodeHop_KnownRule_PinsTheResponsibleCodesBlob', () => {
+    const hop = ruleCodeHop(CLEANED_CALLSIGN_RULE, SHA);
+    expect(hop?.href).toBe(`${SOURCE_REPO_URL}/blob/${SHA}/src/sources/ofcom-amateur/components.ts`);
+    expect(hop?.label).toContain('cleanedCallsign');
+    expect(hop?.external).toBe(true);
+  });
+
+  it('RuleCodeHop_UnknownRule_ReturnsUndefinedNeverAFabricatedLink', () => {
+    expect(ruleCodeHop('a-rule-nobody-registered', SHA)).toBeUndefined();
+    expect(ruleCodeFor('a-rule-nobody-registered')).toBeUndefined();
+  });
+});
+
+describe('the derivation-code register cannot drift from the code it names (issue #439)', { tags: ['unit'] }, () => {
+  const EMITTED_RULES = [
+    CLEANED_CALLSIGN_RULE,
+    PLACEHOLDER_FORM_RULE,
+    CALLSIGN_PATTERN_RULE,
+    LICENCE_CATEGORY_RULE,
+    PARSE_CALLSIGN_RULE,
+    STRIPPED_COLLISION_RULE,
+  ];
+
+  it('RuleCodeRegister_EveryEmittedDerivationRule_HasACodeMapping', () => {
+    // The explain oracle proves every derived claim is explainable; this pins
+    // the render-side counterpart — every explainable rule names its code, so
+    // no working ever renders without its (b) hop.
+    for (const rule of EMITTED_RULES) {
+      expect(RULE_CODE.has(rule), `rule "${rule}" has no derivation-code mapping`).toBe(true);
+    }
+    // And nothing extra: an entry for a rule the ledger never emits would be a
+    // link to code that produced nothing.
+    expect([...RULE_CODE.keys()].sort()).toEqual([...new Set(EMITTED_RULES)].sort());
+  });
+
+  it('RuleCodeRegister_EveryMapping_PointsAtARealFileDeclaringTheNamedSymbol', () => {
+    const repoRoot = path.resolve(import.meta.dirname, '..', '..', '..');
+    for (const [rule, code] of RULE_CODE) {
+      const filePath = path.join(repoRoot, code.repoPath);
+      expect(fs.existsSync(filePath), `rule "${rule}": ${code.repoPath} does not exist`).toBe(true);
+      const content = fs.readFileSync(filePath, 'utf8');
+      expect(content.includes(code.symbol), `rule "${rule}": ${code.repoPath} does not mention ${code.symbol}`).toBe(true);
+    }
   });
 });
 

@@ -26,7 +26,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists, derivedEntryFileNamesPresent, isDerivedEntryFile } from '../shared/derived-entries.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
 import { linkOrCopyFileSync } from '../shared/link-or-copy.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
 import { readPublisherRegister, channelIndex, publisherIndexById, publisherForChannel, authorPublisherId, type PublisherEntry } from '../shared/publishers.ts';
@@ -44,6 +44,9 @@ import { buildInterdatasetStats } from './build-interdataset-stats.ts';
 import { buildFidelityPage } from './build-fidelity-page.ts';
 import { fidelityHref, fidelityNudge, flagNudges } from './render/fidelity.ts';
 import { reportAffordance } from './render/report.ts';
+import { examineTrail, sourceLineHop, buildCommit, type ExamineHop } from './render/show-working.ts';
+import { loadOpenDataRegisterSource } from '../v2/collectors/open-data-register.ts';
+import type { SourceObservationSet } from '../v2/claim.ts';
 import { parseCallsign, cleanedCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { time, perfReport } from '../shared/perf.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
@@ -581,6 +584,42 @@ function callsignCell(callsign: string, licenceClass: string, depthToRoot: numbe
   return `<td>${pill}${nudges === '' ? '' : ` ${nudges}`}</td>`;
 }
 
+// The per-record examine payload for a preview (issue #439): where each raw
+// row of the parsed source physically sits, so a previewed record can link its
+// exact source line as a pinned permalink, plus the archived file those lines
+// index into and the commit the permalinks anchor at.
+export interface PreviewExamine {
+  linesByCallsign: ReadonlyMap<string, { line: number; rows: number }>;
+  repoPath: string;
+  commitSha: string;
+  depthToRoot: number;
+}
+
+// The physical source line of each callsign's row(s), keyed by the verbatim
+// token AND its cleaned form (issue #439). A normalised preview row carries the
+// verbatim published token, so the verbatim key resolves the exact row it came
+// from; the cleaned key is the fallback (and, when more than one source row
+// shares a cleaned form — a stripped-collision twin — `rows` carries the count
+// so the affordance says honestly that it links the FIRST of them, mirroring
+// the transparency rule that within-table mixing is flagged, not hidden).
+export function sourceLinesByCallsign(source: SourceObservationSet): Map<string, { line: number; rows: number }> {
+  const map = new Map<string, { line: number; rows: number }>();
+  const lines = source.lineNumbers;
+  if (lines === undefined) return map;
+  source.rows.forEach((row, ordinal) => {
+    const token = row[source.subjectColumn] ?? '';
+    const line = lines[ordinal];
+    if (token === '' || line === undefined) return;
+    for (const key of new Set([token, cleanedCallsign(token)])) {
+      if (key === '') continue;
+      const existing = map.get(key);
+      if (existing === undefined) map.set(key, { line, rows: 1 });
+      else existing.rows += 1;
+    }
+  });
+  return map;
+}
+
 // Static, crawlable preview of a normalised CSV's first rows. When
 // pillCallsignDepth is given, any 'callsign' column is rendered with the shared
 // callsign pill (issue #310) so the register/observation tables present a
@@ -590,8 +629,13 @@ function callsignCell(callsign: string, licenceClass: string, depthToRoot: numbe
 // (issue #438) joins each previewed record to its data-quality flags
 // (components.csv), rendered as inline fidelity nudges beside the pill; omit
 // it for sources with no per-record flag join (e.g. FOI extracts), whose
-// previews are then unchanged.
-function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSize = 12, flagsByCallsign?: ReadonlyMap<string, string>): string {
+// previews are then unchanged. `examine` (issue #439) appends an "examine"
+// column walking each record to its exact source line (a pinned permalink) and
+// to the ledger's reconstruction of its derived values' working; omit it for
+// sources whose per-row positions are not exposed — the page-level trail then
+// links the entry's provenance instead (honest degradation, never a
+// manufactured position).
+function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSize = 12, flagsByCallsign?: ReadonlyMap<string, string>, examine?: PreviewExamine): string {
   if (!fs.existsSync(filePath)) return '';
   const fd = fs.openSync(filePath, 'r');
   const buffer = Buffer.alloc(128 * 1024);
@@ -601,10 +645,34 @@ function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSiz
   if (lines.length < 2) return '';
   const rows = parse(lines.join('\n'), { columns: true, bom: true }) as Record<string, string>[];
   const headers = Object.keys(rows[0]).filter(h => rows.some(r => (r[h] ?? '') !== ''));
-  const head = headers.map(h => `<th scope="col">${escapeHtml(h)}</th>`).join('');
+  // The examine column (issue #439) only makes sense where there is a callsign
+  // to key each record's source row by.
+  const withExamine = examine !== undefined && headers.includes('callsign');
+  const head = headers.map(h => `<th scope="col">${escapeHtml(h)}</th>`).join('')
+    + (withExamine ? '<th scope="col">examine</th>' : '');
   const flagsFor = (callsign: string): string[] => {
     const joined = flagsByCallsign?.get(callsign) ?? '';
     return joined === '' ? [] : joined.split(';');
+  };
+  // One record's examine cell: the pinned source-line permalink (a) and the
+  // ledger's working reconstruction (b). A record whose position cannot be
+  // resolved states the absence plainly — never a guessed line (the honesty
+  // rule); an unkeyable row (blank callsign) has nothing to walk from and gets
+  // an empty cell, matching its empty pill cell.
+  const examineCell = (callsign: string): string => {
+    if (examine === undefined || callsign === '') return '<td></td>';
+    const at = examine.linesByCallsign.get(callsign) ?? examine.linesByCallsign.get(cleanedCallsign(callsign));
+    const hops: ExamineHop[] = [];
+    if (at !== undefined) {
+      hops.push(sourceLineHop({ repoPath: examine.repoPath, line: at.line }, examine.commitSha,
+        at.rows > 1 ? { note: `(first of ${at.rows} rows with this form)` } : {}));
+    }
+    const cleaned = cleanedCallsign(callsign);
+    if (cleaned !== '') {
+      hops.push({ href: `${'../'.repeat(examine.depthToRoot)}ledger.html?c=${encodeURIComponent(cleaned)}`, label: 'working' });
+    }
+    if (hops.length === 0) return '<td><span class="examine-absent">no source line held</span></td>';
+    return `<td class="examine-cell">${examineTrail(hops, { lead: '' })}</td>`;
   };
   // A 'status' or licence-class/product column (#553) routes through the
   // shared field wrappers so a previewed raw row reads consistently with the
@@ -616,7 +684,7 @@ function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSiz
     if (h === 'status') return `<td>${statusField(r[h] ?? '', { glossaryLinking: 'plain' })}</td>`;
     if (h === 'product' || h === 'licence_class') return `<td>${licenceField(r[h] ?? '')}</td>`;
     return `<td>${escapeHtml(r[h] ?? '')}</td>`;
-  }).join('')}</tr>`).join('');
+  }).join('')}${withExamine ? examineCell(r['callsign'] ?? '') : ''}</tr>`).join('');
   return `<div style="overflow-x:auto"><table>${tableCaption(`Preview — first ${rows.length} rows of this file`)}<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
@@ -906,6 +974,14 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     '<section><h2>Browse the data</h2>',
     `<p class="lead">A preview of the <b>normalised</b> extract <code>${escapeHtml(previewName)}</code>; download it for all rows, or inspect the source document below.</p>`,
     csvPreviewTable(path.join(targetDir, previewName), 3),
+    // The examine trail, degraded honestly (issue #439): per-row source
+    // positions are not exposed for this lane's varied disclosure shapes, so
+    // the trail lands on the entry's own provenance — the declared hashes and
+    // witnesses — rather than manufacturing a position or a working.
+    `<p class="examine-under">${examineTrail([
+      { href: '#i-meta', label: 'this entry’s provenance (meta.json)' },
+      { href: fidelityHref(3, 'provenance'), label: 'how provenance is recorded' },
+    ])} — no per-record source line is exposed for this disclosure’s preview, so the trail leads to the entry’s declared provenance instead of a manufactured position.</p>`,
     '</section>',
   ];
 
@@ -1317,6 +1393,34 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     if (flags !== '') flagsByCallsign.set(r.callsign ?? '', flags);
   }
 
+  // The per-record examine payload (issue #439): each previewed record's
+  // physical source line, read through the SAME lifted parse the claim ledger
+  // keys off (loadOpenDataRegisterSource — the entry's curated ignoredLines,
+  // its header variant and its line accounting), so the examine link lands on
+  // the true line of the file actually parsed, never a re-guessed position.
+  // The pin is the build's own commit, the one pin at which the archived file,
+  // the reference tables and the derivation code all provably exist.
+  const parsedSource = time('dataset-pages:examine-source', () =>
+    loadOpenDataRegisterSource(CONSTANTS.DIRS.archive, key,
+      JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as ArchiveMeta));
+  const sourceRepoPath = parsedSource.repoPath;
+  const previewExamine: PreviewExamine | undefined = sourceRepoPath === undefined ? undefined : {
+    linesByCallsign: sourceLinesByCallsign(parsedSource),
+    repoPath: sourceRepoPath,
+    commitSha: buildCommit(),
+    depthToRoot: 3,
+  };
+
+  // The page-level half of the examine trail (issue #439): where the per-row
+  // links lead, and the (c) provenance hop — this entry's own declared facts.
+  const examineNote = previewExamine === undefined ? '' :
+    `<p class="examine-under">${examineTrail([
+      { href: '#i-meta', label: 'this entry’s provenance (meta.json)' },
+      { href: fidelityHref(3, 'show-working'), label: 'how derived values show their working' },
+    ])} — each record’s <b>examine</b> links land on its exact line of the archived source file `
+    + '(pinned at the commit this page was built from) and on the ledger’s reconstruction of the '
+    + 'working behind its derived values.</p>';
+
   const related: string[] = [];
   if (previousKey !== undefined) related.push(`<p style="margin:.1rem 0;font-size:.9rem"><b>Chronological:</b> ← <a href="../${escapeHtml(previousKey)}/index.html">Publication of ${humanDate(previousKey)}</a>.</p>`);
   if (fs.existsSync(path.join(REPO_ROOT, 'reports', 'entries', `${key}.md`))) {
@@ -1339,7 +1443,8 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     // record keyed by `dataset`, so `WHERE dataset = <key>` is exactly this
     // publication's normalised register — the very set the sentence names.
     `<p class="lead">The <b>normalised</b> register — the canonical shape, not the raw file (inspect <code>raw.csv</code> below for that). Showing the first rows of ${stats.recordCount.toLocaleString('en-GB')} (${(summaries.find(s => s.key === key)?.allocated ?? 0).toLocaleString('en-GB')} allocated callsigns); download <code>normalised.csv</code> for all, or <a href="${exploreDeepLink('../../../', 'combined', `SELECT * FROM register_history WHERE dataset = '${key.replace(/'/g, "''")}' ORDER BY callsign`)}">query this publication on the Explore console</a> — pre-filtered to its rows.</p>`,
-    `<div class="browser-static">${csvPreviewTable(derivedEntryFile(key, 'normalised.csv'), 3, 12, flagsByCallsign)}</div>`,
+    `<div class="browser-static">${csvPreviewTable(derivedEntryFile(key, 'normalised.csv'), 3, 12, flagsByCallsign, previewExamine)}</div>`,
+    examineNote,
     unkeyableNote,
     ignoredNote,
     '</section>',

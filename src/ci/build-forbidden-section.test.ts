@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { buildForbiddenSection, suffixPage } from './build-forbidden-section.ts';
+import { buildForbiddenSection, suffixPage, forbiddenSuffixReferenceLine } from './build-forbidden-section.ts';
 import { buildForbiddenSuffixHistory, type ForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { type SuffixCallsignInfo } from './forbidden-suffix-callsigns.ts';
 import { callsignPill } from './site-render.ts';
@@ -327,5 +327,36 @@ describe('Forbidden-suffix section — inline fidelity nudge (issue #438)', { ta
     const page = read('forbidden', 'suffix', 'QNF', 'index.html');
     expect(page).toContain('an observation locating the suffix on the ever-forbidden union, not a verdict');
     expect(page).toContain('<a class="fid-nudge" href="../../../fidelity.html#flag-forbidden-suffix">');
+  });
+});
+
+describe('Forbidden-suffix section — examine trail (issue #439)', { tags: ['data-validity'] }, () => {
+  it('SuffixPage_ExamineTrail_WalksToThePinnedUnionRowTheDerivationCodeAndTheDisclosures', () => {
+    const page = read('forbidden', 'suffix', 'QNF', 'index.html');
+    // The shared vocabulary: the visible lead and the trail component.
+    expect(page).toContain('<span class="examine-lead">Examine:</span>');
+    // (a) the pinned source line of this suffix's row on the ever-forbidden
+    // union — a full 40-hex commit and an exact line, never a moving branch.
+    expect(page).toMatch(/blob\/[0-9a-f]{40}\/reference-data\/forbidden-suffixes\.csv#L\d+/);
+    // (b) the code the history is computed by, pinned at the same commit.
+    expect(page).toMatch(/blob\/[0-9a-f]{40}\/src\/ci\/forbidden-suffix-history\.ts/);
+    expect(page).toContain('the derivation code');
+    // (c) the provenance context: the witnessing disclosures on this page.
+    expect(page).toContain('href="#history"');
+    expect(page).toContain('<section id="history">');
+  });
+
+  it('ForbiddenSuffixReferenceLine_KnownSuffix_PointsAtItsExactRow', () => {
+    // Self-verifying: the returned line, read back from the committed file,
+    // must be the row that starts with the suffix itself.
+    const line = forbiddenSuffixReferenceLine('QNF');
+    expect(line).toBeDefined();
+    if (line === undefined) return;
+    const raw = fs.readFileSync(path.join('reference-data', 'forbidden-suffixes.csv'), 'utf8').split(/\r?\n/);
+    expect(raw[line - 1].startsWith('QNF,')).toBe(true);
+  });
+
+  it('ForbiddenSuffixReferenceLine_UnknownSuffix_IsUndefinedNeverFabricated', () => {
+    expect(forbiddenSuffixReferenceLine('NOT-A-SUFFIX')).toBeUndefined();
   });
 });
