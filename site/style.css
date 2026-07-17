@@ -1,20 +1,10 @@
-/* Shared colour palette (--ink/--paper/--accent/--line/--muted, light +
-   dark) lives once in tokens.css; only the site-specific --warn token and
-   the base font-family are declared here. */
+/* The shared colour palette (--ink/--paper/--accent/--line/--muted) and the
+   secondary cross-surface tokens the pill/alert/marker draw on (--slot/--warn/
+   --marker) live once in tokens.css; only the base font-family is declared
+   here. */
 @import url("tokens.css");
 :root {
-  --warn: #8a3c00;
-  /* The subtle chip tint the callsign-pill fills with; matches the --slot the
-     generated pages declare (src/ci/site-render.ts) so the pill reads the same
-     on the hand-authored and generated surfaces. */
-  --slot: #faf9f6;
   font-family: system-ui, sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --warn: #e8a35c;
-    --slot: #141414;
-  }
 }
 body {
   margin: 0 auto;

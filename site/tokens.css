@@ -1,19 +1,32 @@
 /* Shared design tokens: the single source of truth for the site's colour
    palette (light + dark). The hand-authored pages @import this from
-   style.css; the generated pages (src/ci/build-dataset-pages.ts) read this
+   style.css; the generated pages (src/ci/render/page.ts) read this
    file at build time and inline the same block, so hub, dataset index and
    entry pages all derive their ink/paper/accent/line/muted colours from one
    place. Frameworkless and build-step-free by design (ADR 0002/0003):
    plain static CSS, referenced rather than copied.
 
-   Page- or component-specific tokens (cards, slots, warnings, code tint)
-   layer on top of these in the stylesheet that needs them. */
+   Alongside the core ink/paper/accent/line/muted palette, the secondary
+   tokens shared across surfaces are declared here too: the callsign-pill chip
+   tint (--slot), the warn signal (--warn) the shared alert/flag components
+   draw on, and the odd-character marker (--marker). These carried identical
+   values in each consuming stylesheet before (style.css and both generated
+   shells), so they belong in the one canonical place rather than repeated per
+   surface. Genuinely surface-specific tokens - the entry-page card/alert
+   family and the page-shell code tint - still layer on top in the stylesheet
+   that needs them. */
 :root {
   --ink: #1a1a1a;
   --paper: #fafafa;
   --accent: #14506e;
   --line: #d8d8d8;
   --muted: #6b6b6b;
+  /* The subtle chip tint the callsign-pill fills with, the site warn signal
+     (shared db-alert / flag pills), and the odd-character marker highlight -
+     all worn by both the hand-authored and the generated surfaces. */
+  --slot: #faf9f6;
+  --warn: #8a3c00;
+  --marker: #b23;
   /* The "waiting for data" semantic (issue #499): a pastel sunflower, distinct
      from the accent (ready/go) and the warn tint (error). Used by the shared
      database-loading affordance so a slow first-use open reads as waiting, not
@@ -31,6 +44,9 @@
     --accent: #7fbcd9;
     --line: #3a3a3a;
     --muted: #9a9a9a;
+    --slot: #141414;
+    --warn: #e8a35c;
+    --marker: #e58;
     --waiting-ink: color-mix(in srgb, var(--waiting-seed) 78%, white);
   }
 }

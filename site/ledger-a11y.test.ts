@@ -222,6 +222,51 @@ describe('publisher holdings-map letter cells keep the ledger ink colour (issue 
   }
 });
 
+// The cross-surface secondary tokens (--slot pill tint, --warn alert signal,
+// --marker odd-character highlight) are declared once in tokens.css (issue
+// #257) and consumed by both the hand-authored style.css and the two generated
+// page shells. These guards pin that canonical home so the values cannot drift
+// back to being re-declared per surface, and they hold the token-derived
+// contrast that renders where ledger.css does not remap them (its fallback, and
+// any surface outside `.ledger`): the callsign pill draws --accent on --slot,
+// and the flag pill / db-alert draw --warn text on the page --paper.
+const CROSS_SURFACE_TOKENS = ['slot', 'warn', 'marker'];
+
+describe('cross-surface secondary tokens live once in tokens.css (issue #257)', { tags: ['ui'] }, () => {
+  it('SharedSecondaryTokens_AreDeclaredInTokensCss_ForBothThemes', () => {
+    for (const name of CROSS_SURFACE_TOKENS) {
+      expect(token(TOKENS_LIGHT, name), `light --${name}`).toMatch(/^#[0-9A-Fa-f]{3,6}$/);
+      expect(token(TOKENS_DARK, name), `dark --${name}`).toMatch(/^#[0-9A-Fa-f]{3,6}$/);
+    }
+  });
+
+  it('SharedSecondaryTokens_AreNotAlsoReDeclaredInStyleCss', () => {
+    // style.css @imports tokens.css and consumes these tokens; re-declaring any
+    // of them there would reintroduce the per-surface duplication #257 removed.
+    const styleCss = siteFile('style.css');
+    for (const name of CROSS_SURFACE_TOKENS) {
+      expect(styleCss, `--${name} should not be re-declared in style.css`).not.toMatch(new RegExp(`--${name}:`));
+    }
+  });
+
+  for (const [theme, body] of [['light', TOKENS_LIGHT], ['dark', TOKENS_DARK]] as const) {
+    it(`CallsignPill_${theme}ThemeFallback_AccentOnSlot_MeetsAA`, () => {
+      // The pill renders --accent text on the --slot chip fill wherever
+      // ledger.css has not remapped the pair (its load-failure fallback, and
+      // any surface outside `.ledger`). Small monospace text, so the bar is 4.5.
+      const ratio = contrast(token(body, 'accent'), token(body, 'slot'));
+      expect(ratio, `accent on slot (${theme}): ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(AA_NORMAL);
+    });
+
+    it(`FlagPill_${theme}ThemeFallback_WarnOnPaper_MeetsAA`, () => {
+      // The flag/comparison-badge pill and the db-alert draw --warn text; on the
+      // fallback surface the backdrop is the page --paper. Small text, bar 4.5.
+      const ratio = contrast(token(body, 'warn'), token(body, 'paper'));
+      expect(ratio, `warn on paper (${theme}): ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(AA_NORMAL);
+    });
+  }
+});
+
 describe('interactive-page accessibility fallbacks (issues #407 / #397)', { tags: ['ui'] }, () => {
   it('LedgerPage_BeingJsDriven_CarriesANoscriptFallback', () => {
     const html = siteFile('ledger.html');

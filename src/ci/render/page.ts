@@ -38,10 +38,10 @@ const SHARED_AFFORDANCE_CSS = [
 // entry pages - which run the eager coordinated browser (entry-browser.js) but
 // do NOT link site/style.css - surface a slow-load failure with the same
 // assertive styling the hand-authored query pages carry. Mirrors the .db-alert
-// block in site/style.css. The --warn tint the alert draws on is defined
-// alongside the entry palette below (a fallback where ledger.css, which maps
-// --warn to its signal colour under .ledger, has not loaded); the --waiting-*
-// status tokens arrive with the shared palette (SHARED_TOKENS_CSS/tokens.css).
+// block in site/style.css. The --warn tint the alert draws on arrives with the
+// shared palette (SHARED_TOKENS_CSS/tokens.css) - a fallback where ledger.css,
+// which maps --warn to its signal colour under .ledger, has not loaded; the
+// --waiting-* status tokens arrive with that same shared palette.
 // The eager browser has no trigger button, so the button[data-state] rules are
 // omitted - only the alert styling is needed here.
 const SHARED_DB_ALERT_CSS = [
@@ -56,8 +56,9 @@ const SHARED_DB_ALERT_CSS = [
 // (issue #310: small monospace, subtly tinted and bordered). Layered onto
 // every stylesheet that renders callsigns as content - the entry-page shell
 // (ENTRY_STYLE) and the plainer page shell (PAGE_STYLE, e.g. series pages) -
-// each of which supplies --slot/--marker alongside the shared --line/--accent;
-// focus-visible gives keyboard users a clear ring.
+// both of which inline the shared palette (tokens.css) that supplies the
+// --slot/--marker/--line/--accent these rules draw on; focus-visible gives
+// keyboard users a clear ring.
 //
 // The callsign-PART wrappers (issue #644 - a prefix series, a forbidden
 // suffix) share this same `.cs` base class, so a part reads with the
@@ -90,9 +91,10 @@ const STATUS_LICENCE_CSS = [
 const PAGE_STYLE = [
   '<style>',
   SHARED_TOKENS_CSS,
-  // --slot (the pill's tint) is defined here as well as on the entry shell so
-  // the shared callsign pill renders identically on the plainer page shell.
-  ':root{--code:#f4f4f4;--slot:#faf9f6;--marker:#b23}@media(prefers-color-scheme:dark){:root{--code:#222;--slot:#141414;--marker:#e58}}',
+  // The pill tint (--slot) and odd-character marker (--marker) arrive with the
+  // shared palette above (tokens.css); only the page-shell code tint is local
+  // to this plainer shell.
+  ':root{--code:#f4f4f4}@media(prefers-color-scheme:dark){:root{--code:#222}}',
   'body{font-family:system-ui,sans-serif;max-width:60rem;margin:2rem auto;padding:0 1rem;line-height:1.5;color:var(--ink);background:var(--paper)}',
   'a{color:var(--accent)}',
   'table{border-collapse:collapse;width:100%;margin:.75rem 0}td,th{border-bottom:1px solid var(--line);padding:.3rem .6rem;text-align:left;vertical-align:top}th{font-weight:600}',
@@ -269,13 +271,18 @@ export function htmlPage(title: string, depthToRoot: number, body: string[], opt
 const ENTRY_STYLE = [
   '<style>',
   // The shared palette (SHARED_TOKENS_CSS: --ink/--paper/--accent/--line/
-  // --muted, light + dark) comes first so entry pages match the rest of the
-  // site; the entry-only tokens below (cards, slots, warnings) layer on top.
+  // --muted plus the cross-surface --slot/--warn/--marker, light + dark) comes
+  // first so entry pages match the rest of the site; the entry-only card and
+  // notice-alert tokens below layer on top.
   SHARED_TOKENS_CSS,
-  // --warn (the alert tint) mirrors site/style.css so the shared db-alert reads
-  // the same here; ledger.css remaps it under .ledger, this is the fallback.
-  ':root{--card:#fff;--slot:#faf9f6;--good:#3f7d55;--warn:#8a3c00;--warnbg:#fbeee2;--warnline:#c98a3f;--warnink:#7a3d00;--note:#eef3f4;--bar:#c9d7dc;--marker:#b23}',
-  '@media(prefers-color-scheme:dark){:root{--card:#191919;--slot:#141414;--good:#7fbf97;--warn:#e8a35c;--warnbg:#2a2016;--warnline:#8a5a1f;--warnink:#e8b877;--note:#15211f;--bar:#2c4048;--marker:#e58}}',
+  // The shared secondary tokens (--slot pill tint, --warn alert signal,
+  // --marker odd-character highlight) arrive with the palette above
+  // (tokens.css); ledger.css remaps --slot/--warn under .ledger, and those
+  // shared declarations are the fallback. Only the entry-page card and
+  // notice-alert family (--card/--good/--warnbg/--warnline/--warnink/--note/
+  // --bar) is local to this shell.
+  ':root{--card:#fff;--good:#3f7d55;--warnbg:#fbeee2;--warnline:#c98a3f;--warnink:#7a3d00;--note:#eef3f4;--bar:#c9d7dc}',
+  '@media(prefers-color-scheme:dark){:root{--card:#191919;--good:#7fbf97;--warnbg:#2a2016;--warnline:#8a5a1f;--warnink:#e8b877;--note:#15211f;--bar:#2c4048}}',
   '*{box-sizing:border-box}body{font-family:system-ui,sans-serif;margin:0;color:var(--ink);background:var(--paper);line-height:1.55}',
   '.wrap{max-width:76rem;margin:0 auto;padding:1.4rem 1.2rem 3rem}',
   'nav{font-size:.92rem;color:var(--muted)}nav a{color:var(--accent);text-decoration:none;display:inline-block;padding:.3rem .15rem}a{color:var(--accent)}',
