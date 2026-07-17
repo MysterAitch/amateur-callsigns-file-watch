@@ -30,6 +30,7 @@ export const GLOSSARY_ANCHORS = {
   'rsl': 'the RSL (Regional Secondary Locator)',
   'suffix': 'a callsign suffix',
   'forbidden-suffix': 'a forbidden suffix',
+  'forbidden-suffix-rationale': 'the forbidden-suffix rationale',
   'placeholder-form': 'the placeholder (#) form',
   'cleaned': 'the cleaned join key',
   'unkeyable-row': 'an unkeyable row',

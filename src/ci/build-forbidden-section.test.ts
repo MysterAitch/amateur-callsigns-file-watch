@@ -360,3 +360,68 @@ describe('Forbidden-suffix section — examine trail (issue #439)', { tags: ['da
     expect(forbiddenSuffixReferenceLine('NOT-A-SUFFIX')).toBeUndefined();
   });
 });
+
+describe('Forbidden-suffix section — rationale (issue #196)', { tags: ['data-validity'] }, () => {
+  it('SuffixPage_QCodeSuffix_NamesTheSourcedItuQCodeRationaleWithItsSource', () => {
+    // QNF is itself a Q-code (QAA-QZZ block member), so its own detail page
+    // carries the sourced rationale, not an "unclassified" note.
+    const page = read('forbidden', 'suffix', 'QNF', 'index.html');
+    expect(page).toContain('Why is this suffix withheld?');
+    expect(page).toContain('<b>ITU Q-code series</b>');
+    expect(page).toContain("sourced, not this project's inference");
+    expect(page).toContain('QAA–QZZ block');
+    expect(page).toContain('href="../../../datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/index.html">Ofcom\'s FOI response</a>');
+    expect(page).toContain('href="../../index.html#rationale">rationale breakdown</a>');
+  });
+
+  it('SuffixPage_UnclassifiedSuffix_SaysSoRatherThanInventingACategory', () => {
+    // ZZZ matches no sourced rule (not a Q-code, not an ITU-R M.1172
+    // abbreviation, not SOS) - the honest "no rationale established" branch.
+    const empty: SuffixCallsignInfo = { suffix: 'ZZZ', callsigns: [], byStatus: [], total: 0 };
+    const html = suffixPage('ZZZ', history, empty);
+    expect(html).toContain('No rationale is established for this specific suffix');
+    expect(html).toContain('this project does not infer one where it cannot cite a source');
+    expect(html).toContain('href="../../index.html#rationale">general account</a>');
+    expect(html).not.toContain("sourced, not this project's inference");
+  });
+
+  it('SuffixPage_OperationalAbbreviationSuffix_NamesTheItuOperationalAbbreviationCategory', () => {
+    const page = read('forbidden', 'suffix', 'ETA', 'index.html');
+    expect(page).toContain('<b>ITU-R M.1172 operating abbreviation</b>');
+    expect(page).toContain('an internationally accepted signal a callsign suffix must not be confused with');
+  });
+
+  it('SuffixPage_Sos_NamesTheSignalConfusionCategory', () => {
+    const page = read('forbidden', 'suffix', 'SOS', 'index.html');
+    expect(page).toContain('<b>Internationally accepted signal</b>');
+    expect(page).toContain('the worked example');
+  });
+
+  it('ForbiddenSectionIndex_RationaleSection_QuotesOfcomsOwnWordingAndBreaksDownByCategory', () => {
+    const index = read('forbidden', 'index.html');
+    expect(index).toContain('<section id="rationale"><h2>Why are these suffixes withheld?');
+    expect(index).toContain('href="../glossary.html#forbidden-suffix-rationale"');
+    // The verbatim Ofcom quote, cited to the FOI entry.
+    expect(index).toContain('conventional practice we do not issue call signs');
+    expect(index).toContain('Art 19.46 et seq of the Radio Regulations');
+    expect(index).toContain('href="../datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/index.html">Ofcom FOI 337399, 2016</a>');
+    // The category breakdown: exact figures pinned against the real corpus.
+    expect(index).toContain('<td>ITU Q-code series<br>');
+    expect(index).toMatch(/ITU Q-code series[\s\S]{0,400}676/);
+    expect(index).toMatch(/ITU-R M\.1172 operating abbreviation[\s\S]{0,400}22/);
+    expect(index).toMatch(/Internationally accepted signal[\s\S]{0,400}\b1\b/);
+    // The residual is named as a count, never individually attributed.
+    expect(index).toContain('Unclassified <span class="gap">(no citable rationale established for the specific suffix)</span>');
+    expect(index).toMatch(/Unclassified[\s\S]{0,200}767/);
+    expect(index).toContain('not itself a claim about any specific suffix');
+  });
+
+  it('ForbiddenSectionIndex_RationaleBreakdown_NeverNamesAnUnclassifiedSuffixAsOffensive', () => {
+    // The residual row must not enumerate suffixes or use a judgement word
+    // like "offensive" as a per-suffix label — only Ofcom's own quoted words
+    // may use it, in the block-quoted prose, never as this project's own
+    // category name attached to a specific suffix link.
+    const index = read('forbidden', 'index.html');
+    expect(index).not.toMatch(/<td>[^<]*offensive[^<]*<\/td>/i);
+  });
+});
