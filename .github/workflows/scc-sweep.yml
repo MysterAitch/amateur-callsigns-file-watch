@@ -85,7 +85,7 @@ jobs:
 
           # If a review PR is already open for a prior refresh, do not stack a
           # second one - the earlier one still needs reviewing first.
-          existing="$(gh pr list --state open --search 'head:data/scc-' --json number --jq '.[].number' | head -1)"
+          existing="$(gh pr list --state open --json number,headRefName --jq 'map(select(.headRefName | startswith("data/scc-"))) | .[0].number // ""')"
           if [ -n "$existing" ]; then
             echo "An SCC refresh PR (#$existing) is already open; leaving it for review rather than stacking another."
             exit 0
