@@ -106,10 +106,7 @@ A separate, permanent category — **"Amateur Full (Reciprocal) Radio
 Licence"** — must not be confused with the tier above: it is a permanent UK
 Full licence granted on a recognised foreign qualification (HAREC / CEPT
 T/R 61-02), producing an ordinary UK-format callsign (`G0`/`M0`…), not an
-`M/#` visitor call. An earlier draft of this passage attributed the HAREC/
-T/R 61-02 route to the `M/#` visitor rows and borrowed a hybrid licence name
-from the two categories — both were errors, corrected here against the
-corpus's own category vocabulary rather than free-hand licence naming.
+`M/#` visitor call.
 `reference-data/README.md` keeps `Temporary Reciprocal` and `Full Reciprocal`
 distinct precisely because they differ in duration, rights and legal basis:
 the HAREC/CEPT T/R 61-02 route belongs to `Full Reciprocal`, never to the
@@ -169,13 +166,12 @@ leaving it implicit.
 **DARC**, the German national society, does not maintain an independent
 callsign database; its own enquiry guidance points straight back to the
 BNetzA search tool. UK relevance follows the same asymmetric pattern set out
-in the FCC section above, not the flat "reciprocal only" this page
-previously stated: Germany is a CEPT T/R 61-01/61-02 signatory, so a UK
-visitor operates licence-exempt with no BNetzA register trace, while the
-UK's own reciprocal-licence tier (see above) remains the more explicit side
-of the relationship. No BNetzA-specific visitor-licensing page was checked
-independently this pass, so this rests on the CEPT-bloc-general finding
-rather than a direct read of a German source.
+in the FCC section above: Germany is a CEPT T/R 61-01/61-02 signatory, so a
+UK visitor operates licence-exempt with no BNetzA register trace, while the
+UK's own Temporary Reciprocal licence tier (see above) remains the more
+explicit side of the relationship. No BNetzA-specific visitor-licensing page
+was checked independently this pass, so this rests on the CEPT-bloc-general
+finding rather than a direct read of a German source.
 
 ## Australia — ACMA
 
@@ -201,8 +197,7 @@ in 2020 ACMA advised WIA to move away from using RRL data for that purpose,
 consistent with a tightening rather than a loosening of terms over time.
 
 UK relevance follows the same asymmetric pattern set out in the FCC section
-above, not the flat "reciprocal only" this page previously stated: the
-current [Radiocommunications (Amateur Stations) Class Licence 2023](https://www.wia.org.au/members/legislation/classlicences/documents/Radiocommunications%20%28Amateur%20Stations%29%20Class%20Licence%202023.pdf)
+above: the current [Radiocommunications (Amateur Stations) Class Licence 2023](https://www.wia.org.au/members/legislation/classlicences/documents/Radiocommunications%20%28Amateur%20Stations%29%20Class%20Licence%202023.pdf)
 (successor to the [2015 instrument](https://www.legislation.gov.au/Details/F2015L01114))
 is licence-exempt on the same shape as the UK's own short-stay tier: no RRL
 entry, home callsign with a "VK" prefix. ACMA's own guidance gives two
@@ -212,7 +207,7 @@ which "an Australian amateur apparatus licence" is required — and the two
 were not reconciled this pass, recorded as an open discrepancy rather than
 resolved by picking one. Whether that longer-stay licence would create an
 RRL entry naming a UK home qualification — structurally the closest thing to
-an ACMA equivalent of the UK's own reciprocal-licence tier — is a genuine
+an ACMA equivalent of the UK's own Temporary Reciprocal licence tier — is a genuine
 open lead, not confirmed either way. (See the FCC section above for this
 page's own re-verification note, which covers ACMA too: ACMA's
 visiting-amateur pages could not be re-fetched directly this pass, so this
@@ -247,10 +242,9 @@ capability is ever confirmed.
 ["Nomenclature"](https://nomenclature.r-e-f.org/) directory — member-submitted,
 not authoritative, the same shape as the RSGB Yearbook's self-compiled
 directory rather than a regulator mirror. UK relevance follows the same
-asymmetric pattern set out in the FCC section above, not the flat
-"reciprocal only" this page previously stated: France is a CEPT signatory,
-so the licence-exempt T/R 61-01/61-02 model applies and no UK callsign would
-appear in a French register for a short visit. No ANFR-specific
+asymmetric pattern set out in the FCC section above: France is a CEPT
+signatory, so the licence-exempt T/R 61-01/61-02 model applies and no UK
+callsign would appear in a French register for a short visit. No ANFR-specific
 visitor-licensing page was checked independently this pass, so, as with
 BNetzA above, this rests on the CEPT-bloc-general finding rather than a
 direct ANFR source.
@@ -345,28 +339,6 @@ justified by personal data as the reason for stopping short.
   it is a snapshot of a landscape survey, dated, with its own verification
   trail. A future revisit should re-run the same checks and update the dates,
   not assume the table above still holds indefinitely.
-- **The reciprocal/asymmetry correction.** The per-country "UK relevance"
-  lines were checked directly against primary sources rather than carried on
-  reasoning: Ofcom's *Amateur Radio Guidance* (updated 14 October 2025,
-  §2.1.4), [47 CFR §97.107](https://www.law.cornell.edu/cfr/text/47/97.107),
-  this project's own
-  `ofcom-498906--reciprocal-licences-since-2010`
-  FOI disclosure, and [ADR 0005](../adr/0005-canonical-callsign-forms.md). The
-  ACMA long-stay duration discrepancy (365 days vs. 90 days) and whether that
-  route creates a register-visible entry remain open, unreconciled leads, not
-  asserted findings — see the ACMA section above.
-- **The licence-category correction.** An earlier draft of the FCC-section
-  passage above named the `M/#` visitor tier "Amateur Radio Full (Temporary
-  Reciprocal) Licence" and attributed it to CEPT T/R 61-02 (HAREC) — both
-  wrong, conflating this project's own two deliberately-distinct reciprocal
-  categories. Corrected against
-  [`reference-data/licence-category.csv`](../../reference-data/licence-category.csv)
-  and [`reference-data/README.md`](../../reference-data/README.md): the
-  `M/#` rows carry the exact product string "Amateur Temporary Reciprocal
-  Radio Licence" (verified directly against `archive/2023-02-20/normalised.csv`),
-  a short-term visitor authorisation distinct from the permanent "Amateur
-  Full (Reciprocal) Radio Licence" category that HAREC/CEPT T/R 61-02 actually
-  maps to.
 
 ---
 
