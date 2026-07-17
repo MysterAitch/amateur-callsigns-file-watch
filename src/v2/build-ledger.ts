@@ -154,7 +154,7 @@ export type EntrySelector = (entry: string) => boolean;
 // a real-archive integrity failure must fail loud) or is skipped and recorded so
 // the build produces a ledger of what it COULD process. Only a downstream
 // consumer that must tolerate a partially-malformed archive with the same
-// per-entry independence the normalise sweep guarantees (a report fold running
+// per-entry independence the report lane needs (a report fold running
 // over a sweep's working archive) opts in; the real-archive CLI/artefact builds
 // keep the fail-loud default.
 export function buildLedger(

@@ -51,9 +51,8 @@
  * Posture (ADR 0002): the fold runs through report-fold.ts, so DuckDB enters CI as
  * the pinned, checksum-verified static CLI, never a native-build npm dependency.
  * The fold hard-fails without the engine rather than emitting a silently-different
- * report. The legacy generator (normalise-sweep.ts) stays current-best; this fold
- * ADDS the equivalence oracle (Phase C retirement of the generator is separately
- * gated).
+ * report. The report sweep (report-sweep.ts) renders the committed rollup from
+ * this fold; the equivalence oracle pins the rendering against the golden.
  */
 
 import * as fs from 'fs';
@@ -317,9 +316,9 @@ export function foldDataQuality(source: string | ClaimsSource): DataQualityFold 
 // passes its directory (a test fixture); otherwise the shared deploy-time
 // claims.parquet is read when the workflow built one (issue #403), and only in
 // its absence (local dev, tests) is the full-corpus ledger materialised once to a
-// scratch directory. skipFailedSources matches the normalise sweep's per-entry
-// independence — a malformed entry the sweep already reports is skipped, not a
-// reason to crash the whole report.
+// scratch directory. skipFailedSources gives the report lane per-entry
+// independence — a malformed entry the coverage table already surfaces is
+// skipped, not a reason to crash the whole report.
 export function buildDataQualityFold(ledgerDir?: string, ref: ReferenceData = loadReferenceData()): DataQualityFold {
   if (ledgerDir !== undefined) return foldDataQuality(ledgerDir);
   const shared = deployClaimsSource();

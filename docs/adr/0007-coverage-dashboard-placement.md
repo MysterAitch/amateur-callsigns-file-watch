@@ -6,9 +6,9 @@ Status: proposed
 ## Context
 
 The normalisation-coverage dashboard (issue #43) is maintained as an
-auto-updated **GitHub issue**: the normalise-sweep workflow finds it *by its
-exact title* and rewrites the issue body on every run. This works, but it has
-real downsides:
+auto-updated **GitHub issue**: the scheduled sweep workflow (today the report
+sweep, `reports-sweep.yml`) finds it *by its exact title* and rewrites the
+issue body on every run. This works, but it has real downsides:
 
 - The title string is a load-bearing lookup key — renaming or closing the issue
   silently orphans the automation (or makes it reopen/duplicate).

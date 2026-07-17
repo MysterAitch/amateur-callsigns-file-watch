@@ -2,7 +2,7 @@
 
 /**
  * FOI-lane derivation sweep (issue #149, item 1): the daily companion to the
- * open-data normalise sweep, covering `archive/foi/`.
+ * report sweep, covering `archive/foi/`.
  *
  * For every FOI entry this re-executes the full derivation chain from the
  * committed bytes and verifies it reproduces the committed derivatives

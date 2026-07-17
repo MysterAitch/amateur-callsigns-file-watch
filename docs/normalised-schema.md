@@ -22,10 +22,12 @@ changes; each entry's `meta.json` declares what it achieved
 as a fingerprint. Entries may legitimately lag the current schema version or
 be raw-only — the rolling "Normalisation coverage" issue is the dashboard.
 
-Golden-master semantics (ADR 0001): `normalised.csv` is the *current-best*
-derivation, re-derived by the scheduled normalise sweep; git history preserves
-every earlier version. Byte-identical re-runs are no-ops; any change arrives
-as an always-human-reviewed PR.
+Golden-master semantics (ADR 0001/ADR 0013): the committed `normalised.csv`
+files are a **frozen equivalence baseline** (issue #446 retired the derivation
+sweep) — every consumer reads the same bytes through the archive/projection
+switch, and a publication newer than the baseline carries its derived views in
+the ledger projection only, byte-format-identical by construction. Git history
+preserves every earlier version of the committed files.
 
 > **Migration note ([ADR 0013](adr/0013-raw-keyed-claim-ledger.md)).** The
 > project is inverting its canonical-record model: the raw-keyed claim ledger

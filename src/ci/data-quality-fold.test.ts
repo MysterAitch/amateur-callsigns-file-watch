@@ -8,7 +8,7 @@ import {
   EMPTY_DETECTOR_KEY,
   type DataQualityFold,
 } from './data-quality-fold.ts';
-import { renderDataQualityRollup } from './normalise-sweep.ts';
+import { renderDataQualityRollup } from './report-sweep.ts';
 import { buildFoiUnkeyableSummary } from './foi-unkeyable-fold.ts';
 import { emitLedger, type SourceObservationSet } from '../v2/claim.ts';
 import { serialiseClaimsJsonl } from '../v2/serialise.ts';

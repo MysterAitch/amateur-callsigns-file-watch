@@ -1,34 +1,45 @@
 #!/usr/bin/env node
 
 /**
- * Normalise sweep (ADR 0001's final piece): walk every archive entry,
- * dispatch to the entry's source converter by meta.sourceKey, and close the
- * gap between the converter's intended schema version and what each entry
- * has achieved.
+ * Report sweep (issue #446): regenerate every committed standing report under
+ * reports/ from the archive's per-entry derived views and the claim-ledger
+ * folds, and emit the coverage markdown the scheduled workflow publishes (the
+ * rolling dashboard issue and the review PR body).
  *
- * Properties:
- *  - per-entry independence: one failing entry never blocks the rest, and a
- *    source with no converter yet is reported, not an error;
- *  - true no-ops: byte-identical output touches neither normalised.csv nor
- *    meta.json, so "no diff => no PR" holds for scheduled re-runs;
- *  - honest coverage reporting: the returned markdown table (rendered into
- *    the rolling coverage issue and PR bodies) shows intended-vs-achieved
- *    per entry, including failures and unsupported sources.
+ * This is the surviving half of the retired normalise sweep. The DERIVATION
+ * half - dispatching raw bytes to a source converter and committing
+ * normalised.csv / components.csv / stats.json per entry - retired when the
+ * ledger projection became every consumer's derived-file source (#629): the
+ * committed derivatives are now a FROZEN equivalence baseline (ADR 0013; the
+ * parity gate pins it entry by entry), and a new publication's derived views
+ * exist only in the projection, folded from its raw bytes at build time.
  *
- * The workflow wrapper commits whatever changed to a branch and opens a PR;
- * normaliser PRs are always human-reviewed (the cross-entry diff IS the
- * review artefact), never auto-merged.
+ * Reads are therefore mode-aware (src/shared/derived-entries.ts): the
+ * scheduled workflow and the golden-master gate build the ledger projection
+ * and set BUILDER_PROJECTION_DIR, so every entry - including one newer than
+ * the frozen baseline - contributes to the reports; an archive-mode run reads
+ * the frozen committed files (complete only while no post-freeze publication
+ * exists, which is why the workflows always run projection-fed).
+ *
+ * Properties retained from the sweep era:
+ *  - deterministic, byte-stable regeneration: unchanged inputs rewrite every
+ *    report byte-identically, so "no diff => no PR" holds for scheduled runs
+ *    and the golden-master drift gate stays honest;
+ *  - honest coverage reporting: the returned markdown names every archive
+ *    entry's derived state (derived / raw-only), and an entry with a PARTIAL
+ *    or unreadable derived view is a loud failure, never a silent skip.
  */
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { CONSTANTS, type ArchiveMeta, type IgnoredRawLine, calculateContentHash, errorMessage, saveJsonFileSync } from '../shared/utils.ts';
-import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
-import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
-import { renderStatsJson, compareStats, markUnprintables, type EntryStats } from '../shared/stats.ts';
-import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
-import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { CONSTANTS, type ArchiveMeta, errorMessage } from '../shared/utils.ts';
+import { listArchiveKeys } from '../shared/archive.ts';
+import { BUILDER_PROJECTION_DIR_ENV, DERIVED_ENTRY_FILES, derivedEntriesMode, derivedEntryFile, derivedEntryFileExists, derivedEntryFileNamesPresent } from '../shared/derived-entries.ts';
+import { buildBuilderProjection } from '../v2/build-builder-projection.ts';
+import { compareStats, markUnprintables, type EntryStats } from '../shared/stats.ts';
+import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { writeValueCatalogue } from './value-catalogue.ts';
 import { buildQualityReportFold, type PrefixDistributionFold, type MismatchFold, type RegionalIdentifierFold, type CallsignPatternSeriesFold } from './quality-report-fold.ts';
 import { buildDataQualityFold, type DataQualityFold } from './data-quality-fold.ts';
@@ -38,168 +49,75 @@ import { writeForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { mdCell } from '../shared/markdown.ts';
 import { time, perfReport } from '../shared/perf.ts';
 
-interface SourceConverter {
-  schemaVersion: number;
-  // curatedIgnores: meta.json's hand-curated ignoredLines - an INPUT to
-  // conversion (syntactically valid lines a human judged to be export
-  // furniture), byte-verified against raw by the converter.
-  convert(rawContent: string, referenceDateIso: string, curatedIgnores: IgnoredRawLine[], forcedVariant?: string): ConvertResult;
-}
-
-// Converter registry, keyed by meta.sourceKey. Future sources (FOI xlsx via
-// the holding pen, etc.) register here.
-const CONVERTERS: Record<string, SourceConverter> = {
-  [CONSTANTS.SOURCES.OFCOM_AMATEUR]: {
-    schemaVersion: NORMALISED_SCHEMA_VERSION,
-    convert: (rawContent, referenceDateIso, curatedIgnores, forcedVariant) => convertRawCsv(rawContent, { referenceDateIso }, curatedIgnores, forcedVariant),
-  },
-};
-
 // mdCell (markdown table-cell sanitiser) is shared with the other report
 // generators; re-exported here so existing importers keep their path.
 export { mdCell };
 
-export interface SweepReport {
-  changed: string[];
-  upToDate: string[];
-  unsupported: string[];
-  failed: { key: string; reason: string }[];
+export interface ReportSweepReport {
+  // One coverage row per archive entry (the dashboard table's data).
   coverageMarkdown: string;
+  // Entries whose derived view is unreadable or partial - integrity failures
+  // that turn the run red; a raw-only entry is honest coverage, not a failure.
+  failed: { key: string; reason: string }[];
 }
 
-// ArchiveMeta plus the normalisation declaration this sweep maintains
-// (ignoredLines lives on ArchiveMeta itself).
-type SweepMeta = ArchiveMeta & {
-  normalised?: { schemaVersion: number; headerVariant: string; statsSchemaVersion?: number; componentsSchemaVersion?: number };
-};
+// One entry's derived-view state for the coverage table: every derived file
+// present and readable ('derived'), none present ('raw-only'), or a loud
+// failure (partial presence, unreadable stats) recorded on the report.
+interface EntryCoverage { key: string; sourceKey: string; state: string; note: string }
 
-export function runNormaliseSweep(): SweepReport {
-  const report: SweepReport = { changed: [], upToDate: [], unsupported: [], failed: [], coverageMarkdown: '' };
-  const coverageRows: string[] = [];
-
-  for (const key of listArchiveKeys()) {
-    const dir = path.join(CONSTANTS.DIRS.archive, key);
-    const metaPath = path.join(dir, 'meta.json');
-    let meta: SweepMeta;
-    try {
-      meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as SweepMeta;
-    } catch (err) {
-      report.failed.push({ key, reason: `meta.json unreadable: ${errorMessage(err)}` });
-      coverageRows.push(`| ${key} | ? | FAILED | meta.json unreadable |`);
-      continue;
-    }
-
-    const converter = CONVERTERS[meta.sourceKey];
-    if (!converter) {
-      report.unsupported.push(key);
-      coverageRows.push(`| ${key} | ${meta.sourceKey} | raw-only | no converter for this source yet |`);
-      continue;
-    }
-
-    // Everything below is inside one try so a single malformed entry (bad
-    // meta fields, unreadable raw, converter failure, write error) reports as
-    // that entry's failure and never blocks the rest - per-entry independence
-    // covers metadata problems, not just converter problems.
-    try {
-      const referenceDate = meta.ofcomReportedUpdateIso ?? meta.fetchedAt?.slice(0, 10);
-      if (!referenceDate) {
-        throw new Error('meta.json supplies neither ofcomReportedUpdateIso nor fetchedAt - no plausibility reference date');
-      }
-      if (typeof meta.files !== 'object' || meta.files === null) {
-        throw new Error('meta.json has no files map to declare normalised.csv in');
-      }
-
-      // The parse source is the declared extract when one exists (a workbook's
-      // mechanical sheet extract, or a shape-only header fill of a collapsing
-      // CSV), else raw.csv - the verbatim publication stays untouched either way.
-      const raw = fs.readFileSync(path.join(dir, parseSourceFileName(meta)), 'utf8');
-      const result: ConvertResult = time('sweep:convert', () => converter.convert(raw, referenceDate, meta.ignoredLines ?? [], meta.converter?.variant));
-
-      const outPath = path.join(dir, 'normalised.csv');
-      const statsPath = path.join(dir, 'stats.json');
-      const componentsPath = path.join(dir, 'components.csv');
-      const statsJson = renderStatsJson(result.stats);
-      const existing = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8') : undefined;
-      const existingStats = fs.existsSync(statsPath) ? fs.readFileSync(statsPath, 'utf8') : undefined;
-      const existingComponents = fs.existsSync(componentsPath) ? fs.readFileSync(componentsPath, 'utf8') : undefined;
-      if (existing === result.csv
-        && existingStats === statsJson
-        && existingComponents === result.componentsCsv
-        && meta.normalised?.schemaVersion === result.schemaVersion
-        && meta.normalised?.statsSchemaVersion === result.stats.statsSchemaVersion
-        && meta.normalised?.componentsSchemaVersion === result.componentsSchemaVersion
-        && JSON.stringify(meta.headerLines ?? null) === JSON.stringify(result.headerLines)
-        && JSON.stringify(meta.ignoredLines ?? []) === JSON.stringify(result.ignoredLines)) {
-        report.upToDate.push(key);
-        coverageRows.push(`| ${key} | ${meta.sourceKey} | v${result.schemaVersion} (${result.headerVariant}) | up to date |`);
-        continue;
-      }
-
-      time('sweep:write-entry', () => {
-        fs.writeFileSync(outPath, result.csv);
-        fs.writeFileSync(statsPath, statsJson);
-        fs.writeFileSync(componentsPath, result.componentsCsv);
-      }, result.recordCount);
-      meta.normalised = {
-        schemaVersion: result.schemaVersion,
-        headerVariant: result.headerVariant,
-        statsSchemaVersion: result.stats.statsSchemaVersion,
-        componentsSchemaVersion: result.componentsSchemaVersion,
-      };
-      meta.headerLines = result.headerLines;
-      if (result.ignoredLines.length > 0) meta.ignoredLines = result.ignoredLines;
-      else delete meta.ignoredLines;
-      meta.files['normalised.csv'] = {
-        size: Buffer.byteLength(result.csv),
-        sha256: calculateContentHash(result.csv),
-        format: 'csv',
-        columnCount: CANONICAL_COLUMNS.length,
-        columnNames: [...CANONICAL_COLUMNS],
-        recordCount: result.recordCount,
-        sortedBy: 'callsign',
-      };
-      meta.files['stats.json'] = {
-        size: Buffer.byteLength(statsJson),
-        sha256: calculateContentHash(statsJson),
-        format: 'json',
-      };
-      meta.files['components.csv'] = {
-        size: Buffer.byteLength(result.componentsCsv),
-        sha256: calculateContentHash(result.componentsCsv),
-        format: 'csv',
-        columnCount: COMPONENT_COLUMNS.length,
-        columnNames: [...COMPONENT_COLUMNS],
-        recordCount: result.recordCount,
-        sortedBy: 'callsign',
-      };
-      saveJsonFileSync(metaPath, meta);
-      report.changed.push(key);
-      const dateNote = result.unverifiedDateColumns.length === 0
-        ? 'all date columns day-first-verified'
-        : `UNVERIFIED date-order columns: ${result.unverifiedDateColumns.join(', ')}`;
-      const partialNote = meta.intendedCoverage?.complete === false ? '; PARTIAL raw coverage (see meta scopeNotes)' : '';
-      coverageRows.push(`| ${key} | ${meta.sourceKey} | v${result.schemaVersion} (${result.headerVariant}) | updated this run; ${dateNote}${partialNote} |`);
-    } catch (err) {
-      report.failed.push({ key, reason: errorMessage(err) });
-      coverageRows.push(`| ${key} | ${meta.sourceKey} | FAILED | ${mdCell(errorMessage(err))} |`);
-    }
+function entryCoverage(key: string, failed: ReportSweepReport['failed']): EntryCoverage {
+  let sourceKey = '?';
+  try {
+    const meta = JSON.parse(fs.readFileSync(path.join(CONSTANTS.DIRS.archive, key, 'meta.json'), 'utf8')) as ArchiveMeta;
+    sourceKey = meta.sourceKey;
+  } catch (err) {
+    failed.push({ key, reason: `meta.json unreadable: ${errorMessage(err)}` });
+    return { key, sourceKey, state: 'FAILED', note: 'meta.json unreadable' };
   }
+  const present = derivedEntryFileNamesPresent(key);
+  if (present.length === 0) {
+    // The ledger lane covers every entry of the open-data register source, so
+    // ZERO derived files for one is a loud failure, never "raw-only": either
+    // the projection dropped an entry it should have folded (a fold gap), or
+    // this is an archive-mode run over a corpus with a post-freeze
+    // publication (whose derived views exist only in the projection) - both
+    // states must never regenerate reports silently missing a publication.
+    // A foreign source with no authored binding is honest raw-only coverage.
+    if (sourceKey === CONSTANTS.SOURCES.OFCOM_AMATEUR) {
+      failed.push({ key, reason: 'no derived view for a ledger-covered source - a projection fold gap, or an archive-mode run over a post-freeze corpus (run with --build-projection / BUILDER_PROJECTION_DIR)' });
+      return { key, sourceKey, state: 'FAILED', note: 'no derived view for a ledger-covered source' };
+    }
+    return { key, sourceKey, state: 'raw-only', note: 'no derived view (no authored converter binding for this source)' };
+  }
+  if (present.length < DERIVED_ENTRY_FILES.length) {
+    const missing = DERIVED_ENTRY_FILES.filter(name => !present.includes(name));
+    failed.push({ key, reason: `partial derived view - missing ${missing.join(', ')}` });
+    return { key, sourceKey, state: 'FAILED', note: `partial derived view (missing ${missing.join(', ')})` };
+  }
+  const stats = readStats(key);
+  if (stats === undefined) {
+    failed.push({ key, reason: 'stats.json is unreadable' });
+    return { key, sourceKey, state: 'FAILED', note: 'stats.json unreadable' };
+  }
+  return { key, sourceKey, state: 'derived', note: `${stats.recordCount} records` };
+}
 
-  // latest-meta.json mirrors the NEWEST entry's meta byte-for-byte (validated
-  // by validateLatestPointers via hash comparison) - if this sweep rewrote
-  // the newest entry's meta, the mirror must follow or every derivation PR
-  // fails its own data-validation check.
+// Regenerate every committed report and assemble the coverage markdown. The
+// change detector is deliberately NOT here: the scheduled workflow's own
+// `git status` over reports/ decides whether a PR opens, and the golden gate
+// diffs the regeneration against the committed tree - the regeneration only
+// has to be deterministic.
+export function runReportSweep(): ReportSweepReport {
+  const failed: ReportSweepReport['failed'] = [];
   const keys = listArchiveKeys().sort();
-  const newest = keys[keys.length - 1];
-  if (newest !== undefined && report.changed.includes(newest)) {
-    fs.copyFileSync(path.join(CONSTANTS.DIRS.archive, newest, 'meta.json'), CONSTANTS.FILES.latestMeta);
-  }
+  const coverageRows = keys.map(key => entryCoverage(key, failed));
 
   // The data-quality rollup folds from the raw-keyed claim ledger's T1
-  // flag/parse-status claims (data-quality-fold.ts, #442). Folded once here so the
-  // committed reports/data-quality.md AND the sweep PR body's flag/status trend
-  // tables read the SAME figures (the consistency contract), the corpus scanned a
-  // single time rather than per surface.
+  // flag/parse-status claims (data-quality-fold.ts, #442). Folded once here so
+  // the committed reports/data-quality.md AND the coverage body's flag/status
+  // trend tables read the SAME figures (the consistency contract), the corpus
+  // scanned a single time rather than per surface.
   const dataQualityFold = time('reports:data-quality-fold', () => buildDataQualityFold());
 
   // Committed quality reports (issue #46): reports/{key}.md per entry with
@@ -227,12 +145,13 @@ export function runNormaliseSweep(): SweepReport {
   // Committed, so a change to the disallowed vocabulary shows up in a PR diff.
   time('reports:forbidden-suffix-history', () => writeForbiddenSuffixHistory());
 
-  // The newest dataset's matrix always appears, even when no archive entry
-  // changed bytes (e.g. a reports-only derivation): the PR body is the
-  // does-this-look-right triage surface, and current state belongs on it.
+  // The newest dataset's matrix always appears: the coverage body is the
+  // does-this-look-right triage surface, and current state belongs on it -
+  // when the reports changed because a publication landed, the newest entry
+  // IS that publication.
   const newestKey = keys[keys.length - 1];
   const newestBlock: string[] = [];
-  if (newestKey !== undefined && !report.changed.includes(newestKey)) {
+  if (newestKey !== undefined) {
     const matrix = rslMatrix(newestKey);
     if (matrix !== undefined) {
       newestBlock.push(
@@ -249,7 +168,7 @@ export function runNormaliseSweep(): SweepReport {
     }
   }
 
-  // The flag/status trend tables ride every sweep PR body (consistency with
+  // The flag/status trend tables ride every coverage body (consistency with
   // reports/data-quality.md - the same folded figures, the same tables).
   const flagBlock = dataQualityFold.dates.length === 0 ? [] : [
     '',
@@ -261,29 +180,26 @@ export function runNormaliseSweep(): SweepReport {
     '</details>',
   ];
 
-  report.coverageMarkdown = [
-    `Intended schema version per source: ${Object.entries(CONVERTERS).map(([k, c]) => `\`${k}\` → v${c.schemaVersion}`).join(', ')}`,
+  const coverageMarkdown = [
+    'Derived views read through the archive/projection switch (src/shared/derived-entries.ts): the committed baseline is frozen, and a newer publication folds from its raw bytes in the ledger projection.',
     '',
-    '| entry | source | achieved | note |',
+    '| entry | source | derived view | note |',
     '|---|---|---|---|',
-    ...coverageRows,
-    ...changedEntryMatrixMarkdown(report.changed, keys),
+    ...coverageRows.map(row => `| ${row.key} | ${mdCell(row.sourceKey)} | ${row.state} | ${mdCell(row.note)} |`),
     ...newestBlock,
     ...flagBlock,
   ].join('\n');
 
-  return report;
+  return { coverageMarkdown, failed };
 }
-
-// Per-entry reports live under entries/ so future per-dimension drill-downs
-// (pattern time-series, prefix/RSL distributions, quality rollups - see the
-// follow-up issue) can sit alongside without moving files.
 const REPORTS_DIR = 'reports/entries';
 
-// Report-lane read of a derived file: resolved through the archive/projection
-// switch, so the golden regeneration can fold its reports from the ledger
-// projection (issue #629 phase 2) while the sweep's own DERIVATION half above
-// stays raw-driven (it is the producer of the committed files until #446).
+// Read of a derived file, resolved through the archive/projection switch: the
+// workflows run projection-fed (BUILDER_PROJECTION_DIR), so a publication
+// newer than the frozen committed baseline contributes its statistics too.
+// Absence is honest (a raw-only entry); unreadability is surfaced as a run
+// failure by entryCoverage above, so this returning undefined never hides an
+// integrity problem.
 function readStats(key: string): EntryStats | undefined {
   if (!derivedEntryFileExists(key, 'stats.json')) return undefined;
   const p = derivedEntryFile(key, 'stats.json');
@@ -416,7 +332,7 @@ function writeQualityReports(keys: string[], dataQuality: DataQualityFold): void
     const lines = [
       `# Data-quality report: ${key}`,
       '',
-      '<!-- Generated by the normalise sweep (issue #46); regenerated wholesale, so hand edits are overwritten. -->',
+      '<!-- Generated by the report sweep (issue #46); regenerated wholesale, so hand edits are overwritten. -->',
       `${stats.recordCount} records, ${ownPatterns.length} distinct callsign patterns.`,
       '',
       ...patternPartition(ownPatterns),
@@ -691,7 +607,7 @@ export function renderPrefixDistributions(dates: string[], rows: Map<string, Map
   return [
     '# Prefix-series distributions',
     '',
-    '<!-- Generated by the normalise sweep (issue #51); regenerated wholesale, so hand edits are overwritten. -->',
+    '<!-- Generated by the report sweep (issue #51); regenerated wholesale, so hand edits are overwritten. -->',
     'Records per prefix series per dataset (newest leftmost), from',
     '`components.csv`. Non-parsed records appear as their parse status, so',
     'every record lands in exactly one row. Series semantics:',
@@ -711,7 +627,7 @@ export function renderRegionalIdentifiers(dates: string[], rows: Map<string, Map
   return [
     '# Regional-identifier distributions',
     '',
-    '<!-- Generated by the normalise sweep (issue #51); regenerated wholesale, so hand edits are overwritten. -->',
+    '<!-- Generated by the report sweep (issue #51); regenerated wholesale, so hand edits are overwritten. -->',
     'Parsed records per rendered regional identifier per dataset (newest',
     'leftmost): letter combinations (`GM`, `MW`, ...), digit-led (`2E`,',
     '`2W`, ...), bare `20`/`21` intermediates stored without their',
@@ -753,7 +669,7 @@ function writeReportsIndex(columnsNewestFirst: string[], statsByKey: Map<string,
   const lines = [
     '# Reports',
     '',
-    '<!-- Generated by the normalise sweep (issue #51); regenerated wholesale, so hand edits are overwritten. -->',
+    '<!-- Generated by the report sweep (issue #51); regenerated wholesale, so hand edits are overwritten. -->',
     'Standing, deterministic views over the archive. Drill-downs:',
     '',
     '- [Callsign patterns](callsign-patterns.md) - full pattern time-series',
@@ -954,7 +870,7 @@ export function renderDataQualityRollup(dq: DataQualityFold, foiUnkeyable?: FoiU
   const lines = [
     '# Data-quality rollup (callsign defect detectors)',
     '',
-    '<!-- Generated by the normalise sweep (issue #51); regenerated wholesale, so hand edits are overwritten. -->',
+    '<!-- Generated by the report sweep (issue #51); regenerated wholesale, so hand edits are overwritten. -->',
     'Automated per-publication counts for defect classes observed in real',
     'exports. Rows are detectors, columns are datasets (newest leftmost).',
     'A class appearing or vanishing between publications is a pipeline-change',
@@ -1038,7 +954,7 @@ export function renderMismatchReport(sections: MismatchSection[]): string {
   const lines = [
     '# Class-product mismatches',
     '',
-    '<!-- Generated by the normalise sweep (issue #51); regenerated wholesale, so hand edits are overwritten. -->',
+    '<!-- Generated by the report sweep (issue #51); regenerated wholesale, so hand edits are overwritten. -->',
     'Every register row whose prefix-implied licence class disagrees with its',
     'product column, per dataset (newest first). Causes are unknown: plausibly',
     'issuance-time input errors uncorrected since, plausibly legitimate',
@@ -1150,7 +1066,7 @@ export function renderCallsignPatternSeries(series: CallsignPatternSeriesFold): 
   const lines = [
     '# Callsign pattern time-series',
     '',
-    '<!-- Generated by the normalise sweep (issue #51); regenerated wholesale, so hand edits are overwritten. -->',
+    '<!-- Generated by the report sweep (issue #51); regenerated wholesale, so hand edits are overwritten. -->',
     'Pattern counts across ALL datasets in archive-key order (no baseline; the',
     'per-entry reports under `entries/` carry windowed views with deltas).',
     'Patterns are grouped by class - UK core shapes, the visitor family, then',
@@ -1214,62 +1130,48 @@ function writePatternTimeSeries(series: CallsignPatternSeriesFold): void {
   fs.writeFileSync(path.join(REPORTS_DIR, '..', 'callsign-patterns.md'), renderCallsignPatternSeries(series));
 }
 
-// PR-body/dashboard guidance for changed entries: the window matrix and RSL
-// matrix folded behind details blocks per entry (the committed reports/
-// files carry the full report; this is the "in addition" inline view for
-// reviewers triaging whether the proposed dataset/normalisation looks
-// valid). Anomaly signals - unexpected locators - stay OUTSIDE the details
-// so they are visible without expanding anything.
-function changedEntryMatrixMarkdown(changed: string[], keys: string[]): string[] {
-  const statsByKey = new Map<string, EntryStats>();
-  for (const k of keys) {
-    const s = readStats(k);
-    if (s) statsByKey.set(k, s);
-  }
-  const lines: string[] = [];
-  for (const key of changed) {
-    if (!statsByKey.has(key)) continue;
-    const window = windowFor(key, keys).filter(k => statsByKey.has(k));
-    const matrix = rslMatrix(key);
-    lines.push(
-      '',
-      `${key}: see \`reports/${key}.md\` for the full quality report.`,
-      ...(matrix !== undefined && matrix.unexpectedNote !== ''
-        ? ['', `⚠ ${key} contains locators absent from reference data: ${matrix.unexpectedNote}.`]
-        : []),
-      '',
-      '<details>',
-      `<summary>Pattern counts across window: ${key}</summary>`,
-      '',
-      ...matrixTable(key, window, statsByKey),
-      '',
-      '</details>',
-      ...(matrix !== undefined
-        ? [
-          '',
-          '<details>',
-          `<summary>RSL matrix: ${key}</summary>`,
-          '',
-          ...matrix.lines,
-          '</details>',
-        ]
-        : []),
-    );
-  }
-  return lines;
-}
 
 function main(): void {
-  const report = runNormaliseSweep();
+  // --build-projection: build the ledger projection to a scratch directory and
+  // run the sweep against it - the projection-fed semantics the workflows use,
+  // in one local command (the `npm run regen` path). Without the flag (and
+  // without BUILDER_PROJECTION_DIR) the sweep reads the frozen committed
+  // derivatives, which is complete only while no post-freeze publication
+  // exists - the coverage table names any entry that would be missed.
+  let scratchProjection: string | undefined;
+  try {
+    if (process.argv.includes('--build-projection')) {
+      if (derivedEntriesMode() === 'projection') {
+        throw new Error(`--build-projection conflicts with an already-set ${BUILDER_PROJECTION_DIR_ENV} - use one or the other`);
+      }
+      scratchProjection = fs.mkdtempSync(path.join(os.tmpdir(), 'report-sweep-projection-'));
+      console.error(`building the ledger projection to ${scratchProjection} ...`);
+      buildBuilderProjection(scratchProjection);
+      process.env[BUILDER_PROJECTION_DIR_ENV] = scratchProjection;
+    }
+    mainSweep();
+  } finally {
+    // The scratch projection is cleaned up whatever threw - including the
+    // projection build itself (an unauthored binding on a fresh entry), which
+    // would otherwise orphan a multi-hundred-MB directory per failed run.
+    if (scratchProjection !== undefined) {
+      delete process.env[BUILDER_PROJECTION_DIR_ENV];
+      fs.rmSync(scratchProjection, { recursive: true, force: true });
+    }
+  }
+}
+
+function mainSweep(): void {
+  const report = runReportSweep();
   console.log(report.coverageMarkdown);
   console.log('');
-  console.log(`changed=${report.changed.length} upToDate=${report.upToDate.length} unsupported=${report.unsupported.length} failed=${report.failed.length}`);
+  console.log(`entries=${listArchiveKeys().length} failed=${report.failed.length}`);
   for (const f of report.failed) {
     console.error(`FAILED ${f.key}: ${f.reason}`);
   }
   // Self-guarded: prints the profiling breakdown to stderr only under PERF.
   perfReport();
-  // Emit the summary for the workflow to consume (rolling issue + PR body).
+  // Emit the coverage for the workflow to consume (rolling issue + PR body).
   // The workflow's other signals are the shell-captured exit code and git
   // status - no GITHUB_OUTPUT channel is written here.
   if (process.env.COVERAGE_MARKDOWN_FILE) {

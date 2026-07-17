@@ -345,7 +345,7 @@ function patternDriftSection(pubs: PubStat[]): string[] {
   return [
     '<section>',
     '<h2 id="patterns">Callsign-pattern appearance and disappearance</h2>',
-    '<p>Each callsign is reduced to a structural pattern (uppercase→<code>A</code>, digit→<code>N</code>, invisibles marked <code>{U+XXXX}</code>). Comparing the pattern vocabulary between consecutive complete publications surfaces the rare shapes that appear or vanish — usually encoding artefacts or one-off oddities, exactly the kind of surprise worth catching. New and lost patterns are the set difference (reusing the shared comparison used by the normalise sweep), over the complete-publication timeline.</p>',
+    '<p>Each callsign is reduced to a structural pattern (uppercase→<code>A</code>, digit→<code>N</code>, invisibles marked <code>{U+XXXX}</code>). Comparing the pattern vocabulary between consecutive complete publications surfaces the rare shapes that appear or vanish — usually encoding artefacts or one-off oddities, exactly the kind of surprise worth catching. New and lost patterns are the set difference (reusing the shared comparison the entry quality reports use), over the complete-publication timeline.</p>',
     '<table>',
     tableCaption('Callsign patterns that appeared or vanished between consecutive complete publications'),
     '<tr><th scope="col">transition</th><th scope="col">new patterns</th><th scope="col">lost patterns</th></tr>',

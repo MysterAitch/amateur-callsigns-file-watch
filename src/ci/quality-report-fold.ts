@@ -488,7 +488,7 @@ export interface QualityReportFold {
 // otherwise the shared deploy-time claims.parquet is read when the workflow built
 // one (issue #403), and only in its absence (local dev, tests) is the full-corpus
 // ledger materialised once to a scratch directory. skipFailedSources matches the
-// normalise sweep's per-entry independence — a malformed entry the sweep already
+// report lane's per-entry independence — a malformed entry the coverage already
 // reports is skipped, not a reason to crash the whole report.
 export function buildQualityReportFold(ledgerDir?: string, ref: ReferenceData = loadReferenceData()): QualityReportFold {
   const foldAll = (source: string | ClaimsSource): QualityReportFold => ({

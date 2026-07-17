@@ -58,5 +58,5 @@ part of the schedule.
 ## Running the tests
 
 Run `npm run setup:duckdb` once to install the pinned DuckDB CLI locally; the
-report-fold and normalise-sweep tests fold committed reports through it and skip
+report-fold and report-sweep tests fold committed reports through it and skip
 (with a pointer back to this command) until it is present.

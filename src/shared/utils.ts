@@ -251,7 +251,7 @@ export interface ArchiveMeta {
   // one of header / data row / ignored line. An array so a future source
   // with multi-row headers (title rows, the FOI-lane preamble pattern)
   // fits without a schema change; today's exports always have exactly one.
-  // Written by the normalise sweep; byte-verified by validate:data, so
+  // Written by the retired derivation lane (frozen baseline entries); byte-verified by validate:data, so
   // header drift in a re-fetch is loudly visible. (columnNames records the
   // PARSED header; this records the bytes.)
   headerLines?: { line: number; content: string }[];
@@ -259,7 +259,7 @@ export interface ArchiveMeta {
   // export footers, generated-by stamps) - enumerated against the immutable
   // raw.csv so nothing is dropped silently and the count invariant
   // (raw lines = 1 header + normalised rows + ignored lines) is exact.
-  // Written by the normalise sweep; absent when the export is clean; every
+  // Written by the retired derivation lane, curated by hand since; absent when the export is clean; every
   // entry re-verified by validate:data (byte match + must-not-be-data).
   ignoredLines?: IgnoredRawLine[];
   // VERIFIED-QUALITY observations - the axis intendedCoverage always
@@ -390,7 +390,7 @@ export async function saveJsonFile<T>(filePath: string, data: T): Promise<boolea
   }
 }
 
-// Sync sibling for callers in synchronous pipelines (the normalise sweep).
+// Sync sibling for callers in synchronous pipelines.
 // Throws on failure rather than returning false - sweep callers convert the
 // throw into a per-entry failure report.
 export function saveJsonFileSync<T>(filePath: string, data: T): void {

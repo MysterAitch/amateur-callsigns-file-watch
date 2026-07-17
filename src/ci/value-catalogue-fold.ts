@@ -206,7 +206,7 @@ export function buildLicenceCategoryFold(ledgerDir?: string, ref: ReferenceData 
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'value-catalogue-ledger-'));
   try {
     // skipFailedSources: the fold consumes the archive the same way the
-    // normalise sweep does — an entry that cannot be parsed is skipped, not a
+    // report lane does — an entry that cannot be parsed is skipped, not a
     // reason to crash the whole report (the sweep already reports it). The real
     // archive parses cleanly, so nothing is skipped there and the fold is
     // unchanged; only a malformed/synthetic entry degrades gracefully.

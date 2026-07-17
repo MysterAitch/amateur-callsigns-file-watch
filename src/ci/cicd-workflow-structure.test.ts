@@ -137,22 +137,22 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
   });
 
   it('GoldenMaster_RegeneratesReportsFromTheProjection_OnACacheMiss', () => {
-    // The golden-flow decision (issue #629 phase 2): report regeneration reads
-    // its derived entry files from the ledger projection, proving pre-merge
-    // the input path that survives the #446 retirement. Byte-equivalence of
-    // the two paths is the parity suite's guarantee, so the drift assertion
-    // is unchanged.
+    // The golden-flow decision (issue #629): report regeneration reads its
+    // derived entry files from the ledger projection - the same input path
+    // the scheduled report sweep runs, and the only complete one once a
+    // publication newer than the frozen committed baseline exists.
     const block = jobBlock(workflow(), 'golden-master');
     const projectionBuild = block.indexOf('node src/v2/build-builder-projection.ts "$RUNNER_TEMP/builder-projection"');
-    const sweep = block.indexOf('BUILDER_PROJECTION_DIR="$RUNNER_TEMP/builder-projection" npm run normalise:sweep');
-    expect(projectionBuild, 'golden-master no longer builds the projection before the sweep').toBeGreaterThan(-1);
-    expect(sweep, 'golden-master runs the sweep without BUILDER_PROJECTION_DIR - reports would regenerate from the committed derivatives').toBeGreaterThan(projectionBuild);
+    const sweep = block.indexOf('BUILDER_PROJECTION_DIR="$RUNNER_TEMP/builder-projection" npm run reports:sweep');
+    expect(projectionBuild, 'golden-master no longer builds the projection before the report sweep').toBeGreaterThan(-1);
+    expect(sweep, 'golden-master runs the report sweep without BUILDER_PROJECTION_DIR - reports would regenerate from the frozen committed derivatives only').toBeGreaterThan(projectionBuild);
   });
 
   it('DataValidation_StaysOnTheCommittedArchive_NoProjectionSwitch', () => {
-    // validate-data gates what a data PR COMMITS, so its derived-file reads
-    // stay archive reads until the committed derivatives retire (#446/#448) -
-    // the job must not export the projection switch.
+    // validate-data gates what a data PR COMMITS - the raw/meta record and
+    // the frozen committed derivatives - so its derived-file reads stay
+    // archive reads (#448 owns any re-home): the job must not export the
+    // projection switch.
     const block = jobBlock(workflow(), 'data-validation');
     expect(block, 'data-validation gained BUILDER_PROJECTION_DIR - it would validate the projection instead of the committed record').not.toContain('BUILDER_PROJECTION_DIR:');
   });

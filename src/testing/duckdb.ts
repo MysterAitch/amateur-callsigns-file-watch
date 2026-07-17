@@ -1,7 +1,7 @@
 /**
  * Shared test-harness support for the DuckDB-backed suites (issue #336/#398).
  *
- * The report-fold and normalise-sweep tests fold committed reports through the
+ * The report-fold and report-sweep tests fold committed reports through the
  * pinned DuckDB CLI. CI installs it via .github/actions/setup-duckdb; a fresh
  * worktree does not. These suites therefore SKIP when the CLI is genuinely
  * unavailable (honestly reported as skipped, never silently passed) and point

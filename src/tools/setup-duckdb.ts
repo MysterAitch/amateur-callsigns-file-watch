@@ -4,7 +4,7 @@
  * Local/worktree equivalent of .github/actions/setup-duckdb (issue #336/#398):
  * download the SAME pinned, checksum-verified DuckDB CLI the CI action installs
  * into a repo-local `.duckdb/` directory, so a fresh checkout can run the
- * report-fold and normalise-sweep tests that fold committed reports via DuckDB.
+ * report-fold and report-sweep tests that fold committed reports via DuckDB.
  *
  * Supply-chain posture (ADR 0002): this is an EXPLICIT opt-in `npm run
  * setup:duckdb`, never a lifecycle/postinstall hook - `npm ci` still runs no

@@ -1,13 +1,22 @@
-# Normalise sweep (ADR 0001): daily cron re-derives normalised.csv for every
-# archive entry via the source converters. Byte-identical output is a no-op;
-# any change (new entries, converter/schema evolution) becomes a PR whose
-# cross-entry diff is the review artefact - normaliser PRs are ALWAYS
-# human-reviewed, never auto-merged.
+# Report sweep (ADR 0001's PR-gated writeback lane, converted by #446): daily
+# cron regenerates the committed standing reports under reports/ from the
+# ledger projection and the claim-ledger folds. Byte-identical output is a
+# no-op; any change (a new publication gaining its reports column, fold/render
+# evolution) becomes a PR whose cross-report diff is the review artefact -
+# report PRs are ALWAYS human-reviewed, never auto-merged.
 #
-# Coverage (intended vs achieved schema version per entry, incl. failures and
-# raw-only entries) is maintained on a single rolling issue, dashboard-style.
-# Any entry failure also turns this run red so it re-alarms until fixed.
-name: Normalise sweep
+# The DERIVATION half this workflow once carried (re-deriving each entry's
+# committed normalised.csv/components.csv/stats.json via the source
+# converters) is retired (#446): the committed derivatives are a FROZEN
+# equivalence baseline, and every consumer reads derived views through the
+# archive/projection switch - a new publication's derived views exist only in
+# the ledger projection, built below and proven byte-identical to the
+# committed baseline by the full-corpus parity gate.
+#
+# Coverage (per-entry derived-view state, incl. failures and raw-only entries)
+# is maintained on a single rolling issue, dashboard-style. Any entry failure
+# also turns this run red so it re-alarms until fixed.
+name: Report sweep
 
 on:
   schedule:
@@ -18,7 +27,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
-  # actions:write solely to dispatch cicd.yaml onto the derivation branch:
+  # actions:write solely to dispatch cicd.yaml onto the reports branch:
   # pull_request runs from github-actions[bot]-authored PRs park in
   # action_required under the repository's contributor-approval policy, but
   # workflow_dispatch runs are not subject to that gate - and required
@@ -26,15 +35,15 @@ permissions:
   actions: write
 
 concurrency:
-  group: normalise-sweep
+  group: report-sweep
   cancel-in-progress: false
 
 jobs:
-  normalise:
+  reports:
     runs-on: ubuntu-latest
     steps:
-      # No persisted credentials: npm ci and the converters run third-party
-      # code, which must never execute with a write-capable token sitting in
+      # No persisted credentials: npm ci and the folds run third-party code,
+      # which must never execute with a write-capable token sitting in
       # .git/config. The push step below injects the token explicitly (Actions
       # masks it in logs), so the write credential exists only where writing
       # happens.
@@ -46,28 +55,37 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      # The normalise sweep regenerates the cross-dataset-invariants report,
-      # which is folded from the claim data via DuckDB (issue #361). Pinned
-      # static binary, no native npm build (ADR 0002).
+      # The report folds (value catalogue, cross-dataset invariants, the
+      # quality reports) run via DuckDB (issue #361). Pinned static binary, no
+      # native npm build (ADR 0002).
       - uses: ./.github/actions/setup-duckdb
 
-      # Build the shared claim-ledger Parquet ONCE (issue #403). Every report the
-      # sweep folds from the ledger - the value catalogue, the prefix / mismatch /
-      # regional / callsign-pattern distributions, and the forbidden-suffix history
-      # - reads this single artefact via CLAIMS_PARQUET below, instead of each
-      # re-materialising the multi-GB ledger. Built here, not committed: the
-      # Parquet is a build-time intermediate that lives only for this run.
+      # Build the shared claim-ledger Parquet ONCE (issue #403). Every report
+      # folded from the ledger reads this single artefact via CLAIMS_PARQUET
+      # below, instead of each re-materialising the multi-GB ledger. Built
+      # here, not committed: a build-time intermediate that lives only for
+      # this run.
       - name: Build shared claim-ledger Parquet
         run: node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only
 
-      - name: Run normalise sweep
+      # The builder-facing ledger projection (issue #629): the per-entry
+      # derived views (normalised.csv, components.csv, stats.json) the report
+      # lane reads through BUILDER_PROJECTION_DIR - so a publication newer
+      # than the frozen committed baseline contributes to the reports the
+      # moment it lands, with no derivation step in between. The same
+      # projection build the deploy and the golden-master gate run.
+      - name: Build builder projection
+        run: node src/v2/build-builder-projection.ts "$RUNNER_TEMP/builder-projection"
+
+      - name: Run report sweep
         id: sweep
         env:
           COVERAGE_MARKDOWN_FILE: /tmp/coverage-opendata.md
           CLAIMS_PARQUET: ${{ runner.temp }}/claims.parquet
+          BUILDER_PROJECTION_DIR: ${{ runner.temp }}/builder-projection
         run: |
           set +e
-          npm run normalise:sweep
+          npm run reports:sweep
           echo "exitcode=$?" >> "$GITHUB_OUTPUT"
 
       # The FOI lane is report-and-verify only (no writeback): converter
@@ -95,7 +113,7 @@ jobs:
             cat /tmp/coverage-opendata.md /tmp/coverage-foi.md > /tmp/coverage.md
           fi
 
-      - name: Open PR for changed derivations
+      - name: Open PR for changed reports
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -108,24 +126,27 @@ jobs:
             echo "::error::Sweep produced no coverage report - refusing to open a PR from unaccounted working-tree state."
             exit 0
           fi
-          if [ -z "$(git status --porcelain archive/ latest-meta.json reports/)" ]; then
-            echo "No derivation changes."
+          # Reports are the ONLY writeback this lane owns (#446): the
+          # committed archive derivatives are frozen, so nothing here may
+          # stage archive/ or the latest-* pointers.
+          if [ -z "$(git status --porcelain reports/)" ]; then
+            echo "No report changes."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          branch="normalise/run-${{ github.run_id }}"
+          branch="reports/run-${{ github.run_id }}"
           git checkout -b "$branch"
-          git add archive/ latest-meta.json reports/
-          git commit -m "Normalise sweep: update derived normalised.csv files"
+          git add reports/
+          git commit -m "Report sweep: regenerate standing reports"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/$branch"
           {
-            echo "Scheduled normalise sweep output. The cross-entry diff below is the review artefact - check that changes are expected (new entries gaining their first derivation, or a deliberate converter/schema change) before merging."
+            echo "Scheduled report sweep output. The cross-report diff below is the review artefact - check that changes are expected (a new publication gaining its reports column, or a deliberate fold/render change) before merging."
             echo ""
             cat /tmp/coverage.md
           } > /tmp/pr-body.md
           gh pr create --head "$branch" --base main \
-            --title "Normalise sweep: derived data update" \
+            --title "Report sweep: standing reports update" \
             --body-file /tmp/pr-body.md
           # The pull_request-triggered CI run for a bot-authored PR parks in
           # action_required (contributor-approval policy). Dispatch CI onto
@@ -145,7 +166,7 @@ jobs:
           fi
           title="Normalisation coverage (rolling dashboard)"
           {
-            echo "Maintained automatically by the normalise-sweep workflow - do not edit by hand; comments welcome."
+            echo "Maintained automatically by the report-sweep workflow - do not edit by hand; comments welcome."
             echo ""
             cat /tmp/coverage.md
           } > /tmp/issue-body.md
@@ -156,12 +177,12 @@ jobs:
             gh issue create --title "$title" --body-file /tmp/issue-body.md
           fi
 
-      - name: Fail run if any entry failed to normalise
+      - name: Fail run if any entry failed or drifted
         env:
           SWEEP_EXITCODE: ${{ steps.sweep.outputs.exitcode }}
           FOI_EXITCODE: ${{ steps.foi.outputs.exitcode }}
         run: |
           if [ "$SWEEP_EXITCODE" != "0" ] || [ "$FOI_EXITCODE" != "0" ]; then
-            echo "::error::One or more entries failed to normalise or verify - see the sweep step logs and the coverage issue."
+            echo "::error::One or more entries failed to report or verify - see the sweep step logs and the coverage issue."
             exit 1
           fi

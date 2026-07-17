@@ -2,7 +2,7 @@
 rules:
   artipacked:
     # persist-credentials: false is set everywhere third-party code runs
-    # (cicd.yaml, and normalise.yml which injects its token only at the push
+    # (cicd.yaml, and reports-sweep.yml which injects its token only at the push
     # step). data-sweep is the one deliberate exception: it runs ONLY git and
     # gh (no npm ci, no third-party code), and pushing/merging is its entire
     # purpose - see ADR 0002 for the write posture it operates under.

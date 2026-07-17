@@ -295,8 +295,14 @@ comparison, entry browser, Explore) have been repointed onto ledger-derived
 projection databases folded from the claim ledger, verified against the legacy
 databases by a full-corpus parity oracle
 ([#572](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/572));
-the legacy `build-sqlite.ts` serving build still runs beside the projections
-through the transition, with its retirement tracked on
-[#445](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/445),
-while the committed golden derivatives are deliberately retained as the durable
-comparison baseline.
+the deploy-time builders, validation's derived-file read, the report lane and
+the download tiers all read derived views through one explicit
+archive/projection switch, gated by a full-corpus byte-parity oracle
+([#629](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/629));
+and the derivation sweep itself is retired
+([#446](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/446),
+[ADR 0021](0021-frozen-derived-baseline.md)) — the committed golden derivatives
+are deliberately retained as the durable comparison baseline, frozen at
+retirement and pinned entry by entry by the parity gate, while a new
+publication's derived views fold from its raw bytes in the ledger projection
+with no derivation step at all.
