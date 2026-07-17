@@ -113,3 +113,86 @@ describe('anchor collection', { tags: ['unit'] }, () => {
     expect(ids.has('absent')).toBe(false);
   });
 });
+
+// The composed dangling-in-page-anchor check (issue #701): render-markdown.ts
+// now recognises [text](#fragment) links and gives every heading a slug id,
+// so a fragment link has somewhere to land - but nothing stopped a TYPO'd
+// fragment (one with no matching id anywhere on the target page) from
+// rendering silently as a dead link. This pins the exact composition the real
+// site build's beforeAll loop (src/ci/build-dataset-pages.test.ts, "Internal
+// link integrity across the built site") runs over every generated page, on
+// small in-memory fixtures instead of the multi-minute real build.
+describe('dangling in-page anchor detection (issue #701)', { tags: ['unit'] }, () => {
+  // Mirrors the production crawl loop: every internal link's fragment (if
+  // any) must resolve to a real id/name on its RESOLVED target page.
+  const findDanglingAnchors = (pages: Record<string, string>): string[] => {
+    const emitted = new Set(Object.keys(pages));
+    const dangling: string[] = [];
+    for (const [rel, html] of Object.entries(pages)) {
+      for (const { raw } of extractLinks(html)) {
+        if (classifyLink(raw) !== 'internal') continue;
+        const { path: target, fragment } = resolveInternalLink(rel, raw);
+        if (fragment === null || fragment === '') continue;
+        const key = resolveEmittedFile(target, emitted);
+        if (key === null) continue; // a missing file is the OTHER check's concern
+        const ids = anchorIds(pages[key]);
+        if (!ids.has(fragment)) dangling.push(`${rel} -> ${raw}`);
+      }
+    }
+    return dangling;
+  };
+
+  it('DanglingAnchorCheck_FragmentMatchesAnEmittedHeadingId_PageIsClean', () => {
+    const pages = {
+      'page.html': '<h2 id="the-uk-model">The UK model</h2><a href="#the-uk-model">see above</a>',
+    };
+    expect(findDanglingAnchors(pages)).toEqual([]);
+  });
+
+  it('DanglingAnchorCheck_FragmentHasNoMatchingIdOnItsPage_FailsTheCheck', () => {
+    // A typo'd or stale fragment (renamed heading, removed section) - the
+    // renderer would still emit the <a>, so only the crawl catches this.
+    const pages = {
+      'page.html': '<h2 id="the-uk-model">The UK model</h2><a href="#the-uk-mode">see above</a>',
+    };
+    expect(findDanglingAnchors(pages)).toEqual(['page.html -> #the-uk-mode']);
+  });
+
+  it('DanglingAnchorCheck_EmptyFragment_IsOutOfScopeNotFlagged', () => {
+    // classifyLink treats the bare '#' facet-trigger idiom as 'dynamic', so it
+    // never reaches the anchor check at all.
+    const pages = { 'page.html': '<a href="#">jump</a>' };
+    expect(findDanglingAnchors(pages)).toEqual([]);
+  });
+
+  it('DanglingAnchorCheck_HeadingExistsOnlyOnAnotherPage_SameFragmentOnThisPageStillFails', () => {
+    // The anchor must resolve against the page the link ACTUALLY targets -
+    // a heading id that exists elsewhere on the site does not rescue a
+    // same-page reference to a fragment absent on the current page.
+    const pages = {
+      'a.html': '<h2 id="glossary">Glossary</h2>',
+      'b.html': '<p>See <a href="#glossary">the glossary</a> below.</p>',
+    };
+    expect(findDanglingAnchors(pages)).toEqual(['b.html -> #glossary']);
+  });
+
+  it('DanglingAnchorCheck_CrossPageFragmentLinkToTheRightPage_Resolves', () => {
+    // The correct fix for the previous case: point at the page that actually
+    // carries the heading.
+    const pages = {
+      'a.html': '<h2 id="glossary">Glossary</h2>',
+      'b.html': '<p>See <a href="a.html#glossary">the glossary</a> below.</p>',
+    };
+    expect(findDanglingAnchors(pages)).toEqual([]);
+  });
+
+  it('DanglingAnchorCheck_FragmentWithSpecialCharacters_MatchedExactlyAgainstTheId', () => {
+    // A fragment containing characters beyond plain slug text (as a hand-typed
+    // anchor to non-generated HTML might carry) still resolves when the id
+    // matches exactly, and still fails when it does not.
+    const clean = { 'page.html': '<h2 id="step-2.1_alt">Step 2.1 (alt)</h2><a href="#step-2.1_alt">go</a>' };
+    expect(findDanglingAnchors(clean)).toEqual([]);
+    const broken = { 'page.html': '<h2 id="step-2.1_alt">Step 2.1 (alt)</h2><a href="#step-2.1-alt">go</a>' };
+    expect(findDanglingAnchors(broken)).toEqual(['page.html -> #step-2.1-alt']);
+  });
+});
