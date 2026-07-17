@@ -107,6 +107,21 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
     expect(emitRemoval, 'the shared emit is removed BEFORE the builder projection folds it').toBeGreaterThan(projectionBuild);
   });
 
+  it('DownloadTiers_BuildAfterTheProjection_WithTheSwitchSet', () => {
+    // Issue #629 phase 3: the download-tier build (build-sqlite.ts) resolves
+    // its derived-file inputs through the archive/projection switch, so it
+    // must run AFTER the builder projection exists and must carry the switch.
+    // Losing the env would silently fall back to the committed archive - the
+    // tiers would then miss any publication newer than the frozen committed
+    // baseline; running it before the projection build would fail loudly.
+    const block = jobBlock(workflow(), 'build-site-databases');
+    const tiersBuild = block.indexOf('BUILDER_PROJECTION_DIR="$GITHUB_WORKSPACE/.builder-projection" node src/ci/build-sqlite.ts .dbstage');
+    const projectionBuild = block.indexOf('node src/v2/build-builder-projection.ts .builder-projection');
+    expect(tiersBuild, 'the download-tier build lost its BUILDER_PROJECTION_DIR switch').toBeGreaterThan(-1);
+    expect(projectionBuild, 'the builder-projection build is missing from build-site-databases').toBeGreaterThan(-1);
+    expect(tiersBuild, 'the download tiers build BEFORE the projection they read from exists').toBeGreaterThan(projectionBuild);
+  });
+
   it('AssembleStep_ReadsDerivedFilesFromTheProjection_AndTheCacheCarriesIt', () => {
     // The assemble step's builders resolve derived entry files through
     // BUILDER_PROJECTION_DIR (issue #629 phase 2). The projection must also be
