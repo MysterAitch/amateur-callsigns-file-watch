@@ -6,20 +6,19 @@ The first finding (converging `ArchivedFileMeta.size` to `bytes`) is a
 field-name rename with no rendered-output change, so it has nothing to show
 before/after.
 
-## Why text, not screenshots
+## Provenance
 
 `node src/ci/build-dataset-pages.ts` was run against both `origin/main`
 (before) and the feature branch (after) to produce the actual rendered
 `datasets/foi/{key}/index.html` for three representative entries, and the
 `<div class="notable">…</div>` fragment quoted below is copied verbatim from
-those real build outputs (not retyped or paraphrased). A live screenshot of
-the served pages was attempted first (`node src/tools/serve-site.ts` on a
-local port, per the project's established preview convention) but the
-browser-automation tool in this session could not complete script injection
-against either build (`localhost` or `example.com`) after repeated retries
-across fresh tabs and ports, so screenshots could not be captured this
-session. The HTML below is the same content a screenshot would show, byte
-for byte, and is independently reproducible from the two commits named.
+those real build outputs (not retyped or paraphrased). The accompanying PNGs
+(`case1/2/3--before/after--light/dark.png`) are element screenshots of the
+same Notable panels: the before set captured from the deployed site, the
+after set from a local static build of this branch served on the fixed
+preview port — light and dark colour schemes in each case. The HTML and the
+screenshots show the same content and are independently reproducible from
+the two commits named.
 
 ## Case 1 — a CSV disclosure with no `sheetsIndicative` at all
 
