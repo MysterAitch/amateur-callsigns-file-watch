@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderSummary } from './ci-summary.ts';
+import { renderSummary, currentBaseline } from './ci-summary.ts';
 
 const results = {
   numTotalTests: 100,
@@ -69,5 +69,46 @@ describe('the CI run summary renderer', { tags: ['unit'] }, () => {
     const passing = { ...results, numFailedTests: 0, testResults: [] };
     const md = renderSummary(passing, coverage);
     expect(md).not.toContain('### Failed');
+  });
+
+  it('Summary_WithBaseline_ShowsSignedDeltasForEveryFigure', () => {
+    const baseline = {
+      sha: 'abcdef0123456789',
+      tests: { total: 95, passed: 95, failed: 0, skipped: 0 },
+      coverage: { lines: 30.6, statements: 31.4, functions: 26.2, branches: 27.8 },
+    };
+    const md = renderSummary(results, coverage, baseline);
+    expect(md).toContain('vs `abcdef01`');
+    expect(md).toContain('| +5 | +2 | +2 | +1 |');
+    expect(md).toContain('▲ +0.6pp');
+    expect(md).toContain('— ±0pp');
+    expect(md).toContain('▼ −0.3pp');
+  });
+
+  it('Summary_WithBaselineAndUnchangedCounts_ShowsExplicitZeroDeltas', () => {
+    const baseline = {
+      sha: 'abcdef0123456789',
+      tests: { total: 100, passed: 97, failed: 2, skipped: 1 },
+    };
+    const md = renderSummary(results, coverage, baseline);
+    expect(md).toContain('| ±0 | ±0 | ±0 | ±0 |');
+  });
+
+  it('Summary_WithoutBaseline_SaysSoRatherThanOmittingSilently', () => {
+    const md = renderSummary(results, coverage);
+    expect(md).toContain('No baseline available for comparison');
+  });
+
+  it('CurrentBaseline_FromRunOutputs_RecordsShaCountsAndCoverage', () => {
+    const b = currentBaseline(results, coverage, 'deadbeefcafe');
+    expect(b).toEqual({
+      sha: 'deadbeefcafe',
+      tests: { total: 100, passed: 97, failed: 2, skipped: 1 },
+      coverage: { lines: 31.2, statements: 31.4, functions: 25.9, branches: 27.8 },
+    });
+  });
+
+  it('CurrentBaseline_WithoutMergedResults_YieldsNothingToUpload', () => {
+    expect(currentBaseline(undefined, coverage, 'deadbeef')).toBeUndefined();
   });
 });
