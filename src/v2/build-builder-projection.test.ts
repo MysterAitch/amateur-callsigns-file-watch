@@ -108,7 +108,12 @@ describe('buildBuilderProjection', { tags: ['unit'] }, () => {
   // Materialise a scratch ledger emit + curated archive meta for one or more
   // fixture publications, mirroring the on-disk shape the deploy's shared
   // --ledger-dir emit has.
-  function stageFixture(name: string, publications: { key: string; rows: Record<string, string>[]; variant?: string }[], extraLedgerFiles: Record<string, Claim[]> = {}): { ledgerRoot: string; archiveDir: string; outDir: string } {
+  // Each fixture publication's archive entry carries meta.json and, when
+  // rawHeader is given, a raw.csv whose header row is the entry's OWN header
+  // observation source (what a real fetch commits) - the projection resolves
+  // the authored binding from it when meta declares nothing, and cross-checks
+  // a declaration against it when it does.
+  function stageFixture(name: string, publications: { key: string; rows: Record<string, string>[]; variant?: string; rawHeader?: string[] }[], extraLedgerFiles: Record<string, Claim[]> = {}): { ledgerRoot: string; archiveDir: string; outDir: string } {
     const root = path.join(scratch, name);
     const ledgerDir = path.join(root, 'ledger-root', 'ledger');
     const archiveDir = path.join(root, 'archive');
@@ -123,6 +128,9 @@ describe('buildBuilderProjection', { tags: ['unit'] }, () => {
       fs.writeFileSync(path.join(metaDir, 'meta.json'), JSON.stringify({
         normalised: publication.variant === undefined ? undefined : { headerVariant: publication.variant },
       }));
+      if (publication.rawHeader !== undefined) {
+        fs.writeFileSync(path.join(metaDir, 'raw.csv'), rawCsvFor(publication.rawHeader, publication.rows));
+      }
     }
     for (const [fileName, claims] of Object.entries(extraLedgerFiles)) {
       fs.writeFileSync(path.join(ledgerDir, fileName), serialiseClaimsJsonl(claims));
@@ -172,15 +180,87 @@ describe('buildBuilderProjection', { tags: ['unit'] }, () => {
     expect(fs.readdirSync(outDir)).toEqual(['2099-01-01']);
   });
 
-  it('BuilderProjection_EntryWithoutDeclaredHeaderVariant_FailsLoudly', () => {
-    // An entry whose curated meta declares no headerVariant has no committed
-    // normalisation to be equivalent to - projecting it would mean guessing
-    // the authored raw->canonical binding, so the build must refuse.
+  it('BuilderProjection_FreshlyFetchedEntryWithoutDeclarations_ProjectsViaItsOwnHeaderRow', () => {
+    // The new-publication lane (issue #629 phase 3): a freshly fetched entry
+    // carries raw + meta only - no normalised.headerVariant (the derivation
+    // lane used to write it) and no converter.variant. The authored registry
+    // detects the variant from the entry's own header row - so the projection
+    // must fold it without any curation, byte-identical to what the converter
+    // lane would have derived.
+    const { ledgerRoot, archiveDir, outDir } = stageFixture('fresh-fetch', [
+      { key: '2099-01-01', rows: FIXTURE_ROWS, rawHeader: [...SALESFORCE_HEADER] },
+    ]);
+
+    const result = buildBuilderProjection(outDir, { ledgerDir: ledgerRoot, archiveDir });
+
+    expect(result.entries.map(e => e.key)).toEqual(['2099-01-01']);
+    const converted = convertRawCsv(rawCsvFor(SALESFORCE_HEADER, FIXTURE_ROWS), { referenceDateIso: '2099-01-01' });
+    expect(fs.readFileSync(path.join(outDir, '2099-01-01', 'normalised.csv'), 'utf8')).toBe(converted.csv);
+    expect(fs.readFileSync(path.join(outDir, '2099-01-01', 'components.csv'), 'utf8')).toBe(converted.componentsCsv);
+    expect(fs.readFileSync(path.join(outDir, '2099-01-01', 'stats.json'), 'utf8')).toBe(renderStatsJson(converted.stats));
+  });
+
+  it('BuilderProjection_DeclaredVariantContradictingTheHeaderRow_FailsLoudly', () => {
+    // A declaration that contradicts the published file's own header row is an
+    // integrity failure - the projection must refuse rather than fold under
+    // either binding.
+    const { ledgerRoot, archiveDir, outDir } = stageFixture('contradicting-variant', [
+      { key: '2099-01-01', rows: FIXTURE_ROWS.slice(0, 1), variant: 'v2022-minimal', rawHeader: [...SALESFORCE_HEADER] },
+    ]);
+
+    expect(() => buildBuilderProjection(outDir, { ledgerDir: ledgerRoot, archiveDir }))
+      .toThrow(/contradicts the published header row/);
+  });
+
+  it('BuilderProjection_HeaderRowMatchingNoAuthoredVariant_FailsLoudly', () => {
+    // A genuinely new export shape has no authored raw->canonical binding yet:
+    // detection must refuse loudly (naming the headers), never guess one.
+    const { ledgerRoot, archiveDir, outDir } = stageFixture('unknown-shape', [
+      { key: '2099-01-01', rows: FIXTURE_ROWS.slice(0, 1), rawHeader: ['Mystery__c', 'Columns__c'] },
+    ]);
+
+    expect(() => buildBuilderProjection(outDir, { ledgerDir: ledgerRoot, archiveDir }))
+      .toThrow(/matches no authored variant/);
+  });
+
+  it('BuilderProjection_EntryWithoutDeclarationsOrReadableHeader_FailsLoudly', () => {
+    // No curated declaration AND no readable header row (no raw file staged):
+    // there is nothing to resolve the authored binding from, so the build
+    // must refuse rather than guess.
     const { ledgerRoot, archiveDir, outDir } = stageFixture('no-variant', [
       { key: '2099-01-01', rows: FIXTURE_ROWS.slice(0, 1) },
     ]);
 
     expect(() => buildBuilderProjection(outDir, { ledgerDir: ledgerRoot, archiveDir }))
-      .toThrow(/declares no normalised\.headerVariant/);
+      .toThrow(/cannot resolve the authored raw->canonical binding/);
+  });
+
+  it('BuilderProjection_UndeclaredTwinShapedSourceWithIsoDates_FailsLoudlyAtDateInterpretation', () => {
+    // The ISO workbook-extract twin shares its header row with the day-first
+    // primary, so header detection resolves the PRIMARY by authored design
+    // (the twin exists only through a curated converter.variant). A
+    // twin-shaped source left uncurated must therefore fail loudly when its
+    // ISO date cells refuse the primary's day-first interpretation - never
+    // fold silently under the wrong binding.
+    const isoHeader = ['Callsign', 'Product__c', 'Status', 'Type__c', 'Licence_Version.LastModifiedDate', 'Licence_Version.Original_start_date__c'];
+    const isoRows: Record<string, string>[] = [{
+      'Callsign': 'M7TEE',
+      'Product__c': 'Amateur Radio (Foundation)',
+      'Status': 'Allocated',
+      'Type__c': 'Amateur',
+      'Licence_Version.LastModifiedDate': '2099-01-01 00:00:00',
+      'Licence_Version.Original_start_date__c': '2099-01-01',
+    }];
+    const root = path.join(scratch, 'undeclared-iso-twin');
+    const ledgerDir = path.join(root, 'ledger-root', 'ledger');
+    const archiveDir = path.join(root, 'archive');
+    fs.mkdirSync(ledgerDir, { recursive: true });
+    fs.writeFileSync(path.join(ledgerDir, 'opendata-2099-01-01.jsonl'), serialiseClaimsJsonl(claimsFor('2099-01-01', 'Callsign', isoRows)));
+    fs.mkdirSync(path.join(archiveDir, '2099-01-01'), { recursive: true });
+    fs.writeFileSync(path.join(archiveDir, '2099-01-01', 'meta.json'), JSON.stringify({}));
+    fs.writeFileSync(path.join(archiveDir, '2099-01-01', 'raw.csv'), rawCsvFor(isoHeader, isoRows));
+
+    expect(() => buildBuilderProjection(path.join(root, 'out'), { ledgerDir: path.join(root, 'ledger-root'), archiveDir }))
+      .toThrow(/unrecognised date format/);
   });
 });

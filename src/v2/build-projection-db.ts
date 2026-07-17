@@ -70,6 +70,7 @@ import {
   mappingForVariant,
   rawColumnForCanonical,
 } from '../sources/ofcom-amateur/normalise.ts';
+import { observeEntryHeader, type ObservedHeader } from '../sources/ofcom-amateur/detect-variant.ts';
 import { parseUkDateTimeDetailed, codepointCompare } from '../shared/normalise.ts';
 import {
   COMPONENT_COLUMNS,
@@ -84,7 +85,7 @@ import {
 } from '../sources/ofcom-amateur/components.ts';
 import { buildFoiObservations, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow } from '../shared/foi-observations.ts';
 import { applyBuildPragmas } from '../shared/sqlite-build.ts';
-import { CONSTANTS } from '../shared/utils.ts';
+import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
 
 // Reference data is repo-anchored, same convention as the component parser and
 // the legacy build.
@@ -286,19 +287,77 @@ function isOpenDataLedgerFile(filePath: string): boolean {
   return typeof parsed.sourceFile === 'string' && parsed.sourceFile.startsWith('opendata/');
 }
 
-// The variant an entry's committed meta.json declares its normalisation was
-// produced under - the curated record of the authored raw->canonical binding.
-// Fail loud when absent: an entry with no declared variant has no committed
-// normalisation to be equivalent to.
-function declaredVariantFor(archiveDir: string, key: string): string {
+// The curated variant declarations an entry's committed meta.json may carry:
+// converter.variant is the authored FORCED binding (for shapes auto-detection
+// cannot distinguish, e.g. the ISO-dated workbook-extract twin), and
+// normalised.headerVariant is the record the normalise sweep wrote beside the
+// committed derivatives. Either may be absent - a freshly fetched publication
+// carries neither until (unless) a human curates one.
+interface DeclaredVariants {
+  forced?: string;
+  recorded?: string;
+  // The entry's files map, so the header observation can locate the declared
+  // parse source (a workbook's extract) rather than assuming raw.csv.
+  filesDeclaration: { files?: ArchiveMeta['files'] };
+}
+
+function declaredVariantsFor(archiveDir: string, key: string): DeclaredVariants {
   const metaPath = path.join(archiveDir, key, 'meta.json');
   const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as {
     normalised?: { headerVariant?: string };
     converter?: { variant?: string };
+    files?: ArchiveMeta['files'];
   };
-  const variant = meta.normalised?.headerVariant ?? meta.converter?.variant;
+  return { forced: meta.converter?.variant, recorded: meta.normalised?.headerVariant, filesDeclaration: { files: meta.files } };
+}
+
+// Resolve the authored raw->canonical binding for one open-data entry, without
+// re-guessing and without requiring a sweep-written declaration to exist:
+//  1. a curated converter.variant (the forced binding, for shapes detection
+//     cannot distinguish) always wins;
+//  2. else the recorded normalised.headerVariant beside the committed
+//     derivatives;
+//  3. else the variant is DETECTED from the entry's own header row (the
+//     hash-pinned verbatim publication - an INPUT, never a derivative) via
+//     the same authored registry the converter lane and the ledger emit
+//     detect with - the path a freshly fetched publication (raw + meta only,
+//     nothing curated yet) takes, so a new data landing can never stall the
+//     projection on a declaration only the derivation lane used to write.
+// Whichever source chose the variant, its mapping's declared headers must
+// EQUAL the observed header row (order-sensitive) whenever one is readable: a
+// declaration that contradicts the published file's own header row is an
+// integrity failure, never a state to read around.
+//
+// The ledger's own @column file-level manifest (ADR 0016) would be the purer
+// header source here, but the main emit does not carry it today - it is
+// composed only in the reconstruction oracle's stream. Promoting the manifest
+// into the canonical emit is #455-adjacent follow-on work; until then the
+// observed header row reads the same committed bytes the emit itself parsed.
+//
+// Twin shapes that share a header row (the ISO-dated workbook-extract twin of
+// v2026-licence-version) are BY AUTHORED DESIGN never detected: detection
+// returns the primary (day-first) variant, exactly as the converter lane and
+// the ledger emit detect, and the twin exists only through a curated
+// converter.variant. A twin-shaped source mis-bound to the primary cannot
+// ship silently: its ISO date cells fail the primary's day-first
+// interpretation loudly at fold time (parseUkDateTimeDetailed), forcing the
+// curation the twin was authored to require.
+export function resolveEntryVariant(key: string, declared: DeclaredVariants, observed: ObservedHeader): string {
+  const variant = declared.forced ?? declared.recorded ?? observed.variant;
   if (variant === undefined) {
-    throw new Error(`archive/${key}/meta.json declares no normalised.headerVariant - cannot project without the authored binding`);
+    throw new Error(observed.headers === undefined
+      ? `archive/${key}: meta.json declares no variant (converter.variant / normalised.headerVariant) and the entry's parse source offers no readable header row - cannot resolve the authored raw->canonical binding`
+      : `archive/${key}: header row [${observed.headers.join(', ')}] matches no authored variant - author the raw->canonical binding (VARIANTS, src/sources/ofcom-amateur/normalise.ts) before this entry can project`);
+  }
+  const mapping = mappingForVariant(variant);
+  if (mapping === undefined) {
+    throw new Error(`archive/${key}: declared variant "${variant}" is not in the variant registry`);
+  }
+  if (observed.headers !== undefined) {
+    const expected = Object.keys(mapping);
+    if (expected.length !== observed.headers.length || expected.some((header, i) => header !== observed.headers?.[i])) {
+      throw new Error(`archive/${key}: variant "${variant}" declares headers [${expected.join(', ')}] but the entry's parse source carries [${observed.headers.join(', ')}] - the declaration contradicts the published header row`);
+    }
   }
   return variant;
 }
@@ -317,7 +376,10 @@ export function projectPublicationsFromLedger(
     const claims = parseClaimsJsonl(fs.readFileSync(filePath, 'utf8'));
     const keyMatch = /^opendata\/([^/]+)\//.exec(claims[0]?.provenance.sourceFile ?? '');
     if (keyMatch === null) continue;
-    publications.push(projectPublicationFromClaims(claims, ref, declaredVariantFor(archiveDir, keyMatch[1])));
+    const key = keyMatch[1];
+    const meta = declaredVariantsFor(archiveDir, key);
+    const variant = resolveEntryVariant(key, meta, observeEntryHeader(path.join(archiveDir, key), meta.filesDeclaration));
+    publications.push(projectPublicationFromClaims(claims, ref, variant));
   }
   publications.sort((a, b) => codepointCompare(a.key, b.key));
   if (publications.length === 0) {
