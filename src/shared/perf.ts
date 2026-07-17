@@ -158,7 +158,15 @@ function writeReportJson(destination: string, entrypoint?: string): void {
     fs.writeFileSync(tmp, body);
     fs.renameSync(tmp, target);
   } catch (cause) {
-    fs.rmSync(tmp, { force: true });
+    // Best-effort cleanup: `force` suppresses only ENOENT, and an unwritable
+    // destination can fail the removal itself in platform-dependent ways
+    // (e.g. ENOTDIR when a path component is a file) — the contextual error
+    // below must win over any cleanup failure.
+    try {
+      fs.rmSync(tmp, { force: true });
+    } catch {
+      // The temp file cannot exist if its path was never creatable.
+    }
     const reason = cause instanceof Error ? cause.message : String(cause);
     throw new Error(`perf: could not write the PERF_JSON report to ${target}: ${reason}`);
   }
