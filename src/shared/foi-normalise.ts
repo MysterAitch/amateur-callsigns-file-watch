@@ -989,6 +989,26 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
   ],
 };
 
+// Every RAW source header any authored FOI conversion maps VERBATIM to the given
+// canonical output — the header the raw-emit uses as its claim predicate for that
+// field. Derived from the conversion registry so a new FOI shape keeps the value
+// catalogue's status / product field folds (src/ci/value-catalogue-fold.ts) in
+// sync automatically: the fold reads the raw status/product claim by these header
+// names without re-guessing which raw header carried the field. Only verbatim
+// mappings with a real source header qualify — a synthesised constant (the
+// available-pool sheets' `status = 'Available'`) is not a disclosed header.
+export function foiVerbatimSourceHeaders(output: string): ReadonlySet<string> {
+  const headers = new Set<string>();
+  for (const conversions of Object.values(FOI_ENTRY_CONVERSIONS)) {
+    for (const conversion of conversions) {
+      for (const column of conversion.columns) {
+        if (column.output === output && column.kind === 'verbatim' && column.source !== null) headers.add(column.source);
+      }
+    }
+  }
+  return headers;
+}
+
 // The 2013/14 suffix-list sheets differ only in filename, stated prefix and
 // class; the label row doubles as the verbatim-matched header.
 function suffixListConversions(sheets: readonly [string, string, string, string][]): FoiSourceConversion[] {
