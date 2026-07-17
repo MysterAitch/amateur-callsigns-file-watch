@@ -88,6 +88,7 @@ import * as path from 'path';
 import * as zlib from 'zlib';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
+import { derivedEntryFile } from '../shared/derived-entries.ts';
 import { buildFoiObservations, type FoiObservationRow } from '../shared/foi-observations.ts';
 import { defaultFoiDir } from '../shared/foi-archive.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
@@ -248,7 +249,7 @@ function openDataSources(archiveDir: string): DatasetSource[] {
     return {
       dataset,
       loadRows: (): SourceRow[] => {
-        const records = parseCsvCached(path.join(archiveDir, key, 'normalised.csv'), { columns: true, skip_empty_lines: true });
+        const records = parseCsvCached(derivedEntryFile(key, 'normalised.csv', archiveDir), { columns: true, skip_empty_lines: true });
         const hasStatus = records.length > 0 && Object.hasOwn(records[0], 'status');
         return records.map(r => ({
           callsign: r.callsign ?? '',

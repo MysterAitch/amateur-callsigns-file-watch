@@ -26,6 +26,7 @@ import { parse } from 'csv-parse/sync';
 import { CONSTANTS, calculateFileHash, type ArchiveMeta , errorMessage } from '../shared/utils.ts';
 import { physicalLines } from '../sources/ofcom-amateur/normalise.ts';
 import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
+import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
 import { validateFoiLaneAt } from './validate-foi.ts';
 import { validatePublishersAt } from './validate-publishers.ts';
 import {
@@ -319,8 +320,12 @@ export function deepValidateEntryCsv(key: string): ValidationProblem[] {
   // exempt: multiple empties exist in real publications (2023-02-20 carries
   // two), their handling policy is deliberately undecided, and they are
   // surfaced by the emptyCallsign detector - join consumers must exclude them.
-  const normalisedPath = path.join(entryDir(key), 'normalised.csv');
-  if (fs.existsSync(normalisedPath)) {
+  // This is a DERIVED-file read, so it resolves through the archive/projection
+  // switch (issue #629 phase 2). The RAW/META byte-integrity checks above stay
+  // archive reads by design (#448: byte-integrity of the committed record is
+  // never lost) - only the normalised-derivative content check moves.
+  if (derivedEntryFileExists(key, 'normalised.csv')) {
+    const normalisedPath = derivedEntryFile(key, 'normalised.csv');
     try {
       const rows = parse(fs.readFileSync(normalisedPath, 'utf8'), { columns: true, skip_empty_lines: true }) as Record<string, string>[];
       const seen = new Set<string>();

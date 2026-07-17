@@ -39,6 +39,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
+import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
 import { listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
 import { foldQuery, csvFileList, cleanedKeyExpr } from '../v2/report-fold.ts';
 import { time, perfReport } from '../shared/perf.ts';
@@ -133,8 +134,11 @@ function enumerateRegisters(foiDir: string): RegisterSource[] {
       const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete?: boolean } };
       partial = meta.intendedCoverage?.complete === false;
     } catch { /* absent/unreadable meta: treat as complete, the file itself is the evidence */ }
-    const file = path.join(dir, 'normalised.csv');
-    registers.push({ key, vintage: key, kind: 'open-data', partial, files: fs.existsSync(file) && hasCallsignColumn(file) ? [file] : [] });
+    // The register content is a derived file, so it resolves through the
+    // archive/projection switch; meta.json above stays an archive read.
+    const hasFile = derivedEntryFileExists(key, 'normalised.csv');
+    const file = hasFile ? derivedEntryFile(key, 'normalised.csv') : undefined;
+    registers.push({ key, vintage: key, kind: 'open-data', partial, files: file !== undefined && hasCallsignColumn(file) ? [file] : [] });
   }
   for (const entry of listFoiEntryKeys(foiDir)) {
     const meta = readFoiEntryMeta(foiDir, entry);
@@ -207,7 +211,9 @@ function buildDepletionImpl(): CrossDataset {
   const pools = enumeratePools(foiDir);
   if (pools.length === 0) return { register, allocatedTotal: 0, rows: [] };
 
-  const latestFile = path.join(CONSTANTS.DIRS.archive, register, 'normalised.csv').replace(/\\/g, '/');
+  // Derived-file read (archive/projection switched), forward-slashed for the
+  // DuckDB read_csv literal it is interpolated into.
+  const latestFile = derivedEntryFile(register, 'normalised.csv').replace(/\\/g, '/');
   const key = cleanedKeyExpr();
   const poolBranches = unionBranches(pools, 'pidx');
   const vintageValues = pools.map((pool, index) => `(${index}, '${pool.vintage}')`).join(', ');

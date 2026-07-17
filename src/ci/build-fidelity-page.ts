@@ -45,6 +45,7 @@ import { loadOpenDataRegisterSource, defaultArchiveDir } from '../v2/collectors/
 import { COVERED_FAMILIES, MARKDOWN_PROSE_SCOPE_NOTE } from './reconstruction-oracle.ts';
 import { parseFlagRegistry } from './build-sqlite.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
+import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
 import type { DivergenceRecord } from '../shared/witness-agreement.ts';
 import type { ArchiveMeta } from '../shared/utils.ts';
@@ -422,8 +423,10 @@ export function buildFidelityPage(outputDir: string, baseUrl: string = DEFAULT_B
   const rendered: { heading: string; blurb: string; context: string; html: string }[] = [];
   let newestStats: Record<string, number> = {};
   if (newestKey !== undefined) {
-    const statsPath = path.join(archiveDir, newestKey, 'stats.json');
-    if (fs.existsSync(statsPath)) {
+    // stats.json is a derived file (mode-resolved: archive or projection);
+    // meta.json and the raw source below stay archive reads.
+    if (derivedEntryFileExists(newestKey, 'stats.json', archiveDir)) {
+      const statsPath = derivedEntryFile(newestKey, 'stats.json', archiveDir);
       newestStats = (JSON.parse(fs.readFileSync(statsPath, 'utf8')) as { callsignFlags?: Record<string, number> }).callsignFlags ?? {};
     }
     const meta = JSON.parse(fs.readFileSync(path.join(archiveDir, newestKey, 'meta.json'), 'utf8')) as ArchiveMeta;

@@ -20,6 +20,7 @@ import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS } from '../shared/utils.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
+import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
 import {
   type EntryStats,
   type StringColumnStats,
@@ -108,8 +109,7 @@ function newestStats(): { key: string; stats: EntryStats } {
   const keys = listArchiveKeys().sort();
   const newest = keys[keys.length - 1];
   if (newest === undefined) throw new Error('no archive entries found');
-  const statsPath = path.join(CONSTANTS.DIRS.archive, newest, 'stats.json');
-  const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8')) as EntryStats;
+  const stats = JSON.parse(fs.readFileSync(derivedEntryFile(newest, 'stats.json'), 'utf8')) as EntryStats;
   return { key: newest, stats };
 }
 
@@ -124,9 +124,8 @@ export function renderFlagsTableHtml(): string {
   const keys = listArchiveKeys().sort().reverse();
   const datasets: { key: string; recordCount: number; flags: Record<string, number> }[] = [];
   for (const key of keys) {
-    const statsPath = path.join(CONSTANTS.DIRS.archive, key, 'stats.json');
-    if (!fs.existsSync(statsPath)) continue;
-    const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8')) as EntryStats;
+    if (!derivedEntryFileExists(key, 'stats.json')) continue;
+    const stats = JSON.parse(fs.readFileSync(derivedEntryFile(key, 'stats.json'), 'utf8')) as EntryStats;
     datasets.push({ key, recordCount: stats.recordCount, flags: stats.callsignFlags ?? {} });
   }
   const flagNames = [...new Set(datasets.flatMap(d => Object.keys(d.flags)))].sort();
@@ -153,7 +152,7 @@ export function renderRslMatrixHtml(): string {
   const keys = listArchiveKeys().sort();
   const newest = keys[keys.length - 1];
   if (newest === undefined) throw new Error('no archive entries found');
-  const components = readCsv(path.join(CONSTANTS.DIRS.archive, newest, 'components.csv'));
+  const components = readCsv(derivedEntryFile(newest, 'components.csv'));
 
   const refSeries = readCsv(path.join(REFERENCE_DATA_DIR, 'prefix-formats.csv')).map(r => r.prefix);
   const refRsl = readCsv(path.join(REFERENCE_DATA_DIR, 'rsl.csv')).map(r => r.rsl).sort();
