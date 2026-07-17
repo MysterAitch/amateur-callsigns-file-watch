@@ -418,6 +418,13 @@ jobs:
   coverage:
     name: coverage
     needs: [heavy-fold, heavy-nonfold, heavy-shard, build-sqlite-tiers, build-ledger, fast]
+    # Runs on red too (skipped only on cancellation): the merged report and the
+    # run summary are MOST needed when a shard failed, and the blob uploads now
+    # survive failure. On a red run the merge covers the shards that completed;
+    # the run-level conclusion is already red via the tests aggregator, and the
+    # baseline fetch only ever reads SUCCESSFUL runs, so a partial merge can
+    # neither go green nor pollute later comparisons.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
