@@ -12,7 +12,7 @@ The repository's data falls into four strata with distinct lifecycles:
 |---|---|---|
 | **source mirror** | `archive/*/raw.csv` (+ provenance in `meta.json`) | verbatim publications; never modified |
 | **reference data** | `reference-data/` | hand-curated knowledge with citations; an *input*, reviewed like code |
-| **derived data** | `normalised.csv`, `components.csv`, `stats.json`, `reports/` | machine-derived in the golden-master lane: byte-deterministic, re-derived by the scheduled sweep, changes arrive as human-reviewed PRs |
+| **derived data** | `normalised.csv`, `components.csv`, `stats.json` (per pre-freeze entry), `reports/` | machine-derived in the golden-master lane: byte-deterministic; the per-entry files are a frozen equivalence baseline (ADR 0021) and `reports/` alone is regenerated, by the scheduled report sweep; changes arrive as human-reviewed PRs |
 | **presentation** | downstream consumers (UI repositories, analyses) | assembles derived + reference data at read time |
 
 `archive/{key}/normalised.csv` presents every publication in ONE stable shape,
@@ -29,13 +29,14 @@ switch, and a publication newer than the baseline carries its derived views in
 the ledger projection only, byte-format-identical by construction. Git history
 preserves every earlier version of the committed files.
 
-> **Migration note ([ADR 0013](adr/0013-raw-keyed-claim-ledger.md)).** The
-> project is inverting its canonical-record model: the raw-keyed claim ledger
-> becomes canonical and `normalised.csv` is recast as a *derived fold* over it
-> (an exploratory proof re-derived every committed `normalised.csv` from
-> per-cell claims exactly). This is a strangler migration in progress — the
-> schema below remains the committed baseline and the golden-master lane keeps
-> working until each projection is reproduced against its golden.
+> **Migration note ([ADR 0013](adr/0013-raw-keyed-claim-ledger.md),
+> [ADR 0021](adr/0021-frozen-derived-baseline.md)).** The project inverted its
+> canonical-record model: the raw-keyed claim ledger is canonical, and
+> `normalised.csv` is a *derived fold* over it, proven byte-identical to the
+> committed baseline entry by entry by a standing parity gate. The strangler
+> migration completed at the freeze — the schema below remains the committed
+> baseline for every pre-freeze entry, and the ledger projection is the
+> derivation lane for every entry after it.
 
 ## Line accounting: `headerLines` and `ignoredLines`
 
@@ -143,16 +144,18 @@ sorted example values), and per-column
 distributions (distinct/empty counts, string-length
 ranges, date min/max; distinct and ranges consider non-empty values only,
 emptiness being its own counter). It lives in the same golden-master lane:
-produced by the sweep, declared in `meta.files` (size + sha256), versioned via
-`normalised.statsSchemaVersion` in meta, serialised with lexicographically
-sorted keys so diffs between publications stay minimal and are themselves a
-review signal.
+committed as part of the frozen baseline for pre-freeze entries and folded
+from the ledger projection for entries after it (ADR 0021), declared in
+`meta.files` (size + sha256), versioned via `normalised.statsSchemaVersion` in
+meta, serialised with lexicographically sorted keys so diffs between
+publications stay minimal and are themselves a review signal.
 
-Derivation PRs and the coverage dashboard include a neighbour-comparison
-table for each changed entry — up to three chronological neighbours on *each
-side* (archive-key order), showing record-count deltas and callsign patterns
-gained/lost, so a reviewer can judge whether a new or retrospectively
-inserted publication is plausible in both directions.
+Each entry's committed data-quality report (`reports/{key}.md`), regenerated
+wholesale by the report sweep, includes a neighbour-comparison table — up to
+three chronological neighbours on *each side* (archive-key order), showing
+record-count deltas and callsign patterns gained/lost, so a reviewer can judge
+whether a new or retrospectively inserted publication is plausible in both
+directions.
 
 ## Schema v1
 
@@ -202,7 +205,7 @@ as published — intent, not verified data quality — and flows
 through to how the normalised file may be used: a partial entry (scoped FOI
 response, truncated publication) normalises fine, but its rows must never be
 read as the full population, and cross-entry diffs against it mislead. The
-sweep's dashboard flags such entries.
+report sweep's coverage dashboard flags such entries.
 
 `intendedCoverage` is never retro-edited — it records what the publisher
 claimed. **Verified quality is a separate axis**: `meta.qualityObservations`
@@ -220,7 +223,9 @@ automatically, and entry pages surface the observation under their heading.
 ## Evolving the schema
 
 A new version = a converter change (with tests and fixtures) merged like any
-code, after which the next sweep re-derives every supported entry in one
-reviewable PR — the cross-entry diff is the review artefact. Anticipated v2:
-derived callsign-component columns (prefix / region identifier / number /
+code. No sweep re-derives entries any more (ADR 0021): the change flows
+through the ledger projection, which the parity gate checks against the
+frozen baseline for every pre-freeze entry, and which supplies every entry
+after it directly — there is no separate writeback PR to review. Anticipated
+v2: derived callsign-component columns (prefix / region identifier / number /
 suffix) and licence-level classification.
