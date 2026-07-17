@@ -1404,9 +1404,37 @@ export function makeRunLookup({ button, statusEl, alertEl, resultEl, open, looku
 // attaches createDbWorker), exactly like explore.js and playground.js - so
 // importing this module in a test opens no worker and wires no DOM, leaving the
 // exported helpers (makeRunLookup, the pure query builders) unit-testable.
+// Type-ahead source (issue #712): the front door's search box offers real
+// register callsigns as the visitor types. Exposed as a global hook the
+// home-page enhancement (home.js) consumes when present, so the type-ahead
+// queries the SAME range-served database the lookup itself uses — never a second
+// data source that could drift. Prefix-anchored and tightly limited; returns []
+// on any error or before the database is open, so the box always degrades to its
+// plain form. A value already carrying a wildcard is a filter expression, not a
+// prefix, so no suggestions are offered for it.
+/**
+ * @param {string} prefix
+ * @returns {Promise<string[]>}
+ */
+async function suggestCallsigns(prefix) {
+  const cleaned = String(prefix).toUpperCase().replace(/[^A-Z0-9/]/g, '');
+  if (cleaned.length < 2) return [];
+  try {
+    /** @type {{ callsign: string }[]} */
+    const rows = await query(
+      `SELECT callsign FROM normalised WHERE callsign LIKE ? ESCAPE '\\' ORDER BY callsign LIMIT 8`,
+      [cleaned.replace(/[%_]/g, ch => '\\' + ch) + '%']);
+    return rows.map(r => r.callsign);
+  } catch { return []; }
+}
+
 function initLookup() {
   // Kick off the cold open once; the shared query() helper awaits this promise.
   dbPromise = openDatabase();
+  // Publish the type-ahead hook now the database open is in flight; home.js
+  // reads it if the front-door enhancement is present. Cast: the hook is not on
+  // the shared Window declaration (global.d.ts), and it is deliberately optional.
+  /** @type {{ callsignSuggest?: (prefix: string) => Promise<string[]> }} */ (window).callsignSuggest = suggestCallsigns;
 
   // Guaranteed present in index.html; never null-guarded here originally.
   const resultEl = /** @type {HTMLElement} */ (document.getElementById('result'));
