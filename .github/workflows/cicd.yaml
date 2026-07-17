@@ -453,7 +453,7 @@ jobs:
   # Workflow hygiene auditors. Not required status checks (they gate the
   # workflows, not the data), but red runs demand attention:
   # - actionlint: syntax + shellcheck on the bash embedded in run: blocks -
-  #   the security-critical orchestration (data-sweep, normalise) lives there.
+  #   the security-critical orchestration (data-sweep, reports-sweep) lives there.
   # - zizmor: security audit of workflow patterns (pwn-requests, credential
   #   handling, unpinned actions).
   workflow-audit:
@@ -495,12 +495,12 @@ jobs:
           # Structural + byte-integrity checks run over ALL archive entries;
           # expensive deep CSV parsing runs only on entries this PR touches
           # (or the newest entry, on pushes to main).
-          # Deliberately NO BUILDER_PROJECTION_DIR here (issue #629 phase 2):
-          # this job validates the COMMITTED record a data PR merges - the
-          # bytes under archive/ - so its derived-file reads stay on the
-          # archive. The projection-side twin of those bytes is separately
-          # gated by the full-corpus parity suite; this read moves only when
-          # the committed derivatives retire (#446/#448).
+          # Deliberately NO BUILDER_PROJECTION_DIR here (issue #629): this job
+          # validates the COMMITTED record a data PR merges - the raw/meta
+          # bytes and the frozen derived baseline under archive/ - so its
+          # derived-file reads stay on the archive. The projection-side twin
+          # of the frozen baseline is separately gated by the full-corpus
+          # parity suite; #448 owns any re-home of the validators.
           keys=""
           if [ -n "${GITHUB_BASE_REF:-}" ]; then
             keys="$(git diff --name-only "origin/$GITHUB_BASE_REF"...HEAD -- 'archive/' | cut -d/ -f2 | sort -u)"
@@ -510,17 +510,16 @@ jobs:
 
   # Golden-master freshness (issue #243). The value catalogue and standing
   # reports under reports/ are committed golden masters, regenerated and
-  # committed by the SCHEDULED normalise sweep (normalise.yml). Nothing
+  # committed by the SCHEDULED report sweep (reports-sweep.yml). Nothing
   # otherwise stops a PR from changing generation logic - or hand-editing a
   # report - and committing a stale copy while CI stays green: the "PR diff is
   # the drift signal" contract would then hold only on the schedule, never
   # per-PR. This job re-runs the same generators (no network, no SQLite build),
   # feeding the report lane's derived-file reads from the ledger projection
-  # (issue #629 phase 2 - see the regeneration step), and fails if the working
-  # tree then differs from what is committed, so a stale golden master is
-  # caught on the PR that introduced it. The assertion is scoped to reports/:
-  # archive re-derivation is a separate, human-reviewed concern owned by the
-  # scheduled sweep, so this gate never hard-fails a PR on archive drift.
+  # (issue #629 - see the regeneration step), and fails if the working tree
+  # then differs from what is committed, so a stale golden master is caught on
+  # the PR that introduced it. The assertion is scoped to reports/ - the only
+  # tree the report lane writes (#446 froze the committed archive derivatives).
   #
   # CACHED regeneration (#478): the sweep is the job's whole cost, and its output
   # is a pure function of its input closure - the committed archive/ +
@@ -583,20 +582,17 @@ jobs:
         if: steps.reports-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          # Golden regeneration flows FROM THE LEDGER PROJECTION (issue #629
-          # phase 2): the report lane's derived-file reads (per-entry stats,
-          # components, the register the invariants fold) resolve into the
-          # projection built here, not the committed archive copies. Sound
-          # because the sweep's outputs ARE what the full-corpus parity gate
-          # proved byte-identical to the projection, so the regenerated
-          # reports are byte-identical either way - and regenerating them
-          # this way proves, pre-merge, the exact input path that survives
-          # when #446 retires the committed derivatives. The sweep's
-          # DERIVATION half stays raw-driven (it is the producer of the
-          # committed files until #446); the drift assertion below is scoped
-          # to reports/ as before.
+          # Golden regeneration flows FROM THE LEDGER PROJECTION (issue #629):
+          # the report lane's derived-file reads (per-entry stats, components,
+          # the register the invariants fold) resolve into the projection
+          # built here - the SAME input path the scheduled report sweep runs,
+          # so this gate proves pre-merge exactly what the schedule will do.
+          # For the frozen committed baseline the projection is byte-identical
+          # to the committed files (the parity gate), and a publication newer
+          # than the baseline exists only in the projection - reading it here
+          # is what keeps this drift gate honest the day one lands.
           node src/v2/build-builder-projection.ts "$RUNNER_TEMP/builder-projection"
-          BUILDER_PROJECTION_DIR="$RUNNER_TEMP/builder-projection" npm run normalise:sweep
+          BUILDER_PROJECTION_DIR="$RUNNER_TEMP/builder-projection" npm run reports:sweep
           rm -rf .golden-cache/reports
           mkdir -p .golden-cache
           cp -r reports .golden-cache/reports
@@ -623,7 +619,7 @@ jobs:
           # (ADR 0012 read-only posture; issue #581).
           if ! git diff --quiet -- reports/; then
             echo "drifted=true" >> "$GITHUB_OUTPUT"
-            echo "::error::Committed golden-master reports under reports/ are stale. The regenerated reports are attached as the 'regenerated-goldens' artifact - download it ('gh run download --name regenerated-goldens') and commit it over reports/, or regenerate locally with 'npm run setup:duckdb && npm run normalise:sweep'. Drift below:"
+            echo "::error::Committed golden-master reports under reports/ are stale. The regenerated reports are attached as the 'regenerated-goldens' artifact - download it ('gh run download --name regenerated-goldens') and commit it over reports/, or regenerate locally with 'npm run setup:duckdb' then 'node src/ci/report-sweep.ts --build-projection'. Drift below:"
             git --no-pager diff -- reports/
           else
             echo "drifted=false" >> "$GITHUB_OUTPUT"
