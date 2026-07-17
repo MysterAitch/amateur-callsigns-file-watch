@@ -144,6 +144,28 @@ describe('xlsx extractor - cell rendering', { tags: ['unit'] }, () => {
     expect(() => extractWorkbook(workbook)).toThrow(/formula/);
   });
 
+  it('XlsxExtract_FormulaErrorCell_RendersCachedErrorTokenVerbatim', () => {
+    // A cell whose formula failed to evaluate carries t="e" and a cached error
+    // literal (the ~2021 asset-210648 register leaked CONCATENATE(#REF!,#REF!)
+    // cells into the callsign column, #335). The token is a data defect to be
+    // surfaced downstream (spreadsheet-error-token flag), so it is carried
+    // verbatim, never dropped or silently taken as a value.
+    const workbook = workbookOf(
+      [{ name: 'Sheet1', cells: '<row r="1"><c r="A1" t="e"><f>CONCATENATE(#REF!,#REF!)</f><v>#REF!</v></c></row>' }],
+    );
+    const [sheet] = extractWorkbook(workbook);
+    expect(sheet.rows).toEqual([['#REF!']]);
+  });
+
+  it('XlsxExtract_ErrorCellWithoutCachedValue_Throws', () => {
+    // An error-typed cell with no cached value is a genuinely new construct; it
+    // must surface for review rather than be guessed.
+    const workbook = workbookOf(
+      [{ name: 'Sheet1', cells: '<row r="1"><c r="A1" t="e"><f>NA()</f></c></row>' }],
+    );
+    expect(() => extractWorkbook(workbook)).toThrow(/error cell with no cached value/);
+  });
+
   it('XlsxExtract_XmlEntities_DecodedInStringsAndAttributes', () => {
     const workbook = workbookOf(
       [{ name: 'Sheet1', cells: '<row r="1"><c r="A1" t="s"><v>0</v></c></row>' }],

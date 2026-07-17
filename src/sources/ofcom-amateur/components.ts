@@ -136,8 +136,9 @@ const REPLACEMENT_CHAR_RE = /\uFFFD/g;
 // The spreadsheet formula-error literals a workbook publishes in a cell when a
 // formula fails to evaluate. They are data defects, never callsigns: a source
 // export leaked fourteen such tokens into the callsign column of the ~2021
-// asset-210648 register (broken CONCATENATE(#REF!,#REF!) cells, all
-// Status=Allocated - see docs/source-register.md and #335). Matched on the
+// asset-210648 register (broken CONCATENATE(#REF!,#REF!) cells, twelve
+// Status=Allocated and two Reserved - see docs/source-register.md and #335).
+// Matched on the
 // trimmed, upper-cased value so a whitespace- or case-damaged token is still
 // recognised, while the raw value stays verbatim in the row and is flagged
 // `spreadsheet-error-token` rather than silently treated as valid or dropped.

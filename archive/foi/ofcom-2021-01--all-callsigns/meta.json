@@ -21,7 +21,8 @@
     { "entry": "ofcom-2021-04--all-callsigns", "relation": "the spring-2021 sibling snapshot in the same six-column export shape (differing only in the case of two headers); 1,114 more records three months on. Together the two fill the 2021 gap in the register timeline." },
     { "entry": "ofcom-756622--published-register-csv", "relation": "the preceding full FOI register snapshot held (2019-09-12, 141,295 records); this early-2021 snapshot's 146,763 records mark the register's continued growth." },
     { "entry": "ofcom-01420046--allocated-reserved-callsigns", "relation": "the following full register snapshot (2022-03, 150,181 records), disclosed in the reduced Value/Status/Type shape - it dropped the reservation-expiry, original-start-date and licence-product columns these 2021 annexes carry." },
-    { "entry": "wdtk-1180568--licence-breakdown-duration-age", "relation": "the next FOI register snapshot held after 2022 (2024-10); this entry sits earlier in the 2019->2024 FOI register sequence." }
+    { "entry": "wdtk-1180568--licence-breakdown-duration-age", "relation": "the next FOI register snapshot held after 2022 (2024-10); this entry sits earlier in the 2019->2024 FOI register sequence." },
+    { "entry": "ofcom-210648--corrupt-annex-callsigns", "relation": "the #REF!-corrupted same-vintage sibling (asset 210648): a narrower three-column export of the same early-2021 register in which fourteen call-sign cells were published as broken CONCATENATE(#REF!,#REF!) formulas. This entry is the clean twin it is enumerated against; the corruption is upstream in Ofcom's published file (#335)." }
   ],
   "files": {
     "annex-a-list-of-all-call-signs.xlsx": {

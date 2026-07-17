@@ -268,10 +268,24 @@ export function extractWorkbook(bytes: Buffer): ExtractedSheet[] {
     const attributes = attributesOf(cellXml.slice(0, tagEnd + 1));
     const cellRef = attributes.get('r') ?? '?';
     const context = `sheet ${JSON.stringify(sheetTitle)} cell ${cellRef}`;
+    const type = attributes.get('t') ?? 'n';
+    if (type === 'e') {
+      // A cached spreadsheet formula-error literal (e.g. #REF! from a broken
+      // CONCATENATE): a defect the publisher shipped, carried verbatim so it is
+      // neither silently parsed as data nor dropped. Downstream the callsign
+      // parser flags it `spreadsheet-error-token` (SPREADSHEET_ERROR_TOKENS in
+      // src/sources/ofcom-amateur/components.ts; issues #335/#399). The <v>
+      // holds the cached token; an error cell lacking one is a genuinely new
+      // construct that must surface for review, not be guessed.
+      const cachedError = /<v(?: [^>]*)?>([\s\S]*?)<\/v>/.exec(cellXml);
+      if (cachedError === null) {
+        throw new Error(`${context}: error cell with no cached value - extend the reader (with review)`);
+      }
+      return decodeXmlText(cachedError[1]);
+    }
     if (cellXml.includes('<f')) {
       throw new Error(`${context}: formula cell - extend the reader (with review)`);
     }
-    const type = attributes.get('t') ?? 'n';
     if (type === 'inlineStr') {
       return textOf(cellXml, context);
     }
