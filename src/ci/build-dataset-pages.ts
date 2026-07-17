@@ -400,6 +400,52 @@ const STATUS_DOCS: RenderedDoc[] = [
   { source: 'docs/dataset-status.md', slug: 'dataset-status', label: 'Dataset status', blurb: 'the mirror’s per-dataset build and coverage status.' },
 ];
 
+// A curated, notebook-style walkthrough of one finding (issue #657), rendered
+// onto the site alongside the standing reports above. Distinct from
+// STANDING_REPORTS: those are sweep-regenerated tables whose whole point is to
+// come out identical on every run; a narrative is hand-authored prose that
+// argues a single finding end to end, every claim tagged observation /
+// derivation / hypothesis (docs/narratives/the-six-twins.md is the first).
+//
+// A narrative joins the published collection by adding a markdown file under
+// docs/narratives/ - discovered by directory listing below, so nothing here
+// names an individual file and no second place needs editing. Its slug is the
+// file name and its title is read from the file's own first heading, so the
+// page's <title> cannot drift from the document it renders.
+const NARRATIVES_SOURCE_DIR = ['docs', 'narratives'];
+
+export interface NarrativeDoc { name: string; slug: string; title: string }
+
+// The document's own first ATX heading, trimmed of the leading `#`s - not a
+// second, editable copy of the title. A heading-less file falls back to a
+// title built from its file name, so a missing heading degrades gracefully
+// rather than shipping a blank <title>.
+export function narrativeTitle(markdown: string, fallbackSlug: string): string {
+  const heading = /^#\s+(.+)$/m.exec(markdown);
+  const title = heading?.[1]?.trim();
+  if (title !== undefined && title !== '') return title;
+  const spaced = fallbackSlug.replace(/[-_]+/g, ' ').trim();
+  return spaced === '' ? fallbackSlug : spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+// Every narrative currently committed under `dir`, found by directory
+// listing rather than a hand-maintained registry - deliberately NOT the
+// STANDING_REPORTS/DICTIONARY_DOCS pattern above, whose entries each need a
+// hand-written label and blurb no directory scan could infer. A missing
+// directory (a checkout with no narratives yet) yields an empty list rather
+// than failing the build.
+export function listNarrativeDocs(dir: string): NarrativeDoc[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter(name => name.endsWith('.md'))
+    .sort()
+    .map(name => {
+      const slug = name.slice(0, -'.md'.length);
+      const markdown = fs.readFileSync(path.join(dir, name), 'utf8');
+      return { name, slug, title: narrativeTitle(markdown, slug) };
+    });
+}
+
 
 // ---- Redesigned entry-page components (variant Q, static half) ----
 
@@ -1761,6 +1807,41 @@ export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: st
     }
   }
 
+  // Narratives (issue #657): rendered under /reports/narratives/ and listed on
+  // the hub below, plus back-linked from the fidelity page's consistency
+  // section and the ledger's co-temporal-status-divergence note. A relative
+  // link in the source (to repository code, an archived CSV, a sibling doc)
+  // resolves on GitHub, not at the site's own path layout, so it is rewritten
+  // to the repository blob; an absolute link (the narrative's own citations to
+  // live callsign/ledger/fidelity pages) and an in-page anchor are left
+  // exactly as written.
+  const narrativesSourceDir = path.join(REPO_ROOT, ...NARRATIVES_SOURCE_DIR);
+  const narrativeDocs = listNarrativeDocs(narrativesSourceDir);
+  if (narrativeDocs.length > 0) {
+    const narrativesOutDir = path.join(reportsDir, 'narratives');
+    fs.mkdirSync(narrativesOutDir, { recursive: true });
+    for (const doc of narrativeDocs) {
+      const sourcePath = `${NARRATIVES_SOURCE_DIR.join('/')}/${doc.name}`;
+      const sourceDir = path.posix.dirname(sourcePath);
+      let rendered = renderMarkdown(fs.readFileSync(path.join(narrativesSourceDir, doc.name), 'utf8'));
+      rendered = rendered.replace(/href="([^"]+)"/g, (whole: string, href: string) => {
+        if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('#')) return whole; // absolute or in-page: unchanged
+        return `href="${REPO_URL}/blob/main/${path.posix.normalize(path.posix.join(sourceDir, href))}"`;
+      });
+      // Named entities (FOI entries, prefix series, flags) deep-link to their
+      // pages, same as the standing reports; run AFTER the rewrite above so it
+      // never mistakes a freshly-minted site-relative link for a repo path.
+      rendered = linkKnownEntities(rendered, foiKeySet, series, flags, '../../');
+      const body = [
+        `<p><small>A data narrative, rendered from <a href="${REPO_URL}/blob/main/${sourcePath}">${escapeHtml(sourcePath)}</a> in the repository (the authoritative copy). <a href="../index.html">All reports →</a></small></p>`,
+        '<hr>',
+        rendered,
+      ];
+      fs.writeFileSync(path.join(narrativesOutDir, `${doc.slug}.html`), htmlPage(doc.title, 2, body, { currentNav: 'Reports', sourcePath }));
+      urls.push(`${baseUrl}/reports/narratives/${doc.slug}.html`);
+    }
+  }
+
   const listOf = (docs: RenderedDoc[], rel: string): string[] =>
     ['<ul>', ...docs.map(d => `<li><a href="${rel}${d.slug}.html">${escapeHtml(d.label)}</a> — ${d.blurb}</li>`), '</ul>'];
   const hubBody = [
@@ -1770,6 +1851,15 @@ export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: st
     ...listOf(STANDING_REPORTS, ''),
     ...(entryReportCount > 0
       ? [`<p><small>Per-publication data-quality drill-downs (pattern tables, windowed matrices, pairwise comparisons) — ${entryReportCount} of them — are linked from each publication's own <a href="../datasets/index.html">dataset page</a>, where they belong in context.</small></p>`]
+      : []),
+    ...(narrativeDocs.length > 0
+      ? [
+        '<h2>Narratives</h2>',
+        '<p>Curious-reader walkthroughs of a single finding — the working shown end to end, every claim tagged observation, derivation or hypothesis, and linked to its evidence. A new one joins here by adding a file, not by editing this page.</p>',
+        '<ul>',
+        ...narrativeDocs.map(d => `<li><a href="narratives/${d.slug}.html">${escapeHtml(d.title)}</a></li>`),
+        '</ul>',
+      ]
       : []),
     '<h2>Register status</h2>',
     ...listOf(STATUS_DOCS, ''),

@@ -599,6 +599,13 @@ export const NOTABLE_PARSE_STATUS = {
   },
 };
 
+// The "the six twins" narrative's back-link (issue #657), shared by both the
+// static co-temporal-status-divergence note below and the enriched version of
+// it further down (coTemporalDivergenceNote), so the two copies cannot drift
+// to different wording or a different target.
+/** @type {() => Segment[]} */
+const sixTwinsNarrativeLink = () => [' ', lnk('Read the story: the six twins', 'reports/narratives/the-six-twins.html'), '.'];
+
 // Plain notes for the cross-record observations flagsOf computes (these are not
 // per-row database flags but genuine multi-observation findings). flagsOf's own
 // glosses use model jargon ("raw tokens", "the entity view"); these plainer
@@ -611,7 +618,8 @@ const COMPUTED_NOTES = {
   },
   'co-temporal-status-divergence': {
     label: 'Two forms disagree on status in one snapshot',
-    gloss: ['Within a single snapshot, two written forms of this callsign show different statuses. We show both exactly as published rather than decide which is right.'],
+    gloss: ['Within a single snapshot, two written forms of this callsign show different statuses. We show both exactly as published rather than decide which is right.',
+      ...sixTwinsNarrativeLink()],
   },
 };
 
@@ -793,6 +801,7 @@ export function coTemporalDivergenceNote(claims, cleaned) {
     gloss.push(`Within the ${vintage} snapshot, two written forms of this callsign are listed with different statuses (${pairs}). `);
     gloss.push('We show both exactly as published rather than decide which is right.');
   }
+  gloss.push(...sixTwinsNarrativeLink());
 
   // Working: the per-form statuses that make up the divergence, and the source
   // rows they were seen in (linkable evidence, rule 5).

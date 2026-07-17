@@ -2,7 +2,11 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { buildDatasetPages, dayGap, signedDelta, unkeyableRowsNote, sourceLinesByCallsign, type DatasetPagesSummary } from './build-dataset-pages.ts';
+import {
+  buildDatasetPages, dayGap, signedDelta, unkeyableRowsNote,
+  narrativeTitle, listNarrativeDocs, sourceLinesByCallsign,
+  type DatasetPagesSummary,
+} from './build-dataset-pages.ts';
 import type { SourceObservationSet } from '../v2/claim.ts';
 import { externalLink } from './site-render.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
@@ -80,6 +84,49 @@ describe('unkeyableRowsNote (issue #632)', { tags: ['unit'] }, () => {
     // Faithfully-carried framing, not manufactured alarm: never dropped, just
     // not addressable by callsign.
     expect(html).toMatch(/carried in the row count above, but not addressable/);
+  });
+});
+
+describe('Narrative discovery — future narratives join by adding a file (issue #657)', { tags: ['unit'] }, () => {
+  // Proves the mechanism, not the one committed narrative: listNarrativeDocs is
+  // a pure directory scan (no per-file registry to edit, unlike STANDING_REPORTS
+  // and DICTIONARY_DOCS above it), exercised here against a throwaway directory
+  // so a SECOND, entirely fictional narrative appearing is proof that adding a
+  // file is sufficient - no other test in this suite needs to change for a real
+  // second narrative to land.
+  let dir: string;
+
+  beforeAll(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'narratives-'));
+    fs.writeFileSync(path.join(dir, 'the-six-twins.md'), '# The six twins: one callsign, two register rows\n\nBody.\n');
+    fs.writeFileSync(path.join(dir, 'a-future-narrative.md'), '# A completely different finding\n\nBody.\n');
+    fs.writeFileSync(path.join(dir, 'no-heading.md'), 'Body with no ATX heading at all.\n');
+  });
+
+  afterAll(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('ListNarrativeDocs_DirectoryWithSeveralFiles_DiscoversEveryOneWithNoRegistryEdit', () => {
+    const docs = listNarrativeDocs(dir);
+    expect(docs.map(d => d.slug)).toEqual(['a-future-narrative', 'no-heading', 'the-six-twins']);
+    expect(docs.find(d => d.slug === 'a-future-narrative')?.title).toBe('A completely different finding');
+    expect(docs.find(d => d.slug === 'the-six-twins')?.title).toBe('The six twins: one callsign, two register rows');
+  });
+
+  it('ListNarrativeDocs_FileWithNoHeading_FallsBackToATitleBuiltFromItsFileNameRatherThanFailing', () => {
+    const docs = listNarrativeDocs(dir);
+    expect(docs.find(d => d.slug === 'no-heading')?.title).toBe('No heading');
+  });
+
+  it('ListNarrativeDocs_DirectoryDoesNotExist_YieldsAnEmptyListRatherThanThrowing', () => {
+    expect(listNarrativeDocs(path.join(dir, 'does-not-exist'))).toEqual([]);
+  });
+
+  it('NarrativeTitle_HeadingWithTrailingWhitespaceOrInlineMarkup_IsTrimmedButNotFurtherRewritten', () => {
+    // The title is read verbatim from the heading (trimmed only) - it is not
+    // re-derived or re-escaped, so it cannot drift from what the document says.
+    expect(narrativeTitle('#   Spaced heading   \n\nBody.\n', 'fallback')).toBe('Spaced heading');
   });
 });
 
@@ -546,6 +593,48 @@ describe('Dataset pages build', () => {
     expect(hub).not.toContain('entries/2026-06-23.html');
     // They still join the sitemap for crawlability.
     expect(summary.pageUrls.some(u => u.endsWith('/reports/entries/2026-06-23.html'))).toBe(true);
+  });
+
+  it('ReportPages_TheSixTwinsNarrative_RenderedThemedAndIndexedOnHub', () => {
+    // The first data narrative (issue #657 / #647) gets a themed on-site page
+    // via the established render-markdown path, alongside the standing reports.
+    const page = fs.readFileSync(path.join(outputDir, 'reports', 'narratives', 'the-six-twins.html'), 'utf8');
+    // Title comes from the document's own first heading, not a second,
+    // hand-typed copy of it.
+    expect(page).toContain('<title>The six twins: one callsign, two register rows</title>');
+    expect(page).toContain('<h1>The six twins: one callsign, two register rows</h1>');
+    // The epistemics tagging survives the render (markdown -> HTML, not a
+    // re-summary).
+    expect(page).toContain('<strong>[obs]</strong>');
+    expect(page).toContain('<strong>[der]</strong>');
+    expect(page).toContain('<strong>[hyp]</strong>');
+    // A repo-relative citation (to the cleaning rule's source file) is
+    // rewritten to a followable GitHub blob link, not left as a dead relative
+    // path that assumes the repository's own directory layout.
+    expect(page).toMatch(/href="https:\/\/github\.com\/MysterAitch\/amateur-callsigns-file-watch\/blob\/main\/src\/sources\/ofcom-amateur\/components\.ts"/);
+    expect(page).toMatch(/href="https:\/\/github\.com\/MysterAitch\/amateur-callsigns-file-watch\/blob\/main\/archive\/2026-06-23\/normalised\.csv"/);
+    // Its own citations to live per-callsign/ledger/fidelity pages stay exactly
+    // as the narrative wrote them (absolute, so they survive whatever path this
+    // page itself is served from).
+    expect(page).toContain('https://mysteraitch.github.io/amateur-callsigns-file-watch/callsign.html?c=G6FMU');
+    // Listed on the reports hub, with a stable title-derived link.
+    const hub = fs.readFileSync(path.join(outputDir, 'reports', 'index.html'), 'utf8');
+    expect(hub).toContain('<h2>Narratives</h2>');
+    expect(hub).toContain('<a href="narratives/the-six-twins.html">The six twins: one callsign, two register rows</a>');
+    // Joins the sitemap like every other rendered doc.
+    expect(summary.pageUrls.some(u => u.endsWith('/reports/narratives/the-six-twins.html'))).toBe(true);
+  });
+
+  it('FidelityPage_ConsistencySection_BackLinksTheSixTwinsNarrative', () => {
+    // The first of the two proposed back-links (PR #647): the fidelity
+    // deep-dive's consistency section points readers at the worked example.
+    const fidelity = fs.readFileSync(path.join(outputDir, 'fidelity.html'), 'utf8');
+    const consistencyIndex = fidelity.indexOf('id="consistency"');
+    const divergenceIndex = fidelity.indexOf('id="divergence"');
+    expect(consistencyIndex).toBeGreaterThan(-1);
+    expect(divergenceIndex).toBeGreaterThan(consistencyIndex);
+    const consistencyHtml = fidelity.slice(consistencyIndex, divergenceIndex);
+    expect(consistencyHtml).toContain('href="reports/narratives/the-six-twins.html"');
   });
 
   it('StaticStatistics_LinksToTheReportsThatExpandItsFigures', () => {
