@@ -30,7 +30,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFileSync } from 'child_process';
 import {
   emitLedger,
   FLAG_PREDICATE,
@@ -40,7 +39,7 @@ import {
   type SourceObservationSet,
 } from '../v2/claim.ts';
 import { explain } from '../v2/explain.ts';
-import { renderWorking } from './render/show-working.ts';
+import { renderWorking, buildCommit } from './render/show-working.ts';
 import { loadOpenDataRegisterSource, defaultArchiveDir } from '../v2/collectors/open-data-register.ts';
 import { COVERED_FAMILIES, MARKDOWN_PROSE_SCOPE_NOTE } from './reconstruction-oracle.ts';
 import { parseFlagRegistry } from './build-sqlite.ts';
@@ -150,22 +149,6 @@ export function sliceObservations(source: SourceObservationSet, ordinals: readon
     lineNumbers: source.lineNumbers === undefined ? undefined : unique.map(o => (source.lineNumbers ?? [])[o]),
   };
   return { slice, sliceOrdinalOf };
-}
-
-// The pinned commit the page's evidence permalinks anchor at. One working's
-// links span SEVERAL files — the observation's archived source AND the
-// versioned reference tables — and a single pin is only honest if every one of
-// them exists at it. The archived file's introducing commit (ADR 0015's
-// natural per-file anchor) fails that test: reference-data/ may postdate it,
-// and a link to a file at a commit before it existed 404s. The build's OWN
-// commit provably contains every file the build just read, is durable once
-// pushed (the deploy builds only pushed commits), and per ADR 0015 any commit
-// in which the byte-stable file exists highlights the correct line. It is also
-// shallow-clone-safe: no history walk is needed.
-export function buildCommit(): string {
-  const fromEnv = process.env.GITHUB_SHA;
-  if (fromEnv !== undefined && /^[0-9a-f]{40}$/.test(fromEnv)) return fromEnv;
-  return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 }
 
 // Find the ONE claim of a worked example in the sliced ledger. A selection that
@@ -335,7 +318,7 @@ function divergenceSection(divergences: CollectedDivergence[]): string[] {
 function showWorkingSection(examples: { heading: string; blurb: string; context: string; html: string }[]): string[] {
   const body = [
     '<h2 id="show-working">Show the working — the evidence behind a derived value</h2>',
-    '<p>Every derived value in the claim ledger names the rule that produced it, and its <b>working</b> — the exact inputs it was computed from, the transformation steps, and the reproduced result — is <em>reconstructed on demand by re-running the same code that derived it</em>, so what is shown cannot drift from what was computed. Each input links back to the exact source line (or versioned reference-table row) it rests on.</p>',
+    '<p>Every derived value in the claim ledger names the rule that produced it, and its <b>working</b> — the exact inputs it was computed from, the transformation steps, and the reproduced result — is <em>reconstructed on demand by re-running the same code that derived it</em>, so what is shown cannot drift from what was computed. Each input links back to the exact source line (or versioned reference-table row) it rests on, and each disclosure names the <b>derivation code</b> — the very function whose re-run produced the working — as a pinned link to its source file, so the rule behind a value is one click away from the value itself.</p>',
     '<p>These are real records from the latest archived publication, not mock-ups — open each disclosure and follow its links back to the source:</p>',
   ];
   for (const example of examples) {
@@ -378,6 +361,7 @@ function reverifySection(): string[] {
     '<ul>',
     '<li><b>Check the hashes.</b> Download any entry’s files (or its one-click zip) from the <a href="datasets/index.html">dataset index</a> and compare each sha256 against the entry’s <code>meta.json</code>.</li>',
     '<li><b>Follow a permalink.</b> Every “show the working” evidence link lands on the exact line of the archived source file at a pinned commit — the byte the claim rests on.</li>',
+    '<li><b>Walk an examine trail.</b> Beside previewed records on the dataset entry pages, the <b>examine</b> links walk from a record to its exact source line (pinned, as above) and to the ledger’s reconstruction of each derived value’s working; where a working is not yet exposed, the trail lands on the entry’s provenance instead — never a manufactured one.</li>',
     `<li><b>Query the data yourself.</b> The <a href="${exploreHref}">Explore console</a> runs SQL over the combined database in your browser; every published figure should be reproducible from it.</li>`,
     '<li><b>Re-run the checks.</b> Clone ' + externalLink(REPO_URL, 'the repository') + ' and run the test suite: the reconstruction oracle, the explain oracle (every derived claim’s working reproduces its value) and the golden-master report checks all run from the committed data.</li>',
     '<li><b>Report something that looks off.</b> If a record, a flag or a figure does not look right, the <b>report this</b> link beside it opens a <a href="#reporting">pre-filled issue located to that exact place</a> — corrections land by adding sources, never by silently editing the record.</li>',

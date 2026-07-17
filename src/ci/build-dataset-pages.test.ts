@@ -4,8 +4,10 @@ import * as os from 'os';
 import * as path from 'path';
 import {
   buildDatasetPages, dayGap, signedDelta, unkeyableRowsNote,
-  narrativeTitle, listNarrativeDocs, type DatasetPagesSummary,
+  narrativeTitle, listNarrativeDocs, sourceLinesByCallsign,
+  type DatasetPagesSummary,
 } from './build-dataset-pages.ts';
+import type { SourceObservationSet } from '../v2/claim.ts';
 import { externalLink } from './site-render.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { CONSTANTS } from '../shared/utils.ts';
@@ -1189,5 +1191,70 @@ describe('Verbatim dataset files hardlink into the assembly (issue #646)', { tag
     // The published register files alone are hundreds of MB; a floor rather than
     // an exact figure, which grows with each ingested snapshot.
     expect(deduplicatedBytes).toBeGreaterThan(100 * 1024 * 1024);
+  });
+});
+
+describe('The examine trail on entry-page previews (issue #439)', { tags: ['data-validity'] }, () => {
+  it('DatasetPages_OpenDataPreviewRecord_WalksToItsPinnedSourceLineAndItsLedgerWorking', () => {
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    const previewStart = page.indexOf('class="browser-static"');
+    const preview = page.slice(previewStart, page.indexOf('</table>', previewStart));
+    // The examine column heads the walk from each previewed record.
+    expect(preview).toContain('<th scope="col">examine</th>');
+    // (a) the pinned source-line permalink: a full 40-hex commit, this entry's
+    // own archived parse source, an exact line fragment - never a moving
+    // branch and never a guessed position.
+    expect(preview).toMatch(/href="https:\/\/github\.com\/[^"]+\/blob\/[0-9a-f]{40}\/archive\/2026-06-23\/[^"#]+#L\d+"/);
+    expect(preview).toContain('source line');
+    expect(preview).not.toContain('/blob/main/archive/');
+    // (b) the working: the ledger's on-read reconstruction, keyed to the record.
+    expect(preview).toMatch(/<a href="\.\.\/\.\.\/\.\.\/ledger\.html\?c=[^"]+">working<\/a>/);
+    // The page-level half of the trail: the (c) provenance hop into this
+    // entry's own declared facts, and the deep-dive explaining the mechanism.
+    expect(page).toContain('class="examine-under"');
+    expect(page).toContain('href="#i-meta"');
+    expect(page).toContain('href="../../../fidelity.html#show-working"');
+  });
+
+  it('DatasetPages_FoiPreview_ExamineTrailDegradesHonestlyToProvenance', () => {
+    // No per-row source position is exposed for the FOI lane's varied
+    // disclosure shapes, so the trail must say so and land on the entry's
+    // provenance - never a manufactured position or working.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'foi', 'ofcom-498906--reciprocal-licences-since-2010', 'index.html'), 'utf8');
+    expect(page).toContain('class="examine-under"');
+    expect(page).toContain('no per-record source line is exposed');
+    expect(page).toContain('href="#i-meta"');
+    expect(page).toContain('href="../../../fidelity.html#provenance"');
+    expect(page).not.toContain('<th scope="col">examine</th>');
+  });
+});
+
+describe('sourceLinesByCallsign (issue #439)', { tags: ['unit'] }, () => {
+  const source: SourceObservationSet = {
+    sourceFile: 'synthetic/fixture.csv',
+    vintage: '2026-01-01',
+    columns: ['Call Sign'],
+    subjectColumn: 'Call Sign',
+    repoPath: 'archive/synthetic/fixture.csv',
+    lineNumbers: [2, 3, 4],
+    rows: [
+      { 'Call Sign': 'M7AAA' },
+      { 'Call Sign': 'm7aaa ' },
+      { 'Call Sign': 'M7BBB' },
+    ],
+  };
+
+  it('SourceLines_VerbatimAndCleanedForms_BothResolveWithTheSharedFormCounted', () => {
+    const map = sourceLinesByCallsign(source);
+    // The cleaned form is shared by two source rows (a stripped twin), so the
+    // affordance can say honestly it links the FIRST of them.
+    expect(map.get('M7AAA')).toEqual({ line: 2, rows: 2 });
+    // The verbatim damaged twin still resolves to its own exact line.
+    expect(map.get('m7aaa ')).toEqual({ line: 3, rows: 1 });
+    expect(map.get('M7BBB')).toEqual({ line: 4, rows: 1 });
+  });
+
+  it('SourceLines_SourceWithoutPositions_YieldsAnEmptyMapNeverAGuess', () => {
+    expect(sourceLinesByCallsign({ ...source, lineNumbers: undefined }).size).toBe(0);
   });
 });

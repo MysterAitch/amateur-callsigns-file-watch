@@ -434,6 +434,36 @@ const extLink = (href, label) => {
   return a;
 };
 
+// The shared examine trail (issue #439): the compact claim → source →
+// working → provenance walk, in the SAME vocabulary and classes as the
+// server-rendered surfaces (src/ci/render/show-working.ts examineTrail) — one
+// affordance across the site, not a third pattern. `lead` is '' where the
+// surrounding context already says "examine" (e.g. a labelled working row).
+/**
+ * @param {{ href: string, label: string, external?: boolean, note?: string }[]} hops
+ * @param {string} [lead]
+ */
+const examineTrailEl = (hops, lead = 'Examine') => {
+  const span = el('span', 'examine-trail');
+  if (lead !== '') span.appendChild(el('span', 'examine-lead', `${lead}:`));
+  hops.forEach((hop, i) => {
+    if (i > 0) {
+      const sep = el('span', 'examine-sep', '·');
+      sep.setAttribute('aria-hidden', 'true');
+      span.append(' ', sep);
+    }
+    if (lead !== '' || i > 0) span.append(' ');
+    if (hop.external === true) span.appendChild(extLink(hop.href, hop.label));
+    else {
+      const a = el('a', null, hop.label);
+      a.setAttribute('href', hop.href);
+      span.appendChild(a);
+    }
+    if (hop.note !== undefined) span.append(' ', el('span', 'examine-note', hop.note));
+  });
+  return span;
+};
+
 // Render a ledger-query.js prose segment list (plain text, links, verbatim raw
 // tokens, monospace code) - the same shape FLAG_NOTES/NOTABLE_PARSE_STATUS
 // glosses carry, so their wording renders here exactly as on the Ledger.
@@ -947,14 +977,17 @@ function twinConflictCard(conflict, key) {
       + (v.modified !== '' ? ` · modified ${v.modified}` : ' · undated'));
     work.appendChild(workRow(`row ${i + 1}`, val));
   });
+  // The examine hops, in the shared trail vocabulary (issue #439): the
+  // snapshot entry is the provenance context, the ledger reconstructs the
+  // working byte by byte. The row label already says "examine", so the trail
+  // carries no lead of its own.
   const seen = el('div', 'fid-work-row');
-  seen.appendChild(el('span', 'k', 'evidence'));
+  seen.appendChild(el('span', 'k', 'examine'));
   const seenV = el('span', 'v');
-  const dsA = el('a', null, 'the snapshot');
-  dsA.setAttribute('href', snapshot.href);
-  const ledA = el('a', null, 'the ledger, byte by byte');
-  ledA.setAttribute('href', `ledger.html?c=${encodeURIComponent(key)}`);
-  seenV.append('Examine ', dsA, ' or ', ledA, '.');
+  seenV.appendChild(examineTrailEl([
+    { href: snapshot.href, label: 'the snapshot entry (provenance)' },
+    { href: `ledger.html?c=${encodeURIComponent(key)}`, label: 'the ledger, byte by byte' },
+  ], ''));
   seen.appendChild(seenV);
   work.appendChild(seen);
   why.appendChild(work);
@@ -1044,6 +1077,33 @@ function renderNotes(host, panel, res, manifest) {
     + 'people at different times, and nothing here changes any record.');
   host.appendChild(preamble);
   for (const card of cards) host.appendChild(card);
+
+  // The examine trail for the notes (issue #439): the shared walk from these
+  // observations to the evidence behind them. The ledger folds
+  // register-snapshot publications only, so its working hop is offered ONLY
+  // when this record was seen in one; otherwise the trail degrades honestly to
+  // the recording dataset entry's provenance — never a link to a working that
+  // does not exist there.
+  const seen = seenSummary(record, manifest);
+  const latest = latestSummary(record, manifest);
+  /** @type {{ href: string, label: string, external?: boolean, note?: string }[]} */
+  const hops = [];
+  if (seen.registerPresent > 0) {
+    hops.push({ href: `ledger.html?c=${encodeURIComponent(key)}`, label: 'the working behind each derived value (ledger)' });
+  }
+  const entryDataset = latest !== null ? latest.dataset : seen.last;
+  if (entryDataset !== null) {
+    hops.push({
+      href: entryDataset.href,
+      label: entryDataset.vintage !== null
+        ? `the ${entryDataset.vintage} dataset entry (provenance)`
+        : 'the dataset entry that recorded it (provenance)',
+    });
+  }
+  hops.push({ href: 'fidelity.html#show-working', label: 'how workings are reconstructed' });
+  const trail = el('p', 'examine-under');
+  trail.appendChild(examineTrailEl(hops));
+  host.appendChild(trail);
 
   // The report-this affordance rides in the record's context block (renderGlance)
   // so it is present for every resolved record, not only a flagged one; the
