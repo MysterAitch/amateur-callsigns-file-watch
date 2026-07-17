@@ -112,6 +112,54 @@ describe('the CI run summary renderer', { tags: ['unit'] }, () => {
     expect(currentBaseline(undefined, coverage, 'deadbeef')).toBeUndefined();
   });
 
+  it('CurrentBaseline_WithTimedFiles_RecordsPerFileAndTotalDurations', () => {
+    const timed = {
+      ...results,
+      testResults: [
+        { name: 'src/a.test.ts', status: 'passed', assertionResults: [], startTime: 1000, endTime: 3500 },
+        { name: 'src/b.test.ts', status: 'passed', assertionResults: [], startTime: 2000, endTime: 2600.4 },
+        { name: 'src/untimed.test.ts', status: 'passed', assertionResults: [] },
+      ],
+    };
+    const b = currentBaseline(timed, coverage, 'deadbeef');
+    expect(b?.durations).toEqual({ totalMs: 3100, byFile: { 'src/a.test.ts': 2500, 'src/b.test.ts': 600 } });
+  });
+
+  it('CurrentBaseline_WithPerFileCoverage_RollsUpToDirectoriesAsExactPairs', () => {
+    const perFile = {
+      total: coverage.total,
+      'C:\\repo\\src\\ci\\one.ts': {
+        lines: { pct: 50, covered: 5, total: 10 },
+        statements: { pct: 50, covered: 5, total: 10 },
+        functions: { pct: 100, covered: 2, total: 2 },
+        branches: { pct: 0, covered: 0, total: 4 },
+      },
+      'C:\\repo\\src\\ci\\two.ts': {
+        lines: { pct: 100, covered: 10, total: 10 },
+        statements: { pct: 100, covered: 10, total: 10 },
+        functions: { pct: 100, covered: 1, total: 1 },
+        branches: { pct: 100, covered: 4, total: 4 },
+      },
+      'C:\\repo\\site\\app.js': {
+        lines: { pct: 25, covered: 1, total: 4 },
+        statements: { pct: 25, covered: 1, total: 4 },
+        functions: { pct: 0, covered: 0, total: 1 },
+        branches: { pct: 0, covered: 0, total: 0 },
+      },
+    };
+    const b = currentBaseline(results, perFile, 'deadbeef', { root: 'C:\\repo' });
+    expect(b?.coverageByDir).toEqual({
+      'src/ci': { lines: [15, 20], statements: [15, 20], functions: [3, 3], branches: [4, 8] },
+      site: { lines: [1, 4], statements: [1, 4], functions: [0, 1], branches: [0, 0] },
+    });
+  });
+
+  it('CurrentBaseline_WithContext_StampsRecordedAtAndRunId', () => {
+    const b = currentBaseline(results, coverage, 'deadbeef', { recordedAt: '2026-07-17T11:00:00.000Z', runId: '12345' });
+    expect(b?.recordedAt).toBe('2026-07-17T11:00:00.000Z');
+    expect(b?.runId).toBe('12345');
+  });
+
   it('CurrentBaseline_FromRunOutputs_RecordsEveryCaseWithItsStatus', () => {
     const b = currentBaseline(results, coverage, 'deadbeef');
     expect(b?.cases).toEqual({

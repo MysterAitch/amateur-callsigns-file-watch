@@ -20,7 +20,7 @@
 import * as fs from 'fs';
 
 interface AssertionResult { fullName: string; status: string }
-interface FileResult { name: string; status: string; assertionResults: AssertionResult[] }
+interface FileResult { name: string; status: string; assertionResults: AssertionResult[]; startTime?: number; endTime?: number }
 interface MergedResults {
   numTotalTests: number;
   numPassedTests: number;
@@ -30,9 +30,12 @@ interface MergedResults {
   testResults: FileResult[];
 }
 
-interface CoverageMetric { pct: number }
+interface CoverageMetric { pct: number; total?: number; covered?: number }
+interface CoverageMetricSet { lines: CoverageMetric; statements: CoverageMetric; functions: CoverageMetric; branches: CoverageMetric }
+// istanbul json-summary: `total` plus one entry per covered file (absolute path).
 interface CoverageSummary {
-  total: { lines: CoverageMetric; statements: CoverageMetric; functions: CoverageMetric; branches: CoverageMetric };
+  total: CoverageMetricSet;
+  [file: string]: CoverageMetricSet;
 }
 
 // The cross-run comparison record: one run's headline figures plus a per-test
@@ -47,6 +50,18 @@ export interface Baseline {
   coverage?: { lines: number; statements: number; functions: number; branches: number };
   // `file::fullName` -> final status ('passed' | 'failed' | 'skipped' | …).
   cases?: Record<string, string>;
+  // Fields below are COLLECTED now, RENDERED later: the artefact series must
+  // hold the history before duration/slowest/movers/trend features can show
+  // it, so recording deliberately precedes any consumer.
+  // When and where this baseline was recorded (trend axis + API cross-ref).
+  recordedAt?: string;
+  runId?: string;
+  // Wall-clock test time: the whole merged run and each file's share
+  // (duration-delta and slowest-files features).
+  durations?: { totalMs: number; byFile: Record<string, number> };
+  // Per-directory coverage as [covered, total] pairs per metric — pairs, not
+  // percentages, so directories aggregate exactly (per-directory movers).
+  coverageByDir?: Record<string, { lines: [number, number]; statements: [number, number]; functions: [number, number]; branches: [number, number] }>;
 }
 
 function readJson<T>(file: string): T | undefined {
@@ -90,7 +105,43 @@ function caseStatuses(results: MergedResults): Record<string, string> {
   return cases;
 }
 
-export function currentBaseline(results: MergedResults | undefined, coverage: CoverageSummary | undefined, sha: string): Baseline | undefined {
+// Per-file wall-clock durations from the merged results, rounded to whole ms.
+// Files without timing fields (older reports) are simply absent.
+function fileDurations(results: MergedResults): { totalMs: number; byFile: Record<string, number> } {
+  const byFile: Record<string, number> = {};
+  let totalMs = 0;
+  for (const f of results.testResults) {
+    if (f.startTime === undefined || f.endTime === undefined) continue;
+    const ms = Math.round(f.endTime - f.startTime);
+    byFile[f.name] = ms;
+    totalMs += ms;
+  }
+  return { totalMs, byFile };
+}
+
+// Roll the json-summary's per-file entries up to their first two path
+// segments (e.g. `src/ci`, `site`), stripping the absolute-root prefix.
+// [covered, total] pairs aggregate exactly; percentages would not.
+function coverageByDirectory(coverage: CoverageSummary, root: string): Baseline['coverageByDir'] {
+  const rollup: NonNullable<Baseline['coverageByDir']> = {};
+  const normalisedRoot = root.replace(/\\/g, '/').replace(/\/$/, '') + '/';
+  for (const [file, metrics] of Object.entries(coverage)) {
+    if (file === 'total') continue;
+    const rel = file.replace(/\\/g, '/').replace(normalisedRoot, '');
+    const dirSegments = rel.split('/').slice(0, -1);
+    const dir = dirSegments.length === 0 ? '.' : dirSegments.slice(0, 2).join('/');
+    const cell = (rollup[dir] ??= { lines: [0, 0], statements: [0, 0], functions: [0, 0], branches: [0, 0] });
+    for (const metric of ['lines', 'statements', 'functions', 'branches'] as const) {
+      cell[metric][0] += metrics[metric].covered ?? 0;
+      cell[metric][1] += metrics[metric].total ?? 0;
+    }
+  }
+  return Object.keys(rollup).length === 0 ? undefined : rollup;
+}
+
+export interface BaselineContext { recordedAt?: string; runId?: string; root?: string }
+
+export function currentBaseline(results: MergedResults | undefined, coverage: CoverageSummary | undefined, sha: string, context: BaselineContext = {}): Baseline | undefined {
   if (results === undefined) return undefined;
   return {
     sha,
@@ -107,6 +158,10 @@ export function currentBaseline(results: MergedResults | undefined, coverage: Co
       branches: coverage.total.branches.pct,
     },
     cases: caseStatuses(results),
+    recordedAt: context.recordedAt,
+    runId: context.runId,
+    durations: fileDurations(results),
+    coverageByDir: coverage === undefined ? undefined : coverageByDirectory(coverage, context.root ?? process.cwd()),
   };
 }
 
@@ -228,7 +283,10 @@ if (process.argv[1] !== undefined && import.meta.url.endsWith(process.argv[1].re
   if (flagIndex >= 0) {
     const dest = process.argv[flagIndex + 1];
     if (dest === undefined) throw new Error('--write-baseline requires a destination path');
-    const record = currentBaseline(results, coverage, process.env.GITHUB_SHA ?? 'unknown');
+    const record = currentBaseline(results, coverage, process.env.GITHUB_SHA ?? 'unknown', {
+      recordedAt: new Date().toISOString(),
+      runId: process.env.GITHUB_RUN_ID,
+    });
     if (record === undefined) throw new Error('cannot write a baseline: merged results are unavailable');
     fs.writeFileSync(dest, JSON.stringify(record, null, 2) + '\n');
   } else {
