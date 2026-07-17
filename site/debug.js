@@ -200,7 +200,7 @@
     record('info', ['network: ' + (navigator.onLine ? 'online' : 'OFFLINE')]);
     // Each probe settles (and records) internally via its own .then/.catch, so
     // none of these need awaiting here; `void` marks that deliberate.
-    ['app.js', 'browser-query.js', 'prefix-country.js', 'history-sync.js', 'entry-browser.js', 'callsign-pill.js'].forEach(function (m) { void probe('module ' + m, m); });
+    ['app.js', 'browser-query.js', 'prefix-country.js', 'country-flag.js', 'history-sync.js', 'entry-browser.js', 'callsign-pill.js'].forEach(function (m) { void probe('module ' + m, m); });
     void probe('vendor bundle', 'vendor/index.js');
     void probe('sqlite wasm', 'vendor/sql-wasm.wasm', { method: 'HEAD', cache: 'no-store' });
     void probe('data version', 'data/version.txt');

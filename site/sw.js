@@ -65,6 +65,7 @@ const SHELL_ASSETS = [
   'callsign.js',
   'compare.js',
   'datetime.js',
+  'country-flag.js',
   'db-loading.js',
   'debug.js',
   'entry-browser.js',

@@ -102,6 +102,7 @@ describe('Ledger projection invariants - lookup database', { tags: ['data-validi
       'flag_registry',
       'itu_series',
       'normalised',
+      'ref_entity_iso',
       'ref_forbidden_suffixes',
       'ref_prefix_formats',
       'ref_rsl',
@@ -186,6 +187,23 @@ describe('Ledger projection invariants - lookup database', { tags: ['data-validi
       expect(rows.length, first).toBeGreaterThan(0);
       for (const row of rows) expect(String(row.series).startsWith(first), first).toBe(true);
     }
+  });
+
+  it('Lookup_EntityIsoCrosswalk_NamesEveryAllocationHolderAndYieldsFlagCodes', () => {
+    // The visitor card joins itu_series.allocated_to against ref_entity_iso to
+    // render a flag at the edge. Every holder the series table names must have a
+    // crosswalk row, so a resolved allocation never lacks its flag lookup; and
+    // each code is either blank (a flagless organisation) or a two-letter code.
+    const holders = all(lookup, 'SELECT DISTINCT allocated_to FROM itu_series');
+    for (const holder of holders) {
+      const match = all(lookup, 'SELECT iso_3166_alpha2 FROM ref_entity_iso WHERE allocated_to = ?', [String(holder.allocated_to)]);
+      expect(match, String(holder.allocated_to)).toHaveLength(1);
+      const code = String(match[0].iso_3166_alpha2);
+      expect(code === '' || /^[A-Z]{2}$/.test(code), `${String(holder.allocated_to)} -> "${code}"`).toBe(true);
+    }
+    // The example the card most often renders: Ireland's series holder -> IE.
+    const ireland = all(lookup, "SELECT iso_3166_alpha2 FROM ref_entity_iso WHERE allocated_to = 'Ireland'");
+    expect(String(ireland[0].iso_3166_alpha2)).toBe('IE');
   });
 
   it('Lookup_FacetPopulationQueries_ReturnNonEmptyVocabularies', () => {
