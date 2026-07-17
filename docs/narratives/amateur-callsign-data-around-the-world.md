@@ -53,9 +53,51 @@ federal data generally, not a grant specific to amateur radio.
 
 The **ARRL**, the US national society, adds nothing independent here: its
 ["Advanced Call Sign Search"](https://www.arrl.org/advanced-call-sign-search)
-is a lookup UI over the same ULS bulk files, not a second data source. UK
-relevance is reciprocal/visiting-operator recognition only; there is no
-separate UK register entry riding on FCC data.
+is a lookup UI over the same ULS bulk files, not a second data source.
+
+UK relevance here is reciprocal/visiting-operator recognition — but
+"reciprocal" alone overstates a symmetry the rule text itself does not
+support, so this is worth stating precisely rather than leaving implied.
+Under [47 CFR §97.107](https://www.law.cornell.edu/cfr/text/47/97.107)
+("Reciprocal operating authority"; mirrored at
+[eCFR](https://www.ecfr.gov/current/title-47/chapter-I/subchapter-D/part-97/subpart-B/section-97.107)),
+a UK-licensed visitor operates in the US under their own home callsign with a
+US call-district prefix (e.g. `W4/M0ABC`) — no FCC-issued licence, no
+application, no fee, and no ULS row. The FCC once issued an actual document
+for this, the "Reciprocal Permit for Alien Amateur Licensee" (RPAAL), before
+discontinuing it in favour of the current licence-exempt regime; the exact
+transition date was not independently pinned down, so that detail is
+recorded as unverified rather than dated. Either way the direction of travel
+is the opposite of the UK's own: away from a register-visible tier, not
+towards one. A UK national can separately become an ordinary FCC licensee by
+sitting a US exam — open to any nationality, not a reciprocal mechanism at
+all — and that produces a genuine ULS entry, but against a US mailing
+address, with no nationality field recorded anywhere in ULS; it surfaces as
+an ordinary US licensee, invisible as UK-origin in the data itself.
+
+The UK's own side of this relationship is not symmetric either, and this
+project's own corpus is the evidence. Ofcom's *Amateur Radio Guidance*
+(updated 14 October 2025), §2.1.4, splits inbound visitors into two tiers:
+CEPT T/R 61-01 short stays (under three months) are licence-exempt and leave
+no Ofcom record, exactly like the US case above — but longer stays, CEPT
+T/R 61-02 (HAREC), or a bilateral reciprocal agreement get an Ofcom-issued
+**"Amateur Radio Full (Temporary Reciprocal) Licence"**: a real register
+entry naming a foreign home callsign. This project already holds that
+tier's evidence directly: the
+[`ofcom-498906--reciprocal-licences-since-2010`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-498906--reciprocal-licences-since-2010/index.html)
+FOI disclosure is precisely that callsign list, and the three `Reserved` rows
+flagged in [ADR 0005](../adr/0005-canonical-callsign-forms.md) — `M/#PT2FM`,
+`M/#VK4VGK`, `M/#YO3IES`, home calls from Brazil, Australia and Romania — are
+register rows from this same tier, not the licence-exempt one. (Ofcom's
+October 2025 guidance also flags this reciprocal-licence tier itself for
+eventual retirement into the licence-exempt model, so the FOI list is best
+read as a historical record rather than an indefinitely-growing one.)
+
+So the asymmetry runs one way, not two: the UK records a slice of its
+visitors more explicitly than the FCC records any of the UK's, and no UK
+callsign appears in the ULS for the reciprocal/visiting-operator case. That
+is a confirmation of this project's Ofcom-only mirroring scope, not a
+limitation of it — there is nowhere else a UK callsign as such would show up.
 
 Of the regulators surveyed, this is the clean contrast case: a national
 regulator publishing its entire register as free, daily-updated,
@@ -100,7 +142,14 @@ leaving it implicit.
 
 **DARC**, the German national society, does not maintain an independent
 callsign database; its own enquiry guidance points straight back to the
-BNetzA search tool. UK relevance is reciprocal only.
+BNetzA search tool. UK relevance follows the same asymmetric pattern set out
+in the FCC section above, not the flat "reciprocal only" this page
+previously stated: Germany is a CEPT T/R 61-01/61-02 signatory, so a UK
+visitor operates licence-exempt with no BNetzA register trace, while the
+UK's own reciprocal-licence tier (see above) remains the more explicit side
+of the relationship. No BNetzA-specific visitor-licensing page was checked
+independently this pass, so this rests on the CEPT-bloc-general finding
+rather than a direct read of a German source.
 
 ## Australia — ACMA
 
@@ -123,9 +172,26 @@ posture.
 **WIA**, the Australian national society, historically compiled a printed and
 CD-ROM "Callbook" from RRL extracts under a formal agreement with ACMA — but
 in 2020 ACMA advised WIA to move away from using RRL data for that purpose,
-consistent with a tightening rather than a loosening of terms over time. UK
-relevance is reciprocal only. (See the FCC section above for this page's own
-re-verification note, which covers ACMA too.)
+consistent with a tightening rather than a loosening of terms over time.
+
+UK relevance follows the same asymmetric pattern set out in the FCC section
+above, not the flat "reciprocal only" this page previously stated: the
+current [Radiocommunications (Amateur Stations) Class Licence 2023](https://www.wia.org.au/members/legislation/classlicences/documents/Radiocommunications%20(Amateur%20Stations)%20Class%20Licence%202023.pdf)
+(successor to the [2015 instrument](https://www.legislation.gov.au/Details/F2015L01114))
+is licence-exempt on the same shape as the UK's own short-stay tier: no RRL
+entry, home callsign with a "VK" prefix. ACMA's own guidance gives two
+different duration figures for this exemption — 365 days for qualifications
+listed in its Tables A/B, and separately 90 days as the threshold beyond
+which "an Australian amateur apparatus licence" is required — and the two
+were not reconciled this pass, recorded as an open discrepancy rather than
+resolved by picking one. Whether that longer-stay licence would create an
+RRL entry naming a UK home qualification — structurally the closest thing to
+an ACMA equivalent of the UK's own reciprocal-licence tier — is a genuine
+open lead, not confirmed either way. (See the FCC section above for this
+page's own re-verification note, which covers ACMA too: ACMA's
+visiting-amateur pages could not be re-fetched directly this pass, so this
+rests on search-indexed excerpts and the legislation.gov.au primary text,
+not a direct read of the current instrument.)
 
 ## France — ANFR
 
@@ -154,7 +220,14 @@ capability is ever confirmed.
 **REF**, the French national society, maintains its own opt-in
 ["Nomenclature"](https://nomenclature.r-e-f.org/) directory — member-submitted,
 not authoritative, the same shape as the RSGB Yearbook's self-compiled
-directory rather than a regulator mirror. UK relevance is reciprocal only.
+directory rather than a regulator mirror. UK relevance follows the same
+asymmetric pattern set out in the FCC section above, not the flat
+"reciprocal only" this page previously stated: France is a CEPT signatory,
+so the licence-exempt T/R 61-01/61-02 model applies and no UK callsign would
+appear in a French register for a short visit. No ANFR-specific
+visitor-licensing page was checked independently this pass, so, as with
+BNetzA above, this rests on the CEPT-bloc-general finding rather than a
+direct ANFR source.
 
 ---
 
@@ -246,6 +319,16 @@ justified by personal data as the reason for stopping short.
   it is a snapshot of a landscape survey, dated, with its own verification
   trail. A future revisit should re-run the same checks and update the dates,
   not assume the table above still holds indefinitely.
+- **The reciprocal/asymmetry correction.** The per-country "UK relevance"
+  lines were checked directly against primary sources rather than carried on
+  reasoning: Ofcom's *Amateur Radio Guidance* (updated 14 October 2025,
+  §2.1.4), [47 CFR §97.107](https://www.law.cornell.edu/cfr/text/47/97.107),
+  this project's own
+  [`ofcom-498906--reciprocal-licences-since-2010`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-498906--reciprocal-licences-since-2010/index.html)
+  FOI disclosure, and [ADR 0005](../adr/0005-canonical-callsign-forms.md). The
+  ACMA long-stay duration discrepancy (365 days vs. 90 days) and whether that
+  route creates a register-visible entry remain open, unreconciled leads, not
+  asserted findings — see the ACMA section above.
 
 ---
 
@@ -263,6 +346,9 @@ justified by personal data as the reason for stopping short.
 - The RSGB Special Contest Calls scheduled-refresh work, a UK-administered
   register-class source surveyed alongside the international material on
   #109: **issue #693**.
+- The reciprocal/asymmetry correction to the "UK relevance" framing across
+  this page, checked against Ofcom's own guidance and 47 CFR §97.107:
+  **issue #762** ([thread](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/762)).
 - This narrative form (curious-reader walkthroughs, published under
   `docs/narratives/` and discovered automatically by the reports hub):
   **issue #657**.
