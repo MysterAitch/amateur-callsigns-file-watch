@@ -43,6 +43,13 @@ export interface ValueTally {
   bySource: Map<string, number>;
   distinctCallsigns: number;
   allocated: number;
+  // Set on a MEMBERSHIP-DERIVED value only (the `status` fold's Available /
+  // Forbidden buckets, issue #707): the family whose @listed membership the
+  // bucket is projected from ('available-pool' / 'forbidden-list'). No source
+  // asserted the value as a status — the ledger models it as family membership,
+  // not a status claim — so the renderer labels the row as a projection and never
+  // presents it as an attested status. Absent (undefined) on every attested value.
+  membership?: string;
 }
 export interface FieldCatalogue { field: string; distinct: number; total: number; values: ValueTally[] }
 
@@ -252,7 +259,10 @@ const EXPECTED_STATUS = new Set(['Allocated', 'Reserved', 'Available', BLANK]);
 function notableSection(cats: Map<string, FieldCatalogue>, ref: ReferenceData): string[] {
   const lines: string[] = [];
   const status = cats.get('status');
-  const unexpectedStatus = status?.values.filter(v => !EXPECTED_STATUS.has(v.value)) ?? [];
+  // Only ATTESTED statuses are candidates for reconciliation; a membership-derived
+  // projection (issue #707) is not a "seen but unreasoned" status value, so it is
+  // excluded from the drift call-out.
+  const unexpectedStatus = status?.values.filter(v => v.membership === undefined && !EXPECTED_STATUS.has(v.value)) ?? [];
   if (unexpectedStatus.length > 0) {
     lines.push(`- **Status values with no canonical mapping decided**: ${unexpectedStatus.map(v => `${mdCode(v.value)} (${v.count.toLocaleString('en-GB')})`).join(', ')}. Seen but not reasoned about as register states - candidates for reconciliation or an FOI on the state vocabulary.`);
   }
@@ -530,19 +540,26 @@ function normalisationFidelitySection(fidelity: EntryFidelity[]): string[] {
   return out;
 }
 
-// FOLD, not re-derive (issue #361). `foldedCategories` supplies the licence-
-// category table from the ledger's derived `licence_category` claim; `foldedFields`
-// supplies the per-field value tables for the ledger-derived attributes
-// (implied_class / parse_status / prefix_series from the parse tier, and `flags`
-// unioning every signal riding FLAG_PREDICATE) from the ledger. Both are OPTIONAL:
-// without them the renderer falls back to the legacy tally, so the presentation
-// tests (which pass hand-built tallies) are unaffected. The Notable, status and
-// raw product/licence_class sections keep reading the legacy tally — those raw
-// fields have not yet migrated to a fold.
+// FOLD, not re-derive (issues #361 / #444 / #707). `foldedCategories` supplies the
+// licence-category table from the ledger's derived `licence_category` claim;
+// `foldedFields` supplies the per-field value tables for EVERY tracked field —
+// `status` and raw `product / licence_class` (folded from the raw observation
+// layer, scoped to the register lane, with status projecting its membership
+// buckets), implied_class / parse_status / prefix_series (the parse tier) and
+// `flags` (every signal riding FLAG_PREDICATE). Both are OPTIONAL: without them the
+// renderer falls back to the legacy tally, so the presentation tests (which pass
+// hand-built tallies) are unaffected. In production the folds cover every field,
+// including Notable and the licence-category residues.
 export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timeline: string[] = [], fidelity: EntryFidelity[] = [], foldedCategories?: LicenceCategoryFigures[], foldedFields?: FoldedFields, sesWindows: readonly SesWindowAttestation[] = []): string {
   const FIELD_ORDER = ['status', PRODUCT_FIELD, 'implied_class', 'parse_status', 'prefix_series', 'flags'];
+  // Every field folds from the raw-keyed claim ledger (issues #361 / #444 / #707);
+  // a folded catalogue is preferred, falling back to the legacy tally only for a
+  // presentation test that hands a field no fold. So Notable, the licence-category
+  // residues and the field tables all read one `cats` map, folded in production.
   const cats = new Map<string, FieldCatalogue>();
   for (const field of FIELD_ORDER) {
+    const folded = foldedFields?.get(field);
+    if (folded !== undefined) { cats.set(field, folded); continue; }
     const byValue = tallies.get(field);
     if (byValue !== undefined) cats.set(field, catalogueField(field, byValue));
   }
@@ -593,22 +610,41 @@ export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timel
   out.push(...normalisationFidelitySection(fidelity));
 
   for (const field of FIELD_ORDER) {
-    // A folded field's distribution comes from the ledger (issue #361); the rest
-    // fall back to the legacy tally. Same FieldCatalogue shape either way, so the
-    // table renders identically whichever path supplied the figures.
-    const cat = foldedFields?.get(field) ?? cats.get(field);
+    // Every field's distribution folds from the ledger (issues #361 / #444 / #707);
+    // a presentation test may still hand a legacy tally. Same FieldCatalogue shape
+    // either way, so the table renders identically whichever path supplied it.
+    const cat = cats.get(field);
     if (cat === undefined) continue;
     // The value of the `status` field already IS a status, so an "allocated"
     // sub-count of it is circular; render it not-applicable there.
     const allocatable = field !== 'status';
     out.push(`## \`${field}\` — ${cat.distinct} distinct`);
     out.push('');
+    // The `status` fold projects two MEMBERSHIP-derived buckets — availability
+    // (from the available-pool lists) and forbiddenness (from the forbidden-suffix
+    // lists) — that NO source asserted as a status: the ledger models them as
+    // family membership, not a status claim (issue #707). They are labelled here
+    // as projections and never presented as attested statuses.
+    if (cat.values.some(v => v.membership !== undefined)) {
+      out.push('Two rows below are **membership-derived projections**, not attested');
+      out.push('statuses: no source recorded the value in a status column. They are');
+      out.push('projected from FOI family membership — the available-pool lists');
+      out.push('(availability) and the forbidden-suffix lists (forbiddenness) — which');
+      out.push('the ledger deliberately models as membership rather than a per-record');
+      out.push('status claim, and are shown here so the availability/forbiddenness the');
+      out.push('corpus carries is not lost. The small attested `Available` (a status');
+      out.push('a register export itself recorded) is kept as its own, separate row.');
+      out.push('');
+    }
     out.push(`| value | records | callsigns | allocated | sources |${hasTimeline ? ' timeline |' : ''} lanes |`);
     out.push(`|---|---:|---:|---:|---:|${hasTimeline ? '---|' : ''}---|`);
     for (const v of cat.values) {
       const spark = hasTimeline ? ` ${sparkline(v.bySource, timeline)} |` : '';
       const allocated = allocatable ? v.allocated.toLocaleString('en-GB') : '—';
-      out.push(`| ${mdCode(v.value)} | ${v.count.toLocaleString('en-GB')} | ${v.distinctCallsigns.toLocaleString('en-GB')} | ${allocated} | ${v.sources} |${spark} ${v.lanes.join(', ')} |`);
+      // A membership-derived bucket is labelled inline so a reader never reads it
+      // as an attested status (issue #707); attested values render as before.
+      const label = v.membership === undefined ? mdCode(v.value) : `${mdCode(v.value)} — ${v.membership} membership (projected)`;
+      out.push(`| ${label} | ${v.count.toLocaleString('en-GB')} | ${v.distinctCallsigns.toLocaleString('en-GB')} | ${allocated} | ${v.sources} |${spark} ${v.lanes.join(', ')} |`);
     }
     out.push('');
   }
@@ -619,16 +655,21 @@ export const VALUE_CATALOGUE_PATH = 'reports/value-catalogue.md';
 
 export function writeValueCatalogue(ledgerDir?: string): { path: string; changed: boolean } {
   const ref = loadReferenceData();
-  // The "Normalised licence category" table and the ledger-derived field
-  // distributions (implied_class / parse_status / prefix_series, and `flags`
-  // unioning every signal riding FLAG_PREDICATE) fold from the raw-keyed claim
-  // ledger (issue #361); the raw `status` and `product / licence_class` fields
-  // stay on the legacy tally for now (see value-catalogue-fold.ts / the migration
-  // map). One ledger is materialised and every section folds from it; a caller
-  // with a pre-built ledger passes its directory.
+  // The "Normalised licence category" table and EVERY tracked field distribution
+  // — `status` and raw `product / licence_class` (the raw observation layer,
+  // scoped to the register lane, status projecting its membership buckets),
+  // implied_class / parse_status / prefix_series, and `flags` — fold from the
+  // raw-keyed claim ledger (issues #361 / #444 / #707). One ledger is materialised
+  // and every section folds from it; a caller with a pre-built ledger passes its
+  // directory.
   const { categories: foldedCategories, fields: foldedFields } = buildValueCatalogueFold(ledgerDir, ref);
   const sesWindows = collectSesWindowAttestation(path.join(CONSTANTS.DIRS.archive, 'foi'), ref);
-  const markdown = renderValueCatalogue(buildFieldTallies(), ref, openDataTimeline(), buildNormalisationFidelity(), foldedCategories, foldedFields, sesWindows);
+  // Every value-catalogue field now folds from the raw-keyed claim ledger (issues
+  // #361 / #444 / #707), so the report is produced entirely from the folds; the
+  // legacy full-corpus tally (buildFieldTallies) is retired from the production
+  // path and survives only as the equivalence oracle's witness in the tests. An
+  // empty tally map is passed so the renderer reads the folds for every field.
+  const markdown = renderValueCatalogue(new Map(), ref, openDataTimeline(), buildNormalisationFidelity(), foldedCategories, foldedFields, sesWindows);
   // Written relative to the working directory - the SAME root the tallies read
   // archive/ from (CONSTANTS.DIRS.archive is relative). So a sweep run against
   // a fixture archive in a temp cwd writes ITS catalogue there, never

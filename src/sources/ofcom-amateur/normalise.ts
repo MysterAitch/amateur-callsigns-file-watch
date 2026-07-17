@@ -178,6 +178,16 @@ export const PRODUCT_COLUMN_NAMES: ReadonlySet<string> = new Set(
     Object.entries(mapping).filter(([, canonical]) => canonical === 'product').map(([raw]) => raw)),
 );
 
+// Every raw column name that means "status", derived from the variant registry
+// so a new variant keeps this in sync automatically. The value catalogue's
+// `status` field fold (src/ci/value-catalogue-fold.ts) reads the raw status claim
+// by header without re-guessing which raw header carried the status; every
+// open-data variant declares one.
+export const STATUS_COLUMN_NAMES: ReadonlySet<string> = new Set(
+  Object.values(VARIANTS).flatMap(mapping =>
+    Object.entries(mapping).filter(([, canonical]) => canonical === 'status').map(([raw]) => raw)),
+);
+
 // Find the callsign column by NAME regardless of position (issue #4): an
 // upstream column reorder must not silently change what sorted derivatives
 // are sorted by. Matches through a leading BOM (callers that parse without

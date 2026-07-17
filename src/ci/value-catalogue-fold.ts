@@ -3,16 +3,19 @@
  * raw-keyed claim ledger (issue #361), the first analytical DATA generator to
  * take its numbers from the ledger rather than the legacy normalised pipeline.
  *
- * WHY this section leads the cutover. The normalised licence category is a
+ * WHY this section led the cutover. The normalised licence category is a
  * FIRST-CLASS DERIVED claim in the ledger (`licence_category`, emitted by
  * claim.ts via the same normaliseLicenceCategory rule the legacy report calls),
  * so the fold reads the ledger's own derived tier rather than re-deriving the
- * mapping. The other value-catalogue fields stay on the legacy path for now:
- * status carries values a source never asserted (available-pool → "Available",
- * forbidden lists → "Forbidden") that the ledger models as family membership,
- * not a status claim; and prefix_series / implied_class / parse_status / flags
- * are the T1 parse-attribute tier the ledger does not yet emit. The migration
- * map (docs/design) sequences those.
+ * mapping. EVERY value-catalogue field now folds (issues #444 / #707): the
+ * parse-derived fields (prefix_series / implied_class / parse_status / flags) from
+ * the T1 tier; and the raw `status` and `product / licence_class` fields from the
+ * raw observation layer, scoped to the register lane (field-source-roles.ts). The
+ * `status` fold keeps the values a source never asserted — availability and
+ * forbiddenness, which the ledger models as FAMILY MEMBERSHIP, not a status claim
+ * — as labelled membership-derived projections rather than pretending they are
+ * attested statuses. The legacy tally is retired from production and survives only
+ * as the equivalence oracle's witness.
  *
  * EQUIVALENCE IS SEMANTIC, not byte-identity (issue #361). The ledger is raw-
  * keyed and derives `licence_category` ONLY from a per-row product/licence_class
@@ -53,6 +56,9 @@ import {
   type ClaimsSource,
 } from '../v2/report-fold.ts';
 import { loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { PRODUCT_COLUMN_NAMES, STATUS_COLUMN_NAMES } from '../sources/ofcom-amateur/normalise.ts';
+import { foiVerbatimSourceHeaders } from '../shared/foi-normalise.ts';
+import { resolveFieldSources, type FieldSources } from './field-source-roles.ts';
 import type { FieldCatalogue, ValueTally } from './value-catalogue.ts';
 
 // The register status that means "issued / in use", matching the value
@@ -375,14 +381,239 @@ export function foldFieldDistribution(source: string | ClaimsSource, field: stri
 // every signal riding it — the parse flags and the two higher-tier tiers — is
 // unioned in one pass). The field-fold SQL groups by the claim's object, so a
 // per-token predicate and the flag predicate fold through the identical query.
-export function foldParseFields(source: string | ClaimsSource): FoldedFields {
+export function foldParseFields(source: string | ClaimsSource, fieldSources: FieldSources = resolveFieldSources()): FoldedFields {
   const claims = toClaimsSource(source);
   const folded: FoldedFields = new Map();
+  // The raw `status` and `product / licence_class` field distributions fold from
+  // the raw observation layer, scoped to the register lane that bears each field
+  // (issues #444 / #707); status additionally projects its membership buckets.
+  folded.set(STATUS_FIELD, foldStatusDistribution(claims, fieldSources));
+  folded.set(RAW_PRODUCT_FIELD, foldProductDistribution(claims, fieldSources));
   for (const [field, predicate] of FOLDED_PARSE_FIELDS) {
     folded.set(field, foldFieldDistribution(claims, field, predicate));
   }
   folded.set(FLAGS_FIELD, foldFieldDistribution(claims, FLAGS_FIELD, FLAGS_FIELD_PREDICATE));
   return folded;
+}
+
+// --- The raw `status` and `product / licence_class` field folds (issues #444 / #707) ---
+//
+// These two fields fold from the raw observation layer rather than a derived
+// tier: the fold reads exactly what a source asserted under its OWN column header
+// (raw-emit keys each attribute claim by the publisher's header), scoped to the
+// register callsign lane that bears the field (field-source-roles.ts). Neither
+// field emits a derived claim — the ledger's canonical surface is unchanged —
+// which is #707's determination: these distributions are read-time projections of
+// the observation layer, not per-record claims.
+//
+// The classified divergence from the legacy tally (value-catalogue-fold.test.ts):
+//   - `status` — the attested statuses (Allocated / Reserved / Live / …) fold
+//     EXACTLY from the raw status claims. Two buckets differ: the legacy tally's
+//     single `Available` MERGES the small attested open-data/FOI `Status=Available`
+//     with the availability the FOI available-pool lists carry, which the ledger
+//     models as FAMILY MEMBERSHIP (no status claim); the fold keeps the attested
+//     `Available` and PROJECTS a separate membership `Available` from available-pool
+//     @listed. It likewise projects a membership `Forbidden` from forbidden-list
+//     @listed (suffixes the legacy callsign-keyed tally never surfaced as a status).
+//     Both projections are labelled in the rendered table, never shown as attested.
+//   - `product` — a register-lane census: the fold reads product claims on
+//     CALLSIGN observations only, so (like the licence-category fold) it drops the
+//     available-pool sheets' pool-slot licence class — a class attached to an
+//     availability list, not a licensed register product. So the fold is <= legacy
+//     on the availability-list classes (Full / Foundation / Intermediate and their
+//     Amateur … spellings) and equal elsewhere, the ledger being MORE faithful.
+
+// The raw column headers a status / product value rides under, unioned across
+// every authored binding (the open-data variant registry and the FOI conversion
+// registry) plus the available-pool role vocabulary. Derived from the registries
+// so a new header keeps the fold in sync; the fold filters raw claims by these
+// predicates to read the field's value without a queryable role marker in the
+// ledger. Frozen once at module load — the registries are static.
+export const STATUS_PREDICATES: readonly string[] = [...new Set([
+  ...STATUS_COLUMN_NAMES,
+  ...foiVerbatimSourceHeaders('status'),
+])].sort();
+
+// The available-pool family emits its licence class under the unified role
+// predicate `licence_class` (available-pool.ts), not a raw header, so it joins
+// the product-header set — though the register-lane product fold scopes it out
+// anyway (available-pool is not a product source).
+export const PRODUCT_PREDICATES: readonly string[] = [...new Set([
+  ...PRODUCT_COLUMN_NAMES,
+  ...foiVerbatimSourceHeaders('licence_class'),
+  'licence_class',
+])].sort();
+
+// The report field names these two folds populate (matching value-catalogue.ts).
+export const STATUS_FIELD = 'status';
+export const RAW_PRODUCT_FIELD = 'product / licence_class';
+
+// The value the `status` fold projects from available-pool / forbidden-list family
+// membership, and the family tag it carries so the renderer labels the projection.
+const AVAILABLE_MEMBERSHIP = { value: 'Available', family: 'available-pool' };
+const FORBIDDEN_MEMBERSHIP = { value: 'Forbidden', family: 'forbidden-list' };
+
+// One folded field-distribution row, extended with the membership tag so an
+// attested value and a same-named membership projection stay DISTINCT rows.
+interface FieldMembershipRow {
+  value: string;
+  membership: string | null;
+  src: string | null;
+  records: number;
+  callsigns: number;
+  allocated: number;
+  lanes: string;
+  isTotal: number;
+}
+
+// A DuckDB IN-list of the field's raw predicate headers.
+function predicateList(predicates: readonly string[]): string {
+  return sqlStringList(predicates);
+}
+
+// A DuckDB IN-list of source-file keys, or a never-matching literal when empty
+// (an empty ledger fixture) so `sourceFile IN (…)` stays valid SQL.
+function sourceFileList(sources: readonly string[]): string {
+  return sources.length === 0 ? `''` : sqlStringList(sources);
+}
+
+// The fold SQL for the `product / licence_class` census. One pass over the claims:
+//   - attested: each raw product claim (predicate in the header set) on a product-
+//     bearing register source; its object trimmed is the value.
+//   - blank: each @listed anchor on a product-bearing source that carries NO
+//     product claim — the empty-cell bucket the raw layer emits no claim for,
+//     reconstructed positionally (register @listed minus product observations).
+// allocated joins the Allocated-status observations exactly as the other folds do.
+// GROUPING SETS yields the per-value total and per-source grains in one scan.
+function productFoldSql(source: ClaimsSource, sources: FieldSources): string {
+  const key = cleanedKeyExpr('rawSubject');
+  const preds = predicateList(PRODUCT_PREDICATES);
+  const productSrc = sourceFileList(sources.productSources);
+  return `WITH claims AS (
+  SELECT * FROM ${claimsRelation(source)}
+),
+alloc AS (
+  SELECT DISTINCT sourceFile, ordinal FROM claims WHERE layer='raw' AND object='${ALLOCATED_STATUS}'
+),
+attested AS (
+  SELECT trim(object) AS value, ${key} AS ck, ${LANE_EXPR} AS lane, ${SOURCE_KEY_EXPR} AS src, (a.ordinal IS NOT NULL) AS is_alloc
+  FROM claims c LEFT JOIN alloc a USING (sourceFile, ordinal)
+  WHERE c.layer='raw' AND c.predicate IN (${preds}) AND c.sourceFile IN (${productSrc})
+),
+blank AS (
+  SELECT '(blank)' AS value, ${key} AS ck, ${LANE_EXPR} AS lane, ${SOURCE_KEY_EXPR} AS src, (a.ordinal IS NOT NULL) AS is_alloc
+  FROM claims c LEFT JOIN alloc a USING (sourceFile, ordinal)
+  WHERE c.predicate='@listed' AND c.sourceFile IN (${productSrc})
+    AND NOT EXISTS (SELECT 1 FROM claims s WHERE s.sourceFile=c.sourceFile AND s.ordinal=c.ordinal AND s.layer='raw' AND s.predicate IN (${preds}))
+),
+v AS (SELECT value, NULL AS membership, ck, lane, src, is_alloc FROM attested UNION ALL SELECT value, NULL, ck, lane, src, is_alloc FROM blank)
+SELECT
+  value,
+  membership,
+  src,
+  count(*) AS records,
+  count(DISTINCT CASE WHEN ck <> '' THEN ck END) AS callsigns,
+  count(DISTINCT CASE WHEN is_alloc AND ck <> '' THEN ck END) AS allocated,
+  string_agg(DISTINCT lane, ',' ORDER BY lane) AS lanes,
+  grouping(src) AS isTotal
+FROM v
+GROUP BY GROUPING SETS ((value, membership), (value, membership, src))
+ORDER BY value, isTotal DESC, src`;
+}
+
+// The fold SQL for the `status` field. Attested statuses and the reconstructed
+// `(blank)` bucket fold over the status-bearing register sources exactly as the
+// product fold does; two further UNION arms PROJECT the membership buckets —
+// available-pool @listed as `Available`, forbidden-list @listed as `Forbidden` —
+// each tagged with its family so the assembly keeps it a DISTINCT row from any
+// attested value of the same name. `allocated` is not meaningful for the status
+// field (the value already IS the status), so it is not computed here.
+function statusFoldSql(source: ClaimsSource, sources: FieldSources): string {
+  const key = cleanedKeyExpr('rawSubject');
+  const preds = predicateList(STATUS_PREDICATES);
+  const statusSrc = sourceFileList(sources.statusSources);
+  const availSrc = sourceFileList(sources.availablePoolSources);
+  const forbidSrc = sourceFileList(sources.forbiddenSources);
+  return `WITH claims AS (
+  SELECT * FROM ${claimsRelation(source)}
+),
+attested AS (
+  SELECT object AS value, NULL AS membership, ${key} AS ck, ${LANE_EXPR} AS lane, ${SOURCE_KEY_EXPR} AS src
+  FROM claims WHERE layer='raw' AND predicate IN (${preds}) AND sourceFile IN (${statusSrc})
+),
+blank AS (
+  SELECT '(blank)' AS value, NULL AS membership, ${key} AS ck, ${LANE_EXPR} AS lane, ${SOURCE_KEY_EXPR} AS src
+  FROM claims c WHERE c.predicate='@listed' AND c.sourceFile IN (${statusSrc})
+    AND NOT EXISTS (SELECT 1 FROM claims s WHERE s.sourceFile=c.sourceFile AND s.ordinal=c.ordinal AND s.layer='raw' AND s.predicate IN (${preds}))
+),
+available AS (
+  SELECT '${AVAILABLE_MEMBERSHIP.value}' AS value, '${AVAILABLE_MEMBERSHIP.family}' AS membership, ${key} AS ck, ${LANE_EXPR} AS lane, ${SOURCE_KEY_EXPR} AS src
+  FROM claims WHERE predicate='@listed' AND sourceFile IN (${availSrc})
+),
+forbidden AS (
+  SELECT '${FORBIDDEN_MEMBERSHIP.value}' AS value, '${FORBIDDEN_MEMBERSHIP.family}' AS membership, ${key} AS ck, ${LANE_EXPR} AS lane, ${SOURCE_KEY_EXPR} AS src
+  FROM claims WHERE predicate='@listed' AND sourceFile IN (${forbidSrc})
+),
+v AS (SELECT * FROM attested UNION ALL SELECT * FROM blank UNION ALL SELECT * FROM available UNION ALL SELECT * FROM forbidden)
+SELECT
+  value,
+  membership,
+  src,
+  count(*) AS records,
+  count(DISTINCT CASE WHEN ck <> '' THEN ck END) AS callsigns,
+  0 AS allocated,
+  string_agg(DISTINCT lane, ',' ORDER BY lane) AS lanes,
+  grouping(src) AS isTotal
+FROM v
+GROUP BY GROUPING SETS ((value, membership), (value, membership, src))
+ORDER BY value, membership NULLS FIRST, isTotal DESC, src`;
+}
+
+// Assemble the membership-tagged rows into a FieldCatalogue. Values key by
+// (value, membership) so an attested `Available` and a projected `Available` stay
+// two rows; the projection carries its `membership` family tag for the renderer.
+// Ordered by record count desc then value (the same order every field table uses),
+// with the membership tag breaking a tie so the ordering is total and byte-stable.
+function assembleMembershipCatalogue(field: string, rows: readonly FieldMembershipRow[]): FieldCatalogue {
+  const composite = (value: string, membership: string | null): string => `${membership ?? ''} ${value}`;
+  const byKey = new Map<string, ValueTally>();
+  for (const row of rows) {
+    if (row.isTotal !== 1) continue;
+    byKey.set(composite(row.value, row.membership), {
+      value: row.value,
+      count: row.records,
+      lanes: row.lanes === '' ? [] : row.lanes.split(','),
+      sources: 0,
+      bySource: new Map(),
+      distinctCallsigns: row.callsigns,
+      allocated: row.allocated,
+      membership: row.membership ?? undefined,
+    });
+  }
+  for (const row of rows) {
+    if (row.isTotal === 1 || row.src === null) continue;
+    byKey.get(composite(row.value, row.membership))?.bySource.set(row.src, row.records);
+  }
+  const values = [...byKey.values()];
+  for (const tally of values) tally.sources = tally.bySource.size;
+  values.sort((a, b) => b.count - a.count || a.value.localeCompare(b.value) || (a.membership ?? '').localeCompare(b.membership ?? ''));
+  return { field, distinct: values.length, total: values.reduce((s, v) => s + v.count, 0), values };
+}
+
+// Fold the `status` field distribution from a claims source: attested statuses,
+// the reconstructed blank bucket, and the two membership projections.
+export function foldStatusDistribution(source: string | ClaimsSource, sources: FieldSources): FieldCatalogue {
+  const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return { field: STATUS_FIELD, distinct: 0, total: 0, values: [] };
+  return assembleMembershipCatalogue(STATUS_FIELD, foldQuery<FieldMembershipRow>(statusFoldSql(claims, sources)));
+}
+
+// Fold the raw `product / licence_class` field distribution (the register-lane
+// census) from a claims source: attested products plus the reconstructed blank.
+export function foldProductDistribution(source: string | ClaimsSource, sources: FieldSources): FieldCatalogue {
+  const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return { field: RAW_PRODUCT_FIELD, distinct: 0, total: 0, values: [] };
+  return assembleMembershipCatalogue(RAW_PRODUCT_FIELD, foldQuery<FieldMembershipRow>(productFoldSql(claims, sources)));
 }
 
 // The whole value-catalogue fold: the licence-category table plus the migrated
