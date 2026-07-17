@@ -499,6 +499,15 @@ const HOLDINGS_STYLE = [
   '.hold-map-cells{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.25rem;min-height:1.35rem;align-items:center}',
   '.hold-map-cells li{list-style:none;margin:0}',
   '.hold-cell{display:flex;align-items:center;justify-content:center;width:1.5rem;height:1.5rem;border-radius:5px;font-size:.72rem;font-weight:700;font-family:ui-monospace,monospace;text-decoration:none;--kh:#8a8f98;background:color-mix(in srgb,var(--kh) 22%,var(--paper));border:1px solid color-mix(in srgb,var(--kh) 52%,var(--paper));color:var(--ink)}',
+  // Every map cell is an <a> (it links to its row), and site/ledger.css's
+  // page-wide `.ledger a{color:var(--raw)}` (specificity 0,1,1) otherwise beats
+  // `.hold-cell`'s own colour (0,1,0) regardless of load order, dimming every
+  // kind letter to the link colour instead of the intended ink (issue #687).
+  // Scoping the override to the map's own ancestor (0,2,1) settles it by
+  // specificity alone, so it holds however the stylesheets end up ordered -
+  // the legend reuses `.hold-cell` on a bare <span>, which `.ledger a` never
+  // matches, so it already read correctly and needs no equivalent rule.
+  '.hold-map a.hold-cell{color:var(--ink)}',
   '.hold-cell:hover,.hold-cell:focus-visible{outline:2px solid var(--accent);outline-offset:1px}',
   '.hold-cell[data-kind="register-snapshot"]{--kh:#3b82c4}',
   '.hold-cell[data-kind="available-pool"]{--kh:#3f9d6b}',
