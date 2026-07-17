@@ -180,7 +180,7 @@ const EXAMPLE_BLURBS: Record<ExampleSelection['kind'], { heading: string; blurb:
   },
   'forbidden-suffix-flag': {
     heading: 'A forbidden-suffix flag',
-    blurb: 'The forbidden-suffix flag records that a callsign’s suffix appears on the ever-forbidden union — an observation, not an accusation: most such callsigns are long-standing allocations that predate the withholding. The working links the raw token and the reference-data row the suffix matched.',
+    blurb: 'The forbidden-suffix flag records that a callsign’s suffix appears on the ever-forbidden union — an observation, not an accusation: <a href="forbidden/index.html#with-allocated">most such callsigns are long-standing allocations that predate the withholding</a>. The working links the raw token and the reference-data row the suffix matched.',
   },
 };
 

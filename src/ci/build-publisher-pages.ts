@@ -660,14 +660,16 @@ function approxCount(n: number): string {
 
 // The derived per-dataset blurb (#636): kind in plain English, scale, vintage
 // and any declared scope, saying only what the record knows and humanising thin
-// data rather than padding it. A not-held response says so plainly.
-function holdingBlurb(h: Holding): string {
+// data rather than padding it. A not-held response says so plainly, and names
+// the very FOI response it rests on — the same one linked immediately above
+// this blurb in the row's title, so the citation is not left bare.
+function holdingBlurb(h: Holding, rel: string): string {
   const vintageClause = h.vintage === undefined
     ? ''
     : ` ${h.lane === 'open-data' ? 'as published' : 'as at'} ${escapeHtml(vintageParts(h.vintage).exact)}`;
 
   if (h.outcome === 'not held') {
-    return `A Freedom-of-Information response recording that Ofcom does not hold this data${vintageClause}.`;
+    return `A <a href="${rel}${entryHref(h)}">Freedom-of-Information response</a> (<code>${escapeHtml(h.key)}</code>) recording that Ofcom does not hold this data${vintageClause}.`;
   }
 
   const classes = h.datasetClasses ?? [];
@@ -800,7 +802,7 @@ function holdingRow(h: Holding, depthToRoot: number, idPrefix: string, marks: Ho
     '</div>',
     '<div class="hold-body">',
     `<a class="hold-title" href="${rel}${entryHref(h)}">${escapeHtml(h.title)}</a> <code class="hold-key">${escapeHtml(h.key)}</code>`,
-    `<p class="hold-blurb">${holdingBlurb(h)}</p>`,
+    `<p class="hold-blurb">${holdingBlurb(h, rel)}</p>`,
     kindTags(h, rel),
     '</div>',
     '</li>',

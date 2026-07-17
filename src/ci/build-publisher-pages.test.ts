@@ -168,7 +168,15 @@ describe('publisherPage composite — derived per-dataset blurbs (#636)', { tags
   });
 
   it('Blurb_NotHeldResponse_SaysWhatIsKnownRatherThanPadding', () => {
-    expect(compositeHtml).toContain('A Freedom-of-Information response recording that Ofcom does not hold this data.');
+    expect(compositeHtml).toContain('recording that Ofcom does not hold this data.');
+  });
+
+  it('Blurb_NotHeldResponse_NamesAndLinksTheFoiResponseItRestsOn', () => {
+    // The bare "not held" sentence otherwise carries no identifier — the fix for
+    // issue #770 wires it to the same entry (key + link) the row's own title
+    // already carries one line above, rather than leaving an unnamed citation.
+    expect(compositeHtml).toContain('<a href="../../datasets/foi/ofcom-612185--not-held/index.html">Freedom-of-Information response</a>');
+    expect(compositeHtml).toContain('(<code>ofcom-612185--not-held</code>)');
   });
 });
 

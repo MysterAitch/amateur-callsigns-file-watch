@@ -151,6 +151,15 @@ describe('the built fidelity page over the real archive', { tags: ['data-validit
     expect(page).toContain('Reproduces: <code>');
   });
 
+  it('FidelityPage_ForbiddenSuffixFlagExample_LinksTheAllocatedCallsignsGeneralisationRatherThanAssertingItUnlinked', () => {
+    // Issue #769: "most such callsigns are long-standing allocations that
+    // predate the withholding" is this project's own derived finding, already
+    // computed and shown on the forbidden-suffix section index under
+    // "Forbidden, yet carrying Allocated callsigns" — so this blurb links
+    // through to that analysis rather than restating it as a bare assertion.
+    expect(page).toContain('<a href="forbidden/index.html#with-allocated">most such callsigns are long-standing allocations that predate the withholding</a>');
+  });
+
   it('FidelityPage_Epistemics_KeepTheStandingCaveatsAndNonAccusatoryFraming', () => {
     expect(page).toContain('declared, not verified');
     expect(page).toContain('never a verdict');

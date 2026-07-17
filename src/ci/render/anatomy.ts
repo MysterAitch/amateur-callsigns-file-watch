@@ -45,7 +45,14 @@ export interface AnatomyPart {
   readonly href: string;
   /** Optional glossary deep-link anchor for the term. */
   readonly glossary?: GlossaryAnchor;
+  /** Optional external citation for the source backing this part's meaning. */
+  readonly citation?: { readonly href: string; readonly label: string };
 }
+
+// The ITU GLAD application's call-sign-series allocation table: the same
+// source already cited for the UK country-block allocation in
+// reference-data/README.md (itu-call-sign-series.csv), fetched 2026-07-07.
+const ITU_GLAD_CALLSIGNS_URL = 'https://www.itu.int/gladapp/Allocation/CallSigns';
 
 // MW0ABC/P covers every core part in one clean call; the surrounding prose
 // describes the simpler M7TEE alongside it. Each part's `chars` are split into
@@ -54,7 +61,8 @@ export const ANATOMY_EXAMPLE = 'MW0ABC/P';
 
 export const ANATOMY_PARTS: readonly AnatomyPart[] = [
   { token: 'prefix', colourName: 'blue', chars: 'M', shortLabel: 'Prefix', name: 'Prefix',
-    meaning: 'The UK country block — G, M or 2, allocated by the ITU.', href: '#parts' },
+    meaning: 'The UK country block — G, M or 2, allocated by the ITU.', href: '#parts',
+    citation: { href: ITU_GLAD_CALLSIGNS_URL, label: 'ITU' } },
   { token: 'rsl', colourName: 'green', chars: 'W', shortLabel: 'RSL', name: 'Regional Secondary Locator',
     meaning: 'A nation letter after the first character; here W is Wales.', href: '#rsl', glossary: 'rsl' },
   { token: 'digit', colourName: 'amber', chars: '0', shortLabel: 'Digit', name: 'Digit',
@@ -82,6 +90,7 @@ export function callsignAnatomyFigure(depthToRoot: number): string {
       meaning: p.meaning,
       nameHref: p.href,
       ...(p.glossary === undefined ? {} : { glossaryHref: glossaryHref(p.glossary, depthToRoot) }),
+      ...(p.citation === undefined ? {} : { citationHref: p.citation.href, citationLabel: p.citation.label }),
     })),
     idPrefix: 'anat',
     titleText: `Anatomy of the example UK amateur callsign ${ANATOMY_EXAMPLE}`,

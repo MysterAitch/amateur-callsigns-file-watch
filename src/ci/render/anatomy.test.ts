@@ -75,6 +75,13 @@ describe('Callsign anatomy figure', { tags: ['unit'] }, () => {
     expect(figure).toContain('glossary.html#rsl');
     expect(figure).toContain('glossary.html#suffix');
   });
+
+  it('AnatomyFigure_PrefixMeaning_CitesTheItuAllocationTableItRestsOn', () => {
+    // Issue #770: the "allocated by the ITU" claim otherwise names no source.
+    // It links to the same ITU GLAD call-sign-series table already cited for
+    // the UK country block in reference-data/README.md.
+    expect(figure).toContain('<a href="https://www.itu.int/gladapp/Allocation/CallSigns">ITU</a>');
+  });
 });
 
 describe('Anatomy page and navigation wiring', { tags: ['ui'] }, () => {

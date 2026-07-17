@@ -141,6 +141,17 @@ describe('Anatomy figure on the per-callsign page', { tags: ['ui'] }, () => {
     expect(glyphs.join('')).toBe('20APR');
   });
 
+  it('AnatomyFigure_PrefixRow_CitesTheItuAllocationTableItRestsOn', async () => {
+    // Issue #770: the "allocated by the ITU" claim otherwise names no source
+    // on this live per-callsign figure either — it shares the same wording
+    // and now the same citation as the structure page's example figure.
+    document.body.innerHTML = MAIN;
+    await runLookup('M7TEE');
+    const host = figureHost();
+    const link = host.querySelector('table a[href="https://www.itu.int/gladapp/Allocation/CallSigns"]');
+    expect(link?.textContent).toBe('ITU');
+  });
+
   it('AnatomyFigure_VisitorForm_StatesTheShapeInsteadOfGuessingADiagram', async () => {
     document.body.innerHTML = MAIN;
     await runLookup('M/F1ABC');

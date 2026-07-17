@@ -18,7 +18,9 @@ import {
   renderKnownAbsent,
   renderSeriesGaps,
   injectDataStatus,
+  CLASS_BLURBS,
 } from './build-data-status.ts';
+import { RATIONALE_SOURCE_LABEL } from './build-forbidden-section.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -265,6 +267,19 @@ describe('data-status: per-type blurbs & de-jarred vintages (issue #469)', { tag
     expect(html).toContain('WhatDoTheyKnow (WDTK)');
     // The available-pool blurb states the series is closed, not merely stale.
     expect(html).toContain('no longer produced');
+  });
+
+  it('ForbiddenListBlurb_WithholdingRationale_NamesAndLinksTheSameFoiCitationAsTheForbiddenSection', () => {
+    // Issue #769: the "offensive or otherwise reserved" withholding rationale
+    // otherwise reads as a bare assertion here, even though the very same
+    // claim is already cited and linked in the forbidden-suffix section
+    // (build-forbidden-section.ts, per #750). This propagates the identical
+    // label and target — the target itself is proven to resolve to an emitted
+    // page by build-dataset-pages.test.ts's own citation guard — rather than
+    // re-hardcoding a second copy that could drift from it.
+    const blurb = CLASS_BLURBS['forbidden-list'];
+    expect(blurb).toContain(RATIONALE_SOURCE_LABEL);
+    expect(blurb).toContain('href="datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md.html"');
   });
 
   it('Grid_GroupHeading_LinksTheDatasetClassTermToTheGlossary', () => {

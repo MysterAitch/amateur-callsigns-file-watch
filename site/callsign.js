@@ -310,7 +310,8 @@ export function twinConflict(record, key, manifest) {
 const FIGURE_PART_META = {
   prefix: { token: 'prefix', colourName: 'blue', shortLabel: 'Prefix', name: 'Prefix',
     meaning: 'The UK country block — G, M or 2, allocated by the ITU.',
-    nameHref: 'callsign-structure.html#parts' },
+    nameHref: 'callsign-structure.html#parts',
+    citationHref: 'https://www.itu.int/gladapp/Allocation/CallSigns', citationLabel: 'ITU' },
   rsl: { token: 'rsl', colourName: 'green', shortLabel: 'RSL', name: 'Regional Secondary Locator',
     meaning: 'A nation letter after the first character.',
     nameHref: 'callsign-structure.html#rsl', glossaryHref: 'glossary.html#rsl' },
