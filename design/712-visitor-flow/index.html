@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entry-flow candidates (issue #712) — gallery</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="ledger.css">
+  <style>
+    .g { max-width: 60rem; margin: 0 auto; padding: 1.5rem; }
+    .g ul { list-style: none; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .g li a { display: block; text-decoration: none; color: inherit; border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+    .g li a:hover { border-color: var(--accent); }
+    .g .k { font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+    .g h2 { font-size: 17px; margin: 6px 0 4px; }
+    .g p { margin: 0; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body class="g">
+  <h1>Entry-flow candidates — issue #712</h1>
+  <p class="muted">Five candidate front-door flows, layered over the real built site. Each wires its
+    search box to the real instant per-callsign page. Static mockups for comparison, not a merged design.</p>
+  <ul>
+    <li><a href="entry-a.html"><div class="k">Candidate A</div><h2>Landing / orientation-first</h2><p>What this is, the record's shape, then reader / researcher / holder routes.</p></a></li>
+    <li><a href="entry-b.html"><div class="k">Candidate B</div><h2>Search-first</h2><p>One centred search box; orientation demoted to a quiet line.</p></a></li>
+    <li><a href="entry-c.html"><div class="k">Candidate C</div><h2>Timeline front-door</h2><p>The record itself — publications 2013–2026 — as the hero.</p></a></li>
+    <li><a href="entry-d.html"><div class="k">Candidate D</div><h2>Search-first + surprise</h2><p>Search box plus a rotating "from the record" card before any keystroke.</p></a></li>
+    <li><a href="entry-e.html"><div class="k">Candidate E</div><h2>Landing + role tabs + resume</h2><p>Embedded search, role tabs, and a pinned resume strip for returning visitors.</p></a></li>
+  </ul>
+</body>
+</html>

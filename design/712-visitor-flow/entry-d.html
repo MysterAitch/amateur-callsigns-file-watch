@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>Candidate D — Search-first + surprise — entry-flow mockup</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="ledger.css">
+  <link rel="stylesheet" href="entry-proto.css">
+  <meta name="theme-color" content="#14506e">
+  <style>
+    /* Candidate D: search-first, but a "surprise" card sits beneath the box and
+       shows something real about the record BEFORE the visitor types — so the
+       first pleasant surprise arrives at zero keystrokes, and the box is still
+       right there. Bespoke to this candidate. */
+    .d-stage { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 44px 0 12px; }
+    .d-title { font-family: var(--mono); font-size: 13px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin: 0 0 22px; }
+    .d-search { width: min(680px, 92vw); }
+    .d-search .search input[type="search"] { padding: 16px 18px; font-size: 17px; border-radius: 15px; }
+    .d-search .search button.go { padding: 0 24px; border-radius: 15px; }
+    .d-jump { width: min(680px, 92vw); }
+    .d-jump .jumpback { justify-content: center; }
+
+    .d-card { width: min(680px, 92vw); margin-top: 22px; text-align: left; }
+    .d-card .surprise { position: relative; border: 1px solid var(--hair); border-left: 3px solid var(--signal);
+      border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); padding: 18px 20px 16px; }
+    .d-card .k { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--signal); font-weight: 600; }
+    .d-card h2 { margin: 8px 0 6px; font-size: 20px; }
+    .d-card p { margin: 0 0 10px; color: var(--muted); font-size: 14.5px; }
+    .d-card .surprise a.more { font-family: var(--mono); font-size: 13px; text-decoration: none; color: var(--raw); }
+    .d-card .surprise a.more:hover { text-decoration: underline; }
+    .d-another { font: inherit; font-family: var(--mono); font-size: 12px; cursor: pointer;
+      padding: 4px 10px; border-radius: 8px; border: 1px solid var(--hair); background: var(--surface-2); color: var(--ink); }
+    .d-another:hover { border-color: var(--signal); }
+    .d-orient { margin: 24px 0 6px; font-size: 13.5px; color: var(--muted); text-align: center; }
+    .d-orient a { color: var(--raw); }
+    .d-foot { text-align: center; }
+    .d-foot .derived-stamp { color: var(--faint); }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="publishers/index.html">Publishers</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a></p></nav>
+
+  <main id="main" class="ledger proto">
+    <div class="wrap">
+      <div class="d-stage">
+        <div class="d-title">📻 UK amateur callsign lookup</div>
+
+        <div class="d-search search">
+          <form id="search-form" role="search" aria-label="Callsign search">
+            <label for="search-input" class="visually-hidden">Callsign or suffix</label>
+            <input id="search-input" type="search" role="combobox" aria-expanded="false"
+              aria-controls="suggest" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+              autofocus placeholder="Type a callsign — e.g. M7TEE — or a suffix like *TEE">
+            <button type="submit" class="go">Look up</button>
+          </form>
+          <ul class="suggest" id="suggest" role="listbox" aria-label="Suggestions" hidden></ul>
+        </div>
+
+        <div class="d-jump"><div class="jumpback" id="jumpback" hidden></div></div>
+
+        <div class="d-card">
+          <div class="surprise" aria-live="polite">
+            <div class="k"><span id="s-kicker">from the record</span>
+              <button type="button" class="d-another" id="s-another">Surprise me again →</button></div>
+            <h2 id="s-title">—</h2>
+            <p id="s-body">—</p>
+            <a class="more" id="s-link" href="#">Explore this →</a>
+          </div>
+        </div>
+
+        <p class="d-orient">An independent mirror of Ofcom's UK amateur-radio register.
+          <a href="about.html">What this is</a> · <a href="statistics.html">the record at a glance</a>.</p>
+        <p class="d-foot"><span class="derived-stamp">figures at the <span data-figure="derivedAt">—</span> build</span></p>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { attachSearch, stampFigures, renderRecents, RECORD } from './entry-common.js';
+    stampFigures();
+    attachSearch(document.getElementById('search-form'), document.getElementById('search-input'), document.getElementById('suggest'));
+    renderRecents(document.getElementById('jumpback'), { fallback: ['M7TEE', '2E0AAA', 'GB2RS'] });
+
+    // A small deck of real, dated "surprises" — the first pleasant surprise
+    // before a single keystroke. Each links somewhere real; figures carry the
+    // same derived-and-dated discipline as the rest of the site.
+    const SURPRISES = [
+      { kicker: 'reserved, never issued', title: 'The M2 prefix has never been issued',
+        body: 'It appears in the register only as reserved — a whole prefix series held back, never allocated to a licensee.',
+        href: 'series/index.html' },
+      { kicker: 'the shape of the record', title: `${RECORD.callsigns.toLocaleString('en-GB')} callsigns, ${RECORD.datasets} publications`,
+        body: 'Thirteen years of Ofcom’s register, folded together so any callsign can be traced across every archived snapshot.',
+        href: 'statistics.html' },
+      { kicker: 'forbidden by design', title: 'Over 1,400 suffixes Ofcom will not allocate',
+        body: 'Some three-letter endings are off-limits — offensive, confusing, or reserved. The set is tracked as it changes over time.',
+        href: 'forbidden/index.html' },
+      { kicker: 'try a suffix', title: 'Which series is a suffix still free in?',
+        body: 'Type a suffix like *TEE to see which prefix series carry it and which leave it open — a quick way to sanity-check a wanted callsign.',
+        href: 'callsign.html?c=*TEE' },
+      { kicker: 'the long view', title: 'The earliest snapshot dates to August 2013',
+        body: `The most recent lands on ${new Date(RECORD.latestSnapshot).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} — the register captured again and again in between.`,
+        href: 'datasets/index.html' },
+    ];
+    const kicker = document.getElementById('s-kicker');
+    const title = document.getElementById('s-title');
+    const body = document.getElementById('s-body');
+    const link = document.getElementById('s-link');
+    let idx = 0;
+    function show(i) {
+      const s = SURPRISES[i];
+      kicker.textContent = s.kicker; title.textContent = s.title; body.textContent = s.body; link.href = s.href;
+    }
+    show(0);
+    document.getElementById('s-another').addEventListener('click', () => { idx = (idx + 1) % SURPRISES.length; show(idx); });
+  </script>
+</body>
+</html>

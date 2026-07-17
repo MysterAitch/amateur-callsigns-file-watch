@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>Candidate E — Landing + role tabs + resume — entry-flow mockup</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="ledger.css">
+  <link rel="stylesheet" href="entry-proto.css">
+  <meta name="theme-color" content="#14506e">
+  <style>
+    /* Candidate E: a landing hero with the live search embedded IN it, plus
+       role tabs (reader / researcher / holder) that swap tailored quick-starts,
+       and a "resume" strip pinned above everything for the returning visitor —
+       the clearest split between the first-visit and returning-visit needs.
+       Bespoke to this candidate. */
+    .e-resume { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+      padding: 10px 16px; margin: 0 0 4px; border: 1px solid var(--hair);
+      border-radius: 12px; background: var(--surface-2); }
+    .e-resume[hidden] { display: none; }
+    .e-resume .e-resume-label { font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--faint); }
+    .e-resume .jumpback { margin: 0; }
+
+    .e-hero { padding: 26px 0 6px; }
+    .e-hero h1 { font-size: clamp(28px, 4.6vw, 42px); margin: 10px 0 10px; }
+    .e-hero .lede { color: var(--muted); font-size: clamp(15px, 2.2vw, 18px); max-width: 60ch; margin: 0 0 18px; }
+    .e-embed { max-width: 620px; }
+    .e-embed .search input[type="search"] { padding: 14px 16px; }
+    .e-shape { display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: baseline; margin: 16px 0 2px; }
+    .e-shape .fig b { font-family: var(--mono); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .e-shape .fig span { font-size: 11.5px; color: var(--muted); margin-left: 4px; }
+
+    .e-tabs { margin-top: 28px; }
+    .e-tablist { display: flex; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--hair); padding-bottom: 2px; }
+    .e-tab { font: inherit; font-family: var(--mono); font-size: 13px; font-weight: 600; cursor: pointer;
+      padding: 9px 16px; border: 1px solid transparent; border-bottom: none; border-radius: 10px 10px 0 0;
+      background: transparent; color: var(--muted); }
+    .e-tab[aria-selected="true"] { background: var(--surface); color: var(--signal);
+      border-color: var(--hair); box-shadow: var(--shadow); }
+    .e-tab:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+    .e-panel { padding: 18px 2px 2px; }
+    .e-panel[hidden] { display: none; }
+    .e-panel p.intro { color: var(--muted); margin: 0 0 14px; max-width: 66ch; }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="publishers/index.html">Publishers</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a></p></nav>
+
+  <main id="main" class="ledger proto">
+    <div class="wrap">
+      <div class="e-resume" id="resume" hidden>
+        <span class="e-resume-label">Resume</span>
+        <div class="jumpback" id="jumpback" hidden></div>
+      </div>
+
+      <div class="e-hero">
+        <div class="eyebrow">UK amateur-radio register · independent mirror</div>
+        <h1>Look up a callsign, or get your bearings first</h1>
+        <p class="lede">An independent mirror of Ofcom's amateur-radio register and a decade of FOI
+          disclosures. Search now, or pick the path that fits you below.</p>
+
+        <div class="search e-embed">
+          <form id="search-form" role="search" aria-label="Callsign search">
+            <label for="search-input" class="visually-hidden">Callsign or suffix</label>
+            <input id="search-input" type="search" role="combobox" aria-expanded="false"
+              aria-controls="suggest" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+              placeholder="e.g. M7TEE, MW7TEE, M#7TEE or *TEE">
+            <button type="submit" class="go">Look up</button>
+          </form>
+          <ul class="suggest" id="suggest" role="listbox" aria-label="Suggestions" hidden></ul>
+        </div>
+
+        <div class="e-shape">
+          <div class="fig"><b data-figure="callsigns">—</b><span>callsigns</span></div>
+          <div class="fig"><b data-figure="datasets">—</b><span>publications</span></div>
+          <div class="fig"><b data-figure="span">—</b><span>span</span></div>
+          <span class="derived-stamp">at the <span data-figure="derivedAt">—</span> build</span>
+        </div>
+      </div>
+
+      <div class="e-tabs">
+        <div class="e-tablist" role="tablist" aria-label="Choose your path">
+          <button class="e-tab" role="tab" id="tab-reader" aria-controls="panel-reader" aria-selected="true">Reader</button>
+          <button class="e-tab" role="tab" id="tab-researcher" aria-controls="panel-researcher" aria-selected="false" tabindex="-1">Researcher</button>
+          <button class="e-tab" role="tab" id="tab-holder" aria-controls="panel-holder" aria-selected="false" tabindex="-1">Callsign-holder</button>
+        </div>
+
+        <div class="e-panel" role="tabpanel" id="panel-reader" aria-labelledby="tab-reader">
+          <p class="intro">Just want to look something up? Start with a single callsign for its instant
+            answer, or browse the record in plain language — no SQL, no downloads.</p>
+          <div class="paths">
+            <a class="path reader" href="callsign.html"><div class="k">Instant</div><h3>Look up one callsign</h3><p>Latest status, parsed anatomy and full history in one small fetch.</p></a>
+            <a class="path reader" href="statistics.html"><div class="k">At a glance</div><h3>The record's shape</h3><p>Aggregate views over the latest publication — no query needed.</p></a>
+            <a class="path reader" href="glossary.html"><div class="k">Plain English</div><h3>What the terms mean</h3><p>RSL, prefix series, register status — defined without jargon.</p></a>
+          </div>
+        </div>
+
+        <div class="e-panel" role="tabpanel" id="panel-researcher" aria-labelledby="tab-researcher" hidden>
+          <p class="intro">Want to interrogate the whole record? Query it directly in your browser, compare
+            publications, or pull any dataset with its raw, extract and normalised files.</p>
+          <div class="paths">
+            <a class="path researcher" href="explore.html"><div class="k">SQL</div><h3>Query in your browser</h3><p>Read-only SQL over the published databases, worked examples included.</p></a>
+            <a class="path researcher" href="datasets/index.html"><div class="k">Provenance</div><h3>Every dataset, downloadable</h3><p>Raw, extract and normalised files at stable URLs, with descriptors.</p></a>
+            <a class="path researcher" href="compare.html"><div class="k">Diff</div><h3>Compare publications</h3><p>See what changed between any two archived snapshots of the register.</p></a>
+          </div>
+        </div>
+
+        <div class="e-panel" role="tabpanel" id="panel-holder" aria-labelledby="tab-holder" hidden>
+          <p class="intro">Hold a callsign, or chasing one? Trace your own callsign across every publication,
+            or check which prefix series a wanted suffix is still free in.</p>
+          <div class="paths">
+            <a class="path holder" href="callsign.html?c=M7TEE"><div class="k">Your callsign</div><h3>Trace it over time</h3><p>How your callsign appears across every archived snapshot.</p></a>
+            <a class="path holder" href="callsign.html?c=*TEE"><div class="k">Wanted suffix</div><h3>Is a suffix free?</h3><p>Type a suffix like *TEE to see which series carry it.</p></a>
+            <a class="path holder" href="forbidden/index.html"><div class="k">Off-limits</div><h3>Forbidden suffixes</h3><p>The endings Ofcom will not allocate — before you set your heart on one.</p></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { attachSearch, stampFigures, renderRecents } from './entry-common.js';
+    stampFigures();
+    attachSearch(document.getElementById('search-form'), document.getElementById('search-input'), document.getElementById('suggest'));
+
+    // Resume strip: only for the returning visitor. Shown when there is recent
+    // history (seeded here for the mock so the affordance is visible).
+    const resume = document.getElementById('resume');
+    const jb = document.getElementById('jumpback');
+    renderRecents(jb, { fallback: ['M7TEE', '2E0AAA', 'GB2RS'] });
+    resume.hidden = jb.hidden;
+
+    // Accessible tabs: roving tabindex, arrow-key navigation.
+    const tabs = [...document.querySelectorAll('.e-tab')];
+    function select(tab) {
+      for (const t of tabs) {
+        const on = t === tab;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.tabIndex = on ? 0 : -1;
+        document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+      }
+    }
+    tabs.forEach((tab, i) => {
+      tab.addEventListener('click', () => select(tab));
+      tab.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+          select(next); next.focus();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

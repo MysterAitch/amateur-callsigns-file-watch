@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>Candidate B — Search-first — entry-flow mockup</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="ledger.css">
+  <link rel="stylesheet" href="entry-proto.css">
+  <meta name="theme-color" content="#14506e">
+  <style>
+    /* Candidate B: the Google-homepage pattern. One search box, centred, in
+       reach the instant the page paints; orientation demoted to a single quiet
+       line below. Optimises time-to-first-answer. Bespoke to this candidate. */
+    .b-stage { min-height: 62vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; padding: 40px 0 24px; }
+    .b-mark { font-size: 40px; line-height: 1; }
+    .b-title { font-family: var(--mono); font-size: 13px; letter-spacing: .18em;
+      text-transform: uppercase; color: var(--muted); margin: 14px 0 26px; }
+    .b-search { width: min(680px, 92vw); }
+    .b-search .search input[type="search"] { padding: 18px 20px; font-size: 18px; border-radius: 16px; }
+    .b-search .search button.go { padding: 0 26px; border-radius: 16px; font-size: 16px; }
+    .b-orient { margin: 22px 0 0; font-size: 14px; color: var(--muted); max-width: 60ch; }
+    .b-orient a { color: var(--raw); }
+    .b-jump { width: min(680px, 92vw); margin-top: 8px; }
+    .b-jump .jumpback { justify-content: center; }
+    .b-foot { text-align: center; font-size: 12.5px; color: var(--faint); padding-bottom: 30px; }
+    .b-foot .derived-stamp { color: var(--faint); }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="publishers/index.html">Publishers</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a></p></nav>
+
+  <main id="main" class="ledger proto">
+    <div class="wrap">
+      <div class="b-stage">
+        <div class="b-mark" aria-hidden="true">📻</div>
+        <div class="b-title">UK amateur callsign lookup</div>
+
+        <div class="b-search search">
+          <form id="search-form" role="search" aria-label="Callsign search">
+            <label for="search-input" class="visually-hidden">Callsign or suffix</label>
+            <input id="search-input" type="search" role="combobox" aria-expanded="false"
+              aria-controls="suggest" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+              autofocus placeholder="Type a callsign — e.g. M7TEE — or a suffix like *TEE">
+            <button type="submit" class="go">Look up</button>
+          </form>
+          <ul class="suggest" id="suggest" role="listbox" aria-label="Suggestions" hidden></ul>
+        </div>
+
+        <div class="b-jump"><div class="jumpback" id="jumpback" hidden></div></div>
+
+        <p class="b-orient">An independent mirror of Ofcom's UK amateur-radio register and a decade of
+          FOI disclosures. New here? <a href="about.html">What this is</a> ·
+          <a href="explore.html">query it all</a> · <a href="statistics.html">the record at a glance</a>.</p>
+      </div>
+      <div class="b-foot">
+        <span class="derived-stamp"><span data-figure="callsigns">—</span>&nbsp;callsigns · <span data-figure="datasets">—</span>&nbsp;publications · <span data-figure="span">—</span>, at the <span data-figure="derivedAt">—</span> build</span>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { attachSearch, stampFigures, renderRecents } from './entry-common.js';
+    stampFigures();
+    attachSearch(document.getElementById('search-form'), document.getElementById('search-input'), document.getElementById('suggest'));
+    renderRecents(document.getElementById('jumpback'), { fallback: ['M7TEE', '2E0AAA', 'GB2RS'] });
+  </script>
+</body>
+</html>

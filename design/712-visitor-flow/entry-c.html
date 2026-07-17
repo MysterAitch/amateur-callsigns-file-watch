@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>Candidate C — Timeline front-door — entry-flow mockup</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="ledger.css">
+  <link rel="stylesheet" href="entry-proto.css">
+  <meta name="theme-color" content="#14506e">
+  <style>
+    /* Candidate C: the record itself as the front page. A visual of the
+       archived publications along assertion time is the hero; the search box
+       rides along the top. The data hooks the visitor before any prose does.
+       Bespoke to this candidate. */
+    .c-top { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: flex-end;
+      padding: 34px 0 10px; }
+    .c-top .c-head { flex: 1 1 320px; }
+    .c-top h1 { font-size: clamp(26px, 4vw, 38px); margin: 8px 0 8px; }
+    .c-top .lede { color: var(--muted); margin: 0; max-width: 54ch; }
+    .c-search { flex: 1 1 300px; min-width: 260px; }
+    .c-search .search input[type="search"] { padding: 12px 14px; border-radius: 10px; }
+    .c-search .search button.go { padding: 0 18px; border-radius: 10px; }
+
+    .c-viz { margin: 20px 0 6px; padding: 22px 22px 14px; border: 1px solid var(--hair);
+      border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
+    .c-viz-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+    .c-viz-head h2 { font-size: 16px; margin: 0; }
+    .c-axis { position: relative; margin: 26px 4px 6px; }
+    .c-line { position: relative; height: 3px; background: var(--hair); border-radius: 2px; }
+    .c-pub { position: absolute; top: -6px; width: 13px; height: 15px; transform: translateX(-50%);
+      display: flex; align-items: center; justify-content: center; }
+    .c-pub i { display: block; width: 11px; height: 11px; border-radius: 50%;
+      background: var(--raw); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--raw); }
+    .c-pub.latest i { background: var(--signal); box-shadow: 0 0 0 1px var(--signal); }
+    .c-pub:hover i, .c-pub:focus i { transform: scale(1.35); }
+    .c-year { position: absolute; top: 16px; transform: translateX(-50%);
+      font-family: var(--mono); font-size: 11px; color: var(--faint); }
+    .c-yeartick { position: absolute; top: 0; width: 1px; height: 10px; background: var(--hair); transform: translateX(-50%); }
+    .c-caption { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; margin-top: 40px; font-size: 12.5px; color: var(--muted); }
+    .c-caption .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
+    .c-shape { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: baseline; }
+    .c-shape .fig b { font-family: var(--mono); font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .c-shape .fig span { font-size: 11.5px; color: var(--muted); margin-left: 4px; }
+    .c-routes { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
+    .c-route { font-family: var(--mono); font-size: 13px; text-decoration: none; padding: 7px 13px;
+      border-radius: 10px; border: 1px solid var(--hair); background: var(--surface-2); color: var(--raw); }
+    .c-route:hover { border-color: var(--signal); }
+    .c-readout { font-family: var(--mono); font-size: 12.5px; color: var(--signal); min-height: 1.2em; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="publishers/index.html">Publishers</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a></p></nav>
+
+  <main id="main" class="ledger proto">
+    <div class="wrap">
+      <div class="c-top">
+        <div class="c-head">
+          <div class="eyebrow">UK amateur-radio register · independent mirror</div>
+          <h1>The record, front and centre</h1>
+          <p class="lede">Thirteen years of Ofcom's amateur-radio register, archived publication by
+            publication. Scan the shape of the record first — then look anything up.</p>
+        </div>
+        <div class="c-search search">
+          <form id="search-form" role="search" aria-label="Callsign search">
+            <label for="search-input" class="visually-hidden">Callsign or suffix</label>
+            <input id="search-input" type="search" role="combobox" aria-expanded="false"
+              aria-controls="suggest" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+              placeholder="Look up a callsign — e.g. M7TEE">
+            <button type="submit" class="go">Go</button>
+          </form>
+          <ul class="suggest" id="suggest" role="listbox" aria-label="Suggestions" hidden></ul>
+        </div>
+      </div>
+
+      <section class="c-viz" aria-label="Archived publications over time">
+        <div class="c-viz-head">
+          <h2>Archived open-data publications, 2013 – 2026</h2>
+          <span class="derived-stamp">at the <span data-figure="derivedAt">—</span> build</span>
+        </div>
+        <div class="c-shape">
+          <div class="fig"><b data-figure="callsigns">—</b><span>callsigns keyed</span></div>
+          <div class="fig"><b data-figure="datasets">—</b><span>datasets folded</span></div>
+          <div class="fig"><b data-figure="latest">—</b><span>latest snapshot</span></div>
+        </div>
+        <div class="c-axis">
+          <div class="c-line" id="c-line"></div>
+        </div>
+        <div class="c-caption">
+          <span><span class="dot" style="background:var(--raw)"></span>an archived publication</span>
+          <span><span class="dot" style="background:var(--signal)"></span>the latest snapshot (<span data-figure="latest">—</span>)</span>
+          <span>hover a dot for its date · each links into that dataset</span>
+        </div>
+        <div class="c-readout" id="c-readout" role="status" aria-live="polite"></div>
+      </section>
+
+      <div class="c-routes">
+        <a class="c-route" href="datasets/index.html">Browse every dataset →</a>
+        <a class="c-route" href="statistics.html">The record at a glance →</a>
+        <a class="c-route" href="reports/index.html">Reports on how it changed →</a>
+        <a class="c-route" href="explore.html">Query it with SQL →</a>
+      </div>
+
+      <div class="jumpback" id="jumpback" hidden></div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { attachSearch, stampFigures, renderRecents, PUBLICATIONS } from './entry-common.js';
+    stampFigures();
+    attachSearch(document.getElementById('search-form'), document.getElementById('search-input'), document.getElementById('suggest'));
+    renderRecents(document.getElementById('jumpback'), { fallback: ['M7TEE', '2E0AAA', 'GB2RS'] });
+
+    // Render the publications along a shared time axis. Assertion-time here: the
+    // publication date each archived dataset carries. Deliberately simple — a
+    // single spine with a dot per publication — enough to make the record's
+    // shape the first thing seen.
+    const line = document.getElementById('c-line');
+    const readout = document.getElementById('c-readout');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const times = PUBLICATIONS.map((d) => new Date(d + 'T00:00:00Z').getTime());
+    const min = Math.min(...times), max = Math.max(...times);
+    const pct = (t) => ((t - min) / (max - min)) * 100;
+    PUBLICATIONS.forEach((d, i) => {
+      const [y, m, day] = d.split('-');
+      const el = document.createElement('a');
+      el.className = 'c-pub' + (i === PUBLICATIONS.length - 1 ? ' latest' : '');
+      el.style.left = pct(times[i]) + '%';
+      el.href = 'datasets/index.html';
+      const human = `${Number(day)} ${months[Number(m) - 1]} ${y}`;
+      el.title = human;
+      el.setAttribute('aria-label', `Publication ${human}`);
+      el.innerHTML = '<i></i>';
+      el.addEventListener('mouseenter', () => { readout.textContent = human; });
+      el.addEventListener('focus', () => { readout.textContent = human; });
+      line.appendChild(el);
+    });
+    // Year ticks across the axis.
+    for (let y = 2013; y <= 2026; y++) {
+      const t = new Date(`${y}-01-01T00:00:00Z`).getTime();
+      if (t < min || t > max) continue;
+      const tick = document.createElement('div');
+      tick.className = 'c-yeartick'; tick.style.left = pct(t) + '%'; line.appendChild(tick);
+      const lab = document.createElement('div');
+      lab.className = 'c-year'; lab.style.left = pct(t) + '%'; lab.textContent = "'" + String(y).slice(2);
+      line.appendChild(lab);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>Candidate A — Landing / orientation-first — entry-flow mockup</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="ledger.css">
+  <link rel="stylesheet" href="entry-proto.css">
+  <meta name="theme-color" content="#14506e">
+  <style>
+    /* Candidate A: orientation-first landing. A calm front door that says what
+       this is, shows the record's headline shape, and offers three named
+       routes (reader / researcher / callsign-holder) with a quiet embedded
+       search below. Bespoke to this candidate. */
+    .a-hero { padding: 44px 0 8px; }
+    .a-hero h1 { font-size: clamp(30px, 5vw, 46px); margin: 10px 0 12px; }
+    .a-hero .lede { font-size: clamp(16px, 2.3vw, 19px); color: var(--muted); max-width: 62ch; margin: 0 0 6px; }
+    .a-shape { display: flex; flex-wrap: wrap; gap: 10px 26px; align-items: baseline;
+      margin: 22px 0 8px; padding: 16px 18px; border: 1px solid var(--hair);
+      border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+    .a-shape .fig { display: flex; flex-direction: column; }
+    .a-shape .fig b { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .a-shape .fig span { font-size: 12px; color: var(--muted); }
+    .a-shape .stamp-wrap { margin-left: auto; }
+    .a-embed-search { margin: 6px 0 4px; max-width: 640px; }
+    .a-embed-search label { font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--faint); display: block; margin-bottom: 8px; }
+    .a-section-label { font-family: var(--mono); font-size: 11px; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--signal); font-weight: 600; margin: 30px 0 12px; }
+    .a-disclaim { font-size: 13px; color: var(--muted); margin-top: 26px; max-width: 70ch; }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="publishers/index.html">Publishers</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a></p></nav>
+
+  <main id="main" class="ledger proto">
+    <div class="wrap">
+      <div class="a-hero">
+        <div class="eyebrow">UK amateur-radio register · independent mirror</div>
+        <h1>Every UK amateur callsign, and where it has been seen</h1>
+        <p class="lede">An independent mirror of Ofcom's published amateur-radio register and a
+          decade of archived FOI disclosures — kept so any callsign, and how it has changed, can be
+          looked up, checked and cited. Not an authoritative source, and not affiliated with Ofcom.</p>
+
+        <div class="a-shape" aria-label="The record's headline shape">
+          <div class="fig"><b data-figure="callsigns">—</b><span>callsigns keyed</span></div>
+          <div class="fig"><b data-figure="datasets">—</b><span>archived publications</span></div>
+          <div class="fig"><b data-figure="span">—</b><span>span of the record</span></div>
+          <div class="fig"><b data-figure="latest">—</b><span>latest register snapshot</span></div>
+          <div class="stamp-wrap"><span class="derived-stamp">at the <span data-figure="derivedAt">—</span> build</span></div>
+        </div>
+
+        <div class="jumpback" id="jumpback" hidden></div>
+      </div>
+
+      <div class="a-section-label">Where would you like to start?</div>
+      <div class="paths">
+        <a class="path reader" href="callsign.html">
+          <div class="k">Reader</div>
+          <h3>Look up a callsign</h3>
+          <p>Type a callsign for its instant answer — latest status, parsed anatomy, and its history across every archived publication.</p>
+        </a>
+        <a class="path researcher" href="explore.html">
+          <div class="k">Researcher</div>
+          <h3>Query the whole record</h3>
+          <p>Run read-only SQL in your browser, browse the dataset index, or read the aggregate statistics and reports. No install.</p>
+        </a>
+        <a class="path holder" href="callsign.html">
+          <div class="k">Callsign-holder</div>
+          <h3>Find your own callsign</h3>
+          <p>See how your callsign appears across the register over time — and which prefix series a given suffix is free in.</p>
+        </a>
+      </div>
+
+      <div class="a-section-label">Or search straight away</div>
+      <div class="search a-embed-search">
+        <form id="search-form" role="search" aria-label="Callsign search">
+          <label for="search-input" class="visually-hidden">Callsign or suffix</label>
+          <input id="search-input" type="search" role="combobox" aria-expanded="false"
+            aria-controls="suggest" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+            placeholder="e.g. M7TEE, MW7TEE, M#7TEE or *TEE">
+          <button type="submit" class="go">Look up</button>
+        </form>
+        <ul class="suggest" id="suggest" role="listbox" aria-label="Suggestions" hidden></ul>
+      </div>
+
+      <p class="a-disclaim">The dense internal crosslinking, per-callsign timelines and download-anything
+        provenance stay exactly where they are — this front door only decides where a visitor lands first.
+        Full source and provenance in the repository.</p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { attachSearch, stampFigures, renderRecents } from './entry-common.js';
+    stampFigures();
+    attachSearch(document.getElementById('search-form'), document.getElementById('search-input'), document.getElementById('suggest'));
+    renderRecents(document.getElementById('jumpback'), { fallback: ['M7TEE', '2E0AAA', 'GB2RS'] });
+  </script>
+</body>
+</html>

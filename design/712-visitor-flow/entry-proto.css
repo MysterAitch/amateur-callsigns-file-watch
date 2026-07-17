@@ -1,0 +1,102 @@
+/* Shared prototype styling for the issue #712 entry-flow candidates.
+ *
+ * Per the project convention, a prototype keeps its own bespoke stylesheet
+ * rather than flattening into the host's. This file carries only the pieces
+ * EVERY candidate shares — the search combobox, its suggestion listbox, the
+ * returning-visitor "jump back" chips, and the derived-figure stamp — all
+ * drawn from the shared ledger palette tokens so the candidates read as the
+ * same product and flip light/dark with the site. Each candidate owns its own
+ * layout on top of this. */
+
+.proto { --p-gap: clamp(16px, 3vw, 28px); }
+.proto *, .proto *::before, .proto *::after { box-sizing: border-box; }
+
+/* Derived-figure stamp: epistemics made visible. Any headline number is a
+   derived aggregate; this quiet stamp carries the "derived, and dated" note so
+   no figure is ever presented as unqualified live truth. */
+.derived-stamp {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+  color: var(--faint); text-transform: none;
+}
+.derived-stamp::before {
+  content: "derived"; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--signal); border: 1px solid var(--signal-soft);
+  background: var(--signal-soft); border-radius: 5px; padding: 1px 5px; font-weight: 600;
+}
+
+/* The search combobox, shared shell. Individual candidates size it. */
+.proto .search { position: relative; }
+.proto .search form { display: flex; gap: 10px; align-items: stretch; flex-wrap: nowrap; margin: 0; }
+.proto .search input[type="search"] {
+  flex: 1 1 auto; min-width: 0; font: inherit; font-family: var(--mono);
+  text-transform: uppercase; padding: 14px 16px; border: 1.5px solid var(--hair);
+  border-radius: 12px; background: var(--surface); color: var(--ink);
+  box-shadow: var(--shadow); transition: border-color .12s, box-shadow .12s;
+}
+.proto .search input[type="search"]::placeholder { text-transform: none; color: var(--faint); }
+.proto .search input[type="search"]:focus {
+  outline: none; border-color: var(--signal);
+  box-shadow: 0 0 0 3px var(--signal-soft), var(--shadow);
+}
+.proto .search button.go {
+  flex: 0 0 auto; font: inherit; font-weight: 600; cursor: pointer;
+  padding: 0 22px; border-radius: 12px; border: 1.5px solid var(--signal);
+  background: var(--signal); color: var(--on-signal);
+}
+.proto .search button.go:hover { filter: brightness(1.06); }
+.proto .search button.go:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+/* Suggestion listbox */
+.proto .suggest {
+  list-style: none; margin: 8px 0 0; padding: 6px; position: absolute;
+  left: 0; right: 0; z-index: 20; background: var(--surface);
+  border: 1px solid var(--hair); border-radius: 12px; box-shadow: var(--shadow);
+}
+.proto .suggest[hidden] { display: none; }
+.proto .sug {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
+  padding: 9px 12px; border-radius: 8px; cursor: pointer;
+}
+.proto .sug[aria-selected="true"], .proto .sug:hover { background: var(--surface-2); }
+.proto .sug-q { font-family: var(--mono); font-weight: 600; color: var(--raw); }
+.proto .sug-hint { font-size: 12.5px; color: var(--muted); text-align: right; }
+
+/* Returning-visitor "jump back" chips */
+.proto .jumpback {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin-top: 14px;
+}
+.proto .jumpback[hidden] { display: none; }
+.proto .jb-label { font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--faint); }
+.proto .jb-chip {
+  font-family: var(--mono); font-size: 13px; font-weight: 600; text-decoration: none;
+  padding: 5px 11px; border-radius: 999px; border: 1px solid var(--hair);
+  background: var(--surface); color: var(--raw);
+}
+.proto .jb-chip:hover { border-color: var(--signal); }
+.proto .jb-note { font-size: 11.5px; color: var(--faint); font-style: italic; }
+
+/* Path cards (landing candidates): reader / researcher / holder routes */
+.proto .paths { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.proto .path {
+  display: block; text-decoration: none; color: inherit; background: var(--surface);
+  border: 1px solid var(--hair); border-left: 3px solid var(--raw); border-radius: 14px;
+  padding: 18px 18px 16px; box-shadow: var(--shadow); transition: transform .08s, border-color .12s;
+}
+.proto .path:hover { transform: translateY(-2px); border-color: var(--signal); }
+.proto .path:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.proto .path .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--raw); font-weight: 600; }
+.proto .path h3 { margin: 8px 0 6px; font-size: 18px; }
+.proto .path p { margin: 0; color: var(--muted); font-size: 14px; }
+.proto .path.researcher { border-left-color: var(--derived); }
+.proto .path.researcher .k { color: var(--derived); }
+.proto .path.holder { border-left-color: var(--steady); }
+.proto .path.holder .k { color: var(--steady); }
+
+.proto .visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
