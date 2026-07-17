@@ -261,7 +261,8 @@ via their own reviewed consolidation PRs (`data-sweep.yml:5-8`).
   and `build-sqlite.ts` (`cicd.yaml:650-657`) now builds only the download
   tiers — `combined.sqlite.png` is built solely as the gzipped download twin's
   intermediate and removed before it reaches the deploy artefact; the download
-  tiers' own retirement is tracked on #446–#448. The deploy also emits the
+  tiers' own future (keep as-is, rebuild from the projection, or retire) is
+  tracked on #630. The deploy also emits the
   prefix-sharded per-callsign static JSON that answers the instant per-callsign
   lookup with no database at all (ADR 0020, `cicd.yaml:737-742`). It then
   assembles the static site — stamping, as its final step, the service worker's

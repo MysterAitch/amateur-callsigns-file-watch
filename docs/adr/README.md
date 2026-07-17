@@ -6,13 +6,19 @@ system as it is built (or is being built); `proposed` ADRs are recorded for
 discussion and are not yet ratified. Superseding or amending a decision is done
 by a later ADR that references the earlier one, never by rewriting history.
 
-The **canonical-record model is mid-migration**: [ADR 0013](0013-raw-keyed-claim-ledger.md)
-inverts the pipeline to a raw-keyed claim ledger, from which the normalised
-CSV, query databases, reports and pages all become derived folds. It is
-accepted, and its implementation is a strangler migration running alongside the
-snapshot-canonical flow the earlier ADRs (notably [0001](0001-post-fetch-processing-in-repo.md)
-and [0010](0010-archive-contract.md)) describe — so read those as the current
-baseline, and 0013 as the direction of travel. The two trust axes that model
+The **canonical-record model's open-data-lane migration is complete**:
+[ADR 0013](0013-raw-keyed-claim-ledger.md) inverts the pipeline to a
+raw-keyed claim ledger, from which the normalised CSV, query databases,
+reports and pages all become derived folds. It is accepted, and for the
+open-data lane the strangler migration finished at
+[ADR 0021](0021-frozen-derived-baseline.md)'s freeze: the derivation sweep is
+retired, and the snapshot-canonical flow the earlier ADRs (notably
+[0001](0001-post-fetch-processing-in-repo.md) and
+[0010](0010-archive-contract.md)) describe now stands as a frozen equivalence
+baseline that every consumer reads alongside the ledger projection, not a
+still-running lane. The FOI lane has not made the same crossing — its text
+sources are ledger-lossy, with a parallel oracle mirror standing in as their
+lossless canonical record instead — tracked on #455. The two trust axes that model
 surfaces — source authority and claim confidence — are derived from provenance
 and guarded against inflation by [ADR 0014](0014-trust-rating-safety-net.md), the
 enforcement companion to 0013's confidence model; and [ADR 0015](0015-source-intrinsic-vs-archive-provenance.md)
@@ -42,7 +48,7 @@ the #431 programme.
 | [0010](0010-archive-contract.md) | The archive contract: raw bytes verbatim, keyed, provenanced, accepted before processability | accepted | 2026-07-10 |
 | [0011](0011-two-tier-architecture.md) | Two-tier architecture: a minimal residential fetch host, everything else in-repo | accepted | 2026-07-10 |
 | [0012](0012-supply-chain-posture.md) | Supply-chain posture: a minimal, auditable dependency and write surface | accepted | 2026-07-10 |
-| [0013](0013-raw-keyed-claim-ledger.md) | A raw-keyed claim ledger as the canonical record, everything else a derived fold | accepted (migration in progress) | 2026-07-11 |
+| [0013](0013-raw-keyed-claim-ledger.md) | A raw-keyed claim ledger as the canonical record, everything else a derived fold | accepted (open-data migration complete; FOI lane tracked on #455) | 2026-07-11 |
 | [0014](0014-trust-rating-safety-net.md) | The trust-rating model, derived from provenance and guarded against inflation | accepted | 2026-07-12 |
 | [0015](0015-source-intrinsic-vs-archive-provenance.md) | Source-intrinsic vs archive/processing provenance, with the filesystem-stat origin made unrepresentable | accepted | 2026-07-12 |
 | [0016](0016-file-level-claims-and-reconstruction-oracle.md) | File-level claims (sentinel ordinal, `@column`/`@subject`/`@ignored`) and the reconstruction oracle | accepted | 2026-07-12 |
@@ -54,7 +60,7 @@ the #431 programme.
 
 ## Related documentation
 
-- [`../normalised-schema.md`](../normalised-schema.md) — the open-data lane's normalised schema and line-accounting contract (governed by ADR 0001, ADR 0010; being recast as a ledger fold under ADR 0013).
+- [`../normalised-schema.md`](../normalised-schema.md) — the open-data lane's normalised schema and line-accounting contract (governed by ADR 0001, ADR 0010; recast as a ledger fold under ADR 0013, frozen as an equivalence baseline under ADR 0021).
 - [`../foi-schemas.md`](../foi-schemas.md) — generated FOI schema registry (ADR 0004).
 - [`../source-register.md`](../source-register.md) — cross-lane index of every known source and its intake status.
 - [`../dataset-status.md`](../dataset-status.md) — generated per-dataset overview of what exists.
