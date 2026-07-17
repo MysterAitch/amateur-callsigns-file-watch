@@ -34,6 +34,45 @@ describe('Markdown renderer', { tags: ['unit'] }, () => {
     expect(html).toContain('<td>167,561</td>');
   });
 
+  // Zero de-emphasis (issue #731): a table cell whose trimmed source text is
+  // exactly "0" mutes at the render edge via the shared `.zero` class,
+  // without the committed markdown itself changing.
+  describe('zero-value table cells', { tags: ['unit'] }, () => {
+    it('RenderMarkdown_PipeTableCellIsExactlyZero_WrapsItInZeroSpan', () => {
+      const html = renderMarkdown('| publication | dropped |\n|---|---:|\n| 2024-01 | 0 |');
+      expect(html).toContain('<td><span class="zero">0</span></td>');
+    });
+
+    it('RenderMarkdown_PipeTableCellIsNonZeroNumber_RendersPlainWithNoZeroSpan', () => {
+      const html = renderMarkdown('| publication | dropped |\n|---|---:|\n| 2024-01 | 42 |');
+      expect(html).toContain('<td>42</td>');
+      expect(html).not.toContain('class="zero"');
+    });
+
+    it('RenderMarkdown_PipeTableCellContainsZeroWithinLongerText_DoesNotMuteIt', () => {
+      // "10", "0.5", and prose merely containing the digit are not
+      // themselves the literal value zero.
+      const html = renderMarkdown('| a | b | c |\n|---|---|---|\n| 10 | 0.5 | 100% zero-rated |');
+      expect(html).not.toContain('class="zero"');
+      expect(html).toContain('<td>10</td>');
+      expect(html).toContain('<td>0.5</td>');
+      expect(html).toContain('<td>100% zero-rated</td>');
+    });
+
+    it('RenderMarkdown_PipeTableCellIsZeroWithSurroundingWhitespace_StillMutes', () => {
+      const html = renderMarkdown('| a | b |\n|---|---|\n| x |  0  |');
+      expect(html).toContain('<span class="zero">0</span>');
+    });
+
+    it('RenderMarkdown_PipeTableCellIsBlank_KeepsPlainEmptyCellDistinctFromAZero', () => {
+      // A blank source cell is a different state entirely - it must never be
+      // muted as though it were a zero.
+      const html = renderMarkdown('| a | b |\n|---|---|\n| x |  |');
+      expect(html).not.toContain('class="zero"');
+      expect(html).toContain('<td></td>');
+    });
+  });
+
   it('RenderMarkdown_InlineMarkup_BoldItalicCodeAndLinks', () => {
     const html = renderMarkdown('**Freedom of Information** request *quoted text* with `meta.json` and [a page](https://example.test/x).');
     expect(html).toContain('<strong>Freedom of Information</strong>');

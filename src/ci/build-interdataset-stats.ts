@@ -42,7 +42,7 @@ import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile } from '../shared/derived-entries.ts';
 import { CONSTANTS } from '../shared/utils.ts';
 import { compareStats, type EntryStats } from '../shared/stats.ts';
-import { escapeHtml, humanDate, entryPage, noticeStrip, tableCaption } from './site-render.ts';
+import { escapeHtml, humanDate, entryPage, noticeStrip, tableCaption, zeroCell } from './site-render.ts';
 
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
 
@@ -196,7 +196,12 @@ function blankProductSection(pubs: PubStat[]): string[] {
     } else {
       note = 'declared complete';
     }
-    return `<tr><td>${entryLink(p)} <code>${escapeHtml(p.key)}</code></td><td class="n">${num(p.recordCount)}</td><td class="n">${productCell}</td><td>${note}</td></tr>`;
+    // productCell's own zero is deliberately left unmuted (issue #731): for
+    // the filter-case row it IS the anomaly this page exists to surface
+    // (the "reading" column already marks it ⚠) - de-emphasising it here
+    // would undercut the page's own warning. recordCount, by contrast, is
+    // an ordinary count that happens to (almost) never be zero in practice.
+    return `<tr><td>${entryLink(p)} <code>${escapeHtml(p.key)}</code></td><td class="n">${zeroCell(p.recordCount, num(p.recordCount))}</td><td class="n">${productCell}</td><td>${note}</td></tr>`;
   });
 
   // The secondary observation the issue flags: blank-product counts among the
@@ -248,7 +253,7 @@ function recordCountSection(pubs: PubStat[]): string[] {
     }
     if (!p.partial) prevComplete = p;
     const declared = p.declaredComplete === undefined ? '—' : p.partial ? 'partial' : 'complete';
-    return `<tr><td>${entryLink(p)} ${pubLabel(p)}</td><td>${escapeHtml(declared)}</td><td class="n">${num(p.recordCount)}</td><td>${deltaCell}</td></tr>`;
+    return `<tr><td>${entryLink(p)} ${pubLabel(p)}</td><td>${escapeHtml(declared)}</td><td class="n">${zeroCell(p.recordCount, num(p.recordCount))}</td><td>${deltaCell}</td></tr>`;
   });
   return [
     '<section>',
@@ -297,7 +302,7 @@ function flagEvolutionSection(pubs: PubStat[]): string[] {
       // A flag ABSENT from a publication (no such key) is distinct from a flag
       // present with a zero count; the former reads as "not measured / none",
       // shown as an em dash so it never reads as a hard zero.
-      return `<td class="n">${n === undefined ? '<span class="gap">—</span>' : num(n)}</td>`;
+      return `<td class="n">${n === undefined ? '<span class="gap">—</span>' : zeroCell(n, num(n))}</td>`;
     });
     return `<tr><td><a href="${ROOT}datasets/docs/flags.html"><code>${escapeHtml(flag)}</code></a></td>${cells.join('')}</tr>`;
   });

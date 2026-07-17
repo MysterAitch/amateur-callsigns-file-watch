@@ -122,7 +122,12 @@ export function resultCell(header, value) {
   if (header === 'callsign' && typeof value === 'string' && value !== '') {
     return el('td', {}, [callsignPillLink(el, value)]);
   }
-  return el('td', { text: value === null ? 'NULL' : String(value), class: value === null ? 'muted' : '' });
+  if (value === null) return el('td', { text: 'NULL', class: 'muted' });
+  const text = String(value);
+  // A literal zero de-emphasises (issue #731) - a distinct state from NULL
+  // (.muted above): NULL is "not asserted by this row", a zero is a known,
+  // present value of nothing.
+  return el('td', { text, class: text.trim() === '0' ? 'zero' : '' });
 }
 
 const ROW_CAP = 500;

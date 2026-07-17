@@ -37,7 +37,7 @@ import {
   listFoiEntryKeys,
   readFoiEntryMeta,
 } from '../shared/foi-archive.ts';
-import { escapeHtml, monthYear, dateTime, datasetLabel, tableCaption, glossaryCue, glossaryTerm } from './site-render.ts';
+import { escapeHtml, monthYear, dateTime, datasetLabel, tableCaption, glossaryCue, glossaryTerm, zeroCell } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const FOI_ARCHIVE_DIR = path.join(REPO_ROOT, 'archive', 'foi');
@@ -700,8 +700,11 @@ export function renderRollup(rows: DatasetRow[]): string {
       const text = partial > 0 ? `${done}✓ ${partial}~` : `${done}✓`;
       return `<td class="num">${text}</td>`;
     }).join('');
+    // The per-stage composite cells (`text` above) always carry a ✓/~ suffix,
+    // never a bare "0", so they are left as-is (issue #731 judgement: only an
+    // exact "0" mutes). The dataset-count cell is a plain integer, so it does.
     bodyRows.push(`<tr><th scope="row">${escapeHtml(CLASS_LABELS[classKey] ?? classKey)}</th>`
-      + `<td class="num">${members.length}</td>${cells}</tr>`);
+      + `<td class="num">${zeroCell(members.length)}</td>${cells}</tr>`);
   }
   return `<div class="overflow"><table>${tableCaption('Per data type, how many datasets are held and how many have completed each processing stage')}<thead><tr><th scope="col">Data type</th>`
     + `<th scope="col" class="num">Datasets</th>${stageHead}</tr></thead><tbody>${bodyRows.join('')}</tbody></table></div>`

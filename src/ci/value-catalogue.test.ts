@@ -207,6 +207,22 @@ describe('value catalogue', { tags: ['unit'] }, () => {
     expect(md).toContain('Ofcom');
   });
 
+  it('NormalisationFidelity_RenderedToHtml_MutesTheZeroCoercedCellButNotTheDroppedCount', () => {
+    // Issue #731's named first case: the normalisation-fidelity table is the
+    // one that prompted the sitewide convention. The committed markdown keeps
+    // its plain "0" (asserted above); only the rendered HTML edge mutes it,
+    // via the shared markdown-renderer table-cell hook, not a bespoke
+    // per-page treatment.
+    const md = renderValueCatalogue(tallies({ status: [['Allocated', 1, ['open-data']]] }), ref, [], [
+      { key: '2022-05-30', rawRows: 151157, normalisedRows: 151152, dropped: ['Ofcom', 'Confidential Information - Do Not Distribute'], coerced: [] },
+    ]);
+    expect(md).toContain('| 2022-05-30 | 151,157 | 151,152 | 2 | 0 |');
+    const html = renderMarkdown(md);
+    expect(html).toContain('<td><span class="zero">0</span></td>');
+    // The dropped count (2, non-zero) stays plain in the same row.
+    expect(html).toMatch(/<td>151,157<\/td><td>151,152<\/td><td>2<\/td><td><span class="zero">0<\/span><\/td>/);
+  });
+
   it('NormalisationFidelity_NoGaps_StatesFaithful', () => {
     const md = renderValueCatalogue(tallies({ status: [['Allocated', 1, ['open-data']]] }), ref, [], [
       { key: '2026-06-23', rawRows: 158318, normalisedRows: 158318, dropped: [], coerced: [] },

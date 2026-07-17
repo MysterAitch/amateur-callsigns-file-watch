@@ -32,6 +32,13 @@ const SHARED_TOKENS_CSS = fs.readFileSync(path.join(REPO_ROOT, 'site', 'tokens.c
 const SHARED_AFFORDANCE_CSS = [
   '.visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}',
   '.ext-marker{font-size:.85em;line-height:1;text-decoration:none}',
+  // A literal zero in a numeric table cell (issue #731): de-emphasised via
+  // the shared --muted token so the eye lands on non-zero neighbours,
+  // distinct from a humanised blank (the field wrappers' unstyled <em>
+  // (blank)) and from .gap (reworded placeholder text like "none"/"—").
+  // Included on both generated shells (PAGE_STYLE/ENTRY_STYLE) so a zero
+  // reads the same wherever a CI-rendered table appears.
+  '.zero{color:var(--muted)}',
 ].join('');
 
 // The shared database-loading alert (issue #499), inlined so the generated

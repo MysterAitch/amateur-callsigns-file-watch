@@ -64,6 +64,7 @@ import {
   humanDate,
   glossaryTerm,
   tableCaption,
+  zeroCell,
 } from './site-render.ts';
 import { fidelityNudge, flagAnchor } from './render/fidelity.ts';
 import { reportAffordance } from './render/report.ts';
@@ -287,7 +288,7 @@ function browseAllSuffixes(h: ForbiddenSuffixHistory): string[] {
 
 function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): string {
   const timelineRows = h.disclosures.map(d =>
-    `<tr><td><a href="${escapeHtml(d.entry)}/index.html">${escapeHtml(humanVintage(d.vintage))}</a><br><code>${escapeHtml(d.entry)}</code></td><td>${num(d.distinctCount)}</td><td>${num(d.rowCount)}</td><td>${suffixCodes(d.duplicates)}</td><td>${suffixLinks(d.added, 'index')}</td><td>${suffixLinks(d.removed, 'index')}</td></tr>`);
+    `<tr><td><a href="${escapeHtml(d.entry)}/index.html">${escapeHtml(humanVintage(d.vintage))}</a><br><code>${escapeHtml(d.entry)}</code></td><td>${zeroCell(d.distinctCount, num(d.distinctCount))}</td><td>${zeroCell(d.rowCount, num(d.rowCount))}</td><td>${suffixCodes(d.duplicates)}</td><td>${suffixLinks(d.added, 'index')}</td><td>${suffixLinks(d.removed, 'index')}</td></tr>`);
 
   const steady = h.disclosures.filter(d => d.added.length === 0 && d.removed.length === 0);
   const drift = h.disclosures.filter(d => d.added.length > 0 || d.removed.length > 0);
@@ -310,7 +311,7 @@ function indexPage(h: ForbiddenSuffixHistory, index: SuffixCallsignIndex): strin
   }
 
   const fkRows = firstKnownDistribution(h).map(b =>
-    `<tr><td>${escapeHtml(b.dateKey)}</td><td>${num(b.suffixes.length)}</td><td>${b.suffixes.length <= ENUMERATE_LIMIT ? suffixLinks(b.suffixes, 'index') : `<span class="gap">${num(b.suffixes.length)} suffixes — not enumerated; browse them below</span>`}</td></tr>`);
+    `<tr><td>${escapeHtml(b.dateKey)}</td><td>${zeroCell(b.suffixes.length, num(b.suffixes.length))}</td><td>${b.suffixes.length <= ENUMERATE_LIMIT ? suffixLinks(b.suffixes, 'index') : `<span class="gap">${num(b.suffixes.length)} suffixes — not enumerated; browse them below</span>`}</td></tr>`);
 
   const body = [
     '<h1>Forbidden-suffix lists</h1>',
