@@ -41,6 +41,7 @@ import {
   IMPLIED_CLASS_PREDICATE,
   PARSE_STATUS_PREDICATE,
   PREFIX_SERIES_PREDICATE,
+  FLAG_PREDICATE,
 } from '../v2/claim.ts';
 import {
   foldQuery,
@@ -226,24 +227,36 @@ export function buildLicenceCategoryFold(ledgerDir?: string, ref: ReferenceData 
 // exactly what the parse tier emitted — never a second parse.
 //
 // FIELD -> derived predicate. Each folds by its clean derived predicate, so the
-// fold reads exactly what the parse tier emitted.
-//
-// The `flags` field is deliberately NOT folded here. The legacy `flags` field
-// UNIONS the per-token parse flags with two HIGHER-TIER data-quality signals the
-// T1 parse tier does not compute — `stripped-collision` (a cross-row cleaned-key
-// collision, which needs the whole register in view, not one token) and
-// `forbidden-suffix-issued-after-first-known-list` (a forbidden-suffix TEMPORAL
-// finding, which needs the suffix history). Folding `flags` from the T1 tier
-// alone would silently DROP those real findings from the published report, so
-// `flags` stays on the legacy path until those signals emit as their own claims
-// (migration map). The three fields below are fully T1-derivable, so folding them
-// loses no real signal — only the synthesised blank/empty buckets a raw-keyed
-// fold does not invent (classified in value-catalogue-fold.test.ts).
+// fold reads exactly what the parse tier emitted. The three fields below are
+// fully T1-derivable, so folding them loses no real signal — only the synthesised
+// blank/empty buckets a raw-keyed fold does not invent (classified in
+// value-catalogue-fold.test.ts).
 export const FOLDED_PARSE_FIELDS: ReadonlyMap<string, string> = new Map([
   ['implied_class', IMPLIED_CLASS_PREDICATE],
   ['parse_status', PARSE_STATUS_PREDICATE],
   ['prefix_series', PREFIX_SERIES_PREDICATE],
 ]);
+
+// The report field carrying the data-quality flag distribution.
+export const FLAGS_FIELD = 'flags';
+
+// The `flags` field folds the shared FLAG_PREDICATE by object, UNIONING every
+// signal that rides it: the per-token parse flags (parse-attribute-emit.ts) AND
+// the two higher-tier signals the T1 parse tier does not itself compute —
+// `stripped-collision` (a within-source cross-row cleaned-key collision, needing
+// the whole register in view) and `forbidden-suffix-issued-after-first-known-list`
+// (a temporal finding, needing the suffix history). Both now emit as their own
+// derived claims on FLAG_PREDICATE (stripped-collision-emit.ts and the wired
+// original-start-date on parse-attribute-emit.ts), so one fold-by-object carries
+// the whole flag vocabulary — the earlier refusal to fold `flags` (which would
+// have dropped those two findings) no longer applies. Like the parse fields, a
+// raw-keyed flag fold reports a flag only where a register callsign observation
+// actually raised it: it never carries the legacy tally's flags on available-pool
+// / forbidden tokens (emitted raw-only, never parsed AS callsigns), and it
+// additionally runs the cross-row collision pass over EVERY register source (the
+// legacy path ran it on the open-data lane alone). Both directions are classified
+// in value-catalogue-fold.test.ts.
+export const FLAGS_FIELD_PREDICATE = FLAG_PREDICATE;
 
 // A folded set of per-field value catalogues, keyed by the report field name —
 // the shape renderValueCatalogue folds into place of the legacy tally for the
@@ -357,13 +370,18 @@ export function foldFieldDistribution(source: string | ClaimsSource, field: stri
   return assembleFieldCatalogue(field, foldQuery<FieldFoldRow>(fieldFoldSql(claims, predicate)));
 }
 
-// Fold every migrated parse-derived field from a claims source.
+// Fold every migrated field from a claims source: the T1 parse-derived fields
+// plus the `flags` distribution (the shared FLAG_PREDICATE folded by object, so
+// every signal riding it — the parse flags and the two higher-tier tiers — is
+// unioned in one pass). The field-fold SQL groups by the claim's object, so a
+// per-token predicate and the flag predicate fold through the identical query.
 export function foldParseFields(source: string | ClaimsSource): FoldedFields {
   const claims = toClaimsSource(source);
   const folded: FoldedFields = new Map();
   for (const [field, predicate] of FOLDED_PARSE_FIELDS) {
     folded.set(field, foldFieldDistribution(claims, field, predicate));
   }
+  folded.set(FLAGS_FIELD, foldFieldDistribution(claims, FLAGS_FIELD, FLAGS_FIELD_PREDICATE));
   return folded;
 }
 

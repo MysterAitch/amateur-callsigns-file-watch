@@ -186,18 +186,18 @@ routine figure.
 
 | value | records | callsigns | allocated | sources | timeline | lanes |
 |---|---:|---:|---:|---:|---|---|
-| `forbidden-suffix` | 121,769 | 8,569 | 2,976 | 46 | ███▁█▁█▂▇ | foi, open-data |
-| `rsl-in-register` | 619 | 27 | 21 | 33 | ███▁█▁▅▅█ | foi, open-data |
-| `forbidden-suffix-issued-after-first-known-list` | 243 | 106 | 106 | 3 | ······█▃█ | open-data |
+| `forbidden-suffix` | 108,355 | 8,568 | 2,975 | 37 | ███▁█▁█▂▇ | foi, open-data |
+| `rsl-in-register` | 619 | 26 | 20 | 33 | ███▁█▁▅▅█ | foi, open-data |
+| `forbidden-suffix-issued-after-first-known-list` | 555 | 107 | 107 | 7 | ······█▃█ | foi, open-data |
 | `class-product-mismatch` | 219 | 31 | 25 | 22 | ·▂▂·▂·█▇▇ | foi, open-data |
 | `lowercase` | 196 | 19 | 15 | 31 | ███·▁·▇▁▁ | foi, open-data |
 | `malformed-home-callsign` | 180 | 10 | 5 | 30 | ▆▆█▁█▁▄▃▆ | foi, open-data |
 | `excel-date-shape` | 137 | 16 | 13 | 10 | ███···█·· | foi, open-data |
+| `whitespace` | 103 | 9 | 5 | 31 | ▁▁▃·▃·███ | foi, open-data |
+| `stripped-collision` | 89 | 6 | 3 | 29 | ███·▁·▃▃█ | foi, open-data |
 | `hash-in-register` | 65 | 3 | 2 | 25 | ███·█·▁▁█ | foi, open-data |
-| `whitespace` | 51 | 8 | 4 | 30 | ▁▁▃·▃·███ | foi, open-data |
 | `unknown-prefix-series` | 25 | 1 | 0 | 25 | ███···███ | foi, open-data |
 | `encoding-failure` | 21 | 3 | 3 | 8 | ███·▅···· | foi, open-data |
-| `stripped-collision` | 21 | 6 | 4 | 7 | ███·▁·▃▃█ | open-data |
 | `spreadsheet-error-token` | 14 | 1 | 1 | 1 | ········· | foi |
 | `unknown-rsl` | 2 | 2 | 0 | 1 | ········· | foi |
 | `suffix-length-abnormal` | 1 | 1 | 0 | 1 | ········· | foi |

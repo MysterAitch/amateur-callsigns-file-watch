@@ -532,12 +532,13 @@ function normalisationFidelitySection(fidelity: EntryFidelity[]): string[] {
 
 // FOLD, not re-derive (issue #361). `foldedCategories` supplies the licence-
 // category table from the ledger's derived `licence_category` claim; `foldedFields`
-// supplies the per-field value tables for the T1 parse-derived attributes
-// (implied_class / parse_status / prefix_series / flags) from the ledger's parse
-// tier. Both are OPTIONAL: without them the renderer falls back to the legacy
-// tally, so the presentation tests (which pass hand-built tallies) are unaffected.
-// The Notable and licence-category residue sections keep reading the legacy tally
-// — they describe the raw product/status fields, still on the legacy path.
+// supplies the per-field value tables for the ledger-derived attributes
+// (implied_class / parse_status / prefix_series from the parse tier, and `flags`
+// unioning every signal riding FLAG_PREDICATE) from the ledger. Both are OPTIONAL:
+// without them the renderer falls back to the legacy tally, so the presentation
+// tests (which pass hand-built tallies) are unaffected. The Notable, status and
+// raw product/licence_class sections keep reading the legacy tally — those raw
+// fields have not yet migrated to a fold.
 export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timeline: string[] = [], fidelity: EntryFidelity[] = [], foldedCategories?: LicenceCategoryFigures[], foldedFields?: FoldedFields, sesWindows: readonly SesWindowAttestation[] = []): string {
   const FIELD_ORDER = ['status', PRODUCT_FIELD, 'implied_class', 'parse_status', 'prefix_series', 'flags'];
   const cats = new Map<string, FieldCatalogue>();
@@ -618,13 +619,13 @@ export const VALUE_CATALOGUE_PATH = 'reports/value-catalogue.md';
 
 export function writeValueCatalogue(ledgerDir?: string): { path: string; changed: boolean } {
   const ref = loadReferenceData();
-  // The "Normalised licence category" table and the T1 parse-derived field
-  // distributions (implied_class / parse_status / prefix_series / flags) fold
-  // from the raw-keyed claim ledger (issue #361); the raw `status` and
-  // `product / licence_class` fields stay on the legacy tally for now (see
-  // value-catalogue-fold.ts / the migration map). One ledger is materialised and
-  // every section folds from it; a caller with a pre-built ledger passes its
-  // directory.
+  // The "Normalised licence category" table and the ledger-derived field
+  // distributions (implied_class / parse_status / prefix_series, and `flags`
+  // unioning every signal riding FLAG_PREDICATE) fold from the raw-keyed claim
+  // ledger (issue #361); the raw `status` and `product / licence_class` fields
+  // stay on the legacy tally for now (see value-catalogue-fold.ts / the migration
+  // map). One ledger is materialised and every section folds from it; a caller
+  // with a pre-built ledger passes its directory.
   const { categories: foldedCategories, fields: foldedFields } = buildValueCatalogueFold(ledgerDir, ref);
   const sesWindows = collectSesWindowAttestation(path.join(CONSTANTS.DIRS.archive, 'foi'), ref);
   const markdown = renderValueCatalogue(buildFieldTallies(), ref, openDataTimeline(), buildNormalisationFidelity(), foldedCategories, foldedFields, sesWindows);
