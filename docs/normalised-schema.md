@@ -104,6 +104,33 @@ validator re-verifies every declared header and ignored line byte-for-byte
 against the immutable, hash-pinned `raw.csv`, and requires a reason on
 every ignored line.
 
+## Ignored (required-present, not carried) columns
+
+Some raw header variants carry a column that is required present but never
+projected into the canonical schema — export padding (`unknown-1..N` in the
+2025-11-11 web-archived export's shape-only extract) or a discriminator that
+is the same on every row (`Type`). A column is only allowed to map to `null`
+in the variant registry (`VARIANTS` in `src/sources/ofcom-amateur/normalise.ts`)
+alongside a **verified declaration** of what it actually contains (issue
+#577, mirroring the `ignoredLines` byte-verification above):
+
+| verification | asserts | enforcement |
+|---|---|---|
+| `empty` | blank on every row | fails loudly the moment any row carries a value |
+| `constant` | one fixed value on every row | fails loudly the moment the value varies |
+| `content-bearing` | genuine per-row data, deliberately not projected | never value-checked, but requires a human-authored note |
+
+This is checked at conversion time, not merely declared: a null-mapped
+column with no matching entry in `IGNORED_COLUMN_VERIFICATION` fails the
+conversion, as does a column whose actual values contradict its declared
+shape. The FOI lane carries the identical mechanism (`ignoredColumns` in
+`src/shared/foi-normalise.ts`, rendered per-conversion in
+[`foi-schemas.md`](foi-schemas.md)). The motivating case: the 11 November
+2025 CSV's five trailing padding columns were assumed uniformly empty: four
+are, but the fifth carries a stray Excel-mangled month token on 29 of
+159,895 rows — a blind ignore-by-null would have dropped that signal
+without a trace.
+
 ## Companion artefact: `components.csv` (v5)
 
 One row per normalised row, joined by `callsign`: `parse_status`, the

@@ -259,6 +259,55 @@ export interface IgnoredRawLine {
   reason: string;
 }
 
+// A column a converter deliberately does not carry into a normalised
+// projection, VERIFIED against the actual raw values rather than merely
+// declared present (issue #577 - mirrors ignoredLines' byte verification
+// against raw.csv, so an ignored column gets the same non-negotiable
+// transparency guarantee an ignored LINE already has):
+//  - 'empty' asserts blank on every row - the converter fails loudly if any
+//    row carries a value, so a future export that starts populating the
+//    column cannot be silently dropped.
+//  - 'constant' asserts one fixed discriminator value on every row - fails
+//    loudly if the column varies (a "constant" that starts varying is a
+//    genuinely new assertion, not still the same ignorable furniture).
+//  - 'content-bearing' declares the column carries genuine, varying per-row
+//    data that is deliberately not projected (e.g. positional PDF-layout
+//    provenance) - never value-verified, since by definition there is no
+//    fixed shape to check, but the human-authored `note` puts the decision
+//    to drop it on the record rather than leaving it merely implied by its
+//    absence from the output.
+export type IgnoredColumnVerification =
+  | { kind: 'empty' }
+  | { kind: 'constant'; value: string }
+  | { kind: 'content-bearing'; note: string };
+
+export interface IgnoredColumnSpec {
+  // Exact raw header name (matched like every other column, by NAME).
+  column: string;
+  verification: IgnoredColumnVerification;
+}
+
+// Checks one declared ignored-column verification against the records a
+// converter actually parsed, throwing on the first row that contradicts it.
+// Shared by the FOI lane (src/shared/foi-normalise.ts) and the open-data lane
+// (src/sources/ofcom-amateur/normalise.ts) so both get the identical
+// fail-loud guarantee from one implementation. `sourceLabel` names the file
+// or variant being checked, for the error message only.
+export function verifyIgnoredColumn(spec: IgnoredColumnSpec, records: readonly Record<string, string>[], sourceLabel: string): void {
+  const { column, verification } = spec;
+  if (verification.kind === 'content-bearing') return;
+  for (let i = 0; i < records.length; i++) {
+    const value = records[i][column] ?? '';
+    if (verification.kind === 'empty') {
+      if (value !== '') {
+        throw new Error(`${sourceLabel}: ignored column "${column}" is declared empty but data row ${i + 1} carries ${JSON.stringify(value)} - a column that has started carrying data must not be silently dropped (re-declare it "constant" or "content-bearing" after review)`);
+      }
+    } else if (value !== verification.value) {
+      throw new Error(`${sourceLabel}: ignored column "${column}" is declared constant ${JSON.stringify(verification.value)} but data row ${i + 1} carries ${JSON.stringify(value)} - a "constant" column that has started varying must not be silently dropped (re-declare it "content-bearing" after review)`);
+    }
+  }
+}
+
 export const logger = {
   debug: (message: string, ...args: unknown[]): void => {
     if (process.env.DEBUG) {

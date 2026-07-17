@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectHeaderVariant, callsignColumnFor, convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS } from './normalise.ts';
+import { detectHeaderVariant, callsignColumnFor, convertRawCsv, verifyIgnoredOpenDataColumns, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type CanonicalColumn } from './normalise.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -29,6 +29,16 @@ const MMSI_LABELLED =
   'Value,Status,Product,Call Sign MMSI: Last Modified Date\n' +
   'M3YVL,Allocated,Amateur Foundation Radio Licence,23/07/2016\n' +
   '2E0ABC,Allocated,Amateur Intermediate Radio Licence,05/03/2020\n';
+
+// The 2025-11-11 web-archived export's shape-only header fill: the five
+// empty trailing header names become unknown-1..5 so csv-parse cannot
+// collapse them (issue #577's motivating case - see IGNORED_COLUMN_VERIFICATION
+// in normalise.ts). Four are genuinely empty; unknown-5 carries a stray
+// Excel-mangled month token on a minority of rows.
+const PADDED_HEADER = 'Callsign,Product__c,Status,Type__c,Licence_Version.LastModifiedDate,Licence_Version.Original_start_date__c,unknown-1,unknown-2,unknown-3,unknown-4,unknown-5';
+function paddedRow(callsign: string, unknown5 = ''): string {
+  return `${callsign},Amateur Full Radio Licence,Allocated,Call Sign - Amateur,11/10/2025,20/01/2019,,,,,${unknown5}`;
+}
 
 // Reference date for plausibility checks - dates in raw must not exceed it.
 const FETCH_CONTEXT = { referenceDateIso: '2026-07-06' };
@@ -247,5 +257,56 @@ describe('convertRawCsv', { tags: ['unit'] }, () => {
       '2E0ABC,Allocated,Amateur Intermediate Radio Licence,01/02/2019\n';
     const result = convertRawCsv(allAmbiguous, FETCH_CONTEXT);
     expect(result.unverifiedDateColumns).toEqual(['last_modified_date']);
+  });
+
+  describe('VERIFIED ignored (null-mapped) columns - issue #577', () => {
+    it('Convert_WhenPaddedVariantAllPaddingEmpty_ConvertsCleanly', () => {
+      // The ordinary case: every padding column matches its declared shape
+      // (four empty, one content-bearing but empty on this row) - the
+      // conversion proceeds exactly as it did before the columns were
+      // verified.
+      const raw = `${PADDED_HEADER}\n${paddedRow('M0IVB')}\n`;
+      const result = convertRawCsv(raw, FETCH_CONTEXT);
+      expect(result.headerVariant).toBe('v2026-licence-version-padded');
+      expect(result.recordCount).toBe(1);
+    });
+
+    it('Convert_WhenPaddedVariantUnknown5CarriesStrayToken_ConvertsCleanlyAsDeclaredContentBearing', () => {
+      // unknown-5 is declared content-bearing (the real 11 Nov 2025 export
+      // carries a stray Excel-mangled month token on 29 rows) - its actual
+      // content is never value-checked, only required present.
+      const raw = `${PADDED_HEADER}\n${paddedRow('M0IVB', '20-Mar')}\n`;
+      expect(() => convertRawCsv(raw, FETCH_CONTEXT)).not.toThrow();
+    });
+
+    it('Convert_WhenAPaddingColumnDeclaredEmptyStartsCarryingAValue_ThrowsLoud', () => {
+      // unknown-1 is declared empty on every row - a future export that
+      // starts populating it must fail the conversion loudly rather than
+      // have the value vanish into the ignored set unnoticed.
+      const raw = 'Callsign,Product__c,Status,Type__c,Licence_Version.LastModifiedDate,Licence_Version.Original_start_date__c,unknown-1,unknown-2,unknown-3,unknown-4,unknown-5\n'
+        + 'M0IVB,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,11/10/2025,20/01/2019,surprise-value,,,,\n';
+      expect(() => convertRawCsv(raw, FETCH_CONTEXT)).toThrow(/unknown-1.*declared empty/);
+    });
+
+    it('IgnoredOpenDataColumns_WhenNullMappedColumnHasNoDeclaredVerification_ThrowsNamingTheColumn', () => {
+      // A null mapping alone is a structural "not carried" note, not a
+      // reviewed statement of what the column contains - a future variant
+      // that adds one without a verification entry must fail loudly rather
+      // than silently ignore an undeclared column.
+      const mapping = { 'Callsign': 'callsign' as CanonicalColumn, 'Extra': null };
+      const records = [{ 'Callsign': 'M0IVB', 'Extra': '' }];
+      expect(() => verifyIgnoredOpenDataColumns('not-a-real-variant', mapping, records))
+        .toThrow(/"Extra".*no declared verification/);
+    });
+
+    it('IgnoredOpenDataColumns_WhenDeclaredEmptyColumnVariesOnASpecificRow_ThrowsNamingTheRow', () => {
+      // Exercises verifyIgnoredOpenDataColumns directly against the real
+      // registry (rather than through a full CSV parse) so the row-level
+      // failure mode is pinned independent of parsing.
+      const mapping = { 'Callsign': 'callsign' as CanonicalColumn, 'unknown-1': null };
+      const records = [{ 'Callsign': 'M0IVB', 'unknown-1': '' }, { 'Callsign': 'M7TEE', 'unknown-1': 'not-empty' }];
+      expect(() => verifyIgnoredOpenDataColumns('v2026-licence-version-padded', mapping, records))
+        .toThrow(/unknown-1.*data row 2/);
+    });
   });
 });

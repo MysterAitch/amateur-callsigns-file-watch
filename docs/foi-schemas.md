@@ -161,7 +161,11 @@ Row order: **sorted-by-first-column** — alphabetical suffix order carries no m
 | `licence_class` | `Product` | verbatim |
 | `suffix` | `Reference` | verbatim |
 
-Required-present but not carried: `Country`, `Current Series`, `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Country`: verified constant `M` on every row
+- `Current Series`: verified constant `6` on every row
+- `Type`: verified constant `Call Sign` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order; sorted by callsign for diffability.
 
@@ -174,7 +178,11 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 | `licence_class` | `Product` | verbatim |
 | `suffix` | `Reference` | verbatim |
 
-Required-present but not carried: `Country`, `Current Series`, `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Country`: verified constant `2` on every row
+- `Current Series`: content-bearing, not value-verified - the callsign's own series decomposition - constant "0" but for a couple of rows carrying "1"
+- `Type`: verified constant `Call Sign` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order; sorted by callsign for diffability.
 
@@ -187,7 +195,11 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 | `licence_class` | `Product` | verbatim |
 | `suffix` | `Reference` | verbatim |
 
-Required-present but not carried: `Country`, `Current Series`, `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Country`: content-bearing, not value-verified - the callsign's own country decomposition - this combined sheet mixes a handful of non-M values in (G, GB, U, and blanks)
+- `Current Series`: content-bearing, not value-verified - the callsign's own series decomposition - this combined sheet mixes a handful of non-0 values in, plus blanks
+- `Type`: content-bearing, not value-verified - 'Call Sign' throughout except a handful of blank cells
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order; sorted by callsign for diffability.
 
@@ -202,7 +214,12 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 | `licence_class` | `Product` | verbatim |
 | `suffix` | `Reference` | verbatim |
 
-Required-present but not carried: `Country`, `Current Series`, `Type`, `Allocated Flag`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Country`: verified constant `M` on every row
+- `Current Series`: verified constant `6` on every row
+- `Type`: verified constant `Call Sign` on every row
+- `Allocated Flag`: verified constant `N` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order; sorted by callsign for diffability.
 
@@ -215,7 +232,12 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 | `licence_class` | `Product` | verbatim |
 | `suffix` | `Reference` | verbatim |
 
-Required-present but not carried: `Country`, `Current Series`, `Type`, `Allocated Flag`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Country`: verified constant `2` on every row
+- `Current Series`: content-bearing, not value-verified - the callsign's own series decomposition - constant "0" but for one row carrying "1"
+- `Type`: verified constant `Call Sign` on every row
+- `Allocated Flag`: verified constant `N` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order; sorted by callsign for diffability.
 
@@ -228,7 +250,12 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 | `licence_class` | `Product` | verbatim |
 | `suffix` | `Reference` | verbatim |
 
-Required-present but not carried: `Country`, `Current Series`, `Type`, `Allocated Flag`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Country`: content-bearing, not value-verified - the callsign's own country decomposition - this combined sheet mixes a handful of non-M values in (G, GB, U, and 2 blanks)
+- `Current Series`: content-bearing, not value-verified - the callsign's own series decomposition - this combined sheet mixes a handful of non-0 values in, plus 6 blanks
+- `Type`: content-bearing, not value-verified - 'Call Sign' throughout except 2 blank cells
+- `Allocated Flag`: verified constant `N` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order; sorted by callsign for diffability.
 
@@ -242,7 +269,9 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 | `status` | `Status` | verbatim |
 | `licence_class` | *(emitted empty)* | verbatim |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -268,7 +297,11 @@ Row order: **sorted-by-first-column** — source rows arrive grouped (intermedia
 | `status` | `Status` | verbatim |
 | `licence_class` | *(emitted empty)* | verbatim |
 
-Required-present but not carried: `Prefix`, `Suffix`, `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Prefix`: content-bearing, not value-verified - Ofcom's own prefix decomposition of the callsign - not the registered `suffix` extension (the split is not uniformly three-letter-suffix-shaped), preserved verbatim in the archived source only
+- `Suffix`: content-bearing, not value-verified - Ofcom's own suffix decomposition of the callsign - not the registered `suffix` extension, preserved verbatim in the archived source only
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive grouped by suffix but carry no meaningful publication order (no dates, not callsign-sorted); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -293,7 +326,10 @@ Row order: **sorted-by-first-column** — the source is already grouped by suffi
 | `callsign` | `callsign` | verbatim |
 | `status` | `status` | verbatim |
 
-Required-present but not carried: `page`, `row_on_page`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `page`: content-bearing, not value-verified - PDF page number the row was transcribed from - positional layout provenance, not a per-row data assertion
+- `row_on_page`: content-bearing, not value-verified - row position within the PDF page - positional layout provenance, not a per-row data assertion
 
 Row order: **sorted-by-first-column** — the source order is the PDF page/row layout, not a meaningful assertion order; sorted by callsign for diffability, with the whole row as tie-break so the recurring per-licence records (and the blank-callsign rows) are all preserved.
 
@@ -311,7 +347,9 @@ Row order: **sorted-by-first-column** — the source order is the PDF page/row l
 | `reserved_to_date` | `Reserved to Date` | iso-date (future allowed) |
 | `licence_cancel_date` | `Licence Cancel Date` | iso-date |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability (the one blank callsign sorts first).
 
@@ -329,7 +367,9 @@ Date plausibility bound: 2020-10-23.
 | `reserved_to_date` | `Reserved to Date` | iso-date (future allowed) |
 | `original_start_date` | `Original Start Date` | iso-date |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -347,7 +387,9 @@ Date plausibility bound: 2021-01-29.
 | `reserved_to_date` | `Reserved to Date` | iso-date (future allowed) |
 | `original_start_date` | `Original start date` | iso-date |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -363,7 +405,9 @@ Date plausibility bound: 2021-04-21.
 | `status` | `Status` | verbatim |
 | `licence_class` | *(emitted empty)* | verbatim |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -393,7 +437,9 @@ Date plausibility bound: 2023-01-25.
 | `licence_class` | `Product` | verbatim |
 | `last_modified_date` | `Call Sign MMSI: Last Modified Date` | iso-date |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive grouped (reserved blocks first) but carry no globally meaningful order (not callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -410,7 +456,9 @@ Date plausibility bound: 2023-08-18.
 | `licence_class` | `Product` | verbatim |
 | `last_modified_date` | `Call Sign MMSI: Last Modified Date` | date |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive grouped (reserved blocks first) but carry no globally meaningful order (not callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -427,7 +475,9 @@ Date plausibility bound: 2023-11-24.
 | `licence_class` | `Product` | verbatim |
 | `last_modified_date` | `Call Sign MMSI: Last Modified Date` | date |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive grouped (reserved blocks first) but carry no globally meaningful order (not callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -444,7 +494,9 @@ Date plausibility bound: 2023-12-07.
 | `licence_class` | `Product` | verbatim |
 | `last_modified_date` | `Call Sign MMSI: Last Modified Date` | date |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive grouped (reserved blocks first) but carry no globally meaningful order (not callsign-sorted, not date-ordered); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -460,7 +512,9 @@ Date plausibility bound: 2024-01-31.
 | `status` | `Status__c` | verbatim |
 | `licence_class` | `Product__c` | verbatim |
 
-Required-present but not carried: `Type__c`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type__c`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive grouped but carry no globally meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -475,7 +529,9 @@ Row order: **sorted-by-first-column** — source rows arrive grouped but carry n
 | `licence_class` | `Product` | verbatim |
 | `last_modified_date` | `Call Sign MMSI: Last Modified Date` | date |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, no clear date order); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -509,7 +565,9 @@ Date plausibility bound: 2024-09-30.
 | `licence_class` | `Product` | verbatim |
 | `last_modified_date` | `Last Modified Date` | date |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, no clear date order); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -540,7 +598,9 @@ Date plausibility bound: 2024-12-31.
 | `last_modified_date` | `LastModifiedDate` | date |
 | `created_date` | `CreatedDate` | date |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, no clear date order); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -558,7 +618,9 @@ Date plausibility bound: 2025-03-13.
 | `last_modified_date` | `Licence LastModifiedDate` | iso-date |
 | `original_start_date` | `Licence Original_start_date__c` | iso-date |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -574,7 +636,9 @@ Date plausibility bound: 2025-09-11.
 | `status` | `Status` | verbatim |
 | `licence_class` | *(emitted empty)* | verbatim |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, no dates); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -642,7 +706,9 @@ Date plausibility bound: 2019-09-12.
 | `licence_class` | `Product__c` | verbatim |
 | `last_modified_date` | `LastModifiedDate` | iso-date |
 
-Required-present but not carried: `Type__c`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type__c`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order (not callsign-sorted, dates not monotonic); sorted by callsign for diffability and cross-snapshot comparability.
 
@@ -659,7 +725,9 @@ Date plausibility bound: 2024-07-22.
 | `licence_class` | *(emitted empty)* | verbatim |
 | `reserved_to_date` | `Reserved to Date` | date (future allowed) |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Call Sign - Amateur` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order; sorted by callsign for diffability.
 
@@ -765,7 +833,11 @@ Row order: **source-order** — rows are grouped by database view (Contact View,
 | `licence_number` | `Licence Number` | verbatim |
 | `con_id` | `Con Id` | verbatim |
 
-Required-present but not carried: `Title`, `First_name`, `Last_name`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Title`: verified constant `S40` on every row
+- `First_name`: verified constant `S40` on every row
+- `Last_name`: verified constant `S40` on every row
 
 Row order: **source-order** — the document presents 'the last 20 applications' newest-first; a meaningful order, preserved.
 
@@ -782,7 +854,12 @@ Date plausibility bound: 2015-02-27.
 | `licence_class` | `Product` | verbatim |
 | `suffix` | `Reference` | verbatim |
 
-Required-present but not carried: `Country`, `Current Series`, `Type`, `Allocated Flag`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Country`: verified constant `M` on every row
+- `Current Series`: verified constant `6` on every row
+- `Type`: verified constant `Call Sign` on every row
+- `Allocated Flag`: verified constant `N` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order; sorted by callsign for diffability.
 
@@ -795,7 +872,12 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 | `licence_class` | `Product` | verbatim |
 | `suffix` | `Reference` | verbatim |
 
-Required-present but not carried: `Country`, `Current Series`, `Type`, `Allocated Flag`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Country`: verified constant `2` on every row
+- `Current Series`: content-bearing, not value-verified - the callsign's own series decomposition - constant "0" but for one row carrying "1"
+- `Type`: verified constant `Call Sign` on every row
+- `Allocated Flag`: verified constant `N` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order; sorted by callsign for diffability.
 
@@ -808,7 +890,12 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 | `licence_class` | `Product` | verbatim |
 | `suffix` | `Reference` | verbatim |
 
-Required-present but not carried: `Country`, `Current Series`, `Type`, `Allocated Flag`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Country`: content-bearing, not value-verified - the callsign's own country decomposition - this combined sheet mixes a handful of non-M values in (G, GB, U, and 2 blanks)
+- `Current Series`: content-bearing, not value-verified - the callsign's own series decomposition - this combined sheet mixes a handful of non-0 values in, plus 4 blanks
+- `Type`: content-bearing, not value-verified - 'Call Sign' throughout except 2 blank cells
+- `Allocated Flag`: verified constant `N` on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order; sorted by callsign for diffability.
 
@@ -823,7 +910,14 @@ Row order: **sorted-by-first-column** — source rows arrive in no meaningful or
 | `licence_class` | `Product` | verbatim |
 | `suffix` | `Reference` | verbatim |
 
-Required-present but not carried: `Country`, `Current Series`, `Type`, `Allocated Flag`, `Call Sign Application #`, `MMSI Application #`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Country`: content-bearing, not value-verified - the callsign's own country decomposition - this all-classes sheet carries M, 2, G and a few other values
+- `Current Series`: content-bearing, not value-verified - the callsign's own series decomposition - this all-classes sheet carries 0, 6, 1 and a few other values
+- `Type`: content-bearing, not value-verified - 'Call Sign' throughout except 2 blank cells
+- `Allocated Flag`: verified constant `N` on every row
+- `Call Sign Application #`: verified empty on every row
+- `MMSI Application #`: verified empty on every row
 
 Row order: **sorted-by-first-column** — source rows arrive in no meaningful order; sorted by callsign for diffability.
 
@@ -845,7 +939,9 @@ Row order: **sorted-by-first-column** — source rows arrive grouped but not ful
 |---|---|---|
 | `suffix` | `Value` | verbatim |
 
-Required-present but not carried: `Type`.
+Required-present but not carried (issue #577 - VERIFIED against the actual raw values, not merely declared):
+
+- `Type`: verified constant `Forbidden` on every row
 
 Row order: **sorted-by-first-column** — alphabetical source order carries no meaning; sorted by suffix (a no-op for the archived file, kept for rule consistency).
 
