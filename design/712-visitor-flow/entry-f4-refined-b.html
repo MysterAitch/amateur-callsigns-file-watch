@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>Candidate F4 refined (B) — chips as a secondary-nav band — entry-flow mockup</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="ledger.css">
+  <link rel="stylesheet" href="entry-proto.css">
+  <link rel="stylesheet" href="entry-f.css">
+  <meta name="theme-color" content="#14506e">
+  <style>
+    /* F4 refined (variant B) — same deliberate vertical rhythm and re-sequencing
+       as variant A, but the four action chips are lifted ABOVE the search box as
+       a quiet secondary-navigation band sitting just under the site nav. The
+       band carries a generous lower margin so the search hero below it stays
+       visually uncluttered; the chips read as a persistent set of onward
+       destinations (nav-bar-esque) rather than an in-flow content block.
+
+       Band order: secondary-nav chips → search hero → orientation line →
+       headline stats → (section break) explore pair → (section break) role tabs
+       → quiet footer. As in variant A, the orientation sentence sits ABOVE the
+       stats bar, a hairline rule opens the explore band, and the paired cards
+       share one top grid line.
+
+       Mobile: the chip band wraps to as many rows as needed and keeps its lower
+       margin, so the search box still opens the content on small screens; the
+       explore pair stacks below 820px (surprise first), and the stats and tab
+       lists wrap. Bespoke to this variant, on top of entry-f.css. */
+    .f4r {
+      --rhythm-tight: 14px;    /* within the header cluster */
+      --rhythm-section: 40px;  /* between major sections */
+    }
+
+    /* Secondary-navigation chip band, above the search hero. */
+    .f4r-secondary-nav { display: flex; flex-wrap: wrap; align-items: center;
+      gap: 10px 12px; padding: 2px 0 18px; margin: 0; border-bottom: 1px solid var(--hair); }
+    .f4r-navlabel { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em;
+      text-transform: uppercase; color: var(--faint); font-weight: 600; margin-right: 2px; }
+    .f4r-secondary-nav .f-route { margin: 0; }
+
+    /* Generous separation so the search hero is uncrowded by the nav band. */
+    .f4r-hero { padding: 30px 0 0; }
+    .f4r-hero .f-search, .f4r-hero .f-jump { max-width: 720px; }
+
+    /* Header cluster — tight, even rhythm (overrides the shared margins). */
+    .f4r > .f-orient { margin: var(--rhythm-tight) 0 0; }
+    .f4r > .f-stats  { margin: var(--rhythm-tight) 0 0; }
+
+    /* Section break — a hairline opens the explore band. */
+    .f4r-rule { border: 0; border-top: 1px solid var(--hair); margin: var(--rhythm-section) 0 0; }
+    .f4r-pair { display: grid; grid-template-columns: 5fr 7fr; gap: 20px;
+      align-items: start; margin-top: 22px; }
+    /* Both cards drop their own margins so their top borders sit on one grid
+       line; a shared top padding lands their heads on a common baseline too. */
+    .f4r-pair > .f-surprise, .f4r-pair > .f-viz { margin: 0; padding-top: 20px; }
+    @media (max-width: 820px) { .f4r-pair { grid-template-columns: 1fr; } }
+
+    /* Second section break to the paths band, then the quiet footer. */
+    .f4r > .f-tabs { margin: var(--rhythm-section) 0 0; }
+    .f4r > .f-foot { margin: var(--rhythm-section) 0 0; }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="publishers/index.html">Publishers</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a></p></nav>
+
+  <!-- Navigation model — the front door is a NAVIGATION hub, not an app shell.
+       The search (type-ahead) NAVIGATES to the real instant per-callsign page
+       (callsign.html?c=…, the #594 path): selecting a suggestion or submitting
+       leaves the front door. No detail is rendered inline, so the instant page
+       keeps its single role and the back button always returns here. Jump-back
+       chips, timeline dots, action chips, orientation links and every role-panel
+       card are plain <a> links that likewise leave the page. ON-PAGE only (no
+       navigation, no history entry): type-ahead open/close, the surprise card's
+       "Surprise me again" rotation, tab-panel switching, and the timeline
+       hover/focus readout. Deliberate asymmetry on the surprise card: "Explore
+       this" navigates away, "Surprise me again" stays put.
+
+       Refined variant B — the four action chips are lifted above the search box
+       as a quiet secondary-navigation band, so the onward destinations sit with
+       the site nav and the search hero opens the page uncluttered beneath. -->
+  <main id="main" class="ledger proto">
+    <div class="wrap f4r">
+      <nav class="f4r-secondary-nav" aria-label="Explore the record">
+        <span class="f4r-navlabel" aria-hidden="true">Explore</span>
+        <a class="f-route" href="datasets/index.html">Browse every dataset →</a>
+        <a class="f-route" href="statistics.html">The record at a glance →</a>
+        <a class="f-route" href="reports/index.html">Reports on how it changed →</a>
+        <a class="f-route" href="explore.html">Query it with SQL →</a>
+      </nav>
+
+      <div class="f4r-hero">
+        <div class="f-heroline"><span class="f-glyph" aria-hidden="true">📻</span><span class="f-label">UK amateur callsign lookup</span></div>
+        <div class="search f-search">
+          <form id="search-form" role="search" aria-label="Callsign search">
+            <label for="search-input" class="visually-hidden">Callsign or suffix</label>
+            <input id="search-input" type="search" role="combobox" aria-expanded="false"
+              aria-controls="suggest" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+              placeholder="Type a callsign — e.g. M7TEE — or a suffix like *TEE">
+            <button type="submit" class="go">Look up</button>
+          </form>
+          <ul class="suggest" id="suggest" role="listbox" aria-label="Suggestions" hidden></ul>
+        </div>
+        <p class="f-advanced"><a href="explore.html">Advanced search &amp; filters →</a></p>
+        <div class="f-jump"><div class="jumpback" id="jumpback" hidden></div></div>
+      </div>
+
+      <p class="f-orient">An independent mirror of Ofcom's UK amateur-radio register and a decade of FOI disclosures.
+        <a href="about.html">New here? What this is</a> · <a href="explore.html">query it all</a> · <a href="statistics.html">the record at a glance</a>.</p>
+
+      <div class="f-stats" aria-label="The record's headline shape">
+        <span class="fig"><b data-figure="callsigns">—</b><span>callsigns</span></span>
+        <span class="sep" aria-hidden="true">·</span>
+        <span class="fig"><b data-figure="datasets">—</b><span>publications</span></span>
+        <span class="sep" aria-hidden="true">·</span>
+        <span class="fig"><b data-figure="span">—</b><span>span</span></span>
+        <span class="derived-stamp">at the <span data-figure="derivedAt">—</span> build</span>
+      </div>
+
+      <hr class="f4r-rule" aria-hidden="true">
+
+      <div class="f4r-pair">
+        <div class="f-surprise" aria-live="polite">
+          <div class="k"><span id="s-kicker">reserved, never issued</span>
+            <button type="button" class="f-another" id="s-another">Surprise me again →</button></div>
+          <h2 id="s-title">The M2 prefix has never been issued</h2>
+          <p id="s-body">It appears in the register only as reserved — a whole prefix series held back, never allocated to a licensee.</p>
+          <a class="more" id="s-link" href="series/index.html">Explore this →</a>
+        </div>
+        <section class="f-viz" aria-label="Archived publications over time">
+          <div class="f-viz-head">
+            <h2>Archived open-data publications, 2013 – 2026</h2>
+            <span class="derived-stamp">at the <span data-figure="derivedAt">—</span> build</span>
+          </div>
+          <div class="f-viz-shape">
+            <div class="fig"><b data-figure="callsigns">—</b><span>callsigns keyed</span></div>
+            <div class="fig"><b data-figure="datasets">—</b><span>datasets folded</span></div>
+            <div class="fig"><b data-figure="latest">—</b><span>latest snapshot</span></div>
+          </div>
+          <div class="f-axis"><div class="f-line" id="f-line"></div></div>
+          <div class="f-caption">
+            <span><span class="dot" style="background:var(--raw)"></span>an archived publication</span>
+            <span><span class="dot" style="background:var(--signal)"></span>the latest snapshot (<span data-figure="latest">—</span>)</span>
+            <span>hover a dot for its date · each links into that dataset</span>
+          </div>
+          <div class="f-readout" id="f-readout" role="status" aria-live="polite"></div>
+        </section>
+      </div>
+
+      <div class="f-tabs">
+        <div class="f-tablist" role="tablist" aria-label="Choose your path">
+          <button class="f-tab" role="tab" id="tab-reader" aria-controls="panel-reader" aria-selected="true">Reader</button>
+          <button class="f-tab" role="tab" id="tab-researcher" aria-controls="panel-researcher" aria-selected="false" tabindex="-1">Researcher</button>
+          <button class="f-tab" role="tab" id="tab-holder" aria-controls="panel-holder" aria-selected="false" tabindex="-1">Callsign-holder</button>
+        </div>
+        <div class="f-panel" role="tabpanel" id="panel-reader" aria-labelledby="tab-reader">
+          <p class="intro">Just want to look something up? Start with a single callsign for its instant
+            answer, or browse the record in plain language — no SQL, no downloads.</p>
+          <div class="paths">
+            <a class="path reader" href="callsign.html"><div class="k">Instant</div><h3>Look up one callsign</h3><p>Latest status, parsed anatomy and full history in one small fetch.</p></a>
+            <a class="path reader" href="statistics.html"><div class="k">At a glance</div><h3>The record's shape</h3><p>Aggregate views over the latest publication — no query needed.</p></a>
+            <a class="path reader" href="glossary.html"><div class="k">Plain English</div><h3>What the terms mean</h3><p>RSL, prefix series, register status — defined without jargon.</p></a>
+          </div>
+        </div>
+        <div class="f-panel" role="tabpanel" id="panel-researcher" aria-labelledby="tab-researcher" hidden>
+          <p class="intro">Want to interrogate the whole record? Query it directly in your browser, compare
+            publications, or pull any dataset with its raw, extract and normalised files.</p>
+          <div class="paths">
+            <a class="path researcher" href="explore.html"><div class="k">SQL</div><h3>Query in your browser</h3><p>Read-only SQL over the published databases, worked examples included.</p></a>
+            <a class="path researcher" href="datasets/index.html"><div class="k">Provenance</div><h3>Every dataset, downloadable</h3><p>Raw, extract and normalised files at stable URLs, with descriptors.</p></a>
+            <a class="path researcher" href="compare.html"><div class="k">Diff</div><h3>Compare publications</h3><p>See what changed between any two archived snapshots of the register.</p></a>
+          </div>
+        </div>
+        <div class="f-panel" role="tabpanel" id="panel-holder" aria-labelledby="tab-holder" hidden>
+          <p class="intro">Hold a callsign, or chasing one? Trace your own callsign across every publication,
+            or check which prefix series a wanted suffix is still free in.</p>
+          <div class="paths">
+            <a class="path holder" href="callsign.html?c=M7TEE"><div class="k">Your callsign</div><h3>Trace it over time</h3><p>How your callsign appears across every archived snapshot.</p></a>
+            <a class="path holder" href="callsign.html?c=*TEE"><div class="k">Wanted suffix</div><h3>Is a suffix free?</h3><p>Type a suffix like *TEE to see which series carry it.</p></a>
+            <a class="path holder" href="forbidden/index.html"><div class="k">Off-limits</div><h3>Forbidden suffixes</h3><p>The endings Ofcom will not allocate — before you set your heart on one.</p></a>
+          </div>
+        </div>
+      </div>
+
+      <div class="f-foot">
+        <span class="derived-stamp"><span data-figure="callsigns">—</span>&nbsp;callsigns · <span data-figure="datasets">—</span>&nbsp;publications · <span data-figure="span">—</span>, at the <span data-figure="derivedAt">—</span> build</span>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initComposite } from './entry-f.js';
+    initComposite();
+  </script>
+</body>
+</html>
