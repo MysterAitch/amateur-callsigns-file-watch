@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "name": "RSGB Special Contest Calls",
+    "url": "https://rsgbcc.org/hf/information/scc.shtml",
+    "licenceBasis": "copyright-cite-only",
+    "treatment": "Only the uncopyrightable three-column factual table is extracted; the page's RSGB-authored prose (rules, FAQ, contest lists) is cited by URL and fetch date, not reproduced."
+  },
+  "fetchedAt": "2026-07-17T11:53:40.551Z",
+  "upstreamUpdated": {
+    "text": "Updated 15 June 2026",
+    "iso": "2026-06-15"
+  },
+  "rowCount": 520,
+  "statusCounts": {
+    "Available": 206,
+    "Issued": 261,
+    "Withdrawb": 1,
+    "withdrawn": 1,
+    "Withdrawn": 51
+  }
+}

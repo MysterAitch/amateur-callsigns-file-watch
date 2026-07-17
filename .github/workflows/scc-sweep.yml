@@ -1,0 +1,108 @@
+# Special Contest Calls sweep (issue #693): refreshes the project-authored
+# derived table reference-data/rsgb-special-contest-calls.csv from the RSGB
+# Special Contest Calls page on a monthly schedule, opening a PR for review when
+# the table changes.
+#
+# Cite-don't-copy: only the uncopyrightable three-column factual table is
+# extracted; the page's RSGB-authored prose is cited by URL + fetch date, never
+# reproduced. The verbatim page bytes are not committed.
+#
+# Security shape (ADR 0001 scheduled PR-gated pattern): this workflow runs only
+# reviewed code from main on a schedule - never in response to a push - and its
+# default permission is read-only. The single writeback job elevates to
+# contents/pull-requests write at the job level, and its writeback is confined to
+# opening a review PR from a data branch; it never merges. Reference data is
+# reviewed like code, so the refresh is deliberately NOT auto-merged - a human
+# reviews the added/withdrawn/reassigned diff before it lands.
+#
+# The sanity gate is non-negotiable and lives in the intake code (fetch-scc.ts):
+# fetch to memory -> validate (row count within band, three columns, closed
+# status vocabulary, "Updated" banner present and parseable) -> atomic write. Any
+# failure aborts the run loudly before the tracked files are touched.
+#
+# workflow_dispatch doubles as the GitHub-runner smoke test: a manual run
+# confirms the runner can reach the host (a plain Apache server) and that the
+# gate passes end to end.
+name: Special Contest Calls sweep
+
+on:
+  schedule:
+    # 06:12 on the 1st of each month. Monthly polling comfortably catches the
+    # source's hand-edited changes (a few per year).
+    - cron: '12 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scc-sweep
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Fetch, gate, and refresh the SCC table
+        id: refresh
+        run: |
+          set -euo pipefail
+          # The intake fetches the page, runs the sanity gate, and (on success)
+          # writes the derived CSV + metadata. A gate failure exits non-zero here
+          # and fails the run loudly, leaving the committed table untouched.
+          summary="$(node src/sources/rsgb-scc/fetch-scc.ts)"
+          echo "$summary"
+          {
+            echo 'summary<<SCC_EOF'
+            echo "$summary"
+            echo 'SCC_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open a review PR when the table changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUMMARY: ${{ steps.refresh.outputs.summary }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- reference-data/rsgb-special-contest-calls.csv reference-data/rsgb-special-contest-calls.meta.json; then
+            echo "SCC table unchanged; nothing to open."
+            exit 0
+          fi
+
+          branch="data/scc-$(date -u +%Y-%m-%d)"
+
+          # If a review PR is already open for a prior refresh, do not stack a
+          # second one - the earlier one still needs reviewing first.
+          existing="$(gh pr list --state open --json number,headRefName --jq 'map(select(.headRefName | startswith("data/scc-"))) | .[0].number // ""')"
+          if [ -n "$existing" ]; then
+            echo "An SCC refresh PR (#$existing) is already open; leaving it for review rather than stacking another."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add reference-data/rsgb-special-contest-calls.csv reference-data/rsgb-special-contest-calls.meta.json
+          git commit -m "data(scc): refresh RSGB Special Contest Calls table"
+          git push origin "$branch"
+
+          body="$(printf 'Scheduled refresh of the RSGB Special Contest Calls derived table (cite-don'\''t-copy, issue #693).\n\n```\n%s\n```\n\nReference data is reviewed like code: this PR is for human review, not auto-merge.' "$SUMMARY")"
+          pr_url="$(gh pr create --head "$branch" --base main \
+            --title "data(scc): refresh RSGB Special Contest Calls table" \
+            --body "$body")"
+          echo "Opened $pr_url"
+
+          assignee="$(gh api "repos/$GITHUB_REPOSITORY" --jq .owner.login)"
+          gh pr edit "$pr_url" --add-assignee "$assignee" || echo "::warning::Could not assign $pr_url to $assignee."
