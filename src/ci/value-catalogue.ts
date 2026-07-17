@@ -22,6 +22,8 @@ import { buildFoiObservations } from '../shared/foi-observations.ts';
 import { parseCallsign, cleanedCallsign, loadReferenceData, normaliseLicenceCategory, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { mdCode } from '../shared/markdown.ts';
 import { buildValueCatalogueFold, type FoldedFields } from './value-catalogue-fold.ts';
+import { availablePoolEntries } from '../v2/collectors/available-pool.ts';
+import { forbiddenListEntries } from '../v2/collectors/forbidden-list.ts';
 
 // A blank source value is data (the source asserted an empty string); a value
 // the source does not carry at all is a different thing. Both render legibly.
@@ -278,6 +280,144 @@ function notableSection(cats: Map<string, FieldCatalogue>, ref: ReferenceData): 
     lines.push(`- **Licence product/class vocabulary drift**: ${variants} distinct variants across the corpus (${crossLane} appear in both lanes). The same class is written differently by source (e.g. \`Full\` vs \`Amateur Full Radio Licence\`) - these are passed through VERBATIM today (source fidelity), so this is the explicit, counted list of canonicalisation candidates.`);
   }
   return lines;
+}
+
+// --- Membership-derived rows: demoted from `status` to their own curio section (issue #722) ---
+//
+// The `status` fold still PROJECTS the `Available` (available-pool) and
+// `Forbidden` (forbidden-list) membership rows exactly as before (issue #707) -
+// the drift-golden function is untouched, so a tenth pool snapshot or a fifth
+// forbidden disclosure still changes the committed report. Only the PUBLISHED
+// presentation moves: these two rows read, in the prominent status table, as
+// facts about the callsign world (a `records` figure with no number a reader
+// carries in their head), when they are really facts about the archive - rows
+// summed across however many snapshots of one family happen to be held. So
+// they are pulled out of the status table into this section, led by the
+// quantities that matter (distinct callsigns, latest snapshot size) with the
+// vintage stated plainly and the records-sum kept but marked as corpus
+// coverage, never as availability/forbiddenness information.
+
+// One family's vintage span, read straight from the FOI archive metadata the
+// collectors already expose (available-pool.ts / forbidden-list.ts) - no new
+// derivation, just the dataVintage already carried by each held entry.
+export interface MembershipVintage {
+  minVintage: string;
+  maxVintage: string;
+  // The entry (ledger source key) carrying the latest vintage, so the renderer
+  // can read that source's own record count straight off the value's bySource
+  // breakdown - the same breakdown the timeline/breadth columns already use.
+  latestEntry: string;
+}
+
+function earliestAndLatest(entries: { entry: string; meta: { dataVintage: string | null } }[]): MembershipVintage | undefined {
+  const dated = entries
+    .map(e => ({ entry: e.entry, vintage: e.meta.dataVintage }))
+    .filter((e): e is { entry: string; vintage: string } => typeof e.vintage === 'string' && e.vintage !== '')
+    .sort((a, b) => a.vintage.localeCompare(b.vintage));
+  if (dated.length === 0) return undefined;
+  return { minVintage: dated[0].vintage, maxVintage: dated[dated.length - 1].vintage, latestEntry: dated[dated.length - 1].entry };
+}
+
+// The two membership families' vintage spans, keyed to match ValueTally.membership.
+export function collectMembershipVintages(foiDir: string): Map<string, MembershipVintage> {
+  const out = new Map<string, MembershipVintage>();
+  const pool = earliestAndLatest(availablePoolEntries(foiDir));
+  if (pool !== undefined) out.set('available-pool', pool);
+  const forbidden = earliestAndLatest(forbiddenListEntries(foiDir));
+  if (forbidden !== undefined) out.set('forbidden-list', forbidden);
+  return out;
+}
+
+// The year portion of a dataVintage string (`YYYY-MM-DD` or `YYYY-MM`) - all the
+// prose below needs, and robust to the two precisions the archive carries.
+function vintageYear(vintage: string): string {
+  return vintage.slice(0, 4);
+}
+
+// Family-specific prose: the noun for one held snapshot, what the family
+// declares a callsign/suffix AS, and (available-pool only) the domain fact that
+// the pool's snapshots predate the M7/M8/M9 prefix releases - so even the
+// LATEST one describes a namespace that no longer exists in that shape.
+const MEMBERSHIP_FAMILY_PROSE: ReadonlyMap<string, { snapshotNoun: string; declaredAs: string; staleness?: string }> = new Map([
+  ['available-pool', {
+    snapshotNoun: 'pool snapshots',
+    declaredAs: 'available',
+    staleness: ' (pre-M7/M8/M9 - the namespace these snapshots describe no longer exists in that shape)',
+  }],
+  ['forbidden-list', { snapshotNoun: 'forbidden-suffix disclosures', declaredAs: 'forbidden' }],
+]);
+
+// One membership row's table line: vintage stated plainly, then LED by the
+// meaningful quantities (distinct callsigns, latest snapshot size), with the
+// records-sum retained but explicitly marked as corpus coverage rather than a
+// population figure.
+function membershipCuriosityRow(v: ValueTally, vintages: Map<string, MembershipVintage>): string {
+  const family = v.membership ?? '';
+  const prose = MEMBERSHIP_FAMILY_PROSE.get(family);
+  const vintage = vintages.get(family);
+  const vintageText = vintage === undefined
+    ? `${v.sources} ${prose?.snapshotNoun ?? 'snapshots'}`
+    : `${v.sources} ${prose?.snapshotNoun ?? 'snapshots'}, ${vintageYear(vintage.minVintage)}–${vintageYear(vintage.maxVintage)}${prose?.staleness ?? ''}`;
+  const latestSize = vintage !== undefined ? v.bySource.get(vintage.latestEntry) : undefined;
+  const latestText = latestSize === undefined || vintage === undefined
+    ? '—'
+    : `${latestSize.toLocaleString('en-GB')} (${vintage.maxVintage})`;
+  const declaredAs = prose?.declaredAs ?? 'listed';
+  const label = `${mdCode(v.value)} — ${family} membership`;
+  const recordsText = `${v.count.toLocaleString('en-GB')} rows across ${v.sources} held snapshots — grows with ingestion, not with ${declaredAs === 'available' ? 'availability' : 'forbiddenness'}`;
+  return `| ${label} | ${vintageText} | ${v.distinctCallsigns.toLocaleString('en-GB')} | ${latestText} | ${recordsText} |`;
+}
+
+// The internal cross-checks/curio section (issue #722): the membership-derived
+// rows the `status` fold projects, demoted here from the prominent status
+// table. Omitted entirely when the fold carries no membership row (e.g. a
+// presentation test's hand-built tallies), so no section is fabricated.
+function membershipCuriositiesSection(status: FieldCatalogue | undefined, vintages: Map<string, MembershipVintage>): string[] {
+  const rows = status?.values.filter(v => v.membership !== undefined) ?? [];
+  if (rows.length === 0) return [];
+  const lines: string[] = [];
+  lines.push('## Cross-checks and curiosities');
+  lines.push('');
+  lines.push('Artefacts of the corpus itself, not facts about the callsign world today -');
+  lines.push('kept for corroboration (issue #723) and the contradiction-gap check (issue');
+  lines.push('#724), never as a read of current availability or forbiddenness.');
+  lines.push('');
+  lines.push('### Membership-derived rows demoted from `status`');
+  lines.push('');
+  lines.push('No source ever recorded these two values in a status column - the ledger');
+  lines.push('models them as FOI family membership (available-pool `@listed` /');
+  lines.push('forbidden-list `@listed`), not a per-record status claim (issue #707), and');
+  lines.push('the `status` table above no longer shows them. Each is its own corpus');
+  lines.push('artefact with its own vintage: led by the quantities that matter -');
+  lines.push('distinct callsigns and the latest held snapshot\'s size - with the');
+  lines.push('records-sum kept but marked plainly as corpus coverage (it grows when the');
+  lines.push('archive grows, not when availability/forbiddenness changes).');
+  lines.push('');
+  lines.push('| row | vintage | distinct callsigns | latest snapshot | records (corpus coverage) |');
+  lines.push('|---|---|---:|---:|---|');
+  for (const v of rows) lines.push(membershipCuriosityRow(v, vintages));
+  lines.push('');
+  return lines;
+}
+
+// A short glossary-style note anchoring the records-vs-callsigns semantics
+// (issue #722) with a concrete, always-live teaching example: the `status`
+// field's attested `Allocated` row, whose records figure is the corpus's
+// ingestion depth (one entry per held snapshot a callsign appears in), not a
+// population count. Read straight off the already-computed status catalogue -
+// no new computation tier - so the numbers can never drift from the table
+// below it. Omitted (never fabricated) when the fold hands no `status` field.
+function recordsVsCallsignsGloss(status: FieldCatalogue | undefined): string[] {
+  const allocated = status?.values.find(v => v.value === 'Allocated' && v.membership === undefined);
+  if (allocated === undefined) return [];
+  return [
+    'For scale, the teaching example: the corpus\'s `Allocated` status alone',
+    `carries ${allocated.count.toLocaleString('en-GB')} records from just`,
+    `${allocated.distinctCallsigns.toLocaleString('en-GB')} distinct callsigns across ${allocated.sources} held`,
+    'snapshots - the record count tracks how many snapshots the corpus holds,',
+    'not how many callsigns exist.',
+    '',
+  ];
 }
 
 // One normalised licence category as the report renders it: records (rows),
@@ -550,7 +690,7 @@ function normalisationFidelitySection(fidelity: EntryFidelity[]): string[] {
 // renderer falls back to the legacy tally, so the presentation tests (which pass
 // hand-built tallies) are unaffected. In production the folds cover every field,
 // including Notable and the licence-category residues.
-export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timeline: string[] = [], fidelity: EntryFidelity[] = [], foldedCategories?: LicenceCategoryFigures[], foldedFields?: FoldedFields, sesWindows: readonly SesWindowAttestation[] = []): string {
+export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timeline: string[] = [], fidelity: EntryFidelity[] = [], foldedCategories?: LicenceCategoryFigures[], foldedFields?: FoldedFields, sesWindows: readonly SesWindowAttestation[] = [], membershipVintages: Map<string, MembershipVintage> = new Map()): string {
   const FIELD_ORDER = ['status', PRODUCT_FIELD, 'implied_class', 'parse_status', 'prefix_series', 'flags'];
   // Every field folds from the raw-keyed claim ledger (issues #361 / #444 / #707);
   // a folded catalogue is preferred, falling back to the legacy tally only for a
@@ -586,6 +726,7 @@ export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timel
   out.push('meaningful for the `status` field itself (the value already IS the');
   out.push('status), so it shows `—` there.');
   out.push('');
+  out.push(...recordsVsCallsignsGloss(cats.get('status')));
   out.push('`sources` is how many distinct publications/entries carry the value:');
   out.push('breadth, not just volume - a value in 10 sources at 1 each reads very');
   out.push('differently from one source at 10,000.');
@@ -618,36 +759,36 @@ export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timel
     // The value of the `status` field already IS a status, so an "allocated"
     // sub-count of it is circular; render it not-applicable there.
     const allocatable = field !== 'status';
-    out.push(`## \`${field}\` — ${cat.distinct} distinct`);
+    // The `status` fold still PROJECTS the membership-derived `Available` /
+    // `Forbidden` buckets (issue #707) - they are excluded from THIS table
+    // (issue #722: demoted to the Cross-checks and curiosities section below)
+    // rather than shown inline, so the header's distinct count and the table
+    // rows both reflect the attested values a reader actually sees here.
+    const attestedValues = cat.values.filter(v => v.membership === undefined);
+    out.push(`## \`${field}\` — ${attestedValues.length} distinct`);
     out.push('');
-    // The `status` fold projects two MEMBERSHIP-derived buckets — availability
-    // (from the available-pool lists) and forbiddenness (from the forbidden-suffix
-    // lists) — that NO source asserted as a status: the ledger models them as
-    // family membership, not a status claim (issue #707). They are labelled here
-    // as projections and never presented as attested statuses.
-    if (cat.values.some(v => v.membership !== undefined)) {
-      out.push('Two rows below are **membership-derived projections**, not attested');
-      out.push('statuses: no source recorded the value in a status column. They are');
-      out.push('projected from FOI family membership — the available-pool lists');
-      out.push('(availability) and the forbidden-suffix lists (forbiddenness) — which');
-      out.push('the ledger deliberately models as membership rather than a per-record');
-      out.push('status claim, and are shown here so the availability/forbiddenness the');
-      out.push('corpus carries is not lost. The small attested `Available` (a status');
-      out.push('a register export itself recorded) is kept as its own, separate row.');
+    if (attestedValues.length !== cat.values.length) {
+      out.push('Two membership-derived rows this table would otherwise carry -');
+      out.push('`Available` (available-pool membership) and `Forbidden`');
+      out.push('(forbidden-list membership) - are demoted to the **Cross-checks and');
+      out.push('curiosities** section below (issue #722): no source recorded them in a');
+      out.push('status column, so they are corpus artefacts with their own vintage,');
+      out.push('never availability/forbiddenness information about the callsign world');
+      out.push('today.');
       out.push('');
     }
     out.push(`| value | records | callsigns | allocated | sources |${hasTimeline ? ' timeline |' : ''} lanes |`);
     out.push(`|---|---:|---:|---:|---:|${hasTimeline ? '---|' : ''}---|`);
-    for (const v of cat.values) {
+    for (const v of attestedValues) {
       const spark = hasTimeline ? ` ${sparkline(v.bySource, timeline)} |` : '';
       const allocated = allocatable ? v.allocated.toLocaleString('en-GB') : '—';
-      // A membership-derived bucket is labelled inline so a reader never reads it
-      // as an attested status (issue #707); attested values render as before.
-      const label = v.membership === undefined ? mdCode(v.value) : `${mdCode(v.value)} — ${v.membership} membership (projected)`;
-      out.push(`| ${label} | ${v.count.toLocaleString('en-GB')} | ${v.distinctCallsigns.toLocaleString('en-GB')} | ${allocated} | ${v.sources} |${spark} ${v.lanes.join(', ')} |`);
+      out.push(`| ${mdCode(v.value)} | ${v.count.toLocaleString('en-GB')} | ${v.distinctCallsigns.toLocaleString('en-GB')} | ${allocated} | ${v.sources} |${spark} ${v.lanes.join(', ')} |`);
     }
     out.push('');
   }
+
+  out.push(...membershipCuriositiesSection(cats.get('status'), membershipVintages));
+
   return out.join('\n');
 }
 
@@ -663,13 +804,19 @@ export function writeValueCatalogue(ledgerDir?: string): { path: string; changed
   // and every section folds from it; a caller with a pre-built ledger passes its
   // directory.
   const { categories: foldedCategories, fields: foldedFields } = buildValueCatalogueFold(ledgerDir, ref);
-  const sesWindows = collectSesWindowAttestation(path.join(CONSTANTS.DIRS.archive, 'foi'), ref);
+  const foiDir = path.join(CONSTANTS.DIRS.archive, 'foi');
+  const sesWindows = collectSesWindowAttestation(foiDir, ref);
+  // The membership-derived rows' vintage spans (issue #722), read straight off
+  // the FOI archive metadata the available-pool/forbidden-list collectors
+  // already expose - so the Cross-checks and curiosities section states each
+  // family's vintage plainly rather than leaving it to the reader to derive.
+  const membershipVintages = collectMembershipVintages(foiDir);
   // Every value-catalogue field now folds from the raw-keyed claim ledger (issues
   // #361 / #444 / #707), so the report is produced entirely from the folds; the
   // legacy full-corpus tally (buildFieldTallies) is retired from the production
   // path and survives only as the equivalence oracle's witness in the tests. An
   // empty tally map is passed so the renderer reads the folds for every field.
-  const markdown = renderValueCatalogue(new Map(), ref, openDataTimeline(), buildNormalisationFidelity(), foldedCategories, foldedFields, sesWindows);
+  const markdown = renderValueCatalogue(new Map(), ref, openDataTimeline(), buildNormalisationFidelity(), foldedCategories, foldedFields, sesWindows, membershipVintages);
   // Written relative to the working directory - the SAME root the tallies read
   // archive/ from (CONSTANTS.DIRS.archive is relative). So a sweep run against
   // a fixture archive in a temp cwd writes ITS catalogue there, never

@@ -770,11 +770,11 @@ describe.skipIf(!duckDbAvailable())('flags distribution fold — real-archive re
 // value-catalogue-fold.ts) rather than a derived tier, so they diverge from the
 // legacy tally in classified, explained ways — never by accident.
 
-// The status committed table carries two MEMBERSHIP-derived rows whose value cell
-// is labelled (`Available` — available-pool membership (projected)); parse the
-// table back into figures keyed by (value, membership) so the equivalence check
-// distinguishes the attested `Available` from its projection.
-interface StatusFigures { value: string; membership: string | null; records: number; callsigns: number; sources: number; lanes: string[] }
+// The status committed table now carries ATTESTED rows only (issue #722): the
+// two membership-derived rows are demoted to the Cross-checks and curiosities
+// section (parseCommittedMembershipCuriosities, below). Parse the table back
+// into figures keyed by value.
+interface StatusFigures { value: string; records: number; callsigns: number; sources: number; lanes: string[] }
 function parseCommittedStatusTable(): Map<string, StatusFigures> {
   const markdown = fs.readFileSync(path.resolve(process.cwd(), VALUE_CATALOGUE_PATH), 'utf8');
   const lines = markdown.split('\n');
@@ -785,13 +785,50 @@ function parseCommittedStatusTable(): Map<string, StatusFigures> {
   for (let i = start + 1; i < lines.length; i += 1) {
     const line = lines[i];
     if (line.startsWith('## ')) break;
-    // value (optionally with a "— <family> membership (projected)" label) | records | callsigns | allocated | sources | timeline | lanes
-    const m = /^\| `([^`]+)`(?: — (.+?) membership \(projected\))? \| ([\d,]+) \| ([\d,]+) \| [—\d,]+ \| (\d+) \| [^|]* \| (.+) \|$/.exec(line);
+    // value | records | callsigns | allocated | sources | timeline | lanes
+    const m = /^\| `([^`]+)` \| ([\d,]+) \| ([\d,]+) \| [—\d,]+ \| (\d+) \| [^|]* \| (.+) \|$/.exec(line);
     if (m === null) continue;
-    const membership = m[2] ?? null;
-    byKey.set(`${membership ?? ''} ${m[1]}`, {
-      value: m[1], membership, records: num(m[3]), callsigns: num(m[4]), sources: num(m[5]),
-      lanes: m[6].split(',').map(s => s.trim()).sort(),
+    byKey.set(m[1], {
+      value: m[1], records: num(m[2]), callsigns: num(m[3]), sources: num(m[4]),
+      lanes: m[5].split(',').map(s => s.trim()).sort(),
+    });
+  }
+  return byKey;
+}
+
+// The raw text of the committed `## \`status\`` section — used to assert the
+// membership rows are textually absent from it (issue #722), not merely
+// unparsed by parseCommittedStatusTable's stricter regex.
+function committedStatusSectionText(): string {
+  const markdown = fs.readFileSync(path.resolve(process.cwd(), VALUE_CATALOGUE_PATH), 'utf8');
+  const lines = markdown.split('\n');
+  const start = lines.findIndex(l => l.startsWith('## `status` — '));
+  expect(start, 'status section').toBeGreaterThanOrEqual(0);
+  const end = lines.findIndex((l, i) => i > start && l.startsWith('## '));
+  return lines.slice(start, end === -1 ? undefined : end).join('\n');
+}
+
+// The Cross-checks and curiosities section's membership-derived rows (issue
+// #722): the same two status-fold projections, published in their NEW demoted
+// location rather than deleted. Parsed straight from the committed golden so
+// the equivalence oracle covers the presentation move, not just the fold.
+interface MembershipCuriosityFigures { value: string; membership: string; distinctCallsigns: number; latestSnapshotSize: number; records: number; sources: number }
+function parseCommittedMembershipCuriosities(): Map<string, MembershipCuriosityFigures> {
+  const markdown = fs.readFileSync(path.resolve(process.cwd(), VALUE_CATALOGUE_PATH), 'utf8');
+  const lines = markdown.split('\n');
+  const start = lines.findIndex(l => l.startsWith('### Membership-derived rows demoted from `status`'));
+  expect(start, 'membership curiosities section').toBeGreaterThanOrEqual(0);
+  const byKey = new Map<string, MembershipCuriosityFigures>();
+  const num = (cell: string): number => Number(cell.trim().replace(/,/g, ''));
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (line.startsWith('## ')) break;
+    // row (`value` — <family> membership) | vintage | distinct callsigns | latest snapshot (N (date)) | records (corpus coverage)
+    const m = /^\| `([^`]+)` — (\S+) membership \| [^|]+ \| ([\d,]+) \| ([\d,]+) \([^)]+\) \| ([\d,]+) rows across (\d+) held snapshots/.exec(line);
+    if (m === null) continue;
+    byKey.set(`${m[2]}/${m[1]}`, {
+      value: m[1], membership: m[2], distinctCallsigns: num(m[3]),
+      latestSnapshotSize: num(m[4]), records: num(m[5]), sources: Number(m[6]),
     });
   }
   return byKey;
@@ -802,10 +839,12 @@ describe('status field — ledger vs legacy classified-equivalence oracle', { ta
   // catalogue live over the real archive (no DuckDB needed for this side).
   let legacyStatus: Map<string, ValueTally>;
   let committed: Map<string, StatusFigures>;
+  let membershipCuriosities: Map<string, MembershipCuriosityFigures>;
   beforeAll(() => {
     const cells = buildFieldTallies().get(STATUS_FIELD);
     legacyStatus = new Map((cells === undefined ? [] : catalogueField(STATUS_FIELD, cells).values).map(v => [v.value, v]));
     committed = parseCommittedStatusTable();
+    membershipCuriosities = parseCommittedMembershipCuriosities();
   }, 600_000);
 
   it('StatusFold_AttestedStatuses_MatchLegacyRecordsExactly', () => {
@@ -814,7 +853,7 @@ describe('status field — ledger vs legacy classified-equivalence oracle', { ta
     // tally did, so a drift here is a real divergence, not a classified one.
     for (const [value, legacy] of legacyStatus) {
       if (value === 'Available') continue;
-      const folded = committed.get(` ${value}`);
+      const folded = committed.get(value);
       expect(folded, `attested ${value}`).toBeDefined();
       expect(folded?.records, `attested ${value} records`).toBe(legacy.count);
       // Distinct callsigns fold by cleaned key, so the fold never exceeds the
@@ -827,10 +866,11 @@ describe('status field — ledger vs legacy classified-equivalence oracle', { ta
     // The load-bearing #707 split: the legacy tally's single `Available` MERGES the
     // small attested register status with the available-pool availability the
     // ledger models as family membership. The fold keeps the attested `Available`
-    // and PROJECTS the availability as a separate, labelled membership row; the two
-    // sum back to the legacy figure, so no availability is lost.
-    const attested = committed.get(' Available');
-    const membership = committed.get('available-pool Available');
+    // in the status table and PUBLISHES the availability as a separate, demoted
+    // membership row (issue #722); the two sum back to the legacy figure, so no
+    // availability is lost, only re-presented.
+    const attested = committed.get('Available');
+    const membership = membershipCuriosities.get('available-pool/Available');
     const legacy = legacyStatus.get('Available');
     expect(attested, 'attested Available').toBeDefined();
     expect(membership, 'membership Available').toBeDefined();
@@ -845,29 +885,53 @@ describe('status field — ledger vs legacy classified-equivalence oracle', { ta
     // `Forbidden` as a register STATUS is attested (a source's status column reads
     // it), and the fold reproduces the legacy figure exactly. The fold ADDS a
     // membership `Forbidden` projected from the forbidden-suffix lists — suffixes
-    // the legacy callsign-keyed tally never surfaced as a status — labelled as a
-    // projection, not merged into the attested count.
-    const attested = committed.get(' Forbidden');
-    const membership = committed.get('forbidden-list Forbidden');
+    // the legacy callsign-keyed tally never surfaced as a status — published as
+    // its own demoted curio row, not merged into the attested count.
+    const attested = committed.get('Forbidden');
+    const membership = membershipCuriosities.get('forbidden-list/Forbidden');
     expect(attested?.records, 'attested Forbidden').toBe(legacyStatus.get('Forbidden')?.count);
     expect(membership, 'membership Forbidden (fold-only)').toBeDefined();
     expect(membership?.records ?? 0).toBeGreaterThan(0);
   });
 
   it('StatusFold_AttestedValueSet_EqualsLegacyValueSet_NeitherInventedNorDropped', () => {
-    // The attested rows (membership excluded) fold EXACTLY the legacy status
+    // The status table (membership demoted away) folds EXACTLY the legacy status
     // vocabulary — no status invented, none silently dropped.
-    const attestedValues = [...committed.values()].filter(v => v.membership === null).map(v => v.value).sort();
+    const attestedValues = [...committed.keys()].sort();
     expect(attestedValues).toEqual([...legacyStatus.keys()].sort());
   });
 
-  it('StatusFold_MembershipRows_AreLabelledProjections_NeverAttested', () => {
-    // The #707 requirement: the two membership buckets are present AND labelled as
-    // projections (a parsed membership family), so a reader never reads them as an
-    // attested status.
-    const membershipRows = [...committed.values()].filter(v => v.membership !== null);
-    expect(membershipRows.map(v => `${v.membership}/${v.value}`).sort())
+  it('StatusFold_MembershipRows_AreDemotedToCuriosities_NeverInTheStatusTable', () => {
+    // The #722 requirement: the two membership buckets are present in the
+    // Cross-checks and curiosities section, labelled by family, and ABSENT from
+    // the prominent status table — so a reader of the status table never mistakes
+    // one for an attested status, and the fold's own output is not silently lost.
+    expect([...membershipCuriosities.keys()].sort())
       .toEqual(['available-pool/Available', 'forbidden-list/Forbidden']);
+    // The section's own explanatory prose names "membership" (why the rows are
+    // absent); no TABLE ROW does — that is the thing under test.
+    const tableRows = committedStatusSectionText().split('\n').filter(l => l.startsWith('| '));
+    expect(tableRows.some(l => l.includes('membership'))).toBe(false);
+  });
+
+  it('MembershipCuriosities_LeadWithDistinctCallsignsAndLatestSnapshot_RecordsMarkedAsCorpusCoverage', () => {
+    // Issue #722's core requirement: the demoted rows lead with the meaningful
+    // quantities (distinct callsigns, latest snapshot size) and keep records only
+    // as an explicitly-marked corpus-coverage figure, non-zero and sane relative
+    // to the underlying fold.
+    const pool = membershipCuriosities.get('available-pool/Available');
+    expect(pool?.distinctCallsigns ?? 0).toBeGreaterThan(0);
+    expect(pool?.latestSnapshotSize ?? 0).toBeGreaterThan(0);
+    // The latest snapshot (the smallest, as the pool shrank) is smaller than the
+    // distinct-ever-declared count and than the records corpus-coverage sum.
+    expect(pool?.latestSnapshotSize ?? 0).toBeLessThan(pool?.distinctCallsigns ?? 0);
+    expect(pool?.latestSnapshotSize ?? 0).toBeLessThan(pool?.records ?? 0);
+    expect(pool?.sources).toBe(9);
+
+    const forbidden = membershipCuriosities.get('forbidden-list/Forbidden');
+    expect(forbidden?.distinctCallsigns ?? 0).toBeGreaterThan(0);
+    expect(forbidden?.latestSnapshotSize ?? 0).toBeGreaterThan(0);
+    expect(forbidden?.sources).toBe(4);
   });
 });
 
@@ -1070,14 +1134,42 @@ describe.skipIf(!duckDbAvailable())('status / product folds — real-archive ret
   }, 600_000);
 
   it('StatusFold_RealArchive_ReproducesCommittedGoldenFigures', () => {
+    // The committed `status` TABLE now carries attested rows only (issue #722:
+    // the membership projections are demoted to the Cross-checks section), while
+    // the fold itself still yields both — so this comparison is scoped to the
+    // attested slice; the membership slice is checked against its own demoted
+    // location by the test below.
     const committed = parseCommittedStatusTable();
-    const folded = new Map((fields.get(STATUS_FIELD)?.values ?? []).map(v => [`${v.membership ?? ''} ${v.value}`, v]));
-    expect([...folded.keys()].sort(), 'status value set').toEqual([...committed.keys()].sort());
+    const attestedFolded = new Map(
+      (fields.get(STATUS_FIELD)?.values ?? [])
+        .filter(v => v.membership === undefined)
+        .map(v => [v.value, v]),
+    );
+    expect([...attestedFolded.keys()].sort(), 'status value set').toEqual([...committed.keys()].sort());
     for (const [key, c] of committed) {
-      const f = folded.get(key);
+      const f = attestedFolded.get(key);
       expect(f, `folded status ${key}`).toBeDefined();
       expect({ records: f?.count, callsigns: f?.distinctCallsigns, sources: f?.sources }, key)
         .toEqual({ records: c.records, callsigns: c.callsigns, sources: c.sources });
+    }
+  });
+
+  it('StatusFold_MembershipRows_RealArchive_ReproduceCommittedCuriosityFigures', () => {
+    // The fold's two membership projections (available-pool Available,
+    // forbidden-list Forbidden) are published in the demoted Cross-checks
+    // section (issue #722), not the status table - this is the retirement-gate
+    // proof for THAT figure set: the fold, not a parse of the golden, produces
+    // the curiosity section's records/callsigns/sources.
+    const curiosities = parseCommittedMembershipCuriosities();
+    const membershipFolded = (fields.get(STATUS_FIELD)?.values ?? []).filter(v => v.membership !== undefined);
+    expect(membershipFolded.map(v => `${v.membership}/${v.value}`).sort(), 'membership rows in the fold')
+      .toEqual(['available-pool/Available', 'forbidden-list/Forbidden']);
+    for (const v of membershipFolded) {
+      const key = `${v.membership}/${v.value}`;
+      const c = curiosities.get(key);
+      expect(c, `curiosity ${key}`).toBeDefined();
+      expect({ records: v.count, callsigns: v.distinctCallsigns, sources: v.sources })
+        .toEqual({ records: c?.records, callsigns: c?.distinctCallsigns, sources: c?.sources });
     }
   });
 
