@@ -7,7 +7,7 @@
  * Framing is deliberately calm — the same register as the callsign-lookup
  * dossier's record-fidelity surface (site/ledger.css): a fidelity note LOCATES
  * an observation about what the sources show; it is never a verdict against a
- * record or a licensee. The badge therefore uses the shared text-badge look
+ * record, or against whoever holds or uses the callsign. The badge therefore uses the shared text-badge look
  * (`.tb`, ledger.css), not an alarm colour, and its accessible name always says
  * what the reader will find ("about the <flag> data-quality flag"), never a
  * bare glyph.

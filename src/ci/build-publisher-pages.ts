@@ -462,7 +462,7 @@ function trustSection(entry: PublisherEntry): string {
   return [
     '<h2>Trust treatment</h2>',
     `<p>Material witnessed <em>only</em> through this publisher can carry at most the <b>${escapeHtml(entry.authorityCeiling)}</b> rung on the ${glossaryTerm('axis-authority', PUBLISHER_PAGE_DEPTH, { label: 'source-authority axis' })}${ceilingDesc === '' ? '' : ` — ${escapeHtml(ceilingDesc)}`}.</p>`,
-    `<p>This is a <em>ceiling</em>, a cross-check — not a second trust dial. A dataset's rung is still derived on read from the lane its bytes live in (ADR 0014); the ceiling only flags where a surfaced rung would exceed what the witnessing publisher can support, and never inflates one. Where a copy is later shown to correspond byte-for-byte to a higher-authority original, that authority is derived transitively from the correspondence, and labelled distinctly from a direct claim.</p>`,
+    `<p>This is a <em>ceiling</em>, a cross-check — not a second trust dial. A dataset's rung is still derived from the lane its bytes live in (ADR 0014); the ceiling only flags where a surfaced rung would exceed what the witnessing publisher can support, and never inflates one. Where a copy is later shown to correspond byte-for-byte to a higher-authority original, that authority is derived transitively from the correspondence, and labelled distinctly from a direct claim.</p>`,
   ].join('\n');
 }
 
