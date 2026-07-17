@@ -1,0 +1,106 @@
+/* Shared styling for the issue #712 COMPOSITE family (candidates F1–F4).
+ *
+ * The five original candidates were reviewed and a composite chosen, taking
+ * the best element of each: candidate B/D's search-first hero, candidate E's
+ * resume affordance (demoted to inline chips) and role tabs, candidate A's
+ * orientation sentence and route framing, candidate C's publication timeline,
+ * and candidate D's rotating surprise card. This stylesheet carries the pieces
+ * every composite variant shares; each variant owns only its layout
+ * composition (how the pieces are arranged and sequenced) in an inline block.
+ *
+ * Per the project convention a prototype keeps its own bespoke stylesheet
+ * rather than flattening into the host; this sits on top of entry-proto.css
+ * and draws entirely from the shared ledger palette tokens, so the composite
+ * reads as the same product and flips light/dark with the site. */
+
+/* Search-first hero: small radio glyph + label above the large search box.
+   Individual variants size and place the block; this styles its innards. */
+.f-heroline { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.f-glyph { font-size: 26px; line-height: 1; }
+.f-label { font-family: var(--mono); font-size: 12px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.f-search .search input[type="search"] { padding: 16px 18px; font-size: 17px; border-radius: 15px; }
+.f-search .search button.go { padding: 0 24px; border-radius: 15px; }
+
+/* Jump-back chips ride directly under the box; the shared .jumpback shell
+   (entry-proto.css) already styles the label, chips and example note. */
+.f-jump { margin-top: 12px; }
+
+/* Headline stats line — derived aggregates, dated to the build. */
+.f-stats { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px;
+  margin: 18px 0 6px; padding: 12px 16px; border: 1px solid var(--hair);
+  border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
+.f-stats .fig { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.f-stats .fig b { font-weight: 700; font-size: 17px; color: var(--ink); }
+.f-stats .fig span { font-size: 12.5px; color: var(--muted); margin-left: 4px; }
+.f-stats .sep { color: var(--faint); }
+.f-stats .derived-stamp { margin-left: auto; }
+
+/* One quiet orientation sentence + three named links. */
+.f-orient { margin: 4px 0 8px; font-size: 14.5px; color: var(--muted); max-width: 74ch; }
+.f-orient a { color: var(--raw); }
+
+/* Timeline card (candidate C): archived publications along a year axis. */
+.f-viz { margin: 18px 0 6px; padding: 22px 22px 14px; border: 1px solid var(--hair);
+  border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
+.f-viz-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.f-viz-head h2 { font-size: 16px; margin: 0; }
+.f-viz-shape { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: baseline; }
+.f-viz-shape .fig b { font-family: var(--mono); font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.f-viz-shape .fig span { font-size: 11.5px; color: var(--muted); margin-left: 4px; }
+.f-axis { position: relative; margin: 26px 4px 6px; }
+.f-line { position: relative; height: 3px; background: var(--hair); border-radius: 2px; }
+.f-pub { position: absolute; top: -6px; width: 13px; height: 15px; transform: translateX(-50%);
+  display: flex; align-items: center; justify-content: center; }
+.f-pub i { display: block; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--raw); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--raw); }
+.f-pub.latest i { background: var(--signal); box-shadow: 0 0 0 1px var(--signal); }
+.f-pub:hover i, .f-pub:focus i { transform: scale(1.35); }
+.f-year { position: absolute; top: 16px; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 11px; color: var(--faint); }
+.f-yeartick { position: absolute; top: 0; width: 1px; height: 10px; background: var(--hair); transform: translateX(-50%); }
+.f-caption { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; margin-top: 40px; font-size: 12.5px; color: var(--muted); }
+.f-caption .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
+.f-readout { font-family: var(--mono); font-size: 12.5px; color: var(--signal); min-height: 1.2em; margin-top: 10px; }
+
+/* Action chips (candidate C's routes). */
+.f-routes { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
+.f-route { font-family: var(--mono); font-size: 13px; text-decoration: none; padding: 8px 14px;
+  border-radius: 10px; border: 1px solid var(--hair); background: var(--surface-2); color: var(--raw); }
+.f-route:hover { border-color: var(--signal); }
+.f-route:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+/* Surprise card (candidate D): a real, dated surprise before any keystroke. */
+.f-surprise { position: relative; border: 1px solid var(--hair); border-left: 3px solid var(--signal);
+  border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); padding: 18px 20px 16px; }
+.f-surprise .k { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--signal); font-weight: 600; }
+.f-surprise h2 { margin: 8px 0 6px; font-size: 20px; }
+.f-surprise p { margin: 0 0 10px; color: var(--muted); font-size: 14.5px; }
+.f-surprise a.more { font-family: var(--mono); font-size: 13px; text-decoration: none; color: var(--raw); }
+.f-surprise a.more:hover { text-decoration: underline; }
+.f-another { font: inherit; font-family: var(--mono); font-size: 12px; cursor: pointer;
+  padding: 4px 10px; border-radius: 8px; border: 1px solid var(--hair); background: var(--surface-2); color: var(--ink); }
+.f-another:hover { border-color: var(--signal); }
+.f-another:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+/* Role tabs (candidate E): reader / researcher / callsign-holder. */
+.f-tabs { margin-top: 28px; }
+.f-tablist { display: flex; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--hair); padding-bottom: 2px; }
+.f-tab { font: inherit; font-family: var(--mono); font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: 9px 16px; border: 1px solid transparent; border-bottom: none; border-radius: 10px 10px 0 0;
+  background: transparent; color: var(--muted); }
+.f-tab[aria-selected="true"] { background: var(--surface); color: var(--signal);
+  border-color: var(--hair); box-shadow: var(--shadow); }
+.f-tab:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.f-panel { padding: 18px 2px 2px; }
+.f-panel[hidden] { display: none; }
+.f-panel p.intro { color: var(--muted); margin: 0 0 14px; max-width: 66ch; }
+
+/* Section labels between blocks. */
+.f-section-label { font-family: var(--mono); font-size: 11px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--signal); font-weight: 600; margin: 30px 0 12px; }
+
+/* Quiet footer repeat of the derived stats line. */
+.f-foot { margin: 30px 0 8px; padding-top: 16px; border-top: 1px solid var(--hair); text-align: center; }
+.f-foot .derived-stamp { color: var(--faint); }

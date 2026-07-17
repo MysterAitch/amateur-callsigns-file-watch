@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='1' y='13' font-size='13'%3E%F0%9F%93%BB%3C/text%3E%3C/svg%3E">
+  <title>Candidate F5 — Composite, minimalist — entry-flow mockup</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="ledger.css">
+  <link rel="stylesheet" href="entry-proto.css">
+  <link rel="stylesheet" href="entry-f.css">
+  <meta name="theme-color" content="#14506e">
+  <style>
+    /* F5 — minimalist (elements removed): the leanest front door the element set
+       allows. A centred search stage with the headline stats and the one
+       orientation sentence, then the four action chips as the only onward
+       affordances. The timeline, surprise card and role tabs are deliberately
+       DROPPED from the front door — each remains one chip-click away — to test
+       whether an uncluttered, single-purpose landing beats a rich one. Mobile:
+       already a single centred column. Bespoke to this variant. */
+    .f5-stage { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 52px 0 14px; }
+    .f5-stage .f-heroline { justify-content: center; }
+    .f5-stage .f-search, .f5-stage .f-jump { width: min(680px, 92vw); }
+    .f5-stage .f-jump .jumpback { justify-content: center; }
+    .f5-stage .f-stats { justify-content: center; margin-top: 20px; }
+    .f5-stage .f-orient { text-align: center; margin-top: 12px; }
+    .f5-routes { justify-content: center; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="publishers/index.html">Publishers</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a></p></nav>
+
+  <!-- Navigation model — the front door is a NAVIGATION hub, not an app shell.
+       The search (type-ahead) NAVIGATES to the real instant per-callsign page
+       (callsign.html?c=…, the #594 path): selecting a suggestion or submitting
+       leaves the front door — suggestions do not merely fill the box, they
+       resolve on select/Enter. No detail is rendered inline, so the instant
+       page keeps its single role and the back button always returns here.
+       Jump-back chips, timeline dots, action chips, orientation links and every
+       role-panel card are plain <a> links that likewise leave the page. ON-PAGE
+       only (no navigation, no history entry): type-ahead open/close, the
+       surprise card's "Surprise me again" rotation, tab-panel switching, and
+       the timeline hover/focus readout. Deliberate asymmetry on the surprise
+       card: "Explore this" navigates away, "Surprise me again" stays put.
+
+       F5 — the purest hub: with the timeline, surprise and tabs removed, EVERY remaining actionable element is a navigation away from the front door (search, jump-back chips, orientation links, action chips). The only on-page behaviour left is the type-ahead opening and closing. Nothing invites the visitor to dwell — the bet is that the fastest exit to the right page is the whole job. -->
+  <main id="main" class="ledger proto">
+    <div class="wrap">
+      <div class="f5-stage">
+        <div class="f-heroline"><span class="f-glyph" aria-hidden="true">📻</span><span class="f-label">UK amateur callsign lookup</span></div>
+        <div class="search f-search">
+          <form id="search-form" role="search" aria-label="Callsign search">
+            <label for="search-input" class="visually-hidden">Callsign or suffix</label>
+            <input id="search-input" type="search" role="combobox" aria-expanded="false"
+              aria-controls="suggest" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+              placeholder="Type a callsign — e.g. M7TEE — or a suffix like *TEE">
+            <button type="submit" class="go">Look up</button>
+          </form>
+          <ul class="suggest" id="suggest" role="listbox" aria-label="Suggestions" hidden></ul>
+        </div>
+        <div class="f-jump"><div class="jumpback" id="jumpback" hidden></div></div>
+        <div class="f-stats" aria-label="The record's headline shape">
+        <span class="fig"><b data-figure="callsigns">—</b><span>callsigns</span></span>
+        <span class="sep" aria-hidden="true">·</span>
+        <span class="fig"><b data-figure="datasets">—</b><span>publications</span></span>
+        <span class="sep" aria-hidden="true">·</span>
+        <span class="fig"><b data-figure="span">—</b><span>span</span></span>
+        <span class="derived-stamp">at the <span data-figure="derivedAt">—</span> build</span>
+      </div>
+        <p class="f-orient">An independent mirror of Ofcom's UK amateur-radio register and a decade of FOI disclosures.
+        <a href="about.html">New here? What this is</a> · <a href="explore.html">query it all</a> · <a href="statistics.html">the record at a glance</a>.</p>
+        <div class="f-routes f5-routes">
+        <a class="f-route" href="datasets/index.html">Browse every dataset →</a>
+        <a class="f-route" href="statistics.html">The record at a glance →</a>
+        <a class="f-route" href="reports/index.html">Reports on how it changed →</a>
+        <a class="f-route" href="explore.html">Query it with SQL →</a>
+      </div>
+      </div>
+
+      <div class="f-foot">
+        <span class="derived-stamp"><span data-figure="callsigns">—</span>&nbsp;callsigns · <span data-figure="datasets">—</span>&nbsp;publications · <span data-figure="span">—</span>, at the <span data-figure="derivedAt">—</span> build</span>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initComposite } from './entry-f.js';
+    initComposite();
+  </script>
+</body>
+</html>
