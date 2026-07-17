@@ -2,11 +2,8 @@ import * as fsSync from 'fs';
 import * as fs from 'fs/promises';
 import * as crypto from 'crypto';
 import * as util from 'util';
-import * as dotenv from 'dotenv';
+import './load-env.ts';
 import type { DivergenceRecord } from './witness-agreement.ts';
-
-// Load environment variables from .env file
-dotenv.config();
 
 export interface FileMetadata {
   name: string;
