@@ -163,6 +163,36 @@ describe('the built fidelity page over the real archive', { tags: ['data-validit
     expect(page).not.toMatch(/<th(?![a-z])(?![^>]*scope=)/);
   });
 
+  it('FidelityPage_FlagThatFiredInLatestPublication_LinksNameAndCountToTheFilteredBrowseView', () => {
+    // A reader must be able to go straight from "N rows carry <flag>" to those
+    // rows. Both the flag name and its count deep-link into the browse app,
+    // pre-filtered to that flag (?flags=<flag>), and the link's accessible name
+    // describes the population it lands on rather than leaving a bare number or
+    // glyph. rsl-in-register fires in the newest real publication, so its row
+    // must carry the link.
+    const row = page.match(/<tr id="flag-rsl-in-register">[\s\S]*?<\/tr>/)?.[0];
+    expect(row, 'rsl-in-register row present').toBeTruthy();
+    const flagRow = row ?? '';
+    // Two links (name + count), both to the same pre-filtered view.
+    expect((flagRow.match(/href="index\.html\?flags=rsl-in-register"/g) ?? []).length).toBe(2);
+    // The flag keeps its <code> styling inside the link.
+    expect(flagRow).toMatch(/<a href="index\.html\?flags=rsl-in-register"[^>]*><code>rsl-in-register<\/code><\/a>/);
+    // Descriptive accessible name naming the flag and its population.
+    expect(flagRow).toMatch(/aria-label="browse the [\d,]+ rows? carrying the rsl-in-register flag in the [^"]+ publication"/);
+  });
+
+  it('FidelityPage_FlagThatDidNotFireInLatestPublication_StaysInertWithNoEmptyFilterLink', () => {
+    // A "none" row has no rows to browse, so it must not link into an
+    // honestly-empty (and misleading) filtered search. excel-date-shape is a
+    // markdown/xlsx-only flag that does not fire in the newest open-data CSV
+    // publication, so its row shows "none" and carries no ?flags= link.
+    const row = page.match(/<tr id="flag-excel-date-shape">[\s\S]*?<\/tr>/)?.[0] ?? '';
+    expect(row, 'excel-date-shape row present').toBeTruthy();
+    expect(row).toContain('<span class="gap">none</span>');
+    expect(row).not.toContain('?flags=excel-date-shape');
+    expect(row).not.toContain('<a ');
+  });
+
   it('FidelityPage_ConsistencySection_LinksTheSixTwinsNarrative', () => {
     // Issue #657's second proposed back-link: the within-table consistency
     // section points at the narrative that walks a real conflict end to end

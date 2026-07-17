@@ -186,6 +186,15 @@ const EXAMPLE_BLURBS: Record<ExampleSelection['kind'], { heading: string; blurb:
 
 // ---- the page ---------------------------------------------------------------
 
+// A deep link from the fidelity page (site root) into the browse app
+// (index.html), pre-filtered to a single data-quality flag. The app reads
+// ?flags= on load, ticks the matching filter and runs the query against the
+// newest publication's normalised rows — the very population the flag counts
+// on this page describe — so the reader lands on exactly those records.
+function lookupFlagHref(flag: string): string {
+  return `index.html?flags=${encodeURIComponent(flag)}`;
+}
+
 function flagsSection(newestKey: string, newestStats: Record<string, number>): string[] {
   const registry = parseFlagRegistry();
   const rows = registry.map(({ flag, meaning }) => {
@@ -193,15 +202,31 @@ function flagsSection(newestKey: string, newestStats: Record<string, number>): s
     // full text and grounding.
     const firstSentence = meaning.split(/(?<=\.)\s/, 1)[0];
     const count = newestStats[flag] ?? 0;
-    const countCell = count === 0 ? '<span class="gap">none</span>' : count.toLocaleString('en-GB');
-    return `<tr id="${flagAnchor(flag)}"><th scope="row"><code>${escapeHtml(flag)}</code></th>`
+    const flagCode = `<code>${escapeHtml(flag)}</code>`;
+    if (count === 0) {
+      // A flag that did not fire in the latest publication has no rows to
+      // browse, so both cells stay inert — no link into an empty filtered view.
+      return `<tr id="${flagAnchor(flag)}"><th scope="row">${flagCode}</th>`
+        + `<td>${renderInline(firstSentence)}</td>`
+        + `<td class="n"><span class="gap">none</span></td></tr>`;
+    }
+    // Both cells deep-link into the browse app pre-filtered to this flag. The
+    // app's ?flags= filter queries the newest publication's normalised rows —
+    // the same population this count is drawn from — so the filtered view lands
+    // on exactly the stated number of records.
+    const href = lookupFlagHref(flag);
+    const countText = count.toLocaleString('en-GB');
+    const label = escapeHtml(`browse the ${countText} ${count === 1 ? 'row' : 'rows'} carrying the ${flag} flag in the ${newestKey} publication`);
+    const flagLink = `<a href="${href}" aria-label="${label}">${flagCode}</a>`;
+    const countLink = `<a href="${href}" aria-label="${label}">${countText}</a>`;
+    return `<tr id="${flagAnchor(flag)}"><th scope="row">${flagLink}</th>`
       + `<td>${renderInline(firstSentence)}</td>`
-      + `<td class="n">${countCell}</td></tr>`;
+      + `<td class="n">${countLink}</td></tr>`;
   });
   return [
     '<h2 id="flags">Data-quality flags — what a flagged record means</h2>',
     '<p>A flag is a <b>recorded observation</b> about a value as the source published it — never a correction, and never a verdict about a record or its holder. The mirror’s rule is to <b>resolve and flag</b>: the verbatim value is kept, the derived views work from a cleaned form, and the flag says exactly what was observed so nothing is silently transformed or dropped.</p>',
-    `<p>Each flag’s full meaning and grounding lives in the <a href="datasets/docs/flags.html">flag registry</a> (the authoritative, committed copy). The counts below are from the latest archived publication (${escapeHtml(newestKey)}); a count of “none” means the flag did not fire there, not that it never fires.</p>`,
+    `<p>Each flag’s full meaning and grounding lives in the <a href="datasets/docs/flags.html">flag registry</a> (the authoritative, committed copy). The counts below are from the latest archived publication (${escapeHtml(newestKey)}); a count of “none” means the flag did not fire there, not that it never fires. Where a flag did fire, both its name and its count link into the browse app, pre-filtered to exactly those records.</p>`,
     '<div class="overflow">',
     '<table>',
     tableCaption('Every registered data-quality flag, with its meaning and its row count in the latest publication'),
