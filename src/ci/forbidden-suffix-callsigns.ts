@@ -26,6 +26,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { buildFoiObservations } from '../shared/foi-observations.ts';
+import { derivedEntryFile } from '../shared/derived-entries.ts';
 import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -137,18 +138,18 @@ function record(
 }
 
 function openDataObs(key: string, acc: Map<string, Map<string, CallsignObservation[]>>, union: Set<string>): void {
-  const dir = path.join(ARCHIVE_DIR, key);
   // Status and the original-start date live on normalised.csv, keyed by
   // callsign; the suffix lives on components.csv. Build the join once per
-  // publication (the same shape value-catalogue uses).
+  // publication (the same shape value-catalogue uses). Both are derived
+  // files, so they resolve through the archive/projection switch.
   const byCallsign = new Map<string, RawObs>();
-  for (const r of readCsv(path.join(dir, 'normalised.csv'))) {
+  for (const r of readCsv(derivedEntryFile(key, 'normalised.csv', ARCHIVE_DIR))) {
     const callsign = (r['callsign'] ?? '').trim();
     if (callsign === '') continue;
     const startDate = (r['licence_version_original_start_date'] ?? '').trim() || (r['created_date'] ?? '').trim();
     byCallsign.set(callsign, { status: (r['status'] ?? '').trim(), startDate });
   }
-  for (const r of readCsv(path.join(dir, 'components.csv'))) {
+  for (const r of readCsv(derivedEntryFile(key, 'components.csv', ARCHIVE_DIR))) {
     const suffix = (r['suffix'] ?? '').trim();
     if (suffix === '' || !union.has(suffix)) continue;
     const callsign = (r['callsign'] ?? '').trim();

@@ -495,6 +495,12 @@ jobs:
           # Structural + byte-integrity checks run over ALL archive entries;
           # expensive deep CSV parsing runs only on entries this PR touches
           # (or the newest entry, on pushes to main).
+          # Deliberately NO BUILDER_PROJECTION_DIR here (issue #629 phase 2):
+          # this job validates the COMMITTED record a data PR merges - the
+          # bytes under archive/ - so its derived-file reads stay on the
+          # archive. The projection-side twin of those bytes is separately
+          # gated by the full-corpus parity suite; this read moves only when
+          # the committed derivatives retire (#446/#448).
           keys=""
           if [ -n "${GITHUB_BASE_REF:-}" ]; then
             keys="$(git diff --name-only "origin/$GITHUB_BASE_REF"...HEAD -- 'archive/' | cut -d/ -f2 | sort -u)"
@@ -508,8 +514,9 @@ jobs:
   # otherwise stops a PR from changing generation logic - or hand-editing a
   # report - and committing a stale copy while CI stays green: the "PR diff is
   # the drift signal" contract would then hold only on the schedule, never
-  # per-PR. This job re-runs the same generators against the committed archive/
-  # + reference-data/ (no network, no SQLite build) and fails if the working
+  # per-PR. This job re-runs the same generators (no network, no SQLite build),
+  # feeding the report lane's derived-file reads from the ledger projection
+  # (issue #629 phase 2 - see the regeneration step), and fails if the working
   # tree then differs from what is committed, so a stale golden master is
   # caught on the PR that introduced it. The assertion is scoped to reports/:
   # archive re-derivation is a separate, human-reviewed concern owned by the
@@ -576,11 +583,20 @@ jobs:
         if: steps.reports-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          # The normalise sweep regenerates the full reports/ set - the cross-lane
-          # value catalogue AND the standing reports - from the committed archive/
-          # + reference-data/, in place over the clean checkout. Snapshot the
-          # result so the post-job cache save persists this closure's regeneration.
-          npm run normalise:sweep
+          # Golden regeneration flows FROM THE LEDGER PROJECTION (issue #629
+          # phase 2): the report lane's derived-file reads (per-entry stats,
+          # components, the register the invariants fold) resolve into the
+          # projection built here, not the committed archive copies. Sound
+          # because the sweep's outputs ARE what the full-corpus parity gate
+          # proved byte-identical to the projection, so the regenerated
+          # reports are byte-identical either way - and regenerating them
+          # this way proves, pre-merge, the exact input path that survives
+          # when #446 retires the committed derivatives. The sweep's
+          # DERIVATION half stays raw-driven (it is the producer of the
+          # committed files until #446); the drift assertion below is scoped
+          # to reports/ as before.
+          node src/v2/build-builder-projection.ts "$RUNNER_TEMP/builder-projection"
+          BUILDER_PROJECTION_DIR="$RUNNER_TEMP/builder-projection" npm run normalise:sweep
           rm -rf .golden-cache/reports
           mkdir -p .golden-cache
           cp -r reports .golden-cache/reports
@@ -678,10 +694,21 @@ jobs:
         id: db-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .dbstage
+          # Two staged outputs share the one closure-keyed cache: the packaged
+          # databases (.dbstage, hardlinked into _site/data) and the builder
+          # projection (.builder-projection, the per-entry derived files the
+          # assemble step's builders read - issue #629 phase 2; deliberately a
+          # SIBLING of .dbstage so it never rides the _site/data publish).
+          # Both are pure functions of the same hashed closure.
+          path: |
+            .dbstage
+            .builder-projection
           # Closure hash with test files excluded (closure-hash action), so a
           # test-only edit no longer forces a full ~22 min database rebuild.
-          key: pages-db-v2-${{ steps.closure.outputs.hash }}
+          # v3: the cached shape gained .builder-projection - the bump stops an
+          # older .dbstage-only cache restoring WITHOUT the projection, which
+          # would fail the assemble step loudly (correct, but avoidably).
+          key: pages-db-v3-${{ steps.closure.outputs.hash }}
       - name: Build databases
         if: steps.db-cache.outputs.cache-hit != 'true'
         env:
@@ -720,15 +747,24 @@ jobs:
           # build-sqlite.ts step above builds the download tiers alone, not a
           # parallel runtime pair (the legacy runtime pair is retired, #445).
           node src/v2/build-projection-db.ts .dbstage/ledger-lookup.sqlite.png .dbstage/ledger-history.sqlite.png --ledger-dir="$RUNNER_TEMP/v2-ledger-emit"
+          # The builder-facing projection (issue #629 phase 2): the per-entry
+          # normalised.csv/components.csv/stats.json the assemble step's
+          # builders read (BUILDER_PROJECTION_DIR below), folded from the SAME
+          # shared emit and proven byte-identical to the committed files by the
+          # full-corpus parity gate (builder-projection-parity.test.ts). Built
+          # into a sibling of .dbstage so it is cached alongside the databases
+          # but never hardlinked into _site/data. ~40 s and ~117 MB on top of
+          # the shared emit (the phase-1 measurements).
+          node src/v2/build-builder-projection.ts .builder-projection --ledger-dir="$RUNNER_TEMP/v2-ledger-emit"
           # Peak-flattening (issue #646): the Stage-1 JSONL emit was kept
-          # (--ledger-dir) only so the projection build folds the SAME emit the
+          # (--ledger-dir) only so the projection builds fold the SAME emit the
           # compact-ledger build did, rather than re-emitting the corpus. The
-          # projection build above is its last consumer, so drop it here - its
-          # high-water share (the whole-corpus emit) is freed before the
-          # remaining stages and the site assembly write. The compact-ledger
-          # and projection builders are the only readers; the raw-verification
-          # tiers oracle (a separate job) emits its own, so nothing downstream
-          # in this job needs it.
+          # builder projection above is now its LAST consumer, so drop it here
+          # - its high-water share (the whole-corpus emit) is freed before the
+          # remaining stages and the site assembly write. The compact-ledger,
+          # surface-projection and builder-projection builders are the only
+          # readers; the raw-verification tiers oracle (a separate job) emits
+          # its own, so nothing downstream in this job needs it.
           rm -rf "$RUNNER_TEMP/v2-ledger-emit"
           # Serve the ledger CHUNKED, not as one file (issue #475). A HEAD of a
           # large object on Pages negotiates a compressed variant that is a
@@ -744,6 +780,16 @@ jobs:
           # and the site carry the chunks only, not both.
           rm -f .dbstage/claim-ledger.sqlite.png
       - name: Assemble the site
+        env:
+          # The page builders read every derived per-entry file (normalised.csv,
+          # components.csv, stats.json) from the ledger projection built/restored
+          # above (issue #629 phase 2). The switch is explicit: a missing
+          # projection fails this step loudly rather than silently reading the
+          # committed archive. meta.json and the raw files stay archive reads.
+          # NB the database build step above deliberately runs WITHOUT this
+          # variable: build-sqlite.ts runs before the ledger emit exists and its
+          # download tiers stay on the committed derivatives until phase 3.
+          BUILDER_PROJECTION_DIR: ${{ github.workspace }}/.builder-projection
         run: |
           mkdir -p _site/data _site/vendor
           # Publish the built databases - restored from the cache above, or freshly

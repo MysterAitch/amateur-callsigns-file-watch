@@ -25,6 +25,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
+import { derivedEntryFile, derivedEntryFileExists, isDerivedEntryFile } from '../shared/derived-entries.ts';
 import { CONSTANTS } from '../shared/utils.ts';
 import { linkOrCopyFileSync } from '../shared/link-or-copy.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, type FoiEntryMeta, type FoiWitness } from '../shared/foi-archive.ts';
@@ -278,10 +279,14 @@ function publishedByBlock(sourceKey: string, witnesses: FoiWitness[], heldHashes
 // (correspondence records, PDF transcription extracts) additionally get a
 // rendered .html sibling for browsing; the verbatim .md remains the
 // published record.
-function copyEntryFiles(sourceDir: string, targetDir: string, descriptions: Map<string, string>, hashes: Map<string, string>, entryTitle: string): CopiedFile[] {
+//
+// resolveSource, when given, maps a file NAME to the path its bytes are taken
+// from (the open-data lane routes its derived files through the archive/
+// projection switch this way); enumeration stays over sourceDir either way.
+function copyEntryFiles(sourceDir: string, targetDir: string, descriptions: Map<string, string>, hashes: Map<string, string>, entryTitle: string, resolveSource?: (name: string) => string): CopiedFile[] {
   fs.mkdirSync(targetDir, { recursive: true });
   return fs.readdirSync(sourceDir).sort().map(name => {
-    const sourcePath = path.join(sourceDir, name);
+    const sourcePath = resolveSource === undefined ? path.join(sourceDir, name) : resolveSource(name);
     linkOrCopyFileSync(sourcePath, path.join(targetDir, name));
     const bytes = fs.statSync(sourcePath).size;
     const schemaFields = name.endsWith('.csv') ? csvHeaderFields(sourcePath) : undefined;
@@ -335,10 +340,10 @@ function asSheetsIndicative(value: unknown): SheetsIndicative | undefined {
 // changes - timestamps are pinned by the writer - so a dictionary edit
 // legitimately re-versions every zip that carries it. Returns the zip's
 // byte size.
-function writeEntryZip(sourceDir: string, targetDir: string, key: string, descriptorJson: string, dictionarySources: string[]): number {
+function writeEntryZip(sourceDir: string, targetDir: string, key: string, descriptorJson: string, dictionarySources: string[], resolveSource?: (name: string) => string): number {
   const entries = fs.readdirSync(sourceDir).sort().map(name => ({
     name,
-    data: fs.readFileSync(path.join(sourceDir, name)),
+    data: fs.readFileSync(resolveSource === undefined ? path.join(sourceDir, name) : resolveSource(name)),
   }));
   entries.push({ name: 'datapackage.json', data: Buffer.from(descriptorJson, 'utf8') });
   for (const source of dictionarySources) {
@@ -471,7 +476,7 @@ function facetAttr(col: string, value: string): string {
 // entry pages; it has moved to the statistics home, so this read replaces
 // it rather than adding one.
 
-function openDataBreakdowns(sourceDir: string): {
+function openDataBreakdowns(key: string): {
   recordCount: number;
   status: [string, number][];
   impliedClass: [string, number][];
@@ -483,8 +488,8 @@ function openDataBreakdowns(sourceDir: string): {
   forbiddenTotal: number;
   forbiddenSince: number;
 } {
-  const statusRows = parseArchiveCsv(path.join(sourceDir, 'normalised.csv'));
-  const componentRows = parseArchiveCsv(path.join(sourceDir, 'components.csv'));
+  const statusRows = parseArchiveCsv(derivedEntryFile(key, 'normalised.csv'));
+  const componentRows = parseArchiveCsv(derivedEntryFile(key, 'components.csv'));
   // Empty is a distinct, meaningful bucket (a record the source left blank,
   // or an unparseable callsign with no series) - counted as '' and humanised
   // at display, never silently dropped.
@@ -628,11 +633,11 @@ function anomalyFlagsHtml(flags: Record<string, number>): string {
 // The At-a-glance sidebar for an open-data publication: headline count,
 // status/licence-level breakdowns with bars, largest prefixes (linked to
 // their series pages), attribution, and the Notable coda.
-function atAGlanceOpenData(sourceDir: string, key: string, previousKey: string | undefined, stats: OpenDataStats, meta: {
+function atAGlanceOpenData(key: string, previousKey: string | undefined, stats: OpenDataStats, meta: {
   sourceUrl?: string; ofcomReportedUpdateIso?: string; ofcomReportedUpdate?: string; fetchedAt?: string;
   diffSummary?: OpenDataDiffSummary;
 }): string {
-  const bd = openDataBreakdowns(sourceDir);
+  const bd = openDataBreakdowns(key);
   const allocatedCount = bd.status.find(([s]) => s === 'Allocated')?.[1] ?? 0;
 
   // Notable: computed findings with the drill-downs Roger asked to keep.
@@ -779,15 +784,15 @@ function svgBarChart(idBase: string, heading: string, summary: string, unit: str
 // trailing 12 months before THIS publication's date (anchored on the
 // publication date, not today, so the build stays reproducible), split by
 // implied licence level.
-function distributions(sourceDir: string, key: string): {
+function distributions(key: string): {
   length: [string, number][];
   suffixLength: [string, number][];
   issueYear: [string, number][];
   recentByClass: [string, number][];
   dateColumn: string | undefined;
 } {
-  const normRows = parseArchiveCsv(path.join(sourceDir, 'normalised.csv'));
-  const compRows = parseArchiveCsv(path.join(sourceDir, 'components.csv'));
+  const normRows = parseArchiveCsv(derivedEntryFile(key, 'normalised.csv'));
+  const compRows = parseArchiveCsv(derivedEntryFile(key, 'components.csv'));
   const classByCallsign = new Map(compRows.map(r => [r.callsign, r.implied_class]));
 
   const lengthMap = new Map<number, number>();
@@ -825,8 +830,8 @@ function distributions(sourceDir: string, key: string): {
   return { length, suffixLength, issueYear, recentByClass, dateColumn };
 }
 
-function distributionsSection(sourceDir: string, key: string): string[] {
-  const dist = distributions(sourceDir, key);
+function distributionsSection(key: string): string[] {
+  const dist = distributions(key);
   if (dist.length.length === 0 && dist.issueYear.length === 0) return [];
   const dateLabel = dist.dateColumn === 'created_date' ? 'record creation' : 'licence start';
   const recentTotal = dist.recentByClass.reduce((a, b) => a + b[1], 0);
@@ -1027,7 +1032,7 @@ interface PublicationSummary {
 
 function publicationSummary(key: string): PublicationSummary {
   const sourceDir = path.join(CONSTANTS.DIRS.archive, key);
-  const rows = parseArchiveCsv(path.join(sourceDir, 'normalised.csv'));
+  const rows = parseArchiveCsv(derivedEntryFile(key, 'normalised.csv'));
   let allocated = 0;
   let unkeyable = 0;
   for (const r of rows) {
@@ -1224,9 +1229,16 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   ]);
   const pageTitle = `Publication of ${humanDate(key)}`;
   const targetDir = path.join(outputDir, 'datasets', 'open-data', key);
-  const files = copyEntryFiles(sourceDir, targetDir, descriptions, new Map(), pageTitle);
+  // The published copy and the zip take their derived-file bytes through the
+  // archive/projection switch (proven byte-identical by the parity gate);
+  // raw.*, extracts and meta.json are published from the archive verbatim.
+  // Enumeration stays over the archive entry until the committed derivatives
+  // retire (#446).
+  const resolveSource = (name: string): string =>
+    isDerivedEntryFile(name) ? derivedEntryFile(key, name) : path.join(sourceDir, name);
+  const files = copyEntryFiles(sourceDir, targetDir, descriptions, new Map(), pageTitle, resolveSource);
   const descriptor = dataPackage(key, `Ofcom open-data publication ${key}`, files);
-  const zipBytes = writeEntryZip(sourceDir, targetDir, key, descriptor, OPEN_DATA_DICTIONARY_SOURCES);
+  const zipBytes = writeEntryZip(sourceDir, targetDir, key, descriptor, OPEN_DATA_DICTIONARY_SOURCES, resolveSource);
   const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as {
     provenance?: string;
     reconstructionNotes?: string;
@@ -1243,8 +1255,8 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   // The bytes the mirror holds for this publication, for deriving witness
   // agreement on read (#618 increment 3).
   const heldHashes = heldHashSet(Object.values(meta.files ?? {}).map(f => f.sha256 ?? ''));
-  const stats = fs.existsSync(path.join(sourceDir, 'stats.json'))
-    ? JSON.parse(fs.readFileSync(path.join(sourceDir, 'stats.json'), 'utf8')) as OpenDataStats
+  const stats = derivedEntryFileExists(key, 'stats.json')
+    ? JSON.parse(fs.readFileSync(derivedEntryFile(key, 'stats.json'), 'utf8')) as OpenDataStats
     : { recordCount: 0, parseStatuses: {}, callsignFlags: {}, callsignQuality: {} };
   const sizeMap = new Map(files.map(f => [f.name, formatBytes(f.bytes)]));
   const dl = (name: string, meta2: string, desc: string): string => sizeMap.has(name)
@@ -1276,8 +1288,8 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   }
   const tabs: InspectTab[] = [
     ...rawTabs,
-    { id: 'i-norm', label: 'normalised.csv', panel: csvSchemaPanel(path.join(sourceDir, 'normalised.csv'), 'Canonical schema — one stable shape across every publication') },
-    { id: 'i-comp', label: 'components.csv', panel: csvSchemaPanel(path.join(sourceDir, 'components.csv'), 'Per-callsign decomposition + join keys') },
+    { id: 'i-norm', label: 'normalised.csv', panel: csvSchemaPanel(derivedEntryFile(key, 'normalised.csv'), 'Canonical schema — one stable shape across every publication') },
+    { id: 'i-comp', label: 'components.csv', panel: csvSchemaPanel(derivedEntryFile(key, 'components.csv'), 'Per-callsign decomposition + join keys') },
     { id: 'i-stats', label: 'stats.json', panel: `<p class="lead">Parse statuses: ${parseStatuses}.</p>${anomalyFlagsHtml(stats.callsignFlags)}${qualityHtml}` },
     { id: 'i-meta', label: 'meta.json', panel: `<table>${tableCaption('meta.json — this publication’s declared facts')}<tbody><tr><th scope="row">provenance</th><td>${escapeHtml(meta.provenance ?? 'live')}</td></tr><tr><th scope="row">${glossaryTerm('declared-complete', 3, { label: 'declared coverage' })}</th><td>${meta.intendedCoverage === undefined ? '—' : `${meta.intendedCoverage.complete ? 'complete' : 'partial'} (intent, not verified)`}</td></tr></tbody></table>` },
   ].filter(t => t.panel !== '');
@@ -1290,7 +1302,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   // same callsign the normalised preview rows show. Only flagged records enter
   // the map, so an unflagged preview row costs nothing and renders unchanged.
   const flagsByCallsign = new Map<string, string>();
-  for (const r of parseArchiveCsv(path.join(sourceDir, 'components.csv'))) {
+  for (const r of parseArchiveCsv(derivedEntryFile(key, 'components.csv'))) {
     const flags = (r.flags ?? '').trim();
     if (flags !== '') flagsByCallsign.set(r.callsign ?? '', flags);
   }
@@ -1317,12 +1329,12 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     // record keyed by `dataset`, so `WHERE dataset = <key>` is exactly this
     // publication's normalised register — the very set the sentence names.
     `<p class="lead">The <b>normalised</b> register — the canonical shape, not the raw file (inspect <code>raw.csv</code> below for that). Showing the first rows of ${stats.recordCount.toLocaleString('en-GB')} (${(summaries.find(s => s.key === key)?.allocated ?? 0).toLocaleString('en-GB')} allocated callsigns); download <code>normalised.csv</code> for all, or <a href="${exploreDeepLink('../../../', 'combined', `SELECT * FROM register_history WHERE dataset = '${key.replace(/'/g, "''")}' ORDER BY callsign`)}">query this publication on the Explore console</a> — pre-filtered to its rows.</p>`,
-    `<div class="browser-static">${csvPreviewTable(path.join(sourceDir, 'normalised.csv'), 3, 12, flagsByCallsign)}</div>`,
+    `<div class="browser-static">${csvPreviewTable(derivedEntryFile(key, 'normalised.csv'), 3, 12, flagsByCallsign)}</div>`,
     unkeyableNote,
     ignoredNote,
     '</section>',
     inspectTabsHtml(tabs),
-    ...distributionsSection(sourceDir, key),
+    ...distributionsSection(key),
     '<section><h2>Get the data</h2>',
     downloadTier('Canonical — most-wanted', [
       dl('normalised.csv', 'CSV', 'canonical schema across all publications'),
@@ -1353,7 +1365,7 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     '</section>',
     '</div>',
     '<div class="side">',
-    atAGlanceOpenData(sourceDir, key, previousKey, stats, meta),
+    atAGlanceOpenData(key, previousKey, stats, meta),
     '</div>',
     '</div>',
     related.length > 0 ? `<section><h2>Related</h2>${related.join('')}</section>` : '',
@@ -1379,8 +1391,8 @@ function buildSeriesPages(outputDir: string, baseUrl: string): { urls: string[];
   const keys = listArchiveKeys().sort();
   const newest = keys[keys.length - 1];
   if (newest === undefined) return { urls: [], series: new Set() };
-  const componentsRows = parseArchiveCsv(path.join(CONSTANTS.DIRS.archive, newest, 'components.csv'));
-  const normalisedRows = parseArchiveCsv(path.join(CONSTANTS.DIRS.archive, newest, 'normalised.csv'));
+  const componentsRows = parseArchiveCsv(derivedEntryFile(newest, 'components.csv'));
+  const normalisedRows = parseArchiveCsv(derivedEntryFile(newest, 'normalised.csv'));
   const statusByCallsign = new Map(normalisedRows.map(r => [r.callsign, r.status]));
   const reference = new Map(
     (parse(fs.readFileSync(path.join(REPO_ROOT, 'reference-data', 'prefix-formats.csv'), 'utf8'), { columns: true, bom: true }) as Record<string, string>[])

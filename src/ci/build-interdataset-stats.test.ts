@@ -3,6 +3,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { buildInterdatasetStats } from './build-interdataset-stats.ts';
+import { listArchiveKeys } from '../shared/archive.ts';
+import { BUILDER_PROJECTION_DIR_ENV } from '../shared/derived-entries.ts';
+import { CONSTANTS } from '../shared/utils.ts';
 
 // Issue #177 Surface 2: the STATIC inter-dataset statistics page — statistics
 // ACROSS the archived open-data publications (blank-product filtering,
@@ -162,6 +165,67 @@ describe('Inter-dataset statistics — static, discoverable, accessible', { tags
       expect(fs.readFileSync(path.join(second, 'statistics', 'inter-dataset.html'), 'utf8')).toBe(read());
     } finally {
       fs.rmSync(second, { recursive: true, force: true });
+    }
+  });
+});
+
+// The derived-entry switch, exercised through a real consumer (issue #629
+// phase 2): with BUILDER_PROJECTION_DIR set the builder reads its stats.json
+// inputs from the projection directory - proven by byte-identical output over
+// a copied projection, and by a LOUD failure when the projection is missing
+// (never a silent fallback to the archive).
+describe('Inter-dataset statistics — derived-entry source switch', { tags: ['data-validity'] }, () => {
+  const withProjectionDir = <T>(dir: string, run: () => T): T => {
+    const saved = process.env[BUILDER_PROJECTION_DIR_ENV];
+    process.env[BUILDER_PROJECTION_DIR_ENV] = dir;
+    try {
+      return run();
+    } finally {
+      if (saved === undefined) delete process.env[BUILDER_PROJECTION_DIR_ENV];
+      else process.env[BUILDER_PROJECTION_DIR_ENV] = saved;
+    }
+  };
+
+  it('Build_AgainstAProjectionCarryingTheSameBytes_IsByteIdenticalToTheArchiveBuild', () => {
+    const projection = fs.mkdtempSync(path.join(os.tmpdir(), 'interdataset-proj-'));
+    const out = fs.mkdtempSync(path.join(os.tmpdir(), 'interdataset-proj-out-'));
+    try {
+      for (const key of listArchiveKeys()) {
+        fs.mkdirSync(path.join(projection, key), { recursive: true });
+        fs.copyFileSync(path.join(CONSTANTS.DIRS.archive, key, 'stats.json'), path.join(projection, key, 'stats.json'));
+      }
+      withProjectionDir(projection, () => buildInterdatasetStats(out, 'https://example.test/site'));
+      expect(fs.readFileSync(path.join(out, 'statistics', 'inter-dataset.html'), 'utf8')).toBe(read());
+    } finally {
+      fs.rmSync(projection, { recursive: true, force: true });
+      fs.rmSync(out, { recursive: true, force: true });
+    }
+  });
+
+  it('Build_WithProjectionDirPointingAtNothing_FailsLoud_NotSilentlyWrong', () => {
+    const out = fs.mkdtempSync(path.join(os.tmpdir(), 'interdataset-missing-out-'));
+    try {
+      expect(() => withProjectionDir(path.join(out, 'never-built'), () => buildInterdatasetStats(out, 'https://example.test/site')))
+        .toThrow(/does not name an existing directory/);
+    } finally {
+      fs.rmSync(out, { recursive: true, force: true });
+    }
+  });
+
+  it('Build_WithAProjectionMissingAnEntry_FailsLoudAsAnIntegrityFailure', () => {
+    const projection = fs.mkdtempSync(path.join(os.tmpdir(), 'interdataset-partial-'));
+    const out = fs.mkdtempSync(path.join(os.tmpdir(), 'interdataset-partial-out-'));
+    try {
+      // Only the first entry is projected; the builder must refuse to treat
+      // the remainder as absent data.
+      const keys = listArchiveKeys();
+      fs.mkdirSync(path.join(projection, keys[0]), { recursive: true });
+      fs.copyFileSync(path.join(CONSTANTS.DIRS.archive, keys[0], 'stats.json'), path.join(projection, keys[0], 'stats.json'));
+      expect(() => withProjectionDir(projection, () => buildInterdatasetStats(out, 'https://example.test/site')))
+        .toThrow(/integrity failure/);
+    } finally {
+      fs.rmSync(projection, { recursive: true, force: true });
+      fs.rmSync(out, { recursive: true, force: true });
     }
   });
 });

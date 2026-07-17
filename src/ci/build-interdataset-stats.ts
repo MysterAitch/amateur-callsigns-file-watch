@@ -39,6 +39,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
+import { derivedEntryFile } from '../shared/derived-entries.ts';
 import { CONSTANTS } from '../shared/utils.ts';
 import { compareStats, type EntryStats } from '../shared/stats.ts';
 import { escapeHtml, humanDate, entryPage, noticeStrip, tableCaption } from './site-render.ts';
@@ -104,7 +105,9 @@ function columnEmptiness(stats: EntryStats, column: string): ColumnEmptiness {
 
 function readPub(key: string): PubStat {
   const dir = path.join(CONSTANTS.DIRS.archive, key);
-  const stats = JSON.parse(fs.readFileSync(path.join(dir, 'stats.json'), 'utf8')) as EntryStats;
+  // stats.json is a derived file (mode-resolved: archive or projection);
+  // meta.json is curated and always read from the committed archive.
+  const stats = JSON.parse(fs.readFileSync(derivedEntryFile(key, 'stats.json'), 'utf8')) as EntryStats;
   const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')) as PubMeta;
   // "No product column" is a property of the SOURCE, not of the normalised
   // derivative (whose canonical schema always carries a product column, blank

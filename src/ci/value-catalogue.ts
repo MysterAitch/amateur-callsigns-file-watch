@@ -17,6 +17,7 @@ import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS, type ArchiveMeta } from '../shared/utils.ts';
 import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
+import { derivedEntryFile, derivedEntryFileExists, isDerivedEntryFile } from '../shared/derived-entries.ts';
 import { buildFoiObservations } from '../shared/foi-observations.ts';
 import { parseCallsign, cleanedCallsign, loadReferenceData, normaliseLicenceCategory, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { mdCode } from '../shared/markdown.ts';
@@ -91,10 +92,12 @@ const ALLOCATED_STATUS = 'Allocated';
 export const PRODUCT_FIELD = 'product / licence_class';
 
 function tallyOpenData(bump: Bump, key: string): void {
-  const dir = path.join(CONSTANTS.DIRS.archive, key);
+  // Both inputs are derived files, so they resolve through the archive/
+  // projection switch (issue #629 phase 2); missing files stay an empty
+  // contribution, exactly as before.
   const readCsv = (name: string): Record<string, string>[] => {
-    const p = path.join(dir, name);
-    return fs.existsSync(p) ? parse(fs.readFileSync(p, 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[] : [];
+    if (!isDerivedEntryFile(name) || !derivedEntryFileExists(key, name)) return [];
+    return parse(fs.readFileSync(derivedEntryFile(key, name), 'utf8'), { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
   };
   // Status lives on normalised.csv, keyed by callsign; components.csv (the
   // source of the parse-derived fields) has no status column, so build the
@@ -341,8 +344,10 @@ export function buildNormalisationFidelity(): EntryFidelity[] {
     const metaPath = path.join(dir, 'meta.json');
     const meta = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ArchiveMeta : undefined;
     const rawPath = path.join(dir, meta === undefined ? 'raw.csv' : parseSourceFileName(meta));
-    const normPath = path.join(dir, 'normalised.csv');
-    if (!fs.existsSync(rawPath) || !fs.existsSync(normPath)) continue;
+    // The raw side stays an archive read (the verbatim record); the normalised
+    // side is a derived file and resolves through the archive/projection switch.
+    if (!fs.existsSync(rawPath) || !derivedEntryFileExists(key, 'normalised.csv')) continue;
+    const normPath = derivedEntryFile(key, 'normalised.csv');
     const rawRows = (parse(fs.readFileSync(rawPath, 'utf8'), { bom: true, skip_empty_lines: true, relax_column_count: true }) as string[][])
       .slice(1).map(r => r[0] ?? '');
     const normRows = (parse(fs.readFileSync(normPath, 'utf8'), { columns: true, bom: true, skip_empty_lines: true }) as Record<string, string>[])

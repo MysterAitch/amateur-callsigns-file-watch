@@ -25,6 +25,7 @@ import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { CONSTANTS, type ArchiveMeta, type IgnoredRawLine, calculateContentHash, errorMessage, saveJsonFileSync } from '../shared/utils.ts';
 import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
+import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
 import { renderStatsJson, compareStats, markUnprintables, type EntryStats } from '../shared/stats.ts';
 import { convertRawCsv, NORMALISED_SCHEMA_VERSION, CANONICAL_COLUMNS, type ConvertResult } from '../sources/ofcom-amateur/normalise.ts';
 import { COMPONENT_COLUMNS, loadReferenceData } from '../sources/ofcom-amateur/components.ts';
@@ -279,9 +280,13 @@ export function runNormaliseSweep(): SweepReport {
 // follow-up issue) can sit alongside without moving files.
 const REPORTS_DIR = 'reports/entries';
 
+// Report-lane read of a derived file: resolved through the archive/projection
+// switch, so the golden regeneration can fold its reports from the ledger
+// projection (issue #629 phase 2) while the sweep's own DERIVATION half above
+// stays raw-driven (it is the producer of the committed files until #446).
 function readStats(key: string): EntryStats | undefined {
-  const p = path.join(CONSTANTS.DIRS.archive, key, 'stats.json');
-  if (!fs.existsSync(p)) return undefined;
+  if (!derivedEntryFileExists(key, 'stats.json')) return undefined;
+  const p = derivedEntryFile(key, 'stats.json');
   try {
     return JSON.parse(fs.readFileSync(p, 'utf8')) as EntryStats;
   } catch {
@@ -552,8 +557,9 @@ function patternPartition(ownPatterns: [string, number][]): string[] {
 }
 
 function rslMatrix(key: string): RslMatrix | undefined {
-  const componentsPath = path.join(CONSTANTS.DIRS.archive, key, 'components.csv');
-  if (!fs.existsSync(componentsPath)) return undefined;
+  // Derived-file read: archive/projection switched, like readStats above.
+  if (!derivedEntryFileExists(key, 'components.csv')) return undefined;
+  const componentsPath = derivedEntryFile(key, 'components.csv');
   const referenceData = loadReferenceData();
   const rslLetters = [...referenceData.rslLetters].sort();
 

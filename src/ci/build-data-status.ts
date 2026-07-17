@@ -29,6 +29,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
+import { derivedEntryFileExists } from '../shared/derived-entries.ts';
 import { CONSTANTS } from '../shared/utils.ts';
 import {
   type FoiEntryMeta,
@@ -157,9 +158,13 @@ export function buildOpenDataRows(): DatasetRow[] {
       }
       : {};
     const hasRaw = fileExists(dir, 'raw.csv');
-    const hasNormalised = fileExists(dir, 'normalised.csv');
-    const hasStats = fileExists(dir, 'stats.json');
-    const hasComponents = fileExists(dir, 'components.csv');
+    // Derived-file presence is asked of the mode-resolved home (committed
+    // archive, or the ledger projection when BUILDER_PROJECTION_DIR is set) -
+    // the grid reports on what the consuming build actually reads. raw.csv
+    // and meta.json stay archive reads: curated inputs, not derivations.
+    const hasNormalised = derivedEntryFileExists(key, 'normalised.csv');
+    const hasStats = derivedEntryFileExists(key, 'stats.json');
+    const hasComponents = derivedEntryFileExists(key, 'components.csv');
     const headerVariant = meta.normalised?.headerVariant;
 
     const stages: Record<StageKey, StageCell> = {
