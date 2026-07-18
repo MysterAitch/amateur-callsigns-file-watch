@@ -215,6 +215,42 @@ describe('validateFoiEntry - dataVintage and datasetRecovery', { tags: ['unit'] 
     writeFoiEntry(undefined, meta => { meta.datasetRecovery = 'unrecovered'; });
     expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/contradicts the declared data files/);
   });
+
+  // #812: dataVintage must parse as an ISO year/year-month/year-month-day.
+  // The downstream year-grouping (build-publisher-pages.ts / build-front-door.ts
+  // vintageYear) silently produced NaN for a free-text value, which then
+  // blanked the whole map/timeline with no error - this gate catches the
+  // malformed value at authoring time instead.
+  it('FoiEntry_FreeTextDataVintage_Fails', () => {
+    writeFoiEntry(undefined, meta => { meta.dataVintage = 'various'; });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join())
+      .toMatch(/dataVintage "various" is not an ISO year, year-month, or year-month-day/);
+  });
+
+  it('FoiEntry_PartialLeadingIsoDataVintage_Fails', () => {
+    // A prose range that happens to start with a year must still fail -
+    // Number(vintage.slice(0, 4)) would have accepted this silently.
+    writeFoiEntry(undefined, meta => { meta.dataVintage = '2013→2025'; });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join())
+      .toMatch(/dataVintage "2013→2025" is not an ISO year, year-month, or year-month-day/);
+  });
+
+  it.each([
+    ['Year', '2015'],
+    ['YearMonth', '2015-02'],
+    ['YearMonthDay', '2015-02-25'],
+  ])('FoiEntry_IsoDataVintage%s_Passes', (_label, vintage) => {
+    writeFoiEntry(undefined, meta => { meta.dataVintage = vintage; });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
+  });
+
+  it('FoiEntry_NullDataVintageWithoutDataFiles_Passes', () => {
+    // The record-only shape (no data files, dataVintage null) already passes
+    // above (FoiEntry_RecordOnlyEntry_PassesWithoutDatasetRecovery); this pins
+    // that the new format gate does not regress it.
+    writeRecordOnlyEntry('wdtk-123456--test-entry');
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
+  });
 });
 
 describe('validateFoiEntry - referential integrity', { tags: ['unit'] }, () => {

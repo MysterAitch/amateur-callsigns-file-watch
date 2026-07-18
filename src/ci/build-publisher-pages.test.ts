@@ -9,6 +9,7 @@ import {
   publisherPage,
   publishersIndexPage,
   publisherHref,
+  vintageYear,
   type Holding,
 } from './build-publisher-pages.ts';
 import { authorPublisherId, readPublisherRegister, type PublisherEntry, type PublisherRegister } from '../shared/publishers.ts';
@@ -289,6 +290,72 @@ describe('publisherPage composite — the vintage timeline structure (#637)', { 
   it('Timeline_UndatedEntries_CloseTheListUnderTheirOwnHeading', () => {
     expect(compositeHtml).toContain('hold-yeargroup--undated');
     expect(compositeHtml).toMatch(/<span class="hold-yearnum">Undated<\/span>/);
+  });
+});
+
+// #812: a confirmed dormant defect. vintageYear used to compute
+// Number(h.vintage.slice(0, 4)) unguarded - a defined-but-non-ISO vintage
+// (validate-foi.ts now rejects such a value at authoring time, but this is
+// the defence-in-depth backstop) produced NaN, which PASSES a `!== undefined`
+// filter, poisoning Math.min/Math.max so the year loop never iterated and the
+// whole map/timeline rendered empty with no error.
+describe('vintageYear — the shared holding-vintage-to-year parse (#812)', { tags: ['unit'] }, () => {
+  it('VintageYear_UndefinedVintage_ReturnsUndefined', () => {
+    expect(vintageYear({ ...COMPOSITE[3], vintage: undefined })).toBeUndefined();
+  });
+
+  it.each([
+    ['Year', '2015', 2015],
+    ['YearMonth', '2015-02', 2015],
+    ['YearMonthDay', '2015-02-25', 2015],
+  ])('VintageYear_Iso%s_ReturnsTheLeadingYear', (_label, vintage, year) => {
+    expect(vintageYear({ ...COMPOSITE[0], vintage })).toBe(year);
+  });
+
+  it.each([
+    ['FreeTextPlaceholder', 'various'],
+    ['ApproximateRange', '~2018-12'],
+    ['ProseDescriptor', 'unknown'],
+  ])('VintageYear_NonIsoVintage%s_ReturnsUndefinedNotNaN', (_label, vintage) => {
+    // The regression this guards against: Number(vintage.slice(0, 4)) would
+    // return NaN here, and NaN !== undefined, so it would silently pass every
+    // downstream "is this holding dated?" filter.
+    const year = vintageYear({ ...COMPOSITE[0], vintage });
+    expect(year).toBeUndefined();
+    expect(Number.isNaN(year)).toBe(false);
+  });
+
+  it('VintageYear_YearLeadingRangeLikeDataVintage_ReturnsTheLeadingYear', () => {
+    // "2013→2025" IS year-leading, so vintageYear reads a genuine (if
+    // approximate) year from it rather than NaN - never silently broken. The
+    // strict validate-foi.ts gate is what actually keeps this shape out of
+    // committed data (a year range is not a valid ISO year/month/day), so this
+    // helper never needs to see it in practice.
+    expect(vintageYear({ ...COMPOSITE[0], vintage: '2013→2025' })).toBe(2013);
+  });
+});
+
+describe('Holdings map/timeline — a non-ISO vintage falls into the undated group rather than vanishing (#812)', { tags: ['unit'] }, () => {
+  const MIXED: Holding[] = [
+    COMPOSITE[0], // ISO vintage '2026-06-23' - must still render under its year.
+    { ...COMPOSITE[2], key: 'ofcom-various--all', vintage: 'various' },
+  ];
+  const html = publisherPage(OFCOM, { authored: MIXED, hosted: [] });
+
+  it('MixedVintages_NonIsoEntry_JoinsTheUndatedGroupInstead', () => {
+    expect(html).toContain('hold-yeargroup--undated');
+    expect(html).toContain('id="a-hold-ofcom-various--all"');
+  });
+
+  it('MixedVintages_IsoEntry_StillRendersUnderItsYear_MapIsNotBlanked', () => {
+    // Before the fix, the NaN from the "various" entry poisoned Math.min/Math.max
+    // over the WHOLE holdings list, so this year group never rendered at all.
+    expect(html).toMatch(/<span class="hold-yearnum">2026<\/span>/);
+    expect(html).toContain('id="a-hold-2026-06-23"');
+    // The page's inline stylesheet always DEFINES .hold-map-yr--empty, so the
+    // regression check is for the modifier class actually applied to a row,
+    // not the mere presence of the selector.
+    expect(html).not.toContain('class="hold-map-yr hold-map-yr--empty"');
   });
 });
 
