@@ -605,11 +605,12 @@ describe('Dataset pages build', () => {
     // The heading also carries a slug id (issue #701), giving in-page anchor
     // links in narrative prose a real target to land on.
     expect(page).toContain('<h1 id="the-six-twins-one-callsign-two-register-rows">The six twins: one callsign, two register rows</h1>');
-    // The epistemics tagging survives the render (markdown -> HTML, not a
-    // re-summary).
-    expect(page).toContain('<strong>[observed]</strong>');
-    expect(page).toContain('<strong>[derived]</strong>');
-    expect(page).toContain('<strong>[hypothesis]</strong>');
+    // The epistemics tagging survives the render as a glossary-linked pill
+    // (issue #755), not the plain bold-bracketed text of the interim shape.
+    expect(page).toContain('<a class="epistemic-tag tag-observed" href="../../glossary.html#tag-observed">observed');
+    expect(page).toContain('<a class="epistemic-tag tag-derived" href="../../glossary.html#tag-derived">derived');
+    expect(page).toContain('<a class="epistemic-tag tag-hypothesis" href="../../glossary.html#tag-hypothesis">hypothesis');
+    expect(page).not.toContain('<strong>[observed]</strong>');
     // A repo-relative citation (to the cleaning rule's source file) is
     // rewritten to a followable GitHub blob link, not left as a dead relative
     // path that assumes the repository's own directory layout.
@@ -621,10 +622,50 @@ describe('Dataset pages build', () => {
     expect(page).toContain('https://mysteraitch.github.io/amateur-callsigns-file-watch/callsign.html?c=G6FMU');
     // Listed on the reports hub, with a stable title-derived link.
     const hub = fs.readFileSync(path.join(outputDir, 'reports', 'index.html'), 'utf8');
-    expect(hub).toContain('<h2>Narratives</h2>');
+    expect(hub).toContain('<h2 id="narratives">Narratives</h2>');
     expect(hub).toContain('<a href="narratives/the-six-twins.html">The six twins: one callsign, two register rows</a>');
     // Joins the sitemap like every other rendered doc.
     expect(summary.pageUrls.some(u => u.endsWith('/reports/narratives/the-six-twins.html'))).toBe(true);
+  });
+
+  describe('Epistemics-tag pills across the narratives (issue #755)', { tags: ['unit'] }, () => {
+    it('PermanentSesNarrative_ConfirmedTag_RendersAsItsOwnGlossaryLinkedPill', () => {
+      // The fourth tag - "confirmed" - only appears in this narrative.
+      const page = fs.readFileSync(path.join(outputDir, 'reports', 'narratives', 'permanent-special-event-stations.html'), 'utf8');
+      expect(page).toContain('<a class="epistemic-tag tag-confirmed" href="../../glossary.html#tag-confirmed">confirmed');
+    });
+
+    it('EveryNarrative_PerFileLegendBlock_IsGoneNotDuplicatedAlongsidePills', () => {
+      // The interim per-file legend (#754/#758) repeated the same four
+      // definitions in every narrative; now that the pill itself links to the
+      // one shared definition, the old bulleted restatement must not survive
+      // alongside it (that would be the redundant "legend AND pills" shape
+      // the issue explicitly asks not to ship).
+      for (const slug of ['the-six-twins', 'the-qnf-gap', 'permanent-special-event-stations']) {
+        const page = fs.readFileSync(path.join(outputDir, 'reports', 'narratives', `${slug}.html`), 'utf8');
+        expect(page, slug).not.toContain('a possible explanation, recorded for');
+        expect(page, slug).not.toContain('a conclusion drawn by combining observations');
+      }
+    });
+
+    it('WorldNarrative_MetaReferenceToTheTaggingConvention_PointsAtTheGlossaryNotBareBracketText', () => {
+      // This narrative never tags a claim itself; its one meta-reference to
+      // the convention used elsewhere in the collection now cites the
+      // glossary rather than restating the bracketed abbreviations inline.
+      const page = fs.readFileSync(path.join(outputDir, 'reports', 'narratives', 'amateur-callsign-data-around-the-world.html'), 'utf8');
+      expect(page).toContain('glossary.html#epistemics');
+      expect(page).not.toContain('[observed]/[derived]/[hypothesis]');
+    });
+
+    it('EpistemicsGlossarySection_EveryTagAnchor_IsARealIdInGlossaryHtml', () => {
+      // Belt-and-braces alongside the site-wide internal-link crawl below:
+      // every anchor a narrative pill can link to actually exists as an id in
+      // the shipped glossary.html.
+      const glossary = fs.readFileSync(path.join('site', 'glossary.html'), 'utf8');
+      for (const tag of ['observed', 'derived', 'hypothesis', 'confirmed']) {
+        expect(glossary, tag).toContain(`id="tag-${tag}"`);
+      }
+    });
   });
 
   it('PermanentSesNarrative_WdtkFoiReference_IsARealLinkNotBareText', () => {

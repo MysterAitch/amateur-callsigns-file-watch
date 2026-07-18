@@ -5,15 +5,10 @@ the first surprise to a recorded, unresolved question. It is a story about
 how a regulator's own exclusion list drifted over eight years, not about the
 people who now hold the callsigns it touches.*
 
-Every claim below is tagged so you can tell what kind of statement it is and
-check it yourself:
-
-- **[observed]** — an **observation**: something read directly off the archived
-  FOI disclosures or register exports. Re-runnable against the files named.
-- **[derived]** — a **derivation**: a conclusion drawn by combining observations.
-  The working is shown so the step can be repeated.
-- **[hypothesis]** — a **hypothesis**: a possible explanation, recorded for
-  investigation and **not asserted as fact**.
+Every claim below carries one of three tags — **[observed]**, **[derived]**,
+or **[hypothesis]** — so you can tell at a glance what kind of statement it is
+and check it yourself. Select any tag to see its full definition in the
+[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics).
 
 Every figure quoted here is **declared, not verified** — the same standing
 this mirror gives the whole
