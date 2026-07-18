@@ -17,6 +17,7 @@ import {
   STRIPPED_COLLISION_RULE,
 } from '../src/v2/claim.ts';
 import { PARSE_CALLSIGN_RULE } from '../src/v2/parse-attribute-emit.ts';
+import { UNPARSEABLE_CALLSIGN_FLAG } from '../src/sources/ofcom-amateur/components.ts';
 
 // Drift guard for the record-fidelity surface (issue #465; relates to #438, #398).
 //
@@ -57,13 +58,21 @@ function flagsFromRegistry(): string[] {
 }
 
 // The flag vocabulary the parser actually raises: every flag('token') it emits,
-// plus the whole-source stripped-collision flag it appends separately. A flag
-// that the parser raises but the registry omits (or vice versa) is a genuine
-// drift the union below still forces the site map to cover.
+// plus the whole-source stripped-collision flag it appends separately, plus
+// unparseable-callsign - the one deliberate registry cross-reference to
+// parse_status = unparseable (issue #802). That flag is never written into a
+// component row's own `flags` column (reference-data/flags.md's closing note:
+// parse_status is a closed status, not a flags-column entry), so no
+// flag('unparseable-callsign') call exists to match - it is added here from
+// the same exported constant the parser module and every site surface that
+// synthesizes the cross-reference share, rather than a fourth hand-copied
+// literal. A flag that the parser raises but the registry omits (or vice
+// versa) is a genuine drift the union below still forces the site map to cover.
 function flagsFromParser(): string[] {
   const src = fs.readFileSync(COMPONENTS, 'utf8');
   const flags = new Set([...src.matchAll(/flag\('([a-z0-9-]+)'\)/g)].map(m => m[1]));
   flags.add('stripped-collision');
+  flags.add(UNPARSEABLE_CALLSIGN_FLAG);
   return [...flags];
 }
 

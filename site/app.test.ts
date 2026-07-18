@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { makeRunLookup, registerHistoryHeader, seriesLink, suffixLink,
-  LIST_SORT_COLUMNS, listOrderBy, nextSort, sortToParam, sortFromParam, renderTable } from './app.js';
+  LIST_SORT_COLUMNS, listOrderBy, nextSort, sortToParam, sortFromParam, renderTable, observedFlags } from './app.js';
 
 // The lookup page routes its PRIMARY database open + query through the shared
 // loading affordance (issues #499/#506), exactly as Explore and the Playground
@@ -345,5 +345,40 @@ describe('lookup result table zero de-emphasis (issue #731)', { tags: ['ui'] }, 
     const wrap = renderTable(['label', 'count'], [['x', link]], 1);
     const cell = wrap.querySelectorAll('td.num')[0];
     expect(cell.className).toBe('num');
+  });
+});
+
+describe('Register-row flags shown on the lookup card (issue #802)', { tags: ['unit'] }, () => {
+  it('ObservedFlags_UnparseableRowWithNoStoredFlags_GainsTheCrossReferenceFlag', () => {
+    // A row like "EDUCATIONAL" or "ENVIRONMENTS" - real Allocated rows the
+    // parser cannot interpret as a callsign at all - carries an empty `flags`
+    // column (parse_status is a closed status, never itself a flags-column
+    // entry). Without this, the lookup card's "Flags" section would wrongly
+    // read "None - nothing anomalous recorded for this row".
+    expect(observedFlags({ flags: '', parse_status: 'unparseable' })).toEqual(['unparseable-callsign']);
+  });
+
+  it('ObservedFlags_ParsedRowCarryingItsOwnFlags_ReturnsThemUnchanged', () => {
+    expect(observedFlags({ flags: 'lowercase;whitespace', parse_status: 'parsed' })).toEqual(['lowercase', 'whitespace']);
+  });
+
+  it('ObservedFlags_ParsedRowWithNoFlags_StaysEmpty', () => {
+    // The opposite scenario: a genuinely parseable, unflagged row gets no
+    // synthetic entry - selective disclosure holds here exactly as for every
+    // other flag.
+    expect(observedFlags({ flags: '', parse_status: 'parsed' })).toEqual([]);
+  });
+
+  it('ObservedFlags_UnparseableRowWhoseStoredFlagsAlreadyCarryTheCrossReference_DoesNotDuplicateIt', () => {
+    expect(observedFlags({ flags: 'unparseable-callsign', parse_status: 'unparseable' })).toEqual(['unparseable-callsign']);
+  });
+
+  it('ObservedFlags_UnparseableRowWithALaterSortingStoredFlag_KeepsTheListAlphabetical', () => {
+    // The stored `flags` column is alphabetically sorted (reference-data/
+    // flags.md) and the "Flags" card renders in the order given, with no
+    // re-sort of its own. 'unparseable-callsign' sorts BEFORE 'whitespace', so
+    // naively appending the cross-reference to the end of the list would
+    // break that documented order.
+    expect(observedFlags({ flags: 'whitespace', parse_status: 'unparseable' })).toEqual(['unparseable-callsign', 'whitespace']);
   });
 });

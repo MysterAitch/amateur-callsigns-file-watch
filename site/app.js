@@ -524,6 +524,36 @@ const ROW_SELECT =
  * @property {string} flags
  */
 
+// The flag-registry cross-reference to parse_status === 'unparseable'
+// (reference-data/flags.md, issue #802): parse_status is a closed status, not
+// itself a flags-column entry, so a row whose parser classified it this way
+// carries no matching token in `flags` to read back. This mirrors that
+// registry entry by name so the "Flags" card below shows the observation
+// the parser already made, rather than the misleading "None - nothing
+// anomalous recorded" a genuinely unparseable value would otherwise get.
+const UNPARSEABLE_CALLSIGN_FLAG = 'unparseable-callsign';
+
+// The flags a lookup row's "Flags" card should show: its own `flags` column,
+// plus the unparseable-callsign cross-reference when the row's parse_status
+// warrants it and the column does not already carry it. Exported standalone
+// (rather than inlined at the one call site) so it is unit-testable without a
+// live database or DOM.
+//
+// The stored `flags` column is alphabetically sorted (reference-data/
+// flags.md) and the "Flags" card renders in the order given, so appending the
+// cross-reference is followed by a re-sort - otherwise a row that also
+// carries a later-sorting flag (e.g. `whitespace`) would render out of the
+// documented order.
+/** @param {Pick<LookupRow, 'flags' | 'parse_status'>} row */
+export function observedFlags(row) {
+  const flagList = row.flags ? row.flags.split(';') : [];
+  if (row.parse_status === 'unparseable' && !flagList.includes(UNPARSEABLE_CALLSIGN_FLAG)) {
+    flagList.push(UNPARSEABLE_CALLSIGN_FLAG);
+    flagList.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  }
+  return flagList;
+}
+
 // Callsign RSL-normalisation (placeholderOf) is shared with the per-dataset
 // browser through the DOM-free query core; see site/browser-query.js. The
 // lookup passes it an upper-cased value and matches c.placeholder_form.
@@ -1200,7 +1230,7 @@ async function lookup(criteria) {
     }
   }
 
-  const flagList = row.flags ? row.flags.split(';') : [];
+  const flagList = observedFlags(row);
   if (flagList.length > 0) {
     /** @type {{ flag: string, meaning: string }[]} */
     const registry = await query(

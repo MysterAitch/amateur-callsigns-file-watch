@@ -577,6 +577,11 @@ export const FLAG_NOTES = {
     gloss: ['A visitor entry with a “#” just after the slash. The “#” reads as a fill-in placeholder, not a real ',
       lnk('callsign', FAQ_CALLSIGN_STRUCTURE), ' character, so we set it aside, read the rest normally, and note it here.'],
   },
+  'unparseable-callsign': {
+    label: 'Unparseable callsign',
+    gloss: ['The value could not be parsed as any UK ', lnk('callsign', FAQ_CALLSIGN_STRUCTURE),
+      ' — an observation of what the source published, not a verdict. We keep it exactly as published rather than reshape it into a guess.'],
+  },
 };
 
 // Parse-status values worth surfacing. `parsed`, `visitor` and `special-event`
