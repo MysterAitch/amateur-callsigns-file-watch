@@ -603,7 +603,16 @@ function licenceCategorySection(
 // hover. Both list EVERY bar's date:count, in bar order, at the timeline's
 // own precision (the archive key strings), thousands-separated -
 // completeness over brevity, since this IS the data the bars stand in for.
+//
+// The `title` reaches a mouse only - it neither taps nor focuses (issue
+// #742). A native `<details>` disclosure carries the SAME date:count pairs
+// (one source, three consumers: aria-label, title, disclosure - never
+// recomputed) reachable by touch (tap) and keyboard (Tab to focus,
+// Enter/Space to open), with no script required to open it. It is appended
+// after the span rather than replacing the tooltip - belt-and-braces, since
+// the tooltip still serves a hovering mouse fastest.
 const SPARK_BARS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+const SPARKLINE_DISCLOSURE_SUMMARY = 'Per-publication counts';
 function sparkline(bySource: Map<string, number>, timeline: string[]): string {
   const counts = timeline.map(key => bySource.get(key) ?? 0);
   const peak = Math.max(0, ...counts);
@@ -617,7 +626,8 @@ function sparkline(bySource: Map<string, number>, timeline: string[]): string {
   const pairs = timeline.map((date, i) => `${date}: ${counts[i].toLocaleString('en-GB')}`);
   const ariaLabel = `timeline across ${timeline.length} publications: ${pairs.join('; ')}`;
   const title = pairs.join(' · ');
-  return `<span role="img" aria-label="${ariaLabel}" title="${title}">${bars}</span>`;
+  const disclosure = `<details><summary>${SPARKLINE_DISCLOSURE_SUMMARY}</summary>${pairs.join('<br>')}</details>`;
+  return `<span role="img" aria-label="${ariaLabel}" title="${title}">${bars}</span>${disclosure}`;
 }
 
 // The raw-vs-normalised gap (#242). Normalisation renames and sorts columns but

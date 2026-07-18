@@ -188,6 +188,31 @@ describe('Markdown renderer', { tags: ['unit'] }, () => {
     expect(html).not.toContain('&quot;');
   });
 
+  it('RenderMarkdown_SparklineDisclosureCell_RendersDetailsNotEscapedText', () => {
+    // #742: the span's title reaches a hovering mouse only. The disclosure
+    // that follows it must survive to a live <details>/<summary> - reachable
+    // by tap or keyboard focus + Enter/Space, no script required - carrying
+    // the same date:count pairs the span's title/aria-label already carry.
+    const span = '<span role="img" aria-label="timeline across 2 publications: 2022-05-30: 1,234; 2023-02-20: 0" title="2022-05-30: 1,234 · 2023-02-20: 0">██·</span>';
+    const disclosure = '<details><summary>Per-publication counts</summary>2022-05-30: 1,234<br>2023-02-20: 0</details>';
+    const html = renderMarkdown(`| value | timeline |\n|---|---|\n| \`Legacy\` | ${span}${disclosure} |`);
+    expect(html).toContain(disclosure);
+    expect(html).not.toContain('&lt;details&gt;');
+    expect(html).not.toContain('&lt;summary&gt;');
+  });
+
+  it('RenderMarkdown_MalformedSparklineDisclosure_StaysEscapedAndTableIntact', () => {
+    // A hand-corrupted disclosure (wrong summary text, a stray unescaped
+    // bracket) must not partially unescape into live markup - the fixed
+    // literal summary text is part of the match, not an open character
+    // class, so anything else stays safely escaped.
+    const malformed = '<details><summary>Not the expected summary</summary>2022-05-30: 1,234</details>';
+    const html = renderMarkdown(`| value | timeline | note |\n|---|---|---|\n| \`Legacy\` | ${malformed} | ok |`);
+    expect(html).not.toContain('<details>');
+    expect(html).toContain('&lt;details&gt;');
+    expect(html).toContain('<td>ok</td>');
+  });
+
   it('RenderMarkdown_MalformedSparklineSpan_StaysEscapedAndTableIntact', () => {
     // A hand-corrupted or partially-generated span (missing the title
     // attribute, a stray unescaped `>`) must not be partially unescaped into
