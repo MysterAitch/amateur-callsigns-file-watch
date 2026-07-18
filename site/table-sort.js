@@ -38,10 +38,13 @@
 // --- type-aware comparison (blank-awareness, inference, comparator, order) ---
 
 // Canonical tokens that stand in for a deliberately-empty cell rather than a
-// value. A humanised blank ((blank), (none)) or a dash placeholder must sort
-// together and out of the way, not scatter through the values by the accident
-// of its glyph. Matched case-insensitively against the trimmed canonical value.
-const BLANK_SORT_TOKENS = new Set(['', '(blank)', '(none)', '(n/a)', 'n/a', '—', '–']);
+// value. A humanised blank ((blank), (none)) or a dash/dot placeholder must
+// sort together and out of the way, not scatter through the values by the
+// accident of its glyph. Matched case-insensitively against the trimmed
+// canonical value. '·' is the current absent-value marker (issue #826); the
+// em dash and en dash stay listed for backwards compatibility with content
+// rendered before that change.
+const BLANK_SORT_TOKENS = new Set(['', '(blank)', '(none)', '(n/a)', 'n/a', '·', '—', '–']);
 
 // A value that is a plain number: an optional sign then digits, with at most one
 // decimal point. Deliberately strict — no thousands separators or units — to

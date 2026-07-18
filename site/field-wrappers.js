@@ -336,3 +336,35 @@ export function suffixField(el, value, options = {}) {
   if (oddCharacters === 'verbatim') { host.append(value); return host; }
   return appendMarkedChars(el, host, value);
 }
+
+// ---------------------------------------------------------------------------
+// Absent-value marker (issue #826), mirroring absentMarker in
+// src/ci/render/format.ts so an absent value looks and behaves identically
+// rendered in the browser and on the generated pages.
+//
+// A value position with NO value at all - a NULL column, an unset field -
+// distinct from a BLANK-BUT-PRESENT value, which keeps its own '(blank)'-style
+// humanised wrapper untouched (licenceField/statusField/prefixSeriesField/
+// suffixField above). Before this, such a position rendered a bare em dash:
+// ambiguous, since the em dash also does duty as prose punctuation throughout
+// the site, and inaccessible, since a bare glyph carries no name for
+// assistive tech. The middle dot never doubles as prose punctuation, so it
+// reads unambiguously as "nothing here"; the accessible label is always
+// carried via `title` AND `aria-label`, never a bare glyph.
+
+export const ABSENT_MARKER = '·';
+export const ABSENT_CLASS = 'absent';
+export const ABSENT_LABEL = 'not recorded';
+
+// The shared absent-value wrapper (#826). Emits
+//   <span class="absent" title="not recorded" aria-label="not recorded">·</span>
+// `label` defaults to ABSENT_LABEL; a caller with a more specific fact to
+// state (e.g. "not currently in the register") may pass its own.
+/**
+ * @param {ElementFactory} el
+ * @param {string} [label]
+ * @returns {HTMLElement}
+ */
+export function absentMarker(el, label = ABSENT_LABEL) {
+  return el('span', { class: ABSENT_CLASS, title: label, 'aria-label': label, text: ABSENT_MARKER });
+}

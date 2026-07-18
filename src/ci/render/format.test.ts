@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { dateTime, dateTimeDisplay, relativeDateTime, DATE_TIME_CLASS, DEFAULT_DATE_TIME_PRECISION } from './format.ts';
+import {
+  dateTime, dateTimeDisplay, relativeDateTime, DATE_TIME_CLASS, DEFAULT_DATE_TIME_PRECISION,
+  absentMarker, ABSENT_MARKER, ABSENT_CLASS, ABSENT_LABEL,
+} from './format.ts';
 
 // The shared date/time wrapper (issues #553, #551). Every displayed timestamp
 // routes through `dateTime`, which shows the precision a surface asks for while
@@ -111,5 +114,39 @@ describe('dateTime humanisation', { tags: ['unit'] }, () => {
   it('RelativeDateTime_WhenEitherSideIsNotADate_ReturnsNull', () => {
     expect(relativeDateTime('not a date', '2020-01-01')).toBeNull();
     expect(relativeDateTime('2020-01-01', 'not a date')).toBeNull();
+  });
+});
+
+// The shared absent-value marker (issue #826): a middle dot for a value
+// position with NO value at all, replacing the previously bare em dash, which
+// doubled ambiguously as prose punctuation and carried no accessible name.
+describe('absentMarker', { tags: ['unit'] }, () => {
+  it('AbsentMarker_WhenLabelOmitted_RendersTheDotWithTheDefaultAccessibleLabel', () => {
+    expect(absentMarker()).toBe(`<span class="${ABSENT_CLASS}" title="${ABSENT_LABEL}" aria-label="${ABSENT_LABEL}">${ABSENT_MARKER}</span>`);
+  });
+
+  it('AbsentMarker_VisibleGlyph_IsAMiddleDotNeverAnEmDash', () => {
+    // The em dash it replaces doubles as prose punctuation throughout the
+    // site, which is exactly the ambiguity this convention retires.
+    expect(ABSENT_MARKER).toBe('·');
+    expect(absentMarker()).not.toContain('—');
+  });
+
+  it('AbsentMarker_WhenLabelGiven_UsesTheStatedWordingInBothTitleAndAriaLabel', () => {
+    const html = absentMarker('not currently in the register');
+    expect(html).toContain('title="not currently in the register"');
+    expect(html).toContain('aria-label="not currently in the register"');
+  });
+
+  it('AbsentMarker_WhenLabelContainsMarkupCharacters_EscapesIt', () => {
+    const html = absentMarker('<b>&"');
+    expect(html).toContain('title="&lt;b&gt;&amp;&quot;"');
+    expect(html).toContain('aria-label="&lt;b&gt;&amp;&quot;"');
+  });
+
+  it('AbsentMarker_NeverABareGlyph_AlwaysCarriesAnAccessibleName', () => {
+    const html = absentMarker();
+    expect(html).toMatch(/aria-label="[^"]+"/);
+    expect(html).toMatch(/title="[^"]+"/);
   });
 });

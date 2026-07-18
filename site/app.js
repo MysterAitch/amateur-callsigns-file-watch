@@ -11,7 +11,7 @@ import { flagEmoji, allocationHeadline, ALLOCATION_ATTRIBUTION } from './country
 import { placeholderOf } from './browser-query.js';
 import { callsignPillLink, CALLSIGN_CLASS, appendMarkedChars } from './callsign-pill.js';
 import { withDatabaseLoading } from './db-loading.js';
-import { licenceField, statusField, prefixSeriesField, prefixSeriesDisplay, prefixSeriesSlug, SUFFIX_CLASS } from './field-wrappers.js';
+import { licenceField, statusField, prefixSeriesField, prefixSeriesDisplay, prefixSeriesSlug, SUFFIX_CLASS, absentMarker } from './field-wrappers.js';
 import {
   nextSort as coreNextSort,
   sortToParam as coreSortToParam,
@@ -489,8 +489,8 @@ export function foiHistoryTable(rows, primaryCallsign) {
     return el('tr', {}, [
       // Vintage humanised at full-date precision, canonical ISO kept on the
       // wrapper's title; an absent vintage (NULL - the source never dated the
-      // observation) degrades to an em dash, exactly as before.
-      el('td', {}, [r.vintage === null ? '—' : dateTime(el, r.vintage, { precision: 'full-date' })]),
+      // observation) degrades to the shared absent-value marker (#826).
+      el('td', {}, [r.vintage === null ? absentMarker(el) : dateTime(el, r.vintage, { precision: 'full-date' })]),
       el('td', {}, observation),
       el('td', { text: r.dataset_classes }),
       el('td', {}, [link]),

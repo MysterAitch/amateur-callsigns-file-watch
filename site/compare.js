@@ -26,7 +26,7 @@
 import { buildPredicate, stateToViewParam, viewParamToState, applyViewToState, matchingCountSql, setDiffSql, callsignCharMarker, TOGGLES } from './browser-query.js';
 import { createHistorySync } from './history-sync.js';
 import { withDatabaseLoading } from './db-loading.js';
-import { statusField } from './field-wrappers.js';
+import { statusField, absentMarker } from './field-wrappers.js';
 import { callsignPillLink } from './callsign-pill.js';
 import { dateTimeDisplay } from './datetime.js';
 
@@ -98,6 +98,19 @@ function code(v) {
   // eslint-disable-next-line @typescript-eslint/no-base-to-string -- `v` is deliberately `unknown` (any displayable value); a non-primitive intentionally falls back to its default stringification here rather than being excluded from display.
   c.textContent = v == null ? '' : String(v);
   return c;
+}
+// The counts table's '% of publication' cell: a zero-total cohort has no
+// percentage to compute at all, so it degrades to the shared absent-value
+// marker (#826), never a fabricated 0.00%. Exported (like registerHistoryTable/
+// foiHistoryTable in app.js) so this boundary is unit-testable without opening
+// the countsResult DOM/worker plumbing renderCounts drives.
+/**
+ * @param {number} total
+ * @param {number} matching
+ * @returns {HTMLElement}
+ */
+export function matchPercentCell(total, matching) {
+  return total > 0 ? el('td', { text: `${(100 * matching / total).toFixed(2)}%` }) : el('td', {}, [absentMarker(el)]);
 }
 // The cleaned (artefact-stripped join key) column: this IS the register's own
 // callsign, so - unlike the raw callsign column below - it links to its
@@ -602,7 +615,7 @@ async function renderCounts(chosen, pred) {
     el('td', {}, [code(r.key)]),
     el('td', { text: nf(r.matching) }),
     el('td', { class: 'muted', text: nf(r.total) }),
-    el('td', { text: r.total > 0 ? `${(100 * r.matching / r.total).toFixed(2)}%` : '—' }),
+    matchPercentCell(r.total, r.matching),
     changeCell(r, rows[i - 1]),
     el('td', { class: 'muted', text: r.caveat ?? '' }),
   ])));

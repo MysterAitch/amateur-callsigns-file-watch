@@ -21,7 +21,7 @@ import type { SortEntry } from './table-sort.js';
 
 describe('table-sort blank awareness', { tags: ['unit'] }, () => {
   it('IsBlankSortValue_WhenValueIsAnEmptyOrHumanisedBlank_ReportsItAsBlank', () => {
-    for (const blank of ['', '   ', '(blank)', '(none)', 'N/A', '—', '–']) {
+    for (const blank of ['', '   ', '(blank)', '(none)', 'N/A', '·', '—', '–']) {
       expect(isBlankSortValue(blank)).toBe(true);
     }
   });
@@ -30,6 +30,16 @@ describe('table-sort blank awareness', { tags: ['unit'] }, () => {
     for (const value of ['0', 'England', '2016-01-01', '-3']) {
       expect(isBlankSortValue(value)).toBe(false);
     }
+  });
+
+  it('IsBlankSortValue_MiddleDot_IsTreatedAsBlankAlongsideTheDashesItReplaced', () => {
+    // The current absent-value marker (issue #826) sorts out of the way
+    // exactly like the em/en dash placeholders it replaced, which stay
+    // recognised for backwards compatibility with content rendered before
+    // the change.
+    expect(isBlankSortValue('·')).toBe(true);
+    expect(isBlankSortValue('—')).toBe(true);
+    expect(isBlankSortValue('–')).toBe(true);
   });
 });
 
@@ -40,6 +50,10 @@ describe('table-sort type inference', { tags: ['unit'] }, () => {
 
   it('InferSortType_WhenNumbersArePunctuatedByBlanks_StillReportsNumeric', () => {
     expect(inferSortType(['9', '(blank)', '22', '—'])).toBe('numeric');
+  });
+
+  it('InferSortType_WhenNumbersArePunctuatedByTheMiddleDotMarker_StillReportsNumeric', () => {
+    expect(inferSortType(['9', '·', '22'])).toBe('numeric');
   });
 
   it('InferSortType_WhenEveryValueIsAnIsoDate_ReportsDate', () => {
@@ -73,6 +87,11 @@ describe('table-sort single-column order', { tags: ['unit'] }, () => {
 
   it('SortedRowOrder_WhenDescending_ReversesTheMeaningfulValuesButKeepsBlanksLast', () => {
     expect(sortedRowOrder(['5', '(blank)', '2', '—'], 'numeric', 'descending')).toEqual([0, 2, 1, 3]);
+  });
+
+  it('SortedRowOrder_WhenAValueIsTheMiddleDotMarker_SinksItLastLikeAnyOtherBlank', () => {
+    expect(sortedRowOrder(['5', '·', '2'], 'numeric', 'descending')).toEqual([0, 2, 1]);
+    expect(sortedRowOrder(['5', '·', '2'], 'numeric', 'ascending')).toEqual([2, 0, 1]);
   });
 
   it('SortedRowOrder_WhenValuesAreEqual_KeepsTheirAuthoredOrder', () => {

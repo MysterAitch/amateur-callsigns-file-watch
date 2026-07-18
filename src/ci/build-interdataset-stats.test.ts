@@ -6,6 +6,7 @@ import { buildInterdatasetStats } from './build-interdataset-stats.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { BUILDER_PROJECTION_DIR_ENV } from '../shared/derived-entries.ts';
 import { DIRS } from '../shared/constants.ts';
+import { absentMarker } from './render/format.ts';
 
 // Issue #177 Surface 2: the STATIC inter-dataset statistics page — statistics
 // ACROSS the archived open-data publications (blank-product filtering,
@@ -102,9 +103,10 @@ describe('Inter-dataset statistics — the other cross-publication comparisons',
     const page = read();
     expect(page).toContain('<h2 id="flags">Data-quality flag evolution</h2>');
     // A flag present in every publication (forbidden-suffix) and one absent
-    // from the earliest (rendered as an em dash, not a hard zero).
+    // from the earliest (rendered as the shared absent-value marker, #826, not
+    // a hard zero).
     expect(page).toContain('<code>forbidden-suffix</code>');
-    expect(page).toContain('<td class="n"><span class="gap">—</span></td>');
+    expect(page).toContain(`<td class="n">${absentMarker()}</td>`);
   });
 
   it('PatternDrift_ReusesCompareStats_RendersNewAndLostPatternsPerTransition', () => {

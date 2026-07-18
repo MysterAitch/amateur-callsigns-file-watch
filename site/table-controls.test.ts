@@ -357,7 +357,7 @@ const NUMERIC_TABLE = `
 
 describe('sort — blank awareness', { tags: ['unit'] }, () => {
   it('IsBlankSortValue_WhenValueIsAnEmptyOrHumanisedBlank_ReportsItAsBlank', () => {
-    for (const blank of ['', '   ', '(blank)', '(none)', 'N/A', '—', '–']) {
+    for (const blank of ['', '   ', '(blank)', '(none)', 'N/A', '·', '—', '–']) {
       expect(isBlankSortValue(blank)).toBe(true);
     }
   });
@@ -366,6 +366,14 @@ describe('sort — blank awareness', { tags: ['unit'] }, () => {
     for (const value of ['0', 'England', '2016-01-01', '-3']) {
       expect(isBlankSortValue(value)).toBe(false);
     }
+  });
+
+  it('IsBlankSortValue_MiddleDot_IsTreatedAsBlankAlongsideTheDashesItReplaced', () => {
+    // The current absent-value marker (issue #826) sorts out of the way
+    // exactly like the em/en dash placeholders it replaced, which stay
+    // recognised for backwards compatibility with content rendered before
+    // the change.
+    expect(isBlankSortValue('·')).toBe(true);
   });
 });
 

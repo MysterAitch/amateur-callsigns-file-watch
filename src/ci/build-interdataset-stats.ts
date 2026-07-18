@@ -42,7 +42,7 @@ import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile } from '../shared/derived-entries.ts';
 import { DIRS } from '../shared/constants.ts';
 import { compareStats, type EntryStats } from '../shared/stats.ts';
-import { escapeHtml, humanDate, entryPage, noticeStrip, tableCaption, zeroCell } from './site-render.ts';
+import { escapeHtml, humanDate, entryPage, noticeStrip, tableCaption, zeroCell, absentMarker } from './site-render.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
 
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
@@ -259,8 +259,8 @@ function recordCountSection(pubs: PubStat[]): string[] {
       deltaCell = `${escapeHtml(signedDelta(p.recordCount, prevComplete.recordCount))} <span class="gap">vs ${escapeHtml(humanDate(prevComplete.key))}</span>`;
     }
     if (!p.partial) prevComplete = p;
-    const declared = p.declaredComplete === undefined ? '—' : p.partial ? 'partial' : 'complete';
-    return `<tr><td>${entryLink(p)} ${pubLabel(p)}</td><td>${escapeHtml(declared)}</td><td class="n">${zeroCell(p.recordCount, num(p.recordCount))}</td><td>${deltaCell}</td></tr>`;
+    const declaredCell = p.declaredComplete === undefined ? absentMarker() : escapeHtml(p.partial ? 'partial' : 'complete');
+    return `<tr><td>${entryLink(p)} ${pubLabel(p)}</td><td>${declaredCell}</td><td class="n">${zeroCell(p.recordCount, num(p.recordCount))}</td><td>${deltaCell}</td></tr>`;
   });
   return [
     '<section>',
@@ -308,8 +308,9 @@ function flagEvolutionSection(pubs: PubStat[]): string[] {
       const n = p.flags[flag];
       // A flag ABSENT from a publication (no such key) is distinct from a flag
       // present with a zero count; the former reads as "not measured / none",
-      // shown as an em dash so it never reads as a hard zero.
-      return `<td class="n">${n === undefined ? '<span class="gap">—</span>' : zeroCell(n, num(n))}</td>`;
+      // shown as the shared absent-value marker (#826) so it never reads as a
+      // hard zero.
+      return `<td class="n">${n === undefined ? absentMarker() : zeroCell(n, num(n))}</td>`;
     });
     return `<tr><td><a href="${ROOT}datasets/docs/flags.html"><code>${escapeHtml(flag)}</code></a></td>${cells.join('')}</tr>`;
   });

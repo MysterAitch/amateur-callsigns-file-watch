@@ -27,7 +27,7 @@ import {
   type DateColumnStats,
   type CallsignQuality,
 } from '../shared/stats.ts';
-import { humanDate, monthYear, humaniseLabel, tableCaption, callsignField, callsignDisplay, prefixSeriesField } from './site-render.ts';
+import { humanDate, monthYear, humaniseLabel, tableCaption, callsignField, callsignDisplay, prefixSeriesField, absentMarker } from './site-render.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -94,9 +94,11 @@ function dataTable(caption: string, columns: ColumnDef[], rows: (string | number
 
 // A whole-number percentage share, humanised at the extremes: an exact zero
 // stays "0%", a non-zero that rounds to nothing becomes "<1%" (never a
-// misleading "0%"), and an undefined denominator degrades to an em dash.
+// misleading "0%"), and an undefined denominator degrades to the shared
+// absent-value marker (#826) - every caller passes this cell through a `raw`
+// column, since the marker is itself a small HTML fragment, not plain text.
 function sharePct(n: number, total: number): string {
-  if (total <= 0) return '—';
+  if (total <= 0) return absentMarker();
   if (n === 0) return '0%';
   const p = Math.round((n / total) * 100);
   return p === 0 ? '<1%' : `${p}%`;
@@ -292,7 +294,9 @@ export function renderLatestProfileHtml(): string {
     [
       { label: 'parse status', rowHeader: true },
       { label: 'records', num: true },
-      { label: 'share', num: true },
+      // raw: sharePct can return the absent-value marker's HTML (#826), not
+      // just plain-text percentages.
+      { label: 'share', num: true, raw: true },
       { label: 'distribution', raw: true },
     ],
     statusRows,
@@ -339,7 +343,8 @@ export function renderColumnProfilesHtml(): string {
       { label: 'column', rowHeader: true },
       { label: 'distinct', num: true },
       { label: 'populated', num: true },
-      { label: 'empty', num: true },
+      // raw: the cell can embed sharePct's absent-value marker HTML (#826).
+      { label: 'empty', num: true, raw: true },
       { label: 'value range', raw: true },
     ],
     rows,
@@ -374,7 +379,8 @@ export function renderCallsignTaxonomyHtml(): string {
     [
       { label: 'shape', rowHeader: true, raw: true },
       { label: 'records', num: true },
-      { label: 'share', num: true },
+      // raw: the cell can be sharePct's absent-value marker HTML (#826).
+      { label: 'share', num: true, raw: true },
       { label: 'distribution', raw: true },
     ],
     topRows,
@@ -390,7 +396,8 @@ export function renderCallsignTaxonomyHtml(): string {
     [
       { label: 'shape', rowHeader: true, raw: true },
       { label: 'records', num: true },
-      { label: 'share', num: true },
+      // raw: the cell can be sharePct's absent-value marker HTML (#826).
+      { label: 'share', num: true, raw: true },
     ],
     fullRows,
   );
@@ -428,7 +435,7 @@ export function renderCallsignQualityHtml(): string {
     // link - a defect shape (a spreadsheet date, an empty value) is not
     // necessarily a resolvable callsign.
     const examples = result.examples.length === 0
-      ? '<span class="muted">—</span>'
+      ? absentMarker()
       : result.examples.map(e => callsignField(e, { oddCharacters: 'pre-marked' })).join(', ');
     return [label, result.count.toLocaleString('en-GB'), examples];
   });

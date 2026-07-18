@@ -6,6 +6,7 @@ import {
   licenceField, licenceDisplay, LICENCE_CLASS, statusField, statusDisplay, STATUS_CLASS,
   prefixSeriesField, prefixSeriesDisplay, prefixSeriesSlug, PREFIX_SERIES_CLASS,
   suffixField, SUFFIX_CLASS,
+  absentMarker, ABSENT_MARKER, ABSENT_CLASS, ABSENT_LABEL,
 } from './field-wrappers.js';
 import { CALLSIGN_CLASS } from './callsign-pill.js';
 
@@ -345,5 +346,36 @@ describe('browser suffixField wrapper', { tags: ['ui'] }, () => {
     // through exactly as given - this wrapper does not validate shape.
     expect(suffixField(el, 'AB').textContent).toBe('AB');
     expect(suffixField(el, 'ABCDE').textContent).toBe('ABCDE');
+  });
+});
+
+// The browser absent-value marker (issue #826), mirroring absentMarker in
+// src/ci/render/format.ts: a value position with NO value at all (a NULL
+// column, an unset field) renders a middle dot with an accessible label -
+// distinct from the blank-but-present wrappers above, which keep their own
+// '(blank)'-style humanised handling untouched.
+describe('browser absentMarker wrapper', { tags: ['ui'] }, () => {
+  it('AbsentMarker_WhenLabelOmitted_RendersTheDotWithTheDefaultAccessibleLabel', () => {
+    const span = absentMarker(el);
+    expect(span.outerHTML).toBe(`<span class="${ABSENT_CLASS}" title="${ABSENT_LABEL}" aria-label="${ABSENT_LABEL}">${ABSENT_MARKER}</span>`);
+  });
+
+  it('AbsentMarker_VisibleGlyph_IsAMiddleDotNeverAnEmDash', () => {
+    // The em dash it replaces doubles as prose punctuation throughout the
+    // site, which is exactly the ambiguity this convention retires.
+    expect(ABSENT_MARKER).toBe('·');
+    expect(absentMarker(el).textContent).not.toContain('—');
+  });
+
+  it('AbsentMarker_WhenLabelGiven_UsesTheStatedWordingInBothTitleAndAriaLabel', () => {
+    const span = absentMarker(el, 'not currently in the register');
+    expect(span.getAttribute('title')).toBe('not currently in the register');
+    expect(span.getAttribute('aria-label')).toBe('not currently in the register');
+  });
+
+  it('AbsentMarker_NeverABareGlyph_AlwaysCarriesAnAccessibleName', () => {
+    const span = absentMarker(el);
+    expect(span.getAttribute('aria-label')).not.toBeNull();
+    expect(span.getAttribute('title')).not.toBeNull();
   });
 });
