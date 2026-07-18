@@ -263,8 +263,12 @@ describe('Ledger page render (JSDOM smoke test, live query)', { tags: ['ui'] }, 
 
     const entity = document.getElementById('entity');
     expect(entity?.textContent).toContain('G#0TQK');
-    expect(entity?.textContent).toContain(V_2016);
-    expect(entity?.textContent).toContain(V_2022);
+    // Full date (#551): the timeline is a detail view of one callsign, so its
+    // visible text is the humanised date, not the raw ISO vintage - the exact
+    // value still rides along on each <time>'s datetime attribute (asserted
+    // in the dedicated timeline test below).
+    expect(entity?.textContent).toContain('September 2016');
+    expect(entity?.textContent).toContain('7 March 2022');
 
     const anatomy = document.getElementById('anatomy');
     expect(anatomy?.textContent).toContain('normalises_to');
@@ -330,8 +334,13 @@ describe('Ledger entity timeline — vertical activity-feed layout (issue #466)'
     const first = events[0];
     expect(first?.querySelector('.tl-lead .ev')).not.toBeNull();
     const when = first?.querySelector('time.tl-date');
+    // The datetime attribute always carries the exact ISO vintage (#551's
+    // transparency rule: nothing known is lost); the visible text is the
+    // humanised full date, since this per-callsign timeline is a detail view
+    // where the exact day is the point (2016-09 carries no day, so it clamps
+    // to month precision rather than fabricating one).
     expect(when?.getAttribute('datetime')).toBe(V_2016);
-    expect(when?.textContent).toBe(V_2016);
+    expect(when?.textContent).toBe('September 2016');
 
     // The spine dot is decorative: hidden from assistive tech, meaning carried by
     // the text chip beside it (not by colour alone).
@@ -344,6 +353,12 @@ describe('Ledger entity timeline — vertical activity-feed layout (issue #466)'
       .find(g => g.querySelector('.tl-period time')?.textContent === '2022');
     expect(twenty22?.querySelectorAll('li.tl-event').length).toBe(2);
     expect(twenty22?.querySelector('li.tl-event.parallel')).not.toBeNull();
+
+    // 2022-03-07 carries a real day, so its full date is shown - never
+    // truncated to the month on this detail view.
+    const twenty22When = twenty22?.querySelector('time.tl-date');
+    expect(twenty22When?.getAttribute('datetime')).toBe(V_2022);
+    expect(twenty22When?.textContent).toBe('7 March 2022');
   });
 });
 

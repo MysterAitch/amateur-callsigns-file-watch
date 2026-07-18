@@ -85,8 +85,11 @@ describe('Home-page aggregate pre-rendering', { tags: ['unit'] }, () => {
   it('LatestProfile_RealArchive_CarriesHeadlineFiguresAndParseStatusDistribution', () => {
     const html = renderLatestProfileHtml();
     // The newest publication is named and linked to its entry page, with a
-    // humanised date beside the archive key.
-    expect(html).toContain('<a href="datasets/open-data/2026-06-23/index.html">2026-06-23</a> (23 June 2026)');
+    // month-precision date beside the archive key (#551): this headline
+    // names one publication, not a list, so the exact key (already the link
+    // text) is enough to carry the day - the parenthetical need only place it
+    // in time at a glance.
+    expect(html).toContain('<a href="datasets/open-data/2026-06-23/index.html">2026-06-23</a> (June 2026)');
     // Coverage is surfaced as DECLARED, never as an independent guarantee.
     expect(html).toContain('declared by the publisher, not independently verified');
     // Parse status is a distribution (records + share), not a bare total, and

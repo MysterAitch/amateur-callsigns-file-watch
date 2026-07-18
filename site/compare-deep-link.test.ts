@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { sanitiseComparePredicate, partitionSelectedDatasets } from './compare.js';
+import { sanitiseComparePredicate, partitionSelectedDatasets, datasetPickerLabel } from './compare.js';
 import { viewParamToState, applyViewToState, buildPredicate, TOGGLES } from './browser-query.js';
 
 // The Compare surface reads the shareable ?view= filter, ?datasets= selection
@@ -48,6 +48,20 @@ describe('partitionSelectedDatasets', { tags: ['ui'] }, () => {
   });
   it('DatasetSelection_WhenAbsent_IsEmpty', () => {
     expect(partitionSelectedDatasets(null, known)).toEqual({ chosen: [], unknown: [] });
+  });
+});
+
+describe('datasetPickerLabel — full date, not month, on the picker (#551)', { tags: ['ui'] }, () => {
+  it('DatasetPickerLabel_ForAnArchivedPublication_IsTheFullHumanisedDate', () => {
+    expect(datasetPickerLabel('2024-04-30')).toBe('30 April 2024');
+  });
+  it('DatasetPickerLabel_WhenTwoPublicationsShareAMonth_AreDistinguishableByDay', () => {
+    // 2025-06-04 and 2025-06-08 are both real archived publications (the
+    // picker lists every one side by side); month-only precision would render
+    // both as the indistinguishable "June 2025" - the disambiguation case
+    // #551 calls out by name.
+    expect(datasetPickerLabel('2025-06-04')).toBe('4 June 2025');
+    expect(datasetPickerLabel('2025-06-08')).toBe('8 June 2025');
   });
 });
 

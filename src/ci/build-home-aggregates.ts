@@ -27,7 +27,7 @@ import {
   type DateColumnStats,
   type CallsignQuality,
 } from '../shared/stats.ts';
-import { humanDate, humaniseLabel, tableCaption, callsignField, callsignDisplay, prefixSeriesField } from './site-render.ts';
+import { humanDate, monthYear, humaniseLabel, tableCaption, callsignField, callsignDisplay, prefixSeriesField } from './site-render.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const REFERENCE_DATA_DIR = path.join(REPO_ROOT, 'reference-data');
@@ -265,7 +265,10 @@ export function renderLatestProfileHtml(): string {
     'The latest publication at a glance',
     [{ label: 'measure', rowHeader: true }, { label: 'value', raw: true }],
     [
-      ['Publication', `<a href="datasets/open-data/${key}/index.html">${escapeHtml(key)}</a> (${escapeHtml(humanDate(key))})`],
+      // Month precision (#551): this headline names ONE publication (the
+      // newest), never a list, so there is no disambiguation to earn a full
+      // date - the exact key is already the visible link text regardless.
+      ['Publication', `<a href="datasets/open-data/${key}/index.html">${escapeHtml(key)}</a> (${escapeHtml(monthYear(key))})`],
       ['Records', total.toLocaleString('en-GB')],
       ['Non-empty records', `${stats.nonEmptyRecords.toLocaleString('en-GB')} (${sharePct(stats.nonEmptyRecords, total)})`],
       ['Empty records', stats.emptyRecords === 0 ? 'none' : `${stats.emptyRecords.toLocaleString('en-GB')} (${sharePct(stats.emptyRecords, total)})`],

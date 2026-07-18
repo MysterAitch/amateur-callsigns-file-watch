@@ -664,9 +664,13 @@ function approxCount(n: number): string {
 // the very FOI response it rests on — the same one linked immediately above
 // this blurb in the row's title, so the citation is not left bare.
 function holdingBlurb(h: Holding, rel: string): string {
+  // Month precision (#551): this blurb sits in the SAME overview row as
+  // vintageCell, which already shows month with the exact day on its title -
+  // repeating the exact day here in visible prose would read as two
+  // conflicting precisions on one row rather than one consistent surface.
   const vintageClause = h.vintage === undefined
     ? ''
-    : ` ${h.lane === 'open-data' ? 'as published' : 'as at'} ${escapeHtml(vintageParts(h.vintage).exact)}`;
+    : ` ${h.lane === 'open-data' ? 'as published' : 'as at'} ${escapeHtml(vintageParts(h.vintage).short)}`;
 
   if (h.outcome === 'not held') {
     return `A <a href="${rel}${entryHref(h)}">Freedom-of-Information response</a> (<code>${escapeHtml(h.key)}</code>) recording that Ofcom does not hold this data${vintageClause}.`;

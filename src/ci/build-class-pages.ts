@@ -75,6 +75,9 @@ interface ClassMember {
 function collectMembers(foiDir: string): ClassMember[] {
   const members: ClassMember[] = [];
   for (const key of listArchiveKeys().sort()) {
+    // Full date, deliberately (#551's disambiguation case): each class page
+    // lists every entry carrying that class, and the archive already holds
+    // more than one open-data publication in the same month.
     members.push({ key, lane: 'open-data', title: `Publication of ${humanDate(key)}`, vintage: key, classes: [OPEN_DATA_IMPLICIT_CLASS] });
   }
   for (const key of listFoiEntryKeys(foiDir)) {

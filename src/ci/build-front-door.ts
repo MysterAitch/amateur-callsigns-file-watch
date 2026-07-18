@@ -38,7 +38,7 @@ import {
   type Holding,
 } from './build-publisher-pages.ts';
 import { humaniseClassKey } from './dataset-class-overviews.ts';
-import { humanDate } from './site-render.ts';
+import { humanDate, monthYear, dateTimeDisplay } from './site-render.ts';
 import { type EntryStats } from '../shared/stats.ts';
 
 function escapeHtml(text: string): string {
@@ -90,7 +90,9 @@ export function homeFigures(holdings: Holding[] = collectHoldings(readPublisherR
     spanFrom: Math.min(...years),
     spanTo: Math.max(...years),
     latestKey,
-    latestDate: humanDate(latestKey),
+    // Month precision (#551): a single headline figure, not a list, so there
+    // is nothing to disambiguate - latestKey itself carries the exact date.
+    latestDate: monthYear(latestKey),
   };
 }
 
@@ -116,14 +118,13 @@ function byVintageThenKeyDesc(a: Holding, b: Holding): number {
 }
 
 // The exact-vintage label for a cell's readout/aria: a full date where the
-// vintage is a date, the month otherwise, "undated" when absent.
+// vintage is a date, the month otherwise, "undated" when absent. Full date is
+// requested (#551) because this whole-corpus map lists every holding at once,
+// and the archive already holds more than one register snapshot in the same
+// month - the disambiguation case; a month-only vintage clamps to month
+// rather than fabricating a day (the shared precision mechanism, format.ts).
 function vintageLabel(h: Holding): string {
-  if (h.vintage === undefined) return 'undated';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(h.vintage)) return humanDate(h.vintage);
-  const [y, mo] = h.vintage.split('-');
-  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
-    'August', 'September', 'October', 'November', 'December'];
-  return mo ? `${months[Number(mo) - 1]} ${y}` : y;
+  return h.vintage === undefined ? 'undated' : dateTimeDisplay(h.vintage, { precision: 'full-date' });
 }
 
 // The single newest register snapshot keeps the "latest snapshot" signal — an

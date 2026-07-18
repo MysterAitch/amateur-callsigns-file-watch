@@ -172,6 +172,10 @@ describe('Home figures derive from the real corpus (issue #712)', { tags: ['data
     expect(fig.spanFrom).toBeLessThan(fig.spanTo);
     expect(fig.spanFrom).toBeGreaterThanOrEqual(2013);
     expect(fig.latestKey).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // Month precision (#551): this headline names one publication, not a
+    // list, so no day is needed to disambiguate it from a sibling - the exact
+    // date stays fully recoverable from latestKey itself.
+    expect(fig.latestDate).toMatch(/^[A-Z][a-z]+ \d{4}$/);
   }, 120_000);
 
   it('HoldingsMap_RealCorpus_EveryCellDeepLinksToItsOwnDatasetPageKey', () => {

@@ -371,7 +371,12 @@ describe('record-fidelity render — the source list is the shared vertical time
     const first = events[0];
     // The lead reads "row {ordinal} · {label}"; the date sits on the right in <time>.
     expect(first?.querySelector('.tl-lead')?.textContent).toContain('row 20');
-    expect(first?.querySelector('time.tl-date')?.textContent).toBe(V);
+    // Full date (#551): "where it was seen" is a detail view of one callsign's
+    // provenance, so the visible text is the humanised full date (2025-06-04
+    // is deliberately the same month as another real archived publication -
+    // 2025-06-08 - so this also exercises the disambiguation case); the exact
+    // ISO value still rides on the datetime attribute regardless.
+    expect(first?.querySelector('time.tl-date')?.textContent).toBe('4 June 2025');
     expect(first?.querySelector('time.tl-date')?.getAttribute('datetime')).toBe(V);
     // Grouped by year: the period label carries the four-digit year.
     expect(host.querySelector('.fid-sources .tl-period time')?.textContent).toBe('2025');

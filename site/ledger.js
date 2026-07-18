@@ -24,6 +24,7 @@ import {
 } from './ledger-query.js';
 import { withDatabaseLoading } from './db-loading.js';
 import { statusField } from './field-wrappers.js';
+import { dateTimeDisplay, dateTime } from './datetime.js';
 
 /** @typedef {import('./ledger-query.js').ClaimRow} ClaimRow */
 /** @typedef {import('./ledger-query.js').QueryExecutor} QueryExecutor */
@@ -303,7 +304,11 @@ const sourceEntry = (s) => {
   const a = extLink(s.url, s.label);
   a.title = s.sourceFile;
   lead.appendChild(a);
-  return { lead, vintage: s.vintage, dateText: s.vintage, datetime: s.vintage, className: 'tl-source', dotClass: 'source' };
+  // Full date (#551): this dossier/timeline is a detail view of one specific
+  // callsign, where the exact provenance day is the point of the surface.
+  // datetime carries the raw ISO vintage regardless, so the machine-readable
+  // value never depends on the visible precision.
+  return { lead, vintage: s.vintage, dateText: dateTimeDisplay(s.vintage, { precision: 'full-date' }), datetime: s.vintage, className: 'tl-source', dotClass: 'source' };
 };
 /**
  * @param {DisplaySource[]} sources
@@ -377,7 +382,10 @@ function renderEntity(host, resolved, claims) {
       entries.push({
         lead,
         vintage: v,
-        dateText: v,
+        // Full date (#551): a specific callsign's own status timeline is a
+        // detail view, so the exact snapshot day earns its place on the
+        // surface, not just in the <time> element's datetime attribute.
+        dateText: dateTimeDisplay(v, { precision: 'full-date' }),
         datetime: v,
         className: ob.role === 'parallel' ? 'parallel' : '',
         dotClass: primaryDotClass(ob),
@@ -464,7 +472,9 @@ function renderDossier(host, resolved, claims) {
     } else {
       st.append(b('(no status)'));
     }
-    st.append(' · latest snapshot ', latestVintage ?? '');
+    // Full date (#551): the dossier is a detail view of one callsign, so the
+    // exact snapshot day is the point, not a month-precision summary.
+    if (latestVintage !== undefined) st.append(' · latest snapshot ', dateTime(elAttrs, latestVintage, { precision: 'full-date' }));
   } else {
     st.append('no observations');
   }
@@ -499,7 +509,13 @@ function renderDossier(host, resolved, claims) {
   variants.forEach((t, i) => { if (i > 0) variantVal.append('  ·  '); appendRawToken(variantVal, t); });
   facts.appendChild(row('raw tokens', variantVal));
   const vintages = [...new Set(claims.map(c => c.vintage))].sort();
-  facts.appendChild(row('snapshots', [b(vintages.length), vintages.length > 0 ? ` · ${vintages[0]} → ${vintages.at(-1)}` : '']));
+  const firstVintage = vintages[0];
+  const lastVintage = vintages.at(-1);
+  // Full date (#551): the earliest/latest snapshot span, on this same detail view.
+  const vintageRange = firstVintage !== undefined && lastVintage !== undefined
+    ? [' · ', dateTime(elAttrs, firstVintage, { precision: 'full-date' }), ' → ', dateTime(elAttrs, lastVintage, { precision: 'full-date' })]
+    : [];
+  facts.appendChild(row('snapshots', [b(vintages.length), ...vintageRange]));
   body.appendChild(facts);
 
   renderFidelity(body, resolved, claims);

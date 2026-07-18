@@ -137,6 +137,10 @@ function pubLabel(p: PubStat): string {
   return `${escapeHtml(p.key)}${p.partial ? ' <span class="marker" title="declared-partial export">⚠</span>' : ''}`;
 }
 
+// Full date, deliberately (#551's disambiguation case): this report lists
+// EVERY archived publication in one table, and the archive already holds more
+// than one in the same month (e.g. 2025-06-04 and 2025-06-08) - month-only
+// precision would render both as the indistinguishable "June 2025".
 function entryLink(p: PubStat): string {
   return `<a href="${ROOT}datasets/open-data/${escapeHtml(p.key)}/index.html">${escapeHtml(humanDate(p.key))}</a>`;
 }
