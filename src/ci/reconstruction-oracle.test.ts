@@ -37,9 +37,10 @@ import { collectFoiRegisterSources } from '../v2/collectors/foi-register.ts';
 import { collectAttributeAddendumSources } from '../v2/collectors/attribute-addendum.ts';
 import { collectAvailablePoolSources } from '../v2/collectors/available-pool.ts';
 import { collectFoiVerbatimCsvSources } from '../v2/collectors/foi-verbatim-csv.ts';
-import { collectFoiMarkdownTableSources } from '../v2/collectors/foi-markdown-table.ts';
 import { collectStatisticsSources } from '../v2/collectors/statistics.ts';
 import { collectIssuanceEventsSources } from '../v2/collectors/issuance-events.ts';
+import { collectForbiddenListSources } from '../v2/collectors/forbidden-list.ts';
+import { COLLECTORS } from '../v2/collectors/index.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
 
 // The repo root, two levels up from src/ci/ (as the oracle module resolves it),
@@ -486,13 +487,21 @@ describe('FOI markdown-table transcriptions reconstruct their table region (issu
     expect(result.scopeNote).toBe(MARKDOWN_PROSE_SCOPE_NOTE);
   });
 
-  it('MarkdownMirror_WhenResolvedAfterStageC2_CoversNothing', () => {
-    // The structural no-double-count invariant (issue #813 Stages C1/C2): every
-    // markdown-table extract now reconstructs from exactly one family's claims
-    // - its REGISTERED analytical owner (statistics-aggregate for the counts
-    // table, issuance-events for the transfers table) - so the mirror resolves
-    // to NOTHING. It survives, empty, only until Stage D deletes the module.
-    expect(collectFoiMarkdownTableSources()).toEqual([]);
+  it('MarkdownSources_WhenResolvedAcrossTheRegistry_AreEmittedByExactlyOneFamilyEach', () => {
+    // The structural no-double-count invariant (issue #813 Stages C1/C2/D):
+    // every markdown-table extract reconstructs from exactly one family's
+    // claims - its REGISTERED analytical owner (statistics-aggregate for the
+    // counts table, issuance-events for the transfers table); the oracle-only
+    // markdown mirror is deleted. Asserted over the registry's declared source
+    // keys, the same keys buildLedger's emit-time sole-emitter check guards.
+    const markdownKeys = collectReconstructionSources()
+      .filter(source => source.sourceFile.toLowerCase().endsWith('.md'))
+      .map(source => source.sourceFile)
+      .sort();
+    expect(markdownKeys).toEqual([
+      'foi/wdtk-184767--annual-licence-counts/raw-extract-number-of-licences-coleman.md',
+      'foi/wdtk-251507--reissue-policy/raw-extract-applicants-old-call-signs.md',
+    ]);
   });
 
   it('TransfersTable_WhenTranscriptionCarriesWithheldColumns_ReconstructsEveryColumn', () => {
@@ -693,34 +702,95 @@ describe('FOI markdown-table transcriptions reconstruct their table region (issu
       fs.rmSync(scratch, { recursive: true, force: true });
     }
   });
+
+  it('ForbiddenSheetWithConstantTypeColumn_WhenReconstructedFromThePersistedLedgerJsonl_MatchesTheOriginal', () => {
+    // The Stage D losslessness claim (issue #813, D-4): the wdtk-356636
+    // forbidden sheet's constant 'Type' column ('Forbidden' on every row) is a
+    // published byte the old emit did not carry, so the sheet could not
+    // round-trip. The lossless forbidden emit carries it as raw claims, and
+    // the sheet rebuilds byte-identically modulo cosmetics from the ledger a
+    // build persists - with the 'Value' suffix column as the manifest-placed
+    // subject and zero derived claims (a suffix stays edge-free).
+    const entry = 'wdtk-356636--all-callsigns-plus-forbidden';
+    const sources = collectForbiddenListSources().filter(resolved => resolved.entry === entry).map(resolved => resolved.load());
+    expect(sources).toHaveLength(1);
+    const source = sources[0];
+    expect(source.columns).toEqual(['Value', 'Type']);
+    expect(source.subjectColumn).toBe('Value');
+
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'recon-forbidden-ledger-'));
+    try {
+      buildLedger(scratch, defaultFoiDir(), loadReferenceData(), key => key === entry);
+      const ledgerDir = path.join(scratch, 'ledger');
+      // The container entry also emits its register sheet (the foi-register
+      // family's); the forbidden family's own stream is the one under test.
+      const files = fs.readdirSync(ledgerDir).filter(name => name.startsWith('forbidden-') && name.endsWith('.jsonl'));
+      expect(files).toHaveLength(1);
+      const persisted = parseClaimsJsonl(fs.readFileSync(path.join(ledgerDir, files[0]), 'utf8'));
+      expect(persisted[0]?.provenance.sourceFile).toBe(source.sourceFile);
+
+      // Raw-only (a suffix subject derives nothing), with the Type cells
+      // present as raw claims and both columns in the manifest.
+      expect(persisted.every(c => c.layer === 'raw')).toBe(true);
+      const manifest = persisted.filter(isFileLevelClaim);
+      expect(manifest.find(c => c.predicate === SUBJECT_PREDICATE)?.object).toBe('Value');
+      expect(manifest.find(c => c.predicate === columnPredicate(1))?.object).toBe('Type');
+      const typeClaims = persisted.filter(c => !isFileLevelClaim(c) && c.predicate === 'Type');
+      expect(typeClaims.length).toBe(source.rows.length);
+      expect(typeClaims.every(c => c.object === 'Forbidden')).toBe(true);
+
+      const reconstruction = reconstructCsvFromClaims(persisted);
+      const repoPath = source.repoPath;
+      expect(repoPath).toBeDefined();
+      if (repoPath === undefined) return;
+      const original = fs.readFileSync(path.join(REPO_ROOT, repoPath)).toString(source.encoding ?? 'utf8');
+      expect(canonicaliseCsvText(reconstruction)).toBe(canonicaliseCsvText(original));
+    } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  });
 });
 
 // ---- Coverage bookkeeping ---------------------------------------------------
 
 describe('the oracle declares its coverage and any residual gaps explicitly', { tags: ['unit'] }, () => {
-  it('CoveredFamilies_WhenListed_AreTheThreeCsvLanesTheFourRegisteredLosslessFamiliesAndTheMarkdownMirror', () => {
+  it('CoveredFamilies_WhenListed_AreIdenticallyTheCollectorRegistry', () => {
+    // Structural coverage (issue #813 Stage D): the reconstruction corpus IS
+    // the registry - COVERED_FAMILIES is derived from COLLECTORS, so a newly
+    // registered family cannot exist outside the oracle's scope, and the old
+    // hand-maintained list (with its oracle-only mirror families) is gone.
+    expect(COVERED_FAMILIES).toEqual(COLLECTORS.map(collector => collector.family));
     expect([...COVERED_FAMILIES].sort()).toEqual([
-      'attribute-addendum', 'available-pool', 'foi-markdown-table', 'foi-register', 'foi-verbatim-csv', 'issuance-events', 'open-data-register', 'statistics-aggregate',
+      'attribute-addendum', 'available-pool', 'foi-register', 'foi-verbatim-csv', 'forbidden-list', 'issuance-events', 'open-data-register', 'statistics-aggregate',
     ]);
-    // The statistics-aggregate family and the markdown mirror hold
-    // markdown-table extracts only; the issuance-events family routes per
-    // source (two CSV exports, one markdown table) by its .md/.csv repoPath -
-    // so neither appears in the CSV-serialised list, which names the families
-    // that reconstruct through the CSV serialiser exclusively.
+    // The statistics-aggregate family holds a markdown-table extract only; the
+    // issuance-events family routes per source (two CSV exports, one markdown
+    // table) by its .md/.csv repoPath - so neither appears in the
+    // CSV-serialised list, which names the families that reconstruct through
+    // the CSV serialiser exclusively.
     expect([...CSV_SERIALISED_FAMILIES].sort()).toEqual([
-      'attribute-addendum', 'available-pool', 'foi-register', 'foi-verbatim-csv', 'open-data-register',
+      'attribute-addendum', 'available-pool', 'foi-register', 'foi-verbatim-csv', 'forbidden-list', 'open-data-register',
     ]);
   });
 
-  it('EveryPhase3TextShape_WhenCrossChecked_IsIngestedByAMirrorOrALosslessCanonicalFamily', () => {
-    // E3 landed every markdown-table, preamble and prefixed shape into a mirror,
-    // Stage A (issue #813) moved the available-pool shapes onto the registered
-    // family's own lossless emit, Stage B registered the pre-war annex's
-    // verbatim family, Stage C1 moved the statistics counts table onto the
-    // registered statistics-aggregate family, and Stage C2 moved the transfers
-    // table onto the registered issuance-events family - so the honest
-    // non-coverage list stays EMPTY, the coverage guarantee. A future shape
-    // that slipped every selection would resurface here.
+  it('ReconstructionCorpus_WhenResolved_IsIdenticallyTheRegisteredEmitCorpus', () => {
+    // The load-bearing Stage D identity: what the ledger emits is what the
+    // oracle proves - same resolutions, same declared source keys, no parallel
+    // corpus that could drift. (collectReconstructionSources IS
+    // collectLedgerSources; this pins the identity against regression.)
+    const reconstruction = collectReconstructionSources().map(source => `${source.family}|${source.sourceFile}`);
+    const families = new Set(collectReconstructionSources().map(source => source.family));
+    expect(new Set(reconstruction).size).toBe(reconstruction.length);
+    for (const family of families) expect(COVERED_FAMILIES).toContain(family);
+  });
+
+  it('EveryAuthoredFoiConversion_WhenCrossChecked_IsEmittedBySomeRegisteredFamily', () => {
+    // The generalised coverage guarantee (issue #813 Stage D): the complement
+    // of the registry's resolution over every authored FOI conversion is
+    // EMPTY - no shape class can sit in a silent gap (the old per-shape E3
+    // audit could not see a plain-CSV source owned by no family; this sees
+    // every authored conversion). A future conversion emitted by no family
+    // resurfaces here.
     expect(listNotYetCovered()).toEqual([]);
   });
 });

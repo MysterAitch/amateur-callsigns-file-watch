@@ -168,8 +168,8 @@ describe.skipIf(!duckDbAvailable())('report folds — shared-Parquet vs on-deman
     fs.writeFileSync(path.join(ledgerDir, `${stem0}.jsonl`), serialiseClaimsJsonl(emitClaims(d0)));
     fs.writeFileSync(path.join(ledgerDir, `${stem1}.jsonl`), serialiseClaimsJsonl(emitClaims(d1)));
     forbiddenSources = [
-      { entry: 'fixture-2016', vintage: '2016-09', normalisedFileName: 'normalised--list.csv', jsonlStem: stem0, sourceFile: 'foi/fixture-2016/list.csv', emit: () => [] },
-      { entry: 'fixture-2024', vintage: '2024-12', normalisedFileName: 'normalised--list.csv', jsonlStem: stem1, sourceFile: 'foi/fixture-2024/list.csv', emit: () => [] },
+      { entry: 'fixture-2016', vintage: '2016-09', normalisedFileName: 'normalised--list.csv', jsonlStem: stem0, sourceFile: 'foi/fixture-2016/list.csv', lastModifiedPredicate: null, emit: () => [] },
+      { entry: 'fixture-2024', vintage: '2024-12', normalisedFileName: 'normalised--list.csv', jsonlStem: stem1, sourceFile: 'foi/fixture-2024/list.csv', lastModifiedPredicate: 'LastModifiedDate', emit: () => [] },
     ];
 
     // Emit the shared Parquet from the SAME ledger directory the on-demand path

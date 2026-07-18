@@ -23,12 +23,11 @@ import {
   loadIssuanceEventsSource,
   ISSUANCE_EVENTS_CLASS,
 } from './issuance-events.ts';
-import { loadFoiMarkdownTableSource } from './foi-markdown-table.ts';
 import { qualifyingRegisterEntries } from './foi-register.ts';
 import { collectAttributeAddendumSources } from './attribute-addendum.ts';
 import { defaultFoiDir } from '../../shared/foi-archive.ts';
 import { loadReferenceData } from '../../sources/ofcom-amateur/components.ts';
-import type { FoiSourceConversion } from '../../shared/foi-normalise.ts';
+import { parseMarkdownTable, type FoiSourceConversion } from '../../shared/foi-normalise.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
 //
@@ -247,12 +246,11 @@ describe('the WDTK heritage-transfers table (wdtk-251507, markdown-table)', { ta
   });
 });
 
-// ---- Transition equality (issue #813 Stage C2) ------------------------------
+// ---- Transition equality (issue #813 Stages C2/D) ---------------------------
 //
 // The hand-over proofs: the lossless emit must be the OLD emit plus/minus
-// exactly the enumerated deltas, and (for the markdown table) must agree with
-// the mirror it retires, cell for cell. Both run while the mirror loader still
-// exists - Stage D deletes the module only after these pins are green.
+// exactly the enumerated deltas, and the markdown table must carry the whole
+// parsed transcription (the pin the deleted oracle mirror once provided).
 
 // The OLD (pre-C2) issuance projection, reconstructed from the authored
 // binding over the SAME parsed rows the new loader carries: columns are the
@@ -290,25 +288,24 @@ function sortedKeys(claims: readonly Claim[]): string[] {
   return claims.map(claimKey).sort();
 }
 
-describe('transition equality: the lossless emit vs the old projection and the retiring mirror', { tags: ['data-validity'] }, () => {
-  it('TransfersTable_WhenLoadedByFamilyAndByMirror_AgreesCellForCell', () => {
-    // The family's verbatim load is pinned equal to the markdown mirror's
-    // structure-preserving load - same verbatim columns in source order, same
-    // rows cell-for-cell, same repo path/encoding - so reconstruction
-    // ownership moves from the mirror to the REGISTERED family without a
-    // single observation changing. (The subject column differs BY DESIGN: the
-    // mirror mechanically took column 0, the family takes the raw callsign
-    // header; placement is the manifest's job either way.)
+describe('transition equality: the lossless emit vs the old projection and the whole parsed table', { tags: ['data-validity'] }, () => {
+  it('TransfersTable_WhenLoadedByFamily_CarriesTheWholeParsedTableStructurePreserving', () => {
+    // The fidelity pin the retired oracle mirror once provided (issue #813
+    // Stages C2/D): the family's load is the WHOLE parsed table - every column
+    // the transcription holds, in source order, every row cell-for-cell, the
+    // s.40 'S40' marker columns included - never a projection. Compared
+    // against an independent parse of the raw extract bytes with the same
+    // parser the FOI converter uses; the subject is the raw callsign header
+    // (the manifest places it), and the byte-level round-trip is the
+    // reconstruction oracle's job.
     const { meta, conversion } = conversionFor(TRANSFERS_ENTRY);
     const family = loadIssuanceEventsSource(FOI_DIR, TRANSFERS_ENTRY, meta, conversion);
-    const mirror = loadFoiMarkdownTableSource(FOI_DIR, TRANSFERS_ENTRY, meta, conversion);
+    const text = fs.readFileSync(path.join(FOI_DIR, TRANSFERS_ENTRY, conversion.sourceFile)).toString(conversion.encoding);
+    const parsed = parseMarkdownTable(text, conversion.sourceFile);
 
-    expect(family.columns).toEqual(mirror.columns);
-    expect(family.rows).toEqual(mirror.rows);
-    expect(family.repoPath).toBe(mirror.repoPath);
-    expect(family.sourceFile).toBe(mirror.sourceFile);
-    expect(family.vintage).toBe(mirror.vintage);
-    expect(mirror.subjectColumn).toBe('Con Id');
+    expect(family.columns).toEqual(Object.keys(parsed[0]));
+    expect(family.rows).toEqual(parsed);
+    expect(family.repoPath).toBe(`archive/foi/${TRANSFERS_ENTRY}/${conversion.sourceFile}`);
     expect(family.subjectColumn).toBe('Call Signs');
   });
 

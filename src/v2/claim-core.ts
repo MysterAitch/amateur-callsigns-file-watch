@@ -38,6 +38,7 @@
 import { COLUMN_INTERPRETATION_RULE, type ColumnInterpretation } from './interpretation.ts';
 import { LICENCE_CATEGORY_RULE } from './licence-category-emit.ts';
 import { AUTHORED_EVENT_RULE } from './issuance-event-emit.ts';
+import { AUTHORED_ROLE_RULE } from './authored-role-emit.ts';
 
 // A claim is either a verbatim source assertion ('raw') or one computed by a
 // named rule ('derived'). The layer flag lets a consumer trust raw claims as
@@ -168,10 +169,12 @@ export const CONFIDENCE_ORDER: readonly ClaimConfidence[] = [
 // authored-event tier (issue #813 Stage C2) resolves each issuance row's event
 // word from the authored converter binding (FOI_ENTRY_CONVERSIONS), itself pinned
 // from the disclosure's covering-letter wording - again asserted, not computed,
-// so it reads out Looked-up. The rule names are IMPORTED from the tiers that own
-// them so the enumeration stays a single source of truth (a tier renaming its
-// rule cannot silently fall out of the lookup set).
-const LOOKUP_RULES: ReadonlySet<string> = new Set<string>([LICENCE_CATEGORY_RULE, COLUMN_INTERPRETATION_RULE, AUTHORED_EVENT_RULE]);
+// so it reads out Looked-up. The authored-binding-role tier (Stage D) resolves a
+// row's role vocabulary (suffix / licence_class / prefix) from the same authored
+// binding - the same standing, so it too reads out Looked-up. The rule names are
+// IMPORTED from the tiers that own them so the enumeration stays a single source
+// of truth (a tier renaming its rule cannot silently fall out of the lookup set).
+const LOOKUP_RULES: ReadonlySet<string> = new Set<string>([LICENCE_CATEGORY_RULE, COLUMN_INTERPRETATION_RULE, AUTHORED_EVENT_RULE, AUTHORED_ROLE_RULE]);
 
 // The confidence readout for a claim, from its layer and rule alone:
 //   - raw            -> As-published (the verbatim source token, untouched)
@@ -186,6 +189,18 @@ export function claimConfidence(claim: Claim): ClaimConfidence {
   if (claim.layer === 'raw') return 'As-published';
   if (claim.rule !== undefined && LOOKUP_RULES.has(claim.rule)) return 'Looked-up';
   return 'Computed';
+}
+
+// One authored ROLE reading of a source's cells (issue #813 Stage D): the
+// binding assigns `role` (an analytical vocabulary name - 'suffix',
+// 'licence_class', 'prefix') either to the raw cell under `source` (a verbatim
+// header of the file) or to the authored `constant` (a sheet-level class, a
+// stated prefix) when `source` is null. Lifted from the conversion binding's
+// column specs by the loader that owns them, never re-guessed at emit time.
+export interface AuthoredRoleBinding {
+  role: string;
+  source: string | null;
+  constant?: string;
 }
 
 // A parsed set of rows from ONE published source (a normalised.csv OR a
@@ -252,6 +267,14 @@ export interface SourceObservationSet {
   // claim per row under AUTHORED_EVENT_RULE (issuance-event-emit.ts, reading out
   // Looked-up). Absent for every family that pins no event vocabulary.
   authoredEvent?: string;
+  // The authored ROLE vocabulary bindings (issue #813 Stage D), when the
+  // source's conversion binding assigns analytical role names to its cells or
+  // pins sheet-level constants (the available-pool sub-shapes). Authored words
+  // are not published bytes, so they NEVER ride the raw layer: the emit path
+  // derives one claim per (row, role) under AUTHORED_ROLE_RULE
+  // (authored-role-emit.ts, reading out Looked-up). Absent for every family
+  // whose binding assigns no role vocabulary.
+  authoredRoleBindings?: readonly AuthoredRoleBinding[];
   // The authored per-column INTERPRETATION (issue #435), parallel to `columns`
   // by index: each column's inferred {type, format} we read it under. Populated
   // by the loader lane that owns the spec (interpretOpenDataColumns for the

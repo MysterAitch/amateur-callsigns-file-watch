@@ -10,7 +10,7 @@ import {
   CLEANED_CALLSIGN_RULE,
 } from './claim.ts';
 import { projectNormalised } from './project-normalised.ts';
-import { buildLedger, type LedgerBuildSummary } from './build-ledger.ts';
+import { buildLedger, registerEmittedSource, type LedgerBuildSummary } from './build-ledger.ts';
 import {
   registerSourcesFor,
   loadRegisterSource,
@@ -422,11 +422,14 @@ describe('corpus scale sanity', { tags: ['data-validity'] }, () => {
       // No source is silently empty (an empty source would be a converter/
       // filter defect); each carries a registered family tag. A callsign family
       // always derives normalisation edges; a non-callsign family (suffix /
-      // aggregate / pool-slot) emits raw observations only, so it derives none.
+      // aggregate / pool-slot / token) derives NO callsign tier - the
+      // available-pool family alone carries a derived layer, the
+      // authored-binding-role vocabulary (issue #813 Stage D), which its own
+      // suite pins as role claims and nothing else.
       for (const s of summary.perSource) {
         expect(s.observations).toBeGreaterThan(0);
         expect(s.rawClaims).toBeGreaterThan(0);
-        if (callsignFamilies.has(s.family)) {
+        if (callsignFamilies.has(s.family) || s.family === 'available-pool') {
           expect(s.derivedClaims).toBeGreaterThan(0);
         } else {
           expect(s.derivedClaims).toBe(0);
@@ -458,12 +461,15 @@ describe('corpus scale sanity', { tags: ['data-validity'] }, () => {
 
   it('LedgerCorpus_WhenAllFamiliesEmit_CarriesEachSourceFileFromExactlyOneFamily', () => {
     // The sole-emitter invariant (issue #813, design §1a): EXACTLY one family
-    // emits per sourceFile across the whole corpus. This is the executable
-    // dissolution of the double-count class - any future scope-predicate
-    // overlap between two collectors (the register/addendum split, the
-    // available-pool exclusion, the verbatim family's preamble complement)
-    // fails HERE, loudly, instead of double-counting observations in the
-    // parquet, both databases and the value catalogue's membership buckets.
+    // emits per sourceFile across the whole corpus. Since Stage D this is ALSO
+    // an emit-time precondition inside buildLedger itself (registerEmittedSource
+    // - the full build above would have thrown before this assertion could
+    // run); the corpus-level assertion is kept as the independent after-the-
+    // fact witness over the summary. Any future scope-predicate overlap
+    // between two collectors (the register/addendum split, the available-pool
+    // exclusion, the verbatim family's preamble complement) fails loudly
+    // instead of double-counting observations in the parquet, both databases
+    // and the value catalogue's membership buckets.
     const emitted = summary.perSource.map(s => s.sourceFile);
     const duplicates = emitted.filter((file, index) => emitted.indexOf(file) !== index);
     expect(duplicates, `sourceFile(s) emitted by more than one family: ${[...new Set(duplicates)].join(', ')}`).toEqual([]);
@@ -512,4 +518,34 @@ describe('corpus scale sanity', { tags: ['data-validity'] }, () => {
     );
     expect(offenders).toEqual([]);
   }, 300_000);
+});
+
+describe('the emit-time sole-emitter precondition (issue #813 Stage D)', { tags: ['unit'] }, () => {
+  it('BuildLedgerGuard_WhenTwoFamiliesEmitTheSameSourceFile_ThrowsNamingBothEmitters', () => {
+    // The invariant becomes a PRECONDITION, not only a test: a scope-predicate
+    // overlap aborts the build naming both families, so a double-count can
+    // never be persisted for a later check to find.
+    const emittedBy = new Map<string, string>();
+    registerEmittedSource(emittedBy, { family: 'foi-register', entry: 'entry-a', sourceFile: 'foi/entry-a/raw.csv' }, 'foi/entry-a/raw.csv');
+    expect(() =>
+      registerEmittedSource(emittedBy, { family: 'attribute-addendum', entry: 'entry-a', sourceFile: 'foi/entry-a/raw.csv' }, 'foi/entry-a/raw.csv'),
+    ).toThrow(/emitted by both "foi-register" and "attribute-addendum"/);
+  });
+
+  it('BuildLedgerGuard_WhenLoaderEmitsUnderADifferentKeyThanDeclared_ThrowsAsADeclarationDrift', () => {
+    // Structural coverage reasons over the DECLARED keys (the registry's
+    // resolution); a loader emitting under any other key would silently
+    // invalidate that reasoning, so the drift fails loud.
+    const emittedBy = new Map<string, string>();
+    expect(() =>
+      registerEmittedSource(emittedBy, { family: 'foi-register', entry: 'entry-a', sourceFile: 'foi/entry-a/raw.csv' }, 'foi/entry-a/other.csv'),
+    ).toThrow(/declared "foi\/entry-a\/raw\.csv"/);
+  });
+
+  it('BuildLedgerGuard_WhenDistinctSourcesEmit_RecordsEachEmitterWithoutError', () => {
+    const emittedBy = new Map<string, string>();
+    registerEmittedSource(emittedBy, { family: 'foi-register', entry: 'entry-a', sourceFile: 'foi/entry-a/raw.csv' }, 'foi/entry-a/raw.csv');
+    registerEmittedSource(emittedBy, { family: 'forbidden-list', entry: 'entry-a', sourceFile: 'foi/entry-a/suffixes.csv' }, 'foi/entry-a/suffixes.csv');
+    expect(emittedBy.size).toBe(2);
+  });
 });

@@ -36,6 +36,14 @@ export interface ResolvedLedgerSource {
   family: string;
   subjectKind: SubjectKind;
   entry: string;
+  // The corpus-unique logical source key this resolution will emit under
+  // (`foi/<entry>/<file>` / `opendata/<key>/<file>`), declared at RESOLUTION
+  // time - no data row is parsed to know it (issue #813 Stage D). Structural
+  // coverage keys off it (the registry's declared keys ARE the reconstruction
+  // corpus, reconstruction-oracle.ts listNotYetCovered), and buildLedger
+  // fails loud if a loaded observation set emits under a different key than
+  // its resolution declared.
+  sourceFile: string;
   jsonlStem: string;
   load(): SourceObservationSet;
 }

@@ -27,27 +27,22 @@
  * convenience; a committed test additionally emits the real ledger for a source
  * and reconstructs it straight off the JSONL on disk.
  *
- * SCOPE. The three CSV-producing register families - open-data register,
- * FOI-CSV register, attribute-addendum - reconstruct through the CSV
- * serialiser, and so do the available-pool family (REGISTERED lossless-
- * canonical since issue #813 Stage A: the 2013/14 suffix sheets and the 2015/16
- * typed exports), the foi-verbatim-csv family (REGISTERED since issue #813
- * Stage B: the pre-war annex's raw-only token sheets, storing the raw token as
- * the subject) and the issuance-events family's two CSV event exports
- * (lossless-canonical since issue #813 Stage C2) - so ALL of those sources
- * reconstruct from the claims the MAIN ledger persists, not from any parallel
- * mirror. Phase 3 (issue #434 / E3) adds the FOI markdown-table transcriptions
- * through a dedicated markdown serialiser that compares the TABLE REGION ONLY:
- * the statistics-aggregate counts table (REGISTERED lossless-canonical since
- * issue #813 Stage C1) and the issuance-events transfers table (Stage C2, the
- * s.40 'S40' marker columns carried whole) each through their own registered
- * family's claims. The foi-markdown-table mirror consequently resolves to
- * NOTHING on the current archive (it survives, empty, until Stage D deletes
- * it). The prose surrounding a markdown table is explicitly OUTSIDE the
- * ledger's fidelity claim
- * (MARKDOWN_PROSE_SCOPE_NOTE, design E4) - declared, never silently dropped.
- * listNotYetCovered cross-checks that every E3 shape is genuinely in the
- * corpus (an empty result is the coverage guarantee).
+ * SCOPE IS STRUCTURAL (issue #813 Stage D): the reconstruction corpus IS the
+ * collector registry (collectLedgerSources) - every registered family emits its
+ * sources losslessly through the ONE canonical emit, so every registered source
+ * reconstructs from the ledger a build persists, and COVERED_FAMILIES is
+ * derived from the registry rather than maintained beside it. The last
+ * oracle-only mirror (foi-markdown-table) is deleted; each markdown-table
+ * transcription reconstructs through its registered analytical owner
+ * (statistics-aggregate since Stage C1, issuance-events since Stage C2). A
+ * markdown source compares its TABLE REGION ONLY - the surrounding prose is
+ * explicitly OUTSIDE the ledger's fidelity claim (MARKDOWN_PROSE_SCOPE_NOTE,
+ * design E4), declared, never silently dropped; routing between the CSV and
+ * markdown serialisers is per source, by repoPath extension. listNotYetCovered
+ * generalises the old E3-shape check into the structural complement: every
+ * authored FOI conversion must be emitted by SOME registered family (an empty
+ * result is the coverage guarantee), so a silently-uncovered shape class can no
+ * longer exist.
  * Comparison is at DECODED-TEXT level (each source read with the encoding its
  * loader used); a byte-level mode is a later phase (#434 Phase 2 / G6).
  *
@@ -72,14 +67,10 @@ import {
   type Claim,
   type SourceObservationSet,
 } from '../v2/claim.ts';
-import { collectOpenDataRegisterSources } from '../v2/collectors/open-data-register.ts';
+import { collectOpenDataRegisterSources, defaultArchiveDir } from '../v2/collectors/open-data-register.ts';
 import { collectFoiRegisterSources } from '../v2/collectors/foi-register.ts';
 import { collectAttributeAddendumSources } from '../v2/collectors/attribute-addendum.ts';
-import { collectAvailablePoolSources, AVAILABLE_POOL_CLASS } from '../v2/collectors/available-pool.ts';
-import { collectFoiVerbatimCsvSources, verbatimCsvSourcesFor } from '../v2/collectors/foi-verbatim-csv.ts';
-import { collectFoiMarkdownTableSources, markdownTableSourcesFor } from '../v2/collectors/foi-markdown-table.ts';
-import { collectStatisticsSources, statisticsSourcesFor, STATISTICS_AGGREGATE_CLASS } from '../v2/collectors/statistics.ts';
-import { collectIssuanceEventsSources, issuanceEventsSourcesFor, ISSUANCE_EVENTS_CLASS } from '../v2/collectors/issuance-events.ts';
+import { COLLECTORS, collectLedgerSources } from '../v2/collectors/index.ts';
 import { serialiseClaimsJsonl, parseClaimsJsonl } from '../v2/serialise.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
@@ -89,30 +80,18 @@ import { FOI_ENTRY_CONVERSIONS, parseMarkdownTable } from '../shared/foi-normali
 // repoPath resolves to the real archived file.
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 
-// The families the oracle reconstructs. The three CSV register lanes and the
-// two registered lossless-canonical families (available-pool since issue #813
-// Stage A, foi-verbatim-csv since Stage B) reconstruct through the CSV
-// serialiser; the registered statistics-aggregate family (lossless-canonical
-// since Stage C1) and the FOI markdown-table mirror through the markdown
-// serialiser; the issuance-events family (lossless-canonical since Stage C2)
-// routes per source - its two CSV event exports through the CSV serialiser and
-// the markdown transfers table through the markdown serialiser (selection by
-// repoPath extension, reconstructionResultFor). A family not listed here has no
-// reconstruction path yet (see listNotYetCovered).
-export const COVERED_FAMILIES: readonly string[] = [
-  'open-data-register',
-  'foi-register',
-  'attribute-addendum',
-  'available-pool',
-  'foi-verbatim-csv',
-  'statistics-aggregate',
-  'issuance-events',
-  'foi-markdown-table',
-];
+// The families the oracle reconstructs: IDENTICALLY the collector registry
+// (issue #813 Stage D). Derived, not maintained - a newly-registered family is
+// reconstruction-covered by construction (its sources join the oracle corpus
+// via collectReconstructionSources), and a family that cannot round-trip fails
+// the corpus gate loudly rather than sitting in a silent gap.
+export const COVERED_FAMILIES: readonly string[] = COLLECTORS.map(collector => collector.family);
 
 // The families reconstructed through the CSV serialiser (canonicaliseCsvText +
-// reconstructCsvFromClaims), as opposed to the markdown serialiser.
-export const CSV_SERIALISED_FAMILIES: readonly string[] = ['open-data-register', 'foi-register', 'attribute-addendum', 'available-pool', 'foi-verbatim-csv'];
+// reconstructCsvFromClaims) EXCLUSIVELY, as opposed to the markdown serialiser
+// (statistics-aggregate) or per-source routing by repoPath extension
+// (issuance-events: two CSV exports plus the markdown transfers table).
+export const CSV_SERIALISED_FAMILIES: readonly string[] = ['open-data-register', 'foi-register', 'attribute-addendum', 'forbidden-list', 'available-pool', 'foi-verbatim-csv'];
 
 // The scope boundary the oracle declares for markdown sources (design E4): only
 // the single table block is a dataset the ledger claims; the surrounding prose
@@ -434,60 +413,37 @@ export function collectCsvReconstructionSources(): ResolvedLedgerSource[] {
   ];
 }
 
-// Every source the oracle reconstructs, across all covered families, in a stable
-// order: the three CSV register lanes, then the available-pool family (its
-// REGISTERED lossless emit, issue #813 Stage A), then the FOI verbatim-CSV
-// family (the pre-war annex, REGISTERED since issue #813 Stage B), then the
-// statistics-aggregate family (the counts table, REGISTERED lossless since
-// issue #813 Stage C1), then the issuance-events family (all three event
-// sources, lossless since Stage C2), then the FOI markdown-table mirror (now
-// resolving to nothing; deleted in Stage D). The markdown sources self-identify
-// by their .md repoPath, so reconstructionResultFor routes them to the markdown
-// serialiser regardless of family.
+// Every source the oracle reconstructs: IDENTICALLY the registered corpus, in
+// the registry's own stable order (issue #813 Stage D) - the whole point of the
+// structural framing is that the reconstruction corpus and the emitted corpus
+// are the SAME resolution, so a source cannot be emitted without being proven
+// to round-trip. The markdown sources self-identify by their .md repoPath, so
+// reconstructionResultFor routes them to the markdown serialiser regardless of
+// family.
 export function collectReconstructionSources(foiDir: string = defaultFoiDir()): ResolvedLedgerSource[] {
-  return [
-    ...collectCsvReconstructionSources(),
-    ...collectAvailablePoolSources(foiDir),
-    ...collectFoiVerbatimCsvSources(foiDir),
-    ...collectStatisticsSources(foiDir),
-    ...collectIssuanceEventsSources(foiDir),
-    ...collectFoiMarkdownTableSources(foiDir),
-  ];
+  return collectLedgerSources({ foiDir, archiveDir: defaultArchiveDir() });
 }
 
 export interface UncoveredSource {
   entry: string;
   sourceFile: string;
-  shape: 'markdown-table' | 'preamble' | 'prefixed-callsign';
   reason: string;
 }
 
-// The shape of an FOI conversion, among the three the fidelity programme named as
-// Phase 3 work (issue #434 / E3), or undefined for a shape already covered by the
-// CSV lanes. The order mirrors the collectors' selection: a markdown table first,
-// then a preamble-bearing sheet, then a prefixed (synthesised-callsign) list.
-function e3ShapeOf(conversion: { format?: string; preamble?: unknown; columns: readonly { output: string; kind: string }[] }): UncoveredSource['shape'] | undefined {
-  if (conversion.format === 'markdown-table') return 'markdown-table';
-  if (conversion.preamble !== undefined) return 'preamble';
-  const callsignSpec = conversion.columns.find(column => column.output === 'callsign');
-  if (callsignSpec !== undefined && callsignSpec.kind === 'prefixed') return 'prefixed-callsign';
-  return undefined;
-}
-
-// Cross-check that every Phase 3 text shape (markdown-table, preamble, prefixed)
-// is genuinely ingested into the reconstruction corpus, and report any that is
-// NOT - a surfaced, checkable fact rather than a silent gap. Coverage comes from
-// EITHER the markdown-table mirror or a REGISTERED family whose main-ledger emit
-// is itself lossless - available-pool (issue #813 Stage A, carrying every
-// conversion of an available-pool entry), foi-verbatim-csv (Stage B, the
-// pre-war annex), statistics-aggregate (Stage C1, the counts table) and
-// issuance-events (Stage C2, the transfers table; its two CSV event exports are
-// not an E3 shape and so never appear here - their coverage is asserted by the
-// committed oracle tests until Stage D makes coverage structural). This is
-// EMPTY on the current archive: an empty result is the coverage guarantee. A
-// future conversion whose shape slips every selection would surface here rather
-// than pass unnoticed.
+// The STRUCTURAL coverage cross-check (issue #813 Stage D, generalising the old
+// per-shape E3 audit): every authored FOI conversion - whatever its shape - must
+// be emitted by SOME registered family, keyed by the corpus-unique sourceFile
+// each resolution declares. This closes the silent-gap class permanently: the
+// old check could only see the shapes it knew to look for (a plain-CSV source
+// owned by no family, like the pre-Stage-A typed pool exports or the
+// pre-Stage-C2 issuance CSVs, was invisible to it), whereas the complement of a
+// full registry resolution sees every authored conversion. This is EMPTY on the
+// current archive: an empty result is the coverage guarantee. (The open-data
+// lane needs no such audit: its collector resolves every archive entry carrying
+// the open-data source key, so its authored corpus and its resolution are the
+// same enumeration.)
 export function listNotYetCovered(foiDir: string = defaultFoiDir()): UncoveredSource[] {
+  const registered = new Set(collectReconstructionSources(foiDir).map(source => source.sourceFile));
   const uncovered: UncoveredSource[] = [];
   for (const entry of listFoiEntryKeys(foiDir)) {
     const meta = readFoiEntryMeta(foiDir, entry);
@@ -495,26 +451,10 @@ export function listNotYetCovered(foiDir: string = defaultFoiDir()): UncoveredSo
     if (variant === undefined || variant === null) continue;
     const conversions = FOI_ENTRY_CONVERSIONS[variant];
     if (conversions === undefined) continue;
-    // The source files covered for this entry - the E3 mirrors' selections,
-    // plus every conversion of an available-pool entry (each is emitted
-    // losslessly by the registered available-pool family, exactly as
-    // collectAvailablePoolSources resolves it), plus a statistics-aggregate
-    // entry's markdown tables (emitted losslessly by the registered
-    // statistics-aggregate family since issue #813 Stage C1), plus an
-    // issuance-events entry's event sources (emitted losslessly by the
-    // registered issuance-events family since Stage C2).
-    const covered = new Set<string>([
-      ...verbatimCsvSourcesFor(meta).map(conversion => conversion.sourceFile),
-      ...markdownTableSourcesFor(meta).map(conversion => conversion.sourceFile),
-      ...(meta.datasetClasses.includes(AVAILABLE_POOL_CLASS) ? conversions.map(conversion => conversion.sourceFile) : []),
-      ...(meta.datasetClasses.includes(STATISTICS_AGGREGATE_CLASS) ? statisticsSourcesFor(meta).map(conversion => conversion.sourceFile) : []),
-      ...(meta.datasetClasses.includes(ISSUANCE_EVENTS_CLASS) ? issuanceEventsSourcesFor(meta).map(conversion => conversion.sourceFile) : []),
-    ]);
     for (const conversion of conversions) {
-      const shape = e3ShapeOf(conversion);
-      if (shape === undefined) continue;
-      if (covered.has(conversion.sourceFile)) continue;
-      uncovered.push({ entry, sourceFile: conversion.sourceFile, shape, reason: `${shape} source is not ingested by any reconstruction mirror or lossless-canonical family (issue #434 Phase 3 / E3, issue #813)` });
+      const sourceFile = `foi/${entry}/${conversion.sourceFile}`;
+      if (registered.has(sourceFile)) continue;
+      uncovered.push({ entry, sourceFile, reason: 'authored conversion is emitted by no registered family - the source neither joins the ledger nor proves reconstruction (issue #813 Stage D)' });
     }
   }
   return uncovered;
@@ -541,6 +481,6 @@ if (import.meta.main) {
   const uncovered = listNotYetCovered();
   console.log(`reconstruction-oracle: ${results.length} source(s) round-trip modulo cosmetics (CSV byte-identical; markdown table-region)`);
   for (const result of results) console.log(`  OK  ${result.sourceFile}${result.scopeNote !== undefined ? `  [${result.scopeNote}]` : ''}`);
-  console.log(`not-yet-covered (Phase 3 shapes still outside every mirror): ${uncovered.length} source(s)`);
-  for (const item of uncovered) console.log(`  --  [${item.shape}] ${item.entry}/${item.sourceFile}`);
+  console.log(`not-yet-covered (authored conversions emitted by no registered family): ${uncovered.length} source(s)`);
+  for (const item of uncovered) console.log(`  --  ${item.sourceFile}`);
 }

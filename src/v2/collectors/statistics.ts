@@ -22,8 +22,8 @@
  * header's boundary qualifier and presented authored spellings As-published.)
  * The source attests its repoPath/encoding, so the reconstruction oracle
  * (src/ci/reconstruction-oracle.ts) rebuilds the extract's table region from
- * the REGISTERED family's persisted claims; the foi-markdown-table mirror no
- * longer covers this family's files.
+ * the REGISTERED family's persisted claims (the oracle-only markdown mirror
+ * this family superseded was deleted in issue #813 Stage D).
  *
  * Counts travel exactly as the converter PARSES them (parseMarkdownTable): the
  * published figures verbatim, thousands separators intact. The
@@ -158,6 +158,7 @@ export function collectStatisticsSources(foiDir: string = defaultFoiDir()): Reso
         family: 'statistics-aggregate',
         subjectKind: 'aggregate',
         entry,
+        sourceFile: `foi/${entry}/${conversion.sourceFile}`,
         jsonlStem: jsonlStem('statistics', entry, conversion.sourceFile),
         load: () => loadStatisticsSource(foiDir, entry, meta, conversion),
       });

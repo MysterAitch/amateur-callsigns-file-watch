@@ -49,8 +49,8 @@ import { jsonlStem, AVAILABLE_POOL_CLASS } from './util.ts';
 // callsign source from a plainly-mapped one.
 const CALLSIGN_OUTPUT = 'callsign';
 
-// The format marking a markdown-table conversion (handled by the sibling
-// foi-markdown-table family, never here).
+// The format marking a markdown-table conversion (owned by its analytical
+// family - statistics-aggregate or issuance-events - never here).
 const MARKDOWN_TABLE_FORMAT = 'markdown-table';
 
 // One physical CSV record beside csv-parse's own 1-based physical-line tally, so
@@ -178,6 +178,7 @@ export function collectFoiVerbatimCsvSources(foiDir: string = defaultFoiDir()): 
         // acquiring no derived tier of any kind.
         subjectKind: 'token',
         entry,
+        sourceFile: `foi/${entry}/${conversion.sourceFile}`,
         jsonlStem: jsonlStem('recon-csv', entry, conversion.sourceFile),
         load: () => loadFoiVerbatimCsvSource(foiDir, entry, meta, conversion),
       });

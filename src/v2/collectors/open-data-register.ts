@@ -125,6 +125,7 @@ export function collectOpenDataRegisterSources(archiveDir: string = defaultArchi
       family: 'open-data-register',
       subjectKind: 'callsign',
       entry: key,
+      sourceFile: `opendata/${key}/${parseSourceFileName(meta)}`,
       jsonlStem: jsonlStem('opendata', key, 'raw.csv'),
       load: () => loadOpenDataRegisterSource(archiveDir, key, meta),
     });

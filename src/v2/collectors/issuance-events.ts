@@ -29,8 +29,8 @@
  * encoding, so the reconstruction oracle (src/ci/reconstruction-oracle.ts)
  * rebuilds them from this family's persisted claims; the markdown transfers
  * table attests repoPath/encoding and reconstructs through the markdown
- * serialiser (table region only), retiring the foi-markdown-table mirror's
- * last scope.
+ * serialiser (table region only). The oracle-only markdown mirror whose last
+ * scope this emit retired was deleted in issue #813 Stage D.
  *
  * THE AUTHORED `event` WORD IS DERIVED, NOT RAW (Stage C2's semantic
  * correction). The event classification ('reissued' / 'reciprocal-licence-
@@ -272,6 +272,7 @@ export function collectIssuanceEventsSources(foiDir: string = defaultFoiDir()): 
         family: 'issuance-events',
         subjectKind: 'callsign',
         entry,
+        sourceFile: `foi/${entry}/${conversion.sourceFile}`,
         jsonlStem: jsonlStem('issuance', entry, conversion.sourceFile),
         load: () => loadIssuanceEventsSource(foiDir, entry, meta, conversion),
       });

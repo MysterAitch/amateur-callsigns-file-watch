@@ -51,6 +51,7 @@ export function collectAttributeAddendumSources(foiDir: string = defaultFoiDir()
         family: 'attribute-addendum',
         subjectKind: 'callsign',
         entry,
+        sourceFile: `foi/${entry}/${source.conversion.sourceFile}`,
         jsonlStem: jsonlStem('addendum', entry, source.conversion.sourceFile),
         load: () => loadRegisterSource(foiDir, entry, meta, source),
       });

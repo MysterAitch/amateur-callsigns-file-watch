@@ -20,9 +20,9 @@ import {
   statisticsSourcesFor,
   STATISTICS_AGGREGATE_CLASS,
 } from './collectors/statistics.ts';
-import { loadFoiMarkdownTableSource } from './collectors/foi-markdown-table.ts';
 import { qualifyingRegisterEntries } from './collectors/foi-register.ts';
 import { defaultFoiDir } from '../shared/foi-archive.ts';
+import { parseMarkdownTable } from '../shared/foi-normalise.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
@@ -94,15 +94,13 @@ describe('statistics-aggregate family: raw period + count claims, verbatim, no c
     expect(first[BUSINESS_PREDICATE]).toBe(FIRST_BUSINESS_COUNT);
   });
 
-  it('AggregateFamily_WhenLoadingTheExtractTheMirrorOnceCovered_AgreesWithTheMirrorLoaderCellForCell', () => {
-    // The transition proof (issue #813 Stage C1): the family's verbatim emit is
-    // pinned equal to the markdown mirror's structure-preserving load - cell
-    // for cell, and claim for claim - so reconstruction ownership moved from
-    // the mirror to the REGISTERED family without a single observation
-    // changing. The equality stays executable after the mirror's coverage of
-    // this file is retired, because it compares the LOADERS directly (the
-    // mirror loader survives - resolving to nothing since Stage C2 - until
-    // Stage D deletes the module).
+  it('AggregateFamily_WhenLoaded_CarriesTheWholeParsedTableStructurePreserving', () => {
+    // The fidelity pin the retired oracle mirror once provided (issue #813
+    // Stages C1/D): the family's load is the WHOLE parsed table - every column
+    // the extract holds, in source order, every row cell-for-cell - never a
+    // projection. Compared against an independent parse of the raw extract
+    // bytes with the same parser the FOI converter uses; the byte-level
+    // round-trip is the reconstruction oracle's job.
     const entry = statisticsEntries(FOI_DIR).find(e => e.entry === STATISTICS_ENTRY);
     expect(entry).toBeDefined();
     if (entry === undefined) return;
@@ -110,16 +108,11 @@ describe('statistics-aggregate family: raw period + count claims, verbatim, no c
     expect(conversions.length).toBe(1);
 
     const family = loadStatisticsSource(FOI_DIR, STATISTICS_ENTRY, entry.meta, conversions[0]);
-    const mirror = loadFoiMarkdownTableSource(FOI_DIR, STATISTICS_ENTRY, entry.meta, conversions[0]);
+    const text = fs.readFileSync(path.join(FOI_DIR, STATISTICS_ENTRY, conversions[0].sourceFile)).toString(conversions[0].encoding);
+    const parsed = parseMarkdownTable(text, conversions[0].sourceFile);
 
-    // The observation sets are identical: same verbatim columns in source
-    // order, same subject placement, same rows cell-for-cell, same repo
-    // path/encoding - the mirror's fidelity posture, now the family's own.
-    expect(family).toEqual(mirror);
-
-    // And therefore the emitted claim streams agree claim-for-claim (a
-    // stronger statement than multiset equality: same order, same provenance).
-    expect(emitClaims(family)).toEqual(emitClaims(mirror));
+    expect(family.columns).toEqual(Object.keys(parsed[0]));
+    expect(family.rows).toEqual(parsed);
   });
 
   it('AggregateClaims_WhenEmitted_AreRawExistenceAndCountsWithNoDerivedEdges', () => {

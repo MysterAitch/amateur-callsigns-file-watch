@@ -6,6 +6,8 @@ import {
   emitClaims,
   emitLedger,
   emitFileManifestClaims,
+  emitAuthoredRoleClaims,
+  AUTHORED_ROLE_RULE,
   LISTED_PREDICATE,
   NORMALISES_TO_PREDICATE,
   LICENCE_CATEGORY_PREDICATE,
@@ -13,6 +15,7 @@ import {
   columnPredicate,
 } from '../claim.ts';
 import { buildLedger } from '../build-ledger.ts';
+import { parseClaimsJsonl } from '../serialise.ts';
 import {
   collectAvailablePoolSources,
   availablePoolEntries,
@@ -137,11 +140,25 @@ describe('sub-shape A - the 2013/14 suffix-shaped lists', { tags: ['data-validit
       expect(claim.provenance.vintage).toBe('2013-09-06');
     }
 
-    // The deferred role vocabulary (issue #813, re-expressed as a fold in a
-    // later stage) is NOT emitted as analytical claims here.
+    // The role vocabulary never rides the RAW layer (an authored word is not a
+    // published byte); it is restored as DERIVED claims by the
+    // authored-binding-role tier (issue #813 Stage D), asserted below.
     for (const claim of claims) {
       expect(['licence_class', 'prefix', 'suffix']).not.toContain(claim.predicate);
     }
+
+    // The restored role vocabulary (issue #813 Stage D): one derived Looked-up
+    // claim per (row, role) - the sheet's authored class and stated prefix,
+    // plus the suffix cell read under the role name - each tied to its row's
+    // raw subject.
+    const roles = emitAuthoredRoleClaims(obs);
+    expect(roles.length).toBe(obs.rows.length * 3);
+    expect(roles.every(c => c.layer === 'derived' && c.rule === AUTHORED_ROLE_RULE)).toBe(true);
+    const firstRoles = roles.filter(c => c.provenance.ordinal === 0);
+    const roleValue = (role: string) => firstRoles.find(c => c.predicate === role)?.object;
+    expect(roleValue('prefix')).toBe('M6');
+    expect(roleValue('licence_class')).toBe('Foundation');
+    expect(roleValue('suffix')).toBe(listed[0].rawSubject);
 
     // The sheet's stated rule survives in the file-level manifest: the verbatim
     // header rides @column/0 and @subject, so nothing the roles derived from is
@@ -204,11 +221,20 @@ describe('sub-shape B - the 2015/16 typed Siebel exports', { tags: ['data-validi
       expect(claim.provenance.vintage).toBe('2015-02-25');
     }
 
-    // The retired role vocabulary is genuinely absent (issue #813 Stage A: the
-    // roles become a fold over these verbatim columns in a later stage).
+    // The role vocabulary is genuinely absent from the RAW layer; the
+    // authored-binding-role tier (issue #813 Stage D) restores it as DERIVED
+    // claims - here the typed export's Product/Reference cells read under the
+    // role names, with no prefix role (nothing prefixed on sub-shape B).
     for (const claim of claims) {
       expect(['licence_class', 'suffix', 'prefix', 'callsign']).not.toContain(claim.predicate);
     }
+    const roles = emitAuthoredRoleClaims(obs);
+    expect(roles.length).toBeGreaterThan(0);
+    expect(roles.every(c => c.layer === 'derived' && c.rule === AUTHORED_ROLE_RULE)).toBe(true);
+    expect(roles.some(c => c.predicate === 'prefix')).toBe(false);
+    const firstRoles = roles.filter(c => c.provenance.ordinal === listed[0].provenance.ordinal);
+    expect(firstRoles.find(c => c.predicate === 'licence_class')?.object).toBe('Amateur Foundation Radio Licence');
+    expect(firstRoles.find(c => c.predicate === 'suffix')?.object).toBe(suffix);
   });
 });
 
@@ -242,7 +268,7 @@ describe('pool-slot subjects stay edge-free (the epistemic guard)', { tags: ['da
 });
 
 describe('available-pool family through buildLedger', { tags: ['data-validity'] }, () => {
-  it('AvailablePoolLedger_WhenBuiltForItsEntries_EmitsRawClaimsOnlyWithNoDerivedLayer', () => {
+  it('AvailablePoolLedger_WhenBuiltForItsEntries_EmitsRawClaimsPlusDerivedRoleVocabularyOnly', () => {
     const wanted = new Set(AVAILABLE_POOL_ENTRY_KEYS);
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'available-pool-ledger-'));
     try {
@@ -258,21 +284,38 @@ describe('available-pool family through buildLedger', { tags: ['data-validity'] 
         expect(s.family).toBe('available-pool');
         expect(s.observations).toBeGreaterThan(0);
         expect(s.rawClaims).toBeGreaterThan(0);
-        // The whole point of the pool-slot tag: no normalisation/category edges.
-        expect(s.derivedClaims).toBe(0);
+        // The derived layer is the authored-binding-role tier ONLY (issue #813
+        // Stage D) - present on every pool source, since each binding assigns
+        // at least the suffix/licence_class roles.
+        expect(s.derivedClaims).toBeGreaterThan(0);
         expect(s.vintage.length).toBeGreaterThan(0);
       }
-      expect(summary.totalDerivedClaims).toBe(0);
+      expect(summary.totalDerivedClaims).toBeGreaterThan(0);
       expect(summary.totalRawClaims).toBeGreaterThan(0);
 
       // Exactly one family emits per sourceFile: no source appears twice in the
-      // emitted corpus (the no-double-count invariant, issue #813).
+      // emitted corpus (the no-double-count invariant, issue #813 - also an
+      // emit-time precondition in buildLedger since Stage D).
       const sourceFiles = summary.perSource.map(s => s.sourceFile);
       expect(new Set(sourceFiles).size).toBe(sourceFiles.length);
 
-      // One JSONL file per source landed on disk (never committed).
-      const written = fs.readdirSync(path.join(outputDir, 'ledger')).filter(name => name.endsWith('.jsonl'));
+      // One JSONL file per source landed on disk (never committed). The whole
+      // point of the pool-slot tag survives the role tier: NO normalisation /
+      // category edge attaches to a pool token - every derived claim in the
+      // persisted stream is an authored-binding-role claim over the role
+      // vocabulary, nothing else.
+      const ledgerDir = path.join(outputDir, 'ledger');
+      const written = fs.readdirSync(ledgerDir).filter(name => name.endsWith('.jsonl'));
       expect(written.length).toBe(summary.sourcesProcessed);
+      for (const file of written) {
+        const claims = parseClaimsJsonl(fs.readFileSync(path.join(ledgerDir, file), 'utf8'));
+        const derived = claims.filter(c => c.layer === 'derived');
+        expect(derived.length).toBeGreaterThan(0);
+        expect(derived.every(c => c.rule === AUTHORED_ROLE_RULE)).toBe(true);
+        expect(derived.every(c => ['suffix', 'licence_class', 'prefix'].includes(c.predicate))).toBe(true);
+        expect(claims.some(c => c.predicate === NORMALISES_TO_PREDICATE)).toBe(false);
+        expect(claims.some(c => c.predicate === LICENCE_CATEGORY_PREDICATE)).toBe(false);
+      }
     } finally {
       fs.rmSync(outputDir, { recursive: true, force: true });
     }

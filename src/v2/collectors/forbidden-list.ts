@@ -25,14 +25,25 @@
  * first-known-forbidden derivations are fold-layer work over these per-(suffix,
  * vintage) claims (their reference is src/ci/forbidden-suffix-history.ts), NOT
  * baked into the emit path.
+ *
+ * LOSSLESS-CANONICAL (issue #813 Stage D). The family emits the
+ * STRUCTURE-PRESERVING observation set (loadFoiVerbatimCsvSource): the source's
+ * VERBATIM header set, every physical column's cell verbatim under its own
+ * header, per-row source lines, and repoPath/encoding - so the reconstruction
+ * oracle rebuilds each forbidden sheet from the registered claims, exactly as
+ * every other registered family. That carries wdtk-356636 sheet 2's constant
+ * 'Type' = 'Forbidden' column as raw claims: those cells ARE published bytes
+ * (the converter's ignoredColumns entry verifies the constant, it does not
+ * un-publish it), and without them the sheet cannot round-trip. The polarity
+ * modelling above is unchanged - the forbidden-suffix-history fold reads the
+ * @listed anchors plus the binding's authored last-modified column only, so a
+ * carried Type cell never masquerades as dated provenance.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { parse } from 'csv-parse/sync';
 import { type SourceObservationSet } from '../claim.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, type FoiEntryMeta } from '../../shared/foi-archive.ts';
 import { FOI_ENTRY_CONVERSIONS, type FoiSourceConversion } from '../../shared/foi-normalise.ts';
+import { loadFoiVerbatimCsvSource } from './foi-verbatim-csv.ts';
 import type { LedgerCollector, ResolvedLedgerSource } from './types.ts';
 import { jsonlStem } from './util.ts';
 
@@ -49,6 +60,11 @@ const FORBIDDEN_LIST_CLASS = 'forbidden-list';
 // what distinguishes a forbidden-suffix sheet from the callsign register sheet
 // sharing the same entry.
 const SUFFIX_OUTPUT = 'suffix';
+
+// The normalised output column whose raw source header carries per-suffix dated
+// provenance (only the 2024-12 export declares one). The history fold reads the
+// date under this authored header by NAME (see ForbiddenSource).
+const LAST_MODIFIED_OUTPUT = 'last_modified_date';
 
 export interface ForbiddenEntry {
   entry: string;
@@ -68,21 +84,20 @@ export function forbiddenListEntries(foiDir: string = defaultFoiDir()): Forbidde
 }
 
 // One raw source that carries forbidden-suffix rows, with the raw header that
-// names its suffix token and the authored source headers carried into the raw
-// layer. Sourced from the converter binding so the raw-file and suffix-column
-// choices are never re-guessed here.
+// names its suffix token and - where the binding declares one - the raw header
+// carrying per-suffix dated provenance. Sourced from the converter binding so
+// the raw-file, suffix-column and last-modified-column choices are never
+// re-guessed here.
 export interface ForbiddenSource {
   conversion: FoiSourceConversion;
   suffixColumn: string;
-  // The authored source headers projected into the observation set, read from
-  // the conversion's column list (only columns the binding actually reads from
-  // the source, i.e. source !== null). Reading the columns from the binding
-  // rather than every raw header means sheet-level furniture the binding
-  // ignored - the constant 'Type' = Forbidden discriminator on wdtk-356636's
-  // sheet, recorded once in meta.json, not a per-row assertion - never becomes a
-  // bogus attribute claim, while a genuine data column (2024-12's
-  // LastModifiedDate) still rides.
-  columns: string[];
+  // The raw header the binding maps to the last_modified_date output (the
+  // 2024-12 export's 'LastModifiedDate'), or null when the disclosure carries
+  // no dated provenance. The forbidden-suffix-history fold joins @listed to
+  // THIS predicate by name (issue #813 Stage D) - never to "whatever raw
+  // attribute is present", which would mistake a carried constant column (the
+  // wdtk-356636 sheet's 'Type' = 'Forbidden') for a date.
+  lastModifiedColumn: string | null;
 }
 
 // The forbidden-suffix sources for one entry: each conversion that maps a raw
@@ -102,48 +117,38 @@ export function forbiddenSourcesFor(meta: FoiEntryMeta): ForbiddenSource[] {
     if (conversion.format === 'markdown-table' || conversion.preamble !== undefined) continue;
     const suffixSpec = conversion.columns.find(column => column.output === SUFFIX_OUTPUT);
     if (suffixSpec === undefined || suffixSpec.source === null || suffixSpec.kind !== 'verbatim') continue;
-    const columns = conversion.columns
-      .filter(column => column.source !== null)
-      .map(column => column.source as string);
-    sources.push({ conversion, suffixColumn: suffixSpec.source, columns });
+    const lastModifiedSpec = conversion.columns.find(column => column.output === LAST_MODIFIED_OUTPUT);
+    sources.push({ conversion, suffixColumn: suffixSpec.source, lastModifiedColumn: lastModifiedSpec?.source ?? null });
   }
   return sources;
 }
 
-// Parse one forbidden-suffix source file into the SourceObservationSet shape,
-// verbatim under Ofcom's own headers. The parse options mirror the FOI
-// converter's (skip_empty_lines + BOM) and honour the conversion's authored
-// encoding (the ofcom-756622 sheet is latin-1), so the suffix tokens this keys
-// off are the same rows the committed normalisation was derived from and travel
-// verbatim (whitespace/case intact). Duplicate rows are preserved as distinct
-// observations by the emit path's ordinal - a data-quality artefact surfaced,
-// never deduped (the 2016 sheet lists ZIT twice). The stored sourceFile is
-// corpus-unique (foi/<entry>/<file>) so an observation's provenance is
-// self-locating.
+// Load one forbidden-suffix source as its lossless structure-preserving mirror
+// (issue #813 Stage D): the source's verbatim header set, every physical
+// column's cell verbatim under its own header (the wdtk-356636 sheet's constant
+// 'Type' column included - a published byte), per-row source lines and
+// repoPath/encoding for the reconstruction oracle, with the SUBJECT re-pointed
+// at the authored suffix column (the available-pool precedent). The parse
+// honours the conversion's authored encoding (the ofcom-756622 sheet is
+// latin-1), so the suffix tokens this keys off are the same rows the committed
+// normalisation was derived from and travel verbatim (whitespace/case intact).
+// Duplicate rows are preserved as distinct observations by the emit path's
+// ordinal - a data-quality artefact surfaced, never deduped (the 2016 sheet
+// lists ZIT twice). The stored sourceFile is corpus-unique (foi/<entry>/<file>)
+// so an observation's provenance is self-locating.
 export function loadForbiddenSource(foiDir: string, entry: string, meta: FoiEntryMeta, source: ForbiddenSource): SourceObservationSet {
-  const { conversion, suffixColumn, columns } = source;
-  const filePath = path.join(foiDir, entry, conversion.sourceFile);
-  const text = fs.readFileSync(filePath).toString(conversion.encoding);
-  const rows = parse(text, { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
-  if (rows.length === 0) {
-    throw new Error(`${filePath}: parsed to zero rows - a forbidden-suffix source must not be empty`);
+  const { conversion, suffixColumn } = source;
+  const mirror = loadFoiVerbatimCsvSource(foiDir, entry, meta, conversion);
+  if (!mirror.columns.includes(suffixColumn)) {
+    throw new Error(`${mirror.sourceFile}: authored suffix column "${suffixColumn}" absent from raw header (${mirror.columns.join(', ')})`);
   }
-  const rawHeaders = Object.keys(rows[0]);
-  for (const column of columns) {
-    if (!rawHeaders.includes(column)) {
-      throw new Error(`${filePath}: authored column "${column}" absent from raw headers (${rawHeaders.join(', ')})`);
-    }
+  if (source.lastModifiedColumn !== null && !mirror.columns.includes(source.lastModifiedColumn)) {
+    throw new Error(`${mirror.sourceFile}: authored last-modified column "${source.lastModifiedColumn}" absent from raw header (${mirror.columns.join(', ')})`);
   }
-  return {
-    sourceFile: `foi/${entry}/${conversion.sourceFile}`,
-    vintage: meta.dataVintage ?? '',
-    columns,
-    subjectColumn: suffixColumn,
-    rows,
-    // No product column: a suffix carries no licence class, so no
-    // licence-category tier is derivable (and, being subjectKind 'suffix', the
-    // emit path would not derive one regardless).
-  };
+  // No product column: a suffix carries no licence class, so no
+  // licence-category tier is derivable (and, being subjectKind 'suffix', the
+  // emit path would not derive one regardless).
+  return { ...mirror, subjectColumn: suffixColumn };
 }
 
 // The forbidden-list family: every forbidden-list FOI entry's suffix-bearing
@@ -158,6 +163,7 @@ export function collectForbiddenListSources(foiDir: string = defaultFoiDir()): R
         family: 'forbidden-list',
         subjectKind: 'suffix',
         entry,
+        sourceFile: `foi/${entry}/${source.conversion.sourceFile}`,
         jsonlStem: jsonlStem('forbidden', entry, source.conversion.sourceFile),
         load: () => loadForbiddenSource(foiDir, entry, meta, source),
       });

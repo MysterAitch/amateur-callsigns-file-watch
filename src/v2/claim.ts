@@ -43,6 +43,7 @@ export {
   type NormalisationEdge,
   type ClaimConfidence,
   type SourceObservationSet,
+  type AuthoredRoleBinding,
 } from './claim-core.ts';
 
 // The raw-layer emit step and its existence predicate.
@@ -70,6 +71,12 @@ export {
   AUTHORED_EVENT_RULE,
   emitAuthoredEventClaims,
 } from './issuance-event-emit.ts';
+
+// The derived authored-binding-role tier (issue #813 Stage D).
+export {
+  AUTHORED_ROLE_RULE,
+  emitAuthoredRoleClaims,
+} from './authored-role-emit.ts';
 
 // The derived callsign-pattern tier.
 export {

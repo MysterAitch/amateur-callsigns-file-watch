@@ -490,10 +490,10 @@ function reconstructionSection(): string[] {
     'foi-register': 'the FOI register-snapshot CSVs',
     'attribute-addendum': 'the FOI attribute-addendum tables',
     'available-pool': 'the FOI available-call-sign exports (suffix sheets and typed exports)',
+    'forbidden-list': 'the FOI forbidden-suffix lists (carried verbatim in the registered ledger)',
     'foi-verbatim-csv': 'the pre-war annex sheets (carried verbatim in the registered ledger)',
     'statistics-aggregate': 'the FOI annual licence-count table (carried verbatim in the registered ledger; table region only)',
     'issuance-events': 'the FOI issuance-event disclosures (re-issues, reciprocal licences and heritage transfers, carried verbatim in the registered ledger)',
-    'foi-markdown-table': 'the FOI markdown-table transcriptions (table region only)',
   };
   const items = COVERED_FAMILIES.map(family =>
     `<li><code>${escapeHtml(family)}</code> — ${escapeHtml(familyGloss[family] ?? family)}</li>`);

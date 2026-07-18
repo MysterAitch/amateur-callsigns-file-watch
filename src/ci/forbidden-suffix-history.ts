@@ -300,6 +300,14 @@ export interface ForbiddenLedgerSource {
   // Parquet holds the whole corpus rather than one file per source. Optional so a
   // hand-built fixture folding the per-file JSONL directly need not supply it.
   sourceFile?: string;
+  // The raw header the disclosure's authored binding maps to per-suffix dated
+  // provenance (the 2024-12 export's 'LastModifiedDate'), or null/absent when
+  // the disclosure carries none. The fold joins @listed to THIS predicate BY
+  // NAME (issue #813 Stage D): the lossless forbidden emit carries every
+  // physical column (the wdtk-356636 sheet's constant 'Type' included), so
+  // "whatever raw attribute is present" would mistake a carried constant for a
+  // date - the authored binding, not presence, names the date column.
+  lastModifiedPredicate?: string | null;
   emit: () => ReturnType<typeof emitClaims>;
 }
 
@@ -318,6 +326,7 @@ function enumerateForbiddenLedgerSources(foiDir: string): ForbiddenLedgerSource[
         normalisedFileName: normalisedFileNameFor(source.conversion.sourceFile),
         jsonlStem: jsonlStem('forbidden', entry, source.conversion.sourceFile),
         sourceFile: `foi/${entry}/${source.conversion.sourceFile}`,
+        lastModifiedPredicate: source.lastModifiedColumn,
         emit: () => emitClaims(loadForbiddenSource(foiDir, entry, meta, source)),
       });
     }
@@ -336,25 +345,38 @@ interface ForbiddenFoldRow {
 
 // The per-observation (suffix, last-modified) projection shared by both fold
 // paths: join each `@listed` existence claim to its row's last-modified attribute
-// claim on the observation key (didx, ordinal). A forbidden source emits only the
-// existence claim and - for the 2024 export - the LastModifiedDate attribute, so
-// "the raw claim that is not `@listed`" is exactly the last-modified value; the
-// LEFT JOIN yields NULL for the earlier lists that carry none. The total ORDER BY
+// claim on the observation key (didx, ordinal), selecting the date by its
+// AUTHORED predicate name(s) (issue #813 Stage D) - the lossless forbidden emit
+// carries every physical column verbatim, so a positional "the raw claim that is
+// not @listed" would mistake a carried constant column for a date. The LEFT JOIN
+// yields NULL for the lists that carry no dated provenance. The total ORDER BY
 // satisfies report-fold's determinism contract (the reduction is set-based, but a
 // stable fold output keeps the fold itself reproducible run to run). `claimsCte`
 // supplies the `claims` relation carrying a `didx` disclosure index — from per-
 // file JSONL branches (the ledger path) or a sourceFile→index tag over the shared
 // Parquet — so the reduction below is identical whichever source fed it.
-function foldSqlOver(claimsCte: string): string {
+function foldSqlOver(claimsCte: string, lastModifiedPredicates: readonly string[]): string {
+  const literal = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+  // A never-matching filter when no enumerated disclosure declares a dated
+  // column, so the CTE stays valid SQL and every join yields NULL.
+  const inList = lastModifiedPredicates.length === 0 ? "''" : lastModifiedPredicates.map(literal).join(', ');
   return `WITH claims AS (
 ${claimsCte}
 ),
 listed AS (SELECT didx, ordinal, rawSubject FROM claims WHERE predicate = '${LISTED_PREDICATE}'),
-lastmod AS (SELECT didx, ordinal, object FROM claims WHERE layer = 'raw' AND predicate <> '${LISTED_PREDICATE}')
+lastmod AS (SELECT didx, ordinal, object FROM claims WHERE layer = 'raw' AND predicate IN (${inList}))
 SELECT l.didx AS didx, l.rawSubject AS rawSuffix, lm.object AS rawLastModified
 FROM listed l
 LEFT JOIN lastmod lm ON lm.didx = l.didx AND lm.ordinal = l.ordinal
 ORDER BY l.didx, l.ordinal`;
+}
+
+// The authored last-modified predicates declared across the enumerated sources -
+// the exact date headers the fold may join on. De-duplicated for a stable IN
+// list; sources declaring none contribute nothing.
+function lastModifiedPredicatesOf(sources: readonly ForbiddenLedgerSource[]): string[] {
+  return [...new Set(sources.flatMap(source =>
+    (source.lastModifiedPredicate === undefined || source.lastModifiedPredicate === null ? [] : [source.lastModifiedPredicate])))];
 }
 
 // One JSONL file's read branch, tagged with its disclosure index so a single
@@ -432,15 +454,18 @@ function reprojectDisclosures(foldRows: readonly ForbiddenFoldRow[], sources: re
 // Reproject one forbidden source's IN-MEMORY raw claims into its RawDisclosure,
 // the DuckDB-free equivalent of foldSqlOver for a single disclosure. The source's
 // @listed existence claims carry the raw suffix token (one per row, in ordinal
-// order); each row's LastModifiedDate rides its single non-@listed raw attribute
-// claim, keyed to the @listed anchor by the shared observation ordinal (the same
+// order); each row's last-modified value rides the raw attribute claim under the
+// binding's AUTHORED date predicate (issue #813 Stage D - never "whatever raw
+// attribute is present", which would mistake a carried constant column for a
+// date), keyed to the @listed anchor by the shared observation ordinal (the same
 // (didx, ordinal) join the DuckDB pass performs). Applies the identical two
 // transforms - the suffix edge trim and parseUkDateTime for the day-first date -
 // so a source folded here matches the DuckDB fold field-for-field.
 function reprojectSourceClaims(source: ForbiddenLedgerSource, claims: readonly Claim[]): RawDisclosure {
+  const lastModifiedPredicate = source.lastModifiedPredicate ?? null;
   const lastModifiedByOrdinal = new Map<number, string>();
   for (const claim of claims) {
-    if (claim.layer === 'raw' && claim.predicate !== LISTED_PREDICATE) {
+    if (claim.layer === 'raw' && lastModifiedPredicate !== null && claim.predicate === lastModifiedPredicate) {
       lastModifiedByOrdinal.set(claim.provenance.ordinal, claim.object);
     }
   }
@@ -462,7 +487,7 @@ function reprojectSourceClaims(source: ForbiddenLedgerSource, claims: readonly C
 export function collectRawDisclosuresFromLedger(ledgerDir: string, sources: readonly ForbiddenLedgerSource[]): RawDisclosure[] {
   if (sources.length === 0) return [];
   const files = sources.map(source => path.join(ledgerDir, `${source.jsonlStem}.jsonl`));
-  return reprojectDisclosures(foldQuery<ForbiddenFoldRow>(foldSqlOver(ledgerClaimsCte(files))), sources);
+  return reprojectDisclosures(foldQuery<ForbiddenFoldRow>(foldSqlOver(ledgerClaimsCte(files), lastModifiedPredicatesOf(sources))), sources);
 }
 
 // Fold the disclosures from the shared deploy-time claims Parquet (issue #403),
@@ -472,7 +497,7 @@ export function collectRawDisclosuresFromLedger(ledgerDir: string, sources: read
 export function collectRawDisclosuresFromParquet(source: ClaimsSource, sources: readonly ForbiddenLedgerSource[]): RawDisclosure[] {
   if (sources.length === 0) return [];
   const cte = parquetClaimsCte(source, sources.map(sourceFileOf));
-  return reprojectDisclosures(foldQuery<ForbiddenFoldRow>(foldSqlOver(cte)), sources);
+  return reprojectDisclosures(foldQuery<ForbiddenFoldRow>(foldSqlOver(cte, lastModifiedPredicatesOf(sources))), sources);
 }
 
 // Build the history by folding the claim data. A caller holding a ledger

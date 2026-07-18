@@ -40,15 +40,17 @@
  * membership bucket counts distinct cleaned keys over - is exactly the token
  * the disclosure lists as available.
  *
- * The ROLE VOCABULARY the family previously reprojected (suffix /
- * licence_class / prefix predicates, synthesising sub-shape A's sheet-level
- * constants onto every row) is DEFERRED derived-fold work (issue #813, Stage
- * D): Stage A emits no analytical claims. Nothing is dropped - the lossless
- * structure still carries every cell the roles derive from (sub-shape B's
- * Product/Reference columns verbatim; sub-shape A's class and prefix as the
- * sheet's own header/preamble text in the file-level manifest) - but the
- * role-named reading of those cells will be re-expressed as a fold over these
- * raw claims, not re-ingested beside them.
+ * The ROLE VOCABULARY the family once reprojected into the raw layer (suffix /
+ * licence_class / prefix) now rides as DERIVED claims (issue #813 Stage D): the
+ * loader lifts the authored role bindings off the conversion's column specs
+ * (sub-shape A's sheet-level class constant and stated prefix; both sub-shapes'
+ * suffix cell; sub-shape B's Product cell as licence_class) and the emit path
+ * derives one claim per (row, role) under AUTHORED_ROLE_RULE
+ * (authored-role-emit.ts, reading out Looked-up). The raw layer stays purely
+ * the published bytes; the authored `status` output ('Available' on sub-shape
+ * A) is deliberately NOT restored as a role claim - availability is modelled
+ * as FAMILY MEMBERSHIP (the value catalogue's projection), and sub-shape B's
+ * sheet-level Status column already rides verbatim in the raw layer.
  *
  * TWO sub-shapes, discriminated by the authored callsign column's kind:
  *  - Sub-shape A (2013/14, suffix-shaped; callsign column kind 'prefixed'): a
@@ -68,7 +70,7 @@
  *    masquerades as a register status.
  */
 
-import { type SourceObservationSet } from '../claim.ts';
+import { type AuthoredRoleBinding, type SourceObservationSet } from '../claim.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, type FoiEntryMeta } from '../../shared/foi-archive.ts';
 import { FOI_ENTRY_CONVERSIONS, type FoiSourceConversion } from '../../shared/foi-normalise.ts';
 import { loadFoiVerbatimCsvSource } from './foi-verbatim-csv.ts';
@@ -123,6 +125,27 @@ function subjectHeaderOf(conversion: FoiSourceConversion): string {
   return spec.source;
 }
 
+// The authored OUTPUT roles restored as derived claims (issue #813 Stage D):
+// the analytical vocabulary Stage A dropped from the raw layer, and nothing
+// more. `status` is deliberately absent (see the module header).
+const ROLE_OUTPUTS: readonly string[] = ['suffix', 'licence_class'];
+
+// The authored role bindings for one conversion, lifted off its column specs:
+// the stated prefix of a prefixed (sub-shape A) callsign column, plus each role
+// output's reading - a raw source header, or the sheet-level authored constant.
+export function authoredRoleBindingsOf(conversion: FoiSourceConversion): AuthoredRoleBinding[] {
+  const bindings: AuthoredRoleBinding[] = [];
+  const callsignSpec = conversion.columns.find(column => column.output === CALLSIGN_OUTPUT);
+  if (callsignSpec?.kind === 'prefixed' && callsignSpec.prefix !== undefined) {
+    bindings.push({ role: 'prefix', source: null, constant: callsignSpec.prefix });
+  }
+  for (const column of conversion.columns) {
+    if (!ROLE_OUTPUTS.includes(column.output)) continue;
+    bindings.push({ role: column.output, source: column.source, constant: column.constant });
+  }
+  return bindings;
+}
+
 // Load one available-pool source as its lossless structure-preserving mirror
 // (verbatim headers, physical columns, positioned preamble furniture), with the
 // SUBJECT re-pointed at the authored callsign/suffix column so the raw subject
@@ -130,14 +153,15 @@ function subjectHeaderOf(conversion: FoiSourceConversion): string {
 // keyed it. For sub-shape A the authored column IS the single physical column;
 // for sub-shape B it is the raw Value column (not the first physical column,
 // Country). Either way the header must be present in the parsed source, or the
-// shape has changed and the load fails loud.
+// shape has changed and the load fails loud. The authored role bindings ride
+// along for the derived tier (issue #813 Stage D).
 export function loadAvailablePoolSource(foiDir: string, entry: string, meta: FoiEntryMeta, conversion: FoiSourceConversion): SourceObservationSet {
   const mirror = loadFoiVerbatimCsvSource(foiDir, entry, meta, conversion);
   const subjectColumn = subjectHeaderOf(conversion);
   if (!mirror.columns.includes(subjectColumn)) {
     throw new Error(`${mirror.sourceFile}: authored subject column "${subjectColumn}" absent from raw header (${mirror.columns.join(', ')})`);
   }
-  return { ...mirror, subjectColumn };
+  return { ...mirror, subjectColumn, authoredRoleBindings: authoredRoleBindingsOf(conversion) };
 }
 
 // The available-pool family: every available-pool FOI entry's per-sheet
@@ -156,6 +180,7 @@ export function collectAvailablePoolSources(foiDir: string = defaultFoiDir()): R
         family: 'available-pool',
         subjectKind: 'pool-slot',
         entry,
+        sourceFile: `foi/${entry}/${conversion.sourceFile}`,
         jsonlStem: jsonlStem('available', entry, conversion.sourceFile),
         load: () => loadAvailablePoolSource(foiDir, entry, meta, conversion),
       });
