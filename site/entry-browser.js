@@ -33,8 +33,16 @@ import { nextSort as coreNextSort } from './table-sort.js';
 // shared table-sort core's, so this surface and every other sortable table on the
 // site cannot drift apart. These two adapters map a SortEntry across that edge: to
 // the core's compact { key, dir } for a transition, and back to this shape after.
+//
+// A direction is treated as ascending ONLY when it is exactly 'ASC', matching the
+// transition rule this browser has always applied (a strict `dir === 'ASC'` test):
+// a well-formed 'DESC', and any non-canonical value a stale or hand-edited ?view=
+// link can carry (browser-query parses sort.dir from untrusted JSON without
+// normalising it), both count as descending. Preserving that exact predicate
+// keeps the first toggle off such a value identical to the pre-shared behaviour
+// rather than diverging on untrusted input.
 /** @param {SortEntry} entry @returns {import('./table-sort.js').SortEntry} */
-function toCoreSort(entry) { return { key: entry.col, dir: entry.dir === 'DESC' ? 'desc' : 'asc' }; }
+function toCoreSort(entry) { return { key: entry.col, dir: entry.dir === 'ASC' ? 'asc' : 'desc' }; }
 /** @param {import('./table-sort.js').SortEntry} entry @returns {SortEntry} */
 function toLocalSort(entry) { return { col: entry.key, dir: entry.dir === 'desc' ? 'DESC' : 'ASC' }; }
 

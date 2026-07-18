@@ -267,7 +267,10 @@ describe('entry-browser header sort transitions (issue #787)', { tags: ['ui'] },
     return th;
   }
 
-  async function boot(): Promise<{ section: HTMLElement, queries: string[] }> {
+  // Optionally seed the ?view= link the browser restores from on first render,
+  // so a test can start it from a specific (or deliberately malformed) sort.
+  async function boot(view?: unknown): Promise<{ section: HTMLElement, queries: string[] }> {
+    if (view !== undefined) window.history.replaceState(null, '', '/?view=' + encodeURIComponent(JSON.stringify(view)));
     const section = buildScaffold();
     const worker = recordingWorker();
     enhance(section, { openCombined: () => Promise.resolve(worker) });
@@ -334,5 +337,21 @@ describe('entry-browser header sort transitions (issue #787)', { tags: ['ui'] },
     headerFor(section, 'product').dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
     await flush();
     expect(lastOrderBy(queries)).toBe('"status" ASC, "product" DESC');
+  });
+
+  it('EntryBrowser_WhenAViewLinkCarriesANonCanonicalDirection_FirstTogglePreservesTheStrictAscendingRule', async () => {
+    // The ?view= link is untrusted: browser-query parses sort.dir from its JSON
+    // without normalising it, so a stale or hand-edited link can carry a
+    // non-canonical direction (here lowercase 'desc'). The transition rule this
+    // browser has always applied treats a direction as ascending ONLY when it is
+    // exactly 'ASC', so a value that is not 'ASC' — canonical 'DESC' or this
+    // garbage 'desc' alike — is descending, and the first single toggle off it
+    // yields 'ASC'. This guards that exact predicate against a mapping that would
+    // instead read only 'DESC' as descending (treating 'desc' as ascending, so
+    // the first toggle would wrongly produce DESC).
+    const { section, queries } = await boot({ s: [{ col: 'callsign', dir: 'desc' }] });
+    headerFor(section, 'callsign').click();
+    await flush();
+    expect(lastOrderBy(queries)).toBe('"callsign" ASC');
   });
 });
