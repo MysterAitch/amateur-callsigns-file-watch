@@ -68,10 +68,11 @@ const INSERT_BATCH_ROWS = 500;
 // (2016-09-20 and 2022-03-07), the later of which carries the documented G0TQK
 // trailing-NBSP twin so the variants-of-entity lookup has real raw variance to
 // resolve; PLUS one entry per non-callsign subjectKind in the corpus (a
-// forbidden-suffix list, a statistics aggregate, an available-pool disclosure),
-// so the fat-vs-compact parity oracle structurally covers the raw-only families
-// whose observations must NOT gain normalisation edges (issue #824 - the
-// compact VIEW once fabricated them, and a callsign-only fixture never saw it).
+// forbidden-suffix list, a statistics aggregate, an available-pool disclosure,
+// the pre-war annex's raw-only token sheets), so the fat-vs-compact parity
+// oracle structurally covers the raw-only families whose observations must NOT
+// gain normalisation edges (issue #824 - the compact VIEW once fabricated them,
+// and a callsign-only fixture never saw it).
 // The full corpus is the default (no selector); this is opt-in.
 export const SUBSET_ENTRIES: readonly string[] = [
   // callsign register entries (subjectKind 'callsign')
@@ -83,6 +84,10 @@ export const SUBSET_ENTRIES: readonly string[] = [
   'wdtk-184767--annual-licence-counts',
   // subjectKind 'pool-slot': a 2014 available-suffix-lists disclosure
   'wdtk-197896--available-callsigns-list',
+  // subjectKind 'token': the pre-war annex (issue #813 Stage B), whose sheet 2
+  // additionally carries an EMPTY-STRING first header - the round-trip hazard
+  // the parity fixture must keep exercising.
+  'wdtk-238892--out-of-sequence-callsigns',
 ];
 
 export function subsetSelector(): EntrySelector {

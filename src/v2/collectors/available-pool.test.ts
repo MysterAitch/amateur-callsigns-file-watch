@@ -98,13 +98,14 @@ describe('available-pool family collection', { tags: ['data-validity'] }, () => 
     }
   });
 
-  it('AvailablePoolEntries_NowLosslessCanonicalInTheMainLedger_AreRetiredFromTheVerbatimCsvMirror', () => {
+  it('AvailablePoolEntries_NowLosslessCanonicalInTheMainLedger_AreRetiredFromTheVerbatimCsvFamily', () => {
     // The structural double-count resolution (issue #813 Stage A): exactly ONE
     // family carries each available-pool source's structure. The registered
-    // available-pool family emits it losslessly, so the parallel oracle-only
-    // foi-verbatim-csv mirror must resolve NOTHING for these entries.
+    // available-pool family emits it losslessly, so the foi-verbatim-csv family
+    // (itself registered since Stage B) must resolve NOTHING for these entries
+    // - otherwise the corpus would emit the same sourceFile twice.
     for (const { entry, meta } of availablePoolEntries()) {
-      expect(verbatimCsvSourcesFor(meta), `${entry} still mirrored by foi-verbatim-csv`).toEqual([]);
+      expect(verbatimCsvSourcesFor(meta), `${entry} still carried by foi-verbatim-csv`).toEqual([]);
     }
   });
 });

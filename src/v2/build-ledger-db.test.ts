@@ -81,10 +81,11 @@ describe('claim-ledger SQLite artefact', { tags: ['data-validity'] }, () => {
     const gunzipped = zlib.gunzipSync(fs.readFileSync(gzPath));
     expect(gunzipped.equals(fs.readFileSync(dbPath))).toBe(true);
     // A real corpus subset produced a substantial ledger: two register
-    // snapshots plus the forbidden-suffix list, the statistics table and the
-    // three available-pool sheets (one entry per subjectKind, issue #824).
+    // snapshots plus the forbidden-suffix list, the statistics table, the
+    // three available-pool sheets and the two pre-war annex sheets (one entry
+    // per subjectKind, issues #824 / #813 Stage B).
     expect(summary.claims).toBeGreaterThan(1_000_000);
-    expect(summary.sources).toBe(7);
+    expect(summary.sources).toBe(9);
   });
 
   it('NonCallsignSources_WhenEmitted_CarryNoNormalisationEdges', () => {
@@ -99,7 +100,7 @@ describe('claim-ledger SQLite artefact', { tags: ['data-validity'] }, () => {
         Number((db.prepare("SELECT COUNT(*) AS c FROM claims WHERE predicate = 'normalises_to' AND source_file LIKE ?").get(pattern) as { c: number | bigint }).c);
       const rawFor = (pattern: string): number =>
         Number((db.prepare("SELECT COUNT(*) AS c FROM claims WHERE layer = 'raw' AND source_file LIKE ?").get(pattern) as { c: number | bigint }).c);
-      for (const entry of ['ofcom-2024-12--forbidden-suffixes', 'wdtk-184767--annual-licence-counts', 'wdtk-197896--available-callsigns-list']) {
+      for (const entry of ['ofcom-2024-12--forbidden-suffixes', 'wdtk-184767--annual-licence-counts', 'wdtk-197896--available-callsigns-list', 'wdtk-238892--out-of-sequence-callsigns']) {
         const pattern = `foi/${entry}/%`;
         expect(rawFor(pattern)).toBeGreaterThan(0);
         expect(edgesFor(pattern)).toBe(0);

@@ -25,7 +25,8 @@ import {
   collectAttributeAddendumSources,
   attributeAddendumEntries,
 } from './collectors/attribute-addendum.ts';
-import { COLLECTORS } from './collectors/index.ts';
+import { COLLECTORS, collectLedgerSources } from './collectors/index.ts';
+import { duckDbAvailable, foldQuery } from './report-fold.ts';
 import { convertFoiSource } from '../shared/foi-normalise.ts';
 import { readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
 import { loadReferenceData, cleanedCallsign } from '../sources/ofcom-amateur/components.ts';
@@ -454,4 +455,61 @@ describe('corpus scale sanity', { tags: ['data-validity'] }, () => {
       const written = fs.readdirSync(path.join(outputDir, 'ledger')).filter(name => name.endsWith('.jsonl'));
       expect(written.length).toBe(summary.sourcesProcessed);
   });
+
+  it('LedgerCorpus_WhenAllFamiliesEmit_CarriesEachSourceFileFromExactlyOneFamily', () => {
+    // The sole-emitter invariant (issue #813, design §1a): EXACTLY one family
+    // emits per sourceFile across the whole corpus. This is the executable
+    // dissolution of the double-count class - any future scope-predicate
+    // overlap between two collectors (the register/addendum split, the
+    // available-pool exclusion, the verbatim family's preamble complement)
+    // fails HERE, loudly, instead of double-counting observations in the
+    // parquet, both databases and the value catalogue's membership buckets.
+    const emitted = summary.perSource.map(s => s.sourceFile);
+    const duplicates = emitted.filter((file, index) => emitted.indexOf(file) !== index);
+    expect(duplicates, `sourceFile(s) emitted by more than one family: ${[...new Set(duplicates)].join(', ')}`).toEqual([]);
+
+    // The same invariant at resolution time, before any load: every resolved
+    // source claims a distinct JSONL stem, so no source can silently overwrite
+    // another's persisted ledger file.
+    const resolved = collectLedgerSources({ foiDir: FOI_DIR, archiveDir: defaultArchiveDir() });
+    expect(resolved.length).toBe(summary.sourcesProcessed);
+    const stems = resolved.map(s => s.jsonlStem);
+    expect(new Set(stems).size).toBe(stems.length);
+
+    // Stage B registration (issue #813): the foi-verbatim-csv family is a real
+    // registered emitter now - the pre-war annex entry's two sheets, 419 + 41
+    // observations, raw-only (zero derived claims - deliberately NO callsign
+    // tiers; promotion is the Stage D rider, not a Stage B side effect).
+    expect(summary.entriesByFamily['foi-verbatim-csv']).toBe(1);
+    expect(summary.sourcesByFamily['foi-verbatim-csv']).toBe(2);
+    const annex = summary.perSource
+      .filter(s => s.family === 'foi-verbatim-csv')
+      .map(s => ({ sourceFile: s.sourceFile, observations: s.observations, derivedClaims: s.derivedClaims }));
+    expect(annex).toEqual([
+      { sourceFile: 'foi/wdtk-238892--out-of-sequence-callsigns/raw-extract-sheet-1-callsigns.csv', observations: 419, derivedClaims: 0 },
+      { sourceFile: 'foi/wdtk-238892--out-of-sequence-callsigns/raw-extract-sheet-2-database-fields.csv', observations: 41, derivedClaims: 0 },
+    ]);
+  });
+
+  it('LedgerJsonl_WhenSweptByDuckDb_HoldsNoSourceFileInMoreThanOneFile', () => {
+    // The DuckDB twin of the sole-emitter invariant (issue #813, design §1a):
+    // swept over the PERSISTED JSONL itself rather than the build summary, so
+    // the check holds against what actually landed on disk. In CI this file
+    // runs only in the dedicated build-ledger job (cicd.yaml), which installs
+    // the pinned CLI precisely so this sweep EXECUTES where the JSONL lives -
+    // the binary-gate below is the honest skip for a binary-less local run,
+    // never the expected CI path.
+    if (!duckDbAvailable()) {
+      expect(duckDbAvailable()).toBe(false);
+      return;
+    }
+    const glob = path.join(outputDir, 'ledger', '*.jsonl').replace(/\\/g, '/').replace(/'/g, "''");
+    const offenders = foldQuery<{ sourceFile: string; files: number }>(
+      `SELECT sourceFile, COUNT(DISTINCT filename) AS files
+       FROM read_json('${glob}', format='newline_delimited', columns={sourceFile: 'VARCHAR'}, filename=true)
+       GROUP BY sourceFile HAVING COUNT(DISTINCT filename) > 1
+       ORDER BY sourceFile`,
+    );
+    expect(offenders).toEqual([]);
+  }, 300_000);
 });

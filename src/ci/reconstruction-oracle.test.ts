@@ -299,6 +299,53 @@ describe('a source reconstructs from the ledger a build actually persists', { ta
       fs.rmSync(scratch, { recursive: true, force: true });
     }
   });
+
+  it('PrewarAnnexSheets_WhenReconstructedFromThePersistedLedgerJsonl_MatchTheOriginalsModuloCosmetics', () => {
+    // The Stage B canonicity claim (issue #813): the annex sheets were
+    // previously covered only via the oracle's own in-memory stream; now the
+    // family is REGISTERED, the ledger a build persists must carry their whole
+    // structure - including sheet 2's EMPTY-STRING first header, which must
+    // survive the JSONL serialiser round-trip as a genuine empty @column/0
+    // object, and sheet 1's preamble title as positioned @ignored furniture.
+    const entry = 'wdtk-238892--out-of-sequence-callsigns';
+    const sources = collectFoiVerbatimCsvSources().filter(resolved => resolved.entry === entry).map(resolved => resolved.load());
+    expect(sources).toHaveLength(2);
+
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'recon-annex-ledger-'));
+    try {
+      buildLedger(scratch, defaultFoiDir(), loadReferenceData(), key => key === entry);
+      const ledgerDir = path.join(scratch, 'ledger');
+      const files = fs.readdirSync(ledgerDir).filter(name => name.endsWith('.jsonl'));
+      expect(files).toHaveLength(2);
+
+      for (const source of sources) {
+        const persisted = files
+          .map(file => parseClaimsJsonl(fs.readFileSync(path.join(ledgerDir, file), 'utf8')))
+          .find(claims => claims[0]?.provenance.sourceFile === source.sourceFile);
+        expect(persisted, `no persisted ledger for ${source.sourceFile}`).toBeDefined();
+        if (persisted === undefined) continue;
+        // The registered emit is raw-only for a 'token' subject: the persisted
+        // stream carries NO derived claims of any kind.
+        expect(persisted.every(c => c.layer === 'raw')).toBe(true);
+        // The manifest rode the persisted ledger - sheet 2's first header is
+        // the EMPTY STRING and must read back as exactly that, not a dropped
+        // or undefined key.
+        const columnZero = persisted.find(c => isFileLevelClaim(c) && c.predicate === columnPredicate(0));
+        expect(columnZero).toBeDefined();
+        if (source.sourceFile.endsWith('raw-extract-sheet-2-database-fields.csv')) {
+          expect(columnZero?.object).toBe('');
+        }
+        const reconstruction = reconstructCsvFromClaims(persisted);
+        const repoPath = source.repoPath;
+        expect(repoPath).toBeDefined();
+        if (repoPath === undefined) continue;
+        const original = fs.readFileSync(path.join(REPO_ROOT, repoPath)).toString(source.encoding ?? 'utf8');
+        expect(canonicaliseCsvText(reconstruction)).toBe(canonicaliseCsvText(original));
+      }
+    } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  });
 });
 
 // ---- Phase 3 shapes: available-pool (registered, lossless-canonical) and the
@@ -379,7 +426,7 @@ describe('available-pool sources reconstruct from their REGISTERED claims (issue
   });
 });
 
-describe('FOI preamble CSV sheets still mirrored verbatim reconstruct from claims (issue #434 E3)', { tags: ['data-validity'] }, () => {
+describe('the pre-war annex reconstructs from its REGISTERED claims (issue #813 Stage B)', { tags: ['data-validity'] }, () => {
 
   it('PrewarAnnexTwoColumnSheet_WhenReconstructedFromClaims_MatchesOriginalModuloCosmetics', () => {
     // The pre-war annex sheet 1 (wdtk-238892): a two-column sheet whose preamble
@@ -482,7 +529,7 @@ describe('FOI markdown-table transcriptions reconstruct their table region (issu
 // ---- Coverage bookkeeping ---------------------------------------------------
 
 describe('the oracle declares its coverage and any residual gaps explicitly', { tags: ['unit'] }, () => {
-  it('CoveredFamilies_WhenListed_AreTheThreeCsvLanesTheAvailablePoolFamilyAndTheTwoPhase3Mirrors', () => {
+  it('CoveredFamilies_WhenListed_AreTheThreeCsvLanesTheTwoRegisteredLosslessFamiliesAndTheMarkdownMirror', () => {
     expect([...COVERED_FAMILIES].sort()).toEqual([
       'attribute-addendum', 'available-pool', 'foi-markdown-table', 'foi-register', 'foi-verbatim-csv', 'open-data-register',
     ]);
@@ -495,10 +542,11 @@ describe('the oracle declares its coverage and any residual gaps explicitly', { 
 
   it('EveryPhase3TextShape_WhenCrossChecked_IsIngestedByAMirrorOrALosslessCanonicalFamily', () => {
     // E3 landed every markdown-table, preamble and prefixed shape into a mirror,
-    // and Stage A (issue #813) moved the available-pool shapes onto the
-    // registered family's own lossless emit - so the honest non-coverage list
-    // stays EMPTY, the coverage guarantee. A future shape that slipped every
-    // selection would resurface here.
+    // Stage A (issue #813) moved the available-pool shapes onto the registered
+    // family's own lossless emit, and Stage B registered the pre-war annex's
+    // verbatim family - so the honest non-coverage list stays EMPTY, the
+    // coverage guarantee. A future shape that slipped every selection would
+    // resurface here.
     expect(listNotYetCovered()).toEqual([]);
   });
 });

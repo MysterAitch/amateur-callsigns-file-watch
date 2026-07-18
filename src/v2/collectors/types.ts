@@ -18,10 +18,13 @@ export interface LedgerRoots {
 // path runs callsign normalisation (cleanedCallsign + normalises_to edges) or
 // emits raw observations only. Register/addendum families are 'callsign'; a
 // forbidden-suffix list is 'suffix'; a statistics aggregate has no per-row
-// subject ('aggregate'); an available-pool slot is 'pool-slot'. Extend the union
-// as bespoke families land - the point is the emit path never mis-normalises a
-// non-callsign token AS a callsign.
-export type SubjectKind = 'callsign' | 'suffix' | 'pool-slot' | 'aggregate';
+// subject ('aggregate'); an available-pool slot is 'pool-slot'; a 'token' is the
+// explicitly raw-only kind for a source whose subject cell is carried purely as
+// the published token (the pre-war annex, issue #813 Stage B) - it makes no
+// analytical assertion at all, so it acquires no derived tier of any kind.
+// Extend the union as bespoke families land - the point is the emit path never
+// mis-normalises a non-callsign token AS a callsign.
+export type SubjectKind = 'callsign' | 'suffix' | 'pool-slot' | 'aggregate' | 'token';
 
 // One published source resolved to everything buildLedger needs: how to load
 // its rows, and a filesystem-safe unique stem for its JSONL. `entry` is the

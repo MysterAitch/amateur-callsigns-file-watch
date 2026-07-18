@@ -1,30 +1,38 @@
 /**
- * The FOI verbatim-CSV reconstruction family (issue #434 Phase 3 / E3): a
- * STRUCTURE-PRESERVING mirror of the FOI raw-extract CSV shapes that still have
- * no lossless owner in the main ledger. Its loader (loadFoiVerbatimCsvSource)
- * is also the shared parse core the available-pool family builds its OWN
- * lossless-canonical emit on (issue #813 Stage A), so the structure-preserving
- * discipline lives in exactly one place.
+ * The FOI verbatim-CSV family (issue #434 Phase 3 / E3; issue #813 Stage B): the
+ * REGISTERED, lossless-canonical owner of the FOI raw-extract CSV shapes no
+ * analytical family carries. Its loader (loadFoiVerbatimCsvSource) is also the
+ * shared parse core the available-pool family builds its OWN lossless-canonical
+ * emit on (issue #813 Stage A), so the structure-preserving discipline lives in
+ * exactly one place.
  *
- * What the mirror carries: the source's VERBATIM header set, every physical
+ * What the family carries: the source's VERBATIM header set, every physical
  * column, and the pre-header preamble rows as positioned @ignored furniture -
  * the fidelity input the reconstruction oracle (src/ci/reconstruction-oracle.ts)
  * needs to rebuild the original file. Per the design (E3), the RAW cell is
- * stored as the subject: a suffix list holds bare tokens under a label header,
- * so the subject is that token as published, never a synthesised call sign
- * (synthesis is a derived concern this raw mirror does not make).
+ * stored as the subject: the subject is that token as published, never a
+ * synthesised call sign (synthesis is a derived concern this raw family does
+ * not make).
  *
  * SCOPE. A conversion is in scope when it is parsed as CSV (not a markdown
  * table) AND either declares a `preamble` OR maps its callsign column with kind
  * 'prefixed' - EXCEPT sources belonging to an available-pool entry, which the
- * registered available-pool family now emits losslessly into the main ledger
- * itself (issue #813 Stage A), so mirroring them here again would double-count
- * their structure in the oracle corpus. On the current archive the residue is
- * the 2015 pre-war annex (wdtk-238892), queued for its own canonical owner in
- * #813 Stage B. This family is NOT registered in the main ledger
- * (collectors/index.ts): it is a parallel faithful projection consumed only by
- * the reconstruction oracle, so it never double-counts the observations the
- * analytical families already emit.
+ * registered available-pool family emits losslessly into the main ledger itself
+ * (issue #813 Stage A), so carrying them here again would double-count their
+ * structure. On the current archive the resolution is exactly the 2015 pre-war
+ * annex (wdtk-238892): sheet 1's pre-WW2 G-series callsign list and sheet 2's
+ * disclosed licensing-database column headings.
+ *
+ * REGISTERED (issue #813 Stage B). The family joins the COLLECTORS registry, so
+ * the annex sheets ride the canonical persisted ledger through the ONE emit path
+ * (emitSourceLedgerClaims) and the reconstruction oracle rebuilds them from the
+ * ledger a build actually writes - not from a parallel oracle-only projection.
+ * The subject kind is 'token' (explicitly raw-only): a pre-war G-callsign is not
+ * a pool slot, and the family deliberately makes NO analytical claim about its
+ * subjects - no normalisation edges, no tiers (promoting sheet 1 to callsign
+ * tiers is a separate deliberate decision, the #813 Stage D rider). The
+ * sole-emitter invariant (exactly one family emits per sourceFile) is asserted
+ * corpus-wide in build-ledger.test.ts.
  */
 
 import * as fs from 'fs';
@@ -34,7 +42,7 @@ import { renderCell } from '../../shared/normalise.ts';
 import { type SourceObservationSet } from '../claim.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, type FoiEntryMeta } from '../../shared/foi-archive.ts';
 import { FOI_ENTRY_CONVERSIONS, type FoiSourceConversion } from '../../shared/foi-normalise.ts';
-import type { ResolvedLedgerSource } from './types.ts';
+import type { LedgerCollector, ResolvedLedgerSource } from './types.ts';
 import { jsonlStem, AVAILABLE_POOL_CLASS } from './util.ts';
 
 // The normalised output whose bound kind distinguishes a synthesised (prefixed)
@@ -163,11 +171,12 @@ export function collectFoiVerbatimCsvSources(foiDir: string = defaultFoiDir()): 
     for (const conversion of verbatimCsvSourcesFor(meta)) {
       resolved.push({
         family: 'foi-verbatim-csv',
-        // Inert here: the reconstruction oracle emits raw claims only and never
-        // branches on subjectKind (it does not normalise). Tagged 'pool-slot' so
-        // the value cannot be mistaken for a licence-carrying register row if
-        // this family were ever folded into the main emit path.
-        subjectKind: 'pool-slot',
+        // Explicitly raw-only (issue #813 Stage B): the registered emit path
+        // routes 'token' through emitClaims alone, so the subject cell travels
+        // purely as the published token - never mis-normalised as a callsign,
+        // never mislabelled a pool slot (a pre-war G-callsign is neither), and
+        // acquiring no derived tier of any kind.
+        subjectKind: 'token',
         entry,
         jsonlStem: jsonlStem('recon-csv', entry, conversion.sourceFile),
         load: () => loadFoiVerbatimCsvSource(foiDir, entry, meta, conversion),
@@ -176,3 +185,12 @@ export function collectFoiVerbatimCsvSources(foiDir: string = defaultFoiDir()): 
   }
   return resolved;
 }
+
+// The registered collector (issue #813 Stage B): the annex sheets join the
+// corpus through the one COLLECTORS registry, so the persisted ledger - not a
+// parallel oracle-only projection - is canonical for them.
+export const foiVerbatimCsvCollector: LedgerCollector = {
+  family: 'foi-verbatim-csv',
+  subjectKind: 'token',
+  collect: roots => collectFoiVerbatimCsvSources(roots.foiDir),
+};

@@ -28,9 +28,10 @@ const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 // register snapshots (two vintages, the documented G0TQK trailing-NBSP twin,
 // the rare placeholder-object divergence the override table exists for - the
 // M/EI8DJ observation) PLUS one entry per non-callsign subjectKind (a
-// forbidden-suffix list, a statistics aggregate, an available-pool disclosure),
-// so parity structurally covers the raw-only families whose observations must
-// NOT gain normalisation edges (issue #824).
+// forbidden-suffix list, a statistics aggregate, an available-pool disclosure,
+// the pre-war annex's raw-only token sheets - issue #813 Stage B), so parity
+// structurally covers the raw-only families whose observations must NOT gain
+// normalisation edges (issue #824).
 
 process.env.TIERS_GZIP_LEVEL = '1';
 
@@ -117,13 +118,13 @@ describe('compact claim-ledger schema', { tags: ['data-validity'] }, () => {
   it('ProvenanceTables_WhenBuilt_CollapseHighRepetitionColumnsToSmallDictionaries', () => {
     const db = openDb(compactPath);
     try {
-      // The subset resolves to seven sources (two register snapshots, one
+      // The subset resolves to nine sources (two register snapshots, one
       // forbidden-suffix list, one statistics table, three available-pool
-      // sheets), a handful of distinct predicates, and far fewer observations
-      // than reconstructed claims - the repetition the fat schema paid for on
-      // every row.
+      // sheets, two pre-war annex sheets), a handful of distinct predicates,
+      // and far fewer observations than reconstructed claims - the repetition
+      // the fat schema paid for on every row.
       const sources = Number((db.prepare('SELECT COUNT(*) c FROM source').get() as { c: number | bigint }).c);
-      expect(sources).toBe(7);
+      expect(sources).toBe(9);
       const observations = Number((db.prepare('SELECT COUNT(*) c FROM observation').get() as { c: number | bigint }).c);
       const claims = Number((db.prepare('SELECT COUNT(*) c FROM claims').get() as { c: number | bigint }).c);
       expect(observations).toBeLessThan(claims / 3);
@@ -266,9 +267,11 @@ describe('the emits_edges gate re-presents exactly what the ledger emitted (issu
   it('EmitsEdgesFlag_WhenBuiltAcrossSubjectKinds_RecordsWhichSourcesCarryEdgesInTheLedger', () => {
     // The per-source flag is read from the persisted JSONL, never re-derived
     // from subject kinds: the two callsign register snapshots carry a cleaned
-    // edge per observation (flag 1); the forbidden-suffix, statistics and
-    // available-pool sources carry none (flag 0) - the fat side's stated
-    // invariant, "a non-callsign token is never mis-normalised AS a callsign".
+    // edge per observation (flag 1); the forbidden-suffix, statistics,
+    // available-pool and pre-war annex sources carry none (flag 0) - the fat
+    // side's stated invariant, "a non-callsign token is never mis-normalised AS
+    // a callsign". The annex family (issue #813 Stage B) lands with
+    // emits_edges = 0 from its first registered build.
     const db = openDb(compactPath);
     try {
       const flags = db.prepare('SELECT source_file, emits_edges FROM source ORDER BY source_file').all() as { source_file: string; emits_edges: number }[];
@@ -276,10 +279,11 @@ describe('the emits_edges gate re-presents exactly what the ledger emitted (issu
       const edgeful = flags.filter(f => f.emits_edges === 1).map(f => f.source_file);
       expect(edgeful).toHaveLength(2);
       expect(edgeful.every(f => f.includes('all-callsigns') || f.includes('allocated-reserved'))).toBe(true);
-      expect(edgeless).toHaveLength(5);
+      expect(edgeless).toHaveLength(7);
       expect(edgeless.some(f => f.includes('forbidden'))).toBe(true);
       expect(edgeless.some(f => f.includes('annual-licence-counts'))).toBe(true);
       expect(edgeless.filter(f => f.includes('available-callsigns-list'))).toHaveLength(3);
+      expect(edgeless.filter(f => f.includes('out-of-sequence-callsigns'))).toHaveLength(2);
     } finally {
       db.close();
     }
