@@ -243,8 +243,8 @@ describe('Markdown renderer', { tags: ['unit'] }, () => {
   it('RenderMarkdown_Table_WrappedInHorizontalScrollContainer', () => {
     // Wide report tables scroll within their own box, not the page body.
     const html = renderMarkdown('| a | b |\n|---|---|\n| 1 | 2 |');
-    expect(html).toContain('<div style="overflow-x:auto">');
-    expect(html).toMatch(/<div style="overflow-x:auto">\s*<table>/);
+    expect(html).toContain('<div class="overflow" style="overflow-x:auto">');
+    expect(html).toMatch(/<div class="overflow" style="overflow-x:auto">\s*<table>/);
     expect(html).toContain('</table>\n</div>');
   });
 
