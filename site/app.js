@@ -12,6 +12,11 @@ import { placeholderOf } from './browser-query.js';
 import { callsignPillLink, CALLSIGN_CLASS, appendMarkedChars } from './callsign-pill.js';
 import { withDatabaseLoading } from './db-loading.js';
 import { licenceField, statusField, prefixSeriesField, prefixSeriesDisplay, prefixSeriesSlug, SUFFIX_CLASS } from './field-wrappers.js';
+import {
+  nextSort as coreNextSort,
+  sortToParam as coreSortToParam,
+  sortFromParam as coreSortFromParam,
+} from './table-sort.js';
 
 // The row shape read back off the httpvfs worker's query() is not typed by the
 // vendored library (no shipped types); every SELECT here states its own column
@@ -726,8 +731,24 @@ const PAGE_SIZE = 50;
  */
 
 // One column of the filtered-list sort: a stable deep-link key and the SQL
-// direction to order it by ('ASC' or 'DESC').
+// direction to order it by ('ASC' or 'DESC'). The SQL backend keeps its verbose
+// direction so the ORDER BY reads directly; the shared sort core speaks the
+// compact 'asc'/'desc' form the ?sort= link carries, so the two adapters below
+// map between them at this backend edge. This keeps ONE definition of the sort
+// transitions and serialisation (in table-sort.js) shared with the static-table
+// backend, while the closed-vocabulary ORDER BY emission stays SQL-specific.
 /** @typedef {{ key: string, dir: string }} SortEntry */
+
+// Map this backend's verbose SQL direction to the shared core's compact form,
+// and back, so a SortEntry can cross between the SQL edge and the pure core.
+/** @param {SortEntry} entry @returns {import('./table-sort.js').SortEntry} */
+function toCoreEntry(entry) {
+  return { key: entry.key, dir: entry.dir === 'DESC' ? 'desc' : 'asc' };
+}
+/** @param {import('./table-sort.js').SortEntry} entry @returns {SortEntry} */
+function toSqlEntry(entry) {
+  return { key: entry.key, dir: entry.dir === 'desc' ? 'DESC' : 'ASC' };
+}
 
 // Translate the pattern notation to a SQLite GLOB: A = letter, N = digit,
 // * = any run; anything else is literal. GLOB metacharacters in literals
@@ -779,12 +800,14 @@ export function listOrderBy(sort) {
   return parts.length > 0 ? parts.join(', ') : 'c.callsign ASC';
 }
 
-// The sort state a header interaction produces, matching the per-dataset
-// browser's semantics: a plain activation sorts by that column ALONE (toggling
-// to DESC only when it was already the sole ascending sort); a modified
-// activation (Shift/Ctrl/Alt/Meta) APPENDS the column as a secondary sort, or
-// toggles its direction when already present. Returns a NEW array (never
-// mutates the input); an unknown key is a no-op, returning the input untouched.
+// The sort state a header interaction produces. The transition rules (plain
+// activation sorts by the column ALONE, toggling ascending/descending; a
+// modified activation APPENDS a secondary sort or toggles its direction) are the
+// shared core's, so this backend and the static table cannot drift. This wrapper
+// adds the SQL backend's own edge concerns: the closed-vocabulary guard (an
+// unknown key is a no-op, returning the input untouched, so neither a click nor
+// a mangled deep link can widen the sortable columns) and the direction mapping.
+// Returns a NEW array; the input is never mutated.
 /**
  * @param {SortEntry[]} sort
  * @param {string} key
@@ -793,41 +816,29 @@ export function listOrderBy(sort) {
  */
 export function nextSort(sort, key, multi) {
   if (!LIST_SORT_BY_KEY.has(key)) return sort;
-  const idx = sort.findIndex(s => s.key === key);
-  if (multi) {
-    if (idx >= 0) return sort.map((s, i) => i === idx ? { key: s.key, dir: s.dir === 'ASC' ? 'DESC' : 'ASC' } : s);
-    return [...sort, { key, dir: 'ASC' }];
-  }
-  const wasAscSingle = sort.length === 1 && idx === 0 && sort[0].dir === 'ASC';
-  return [{ key, dir: wasAscSingle ? 'DESC' : 'ASC' }];
+  return coreNextSort(sort.map(toCoreEntry), key, { multi }).map(toSqlEntry);
 }
 
 // Serialise a sort spec to the compact ?sort= deep-link value
-// ("callsign:asc,status:desc"), or '' when it is the default (empty, or
-// callsign ASC alone) so a pristine list carries no param. Only known columns
-// are emitted.
+// ("callsign:asc,status:desc") via the shared core, or '' when it is the default
+// (empty, or callsign ASC alone) so a pristine list carries no param. The
+// closed-vocabulary filter and the default-collapse are this backend's edge
+// concerns, applied before delegating the grammar to the core.
 /** @param {SortEntry[]} sort */
 export function sortToParam(sort) {
   const known = sort.filter(s => LIST_SORT_BY_KEY.has(s.key));
   if (known.length === 0) return '';
   if (known.length === 1 && known[0].key === 'callsign' && known[0].dir === 'ASC') return '';
-  return known.map(s => `${s.key}:${s.dir === 'DESC' ? 'desc' : 'asc'}`).join(',');
+  return coreSortToParam(known.map(toCoreEntry));
 }
 
-// Inverse of sortToParam: parse a ?sort= value into a sort spec, dropping any
-// unknown column or malformed token so a stale or hand-mangled link degrades to
-// the default rather than erroring.
+// Inverse of sortToParam: parse a ?sort= value into a sort spec via the shared
+// core, passing the closed-vocabulary predicate so any unknown column (or
+// malformed token) is dropped and a stale or hand-mangled link degrades to the
+// default rather than erroring.
 /** @param {string | null | undefined} raw */
 export function sortFromParam(raw) {
-  if (!raw) return [];
-  /** @type {SortEntry[]} */
-  const out = [];
-  for (const token of raw.split(',')) {
-    const [key, dir] = token.split(':');
-    if (!LIST_SORT_BY_KEY.has(key)) continue;
-    out.push({ key, dir: (dir ?? '').toUpperCase() === 'DESC' ? 'DESC' : 'ASC' });
-  }
-  return out;
+  return coreSortFromParam(raw, key => LIST_SORT_BY_KEY.has(key)).map(toSqlEntry);
 }
 
 // The pristine sort a fresh list carries: callsign ascending, matching both the
