@@ -29,7 +29,7 @@ import {
   AUTHORITY_CEILINGS,
   type PublisherRegister,
 } from '../shared/publishers.ts';
-import type { ValidationProblem } from './validate-data.ts';
+import { isPlainObject, describeShape, type ValidationProblem } from '../shared/json-shape.ts';
 
 // The open-data lane's archive root (cwd-relative, matching validate-data).
 const DEFAULT_ARCHIVE_DIR = 'archive';
@@ -54,6 +54,15 @@ function isWellFormedUrl(value: string): boolean {
 export function validatePublisherRegister(register: PublisherRegister, registerPath: string = PUBLISHER_REGISTER_PATH): ValidationProblem[] {
   const problems: ValidationProblem[] = [];
 
+  // The register's declared type is aspirational, not verified: a caller
+  // reading the file straight off disk has only JSON.parse's `unknown`, and a
+  // malformed top-level value (null, an array, a scalar) must be REPORTED
+  // here rather than crash the first field read below (#812).
+  if (!isPlainObject(register)) {
+    problems.push({ path: registerPath, problem: `publisher register must be a JSON object, got ${describeShape(register)}` });
+    return problems;
+  }
+
   if (register.schemaVersion !== 1) {
     problems.push({ path: registerPath, problem: `unsupported schemaVersion: ${String(register.schemaVersion)}` });
   }
@@ -66,6 +75,10 @@ export function validatePublisherRegister(register: PublisherRegister, registerP
   const channelOwners = new Map<string, string>();
 
   for (const [i, publisher] of register.publishers.entries()) {
+    if (!isPlainObject(publisher)) {
+      problems.push({ path: registerPath, problem: `publishers[${i}] must be an object, got ${describeShape(publisher)}` });
+      continue;
+    }
     const at = `publishers[${i}]${isNonEmptyString(publisher.id) ? ` (${publisher.id})` : ''}`;
 
     if (!isNonEmptyString(publisher.id)) {
@@ -185,14 +198,20 @@ export function collectWitnessChannels(archiveDir: string = DEFAULT_ARCHIVE_DIR,
       if (!DATE_KEY_RE.test(name)) continue;
       const metaPath = path.join(archiveDir, name, 'meta.json');
       if (!fs.existsSync(metaPath)) continue;
-      let meta: { witnesses?: { channel?: unknown }[] };
+      let parsed: unknown;
       try {
-        meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as typeof meta;
+        parsed = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
       } catch {
         continue; // The open-data validator reports unreadable metas.
       }
-      for (const [i, witness] of (meta.witnesses ?? []).entries()) {
-        if (isNonEmptyString(witness.channel)) refs.push({ channel: witness.channel, at: `${metaPath} witnesses[${i}]` });
+      // A malformed top-level meta (null, an array, a scalar) is reported by
+      // the open-data validator too - this is a pure collector, so it just
+      // skips rather than crashing on `meta.witnesses` of a non-object.
+      if (!isPlainObject(parsed)) continue;
+      const meta = parsed as { witnesses?: { channel?: unknown }[] };
+      const witnesses = Array.isArray(meta.witnesses) ? meta.witnesses : [];
+      for (const [i, witness] of witnesses.entries()) {
+        if (isPlainObject(witness) && isNonEmptyString(witness.channel)) refs.push({ channel: witness.channel, at: `${metaPath} witnesses[${i}]` });
       }
     }
   }
@@ -202,15 +221,20 @@ export function collectWitnessChannels(archiveDir: string = DEFAULT_ARCHIVE_DIR,
       const dir = path.join(foiDir, name);
       const metaPath = path.join(dir, 'meta.json');
       if (!fs.statSync(dir).isDirectory() || !fs.existsSync(metaPath)) continue;
-      let meta: FoiEntryMeta;
+      let parsed: unknown;
       try {
-        meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as FoiEntryMeta;
+        parsed = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
       } catch {
         continue; // The FOI validator reports unreadable metas.
       }
-      for (const [fileName, decl] of Object.entries(meta.files ?? {})) {
-        for (const [i, witness] of (decl.witnesses ?? []).entries()) {
-          if (isNonEmptyString(witness.channel)) refs.push({ channel: witness.channel, at: `${metaPath} files["${fileName}"].witnesses[${i}]` });
+      if (!isPlainObject(parsed)) continue; // ditto - reported by the FOI validator.
+      const meta = parsed as FoiEntryMeta;
+      const files = isPlainObject(meta.files) ? meta.files : {};
+      for (const [fileName, decl] of Object.entries(files)) {
+        if (!isPlainObject(decl)) continue;
+        const witnesses = Array.isArray(decl.witnesses) ? decl.witnesses : [];
+        for (const [i, witness] of witnesses.entries()) {
+          if (isPlainObject(witness) && isNonEmptyString(witness.channel)) refs.push({ channel: witness.channel, at: `${metaPath} files["${fileName}"].witnesses[${i}]` });
         }
       }
     }
@@ -223,8 +247,15 @@ export function collectWitnessChannels(archiveDir: string = DEFAULT_ARCHIVE_DIR,
 // entry. An unknown token fails loud — the register IS the channel vocabulary.
 export function validateWitnessChannelsResolve(register: PublisherRegister, channels: WitnessChannelRef[]): ValidationProblem[] {
   const known = new Set<string>();
-  for (const publisher of register.publishers) {
-    for (const channel of publisher.channels) known.add(channel);
+  // validatePublisherRegister already reports a malformed publishers array (or a
+  // malformed item within it) - this runs regardless of that outcome (both are
+  // called unconditionally over the same parsed register), so it just skips
+  // what it cannot read rather than reporting it a second time or crashing.
+  for (const publisher of Array.isArray(register.publishers) ? register.publishers : []) {
+    if (!isPlainObject(publisher) || !Array.isArray(publisher.channels)) continue;
+    for (const channel of publisher.channels) {
+      if (typeof channel === 'string') known.add(channel);
+    }
   }
   const problems: ValidationProblem[] = [];
   for (const ref of channels) {
@@ -243,7 +274,16 @@ export function validatePublishersAt(registerPath: string = PUBLISHER_REGISTER_P
   }
   let register: PublisherRegister;
   try {
-    register = JSON.parse(fs.readFileSync(registerPath, 'utf8')) as PublisherRegister;
+    const parsed: unknown = JSON.parse(fs.readFileSync(registerPath, 'utf8'));
+    // A malformed top-level register (null, an array, a scalar) must be
+    // reported here, before either check below reads a property off it -
+    // validatePublisherRegister guards this too (so it can be unit-tested
+    // directly with a malformed value), but validateWitnessChannelsResolve
+    // has no shape of its own to fall back on if this one crashes first.
+    if (!isPlainObject(parsed)) {
+      return [{ path: registerPath, problem: `publisher register must be a JSON object, got ${describeShape(parsed)}` }];
+    }
+    register = parsed as PublisherRegister;
   } catch (err) {
     return [{ path: registerPath, problem: `publisher register is not valid JSON: ${errorMessage(err)}` }];
   }
