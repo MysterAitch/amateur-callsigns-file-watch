@@ -1,29 +1,30 @@
 /**
  * The FOI verbatim-CSV reconstruction family (issue #434 Phase 3 / E3): a
- * STRUCTURE-PRESERVING mirror of the FOI raw-extract CSV shapes the analytical
- * families ingest LOSSILY - the preamble-bearing sheets (the 2014 prefix/suffix
- * lists, the 2015 pre-war annex) and the 2013/14 prefixed suffix lists.
+ * STRUCTURE-PRESERVING mirror of the FOI raw-extract CSV shapes that still have
+ * no lossless owner in the main ledger. Its loader (loadFoiVerbatimCsvSource)
+ * is also the shared parse core the available-pool family builds its OWN
+ * lossless-canonical emit on (issue #813 Stage A), so the structure-preserving
+ * discipline lives in exactly one place.
  *
- * Why a separate family. The available-pool loader reprojects these sources into
- * a canonical role vocabulary (suffix/licence_class/prefix), synthesises authored
- * constants, and drops the source's own column names - deliberately, for
- * downstream joins. That projection cannot rebuild the original file, which is
- * exactly what the reconstruction oracle (src/ci/reconstruction-oracle.ts) must
- * do to prove the raw layer is canonical. This family instead carries the
- * source's VERBATIM header set, every physical column, and the pre-header
- * preamble rows as positioned @ignored furniture - the fidelity input the oracle
- * needs. Per the design (E3), the RAW cell is stored as the subject: a 2013-style
- * suffix list holds bare suffixes under a label header, so the subject is that
- * suffix token as published, never the synthesised M6/20/M0 call sign (synthesis
- * is a derived concern this raw mirror does not make).
+ * What the mirror carries: the source's VERBATIM header set, every physical
+ * column, and the pre-header preamble rows as positioned @ignored furniture -
+ * the fidelity input the reconstruction oracle (src/ci/reconstruction-oracle.ts)
+ * needs to rebuild the original file. Per the design (E3), the RAW cell is
+ * stored as the subject: a suffix list holds bare tokens under a label header,
+ * so the subject is that token as published, never a synthesised call sign
+ * (synthesis is a derived concern this raw mirror does not make).
  *
- * SCOPE. It covers exactly the CSV shapes the register/forbidden/available-pool
- * loaders skip and the oracle reports as not-yet-covered: a conversion is in
- * scope when it is parsed as CSV (not a markdown table) AND either declares a
- * `preamble` OR maps its callsign column with kind 'prefixed'. This family is
- * NOT registered in the main ledger (collectors/index.ts): it is a parallel
- * faithful projection consumed only by the reconstruction oracle, so it never
- * double-counts the observations the analytical families already emit.
+ * SCOPE. A conversion is in scope when it is parsed as CSV (not a markdown
+ * table) AND either declares a `preamble` OR maps its callsign column with kind
+ * 'prefixed' - EXCEPT sources belonging to an available-pool entry, which the
+ * registered available-pool family now emits losslessly into the main ledger
+ * itself (issue #813 Stage A), so mirroring them here again would double-count
+ * their structure in the oracle corpus. On the current archive the residue is
+ * the 2015 pre-war annex (wdtk-238892), queued for its own canonical owner in
+ * #813 Stage B. This family is NOT registered in the main ledger
+ * (collectors/index.ts): it is a parallel faithful projection consumed only by
+ * the reconstruction oracle, so it never double-counts the observations the
+ * analytical families already emit.
  */
 
 import * as fs from 'fs';
@@ -34,7 +35,7 @@ import { type SourceObservationSet } from '../claim.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, type FoiEntryMeta } from '../../shared/foi-archive.ts';
 import { FOI_ENTRY_CONVERSIONS, type FoiSourceConversion } from '../../shared/foi-normalise.ts';
 import type { ResolvedLedgerSource } from './types.ts';
-import { jsonlStem } from './util.ts';
+import { jsonlStem, AVAILABLE_POOL_CLASS } from './util.ts';
 
 // The normalised output whose bound kind distinguishes a synthesised (prefixed)
 // callsign source from a plainly-mapped one.
@@ -52,11 +53,11 @@ interface PhysicalRow {
   info: { lines: number };
 }
 
-// Whether a conversion is one of the verbatim-CSV shapes this family mirrors: a
-// CSV source (not a markdown table) that either carries a preamble or maps a
-// prefixed (synthesised-callsign) column. This is the exact complement, among
-// the FOI CSV conversions, of the shapes the register/forbidden/available-pool
-// loaders already emit - so no source is mirrored twice within a run.
+// Whether a conversion is one of the verbatim-CSV shapes this family CAN
+// mirror: a CSV source (not a markdown table) that either carries a preamble or
+// maps a prefixed (synthesised-callsign) column. Entry-level scoping (the
+// available-pool exclusion) is applied by verbatimCsvSourcesFor, which sees the
+// entry metadata this shape test does not.
 export function isVerbatimCsvReconstructionSource(conversion: FoiSourceConversion): boolean {
   if (conversion.format === MARKDOWN_TABLE_FORMAT) return false;
   if (conversion.preamble !== undefined) return true;
@@ -66,8 +67,12 @@ export function isVerbatimCsvReconstructionSource(conversion: FoiSourceConversio
 
 // The verbatim-CSV reconstruction sources bound to one entry, read from the
 // authored converter binding (FOI_ENTRY_CONVERSIONS) so the raw file is never
-// re-guessed.
+// re-guessed. An available-pool entry contributes NOTHING here: its sources are
+// lossless-canonical in the main ledger via the registered available-pool
+// family (issue #813 Stage A), so exactly one family carries their structure
+// and the oracle reconstructs them from the registered claims.
 export function verbatimCsvSourcesFor(meta: FoiEntryMeta): FoiSourceConversion[] {
+  if (meta.datasetClasses.includes(AVAILABLE_POOL_CLASS)) return [];
   const variant = meta.converter?.variant;
   if (variant === undefined || variant === null) return [];
   const conversions = FOI_ENTRY_CONVERSIONS[variant];
