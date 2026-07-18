@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import {
   canonicaliseCsvText,
   canonicaliseMarkdownTable,
@@ -12,6 +15,10 @@ import {
   CSV_SERIALISED_FAMILIES,
   MARKDOWN_PROSE_SCOPE_NOTE,
 } from './reconstruction-oracle.ts';
+import { buildLedger } from '../v2/build-ledger.ts';
+import { parseClaimsJsonl } from '../v2/serialise.ts';
+import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { defaultFoiDir } from '../shared/foi-archive.ts';
 import {
   emitClaims,
   emitFileManifestClaims,
@@ -243,6 +250,54 @@ describe('CSV-lane sources reconstruct byte-identically modulo cosmetics from th
       expect(result.ok, result.detail).toBe(true);
     },
   );
+});
+
+// ---- Canonicity: reconstruct straight off the PERSISTED ledger (issue #455) --
+
+describe('a source reconstructs from the ledger a build actually persists', { tags: ['data-validity'] }, () => {
+  // The repo root, two levels up from src/ci/ (as the oracle module resolves it),
+  // so a source's repo-relative repoPath resolves to the real archived file.
+  const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
+
+  it('FoiRegisterSource_WhenReconstructedFromThePersistedLedgerJsonl_MatchesTheOriginalModuloCosmetics', () => {
+    // The load-bearing #455 claim: the MAIN ledger a build writes carries the
+    // whole source structure, so a reader rebuilds the original publication from
+    // the ledger ALONE - not from a parallel oracle-only projection. Emit the
+    // real ledger for one FOI-register entry, then reconstruct straight off the
+    // JSONL file on disk (parsed through the ledger's own parser), and prove the
+    // file-level manifest genuinely rode that persisted ledger.
+    const entry = 'ofcom-01420046--allocated-reserved-callsigns';
+    const source = loadByEntry(collectFoiRegisterSources(), entry);
+    expect(source.repoPath).toBeDefined();
+    const repoPath = source.repoPath;
+    if (repoPath === undefined) return;
+
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'recon-from-ledger-'));
+    try {
+      buildLedger(scratch, defaultFoiDir(), loadReferenceData(), key => key === entry);
+      const ledgerDir = path.join(scratch, 'ledger');
+      const files = fs.readdirSync(ledgerDir).filter(name => name.endsWith('.jsonl'));
+
+      let reconstruction: string | undefined;
+      for (const file of files) {
+        const claims = parseClaimsJsonl(fs.readFileSync(path.join(ledgerDir, file), 'utf8'));
+        if (claims[0]?.provenance.sourceFile !== source.sourceFile) continue;
+        // The manifest rode the persisted ledger: its @subject and @column
+        // file-level claims are on disk, so the header/subject placement is read
+        // from the ledger, never re-derived from the loader.
+        expect(claims.some(c => isFileLevelClaim(c) && c.predicate === SUBJECT_PREDICATE)).toBe(true);
+        expect(claims.some(c => isFileLevelClaim(c) && c.predicate === columnPredicate(0))).toBe(true);
+        reconstruction = reconstructCsvFromClaims(claims);
+      }
+      expect(reconstruction).toBeDefined();
+      if (reconstruction === undefined) return;
+
+      const original = fs.readFileSync(path.join(REPO_ROOT, repoPath)).toString(source.encoding ?? 'utf8');
+      expect(canonicaliseCsvText(reconstruction)).toBe(canonicaliseCsvText(original));
+    } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  });
 });
 
 // ---- Phase 3 shapes: verbatim-CSV (preamble / prefixed) round-trip ----------

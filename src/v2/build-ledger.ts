@@ -47,9 +47,22 @@
  * NOT a dependency here - the whole point is to work from raw.
  *
  * Layers, this stage: the seed's raw / derived only. Raw = the verbatim source
- * cells under Ofcom's headers; derived = the normalises_to edges lifted from
- * components.ts. The full T0-T4 tier ladder (attribute-level derived claims for
- * the status/class/date rules) is a LATER stage - noted here, not built.
+ * cells under Ofcom's headers PLUS the file-level manifest (the verbatim header
+ * set/order, the subject column, and the curated furniture the loader strips -
+ * a header/furniture string IS a source byte, ADR 0016); derived = the
+ * normalises_to edges lifted from components.ts. The full T0-T4 tier ladder
+ * (attribute-level derived claims for the status/class/date rules) is a LATER
+ * stage - noted here, not built.
+ *
+ * CANONICAL RECONSTRUCTION FRAMING (issue #455). The file-level manifest rides
+ * the canonical emit here (emitSourceLedgerClaims), not only the reconstruction
+ * oracle's own stream, so the persisted ledger carries the WHOLE structure a
+ * source needs to be rebuilt - the reconstruction oracle round-trips FROM the
+ * ledger (src/ci/reconstruction-oracle.ts), the committed raw file being
+ * redundant-by-derivation, rather than from a parallel oracle-only projection.
+ * Manifest claims ride the FILE_LEVEL_ORDINAL sentinel, so every ordinal-keyed
+ * fold excludes them (isFileLevelClaim) and the observation multiset the
+ * projections see is unchanged.
  *
  * WHICH raw file backs each snapshot, and which raw column is the callsign, are
  * read from the entry's authored converter binding (FOI_ENTRY_CONVERSIONS) - the
@@ -69,8 +82,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { emitLedger, emitClaims, type Claim } from './claim.ts';
+import { emitLedger, emitClaims, emitFileManifestClaims, type Claim, type SourceObservationSet } from './claim.ts';
 import { serialiseClaimsJsonl } from './serialise.ts';
+import type { SubjectKind } from './collectors/types.ts';
 import { errorMessage } from '../shared/utils.ts';
 import { defaultFoiDir } from '../shared/foi-archive.ts';
 import { loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
@@ -116,6 +130,19 @@ export interface SkippedSource {
   family: string;
   entry: string;
   error: string;
+}
+
+// The canonical per-source claim stream the ledger persists: the raw layer
+// (existence + verbatim attribute claims, plus the derived normalisation/tier
+// claims for a callsign subject) FOLLOWED BY the file-level manifest (issue
+// #434/#455, ADR 0016). A callsign subject runs the full emit path (cleanedCallsign
+// + normalises_to edges + tiers); any other subject kind emits the raw
+// observation claims only, so a non-callsign token is never mis-normalised AS a
+// callsign. The manifest is appended LAST so the per-row existence anchor stays
+// claims[0] - the claim the projections read the source key and vintage off.
+export function emitSourceLedgerClaims(source: SourceObservationSet, subjectKind: SubjectKind, ref: ReferenceData): Claim[] {
+  const claims = subjectKind === 'callsign' ? emitLedger(source, ref) : emitClaims(source);
+  return [...claims, ...emitFileManifestClaims(source)];
 }
 
 function tallyLayers(claims: readonly Claim[]): { raw: number; derived: number } {
@@ -179,12 +206,10 @@ export function buildLedger(
     let claims;
     try {
       observationSet = source.load();
-      // A callsign subject runs the full emit path (cleanedCallsign +
-      // normalises_to edges); any other subject kind emits the raw observation
-      // claims only, so a non-callsign token is never mis-normalised AS a
-      // callsign. Every covered family is 'callsign' today, so this is the full
-      // path for the whole corpus.
-      claims = source.subjectKind === 'callsign' ? emitLedger(observationSet, ref) : emitClaims(observationSet);
+      // The canonical per-source stream: raw + derived (for a callsign subject)
+      // plus the file-level manifest, so the persisted ledger is self-sufficient
+      // for reconstruction (issue #455).
+      claims = emitSourceLedgerClaims(observationSet, source.subjectKind, ref);
     } catch (err) {
       if (!skipFailedSources) throw err;
       skipped.push({ family: source.family, entry: source.entry, error: errorMessage(err) });

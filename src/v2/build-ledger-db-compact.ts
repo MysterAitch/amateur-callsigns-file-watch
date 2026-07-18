@@ -30,6 +30,12 @@
  *    so their point-lookup indexes are used verbatim through the VIEW - no
  *    planner gymnastics to translate a typed callsign into a dictionary id.
  *
+ * The file-level manifest (issue #434/#455, ADR 0016) - the verbatim header /
+ * subject / furniture claims that describe a source FILE rather than a row - is
+ * NOT an observation, so it rides its own `file_claim` satellite (an empty
+ * subject, the sentinel ordinal) and the VIEW re-presents it verbatim. The
+ * observation model and its @listed/normalises_to synthesis are untouched.
+ *
  * The `claims` VIEW reproduces the fat table's exact ten-column multiset, so the
  * four representative queries and the S3a browser query layer keep working
  * unchanged. build-ledger-db-compact.test.ts asserts the multiset is identical
@@ -61,6 +67,8 @@ import {
   PLACEHOLDER_FORM_RULE,
   LICENCE_CATEGORY_PREDICATE,
   LICENCE_CATEGORY_RULE,
+  FILE_LEVEL_ORDINAL,
+  isFileLevelClaim,
   type Claim,
 } from './claim.ts';
 
@@ -167,6 +175,20 @@ CREATE TABLE derived_attr (
   object_id INTEGER NOT NULL,
   rule_id INTEGER NOT NULL
 );
+-- The FILE-LEVEL manifest (issue #434/#455, ADR 0016): the verbatim header
+-- columns (@column/<index>), the subject column (@subject) and the curated
+-- furniture (@ignored) that describe the source FILE rather than any row. These
+-- are raw claims on the FILE_LEVEL_ORDINAL sentinel with an empty subject, so
+-- they are NOT observations (no @listed anchor, no cleaned/entity, no
+-- normalises_to edge) - carried here as their own narrow satellite,
+-- dictionary-encoded on predicate/object, and re-presented by the VIEW so the
+-- compact multiset stays identical to the fat build's. Position is not stored:
+-- like the observation's pos_* columns it enriches, not the claims VIEW.
+CREATE TABLE file_claim (
+  source_id INTEGER NOT NULL,
+  predicate_id INTEGER NOT NULL,
+  object_id INTEGER NOT NULL
+);
 `;
 
 // The reconstruction VIEW. Every observation implies its @listed anchor and its
@@ -211,6 +233,12 @@ CREATE VIEW claims (layer, raw_subject, cleaned, entity, predicate, object, rule
     JOIN predicate p ON p.predicate_id = d.predicate_id
     JOIN object obj ON obj.object_id = d.object_id
     JOIN rule r ON r.rule_id = d.rule_id
+  UNION ALL
+  SELECT 'raw', '', '', '', p.predicate, obj.value, NULL, s.source_file, ${FILE_LEVEL_ORDINAL}, s.vintage
+    FROM file_claim fc
+    JOIN source s ON s.source_id = fc.source_id
+    JOIN predicate p ON p.predicate_id = fc.predicate_id
+    JOIN object obj ON obj.object_id = fc.object_id
 `;
 
 export interface CompactLedgerSummary {
@@ -228,6 +256,9 @@ export interface CompactLedgerSummary {
   // Rows in the sparse licence-category satellite: derived canonical-category
   // claims the VIEW reconstructs, one per observation whose product mapped.
   categories: number;
+  // Rows in the file-level manifest satellite (issue #434/#455): the verbatim
+  // header / subject / furniture claims describing each source FILE.
+  fileClaims: number;
   analyzed: boolean;
 }
 
@@ -350,9 +381,11 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
   const insertRule = db.prepare('INSERT INTO rule VALUES (?, ?)');
   const insertOverride = db.prepare('INSERT INTO ph_override VALUES (?, ?)');
   const insertCategory = db.prepare('INSERT INTO licence_category VALUES (?, ?)');
+  const insertFileClaim = db.prepare('INSERT INTO file_claim VALUES (?, ?, ?)');
   let overrides = 0;
   let categories = 0;
   let totalDerivedAttrClaims = 0;
+  let totalFileClaims = 0;
 
   const jsonlFiles = fs.readdirSync(ledgerDir).filter(name => name.endsWith('.jsonl')).sort();
   const entities = new Set<string>();
@@ -438,6 +471,16 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
       for (const claim of claims) {
         if (claim.layer !== 'raw') continue;
         if (claim.predicate === LISTED_PREDICATE) continue;
+        // The file-level manifest (issue #434/#455): a raw claim describing the
+        // FILE, on the sentinel ordinal with an empty subject - not an
+        // observation. Carried in its own satellite, dictionary-encoded on
+        // predicate/object exactly as the fat build inserts it (cleaned/entity
+        // empty), so the VIEW re-presents the identical row.
+        if (isFileLevelClaim(claim)) {
+          insertFileClaim.run(sourceId, predicates.intern(claim.predicate), objects.intern(claim.object));
+          totalFileClaims += 1;
+          continue;
+        }
         const obsId = obsIdByOrdinal.get(claim.provenance.ordinal);
         if (obsId === undefined) continue;
         attrRows.push([obsId, predicates.intern(claim.predicate), objects.intern(claim.object)]);
@@ -515,6 +558,7 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
     objects: objects.size,
     overrides,
     categories,
+    fileClaims: totalFileClaims,
     analyzed,
   };
 }
