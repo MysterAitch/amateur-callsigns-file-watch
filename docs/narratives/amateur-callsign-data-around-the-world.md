@@ -8,10 +8,17 @@ cited primary source, since the whole point of the page is material this
 project deliberately does not mirror into its own corpus (see "Context, not
 collection", below).*
 
-Every claim below carries one of three tags — **[observed]**, **[derived]**,
-or **[hypothesis]** — so you can tell at a glance what kind of statement it is
-and check it yourself. Select any tag to see its full definition in the
-[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics).
+Only the claims below that are genuinely read off, or derived from, this
+project's own held/archived register data carry one of three tags —
+**[observed]**, **[derived]**, or **[hypothesis]** — the same convention its
+sibling narratives use throughout. Select any tag to see its full definition
+in the [glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics).
+Most of what follows, though, is material about *other* regulators' own
+registers — this project holds none of it (see "Context, not collection",
+below) — so those claims carry their own inline primary-source citation
+instead of a tag: a citation to a named external page is the honest
+evidential status for a fact read from someone else's register, and forcing
+a held-data tag onto it would misstate what actually backs the claim.
 
 **Context, not collection.** No foreign register data enters this project's
 corpus. This mirror archives one register: the UK's, published by Ofcom (see
@@ -36,9 +43,9 @@ not be completed, that is recorded honestly below rather than left implied.
 
 ## At a glance
 
-**[observed]** Each row states what a named regulator's own page publishes,
-and under what licence — read directly off the pages cited, and unpacked with
-fuller citations in the sections below.
+Each row states what a named regulator's own page publishes, and under what
+licence — read directly off the pages cited, and unpacked with fuller
+citations in the sections below.
 
 | Regulator | What is published | Licence position |
 |---|---|---|
@@ -52,7 +59,7 @@ fuller citations in the sections below.
 
 ## United States — FCC
 
-**[observed]** The [Universal Licensing System](https://www.fcc.gov/wireless/data/public-access-files-database-downloads)
+The [Universal Licensing System](https://www.fcc.gov/wireless/data/public-access-files-database-downloads)
 publishes the entire amateur-service register as daily and weekly zip files —
 the `HD`/`EN`/`AM`/`SH` record types join into a complete licensee profile —
 catalogued at [catalog.data.gov](https://catalog.data.gov/dataset/fcc-universal-licensing-system-uls),
@@ -62,11 +69,11 @@ OPEN Government Data Act requires open licensing of published federal data
 with no reuse restriction. This is the standard public-domain posture for
 federal data generally, not a grant specific to amateur radio.
 
-**[observed]** The **ARRL**, the US national society, adds nothing independent here: its
+The **ARRL**, the US national society, adds nothing independent here: its
 ["Advanced Call Sign Search"](https://www.arrl.org/advanced-call-sign-search)
 is a lookup UI over the same ULS bulk files, not a second data source.
 
-**[derived]** UK relevance here is reciprocal/visiting-operator recognition — but
+UK relevance here is reciprocal/visiting-operator recognition — but
 "reciprocal" alone overstates a symmetry the rule text itself does not
 support, so this is worth stating precisely rather than leaving implied.
 Under [47 CFR §97.107](https://www.law.cornell.edu/cfr/text/47/97.107)
@@ -80,13 +87,16 @@ discontinuing it in favour of the current licence-exempt regime; the exact
 transition date was not independently pinned down, so that detail is
 recorded as unverified rather than dated. Either way the direction of travel
 is the opposite of the UK's own: away from a register-visible tier, not
-towards one.
-
-**[derived]** A UK national can separately become an ordinary FCC licensee by
+towards one. A UK national can separately become an ordinary FCC licensee by
 sitting a US exam — open to any nationality, not a reciprocal mechanism at
 all — and that produces a genuine ULS entry, but against a US mailing
 address, with no nationality field recorded anywhere in ULS; it surfaces as
 an ordinary US licensee, invisible as UK-origin in the data itself.
+
+Ofcom's *Amateur Radio Guidance* (updated 14 October 2025), §2.1.4, states
+plainly that CEPT T/R 61-01 short stays (under three months) are
+licence-exempt and leave no Ofcom record, exactly like the US case above, and
+that the UK's reciprocal-visitor licence is itself scheduled for phase-out.
 
 **[observed]** The UK's own side of this relationship is not symmetric either, and this
 project's own corpus is the evidence — though the exact licence-product
@@ -94,19 +104,15 @@ naming needs care, since the corpus deliberately keeps two reciprocal
 categories distinct
 ([`reference-data/licence-category.csv`](../../reference-data/licence-category.csv);
 [`reference-data/README.md`](../../reference-data/README.md), the "two
-reciprocal categories" note). Ofcom's *Amateur Radio Guidance* (updated 14
-October 2025), §2.1.4, states plainly that CEPT T/R 61-01 short stays (under
-three months) are licence-exempt and leave no Ofcom record, exactly like the
-US case above, and that the UK's reciprocal-visitor licence is itself
-scheduled for phase-out. Visitors outside that exemption — longer stays, or
-those on a bilateral reciprocal arrangement rather than the CEPT route —
-instead hold an actual **"Amateur Temporary Reciprocal Radio Licence"**: the
-exact product string this project's own register data carries, not a
-paraphrase (`reference-data/licence-category.csv`; the Ofcom formal name is
-understood to add a "(Full)" licence-class qualifier, but that specific
-wording is guidance-derived rather than confirmed against a primary form, so
-this write-up anchors on the register's own citation-grade string). This
-project already holds that tier's evidence directly: the
+reciprocal categories" note). Visitors outside that exemption — longer
+stays, or those on a bilateral reciprocal arrangement rather than the CEPT
+route — instead hold an actual **"Amateur Temporary Reciprocal Radio
+Licence"**: the exact product string this project's own register data
+carries, not a paraphrase (`reference-data/licence-category.csv`; the Ofcom
+formal name is understood to add a "(Full)" licence-class qualifier, but
+that specific wording is guidance-derived rather than confirmed against a
+primary form, so this write-up anchors on the register's own citation-grade
+string). This project already holds that tier's evidence directly: the
 `ofcom-498906--reciprocal-licences-since-2010`
 FOI disclosure is precisely that callsign list, and the three `Reserved` rows
 flagged in [ADR 0005](../adr/0005-canonical-callsign-forms.md) — `M/#PT2FM`,
@@ -115,7 +121,7 @@ carry that exact product name in the register (`archive/2023-02-20/normalised.cs
 — a real register entry naming a foreign home callsign, not the licence-exempt
 case.
 
-**[observed]** A separate, permanent category — **"Amateur Full (Reciprocal)
+A separate, permanent category — **"Amateur Full (Reciprocal)
 Radio Licence"** — must not be confused with the tier above: it is a permanent UK
 Full licence granted on a recognised foreign qualification (HAREC / CEPT
 T/R 61-02), producing an ordinary UK-format callsign (`G0`/`M0`…), not an
@@ -129,13 +135,13 @@ register's own verified product name for any claim about what a specific
 here: the T/R 61-01 exemption, and the Temporary Reciprocal tier's scheduled
 phase-out.
 
-**[derived]** So the asymmetry runs one way, not two: the UK records a slice of its
-visitors more explicitly than the FCC records any of the UK's, and no UK
-callsign appears in the ULS for the reciprocal/visiting-operator case. That
-is a confirmation of this project's Ofcom-only mirroring scope, not a
+**[derived]** So the asymmetry runs one way, not two: the UK's own held register
+carries a slice of its visitors explicitly (the `M/#` rows above), while no
+UK callsign appears in the ULS for the reciprocal/visiting-operator case.
+That is a confirmation of this project's Ofcom-only mirroring scope, not a
 limitation of it — there is nowhere else a UK callsign as such would show up.
 
-**[derived]** Of the regulators surveyed, this is the clean contrast case: a national
+Of the regulators surveyed, this is the clean contrast case: a national
 regulator publishing its entire register as free, daily-updated,
 machine-readable bulk downloads — the opposite end of the spectrum from a
 residential-IP-gated, on-request posture.
@@ -150,7 +156,7 @@ mirror of the FCC listing resolved cleanly on the same re-check pass.*
 
 ## Germany — BNetzA
 
-**[observed]** This is the case the project's own openness narrative most directly bears on,
+This is the case the project's own openness narrative most directly bears on,
 and the reason this comparison exists at all. BNetzA publishes a monthly
 "Rufzeichenliste" PDF listing every currently-assigned German amateur
 callsign, alongside a daily-updated [live single-callsign search](https://ans.bundesnetzagentur.de/Amateurfunk/Rufzeichen.aspx).
@@ -163,12 +169,12 @@ is lost in translation):
 > "Aufgrund von Ausnahmetatbeständen nach § 12a EGovG (Schutz personenbezogener
 > Daten) ist der Datenbestand nicht Open Data-tauglich."
 
-**[observed]** — because of the exemption at §12a of the E-Government Act (protection of
+— because of the exemption at §12a of the E-Government Act (protection of
 personal data), the dataset is **not suitable for Open Data status**. The page
 adds that a system modernisation is under way that may eventually enable
 machine-readable release under the same privacy safeguards.
 
-**[derived]** **This is the load-bearing case for the whole page.** Publication and open
+**This is the load-bearing case for the whole page.** Publication and open
 licensing are demonstrably separable regulatory decisions — BNetzA does the
 former every month and has explicitly declined the latter, on record, citing
 personal data as the reason. That is the same tension a register carrying real
@@ -176,21 +182,19 @@ individuals' identifiers always sits inside; BNetzA is simply the one
 regulator surveyed that states its position in so many words rather than
 leaving it implicit.
 
-**[observed]** **DARC**, the German national society, does not maintain an independent
+**DARC**, the German national society, does not maintain an independent
 callsign database; its own enquiry guidance points straight back to the
-BNetzA search tool.
-
-**[derived]** UK relevance follows the same asymmetric pattern set out in the FCC section
-above: Germany is a CEPT T/R 61-01/61-02 signatory, so a UK visitor operates
-licence-exempt with no BNetzA register trace, while the UK's own Temporary
-Reciprocal licence tier (see above) remains the more explicit side of the
-relationship. No BNetzA-specific visitor-licensing page was checked
-independently this pass, so this rests on the CEPT-bloc-general finding
-rather than a direct read of a German source.
+BNetzA search tool. UK relevance follows the same asymmetric pattern set out
+in the FCC section above: Germany is a CEPT T/R 61-01/61-02 signatory, so a
+UK visitor operates licence-exempt with no BNetzA register trace, while the
+UK's own Temporary Reciprocal licence tier (see above) remains the more
+explicit side of the relationship. No BNetzA-specific visitor-licensing page
+was checked independently this pass, so this rests on the CEPT-bloc-general
+finding rather than a direct read of a German source.
 
 ## Australia — ACMA
 
-**[observed]** The [Register of Radiocommunications Licences](https://www.acma.gov.au/radiocomms-licence-data)
+The [Register of Radiocommunications Licences](https://www.acma.gov.au/radiocomms-licence-data)
 offers a daily CSV extract, a documented credentialled API, and an offline
 browsing tool, with amateur callsign and qualification level on the public
 register. But its terms state (per the #109 survey's direct quotation of the
@@ -206,22 +210,21 @@ same thing as openly licensed**: daily bulk access exists, but reuse beyond
 the stated purpose is contractually gated, unlike the FCC's public-domain
 posture.
 
-**[observed]** **WIA**, the Australian national society, historically compiled a printed and
+**WIA**, the Australian national society, historically compiled a printed and
 CD-ROM "Callbook" from RRL extracts under a formal agreement with ACMA — but
 in 2020 ACMA advised WIA to move away from using RRL data for that purpose,
 consistent with a tightening rather than a loosening of terms over time.
 
-**[derived]** UK relevance follows the same asymmetric pattern set out in the FCC section
+UK relevance follows the same asymmetric pattern set out in the FCC section
 above: the current [Radiocommunications (Amateur Stations) Class Licence 2023](https://www.wia.org.au/members/legislation/classlicences/documents/Radiocommunications%20%28Amateur%20Stations%29%20Class%20Licence%202023.pdf)
 (successor to the [2015 instrument](https://www.legislation.gov.au/Details/F2015L01114))
 is licence-exempt on the same shape as the UK's own short-stay tier: no RRL
-entry, home callsign with a "VK" prefix.
-
-**[observed]** ACMA's own guidance gives two different duration figures for this
-exemption — 365 days for qualifications listed in its Tables A/B, and
-separately 90 days as the threshold beyond which "an Australian amateur
-apparatus licence" is required — and the two were not reconciled this pass,
-recorded as an open discrepancy rather than resolved by picking one.
+entry, home callsign with a "VK" prefix. ACMA's own guidance gives two
+different duration figures for this exemption — 365 days for qualifications
+listed in its Tables A/B, and separately 90 days as the threshold beyond
+which "an Australian amateur apparatus licence" is required — and the two
+were not reconciled this pass, recorded as an open discrepancy rather than
+resolved by picking one.
 
 **[hypothesis]** Whether that longer-stay licence would create an RRL entry naming a UK home
 qualification — structurally the closest thing to an ACMA equivalent of the
@@ -234,7 +237,7 @@ current instrument.)
 
 ## France — ANFR
 
-**[observed]** ANFR runs an ["Observatoire des radioamateurs"](https://data.anfr.fr/node/31)
+ANFR runs an ["Observatoire des radioamateurs"](https://data.anfr.fr/node/31)
 open-data portal, re-verified 2026-07-17: it publishes **aggregate and
 anonymised statistics only** — age pyramids, exam pass rates, geographic
 distribution by department, spanning 1960 to date — and states explicitly
@@ -242,7 +245,7 @@ that the figures are "sourced from official registers... consolidated and
 anonymized." There is no per-callsign register export under this programme,
 and no licence statement was found on the page itself.
 
-**[observed]** ANFR separately runs a live per-callsign lookup, the "annuaire" at
+ANFR separately runs a live per-callsign lookup, the "annuaire" at
 `amatpres.anfr.fr` — its bulk-export capability could not be confirmed by the
 #109 survey, and this write-up's own re-check found the same: the page issues
 a malformed redirect (`https://www.anfr.fr` with the following path
@@ -258,17 +261,16 @@ for its other datasets, so a bulk amateur export, if one exists, would likely
 carry that licence — a follow-up worth revisiting if the annuaire's export
 capability is ever confirmed.
 
-**[observed]** **REF**, the French national society, maintains its own opt-in
+**REF**, the French national society, maintains its own opt-in
 ["Nomenclature"](https://nomenclature.r-e-f.org/) directory — member-submitted,
 not authoritative, the same shape as the RSGB Yearbook's self-compiled
-directory rather than a regulator mirror.
-
-**[derived]** UK relevance follows the same asymmetric pattern set out in the FCC section
-above: France is a CEPT signatory, so the licence-exempt T/R 61-01/61-02 model
-applies and no UK callsign would appear in a French register for a short
-visit. No ANFR-specific visitor-licensing page was checked independently this
-pass, so, as with BNetzA above, this rests on the CEPT-bloc-general finding
-rather than a direct ANFR source.
+directory rather than a regulator mirror. UK relevance follows the same
+asymmetric pattern set out in the FCC section above: France is a CEPT
+signatory, so the licence-exempt T/R 61-01/61-02 model applies and no UK
+callsign would appear in a French register for a short visit. No
+ANFR-specific visitor-licensing page was checked independently this pass, so,
+as with BNetzA above, this rests on the CEPT-bloc-general finding rather than
+a direct ANFR source.
 
 ---
 
@@ -293,7 +295,7 @@ Information requests instead — this project's own
 not publish that history itself; it now holds 25+ recovered vintages back to
 2016.
 
-**[derived]** On licensing, the project's own verified position
+On licensing, the project's own verified position
 ([`reference-data/publishers.json`](../../reference-data/publishers.json),
 [`archive/LICENSE.md`](../../archive/LICENSE.md)) is more cautious than the
 table's "OGL v3 where published" shorthand: the confirmed, cited basis for the
@@ -308,7 +310,7 @@ gap this project's epistemics conventions ask to be surfaced rather than
 smoothed over — so it is surfaced here rather than left inside a one-line
 table cell.
 
-**[derived]** Set against the four regulators above, the UK model reads as: publication
+Set against the four regulators above, the UK model reads as: publication
 exists but is neither catalogued, licensed at the file level, nor historically
 retained by the regulator; access is IP-gated rather than open; and the
 licence basis that *is* confirmed (Ofcom's own terms of use) is narrower than
