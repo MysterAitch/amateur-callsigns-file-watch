@@ -154,17 +154,27 @@ const compositeHtml = publisherPage(OFCOM, { authored: COMPOSITE, hosted: [] });
 
 describe('publisherPage composite — derived per-dataset blurbs (#636)', { tags: ['unit'] }, () => {
   it('Blurb_RegisterSnapshot_ReadsKindScaleAndVintageInPlainEnglish', () => {
-    expect(compositeHtml).toContain('A register snapshot of ~158,000 callsigns as published 23 June 2026.');
+    // Month precision (#551): the blurb sits in the same overview row as the
+    // vintage cell, which already shows month with the exact day on its title.
+    expect(compositeHtml).toContain('A register snapshot of ~158,000 callsigns as published June 2026.');
   });
 
   it('Blurb_MultiClassEntry_NamesEveryKindOnceAndCaveatsTheLargestTable', () => {
     // Counted once, both classes named, and the scale is the largest single
     // table (never the cross-sheet sum).
-    expect(compositeHtml).toContain('A register snapshot and list of forbidden suffixes of ~141,000 callsigns (its largest of 2 tables) as at 20 September 2016.');
+    expect(compositeHtml).toContain('A register snapshot and list of forbidden suffixes of ~141,000 callsigns (its largest of 2 tables) as at September 2016.');
   });
 
   it('Blurb_DeclaredPartialSnapshot_AppendsTheDeclaredScope', () => {
-    expect(compositeHtml).toContain('A register snapshot of ~113,000 callsigns as published 4 June 2025, allocated licences only.');
+    expect(compositeHtml).toContain('A register snapshot of ~113,000 callsigns as published June 2025, allocated licences only.');
+  });
+
+  it('Blurb_AndVintageCell_AgreeOnMonthPrecisionWithinTheSameRow', () => {
+    // #551: one overview row must not mix precisions - the compact vintage
+    // cell and the prose blurb beside it both show month, and the exact day
+    // is never lost (it rides on the cell's title, not repeated in prose).
+    expect(compositeHtml).toContain('<span class="hold-col hold-vintage" title="23 June 2026">June 2026</span>');
+    expect(compositeHtml).toContain('A register snapshot of ~158,000 callsigns as published June 2026.');
   });
 
   it('Blurb_NotHeldResponse_SaysWhatIsKnownRatherThanPadding', () => {

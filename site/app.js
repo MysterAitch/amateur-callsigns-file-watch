@@ -17,6 +17,7 @@ import {
   sortToParam as coreSortToParam,
   sortFromParam as coreSortFromParam,
 } from './table-sort.js';
+import { dateTimeDisplay } from './datetime.js';
 
 // The row shape read back off the httpvfs worker's query() is not typed by the
 // vendored library (no shipped types); every SELECT here states its own column
@@ -202,14 +203,14 @@ export function seriesLink(series) {
   return prefixSeriesField(el, series, { link: { depthToRoot: 0 } });
 }
 
-// Humanise an ISO date (or timestamp) as "23 June 2026" for the data-currency
-// line; leaves anything unparseable untouched. Mirrors the dataset pages' phrasing.
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'];
-/** @param {unknown} iso */
-function humanDate(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
-  return m ? `${Number(m[3])} ${MONTH_NAMES[Number(m[2]) - 1]} ${m[1]}` : String(iso);
+// Humanise an ISO date (or timestamp) as "23 June 2026" (or, at month
+// precision, "June 2026") for the data-currency line and the offline-download
+// marker; leaves anything unparseable untouched. Delegates to the shared
+// date/time display logic (#551/#553, site/datetime.js) rather than
+// reimplementing it locally.
+/** @param {unknown} iso @param {import('./datetime.js').DateTimePrecision} [precision] */
+function humanDate(iso, precision = 'full-date') {
+  return dateTimeDisplay(String(iso), { precision });
 }
 
 // Point-of-use glossary hooks (issues #260/#263). A term label carries a
@@ -479,10 +480,14 @@ async function renderBuildInfo() {
       `Dataset ${get('dataset')} · built ${get('generated_at')} · commit ${String(get('commit')).slice(0, 9)}`;
     // Near-header data-currency line (issue #259): the same figures phrased
     // for a human — when Ofcom published this register, and when we mirrored it.
+    // Month precision on "published" (#551): a single current-register
+    // headline, not a list, so there is nothing to disambiguate - the build
+    // stamp beside it (the mirror's OWN timing, a different kind of fact)
+    // keeps its full date.
     const currency = document.getElementById('data-currency');
     if (currency) {
       currency.textContent =
-        `Current register: published ${humanDate(get('dataset'))} · mirrored ${humanDate(get('generated_at'))}.`;
+        `Current register: published ${humanDate(get('dataset'), 'year-month')} · mirrored ${humanDate(get('generated_at'))}.`;
     }
   } catch {
     /* non-essential */

@@ -1429,6 +1429,9 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
     ['components.csv', 'per-callsign component decomposition'],
     ['stats.json', 'per-publication statistics and data-quality flags'],
   ]);
+  // Full date, deliberately (#551): this is the detail page for exactly this
+  // one publication, where the reader is looking at a specific artefact and
+  // its exact provenance day is the point.
   const pageTitle = `Publication of ${humanDate(key)}`;
   const targetDir = path.join(outputDir, 'datasets', 'open-data', key);
   // The published copy and the zip take their derived-file bytes through the
@@ -1945,6 +1948,9 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
     // The size cell (formatBytes) is a unit-suffixed figure ("0 B") rather
     // than a bare zero, so it is left as-is (issue #731 judgement: only an
     // exact "0" mutes, not a formatted variant that already carries a unit).
+    // Full date, deliberately (#551's disambiguation case): this index lists
+    // every open-data publication, and the archive already holds more than
+    // one in the same month (e.g. 2025-06-04 and 2025-06-08).
     openDataRows.push(`<tr><th scope="row" class="dskey">${datasetLabel(`Publication of ${humanDate(key)}`, key, { href: `open-data/${key}/index.html` })}</th><td class="n">${zeroCell(files.length)}</td><td class="n">${formatBytes(files.reduce((s, f) => s + f.bytes, 0))}</td></tr>`);
   }
 

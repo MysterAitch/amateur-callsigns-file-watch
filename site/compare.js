@@ -28,6 +28,7 @@ import { createHistorySync } from './history-sync.js';
 import { withDatabaseLoading } from './db-loading.js';
 import { statusField } from './field-wrappers.js';
 import { callsignPillLink } from './callsign-pill.js';
+import { dateTimeDisplay } from './datetime.js';
 
 /** @typedef {import('./browser-query.js').FilterState} FilterState */
 
@@ -314,6 +315,18 @@ export function partitionSelectedDatasets(rawSets, knownKeys) {
   return { chosen, unknown };
 }
 
+// A dataset-picker checkbox's human label (#551): full date, not the default
+// month-only precision - the picker lists EVERY archived publication side by
+// side, and the archive already holds more than one in the same month (e.g.
+// 2025-06-04 and 2025-06-08), so day precision is this surface's disambiguation
+// case, not a stylistic choice. Pure, so it is unit-tested without the picker's
+// DOM. The raw key stays visible too (a monospace chip beside the label), so
+// the exact machine value is never only inferable from the humanised text.
+/** @param {string} datasetKey */
+export function datasetPickerLabel(datasetKey) {
+  return dateTimeDisplay(datasetKey, { precision: 'full-date' });
+}
+
 // Guaranteed present: compare.html always ships this fixed panel scaffold, and
 // nothing here has ever null-guarded these (a page missing one of them is not
 // a state this module tries to run in).
@@ -484,7 +497,7 @@ function renderPicker() {
       void refresh();
     });
     const label = el('label', { for: id, class: 'cmp-ds' }, [
-      input, ' ', el('strong', { text: d.dataset }),
+      input, ' ', el('strong', { text: datasetPickerLabel(d.dataset) }), ' ', code(d.dataset),
       ` — ${nf(d.record_count)} rows`,
       ...(caveat !== null ? [' ', el('span', { class: 'cmp-badge', title: d.scope_notes ?? '', text: caveat })] : []),
     ]);

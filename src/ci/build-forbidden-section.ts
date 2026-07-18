@@ -67,6 +67,7 @@ import {
   suffixField,
   type SuffixLinkOrigin,
   humanDate,
+  dateTimeDisplay,
   glossaryTerm,
   tableCaption,
   zeroCell,
@@ -88,8 +89,6 @@ const ENUMERATE_LIMIT = 25;
 // How many suffixes to preview inline on a disclosure page before "+N more".
 const PREVIEW_LIMIT = 24;
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
 function num(n: number): string {
   return n.toLocaleString('en-GB');
 }
@@ -97,12 +96,12 @@ function num(n: number): string {
 // Humanise a disclosure vintage for headings and captions: '2024-12' ->
 // 'December 2024'; '2019-08-12' -> '12 August 2019'; '2016-09' ->
 // 'September 2016'. Falls back to the raw value for anything unrecognised.
+// Every disclosure page is a detail view of that one disclosure - and the
+// section index lists disclosures whose vintages can share a month - so full
+// date is requested; a month-only vintage clamps to month rather than
+// fabricating a day (#551's shared precision mechanism, format.ts).
 function humanVintage(vintage: string): string {
-  const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(vintage);
-  if (ymd !== null) return `${Number(ymd[3])} ${MONTHS[Number(ymd[2]) - 1]} ${ymd[1]}`;
-  const ym = /^(\d{4})-(\d{2})$/.exec(vintage);
-  if (ym !== null) return `${MONTHS[Number(ym[2]) - 1]} ${ym[1]}`;
-  return vintage;
+  return dateTimeDisplay(vintage, { precision: 'full-date' });
 }
 
 // Suffixes as the shared field wrapper (#644), unlinked — kept for the few
