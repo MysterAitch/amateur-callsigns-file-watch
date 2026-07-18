@@ -620,7 +620,10 @@ describe('Front-door role-tabs markup (issue #795)', { tags: ['unit'] }, () => {
     for (const id of ['panel-reader', 'panel-researcher', 'panel-holder']) {
       const panelTag = new RegExp(`<div class="panel"[^>]*id="${id}"[^>]*>`).exec(waysInSection)?.[0] ?? '';
       expect(panelTag, `${id} should be present`).not.toBe('');
-      expect(panelTag, `${id} must not ship a static hidden attribute`).not.toMatch(/\bhidden\b/);
+      // Match only a standalone boolean `hidden` attribute (whitespace before
+      // it), so a future `aria-hidden`/`data-hidden` tweak — where `hidden`
+      // follows a `-`, not whitespace — does not false-fail this guard.
+      expect(panelTag, `${id} must not ship a static hidden attribute`).not.toMatch(/\shidden\b/);
     }
   });
 
