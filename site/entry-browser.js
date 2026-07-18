@@ -21,9 +21,22 @@ import { callsignPillLink, callsignPillRaw } from './callsign-pill.js';
 import { createHistorySync } from './history-sync.js';
 import { withDatabaseLoading } from './db-loading.js';
 import { licenceField, statusField } from './field-wrappers.js';
+import { nextSort as coreNextSort } from './table-sort.js';
 
 /** @typedef {import('./browser-query.js').FilterState} FilterState */
 /** @typedef {import('./browser-query.js').Facet} Facet */
+/** @typedef {import('./browser-query.js').SortEntry} SortEntry */
+
+// This browser holds its sort in the shared FilterState shape (browser-query.js:
+// { col, dir } with verbose 'ASC'/'DESC' directions — the form the ORDER BY reads
+// directly and the ?view= link carries), while the sort-state TRANSITIONS are the
+// shared table-sort core's, so this surface and every other sortable table on the
+// site cannot drift apart. These two adapters map a SortEntry across that edge: to
+// the core's compact { key, dir } for a transition, and back to this shape after.
+/** @param {SortEntry} entry @returns {import('./table-sort.js').SortEntry} */
+function toCoreSort(entry) { return { key: entry.col, dir: entry.dir === 'DESC' ? 'desc' : 'asc' }; }
+/** @param {import('./table-sort.js').SortEntry} entry @returns {SortEntry} */
+function toLocalSort(entry) { return { col: entry.key, dir: entry.dir === 'desc' ? 'DESC' : 'ASC' }; }
 
 // The live state this browser holds: the shared FilterState (facets/toggles/
 // columnFilters/sort/pageSize/customSql - see browser-query.js) plus the
@@ -386,18 +399,15 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
       const arrow = si >= 0 ? `${state.sort[si].dir === 'ASC' ? ' ▲' : ' ▼'}${state.sort.length > 1 ? String(si + 1) : ''}` : '';
       const th = el('th', sortable ? { role: 'button', tabindex: '0', class: 'sortable', title: 'click to sort; Shift-click to add a secondary sort' } : {}, [`${h}${arrow}`]);
       if (sortable) {
-        // Shift/Ctrl/Alt-click appends a secondary sort; plain click resets
-        // to a single-column sort, toggling direction if already sorting by it.
         /** @param {boolean} multi */
         const sortBy = (multi) => {
-          const idx = state.sort.findIndex(s => s.col === h);
-          if (multi) {
-            if (idx >= 0) state.sort[idx].dir = state.sort[idx].dir === 'ASC' ? 'DESC' : 'ASC';
-            else state.sort.push({ col: h, dir: 'ASC' });
-          } else {
-            const wasAscSingle = state.sort.length === 1 && idx === 0 && state.sort[0].dir === 'ASC';
-            state.sort = [{ col: h, dir: wasAscSingle ? 'DESC' : 'ASC' }];
-          }
+          // The transition rules — a plain activation sorts by this column ALONE,
+          // toggling ascending/descending; a modified (Shift/Ctrl/Alt/Meta)
+          // activation APPENDS a secondary sort, or toggles just its direction
+          // when already present — are the shared table-sort core's, applied
+          // across this backend's verbose-direction edge. The core returns a NEW
+          // spec, which replaces the previous one rather than mutating in place.
+          state.sort = coreNextSort(state.sort.map(toCoreSort), h, { multi }).map(toLocalSort);
           state.page = 0; void refresh();
         };
         th.addEventListener('click', e => sortBy(e.shiftKey || e.ctrlKey || e.altKey || e.metaKey));
