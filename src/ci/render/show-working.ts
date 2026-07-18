@@ -214,6 +214,14 @@ export function evidenceLinkFor(
       const href = `${SOURCE_REPO_URL}/blob/${commitSha}/reference-data/${origin.file}`;
       return { href, where: `the row keyed “${origin.key}” in reference-data/${origin.file}` };
     }
+    case 'authored-binding': {
+      // An authored in-repo registry (the FOI conversion bindings): the link
+      // points at the registry module at the pinned commit, and the locus names
+      // the source whose binding pinned the value. No physical line is captured
+      // (the binding is code, not data), so none is claimed.
+      const href = `${SOURCE_REPO_URL}/blob/${commitSha}/src/shared/foi-normalise.ts`;
+      return { href, where: `the authored conversion binding for ${origin.sourceFile} (${origin.registry})` };
+    }
   }
 }
 

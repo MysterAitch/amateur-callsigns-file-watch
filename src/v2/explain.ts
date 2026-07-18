@@ -52,6 +52,7 @@ import {
   STRIPPED_COLLISION_RULE,
   STRIPPED_COLLISION_FLAG,
   FLAG_PREDICATE,
+  AUTHORED_EVENT_RULE,
   PARSE_CALLSIGN_RULE,
   PARSE_STATUS_PREDICATE,
   PREFIX_SERIES_PREDICATE,
@@ -86,7 +87,12 @@ export interface WorkingInput {
     | { kind: 'reference-row'; file: string; key: string; row: Record<string, string> }
     // Another observation in the SAME source — the sole cross-row evidence, the
     // stripped twin a stripped-collision flag witnesses.
-    | { kind: 'sibling-observation'; sourceFile: string; ordinal: number };
+    | { kind: 'sibling-observation'; sourceFile: string; ordinal: number }
+    // An authored in-repo registry entry — the reviewed binding a Looked-up
+    // value was asserted by (the authored-event vocabulary, issue #813 Stage
+    // C2). Named by registry and keyed by the claim's own sourceFile, so a
+    // surface can point at the binding's source rather than a reference CSV.
+    | { kind: 'authored-binding'; registry: string; sourceFile: string };
 }
 
 // One human-readable transformation step, in derivation order. `from`/`to`
@@ -123,6 +129,7 @@ const RULE_GLOSSES: ReadonlyMap<string, string> = new Map([
   [LICENCE_CATEGORY_RULE, 'Looked up the raw product value in the licence-category reference table.'],
   [PARSE_CALLSIGN_RULE, 'Computed by the callsign parser from the raw token (with the reference tables).'],
   [STRIPPED_COLLISION_RULE, 'The junk-stripped form coexists as its own row in the same source.'],
+  [AUTHORED_EVENT_RULE, 'The event word is our authored reading of the disclosure\'s own covering-letter framing, not a published cell.'],
 ]);
 
 function ruleGlossFor(rule: string): string {
@@ -436,6 +443,38 @@ function explainFlag(claim: Claim, anchor: Claim, ledger: readonly Claim[], ref:
   ], flagName);
 }
 
+// ---- authored-event (issue #813 Stage C2) -----------------------------------
+
+// The working behind an authored-event claim. There is nothing to COMPUTE: the
+// event word is asserted by the authored converter binding
+// (FOI_ENTRY_CONVERSIONS, foi-normalise.ts), which pins one word per disclosure
+// from its covering letter's own framing - a registry LOOKUP, so the claim
+// reads out Looked-up. What IS re-checkable from the ledger alone is checked:
+// the claim's observation must have a raw @listed anchor (fail loud via
+// observationAnchor - no invented subjects), and the per-source constancy the
+// binding guarantees must hold - every authored-event claim of the same source
+// carries the SAME word, so a mixed vocabulary (which the binding cannot
+// produce) fails loudly rather than explaining away.
+function explainAuthoredEvent(claim: Claim, ledger: readonly Claim[]): Working {
+  const anchor = observationAnchor(claim, ledger);
+  const siblings = ledger.filter(c => c.layer === 'derived' && c.rule === AUTHORED_EVENT_RULE);
+  const words = new Set(siblings.map(c => c.object));
+  if (words.size !== 1) {
+    throw new Error(`explain: authored-event claims of ${claim.provenance.sourceFile} carry ${words.size} distinct event words (${[...words].join(', ')}) - the authored binding pins exactly one per source`);
+  }
+  const inputs: WorkingInput[] = [
+    rawTokenInput(anchor),
+    {
+      role: 'authored-event-word',
+      value: claim.object,
+      origin: { kind: 'authored-binding', registry: 'FOI_ENTRY_CONVERSIONS', sourceFile: claim.provenance.sourceFile },
+    },
+  ];
+  return buildWorking(claim, inputs, [
+    { detail: 'the authored converter binding pins this source\'s event vocabulary from the disclosure\'s covering-letter wording', to: claim.object },
+  ], claim.object);
+}
+
 // ---- the dispatcher ---------------------------------------------------------
 
 // Reconstruct the working behind a derived claim. `ledger` is the claims of the
@@ -461,6 +500,7 @@ export function explain(claim: Claim, ledger: readonly Claim[], ref: ReferenceDa
     case CALLSIGN_PATTERN_RULE: return explainPattern(claim, sameSource);
     case LICENCE_CATEGORY_RULE: return explainLicenceCategory(claim, sameSource, ref);
     case STRIPPED_COLLISION_RULE: return explainStrippedCollision(claim, sameSource);
+    case AUTHORED_EVENT_RULE: return explainAuthoredEvent(claim, sameSource);
     case PARSE_CALLSIGN_RULE: return explainParse(claim, sameSource, ref);
     default:
       throw new Error(`explain: unknown rule "${rule}" on ${claim.provenance.sourceFile}#${claim.provenance.ordinal}:${claim.predicate} — an unexplainable derived claim`);

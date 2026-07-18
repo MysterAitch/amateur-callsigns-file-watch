@@ -434,18 +434,15 @@ export const STATUS_PREDICATES: readonly string[] = [...new Set([
   ...foiVerbatimSourceHeaders('status'),
 ])].sort();
 
-// The issuance-events family emits its columns under the authored OUTPUT role
-// names (issuance-events.ts), so its licence product rides the predicate
-// `licence_class` rather than a raw header — that role name joins the
-// product-header set beside the verbatim headers. (The available-pool family
-// once emitted the same role predicate; since its lossless-canonical emit,
-// issue #813 Stage A, it emits verbatim headers only — and the register-lane
-// product fold scopes it out regardless, available-pool not being a product
-// source.)
+// Every family emits its product column under the publisher's own verbatim
+// header: the issuance-events transfers table's 'Licence Product' joins via its
+// verbatim binding since the family's lossless-canonical emit (issue #813
+// Stage C2), exactly as available-pool's headers did at Stage A — no authored
+// OUTPUT role name ('licence_class') rides the ledger any more, so the set is
+// purely the union of disclosed headers across both authored registries.
 export const PRODUCT_PREDICATES: readonly string[] = [...new Set([
   ...PRODUCT_COLUMN_NAMES,
   ...foiVerbatimSourceHeaders('licence_class'),
-  'licence_class',
 ])].sort();
 
 // The report field names these two folds populate (matching value-catalogue.ts).

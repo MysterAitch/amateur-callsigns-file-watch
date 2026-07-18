@@ -1117,9 +1117,13 @@ describe('field-source-roles — register lane and membership families', { tags:
     for (const header of ['Status', 'Status__c', 'Final Status', 'status']) {
       expect(STATUS_PREDICATES, `status header ${header}`).toContain(header);
     }
-    for (const header of ['Product', 'Product__c', 'SF List', 'Licence Class', 'licence_class']) {
+    for (const header of ['Product', 'Product__c', 'SF List', 'Licence Class', 'Licence Product']) {
       expect(PRODUCT_PREDICATES, `product header ${header}`).toContain(header);
     }
+    // The authored OUTPUT role name is no ledger predicate since the
+    // issuance-events lossless emit (issue #813 Stage C2): raw claims carry
+    // verbatim headers only, so the set holds no role spellings.
+    expect(PRODUCT_PREDICATES).not.toContain('licence_class');
   });
 });
 

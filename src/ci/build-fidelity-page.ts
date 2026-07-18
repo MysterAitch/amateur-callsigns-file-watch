@@ -492,6 +492,7 @@ function reconstructionSection(): string[] {
     'available-pool': 'the FOI available-call-sign exports (suffix sheets and typed exports)',
     'foi-verbatim-csv': 'the pre-war annex sheets (carried verbatim in the registered ledger)',
     'statistics-aggregate': 'the FOI annual licence-count table (carried verbatim in the registered ledger; table region only)',
+    'issuance-events': 'the FOI issuance-event disclosures (re-issues, reciprocal licences and heritage transfers, carried verbatim in the registered ledger)',
     'foi-markdown-table': 'the FOI markdown-table transcriptions (table region only)',
   };
   const items = COVERED_FAMILIES.map(family =>
