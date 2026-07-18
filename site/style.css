@@ -226,6 +226,12 @@ button.pg { font: inherit; font-size: 0.85em; padding: 0.25rem 0.6rem; border: 1
 .table-controls .tc-colmenu label { display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0; white-space: nowrap; cursor: pointer; }
 .table-controls label.tc-toggle { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; }
 .table-controls .tc-status { color: var(--muted); }
+/* The multi-column-sort discoverability hint (issue #780): full-width so it
+   wraps onto its own line under the buttons rather than squeezing them, and
+   otherwise as unobtrusive as the status line it sits beside — real text a
+   sighted reader can take in unprompted, not merely a description parked out
+   of sight for assistive tech alone. */
+.table-controls .tc-sort-hint { flex-basis: 100%; margin: 0; }
 
 /* Column sorting (issue #761): the keyboard-operable trigger table-controls.js
    injects into each sortable header. Purely additive — with no JavaScript the
