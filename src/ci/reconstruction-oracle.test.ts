@@ -38,7 +38,12 @@ import { collectAttributeAddendumSources } from '../v2/collectors/attribute-adde
 import { collectAvailablePoolSources } from '../v2/collectors/available-pool.ts';
 import { collectFoiVerbatimCsvSources } from '../v2/collectors/foi-verbatim-csv.ts';
 import { collectFoiMarkdownTableSources } from '../v2/collectors/foi-markdown-table.ts';
+import { collectStatisticsSources } from '../v2/collectors/statistics.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
+
+// The repo root, two levels up from src/ci/ (as the oracle module resolves it),
+// so a source's repo-relative repoPath resolves to the real archived file.
+const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 
 // CI parallelism (#478; full rationale + mental model in src/testing/CI-SHARDING.md
 // - read it before changing the shard setup, esp. why the parallelism lives at the
@@ -256,10 +261,6 @@ describe('CSV-lane sources reconstruct byte-identically modulo cosmetics from th
 // ---- Canonicity: reconstruct straight off the PERSISTED ledger (issue #455) --
 
 describe('a source reconstructs from the ledger a build actually persists', { tags: ['data-validity'] }, () => {
-  // The repo root, two levels up from src/ci/ (as the oracle module resolves it),
-  // so a source's repo-relative repoPath resolves to the real archived file.
-  const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
-
   it('FoiRegisterSource_WhenReconstructedFromThePersistedLedgerJsonl_MatchesTheOriginalModuloCosmetics', () => {
     // The load-bearing #455 claim: the MAIN ledger a build writes carries the
     // whole source structure, so a reader rebuilds the original publication from
@@ -465,12 +466,14 @@ describe('the pre-war annex reconstructs from its REGISTERED claims (issue #813 
 // ---- Phase 3 shapes: markdown-table (table region only) round-trip ----------
 
 describe('FOI markdown-table transcriptions reconstruct their table region (issue #434 E3/E4)', { tags: ['data-validity'] }, () => {
-  it('MarkdownTableSource_WhenReconstructedFromClaims_MatchesTableRegionModuloPadding', () => {
+  it('StatisticsCountsTable_WhenReconstructedFromItsRegisteredClaims_MatchesTableRegionModuloPadding', () => {
     // The counts table (wdtk-184767): right-aligned separator (|---:|) and
     // padded cells in the original; the reconstruction compares the canonical
     // table region only, so alignment and dash-count are ignored while every
-    // cell value (thousands separators, en-dashes) must match.
-    const source = collectFoiMarkdownTableSources()
+    // cell value (thousands separators, en-dashes) must match. Since issue
+    // #813 Stage C1 the source is the REGISTERED statistics-aggregate family's
+    // own verbatim emit, not the retired mirror coverage.
+    const source = collectStatisticsSources()
       .map(resolved => resolved.load())
       .find(s => s.repoPath?.endsWith('raw-extract-number-of-licences-coleman.md') === true);
     expect(source).toBeDefined();
@@ -480,6 +483,24 @@ describe('FOI markdown-table transcriptions reconstruct their table region (issu
     expect(result.ok).toBe(true);
     // The prose exclusion is declared on the result, not silently applied.
     expect(result.scopeNote).toBe(MARKDOWN_PROSE_SCOPE_NOTE);
+  });
+
+  it('MarkdownMirror_WhenResolvedAfterStageC1_CoversOnlyTheSourcesNoRegisteredFamilyEmitsLosslessly', () => {
+    // The structural no-double-count invariant (issue #813 Stage C1): the
+    // markdown mirror no longer resolves any statistics-aggregate source, so
+    // the counts table reconstructs from exactly one family's claims - the
+    // registered one. The mirror's remaining scope is exactly the transfers
+    // table (wdtk-251507), which Stage C2 will move onto the issuance-events
+    // family's own lossless emit.
+    const statisticsRepoPaths = new Set(
+      collectStatisticsSources().map(resolved => resolved.load().repoPath ?? ''),
+    );
+    expect(statisticsRepoPaths.size).toBeGreaterThanOrEqual(1);
+    const mirrored = collectFoiMarkdownTableSources().map(resolved => resolved.load().repoPath ?? '');
+    for (const repoPath of mirrored) {
+      expect(statisticsRepoPaths.has(repoPath), `${repoPath} mirrored twice`).toBe(false);
+    }
+    expect(mirrored).toEqual(['archive/foi/wdtk-251507--reissue-policy/raw-extract-applicants-old-call-signs.md']);
   });
 
   it('MarkdownTableSource_WhenTranscriptionCarriesWithheldColumns_ReconstructsEveryColumn', () => {
@@ -511,8 +532,10 @@ describe('FOI markdown-table transcriptions reconstruct their table region (issu
 
   it('MarkdownReconstruction_WhenBuiltFromClaims_EqualsTheCanonicalisedOriginalTableRegion', () => {
     // The round-trip proved at the function level: reconstructing from the claim
-    // stream yields exactly the canonicalised table region of the original file.
-    const source = collectFoiMarkdownTableSources()
+    // stream yields exactly the canonicalised table region of the original file
+    // - under the table's VERBATIM period header (issue #813 Stage C1), the
+    // registered family's own emit.
+    const source = collectStatisticsSources()
       .map(resolved => resolved.load())
       .find(s => s.repoPath?.endsWith('raw-extract-number-of-licences-coleman.md') === true);
     expect(source).toBeDefined();
@@ -524,17 +547,67 @@ describe('FOI markdown-table transcriptions reconstruct their table region (issu
     // idempotence confirms the two renderers agree.
     expect(canonicaliseMarkdownTable(reconstruction, source.sourceFile)).toBe(reconstruction);
   });
+
+  it('StatisticsCountsTable_WhenReconstructedFromThePersistedLedgerJsonl_MatchesTheOriginalTableRegion', () => {
+    // The Stage C1 canonicity claim (issue #813): the counts table was
+    // previously covered only via the mirror's oracle-only stream; now the
+    // statistics-aggregate family emits it losslessly, the ledger a build
+    // PERSISTS must carry the whole table region - the manifest presenting the
+    // VERBATIM published headers (the '(1 April – 31 March)' boundary
+    // qualifier intact, 'Amateur Radio'/'Business Radio' as published), never
+    // the authored output names the old emit mis-presented As-published.
+    const entry = 'wdtk-184767--annual-licence-counts';
+    const sources = collectStatisticsSources().filter(resolved => resolved.entry === entry).map(resolved => resolved.load());
+    expect(sources).toHaveLength(1);
+    const source = sources[0];
+
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'recon-statistics-ledger-'));
+    try {
+      buildLedger(scratch, defaultFoiDir(), loadReferenceData(), key => key === entry);
+      const ledgerDir = path.join(scratch, 'ledger');
+      const files = fs.readdirSync(ledgerDir).filter(name => name.endsWith('.jsonl'));
+      expect(files).toHaveLength(1);
+      const persisted = parseClaimsJsonl(fs.readFileSync(path.join(ledgerDir, files[0]), 'utf8'));
+      expect(persisted[0]?.provenance.sourceFile).toBe(source.sourceFile);
+
+      // The registered emit is raw-only for an 'aggregate' subject: the
+      // persisted stream carries NO derived claims (the #824/#830 edge gate
+      // reads this as emits_edges = 0 - a period never gains a normalisation
+      // edge).
+      expect(persisted.every(c => c.layer === 'raw')).toBe(true);
+      expect(persisted.some(c => c.predicate === NORMALISES_TO_PREDICATE)).toBe(false);
+
+      // The manifest rode the persisted ledger with the verbatim spellings.
+      const manifest = persisted.filter(isFileLevelClaim);
+      expect(manifest.find(c => c.predicate === SUBJECT_PREDICATE)?.object).toBe('period (1 April – 31 March)');
+      expect(manifest.find(c => c.predicate === columnPredicate(0))?.object).toBe('period (1 April – 31 March)');
+      expect(manifest.find(c => c.predicate === columnPredicate(1))?.object).toBe('Amateur Radio');
+      expect(manifest.find(c => c.predicate === columnPredicate(2))?.object).toBe('Business Radio');
+
+      // And the table region rebuilds from the persisted claims alone, equal to
+      // the canonicalised original extract.
+      const reconstruction = reconstructMarkdownTableFromClaims(persisted);
+      const repoPath = source.repoPath;
+      expect(repoPath).toBeDefined();
+      if (repoPath === undefined) return;
+      const original = fs.readFileSync(path.join(REPO_ROOT, repoPath)).toString(source.encoding ?? 'utf8');
+      expect(reconstruction).toBe(canonicaliseMarkdownTable(original, source.sourceFile));
+    } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  });
 });
 
 // ---- Coverage bookkeeping ---------------------------------------------------
 
 describe('the oracle declares its coverage and any residual gaps explicitly', { tags: ['unit'] }, () => {
-  it('CoveredFamilies_WhenListed_AreTheThreeCsvLanesTheTwoRegisteredLosslessFamiliesAndTheMarkdownMirror', () => {
+  it('CoveredFamilies_WhenListed_AreTheThreeCsvLanesTheThreeRegisteredLosslessFamiliesAndTheMarkdownMirror', () => {
     expect([...COVERED_FAMILIES].sort()).toEqual([
-      'attribute-addendum', 'available-pool', 'foi-markdown-table', 'foi-register', 'foi-verbatim-csv', 'open-data-register',
+      'attribute-addendum', 'available-pool', 'foi-markdown-table', 'foi-register', 'foi-verbatim-csv', 'open-data-register', 'statistics-aggregate',
     ]);
-    // The markdown mirror is the only family NOT reconstructed through the CSV
-    // serialiser.
+    // The statistics-aggregate family and the markdown mirror are the only
+    // families NOT reconstructed through the CSV serialiser (both hold
+    // markdown-table extracts, routed by their .md repoPath).
     expect([...CSV_SERIALISED_FAMILIES].sort()).toEqual([
       'attribute-addendum', 'available-pool', 'foi-register', 'foi-verbatim-csv', 'open-data-register',
     ]);
@@ -543,10 +616,11 @@ describe('the oracle declares its coverage and any residual gaps explicitly', { 
   it('EveryPhase3TextShape_WhenCrossChecked_IsIngestedByAMirrorOrALosslessCanonicalFamily', () => {
     // E3 landed every markdown-table, preamble and prefixed shape into a mirror,
     // Stage A (issue #813) moved the available-pool shapes onto the registered
-    // family's own lossless emit, and Stage B registered the pre-war annex's
-    // verbatim family - so the honest non-coverage list stays EMPTY, the
-    // coverage guarantee. A future shape that slipped every selection would
-    // resurface here.
+    // family's own lossless emit, Stage B registered the pre-war annex's
+    // verbatim family, and Stage C1 moved the statistics counts table onto the
+    // registered statistics-aggregate family - so the honest non-coverage list
+    // stays EMPTY, the coverage guarantee. A future shape that slipped every
+    // selection would resurface here.
     expect(listNotYetCovered()).toEqual([]);
   });
 });

@@ -5,6 +5,7 @@ import * as path from 'path';
 import {
   emitClaims,
   isFileLevelClaim,
+  columnPredicate,
   SUBJECT_PREDICATE,
   LISTED_PREDICATE,
   NORMALISES_TO_PREDICATE,
@@ -14,9 +15,12 @@ import { buildLedger } from './build-ledger.ts';
 import { parseClaimsJsonl } from './serialise.ts';
 import {
   collectStatisticsSources,
+  loadStatisticsSource,
   statisticsEntries,
+  statisticsSourcesFor,
   STATISTICS_AGGREGATE_CLASS,
 } from './collectors/statistics.ts';
+import { loadFoiMarkdownTableSource } from './collectors/foi-markdown-table.ts';
 import { qualifyingRegisterEntries } from './collectors/foi-register.ts';
 import { defaultFoiDir } from '../shared/foi-archive.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
@@ -29,7 +33,9 @@ import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 // reporting PERIOD (a period is not a radio identity), so the ledger must emit
 // the period existence and the count attributes as RAW claims only - verbatim,
 // thousands separators intact - and NEVER attach a callsign normalisation edge
-// or a licence-category tier.
+// or a licence-category tier. Since issue #813 Stage C1 the raw predicates are
+// the table's own VERBATIM headers (the layer documented as published bytes
+// must present published bytes, never our authored output names).
 
 const REF = loadReferenceData();
 const FOI_DIR = defaultFoiDir();
@@ -46,9 +52,13 @@ const FIRST_PERIOD = '2003–2004';
 const FIRST_AMATEUR_COUNT = '29,190';
 const FIRST_BUSINESS_COUNT = '6,371';
 
-const PERIOD_COLUMN = 'period';
-const AMATEUR_PREDICATE = 'amateur_radio_licences_issued';
-const BUSINESS_PREDICATE = 'business_radio_licences_issued';
+// The table's own VERBATIM headers (issue #813 Stage C1): the ledger predicates
+// and the manifest @column/@subject claims present the published header bytes -
+// including the period header's '(1 April – 31 March)' boundary qualifier,
+// which the old authored output names silently dropped.
+const PERIOD_COLUMN = 'period (1 April – 31 March)';
+const AMATEUR_PREDICATE = 'Amateur Radio';
+const BUSINESS_PREDICATE = 'Business Radio';
 
 function statisticsSource() {
   const sources = collectStatisticsSources(FOI_DIR).filter(source => source.entry === STATISTICS_ENTRY);
@@ -57,14 +67,20 @@ function statisticsSource() {
 }
 
 describe('statistics-aggregate family: raw period + count claims, verbatim, no callsign edges', { tags: ['unit', 'data-validity'] }, () => {
-  it('AggregateSource_WhenLoaded_CarriesPeriodSubjectAndVerbatimCountsUnderOutputNames', () => {
+  it('AggregateSource_WhenLoaded_CarriesPeriodSubjectAndVerbatimCountsUnderVerbatimHeaders', () => {
     const observationSet = statisticsSource().load();
 
-    // The subject is the period; the count columns are relabelled to the
-    // converter's OUTPUT names so the predicates are self-describing.
+    // The subject is the period under its VERBATIM header (boundary qualifier
+    // intact); the count columns keep the table's own header spellings.
     expect(observationSet.subjectColumn).toBe(PERIOD_COLUMN);
     expect(observationSet.columns).toEqual([PERIOD_COLUMN, AMATEUR_PREDICATE, BUSINESS_PREDICATE]);
     expect(observationSet.sourceFile).toBe(`foi/${STATISTICS_ENTRY}/raw-extract-number-of-licences-coleman.md`);
+
+    // The reconstruction routing (issue #813 Stage C1): the source attests its
+    // repo path and encoding, so reconstructionResultFor can locate the real
+    // archived extract and route it through the markdown serialiser.
+    expect(observationSet.repoPath).toBe(`archive/foi/${STATISTICS_ENTRY}/raw-extract-number-of-licences-coleman.md`);
+    expect(observationSet.encoding).toBe('utf8');
 
     // One row per financial year (2003/04 to 2012/13), source order preserved.
     expect(observationSet.rows.length).toBe(10);
@@ -76,6 +92,33 @@ describe('statistics-aggregate family: raw period + count claims, verbatim, no c
     expect(first[PERIOD_COLUMN]).toBe(FIRST_PERIOD);
     expect(first[AMATEUR_PREDICATE]).toBe(FIRST_AMATEUR_COUNT);
     expect(first[BUSINESS_PREDICATE]).toBe(FIRST_BUSINESS_COUNT);
+  });
+
+  it('AggregateFamily_WhenLoadingTheExtractTheMirrorOnceCovered_AgreesWithTheMirrorLoaderCellForCell', () => {
+    // The transition proof (issue #813 Stage C1): the family's verbatim emit is
+    // pinned equal to the markdown mirror's structure-preserving load - cell
+    // for cell, and claim for claim - so reconstruction ownership moved from
+    // the mirror to the REGISTERED family without a single observation
+    // changing. The equality stays executable after the mirror's coverage of
+    // this file is retired, because it compares the LOADERS directly (the
+    // mirror loader survives for the wdtk-251507 transfers table until C2).
+    const entry = statisticsEntries(FOI_DIR).find(e => e.entry === STATISTICS_ENTRY);
+    expect(entry).toBeDefined();
+    if (entry === undefined) return;
+    const conversions = statisticsSourcesFor(entry.meta);
+    expect(conversions.length).toBe(1);
+
+    const family = loadStatisticsSource(FOI_DIR, STATISTICS_ENTRY, entry.meta, conversions[0]);
+    const mirror = loadFoiMarkdownTableSource(FOI_DIR, STATISTICS_ENTRY, entry.meta, conversions[0]);
+
+    // The observation sets are identical: same verbatim columns in source
+    // order, same subject placement, same rows cell-for-cell, same repo
+    // path/encoding - the mirror's fidelity posture, now the family's own.
+    expect(family).toEqual(mirror);
+
+    // And therefore the emitted claim streams agree claim-for-claim (a
+    // stronger statement than multiset equality: same order, same provenance).
+    expect(emitClaims(family)).toEqual(emitClaims(mirror));
   });
 
   it('AggregateClaims_WhenEmitted_AreRawExistenceAndCountsWithNoDerivedEdges', () => {
@@ -141,7 +184,14 @@ describe('statistics-aggregate family: raw period + count claims, verbatim, no c
       expect(claims.some(claim => claim.predicate === NORMALISES_TO_PREDICATE)).toBe(false);
       // The manifest rode the persisted ledger: the aggregate's @subject column
       // is on disk, so the source structure reconstructs from the ledger alone.
-      expect(claims.some(claim => isFileLevelClaim(claim) && claim.predicate === SUBJECT_PREDICATE)).toBe(true);
+      // Its claims present the table's VERBATIM headers (issue #813 Stage C1) -
+      // the published bytes, boundary qualifier intact, never our authored
+      // output names.
+      const subjectClaim = claims.find(claim => isFileLevelClaim(claim) && claim.predicate === SUBJECT_PREDICATE);
+      expect(subjectClaim?.object).toBe(PERIOD_COLUMN);
+      const columnObjects = [0, 1, 2].map(index =>
+        claims.find(claim => isFileLevelClaim(claim) && claim.predicate === columnPredicate(index))?.object);
+      expect(columnObjects).toEqual([PERIOD_COLUMN, AMATEUR_PREDICATE, BUSINESS_PREDICATE]);
 
       const firstAmateur = claims.find(claim => claim.predicate === AMATEUR_PREDICATE && claim.rawSubject === FIRST_PERIOD);
       expect(firstAmateur?.object).toBe(FIRST_AMATEUR_COUNT);
