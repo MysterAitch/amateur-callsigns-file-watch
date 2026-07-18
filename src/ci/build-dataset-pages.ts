@@ -734,7 +734,7 @@ function csvPreviewTable(filePath: string, pillCallsignDepth?: number, sampleSiz
     if (h === 'product' || h === 'licence_class') return `<td>${licenceField(r[h] ?? '')}</td>`;
     return `<td>${escapeHtml(r[h] ?? '')}</td>`;
   }).join('')}${withExamine ? examineCell(r['callsign'] ?? '') : ''}</tr>`).join('');
-  return `<div style="overflow-x:auto"><table>${tableCaption(`Preview — first ${rows.length} rows of this file`)}<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="overflow" style="overflow-x:auto"><table>${tableCaption(`Preview — first ${rows.length} rows of this file`)}<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 // The anomaly-flag table (first-sentence meanings + registry link), used

@@ -160,7 +160,13 @@ table { border-collapse: collapse; margin: 0.75rem 0; width: 100%; }
 th, td { text-align: left; padding: 0.3rem 0.6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { font-weight: 600; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-code, .mono { font-family: ui-monospace, monospace; }
+/* A long unbroken code token (a regex, a file path) has no spaces to wrap
+   on, so without this it forces the whole page wider than the viewport at
+   narrow widths instead of breaking within its own line (issue #794). Applies
+   to every inline code/mono span sitewide; a fenced code block wrapped in its
+   own .overflow scroll container (e.g. the SQL examples below) is unaffected,
+   since that container never needs the text itself to break. */
+code, .mono { font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
 .flag { display: inline-block; padding: 0.05rem 0.45rem; margin: 0 0.2rem 0.2rem 0; border: 1px solid var(--warn); border-radius: 999px; color: var(--warn); font-size: 0.85em; }
 .status-ok { color: #2e7d32; }
 .card { border: 1px solid var(--line); border-radius: 6px; padding: 0.75rem 1rem; margin: 0.75rem 0; }
@@ -181,7 +187,15 @@ code, .mono { font-family: ui-monospace, monospace; }
    readable even if this stylesheet is the only thing that loaded. */
 .startup-warning { border: 1px solid #c0392b; border-radius: 6px; padding: 0.5rem 0.9rem; margin: 0.8rem 0; background: color-mix(in srgb, #c0392b 12%, transparent); }
 .startup-warning p { margin: 0; }
-.overflow { overflow-x: auto; }
+/* overflow-x:auto alone clips the wide child's PAINT and lets this box scroll
+   internally, but a browser can still let the child's layout size widen the
+   document's own scrollable region (confirmed live on data-status.html,
+   issue #793) - the page then scrolls sideways into blank space even though
+   nothing wide is actually visible there. `contain: layout` tells the browser
+   this box's internal layout never affects an ancestor's, which is exactly
+   the containment overflow-x:auto is meant to provide; the wide table still
+   scrolls exactly as before inside its own box. */
+.overflow { overflow-x: auto; contain: layout; }
 footer { margin-top: 2rem; font-size: 0.85em; color: color-mix(in srgb, var(--ink) 70%, transparent); }
 
 /* Explore page: SQL console */

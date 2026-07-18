@@ -257,7 +257,10 @@
 
 /* Damage catalogue */
 .ledger .dmg { width: 100%; border-collapse: collapse; }
-.ledger .dmg-wrap { overflow-x: auto; }
+/* Same containment as .ledger .overflow above, and for the same reason: a
+   wide table's intrinsic size can otherwise widen the document itself even
+   once its own paint is correctly clipped (issue #793). */
+.ledger .dmg-wrap { overflow-x: auto; contain: layout; }
 .ledger .dmg th, .ledger .dmg td { padding: 9px 12px; border-bottom: 1px solid var(--hair); font-size: 13px; text-align: left;
   white-space: nowrap; }
 .ledger .dmg th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
@@ -403,9 +406,22 @@
 .ledger .panel strong { color: var(--ink); font-weight: 600; }
 .ledger .panel h2 { margin: 6px 0 4px; }
 
-/* Inline code / monospace tokens, tinted like the ledger's byte chips. */
+/* Inline code / monospace tokens, tinted like the ledger's byte chips. A long
+   unbroken token (a regex, a file path) has no spaces to wrap on, so without
+   overflow-wrap it forces the whole page wider than the viewport at narrow
+   widths rather than breaking within its own line (issue #794). */
 .ledger code { font-family: var(--mono); font-size: .92em; background: var(--surface-2);
-  border: 1px solid var(--hair); border-radius: 6px; padding: 1px 6px; color: var(--muted); }
+  border: 1px solid var(--hair); border-radius: 6px; padding: 1px 6px; color: var(--muted);
+  overflow-wrap: anywhere; }
+/* Fenced code blocks (renderMarkdown's ```-delimited output) carry meaningful
+   line breaks and indentation that must survive verbatim, so - unlike the
+   inline code chip above - a long line scrolls sideways within its own box
+   instead of wrapping, the same "own container, not the page" containment
+   already used for wide tables (.overflow) - contain:layout for the same
+   reason those need it (issue #793): overflow-x:auto alone clips the paint,
+   but a browser can still let a long unbroken line widen the document itself. */
+.ledger pre { overflow-x: auto; max-width: 100%; contain: layout; }
+.ledger pre code { overflow-wrap: normal; white-space: pre; }
 .ledger .muted { color: var(--muted); }
 .ledger small { font-size: 12.5px; }
 
@@ -428,7 +444,15 @@
    they render in the ledger's census-table idiom - monospace uppercase headers,
    hairline rows, tabular figures. The page's own .census / .dmg / .pg-table
    selectors are more specific, so those tables keep their bespoke styling. */
-.ledger .overflow { overflow-x: auto; margin: 6px 0 4px; }
+/* overflow-x:auto alone clips the wide child's PAINT and lets this box scroll
+   internally, but a browser can still let the child's layout size widen the
+   document's own scrollable region (confirmed live on data-status.html,
+   issue #793) - the page then scrolls sideways into blank space even though
+   nothing wide is actually visible there. `contain: layout` tells the browser
+   this box's internal layout never affects an ancestor's, which is exactly
+   the containment overflow-x:auto is meant to provide; the wide table still
+   scrolls exactly as before inside its own box. */
+.ledger .overflow { overflow-x: auto; contain: layout; margin: 6px 0 4px; }
 .ledger table { width: 100%; border-collapse: collapse; margin: 6px 0; }
 .ledger th, .ledger td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--hair);
   font-size: 13.5px; vertical-align: top; }
