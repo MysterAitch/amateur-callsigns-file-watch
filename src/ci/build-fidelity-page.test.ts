@@ -205,6 +205,30 @@ describe('the built fidelity page over the real archive', { tags: ['data-validit
     expect(flagRow).toMatch(/aria-label="browse the [\d,]+ rows? carrying the rsl-in-register flag in the [^"]+ publication"/);
   });
 
+  it('FidelityPage_UnparseableCallsignFlag_CountsTheKnownRowsAndLinksTheParseStatusFilterAsAnObservation', () => {
+    // Issue #802: the parser already classifies 10 rows in the newest real
+    // publication (2026-06-23) as parse_status = unparseable, including two
+    // plain-English words ("EDUCATIONAL", "ENVIRONMENTS") with a real
+    // Allocated status - but that signal never reached a reader-facing
+    // surface. unparseable-callsign is a flag-registry cross-reference to that
+    // status (reference-data/flags.md), so it must appear here with the real
+    // count and a working deep link - but the value never lives in the
+    // `flags` column, so the browse app filters it via its parse-status facet
+    // (?parse=unparseable), not ?flags=unparseable-callsign, which would land
+    // on an honestly-empty search.
+    const row = page.match(/<tr id="flag-unparseable-callsign">[\s\S]*?<\/tr>/)?.[0];
+    expect(row, 'unparseable-callsign row present').toBeTruthy();
+    const flagRow = row ?? '';
+    expect((flagRow.match(/href="index\.html\?parse=unparseable"/g) ?? []).length).toBe(2);
+    expect(flagRow).not.toContain('?flags=unparseable-callsign');
+    expect(flagRow).toMatch(/<a href="index\.html\?parse=unparseable"[^>]*><code>unparseable-callsign<\/code><\/a>/);
+    expect(flagRow).toMatch(/aria-label="browse the 10 rows carrying the unparseable-callsign flag in the [^"]+ publication"/);
+    // An observation, never a verdict: "could not be parsed"/"matches no
+    // known ... formation" is fine; judgemental language is not.
+    expect(flagRow).toMatch(/matches no known UK callsign formation/i);
+    expect(flagRow).not.toMatch(/\b(wrong|invalid|incorrect|erroneous)\b/i);
+  });
+
   it('FidelityPage_FlagThatDidNotFireInLatestPublication_StaysInertWithNoEmptyFilterLink', () => {
     // A "none" row has no rows to browse, so it must not link into an
     // honestly-empty (and misleading) filtered search. excel-date-shape is a

@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import {
   buildDatasetPages, dayGap, signedDelta, unkeyableRowsNote,
-  narrativeTitle, listNarrativeDocs, sourceLinesByCallsign,
+  narrativeTitle, listNarrativeDocs, sourceLinesByCallsign, callsignCell,
   type DatasetPagesSummary,
 } from './build-dataset-pages.ts';
 import type { SourceObservationSet } from '../v2/claim.ts';
@@ -1204,6 +1204,38 @@ describe('Inline fidelity nudges + the deep-dive page (issue #438)', { tags: ['d
     // offers the deep-dive's provenance section alongside meta.json.
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2025-04-08', 'index.html'), 'utf8');
     expect(page).toContain('href="../../../fidelity.html#provenance"');
+  });
+});
+
+describe('Unparseable-callsign inline nudge (issue #802)', { tags: ['unit'] }, () => {
+  // "EDUCATIONAL" and "ENVIRONMENTS" - plain English words, not any
+  // callsign-shaped value - carry a real Allocated status in the current
+  // register (archive/2026-06-23), unchanged since 2025-04-08, with no reader-
+  // facing signal that the parser had already declined to interpret them. The
+  // badge is computed from a fresh parse of the cell's own value, not read
+  // from the row's own `flags` column (parse_status is a closed status, never
+  // a flags-column entry - reference-data/flags.md), so it appears wherever a
+  // preview shows an unparseable value, with no dependency on any file
+  // regeneration.
+  it('CallsignCell_UnparseableValue_CarriesTheUnparseableCallsignNudge', () => {
+    const cell = callsignCell('EDUCATIONAL', 'Amateur Full Radio Licence', 3);
+    expect(cell).toContain('<span class="tb fid">unparseable-callsign</span>');
+    expect(cell).toContain('href="../../../fidelity.html#flag-unparseable-callsign"');
+  });
+
+  it('CallsignCell_ParsedValue_CarriesNoUnparseableCallsignNudge', () => {
+    // The opposite scenario: a genuinely parseable callsign gets no synthetic
+    // badge - selective disclosure holds for this flag exactly as for every
+    // other one.
+    const cell = callsignCell('M7TEE', '', 3);
+    expect(cell).not.toContain('unparseable-callsign');
+  });
+
+  it('CallsignCell_RowsOwnFlagsAlreadyCarryTheCrossReference_DoesNotDuplicateTheBadge', () => {
+    // Defensive: should the row's own `flags` column ever carry this token
+    // directly, the synthetic addition must not double the badge.
+    const cell = callsignCell('EDUCATIONAL', 'Amateur Full Radio Licence', 3, ['unparseable-callsign']);
+    expect((cell.match(/<span class="tb fid">unparseable-callsign<\/span>/g) ?? []).length).toBe(1);
   });
 });
 

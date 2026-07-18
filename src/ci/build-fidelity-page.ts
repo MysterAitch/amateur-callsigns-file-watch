@@ -53,6 +53,7 @@ import {
   parseCallsign,
   normaliseLicenceCategory,
   loadReferenceData,
+  UNPARSEABLE_CALLSIGN_FLAG,
   type ReferenceData,
 } from '../sources/ofcom-amateur/components.ts';
 import { renderInline } from '../shared/render-markdown.ts';
@@ -187,11 +188,13 @@ const EXAMPLE_BLURBS: Record<ExampleSelection['kind'], { heading: string; blurb:
 // ---- the page ---------------------------------------------------------------
 
 // A deep link from the fidelity page (site root) into the browse app
-// (index.html), pre-filtered to a single data-quality flag. The app reads
-// ?flags= on load, ticks the matching filter and runs the query against the
-// newest publication's normalised rows — the very population the flag counts
-// on this page describe — so the reader lands on exactly those records.
+// (index.html), pre-filtered to a single data-quality observation. The app
+// reads ?flags= (or, for the one cross-referenced status above, ?parse=) on
+// load, ticks the matching filter and runs the query against the newest
+// publication's normalised rows — the very population the counts on this
+// page describe — so the reader lands on exactly those records.
 function lookupFlagHref(flag: string): string {
+  if (flag === UNPARSEABLE_CALLSIGN_FLAG) return 'index.html?parse=unparseable';
   return `index.html?flags=${encodeURIComponent(flag)}`;
 }
 
@@ -482,7 +485,17 @@ export function buildFidelityPage(outputDir: string, baseUrl: string = DEFAULT_B
     // meta.json and the raw source below stay archive reads.
     if (derivedEntryFileExists(newestKey, 'stats.json', archiveDir)) {
       const statsPath = derivedEntryFile(newestKey, 'stats.json', archiveDir);
-      newestStats = (JSON.parse(fs.readFileSync(statsPath, 'utf8')) as { callsignFlags?: Record<string, number> }).callsignFlags ?? {};
+      const parsedStats = JSON.parse(fs.readFileSync(statsPath, 'utf8')) as {
+        callsignFlags?: Record<string, number>;
+        parseStatuses?: Record<string, number>;
+      };
+      newestStats = { ...(parsedStats.callsignFlags ?? {}) };
+      // unparseable-callsign has no entry in callsignFlags (it cross-references
+      // parse_status, never the flags column - see reference-data/flags.md), so
+      // its count is read from the parseStatuses tally already computed for
+      // every archive entry, rather than requiring any data regeneration.
+      const unparseableCount = parsedStats.parseStatuses?.unparseable ?? 0;
+      if (unparseableCount > 0) newestStats[UNPARSEABLE_CALLSIGN_FLAG] = unparseableCount;
     }
     const meta = JSON.parse(fs.readFileSync(path.join(archiveDir, newestKey, 'meta.json'), 'utf8')) as ArchiveMeta;
     const ref = loadReferenceData();

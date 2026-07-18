@@ -52,6 +52,13 @@ export function cleanedCallsign(callsign: string): string {
 
 export type ParseStatus = 'parsed' | 'visitor' | 'special-event' | 'empty' | 'unparseable';
 
+// The flag-registry cross-reference to parseStatus === 'unparseable'
+// (reference-data/flags.md): parse_status is a closed status vocabulary, not
+// itself a flags-column entry, so a page that wants to show this observation
+// through the shared flag-nudge/flag-registry machinery names it via this
+// constant rather than free-typing the string in more than one place.
+export const UNPARSEABLE_CALLSIGN_FLAG = 'unparseable-callsign';
+
 export interface ComponentRow {
   callsign: string;
   parseStatus: ParseStatus;

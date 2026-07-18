@@ -48,7 +48,7 @@ import { reportAffordance } from './render/report.ts';
 import { examineTrail, sourceLineHop, buildCommit, type ExamineHop } from './render/show-working.ts';
 import { loadOpenDataRegisterSource } from '../v2/collectors/open-data-register.ts';
 import type { SourceObservationSet } from '../v2/claim.ts';
-import { parseCallsign, cleanedCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { parseCallsign, cleanedCallsign, loadReferenceData, UNPARSEABLE_CALLSIGN_FLAG, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { time, perfReport } from '../shared/perf.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
 import {
@@ -620,7 +620,14 @@ function registeredFlags(): ReadonlySet<string> {
 // #438) — each linking to that flag's row on the deep-dive page — and a
 // record with no flags renders the pill alone, so the affordance never
 // manufactures doubt where no observation exists.
-function callsignCell(callsign: string, licenceClass: string, depthToRoot: number, flags: readonly string[] = []): string {
+//
+// unparseable-callsign (issue #802) is added here rather than read from the
+// row's own `flags` column: parse_status is a closed status, never itself a
+// flags-column entry (reference-data/flags.md), but the parser is re-run for
+// every preview cell anyway (for the pill's title), so the classification is
+// available with no further data plumbing - the badge appears wherever a
+// preview shows an unparseable value, without waiting on that column.
+export function callsignCell(callsign: string, licenceClass: string, depthToRoot: number, flags: readonly string[] = []): string {
   if (callsign === '') return '<td></td>';
   const comp = parseCallsign(callsign, licenceClass, referenceData());
   const pill = callsignPill(callsign, depthToRoot, {
@@ -629,7 +636,10 @@ function callsignCell(callsign: string, licenceClass: string, depthToRoot: numbe
     suffix: comp.suffix,
     licenceClass: comp.impliedClass,
   });
-  const nudges = flagNudges(flags, depthToRoot, registeredFlags());
+  const observedFlags = comp.parseStatus === 'unparseable' && !flags.includes(UNPARSEABLE_CALLSIGN_FLAG)
+    ? [...flags, UNPARSEABLE_CALLSIGN_FLAG]
+    : flags;
+  const nudges = flagNudges(observedFlags, depthToRoot, registeredFlags());
   return `<td>${pill}${nudges === '' ? '' : ` ${nudges}`}</td>`;
 }
 
@@ -778,8 +788,19 @@ function atAGlanceOpenData(key: string, previousKey: string | undefined, stats: 
   }
   const topFlag = Object.entries(stats.callsignFlags).sort((a, b) => b[1] - a[1])[0];
   if (topFlag !== undefined && topFlag[0] !== 'forbidden-suffix') notable.push(`<li><b>${topFlag[1].toLocaleString('en-GB')}</b> rows flagged <a href="../../docs/flags.html"><code>${escapeHtml(topFlag[0])}</code></a>.</li>`);
+  // Issue #802: the parser's own unparseable classification used to stop at
+  // this bare count - a reader had no way to see WHICH rows, and "likely
+  // upstream corruption" asserted a cause the parser never determined (some
+  // such values are single-character corruptions of a plausible callsign;
+  // others, like a plain English word, look nothing like one). The bullet now
+  // links the per-publication filtered rows (correct for every entry, not
+  // just the newest - the scoped browser in 3b, like the forbidden-suffix
+  // links above) and nudges to the flag registry's framing of the observation.
   const unparseable = stats.parseStatuses.unparseable ?? 0;
-  if (unparseable > 0) notable.push(`<li><b>${unparseable.toLocaleString('en-GB')}</b> callsign${unparseable === 1 ? '' : 's'} don't parse — likely upstream corruption.</li>`);
+  if (unparseable > 0) {
+    const unparseableSql = `SELECT callsign, status, product FROM register_history WHERE dataset = '${key}' AND parse_status = 'unparseable' ORDER BY callsign`;
+    notable.push(`<li><a href="#" data-browser-sql="${escapeHtml(unparseableSql)}"><b>${unparseable.toLocaleString('en-GB')}</b> callsign${unparseable === 1 ? '' : 's'} could not be parsed as a UK callsign</a> — an observation of what the source published, not a verdict; see ${fidelityNudge(3, { section: 'flag-unparseable-callsign', label: 'what this means', about: 'the unparseable-callsign flag (an observation, not a verdict)' })}.</li>`);
+  }
   const diff = meta.diffSummary;
   if (diff !== undefined && diff.previousArchiveKey === key && previousKey !== undefined) {
     notable.push(`<li class="rel"><b>Re-fetch:</b> byte-identical to the earlier fetch. Compare with <a href="../${escapeHtml(previousKey)}/index.html">${humanDate(previousKey)}</a>.</li>`);
