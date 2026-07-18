@@ -1,11 +1,24 @@
 # Amateur callsign data around the world
 
-*A comparative reference, not a data narrative in the tagged-claim sense (see
-the [glossary's claim-tag definitions](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics))
-used elsewhere in this collection — there is no derivation to walk. It exists
-to give the UK/Ofcom model context by setting out, with primary citations, how
-a handful of other national regulators publish (or decline to publish) their
-amateur-radio callsign registers, and under what licence.*
+*A comparative reference — it gives the UK/Ofcom model context by setting
+out, with primary citations, how a handful of other national regulators
+publish (or decline to publish) their amateur-radio callsign registers, and
+under what licence. Every substantive claim below is checked against a
+cited primary source, since the whole point of the page is material this
+project deliberately does not mirror into its own corpus (see "Context, not
+collection", below).*
+
+Only the claims below that are genuinely read off, or derived from, this
+project's own held/archived register data carry one of three tags —
+**[observed]**, **[derived]**, or **[hypothesis]** — the same convention its
+sibling narratives use throughout. Select any tag to see its full definition
+in the [glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics).
+Most of what follows, though, is material about *other* regulators' own
+registers — this project holds none of it (see "Context, not collection",
+below) — so those claims carry their own inline primary-source citation
+instead of a tag: a citation to a named external page is the honest
+evidential status for a fact read from someone else's register, and forcing
+a held-data tag onto it would misstate what actually backs the claim.
 
 **Context, not collection.** No foreign register data enters this project's
 corpus. This mirror archives one register: the UK's, published by Ofcom (see
@@ -29,6 +42,10 @@ not be completed, that is recorded honestly below rather than left implied.
 ---
 
 ## At a glance
+
+Each row states what a named regulator's own page publishes, and under what
+licence — read directly off the pages cited, and unpacked with fuller
+citations in the sections below.
 
 | Regulator | What is published | Licence position |
 |---|---|---|
@@ -76,25 +93,26 @@ all — and that produces a genuine ULS entry, but against a US mailing
 address, with no nationality field recorded anywhere in ULS; it surfaces as
 an ordinary US licensee, invisible as UK-origin in the data itself.
 
-The UK's own side of this relationship is not symmetric either, and this
+Ofcom's *Amateur Radio Guidance* (updated 14 October 2025), §2.1.4, states
+plainly that CEPT T/R 61-01 short stays (under three months) are
+licence-exempt and leave no Ofcom record, exactly like the US case above, and
+that the UK's reciprocal-visitor licence is itself scheduled for phase-out.
+
+**[observed]** The UK's own side of this relationship is not symmetric either, and this
 project's own corpus is the evidence — though the exact licence-product
 naming needs care, since the corpus deliberately keeps two reciprocal
 categories distinct
 ([`reference-data/licence-category.csv`](../../reference-data/licence-category.csv);
 [`reference-data/README.md`](../../reference-data/README.md), the "two
-reciprocal categories" note). Ofcom's *Amateur Radio Guidance* (updated 14
-October 2025), §2.1.4, states plainly that CEPT T/R 61-01 short stays (under
-three months) are licence-exempt and leave no Ofcom record, exactly like the
-US case above, and that the UK's reciprocal-visitor licence is itself
-scheduled for phase-out. Visitors outside that exemption — longer stays, or
-those on a bilateral reciprocal arrangement rather than the CEPT route —
-instead hold an actual **"Amateur Temporary Reciprocal Radio Licence"**: the
-exact product string this project's own register data carries, not a
-paraphrase (`reference-data/licence-category.csv`; the Ofcom formal name is
-understood to add a "(Full)" licence-class qualifier, but that specific
-wording is guidance-derived rather than confirmed against a primary form, so
-this write-up anchors on the register's own citation-grade string). This
-project already holds that tier's evidence directly: the
+reciprocal categories" note). Visitors outside that exemption — longer
+stays, or those on a bilateral reciprocal arrangement rather than the CEPT
+route — instead hold an actual **"Amateur Temporary Reciprocal Radio
+Licence"**: the exact product string this project's own register data
+carries, not a paraphrase (`reference-data/licence-category.csv`; the Ofcom
+formal name is understood to add a "(Full)" licence-class qualifier, but
+that specific wording is guidance-derived rather than confirmed against a
+primary form, so this write-up anchors on the register's own citation-grade
+string). This project already holds that tier's evidence directly: the
 `ofcom-498906--reciprocal-licences-since-2010`
 FOI disclosure is precisely that callsign list, and the three `Reserved` rows
 flagged in [ADR 0005](../adr/0005-canonical-callsign-forms.md) — `M/#PT2FM`,
@@ -103,8 +121,8 @@ carry that exact product name in the register (`archive/2023-02-20/normalised.cs
 — a real register entry naming a foreign home callsign, not the licence-exempt
 case.
 
-A separate, permanent category — **"Amateur Full (Reciprocal) Radio
-Licence"** — must not be confused with the tier above: it is a permanent UK
+A separate, permanent category — **"Amateur Full (Reciprocal)
+Radio Licence"** — must not be confused with the tier above: it is a permanent UK
 Full licence granted on a recognised foreign qualification (HAREC / CEPT
 T/R 61-02), producing an ordinary UK-format callsign (`G0`/`M0`…), not an
 `M/#` visitor call.
@@ -117,10 +135,10 @@ register's own verified product name for any claim about what a specific
 here: the T/R 61-01 exemption, and the Temporary Reciprocal tier's scheduled
 phase-out.
 
-So the asymmetry runs one way, not two: the UK records a slice of its
-visitors more explicitly than the FCC records any of the UK's, and no UK
-callsign appears in the ULS for the reciprocal/visiting-operator case. That
-is a confirmation of this project's Ofcom-only mirroring scope, not a
+**[derived]** So the asymmetry runs one way, not two: the UK's own held register
+carries a slice of its visitors explicitly (the `M/#` rows above), while no
+UK callsign appears in the ULS for the reciprocal/visiting-operator case.
+That is a confirmation of this project's Ofcom-only mirroring scope, not a
 limitation of it — there is nowhere else a UK callsign as such would show up.
 
 Of the regulators surveyed, this is the clean contrast case: a national
@@ -206,14 +224,16 @@ different duration figures for this exemption — 365 days for qualifications
 listed in its Tables A/B, and separately 90 days as the threshold beyond
 which "an Australian amateur apparatus licence" is required — and the two
 were not reconciled this pass, recorded as an open discrepancy rather than
-resolved by picking one. Whether that longer-stay licence would create an
-RRL entry naming a UK home qualification — structurally the closest thing to
-an ACMA equivalent of the UK's own Temporary Reciprocal licence tier — is a genuine
-open lead, not confirmed either way. (See the FCC section above for this
-page's own re-verification note, which covers ACMA too: ACMA's
-visiting-amateur pages could not be re-fetched directly this pass, so this
-rests on search-indexed excerpts and the legislation.gov.au primary text,
-not a direct read of the current instrument.)
+resolved by picking one.
+
+**[hypothesis]** Whether that longer-stay licence would create an RRL entry naming a UK home
+qualification — structurally the closest thing to an ACMA equivalent of the
+UK's own Temporary Reciprocal licence tier — is a genuine open lead, not
+confirmed either way. (See the FCC section above for this page's own
+re-verification note, which covers ACMA too: ACMA's visiting-amateur pages
+could not be re-fetched directly this pass, so this rests on search-indexed
+excerpts and the legislation.gov.au primary text, not a direct read of the
+current instrument.)
 
 ## France — ANFR
 
@@ -230,10 +250,12 @@ ANFR separately runs a live per-callsign lookup, the "annuaire" at
 #109 survey, and this write-up's own re-check found the same: the page issues
 a malformed redirect (`https://www.anfr.fr` with the following path
 concatenated straight on, missing the separating slash) rather than resolving
-cleanly. That is recorded as **unverified**, not as **absent** — a genuinely
+cleanly.
+
+**[hypothesis]** That is recorded as **unverified**, not as **absent** — a genuinely
 open question, not a closed one.
 
-ANFR's general open-data portal otherwise uses the Etalab
+**[hypothesis]** ANFR's general open-data portal otherwise uses the Etalab
 [Licence Ouverte v2.0](https://www.etalab.gouv.fr/wp-content/uploads/2017/04/ETALAB-Licence-Ouverte-v2.0.pdf)
 for its other datasets, so a bulk amateur export, if one exists, would likely
 carry that licence — a follow-up worth revisiting if the annuaire's export
@@ -245,10 +267,10 @@ not authoritative, the same shape as the RSGB Yearbook's self-compiled
 directory rather than a regulator mirror. UK relevance follows the same
 asymmetric pattern set out in the FCC section above: France is a CEPT
 signatory, so the licence-exempt T/R 61-01/61-02 model applies and no UK
-callsign would appear in a French register for a short visit. No ANFR-specific
-visitor-licensing page was checked independently this pass, so, as with
-BNetzA above, this rests on the CEPT-bloc-general finding rather than a
-direct ANFR source.
+callsign would appear in a French register for a short visit. No
+ANFR-specific visitor-licensing page was checked independently this pass, so,
+as with BNetzA above, this rests on the CEPT-bloc-general finding rather than
+a direct ANFR source.
 
 ---
 
@@ -259,7 +281,7 @@ comparison table's single cell compresses more than it should say on its own,
 so this section spells out the nuance directly rather than leaving the
 compressed version to stand unqualified.
 
-Ofcom **does** publish a current register CSV — that file is exactly what
+**[observed]** Ofcom **does** publish a current register CSV — that file is exactly what
 this project's [open-data lane](../../README.md) mirrors on every change. What
 it does not do is what marks out the FCC/ACMA/BNetzA end of this survey: there
 is no dedicated open-data catalogue entry for the register, no stated reuse
@@ -363,6 +385,9 @@ justified by personal data as the reason for stopping short.
 - This narrative form (curious-reader walkthroughs, published under
   `docs/narratives/` and discovered automatically by the reports hub):
   **issue #657**.
+- Bringing this page's claims into the epistemics-tag convention already
+  applied throughout its sibling narratives: **issue #796**
+  ([thread](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/796)).
 
 *The comparative table and per-country sections were checked against each
 regulator's own primary page as described above; where a page could not be
