@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import {
   validatePublisherRegister,
   validateWitnessChannelsResolve,
@@ -127,6 +130,75 @@ describe('validatePublisherRegister - shape and vocabularies', { tags: ['unit'] 
   it('Publisher_WhenNameEmpty_Fails', () => {
     const problems = validatePublisherRegister(register(validEntry({ name: '' })));
     expect(problems.some(p => /\.name is missing or empty/.test(p.problem))).toBe(true);
+  });
+});
+
+// #812 (A-D3): a validator must LOCATE malformation, never crash on it. Each
+// case below is a shape the `... as PublisherRegister` boundary let through
+// silently before - a top-level malformed register, a non-array collection
+// field, and a null item within an otherwise-well-formed array - and each
+// must come back as a located ValidationProblem, not an uncaught TypeError.
+describe('validatePublisherRegister - malformed register shapes (#812)', { tags: ['unit'] }, () => {
+  it('Register_WhenTopLevelNull_FailsWithProblemNotCrash', () => {
+    expect(() => validatePublisherRegister(null as unknown as PublisherRegister)).not.toThrow();
+    const problems = validatePublisherRegister(null as unknown as PublisherRegister);
+    expect(problems.some(p => p.problem.includes('publisher register must be a JSON object') && p.problem.includes('null'))).toBe(true);
+  });
+
+  it('Register_WhenTopLevelArray_FailsWithProblemNotCrash', () => {
+    expect(() => validatePublisherRegister([] as unknown as PublisherRegister)).not.toThrow();
+    const problems = validatePublisherRegister([] as unknown as PublisherRegister);
+    expect(problems.some(p => p.problem.includes('publisher register must be a JSON object') && p.problem.includes('an array'))).toBe(true);
+  });
+
+  it('Register_WhenPublishersIsAStringNotAnArray_FailsWithProblemNotCrash', () => {
+    const reg = register(validEntry());
+    // @ts-expect-error - deliberately malformed to exercise the guard.
+    reg.publishers = 'ofcom';
+    expect(() => validatePublisherRegister(reg)).not.toThrow();
+    expect(validatePublisherRegister(reg).some(p => /publishers is missing or empty/.test(p.problem))).toBe(true);
+  });
+
+  it('Register_WhenPublishersContainsANullItem_FailsWithProblemNotCrash', () => {
+    const reg = register(validEntry());
+    // @ts-expect-error - deliberately malformed to exercise the guard.
+    reg.publishers = [null, validEntry()];
+    expect(() => validatePublisherRegister(reg)).not.toThrow();
+    const problems = validatePublisherRegister(reg);
+    expect(problems.some(p => p.problem.includes('publishers[0] must be an object'))).toBe(true);
+  });
+
+  it('WitnessChannelsResolve_WhenPublishersContainsANullItem_DoesNotCrash', () => {
+    // validateWitnessChannelsResolve runs unconditionally alongside
+    // validatePublisherRegister (validatePublishersAt calls both over the
+    // same parsed register) - it must survive the same malformed shapes.
+    const reg = register(validEntry({ channels: ['live'] }));
+    // @ts-expect-error - deliberately malformed to exercise the guard.
+    reg.publishers = [null, validEntry({ channels: ['live'] })];
+    expect(() => validateWitnessChannelsResolve(reg, [{ channel: 'live', at: 'x' }])).not.toThrow();
+    expect(validateWitnessChannelsResolve(reg, [{ channel: 'live', at: 'x' }])).toEqual([]);
+  });
+});
+
+describe('validatePublishersAt - malformed register.json on disk (#812)', { tags: ['unit'] }, () => {
+  let scratchDir: string;
+
+  function writeRegisterFile(raw: string): string {
+    scratchDir = fs.mkdtempSync(path.join(os.tmpdir(), 'validate-publishers-test-'));
+    const registerPath = path.join(scratchDir, 'publishers.json');
+    fs.writeFileSync(registerPath, raw);
+    return registerPath;
+  }
+
+  afterEach(() => {
+    if (scratchDir) fs.rmSync(scratchDir, { recursive: true, force: true });
+  });
+
+  it('ValidatePublishersAt_WhenRegisterJsonIsTopLevelNull_FailsWithProblemNotCrash', () => {
+    const registerPath = writeRegisterFile('null');
+    expect(() => validatePublishersAt(registerPath)).not.toThrow();
+    const problems = validatePublishersAt(registerPath);
+    expect(problems.some(p => p.problem.includes('publisher register must be a JSON object') && p.problem.includes('null'))).toBe(true);
   });
 });
 

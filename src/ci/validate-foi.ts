@@ -35,7 +35,7 @@ import {
   divergenceRecordProblems,
   unpairedDivergentWitnessProblems,
 } from '../shared/witness-agreement.ts';
-import type { ValidationProblem } from './validate-data.ts';
+import { isPlainObject, describeShape, type ValidationProblem } from './validate-data.ts';
 
 const SHA256_RE = /^[0-9a-f]{64}$/;
 // A defined dataVintage must be ISO year / year-month / year-month-day. The
@@ -79,7 +79,15 @@ export function validateFoiEntry(foiDir: string, key: string): ValidationProblem
   }
   let meta: FoiEntryMeta;
   try {
-    meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as FoiEntryMeta;
+    const parsed: unknown = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+    // The #806 work guarded relatedEntries/files against malformation once
+    // meta was already a usable object; a top-level null/array/scalar meta
+    // still reached `meta.schemaVersion` below and threw (#812). Close that
+    // residual the same way validate-data.ts and validate-publishers.ts do.
+    if (!isPlainObject(parsed)) {
+      return [{ path: metaPath, problem: `meta.json must be a JSON object, got ${describeShape(parsed)}` }];
+    }
+    meta = parsed as FoiEntryMeta;
   } catch (err) {
     return [{ path: metaPath, problem: `meta.json is not valid JSON: ${errorMessage(err)}` }];
   }
@@ -222,10 +230,15 @@ export function validateFoiEntry(foiDir: string, key: string): ValidationProblem
     const siblingMetaPath = path.join(foiDir, related.entry, 'meta.json');
     let siblingMeta: FoiEntryMeta | undefined;
     try {
-      siblingMeta = JSON.parse(fs.readFileSync(siblingMetaPath, 'utf8')) as FoiEntryMeta;
+      const parsedSibling: unknown = JSON.parse(fs.readFileSync(siblingMetaPath, 'utf8'));
+      // A missing, invalid-JSON, or top-level-malformed (null/array/scalar)
+      // sibling meta.json is reported when that sibling entry is itself
+      // validated - not duplicated here. Same #812 top-level guard as the
+      // entry's own meta read above: `siblingMeta.relatedEntries` must not
+      // throw on a non-object.
+      if (!isPlainObject(parsedSibling)) continue;
+      siblingMeta = parsedSibling as FoiEntryMeta;
     } catch {
-      // A missing or malformed sibling meta.json is reported when that
-      // sibling entry is itself validated - not duplicated here.
       continue;
     }
     // A malformed relatedEntries on the SIBLING (not an array) must be

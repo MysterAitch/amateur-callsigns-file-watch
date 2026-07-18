@@ -36,7 +36,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { calculateFileHash, type ArchiveMeta , errorMessage } from '../shared/utils.ts';
+import { calculateFileHash, type ArchiveMeta, type QualityObservation, errorMessage } from '../shared/utils.ts';
 import { DIRS } from '../shared/constants.ts';
 import { FILES } from '../sources/ofcom-amateur/constants.ts';
 import { mappingForVariant, physicalLines, rawColumnForCanonical } from '../sources/ofcom-amateur/normalise.ts';
@@ -64,6 +64,45 @@ export interface ValidationReport {
   problems: ValidationProblem[];
   checkedEntries: number;
   checkedFoiEntries: number;
+}
+
+// Parse-boundary guards (#812): a validator's contract is to LOCATE
+// malformation in untrusted meta.json/register JSON it did not author, never
+// to crash on it. A `... as SomeType` assertion right after JSON.parse is
+// exactly what lets tsc/lint stay silent while a null, a string, or a stray
+// array reaches a field access and throws - these run BEFORE that access, on
+// a value still typed `unknown` (or, for a value whose static type already
+// claims a shape it cannot verify, defensively re-checked at runtime anyway).
+// Shared here because validate-publishers.ts and validate-foi.ts hit the same
+// boundary and already import ValidationProblem from this module.
+// Deliberately NOT a type predicate: narrowing to `Record<string, unknown>`
+// would make a subsequent `as ArchiveMeta`/`as FoiEntryMeta`/`as PublisherRegister`
+// fail tsc's insufficient-overlap check (those interfaces have several required
+// fields Record<string, unknown> cannot be seen to satisfy) - callers keep the
+// parsed value typed `unknown` through this check, exactly like the direct
+// `JSON.parse(...) as SomeType` it replaces, but only after this runtime check
+// has actually confirmed it is a non-null, non-array object.
+export function isPlainObject(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function describeShape(value: unknown): string {
+  return value === null ? 'null' : Array.isArray(value) ? 'an array' : typeof value;
+}
+
+// Returns `value` as an array when it already is one; otherwise records a
+// located problem and returns an empty array, so the caller's per-item loop
+// degrades to a no-op rather than throwing on a coerced non-iterable value -
+// `??` does not catch a truthy non-array (a string, say), so a naive
+// `(value ?? []).entries()` still throws on exactly the malformed input this
+// guard exists to report.
+export function arrayOrProblem<T>(value: unknown, field: string, path: string, problems: ValidationProblem[]): readonly T[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    problems.push({ path, problem: `${field} must be an array, got ${describeShape(value)}` });
+    return [];
+  }
+  return value as T[];
 }
 
 const VALID_PROVENANCE = new Set(['live', 'reconstructed-from-git-history', 'reconstructed-from-prior-download', 'recovered-from-web-archive']);
@@ -99,7 +138,12 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
 
   let meta: ArchiveMeta;
   try {
-    meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ArchiveMeta;
+    const parsed: unknown = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+    if (!isPlainObject(parsed)) {
+      problems.push({ path: metaPath, problem: `meta.json must be a JSON object, got ${describeShape(parsed)}` });
+      return problems;
+    }
+    meta = parsed as ArchiveMeta;
   } catch (err) {
     problems.push({ path: metaPath, problem: `meta.json is not valid JSON: ${errorMessage(err)}` });
     return problems;
@@ -122,8 +166,13 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
   // Witnesses (recovered/reconstructed copies): each needs the channel it came
   // through, the retrieval/replay URL, and when it was fetched - the same
   // shape the FOI lane records per file.
-  for (const [i, witness] of (meta.witnesses ?? []).entries()) {
+  const witnesses = arrayOrProblem<NonNullable<ArchiveMeta['witnesses']>[number]>(meta.witnesses, 'witnesses', metaPath, problems);
+  for (const [i, witness] of witnesses.entries()) {
     const at = `witnesses[${i}]`;
+    if (witness === null || typeof witness !== 'object') {
+      problems.push({ path: metaPath, problem: `${at} must be an object, got ${describeShape(witness)}` });
+      continue;
+    }
     if (typeof witness.channel !== 'string' || witness.channel.trim() === '') {
       problems.push({ path: metaPath, problem: `${at}.channel is missing or empty` });
     }
@@ -141,7 +190,7 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
     }
   }
   // A web-archive recovery must say where it was recovered from.
-  if (meta.provenance === 'recovered-from-web-archive' && (meta.witnesses ?? []).length === 0) {
+  if (meta.provenance === 'recovered-from-web-archive' && witnesses.length === 0) {
     problems.push({ path: metaPath, problem: 'provenance recovered-from-web-archive requires at least one witness (capture channel + replay URL + fetchedAt)' });
   }
 
@@ -153,7 +202,14 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
   const heldHashes = heldHashSet(Object.values(meta.files).map(f => f.sha256));
   problems.push(...divergenceRecordProblems(meta.divergences, declaredNames).map(problem => ({ path: metaPath, problem })));
   problems.push(...unpairedDivergentWitnessProblems(
-    (meta.witnesses ?? []).map((w, i) => ({ label: `witnesses[${i}]`, sha256: normaliseWitnessHash(w.sha256), heldHashes })),
+    // Malformed items were already reported by the loop above; a null/non-object
+    // one here is simply treated as carrying no verifiable hash (citation-grade),
+    // rather than reported a second time or crashed on.
+    witnesses.map((w, i) => ({
+      label: `witnesses[${i}]`,
+      sha256: (w !== null && typeof w === 'object') ? normaliseWitnessHash(w.sha256) : undefined,
+      heldHashes,
+    })),
     meta.divergences ?? [],
   ).map(problem => ({ path: metaPath, problem })));
 
@@ -201,8 +257,13 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
   // Verified-quality observations: hand-curated and cited, so every entry
   // must carry the date, a non-empty statement, and non-empty evidence
   // (an observation with no evidence is not an observation).
-  for (const [i, observation] of (meta.qualityObservations ?? []).entries()) {
+  const qualityObservations = arrayOrProblem<QualityObservation>(meta.qualityObservations, 'qualityObservations', metaPath, problems);
+  for (const [i, observation] of qualityObservations.entries()) {
     const at = `qualityObservations[${i}]`;
+    if (observation === null || typeof observation !== 'object') {
+      problems.push({ path: metaPath, problem: `${at} must be an object, got ${describeShape(observation)}` });
+      continue;
+    }
     if (!observation.observedAt || Number.isNaN(Date.parse(observation.observedAt))) {
       problems.push({ path: metaPath, problem: `${at}.observedAt is missing or not a date: ${observation.observedAt}` });
     }

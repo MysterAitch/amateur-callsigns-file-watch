@@ -572,6 +572,53 @@ describe('validateFoiEntry - witness agreement and divergence (#618 increment 3)
   });
 });
 
+// #812 (A-D4): the #806 work guarded relatedEntries/files once meta was
+// already a usable object, but a top-level null/array/scalar meta.json still
+// threw at `meta.schemaVersion` before that guard was ever reached. A
+// validator's contract is to LOCATE malformation, never to crash on it.
+describe('validateFoiEntry - malformed meta.json shapes (#812)', { tags: ['unit'] }, () => {
+  it('FoiEntry_MetaJsonIsTopLevelNull_FailsWithProblemNotCrash', () => {
+    const dir = writeFoiEntry();
+    fs.writeFileSync(path.join(dir, 'meta.json'), 'null');
+    expect(() => validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).not.toThrow();
+    const problems = validateFoiEntry(foiDir, 'wdtk-123456--test-entry');
+    expect(problems.some(p => p.problem.includes('meta.json must be a JSON object') && p.problem.includes('null'))).toBe(true);
+  });
+
+  it('FoiEntry_MetaJsonIsATopLevelArray_FailsWithProblemNotCrash', () => {
+    const dir = writeFoiEntry();
+    fs.writeFileSync(path.join(dir, 'meta.json'), '[]');
+    expect(() => validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).not.toThrow();
+    const problems = validateFoiEntry(foiDir, 'wdtk-123456--test-entry');
+    expect(problems.some(p => p.problem.includes('meta.json must be a JSON object') && p.problem.includes('an array'))).toBe(true);
+  });
+
+  it('FoiEntry_MetaJsonIsATopLevelScalar_FailsWithProblemNotCrash', () => {
+    const dir = writeFoiEntry();
+    fs.writeFileSync(path.join(dir, 'meta.json'), '"just a string"');
+    expect(() => validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).not.toThrow();
+    const problems = validateFoiEntry(foiDir, 'wdtk-123456--test-entry');
+    expect(problems.some(p => p.problem.includes('meta.json must be a JSON object') && p.problem.includes('string'))).toBe(true);
+  });
+
+  it('FoiEntry_SiblingMetaJsonIsTopLevelNull_ReciprocationCheckSkipsWithoutThrowing', () => {
+    // The same top-level guard, applied to the SIBLING meta read the
+    // relatedEntries reciprocation check performs (validate-foi.ts's own
+    // second JSON.parse boundary): a null sibling meta must not crash the
+    // entry that references it. Matching the pre-existing "missing or
+    // malformed sibling meta.json is reported when that sibling entry is
+    // itself validated" design, reciprocation simply cannot be checked here -
+    // the sibling's own validation pass is what reports its broken meta.json.
+    const siblingDir = writeFoiEntry('wdtk-654321--other-entry');
+    fs.writeFileSync(path.join(siblingDir, 'meta.json'), 'null');
+    writeFoiEntry(undefined, meta => {
+      meta.relatedEntries = [{ entry: 'wdtk-654321--other-entry', relation: 'the same export via a different channel', relationType: 'same-dataset' }];
+    });
+    expect(() => validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).not.toThrow();
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
+  });
+});
+
 describe('validateFoiLaneAt', { tags: ['data-validity'] }, () => {
   it('FoiLane_MissingFoiDirectory_PassesWithZeroEntries', () => {
     const result = validateFoiLaneAt(path.join(foiDir, 'does-not-exist'));

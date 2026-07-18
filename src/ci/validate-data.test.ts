@@ -263,6 +263,64 @@ describe('validateArchiveEntry', { tags: ['unit'] }, () => {
   });
 });
 
+// #812 (A-D2): a validator's contract is to LOCATE malformation, never to
+// crash on it. Every case here is a shape tsc/lint stayed silent about
+// because the parse boundary was `JSON.parse(...) as ArchiveMeta` - each must
+// now come back as a located ValidationProblem instead of an uncaught
+// TypeError aborting the whole CI run.
+describe('validateArchiveEntry - malformed meta.json shapes (#812)', { tags: ['unit'] }, () => {
+  function writeRawMeta(root: string, key: string, raw: string): void {
+    fs.mkdirSync(path.join(root, DIRS.archive, key), { recursive: true });
+    fs.writeFileSync(path.join(root, DIRS.archive, key, 'raw.csv'), CSV);
+    fs.writeFileSync(path.join(root, DIRS.archive, key, 'meta.json'), raw);
+  }
+
+  it('ArchiveEntry_WhenMetaJsonIsTopLevelNull_FailsWithProblemNotCrash', () => {
+    writeRawMeta(tmpRoot, '2026-06-23', 'null');
+    expect(() => validateArchiveEntry('2026-06-23')).not.toThrow();
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.path.includes('meta.json') && p.problem.includes('null'))).toBe(true);
+  });
+
+  it('ArchiveEntry_WhenMetaJsonIsATopLevelArray_FailsWithProblemNotCrash', () => {
+    writeRawMeta(tmpRoot, '2026-06-23', '[]');
+    expect(() => validateArchiveEntry('2026-06-23')).not.toThrow();
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.path.includes('meta.json') && p.problem.includes('an array'))).toBe(true);
+  });
+
+  it('ArchiveEntry_WhenWitnessesIsAStringNotAnArray_FailsWithProblemNotCrash', () => {
+    // `(meta.witnesses ?? []).entries()` would throw here: `??` does not
+    // catch a truthy non-array, and strings have no .entries() method.
+    writeEntry(tmpRoot, '2026-06-23', CSV, { witnesses: 'wayback' });
+    expect(() => validateArchiveEntry('2026-06-23')).not.toThrow();
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.problem.includes('witnesses must be an array'))).toBe(true);
+  });
+
+  it('ArchiveEntry_WhenWitnessesContainsANullItem_FailsWithProblemNotCrash', () => {
+    // `witness.channel` on a null array item throws without this guard.
+    writeEntry(tmpRoot, '2026-06-23', CSV, { witnesses: [null] });
+    expect(() => validateArchiveEntry('2026-06-23')).not.toThrow();
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.problem.includes('witnesses[0] must be an object'))).toBe(true);
+  });
+
+  it('ArchiveEntry_WhenQualityObservationsIsANumberNotAnArray_FailsWithProblemNotCrash', () => {
+    writeEntry(tmpRoot, '2026-06-23', CSV, { qualityObservations: 42 });
+    expect(() => validateArchiveEntry('2026-06-23')).not.toThrow();
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.problem.includes('qualityObservations must be an array'))).toBe(true);
+  });
+
+  it('ArchiveEntry_WhenQualityObservationsContainsANullItem_FailsWithProblemNotCrash', () => {
+    writeEntry(tmpRoot, '2026-06-23', CSV, { qualityObservations: [null] });
+    expect(() => validateArchiveEntry('2026-06-23')).not.toThrow();
+    const problems = validateArchiveEntry('2026-06-23');
+    expect(problems.some(p => p.problem.includes('qualityObservations[0] must be an object'))).toBe(true);
+  });
+});
+
 describe('validateArchiveEntry - witness agreement and divergence (#618 increment 3)', { tags: ['unit'] }, () => {
   it('Witness_WhenHashMatchesTheHeldRaw_PassesAsCorroborating', () => {
     writeEntry(tmpRoot, '2026-06-23', CSV, {
