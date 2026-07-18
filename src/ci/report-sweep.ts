@@ -35,6 +35,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { type ArchiveMeta, errorMessage } from '../shared/utils.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 import { DIRS } from '../shared/constants.ts';
 import { OFCOM_AMATEUR_SOURCE_KEY } from '../sources/ofcom-amateur/constants.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
@@ -71,7 +72,8 @@ interface EntryCoverage { key: string; sourceKey: string; state: string; note: s
 function entryCoverage(key: string, failed: ReportSweepReport['failed']): EntryCoverage {
   let sourceKey = '?';
   try {
-    const meta = JSON.parse(fs.readFileSync(path.join(DIRS.archive, key, 'meta.json'), 'utf8')) as ArchiveMeta;
+    const metaPath = path.join(DIRS.archive, key, 'meta.json');
+    const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as ArchiveMeta;
     sourceKey = meta.sourceKey;
   } catch (err) {
     failed.push({ key, reason: `meta.json unreadable: ${errorMessage(err)}` });
@@ -209,7 +211,7 @@ export function readStats(key: string): EntryStats | undefined {
   if (!derivedEntryFileExists(key, 'stats.json')) return undefined;
   const p = derivedEntryFile(key, 'stats.json');
   try {
-    return JSON.parse(fs.readFileSync(p, 'utf8')) as EntryStats;
+    return parseJsonObject(fs.readFileSync(p, 'utf8'), p) as EntryStats;
   } catch {
     return undefined;
   }
@@ -232,7 +234,8 @@ const WINDOW_CAP = 10;
 // Exported alongside readStats/windowFor for #467's reuse.
 export function isDeclaredIncomplete(key: string): boolean {
   try {
-    const meta = JSON.parse(fs.readFileSync(path.join(DIRS.archive, key, 'meta.json'), 'utf8')) as ArchiveMeta;
+    const metaPath = path.join(DIRS.archive, key, 'meta.json');
+    const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as ArchiveMeta;
     return meta.intendedCoverage?.complete === false;
   } catch {
     return false;

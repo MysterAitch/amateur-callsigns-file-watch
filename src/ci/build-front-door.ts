@@ -41,6 +41,7 @@ import {
 import { humaniseClassKey } from './dataset-class-overviews.ts';
 import { humanDate, monthYear, dateTimeDisplay } from './site-render.ts';
 import { type EntryStats } from '../shared/stats.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -67,7 +68,8 @@ function newestRegisterRecordCount(): number {
   if (!derivedEntryFileExists(newest, 'stats.json')) {
     throw new Error(`build-front-door: ${newest} has no stats.json — cannot derive the callsign headline`);
   }
-  const stats = JSON.parse(fs.readFileSync(derivedEntryFile(newest, 'stats.json'), 'utf8')) as EntryStats;
+  const statsPath = derivedEntryFile(newest, 'stats.json');
+  const stats = parseJsonObject(fs.readFileSync(statsPath, 'utf8'), statsPath) as EntryStats;
   if (typeof stats.recordCount !== 'number') {
     throw new Error(`build-front-door: ${newest} stats.json carries no numeric recordCount`);
   }

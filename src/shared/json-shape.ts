@@ -58,3 +58,42 @@ export function arrayOrProblem<T>(value: unknown, field: string, path: string, p
   }
   return value as T[];
 }
+
+// The generic read-site counterpart to readFoiEntryMeta: most parse-boundary
+// sites in this codebase have no bespoke validator of their own (they are a
+// direct `fs.readFileSync` + `JSON.parse`, historically finished off with an
+// `as SomeType` the #812 lint rule now forbids). These two throw a located
+// error naming `path` on malformed JSON or the wrong top-level shape, and
+// otherwise return the parsed value still typed `unknown` - exactly like
+// isPlainObject above, deliberately NOT narrowing to `Record<string, unknown>`,
+// so the caller's own `as SomeType` cast (now applied to `unknown`, not to a
+// bare `JSON.parse(...)` call) is unconditionally sound as far as tsc is
+// concerned, and is the "earned" cast this module's helpers exist to enable.
+// A raw JSON.parse SyntaxError names neither `path` nor which file it came
+// from - unlocated, exactly what this module exists to never surface. Both
+// helpers below parse through this first, mirroring readFoiEntryMeta's own
+// try/catch, so a malformed-JSON failure is located just like a wrong-shape one.
+function parseJsonOrThrow(raw: string, path: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    throw new Error(`${path}: not valid JSON: ${message}`, { cause });
+  }
+}
+
+export function parseJsonObject(raw: string, path: string): unknown {
+  const parsed = parseJsonOrThrow(raw, path);
+  if (!isPlainObject(parsed)) {
+    throw new Error(`${path}: expected a JSON object, got ${describeShape(parsed)}`);
+  }
+  return parsed;
+}
+
+export function parseJsonArray(raw: string, path: string): unknown {
+  const parsed = parseJsonOrThrow(raw, path);
+  if (!Array.isArray(parsed)) {
+    throw new Error(`${path}: expected a JSON array, got ${describeShape(parsed)}`);
+  }
+  return parsed;
+}

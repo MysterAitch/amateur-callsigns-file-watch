@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeEntryStats, callsignPattern, renderStatsJson, compareStats, type EntryStats } from './stats.ts';
+import { parseJsonObject } from './json-shape.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -192,7 +193,7 @@ describe('renderStatsJson', { tags: ['unit'] }, () => {
     // Diff stability: pattern keys must not reorder when counts change, or
     // every small shift produces a churny stats.json diff.
     const stats = computeEntryStats(HEADER, ROWS, DATE_COLUMNS);
-    const roundTripped = JSON.parse(renderStatsJson(stats)) as EntryStats;
+    const roundTripped = parseJsonObject(renderStatsJson(stats), 'renderStatsJson output') as EntryStats;
     const keys = Object.keys(roundTripped.callsignPatterns);
     expect(keys).toEqual([...keys].sort());
   });

@@ -33,6 +33,7 @@ import {
   reconcileDatasetClassLabels,
 } from './dataset-class-labels.ts';
 import { errorMessage } from '../shared/utils.ts';
+import { parseJsonArray, parseJsonObject } from '../shared/json-shape.ts';
 
 // A thin seam over the `gh` CLI: given an argument vector, return its stdout.
 // Injected in tests so the whole orchestration is exercised without touching
@@ -84,7 +85,7 @@ function listPullRequests(gh: GhRunner, state: string, limit: number): PullReque
     '--limit', String(limit),
     '--json', 'number,headRefOid,labels',
   ]);
-  const parsed = JSON.parse(raw) as Array<{
+  const parsed = parseJsonArray(raw, 'gh pr list --json output') as Array<{
     number: number;
     headRefOid: string;
     labels?: Array<{ name: string }>;
@@ -98,7 +99,7 @@ function listPullRequests(gh: GhRunner, state: string, limit: number): PullReque
 
 function changedMetaPaths(gh: GhRunner, prNumber: number): string[] {
   const raw = gh(['pr', 'view', String(prNumber), '--json', 'files']);
-  const parsed = JSON.parse(raw) as { files?: Array<{ path: string }> };
+  const parsed = parseJsonObject(raw, `gh pr view ${prNumber} --json files output`) as { files?: Array<{ path: string }> };
   return (parsed.files ?? []).map((file) => file.path).filter(isArchiveMetaPath);
 }
 

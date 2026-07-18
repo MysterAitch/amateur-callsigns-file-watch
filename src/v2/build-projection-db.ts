@@ -87,6 +87,7 @@ import { buildFoiObservations, OBSERVATION_VALUE_COLUMNS, type FoiObservationRow
 import { applyBuildPragmas } from '../shared/sqlite-build.ts';
 import { type ArchiveMeta } from '../shared/utils.ts';
 import { DIRS } from '../shared/constants.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // Reference data is repo-anchored, same convention as the component parser and
 // the legacy build.
@@ -281,9 +282,9 @@ function isOpenDataLedgerFile(filePath: string): boolean {
   if (firstLine.trim() === '') return false;
   let parsed: { sourceFile?: string };
   try {
-    parsed = JSON.parse(firstLine) as { sourceFile?: string };
+    parsed = parseJsonObject(firstLine, filePath) as { sourceFile?: string };
   } catch (err) {
-    throw new Error(`${filePath}: first line is not JSON (${String(err)}) - refusing to classify the ledger file`);
+    throw new Error(`${filePath}: first line is not a JSON object (${String(err)}) - refusing to classify the ledger file`);
   }
   return typeof parsed.sourceFile === 'string' && parsed.sourceFile.startsWith('opendata/');
 }
@@ -304,7 +305,7 @@ interface DeclaredVariants {
 
 function declaredVariantsFor(archiveDir: string, key: string): DeclaredVariants {
   const metaPath = path.join(archiveDir, key, 'meta.json');
-  const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as {
+  const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as {
     normalised?: { headerVariant?: string };
     converter?: { variant?: string };
     files?: ArchiveMeta['files'];
@@ -518,7 +519,7 @@ interface ScopeMeta {
 function readScopeMeta(archiveDir: string, key: string): ScopeMeta {
   const metaPath = path.join(archiveDir, key, 'meta.json');
   if (!fs.existsSync(metaPath)) return {};
-  return JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ScopeMeta;
+  return parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as ScopeMeta;
 }
 
 // The history database: every publication's register rows as one dataset-keyed

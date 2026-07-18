@@ -48,6 +48,7 @@ import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entr
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
 import type { DivergenceRecord } from '../shared/witness-agreement.ts';
 import type { ArchiveMeta } from '../shared/utils.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 import {
   cleanedCallsign,
   parseCallsign,
@@ -287,7 +288,7 @@ export function collectDivergences(archiveDir: string, foiDir: string): Collecte
   for (const key of listArchiveKeys().sort()) {
     const metaPath = path.join(archiveDir, key, 'meta.json');
     if (!fs.existsSync(metaPath)) continue;
-    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ArchiveMeta;
+    const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as ArchiveMeta;
     for (const record of meta.divergences ?? []) {
       out.push({ lane: 'open-data', entryKey: key, entryTitle: `Publication of ${key}`, record });
     }
@@ -485,7 +486,7 @@ export function buildFidelityPage(outputDir: string, baseUrl: string = DEFAULT_B
     // meta.json and the raw source below stay archive reads.
     if (derivedEntryFileExists(newestKey, 'stats.json', archiveDir)) {
       const statsPath = derivedEntryFile(newestKey, 'stats.json', archiveDir);
-      const parsedStats = JSON.parse(fs.readFileSync(statsPath, 'utf8')) as {
+      const parsedStats = parseJsonObject(fs.readFileSync(statsPath, 'utf8'), statsPath) as {
         callsignFlags?: Record<string, number>;
         parseStatuses?: Record<string, number>;
       };
@@ -497,7 +498,8 @@ export function buildFidelityPage(outputDir: string, baseUrl: string = DEFAULT_B
       const unparseableCount = parsedStats.parseStatuses?.unparseable ?? 0;
       if (unparseableCount > 0) newestStats[UNPARSEABLE_CALLSIGN_FLAG] = unparseableCount;
     }
-    const meta = JSON.parse(fs.readFileSync(path.join(archiveDir, newestKey, 'meta.json'), 'utf8')) as ArchiveMeta;
+    const newestMetaPath = path.join(archiveDir, newestKey, 'meta.json');
+    const meta = parseJsonObject(fs.readFileSync(newestMetaPath, 'utf8'), newestMetaPath) as ArchiveMeta;
     const ref = loadReferenceData();
     const source = loadOpenDataRegisterSource(archiveDir, newestKey, meta);
     const examples = chooseExamples(source, ref);

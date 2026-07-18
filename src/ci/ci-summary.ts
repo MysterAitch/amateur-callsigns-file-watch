@@ -18,6 +18,7 @@
  */
 
 import * as fs from 'fs';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 interface AssertionResult { fullName: string; status: string }
 interface FileResult { name: string; status: string; assertionResults: AssertionResult[]; startTime?: number; endTime?: number }
@@ -64,9 +65,12 @@ export interface Baseline {
   coverageByDir?: Record<string, { lines: [number, number]; statements: [number, number]; functions: [number, number]; branches: [number, number] }>;
 }
 
+// Malformed JSON and a malformed top-level shape (a string, an array) both
+// degrade to "unavailable" here, matching this module's rule that a
+// summary-rendering problem never fails the job (see module doc comment).
 function readJson<T>(file: string): T | undefined {
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf8')) as T;
+    return parseJsonObject(fs.readFileSync(file, 'utf8'), file) as T;
   } catch {
     return undefined;
   }

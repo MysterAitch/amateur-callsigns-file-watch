@@ -15,6 +15,7 @@ import { OFCOM_AMATEUR_SOURCE_KEY } from '../../sources/ofcom-amateur/constants.
 import { parseRawRegister, rawColumnForCanonical, interpretOpenDataColumns } from '../../sources/ofcom-amateur/normalise.ts';
 import type { LedgerCollector, ResolvedLedgerSource } from './types.ts';
 import { jsonlStem } from './util.ts';
+import { parseJsonObject } from '../../shared/json-shape.ts';
 
 // The open-data source key - the ONE converter registered for the open-data
 // lane (ofcom-amateur/normalise.ts). An archive entry declaring another source
@@ -36,7 +37,8 @@ export function defaultArchiveDir(): string {
 type OpenDataMeta = ArchiveMeta & { normalised?: { headerVariant?: string } };
 
 function readOpenDataMeta(archiveDir: string, key: string): OpenDataMeta {
-  return JSON.parse(fs.readFileSync(path.join(archiveDir, key, 'meta.json'), 'utf8')) as OpenDataMeta;
+  const metaPath = path.join(archiveDir, key, 'meta.json');
+  return parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as OpenDataMeta;
 }
 
 // Parse one open-data register's RAW bytes into the SourceObservationSet shape,

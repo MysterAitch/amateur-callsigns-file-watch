@@ -21,6 +21,7 @@ import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 import type { ArchiveMeta } from '../shared/utils.ts';
 import * as fs from 'fs';
 import * as path from 'path';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 const REF = loadReferenceData();
 const FOI_DIR = defaultFoiDir();
@@ -38,7 +39,8 @@ function representativeLedger(): Claim[] {
   const foiSource = loadRegisterSource(FOI_DIR, foiEntry, foiMeta, registerSourcesFor(foiMeta)[0]);
 
   const openKey = '2026-06-23';
-  const openMeta = JSON.parse(fs.readFileSync(path.join(ARCHIVE_DIR, openKey, 'meta.json'), 'utf8')) as ArchiveMeta;
+  const openMetaPath = path.join(ARCHIVE_DIR, openKey, 'meta.json');
+  const openMeta = parseJsonObject(fs.readFileSync(openMetaPath, 'utf8'), openMetaPath) as ArchiveMeta;
   const openSource = loadOpenDataRegisterSource(ARCHIVE_DIR, openKey, openMeta);
 
   return [...emitLedger(foiSource, REF), ...emitLedger(openSource, REF)];

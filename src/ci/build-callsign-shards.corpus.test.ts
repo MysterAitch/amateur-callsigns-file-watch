@@ -9,6 +9,7 @@ import { buildFoiObservations } from '../shared/foi-observations.ts';
 import { defaultFoiDir } from '../shared/foi-archive.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
 import { cleanedCallsign } from '../sources/ofcom-amateur/components.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // The instant per-callsign projection built over the REAL archive (issue
 // #594): the self-check the proposal committed to - the shards are a
@@ -45,7 +46,8 @@ let manifest: Manifest;
 const shardRecords = new Map<string, Record<string, Record594>>();
 
 function readJson<T>(dir: string, name: string): T {
-  return JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')) as T;
+  const filePath = path.join(dir, name);
+  return parseJsonObject(fs.readFileSync(filePath, 'utf8'), filePath) as T;
 }
 
 function findRecord(cleaned: string): Record594 | undefined {

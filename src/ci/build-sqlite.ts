@@ -40,6 +40,7 @@ import { gzipFileToFile, gzipBufferToFile, gzipManyFilesToFiles, type GzipJob } 
 import { parseCsvCached } from '../shared/parse-cache.ts';
 import { applyBuildPragmas } from '../shared/sqlite-build.ts';
 import { cleanedCallsign, parseCallsign, loadReferenceData, normaliseLicenceCategory, componentsFlagsForRows, type ComponentRow } from '../sources/ofcom-amateur/components.ts';
+import { parseJsonObject, isPlainObject } from '../shared/json-shape.ts';
 
 // Gzip level for the published .gz download artefacts. The deploy uses maximum
 // compression (level 9) for the smallest downloads; tests set
@@ -192,6 +193,37 @@ export function openDataEntryCsvNames(key: string, archiveDir: string = DIRS.arc
 // projection gap), everything else from the committed entry directory.
 export function openDataEntryCsvPath(key: string, file: string, archiveDir: string = DIRS.archive): string {
   return isDerivedEntryFile(file) ? derivedEntryFile(key, file, archiveDir) : path.join(archiveDir, key, file);
+}
+
+// Reduces a register-history meta.json's coverage-related fields to the four
+// strings history_datasets stores. meta has already passed the top-level
+// object-shape check (parseJsonObject), but intendedCoverage and
+// qualityObservations are re-checked here rather than trusted from the
+// interface annotation: a curated meta.json can still carry a malformed
+// value for either (a stray string, a null array entry), and this must
+// degrade to "not declared"/empty rather than throw on such a field.
+// `Array.isArray` is the actual gate for qualityObservations - `?? []` alone
+// only catches null/undefined, so a truthy non-array would otherwise reach
+// .filter and throw, exactly the silent-assumption class #812 closes.
+// Exported (pure, no filesystem/DB access) so this degrade-not-throw
+// behaviour is unit-testable without a real archive entry.
+export function historyCoverageFields(meta: { intendedCoverage?: unknown; qualityObservations?: unknown }): {
+  intendedComplete: string;
+  scopeNotes: string;
+  coverageAffecting: string;
+} {
+  const intendedCoverage = isPlainObject(meta.intendedCoverage)
+    ? meta.intendedCoverage as { complete: boolean; scopeNotes?: string }
+    : undefined;
+  const qualityObservations = (Array.isArray(meta.qualityObservations) ? meta.qualityObservations : [])
+    .filter(isPlainObject) as { statement: string; coverageAffecting?: boolean }[];
+  const coverageAffecting = qualityObservations
+    .filter(o => o.coverageAffecting === true).map(o => o.statement).join(' ');
+  return {
+    intendedComplete: intendedCoverage === undefined ? '' : String(intendedCoverage.complete),
+    scopeNotes: intendedCoverage?.scopeNotes ?? '',
+    coverageAffecting,
+  };
 }
 
 // The remaining published tiers (issue #149 item 4 + the composed-stack
@@ -363,19 +395,18 @@ export async function buildPublishedTiers(dataDir: string, options: { compress?:
   for (const publication of publications) {
     const metaPath = path.join(DIRS.archive, publication.key, 'meta.json');
     const meta = fs.existsSync(metaPath)
-      ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as {
-        intendedCoverage?: { complete: boolean; scopeNotes?: string };
-        qualityObservations?: { statement: string; coverageAffecting?: boolean }[];
+      ? parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as {
+        intendedCoverage?: unknown;
+        qualityObservations?: unknown[];
       }
       : {};
-    const coverageAffecting = (meta.qualityObservations ?? [])
-      .filter(o => o.coverageAffecting === true).map(o => o.statement).join(' ');
+    const fields = historyCoverageFields(meta);
     insertDataset.run(
       publication.key,
       String(publication.records.length),
-      meta.intendedCoverage === undefined ? '' : String(meta.intendedCoverage.complete),
-      meta.intendedCoverage?.scopeNotes ?? '',
-      coverageAffecting,
+      fields.intendedComplete,
+      fields.scopeNotes,
+      fields.coverageAffecting,
     );
   }
 

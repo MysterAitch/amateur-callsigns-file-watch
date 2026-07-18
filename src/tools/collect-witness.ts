@@ -50,6 +50,7 @@ import {
   heldHashSet,
 } from '../shared/witness-agreement.ts';
 import type { FoiWitness, FoiFileDeclaration } from '../shared/foi-archive.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // ---------------------------------------------------------------------------
 // Courtesy posture
@@ -427,7 +428,7 @@ export function upsertHoldingsIndexEntry(index: HoldingsIndex, entry: HoldingsIn
 
 export function readHoldingsIndex(indexPath: string = HOLDINGS_INDEX_PATH): HoldingsIndex {
   if (!fs.existsSync(indexPath)) return emptyHoldingsIndex();
-  return JSON.parse(fs.readFileSync(indexPath, 'utf8')) as HoldingsIndex;
+  return parseJsonObject(fs.readFileSync(indexPath, 'utf8'), indexPath) as HoldingsIndex;
 }
 
 export function writeHoldingsIndex(index: HoldingsIndex, indexPath: string = HOLDINGS_INDEX_PATH): void {

@@ -13,6 +13,7 @@
  */
 
 import type { Claim, SourcePosition, ViewAnchor } from './claim.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // One JSON object per line, keys in a fixed order for a stable, diffable file.
 // Emitting the object by hand (rather than JSON.stringify over an arbitrary
@@ -43,8 +44,8 @@ export function serialiseClaimsJsonl(claims: readonly Claim[]): string {
 // Parse a JSONL ledger back to claims — the round-trip partner of the
 // serialiser, so a consumer can reload the canonical file without re-deriving.
 export function parseClaimsJsonl(jsonl: string): Claim[] {
-  return jsonl.split('\n').filter(line => line.trim() !== '').map(line => {
-    const parsed = JSON.parse(line) as {
+  return jsonl.split('\n').filter(line => line.trim() !== '').map((line, index) => {
+    const parsed = parseJsonObject(line, `claims.jsonl record ${index + 1}`) as {
       layer: Claim['layer']; rawSubject: string; predicate: string; object: string;
       sourceFile: string; ordinal: number; vintage: string; rule?: string;
       position?: SourcePosition; viewAnchor?: ViewAnchor;

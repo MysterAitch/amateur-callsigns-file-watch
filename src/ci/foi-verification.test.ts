@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { verifyFoiLane, verifyFoiLaneAt, FOI_ARCHIVE_DIR } from './foi-verification.ts';
 import type { FoiEntryMeta } from '../shared/foi-archive.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -53,7 +54,7 @@ describe('FOI derivation verification', { tags: ['unit'] }, () => {
       const target = path.join(scratchRoot, 'ofcom-498903--reissued-callsigns-since-2010');
       fs.cpSync(source, target, { recursive: true });
       const metaPath = path.join(target, 'meta.json');
-      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as FoiEntryMeta;
+      const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as FoiEntryMeta;
       const declared = meta.files['normalised--sheet-1-sheet1.csv'];
       expect(declared.recordCount).toBeGreaterThan(0);
       declared.recordCount = 999999;
