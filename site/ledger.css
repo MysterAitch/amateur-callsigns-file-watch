@@ -191,6 +191,30 @@
   font-weight: 700; padding: 2px 7px; border-radius: 5px; }
 .ledger .badge.raw { background: var(--raw-soft); color: var(--raw); }
 .ledger .badge.derived { background: var(--derived-soft); color: var(--derived); }
+
+/* Narrative epistemics-tag pills (issue #755): each `[observed]`/`[derived]`/
+   `[hypothesis]`/`[confirmed]` claim tag on a data narrative renders as one of
+   these - a real link to its glossary definition, distinguished from
+   surrounding prose by shape (a rounded pill), weight and colour together,
+   never colour alone - the visible word itself already says which tag it is.
+   Reuses four tokens the palette above already defines and pairs with a
+   -soft background the same way .badge.raw/.badge.derived already do:
+   --raw (observed - a straight reading of source data) and --derived (a
+   computed conclusion) carry their existing senses; --change and --steady
+   are borrowed for hypothesis/confirmed - a hypothesis is exactly the kind of
+   not-yet-settled claim --change elsewhere flags as noteworthy, and a
+   confirmed claim is exactly the settled, no-longer-moving state --steady
+   elsewhere denotes. All four pairs are contrast-checked in both themes
+   already, by the badge/verdict rules above that use them the same way. */
+.ledger .epistemic-tag { display: inline-block; font-family: var(--mono); font-size: 11px;
+  font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 8px;
+  border-radius: 999px; text-decoration: none; }
+.ledger .epistemic-tag:hover { text-decoration: underline; }
+.ledger .epistemic-tag:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.ledger .epistemic-tag.tag-observed { background: var(--raw-soft); color: var(--raw); }
+.ledger .epistemic-tag.tag-derived { background: var(--derived-soft); color: var(--derived); }
+.ledger .epistemic-tag.tag-hypothesis { background: var(--change-soft); color: var(--change); }
+.ledger .epistemic-tag.tag-confirmed { background: var(--steady-soft); color: var(--steady); }
 .ledger .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin-top: 10px;
   font-family: var(--mono); font-size: 13px; }
 .ledger .kv .k { color: var(--faint); }

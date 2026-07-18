@@ -58,6 +58,16 @@ export const GLOSSARY_ANCHORS = {
   'axis-processing': 'the processing-progress axis',
   'axis-authority': 'the source-authority axis',
   'axis-confidence': 'the claim-confidence axis',
+  // The narrative epistemics tags (issue #755): each data narrative marks a
+  // claim `[observed]`/`[derived]`/`[hypothesis]`/`[confirmed]`, rendered as a
+  // pill linking here (see epistemicsPill below). Namespaced `tag-*` rather
+  // than reusing the existing `observation` anchor above, which defines a
+  // different, narrower sense of the word (a single value witnessed in an
+  // FOI-disclosed dataset) - the two must not collide.
+  'tag-observed': 'the "observed" claim tag',
+  'tag-derived': 'the "derived" claim tag',
+  'tag-hypothesis': 'the "hypothesis" claim tag',
+  'tag-confirmed': 'the "confirmed" claim tag',
 } as const satisfies Record<string, string>;
 
 export type GlossaryAnchor = keyof typeof GLOSSARY_ANCHORS;
@@ -89,4 +99,52 @@ export function glossaryTerm(anchor: GlossaryAnchor, depthToRoot: number, option
 export function glossaryCue(anchor: GlossaryAnchor, depthToRoot: number): string {
   const accessible = escapeHtml(`Definition of ${GLOSSARY_ANCHORS[anchor]} in the glossary`);
   return `<a class="gloss-cue-link" href="${glossaryHref(anchor, depthToRoot)}" aria-label="${accessible}"><span class="gloss-cue" aria-hidden="true">?</span></a>`;
+}
+
+// ---- Narrative epistemics-tag pills (issue #755) ----
+// Every data narrative tags a claim `[observed]`, `[derived]`, `[hypothesis]`
+// or `[confirmed]` so a reader can tell what kind of statement follows. The
+// interim shape (#754/#758) rendered the tag as plain bold text, with each
+// narrative repeating its own full legend explaining the four words. This
+// replaces both with a single small styled pill per tag, a real link to its
+// ONE shared definition here in the glossary - so the meaning lives in one
+// place, not four repeated copies of it.
+export const EPISTEMICS_TAGS = ['observed', 'derived', 'hypothesis', 'confirmed'] as const;
+export type EpistemicsTag = typeof EPISTEMICS_TAGS[number];
+
+const EPISTEMICS_ANCHOR: Record<EpistemicsTag, GlossaryAnchor> = {
+  observed: 'tag-observed',
+  derived: 'tag-derived',
+  hypothesis: 'tag-hypothesis',
+  confirmed: 'tag-confirmed',
+};
+
+// A single tag rendered as a pill: a real `<a>` (works with no script, as
+// every other glossary link on the site does), keyboard-focusable, with an
+// accessible name that states what it is rather than leaving a screen reader
+// to announce the bare word - "observed - claim type, see glossary
+// definition" - built from the VISIBLE word plus a visually-hidden suffix
+// (the same accessible-name pattern glossaryTerm above uses), never colour
+// alone: the pill also carries a distinct border/background per tag and its
+// own visible word.
+export function epistemicsPill(tag: EpistemicsTag, depthToRoot: number): string {
+  const href = glossaryHref(EPISTEMICS_ANCHOR[tag], depthToRoot);
+  return `<a class="epistemic-tag tag-${tag}" href="${href}">${tag}<span class="visually-hidden"> — claim type, see glossary definition</span></a>`;
+}
+
+// The narrative render path's ONE call site (src/ci/build-dataset-pages.ts):
+// replaces the exact rendered shape every narrative's tagging convention
+// produces - `**[observed]**` in the authored markdown becomes
+// `<strong>[observed]</strong>` once render-markdown.ts's bold pass runs -
+// with the pill above. Deliberately narrow on two axes at once: the token
+// set is the closed, case-sensitive list of four words (not an open bracket
+// pattern), AND the shape matched is the bold-wrapped one the tagging
+// convention actually uses - so an incidental, unbolded mention of one of
+// these words in square brackets elsewhere in a narrative's prose (a
+// meta-reference describing the convention itself, say) is left as plain
+// text rather than mangled into a pill it was never meant to be.
+const TAGGED_CLAIM_RE = new RegExp(`<strong>\\[(${EPISTEMICS_TAGS.join('|')})\\]</strong>`, 'g');
+
+export function applyEpistemicsPills(html: string, depthToRoot: number): string {
+  return html.replace(TAGGED_CLAIM_RE, (_whole: string, tag: string) => epistemicsPill(tag as EpistemicsTag, depthToRoot));
 }

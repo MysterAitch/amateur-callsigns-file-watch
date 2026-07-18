@@ -1,6 +1,7 @@
 # Amateur callsign data around the world
 
-*A comparative reference, not a data narrative in the [observed]/[derived]/[hypothesis] sense
+*A comparative reference, not a data narrative in the tagged-claim sense (see
+the [glossary's claim-tag definitions](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics))
 used elsewhere in this collection — there is no derivation to walk. It exists
 to give the UK/Ofcom model context by setting out, with primary citations, how
 a handful of other national regulators publish (or decline to publish) their

@@ -5,17 +5,11 @@ data oddity to a labelled conjecture to a regulatory confirmation. It is a
 story about licensing mechanics, not about the people or societies who run
 these stations.*
 
-Every claim below is tagged so you can tell what kind of statement it is and
-check it yourself:
-
-- **[observed]** — an **observation**: something read directly off the published
-  register data. Re-runnable against the files named.
-- **[derived]** — a **derivation**: a conclusion drawn by combining observations.
-  The working is shown so the step can be repeated.
-- **[hypothesis]** — a **hypothesis**: a possible explanation, recorded for
-  investigation and **not asserted as fact**.
-- **[confirmed]** — a **confirmation**: a hypothesis subsequently checked against a
-  named, citable authority and found to hold.
+Every claim below carries one of four tags — **[observed]**, **[derived]**,
+**[hypothesis]**, or **[confirmed]** — so you can tell at a glance what kind
+of statement it is and check it yourself. Select any tag to see its full
+definition in the
+[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics).
 
 Figures carry the vintage they were read from. Where a station's identity is
 asserted, the source tier — primary, community, or unconfirmed — is stated

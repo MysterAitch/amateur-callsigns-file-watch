@@ -4,15 +4,10 @@
 first surprise to a labelled, testable hypothesis. It is a story about
 record-keeping mechanics, not about the people who hold these callsigns.*
 
-Every claim below is tagged so you can tell what kind of statement it is and
-check it yourself:
-
-- **[observed]** — an **observation**: something read directly off the published
-  register data. Re-runnable against the files named.
-- **[derived]** — a **derivation**: a conclusion drawn by combining observations.
-  The working is shown so the step can be repeated.
-- **[hypothesis]** — a **hypothesis**: a possible explanation, recorded for
-  investigation and **not asserted as fact**.
+Every claim below carries one of three tags — **[observed]**, **[derived]**,
+or **[hypothesis]** — so you can tell at a glance what kind of statement it is
+and check it yourself. Select any tag to see its full definition in the
+[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics).
 
 The numbers here were re-checked against the archived data before publication.
 Where a count appears, the file and the rule that produces it are given, so the

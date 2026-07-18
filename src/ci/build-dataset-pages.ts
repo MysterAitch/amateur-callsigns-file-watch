@@ -76,6 +76,7 @@ import {
   datasetLabel,
   exploreDeepLink,
   glossaryTerm,
+  applyEpistemicsPills,
   tableCaption,
   zeroCell,
   type CallsignComponents,
@@ -1834,6 +1835,12 @@ export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: st
       // pages, same as the standing reports; run AFTER the rewrite above so it
       // never mistakes a freshly-minted site-relative link for a repo path.
       rendered = linkKnownEntities(rendered, foiKeySet, series, flags, '../../');
+      // The epistemics tags (issue #755) become glossary-linked pills; run
+      // LAST, after the repo-blob rewrite above, so the pill's own site-
+      // relative glossary href is never mistaken for a repo-relative link and
+      // rewritten to a GitHub blob path. Narratives sit two levels below the
+      // site root (reports/narratives/), matching this depth.
+      rendered = applyEpistemicsPills(rendered, 2);
       const body = [
         `<p><small>A data narrative, rendered from <a href="${REPO_URL}/blob/main/${sourcePath}">${escapeHtml(sourcePath)}</a> in the repository (the authoritative copy). <a href="../index.html">All reports →</a></small></p>`,
         '<hr>',
@@ -1856,7 +1863,7 @@ export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: st
       : []),
     ...(narrativeDocs.length > 0
       ? [
-        '<h2>Narratives</h2>',
+        '<h2 id="narratives">Narratives</h2>',
         '<p>Curious-reader walkthroughs of a single finding — the working shown end to end, every claim tagged observation, derivation or hypothesis, and linked to its evidence. A new one joins here by adding a file, not by editing this page.</p>',
         '<ul>',
         ...narrativeDocs.map(d => `<li><a href="narratives/${d.slug}.html">${escapeHtml(d.title)}</a></li>`),
