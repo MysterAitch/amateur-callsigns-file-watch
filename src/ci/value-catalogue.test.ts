@@ -187,9 +187,10 @@ describe('value catalogue', { tags: ['unit'] }, () => {
     const row = md.split('\n').find(l => l.startsWith('| `Legacy`')) ?? '';
     // timeline is the sixth data column now (records, callsigns, allocated,
     // sources, timeline), rendered as a self-describing span (issue #732)
-    // wrapping the bars rather than bare block characters.
+    // wrapping the bars rather than bare block characters, followed by a
+    // touch/keyboard-reachable disclosure carrying the same data (issue #742).
     const cell = row.split('|')[6].trim();
-    expect(cell).toMatch(/^<span role="img" aria-label="[^"]*" title="[^"]*">██··<\/span>$/);
+    expect(cell).toMatch(/^<span role="img" aria-label="[^"]*" title="[^"]*">██··<\/span><details>.*<\/details>$/);
   });
 
   it('Sparkline_EveryTimelineEntry_AriaLabelAndTitleCarryItsDateAndCount', () => {
@@ -211,6 +212,29 @@ describe('value catalogue', { tags: ['unit'] }, () => {
     expect(cell).toContain(
       'title="2022-05-30: 1,234 · 2023-02-20: 100 · 2025-04-08: 0 · 2026-06-23: 0"',
     );
+  });
+
+  it('Sparkline_Disclosure_CarriesTheSameSeriesAsTheAriaLabelAndTitle', () => {
+    // #742: the title reaches a hovering mouse only - touch and keyboard users
+    // could not reach the per-publication figures at all. The disclosure must
+    // carry the identical date:count series (derived from the same `pairs`,
+    // never recomputed), just reachable by tap or by keyboard focus + Enter/Space.
+    const timeline = ['2022-05-30', '2023-02-20', '2025-04-08', '2026-06-23'];
+    const md = renderValueCatalogue(talliesBySource('status', {
+      Legacy: { '2022-05-30': 1234, '2023-02-20': 100 },
+    }), ref, timeline);
+    const row = md.split('\n').find(l => l.startsWith('| `Legacy`')) ?? '';
+    const cell = row.split('|')[6].trim();
+    expect(cell).toContain('<details><summary>Per-publication counts</summary>');
+    expect(cell).toContain(
+      '2022-05-30: 1,234<br>2023-02-20: 100<br>2025-04-08: 0<br>2026-06-23: 0</details>',
+    );
+    // Survives the markdown-to-HTML pass as a real, native disclosure - no
+    // script required to open it on tap or keyboard.
+    const html = renderMarkdown(md);
+    expect(html).toContain('<details><summary>Per-publication counts</summary>');
+    expect(html).toContain('2022-05-30: 1,234<br>2023-02-20: 100');
+    expect(html).toContain('</details>');
   });
 
   it('Render_ValueWithEdgeWhitespace_IsVisibleInMonospace', () => {
