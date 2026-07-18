@@ -14,7 +14,7 @@
   "datasetClasses": ["register-snapshot", "forbidden-list"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "wdtk-356636-register-and-forbidden" },
   "relatedEntries": [
-    { "entry": "ofcom-337399--all-callsigns-published-copy", "relation": "Ofcom-published copy of this response (graduated); its zip's xlsx is byte-identical to this entry's data file (confirmed 2026-07-07) - second-channel witness; its letter is the publication-redacted variant" },
+    { "entry": "ofcom-337399--all-callsigns-published-copy", "relation": "Ofcom-published copy of this response (graduated); its zip's xlsx is byte-identical to this entry's data file (confirmed 2026-07-07) - second-channel witness; its letter is the publication-redacted variant", "relationType": "same-dataset" },
     { "entry": "ofcom-foi-log/ukgwa 90397--Callsign-database-20-Sep.xlsx (drop zone)", "relation": "suspected sibling export (2016-09-20, same row extent, two-column layout)" },
     { "entry": "ofcom-285990--available-list-jun-2016", "relation": "the previously published available list this response cites (recovered separately from the web archive)" },
     { "entry": "ofcom-2017-07-03--all-callsigns-with-status", "relation": "the later Salesforce-era full-register disclosure whose entry cross-references this one" }

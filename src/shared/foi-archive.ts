@@ -50,6 +50,16 @@ export interface FoiRelatedEntry {
   // (the validator only requires existence for key-shaped values).
   entry: string;
   relation: string;
+  // Marks this relation as belonging to a controlled type with its own
+  // validated semantics, rather than an untyped cross-reference (#580).
+  // 'same-dataset' asserts the SAME underlying dataset, obtained through a
+  // different source or channel (the WDTK requester copy and the Ofcom
+  // publication of one response, say) - distinct from a file's witnesses[]
+  // (multiple observed copies of ONE declared file within an entry).
+  // Identity is symmetric by definition, so the validator requires the named
+  // sibling to reciprocate the same relationType back. Absent for the
+  // general free-prose cross-reference, which stays existence-checked only.
+  relationType?: string;
 }
 
 export interface FoiFileDeclaration {
@@ -135,6 +145,13 @@ export const FOI_FILE_ROLES: readonly string[] = [
 // FOI-transaction outcomes (a historical fact about the request; extended
 // deliberately when a genuinely new outcome arrives, like VALID_PROVENANCE).
 export const FOI_OUTCOMES: readonly string[] = ['successful', 'not held'];
+
+// relatedEntries' controlled relation types (#580): a relationType absent
+// from an item means it is an untyped, free-prose cross-reference (existence
+// of a key-shaped target is still checked, but nothing about the relation's
+// semantics is). 'same-dataset' is the one currently defined typed relation -
+// see FoiRelatedEntry.relationType for its meaning and the symmetry it implies.
+export const FOI_RELATION_TYPES: readonly string[] = ['same-dataset'];
 
 // Archive-side dataset recovery states (datasetRecovery field): absent means
 // fully recovered; these values put an incomplete recovery on the record

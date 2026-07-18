@@ -254,6 +254,74 @@ describe('validateFoiEntry - referential integrity', { tags: ['unit'] }, () => {
   });
 });
 
+// relatedEntries' typed relation (#580): 'same-dataset' asserts the SAME
+// underlying dataset obtained through a different source, an identity that
+// is symmetric by definition - the validator requires both sides to declare
+// each other, on top of the untyped existence-only check every relation gets.
+describe('validateFoiEntry - relatedEntries relationType (#580)', { tags: ['unit'] }, () => {
+  it('FoiEntry_UntypedRelatedEntry_DoesNotRequireSymmetry', () => {
+    // The pre-existing, still-supported shape: free-prose cross-references
+    // with no relationType are one-sided by design and stay existence-only.
+    writeFoiEntry('wdtk-654321--other-entry');
+    writeFoiEntry(undefined, meta => {
+      meta.relatedEntries = [{ entry: 'wdtk-654321--other-entry', relation: 'an earlier disclosure covering the same period' }];
+    });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
+  });
+
+  it('FoiEntry_UnknownRelationType_Fails', () => {
+    writeFoiEntry('wdtk-654321--other-entry');
+    writeFoiEntry(undefined, meta => {
+      meta.relatedEntries = [{ entry: 'wdtk-654321--other-entry', relation: 'x', relationType: 'mystery-type' }];
+    });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/relationType "mystery-type" is not in the vocabulary/);
+  });
+
+  it('FoiEntry_SameDatasetRelationTypeOnFreeTextReference_Fails', () => {
+    // A typed identity claim needs a real sibling to check reciprocity
+    // against - a free-text drop-zone note cannot reciprocate anything.
+    writeFoiEntry(undefined, meta => {
+      meta.relatedEntries = [{ entry: 'ofcom-foi-log/drop-zone-note (drop zone)', relation: 'suspected sibling', relationType: 'same-dataset' }];
+    });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/requires a real sibling entry, not the free-text reference/);
+  });
+
+  it('FoiEntry_SameDatasetRelationOneSided_Fails', () => {
+    // A declares B a same-dataset sibling; B says nothing back - a one-sided
+    // identity claim, which the symmetry rule must catch.
+    writeFoiEntry('wdtk-654321--other-entry');
+    writeFoiEntry(undefined, meta => {
+      meta.relatedEntries = [{ entry: 'wdtk-654321--other-entry', relation: 'the same export via a different channel', relationType: 'same-dataset' }];
+    });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join())
+      .toMatch(/declares "wdtk-654321--other-entry" as relationType "same-dataset", but "wdtk-654321--other-entry" does not declare "wdtk-123456--test-entry" back.*must be symmetric/);
+  });
+
+  it('FoiEntry_SameDatasetRelationReciprocated_Passes', () => {
+    writeFoiEntry('wdtk-654321--other-entry', meta => {
+      meta.requestId = 654321;
+      meta.relatedEntries = [{ entry: 'wdtk-123456--test-entry', relation: 'the same export via a different channel', relationType: 'same-dataset' }];
+    });
+    writeFoiEntry(undefined, meta => {
+      meta.relatedEntries = [{ entry: 'wdtk-654321--other-entry', relation: 'the same export via a different channel', relationType: 'same-dataset' }];
+    });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).toEqual([]);
+    expect(validateFoiEntry(foiDir, 'wdtk-654321--other-entry')).toEqual([]);
+  });
+
+  it('FoiEntry_SameDatasetRelationWhereSiblingReciprocatesWithADifferentType_Fails', () => {
+    // B references A back, but under a different (even if also valid, once
+    // more relation types exist) relationType - that is not a reciprocation.
+    writeFoiEntry('wdtk-654321--other-entry', meta => {
+      meta.relatedEntries = [{ entry: 'wdtk-123456--test-entry', relation: 'covers an overlapping period' }];
+    });
+    writeFoiEntry(undefined, meta => {
+      meta.relatedEntries = [{ entry: 'wdtk-654321--other-entry', relation: 'the same export via a different channel', relationType: 'same-dataset' }];
+    });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/must be symmetric/);
+  });
+});
+
 describe('validateFoiEntry - byte integrity', { tags: ['unit'] }, () => {
   it('FoiEntry_TamperedFileContent_FailsWithSha256Mismatch', () => {
     const dir = writeFoiEntry();

@@ -15,7 +15,7 @@
   "datasetClasses": ["register-snapshot", "forbidden-list", "attribute-addendum"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "ofcom-756622-register-and-forbidden" },
   "relatedEntries": [
-    { "entry": "wdtk-596532--allocated-reserved-forbidden", "relation": "requester-channel entry for the same FOI response; the published register CSV shares the annex's exact header (incl. Licence Issued Dat) and 141,295-record count - the annex, six days earlier, is the earliest bulk disclosure of per-callsign issue dates" }
+    { "entry": "wdtk-596532--allocated-reserved-forbidden", "relation": "requester-channel entry for the same FOI response; the published register CSV shares the annex's exact header (incl. Licence Issued Dat) and 141,295-record count - the annex, six days earlier, is the earliest bulk disclosure of per-callsign issue dates", "relationType": "same-dataset" }
   ],
   "files": {
     "allocated-reserved-forbidden-call-sign-foi-20190912.csv": {

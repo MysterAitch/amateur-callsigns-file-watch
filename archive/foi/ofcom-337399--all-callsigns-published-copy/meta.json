@@ -19,7 +19,8 @@
   "relatedEntries": [
     {
       "entry": "wdtk-356636--all-callsigns-plus-forbidden",
-      "relation": "requester-channel entry for the same FOI response; the zip's xlsx is byte-identical (sha256 9ec1df14722a09f0da4071d3d5e4e45a2e88924be6dbbeea4b98cd6ae3a40f93) to that entry's data file; the letter differs by publication redaction only"
+      "relation": "requester-channel entry for the same FOI response; the zip's xlsx is byte-identical (sha256 9ec1df14722a09f0da4071d3d5e4e45a2e88924be6dbbeea4b98cd6ae3a40f93) to that entry's data file; the letter differs by publication redaction only",
+      "relationType": "same-dataset"
     }
   ],
   "files": {

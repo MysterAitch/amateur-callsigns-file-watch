@@ -26,6 +26,7 @@ import {
   FOI_OUTCOMES,
   FOI_DATASET_CLASSES,
   FOI_DATASET_RECOVERY,
+  FOI_RELATION_TYPES,
 } from '../shared/foi-archive.ts';
 import { FOI_ENTRY_CONVERSIONS } from '../shared/foi-normalise.ts';
 import {
@@ -176,14 +177,41 @@ export function validateFoiEntry(foiDir: string, key: string): ValidationProblem
     }
   }
 
-  // 10: relatedEntries - key-shaped values must name real siblings.
+  // 10: relatedEntries - key-shaped values must name real siblings; a typed
+  // relationType (#580) additionally requires the target to be a real sibling
+  // (never a free-text drop-zone note) and to reciprocate the same type -
+  // 'same-dataset' asserts an identity that is symmetric by definition.
   for (const related of meta.relatedEntries ?? []) {
     if (typeof related.entry !== 'string' || related.entry.length === 0 || typeof related.relation !== 'string' || related.relation.length === 0) {
       problems.push({ path: metaPath, problem: 'relatedEntries items need non-empty entry and relation' });
       continue;
     }
-    if (ENTRY_KEY_SHAPED_RE.test(related.entry) && !fs.existsSync(path.join(foiDir, related.entry))) {
+    const keyShaped = ENTRY_KEY_SHAPED_RE.test(related.entry);
+    if (keyShaped && !fs.existsSync(path.join(foiDir, related.entry))) {
       problems.push({ path: metaPath, problem: `relatedEntries names "${related.entry}" but no such sibling entry exists` });
+      continue;
+    }
+    if (related.relationType === undefined) continue;
+    if (!FOI_RELATION_TYPES.includes(related.relationType)) {
+      problems.push({ path: metaPath, problem: `relatedEntries relationType "${related.relationType}" is not in the vocabulary (${FOI_RELATION_TYPES.join(', ')})` });
+      continue;
+    }
+    if (!keyShaped) {
+      problems.push({ path: metaPath, problem: `relatedEntries relationType "${related.relationType}" requires a real sibling entry, not the free-text reference "${related.entry}"` });
+      continue;
+    }
+    const siblingMetaPath = path.join(foiDir, related.entry, 'meta.json');
+    let siblingMeta: FoiEntryMeta | undefined;
+    try {
+      siblingMeta = JSON.parse(fs.readFileSync(siblingMetaPath, 'utf8')) as FoiEntryMeta;
+    } catch {
+      // A missing or malformed sibling meta.json is reported when that
+      // sibling entry is itself validated - not duplicated here.
+      continue;
+    }
+    const reciprocated = (siblingMeta.relatedEntries ?? []).some(r => r.entry === key && r.relationType === related.relationType);
+    if (!reciprocated) {
+      problems.push({ path: metaPath, problem: `relatedEntries declares "${related.entry}" as relationType "${related.relationType}", but "${related.entry}" does not declare "${key}" back with the same relationType - ${related.relationType} must be symmetric` });
     }
   }
 
