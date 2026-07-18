@@ -25,9 +25,12 @@ import { loadReferenceData, parseCallsign } from '../sources/ofcom-amateur/compo
 // contract - a query-optimised claim-ledger SQLite that answers the four
 // representative lookups correctly, with the statistics ANALYZE gathers so the
 // point lookups plan onto their indexes rather than a full scan (the mis-plan
-// the bench-off measured at 300ms-3.6s). The build runs on a tractable two-
-// snapshot subset spanning two vintages, including the documented G0TQK
-// trailing-NBSP twin, so the four queries have real temporal and raw variance.
+// the bench-off measured at 300ms-3.6s). The build runs on the tractable
+// subset: two register snapshots spanning two vintages (including the
+// documented G0TQK trailing-NBSP twin, so the four queries have real temporal
+// and raw variance) plus one entry per non-callsign subjectKind, so the
+// artefact carries the raw-only families the compact parity oracle must cover
+// (issue #824).
 
 // Fast gzip for the download twin - the tests check CONTENTS, not size, so any
 // level is correct and level 1 is fastest.
@@ -77,9 +80,34 @@ describe('claim-ledger SQLite artefact', { tags: ['data-validity'] }, () => {
     expect(gzPath.endsWith('.sqlite.gz')).toBe(true);
     const gunzipped = zlib.gunzipSync(fs.readFileSync(gzPath));
     expect(gunzipped.equals(fs.readFileSync(dbPath))).toBe(true);
-    // A real corpus subset produced a substantial ledger.
+    // A real corpus subset produced a substantial ledger: two register
+    // snapshots plus the forbidden-suffix list, the statistics table and the
+    // three available-pool sheets (one entry per subjectKind, issue #824).
     expect(summary.claims).toBeGreaterThan(1_000_000);
-    expect(summary.sources).toBe(2);
+    expect(summary.sources).toBe(7);
+  });
+
+  it('NonCallsignSources_WhenEmitted_CarryNoNormalisationEdges', () => {
+    // The subject-kind gate, visible in the artefact (issue #824): a forbidden
+    // suffix, a pool slot or a statistics period is never mis-normalised AS a
+    // callsign, so the non-callsign sources contribute raw observations and NO
+    // derived normalises_to edges - while the callsign register sources carry
+    // their uniform edge per observation.
+    const db = openDb(dbPath);
+    try {
+      const edgesFor = (pattern: string): number =>
+        Number((db.prepare("SELECT COUNT(*) AS c FROM claims WHERE predicate = 'normalises_to' AND source_file LIKE ?").get(pattern) as { c: number | bigint }).c);
+      const rawFor = (pattern: string): number =>
+        Number((db.prepare("SELECT COUNT(*) AS c FROM claims WHERE layer = 'raw' AND source_file LIKE ?").get(pattern) as { c: number | bigint }).c);
+      for (const entry of ['ofcom-2024-12--forbidden-suffixes', 'wdtk-184767--annual-licence-counts', 'wdtk-197896--available-callsigns-list']) {
+        const pattern = `foi/${entry}/%`;
+        expect(rawFor(pattern)).toBeGreaterThan(0);
+        expect(edgesFor(pattern)).toBe(0);
+      }
+      expect(edgesFor('foi/ofcom-2016-09-20--callsign-database--all-callsigns/%')).toBeGreaterThan(0);
+    } finally {
+      db.close();
+    }
   });
 
   it('Schema_WhenBuilt_CarriesResolvedEntityBesideRawSubjectWithLookupIndexes', () => {

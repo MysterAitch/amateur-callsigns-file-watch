@@ -67,10 +67,22 @@ const INSERT_BATCH_ROWS = 500;
 // snapshots at DISTINCT vintages so the temporal fold has something to fold
 // (2016-09-20 and 2022-03-07), the later of which carries the documented G0TQK
 // trailing-NBSP twin so the variants-of-entity lookup has real raw variance to
-// resolve. The full corpus is the default (no selector); this is opt-in.
+// resolve; PLUS one entry per non-callsign subjectKind in the corpus (a
+// forbidden-suffix list, a statistics aggregate, an available-pool disclosure),
+// so the fat-vs-compact parity oracle structurally covers the raw-only families
+// whose observations must NOT gain normalisation edges (issue #824 - the
+// compact VIEW once fabricated them, and a callsign-only fixture never saw it).
+// The full corpus is the default (no selector); this is opt-in.
 export const SUBSET_ENTRIES: readonly string[] = [
+  // callsign register entries (subjectKind 'callsign')
   'ofcom-2016-09-20--callsign-database--all-callsigns',
   'ofcom-01420046--allocated-reserved-callsigns',
+  // subjectKind 'suffix': the standalone forbidden-suffix disclosure
+  'ofcom-2024-12--forbidden-suffixes',
+  // subjectKind 'aggregate': the annual-licence-counts statistics table
+  'wdtk-184767--annual-licence-counts',
+  // subjectKind 'pool-slot': a 2014 available-suffix-lists disclosure
+  'wdtk-197896--available-callsigns-list',
 ];
 
 export function subsetSelector(): EntrySelector {
