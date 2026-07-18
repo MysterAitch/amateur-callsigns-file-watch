@@ -14,7 +14,7 @@
   "datasetClasses": ["available-pool"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "available-typed-export-7col" },
   "relatedEntries": [
-    { "entry": "wdtk-294011--available-callsigns-list", "relation": "variant-of (suspected same 2015-10-13 export, different serialisation: same name and byte count, different sha256)" }
+    { "entry": "wdtk-294011--available-callsigns-list", "relation": "variant-of wdtk-294011: two serialisations of the same 2015-10-13 disclosed export - the raw .xlsx files differ (same name and byte count, different sha256) but normalise to byte-identical outputs across all three sheets; both entries stand" }
   ],
   "files": {
     "Amateur Available Call signs.xlsx": {
