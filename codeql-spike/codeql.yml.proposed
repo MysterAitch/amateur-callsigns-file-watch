@@ -1,0 +1,50 @@
+# PROPOSED, NOT ENABLED — spike artefact for #819. Do NOT drop this into
+# .github/workflows/ as-is: CodeQL advanced setup and default setup are
+# mutually exclusive, so committing an active codeql workflow while default
+# setup is configured will break/duplicate the live gating CodeQL check.
+# Enabling requires a maintainer to first disable default setup in repo
+# Settings > Code security > Code scanning. Only then rename this to
+# .github/workflows/codeql.yml.
+#
+# It also assumes the custom queries have been TUNED per FINDINGS.md
+# (path-filter site/** and *.test.ts; model Number.isInteger as a class-B
+# barrier; narrow class-B sources). The spike's recommendation is NOT to
+# migrate yet.
+name: CodeQL (advanced — parse-safety custom pack)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 3 * * 1'
+
+jobs:
+  analyze:
+    name: Analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # Standard security suite PLUS this repo's custom parse-safety pack.
+          config: |
+            queries:
+              - uses: security-extended
+              - uses: ./codeql-spike/parse-safety
+            paths-ignore:
+              - site/**
+              - '**/*.test.ts'
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: parse-safety

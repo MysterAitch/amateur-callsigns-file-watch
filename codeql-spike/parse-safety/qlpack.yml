@@ -1,0 +1,8 @@
+name: amateur-callsigns/parse-safety
+version: 0.0.1
+# POC spike for issue #819. NOT wired into CI. Custom dataflow queries that
+# express the two dormant parse-safety classes the #812 audit fixed, as
+# taint-tracking configurations, so they act as a semantic regression net a
+# syntactic ESLint rule structurally cannot (cross-function flow, silent NaN).
+dependencies:
+  codeql/javascript-all: "*"
