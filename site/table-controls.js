@@ -21,6 +21,23 @@
 // separated out and unit-tested; the DOM assembly is exercised in jsdom.
 
 import { CALLSIGN_CHAR_NAMES } from './browser-query.js';
+import {
+  isBlankSortValue,
+  inferSortType,
+  compareSortValues,
+  sortedRowOrder,
+  sortedRowOrderMulti,
+  nextSort,
+  sortToParam,
+  sortFromParam,
+  ariaSortValue,
+} from './table-sort.js';
+
+// The type-aware comparison primitives live in the shared sort core (issue
+// #771), so the static-table sort and the interactive lists compare values one
+// identical way. They are re-exported here for the callers and tests that reach
+// them through this module's public surface.
+export { isBlankSortValue, inferSortType, compareSortValues, sortedRowOrder };
 
 // The friendly marker vocabulary, inverted to name → code point, so a friendly
 // token ({NBSP}) can be turned back into its raw code-point token ({U+00A0}).
@@ -142,119 +159,6 @@ export function tableToCsv(table, options = {}) {
   return lines.join('\n');
 }
 
-// --- sorting: pure logic (blank-awareness, type inference, comparator, order) ---
-
-// Canonical tokens that stand in for a deliberately-empty cell rather than a
-// value. A humanised blank ((blank), (none)) or a dash placeholder must sort
-// together and out of the way, not scatter through the values by the accident
-// of its glyph. Matched case-insensitively against the trimmed canonical value.
-const BLANK_SORT_TOKENS = new Set(['', '(blank)', '(none)', '(n/a)', 'n/a', '—', '–']);
-
-// Whether a canonical value reads as an intentional blank rather than data.
-/**
- * @param {string} value
- * @returns {boolean}
- */
-export function isBlankSortValue(value) {
-  return BLANK_SORT_TOKENS.has(value.trim().toLowerCase());
-}
-
-// A value that is a plain number: an optional sign then digits, with at most one
-// decimal point. Deliberately strict — no thousands separators or units — to
-// match the canonical-at-rest export, which carries numbers unformatted.
-const NUMERIC_SORT_RE = /^[+-]?(\d+(\.\d+)?|\.\d+)$/;
-
-// A value that is an ISO-8601 date or date-time (the only date shape the record
-// stores). Requires at least the year-month form (YYYY-MM; the day and time are
-// optional, matching the month-precision dates the record can carry) so a bare
-// number is read as a number, not a year, and confirms the engine can parse it.
-const DATE_SORT_RE = /^\d{4}-\d{2}(-\d{2})?([T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
-
-/**
- * @param {string} value
- * @returns {boolean}
- */
-function isNumericSortValue(value) {
-  return NUMERIC_SORT_RE.test(value.trim());
-}
-
-/**
- * @param {string} value
- * @returns {boolean}
- */
-function isDateSortValue(value) {
-  const trimmed = value.trim();
-  return DATE_SORT_RE.test(trimmed) && !Number.isNaN(Date.parse(trimmed));
-}
-
-// The sort type of a column, inferred from its canonical values: 'numeric' when
-// every non-blank value is a number, 'date' when every non-blank value is an ISO
-// date/date-time, otherwise 'text'. Blank cells are ignored for the inference
-// (and sorted apart by the comparator), so a numeric column punctuated by blanks
-// is still recognised as numeric and sorts by magnitude, not lexically.
-/**
- * @param {string[]} values
- * @returns {'numeric' | 'date' | 'text'}
- */
-export function inferSortType(values) {
-  const meaningful = values.filter(value => !isBlankSortValue(value));
-  if (meaningful.length === 0) return 'text';
-  if (meaningful.every(isNumericSortValue)) return 'numeric';
-  if (meaningful.every(isDateSortValue)) return 'date';
-  return 'text';
-}
-
-// Compare two non-blank canonical values in ascending sense for a given type:
-// numbers by magnitude, dates chronologically, text by locale order (so accented
-// letters fall where a reader expects). Blanks are not passed here — the row
-// ordering keeps them apart — so this stays a total order over real values.
-/**
- * @param {string} a
- * @param {string} b
- * @param {'numeric' | 'date' | 'text'} type
- * @returns {number}
- */
-export function compareSortValues(a, b, type) {
-  if (type === 'numeric') {
-    const na = Number(a);
-    const nb = Number(b);
-    return na < nb ? -1 : na > nb ? 1 : 0;
-  }
-  if (type === 'date') {
-    const ta = Date.parse(a);
-    const tb = Date.parse(b);
-    return ta < tb ? -1 : ta > tb ? 1 : 0;
-  }
-  return a.localeCompare(b);
-}
-
-// The order body rows should take for one sort, as indices into the authored
-// `keys` array. A stable sort: equal values keep their authored order, and blank
-// cells always sink to the end whichever direction is chosen, so they never
-// break up the run of values that actually carry meaning.
-/**
- * @param {string[]} keys canonical value per row, in authored order
- * @param {'numeric' | 'date' | 'text'} type
- * @param {'ascending' | 'descending'} direction
- * @returns {number[]}
- */
-export function sortedRowOrder(keys, type, direction) {
-  const sign = direction === 'descending' ? -1 : 1;
-  return keys
-    .map((key, index) => ({ key, index }))
-    .sort((a, b) => {
-      const aBlank = isBlankSortValue(a.key);
-      const bBlank = isBlankSortValue(b.key);
-      if (aBlank || bBlank) {
-        if (aBlank && bBlank) return a.index - b.index;
-        return aBlank ? 1 : -1;
-      }
-      const cmp = compareSortValues(a.key, b.key, type);
-      return cmp !== 0 ? sign * cmp : a.index - b.index;
-    })
-    .map(entry => entry.index);
-}
-
 // A small DOM helper local to this module: an element with attributes and text
 // in one call, matching the shape the other browser modules use.
 /**
@@ -330,33 +234,28 @@ function markerSpans(table) {
 /** @type {Record<SortDirection, string>} */
 const SORT_GLYPH = { none: '⇅', ascending: '▲', descending: '▼' };
 
-// The next state in the cycle: unsorted → ascending → descending → unsorted. The
-// authored order is meaningful, so it is a first-class stop in the cycle, not
-// something lost once a column has been sorted.
-/**
- * @param {SortDirection} current
- * @returns {SortDirection}
- */
-function nextSortDirection(current) {
-  if (current === 'ascending') return 'descending';
-  if (current === 'descending') return 'none';
-  return 'ascending';
-}
+/** @typedef {import('./table-sort.js').SortEntry} SortEntry */
 
 // The stateful accessible name of a sort trigger: it names the column and what a
 // press will do next, so a screen reader announces the action rather than a bare
-// glyph. The column's meaning is always contained in the name (WCAG 2.5.3).
+// glyph. The column's meaning is always contained in the name (WCAG 2.5.3). Where
+// more than one column is sorted, the column's position in the sort is spoken too
+// (a plain activation still sorts by this column alone; a modifier — Shift, and
+// likewise Ctrl/Alt/Meta, or Shift-Enter/Shift-Space from the keyboard — adds a
+// secondary sort).
 /**
  * @param {string} meaning
  * @param {SortDirection} direction
+ * @param {number | null} [priority]
  * @returns {string}
  */
-function sortButtonName(meaning, direction) {
+function sortButtonName(meaning, direction, priority = null) {
+  const rank = priority !== null ? `, sort priority ${priority}` : '';
   if (direction === 'ascending') {
-    return `sort by ${meaning}: currently sorted ascending, activate to sort descending`;
+    return `sort by ${meaning}: currently sorted ascending${rank}, activate to sort descending`;
   }
   if (direction === 'descending') {
-    return `sort by ${meaning}: currently sorted descending, activate to restore the original order`;
+    return `sort by ${meaning}: currently sorted descending${rank}, activate to restore the original order`;
   }
   return `sort by ${meaning}: currently unsorted, activate to sort ascending`;
 }
@@ -428,13 +327,75 @@ function installSortTrigger(th, meaning) {
   return { button, glyph };
 }
 
-// Add one-column-at-a-time sorting to an already-enhanced table. Each header
-// gains a keyboard-operable trigger that cycles its column ascending →
-// descending → back to the authored order; only one column sorts at a time, with
-// the authored order as the stable tiebreak. Rows are only ever reordered —
-// never fetched, hidden or altered — so the table with JavaScript off is exactly
-// the table with it on, minus the trigger. Declines silently where there is
-// nothing to reorder (fewer than two body rows).
+// A stable per-column key for the sort state and the `?sort=` deep link: a slug
+// of the header's canonical text, falling back to a positional key when a header
+// is blank or two headers slug alike, so every column keys uniquely. The
+// positional fallback is unique by construction (the column index differs).
+/**
+ * @param {string} canonical
+ * @param {number} index
+ * @param {Set<string>} used
+ * @returns {string}
+ */
+function uniqueColumnKey(canonical, index, used) {
+  let key = canonical.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  if (key === '' || used.has(key)) key = `col${index + 1}`;
+  used.add(key);
+  return key;
+}
+
+// The `?sort=` parameter name a table syncs to. A table with an id (or, failing
+// that, a caption) namespaces its sort into `sort.<id>` so several sortable
+// tables on one page do not fight over a single param; a table with no stable
+// name (or one keyed only as the generic "table") falls back to the bare `sort`.
+// Deep-linking is a persistence nicety layered on top of the sort, never a
+// requirement for it — the sort works regardless of whether a stable name is
+// available (two unnamed tables on one page would simply share the bare param).
+/**
+ * @param {HTMLTableElement} table
+ * @returns {string}
+ */
+function sortParamName(table) {
+  const caption = table.caption?.textContent?.trim() ?? '';
+  const id = table.id !== '' ? table.id : (caption !== '' ? downloadSlug(caption) : '');
+  return id === '' || id === 'table' ? 'sort' : `sort.${id}`;
+}
+
+// Read one table's sort out of the current address bar (null when absent).
+/**
+ * @param {string} name
+ * @returns {string | null}
+ */
+function readSortParam(name) {
+  return new URL(window.location.href).searchParams.get(name);
+}
+
+// Reflect one table's sort into the address bar without adding a history entry
+// (replaceState, so re-sorting re-points the same view rather than stacking Back
+// steps). The empty sort clears the param, keeping a shared link clean.
+/**
+ * @param {string} name
+ * @param {SortEntry[]} state
+ */
+function syncSortParam(name, state) {
+  const url = new URL(window.location.href);
+  const value = sortToParam(state);
+  if (value === '') url.searchParams.delete(name);
+  else url.searchParams.set(name, value);
+  window.history.replaceState(null, '', url);
+}
+
+// Add multi-column sorting to an already-enhanced table. Each header gains a
+// keyboard-operable trigger: a plain activation sorts by that column alone,
+// cycling ascending → descending → back to the authored order; a modified
+// activation (Shift/Ctrl/Alt/Meta click, or Shift-Enter/Shift-Space from the
+// keyboard) APPENDS the column as a secondary sort, or toggles its direction when
+// already part of the sort. The state, the `aria-sort` per column, the priority
+// shown once more than one column is sorted, and a shareable `?sort=` deep link
+// all stay in step. Rows are only ever reordered — never fetched, hidden or
+// altered — so the table with JavaScript off is exactly the table with it on,
+// minus the trigger. Declines silently where there is nothing to reorder (fewer
+// than two body rows).
 /**
  * @param {HTMLTableElement} table
  * @param {HTMLTableCellElement[]} header
@@ -446,11 +407,10 @@ function enableColumnSorting(table, header, status) {
   const authoredOrder = Array.from(body.rows);
   if (authoredOrder.length < 2) return;
 
-  /** @type {{ th: HTMLTableCellElement; button: HTMLButtonElement; glyph: HTMLElement; label: string }[]} */
-  const triggers = [];
-  /** @type {{ column: number; direction: SortDirection }} */
-  const state = { column: -1, direction: 'none' };
-
+  /** @type {{ th: HTMLTableCellElement; button: HTMLButtonElement; glyph: HTMLElement; label: string; key: string; index: number }[]} */
+  const columns = [];
+  /** @type {Set<string>} */
+  const usedKeys = new Set();
   header.forEach((th, i) => {
     // Read the header's canonical text before injecting anything, then freeze it
     // as the header's export value so the injected glyph/button never leak into
@@ -458,43 +418,113 @@ function enableColumnSorting(table, header, status) {
     const canonical = cellExportValue(th);
     const meaning = canonical || `column ${i + 1}`;
     if (th.dataset.export === undefined) th.dataset.export = canonical;
+    const key = uniqueColumnKey(canonical, i, usedKeys);
     const { button, glyph } = installSortTrigger(th, meaning);
-    button.addEventListener('click', () => {
-      const current = state.column === i ? state.direction : 'none';
-      applySort(i, nextSortDirection(current));
+    button.addEventListener('click', (e) => {
+      activate(key, e.shiftKey || e.ctrlKey || e.altKey || e.metaKey);
     });
-    triggers.push({ th, button, glyph, label: meaning });
+    columns.push({ th, button, glyph, label: meaning, key, index: i });
   });
+  const byKey = new Map(columns.map(c => [c.key, c]));
+
+  // Canonical values and inferred type per column, read once and cached: the
+  // multi-column comparator asks for them across every pairwise comparison, and
+  // the rows never change (only their order does).
+  /** @type {Map<string, string[]>} */
+  const valueCache = new Map();
+  /**
+   * @param {string} key
+   * @returns {string[]}
+   */
+  function valuesFor(key) {
+    let values = valueCache.get(key);
+    if (values === undefined) {
+      const col = byKey.get(key);
+      const index = col !== undefined ? col.index : -1;
+      values = authoredOrder.map(row => {
+        const cell = row.cells[index];
+        return cell !== undefined ? cellExportValue(cell) : '';
+      });
+      valueCache.set(key, values);
+    }
+    return values;
+  }
+  /** @type {Map<string, 'numeric' | 'date' | 'text'>} */
+  const typeCache = new Map();
+  /**
+   * @param {string} key
+   * @returns {'numeric' | 'date' | 'text'}
+   */
+  function typeOf(key) {
+    let type = typeCache.get(key);
+    if (type === undefined) {
+      const col = byKey.get(key);
+      type = col !== undefined ? columnSortType(col.th, valuesFor(key)) : 'text';
+      typeCache.set(key, type);
+    }
+    return type;
+  }
+  /**
+   * @param {number} rowIndex
+   * @param {string} key
+   * @returns {string}
+   */
+  function valueAt(rowIndex, key) {
+    return valuesFor(key)[rowIndex] ?? '';
+  }
+
+  const paramName = sortParamName(table);
+  /** @type {SortEntry[]} */
+  let state = sortFromParam(readSortParam(paramName), k => byKey.has(k));
 
   /**
-   * @param {number} column
-   * @param {SortDirection} direction
+   * @param {string} key
+   * @param {boolean} multi
    */
-  function applySort(column, direction) {
-    state.column = direction === 'none' ? -1 : column;
-    state.direction = direction;
+  function activate(key, multi) {
+    // The static table's third stop: a plain activation of the sole descending
+    // column returns to the authored order (the empty sort). Every other plain or
+    // modified activation follows the shared transitions the interactive lists use.
+    if (!multi && state.length === 1 && state[0].key === key && state[0].dir === 'desc') {
+      state = [];
+    } else {
+      state = nextSort(state, key, { multi });
+    }
+    applyState();
+    syncSortParam(paramName, state);
+  }
 
-    triggers.forEach((trigger, i) => {
-      const dir = i === column && direction !== 'none' ? direction : 'none';
-      trigger.th.setAttribute('aria-sort', dir);
-      trigger.glyph.textContent = SORT_GLYPH[dir];
-      trigger.button.setAttribute('aria-label', sortButtonName(trigger.label, dir));
-    });
+  // Reflect the current state onto the headers and the row order. Blanks sink to
+  // the end of each column and rows equal on every sorted column keep their
+  // authored order, so the sort is stable and its ties are the authored order.
+  function applyState() {
+    for (const col of columns) {
+      const idx = state.findIndex(s => s.key === col.key);
+      const dir = idx >= 0 ? state[idx].dir : null;
+      const verbose = ariaSortValue(dir);
+      const priority = state.length > 1 && idx >= 0 ? idx + 1 : null;
+      col.th.setAttribute('aria-sort', verbose);
+      col.glyph.textContent = SORT_GLYPH[verbose] + (priority !== null ? String(priority) : '');
+      col.button.setAttribute('aria-label', sortButtonName(col.label, verbose, priority));
+    }
 
-    if (direction === 'none') {
+    if (state.length === 0) {
       for (const row of authoredOrder) body.append(row);
       status.textContent = 'Restored the original row order.';
       return;
     }
-
-    const keys = authoredOrder.map(row => {
-      const cell = row.cells[column];
-      return cell !== undefined ? cellExportValue(cell) : '';
+    const order = sortedRowOrderMulti(state, authoredOrder.length, valueAt, typeOf);
+    for (const index of order) body.append(authoredOrder[index]);
+    const described = state.map(s => {
+      const col = byKey.get(s.key);
+      return `${col !== undefined ? col.label : s.key} ${s.dir === 'desc' ? 'descending' : 'ascending'}`;
     });
-    const type = columnSortType(triggers[column].th, keys);
-    for (const index of sortedRowOrder(keys, type, direction)) body.append(authoredOrder[index]);
-    status.textContent = `Sorted by ${triggers[column].label}, ${direction}.`;
+    status.textContent = `Sorted by ${described.join(', then ')}.`;
   }
+
+  // Apply any sort restored from a `?sort=` deep link on load; an absent or empty
+  // link leaves the authored order and the initial (unsorted) header state as-is.
+  if (state.length > 0) applyState();
 }
 
 /**
