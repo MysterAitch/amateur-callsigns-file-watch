@@ -221,7 +221,11 @@ export function validateFoiEntry(foiDir: string, key: string): ValidationProblem
       problems.push({ path: metaPath, problem: `relatedEntries declares "${related.entry}" as relationType "${related.relationType}", but "${related.entry}"'s own relatedEntries is malformed (not an array) - reciprocation cannot be checked` });
       continue;
     }
-    const reciprocated = (siblingMeta.relatedEntries ?? []).some(r => r.entry === key && r.relationType === related.relationType);
+    // A malformed ITEM within an otherwise-well-formed sibling array (a null,
+    // say) must not throw either - it simply cannot reciprocate, and the
+    // sibling's own validation pass already reports its own malformed item.
+    const reciprocated = (siblingMeta.relatedEntries ?? []).some(r =>
+      r !== null && typeof r === 'object' && r.entry === key && r.relationType === related.relationType);
     if (!reciprocated) {
       problems.push({ path: metaPath, problem: `relatedEntries declares "${related.entry}" as relationType "${related.relationType}", but "${related.entry}" does not declare "${key}" back with the same relationType - ${related.relationType} must be symmetric` });
     }

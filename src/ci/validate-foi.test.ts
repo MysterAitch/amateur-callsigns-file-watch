@@ -351,6 +351,23 @@ describe('validateFoiEntry - relatedEntries relationType (#580)', { tags: ['unit
     expect(problems).toMatch(/"wdtk-654321--other-entry"'s own relatedEntries is malformed \(not an array\)/);
   });
 
+  it('FoiEntry_SiblingWithMalformedItemInRelatedEntries_FailsWithoutThrowing', () => {
+    // The sibling's relatedEntries IS an array (so the array-shape guard
+    // above does not fire), but one of its items is null - reading `.entry`
+    // on it must not throw. It simply cannot reciprocate, so the ordinary
+    // non-reciprocation failure fires (the sibling's own malformed item is
+    // reported by the sibling's own validation pass, not duplicated here).
+    writeFoiEntry('wdtk-654321--other-entry', meta => {
+      // @ts-expect-error - deliberately malformed to exercise the guard.
+      meta.relatedEntries = [null];
+    });
+    writeFoiEntry(undefined, meta => {
+      meta.relatedEntries = [{ entry: 'wdtk-654321--other-entry', relation: 'the same export via a different channel', relationType: 'same-dataset' }];
+    });
+    expect(() => validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).not.toThrow();
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/must be symmetric/);
+  });
+
   it('FoiEntry_WithMalformedOwnRelatedEntries_FailsWithoutThrowing', () => {
     // The same guard, applied to the entry's OWN relatedEntries: a non-array
     // value must be reported, not thrown through a `for..of` that assumes
