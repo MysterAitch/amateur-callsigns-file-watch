@@ -179,6 +179,33 @@ export function listFoiEntryKeys(foiDir: string = defaultFoiDir()): string[] {
     .sort();
 }
 
+// Every consumer (~20 builders, v2 collectors and CI scripts) relies on this
+// throwing when an entry's meta.json is unreadable or malformed - that
+// contract is unchanged. What changes is that the throw now NAMES the file
+// and says what is wrong with it, rather than surfacing a bare SyntaxError
+// (unlocated JSON.parse failure) or a bare TypeError from the first consumer
+// field access on a non-object (fail-loud-but-locatable, not just fail-loud).
 export function readFoiEntryMeta(foiDir: string, key: string): FoiEntryMeta {
-  return JSON.parse(fs.readFileSync(path.join(foiDir, key, 'meta.json'), 'utf8')) as FoiEntryMeta;
+  const metaPath = path.join(foiDir, key, 'meta.json');
+
+  if (!fs.existsSync(metaPath)) {
+    throw new Error(`${metaPath}: meta.json not found`);
+  }
+
+  const raw = fs.readFileSync(metaPath, 'utf8');
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    throw new Error(`${metaPath}: not valid JSON: ${message}`, { cause });
+  }
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    const describe = parsed === null ? 'null' : Array.isArray(parsed) ? 'an array' : typeof parsed;
+    throw new Error(`${metaPath}: expected a JSON object, got ${describe}`);
+  }
+
+  return parsed as FoiEntryMeta;
 }
