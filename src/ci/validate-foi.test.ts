@@ -309,9 +309,10 @@ describe('validateFoiEntry - relatedEntries relationType (#580)', { tags: ['unit
     expect(validateFoiEntry(foiDir, 'wdtk-654321--other-entry')).toEqual([]);
   });
 
-  it('FoiEntry_SameDatasetRelationWhereSiblingReciprocatesWithADifferentType_Fails', () => {
-    // B references A back, but under a different (even if also valid, once
-    // more relation types exist) relationType - that is not a reciprocation.
+  it('FoiEntry_SameDatasetRelationWhereSiblingReciprocatesUntyped_Fails', () => {
+    // B references A back, but with no relationType at all (an untyped,
+    // free-prose cross-reference) - that is not a reciprocation of the
+    // typed identity claim.
     writeFoiEntry('wdtk-654321--other-entry', meta => {
       meta.relatedEntries = [{ entry: 'wdtk-123456--test-entry', relation: 'covers an overlapping period' }];
     });
@@ -319,6 +320,35 @@ describe('validateFoiEntry - relatedEntries relationType (#580)', { tags: ['unit
       meta.relatedEntries = [{ entry: 'wdtk-654321--other-entry', relation: 'the same export via a different channel', relationType: 'same-dataset' }];
     });
     expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/must be symmetric/);
+  });
+
+  it('FoiEntry_SameDatasetRelationWhereSiblingReciprocatesWithADifferentRelationType_Fails', () => {
+    // B references A back under a DIFFERENT relationType (a hypothetical
+    // second type, distinct from the vocabulary check above) - reciprocation
+    // requires the SAME type, not merely a typed relation of some kind.
+    writeFoiEntry('wdtk-654321--other-entry', meta => {
+      meta.relatedEntries = [{ entry: 'wdtk-123456--test-entry', relation: 'a differently-typed back-reference', relationType: 'variant-of' }];
+    });
+    writeFoiEntry(undefined, meta => {
+      meta.relatedEntries = [{ entry: 'wdtk-654321--other-entry', relation: 'the same export via a different channel', relationType: 'same-dataset' }];
+    });
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/must be symmetric/);
+  });
+
+  it('FoiEntry_SiblingWithMalformedRelatedEntries_FailsWithoutThrowing', () => {
+    // A validator must locate malformation, not crash on it: a sibling whose
+    // own relatedEntries is not an array (a string, here) must be reported as
+    // a clear, locatable failure rather than throwing and aborting the run.
+    writeFoiEntry('wdtk-654321--other-entry', meta => {
+      // @ts-expect-error - deliberately malformed to exercise the guard.
+      meta.relatedEntries = 'not-an-array';
+    });
+    writeFoiEntry(undefined, meta => {
+      meta.relatedEntries = [{ entry: 'wdtk-654321--other-entry', relation: 'the same export via a different channel', relationType: 'same-dataset' }];
+    });
+    expect(() => validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).not.toThrow();
+    const problems = validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join();
+    expect(problems).toMatch(/"wdtk-654321--other-entry"'s own relatedEntries is malformed \(not an array\)/);
   });
 });
 
