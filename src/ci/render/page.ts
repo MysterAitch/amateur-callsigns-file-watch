@@ -39,6 +39,13 @@ const SHARED_AFFORDANCE_CSS = [
   // Included on both generated shells (PAGE_STYLE/ENTRY_STYLE) so a zero
   // reads the same wherever a CI-rendered table appears.
   '.zero{color:var(--muted)}',
+  // The shared absent-value marker (issue #826): a middle dot, de-emphasised
+  // via the same --muted token as .zero, for a value position with no value
+  // at all - distinct from a humanised blank (the field wrappers' unstyled
+  // <em> (blank)), a zero (a known, present value of nothing), and .gap
+  // (reworded placeholder prose). The accessible name lives in the element's
+  // own title/aria-label, not in colour.
+  '.absent{color:var(--muted)}',
   // A signed count delta versus the immediately preceding entry in an
   // ordered series (issue #749): visible (unlike the muted `.zero` above,
   // which a delta of exactly zero reuses), and a decrease vs an increase

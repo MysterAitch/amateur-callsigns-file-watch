@@ -5,6 +5,7 @@ import * as path from 'path';
 import { makeRunLookup, registerHistoryHeader, seriesLink, suffixLink,
   LIST_SORT_COLUMNS, listOrderBy, nextSort, sortToParam, sortFromParam, renderTable, observedFlags,
   registerHistoryTable, foiHistoryTable } from './app.js';
+import { ABSENT_CLASS, ABSENT_MARKER, ABSENT_LABEL } from './field-wrappers.js';
 
 // The lookup page routes its PRIMARY database open + query through the shared
 // loading affordance (issues #499/#506), exactly as Explore and the Playground
@@ -453,12 +454,16 @@ describe('FOI-history table humanises vintage and event dates (#811)', { tags: [
     expect(observationCell?.textContent).not.toContain('2020-04-30');
   });
 
-  it('FoiHistoryTable_WhenAVintageIsAbsent_ShowsAnEmDashNotUndefined', () => {
+  it('FoiHistoryTable_WhenAVintageIsAbsent_ShowsTheAbsentMarkerNotUndefined', () => {
     // The FOI source never dated this observation (vintage NULL): the cell
-    // degrades to a plain em dash, never a fabricated "undefined"/"NaN".
+    // degrades to the shared absent-value marker (#826), never a fabricated
+    // "undefined"/"NaN".
     const card = foiHistoryTable([{ ...baseRow, vintage: null, status: 'Allocated' }], 'M7TEE');
     const vintageCell = card?.querySelector('tbody tr td');
-    expect(vintageCell?.textContent).toBe('—');
+    const marker = vintageCell?.querySelector(`.${ABSENT_CLASS}`);
+    expect(marker?.textContent).toBe(ABSENT_MARKER);
+    expect(marker?.getAttribute('title')).toBe(ABSENT_LABEL);
+    expect(marker?.getAttribute('aria-label')).toBe(ABSENT_LABEL);
     expect(card?.textContent).not.toMatch(/undefined|NaN/);
   });
 

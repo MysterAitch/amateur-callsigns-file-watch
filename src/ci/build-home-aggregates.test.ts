@@ -11,6 +11,7 @@ import {
   renderCallsignQualityHtml,
   injectHomeAggregates,
 } from './build-home-aggregates.ts';
+import { absentMarker } from './render/format.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -157,9 +158,10 @@ describe('Home-page aggregate pre-rendering', { tags: ['unit'] }, () => {
     expect(html).toContain('<code class="cs">2E1HON<span class="marker" title="non-breaking space (U+00A0)">{NBSP}</span></code>');
     // Counts are framed as detected, not verified.
     expect(html).toContain('declared but not independently verified against Ofcom');
-    // A zero-hit detector still appears, with its examples humanised to an em dash.
+    // A zero-hit detector still appears, with its examples humanised to the
+    // shared absent-value marker (#826).
     expect(html).toContain('<th scope="row">Empty callsign</th>');
-    expect(html).toContain('<span class="muted">—</span>');
+    expect(html).toContain(absentMarker());
   });
 
   it('InjectHomeAggregates_StatisticsPage_ReplacesEveryPlaceholder', () => {

@@ -180,6 +180,13 @@ code, .mono { font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
    an absent value; NULL is "not asserted". Applied at the render edge only;
    the underlying data keeps its plain "0". */
 .zero { color: var(--muted); }
+/* The shared absent-value marker (issue #826): a middle dot, de-emphasised via
+   the same --muted token as .zero, for a value position with no value at all
+   - distinct from a humanised blank (the field wrappers' unstyled <em>
+   (blank)), a zero (a known, present value of nothing), and .gap (reworded
+   placeholder prose like "none"). The accessible name lives in the element's
+   own title/aria-label, not in colour. */
+.absent { color: var(--muted); }
 /* Error state: a red border/tint carries the signal; the text keeps --ink so
    it stays legible (colour is not the only indicator, and contrast holds). */
 .error { border-left: 3px solid #c0392b; padding: 0.5rem 0.8rem; margin: 0.6rem 0; background: color-mix(in srgb, #c0392b 12%, transparent); }

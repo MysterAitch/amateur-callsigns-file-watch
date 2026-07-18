@@ -189,3 +189,29 @@ export function dateTime(value: string, options: DateTimeOptions = {}): string {
   const title = options.exactLabel === undefined ? value : `${options.exactLabel}: ${value}`;
   return `<span class="${escapeHtml(cls)}" title="${escapeHtml(title)}">${escapeHtml(dateTimeDisplay(value, options))}</span>`;
 }
+
+// ---- The shared absent-value marker (#826) ----
+// A value position with NO value at all - a NULL column, an unset field, an
+// undefined denominator - distinct from a BLANK-BUT-PRESENT value, which keeps
+// its own '(blank)'-style humanised wrapper untouched (licenceField/
+// statusField/etc. in render/licence.ts, render/status.ts). Before this, such
+// a position rendered a bare em dash: ambiguous, since the em dash also does
+// duty as prose punctuation throughout the site, and inaccessible, since a
+// bare glyph carries no name for assistive tech. The middle dot never doubles
+// as prose punctuation, so it reads unambiguously as "nothing here"; the
+// accessible label is always carried via `title` AND `aria-label`, never a
+// bare glyph. Mirrors absentMarker in site/field-wrappers.js so an absent
+// value looks and behaves identically rendered in the browser and on the
+// generated pages.
+
+export const ABSENT_MARKER = '·';
+export const ABSENT_CLASS = 'absent';
+export const ABSENT_LABEL = 'not recorded';
+
+// Emits <span class="absent" title="…" aria-label="…">·</span>. `label`
+// defaults to ABSENT_LABEL ('not recorded'); a caller with a more specific
+// fact to state (e.g. "not currently in the register") may pass its own.
+export function absentMarker(label: string = ABSENT_LABEL): string {
+  const escaped = escapeHtml(label);
+  return `<span class="${ABSENT_CLASS}" title="${escaped}" aria-label="${escaped}">${ABSENT_MARKER}</span>`;
+}

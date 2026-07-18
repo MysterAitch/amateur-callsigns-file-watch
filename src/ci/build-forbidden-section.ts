@@ -72,6 +72,7 @@ import {
   tableCaption,
   zeroCell,
   countDelta,
+  absentMarker,
 } from './site-render.ts';
 import { fidelityNudge, flagAnchor } from './render/fidelity.ts';
 import { reportAffordance } from './render/report.ts';
@@ -108,7 +109,7 @@ function humanVintage(vintage: string): string {
 // sites where a suffix is named incidentally (a duplicated-row artefact, a
 // last-modified bucket label) rather than as a drill-down target.
 function suffixCodes(suffixes: string[]): string {
-  return suffixes.length === 0 ? '—' : suffixes.map(s => suffixField(s)).join(', ');
+  return suffixes.length === 0 ? absentMarker() : suffixes.map(s => suffixField(s)).join(', ');
 }
 
 // Suffixes as the shared field wrapper (#644), linked into their per-suffix
@@ -119,7 +120,7 @@ function suffixCodes(suffixes: string[]): string {
 // SuffixLinkOrigin in src/ci/render/suffix.ts.
 function suffixLinks(suffixes: string[], from: SuffixLinkOrigin): string {
   return suffixes.length === 0
-    ? '—'
+    ? absentMarker()
     : suffixes.map(s => suffixField(s, { link: { from } })).join(', ');
 }
 
@@ -685,7 +686,7 @@ function suffixCallsignsSection(info: SuffixCallsignInfo, ref: ReferenceData): s
     if (openData > 0) seenParts.push(`${openData} open-data`);
     if (foi > 0) seenParts.push(`${foi} FOI`);
     const statusCell = `${statusField(c.latestStatus, { glossaryLinking: 'plain' })}${wasNote}`;
-    const startCell = c.startDate === '' ? '<span class="gap">—</span>' : escapeHtml(humanDate(c.startDate));
+    const startCell = c.startDate === '' ? absentMarker() : escapeHtml(humanDate(c.startDate));
     const regCell = c.inCurrentRegister ? '✓' : '<span class="gap">—</span>';
     // The shared callsign pill: accessible name is the bare callsign, with a
     // supplementary title built from the components the same parser derives
