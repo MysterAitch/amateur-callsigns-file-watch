@@ -36,6 +36,7 @@ import { parse } from 'csv-parse/sync';
 import { parseUkDateTimeDetailed, type ParsedUkDateTime, renderCsv, codepointCompare } from './normalise.ts';
 import { calculateContentHash, errorMessage, verifyIgnoredColumn, type IgnoredColumnSpec } from './utils.ts';
 import { type ColumnInterpretation } from '../v2/claim.ts';
+import { readFoiEntryMeta } from './foi-archive.ts';
 
 export const FOI_NORMALISED_SCHEMA_VERSION = 1;
 
@@ -1728,10 +1729,6 @@ export function convertFoiEntry(entryDir: string, variantName: string): FoiConve
   });
 }
 
-interface FoiEntryMetaConverter {
-  converter?: { script?: string; variant?: string } | null;
-}
-
 function main(): void {
   const entryDirs = process.argv.slice(2).filter(a => a.trim().length > 0);
   if (entryDirs.length === 0) {
@@ -1740,8 +1737,12 @@ function main(): void {
     return;
   }
   for (const entryDir of entryDirs) {
+    // Routed through the hardened FOI meta reader (#812) rather than a bare
+    // JSON.parse + cast: entryDir is exactly `<foiDir>/<key>`, the same join
+    // readFoiEntryMeta performs internally, so this reads identically while
+    // gaining its located malformed-shape errors for free.
     const metaPath = path.join(entryDir, 'meta.json');
-    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as FoiEntryMetaConverter;
+    const meta = readFoiEntryMeta(path.dirname(entryDir), path.basename(entryDir));
     const variant = meta.converter?.variant;
     if (typeof variant !== 'string') {
       throw new Error(`${metaPath}: no authored converter.variant - author the binding before running the converter`);

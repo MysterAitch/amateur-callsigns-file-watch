@@ -43,6 +43,7 @@ import { derivedEntryFile } from '../shared/derived-entries.ts';
 import { DIRS } from '../shared/constants.ts';
 import { compareStats, type EntryStats } from '../shared/stats.ts';
 import { escapeHtml, humanDate, entryPage, noticeStrip, tableCaption, zeroCell } from './site-render.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
 
@@ -107,8 +108,10 @@ function readPub(key: string): PubStat {
   const dir = path.join(DIRS.archive, key);
   // stats.json is a derived file (mode-resolved: archive or projection);
   // meta.json is curated and always read from the committed archive.
-  const stats = JSON.parse(fs.readFileSync(derivedEntryFile(key, 'stats.json'), 'utf8')) as EntryStats;
-  const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')) as PubMeta;
+  const statsPath = derivedEntryFile(key, 'stats.json');
+  const stats = parseJsonObject(fs.readFileSync(statsPath, 'utf8'), statsPath) as EntryStats;
+  const metaPath = path.join(dir, 'meta.json');
+  const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as PubMeta;
   // "No product column" is a property of the SOURCE, not of the normalised
   // derivative (whose canonical schema always carries a product column, blank
   // where the source omitted it). Read it from the raw file's own header.

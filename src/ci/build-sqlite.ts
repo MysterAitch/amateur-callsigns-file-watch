@@ -40,6 +40,7 @@ import { gzipFileToFile, gzipBufferToFile, gzipManyFilesToFiles, type GzipJob } 
 import { parseCsvCached } from '../shared/parse-cache.ts';
 import { applyBuildPragmas } from '../shared/sqlite-build.ts';
 import { cleanedCallsign, parseCallsign, loadReferenceData, normaliseLicenceCategory, componentsFlagsForRows, type ComponentRow } from '../sources/ofcom-amateur/components.ts';
+import { parseJsonObject, isPlainObject } from '../shared/json-shape.ts';
 
 // Gzip level for the published .gz download artefacts. The deploy uses maximum
 // compression (level 9) for the smallest downloads; tests set
@@ -363,18 +364,28 @@ export async function buildPublishedTiers(dataDir: string, options: { compress?:
   for (const publication of publications) {
     const metaPath = path.join(DIRS.archive, publication.key, 'meta.json');
     const meta = fs.existsSync(metaPath)
-      ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as {
-        intendedCoverage?: { complete: boolean; scopeNotes?: string };
-        qualityObservations?: { statement: string; coverageAffecting?: boolean }[];
+      ? parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as {
+        intendedCoverage?: unknown;
+        qualityObservations?: unknown[];
       }
       : {};
-    const coverageAffecting = (meta.qualityObservations ?? [])
+    // intendedCoverage and each qualityObservations entry are re-checked for
+    // object-ness here rather than trusted from the interface above: a
+    // curated meta.json can still carry a malformed value for either (a
+    // stray string, a null array entry), and this table's coverage columns
+    // must degrade to "not declared" rather than throw on such a field.
+    const intendedCoverage = isPlainObject(meta.intendedCoverage)
+      ? meta.intendedCoverage as { complete: boolean; scopeNotes?: string }
+      : undefined;
+    const qualityObservations = (meta.qualityObservations ?? [])
+      .filter(isPlainObject) as { statement: string; coverageAffecting?: boolean }[];
+    const coverageAffecting = qualityObservations
       .filter(o => o.coverageAffecting === true).map(o => o.statement).join(' ');
     insertDataset.run(
       publication.key,
       String(publication.records.length),
-      meta.intendedCoverage === undefined ? '' : String(meta.intendedCoverage.complete),
-      meta.intendedCoverage?.scopeNotes ?? '',
+      intendedCoverage === undefined ? '' : String(intendedCoverage.complete),
+      intendedCoverage?.scopeNotes ?? '',
       coverageAffecting,
     );
   }

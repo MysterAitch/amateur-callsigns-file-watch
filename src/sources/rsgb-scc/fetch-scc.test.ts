@@ -15,6 +15,7 @@ import {
   type FetchLikeResponse,
 } from './fetch-scc.ts';
 import { toCsv, toMetaJson, toMeta, parseSccTable, type SccRow, type SccMeta } from './parse-scc.ts';
+import { parseJsonObject } from '../../shared/json-shape.ts';
 
 // A fetch double returning a canned response. Mirrors the subset of Response the
 // module reads (status, content-type/etag/last-modified headers, text body).
@@ -73,7 +74,8 @@ describe('fetch diagnostics for the run artefact', { tags: ['unit'] }, () => {
     });
     await fetchSccPage('https://example.test/scc', { fetchImpl: withHeaders, diagnosticsDir: dir });
     expect(fs.readFileSync(path.join(dir, 'page.shtml'), 'utf8')).toBe(page);
-    const headers = JSON.parse(fs.readFileSync(path.join(dir, 'headers.json'), 'utf8')) as { status: number; url: string; headers: Record<string, string | null> };
+    const headersPath = path.join(dir, 'headers.json');
+    const headers = parseJsonObject(fs.readFileSync(headersPath, 'utf8'), headersPath) as { status: number; url: string; headers: Record<string, string | null> };
     expect(headers.status).toBe(200);
     expect(headers.url).toBe('https://example.test/scc');
     expect(headers.headers['etag']).toBe('"abc123"');
@@ -88,7 +90,8 @@ describe('fetch diagnostics for the run artefact', { tags: ['unit'] }, () => {
     const dir = tempDir();
     await expect(fetchSccPage('https://example.test/scc', { fetchImpl: fetchReturning('gateway error page', { status: 503 }), diagnosticsDir: dir })).rejects.toThrow(/status 503/);
     expect(fs.readFileSync(path.join(dir, 'page.shtml'), 'utf8')).toBe('gateway error page');
-    expect((JSON.parse(fs.readFileSync(path.join(dir, 'headers.json'), 'utf8')) as { status: number }).status).toBe(503);
+    const rejectedHeadersPath = path.join(dir, 'headers.json');
+    expect((parseJsonObject(fs.readFileSync(rejectedHeadersPath, 'utf8'), rejectedHeadersPath) as { status: number }).status).toBe(503);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -161,7 +164,8 @@ describe('fetchSccPage conditional requests', { tags: ['unit'] }, () => {
     try {
       await fetchSccPage('https://example.test/scc', { fetchImpl: fetchReturning('should never be persisted', { status: 304 }), diagnosticsDir: dir });
       expect(fs.existsSync(path.join(dir, 'page.shtml'))).toBe(false);
-      const headers = JSON.parse(fs.readFileSync(path.join(dir, 'headers.json'), 'utf8')) as { status: number; hasBody: boolean };
+      const headersPath = path.join(dir, 'headers.json');
+      const headers = parseJsonObject(fs.readFileSync(headersPath, 'utf8'), headersPath) as { status: number; hasBody: boolean };
       expect(headers.status).toBe(304);
       expect(headers.hasBody).toBe(false);
     } finally {
@@ -292,7 +296,7 @@ describe('runSccIntake', { tags: ['unit'] }, () => {
       });
       expect(result.changed).toBe(true);
       expect(fs.readFileSync(csvPath, 'utf8')).toBe(result.csv);
-      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as { rowCount: number; fetchedAt: string };
+      const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as { rowCount: number; fetchedAt: string };
       expect(meta.rowCount).toBe(2);
       expect(meta.fetchedAt).toBe('2026-07-17T00:00:00.000Z');
     } finally {
@@ -345,7 +349,7 @@ describe('runSccIntake', { tags: ['unit'] }, () => {
       const result = await runSccIntake({ fetchImpl: fetchReturning(fixture(changedRows)), csvPath, metaPath, sanityOptions: sanity, now: new Date('2026-08-01T06:12:00.000Z') });
       expect(result.changed).toBe(true);
       expect(result.diff.added).toEqual(['G0C']);
-      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as { fetchedAt: string };
+      const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as { fetchedAt: string };
       expect(meta.fetchedAt).toBe('2026-08-01T06:12:00.000Z');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -384,7 +388,7 @@ describe('runSccIntake', { tags: ['unit'] }, () => {
         fetchImpl: fetchReturning(fixture(TWO_GOOD_ROWS), { etag: '"v1"', lastModified: 'Sun, 15 Jun 2026 09:00:00 GMT' }),
         csvPath, metaPath, sanityOptions: sanity, now: new Date('2026-07-17T00:00:00.000Z'),
       });
-      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as SccMeta;
+      const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as SccMeta;
       expect(meta.sourceHeaders).toEqual({ etag: '"v1"', lastModified: 'Sun, 15 Jun 2026 09:00:00 GMT' });
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -399,7 +403,7 @@ describe('runSccIntake', { tags: ['unit'] }, () => {
       const csvPath = path.join(dir, 'scc.csv');
       const metaPath = path.join(dir, 'scc.meta.json');
       await runSccIntake({ fetchImpl: fetchReturning(fixture(TWO_GOOD_ROWS)), csvPath, metaPath, sanityOptions: sanity, now: new Date('2026-07-17T00:00:00.000Z') });
-      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as SccMeta;
+      const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as SccMeta;
       expect(meta.sourceHeaders).toBeUndefined();
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });

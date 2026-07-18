@@ -5,6 +5,7 @@ import * as path from 'path';
 import { DatabaseSync } from 'node:sqlite';
 import { buildPublishedTiers } from './build-sqlite.ts';
 import { OBSERVATION_VALUE_COLUMNS } from '../shared/foi-observations.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -39,7 +40,7 @@ beforeAll(async () => {
   const summaryPath = cacheDir ? path.join(cacheDir, SUMMARY_FILE) : '';
   if (cacheDir && fs.existsSync(summaryPath)) {
     dataDir = cacheDir;
-    summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8')) as Record<string, number>;
+    summary = parseJsonObject(fs.readFileSync(summaryPath, 'utf8'), summaryPath) as Record<string, number>;
     return;
   }
   dataDir = cacheDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-tiers-'));

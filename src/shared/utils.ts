@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import * as util from 'util';
 import './load-env.ts';
 import type { DivergenceRecord } from './witness-agreement.ts';
+import { parseJsonObject } from './json-shape.ts';
 
 export interface FileMetadata {
   name: string;
@@ -367,7 +368,7 @@ export async function loadJsonFile<T>(filePath: string): Promise<T | null> {
       return null;
     }
     const content = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(content) as T;
+    return parseJsonObject(content, filePath) as T;
   } catch (error) {
     logger.error(`Error loading JSON file ${filePath}`, error);
     return null;

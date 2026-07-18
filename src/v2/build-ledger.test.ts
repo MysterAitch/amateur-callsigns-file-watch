@@ -32,6 +32,7 @@ import { loadReferenceData, cleanedCallsign } from '../sources/ofcom-amateur/com
 import { convertRawCsv, CANONICAL_COLUMNS } from '../sources/ofcom-amateur/normalise.ts';
 import type { ArchiveMeta } from '../shared/utils.ts';
 import { renderCsv } from '../shared/normalise.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
 //
@@ -148,7 +149,8 @@ const OPEN_DATA_ROUND_TRIP_ENTRIES = [
 const ARCHIVE_DIR = defaultArchiveDir();
 
 function readArchiveMetaSync(key: string): ArchiveMeta {
-  return JSON.parse(fs.readFileSync(path.join(ARCHIVE_DIR, key, 'meta.json'), 'utf8')) as ArchiveMeta;
+  const metaPath = path.join(ARCHIVE_DIR, key, 'meta.json');
+  return parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as ArchiveMeta;
 }
 
 describe('raw->claims->normalised round-trip on real open-data register publications', { tags: ['data-validity'] }, () => {
@@ -374,7 +376,7 @@ describe('corpus scale sanity', { tags: ['data-validity'] }, () => {
     const summaryPath = cacheDir ? path.join(cacheDir, SUMMARY_FILE) : '';
     if (cacheDir && fs.existsSync(summaryPath)) {
       outputDir = cacheDir;
-      summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8')) as LedgerBuildSummary;
+      summary = parseJsonObject(fs.readFileSync(summaryPath, 'utf8'), summaryPath) as LedgerBuildSummary;
       return;
     }
     outputDir = cacheDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'v2-ledger-'));

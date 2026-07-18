@@ -12,9 +12,10 @@ import {
   PERF_REPORT_SCHEMA,
   type PerfReportJson,
 } from './perf.ts';
+import { parseJsonObject } from './json-shape.ts';
 
 function readReport(dest: string): PerfReportJson {
-  return JSON.parse(fs.readFileSync(dest, 'utf8')) as PerfReportJson;
+  return parseJsonObject(fs.readFileSync(dest, 'utf8'), dest) as PerfReportJson;
 }
 
 // Test names follow Subject_Scenario_Outcome per project convention.

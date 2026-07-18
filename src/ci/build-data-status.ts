@@ -41,6 +41,7 @@ import { derivedEntryFileExists } from '../shared/derived-entries.ts';
 import { observeEntryHeader } from '../sources/ofcom-amateur/detect-variant.ts';
 import { type ArchiveMeta } from '../shared/utils.ts';
 import { DIRS } from '../shared/constants.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 import {
   type FoiEntryMeta,
   listFoiEntryKeys,
@@ -163,7 +164,7 @@ export function buildOpenDataRows(): DatasetRow[] {
     const dir = path.join(DIRS.archive, key);
     const metaPath = path.join(dir, 'meta.json');
     const meta = fs.existsSync(metaPath)
-      ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as {
+      ? parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as {
         provenance?: string;
         ofcomReportedUpdateIso?: string;
         normalised?: { headerVariant?: string };

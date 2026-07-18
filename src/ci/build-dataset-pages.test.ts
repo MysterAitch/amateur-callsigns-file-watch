@@ -19,6 +19,7 @@ import {
   anchorIds,
   listFilesRelative,
 } from './internal-link-crawl.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -479,7 +480,7 @@ describe('Dataset pages build', () => {
 
   it('DatasetPages_FoiEntryDescriptor_CarriesResourcesHashesAndCsvSchemas', () => {
     const descriptorPath = path.join(outputDir, 'datasets', 'foi', 'ofcom-498906--reciprocal-licences-since-2010', 'datapackage.json');
-    const descriptor = JSON.parse(fs.readFileSync(descriptorPath, 'utf8')) as {
+    const descriptor = parseJsonObject(fs.readFileSync(descriptorPath, 'utf8'), descriptorPath) as {
       resources: { name: string; hash?: string; schema?: { fields: { name: string }[] } }[];
     };
     const byName = new Map(descriptor.resources.map(r => [r.name, r]));

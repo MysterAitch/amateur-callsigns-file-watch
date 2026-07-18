@@ -43,6 +43,7 @@ import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entr
 import { listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
 import { foldQuery, csvFileList, cleanedKeyExpr } from '../v2/report-fold.ts';
 import { time, perfReport } from '../shared/perf.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 export interface DepletionRow {
   entry: string;
@@ -131,9 +132,10 @@ function enumerateRegisters(foiDir: string): RegisterSource[] {
     const dir = path.join(DIRS.archive, key);
     let partial = false;
     try {
-      const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete?: boolean } };
+      const metaPath = path.join(dir, 'meta.json');
+      const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as { intendedCoverage?: { complete?: boolean } };
       partial = meta.intendedCoverage?.complete === false;
-    } catch { /* absent/unreadable meta: treat as complete, the file itself is the evidence */ }
+    } catch { /* absent/unreadable/malformed meta: treat as complete, the file itself is the evidence */ }
     // The register content is a derived file, so it resolves through the
     // archive/projection switch; meta.json above stays an archive read.
     const hasFile = derivedEntryFileExists(key, 'normalised.csv');

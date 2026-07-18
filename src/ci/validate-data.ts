@@ -45,7 +45,7 @@ import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
 import { validateFoiLaneAt } from './validate-foi.ts';
 import { validatePublishersAt } from './validate-publishers.ts';
-import { isPlainObject, describeShape, arrayOrProblem, type ValidationProblem } from '../shared/json-shape.ts';
+import { isPlainObject, describeShape, arrayOrProblem, parseJsonObject, type ValidationProblem } from '../shared/json-shape.ts';
 import {
   heldHashSet,
   normaliseWitnessHash,
@@ -352,10 +352,10 @@ export function deepValidateEntryCsv(key: string): ValidationProblem[] {
   let parseSource = 'raw.csv';
   let meta: DeepValidationMeta | undefined;
   try {
-    meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as DeepValidationMeta;
+    meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as DeepValidationMeta;
     parseSource = parseSourceFileName(meta);
   } catch {
-    // Structural validation reports unreadable meta; parse raw.csv below.
+    // Structural validation reports unreadable/malformed meta; parse raw.csv below.
   }
   const rawPath = path.join(entryDir(key), parseSource);
   if (!fs.existsSync(rawPath)) return [{ path: rawPath, problem: `${parseSource} is missing` }];

@@ -9,6 +9,7 @@ import { LISTED_PREDICATE, type Claim } from './claim.ts';
 import { convertRawCsv } from '../sources/ofcom-amateur/normalise.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { renderStatsJson } from '../shared/stats.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -82,7 +83,7 @@ describe('entryDerivativesFor', { tags: ['unit'] }, () => {
     // stripped-collision flag - proving the ledger lane derives statistics
     // from its own folded rows, not from any committed file.
     const publication = projectPublicationFromClaims(claimsFor('2099-01-01', 'Value__c', FIXTURE_ROWS), REF, 'v2025-salesforce');
-    const stats = JSON.parse(entryDerivativesFor(publication).statsJson) as {
+    const stats = parseJsonObject(entryDerivativesFor(publication).statsJson, 'entryDerivativesFor(...).statsJson') as {
       recordCount: number;
       callsignQuality: { whitespaceBearing: { count: number }; lowercaseBearing: { count: number; examples: string[] } };
       callsignFlags: Record<string, number>;

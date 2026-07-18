@@ -27,6 +27,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { SourceAuthority } from './source-authority.ts';
 import { AUTHORITY_ORDER } from './source-authority.ts';
+import { parseJsonObject } from './json-shape.ts';
 
 // The register file, resolved from the repo root (this module lives at
 // src/shared/, two levels down).
@@ -124,7 +125,7 @@ export interface PublisherRegister {
 }
 
 export function readPublisherRegister(registerPath: string = PUBLISHER_REGISTER_PATH): PublisherRegister {
-  return JSON.parse(fs.readFileSync(registerPath, 'utf8')) as PublisherRegister;
+  return parseJsonObject(fs.readFileSync(registerPath, 'utf8'), registerPath) as PublisherRegister;
 }
 
 // A channel -> publisher index built once from a register, so repeated witness

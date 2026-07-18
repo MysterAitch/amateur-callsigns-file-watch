@@ -28,6 +28,7 @@ import {
   type CallsignQuality,
 } from '../shared/stats.ts';
 import { humanDate, monthYear, humaniseLabel, tableCaption, callsignField, callsignDisplay, prefixSeriesField } from './site-render.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const REFERENCE_DATA_DIR = path.join(REPO_ROOT, 'reference-data');
@@ -118,7 +119,8 @@ function newestStats(): { key: string; stats: EntryStats } {
   const keys = listArchiveKeys().sort();
   const newest = keys[keys.length - 1];
   if (newest === undefined) throw new Error('no archive entries found');
-  const stats = JSON.parse(fs.readFileSync(derivedEntryFile(newest, 'stats.json'), 'utf8')) as EntryStats;
+  const statsPath = derivedEntryFile(newest, 'stats.json');
+  const stats = parseJsonObject(fs.readFileSync(statsPath, 'utf8'), statsPath) as EntryStats;
   return { key: newest, stats };
 }
 
@@ -134,7 +136,8 @@ export function renderFlagsTableHtml(): string {
   const datasets: { key: string; recordCount: number; flags: Record<string, number> }[] = [];
   for (const key of keys) {
     if (!derivedEntryFileExists(key, 'stats.json')) continue;
-    const stats = JSON.parse(fs.readFileSync(derivedEntryFile(key, 'stats.json'), 'utf8')) as EntryStats;
+    const statsPath = derivedEntryFile(key, 'stats.json');
+    const stats = parseJsonObject(fs.readFileSync(statsPath, 'utf8'), statsPath) as EntryStats;
     datasets.push({ key, recordCount: stats.recordCount, flags: stats.callsignFlags ?? {} });
   }
   const flagNames = [...new Set(datasets.flatMap(d => Object.keys(d.flags)))].sort();
@@ -253,7 +256,7 @@ export function renderLatestProfileHtml(): string {
   const { key, stats } = newestStats();
   const metaPath = path.join(DIRS.archive, key, 'meta.json');
   const meta = fs.existsSync(metaPath)
-    ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as { intendedCoverage?: { complete?: boolean } }
+    ? parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as { intendedCoverage?: { complete?: boolean } }
     : {};
   const complete = meta.intendedCoverage?.complete;
   const coverageText = complete === undefined ? 'not declared'

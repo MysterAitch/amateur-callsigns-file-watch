@@ -93,6 +93,7 @@ import { buildFoiObservations, type FoiObservationRow } from '../shared/foi-obse
 import { defaultFoiDir } from '../shared/foi-archive.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
 import { cleanedCallsign, parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // A two-character bucket larger than this is subdivided by third character so
 // no shard fetch is ever more than a few tens of KB gzipped. Chosen so a full
@@ -227,7 +228,7 @@ function openDataSources(archiveDir: string): DatasetSource[] {
   return listArchiveKeys().sort().map(key => {
     const metaPath = path.join(archiveDir, key, 'meta.json');
     const meta: OpenDataMeta = fs.existsSync(metaPath)
-      ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as OpenDataMeta
+      ? parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as OpenDataMeta
       : {};
     const coverageNote = (meta.qualityObservations ?? [])
       .filter(o => o.coverageAffecting === true).map(o => o.statement).join(' ');

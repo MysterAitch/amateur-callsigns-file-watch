@@ -57,6 +57,7 @@ import { attributeAddendumEntries } from '../v2/collectors/attribute-addendum.ts
 import { issuanceEventsEntries, issuanceEventsSourcesFor } from '../v2/collectors/issuance-events.ts';
 import { availablePoolEntries } from '../v2/collectors/available-pool.ts';
 import { forbiddenListEntries, forbiddenSourcesFor } from '../v2/collectors/forbidden-list.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // The canonical normalised-output names whose presence in a source's authored
 // conversion means that source carries the field (and so the legacy tally's
@@ -118,7 +119,7 @@ export function resolveFieldSources(roots: FieldSourceRoots = defaultRoots()): F
   for (const key of listArchiveKeys()) {
     const metaPath = path.join(roots.archiveDir, key, 'meta.json');
     if (!fs.existsSync(metaPath)) continue;
-    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ArchiveMeta;
+    const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as ArchiveMeta;
     if (meta.sourceKey !== OPEN_DATA_SOURCE_KEY) continue;
     const sourceFile = `opendata/${key}/${parseSourceFileName(meta)}`;
     statusSources.push(sourceFile);

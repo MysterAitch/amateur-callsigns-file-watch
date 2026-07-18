@@ -22,6 +22,7 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { errorMessage } from '../shared/utils.ts';
+import { parseJsonArray } from '../shared/json-shape.ts';
 
 // The DuckDB CLI to invoke: the pinned binary the setup-duckdb action installs
 // (via DUCKDB_BIN), else a `duckdb` already on PATH for local runs.
@@ -58,7 +59,7 @@ export function foldQuery<Row>(sql: string): Row[] {
     );
   }
   const trimmed = stdout.trim();
-  return trimmed === '' ? [] : JSON.parse(trimmed) as Row[];
+  return trimmed === '' ? [] : parseJsonArray(trimmed, `${binary} -json result`) as Row[];
 }
 
 // A DuckDB list literal of file paths for read_csv([...]). Paths are normalised

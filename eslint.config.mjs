@@ -16,6 +16,19 @@ const sharedTypeAwareRules = {
   '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true, allowBoolean: true }],
 };
 
+// Parse-safety boundary (#812): `JSON.parse(...) as SomeType` lets tsc and
+// type-aware lint both stay silent while a null/string/array reaches a field
+// access downstream and throws unlocated - the assertion tells the compiler
+// to trust a shape nothing has checked. The fix is always the same shape:
+// `const parsed: unknown = JSON.parse(...)` (a type ANNOTATION, which does
+// not suppress checking, rather than an assertion, which does) followed by a
+// runtime guard (see src/shared/json-shape.ts) and only then an earned cast.
+const noAssertedJsonParseRule = {
+  selector: "TSAsExpression[expression.callee.object.name='JSON'][expression.callee.property.name='parse']",
+  message:
+    'Do not assert the shape of JSON.parse output - assign to `const x: unknown = JSON.parse(...)` and validate the shape before use (see src/shared/json-shape.ts). A cast here defeats both tsc and type-aware lint.',
+};
+
 export default tseslint.config(
   {
     ignores: ['dist/', 'node_modules/', 'archive/', 'docs/', '*.mjs'],
@@ -35,6 +48,7 @@ export default tseslint.config(
       ...sharedTypeAwareRules,
       // Disagrees with tsc about csv-parse assertion necessity - tsc wins.
       '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      'no-restricted-syntax': ['error', noAssertedJsonParseRule],
     },
   },
   {

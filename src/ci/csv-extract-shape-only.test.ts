@@ -5,6 +5,7 @@ import { parse } from 'csv-parse/sync';
 import { DIRS } from '../shared/constants.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { defaultFoiDir, listFoiEntryKeys } from '../shared/foi-archive.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // Some CSV exports append empty-named trailing columns that csv-parse collapses
 // (duplicate empty headers -> one key), which loses the true column count so the
@@ -48,7 +49,7 @@ function csvHeaderSynthesisedExtracts(): QualifyingExtract[] {
   for (const entryDir of entryDirs) {
     const metaPath = path.join(entryDir, 'meta.json');
     if (!fs.existsSync(metaPath)) continue;
-    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as MetaFilesOnly;
+    const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as MetaFilesOnly;
     for (const [name, decl] of Object.entries(meta.files ?? {})) {
       if (decl.role !== 'extract' || typeof decl.extractOf !== 'string') continue;
       if (!decl.extractOf.toLowerCase().endsWith('.csv')) continue; // CSV-to-CSV only

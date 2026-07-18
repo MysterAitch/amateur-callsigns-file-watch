@@ -51,6 +51,7 @@ import type { SourceObservationSet } from '../v2/claim.ts';
 import { parseCallsign, cleanedCallsign, loadReferenceData, UNPARSEABLE_CALLSIGN_FLAG, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { time, perfReport } from '../shared/perf.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 import {
   REPO_URL,
   escapeHtml,
@@ -1197,7 +1198,8 @@ function publicationSummary(key: string): PublicationSummary {
     if ((r.status ?? '').trim() === 'Allocated') allocated += 1;
     if (cleanedCallsign(r.callsign ?? '') === '') unkeyable += 1;
   }
-  const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as {
+  const metaPath = path.join(sourceDir, 'meta.json');
+  const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as {
     intendedCoverage?: { complete: boolean };
     qualityObservations?: unknown[];
   };
@@ -1451,7 +1453,8 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   const files = copyEntryFiles(sourceDir, targetDir, descriptions, new Map(), pageTitle, resolveSource, publishNames);
   const descriptor = dataPackage(key, `Ofcom open-data publication ${key}`, files);
   const zipBytes = writeEntryZip(sourceDir, targetDir, key, descriptor, OPEN_DATA_DICTIONARY_SOURCES, resolveSource, publishNames);
-  const meta = JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as {
+  const entryMetaPath = path.join(sourceDir, 'meta.json');
+  const meta = parseJsonObject(fs.readFileSync(entryMetaPath, 'utf8'), entryMetaPath) as {
     provenance?: string;
     reconstructionNotes?: string;
     gitCommitSha?: string;
@@ -1467,8 +1470,9 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   // The bytes the mirror holds for this publication, for deriving witness
   // agreement on read (#618 increment 3).
   const heldHashes = heldHashSet(Object.values(meta.files ?? {}).map(f => f.sha256 ?? ''));
+  const statsPath = derivedEntryFile(key, 'stats.json');
   const stats = derivedEntryFileExists(key, 'stats.json')
-    ? JSON.parse(fs.readFileSync(derivedEntryFile(key, 'stats.json'), 'utf8')) as OpenDataStats
+    ? parseJsonObject(fs.readFileSync(statsPath, 'utf8'), statsPath) as OpenDataStats
     : { recordCount: 0, parseStatuses: {}, callsignFlags: {}, callsignQuality: {} };
   const sizeMap = new Map(files.map(f => [f.name, formatBytes(f.bytes)]));
   const dl = (name: string, meta2: string, desc: string): string => sizeMap.has(name)
@@ -1526,9 +1530,11 @@ function buildOpenDataEntry(outputDir: string, key: string, previousKey: string 
   // the true line of the file actually parsed, never a re-guessed position.
   // The pin is the build's own commit, the one pin at which the archived file,
   // the reference tables and the derivation code all provably exist.
-  const parsedSource = time('dataset-pages:examine-source', () =>
-    loadOpenDataRegisterSource(DIRS.archive, key,
-      JSON.parse(fs.readFileSync(path.join(sourceDir, 'meta.json'), 'utf8')) as ArchiveMeta));
+  const parsedSource = time('dataset-pages:examine-source', () => {
+    const examineMetaPath = path.join(sourceDir, 'meta.json');
+    return loadOpenDataRegisterSource(DIRS.archive, key,
+      parseJsonObject(fs.readFileSync(examineMetaPath, 'utf8'), examineMetaPath) as ArchiveMeta);
+  });
   const sourceRepoPath = parsedSource.repoPath;
   const previewExamine: PreviewExamine | undefined = sourceRepoPath === undefined ? undefined : {
     linesByCallsign: sourceLinesByCallsign(parsedSource),
@@ -1940,7 +1946,8 @@ export function buildDatasetPages(outputDir: string, baseUrl: string = DEFAULT_B
   }).filter(e => e.classes.length > 0);
   for (const key of openDataKeys) {
     const { files, zipBytes } = time('dataset-pages:open-data-entry', () => buildOpenDataEntry(outputDir, key, lastCompleteKey, summaries, foiNav, `${baseUrl}/datasets/open-data/${key}/index.html`));
-    const entryMeta = JSON.parse(fs.readFileSync(path.join(DIRS.archive, key, 'meta.json'), 'utf8')) as { intendedCoverage?: { complete: boolean } };
+    const lastCompleteMetaPath = path.join(DIRS.archive, key, 'meta.json');
+    const entryMeta = parseJsonObject(fs.readFileSync(lastCompleteMetaPath, 'utf8'), lastCompleteMetaPath) as { intendedCoverage?: { complete: boolean } };
     if (entryMeta.intendedCoverage?.complete !== false) lastCompleteKey = key;
     fileCount += files.length;
     totalBytes += files.reduce((sum, f) => sum + f.bytes, 0) + zipBytes;

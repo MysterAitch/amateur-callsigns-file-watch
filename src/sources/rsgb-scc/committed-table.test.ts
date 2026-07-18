@@ -11,6 +11,7 @@ import {
 } from './parse-scc.ts';
 import { SCC_CSV_PATH, SCC_META_PATH, readCommittedRows } from './fetch-scc.ts';
 import type { SccMeta } from './parse-scc.ts';
+import { parseJsonObject } from '../../shared/json-shape.ts';
 
 // These validations run against the REAL committed derived table, not a fixture —
 // the encoded assumptions this project relies on for the RSGB Special Contest
@@ -19,7 +20,7 @@ import type { SccMeta } from './parse-scc.ts';
 // banner, drift the row count, or let the sidecar metadata diverge from the CSV.
 
 const rows = readCommittedRows(SCC_CSV_PATH);
-const meta = JSON.parse(fs.readFileSync(SCC_META_PATH, 'utf8')) as SccMeta;
+const meta = parseJsonObject(fs.readFileSync(SCC_META_PATH, 'utf8'), SCC_META_PATH) as SccMeta;
 
 // The closed vocabulary the committed table's status column is allowed to draw
 // from: the canonical set plus the curated known typos (each carried verbatim).

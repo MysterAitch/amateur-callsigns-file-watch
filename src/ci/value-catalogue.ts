@@ -26,6 +26,7 @@ import { escapeHtml } from './render/html.ts';
 import { buildValueCatalogueFold, type FoldedFields } from './value-catalogue-fold.ts';
 import { availablePoolEntries } from '../v2/collectors/available-pool.ts';
 import { forbiddenListEntries } from '../v2/collectors/forbidden-list.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // A blank source value is data (the source asserted an empty string); a value
 // the source does not carry at all is a different thing. Both render legibly.
@@ -662,7 +663,7 @@ export function buildNormalisationFidelity(): EntryFidelity[] {
     // header fill, else raw.csv) - so a workbook publication's fidelity is
     // checked rather than silently skipped.
     const metaPath = path.join(dir, 'meta.json');
-    const meta = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ArchiveMeta : undefined;
+    const meta = fs.existsSync(metaPath) ? parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as ArchiveMeta : undefined;
     const rawPath = path.join(dir, meta === undefined ? 'raw.csv' : parseSourceFileName(meta));
     // The raw side stays an archive read (the verbatim record); the normalised
     // side is a derived file and resolves through the archive/projection switch.

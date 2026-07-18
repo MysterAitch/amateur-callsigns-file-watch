@@ -43,6 +43,7 @@ import { type ArchiveMeta } from '../shared/utils.ts';
 import { DIRS } from '../shared/constants.ts';
 import { listFoiEntryKeys, readFoiEntryMeta } from '../shared/foi-archive.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 import {
   readPublisherRegister,
   channelIndex,
@@ -279,7 +280,7 @@ function resolveWitnessPublishers(
 function statsRecordCount(key: string, archiveDir: string): number | undefined {
   if (!derivedEntryFileExists(key, 'stats.json', archiveDir)) return undefined;
   const statsPath = derivedEntryFile(key, 'stats.json', archiveDir);
-  const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8')) as { recordCount?: unknown };
+  const stats = parseJsonObject(fs.readFileSync(statsPath, 'utf8'), statsPath) as { recordCount?: unknown };
   if (typeof stats.recordCount !== 'number') {
     throw new Error(`${statsPath}: stats.json carries no numeric recordCount - refusing to publish an unaccounted holdings figure`);
   }
@@ -295,7 +296,8 @@ export function collectHoldings(
   const holdings: Holding[] = [];
 
   for (const key of listArchiveKeys().sort()) {
-    const meta = JSON.parse(fs.readFileSync(path.join(archiveDir, key, 'meta.json'), 'utf8')) as ArchiveMeta;
+    const metaPath = path.join(archiveDir, key, 'meta.json');
+    const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as ArchiveMeta;
     const heldHashes = heldHashSet(Object.values(meta.files).map(f => f.sha256));
     const witnesses = meta.witnesses ?? [];
     const channels = witnesses.map(w => w.channel);

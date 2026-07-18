@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { ArchiveMeta } from '../shared/utils.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, FOI_DATASET_RECOVERY } from '../shared/foi-archive.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 
 // Independent acceptance criteria for coverage / completeness / absence
 // semantics a rebuild MUST honour (v2 reference, section D). The load-bearing
@@ -14,7 +15,8 @@ import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, FOI_DATASET_RECOVERY
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 
 function readRegisterMeta(key: string): ArchiveMeta {
-  return JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'archive', key, 'meta.json'), 'utf8')) as ArchiveMeta;
+  const metaPath = path.join(REPO_ROOT, 'archive', key, 'meta.json');
+  return parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as ArchiveMeta;
 }
 
 describe('the 2025-06-04 coverage-affecting defect (acceptance criteria D1 / D3)', { tags: ['data-validity'] }, () => {
