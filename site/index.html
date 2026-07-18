@@ -213,7 +213,14 @@
             <button class="tab" role="tab" id="tab-holder" aria-controls="panel-holder" aria-selected="false" tabindex="-1">Callsign-holder</button>
           </div>
 
+          <!-- No JavaScript hides any panel here: all three ship visible, each
+               headed, so a no-JS reader gets every "ways in" grouping as a
+               plain stacked set of sections. home.js's wireTabs() is what
+               turns this into a single-panel tab widget — it is the only
+               thing that ever sets a panel's `hidden` state, and only once it
+               actually runs. -->
           <div class="panel" role="tabpanel" id="panel-reader" aria-labelledby="tab-reader">
+            <h3 class="panel-heading">Reader</h3>
             <p class="intro">Just want to look something up? Start with a single callsign for its instant
               answer, or browse the record in plain language — no SQL, no downloads.</p>
             <div class="paths">
@@ -223,7 +230,8 @@
             </div>
           </div>
 
-          <div class="panel" role="tabpanel" id="panel-researcher" aria-labelledby="tab-researcher" hidden>
+          <div class="panel" role="tabpanel" id="panel-researcher" aria-labelledby="tab-researcher">
+            <h3 class="panel-heading">Researcher</h3>
             <p class="intro">Want to interrogate the whole record? Query it directly in your browser — a link can
               carry a query, so a page can point straight at a result (for example
               <a href="explore.html?db=latest&amp;sql=SELECT+flag,+meaning+FROM+flag_registry+ORDER+BY+flag">the data-quality flag vocabulary</a>
@@ -238,7 +246,8 @@
             </div>
           </div>
 
-          <div class="panel" role="tabpanel" id="panel-holder" aria-labelledby="tab-holder" hidden>
+          <div class="panel" role="tabpanel" id="panel-holder" aria-labelledby="tab-holder">
+            <h3 class="panel-heading">Callsign-holder</h3>
             <p class="intro">Hold a callsign, or chasing one? Trace your own callsign across every publication,
               or check which prefix series a wanted suffix is still free in.</p>
             <div class="paths">

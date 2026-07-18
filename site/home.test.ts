@@ -541,6 +541,95 @@ describe('Role tabs (issue #712)', { tags: ['ui'] }, () => {
     expect(tabs[1].getAttribute('aria-selected')).toBe('true');
     expect(document.activeElement).toBe(tabs[1]);
   });
+
+  // Issue #795: the static markup must ship every panel visible (progressive
+  // enhancement — a no-JS reader can never reach a panel that starts hidden,
+  // since nothing but the removed script ever unhides it). These exercise
+  // wireTabs() against that no-JS-shaped baseline directly, rather than
+  // against fixtures that pre-hide the inactive panels for it.
+  function visiblePanelsHost(): HTMLElement[] {
+    document.body.innerHTML = `
+      <div class="home-tabs">
+        <button class="tab" id="t1" role="tab" aria-controls="p1" aria-selected="true">Reader</button>
+        <button class="tab" id="t2" role="tab" aria-controls="p2" aria-selected="false" tabindex="-1">Researcher</button>
+        <button class="tab" id="t3" role="tab" aria-controls="p3" aria-selected="false" tabindex="-1">Callsign-holder</button>
+      </div>
+      <div id="p1">Reader content</div>
+      <div id="p2">Researcher content</div>
+      <div id="p3">Callsign-holder content</div>`;
+    return [...document.querySelectorAll('.home-tabs .tab')].map(t => t as HTMLElement);
+  }
+
+  it('Tabs_BeforeWiring_EveryPanelIsVisible_TheNoJsBaselineShowsAllRoleContent', () => {
+    // With wireTabs never called (the no-JS case this issue is about), none of
+    // the three panels carries a hidden attribute — a reader with JavaScript
+    // off sees the Reader, Researcher and Callsign-holder content stacked.
+    visiblePanelsHost();
+    expect(document.getElementById('p1')?.hidden).toBe(false);
+    expect(document.getElementById('p2')?.hidden).toBe(false);
+    expect(document.getElementById('p3')?.hidden).toBe(false);
+  });
+
+  it('Tabs_OnInitialisation_HidesEveryPanelExceptTheSelectedOne', () => {
+    // wireTabs() itself is what applies the hiding — starting from a markup
+    // where every panel is visible, initialising the widget must reduce this
+    // to a single visible panel without waiting for a click or keypress.
+    const tabs = visiblePanelsHost();
+    wireTabs(tabs);
+    expect(document.getElementById('p1')?.hidden).toBe(false); // aria-selected="true" in the markup
+    expect(document.getElementById('p2')?.hidden).toBe(true);
+    expect(document.getElementById('p3')?.hidden).toBe(true);
+  });
+
+  it('Tabs_OnInitialisation_WithNoTabMarkedSelected_DefaultsToTheFirstTab', () => {
+    document.body.innerHTML = `
+      <div class="home-tabs">
+        <button class="tab" id="t1" role="tab" aria-controls="p1" aria-selected="false">Reader</button>
+        <button class="tab" id="t2" role="tab" aria-controls="p2" aria-selected="false">Researcher</button>
+      </div>
+      <div id="p1">Reader content</div>
+      <div id="p2">Researcher content</div>`;
+    const tabs = [...document.querySelectorAll('.home-tabs .tab')].map(t => t as HTMLElement);
+    wireTabs(tabs);
+    expect(tabs[0].getAttribute('aria-selected')).toBe('true');
+    expect(document.getElementById('p1')?.hidden).toBe(false);
+    expect(document.getElementById('p2')?.hidden).toBe(true);
+  });
+});
+
+// Issue #795: the shipped index.html markup itself must never hide a
+// non-default role panel — that hiding is wireTabs()'s job, applied only once
+// it actually runs. These read the real file (the same convention the CSS
+// guards below use) so a future edit that reintroduces a static `hidden` on a
+// role panel fails here rather than shipping the regression silently.
+describe('Front-door role-tabs markup (issue #795)', { tags: ['unit'] }, () => {
+  const INDEX_HTML = fs.readFileSync(path.join('site', 'index.html'), 'utf8');
+
+  // The tablist-to-panel section only — isolates the assertions to the role
+  // tabs, not every other `hidden` attribute the page legitimately ships
+  // (the startup warning, the suggestion listbox, the jump-back chips, etc.,
+  // all of which are deliberately hidden until script or a result exists).
+  const waysInSection = /<div id="ways-in" class="home-tabs">[\s\S]*?<\/div>\s*<\/div>\s*<hr class="home-rule"/.exec(INDEX_HTML)?.[0] ?? '';
+
+  it('WaysInSection_IsPresentInTheMarkup_SoTheFollowingAssertionsAreMeaningful', () => {
+    expect(waysInSection).not.toBe('');
+    expect(waysInSection).toContain('panel-holder');
+  });
+
+  it('RolePanels_InTheStaticMarkup_CarryNoHiddenAttribute', () => {
+    for (const id of ['panel-reader', 'panel-researcher', 'panel-holder']) {
+      const panelTag = new RegExp(`<div class="panel"[^>]*id="${id}"[^>]*>`).exec(waysInSection)?.[0] ?? '';
+      expect(panelTag, `${id} should be present`).not.toBe('');
+      expect(panelTag, `${id} must not ship a static hidden attribute`).not.toMatch(/\bhidden\b/);
+    }
+  });
+
+  it('RolePanels_EachCarriesAHeading_SoTheStackedNoJsViewReadsAsCoherentSections', () => {
+    for (const [id, label] of [['panel-reader', 'Reader'], ['panel-researcher', 'Researcher'], ['panel-holder', 'Callsign-holder']] as const) {
+      const panelBody = new RegExp(`id="${id}"[^>]*>([\\s\\S]*?)<div class="paths">`).exec(waysInSection)?.[1] ?? '';
+      expect(panelBody, `${id} should carry a heading naming its audience`).toMatch(new RegExp(`<h3[^>]*>${label}</h3>`));
+    }
+  });
 });
 
 // Narrow-viewport overflow guard (issue #753): a visitor on a phone-width
