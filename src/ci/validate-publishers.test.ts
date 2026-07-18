@@ -168,6 +168,20 @@ describe('validatePublisherRegister - malformed register shapes (#812)', { tags:
     expect(problems.some(p => p.problem.includes('publishers[0] must be an object'))).toBe(true);
   });
 
+  it('Register_WhenPublishersContainsAnArrayItem_ReportsShapeErrorNotFieldCascade', () => {
+    // `typeof [] === 'object'` is true, so a null-only guard would let an
+    // array-shaped item through to the per-field checks below, which then
+    // misreport it as "id is missing or empty" etc rather than the actual
+    // shape fault.
+    const reg = register(validEntry());
+    // @ts-expect-error - deliberately malformed to exercise the guard.
+    reg.publishers = [[]];
+    expect(() => validatePublisherRegister(reg)).not.toThrow();
+    const problems = validatePublisherRegister(reg).map(p => p.problem);
+    expect(problems.some(p => p.includes('publishers[0] must be an object, got an array'))).toBe(true);
+    expect(problems.some(p => p.includes('publishers[0].id'))).toBe(false);
+  });
+
   it('WitnessChannelsResolve_WhenPublishersContainsANullItem_DoesNotCrash', () => {
     // validateWitnessChannelsResolve runs unconditionally alongside
     // validatePublisherRegister (validatePublishersAt calls both over the

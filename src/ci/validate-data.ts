@@ -169,7 +169,7 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
   const witnesses = arrayOrProblem<NonNullable<ArchiveMeta['witnesses']>[number]>(meta.witnesses, 'witnesses', metaPath, problems);
   for (const [i, witness] of witnesses.entries()) {
     const at = `witnesses[${i}]`;
-    if (witness === null || typeof witness !== 'object') {
+    if (!isPlainObject(witness)) {
       problems.push({ path: metaPath, problem: `${at} must be an object, got ${describeShape(witness)}` });
       continue;
     }
@@ -207,7 +207,7 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
     // rather than reported a second time or crashed on.
     witnesses.map((w, i) => ({
       label: `witnesses[${i}]`,
-      sha256: (w !== null && typeof w === 'object') ? normaliseWitnessHash(w.sha256) : undefined,
+      sha256: isPlainObject(w) ? normaliseWitnessHash(w.sha256) : undefined,
       heldHashes,
     })),
     meta.divergences ?? [],
@@ -260,7 +260,7 @@ export function validateArchiveEntry(key: string): ValidationProblem[] {
   const qualityObservations = arrayOrProblem<QualityObservation>(meta.qualityObservations, 'qualityObservations', metaPath, problems);
   for (const [i, observation] of qualityObservations.entries()) {
     const at = `qualityObservations[${i}]`;
-    if (observation === null || typeof observation !== 'object') {
+    if (!isPlainObject(observation)) {
       problems.push({ path: metaPath, problem: `${at} must be an object, got ${describeShape(observation)}` });
       continue;
     }

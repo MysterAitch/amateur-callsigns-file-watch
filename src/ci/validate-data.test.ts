@@ -306,6 +306,20 @@ describe('validateArchiveEntry - malformed meta.json shapes (#812)', { tags: ['u
     expect(problems.some(p => p.problem.includes('witnesses[0] must be an object'))).toBe(true);
   });
 
+  it('ArchiveEntry_WhenWitnessesContainsAnArrayItem_ReportsShapeErrorNotFieldCascade', () => {
+    // `typeof [] === 'object'` is true, so a naive null-only guard lets an
+    // array-shaped item straight through to the per-field checks, which then
+    // misreport it as "channel is missing" etc rather than the actual shape
+    // fault - and unpairedDivergentWitnessProblems would read `.sha256` off
+    // an array. isPlainObject must reject arrays here, same as it does for
+    // the top-level meta.json check.
+    writeEntry(tmpRoot, '2026-06-23', CSV, { witnesses: [[]] });
+    expect(() => validateArchiveEntry('2026-06-23')).not.toThrow();
+    const problems = validateArchiveEntry('2026-06-23').map(p => p.problem);
+    expect(problems.some(p => p.includes('witnesses[0] must be an object, got an array'))).toBe(true);
+    expect(problems.some(p => p.includes('witnesses[0].channel'))).toBe(false);
+  });
+
   it('ArchiveEntry_WhenQualityObservationsIsANumberNotAnArray_FailsWithProblemNotCrash', () => {
     writeEntry(tmpRoot, '2026-06-23', CSV, { qualityObservations: 42 });
     expect(() => validateArchiveEntry('2026-06-23')).not.toThrow();
@@ -318,6 +332,14 @@ describe('validateArchiveEntry - malformed meta.json shapes (#812)', { tags: ['u
     expect(() => validateArchiveEntry('2026-06-23')).not.toThrow();
     const problems = validateArchiveEntry('2026-06-23');
     expect(problems.some(p => p.problem.includes('qualityObservations[0] must be an object'))).toBe(true);
+  });
+
+  it('ArchiveEntry_WhenQualityObservationsContainsAnArrayItem_ReportsShapeErrorNotFieldCascade', () => {
+    writeEntry(tmpRoot, '2026-06-23', CSV, { qualityObservations: [[]] });
+    expect(() => validateArchiveEntry('2026-06-23')).not.toThrow();
+    const problems = validateArchiveEntry('2026-06-23').map(p => p.problem);
+    expect(problems.some(p => p.includes('qualityObservations[0] must be an object, got an array'))).toBe(true);
+    expect(problems.some(p => p.includes('qualityObservations[0].statement'))).toBe(false);
   });
 });
 

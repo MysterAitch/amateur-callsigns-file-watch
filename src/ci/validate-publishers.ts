@@ -75,7 +75,7 @@ export function validatePublisherRegister(register: PublisherRegister, registerP
   const channelOwners = new Map<string, string>();
 
   for (const [i, publisher] of register.publishers.entries()) {
-    if (publisher === null || typeof publisher !== 'object') {
+    if (!isPlainObject(publisher)) {
       problems.push({ path: registerPath, problem: `publishers[${i}] must be an object, got ${describeShape(publisher)}` });
       continue;
     }
