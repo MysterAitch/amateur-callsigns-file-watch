@@ -59,11 +59,12 @@ per-record evidence in the next section is what actually discriminates.
 
 ## The three cohorts
 
-**[observed]** Reading the [2024-09 snapshot](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-2024-09--every-radio-callsign--all-callsigns/index.html)'s
+**[derived]** Reading the [2024-09 snapshot](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-2024-09--every-radio-callsign--all-callsigns/index.html)'s
 53 permanent-SES rows against their [`status`](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#status-values)
 and `reserved_to_date` fields (the disclosure is dated 2024-09-10, so "the
 perspective date" for what follows is around 10 September 2024) splits them
-into three cohorts, plus one anomaly:
+into three cohorts, plus one anomaly — a bucketing rule applied to the rows,
+so the split is derived; each row's own field values are directly observable:
 
 **Cohort 1 — blank end date + [Allocated](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#allocated) (17 rows): permanent while held.**
 No end date is stated at all — a station in current use, e.g. `GB0MWM`,

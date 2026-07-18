@@ -28,16 +28,17 @@ of the open-data register are held in this archive. Two of them —
 project's own sweep set them aside. That leaves seven declared-complete
 vintages: six older ones, tested here, plus the newest.
 
-**[observed]** In every one of the six older vintages — from
+**[derived]** In every one of the six older vintages — from
 [2022-05-30](../../archive/2022-05-30/normalised.csv) through
 [2026-01-14](../../archive/2026-01-14/normalised.csv), a span of just under
 four years — a small number of rows carry a **blank `status` field**: not
 `Allocated`, not `Reserved`, not `Available`, nothing at all. **Four
 callsigns** — `G1RRV`, `G8LEN`, `GOOUC`, `M0KXY` — are blank in every single
-one of those six vintages, without exception. A wider set of **seventeen**
-callsigns is blank in at least one of them.
+one of those six vintages, without exception (an intersection across the six
+files; each per-file blank is directly observable). A wider set of
+**seventeen** callsigns is blank in at least one of them.
 
-**[observed]** By the newest vintage, [2026-06-23](../../archive/2026-06-23/normalised.csv),
+**[derived]** By the newest vintage, [2026-06-23](../../archive/2026-06-23/normalised.csv),
 the blank-status count is **zero** — and sixteen of those seventeen
 callsigns, including all four of the persisting core, are not merely
 resolved to a real status: they are **absent from the export altogether**,
@@ -92,7 +93,7 @@ empty field in the middle.
 
 ## The four that never wavered
 
-**[observed]** Reading each declared-complete vintage's `normalised.csv` for
+**[derived]** Reading each declared-complete vintage's `normalised.csv` for
 rows whose `status` is empty, and intersecting the six older ones, yields
 exactly four callsigns present in all six:
 
@@ -110,8 +111,9 @@ value is stable across two entirely different header shapes (the bare
 three-column 2022 layout and the six/eight-column Salesforce-family layouts
 of 2025 onward), so it survives a schema change as well as time.
 
-**[observed]** Two of the four, `GOOUC` and `G98JSS` (part of the wider set,
-below), match no known UK callsign formation at all — the components parser
+**[observed]** Two of the seventeen, `GOOUC` (one of the persisting four)
+and `G98JSS` (from the wider set below), match no known UK callsign
+formation at all — the components parser
 records them as `unparseable`
 ([`archive/2025-11-11/components.csv`](../../archive/2025-11-11/components.csv)),
 the same closed vocabulary documented in
@@ -137,7 +139,7 @@ stayed empty throughout.
 
 ## The wider seventeen, and how they thinned out
 
-**[observed]** Taking the union of every blank-status callsign across all six
+**[derived]** Taking the union of every blank-status callsign across all six
 older vintages gives seventeen distinct values:
 
 `20JUU`, `22032024`, `2#0MVL`, `G0LVW`, `G1RRV`, `G1ZJL`, `G1ZRU`, `G3ZQE`,
