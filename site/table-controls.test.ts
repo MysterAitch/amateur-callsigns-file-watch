@@ -685,6 +685,32 @@ describe('multi-column sort — keyboard parity', { tags: ['ui'] }, () => {
     keyActivate(sortButton(table, 1), 'Tab', false);
     expect(headerCell(table, 1).getAttribute('aria-sort')).toBe('none');
   });
+
+  it('KeyboardActivation_WhenTheKeydownIsAnAutoRepeatFromHoldingTheKey_DoesNotChangeTheSort', () => {
+    // Holding Enter/Space down fires repeated `keydown` events at the
+    // platform's auto-repeat rate; a single press of a native button only
+    // ever performs one activation, so a repeat must be ignored outright
+    // rather than cycling the sort on its own.
+    const table = makeTable(NUMERIC_TABLE);
+    enhanceTable(table);
+    const th = headerCell(table, 1);
+    const button = sortButton(table, 1);
+    const authored = bodyColumn(table, 1);
+
+    button.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', repeat: true }));
+    expect(bodyColumn(table, 1)).toEqual(authored);
+    expect(th.getAttribute('aria-sort')).toBe('none');
+
+    // The initial, non-repeat press still activates as normal.
+    button.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', repeat: false }));
+    expect(bodyColumn(table, 1)).toEqual(['9', '10', '22', '100']);
+    expect(th.getAttribute('aria-sort')).toBe('ascending');
+
+    // Once sorted, further auto-repeat keydowns must not keep cycling it.
+    button.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', repeat: true }));
+    expect(bodyColumn(table, 1)).toEqual(['9', '10', '22', '100']);
+    expect(th.getAttribute('aria-sort')).toBe('ascending');
+  });
 });
 
 describe('multi-column sort — discoverability hint', { tags: ['ui'] }, () => {
@@ -727,6 +753,42 @@ describe('multi-column sort — discoverability hint', { tags: ['ui'] }, () => {
     const firstHintId = first.previousElementSibling?.querySelector('.tc-sort-hint')?.getAttribute('id');
     const secondHintId = second.previousElementSibling?.querySelector('.tc-sort-hint')?.getAttribute('id');
     expect(firstHintId).not.toBe(secondHintId);
+  });
+
+  it('SortHint_WhenTwoUnnamedTablesBothFallBackToTheBareSortParam_StillGetsDistinctHintIdsAndOwnDescribedby', () => {
+    // Neither table has an id or caption, so sortParamName resolves both to
+    // the same bare "sort" — the id must not be derived from that name alone,
+    // or both tables would collide on one duplicate id.
+    const unnamed = () => `
+      <table data-table-controls>
+        <thead><tr><th scope="col">A</th><th scope="col">B</th></tr></thead>
+        <tbody><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></tbody>
+      </table>`;
+    const first = makeTable(unnamed());
+    const second = makeTable(unnamed());
+    enhanceTable(first);
+    enhanceTable(second);
+
+    const firstHint = first.previousElementSibling?.querySelector('.tc-sort-hint');
+    const secondHint = second.previousElementSibling?.querySelector('.tc-sort-hint');
+    const firstHintId = firstHint?.getAttribute('id');
+    const secondHintId = secondHint?.getAttribute('id');
+
+    expect(firstHintId).toBeTruthy();
+    expect(secondHintId).toBeTruthy();
+    expect(firstHintId).not.toBe(secondHintId);
+    // Every id on the page is unique — no duplicate ids at all, not just a
+    // pairwise inequality between the two hints.
+    const allIds = Array.from(document.querySelectorAll('[id]')).map(el => el.getAttribute('id'));
+    expect(allIds.filter(id => id === firstHintId)).toHaveLength(1);
+    expect(allIds.filter(id => id === secondHintId)).toHaveLength(1);
+
+    // Each table's own sort buttons describe their OWN hint, never the other
+    // table's.
+    expect(sortButton(first, 0).getAttribute('aria-describedby')).toBe(firstHintId);
+    expect(sortButton(first, 1).getAttribute('aria-describedby')).toBe(firstHintId);
+    expect(sortButton(second, 0).getAttribute('aria-describedby')).toBe(secondHintId);
+    expect(sortButton(second, 1).getAttribute('aria-describedby')).toBe(secondHintId);
   });
 });
 

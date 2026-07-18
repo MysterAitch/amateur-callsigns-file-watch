@@ -335,6 +335,14 @@ function installSortTrigger(th, meaning) {
 // name the keyboard equivalents of a Shift-click.
 const SORT_HINT_TEXT = 'Select a heading to sort by it. Hold Shift and select another heading — Shift-click, or Shift+Enter / Shift+Space on the keyboard — to add it as a further, tie-breaking sort.';
 
+// A monotonic counter backing the hint's id (below): `idSeed` (a table's
+// `?sort=` param name) reads better in the markup, but is not itself unique —
+// several tables with no id/caption, or ones that slug alike, all fall back to
+// the same bare "sort" param, which would otherwise hand every one of them the
+// identical id. The counter is the actual uniqueness guarantee; the seed is
+// just a readability aid riding alongside it.
+let sortHintSeq = 0;
+
 // A short, visible hint near a table's sort triggers describing the modified
 // (Shift) activation that appends a secondary sort — real text a sighted
 // keyboard user reads unprompted, not merely a description parked out of
@@ -351,7 +359,7 @@ const SORT_HINT_TEXT = 'Select a heading to sort by it. Hold Shift and select an
  */
 function buildSortHint(idSeed, columns) {
   if (columns.length < 2) return null;
-  const id = `tc-sort-hint-${idSeed}`;
+  const id = `tc-sort-hint-${idSeed}-${sortHintSeq++}`;
   const hint = el('p', { class: 'tc-sort-hint hint muted', id }, SORT_HINT_TEXT);
   for (const col of columns) col.button.setAttribute('aria-describedby', id);
   return hint;
@@ -465,9 +473,13 @@ function enableColumnSorting(table, header, status) {
     // reflect the keys actually held is inconsistent across browsers — the
     // documented gap this closes. Reading the modifier straight off the
     // KeyboardEvent sidesteps that entirely; preventDefault suppresses the
-    // browser's own synthetic click so the activation fires exactly once.
+    // browser's own synthetic click so the activation fires exactly once. A
+    // held key repeats this event at the platform's auto-repeat rate, which a
+    // single button press never does — an auto-repeat is ignored outright so
+    // holding the key cannot cycle the sort on its own.
     button.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+      if (e.repeat) return;
       e.preventDefault();
       activate(key, e.shiftKey || e.ctrlKey || e.altKey || e.metaKey);
     });
