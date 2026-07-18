@@ -46,8 +46,9 @@ export interface FoiWitness {
 }
 
 export interface FoiRelatedEntry {
-  // Usually a sibling entry key; free-text drop-zone references also occur
-  // (the validator only requires existence for key-shaped values).
+  // Usually a sibling entry key; free-text drop-zone references also occur.
+  // For a key-shaped value the validator requires the sibling to exist; a
+  // typed relation (see relationType) then layers its own semantics on top.
   entry: string;
   relation: string;
   // Marks this relation as belonging to a controlled type with its own
