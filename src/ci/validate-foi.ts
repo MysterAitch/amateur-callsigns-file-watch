@@ -35,7 +35,7 @@ import {
   divergenceRecordProblems,
   unpairedDivergentWitnessProblems,
 } from '../shared/witness-agreement.ts';
-import { isPlainObject, describeShape, type ValidationProblem } from './validate-data.ts';
+import { isPlainObject, describeShape, type ValidationProblem } from '../shared/json-shape.ts';
 
 const SHA256_RE = /^[0-9a-f]{64}$/;
 // A defined dataVintage must be ISO year / year-month / year-month-day. The

@@ -45,6 +45,7 @@ import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
 import { validateFoiLaneAt } from './validate-foi.ts';
 import { validatePublishersAt } from './validate-publishers.ts';
+import { isPlainObject, describeShape, arrayOrProblem, type ValidationProblem } from '../shared/json-shape.ts';
 import {
   heldHashSet,
   normaliseWitnessHash,
@@ -54,55 +55,18 @@ import {
 
 const SHA256_RE = /^[0-9a-f]{64}$/;
 
-export interface ValidationProblem {
-  path: string;
-  problem: string;
-}
+// Re-exported so every existing `import type { ValidationProblem } from
+// './validate-data.ts'` keeps working unchanged - the interface itself now
+// lives in shared/json-shape.ts (a dependency-free leaf module) so that
+// module's own `ValidationProblem`-typed helper (arrayOrProblem) needs no
+// import back to this file, keeping the ESM import graph acyclic (#812).
+export type { ValidationProblem };
 
 export interface ValidationReport {
   ok: boolean;
   problems: ValidationProblem[];
   checkedEntries: number;
   checkedFoiEntries: number;
-}
-
-// Parse-boundary guards (#812): a validator's contract is to LOCATE
-// malformation in untrusted meta.json/register JSON it did not author, never
-// to crash on it. A `... as SomeType` assertion right after JSON.parse is
-// exactly what lets tsc/lint stay silent while a null, a string, or a stray
-// array reaches a field access and throws - these run BEFORE that access, on
-// a value still typed `unknown` (or, for a value whose static type already
-// claims a shape it cannot verify, defensively re-checked at runtime anyway).
-// Shared here because validate-publishers.ts and validate-foi.ts hit the same
-// boundary and already import ValidationProblem from this module.
-// Deliberately NOT a type predicate: narrowing to `Record<string, unknown>`
-// would make a subsequent `as ArchiveMeta`/`as FoiEntryMeta`/`as PublisherRegister`
-// fail tsc's insufficient-overlap check (those interfaces have several required
-// fields Record<string, unknown> cannot be seen to satisfy) - callers keep the
-// parsed value typed `unknown` through this check, exactly like the direct
-// `JSON.parse(...) as SomeType` it replaces, but only after this runtime check
-// has actually confirmed it is a non-null, non-array object.
-export function isPlainObject(value: unknown): boolean {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-export function describeShape(value: unknown): string {
-  return value === null ? 'null' : Array.isArray(value) ? 'an array' : typeof value;
-}
-
-// Returns `value` as an array when it already is one; otherwise records a
-// located problem and returns an empty array, so the caller's per-item loop
-// degrades to a no-op rather than throwing on a coerced non-iterable value -
-// `??` does not catch a truthy non-array (a string, say), so a naive
-// `(value ?? []).entries()` still throws on exactly the malformed input this
-// guard exists to report.
-export function arrayOrProblem<T>(value: unknown, field: string, path: string, problems: ValidationProblem[]): readonly T[] {
-  if (value === undefined) return [];
-  if (!Array.isArray(value)) {
-    problems.push({ path, problem: `${field} must be an array, got ${describeShape(value)}` });
-    return [];
-  }
-  return value as T[];
 }
 
 const VALID_PROVENANCE = new Set(['live', 'reconstructed-from-git-history', 'reconstructed-from-prior-download', 'recovered-from-web-archive']);

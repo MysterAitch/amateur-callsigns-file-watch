@@ -29,7 +29,7 @@ import {
   AUTHORITY_CEILINGS,
   type PublisherRegister,
 } from '../shared/publishers.ts';
-import { isPlainObject, describeShape, type ValidationProblem } from './validate-data.ts';
+import { isPlainObject, describeShape, type ValidationProblem } from '../shared/json-shape.ts';
 
 // The open-data lane's archive root (cwd-relative, matching validate-data).
 const DEFAULT_ARCHIVE_DIR = 'archive';
