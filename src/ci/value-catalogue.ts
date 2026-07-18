@@ -22,6 +22,7 @@ import { derivedEntryFile, derivedEntryFileExists, isDerivedEntryFile } from '..
 import { buildFoiObservations } from '../shared/foi-observations.ts';
 import { parseCallsign, cleanedCallsign, loadReferenceData, normaliseLicenceCategory, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { mdCode } from '../shared/markdown.ts';
+import { escapeHtml } from './render/html.ts';
 import { buildValueCatalogueFold, type FoldedFields } from './value-catalogue-fold.ts';
 import { availablePoolEntries } from '../v2/collectors/available-pool.ts';
 import { forbiddenListEntries } from '../v2/collectors/forbidden-list.ts';
@@ -611,6 +612,19 @@ function licenceCategorySection(
 // Enter/Space to open), with no script required to open it. It is appended
 // after the span rather than replacing the tooltip - belt-and-braces, since
 // the tooltip still serves a hovering mouse fastest.
+//
+// `title` joins its pairs with ` · ` rather than a newline: a
+// newline-separated title (one publication per line on hover) was considered
+// (issue #783) but would touch every timeline row in the committed golden
+// master for a purely cosmetic hover change - not worth that churn, so the
+// separator stays as it is.
+//
+// Every interpolated date/count passes through escapeHtml at the point it
+// enters these strings - defence-in-depth (#783), not a live gap: today's
+// values are archive key strings and toLocaleString('en-GB') output, never
+// free text, so nothing here currently has anything to escape. If either
+// input's shape ever changed to carry a metacharacter, it could not break
+// out of the `title`/`aria-label` attributes or the disclosure markup.
 const SPARK_BARS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 const SPARKLINE_DISCLOSURE_SUMMARY = 'Per-publication counts';
 function sparkline(bySource: Map<string, number>, timeline: string[]): string {
@@ -623,7 +637,7 @@ function sparkline(bySource: Map<string, number>, timeline: string[]): string {
       return SPARK_BARS[Math.round(((c - 1) / (peak - 1)) * (SPARK_BARS.length - 1))];
     })
     .join('');
-  const pairs = timeline.map((date, i) => `${date}: ${counts[i].toLocaleString('en-GB')}`);
+  const pairs = timeline.map((date, i) => `${escapeHtml(date)}: ${escapeHtml(counts[i].toLocaleString('en-GB'))}`);
   const ariaLabel = `timeline across ${timeline.length} publications: ${pairs.join('; ')}`;
   const title = pairs.join(' · ');
   const disclosure = `<details><summary>${SPARKLINE_DISCLOSURE_SUMMARY}</summary>${pairs.join('<br>')}</details>`;
