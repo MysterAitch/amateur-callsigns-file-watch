@@ -181,8 +181,21 @@ function pointerDown(target: EventTarget, pointerType: string): void {
   target.dispatchEvent(e);
 }
 
+// A real pointer-driven click (mouse or touch) — these always carry a
+// non-zero `detail` (the native click count), which is exactly what
+// distinguishes them from a keyboard activation below.
 function fireClick(target: EventTarget): MouseEvent {
-  const e = new MouseEvent('click', { bubbles: true, cancelable: true });
+  const e = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+  target.dispatchEvent(e);
+  return e;
+}
+
+// A keyboard-triggered activation (Enter/Space on a focused element): the
+// browser dispatches this with `detail: 0`, never a real pointer count, which
+// is the signal the click handler uses to let keyboard navigation through
+// unconditionally.
+function fireKeyboardClick(target: EventTarget): MouseEvent {
+  const e = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 });
   target.dispatchEvent(e);
   return e;
 }
@@ -241,9 +254,9 @@ describe('Popover interaction (issue #741)', { tags: ['ui'] }, () => {
     cellA.focus();
     expect(document.activeElement).toBe(cellA);
     expect(popoverOf(cellA).hidden).toBe(false);
-    // A keyboard Enter on the cell itself (no preceding pointerdown) is left
-    // entirely alone — it navigates exactly as it always has.
-    const e = fireClick(cellA);
+    // A keyboard Enter (detail 0 — no preceding pointerdown) is left entirely
+    // alone — it navigates exactly as it always has.
+    const e = fireKeyboardClick(cellA);
     expect(e.defaultPrevented).toBe(false);
   });
 
@@ -327,6 +340,81 @@ describe('Popover interaction (issue #741)', { tags: ['ui'] }, () => {
     const link = popoverOf(cellA).querySelector('a.hold-pop-link') as HTMLAnchorElement;
     const e = fireClick(link);
     expect(e.defaultPrevented).toBe(false); // the explicit "go to dataset" action always navigates
+  });
+
+  // Hybrid touch+keyboard/mouse devices: a single touch tap must never leave
+  // the grid permanently "thinking" every later interaction is also touch.
+  it('Popover_KeyboardEnterOnAnotherCellAfterAnEarlierTouchTap_StillNavigates', () => {
+    const { cellA, cellB } = holdingsMapHost();
+    wireHoldingsPopovers();
+    // A full touch tap-preview-then-navigate on cell A first.
+    pointerDown(cellA, 'touch');
+    fireClick(cellA); // preview
+    pointerDown(cellA, 'touch');
+    fireClick(cellA); // navigate
+    // A keyboard Enter on a different cell must not be treated as a second
+    // touch tap — it should navigate immediately, exactly as it always has.
+    cellB.focus();
+    const e = fireKeyboardClick(cellB);
+    expect(e.defaultPrevented).toBe(false);
+  });
+
+  it('Popover_HoverAfterAnEarlierTouchTap_StillOpensThePopover', () => {
+    const { cellA, cellB } = holdingsMapHost();
+    wireHoldingsPopovers();
+    pointerDown(cellA, 'touch');
+    fireClick(cellA); // preview
+    pointerDown(cellA, 'touch');
+    fireClick(cellA); // navigate — the touch gesture is over
+    // A genuine mouse hover on another cell afterwards (no pointerdown at
+    // all — real hovering never fires one) must still open its popover.
+    cellB.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(popoverOf(cellB).hidden).toBe(false);
+  });
+
+  it('Popover_KeyboardTabAfterAnIncompleteTouchGesture_StillOpensThePopoverOnFocus', () => {
+    // A touch pointerdown with no matching click (a long-press, or a finger
+    // dragged away before lifting) leaves lastPointerType stuck at 'touch'
+    // with no click ever firing to reset it — the click-driven reset alone
+    // cannot save this case, so this isolates the keydown-driven reset as an
+    // independent safety net.
+    const { cellA, cellB } = holdingsMapHost();
+    wireHoldingsPopovers();
+    pointerDown(cellA, 'touch'); // no matching click follows
+    // Tabbing dispatches a keydown before the resulting focusin; that keydown
+    // alone must be enough to clear the stale touch state.
+    cellB.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    cellB.focus();
+    expect(popoverOf(cellB).hidden).toBe(false);
+  });
+
+  it('Popover_ShiftTabFromTheOpenDatasetLinkBackToTheCell_KeepsItOpen', () => {
+    const { cellA } = holdingsMapHost();
+    wireHoldingsPopovers();
+    cellA.focus();
+    const link = popoverOf(cellA).querySelector('a.hold-pop-link') as HTMLAnchorElement;
+    link.focus();
+    expect(popoverOf(cellA).hidden).toBe(false);
+    // Shift+Tab back to the cell: the departing element (link.focusout's
+    // target) is the popover's own link, not the cell — the popover must not
+    // be treated as left behind.
+    cellA.focus();
+    expect(popoverOf(cellA).hidden).toBe(false);
+    expect(document.activeElement).toBe(cellA);
+  });
+
+  it('Popover_MouseMovingBetweenThePopoversOwnChildren_KeepsItOpen', () => {
+    const { cellA } = holdingsMapHost();
+    wireHoldingsPopovers();
+    cellA.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const pop = popoverOf(cellA);
+    const head = pop.querySelector('.hold-pop-head') as HTMLElement;
+    const link = pop.querySelector('a.hold-pop-link') as HTMLAnchorElement;
+    expect(pop.hidden).toBe(false);
+    // The mouse moving from the popover's summary text to its own link is not
+    // a departure from the cell/popover pair.
+    head.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: link }));
+    expect(pop.hidden).toBe(false);
   });
 });
 

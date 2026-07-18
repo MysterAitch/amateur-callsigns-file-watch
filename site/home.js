@@ -248,9 +248,18 @@ export function wireHoldingsPopovers() {
     openCell = cell;
   };
 
-  /** @param {HTMLElement | null} cell @param {EventTarget | null} related */
-  const handleLeave = (cell, related) => {
-    const li = cell?.closest('li') ?? null;
+  // The departure's own li — not the departing target's `.hold-cell` — decides
+  // whether a leave stays "within the pair": the departing element may equally
+  // be the popover (or one of its own children, e.g. Shift+Tab off its "open
+  // dataset" link back to the cell, or the mouse moving between the popover's
+  // own text and its link), which sits outside `.hold-cell` but inside the
+  // same cell's <li>. Routing this through cellOf() first (an earlier version
+  // did) loses that — the popover's own descendants resolve to no cell at all,
+  // so every intra-pair transition through the popover looked like a genuine
+  // departure and closed it regardless of where focus/mouse actually went.
+  /** @param {EventTarget | null} target @param {EventTarget | null} related */
+  const handleLeave = (target, related) => {
+    const li = target instanceof Element ? target.closest('li') : null;
     if (li && related instanceof Node && li.contains(related)) return; // stayed within the cell/popover pair
     closeOpen();
   };
@@ -268,19 +277,38 @@ export function wireHoldingsPopovers() {
     const cell = cellOf(e.target instanceof Element ? e.target : null);
     if (cell) openFor(cell);
   });
-  grid.addEventListener('mouseout', (e) => handleLeave(cellOf(e.target instanceof Element ? e.target : null), e.relatedTarget));
-  grid.addEventListener('focusout', (e) => handleLeave(cellOf(e.target instanceof Element ? e.target : null), e.relatedTarget));
+  grid.addEventListener('mouseout', (e) => handleLeave(e.target, e.relatedTarget));
+  grid.addEventListener('focusout', (e) => handleLeave(e.target, e.relatedTarget));
 
   grid.addEventListener('click', (e) => {
+    // lastPointerType is read once and spent here, whichever branch fires
+    // below, so a single touch tap can never leak its "treat as touch" state
+    // into a later, unrelated interaction on the same page (a hybrid
+    // touch+keyboard/mouse device otherwise gets stuck treating everything as
+    // touch after the first tap, since pointerdown is the only thing that had
+    // ever set it).
+    const pointerType = lastPointerType;
+    lastPointerType = '';
     const cell = cellOf(e.target instanceof Element ? e.target : null);
     if (!cell) return; // a click inside the popover itself (its "open dataset" link) is untouched
-    if (lastPointerType !== 'touch') return; // mouse/pen/keyboard: navigate exactly as before
+    // A keyboard activation (Enter/Space on the focused cell) dispatches a
+    // click with detail 0 — real taps and mouse clicks carry detail >= 1. This
+    // is checked unconditionally so keyboard navigation is never at the mercy
+    // of pointer-tracking state at all, stale or otherwise.
+    if (e.detail === 0) return;
+    if (pointerType !== 'touch') return; // mouse/pen: navigate exactly as before
     if (openCell === cell) return; // second tap on an already-previewed cell: let it through
     e.preventDefault();
     openFor(cell);
   });
 
   document.addEventListener('keydown', (e) => {
+    // Any keyboard interaction proves the visitor is now driving by keyboard,
+    // not touch — clearing this here (rather than waiting for the next
+    // pointerdown, which a keyboard user never produces) is what lets
+    // hover/focus popovers work again immediately after a prior tap, e.g. when
+    // Tab moves focus into the grid before its own focusin handler runs.
+    lastPointerType = '';
     if (e.key === 'Escape' && openCell) closeOpen({ returnFocus: true });
   });
   // A tap/click outside the grid dismisses whatever popover is open (mirrors
