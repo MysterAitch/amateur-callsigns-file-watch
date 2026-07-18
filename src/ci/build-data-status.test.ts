@@ -282,6 +282,21 @@ describe('data-status: per-type blurbs & de-jarred vintages (issue #469)', { tag
     expect(blurb).toContain('href="datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md.html"');
   });
 
+  it('AvailablePoolBlurb_SystemChangeClaim_NamesAndLinksTheFoiThatStatesIt', () => {
+    // Issue #770: the available-pool discontinuation ("no longer produced")
+    // otherwise read as a bare assertion. The same FOI letter cited for the
+    // forbidden list (ref 337399) states it in Ofcom's own words — "Due to a
+    // system change, the assignment of call signs is now done using an
+    // algorithm rather than 'grabbing' from a list" — so the blurb names and
+    // links that source rather than leaving the claim uncited (and tracks the
+    // quote rather than the looser "different computer system" paraphrase).
+    const blurb = CLASS_BLURBS['available-pool'];
+    expect(blurb).toContain(RATIONALE_SOURCE_LABEL);
+    expect(blurb).toContain('href="datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md.html"');
+    // The wording tracks the source, not the retired "different computer system" phrasing.
+    expect(blurb).not.toContain('different computer system');
+  });
+
   it('Grid_GroupHeading_LinksTheDatasetClassTermToTheGlossary', () => {
     const rows = [makeRow({ key: 'reg-2016-09', vintage: '2016-09', primaryClass: 'register-snapshot' })];
     const html = renderInventoryGrid(rows);
