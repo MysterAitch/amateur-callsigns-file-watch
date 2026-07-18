@@ -494,9 +494,11 @@ describe('corpus scale sanity', { tags: ['data-validity'] }, () => {
   it('LedgerJsonl_WhenSweptByDuckDb_HoldsNoSourceFileInMoreThanOneFile', () => {
     // The DuckDB twin of the sole-emitter invariant (issue #813, design §1a):
     // swept over the PERSISTED JSONL itself rather than the build summary, so
-    // the check holds against what actually landed on disk. Gated on the pinned
-    // CLI exactly as the report folds are - absent locally it skips honestly
-    // rather than pretending to have verified.
+    // the check holds against what actually landed on disk. In CI this file
+    // runs only in the dedicated build-ledger job (cicd.yaml), which installs
+    // the pinned CLI precisely so this sweep EXECUTES where the JSONL lives -
+    // the binary-gate below is the honest skip for a binary-less local run,
+    // never the expected CI path.
     if (!duckDbAvailable()) {
       expect(duckDbAvailable()).toBe(false);
       return;

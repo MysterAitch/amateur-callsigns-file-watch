@@ -342,10 +342,19 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      # The build-claims input closure minus the DuckDB action (this build never
-      # shells out to DuckDB): the committed data plus the emit-path source tree.
-      # The key is the closure hash with test files excluded (closure-hash action);
-      # .nvmrc is in the paths since a node bump can shift the emitted bytes.
+      # The pinned DuckDB CLI (exports DUCKDB_BIN): the sole-emitter sweep in
+      # build-ledger.test.ts reads the persisted per-source JSONL back through
+      # DuckDB (issue #813, design 1a) - this job is the ONE place that JSONL
+      # exists on disk, so the sweep must execute here rather than skip. The
+      # action is deliberately NOT in the closure paths below: the cache key
+      # gates whether the ledger is REBUILT, and DuckDB only reads the ledger
+      # (fresh or restored) - it never shapes the cached bytes.
+      - uses: ./.github/actions/setup-duckdb
+      # The build-claims input closure minus the DuckDB action (see above: DuckDB
+      # verifies, never produces): the committed data plus the emit-path source
+      # tree. The key is the closure hash with test files excluded (closure-hash
+      # action); .nvmrc is in the paths since a node bump can shift the emitted
+      # bytes.
       - id: closure
         uses: ./.github/actions/closure-hash
         with:
