@@ -237,6 +237,32 @@ describe('value catalogue', { tags: ['unit'] }, () => {
     expect(html).toContain('</details>');
   });
 
+  it('Sparkline_TimelineDateCarryingMetacharacters_EscapedInAriaLabelTitleAndDisclosure', () => {
+    // Defence-in-depth (#783): the timeline's date keys are archive key
+    // strings today (`YYYY-MM-DD` or `YYYY-MM-DD--hex`), never free text, so
+    // this has nothing to escape in practice. But the interpolation point is
+    // explicitly escaped, so a metacharacter could not break out of the
+    // `aria-label`/`title` attributes or inject markup into the disclosure if
+    // that shape ever changed.
+    const timeline = ['2022-05-30', '<script>&"</script>'];
+    const md = renderValueCatalogue(talliesBySource('status', {
+      Legacy: { '2022-05-30': 1, '<script>&"</script>': 2 },
+    }), ref, timeline);
+    const row = md.split('\n').find(l => l.startsWith('| `Legacy`')) ?? '';
+    const cell = row.split('|')[6].trim();
+    expect(cell).not.toContain('<script>');
+    const escapedPair = '&lt;script&gt;&amp;&quot;&lt;/script&gt;: 2';
+    expect(cell).toContain(`aria-label="timeline across 2 publications: 2022-05-30: 1; ${escapedPair}"`);
+    expect(cell).toContain(`title="2022-05-30: 1 · ${escapedPair}"`);
+    expect(cell).toContain(`2022-05-30: 1<br>${escapedPair}</details>`);
+    // A crafted date this malformed no longer matches the render-markdown
+    // allowlist's fixed shape (issue #732/#742's safe-degradation property),
+    // so it stays fully escaped rather than partially unescaped - no live
+    // script tag reaches the rendered page either way.
+    const html = renderMarkdown(md);
+    expect(html).not.toContain('<script>');
+  });
+
   it('Render_ValueWithEdgeWhitespace_IsVisibleInMonospace', () => {
     // A leading space (table cells are trimmed on render, so it would
     // otherwise vanish) surfaces as a codepoint marker; internal spaces of a
