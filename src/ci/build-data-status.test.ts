@@ -17,10 +17,12 @@ import {
   renderRollup,
   renderKnownAbsent,
   renderSeriesGaps,
+  renderAnomalyObservations,
   injectDataStatus,
   CLASS_BLURBS,
 } from './build-data-status.ts';
 import { RATIONALE_SOURCE_LABEL } from './build-forbidden-section.ts';
+import { computeDatasetAnomalyFlags, type DatasetAnomalyFlag } from './dataset-anomaly-flags.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -231,6 +233,67 @@ describe('data-status: series coverage & gaps', { tags: ['data-validity'] }, () 
 // real archive), so they classify as `unit`: fixture in, assert the transform.
 // They pin the issue #469 behaviour — a per-type blurb under each group heading,
 // and every vintage rendered at one consistent granularity.
+// The published statistical-observations affordance (issue #467's residual):
+// data-status.ts reuses dataset-anomaly-flags.ts's own computation and
+// rendering, so these tests guard the ONE thing that module cannot itself
+// verify — that promoting the detector's output to a reader-facing page never
+// drops the observation-not-verdict framing, and that it links out to the
+// plain-English method note rather than asking a reader to trust a bare
+// number.
+describe('data-status: statistical observations (issue #467)', { tags: ['data-validity'] }, () => {
+  it('RenderAnomalyObservations_RealArchive_SurfacesTheCalibratedRecordCountFlag', () => {
+    // The 2025-11-11 -> 2026-01-14 pair is this detector's own calibration
+    // case (dataset-anomaly-flags.ts): a documented net change that fires the
+    // record-count signal at modified z ≈ -6.3, independent of whether DuckDB
+    // is installed (the record-count metric reads stats.json alone).
+    const flags = computeDatasetAnomalyFlags();
+    const flag = flags.find(f => f.key === '2026-01-14');
+    expect(flag).toBeDefined();
+    expect(flag?.deviations.some(d => d.metric === 'record count')).toBe(true);
+
+    const html = renderAnomalyObservations(buildOpenDataRows(), flags);
+    expect(html).toContain('2026-01-14');
+    expect(html).toContain('146,417');
+    expect(html).toContain('modified z = -6.3');
+    // The exact non-adjudicating framing the issue requires, verbatim.
+    expect(html).toContain('This is an observation, not a judgement — the cause is not adjudicated here');
+  });
+
+  it('RenderAnomalyObservations_RealArchive_LinksTheFlaggedEntryToItsPageAndTheMethodNote', () => {
+    const rows = buildOpenDataRows();
+    const flags = computeDatasetAnomalyFlags();
+    const html = renderAnomalyObservations(rows, flags);
+    const entry = rows.find(r => r.key === '2026-01-14');
+    expect(entry).toBeDefined();
+    expect(html).toContain(`href="${entry?.entryHref}"`);
+    expect(html).toContain('href="fidelity.html#anomalies"');
+  });
+
+  it('RenderAnomalyObservations_EveryFlaggedDataset_NeverAssertsAVerdictErrorOrLoweredTrust', () => {
+    // Non-adjudication guard, mirroring dataset-anomaly-flags.test.ts's own
+    // render-level guard: the published surface must carry the SAME
+    // discipline, since this is the one place a reader (not a developer) sees
+    // the wording.
+    const html = renderAnomalyObservations(buildOpenDataRows(), computeDatasetAnomalyFlags()).toLowerCase();
+    expect(html).not.toMatch(/\bwrong\b|\berror\b|\bincorrect\b|\bfault\b|\btrustworthy\b|\buntrustworthy\b|\bverified\b|\bsafe to use\b/);
+  });
+
+  it('RenderAnomalyObservations_NoDatasetDeviates_StatesConformanceIsNotACertificateRatherThanSayingNothing', () => {
+    // A fabricated all-conforming set (no real archive dependency): the
+    // asymmetry principle from issue #467 must hold even in the empty case —
+    // "nothing flagged" is never presented as "everything verified good".
+    const conforming: DatasetAnomalyFlag = {
+      key: '2026-06-23',
+      window: { key: '2026-06-23', before: ['2025-11-11'], after: [], excludedPartial: [] },
+      deviations: [],
+      insufficientNeighbours: false,
+    };
+    const html = renderAnomalyObservations([], [conforming]);
+    expect(html).toContain('not a certificate');
+    expect(html).not.toContain('anomaly-list');
+  });
+});
+
 describe('data-status: per-type blurbs & de-jarred vintages (issue #469)', { tags: ['unit'] }, () => {
   function stagesAllDone(): Record<StageKey, StageCell> {
     const cell: StageCell = { state: 'done', detail: 'test cell' };
@@ -326,7 +389,7 @@ describe('data-status: page injection', { tags: ['data-validity'] }, () => {
     fs.copyFileSync(path.join('site', 'data-status.html'), scratch);
     injectDataStatus(scratch);
     const html = fs.readFileSync(scratch, 'utf8');
-    for (const id of ['ds-summary', 'ds-grid', 'ds-rollup', 'ds-known-absent', 'ds-series']) {
+    for (const id of ['ds-summary', 'ds-grid', 'ds-rollup', 'ds-known-absent', 'ds-series', 'ds-anomalies']) {
       expect(html).toContain(`<div id="${id}" data-prerendered>`);
     }
     expect(html).not.toContain('generated at deploy time — build the site to populate');

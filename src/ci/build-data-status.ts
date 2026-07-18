@@ -18,6 +18,14 @@
  * Official/FOI/Reference/Community/Self) and axis 3 (claim confidence) are
  * separate questions, cross-linked but never conflated here.
  *
+ * The page also carries the published statistical-observations section
+ * (issue #467's residual): a plain-English note wherever a publication's
+ * record count deviates from the norm its own neighbour window (the
+ * publications immediately before and after it) sets, computed by
+ * dataset-anomaly-flags.ts and reused here verbatim — no maths, and no
+ * framing, is duplicated. Always an observation, never a verdict; see
+ * fidelity.html#anomalies for the method.
+ *
  * The blocks are deterministic per deploy (they summarise committed data), so
  * data-status.html is fully static - no scripts - which keeps archived
  * captures complete. The injector mirrors build-home-aggregates.ts: it
@@ -40,6 +48,8 @@ import {
 } from '../shared/foi-archive.ts';
 import { escapeHtml, monthYear, dateTime, datasetLabel, tableCaption, glossaryCue, glossaryTerm, zeroCell } from './site-render.ts';
 import { rationaleSourceLink } from './build-forbidden-section.ts';
+import { computeDatasetAnomalyFlags, renderPublishedObservation, type DatasetAnomalyFlag } from './dataset-anomaly-flags.ts';
+import { fidelityHref } from './render/fidelity.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const FOI_ARCHIVE_DIR = path.join(REPO_ROOT, 'archive', 'foi');
@@ -765,6 +775,42 @@ export function renderSeriesGaps(series: Series[]): string {
     + `<p class="muted">A “gap” is a silence of ${GAP_THRESHOLD_MONTHS} months or more between consecutive held vintages — a deterministic fact of the committed data, not a judgement. The latest held vintage in each series is its staleness at a glance. A dataset carrying more than one class appears in each of its series, so a series count can exceed that type's group on the grid (which files each dataset once, under its primary class).</p>`;
 }
 
+// Statistical observations (issue #467's residual: promoting the neighbour-
+// window anomaly detector's output from a developer-only CLI aid to a
+// published, reader-facing affordance). Reuses the flags dataset-anomaly-
+// flags.ts already computes and the SAME rendering it already frames as an
+// observation — no maths, and no wording, is reimplemented here. A dataset
+// with no deviation (or too few neighbours to judge) contributes nothing to
+// the list: selective disclosure, so the page never manufactures doubt where
+// no observation exists. This never states or implies a verdict, error, or
+// lowered trust — see the linked method note for what the observation can and
+// cannot show.
+export function renderAnomalyObservations(rows: readonly DatasetRow[], flags: readonly DatasetAnomalyFlag[]): string {
+  const methodHref = fidelityHref(GLOSSARY_DEPTH_FROM_ROOT, 'anomalies');
+  const flagged = flags.filter(f => f.deviations.length > 0);
+
+  if (flagged.length === 0) {
+    return '<p class="muted">No publication in the held archive currently deviates from its neighbours\' statistical norm by this measure. '
+      + 'This is not a certificate that every publication is sound — a filtered or otherwise altered publication can still sit inside its '
+      + `neighbours' trend; see the <a href="${methodHref}">method note</a> for what this observation can and cannot show.</p>`;
+  }
+
+  const items = flagged.map((flag) => {
+    const row = rows.find(r => r.key === flag.key && r.lane === 'open-data');
+    const label = row === undefined
+      ? `<code>${escapeHtml(flag.key)}</code>`
+      : datasetLabel(row.title, row.key, { href: row.entryHref });
+    const notes = renderPublishedObservation(flag).map(text => `<p>${escapeHtml(text)}</p>`).join('');
+    return `<li class="anomaly-item"><div class="dskey">${label}</div>${notes}</li>`;
+  });
+
+  const plural = flagged.length === 1 ? '1 publication deviates' : `${flagged.length} publications deviate`;
+  return `<p>${plural} from the statistical norm set by the publications immediately before and after it in the archive `
+    + `(median/median-absolute-deviation over a neighbour window, flagged at a modified z beyond 3.5 — see the <a href="${methodHref}">method note</a>). `
+    + 'Each note below is an observation of statistical deviation, never a judgement: the cause is not adjudicated here.</p>'
+    + `<ul class="anomaly-list">${items.join('')}</ul>`;
+}
+
 // ---- Injection --------------------------------------------------------------
 
 const PLACEHOLDER = 'generated at deploy time — build the site to populate';
@@ -773,6 +819,7 @@ export function injectDataStatus(pagePath: string, foiDir: string = FOI_ARCHIVE_
   const rows = buildHeldRows(foiDir);
   const knownAbsent = readKnownAbsent(registerPath);
   const series = buildSeries(rows, knownAbsent);
+  const anomalyFlags = computeDatasetAnomalyFlags();
 
   const heldCount = rows.filter(r => !r.recordOnly).length;
   const recordCount = rows.filter(r => r.recordOnly).length;
@@ -787,6 +834,7 @@ export function injectDataStatus(pagePath: string, foiDir: string = FOI_ARCHIVE_
     [`<div id="ds-rollup">${PLACEHOLDER}</div>`, `<div id="ds-rollup" data-prerendered>${renderRollup(rows)}</div>`],
     [`<div id="ds-known-absent">${PLACEHOLDER}</div>`, `<div id="ds-known-absent" data-prerendered>${renderKnownAbsent(knownAbsent)}</div>`],
     [`<div id="ds-series">${PLACEHOLDER}</div>`, `<div id="ds-series" data-prerendered>${renderSeriesGaps(series)}</div>`],
+    [`<div id="ds-anomalies">${PLACEHOLDER}</div>`, `<div id="ds-anomalies" data-prerendered>${renderAnomalyObservations(rows, anomalyFlags)}</div>`],
   ];
   for (const [placeholder, replacement] of replacements) {
     if (!html.includes(placeholder)) throw new Error(`placeholder not found in ${pagePath}: ${placeholder}`);

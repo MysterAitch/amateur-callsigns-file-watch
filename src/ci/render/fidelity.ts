@@ -35,6 +35,7 @@ export type FidelitySection =
   | 'flags'
   | 'consistency'
   | 'divergence'
+  | 'anomalies'
   | 'show-working'
   | 'reconstruction'
   | 'reverify'

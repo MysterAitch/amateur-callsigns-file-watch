@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Dataset-level anomaly flags (issue #467) — EXPERIMENTAL, LOCAL-ONLY.
+ * Dataset-level anomaly flags (issue #467).
  *
  * Extends the neighbour-window machinery report-sweep.ts already builds for
  * the per-entry data-quality reports (windowFor/isDeclaredIncomplete/readStats)
@@ -18,14 +18,23 @@
  * a trust verdict; any trust judgement stays a human curation act (the
  * curation-status axis, issue #155).
  *
- * STAYS LOCAL, DELIBERATELY: this is experimental statistical exploration (a
- * robust-statistics threshold calibrated by eye against one historical
- * fixture, not independently validated across the whole corpus), so it is NOT
- * wired into report-sweep.ts's committed reports, NOT part of the
- * golden-master drift gate, and NOT published to the site. It is a developer-
- * facing investigation aid: run `npm run anomaly-flags` (or `node
- * src/ci/dataset-anomaly-flags.ts` directly) to print flagged datasets to
- * stdout. Nothing here writes to reports/ or site/.
+ * PUBLISHED, IN PART: every deviation this module flags for a dataset — record
+ * count (this module's own calibration case, independently corroborated
+ * against docs/source-register.md — see below), per-status share, and
+ * product-column emptiness — is surfaced on the /data-status page as a
+ * plain-English observation (build-data-status.ts's "Statistical
+ * observations" section, via renderPublishedObservation below), linked to a
+ * method note on fidelity.html explaining the median/MAD neighbour-window
+ * approach. The per-status signal needs the DuckDB-backed fold
+ * (foldStatusShares below) and so only fires in a build that has it; the
+ * record-count and product-emptiness signals read stats.json directly and run
+ * unconditionally. What stays local-only is the developer-facing detail —
+ * EVERY dataset's evaluation (flagged or not), the full neighbour window named,
+ * and the CLI rendering (renderFlag/renderDatasetAnomalyFlags): run `npm run
+ * anomaly-flags` (or `node src/ci/dataset-anomaly-flags.ts` directly) to print
+ * it to stdout. Nothing here writes to reports/, and this module is not part of the
+ * golden-master drift gate (data-status.html itself is never committed —
+ * generated fresh each deploy, so nothing here needs byte-for-byte pinning).
  *
  * Method: a robust (median / median-absolute-deviation) z-score per metric,
  * computed only from neighbours NOT declared as a partial/incomplete
@@ -57,7 +66,7 @@
 import * as path from 'path';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
-import { foldQuery } from '../v2/report-fold.ts';
+import { foldQuery, duckDbAvailable } from '../v2/report-fold.ts';
 import type { EntryStats } from '../shared/stats.ts';
 import { readStats, windowFor, isDeclaredIncomplete } from './report-sweep.ts';
 
@@ -260,6 +269,30 @@ export function renderFlag(flag: DatasetAnomalyFlag): string {
     + 'this flags the discrepancy for a human to examine and draws no trust verdict.';
 }
 
+// The reader-facing rendering for the PUBLISHED affordance (issue #467's
+// residual: promote the detector's output to something a reader, not just a
+// developer, sees). Reuses the SAME evaluated deviations as renderFlag above —
+// no maths is reimplemented, only the framing changes — because a published
+// reader is owed the same caution a developer already gets: this states a
+// statistical deviation from neighbouring publications, NEVER a verdict,
+// judgement, or claim that anything is wrong. A dataset with no deviations (or
+// too few neighbours to judge) renders NOTHING here — selective disclosure,
+// the same convention render/fidelity.ts's flagNudges uses, so the affordance
+// never manufactures doubt where no observation exists. Whether and how the
+// page states "conformance is not a certificate" for the corpus as a whole is
+// the caller's decision (build-data-status.ts), since that framing applies
+// once per page, not once per dataset.
+export function renderPublishedObservation(flag: DatasetAnomalyFlag): string[] {
+  return flag.deviations.map((d) => {
+    const zText = d.z === Infinity || d.z === -Infinity ? d.z.toString() : d.z.toFixed(1);
+    return `This publication's ${d.metric} deviates from its neighbours' norm (modified z = ${zText}): `
+      + `${formatValue(d, d.value)} against a neighbour median of ${formatValue(d, d.neighbourMedian)} `
+      + `across ${d.neighbourCount} neighbouring publications. `
+      + 'This is an observation, not a judgement — the cause is not adjudicated here; a genuine population swing, '
+      + 'a filter change, or a partial republish could equally explain a deviation like this one.';
+  });
+}
+
 export function renderDatasetAnomalyFlags(flags: readonly DatasetAnomalyFlag[]): string {
   const lines = [
     '# Dataset anomaly flags (issue #467) — EXPERIMENTAL, LOCAL-ONLY, not published',
@@ -279,11 +312,19 @@ interface StatusFoldRow { idx: number; status: string | null; n: number }
 // far cheaper than one DuckDB invocation per dataset. A dataset missing its
 // derived normalised.csv (raw-only) contributes no status shares; its
 // recordCount / productEmptyShare (from stats.json, if present) still stand.
+//
+// Requires the DuckDB CLI (see report-fold.ts); absent it, this returns no
+// shares at all rather than failing the whole computation — the record-count
+// and product-emptiness signals below read stats.json directly and need no
+// engine, so they still stand on their own. This is what lets the build-time
+// wiring (build-data-status.ts) degrade to "fewer signals checked" instead of
+// "the page fails to build" wherever the CLI happens not to be installed.
 function foldStatusShares(keys: readonly string[]): Map<string, Record<string, number>> {
+  const out = new Map<string, Record<string, number>>();
+  if (!duckDbAvailable()) return out;
   const files = keys
     .map(key => ({ key, file: derivedEntryFileExists(key, 'normalised.csv') ? derivedEntryFile(key, 'normalised.csv') : undefined }))
     .filter((e): e is { key: string; file: string } => e.file !== undefined);
-  const out = new Map<string, Record<string, number>>();
   if (files.length === 0) return out;
 
   const branches = files

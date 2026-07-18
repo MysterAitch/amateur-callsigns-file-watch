@@ -742,6 +742,14 @@ jobs:
         with:
           node-version-file: .nvmrc
       - run: npm ci
+      # The published anomaly-observation note (issue #467's residual, the
+      # Assemble-the-site step's build-data-status.ts call below) folds the
+      # per-status distribution signal through DuckDB (dataset-anomaly-flags.ts's
+      # foldStatusShares). Its record-count signal needs no engine and degrades
+      # gracefully without it, but installing the pinned CLI here (cheap: a single
+      # small static binary) lets every signal the detector computes run in the
+      # published build, not just the DuckDB-independent one.
+      - uses: ./.github/actions/setup-duckdb
       # The published databases are a pure function of the committed data plus the
       # builder sources, so restore them from a content-addressed cache keyed on
       # that input closure (mirroring the build-sqlite-tiers/build-ledger verify

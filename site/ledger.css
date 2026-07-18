@@ -577,6 +577,15 @@
 .ledger .dstitle { display: block; font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 2px; max-width: 40ch; }
 .ledger .dstitle .mono { font-size: 11.5px; }
 
+/* Statistical-observation list (issue #467's residual): one card per
+   publication whose metric deviates from its neighbours' norm, presented
+   plainly — never with an alarm colour, since the note is an observation, not
+   a verdict (see build-data-status.ts's renderAnomalyObservations). */
+.ledger .anomaly-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.ledger .anomaly-item { border: 1px solid var(--hair); border-radius: 8px; padding: 10px 12px; background: var(--surface-2); }
+.ledger .anomaly-item .dskey { margin-bottom: 4px; }
+.ledger .anomaly-item p { margin: 4px 0 0; font-size: 13px; line-height: 1.5; }
+
 /* Source-authority tag (axis 2): a quiet outline pill, kept visually distinct
    from the stage pills so the two axes are never read as one. */
 .ledger .atag { font-family: var(--mono); font-size: 11px; padding: 1px 7px; border: 1px solid var(--hair);
