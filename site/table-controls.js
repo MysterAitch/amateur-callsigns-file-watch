@@ -327,6 +327,44 @@ function installSortTrigger(th, meaning) {
   return { button, glyph };
 }
 
+// The discoverability hint text for a table with more than one sortable column
+// (issue #780): a plain activation is already self-evident from the button's
+// name, but nothing on a static table otherwise tells a reader that holding
+// Shift adds a second column as a tie-breaker. Phrasing mirrors the equivalent
+// hint the interactive lookup shows above its own sortable table, extended to
+// name the keyboard equivalents of a Shift-click.
+const SORT_HINT_TEXT = 'Select a heading to sort by it. Hold Shift and select another heading — Shift-click, or Shift+Enter / Shift+Space on the keyboard — to add it as a further, tie-breaking sort.';
+
+// A monotonic counter backing the hint's id (below): `idSeed` (a table's
+// `?sort=` param name) reads better in the markup, but is not itself unique —
+// several tables with no id/caption, or ones that slug alike, all fall back to
+// the same bare "sort" param, which would otherwise hand every one of them the
+// identical id. The counter is the actual uniqueness guarantee; the seed is
+// just a readability aid riding alongside it.
+let sortHintSeq = 0;
+
+// A short, visible hint near a table's sort triggers describing the modified
+// (Shift) activation that appends a secondary sort — real text a sighted
+// keyboard user reads unprompted, not merely a description parked out of
+// sight. Every sort button in `columns` is also given `aria-describedby`
+// pointing at it, so a screen reader announces the same hint once alongside
+// each trigger's name. Only built where a secondary sort is possible at all
+// (more than one sortable column) — a single-column table has nothing to hint
+// at, and mouse-only readers never see the extra text on a table too small to
+// need it.
+/**
+ * @param {string} idSeed
+ * @param {{ button: HTMLButtonElement }[]} columns
+ * @returns {HTMLElement | null}
+ */
+function buildSortHint(idSeed, columns) {
+  if (columns.length < 2) return null;
+  const id = `tc-sort-hint-${idSeed}-${sortHintSeq++}`;
+  const hint = el('p', { class: 'tc-sort-hint hint muted', id }, SORT_HINT_TEXT);
+  for (const col of columns) col.button.setAttribute('aria-describedby', id);
+  return hint;
+}
+
 // A stable per-column key for the sort state and the `?sort=` deep link: a slug
 // of the header's canonical text, falling back to a positional key when a header
 // is blank or two headers slug alike, so every column keys uniquely. The
@@ -388,24 +426,30 @@ function syncSortParam(name, state) {
 // Add multi-column sorting to an already-enhanced table. Each header gains a
 // keyboard-operable trigger: a plain activation sorts by that column alone,
 // cycling ascending → descending → back to the authored order; a modified
-// activation (Shift/Ctrl/Alt/Meta click, or Shift-Enter/Shift-Space from the
-// keyboard) APPENDS the column as a secondary sort, or toggles its direction when
-// already part of the sort. The state, the `aria-sort` per column, the priority
-// shown once more than one column is sorted, and a shareable `?sort=` deep link
-// all stay in step. Rows are only ever reordered — never fetched, hidden or
-// altered — so the table with JavaScript off is exactly the table with it on,
-// minus the trigger. Declines silently where there is nothing to reorder (fewer
-// than two body rows).
+// activation APPENDS the column as a secondary sort, or toggles its direction
+// when already part of the sort. A mouse conveys the modifier as Shift (or
+// Ctrl/Alt/Meta) held during the click; the keyboard conveys it as Shift held
+// during Enter or Space, read directly off the `keydown` event rather than
+// trusted to survive as a browser's synthetic click — so the modified path is
+// exactly as reliable from the keyboard as from the mouse (issue #780). The
+// state, the `aria-sort` per column, the priority shown once more than one
+// column is sorted, and a shareable `?sort=` deep link all stay in step. Rows
+// are only ever reordered — never fetched, hidden or altered — so the table
+// with JavaScript off is exactly the table with it on, minus the trigger.
+// Declines silently where there is nothing to reorder (fewer than two body
+// rows).
 /**
  * @param {HTMLTableElement} table
  * @param {HTMLTableCellElement[]} header
  * @param {HTMLElement} status
+ * @returns {HTMLElement | null} A discoverability hint for the caller to place
+ *   near the triggers, or null where fewer than two columns make one moot.
  */
 function enableColumnSorting(table, header, status) {
-  if (table.tBodies.length === 0) return;
+  if (table.tBodies.length === 0) return null;
   const body = table.tBodies[0];
   const authoredOrder = Array.from(body.rows);
-  if (authoredOrder.length < 2) return;
+  if (authoredOrder.length < 2) return null;
 
   /** @type {{ th: HTMLTableCellElement; button: HTMLButtonElement; glyph: HTMLElement; label: string; key: string; index: number }[]} */
   const columns = [];
@@ -421,6 +465,22 @@ function enableColumnSorting(table, header, status) {
     const key = uniqueColumnKey(canonical, i, usedKeys);
     const { button, glyph } = installSortTrigger(th, meaning);
     button.addEventListener('click', (e) => {
+      activate(key, e.shiftKey || e.ctrlKey || e.altKey || e.metaKey);
+    });
+    // The keyboard path for the same modified activation. A native button
+    // already turns an unmodified Enter/Space into a click the listener above
+    // would catch, but whether that synthetic click's own modifier flags
+    // reflect the keys actually held is inconsistent across browsers — the
+    // documented gap this closes. Reading the modifier straight off the
+    // KeyboardEvent sidesteps that entirely; preventDefault suppresses the
+    // browser's own synthetic click so the activation fires exactly once. A
+    // held key repeats this event at the platform's auto-repeat rate, which a
+    // single button press never does — an auto-repeat is ignored outright so
+    // holding the key cannot cycle the sort on its own.
+    button.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+      if (e.repeat) return;
+      e.preventDefault();
       activate(key, e.shiftKey || e.ctrlKey || e.altKey || e.metaKey);
     });
     columns.push({ th, button, glyph, label: meaning, key, index: i });
@@ -474,6 +534,7 @@ function enableColumnSorting(table, header, status) {
   }
 
   const paramName = sortParamName(table);
+  const hint = buildSortHint(paramName.replace(/[^a-z0-9]+/gi, '-'), columns);
   /** @type {SortEntry[]} */
   let state = sortFromParam(readSortParam(paramName), k => byKey.has(k));
 
@@ -525,6 +586,7 @@ function enableColumnSorting(table, header, status) {
   // Apply any sort restored from a `?sort=` deep link on load; an absent or empty
   // link leaves the authored order and the initial (unsorted) header state as-is.
   if (state.length > 0) applyState();
+  return hint;
 }
 
 /**
@@ -611,7 +673,8 @@ export function enhanceTable(table, options = {}) {
   }
 
   // --- column sorting (reorders the rows already present, one column at a time) ---
-  enableColumnSorting(table, header, status);
+  const sortHint = enableColumnSorting(table, header, status);
+  if (sortHint !== null) container.append(sortHint);
 
   container.append(status);
 

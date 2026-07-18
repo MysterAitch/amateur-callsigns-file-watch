@@ -617,6 +617,210 @@ describe('multi-column sort', { tags: ['ui'] }, () => {
   });
 });
 
+// --- keyboard parity + discoverability + announcement (issue #780): the
+// multi-column trigger closes the gap parked by #771/#781 — a modified
+// keyboard activation must append a secondary sort exactly as reliably as a
+// Shift-click, keyboard and screen-reader users must be able to discover that
+// the modifier exists, and a multi-column state must be announced with its
+// column priority conveyed. ---
+
+// A keyboard activation of a sort trigger's own `keydown` handler — the path
+// that does not depend on a browser's synthetic click carrying the right
+// modifier flags. `key` is 'Enter' or ' ' (Space); `shiftKey` mirrors the key
+// actually held.
+function keyActivate(button: HTMLButtonElement, key: string, shiftKey = false): void {
+  button.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key, shiftKey }));
+}
+
+describe('multi-column sort — keyboard parity', { tags: ['ui'] }, () => {
+  it('KeyboardActivation_WhenShiftEnterOnASecondHeading_AppendsASecondarySortJustLikeShiftClick', () => {
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    sortButton(table, 0).click(); // Primary: Nation ascending.
+    keyActivate(sortButton(table, 1), 'Enter', true); // Secondary via the keyboard.
+    expect(bodyColumn(table, 0)).toEqual(['England', 'England', 'Wales', 'Wales']);
+    expect(bodyColumn(table, 1)).toEqual(['2', '9', '4', '7']);
+    expect(sortButton(table, 0).getAttribute('aria-label')).toContain('sort priority 1');
+    expect(sortButton(table, 1).getAttribute('aria-label')).toContain('sort priority 2');
+  });
+
+  it('KeyboardActivation_WhenShiftSpaceOnASecondHeading_AppendsASecondarySortTheSameWay', () => {
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    sortButton(table, 0).click();
+    keyActivate(sortButton(table, 1), ' ', true);
+    expect(bodyColumn(table, 1)).toEqual(['2', '9', '4', '7']);
+    expect(sortButton(table, 1).getAttribute('aria-label')).toContain('sort priority 2');
+  });
+
+  it('KeyboardActivation_WhenShiftHeldOnKeydown_SuppressesTheBrowsersOwnSyntheticClickSoTheSortAppliesOnce', () => {
+    // Regardless of whether a browser's own synthetic click would also carry
+    // (or fail to carry) the modifier, the keydown handler must be the sole
+    // trigger: it calls preventDefault, which per the platform's own button
+    // semantics cancels that synthetic click outright.
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    sortButton(table, 0).click();
+    const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', shiftKey: true });
+    sortButton(table, 1).dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(bodyColumn(table, 1)).toEqual(['2', '9', '4', '7']);
+  });
+
+  it('KeyboardActivation_WhenPlainEnterOrSpaceWithNoModifier_StillSortsThatColumnAloneUnregressed', () => {
+    const table = makeTable(NUMERIC_TABLE);
+    enhanceTable(table);
+    keyActivate(sortButton(table, 1), 'Enter', false);
+    expect(bodyColumn(table, 1)).toEqual(['9', '10', '22', '100']);
+    expect(headerCell(table, 1).getAttribute('aria-sort')).toBe('ascending');
+
+    keyActivate(sortButton(table, 1), ' ', false);
+    expect(bodyColumn(table, 1)).toEqual(['100', '22', '10', '9']);
+    expect(headerCell(table, 1).getAttribute('aria-sort')).toBe('descending');
+  });
+
+  it('KeyboardActivation_WhenAnyOtherKeyIsPressed_DoesNothing', () => {
+    const table = makeTable(NUMERIC_TABLE);
+    enhanceTable(table);
+    keyActivate(sortButton(table, 1), 'Tab', false);
+    expect(headerCell(table, 1).getAttribute('aria-sort')).toBe('none');
+  });
+
+  it('KeyboardActivation_WhenTheKeydownIsAnAutoRepeatFromHoldingTheKey_DoesNotChangeTheSort', () => {
+    // Holding Enter/Space down fires repeated `keydown` events at the
+    // platform's auto-repeat rate; a single press of a native button only
+    // ever performs one activation, so a repeat must be ignored outright
+    // rather than cycling the sort on its own.
+    const table = makeTable(NUMERIC_TABLE);
+    enhanceTable(table);
+    const th = headerCell(table, 1);
+    const button = sortButton(table, 1);
+    const authored = bodyColumn(table, 1);
+
+    button.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', repeat: true }));
+    expect(bodyColumn(table, 1)).toEqual(authored);
+    expect(th.getAttribute('aria-sort')).toBe('none');
+
+    // The initial, non-repeat press still activates as normal.
+    button.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', repeat: false }));
+    expect(bodyColumn(table, 1)).toEqual(['9', '10', '22', '100']);
+    expect(th.getAttribute('aria-sort')).toBe('ascending');
+
+    // Once sorted, further auto-repeat keydowns must not keep cycling it.
+    button.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', repeat: true }));
+    expect(bodyColumn(table, 1)).toEqual(['9', '10', '22', '100']);
+    expect(th.getAttribute('aria-sort')).toBe('ascending');
+  });
+});
+
+describe('multi-column sort — discoverability hint', { tags: ['ui'] }, () => {
+  it('SortHint_WhenTableHasMoreThanOneSortableColumn_ShowsAVisibleShiftHintNearTheControls', () => {
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    const hint = table.previousElementSibling?.querySelector('.tc-sort-hint');
+    expect(hint).not.toBeNull();
+    expect(hint?.textContent).toContain('Shift');
+    expect(hint?.textContent?.toLowerCase()).toContain('further');
+  });
+
+  it('SortHint_WhenTableHasMoreThanOneSortableColumn_AssociatesItWithEverySortButtonViaAriaDescribedby', () => {
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    const hint = table.previousElementSibling?.querySelector('.tc-sort-hint');
+    const hintId = hint?.getAttribute('id');
+    expect(hintId).toBeTruthy();
+    expect(sortButton(table, 0).getAttribute('aria-describedby')).toBe(hintId);
+    expect(sortButton(table, 1).getAttribute('aria-describedby')).toBe(hintId);
+  });
+
+  it('SortHint_WhenTableHasOnlyOneSortableColumn_OmitsTheHintSinceNoSecondarySortIsPossible', () => {
+    const table = makeTable('<table data-table-controls><caption>One</caption><thead><tr><th>Only</th></tr></thead><tbody><tr><td>b</td></tr><tr><td>a</td></tr></tbody></table>');
+    enhanceTable(table);
+    expect(table.previousElementSibling?.querySelector('.tc-sort-hint')).toBeNull();
+    expect(sortButton(table, 0).hasAttribute('aria-describedby')).toBe(false);
+  });
+
+  it('SortHint_WhenTwoTablesAreOnOnePage_GivesEachItsOwnHintIdSoDescribedbyNeverCrossesTables', () => {
+    const first = makeTable(MULTI_TABLE);
+    const second = makeTable(`
+      <table data-table-controls>
+        <caption>Second table</caption>
+        <thead><tr><th scope="col">A</th><th scope="col">B</th></tr></thead>
+        <tbody><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></tbody>
+      </table>`);
+    enhanceTable(first);
+    enhanceTable(second);
+    const firstHintId = first.previousElementSibling?.querySelector('.tc-sort-hint')?.getAttribute('id');
+    const secondHintId = second.previousElementSibling?.querySelector('.tc-sort-hint')?.getAttribute('id');
+    expect(firstHintId).not.toBe(secondHintId);
+  });
+
+  it('SortHint_WhenTwoUnnamedTablesBothFallBackToTheBareSortParam_StillGetsDistinctHintIdsAndOwnDescribedby', () => {
+    // Neither table has an id or caption, so sortParamName resolves both to
+    // the same bare "sort" — the id must not be derived from that name alone,
+    // or both tables would collide on one duplicate id.
+    const unnamed = () => `
+      <table data-table-controls>
+        <thead><tr><th scope="col">A</th><th scope="col">B</th></tr></thead>
+        <tbody><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></tbody>
+      </table>`;
+    const first = makeTable(unnamed());
+    const second = makeTable(unnamed());
+    enhanceTable(first);
+    enhanceTable(second);
+
+    const firstHint = first.previousElementSibling?.querySelector('.tc-sort-hint');
+    const secondHint = second.previousElementSibling?.querySelector('.tc-sort-hint');
+    const firstHintId = firstHint?.getAttribute('id');
+    const secondHintId = secondHint?.getAttribute('id');
+
+    expect(firstHintId).toBeTruthy();
+    expect(secondHintId).toBeTruthy();
+    expect(firstHintId).not.toBe(secondHintId);
+    // Every id on the page is unique — no duplicate ids at all, not just a
+    // pairwise inequality between the two hints.
+    const allIds = Array.from(document.querySelectorAll('[id]')).map(el => el.getAttribute('id'));
+    expect(allIds.filter(id => id === firstHintId)).toHaveLength(1);
+    expect(allIds.filter(id => id === secondHintId)).toHaveLength(1);
+
+    // Each table's own sort buttons describe their OWN hint, never the other
+    // table's.
+    expect(sortButton(first, 0).getAttribute('aria-describedby')).toBe(firstHintId);
+    expect(sortButton(first, 1).getAttribute('aria-describedby')).toBe(firstHintId);
+    expect(sortButton(second, 0).getAttribute('aria-describedby')).toBe(secondHintId);
+    expect(sortButton(second, 1).getAttribute('aria-describedby')).toBe(secondHintId);
+  });
+});
+
+describe('multi-column sort — announcement', { tags: ['ui'] }, () => {
+  it('Announcement_WhenASecondaryColumnIsAdded_AnnouncesBothColumnsInPriorityOrder', () => {
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    sortButton(table, 0).click();
+    shiftClick(sortButton(table, 1));
+    const status = table.previousElementSibling?.querySelector('.tc-status');
+    expect(status?.textContent).toBe('Sorted by Nation ascending, then Count ascending.');
+  });
+
+  it('Announcement_WhenTheSecondaryDirectionChanges_ReannouncesBothWithTheNewDirection', () => {
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    sortButton(table, 0).click();
+    shiftClick(sortButton(table, 1));
+    shiftClick(sortButton(table, 1)); // Count now descending.
+    const status = table.previousElementSibling?.querySelector('.tc-status');
+    expect(status?.textContent).toBe('Sorted by Nation ascending, then Count descending.');
+  });
+
+  it('Announcement_WhenOnlyOneColumnIsSorted_KeepsTheSingleColumnAnnouncementUnregressed', () => {
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    sortButton(table, 0).click();
+    const status = table.previousElementSibling?.querySelector('.tc-status');
+    expect(status?.textContent).toBe('Sorted by Nation ascending.');
+  });
+});
+
 describe('sort — deep link', { tags: ['ui'] }, () => {
   it('SortDeepLink_WhenAColumnIsSorted_WritesAShareableSortParamToTheUrl', () => {
     const table = makeTable(MULTI_TABLE);
