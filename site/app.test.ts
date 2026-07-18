@@ -3,7 +3,8 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { makeRunLookup, registerHistoryHeader, seriesLink, suffixLink,
-  LIST_SORT_COLUMNS, listOrderBy, nextSort, sortToParam, sortFromParam, renderTable, observedFlags } from './app.js';
+  LIST_SORT_COLUMNS, listOrderBy, nextSort, sortToParam, sortFromParam, renderTable, observedFlags,
+  registerHistoryTable, foiHistoryTable } from './app.js';
 
 // The lookup page routes its PRIMARY database open + query through the shared
 // loading affordance (issues #499/#506), exactly as Explore and the Playground
@@ -380,5 +381,95 @@ describe('Register-row flags shown on the lookup card (issue #802)', { tags: ['u
     // naively appending the cross-reference to the end of the list would
     // break that documented order.
     expect(observedFlags({ flags: 'whitespace', parse_status: 'unparseable' })).toEqual(['unparseable-callsign', 'whitespace']);
+  });
+});
+
+// The two longitudinal-history cards in the lookup tool (#811, follow-up to
+// #551/#809) used to print raw ISO dates - the register-history publication
+// column and the FOI-history vintage/event dates. They now route through the
+// shared date/time helper (site/datetime.js) at full-date precision (a detail
+// view of one callsign), keeping the canonical ISO value where the reader can
+// still reach it (the link title/href, the wrapper's title). The pure table
+// builders are exported purely so this render is asserted directly, without
+// the module-level cached combined-database worker that has no injection seam.
+describe('register-history table humanises publication dates (#811)', { tags: ['ui'] }, () => {
+  const dataset = {
+    dataset: '2024-01-15', record_count: 150000, intended_complete: 'true', coverage_affecting: '',
+  };
+
+  it('RegisterHistoryTable_WhenRenderingAPublication_ShowsAHumanisedDateWithTheExactIsoOnTheLink', () => {
+    // A reader sees "15 January 2024", not the raw "2024-01-15"; the exact key
+    // is still one hover away (the link title) and drives the link's href, so
+    // the machine value is never lost - only the raw form stops being the
+    // reader-facing text (canonical-at-rest, humanise-at-the-edge).
+    const card = registerHistoryTable([dataset], [{ dataset: '2024-01-15', callsign: 'M7TEE', status: 'Allocated', product: 'Amateur' }]);
+    const link = card?.querySelector('tbody a');
+    expect(link?.textContent).toBe('15 January 2024');
+    expect(link?.getAttribute('title')).toBe('2024-01-15');
+    expect(link?.getAttribute('href')).toBe('datasets/open-data/2024-01-15/index.html');
+    // No raw ISO date is left as reader-facing text anywhere in the table body.
+    expect(card?.querySelector('tbody')?.textContent).not.toContain('2024-01-15');
+  });
+
+  it('RegisterHistoryTable_WhenThePublicationKeyIsNotADate_ShowsItUntouchedNeverUndefined', () => {
+    // Non-happy path: a publication key the helper cannot parse as a date is
+    // shown verbatim rather than being coerced into a fabricated "undefined"
+    // or "NaN" - honest degradation, the same guarantee raw tokens carry.
+    const card = registerHistoryTable(
+      [{ dataset: 'rolling-latest', record_count: 10, intended_complete: 'false', coverage_affecting: '' }],
+      [{ dataset: 'rolling-latest', callsign: 'M7TEE', status: 'Allocated', product: 'Amateur' }]);
+    const link = card?.querySelector('tbody a');
+    expect(link?.textContent).toBe('rolling-latest');
+    expect(card?.textContent).not.toMatch(/undefined|NaN/);
+  });
+});
+
+describe('FOI-history table humanises vintage and event dates (#811)', { tags: ['ui'] }, () => {
+  const baseRow = {
+    callsign: 'M7TEE', entry: 'foi-2020', dataset_classes: 'register',
+    vintage: null as string | null, status: null as string | null, licence_class: null as string | null,
+    event: null as string | null, event_date: null as string | null,
+  };
+
+  it('FoiHistoryTable_WhenRenderingAVintage_ShowsAHumanisedDateWithTheExactIsoOnHover', () => {
+    // The vintage column reads "1 May 2020" for the reader; the exact reported
+    // day survives on the shared wrapper's title, so hovering recovers it.
+    const card = foiHistoryTable([{ ...baseRow, vintage: '2020-05-01', status: 'Allocated' }], 'M7TEE');
+    const vintageSpan = card?.querySelector('tbody tr td .ts');
+    expect(vintageSpan?.textContent).toBe('1 May 2020');
+    expect(vintageSpan?.getAttribute('title')).toBe('2020-05-01');
+    expect(card?.querySelector('tbody')?.textContent).not.toContain('2020-05-01');
+  });
+
+  it('FoiHistoryTable_WhenAnEventCarriesADate_HumanisesTheEventDateWithTheExactIsoOnHover', () => {
+    // An issuance event's date is humanised inline too - "first licensed
+    // (30 April 2020)" - with the raw ISO retained on the wrapper's title.
+    const card = foiHistoryTable(
+      [{ ...baseRow, dataset_classes: 'issuance', event: 'first licensed', event_date: '2020-04-30' }], 'M7TEE');
+    const observationCell = card?.querySelectorAll('tbody tr td')[1];
+    expect(observationCell?.textContent).toContain('first licensed');
+    expect(observationCell?.textContent).toContain('30 April 2020');
+    expect(observationCell?.querySelector('.ts')?.getAttribute('title')).toBe('2020-04-30');
+    expect(observationCell?.textContent).not.toContain('2020-04-30');
+  });
+
+  it('FoiHistoryTable_WhenAVintageIsAbsent_ShowsAnEmDashNotUndefined', () => {
+    // The FOI source never dated this observation (vintage NULL): the cell
+    // degrades to a plain em dash, never a fabricated "undefined"/"NaN".
+    const card = foiHistoryTable([{ ...baseRow, vintage: null, status: 'Allocated' }], 'M7TEE');
+    const vintageCell = card?.querySelector('tbody tr td');
+    expect(vintageCell?.textContent).toBe('—');
+    expect(card?.textContent).not.toMatch(/undefined|NaN/);
+  });
+
+  it('FoiHistoryTable_WhenAVintageIsMalformedFreeText_ShowsTheRawValueNeverUndefinedOrNaN', () => {
+    // Non-happy path: a vintage that is not an ISO date (free text a source may
+    // have carried) is shown exactly as recorded rather than being formatted
+    // into a fabricated month - the raw value is the honest fallback.
+    const card = foiHistoryTable([{ ...baseRow, vintage: 'circa 2019', status: 'Allocated' }], 'M7TEE');
+    const vintageSpan = card?.querySelector('tbody tr td .ts');
+    expect(vintageSpan?.textContent).toBe('circa 2019');
+    expect(vintageSpan?.getAttribute('title')).toBe('circa 2019');
+    expect(card?.textContent).not.toMatch(/undefined|NaN/);
   });
 });
