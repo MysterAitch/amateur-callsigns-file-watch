@@ -148,11 +148,29 @@ describe('forbidden-suffix claims are raw-only and carry their tokens verbatim',
     // Distinct observations: different ordinals, same verbatim token.
     expect(new Set(zitListed.map(claim => claim.provenance.ordinal)).size).toBe(2);
 
-    // The sheet-level 'Type' = Forbidden discriminator is authored furniture
-    // (ignoredColumns), so it never becomes a bogus per-row attribute claim -
-    // the forbidden sheet emits an existence claim per suffix and nothing else.
-    expect(claims.some(claim => claim.predicate === 'Type')).toBe(false);
-    expect(claims.every(claim => claim.predicate === LISTED_PREDICATE)).toBe(true);
+    // The sheet's constant 'Type' column rides VERBATIM as a raw claim per row
+    // (issue #813 Stage D): 'Forbidden' on every row IS a published byte, and
+    // without it the sheet cannot reconstruct from the ledger. The converter's
+    // ignoredColumns entry still VERIFIES the constant at normalise time; the
+    // history fold reads dated provenance by its authored header name, so a
+    // carried constant never masquerades as a date.
+    const typeClaims = claims.filter(claim => claim.predicate === 'Type');
+    expect(typeClaims.length).toBe(observationSet.rows.length);
+    expect(typeClaims.every(claim => claim.object === 'Forbidden')).toBe(true);
+    expect(claims.every(claim => claim.predicate === LISTED_PREDICATE || claim.predicate === 'Type')).toBe(true);
+  });
+
+  it('ForbiddenSource_WhenLoaded_AttestsTheReconstructionRouting', () => {
+    // Structural coverage (issue #813 Stage D) makes every registered source a
+    // reconstruction source: the forbidden loader now attests per-row source
+    // lines, the header line and the true repo path/encoding, so the oracle
+    // rebuilds each forbidden sheet from the persisted claims.
+    for (const source of collectForbiddenListSources(FOI_DIR)) {
+      const observationSet = source.load();
+      expect(observationSet.repoPath).toBe(`archive/${observationSet.sourceFile}`);
+      expect(observationSet.lineNumbers?.length).toBe(observationSet.rows.length);
+      expect(observationSet.headerLine).toBe(1);
+    }
   });
 
   it('ForbiddenSuffixRawLayer_WhenFoldedBack_ReproducesThePublishedSheet', () => {

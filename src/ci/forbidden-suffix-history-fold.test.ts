@@ -66,8 +66,11 @@ function writeForbiddenFixtureLedger(): { dir: string; sources: ForbiddenLedgerS
   fs.writeFileSync(path.join(dir, `${stem1}.jsonl`), serialiseClaimsJsonl(emitClaims(d1)));
 
   const sources: ForbiddenLedgerSource[] = [
-    { entry: 'fixture-2016', vintage: '2016-09', normalisedFileName: 'normalised--list.csv', jsonlStem: stem0, emit: () => [] },
-    { entry: 'fixture-2024', vintage: '2024-12', normalisedFileName: 'normalised--list.csv', jsonlStem: stem1, emit: () => [] },
+    // The date column is declared by name, as the real enumerator lifts it off
+    // the authored binding (issue #813 Stage D): the 2016 fixture declares
+    // none, the 2024 fixture its LastModifiedDate header.
+    { entry: 'fixture-2016', vintage: '2016-09', normalisedFileName: 'normalised--list.csv', jsonlStem: stem0, lastModifiedPredicate: null, emit: () => [] },
+    { entry: 'fixture-2024', vintage: '2024-12', normalisedFileName: 'normalised--list.csv', jsonlStem: stem1, lastModifiedPredicate: 'LastModifiedDate', emit: () => [] },
   ];
   return { dir: root, sources };
 }

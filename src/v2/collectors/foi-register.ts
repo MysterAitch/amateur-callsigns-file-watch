@@ -201,6 +201,7 @@ export function collectFoiRegisterSources(foiDir: string = defaultFoiDir()): Res
         family: 'foi-register',
         subjectKind: 'callsign',
         entry,
+        sourceFile: `foi/${entry}/${source.conversion.sourceFile}`,
         jsonlStem: jsonlStem(entry, source.conversion.sourceFile),
         load: () => loadRegisterSource(foiDir, entry, meta, source),
       });

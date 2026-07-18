@@ -53,6 +53,7 @@ import {
   STRIPPED_COLLISION_FLAG,
   FLAG_PREDICATE,
   AUTHORED_EVENT_RULE,
+  AUTHORED_ROLE_RULE,
   PARSE_CALLSIGN_RULE,
   PARSE_STATUS_PREDICATE,
   PREFIX_SERIES_PREDICATE,
@@ -130,6 +131,7 @@ const RULE_GLOSSES: ReadonlyMap<string, string> = new Map([
   [PARSE_CALLSIGN_RULE, 'Computed by the callsign parser from the raw token (with the reference tables).'],
   [STRIPPED_COLLISION_RULE, 'The junk-stripped form coexists as its own row in the same source.'],
   [AUTHORED_EVENT_RULE, 'The event word is our authored reading of the disclosure\'s own covering-letter framing, not a published cell.'],
+  [AUTHORED_ROLE_RULE, 'The role name is our authored reading of the source\'s own cell or sheet-level statement, assigned by the conversion binding.'],
 ]);
 
 function ruleGlossFor(rule: string): string {
@@ -475,6 +477,43 @@ function explainAuthoredEvent(claim: Claim, ledger: readonly Claim[]): Working {
   ], claim.object);
 }
 
+// ---- authored-binding-role (issue #813 Stage D) -----------------------------
+
+// The working behind an authored-binding-role claim. The role NAME is the
+// authored binding's assignment (a lookup - nothing to compute); the VALUE is
+// re-checkable from the ledger where it is a published cell: a role value read
+// from a source column coexists as a raw claim of the SAME observation (or as
+// the observation's own subject token, when the binding's role column IS the
+// subject column - the pool suffix sheets), and that witness is cited as an
+// input. A value with no raw witness is the binding's sheet-level authored
+// constant (a stated class or prefix), for which only the binding itself can
+// vouch - cited as the authored-binding origin, exactly as the authored-event
+// arm does.
+function explainAuthoredRole(claim: Claim, ledger: readonly Claim[]): Working {
+  const anchor = observationAnchor(claim, ledger);
+  const inputs: WorkingInput[] = [];
+  const witness = sameObservationRawClaims(claim, ledger).find(c =>
+    c.predicate === LISTED_PREDICATE ? c.rawSubject === claim.object : c.object === claim.object);
+  if (witness !== undefined) {
+    inputs.push({
+      role: 'source-cell',
+      value: claim.object,
+      origin: { kind: 'raw-claim', sourceFile: witness.provenance.sourceFile, ordinal: witness.provenance.ordinal, predicate: witness.predicate },
+    });
+  } else {
+    inputs.push(rawTokenInput(anchor));
+  }
+  inputs.push({
+    role: 'authored-role-assignment',
+    value: claim.predicate,
+    origin: { kind: 'authored-binding', registry: 'FOI_ENTRY_CONVERSIONS', sourceFile: claim.provenance.sourceFile },
+  });
+  const basis = witness !== undefined
+    ? `the binding reads this observation's "${witness.predicate === LISTED_PREDICATE ? 'subject' : witness.predicate}" cell under the authored role name "${claim.predicate}"`
+    : `the binding pins the sheet-level authored constant for the role "${claim.predicate}"`;
+  return buildWorking(claim, inputs, [{ detail: basis, to: claim.object }], claim.object);
+}
+
 // ---- the dispatcher ---------------------------------------------------------
 
 // Reconstruct the working behind a derived claim. `ledger` is the claims of the
@@ -501,6 +540,7 @@ export function explain(claim: Claim, ledger: readonly Claim[], ref: ReferenceDa
     case LICENCE_CATEGORY_RULE: return explainLicenceCategory(claim, sameSource, ref);
     case STRIPPED_COLLISION_RULE: return explainStrippedCollision(claim, sameSource);
     case AUTHORED_EVENT_RULE: return explainAuthoredEvent(claim, sameSource);
+    case AUTHORED_ROLE_RULE: return explainAuthoredRole(claim, sameSource);
     case PARSE_CALLSIGN_RULE: return explainParse(claim, sameSource, ref);
     default:
       throw new Error(`explain: unknown rule "${rule}" on ${claim.provenance.sourceFile}#${claim.provenance.ordinal}:${claim.predicate} — an unexplainable derived claim`);

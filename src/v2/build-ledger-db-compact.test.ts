@@ -156,12 +156,14 @@ describe('source position is stored on the observation and round-trips (issue #4
   it('EveryObservation_WhenBuiltFromCsvLane_CarriesACsvLinePositionAndRepoPath', () => {
     const db = openDb(compactPath);
     try {
-      // The register and available-pool lanes attest positions, so none of
-      // their observations may be left without one - a NULL there would be a
-      // silently dropped attestation. The forbidden-suffix and statistics
-      // loaders attest no position yet, so EXACTLY those two sources carry a
-      // NULL repo_path - pinned by name so a register/pool loader that stopped
-      // attesting would fail here rather than silently joining the NULL set.
+      // Every CSV lane attests positions - the register, available-pool and
+      // (since issue #813 Stage D's lossless emit) forbidden-suffix loaders -
+      // so none of their observations may be left without one: a NULL there
+      // would be a silently dropped attestation. Only a markdown-table source
+      // attests no per-row line (the canonical table render needs none), so
+      // EXACTLY the statistics extract carries a NULL repo_path - pinned by
+      // name so a CSV loader that stopped attesting would fail here rather
+      // than silently joining the NULL set.
       const missing = Number((db.prepare(`
         SELECT COUNT(*) c FROM observation o JOIN source s ON s.source_id = o.source_id
         WHERE s.repo_path IS NOT NULL AND (o.pos_kind IS NOT 'csv-line' OR o.pos_line IS NULL)
@@ -169,7 +171,6 @@ describe('source position is stored on the observation and round-trips (issue #4
       expect(missing).toBe(0);
       const unpositioned = (db.prepare('SELECT source_file FROM source WHERE repo_path IS NULL ORDER BY source_file').all() as { source_file: string }[]).map(r => r.source_file);
       expect(unpositioned).toEqual([
-        'foi/ofcom-2024-12--forbidden-suffixes/forbidden-amateur-radio-callsigns.csv',
         'foi/wdtk-184767--annual-licence-counts/raw-extract-number-of-licences-coleman.md',
       ]);
     } finally {

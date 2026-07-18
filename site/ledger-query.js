@@ -485,6 +485,7 @@ export const RULE_GLOSSES = {
   'parse-callsign': 'Computed by the callsign parser from the published form (with the reference tables).',
   'stripped-collision': 'The plain-character form of this value coexists as its own row in the same source.',
   'authored-event-vocabulary': 'The event word is our reading of the disclosure’s own covering-letter framing, not a published cell.',
+  'authored-binding-role': 'The role name is our reading of the source’s own cell or sheet-level statement, assigned by the conversion binding.',
 };
 
 // Non-accusatory notes for the derived data-quality flags the ledger can carry

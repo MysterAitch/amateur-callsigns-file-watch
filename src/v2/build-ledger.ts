@@ -82,7 +82,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { emitLedger, emitClaims, emitFileManifestClaims, type Claim, type SourceObservationSet } from './claim.ts';
+import { emitLedger, emitClaims, emitAuthoredRoleClaims, emitFileManifestClaims, type Claim, type SourceObservationSet } from './claim.ts';
 import { serialiseClaimsJsonl } from './serialise.ts';
 import type { SubjectKind } from './collectors/types.ts';
 import { errorMessage } from '../shared/utils.ts';
@@ -134,15 +134,40 @@ export interface SkippedSource {
 
 // The canonical per-source claim stream the ledger persists: the raw layer
 // (existence + verbatim attribute claims, plus the derived normalisation/tier
-// claims for a callsign subject) FOLLOWED BY the file-level manifest (issue
-// #434/#455, ADR 0016). A callsign subject runs the full emit path (cleanedCallsign
-// + normalises_to edges + tiers); any other subject kind emits the raw
-// observation claims only, so a non-callsign token is never mis-normalised AS a
-// callsign. The manifest is appended LAST so the per-row existence anchor stays
-// claims[0] - the claim the projections read the source key and vintage off.
+// claims for a callsign subject), any derived authored-binding-role claims the
+// source attests (issue #813 Stage D - the available-pool role vocabulary,
+// derived because an authored word is not a published byte), FOLLOWED BY the
+// file-level manifest (issue #434/#455, ADR 0016). A callsign subject runs the
+// full emit path (cleanedCallsign + normalises_to edges + tiers); any other
+// subject kind emits the raw observation claims only, so a non-callsign token
+// is never mis-normalised AS a callsign. The manifest is appended LAST so the
+// per-row existence anchor stays claims[0] - the claim the projections read the
+// source key and vintage off.
 export function emitSourceLedgerClaims(source: SourceObservationSet, subjectKind: SubjectKind, ref: ReferenceData): Claim[] {
   const claims = subjectKind === 'callsign' ? emitLedger(source, ref) : emitClaims(source);
-  return [...claims, ...emitFileManifestClaims(source)];
+  return [...claims, ...emitAuthoredRoleClaims(source), ...emitFileManifestClaims(source)];
+}
+
+// The emit-time sole-emitter precondition (issue #813 Stage D, design §1a):
+// exactly one family emits per sourceFile, and a loader must emit under the
+// exact key its resolution declared (the key structural coverage and the
+// sole-emitter reasoning key off). Both violations abort the build - a
+// scope-predicate overlap or a declaration drift is a build-integrity failure,
+// never something to persist and detect later. Exported so the failure modes
+// are unit-testable without constructing a colliding real archive.
+export function registerEmittedSource(
+  emittedBy: Map<string, string>,
+  declared: { family: string; entry: string; sourceFile: string },
+  actualSourceFile: string,
+): void {
+  if (actualSourceFile !== declared.sourceFile) {
+    throw new Error(`[${declared.family}] ${declared.entry}: loader emitted sourceFile "${actualSourceFile}" but the resolution declared "${declared.sourceFile}" - the declared key is what structural coverage and the sole-emitter check reason over, so a drift is a build-integrity failure`);
+  }
+  const priorEmitter = emittedBy.get(declared.sourceFile);
+  if (priorEmitter !== undefined) {
+    throw new Error(`duplicate sourceFile "${declared.sourceFile}": emitted by both "${priorEmitter}" and "${declared.family}" - exactly one family may emit per source (issue #813, the sole-emitter invariant)`);
+  }
+  emittedBy.set(declared.sourceFile, declared.family);
 }
 
 function tallyLayers(claims: readonly Claim[]): { raw: number; derived: number } {
@@ -200,6 +225,13 @@ export function buildLedger(
   for (const family of FAMILIES) entriesSeen[family] = new Set();
 
   const roots: LedgerRoots = { foiDir, archiveDir: defaultArchiveDir() };
+  // The sole-emitter invariant as an emit-time PRECONDITION (issue #813 Stage
+  // D, design §1a): exactly one family emits per sourceFile. The corpus-level
+  // test asserts the same invariant after the fact; failing here makes the
+  // double-count class impossible to PERSIST at all - a scope-predicate overlap
+  // aborts the build naming both emitters, even in a lenient skipFailedSources
+  // run (an overlap is a build-integrity failure, not a bad source).
+  const emittedBy = new Map<string, string>();
   for (const source of collectLedgerSources(roots)) {
     if (selectEntry !== undefined && !selectEntry(source.entry)) continue;
     let observationSet;
@@ -215,6 +247,7 @@ export function buildLedger(
       skipped.push({ family: source.family, entry: source.entry, error: errorMessage(err) });
       continue;
     }
+    registerEmittedSource(emittedBy, { family: source.family, entry: source.entry, sourceFile: source.sourceFile }, observationSet.sourceFile);
     const { raw, derived } = tallyLayers(claims);
     fs.writeFileSync(path.join(ledgerDir, `${source.jsonlStem}.jsonl`), serialiseClaimsJsonl(claims));
     entriesSeen[source.family].add(source.entry);
