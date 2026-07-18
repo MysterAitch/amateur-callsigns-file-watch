@@ -243,11 +243,18 @@ export function sortFromParam(raw, isKnownKey) {
   if (!raw) return [];
   /** @type {SortEntry[]} */
   const out = [];
+  const seen = new Set();
   for (const token of raw.split(',')) {
-    const [key, dir] = token.split(':');
-    if (!key) continue;
+    const [rawKey, rawDir] = token.split(':');
+    const key = (rawKey ?? '').trim();
+    // Trim and de-duplicate so a stale or hand-edited link ("count:asc,
+    // count:desc", or stray spaces) degrades to a coherent spec rather than
+    // duplicate columns with conflicting directions: the first occurrence of a
+    // key wins, later repeats are dropped.
+    if (key === '' || seen.has(key)) continue;
     if (isKnownKey !== undefined && !isKnownKey(key)) continue;
-    out.push({ key, dir: (dir ?? '').toLowerCase() === 'desc' ? 'desc' : 'asc' });
+    seen.add(key);
+    out.push({ key, dir: (rawDir ?? '').trim().toLowerCase() === 'desc' ? 'desc' : 'asc' });
   }
   return out;
 }

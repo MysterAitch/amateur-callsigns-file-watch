@@ -188,6 +188,15 @@ describe('table-sort deep link', { tags: ['unit'] }, () => {
     expect(sortFromParam('gone:asc,status:desc', k => known.has(k)))
       .toEqual([{ key: 'status', dir: 'desc' }]);
   });
+
+  it('SortFromParam_WhenALinkHasStraySpacesOrRepeatsAKey_TrimsAndKeepsTheFirstOccurrence', () => {
+    // A stale or hand-edited link should degrade to a coherent spec, not a
+    // confusing one with duplicate columns and conflicting directions.
+    expect(sortFromParam(' count : asc , status:desc '))
+      .toEqual([{ key: 'count', dir: 'asc' }, { key: 'status', dir: 'desc' }]);
+    expect(sortFromParam('count:asc,count:desc'))
+      .toEqual([{ key: 'count', dir: 'asc' }]);
+  });
 });
 
 describe('table-sort aria mapping', { tags: ['unit'] }, () => {

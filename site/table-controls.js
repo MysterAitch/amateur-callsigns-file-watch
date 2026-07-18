@@ -346,10 +346,11 @@ function uniqueColumnKey(canonical, index, used) {
 
 // The `?sort=` parameter name a table syncs to. A table with an id (or, failing
 // that, a caption) namespaces its sort into `sort.<id>` so several sortable
-// tables on one page do not fight over a single param; an un-named table uses the
-// bare `sort`. Deep-linking is a persistence nicety layered on top of the sort,
-// never a requirement for it — a table with no stable name still sorts, it just
-// does not persist that choice to the URL.
+// tables on one page do not fight over a single param; a table with no stable
+// name (or one keyed only as the generic "table") falls back to the bare `sort`.
+// Deep-linking is a persistence nicety layered on top of the sort, never a
+// requirement for it — the sort works regardless of whether a stable name is
+// available (two unnamed tables on one page would simply share the bare param).
 /**
  * @param {HTMLTableElement} table
  * @returns {string}
