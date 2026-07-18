@@ -38,6 +38,12 @@ import {
 import type { ValidationProblem } from './validate-data.ts';
 
 const SHA256_RE = /^[0-9a-f]{64}$/;
+// A defined dataVintage must be ISO year / year-month / year-month-day. The
+// downstream year-grouping (vintageYear in build-publisher-pages.ts, shared
+// with build-front-door.ts) assumes exactly this shape; a free-text value
+// such as "various" or "unknown" would silently fail that parse rather than
+// erroring here where it can be named and fixed (#812).
+const ISO_VINTAGE_RE = /^\d{4}(-\d{2}(-\d{2})?)?$/;
 // relatedEntries values that look like entry keys must name real siblings;
 // free-text references (drop-zone pointers etc.) contain spaces or slashes
 // and are provenance prose, not links.
@@ -157,6 +163,14 @@ export function validateFoiEntry(foiDir: string, key: string): ValidationProblem
     }
   } else if (meta.datasetRecovery !== undefined) {
     problems.push({ path: metaPath, problem: 'datasetRecovery declared but nothing is attested (no data files, null dataVintage)' });
+  }
+
+  // 8b: dataVintage format - null/absent stays allowed (checked above); a
+  // defined value must parse as an ISO year, year-month or year-month-day.
+  if (meta.dataVintage !== null && meta.dataVintage !== undefined) {
+    if (typeof meta.dataVintage !== 'string' || !ISO_VINTAGE_RE.test(meta.dataVintage)) {
+      problems.push({ path: metaPath, problem: `dataVintage ${JSON.stringify(meta.dataVintage)} is not an ISO year, year-month, or year-month-day` });
+    }
   }
 
   // 9: converter binding referential integrity.

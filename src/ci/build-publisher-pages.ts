@@ -813,9 +813,18 @@ function holdingRow(h: Holding, depthToRoot: number, idPrefix: string, marks: Ho
   ].filter(s => s !== '').join('');
 }
 
-// A holding's vintage year, or undefined when undated.
-function vintageYear(h: Holding): number | undefined {
-  return h.vintage === undefined ? undefined : Number(h.vintage.slice(0, 4));
+// A holding's vintage year, or undefined when undated OR when the vintage is
+// not ISO-year-leading (a free-text value such as "various" or "unknown" -
+// see validate-foi.ts's format gate, which is meant to keep such a value out
+// of committed data, but this guard is the defence-in-depth backstop). A bare
+// `Number(vintage.slice(0, 4))` would silently produce NaN for such a value,
+// and NaN passes a `!== undefined` filter, poisoning Math.min/Math.max and
+// blanking the whole year-grouped map/timeline with no error (the defect
+// tracked by #812). Exported so build-front-door.ts shares this one
+// definition rather than carrying its own copy.
+export function vintageYear(h: Holding): number | undefined {
+  const match = /^(\d{4})/.exec(h.vintage ?? '');
+  return match === null ? undefined : Number(match[1]);
 }
 
 // Newest first within a year group; a stable key tiebreak keeps the build
@@ -831,8 +840,11 @@ function byVintageThenKeyDesc(a: Holding, b: Holding): number {
 // visible gap. Each cell links to its row (:target highlights it) and spells out
 // title, kind and vintage for assistive tech; a legend maps letter+tint to kind.
 function holdingsMap(holdings: Holding[], depthToRoot: number, idPrefix: string, overviewLabel: string): string {
-  const dated = holdings.filter(h => h.vintage !== undefined);
-  const undated = holdings.filter(h => h.vintage === undefined);
+  // Keyed on vintageYear, not raw vintage presence: an entry whose vintage is
+  // defined but not ISO-year-leading has no year to stack it under, so it
+  // belongs with the undated group rather than vanishing from both.
+  const dated = holdings.filter(h => vintageYear(h) !== undefined);
+  const undated = holdings.filter(h => vintageYear(h) === undefined);
 
   const cell = (h: Holding): string => {
     const cls = primaryClass(h);
@@ -881,7 +893,10 @@ function holdingsMap(holdings: Holding[], depthToRoot: number, idPrefix: string,
 function holdingsComposite(holdings: Holding[], depthToRoot: number, idPrefix: string, overviewLabel: string, forPublisherId?: string): string {
   if (holdings.length === 0) return '';
 
-  const dated = holdings.filter(h => h.vintage !== undefined);
+  // Keyed on vintageYear (see holdingsMap above): a defined-but-unparseable
+  // vintage has no year to sort or mark "earliest" by, so it groups with the
+  // genuinely undated entries rather than vanishing from every bucket.
+  const dated = holdings.filter(h => vintageYear(h) !== undefined);
   const earliest = dated.slice().sort((a, b) => (a.vintage ?? '').localeCompare(b.vintage ?? '') || a.key.localeCompare(b.key))[0];
   const scaled = holdings.filter(h => (h.recordCount ?? 0) > 0);
   const largest = scaled.slice().sort((a, b) => (b.recordCount ?? 0) - (a.recordCount ?? 0) || a.key.localeCompare(b.key))[0];
@@ -902,7 +917,7 @@ function holdingsComposite(holdings: Holding[], depthToRoot: number, idPrefix: s
     const rows = inYear.map(h => holdingRow(h, depthToRoot, idPrefix, marks, forPublisherId)).join('');
     groups.push(`<li class="hold-yeargroup"><h4 class="hold-yearhead"><span class="hold-yearnum">${year}</span> <span class="hold-yearcount">${inYear.length} dataset${inYear.length > 1 ? 's' : ''}</span></h4><ol class="hold-rows">${rows}</ol></li>`);
   }
-  const undated = holdings.filter(h => h.vintage === undefined).sort((a, b) => a.key.localeCompare(b.key));
+  const undated = holdings.filter(h => vintageYear(h) === undefined).sort((a, b) => a.key.localeCompare(b.key));
   if (undated.length > 0) {
     const rows = undated.map(h => holdingRow(h, depthToRoot, idPrefix, marks, forPublisherId)).join('');
     groups.push(`<li class="hold-yeargroup hold-yeargroup--undated"><h4 class="hold-yearhead"><span class="hold-yearnum">Undated</span> <span class="hold-yearcount">${undated.length} dataset${undated.length > 1 ? 's' : ''}</span></h4><ol class="hold-rows">${rows}</ol></li>`);

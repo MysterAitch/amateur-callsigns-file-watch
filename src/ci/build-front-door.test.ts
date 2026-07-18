@@ -126,6 +126,40 @@ describe('Home holdings map (issue #712)', { tags: ['unit'] }, () => {
   });
 });
 
+// #812: a confirmed dormant defect. The home-page map's vintageYear used to
+// compute Number(h.vintage.slice(0, 4)) unguarded - a holding with a defined
+// but non-ISO vintage (e.g. "various") produced NaN, which PASSES a `!==
+// undefined` filter, poisoning Math.min/Math.max over the WHOLE corpus so the
+// year loop never iterated and the entire map rendered empty with no error.
+// validate-foi.ts now rejects such a value at authoring time; this is the
+// render-side defence-in-depth backstop.
+describe('Home holdings map — a non-ISO vintage does not blank the whole map (#812)', { tags: ['unit'] }, () => {
+  const MIXED: Holding[] = [
+    ...FIXTURE,
+    holding({ key: 'wdtk-3-various', lane: 'foi', title: 'A disclosure with an unparseable vintage', datasetClasses: ['reference-context'], vintage: 'various' }),
+  ];
+  const html = renderHoldingsMap(MIXED);
+
+  it('MixedVintages_NonIsoHolding_JoinsTheUndatedRowInstead', () => {
+    // The undated row is the last one rendered (after every year group), so
+    // everything from its label onward is that one row's own cells.
+    const undatedIdx = html.indexOf('>undated</span>');
+    expect(undatedIdx).toBeGreaterThan(-1);
+    expect(html.slice(undatedIdx)).toContain('datasets/foi/wdtk-3-various/index.html');
+  });
+
+  it('MixedVintages_IsoDatedHoldings_StillRenderUnderTheirYears', () => {
+    // Before the fix this whole block was empty - every ISO-dated cell in
+    // FIXTURE vanished along with the "various" one.
+    const hrefs = [...html.matchAll(/<a class="hold-cell[^"]*"[^>]*href="([^"]+)"/g)].map(m => m[1]);
+    expect(hrefs).toContain('datasets/open-data/2026-06-23/index.html');
+    expect(hrefs).toContain('datasets/open-data/2025-01-14/index.html');
+    expect(hrefs).toContain('datasets/foi/wdtk-1-forbidden/index.html');
+    expect(hrefs).toHaveLength(MIXED.length);
+    expect(html).toMatch(/<span class="hold-map-yrlab">2026<\/span>/);
+  });
+});
+
 describe('Home figure injection (issue #712)', { tags: ['unit'] }, () => {
   const fig: HomeFigures = {
     callsigns: 158318, datasets: 62, spanFrom: 2013, spanTo: 2026,

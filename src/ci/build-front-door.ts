@@ -35,6 +35,7 @@ import {
   holdingEntryHref,
   kindLetter,
   primaryClass,
+  vintageYear,
   type Holding,
 } from './build-publisher-pages.ts';
 import { humaniseClassKey } from './dataset-class-overviews.ts';
@@ -106,11 +107,6 @@ function derivedAtLabel(): string {
   return m ? humanDate(`${m[1]}-${m[2]}-${m[3]}`) : humanDate(new Date().toISOString().slice(0, 10));
 }
 
-// A holding's vintage year, or undefined when undated.
-function vintageYear(h: Holding): number | undefined {
-  return h.vintage === undefined ? undefined : Number(h.vintage.slice(0, 4));
-}
-
 // Newest first within a year group; a stable key tiebreak keeps the output
 // deterministic across re-crawls.
 function byVintageThenKeyDesc(a: Holding, b: Holding): number {
@@ -179,8 +175,11 @@ function mapCell(h: Holding, latestKey: string | undefined): string {
 // keyboard skip steps past the cells. Exported so a test can assert the cells
 // deep-link to real dataset pages.
 export function renderHoldingsMap(holdings: Holding[], afterAnchor = 'past-holdings'): string {
-  const dated = holdings.filter(h => h.vintage !== undefined);
-  const undated = holdings.filter(h => h.vintage === undefined);
+  // Keyed on vintageYear, not raw vintage presence: an entry whose vintage is
+  // defined but not ISO-year-leading has no year to stack it under, so it
+  // groups with the undated cells rather than vanishing from both.
+  const dated = holdings.filter(h => vintageYear(h) !== undefined);
+  const undated = holdings.filter(h => vintageYear(h) === undefined);
   const latestKey = latestSnapshotKey(holdings);
 
   const yearRows: string[] = [];
