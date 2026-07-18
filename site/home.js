@@ -5,7 +5,10 @@
 // usable: the search box is the plain lookup form app.js drives, the holdings
 // map and headline figures are static HTML pre-rendered at deploy time
 // (src/ci/build-front-door.ts), the first surprise fact is in the markup, the
-// role-tab panels are all present, and the "jump back" chips are simply hidden.
+// role-tab panels are all present and visible (stacked, each under its own
+// heading — wireTabs() below is the only thing that ever hides the inactive
+// ones, and only once it actually runs), and the "jump back" chips are simply
+// hidden.
 // This file layers on top: the search box's type-ahead, the surprise-card
 // rotation, the holdings-map hover/focus readout and its richer per-cell
 // popover (#741), single-panel tab behaviour, the returning-visitor chips, and
@@ -442,6 +445,15 @@ export function renderRecents(container) {
 }
 
 // Accessible role tabs: roving tabindex, arrow-key navigation, Home/End.
+//
+// The static markup ships every panel visible (the no-JS baseline — see the
+// header comment above and the markup comment in index.html above the
+// tablist): nothing script-only is the sole path to content that exists in
+// the page. This function is what turns that stacked reading order into an
+// actual single-panel tab widget, so the very first thing it does is apply
+// the initial selection itself — hiding every panel but the one already
+// marked aria-selected="true" (or the first tab, if none is) — rather than
+// assuming the markup already hid them.
 /** @param {HTMLElement[]} tabs */
 export function wireTabs(tabs) {
   if (tabs.length === 0) return;
@@ -455,6 +467,8 @@ export function wireTabs(tabs) {
       if (panel) panel.hidden = !on;
     }
   }
+  const initiallySelected = tabs.find((t) => t.getAttribute('aria-selected') === 'true') ?? tabs[0];
+  select(initiallySelected);
   tabs.forEach((tab, i) => {
     tab.addEventListener('click', () => select(tab));
     tab.addEventListener('keydown', (e) => {

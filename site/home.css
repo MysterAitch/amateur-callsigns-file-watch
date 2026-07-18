@@ -246,6 +246,12 @@
 .home .tab:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .home .panel { padding: 18px 2px 2px; }
 .home .panel[hidden] { display: none; }
+/* Only present so the no-JS stacked reading order (every panel visible, see
+   the markup comment above the tabs) reads as distinct sections; home.js's
+   wireTabs() hides everything but the active panel once it initialises, at
+   which point this heading sits directly under the tab that already carries
+   the same label — a small, deliberate redundancy rather than a gap. */
+.home .panel-heading { margin: 0 0 10px; font-size: 15px; font-weight: 700; color: var(--signal); }
 .home .panel p.intro { color: var(--muted); margin: 0 0 14px; max-width: 74ch; }
 .home .paths { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
 /* Each whole-card link reads unmistakably as clickable: an action "→" nudge, a
