@@ -13,7 +13,7 @@
   "datasetClasses": ["available-pool"],
   "converter": { "script": "src/shared/foi-normalise.ts", "variant": "available-typed-export-7col" },
   "relatedEntries": [
-    { "entry": "wdtk-299321--available-callsigns-list", "relation": "sibling disclosure of the byte-identical 2015-10-13 export (cross-referenced; both entries stand)" }
+    { "entry": "wdtk-299321--available-callsigns-list", "relation": "variant-of wdtk-299321: two serialisations of the same 2015-10-13 disclosed export - the raw .xlsx files differ (same name and byte count, different sha256) but normalise to byte-identical outputs across all three sheets; both entries stand" }
   ],
   "files": {
     "Amateur Available Call signs.xlsx": {
