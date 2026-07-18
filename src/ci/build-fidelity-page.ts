@@ -411,7 +411,8 @@ function reconstructionSection(): string[] {
     'open-data-register': 'the Ofcom open-data register publications',
     'foi-register': 'the FOI register-snapshot CSVs',
     'attribute-addendum': 'the FOI attribute-addendum tables',
-    'foi-verbatim-csv': 'the FOI preamble/prefixed sheets (mirrored verbatim)',
+    'available-pool': 'the FOI available-call-sign exports (suffix sheets and typed exports)',
+    'foi-verbatim-csv': 'the remaining FOI preamble sheets (mirrored verbatim)',
     'foi-markdown-table': 'the FOI markdown-table transcriptions (table region only)',
   };
   const items = COVERED_FAMILIES.map(family =>

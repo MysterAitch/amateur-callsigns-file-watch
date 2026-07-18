@@ -27,15 +27,20 @@
  *    `@listed` anchors minus the observations that carry a value.
  *
  *  - `availablePoolSources` / `forbiddenSources` — the FOI available-pool and
- *    forbidden-list families. These carry NO status claim by design (the ledger
- *    models availability / forbiddenness as FAMILY MEMBERSHIP, not a per-row
- *    status — see available-pool.ts / forbidden-list.ts), so the `status` fold
- *    PROJECTS an `Available` / `Forbidden` bucket from their `@listed` membership
- *    and the renderer labels those buckets as membership-derived projections,
- *    never as attested statuses (#707's determination). They are deliberately
- *    ABSENT from `productSources`: a pool-slot's licence class is a class Ofcom
- *    attached to an availability list, not a licensed register product — the same
- *    faithfulness the licence-category fold already applies (value-catalogue-fold.ts).
+ *    forbidden-list families. The ledger models availability / forbiddenness as
+ *    FAMILY MEMBERSHIP, not a register status (see available-pool.ts /
+ *    forbidden-list.ts), so the `status` fold PROJECTS an `Available` /
+ *    `Forbidden` bucket from their `@listed` membership and the renderer labels
+ *    those buckets as membership-derived projections, never as attested
+ *    statuses (#707's determination). The typed available-pool exports DO carry
+ *    a verbatim sheet-level `Status` column in their lossless emit (issue #813
+ *    Stage A) — it is the export's own framing of the whole sheet, which is
+ *    exactly why these sources stay OUT of `statusSources`: scoping them out
+ *    keeps that sheet framing from masquerading as a per-callsign register
+ *    status. They are likewise deliberately ABSENT from `productSources`: a
+ *    pool-slot's licence class is a class Ofcom attached to an availability
+ *    list, not a licensed register product — the same faithfulness the
+ *    licence-category fold already applies (value-catalogue-fold.ts).
  *
  * The resolver's source strings are the ledger's own logical sourceFile keys
  * (`opendata/<key>/<file>`, `foi/<entry>/<file>`); a data-validity test pins that

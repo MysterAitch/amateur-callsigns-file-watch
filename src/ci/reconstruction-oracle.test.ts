@@ -35,6 +35,7 @@ import {
 import { collectOpenDataRegisterSources } from '../v2/collectors/open-data-register.ts';
 import { collectFoiRegisterSources } from '../v2/collectors/foi-register.ts';
 import { collectAttributeAddendumSources } from '../v2/collectors/attribute-addendum.ts';
+import { collectAvailablePoolSources } from '../v2/collectors/available-pool.ts';
 import { collectFoiVerbatimCsvSources } from '../v2/collectors/foi-verbatim-csv.ts';
 import { collectFoiMarkdownTableSources } from '../v2/collectors/foi-markdown-table.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
@@ -300,15 +301,17 @@ describe('a source reconstructs from the ledger a build actually persists', { ta
   });
 });
 
-// ---- Phase 3 shapes: verbatim-CSV (preamble / prefixed) round-trip ----------
+// ---- Phase 3 shapes: available-pool (registered, lossless-canonical) and the
+// ---- verbatim-CSV mirror round-trip ----------------------------------------
 
-describe('FOI preamble and prefixed CSV sheets reconstruct from claims (issue #434 E3)', { tags: ['data-validity'] }, () => {
+describe('available-pool sources reconstruct from their REGISTERED claims (issue #813 Stage A)', { tags: ['data-validity'] }, () => {
   it('PrefixedSuffixList_WhenReconstructedFromClaims_MatchesOriginalWithRawSuffixAsSubject', () => {
     // A 2013-style suffix list: a single-column CSV whose header is the sheet's
     // own 'Foundation = M6aaa' label and whose rows are bare suffixes. The raw
     // SUFFIX is the subject (design E3), never the synthesised M6 call sign, and
-    // the file rebuilds byte-identically modulo cosmetics.
-    const source = collectFoiVerbatimCsvSources()
+    // the file rebuilds byte-identically modulo cosmetics - from the
+    // available-pool family's own registered emit, not a parallel mirror.
+    const source = collectAvailablePoolSources()
       .map(resolved => resolved.load())
       .find(s => s.repoPath === 'archive/foi/wdtk-174341--available-callsigns-list/raw-extract-sheet-1-foundation.csv');
     expect(source).toBeDefined();
@@ -326,7 +329,7 @@ describe('FOI preamble and prefixed CSV sheets reconstruct from claims (issue #4
     // A pre-header preamble (wdtk-224333 foundation: an empty first row then a
     // 'Prefix = M6' statement, then the 'Suffix' header) must reappear ABOVE the
     // header - the positional furniture reinstatement, not an end-of-file append.
-    const source = collectFoiVerbatimCsvSources()
+    const source = collectAvailablePoolSources()
       .map(resolved => resolved.load())
       .find(s => s.repoPath === 'archive/foi/wdtk-224333--available-callsigns-list/raw-extract-sheet-1-foundation.csv');
     expect(source).toBeDefined();
@@ -341,6 +344,42 @@ describe('FOI preamble and prefixed CSV sheets reconstruct from claims (issue #4
     expect(result.detail ?? '').toBe('');
     expect(result.ok).toBe(true);
   });
+
+  it('TypedExportSheet_WhenReconstructedFromClaims_MatchesOriginalWithTheValueColumnAsSubject', () => {
+    // A 2015 typed Siebel export: eight physical columns, the authored Value
+    // column (a full call sign) as the subject - NOT the first physical column
+    // (Country) - so the manifest, not position, places the subject on rebuild.
+    // Newly reconstruction-covered by Stage A: the family's old role-vocabulary
+    // emit could not rebuild this file at all.
+    const source = collectAvailablePoolSources()
+      .map(resolved => resolved.load())
+      .find(s => s.repoPath === 'archive/foi/wdtk-247308--available-callsigns-list/raw-extract-sheet-1-foundation.csv');
+    expect(source).toBeDefined();
+    if (source === undefined) return;
+    expect(source.columns.length).toBe(8);
+    expect(source.subjectColumn).toBe('Value');
+    expect(source.columns[0]).not.toBe('Value');
+    const result = reconstructionResultFor(source);
+    expect(result.detail ?? '').toBe('');
+    expect(result.ok).toBe(true);
+  });
+
+  it('AvailablePoolSources_WhenResolvedForTheOracle_AppearInExactlyOneFamily', () => {
+    // The structural no-double-count invariant (issue #813 Stage A): the
+    // verbatim-CSV mirror no longer resolves any available-pool source, so each
+    // reconstructs from exactly one family's claims - the registered one.
+    const poolRepoPaths = new Set(
+      collectAvailablePoolSources().map(resolved => resolved.load().repoPath ?? ''),
+    );
+    expect(poolRepoPaths.size).toBe(25);
+    for (const resolved of collectFoiVerbatimCsvSources()) {
+      const mirrored = resolved.load().repoPath ?? '';
+      expect(poolRepoPaths.has(mirrored), `${mirrored} mirrored twice`).toBe(false);
+    }
+  });
+});
+
+describe('FOI preamble CSV sheets still mirrored verbatim reconstruct from claims (issue #434 E3)', { tags: ['data-validity'] }, () => {
 
   it('PrewarAnnexTwoColumnSheet_WhenReconstructedFromClaims_MatchesOriginalModuloCosmetics', () => {
     // The pre-war annex sheet 1 (wdtk-238892): a two-column sheet whose preamble
@@ -443,21 +482,23 @@ describe('FOI markdown-table transcriptions reconstruct their table region (issu
 // ---- Coverage bookkeeping ---------------------------------------------------
 
 describe('the oracle declares its coverage and any residual gaps explicitly', { tags: ['unit'] }, () => {
-  it('CoveredFamilies_WhenListed_AreTheThreeCsvLanesPlusTheTwoPhase3Mirrors', () => {
+  it('CoveredFamilies_WhenListed_AreTheThreeCsvLanesTheAvailablePoolFamilyAndTheTwoPhase3Mirrors', () => {
     expect([...COVERED_FAMILIES].sort()).toEqual([
-      'attribute-addendum', 'foi-markdown-table', 'foi-register', 'foi-verbatim-csv', 'open-data-register',
+      'attribute-addendum', 'available-pool', 'foi-markdown-table', 'foi-register', 'foi-verbatim-csv', 'open-data-register',
     ]);
     // The markdown mirror is the only family NOT reconstructed through the CSV
     // serialiser.
     expect([...CSV_SERIALISED_FAMILIES].sort()).toEqual([
-      'attribute-addendum', 'foi-register', 'foi-verbatim-csv', 'open-data-register',
+      'attribute-addendum', 'available-pool', 'foi-register', 'foi-verbatim-csv', 'open-data-register',
     ]);
   });
 
-  it('EveryPhase3TextShape_WhenCrossChecked_IsIngestedByAReconstructionMirror', () => {
+  it('EveryPhase3TextShape_WhenCrossChecked_IsIngestedByAMirrorOrALosslessCanonicalFamily', () => {
     // E3 landed every markdown-table, preamble and prefixed shape into a mirror,
-    // so the honest non-coverage list is now EMPTY - the coverage guarantee. A
-    // future shape that slipped both mirrors would resurface here.
+    // and Stage A (issue #813) moved the available-pool shapes onto the
+    // registered family's own lossless emit - so the honest non-coverage list
+    // stays EMPTY, the coverage guarantee. A future shape that slipped every
+    // selection would resurface here.
     expect(listNotYetCovered()).toEqual([]);
   });
 });

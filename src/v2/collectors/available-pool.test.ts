@@ -5,9 +5,12 @@ import * as path from 'path';
 import {
   emitClaims,
   emitLedger,
+  emitFileManifestClaims,
   LISTED_PREDICATE,
   NORMALISES_TO_PREDICATE,
   LICENCE_CATEGORY_PREDICATE,
+  SUBJECT_PREDICATE,
+  columnPredicate,
 } from '../claim.ts';
 import { buildLedger } from '../build-ledger.ts';
 import {
@@ -15,25 +18,29 @@ import {
   availablePoolEntries,
   AVAILABLE_POOL_CLASS,
 } from './available-pool.ts';
+import { verbatimCsvSourcesFor } from './foi-verbatim-csv.ts';
 import { qualifyingRegisterEntries } from './foi-register.ts';
 import { loadReferenceData } from '../../sources/ofcom-amateur/components.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
 //
-// The scenario is the available-pool family's claim standing (issue #361):
-// Ofcom holds no list of available call signs - availability is generated on
-// demand - so each row is a vintage-scoped snapshot of a 2013-2016 export, an
-// existence-plus-attributes assertion that is deliberately NOT a call sign
-// register row. Two sub-shapes carry it (2013/14 bare suffixes; 2015/16 typed
-// exports whose Value is a full call sign), and BOTH are subjectKind
-// 'pool-slot', so neither acquires the callsign normalisation/category derived
-// layer.
+// The scenario is the available-pool family's claim standing (issue #361) plus
+// its lossless-canonical emit (issue #813 Stage A): Ofcom holds no list of
+// available call signs - availability is generated on demand - so each row is a
+// vintage-scoped snapshot of a 2013-2016 export, an existence-plus-attributes
+// assertion that is deliberately NOT a call sign register row. Two sub-shapes
+// carry it (2013/14 bare suffixes; 2015/16 typed exports whose Value is a full
+// call sign), BOTH are subjectKind 'pool-slot' (so neither acquires the callsign
+// normalisation/category derived layer), and BOTH now emit the source's
+// verbatim structure - headers, physical columns, preamble furniture - rather
+// than a reprojected role vocabulary.
 
 const REF = loadReferenceData();
 
 // Stable archived entry keys - the raw source files and columns are read from
 // the authored converter binding, never hard-coded in the test.
 const SUFFIX_ENTRY = 'wdtk-174341--available-callsigns-list'; // sub-shape A (2013-09)
+const PREAMBLE_ENTRY = 'wdtk-224333--available-callsigns-list'; // sub-shape A with preamble (2014-08)
 const TYPED_ENTRY = 'wdtk-247308--available-callsigns-list'; // sub-shape B (2015-02)
 
 // The nine available-pool disclosures the family covers (2013-09..2016-01).
@@ -71,6 +78,14 @@ describe('available-pool family collection', { tags: ['data-validity'] }, () => 
       // Every observation carries the disclosure's vintage - load-bearing for a
       // point-in-time availability snapshot.
       expect(obs.vintage.length).toBeGreaterThan(0);
+      // The lossless emit (issue #813 Stage A) attests the structure the
+      // reconstruction oracle rebuilds from: the real repo path, a header line,
+      // and one source line per data row.
+      expect(obs.repoPath).toBe(`archive/${obs.sourceFile}`);
+      expect(obs.headerLine).toBeGreaterThan(0);
+      expect(obs.lineNumbers?.length).toBe(obs.rows.length);
+      // The subject column is one of the source's own verbatim headers.
+      expect(obs.columns).toContain(obs.subjectColumn);
     }
   });
 
@@ -82,21 +97,37 @@ describe('available-pool family collection', { tags: ['data-validity'] }, () => 
       expect(registerKeys.has(entry)).toBe(false);
     }
   });
+
+  it('AvailablePoolEntries_NowLosslessCanonicalInTheMainLedger_AreRetiredFromTheVerbatimCsvMirror', () => {
+    // The structural double-count resolution (issue #813 Stage A): exactly ONE
+    // family carries each available-pool source's structure. The registered
+    // available-pool family emits it losslessly, so the parallel oracle-only
+    // foi-verbatim-csv mirror must resolve NOTHING for these entries.
+    for (const { entry, meta } of availablePoolEntries()) {
+      expect(verbatimCsvSourcesFor(meta), `${entry} still mirrored by foi-verbatim-csv`).toEqual([]);
+    }
+  });
 });
 
 describe('sub-shape A - the 2013/14 suffix-shaped lists', { tags: ['data-validity'] }, () => {
-  it('SuffixList_WhenEmitted_YieldsExistenceAndClassPrefixClaimsKeyedOnTheBareSuffix', () => {
+  it('SuffixList_WhenEmitted_YieldsOneExistenceClaimPerBareSuffixUnderTheVerbatimLabelHeader', () => {
     const source = sourceFor(SUFFIX_ENTRY, file => file.includes('foundation'));
     const obs = source.load();
-    expect(obs.subjectColumn).toBe('suffix');
-    expect(obs.columns).toEqual(['suffix', 'licence_class', 'prefix']);
+    // The lossless shape: the sheet's own single label header, verbatim - the
+    // sheet's stated class/prefix rule IS that header string, so the fact the
+    // old role vocabulary derived from is still carried, as source structure.
+    expect(obs.columns).toEqual(['Foundation = M6aaa']);
+    expect(obs.subjectColumn).toBe('Foundation = M6aaa');
 
     const claims = emitClaims(obs);
 
     // One existence anchor per listed suffix; the subject is the bare suffix
-    // VERBATIM (the M6xxx call sign is deliberately not synthesised here).
+    // VERBATIM (the M6xxx call sign is deliberately not synthesised here). A
+    // single-column sheet emits NO attribute claims - the @listed anchor is the
+    // whole per-row assertion.
     const listed = claims.filter(c => c.predicate === LISTED_PREDICATE);
     expect(listed.length).toBe(obs.rows.length);
+    expect(claims.length).toBe(listed.length);
     for (const claim of listed.slice(0, 50)) {
       expect(claim.layer).toBe('raw');
       expect(claim.rawSubject.length).toBeGreaterThan(0);
@@ -105,40 +136,77 @@ describe('sub-shape A - the 2013/14 suffix-shaped lists', { tags: ['data-validit
       expect(claim.provenance.vintage).toBe('2013-09-06');
     }
 
-    // The sheet's own stated class and prefix ride as attribute claims on the
-    // same subject (Foundation = M6aaa).
-    const first = listed[0].rawSubject;
-    const attrs = claims.filter(c => c.rawSubject === first && c.predicate !== LISTED_PREDICATE);
-    expect(attrs.find(c => c.predicate === 'licence_class')?.object).toBe('Foundation');
-    expect(attrs.find(c => c.predicate === 'prefix')?.object).toBe('M6');
+    // The deferred role vocabulary (issue #813, re-expressed as a fold in a
+    // later stage) is NOT emitted as analytical claims here.
+    for (const claim of claims) {
+      expect(['licence_class', 'prefix', 'suffix']).not.toContain(claim.predicate);
+    }
+
+    // The sheet's stated rule survives in the file-level manifest: the verbatim
+    // header rides @column/0 and @subject, so nothing the roles derived from is
+    // dropped.
+    const manifest = emitFileManifestClaims(obs);
+    expect(manifest.find(c => c.predicate === columnPredicate(0))?.object).toBe('Foundation = M6aaa');
+    expect(manifest.find(c => c.predicate === SUBJECT_PREDICATE)?.object).toBe('Foundation = M6aaa');
+  });
+
+  it('PreambleSuffixList_WhenLoaded_CarriesThePrefixStatementAsPositionedFurniture', () => {
+    // The 2014-08 sheets state their prefix in a pre-header preamble (an empty
+    // spacer row, then 'Prefix = M6', then the 'Suffix' header). The lossless
+    // emit carries those rows as positioned @ignored furniture so the
+    // reconstruction reinstates them - and so the prefix assertion is still a
+    // stored source fact, not a dropped role claim.
+    const source = sourceFor(PREAMBLE_ENTRY, file => file.includes('foundation'));
+    const obs = source.load();
+    expect(obs.columns).toEqual(['Suffix']);
+    expect(obs.subjectColumn).toBe('Suffix');
+    expect(obs.headerLine).toBe(3);
+    expect((obs.ignoredLines ?? []).map(l => l.line)).toEqual([1, 2]);
+    expect((obs.ignoredLines ?? []).map(l => l.content)).toContain('Prefix = M6');
   });
 });
 
 describe('sub-shape B - the 2015/16 typed Siebel exports', { tags: ['data-validity'] }, () => {
-  it('TypedExport_WhenEmitted_YieldsExistenceClassAndSuffixClaimsKeyedOnTheFullCallSign', () => {
+  it('TypedExport_WhenEmitted_YieldsEveryPhysicalColumnVerbatimKeyedOnTheFullCallSign', () => {
     const source = sourceFor(TYPED_ENTRY, file => file.includes('foundation'));
     const obs = source.load();
-    expect(obs.subjectColumn).toBe('callsign');
-    expect(obs.columns).toEqual(['callsign', 'licence_class', 'suffix']);
+    // The lossless shape: every physical column, in source order, under the
+    // export's own headers.
+    expect(obs.columns).toEqual(['Country', 'Current Series', 'Reference', 'Value', 'Type', 'Product', 'Status', 'Allocated Flag']);
+    // The subject stays the authored callsign column - the raw Value cell, NOT
+    // blindly the first physical column - so the raw subject token (the thing
+    // the value catalogue's Available membership bucket counts cleaned keys
+    // over) is unchanged by the lossless cutover.
+    expect(obs.subjectColumn).toBe('Value');
 
     const claims = emitClaims(obs);
 
     const listed = claims.filter(c => c.predicate === LISTED_PREDICATE);
     expect(listed.length).toBe(obs.rows.length);
 
-    // The subject is the full call sign carried verbatim; the raw Product rides
-    // as licence_class and the raw Reference as suffix (both verbatim, spaces
-    // and case intact).
+    // The subject is the full call sign carried verbatim; the other columns ride
+    // as raw attribute claims under their VERBATIM headers (Product/Reference,
+    // not the retired licence_class/suffix role names).
     const first = listed[0].rawSubject;
     expect(first.startsWith('M6')).toBe(true);
-    const attrs = claims.filter(c => c.rawSubject === first && c.predicate !== LISTED_PREDICATE);
-    const licenceClass = attrs.find(c => c.predicate === 'licence_class')?.object ?? '';
-    const suffix = attrs.find(c => c.predicate === 'suffix')?.object ?? '';
-    expect(licenceClass).toBe('Amateur Foundation Radio Licence');
+    const attrs = claims.filter(c => c.rawSubject === first && c.provenance.ordinal === listed[0].provenance.ordinal && c.predicate !== LISTED_PREDICATE);
+    expect(attrs.find(c => c.predicate === 'Product')?.object).toBe('Amateur Foundation Radio Licence');
+    const suffix = attrs.find(c => c.predicate === 'Reference')?.object ?? '';
     // The Reference suffix is the call sign's own trailing three letters here.
     expect(first.endsWith(suffix)).toBe(true);
+    // The sheet-level columns are stored verbatim too - what the export said,
+    // never reinterpreted (the status fold scopes these sources out, so this
+    // sheet framing never counts as an attested register status).
+    expect(attrs.find(c => c.predicate === 'Status')?.object).toBe('Available');
+    expect(attrs.find(c => c.predicate === 'Type')?.object).toBe('Call Sign');
     for (const claim of listed.slice(0, 50)) {
       expect(claim.provenance.vintage).toBe('2015-02-25');
+    }
+
+    // The retired role vocabulary is genuinely absent (issue #813 Stage A: the
+    // roles become a fold over these verbatim columns in a later stage).
+    for (const claim of claims) {
+      expect(['licence_class', 'suffix', 'prefix', 'callsign']).not.toContain(claim.predicate);
     }
   });
 });
@@ -195,6 +263,11 @@ describe('available-pool family through buildLedger', { tags: ['data-validity'] 
       }
       expect(summary.totalDerivedClaims).toBe(0);
       expect(summary.totalRawClaims).toBeGreaterThan(0);
+
+      // Exactly one family emits per sourceFile: no source appears twice in the
+      // emitted corpus (the no-double-count invariant, issue #813).
+      const sourceFiles = summary.perSource.map(s => s.sourceFile);
+      expect(new Set(sourceFiles).size).toBe(sourceFiles.length);
 
       // One JSONL file per source landed on disk (never committed).
       const written = fs.readdirSync(path.join(outputDir, 'ledger')).filter(name => name.endsWith('.jsonl'));
