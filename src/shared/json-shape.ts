@@ -69,8 +69,21 @@ export function arrayOrProblem<T>(value: unknown, field: string, path: string, p
 // so the caller's own `as SomeType` cast (now applied to `unknown`, not to a
 // bare `JSON.parse(...)` call) is unconditionally sound as far as tsc is
 // concerned, and is the "earned" cast this module's helpers exist to enable.
+// A raw JSON.parse SyntaxError names neither `path` nor which file it came
+// from - unlocated, exactly what this module exists to never surface. Both
+// helpers below parse through this first, mirroring readFoiEntryMeta's own
+// try/catch, so a malformed-JSON failure is located just like a wrong-shape one.
+function parseJsonOrThrow(raw: string, path: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    throw new Error(`${path}: not valid JSON: ${message}`, { cause });
+  }
+}
+
 export function parseJsonObject(raw: string, path: string): unknown {
-  const parsed: unknown = JSON.parse(raw);
+  const parsed = parseJsonOrThrow(raw, path);
   if (!isPlainObject(parsed)) {
     throw new Error(`${path}: expected a JSON object, got ${describeShape(parsed)}`);
   }
@@ -78,7 +91,7 @@ export function parseJsonObject(raw: string, path: string): unknown {
 }
 
 export function parseJsonArray(raw: string, path: string): unknown {
-  const parsed: unknown = JSON.parse(raw);
+  const parsed = parseJsonOrThrow(raw, path);
   if (!Array.isArray(parsed)) {
     throw new Error(`${path}: expected a JSON array, got ${describeShape(parsed)}`);
   }

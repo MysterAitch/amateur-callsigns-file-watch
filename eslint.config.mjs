@@ -23,11 +23,24 @@ const sharedTypeAwareRules = {
 // `const parsed: unknown = JSON.parse(...)` (a type ANNOTATION, which does
 // not suppress checking, rather than an assertion, which does) followed by a
 // runtime guard (see src/shared/json-shape.ts) and only then an earned cast.
-const noAssertedJsonParseRule = {
-  selector: "TSAsExpression[expression.callee.object.name='JSON'][expression.callee.property.name='parse']",
-  message:
-    'Do not assert the shape of JSON.parse output - assign to `const x: unknown = JSON.parse(...)` and validate the shape before use (see src/shared/json-shape.ts). A cast here defeats both tsc and type-aware lint.',
-};
+//
+// Two selectors, not one: TypeScript has two assertion syntaxes over the same
+// AST shape (both wrap the call in `.expression`) - `JSON.parse(...) as T`
+// (TSAsExpression) and the angle-bracket `<T>JSON.parse(...)` (TSTypeAssertion,
+// legal in a plain .ts file with no JSX). Banning only the former leaves the
+// latter as an unflagged escape hatch to the exact same defect.
+const jsonParseAssertionMessage =
+  'Do not assert the shape of JSON.parse output - assign to `const x: unknown = JSON.parse(...)` and validate the shape before use (see src/shared/json-shape.ts). A cast here defeats both tsc and type-aware lint.';
+const noAssertedJsonParseRules = [
+  {
+    selector: "TSAsExpression[expression.callee.object.name='JSON'][expression.callee.property.name='parse']",
+    message: jsonParseAssertionMessage,
+  },
+  {
+    selector: "TSTypeAssertion[expression.callee.object.name='JSON'][expression.callee.property.name='parse']",
+    message: jsonParseAssertionMessage,
+  },
+];
 
 export default tseslint.config(
   {
@@ -48,7 +61,7 @@ export default tseslint.config(
       ...sharedTypeAwareRules,
       // Disagrees with tsc about csv-parse assertion necessity - tsc wins.
       '@typescript-eslint/no-unnecessary-type-assertion': 'off',
-      'no-restricted-syntax': ['error', noAssertedJsonParseRule],
+      'no-restricted-syntax': ['error', ...noAssertedJsonParseRules],
     },
   },
   {
