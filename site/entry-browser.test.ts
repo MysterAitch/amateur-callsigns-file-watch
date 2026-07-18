@@ -35,6 +35,11 @@ const flush = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0)
 
 beforeEach(() => {
   document.body.replaceChildren();
+  // The browser writes its live filter state (including the sort) into the
+  // ?view= query param via the History API, which the test environment persists
+  // across tests in a file. Reset the URL between tests so one test's pushed view
+  // cannot restore into the next test's initial state.
+  window.history.replaceState(null, '', '/');
 });
 
 describe('entry-browser eager load affordance', { tags: ['ui'] }, () => {
@@ -220,5 +225,133 @@ describe('entry-browser custom-query zero de-emphasis (issue #731)', { tags: ['u
     expect(zeroCell?.className).toBe('zero');
     // A non-numeric-looking neighbour column is unaffected.
     expect(labelCell?.className).toBe('');
+  });
+});
+
+// The per-dataset browser reorders via SQL: a header activation rewrites the
+// ORDER BY, so the emitted ORDER BY clause is the observable proof of the sort
+// state. These tests pin the transition semantics the browser has always had —
+// now supplied by the shared table-sort core (issue #787) rather than a
+// hand-rolled, in-place-mutating closure — through the SQL a user's clicks emit.
+describe('entry-browser header sort transitions (issue #787)', { tags: ['ui'] }, () => {
+  // A worker that records every SQL it is asked to run (and returns an empty
+  // page), so a test can read back the ORDER BY the current sort state produced.
+  function recordingWorker(): { db: { query: (sql: string) => Promise<unknown[]> }, queries: string[] } {
+    const queries: string[] = [];
+    return {
+      queries,
+      db: {
+        query: async (sql: string) => {
+          queries.push(sql);
+          await Promise.resolve();
+          return /^SELECT COUNT/i.test(sql) ? [{ n: 0 }] : [];
+        },
+      },
+    };
+  }
+
+  // The ORDER BY clause of the most recent page query (the count probe carries
+  // no ORDER BY), i.e. the sort the latest render actually applied.
+  function lastOrderBy(queries: string[]): string | undefined {
+    const withOrder = queries.filter(q => /ORDER BY/i.test(q));
+    const match = withOrder[withOrder.length - 1]?.match(/ORDER BY (.+?)\)\s*LIMIT/i);
+    return match?.[1]?.trim();
+  }
+
+  // The sortable header cell for a given register column, by its (arrow-stripped)
+  // label. Throws rather than returning null so a scaffold drift fails loudly.
+  function headerFor(section: HTMLElement, col: string): HTMLElement {
+    const th = [...section.querySelectorAll('th.sortable')]
+      .find(t => (t.textContent ?? '').startsWith(col));
+    if (!(th instanceof HTMLElement)) throw new Error(`no sortable header for column "${col}"`);
+    return th;
+  }
+
+  // Optionally seed the ?view= link the browser restores from on first render,
+  // so a test can start it from a specific (or deliberately malformed) sort.
+  async function boot(view?: unknown): Promise<{ section: HTMLElement, queries: string[] }> {
+    if (view !== undefined) window.history.replaceState(null, '', '/?view=' + encodeURIComponent(JSON.stringify(view)));
+    const section = buildScaffold();
+    const worker = recordingWorker();
+    enhance(section, { openCombined: () => Promise.resolve(worker) });
+    await flush();
+    return { section, queries: worker.queries };
+  }
+
+  it('EntryBrowser_OnFirstRender_SortsByCallsignAscendingByDefault', async () => {
+    const { queries } = await boot();
+    expect(lastOrderBy(queries)).toBe('"callsign" ASC');
+  });
+
+  it('EntryBrowser_WhenAColumnHeaderIsActivated_SortsByThatColumnAloneAscending', async () => {
+    const { section, queries } = await boot();
+    headerFor(section, 'status').click();
+    await flush();
+    // A plain activation of a different column replaces the sort with that one
+    // column, ascending — the default callsign sort is dropped, not appended.
+    expect(lastOrderBy(queries)).toBe('"status" ASC');
+  });
+
+  it('EntryBrowser_WhenTheSoleAscendingColumnIsReactivated_TogglesItToDescending', async () => {
+    const { section, queries } = await boot();
+    // Callsign is the sole ascending sort on first render; re-activating it flips
+    // just that column to descending rather than restarting it ascending.
+    headerFor(section, 'callsign').click();
+    await flush();
+    expect(lastOrderBy(queries)).toBe('"callsign" DESC');
+  });
+
+  it('EntryBrowser_WhenAColumnIsActivatedTwice_TogglesAscendingThenDescending', async () => {
+    const { section, queries } = await boot();
+    const status = headerFor(section, 'status');
+    status.click();
+    await flush();
+    expect(lastOrderBy(queries)).toBe('"status" ASC');
+    // A second plain activation of the now-sole ascending column toggles it.
+    headerFor(section, 'status').click();
+    await flush();
+    expect(lastOrderBy(queries)).toBe('"status" DESC');
+  });
+
+  it('EntryBrowser_WhenAHeaderIsModifierActivated_AppendsASecondarySort', async () => {
+    const { section, queries } = await boot();
+    headerFor(section, 'status').click();
+    await flush();
+    // A modified (Shift) activation appends the column as a secondary sort rather
+    // than replacing the primary one, so both columns order the result in turn.
+    headerFor(section, 'product').dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
+    await flush();
+    expect(lastOrderBy(queries)).toBe('"status" ASC, "product" ASC');
+  });
+
+  it('EntryBrowser_WhenAnExistingSecondaryColumnIsModifierActivated_TogglesOnlyItsDirection', async () => {
+    const { section, queries } = await boot();
+    headerFor(section, 'status').click();
+    await flush();
+    const product = headerFor(section, 'product');
+    product.dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
+    await flush();
+    expect(lastOrderBy(queries)).toBe('"status" ASC, "product" ASC');
+    // Toggling an already-present secondary column flips its direction alone,
+    // leaving the primary column and the column order untouched.
+    headerFor(section, 'product').dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
+    await flush();
+    expect(lastOrderBy(queries)).toBe('"status" ASC, "product" DESC');
+  });
+
+  it('EntryBrowser_WhenAViewLinkCarriesANonCanonicalDirection_FirstTogglePreservesTheStrictAscendingRule', async () => {
+    // The ?view= link is untrusted: browser-query parses sort.dir from its JSON
+    // without normalising it, so a stale or hand-edited link can carry a
+    // non-canonical direction (here lowercase 'desc'). The transition rule this
+    // browser has always applied treats a direction as ascending ONLY when it is
+    // exactly 'ASC', so a value that is not 'ASC' — canonical 'DESC' or this
+    // garbage 'desc' alike — is descending, and the first single toggle off it
+    // yields 'ASC'. This guards that exact predicate against a mapping that would
+    // instead read only 'DESC' as descending (treating 'desc' as ascending, so
+    // the first toggle would wrongly produce DESC).
+    const { section, queries } = await boot({ s: [{ col: 'callsign', dir: 'desc' }] });
+    headerFor(section, 'callsign').click();
+    await flush();
+    expect(lastOrderBy(queries)).toBe('"callsign" ASC');
   });
 });
