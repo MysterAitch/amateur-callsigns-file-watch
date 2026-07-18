@@ -180,9 +180,14 @@ export function validateFoiEntry(foiDir: string, key: string): ValidationProblem
   // 10: relatedEntries - key-shaped values must name real siblings; a typed
   // relationType (#580) additionally requires the target to be a real sibling
   // (never a free-text drop-zone note) and to reciprocate the same type -
-  // 'same-dataset' asserts an identity that is symmetric by definition.
-  for (const related of meta.relatedEntries ?? []) {
-    if (typeof related.entry !== 'string' || related.entry.length === 0 || typeof related.relation !== 'string' || related.relation.length === 0) {
+  // 'same-dataset' asserts an identity that is symmetric by definition. A
+  // malformed relatedEntries (own or a sibling's) must be located, not
+  // thrown through - guarded the same way on both sides of the relation.
+  if (meta.relatedEntries !== undefined && !Array.isArray(meta.relatedEntries)) {
+    problems.push({ path: metaPath, problem: 'relatedEntries is malformed (not an array)' });
+  }
+  for (const related of Array.isArray(meta.relatedEntries) ? meta.relatedEntries : []) {
+    if (related === null || typeof related !== 'object' || typeof related.entry !== 'string' || related.entry.length === 0 || typeof related.relation !== 'string' || related.relation.length === 0) {
       problems.push({ path: metaPath, problem: 'relatedEntries items need non-empty entry and relation' });
       continue;
     }

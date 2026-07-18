@@ -350,6 +350,30 @@ describe('validateFoiEntry - relatedEntries relationType (#580)', { tags: ['unit
     const problems = validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join();
     expect(problems).toMatch(/"wdtk-654321--other-entry"'s own relatedEntries is malformed \(not an array\)/);
   });
+
+  it('FoiEntry_WithMalformedOwnRelatedEntries_FailsWithoutThrowing', () => {
+    // The same guard, applied to the entry's OWN relatedEntries: a non-array
+    // value must be reported, not thrown through a `for..of` that assumes
+    // an array.
+    writeFoiEntry(undefined, meta => {
+      // @ts-expect-error - deliberately malformed to exercise the guard.
+      meta.relatedEntries = 42;
+    });
+    expect(() => validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).not.toThrow();
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/relatedEntries is malformed \(not an array\)/);
+  });
+
+  it('FoiEntry_WithNullItemInOwnRelatedEntries_FailsWithoutThrowing', () => {
+    // A well-formed array whose item is null (or otherwise not an object)
+    // cannot be read as `related.entry` safely - guard the item, not just
+    // the array shape.
+    writeFoiEntry(undefined, meta => {
+      // @ts-expect-error - deliberately malformed to exercise the guard.
+      meta.relatedEntries = [null];
+    });
+    expect(() => validateFoiEntry(foiDir, 'wdtk-123456--test-entry')).not.toThrow();
+    expect(validateFoiEntry(foiDir, 'wdtk-123456--test-entry').map(p => p.problem).join()).toMatch(/relatedEntries items need non-empty entry and relation/);
+  });
 });
 
 describe('validateFoiEntry - byte integrity', { tags: ['unit'] }, () => {
