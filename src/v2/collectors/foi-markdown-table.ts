@@ -12,13 +12,17 @@
  * holds, in source order, verbatim - which is the fidelity input the oracle
  * needs.
  *
- * NARROWED SCOPE (issue #813 Stage C1). A statistics-aggregate entry
- * contributes NOTHING here: the registered statistics-aggregate family now
- * emits its markdown tables losslessly into the main ledger itself (verbatim
- * headers, repoPath/encoding attested), so the oracle reconstructs them from
- * the REGISTERED claims and carrying them here again would double-count their
- * structure. On the current archive this family's resolution is exactly the
- * wdtk-251507 transfers table - Stage C2's input.
+ * NARROWED SCOPE (issue #813 Stages C1/C2). A statistics-aggregate or
+ * issuance-events entry contributes NOTHING here: the registered
+ * statistics-aggregate family (Stage C1) and the registered issuance-events
+ * family (Stage C2) now emit their markdown tables losslessly into the main
+ * ledger itself (verbatim headers - the transfers table's s.40 'S40' marker
+ * columns included - with repoPath/encoding attested), so the oracle
+ * reconstructs them from the REGISTERED claims and carrying them here again
+ * would double-count their structure. On the current archive this family's
+ * resolution is therefore EMPTY; the module survives only until Stage D
+ * deletes it, so the loader stays available to the transition-equality tests
+ * that pinned each hand-over.
  *
  * SCOPE (design E4). Only the single `|`-delimited table BLOCK is a dataset; the
  * surrounding prose (the FOI covering-letter body, transcription notes) is
@@ -40,6 +44,7 @@ import { FOI_ENTRY_CONVERSIONS, parseMarkdownTable, type FoiSourceConversion } f
 import type { ResolvedLedgerSource } from './types.ts';
 import { jsonlStem } from './util.ts';
 import { STATISTICS_AGGREGATE_CLASS } from './statistics.ts';
+import { ISSUANCE_EVENTS_CLASS } from './issuance-events.ts';
 
 // The format marking a source transcribed from a PDF into a committed markdown
 // table; every such conversion is a reconstruction source for this family.
@@ -47,11 +52,13 @@ const MARKDOWN_TABLE_FORMAT = 'markdown-table';
 
 // The markdown-table conversions bound to one entry, read from the authored
 // converter binding (FOI_ENTRY_CONVERSIONS) so the raw file is never re-guessed.
-// A statistics-aggregate entry contributes nothing: its markdown tables are
-// lossless-canonical in the main ledger via the registered statistics-aggregate
-// family (issue #813 Stage C1), so exactly one family carries their structure.
+// A statistics-aggregate or issuance-events entry contributes nothing: its
+// markdown tables are lossless-canonical in the main ledger via the registered
+// statistics-aggregate (issue #813 Stage C1) / issuance-events (Stage C2)
+// family, so exactly one family carries their structure.
 export function markdownTableSourcesFor(meta: FoiEntryMeta): FoiSourceConversion[] {
   if (meta.datasetClasses.includes(STATISTICS_AGGREGATE_CLASS)) return [];
+  if (meta.datasetClasses.includes(ISSUANCE_EVENTS_CLASS)) return [];
   const variant = meta.converter?.variant;
   if (variant === undefined || variant === null) return [];
   const conversions = FOI_ENTRY_CONVERSIONS[variant];

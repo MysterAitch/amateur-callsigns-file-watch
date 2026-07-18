@@ -39,6 +39,7 @@ import { collectAvailablePoolSources } from '../v2/collectors/available-pool.ts'
 import { collectFoiVerbatimCsvSources } from '../v2/collectors/foi-verbatim-csv.ts';
 import { collectFoiMarkdownTableSources } from '../v2/collectors/foi-markdown-table.ts';
 import { collectStatisticsSources } from '../v2/collectors/statistics.ts';
+import { collectIssuanceEventsSources } from '../v2/collectors/issuance-events.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
 
 // The repo root, two levels up from src/ci/ (as the oracle module resolves it),
@@ -485,38 +486,33 @@ describe('FOI markdown-table transcriptions reconstruct their table region (issu
     expect(result.scopeNote).toBe(MARKDOWN_PROSE_SCOPE_NOTE);
   });
 
-  it('MarkdownMirror_WhenResolvedAfterStageC1_CoversOnlyTheSourcesNoRegisteredFamilyEmitsLosslessly', () => {
-    // The structural no-double-count invariant (issue #813 Stage C1): the
-    // markdown mirror no longer resolves any statistics-aggregate source, so
-    // the counts table reconstructs from exactly one family's claims - the
-    // registered one. The mirror's remaining scope is exactly the transfers
-    // table (wdtk-251507), which Stage C2 will move onto the issuance-events
-    // family's own lossless emit.
-    const statisticsRepoPaths = new Set(
-      collectStatisticsSources().map(resolved => resolved.load().repoPath ?? ''),
-    );
-    expect(statisticsRepoPaths.size).toBeGreaterThanOrEqual(1);
-    const mirrored = collectFoiMarkdownTableSources().map(resolved => resolved.load().repoPath ?? '');
-    for (const repoPath of mirrored) {
-      expect(statisticsRepoPaths.has(repoPath), `${repoPath} mirrored twice`).toBe(false);
-    }
-    expect(mirrored).toEqual(['archive/foi/wdtk-251507--reissue-policy/raw-extract-applicants-old-call-signs.md']);
+  it('MarkdownMirror_WhenResolvedAfterStageC2_CoversNothing', () => {
+    // The structural no-double-count invariant (issue #813 Stages C1/C2): every
+    // markdown-table extract now reconstructs from exactly one family's claims
+    // - its REGISTERED analytical owner (statistics-aggregate for the counts
+    // table, issuance-events for the transfers table) - so the mirror resolves
+    // to NOTHING. It survives, empty, only until Stage D deletes the module.
+    expect(collectFoiMarkdownTableSources()).toEqual([]);
   });
 
-  it('MarkdownTableSource_WhenTranscriptionCarriesWithheldColumns_ReconstructsEveryColumn', () => {
+  it('TransfersTable_WhenTranscriptionCarriesWithheldColumns_ReconstructsEveryColumn', () => {
     // The transfers table (wdtk-251507) carries s.40-withheld name columns the
-    // issuance-events dataset drops. The faithful mirror keeps ALL ten columns,
-    // so the whole table region round-trips.
-    const source = collectFoiMarkdownTableSources()
+    // old issuance-events projection dropped. The lossless-canonical family
+    // emit (issue #813 Stage C2) keeps ALL ten columns - the 'S40' marker cells
+    // are published bytes - so the whole table region round-trips from the
+    // REGISTERED family's own claims.
+    const source = collectIssuanceEventsSources()
       .map(resolved => resolved.load())
       .find(s => s.repoPath?.endsWith('raw-extract-applicants-old-call-signs.md') === true);
     expect(source).toBeDefined();
     if (source === undefined) return;
     expect(source.columns).toContain('Title');
     expect(source.columns).toContain('Call Signs');
+    expect(source.subjectColumn).toBe('Call Signs');
     const result = reconstructionResultFor(source);
     expect(result.detail ?? '').toBe('');
     expect(result.ok).toBe(true);
+    expect(result.scopeNote).toBe(MARKDOWN_PROSE_SCOPE_NOTE);
   });
 
   it('MarkdownTableCanonicaliser_WhenGivenTableDifferingOnlyByPaddingAndAlignment_CanonicaliseEqual', () => {
@@ -596,18 +592,121 @@ describe('FOI markdown-table transcriptions reconstruct their table region (issu
       fs.rmSync(scratch, { recursive: true, force: true });
     }
   });
+
+  it('TransfersTable_WhenReconstructedFromThePersistedLedgerJsonl_MatchesTheOriginalTableRegion', () => {
+    // The Stage C2 canonicity claim (issue #813): the transfers table was
+    // previously covered only via the mirror's oracle-only stream; now the
+    // issuance-events family emits it losslessly, the ledger a build PERSISTS
+    // must carry the whole table region - the manifest presenting all TEN
+    // verbatim published headers (the three s.40-withheld name columns
+    // included) with the raw callsign header as the subject, the authored
+    // event word riding as a DERIVED claim under its named rule, and NO raw
+    // claim presenting an authored spelling As-published.
+    const entry = 'wdtk-251507--reissue-policy';
+    const sources = collectIssuanceEventsSources().filter(resolved => resolved.entry === entry).map(resolved => resolved.load());
+    expect(sources).toHaveLength(1);
+    const source = sources[0];
+
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'recon-transfers-ledger-'));
+    try {
+      buildLedger(scratch, defaultFoiDir(), loadReferenceData(), key => key === entry);
+      const ledgerDir = path.join(scratch, 'ledger');
+      const files = fs.readdirSync(ledgerDir).filter(name => name.endsWith('.jsonl'));
+      expect(files).toHaveLength(1);
+      const persisted = parseClaimsJsonl(fs.readFileSync(path.join(ledgerDir, files[0]), 'utf8'));
+      expect(persisted[0]?.provenance.sourceFile).toBe(source.sourceFile);
+
+      // The manifest rode the persisted ledger with the verbatim spellings -
+      // the published header order, 'S40' marker columns included.
+      const manifest = persisted.filter(isFileLevelClaim);
+      expect(manifest.find(c => c.predicate === SUBJECT_PREDICATE)?.object).toBe('Call Signs');
+      const headerObjects = [...Array(10).keys()].map(index =>
+        manifest.find(c => c.predicate === columnPredicate(index))?.object);
+      expect(headerObjects).toEqual([
+        'Con Id', 'Licence Number', 'Call Signs', 'Licence Product', 'Status',
+        'Title', 'First_name', 'Last_name', 'Start date', 'Reason',
+      ]);
+
+      // The authored event word is DERIVED (Looked-up), never As-published: no
+      // raw claim carries the 'event' predicate or the 'reallocated' object,
+      // while every observation carries exactly one derived event claim.
+      expect(persisted.some(c => c.layer === 'raw' && (c.predicate === 'event' || c.object === 'reallocated'))).toBe(false);
+      const eventClaims = persisted.filter(c => c.layer === 'derived' && c.predicate === 'event');
+      expect(eventClaims.length).toBe(source.rows.length);
+      expect(eventClaims.every(c => c.rule === 'authored-event-vocabulary' && c.object === 'reallocated')).toBe(true);
+
+      // A callsign subject: the derived normalisation edges ride the persisted
+      // stream too (the #830 edge gate reads emits_edges = 1).
+      expect(persisted.some(c => c.predicate === NORMALISES_TO_PREDICATE && c.rule === CLEANED_CALLSIGN_RULE)).toBe(true);
+
+      // And the table region rebuilds from the persisted claims alone, equal
+      // to the canonicalised original extract (derived claims ignored).
+      const reconstruction = reconstructMarkdownTableFromClaims(persisted);
+      const repoPath = source.repoPath;
+      expect(repoPath).toBeDefined();
+      if (repoPath === undefined) return;
+      const original = fs.readFileSync(path.join(REPO_ROOT, repoPath)).toString(source.encoding ?? 'utf8');
+      expect(reconstruction).toBe(canonicaliseMarkdownTable(original, source.sourceFile));
+    } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
+  it('IssuanceCsvExport_WhenReconstructedFromThePersistedLedgerJsonl_MatchesTheOriginalModuloCosmetics', () => {
+    // The Stage C2 canonicity claim for the CSV lane (issue #813): the two
+    // ofcom event exports had NO reconstruction path at all (a silent gap -
+    // not an E3 shape, invisible to listNotYetCovered). Now the family emits
+    // them losslessly with attested line numbers, the persisted ledger must
+    // rebuild the file byte-identically modulo cosmetics, under the verbatim
+    // headers ('Original Start Date','Call Sign T-Number') with the callsign
+    // header as the manifest-placed subject (NOT column 0).
+    const entry = 'ofcom-498903--reissued-callsigns-since-2010';
+    const sources = collectIssuanceEventsSources().filter(resolved => resolved.entry === entry).map(resolved => resolved.load());
+    expect(sources).toHaveLength(1);
+    const source = sources[0];
+    expect(source.columns).toEqual(['Original Start Date', 'Call Sign T-Number']);
+    expect(source.subjectColumn).toBe('Call Sign T-Number');
+
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'recon-issuance-csv-ledger-'));
+    try {
+      buildLedger(scratch, defaultFoiDir(), loadReferenceData(), key => key === entry);
+      const ledgerDir = path.join(scratch, 'ledger');
+      const files = fs.readdirSync(ledgerDir).filter(name => name.endsWith('.jsonl'));
+      expect(files).toHaveLength(1);
+      const persisted = parseClaimsJsonl(fs.readFileSync(path.join(ledgerDir, files[0]), 'utf8'));
+      expect(persisted[0]?.provenance.sourceFile).toBe(source.sourceFile);
+
+      // No raw claim presents the authored vocabulary; the event word is a
+      // derived claim per observation.
+      expect(persisted.some(c => c.layer === 'raw' && (c.predicate === 'event' || c.predicate === 'event_date'))).toBe(false);
+      const eventClaims = persisted.filter(c => c.layer === 'derived' && c.predicate === 'event');
+      expect(eventClaims.length).toBe(source.rows.length);
+      expect(eventClaims.every(c => c.rule === 'authored-event-vocabulary' && c.object === 'reissued')).toBe(true);
+
+      const reconstruction = reconstructCsvFromClaims(persisted);
+      const repoPath = source.repoPath;
+      expect(repoPath).toBeDefined();
+      if (repoPath === undefined) return;
+      const original = fs.readFileSync(path.join(REPO_ROOT, repoPath)).toString(source.encoding ?? 'utf8');
+      expect(canonicaliseCsvText(reconstruction)).toBe(canonicaliseCsvText(original));
+    } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  });
 });
 
 // ---- Coverage bookkeeping ---------------------------------------------------
 
 describe('the oracle declares its coverage and any residual gaps explicitly', { tags: ['unit'] }, () => {
-  it('CoveredFamilies_WhenListed_AreTheThreeCsvLanesTheThreeRegisteredLosslessFamiliesAndTheMarkdownMirror', () => {
+  it('CoveredFamilies_WhenListed_AreTheThreeCsvLanesTheFourRegisteredLosslessFamiliesAndTheMarkdownMirror', () => {
     expect([...COVERED_FAMILIES].sort()).toEqual([
-      'attribute-addendum', 'available-pool', 'foi-markdown-table', 'foi-register', 'foi-verbatim-csv', 'open-data-register', 'statistics-aggregate',
+      'attribute-addendum', 'available-pool', 'foi-markdown-table', 'foi-register', 'foi-verbatim-csv', 'issuance-events', 'open-data-register', 'statistics-aggregate',
     ]);
-    // The statistics-aggregate family and the markdown mirror are the only
-    // families NOT reconstructed through the CSV serialiser (both hold
-    // markdown-table extracts, routed by their .md repoPath).
+    // The statistics-aggregate family and the markdown mirror hold
+    // markdown-table extracts only; the issuance-events family routes per
+    // source (two CSV exports, one markdown table) by its .md/.csv repoPath -
+    // so neither appears in the CSV-serialised list, which names the families
+    // that reconstruct through the CSV serialiser exclusively.
     expect([...CSV_SERIALISED_FAMILIES].sort()).toEqual([
       'attribute-addendum', 'available-pool', 'foi-register', 'foi-verbatim-csv', 'open-data-register',
     ]);
@@ -617,10 +716,11 @@ describe('the oracle declares its coverage and any residual gaps explicitly', { 
     // E3 landed every markdown-table, preamble and prefixed shape into a mirror,
     // Stage A (issue #813) moved the available-pool shapes onto the registered
     // family's own lossless emit, Stage B registered the pre-war annex's
-    // verbatim family, and Stage C1 moved the statistics counts table onto the
-    // registered statistics-aggregate family - so the honest non-coverage list
-    // stays EMPTY, the coverage guarantee. A future shape that slipped every
-    // selection would resurface here.
+    // verbatim family, Stage C1 moved the statistics counts table onto the
+    // registered statistics-aggregate family, and Stage C2 moved the transfers
+    // table onto the registered issuance-events family - so the honest
+    // non-coverage list stays EMPTY, the coverage guarantee. A future shape
+    // that slipped every selection would resurface here.
     expect(listNotYetCovered()).toEqual([]);
   });
 });

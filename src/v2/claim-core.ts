@@ -37,6 +37,7 @@
 
 import { COLUMN_INTERPRETATION_RULE, type ColumnInterpretation } from './interpretation.ts';
 import { LICENCE_CATEGORY_RULE } from './licence-category-emit.ts';
+import { AUTHORED_EVENT_RULE } from './issuance-event-emit.ts';
 
 // A claim is either a verbatim source assertion ('raw') or one computed by a
 // named rule ('derived'). The layer flag lets a consumer trust raw claims as
@@ -163,11 +164,14 @@ export const CONFIDENCE_ORDER: readonly ClaimConfidence[] = [
 // resolves via reference-data/licence-category.csv (normaliseLicenceCategory);
 // the column-interpretation tier (issue #435) resolves each column's {type,
 // format} from our authored column spec (DATE_COLUMNS/VARIANTS, FoiColumnSpec) -
-// asserted, not inferred from the data, so it too reads out Looked-up. The rule
-// names are IMPORTED from the tiers that own them so the enumeration stays a
-// single source of truth (a tier renaming its rule cannot silently fall out of
-// the lookup set).
-const LOOKUP_RULES: ReadonlySet<string> = new Set<string>([LICENCE_CATEGORY_RULE, COLUMN_INTERPRETATION_RULE]);
+// asserted, not inferred from the data, so it too reads out Looked-up. The
+// authored-event tier (issue #813 Stage C2) resolves each issuance row's event
+// word from the authored converter binding (FOI_ENTRY_CONVERSIONS), itself pinned
+// from the disclosure's covering-letter wording - again asserted, not computed,
+// so it reads out Looked-up. The rule names are IMPORTED from the tiers that own
+// them so the enumeration stays a single source of truth (a tier renaming its
+// rule cannot silently fall out of the lookup set).
+const LOOKUP_RULES: ReadonlySet<string> = new Set<string>([LICENCE_CATEGORY_RULE, COLUMN_INTERPRETATION_RULE, AUTHORED_EVENT_RULE]);
 
 // The confidence readout for a claim, from its layer and rule alone:
 //   - raw            -> As-published (the verbatim source token, untouched)
@@ -240,6 +244,14 @@ export interface SourceObservationSet {
   // round-trip compares at DECODED-TEXT level (the encoding itself is not
   // attested as a claim in this phase); absent means the raw bytes are utf-8.
   encoding?: BufferEncoding;
+  // The authored per-source EVENT vocabulary (issue #813 Stage C2), when the
+  // source is an issuance-events disclosure: the word the converter binding pins
+  // from the disclosure's own covering-letter framing ('reissued' /
+  // 'reciprocal-licence-issued' / 'reallocated'). An authored word is not a
+  // published byte, so it NEVER rides the raw layer: the emit path derives one
+  // claim per row under AUTHORED_EVENT_RULE (issuance-event-emit.ts, reading out
+  // Looked-up). Absent for every family that pins no event vocabulary.
+  authoredEvent?: string;
   // The authored per-column INTERPRETATION (issue #435), parallel to `columns`
   // by index: each column's inferred {type, format} we read it under. Populated
   // by the loader lane that owns the spec (interpretOpenDataColumns for the

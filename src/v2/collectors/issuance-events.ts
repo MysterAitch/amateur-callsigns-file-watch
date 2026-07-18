@@ -4,7 +4,7 @@
  * one row per event: a call sign paired with the date it was re-issued,
  * issued a reciprocal licence, or reallocated. Keyed off the AUTHORED converter
  * binding (FOI_ENTRY_CONVERSIONS in foi-normalise.ts), so the raw file, the
- * carried columns and the authored event vocabulary are never re-guessed.
+ * expected columns and the authored event vocabulary are never re-guessed.
  *
  * SUBJECT KIND is 'callsign'. Read from the raw bytes, every subject cell is a
  * genuine amateur call sign (e.g. G7DMN, M0GRT, G8JC) - the "T-Number" in the
@@ -15,37 +15,59 @@
  * reallocation event and when. Routing through emitLedger (the callsign guard in
  * build-ledger.ts) is therefore correct.
  *
- * NOT conflated with register STATE, despite sharing the callsign subject. An
- * issuance event is a different assertion from a register snapshot: this family
- * carries an authored `event` classification and an `event_date`, NOT a register
- * `status`, and it derives NO licence_category tier (categoryColumn is left
- * unset), so it never acquires register-state semantics. The `family:
- * 'issuance-events'` tag plus per-source provenance (sourceFile) keep an event
- * observation distinct from a register-snapshot observation even where both name
- * the same call sign.
+ * LOSSLESS-CANONICAL, VERBATIM HEADERS (issue #813 Stage C2). The family emits
+ * the source's WHOLE published structure: every physical column under the
+ * publisher's OWN header - including the transfers table's three s.40-withheld
+ * name columns, whose 'S40' marker cells are published bytes the transparency
+ * posture must carry, and the raw callsign header ('Call Sign T-Number' /
+ * 'Call Signs') as the subject column, placed by the file-level manifest's
+ * @subject claim rather than by position. The old emit reprojected rows into
+ * the authored OUTPUT names (dropping the S40 columns and presenting authored
+ * spellings at the layer documented as As-published - the live mis-presentation
+ * the #831 audit confirmed); the raw layer now carries published bytes only.
+ * The CSV sources attest per-row line numbers, header line and repoPath/
+ * encoding, so the reconstruction oracle (src/ci/reconstruction-oracle.ts)
+ * rebuilds them from this family's persisted claims; the markdown transfers
+ * table attests repoPath/encoding and reconstructs through the markdown
+ * serialiser (table region only), retiring the foi-markdown-table mirror's
+ * last scope.
  *
- * VERBATIM tokens, load-bearing dates. The call sign and the event_date travel
+ * THE AUTHORED `event` WORD IS DERIVED, NOT RAW (Stage C2's semantic
+ * correction). The event classification ('reissued' / 'reciprocal-licence-
+ * issued' / 'reallocated') is the constant the converter binding pins from each
+ * disclosure's own covering-letter wording - an authored word, not a published
+ * cell - so it rides as ONE DERIVED CLAIM PER ROW under AUTHORED_EVENT_RULE
+ * (issuance-event-emit.ts, reading out Looked-up), never as a raw claim. The
+ * event DATE stays raw under its verbatim header ('Original Start Date' /
+ * 'Start date') - one raw claim per published cell, never two.
+ *
+ * NOT conflated with register STATE, despite sharing the callsign subject. An
+ * issuance event is a different assertion from a register snapshot: no
+ * categoryColumn / originalStartDateColumn is set (the disclosed date is an
+ * EVENT date, not register state), so the family derives NO licence_category
+ * tier and no register-date parse flag. The `family: 'issuance-events'` tag
+ * plus per-source provenance (sourceFile) keep an event observation distinct
+ * from a register-snapshot observation even where both name the same call sign.
+ *
+ * VERBATIM tokens, load-bearing dates. The call sign and the event date travel
  * exactly as published - the Ofcom exports carry stored 23:00:00 timezone
  * artefacts (e.g. '2010-05-19 23:00:00') and the WDTK transfers table carries
  * day-first dates ('28/01/2015'); both are read from the RAW bytes and never
- * ISO-normalised or day-rounded here (that reshaping is the committed converter's
- * later step). The event date and the entry vintage carry the whole temporal
- * assertion and are preserved on every claim. The `event` value is the authored
- * constant the converter binding pins from the disclosure's own covering-letter
- * wording ('reissued' / 'reciprocal-licence-issued' / 'reallocated'); it rides as
- * an attribute claim so the three sources stay distinguishable at claim level
- * rather than collapsing to indistinguishable call-sign-and-date rows.
+ * ISO-normalised or day-rounded here (that reshaping is the committed
+ * converter's later step). The event date and the entry vintage carry the whole
+ * temporal assertion and are preserved on every claim.
  *
- * Two raw shapes, both driven by the authored binding: the two 2017 Ofcom
+ * Two raw shapes, both gated by the authored binding: the two 2017 Ofcom
  * workbook extracts are CSV (raw-extract-sheet-1-sheet1.csv); the 2015 WDTK
  * heritage-transfers table is a PDF transcribed into a committed markdown table
- * (raw-extract-applicants-old-call-signs.md, format 'markdown-table', parsed with
- * the same parseMarkdownTable the FOI converter uses). The WDTK entry also
+ * (raw-extract-applicants-old-call-signs.md, format 'markdown-table', parsed
+ * with the same parseMarkdownTable the FOI converter uses). The WDTK entry also
  * carries the reference-context and attribute-addendum classes, but its variant
- * binds only the transfers table, and that markdown-table shape is skipped by the
- * register machinery (registerSourcesFor drops markdown-table), so the
+ * binds only the transfers table, and that markdown-table shape is skipped by
+ * the register machinery (registerSourcesFor drops markdown-table), so the
  * attribute-addendum family does not emit it - this family is its sole emitter
- * and no source is emitted twice.
+ * and no source is emitted twice (the corpus-wide sole-emitter invariant,
+ * build-ledger.test.ts).
  */
 
 import * as fs from 'fs';
@@ -62,11 +84,14 @@ import { jsonlStem } from './util.ts';
 // automatically, exactly as the register/addendum families select.
 export const ISSUANCE_EVENTS_CLASS = 'issuance-events';
 
-// The output columns that DEFINE an issuance-events source shape: a verbatim
-// call-sign subject, an authored event classification, and the event date. A
-// conversion carrying all three is an issuance-events source; anything else
-// bound to the same variant (a register or reference table) is not, so a
-// multi-class entry contributes only its event-shaped source(s).
+// The authored OUTPUT roles that DEFINE an issuance-events source shape: a
+// verbatim call-sign subject, an authored event classification, and the event
+// date. A conversion carrying all three is an issuance-events source; anything
+// else bound to the same variant (a register or reference table) is not, so a
+// multi-class entry contributes only its event-shaped source(s). The role
+// names are used only to LOCATE columns in the authored binding - they never
+// reach the ledger's raw layer, whose predicates are the source's own verbatim
+// headers (issue #813 Stage C2).
 const CALLSIGN_OUTPUT = 'callsign';
 const EVENT_OUTPUT = 'event';
 const EVENT_DATE_OUTPUT = 'event_date';
@@ -74,6 +99,15 @@ const EVENT_DATE_OUTPUT = 'event_date';
 // Format marking a source transcribed from a PDF into a committed markdown
 // table; anything else is parsed as CSV (the FoiSourceConversion default).
 const MARKDOWN_TABLE_FORMAT = 'markdown-table';
+
+// One physical CSV record beside csv-parse's own 1-based physical-line tally,
+// so the header line and the data-row lines are stored facts (issue #431),
+// never inferred from row order - the same discipline as the verbatim-CSV
+// family (foi-verbatim-csv.ts).
+interface PhysicalRow {
+  record: string[];
+  info: { lines: number };
+}
 
 export interface IssuanceEventsEntry {
   entry: string;
@@ -116,62 +150,115 @@ export function issuanceEventsSourcesFor(meta: FoiEntryMeta): FoiSourceConversio
   return conversions.filter(isIssuanceEventsSource);
 }
 
-// Parse the raw bytes into records keyed by the source's own headers, honouring
-// the conversion's format (CSV or a committed markdown-table transcription). The
-// parse mirrors the FOI converter's own reading of each shape, so the rows this
-// runner keys off are the rows the committed normalisation was derived from.
-function parseRawRecords(filePath: string, conversion: FoiSourceConversion): Record<string, string>[] {
-  const text = fs.readFileSync(filePath).toString(conversion.encoding);
-  if (conversion.format === MARKDOWN_TABLE_FORMAT) {
-    return parseMarkdownTable(text, conversion.sourceFile);
+// The verbatim source header the authored binding maps to the call-sign role -
+// the subject column of the lossless emit. A binding without one is not a
+// recognised issuance shape (isIssuanceEventsSource would have rejected it);
+// failing loudly here keeps the invariant local and explicit.
+function callsignHeaderOf(conversion: FoiSourceConversion, filePath: string): string {
+  const callsignSpec = conversion.columns.find(column => column.output === CALLSIGN_OUTPUT);
+  const header = callsignSpec?.source ?? null;
+  if (header === null) {
+    throw new Error(`${filePath}: authored binding carries no verbatim "${CALLSIGN_OUTPUT}" column - not a recognised issuance-events shape`);
   }
-  return parse(text, { columns: true, skip_empty_lines: true, bom: true }) as Record<string, string>[];
+  return header;
 }
 
-// Parse one issuance-events source into the SourceObservationSet shape. Reads
-// the RAW bytes (never the normalised CSV) and carries every bound output
-// column: a source-backed column takes the raw cell VERBATIM (call sign and
-// event_date included, timezone/day-first artefacts intact); a source-null
-// column takes the authored constant the binding pins (the `event` vocabulary).
-// Columns the binding ignores (the s.40-withheld name columns) are not bound and
-// so never carried. The subject is the call sign; no product/categoryColumn is
-// set, so the emit path derives the callsign normalisation edges but NOT a
-// register licence_category tier.
+// The authored event constant the binding pins from the disclosure's
+// covering-letter wording. Required non-empty: an issuance source without an
+// event vocabulary is a changed binding shape, failed loudly.
+function authoredEventOf(conversion: FoiSourceConversion, filePath: string): string {
+  const eventSpec = conversion.columns.find(column => column.output === EVENT_OUTPUT && column.source === null);
+  const event = eventSpec?.constant ?? '';
+  if (event === '') {
+    throw new Error(`${filePath}: authored binding pins no "${EVENT_OUTPUT}" constant - the covering-letter event vocabulary is required`);
+  }
+  return event;
+}
+
+// Every header the authored binding names - the mapped source columns AND the
+// deliberately-ignored ones (the transfers table's s.40-withheld name columns) -
+// must be present in the raw headers: a missing header is a changed source
+// shape, failed loudly rather than silently emitting a different structure.
+function assertBoundHeadersPresent(conversion: FoiSourceConversion, rawHeaders: readonly string[], filePath: string): void {
+  const bound = [
+    ...conversion.columns.flatMap(column => (column.source === null ? [] : [column.source])),
+    ...conversion.ignoredColumns.map(spec => spec.column),
+  ];
+  for (const header of bound) {
+    if (!rawHeaders.includes(header)) {
+      throw new Error(`${filePath}: authored source header "${header}" absent from the raw headers (${rawHeaders.join(', ')})`);
+    }
+  }
+}
+
+// Parse one issuance-events source into a STRUCTURE-PRESERVING
+// SourceObservationSet (issue #813 Stage C2): the source's own header set
+// verbatim (every physical column, in source order - the s.40 'S40' marker
+// columns included), rows keyed by those headers with every cell carried
+// verbatim (call sign and event date included, timezone/day-first artefacts
+// intact), the verbatim call-sign header as the subject, and the authored
+// event constant attested as `authoredEvent` for the DERIVED tier - never a
+// raw claim. Reads the RAW bytes (never the normalised CSV); the authored
+// binding gates the shape but contributes no spellings to the raw layer.
 export function loadIssuanceEventsSource(foiDir: string, entry: string, meta: FoiEntryMeta, conversion: FoiSourceConversion): SourceObservationSet {
   const filePath = path.join(foiDir, entry, conversion.sourceFile);
-  const records = parseRawRecords(filePath, conversion);
-  if (records.length === 0) {
-    throw new Error(`${filePath}: parsed to zero rows - an issuance-events source must not be empty`);
-  }
-
-  // Every source-backed header the binding names must be present in the raw
-  // records - a missing header is a changed source shape, failed loudly rather
-  // than silently emitting blanks.
-  const rawHeaders = Object.keys(records[0]);
-  for (const column of conversion.columns) {
-    if (column.source === null) continue;
-    if (!rawHeaders.includes(column.source)) {
-      throw new Error(`${filePath}: authored source header "${column.source}" absent from the raw headers (${rawHeaders.join(', ')})`);
-    }
-  }
-
-  const columns = conversion.columns.map(column => column.output);
-  const rows = records.map(record => {
-    const row: Record<string, string> = {};
-    for (const column of conversion.columns) {
-      row[column.output] = column.source === null
-        ? (column.constant ?? '')
-        : (record[column.source] ?? '');
-    }
-    return row;
-  });
-
-  return {
+  const common = {
     sourceFile: `foi/${entry}/${conversion.sourceFile}`,
     vintage: meta.dataVintage ?? '',
+    authoredEvent: authoredEventOf(conversion, filePath),
+    // The reconstruction routing (issue #813 Stage C2): the true on-disk path
+    // and decode encoding, so reconstructionResultFor rebuilds the source from
+    // this family's persisted claims.
+    repoPath: `archive/foi/${entry}/${conversion.sourceFile}`,
+    encoding: conversion.encoding,
+  };
+  const subjectColumn = callsignHeaderOf(conversion, filePath);
+  const text = fs.readFileSync(filePath).toString(conversion.encoding);
+
+  if (conversion.format === MARKDOWN_TABLE_FORMAT) {
+    // The markdown lane (the wdtk-251507 transfers table): the SAME
+    // markdown-table parser the FOI converter uses, whole - every column, in
+    // source order. No line numbers are attested: the markdown serialiser
+    // renders a canonical table ordered by the ordinal, so positional
+    // placement is neither available nor needed (the statistics-aggregate
+    // precedent, issue #813 Stage C1).
+    const records = parseMarkdownTable(text, conversion.sourceFile);
+    if (records.length === 0) {
+      throw new Error(`${filePath}: parsed to zero rows - an issuance-events source must not be empty`);
+    }
+    const columns = Object.keys(records[0]);
+    assertBoundHeadersPresent(conversion, columns, filePath);
+    return { ...common, columns, subjectColumn, rows: records };
+  }
+
+  // The CSV lane (the two 2017 Ofcom workbook extracts): columns:false +
+  // info:true yields each physical record beside its 1-based end-of-record
+  // source line (skip_empty_lines still counts skipped lines in that tally),
+  // so the header line and every data row's line are stored facts and the
+  // reconstruction places them positionally (issue #431).
+  const parsed = parse(text, { columns: false, skip_empty_lines: true, bom: true, info: true }) as unknown as PhysicalRow[];
+  const headerRow = parsed[0];
+  if (headerRow === undefined) {
+    throw new Error(`${filePath}: no header row`);
+  }
+  const columns = headerRow.record;
+  if (new Set(columns).size !== columns.length) {
+    throw new Error(`${filePath}: duplicate header names (${columns.join(', ')}) - a verbatim emit cannot key rows unambiguously`);
+  }
+  assertBoundHeadersPresent(conversion, columns, filePath);
+  const dataRows = parsed.slice(1);
+  if (dataRows.length === 0) {
+    throw new Error(`${filePath}: parsed to zero rows - an issuance-events source must not be empty`);
+  }
+  const rows = dataRows.map(physical =>
+    Object.fromEntries(columns.map((header, index) => [header, physical.record[index] ?? ''])));
+  return {
+    ...common,
     columns,
-    subjectColumn: CALLSIGN_OUTPUT,
+    subjectColumn,
     rows,
+    lineNumbers: dataRows.map(physical => physical.info.lines),
+    headerLine: headerRow.info.lines,
   };
 }
 

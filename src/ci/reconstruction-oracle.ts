@@ -31,17 +31,20 @@
  * FOI-CSV register, attribute-addendum - reconstruct through the CSV
  * serialiser, and so do the available-pool family (REGISTERED lossless-
  * canonical since issue #813 Stage A: the 2013/14 suffix sheets and the 2015/16
- * typed exports) and the foi-verbatim-csv family (REGISTERED since issue #813
+ * typed exports), the foi-verbatim-csv family (REGISTERED since issue #813
  * Stage B: the pre-war annex's raw-only token sheets, storing the raw token as
- * the subject) - so ALL of those sources reconstruct from the claims the MAIN
- * ledger persists, not from any parallel mirror. Phase 3 (issue #434 / E3) adds
- * the FOI markdown-table transcriptions through a dedicated markdown serialiser
- * that compares the TABLE REGION ONLY: the statistics-aggregate family
- * (REGISTERED lossless-canonical since issue #813 Stage C1: verbatim headers,
- * the counts table) through its own registered claims, and the remaining
- * markdown shape (the wdtk-251507 transfers table) through the
- * foi-markdown-table mirror until Stage C2. The prose surrounding a markdown
- * table is explicitly OUTSIDE the ledger's fidelity claim
+ * the subject) and the issuance-events family's two CSV event exports
+ * (lossless-canonical since issue #813 Stage C2) - so ALL of those sources
+ * reconstruct from the claims the MAIN ledger persists, not from any parallel
+ * mirror. Phase 3 (issue #434 / E3) adds the FOI markdown-table transcriptions
+ * through a dedicated markdown serialiser that compares the TABLE REGION ONLY:
+ * the statistics-aggregate counts table (REGISTERED lossless-canonical since
+ * issue #813 Stage C1) and the issuance-events transfers table (Stage C2, the
+ * s.40 'S40' marker columns carried whole) each through their own registered
+ * family's claims. The foi-markdown-table mirror consequently resolves to
+ * NOTHING on the current archive (it survives, empty, until Stage D deletes
+ * it). The prose surrounding a markdown table is explicitly OUTSIDE the
+ * ledger's fidelity claim
  * (MARKDOWN_PROSE_SCOPE_NOTE, design E4) - declared, never silently dropped.
  * listNotYetCovered cross-checks that every E3 shape is genuinely in the
  * corpus (an empty result is the coverage guarantee).
@@ -76,6 +79,7 @@ import { collectAvailablePoolSources, AVAILABLE_POOL_CLASS } from '../v2/collect
 import { collectFoiVerbatimCsvSources, verbatimCsvSourcesFor } from '../v2/collectors/foi-verbatim-csv.ts';
 import { collectFoiMarkdownTableSources, markdownTableSourcesFor } from '../v2/collectors/foi-markdown-table.ts';
 import { collectStatisticsSources, statisticsSourcesFor, STATISTICS_AGGREGATE_CLASS } from '../v2/collectors/statistics.ts';
+import { collectIssuanceEventsSources, issuanceEventsSourcesFor, ISSUANCE_EVENTS_CLASS } from '../v2/collectors/issuance-events.ts';
 import { serialiseClaimsJsonl, parseClaimsJsonl } from '../v2/serialise.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
@@ -90,8 +94,11 @@ const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 // Stage A, foi-verbatim-csv since Stage B) reconstruct through the CSV
 // serialiser; the registered statistics-aggregate family (lossless-canonical
 // since Stage C1) and the FOI markdown-table mirror through the markdown
-// serialiser. A family not listed here has no reconstruction path yet (see
-// listNotYetCovered).
+// serialiser; the issuance-events family (lossless-canonical since Stage C2)
+// routes per source - its two CSV event exports through the CSV serialiser and
+// the markdown transfers table through the markdown serialiser (selection by
+// repoPath extension, reconstructionResultFor). A family not listed here has no
+// reconstruction path yet (see listNotYetCovered).
 export const COVERED_FAMILIES: readonly string[] = [
   'open-data-register',
   'foi-register',
@@ -99,6 +106,7 @@ export const COVERED_FAMILIES: readonly string[] = [
   'available-pool',
   'foi-verbatim-csv',
   'statistics-aggregate',
+  'issuance-events',
   'foi-markdown-table',
 ];
 
@@ -431,8 +439,9 @@ export function collectCsvReconstructionSources(): ResolvedLedgerSource[] {
 // REGISTERED lossless emit, issue #813 Stage A), then the FOI verbatim-CSV
 // family (the pre-war annex, REGISTERED since issue #813 Stage B), then the
 // statistics-aggregate family (the counts table, REGISTERED lossless since
-// issue #813 Stage C1), then the FOI markdown-table mirror (its remaining
-// scope: the transfers table until Stage C2). The markdown sources self-identify
+// issue #813 Stage C1), then the issuance-events family (all three event
+// sources, lossless since Stage C2), then the FOI markdown-table mirror (now
+// resolving to nothing; deleted in Stage D). The markdown sources self-identify
 // by their .md repoPath, so reconstructionResultFor routes them to the markdown
 // serialiser regardless of family.
 export function collectReconstructionSources(foiDir: string = defaultFoiDir()): ResolvedLedgerSource[] {
@@ -441,6 +450,7 @@ export function collectReconstructionSources(foiDir: string = defaultFoiDir()): 
     ...collectAvailablePoolSources(foiDir),
     ...collectFoiVerbatimCsvSources(foiDir),
     ...collectStatisticsSources(foiDir),
+    ...collectIssuanceEventsSources(foiDir),
     ...collectFoiMarkdownTableSources(foiDir),
   ];
 }
@@ -470,7 +480,10 @@ function e3ShapeOf(conversion: { format?: string; preamble?: unknown; columns: r
 // EITHER the markdown-table mirror or a REGISTERED family whose main-ledger emit
 // is itself lossless - available-pool (issue #813 Stage A, carrying every
 // conversion of an available-pool entry), foi-verbatim-csv (Stage B, the
-// pre-war annex) and statistics-aggregate (Stage C1, the counts table). This is
+// pre-war annex), statistics-aggregate (Stage C1, the counts table) and
+// issuance-events (Stage C2, the transfers table; its two CSV event exports are
+// not an E3 shape and so never appear here - their coverage is asserted by the
+// committed oracle tests until Stage D makes coverage structural). This is
 // EMPTY on the current archive: an empty result is the coverage guarantee. A
 // future conversion whose shape slips every selection would surface here rather
 // than pass unnoticed.
@@ -487,12 +500,15 @@ export function listNotYetCovered(foiDir: string = defaultFoiDir()): UncoveredSo
     // losslessly by the registered available-pool family, exactly as
     // collectAvailablePoolSources resolves it), plus a statistics-aggregate
     // entry's markdown tables (emitted losslessly by the registered
-    // statistics-aggregate family since issue #813 Stage C1).
+    // statistics-aggregate family since issue #813 Stage C1), plus an
+    // issuance-events entry's event sources (emitted losslessly by the
+    // registered issuance-events family since Stage C2).
     const covered = new Set<string>([
       ...verbatimCsvSourcesFor(meta).map(conversion => conversion.sourceFile),
       ...markdownTableSourcesFor(meta).map(conversion => conversion.sourceFile),
       ...(meta.datasetClasses.includes(AVAILABLE_POOL_CLASS) ? conversions.map(conversion => conversion.sourceFile) : []),
       ...(meta.datasetClasses.includes(STATISTICS_AGGREGATE_CLASS) ? statisticsSourcesFor(meta).map(conversion => conversion.sourceFile) : []),
+      ...(meta.datasetClasses.includes(ISSUANCE_EVENTS_CLASS) ? issuanceEventsSourcesFor(meta).map(conversion => conversion.sourceFile) : []),
     ]);
     for (const conversion of conversions) {
       const shape = e3ShapeOf(conversion);

@@ -64,6 +64,13 @@ export {
   emitLicenceCategoryClaims,
 } from './licence-category-emit.ts';
 
+// The derived authored-event tier (issue #813 Stage C2).
+export {
+  EVENT_PREDICATE,
+  AUTHORED_EVENT_RULE,
+  emitAuthoredEventClaims,
+} from './issuance-event-emit.ts';
+
 // The derived callsign-pattern tier.
 export {
   CALLSIGN_PATTERN_PREDICATE,

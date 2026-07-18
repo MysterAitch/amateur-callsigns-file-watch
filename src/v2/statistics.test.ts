@@ -101,7 +101,8 @@ describe('statistics-aggregate family: raw period + count claims, verbatim, no c
     // the mirror to the REGISTERED family without a single observation
     // changing. The equality stays executable after the mirror's coverage of
     // this file is retired, because it compares the LOADERS directly (the
-    // mirror loader survives for the wdtk-251507 transfers table until C2).
+    // mirror loader survives - resolving to nothing since Stage C2 - until
+    // Stage D deletes the module).
     const entry = statisticsEntries(FOI_DIR).find(e => e.entry === STATISTICS_ENTRY);
     expect(entry).toBeDefined();
     if (entry === undefined) return;
