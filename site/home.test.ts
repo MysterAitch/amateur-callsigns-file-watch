@@ -5,6 +5,7 @@ import * as path from 'path';
 import {
   cleanQuery, readRecents, pushRecent, nextSurpriseIndex, readoutText,
   attachSearch, renderRecents, wireTabs, SURPRISES,
+  coverageLabel, qualityFlagLine, popoverLines, buildPopover, wireHoldingsPopovers,
 } from './home.js';
 
 // Test names follow Subject_Scenario_Outcome. These exercise the front-door
@@ -93,6 +94,327 @@ describe('Holdings-map readout (issue #712)', { tags: ['unit'] }, () => {
   it('ReadoutText_ADatasetWithNoTabularData_OmitsTheRowCount', () => {
     expect(readoutText({ kindLabel: 'Context', title: 'A not-held response', vintage: 'March 2022', rows: '' }))
       .toBe('Context · A not-held response · March 2022');
+  });
+});
+
+// The richer per-cell popover (issue #741): a fuller summary than the readout
+// line, plus a tap-to-preview-then-navigate touch interaction. These tests
+// exercise it as a user experiences it — hover/focus/tap/Escape — against a
+// small stand-in for build-front-door.ts's rendered cells; hash-only hrefs so
+// a jsdom-dispatched click's native anchor activation never attempts a real
+// page navigation (jsdom implements hash changes only), while the exact same
+// interception logic under test still runs.
+describe('Popover summary content (issue #741)', { tags: ['unit'] }, () => {
+  it('CoverageLabel_DeclaredComplete_ReadsDeclaredComplete', () => {
+    expect(coverageLabel('complete')).toBe('Declared complete');
+  });
+  it('CoverageLabel_DeclaredPartial_ReadsDeclaredPartial', () => {
+    expect(coverageLabel('partial')).toBe('Declared partial');
+  });
+  it('CoverageLabel_FieldNotDeclaredOrUnrecognised_ReadsNotDeclared', () => {
+    expect(coverageLabel('none')).toBe('Coverage not declared');
+    expect(coverageLabel(undefined)).toBe('Coverage not declared');
+  });
+
+  it('QualityFlagLine_NoFlags_IsBlank', () => {
+    expect(qualityFlagLine('0', 'false')).toBe('');
+    expect(qualityFlagLine(undefined, undefined)).toBe('');
+  });
+  it('QualityFlagLine_OneFlag_ReadsSingular', () => {
+    expect(qualityFlagLine('1', 'false')).toBe('1 data-quality flag');
+  });
+  it('QualityFlagLine_SeveralCoverageAffectingFlags_ReadsPluralWithTheCaveat', () => {
+    expect(qualityFlagLine('2', 'true')).toBe('2 data-quality flags · coverage-affecting');
+  });
+
+  it('PopoverLines_ADeclaredCompleteDatasetWithNoFlags_ListsTheReadoutThenCoverageOnly', () => {
+    expect(popoverLines({
+      kindLabel: 'Register snapshot', title: 'Publication of 23 June 2026', vintage: '23 June 2026', rows: '158,318',
+      coverage: 'complete', qualityCount: '0', coverageAffecting: 'false',
+    })).toEqual([
+      'Register snapshot · Publication of 23 June 2026 · 23 June 2026 · 158,318 rows',
+      'Declared complete',
+    ]);
+  });
+  it('PopoverLines_ADeclaredPartialDatasetWithCoverageAffectingFlags_AddsTheFlagLine', () => {
+    expect(popoverLines({
+      kindLabel: 'Register snapshot', title: 'Publication of 14 January 2025', vintage: '14 January 2025', rows: '150,000',
+      coverage: 'partial', qualityCount: '2', coverageAffecting: 'true',
+    })).toEqual([
+      'Register snapshot · Publication of 14 January 2025 · 14 January 2025 · 150,000 rows',
+      'Declared partial',
+      '2 data-quality flags · coverage-affecting',
+    ]);
+  });
+});
+
+// A minimal stand-in for build-front-door.ts's rendered map cells, carrying
+// exactly the data-attributes the popover reads, plus an element outside the
+// grid to exercise the outside-click dismissal.
+function holdingsMapHost(): { grid: HTMLElement; cellA: HTMLElement; cellB: HTMLElement } {
+  document.body.innerHTML = `
+    <p id="hold-readout"></p>
+    <ol id="hold-grid">
+      <li><a class="hold-cell" href="#dataset-a"
+        data-key="2026-06-23" data-kind="register-snapshot" data-kind-label="Register snapshot"
+        data-title="Publication of 23 June 2026" data-vintage="23 June 2026" data-rows="158,318"
+        data-coverage="complete" data-quality="0" data-coverage-affecting="false"><span aria-hidden="true">R</span></a></li>
+      <li><a class="hold-cell" href="#dataset-b"
+        data-key="2025-01-14" data-kind="register-snapshot" data-kind-label="Register snapshot"
+        data-title="Publication of 14 January 2025" data-vintage="14 January 2025" data-rows="150,000"
+        data-coverage="partial" data-quality="2" data-coverage-affecting="true"><span aria-hidden="true">R</span></a></li>
+    </ol>
+    <button id="elsewhere">elsewhere on the page</button>`;
+  const grid = document.getElementById('hold-grid') as HTMLElement;
+  const [cellA, cellB] = [...grid.querySelectorAll('.hold-cell')] as HTMLElement[];
+  return { grid, cellA, cellB };
+}
+
+// A pointerdown carrying the given pointer type, mirroring the tap/click
+// sequence a real touch or mouse interaction produces (jsdom does not expose a
+// PointerEvent constructor with a settable pointerType, so it is defined
+// directly on a plain Event — the code under test only ever reads the
+// property).
+function pointerDown(target: EventTarget, pointerType: string): void {
+  const e = new Event('pointerdown', { bubbles: true });
+  Object.defineProperty(e, 'pointerType', { value: pointerType, configurable: true });
+  target.dispatchEvent(e);
+}
+
+// A real pointer-driven click (mouse or touch) — these always carry a
+// non-zero `detail` (the native click count), which is exactly what
+// distinguishes them from a keyboard activation below.
+function fireClick(target: EventTarget): MouseEvent {
+  const e = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+  target.dispatchEvent(e);
+  return e;
+}
+
+// A keyboard-triggered activation (Enter/Space on a focused element): the
+// browser dispatches this with `detail: 0`, never a real pointer count, which
+// is the signal the click handler uses to let keyboard navigation through
+// unconditionally.
+function fireKeyboardClick(target: EventTarget): MouseEvent {
+  const e = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 });
+  target.dispatchEvent(e);
+  return e;
+}
+
+// The popover is inserted as the cell's next sibling by wireHoldingsPopovers.
+function popoverOf(cell: HTMLElement): HTMLElement {
+  const pop = cell.nextElementSibling;
+  if (!(pop instanceof HTMLElement) || !pop.classList.contains('hold-pop')) throw new Error('expected a popover sibling');
+  return pop;
+}
+
+describe('Popover DOM shape (issue #741)', { tags: ['ui'] }, () => {
+  it('BuildPopover_ADeclaredPartialCellWithFlags_ProducesAnAccessibleGroupWithAnOpenDatasetLink', () => {
+    const { cellB } = holdingsMapHost();
+    const pop = buildPopover(cellB);
+    expect(pop.getAttribute('role')).toBe('group');
+    expect(pop.hidden).toBe(true); // hidden until wireHoldingsPopovers opens it
+    const head = pop.querySelector('.hold-pop-head');
+    expect(head?.id).toBe(pop.getAttribute('aria-labelledby'));
+    expect(head?.textContent).toContain('Publication of 14 January 2025');
+    expect(pop.textContent).toContain('Declared partial');
+    expect(pop.textContent).toContain('2 data-quality flags · coverage-affecting');
+    const link = pop.querySelector('a.hold-pop-link') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('#dataset-b'); // the same destination as the cell itself
+    expect(link.textContent).toBe('Open dataset →');
+  });
+});
+
+describe('Popover interaction (issue #741)', { tags: ['ui'] }, () => {
+  it('Popover_BeforeWiring_TheCellIsAPlainDeepLinkWithNoPopover', () => {
+    // Progressive enhancement: with wireHoldingsPopovers never called (the
+    // no-JS baseline), the cell carries no popover at all — just its href.
+    const { cellA } = holdingsMapHost();
+    expect(cellA.nextElementSibling).toBeNull();
+    expect(cellA.getAttribute('href')).toBe('#dataset-a');
+  });
+
+  it('Popover_DesktopHover_ShowsTheRicherSummary', () => {
+    const { cellA } = holdingsMapHost();
+    wireHoldingsPopovers();
+    cellA.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(popoverOf(cellA).hidden).toBe(false);
+  });
+
+  it('Popover_DesktopMouseClick_StillNavigatesImmediately_NoRegressionToTheDeepLink', () => {
+    const { cellA } = holdingsMapHost();
+    wireHoldingsPopovers();
+    cellA.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const e = fireClick(cellA);
+    expect(e.defaultPrevented).toBe(false);
+  });
+
+  it('Popover_KeyboardFocus_ShowsThePopoverAndEnterStillNavigatesDirectly', () => {
+    const { cellA } = holdingsMapHost();
+    wireHoldingsPopovers();
+    cellA.focus();
+    expect(document.activeElement).toBe(cellA);
+    expect(popoverOf(cellA).hidden).toBe(false);
+    // A keyboard Enter (detail 0 — no preceding pointerdown) is left entirely
+    // alone — it navigates exactly as it always has.
+    const e = fireKeyboardClick(cellA);
+    expect(e.defaultPrevented).toBe(false);
+  });
+
+  it('Popover_FocusMovingToTheNextCell_ClosesThePreviousPopoverAndOpensTheNext', () => {
+    const { cellA, cellB } = holdingsMapHost();
+    wireHoldingsPopovers();
+    cellA.focus();
+    expect(popoverOf(cellA).hidden).toBe(false);
+    cellB.focus();
+    expect(popoverOf(cellA).hidden).toBe(true);
+    expect(popoverOf(cellB).hidden).toBe(false);
+  });
+
+  it('Popover_TabbingIntoItsOwnOpenDatasetLink_StaysOpenRatherThanTrappingOrClosing', () => {
+    const { cellA } = holdingsMapHost();
+    wireHoldingsPopovers();
+    cellA.focus();
+    const link = popoverOf(cellA).querySelector('a.hold-pop-link') as HTMLAnchorElement;
+    link.focus(); // the natural next Tab stop — no special focus trap involved
+    expect(document.activeElement).toBe(link);
+    expect(popoverOf(cellA).hidden).toBe(false); // moving focus within the pair does not close it
+  });
+
+  it('Popover_EscapeKey_DismissesAndReturnsFocusToTheCell', () => {
+    const { cellA } = holdingsMapHost();
+    wireHoldingsPopovers();
+    cellA.focus();
+    const link = popoverOf(cellA).querySelector('a.hold-pop-link') as HTMLAnchorElement;
+    link.focus();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(popoverOf(cellA).hidden).toBe(true);
+    expect(document.activeElement).toBe(cellA); // focus never lands on nothing
+  });
+
+  it('Popover_ClickOutsideTheGrid_DismissesAnOpenPopover', () => {
+    const { cellA } = holdingsMapHost();
+    wireHoldingsPopovers();
+    cellA.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(popoverOf(cellA).hidden).toBe(false);
+    document.getElementById('elsewhere')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(popoverOf(cellA).hidden).toBe(true);
+  });
+
+  it('Popover_TouchFirstTap_PreviewsAndBlocksTheNavigation', () => {
+    const { cellA } = holdingsMapHost();
+    wireHoldingsPopovers();
+    pointerDown(cellA, 'touch');
+    const e = fireClick(cellA);
+    expect(e.defaultPrevented).toBe(true); // the first tap previews, it does not navigate
+    expect(popoverOf(cellA).hidden).toBe(false);
+  });
+
+  it('Popover_TouchSecondTapOnAnAlreadyPreviewedCell_LetsTheNavigationThrough', () => {
+    const { cellA } = holdingsMapHost();
+    wireHoldingsPopovers();
+    pointerDown(cellA, 'touch');
+    fireClick(cellA); // first tap: preview
+    pointerDown(cellA, 'touch');
+    const e2 = fireClick(cellA); // second tap: navigate
+    expect(e2.defaultPrevented).toBe(false);
+  });
+
+  it('Popover_TouchTapOnADifferentCell_PreviewsTheNewOneRatherThanNavigating', () => {
+    const { cellA, cellB } = holdingsMapHost();
+    wireHoldingsPopovers();
+    pointerDown(cellA, 'touch');
+    fireClick(cellA); // preview A
+    pointerDown(cellB, 'touch');
+    const e = fireClick(cellB); // a fresh cell always previews first, even mid-preview elsewhere
+    expect(e.defaultPrevented).toBe(true);
+    expect(popoverOf(cellA).hidden).toBe(true);
+    expect(popoverOf(cellB).hidden).toBe(false);
+  });
+
+  it('Popover_ClickInsideItsOwnOpenDatasetLink_IsNeverIntercepted', () => {
+    const { cellA } = holdingsMapHost();
+    wireHoldingsPopovers();
+    // Touch-preview it open first, exactly as a touch user would.
+    pointerDown(cellA, 'touch');
+    fireClick(cellA);
+    const link = popoverOf(cellA).querySelector('a.hold-pop-link') as HTMLAnchorElement;
+    const e = fireClick(link);
+    expect(e.defaultPrevented).toBe(false); // the explicit "go to dataset" action always navigates
+  });
+
+  // Hybrid touch+keyboard/mouse devices: a single touch tap must never leave
+  // the grid permanently "thinking" every later interaction is also touch.
+  it('Popover_KeyboardEnterOnAnotherCellAfterAnEarlierTouchTap_StillNavigates', () => {
+    const { cellA, cellB } = holdingsMapHost();
+    wireHoldingsPopovers();
+    // A full touch tap-preview-then-navigate on cell A first.
+    pointerDown(cellA, 'touch');
+    fireClick(cellA); // preview
+    pointerDown(cellA, 'touch');
+    fireClick(cellA); // navigate
+    // A keyboard Enter on a different cell must not be treated as a second
+    // touch tap — it should navigate immediately, exactly as it always has.
+    cellB.focus();
+    const e = fireKeyboardClick(cellB);
+    expect(e.defaultPrevented).toBe(false);
+  });
+
+  it('Popover_HoverAfterAnEarlierTouchTap_StillOpensThePopover', () => {
+    const { cellA, cellB } = holdingsMapHost();
+    wireHoldingsPopovers();
+    pointerDown(cellA, 'touch');
+    fireClick(cellA); // preview
+    pointerDown(cellA, 'touch');
+    fireClick(cellA); // navigate — the touch gesture is over
+    // A genuine mouse hover on another cell afterwards (no pointerdown at
+    // all — real hovering never fires one) must still open its popover.
+    cellB.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(popoverOf(cellB).hidden).toBe(false);
+  });
+
+  it('Popover_KeyboardTabAfterAnIncompleteTouchGesture_StillOpensThePopoverOnFocus', () => {
+    // A touch pointerdown with no matching click (a long-press, or a finger
+    // dragged away before lifting) leaves lastPointerType stuck at 'touch'
+    // with no click ever firing to reset it — the click-driven reset alone
+    // cannot save this case, so this isolates the keydown-driven reset as an
+    // independent safety net.
+    const { cellA, cellB } = holdingsMapHost();
+    wireHoldingsPopovers();
+    pointerDown(cellA, 'touch'); // no matching click follows
+    // Tabbing dispatches a keydown before the resulting focusin; that keydown
+    // alone must be enough to clear the stale touch state.
+    cellB.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    cellB.focus();
+    expect(popoverOf(cellB).hidden).toBe(false);
+  });
+
+  it('Popover_ShiftTabFromTheOpenDatasetLinkBackToTheCell_KeepsItOpen', () => {
+    const { cellA } = holdingsMapHost();
+    wireHoldingsPopovers();
+    cellA.focus();
+    const link = popoverOf(cellA).querySelector('a.hold-pop-link') as HTMLAnchorElement;
+    link.focus();
+    expect(popoverOf(cellA).hidden).toBe(false);
+    // Shift+Tab back to the cell: the departing element (link.focusout's
+    // target) is the popover's own link, not the cell — the popover must not
+    // be treated as left behind.
+    cellA.focus();
+    expect(popoverOf(cellA).hidden).toBe(false);
+    expect(document.activeElement).toBe(cellA);
+  });
+
+  it('Popover_MouseMovingBetweenThePopoversOwnChildren_KeepsItOpen', () => {
+    const { cellA } = holdingsMapHost();
+    wireHoldingsPopovers();
+    cellA.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const pop = popoverOf(cellA);
+    const head = pop.querySelector('.hold-pop-head') as HTMLElement;
+    const link = pop.querySelector('a.hold-pop-link') as HTMLAnchorElement;
+    expect(pop.hidden).toBe(false);
+    // The mouse moving from the popover's summary text to its own link is not
+    // a departure from the cell/popover pair.
+    head.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: link }));
+    expect(pop.hidden).toBe(false);
   });
 });
 

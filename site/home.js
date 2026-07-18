@@ -7,8 +7,9 @@
 // (src/ci/build-front-door.ts), the first surprise fact is in the markup, the
 // role-tab panels are all present, and the "jump back" chips are simply hidden.
 // This file layers on top: the search box's type-ahead, the surprise-card
-// rotation, the holdings-map hover/focus readout, single-panel tab behaviour,
-// the returning-visitor chips, and smooth in-page jumps.
+// rotation, the holdings-map hover/focus readout and its richer per-cell
+// popover (#741), single-panel tab behaviour, the returning-visitor chips, and
+// smooth in-page jumps.
 //
 // Navigation model: the search box runs the lookup IN PAGE (app.js renders the
 // result below it), so the type-ahead is FILL-THEN-SUBMIT — selecting a
@@ -90,6 +91,232 @@ export function readoutText(d) {
 }
 
 const READOUT_DEFAULT = 'Hover or focus a cell to read its dataset — kind, title, vintage and row count.';
+
+// The declared-coverage words for a cell's popover, from its data-coverage
+// attribute — complete/partial only exist where the lane declares the field at
+// all (mirrors the classification the publisher-page coverage cell renders).
+/** @param {string | null | undefined} coverage @returns {string} */
+export function coverageLabel(coverage) {
+  if (coverage === 'complete') return 'Declared complete';
+  if (coverage === 'partial') return 'Declared partial';
+  return 'Coverage not declared';
+}
+
+// A cell's quality-flag line, or '' when the dataset carries none — folded
+// into a single count exactly as the publisher-page flags cell does, with the
+// coverage-affecting caveat kept distinct because such absences are not
+// themselves evidence of anything.
+/** @param {string | null | undefined} qualityCount @param {string | null | undefined} coverageAffecting @returns {string} */
+export function qualityFlagLine(qualityCount, coverageAffecting) {
+  const q = Number(qualityCount ?? '0');
+  if (!Number.isFinite(q) || q <= 0) return '';
+  const base = `${q} data-quality flag${q > 1 ? 's' : ''}`;
+  return coverageAffecting === 'true' ? `${base} · coverage-affecting` : base;
+}
+
+// The popover's summary lines for a cell, in display order: the same
+// kind/title/vintage/rows head the readout carries, then the declared-coverage
+// state, then any quality-flag caveat (issue #741). Pure and exported so the
+// content is unit-testable without touching the DOM.
+/**
+ * @param {{ kindLabel?: string|null, title?: string|null, vintage?: string|null, rows?: string|null,
+ *   coverage?: string|null, qualityCount?: string|null, coverageAffecting?: string|null }} d
+ * @returns {string[]}
+ */
+export function popoverLines(d) {
+  const lines = [readoutText(d), coverageLabel(d.coverage)];
+  const flag = qualityFlagLine(d.qualityCount, d.coverageAffecting);
+  if (flag !== '') lines.push(flag);
+  return lines;
+}
+
+// Build one cell's popover element from its data-attributes: the richer
+// summary issue #741 asks for (kind, title, vintage, rows, declared coverage,
+// quality flags) plus an explicit "open dataset" action, distinct from the
+// always-on readout line above the grid. Hidden until wireHoldingsPopovers
+// opens it; the element only exists once JavaScript builds it, so the no-JS
+// baseline (a plain deep-linking cell) is entirely untouched.
+/** @param {HTMLElement} cell @returns {HTMLElement} */
+export function buildPopover(cell) {
+  const d = cell.dataset;
+  const key = d.key ?? '';
+  const pop = document.createElement('div');
+  pop.className = 'hold-pop';
+  pop.id = `hold-pop-${key}`;
+  pop.hidden = true;
+  pop.setAttribute('role', 'group');
+  const headId = `hold-pop-head-${key}`;
+  pop.setAttribute('aria-labelledby', headId);
+
+  // popoverLines' documented order is fixed — readout, then coverage, then an
+  // optional quality-flag caveat — so each line gets its own styling class
+  // (the quality flag reads in the same signal tint the publisher-page flags
+  // column already uses for the same observations).
+  const [head, coverage, quality] = popoverLines({
+    kindLabel: d.kindLabel, title: d.title, vintage: d.vintage, rows: d.rows,
+    coverage: d.coverage, qualityCount: d.quality, coverageAffecting: d.coverageAffecting,
+  });
+  const headEl = document.createElement('p');
+  headEl.id = headId;
+  headEl.className = 'hold-pop-head';
+  headEl.textContent = head ?? '';
+  pop.append(headEl);
+
+  const covEl = document.createElement('p');
+  covEl.className = 'hold-pop-cov';
+  covEl.textContent = coverage ?? '';
+  pop.append(covEl);
+
+  if (quality !== undefined) {
+    const flagEl = document.createElement('p');
+    flagEl.className = 'hold-pop-flag';
+    flagEl.textContent = quality;
+    pop.append(flagEl);
+  }
+
+  const link = document.createElement('a');
+  link.className = 'hold-pop-link';
+  link.href = cell.getAttribute('href') ?? '#';
+  link.textContent = 'Open dataset →';
+  link.setAttribute('aria-label', `Open ${d.title ?? 'dataset'}`);
+  pop.append(link);
+
+  return pop;
+}
+
+// Wire the holdings map's rich per-cell popover (#741) — the deliberate "tell
+// me more without leaving" affordance, distinct from the always-on readout.
+// Desktop hover/focus shows it straight away, and a click still navigates
+// immediately, so the existing deep-link behaviour is unchanged. Touch has no
+// hover: its first tap on a cell previews (shows the popover, blocks the
+// navigation) and a second tap — or the popover's own "open dataset" link —
+// completes it, per #741's tap-to-preview-then-navigate requirement. A
+// screen-reader user's own review gesture already lets them inspect a cell
+// before activating it, so this layer never changes the cell's single
+// activation or its aria-label; it only adds a reachable extra.
+export function wireHoldingsPopovers() {
+  const grid = document.getElementById('hold-grid');
+  if (!grid) return;
+  /** @param {Element} c @returns {c is HTMLElement} */
+  const isHtmlElement = (c) => c instanceof HTMLElement;
+  const cells = [...grid.querySelectorAll('.hold-cell')].filter(isHtmlElement);
+  for (const cell of cells) cell.insertAdjacentElement('afterend', buildPopover(cell));
+
+  /** @type {HTMLElement | null} */
+  let openCell = null;
+  /** @type {string} */
+  let lastPointerType = '';
+  // True only for the duration of the programmatic focus() call that returns
+  // focus to a cell after Escape — without this, that focus() would fire our
+  // own focusin listener re-entrantly and immediately reopen the popover it
+  // just closed.
+  let restoringFocus = false;
+
+  /** @param {Element | null} el @returns {HTMLElement | null} */
+  const cellOf = (el) => {
+    const found = el instanceof Element ? el.closest('.hold-cell') : null;
+    return found instanceof HTMLElement ? found : null;
+  };
+  /** @param {HTMLElement} cell @returns {HTMLElement | null} */
+  const popoverOf = (cell) => {
+    const next = cell.nextElementSibling;
+    return next instanceof HTMLElement && next.classList.contains('hold-pop') ? next : null;
+  };
+
+  /** @param {{ returnFocus?: boolean }} [opts] */
+  const closeOpen = (opts = {}) => {
+    if (!openCell) return;
+    const pop = popoverOf(openCell);
+    const wasFocusInside = opts.returnFocus === true && pop !== null && pop.contains(document.activeElement);
+    if (pop) pop.hidden = true;
+    const toRefocus = openCell;
+    openCell = null;
+    if (wasFocusInside) {
+      restoringFocus = true;
+      toRefocus.focus();
+      restoringFocus = false;
+    }
+  };
+
+  /** @param {HTMLElement} cell */
+  const openFor = (cell) => {
+    if (openCell === cell) return;
+    closeOpen();
+    const pop = popoverOf(cell);
+    if (!pop) return;
+    pop.hidden = false;
+    openCell = cell;
+  };
+
+  // The departure's own li — not the departing target's `.hold-cell` — decides
+  // whether a leave stays "within the pair": the departing element may equally
+  // be the popover (or one of its own children, e.g. Shift+Tab off its "open
+  // dataset" link back to the cell, or the mouse moving between the popover's
+  // own text and its link), which sits outside `.hold-cell` but inside the
+  // same cell's <li>. Routing this through cellOf() first (an earlier version
+  // did) loses that — the popover's own descendants resolve to no cell at all,
+  // so every intra-pair transition through the popover looked like a genuine
+  // departure and closed it regardless of where focus/mouse actually went.
+  /** @param {EventTarget | null} target @param {EventTarget | null} related */
+  const handleLeave = (target, related) => {
+    const li = target instanceof Element ? target.closest('li') : null;
+    if (li && related instanceof Node && li.contains(related)) return; // stayed within the cell/popover pair
+    closeOpen();
+  };
+
+  grid.addEventListener('pointerdown', (e) => { lastPointerType = e.pointerType; });
+
+  grid.addEventListener('mouseover', (e) => {
+    if (lastPointerType === 'touch') return; // the tap handler below owns touch's synthetic hover
+    const cell = cellOf(e.target instanceof Element ? e.target : null);
+    if (cell) openFor(cell);
+  });
+  grid.addEventListener('focusin', (e) => {
+    if (restoringFocus) return; // our own post-Escape refocus, not a fresh visit to the cell
+    if (lastPointerType === 'touch') return; // ditto — a tap must preview first, never auto-open on focus
+    const cell = cellOf(e.target instanceof Element ? e.target : null);
+    if (cell) openFor(cell);
+  });
+  grid.addEventListener('mouseout', (e) => handleLeave(e.target, e.relatedTarget));
+  grid.addEventListener('focusout', (e) => handleLeave(e.target, e.relatedTarget));
+
+  grid.addEventListener('click', (e) => {
+    // lastPointerType is read once and spent here, whichever branch fires
+    // below, so a single touch tap can never leak its "treat as touch" state
+    // into a later, unrelated interaction on the same page (a hybrid
+    // touch+keyboard/mouse device otherwise gets stuck treating everything as
+    // touch after the first tap, since pointerdown is the only thing that had
+    // ever set it).
+    const pointerType = lastPointerType;
+    lastPointerType = '';
+    const cell = cellOf(e.target instanceof Element ? e.target : null);
+    if (!cell) return; // a click inside the popover itself (its "open dataset" link) is untouched
+    // A keyboard activation (Enter/Space on the focused cell) dispatches a
+    // click with detail 0 — real taps and mouse clicks carry detail >= 1. This
+    // is checked unconditionally so keyboard navigation is never at the mercy
+    // of pointer-tracking state at all, stale or otherwise.
+    if (e.detail === 0) return;
+    if (pointerType !== 'touch') return; // mouse/pen: navigate exactly as before
+    if (openCell === cell) return; // second tap on an already-previewed cell: let it through
+    e.preventDefault();
+    openFor(cell);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    // Any keyboard interaction proves the visitor is now driving by keyboard,
+    // not touch — clearing this here (rather than waiting for the next
+    // pointerdown, which a keyboard user never produces) is what lets
+    // hover/focus popovers work again immediately after a prior tap, e.g. when
+    // Tab moves focus into the grid before its own focusin handler runs.
+    lastPointerType = '';
+    if (e.key === 'Escape' && openCell) closeOpen({ returnFocus: true });
+  });
+  // A tap/click outside the grid dismisses whatever popover is open (mirrors
+  // the search box's own outside-dismiss behaviour).
+  document.addEventListener('click', (e) => {
+    if (openCell && e.target instanceof Node && !grid.contains(e.target)) closeOpen();
+  });
+}
 
 // Wire the search box's type-ahead. FILL-THEN-SUBMIT: selecting a suggestion (by
 // click or Enter) fills the box and submits the existing lookup form, so app.js
@@ -331,6 +558,7 @@ export function initHome() {
   wireTabs([...document.querySelectorAll('.home-tabs .tab')].map((t) => /** @type {HTMLElement} */ (t)));
   wireSurprises();
   wireHoldingsReadout();
+  wireHoldingsPopovers();
   wireJumps();
 }
 

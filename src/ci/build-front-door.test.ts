@@ -35,8 +35,16 @@ function holding(over: Partial<Holding> & Pick<Holding, 'key' | 'lane' | 'title'
 }
 
 const FIXTURE: Holding[] = [
-  holding({ key: '2026-06-23', lane: 'open-data', title: 'Publication of 23 June 2026', datasetClasses: ['register-snapshot'], vintage: '2026-06-23', recordCount: 158318 }),
-  holding({ key: '2025-01-14', lane: 'open-data', title: 'Publication of 14 January 2025', datasetClasses: ['register-snapshot'], vintage: '2025-01-14', recordCount: 150000 }),
+  holding({
+    key: '2026-06-23', lane: 'open-data', title: 'Publication of 23 June 2026',
+    datasetClasses: ['register-snapshot'], vintage: '2026-06-23', recordCount: 158318,
+    hasCoverageField: true, coverage: { complete: true },
+  }),
+  holding({
+    key: '2025-01-14', lane: 'open-data', title: 'Publication of 14 January 2025',
+    datasetClasses: ['register-snapshot'], vintage: '2025-01-14', recordCount: 150000,
+    hasCoverageField: true, coverage: { complete: false }, qualityCount: 2, coverageAffecting: true,
+  }),
   holding({ key: 'wdtk-1-forbidden', lane: 'foi', title: 'Forbidden suffixes disclosure', datasetClasses: ['forbidden-list'], vintage: '2019-05', recordCount: 1465 }),
   holding({ key: 'wdtk-2-notheld', lane: 'foi', title: 'A not-held response', datasetClasses: ['reference-context'] }),
 ];
@@ -68,6 +76,27 @@ describe('Home holdings map (issue #712)', { tags: ['unit'] }, () => {
     // hollow "0 rows".
     const notHeld = /<a class="hold-cell[^"]*"[^>]*href="datasets\/foi\/wdtk-2-notheld[^>]*>/.exec(html)?.[0] ?? '';
     expect(notHeld).toContain('data-rows=""');
+  });
+
+  it('HoldingsMap_EachCell_CarriesDeclaredCoverageAndQualityFlagsForThePopover', () => {
+    // The richer per-cell popover (#741) reads these straight off the cell —
+    // no second data source, and no fetch.
+    const html = renderHoldingsMap(FIXTURE);
+    const complete = /<a class="hold-cell[^"]*"[^>]*href="datasets\/open-data\/2026-06-23[^>]*>/.exec(html)?.[0] ?? '';
+    expect(complete).toContain('data-key="2026-06-23"');
+    expect(complete).toContain('data-coverage="complete"');
+    expect(complete).toContain('data-quality="0"');
+    expect(complete).toContain('data-coverage-affecting="false"');
+
+    const partial = /<a class="hold-cell[^"]*"[^>]*href="datasets\/open-data\/2025-01-14[^>]*>/.exec(html)?.[0] ?? '';
+    expect(partial).toContain('data-coverage="partial"');
+    expect(partial).toContain('data-quality="2"');
+    expect(partial).toContain('data-coverage-affecting="true"');
+
+    // The FOI lane declares no coverage field at all — "none", not "partial".
+    const foi = /<a class="hold-cell[^"]*"[^>]*href="datasets\/foi\/wdtk-1-forbidden[^>]*>/.exec(html)?.[0] ?? '';
+    expect(foi).toContain('data-coverage="none"');
+    expect(foi).toContain('data-quality="0"');
   });
 
   it('HoldingsMap_LatestRegisterSnapshot_KeepsTheAccentRingSignal', () => {
