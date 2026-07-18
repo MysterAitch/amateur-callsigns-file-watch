@@ -17,7 +17,7 @@ import {
   sortToParam as coreSortToParam,
   sortFromParam as coreSortFromParam,
 } from './table-sort.js';
-import { dateTimeDisplay } from './datetime.js';
+import { dateTimeDisplay, dateTime } from './datetime.js';
 
 // The row shape read back off the httpvfs worker's query() is not typed by the
 // vendored library (no shipped types); every SELECT here states its own column
@@ -328,6 +328,94 @@ export function registerHistoryHeader(callsign) {
   return el('strong', {}, [csLink(callsign)]);
 }
 
+// The pure DOM builder behind registerHistoryCard: given the publication-scope
+// facts and this callsign's status rows already read back, it returns the
+// finished card (or null when there is nothing to show). Split out from the
+// query so the rendered markup - in particular the humanised publication dates
+// (#811/#551) - is unit-testable without opening the combined-database worker,
+// the module-level cached singleton that has no injection seam. Mirrors how
+// registerHistoryHeader/renderTable are exported for the same reason.
+/**
+ * @param {HistoryDatasetRow[]} datasets
+ * @param {RegisterHistoryRow[]} rows
+ * @returns {HTMLElement | null}
+ */
+export function registerHistoryTable(datasets, rows) {
+  if (rows.length === 0) return null;
+  const byKey = new Map(rows.map(r => [`${r.dataset}|${r.callsign}`, r]));
+  const found = [...new Set(rows.map(r => r.callsign))];
+
+  const table = el('table');
+  table.append(el('thead', {}, [el('tr', {}, ['publication', 'status', 'product', 'change'].map(h => el('th', { text: h })))]));
+  const tbody = el('tbody');
+  for (const callsign of found) {
+    if (found.length > 1) {
+      tbody.append(el('tr', {}, [el('td', { colspan: '4' }, [registerHistoryHeader(callsign)])]));
+    }
+    // previous = last state KNOWN from evidence: presence anywhere is
+    // evidence; absence is evidence only in an intended-complete
+    // publication. Absence from a declared-partial or undeclared-scope
+    // publication is NO INFORMATION - it neither annotates a change nor
+    // updates the known state (scope differences, publisher truncation
+    // and omission errors all look identical to absence).
+    let previous = null; // null = no evidence yet; '' = known absent
+    for (const d of datasets) {
+      const row = byKey.get(`${d.dataset}|${callsign}`);
+      const status = row ? row.status : '';
+      // A publication counts as complete-for-absence only if it declared
+      // complete AND has no coverage-affecting quality observation: the
+      // confirmed 2025-06-04 blank-product filter declared complete but
+      // silently omitted ~45k records, so its absences are not evidence.
+      const complete = d.intended_complete === 'true' && (d.coverage_affecting ?? '') === '';
+      const informative = row !== undefined || complete;
+      let change = '';
+      if (informative && previous !== null && status !== previous) {
+        const from = previous === '' ? '(absent)' : previous;
+        const to = status === '' ? '(absent)' : status;
+        change = `${from} → ${to}`;
+      }
+      // The publication column is the dataset KEY, which is an archived
+      // open-data publication's date (e.g. 2024-01-15): humanise it at
+      // full-date precision (#811/#551 - a detail view of one callsign's
+      // history, where the exact publication day is the point), keeping the
+      // canonical ISO key both in the href and on the link's title so the
+      // machine value is never lost, only the raw form is no longer the
+      // reader-facing text. Non-date keys pass through the helper untouched.
+      const link = el('a', {
+        href: `datasets/open-data/${d.dataset}/index.html`,
+        title: d.dataset,
+        text: dateTimeDisplay(d.dataset, { precision: 'full-date' }),
+      });
+      const notEvidenceReason = (d.coverage_affecting ?? '') !== ''
+        ? 'known to omit records it declares (see the publication page)'
+        : `${d.intended_complete === 'false' ? 'declared partial' : 'undeclared scope'}, ${Number(d.record_count).toLocaleString('en-GB')} rows`;
+      // A genuine status value (this publication carries a row) routes
+      // through the shared field wrapper - 'plain' linking, since this
+      // table repeats the same handful of values down one callsign's whole
+      // history. The no-row cases are narrative about the PUBLICATION
+      // (absent / out of scope), not a status value, so they stay plain text.
+      const statusCell = row
+        ? statusField(el, status, { glossaryLinking: 'plain', blankLabel: '(blank status)' })
+        : el('span', { text: complete ? '(absent from this publication)' : `(not in this publication — ${notEvidenceReason}; not evidence of absence)` });
+      tbody.append(el('tr', {}, [
+        el('td', {}, [link]),
+        el('td', {}, [statusCell]),
+        el('td', {}, row ? [licenceField(el, row.product)] : []),
+        el('td', { text: change, class: change === '' ? '' : 'flag' }),
+      ]));
+      if (informative) previous = status;
+    }
+  }
+  table.append(tbody);
+  const wrap = el('div', { class: 'overflow' });
+  wrap.append(table);
+  return card('Register history (archived open-data publications)', [
+    el('p', { class: 'muted', text:
+      'Status per archived publication, oldest first. A change row records only what the register shows - an Allocated → Reserved transition can be a surrendered licence, progression to a new licence level under a different callsign, or the holder’s death; the register does not say which. Absence is only treated as evidence in publications that DECLARED themselves complete - and a declaration is intent, not verified fact: intended-complete exports have been observed silently filtering records (e.g. omitting rows with a blank product field, which many legitimate allocations carry), so even an "(absent)" change here is a lead to check against the publication, never proof. Missing from a partial or undeclared-scope publication can equally be truncation, a publisher omission error, or a scope difference. Gaps between publications can hide intermediate states.' }),
+    wrap,
+  ]);
+}
+
 /** @param {(string | null | undefined)[]} callsigns */
 async function registerHistoryCard(callsigns) {
   try {
@@ -340,68 +428,7 @@ async function registerHistoryCard(callsigns) {
         `SELECT dataset, callsign, status, product FROM register_history
          WHERE callsign IN (${distinct.map(() => '?').join(',')}) ORDER BY dataset, callsign`, distinct),
     ]);
-    if (rows.length === 0) return null;
-    const byKey = new Map(rows.map(r => [`${r.dataset}|${r.callsign}`, r]));
-    const found = [...new Set(rows.map(r => r.callsign))];
-
-    const table = el('table');
-    table.append(el('thead', {}, [el('tr', {}, ['publication', 'status', 'product', 'change'].map(h => el('th', { text: h })))]));
-    const tbody = el('tbody');
-    for (const callsign of found) {
-      if (found.length > 1) {
-        tbody.append(el('tr', {}, [el('td', { colspan: '4' }, [registerHistoryHeader(callsign)])]));
-      }
-      // previous = last state KNOWN from evidence: presence anywhere is
-      // evidence; absence is evidence only in an intended-complete
-      // publication. Absence from a declared-partial or undeclared-scope
-      // publication is NO INFORMATION - it neither annotates a change nor
-      // updates the known state (scope differences, publisher truncation
-      // and omission errors all look identical to absence).
-      let previous = null; // null = no evidence yet; '' = known absent
-      for (const d of datasets) {
-        const row = byKey.get(`${d.dataset}|${callsign}`);
-        const status = row ? row.status : '';
-        // A publication counts as complete-for-absence only if it declared
-        // complete AND has no coverage-affecting quality observation: the
-        // confirmed 2025-06-04 blank-product filter declared complete but
-        // silently omitted ~45k records, so its absences are not evidence.
-        const complete = d.intended_complete === 'true' && (d.coverage_affecting ?? '') === '';
-        const informative = row !== undefined || complete;
-        let change = '';
-        if (informative && previous !== null && status !== previous) {
-          const from = previous === '' ? '(absent)' : previous;
-          const to = status === '' ? '(absent)' : status;
-          change = `${from} → ${to}`;
-        }
-        const link = el('a', { href: `datasets/open-data/${d.dataset}/index.html`, text: d.dataset });
-        const notEvidenceReason = (d.coverage_affecting ?? '') !== ''
-          ? 'known to omit records it declares (see the publication page)'
-          : `${d.intended_complete === 'false' ? 'declared partial' : 'undeclared scope'}, ${Number(d.record_count).toLocaleString('en-GB')} rows`;
-        // A genuine status value (this publication carries a row) routes
-        // through the shared field wrapper - 'plain' linking, since this
-        // table repeats the same handful of values down one callsign's whole
-        // history. The no-row cases are narrative about the PUBLICATION
-        // (absent / out of scope), not a status value, so they stay plain text.
-        const statusCell = row
-          ? statusField(el, status, { glossaryLinking: 'plain', blankLabel: '(blank status)' })
-          : el('span', { text: complete ? '(absent from this publication)' : `(not in this publication — ${notEvidenceReason}; not evidence of absence)` });
-        tbody.append(el('tr', {}, [
-          el('td', {}, [link]),
-          el('td', {}, [statusCell]),
-          el('td', {}, row ? [licenceField(el, row.product)] : []),
-          el('td', { text: change, class: change === '' ? '' : 'flag' }),
-        ]));
-        if (informative) previous = status;
-      }
-    }
-    table.append(tbody);
-    const wrap = el('div', { class: 'overflow' });
-    wrap.append(table);
-    return card('Register history (archived open-data publications)', [
-      el('p', { class: 'muted', text:
-        'Status per archived publication, oldest first. A change row records only what the register shows - an Allocated → Reserved transition can be a surrendered licence, progression to a new licence level under a different callsign, or the holder’s death; the register does not say which. Absence is only treated as evidence in publications that DECLARED themselves complete - and a declaration is intent, not verified fact: intended-complete exports have been observed silently filtering records (e.g. omitting rows with a blank product field, which many legitimate allocations carry), so even an "(absent)" change here is a lead to check against the publication, never proof. Missing from a partial or undeclared-scope publication can equally be truncation, a publisher omission error, or a scope difference. Gaps between publications can hide intermediate states.' }),
-      wrap,
-    ]);
+    return registerHistoryTable(datasets, rows);
   } catch {
     return null;
   }
@@ -424,6 +451,59 @@ async function registerHistoryCard(callsigns) {
  * @property {string | null} event
  * @property {string | null} event_date
  */
+// The pure DOM builder behind foiHistoryCard: given the observation rows
+// already read back and the primary (as-typed) callsign, it returns the
+// finished card (or null when there is nothing to show). Split out from the
+// query - like registerHistoryTable - so the humanised vintage/event dates
+// (#811/#551) are unit-testable without opening the combined-database worker.
+/**
+ * @param {ObservationRow[]} rows
+ * @param {string | null | undefined} primaryCallsign
+ * @returns {HTMLElement | null}
+ */
+export function foiHistoryTable(rows, primaryCallsign) {
+  if (rows.length === 0) return null;
+  const table = el('table');
+  table.append(el('thead', {}, [el('tr', {}, ['vintage', 'observation', 'classes', 'source entry'].map(h => el('th', { text: h })))]));
+  table.append(el('tbody', {}, rows.map(r => {
+    // Event rows describe a dated happening; observation rows a state.
+    // NULL means the source did not assert the column at all.
+    /** @type {(Node | string)[]} */
+    const observation = [];
+    if (r.callsign !== primaryCallsign) observation.push(`${r.callsign}: `);
+    if (r.event !== null) {
+      observation.push(r.event);
+      // The event date is humanised at full-date precision (#811/#551 - this
+      // is a detail view of one callsign), with the canonical ISO kept on the
+      // wrapper's title so the exact reported day is one hover away, never lost.
+      if (r.event_date !== null && r.event_date !== '') {
+        observation.push(' (', dateTime(el, r.event_date, { precision: 'full-date' }), ')');
+      }
+    } else {
+      observation.push(
+        [r.status === null ? null : `status: ${r.status === '' ? '(asserted blank)' : r.status}`,
+          r.licence_class === null || r.licence_class === '' ? null : `class: ${r.licence_class}`]
+          .filter(Boolean).join(', ') || '(row present)');
+    }
+    const link = el('a', { href: `datasets/foi/${encodeURIComponent(r.entry)}/index.html`, text: r.entry });
+    return el('tr', {}, [
+      // Vintage humanised at full-date precision, canonical ISO kept on the
+      // wrapper's title; an absent vintage (NULL - the source never dated the
+      // observation) degrades to an em dash, exactly as before.
+      el('td', {}, [r.vintage === null ? '—' : dateTime(el, r.vintage, { precision: 'full-date' })]),
+      el('td', {}, observation),
+      el('td', { text: r.dataset_classes }),
+      el('td', {}, [link]),
+    ]);
+  })));
+  const wrap = el('div', { class: 'overflow' });
+  wrap.append(table);
+  return card(`FOI-witnessed history (${rows.length} observation${rows.length === 1 ? '' : 's'})`, [
+    el('p', { class: 'muted', text: 'Rows this callsign carries across the FOI-disclosed datasets - snapshots of past register states, availability listings, and issuance events. Full provenance on each linked entry page.' }),
+    wrap,
+  ]);
+}
+
 /** @param {(string | null | undefined)[]} callsigns */
 async function foiHistoryCard(callsigns) {
   try {
@@ -434,31 +514,7 @@ async function foiHistoryCard(callsigns) {
       `SELECT callsign, entry, dataset_classes, vintage, status, licence_class, event, event_date
        FROM observations WHERE callsign IN (${distinct.map(() => '?').join(',')})
        ORDER BY vintage IS NULL, vintage, entry`, distinct);
-    if (rows.length === 0) return null;
-    const table = el('table');
-    table.append(el('thead', {}, [el('tr', {}, ['vintage', 'observation', 'classes', 'source entry'].map(h => el('th', { text: h })))]));
-    table.append(el('tbody', {}, rows.map(r => {
-      // Event rows describe a dated happening; observation rows a state.
-      // NULL means the source did not assert the column at all.
-      const what = r.event !== null
-        ? `${r.event}${r.event_date ? ` (${r.event_date})` : ''}`
-        : [r.status === null ? null : `status: ${r.status === '' ? '(asserted blank)' : r.status}`,
-           r.licence_class === null || r.licence_class === '' ? null : `class: ${r.licence_class}`]
-            .filter(Boolean).join(', ') || '(row present)';
-      const link = el('a', { href: `datasets/foi/${encodeURIComponent(r.entry)}/index.html`, text: r.entry });
-      return el('tr', {}, [
-        el('td', { text: r.vintage ?? '—' }),
-        el('td', { text: `${r.callsign !== distinct[0] ? r.callsign + ': ' : ''}${what}` }),
-        el('td', { text: r.dataset_classes }),
-        el('td', {}, [link]),
-      ]);
-    })));
-    const wrap = el('div', { class: 'overflow' });
-    wrap.append(table);
-    return card(`FOI-witnessed history (${rows.length} observation${rows.length === 1 ? '' : 's'})`, [
-      el('p', { class: 'muted', text: 'Rows this callsign carries across the FOI-disclosed datasets - snapshots of past register states, availability listings, and issuance events. Full provenance on each linked entry page.' }),
-      wrap,
-    ]);
+    return foiHistoryTable(rows, distinct[0]);
   } catch {
     return null;
   }
