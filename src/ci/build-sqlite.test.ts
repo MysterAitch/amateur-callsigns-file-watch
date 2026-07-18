@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { DatabaseSync } from 'node:sqlite';
-import { fillObservations, openDataEntryCsvNames, openDataEntryCsvPath } from './build-sqlite.ts';
+import { fillObservations, openDataEntryCsvNames, openDataEntryCsvPath, historyCoverageFields } from './build-sqlite.ts';
 import { BUILDER_PROJECTION_DIR_ENV } from '../shared/derived-entries.ts';
 import { type FoiObservationRow } from '../shared/foi-observations.ts';
 
@@ -125,5 +125,49 @@ describe('Download-tier entry CSV enumeration', { tags: ['unit'] }, () => {
     fs.mkdirSync(path.join(archiveDir, '2099-06-01'), { recursive: true });
     fs.writeFileSync(path.join(archiveDir, '2099-06-01', 'raw.csv'), 'Callsign\nM7TEE\n');
     expect(openDataEntryCsvNames('2099-06-01', archiveDir)).toEqual(['raw.csv']);
+  });
+});
+
+// register-history meta.json is validated upstream (validate-data.ts), but
+// history_datasets construction re-checks the coverage fields' shape anyway
+// (#812 defence-in-depth) - a malformed value must degrade to "not declared"
+// rather than throw. historyCoverageFields is the pure core of that degrade,
+// extracted so it is unit-testable without a real archive entry.
+describe('historyCoverageFields', { tags: ['unit'] }, () => {
+  it('HistoryCoverageFields_WhenQualityObservationsIsAWellFormedArray_JoinsCoverageAffectingStatements', () => {
+    const fields = historyCoverageFields({
+      intendedCoverage: { complete: true, scopeNotes: 'full register' },
+      qualityObservations: [
+        { statement: 'blank-product filter', coverageAffecting: true },
+        { statement: 'unrelated note', coverageAffecting: false },
+      ],
+    });
+    expect(fields).toEqual({ intendedComplete: 'true', scopeNotes: 'full register', coverageAffecting: 'blank-product filter' });
+  });
+
+  it('HistoryCoverageFields_WhenQualityObservationsIsAStrayNonArrayValue_DegradesToNotDeclaredRatherThanThrowing', () => {
+    // The bug this guards against: `(meta.qualityObservations ?? []).filter(...)`
+    // does not catch a truthy non-array - `??` only catches null/undefined - so
+    // a string here would previously reach .filter and throw.
+    expect(() => historyCoverageFields({ qualityObservations: 'not-an-array' })).not.toThrow();
+    const fields = historyCoverageFields({ qualityObservations: 'not-an-array' });
+    expect(fields.coverageAffecting).toBe('');
+  });
+
+  it('HistoryCoverageFields_WhenQualityObservationsContainsANonObjectEntry_FiltersItOutRatherThanThrowing', () => {
+    const fields = historyCoverageFields({
+      qualityObservations: [null, 'stray-string', { statement: 'kept', coverageAffecting: true }],
+    });
+    expect(fields.coverageAffecting).toBe('kept');
+  });
+
+  it('HistoryCoverageFields_WhenIntendedCoverageIsAStrayNonObjectValue_DegradesToNotDeclared', () => {
+    const fields = historyCoverageFields({ intendedCoverage: 'various' });
+    expect(fields.intendedComplete).toBe('');
+    expect(fields.scopeNotes).toBe('');
+  });
+
+  it('HistoryCoverageFields_WhenNeitherFieldIsDeclared_ReturnsAllNotDeclared', () => {
+    expect(historyCoverageFields({})).toEqual({ intendedComplete: '', scopeNotes: '', coverageAffecting: '' });
   });
 });

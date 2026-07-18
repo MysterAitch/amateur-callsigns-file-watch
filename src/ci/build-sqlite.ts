@@ -195,6 +195,37 @@ export function openDataEntryCsvPath(key: string, file: string, archiveDir: stri
   return isDerivedEntryFile(file) ? derivedEntryFile(key, file, archiveDir) : path.join(archiveDir, key, file);
 }
 
+// Reduces a register-history meta.json's coverage-related fields to the four
+// strings history_datasets stores. meta has already passed the top-level
+// object-shape check (parseJsonObject), but intendedCoverage and
+// qualityObservations are re-checked here rather than trusted from the
+// interface annotation: a curated meta.json can still carry a malformed
+// value for either (a stray string, a null array entry), and this must
+// degrade to "not declared"/empty rather than throw on such a field.
+// `Array.isArray` is the actual gate for qualityObservations - `?? []` alone
+// only catches null/undefined, so a truthy non-array would otherwise reach
+// .filter and throw, exactly the silent-assumption class #812 closes.
+// Exported (pure, no filesystem/DB access) so this degrade-not-throw
+// behaviour is unit-testable without a real archive entry.
+export function historyCoverageFields(meta: { intendedCoverage?: unknown; qualityObservations?: unknown }): {
+  intendedComplete: string;
+  scopeNotes: string;
+  coverageAffecting: string;
+} {
+  const intendedCoverage = isPlainObject(meta.intendedCoverage)
+    ? meta.intendedCoverage as { complete: boolean; scopeNotes?: string }
+    : undefined;
+  const qualityObservations = (Array.isArray(meta.qualityObservations) ? meta.qualityObservations : [])
+    .filter(isPlainObject) as { statement: string; coverageAffecting?: boolean }[];
+  const coverageAffecting = qualityObservations
+    .filter(o => o.coverageAffecting === true).map(o => o.statement).join(' ');
+  return {
+    intendedComplete: intendedCoverage === undefined ? '' : String(intendedCoverage.complete),
+    scopeNotes: intendedCoverage?.scopeNotes ?? '',
+    coverageAffecting,
+  };
+}
+
 // The remaining published tiers (issue #149 item 4 + the composed-stack
 // decision): the mandatory flat union CSV, one SQLite per archive entry,
 // and the combined database. All derived at deploy time, never committed.
@@ -369,24 +400,13 @@ export async function buildPublishedTiers(dataDir: string, options: { compress?:
         qualityObservations?: unknown[];
       }
       : {};
-    // intendedCoverage and each qualityObservations entry are re-checked for
-    // object-ness here rather than trusted from the interface above: a
-    // curated meta.json can still carry a malformed value for either (a
-    // stray string, a null array entry), and this table's coverage columns
-    // must degrade to "not declared" rather than throw on such a field.
-    const intendedCoverage = isPlainObject(meta.intendedCoverage)
-      ? meta.intendedCoverage as { complete: boolean; scopeNotes?: string }
-      : undefined;
-    const qualityObservations = (meta.qualityObservations ?? [])
-      .filter(isPlainObject) as { statement: string; coverageAffecting?: boolean }[];
-    const coverageAffecting = qualityObservations
-      .filter(o => o.coverageAffecting === true).map(o => o.statement).join(' ');
+    const fields = historyCoverageFields(meta);
     insertDataset.run(
       publication.key,
       String(publication.records.length),
-      intendedCoverage === undefined ? '' : String(intendedCoverage.complete),
-      intendedCoverage?.scopeNotes ?? '',
-      coverageAffecting,
+      fields.intendedComplete,
+      fields.scopeNotes,
+      fields.coverageAffecting,
     );
   }
 
