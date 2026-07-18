@@ -2,8 +2,10 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { chooseExamples, sliceObservations, buildFidelityPage } from './build-fidelity-page.ts';
+import { chooseExamples, sliceObservations, buildFidelityPage, normalisationRobustnessSection } from './build-fidelity-page.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { defaultFoiDir, readFoiEntryMeta } from '../shared/foi-archive.ts';
+import { escapeHtml } from './site-render.ts';
 import type { SourceObservationSet } from '../v2/claim.ts';
 
 // The fidelity & integrity deep-dive page (issue #438): the page the inline
@@ -103,6 +105,85 @@ describe('row slicing keeps source positions with their rows', { tags: ['unit'] 
   });
 });
 
+// The normalisation-robustness worked example's failure modes (issue #823):
+// the callout must fail the build loudly, never silently, when the archive
+// no longer backs the claim it makes. A fixture FOI directory stands in for
+// the real archive so each failure mode is exercised in isolation.
+describe('normalisation-robustness worked example fails loud on a broken assumption', { tags: ['unit'] }, () => {
+  const KEY_A = 'wdtk-294011--available-callsigns-list';
+  const KEY_B = 'wdtk-299321--available-callsigns-list';
+  const SHEET_FILES = ['normalised--sheet-1-foundation.csv', 'normalised--sheet-2-intermediate.csv', 'normalised--sheet-3-full.csv'];
+
+  let foiDir: string;
+
+  beforeAll(() => {
+    foiDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fidelity-robustness-fixture-'));
+  });
+
+  afterAll(() => {
+    fs.rmSync(foiDir, { recursive: true, force: true });
+  });
+
+  function writeEntry(key: string, files: Record<string, { sha256: string }>): void {
+    const dir = path.join(foiDir, key);
+    fs.mkdirSync(dir, { recursive: true });
+    const decls: Record<string, unknown> = {};
+    for (const [name, { sha256 }] of Object.entries(files)) {
+      decls[name] = { bytes: 1, sha256, role: name.startsWith('normalised') ? 'normalised' : 'data' };
+    }
+    fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ title: `Entry ${key}`, files: decls }));
+  }
+
+  function validFileSet(rawHash: string, sheetHash = 'sheethash00000000000000000000000000000000000000000000000000'): Record<string, { sha256: string }> {
+    const out: Record<string, { sha256: string }> = { 'Amateur Available Call signs.xlsx': { sha256: rawHash } };
+    for (const file of SHEET_FILES) out[file] = { sha256: sheetHash };
+    return out;
+  }
+
+  it('NormalisationRobustnessSection_BothEntriesWellFormed_RendersTheCalloutWithLiveHashes', () => {
+    writeEntry(KEY_A, validFileSet('aaaaaaaa1111111111111111111111111111111111111111111111111111'));
+    writeEntry(KEY_B, validFileSet('bbbbbbbb2222222222222222222222222222222222222222222222222222'));
+    const html = normalisationRobustnessSection(foiDir).join('');
+    expect(html).toContain('aaaaaaaa');
+    expect(html).toContain('bbbbbbbb');
+    expect(html).toContain('sheethas');
+    expect(html).toContain(`datasets/foi/${KEY_A}/index.html`);
+    expect(html).toContain(`datasets/foi/${KEY_B}/index.html`);
+  });
+
+  it('NormalisationRobustnessSection_OneEntryMetaJsonMissing_ThrowsLoudRatherThanRenderingAGap', () => {
+    fs.rmSync(path.join(foiDir, KEY_B), { recursive: true, force: true });
+    writeEntry(KEY_A, validFileSet('cccccccc3333333333333333333333333333333333333333333333333333'));
+    expect(() => normalisationRobustnessSection(foiDir)).toThrow(/meta\.json not found/);
+  });
+
+  it('NormalisationRobustnessSection_OneEntryMetaJsonMalformed_ThrowsLoudNamingTheFile', () => {
+    writeEntry(KEY_A, validFileSet('dddddddd4444444444444444444444444444444444444444444444444444'));
+    writeEntry(KEY_B, validFileSet('eeeeeeee5555555555555555555555555555555555555555555555555555'));
+    fs.writeFileSync(path.join(foiDir, KEY_B, 'meta.json'), '{ not valid json');
+    expect(() => normalisationRobustnessSection(foiDir)).toThrow(/not valid JSON/);
+  });
+
+  it('NormalisationRobustnessSection_RawHashesNoLongerDiffer_ThrowsRatherThanClaimingTwoSerialisations', () => {
+    const sameHash = 'ffffffff6666666666666666666666666666666666666666666666666666';
+    writeEntry(KEY_A, validFileSet(sameHash));
+    writeEntry(KEY_B, validFileSet(sameHash));
+    expect(() => normalisationRobustnessSection(foiDir)).toThrow(/expected to differ/);
+  });
+
+  it('NormalisationRobustnessSection_NormalisedSheetsNoLongerMatch_ThrowsRatherThanClaimingConvergence', () => {
+    writeEntry(KEY_A, validFileSet('11111111aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'matching-sheet-hash-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'));
+    writeEntry(KEY_B, validFileSet('22222222bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'different-sheet-hash-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'));
+    expect(() => normalisationRobustnessSection(foiDir)).toThrow(/expected to be byte-identical/);
+  });
+
+  it('NormalisationRobustnessSection_DeclaredFileMissingFromEntry_ThrowsNamingTheMissingFile', () => {
+    writeEntry(KEY_A, { 'Amateur Available Call signs.xlsx': { sha256: 'aaaa000000000000000000000000000000000000000000000000000000aa' } });
+    writeEntry(KEY_B, validFileSet('bbbb000000000000000000000000000000000000000000000000000000bb'));
+    expect(() => normalisationRobustnessSection(foiDir)).toThrow(/declares no file named "normalised--sheet-1-foundation\.csv"/);
+  });
+});
+
 describe('the built fidelity page over the real archive', { tags: ['data-validity'] }, () => {
   let outputDir: string;
   let page: string;
@@ -118,7 +199,7 @@ describe('the built fidelity page over the real archive', { tags: ['data-validit
   });
 
   it('FidelityPage_WhenBuilt_CarriesEveryDeclaredSectionAnchor', () => {
-    for (const anchor of ['about', 'provenance', 'flags', 'consistency', 'divergence', 'anomalies', 'show-working', 'reconstruction', 'reverify', 'reporting']) {
+    for (const anchor of ['about', 'provenance', 'flags', 'consistency', 'divergence', 'normalisation-robustness', 'anomalies', 'show-working', 'reconstruction', 'reverify', 'reporting']) {
       expect(page, anchor).toContain(`id="${anchor}"`);
     }
   });
@@ -146,6 +227,48 @@ describe('the built fidelity page over the real archive', { tags: ['data-validit
     expect(page).toContain('amateur-radio-allocated-call-signs.xlsx');
     expect(page).toContain('date serials');
     expect(page).toMatch(/never adjudicated|does not.*verdict|not.*adjudicate/i);
+  });
+
+  it('FidelityPage_NormalisationRobustnessCallout_LinksBothEntriesAndShowsHashesReadFromTheirLiveMetaJson', () => {
+    // Issue #823, following #807/#822: wdtk-294011 and wdtk-299321 hold two
+    // different raw .xlsx serialisations of the same 2015-10-13 disclosed
+    // export that normalise to byte-identical output across all three
+    // sheets. Every hash the callout shows must trace back to the same
+    // meta.json files read here — never a hard-coded literal that could drift
+    // if either entry is ever re-derived.
+    const foiDir = defaultFoiDir();
+    const keyA = 'wdtk-294011--available-callsigns-list';
+    const keyB = 'wdtk-299321--available-callsigns-list';
+    const metaA = readFoiEntryMeta(foiDir, keyA);
+    const metaB = readFoiEntryMeta(foiDir, keyB);
+    const rawFile = 'Amateur Available Call signs.xlsx';
+
+    expect(page).toContain('id="normalisation-robustness"');
+    expect(page).toContain(`href="datasets/foi/${keyA}/index.html"`);
+    expect(page).toContain(`href="datasets/foi/${keyB}/index.html"`);
+    expect(page).toContain(escapeHtml(metaA.title));
+    expect(page).toContain(escapeHtml(metaB.title));
+
+    // The two raw hashes genuinely differ and must both appear, read live.
+    const rawHashA = metaA.files[rawFile].sha256;
+    const rawHashB = metaB.files[rawFile].sha256;
+    expect(rawHashA).not.toBe(rawHashB);
+    expect(page).toContain(rawHashA.slice(0, 8));
+    expect(page).toContain(rawHashB.slice(0, 8));
+
+    // The three normalised sheets are byte-identical across both entries and
+    // the shared hash must appear once per sheet.
+    for (const file of ['normalised--sheet-1-foundation.csv', 'normalised--sheet-2-intermediate.csv', 'normalised--sheet-3-full.csv']) {
+      const hashA = metaA.files[file].sha256;
+      const hashB = metaB.files[file].sha256;
+      expect(hashA).toBe(hashB);
+      expect(page).toContain(hashA.slice(0, 8));
+    }
+
+    // Epistemics: [observed] the hash facts, [derived] the convergence claim.
+    const section = page.slice(page.indexOf('id="normalisation-robustness"'), page.indexOf('id="anomalies"'));
+    expect(section).toContain('class="epistemic-tag tag-observed"');
+    expect(section).toContain('class="epistemic-tag tag-derived"');
   });
 
   it('FidelityPage_FlagRegistry_GivesEveryRegisteredFlagItsOwnAnchoredRow', () => {
