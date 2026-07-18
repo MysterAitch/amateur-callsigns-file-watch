@@ -8,6 +8,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { buildLedger } from './build-ledger.ts';
 import { buildLedgerSqlite, subsetSelector } from './build-ledger-db.ts';
 import { buildCompactLedgerDb, buildCompactLedgerSqlite, type CompactLedgerSummary } from './build-ledger-db-compact.ts';
+import { emitLedger, type SourceObservationSet } from './claim.ts';
+import { serialiseClaimsJsonl } from './serialise.ts';
 import { loadReferenceData, parseCallsign } from '../sources/ofcom-amateur/components.ts';
 import { physicalLines } from '../sources/ofcom-amateur/normalise.ts';
 
@@ -22,10 +24,13 @@ const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 // therefore parity: the compact `claims` VIEW must return the EXACT same
 // ten-column multiset as the fat one-row-per-claim table, so the four
 // representative queries and the S3a browser query layer keep working. The
-// build runs on the same tractable two-snapshot subset the fat build's tests
-// use (two vintages, the documented G0TQK trailing-NBSP twin), which also
-// exercises the rare placeholder-object divergence the override table exists
-// for (the M/EI8DJ observation).
+// build runs on the same tractable subset the fat build's tests use: two
+// register snapshots (two vintages, the documented G0TQK trailing-NBSP twin,
+// the rare placeholder-object divergence the override table exists for - the
+// M/EI8DJ observation) PLUS one entry per non-callsign subjectKind (a
+// forbidden-suffix list, a statistics aggregate, an available-pool disclosure),
+// so parity structurally covers the raw-only families whose observations must
+// NOT gain normalisation edges (issue #824).
 
 process.env.TIERS_GZIP_LEVEL = '1';
 
@@ -112,11 +117,13 @@ describe('compact claim-ledger schema', { tags: ['data-validity'] }, () => {
   it('ProvenanceTables_WhenBuilt_CollapseHighRepetitionColumnsToSmallDictionaries', () => {
     const db = openDb(compactPath);
     try {
-      // The two-snapshot subset has exactly two sources, a handful of distinct
-      // predicates, and far fewer observations than reconstructed claims - the
-      // repetition the fat schema paid for on every row.
+      // The subset resolves to seven sources (two register snapshots, one
+      // forbidden-suffix list, one statistics table, three available-pool
+      // sheets), a handful of distinct predicates, and far fewer observations
+      // than reconstructed claims - the repetition the fat schema paid for on
+      // every row.
       const sources = Number((db.prepare('SELECT COUNT(*) c FROM source').get() as { c: number | bigint }).c);
-      expect(sources).toBe(2);
+      expect(sources).toBe(7);
       const observations = Number((db.prepare('SELECT COUNT(*) c FROM observation').get() as { c: number | bigint }).c);
       const claims = Number((db.prepare('SELECT COUNT(*) c FROM claims').get() as { c: number | bigint }).c);
       expect(observations).toBeLessThan(claims / 3);
@@ -130,15 +137,16 @@ describe('compact claim-ledger schema', { tags: ['data-validity'] }, () => {
 describe('source position is stored on the observation and round-trips (issue #431)', { tags: ['data-validity'] }, () => {
   it('ObservationAndSource_WhenBuilt_GainOnlyThePositionColumns', () => {
     // The golden delta: the observation table gains exactly pos_kind + pos_line
-    // beside its original seven columns, and source gains exactly repo_path -
-    // nothing else moves, and the claims VIEW (asserted unchanged above) keeps
-    // its ten columns, so position enriches without disturbing any query.
+    // beside its original seven columns, and source gains exactly repo_path
+    // plus the emits_edges gate (issue #824) - nothing else moves, and the
+    // claims VIEW (asserted unchanged above) keeps its ten columns, so the
+    // enrichments never disturb a query.
     const db = openDb(compactPath);
     try {
       const obsColumns = (db.prepare("SELECT name FROM pragma_table_info('observation')").all() as { name: string }[]).map(c => c.name);
       expect(obsColumns).toEqual(['obs_id', 'source_id', 'ordinal', 'raw_subject', 'cleaned', 'entity', 'parses', 'pos_kind', 'pos_line']);
       const sourceColumns = (db.prepare("SELECT name FROM pragma_table_info('source')").all() as { name: string }[]).map(c => c.name);
-      expect(sourceColumns).toEqual(['source_id', 'source_file', 'vintage', 'repo_path']);
+      expect(sourceColumns).toEqual(['source_id', 'source_file', 'vintage', 'repo_path', 'emits_edges']);
     } finally {
       db.close();
     }
@@ -147,12 +155,22 @@ describe('source position is stored on the observation and round-trips (issue #4
   it('EveryObservation_WhenBuiltFromCsvLane_CarriesACsvLinePositionAndRepoPath', () => {
     const db = openDb(compactPath);
     try {
-      // The subset is entirely CSV-lane sources, so no observation may be left
-      // without a position - a NULL here would be a silently dropped attestation.
-      const missing = Number((db.prepare("SELECT COUNT(*) c FROM observation WHERE pos_kind IS NOT 'csv-line' OR pos_line IS NULL").get() as { c: number | bigint }).c);
+      // The register and available-pool lanes attest positions, so none of
+      // their observations may be left without one - a NULL there would be a
+      // silently dropped attestation. The forbidden-suffix and statistics
+      // loaders attest no position yet, so EXACTLY those two sources carry a
+      // NULL repo_path - pinned by name so a register/pool loader that stopped
+      // attesting would fail here rather than silently joining the NULL set.
+      const missing = Number((db.prepare(`
+        SELECT COUNT(*) c FROM observation o JOIN source s ON s.source_id = o.source_id
+        WHERE s.repo_path IS NOT NULL AND (o.pos_kind IS NOT 'csv-line' OR o.pos_line IS NULL)
+      `).get() as { c: number | bigint }).c);
       expect(missing).toBe(0);
-      const sourcesMissingPath = Number((db.prepare('SELECT COUNT(*) c FROM source WHERE repo_path IS NULL').get() as { c: number | bigint }).c);
-      expect(sourcesMissingPath).toBe(0);
+      const unpositioned = (db.prepare('SELECT source_file FROM source WHERE repo_path IS NULL ORDER BY source_file').all() as { source_file: string }[]).map(r => r.source_file);
+      expect(unpositioned).toEqual([
+        'foi/ofcom-2024-12--forbidden-suffixes/forbidden-amateur-radio-callsigns.csv',
+        'foi/wdtk-184767--annual-licence-counts/raw-extract-number-of-licences-coleman.md',
+      ]);
     } finally {
       db.close();
     }
@@ -164,10 +182,12 @@ describe('source position is stored on the observation and round-trips (issue #4
     // so a large source is covered without re-reading the file per row.
     const db = openDb(compactPath);
     try {
+      // Scoped to the position-attesting sources (repo_path present); the
+      // forbidden/statistics lanes attest none, pinned by the test above.
       const rows = db.prepare(`
         SELECT o.raw_subject AS raw, o.pos_line AS line, s.repo_path AS repoPath
         FROM observation o JOIN source s ON s.source_id = o.source_id
-        WHERE o.raw_subject <> '' ORDER BY o.obs_id
+        WHERE o.raw_subject <> '' AND s.repo_path IS NOT NULL ORDER BY o.obs_id
       `).all() as { raw: string; line: number; repoPath: string }[];
       expect(rows.length).toBeGreaterThan(0);
       const linesByPath = new Map<string, string[]>();
@@ -238,6 +258,148 @@ describe('parity with the fat one-row-per-claim schema', { tags: ['data-validity
     } finally {
       fat.close();
       cmp.close();
+    }
+  });
+});
+
+describe('the emits_edges gate re-presents exactly what the ledger emitted (issue #824)', { tags: ['data-validity'] }, () => {
+  it('EmitsEdgesFlag_WhenBuiltAcrossSubjectKinds_RecordsWhichSourcesCarryEdgesInTheLedger', () => {
+    // The per-source flag is read from the persisted JSONL, never re-derived
+    // from subject kinds: the two callsign register snapshots carry a cleaned
+    // edge per observation (flag 1); the forbidden-suffix, statistics and
+    // available-pool sources carry none (flag 0) - the fat side's stated
+    // invariant, "a non-callsign token is never mis-normalised AS a callsign".
+    const db = openDb(compactPath);
+    try {
+      const flags = db.prepare('SELECT source_file, emits_edges FROM source ORDER BY source_file').all() as { source_file: string; emits_edges: number }[];
+      const edgeless = flags.filter(f => f.emits_edges === 0).map(f => f.source_file);
+      const edgeful = flags.filter(f => f.emits_edges === 1).map(f => f.source_file);
+      expect(edgeful).toHaveLength(2);
+      expect(edgeful.every(f => f.includes('all-callsigns') || f.includes('allocated-reserved'))).toBe(true);
+      expect(edgeless).toHaveLength(5);
+      expect(edgeless.some(f => f.includes('forbidden'))).toBe(true);
+      expect(edgeless.some(f => f.includes('annual-licence-counts'))).toBe(true);
+      expect(edgeless.filter(f => f.includes('available-callsigns-list'))).toHaveLength(3);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('ClaimsView_WhenSourceEmittedNoEdges_SynthesisesNoNormalisationEdges', () => {
+    // The defect the issue reports: the old VIEW synthesised a cleaned-callsign
+    // edge for EVERY observation with a non-empty raw subject, presenting a
+    // forbidden suffix (ADS), a pool slot or a statistics period as if it were
+    // a normalised callsign - rows that exist in no persisted ledger and in no
+    // fat build. Gated, the VIEW returns zero edges for edge-less sources.
+    const db = openDb(compactPath);
+    try {
+      const fabricated = Number((db.prepare(`
+        SELECT COUNT(*) c FROM claims WHERE predicate = 'normalises_to'
+        AND source_file IN (SELECT source_file FROM source WHERE emits_edges = 0)
+      `).get() as { c: number | bigint }).c);
+      expect(fabricated).toBe(0);
+      // The suffix ADS is present as a raw observation but never as a
+      // normalisation subject - the issue's own example.
+      const adsRaw = Number((db.prepare("SELECT COUNT(*) c FROM claims WHERE raw_subject = 'ADS' AND layer = 'raw' AND predicate = '@listed'").get() as { c: number | bigint }).c);
+      expect(adsRaw).toBeGreaterThan(0);
+      const adsEdges = Number((db.prepare("SELECT COUNT(*) c FROM claims WHERE raw_subject = 'ADS' AND predicate = 'normalises_to'").get() as { c: number | bigint }).c);
+      expect(adsEdges).toBe(0);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('ClaimsView_WhenSourceEmittedEdges_KeepsTheUniformEdgePerCallsignIncludingIdentity', () => {
+    // The deliberate design the gate must NOT disturb: every callsign
+    // observation gets its cleaned-callsign edge - identity edges (raw ==
+    // cleaned) included - so callsign queries need no conditionals. One edge
+    // per subject-bearing observation of an edge-emitting source, exactly.
+    const db = openDb(compactPath);
+    try {
+      const subjectBearing = Number((db.prepare(`
+        SELECT COUNT(*) c FROM observation o JOIN source s ON s.source_id = o.source_id
+        WHERE s.emits_edges = 1 AND o.raw_subject <> ''
+      `).get() as { c: number | bigint }).c);
+      const cleanedEdges = Number((db.prepare("SELECT COUNT(*) c FROM claims WHERE predicate = 'normalises_to' AND rule = 'cleaned-callsign'").get() as { c: number | bigint }).c);
+      expect(subjectBearing).toBeGreaterThan(0);
+      expect(cleanedEdges).toBe(subjectBearing);
+      // Identity edges survive: an already-clean token still carries its edge.
+      const identity = Number((db.prepare("SELECT COUNT(*) c FROM claims WHERE predicate = 'normalises_to' AND rule = 'cleaned-callsign' AND raw_subject = object").get() as { c: number | bigint }).c);
+      expect(identity).toBeGreaterThan(0);
+      const g0tqk = Number((db.prepare("SELECT COUNT(*) c FROM claims WHERE predicate = 'normalises_to' AND rule = 'cleaned-callsign' AND raw_subject = 'G0TQK' AND object = 'G0TQK'").get() as { c: number | bigint }).c);
+      expect(g0tqk).toBeGreaterThan(0);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('CompactBuild_WhenForbiddenSuffixOnlyLedger_FabricatesNoDerivedRows', () => {
+    // The issue's verified reproduction: a forbidden-suffix-only build. The fat
+    // claims table holds raw claims and ZERO derived rows; the compact VIEW
+    // must agree instead of inventing an `ADS normalises_to ADS` per suffix.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'compact-forbidden-only-'));
+    try {
+      buildLedger(dir, undefined, undefined, entry => entry === 'ofcom-2024-12--forbidden-suffixes');
+      const onlyLedger = path.join(dir, 'ledger');
+      const fatOnly = path.join(dir, 'fat.sqlite');
+      const compactOnly = path.join(dir, 'compact.sqlite');
+      buildLedgerSqlite(onlyLedger, fatOnly);
+      buildCompactLedgerSqlite(onlyLedger, compactOnly);
+      const fat = openDb(fatOnly);
+      const cmp = openDb(compactOnly);
+      try {
+        const count = (db: DatabaseSync, layer: string): number =>
+          Number((db.prepare('SELECT COUNT(*) c FROM claims WHERE layer = ?').get(layer) as { c: number | bigint }).c);
+        expect(count(fat, 'derived')).toBe(0);
+        expect(count(cmp, 'derived')).toBe(0);
+        expect(count(cmp, 'raw')).toBe(count(fat, 'raw'));
+        expect(count(fat, 'raw')).toBeGreaterThan(0);
+      } finally {
+        fat.close();
+        cmp.close();
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120_000);
+
+  it('CompactBuild_WhenLedgerHoldsPartialEdgeCoverage_FailsLoudRatherThanFabricateOrDrop', () => {
+    // The per-source flag is exact for every ledger the emit path can produce
+    // (edge emission is a per-source fact: a collector declares its subjectKind
+    // once). A ledger with edges for only SOME observations of a source is one
+    // this schema cannot faithfully re-present - integrity doubt, so the build
+    // must fail loud, never fabricate the missing edges or drop the present ones.
+    const observationSet: SourceObservationSet = {
+      sourceFile: 'synthetic/partial-edges.csv',
+      vintage: '2020-01-01',
+      columns: ['callsign'],
+      subjectColumn: 'callsign',
+      rows: [{ callsign: 'M0AAA' }, { callsign: 'M0BBB' }],
+    };
+    const full = emitLedger(observationSet, REF);
+    // Remove exactly one cleaned-callsign edge, leaving partial coverage.
+    const dropIndex = full.findIndex(claim => claim.predicate === 'normalises_to' && claim.rule === 'cleaned-callsign');
+    expect(dropIndex).toBeGreaterThanOrEqual(0);
+    const partial = full.filter((claim, index) => index !== dropIndex);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'compact-partial-edges-'));
+    try {
+      fs.writeFileSync(path.join(dir, 'partial.jsonl'), serialiseClaimsJsonl(partial));
+      expect(() => buildCompactLedgerSqlite(dir, path.join(dir, 'out.sqlite'))).toThrow(/partial edge coverage/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('BuildInfo_WhenBuilt_StampsTheCompactSchemaVersion', () => {
+    // The source table gained a column and the VIEW a gate: a reader of the
+    // deployed artefact can tell the post-gate schema ('2') from an unstamped
+    // pre-gate database whose VIEW fabricated edges.
+    const db = openDb(compactPath);
+    try {
+      const version = (db.prepare("SELECT value FROM build_info WHERE key = 'schema_version'").get() as { value: string } | undefined)?.value;
+      expect(version).toBe('2');
+    } finally {
+      db.close();
     }
   });
 });

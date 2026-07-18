@@ -19,9 +19,12 @@
  *    stored as rows against an observation.
  *
  *  - THE DERIVED LAYER IS RECONSTRUCTED, NOT STORED. Every observation implies
- *    its @listed anchor, its always-present cleaned-callsign edge, and (when the
- *    token parsed to a placeholder) its placeholder-form edge. Those ~8.7M rows
- *    are synthesised by the VIEW from the observation, never materialised.
+ *    its @listed anchor; an observation of an edge-emitting source (a callsign
+ *    subject - source.emits_edges, issue #824) also implies its cleaned-callsign
+ *    edge and (when the token parsed to a placeholder) its placeholder-form
+ *    edge, while a raw-only source (suffix / pool-slot / aggregate subjects)
+ *    implies none, matching the persisted ledger exactly. Those ~8.7M rows are
+ *    synthesised by the VIEW from the observation, never materialised.
  *
  *  - LOW-CARDINALITY STRINGS ARE DICTIONARY-ENCODED. `source_file`+`vintage`
  *    collapse to a 21-row source table; `predicate` and attribute `object`
@@ -102,7 +105,16 @@ CREATE TABLE source (
   -- (all its observations share it), so it rides here rather than on every
   -- observation row. It is the deep-link's viewAnchor path (§4.5); NULL for a
   -- legacy source whose loader attested no position.
-  repo_path TEXT
+  repo_path TEXT,
+  -- Whether this source's PERSISTED ledger carries normalisation edges (issue
+  -- #824): 1 when the JSONL holds a cleaned-callsign edge per subject-bearing
+  -- observation (a callsign-subject source - identity edges included, so
+  -- callsign queries need no conditionals), 0 when it holds none (a suffix /
+  -- pool-slot / aggregate source, whose emit path is raw-only so a non-callsign
+  -- token is never mis-normalised AS a callsign). Read from the ledger's actual
+  -- claims, never re-derived from subject kinds, and it gates the VIEW's edge
+  -- synthesis so the VIEW re-presents exactly what the ledger emitted.
+  emits_edges INTEGER NOT NULL
 );
 CREATE TABLE predicate (
   predicate_id INTEGER PRIMARY KEY,
@@ -191,8 +203,10 @@ CREATE TABLE file_claim (
 );
 `;
 
-// The reconstruction VIEW. Every observation implies its @listed anchor and its
-// always-present cleaned-callsign edge; an observation that parsed to a
+// The reconstruction VIEW. Every observation implies its @listed anchor; an
+// observation of an edge-emitting source (source.emits_edges = 1, issue #824)
+// also implies its cleaned-callsign edge - the uniform every-callsign-gets-an-
+// edge design, identity edges included; an observation that parsed to a
 // placeholder (parses = 1) also implies its placeholder-form edge, whose raw
 // subject is the CLEANED token (matching how the ledger emits the edge); an
 // observation whose product mapped to a category (licence_category <> '')
@@ -213,13 +227,13 @@ CREATE VIEW claims (layer, raw_subject, cleaned, entity, predicate, object, rule
   UNION ALL
   SELECT 'derived', o.raw_subject, o.cleaned, o.entity, '${NORMALISES_TO_PREDICATE}', o.cleaned, '${CLEANED_CALLSIGN_RULE}', s.source_file, o.ordinal, s.vintage
     FROM observation o JOIN source s ON s.source_id = o.source_id
-    WHERE o.raw_subject <> ''
+    WHERE o.raw_subject <> '' AND s.emits_edges = 1
   UNION ALL
   SELECT 'derived', o.cleaned, o.cleaned, o.entity, '${NORMALISES_TO_PREDICATE}', COALESCE(ov.ph_object, o.entity), '${PLACEHOLDER_FORM_RULE}', s.source_file, o.ordinal, s.vintage
     FROM observation o
     JOIN source s ON s.source_id = o.source_id
     LEFT JOIN ph_override ov ON ov.obs_id = o.obs_id
-    WHERE o.parses = 1
+    WHERE o.parses = 1 AND s.emits_edges = 1
   UNION ALL
   SELECT 'derived', o.raw_subject, o.cleaned, o.entity, '${LICENCE_CATEGORY_PREDICATE}', lc.category, '${LICENCE_CATEGORY_RULE}', s.source_file, o.ordinal, s.vintage
     FROM licence_category lc
@@ -369,13 +383,26 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   fs.rmSync(dbPath, { force: true });
   const db = new DatabaseSync(dbPath);
+  // Close on EVERY exit - especially the fail-loud integrity throws (issue
+  // #824's partial-edge-coverage check) - so a rejected build never leaks the
+  // handle; on Windows an open handle keeps the half-built file locked.
+  try {
+    return loadCompactLedgerInto(db, ledgerDir);
+  } finally {
+    db.close();
+  }
+}
+
+// The load body, separated so buildCompactLedgerSqlite owns the database
+// handle's lifetime around it.
+function loadCompactLedgerInto(db: DatabaseSync, ledgerDir: string): CompactLedgerSummary {
   applyBuildPragmas(db);
   db.exec(CREATE_SCHEMA);
 
   const predicates = new Dictionary();
   const objects = new Dictionary();
   const rules = new Dictionary();
-  const insertSource = db.prepare('INSERT INTO source VALUES (?, ?, ?, ?)');
+  const insertSource = db.prepare('INSERT INTO source VALUES (?, ?, ?, ?, ?)');
   const insertPredicate = db.prepare('INSERT INTO predicate VALUES (?, ?)');
   const insertObject = db.prepare('INSERT INTO object VALUES (?, ?)');
   const insertRule = db.prepare('INSERT INTO rule VALUES (?, ?)');
@@ -406,6 +433,10 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
     // The source's real repo path, read from the @listed anchor's viewAnchor
     // (issue #431); one value per source. NULL when the lane attested none.
     let repoPath: string | null = null;
+    // Cleaned-callsign edges actually PRESENT in this source's persisted ledger
+    // (issue #824) - counted from the claims, never inferred from subject
+    // kinds, so the emits_edges flag records what the ledger holds.
+    let cleanedEdgeCount = 0;
     time('ledger:distil-observations', () => {
       for (const claim of claims) {
         const { ordinal, sourceFile: sf, vintage: vt } = claim.provenance;
@@ -427,6 +458,8 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
         if (claim.layer === 'derived' && claim.predicate === NORMALISES_TO_PREDICATE && claim.rule === PLACEHOLDER_FORM_RULE) {
           const obs = observations.get(claim.provenance.ordinal);
           if (obs !== undefined) { obs.parses = true; obs.phObject = claim.object; }
+        } else if (claim.layer === 'derived' && claim.predicate === NORMALISES_TO_PREDICATE && claim.rule === CLEANED_CALLSIGN_RULE) {
+          cleanedEdgeCount += 1;
         } else if (claim.layer === 'derived' && claim.predicate === LICENCE_CATEGORY_PREDICATE) {
           const obs = observations.get(claim.provenance.ordinal);
           if (obs !== undefined) obs.licenceCategory = claim.object;
@@ -434,7 +467,25 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
       }
     }, claims.length);
 
-    insertSource.run(sourceId, sourceFile, vintage, repoPath);
+    // The per-source edge flag (issue #824). Edge emission is a per-SOURCE fact
+    // in the data model (a collector declares its subjectKind once, and
+    // emitSourceLedgerClaims branches per source), so one flag per source is
+    // exact - but it is still VERIFIED against the ledger's actual contents:
+    // a callsign-subject emit gives EVERY subject-bearing observation its
+    // cleaned edge (identity included), so a partial count is a ledger this
+    // schema cannot faithfully re-present and the build fails loud rather than
+    // fabricating or dropping edges.
+    const distilled = [...observations.values()];
+    const subjectBearing = distilled.filter(obs => obs.rawSubject !== '').length;
+    const emitsEdges = cleanedEdgeCount > 0;
+    if (emitsEdges && cleanedEdgeCount !== subjectBearing) {
+      throw new Error(`${file}: ${cleanedEdgeCount} cleaned-callsign edges for ${subjectBearing} subject-bearing observations - partial edge coverage cannot be represented by the per-source emits_edges flag`);
+    }
+    if (!emitsEdges && distilled.some(obs => obs.parses)) {
+      throw new Error(`${file}: placeholder-form edges present without cleaned-callsign edges - the emits_edges gate would drop a persisted edge`);
+    }
+
+    insertSource.run(sourceId, sourceFile, vintage, repoPath, emitsEdges ? 1 : 0);
 
     // Assign obs_ids in ordinal order and insert the observations (plus their
     // sparse licence-category / placeholder-override satellites).
@@ -541,12 +592,17 @@ export function buildCompactLedgerSqlite(ledgerDir: string, dbPath: string): Com
   db.exec('CREATE TABLE build_info (key TEXT, value TEXT)');
   const info = db.prepare('INSERT INTO build_info VALUES (?, ?)');
   const claimCount = Number((db.prepare('SELECT COUNT(*) AS c FROM claims').get() as { c: number | bigint }).c);
+  // The compact schema's version stamp, following the build_info key/value
+  // convention the ledger databases already use. '2' = the source table carries
+  // emits_edges and the claims VIEW gates its normalisation-edge synthesis on
+  // it (issue #824); an unstamped database is the pre-gate schema '1', whose
+  // VIEW fabricated edges for non-callsign observations.
+  info.run('schema_version', '2');
   info.run('observations', String(totalObservations));
   info.run('claims', String(claimCount));
   info.run('generated_at', new Date().toISOString());
   info.run('commit', process.env.GITHUB_SHA ?? 'local');
 
-  db.close();
   return {
     observations: totalObservations,
     attrClaims: totalAttrClaims,
