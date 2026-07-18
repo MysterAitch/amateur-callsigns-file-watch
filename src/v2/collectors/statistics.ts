@@ -13,6 +13,18 @@
  * claim per count column, with NO callsign normalisation and NO licence
  * category - a count is not a licence class.
  *
+ * VERBATIM HEADERS (issue #813 Stage C1). The family is lossless-canonical: the
+ * ledger predicates and the manifest @column/@subject claims carry the table's
+ * OWN headers ('period (1 April – 31 March)', 'Amateur Radio', 'Business
+ * Radio') - the published bytes the raw layer documents itself as holding -
+ * never the authored converter OUTPUT names, which are a normalised-CSV
+ * vocabulary, not published bytes. (The old output-name emit dropped the period
+ * header's boundary qualifier and presented authored spellings As-published.)
+ * The source attests its repoPath/encoding, so the reconstruction oracle
+ * (src/ci/reconstruction-oracle.ts) rebuilds the extract's table region from
+ * the REGISTERED family's persisted claims; the foi-markdown-table mirror no
+ * longer covers this family's files.
+ *
  * Counts travel exactly as the converter PARSES them (parseMarkdownTable): the
  * published figures verbatim, thousands separators intact. The
  * separator-stripping the normalised CSV applies is a later convert/fold step,
@@ -39,10 +51,12 @@ import { jsonlStem } from './util.ts';
 // twice.
 export const STATISTICS_AGGREGATE_CLASS = 'statistics-aggregate';
 
-// The output column naming the aggregate subject: the reporting-period label.
-// The load path verifies the authored binding carries it rather than guessing a
-// subject column - a binding lacking a verbatim period column is a new
-// aggregate shape deserving a reviewed converter change, never a guess.
+// The authored OUTPUT role naming the aggregate subject: the reporting-period
+// label. Used only to LOCATE the subject column in the authored binding (whose
+// verbatim source header then becomes the subjectColumn) - a binding lacking a
+// verbatim period column is a new aggregate shape deserving a reviewed
+// converter change, never a guess. The role name itself never reaches the
+// ledger: predicates are the table's verbatim headers (issue #813 Stage C1).
 const PERIOD_OUTPUT = 'period';
 
 // Format marking a source transcribed from a PDF into a committed markdown
@@ -53,14 +67,6 @@ const MARKDOWN_TABLE_FORMAT = 'markdown-table';
 export interface StatisticsEntry {
   entry: string;
   meta: FoiEntryMeta;
-}
-
-// One raw-source header bound to its normalised output name, taken from the
-// authored converter binding. Only columns the source actually asserts (a
-// non-null source header) are carried.
-interface AggregateColumnBinding {
-  source: string;
-  output: string;
 }
 
 // The statistics-aggregate entries: 'statistics-aggregate' present in
@@ -94,9 +100,13 @@ export function statisticsSourcesFor(meta: FoiEntryMeta): FoiSourceConversion[] 
 // the SAME markdown-table parser the FOI converter uses, so the rows this
 // runner keys off are the rows the committed normalisation was derived from.
 // Cells are carried VERBATIM as that parser returns them (thousands separators
-// intact); the columns are relabelled to the converter's OUTPUT names so the
-// ledger predicates read 'amateur_radio_licences_issued' rather than the raw
-// 'Amateur Radio' header, and the subject column is the verbatim period label.
+// intact), keyed by the table's OWN headers in source order (issue #813 Stage
+// C1) - the ledger predicates read the published 'Amateur Radio' header, never
+// the authored output name - and the subject column is the verbatim period
+// header, boundary qualifier and all. The authored binding still gates the
+// shape: every source header it asserts must be present, and it must name a
+// period column, so a changed extract fails loudly rather than emitting under
+// a silently different vocabulary.
 export function loadStatisticsSource(foiDir: string, entry: string, meta: FoiEntryMeta, conversion: FoiSourceConversion): SourceObservationSet {
   const filePath = path.join(foiDir, entry, conversion.sourceFile);
   const text = fs.readFileSync(filePath).toString(conversion.encoding);
@@ -105,42 +115,35 @@ export function loadStatisticsSource(foiDir: string, entry: string, meta: FoiEnt
     throw new Error(`${filePath}: parsed to zero rows - a statistics source must not be empty`);
   }
 
-  // The source-asserted columns, narrowed to their raw header + output name.
-  const bindings: AggregateColumnBinding[] = [];
-  for (const column of conversion.columns) {
-    if (column.source === null) continue;
-    bindings.push({ source: column.source, output: column.output });
-  }
-
   // Every authored source header must be present in the parsed extract - a
   // missing column is a changed extract shape, failed loudly rather than
   // silently emitting blanks.
-  const rawHeaders = Object.keys(parsed[0]);
-  for (const binding of bindings) {
-    if (!rawHeaders.includes(binding.source)) {
-      throw new Error(`${filePath}: authored source header "${binding.source}" absent from the extract headers (${rawHeaders.join(', ')})`);
+  const columns = Object.keys(parsed[0]);
+  for (const spec of conversion.columns) {
+    if (spec.source === null) continue;
+    if (!columns.includes(spec.source)) {
+      throw new Error(`${filePath}: authored source header "${spec.source}" absent from the extract headers (${columns.join(', ')})`);
     }
   }
 
-  const columns = bindings.map(binding => binding.output);
-  if (!columns.includes(PERIOD_OUTPUT)) {
+  // The subject is the VERBATIM header the authored binding maps to the period
+  // output role - located via the binding, carried as published.
+  const periodHeader = conversion.columns.find(spec => spec.output === PERIOD_OUTPUT)?.source ?? null;
+  if (periodHeader === null) {
     throw new Error(`${filePath}: authored binding carries no verbatim "${PERIOD_OUTPUT}" column - not a recognised aggregate shape`);
   }
-
-  const rows = parsed.map(record => {
-    const row: Record<string, string> = {};
-    for (const binding of bindings) {
-      row[binding.output] = record[binding.source] ?? '';
-    }
-    return row;
-  });
 
   return {
     sourceFile: `foi/${entry}/${conversion.sourceFile}`,
     vintage: meta.dataVintage ?? '',
     columns,
-    subjectColumn: PERIOD_OUTPUT,
-    rows,
+    subjectColumn: periodHeader,
+    rows: parsed,
+    // The reconstruction routing (issue #813 Stage C1): the true on-disk path
+    // and decode encoding, so reconstructionResultFor rebuilds the extract's
+    // table region through the markdown serialiser from this family's claims.
+    repoPath: `archive/foi/${entry}/${conversion.sourceFile}`,
+    encoding: conversion.encoding,
   };
 }
 
