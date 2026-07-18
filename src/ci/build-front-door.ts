@@ -134,11 +134,21 @@ function latestSnapshotKey(holdings: Holding[]): string | undefined {
     .reduce<Holding | undefined>((a, b) => (a && (a.vintage ?? '') > (b.vintage ?? '') ? a : b), undefined)?.key;
 }
 
+// The declared-coverage state for a cell's data-attribute: complete/partial
+// only exist where the lane declares the field at all, mirroring the
+// classification build-publisher-pages.ts's own coverage cell renders (#741).
+function coverageState(h: Holding): 'complete' | 'partial' | 'none' {
+  if (h.hasCoverageField !== true || h.coverage === undefined) return 'none';
+  return h.coverage.complete ? 'complete' : 'partial';
+}
+
 // One map cell: a genuine deep-link to the dataset's own page, carrying the
-// kind, title, vintage and row count as data-attributes so home.js's readout
-// can announce {kind · dataset · vintage · rows} on hover/focus, and a full
-// aria-label so the cell reads without the readout too. Colour is never the sole
-// cue — the letter carries the kind.
+// kind, title, vintage, row count, declared coverage and quality-flag count as
+// data-attributes so home.js's readout can announce {kind · dataset · vintage ·
+// rows} on hover/focus and its richer per-cell popover (#741) can add the
+// declared-complete state and any quality caveat, and a full aria-label so the
+// cell reads without either enhancement too. Colour is never the sole cue —
+// the letter carries the kind.
 function mapCell(h: Holding, latestKey: string | undefined): string {
   const cls = primaryClass(h);
   const kindLabel = humaniseClassKey(cls);
@@ -147,11 +157,15 @@ function mapCell(h: Holding, latestKey: string | undefined): string {
   const ariaParts = [`${kindLabel}: ${h.title}`, vlabel];
   if (rows !== '') ariaParts.push(`${rows} rows`);
   const dataAttrs = [
+    `data-key="${escapeHtml(h.key)}"`,
     `data-kind="${escapeHtml(cls)}"`,
     `data-kind-label="${escapeHtml(kindLabel)}"`,
     `data-title="${escapeHtml(h.title)}"`,
     `data-vintage="${escapeHtml(vlabel)}"`,
     rows === '' ? 'data-rows=""' : `data-rows="${escapeHtml(rows)}"`,
+    `data-coverage="${coverageState(h)}"`,
+    `data-quality="${h.qualityCount ?? 0}"`,
+    `data-coverage-affecting="${h.coverageAffecting === true ? 'true' : 'false'}"`,
   ].join(' ');
   const latest = h.key === latestKey ? ' hold-cell--latest' : '';
   return `<li><a class="hold-cell${latest}" ${dataAttrs} href="${escapeHtml(holdingEntryHref(h))}" aria-label="${escapeHtml(ariaParts.join(' — '))}"><span aria-hidden="true">${escapeHtml(kindLetter(cls))}</span></a></li>`;

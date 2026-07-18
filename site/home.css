@@ -175,7 +175,9 @@
 .home .hold-map-yr--empty { opacity: .6; }
 .home .hold-map-yr--empty .hold-map-cells::before { content: "—"; color: var(--faint); font-size: 12px; }
 .home .hold-map-cells { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; min-height: 1.35rem; align-items: center; }
-.home .hold-map-cells li { list-style: none; margin: 0; }
+/* position: relative anchors the popover (#741) to its own cell rather than
+   the whole grid; it does not otherwise change the flex layout. */
+.home .hold-map-cells li { list-style: none; margin: 0; position: relative; }
 /* At-rest affordance: every cell carries a kind tint, a solid border and its
    kind letter with no hover needed, so it reads as a distinct, selectable token
    at rest — the hover/focus ring is an addition, not the only cue. */
@@ -196,6 +198,30 @@
 .home .hold-cell[data-kind="statistics-aggregate"] { --kh: #7c6bcc; }
 .home .hold-cell[data-kind="attribute-addendum"]   { --kh: #3fa3a3; }
 .home .hold-cell[data-kind="reference-context"]    { --kh: #8a8f98; }
+/* Rich per-cell popover (#741): the deliberate "tell me more without leaving"
+   affordance — kind/title/vintage/rows, declared coverage, any quality-flag
+   caveat, and an explicit "open dataset" action. site/home.js builds and wires
+   it at runtime, so it does not exist at all with JavaScript off; the plain
+   deep-linking cell is the entire no-JS baseline. Same rounded-card language as
+   the search suggestion listbox above, so the two popovers read as one family. */
+.home .hold-pop { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  z-index: 30; width: max-content; max-width: 240px; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--hair); background: var(--surface); box-shadow: var(--shadow);
+  font-size: 12.5px; line-height: 1.4; color: var(--ink); }
+.home .hold-pop[hidden] { display: none; }
+.home .hold-pop p { margin: 0 0 6px; }
+.home .hold-pop p:last-of-type { margin-bottom: 0; }
+.home .hold-pop-head { font-weight: 600; }
+.home .hold-pop-cov { color: var(--muted); }
+/* Same signal tint the publisher-page flags column already gives a
+   data-quality observation — colour is never the only cue, the wording says
+   the same thing (#741). */
+.home .hold-pop-flag { color: var(--signal); }
+.home .hold-pop-link { display: inline-block; margin-top: 8px; font-family: var(--mono); font-size: 12px;
+  font-weight: 600; color: var(--raw); text-decoration: none; }
+.home .hold-pop-link:hover, .home .hold-pop-link:focus-visible { text-decoration: underline; }
+.home .hold-pop-link:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+
 .home .hold-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 14px 0 0;
   padding: 12px 0 0; border-top: 1px solid var(--hair); font-size: 12px; color: var(--muted); }
 .home .hold-legend li { list-style: none; margin: 0; display: flex; align-items: center; gap: 6px; }
