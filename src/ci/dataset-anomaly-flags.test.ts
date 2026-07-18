@@ -7,7 +7,9 @@ import {
   evaluateDataset,
   renderFlag,
   renderDatasetAnomalyFlags,
+  renderPublishedObservation,
   computeDatasetAnomalyFlags,
+  anomalyMetricsChecked,
   MODIFIED_Z_THRESHOLD,
   MIN_SHARE_DELTA,
   type DatasetMetricSet,
@@ -264,6 +266,33 @@ describe('dataset anomaly flags — render', { tags: ['unit'] }, () => {
     }
   });
 
+  it('RenderPublishedObservation_FlaggedDataset_StatesTheDeviationAsAnObservationNotAJudgement', () => {
+    // The reader-facing rendering (issue #467's residual): the SAME evaluated
+    // deviation, reframed for a published page. Never a verdict.
+    const [text] = renderPublishedObservation(flagged);
+    expect(text).toContain("This publication's record count deviates from its neighbours' norm");
+    expect(text).toContain('modified z = -6.3');
+    expect(text).toContain('146,417');
+    expect(text).toContain('157,873');
+    expect(text).toContain('This is an observation, not a judgement — the cause is not adjudicated here');
+  });
+
+  it('RenderPublishedObservation_NoDeviations_RendersNothingRatherThanManufacturingDoubt', () => {
+    // Selective disclosure (the render/fidelity.ts flagNudges convention): a
+    // conforming or insufficient-neighbours dataset contributes NOTHING to a
+    // published list — silence, not a padded "all clear" statement.
+    expect(renderPublishedObservation(conforming)).toEqual([]);
+    expect(renderPublishedObservation(insufficient)).toEqual([]);
+  });
+
+  it('RenderPublishedObservation_EveryOutcome_NeverAssertsAVerdictErrorOrLoweredTrust', () => {
+    for (const flag of [conforming, insufficient, flagged]) {
+      for (const text of renderPublishedObservation(flag)) {
+        expect(text.toLowerCase()).not.toMatch(/\bwrong\b|\berror\b|\bincorrect\b|\bfault\b|\btrustworthy\b|\buntrustworthy\b|\bverified\b|\bsafe to use\b/);
+      }
+    }
+  });
+
   it('RenderDatasetAnomalyFlags_MultipleFlags_ProducesOneListItemPerDatasetWithHeader', () => {
     const md = renderDatasetAnomalyFlags([conforming, insufficient, flagged]);
     expect(md).toContain('# Dataset anomaly flags (issue #467)');
@@ -271,6 +300,24 @@ describe('dataset anomaly flags — render', { tags: ['unit'] }, () => {
     expect(md).toContain('- 2026-06-23: conforms');
     expect(md).toContain('- 2013-09-06: too few neighbours');
     expect(md).toContain("- Caution: 2026-01-14 doesn't conform");
+  });
+});
+
+// The single source of truth build-data-status.ts reads before claiming a
+// metric was checked (review fix on the published affordance): record count
+// and product-column emptiness read stats.json directly and so are never
+// conditional; only the per-status-share flag should track DuckDB
+// availability, so the published copy can never claim a check that did not
+// run in this build.
+describe('dataset anomaly flags — anomalyMetricsChecked', { tags: ['unit'] }, () => {
+  it('AnomalyMetricsChecked_AnyEnvironment_RecordCountAndProductEmptyShareAlwaysTrue', () => {
+    const checked = anomalyMetricsChecked();
+    expect(checked.recordCount).toBe(true);
+    expect(checked.productEmptyShare).toBe(true);
+  });
+
+  it('AnomalyMetricsChecked_StatusShareFlag_TracksDuckDbAvailabilityExactly', () => {
+    expect(anomalyMetricsChecked().statusShare).toBe(duckDbAvailable());
   });
 });
 

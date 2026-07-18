@@ -340,6 +340,51 @@ function divergenceSection(divergences: CollectedDivergence[]): string[] {
   ];
 }
 
+// The method note for the published anomaly-observation affordance (issue
+// #467's residual): explains what a "deviates from its neighbours' norm" note
+// on /data-status means and how it is computed, so the reader who clicks
+// through from that note lands on a plain-English account of the method
+// rather than being asked to trust a number. Framed identically to the other
+// fidelity sections: an observation about statistical deviation, never a
+// verdict, judgement, or claim that anything is wrong.
+function anomaliesSection(): string[] {
+  return [
+    '<h2 id="anomalies">Statistical observations — when a publication departs from its neighbours\' norm</h2>',
+    '<p>Some publication pages and the <a href="data-status.html">data status</a> page carry a note stating that a publication\'s record count '
+      + '(or another metric) <b>deviates from its neighbours\' norm</b>. This is an <b>observation of statistical deviation, never a judgement</b> — '
+      + 'it is not a claim that the publication is wrong, incomplete, or untrustworthy. A real, legitimate jump in issuance would look exactly the same '
+      + 'to this method as a filtering artefact would; the note flags the deviation and leaves the cause open rather than adjudicating it.</p>',
+    '<h3>The method</h3>',
+    '<p>Each register publication is compared against a <b>neighbour window</b> built separately on each side (before and after): starting from the '
+      + 'nearest publication and working outward, each side keeps expanding until it has collected <b>3 declared-complete neighbours</b> on that side, or '
+      + 'until it has taken <b>10 publications</b> on that side, whichever comes first. A declared-partial/incomplete publication passed over on the way is '
+      + 'still kept in the window (so its existence is not hidden) but does not count towards the quota of 3, and is excluded when the norm itself is '
+      + 'computed (its already-small count would corrupt the norm rather than describe it) — a window can therefore hold anywhere from a handful of '
+      + 'neighbours per side (most windows) up to 10 per side (only where declared-complete publications are sparse). From the neighbours actually used, '
+      + 'the method computes the <b>median</b> and the <b>median absolute deviation (MAD)</b> — robust measures that, '
+      + 'unlike a mean and standard deviation, are not thrown off by a single wild value already sitting in the window. The publication\'s own value is '
+      + 'then converted to a <b>modified z-score</b>: how many robust "spreads" it sits from the neighbourhood median. A publication is flagged only '
+      + 'when its modified z-score exceeds <b>3.5</b> in either direction — the conventional outlier threshold from Iglewicz &amp; Hoaglin, '
+      + '<cite>How to Detect and Handle Outliers</cite> (1993), a named, citable convention rather than an invented cut-off.</p>',
+    '<p>A publication whose neighbourhood is smooth (say, a steady month-on-month rise) is <b>not</b> flagged even for a large absolute change, because '
+      + 'the value still sits near the trend the neighbourhood itself describes. A flag fires only when the value sits outside what the neighbourhood, '
+      + 'taken together, would predict.</p>',
+    '<h3>What "no flag" does not mean</h3>',
+    '<p>The asymmetry is deliberate: deviation is a meaningful signal to flag, but <b>conformance is never a trust certificate</b>. A publication that has '
+      + 'been filtered, truncated, or otherwise altered can still happen to sit inside its neighbours\' trend — the method would not catch that. So "no '
+      + 'statistical observation for this publication" means only that its metrics sit within the range its neighbours set, not that the publication has '
+      + 'been verified sound. Any judgement about whether a publication is trustworthy is a separate, human curation act, not something this method — or '
+      + 'any statistic — can settle on its own.</p>',
+    '<p>Every metric the method flags is published this way, not only the record count: a publication\'s per-status mix (Allocated/Reserved/&hellip; '
+      + 'shares) and its product-column emptiness are checked by the identical median/MAD approach, and a note appears for any of them that clears the '
+      + 'threshold. The per-status check needs the DuckDB-backed fold this build runs with, so it does not fire in every build environment; the record-count '
+      + 'and product-emptiness checks read the committed per-publication statistics directly and always run. The source code — '
+      + externalLink(`${REPO_URL}/blob/main/src/ci/dataset-anomaly-flags.ts`, 'src/ci/dataset-anomaly-flags.ts')
+      + ' — is the one place the full method is implemented; running it locally (<code>npm run anomaly-flags</code>) prints every dataset\'s evaluation, '
+      + 'flagged or not, with the full neighbour window named.</p>',
+  ];
+}
+
 function showWorkingSection(examples: { heading: string; blurb: string; context: string; html: string }[]): string[] {
   const body = [
     '<h2 id="show-working">Show the working — the evidence behind a derived value</h2>',
@@ -467,6 +512,7 @@ export function buildFidelityPage(outputDir: string, baseUrl: string = DEFAULT_B
     ...flagsSection(newestKey ?? '(no archive entries)', newestStats),
     ...consistencySection(),
     ...divergenceSection(collectDivergences(archiveDir, defaultFoiDir())),
+    ...anomaliesSection(),
     ...showWorkingSection(rendered),
     ...reconstructionSection(),
     ...reverifySection(),

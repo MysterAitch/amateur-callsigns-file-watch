@@ -124,6 +124,25 @@
       <div id="ds-series">generated at deploy time — build the site to populate</div>
     </section>
 
+    <section class="panel" id="anomalies">
+      <div class="eyebrow">statistical observations</div>
+      <h2>Deviation from neighbouring publications</h2>
+      <p>Each register publication is checked against the publications
+      immediately before and after it, for one or more of: record count,
+      per-status mix, and product-column emptiness — exactly which of these
+      this build checked is stated below, since not every build environment
+      can run every check. A note states a <strong>statistical
+      observation</strong> — the publication's figure sits outside the norm
+      its neighbours set — and nothing more: it is <strong>never a
+      judgement</strong> that the publication is wrong, incomplete, or
+      untrustworthy. A genuine jump in issuance would look the same to this
+      method as a filtering artefact would, so the cause is deliberately left
+      open rather than adjudicated here. See the
+      <a href="fidelity.html#anomalies">method note</a> for how this is
+      computed and what it can and cannot show.</p>
+      <div id="ds-anomalies">generated at deploy time — build the site to populate</div>
+    </section>
+
     <footer>
       <p class="muted"><small>Derived from the committed archive and source
       register at deploy time; regenerated on every deploy<span id="build-sha"></span>.

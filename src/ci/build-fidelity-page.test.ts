@@ -118,9 +118,24 @@ describe('the built fidelity page over the real archive', { tags: ['data-validit
   });
 
   it('FidelityPage_WhenBuilt_CarriesEveryDeclaredSectionAnchor', () => {
-    for (const anchor of ['about', 'provenance', 'flags', 'consistency', 'divergence', 'show-working', 'reconstruction', 'reverify', 'reporting']) {
+    for (const anchor of ['about', 'provenance', 'flags', 'consistency', 'divergence', 'anomalies', 'show-working', 'reconstruction', 'reverify', 'reporting']) {
       expect(page, anchor).toContain(`id="${anchor}"`);
     }
+  });
+
+  // Issue #467's residual, review fix: the method note originally claimed a
+  // flat "ten before, ten after" window, but windowFor (report-sweep.ts)
+  // actually expands nearest-first only until it collects 3 declared-complete
+  // neighbours per side, capped at 10 - a materially smaller window in the
+  // common case. This pins the corrected wording against the real constants
+  // so the copy cannot silently drift back to the inaccurate flat claim.
+  it('FidelityPage_AnomaliesMethodNote_DescribesTheActualNearestFirstQuotaWindowNotAFlatTenEachSide', () => {
+    expect(page).toContain('id="anomalies"');
+    expect(page).toContain('3 declared-complete neighbours');
+    expect(page).toContain('10 publications');
+    expect(page).toMatch(/nearest.*(publication|neighbour).*working outward|working outward.*nearest/i);
+    // The old, inaccurate flat-window claim must not reappear.
+    expect(page).not.toMatch(/ten publications before it and the ten after/i);
   });
 
   it('FidelityPage_DivergenceSection_ListsTheMigratedKnownCaseFlaggedNotAdjudicated', () => {
