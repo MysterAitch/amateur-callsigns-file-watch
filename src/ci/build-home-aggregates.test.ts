@@ -10,6 +10,7 @@ import {
   renderCallsignTaxonomyHtml,
   renderCallsignQualityHtml,
   injectHomeAggregates,
+  sharePct,
 } from './build-home-aggregates.ts';
 import { absentMarker } from './render/format.ts';
 
@@ -21,6 +22,22 @@ import { absentMarker } from './render/format.ts';
 // real archive - the same inputs the deploy uses.
 
 describe('Home-page aggregate pre-rendering', { tags: ['unit'] }, () => {
+  it('SharePct_WhenShareRoundsToZeroButNonZero_EmitsEscapedEntityNotBareAngleBracket', () => {
+    // Every caller renders this cell through a `raw` column (the absent marker
+    // is an HTML fragment), so a literal '<' would land unescaped in the
+    // emitted <td> - malformed HTML. The sub-1% token must be the entity.
+    expect(sharePct(1, 1000)).toBe('&lt;1%');
+    expect(sharePct(1, 1000)).not.toContain('<');
+  });
+
+  it('SharePct_AcrossTheValueRange_KeepsPlainAndAbsentBehaviour', () => {
+    expect(sharePct(0, 1000)).toBe('0%');
+    expect(sharePct(500, 1000)).toBe('50%');
+    expect(sharePct(1000, 1000)).toBe('100%');
+    // No population at all: the shared absent marker, not a percentage.
+    expect(sharePct(0, 0)).toBe(absentMarker());
+  });
+
   it('FlagsTable_RealArchive_PivotsEveryPublicationWithRecordsRow', () => {
     const html = renderFlagsTableHtml();
     // Dataset column headers link to their entry pages.

@@ -97,11 +97,15 @@ function dataTable(caption: string, columns: ColumnDef[], rows: (string | number
 // misleading "0%"), and an undefined denominator degrades to the shared
 // absent-value marker (#826) - every caller passes this cell through a `raw`
 // column, since the marker is itself a small HTML fragment, not plain text.
-function sharePct(n: number, total: number): string {
+export function sharePct(n: number, total: number): string {
   if (total <= 0) return absentMarker();
   if (n === 0) return '0%';
   const p = Math.round((n / total) * 100);
-  return p === 0 ? '<1%' : `${p}%`;
+  // Escaped entity, not a literal '<': every caller renders this cell through a
+  // `raw` column (the absent marker above is an HTML fragment), so a bare '<'
+  // would land unescaped in the emitted <td> - malformed HTML that browsers
+  // happen to error-recover from, but malformed nonetheless.
+  return p === 0 ? '&lt;1%' : `${p}%`;
 }
 
 // A fixed-width proportion bar drawn from block glyphs (full ▁ light). It is

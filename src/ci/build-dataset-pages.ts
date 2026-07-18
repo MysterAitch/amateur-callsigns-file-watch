@@ -821,7 +821,9 @@ function atAGlanceOpenData(key: string, previousKey: string | undefined, stats: 
   // product. All are click-to-filter facets.
   const bar = (n: number): string => {
     const pct = bd.recordCount > 0 ? Math.round((n / bd.recordCount) * 100) : 0;
-    return `<span class="pct">${pct === 0 && n > 0 ? '<1%' : `${pct}%`}</span><b>${n.toLocaleString('en-GB')}</b><span class="barbg" style="width:${Math.min(pct, 100)}%"></span>`;
+    // Escaped entity, not a literal '<' - this interpolates straight into HTML,
+    // where a bare '<' is malformed (browsers error-recover, but malformed).
+    return `<span class="pct">${pct === 0 && n > 0 ? '&lt;1%' : `${pct}%`}</span><b>${n.toLocaleString('en-GB')}</b><span class="barbg" style="width:${Math.min(pct, 100)}%"></span>`;
   };
   // The shared licence field wrapper (#553), pinned to the shortened form
   // (drift-guard): this row is tight on width and would otherwise repeat the
