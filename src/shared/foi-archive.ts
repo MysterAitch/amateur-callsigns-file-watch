@@ -188,11 +188,20 @@ export function listFoiEntryKeys(foiDir: string = defaultFoiDir()): string[] {
 export function readFoiEntryMeta(foiDir: string, key: string): FoiEntryMeta {
   const metaPath = path.join(foiDir, key, 'meta.json');
 
-  if (!fs.existsSync(metaPath)) {
-    throw new Error(`${metaPath}: meta.json not found`);
+  // A single read, then map the failure - not an existsSync pre-check, which
+  // both wastes a syscall and leaves a TOCTOU gap where a delete between the
+  // check and the read would surface a bare, unlocated ENOENT.
+  let raw: string;
+  try {
+    raw = fs.readFileSync(metaPath, 'utf8');
+  } catch (cause) {
+    const code = cause instanceof Error && 'code' in cause ? cause.code : undefined;
+    if (code === 'ENOENT') {
+      throw new Error(`${metaPath}: meta.json not found`, { cause });
+    }
+    const message = cause instanceof Error ? cause.message : String(cause);
+    throw new Error(`${metaPath}: could not read meta.json: ${message}`, { cause });
   }
-
-  const raw = fs.readFileSync(metaPath, 'utf8');
 
   let parsed: unknown;
   try {
