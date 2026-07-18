@@ -45,7 +45,7 @@ import { COVERED_FAMILIES, MARKDOWN_PROSE_SCOPE_NOTE } from './reconstruction-or
 import { parseFlagRegistry } from './build-sqlite.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile, derivedEntryFileExists } from '../shared/derived-entries.ts';
-import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
+import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, type FoiEntryMeta } from '../shared/foi-archive.ts';
 import type { DivergenceRecord } from '../shared/witness-agreement.ts';
 import type { ArchiveMeta } from '../shared/utils.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
@@ -66,6 +66,7 @@ import {
   glossaryTerm,
   tableCaption,
   exploreDeepLink,
+  epistemicsPill,
 } from './site-render.ts';
 import { flagAnchor } from './render/fidelity.ts';
 
@@ -344,6 +345,83 @@ function divergenceSection(divergences: CollectedDivergence[]): string[] {
   ];
 }
 
+// The normalisation-robustness worked example (issue #823, following #807/
+// #822): a curated, named pair of FOI entries rather than a data-driven scan,
+// because the finding IS the pair — two archived entries that each hold a
+// raw .xlsx serialisation of the same 2015-10-13 disclosed export. The two
+// keys are fixed archive facts, not expected to change; a future re-derivation
+// that broke the pairing (or the hashes it rests on) should fail the build
+// loudly rather than render a stale or now-false claim.
+const NORMALISATION_ROBUSTNESS_ENTRY_A = 'wdtk-294011--available-callsigns-list';
+const NORMALISATION_ROBUSTNESS_ENTRY_B = 'wdtk-299321--available-callsigns-list';
+const NORMALISATION_ROBUSTNESS_RAW_FILE = 'Amateur Available Call signs.xlsx';
+const NORMALISATION_ROBUSTNESS_SHEETS: { file: string; label: string }[] = [
+  { file: 'normalised--sheet-1-foundation.csv', label: 'foundation' },
+  { file: 'normalised--sheet-2-intermediate.csv', label: 'intermediate' },
+  { file: 'normalised--sheet-3-full.csv', label: 'full' },
+];
+
+// A short sha256 prefix for prose display, matching the truncation convention
+// already used elsewhere on the site (git-sha prefixes in ci-summary.ts,
+// content-hash prefixes in shared/archive.ts) — full hashes stay verifiable
+// from the linked entry's own meta.json.
+function shortHash(sha256: string): string {
+  return sha256.slice(0, 8);
+}
+
+// Read one declared file's sha256, failing loudly and locatably if the entry
+// no longer declares the file this worked example depends on — never a
+// silent fallback to a blank or fabricated hash.
+function robustnessFileHash(meta: FoiEntryMeta, entryKey: string, filename: string): string {
+  const declared = meta.files[filename];
+  if (declared === undefined) {
+    throw new Error(`fidelity page: normalisation-robustness example: ${entryKey}'s meta.json declares no file named "${filename}"`);
+  }
+  return declared.sha256;
+}
+
+// The worked example itself (#823): two different raw serialisations of one
+// disclosed export that normalise to byte-identical output. Reads every hash
+// from the two entries' meta.json at build time — never hard-coded — so the
+// callout cannot drift from the archive it describes; readFoiEntryMeta
+// already fails loud (named, locatable errors) on a missing or malformed
+// meta.json, and the equality/inequality the callout asserts is re-checked
+// here on every build rather than assumed.
+export function normalisationRobustnessSection(foiDir: string): string[] {
+  const keyA = NORMALISATION_ROBUSTNESS_ENTRY_A;
+  const keyB = NORMALISATION_ROBUSTNESS_ENTRY_B;
+  const metaA = readFoiEntryMeta(foiDir, keyA);
+  const metaB = readFoiEntryMeta(foiDir, keyB);
+
+  const rawHashA = robustnessFileHash(metaA, keyA, NORMALISATION_ROBUSTNESS_RAW_FILE);
+  const rawHashB = robustnessFileHash(metaB, keyB, NORMALISATION_ROBUSTNESS_RAW_FILE);
+  if (rawHashA === rawHashB) {
+    throw new Error(`fidelity page: normalisation-robustness example: ${keyA} and ${keyB} raw "${NORMALISATION_ROBUSTNESS_RAW_FILE}" files are expected to differ, but both hash ${rawHashA} — the worked example no longer holds`);
+  }
+
+  const sheetItems = NORMALISATION_ROBUSTNESS_SHEETS.map(({ file, label }) => {
+    const hashA = robustnessFileHash(metaA, keyA, file);
+    const hashB = robustnessFileHash(metaB, keyB, file);
+    if (hashA !== hashB) {
+      throw new Error(`fidelity page: normalisation-robustness example: ${keyA} and ${keyB} normalised "${file}" sheets are expected to be byte-identical, but the hashes differ (${hashA} vs ${hashB}) — the worked example no longer holds`);
+    }
+    return `<li>${escapeHtml(label)} sheet: <code>${escapeHtml(shortHash(hashA))}&hellip;</code> on both sides</li>`;
+  }).join('');
+
+  const hrefA = `datasets/foi/${encodeURIComponent(keyA)}/index.html`;
+  const hrefB = `datasets/foi/${encodeURIComponent(keyB)}/index.html`;
+  const linkA = `<a href="${hrefA}">${escapeHtml(metaA.title)}</a>`;
+  const linkB = `<a href="${hrefB}">${escapeHtml(metaB.title)}</a>`;
+
+  return [
+    '<h2 id="normalisation-robustness">Normalisation robustness — one canonical output from two different raw serialisations</h2>',
+    `<p>${epistemicsPill('observed', 0)} Two archived FOI entries, ${linkA} and ${linkB}, each disclose the same 2015-10-13 export as a raw <code>${escapeHtml(NORMALISATION_ROBUSTNESS_RAW_FILE)}</code> workbook — same filename, same byte count — but the raw bytes differ: sha256 <code>${escapeHtml(shortHash(rawHashA))}&hellip;</code> for <code>${escapeHtml(keyA)}</code> versus <code>${escapeHtml(shortHash(rawHashB))}&hellip;</code> for <code>${escapeHtml(keyB)}</code>. Two different raw serialisations of one disclosure, not a copying error.</p>`,
+    `<p>${epistemicsPill('derived', 0)} Both raws normalise to byte-identical output on every one of the three sheets:</p>`,
+    `<ul>${sheetItems}</ul>`,
+    '<p>Why it matters: the normalised layer is a stable canonical form, independent of the raw file’s serialisation quirks — two byte-different raw copies of the same disclosure converge on one output rather than drifting into two subtly different ones.</p>',
+  ];
+}
+
 // The method note for the published anomaly-observation affordance (issue
 // #467's residual): explains what a "deviates from its neighbours' norm" note
 // on /data-status means and how it is computed, so the reader who clicks
@@ -473,6 +551,7 @@ function reportingSection(): string[] {
 // Build fidelity.html at the site root. Returns the page URLs for the sitemap.
 export function buildFidelityPage(outputDir: string, baseUrl: string = DEFAULT_BASE_URL): string[] {
   const archiveDir = defaultArchiveDir();
+  const foiDir = defaultFoiDir();
   const keys = listArchiveKeys().sort();
   const newestKey = keys[keys.length - 1];
 
@@ -527,7 +606,8 @@ export function buildFidelityPage(outputDir: string, baseUrl: string = DEFAULT_B
     ...provenanceSection(),
     ...flagsSection(newestKey ?? '(no archive entries)', newestStats),
     ...consistencySection(),
-    ...divergenceSection(collectDivergences(archiveDir, defaultFoiDir())),
+    ...divergenceSection(collectDivergences(archiveDir, foiDir)),
+    ...normalisationRobustnessSection(foiDir),
     ...anomaliesSection(),
     ...showWorkingSection(rendered),
     ...reconstructionSection(),
