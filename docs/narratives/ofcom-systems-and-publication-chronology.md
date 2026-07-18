@@ -186,6 +186,32 @@ published file. Three exports, three degrees of the same system showing
 through — the friendly `Value, Status, Type` of 2022, the object-qualified
 MMSI column of 2023, and the bare `__c` API names of 2025.
 
+### The whole format story, mechanically
+
+The prose above quotes a handful of exports to mark the turning points. The
+table below is the complete picture, and it is not hand-written: it is
+generated at build time from the archive's own metadata and the committed
+export files themselves. **[observed]** Each *column header* cell is the
+verbatim first line of the committed export, read straight off the bytes this
+mirror holds (the byte-order marks some exports carry are stripped for display
+only); the *worksheet shape* is read from the entry's declared
+`sheetsIndicative` metadata; the *dataset class* from its `datasetClasses`.
+**[derived]** The rows are ordered by data vintage — that ordering, and the
+selection of the register/list export classes, are the only editorial acts; no
+row states a fact not already committed to the archive. Because it enumerates
+the archive, a future export appears here on its own, without a word of this
+page changing.
+
+Read down the *column header* column and the system eras surface on their own:
+the eight-column Siebel-era report of the mid-2010s available lists; the terse
+`Call Sign, Status` of the 2016 register; and the Salesforce progression from
+friendly `Value, Status, Type` labels, through the object-qualified
+`Call Sign MMSI: Last Modified Date`, to the bare `Value__c`/`Product__c` API
+names — the same fingerprints the prose above traced, now shown for every
+export at once.
+
+{{chronology:format-evolution-table}}
+
 ---
 
 ## The publication-practice timeline
@@ -195,12 +221,15 @@ MMSI column of 2023, and the bare `__c` API names of 2025.
 **[observed]** Before the 2016 system change, Ofcom answered individual FOI
 requests for the *available* list — the callsigns free for a new Foundation,
 Intermediate or Full applicant — by running the query and sending a
-spreadsheet. This mirror holds that series from 2014 onward, including
-[`wdtk-224333`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-224333--available-callsigns-list/index.html)
-(August 2014, three worksheets: Foundation, Intermediate, Full) and
-[`wdtk-247308`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-247308--available-callsigns-list/index.html)
-(February 2015, the first to carry the eight-column report header above). Each
-answered the request; none was published for reuse.
+spreadsheet. This mirror holds that series from 2013 through to the last of the
+old lists in January 2016. **[observed]** The table below enumerates every
+archived snapshot in the series — generated from the archive metadata, so it
+closes the series completely and a newly-recovered snapshot would join it
+without editing this prose. Each row links to the snapshot's own page; the
+worksheet shape is read from the entry's declared metadata. Each answered the
+request; none was published for reuse.
+
+{{chronology:available-list-enumeration}}
 
 ### 2014–2015 — the s.14(2) episodes and the "too long an interval" concession
 

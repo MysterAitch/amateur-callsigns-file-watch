@@ -41,6 +41,7 @@ import { parse } from 'csv-parse/sync';
 import { buildZip } from '../shared/zip.ts';
 import { buildForbiddenSection } from './build-forbidden-section.ts';
 import { buildClassPages, classChipLink } from './build-class-pages.ts';
+import { applyChronologyTokens } from './chronology-tables.ts';
 import { buildInterdatasetStats } from './build-interdataset-stats.ts';
 import { buildFidelityPage } from './build-fidelity-page.ts';
 import { fidelityHref, fidelityNudge, flagNudges } from './render/fidelity.ts';
@@ -1877,6 +1878,12 @@ export function buildReportPages(outputDir: string, baseUrl: string, foiKeys: st
       // rewritten to a GitHub blob path. Narratives sit two levels below the
       // site root (reports/narratives/), matching this depth.
       rendered = applyEpistemicsPills(rendered, 2);
+      // Self-updating generated tables (issue #821): replace any chronology
+      // sentinel token with a table built from the archive metadata. Runs after
+      // the markdown/entity/pill passes so the generated HTML (shared dateTime,
+      // absentMarker and class-chip helpers) is emitted as-is; a narrative
+      // carrying no token is returned unchanged.
+      rendered = applyChronologyTokens(rendered, { foiDir: path.join(REPO_ROOT, 'archive', 'foi'), archiveDir: path.join(REPO_ROOT, 'archive') });
       const body = [
         `<p><small>A data narrative, rendered from <a href="${REPO_URL}/blob/main/${sourcePath}">${escapeHtml(sourcePath)}</a> in the repository (the authoritative copy). <a href="../index.html">All reports →</a></small></p>`,
         '<hr>',
