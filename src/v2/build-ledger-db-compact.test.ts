@@ -70,11 +70,40 @@ describe('compact claim-ledger schema', { tags: ['data-validity'] }, () => {
       // The satellite tables the compaction rests on, plus the `claims` VIEW
       // that re-presents the fat schema so consumers never see the difference.
       const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").all() as { name: string }[]).map(t => t.name).sort();
-      expect(tables).toEqual(['attr', 'build_info', 'derived_attr', 'licence_category', 'object', 'observation', 'ph_override', 'predicate', 'rule', 'source']);
+      // file_claim carries the file-level manifest (issue #434/#455) - the
+      // header/subject/furniture claims that describe a source FILE rather than a
+      // row, which are not observations and so ride their own satellite.
+      expect(tables).toEqual(['attr', 'build_info', 'derived_attr', 'file_claim', 'licence_category', 'object', 'observation', 'ph_override', 'predicate', 'rule', 'source']);
       const views = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'view'").all() as { name: string }[]).map(v => v.name);
       expect(views).toEqual(['claims']);
       const columns = (db.prepare("SELECT name FROM pragma_table_info('claims')").all() as { name: string }[]).map(c => c.name);
       expect(columns).toEqual(['layer', 'raw_subject', 'cleaned', 'entity', 'predicate', 'object', 'rule', 'source_file', 'ordinal', 'vintage']);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('FileLevelManifest_WhenBuilt_RidesTheFileClaimSatelliteAndSurfacesThroughTheView', () => {
+    // The file-level manifest (issue #434/#455) is NOT an observation: it is
+    // carried in file_claim and re-presented by the VIEW as raw claims on the
+    // sentinel ordinal with an empty subject. The subset is the open-data lane,
+    // which always carries a header, so the manifest must be non-empty and every
+    // manifest row must surface through the claims VIEW - so the compact multiset
+    // stays identical to the fat build's (proved wholesale by the parity test).
+    const db = openDb(compactPath);
+    try {
+      const fileClaims = Number((db.prepare('SELECT COUNT(*) c FROM file_claim').get() as { c: number | bigint }).c);
+      expect(fileClaims).toBeGreaterThan(0);
+      expect(compact.fileClaims).toBe(fileClaims);
+      // Every file_claim row is a raw claim on the sentinel ordinal in the VIEW.
+      const viewFileLevel = Number((db.prepare("SELECT COUNT(*) c FROM claims WHERE ordinal = -1 AND raw_subject = '' AND layer = 'raw'").get() as { c: number | bigint }).c);
+      expect(viewFileLevel).toBe(fileClaims);
+      // The header manifest is genuinely present: a @subject claim and at least
+      // one @column/<index> claim, exactly as emitted.
+      const subjects = Number((db.prepare("SELECT COUNT(*) c FROM claims WHERE predicate = '@subject' AND ordinal = -1").get() as { c: number | bigint }).c);
+      expect(subjects).toBeGreaterThan(0);
+      const columns = Number((db.prepare("SELECT COUNT(*) c FROM claims WHERE predicate LIKE '@column/%' AND ordinal = -1").get() as { c: number | bigint }).c);
+      expect(columns).toBeGreaterThan(0);
     } finally {
       db.close();
     }

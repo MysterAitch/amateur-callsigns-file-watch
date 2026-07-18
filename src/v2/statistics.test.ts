@@ -4,6 +4,8 @@ import * as os from 'os';
 import * as path from 'path';
 import {
   emitClaims,
+  isFileLevelClaim,
+  SUBJECT_PREDICATE,
   LISTED_PREDICATE,
   NORMALISES_TO_PREDICATE,
   LICENCE_CATEGORY_PREDICATE,
@@ -120,18 +122,26 @@ describe('statistics-aggregate family: raw period + count claims, verbatim, no c
       const perSource = summary.perSource[0];
       expect(perSource.family).toBe('statistics-aggregate');
       expect(perSource.observations).toBe(10);
-      expect(perSource.rawClaims).toBe(30);
+      // 10 rows x (1 existence + 2 counts) = 30 observation claims, plus the
+      // file-level manifest the canonical emit now carries (issue #455): one
+      // @column per header column + one @subject. The manifest is raw, so it
+      // lands in rawClaims but derives nothing.
+      const manifestClaims = statisticsSource().load().columns.length + 1;
+      expect(perSource.rawClaims).toBe(30 + manifestClaims);
       // The honesty guarantee: an aggregate source acquires NO derived claims.
       expect(perSource.derivedClaims).toBe(0);
       expect(summary.totalDerivedClaims).toBe(0);
 
-      // The JSONL landed on disk and folds back to the same raw claims.
+      // The JSONL landed on disk and folds back to the same raw claims + manifest.
       const stem = statisticsSource().jsonlStem;
       const jsonl = fs.readFileSync(path.join(outputDir, 'ledger', `${stem}.jsonl`), 'utf8');
       const claims = parseClaimsJsonl(jsonl);
-      expect(claims.length).toBe(30);
+      expect(claims.length).toBe(30 + manifestClaims);
       expect(claims.every(claim => claim.layer === 'raw')).toBe(true);
       expect(claims.some(claim => claim.predicate === NORMALISES_TO_PREDICATE)).toBe(false);
+      // The manifest rode the persisted ledger: the aggregate's @subject column
+      // is on disk, so the source structure reconstructs from the ledger alone.
+      expect(claims.some(claim => isFileLevelClaim(claim) && claim.predicate === SUBJECT_PREDICATE)).toBe(true);
 
       const firstAmateur = claims.find(claim => claim.predicate === AMATEUR_PREDICATE && claim.rawSubject === FIRST_PERIOD);
       expect(firstAmateur?.object).toBe(FIRST_AMATEUR_COUNT);

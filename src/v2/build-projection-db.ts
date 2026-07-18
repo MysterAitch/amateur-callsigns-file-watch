@@ -329,11 +329,12 @@ function declaredVariantsFor(archiveDir: string, key: string): DeclaredVariants 
 // declaration that contradicts the published file's own header row is an
 // integrity failure, never a state to read around.
 //
-// The ledger's own @column file-level manifest (ADR 0016) would be the purer
-// header source here, but the main emit does not carry it today - it is
-// composed only in the reconstruction oracle's stream. Promoting the manifest
-// into the canonical emit is #455-adjacent follow-on work; until then the
-// observed header row reads the same committed bytes the emit itself parsed.
+// The ledger's own @column file-level manifest (ADR 0016) is the purer header
+// source here. The canonical emit now carries it (emitSourceLedgerClaims,
+// build-ledger.ts, issue #455), so folding the header from the manifest rather
+// than re-observing the committed bytes is a straightforward follow-on; until
+// that repoint the observed header row reads the same committed bytes the emit
+// itself parsed, and the two are cross-checked below.
 //
 // Twin shapes that share a header row (the ISO-dated workbook-extract twin of
 // v2026-licence-version) are BY AUTHORED DESIGN never detected: detection

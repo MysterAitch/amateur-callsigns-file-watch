@@ -17,6 +17,16 @@
  * manifest claims (emitFileManifestClaims, claim.ts); the data grid from the
  * per-row claims (emitClaims).
  *
+ * FROM THE LEDGER, NOT A PARALLEL PROJECTION (issue #455). The manifest now
+ * rides the CANONICAL ledger emit (emitSourceLedgerClaims, build-ledger.ts), so
+ * the persisted JSONL ledger a build writes carries the whole structure - the
+ * committed raw file is redundant-by-derivation of the LEDGER itself. To keep
+ * that honest, reconstructionResultFor reconstructs from claims taken through
+ * the ledger's own JSONL serialiser (serialiseClaimsJsonl -> parseClaimsJsonl),
+ * so a source proves it rebuilds from the PERSISTED claim form, not an in-memory
+ * convenience; a committed test additionally emits the real ledger for a source
+ * and reconstructs it straight off the JSONL on disk.
+ *
  * SCOPE. The three CSV-producing families - open-data register, FOI-CSV
  * register, attribute-addendum - reconstruct through the CSV serialiser. Phase 3
  * (issue #434 / E3) adds the remaining text shapes the fidelity programme names:
@@ -59,6 +69,7 @@ import { collectFoiRegisterSources } from '../v2/collectors/foi-register.ts';
 import { collectAttributeAddendumSources } from '../v2/collectors/attribute-addendum.ts';
 import { collectFoiVerbatimCsvSources, verbatimCsvSourcesFor } from '../v2/collectors/foi-verbatim-csv.ts';
 import { collectFoiMarkdownTableSources, markdownTableSourcesFor } from '../v2/collectors/foi-markdown-table.ts';
+import { serialiseClaimsJsonl, parseClaimsJsonl } from '../v2/serialise.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
 import { FOI_ENTRY_CONVERSIONS, parseMarkdownTable } from '../shared/foi-normalise.ts';
@@ -350,7 +361,14 @@ export function reconstructionResultFor(source: SourceObservationSet): Reconstru
   if (repoPath === undefined) {
     return { sourceFile: source.sourceFile, repoPath: '', ok: false, detail: 'source attests no repoPath - cannot locate the original raw file' };
   }
-  const claims: Claim[] = [...emitClaims(source), ...emitFileManifestClaims(source)];
+  // Reconstruct from the claims AS THE LEDGER PERSISTS THEM: serialise the raw
+  // per-row + file-level manifest stream to JSONL and parse it straight back, so
+  // the round-trip proves the persisted ledger form suffices, not an in-memory
+  // stream the serialiser might not preserve (issue #455). The derived tier is
+  // omitted here because the reconstruction ignores it anyway (design §7.2); the
+  // committed from-real-ledger test exercises the full emitSourceLedgerClaims
+  // stream end to end.
+  const claims: Claim[] = parseClaimsJsonl(serialiseClaimsJsonl([...emitClaims(source), ...emitFileManifestClaims(source)]));
   const originalBytes = fs.readFileSync(path.join(REPO_ROOT, repoPath));
   const original = originalBytes.toString(source.encoding ?? 'utf8');
 
