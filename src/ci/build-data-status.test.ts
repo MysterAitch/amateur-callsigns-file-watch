@@ -22,7 +22,7 @@ import {
   CLASS_BLURBS,
 } from './build-data-status.ts';
 import { RATIONALE_SOURCE_LABEL } from './build-forbidden-section.ts';
-import { computeDatasetAnomalyFlags, type DatasetAnomalyFlag } from './dataset-anomaly-flags.ts';
+import { computeDatasetAnomalyFlags, anomalyMetricsChecked, type DatasetAnomalyFlag, type AnomalyMetricsChecked } from './dataset-anomaly-flags.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -251,7 +251,7 @@ describe('data-status: statistical observations (issue #467)', { tags: ['data-va
     expect(flag).toBeDefined();
     expect(flag?.deviations.some(d => d.metric === 'record count')).toBe(true);
 
-    const html = renderAnomalyObservations(buildOpenDataRows(), flags);
+    const html = renderAnomalyObservations(buildOpenDataRows(), flags, anomalyMetricsChecked());
     expect(html).toContain('2026-01-14');
     expect(html).toContain('146,417');
     expect(html).toContain('modified z = -6.3');
@@ -262,7 +262,7 @@ describe('data-status: statistical observations (issue #467)', { tags: ['data-va
   it('RenderAnomalyObservations_RealArchive_LinksTheFlaggedEntryToItsPageAndTheMethodNote', () => {
     const rows = buildOpenDataRows();
     const flags = computeDatasetAnomalyFlags();
-    const html = renderAnomalyObservations(rows, flags);
+    const html = renderAnomalyObservations(rows, flags, anomalyMetricsChecked());
     const entry = rows.find(r => r.key === '2026-01-14');
     expect(entry).toBeDefined();
     expect(html).toContain(`href="${entry?.entryHref}"`);
@@ -274,7 +274,7 @@ describe('data-status: statistical observations (issue #467)', { tags: ['data-va
     // render-level guard: the published surface must carry the SAME
     // discipline, since this is the one place a reader (not a developer) sees
     // the wording.
-    const html = renderAnomalyObservations(buildOpenDataRows(), computeDatasetAnomalyFlags()).toLowerCase();
+    const html = renderAnomalyObservations(buildOpenDataRows(), computeDatasetAnomalyFlags(), anomalyMetricsChecked()).toLowerCase();
     expect(html).not.toMatch(/\bwrong\b|\berror\b|\bincorrect\b|\bfault\b|\btrustworthy\b|\buntrustworthy\b|\bverified\b|\bsafe to use\b/);
   });
 
@@ -288,9 +288,36 @@ describe('data-status: statistical observations (issue #467)', { tags: ['data-va
       deviations: [],
       insufficientNeighbours: false,
     };
-    const html = renderAnomalyObservations([], [conforming]);
+    const html = renderAnomalyObservations([], [conforming], anomalyMetricsChecked());
     expect(html).toContain('not a certificate');
     expect(html).not.toContain('anomaly-list');
+  });
+
+  // The intro copy must state exactly which metrics THIS build checked, never
+  // more: a review finding on the original PR (issue #467's residual) was that
+  // the published copy claimed the per-status-mix check unconditionally, even
+  // though it degrades to "not checked" when the DuckDB-backed fold is
+  // unavailable. These two fixtures pin both branches so the claim can never
+  // silently drift back to an unconditional one.
+  describe('RenderAnomalyObservations_MetricsCheckedCopy_MatchesWhatThisBuildActuallyRan', () => {
+    const fullyChecked: AnomalyMetricsChecked = { recordCount: true, statusShare: true, productEmptyShare: true };
+    const degraded: AnomalyMetricsChecked = { recordCount: true, statusShare: false, productEmptyShare: true };
+
+    it('AllThreeMetricsAvailable_StatesAllThreeWereChecked', () => {
+      const html = renderAnomalyObservations([], [], fullyChecked);
+      expect(html).toContain('record count, per-status mix, and product-column emptiness');
+    });
+
+    it('StatusShareUnavailable_StatesOnlyTheTwoChecksThatRanAndNamesTheGap', () => {
+      const html = renderAnomalyObservations([], [], degraded);
+      expect(html).toContain('record count and product-column emptiness');
+      // Must NOT claim the per-status check ran, in any phrasing.
+      expect(html).not.toContain('record count, per-status mix, and product-column emptiness');
+      expect(html).not.toMatch(/per-status mix.*(was checked|were checked|is compared|are compared)/);
+      // The gap is named honestly - a build-coverage fact, not a data finding.
+      expect(html).toContain('was not run here');
+      expect(html).toContain('not a finding about the data');
+    });
   });
 });
 

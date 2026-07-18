@@ -355,9 +355,13 @@ function anomaliesSection(): string[] {
       + 'it is not a claim that the publication is wrong, incomplete, or untrustworthy. A real, legitimate jump in issuance would look exactly the same '
       + 'to this method as a filtering artefact would; the note flags the deviation and leaves the cause open rather than adjudicating it.</p>',
     '<h3>The method</h3>',
-    '<p>Each register publication is compared against a <b>neighbour window</b> — typically the ten publications before it and the ten after, '
-      + 'excluding any neighbour that is itself declared a partial/incomplete publication (its already-small count would corrupt the norm rather than '
-      + 'describe it). From that window the method computes the <b>median</b> and the <b>median absolute deviation (MAD)</b> — robust measures that, '
+    '<p>Each register publication is compared against a <b>neighbour window</b> built separately on each side (before and after): starting from the '
+      + 'nearest publication and working outward, each side keeps expanding until it has collected <b>3 declared-complete neighbours</b> on that side, or '
+      + 'until it has taken <b>10 publications</b> on that side, whichever comes first. A declared-partial/incomplete publication passed over on the way is '
+      + 'still kept in the window (so its existence is not hidden) but does not count towards the quota of 3, and is excluded when the norm itself is '
+      + 'computed (its already-small count would corrupt the norm rather than describe it) — a window can therefore hold anywhere from a handful of '
+      + 'neighbours per side (most windows) up to 10 per side (only where declared-complete publications are sparse). From the neighbours actually used, '
+      + 'the method computes the <b>median</b> and the <b>median absolute deviation (MAD)</b> — robust measures that, '
       + 'unlike a mean and standard deviation, are not thrown off by a single wild value already sitting in the window. The publication\'s own value is '
       + 'then converted to a <b>modified z-score</b>: how many robust "spreads" it sits from the neighbourhood median. A publication is flagged only '
       + 'when its modified z-score exceeds <b>3.5</b> in either direction — the conventional outlier threshold from Iglewicz &amp; Hoaglin, '

@@ -48,7 +48,7 @@ import {
 } from '../shared/foi-archive.ts';
 import { escapeHtml, monthYear, dateTime, datasetLabel, tableCaption, glossaryCue, glossaryTerm, zeroCell } from './site-render.ts';
 import { rationaleSourceLink } from './build-forbidden-section.ts';
-import { computeDatasetAnomalyFlags, renderPublishedObservation, type DatasetAnomalyFlag } from './dataset-anomaly-flags.ts';
+import { computeDatasetAnomalyFlags, renderPublishedObservation, anomalyMetricsChecked, type DatasetAnomalyFlag, type AnomalyMetricsChecked } from './dataset-anomaly-flags.ts';
 import { fidelityHref } from './render/fidelity.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -775,6 +775,20 @@ export function renderSeriesGaps(series: Series[]): string {
     + `<p class="muted">A “gap” is a silence of ${GAP_THRESHOLD_MONTHS} months or more between consecutive held vintages — a deterministic fact of the committed data, not a judgement. The latest held vintage in each series is its staleness at a glance. A dataset carrying more than one class appears in each of its series, so a series count can exceed that type's group on the grid (which files each dataset once, under its primary class).</p>`;
 }
 
+// Which metrics this build actually checked, in plain English — read from the
+// SAME flag dataset-anomaly-flags.ts's foldStatusShares gates on, so the copy
+// can never claim a check (the per-status mix) that this build did not run.
+// record count and product-column emptiness read stats.json directly and
+// always run, so they are never conditional; only the per-status-share clause
+// changes with the environment.
+function metricsCheckedNote(checked: AnomalyMetricsChecked): string {
+  return checked.statusShare
+    ? 'This build checked each publication\'s record count, per-status mix, and product-column emptiness against its neighbours.'
+    : 'This build checked each publication\'s record count and product-column emptiness against its neighbours. '
+      + 'The per-status-mix check needs a database engine this build did not have available, so it was not run here — '
+      + 'that is a gap in this build\'s coverage, not a finding about the data.';
+}
+
 // Statistical observations (issue #467's residual: promoting the neighbour-
 // window anomaly detector's output from a developer-only CLI aid to a
 // published, reader-facing affordance). Reuses the flags dataset-anomaly-
@@ -784,13 +798,16 @@ export function renderSeriesGaps(series: Series[]): string {
 // the list: selective disclosure, so the page never manufactures doubt where
 // no observation exists. This never states or implies a verdict, error, or
 // lowered trust — see the linked method note for what the observation can and
-// cannot show.
-export function renderAnomalyObservations(rows: readonly DatasetRow[], flags: readonly DatasetAnomalyFlag[]): string {
+// cannot show. `checked` states which metrics THIS build actually ran (see
+// metricsCheckedNote), so the copy never claims a check that did not happen.
+export function renderAnomalyObservations(rows: readonly DatasetRow[], flags: readonly DatasetAnomalyFlag[], checked: AnomalyMetricsChecked): string {
   const methodHref = fidelityHref(GLOSSARY_DEPTH_FROM_ROOT, 'anomalies');
   const flagged = flags.filter(f => f.deviations.length > 0);
+  const checkedNote = `<p class="muted">${metricsCheckedNote(checked)} See the <a href="${methodHref}">method note</a> for how.</p>`;
 
   if (flagged.length === 0) {
-    return '<p class="muted">No publication in the held archive currently deviates from its neighbours\' statistical norm by this measure. '
+    return checkedNote
+      + '<p class="muted">No publication in the held archive currently deviates from its neighbours\' statistical norm by this measure. '
       + 'This is not a certificate that every publication is sound — a filtered or otherwise altered publication can still sit inside its '
       + `neighbours' trend; see the <a href="${methodHref}">method note</a> for what this observation can and cannot show.</p>`;
   }
@@ -805,7 +822,8 @@ export function renderAnomalyObservations(rows: readonly DatasetRow[], flags: re
   });
 
   const plural = flagged.length === 1 ? '1 publication deviates' : `${flagged.length} publications deviate`;
-  return `<p>${plural} from the statistical norm set by the publications immediately before and after it in the archive `
+  return checkedNote
+    + `<p>${plural} from the statistical norm set by the publications immediately before and after it in the archive `
     + `(median/median-absolute-deviation over a neighbour window, flagged at a modified z beyond 3.5 — see the <a href="${methodHref}">method note</a>). `
     + 'Each note below is an observation of statistical deviation, never a judgement: the cause is not adjudicated here.</p>'
     + `<ul class="anomaly-list">${items.join('')}</ul>`;
@@ -820,6 +838,7 @@ export function injectDataStatus(pagePath: string, foiDir: string = FOI_ARCHIVE_
   const knownAbsent = readKnownAbsent(registerPath);
   const series = buildSeries(rows, knownAbsent);
   const anomalyFlags = computeDatasetAnomalyFlags();
+  const anomalyMetrics = anomalyMetricsChecked();
 
   const heldCount = rows.filter(r => !r.recordOnly).length;
   const recordCount = rows.filter(r => r.recordOnly).length;
@@ -834,7 +853,7 @@ export function injectDataStatus(pagePath: string, foiDir: string = FOI_ARCHIVE_
     [`<div id="ds-rollup">${PLACEHOLDER}</div>`, `<div id="ds-rollup" data-prerendered>${renderRollup(rows)}</div>`],
     [`<div id="ds-known-absent">${PLACEHOLDER}</div>`, `<div id="ds-known-absent" data-prerendered>${renderKnownAbsent(knownAbsent)}</div>`],
     [`<div id="ds-series">${PLACEHOLDER}</div>`, `<div id="ds-series" data-prerendered>${renderSeriesGaps(series)}</div>`],
-    [`<div id="ds-anomalies">${PLACEHOLDER}</div>`, `<div id="ds-anomalies" data-prerendered>${renderAnomalyObservations(rows, anomalyFlags)}</div>`],
+    [`<div id="ds-anomalies">${PLACEHOLDER}</div>`, `<div id="ds-anomalies" data-prerendered>${renderAnomalyObservations(rows, anomalyFlags, anomalyMetrics)}</div>`],
   ];
   for (const [placeholder, replacement] of replacements) {
     if (!html.includes(placeholder)) throw new Error(`placeholder not found in ${pagePath}: ${placeholder}`);

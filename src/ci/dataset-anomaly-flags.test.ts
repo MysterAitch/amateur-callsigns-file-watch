@@ -9,6 +9,7 @@ import {
   renderDatasetAnomalyFlags,
   renderPublishedObservation,
   computeDatasetAnomalyFlags,
+  anomalyMetricsChecked,
   MODIFIED_Z_THRESHOLD,
   MIN_SHARE_DELTA,
   type DatasetMetricSet,
@@ -299,6 +300,24 @@ describe('dataset anomaly flags — render', { tags: ['unit'] }, () => {
     expect(md).toContain('- 2026-06-23: conforms');
     expect(md).toContain('- 2013-09-06: too few neighbours');
     expect(md).toContain("- Caution: 2026-01-14 doesn't conform");
+  });
+});
+
+// The single source of truth build-data-status.ts reads before claiming a
+// metric was checked (review fix on the published affordance): record count
+// and product-column emptiness read stats.json directly and so are never
+// conditional; only the per-status-share flag should track DuckDB
+// availability, so the published copy can never claim a check that did not
+// run in this build.
+describe('dataset anomaly flags — anomalyMetricsChecked', { tags: ['unit'] }, () => {
+  it('AnomalyMetricsChecked_AnyEnvironment_RecordCountAndProductEmptyShareAlwaysTrue', () => {
+    const checked = anomalyMetricsChecked();
+    expect(checked.recordCount).toBe(true);
+    expect(checked.productEmptyShare).toBe(true);
+  });
+
+  it('AnomalyMetricsChecked_StatusShareFlag_TracksDuckDbAvailabilityExactly', () => {
+    expect(anomalyMetricsChecked().statusShare).toBe(duckDbAvailable());
   });
 });
 

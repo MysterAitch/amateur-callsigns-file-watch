@@ -304,6 +304,23 @@ export function renderDatasetAnomalyFlags(flags: readonly DatasetAnomalyFlag[]):
   return lines.join('\n');
 }
 
+// Which metrics THIS build's evaluation actually checked — the single source
+// of truth the published copy (build-data-status.ts) reads before claiming a
+// check ran, so degraded and full builds each state only what they did.
+// record count and product-column emptiness read stats.json directly and
+// always run; per-status share needs the DuckDB-backed fold (foldStatusShares
+// below) and is honestly reported as unchecked when the CLI is unavailable —
+// the same gate foldStatusShares itself uses, so this can never drift out of
+// step with what computeDatasetAnomalyFlags() actually evaluated.
+export interface AnomalyMetricsChecked {
+  recordCount: true;
+  statusShare: boolean;
+  productEmptyShare: true;
+}
+export function anomalyMetricsChecked(): AnomalyMetricsChecked {
+  return { recordCount: true, statusShare: duckDbAvailable(), productEmptyShare: true };
+}
+
 // --- Real-archive wiring --------------------------------------------------
 
 interface StatusFoldRow { idx: number; status: string | null; n: number }
