@@ -12,13 +12,15 @@ import { forbiddenListCollector } from './forbidden-list.ts';
 import { statisticsCollector } from './statistics.ts';
 import { availablePoolCollector } from './available-pool.ts';
 import { issuanceEventsCollector } from './issuance-events.ts';
+import { foiVerbatimCsvCollector } from './foi-verbatim-csv.ts';
 
 // Stable order (declaration order): FOI register first, then open-data
 // register, then the attribute addenda, then the bespoke non-callsign families
 // (forbidden-suffix lists, statistics aggregates, then available-pool
 // disclosures), then the issuance-events family (callsign-subject dated
-// licensing events) - the order buildLedger folds and emits in, so the corpus
-// order and the JSONL bytes are preserved.
+// licensing events), then the verbatim-CSV family (the pre-war annex's raw-only
+// token sheets, issue #813 Stage B) - the order buildLedger folds and emits in,
+// so the corpus order and the JSONL bytes are preserved.
 export const COLLECTORS: readonly LedgerCollector[] = [
   foiRegisterCollector,
   openDataRegisterCollector,
@@ -27,6 +29,7 @@ export const COLLECTORS: readonly LedgerCollector[] = [
   statisticsCollector,
   availablePoolCollector,
   issuanceEventsCollector,
+  foiVerbatimCsvCollector,
 ];
 
 // Every source across all covered families, in the registry's stable order,

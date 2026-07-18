@@ -29,23 +29,20 @@
  *
  * SCOPE. The three CSV-producing register families - open-data register,
  * FOI-CSV register, attribute-addendum - reconstruct through the CSV
- * serialiser, and so does the available-pool family, whose REGISTERED emit is
- * lossless-canonical since issue #813 Stage A (both its sub-shapes: the 2013/14
- * suffix sheets and the 2015/16 typed exports), so those sources reconstruct
- * from the claims the MAIN ledger persists, not from any parallel mirror.
- * Phase 3 (issue #434 / E3) adds the remaining text shapes the fidelity
- * programme names: the FOI preamble sheets with no canonical owner yet (the
- * pre-war annex, #813 Stage B) reconstruct through the SAME CSV serialiser via
- * the faithful verbatim mirror (collectors/foi-verbatim-csv.ts, storing the raw
- * token as the subject), and the FOI markdown-table transcriptions through a
- * dedicated markdown serialiser that compares the TABLE REGION ONLY
- * (collectors/foi-markdown-table.ts). The prose surrounding a markdown table is
- * explicitly OUTSIDE the ledger's fidelity claim (MARKDOWN_PROSE_SCOPE_NOTE,
- * design E4) - declared, never silently dropped. listNotYetCovered cross-checks
- * that every E3 shape is genuinely in the corpus (an empty result is the
- * coverage guarantee). Comparison is at DECODED-TEXT level (each source read
- * with the encoding its loader used); a byte-level mode is a later phase (#434
- * Phase 2 / G6).
+ * serialiser, and so do the available-pool family (REGISTERED lossless-
+ * canonical since issue #813 Stage A: the 2013/14 suffix sheets and the 2015/16
+ * typed exports) and the foi-verbatim-csv family (REGISTERED since issue #813
+ * Stage B: the pre-war annex's raw-only token sheets, storing the raw token as
+ * the subject) - so ALL of those sources reconstruct from the claims the MAIN
+ * ledger persists, not from any parallel mirror. Phase 3 (issue #434 / E3) adds
+ * the FOI markdown-table transcriptions through a dedicated markdown serialiser
+ * that compares the TABLE REGION ONLY (collectors/foi-markdown-table.ts). The
+ * prose surrounding a markdown table is explicitly OUTSIDE the ledger's
+ * fidelity claim (MARKDOWN_PROSE_SCOPE_NOTE, design E4) - declared, never
+ * silently dropped. listNotYetCovered cross-checks that every E3 shape is
+ * genuinely in the corpus (an empty result is the coverage guarantee).
+ * Comparison is at DECODED-TEXT level (each source read with the encoding its
+ * loader used); a byte-level mode is a later phase (#434 Phase 2 / G6).
  *
  * The checks are pure over their inputs (a SourceObservationSet, or the resolved
  * corpus), so the committed test runs them over the real archive and
@@ -83,9 +80,9 @@ import { FOI_ENTRY_CONVERSIONS, parseMarkdownTable } from '../shared/foi-normali
 // repoPath resolves to the real archived file.
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 
-// The families the oracle reconstructs. The three CSV register lanes, the
-// available-pool family (lossless-canonical in the main ledger, issue #813
-// Stage A) and the FOI verbatim-CSV mirror reconstruct through the CSV
+// The families the oracle reconstructs. The three CSV register lanes and the
+// two registered lossless-canonical families (available-pool since issue #813
+// Stage A, foi-verbatim-csv since Stage B) reconstruct through the CSV
 // serialiser; the FOI markdown-table mirror through the markdown serialiser. A
 // family not listed here has no reconstruction path yet (see listNotYetCovered).
 export const COVERED_FAMILIES: readonly string[] = [
@@ -424,7 +421,7 @@ export function collectCsvReconstructionSources(): ResolvedLedgerSource[] {
 // Every source the oracle reconstructs, across all covered families, in a stable
 // order: the three CSV register lanes, then the available-pool family (its
 // REGISTERED lossless emit, issue #813 Stage A), then the FOI verbatim-CSV
-// mirror (the preamble sheets with no canonical owner yet), then the FOI
+// family (the pre-war annex, REGISTERED since issue #813 Stage B), then the FOI
 // markdown-table mirror. The markdown sources are last and self-identify by
 // their .md repoPath, so reconstructionResultFor routes them to the markdown
 // serialiser.
@@ -459,12 +456,12 @@ function e3ShapeOf(conversion: { format?: string; preamble?: unknown; columns: r
 // Cross-check that every Phase 3 text shape (markdown-table, preamble, prefixed)
 // is genuinely ingested into the reconstruction corpus, and report any that is
 // NOT - a surfaced, checkable fact rather than a silent gap. Coverage comes from
-// EITHER a mirror family (verbatim-CSV / markdown-table) or a registered family
-// whose main-ledger emit is itself lossless - the available-pool family since
-// issue #813 Stage A, which carries every conversion of an available-pool entry.
-// This is EMPTY on the current archive: an empty result is the coverage
-// guarantee. A future conversion whose shape slips every selection would surface
-// here rather than pass unnoticed.
+// EITHER the markdown-table mirror or a REGISTERED family whose main-ledger emit
+// is itself lossless - available-pool (issue #813 Stage A, carrying every
+// conversion of an available-pool entry) and foi-verbatim-csv (Stage B, the
+// pre-war annex). This is EMPTY on the current archive: an empty result is the
+// coverage guarantee. A future conversion whose shape slips every selection
+// would surface here rather than pass unnoticed.
 export function listNotYetCovered(foiDir: string = defaultFoiDir()): UncoveredSource[] {
   const uncovered: UncoveredSource[] = [];
   for (const entry of listFoiEntryKeys(foiDir)) {
