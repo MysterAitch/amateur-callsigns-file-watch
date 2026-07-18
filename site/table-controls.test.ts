@@ -56,6 +56,9 @@ const MARKER_TABLE = `
 
 afterEach(() => {
   document.body.innerHTML = '';
+  // Sorting now syncs to the address bar; reset it between tests so each starts
+  // from a clean "page load" rather than restoring a prior test's ?sort= link.
+  window.history.replaceState(null, '', '/');
   vi.restoreAllMocks();
 });
 
@@ -542,5 +545,112 @@ describe('sort — progressive enhancement', { tags: ['ui'] }, () => {
     expect(table.querySelector('button.th-sort')).toBeNull();
     expect(table.querySelector('a.th-help')).toBeNull();
     expect(headerCell(table, 1).getAttribute('aria-sort')).toBeNull();
+  });
+});
+
+// --- multi-column sort (issue #771): the static-table sort now shares the
+// interactive lists' engine, so a modifier-key activation adds a secondary sort,
+// the choice deep-links via ?sort=, and every column reflects its aria-sort and
+// (for a multi-column sort) its priority. ---
+
+// A modified (Shift-etc.) activation of a sort trigger — the mouse Shift-click,
+// and the same click a keyboard Shift-Enter/Shift-Space produces on a button.
+function shiftClick(button: HTMLButtonElement): void {
+  button.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true }));
+}
+
+// A two-nation, two-numeric-column table whose first column ties (two Englands),
+// so a secondary sort is observably what breaks the tie.
+const MULTI_TABLE = `
+  <table data-table-controls>
+    <caption>Regional counts</caption>
+    <thead><tr><th scope="col">Nation</th><th scope="col">Count</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">England</th><td>9</td></tr>
+      <tr><th scope="row">Wales</th><td>4</td></tr>
+      <tr><th scope="row">England</th><td>2</td></tr>
+      <tr><th scope="row">Wales</th><td>7</td></tr>
+    </tbody>
+  </table>`;
+
+describe('multi-column sort', { tags: ['ui'] }, () => {
+  it('MultiColumnSort_WhenASecondColumnIsModifierActivated_BreaksTheFirstColumnsTies', () => {
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    // Primary: Nation ascending → England rows then Wales rows.
+    sortButton(table, 0).click();
+    expect(bodyColumn(table, 0)).toEqual(['England', 'England', 'Wales', 'Wales']);
+    // Secondary: Count ascending, added without disturbing the primary.
+    shiftClick(sortButton(table, 1));
+    expect(bodyColumn(table, 0)).toEqual(['England', 'England', 'Wales', 'Wales']);
+    expect(bodyColumn(table, 1)).toEqual(['2', '9', '4', '7']);
+    // Both columns announce their place in the sort.
+    expect(headerCell(table, 0).getAttribute('aria-sort')).toBe('ascending');
+    expect(headerCell(table, 1).getAttribute('aria-sort')).toBe('ascending');
+    expect(sortButton(table, 0).getAttribute('aria-label')).toContain('sort priority 1');
+    expect(sortButton(table, 1).getAttribute('aria-label')).toContain('sort priority 2');
+  });
+
+  it('MultiColumnSort_WhenTheSecondaryIsModifierReactivated_TogglesOnlyThatColumn', () => {
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    sortButton(table, 0).click();
+    shiftClick(sortButton(table, 1));
+    shiftClick(sortButton(table, 1)); // Count now descending within each nation.
+    expect(bodyColumn(table, 0)).toEqual(['England', 'England', 'Wales', 'Wales']);
+    expect(bodyColumn(table, 1)).toEqual(['9', '2', '7', '4']);
+    expect(headerCell(table, 0).getAttribute('aria-sort')).toBe('ascending');
+    expect(headerCell(table, 1).getAttribute('aria-sort')).toBe('descending');
+  });
+
+  it('MultiColumnSort_WhenAPlainActivationFollowsAMultiColumnSort_CollapsesToThatColumnAlone', () => {
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    sortButton(table, 0).click();
+    shiftClick(sortButton(table, 1));
+    // A plain click on Count discards the multi-column sort, sorting by it alone.
+    sortButton(table, 1).click();
+    expect(headerCell(table, 0).getAttribute('aria-sort')).toBe('none');
+    expect(bodyColumn(table, 1)).toEqual(['2', '4', '7', '9']);
+    // With one column sorted, no priority number is shown.
+    expect(sortButton(table, 1).getAttribute('aria-label')).not.toContain('sort priority');
+  });
+});
+
+describe('sort — deep link', { tags: ['ui'] }, () => {
+  it('SortDeepLink_WhenAColumnIsSorted_WritesAShareableSortParamToTheUrl', () => {
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    sortButton(table, 1).click(); // sort by Count ascending
+    const sort = new URL(window.location.href).searchParams.get('sort.regional-counts');
+    expect(sort).toBe('count:asc');
+  });
+
+  it('SortDeepLink_WhenTheColumnReturnsToTheAuthoredOrder_ClearsTheSortParam', () => {
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    const button = sortButton(table, 1);
+    button.click(); // ascending
+    button.click(); // descending
+    button.click(); // back to authored order
+    expect(new URL(window.location.href).searchParams.has('sort.regional-counts')).toBe(false);
+  });
+
+  it('SortDeepLink_WhenThePageLoadsWithASortParam_RestoresThatSortOnEnhancement', () => {
+    // A shared link lands with the sort already chosen; the table restores it.
+    window.history.replaceState(null, '', '/?sort.regional-counts=count:desc');
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    expect(bodyColumn(table, 1)).toEqual(['9', '7', '4', '2']);
+    expect(headerCell(table, 1).getAttribute('aria-sort')).toBe('descending');
+  });
+
+  it('SortDeepLink_WhenTheParamNamesAnUnknownColumn_IsIgnoredAndLeavesTheAuthoredOrder', () => {
+    window.history.replaceState(null, '', '/?sort.regional-counts=nonsense:asc');
+    const table = makeTable(MULTI_TABLE);
+    enhanceTable(table);
+    // The stale key is dropped, so the table stays in its authored order.
+    expect(bodyColumn(table, 0)).toEqual(['England', 'Wales', 'England', 'Wales']);
+    expect(headerCell(table, 0).getAttribute('aria-sort')).toBe('none');
   });
 });
