@@ -636,8 +636,13 @@ export function callsignCell(callsign: string, licenceClass: string, depthToRoot
     suffix: comp.suffix,
     licenceClass: comp.impliedClass,
   });
+  // The stored `flags` column is alphabetically sorted (reference-data/
+  // flags.md) and flagNudges renders in the order given, so appending the
+  // cross-reference must be followed by a re-sort - otherwise a row that also
+  // carries a later-sorting flag (e.g. `whitespace`) would render out of the
+  // documented order.
   const observedFlags = comp.parseStatus === 'unparseable' && !flags.includes(UNPARSEABLE_CALLSIGN_FLAG)
-    ? [...flags, UNPARSEABLE_CALLSIGN_FLAG]
+    ? [...flags, UNPARSEABLE_CALLSIGN_FLAG].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
     : flags;
   const nudges = flagNudges(observedFlags, depthToRoot, registeredFlags());
   return `<td>${pill}${nudges === '' ? '' : ` ${nudges}`}</td>`;

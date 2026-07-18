@@ -538,11 +538,18 @@ const UNPARSEABLE_CALLSIGN_FLAG = 'unparseable-callsign';
 // warrants it and the column does not already carry it. Exported standalone
 // (rather than inlined at the one call site) so it is unit-testable without a
 // live database or DOM.
+//
+// The stored `flags` column is alphabetically sorted (reference-data/
+// flags.md) and the "Flags" card renders in the order given, so appending the
+// cross-reference is followed by a re-sort - otherwise a row that also
+// carries a later-sorting flag (e.g. `whitespace`) would render out of the
+// documented order.
 /** @param {Pick<LookupRow, 'flags' | 'parse_status'>} row */
 export function observedFlags(row) {
   const flagList = row.flags ? row.flags.split(';') : [];
   if (row.parse_status === 'unparseable' && !flagList.includes(UNPARSEABLE_CALLSIGN_FLAG)) {
     flagList.push(UNPARSEABLE_CALLSIGN_FLAG);
+    flagList.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   }
   return flagList;
 }

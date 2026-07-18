@@ -372,4 +372,13 @@ describe('Register-row flags shown on the lookup card (issue #802)', { tags: ['u
   it('ObservedFlags_UnparseableRowWhoseStoredFlagsAlreadyCarryTheCrossReference_DoesNotDuplicateIt', () => {
     expect(observedFlags({ flags: 'unparseable-callsign', parse_status: 'unparseable' })).toEqual(['unparseable-callsign']);
   });
+
+  it('ObservedFlags_UnparseableRowWithALaterSortingStoredFlag_KeepsTheListAlphabetical', () => {
+    // The stored `flags` column is alphabetically sorted (reference-data/
+    // flags.md) and the "Flags" card renders in the order given, with no
+    // re-sort of its own. 'unparseable-callsign' sorts BEFORE 'whitespace', so
+    // naively appending the cross-reference to the end of the list would
+    // break that documented order.
+    expect(observedFlags({ flags: 'whitespace', parse_status: 'unparseable' })).toEqual(['unparseable-callsign', 'whitespace']);
+  });
 });

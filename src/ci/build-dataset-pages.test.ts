@@ -1237,6 +1237,17 @@ describe('Unparseable-callsign inline nudge (issue #802)', { tags: ['unit'] }, (
     const cell = callsignCell('EDUCATIONAL', 'Amateur Full Radio Licence', 3, ['unparseable-callsign']);
     expect((cell.match(/<span class="tb fid">unparseable-callsign<\/span>/g) ?? []).length).toBe(1);
   });
+
+  it('CallsignCell_UnparseableValueWithALaterSortingStoredFlag_RendersBadgesInAlphabeticalOrder', () => {
+    // The stored `flags` column is alphabetically sorted (reference-data/
+    // flags.md) and flagNudges renders badges in the order given, with no
+    // re-sort of its own. 'unparseable-callsign' sorts BEFORE 'whitespace', so
+    // naively appending the synthesized cross-reference to the end of the
+    // list would render the badges out of the documented order.
+    const cell = callsignCell('EDUCATIONAL', 'Amateur Full Radio Licence', 3, ['whitespace']);
+    const order = [...cell.matchAll(/<span class="tb fid">([a-z-]+)<\/span>/g)].map(m => m[1]);
+    expect(order).toEqual(['unparseable-callsign', 'whitespace']);
+  });
 });
 
 // The site assembly takes ~583 MB of files byte-for-byte out of archive/; on one
