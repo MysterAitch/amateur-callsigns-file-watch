@@ -179,3 +179,21 @@ Tracked separately in `docs/reference/callsign-structure/sources.md`
 | RSGB Special Contest Calls table (`www.rsgbcc.org/hf/information/scc.shtml`) | the full SCC namespace enumeration (SCC code → base call → status); RSGB-administered NoVs, genuinely independent of the Ofcom register; surveyed and dispositioned in scope on #109 | ingested (reference-data, #693) — `reference-data/rsgb-special-contest-calls.csv` under cite-don't-copy (only the factual table extracted; RSGB prose cited, not reproduced); kept current by the monthly `scc-sweep` workflow; RSGB copyright on the prose — cite, don't commit the page |
 
 
+
+## Known data-coherency episodes (cross-vintage)
+
+Register-wide temporal anomalies established by the 2026-07 data-coherency
+sweep (#804). Recorded here so a future sweep — and the bi-temporal
+event-time work (#725/#726) — inherits them rather than rediscovering them.
+Each is flagged as observed, with candidate explanations offered but **not**
+adjudicated (the project's flag-don't-adjudicate posture).
+
+| episode | what was observed | candidate explanations (not chosen) | issue |
+|---|---|---|---|
+| **Mass-update, 2025-10-11 / 2025-10-30** | `licence_version_last_modified_date` clusters onto two single days across every open-data vintage carrying the column: ~76k rows on 2025-10-11 + ~11k on 2025-10-30 = a **majority of the register** (61.7% / 58.5% / 55.2% in `archive/2025-11-11`, `2026-01-14`, `2026-06-23`). No other single day approaches this scale (next-largest weekly cluster ≈ 1,310 rows). The `v2026-licence-version-*` header variants — the first to carry these columns — first appear in the vintage fetched immediately after this window (2025-11-11). | a back-end/schema migration touching every record; a bulk administrative revision; a genuine data-quality event. The migration coincidence is suggestive, not established. | #801 |
+| **Event-time creep** | The same callsign's earliest observed `licence_version_original_start_date` moves **forward** across vintages (never backward), by two mechanisms. **(A) Rolling version-history retention:** a callsign's older `licence_version_*` rows fall out of later exports, so the earliest *surviving* row is more recent — e.g. `G3ATI` holds a 1952-10-10 row in `archive/2025-11-11` that is simply absent from `archive/2026-06-23`. **(B) Reissue replacing the sole row:** a single-version callsign's date jumps wholesale on a variation/reissue — e.g. `G3SDS` 1977-07-09 → 2026-02-23 between the same two vintages, its last-modified moving too. Consequence: a vintage's earliest surviving start date is **not** evidence the earlier ones never existed. | bounded version-history windowing in the export; genuine licence reissue; export-mechanism artefact. The true original date is still true — it is just no longer present in the file. | #800 |
+
+Both are re-runnable against the committed `normalised.csv` files (DuckDB
+`read_csv_auto` recipes on the respective issues). The creep episode is the
+concrete reason #725's event-claim extraction records "earliest *surviving in
+this vintage*", never "the original".
