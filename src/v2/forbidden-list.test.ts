@@ -191,6 +191,37 @@ describe('forbidden-suffix claims are raw-only and carry their tokens verbatim',
   });
 });
 
+describe('the last-modified date join is guarded against a present-but-wrong column', { tags: ['data-validity'] }, () => {
+  it('ForbiddenSource_WhenLastModifiedBindingNamesARealNonDateColumn_FailsLoudNamingTheSourceAndColumn', () => {
+    // The gap #844 closes: the forbidden-history fold joins per-suffix dates by
+    // the binding's authored last-modified column NAME. An ABSENT name already
+    // fails loud, but a name that IS a real header yet the WRONG column - here the
+    // suffix column, a real header carrying suffix tokens, not dates - would join
+    // cleanly and silently null (or mis-read) every date, caught only by the
+    // committed golden. Loading such a source must now throw a located error.
+    const meta = readFoiEntryMeta(FOI_DIR, STANDALONE_DATED_ENTRY);
+    const source = forbiddenSourcesFor(meta)[0];
+    // Re-point the date binding at the suffix column: a real, present header whose
+    // values (three-letter suffix tokens) are not dates.
+    const misbound = { ...source, lastModifiedColumn: source.suffixColumn };
+
+    expect(() => loadForbiddenSource(FOI_DIR, STANDALONE_DATED_ENTRY, meta, misbound))
+      .toThrowError(new RegExp(`authored last-modified column "${source.suffixColumn}" carries non-date values`));
+  });
+
+  it('ForbiddenSource_WhenLastModifiedBindingNamesTheRealDateColumn_LoadsWithoutThrowing', () => {
+    // Behaviour preserved: the correct binding (the 2024-12 export's real
+    // LastModifiedDate column) still loads, so the guard passes on the shape the
+    // committed golden was built from and the report reproduces byte-equal.
+    const meta = readFoiEntryMeta(FOI_DIR, STANDALONE_DATED_ENTRY);
+    const source = forbiddenSourcesFor(meta)[0];
+    expect(source.lastModifiedColumn).not.toBeNull();
+
+    const observationSet = loadForbiddenSource(FOI_DIR, STANDALONE_DATED_ENTRY, meta, source);
+    expect(observationSet.rows.length).toBeGreaterThan(0);
+  });
+});
+
 describe('the forbidden-list family builds through buildLedger with no callsign edge on any suffix', { tags: ['data-validity'] }, () => {
   let outputDir: string;
 
