@@ -41,6 +41,7 @@
  */
 
 import { type SourceObservationSet } from '../claim.ts';
+import { parseUkDateTime } from '../../shared/normalise.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, type FoiEntryMeta } from '../../shared/foi-archive.ts';
 import { FOI_ENTRY_CONVERSIONS, type FoiSourceConversion } from '../../shared/foi-normalise.ts';
 import { loadFoiVerbatimCsvSource } from './foi-verbatim-csv.ts';
@@ -123,6 +124,41 @@ export function forbiddenSourcesFor(meta: FoiEntryMeta): ForbiddenSource[] {
   return sources;
 }
 
+// Whether a raw cell parses as a UK day-first date under the SAME rule the
+// forbidden-suffix-history fold applies (parseUkDateTime, shared/normalise.ts) -
+// never a second, drifting copy. A blank cell parses to '' (the raw legitimately
+// carries empty date cells) and so is NOT counted as a date; a non-date value
+// throws and is likewise not a date. Used only to attest the shape of the
+// authored last-modified column, so the fold's own parse stays the sole
+// authority on the value.
+function looksLikeUkDate(value: string): boolean {
+  try {
+    return parseUkDateTime(value) !== '';
+  } catch {
+    return false;
+  }
+}
+
+// Fail loud when the authored last-modified column NAMES a real header that does
+// not actually carry dates (issue #844). The absent-name case already throws
+// (the caller's guard); this closes the present-but-WRONG-column gap: a name
+// that is a real header yet the wrong column - the carried constant 'Type' =
+// 'Forbidden', a text column, or a genuinely date-free column - would join
+// cleanly in the fold and silently null every date (blank cells parse to '') or
+// mis-read it, caught only by the committed golden. Requiring at least one value
+// that parses as a UK date proves the binding still points at a date column, and
+// names the source and column on failure so a future drift is located, not
+// silent. (A same-shaped WRONG date column - e.g. a created-date - still parses
+// and remains the golden's job; this is the cheap shape backstop, not a
+// correctness oracle.)
+function assertLastModifiedColumnCarriesDates(mirror: SourceObservationSet, column: string): void {
+  const values = mirror.rows.map(row => row[column] ?? '');
+  if (values.some(looksLikeUkDate)) return;
+  const nonBlank = [...new Set(values.filter(value => value.trim() !== ''))].slice(0, 5);
+  const sample = nonBlank.length === 0 ? '(all cells blank)' : nonBlank.map(value => JSON.stringify(value)).join(', ');
+  throw new Error(`${mirror.sourceFile}: authored last-modified column "${column}" carries non-date values (${sample}) - expected day-first dd/mm/yyyy dates, so joining the forbidden-history dates on it would silently null every date`);
+}
+
 // Load one forbidden-suffix source as its lossless structure-preserving mirror
 // (issue #813 Stage D): the source's verbatim header set, every physical
 // column's cell verbatim under its own header (the wdtk-356636 sheet's constant
@@ -142,8 +178,12 @@ export function loadForbiddenSource(foiDir: string, entry: string, meta: FoiEntr
   if (!mirror.columns.includes(suffixColumn)) {
     throw new Error(`${mirror.sourceFile}: authored suffix column "${suffixColumn}" absent from raw header (${mirror.columns.join(', ')})`);
   }
-  if (source.lastModifiedColumn !== null && !mirror.columns.includes(source.lastModifiedColumn)) {
-    throw new Error(`${mirror.sourceFile}: authored last-modified column "${source.lastModifiedColumn}" absent from raw header (${mirror.columns.join(', ')})`);
+  const lastModifiedColumn = source.lastModifiedColumn;
+  if (lastModifiedColumn !== null) {
+    if (!mirror.columns.includes(lastModifiedColumn)) {
+      throw new Error(`${mirror.sourceFile}: authored last-modified column "${lastModifiedColumn}" absent from raw header (${mirror.columns.join(', ')})`);
+    }
+    assertLastModifiedColumnCarriesDates(mirror, lastModifiedColumn);
   }
   // No product column: a suffix carries no licence class, so no
   // licence-category tier is derivable (and, being subjectKind 'suffix', the
