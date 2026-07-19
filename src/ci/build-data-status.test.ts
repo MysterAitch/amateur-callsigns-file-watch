@@ -204,6 +204,41 @@ prose interruption that splits the table
     expect(html).toContain('Read ✗');
     expect(html).toContain('source-register.md');
   });
+
+  it('ParseKnownAbsent_LeadingColumnAddedToTable_ResolvesLabelByNameNotPosition', () => {
+    // A leading column added to the register-snapshot table (issue #847): the
+    // label must be read from the "key" header, not from physical column 0 - a
+    // positional read would mislabel the row with the new leading cell.
+    const withLeadingColumn = `
+## FOI datasets — register snapshots
+
+| id | key | status | notes |
+|---|---|---|---|
+| row-42 | Missing 2027 snapshot | pending-fetch | disclosure log lists response PDF only |
+`;
+    const items = parseKnownAbsent(withLeadingColumn);
+    const sources = items.map(i => i.source);
+    expect(sources).toContain('Missing 2027 snapshot');
+    // The new leading cell must NOT be mistaken for the label.
+    expect(sources).not.toContain('row-42');
+    // Notes still resolve by name, not by position.
+    expect(items.find(i => i.source === 'Missing 2027 snapshot')?.notes)
+      .toBe('disclosure log lists response PDF only');
+  });
+
+  it('ParseKnownAbsent_DatasetTableWithoutLabelHeader_ThrowsLoud', () => {
+    // A dataset-section table whose label header has been renamed away from
+    // "key"/"source" is genuine shape drift: a would-be known-absent row must
+    // fail loud rather than emit a mislabelled entry (issue #847).
+    const noLabelHeader = `
+## FOI datasets — register snapshots
+
+| identifier | status | notes |
+|---|---|---|
+| Missing thing | pending-fetch | disclosure log only |
+`;
+    expect(() => parseKnownAbsent(noLabelHeader)).toThrow(/no resolvable label column/);
+  });
 });
 
 describe('data-status: series coverage & gaps', { tags: ['data-validity'] }, () => {

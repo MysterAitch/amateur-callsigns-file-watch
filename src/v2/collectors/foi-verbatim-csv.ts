@@ -88,10 +88,35 @@ export function verbatimCsvSourcesFor(meta: FoiEntryMeta): FoiSourceConversion[]
   return conversions.filter(isVerbatimCsvReconstructionSource);
 }
 
+// Resolve the row SUBJECT column by the authored binding rather than by physical
+// position (issue #847). When the conversion declares a subjectColumn it must be
+// present in the parsed raw header, or the source has re-shaped and the load
+// fails loud - matching every other collector's named fail-loud guard
+// (available-pool subjectHeaderOf, forbidden-list suffixColumn). The declared
+// header may be the empty string (the pre-war annex sheet 2 subjects on a
+// genuinely unnamed column), which is a real header and resolves normally. Only
+// when no subjectColumn is bound - the shared-mirror path whose analytical
+// family re-points the subject after loading (available-pool, forbidden-list) -
+// does the first physical column stand as the affirmed default.
+function resolveSubjectColumn(conversion: FoiSourceConversion, columns: string[], filePath: string): string {
+  if (conversion.subjectColumn === undefined) {
+    const affirmedDefault = columns[0];
+    if (affirmedDefault === undefined) {
+      throw new Error(`${filePath}: header has no columns to subject on`);
+    }
+    return affirmedDefault;
+  }
+  if (!columns.includes(conversion.subjectColumn)) {
+    throw new Error(`${filePath}: authored subject column "${conversion.subjectColumn}" absent from raw header (${columns.join(', ')})`);
+  }
+  return conversion.subjectColumn;
+}
+
 // Parse one verbatim-CSV source into a STRUCTURE-PRESERVING SourceObservationSet:
 // the source's own header verbatim (every physical column, in source order), the
-// first column as the subject (what the file holds - a suffix, a call sign, a
-// database view label), the data rows keyed by those headers, and any authored
+// authored binding's subject column (what the file holds - a suffix, a call
+// sign, a database view label - resolved by name, not by physical position;
+// issue #847), the data rows keyed by those headers, and any authored
 // pre-header preamble rows carried as positioned @ignored furniture so a
 // reconstruction reinstates them at their source line. The preamble is matched
 // cell-for-cell against the authored binding (a changed preamble is a changed
@@ -129,6 +154,8 @@ export function loadFoiVerbatimCsvSource(foiDir: string, entry: string, meta: Fo
     throw new Error(`${filePath}: parsed to zero data rows - a reconstruction source must not be empty`);
   }
 
+  const subjectColumn = resolveSubjectColumn(conversion, columns, filePath);
+
   const rows = dataRows.map(physical =>
     Object.fromEntries(columns.map((header, index) => [header, physical.record[index] ?? ''])));
 
@@ -144,10 +171,12 @@ export function loadFoiVerbatimCsvSource(foiDir: string, entry: string, meta: Fo
     sourceFile: `foi/${entry}/${conversion.sourceFile}`,
     vintage: meta.dataVintage ?? '',
     columns,
-    // The first physical column is the subject: the suffix / call sign / view
-    // label the file lists. Storing the raw token (not a synthesised call sign)
-    // keeps this a faithful mirror of what the source actually holds (E3).
-    subjectColumn: columns[0],
+    // The subject - the suffix / call sign / view label the file lists -
+    // resolved by the authored binding's declared subject header (see
+    // resolveSubjectColumn), not by physical column position (issue #847).
+    // Storing the raw token (not a synthesised call sign) keeps this a faithful
+    // mirror of what the source actually holds (E3).
+    subjectColumn,
     rows,
     // The 1-based physical source line of each data row, so the reconstruction
     // places the header, data and preamble furniture positionally rather than

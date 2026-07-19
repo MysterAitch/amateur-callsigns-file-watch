@@ -246,15 +246,21 @@ export function projectPublicationFromClaims(claims: readonly Claim[], ref: Refe
 
   // Deterministic order: callsign (codepoint), then the whole row as tie-break -
   // exactly convertRawCsv's ordering, so the fold reproduces normalised.csv's
-  // stored row order.
+  // stored row order. NB the literal a[0]/b[0] here is the sort-KEY vulnerability
+  // (col 0 assumed = callsign) deliberately DEFERRED to the per-source
+  // normalisation work; issue #847 does only the cheap sibling-site consistency
+  // fixes below and leaves this positional on purpose - do not half-fix it here.
   rows.sort((a, b) => codepointCompare(a[0], b[0]) || codepointCompare(a.join('\u0000'), b.join('\u0000')));
 
-  // Components derive from the SAME sorted canonical rows: column 0 is callsign,
-  // column 1 product, and the original-start-date column reaches the parser so
-  // the date-aware forbidden-suffix flag can be asserted - per CANONICAL_COLUMNS,
-  // exactly as convertRawCsv derives the committed components.csv.
+  // Components derive from the SAME sorted canonical rows, resolving callsign,
+  // product and the original-start-date column by NAME (issue #847) so a
+  // reordered CANONICAL_COLUMNS reaches the parser with the right columns rather
+  // than feeding it the wrong ones silently - exactly as convertRawCsv derives
+  // the committed components.csv. Indices are cached once, not per row.
+  const callsignIndex = CANONICAL_COLUMNS.indexOf('callsign');
+  const productIndex = CANONICAL_COLUMNS.indexOf('product');
   const originalStartDateIndex = CANONICAL_COLUMNS.indexOf('licence_version_original_start_date');
-  const components = componentsFlagsForRows(rows.map(r => parseCallsign(r[0], r[1], ref, r[originalStartDateIndex])));
+  const components = componentsFlagsForRows(rows.map(r => parseCallsign(r[callsignIndex], r[productIndex], ref, r[originalStartDateIndex])));
 
   return { key, sourceFile, vintage: first.provenance.vintage, rows, components };
 }
@@ -566,6 +572,10 @@ export function buildHistoryDb(
   for (const column of CANONICAL_COLUMNS) historyColumns.add(column);
   const historyColumnList = [...historyColumns];
   db.exec(`CREATE TABLE register_history (${historyColumnList.map(c => `"${c}" TEXT`).join(', ')})`);
+  // Callsign and product are resolved by NAME (issue #847), consistent with the
+  // canonicalIndex lookup below, so a reordered CANONICAL_COLUMNS cannot corrupt
+  // the cleaned key or the normalised category silently. Cached once, not per row.
+  const callsignIndex = CANONICAL_COLUMNS.indexOf('callsign');
   const productIndex = CANONICAL_COLUMNS.indexOf('product');
   let historyRows = 0;
   db.exec('BEGIN');
@@ -574,7 +584,7 @@ export function buildHistoryDb(
       const component = publication.components[i];
       return historyColumnList.map((c) => {
         if (c === 'dataset') return publication.key;
-        if (c === 'cleaned') return cleanedCallsign(row[0] ?? '');
+        if (c === 'cleaned') return cleanedCallsign(row[callsignIndex] ?? '');
         if (c === 'suffix') return component.suffix;
         if (c === 'implied_class') return component.impliedClass;
         if (c === 'prefix_series') return component.prefixSeries;

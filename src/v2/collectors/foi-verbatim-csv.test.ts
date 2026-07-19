@@ -14,10 +14,11 @@ import {
 } from '../claim.ts';
 import { buildLedger } from '../build-ledger.ts';
 import { buildCompactLedgerSqlite } from '../build-ledger-db-compact.ts';
-import { collectFoiVerbatimCsvSources, verbatimCsvSourcesFor } from './foi-verbatim-csv.ts';
+import { collectFoiVerbatimCsvSources, verbatimCsvSourcesFor, loadFoiVerbatimCsvSource } from './foi-verbatim-csv.ts';
 import { attributeAddendumEntries } from './attribute-addendum.ts';
 import { registerSourcesFor, qualifyingRegisterEntries, ATTRIBUTE_ADDENDUM_CLASS } from './foi-register.ts';
-import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir } from '../../shared/foi-archive.ts';
+import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, type FoiEntryMeta } from '../../shared/foi-archive.ts';
+import type { FoiSourceConversion } from '../../shared/foi-normalise.ts';
 import { loadReferenceData } from '../../sources/ofcom-amateur/components.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
@@ -160,6 +161,68 @@ describe('foi-verbatim-csv family registration (issue #813 Stage B)', { tags: ['
     expect(manifest.find(c => c.predicate === columnPredicate(0))?.object).toBe('');
     expect(manifest.find(c => c.predicate === columnPredicate(1))?.object).toBe('Field Name');
     expect(manifest.find(c => c.predicate === SUBJECT_PREDICATE)?.object).toBe('');
+  });
+});
+
+describe('foi-verbatim-csv subject resolved by binding, not physical position (issue #847)', { tags: ['unit'] }, () => {
+  // The subject is read from the authored binding's declared subjectColumn, not
+  // from the first physical column - so a verbatim CSV whose subject is not
+  // column 0 (a leading serial/index, a reordered export) fails loud rather than
+  // silently storing a non-subject token as raw_subject, which no byte-parity or
+  // reconstruction gate catches (the manifest places columns identically either
+  // way). The loader ignores conversion.columns for PARSING - the raw header row
+  // is authoritative - so these fixtures exercise the subject resolution alone.
+  const META = { dataVintage: '2020-01' } as unknown as FoiEntryMeta;
+
+  function conversionFor(sourceFile: string, subjectColumn: string | undefined): FoiSourceConversion {
+    return {
+      sourceFile,
+      encoding: 'utf8',
+      preamble: [],
+      subjectColumn,
+      columns: [{ source: 'Call Sign', output: 'callsign', kind: 'verbatim' }],
+      ignoredColumns: [],
+      rowOrder: 'source-order',
+      orderRationale: 'test fixture',
+    };
+  }
+
+  function loadFixture(header: string, subjectColumn: string | undefined) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verbatim-847-'));
+    const entry = 'fixture-entry';
+    const sourceFile = 'fixture.csv';
+    fs.mkdirSync(path.join(dir, entry), { recursive: true });
+    fs.writeFileSync(path.join(dir, entry, sourceFile), `${header}\n001,G2ABC\n`, 'utf8');
+    try {
+      return loadFoiVerbatimCsvSource(dir, entry, META, conversionFor(sourceFile, subjectColumn));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it('VerbatimSubject_WhenBoundColumnIsNotFirst_ResolvesByNameNotPosition', () => {
+    // A leading "Serial" column shifts the subject off column 0. Resolving by
+    // the declared name pins the subject to "Call Sign", where a positional
+    // read would have stored the serial ("Serial") as the subject.
+    const loaded = loadFixture('Serial,Call Sign', 'Call Sign');
+    expect(loaded.columns).toEqual(['Serial', 'Call Sign']);
+    expect(loaded.subjectColumn).toBe('Call Sign');
+  });
+
+  it('VerbatimSubject_WhenBoundColumnAbsentFromRawHeader_ThrowsLoud', () => {
+    // The raw header has been re-shaped (the subject column renamed) so the
+    // binding's declared subject is gone: a changed shape must fail loud, not
+    // fall back to some other column.
+    expect(() => loadFixture('Serial,Callsign', 'Call Sign'))
+      .toThrow(/authored subject column "Call Sign" absent from raw header/);
+  });
+
+  it('VerbatimSubject_WhenNoColumnBound_FallsBackToFirstPhysicalColumn', () => {
+    // The shared-mirror path (available-pool / forbidden-list re-point the
+    // subject after loading) declares no subjectColumn, so the first physical
+    // column stands as the affirmed default.
+    const loaded = loadFixture('Suffix,Note', undefined);
+    expect(loaded.subjectColumn).toBe('Suffix');
   });
 });
 
