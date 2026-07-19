@@ -73,6 +73,17 @@ input[type="checkbox"] { width: 1.5rem; height: 1.5rem; vertical-align: middle; 
    <em>, matching the lic-blank/stat-blank precedent). */
 .lic { white-space: nowrap; }
 .stat { white-space: nowrap; }
+/* A DERIVED licence value (issue #836): the implied class the mirror COMPUTES
+   from the prefix series, not a product/class a source PUBLISHED. It shares the
+   .lic chrome, so on a shared grid it would read as a register fact; this quiet
+   cue - a muted dashed underline, echoing the dashed-derived convention of
+   .flag.flag-derived and the ledger's derived tags - marks it as computed
+   without the warn signal (a derivation is not an alarm). The full provenance
+   rides in the title (help cursor on hover) and a visually-hidden note (for
+   assistive tech), so it is visibly derived without shouting. Theme-aware via
+   the shared --muted token. */
+.lic-derived { text-decoration: underline dashed var(--muted); text-underline-offset: 0.2em; }
+.lic-derived[title] { cursor: help; }
 form { display: flex; gap: 0.5rem; align-items: center; margin: 1rem 0; flex-wrap: wrap; }
 input[type="text"] {
   font: inherit;

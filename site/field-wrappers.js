@@ -33,6 +33,24 @@ import { CALLSIGN_CLASS, appendMarkedChars } from './callsign-pill.js';
 export const LICENCE_CLASS = 'lic';
 export const STATUS_CLASS = 'stat';
 
+// The modifier a DERIVED licence value carries (issue #836): a value the mirror
+// COMPUTED (the implied Foundation/Intermediate/Full level read from the prefix
+// series) rather than one a source PUBLISHED (a declared product/class string).
+// Both otherwise wear the identical `.lic` chrome, so on a shared results grid a
+// derived value reads as a register fact unless it is marked. This is the quiet
+// point-of-use "derived" cue the Flags card and the Ledger already give the same
+// kind of data (site/app.js flagsDerivedNote, `.tb.d`): a muted dashed underline,
+// never the warn signal - a derivation is not an alarm - with the full provenance
+// carried in the title (on hover) and a visually-hidden note (for assistive tech),
+// so it is visibly derived without shouting.
+export const LICENCE_DERIVED_CLASS = 'lic-derived';
+
+// The provenance note a derived licence value carries in its title and its
+// visually-hidden accessible tail, matching the wording register of the Flags
+// card's derived note ("the mirror's own computed observations ... not values
+// recorded in the register", app.js) so the two surfaces read as one voice.
+export const LICENCE_DERIVED_NOTE = 'derived — computed by the mirror, not a value recorded in the register';
+
 // ---------------------------------------------------------------------------
 // Licence class/category (the implied Foundation/Intermediate/Full level, or a
 // source's own declared product string).
@@ -50,8 +68,16 @@ export const STATUS_CLASS = 'stat';
  *   (default '(blank)'). A blank value is itself information - the source
  *   published the row with no product/class stated - so it is never rendered
  *   as an empty element.
+ * @property {LicenceProvenance} [provenance] Whether this value was PUBLISHED by
+ *   a source (default 'published' - no cue) or DERIVED by the mirror ('derived' -
+ *   the quiet point-of-use cue described at LICENCE_DERIVED_CLASS). Omitting it
+ *   FOLLOWS THE DEFAULT ('published'): a caller rendering a computed value (the
+ *   implied class) states 'derived' explicitly, so a derived value is never left
+ *   looking like a register fact.
  * @property {string} [extraClass] Extra class(es) appended after the stable class.
  */
+
+/** @typedef {'published' | 'derived'} LicenceProvenance */
 
 const PRODUCT_PREFIX_RE = /^Amateur /;
 const PRODUCT_SUFFIX_RE = / Radio Licence$/;
@@ -69,10 +95,12 @@ export function licenceDisplay(value, form = 'as-declared') {
   return value.replace(PRODUCT_PREFIX_RE, '').replace(PRODUCT_SUFFIX_RE, '');
 }
 
-// The shared licence field wrapper (#553/#625). Emits one of:
+// The shared licence field wrapper (#553/#625/#836). Emits one of:
 //   <em class="lic lic-blank">(blank)</em>        - a blank value, humanised
 //   <span class="lic">…value…</span>              - the value as-declared (default)
 //   <span class="lic" title="…raw…">…short…</span> - the shortened form, raw value in the title
+//   <span class="lic lic-derived" title="…derived…">…value…<span class="visually-hidden">…</span></span>
+//                                                  - a DERIVED value, quietly cued (#836)
 // The shortened form never DROPS the raw value - it always carries it in the
 // title. See LicenceFieldOptions for the drift-guard rule.
 /**
@@ -82,16 +110,39 @@ export function licenceDisplay(value, form = 'as-declared') {
  * @returns {HTMLElement}
  */
 export function licenceField(el, value, options = {}) {
+  const derived = options.provenance === 'derived';
+  const derivedClass = derived ? ` ${LICENCE_DERIVED_CLASS}` : '';
   const extra = options.extraClass === undefined ? '' : ` ${options.extraClass}`;
   if (value === '') {
-    return el('em', { class: `${LICENCE_CLASS} lic-blank${extra}`, text: options.blankLabel ?? '(blank)' });
+    return withDerivedCue(el, derived, el('em', { class: `${LICENCE_CLASS} lic-blank${derivedClass}${extra}`, text: options.blankLabel ?? '(blank)' }));
   }
   const form = options.form ?? 'as-declared';
   const shown = licenceDisplay(value, form);
   /** @type {Record<string, string>} */
-  const attrs = { class: `${LICENCE_CLASS}${extra}`, text: shown };
+  const attrs = { class: `${LICENCE_CLASS}${derivedClass}${extra}`, text: shown };
+  // The shortened form's raw value keeps the title; where a derived value is not
+  // shortened, the title states its provenance instead. If a value is BOTH, the
+  // raw value wins the title - the visually-hidden note below still carries the
+  // derived provenance to assistive tech - so neither fact is ever lost.
   if (shown !== value) attrs.title = value;
-  return el('span', attrs);
+  else if (derived) attrs.title = LICENCE_DERIVED_NOTE;
+  return withDerivedCue(el, derived, el('span', attrs));
+}
+
+// Attach the assistive-tech tail of the derived cue (#836): a visually-hidden
+// note naming the value as derived, so a screen-reader hears "Full (derived …)"
+// rather than reading it as a register fact off the shared `.lic` class alone.
+// The visible cue (a muted dashed underline) and the hover title are carried by
+// the caller-set class/attributes above; this only adds the accessible name.
+/**
+ * @param {ElementFactory} el
+ * @param {boolean} derived
+ * @param {HTMLElement} node
+ * @returns {HTMLElement}
+ */
+function withDerivedCue(el, derived, node) {
+  if (derived) node.append(el('span', { class: 'visually-hidden', text: ` (${LICENCE_DERIVED_NOTE})` }));
+  return node;
 }
 
 // ---------------------------------------------------------------------------

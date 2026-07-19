@@ -561,7 +561,12 @@ export function renderCrossDatasetInvariants(d: CrossDataset, overlap?: OverlapM
   out.push('allocated set. Absence is not evidence of current availability — a');
   out.push('callsign may since have moved through Reserved or been withheld.');
   out.push('');
-  out.push('| available-pool snapshot | vintage | available | now allocated | still absent | drawn down |');
+  // The share column is a NEUTRAL header (issue #836): it is nowAllocated /
+  // available, the share of the pool now carrying an allocated row. "Drawn down"
+  // implied a causal drawing the cleaned-key join cannot establish; "now
+  // allocated (share)" states only what is counted, tying it to the "now
+  // allocated" count column. The surrounding prose keeps its own caveats.
+  out.push('| available-pool snapshot | vintage | available | now allocated | still absent | now allocated (share) |');
   out.push('|---|---|---:|---:|---:|---:|');
   for (const r of d.rows) {
     out.push(`| \`${r.entry}\` | ${r.vintage} | ${num(r.available)} | ${num(r.nowAllocated)} | ${num(r.stillAbsent)} | ${pct(r.nowAllocated, r.available)} |`);

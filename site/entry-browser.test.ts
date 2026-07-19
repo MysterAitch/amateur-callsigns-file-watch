@@ -146,7 +146,30 @@ describe('entry-browser field wrappers adoption (#625)', { tags: ['ui'] }, () =>
     await flush();
 
     const licCells = [...section.querySelectorAll('td .lic')];
-    expect(licCells.map(c => c.textContent)).toEqual(['Amateur Full Radio Licence', 'Full']);
+    expect(licCells.map(c => c.textContent)).toEqual(['Amateur Full Radio Licence', 'Full (derived — computed by the mirror, not a value recorded in the register)']);
+  });
+
+  it('EntryBrowserRow_DerivedImpliedClassColumn_IsCuedAsDerivedWhileThePublishedProductIsNot', async () => {
+    // Issue #836: in the results grid the DERIVED implied_class and the PUBLISHED
+    // product share the .lic chrome. The derived one must carry the provenance
+    // cue (the lic-derived modifier + a visually-hidden note) so it does not read
+    // as a register fact; the published one must NOT - the cue is a genuine
+    // distinction, present on the derived value and absent on the published one.
+    const section = buildScaffold();
+    const row = { callsign: 'M7TEE', cleaned: 'M7TEE', status: 'Allocated', product: 'Amateur Full Radio Licence', implied_class: 'Full', prefix_series: 'M7' };
+    enhance(section, { openCombined: () => Promise.resolve(rowWorker(row)) });
+    await flush();
+
+    const derived = section.querySelector('td .lic.lic-derived');
+    expect(derived?.textContent).toContain('Full');
+    expect(derived?.getAttribute('title')).toContain('derived');
+    expect(derived?.querySelector('.visually-hidden')?.textContent).toContain('derived');
+
+    // The published product cell wears .lic but never the derived modifier.
+    const licCells = [...section.querySelectorAll('td .lic')];
+    const published = licCells.find(c => (c.textContent ?? '').startsWith('Amateur Full'));
+    expect(published?.classList.contains('lic-derived')).toBe(false);
+    expect(published?.querySelector('.visually-hidden')).toBeNull();
   });
 
   it('EntryBrowserRow_BlankStatusOrProduct_HumanisesRatherThanRenderingAnEmptyCell', async () => {

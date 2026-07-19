@@ -25,6 +25,11 @@ describe('cross-dataset invariants — renderers', { tags: ['unit'] }, () => {
     });
     expect(md).toContain('# Cross-dataset invariants');
     expect(md).toContain('## Available-pool depletion');
+    // Issue #836: the share column carries a NEUTRAL header - it states only
+    // what is counted (the share now allocated), never the causal "drawn down"
+    // the cleaned-key join cannot establish.
+    expect(md).toContain('| available-pool snapshot | vintage | available | now allocated | still absent | now allocated (share) |');
+    expect(md).not.toMatch(/\|\s*drawn down\s*\|/);
     expect(md).toContain('| `wdtk-174341--available-callsigns-list` | 2013-09-06 | 26,646 | 14,966 | 11,680 | 56.2% |');
     expect(md).toContain('## Absent-from-both, decomposed');
     expect(md).toContain('| `wdtk-174341--available-callsigns-list` | 2013-09-06 | 11,680 | 2,662 | 121 | 8,897 |');
