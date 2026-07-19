@@ -594,25 +594,98 @@ const ROW_SELECT =
 // anomalous recorded" a genuinely unparseable value would otherwise get.
 const UNPARSEABLE_CALLSIGN_FLAG = 'unparseable-callsign';
 
-// The flags a lookup row's "Flags" card should show: its own `flags` column,
-// plus the unparseable-callsign cross-reference when the row's parse_status
-// warrants it and the column does not already carry it. Exported standalone
-// (rather than inlined at the one call site) so it is unit-testable without a
-// live database or DOM.
+// The flags a lookup row's "Flags" card should show, each tagged with its
+// provenance: a `stored` value read straight off the row's own `flags` column,
+// versus the `synthesised` unparseable-callsign cross-reference injected at
+// render time when the row's parse_status warrants it and the column does not
+// already carry it. The two must never render alike (issue #834): a stored
+// flag is a value the derivation wrote into the row; the synthesised one is a
+// cross-reference to the separate parse_status column, not present in `flags`.
+// Exported standalone (rather than inlined at the one call site) so it is
+// unit-testable without a live database or DOM.
 //
 // The stored `flags` column is alphabetically sorted (reference-data/
 // flags.md) and the "Flags" card renders in the order given, so appending the
 // cross-reference is followed by a re-sort - otherwise a row that also
 // carries a later-sorting flag (e.g. `whitespace`) would render out of the
 // documented order.
+/**
+ * @typedef {object} ClassifiedFlag
+ * @property {string} flag
+ * @property {boolean} synthesised
+ */
+/**
+ * @param {Pick<LookupRow, 'flags' | 'parse_status'>} row
+ * @returns {ClassifiedFlag[]}
+ */
+export function classifiedFlags(row) {
+  const stored = row.flags ? row.flags.split(';') : [];
+  /** @type {ClassifiedFlag[]} */
+  const list = stored.map(flag => ({ flag, synthesised: false }));
+  if (row.parse_status === 'unparseable' && !stored.includes(UNPARSEABLE_CALLSIGN_FLAG)) {
+    list.push({ flag: UNPARSEABLE_CALLSIGN_FLAG, synthesised: true });
+    list.sort((a, b) => (a.flag < b.flag ? -1 : a.flag > b.flag ? 1 : 0));
+  }
+  return list;
+}
+
+// The flag tokens alone, in render order - retained as the flag-registry lookup
+// key set and for callers (and tests) that only need the names.
 /** @param {Pick<LookupRow, 'flags' | 'parse_status'>} row */
 export function observedFlags(row) {
-  const flagList = row.flags ? row.flags.split(';') : [];
-  if (row.parse_status === 'unparseable' && !flagList.includes(UNPARSEABLE_CALLSIGN_FLAG)) {
-    flagList.push(UNPARSEABLE_CALLSIGN_FLAG);
-    flagList.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return classifiedFlags(row).map(f => f.flag);
+}
+
+// The standing epistemics line for the "Flags" card (issue #834): the `flags`
+// column is DERIVED - computed by the parse-callsign rule, not recorded in the
+// register - so it wears the same quiet "derived" tag the Ledger surface gives
+// the identical data, with a point-of-use glossary hook. Without it the tokens
+// read as register-recorded facts.
+function flagsDerivedNote() {
+  return el('p', { class: 'muted flags-derived-note' }, [
+    el('span', { class: 'tb d', text: 'derived' }),
+    ' These are the mirror’s own computed observations (the parse-callsign rule), not values recorded in the register. ',
+    el('a', { href: 'glossary.html#tag-derived', class: 'muted hint', title: 'glossary: derived', text: '(?)' }),
+  ]);
+}
+
+// The "Flags" card body: the derived-provenance note, then one line per flag.
+// A stored flag wears the solid warn pill (.flag); the render-synthesised
+// unparseable-callsign cross-reference (issue #834) wears a dashed, muted pill
+// (.flag-derived) plus a dagger marker with an accessible name, and the card
+// closes with a footnote spelling out that it is not a stored flag. Exported so
+// the two-source distinction is unit-testable against a plain meanings Map,
+// without a live database. The dagger's accessible name lives in title +
+// aria-label (never a bare glyph), matching the absent-marker idiom (#826).
+/**
+ * @param {ClassifiedFlag[]} classified
+ * @param {Map<string, string>} meanings
+ * @returns {HTMLElement[]}
+ */
+export function flagsCardBody(classified, meanings) {
+  const SYNTH_LABEL = 'derived from parse status, not a stored flag';
+  /** @type {HTMLElement[]} */
+  const children = [flagsDerivedNote()];
+  for (const { flag, synthesised } of classified) {
+    if (synthesised) {
+      children.push(el('p', { class: 'flag-obs flag-synthesised' }, [
+        el('span', { class: 'flag flag-derived', text: flag }),
+        el('span', { class: 'flag-synth-marker', title: SYNTH_LABEL, 'aria-label': SYNTH_LABEL, text: '†' }),
+        el('span', { class: 'muted', text: ' ' + (meanings.get(flag) ?? '') }),
+      ]));
+    } else {
+      children.push(el('p', { class: 'flag-obs' }, [
+        el('span', { class: 'flag', text: flag }),
+        el('span', { class: 'muted', text: ' ' + (meanings.get(flag) ?? '') }),
+      ]));
+    }
   }
-  return flagList;
+  if (classified.some(f => f.synthesised)) {
+    children.push(el('p', { class: 'muted flag-synth-footnote' }, [
+      '† Not a stored flag: cross-referenced from this row’s parse status (unparseable), which the parser recorded in a separate column.',
+    ]));
+  }
+  return children;
 }
 
 // Callsign RSL-normalisation (placeholderOf) is shared with the per-dataset
@@ -1291,16 +1364,14 @@ async function lookup(criteria) {
     }
   }
 
-  const flagList = observedFlags(row);
-  if (flagList.length > 0) {
+  const classified = classifiedFlags(row);
+  if (classified.length > 0) {
+    const flagNames = classified.map(f => f.flag);
     /** @type {{ flag: string, meaning: string }[]} */
     const registry = await query(
-      `SELECT flag, meaning FROM flag_registry WHERE flag IN (${flagList.map(() => '?').join(',')})`, flagList);
+      `SELECT flag, meaning FROM flag_registry WHERE flag IN (${flagNames.map(() => '?').join(',')})`, flagNames);
     const meanings = new Map(registry.map(r => [r.flag, r.meaning]));
-    sections.push(card('Flags', flagList.map((/** @type {string} */ f) => el('p', {}, [
-      el('span', { class: 'flag', text: f }),
-      el('span', { class: 'muted', text: ' ' + (meanings.get(f) ?? '') }),
-    ]))));
+    sections.push(card('Flags', flagsCardBody(classified, meanings)));
   } else {
     sections.push(card('Flags', [el('p', { class: 'status-ok', text: 'None - nothing anomalous recorded for this row.' })]));
   }

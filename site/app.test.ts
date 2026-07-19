@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { makeRunLookup, registerHistoryHeader, seriesLink, suffixLink,
   LIST_SORT_COLUMNS, listOrderBy, nextSort, sortToParam, sortFromParam, renderTable, observedFlags,
-  registerHistoryTable, foiHistoryTable } from './app.js';
+  classifiedFlags, flagsCardBody, registerHistoryTable, foiHistoryTable } from './app.js';
 import { ABSENT_CLASS, ABSENT_MARKER, ABSENT_LABEL } from './field-wrappers.js';
 
 // The lookup page routes its PRIMARY database open + query through the shared
@@ -382,6 +382,115 @@ describe('Register-row flags shown on the lookup card (issue #802)', { tags: ['u
     // naively appending the cross-reference to the end of the list would
     // break that documented order.
     expect(observedFlags({ flags: 'whitespace', parse_status: 'unparseable' })).toEqual(['unparseable-callsign', 'whitespace']);
+  });
+
+  it('ClassifiedFlags_StoredFlags_AreTaggedNotSynthesised', () => {
+    // The row's own `flags` column values are values the derivation wrote into
+    // the row, so they carry synthesised: false.
+    expect(classifiedFlags({ flags: 'lowercase;whitespace', parse_status: 'parsed' })).toEqual([
+      { flag: 'lowercase', synthesised: false },
+      { flag: 'whitespace', synthesised: false },
+    ]);
+  });
+
+  it('ClassifiedFlags_UnparseableRowWithNoStoredFlags_TagsTheCrossReferenceSynthesised', () => {
+    // The unparseable-callsign token is injected from parse_status, absent from
+    // the `flags` column, so it must be tagged synthesised: true.
+    expect(classifiedFlags({ flags: '', parse_status: 'unparseable' })).toEqual([
+      { flag: 'unparseable-callsign', synthesised: true },
+    ]);
+  });
+
+  it('ClassifiedFlags_UnparseableRowWhoseColumnAlreadyCarriesTheToken_TreatsItAsStored', () => {
+    // When the `flags` column genuinely carries the token, it is a stored value
+    // and is NOT re-classified as synthesised (no injection happened).
+    expect(classifiedFlags({ flags: 'unparseable-callsign', parse_status: 'unparseable' })).toEqual([
+      { flag: 'unparseable-callsign', synthesised: false },
+    ]);
+  });
+});
+
+describe('The lookup "Flags" card frames its derived provenance (issue #834)', { tags: ['unit'] }, () => {
+  it('FlagsCard_ForAnyFlag_CarriesTheDerivedCueAndGlossaryHook', () => {
+    // Fix 1: the card must say, up front, that these tokens are the mirror's
+    // own computed observations - the same "derived" epistemics the Ledger
+    // surface gives the identical data - not register-recorded facts.
+    const body = flagsCardBody(
+      [{ flag: 'lowercase', synthesised: false }],
+      new Map([['lowercase', 'the callsign was written in lower case']]));
+    const wrap = document.createElement('div');
+    for (const node of body) wrap.append(node);
+
+    const badge = wrap.querySelector('.tb.d');
+    expect(badge?.textContent).toBe('derived');
+    const gloss = wrap.querySelector('.flags-derived-note a');
+    expect(gloss?.getAttribute('href')).toBe('glossary.html#tag-derived');
+  });
+
+  it('FlagsCard_StoredFlag_WearsTheSolidPillWithNoSynthesisedMarking', () => {
+    const body = flagsCardBody(
+      [{ flag: 'whitespace', synthesised: false }],
+      new Map([['whitespace', 'surrounding whitespace was trimmed']]));
+    const wrap = document.createElement('div');
+    for (const node of body) wrap.append(node);
+
+    const pill = wrap.querySelector('.flag');
+    expect(pill?.textContent).toBe('whitespace');
+    // A stored flag is a plain .flag pill - it must NOT carry the derived
+    // pill class, the dagger marker, or the footnote.
+    expect(wrap.querySelector('.flag-derived')).toBeNull();
+    expect(wrap.querySelector('.flag-synth-marker')).toBeNull();
+    expect(wrap.querySelector('.flag-synth-footnote')).toBeNull();
+  });
+
+  it('FlagsCard_SynthesisedUnparseableToken_IsVisuallyAndSemanticallyDistinctFromAStoredFlag', () => {
+    // Fix 2: the render-synthesised unparseable-callsign token must be
+    // distinguishable from a stored flag - a dashed derived pill, a dagger
+    // marker whose accessible name states its provenance, and a footnote.
+    const body = flagsCardBody(
+      [{ flag: 'unparseable-callsign', synthesised: true }],
+      new Map([['unparseable-callsign', 'the register value could not be parsed as a callsign']]));
+    const wrap = document.createElement('div');
+    for (const node of body) wrap.append(node);
+
+    const pill = wrap.querySelector('.flag.flag-derived');
+    expect(pill?.textContent).toBe('unparseable-callsign');
+
+    const marker = wrap.querySelector('.flag-synth-marker');
+    expect(marker?.textContent).toBe('†');
+    // The accessible name is carried, never left as a bare glyph (#826 idiom).
+    expect(marker?.getAttribute('aria-label')).toBe('derived from parse status, not a stored flag');
+    expect(marker?.getAttribute('title')).toBe('derived from parse status, not a stored flag');
+
+    const footnote = wrap.querySelector('.flag-synth-footnote');
+    expect(footnote?.textContent).toContain('Not a stored flag');
+  });
+
+  it('FlagsCard_UnparseableRowWithRealStoredFlags_FramesEachSourceCorrectly', () => {
+    // The mixed case: a row that BOTH carries a genuine stored flag AND is
+    // unparseable. The stored flag stays a plain pill; only the injected
+    // cross-reference is marked derived - the two flag sources are never
+    // conflated.
+    const body = flagsCardBody(
+      classifiedFlags({ flags: 'whitespace', parse_status: 'unparseable' }),
+      new Map([
+        ['whitespace', 'surrounding whitespace was trimmed'],
+        ['unparseable-callsign', 'the register value could not be parsed as a callsign'],
+      ]));
+    const wrap = document.createElement('div');
+    for (const node of body) wrap.append(node);
+
+    // Exactly one synthesised (dashed) pill, and it is the cross-reference.
+    const derivedPills = wrap.querySelectorAll('.flag.flag-derived');
+    expect(derivedPills.length).toBe(1);
+    expect(derivedPills[0].textContent).toBe('unparseable-callsign');
+
+    // The stored 'whitespace' flag is a plain pill, NOT marked derived.
+    const plainPills = [...wrap.querySelectorAll('.flag')].filter(p => !p.classList.contains('flag-derived'));
+    expect(plainPills.map(p => p.textContent)).toEqual(['whitespace']);
+
+    // The footnote is present once, explaining the injected token.
+    expect(wrap.querySelectorAll('.flag-synth-footnote').length).toBe(1);
   });
 });
 

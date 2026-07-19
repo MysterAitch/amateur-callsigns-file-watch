@@ -168,6 +168,22 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
    since that container never needs the text itself to break. */
 code, .mono { font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
 .flag { display: inline-block; padding: 0.05rem 0.45rem; margin: 0 0.2rem 0.2rem 0; border: 1px solid var(--warn); border-radius: 999px; color: var(--warn); font-size: 0.85em; }
+/* The derived-provenance tag on the lookup "Flags" card (issue #834), mirroring
+   the ledger surface's `tb d` tag for the identical data: the `flags` column is
+   computed by the parse-callsign rule, not recorded in the register. Neutral,
+   not the warn signal - a derivation is not an alarm. */
+.tb { display: inline-block; font-family: ui-monospace, monospace; font-size: 0.68rem; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; padding: 0.05rem 0.4rem; border-radius: 5px; vertical-align: baseline; }
+.tb.d { background: color-mix(in srgb, var(--muted) 20%, var(--paper)); color: var(--muted); }
+.flags-derived-note { margin: 0 0 0.5rem; }
+/* The render-synthesised `unparseable-callsign` cross-reference (issue #834):
+   NOT a stored flags-column value but injected from the row's parse_status, so
+   it must never read as a recorded flag. It wears a dashed, muted pill (echoing
+   the ledger's dashed derived convention) instead of the solid warn-pill of a
+   stored flag, plus a dagger footnote marker whose accessible name lives in
+   title/aria-label. */
+.flag.flag-derived { border-style: dashed; border-color: var(--muted); color: var(--muted); }
+.flag-synth-marker { color: var(--muted); font-size: 0.85em; }
+.flag-synth-footnote { margin: 0.4rem 0 0; font-size: 0.85em; }
 .status-ok { color: #2e7d32; }
 .card { border: 1px solid var(--line); border-radius: 6px; padding: 0.75rem 1rem; margin: 0.75rem 0; }
 .card h3 { margin: 0 0 0.4rem; font-size: 1rem; }
