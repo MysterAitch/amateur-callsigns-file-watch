@@ -417,9 +417,19 @@ function actionFor(status: string): string {
   return 'Bytes reportedly on disk (the local drop zone) — write or wire up a converter and commit to the archive.';
 }
 
+// The header names under which a known-absent table labels its subject: the
+// register-snapshot table keys on "key", the addenda table on "source". The
+// label column is resolved by these names (issue #847) rather than by physical
+// position, so a leading column added to either table cannot silently mislabel
+// the row.
+const LABEL_HEADERS = new Set(['key', 'source']);
+
 // Parse the source register's markdown tables. A table is recognised by a
-// header row followed by a `|---|` separator; the column whose header is
-// "status" locates the status cell, and the first column is the source label.
+// header row followed by a `|---|` separator; the status, label and notes cells
+// are all located by their HEADER NAME (issue #847) - status by "status", the
+// label by "key"/"source", the notes by "notes" - never by physical column
+// position, so a reordered or leading-column-extended table fails loud (a
+// known-absent row with no resolvable label) rather than mislabelling silently.
 // The remembered header persists within a section so a table split by a prose
 // note (as the attribute-addenda table is) still parses.
 export function parseKnownAbsent(markdown: string): KnownAbsent[] {
@@ -428,6 +438,8 @@ export function parseKnownAbsent(markdown: string): KnownAbsent[] {
   let section = '';
   let statusIdx = -1;
   let dateIdx = -1;
+  let labelIdx = -1;
+  let notesIdx = -1;
   const seen = new Set<string>();
 
   const cellsOf = (line: string): string[] =>
@@ -439,6 +451,8 @@ export function parseKnownAbsent(markdown: string): KnownAbsent[] {
       section = heading[1].trim();
       statusIdx = -1;
       dateIdx = -1;
+      labelIdx = -1;
+      notesIdx = -1;
       continue;
     }
     if (!/^\s*\|/.test(line)) continue; // not a table row
@@ -446,10 +460,13 @@ export function parseKnownAbsent(markdown: string): KnownAbsent[] {
 
     const cells = cellsOf(line);
     const lowered = cells.map(c => c.toLowerCase());
-    // A header row declares the columns; remember where status/date sit.
+    // A header row declares the columns; remember where status/date/label/notes
+    // sit, so the data rows are read by name (issue #847), not by position.
     if (lowered.includes('status')) {
       statusIdx = lowered.indexOf('status');
       dateIdx = lowered.findIndex(c => c === 'date' || c === 'data vintage');
+      labelIdx = lowered.findIndex(c => LABEL_HEADERS.has(c));
+      notesIdx = lowered.indexOf('notes');
       continue;
     }
     if (statusIdx === -1 || statusIdx >= cells.length) continue;
@@ -457,10 +474,16 @@ export function parseKnownAbsent(markdown: string): KnownAbsent[] {
 
     const status = stripMarkdown(cells[statusIdx]);
     if (!ABSENT_STATUS_RE.test(status)) continue;
-    const source = stripMarkdown(cells[0]);
+    // A known-absent row that resolves no label column is genuine shape drift
+    // (a renamed/removed "key"/"source" header); fail loud rather than emit a
+    // mislabelled entry.
+    if (labelIdx === -1 || labelIdx >= cells.length) {
+      throw new Error(`source register: a "${section}" known-absent row has no resolvable label column (headers lacked ${[...LABEL_HEADERS].map(h => `"${h}"`).join('/')}) - table shape drift`);
+    }
+    const source = stripMarkdown(cells[labelIdx]);
     if (source === '' || seen.has(source)) continue;
     seen.add(source);
-    const notes = statusIdx + 1 < cells.length ? stripMarkdown(cells[cells.length - 1]) : '';
+    const notes = notesIdx >= 0 && notesIdx < cells.length ? stripMarkdown(cells[notesIdx]) : '';
     const dateCell = dateIdx >= 0 && dateIdx < cells.length ? cells[dateIdx] : '';
     out.push({
       source,

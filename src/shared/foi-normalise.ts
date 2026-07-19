@@ -102,6 +102,15 @@ export interface FoiSourceConversion {
   preamble?: readonly (readonly string[])[];
   // Output column order; sources are matched by header NAME (order-insensitive).
   columns: readonly FoiColumnSpec[];
+  // The raw source header the row SUBJECT is read from, declared by name so the
+  // verbatim-CSV family resolves the subject by binding rather than by physical
+  // position (issue #847) - a source whose subject is not the first physical
+  // column then fails loud rather than storing a non-subject token silently. May
+  // be the empty string when the source's subject column is genuinely unnamed
+  // (the pre-war annex sheet 2). Absent for conversions whose analytical family
+  // re-points the subject itself (available-pool, forbidden-list), which override
+  // the mirror's subject after loading.
+  subjectColumn?: string;
   // Source columns deliberately not carried into the normalised output.
   // Their presence is still REQUIRED (an absent or extra header means a
   // genuinely new source shape deserving review, never a guess), and each
@@ -473,6 +482,7 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
         ['Callsigns in the "G" series allocated prior to WW2 with 2-letter suffixes, which were assigned or re-assigned since 1945. ', ''],
         ['', ''],
       ],
+      subjectColumn: 'Call Sign',
       columns: [
         { source: 'Call Sign', output: 'callsign', kind: 'verbatim' },
         { source: 'Original Start Date', output: 'original_start_date', kind: 'iso-date' },
@@ -486,6 +496,10 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
       sourceFile: 'raw-extract-sheet-2-database-fields.csv',
       encoding: 'utf8',
       preamble: [],
+      // The disclosed licensing-database header row's first column is unnamed;
+      // the subject genuinely IS that empty-named column, declared explicitly so
+      // the resolution is by binding, not an implicit column-0 default (#847).
+      subjectColumn: '',
       columns: [
         { source: '', output: 'view', kind: 'verbatim' },
         { source: 'Field Name', output: 'field_name', kind: 'verbatim' },
