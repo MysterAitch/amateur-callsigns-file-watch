@@ -16,7 +16,7 @@ that pool are now Allocated (drawn down) versus still absent from the
 allocated set. Absence is not evidence of current availability — a
 callsign may since have moved through Reserved or been withheld.
 
-| available-pool snapshot | vintage | available | now allocated | still absent | drawn down |
+| available-pool snapshot | vintage | available | now allocated | still absent | now allocated (share) |
 |---|---|---:|---:|---:|---:|
 | `wdtk-174341--available-callsigns-list` | 2013-09-06 | 26,646 | 14,966 | 11,680 | 56.2% |
 | `wdtk-197896--available-callsigns-list` | 2014-03-14 | 25,391 | 13,860 | 11,531 | 54.6% |

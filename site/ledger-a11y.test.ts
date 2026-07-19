@@ -332,17 +332,24 @@ describe('change-magnitude classifier and label (issue #409)', { tags: ['ui'] },
 
   it('DescribeChange_ForEachTierAndDirection_StatesSeverityAndDirectionInText', () => {
     // The accessible name carries the meaning without colour or the caret glyph.
-    expect(describeChange(classifyDelta(1200, 1000))).toBe('up 20.0%, substantial deviation');
-    expect(describeChange(classifyDelta(940, 1000))).toBe('down 6.0%, mild deviation');
+    // The tier reads as a "count change (declared-complete basis)" rather than a
+    // "deviation" (issue #836): the classification rests on the publication
+    // having DECLARED itself complete (publisher intent, not verified), so a
+    // count swing from an undiscovered silent filter must not read as a verified
+    // register change.
+    expect(describeChange(classifyDelta(1200, 1000))).toBe('up 20.0%, substantial count change (declared-complete basis)');
+    expect(describeChange(classifyDelta(940, 1000))).toBe('down 6.0%, mild count change (declared-complete basis)');
     expect(describeChange(classifyDelta(1015, 1000))).toBe('up 1.5%, within the expected range');
     expect(describeChange(classifyDelta(1000, 1000))).toBe('no change');
-    expect(describeChange(classifyDelta(1234, 0))).toBe('up 1,234 from none, substantial deviation');
+    expect(describeChange(classifyDelta(1234, 0))).toBe('up 1,234 from none, substantial count change (declared-complete basis)');
+    // The softened wording never calls the change a bare "deviation".
+    expect(describeChange(classifyDelta(1200, 1000))).not.toContain('deviation');
   });
 
   it('ChangeIndicatorSpec_ForMildAndSubstantial_ShowsACaretNotColourAlone', () => {
     const mild = changeIndicatorSpec(1050, 1000);
     expect(mild.visible).toContain('↑');
-    expect(mild.label).toBe('up 5.0%, mild deviation');
+    expect(mild.label).toBe('up 5.0%, mild count change (declared-complete basis)');
     const down = changeIndicatorSpec(800, 1000);
     expect(down.visible).toContain('↓');
     expect(down.severity).toBe('substantial');
@@ -354,16 +361,20 @@ describe('change-magnitude classifier and label (issue #409)', { tags: ['ui'] },
     expect(spec.visible).not.toContain('↑');
   });
 
-  it('ChangeIndicator_ForASubstantialDeviation_HidesTheGlyphAndCarriesTheLabelForAssistiveTech', () => {
-    // The rendered node must announce "up …, substantial deviation" through a
-    // visually-hidden span while the visible caret+magnitude is aria-hidden, so
-    // the meaning never rides on colour or the glyph alone.
+  it('ChangeIndicator_ForASubstantialCountChange_HidesTheGlyphAndCarriesTheLabelForAssistiveTech', () => {
+    // The rendered node must announce "up …, substantial count change
+    // (declared-complete basis)" through a visually-hidden span while the visible
+    // caret+magnitude is aria-hidden, so the meaning never rides on colour or the
+    // glyph alone. The declared-complete-basis caveat also rides visibly in the
+    // badge's title (issue #836), so an undiscovered silent filter cannot read as
+    // a verified register change.
     const node = changeIndicator(1200, 1000);
     expect(node.className).toBe('chg chg-substantial');
     const hidden = node.querySelector('.visually-hidden');
-    expect(hidden?.textContent).toBe('up 20.0%, substantial deviation');
+    expect(hidden?.textContent).toBe('up 20.0%, substantial count change (declared-complete basis)');
     const glyph = node.querySelector('[aria-hidden="true"]');
     expect(glyph?.textContent).toContain('↑');
+    expect(node.getAttribute('title')).toContain('declared-complete basis');
   });
   it('ChangeIndicator_WhenInRange_RendersPlainTextWithNoHiddenBadge', () => {
     const node = changeIndicator(1015, 1000);

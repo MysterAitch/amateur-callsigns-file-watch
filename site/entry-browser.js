@@ -453,7 +453,11 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
         // asserted by this row's source") is untouched by the wrapper, which
         // only humanises an ASSERTED blank ('').
         if (typeof r[h] === 'string' && h === 'status') return el('td', {}, [statusField(el, r[h], { glossaryLinking: 'plain' })]);
-        if (typeof r[h] === 'string' && (h === 'product' || h === 'licence_class' || h === 'implied_class')) return el('td', {}, [licenceField(el, r[h])]);
+        // `product`/`licence_class` are PUBLISHED by the source; `implied_class`
+        // is DERIVED by the mirror (the level read from the prefix series). They
+        // otherwise share the `.lic` chrome, so the derived one carries the quiet
+        // provenance cue (#836) rather than reading as a register fact.
+        if (typeof r[h] === 'string' && (h === 'product' || h === 'licence_class' || h === 'implied_class')) return el('td', {}, [licenceField(el, r[h], h === 'implied_class' ? { provenance: 'derived' } : {})]);
         if (r[h] === null) return el('td', { text: 'NULL', class: 'browser-status' });
         // A custom hand-written query (the `custom` mode above) can select
         // arbitrary columns, including a numeric one; a literal zero

@@ -141,7 +141,7 @@ const nf = (n) => Number(n).toLocaleString('en-GB');
 // A reusable, at-a-glance readout of how much a value has CHANGED against a
 // baseline, after the convention in clinical lab-result readouts: three
 // severity tiers × direction. Severity AND direction are carried in SHAPE/TEXT
-// — a directional caret (↑/↓) and, for a substantial deviation, a filled badge
+// — a directional caret (↑/↓) and, for a substantial count change, a filled badge
 // — never colour alone, so the signal survives for colour-blind readers,
 // greyscale and forced-colours (issues #409/#397/#334). The semantic severity
 // colours live in site/ledger.css (--dev-mild / --dev-strong / --on-dev-strong,
@@ -154,7 +154,7 @@ const nf = (n) => Number(n).toLocaleString('en-GB');
 //
 // PHASE 1 (this change): a THRESHOLD heuristic against a baseline — here the
 // prior snapshot in the side-by-side counts. Deriving the TYPICAL per-period
-// change and flagging deviation from that derived trend is PHASE 2, deferred to
+// change and flagging departures from that derived trend is PHASE 2, deferred to
 // #210; this component does not attempt it.
 
 // Default thresholds, as a fraction of the baseline. A FIRST-DRAFT heuristic to
@@ -208,13 +208,23 @@ const formatPct = (ratio) => `${(ratio * 100).toFixed(1)}%`;
 const signedPct = (c) => `${c.direction === 'down' ? '−' : c.direction === 'up' ? '+' : ''}${formatPct(c.ratio)}`;
 
 // The accessible name a screen-reader announces for a classified change — the
-// full "up 12%, substantial" phrasing the #409 spec calls for, so severity and
-// direction never depend on colour or the caret glyph alone.
+// full "up 12%, substantial count change" phrasing the #409 spec calls for, so
+// severity and direction never depend on colour or the caret glyph alone.
+//
+// The tier is a COUNT CHANGE on a DECLARED-COMPLETE BASIS (issue #836), not a
+// verified register change: the indicator is only rendered when neither side
+// carries a scope caveat, and "no caveat" means the publication declared itself
+// complete (intended_complete, empty coverage_affecting) — publisher INTENT, not
+// verified completeness. Intended-complete exports have been observed silently
+// filtering records (the blank-product omission, #330), so a large swing here is
+// a lead to check against the publication, never proof the register itself moved.
+// The wording says "count change (declared-complete basis)" rather than
+// "deviation" so an undiscovered silent filter cannot read as a verified change.
 /** @param {DeltaClassification} c */
 export function describeChange(c) {
   const dir = c.direction === 'up' ? 'up' : c.direction === 'down' ? 'down' : 'no change';
   if (c.severity === 'in-range') return c.direction === 'none' ? 'no change' : `${dir} ${formatPct(c.ratio)}, within the expected range`;
-  const tier = c.severity === 'substantial' ? 'substantial deviation' : 'mild deviation';
+  const tier = c.severity === 'substantial' ? 'substantial count change (declared-complete basis)' : 'mild count change (declared-complete basis)';
   const magnitude = c.ratio === Infinity ? `${dir} ${nf(Math.abs(c.delta))} from none` : `${dir} ${formatPct(c.ratio)}`;
   return `${magnitude}, ${tier}`;
 }
@@ -236,11 +246,20 @@ export function changeIndicatorSpec(value, baseline, thresholds = CHANGE_THRESHO
   return { severity: c.severity, direction: c.direction, visible, label: describeChange(c) };
 }
 
+// The intent caveat a mild/substantial badge carries visibly (issue #836),
+// echoing the register-history note's warning (site/app.js): the classification
+// rests on the publication having DECLARED itself complete, which is intent, not
+// verified completeness. A visible affordance (title on hover) alongside the
+// accessible label, so the "declared-complete basis" reaches sighted readers too.
+export const DECLARED_COMPLETE_BASIS_NOTE = 'A count change on a declared-complete basis: the publication declared itself complete, which is publisher intent, not verified completeness. Intended-complete exports have been observed silently filtering records, so a swing is a lead to check against the publication, not proof the register changed.';
+
 // Build the indicator as a DOM node for a table cell. In range renders plain
 // muted text (the signed percentage, read literally by a screen-reader); mild
 // and substantial hide the visible caret+magnitude from assistive tech and
 // carry the full accessible phrase in a visually-hidden span instead, so the
-// announcement is "up 12.0%, substantial deviation", not "up-arrow 12 percent".
+// announcement is "up 12.0%, substantial count change (declared-complete basis)",
+// not "up-arrow 12 percent". The same declared-complete-basis caveat rides in the
+// badge's title (issue #836), visible on hover.
 /**
  * @param {number} value
  * @param {number} baseline
@@ -250,8 +269,8 @@ export function changeIndicator(value, baseline, thresholds = CHANGE_THRESHOLDS)
   const spec = changeIndicatorSpec(value, baseline, thresholds);
   const cls = spec.severity === 'in-range' ? 'chg chg-inrange'
     : spec.severity === 'mild' ? 'chg chg-mild' : 'chg chg-substantial';
-  const span = el('span', { class: cls });
-  if (spec.severity === 'in-range') { span.textContent = spec.visible; return span; }
+  if (spec.severity === 'in-range') { const plain = el('span', { class: cls }); plain.textContent = spec.visible; return plain; }
+  const span = el('span', { class: cls, title: DECLARED_COMPLETE_BASIS_NOTE });
   span.append(el('span', { 'aria-hidden': 'true', text: spec.visible }));
   span.append(el('span', { class: 'visually-hidden', text: spec.label }));
   return span;
@@ -598,7 +617,7 @@ async function renderCounts(chosen, pred) {
   // baseline carries a scope caveat: a declared-partial / coverage-affecting
   // publication's count is scope, not a real-world change, so a swing across
   // one (e.g. the blank-product omission, #330) is shown as a plain delta
-  // marked "scope differs" rather than dressed up as a substantial deviation.
+  // marked "scope differs" rather than dressed up as a substantial count change.
   /**
    * @param {CountRow} r
    * @param {CountRow} [prior]
@@ -625,7 +644,7 @@ async function renderCounts(chosen, pred) {
   // State the first-draft thresholds on the surface itself, so the heuristic is
   // visible and adjustable rather than hidden in the code (#409 Phase 1).
   const note = el('p', { class: 'muted', style: 'font-size:.83rem' }, [
-    'Change vs prior classifies each snapshot against the one above it: under 2% of the baseline reads as within the expected range (plain), 2–10% as a mild deviation (coloured, with a ↑/↓ caret), 10%+ as a substantial deviation (a filled badge). First-draft thresholds; deriving the typical per-period change is later work (#210).',
+    'Change vs prior classifies each snapshot against the one above it: under 2% of the baseline reads as within the expected range (plain), 2–10% as a mild count change (coloured, with a ↑/↓ caret), 10%+ as a substantial count change (a filled badge). First-draft thresholds; deriving the typical per-period change is later work (#210). This is a count change on a declared-complete basis: a snapshot is only classified when neither it nor its baseline carries a scope caveat, but "no caveat" means the publication declared itself complete — publisher intent, not verified completeness. Intended-complete exports have been observed silently filtering records (e.g. the blank-product omission, #330), so a swing here is a lead to check against the publication, not proof the register itself changed.',
   ]);
   countsResult.replaceChildren(wrap, note);
 }

@@ -3,7 +3,8 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
-  licenceField, licenceDisplay, LICENCE_CLASS, statusField, statusDisplay, STATUS_CLASS,
+  licenceField, licenceDisplay, LICENCE_CLASS, LICENCE_DERIVED_CLASS, LICENCE_DERIVED_NOTE,
+  statusField, statusDisplay, STATUS_CLASS,
   prefixSeriesField, prefixSeriesDisplay, prefixSeriesSlug, PREFIX_SERIES_CLASS,
   suffixField, SUFFIX_CLASS,
   absentMarker, ABSENT_MARKER, ABSENT_CLASS, ABSENT_LABEL,
@@ -76,6 +77,57 @@ describe('browser licenceField wrapper', { tags: ['ui'] }, () => {
   it('LicenceField_MixedCaseOrWhitespaceVariant_IsShownVerbatimNotNormalised', () => {
     expect(licenceField(el, 'foundation').textContent).toBe('foundation');
     expect(licenceField(el, ' Full ').textContent).toBe(' Full ');
+  });
+
+  it('LicenceField_WhenProvenanceDerived_CarriesTheDerivedCueAndAccessibleProvenanceNote', () => {
+    // Issue #836: a DERIVED value (the implied class the mirror computes from the
+    // prefix series) must not read as a register fact off the shared .lic class
+    // alone. It gains the dashed-underline modifier class, states its provenance
+    // in the title (revealed on hover), and carries a visually-hidden note so
+    // assistive tech hears it is derived, not published.
+    const span = licenceField(el, 'Full', { provenance: 'derived' });
+    expect(span.classList.contains(LICENCE_CLASS)).toBe(true);
+    expect(span.classList.contains(LICENCE_DERIVED_CLASS)).toBe(true);
+    expect(span.getAttribute('title')).toBe(LICENCE_DERIVED_NOTE);
+    const note = span.querySelector('.visually-hidden');
+    expect(note?.textContent).toContain('derived');
+    // The visible label is untouched - the note is off-screen, not part of it.
+    expect(span.textContent).toBe(`Full (${LICENCE_DERIVED_NOTE})`);
+  });
+
+  it('LicenceField_WhenPublishedOrOmitted_CarriesNoDerivedCue', () => {
+    // The published counterpart (product/licence_class) wears the bare .lic
+    // chrome with no derived modifier, no provenance title and no hidden note -
+    // so the derived cue is a true distinction, present on one and absent on the
+    // other.
+    const published = licenceField(el, 'Amateur Full Radio Licence', { provenance: 'published' });
+    expect(published.classList.contains(LICENCE_DERIVED_CLASS)).toBe(false);
+    expect(published.getAttribute('title')).toBeNull();
+    expect(published.querySelector('.visually-hidden')).toBeNull();
+    // Omitting provenance behaves identically to 'published'.
+    const omitted = licenceField(el, 'Amateur Full Radio Licence');
+    expect(omitted.classList.contains(LICENCE_DERIVED_CLASS)).toBe(false);
+    expect(omitted.querySelector('.visually-hidden')).toBeNull();
+  });
+
+  it('LicenceField_WhenBlankAndDerived_HumanisesTheBlankAndStillCarriesTheDerivedCue', () => {
+    // A derived value that is itself blank stays humanised AND still marked
+    // derived - the two facts are independent.
+    const em = licenceField(el, '', { provenance: 'derived' });
+    expect(em.tagName).toBe('EM');
+    expect(em.classList.contains('lic-blank')).toBe(true);
+    expect(em.classList.contains(LICENCE_DERIVED_CLASS)).toBe(true);
+    expect(em.querySelector('.visually-hidden')?.textContent).toContain('derived');
+  });
+
+  it('LicenceField_WhenDerivedAndShortened_KeepsTheRawValueInTheTitleButStillNotesDerivedToAssistiveTech', () => {
+    // Non-happy path: a value that is BOTH derived and shortened must lose
+    // neither fact - the raw value wins the (single) title, and the derived
+    // provenance still reaches assistive tech via the hidden note.
+    const span = licenceField(el, 'Amateur Full Radio Licence', { provenance: 'derived', form: 'shortened' });
+    expect(span.textContent).toContain('Full');
+    expect(span.getAttribute('title')).toBe('Amateur Full Radio Licence');
+    expect(span.querySelector('.visually-hidden')?.textContent).toContain('derived');
   });
 });
 
