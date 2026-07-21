@@ -91,10 +91,32 @@ describe('on-this-day entries (issue #726)', { tags: ['unit'] }, () => {
     expect(m7?.caveats).toEqual(['earliest-surviving']);
   });
 
-  it('OnThisDay_CancellationEvidence_IsItsOwnEntryKind', () => {
+  it('OnThisDay_CancellationEvidence_IsItsOwnEntryKindAndCarriesTheSparsityCaveat', () => {
     const entries = computeOnThisDayEntries(fixtureProjection());
     const g2 = entries.find(e => e.series === 'G2');
     expect(g2).toMatchObject({ event: 'first-cancellation', day: '1938-03-05', callsigns: ['G2XYZ'] });
+    // Cross-surface caveat parity (#861): the strip's cancellation reasoning
+    // carries cancellation-sparsity, so the calendar entry over the same
+    // evidence must too - and a cancellation is not a version-scoped start,
+    // so it carries neither date-derived start caveat.
+    expect(g2?.caveats).toEqual(['cancellation-sparsity']);
+  });
+
+  it('OnThisDay_MonthKeyedAssertingVintage_CarriesTheMonthPrecisionCaveat', () => {
+    const projection = foldEventTimeProjection({
+      sources: [
+        fixtureSource({
+          sourceFile: 'foi/entry-m/reg.csv',
+          vintage: '2016-09',
+          rows: [{ callsign: '2E0AAA', start: '01/02/2003' }],
+        }),
+      ],
+    });
+    const entries = computeOnThisDayEntries(projection);
+    const entry = entries.find(e => e.event === 'first-start');
+    // The engine's own vintage-grammar reading (isMonthPrecisionVintage): a
+    // month-keyed citation is only proven to somewhere inside its month.
+    expect(entry?.caveats).toEqual(['earliest-surviving', 'month-precision-vintage']);
   });
 
   it('OnThisDay_SubjectWithoutAPrefixSeries_HasNoSlotRatherThanAGuessedOne', () => {

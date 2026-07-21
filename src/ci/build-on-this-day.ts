@@ -34,7 +34,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { contributionOf, EARLIEST_SURVIVING_KINDS, type StateCaveat } from './state-at-t.ts';
+import { contributionOf, EARLIEST_SURVIVING_KINDS, isMonthPrecisionVintage, type StateCaveat } from './state-at-t.ts';
 import { CAVEAT_LABELS, caveatLabelOf, kindLabelOf } from './build-callsign-event-shards.ts';
 import { datasetIndexOf, type EventDatasetRef, type EventTimeProjection } from './event-time-projection.ts';
 import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
@@ -107,9 +107,23 @@ export function computeOnThisDayEntries(projection: EventTimeProjection, ref: Re
   const entries: OnThisDayEntry[] = [];
   for (const [key, acc] of accs) {
     const [event, series] = key.split('\n');
+    // Cross-surface caveat parity (#861): the same evidence must carry the
+    // same caveats wherever it renders, so this attachment mirrors the
+    // engine's — the date-derived pair (earliest-surviving/pre-1977) exactly
+    // as the start findings carry them, cancellation-sparsity on every
+    // cancellation entry (the engine's coverage table records cancellation
+    // evidence as confined to very few vintages, so an "earliest held"
+    // cancellation is especially weakly bounded), and month-precision under
+    // the engine's own reading of the vintage grammar.
     const caveats: StateCaveat[] = [];
     if ([...acc.kinds].some(kind => EARLIEST_SURVIVING_KINDS.has(kind))) caveats.push('earliest-surviving');
     if (acc.day < '1977-01-01' && event === 'first-start') caveats.push('pre-1977');
+    if (event === 'first-cancellation') caveats.push('cancellation-sparsity');
+    if ([...acc.datasetIdxs].some((idx) => {
+      const ref = projection.datasets[idx];
+      if (ref === undefined) throw new Error(`computeOnThisDayEntries: dataset index ${idx} outside the projection's dataset list`);
+      return isMonthPrecisionVintage(ref.vintage);
+    })) caveats.push('month-precision-vintage');
     entries.push({
       monthDay: acc.day.slice(5),
       year: acc.day.slice(0, 4),
@@ -144,7 +158,7 @@ export function dayAnchor(monthDay: string): string {
 function citation(datasets: readonly EventDatasetRef[], idx: number): string {
   const ref = datasets[idx];
   if (ref === undefined) throw new Error(`renderOnThisDay: dataset index ${idx} outside the projection's dataset list`);
-  return `<a href="${escapeHtml(ref.href)}">${escapeHtml(ref.title)}</a> (${glossaryTerm('vintage', 0)} ${dateTime(ref.vintage, { precision: 'full-date' })})`;
+  return `<a href="${escapeHtml(ref.href)}">${escapeHtml(ref.title)}</a> (${glossaryTerm('vintage', 0)} ${dateTime(ref.vintage, { precision: 'full-date', exactLabel: 'Assertion time (vintage)' })})`;
 }
 
 function entryHtml(entry: OnThisDayEntry, datasets: readonly EventDatasetRef[]): string {
@@ -163,7 +177,7 @@ function entryHtml(entry: OnThisDayEntry, datasets: readonly EventDatasetRef[]):
     + `<b>${escapeHtml(entry.year)}</b> ${epistemicsPill('derived', 0)} — the ${lead} for a `
     + `<a href="series/${encodeURIComponent(entry.series)}.html">${escapeHtml(entry.series)}-series</a> callsign: `
     + `${callsigns}${tie}, ${escapeHtml(entry.event === 'first-start' ? 'a start' : 'a cancellation')} dated `
-    + `${dateTime(entry.day, { precision: 'full-date' })} — as asserted (${kinds}) per ${cite}.`
+    + `${dateTime(entry.day, { precision: 'full-date', exactLabel: 'Event day (as asserted)' })} — as asserted (${kinds}) per ${cite}.`
     + caveats
     + ` <span class="otd-links"><a href="callsign.html?c=${encodeURIComponent(entry.callsigns[0])}">event strip</a> · `
     + `<a href="ledger.html?c=${encodeURIComponent(entry.callsigns[0])}">ledger</a></span>`
@@ -205,8 +219,12 @@ export function renderOnThisDayPage(entries: readonly OnThisDayEntry[], projecti
     `<li><b>${escapeHtml(caveatLabelOf('pre-1977'))}</b> — original start dates before 1977 are attested-unreliable `
     + '(OARC, citing an administrative glitch by the then regulator).</li>',
     `<li><b>${escapeHtml(caveatLabelOf('availability-trap'))}</b> — a day with no entry means the held sources attest `
-    + 'nothing for it: non-observation, never “nothing happened”. Cancellation evidence in particular is attested by '
-    + 'very few vintages, so its coverage is thin.</li>',
+    + 'nothing for it: non-observation, never “nothing happened”.</li>',
+    `<li><b>${escapeHtml(caveatLabelOf('cancellation-sparsity'))}</b> — cancellation dates are attested by very few `
+    + 'held vintages, so an “earliest held cancellation” is especially weakly bounded: earlier cancellations may '
+    + 'simply be unrecorded in what is held.</li>',
+    `<li><b>${escapeHtml(caveatLabelOf('month-precision-vintage'))}</b> — a month-keyed vintage’s assertion time is `
+    + 'only proven to lie somewhere inside its month, so citations against it read the whole month conservatively.</li>',
     '<li>Series whose callsigns our parser reads no prefix series from (visitor <code>M/…</code> renderings, '
     + 'special-event <code>GB…</code> forms) have no slot here; their records remain on the '
     + '<a href="callsign.html">per-callsign page</a> and the <a href="ledger.html">ledger</a>.</li>',

@@ -243,8 +243,16 @@ export function vintageOnOrBefore(vintage: string, day: string): boolean {
   return vintageDaySpan(vintage).latest <= day;
 }
 
-function isMonthPrecision(vintage: string): boolean {
+// Whether a vintage is month-keyed — its assertion time carries month, not
+// day, precision, so every consumer treats the whole month conservatively.
+// Exported for the issue #726 surfaces, so their month-precision caveat
+// attaches under exactly the engine's own reading of the vintage grammar.
+export function isMonthPrecisionVintage(vintage: string): boolean {
   return VINTAGE_MONTH_RE.test(vintage);
+}
+
+function isMonthPrecision(vintage: string): boolean {
+  return isMonthPrecisionVintage(vintage);
 }
 
 // --- Evidence and answer shapes ---------------------------------------------

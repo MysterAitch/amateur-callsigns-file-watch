@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
-import { stripModel, renderEventStripInto } from './callsign-events.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { stripModel, renderEventStripInto, renderEventStrip, resetEventStripCaches } from './callsign-events.js';
 
 // The per-callsign event-time strip (issue #726), pinned on fixtures shaped
 // exactly like src/ci/build-callsign-event-shards.ts's output. What matters
@@ -232,5 +232,98 @@ describe('renderEventStripInto (issue #726)', { tags: ['ui'] }, () => {
     expect(legend?.textContent).toMatch(/never a licensing event/);
     expect(host.querySelector('a[href="ledger.html?c=G3ZZZ"]')).not.toBeNull();
     expect(host.querySelector('a[href="on-this-day.html"]')).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The fetch/error orchestration (renderEventStrip): the branch that must
+// NEVER read as "no events". A failed or malformed fetch renders the
+// could-not-load note (with the ledger escape hatch); only a successful
+// fetch whose shard genuinely lacks the key renders the non-observation
+// callout. Fetches are stubbed - no network, no timing.
+
+type FetchStub = (url: string) => Promise<{ ok: boolean; status: number; text: () => Promise<string> }>;
+
+function okJson(payload: unknown) {
+  return { ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(payload)) };
+}
+
+function notFound() {
+  return { ok: false, status: 404, text: () => Promise.resolve('not found') };
+}
+
+function stubFetch(fn: FetchStub) {
+  vi.stubGlobal('fetch', fn);
+}
+
+function hosts() {
+  const host = document.createElement('div');
+  const status = document.createElement('p');
+  document.body.append(host, status);
+  return { host, status };
+}
+
+const shardNameForStub = () => 'G3';
+
+describe('renderEventStrip fetch orchestration (issue #726)', { tags: ['ui'] }, () => {
+  beforeEach(() => {
+    resetEventStripCaches();
+    document.body.innerHTML = '';
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('EventStrip_MetaFetchFails_RendersCouldNotLoadNeverTheNoEventsState', async () => {
+    stubFetch(() => Promise.resolve(notFound()));
+    const { host, status } = hosts();
+    await renderEventStrip({ host, status, key: 'G3ZZZ', shardNameFor: shardNameForStub });
+    expect(host.textContent).toMatch(/Could not load the event-time data/);
+    expect(host.textContent).not.toMatch(/No event-time claim/);
+    expect(host.querySelector('a[href="ledger.html?c=G3ZZZ"]')).not.toBeNull();
+    expect(status.textContent).toBe('');
+  });
+
+  it('EventStrip_ShardFetchFails_RendersCouldNotLoadNeverTheNoEventsState', async () => {
+    stubFetch(url => Promise.resolve(url.endsWith('meta.json') ? okJson(meta()) : notFound()));
+    const { host, status } = hosts();
+    await renderEventStrip({ host, status, key: 'G3ZZZ', shardNameFor: shardNameForStub });
+    expect(host.textContent).toMatch(/Could not load the event-time data/);
+    expect(host.textContent).toMatch(/HTTP 404/);
+    expect(host.textContent).not.toMatch(/No event-time claim/);
+    expect(status.textContent).toBe('');
+  });
+
+  it('EventStrip_MalformedShardJson_RendersCouldNotLoadNeverTheNoEventsState', async () => {
+    stubFetch(url => Promise.resolve(url.endsWith('meta.json')
+      ? okJson(meta())
+      : { ok: true, status: 200, text: () => Promise.resolve('this is not json') }));
+    const { host, status } = hosts();
+    await renderEventStrip({ host, status, key: 'G3ZZZ', shardNameFor: shardNameForStub });
+    expect(host.textContent).toMatch(/Could not load the event-time data/);
+    expect(host.textContent).not.toMatch(/No event-time claim/);
+    expect(status.textContent).toBe('');
+  });
+
+  it('EventStrip_FetchSucceedsButKeyAbsentFromShard_RendersTheNonObservationCallout', async () => {
+    stubFetch(url => Promise.resolve(url.endsWith('meta.json')
+      ? okJson(meta())
+      : okJson({ shard: 'G3', callsigns: {} })));
+    const { host, status } = hosts();
+    await renderEventStrip({ host, status, key: 'G3ZZZ', shardNameFor: shardNameForStub });
+    expect(host.textContent).toMatch(/No event-time claim/);
+    expect(host.textContent).toMatch(/non-observation/);
+    expect(host.textContent).not.toMatch(/Could not load/);
+    expect(status.textContent).toMatch(/events\/G3\.json/);
+  });
+
+  it('EventStrip_FetchSucceedsWithRecord_RendersTheStripAndTheLoadedStatus', async () => {
+    stubFetch(url => Promise.resolve(url.endsWith('meta.json')
+      ? okJson(meta())
+      : okJson({ shard: 'G3', callsigns: { G3ZZZ: stableRecord() } })));
+    const { host, status } = hosts();
+    await renderEventStrip({ host, status, key: 'G3ZZZ', shardNameFor: shardNameForStub });
+    expect(host.querySelectorAll('.evt-findings li').length).toBeGreaterThan(0);
+    expect(status.textContent).toMatch(/loaded after the instant answer/);
   });
 });

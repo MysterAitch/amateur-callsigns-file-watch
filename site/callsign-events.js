@@ -174,6 +174,14 @@ export function stripModel(record, meta) {
 
   /** @type {string[]} */
   const reissueReasons = [];
+  // Known soft spot in the auto-open signal: the engine's disagreement list
+  // does not (yet) distinguish a one-day movement across differing attested
+  // date renderings (the S2 rendering-difference candidate) from a genuine
+  // revision, so if such a pair ever surfaces as a disagreement the explainer
+  // would open slightly over-prominently. That direction UNDER-claims (an
+  // explainer opening where the mechanism note still applies), never
+  // over-claims; a future engine-side classification on the disagreement
+  // entries could refine the trigger — do not re-derive it here.
   if (disagreements.length > 0) {
     reissueReasons.push('the held vintages disagree about this record’s dates (listed above — both camps kept)');
   }
@@ -376,7 +384,7 @@ export function renderEventStripInto(host, key, record, meta) {
         camp.datasets.forEach((ds, j) => {
           if (j > 0) li.append(', ');
           li.appendChild(link(ds.href, ds.title));
-          li.append(' (');
+          li.append(' (vintage ');
           li.appendChild(vintageEl(ds.vintage));
           li.append(')');
         });
