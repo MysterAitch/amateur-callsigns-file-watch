@@ -17,6 +17,7 @@ import {
   STRIPPED_COLLISION_RULE,
   AUTHORED_EVENT_RULE,
   AUTHORED_ROLE_RULE,
+  EVENT_DATE_RULE,
 } from '../src/v2/claim.ts';
 import { PARSE_CALLSIGN_RULE } from '../src/v2/parse-attribute-emit.ts';
 import { UNPARSEABLE_CALLSIGN_FLAG } from '../src/sources/ofcom-amateur/components.ts';
@@ -97,6 +98,7 @@ const EMITTED_RULES = [
   STRIPPED_COLLISION_RULE,
   AUTHORED_EVENT_RULE,
   AUTHORED_ROLE_RULE,
+  EVENT_DATE_RULE,
   PARSE_CALLSIGN_RULE,
 ];
 

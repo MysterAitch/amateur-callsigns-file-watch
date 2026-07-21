@@ -60,7 +60,7 @@ import * as path from 'path';
 import { DatabaseSync } from 'node:sqlite';
 import { parse } from 'csv-parse/sync';
 import { buildLedger, type EntrySelector } from './build-ledger.ts';
-import { parseClaimsJsonl } from './serialise.ts';
+import { readClaimsJsonlSync } from './serialise.ts';
 import { type Claim } from './claim.ts';
 import { projectNormalised } from './project-normalised.ts';
 import { collectOpenDataRegisterSources } from './collectors/open-data-register.ts';
@@ -382,7 +382,9 @@ export function projectPublicationsFromLedger(
   for (const file of jsonlFiles) {
     const filePath = path.join(ledgerDir, file);
     if (!isOpenDataLedgerFile(filePath)) continue;
-    const claims = parseClaimsJsonl(fs.readFileSync(filePath, 'utf8'));
+    // Chunked read: the biggest per-source ledgers exceed V8's maximum string
+    // length (issue #725 S1), so the JSONL decodes line by line off the Buffer.
+    const claims = readClaimsJsonlSync(filePath);
     const keyMatch = /^opendata\/([^/]+)\//.exec(claims[0]?.provenance.sourceFile ?? '');
     if (keyMatch === null) continue;
     const key = keyMatch[1];

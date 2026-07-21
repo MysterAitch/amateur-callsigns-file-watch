@@ -38,6 +38,7 @@ import {
   LICENCE_CATEGORY_RULE,
   PARSE_CALLSIGN_RULE,
   STRIPPED_COLLISION_RULE,
+  EVENT_DATE_RULE,
   type Claim,
   type ViewAnchor,
 } from '../../v2/claim.ts';
@@ -86,6 +87,7 @@ export const RULE_CODE: ReadonlyMap<string, RuleCode> = new Map([
   [LICENCE_CATEGORY_RULE, { repoPath: 'src/sources/ofcom-amateur/components.ts', symbol: 'normaliseLicenceCategory' }],
   [PARSE_CALLSIGN_RULE, { repoPath: 'src/sources/ofcom-amateur/components.ts', symbol: 'parseCallsign' }],
   [STRIPPED_COLLISION_RULE, { repoPath: 'src/sources/ofcom-amateur/components.ts', symbol: 'componentsFlagsForRows' }],
+  [EVENT_DATE_RULE, { repoPath: 'src/v2/event-time-emit.ts', symbol: 'isoDayFromAttested' }],
 ]);
 
 // The register entry for a rule, or undefined for a rule this register does

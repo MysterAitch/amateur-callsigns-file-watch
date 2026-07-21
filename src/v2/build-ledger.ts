@@ -83,7 +83,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { emitLedger, emitClaims, emitAuthoredRoleClaims, emitFileManifestClaims, type Claim, type SourceObservationSet } from './claim.ts';
-import { serialiseClaimsJsonl } from './serialise.ts';
+import { writeClaimsJsonlSync } from './serialise.ts';
 import type { SubjectKind } from './collectors/types.ts';
 import { errorMessage } from '../shared/utils.ts';
 import { defaultFoiDir } from '../shared/foi-archive.ts';
@@ -249,7 +249,11 @@ export function buildLedger(
     }
     registerEmittedSource(emittedBy, { family: source.family, entry: source.entry, sourceFile: source.sourceFile }, observationSet.sourceFile);
     const { raw, derived } = tallyLayers(claims);
-    fs.writeFileSync(path.join(ledgerDir, `${source.jsonlStem}.jsonl`), serialiseClaimsJsonl(claims));
+    // Chunked write: the biggest register sources' ledgers exceed V8's maximum
+    // string length since the event-time tier (issue #725 S1) grew the derived
+    // layer, so the JSONL streams to disk in bounded chunks (byte-identical to
+    // the old one-string write).
+    writeClaimsJsonlSync(path.join(ledgerDir, `${source.jsonlStem}.jsonl`), claims);
     entriesSeen[source.family].add(source.entry);
     perSource.push({
       family: source.family,

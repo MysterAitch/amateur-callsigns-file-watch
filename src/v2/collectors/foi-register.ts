@@ -12,7 +12,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { type SourceObservationSet } from '../claim.ts';
+import { type SourceObservationSet, type EventDateColumnBinding, eventKindForDateOutput } from '../claim.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, type FoiEntryMeta } from '../../shared/foi-archive.ts';
 import { FOI_ENTRY_CONVERSIONS, interpretFoiColumns, type FoiSourceConversion } from '../../shared/foi-normalise.ts';
 import type { LedgerCollector, ResolvedLedgerSource } from './types.ts';
@@ -127,6 +127,27 @@ export function registerSourcesFor(meta: FoiEntryMeta): RegisterSource[] {
   return sources;
 }
 
+// The authored event-date bindings for one conversion (issue #725 S1): every
+// source-backed date column (kind 'date'/'iso-date'), classified to its
+// authored event kind by the canonical OUTPUT name it feeds — the same authored
+// vocabulary the interpretation lift reads, so a date column is bound exactly
+// where its dated format is attested. A registry exclusion (kind null, e.g. the
+// issuance families' event_date) lifts no binding; an UNCLASSIFIED output fails
+// loud inside eventKindForDateOutput, so a newly-authored date column must be
+// classified before it can ride this family. Declaration order is preserved
+// (a stored fact of the emitted stream).
+function eventDateColumnsFor(source: RegisterSource): EventDateColumnBinding[] {
+  const bindings: EventDateColumnBinding[] = [];
+  for (const column of source.conversion.columns) {
+    if (column.kind !== 'date' && column.kind !== 'iso-date') continue;
+    if (column.source === null) continue;
+    const kind = eventKindForDateOutput(column.output);
+    if (kind === null) continue;
+    bindings.push({ source: column.source, kind });
+  }
+  return bindings;
+}
+
 // Parse one raw source file into the SourceObservationSet shape, verbatim under
 // Ofcom's own headers. The parse options mirror the FOI converter's
 // (skip_empty_lines + BOM), so the observations this runner keys off are the
@@ -188,6 +209,10 @@ export function loadRegisterSource(foiDir: string, entry: string, meta: FoiEntry
     // source's FoiColumnSpec.kind set, so an @interpretation/<index> claim can be
     // attested beside each @column header.
     columnInterpretations: interpretFoiColumns(conversion, columns, { subjectColumn: callsignColumn, categoryColumn: source.productColumn ?? undefined }),
+    // The authored event-date bindings (issue #725 S1), lifted from the same
+    // conversion's date-kind column specs so the event-time tier extracts only
+    // from columns whose dated format is attested above.
+    eventDateColumns: eventDateColumnsFor(source),
   };
 }
 

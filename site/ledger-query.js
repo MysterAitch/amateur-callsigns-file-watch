@@ -486,6 +486,7 @@ export const RULE_GLOSSES = {
   'stripped-collision': 'The plain-character form of this value coexists as its own row in the same source.',
   'authored-event-vocabulary': 'The event word is our reading of the disclosure’s own covering-letter framing, not a published cell.',
   'authored-binding-role': 'The role name is our reading of the source’s own cell or sheet-level statement, assigned by the conversion binding.',
+  'event-date-extraction': 'A dated event this source asserts, read from its own date cell and re-rendered as an ISO day — true as of that source’s publication; a date absent elsewhere was simply not observed, not “nothing happened”.',
 };
 
 // Non-accusatory notes for the derived data-quality flags the ledger can carry

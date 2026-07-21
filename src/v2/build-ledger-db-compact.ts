@@ -59,7 +59,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { DatabaseSync } from 'node:sqlite';
 import { buildLedger, type EntrySelector } from './build-ledger.ts';
-import { parseClaimsJsonl } from './serialise.ts';
+import { readClaimsJsonlSync } from './serialise.ts';
 import { time, timeAsync, perfReport } from '../shared/perf.ts';
 import { gzipFileToFile } from '../shared/gzip.ts';
 import { applyBuildPragmas } from '../shared/sqlite-build.ts';
@@ -422,7 +422,9 @@ function loadCompactLedgerInto(db: DatabaseSync, ledgerDir: string): CompactLedg
 
   db.exec('BEGIN');
   jsonlFiles.forEach((file, fileIndex) => {
-    const claims = time('ledger:parse-jsonl', () => parseClaimsJsonl(fs.readFileSync(path.join(ledgerDir, file), 'utf8')));
+    // Chunked read: the biggest per-source ledgers exceed V8's maximum string
+    // length (issue #725 S1), so the JSONL decodes line by line off the Buffer.
+    const claims = time('ledger:parse-jsonl', () => readClaimsJsonlSync(path.join(ledgerDir, file)));
     const keysOf = resolveKeys(claims);
     const sourceId = fileIndex + 1;
 

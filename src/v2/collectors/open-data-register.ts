@@ -7,7 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { type SourceObservationSet } from '../claim.ts';
+import { type SourceObservationSet, type EventDateColumnBinding, eventKindForDateOutput } from '../claim.ts';
 import { listArchiveKeys, parseSourceFileName } from '../../shared/archive.ts';
 import { type ArchiveMeta } from '../../shared/utils.ts';
 import { DIRS } from '../../shared/constants.ts';
@@ -71,6 +71,25 @@ export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta
   // rendering for the temporal comparison (the raw claim stays verbatim), so the
   // flag fires on the same entries the ISO-normalised lane does.
   const originalStartDateColumn = rawColumnForCanonical(parsed.mapping, 'licence_version_original_start_date');
+  // The authored per-column interpretation (issue #435), computed once and both
+  // stored on the set and consulted below for the event-date bindings.
+  const columnInterpretations = interpretOpenDataColumns(parsed.headers, parsed.mapping, { subjectColumn: callsignColumn, categoryColumn: productColumn, variant: parsed.variant });
+  // The authored event-date bindings (issue #725 S1): every header whose
+  // attested interpretation is a dated format, classified to its authored event
+  // kind by the CANONICAL column name the variant's raw->canonical mapping
+  // assigns it — the same authored binding the interpretation itself was lifted
+  // from, so a binding exists exactly where a dated format is attested. A
+  // variant with no date columns (v2022-minimal, the reduced snapshots) lifts
+  // none; an unclassified canonical fails loud in eventKindForDateOutput.
+  const eventDateColumns: EventDateColumnBinding[] = [];
+  parsed.headers.forEach((header, index) => {
+    if (columnInterpretations[index].type !== 'date') return;
+    const canonical = parsed.mapping[header];
+    if (canonical === undefined || canonical === null) return;
+    const kind = eventKindForDateOutput(canonical);
+    if (kind === null) return;
+    eventDateColumns.push({ source: header, kind });
+  });
   return {
     // Corpus-unique, self-locating provenance parallel to the FOI lane's
     // foi/<entry>/<file>. Names the parse source, so line numbers and
@@ -106,7 +125,11 @@ export function loadOpenDataRegisterSource(archiveDir: string, key: string, meta
     // The authored per-column interpretation (issue #435), lifted from the
     // variant's raw->canonical mapping + the fixed open-data date ordering, so an
     // @interpretation/<index> claim can be attested beside each @column header.
-    columnInterpretations: interpretOpenDataColumns(parsed.headers, parsed.mapping, { subjectColumn: callsignColumn, categoryColumn: productColumn, variant: parsed.variant }),
+    columnInterpretations,
+    // The authored event-date bindings (issue #725 S1), derived above from the
+    // same attested interpretations, so the event-time tier extracts only from
+    // columns whose dated format is attested.
+    eventDateColumns,
   };
 }
 
