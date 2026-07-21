@@ -246,8 +246,17 @@ describe('the tier extracts from attested date columns ONLY — no format guessi
   });
 });
 
+// The column each of the fixture's kinds is authored to read - what the
+// explained working must CITE, not merely any cell that happens to hold the
+// same day.
+const FIXTURE_COLUMN_BY_KIND: Record<string, string> = {
+  'record-created': 'Created Date',
+  'record-last-modified': 'LastModifiedDate',
+  'reserved-until': 'Reserved to Date',
+};
+
 describe('the working behind an event-time claim reconstructs from the ledger (issue #433)', { tags: ['unit'] }, () => {
-  it('EventClaim_WhenExplained_ReproducesItsIsoDayFromTheRawDateCell', () => {
+  it('EventClaim_WhenExplained_ReproducesItsIsoDayFromTheKindsOwnDateCell', () => {
     const source = registerLikeSource();
     const ledger = emitLedger(source, REF);
     const eventClaims = ledger.filter(c => c.rule === EVENT_DATE_RULE);
@@ -255,12 +264,38 @@ describe('the working behind an event-time claim reconstructs from the ledger (i
     for (const claim of eventClaims) {
       const working = explain(claim, ledger, REF);
       expect(working.result).toBe(claim.object);
+      const kind = eventKindOf(claim.predicate) ?? '';
       const cell = working.inputs.find(i => i.role === 'date-cell');
-      expect(cell?.origin).toEqual(expect.objectContaining({ kind: 'raw-claim', sourceFile: 'synthetic/register.csv' }));
+      // The cited cell is the KIND'S OWN authored column, never another date
+      // column that coincidentally holds the same day.
+      expect(cell?.origin).toEqual(expect.objectContaining({ kind: 'raw-claim', sourceFile: 'synthetic/register.csv', predicate: FIXTURE_COLUMN_BY_KIND[kind] }));
       const binding = working.inputs.find(i => i.role === 'authored-event-kind');
       expect(binding?.origin).toEqual(expect.objectContaining({ kind: 'authored-binding', registry: 'EVENT_KIND_BY_DATE_OUTPUT' }));
       expect(working.confidence).toBe('Computed');
     }
+  });
+
+  it('TwoDateColumnsHoldingTheSameDay_WhenEachKindIsExplained_EachCitesItsOwnColumn', () => {
+    // The mass-update reality (#801, and the 2016 migration cluster) makes
+    // created == last-modified the COMMON case, so a value-matched cell lookup
+    // would misattribute the last-modified working to the created cell. The
+    // GB2RHQ row holds 15/01/2019 in BOTH columns; each kind's working must
+    // cite its own column.
+    const source = registerLikeSource();
+    const ledger = emitLedger(source, REF);
+    const gb2rhq = ledger.filter(c => c.rule === EVENT_DATE_RULE && c.rawSubject === 'GB2RHQ');
+    const created = gb2rhq.find(c => c.predicate === eventDatePredicate('record-created'));
+    const modified = gb2rhq.find(c => c.predicate === eventDatePredicate('record-last-modified'));
+    expect(created?.object).toBe('2019-01-15');
+    expect(modified?.object).toBe('2019-01-15');
+    if (created === undefined || modified === undefined) return;
+    const createdCell = explain(created, ledger, REF).inputs.find(i => i.role === 'date-cell');
+    const modifiedCell = explain(modified, ledger, REF).inputs.find(i => i.role === 'date-cell');
+    expect(createdCell?.origin).toEqual(expect.objectContaining({ predicate: 'Created Date' }));
+    expect(modifiedCell?.origin).toEqual(expect.objectContaining({ predicate: 'LastModifiedDate' }));
+    // And the cited value is that column's own verbatim cell (the
+    // time-bearing last-modified rendering, not the created cell's).
+    expect(modifiedCell?.value).toBe('15/01/2019 14:32');
   });
 
   it('OriginalStartClaim_WhenExplained_StatesTheSurvivingNotOriginalAndPre1977Caveats', () => {

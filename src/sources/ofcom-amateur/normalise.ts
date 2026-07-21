@@ -229,6 +229,18 @@ export const STATUS_COLUMN_NAMES: ReadonlySet<string> = new Set(
     Object.entries(mapping).filter(([, canonical]) => canonical === 'status').map(([raw]) => raw)),
 );
 
+// Every raw open-data column name that carries a canonical DATE column, mapped
+// to that canonical, derived from the variant registry so a new variant keeps
+// this in sync automatically. The event-time explain arm (issue #725 S1,
+// src/v2/explain.ts) resolves which raw header carries a claim's event kind
+// through this map - by the authored binding, never by value-matching a cell
+// that happens to hold the same day.
+export const DATE_COLUMN_CANONICAL_BY_RAW_HEADER: ReadonlyMap<string, CanonicalColumn> = new Map(
+  Object.values(VARIANTS).flatMap(mapping =>
+    Object.entries(mapping).filter((entry): entry is [string, CanonicalColumn] =>
+      entry[1] !== null && DATE_COLUMNS.has(entry[1]))),
+);
+
 // Find the callsign column by NAME regardless of position (issue #4): an
 // upstream column reorder must not silently change what sorted derivatives
 // are sorted by. Matches through a leading BOM (callers that parse without

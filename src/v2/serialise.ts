@@ -62,7 +62,15 @@ export function writeClaimsJsonlSync(filePath: string, claims: readonly Claim[])
   try {
     for (let start = 0; start < claims.length; start += JSONL_CHUNK_LINES) {
       const chunk = claims.slice(start, start + JSONL_CHUNK_LINES);
-      fs.writeSync(fd, chunk.map(serialiseClaimJsonlLine).join('\n') + '\n');
+      // fs.writeSync may write fewer bytes than asked (a short write), which
+      // the old writeFileSync path looped over internally - so loop here too,
+      // byte-offset arithmetic on the encoded Buffer, or a short write would
+      // silently truncate the chunk mid-claim.
+      const buffer = Buffer.from(chunk.map(serialiseClaimJsonlLine).join('\n') + '\n', 'utf8');
+      let offset = 0;
+      while (offset < buffer.length) {
+        offset += fs.writeSync(fd, buffer, offset, buffer.length - offset);
+      }
     }
   } finally {
     fs.closeSync(fd);
