@@ -87,6 +87,7 @@ export {
   eventDatePredicate,
   eventKindOf,
   eventKindForDateOutput,
+  eventKindForFoiDateColumn,
   isoDayFromAttested,
   isoDayFromCellUnderAnyAttestedFormat,
   emitEventDateClaims,

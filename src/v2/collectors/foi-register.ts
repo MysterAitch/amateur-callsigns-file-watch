@@ -12,7 +12,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { type SourceObservationSet, type EventDateColumnBinding, eventKindForDateOutput } from '../claim.ts';
+import { type SourceObservationSet, type EventDateColumnBinding, eventKindForFoiDateColumn } from '../claim.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, type FoiEntryMeta } from '../../shared/foi-archive.ts';
 import { FOI_ENTRY_CONVERSIONS, interpretFoiColumns, type FoiSourceConversion } from '../../shared/foi-normalise.ts';
 import type { LedgerCollector, ResolvedLedgerSource } from './types.ts';
@@ -129,11 +129,14 @@ export function registerSourcesFor(meta: FoiEntryMeta): RegisterSource[] {
 
 // The authored event-date bindings for one conversion (issue #725 S1): every
 // source-backed date column (kind 'date'/'iso-date'), classified to its
-// authored event kind by the canonical OUTPUT name it feeds — the same authored
-// vocabulary the interpretation lift reads, so a date column is bound exactly
-// where its dated format is attested. A registry exclusion (kind null, e.g. the
-// issuance families' event_date) lifts no binding; an UNCLASSIFIED output fails
-// loud inside eventKindForDateOutput, so a newly-authored date column must be
+// authored event kind — the column's own eventKind override where the spec
+// declares a licence-scoped fact (issue #725 S2), else by the canonical
+// OUTPUT name it feeds. Both resolutions are the same authored vocabulary the
+// interpretation lift reads, so a date column is bound exactly where its
+// dated format is attested. A registry exclusion (kind null, e.g. the
+// issuance families' event_date) lifts no binding; an UNCLASSIFIED output (or
+// an override naming an unreviewed kind) fails loud inside
+// eventKindForFoiDateColumn, so a newly-authored date column must be
 // classified before it can ride this family. Declaration order is preserved
 // (a stored fact of the emitted stream).
 function eventDateColumnsFor(source: RegisterSource): EventDateColumnBinding[] {
@@ -141,7 +144,7 @@ function eventDateColumnsFor(source: RegisterSource): EventDateColumnBinding[] {
   for (const column of source.conversion.columns) {
     if (column.kind !== 'date' && column.kind !== 'iso-date') continue;
     if (column.source === null) continue;
-    const kind = eventKindForDateOutput(column.output);
+    const kind = eventKindForFoiDateColumn(column);
     if (kind === null) continue;
     bindings.push({ source: column.source, kind });
   }

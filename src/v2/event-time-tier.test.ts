@@ -5,6 +5,7 @@ import {
   eventDatePredicate,
   eventKindOf,
   eventKindForDateOutput,
+  eventKindForFoiDateColumn,
   isoDayFromAttested,
   isoDayFromCellUnderAnyAttestedFormat,
   claimConfidence,
@@ -64,24 +65,27 @@ function registerLikeSource(): SourceObservationSet {
   };
 }
 
-// A source carrying the open-data 2026 union pair, whose original-start kind
-// carries the #800/#565 epistemics caveats.
+// A source carrying a licence-version original-start column, whose kind
+// carries the #800/#565 epistemics caveats. The header is one the kind's
+// authored bindings actually own ('Original Start Date', the 2021 register
+// annexes' header) — the Salesforce 'Licence '-prefixed headers now bind the
+// LICENCE-scoped kinds instead (issue #725 S2).
 function originalStartSource(): SourceObservationSet {
   return {
-    sourceFile: 'synthetic/opendata.csv',
-    vintage: '2026-06-23',
-    columns: ['Call Sign', 'Licence Original_start_date__c'],
+    sourceFile: 'synthetic/register-annex.csv',
+    vintage: '2021-04-21',
+    columns: ['Call Sign', 'Original Start Date'],
     subjectColumn: 'Call Sign',
     headerLine: 1,
     rows: [
-      { 'Call Sign': 'G3ATI', 'Licence Original_start_date__c': '1952-10-10' },
+      { 'Call Sign': 'G3ATI', 'Original Start Date': '1952-10-10' },
     ],
     columnInterpretations: [
       { type: 'callsign-token' },
       { type: 'date', format: 'YYYY-MM-DD' },
     ],
     eventDateColumns: [
-      { source: 'Licence Original_start_date__c', kind: 'licence-version-original-start' },
+      { source: 'Original Start Date', kind: 'licence-version-original-start' },
     ],
   };
 }
@@ -109,6 +113,35 @@ describe('the authored event-kind classification is total over the authored date
 
   it('EventKindRegistry_WhenAskedForAnUnknownOutput_FailsLoudRatherThanSilentlyEmittingNothing', () => {
     expect(() => eventKindForDateOutput('some_new_date_column')).toThrow(/no authored event-kind classification/);
+  });
+
+  it('LicenceScopedDateColumn_WithAnAuthoredEventKindOverride_BindsToTheOverrideNotTheOutputDefault', () => {
+    // Issue #725 S2: the same output name can carry a register-record fact in
+    // one disclosure and a LICENCE-object fact in another; the per-column
+    // override is how the licence-scoped column binds its own kind.
+    expect(eventKindForFoiDateColumn({ output: 'created_date', eventKind: 'licence-created' })).toBe('licence-created');
+    expect(eventKindForFoiDateColumn({ output: 'created_date' })).toBe('record-created');
+  });
+
+  it('EventKindOverride_NamingAnUnreviewedKind_FailsLoudRatherThanMintingAVocabularyEntry', () => {
+    expect(() => eventKindForFoiDateColumn({ output: 'created_date', eventKind: 'not-a-kind' })).toThrow(/not an authored event kind/);
+  });
+
+  it('LicenceScopedDisclosures_InTheRealConversions_BindTheirDateColumnsToLicenceScopedKinds', () => {
+    // The two disclosures whose date columns are licence-scoped (a per-licence
+    // sheet with duplicate callsigns; 'Licence '-prefixed Salesforce fields
+    // blank across the unlicensed pool) must never share a kind with the
+    // register-record columns — the S2 detector's cross-vintage comparison
+    // would otherwise read a licence-lifecycle difference as a register
+    // revision that never happened.
+    const sheet2 = FOI_ENTRY_CONVERSIONS['wdtk-1180568-csv-pair'][1];
+    const byOutput = new Map(sheet2.columns.map(c => [c.output, c]));
+    expect(eventKindForFoiDateColumn(byOutput.get('created_date') ?? { output: 'created_date' })).toBe('licence-created');
+    expect(eventKindForFoiDateColumn(byOutput.get('original_start_date') ?? { output: 'original_start_date' })).toBe('licence-original-start');
+    const salesforce = FOI_ENTRY_CONVERSIONS['ofcom-2025-09-11-register'][0];
+    const sfByOutput = new Map(salesforce.columns.map(c => [c.output, c]));
+    expect(eventKindForFoiDateColumn(sfByOutput.get('last_modified_date') ?? { output: 'last_modified_date' })).toBe('licence-last-modified');
+    expect(eventKindForFoiDateColumn(sfByOutput.get('original_start_date') ?? { output: 'original_start_date' })).toBe('licence-original-start');
   });
 
   it('EventKindRegistry_ForTheIssuanceFamiliesEventDate_IsADocumentedExclusionNotAKind', () => {

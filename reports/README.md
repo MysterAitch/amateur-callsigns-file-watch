@@ -8,6 +8,7 @@ Standing, deterministic views over the archive. Drill-downs:
 - [Regional-identifier distributions](regional-identifiers.md)
 - [Data-quality rollup](data-quality.md) - defect detectors, flags, parse statuses
 - [Class-product mismatches](class-product-mismatches.md) - standing table of every affected row
+- [Event-time coherency](event-time-coherency.md) - cross-vintage retroactive-revision detector: mass-update episodes, revisions, corroboration
 
 | dataset | records | distinct patterns | flag instances |
 |---|---:|---:|---:|

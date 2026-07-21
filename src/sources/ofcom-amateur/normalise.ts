@@ -142,6 +142,14 @@ const VARIANTS: Record<string, Record<string, CanonicalColumn | null>> = {
 // day-first CSV rendering.
 const ISO_DATE_VARIANTS: ReadonlySet<string> = new Set(['v2026-licence-version-iso']);
 
+// The attested date grammar of an open-data variant's date columns — the same
+// single fact interpretOpenDataColumns attests per column, exported so the
+// cross-vintage coherency fold (issue #725 S2) can compare two observations'
+// attested renderings without re-authoring the variant knowledge.
+export function openDataDateFormat(variant?: string): 'DD/MM/YYYY' | 'YYYY-MM-DD' {
+  return variant !== undefined && ISO_DATE_VARIANTS.has(variant) ? 'YYYY-MM-DD' : 'DD/MM/YYYY';
+}
+
 // VERIFIED declarations for every null-mapped ("ignored") column above (issue
 // #577, mirroring the FOI lane's ignoredColumns): every raw header VARIANTS
 // maps to null must have an entry here, checked at parse time - a null
@@ -390,7 +398,7 @@ export function interpretOpenDataColumns(
   // (typed date cells rendered YYYY-MM-DD by the mechanical extract). The
   // attestation is load-bearing - the interpretation oracle re-parses every
   // value under it - so it must state the true format, never a default.
-  const dateFormat = options.variant !== undefined && ISO_DATE_VARIANTS.has(options.variant) ? 'YYYY-MM-DD' : 'DD/MM/YYYY';
+  const dateFormat = openDataDateFormat(options.variant);
   return headers.map(header => {
     if (header === options.subjectColumn) return { type: 'callsign-token' };
     if (options.categoryColumn !== undefined && header === options.categoryColumn) return { type: 'enumerated-category' };

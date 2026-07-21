@@ -49,6 +49,7 @@ import { buildDataQualityFold, type DataQualityFold } from './data-quality-fold.
 import { buildFoiUnkeyableSummary, type FoiUnkeyableSummary } from './foi-unkeyable-fold.ts';
 import { writeCrossDatasetInvariants } from './cross-dataset-invariants.ts';
 import { writeForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
+import { writeEventTimeCoherency } from './event-time-coherency.ts';
 import { mdCell } from '../shared/markdown.ts';
 import { time, perfReport } from '../shared/perf.ts';
 
@@ -148,6 +149,12 @@ export function runReportSweep(): ReportSweepReport {
   // carrying the ever-forbidden union and per-suffix first-known dates.
   // Committed, so a change to the disallowed vocabulary shows up in a PR diff.
   time('reports:forbidden-suffix-history', () => writeForbiddenSuffixHistory());
+
+  // The cross-vintage event-time coherency report (issue #725 S2): the
+  // retroactive-revision detector over the S1 event-date claims — mass-update
+  // episodes, per-step revision classifications and corroboration depth.
+  // Committed so a new vintage shifting the coherency picture is a PR diff.
+  time('reports:event-time-coherency', () => writeEventTimeCoherency());
 
   // The newest dataset's matrix always appears: the coverage body is the
   // does-this-look-right triage surface, and current state belongs on it -
@@ -686,6 +693,7 @@ function writeReportsIndex(columnsNewestFirst: string[], statsByKey: Map<string,
     '- [Regional-identifier distributions](regional-identifiers.md)',
     '- [Data-quality rollup](data-quality.md) - defect detectors, flags, parse statuses',
     '- [Class-product mismatches](class-product-mismatches.md) - standing table of every affected row',
+    '- [Event-time coherency](event-time-coherency.md) - cross-vintage retroactive-revision detector: mass-update episodes, revisions, corroboration',
     '',
     '| dataset | records | distinct patterns | flag instances |',
     '|---|---:|---:|---:|',

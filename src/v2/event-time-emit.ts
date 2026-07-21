@@ -102,6 +102,31 @@ export const EVENT_DATE_RULE = 'event-date-extraction';
 //    anomaly — so the cohort reading must be derived from (date vs vintage) ×
 //    status, which is S2/S3 work. This kind asserts only what the cell states:
 //    the reservation window's stated end date.
+//
+// LICENCE-scoped kinds (issue #725 S2): some disclosures' date columns are
+// attributes of the LICENCE object, not the register record — a per-licence
+// sheet whose rows duplicate callsigns (one row per licence), or
+// 'Licence '-prefixed Salesforce fields blank across the unlicensed pool.
+// Those are DIFFERENT facts from the record-scoped kinds above (a licence is
+// created when granted/reissued; a register record's created stamp largely
+// carries the 2016 migration), so they carry their own kinds — bound via the
+// per-column eventKind override on the conversion specs — and the
+// cross-vintage detector structurally cannot compare them against
+// record-scoped dates:
+//
+//  - 'licence-created': the LICENCE record's stated creation date (the
+//    Salesforce Licence object's stamp) — not the register record's origin.
+//  - 'licence-last-modified': the LICENCE record's stated last-modified date —
+//    licence-object bookkeeping, blank where no licence exists (the
+//    reserved/available pool), with the same mass-update caveats as the other
+//    bookkeeping kinds.
+//  - 'licence-original-start': the CURRENT licence's stated original start
+//    date. Related to, but not the same fact as,
+//    'licence-version-original-start' (the earliest VERSION row surviving in a
+//    vintage): a licence-scoped export carries one value per licence with no
+//    version history at all. The #565 pre-1977 unreliability caveat applies to
+//    this field family too. An authored equivalence bridge across the scopes
+//    is deliberately NOT baked here.
 export const EVENT_DATE_KINDS: readonly string[] = [
   'record-created',
   'record-last-modified',
@@ -110,6 +135,9 @@ export const EVENT_DATE_KINDS: readonly string[] = [
   'licence-issued',
   'licence-cancelled',
   'reserved-until',
+  'licence-created',
+  'licence-last-modified',
+  'licence-original-start',
 ];
 
 const KIND_SET: ReadonlySet<string> = new Set(EVENT_DATE_KINDS);
@@ -154,6 +182,23 @@ export function eventKindForDateOutput(output: string): string | null {
     throw new Error(`eventKindForDateOutput: date column output "${output}" has no authored event-kind classification - add it to EVENT_KIND_BY_DATE_OUTPUT (or exclude it there with a documented reason)`);
   }
   return EVENT_KIND_BY_DATE_OUTPUT.get(output) ?? null;
+}
+
+// The event kind for one FOI conversion date column: the column's authored
+// per-source eventKind override where the spec carries one (validated against
+// the kind vocabulary — an unknown override name fails loud rather than
+// minting an unreviewed kind), else the output-name default. The single
+// resolution both the FOI collector's bindings and the explain arm's
+// kind->header map read, so they can never disagree about which kind a
+// column feeds.
+export function eventKindForFoiDateColumn(column: { readonly output: string; readonly eventKind?: string }): string | null {
+  if (column.eventKind !== undefined) {
+    if (!KIND_SET.has(column.eventKind)) {
+      throw new Error(`eventKindForFoiDateColumn: column output "${column.output}" declares eventKind "${column.eventKind}", which is not an authored event kind - add it to EVENT_DATE_KINDS (a reviewed vocabulary change) before binding to it`);
+    }
+    return column.eventKind;
+  }
+  return eventKindForDateOutput(column.output);
 }
 
 export function eventDatePredicate(kind: string): string {
