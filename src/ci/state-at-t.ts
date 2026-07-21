@@ -178,7 +178,7 @@ const RULE_ORDER: readonly StateRule[] = [
 export const RULE_GLOSSES: ReadonlyMap<StateRule, string> = new Map([
   ['no-evidence-for-subject', 'no event-time claim for this subject exists in the consulted corpus at all — outside coverage: an explicit cannot-infer, never "did not exist" or "was available"'],
   ['licence-start-on-or-before-t', 'at least one consulted vintage asserts a licence(-version) start or issue date on or before t — evidence a licence had started by t, as asserted by the named vintages; for the version-scoped kinds the date is only the earliest start SURVIVING in the asserting vintage (issue #800), so the true first start may be earlier still'],
-  ['consistent-with-licence-in-force-at-t', 'start evidence on or before t, with no cancellation evidence dated after that start and on or before t — CONSISTENT WITH a licence being in force at t, never proof: absence of a cancellation claim is non-observation (cancellation dates are sparsely attested in the held corpus), and a licence can end without any held dataset recording a dated end'],
+  ['consistent-with-licence-in-force-at-t', 'start evidence on or before t, with no cancellation evidence dated on or after that start and on or before t (a cancellation dated on the start day itself is treated as addressing that start) — CONSISTENT WITH a licence being in force at t, never proof: absence of a cancellation claim is non-observation (cancellation dates are sparsely attested in the held corpus), and a licence can end without any held dataset recording a dated end; the finding inherits the earliest-surviving/pre-1977 unreliability of the start it rests on, so it stays honest rendered alone'],
   ['licence-cancelled-on-or-before-t', 'a consulted vintage asserts a licence cancellation date on or before t — evidence a licence had been cancelled by then'],
   ['cancelled-with-no-later-start-evidence-by-t', 'the latest cancellation evidence on or before t post-dates every consulted start assertion on or before t — evidence the then-licence had been cancelled by t with no surviving evidence of a later start by t; NOT evidence the callsign was available at t (non-observation of a later grant is not absence of one)'],
   ['reservation-window-consistent-with-covering-t', 'a reservation window whose stated end is on or after t was asserted by a vintage collected on or before t — consistent with a reservation covering t; the source column carries three cohort meanings (planned close / retrospective termination / anomaly), so this is a conservative reading of the stated window bound, never a status claim'],
@@ -501,11 +501,18 @@ export function deriveStateAtT(rows: readonly SubjectEventRow[], query: StateAtT
   const latestCancel = cancelLines.length === 0 ? null : cancelLines[cancelLines.length - 1].day;
 
   if (startLines.length > 0 && latestStart !== null) {
-    const caveats: StateCaveat[] = [];
-    if (startLines.some(line => EARLIEST_SURVIVING_KINDS.has(line.kind))) caveats.push('earliest-surviving');
-    if (startLines.some(line => line.day < '1977-01-01')) caveats.push('pre-1977');
-    if (startLines.some(line => disagreeingKinds.has(line.kind))) caveats.push('vintages-disagree');
-    caveats.push(...commonCaveats(startLines));
+    // The caveats a start finding carries about its OWN date's reliability:
+    // the date-derived ones (issue #800 earliest-surviving, issue #565
+    // pre-1977) are separated out because the in-force finding rests on this
+    // same start and inherits them (issue #861 item 1) — a #726 surface
+    // rendering the in-force finding ALONE must not shed the unreliability of
+    // the date it depends on just because the start finding was adjacent.
+    const startDateCaveats: StateCaveat[] = [];
+    if (startLines.some(line => EARLIEST_SURVIVING_KINDS.has(line.kind))) startDateCaveats.push('earliest-surviving');
+    if (startLines.some(line => line.day < '1977-01-01')) startDateCaveats.push('pre-1977');
+    const startCaveats: StateCaveat[] = [...startDateCaveats];
+    if (startLines.some(line => disagreeingKinds.has(line.kind))) startCaveats.push('vintages-disagree');
+    startCaveats.push(...commonCaveats(startLines));
     const earliestStart = startLines[0].day;
     findings.push({
       rule: 'licence-start-on-or-before-t',
@@ -515,18 +522,25 @@ export function deriveStateAtT(rows: readonly SubjectEventRow[], query: StateAtT
         : `licence(-version) starts dated between ${earliestStart} and ${latestStart} are asserted on or before ${t}`,
       assertingVintages: vintagesOf(startLines),
       evidence: startLines,
-      caveats,
+      caveats: startCaveats,
     });
 
-    const cancelsAfterStart = cancelLines.filter(line => line.day > latestStart);
-    if (cancelsAfterStart.length === 0) {
+    // Closed-interval boundary (issue #861 item 2): a cancellation dated ON
+    // the latest start day is treated as addressing that start, so a licence
+    // issued and cancelled the same day does NOT read consistent-with-in-force.
+    // The strict-`>` open interval let a same-day issue+cancel read as
+    // in-force — literally true under the stated interval but semantically
+    // dubious; the closed reading is the more honest one, and the cancellation
+    // findings then carry the story instead of a misleading in-force claim.
+    const cancelsOnOrAfterStart = cancelLines.filter(line => line.day >= latestStart);
+    if (cancelsOnOrAfterStart.length === 0) {
       findings.push({
         rule: 'consistent-with-licence-in-force-at-t',
         epistemics: 'inferred',
-        statement: `start evidence dated ${latestStart} with no cancellation evidence dated in (${latestStart}, ${t}] among the consulted claims — consistent with a licence being in force at ${t}, never proof`,
+        statement: `start evidence dated ${latestStart} with no cancellation evidence dated in [${latestStart}, ${t}] among the consulted claims — consistent with a licence being in force at ${t}, never proof`,
         assertingVintages: vintagesOf(startLines),
         evidence: startLines,
-        caveats: ['cancellation-sparsity', 'availability-trap', ...commonCaveats(startLines)],
+        caveats: [...startDateCaveats, 'cancellation-sparsity', 'availability-trap', ...commonCaveats(startLines)],
       });
     }
   }
@@ -607,10 +621,21 @@ export function deriveStateAtT(rows: readonly SubjectEventRow[], query: StateAtT
   }
 
   // --- The honest gap -------------------------------------------------------
+  // Any reservation-window finding — covering, ended, OR start-unattested —
+  // addresses the reservation aspect of the licensing question, so the honest
+  // gap arm must not ALSO fire (issue #861 item 3): start-unattested already
+  // says a future-dated window bound exists but its start is unattested;
+  // co-firing no-licensing-evidence on top read self-contradictory at a glance
+  // (a window bound exists AND no licensing evidence exists). Excluding
+  // start-unattested here — the same way covering and ended were already
+  // excluded — removes the asymmetry that produced the double-fire.
   const licensingAddressed =
     startLines.length > 0
     || cancelLines.length > 0
-    || findings.some(f => f.rule === 'reservation-window-consistent-with-covering-t' || f.rule === 'reservation-window-stated-ended-by-t');
+    || findings.some(f =>
+      f.rule === 'reservation-window-consistent-with-covering-t'
+      || f.rule === 'reservation-window-stated-ended-by-t'
+      || f.rule === 'reservation-window-start-unattested');
   if (!licensingAddressed) {
     findings.push({
       rule: 'no-licensing-evidence-on-or-before-t',

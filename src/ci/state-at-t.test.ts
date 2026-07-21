@@ -161,6 +161,71 @@ describe('licence lifecycle inferences', { tags: ['unit'] }, () => {
     expect(inForce?.caveats).toEqual(expect.arrayContaining(['cancellation-sparsity', 'availability-trap']));
   });
 
+  it('LicenceInForce_RestingOnAVersionScopedPre1977Start_InheritsTheStartsDateDerivedCaveats', () => {
+    // Issue #861 item 1: a #726 surface may render the in-force finding ALONE,
+    // so it must carry the same earliest-surviving (#800) and pre-1977 (#565)
+    // unreliability as the start it rests on — not shed it because the start
+    // finding happened to sit adjacent in the committed report.
+    const answer = deriveStateAtT(
+      [row('licence-version-original-start', '1952-10-10', { vintage: '2025-11-11' })],
+      { subject: 'G3ATI', t: '1960-06-01' },
+    );
+    const start = answer.findings.find(f => f.rule === 'licence-start-on-or-before-t');
+    const inForce = answer.findings.find(f => f.rule === 'consistent-with-licence-in-force-at-t');
+    expect(start?.caveats).toEqual(expect.arrayContaining(['earliest-surviving', 'pre-1977']));
+    expect(inForce?.caveats).toEqual(expect.arrayContaining(['earliest-surviving', 'pre-1977', 'cancellation-sparsity', 'availability-trap']));
+  });
+
+  it('LicencePostDated1977Start_WithNoDateUnreliability_KeepsTheInForceFindingFreeOfDateCaveats', () => {
+    // The opposite scenario: a plain post-1977 licence-issued start carries no
+    // date-derived caveats, so the in-force finding it supports inherits none
+    // — only its own honest-absence caveats remain.
+    const answer = deriveStateAtT(
+      [row('licence-issued', '1998-07-14', { vintage: '2019-09-12' })],
+      { subject: 'M0ABC', t: '2005-06-01' },
+    );
+    const inForce = answer.findings.find(f => f.rule === 'consistent-with-licence-in-force-at-t');
+    expect(inForce?.caveats).not.toContain('earliest-surviving');
+    expect(inForce?.caveats).not.toContain('pre-1977');
+    expect(inForce?.caveats).toEqual(expect.arrayContaining(['cancellation-sparsity', 'availability-trap']));
+  });
+
+  it('LicenceIssuedAndCancelledTheSameDay_DoesNotReadConsistentWithInForce_TreatsTheCancellationAsAddressingTheStart', () => {
+    // Issue #861 item 2: the closed-interval boundary. A licence issued and
+    // cancelled the SAME day must not read consistent-with-in-force at a later
+    // t; the cancellation on the start day is treated as addressing the start,
+    // so only the start and the cancellation findings speak. cancelled-with-no-
+    // later-start does NOT fire either (the cancellation does not post-date the
+    // start, it coincides with it).
+    const answer = deriveStateAtT(
+      [
+        row('licence-issued', '2020-05-05', { vintage: '2020-10-23', dataset: 'r1' }),
+        row('licence-cancelled', '2020-05-05', { vintage: '2020-10-23', dataset: 'r1' }),
+      ],
+      { subject: 'G0SAME', t: '2021-01-01' },
+    );
+    expect(rulesOf(answer)).toEqual([
+      'licence-start-on-or-before-t',
+      'licence-cancelled-on-or-before-t',
+    ]);
+  });
+
+  it('LicenceCancelledStrictlyAfterTheStartDay_StillReadsConsistentWithInForce_TheBoundaryIsExclusiveOnlyAtTheStartDay', () => {
+    // The boundary is closed only ON the start day: a cancellation the day
+    // AFTER the start suppresses in-force (a cancellation in the open remainder
+    // of the interval), so the closed-interval change does not weaken the
+    // ordinary start-then-cancellation reading.
+    const answer = deriveStateAtT(
+      [
+        row('licence-issued', '2020-05-05', { vintage: '2020-10-23', dataset: 'r1' }),
+        row('licence-cancelled', '2020-05-06', { vintage: '2020-10-23', dataset: 'r1' }),
+      ],
+      { subject: 'G0NEXT', t: '2021-01-01' },
+    );
+    expect(rulesOf(answer)).not.toContain('consistent-with-licence-in-force-at-t');
+    expect(rulesOf(answer)).toContain('cancelled-with-no-later-start-evidence-by-t');
+  });
+
   it('LicenceCancelled_CancellationBetweenStartAndT_SuppressesInForceAndSaysNotAvailable', () => {
     const answer = deriveStateAtT(
       [
@@ -241,6 +306,20 @@ describe('reservation-window inferences', { tags: ['unit'] }, () => {
     expect(rulesOf(answer)).not.toContain('reservation-window-consistent-with-covering-t');
     const unattested = answer.findings.find(f => f.rule === 'reservation-window-start-unattested');
     expect(unattested?.statement).toContain('cannot be inferred');
+  });
+
+  it('ReservationStartUnattested_IsTheSoleFinding_AndDoesNotCoFireTheNoLicensingGap', () => {
+    // Issue #861 item 3: a future-dated, start-unattested reservation window IS
+    // the reservation-aspect finding for this subject, so the honest-gap arm
+    // (no-licensing-evidence-on-or-before-t) must NOT also fire — the pair read
+    // self-contradictory at a glance (a window bound exists AND no licensing
+    // evidence exists). The rule list is pinned EXACTLY, not by containment,
+    // so a regression that reintroduces the double-fire is caught.
+    const answer = deriveStateAtT(
+      [row('reserved-until', '2026-08-09', { vintage: '2024-09-10' })],
+      { subject: 'GB0SNB', t: '2020-01-01' },
+    );
+    expect(rulesOf(answer)).toEqual(['reservation-window-start-unattested']);
   });
 
   it('Reservation_EveryStatedEndBeforeT_ReadsStatedEndedNeverAvailable', () => {
