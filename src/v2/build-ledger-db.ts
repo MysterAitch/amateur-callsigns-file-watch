@@ -41,7 +41,7 @@ import * as zlib from 'zlib';
 import { execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { buildLedger, type EntrySelector } from './build-ledger.ts';
-import { parseClaimsJsonl } from './serialise.ts';
+import { readClaimsJsonlSync } from './serialise.ts';
 import {
   NORMALISES_TO_PREDICATE,
   CLEANED_CALLSIGN_RULE,
@@ -224,7 +224,9 @@ export function buildLedgerSqlite(ledgerDir: string, dbPath: string): LedgerSqli
 
   db.exec('BEGIN');
   for (const file of jsonlFiles) {
-    const claims = parseClaimsJsonl(fs.readFileSync(path.join(ledgerDir, file), 'utf8'));
+    // Chunked read: the biggest per-source ledgers exceed V8's maximum string
+    // length (issue #725 S1), so the JSONL decodes line by line off the Buffer.
+    const claims = readClaimsJsonlSync(path.join(ledgerDir, file));
     const keysOf = resolveKeys(claims);
     insertClaims(db, claims, keysOf);
     for (const claim of claims) entities.add(keysOf(claim).entity);

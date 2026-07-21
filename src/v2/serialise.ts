@@ -12,56 +12,111 @@
  * store runs in production; this is a downloadable lens only.
  */
 
+import * as fs from 'fs';
 import type { Claim, SourcePosition, ViewAnchor } from './claim.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
 
-// One JSON object per line, keys in a fixed order for a stable, diffable file.
+// One claim's JSONL line, keys in a fixed order for a stable, diffable file.
 // Emitting the object by hand (rather than JSON.stringify over an arbitrary
 // key order) keeps the serialisation deterministic regardless of insertion
-// order, so a re-run diff is a real signal.
+// order, so a re-run diff is a real signal. The ONE line encoding every
+// serialisation path shares — the whole-string serialiser and the chunked
+// file writer produce byte-identical output because both call this.
+export function serialiseClaimJsonlLine(claim: Claim): string {
+  const ordered: Record<string, unknown> = {
+    layer: claim.layer,
+    rawSubject: claim.rawSubject,
+    predicate: claim.predicate,
+    object: claim.object,
+    sourceFile: claim.provenance.sourceFile,
+    ordinal: claim.provenance.ordinal,
+    vintage: claim.provenance.vintage,
+  };
+  if (claim.rule !== undefined) ordered.rule = claim.rule;
+  // The source-position enrichment (issue #431), emitted only when the loader
+  // attested it - additive exactly like `rule`, so legacy ledgers round-trip
+  // unchanged. position is the source-intrinsic coordinate; viewAnchor is the
+  // line-viewable repo target a deep-link points at (§4.5).
+  if (claim.provenance.position !== undefined) ordered.position = claim.provenance.position;
+  if (claim.provenance.viewAnchor !== undefined) ordered.viewAnchor = claim.provenance.viewAnchor;
+  return JSON.stringify(ordered);
+}
+
 export function serialiseClaimsJsonl(claims: readonly Claim[]): string {
-  return claims.map(claim => {
-    const ordered: Record<string, unknown> = {
-      layer: claim.layer,
-      rawSubject: claim.rawSubject,
-      predicate: claim.predicate,
-      object: claim.object,
-      sourceFile: claim.provenance.sourceFile,
-      ordinal: claim.provenance.ordinal,
-      vintage: claim.provenance.vintage,
-    };
-    if (claim.rule !== undefined) ordered.rule = claim.rule;
-    // The source-position enrichment (issue #431), emitted only when the loader
-    // attested it - additive exactly like `rule`, so legacy ledgers round-trip
-    // unchanged. position is the source-intrinsic coordinate; viewAnchor is the
-    // line-viewable repo target a deep-link points at (§4.5).
-    if (claim.provenance.position !== undefined) ordered.position = claim.provenance.position;
-    if (claim.provenance.viewAnchor !== undefined) ordered.viewAnchor = claim.provenance.viewAnchor;
-    return JSON.stringify(ordered);
-  }).join('\n') + (claims.length > 0 ? '\n' : '');
+  return claims.map(serialiseClaimJsonlLine).join('\n') + (claims.length > 0 ? '\n' : '');
+}
+
+// How many lines each chunked write/decode handles at a time: large enough to
+// amortise the syscall/join overhead, small enough that a chunk's string stays
+// tens of megabytes — far under the engine cap the chunking exists to avoid.
+const JSONL_CHUNK_LINES = 100_000;
+
+// Write a source's ledger JSONL to disk in bounded chunks. The largest register
+// sources now serialise past V8's maximum string length (the event-time tier,
+// issue #725 S1, grew the biggest per-source ledgers beyond ~536 MB), so the
+// one-big-string write path cannot hold; chunking bounds peak string size while
+// producing BYTE-IDENTICAL output (every chunk is its lines joined by '\n' with
+// a trailing '\n', so the concatenation equals serialiseClaimsJsonl exactly).
+export function writeClaimsJsonlSync(filePath: string, claims: readonly Claim[]): void {
+  const fd = fs.openSync(filePath, 'w');
+  try {
+    for (let start = 0; start < claims.length; start += JSONL_CHUNK_LINES) {
+      const chunk = claims.slice(start, start + JSONL_CHUNK_LINES);
+      fs.writeSync(fd, chunk.map(serialiseClaimJsonlLine).join('\n') + '\n');
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+// Parse one JSONL line back to a claim — the round-trip partner of
+// serialiseClaimJsonlLine, shared by the whole-string parser and the chunked
+// file reader. `index` is the zero-based record index, used only for the
+// fail-loud parse message.
+function parseClaimJsonlLine(line: string, index: number): Claim {
+  const parsed = parseJsonObject(line, `claims.jsonl record ${index + 1}`) as {
+    layer: Claim['layer']; rawSubject: string; predicate: string; object: string;
+    sourceFile: string; ordinal: number; vintage: string; rule?: string;
+    position?: SourcePosition; viewAnchor?: ViewAnchor;
+  };
+  const claim: Claim = {
+    layer: parsed.layer,
+    rawSubject: parsed.rawSubject,
+    predicate: parsed.predicate,
+    object: parsed.object,
+    provenance: { sourceFile: parsed.sourceFile, ordinal: parsed.ordinal, vintage: parsed.vintage },
+  };
+  if (parsed.rule !== undefined) claim.rule = parsed.rule;
+  if (parsed.position !== undefined) claim.provenance.position = parsed.position;
+  if (parsed.viewAnchor !== undefined) claim.provenance.viewAnchor = parsed.viewAnchor;
+  return claim;
 }
 
 // Parse a JSONL ledger back to claims — the round-trip partner of the
 // serialiser, so a consumer can reload the canonical file without re-deriving.
 export function parseClaimsJsonl(jsonl: string): Claim[] {
-  return jsonl.split('\n').filter(line => line.trim() !== '').map((line, index) => {
-    const parsed = parseJsonObject(line, `claims.jsonl record ${index + 1}`) as {
-      layer: Claim['layer']; rawSubject: string; predicate: string; object: string;
-      sourceFile: string; ordinal: number; vintage: string; rule?: string;
-      position?: SourcePosition; viewAnchor?: ViewAnchor;
-    };
-    const claim: Claim = {
-      layer: parsed.layer,
-      rawSubject: parsed.rawSubject,
-      predicate: parsed.predicate,
-      object: parsed.object,
-      provenance: { sourceFile: parsed.sourceFile, ordinal: parsed.ordinal, vintage: parsed.vintage },
-    };
-    if (parsed.rule !== undefined) claim.rule = parsed.rule;
-    if (parsed.position !== undefined) claim.provenance.position = parsed.position;
-    if (parsed.viewAnchor !== undefined) claim.provenance.viewAnchor = parsed.viewAnchor;
-    return claim;
-  });
+  return jsonl.split('\n').filter(line => line.trim() !== '').map(parseClaimJsonlLine);
+}
+
+// Read a source's ledger JSONL from disk without ever materialising the file as
+// ONE string: the bytes load as a Buffer and each line decodes individually, so
+// a file past V8's maximum string length (the largest register sources, since
+// issue #725 S1) parses exactly as a small one does. Line-for-line identical to
+// parseClaimsJsonl over the same bytes (both call parseClaimJsonlLine).
+export function readClaimsJsonlSync(filePath: string): Claim[] {
+  const bytes = fs.readFileSync(filePath);
+  const claims: Claim[] = [];
+  let start = 0;
+  while (start < bytes.length) {
+    let end = bytes.indexOf(0x0a, start);
+    if (end === -1) end = bytes.length;
+    if (end > start) {
+      const line = bytes.toString('utf8', start, end);
+      if (line.trim() !== '') claims.push(parseClaimJsonlLine(line, claims.length));
+    }
+    start = end + 1;
+  }
+  return claims;
 }
 
 // Escape a literal for an N-Triples/N-Quads string, per the grammar: backslash,
