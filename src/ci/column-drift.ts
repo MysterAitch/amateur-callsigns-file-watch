@@ -573,7 +573,11 @@ function renderValue(value: string): string {
     const codepoint = ch.codePointAt(0) ?? 0;
     out += codepoint >= 0x20 && codepoint <= 0x7e ? ch : `{U+${codepoint.toString(16).toUpperCase().padStart(4, '0')}}`;
   }
-  return mdCode(out.replace(/\|/g, '\\|'));
+  // Escape backslashes FIRST, then pipes: a value carrying a literal `\` (or
+  // the sequence `\|`) would otherwise neutralise the pipe escaping and break
+  // the markdown table row. Order matters — escaping pipes first would then
+  // double-escape the backslashes this inserts.
+  return mdCode(out.replace(/\\/g, '\\\\').replace(/\|/g, '\\|'));
 }
 
 function lengthCell(fp: ColumnFingerprint): string {

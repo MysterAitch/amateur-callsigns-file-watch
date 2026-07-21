@@ -206,6 +206,33 @@ describe('column-drift — the pure divergence detector', { tags: ['unit'] }, ()
     const cur = fingerprintOf('v2', 'product', ['Full', 'Foundation', 'Full', 'Club', 'Full']);
     for (const s of detectDrift(twoVintages(prev, cur), TEST_PARAMS)) expect(kindsSeen.has(s.kind)).toBe(true);
   });
+
+  it('RenderedValue_WhenAValueCarriesABackslashOrEscapedPipe_StaysASingleWellFormedTableCell', () => {
+    // A hostile register value — one carrying a lone backslash, and one
+    // carrying the sequence `\|` — must not neutralise the table-cell escaping
+    // and split a divergence row into phantom cells (the incomplete-
+    // sanitisation class the report-sweep mdCell tests guard elsewhere).
+    const prev = fingerprintOf('v1', 'product', ['Full', 'Full', 'Foundation', 'Foundation', 'Full']);
+    const cur = fingerprintOf('v2', 'product', ['Full', 'Foundation', 'A\\B', 'A\\|B', 'Full']);
+    const signals = detectDrift(twoVintages(prev, cur), TEST_PARAMS);
+    const report = renderColumnDrift({ params: TEST_PARAMS, fingerprints: twoVintages(prev, cur), signals });
+
+    // The flagged-divergences table (| column | from | to | measure | detail |
+    // magnitude |) has six columns, so a well-formed row splits into eight
+    // parts on the delimiters once the escaped sequences are removed.
+    const cellCount = (row: string): number => row.replace(/\\\\/g, '').replace(/\\\|/g, '').split('|').length;
+    // Match the divergence-table rows by their kind CELL (`| novel-value |`),
+    // not a bare substring — the parameters table also mentions the term.
+    const novelRows = report.split('\n').filter(l => l.includes('| novel-value |'));
+    expect(novelRows.length).toBeGreaterThanOrEqual(2);
+    for (const row of novelRows) expect(cellCount(row)).toBe(8);
+
+    // The backslash is doubled and the pipe is backslash-escaped; no bare pipe
+    // from a value survives to delimit a phantom cell.
+    expect(report).toContain('A\\\\B');   // A\B      -> A\\B
+    expect(report).toContain('A\\\\\\|B'); // A\|B     -> A\\ then \|  => A\\\|B
+    expect(report).not.toContain('`A|B`'); // never an unescaped bare pipe
+  });
 });
 
 // The SQL fingerprint fold over a real (tiny) normalised.csv — gated on the
