@@ -205,3 +205,10 @@ event-date claims alone and commits the result to
 episodes, per-step revision classifications and corroboration depth — so a
 future vintage shifting either episode's fingerprint (or adding a new one)
 surfaces as a PR diff rather than needing rediscovery.
+
+Building on both, the state-at-t engine (`src/ci/state-at-t.ts`, #725 S3)
+derives what the corpus can honestly say about a callsign at an arbitrary
+date — inferred-only (#723), parameterised by both temporal axes, episode-
+and creep-aware — and commits its worked demonstration to
+[`reports/state-at-t.md`](../reports/state-at-t.md); the G3ATI/G3SDS episodes
+above double as its ground-truth examples.
