@@ -12,6 +12,7 @@ Standing, deterministic views over the archive. Drill-downs:
 - [State-at-t reconstruction](state-at-t.md) - bi-temporal inference engine: what the corpus can honestly say about a callsign at a date, and under which vintages
 - [Policy-as-tests invariants](policy-invariants.md) - the regulator's stated rules as executable invariants: the two-year reservation window tested against the held data
 - [Curiosity index](curiosity-index.md) - reference-free per-record rarity score: the most unusual records in the newest publication, with each score’s component breakdown
+- [Namespace sequence analytics](sequence-analytics.md) - allocation order (H5), gap structure, issuance-rate curves and a naive series-exhaustion projection per prefix series
 
 | dataset | records | distinct patterns | flag instances |
 |---|---:|---:|---:|
