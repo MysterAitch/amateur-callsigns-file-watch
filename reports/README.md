@@ -10,6 +10,7 @@ Standing, deterministic views over the archive. Drill-downs:
 - [Class-product mismatches](class-product-mismatches.md) - standing table of every affected row
 - [Event-time coherency](event-time-coherency.md) - cross-vintage retroactive-revision detector: mass-update episodes, revisions, corroboration
 - [State-at-t reconstruction](state-at-t.md) - bi-temporal inference engine: what the corpus can honestly say about a callsign at a date, and under which vintages
+- [Policy-as-tests invariants](policy-invariants.md) - the regulator's stated rules as executable invariants: the two-year reservation window tested against the held data
 
 | dataset | records | distinct patterns | flag instances |
 |---|---:|---:|---:|

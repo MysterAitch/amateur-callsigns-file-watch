@@ -51,6 +51,7 @@ import { writeCrossDatasetInvariants } from './cross-dataset-invariants.ts';
 import { writeForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { writeEventTimeCoherency } from './event-time-coherency.ts';
 import { writeStateAtTReport } from './state-at-t.ts';
+import { writePolicyInvariantsReport } from './policy-invariants.ts';
 import { mdCell } from '../shared/markdown.ts';
 import { time, perfReport } from '../shared/perf.ts';
 
@@ -162,6 +163,13 @@ export function runReportSweep(): ReportSweepReport {
   // per-kind coverage honesty and the authored worked examples. Committed so
   // a new vintage shifting any answer is a PR diff.
   time('reports:state-at-t', () => writeStateAtTReport());
+
+  // The policy-as-tests invariants report (issue #863): the regulator's stated
+  // rules encoded as executable invariants over the ledger — the first being
+  // the two-year reservation window (FOI 756622's Reserved definition) tested
+  // against every `reserved-until` claim. Committed so a new vintage shifting
+  // any policy finding is a PR diff.
+  time('reports:policy-invariants', () => writePolicyInvariantsReport());
 
   // The newest dataset's matrix always appears: the coverage body is the
   // does-this-look-right triage surface, and current state belongs on it -
@@ -702,6 +710,7 @@ function writeReportsIndex(columnsNewestFirst: string[], statsByKey: Map<string,
     '- [Class-product mismatches](class-product-mismatches.md) - standing table of every affected row',
     '- [Event-time coherency](event-time-coherency.md) - cross-vintage retroactive-revision detector: mass-update episodes, revisions, corroboration',
     '- [State-at-t reconstruction](state-at-t.md) - bi-temporal inference engine: what the corpus can honestly say about a callsign at a date, and under which vintages',
+    '- [Policy-as-tests invariants](policy-invariants.md) - the regulator\'s stated rules as executable invariants: the two-year reservation window tested against the held data',
     '',
     '| dataset | records | distinct patterns | flag instances |',
     '|---|---:|---:|---:|',
