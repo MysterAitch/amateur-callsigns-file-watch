@@ -68,7 +68,7 @@ vintage carrying full datetimes in both `created_date` and
 
 **Status history:**
 
-- 2026-07-16 — `refuted`. Day-of-week distribution flat (Sun 14,485 → Fri
+- 2026-07-21 — `refuted`. Day-of-week distribution flat (Sun 14,485 → Fri
   17,302); largest migration day a Saturday. Source: #858.
 
 ---
@@ -100,7 +100,7 @@ grouping by `hour(last_modified_date)`.
 
 **Status history:**
 
-- 2026-07-16 — `refuted` for the bulk. 02:00–04:00 cluster ~69k/~112k; evening
+- 2026-07-21 — `refuted` for the bulk. 02:00–04:00 cluster ~69k/~112k; evening
   18:00–19:00 spike ~22k; business-hours band only ~1.2–1.5k/hour. Source: #858.
 
 ### H2a — The 18:00–19:00 evening band is holder self-service (human), not a cron job (machine)
@@ -121,7 +121,7 @@ the follow-up cut named on
 
 **Status history:**
 
-- 2026-07-16 — `untested`. Recorded as a discovered question; route identified
+- 2026-07-21 — `untested`. Recorded as a discovered question; route identified
   (weekend-dip test), not yet run. Source: #858.
 
 ---
@@ -145,8 +145,8 @@ against the corresponding open-data vintage on the shared key.
 
 **Status history:**
 
-- 2026-07-16 — `validated`. 632/632 rows consistent with a UTC-vs-local offset.
-  Source: #858.
+- 2026-07-21 — `validated`. 632/632 rows consistent with a UTC-vs-local offset;
+  the natural experiment established in the #857 review and recorded on #858.
 
 ---
 
@@ -171,7 +171,7 @@ emit a fold + golden report of every window that does not match.
 
 **Status history:**
 
-- 2026-07-16 — `untested`. Route identified (#863's first policy invariant);
+- 2026-07-21 — `untested`. Route identified (#863's first policy invariant);
   known counter-instance #568 noted. Source: #863.
 
 ---
@@ -194,7 +194,7 @@ fold + golden report of allocation order and gap structure per series.
 
 **Status history:**
 
-- 2026-07-16 — `untested`. Route identified (#864's sequence analytics), not yet
+- 2026-07-21 — `untested`. Route identified (#864's sequence analytics), not yet
   run. Source: #864.
 
 ---
@@ -226,6 +226,6 @@ corroboration against Ofcom is the open follow-up named on #565.
 
 **Status history:**
 
-- 2026-07-16 — `undeterminable`. Grounded on the cited OARC community
+- 2026-07-21 — `undeterminable`. Grounded on the cited OARC community
   attestation of the pre-1977 administrative glitch; no independent ground
   truth held; corroboration against Ofcom outstanding. Source: #565.
