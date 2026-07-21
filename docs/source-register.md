@@ -188,6 +188,11 @@ event-time work (#725/#726) — inherits them rather than rediscovering them.
 Each is flagged as observed, with candidate explanations offered but **not**
 adjudicated (the project's flag-don't-adjudicate posture).
 
+> Assumptions and hypotheses *about* the data (as distinct from the episodes
+> observed *in* it) live in the sibling
+> [`docs/hypothesis-register.md`](hypothesis-register.md) — a statused ledger of
+> claims, each with re-runnable evidence and an epistemics tag.
+
 | episode | what was observed | candidate explanations (not chosen) | issue |
 |---|---|---|---|
 | **Mass-update, 2025-10-11 / 2025-10-30** | `licence_version_last_modified_date` clusters onto two single days across every open-data vintage carrying the column: ~76k rows on 2025-10-11 + ~11k on 2025-10-30 = a **majority of the register** (61.7% / 58.5% / 55.2% in `archive/2025-11-11`, `2026-01-14`, `2026-06-23`). No other single day approaches this scale (next-largest weekly cluster ≈ 1,310 rows). The `v2026-licence-version-*` header variants — the first to carry these columns — first appear in the vintage fetched immediately after this window (2025-11-11). | a back-end/schema migration touching every record; a bulk administrative revision; a genuine data-quality event. The migration coincidence is suggestive, not established. | #801 |
