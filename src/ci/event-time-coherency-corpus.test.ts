@@ -124,10 +124,13 @@ describe.skipIf(!duckDbAvailable())('event-time coherency — real-corpus ground
   });
 
   it('MassEpisodes_OnTheCurrentCorpus_AreExactlyTheTwoRecordedOnes', () => {
-    // A THIRD episode appearing here is a genuine new finding (or a detector
-    // regression) and must be looked at, then recorded in
-    // docs/source-register.md alongside #800/#801 — not waved through.
-    expect(c.episodes.map(e => `${e.start}..${e.end}`)).toEqual([
+    expect(
+      c.episodes.map(e => `${e.start}..${e.end}`),
+      'The detected episode list moved. A NEW episode here is a genuine finding (or a detector regression), '
+      + 'never routine churn: examine its witness signals, record the episode in docs/source-register.md\'s '
+      + '"Known data-coherency episodes" table alongside #800/#801, regenerate reports/event-time-coherency.md '
+      + '(node src/ci/event-time-coherency.ts), and only then update this pinned list.',
+    ).toEqual([
       '2016-07-23..2016-08-12',
       '2025-10-11..2025-10-30',
     ]);
@@ -149,9 +152,9 @@ describe.skipIf(!duckDbAvailable())('event-time coherency — real-corpus ground
       classification: 'revised-forward',
       mechanism: 'version-window-drop',
     });
-    // Richer than the recorded pair: the 1952 row is also absent from the
-    // FOI 2025-09-11 export and REAPPEARS in 2025-11-11 — the extension
-    // mirror of the drop.
+    // Richer than the recorded pair: the 1952 row is absent from the 2021
+    // register annexes (whose earliest surviving date is already 2015-02-07)
+    // and REAPPEARS in 2025-11-11 — the extension mirror of the drop.
     expect(v20251111).toMatchObject({ classification: 'revised-backward', mechanism: 'version-window-extension' });
   });
 
@@ -161,12 +164,17 @@ describe.skipIf(!duckDbAvailable())('event-time coherency — real-corpus ground
     // callsign's date replaced wholesale on a variation/reissue.
     const seq = subjectKindSequence(handle.source, 'G3SDS', c.episodes)
       .filter(r => r.kind === 'licence-version-original-start');
-    // Six consecutive datasets across both lanes corroborate 1977-07-09…
+    // Four consecutive version-scoped datasets across both lanes corroborate
+    // 1977-07-09 (the licence-SCOPED 2024/2025 disclosures agree too, under
+    // their own licence-original-start kind — separate by design)…
     const before = seq.filter(r => r.dataset !== '2026-06-23');
-    expect(before.length).toBe(6);
+    expect(before.length).toBe(4);
     for (const row of before) expect(row).toMatchObject({ stat: '1977-07-09', nrows: 1 });
-    expect(before.filter(r => r.classification === 'corroborated')).toHaveLength(5);
-    // …then the latest vintage contradicts them all.
+    expect(before.filter(r => r.classification === 'corroborated')).toHaveLength(3);
+    // …then the latest vintage contradicts them all. The 49-year jump keeps
+    // the sole-row-replacement candidate even though this pair crosses a
+    // rendering boundary (ISO 2026-01-14 vs day-first 2026-06-23): a
+    // day-truncation collision can only ever move a date by one day.
     const v20260623 = seq.find(r => r.dataset === '2026-06-23');
     expect(v20260623).toMatchObject({
       stat: '2026-02-23',
@@ -174,6 +182,11 @@ describe.skipIf(!duckDbAvailable())('event-time coherency — real-corpus ground
       classification: 'revised-forward',
       mechanism: 'sole-row-replacement',
     });
+    // The licence-scoped kind sees the same 1977 story from its own two
+    // witnesses, structurally never compared against the version-scoped rows.
+    const licenceScoped = subjectKindSequence(handle.source, 'G3SDS', c.episodes)
+      .filter(r => r.kind === 'licence-original-start');
+    expect(licenceScoped.map(r => r.stat)).toEqual(['1977-07-09', '1977-07-09']);
   });
 
   // --- Corroboration for stable facts -------------------------------------
@@ -185,30 +198,63 @@ describe.skipIf(!duckDbAvailable())('event-time coherency — real-corpus ground
     // through time.
     const licenceIssued = c.corroboration.find(r => r.kind === 'licence-issued' && r.depth === 2);
     expect(licenceIssued).toEqual({ kind: 'licence-issued', depth: 2, agreeing: 103_901, diverging: 0 });
-    // The earliest-surviving original-start date is corroborated by all
-    // seven carrying datasets for the overwhelming majority of subjects.
-    const originalStart7 = c.corroboration.find(r => r.kind === 'licence-version-original-start' && r.depth === 7);
-    expect(originalStart7?.agreeing ?? 0).toBeGreaterThan(80_000);
-    expect(originalStart7?.diverging ?? 0).toBeLessThan(1_000);
+    // The earliest-surviving original-start date is corroborated by all five
+    // version-scoped datasets for the overwhelming majority of subjects.
+    const originalStart5 = c.corroboration.find(r => r.kind === 'licence-version-original-start' && r.depth === 5);
+    expect(originalStart5?.agreeing ?? 0).toBeGreaterThan(80_000);
+    expect(originalStart5?.diverging ?? 0).toBeLessThan(1_000);
+    // The two licence-SCOPED disclosures (the per-licence 2024-10 sheet and
+    // the Salesforce-flavoured 2025-09-11 workbook) corroborate each other's
+    // licence original-start for ~103k subjects — agreement that was
+    // previously misread as ~102k register-record revisions.
+    const licenceOriginal = c.corroboration.find(r => r.kind === 'licence-original-start' && r.depth === 2);
+    expect(licenceOriginal?.agreeing ?? 0).toBeGreaterThan(100_000);
   });
 
-  // --- The detector's own fresh catches stay aggregated -------------------
+  // --- Cross-scope artefacts stay structurally impossible ------------------
+  //
+  // The review of the first cut established that all three of its "fresh
+  // catches" were ARTEFACTS of conflated column semantics or rendering
+  // differences, not register revisions. These cases pin the corrections.
 
-  it('SystematicDivergence_OfOneDisclosuresCreatedDates_SurfacesAsPairsNotAsNoise', () => {
-    // A genuine S2 finding beyond the recorded episodes: wdtk-1180568's
-    // CreatedDate column disagrees with BOTH its neighbouring register
-    // snapshots for ~102k subjects (its dates cluster in 2024 where the
-    // registers carry the 2016 migration dates) — candidate explanation: the
-    // disclosure's column records a different fact (a licence/version
-    // creation, not the register record's). The detector must LOCATE it as
-    // dataset-level pair rows, not drown the report in ~102k rows.
-    const inbound = c.pairs.find(p =>
-      p.kind === 'record-created' && p.dataset.startsWith('wdtk-1180568') && p.classification === 'revised-forward');
-    expect(inbound?.subjects ?? 0).toBeGreaterThan(100_000);
-    const outbound = c.pairs.find(p =>
-      p.kind === 'record-created' && p.prevDataset.startsWith('wdtk-1180568') && p.classification === 'revised-backward' && p.mechanism === 'sole-row-replacement');
-    expect(outbound?.subjects ?? 0).toBeGreaterThan(100_000);
-    // Bounded surfaces: exemplars are capped per kind and direction.
+  it('LicenceScopedColumns_AfterTheKindSplit_NeverReadAsRegisterRecordRevisions', () => {
+    // wdtk-1180568's per-licence CreatedDate (values in 2024, the
+    // disclosure's era) was previously compared against register records'
+    // created dates (the 2016 migration cluster) as one kind, manufacturing
+    // ~102k phantom "revisions" in each direction. With the licence-scoped
+    // kinds split, neither that disclosure nor the licence-scoped 2025-09-11
+    // workbook participates in ANY record-scoped comparison…
+    for (const kind of ['record-created', 'record-last-modified']) {
+      expect(c.pairs.filter(p => p.kind === kind && (p.dataset.startsWith('wdtk-1180568') || p.prevDataset.startsWith('wdtk-1180568')))).toEqual([]);
+      expect(c.pairs.filter(p => p.kind === kind && (p.dataset.startsWith('ofcom-2025-09-11') || p.prevDataset.startsWith('ofcom-2025-09-11')))).toEqual([]);
+    }
+    // …and the record-created axis returns to near-total corroboration: the
+    // handful of genuine per-record divergences, not ~204k phantom steps.
+    const recordCreatedRevised = c.totals
+      .filter(t => t.kind === 'record-created' && (t.classification === 'revised-forward' || t.classification === 'revised-backward'))
+      .reduce((sum, t) => sum + t.subjects, 0);
+    expect(recordCreatedRevised).toBeLessThan(20);
+    // Each licence-scoped kind currently has at most the two 2024/2025
+    // witnesses, so no licence-scoped comparison crosses into any other kind.
+    for (const t of c.totals) {
+      expect(['record-created', 'record-last-modified', 'licence-version-last-modified', 'licence-version-original-start', 'licence-issued', 'licence-cancelled', 'reserved-until', 'licence-created', 'licence-last-modified', 'licence-original-start']).toContain(t.kind);
+    }
+  });
+
+  it('OneDayLastModifiedGap_AcrossTheUtcRenderedWdtkExport_CarriesTheRenderingDifferenceCandidate', () => {
+    // The 632 subjects whose last-modified reads one day earlier in
+    // wdtk-1141667 than in the 2024-07 register: the register renders
+    // day-first date-only (local), the workbook export renders ISO with UTC
+    // time-of-day, and S1's day truncation shifts a 23:00Z stamp into the
+    // previous BST day. Confirmed a rendering collision, not an event — the
+    // mechanism must say so, never sole-row-replacement.
+    const pair = c.pairs.find(p =>
+      p.kind === 'record-last-modified'
+      && p.prevDataset.startsWith('ofcom-2024-07')
+      && p.dataset.startsWith('wdtk-1141667')
+      && p.classification === 'revised-backward');
+    expect(pair).toMatchObject({ mechanism: 'rendering-difference', subjects: 632 });
+    // Bounded surfaces: exemplars stay capped per kind and direction.
     expect(c.exemplars.length).toBeLessThanOrEqual(EVENT_DATE_KINDS.length * 2 * EXEMPLAR_LIMIT);
   });
 });

@@ -13,6 +13,7 @@ import {
   computeEventTimeCoherency,
   subjectKindSequence,
   renderEventTimeCoherency,
+  type AttestedGrammarRow,
   type DaySignal,
   type EpisodeParams,
   type EventTimeCoherency,
@@ -240,7 +241,7 @@ describe.skipIf(!duckDbAvailable())('classification over a fixture ledger', { ta
   it('FixtureCorpus_WhenFolded_ClassifiesEveryScenarioAndAggregatesTheEpisode', () => {
     const dir = writeFixtureLedger();
     try {
-      const c = computeEventTimeCoherency(dir, FIXTURE_PARAMS);
+      const c = computeEventTimeCoherency(dir, FIXTURE_PARAMS, []);
 
       // The 80% single-day cluster in V2's last-modified dates is an episode.
       expect(c.episodes).toHaveLength(1);
@@ -280,8 +281,8 @@ describe.skipIf(!duckDbAvailable())('classification over a fixture ledger', { ta
   it('SubjectSequence_ForTheExtensionScenario_ShowsTheWorkingStepByStep', () => {
     const dir = writeFixtureLedger();
     try {
-      const c = computeEventTimeCoherency(dir, FIXTURE_PARAMS);
-      const seq = subjectKindSequence(dir, 'BACKEXT', c.episodes);
+      const c = computeEventTimeCoherency(dir, FIXTURE_PARAMS, []);
+      const seq = subjectKindSequence(dir, 'BACKEXT', c.episodes, []);
       expect(seq).toEqual([
         expect.objectContaining({ dataset: '2020-06-01', stat: '2015-02-07', nrows: 1, classification: 'first-observation' }),
         expect.objectContaining({ dataset: '2025-12-01', stat: '1952-10-10', nrows: 2, prevStat: '2015-02-07', classification: 'revised-backward', mechanism: 'version-window-extension' }),
@@ -298,10 +299,48 @@ describe.skipIf(!duckDbAvailable())('classification over a fixture ledger', { ta
     // fold-backed report follows), never reach DuckDB's read_json.
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'event-time-coherency-empty-'));
     try {
-      const c = computeEventTimeCoherency(dir, FIXTURE_PARAMS);
+      const c = computeEventTimeCoherency(dir, FIXTURE_PARAMS, []);
       expect(c).toMatchObject({ episodes: [], totals: [], pairs: [], exemplars: [], corroboration: [] });
-      expect(subjectKindSequence(dir, 'M7TEE', c.episodes)).toEqual([]);
+      expect(subjectKindSequence(dir, 'M7TEE', c.episodes, [])).toEqual([]);
       expect(renderEventTimeCoherency(c)).toContain('not a clean bill of health');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('OneDayBackwardStep_AcrossDifferingAttestedRenderings_PrefersRenderingDifferenceOverSoleRowReplacement', () => {
+    // The wdtk-1141667 shape: a register renders the date day-first date-only
+    // (local), a workbook export renders it ISO with a UTC time-of-day; day
+    // truncation then shifts a 23:00Z stamp into the previous BST day. When
+    // the two sides' attested renderings differ the mechanism must name the
+    // rendering as the candidate — never sole-row-replacement; with identical
+    // renderings the same movement keeps the replacement candidate.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'event-time-coherency-render-'));
+    try {
+      const claims: Claim[] = [
+        eventClaim(V1, 'RENDER', 'record-created', '2024-04-08', 0),
+        eventClaim(V2, 'RENDER', 'record-created', '2024-04-07', 1),
+        // A wholesale multi-year jump across the same rendering boundary: NOT
+        // producible by the day-truncation collision, so it must keep its
+        // multiplicity-based candidate — labelling a reissue-scale jump
+        // "rendering" would itself be misleading processing.
+        eventClaim(V1, 'REISSUE', 'record-created', '1977-07-09', 2),
+        eventClaim(V2, 'REISSUE', 'record-created', '2025-02-23', 3),
+      ];
+      fs.writeFileSync(path.join(dir, 'fixture.jsonl'), serialiseClaimsJsonl(claims));
+      const crossFormat: AttestedGrammarRow[] = [
+        { lane: 'opendata', dataset: '2020-06-01', kind: '*', grammar: 'DD/MM/YYYY' },
+        { lane: 'opendata', dataset: '2025-12-01', kind: '*', grammar: 'YYYY-MM-DD' },
+      ];
+      const flagged = computeEventTimeCoherency(dir, FIXTURE_PARAMS, crossFormat);
+      const bySubject = new Map(flagged.exemplars.map(e => [e.subject, e]));
+      expect(bySubject.get('RENDER')).toMatchObject({ classification: 'revised-backward', mechanism: 'rendering-difference' });
+      expect(bySubject.get('REISSUE')).toMatchObject({ classification: 'revised-forward', mechanism: 'sole-row-replacement' });
+      const sameFormat = computeEventTimeCoherency(dir, FIXTURE_PARAMS, [
+        { lane: 'opendata', dataset: '2020-06-01', kind: '*', grammar: 'DD/MM/YYYY' },
+        { lane: 'opendata', dataset: '2025-12-01', kind: '*', grammar: 'DD/MM/YYYY' },
+      ]);
+      expect(sameFormat.exemplars.find(e => e.subject === 'RENDER')).toMatchObject({ classification: 'revised-backward', mechanism: 'sole-row-replacement' });
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -310,7 +349,7 @@ describe.skipIf(!duckDbAvailable())('classification over a fixture ledger', { ta
   it('FirstObservation_OfANewcomerSubject_IsNeverCountedAsAnyClassification', () => {
     const dir = writeFixtureLedger();
     try {
-      const c = computeEventTimeCoherency(dir, FIXTURE_PARAMS);
+      const c = computeEventTimeCoherency(dir, FIXTURE_PARAMS, []);
       // NEWCOMER appears in no total, no pair and no exemplar: one
       // observation asserts nothing about change.
       expect(c.totals.reduce((sum, t) => sum + t.subjects, 0)).toBe(17);

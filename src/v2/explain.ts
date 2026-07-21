@@ -59,6 +59,7 @@ import {
   EVENT_DATE_RULE,
   eventKindOf,
   eventKindForDateOutput,
+  eventKindForFoiDateColumn,
   isoDayFromCellUnderAnyAttestedFormat,
   PARSE_CALLSIGN_RULE,
   PARSE_STATUS_PREDICATE,
@@ -530,6 +531,15 @@ function explainAuthoredRole(claim: Claim, ledger: readonly Claim[]): Working {
 const ORIGINAL_START_KIND = 'licence-version-original-start';
 const ORIGINAL_START_CAVEAT = 'this is the earliest licence-version start date SURVIVING in this vintage, not necessarily the true original (issue #800: version history erodes forward-only), and dates before 1977 are attested-unreliable (issue #565)';
 
+// The epistemics caveats for the LICENCE-scoped kinds (issue #725 S2): each
+// states which OBJECT the date describes, so a reader never mistakes a
+// licence-lifecycle date for the register record's own.
+const LICENCE_SCOPED_CAVEATS: ReadonlyMap<string, string> = new Map([
+  ['licence-created', 'this is the LICENCE record\'s stated creation date (the source system\'s licence object), not the register record\'s origin — a licence is created when granted or reissued, so this date tracks the licence\'s lifecycle'],
+  ['licence-last-modified', 'this is the LICENCE record\'s stated last-modified date — licence-object bookkeeping, absent wherever no licence exists (the reserved/available pool), with the same mass-update caveats as the other bookkeeping kinds'],
+  ['licence-original-start', 'this is the CURRENT licence\'s stated original start date — related to, but not the same fact as, the earliest licence-version start surviving in a vintage; dates before 1977 are attested-unreliable (issue #565)'],
+]);
+
 // The raw source headers each authored event kind can be read under, LIFTED
 // from the same registries the loaders lift their bindings from: the FOI
 // conversion bindings' date-kind column specs, and the open-data variant
@@ -554,7 +564,10 @@ function eventDateHeadersByKind(): ReadonlyMap<string, ReadonlySet<string>> {
     for (const conversion of conversions) {
       for (const column of conversion.columns) {
         if ((column.kind === 'date' || column.kind === 'iso-date') && column.source !== null) {
-          add(eventKindForDateOutput(column.output), column.source);
+          // The column's own eventKind override (the licence-scoped kinds,
+          // issue #725 S2) wins over the output-name default — the same
+          // resolution the FOI collector binds with.
+          add(eventKindForFoiDateColumn(column), column.source);
         }
       }
     }
@@ -607,6 +620,10 @@ function explainEventDate(claim: Claim, ledger: readonly Claim[]): Working {
   ];
   if (kind === ORIGINAL_START_KIND) {
     steps.push({ detail: ORIGINAL_START_CAVEAT });
+  }
+  const licenceScopedCaveat = LICENCE_SCOPED_CAVEATS.get(kind);
+  if (licenceScopedCaveat !== undefined) {
+    steps.push({ detail: licenceScopedCaveat });
   }
   return buildWorking(claim, inputs, steps, result);
 }

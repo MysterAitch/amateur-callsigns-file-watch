@@ -72,10 +72,25 @@
  *                               the earlier assertion survives among its rows
  *                               — a wider retention window, not a
  *                               replacement.
+ *  - rendering-difference     — the two observations' columns attest
+ *                               DIFFERENT date renderings (day-first CSV vs
+ *                               ISO workbook extract) AND the movement is
+ *                               exactly one day — the only shift a
+ *                               day-truncation collision can produce (a
+ *                               UTC-rendered 23:00 timestamp truncates to the
+ *                               previous day against a local date-only
+ *                               rendering). Preferred over
+ *                               sole-row-replacement wherever it applies; a
+ *                               movement larger than a day cannot be the
+ *                               collision, so it keeps its multiplicity-based
+ *                               candidate (labelling a 49-year reissue jump
+ *                               "rendering" would itself be the misleading
+ *                               processing this module polices).
  *  - sole-row-replacement     — the earlier vintage held a single dated row
  *                               whose value was replaced wholesale (issue
  *                               #800's G3SDS shape: a reissue/variation
- *                               rewriting the date).
+ *                               rewriting the date). Never applied to a
+ *                               one-day movement across a rendering boundary.
  *
  * Comparison semantics: subjects join across vintages on the cleaned callsign
  * key (a JOIN KEY, not an identity — the same rule every cross-publication
@@ -113,8 +128,15 @@ import {
   EVENT_DATE_RULE,
   EVENT_DATE_PREDICATE_PREFIX,
   EVENT_DATE_KINDS,
+  eventKindForFoiDateColumn,
 } from '../v2/claim.ts';
 import { buildLedger } from '../v2/build-ledger.ts';
+import { registerSourcesFor } from '../v2/collectors/foi-register.ts';
+import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
+import { listArchiveKeys } from '../shared/archive.ts';
+import { openDataDateFormat } from '../sources/ofcom-amateur/normalise.ts';
+import { DIRS } from '../shared/constants.ts';
+import { parseJsonObject } from '../shared/json-shape.ts';
 import { time, perfReport } from '../shared/perf.ts';
 
 // --- Tunable parameters (issue #725: "the threshold and window are
@@ -191,6 +213,12 @@ const KIND_TEMPORALITY: ReadonlyMap<string, KindTemporality> = new Map([
   ['licence-issued', 'past-event'],
   ['licence-cancelled', 'past-event'],
   ['reserved-until', 'forward-looking'],
+  // The LICENCE-scoped kinds (issue #725 S2): distinct kinds precisely so the
+  // detector never compares a licence-lifecycle date against a
+  // register-record date as if they were one fact.
+  ['licence-created', 'past-event'],
+  ['licence-last-modified', 'bookkeeping'],
+  ['licence-original-start', 'past-event'],
 ]);
 
 export function temporalityOf(kind: string): KindTemporality {
@@ -215,7 +243,7 @@ export type RevisionClassification =
   | 'revised-backward'
   | 'window-restated';
 
-export type RevisionMechanism = 'version-window-drop' | 'version-window-extension' | 'sole-row-replacement';
+export type RevisionMechanism = 'version-window-drop' | 'version-window-extension' | 'rendering-difference' | 'sole-row-replacement';
 
 // Reader-facing glosses, rendered beside every use in the committed report so
 // the vocabulary never appears bare. Candidate explanations, no verdicts.
@@ -231,7 +259,8 @@ export const CLASSIFICATION_GLOSSES: ReadonlyMap<RevisionClassification, string>
 export const MECHANISM_GLOSSES: ReadonlyMap<RevisionMechanism, string> = new Map([
   ['version-window-drop', 'the earlier vintage held multiple dated rows for this subject, so a rolling retention window dropping the older rows can explain the movement (issue #800 mechanism A) — candidate, not adjudicated'],
   ['version-window-extension', 'the later vintage carries an older dated row the earlier export did not, while the earlier assertion survives among its rows — a wider retention window rather than a replacement; candidate, not adjudicated'],
-  ['sole-row-replacement', 'the earlier vintage held a single dated row whose value was replaced wholesale (issue #800 mechanism B, the reissue shape) — candidate, not adjudicated'],
+  ['rendering-difference', 'the two observations\' columns attest DIFFERENT date renderings (day-first CSV vs ISO workbook extract) and the movement is EXACTLY one day — the only shift a day-truncation collision can produce (a 23:00Z timestamp truncates to the previous day against a BST date-only rendering), so the movement may be a rendering artefact rather than any event. Preferred over sole-row-replacement wherever it applies; a movement larger than a day cannot be produced by the collision and keeps its multiplicity-based candidate. Candidate, not adjudicated'],
+  ['sole-row-replacement', 'the earlier vintage held a single dated row whose value was replaced wholesale (issue #800 mechanism B, the reissue shape) — candidate, not adjudicated. Never applied to a one-day movement across differing attested renderings: rendering-difference is preferred there'],
 ]);
 
 // --- Mass-episode detection (pure, unit-testable) --------------------------
@@ -375,10 +404,80 @@ export function mergeEpisodes(signals: readonly EpisodeSignal[]): Episode[] {
   return episodes;
 }
 
+// --- Attested date grammars -------------------------------------------------
+//
+// The rendering each (dataset, kind)'s date column is ATTESTED under — the
+// same authored facts the @interpretation tier states (the FOI conversion
+// specs' date kinds; the open-data variant registry's date format), lifted
+// from those registries directly (the ledger stores no interpretation claims,
+// so the fold reads the registries the interpretation itself is derived
+// from). Feeds the rendering-difference candidate mechanism: two vintages
+// whose columns attest DIFFERENT renderings (day-first CSV vs ISO workbook
+// extract) can disagree by a day without any event having happened — the
+// UTC-vs-local day-truncation collision — so a movement across a rendering
+// boundary must never fall through to sole-row-replacement.
+
+export interface AttestedGrammarRow {
+  lane: string;
+  // The dataset key ('*' for the whole-lane open-data rows, where a variant
+  // attests one grammar for every date column the dataset carries).
+  dataset: string;
+  kind: string;
+  grammar: string;
+}
+
+// A dataset+kind binding two columns under conflicting grammars is recorded
+// as 'mixed': it compares as differing against any single grammar (at least
+// one of its columns differs) and as unknown against another 'mixed'.
+const MIXED_GRAMMAR = 'mixed';
+
+export function attestedDateGrammars(foiDir: string = defaultFoiDir()): AttestedGrammarRow[] {
+  const byKey = new Map<string, AttestedGrammarRow>();
+  const add = (lane: string, dataset: string, kind: string, grammar: string): void => {
+    const key = `${lane}\n${dataset}\n${kind}`;
+    const existing = byKey.get(key);
+    if (existing === undefined) byKey.set(key, { lane, dataset, kind, grammar });
+    else if (existing.grammar !== grammar) existing.grammar = MIXED_GRAMMAR;
+  };
+  // FOI lane: per entry, the register conversions' date columns — kind 'date'
+  // is the day-first CSV rendering, 'iso-date' the workbook-extract ISO
+  // rendering (interpretationForFoiKind's exact mapping).
+  for (const entry of listFoiEntryKeys(foiDir)) {
+    const meta = readFoiEntryMeta(foiDir, entry);
+    for (const source of registerSourcesFor(meta)) {
+      for (const column of source.conversion.columns) {
+        if ((column.kind !== 'date' && column.kind !== 'iso-date') || column.source === null) continue;
+        const kind = eventKindForFoiDateColumn(column);
+        if (kind === null) continue;
+        add('foi', entry, kind, column.kind === 'date' ? 'DD/MM/YYYY' : 'YYYY-MM-DD');
+      }
+    }
+  }
+  // Open-data lane: the variant attests ONE grammar for every date column the
+  // dataset carries, so a single '*' row covers all its kinds. The variant is
+  // the declared converter variant where the meta pins one, else the detected
+  // header variant the normalisation recorded (the same fallback
+  // build-data-status.ts reads) — the v2026 family genuinely mixes renderings
+  // across vintages (…-padded and the bare variant are day-first, …-iso is
+  // the workbook ISO rendering), so this must read the per-entry fact.
+  for (const key of listArchiveKeys()) {
+    const metaPath = path.join(DIRS.archive, key, 'meta.json');
+    if (!fs.existsSync(metaPath)) continue;
+    const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as { converter?: { variant?: string }; normalised?: { headerVariant?: string } };
+    add('opendata', key, '*', openDataDateFormat(meta.converter?.variant ?? meta.normalised?.headerVariant));
+  }
+  return [...byKey.values()].sort((a, b) =>
+    a.lane.localeCompare(b.lane) || a.dataset.localeCompare(b.dataset) || a.kind.localeCompare(b.kind));
+}
+
 // --- The SQL folds ----------------------------------------------------------
 
 function sqlList(values: readonly string[]): string {
   return values.map(v => `'${v.replace(/'/g, "''")}'`).join(', ');
+}
+
+function sqlLiteral(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
 }
 
 // The event-claim relation every query below folds: one row per S1 event
@@ -425,20 +524,36 @@ function episodeMembershipExpr(column: string, episodes: readonly Episode[]): st
 // observation against the previous one in vintage order. The full vocabulary
 // rationale is the module doc-comment; 'first-observation' marks a subject's
 // first appearance for the kind (nothing to compare) and is excluded from
-// every report surface.
-function classifiedSql(source: ClaimsSource, episodes: readonly Episode[]): string {
+// every report surface. Each observation carries its dataset+kind's attested
+// date grammar (the '*' rows cover a whole open-data dataset), so a step
+// whose two sides attest DIFFERENT renderings prefers the
+// rendering-difference candidate over sole-row-replacement.
+function classifiedSql(source: ClaimsSource, episodes: readonly Episode[], grammars: readonly AttestedGrammarRow[]): string {
   const bookkeeping = sqlList(kindsWith('bookkeeping'));
   const forwardLooking = sqlList(kindsWith('forward-looking'));
+  const grammarValues = grammars.length === 0
+    ? `SELECT NULL::VARCHAR AS lane, NULL::VARCHAR AS dataset, NULL::VARCHAR AS kind, NULL::VARCHAR AS grammar WHERE FALSE`
+    : `SELECT * FROM (VALUES ${grammars.map(g => `(${sqlLiteral(g.lane)}, ${sqlLiteral(g.dataset)}, ${sqlLiteral(g.kind)}, ${sqlLiteral(g.grammar)})`).join(', ')}) AS g(lane, dataset, kind, grammar)`;
   return `WITH ${eventsCte(source)},
 ${aggCte()},
+grammars AS (
+  ${grammarValues}
+),
+agg_g AS (
+  SELECT agg.*, g.grammar
+  FROM agg
+  LEFT JOIN grammars g
+    ON g.lane = agg.lane AND g.dataset = agg.dataset AND (g.kind = agg.kind OR g.kind = '*')
+),
 seq AS (
-  SELECT subject, kind, lane, dataset, vintage, earliest, latest, nrows, stat,
+  SELECT subject, kind, lane, dataset, vintage, earliest, latest, nrows, stat, grammar,
          lag(lane) OVER w AS prevLane,
          lag(dataset) OVER w AS prevDataset,
          lag(vintage) OVER w AS prevVintage,
          lag(nrows) OVER w AS prevRows,
-         lag(stat) OVER w AS prevStat
-  FROM agg
+         lag(stat) OVER w AS prevStat,
+         lag(grammar) OVER w AS prevGrammar
+  FROM agg_g
   WINDOW w AS (PARTITION BY subject, kind ORDER BY vintage, dataset)
 ),
 classified AS (
@@ -458,6 +573,8 @@ classified AS (
       WHEN kind IN (${bookkeeping}) AND stat > prevStat THEN NULL
       WHEN stat < prevStat AND nrows > 1 AND prevStat <= latest THEN 'version-window-extension'
       WHEN prevRows > 1 THEN 'version-window-drop'
+      WHEN grammar IS NOT NULL AND prevGrammar IS NOT NULL AND grammar <> prevGrammar
+           AND abs(date_diff('day', CAST(prevStat AS DATE), CAST(stat AS DATE))) = 1 THEN 'rendering-difference'
       ELSE 'sole-row-replacement'
     END AS mechanism
   FROM seq
@@ -538,26 +655,26 @@ GROUP BY kind, lane, dataset, "day"
 ORDER BY kind, lane, dataset, "day"`);
 }
 
-export function foldPairSummary(source: string | ClaimsSource, episodes: readonly Episode[]): PairSummaryRow[] {
+export function foldPairSummary(source: string | ClaimsSource, episodes: readonly Episode[], grammars: readonly AttestedGrammarRow[] = attestedDateGrammars()): PairSummaryRow[] {
   const claims = toClaimsSource(source);
   if (!claimsSourcePresent(claims)) return [];
-  return foldQuery<PairSummaryRow>(`${classifiedSql(claims, episodes)}
+  return foldQuery<PairSummaryRow>(`${classifiedSql(claims, episodes, grammars)}
 SELECT kind, prevLane, prevDataset, prevVintage, lane, dataset, vintage, classification, mechanism, count(*)::BIGINT AS subjects
 FROM classified
 WHERE classification <> 'first-observation'
 GROUP BY ALL
-ORDER BY kind, vintage, dataset, prevVintage, prevDataset, classification, mechanism NULLS FIRST`);
+ORDER BY kind, vintage, lane, dataset, prevVintage, prevLane, prevDataset, classification, mechanism NULLS FIRST`);
 }
 
-export function foldExemplars(source: string | ClaimsSource, episodes: readonly Episode[], limit: number = EXEMPLAR_LIMIT): ExemplarRow[] {
+export function foldExemplars(source: string | ClaimsSource, episodes: readonly Episode[], grammars: readonly AttestedGrammarRow[] = attestedDateGrammars(), limit: number = EXEMPLAR_LIMIT): ExemplarRow[] {
   const claims = toClaimsSource(source);
   if (!claimsSourcePresent(claims)) return [];
-  return foldQuery<ExemplarRow>(`${classifiedSql(claims, episodes)}
+  return foldQuery<ExemplarRow>(`${classifiedSql(claims, episodes, grammars)}
 SELECT kind, subject, classification, mechanism, prevDataset, prevVintage, prevStat, prevRows, dataset, vintage, stat, nrows
 FROM classified
 WHERE classification IN ('revised-forward', 'revised-backward')
-QUALIFY row_number() OVER (PARTITION BY kind, classification ORDER BY subject, vintage, dataset) <= ${limit}
-ORDER BY kind, classification, subject, vintage, dataset`);
+QUALIFY row_number() OVER (PARTITION BY kind, classification ORDER BY subject, vintage, lane, dataset) <= ${limit}
+ORDER BY kind, classification, subject, vintage, lane, dataset`);
 }
 
 export function foldCorroboration(source: string | ClaimsSource): CorroborationRow[] {
@@ -580,14 +697,14 @@ ORDER BY kind, depth`);
 
 // The full per-dataset sequence (with classifications) for ONE cleaned
 // subject — the re-runnable working behind any per-record figure.
-export function subjectKindSequence(source: string | ClaimsSource, subject: string, episodes: readonly Episode[]): SubjectSequenceRow[] {
+export function subjectKindSequence(source: string | ClaimsSource, subject: string, episodes: readonly Episode[], grammars: readonly AttestedGrammarRow[] = attestedDateGrammars()): SubjectSequenceRow[] {
   const claims = toClaimsSource(source);
   if (!claimsSourcePresent(claims)) return [];
-  return foldQuery<SubjectSequenceRow>(`${classifiedSql(claims, episodes)}
+  return foldQuery<SubjectSequenceRow>(`${classifiedSql(claims, episodes, grammars)}
 SELECT kind, lane, dataset, vintage, earliest, latest, nrows, stat, prevDataset, prevStat, prevRows, classification, mechanism
 FROM classified
-WHERE subject = '${subject.replace(/'/g, "''")}'
-ORDER BY kind, vintage, dataset`);
+WHERE subject = ${sqlLiteral(subject)}
+ORDER BY kind, vintage, lane, dataset`);
 }
 
 // --- The assembled coherency picture ---------------------------------------
@@ -610,12 +727,12 @@ export interface EventTimeCoherency {
 // Fold the whole coherency picture from a claims source: episodes first (the
 // classification consults their windows), then the pairwise classification,
 // exemplars and corroboration.
-export function computeEventTimeCoherency(source: string | ClaimsSource, params: EpisodeParams = DEFAULT_EPISODE_PARAMS): EventTimeCoherency {
+export function computeEventTimeCoherency(source: string | ClaimsSource, params: EpisodeParams = DEFAULT_EPISODE_PARAMS, grammars: readonly AttestedGrammarRow[] = attestedDateGrammars()): EventTimeCoherency {
   const claims = toClaimsSource(source);
   const days = time('coherency:day-signals', () => foldDaySignals(claims));
   const episodes = mergeEpisodes(detectEpisodeSignals(days, params));
-  const pairs = time('coherency:pair-summary', () => foldPairSummary(claims, episodes));
-  const exemplars = time('coherency:exemplars', () => foldExemplars(claims, episodes));
+  const pairs = time('coherency:pair-summary', () => foldPairSummary(claims, episodes, grammars));
+  const exemplars = time('coherency:exemplars', () => foldExemplars(claims, episodes, grammars));
   const corroboration = time('coherency:corroboration', () => foldCorroboration(claims));
 
   const totalByKey = new Map<string, ClassificationTotal>();
@@ -778,8 +895,8 @@ export function renderEventTimeCoherency(c: EventTimeCoherency): string {
     `Up to ${EXEMPLAR_LIMIT} per kind and direction, ordered by subject — the shape of the`,
     'working, not a ranking. Any subject’s full sequence is re-derivable with',
     '`subjectKindSequence` (src/ci/event-time-coherency.ts). Mechanisms are',
-    'candidates (read off row multiplicity either side of the step), never',
-    'verdicts.',
+    'candidates (read off row multiplicity either side of the step, and the',
+    'two sides’ attested date renderings), never verdicts.',
     '',
   );
   if (c.exemplars.length === 0) {

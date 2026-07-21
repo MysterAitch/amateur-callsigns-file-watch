@@ -75,6 +75,18 @@ export interface FoiColumnSpec {
   // 'event' vocabulary, taken from the document's own wording). An
   // authored, reviewed value - never derived from row content.
   constant?: string;
+  // Authored EVENT-KIND override for a date column whose OBJECT SCOPE differs
+  // from what the shared output name implies (issue #725 S2): the same output
+  // name (created_date, last_modified_date, original_start_date) is used both
+  // by register-record columns and by LICENCE-scoped columns (a per-licence
+  // sheet's creation stamp; a 'Licence '-prefixed Salesforce field), and those
+  // are DIFFERENT facts - conflating them under one event kind lets a
+  // cross-vintage comparison read a licence-lifecycle difference as a
+  // register-record revision that never happened. When set, the event-time
+  // tier binds this column to the named kind instead of the output-name
+  // default (validated against the authored kind vocabulary, fail loud on an
+  // unknown name); when absent, EVENT_KIND_BY_DATE_OUTPUT applies as before.
+  eventKind?: string;
   // Required for kind 'prefixed': the sheet's stated prefix.
   prefix?: string;
 }
@@ -214,8 +226,18 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
         // Verbatim source vocabulary ('Amateur Foundation Radio Licence'),
         // never canonicalised to 'Foundation'.
         { source: 'Licence Type', output: 'licence_class', kind: 'verbatim' },
-        { source: 'Created Date', output: 'created_date', kind: 'date' },
-        { source: 'Original start date', output: 'original_start_date', kind: 'date' },
+        // This sheet's rows are LICENCES, not register records (duplicate
+        // callsigns are attribute rows for multiple licences - see
+        // orderRationale below), so both date columns are attributes of the
+        // licence object: 'Created Date' is the licence record's creation
+        // stamp (its values histogram in 2024, the disclosure's era - not the
+        // register's 2016 migration cluster), and 'Original start date' is the
+        // CURRENT licence's stated original start. Bound to the
+        // licence-scoped event kinds so the cross-vintage detector never
+        // compares them against register-record dates as if they were the
+        // same fact (issue #725 S2).
+        { source: 'Created Date', output: 'created_date', kind: 'date', eventKind: 'licence-created' },
+        { source: 'Original start date', output: 'original_start_date', kind: 'date', eventKind: 'licence-original-start' },
       ],
       ignoredColumns: [],
       rowOrder: 'sorted-by-first-column',
@@ -1003,11 +1025,17 @@ export const FOI_ENTRY_CONVERSIONS: Record<string, readonly FoiSourceConversion[
         // etc.), carried verbatim, never canonicalised; blank where the source
         // asserts no product (the reserved/available pool).
         { source: 'Product__c', output: 'licence_class', kind: 'verbatim' },
-        // A record last-modified timestamp; cannot postdate the snapshot.
-        { source: 'Licence LastModifiedDate', output: 'last_modified_date', kind: 'iso-date' },
-        // The licence's original start (issue) date; cannot postdate the
-        // snapshot (the 1903-05-03 migration-placeholder floor recurs here).
-        { source: 'Licence Original_start_date__c', output: 'original_start_date', kind: 'iso-date' },
+        // Both date columns are LICENCE-scoped: the source's own headers name
+        // the Licence object ('Licence LastModifiedDate',
+        // 'Licence Original_start_date__c'), and both are populated exactly on
+        // the licensed rows - blank across the ~53k reserved/available pool,
+        // which holds no licence. Bound to the licence-scoped event kinds so
+        // the cross-vintage detector never reads them as the register
+        // record's own bookkeeping/origin dates (issue #725 S2).
+        // Neither can postdate the snapshot.
+        { source: 'Licence LastModifiedDate', output: 'last_modified_date', kind: 'iso-date', eventKind: 'licence-last-modified' },
+        // (The 1903-05-03 migration-placeholder floor recurs here.)
+        { source: 'Licence Original_start_date__c', output: 'original_start_date', kind: 'iso-date', eventKind: 'licence-original-start' },
       ],
       // 'Type' is 'Call Sign - Amateur' on every row - the product/service
       // discriminator recorded in meta.json, not a per-row assertion.
