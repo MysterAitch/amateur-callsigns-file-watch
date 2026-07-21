@@ -197,3 +197,11 @@ Both are re-runnable against the committed `normalised.csv` files (DuckDB
 `read_csv_auto` recipes on the respective issues). The creep episode is the
 concrete reason #725's event-claim extraction records "earliest *surviving in
 this vintage*", never "the original".
+
+Both episodes are now also detected mechanically: the standing cross-vintage
+detector (`src/ci/event-time-coherency.ts`, #725 S2) finds each from the
+event-date claims alone and commits the result to
+[`reports/event-time-coherency.md`](../reports/event-time-coherency.md) —
+episodes, per-step revision classifications and corroboration depth — so a
+future vintage shifting either episode's fingerprint (or adding a new one)
+surfaces as a PR diff rather than needing rediscovery.
