@@ -943,6 +943,12 @@ jobs:
           # each deploy (fast, byte-deterministic) rather than riding the
           # .dbstage cache, whose key does not cover this builder.
           node src/ci/build-callsign-shards.ts _site/callsign/data
+          # The event-time surfaces (issue #726): the per-callsign event
+          # strip's sharded JSON (+ meta) under _site/callsign/data/events/
+          # and the on-this-day calendar page - one pass over the same
+          # canonical inputs, run through the S1 event-date emit path
+          # in-process (the claim ledger stays the deep-provenance surface).
+          node src/ci/build-event-time-surfaces.ts _site
           # The About page's licensing/provenance acknowledgement (issue #560)
           # is derived from the publisher register at build time - one line
           # per publisher, so it cannot drift out of step with

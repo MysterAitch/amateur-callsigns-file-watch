@@ -9,6 +9,8 @@ import {
 } from './build-dataset-pages.ts';
 import type { SourceObservationSet } from '../v2/claim.ts';
 import { externalLink } from './site-render.ts';
+import { renderOnThisDayPage } from './build-on-this-day.ts';
+import { foldEventTimeProjection } from './event-time-projection.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { DIRS } from '../shared/constants.ts';
 import {
@@ -1072,6 +1074,15 @@ describe('Internal link integrity across the built site (issue #561)', { tags: [
   let internalLinksChecked: number;
 
   beforeAll(() => {
+    // The deploy assemble step emits the on-this-day page (issue #726,
+    // src/ci/build-event-time-surfaces.ts) at the site root beside this
+    // builder's tree, and the canonical nav on every generated page links to
+    // it. Render its (cheap) empty-corpus form into the tree so that link
+    // resolves AND the page's own static links join the crawl as a source;
+    // the full-corpus page's outbound links are guarded by its builder's
+    // suites.
+    fs.writeFileSync(path.join(outputDir, 'on-this-day.html'),
+      renderOnThisDayPage([], foldEventTimeProjection({ sources: [] })));
     // The emitted set is the generated tree PLUS the hand-authored root assets the
     // deploy copies from site/ verbatim (index, glossary, the browser modules and
     // stylesheets). Generated pages link to both, so both count as emitted.

@@ -133,8 +133,9 @@ export function contributionOf(kind: string): StateContribution {
 
 // The kinds whose dates are version-scoped "earliest surviving" readings
 // (issue #800) — their licence-start findings carry the earliest-surviving
-// caveat explicitly.
-const EARLIEST_SURVIVING_KINDS: ReadonlySet<string> = new Set([
+// caveat explicitly. Exported for the issue #726 surfaces, whose multi-row
+// version-window signal reads the same authored set.
+export const EARLIEST_SURVIVING_KINDS: ReadonlySet<string> = new Set([
   'licence-version-original-start',
   'licence-original-start',
 ]);
@@ -242,8 +243,16 @@ export function vintageOnOrBefore(vintage: string, day: string): boolean {
   return vintageDaySpan(vintage).latest <= day;
 }
 
-function isMonthPrecision(vintage: string): boolean {
+// Whether a vintage is month-keyed — its assertion time carries month, not
+// day, precision, so every consumer treats the whole month conservatively.
+// Exported for the issue #726 surfaces, so their month-precision caveat
+// attaches under exactly the engine's own reading of the vintage grammar.
+export function isMonthPrecisionVintage(vintage: string): boolean {
   return VINTAGE_MONTH_RE.test(vintage);
+}
+
+function isMonthPrecision(vintage: string): boolean {
+  return isMonthPrecisionVintage(vintage);
 }
 
 // --- Evidence and answer shapes ---------------------------------------------
