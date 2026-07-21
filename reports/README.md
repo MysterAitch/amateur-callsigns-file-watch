@@ -13,6 +13,7 @@ Standing, deterministic views over the archive. Drill-downs:
 - [Policy-as-tests invariants](policy-invariants.md) - the regulator's stated rules as executable invariants: the two-year reservation window tested against the held data
 - [Curiosity index](curiosity-index.md) - reference-free per-record rarity score: the most unusual records in the newest publication, with each score’s component breakdown
 - [Namespace sequence analytics](sequence-analytics.md) - allocation order (H5), gap structure, issuance-rate curves and a naive series-exhaustion projection per prefix series
+- [Column distributional drift](column-drift.md) - per-column, per-vintage fingerprints and the vintage-over-vintage divergences they flag
 
 | dataset | records | distinct patterns | flag instances |
 |---|---:|---:|---:|

@@ -217,3 +217,17 @@ date — inferred-only (#723), parameterised by both temporal axes, episode-
 and creep-aware — and commits its worked demonstration to
 [`reports/state-at-t.md`](../reports/state-at-t.md); the G3ATI/G3SDS episodes
 above double as its ground-truth examples.
+
+Generalising beyond the hand-picked episodes, the distributional-drift detector
+(`src/ci/column-drift.ts`, #862) folds a per-column, per-vintage fingerprint
+over every canonical column of the open-data `normalised.csv`s — the
+populated/blank split, cardinality, value histogram, length distribution and a
+character-class/per-character profile — and flags the vintage-over-vintage
+divergences against named, tunable thresholds, committing the result to
+[`reports/column-drift.md`](../reports/column-drift.md). With no hand-authored
+expectations it rediscovers the known cases from the data alone: the mass-update
+fingerprint above (a single day holding a majority of the modification column),
+the 2026-01-14 Z-suffix cohort omission (#564 — the letter Z leaving then
+re-entering the callsign column), the blank-product pool shifts, and the
+export-variant/date-format drifts. Flags, never verdicts: each divergence
+carries candidate explanations and adjudicates none.

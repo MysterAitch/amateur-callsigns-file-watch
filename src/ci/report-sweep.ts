@@ -54,6 +54,7 @@ import { writeStateAtTReport } from './state-at-t.ts';
 import { writePolicyInvariantsReport } from './policy-invariants.ts';
 import { writeCuriosityIndex } from './curiosity-index.ts';
 import { writeSequenceAnalytics } from './sequence-analytics.ts';
+import { writeColumnDrift } from './column-drift.ts';
 import { mdCell } from '../shared/markdown.ts';
 import { time, perfReport } from '../shared/perf.ts';
 
@@ -186,6 +187,12 @@ export function runReportSweep(): ReportSweepReport {
   // allocation-time event claims. Committed so a new vintage shifting the
   // picture is a PR diff.
   time('reports:sequence-analytics', () => writeSequenceAnalytics());
+
+  // The per-column distributional drift report (issue #862): per-vintage
+  // fingerprints over every canonical column of the open-data normalised.csvs,
+  // and the vintage-over-vintage divergences the thresholds flag. Committed so
+  // a new vintage shifting any fingerprint is a PR diff.
+  time('reports:column-drift', () => writeColumnDrift());
 
   // The newest dataset's matrix always appears: the coverage body is the
   // does-this-look-right triage surface, and current state belongs on it -
@@ -729,6 +736,7 @@ function writeReportsIndex(columnsNewestFirst: string[], statsByKey: Map<string,
     '- [Policy-as-tests invariants](policy-invariants.md) - the regulator\'s stated rules as executable invariants: the two-year reservation window tested against the held data',
     '- [Curiosity index](curiosity-index.md) - reference-free per-record rarity score: the most unusual records in the newest publication, with each score’s component breakdown',
     '- [Namespace sequence analytics](sequence-analytics.md) - allocation order (H5), gap structure, issuance-rate curves and a naive series-exhaustion projection per prefix series',
+    '- [Column distributional drift](column-drift.md) - per-column, per-vintage fingerprints and the vintage-over-vintage divergences they flag',
     '',
     '| dataset | records | distinct patterns | flag instances |',
     '|---|---:|---:|---:|',
