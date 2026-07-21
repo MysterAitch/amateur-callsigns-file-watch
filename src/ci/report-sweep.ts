@@ -52,6 +52,7 @@ import { writeForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { writeEventTimeCoherency } from './event-time-coherency.ts';
 import { writeStateAtTReport } from './state-at-t.ts';
 import { writePolicyInvariantsReport } from './policy-invariants.ts';
+import { writeCuriosityIndex } from './curiosity-index.ts';
 import { mdCell } from '../shared/markdown.ts';
 import { time, perfReport } from '../shared/perf.ts';
 
@@ -170,6 +171,13 @@ export function runReportSweep(): ReportSweepReport {
   // against every `reserved-until` claim. Committed so a new vintage shifting
   // any policy finding is a PR diff.
   time('reports:policy-invariants', () => writePolicyInvariantsReport());
+
+  // The per-record curiosity index (issue #866): a reference-free rarity score
+  // over the newest publication's records, sorted into the most-unusual-records
+  // report with each score's component breakdown. Committed, so a publication
+  // that shifts which records are unusual shows up in a PR diff. Build side; the
+  // reader-facing page follows the #104 conventions.
+  time('reports:curiosity-index', () => writeCuriosityIndex());
 
   // The newest dataset's matrix always appears: the coverage body is the
   // does-this-look-right triage surface, and current state belongs on it -
@@ -711,6 +719,7 @@ function writeReportsIndex(columnsNewestFirst: string[], statsByKey: Map<string,
     '- [Event-time coherency](event-time-coherency.md) - cross-vintage retroactive-revision detector: mass-update episodes, revisions, corroboration',
     '- [State-at-t reconstruction](state-at-t.md) - bi-temporal inference engine: what the corpus can honestly say about a callsign at a date, and under which vintages',
     '- [Policy-as-tests invariants](policy-invariants.md) - the regulator\'s stated rules as executable invariants: the two-year reservation window tested against the held data',
+    '- [Curiosity index](curiosity-index.md) - reference-free per-record rarity score: the most unusual records in the newest publication, with each score’s component breakdown',
     '',
     '| dataset | records | distinct patterns | flag instances |',
     '|---|---:|---:|---:|',
