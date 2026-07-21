@@ -767,3 +767,30 @@
 .ledger .examine-absent { color: var(--muted); font-style: italic; font-size: 12.5px; }
 .ledger p.examine-under { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; max-width: 78ch; }
 .ledger td.examine-cell { white-space: nowrap; }
+
+/* The per-callsign event-time strip (issue #726) and the on-this-day page:
+   calm, muted chrome consistent with the notes/examine family above. The two
+   time axes are carried by wording and structure, not colour alone. */
+.ledger .evt-h { font-size: 14px; margin: 14px 0 6px; }
+.ledger .evt-lines { margin: 6px 0; padding-left: 1.4em; }
+.ledger .evt-lines li { margin: 4px 0; }
+.ledger .evt-assert { color: var(--muted); font-size: 12.5px; }
+.ledger .evt-assert a { color: var(--accent); }
+.ledger .evt-episode { color: var(--muted); font-size: 12px; }
+.ledger .evt-findings { margin: 6px 0; padding-left: 1.4em; }
+.ledger .evt-findings li { margin: 6px 0; }
+.ledger .evt-caveats { color: var(--muted); font-size: 12.5px; }
+.ledger .evt-caveats a { color: var(--accent); }
+.ledger .evt-rule { font-size: 11px; color: var(--muted); }
+.ledger .evt-camps { margin: 6px 0 2px; padding-left: 1.4em; font-size: 13px; }
+.ledger .evt-bookkeeping, .ledger .evt-reissue, .ledger .evt-legend-details { margin: 10px 0; }
+.ledger .evt-bookkeeping > summary, .ledger .evt-reissue > summary, .ledger .evt-legend-details > summary {
+  cursor: pointer; color: var(--muted); font-size: 13px; }
+.ledger .evt-reissue[open] > summary { color: var(--ink); font-weight: 600; }
+.ledger .evt-reissue-body p, .ledger .evt-legend-details li { font-size: 13px; color: var(--muted); max-width: 78ch; }
+.ledger .evt-legend-details h4 { font-size: 12.5px; margin: 8px 0 2px; }
+.ledger .evt-trail { margin-top: 12px; }
+.ledger .otd-day li { margin: 6px 0; max-width: 90ch; }
+.ledger .otd-caveats, .ledger .otd-links, .ledger .otd-count { color: var(--muted); font-size: 12.5px; }
+.ledger .otd-caveats a, .ledger .otd-links a { color: var(--accent); }
+.ledger .otd-today { outline: 2px solid var(--signal); outline-offset: 4px; border-radius: 4px; }

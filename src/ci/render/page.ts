@@ -215,6 +215,7 @@ export function navHtml(depthToRoot: number, currentNav?: string): string {
     ['Publishers', `${rootPath}publishers/index.html`],
     ['Series', `${rootPath}series/index.html`],
     ['Forbidden suffixes', `${rootPath}forbidden/index.html`],
+    ['On this day', `${rootPath}on-this-day.html`],
     ['Reports', `${rootPath}reports/index.html`],
     ['Data status', `${rootPath}data-status.html`],
     ['Ledger', `${rootPath}ledger.html`],

@@ -20,7 +20,7 @@
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <!-- nav:start (canonical strip stamped in at deploy by src/ci/build-nav.ts) -->
-  <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="publishers/index.html">Publishers</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch" target="_blank" rel="noopener">Repository <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></p></nav>
+  <nav><p><strong>Lookup</strong> · <a href="statistics.html">Statistics</a> · <a href="statistics/inter-dataset.html">Inter-dataset</a> · <a href="explore.html">Explore</a> · <a href="compare.html">Compare</a> · <a href="datasets/index.html">Dataset index</a> · <a href="publishers/index.html">Publishers</a> · <a href="series/index.html">Series</a> · <a href="forbidden/index.html">Forbidden suffixes</a> · <a href="on-this-day.html">On this day</a> · <a href="reports/index.html">Reports</a> · <a href="data-status.html">Data status</a> · <a href="ledger.html">Ledger</a> · <a href="playground.html">Playground</a> · <a href="callsign-structure.html">Anatomy</a> · <a href="glossary.html">Glossary</a> · <a href="about.html">About</a> · <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch" target="_blank" rel="noopener">Repository <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></p></nav>
   <!-- nav:end -->
 
   <main id="main" class="ledger" data-page="callsign">
@@ -107,14 +107,29 @@
       </section>
 
       <section class="panel" aria-labelledby="history-heading">
-        <div class="eyebrow">sightings</div>
+        <div class="eyebrow">sightings · assertion time</div>
         <h2 id="history-heading">Where and when it was seen</h2>
         <p class="panel-sub">One row per archived dataset, oldest first: register snapshots, availability
-          lists and other callsign-bearing disclosures. Absence is read scope-aware — a callsign missing
+          lists and other callsign-bearing disclosures. This table is the <b>assertion-time</b> axis — when
+          each publication said something — not when the underlying licensing events happened; those dates
+          live in the event-history section below. Absence is read scope-aware — a callsign missing
           from a partial or undeclared-scope publication is not evidence of anything, and even a
           declared-complete export is intent, not verified fact. Presence in an <b>availability list</b>
           means the callsign was offered as available (not licensed) at that date.</p>
         <div id="history"></div>
+      </section>
+
+      <section class="panel" id="events-panel" aria-labelledby="events-heading" hidden>
+        <div class="eyebrow">event history · event time</div>
+        <h2 id="events-heading">What happened, and when</h2>
+        <p class="panel-sub">The dated events <em>inside</em> the records — licence starts, cancellations,
+          reservation-window bounds — on the <b>event-time</b> axis, kept strictly apart from the
+          assertion-time sightings table above. Every dated claim names the dataset and vintage asserting
+          it, derived findings carry their statements and caveats in full, and where vintages disagree both
+          camps are shown, unresolved. This evidence loads lazily after the instant answer — nothing here
+          slows the lookup.</p>
+        <div id="events"></div>
+        <p class="obs-mini" id="events-status" role="status" aria-live="polite"></p>
       </section>
 
       <section class="panel" id="notes-panel" aria-labelledby="notes-heading" hidden>

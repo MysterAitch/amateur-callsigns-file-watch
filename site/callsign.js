@@ -20,6 +20,7 @@ import { canonicalCallsign } from './browser-query.js';
 import { wireLedgerSearch } from './ledger.js';
 import { anatomyFigureHtml } from './callsign-pill.js';
 import { licenceField, statusField, LICENCE_CLASS, prefixSeriesField, suffixField } from './field-wrappers.js';
+import { renderEventStrip } from './callsign-events.js';
 
 // ---------------------------------------------------------------------------
 // Shapes (mirroring src/ci/build-callsign-shards.ts).
@@ -1195,6 +1196,9 @@ export async function runLookup(typed) {
     notesPanel: document.getElementById('notes-panel'),
     links: document.getElementById('links'),
     miss: document.getElementById('miss'),
+    events: document.getElementById('events'),
+    eventsPanel: document.getElementById('events-panel'),
+    eventsStatus: document.getElementById('events-status'),
   };
   if (hosts.miss) renderMiss(hosts.miss, res, manifest);
   if (hosts.result) renderGlance(hosts.result, res, manifest);
@@ -1203,6 +1207,19 @@ export async function runLookup(typed) {
   if (hosts.history) renderHistory(hosts.history, res, manifest);
   if (hosts.notes && hosts.notesPanel) renderNotes(hosts.notes, hosts.notesPanel, res, manifest);
   if (hosts.links) renderLinks(hosts.links, res);
+  // The event-time strip (issue #726) rides BEHIND the instant answer:
+  // fire-and-forget, so the lazy fetch of the event shards can never slow the
+  // panels above; renderEventStrip contains its own failure handling.
+  if (hosts.events && hosts.eventsPanel && hosts.eventsStatus) {
+    if (res.record !== null && res.key !== null) {
+      hosts.eventsPanel.hidden = false;
+      void renderEventStrip({ host: hosts.events, status: hosts.eventsStatus, key: res.key, shardNameFor });
+    } else {
+      hosts.eventsPanel.hidden = true;
+      hosts.events.textContent = '';
+      hosts.eventsStatus.textContent = '';
+    }
+  }
   const elapsed = Math.max(1, Math.round(performance.now() - started));
   const status = document.getElementById('lookup-status');
   if (status) {
