@@ -103,6 +103,7 @@ import * as os from 'os';
 import {
   foldQuery,
   claimsRelation,
+  claimsSourcePresent,
   toClaimsSource,
   deployClaimsSource,
   cleanedKeyExpr,
@@ -521,8 +522,15 @@ export interface SubjectSequenceRow {
   mechanism: RevisionMechanism | null;
 }
 
+// Every fold below guards on claimsSourcePresent (the report-fold convention):
+// an absent or empty claims source yields the empty result rather than
+// reaching DuckDB, whose read_json errors on a glob matching nothing — the
+// report-sweep fixture context (a synthetic archive materialising no ledger
+// sources) folds to the honest empty report, exactly like the other
+// fold-backed reports.
 export function foldDaySignals(source: string | ClaimsSource): DaySignal[] {
   const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return [];
   return foldQuery<DaySignal>(`WITH ${eventsCte(claims)}
 SELECT kind, lane, dataset, min(vintage) AS vintage, "day", count(*)::BIGINT AS n
 FROM events
@@ -532,6 +540,7 @@ ORDER BY kind, lane, dataset, "day"`);
 
 export function foldPairSummary(source: string | ClaimsSource, episodes: readonly Episode[]): PairSummaryRow[] {
   const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return [];
   return foldQuery<PairSummaryRow>(`${classifiedSql(claims, episodes)}
 SELECT kind, prevLane, prevDataset, prevVintage, lane, dataset, vintage, classification, mechanism, count(*)::BIGINT AS subjects
 FROM classified
@@ -542,6 +551,7 @@ ORDER BY kind, vintage, dataset, prevVintage, prevDataset, classification, mecha
 
 export function foldExemplars(source: string | ClaimsSource, episodes: readonly Episode[], limit: number = EXEMPLAR_LIMIT): ExemplarRow[] {
   const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return [];
   return foldQuery<ExemplarRow>(`${classifiedSql(claims, episodes)}
 SELECT kind, subject, classification, mechanism, prevDataset, prevVintage, prevStat, prevRows, dataset, vintage, stat, nrows
 FROM classified
@@ -552,6 +562,7 @@ ORDER BY kind, classification, subject, vintage, dataset`);
 
 export function foldCorroboration(source: string | ClaimsSource): CorroborationRow[] {
   const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return [];
   return foldQuery<CorroborationRow>(`WITH ${eventsCte(claims)},
 ${aggCte()}
 SELECT kind, depth,
@@ -571,6 +582,7 @@ ORDER BY kind, depth`);
 // subject — the re-runnable working behind any per-record figure.
 export function subjectKindSequence(source: string | ClaimsSource, subject: string, episodes: readonly Episode[]): SubjectSequenceRow[] {
   const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return [];
   return foldQuery<SubjectSequenceRow>(`${classifiedSql(claims, episodes)}
 SELECT kind, lane, dataset, vintage, earliest, latest, nrows, stat, prevDataset, prevStat, prevRows, classification, mechanism
 FROM classified

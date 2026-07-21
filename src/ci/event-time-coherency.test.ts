@@ -291,6 +291,22 @@ describe.skipIf(!duckDbAvailable())('classification over a fixture ledger', { ta
     }
   });
 
+  it('EmptyClaimsSource_AsInTheReportSweepFixtureContext_FoldsToTheHonestEmptyPictureRatherThanThrowing', () => {
+    // The report sweep drives every registered generator over synthetic
+    // archives that materialise NO ledger sources; an empty ledger directory
+    // must fold to the empty report (the claimsSourcePresent convention every
+    // fold-backed report follows), never reach DuckDB's read_json.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'event-time-coherency-empty-'));
+    try {
+      const c = computeEventTimeCoherency(dir, FIXTURE_PARAMS);
+      expect(c).toMatchObject({ episodes: [], totals: [], pairs: [], exemplars: [], corroboration: [] });
+      expect(subjectKindSequence(dir, 'M7TEE', c.episodes)).toEqual([]);
+      expect(renderEventTimeCoherency(c)).toContain('not a clean bill of health');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('FirstObservation_OfANewcomerSubject_IsNeverCountedAsAnyClassification', () => {
     const dir = writeFixtureLedger();
     try {
