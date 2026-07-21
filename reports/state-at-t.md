@@ -30,7 +30,7 @@ Every finding names exactly one rule (used only with these meanings):
 
 - **no-evidence-for-subject** — no event-time claim for this subject exists in the consulted corpus at all — outside coverage: an explicit cannot-infer, never "did not exist" or "was available"
 - **licence-start-on-or-before-t** — at least one consulted vintage asserts a licence(-version) start or issue date on or before t — evidence a licence had started by t, as asserted by the named vintages; for the version-scoped kinds the date is only the earliest start SURVIVING in the asserting vintage (issue #800), so the true first start may be earlier still
-- **consistent-with-licence-in-force-at-t** — start evidence on or before t, with no cancellation evidence dated after that start and on or before t — CONSISTENT WITH a licence being in force at t, never proof: absence of a cancellation claim is non-observation (cancellation dates are sparsely attested in the held corpus), and a licence can end without any held dataset recording a dated end
+- **consistent-with-licence-in-force-at-t** — start evidence on or before t, with no cancellation evidence dated on or after that start and on or before t (a cancellation dated on the start day itself is treated as addressing that start) — CONSISTENT WITH a licence being in force at t, never proof: absence of a cancellation claim is non-observation (cancellation dates are sparsely attested in the held corpus), and a licence can end without any held dataset recording a dated end; the finding inherits the earliest-surviving/pre-1977 unreliability of the start it rests on, so it stays honest rendered alone
 - **licence-cancelled-on-or-before-t** — a consulted vintage asserts a licence cancellation date on or before t — evidence a licence had been cancelled by then
 - **cancelled-with-no-later-start-evidence-by-t** — the latest cancellation evidence on or before t post-dates every consulted start assertion on or before t — evidence the then-licence had been cancelled by t with no surviving evidence of a later start by t; NOT evidence the callsign was available at t (non-observation of a later grant is not absence of one)
 - **reservation-window-consistent-with-covering-t** — a reservation window whose stated end is on or after t was asserted by a vintage collected on or before t — consistent with a reservation covering t; the source column carries three cohort meanings (planned close / retrospective termination / anomaly), so this is a conservative reading of the stated window bound, never a status claim
@@ -142,7 +142,7 @@ Bounding assertions: latest on or before t: `licence-original-start` 1952-10-10,
 Findings (every finding is **[inferred]** — issue #723):
 
 - **licence-start-on-or-before-t** — a licence(-version) start dated 1952-10-10 is asserted on or before 1960-06-01. Asserting vintages: 2024-10, 2025-11-11, 2026-01-14. Caveats: earliest-surviving, pre-1977, vintages-disagree, month-precision-vintage.
-- **consistent-with-licence-in-force-at-t** — start evidence dated 1952-10-10 with no cancellation evidence dated in (1952-10-10, 1960-06-01] among the consulted claims — consistent with a licence being in force at 1960-06-01, never proof. Asserting vintages: 2024-10, 2025-11-11, 2026-01-14. Caveats: cancellation-sparsity, availability-trap, month-precision-vintage.
+- **consistent-with-licence-in-force-at-t** — start evidence dated 1952-10-10 with no cancellation evidence dated in [1952-10-10, 1960-06-01] among the consulted claims — consistent with a licence being in force at 1960-06-01, never proof. Asserting vintages: 2024-10, 2025-11-11, 2026-01-14. Caveats: earliest-surviving, pre-1977, cancellation-sparsity, availability-trap, month-precision-vintage.
 
 Vintage disagreements (surfaced, never resolved — issue #467):
 
@@ -210,7 +210,7 @@ Bounding assertions: latest on or before t: `licence-issued` 1977-07-09, `licenc
 Findings (every finding is **[inferred]** — issue #723):
 
 - **licence-start-on-or-before-t** — a licence(-version) start dated 1977-07-09 is asserted on or before 2000-01-01. Asserting vintages: 2019-08-12, 2019-09-12, 2021-01-29, 2021-04-21, 2024-10, 2025-09-11, 2025-11-11, 2026-01-14. Caveats: earliest-surviving, vintages-disagree, month-precision-vintage.
-- **consistent-with-licence-in-force-at-t** — start evidence dated 1977-07-09 with no cancellation evidence dated in (1977-07-09, 2000-01-01] among the consulted claims — consistent with a licence being in force at 2000-01-01, never proof. Asserting vintages: 2019-08-12, 2019-09-12, 2021-01-29, 2021-04-21, 2024-10, 2025-09-11, 2025-11-11, 2026-01-14. Caveats: cancellation-sparsity, availability-trap, month-precision-vintage.
+- **consistent-with-licence-in-force-at-t** — start evidence dated 1977-07-09 with no cancellation evidence dated in [1977-07-09, 2000-01-01] among the consulted claims — consistent with a licence being in force at 2000-01-01, never proof. Asserting vintages: 2019-08-12, 2019-09-12, 2021-01-29, 2021-04-21, 2024-10, 2025-09-11, 2025-11-11, 2026-01-14. Caveats: earliest-surviving, cancellation-sparsity, availability-trap, month-precision-vintage.
 
 Vintage disagreements (surfaced, never resolved — issue #467):
 
