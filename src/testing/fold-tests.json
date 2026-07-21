@@ -3,5 +3,6 @@
   "src/ci/quality-report-fold.test.ts",
   "src/ci/data-quality-fold.test.ts",
   "src/ci/event-time-coherency-corpus.test.ts",
-  "src/ci/state-at-t-corpus.test.ts"
+  "src/ci/state-at-t-corpus.test.ts",
+  "src/ci/event-time-surfaces-corpus.test.ts"
 ]

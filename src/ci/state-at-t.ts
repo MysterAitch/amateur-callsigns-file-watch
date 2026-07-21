@@ -133,8 +133,9 @@ export function contributionOf(kind: string): StateContribution {
 
 // The kinds whose dates are version-scoped "earliest surviving" readings
 // (issue #800) — their licence-start findings carry the earliest-surviving
-// caveat explicitly.
-const EARLIEST_SURVIVING_KINDS: ReadonlySet<string> = new Set([
+// caveat explicitly. Exported for the issue #726 surfaces, whose multi-row
+// version-window signal reads the same authored set.
+export const EARLIEST_SURVIVING_KINDS: ReadonlySet<string> = new Set([
   'licence-version-original-start',
   'licence-original-start',
 ]);
