@@ -54,6 +54,9 @@ import {
   FLAG_PREDICATE,
   AUTHORED_EVENT_RULE,
   AUTHORED_ROLE_RULE,
+  EVENT_DATE_RULE,
+  eventKindOf,
+  isoDayFromCellUnderAnyAttestedFormat,
   PARSE_CALLSIGN_RULE,
   PARSE_STATUS_PREDICATE,
   PREFIX_SERIES_PREDICATE,
@@ -132,6 +135,7 @@ const RULE_GLOSSES: ReadonlyMap<string, string> = new Map([
   [STRIPPED_COLLISION_RULE, 'The junk-stripped form coexists as its own row in the same source.'],
   [AUTHORED_EVENT_RULE, 'The event word is our authored reading of the disclosure\'s own covering-letter framing, not a published cell.'],
   [AUTHORED_ROLE_RULE, 'The role name is our authored reading of the source\'s own cell or sheet-level statement, assigned by the conversion binding.'],
+  [EVENT_DATE_RULE, 'The dated event assertion this source makes, read from its own date cell under the attested format and re-rendered as an ISO day — true as of this source\'s vintage; absence elsewhere is non-observation, never "nothing happened".'],
 ]);
 
 function ruleGlossFor(rule: string): string {
@@ -514,6 +518,59 @@ function explainAuthoredRole(claim: Claim, ledger: readonly Claim[]): Working {
   return buildWorking(claim, inputs, [{ detail: basis, to: claim.object }], claim.object);
 }
 
+// ---- event-time (issue #725 S1) ---------------------------------------------
+
+// The two epistemics caveats that ride the licence-version-original-start kind
+// (issue #725 S1): the #800 surviving-not-original semantics and the #565
+// pre-1977 unreliability attestation. Carried as an explain step so the shown
+// working states what the claim does — and does not — mean.
+const ORIGINAL_START_KIND = 'licence-version-original-start';
+const ORIGINAL_START_CAVEAT = 'this is the earliest licence-version start date SURVIVING in this vintage, not necessarily the true original (issue #800: version history erodes forward-only), and dates before 1977 are attested-unreliable (issue #565)';
+
+// The working behind an event-time claim. The date VALUE is re-checkable from
+// the ledger: the observation carries the raw date cell as an attribute claim,
+// and re-running the SAME lifted parse (isoDayFromCellUnderAnyAttestedFormat —
+// deterministic, because the two attested grammars are syntactically disjoint)
+// over that cell must reproduce the claimed ISO day. The KIND is the authored
+// classification of the column (EVENT_KIND_BY_DATE_OUTPUT, lifted through the
+// loader's conversion binding), cited as the authored-binding origin exactly as
+// the authored-event arm does. The cell is resolved by re-parsing — the raw
+// attribute claim of the same observation whose cell reproduces the claimed
+// day — mirroring how explainLicenceCategory resolves the product cell, so the
+// reconstruction stays on one code path.
+function explainEventDate(claim: Claim, ledger: readonly Claim[]): Working {
+  const anchor = observationAnchor(claim, ledger);
+  const kind = eventKindOf(claim.predicate);
+  if (kind === undefined) {
+    throw new Error(`explain: event-date claim ${claim.provenance.sourceFile}#${claim.provenance.ordinal} carries predicate "${claim.predicate}", which names no authored event kind`);
+  }
+  const attributes = sameObservationRawClaims(claim, ledger).filter(c => c.predicate !== LISTED_PREDICATE);
+  const dateClaim = attributes.find(c => isoDayFromCellUnderAnyAttestedFormat(c.object) === claim.object);
+  if (dateClaim === undefined) {
+    throw new Error(`explain: event-date claim ${claim.provenance.sourceFile}#${claim.provenance.ordinal} — no raw date cell in the same observation reproduces the ISO day "${claim.object}"`);
+  }
+  const result = isoDayFromCellUnderAnyAttestedFormat(dateClaim.object);
+  if (result === null) {
+    // Unreachable given the find above, but the type is string | null; surface
+    // a gap rather than coerce.
+    throw new Error(`explain: event-date reconstruction yielded no ISO day for "${dateClaim.object}"`);
+  }
+  const inputs: WorkingInput[] = [
+    { role: 'date-cell', value: dateClaim.object, origin: { kind: 'raw-claim', sourceFile: dateClaim.provenance.sourceFile, ordinal: dateClaim.provenance.ordinal, predicate: dateClaim.predicate } },
+    { role: 'authored-event-kind', value: kind, origin: { kind: 'authored-binding', registry: 'EVENT_KIND_BY_DATE_OUTPUT', sourceFile: claim.provenance.sourceFile } },
+  ];
+  const steps: WorkingStep[] = [
+    { detail: `read the date cell under column "${dateClaim.predicate}"`, to: dateClaim.object },
+    { detail: 'parsed it strictly under the attested grammar and re-rendered the ISO day', from: dateClaim.object, to: result },
+    { detail: `the authored registry classifies this column's dated assertion as "${kind}"` },
+    { detail: `the claim asserts what this source's ${anchor.provenance.vintage} vintage asserts — absence of an event claim elsewhere is non-observation, never "nothing happened"` },
+  ];
+  if (kind === ORIGINAL_START_KIND) {
+    steps.push({ detail: ORIGINAL_START_CAVEAT });
+  }
+  return buildWorking(claim, inputs, steps, result);
+}
+
 // ---- the dispatcher ---------------------------------------------------------
 
 // Reconstruct the working behind a derived claim. `ledger` is the claims of the
@@ -541,6 +598,7 @@ export function explain(claim: Claim, ledger: readonly Claim[], ref: ReferenceDa
     case STRIPPED_COLLISION_RULE: return explainStrippedCollision(claim, sameSource);
     case AUTHORED_EVENT_RULE: return explainAuthoredEvent(claim, sameSource);
     case AUTHORED_ROLE_RULE: return explainAuthoredRole(claim, sameSource);
+    case EVENT_DATE_RULE: return explainEventDate(claim, sameSource);
     case PARSE_CALLSIGN_RULE: return explainParse(claim, sameSource, ref);
     default:
       throw new Error(`explain: unknown rule "${rule}" on ${claim.provenance.sourceFile}#${claim.provenance.ordinal}:${claim.predicate} — an unexplainable derived claim`);

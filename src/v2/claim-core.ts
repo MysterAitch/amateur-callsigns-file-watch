@@ -203,6 +203,18 @@ export interface AuthoredRoleBinding {
   constant?: string;
 }
 
+// One authored EVENT-DATE reading of a source's cells (issue #725 S1): the
+// binding assigns the authored event `kind` (the small documented enumeration
+// in event-time-emit.ts) to the raw date cells under `source` (a verbatim
+// header of the file). Lifted by the loader from the authored converter
+// binding's canonical date-column names (via eventKindForDateOutput), never
+// re-guessed at emit time; only honoured over a column whose attested
+// interpretation carries a dated format.
+export interface EventDateColumnBinding {
+  source: string;
+  kind: string;
+}
+
 // A parsed set of rows from ONE published source (a normalised.csv OR a
 // raw-extract CSV — the emit step is identical, only the subject column name
 // differs). Rows are records keyed by column name (csv-parse `columns: true`);
@@ -275,6 +287,16 @@ export interface SourceObservationSet {
   // (authored-role-emit.ts, reading out Looked-up). Absent for every family
   // whose binding assigns no role vocabulary.
   authoredRoleBindings?: readonly AuthoredRoleBinding[];
+  // The authored EVENT-DATE column bindings (issue #725 S1), when the source's
+  // conversion binding maps date-bearing raw headers whose canonical output
+  // names classify to an authored event kind (eventKindForDateOutput,
+  // event-time-emit.ts). The emit path derives one event-time claim per
+  // (row, binding) with a non-empty cell under EVENT_DATE_RULE, parsing the
+  // cell STRICTLY under the column's attested interpretation format (never a
+  // guess). Absent for every family whose loader lifts no such binding, in
+  // which case emitEventDateClaims emits nothing — absence of an event claim
+  // is non-observation, never "nothing happened".
+  eventDateColumns?: readonly EventDateColumnBinding[];
   // The authored per-column INTERPRETATION (issue #435), parallel to `columns`
   // by index: each column's inferred {type, format} we read it under. Populated
   // by the loader lane that owns the spec (interpretOpenDataColumns for the

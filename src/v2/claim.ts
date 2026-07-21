@@ -44,6 +44,7 @@ export {
   type ClaimConfidence,
   type SourceObservationSet,
   type AuthoredRoleBinding,
+  type EventDateColumnBinding,
 } from './claim-core.ts';
 
 // The raw-layer emit step and its existence predicate.
@@ -77,6 +78,19 @@ export {
   AUTHORED_ROLE_RULE,
   emitAuthoredRoleClaims,
 } from './authored-role-emit.ts';
+
+// The derived event-time tier (issue #725 S1).
+export {
+  EVENT_DATE_PREDICATE_PREFIX,
+  EVENT_DATE_RULE,
+  EVENT_DATE_KINDS,
+  eventDatePredicate,
+  eventKindOf,
+  eventKindForDateOutput,
+  isoDayFromAttested,
+  isoDayFromCellUnderAnyAttestedFormat,
+  emitEventDateClaims,
+} from './event-time-emit.ts';
 
 // The derived callsign-pattern tier.
 export {

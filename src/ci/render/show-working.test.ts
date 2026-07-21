@@ -23,6 +23,7 @@ import {
   LICENCE_CATEGORY_PREDICATE,
   PARSE_CALLSIGN_RULE,
   STRIPPED_COLLISION_RULE,
+  EVENT_DATE_RULE,
   SOURCE_REPO_URL,
   type Claim,
   type SourceObservationSet,
@@ -249,6 +250,7 @@ describe('the derivation-code register cannot drift from the code it names (issu
     LICENCE_CATEGORY_RULE,
     PARSE_CALLSIGN_RULE,
     STRIPPED_COLLISION_RULE,
+    EVENT_DATE_RULE,
   ];
 
   it('RuleCodeRegister_EveryEmittedDerivationRule_HasACodeMapping', () => {
