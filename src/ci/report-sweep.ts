@@ -53,6 +53,7 @@ import { writeEventTimeCoherency } from './event-time-coherency.ts';
 import { writeStateAtTReport } from './state-at-t.ts';
 import { writePolicyInvariantsReport } from './policy-invariants.ts';
 import { writeCuriosityIndex } from './curiosity-index.ts';
+import { writeSequenceAnalytics } from './sequence-analytics.ts';
 import { mdCell } from '../shared/markdown.ts';
 import { time, perfReport } from '../shared/perf.ts';
 
@@ -178,6 +179,13 @@ export function runReportSweep(): ReportSweepReport {
   // that shifts which records are unusual shows up in a PR diff. Build side; the
   // reader-facing page follows the #104 conventions.
   time('reports:curiosity-index', () => writeCuriosityIndex());
+
+  // The namespace sequence analytics (issue #864): allocation order (the
+  // register's H5), gap structure, issuance-rate curves and a naive
+  // series-exhaustion projection per prefix series, folded from the S1
+  // allocation-time event claims. Committed so a new vintage shifting the
+  // picture is a PR diff.
+  time('reports:sequence-analytics', () => writeSequenceAnalytics());
 
   // The newest dataset's matrix always appears: the coverage body is the
   // does-this-look-right triage surface, and current state belongs on it -
@@ -720,6 +728,7 @@ function writeReportsIndex(columnsNewestFirst: string[], statsByKey: Map<string,
     '- [State-at-t reconstruction](state-at-t.md) - bi-temporal inference engine: what the corpus can honestly say about a callsign at a date, and under which vintages',
     '- [Policy-as-tests invariants](policy-invariants.md) - the regulator\'s stated rules as executable invariants: the two-year reservation window tested against the held data',
     '- [Curiosity index](curiosity-index.md) - reference-free per-record rarity score: the most unusual records in the newest publication, with each score’s component breakdown',
+    '- [Namespace sequence analytics](sequence-analytics.md) - allocation order (H5), gap structure, issuance-rate curves and a naive series-exhaustion projection per prefix series',
     '',
     '| dataset | records | distinct patterns | flag instances |',
     '|---|---:|---:|---:|',

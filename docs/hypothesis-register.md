@@ -178,22 +178,45 @@ emit a fold + golden report of every window that does not match.
 
 ## H5 — Callsigns within a series are issued sequentially
 
-**Status: `untested`** &nbsp;·&nbsp; epistemics: **[hypothesis]**
+**Status: `refuted`** (as a strict claim) &nbsp;·&nbsp; epistemics: **[derived]**
 
-The assumption that a series such as `M7xxx` is handed out in order. Whether
-issuance is actually sequential — and the gap structure within a series, the
-issuance-rate curve over event time, and the waiting-time distribution between
-allocations — is answerable from the event claims plus snapshot presence, but
-has not been run. Any resulting rate or forecast is [derived]/[inferred] with
-its asserting vintages named and explicit "naive extrapolation, not prediction"
-caveats.
+The assumption that a series such as `M7xxx` is handed out in suffix order.
+Refuted as stated: across every series with datable evidence, the rank
+correlation between a suffix's sequence position and its allocation day is at
+most a **broad forward drift**, never the near-perfect ordering "issued
+sequentially" implies. The strongest series, the Full-series `G0`, reaches only
+Spearman **ρ ≈ 0.73**; the young foundation `M7` sits at **0.25**, `M6` at
+**0.24**; and the old, reissue-heavy vintage series run the OTHER way — `G2` at
+**ρ ≈ −0.45** (reverse-ordered). Two mechanisms visible in the data break strict
+sequentiality: applicants may request any *available* callsign in their series
+(vanity / choice, not next-in-line), and a lapsed callsign is reissued to a new
+holder years out of suffix order. What survives is a weak tendency for
+later-suffix callsigns to be issued somewhat later — a drift, not a sequence.
 
-**Evidence route (not yet run):** the namespace sequence analytics work,
-[#864](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/864) —
-fold + golden report of allocation order and gap structure per series.
+The companion figures are honestly bounded: dated allocation coverage is uneven
+between series (77.3% of ~162.6k parsed slots corpus-wide, but as low as ~35% for
+some), the order reading leans on the earliest-SURVIVING original-start date
+wherever firm `licence-issued` evidence is absent (issue #800 caveat; `M7` is
+only ~10% firm-issued), and the exhaustion projections are explicitly NAIVE
+flat-rate extrapolation behind a dated-evidence ceiling — the engaging figure
+(`M7` ~78% full, a nominal run-out near 2029) is illustrative arithmetic, not a
+forecast.
+
+**Evidence (re-runnable):** the committed golden
+[`reports/sequence-analytics.md`](../reports/sequence-analytics.md), regenerated
+by the fold `src/ci/sequence-analytics.ts` (`node src/ci/sequence-analytics.ts`)
+over the S1 allocation-time event claims (`licence-issued`, the earliest-surviving
+original-start kinds) and gated byte-for-byte by
+`src/ci/sequence-analytics-corpus.test.ts`. The per-series ρ, gap structure,
+issuance-rate curves and projection are all folded from the claim ledger.
 
 **Status history:**
 
+- 2026-07-21 — `refuted` (as a strict claim). Per-series Spearman ρ between suffix
+  sequence position and allocation day is at most ~0.73 (`G0`) and negative for
+  the old reissue-heavy series (`G2` ≈ −0.45); applicant callsign choice and
+  reissue break strict order, leaving only a weak forward drift. Source: #864,
+  reports/sequence-analytics.md.
 - 2026-07-21 — `untested`. Route identified (#864's sequence analytics), not yet
   run. Source: #864.
 
