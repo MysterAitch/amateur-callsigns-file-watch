@@ -50,6 +50,7 @@ import { buildFoiUnkeyableSummary, type FoiUnkeyableSummary } from './foi-unkeya
 import { writeCrossDatasetInvariants } from './cross-dataset-invariants.ts';
 import { writeForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { writeEventTimeCoherency } from './event-time-coherency.ts';
+import { writeStateAtTReport } from './state-at-t.ts';
 import { mdCell } from '../shared/markdown.ts';
 import { time, perfReport } from '../shared/perf.ts';
 
@@ -155,6 +156,12 @@ export function runReportSweep(): ReportSweepReport {
   // episodes, per-step revision classifications and corroboration depth.
   // Committed so a new vintage shifting the coherency picture is a PR diff.
   time('reports:event-time-coherency', () => writeEventTimeCoherency());
+
+  // The state-at-t reconstruction report (issue #725 S3): the bi-temporal
+  // inference engine demonstrated over the real corpus — inference rules,
+  // per-kind coverage honesty and the authored worked examples. Committed so
+  // a new vintage shifting any answer is a PR diff.
+  time('reports:state-at-t', () => writeStateAtTReport());
 
   // The newest dataset's matrix always appears: the coverage body is the
   // does-this-look-right triage surface, and current state belongs on it -
@@ -694,6 +701,7 @@ function writeReportsIndex(columnsNewestFirst: string[], statsByKey: Map<string,
     '- [Data-quality rollup](data-quality.md) - defect detectors, flags, parse statuses',
     '- [Class-product mismatches](class-product-mismatches.md) - standing table of every affected row',
     '- [Event-time coherency](event-time-coherency.md) - cross-vintage retroactive-revision detector: mass-update episodes, revisions, corroboration',
+    '- [State-at-t reconstruction](state-at-t.md) - bi-temporal inference engine: what the corpus can honestly say about a callsign at a date, and under which vintages',
     '',
     '| dataset | records | distinct patterns | flag instances |',
     '|---|---:|---:|---:|',

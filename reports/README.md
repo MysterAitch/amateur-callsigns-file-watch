@@ -9,6 +9,7 @@ Standing, deterministic views over the archive. Drill-downs:
 - [Data-quality rollup](data-quality.md) - defect detectors, flags, parse statuses
 - [Class-product mismatches](class-product-mismatches.md) - standing table of every affected row
 - [Event-time coherency](event-time-coherency.md) - cross-vintage retroactive-revision detector: mass-update episodes, revisions, corroboration
+- [State-at-t reconstruction](state-at-t.md) - bi-temporal inference engine: what the corpus can honestly say about a callsign at a date, and under which vintages
 
 | dataset | records | distinct patterns | flag instances |
 |---|---:|---:|---:|

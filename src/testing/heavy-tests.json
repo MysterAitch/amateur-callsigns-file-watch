@@ -4,6 +4,7 @@
   "src/ci/value-catalogue-fold.test.ts",
   "src/ci/quality-report-fold.test.ts",
   "src/ci/event-time-coherency-corpus.test.ts",
+  "src/ci/state-at-t-corpus.test.ts",
   "src/ci/interpretation-oracle.test.ts",
   "src/ci/build-sqlite.tiers.test.ts",
   "src/ci/build-dataset-pages.test.ts",
