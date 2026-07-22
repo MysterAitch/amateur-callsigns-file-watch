@@ -128,6 +128,27 @@ describe('Inter-dataset statistics — the other cross-publication comparisons',
     expect(page).toContain(`<td class="n">${absentMarker()}</td>`);
   });
 
+  it('FlagEvolution_PublicationLackingRequiredColumn_RendersCannotEvaluateNotZeroOrAbsent', () => {
+    // Issue #905: forbidden-suffix-issued-after-first-known-list needs an
+    // original start date; publications before late 2025 never carried that
+    // column populated, so they could not fire the flag at all. Its cell must
+    // read "not assessable" (the shared .na marker) — a distinct third state —
+    // not a bare 0 (evaluated, none found) nor the absent dot (·, not
+    // asserted), so a reader never misreads a schema event as a register event.
+    const page = read();
+    const flag = 'forbidden-suffix-issued-after-first-known-list';
+    // The flag's own row carries at least one cannot-evaluate cell.
+    const rowRe = new RegExp(`<tr><td><a[^>]*><code>${flag}</code></a></td>([\\s\\S]*?)</tr>`);
+    const row = rowRe.exec(page)?.[1];
+    expect(row).toBeDefined();
+    expect(row).toContain('class="na"');
+    expect(row).toContain('not assessable — no populated licence_version_original_start_date column in this publication');
+    // The cannot-evaluate cell is neither a genuine zero nor the absent marker.
+    expect(row).not.toContain(`<td class="n">${absentMarker()}</td>`);
+    // The section explains the third state so an "n/a" cell is self-describing.
+    expect(page).toContain('could not be assessed');
+  });
+
   it('PatternDrift_ReusesCompareStats_RendersNewAndLostPatternsPerTransition', () => {
     const page = read();
     expect(page).toContain('<h2 id="patterns">Callsign-pattern appearance and disappearance</h2>');

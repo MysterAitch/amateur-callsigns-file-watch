@@ -63,6 +63,43 @@ describe('Home-page aggregate pre-rendering', { tags: ['unit'] }, () => {
     expect(recordsRow).not.toContain('class="zero"');
   });
 
+  it('FlagsTable_PublicationLackingRequiredColumn_RendersCannotEvaluateNotZero', () => {
+    // Issue #905: forbidden-suffix-issued-after-first-known-list can only fire
+    // on a row carrying an original start date. Publications before late 2025
+    // never carried that column populated, so they could not fire it — their
+    // cell must render the shared cannot-evaluate marker (.na "n/a"), naming
+    // the missing column, rather than a bare 0 that reads as "evaluated, none
+    // found". Otherwise a schema event (the export gaining a date column)
+    // masquerades as a register event (a cohort of late issuances appearing).
+    const html = renderFlagsTableHtml();
+    const flag = 'forbidden-suffix-issued-after-first-known-list';
+    const row = new RegExp(`<tr>(?:(?!</tr>)[\\s\\S])*?<td>${flag}</td>(?:(?!</tr>)[\\s\\S])*?</tr>`).exec(html)?.[0];
+    expect(row).toBeDefined();
+    expect(row).toContain('class="na"');
+    expect(row).toContain('not assessable — no populated licence_version_original_start_date column in this publication');
+    // The newest publications DID carry the column, so the same row still shows
+    // its real, non-zero counts — the marker is per-cell, not blanket.
+    expect(row).toContain('<td class="num">106</td>');
+    // The table carries a self-describing note for the n/a state.
+    expect(html).toContain('could not be assessed');
+  });
+
+  it('FlagsTable_ProductlessPublication_RendersClassProductMismatchAsCannotEvaluate', () => {
+    // The second instance of the same class (#905): class-product-mismatch
+    // needs the product column, which the 2022-05-30 three-column export never
+    // carried — so its cell is not assessable, while the declared-partial
+    // exports that DO carry a fully-populated product column keep their genuine
+    // zero (evaluated, none found).
+    const html = renderFlagsTableHtml();
+    const row = /<tr>(?:(?!<\/tr>)[\s\S])*?<td>class-product-mismatch<\/td>(?:(?!<\/tr>)[\s\S])*?<\/tr>/.exec(html)?.[0];
+    expect(row).toBeDefined();
+    expect(row).toContain('not assessable — no populated product column in this publication');
+    // Exactly one cannot-evaluate cell (the single product-less publication);
+    // every other cell is a real count, including genuine muted zeros.
+    expect((row?.match(/class="na"/g) ?? []).length).toBe(1);
+    expect(row).toContain('<span class="zero">0</span>');
+  });
+
   it('RslMatrix_RealArchive_CarriesReferenceDrivenRowsTotalsAndExclusions', () => {
     const html = renderRslMatrixHtml();
     // Series stored bare (20), displayed with the # slot marker, linked

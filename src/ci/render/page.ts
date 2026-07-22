@@ -333,6 +333,10 @@ const ENTRY_STYLE = [
   '.dcur{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}',
   '.dpitch{display:block}.dpitch .src{color:var(--muted);font-weight:400;font-size:.76rem}.dpitch b{font-variant-numeric:tabular-nums}',
   '.gap{color:var(--muted);font-weight:400}',
+  // The cannot-evaluate marker (#905): muted like .gap/.absent, but a dotted
+  // underline + help cursor signal that a tooltip explains WHY the flag could
+  // not be assessed here - distinct from a zero and from the absent dot.
+  '.na{color:var(--muted);font-style:italic;border-bottom:1px dotted currentColor;cursor:help}',
   '.dcap{display:block;margin-top:.15rem;color:var(--muted);font-size:.76rem;line-height:1.3}',
   '.nav-side details{margin-top:.45rem}.nav-side summary{cursor:pointer;color:var(--muted);font-size:.78rem;padding:.2rem 0}.nav-side details .dlist{margin-top:.35rem}',
   '@media(max-width:48rem){.col{order:2;flex-basis:100%}.side{order:1;flex-basis:100%}.nav-side{order:3;flex-basis:100%}}',

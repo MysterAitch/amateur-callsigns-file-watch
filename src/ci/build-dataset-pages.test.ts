@@ -382,6 +382,54 @@ describe('Dataset pages build', () => {
     expect(page).not.toContain('issued since the 2019 list');
   });
 
+  it('DatasetPages_LicenceBreakdowns_NameTheirTrueAxesAndGlossTheDifference', () => {
+    // Issue #901 (presentation): the two breakdowns are different AXES, not two
+    // renderings of "Licence level". Level is what the shape implies; product
+    // is what the source declares (and can name a category the shape cannot,
+    // such as Full (Club) — a Full-LEVEL licence, OFW611-verified). The headings
+    // must state the axis and gloss the difference.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(page).toContain('(implied by callsign shape)');
+    expect(page).toContain('<h3>Licence product <small class="lvl">(as declared)</small></h3>');
+    // The gloss names the level-vs-category distinction (Club is Full-level).
+    expect(page).toContain('This is a different axis from the declared product');
+    expect(page).toContain('is a <b>Full-level</b> licence');
+    // The old conflation — both breakdowns headed "Licence level", tagged only
+    // "(implied)"/"(declared)" — must be gone.
+    expect(page).not.toMatch(/\(implied\)<\/h3>/);
+    expect(page).not.toMatch(/\(declared\)<\/h3>/);
+  });
+
+  it('DatasetPages_ImpliedLevelBlankBucket_DecomposesIntoStructuralCauses', () => {
+    // Issue #901 gap 1: the former single implied "(blank)" bucket conflated
+    // visitor formats, unknown series and unparseable values. Each is now its
+    // own row naming its cause; a clean parse_status facet drives the browser
+    // where one identifies the bucket (visitor), and the many-prefix
+    // unknown-series row stays informational (no single-column facet).
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    expect(page).toContain('visitor / reciprocal format — class not implied by shape');
+    expect(page).toContain('data-filter-col="parse_status" data-filter-val="visitor"');
+    expect(page).toContain('unknown prefix series — no level in the reference table');
+    expect(page).toContain('unparseable value — no shape to classify');
+    // The level rows keep their own axis facet (implied_class), unchanged.
+    expect(page).toContain('data-filter-col="implied_class" data-filter-val="Foundation"');
+  });
+
+  it('DatasetPages_ImpliedLevelAxis_IsAClosedVocabularyRenderedCompleteWithZeros', () => {
+    // Issue #901 gap 2: the implied axis draws from a bounded vocabulary (the
+    // reference levels plus the structural outcomes), so an outcome absent in a
+    // publication renders with a zero count rather than vanishing — the reader
+    // learns the whole vocabulary AND the absence. 2026-06-23 carries no
+    // special-event (GB) or blank-callsign rows, yet both appear at 0.
+    const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
+    const glance = page.slice(page.indexOf('(implied by callsign shape)'), page.indexOf('Licence product'));
+    expect(glance).toContain('special event (GB) — no shape-implied level');
+    expect(glance).toContain('blank callsign');
+    // The zero-count structural rows carry a literal 0 count, not a dropped row.
+    const specialEvent = glance.slice(glance.indexOf('special event (GB)'));
+    expect(specialEvent).toMatch(/^[\s\S]*?<b>0<\/b>/);
+  });
+
   it('DatasetPages_OpenDataRegisterPreview_RendersCallsignsAsPillsLinkingToRegisterLookup', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
     const preview = page.slice(page.indexOf('class="browser-static"'));

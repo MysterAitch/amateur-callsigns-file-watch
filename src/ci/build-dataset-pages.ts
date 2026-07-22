@@ -528,6 +528,68 @@ function facetAttr(col: string, value: string): string {
   return ` data-filter-col="${col}" data-filter-val="${escapeHtml(value)}" role="button" tabindex="0"`;
 }
 
+// One entry on the implied-licence-level axis (issue #901): a display label,
+// its row count, and the column=value facet a click filters on. This axis is a
+// LEVEL axis (what the callsign's shape implies), distinct from the declared
+// PRODUCT axis (what the source states, which can name a category such as
+// Full (Club) that shares the Full level). It is a CLOSED vocabulary rendered
+// complete with zero counts - the reader learns the full set of outcomes AND
+// which are absent in this publication (the truncated-file case) - so entries
+// counting 0 are kept, never dropped.
+interface ImpliedLevelEntry {
+  label: string;
+  count: number;
+  // 'level' renders through the shared licence-class chip; 'structural' is a
+  // plain humanised label (a visitor or unparseable shape carries no level, so
+  // it is not a licence value to chip).
+  kind: 'level' | 'structural';
+  facet?: { column: string; value: string };
+}
+
+// The shape-implied levels, in a fixed teaching order; any further level the
+// reference data introduces is appended after these, so the vocabulary tracks
+// reference-data/prefix-formats.csv rather than a frozen list.
+const IMPLIED_LEVEL_ORDER = ['Foundation', 'Intermediate', 'Full'];
+
+// The distinct station levels the reference data assigns to prefix series, in
+// teaching order. Derived from the shared reference cache, so a new level lands
+// here automatically once prefix-formats.csv carries it.
+function impliedLevelVocabulary(): string[] {
+  const distinct = new Set<string>();
+  for (const series of referenceData().prefixSeries.values()) {
+    const level = (series.stationLevel ?? '').trim();
+    if (level !== '') distinct.add(level);
+  }
+  const known = IMPLIED_LEVEL_ORDER.filter(l => distinct.has(l));
+  const extra = [...distinct].filter(l => !IMPLIED_LEVEL_ORDER.includes(l)).sort((a, b) => a.localeCompare(b));
+  return [...known, ...extra];
+}
+
+// The structural reasons a row carries NO shape-implied level, as a closed
+// vocabulary derived from the parser's own parse-status outcomes plus the
+// unknown-series case. Decomposing the former single "(blank)" bucket (issue
+// #901): a visitor prefix implies no UK class, a special-event or unparseable
+// value has no series to read, and an unknown prefix series is not in the
+// reference table - each is a distinct fact, not one undifferentiated blank.
+const STRUCTURAL_OUTCOMES: { key: string; label: string; facet?: { column: string; value: string } }[] = [
+  { key: 'visitor', label: 'visitor / reciprocal format — class not implied by shape', facet: { column: 'parse_status', value: 'visitor' } },
+  { key: 'special-event', label: 'special event (GB) — no shape-implied level', facet: { column: 'parse_status', value: 'special-event' } },
+  { key: 'unknown-series', label: 'unknown prefix series — no level in the reference table' },
+  { key: 'unparseable', label: 'unparseable value — no shape to classify' },
+  { key: 'empty', label: 'blank callsign', facet: { column: 'parse_status', value: 'empty' } },
+];
+
+// Which structural bucket a level-less row falls in. A parsed row reaching here
+// did so only via an unrecognised prefix series (every referenced series
+// carries a level); the other statuses map one-to-one.
+function structuralOutcomeKey(parseStatus: string): string {
+  if (parseStatus === 'visitor') return 'visitor';
+  if (parseStatus === 'special-event') return 'special-event';
+  if (parseStatus === 'empty') return 'empty';
+  if (parseStatus === 'unparseable') return 'unparseable';
+  return 'unknown-series';
+}
+
 // Status and implied-class distributions for an open-data publication,
 // read from its normalised.csv (status) and components.csv (implied_class,
 // prefix_series). The RSL matrix used to be the components consumer on
@@ -537,7 +599,7 @@ function facetAttr(col: string, value: string): string {
 function openDataBreakdowns(key: string): {
   recordCount: number;
   status: [string, number][];
-  impliedClass: [string, number][];
+  implied: ImpliedLevelEntry[];
   declared: [string, number][];
   prefixes: [string, number][];
   prefixLevel: Map<string, string>;
@@ -578,10 +640,36 @@ function openDataBreakdowns(key: string): {
   }
   const sortDesc = (m: Map<string, number>, n?: number): [string, number][] =>
     [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, n);
+  // The implied LEVEL axis (issue #901): tally the shape-implied level where
+  // one exists, and decompose the level-less rows into their structural causes
+  // rather than one undifferentiated "(blank)". Then render the whole closed
+  // vocabulary - the reference levels plus every structural outcome - complete
+  // with zero counts, so a truncated file still shows the full axis and the
+  // reader can tell "absent here" from "not a possible value".
+  const levelCounts = new Map<string, number>();
+  const structuralCounts = new Map<string, number>();
+  for (const r of componentRows) {
+    const level = (r.implied_class ?? '').trim();
+    if (level !== '') { levelCounts.set(level, (levelCounts.get(level) ?? 0) + 1); continue; }
+    const key = structuralOutcomeKey((r.parse_status ?? '').trim());
+    structuralCounts.set(key, (structuralCounts.get(key) ?? 0) + 1);
+  }
+  const levelVocab = impliedLevelVocabulary();
+  const levelEntry = (level: string): ImpliedLevelEntry =>
+    ({ label: level, count: levelCounts.get(level) ?? 0, kind: 'level', facet: { column: 'implied_class', value: level } });
+  // Any level observed in the data but absent from the reference vocabulary is
+  // appended (sorted) so nothing observed is dropped, mirroring the RSL matrix's
+  // observed-but-unreferenced handling.
+  const observedExtraLevels = [...levelCounts.keys()].filter(l => !levelVocab.includes(l)).sort((a, b) => a.localeCompare(b));
+  const implied: ImpliedLevelEntry[] = [
+    ...levelVocab.map(levelEntry),
+    ...observedExtraLevels.map(levelEntry),
+    ...STRUCTURAL_OUTCOMES.map(o => ({ label: o.label, count: structuralCounts.get(o.key) ?? 0, kind: 'structural' as const, facet: o.facet })),
+  ];
   return {
     recordCount: statusRows.length,
     status: sortDesc(tally(statusRows, 'status')),
-    impliedClass: sortDesc(tally(componentRows, 'implied_class')),
+    implied,
     declared: sortDesc(tally(statusRows, 'product')),
     prefixes: sortDesc(tally(componentRows, 'prefix_series')),
     prefixLevel,
@@ -856,6 +944,16 @@ function atAGlanceOpenData(key: string, previousKey: string | undefined, stats: 
     return `<div class="brow"${facetAttr('prefix_series', p)}><span class="lab">${prefixSeriesField(p, { blankLabel: '(unparseable — no series)' })}${tag}${seriesNav}</span>${bar(n)}</div>`;
   }).join('');
   const declaredRows = bd.declared.map(([p, n]) => `<div class="brow"${facetAttr('product', p)}><span class="lab">${shortProduct(p)}</span>${bar(n)}</div>`).join('');
+  // The implied-level rows (issue #901): a level renders as the shared licence
+  // chip and filters on implied_class; a structural outcome (visitor,
+  // unparseable, …) is a plain label - it is not a licence value - and filters
+  // on its parse_status where one cleanly identifies it (unknown-series spans
+  // many prefixes, so it stays a non-filter informational row).
+  const impliedRows = bd.implied.map(e => {
+    const attr = e.facet === undefined ? '' : facetAttr(e.facet.column, e.facet.value);
+    const label = e.kind === 'level' ? licenceField(e.label) : escapeHtml(e.label);
+    return `<div class="brow"${attr}><span class="lab">${label}</span>${bar(e.count)}</div>`;
+  }).join('');
   const intlExpr = "CASE WHEN callsign LIKE '%/%' THEN 'yes' ELSE 'no' END";
   return [
     '<section>',
@@ -866,8 +964,8 @@ function atAGlanceOpenData(key: string, previousKey: string | undefined, stats: 
     // click-to-filter role="button" target (facetAttr), and a glossary <a>
     // nested inside one would be a nested-interactive-control anti-pattern.
     bd.status.length > 0 ? `<div class="bd"><h3>${glossaryTerm('status-values', 3, { label: 'Status' })}</h3>${breakdownRows(bd.status, bd.recordCount, undefined, label => facetAttr('status', label), label => statusField(label, { glossaryLinking: 'plain' }))}</div>` : '',
-    bd.impliedClass.length > 0 ? `<div class="bd"><h3>${glossaryTerm('licence-class', 3, { label: 'Licence level' })} (implied)</h3>${breakdownRows(bd.impliedClass, bd.recordCount, undefined, label => facetAttr('implied_class', label), label => licenceField(label))}</div>` : '',
-    bd.declared.length > 0 ? `<div class="bd"><h3>${glossaryTerm('licence-class', 3, { label: 'Licence level' })} (declared)</h3>${declaredRows}</div>` : '',
+    bd.implied.length > 0 ? `<div class="bd"><h3>${glossaryTerm('licence-class', 3, { label: 'Licence level' })} <small class="lvl">(implied by callsign shape)</small></h3><p class="dcap">What the callsign's <b>shape</b> implies — only Foundation, Intermediate and Full are shape-implied. A visitor or club shape carries none, so those rows sit under the structural outcomes; the whole vocabulary is shown even where a value counts zero here. This is a different axis from the declared product below.</p>${impliedRows}</div>` : '',
+    bd.declared.length > 0 ? `<div class="bd"><h3>Licence product <small class="lvl">(as declared)</small></h3><p class="dcap">What the source <b>declares</b> for each row, verbatim. This axis can name a category the shape cannot — a Full (Club) or Full (Temporary Reciprocal) product is a <b>Full-level</b> licence, so it appears here yet never on the level axis above. Only the values this publication carries are listed.</p>${declaredRows}</div>` : '',
     bd.prefixes.length > 0 ? `<div class="bd"><h3>${glossaryTerm('prefix-series', 3, { label: 'Prefixes' })} <small class="lvl">— all ${bd.prefixes.length}, with inferred level</small></h3><div class="prefixscroll">${prefixRows}</div><div class="brow"><a href="../../../series/index.html">all series →</a></div></div>` : '',
     bd.international > 0 ? `<div class="bd"><h3>International / visitor</h3><div class="brow" data-filter-expr="${escapeHtml(intlExpr)}" data-filter-val="yes" data-filter-label="international" role="button" tabindex="0"><span class="lab">contain <code>/</code> (e.g. <code>M/</code>) — country lookup planned</span>${bar(bd.international)}</div></div>` : '',
     // Dataset class: an open-data publication is the register state at a

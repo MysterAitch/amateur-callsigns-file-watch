@@ -26,8 +26,10 @@ import {
   type StringColumnStats,
   type DateColumnStats,
   type CallsignQuality,
+  flagAssessable,
+  flagRequirementReason,
 } from '../shared/stats.ts';
-import { humanDate, monthYear, humaniseLabel, tableCaption, callsignField, callsignDisplay, prefixSeriesField, absentMarker } from './site-render.ts';
+import { humanDate, monthYear, humaniseLabel, tableCaption, callsignField, callsignDisplay, prefixSeriesField, absentMarker, notAssessableMarker } from './site-render.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -139,26 +141,45 @@ function readCsv(filePath: string): Record<string, string>[] {
 // pivot app.js built from the datasets/stats_flags tables.
 export function renderFlagsTableHtml(): string {
   const keys = listArchiveKeys().sort().reverse();
-  const datasets: { key: string; recordCount: number; flags: Record<string, number> }[] = [];
+  const datasets: { key: string; recordCount: number; flags: Record<string, number>; stats: EntryStats }[] = [];
   for (const key of keys) {
     if (!derivedEntryFileExists(key, 'stats.json')) continue;
     const statsPath = derivedEntryFile(key, 'stats.json');
     const stats = parseJsonObject(fs.readFileSync(statsPath, 'utf8'), statsPath) as EntryStats;
-    datasets.push({ key, recordCount: stats.recordCount, flags: stats.callsignFlags ?? {} });
+    datasets.push({ key, recordCount: stats.recordCount, flags: stats.callsignFlags ?? {}, stats });
   }
   const flagNames = [...new Set(datasets.flatMap(d => Object.keys(d.flags)))].sort();
+  // A flag whose required source column a publication never carried populated
+  // could not fire there at all (issue #905): its zero is vacuous, so the cell
+  // renders the shared cannot-evaluate marker rather than a bare 0 that would
+  // misread as "evaluated, none found". The reason names the missing column.
+  const flagCell = (flag: string, d: { flags: Record<string, number>; stats: EntryStats }): string | number =>
+    flagAssessable(flag, d.stats)
+      ? (d.flags[flag] ?? 0)
+      : notAssessableMarker(flagRequirementReason(flag) ?? 'required column not populated in this publication');
+  // Every per-publication column carries raw HTML: a cannot-evaluate cell is a
+  // marker fragment, and a plain count is unaffected by raw rendering (the
+  // zero-mute in tableHtml still fires on a literal "0").
+  const dataColumns = new Set<number>();
+  for (let i = 1; i <= datasets.length; i++) dataColumns.add(i);
   // Each dataset column header links straight to that publication's entry
   // page - the aggregate connects to its provenance in one click.
-  return tableHtml(
+  const table = tableHtml(
     'Data-quality flag counts for every archived open-data publication, newest first',
     ['flag', ...datasets.map(d => `<a href="datasets/open-data/${d.key}/index.html">${d.key}</a>`)],
     [
       ['records', ...datasets.map(d => d.recordCount)],
-      ...flagNames.map(flag => [flag, ...datasets.map(d => d.flags[flag] ?? 0)]),
+      ...flagNames.map(flag => [flag, ...datasets.map(d => flagCell(flag, d))]),
     ],
     1,
     true,
+    dataColumns,
   );
+  // Explain the third state a reader will meet in this table, so an "n/a" cell
+  // is self-describing without hovering: some flags need a source column a
+  // pre-2025 export never carried, and could not fire there.
+  return table
+    + '<p class="muted"><small><span class="na">n/a</span> marks where a flag <b>could not be assessed</b> for that publication — it needs a source column the export did not carry populated (for example <code>forbidden-suffix-issued-after-first-known-list</code> needs an original start date, absent before late 2025). That is a different fact from a genuine zero (evaluated, none found); absence is not evidence.</small></p>';
 }
 
 // The primary-by-secondary locator matrix over the LATEST dataset's

@@ -92,6 +92,42 @@ export interface EntryStats {
   columns: Record<string, StringColumnStats | DateColumnStats>;
 }
 
+// Some flags are per-row determinations a publication cannot even attempt
+// unless it carries a particular source column populated: the
+// forbidden-suffix-issued-after-first-known-list flag can only fire on a row
+// that supplies an original start date, and class-product-mismatch on a row
+// that supplies a product. A publication whose required column is absent (or
+// present but blank on every row) could never fire such a flag, so its zero
+// count is VACUOUS ("could not be assessed") - a categorically different fact
+// from an evaluated "none found" (a genuine 0). This maps each such flag to
+// the canonical column it needs; a flag not listed here is assessable from the
+// callsign column alone, which every publication carries.
+export const FLAG_REQUIRED_COLUMN: Readonly<Record<string, string>> = {
+  'forbidden-suffix-issued-after-first-known-list': 'licence_version_original_start_date',
+  'class-product-mismatch': 'product',
+};
+
+// The distinct fact a cannot-evaluate cell states, so callers name the same
+// reason consistently in tooltips: which column was missing and why that
+// leaves the flag unassessable rather than genuinely zero.
+export function flagRequirementReason(flag: string): string | undefined {
+  const column = FLAG_REQUIRED_COLUMN[flag];
+  return column === undefined ? undefined : `no populated ${column} column in this publication`;
+}
+
+// Whether `stats` could have evaluated `flag` at all. A flag with no column
+// requirement is always assessable; one with a requirement is assessable only
+// when its column is populated on at least one row (present AND non-blank
+// somewhere). An absent column, or one blank on every row, is not assessable -
+// its zero would misread as "none found".
+export function flagAssessable(flag: string, stats: EntryStats): boolean {
+  const column = FLAG_REQUIRED_COLUMN[flag];
+  if (column === undefined) return true;
+  const col = stats.columns[column];
+  if (col === undefined) return false;
+  return stats.recordCount - col.empty > 0;
+}
+
 // Whitespace/unprintable/invisible characters, marked per-codepoint in
 // patterns. Substitution runs AFTER the letter/digit mappings, so the marker
 // text's own letters can never be re-mapped. (A raw callsign containing a
