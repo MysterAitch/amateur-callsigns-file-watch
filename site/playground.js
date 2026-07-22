@@ -355,7 +355,11 @@ function initPlayground() {
     // Warm the database open once the page is idle, so the first Run is fast: the
     // worker, the WASM and the initial pages load in the background rather than
     // on the critical path of the user's first query.
-    const whenIdle = window.requestIdleCallback ?? ((fn) => window.setTimeout(fn, 300));
+    // Invoke requestIdleCallback through its receiver rather than storing the bare
+    // method, so no `this` binding is ever detached from window.
+    const whenIdle = window.requestIdleCallback
+      ? (/** @type {() => void} */ fn) => window.requestIdleCallback(fn)
+      : (/** @type {() => void} */ fn) => void window.setTimeout(fn, 300);
     whenIdle(() => warmUp());
   }
 
