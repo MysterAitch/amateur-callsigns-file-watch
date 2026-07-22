@@ -30,6 +30,15 @@ const MMSI_LABELLED =
   'M3YVL,Allocated,Amateur Foundation Radio Licence,23/07/2016\n' +
   '2E0ABC,Allocated,Amateur Intermediate Radio Licence,05/03/2020\n';
 
+// The workbook-extract shape (same headers as v2026-licence-version, but ISO
+// dates) - never auto-detected (the headers collide), so an entry binds it
+// explicitly. Exercises the ISO intake branch's calendar validation.
+const LICENCE_VERSION_ISO =
+  '﻿Callsign,Product__c,Status,Type__c,Licence_Version.LastModifiedDate,Licence_Version.Original_start_date__c\n' +
+  'M0IVB,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,2025-10-11,2019-01-20\n' +
+  '20DLQ,Amateur Intermediate Radio Licence,Allocated,Call Sign - Amateur,2025-10-11,2015-05-29\n';
+const ISO_VARIANT = 'v2026-licence-version-iso';
+
 // The 2025-11-11 web-archived export's shape-only header fill: the five
 // empty trailing header names become unknown-1..5 so csv-parse cannot
 // collapse them (issue #577's motivating case - see IGNORED_COLUMN_VERIFICATION
@@ -228,6 +237,24 @@ describe('convertRawCsv', { tags: ['unit'] }, () => {
     // A month-first export puts real days >12 in the month position.
     const flipped = SALESFORCE_RAW.replace('20/01/2019', '01/20/2019');
     expect(() => convertRawCsv(flipped, FETCH_CONTEXT)).toThrow(/month/i);
+  });
+
+  it('Convert_WhenIsoDateHasAnImpossibleCalendarDay_ThrowsAtIntake', () => {
+    // The ISO intake branch calendar-validates exactly as the day-first branch
+    // does: 2020-02-30 is impossible and must fail loud at intake (the sanity
+    // gate), not slip through to crash the downstream ledger build.
+    const impossible = LICENCE_VERSION_ISO.replace('2015-05-29', '2020-02-30');
+    expect(() => convertRawCsv(impossible, FETCH_CONTEXT, [], ISO_VARIANT)).toThrow(/not a well-formed ISO extract/);
+  });
+
+  it('Convert_WhenIsoDateIsARealLeapDay_Passes', () => {
+    const leap = LICENCE_VERSION_ISO.replace('2015-05-29', '2020-02-29');
+    expect(() => convertRawCsv(leap, FETCH_CONTEXT, [], ISO_VARIANT)).not.toThrow();
+  });
+
+  it('Convert_WhenIsoDateIsAFeb29InANonLeapYear_ThrowsAtIntake', () => {
+    const nonLeap = LICENCE_VERSION_ISO.replace('2015-05-29', '2021-02-29');
+    expect(() => convertRawCsv(nonLeap, FETCH_CONTEXT, [], ISO_VARIANT)).toThrow(/not a well-formed ISO extract/);
   });
 
   it('Convert_WhenEmptyDataRows_Throws', () => {

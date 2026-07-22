@@ -54,7 +54,7 @@
  * is transformed from source bytes, not asserted by a registry.
  */
 
-import { parseUkDateTimeDetailed } from '../shared/normalise.ts';
+import { parseUkDateTimeDetailed, isWellFormedIsoExtractDate } from '../shared/normalise.ts';
 import { provenanceFor } from './provenance.ts';
 import { interpretColumns } from './interpretation.ts';
 import type { Claim, SourceObservationSet } from './claim-core.ts';
@@ -222,49 +222,36 @@ export function eventKindOf(predicate: string): string | undefined {
 export const DAY_FIRST_FORMAT = 'DD/MM/YYYY';
 export const ISO_FORMAT = 'YYYY-MM-DD';
 
-// The strict ISO-extract grammar, mirroring the open-data converter's workbook
-// branch (normalise.ts): yyyy-mm-dd with an optional hh:mm:ss time, month and
-// day range-checked. Kept strict so a value in the WRONG format for its
-// attestation fails loudly instead of being quietly read under another grammar.
-const ISO_EXTRACT_RE = /^(\d{4})-(\d{2})-(\d{2})( \d{2}:\d{2}:\d{2})?$/;
-
 // Parse one attested date cell STRICTLY under its attested format and return
 // the canonical ISO day (yyyy-mm-dd), or null for an empty cell (absence of
 // evidence — no claim, mirroring the raw layer's sparsity). A non-empty cell
 // that does not parse under its attested format THROWS: every source this tier
-// covers already passed the strict converter with the same grammar, so a
-// failure here is an integrity break, never routine data. Leading/trailing
-// whitespace is tolerated exactly as the converter tolerates it (the verbatim
-// cell, whitespace included, stays in the raw layer). A time-of-day component
-// is truncated to the day — the event axis is day-precision; the raw cell
-// keeps the full rendering.
+// covers already passed the strict converter — which applies this SAME full
+// calendar validation to both grammars (parseUkDateTimeDetailed for day-first,
+// isWellFormedIsoExtractDate for ISO) — so a failure here is an integrity
+// break, never routine data. Leading/trailing whitespace is tolerated exactly
+// as the converter tolerates it (the verbatim cell, whitespace included, stays
+// in the raw layer). A time-of-day component is truncated to the day — the
+// event axis is day-precision; the raw cell keeps the full rendering.
 export function isoDayFromAttested(value: string, format: string): string | null {
   const trimmed = value.trim();
   if (trimmed === '') return null;
   if (format === DAY_FIRST_FORMAT) {
     // LIFTED day-first parser (shared/normalise.ts) — the same strict
     // dd/mm/yyyy[ hh:mm[:ss]] grammar the converters validated these cells
-    // under. Throws on anything else.
+    // under, calendar validation included. Throws on anything else.
     return parseUkDateTimeDetailed(trimmed).iso.slice(0, 10);
   }
   if (format === ISO_FORMAT) {
-    const match = ISO_EXTRACT_RE.exec(trimmed);
-    if (match === null) {
+    // The SAME strict ISO-extract check both intake lanes apply (the open-data
+    // and FOI converters call isWellFormedIsoExtractDate): grammar plus full
+    // calendar validation, so an impossible cell like 2020-02-30 fails loud
+    // here exactly as its day-first sibling 30/02/2020 does. A well-formed
+    // value's first ten characters are the canonical yyyy-mm-dd day.
+    if (!isWellFormedIsoExtractDate(trimmed)) {
       throw new Error(`isoDayFromAttested: "${trimmed}" is not a well-formed ${ISO_FORMAT} extract date`);
     }
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-    // Full calendar validation, symmetric with the day-first parser
-    // (shared/normalise.ts): the day must fall within the month's real length
-    // (leap years included), not merely be <= 31. So an impossible ISO cell
-    // like 2020-02-30 fails loud here exactly as its day-first sibling
-    // 30/02/2020 does, rather than emitting the bad day verbatim. `new
-    // Date(year, month, 0)` yields the last day of that 1-based month.
-    const daysInMonth = month >= 1 && month <= 12 ? new Date(Number(match[1]), month, 0).getDate() : 0;
-    if (day < 1 || day > daysInMonth) {
-      throw new Error(`isoDayFromAttested: "${trimmed}" is not a well-formed ${ISO_FORMAT} extract date`);
-    }
-    return `${match[1]}-${match[2]}-${match[3]}`;
+    return trimmed.slice(0, 10);
   }
   throw new Error(`isoDayFromAttested: unknown attested date format "${format}" - the event-time tier parses only the attested grammars (${DAY_FIRST_FORMAT}, ${ISO_FORMAT})`);
 }

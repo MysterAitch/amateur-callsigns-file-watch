@@ -14,7 +14,7 @@
  */
 
 import { parse } from 'csv-parse/sync';
-import { parseUkDateTimeDetailed, type ParsedUkDateTime, renderCsv, codepointCompare } from '../../shared/normalise.ts';
+import { parseUkDateTimeDetailed, isWellFormedIsoExtractDate, type ParsedUkDateTime, renderCsv, codepointCompare } from '../../shared/normalise.ts';
 import { computeEntryStats, type EntryStats } from '../../shared/stats.ts';
 import { errorMessage, verifyIgnoredColumn, type IgnoredRawLine, type IgnoredColumnVerification } from '../../shared/utils.ts';
 import { parseCallsign, componentsFlagsForRows, componentRowToCells, loadReferenceData, COMPONENT_COLUMNS, COMPONENTS_SCHEMA_VERSION, type ComponentRow } from './components.ts';
@@ -490,11 +490,12 @@ export function convertRawCsv(rawContent: string, context: ConvertContext, curat
         let parsed: ParsedUkDateTime;
         if (isoDates) {
           // Workbook-extract dates arrive ISO (typed at source, rendered by
-          // the mechanical extract) - validated and carried verbatim, with no
-          // day-first ordering to disambiguate.
+          // the mechanical extract) - fully calendar-validated (the same real
+          // day-length/leap check the day-first branch applies via
+          // parseUkDateTimeDetailed) and carried verbatim, with no day-first
+          // ordering to disambiguate.
           const trimmed = rawValue.trim();
-          const match = /^\d{4}-(\d{2})-(\d{2})( \d{2}:\d{2}:\d{2})?$/.exec(trimmed);
-          if (match === null || Number(match[1]) < 1 || Number(match[1]) > 12 || Number(match[2]) < 1 || Number(match[2]) > 31) {
+          if (!isWellFormedIsoExtractDate(trimmed)) {
             throw new Error(`row ${index + 2} (${record[Object.keys(mapping)[0]] ?? '?'}): "${trimmed}" is not a well-formed ISO extract date`);
           }
           parsed = { iso: trimmed, ambiguous: false };
