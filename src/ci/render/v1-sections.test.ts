@@ -32,7 +32,7 @@ const BANNED_PHRASES = [
   'confirmed-as-fact',
 ];
 
-describe('v1 section registries', () => {
+describe('v1 section registries', { tags: ['unit'] }, () => {
   it('HomeSectionOrder_EveryId_HasARegistryEntryAndViceVersa', () => {
     expect(Object.keys(HOME_SECTIONS).sort()).toEqual([...HOME_SECTION_ORDER].sort());
   });
@@ -61,7 +61,7 @@ describe('v1 section registries', () => {
   });
 });
 
-describe('v1 copy — claims bar (TS)', () => {
+describe('v1 copy — claims bar (TS)', { tags: ['unit'] }, () => {
   it('BitemporalGlosses_WhereverTheyRender_AppearVerbatim', () => {
     expect(V1_COPY_STRINGS).toContain(EVENT_TIME_GLOSS);
     expect(V1_COPY_STRINGS).toContain(ASSERTION_TIME_GLOSS);
@@ -95,7 +95,7 @@ describe('v1 copy — claims bar (TS)', () => {
   });
 });
 
-describe('v1 copy — JS/TS mirror', () => {
+describe('v1 copy — JS/TS mirror', { tags: ['unit'] }, () => {
   it('CopyRegistries_JsAndTsTwins_CarryTheIdenticalStrings', () => {
     expect([...JS_COPY_STRINGS].sort()).toEqual([...V1_COPY_STRINGS].sort());
   });

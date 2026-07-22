@@ -38,7 +38,7 @@ beforeEach(() => {
   document.body.innerHTML = '';
 });
 
-describe('v1 home sections', () => {
+describe('v1 home sections', { tags: ['ui'] }, () => {
   it('HomeSectionOrder_EveryId_HasARegistryEntryAndViceVersa', () => {
     expect(Object.keys(HOME_SECTION_REGISTRY).sort()).toEqual([...HOME_SECTION_ORDER].sort());
   });
@@ -59,7 +59,7 @@ describe('v1 home sections', () => {
   });
 });
 
-describe('v1 callsign sections', () => {
+describe('v1 callsign sections', { tags: ['ui'] }, () => {
   it('CallsignSectionOrder_EveryId_HasARegistryEntryAndViceVersa', () => {
     expect(Object.keys(CALLSIGN_SECTION_REGISTRY).sort()).toEqual([...CALLSIGN_SECTION_ORDER].sort());
   });
@@ -122,7 +122,7 @@ describe('v1 callsign sections', () => {
   });
 });
 
-describe('v1 dial geometry (pure)', () => {
+describe('v1 dial geometry (pure)', { tags: ['unit'] }, () => {
   it('FractionalYear_MonthAndDay_MoveTheValueWithinTheYear', () => {
     expect(fractionalYear('2020')).toBe(2020);
     expect(fractionalYear('2020-07')).toBeCloseTo(2020.5, 1);
@@ -144,7 +144,7 @@ describe('v1 dial geometry (pure)', () => {
   });
 });
 
-describe('v1 callsign model (reusing the v0 pure functions)', () => {
+describe('v1 callsign model (reusing the v0 pure functions)', { tags: ['ui'] }, () => {
   // A minimal instant-shard manifest + record and event meta + record, in the
   // builders' shapes, so buildCallsignModel runs the real v0 functions.
   const manifest: ShardManifest = {

@@ -20,7 +20,7 @@ const BANNED_PHRASES = [
   'confirmed-as-fact',
 ];
 
-describe('v1 copy — claims bar (JS)', () => {
+describe('v1 copy — claims bar (JS)', { tags: ['unit'] }, () => {
   it('BitemporalGlosses_WhereverTheyRender_AppearVerbatim', () => {
     expect(V1_COPY_STRINGS).toContain(EVENT_TIME_GLOSS);
     expect(V1_COPY_STRINGS).toContain(ASSERTION_TIME_GLOSS);
