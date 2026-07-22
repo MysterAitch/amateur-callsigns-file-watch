@@ -33,6 +33,66 @@ function jobBlock(wf: string, name: string): string {
 
 const MAIN_GATE = "if: github.ref == 'refs/heads/main'";
 
+// Strip line and block comments so import-specifier matching never trips on a
+// path mentioned in prose (a doc comment referencing `from './x.ts'` is not an
+// edge). String literals are left intact — real import specifiers live in them.
+function stripComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
+// Resolve a relative import specifier against the importing file to a real
+// source file, mirroring node/tsc resolution: exact, then .ts/.js, then a
+// directory index, then the TS-source-with-.js-specifier convention.
+function resolveRelativeImport(fromFile: string, spec: string): string | null {
+  const base = path.resolve(path.dirname(fromFile), spec);
+  const candidates = [base, `${base}.ts`, `${base}.js`, path.join(base, 'index.ts')];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
+  }
+  if (spec.endsWith('.js')) {
+    const tsAlt = base.replace(/\.js$/, '.ts');
+    if (fs.existsSync(tsAlt)) return tsAlt;
+  }
+  return null;
+}
+
+// The transitive closure of relative imports/re-exports reachable from an entry
+// file, as repo-relative POSIX paths. Static imports, dynamic import() and
+// re-exports are all followed; bare package specifiers are inputs to no cache key
+// here (they enter the hash via package-lock.json) so are ignored.
+function importClosure(entryFile: string): string[] {
+  const specRe =
+    /(?:import|export)\b[^'"]*?from\s*['"](\.[^'"]+)['"]|import\(\s*['"](\.[^'"]+)['"]\s*\)/g;
+  const seen = new Set<string>();
+  const walk = (file: string): void => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    const src = stripComments(fs.readFileSync(file, 'utf8'));
+    for (const m of src.matchAll(specRe)) {
+      const spec = m[1] ?? m[2];
+      if (spec === undefined) continue;
+      const resolved = resolveRelativeImport(file, spec);
+      if (resolved !== null) walk(resolved);
+    }
+  };
+  walk(entryFile);
+  return [...seen].map(f => path.relative(process.cwd(), f).split(path.sep).join('/')).sort();
+}
+
+// The space-separated closure-hash `paths:` list declared inside a job block.
+function closurePathsIn(block: string): string[] {
+  const m = block.match(/uses: \.\/\.github\/actions\/closure-hash\n\s+with:\n\s+paths: ([^\n]+)/);
+  if (m === null) throw new Error('no closure-hash step with a paths: input found in the given job block');
+  return m[1].trim().split(/\s+/);
+}
+
+// A reached file is covered when a declared path names it exactly or is a
+// directory that contains it. Over-declaring is safe (a false miss); a reached
+// file NOT covered is the danger (a stale cache hit), which the guard forbids.
+function isCovered(file: string, declaredPaths: readonly string[]): boolean {
+  return declaredPaths.some(p => file === p || file.startsWith(`${p}/`));
+}
+
 describe('cicd.yaml structure', { tags: ['unit'] }, () => {
   it('EveryWorkflowFile_WhenParsedAsYaml_IsStructurallyValid', () => {
     // The line-matching assertions below pass over a file GitHub cannot parse
@@ -249,5 +309,60 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
     expect(wf, 'the closure-hash action is no longer used for the build caches').toMatch(/uses: \.\/\.github\/actions\/closure-hash/);
     // The composite action the keys depend on must exist.
     expect(fs.existsSync(CLOSURE_ACTION), `${CLOSURE_ACTION} is missing`).toBe(true);
+  });
+
+  it('UploadArtifactSteps_WithADotDirectoryPath_DeclareIncludeHiddenFiles', () => {
+    // upload-artifact excludes hidden (dot-prefixed) files by default, so an
+    // artifact whose path is a dot-directory silently uploads nothing — the
+    // #354 perf-report record never once reached an artifact across a 30-run
+    // sample (#929). Every upload step whose path begins with a dot must set
+    // include-hidden-files, so the next dot-directory artifact cannot regress.
+    const doc = yaml.load(fs.readFileSync(WORKFLOW, 'utf8')) as {
+      jobs?: Record<string, { steps?: { uses?: string; with?: Record<string, unknown> }[] }>;
+    };
+    const offenders: string[] = [];
+    for (const [jobName, job] of Object.entries(doc.jobs ?? {})) {
+      for (const step of job.steps ?? []) {
+        if (typeof step.uses !== 'string' || !step.uses.includes('actions/upload-artifact')) continue;
+        const withBlock = step.with ?? {};
+        const rawPath = withBlock.path;
+        // A path may be a single string or a multi-line block of several paths;
+        // a dot-prefix on ANY line makes hidden files reachable under it.
+        const pathLines = typeof rawPath === 'string' ? rawPath.split('\n') : [];
+        const hasDotPath = pathLines.some(line => line.trim().startsWith('.'));
+        if (hasDotPath && withBlock['include-hidden-files'] !== true) {
+          offenders.push(`${jobName}: ${withBlock.name ?? '(unnamed)'} -> ${String(rawPath).replace(/\n/g, ',')}`);
+        }
+      }
+    }
+    expect(
+      offenders,
+      'these upload-artifact steps have a dot-directory path but no include-hidden-files: true — they upload nothing',
+    ).toEqual([]);
+  });
+
+  it('GoldenMasterClosurePaths_CoverTheReportSweepImportGraph_SoNarrowingCannotSilentlyOvercache', () => {
+    // The golden cache key hashes the report sweep's DECLARED input closure. That
+    // closure was narrowed off the whole src/ci directory to report-sweep.ts's
+    // actual import graph (#929), because src/ci mixes the sweep's dependencies
+    // with unrelated site/page builders. A narrow declared set is only safe while
+    // it still covers every real input: an import that escaped it would let the
+    // key ignore a genuine input and serve a STALE hit. Recompute the sweep's
+    // transitive import graph from source and assert every reached file is covered
+    // by a declared path — so the list can be narrow yet cannot silently rot.
+    const declared = closurePathsIn(jobBlock(workflow(), 'golden-master'));
+    const closure = importClosure(path.join(process.cwd(), 'src', 'ci', 'report-sweep.ts'));
+    const uncovered = closure.filter(file => !isCovered(file, declared));
+    expect(
+      uncovered,
+      'these report-sweep imports are NOT under the golden-master closure paths — the cache could serve a stale report; add each to the paths: list',
+    ).toEqual([]);
+    // And the narrowing itself must not silently regress: hashing the whole
+    // mixed-concern src/ci directory again would re-cover everything (passing the
+    // check above) while reinstating the false-miss churn the narrowing removed.
+    expect(
+      declared,
+      'the golden-master closure hashes the whole src/ci directory again — the #929 narrowing to the sweep import graph was reverted',
+    ).not.toContain('src/ci');
   });
 });
