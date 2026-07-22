@@ -213,7 +213,7 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .scale .ev .stem{position:absolute;bottom:0;left:-1px;width:2px;height:34px;background:var(--signal)}
 .scale .ev .dot{position:absolute;bottom:30px;left:-5px;width:10px;height:10px;background:var(--signal);transform:rotate(45deg)}
 .scale .ev .cap{position:absolute;bottom:46px;transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);
-  font-size:11px;color:var(--signal-strong);font-weight:600}
+  font-size:11px;color:var(--signal-strong);font-weight:600;max-width:14rem;overflow:hidden;text-overflow:ellipsis}
 .scale .ev .cap small{display:block;font-weight:400;color:var(--muted);letter-spacing:0}
 .scale .ev.state .stem,.scale .ev.state .dot{background:var(--ok)}
 .scale .ev.state .cap{color:var(--ok)}

@@ -174,8 +174,11 @@ export function dialGeometry(events, sightings) {
   let maxYear = fracs.length > 0 ? Math.ceil(Math.max(...fracs)) : minYear + 1;
   if (maxYear <= minYear) maxYear = minYear + 1;
   const span = maxYear - minYear;
+  // Positions map into an inset [4%, 96%] band, not the full width, so a marker
+  // hard against the earliest or latest year keeps room for its centred caption
+  // rather than clipping at the panel edge.
   /** @param {number} frac */
-  const pos = (frac) => Math.max(0, Math.min(100, ((frac - minYear) / span) * 100));
+  const pos = (frac) => Math.max(0, Math.min(100, 4 + ((frac - minYear) / span) * 92));
   // Year ticks: every whole year when the span is small, every two years when
   // it is wide, so labels never crowd.
   const step = span <= 8 ? 1 : 2;
@@ -290,7 +293,10 @@ function mountEvidenceDial(host, model) {
     marker.setAttribute('style', `left:${ev.left.toFixed(1)}%`);
     marker.appendChild(el('span', 'stem'));
     marker.appendChild(el('span', 'dot'));
-    const cap = el('span', 'cap', ev.label);
+    // The marker caption stays terse — the leading clause of the kind label,
+    // the full label reads on the event-timeline section below. Long captions
+    // near an axis edge otherwise overrun the panel.
+    const cap = el('span', 'cap', ev.label.split(' — ')[0]);
     cap.appendChild(el('small', null, ev.day));
     marker.appendChild(cap);
     scale.appendChild(marker);
