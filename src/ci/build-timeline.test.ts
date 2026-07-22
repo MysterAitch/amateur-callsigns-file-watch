@@ -33,16 +33,17 @@ interface TimelineJsonShape {
 function fixtureSource(spec: {
   sourceFile: string;
   vintage: string;
-  rows: { callsign: string; start?: string; cancel?: string; reserved?: string }[];
+  rows: { callsign: string; start?: string; issued?: string; cancel?: string; reserved?: string }[];
 }): ResolvedLedgerSource {
   const set: SourceObservationSet = {
     sourceFile: spec.sourceFile,
     vintage: spec.vintage,
-    columns: ['Call Sign', 'Original Start Date', 'Licence Cancel Date', 'Reserved Until'],
+    columns: ['Call Sign', 'Original Start Date', 'Issue Date', 'Licence Cancel Date', 'Reserved Until'],
     subjectColumn: 'Call Sign',
     rows: spec.rows.map(row => ({
       'Call Sign': row.callsign,
       'Original Start Date': row.start ?? '',
+      'Issue Date': row.issued ?? '',
       'Licence Cancel Date': row.cancel ?? '',
       'Reserved Until': row.reserved ?? '',
     })),
@@ -51,9 +52,11 @@ function fixtureSource(spec: {
       { type: 'date', format: 'DD/MM/YYYY' },
       { type: 'date', format: 'DD/MM/YYYY' },
       { type: 'date', format: 'DD/MM/YYYY' },
+      { type: 'date', format: 'DD/MM/YYYY' },
     ],
     eventDateColumns: [
       { source: 'Original Start Date', kind: 'licence-version-original-start' },
+      { source: 'Issue Date', kind: 'licence-issued' },
       { source: 'Licence Cancel Date', kind: 'licence-cancelled' },
       { source: 'Reserved Until', kind: 'reserved-until' },
     ],
@@ -189,6 +192,49 @@ describe('timeline aggregation (issue #726)', { tags: ['unit'] }, () => {
     const timeline = computeTimeline(projection);
     const at2003 = timeline.buckets.find(b => b.year === '2003');
     expect(at2003?.caveats).toContain('month-precision-vintage');
+  });
+
+  it('Timeline_LaterBucketWhoseCumulativeRestsOnAMonthKeyedStart_StillCarriesMonthPrecision', () => {
+    // Issue #870 inheritance drop: a month-keyed vintage asserts a 2003 start;
+    // a later day-keyed vintage adds a 2019 start. The 2019 bucket's OWN
+    // asserting dataset is day-keyed, but its cumulative starts-to-date still
+    // rests on the 2003 month-keyed start — so month-precision must NOT be
+    // dropped forward off it (the engine attaches it at every such t).
+    const projection = foldEventTimeProjection({
+      sources: [
+        fixtureSource({ sourceFile: 'foi/entry-m/reg.csv', vintage: '2016-09', rows: [{ callsign: '2E0AAA', start: '01/02/2003' }] }),
+        fixtureSource({ sourceFile: 'foi/entry-d/reg.csv', vintage: '2020-05-01', rows: [{ callsign: 'M7XXX', start: '01/01/2019' }] }),
+      ],
+    });
+    const timeline = computeTimeline(projection);
+    const at2019 = timeline.buckets.find(b => b.year === '2019');
+    expect(at2019?.startsToDate).toBe(2);
+    expect(at2019?.caveats).toContain('month-precision-vintage');
+    // And a bucket BEFORE the month-keyed start does not carry it via the
+    // cumulative arm (there is no counted start yet).
+    const at2002 = timeline.buckets.find(b => b.year === '2002');
+    expect(at2002?.caveats ?? []).not.toContain('month-precision-vintage');
+  });
+
+  it('Timeline_BucketWhoseCumulativeIsAllNonVersionScopedStarts_DoesNotCarryEarliestSurviving', () => {
+    // earliest-surviving must scope to the event-dated version-scoped start, not
+    // a global "version-scoped exists somewhere" flag: a 1950 licence-issued
+    // start (non-version-scoped) precedes a 1980 version-scoped start, so the
+    // 1950 bucket must not inherit earliest-surviving from the later start.
+    const projection = foldEventTimeProjection({
+      sources: [
+        fixtureSource({ sourceFile: 'foi/entry-a/reg.csv', vintage: '2020-05-01', rows: [
+          { callsign: 'G8OLD', issued: '01/01/1950' },
+          { callsign: 'G3NEW', start: '01/01/1980' },
+        ] }),
+      ],
+    });
+    const timeline = computeTimeline(projection);
+    const at1950 = timeline.buckets.find(b => b.year === '1950');
+    expect(at1950?.startsToDate).toBe(1);
+    expect(at1950?.caveats ?? []).not.toContain('earliest-surviving');
+    const at1980 = timeline.buckets.find(b => b.year === '1980');
+    expect(at1980?.caveats).toContain('earliest-surviving');
   });
 
   it('Timeline_EveryBucketCaveat_HasAnAuthoredReaderFacingLabel', () => {

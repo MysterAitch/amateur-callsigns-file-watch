@@ -201,7 +201,9 @@ export function renderOnThisDayPage(entries: readonly OnThisDayEntry[], projecti
     + 'evidence the held corpus carries. Each entry is <b>derived</b> from what the archived publications '
     + 'assert, and always cites the dataset (and its vintage — the assertion time) beside the event date — '
     + 'the two time axes are never merged. “Earliest held” describes this mirror’s holdings'
-    + `${asAt === '' ? '' : ` (assertions up to ${dateTime(asAt, { precision: 'full-date' })})`}, never “the first ever”.</p>`,
+    + `${asAt === '' ? '' : ` (assertions up to ${dateTime(asAt, { precision: 'full-date' })})`}, never “the first ever”. `
+    + 'For the whole record along the time axis — a scrubbable count of activity by year — see the '
+    + '<a href="timeline.html">timeline</a>.</p>',
     // The today slot: filled by the enhancement script (site/on-this-day.js);
     // without JavaScript the calendar below is the complete page.
     '<div id="today-slot"></div>',

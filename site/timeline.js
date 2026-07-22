@@ -177,9 +177,12 @@ export function renderReadout(host, bucket, data) {
     bucket.caveats.forEach((id, i) => {
       if (i > 0) cav.append('; ');
       const caveat = caveatById.get(id);
-      const label = caveat === undefined ? id : caveat.label;
+      // A caveat missing from the legend must never render as a bare machine id
+      // (issue #861): fall back to a humanised label and flag the gap in the
+      // title, still linking to the page's explainer.
+      const label = caveat === undefined ? id.replace(/-/g, ' ') : caveat.label;
       const a = link('#reading-this-timeline', label);
-      if (caveat !== undefined) a.setAttribute('title', caveat.gloss);
+      a.setAttribute('title', caveat === undefined ? 'This caveat is not in the page legend; see the explainer.' : caveat.gloss);
       cav.appendChild(a);
     });
     cav.append('.');
@@ -199,9 +202,13 @@ export function renderReadout(host, bucket, data) {
  * @returns {number}
  */
 export function anchorIndex(data) {
+  if (data.buckets.length === 0) return -1;
   const anchorYear = (data.asAt || '').slice(0, 4);
   const idx = data.buckets.findIndex(b => b.year === anchorYear);
-  return idx === -1 ? data.buckets.length - 1 : idx;
+  if (idx !== -1) return idx;
+  // asAt outside the span: below it opens on the first bucket, above it (the
+  // usual case) on the last. Mirrors anchorBucketIndex in build-timeline.ts.
+  return anchorYear < data.buckets[0].year ? 0 : data.buckets.length - 1;
 }
 
 /**

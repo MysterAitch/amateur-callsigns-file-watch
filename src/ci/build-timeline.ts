@@ -139,7 +139,11 @@ export function anchorBucketIndex(timeline: Timeline): number {
   if (timeline.buckets.length === 0) return -1;
   const anchorYear = timeline.asAt.slice(0, 4);
   const idx = timeline.buckets.findIndex(b => b.year === anchorYear);
-  return idx === -1 ? timeline.buckets.length - 1 : idx;
+  if (idx !== -1) return idx;
+  // asAt outside the event-time span: below it (unusually early asAt) opens on
+  // the first bucket, above it (the usual case — event dates run past the proven
+  // assertion day) on the last.
+  return anchorYear < timeline.buckets[0].year ? 0 : timeline.buckets.length - 1;
 }
 
 interface ReservationWindow {
@@ -149,6 +153,9 @@ interface ReservationWindow {
   // month-keyed vintage counts only when its whole month is on or before the
   // instant, exactly as the state engine reads it.
   vintageLatest: string;
+  // Whether the stating vintage is month-keyed — a covering finding then carries
+  // the month-precision caveat, as the engine attaches it.
+  monthKeyed: boolean;
 }
 
 interface SubjectFacts {
@@ -156,9 +163,6 @@ interface SubjectFacts {
   // The earliest surviving licence-start day held for the subject (undefined
   // when the subject carries no licence-start evidence).
   startDay: string | undefined;
-  // Whether any held licence-start for the subject is a version-scoped kind
-  // (issue #800 earliest-surviving semantics).
-  startVersionScoped: boolean;
   // Every stated reservation window held for the subject, each with the
   // assertion-time bound of the vintage that stated it.
   reservations: ReservationWindow[];
@@ -192,9 +196,19 @@ export function computeTimeline(projection: EventTimeProjection, ref: ReferenceD
   // it — the covering reading the state engine uses, counted once per subject
   // per year even where several windows overlap.
   const activeReservationsByYear = new Map<string, number>();
+  // Per year: whether a covering reservation counted that year was stated by a
+  // month-keyed vintage (its finding then carries the month-precision caveat).
+  const monthKeyedReservationYears = new Set<string>();
 
-  let anyVersionScopedStart = false;
   let earliestStartDay: string | undefined;
+  // The earliest EVENT DAY a version-scoped / month-keyed-asserted licence-start
+  // is dated on. A caveat resting on such a start enters the cumulative figure
+  // at the instant that start is dated on or before — mirroring the state engine,
+  // which attaches the caveat to the start finding at every t once such a start
+  // line is consulted (state-at-t.ts), not from the build-time global presence
+  // of the vintage anywhere in the corpus.
+  let earliestVersionScopedStartDay: string | undefined;
+  let earliestMonthKeyedStartDay: string | undefined;
   let minYear: string | undefined;
   let maxYear: string | undefined;
 
@@ -207,7 +221,6 @@ export function computeTimeline(projection: EventTimeProjection, ref: ReferenceD
     const facts: SubjectFacts = {
       series: parseCallsign(subject, '', ref, '').prefixSeries,
       startDay: undefined,
-      startVersionScoped: false,
       reservations: [],
     };
 
@@ -236,16 +249,20 @@ export function computeTimeline(projection: EventTimeProjection, ref: ReferenceD
 
       if (contribution === 'licence-start') {
         if (facts.startDay === undefined || row.day < facts.startDay) facts.startDay = row.day;
-        if (EARLIEST_SURVIVING_KINDS.has(row.kind)) facts.startVersionScoped = true;
+        if (EARLIEST_SURVIVING_KINDS.has(row.kind)) {
+          if (earliestVersionScopedStartDay === undefined || row.day < earliestVersionScopedStartDay) earliestVersionScopedStartDay = row.day;
+        }
+        if (isMonthPrecisionVintage(row.vintage)) {
+          if (earliestMonthKeyedStartDay === undefined || row.day < earliestMonthKeyedStartDay) earliestMonthKeyedStartDay = row.day;
+        }
       } else if (contribution === 'reservation-end') {
-        facts.reservations.push({ end: row.day, vintageLatest: vintageDaySpan(row.vintage).latest });
+        facts.reservations.push({ end: row.day, vintageLatest: vintageDaySpan(row.vintage).latest, monthKeyed: isMonthPrecisionVintage(row.vintage) });
       }
     }
 
     if (facts.startDay !== undefined) {
       const startYear = yearOf(facts.startDay);
       startsByYear.set(startYear, (startsByYear.get(startYear) ?? 0) + 1);
-      if (facts.startVersionScoped) anyVersionScopedStart = true;
       if (earliestStartDay === undefined || facts.startDay < earliestStartDay) earliestStartDay = facts.startDay;
       if (facts.series !== '') {
         let byYear = seriesStartYears.get(facts.series);
@@ -257,14 +274,19 @@ export function computeTimeline(projection: EventTimeProjection, ref: ReferenceD
     // stated end on or after it, stating vintage proven on or before it. A
     // subject is counted once per year even if several of its windows qualify.
     const activeYears = new Set<string>();
+    const monthKeyedActiveYears = new Set<string>();
     for (const window of facts.reservations) {
       const lowYear = Number(yearOf(window.vintageLatest));
       // The greatest year whose last day is still on or before the stated end.
       const endYearNum = Number(yearOf(window.end));
       const highYear = window.end >= yearEnd(String(endYearNum)) ? endYearNum : endYearNum - 1;
-      for (let y = lowYear; y <= highYear; y += 1) activeYears.add(String(y));
+      for (let y = lowYear; y <= highYear; y += 1) {
+        activeYears.add(String(y));
+        if (window.monthKeyed) monthKeyedActiveYears.add(String(y));
+      }
     }
     for (const year of activeYears) activeReservationsByYear.set(year, (activeReservationsByYear.get(year) ?? 0) + 1);
+    for (const year of monthKeyedActiveYears) monthKeyedReservationYears.add(year);
   }
 
   const kinds = LICENSING_KINDS.filter((kind) => {
@@ -287,8 +309,10 @@ export function computeTimeline(projection: EventTimeProjection, ref: ReferenceD
     totals[kind] = [...byYear.values()].reduce((sum, n) => sum + n, 0);
   }
 
-  // A version-scoped start anywhere pins the earliest-surviving caveat onto
-  // every cumulative starts figure; a pre-1977 earliest start pins pre-1977.
+  // The earliest event day the corpus's earliest surviving start is dated on is
+  // pre-1977, so once any start is counted (its earliest is always this one) the
+  // cumulative starts figure rests on a pre-1977 date — pre-1977 attaches from
+  // the first non-empty bucket, exactly the engine's reading.
   const pre1977Present = earliestStartDay !== undefined && earliestStartDay < '1977-01-01';
   const monthKeyedDatasets = new Set(
     projection.datasets.map((d, i) => (isMonthPrecisionVintage(d.vintage) ? i : -1)).filter(i => i >= 0));
@@ -319,12 +343,21 @@ export function computeTimeline(projection: EventTimeProjection, ref: ReferenceD
 
     const datasetIdxs = [...(yearDatasets.get(year) ?? new Set<number>())].sort((a, b) => a - b);
 
+    const end = yearEnd(year);
+    // A caveat resting on a version-scoped or month-keyed start enters the
+    // cumulative figure at the instant that start is dated on or before —
+    // matching the engine, which consults only start lines dated <= t. A global
+    // presence flag would drop the caveat forward onto buckets whose cumulative
+    // does rest on the start (under-attach, #870) or attach it before that start
+    // is even dated (over-attach); the event-dated thresholds do neither.
     const caveats: StateCaveat[] = [];
-    if (startsToDate > 0 && anyVersionScopedStart) caveats.push('earliest-surviving');
+    if (startsToDate > 0 && earliestVersionScopedStartDay !== undefined && earliestVersionScopedStartDay <= end) caveats.push('earliest-surviving');
     if (startsToDate > 0 && pre1977Present) caveats.push('pre-1977');
     if (yearHasCancellation) caveats.push('cancellation-sparsity');
     if (activeReservations > 0 || yearHasReservation) caveats.push('reserved-cohort-ambiguity');
-    if (datasetIdxs.some(i => monthKeyedDatasets.has(i))) caveats.push('month-precision-vintage');
+    const monthKeyedCumulativeStart = earliestMonthKeyedStartDay !== undefined && earliestMonthKeyedStartDay <= end;
+    const monthKeyedThisYear = datasetIdxs.some(i => monthKeyedDatasets.has(i));
+    if (monthKeyedCumulativeStart || monthKeyedThisYear || monthKeyedReservationYears.has(year)) caveats.push('month-precision-vintage');
     // The whole timeline reads under the availability trap: a quiet year is
     // non-observation, so every bucket carries it (rendered once in the legend).
     caveats.push('availability-trap');
@@ -535,6 +568,7 @@ export function renderTimelinePage(timeline: Timeline, projection: EventTimeProj
   body.push('<script type="module" src="timeline.js"></script>', '</div>');
 
   return htmlPage('Timeline — UK amateur callsign data mirror', 0, body, {
+    currentNav: 'Timeline',
     sourcePath: 'src/ci/build-timeline.ts',
   });
 }
