@@ -229,10 +229,58 @@ GROUP BY vintage, vintageDate, predVintage, predDate, series
 ORDER BY vintageDate, vintage, series`);
 }
 
+// Per substantial vintage: its anchor date and the latest touch date it
+// asserts. Feeds the month-anchor invariant — a month-only vintage anchors to
+// its first day, which is only sound while no record it carries was modified
+// LATER in that month.
+export interface VintageExtent {
+  vintage: string;
+  vintageDate: string;
+  maxModified: string;
+}
+
+export function foldVintageExtents(source: string | ClaimsSource, params: StratParams = DEFAULT_STRAT_PARAMS): VintageExtent[] {
+  const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return [];
+  const relation = claimsRelation(claims);
+  const key = cleanedKeyExpr('rawSubject');
+  return foldQuery<VintageExtent>(`WITH events AS (
+  SELECT ${key} AS subject, vintage, object AS "day"
+  FROM ${relation}
+  WHERE rule = '${EVENT_DATE_RULE}' AND predicate = ${sqlLiteral(TOUCH_PREDICATE)} AND ${key} <> ''
+),
+agg AS (
+  SELECT vintage, count(DISTINCT subject) AS n, max("day") AS maxModified FROM events GROUP BY 1
+)
+SELECT vintage, CASE WHEN length(vintage) = 7 THEN vintage || '-01' ELSE vintage END AS vintageDate, maxModified
+FROM agg WHERE n >= ${Math.trunc(params.minVintageSubjects)}
+ORDER BY vintageDate, vintage`);
+}
+
+// Fail loud if a month-only vintage carries a touch dated AFTER its
+// first-of-month anchor: the anchor would then wrongly push that record's touch
+// out of its own window (silently under-counting a real cohort). The corpus's
+// two month-only vintages (2024-01, 2024-07) are safe today; this guard turns a
+// future mid-month capture into an explicit failure rather than a quiet
+// miscount (issue #813's silently-wrong-on-future-data class).
+export function assertMonthAnchorSound(extents: readonly VintageExtent[]): void {
+  for (const extent of extents) {
+    // Month-only vintages are the ones whose anchor was synthesised (…-01);
+    // a dated vintage anchors to itself and cannot violate this.
+    if (extent.vintage.length !== 7) continue;
+    if (extent.maxModified > extent.vintageDate) {
+      throw new Error(`reprocessing-stratification: month-only vintage "${extent.vintage}" anchors to ${extent.vintageDate} but asserts a record-last-modified as late as ${extent.maxModified}; the first-of-month anchor would push that touch out of its own window. Anchor this vintage to a resolved day (or teach the fold its true publication date) before folding.`);
+    }
+  }
+}
+
 // A window's touch interval (predDate, vintageDate] intersects an episode's
-// clustered span [start, end] — both live in record-date-value space.
+// clustered span [start, end] — both live in record-date-value space. The lower
+// edge is OPEN (predDate is excluded from the window), so an episode ending
+// exactly on predDate does not intersect it: the test is strict there
+// (predDate < e.end) and inclusive at the closed upper edge (e.start <= vintageDate).
 export function windowOverlapsEpisode(predDate: string, vintageDate: string, episodes: readonly Episode[]): boolean {
-  return episodes.some(e => predDate <= e.end && vintageDate >= e.start);
+  return episodes.some(e => predDate < e.end && vintageDate >= e.start);
 }
 
 // Assemble the whole stratification picture: the per-series fold, the per-vintage
@@ -244,6 +292,9 @@ export function computeReprocessingStratification(
 ): ReprocessingStratification {
   const claims = toClaimsSource(source);
   const rows = time('stratification:fold', () => foldStratification(claims, params));
+  // Fail loud before assembling anything if a month-only vintage's anchor is
+  // unsound (a touch dated later in its month) — a silent miscount otherwise.
+  assertMonthAnchorSound(foldVintageExtents(claims, params));
   const days = time('stratification:day-signals', () => foldDaySignals(claims));
   const episodes = mergeEpisodes(detectEpisodeSignals(days, DEFAULT_EPISODE_PARAMS), DEFAULT_EPISODE_PARAMS);
 
@@ -398,6 +449,20 @@ function seriesLine(strat: ReprocessingStratification, vintage: string, series: 
 // The two named cohorts (issue #871) reconciled against the two prior
 // derivations, under THIS report's single pinned convention. The prior figures
 // are cited verbatim; the deltas are explained, never smoothed over.
+function windowEdges(strat: ReprocessingStratification, vintage: string): string {
+  const w = strat.windows.find(x => x.vintage === vintage);
+  return w === undefined ? '—' : `${w.predDate} → ${w.vintageDate}`;
+}
+
+// The analysed windows in which M7 is depleted — derived, so the "the run that
+// excludes M7" framing can never go stale against a future snapshot that
+// depletes M7 elsewhere (issue #813 hand-maintained-prose class).
+function m7DepletedVintages(strat: ReprocessingStratification): string[] {
+  return strat.windows
+    .filter(w => seriesEnrichmentFor(strat, w.vintage).find(e => e.series === 'M7')?.enrichment === 'depleted')
+    .map(w => w.vintage);
+}
+
 function renderReconciliation(strat: ReprocessingStratification): string[] {
   const has2407 = strat.windows.some(w => w.vintage === '2024-07');
   const has2410 = strat.windows.some(w => w.vintage === '2024-10-21');
@@ -417,7 +482,7 @@ function renderReconciliation(strat: ReprocessingStratification): string[] {
       '',
       '_Spike derivation:_ `M7` 18.8% vs 9.4% base; `M6` 17.8% vs 10.1%; `M0` 14.8% vs 8.9%.',
       '',
-      '_This report (window `2024-01-01 → 2024-07-01`):_',
+      `_This report (window \`${windowEdges(strat, '2024-07')}\`):_`,
       '',
       `- ${seriesLine(strat, '2024-07', 'M7')} — enriched.`,
       `- ${seriesLine(strat, '2024-07', 'M6')}.`,
@@ -435,6 +500,10 @@ function renderReconciliation(strat: ReprocessingStratification): string[] {
   if (has2410) {
     const g = seriesGroupShare(strat, '2024-10-21', isGSeries);
     const m7 = seriesEnrichmentFor(strat, '2024-10-21').find(x => x.series === 'M7');
+    const depleted = m7DepletedVintages(strat);
+    const soleClaim = depleted.length === 1 && depleted[0] === '2024-10-21'
+      ? 'This is the only analysed window in which `M7` is DEPLETED rather than'
+      : `Across the analysed windows \`M7\` is depleted in ${depleted.length} (${depleted.map(mdCode).join(', ')}) and enriched in the rest; this window is one of them, depleted rather than`;
     lines.push(
       '### 2024-10-21 — the run that largely excludes M7',
       '',
@@ -442,18 +511,21 @@ function renderReconciliation(strat: ReprocessingStratification): string[] {
       'older G-series enriched (52.7% vs 48.6%); `M7` present in the export',
       '(10,854 records) with prior observations available — not a coverage gap.',
       '',
-      '_This report (window `2024-07-22 → 2024-10-21`):_',
+      `_This report (window \`${windowEdges(strat, '2024-10-21')}\`):_`,
       '',
       `- ${seriesLine(strat, '2024-10-21', 'M7')} — depleted.`,
       `- the G-series as a bloc: ${pct(g.cohortShare)} of the cohort vs ${pct(g.baseShare)} of the export (${num(g.cohortSubjects)}/${num(g.baseSubjects)}).`,
       `- \`M7\` base ${m7 === undefined ? '—' : num(m7.baseSubjects)} records — present and touchable, simply not touched.`,
       '',
-      'The pinned window lands `M7` at the top of the verification derivation’s',
-      '1.3–2.0% range (the narrower end corresponds to excluding the July tail of',
-      'the window); the base share (6.9%), the G-series bloc (52.7% vs 48.6%) and',
-      'the M7 record count (10,854) reproduce it. This is the one analysed window',
-      'in which `M7` is DEPLETED rather than enriched — the observation that',
-      'prompted #871.',
+      `This report’s \`M7\` cohort share (${m7 === undefined ? '—' : pct(m7.cohortShare)}) sits within the verification`,
+      'derivation’s stated 1.3–2.0% range — at its upper edge, and the minimum',
+      'reached across plausible window-start choices; the exact 1.3% lower bound',
+      'reflects that derivation’s own, slightly different window convention, which',
+      'this report does not reconstruct rather than guess at. The base share',
+      '(6.9%), the G-series bloc (52.7% vs 48.6%) and the `M7` record count',
+      `(10,854) reproduce it. ${soleClaim} enriched — the observation that`,
+      'prompted #871. Between this window and the enriched 2024-07 one sits the',
+      `narrower issued-only 2024-07-22 window, where \`M7\` is ${seriesEnrichmentFor(strat, '2024-07-22').find(x => x.series === 'M7')?.enrichment ?? 'not present'}.`,
       '',
     );
   }
@@ -478,7 +550,18 @@ export function renderReprocessingStratification(strat: ReprocessingStratificati
     'candidate explanations and NONE is chosen. Nothing in the held',
     'correspondence names these runs — that absence is stated, not filled in.',
     '',
-    `_Corpus assertion ceiling: ${strat.assertionCeiling || '—'} (the latest snapshot analysed; this report carries no build-time date)._`,
+    `_Corpus assertion ceiling: ${strat.assertionCeiling || '—'} (the latest snapshot carrying the touch signal; this report carries no build-time date)._`,
+    '',
+    'The ceiling is NOT the newest snapshot held. Four newer full exports',
+    '(2025-09-11, 2025-11-11, 2026-01-14, 2026-06-23; 146k–160k subjects each)',
+    'are absent because they no longer carry the `record-last-modified` touch',
+    'signal at all: the open-data lane stopped populating `created_date` /',
+    '`last_modified_date` after 2025-06-04 (the columns are present but blank)',
+    'and now populates the licence-version date family instead, while the sole',
+    'later FOI export (2025-09-11) renders a licence-scoped last-modified, a',
+    'different kind. That schema evolution is itself a finding, tracked as its',
+    'own issue (#911); this report is honestly bounded at the signal, not the',
+    'corpus.',
     '',
     '## Method and pinned conventions',
     '',
@@ -493,9 +576,21 @@ export function renderReprocessingStratification(strat: ReprocessingStratificati
     `  \`${UNCLASSIFIED_SERIES}\` — kept in the totals, never given a verdict.`,
     '- **Vintage sequence.** Register snapshots asserting the touch kind for at',
     `  least ${num(p.minVintageSubjects)} distinct subjects, ordered by ISO anchor date. A`,
-    '  month-only vintage anchors to its first day (`2024-07` → `2024-07-01`).',
-    '  A partial or trial publication below the floor is not a snapshot "touched',
-    '  since" is meaningful against, and is excluded.',
+    '  month-only vintage anchors to its first day (`2024-07` → `2024-07-01`);',
+    '  a fold-time invariant fails loud if such a vintage ever carries a touch',
+    '  dated later in its month (which would push it out of its own window).',
+    '  Two kinds of snapshot are excluded: a partial or trial publication below',
+    '  the floor (not a snapshot "touched since" is meaningful against), and any',
+    '  snapshot that does not carry the touch signal (the post-2025-06-04 full',
+    '  exports — see the ceiling note above and #911).',
+    '- **Interleaved export shapes.** The corpus mixes full "all-callsigns"',
+    '  exports (~152k–160k subjects) with narrower "issued-only" / partial ones',
+    '  (~108k–110k: the 2023-11-24, 2023-12-07 and 2024-07-22 snapshots). A',
+    '  window whose snapshot is a narrower export only sees touches of subjects',
+    '  present in it, so touches of subjects confined to the wider exports’',
+    '  reserved/available pool fall in the gap — those windows’ base and cohort',
+    '  are the narrower population, not the whole register, and are not strictly',
+    '  comparable to the full-export windows.',
     '- **Touch window (the pinned convention).** For a vintage `V` with',
     '  predecessor `P`, the cohort is every subject whose latest `record-last-',
     'modified` value `d` satisfies `P.date < d ≤ V.date` — predecessor-EXCLUSIVE,',

@@ -321,10 +321,18 @@ stratification changes from run to run. The 2024-10-21 export's touch cohort
 (49,427 subjects, the window `2024-07-22 → 2024-10-21`) largely **excludes**
 `M7` — 2.0% of the cohort against 6.9% of the same export — while the older
 G-series are enriched as a bloc (52.7% of the cohort vs 48.6% of the export).
-The very next-earlier full window (`2024-01-01 → 2024-07-01`) does the
-**opposite**, enriching `M7` (17.4% vs 6.6%), `M6` and `M0`. It is not a
-coverage artefact: `M7` is present in the 2024-10 export (10,854 records) with
-prior observations available — those records were simply not touched.
+The nearest earlier FULL-export window (`2024-01-01 → 2024-07-01`) does the
+**opposite**, enriching `M7` (17.4% vs 6.6%), `M6` and `M0`; the narrower
+issued-only 2024-07-22 window sits between them, with `M7` at parity (1.03×).
+It is not a coverage artefact: `M7` is present in the 2024-10 export (10,854
+records) with prior observations available — those records were simply not
+touched.
+
+The touch signal is bounded at the 2025-06-04 export: no later snapshot carries
+`record-last-modified` (the open-data lane stopped populating it after that
+date; the sole later FOI export renders a licence-scoped last-modified). That
+schema evolution is a finding of its own, tracked on #911, and the report is
+honestly bounded at the signal rather than the corpus.
 
 **Flags, never verdicts.** Candidate mechanisms — a run scoped to a licence
 class or renewal cohort, a phased migration touching record eras in turn, a
@@ -350,8 +358,9 @@ convention.
 
 **Status history:**
 
-- 2026-07-22 — `validated`. Touch cohorts fold as series-stratified across every
-  analysed inter-snapshot window; the 2024-10 run excludes `M7` (0.29× its
-  export share) where the 2024-07 run enriches it (2.65×). Two independent
-  derivations agree; both reconciled under one pinned window convention. Source:
-  #871, reports/reprocessing-stratification.md.
+- 2026-07-22 — `validated`. Touch cohorts fold as series-stratified in 11 of the
+  12 analysed inter-snapshot windows (the 12th, the 2023-02-20 republication,
+  carries no cohort); the 2024-10 run excludes `M7` (0.29× its export share)
+  where the 2024-07 run enriches it (2.65×). Two independent derivations agree;
+  both reconciled under one pinned window convention. Signal bounded at 2025-06-04
+  (#911). Source: #871, reports/reprocessing-stratification.md.

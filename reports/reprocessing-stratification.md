@@ -13,7 +13,18 @@ stratification’s direction changes from run to run.
 candidate explanations and NONE is chosen. Nothing in the held
 correspondence names these runs — that absence is stated, not filled in.
 
-_Corpus assertion ceiling: 2025-06-04 (the latest snapshot analysed; this report carries no build-time date)._
+_Corpus assertion ceiling: 2025-06-04 (the latest snapshot carrying the touch signal; this report carries no build-time date)._
+
+The ceiling is NOT the newest snapshot held. Four newer full exports
+(2025-09-11, 2025-11-11, 2026-01-14, 2026-06-23; 146k–160k subjects each)
+are absent because they no longer carry the `record-last-modified` touch
+signal at all: the open-data lane stopped populating `created_date` /
+`last_modified_date` after 2025-06-04 (the columns are present but blank)
+and now populates the licence-version date family instead, while the sole
+later FOI export (2025-09-11) renders a licence-scoped last-modified, a
+different kind. That schema evolution is itself a finding, tracked as its
+own issue (#911); this report is honestly bounded at the signal, not the
+corpus.
 
 ## Method and pinned conventions
 
@@ -28,9 +39,21 @@ _Corpus assertion ceiling: 2025-06-04 (the latest snapshot analysed; this report
   `(unclassified)` — kept in the totals, never given a verdict.
 - **Vintage sequence.** Register snapshots asserting the touch kind for at
   least 10,000 distinct subjects, ordered by ISO anchor date. A
-  month-only vintage anchors to its first day (`2024-07` → `2024-07-01`).
-  A partial or trial publication below the floor is not a snapshot "touched
-  since" is meaningful against, and is excluded.
+  month-only vintage anchors to its first day (`2024-07` → `2024-07-01`);
+  a fold-time invariant fails loud if such a vintage ever carries a touch
+  dated later in its month (which would push it out of its own window).
+  Two kinds of snapshot are excluded: a partial or trial publication below
+  the floor (not a snapshot "touched since" is meaningful against), and any
+  snapshot that does not carry the touch signal (the post-2025-06-04 full
+  exports — see the ceiling note above and #911).
+- **Interleaved export shapes.** The corpus mixes full "all-callsigns"
+  exports (~152k–160k subjects) with narrower "issued-only" / partial ones
+  (~108k–110k: the 2023-11-24, 2023-12-07 and 2024-07-22 snapshots). A
+  window whose snapshot is a narrower export only sees touches of subjects
+  present in it, so touches of subjects confined to the wider exports’
+  reserved/available pool fall in the gap — those windows’ base and cohort
+  are the narrower population, not the whole register, and are not strictly
+  comparable to the full-export windows.
 - **Touch window (the pinned convention).** For a vintage `V` with
   predecessor `P`, the cohort is every subject whose latest `record-last-
 modified` value `d` satisfies `P.date < d ≤ V.date` — predecessor-EXCLUSIVE,
@@ -131,12 +154,15 @@ _This report (window `2024-07-22 → 2024-10-21`):_
 - the G-series as a bloc: 52.7% of the cohort vs 48.6% of the export (26,046/75,970).
 - `M7` base 10,854 records — present and touchable, simply not touched.
 
-The pinned window lands `M7` at the top of the verification derivation’s
-1.3–2.0% range (the narrower end corresponds to excluding the July tail of
-the window); the base share (6.9%), the G-series bloc (52.7% vs 48.6%) and
-the M7 record count (10,854) reproduce it. This is the one analysed window
-in which `M7` is DEPLETED rather than enriched — the observation that
-prompted #871.
+This report’s `M7` cohort share (2.0%) sits within the verification
+derivation’s stated 1.3–2.0% range — at its upper edge, and the minimum
+reached across plausible window-start choices; the exact 1.3% lower bound
+reflects that derivation’s own, slightly different window convention, which
+this report does not reconstruct rather than guess at. The base share
+(6.9%), the G-series bloc (52.7% vs 48.6%) and the `M7` record count
+(10,854) reproduce it. This is the only analysed window in which `M7` is DEPLETED rather than enriched — the observation that
+prompted #871. Between this window and the enriched 2024-07 one sits the
+narrower issued-only 2024-07-22 window, where `M7` is proportionate.
 
 ## Per-window series stratification
 

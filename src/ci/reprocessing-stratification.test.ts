@@ -9,8 +9,10 @@ import {
   classifyEnrichment,
   seriesEnrichmentFor,
   windowOverlapsEpisode,
+  assertMonthAnchorSound,
   UNCLASSIFIED_SERIES,
   type StratParams,
+  type VintageExtent,
 } from './reprocessing-stratification.ts';
 import type { Episode } from './event-time-coherency.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
@@ -107,6 +109,37 @@ describe('reprocessing stratification — enrichment classification', { tags: ['
     const episodes: Episode[] = [{ start: '2016-07-23', end: '2016-08-12', signals: [] }];
     expect(windowOverlapsEpisode('2024-07-22', '2024-10-21', episodes)).toBe(false);
   });
+
+  it('MassEpisodeOverlap_WhenEpisodeEndsExactlyOnTheExcludedPredecessorDate_FlaggedFalse', () => {
+    // The window's lower edge is OPEN (predDate excluded), so an episode ending
+    // exactly on predDate does not intersect the touch interval.
+    const episodes: Episode[] = [{ start: '2024-07-01', end: '2024-07-22', signals: [] }];
+    expect(windowOverlapsEpisode('2024-07-22', '2024-10-21', episodes)).toBe(false);
+  });
+
+  it('MassEpisodeOverlap_WhenEpisodeStartsExactlyOnTheIncludedSnapshotDate_FlaggedTrue', () => {
+    // The upper edge is CLOSED (snapshot date included), so an episode starting
+    // on it does intersect.
+    const episodes: Episode[] = [{ start: '2024-10-21', end: '2024-11-01', signals: [] }];
+    expect(windowOverlapsEpisode('2024-07-22', '2024-10-21', episodes)).toBe(true);
+  });
+
+  it('MonthAnchor_WhenMonthOnlyVintageCarriesTouchLaterThanItsFirstOfMonth_FailsLoud', () => {
+    // A 2024-07 export anchored to 2024-07-01 but holding a 2024-07-15 touch
+    // would silently push that record out of its own window — the guard refuses.
+    const extents: VintageExtent[] = [{ vintage: '2024-07', vintageDate: '2024-07-01', maxModified: '2024-07-15' }];
+    expect(() => assertMonthAnchorSound(extents)).toThrow(/month-only vintage/);
+  });
+
+  it('MonthAnchor_WhenEveryTouchIsWithinTheAnchorMonth_Passes', () => {
+    // Dated vintages are exempt (they anchor to themselves); a month-only
+    // vintage whose latest touch precedes its first-of-month anchor is sound.
+    const extents: VintageExtent[] = [
+      { vintage: '2024-07', vintageDate: '2024-07-01', maxModified: '2024-06-14' },
+      { vintage: '2024-10-21', vintageDate: '2024-10-21', maxModified: '2024-10-21' },
+    ];
+    expect(() => assertMonthAnchorSound(extents)).not.toThrow();
+  });
 });
 
 // --- The fold over synthetic ledgers (DuckDB) -------------------------------
@@ -199,6 +232,35 @@ describe.skipIf(!duckDbAvailable())('reprocessing stratification — fold over a
     // 'onedge' on the anchored predecessor date is excluded; the three later
     // touches are in-window.
     expect(v2?.cohortSubjects).toBe(3);
+  });
+
+  it('MassEpisodeOverlap_WhenACohortWindowContainsADetectedEpisode_FlaggedTrue', () => {
+    // A non-vacuous overlap: a snapshot whose record-last-modified dates cluster
+    // hard enough to trip the S2 mass-episode detector, inside a touch window —
+    // the corpus's real cohorts never do this (they are the spread-out mass
+    // touches S2 misses), so the overlap machinery is exercised here instead.
+    const spike = '2024-08-03'; // > 50% of the snapshot's dates land on one day
+    const rows: Row[] = [
+      ...filler('p', 'M7', '2024-07-01', '2024-06-15', 5), // predecessor boundary
+      // 1,200 touched subjects, 700 spiked on one day (clears minPopulated=1000
+      // and the >50% share the detector needs); all inside (2024-07-01, 2024-09-01].
+      ...Array.from({ length: 700 }, (_, i) => subjectRows(`s${i}`, 'M7', '2024-09-01', spike)).flat(),
+      ...Array.from({ length: 500 }, (_, i) => subjectRows(`t${i}`, 'M7', '2024-09-01', '2024-08-28')).flat(),
+    ];
+    const strat = computeReprocessingStratification(ledgerFrom(rows), SMALL);
+    expect(strat.episodes.length).toBeGreaterThan(0);
+    const v2 = strat.windows.find(w => w.vintage === '2024-09-01');
+    expect(v2?.overlapsEpisode).toBe(true);
+  });
+
+  it('MonthAnchor_WhenAMonthOnlyVintageAssertsATouchAfterItsAnchor_FoldFailsLoud', () => {
+    // The invariant bites end-to-end through the fold, not only as a pure check:
+    // a 2024-07 snapshot carrying a mid-July touch aborts rather than miscounts.
+    const rows: Row[] = [
+      ...filler('a', 'M7', '2024-01-01', '2023-12-15', 3),
+      ...filler('b', 'M7', '2024-07', '2024-07-20', 3), // 2024-07 anchors to 07-01 < 07-20
+    ];
+    expect(() => computeReprocessingStratification(ledgerFrom(rows), SMALL)).toThrow(/month-only vintage "2024-07"/);
   });
 
   it('Report_RunTwiceOverTheSameClaims_IsByteDeterministic', () => {
