@@ -8,8 +8,9 @@ import {
   type DatasetPagesSummary,
 } from './build-dataset-pages.ts';
 import type { SourceObservationSet } from '../v2/claim.ts';
-import { externalLink } from './site-render.ts';
+import { externalLink, navHtml } from './site-render.ts';
 import { renderOnThisDayPage } from './build-on-this-day.ts';
+import { renderTimelinePage, computeTimeline, timelineJson } from './build-timeline.ts';
 import { foldEventTimeProjection } from './event-time-projection.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { DIRS } from '../shared/constants.ts';
@@ -1072,17 +1073,29 @@ describe('Internal link integrity across the built site (issue #561)', { tags: [
   let unresolvedFiles: string[];
   let unresolvedAnchors: string[];
   let internalLinksChecked: number;
+  let emittedFiles: Set<string>;
 
   beforeAll(() => {
-    // The deploy assemble step emits the on-this-day page (issue #726,
+    // The deploy assemble step emits the event-time surface pages (issue #726,
     // src/ci/build-event-time-surfaces.ts) at the site root beside this
     // builder's tree, and the canonical nav on every generated page links to
-    // it. Render its (cheap) empty-corpus form into the tree so that link
-    // resolves AND the page's own static links join the crawl as a source;
-    // the full-corpus page's outbound links are guarded by its builder's
-    // suites.
+    // them. Render their (cheap) empty-corpus forms into the tree so those
+    // links resolve AND each page's own static links join the crawl as a
+    // source; the full-corpus pages' outbound links are guarded by their
+    // builder's suites.
+    const emptyProjection = foldEventTimeProjection({ sources: [] });
     fs.writeFileSync(path.join(outputDir, 'on-this-day.html'),
-      renderOnThisDayPage([], foldEventTimeProjection({ sources: [] })));
+      renderOnThisDayPage([], emptyProjection));
+    // The timeline page's scrubber references its pre-aggregated JSON endpoint
+    // in-markup (data-timeline-src), so the crawler sees timeline/data.json as a
+    // link; emit its empty-corpus form alongside the page so the reference
+    // resolves to a real file, exactly as the deploy step emits it.
+    const emptyTimeline = computeTimeline(emptyProjection);
+    fs.writeFileSync(path.join(outputDir, 'timeline.html'),
+      renderTimelinePage(emptyTimeline, emptyProjection));
+    fs.mkdirSync(path.join(outputDir, 'timeline'), { recursive: true });
+    fs.writeFileSync(path.join(outputDir, 'timeline', 'data.json'),
+      timelineJson(emptyTimeline, emptyProjection.datasets));
     // The emitted set is the generated tree PLUS the hand-authored root assets the
     // deploy copies from site/ verbatim (index, glossary, the browser modules and
     // stylesheets). Generated pages link to both, so both count as emitted.
@@ -1090,6 +1103,7 @@ describe('Internal link integrity across the built site (issue #561)', { tags: [
     for (const f of fs.readdirSync('site')) {
       if (/\.(html|js|css|webmanifest)$/.test(f)) emitted.add(f);
     }
+    emittedFiles = emitted;
     const htmlOnDisk = (rel: string): string | null => {
       if (!rel.endsWith('.html') || !emitted.has(rel)) return null;
       const generated = path.join(outputDir, rel);
@@ -1151,6 +1165,23 @@ describe('Internal link integrity across the built site (issue #561)', { tags: [
       unresolvedAnchors,
       `dangling #fragment links (${unresolvedAnchors.length}):\n${unresolvedAnchors.join('\n')}`,
     ).toEqual([]);
+  });
+
+  it('BuiltSite_EveryNavAdvertisedPage_IsInTheEmittedUniverse', () => {
+    // The canonical nav (render/page.ts) advertises pages emitted by OTHER
+    // deploy steps too (the issue #726 event-time surfaces). A nav entry whose
+    // target no builder puts in this checker's universe is a dead link on every
+    // generated page (1600+ at once) - the exact break adding "Timeline" caused.
+    // Pin every same-origin, root-level nav href here so a future cross-builder
+    // page cannot be nav-advertised without being registered as emitted.
+    const nav = navHtml(0, undefined);
+    const navPages = [...nav.matchAll(/href="([^"]+)"/g)]
+      .map(m => m[1])
+      .filter(href => !/^https?:/.test(href) && href.endsWith('.html') && !href.includes('/'));
+    expect(navPages).toContain('on-this-day.html');
+    expect(navPages).toContain('timeline.html');
+    const missing = navPages.filter(p => !emittedFiles.has(p));
+    expect(missing, `nav advertises pages absent from the emitted universe: ${missing.join(', ')}`).toEqual([]);
   });
 });
 
