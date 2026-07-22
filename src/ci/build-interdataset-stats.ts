@@ -38,9 +38,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { listArchiveKeys } from '../shared/archive.ts';
+import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
 import { derivedEntryFile } from '../shared/derived-entries.ts';
 import { DIRS } from '../shared/constants.ts';
+import type { ArchiveMeta } from '../shared/utils.ts';
 import { compareStats, type EntryStats } from '../shared/stats.ts';
 import { escapeHtml, humanDate, entryPage, noticeStrip, tableCaption, zeroCell, absentMarker } from './site-render.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
@@ -93,15 +94,30 @@ interface PubStat {
   qualityObservations: { statement: string; evidence: string; coverageAffecting?: boolean }[];
 }
 
-interface PubMeta {
-  intendedCoverage?: { complete: boolean };
-  files?: Record<string, { columnNames?: string[] }>;
-  qualityObservations?: { statement: string; evidence: string; coverageAffecting?: boolean }[];
-}
-
 function columnEmptiness(stats: EntryStats, column: string): ColumnEmptiness {
   const c = stats.columns[column];
   return c === undefined ? { distinct: 0, empty: 0 } : { distinct: c.distinct, empty: c.empty };
+}
+
+// Whether the SOURCE a publication was parsed from carried a product column.
+// "No product column" is a property of the source, not of the normalised
+// derivative (whose canonical schema always carries a product column, blank
+// where the source omitted it). Resolved against the ACTUAL parse source — the
+// declared sheet extract for a workbook publication, or the extract of a
+// duplicate-header CSV, else raw.csv — never a fixed 'raw.csv' key a workbook
+// publication has no such file for. A parse source with no declared columnNames
+// is a resolution failure, not evidence of a missing column: it throws rather
+// than reading an empty header and fabricating "no product column".
+export function sourceHasProductColumn(meta: Pick<ArchiveMeta, 'files'>, key: string): boolean {
+  const parseSource = parseSourceFileName(meta);
+  const columnNames = meta.files?.[parseSource]?.columnNames;
+  if (columnNames === undefined) {
+    throw new Error(
+      `sourceHasProductColumn(${key}): parse source '${parseSource}' has no declared columnNames in meta.json — `
+      + 'cannot determine whether the source carried a product column',
+    );
+  }
+  return columnNames.some(c => /product/i.test(c));
 }
 
 function readPub(key: string): PubStat {
@@ -111,12 +127,8 @@ function readPub(key: string): PubStat {
   const statsPath = derivedEntryFile(key, 'stats.json');
   const stats = parseJsonObject(fs.readFileSync(statsPath, 'utf8'), statsPath) as EntryStats;
   const metaPath = path.join(dir, 'meta.json');
-  const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as PubMeta;
-  // "No product column" is a property of the SOURCE, not of the normalised
-  // derivative (whose canonical schema always carries a product column, blank
-  // where the source omitted it). Read it from the raw file's own header.
-  const rawColumns = meta.files?.['raw.csv']?.columnNames ?? [];
-  const hasProductColumn = rawColumns.some(c => /product/i.test(c));
+  const meta = parseJsonObject(fs.readFileSync(metaPath, 'utf8'), metaPath) as ArchiveMeta;
+  const hasProductColumn = sourceHasProductColumn(meta, key);
   const product = columnEmptiness(stats, 'product');
   return {
     key,

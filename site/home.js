@@ -56,10 +56,10 @@ export function pushRecent(value) {
 // the record (not a live figure), so rotation never risks presenting a stale
 // number as truth. Kept impersonal, each with a genuine destination.
 export const SURPRISES = [
-  { kicker: 'reserved, never issued', title: 'The M2 prefix has never been issued',
-    body: 'It appears in the register only as reserved — a whole prefix series held back, never allocated to a licensee.',
-    href: 'series/index.html' },
-  { kicker: 'forbidden by design', title: 'Over 1,400 suffixes Ofcom will not allocate',
+  { kicker: 'reserved in every snapshot', title: 'The M2 prefix is reserved-only in every snapshot held',
+    body: 'In every register snapshot the mirror holds — back to 2016 — M2 appears only as reserved, never as an allocation to a licensee.',
+    href: 'series/M2.html' },
+  { kicker: 'forbidden by design', title: 'Over 1,400 suffixes Ofcom withholds from issue',
     body: 'Some three-letter endings are off-limits — offensive, confusing, or reserved. The withheld set is tracked as it changes over time.',
     href: 'forbidden/index.html' },
   { kicker: 'try a suffix', title: 'Which prefix series is a suffix still free in?',

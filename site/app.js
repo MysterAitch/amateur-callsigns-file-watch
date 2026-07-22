@@ -801,7 +801,7 @@ async function suffixMatrix(suffix, result) {
   const [forbidden] = forbiddenRows;
   if (forbidden) {
     sections.push(card('Withheld suffix', [el('p', { text:
-      `"${suffix}" appears on Ofcom's August 2019 FOI withheld-suffixes list - unlikely to be newly issued, though existing allocations stand.` })]));
+      `"${suffix}" appears on the ever-forbidden union - every suffix on any Ofcom forbidden-list disclosure the archive holds (2016-2024), not a single dated list - unlikely to be newly issued, though existing allocations stand.` })]));
   }
   if (suffix.length < 2 || suffix.length > 3) {
     sections.push(card('Suffix length', [el('p', { text:
@@ -1360,7 +1360,7 @@ async function lookup(criteria) {
     const [forbidden] = forbiddenRows;
     if (forbidden) {
       sections.push(card('Suffix note', [el('p', { text:
-        `"${row.cs_suffix}" appears on Ofcom's August 2019 FOI withheld-suffixes list. Most such register rows are long-standing allocations - the list evidently governs new issuance, not existing holdings.` })]));
+        `"${row.cs_suffix}" appears on the ever-forbidden union - every suffix on any Ofcom forbidden-list disclosure the archive holds (2016-2024), not a single dated list. Most such register rows are long-standing allocations - the list evidently governs new issuance, not existing holdings.` })]));
     }
   }
 
