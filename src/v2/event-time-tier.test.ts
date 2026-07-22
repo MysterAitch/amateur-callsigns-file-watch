@@ -19,6 +19,7 @@ import { explain } from './explain.ts';
 import { checkNoInflationClaims } from '../ci/trust-rating.ts';
 import { FOI_ENTRY_CONVERSIONS } from '../shared/foi-normalise.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { DATE_COLUMN_CANONICAL_BY_RAW_HEADER } from '../sources/ofcom-amateur/normalise.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
 //
@@ -113,6 +114,19 @@ describe('the authored event-kind classification is total over the authored date
 
   it('EventKindRegistry_WhenAskedForAnUnknownOutput_FailsLoudRatherThanSilentlyEmittingNothing', () => {
     expect(() => eventKindForDateOutput('some_new_date_column')).toThrow(/no authored event-kind classification/);
+  });
+
+  it('EveryOpenDataVariantDateColumn_AcrossTheVariantRegistry_ClassifiesOrIsADocumentedExclusion', () => {
+    // Issue #856: the FOI conversions have the sweep above; the open-data lane
+    // previously leaned on the load-time throw alone. Sweeping the open-data
+    // variant registry's date columns (DATE_COLUMN_CANONICAL_BY_RAW_HEADER,
+    // derived from VARIANTS so a new variant keeps it in sync) makes an
+    // unclassified new open-data date column fail in TESTS, not first at build.
+    const canonicals = new Set(DATE_COLUMN_CANONICAL_BY_RAW_HEADER.values());
+    expect(canonicals.size).toBeGreaterThan(0);
+    for (const canonical of canonicals) {
+      expect(() => eventKindForDateOutput(canonical)).not.toThrow();
+    }
   });
 
   it('LicenceScopedDateColumn_WithAnAuthoredEventKindOverride_BindsToTheOverrideNotTheOutputDefault', () => {
@@ -249,6 +263,53 @@ describe('the tier extracts from attested date columns ONLY — no format guessi
     const source = registerLikeSource();
     const broken: SourceObservationSet = { ...source, eventDateColumns: [{ source: 'No Such Column', kind: 'record-created' }] };
     expect(() => emitEventDateClaims(broken)).toThrow(/absent from the source headers/);
+  });
+
+  it('SourceBindingTwoColumnsToOneEventKind_WhenEmitted_FailsLoudRatherThanEmittingDuplicateClaimsPerRow', () => {
+    // The kind-dedup guard (issue #856): emit pushes one claim per (row,
+    // binding), so two columns sharing a kind would emit duplicate claims of
+    // that kind on every row - an inflation indistinguishable from two genuine
+    // observations. No real source binds two columns to one kind today; a
+    // future one that did must fail loud, naming the source and the colliding
+    // columns.
+    const source = registerLikeSource();
+    const collidingKinds: SourceObservationSet = {
+      ...source,
+      eventDateColumns: [
+        { source: 'Created Date', kind: 'record-created' },
+        { source: 'LastModifiedDate', kind: 'record-created' },
+      ],
+    };
+    expect(() => emitEventDateClaims(collidingKinds)).toThrow(/distinct event kinds/);
+    expect(() => emitEventDateClaims(collidingKinds)).toThrow(/record-created/);
+  });
+
+  it('SourceBindingDistinctKindsToDistinctColumns_WhenEmitted_EmitsWithoutTrippingTheDedupGuard', () => {
+    // The converse: the real register shape (three columns, three distinct
+    // kinds) is exactly what the guard must let through unharmed.
+    expect(() => emitEventDateClaims(registerLikeSource())).not.toThrow();
+  });
+
+  it('IsoDateWithAnImpossibleCalendarDay_UnderIsoAttestedFormat_FailsLoudLikeItsDayFirstSibling', () => {
+    // Issue #856: the ISO branch now runs the SAME full calendar validation as
+    // the day-first parser - 2020-02-30 is as impossible as 30/02/2020, and an
+    // April with 31 days is impossible either way, so both must throw rather
+    // than one emitting the bad day verbatim.
+    expect(() => isoDayFromAttested('2020-02-30', 'YYYY-MM-DD')).toThrow(/not a well-formed/);
+    expect(() => isoDayFromAttested('2021-04-31', 'YYYY-MM-DD')).toThrow(/not a well-formed/);
+    expect(() => isoDayFromAttested('30/02/2020', 'DD/MM/YYYY')).toThrow(/day out of range/);
+  });
+
+  it('IsoLeapDay_UnderIsoAttestedFormat_AcceptsARealLeapDayAndRejectsANonLeapOne', () => {
+    expect(isoDayFromAttested('2020-02-29', 'YYYY-MM-DD')).toBe('2020-02-29');
+    expect(() => isoDayFromAttested('2021-02-29', 'YYYY-MM-DD')).toThrow(/not a well-formed/);
+  });
+
+  it('IsoImpossibleDay_ViaTheGrammarDispatch_MatchesNeitherAttestedGrammarAndYieldsNull', () => {
+    // The explain arm's dispatch: an impossible ISO cell fits neither grammar
+    // (day-first needs slashes; the ISO branch now rejects the bad calendar
+    // day), so it yields null rather than a spurious day.
+    expect(isoDayFromCellUnderAnyAttestedFormat('2020-02-30')).toBeNull();
   });
 
   it('DateCell_InTheWrongGrammarForItsAttestedFormat_FailsLoudRatherThanBeingReadUnderAnotherGrammar', () => {

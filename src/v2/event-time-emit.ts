@@ -249,7 +249,19 @@ export function isoDayFromAttested(value: string, format: string): string | null
   }
   if (format === ISO_FORMAT) {
     const match = ISO_EXTRACT_RE.exec(trimmed);
-    if (match === null || Number(match[2]) < 1 || Number(match[2]) > 12 || Number(match[3]) < 1 || Number(match[3]) > 31) {
+    if (match === null) {
+      throw new Error(`isoDayFromAttested: "${trimmed}" is not a well-formed ${ISO_FORMAT} extract date`);
+    }
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    // Full calendar validation, symmetric with the day-first parser
+    // (shared/normalise.ts): the day must fall within the month's real length
+    // (leap years included), not merely be <= 31. So an impossible ISO cell
+    // like 2020-02-30 fails loud here exactly as its day-first sibling
+    // 30/02/2020 does, rather than emitting the bad day verbatim. `new
+    // Date(year, month, 0)` yields the last day of that 1-based month.
+    const daysInMonth = month >= 1 && month <= 12 ? new Date(Number(match[1]), month, 0).getDate() : 0;
+    if (day < 1 || day > daysInMonth) {
       throw new Error(`isoDayFromAttested: "${trimmed}" is not a well-formed ${ISO_FORMAT} extract date`);
     }
     return `${match[1]}-${match[2]}-${match[3]}`;
@@ -290,6 +302,26 @@ export function isoDayFromCellUnderAnyAttestedFormat(value: string): string | nu
 export function emitEventDateClaims(source: SourceObservationSet): Claim[] {
   const bindings = source.eventDateColumns;
   if (bindings === undefined || bindings.length === 0) return [];
+  // Kind-dedup guard (issue #856): a source's date bindings must map to
+  // DISTINCT event kinds. The per-row loop below pushes one claim per (row,
+  // binding), so two columns sharing a kind would emit duplicate claims of that
+  // kind on every row — an inflation the ledger cannot tell apart from two
+  // genuine observations. No source binds two columns to one kind today
+  // (EVENT_KIND_BY_DATE_OUTPUT maps original_start_date and
+  // licence_version_original_start_date to the same kind, but no single source
+  // carries both); a future one that did must fail loud, naming the source and
+  // the colliding columns, rather than silently double-counting.
+  const columnsByKind = new Map<string, string[]>();
+  for (const binding of bindings) {
+    const columns = columnsByKind.get(binding.kind);
+    if (columns === undefined) columnsByKind.set(binding.kind, [binding.source]);
+    else columns.push(binding.source);
+  }
+  for (const [kind, columns] of columnsByKind) {
+    if (columns.length > 1) {
+      throw new Error(`emitEventDateClaims: ${source.sourceFile} binds event kind "${kind}" to ${columns.length} columns (${columns.join(', ')}) - a source's date bindings must map to distinct event kinds, else each row emits duplicate claims of one kind; give the columns distinct kinds or drop the redundant binding`);
+    }
+  }
   // interpretColumns fails loud when the source attests no interpretation at
   // all — a binding without an attestation is exactly the guessing this tier
   // forbids.
