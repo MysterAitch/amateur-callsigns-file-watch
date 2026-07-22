@@ -244,8 +244,14 @@ describe('Dataset pages build', () => {
     // truncation and must NOT be the changes-since baseline. Since the two
     // web-archive-recovered vintages landed, the newest entry's chronological
     // comparison baseline is the 2026-01-14 recovered workbook publication.
-    expect(page).toContain('byte-identical to the earlier fetch');
-    expect(page).toContain('Compare with <a href="../2026-01-14/index.html">');
+    // The two halves of the re-fetch caption are separate claims and must
+    // stay separate sentences: fetch lineage (this publication's later fetch
+    // matched the archived bytes) and dataset lineage (the link to the
+    // previous publication's comparison). Joined, they read as a false
+    // byte-identical claim against the previous publication (#893).
+    expect(page).toContain('a later fetch of this publication returned the archived file byte for byte');
+    expect(page).toContain('see the comparison with <a href="../2026-01-14/index.html">');
+    expect(page).not.toContain('byte-identical to the earlier fetch. Compare with');
     // The partial 2025-06-08 snapshot is reachable only from the collapsed
     // "partial exports" section of the navigation, never as the diff baseline.
     expect(page).toMatch(/partial exports?<\/summary>[\s\S]*?href="\.\.\/\.\.\/open-data\/2025-06-08\/index\.html"/);

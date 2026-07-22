@@ -811,7 +811,12 @@ function atAGlanceOpenData(key: string, previousKey: string | undefined, stats: 
   }
   const diff = meta.diffSummary;
   if (diff !== undefined && diff.previousArchiveKey === key && previousKey !== undefined) {
-    notable.push(`<li class="rel"><b>Re-fetch:</b> byte-identical to the earlier fetch. Compare with <a href="../${escapeHtml(previousKey)}/index.html">${humanDate(previousKey)}</a>.</li>`);
+    // A self-referential diffSummary records FETCH lineage (a later fetch of
+    // this same publication matched the archived copy byte for byte), not
+    // dataset lineage. Say each half in its own sentence: joined into one
+    // ("byte-identical ... Compare with <previous>") the caption read as a
+    // false byte-identical claim against the PREVIOUS publication (#893).
+    notable.push(`<li class="rel"><b>Re-fetch:</b> a later fetch of this publication returned the archived file byte for byte — the source file is stable at Ofcom. For what changed since the previous publication, see the comparison with <a href="../${escapeHtml(previousKey)}/index.html">${humanDate(previousKey)}</a> above.</li>`);
   } else if (diff !== undefined) {
     notable.push(`<li class="rel"><b>vs <a href="../${escapeHtml(diff.previousArchiveKey)}/index.html">${humanDate(diff.previousArchiveKey)}</a>:</b> ${diff.added.toLocaleString('en-GB')} added, ${diff.removed.toLocaleString('en-GB')} removed, ${diff.fieldChanged.toLocaleString('en-GB')} changed.</li>`);
   }
