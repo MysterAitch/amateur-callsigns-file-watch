@@ -56,6 +56,7 @@ import { writeCuriosityIndex } from './curiosity-index.ts';
 import { writeSequenceAnalytics } from './sequence-analytics.ts';
 import { writeColumnDrift } from './column-drift.ts';
 import { writeSurvivalCohort } from './survival-cohort.ts';
+import { writeTimezoneRendering } from './timezone-rendering.ts';
 import { mdCell } from '../shared/markdown.ts';
 import { time, perfReport } from '../shared/perf.ts';
 
@@ -201,6 +202,13 @@ export function runReportSweep(): ReportSweepReport {
   // every curve stating its censoring and coverage. Committed so a new vintage
   // shifting the actuarial picture is a PR diff.
   time('reports:survival-cohort', () => writeSurvivalCohort());
+
+  // The per-source timezone-rendering classification (issue #858): which
+  // clock convention each source's date/datetime columns render under,
+  // derived by chained pairwise natural experiments over the raw datetime
+  // cells and the S1 event-date claims. Committed so a new vintage shifting
+  // any classification (or introducing conflicting evidence) is a PR diff.
+  time('reports:timezone-rendering', () => writeTimezoneRendering());
 
   // The newest dataset's matrix always appears: the coverage body is the
   // does-this-look-right triage surface, and current state belongs on it -
@@ -746,6 +754,7 @@ function writeReportsIndex(columnsNewestFirst: string[], statsByKey: Map<string,
     '- [Namespace sequence analytics](sequence-analytics.md) - allocation order (H5), gap structure, issuance-rate curves and a naive series-exhaustion projection per prefix series',
     '- [Column distributional drift](column-drift.md) - per-column, per-vintage fingerprints and the vintage-over-vintage divergences they flag',
     '- [Survival and cohort analysis](survival-cohort.md) - the register as a life table: right-censored licence ages, retention by class and era, reservation cycles',
+    '- [Timezone-rendering classification](timezone-rendering.md) - which clock convention each source renders dates under, derived by chained natural experiments; unclassifiable sources stay honestly unclassified',
     '',
     '| dataset | records | distinct patterns | flag instances |',
     '|---|---:|---:|---:|',

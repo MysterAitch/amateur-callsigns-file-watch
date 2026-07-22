@@ -15,6 +15,7 @@ Standing, deterministic views over the archive. Drill-downs:
 - [Namespace sequence analytics](sequence-analytics.md) - allocation order (H5), gap structure, issuance-rate curves and a naive series-exhaustion projection per prefix series
 - [Column distributional drift](column-drift.md) - per-column, per-vintage fingerprints and the vintage-over-vintage divergences they flag
 - [Survival and cohort analysis](survival-cohort.md) - the register as a life table: right-censored licence ages, retention by class and era, reservation cycles
+- [Timezone-rendering classification](timezone-rendering.md) - which clock convention each source renders dates under, derived by chained natural experiments; unclassifiable sources stay honestly unclassified
 
 | dataset | records | distinct patterns | flag instances |
 |---|---:|---:|---:|
