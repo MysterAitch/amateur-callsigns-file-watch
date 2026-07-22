@@ -414,6 +414,19 @@ describe('reference data loading', { tags: ['unit'] }, () => {
     expect(REF.forbiddenSuffixes.has('JIZ')).toBe(true);
   });
 
+  it('ReferenceData_CarriesSeriesIntroductionMonthForRecentlyIntroducedSeries', () => {
+    // The series introduction month (yyyy-mm) grounds the carried-licence-
+    // history reading (#918): a recently-introduced series inherits pre-
+    // introduction licence origins. Recorded only where sourced.
+    expect(REF.prefixSeries.get('M8')?.introduced).toBe('2025-10');
+    expect(REF.prefixSeries.get('M9')?.introduced).toBe('2025-10');
+    expect(REF.prefixSeries.get('M7')?.introduced).toBe('2018-10');
+    // Long-standing series carry no recorded introduction month (no false
+    // "predates introduction" reading is possible for them).
+    expect(REF.prefixSeries.get('G3')?.introduced).toBe('');
+    expect(REF.prefixSeries.get('M0')?.introduced).toBe('');
+  });
+
   it('ReferenceData_CarriesPerSuffixFirstKnownForbiddenDates', () => {
     // The per-suffix temporal anchor the after-first-known-list flag keys off:
     // the bulk sit at the 2024 export's 2016-07-29 origin; QNF/ZFJ are known

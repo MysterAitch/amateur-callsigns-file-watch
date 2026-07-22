@@ -301,15 +301,19 @@ describe('Dataset pages build', () => {
     const page = fs.readFileSync(path.join(outputDir, 'datasets', 'open-data', '2026-06-23', 'index.html'), 'utf8');
     expect(page).toContain('<h2>Distributions</h2>');
     expect(page).toContain('Callsign length');
-    expect(page).toContain('Issue year');
+    // The date distribution is the licence-version original start (the licence
+    // chain's origin), never framed as callsign issuance (issues #915/#918).
+    expect(page).toContain('Licence-start year');
+    expect(page).not.toContain('Issue year');
     // The chart is an accessible figure: role="img" with a spoken summary,
     // and the data table IS the content (crawlable, no-SVG fallback).
     expect(page).toContain('<figure class="chart">');
     expect(page).toContain('role="img"');
     expect(page).toMatch(/<desc id="dist-length-d">/);
     expect(page).toContain('<details><summary>Data table');
-    // Recent issuance split by licence level, anchored on the publication.
-    expect(page).toContain('New in the 12 months to 23 June 2026, by licence level');
+    // Recent licence-version starts split by licence level, anchored on the
+    // publication — licence-chain origin, not callsign issuance (#915/#918).
+    expect(page).toContain('Earliest licence-version start in the 12 months to 23 June 2026, by licence level');
     // Long tails are explorable: chart bars/rows carry a facet trigger
     // that toggles the value into the coordinated browser.
     expect(page).toContain('data-filter-expr="CAST(LENGTH(callsign) AS TEXT)"');
@@ -376,7 +380,10 @@ describe('Dataset pages build', () => {
     // whole withheld set, and the subset carrying the per-suffix
     // forbidden-suffix-issued-after-first-known-list flag (not a flat 2019 date).
     expect(page).toMatch(/data-browser-sql="SELECT[^"]*suffix IN \(SELECT suffix FROM ref_forbidden_suffixes\)[^"]*ORDER BY callsign"/);
-    expect(page).toContain('issued after the suffix was first withheld');
+    // Licence-scoped, not issuance-scoped: the drill-down describes the licence-
+    // version original start post-dating the withholding, never "issued" (#918).
+    expect(page).toContain('whose licence-version original start post-dates the suffix being first withheld');
+    expect(page).not.toContain('issued after the suffix was first withheld');
     expect(page).toContain('forbidden-suffix-issued-after-first-known-list');
     // The stale flat-2019 basis must not resurface on a live page.
     expect(page).not.toContain('issued since the 2019 list');

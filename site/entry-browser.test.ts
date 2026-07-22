@@ -378,3 +378,35 @@ describe('entry-browser header sort transitions (issue #787)', { tags: ['ui'] },
     expect(lastOrderBy(queries)).toBe('"callsign" ASC');
   });
 });
+
+// The "Interesting queries" starting points are reader-facing SQL. One of them
+// probes withheld-suffix callsigns against their suffix's first-known-forbidden
+// date. That comparison reads the licence-version ORIGINAL START — the licence
+// chain's origin, NOT the callsign's issuance (#915/#918): for a recently-
+// introduced series it can be carried licence history (the real case M9RAF,
+// carried origin 2024-12-21), so the query must stay licence-scoped. This guard
+// pins the corrected wording so the issuance framing cannot silently return.
+describe('entry-browser interesting-query licence-chain wording (#918)', { tags: ['ui'] }, () => {
+  it('EntryBrowser_WithheldSuffixExampleQuery_IsLicenceScopedNotIssuanceScoped', async () => {
+    const section = buildScaffold();
+    enhance(section, { openCombined: () => Promise.resolve(fakeWorker()) });
+    await flush();
+
+    const button = [...section.querySelectorAll('button.exq')]
+      .find(b => (b.textContent ?? '').includes('licence-version start before or after first known forbidden'));
+    expect(button, 'the withheld-suffix example query button must be present').toBeInstanceOf(HTMLElement);
+    (button as HTMLElement).click();
+    await flush();
+
+    const textarea = section.querySelector('textarea[aria-label="SQL query"]');
+    const sql = (textarea as HTMLTextAreaElement).value;
+    // Licence-scoped: the column is aliased and ordered as the licence start,
+    // and the relation label speaks of the licence-version start, not issuance.
+    expect(sql).toContain('licence_version_original_start_date AS licence_start');
+    expect(sql).toContain('ORDER BY licence_start');
+    expect(sql).toContain("'starts after'");
+    // The retired issuance framing must not resurface anywhere in the query.
+    expect(sql).not.toContain('AS issued');
+    expect(sql).not.toContain('issued after');
+  });
+});

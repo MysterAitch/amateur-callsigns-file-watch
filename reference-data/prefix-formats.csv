@@ -1,20 +1,20 @@
-prefix,station_level,issuing_status,rsl_required,notes
-M3,Foundation,currently-issuing,false,
-M6,Foundation,currently-issuing,false,
-M7,Foundation,currently-issuing,false,
-M8,Intermediate,currently-issuing,false,"Introduced October 2025; corresponding M8 callsign reserved for each 2#0 holder"
-M9,Intermediate,currently-issuing,false,"Introduced October 2025; corresponding M9 callsign reserved for each 2#1 holder"
-20,Intermediate,formerly-issued,true,"A Regional Secondary Locator is mandatory in use (the 2#0-style rendering); without one the callsign does not conform to the Radio Regulations. Holders may retain their existing callsigns (see the M8/M9 corresponding-callsign reservation)"
-21,Intermediate,formerly-issued,true,"A Regional Secondary Locator is mandatory in use (the 2#0-style rendering); without one the callsign does not conform to the Radio Regulations. Holders may retain their existing callsigns (see the M8/M9 corresponding-callsign reservation)"
-M0,Full,currently-issuing,false,
-M1,Full,currently-issuing,false,
-M5,Full,currently-issuing,false,
-G0,Full,currently-issuing,false,
-G1,Full,currently-issuing,false,
-G3,Full,currently-issuing,false,
-G4,Full,currently-issuing,false,
-G5,Full,currently-issuing,false,
-G6,Full,currently-issuing,false,
-G7,Full,currently-issuing,false,
-G8,Full,currently-issuing,false,
-G2,Full,formerly-issued,false,"Only available if the applicant previously held it; likewise any callsign with only two trailing letters"
+prefix,station_level,issuing_status,rsl_required,introduced,notes
+M3,Foundation,currently-issuing,false,,
+M6,Foundation,currently-issuing,false,,
+M7,Foundation,currently-issuing,false,2018-10,"Introduced October 2018 — earliest M7 reservation 12 October 2018 in Ofcom's FOI-disclosed reservation data (the regulator-primary anchor; contemporaneous RSGB and Essex Ham notices corroborate)"
+M8,Intermediate,currently-issuing,false,2025-10,"Introduced October 2025; corresponding M8 callsign reserved for each 2#0 holder"
+M9,Intermediate,currently-issuing,false,2025-10,"Introduced October 2025; corresponding M9 callsign reserved for each 2#1 holder"
+20,Intermediate,formerly-issued,true,,"A Regional Secondary Locator is mandatory in use (the 2#0-style rendering); without one the callsign does not conform to the Radio Regulations. Holders may retain their existing callsigns (see the M8/M9 corresponding-callsign reservation)"
+21,Intermediate,formerly-issued,true,,"A Regional Secondary Locator is mandatory in use (the 2#0-style rendering); without one the callsign does not conform to the Radio Regulations. Holders may retain their existing callsigns (see the M8/M9 corresponding-callsign reservation)"
+M0,Full,currently-issuing,false,,
+M1,Full,currently-issuing,false,,
+M5,Full,currently-issuing,false,,
+G0,Full,currently-issuing,false,,
+G1,Full,currently-issuing,false,,
+G3,Full,currently-issuing,false,,
+G4,Full,currently-issuing,false,,
+G5,Full,currently-issuing,false,,
+G6,Full,currently-issuing,false,,
+G7,Full,currently-issuing,false,,
+G8,Full,currently-issuing,false,,
+G2,Full,formerly-issued,false,,"Only available if the applicant previously held it; likewise any callsign with only two trailing letters"

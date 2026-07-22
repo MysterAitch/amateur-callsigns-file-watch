@@ -81,6 +81,15 @@ export interface PrefixSeriesInfo {
   stationLevel: string;
   issuingStatus: string;
   rslRequired: boolean;
+  // The month the callsign SERIES was introduced (ISO yyyy-mm), where the
+  // reference data records it; '' when not recorded. This is the callsign
+  // series' own start, distinct from any licence chain's original start: a
+  // recently-introduced series (M8/M9 October 2025, M7 October 2018) can carry
+  // licence-version original-start dates predating the series itself, because
+  // the column is the LICENCE CHAIN's origin, not the callsign's issuance
+  // (issues #915/#918). Consumers of earliest-start superlatives read this to
+  // flag a carried origin rather than imply callsign issuance.
+  introduced: string;
 }
 
 export interface ReferenceData {
@@ -117,6 +126,7 @@ export function loadReferenceData(): ReferenceData {
       stationLevel: r.station_level,
       issuingStatus: r.issuing_status,
       rslRequired: r.rsl_required === 'true',
+      introduced: r.introduced ?? '',
     }]),
   );
   const forbiddenRows = readCsv('forbidden-suffixes.csv');
@@ -361,10 +371,14 @@ export function parseCallsign(callsign: string, product: string, ref: ReferenceD
   if (ref.forbiddenSuffixes.has(row.suffix)) {
     flag('forbidden-suffix');
     // The bulk forbidden-suffix rows are long-standing allocations that predate
-    // the list; the interesting subset is a forbidden suffix whose ORIGINAL
-    // issuance post-dates THAT suffix's own first-known-forbidden date, in
-    // apparent contradiction to it. It rides only on a forbidden suffix, and
-    // only where the variant supplies an original start date.
+    // the list; the interesting subset is a forbidden suffix whose licence-
+    // version ORIGINAL START post-dates THAT suffix's own first-known-forbidden
+    // date, in apparent contradiction to it. It rides only on a forbidden
+    // suffix, and only where the variant supplies an original start date. The
+    // original-start date is the LICENCE CHAIN's origin, not the callsign's
+    // issuance (issues #915/#918): for a recently-introduced series it can be
+    // carried licence history, so this is a candidate for scrutiny, never a
+    // verdict that the callsign itself was issued after the exclusion.
     if (isAfterFirstKnownForbidden(originalStartDate, ref.forbiddenSuffixFirstKnown.get(row.suffix))) {
       flag('forbidden-suffix-issued-after-first-known-list');
     }

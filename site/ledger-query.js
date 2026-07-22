@@ -549,10 +549,10 @@ export const FLAG_NOTES = {
       ' is on the combined list of suffixes Ofcom has withheld from new licences. On its own this is unremarkable: many long-standing callsigns carry such a suffix, so the list governs new issues, not existing ones.'],
   },
   'forbidden-suffix-issued-after-first-known-list': {
-    label: 'Start date looks later than when the suffix was first withheld',
-    gloss: ['We note an apparent discrepancy: the start date recorded in the source is later than the earliest date we have seen this ',
+    label: 'Licence-chain start looks later than when the suffix was first withheld',
+    gloss: ['We note an apparent discrepancy: the licence-version original start recorded in the source — the original start of this licence chain, not necessarily when this callsign itself was issued — is later than the earliest date we have seen this ',
       lnk('suffix', FAQ_CALLSIGN_STRUCTURE),
-      ' withheld, so on our reading it was issued after the suffix was already being held back. We draw no conclusion — the reason isn’t clear from the data, and our reading of the withholding timeline is itself a best-effort derivation.'],
+      ' withheld. We draw no conclusion — for a recently-introduced series this can be carried licence history the callsign inherited rather than a fresh issue, the reason isn’t clear from the data, and our reading of the withholding timeline is itself a best-effort derivation.'],
   },
   'suffix-length-abnormal': {
     label: 'The suffix is an unusual length',

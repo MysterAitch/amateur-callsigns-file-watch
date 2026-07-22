@@ -716,6 +716,15 @@ export function renderSequenceAnalytics(a: SequenceAnalytics): string {
     'caveat wherever a series leans on original-start rather than firm',
     '`licence-issued` dates, and is only as strong as the series’ dated coverage.',
     '',
+    'For a recently-introduced series that caveat sharpens into a scope warning',
+    '(#915/#918): the original-start date is the LICENCE CHAIN’s origin, not the',
+    'callsign’s issuance, so where the firm-issued share is low the `ρ` correlates',
+    'suffix position against carried licence history rather than against when the',
+    'callsign was handed out. This bites hardest on M8 and M9 (introduced October',
+    '2025, 0% firm-issued: every dated point is a carried origin) and on M7',
+    '(introduced October 2018, ~10% firm-issued). Read their `ρ` as licence-chain',
+    'order, not callsign-issuance order; the firm-issued share column is the flag.',
+    '',
   );
   if (dated.length === 0) {
     lines.push('No series reaches the dated-slots floor, so allocation order cannot be read from this corpus.', '');
@@ -747,6 +756,17 @@ export function renderSequenceAnalytics(a: SequenceAnalytics): string {
     `${num(DETAIL_MIN_POPULATION)} observed slots. Smaller series stay in the summary above; their`,
     'full detail is re-derivable from the fold (`analyseSeries`,',
     'src/ci/sequence-analytics.ts).',
+    '',
+    'One contamination to carry into the rate curves and projections below',
+    '(#915/#918): for a recently-introduced series, an original-start date is the',
+    'holder’s carried licence-chain origin, so a slot lacking a firm `licence-issued`',
+    'date is attributed to the year its chain began, not the year the callsign was',
+    'issued. For M7 (introduced October 2018) the run-out projection’s rate window',
+    'is its most-recent dated years, which largely post-date its 14 carried origins,',
+    'so the projected run-out is little moved; but the per-year curve still attributes',
+    'those carried origins to their pre-2018 years, where they are licence-chain',
+    'starts, not M7 issuances. The exhaustion "% full" figure is pure snapshot',
+    'presence and is unaffected either way.',
     '',
   );
   for (const s of detailed) {

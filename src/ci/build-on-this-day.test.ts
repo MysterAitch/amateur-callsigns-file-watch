@@ -119,6 +119,50 @@ describe('on-this-day entries (issue #726)', { tags: ['unit'] }, () => {
     expect(entry?.caveats).toEqual(['earliest-surviving', 'month-precision-vintage']);
   });
 
+  it('OnThisDay_EarliestStartPredatingTheSeriesIntroduction_IsFlaggedAsCarriedHistory', () => {
+    // An M9-series callsign (series introduced October 2025) whose earliest
+    // held start is dated 1991 — the M9KUR case (#915): the date is the
+    // licence chain's carried origin, not the callsign's issuance.
+    const projection = foldEventTimeProjection({
+      sources: [
+        fixtureSource({
+          sourceFile: 'foi/entry-b/reg.csv',
+          vintage: '2026-06-23',
+          rows: [{ callsign: 'M9KUR', start: '26/07/1991' }],
+        }),
+      ],
+    });
+    const entry = computeOnThisDayEntries(projection).find(e => e.series === 'M9' && e.event === 'first-start');
+    expect(entry?.predatesSeriesIntroduction).toBe(true);
+    expect(entry?.seriesIntroduced).toBe('2025-10');
+  });
+
+  it('OnThisDay_EarliestStartAfterTheSeriesIntroduction_IsNotFlaggedAsCarriedHistory', () => {
+    // A fresh post-introduction M9 issuance: origin on or after the series'
+    // introduction month is the callsign's own history, not carried.
+    const projection = foldEventTimeProjection({
+      sources: [
+        fixtureSource({
+          sourceFile: 'foi/entry-c/reg.csv',
+          vintage: '2026-06-23',
+          rows: [{ callsign: 'M9ZZZ', start: '20/11/2025' }],
+        }),
+      ],
+    });
+    const entry = computeOnThisDayEntries(projection).find(e => e.series === 'M9' && e.event === 'first-start');
+    expect(entry?.predatesSeriesIntroduction).toBe(false);
+    expect(entry?.seriesIntroduced).toBe('2025-10');
+  });
+
+  it('OnThisDay_SeriesWithNoRecordedIntroduction_IsNeverFlaggedAsCarried', () => {
+    // G3 carries no introduction month in the reference data, so its earliest
+    // held start is never asserted to predate an introduction (no false flag).
+    const entries = computeOnThisDayEntries(fixtureProjection());
+    const g3 = entries.find(e => e.series === 'G3' && e.event === 'first-start');
+    expect(g3?.seriesIntroduced).toBe('');
+    expect(g3?.predatesSeriesIntroduction).toBe(false);
+  });
+
   it('OnThisDay_SubjectWithoutAPrefixSeries_HasNoSlotRatherThanAGuessedOne', () => {
     const entries = computeOnThisDayEntries(fixtureProjection());
     expect(entries.every(e => e.series !== '')).toBe(true);
@@ -152,6 +196,24 @@ describe('on-this-day page render (issue #726)', { tags: ['unit'] }, () => {
     const html = renderOnThisDayPage(computeOnThisDayEntries(projection), projection);
     expect(html).toMatch(/pre-1977 start dates are attested-unreliable/);
     expect(html).toMatch(/earliest surviving date, not “the true original”/);
+  });
+
+  it('OnThisDayPage_CarriedHistoryEntry_NamesTheSeriesIntroductionInline', () => {
+    const projection = foldEventTimeProjection({
+      sources: [
+        fixtureSource({
+          sourceFile: 'foi/entry-b/reg.csv',
+          vintage: '2026-06-23',
+          rows: [{ callsign: 'M9KUR', start: '26/07/1991' }],
+        }),
+      ],
+    });
+    const html = renderOnThisDayPage(computeOnThisDayEntries(projection), projection);
+    // The carried-history reading is rendered inline as the interesting fact,
+    // naming the series introduction month and the licence-chain scope.
+    expect(html).toContain('carried licence history');
+    expect(html).toMatch(/predates the M9-series’ own introduction \(October 2025\)/);
+    expect(html).toMatch(/not the callsign’s own issuance/);
   });
 
   it('OnThisDayPage_MechanismExplainer_IsPresentButFolded', () => {

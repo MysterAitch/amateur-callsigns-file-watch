@@ -872,13 +872,15 @@ function atAGlanceOpenData(key: string, previousKey: string | undefined, stats: 
   // publication browser in 3b makes them exact for every entry.
   const notable: string[] = [];
   // The forbidden-suffix cohort is the interesting story, not the raw count:
-  // two filter links - the whole flagged set, and the narrower "issued while
-  // the withheld list existed" subset (the second only when non-empty).
+  // two filter links - the whole flagged set, and the narrower subset whose
+  // licence-version original start post-dates the suffix being first withheld
+  // (a licence-chain origin, not the callsign's issuance - #915/#918); the
+  // second link only when non-empty.
   if (bd.forbiddenTotal > 0) {
     const allSql = `SELECT callsign, cleaned, status, prefix_series, implied_class FROM register_history WHERE dataset = '${key}' AND suffix IN (SELECT suffix FROM ref_forbidden_suffixes) ORDER BY callsign`;
-    const sinceSql = `SELECT callsign, status, prefix_series, licence_version_original_start_date AS issued FROM register_history WHERE dataset = '${key}' AND ';' || flags || ';' LIKE '%;forbidden-suffix-issued-after-first-known-list;%' ORDER BY issued`;
+    const sinceSql = `SELECT callsign, status, prefix_series, licence_version_original_start_date AS licence_start FROM register_history WHERE dataset = '${key}' AND ';' || flags || ';' LIKE '%;forbidden-suffix-issued-after-first-known-list;%' ORDER BY licence_start`;
     const sinceLink = bd.forbiddenSince > 0
-      ? ` — <a href="#" data-browser-sql="${escapeHtml(sinceSql)}"><b>${bd.forbiddenSince.toLocaleString('en-GB')}</b> issued after the suffix was first withheld</a>, worth a look`
+      ? ` — <a href="#" data-browser-sql="${escapeHtml(sinceSql)}"><b>${bd.forbiddenSince.toLocaleString('en-GB')}</b> whose licence-version original start post-dates the suffix being first withheld</a> (the licence chain’s origin, not necessarily the callsign’s issuance — issues #915/#918), worth a look`
       : '';
     notable.push(`<li><a href="#" data-browser-sql="${escapeHtml(allSql)}"><b>${bd.forbiddenTotal.toLocaleString('en-GB')}</b> withheld-suffix</a> (mostly legacy holders)${sinceLink}.</li>`);
   }
@@ -1033,9 +1035,10 @@ function svgBarChart(idBase: string, heading: string, summary: string, unit: str
     + `<details><summary>Data table${exploreHint}</summary><table>${tableCaption(`${heading} — the figures behind the chart`)}<thead><tr><th scope="col">${escapeHtml(unit)}</th><th scope="col" class="n">callsigns</th></tr></thead><tbody>${tableRows}</tbody></table></details></figure>`;
 }
 
-// Per-publication distributions computed at build: callsign length, issue
-// year (from the best available start-date column), and issuance in the
-// trailing 12 months before THIS publication's date (anchored on the
+// Per-publication distributions computed at build: callsign length,
+// licence-version start year (the licence chain's original start, not the
+// callsign's issuance - #915/#918), and the earliest licence-version starts in
+// the trailing 12 months before THIS publication's date (anchored on the
 // publication date, not today, so the build stays reproducible), split by
 // implied licence level.
 function distributions(key: string): {
@@ -1087,14 +1090,23 @@ function distributions(key: string): {
 function distributionsSection(key: string): string[] {
   const dist = distributions(key);
   if (dist.length.length === 0 && dist.issueYear.length === 0) return [];
-  const dateLabel = dist.dateColumn === 'created_date' ? 'record creation' : 'licence start';
+  // The date column is the licence-version ORIGINAL START — the licence chain's
+  // origin (Ofcom's own Licence-View field dictionary), not the callsign's
+  // issuance (issues #915/#918). Naming it "issue year" over-reads it, because a
+  // recently-introduced series (M8/M9 from October 2025, M7 from October 2018)
+  // carries pre-introduction licence history onto callsigns that did not exist
+  // that early, so the caption and the chart title stay licence-scoped.
+  const fromOriginalStart = dist.dateColumn !== 'created_date';
+  const dateLabel = fromOriginalStart ? 'licence-version original start' : 'record creation';
+  const yearTitle = fromOriginalStart ? 'Licence-start year' : 'Record-creation year';
   const recentTotal = dist.recentByClass.reduce((a, b) => a + b[1], 0);
+  const recentHeading = fromOriginalStart ? 'Earliest licence-version start in' : 'New in';
   return [
     '<section><h2>Distributions</h2>',
     dist.length.length > 0 ? svgBarChart('dist-length', 'Callsign length', `Number of callsigns of each length in characters, from ${dist.length[0][0]} to ${dist.length[dist.length.length - 1][0]}.`, 'length (characters)', dist.length, 'CAST(LENGTH(callsign) AS TEXT)') : '',
     dist.suffixLength.length > 0 ? svgBarChart('dist-suffixlen', 'Suffix length', 'Callsigns by suffix length — 2-letter suffixes are heritage (G2 series and older holders), 3-letter the modern allocations.', 'suffix length', dist.suffixLength, 'CAST(LENGTH(suffix) AS TEXT)') : '',
-    dist.issueYear.length > 0 && dist.dateColumn !== undefined ? svgBarChart('dist-year', `Issue year (by ${dateLabel})`, `Callsigns by year of ${dateLabel}, from ${dist.issueYear[0][0]} to ${dist.issueYear[dist.issueYear.length - 1][0]}.`, 'year', dist.issueYear, `substr("${dist.dateColumn}", 1, 4)`) : '',
-    dist.recentByClass.length > 0 ? `<h3 style="font-size:.92rem;margin:.3rem 0 .4rem">New in the 12 months to ${escapeHtml(humanDate(key))}, by licence level (${recentTotal.toLocaleString('en-GB')} total)</h3>${breakdownRows(dist.recentByClass, recentTotal, undefined, undefined, label => licenceField(label))}` : '',
+    dist.issueYear.length > 0 && dist.dateColumn !== undefined ? svgBarChart('dist-year', `${yearTitle} (by ${dateLabel})`, `Callsigns by year of ${dateLabel}, from ${dist.issueYear[0][0]} to ${dist.issueYear[dist.issueYear.length - 1][0]}. This is the licence CHAIN's original start, not the callsign's issuance: a recently-introduced series carries pre-introduction licence history (issues #915/#918).`, 'year', dist.issueYear, `substr("${dist.dateColumn}", 1, 4)`) : '',
+    dist.recentByClass.length > 0 ? `<h3 style="font-size:.92rem;margin:.3rem 0 .4rem">${recentHeading} the 12 months to ${escapeHtml(humanDate(key))}, by licence level (${recentTotal.toLocaleString('en-GB')} total)</h3>${breakdownRows(dist.recentByClass, recentTotal, undefined, undefined, label => licenceField(label))}` : '',
     '</section>',
   ].filter(s => s !== '');
 }
