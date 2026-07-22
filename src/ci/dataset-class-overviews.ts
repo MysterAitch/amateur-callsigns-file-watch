@@ -66,7 +66,7 @@ export const DATASET_CLASS_OVERVIEWS: Readonly<Record<string, DatasetClassOvervi
     provenanceAndQuirks: 'The “Available” status is a well-known trap: a callsign being absent from an available pool does not mean it is held, and its presence is a point-in-time fact that a later issue can quietly overturn. An available pool is best read against the register snapshot of the same vintage — together the two decompose the namespace into held versus free.',
     relatedTypes: [
       { cls: 'register-snapshot', relation: 'the held side of the same namespace at the same vintage' },
-      { cls: 'forbidden-list', relation: 'suffixes withheld from issue never enter the pool — a standing constraint on it' },
+      { cls: 'forbidden-list', relation: 'Ofcom’s stated practice is to withhold these suffixes from new issue; every held pool pre-dates the earliest held forbidden list, so a vintage-matched exclusion is not yet verifiable from held data (contradiction-gap check tracked in #724)' },
       { cls: 'issuance-events', relation: 'an issue event is a callsign leaving the available pool' },
     ],
     glossary: ['available', 'allocated', 'vintage', 'forbidden-suffix'],
@@ -86,7 +86,7 @@ export const DATASET_CLASS_OVERVIEWS: Readonly<Record<string, DatasetClassOvervi
     provenanceAndQuirks: 'The withheld set evolves over time — suffixes have been both added and removed across disclosures — so a forbidden-list is tied to its vintage. A callsign carrying a forbidden suffix is usually an innocent legacy holder issued before the suffix was withheld; the interesting cohort is the few issued after a suffix was first known to be withheld.',
     relatedTypes: [
       { cls: 'register-snapshot', relation: 'callsigns in a snapshot are checked against the withheld suffixes to surface the forbidden-suffix cohort' },
-      { cls: 'available-pool', relation: 'withheld suffixes are the standing constraint on what can ever become available' },
+      { cls: 'available-pool', relation: 'Ofcom withholds these suffixes from new issue by stated practice going forward; the held pools all pre-date the earliest held forbidden list, so this is a forward constraint, not an invariant observed in held data' },
     ],
     glossary: ['forbidden-suffix', 'suffix', 'vintage'],
   },

@@ -93,6 +93,16 @@ describe('Anatomy page and navigation wiring', { tags: ['ui'] }, () => {
     expect(page).toContain(callsignAnatomyFigure(0));
   });
 
+  it('CallsignStructureTable_G2DoubleListing_CarriesAnAttestationNotSilentReproduction', () => {
+    // Issue #907 rider: Ofcom's Table 1 lists G2 both within the currently-issuing
+    // G0-G8 range and as formerly issued. The within-table-inconsistency
+    // convention (#435) requires attesting the source's quirk rather than
+    // reproducing it silently.
+    const page = fs.readFileSync(STRUCTURE_PAGE, 'utf8');
+    expect(page).toContain('lists <code>G2</code> both within the');
+    expect(page).toContain('reproduced here as published rather');
+  });
+
   it('SiteNavigation_ListsTheAnatomyPage_AsALinkFromOtherPages', () => {
     // The nav single source carries the Anatomy entry, so every generated and
     // re-stamped page links to it.

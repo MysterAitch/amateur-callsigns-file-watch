@@ -86,6 +86,32 @@ describe('Surprise rotation (issue #712)', { tags: ['unit'] }, () => {
   });
 });
 
+describe('Surprise-card wording — evidence-window honesty (issue #907)', { tags: ['unit'] }, () => {
+  const cardText = SURPRISES.map((s) => `${s.kicker} ${s.title} ${s.body}`).join(' | ');
+
+  it('M2Card_StatesReservedOnlyInEverySnapshotHeld_NotTheUniversalNeverIssued', () => {
+    // The held record only reaches back to 2016; "has never been issued" is a
+    // universal over all history the snapshots cannot attest, and "a whole
+    // prefix series held back" reads one reserved row as series-wide reservation
+    // (the availability trap). The card is scoped to what the record shows and
+    // points at the M2 series page that carries the one-row basis.
+    const m2 = SURPRISES.find((s) => s.title.includes('M2'));
+    expect(m2).toBeDefined();
+    expect(m2?.title).toContain('reserved-only in every snapshot held');
+    expect(m2?.href).toBe('series/M2.html');
+    expect(cardText).not.toContain('has never been issued');
+    expect(cardText).not.toContain('a whole prefix series held back');
+  });
+
+  it('ForbiddenCard_StatesWithholdsFromIssue_NotTheFutureAbsoluteWillNotAllocate', () => {
+    // QNF was de-listed and issued after withholding, so "will not allocate" is
+    // a future-tense absolute the record itself counterexamples.
+    const forbidden = SURPRISES.find((s) => s.title.includes('suffixes'));
+    expect(forbidden?.title).toContain('withholds from issue');
+    expect(cardText).not.toContain('will not allocate');
+  });
+});
+
 describe('Holdings-map readout (issue #712)', { tags: ['unit'] }, () => {
   it('ReadoutText_ADatasetCell_ReadsKindTitleVintageAndRowCount', () => {
     expect(readoutText({ kindLabel: 'Register snapshot', title: 'Publication of 23 June 2026', vintage: '23 June 2026', rows: '158,318' }))

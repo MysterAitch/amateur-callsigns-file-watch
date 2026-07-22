@@ -81,6 +81,19 @@ describe('dataset-type overview pages (issue #470)', { tags: ['ui'] }, () => {
     expect(forbiddenList).toContain('glossary.html#forbidden-suffix');
   });
 
+  it('TypeOverviewPage_PoolAndForbiddenRelation_StatesTheConstraintAsForwardPracticeNotObservedInvariant', () => {
+    // Issue #907: the withheld-vs-pool relation must not read as an atemporal
+    // universal ("never enter the pool"), which the held data contradicts —
+    // every archived pool pre-dates the earliest held forbidden list, and
+    // those pools already carry hundreds of ever-forbidden-union suffixes.
+    // Both directions of the relation now frame it as Ofcom's forward practice.
+    const availablePool = fs.readFileSync(path.join(outputDir, 'datasets', 'classes', 'available-pool.html'), 'utf8');
+    expect(availablePool).not.toContain('never enter the pool');
+    expect(availablePool).toContain('not yet verifiable from held data');
+    expect(forbiddenList).not.toContain('standing constraint on what can ever become available');
+    expect(forbiddenList).toContain('forward constraint, not an invariant observed in held data');
+  });
+
   it('TypeOverviewPage_ReferenceContext_ExplainsItIsContextNotADataset', () => {
     // reference-context is not a callsign dataset; the overview must say so
     // rather than imply browsable rows.

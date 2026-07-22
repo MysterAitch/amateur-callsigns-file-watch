@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { buildInterdatasetStats } from './build-interdataset-stats.ts';
+import { buildInterdatasetStats, sourceHasProductColumn } from './build-interdataset-stats.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { BUILDER_PROJECTION_DIR_ENV } from '../shared/derived-entries.ts';
 import { DIRS } from '../shared/constants.ts';
@@ -39,6 +39,25 @@ describe('Inter-dataset statistics — blank-product join (the lead statistic)',
     expect(page).toContain('<td class="n">157,427</td><td class="n">45,157</td>');
     expect(page).toContain('<td class="n">112,650</td><td class="n">0</td>');
     expect(page).toContain('<td class="n">158,318</td><td class="n">40,160</td>');
+  });
+
+  it('BlankProductTable_WorkbookSourcedPublication_ReportsItsProductColumnNotNoColumn', () => {
+    // Issue #895: the 2026-01-14 publication shipped as a workbook (raw.xlsx);
+    // its product column is declared on the sheet extract, not a raw.csv the
+    // entry has no such file. The reader must resolve the parse source and
+    // report the real blank-product count (146,417 records; 39,987 blank),
+    // never the false "(no product column)".
+    const page = read();
+    expect(page).toContain('<td class="n">146,417</td><td class="n">39,987</td>');
+    expect(page).not.toContain('<td class="n">146,417</td><td class="n"><span class="gap">(no product column)</span></td>');
+  });
+
+  it('BlankProductTable_GenuinelyNoProductColumnPublication_StillReadsNoColumn', () => {
+    // The converse guard: the 2022-05-30 publication genuinely carried only
+    // Value/Status/Type — no product column at all — so it must still read
+    // "(no product column)", proving the fix resolves rather than blanket-asserts.
+    const page = read();
+    expect(page).toContain('<td class="n">151,152</td><td class="n"><span class="gap">(no product column)</span></td>');
   });
 
   it('BlankProductFilterCase_ZeroBlankProductCount_IsNotDeEmphasised', () => {
@@ -181,6 +200,47 @@ describe('Inter-dataset statistics — static, discoverable, accessible', { tags
     } finally {
       fs.rmSync(second, { recursive: true, force: true });
     }
+  });
+});
+
+// Issue #895: whether the SOURCE carried a product column is resolved against
+// the actual parse source (a workbook's sheet extract, a duplicate-header CSV's
+// extract, else raw.csv) — a fixed 'raw.csv' key a workbook publication lacks
+// would fabricate "no product column". Absence of the key is a resolution
+// failure, never evidence of a missing column.
+describe('Inter-dataset statistics — product-column resolution (issue #895)', { tags: ['data-validity'] }, () => {
+  it('SourceHasProductColumn_WorkbookExtractDeclaringProduct__c_IsTrue', () => {
+    const meta = {
+      files: {
+        'raw.xlsx': { bytes: 1, sha256: 'x', format: 'xlsx' as const },
+        'raw-extract-sheet-1-sheet1.csv': {
+          bytes: 2, sha256: 'y', format: 'csv' as const, role: 'extract' as const,
+          columnNames: ['Callsign', 'Product__c', 'Status', 'Type__c'],
+        },
+      },
+    };
+    expect(sourceHasProductColumn(meta, '2026-01-14')).toBe(true);
+  });
+
+  it('SourceHasProductColumn_CsvSourceLackingAProductColumn_IsFalse', () => {
+    const meta = {
+      files: {
+        'raw.csv': { bytes: 1, sha256: 'x', format: 'csv' as const, columnNames: ['Value', 'Status', 'Type'] },
+      },
+    };
+    expect(sourceHasProductColumn(meta, '2022-05-30')).toBe(false);
+  });
+
+  it('SourceHasProductColumn_ParseSourceWithNoDeclaredColumns_FailsLoud_NeverAssumesNoColumn', () => {
+    // The workbook shape with the extract's columnNames MISSING: the reader must
+    // throw, not silently read [] and report "no product column".
+    const meta = {
+      files: {
+        'raw.xlsx': { bytes: 1, sha256: 'x', format: 'xlsx' as const },
+        'raw-extract-sheet-1-sheet1.csv': { bytes: 2, sha256: 'y', format: 'csv' as const, role: 'extract' as const },
+      },
+    };
+    expect(() => sourceHasProductColumn(meta, '2026-01-14')).toThrow(/no declared columnNames/);
   });
 });
 
