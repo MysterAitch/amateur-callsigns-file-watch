@@ -9,5 +9,6 @@
   "src/ci/column-drift-corpus.test.ts",
   "src/ci/survival-cohort-corpus.test.ts",
   "src/ci/policy-invariants-corpus.test.ts",
-  "src/ci/timezone-rendering-corpus.test.ts"
+  "src/ci/timezone-rendering-corpus.test.ts",
+  "src/ci/reprocessing-stratification-corpus.test.ts"
 ]

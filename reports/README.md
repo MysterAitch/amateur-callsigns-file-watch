@@ -16,6 +16,7 @@ Standing, deterministic views over the archive. Drill-downs:
 - [Column distributional drift](column-drift.md) - per-column, per-vintage fingerprints and the vintage-over-vintage divergences they flag
 - [Survival and cohort analysis](survival-cohort.md) - the register as a life table: right-censored licence ages, retention by class and era, reservation cycles
 - [Timezone-rendering classification](timezone-rendering.md) - which clock convention each source renders dates under, derived by chained natural experiments; unclassifiable sources stay honestly unclassified
+- [Reprocessing-touch series stratification](reprocessing-stratification.md) - per inter-snapshot window, how each bulk-reprocessing touch cohort is distributed across callsign series versus the snapshot itself; flags, never verdicts
 
 | dataset | records | distinct patterns | flag instances |
 |---|---:|---:|---:|

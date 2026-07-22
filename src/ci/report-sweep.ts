@@ -57,6 +57,7 @@ import { writeSequenceAnalytics } from './sequence-analytics.ts';
 import { writeColumnDrift } from './column-drift.ts';
 import { writeSurvivalCohort } from './survival-cohort.ts';
 import { writeTimezoneRendering } from './timezone-rendering.ts';
+import { writeReprocessingStratification } from './reprocessing-stratification.ts';
 import { mdCell } from '../shared/markdown.ts';
 import { time, perfReport } from '../shared/perf.ts';
 
@@ -209,6 +210,14 @@ export function runReportSweep(): ReportSweepReport {
   // cells and the S1 event-date claims. Committed so a new vintage shifting
   // any classification (or introducing conflicting evidence) is a PR diff.
   time('reports:timezone-rendering', () => writeTimezoneRendering());
+
+  // The reprocessing-touch series stratification (issue #871): for every
+  // inter-snapshot window, the per-series composition of the records touched in
+  // that window against the snapshot's own series composition — the durable,
+  // re-runnable home for the observation that Ofcom's bulk reprocessing runs
+  // are callsign-series-stratified (the 2024-10 run largely excludes M7).
+  // Committed so a new reprocessing wave shifting the picture is a PR diff.
+  time('reports:reprocessing-stratification', () => writeReprocessingStratification());
 
   // The newest dataset's matrix always appears: the coverage body is the
   // does-this-look-right triage surface, and current state belongs on it -
@@ -755,6 +764,7 @@ function writeReportsIndex(columnsNewestFirst: string[], statsByKey: Map<string,
     '- [Column distributional drift](column-drift.md) - per-column, per-vintage fingerprints and the vintage-over-vintage divergences they flag',
     '- [Survival and cohort analysis](survival-cohort.md) - the register as a life table: right-censored licence ages, retention by class and era, reservation cycles',
     '- [Timezone-rendering classification](timezone-rendering.md) - which clock convention each source renders dates under, derived by chained natural experiments; unclassifiable sources stay honestly unclassified',
+    '- [Reprocessing-touch series stratification](reprocessing-stratification.md) - per inter-snapshot window, how each bulk-reprocessing touch cohort is distributed across callsign series versus the snapshot itself; flags, never verdicts',
     '',
     '| dataset | records | distinct patterns | flag instances |',
     '|---|---:|---:|---:|',
