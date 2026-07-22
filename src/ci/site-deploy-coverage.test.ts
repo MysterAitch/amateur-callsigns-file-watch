@@ -61,13 +61,19 @@ describe('site deploy coverage', { tags: ['unit'] }, () => {
     }
   });
 
-  it('DeployCopyStep_ShipsEverySiteAsset_ViaGlob', () => {
-    const wf = fs.readFileSync(PAGES_WORKFLOW, 'utf8');
+  it('DeployCopyStep_ShipsEverySiteAsset_ViaGlobIntoTheV0Reroot', () => {
+    const wf = fs.readFileSync(PAGES_WORKFLOW, 'utf8').replace(/\r\n/g, '\n');
     // Glob-based, so a new module cannot be forgotten. A regression to a
     // hand-listed set (the failure mode this whole file guards) fails here.
-    expect(wf).toMatch(/cp\b[^\n]*site\/\*\.js\b/);
-    expect(wf).toMatch(/cp\b[^\n]*site\/\*\.html\b/);
-    expect(wf).toMatch(/cp\b[^\n]*site\/\*\.css\b/);
+    // The one glob copy line must also land under the /v0/ re-root (issue
+    // #921), not the bare deploy root - a stray copy at the root would collide
+    // with the redirect stubs that now own those paths.
+    const globLine = wf.split('\n').find(l => /\bcp\b[^\n]*site\/\*\.html\b/.test(l));
+    expect(globLine, 'the site-asset glob copy step is missing').toBeDefined();
+    expect(globLine ?? '').toMatch(/site\/\*\.js\b/);
+    expect(globLine ?? '').toMatch(/site\/\*\.css\b/);
+    expect(globLine ?? '').toMatch(/site\/\*\.webmanifest\b/);
+    expect(globLine ?? '', 'the site-asset glob copy must target _site/v0/').toMatch(/\s_site\/v0\/\s*$/);
   });
 
   it('DeployStep_StampsThePrecacheManifest_IntoTheWorker', () => {

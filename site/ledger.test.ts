@@ -412,8 +412,8 @@ describe('Ledger page deploy integrity', { tags: ['ui'] }, () => {
     expect(wf).toMatch(/claim-ledger\.chunks\.json/);
     expect(wf).toMatch(/rm -f[^\n]*claim-ledger\.sqlite\.png\b/);
     // The nav injector must be handed the page, or its deployed copy carries a
-    // stale hand-written nav.
-    expect(wf).toMatch(/build-nav\.ts[^\n]*\b_site\/ledger\.html\b/);
+    // stale hand-written nav. The site assembles under the /v0/ re-root (#921).
+    expect(wf).toMatch(/build-nav\.ts[^\n]*\b_site\/v0\/ledger\.html\b/);
   });
 
   it('LedgerPage_CarriesNavMarkersAndIsWayfindableAsLive', () => {
