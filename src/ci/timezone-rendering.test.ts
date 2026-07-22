@@ -134,6 +134,18 @@ describe('pairwise boundary-experiment classifier', { tags: ['unit'] }, () => {
     expect(verdict.verdict).toBe('conflicting-evidence');
   });
 
+  it('Pair_MassUnexplainedDisagreementWithTokenBoundaryEvidence_IsConflictingEvidenceNotInsufficient', () => {
+    // The fail-loud promise must not hide behind the boundary-cell count: a
+    // single below-floor boundary cell alongside a mass of unexplained
+    // one-day disagreements is a re-stamping-pipeline shape, never merely
+    // "insufficient evidence".
+    const verdict = classifyPair(evidence({ utcShift: 1, unexplained: 1000 }));
+    expect(verdict.verdict).toBe('conflicting-evidence');
+    // And window-agreement crumbs must not mask it either.
+    const verdict2 = classifyPair(evidence({ h23Agree: 2, unexplained: 500 }));
+    expect(verdict2.verdict).toBe('conflicting-evidence');
+  });
+
   it('Pair_Hour0AgreementUnderTimedUtcOrientation_DoesNotContradictTheVerdict', () => {
     // A UTC 00:xx stamp stays on the same local day, so h0 agreement is
     // expected under a timed-side-UTC orientation and must not be read as
@@ -230,7 +242,7 @@ describe('chained per-source label resolution', { tags: ['unit'] }, () => {
     expect(e?.reason).toContain('no pairwise experiment');
   });
 
-  it('IndependentAgreeingRoutes_AreCountedAsCorroboration_NotDuplicateChains', () => {
+  it('AgreeingRoutesWithDistinctAnchoringExperiments_AreCountedAsAdditionalCorroboration', () => {
     const result = resolveSourceLabels([
       pairAB({ verdict: 'differs-by-local-offset', utcSide: 'timed', evidence: 629 }),
       classified({ timedDataset: 'a', partnerDataset: 'c' }, { verdict: 'differs-by-local-offset', utcSide: 'timed', evidence: 100 }),
@@ -248,6 +260,7 @@ describe.skipIf(!duckDbAvailable())('timezone-rendering fold over a fixture ledg
     { lane: 'foi', dataset: 'synth-timed', header: 'LastModifiedDate', kind: 'record-last-modified', grammar: 'YYYY-MM-DD' },
     { lane: 'foi', dataset: 'synth-w1', header: 'LastModifiedDate', kind: 'record-created', grammar: 'YYYY-MM-DD' },
     { lane: 'foi', dataset: 'synth-w2', header: 'Last Modified Date', kind: 'record-created', grammar: 'DD/MM/YYYY' },
+    { lane: 'foi', dataset: 'synth-midnight', header: 'Licence Issued Dat', kind: 'licence-issued', grammar: 'YYYY-MM-DD' },
   ];
 
   function claim(sourceFile: string, ordinal: number, rawSubject: string, predicate: string, object: string, rule?: string): Claim {
@@ -294,6 +307,21 @@ describe.skipIf(!duckDbAvailable())('timezone-rendering fold over a fixture ledg
     claims.push(claim('foi/synth-timed/x.csv', 32, 'M7EE0', 'event-date/record-last-modified', '2024-07-03', EVENT_DATE_RULE));
     claims.push(claim('foi/synth-partner/y.csv', 33, 'M7EE0', 'event-date/record-last-modified', '2024-07-02', EVENT_DATE_RULE));
 
+    // A boundary-window stamp dated on a BST transition day (the end-of-BST
+    // Sunday): the clocks change mid-night, so the SQL fold must exclude it
+    // as transition-margin, never read it as an oriented shift.
+    observation(claims, 40, 'M7FF0', 'record-last-modified', '2024-10-27 23:00:00', '2024-10-27', '2024-10-28');
+
+    // An exact-midnight-stamped source (synth-midnight): a rendered time
+    // FORMAT with no clock information. Its partner days differ by one day,
+    // which at exact midnight no rendering offset can rule in or out — the
+    // rows must anchor no experiment at all.
+    for (let i = 0; i < 6; i++) {
+      claims.push(claim('foi/synth-midnight/m.csv', i, `G0MM${i}`, 'Licence Issued Dat', '2024-07-1' + String(i) + ' 00:00:00'));
+      claims.push(claim('foi/synth-midnight/m.csv', i, `G0MM${i}`, 'event-date/licence-issued', '2024-07-1' + String(i), EVENT_DATE_RULE));
+      claims.push(claim('foi/synth-partner/y.csv', 50 + i, `G0MM${i}`, 'event-date/licence-issued', '2024-07-1' + String(i + 1), EVENT_DATE_RULE));
+    }
+
     // The winter-only pair (synth-w1 timed, synth-w2 partner): agreement
     // everywhere, every stamp winter-dated — the degeneracy scenario.
     for (let i = 0; i < 7; i++) {
@@ -316,6 +344,9 @@ describe.skipIf(!duckDbAvailable())('timezone-rendering fold over a fixture ledg
       expect(pair?.utcShift).toBe(8);
       expect(pair?.agreeNoSignal).toBe(6 + 4); // controls + winter
       expect(pair?.notComparable).toBe(1);
+      // The end-of-BST-Sunday stamp is excluded as transition-margin — never
+      // an oriented shift, despite its hour-23 one-day-later shape.
+      expect(pair?.excluded).toBe(1);
       expect(pair?.verdict).toEqual({ verdict: 'differs-by-local-offset', utcSide: 'timed', evidence: 8 });
       expect(t.sources.find(s => s.dataset === 'synth-timed')?.label).toBe('utc');
       expect(t.sources.find(s => s.dataset === 'synth-partner')?.label).toBe('local');
@@ -361,6 +392,25 @@ describe.skipIf(!duckDbAvailable())('timezone-rendering fold over a fixture ledg
       expect(t.pairs.some(p => p.timedDataset === 'synth-w2')).toBe(false);
       // And synth-partner (date-only, no binding at all) likewise.
       expect(t.pairs.some(p => p.timedDataset === 'synth-partner')).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('ExactMidnightStamps_CarryingNoClockInformation_AnchorNoExperiment', () => {
+    const dir = writeFixtureLedger();
+    try {
+      const t = computeTimezoneRendering(dir, DEFAULT_CLASSIFIER_PARAMS, BINDINGS);
+      // synth-midnight's every stamp reads 00:00:00 — a time FORMAT with no
+      // clock information. Its one-day partner disagreements are exactly what
+      // an unknown rendering offset COULD produce at midnight, so the rows
+      // must never reach the cells (least of all as "unexplained").
+      expect(t.pairs.some(p => p.timedDataset === 'synth-midnight')).toBe(false);
+      // The source still sits in the universe (its day claims exist), and its
+      // fingerprint row honestly shows zero timed subjects.
+      const row = t.sourceKinds.find(s => s.dataset === 'synth-midnight' && s.kind === 'licence-issued');
+      expect(row?.timedSubjects).toBe(0);
+      expect(t.sources.find(s => s.dataset === 'synth-midnight')?.status).toBe('unclassified');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

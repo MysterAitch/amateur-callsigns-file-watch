@@ -53,9 +53,12 @@ describe.skipIf(!duckDbAvailable())('timezone rendering — real-corpus ground t
     // The #857 review's natural experiment: 632 shared records stamped 23:xx
     // in the wdtk workbook carry a one-day-later date in the 2024-07
     // register. This fold reproduces the same signal at 629 subjects — the
-    // difference is its stricter exclusions (BST-transition-margin days and
-    // subjects without exactly one value per side are excluded here, and
-    // subjects join on the cleaned key), not a different phenomenon.
+    // three dropped records are all BST-transition-margin exclusions,
+    // verified individually: 20CLB (stamped 2020-10-24 23:00:03, within a
+    // day of the 2020 BST end on 2020-10-25) and M6NNX + 20KPU (stamped
+    // 2024-04-01 23:00:04/23:00:11, within a day of the 2024 BST start on
+    // 2024-03-31). Same phenomenon, tighter controls — no other exclusion
+    // class contributes to the 632→629 difference.
     const pair = t.pairs.find(p =>
       p.timedDataset.startsWith('wdtk-1141667')
       && p.partnerDataset.startsWith('ofcom-2024-07')
@@ -95,16 +98,28 @@ describe.skipIf(!duckDbAvailable())('timezone rendering — real-corpus ground t
     expect(label('opendata', '2023-02-20')).toBe('local');
   });
 
-  it('RegisterCopies_From2024OctoberOnwards_AllRenderUtc', () => {
+  it('DateOnlyRegisterCopies_From2024OctoberOnwards_AllRenderUtc', () => {
     // The flip this classification surfaced (a finding in its own right,
     // recorded as hypothesis-register H3a): from the 2024-10-21 copy onwards
-    // the boundary-window stamps AGREE with the UTC-rendered workbook in
-    // both windows — the register's export rendering switched to UTC
-    // between the 2024-07 and 2024-10-21 copies.
-    for (const dataset of ['ofcom-2024-10-21--callsigns--all-callsigns', 'ofcom-2025-03-13--callsigns--all-callsigns', 'ofcom-2024-09--every-radio-callsign--all-callsigns']) {
+    // the date-only register copies' boundary-window days AGREE with the
+    // UTC-rendered workbook in both windows — the date lane's export
+    // rendering switched to UTC between the 2024-07 and 2024-10-21 copies.
+    for (const dataset of ['ofcom-2024-10-21--callsigns--all-callsigns', 'ofcom-2025-03-13--callsigns--all-callsigns']) {
       expect(label('foi', dataset), dataset).toBe('utc');
     }
-    for (const dataset of ['2025-04-08', '2025-05-27', '2025-06-04', '2025-06-08']) {
+    expect(label('opendata', '2025-04-08')).toBe('utc');
+  });
+
+  it('DatetimeBearingExports_OnBothSidesOfTheDateLaneFlip_AllRenderUtc', () => {
+    // A DISTINCT claim from the date-lane flip above: every datetime-bearing
+    // export renders UTC, including ofcom-2024-09 (September 2024 — between
+    // the 2024-07 copy, the last date-only export observed rendering local,
+    // and the 2024-10-21 copy, the first observed rendering UTC) and the
+    // proven wdtk-1141667 workbook from July 2024 (covered by the anchor
+    // tests above). The datetime lane shows no flip anywhere; only the
+    // date-only rendering is observed changing convention.
+    expect(label('foi', 'ofcom-2024-09--every-radio-callsign--all-callsigns')).toBe('utc');
+    for (const dataset of ['2025-05-27', '2025-06-04', '2025-06-08']) {
       expect(label('opendata', dataset), dataset).toBe('utc');
     }
   });

@@ -272,7 +272,12 @@ function bstRelation(): string {
 // keeps subjects with exactly ONE distinct timed value per (source, kind):
 // multi-valued subjects cannot anchor a same-instant comparison and are
 // excluded (counted by the sources fold), mirroring the partner side's
-// single-day rule.
+// single-day rule. Exact-midnight stamps (00:00[:00]) are excluded here too:
+// a rendered time FORMAT with no clock information anchors nothing — and at
+// exact midnight a one-day partner disagreement is precisely what an unknown
+// rendering offset COULD produce, so letting such rows through would mislabel
+// them "unexplained" (whose definition is "no rendering offset can produce
+// this").
 function timedCtes(source: ClaimsSource, bindings: readonly TimedColumnBinding[]): string {
   return `bindings AS (
   ${bindingsRelation(bindings)}
@@ -304,7 +309,7 @@ timed_cell AS (
 timed_agg AS (
   SELECT lane, dataset, kind, subject, any_value(d) AS d, any_value(hh) AS hh, any_value(mi) AS mi
   FROM timed_cell
-  WHERE d IS NOT NULL AND subject <> ''
+  WHERE d IS NOT NULL AND subject <> '' AND NOT (hh = 0 AND mi = 0)
   GROUP BY lane, dataset, kind, subject
   HAVING count(DISTINCT (d, hh, mi)) = 1
 ),
@@ -473,7 +478,8 @@ export interface SourceKindRow {
   subjects: number;
   // Subjects excluded from the partner side (more than one distinct day).
   multiValuedSubjects: number;
-  // Single-valued timed subjects with a non-midnight time-of-day.
+  // Single-valued timed subjects with a non-midnight time-of-day (timed_agg
+  // itself excludes exact-midnight stamps — no clock information).
   timedSubjects: number;
   // Of those, summer-dated hour-23 and non-midnight hour-0 stamps (the
   // midnight-offset windows), and the modal hour with its count.
@@ -507,7 +513,6 @@ timed_seasoned AS (
          THEN 'summer' ELSE 'other' END AS season
   FROM timed_agg t
   LEFT JOIN bst b ON b.yr = year(t.d)
-  WHERE NOT (t.hh = 0 AND t.mi = 0)
 ),
 hour_mode AS (
   SELECT lane, dataset, kind, hh, count(*) AS n,
@@ -624,10 +629,13 @@ export function classifyPair(e: PairEvidence, params: ClassifierParams = DEFAULT
   if (e.h0Agree >= min && e.localShift <= noise(e.h0Agree) && e.unexplained <= noise(e.h0Agree)) {
     return { verdict: 'agreement-only-h0', evidence: e.h0Agree };
   }
-  if (boundary > 0) return { verdict: 'insufficient-evidence' };
-  if (e.unexplained > 0 && e.unexplained >= min) {
-    return { verdict: 'conflicting-evidence', detail: `${e.unexplained} unexplained one-day disagreements with no boundary-window evidence` };
+  // Mass unexplained disagreement is a loud finding REGARDLESS of how few
+  // boundary-window cells sit beside it: a token below-floor boundary cell
+  // must never demote a re-stamping-pipeline shape to "insufficient".
+  if (e.unexplained >= min && e.unexplained > noise(boundary)) {
+    return { verdict: 'conflicting-evidence', detail: `${e.unexplained} unexplained one-day disagreements against only ${boundary} boundary-window cells` };
   }
+  if (boundary > 0) return { verdict: 'insufficient-evidence' };
   return { verdict: 'no-boundary-signal' };
 }
 
@@ -651,8 +659,10 @@ export interface SourceClassification {
   // Why an unclassified source is unclassified, or the conflict detail.
   reason: string;
   chain: ChainHop[];
-  // Extra independent routes corroborating the same label (count only; each
-  // route is re-derivable from the pairs table).
+  // Extra corroborating routes reaching the same label (count only; each is
+  // re-derivable from the pairs table). Routes are distinguished by their
+  // ANCHORING experiment (the chain's first hop) — they are additional, not
+  // fully independent, since routes may share downstream equality edges.
   corroboratingRoutes: number;
 }
 
@@ -882,7 +892,7 @@ const VERDICT_GLOSSES: ReadonlyMap<string, string> = new Map([
 function chainCell(c: SourceClassification): string {
   if (c.chain.length === 0) return '—';
   const hops = c.chain.map((h, i) => `${i + 1}. ${mdCode(h.pair)} — ${h.rule}`).join('<br>');
-  const extra = c.corroboratingRoutes > 0 ? `<br>(+${num(c.corroboratingRoutes)} independent corroborating route${c.corroboratingRoutes === 1 ? '' : 's'})` : '';
+  const extra = c.corroboratingRoutes > 0 ? `<br>(+${num(c.corroboratingRoutes)} additional corroborating route${c.corroboratingRoutes === 1 ? '' : 's'})` : '';
   return hops + extra;
 }
 
@@ -933,8 +943,10 @@ export function renderTimezoneRendering(t: TimezoneRendering): string {
     'The annotation this report exists to derive. `[derived]` throughout;',
     'the chain column is the working — each hop names the exact pairwise',
     'experiment (re-runnable from the pairs table below) that carries the',
-    'conclusion to this source. "Corroborating routes" counts additional',
-    'independent chains reaching the same label.',
+    'conclusion to this source. "Additional corroborating routes" counts',
+    'further chains reaching the same label from a different anchoring',
+    'experiment (routes may still share downstream equality edges, so they',
+    'are additional evidence, not fully independent derivations).',
     '',
     '| source | rendering | evidence chain |',
     '|---|---|---|',

@@ -158,9 +158,11 @@ against the corresponding open-data vintage on the shared key.
 - 2026-07-22 — generalised: the #858 per-source classifier
   ([`reports/timezone-rendering.md`](../reports/timezone-rendering.md),
   `src/ci/timezone-rendering.ts`) reproduces the anchor signal (629 subjects
-  under its stricter exclusions — BST-transition margins and multi-valued
-  subjects excluded), corroborates it at minute precision (47,205 summer
-  records of `wdtk-1141667` and `2025-06-04` agree to the exact minute), and
+  under its stricter exclusions — the three dropped records are all
+  BST-transition-margin exclusions: 20CLB stamped 2020-10-24, M6NNX and
+  20KPU both stamped 2024-04-01, each within a day of a clock change),
+  corroborates it at minute precision (the `wdtk-1141667` × `2025-06-04`
+  pair's 47,205 summer-dated shared records agree to the exact minute), and
   chains the pair's orientation across the corpus. Status unchanged.
 - 2026-07-21 — `validated`. 632/632 rows consistent with a UTC-vs-local offset;
   the natural experiment established in the #857 review and recorded on #858.
@@ -175,11 +177,14 @@ A finding *discovered while generalising H3* (issue #858). Every register copy
 held from the 2020 reserved-callsigns disclosure through the 2024-07 copy
 renders its dates in **local time**: the UTC-rendered timed sources'
 summer-dated 23:xx stamps consistently carry a one-day-later date in each of
-them (204–629 boundary subjects per pair, zero contrary). From the
+them (204–629 boundary subjects per pair; zero opposite-orientation shifts,
+and in-window contradictions of at most 3 subjects on any pair plus at most 4
+unexplained — all within the classifier's 5% noise tolerance). From the
 **2024-10-21** copy onwards the same boundary-window stamps AGREE in both
 midnight-offset windows — those copies render **UTC** days, as do all the
-datetime-bearing 2025 vintages (which agree with the proven-UTC `wdtk-1141667`
-workbook to the exact minute across ~47k summer records). Somewhere between
+datetime-bearing vintages (the `wdtk-1141667` × `2025-06-04` pair alone
+shares 47,205 summer-dated records agreeing to the exact minute, and every
+timed-pair minute delta in the corpus is exactly zero). Somewhere between
 the 2024-07 and 2024-10-21 exports, the rendering convention flipped. This is
 exactly the per-export scope caveat of #858 made concrete: the annotation is
 per-export, never per-system.
