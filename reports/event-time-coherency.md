@@ -29,7 +29,10 @@ Vocabulary (each term below is used only with these meanings):
 The deliberately naive v1 spike rule (issue #725): flag any window of at
 most 21 days holding more than 50.0% of a dataset’s
 populated dates for one event kind; overlapping windows across datasets
-and kinds merge into one episode. A dataset needs at least 1,000
+and kinds merge into one episode — but only while the merged span stays
+within 42 days (2× the window): a wider staggered chain of
+overlapping windows is refused and splits into separate episodes rather
+than fusing two distinct clusters. A dataset needs at least 1,000
 populated dates for a kind to count as episode evidence — a majority of a
 sparse column is a handful of rows, not a mass touch. Window and
 threshold are tuning parameters — a spread-out episode (the recorded 2024 rolling

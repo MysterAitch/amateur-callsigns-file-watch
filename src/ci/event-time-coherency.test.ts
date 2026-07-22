@@ -127,7 +127,7 @@ describe('mass-episode detection — the naive v1 spike rule', { tags: ['unit'] 
       day('2024-09', 'record-created', '2000-01-01', 20),
     ], TEST_PARAMS);
     expect(signals).toHaveLength(2);
-    const episodes = mergeEpisodes(signals);
+    const episodes = mergeEpisodes(signals, TEST_PARAMS);
     expect(episodes).toHaveLength(1);
     expect(episodes[0].start).toBe('2016-07-23');
     expect(episodes[0].end).toBe('2016-08-12');
@@ -141,7 +141,7 @@ describe('mass-episode detection — the naive v1 spike rule', { tags: ['unit'] 
       day('b', 'record-created', '2016-07-23', 90),
       day('b', 'record-created', '2020-01-01', 10),
     ], TEST_PARAMS);
-    const episodes = mergeEpisodes(signals);
+    const episodes = mergeEpisodes(signals, TEST_PARAMS);
     expect(episodes.map(e => e.start)).toEqual(['2016-07-23', '2025-10-11']);
   });
 
@@ -181,6 +181,26 @@ describe('mass-episode detection — the naive v1 spike rule', { tags: ['unit'] 
     expect(episodes).toHaveLength(1);
     expect(episodes[0]).toMatchObject({ start: '2024-01-01', end: '2024-02-02' });
     expect(episodes[0].signals).toHaveLength(2);
+  });
+
+  it('MergeEpisodes_AtTheExactSpanCapBoundary_MergesAt42DaysAndRefusesAt43', () => {
+    // The fencepost: with windowDays 21 and the ×2 cap the boundary is 42
+    // days (the merge condition is span <= capDays). A merge whose resulting
+    // span is EXACTLY 42 days is admitted; one more day is refused. Both
+    // second windows overlap the first (they start on its end day), so it is
+    // the cap — not the overlap test — that decides.
+    const merges42 = mergeEpisodes([
+      sig('2024-01-01', '2024-01-21', 'a'),
+      sig('2024-01-21', '2024-02-12', 'b'),
+    ], DEFAULT_EPISODE_PARAMS);
+    expect(merges42).toHaveLength(1);
+    expect(merges42[0]).toMatchObject({ start: '2024-01-01', end: '2024-02-12' });
+    const refuses43 = mergeEpisodes([
+      sig('2024-01-01', '2024-01-21', 'a'),
+      sig('2024-01-21', '2024-02-13', 'b'),
+    ], DEFAULT_EPISODE_PARAMS);
+    expect(refuses43).toHaveLength(2);
+    expect(refuses43.map(e => e.end)).toEqual(['2024-01-21', '2024-02-13']);
   });
 
   it('MergeEpisodes_SpanCapMultiple_IsATunableParameter', () => {
@@ -549,6 +569,16 @@ describe('event-time coherency report rendering', { tags: ['unit'] }, () => {
     // The eroding-fingerprint caveat: absence of a spike in a later vintage
     // never disproves an earlier vintage's episode.
     expect(md).toContain('never disproves an earlier');
+  });
+
+  it('Render_MassUpdatePreamble_StatesTheMergeSpanCapSoTheEpisodeListStaysReDerivable', () => {
+    // Transparency (priority zero): the merge no longer unions overlapping
+    // windows unconditionally, so the prose must state the span-cap refusal —
+    // a reader re-deriving the episode list from the parameters cannot infer
+    // it otherwise. The cap is stated in days and as the multiple of the window.
+    const md = renderEventTimeCoherency(syntheticCoherency());
+    expect(md).toContain('within 42 days (2× the window)');
+    expect(md).toContain('splits into separate episodes rather');
   });
 
   it('Render_EmptyCorpus_StatesNoFlagIsNotACleanBillOfHealth', () => {

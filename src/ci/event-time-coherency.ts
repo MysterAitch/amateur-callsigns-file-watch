@@ -409,8 +409,9 @@ export function detectEpisodeSignals(days: readonly DaySignal[], params: Episode
 // is refused — the overlapping signal opens a new episode — when it would
 // stretch the episode's span past mergeSpanCapMultiple × windowDays, so a
 // staggered chain of overlapping windows can never fuse two genuinely distinct
-// clusters weeks apart into one episode (issue #859).
-export function mergeEpisodes(signals: readonly EpisodeSignal[], params: EpisodeParams = DEFAULT_EPISODE_PARAMS): Episode[] {
+// clusters weeks apart into one episode (issue #859). params is required so a
+// caller can never silently merge under a different window than it detected on.
+export function mergeEpisodes(signals: readonly EpisodeSignal[], params: EpisodeParams): Episode[] {
   const capDays = Math.max(params.windowDays, 1) * Math.max(params.mergeSpanCapMultiple, 1);
   const sorted = [...signals].sort((a, b) => a.windowStart.localeCompare(b.windowStart) || a.windowEnd.localeCompare(b.windowEnd));
   const episodes: Episode[] = [];
@@ -860,7 +861,10 @@ export function renderEventTimeCoherency(c: EventTimeCoherency): string {
     'The deliberately naive v1 spike rule (issue #725): flag any window of at',
     `most ${c.params.windowDays} days holding more than ${pct(c.params.shareThreshold)} of a dataset’s`,
     'populated dates for one event kind; overlapping windows across datasets',
-    `and kinds merge into one episode. A dataset needs at least ${num(c.params.minPopulated)}`,
+    'and kinds merge into one episode — but only while the merged span stays',
+    `within ${num(c.params.mergeSpanCapMultiple * c.params.windowDays)} days (${num(c.params.mergeSpanCapMultiple)}× the window): a wider staggered chain of`,
+    'overlapping windows is refused and splits into separate episodes rather',
+    `than fusing two distinct clusters. A dataset needs at least ${num(c.params.minPopulated)}`,
     'populated dates for a kind to count as episode evidence — a majority of a',
     'sparse column is a handful of rows, not a mass touch. Window and',
     'threshold are tuning parameters — a spread-out episode (the recorded 2024 rolling',
