@@ -1,0 +1,309 @@
+/* ============================================================
+   v1 SHELL COMPONENTS — LANGUAGE B-LIGHT (issue #921)
+   The surviving component classes from the approved mockups,
+   rebuilt on a plain --bg ground: no graph-paper ruling, and
+   full-width WHITE header and footer bars carry the site chrome.
+   Surfaces separate from the ground by --elevation, not a grid.
+   Loads after tokens.css.
+   ============================================================ */
+
+*{box-sizing:border-box}
+body{
+  margin:0;color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;
+  font-feature-settings:"tnum" 1,"cv01" 1;
+  /* GRID GROUND REMOVED (owner-settled): plain untextured ground, no
+     background-image ruling — the header/footer bars and surface shadows
+     provide the structure the graph-paper used to. */
+  background:var(--bg);
+}
+.wrap{max-width:64rem;margin:0 auto;padding:0 1.25rem 5rem}
+a{color:var(--signal);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:2px}
+a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible{
+  outline:2px solid var(--signal);outline-offset:2px;border-radius:2px}
+.mono{font-family:var(--mono)}
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---- full-width WHITE header + footer bars (the v1 chrome) ---------------
+   These replace the mockups' in-flow .topbar/footer: a white bar spanning the
+   viewport, hairline-bordered, with the shell content constrained to .wrap. */
+.sitebar{background:#fff;border-bottom:1px solid var(--line)}
+.sitebar .wrap{padding-top:0;padding-bottom:0}
+.sitefoot{background:#fff;border-top:1px solid var(--line);margin-top:3rem}
+.sitefoot .wrap{padding-top:1.2rem;padding-bottom:1.6rem}
+
+/* ---- top identity strip (inside the white header bar) ---- */
+.topbar{display:flex;align-items:center;gap:.9rem;padding:.7rem 0 .6rem;
+  font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.02em;flex-wrap:wrap}
+.topbar .id{color:var(--ink);font-weight:700}
+.topbar .build{margin-left:auto}
+.chip{display:inline-flex;align-items:center;gap:.4rem;font-family:var(--mono);font-size:11px;
+  letter-spacing:.06em;text-transform:uppercase;padding:.2rem .5rem;border:1px solid var(--line-2);
+  border-radius:2px;color:var(--ink-2);background:var(--panel)}
+.chip.live{color:var(--ok);border-color:#9dcbb2;background:var(--ok-tint)}
+.chip .led{width:.5rem;height:.5rem;border-radius:50%;background:currentColor}
+/* dated-fact "as of" chip — a build-derived fact, never a self-assessed
+   freshness claim. Its text template lives in the copy registry. */
+.chip.asof{text-transform:none;letter-spacing:.01em;color:var(--ink-2);border-color:var(--line-2);
+  background:var(--panel);cursor:pointer}
+.chip.asof b{color:var(--ink);font-weight:700}
+.chip.asof:hover{color:var(--signal-strong);border-color:var(--signal-dim);background:var(--signal-tint);text-decoration:none}
+
+/* ---- persistent compact journey nav ---- */
+nav.journeys{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap;padding:.35rem 0 .5rem}
+nav.journeys a{font-family:var(--mono);font-size:12px;letter-spacing:.02em;color:var(--muted);
+  padding:.3rem .55rem;border-radius:2px;white-space:nowrap}
+nav.journeys a:hover{color:var(--signal);background:var(--panel-2);text-decoration:none}
+nav.journeys a[aria-current="page"]{color:var(--ink);background:var(--panel-2);
+  box-shadow:inset 0 -2px 0 var(--signal);font-weight:600}
+nav.journeys a .v0mark{color:var(--muted);font-size:10px;letter-spacing:.04em}
+nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
+
+/* ---- breadcrumb (depth) ---- */
+.crumbs{font-family:var(--mono);font-size:11.5px;color:var(--muted);padding:.6rem 0 0;letter-spacing:.02em}
+.crumbs a{color:var(--muted)}.crumbs a:hover{color:var(--signal)}
+.crumbs b{color:var(--ink);font-weight:600}
+.crumbs .arw{color:var(--line-2);padding:0 .35rem}
+
+/* ---- LEGIBILITY SURFACE — the backing panel (now a shadowed card on plain ground) ---- */
+.surface{position:relative;background:var(--panel);border:1px solid var(--line);
+  border-radius:3px;padding:1.1rem 1.25rem 1.3rem;margin-top:1.1rem;box-shadow:var(--elevation)}
+.surface>.lbl:first-child{margin-top:.15rem}
+.surface.evidence{background:var(--bg-2);border-color:var(--line-2)}
+.surface.evidence>.lbl:first-child{color:var(--ink-2)}
+
+/* ---- section label ---- */
+.lbl{display:flex;align-items:center;gap:.7rem;margin:2.2rem 0 .8rem;font-family:var(--mono);
+  font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.lbl:first-child{margin-top:.15rem}
+.lbl .ax{color:var(--signal-strong);border:1px solid var(--signal-dim);background:var(--signal-tint);
+  border-radius:2px;padding:.1rem .4rem;font-size:10px;letter-spacing:.06em}
+.lbl::after{content:"";flex:1;height:1px;background:var(--line)}
+.note{color:var(--ink-2);font-size:.92rem;margin:.1rem 0 .9rem}
+.note:last-child{margin-bottom:.1rem}
+
+/* ---- HERO: the lookup act as the site's thesis ---- */
+.head{padding:1.2rem 1.25rem 1.35rem;margin-top:1.1rem;border:1px solid var(--line);
+  border-radius:3px;background:var(--panel);box-shadow:var(--elevation)}
+.head h1{margin:0;font-size:1.05rem;font-family:var(--mono);letter-spacing:.02em;color:var(--muted);font-weight:600}
+.head h1 .path{color:var(--ink)}
+.head.hero{padding:1.4rem 1.5rem 1.6rem}
+.head.hero .lede{margin:.75rem 0 0;font-size:1.55rem;line-height:1.2;font-weight:650;letter-spacing:-.015em;max-width:26ch;color:var(--ink)}
+.lookup{margin-top:1.35rem}
+.lk-lbl{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.lk-row{display:flex;gap:.55rem;flex-wrap:wrap}
+.lk-in{flex:1 1 18rem;min-width:0;font-family:var(--mono);font-size:1.5rem;letter-spacing:.06em;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line-2);border-bottom-width:2px;border-radius:3px;padding:.6rem .8rem;
+  text-transform:uppercase}
+.lk-in::placeholder{color:var(--muted);text-transform:none;letter-spacing:.02em;font-size:1.1rem}
+.lk-in:focus-visible{outline:2px solid var(--signal);outline-offset:1px;border-color:var(--signal-dim)}
+.lk-go{font-family:var(--mono);font-size:1rem;letter-spacing:.03em;cursor:pointer;white-space:nowrap;
+  color:var(--panel);background:var(--signal-strong);border:1px solid var(--signal-strong);border-radius:3px;padding:.6rem 1.15rem}
+.lk-go:hover{background:var(--signal)}
+.lk-hint{margin:.6rem 0 0;font-size:.9rem;color:var(--ink-2)}
+
+/* ---- trust line ---- */
+.trust{display:flex;gap:.7rem;align-items:flex-start;margin:1.3rem 0 0;border-left:2px solid var(--signal);
+  padding:.4rem 0 .4rem .9rem;color:var(--ink-2);font-size:.95rem}
+.trust .mono{color:var(--signal-strong);font-size:12px;padding-top:.15rem;font-weight:600}
+
+/* ---- readout grid (stats as instrument readouts) ---- */
+.readout{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line);margin:1.4rem 0 0}
+.readout .cell{background:var(--panel);padding:.8rem .95rem}
+.readout .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.readout .v{font-family:var(--mono);font-size:1.7rem;font-weight:600;color:var(--ink);margin-top:.2rem;line-height:1}
+.readout .v small{font-size:.9rem;color:var(--signal)}
+.readout .u{font-family:var(--mono);font-size:11px;color:var(--ink-2);margin-top:.2rem}
+
+/* ---- module cards (dense, hairline-gridded, not rounded-uniform) ---- */
+.modules{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line)}
+.mod{background:var(--panel);padding:1.1rem 1.15rem;display:flex;flex-direction:column;gap:.55rem}
+.mod:hover{background:var(--panel-2)}
+.mod .top{display:flex;align-items:baseline;justify-content:space-between;gap:.6rem}
+.mod .name{font-size:1.12rem;font-weight:600;letter-spacing:-.01em}
+.mod .name a{color:var(--ink)}
+.mod .name a:hover{color:var(--signal)}
+.mod .idx{font-family:var(--mono);font-size:11px;color:var(--signal);letter-spacing:.05em}
+.mod .say{color:var(--ink-2);font-size:.92rem;margin:0}
+.mod .re{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.2rem}
+.mod .re a{font-family:var(--mono);font-size:11px;letter-spacing:.02em;color:var(--ink-2);
+  border:1px solid var(--line-2);border-radius:2px;padding:.12rem .4rem;background:var(--bg)}
+.mod .re a:hover{color:var(--signal);border-color:var(--signal-dim);background:var(--signal-tint);text-decoration:none}
+
+/* ---- from-the-record rotator ---- */
+.watch{border:1px solid var(--line);background:var(--panel)}
+.watch .bar{display:flex;align-items:center;gap:.6rem;padding:.55rem .9rem;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:var(--panel-2)}
+.watch .body{padding:.95rem 1.1rem;display:flex;gap:1.1rem;align-items:baseline;flex-wrap:wrap}
+.watch .big{font-size:1.3rem;font-weight:600}
+.watch .body p{margin:0;color:var(--ink-2);font-size:.95rem;flex:1;min-width:16rem}
+.rot-foot{border-top:1px solid var(--line);background:var(--panel-2);padding:.5rem .9rem;font-size:.78rem;color:var(--muted);font-family:var(--mono);line-height:1.5}
+
+/* ---- callsign entity affordance ---- */
+.cs{font-family:var(--mono);font-size:.92em;letter-spacing:.03em;color:var(--signal-strong);
+  background:var(--signal-tint);border:1px solid var(--signal-dim);border-radius:2px;padding:.02em .34em;text-decoration:none;white-space:nowrap}
+.cs:hover{background:#c7e6ea;color:var(--signal-strong);text-decoration:none}
+.cs.nil{color:var(--muted);background:var(--bg-2);border-color:var(--line-2)}
+
+/* ---- fast-answer head / status row (callsign) ---- */
+.cshead .ey{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.cshead h1{margin:.35rem 0 0;font-family:var(--mono);font-size:3.1rem;letter-spacing:.06em;font-weight:600;line-height:1;color:var(--ink)}
+.status-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin:1.15rem 0 0}
+.status-row .c{background:var(--panel);padding:.75rem .9rem}
+.status-row .k{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.status-row .v{font-size:1.3rem;font-weight:600;margin-top:.2rem;display:flex;align-items:center;gap:.45rem;color:var(--ink)}
+.status-row .v.sm{font-size:1rem;line-height:1.25}
+.status-row .v small{font-family:var(--mono);font-size:11px;font-weight:400;color:var(--ink-2)}
+.status-row .led{width:.55rem;height:.55rem;border-radius:50%;background:var(--ok)}
+
+/* ---- event timeline ---- */
+.tl{display:grid;grid-template-columns:8.5rem 1fr;gap:0 1rem}
+.tl .when{font-family:var(--mono);font-size:.85rem;color:var(--ink);text-align:right;padding-top:.05rem;white-space:nowrap}
+.tl .when small{display:block;font-size:10px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:.15rem}
+.tl .track{position:relative;border-left:2px solid var(--signal-dim);padding:0 0 1.2rem 1.25rem}
+.tl:last-child .track{padding-bottom:.1rem}
+.tl .track::before{content:"";position:absolute;left:-.44rem;top:.18rem;width:.72rem;height:.72rem;border-radius:50%;
+  background:var(--signal);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--signal-dim)}
+.tl.state .track::before{background:var(--ok);box-shadow:0 0 0 1px #9dcbb2}
+.tl.context .track::before{background:var(--panel);box-shadow:0 0 0 1px var(--signal-dim)}
+.tl .ttl{font-weight:600;color:var(--ink);font-size:1rem}
+.tl .by{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.02em;font-weight:400}
+.tl .dsc{color:var(--ink-2);font-size:.92rem;margin:.3rem 0 0}
+
+/* ---- anatomy ---- */
+.anat{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+.anat .p{background:var(--panel);padding:.85rem 1rem;display:flex;align-items:baseline;gap:.8rem}
+.anat .g{font-family:var(--mono);font-size:1.9rem;font-weight:600;color:var(--signal)}
+.anat .m .role{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.anat .m .d{font-size:.95rem;color:var(--ink-2)}
+
+/* ---- record-fidelity notes ---- */
+.notes .n{border:1px solid var(--line);border-left:3px solid var(--signal-dim);background:var(--panel);
+  padding:.7rem .95rem;margin-bottom:.6rem;font-size:.95rem;color:var(--ink-2)}
+.notes .n:last-child{margin-bottom:0}
+.notes .n b{color:var(--ink);font-family:var(--mono);font-size:.85rem;letter-spacing:.03em;text-transform:uppercase;font-weight:600}
+
+/* ============================================================
+   THE BITEMPORAL DIAL — event scale primary (upper, teal),
+   assertion scale calibration (lower, grey). Ported from
+   green-field mockup D into B-light tokens (issue #921).
+   ============================================================ */
+.dial{background:var(--bg-2);border:1px solid var(--line);border-radius:3px;padding:1.05rem 1.2rem 1rem;margin-top:.7rem;
+  overflow-x:auto;box-shadow:inset 0 1px 2px rgba(17,24,35,.05)}
+.tracklab{display:flex;align-items:baseline;gap:.5rem;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.45}
+.tracklab .sw{width:.9rem;height:.16rem;display:inline-block;flex:none;position:relative;top:-.16rem}
+.tracklab.event{color:var(--signal-strong)}
+.tracklab.event .sw{background:var(--signal)}
+.tracklab.assert .sw{background:var(--line-2)}
+.tracklab b{font-weight:700;text-transform:uppercase;letter-spacing:.07em;font-size:10.5px}
+.tracklab.assert{margin-top:.15rem}
+.dial-ctl{display:flex;gap:.4rem;flex-wrap:wrap;margin:.35rem 0 .2rem}
+.dial-ctl button{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;cursor:pointer;border:1px solid var(--line-2);
+  background:var(--panel);color:var(--ink-2);padding:.28rem .55rem;border-radius:2px}
+.dial-ctl button[aria-pressed="true"]{background:var(--signal-tint);border-color:var(--signal-dim);color:var(--signal-strong);font-weight:600}
+.dial-ctl button:hover{border-color:var(--signal-dim)}
+.scale{position:relative;min-width:600px;height:150px;margin:.1rem 0 .2rem}
+.scale .axis{position:absolute;left:0;right:0;top:76px;height:2px;background:var(--ink-2)}
+.scale .yr{position:absolute;top:83px;transform:translateX(-50%);font-family:var(--mono);font-size:11px;color:var(--muted)}
+.scale .yr::before{content:"";position:absolute;top:-9px;left:50%;width:1px;height:7px;background:var(--line-2)}
+/* event markers point UP from the axis — primary reading, teal */
+.scale .ev{position:absolute;top:76px}
+.scale .ev .stem{position:absolute;bottom:0;left:-1px;width:2px;height:34px;background:var(--signal)}
+.scale .ev .dot{position:absolute;bottom:30px;left:-5px;width:10px;height:10px;background:var(--signal);transform:rotate(45deg)}
+.scale .ev .cap{position:absolute;bottom:46px;transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);
+  font-size:11px;color:var(--signal-strong);font-weight:600;max-width:14rem;overflow:hidden;text-overflow:ellipsis}
+.scale .ev .cap small{display:block;font-weight:400;color:var(--muted);letter-spacing:0}
+.scale .ev.state .stem,.scale .ev.state .dot{background:var(--ok)}
+.scale .ev.state .cap{color:var(--ok)}
+/* sighting markers point DOWN from the axis — calibration, muted */
+.scale .si{position:absolute;top:76px}
+.scale .si .stem{position:absolute;top:0;left:-.5px;width:1px;height:20px;background:var(--line-2)}
+.scale .si .pip{position:absolute;top:18px;left:-3px;width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.scale .si .cap{position:absolute;top:28px;transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);
+  font-size:10px;color:var(--muted)}
+.scale.dim-assert .si{opacity:.16}
+.scale.dim-event .ev{opacity:.16}
+.dial-note{border-top:1px solid var(--line-2);margin-top:.55rem;padding-top:.7rem;font-size:.9rem;color:var(--ink-2)}
+.dial-note .g{display:block;margin-bottom:.35rem}
+.dial-note .g:last-child{margin-bottom:0}
+.dial-note .g b{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase}
+.dial-note .g.event b{color:var(--signal-strong)}
+.dial-note .g.assert b{color:var(--muted)}
+.dial-finding{margin:.55rem 0 0;padding:.5rem .7rem;border:1px solid var(--line);border-left:3px solid var(--signal-dim);
+  background:var(--panel);font-size:.9rem;color:var(--ink-2)}
+.dial-finding .tb{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--signal-strong);
+  border:1px solid var(--signal-dim);background:var(--signal-tint);border-radius:2px;padding:.05rem .3rem;margin-right:.4rem}
+
+/* ---- tables (evidence census) ---- */
+table{width:100%;border-collapse:collapse;font-size:.9rem;border:1px solid var(--line);background:var(--panel)}
+thead th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);font-weight:400;background:var(--panel-2);padding:.5rem .7rem;border-bottom:1px solid var(--line)}
+tbody td{padding:.55rem .7rem;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:var(--panel-2)}
+td.date,.num{font-family:var(--mono);white-space:nowrap;color:var(--ink-2)}
+.present{color:var(--ok);font-family:var(--mono);font-size:.85rem;font-weight:600}
+
+/* ---- glossary popover: <details> baseline, upgraded to the popover API ---- */
+.term{position:relative;display:inline-block}
+.term>summary,.term>button.term-btn{cursor:help;color:var(--signal-strong);border-bottom:1px dashed var(--signal);
+  font-family:var(--mono);font-size:.92em;list-style:none;display:inline}
+.term>summary::-webkit-details-marker{display:none}
+.term>summary:focus-visible,.term>button.term-btn:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.term>button.term-btn{all:unset;cursor:help;color:var(--signal-strong);border-bottom:1px dashed var(--signal);font-family:var(--mono);font-size:.92em}
+.pop{position:absolute;left:0;top:1.7em;z-index:5;width:22rem;max-width:82vw;background:var(--panel);
+  border:1px solid var(--line-2);border-radius:3px;box-shadow:0 8px 24px rgba(17,24,35,.18);padding:.75rem .85rem;
+  font-size:.86rem;line-height:1.45;color:var(--ink-2);font-family:var(--sans)}
+/* <details> fallback: hidden until the disclosure is open */
+.term:not([open]) .pop{display:none}
+.term[open] .pop{display:block}
+/* popover-API upgrade: the script converts .pop to [popover]; keep it positioned */
+.pop[popover]{position:absolute;margin:0;inset:auto}
+.pop .pl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--signal);display:block;margin-bottom:.25rem}
+
+/* ---- folded disclosure ---- */
+details.fold{border:1px solid var(--line);background:var(--panel);margin-top:1.1rem;box-shadow:var(--elevation);border-radius:3px}
+details.fold>summary{cursor:pointer;list-style:none;padding:.7rem .9rem;font-family:var(--mono);font-size:11px;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2);background:var(--panel-2);border-radius:3px}
+details.fold[open]>summary{border-radius:3px 3px 0 0;border-bottom:1px solid var(--line)}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::before{content:"[+] ";color:var(--signal)}
+details.fold[open]>summary::before{content:"[-] "}
+details.fold .b{padding:.85rem .9rem 1rem;color:var(--ink-2);font-size:.95rem}
+details.fold .b p{margin:0 0 .6rem}
+details.fold .b p:last-child{margin-bottom:0}
+
+/* ---- footer content (inside the white footer bar) ---- */
+.sitefoot .foot-prov{font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7}
+.sitefoot .foot-prov a{color:var(--signal)}
+.sitefoot .foot-prov b{color:var(--ink);font-weight:600}
+
+/* ---- lookup status / alerts ---- */
+.status-line{margin:.9rem 0 0;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.alert{margin:.9rem 0 0;border:1px solid var(--warn-line);border-left:3px solid var(--warn);background:var(--warn-tint);
+  padding:.7rem .9rem;font-size:.92rem;color:var(--ink)}
+.callout{border:1px solid var(--warn-line);border-left:3px solid var(--warn);background:var(--warn-tint);
+  padding:.9rem 1.1rem;font-size:.95rem;color:var(--ink)}
+.muted{color:var(--muted)}
+
+/* ---- responsive ---- */
+@media(max-width:44rem){
+  .readout{grid-template-columns:1fr 1fr}
+  .modules{grid-template-columns:1fr}
+  .head .title{font-size:1.6rem}
+  .status-row{grid-template-columns:1fr}
+  .anat{grid-template-columns:1fr}
+  .cshead h1{font-size:2.4rem}
+  .tl{grid-template-columns:1fr}
+  .tl .when{text-align:left;margin-bottom:.15rem}
+  .tl .track{border-left:0;padding-left:0}
+  .tl .track::before{display:none}
+}
+
+/* ---- prefers-reduced-motion: no smooth transitions/animations ---- */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important;scroll-behavior:auto!important}
+}
