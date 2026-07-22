@@ -14,6 +14,7 @@ import { parseJsonArray } from '../shared/json-shape.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const HEAVY_TESTS_JSON = 'src/testing/heavy-tests.json';
+const FOLD_TESTS_JSON = 'src/testing/fold-tests.json';
 
 // The declared tag vocabulary. Held as the self-check's own copy and tied back to
 // vitest.config.ts by the parity assertion below, so a rename in either place
@@ -47,6 +48,8 @@ const ALL_TEST_FILES = [...testFilesUnder('src'), ...testFilesUnder('site')].sor
 
 const heavyTestsPath = path.join(REPO_ROOT, HEAVY_TESTS_JSON);
 const HEAVY_LIST = parseJsonArray(fs.readFileSync(heavyTestsPath, 'utf8'), heavyTestsPath) as string[];
+const foldTestsPath = path.join(REPO_ROOT, FOLD_TESTS_JSON);
+const FOLD_LIST = parseJsonArray(fs.readFileSync(foldTestsPath, 'utf8'), foldTestsPath) as string[];
 
 // Extract every tag applied anywhere in a file's `{ tags: [...] }` describe/test
 // options. Source-text parsing (not execution) keeps the check cheap and lets it
@@ -120,6 +123,45 @@ describe('test taxonomy self-check (issues #336 / #398)', { tags: ['unit'] }, ()
   it('EveryHeavyEntry_NamesAnExistingTestFile', () => {
     const missing = HEAVY_LIST.filter(file => !ALL_TEST_FILES.includes(file));
     expect(missing, 'heavy-tests.json lists a path that is not a discovered *.test.ts file').toEqual([]);
+  });
+
+  it('EveryFoldEntry_NamesAnExistingTestFile', () => {
+    const missing = FOLD_LIST.filter(file => !ALL_TEST_FILES.includes(file));
+    expect(missing, 'fold-tests.json lists a path that is not a discovered *.test.ts file').toEqual([]);
+  });
+
+  it('EveryFullCorpusFoldTest_IsRegisteredInBothLists_SoItRunsInTheFoldMatrixNotTheFastPool', () => {
+    // `acquireClaimsSource` is the signature of a FULL-CORPUS fold: the test
+    // opens the whole claims Parquet and folds it through DuckDB, taking
+    // minutes. Such a file left out of the registration lists is not skipped —
+    // it silently lands in the fast 2-shard pool, where a multi-minute fold
+    // oversubscribes the runner and flakes (#375). Fixture-scale folds (which
+    // build their own small ledgers) are fine in the fast pool and are exempt
+    // by construction: they don't call the corpus acquirer.
+    // Match the IMPORT of the acquirer (not any textual mention, which would
+    // sweep up this self-check's own strings and comments).
+    const importsAcquirer = /import\s*(?:type\s*)?\{[^}]*\bacquireClaimsSource\b[^}]*\}/;
+    const unregistered: string[] = [];
+    for (const file of ALL_TEST_FILES) {
+      const text = fs.readFileSync(path.join(REPO_ROOT, file), 'utf8');
+      if (!importsAcquirer.test(text)) continue;
+      if (!HEAVY_LIST.includes(file) || !FOLD_LIST.includes(file)) unregistered.push(file);
+    }
+    expect(unregistered, 'these full-corpus fold tests are missing from heavy-tests.json and/or fold-tests.json — unregistered, they run (and flake) in the fast pool').toEqual([]);
+  });
+
+  it('FoldList_IsASubsetOfTheHeavyList_SoNoFoldTestAlsoRunsInTheFastPool', () => {
+    // The fold matrix schedules FOLD_LIST directly; heavy-tests.json is what the
+    // fast project EXCLUDES. A fold entry absent from the heavy list would run
+    // twice: once in its matrix job and again in the fast pool.
+    const leaked = FOLD_LIST.filter(file => !HEAVY_LIST.includes(file));
+    expect(leaked, 'these fold-tests.json entries are missing from heavy-tests.json, so the fast pool runs them a second time').toEqual([]);
+  });
+
+  it('RegistrationLists_ContainNoDuplicateEntries_SoNoTestIsScheduledTwice', () => {
+    const dupes = (list: string[]) => list.filter((file, i) => list.indexOf(file) !== i);
+    expect(dupes(HEAVY_LIST), 'heavy-tests.json contains duplicate entries').toEqual([]);
+    expect(dupes(FOLD_LIST), 'fold-tests.json contains duplicate entries').toEqual([]);
   });
 
   it('LaneUnion_CoversEveryTestFile_SoNothingIsUnrun', () => {
