@@ -93,6 +93,25 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
     expect(() => renderCallsignSections(root, cm({ found: false }), ['not-a-section'])).toThrow(/no registered section/);
   });
 
+  it('RenderCallsignSections_NotFoundModel_RendersTheNoRecordCallout', () => {
+    // The whole default order mounts for a miss too; the fast-answer callout
+    // states the non-observation without claiming anything about the register.
+    const root = document.createElement('div');
+    renderCallsignSections(root, cm({ found: false, key: 'ZZ9ZZZ' }));
+    expect(root.querySelector('.callout')?.textContent).toContain('No record for ZZ9ZZZ');
+  });
+
+  it('RenderCallsignSections_FoundButNoDatedEvidence_ShowsNonObservationInDialAndTimeline', () => {
+    // A resolved record with no event-time claim: both the dial and the
+    // event-timeline must read the non-observation copy, never "no evidence".
+    const root = document.createElement('div');
+    renderCallsignSections(root, cm({ found: true }));
+    const dial = root.querySelector('section[data-section="the-evidence-dial"]')?.textContent ?? '';
+    const timeline = root.querySelector('section[data-section="event-timeline"]')?.textContent ?? '';
+    expect(dial).toContain('No dated event-time evidence is held');
+    expect(timeline).toContain('No dated event-time evidence is held');
+  });
+
   it('EvidenceDial_WhenMounted_RendersBothBitemporalGlossesVerbatim', () => {
     const root = document.createElement('div');
     const model = cm({

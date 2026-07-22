@@ -28,6 +28,7 @@
  *                  vintage, title, href), the event-kind vocabulary with
  *                  reader-facing labels, the rule and caveat glosses (the
  *                  engine's own, verbatim), the detected mass-episode windows,
+ *                  the per-series introduction months (seriesIntro, issue #921),
  *                  the as-at day and the shard list.
  *   <SHARD>.json — { shard, callsigns: { <cleaned form>: EventRecord } }.
  *

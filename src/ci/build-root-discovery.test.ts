@@ -7,6 +7,7 @@ import {
   rootDiscoveryUrls,
   renderRootSitemap,
   renderRobots,
+  SITE_INDEXABLE,
 } from './build-root-discovery.ts';
 
 // Root discovery files for the v1 launch (issue #921): the slim root sitemap +
@@ -45,11 +46,28 @@ describe('root discovery files', { tags: ['unit'] }, () => {
     expect(sitemap).not.toContain('/v0/');
   });
 
-  it('Robots_PointsAtTheRootSitemap_AndAllowsCrawling', () => {
-    const robots = renderRobots(BASE);
-    expect(robots).toContain('Sitemap: https://example.test/mirror/sitemap.xml');
-    expect(robots).toMatch(/User-agent: \*/);
-    expect(robots).toMatch(/Allow: \//);
+  it('Robots_WhenSiteNotIndexable_DisallowsEverythingAndOmitsTheSitemapLine', () => {
+    // Pre-launch state (the current SITE_INDEXABLE value): withhold the whole
+    // site, and never advertise the sitemap.
+    const robots = renderRobots(BASE, false);
+    expect(robots).toBe('User-agent: *\nDisallow: /\n');
+    expect(robots).not.toContain('Sitemap:');
+  });
+
+  it('Robots_WhenSiteIndexable_AllowsAndAdvertisesTheSitemap', () => {
+    // The launch state, reached by flipping SITE_INDEXABLE — one line, no
+    // half-apply: this asserts exactly what the flip must produce.
+    const robots = renderRobots(BASE, true);
+    expect(robots).toBe('User-agent: *\nAllow: /\nSitemap: https://example.test/mirror/sitemap.xml\n');
+  });
+
+  it('SiteIndexable_IsFalsePreLaunch_SoTheDefaultBuildWithholdsTheSite', () => {
+    // The default (flag-driven) build reflects the pre-launch posture, and the
+    // sitemap is still written — ready to be advertised the moment the flag flips.
+    expect(SITE_INDEXABLE).toBe(false);
+    const { dir, robots } = build();
+    expect(robots).toBe('User-agent: *\nDisallow: /\n');
+    expect(fs.existsSync(path.join(dir, 'sitemap.xml'))).toBe(true);
   });
 
   it('BuildRootDiscovery_WritesBothFiles_IntoTheDeployRoot', () => {
@@ -57,7 +75,7 @@ describe('root discovery files', { tags: ['unit'] }, () => {
     expect(fs.existsSync(path.join(dir, 'sitemap.xml'))).toBe(true);
     expect(fs.existsSync(path.join(dir, 'robots.txt'))).toBe(true);
     expect(sitemap).toContain('<urlset');
-    expect(robots).toContain('Sitemap:');
+    expect(robots).toContain('User-agent:');
   });
 
   it('BuildRootDiscovery_BuiltTwiceOverTheSameBase_IsByteIdentical', () => {

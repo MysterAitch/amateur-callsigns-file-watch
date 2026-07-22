@@ -24,6 +24,17 @@ import * as path from 'path';
 
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
 
+// Whether the site may be indexed and crawled — the single source of truth.
+// Pre-launch the mirror is deliberately withheld from crawlers EVERYWHERE (the
+// legacy tree included), not just discouraged: robots.txt disallows all and the
+// sitemap is written but never advertised, and the v1 pages carry a noindex
+// meta. The first web-archive capture is a deliberate launch-milestone event
+// (see the change-history / v1.0 milestone): flip this one constant to true at
+// that point and the discovery files AND the pages' robots meta switch to their
+// indexable state together. Keeping it a single flag is what stops the launch
+// flip from half-applying — the guarding tests assert both states off it.
+export const SITE_INDEXABLE = false;
+
 // The three v1 pages that own the deploy root. The home page is listed as the
 // directory root (a clean canonical URL), the other two by filename.
 export const ROOT_DISCOVERY_PATHS = ['', 'callsign.html', 'how-to-get-the-raw-data.html'] as const;
@@ -41,8 +52,13 @@ export function renderRootSitemap(baseUrl: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
-export function renderRobots(baseUrl: string): string {
+export function renderRobots(baseUrl: string, indexable: boolean = SITE_INDEXABLE): string {
   const root = baseUrl.replace(/\/+$/, '');
+  if (!indexable) {
+    // Pre-launch: withhold the whole site. sitemap.xml is still written (below),
+    // but deliberately not advertised here until the flag flips.
+    return 'User-agent: *\nDisallow: /\n';
+  }
   return `User-agent: *\nAllow: /\nSitemap: ${root}/sitemap.xml\n`;
 }
 

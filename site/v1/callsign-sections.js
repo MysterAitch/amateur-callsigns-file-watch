@@ -575,13 +575,12 @@ function mountEventTimeline(host, model) {
       tlWrap.appendChild(tl);
     }
     surface.appendChild(tlWrap);
-  } else {
-    surface.appendChild(el('p', 'note muted', V1_COPY.callsign.dial.bookkeepingOnly));
   }
 
   // Bookkeeping stamps: system presence, never licensing events. Folded when
   // dated licensing evidence carries the story; opened when they are the only
-  // dated evidence held (conditional prominence).
+  // dated evidence held (conditional prominence) — the open summary carries the
+  // system-presence framing, so no separate lead paragraph repeats it.
   if (hasBookkeeping) {
     const details = el('details', 'evt-bookkeeping');
     if (!hasEvents) details.setAttribute('open', '');
