@@ -55,6 +55,7 @@ import { writePolicyInvariantsReport } from './policy-invariants.ts';
 import { writeCuriosityIndex } from './curiosity-index.ts';
 import { writeSequenceAnalytics } from './sequence-analytics.ts';
 import { writeColumnDrift } from './column-drift.ts';
+import { writeSurvivalCohort } from './survival-cohort.ts';
 import { mdCell } from '../shared/markdown.ts';
 import { time, perfReport } from '../shared/perf.ts';
 
@@ -193,6 +194,13 @@ export function runReportSweep(): ReportSweepReport {
   // and the vintage-over-vintage divergences the thresholds flag. Committed so
   // a new vintage shifting any fingerprint is a PR diff.
   time('reports:column-drift', () => writeColumnDrift());
+
+  // The survival/cohort report (issue #865): the register as a life table over
+  // the S1 event claims + open-data snapshot presence — right-censored licence
+  // ages, retention by class and era-cohort, and the reservation-cycle picture,
+  // every curve stating its censoring and coverage. Committed so a new vintage
+  // shifting the actuarial picture is a PR diff.
+  time('reports:survival-cohort', () => writeSurvivalCohort());
 
   // The newest dataset's matrix always appears: the coverage body is the
   // does-this-look-right triage surface, and current state belongs on it -
@@ -737,6 +745,7 @@ function writeReportsIndex(columnsNewestFirst: string[], statsByKey: Map<string,
     '- [Curiosity index](curiosity-index.md) - reference-free per-record rarity score: the most unusual records in the newest publication, with each score’s component breakdown',
     '- [Namespace sequence analytics](sequence-analytics.md) - allocation order (H5), gap structure, issuance-rate curves and a naive series-exhaustion projection per prefix series',
     '- [Column distributional drift](column-drift.md) - per-column, per-vintage fingerprints and the vintage-over-vintage divergences they flag',
+    '- [Survival and cohort analysis](survival-cohort.md) - the register as a life table: right-censored licence ages, retention by class and era, reservation cycles',
     '',
     '| dataset | records | distinct patterns | flag instances |',
     '|---|---:|---:|---:|',
