@@ -54,7 +54,7 @@
  * is transformed from source bytes, not asserted by a registry.
  */
 
-import { parseUkDateTimeDetailed } from '../shared/normalise.ts';
+import { parseUkDateTimeDetailed, isWellFormedIsoExtractDate } from '../shared/normalise.ts';
 import { provenanceFor } from './provenance.ts';
 import { interpretColumns } from './interpretation.ts';
 import type { Claim, SourceObservationSet } from './claim-core.ts';
@@ -222,37 +222,36 @@ export function eventKindOf(predicate: string): string | undefined {
 export const DAY_FIRST_FORMAT = 'DD/MM/YYYY';
 export const ISO_FORMAT = 'YYYY-MM-DD';
 
-// The strict ISO-extract grammar, mirroring the open-data converter's workbook
-// branch (normalise.ts): yyyy-mm-dd with an optional hh:mm:ss time, month and
-// day range-checked. Kept strict so a value in the WRONG format for its
-// attestation fails loudly instead of being quietly read under another grammar.
-const ISO_EXTRACT_RE = /^(\d{4})-(\d{2})-(\d{2})( \d{2}:\d{2}:\d{2})?$/;
-
 // Parse one attested date cell STRICTLY under its attested format and return
 // the canonical ISO day (yyyy-mm-dd), or null for an empty cell (absence of
 // evidence — no claim, mirroring the raw layer's sparsity). A non-empty cell
 // that does not parse under its attested format THROWS: every source this tier
-// covers already passed the strict converter with the same grammar, so a
-// failure here is an integrity break, never routine data. Leading/trailing
-// whitespace is tolerated exactly as the converter tolerates it (the verbatim
-// cell, whitespace included, stays in the raw layer). A time-of-day component
-// is truncated to the day — the event axis is day-precision; the raw cell
-// keeps the full rendering.
+// covers already passed the strict converter — which applies this SAME full
+// calendar validation to both grammars (parseUkDateTimeDetailed for day-first,
+// isWellFormedIsoExtractDate for ISO) — so a failure here is an integrity
+// break, never routine data. Leading/trailing whitespace is tolerated exactly
+// as the converter tolerates it (the verbatim cell, whitespace included, stays
+// in the raw layer). A time-of-day component is truncated to the day — the
+// event axis is day-precision; the raw cell keeps the full rendering.
 export function isoDayFromAttested(value: string, format: string): string | null {
   const trimmed = value.trim();
   if (trimmed === '') return null;
   if (format === DAY_FIRST_FORMAT) {
     // LIFTED day-first parser (shared/normalise.ts) — the same strict
     // dd/mm/yyyy[ hh:mm[:ss]] grammar the converters validated these cells
-    // under. Throws on anything else.
+    // under, calendar validation included. Throws on anything else.
     return parseUkDateTimeDetailed(trimmed).iso.slice(0, 10);
   }
   if (format === ISO_FORMAT) {
-    const match = ISO_EXTRACT_RE.exec(trimmed);
-    if (match === null || Number(match[2]) < 1 || Number(match[2]) > 12 || Number(match[3]) < 1 || Number(match[3]) > 31) {
+    // The SAME strict ISO-extract check both intake lanes apply (the open-data
+    // and FOI converters call isWellFormedIsoExtractDate): grammar plus full
+    // calendar validation, so an impossible cell like 2020-02-30 fails loud
+    // here exactly as its day-first sibling 30/02/2020 does. A well-formed
+    // value's first ten characters are the canonical yyyy-mm-dd day.
+    if (!isWellFormedIsoExtractDate(trimmed)) {
       throw new Error(`isoDayFromAttested: "${trimmed}" is not a well-formed ${ISO_FORMAT} extract date`);
     }
-    return `${match[1]}-${match[2]}-${match[3]}`;
+    return trimmed.slice(0, 10);
   }
   throw new Error(`isoDayFromAttested: unknown attested date format "${format}" - the event-time tier parses only the attested grammars (${DAY_FIRST_FORMAT}, ${ISO_FORMAT})`);
 }
@@ -290,6 +289,26 @@ export function isoDayFromCellUnderAnyAttestedFormat(value: string): string | nu
 export function emitEventDateClaims(source: SourceObservationSet): Claim[] {
   const bindings = source.eventDateColumns;
   if (bindings === undefined || bindings.length === 0) return [];
+  // Kind-dedup guard (issue #856): a source's date bindings must map to
+  // DISTINCT event kinds. The per-row loop below pushes one claim per (row,
+  // binding), so two columns sharing a kind would emit duplicate claims of that
+  // kind on every row — an inflation the ledger cannot tell apart from two
+  // genuine observations. No source binds two columns to one kind today
+  // (EVENT_KIND_BY_DATE_OUTPUT maps original_start_date and
+  // licence_version_original_start_date to the same kind, but no single source
+  // carries both); a future one that did must fail loud, naming the source and
+  // the colliding columns, rather than silently double-counting.
+  const columnsByKind = new Map<string, string[]>();
+  for (const binding of bindings) {
+    const columns = columnsByKind.get(binding.kind);
+    if (columns === undefined) columnsByKind.set(binding.kind, [binding.source]);
+    else columns.push(binding.source);
+  }
+  for (const [kind, columns] of columnsByKind) {
+    if (columns.length > 1) {
+      throw new Error(`emitEventDateClaims: ${source.sourceFile} binds event kind "${kind}" to ${columns.length} columns (${columns.join(', ')}) - a source's date bindings must map to distinct event kinds, else each row emits duplicate claims of one kind; give the columns distinct kinds or drop the redundant binding`);
+    }
+  }
   // interpretColumns fails loud when the source attests no interpretation at
   // all — a binding without an attestation is exactly the guessing this tier
   // forbids.

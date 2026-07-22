@@ -33,7 +33,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
-import { parseUkDateTimeDetailed, type ParsedUkDateTime, renderCsv, codepointCompare } from './normalise.ts';
+import { parseUkDateTimeDetailed, isWellFormedIsoExtractDate, type ParsedUkDateTime, renderCsv, codepointCompare } from './normalise.ts';
 import { calculateContentHash, errorMessage, verifyIgnoredColumn, type IgnoredColumnSpec } from './utils.ts';
 import { type ColumnInterpretation } from '../v2/claim.ts';
 import { readFoiEntryMeta } from './foi-archive.ts';
@@ -1723,11 +1723,12 @@ function convertRecord(record: Record<string, string>, index: number, conversion
 
     if (column.kind === 'iso-date' && trimmed !== '') {
       // Extract dates were typed in the workbook and rendered ISO by
-      // src/shared/xlsx-extract.ts - validated and bounded, carried verbatim
-      // (including stored time-of-day artefacts), with no day-first
-      // order-evidence to collect.
-      const match = /^\d{4}-(\d{2})-(\d{2})( \d{2}:\d{2}:\d{2})?$/.exec(trimmed);
-      if (match === null || Number(match[1]) < 1 || Number(match[1]) > 12 || Number(match[2]) < 1 || Number(match[2]) > 31) {
+      // src/shared/xlsx-extract.ts - fully calendar-validated (the same real
+      // day-length/leap check the day-first 'date' branch applies via
+      // parseUkDateTimeDetailed) and bounded, carried verbatim (including
+      // stored time-of-day artefacts), with no day-first order-evidence to
+      // collect.
+      if (!isWellFormedIsoExtractDate(trimmed)) {
         throw new Error(`${conversion.sourceFile}: ${rowLabel()}: "${trimmed}" is not a well-formed ISO extract date`);
       }
       checkDatePlausibility(trimmed.slice(0, 10));

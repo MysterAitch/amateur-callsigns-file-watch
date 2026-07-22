@@ -964,6 +964,30 @@ describe('FOI CSV normaliser - 2025-09-11 Salesforce-flavoured register', { tags
     expect(result.csv).toContain('EDUCATIONAL,Allocated,Amateur Full Radio Licence,2024-04-17,2024-04-17\n');
   });
 
+  it('FoiNormaliser_IsoDateWithAnImpossibleCalendarDay_ThrowsAtIntake', () => {
+    // The iso-date branch calendar-validates exactly as the day-first 'date'
+    // branch does: 2020-02-30 is impossible and must fail loud at intake (the
+    // sanity gate), not slip through to crash the downstream ledger build.
+    const input = utf8Lf([
+      'Callsign,Product__c,Status,Type,Licence LastModifiedDate,Licence Original_start_date__c',
+      'M0ABC,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,2025-07-29,2020-02-30',
+    ]);
+    expect(() => convertFoiSource(input, register2025)).toThrow(/not a well-formed ISO extract/);
+  });
+
+  it('FoiNormaliser_IsoLeapDay_AcceptsARealOneAndRejectsANonLeapFeb29', () => {
+    const leap = utf8Lf([
+      'Callsign,Product__c,Status,Type,Licence LastModifiedDate,Licence Original_start_date__c',
+      'M0ABC,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,2025-07-29,2020-02-29',
+    ]);
+    expect(() => convertFoiSource(leap, register2025)).not.toThrow();
+    const nonLeap = utf8Lf([
+      'Callsign,Product__c,Status,Type,Licence LastModifiedDate,Licence Original_start_date__c',
+      'M0ABC,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,2025-07-29,2021-02-29',
+    ]);
+    expect(() => convertFoiSource(nonLeap, register2025)).toThrow(/not a well-formed ISO extract/);
+  });
+
   it('FoiNormaliser_CallsignWithTrailingNbsp_TrimmedAndCounted', () => {
     const input = utf8Lf([
       'Callsign,Product__c,Status,Type,Licence LastModifiedDate,Licence Original_start_date__c',

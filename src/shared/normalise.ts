@@ -70,6 +70,30 @@ export function parseUkDateTime(value: string): string {
   return parseUkDateTimeDetailed(value).iso;
 }
 
+// The strict ISO-extract date grammar the workbook-extract lanes carry:
+// yyyy-mm-dd with an optional ' hh:mm:ss' time-of-day. Its shape is
+// syntactically disjoint (hyphens) from the day-first grammar (slashes), which
+// is what lets a consumer dispatch on shape alone.
+export const ISO_EXTRACT_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})( \d{2}:\d{2}:\d{2})?$/;
+
+// Whether a trimmed cell is a well-formed ISO extract date: the grammar above
+// AND a real calendar day — month 1-12 and day within that month's TRUE length,
+// leap years included. This is the same full calendar validation
+// parseUkDateTimeDetailed applies to the day-first grammar (both via
+// `new Date(year, month, 0)`), so an impossible day like 2020-02-30 is rejected
+// under both renderings and neither intake lane admits a date the other would
+// refuse. A time-of-day component, where present, is a valid trailing group
+// carried verbatim by the extract lanes and is not range-checked here.
+export function isWellFormedIsoExtractDate(trimmed: string): boolean {
+  const match = ISO_EXTRACT_DATE_RE.exec(trimmed);
+  if (match === null) return false;
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return false;
+  const day = Number(match[3]);
+  const daysInMonth = new Date(Number(match[1]), month, 0).getDate();
+  return day >= 1 && day <= daysInMonth;
+}
+
 // Minimal RFC-4180 rendering: quote only when the value contains a comma,
 // quote, or newline; escape quotes by doubling; LF line endings; trailing
 // newline. Byte-deterministic by construction. Exported so the reconstruction

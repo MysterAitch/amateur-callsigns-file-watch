@@ -244,6 +244,20 @@ export function buildLedger(
       claims = emitSourceLedgerClaims(observationSet, source.subjectKind, ref);
     } catch (err) {
       if (!skipFailedSources) throw err;
+      // Lenient-run granularity (issue #856): the skip is WHOLE-SOURCE, and it
+      // is RECORDED here in the returned summary's `skipped` list (available to
+      // any caller that inspects it — today's lenient callers materialise the
+      // ledger and discard the summary, so the record is latent), never
+      // silently swallowed inside the build. A source whose event tier throws
+      // on one wrong-grammar date cell drops entirely in a lenient run —
+      // deliberately NOT "emit the source minus its event tier". Excluding only
+      // the event tier would leave a source in the ledger missing claims it
+      // should carry, with no visible trace: exactly the silent, undiscoverable
+      // gap the corpus forbids (transparency over convenience). A whole-source
+      // skip keeps the omission recoverable from the summary; the strict default
+      // (skipFailedSources = false) still fails the build loud, so this
+      // granularity applies only to the consumers that opted into partial
+      // processing.
       skipped.push({ family: source.family, entry: source.entry, error: errorMessage(err) });
       continue;
     }
