@@ -8,5 +8,6 @@
   "src/ci/sequence-analytics-corpus.test.ts",
   "src/ci/column-drift-corpus.test.ts",
   "src/ci/survival-cohort-corpus.test.ts",
-  "src/ci/policy-invariants-corpus.test.ts"
+  "src/ci/policy-invariants-corpus.test.ts",
+  "src/ci/timezone-rendering-corpus.test.ts"
 ]
