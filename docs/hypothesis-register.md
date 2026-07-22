@@ -306,3 +306,52 @@ corroboration against Ofcom is the open follow-up named on #565.
 - 2026-07-21 — `undeterminable`. Grounded on the cited OARC community
   attestation of the pre-1977 administrative glitch; no independent ground
   truth held; corroboration against Ofcom outstanding. Source: #565.
+
+---
+
+## H7 — Ofcom's bulk reprocessing touches are callsign-series-stratified
+
+**Status: `validated`** &nbsp;·&nbsp; epistemics: **[derived]**
+
+Ofcom periodically bulk-reprocesses the register, stamping a cohort of records
+with a fresh `record-last-modified` date. The intuitive assumption is that such
+a run is a uniform sweep of the register. **Validated as false:** the touch
+cohorts are stratified by callsign series, and the direction of the
+stratification changes from run to run. The 2024-10-21 export's touch cohort
+(49,427 subjects, the window `2024-07-22 → 2024-10-21`) largely **excludes**
+`M7` — 2.0% of the cohort against 6.9% of the same export — while the older
+G-series are enriched as a bloc (52.7% of the cohort vs 48.6% of the export).
+The very next-earlier full window (`2024-01-01 → 2024-07-01`) does the
+**opposite**, enriching `M7` (17.4% vs 6.6%), `M6` and `M0`. It is not a
+coverage artefact: `M7` is present in the 2024-10 export (10,854 records) with
+prior observations available — those records were simply not touched.
+
+**Flags, never verdicts.** Candidate mechanisms — a run scoped to a licence
+class or renewal cohort, a phased migration touching record eras in turn, a
+data-quality campaign confined to particular series — are offered and none is
+chosen. **Nothing in the held correspondence names or dates these runs.** The
+cohorts are also invisible to the S2 mass-episode detector at its default 21-day
+window (they are the spread-out mass touches issue #872 anticipates), so their
+overlap with the two detected episodes (the 2016 migration, the 2025-10 touch)
+is nil — a coincidence, never a contradiction.
+
+**Evidence (re-runnable):** [`reports/reprocessing-stratification.md`](../reports/reprocessing-stratification.md),
+regenerated from the claim ledger by the fold in
+[`src/ci/reprocessing-stratification.ts`](../src/ci/reprocessing-stratification.ts)
+and pinned against the committed corpus by
+`src/ci/reprocessing-stratification-corpus.test.ts`. The touch signal is the S1
+`record-last-modified` event claim; the series key is the canonical
+`prefix_series` parse claim; the touch window is the half-open interval
+(predecessor snapshot date, snapshot date] on the record-last-modified value.
+First surfaced by the #867 co-occurrence spike and confirmed by a second
+independent derivation before [#871](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/871)
+was filed; the report reconciles both prior derivations under the pinned
+convention.
+
+**Status history:**
+
+- 2026-07-22 — `validated`. Touch cohorts fold as series-stratified across every
+  analysed inter-snapshot window; the 2024-10 run excludes `M7` (0.29× its
+  export share) where the 2024-07 run enriches it (2.65×). Two independent
+  derivations agree; both reconciled under one pinned window convention. Source:
+  #871, reports/reprocessing-stratification.md.
