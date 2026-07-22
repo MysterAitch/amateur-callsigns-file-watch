@@ -5,6 +5,7 @@ import * as path from 'path';
 import { foldEventTimeProjection, type EventTimeProjection } from './event-time-projection.ts';
 import { buildCallsignEventShards, type EventShardBuildSummary } from './build-callsign-event-shards.ts';
 import { computeOnThisDayEntries, type OnThisDayEntry } from './build-on-this-day.ts';
+import { computeTimeline, timelineJson, type Timeline } from './build-timeline.ts';
 import { foldSubjectEvents, foldSubjectUniverse } from './state-at-t.ts';
 import { shardNameFor } from './build-callsign-shards.ts';
 import { acquireClaimsSource, type ClaimsSourceHandle } from './event-time-coherency.ts';
@@ -41,6 +42,7 @@ let outDir: string;
 let summary: EventShardBuildSummary;
 let meta: EventsMeta;
 let entries: OnThisDayEntry[];
+let timeline: Timeline;
 
 function readRecord(cleaned: string): EventRecord | undefined {
   const shard = shardNameFor(cleaned, new Set(meta.shards));
@@ -58,6 +60,7 @@ describe('event-time surfaces over the real corpus (issue #726)', { tags: ['data
     summary = buildCallsignEventShards(projection, outDir);
     meta = parseJsonObject(fs.readFileSync(path.join(outDir, 'meta.json'), 'utf8'), 'meta.json') as EventsMeta;
     entries = computeOnThisDayEntries(projection);
+    timeline = computeTimeline(projection);
   }, 600_000);
 
   it('EventShards_RebuiltFromTheSameProjection_AreByteIdentical', () => {
@@ -134,6 +137,26 @@ describe('event-time surfaces over the real corpus (issue #726)', { tags: ['data
       expect(entry.datasetIdxs.length, `${entry.series}/${entry.event} must cite its asserting datasets`).toBeGreaterThan(0);
     }
   });
+
+  it('Timeline_RealCorpus_HasHistogramsAndMonotonicCumulativeStarts', () => {
+    expect(timeline.kinds.length).toBeGreaterThan(0);
+    expect(timeline.buckets.length).toBeGreaterThan(0);
+    // Cumulative starts-to-date never decrease as event time advances.
+    const starts = timeline.buckets.map(b => b.startsToDate);
+    expect([...starts].sort((a, b) => a - b)).toEqual(starts);
+    // The version-scoped starts pin the earliest-surviving caveat on the final
+    // cumulative figure (cross-surface parity with the strip and the calendar).
+    const last = timeline.buckets[timeline.buckets.length - 1];
+    expect(last.caveats).toContain('earliest-surviving');
+    // The "as at" instant is the corpus's latest proven assertion day.
+    expect(timeline.asAt).toBe(meta.asAt);
+  }, 600_000);
+
+  it('TimelineJson_RebuiltFromTheSameProjection_IsByteIdentical', () => {
+    const a = timelineJson(computeTimeline(projection), projection.datasets);
+    const b = timelineJson(computeTimeline(projection), projection.datasets);
+    expect(a).toBe(b);
+  }, 600_000);
 
   describe.skipIf(!duckDbAvailable())('parity against the claim ledger', () => {
     let handle: ClaimsSourceHandle;
