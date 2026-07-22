@@ -215,3 +215,20 @@ export function absentMarker(label: string = ABSENT_LABEL): string {
   const escaped = escapeHtml(label);
   return `<span class="${ABSENT_CLASS}" title="${escaped}" aria-label="${escaped}">${ABSENT_MARKER}</span>`;
 }
+
+// The shared cannot-evaluate marker (issue #905). A publication that never
+// carried a flag's required column populated could not fire that flag at all,
+// so its cell is neither a zero (an evaluated "none found") nor an absent value
+// (·, "not asserted") - it is "not assessable", a third state. The visible text
+// is a fixed "n/a"; `reason` names WHY (e.g. "no populated … column in this
+// publication") and rides in the title/aria-label so the tooltip explains the
+// distinction. Styled by the shared `.na` class, defined both in the generated
+// pages' inline CSS (render/page.ts) and in site/style.css for the statistics
+// page, so it reads the same everywhere.
+export const NOT_ASSESSABLE_CLASS = 'na';
+export const NOT_ASSESSABLE_TEXT = 'n/a';
+
+export function notAssessableMarker(reason: string): string {
+  const label = `not assessable — ${escapeHtml(reason)}`;
+  return `<span class="${NOT_ASSESSABLE_CLASS}" title="${label}" aria-label="${label}">${NOT_ASSESSABLE_TEXT}</span>`;
+}

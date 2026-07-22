@@ -42,8 +42,8 @@ import { listArchiveKeys, parseSourceFileName } from '../shared/archive.ts';
 import { derivedEntryFile } from '../shared/derived-entries.ts';
 import { DIRS } from '../shared/constants.ts';
 import type { ArchiveMeta } from '../shared/utils.ts';
-import { compareStats, type EntryStats } from '../shared/stats.ts';
-import { escapeHtml, humanDate, entryPage, noticeStrip, tableCaption, zeroCell, absentMarker } from './site-render.ts';
+import { compareStats, flagAssessable, flagRequirementReason, type EntryStats } from '../shared/stats.ts';
+import { escapeHtml, humanDate, entryPage, noticeStrip, tableCaption, zeroCell, absentMarker, notAssessableMarker } from './site-render.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
 
 const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-watch';
@@ -317,6 +317,15 @@ function flagEvolutionSection(pubs: PubStat[]): string[] {
   const header = ['<tr><th scope="col">flag</th>', ...chronological.map(p => `<th scope="col" class="n">${pubLabel(p)}</th>`), '</tr>'].join('');
   const rows = allFlags.map(flag => {
     const cells = chronological.map(p => {
+      // A flag whose required source column this publication never carried
+      // populated could not fire at all (issue #905): its zero - or its
+      // absence from the flag set - is VACUOUS, so the cell renders the shared
+      // cannot-evaluate marker naming the missing column, not a hard zero or
+      // the absent dot. This is checked first because such a publication also
+      // has no key for the flag (undefined), which would otherwise render as ·.
+      if (!flagAssessable(flag, p.stats)) {
+        return `<td class="n">${notAssessableMarker(flagRequirementReason(flag) ?? 'required column not populated in this publication')}</td>`;
+      }
       const n = p.flags[flag];
       // A flag ABSENT from a publication (no such key) is distinct from a flag
       // present with a zero count; the former reads as "not measured / none",
@@ -329,7 +338,7 @@ function flagEvolutionSection(pubs: PubStat[]): string[] {
   return [
     '<section>',
     '<h2 id="flags">Data-quality flag evolution</h2>',
-    `<p>How many rows trip each anomaly detector in each publication (flag meanings in the <a href="${ROOT}datasets/docs/flags.html">flag registry</a>). A flag that appears or disappears between publications, or whose count jumps, is a drift signal worth a look — declared-partial columns (⚠) tally over a tiny scope, so read their figures as of that scope, not the register.</p>`,
+    `<p>How many rows trip each anomaly detector in each publication (flag meanings in the <a href="${ROOT}datasets/docs/flags.html">flag registry</a>). A flag that appears or disappears between publications, or whose count jumps, is a drift signal worth a look — declared-partial columns (⚠) tally over a tiny scope, so read their figures as of that scope, not the register. A <span class="na">n/a</span> cell marks a flag that <b>could not be assessed</b> for that publication because it needs a source column the export did not carry populated (for example <code>forbidden-suffix-issued-after-first-known-list</code> needs an original start date, absent before late 2025) — a different fact from a genuine zero.</p>`,
     '<table>',
     tableCaption('Data-quality flag counts for every archived publication'),
     header,

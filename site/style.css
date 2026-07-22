@@ -214,6 +214,13 @@ code, .mono { font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
    placeholder prose like "none"). The accessible name lives in the element's
    own title/aria-label, not in colour. */
 .absent { color: var(--muted); }
+/* The cannot-evaluate marker (issue #905): a flag whose required source column
+   was absent or blank on every row of a publication could not fire at all, so
+   its cell is "not assessable" - neither a zero (an evaluated "none found") nor
+   an absent value (·, "not asserted"). Muted like .absent, but a dotted
+   underline and help cursor signal that its title explains why. Mirrors the
+   .na rule inlined into the generated pages (src/ci/render/page.ts). */
+.na { color: var(--muted); font-style: italic; border-bottom: 1px dotted currentColor; cursor: help; }
 /* Error state: a red border/tint carries the signal; the text keeps --ink so
    it stays legible (colour is not the only indicator, and contrast holds). */
 .error { border-left: 3px solid #c0392b; padding: 0.5rem 0.8rem; margin: 0.6rem 0; background: color-mix(in srgb, #c0392b 12%, transparent); }
