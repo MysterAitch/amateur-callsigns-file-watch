@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Get the raw data · callsign-record</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="shell.css">
+<script type="module" src="raw-data.js"></script>
+<style>
+  /* Page-local: the download list reuses the module-card grammar but as a
+     single column with a size/lane note per row. */
+  .dl{border:1px solid var(--line);background:var(--panel);border-radius:3px;box-shadow:var(--elevation);margin-top:1.1rem}
+  .dl .row{padding:.9rem 1.15rem;border-bottom:1px solid var(--line)}
+  .dl .row:last-child{border-bottom:0}
+  .dl .row h3{margin:0 0 .3rem;font-size:1.02rem}
+  .dl .row p{margin:0;color:var(--ink-2);font-size:.92rem}
+  .dl .row .meta{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.02em;margin-top:.3rem}
+</style>
+</head>
+<!-- Hand-authored static page. Every link points at a download surface the
+     previous version already builds and serves (paths verified against
+     src/ci/build-dataset-pages.ts). The header, nav and footer read with
+     JavaScript off; raw-data.js only re-mounts the shared chrome. -->
+<body>
+
+<div id="sitebar">
+  <header class="sitebar">
+    <div class="wrap">
+      <div class="topbar">
+        <span class="id">callsign-record</span>
+        <span>uk amateur register mirror</span>
+        <a class="chip asof" href="v0/data-status.html" title="Build-derived fact: the newest publication held is dated 23 June 2026, and 65 publications are held in total. This page was generated from that set.">Record as of 23 June 2026 · <b>65</b> publications held</a>
+      </div>
+      <nav class="journeys" aria-label="Journeys">
+        <a href="index.html">Home</a><span class="sep">·</span>
+        <a href="callsign.html">Look up</a><span class="sep">·</span>
+        <a href="v0/on-this-day.html">Explore the history <span class="v0mark">(previous version)</span></a><span class="sep">·</span>
+        <a href="v0/explore.html">Browse &amp; query <span class="v0mark">(previous version)</span></a><span class="sep">·</span>
+        <a href="v0/about.html">How the record works <span class="v0mark">(previous version)</span></a>
+      </nav>
+    </div>
+  </header>
+</div>
+
+<main data-page="raw-data">
+  <div class="wrap">
+    <div id="breadcrumb">
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span class="arw">→</span><b>Get the raw data</b></nav>
+    </div>
+
+    <header class="head">
+      <h1>callsign-record<span class="path"> / get the raw data</span></h1>
+      <p class="lede" style="font-size:1.3rem">Every archived file, published verbatim at a stable URL — and the databases folded from them.</p>
+      <p class="note">The mirror preserves each publication byte-for-byte. Nothing below is derived beyond what the sources state; every derived database carries provenance to the byte. These surfaces are served by the previous, fuller-featured version under <code>/v0/</code>.</p>
+    </header>
+
+    <div class="lbl">browse the archive</div>
+    <div class="dl">
+      <div class="row">
+        <h3><a href="v0/datasets/index.html">Dataset index</a></h3>
+        <p>Every archived dataset in both collections — Ofcom open-data publications and FOI requests — with the raw, extract and normalised files published verbatim. Each entry’s own page carries its <code>meta.json</code> (sha256 for every file), a Frictionless <code>datapackage.json</code>, and a one-click <code>.zip</code> of everything in that entry.</p>
+        <p class="meta">per-entry: raw files · datapackage.json · meta.json · one-click .zip</p>
+      </div>
+      <div class="row">
+        <h3><a href="v0/datasets/classes/index.html">Browse by kind of data</a></h3>
+        <p>Every entry carries one or more dataset types — a register snapshot, an availability pool, a forbidden-suffix list, and so on — each with an overview: what that kind of data is, the shape of a row, its provenance and quirks, and every entry that carries it.</p>
+      </div>
+    </div>
+
+    <div class="lbl">whole-corpus databases</div>
+    <div class="dl">
+      <div class="row">
+        <h3><a href="v0/data/combined.sqlite.gz">combined.sqlite.gz</a></h3>
+        <p>One SQLite database of everything: the FOI observations union plus every open-data publication’s normalised rows (<code>register_history</code>). Gzipped for the download.</p>
+        <p class="meta">SQLite · gzipped</p>
+      </div>
+      <div class="row">
+        <h3><a href="v0/data/foi-observations.csv.gz">foi-observations.csv.gz</a></h3>
+        <p>The flat union of every callsign-bearing FOI normalised row, as one gzipped CSV. Empty cells conflate not-asserted with asserted-blank; the combined database keeps them distinct (NULL vs empty string).</p>
+        <p class="meta">CSV · gzipped</p>
+      </div>
+      <div class="row">
+        <h3>Per-entry SQLite (one table per CSV)</h3>
+        <p>Each archive entry is also offered as its own SQLite database — one table per CSV — with its size, from that entry’s page in the <a href="v0/datasets/index.html">dataset index</a>.</p>
+      </div>
+    </div>
+
+    <div class="lbl">the claim ledger &amp; provenance</div>
+    <div class="dl">
+      <div class="row">
+        <h3><a href="v0/ledger.html">The raw-keyed claim ledger</a></h3>
+        <p>Every value the mirror derives traces to the source byte that asserts it. The ledger queries that provenance live, in-browser, over HTTP range requests — one row per raw byte, every derivation rule and every source row behind a record.</p>
+      </div>
+      <div class="row">
+        <h3><a href="v0/data-status.html">Data status</a></h3>
+        <p>What is held right now: the newest publication, the count of publications, and the integrity record for the set this build was generated from.</p>
+      </div>
+      <div class="row">
+        <h3><a href="v0/datasets/index.html#open-data">Data dictionary &amp; schemas</a></h3>
+        <p>The schemas and vocabularies that make the published datasets interpretable without the repository — linked from the dataset index, alongside the standing reports.</p>
+      </div>
+    </div>
+
+    <div class="lbl">licensing &amp; attribution</div>
+    <section class="surface">
+      <p>This project’s own code and original documentation are released under the
+      <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/LICENSE" target="_blank" rel="noopener">MIT licence</a>.
+      The data it mirrors is not covered by that licence: every archived file is reproduced from its publisher under that publisher’s own terms — see
+      <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/archive/LICENSE.md" target="_blank" rel="noopener">archive/LICENSE.md</a>
+      for how that applies, and each dataset’s <a href="v0/publishers/index.html">publisher page</a> for its full statement and verification links.</p>
+      <p class="note">An independent, unofficial mirror, not affiliated with or endorsed by Ofcom. Data belongs to its original publishers; provenance and integrity hashes accompany every file.</p>
+    </section>
+  </div>
+</main>
+
+<div id="sitefooter">
+  <footer class="sitefoot">
+    <div class="wrap">
+      <p class="foot-prov">callsign-record · uk amateur register mirror<br>provenance carried to the byte in the raw-keyed claim ledger · values as published, not independently verified · not affiliated with or endorsed by Ofcom · <a href="v0/index.html">the previous, fuller-featured version</a></p>
+    </div>
+  </footer>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Look up a callsign · callsign-record</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="shell.css">
+<script type="module" src="callsign.js"></script>
+</head>
+<!-- One static template, resolved client-side from ?c=<value> (the same
+     convention the previous version uses for ?q=). The header, nav and footer
+     read with JavaScript off; the lookup form below is a plain GET form, so a
+     JavaScript-off visitor can still submit a callsign. callsign.js resolves
+     the value in-browser and mounts the config-array sections. -->
+<body>
+
+<div id="sitebar">
+  <header class="sitebar">
+    <div class="wrap">
+      <div class="topbar">
+        <span class="id">callsign-record</span>
+        <span>uk amateur register mirror</span>
+        <a class="chip asof" href="v0/data-status.html" title="Build-derived fact: the newest publication held is dated 23 June 2026, and 65 publications are held in total. This page was generated from that set.">Record as of 23 June 2026 · <b>65</b> publications held</a>
+      </div>
+      <nav class="journeys" aria-label="Journeys">
+        <a href="index.html">Home</a><span class="sep">·</span>
+        <a href="callsign.html" aria-current="page">Look up</a><span class="sep">·</span>
+        <a href="v0/on-this-day.html">Explore the history <span class="v0mark">(previous version)</span></a><span class="sep">·</span>
+        <a href="v0/explore.html">Browse &amp; query <span class="v0mark">(previous version)</span></a><span class="sep">·</span>
+        <a href="v0/about.html">How the record works <span class="v0mark">(previous version)</span></a>
+      </nav>
+    </div>
+  </header>
+</div>
+
+<main data-page="callsign-v1">
+  <div class="wrap">
+    <div id="breadcrumb">
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span class="arw">→</span><a href="callsign.html">Look up</a><span class="arw">→</span><b>Look up</b></nav>
+    </div>
+
+    <form class="lookup surface" role="search" aria-label="Look up a callsign" action="callsign.html" method="get">
+      <label class="lk-lbl" for="csq">Look up a callsign</label>
+      <div class="lk-row">
+        <input id="csq" name="c" class="lk-in" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. M7TEE">
+        <button type="submit" class="lk-go">Look up →</button>
+      </div>
+    </form>
+
+    <p class="status-line" id="lookup-status" role="status" aria-live="polite"></p>
+    <p class="alert" id="lookup-alert" role="alert" hidden></p>
+
+    <div id="sections">
+      <p class="note muted">Enter a callsign above, or open a link like <a class="cs" href="callsign.html?c=M7TEE">callsign.html?c=M7TEE</a>, to resolve it in-browser.</p>
+    </div>
+  </div>
+</main>
+
+<div id="sitefooter">
+  <footer class="sitefoot">
+    <div class="wrap">
+      <p class="foot-prov">callsign-record · uk amateur register mirror<br>A projection of the archived publications. Absence here is never evidence about the register. Values as published, not independently verified · not affiliated with or endorsed by Ofcom · <a href="v0/index.html">the previous, fuller-featured version</a></p>
+    </div>
+  </footer>
+</div>
+
+</body>
+</html>
