@@ -16,7 +16,10 @@ terms of use), Ofcom FOI disclosures, and the ITU call-sign-series table
 (© ITU). Community-derived reference material (series issue-date histories,
 club conventions) is deliberately **excluded** from this directory and will
 be proposed separately, where faithfulness to the original authors and
-shareability can be reviewed on their own merits.
+shareability can be reviewed on their own merits. (The one narrow exception is
+`prefix-formats.csv`'s `introduced` column — a single regulator-anchored
+introduction month per recently-introduced series; see that file's section
+below for the sourcing rationale.)
 
 One further source sits on the **cite-don't-copy** footing the ITU table
 already establishes: the RSGB Special Contest Calls table
@@ -67,12 +70,25 @@ licensing framework* (11 December 2023), Q4 decision.
 One row per prefix series as Ofcom issues them today. `issuing_status` is
 `currently-issuing` or `formerly-issued`; `rsl_required` is true only for
 the retained `2#0`/`2#1` Intermediate formats (`#` = the mandatory RSL
-position). This table is the **current** system only — historical series
-issue-date ranges are community-sourced and out of scope for this directory.
+position). This table is the **current** system: community-sourced historical
+issue-date *ranges* (per-block letter-by-letter chronologies) remain out of
+scope for this directory.
+
+The `introduced` column is a **narrow, regulator-anchored exception** to that
+exclusion: a single introduction MONTH per recently-introduced series, recorded
+only where a regulator primary fixes it — M8/M9 from Ofcom's October 2025
+guidance, and M7 from the earliest M7 reservation (12 October 2018) in Ofcom's
+own FOI-disclosed reservation data. It is not a community issue-date history; it
+grounds the licence-chain-vs-callsign scope discipline (a callsign cannot have
+been issued before its series existed — issues #915/#918). Contemporaneous
+community notices (RSGB, Essex Ham) are cited only as corroboration, never as
+the source.
 
 Source: Ofcom, *Amateur radio guidance* (updated 14 October 2025), §5.2
 Table 1; M8/M9 reservation detail: Ofcom, *Implementing Phase 2 and 3 of the
-Amateur Review* (14 October 2025), <https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-radio-phase-2-and-3-review.pdf>.
+Amateur Review* (14 October 2025), <https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-radio-phase-2-and-3-review.pdf>;
+M7 introduction anchor: Ofcom FOI-disclosed M7 reservation data (first
+reservation 12 October 2018).
 
 ### `special-formats.csv` — special station callsign formats
 

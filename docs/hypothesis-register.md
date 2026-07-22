@@ -256,6 +256,14 @@ flat-rate extrapolation behind a dated-evidence ceiling — the engaging figure
 (`M7` ~78% full, a nominal run-out near 2029) is illustrative arithmetic, not a
 forecast.
 
+That low firm-issued share now has a sharper reading (H8, #915/#918): the
+original-start dates a young series leans on are the LICENCE CHAIN's origin, not
+the callsign's issuance, so where firm-issued share is low (`M7` ~10%; `M8`/`M9`
+0%) the ρ correlates suffix position against carried licence history rather than
+against when the callsign was handed out. This does not change H5's `refuted`
+verdict — it explains WHY those series' order signal is weak, and the report
+carries the per-series scope warning.
+
 **Evidence (re-runnable):** the committed golden
 [`reports/sequence-analytics.md`](../reports/sequence-analytics.md), regenerated
 by the fold `src/ci/sequence-analytics.ts` (`node src/ci/sequence-analytics.ts`)
@@ -266,6 +274,12 @@ issuance-rate curves and projection are all folded from the claim ledger.
 
 **Status history:**
 
+- 2026-07-22 — annotation, no status change. The weak order signal for the young
+  series is re-read through the licence-chain-origin finding (H8, #915/#918): the
+  original-start dates `M7` (~10% firm-issued) and `M8`/`M9` (0%) lean on are
+  carried licence-chain origins, not callsign issuance, so their ρ measures
+  chain order, not issuance order. Verdict unchanged (`refuted`). Source: #918,
+  reports/sequence-analytics.md.
 - 2026-07-21 — `refuted` (as a strict claim). Per-series Spearman ρ between suffix
   sequence position and allocation day is at most ~0.73 (`G0`) and negative for
   the old reissue-heavy series (`G2` ≈ −0.45); applicant callsign choice and
@@ -364,3 +378,55 @@ convention.
   where the 2024-07 run enriches it (2.65×). Two independent derivations agree;
   both reconciled under one pinned window convention. Signal bounded at 2025-06-04
   (#911). Source: #871, reports/reprocessing-stratification.md.
+
+---
+
+## H8 — `licence_version_original_start_date` dates the callsign's issuance
+
+**Status: `refuted`** &nbsp;·&nbsp; epistemics: **[confirmed]**
+
+The intuitive reading of the `licence_version_original_start_date` column: that
+it dates when the callsign was issued. **Refuted against a named regulator
+source.** Ofcom's own Licence-View field dictionary (its 2014/15 FOI disclosure
+of the pre-Salesforce system's views,
+`archive/foi/wdtk-238892--out-of-sequence-callsigns/normalised--sheet-2-database-fields.csv`)
+defines "Original Start Date" as a **Licence-view** field sitting beside
+`Revision` and a *separate* current `Start Date` — i.e. the licence has
+revisions, `Start Date` is the current revision's, and `Original Start Date` is
+the licence chain's first-ever start, surviving revisions. It is the licence
+CHAIN's origin, not the callsign's issuance.
+
+The register bears this out at scale (#915, 2026-06-23 register): ~1,430 `M8`/`M9`
+callsigns (both series introduced October 2025) and 14 `M7` callsigns (introduced
+October 2018) carry pre-introduction original-start dates, **none of which appear
+in any pre-introduction publication**. A callsign cannot have been on the air
+before its series existed, so the date is the holder's inherited licence chain,
+not the callsign's own issue date. Every consumer of the column was audited under
+this reading (#918): the on-this-day superlatives, the survival-cohort curves and
+the sequence-analytics order/rate figures now carry the licence-chain-vs-callsign
+scope explicitly.
+
+**What remains undeterminable** (the recorded ask-Ofcom question, #915): whether
+Salesforce's `Licence_Version.Original_start_date` faithfully preserves the Siebel
+semantics across migration, and why the paired `2#0`/`2#1` records' values are
+systematically blanked (682/687). The licence-chain-origin *reading* is confirmed;
+the residual migration/blanking questions are a separate open item.
+
+**Evidence (cited, held + re-runnable):** the Ofcom field dictionary above (held,
+Ofcom FOI tier); the full-population analysis on
+[#915](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/915)
+(re-runnable against the archived `normalised.csv` snapshots); the consumer
+annotations committed in
+[`reports/survival-cohort.md`](../reports/survival-cohort.md),
+[`reports/sequence-analytics.md`](../reports/sequence-analytics.md),
+[`reports/policy-invariants.md`](../reports/policy-invariants.md) and
+[`reference-data/flags.md`](../reference-data/flags.md); audit tracked on
+[#918](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/918).
+
+**Status history:**
+
+- 2026-07-22 — `refuted`, epistemics `[confirmed]`. The column is the licence
+  chain's original start (Ofcom Licence-View field dictionary, 2014/15 FOI), not
+  callsign issuance; ~1,430 `M8`/`M9` + 14 `M7` carried pre-introduction origins
+  absent from every pre-introduction publication corroborate. Residual migration/
+  blanking semantics remain the ask-Ofcom question. Source: #915, #918.

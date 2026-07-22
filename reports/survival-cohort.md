@@ -200,6 +200,15 @@ honouring day- vs month-vintage precision). This section is the
 reservation-cycle side of the same evidence — the coarse counts below read
 the same signal that report classifies precisely.
 
+The two-year threshold below is **era-scoped**, exactly as the
+`reports/policy-invariants.md` era note records: the cited 2019 FOI
+statement (reaffirmed December 2023) describes a two-year cooling period,
+but Ofcom’s October 2025 licensing guidance moved the callsign rest period
+to **five years** (issues #863, #915). So a `reserved-until` window asserted
+from a post-October-2025 vintage should be read against a five-year, not a
+two-year, expectation — a longer-than-two-years count from such a vintage is
+a candidate policy change, not an anomaly. Flag, not verdict.
+
 - **5,257** reservation-window assertions across **4,369** subjects.
 - **3,240** state an end BEFORE their own asserting vintage — a retrospective termination record, not a future window (the reserved-cohort-ambiguity: the same column carries a planned close on Reserved rows and a retrospective termination on Available rows; not adjudicated here).
 - **374** state an end more than two years beyond their asserting vintage — candidate exceptions to the stated two-year cooling policy (issue #863); **1** exceed five years (the shape of issue #568's reserved-over-five-years observation).

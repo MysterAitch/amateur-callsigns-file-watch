@@ -380,7 +380,10 @@ describe('Dataset pages build', () => {
     // whole withheld set, and the subset carrying the per-suffix
     // forbidden-suffix-issued-after-first-known-list flag (not a flat 2019 date).
     expect(page).toMatch(/data-browser-sql="SELECT[^"]*suffix IN \(SELECT suffix FROM ref_forbidden_suffixes\)[^"]*ORDER BY callsign"/);
-    expect(page).toContain('issued after the suffix was first withheld');
+    // Licence-scoped, not issuance-scoped: the drill-down describes the licence-
+    // version original start post-dating the withholding, never "issued" (#918).
+    expect(page).toContain('whose licence-version original start post-dates the suffix being first withheld');
+    expect(page).not.toContain('issued after the suffix was first withheld');
     expect(page).toContain('forbidden-suffix-issued-after-first-known-list');
     // The stale flat-2019 basis must not resurface on a live page.
     expect(page).not.toContain('issued since the 2019 list');
