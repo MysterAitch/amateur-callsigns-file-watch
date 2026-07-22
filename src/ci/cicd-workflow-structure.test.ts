@@ -331,7 +331,8 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
         const pathLines = typeof rawPath === 'string' ? rawPath.split('\n') : [];
         const hasDotPath = pathLines.some(line => line.trim().startsWith('.'));
         if (hasDotPath && withBlock['include-hidden-files'] !== true) {
-          offenders.push(`${jobName}: ${withBlock.name ?? '(unnamed)'} -> ${String(rawPath).replace(/\n/g, ',')}`);
+          const artifactName = typeof withBlock.name === 'string' ? withBlock.name : '(unnamed)';
+          offenders.push(`${jobName}: ${artifactName} -> ${String(rawPath).replace(/\n/g, ',')}`);
         }
       }
     }
