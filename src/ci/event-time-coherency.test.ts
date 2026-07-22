@@ -16,6 +16,7 @@ import {
   type AttestedGrammarRow,
   type DaySignal,
   type EpisodeParams,
+  type EpisodeSignal,
   type EventTimeCoherency,
 } from './event-time-coherency.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
@@ -143,6 +144,57 @@ describe('mass-episode detection — the naive v1 spike rule', { tags: ['unit'] 
     const episodes = mergeEpisodes(signals);
     expect(episodes.map(e => e.start)).toEqual(['2016-07-23', '2025-10-11']);
   });
+
+  // A per-dataset signal spanning [start, end], the merge inputs the width cap
+  // reasons over. Only the window bounds matter for merge geometry.
+  function sig(windowStart: string, windowEnd: string, dataset: string): EpisodeSignal {
+    return {
+      lane: 'opendata', dataset, vintage: dataset, kind: 'record-last-modified',
+      windowStart, windowEnd, rows: 100, populated: 100, share: 1, peakDays: [],
+    };
+  }
+
+  it('MergeEpisodes_StaggeredWindowsChainingBeyondTheSpanCap_SplitIntoDistinctEpisodes', () => {
+    // Three ≤21-day windows each overlapping the next by a day would union
+    // transitively into a 44-day span — chaining two genuinely distinct
+    // clusters through a staggered middle. With windowDays 21 and the default
+    // ×2 cap (42 days) the third window cannot join, so the far cluster reads
+    // as its own episode rather than fusing into one 44-day super-episode.
+    const episodes = mergeEpisodes([
+      sig('2024-01-01', '2024-01-21', 'a'),
+      sig('2024-01-21', '2024-02-10', 'b'),
+      sig('2024-02-10', '2024-02-14', 'c'),
+    ], DEFAULT_EPISODE_PARAMS);
+    expect(episodes).toHaveLength(2);
+    expect(episodes[0]).toMatchObject({ start: '2024-01-01', end: '2024-02-10' });
+    expect(episodes[1]).toMatchObject({ start: '2024-02-10', end: '2024-02-14' });
+  });
+
+  it('MergeEpisodes_StaggeredWindowsWithinTheSpanCap_StayOneEpisode', () => {
+    // The converse: two staggered windows whose merged span (32 days) is
+    // inside the cap are witnesses of one episode and must NOT be split — the
+    // cap refuses only chains wider than mergeSpanCapMultiple × windowDays.
+    const episodes = mergeEpisodes([
+      sig('2024-01-01', '2024-01-21', 'a'),
+      sig('2024-01-21', '2024-02-02', 'b'),
+    ], DEFAULT_EPISODE_PARAMS);
+    expect(episodes).toHaveLength(1);
+    expect(episodes[0]).toMatchObject({ start: '2024-01-01', end: '2024-02-02' });
+    expect(episodes[0].signals).toHaveLength(2);
+  });
+
+  it('MergeEpisodes_SpanCapMultiple_IsATunableParameter', () => {
+    // The same staggered chain the default splits stays one episode under a
+    // wider cap, and even a single window wider than the cap is never itself
+    // split (the cap governs merges, not a lone signal's own span).
+    const chain = [
+      sig('2024-01-01', '2024-01-21', 'a'),
+      sig('2024-01-21', '2024-02-10', 'b'),
+      sig('2024-02-10', '2024-02-14', 'c'),
+    ];
+    expect(mergeEpisodes(chain, { ...DEFAULT_EPISODE_PARAMS, mergeSpanCapMultiple: 4 })).toHaveLength(1);
+    expect(mergeEpisodes([sig('2024-01-01', '2024-06-01', 'solo')], DEFAULT_EPISODE_PARAMS)).toHaveLength(1);
+  });
 });
 
 // --- Authored kind temporality ---------------------------------------------
@@ -177,6 +229,21 @@ function eventClaim(sourceFile: string, subject: string, kind: string, isoDay: s
     predicate: eventDatePredicate(kind),
     object: isoDay,
     provenance: { sourceFile, ordinal, vintage: sourceFile.split('/')[1] },
+    rule: EVENT_DATE_RULE,
+  };
+}
+
+// A claim whose vintage is set independently of its dataset key, so a fixture
+// can stage two DATASETS that share ONE vintage (an Ofcom publication and a
+// same-day copy of it) — the collision the same-vintage tiebreak must not
+// resolve by arbitrary alphabetical ordering.
+function vintagedClaim(dataset: string, vintage: string, subject: string, kind: string, isoDay: string, ordinal: number): Claim {
+  return {
+    layer: 'derived',
+    rawSubject: subject,
+    predicate: eventDatePredicate(kind),
+    object: isoDay,
+    provenance: { sourceFile: `opendata/${dataset}/data.csv`, ordinal, vintage },
     rule: EVENT_DATE_RULE,
   };
 }
@@ -354,6 +421,62 @@ describe.skipIf(!duckDbAvailable())('classification over a fixture ledger', { ta
       // observation asserts nothing about change.
       expect(c.totals.reduce((sum, t) => sum + t.subjects, 0)).toBe(17);
       expect(c.exemplars.some(e => e.subject === 'NEWCOMER')).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('SameVintageCrossDatasetDivergence_WhicheverDatasetSortsFirst_ClassifiesAsSameVintageDivergenceNotAnArbitraryFlip', () => {
+    // Two datasets of ONE vintage (2025-12-01) assert different licence-issued
+    // dates for DIVERGE. There is no time between them, so the alphabetical
+    // dataset tiebreak decides the naive direction — later-first reads
+    // revised-backward, earlier-first reads revised-forward. The distinct
+    // class must win either way; the direction of the disagreement is not a
+    // fact the ordering may invent.
+    const classifyDivergence = (earlierDatasetSortsFirst: boolean): string | undefined => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'event-time-coherency-samevintage-'));
+      try {
+        const aDay = earlierDatasetSortsFirst ? '2019-01-01' : '2020-01-01';
+        const bDay = earlierDatasetSortsFirst ? '2020-01-01' : '2019-01-01';
+        const claims: Claim[] = [
+          vintagedClaim('pub-a', '2025-12-01', 'DIVERGE', 'licence-issued', aDay, 0),
+          vintagedClaim('pub-b', '2025-12-01', 'DIVERGE', 'licence-issued', bDay, 1),
+        ];
+        fs.writeFileSync(path.join(dir, 'fixture.jsonl'), serialiseClaimsJsonl(claims));
+        return computeEventTimeCoherency(dir, FIXTURE_PARAMS, []).pairs.find(p => p.kind === 'licence-issued')?.classification;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    expect(classifyDivergence(true)).toBe('same-vintage-divergence');
+    expect(classifyDivergence(false)).toBe('same-vintage-divergence');
+  });
+
+  it('SameVintageObservations_WhenTheyAgreeOrSpanVintages_KeepCorroboratedAndDirectionalClasses', () => {
+    // The converses: two same-vintage datasets that AGREE stay corroboration
+    // (order irrelevant); a genuinely later vintage disagreeing stays a
+    // directional revision; only a same-vintage disagreement is the new class,
+    // and it carries no temporal mechanism and never enters the revision
+    // exemplars.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'event-time-coherency-samevintage-mix-'));
+    try {
+      const claims: Claim[] = [
+        vintagedClaim('pub-a', '2025-12-01', 'AGREE', 'licence-issued', '2020-01-01', 0),
+        vintagedClaim('pub-b', '2025-12-01', 'AGREE', 'licence-issued', '2020-01-01', 1),
+        vintagedClaim('pub-a', '2025-12-01', 'CROSS', 'licence-issued', '2020-01-01', 2),
+        vintagedClaim('pub-c', '2026-03-01', 'CROSS', 'licence-issued', '2021-01-01', 3),
+        vintagedClaim('pub-a', '2025-12-01', 'DIVERGE', 'licence-issued', '2020-01-01', 4),
+        vintagedClaim('pub-b', '2025-12-01', 'DIVERGE', 'licence-issued', '2019-01-01', 5),
+      ];
+      fs.writeFileSync(path.join(dir, 'fixture.jsonl'), serialiseClaimsJsonl(claims));
+      const c = computeEventTimeCoherency(dir, FIXTURE_PARAMS, []);
+      expect(c.totals).toEqual([
+        { kind: 'licence-issued', classification: 'corroborated', subjects: 1 },
+        { kind: 'licence-issued', classification: 'revised-forward', subjects: 1 },
+        { kind: 'licence-issued', classification: 'same-vintage-divergence', subjects: 1 },
+      ]);
+      expect(c.pairs.find(p => p.classification === 'same-vintage-divergence')?.mechanism).toBeNull();
+      expect(c.exemplars.some(e => e.classification === 'same-vintage-divergence')).toBe(false);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

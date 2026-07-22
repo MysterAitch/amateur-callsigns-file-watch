@@ -177,7 +177,7 @@ export function buildCallsignEventShards(projection: EventTimeProjection, output
   // The S2 mass-episode detector over the projection's own day histogram —
   // identical parameters to the committed coherency report, so an evidence
   // line is annotated here exactly where the report flags the episode.
-  const episodes: Episode[] = mergeEpisodes(detectEpisodeSignals(daySignals, params));
+  const episodes: Episode[] = mergeEpisodes(detectEpisodeSignals(daySignals, params), params);
   const context: StateContext = { episodes };
 
   const episodeIndexOf = (window: { start: string; end: string }): number => {

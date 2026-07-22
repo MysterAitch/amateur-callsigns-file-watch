@@ -770,7 +770,7 @@ SELECT
 // detector, identical parameters) — the context evidence-line annotation
 // consults. Exposed so callers folding several answers detect once.
 export function detectStateContext(source: string | ClaimsSource, params: EpisodeParams = DEFAULT_EPISODE_PARAMS): StateContext {
-  return { episodes: mergeEpisodes(detectEpisodeSignals(foldDaySignals(source), params)) };
+  return { episodes: mergeEpisodes(detectEpisodeSignals(foldDaySignals(source), params), params) };
 }
 
 // One subject's inferred state at t, folded straight from a claims source —

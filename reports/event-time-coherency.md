@@ -18,6 +18,7 @@ Vocabulary (each term below is used only with these meanings):
 - **revised-forward** — a later vintage asserts a LATER date for a past event than an earlier vintage did — a retroactive revision; candidate explanations include a retention-window drop, a reissue/variation, an upstream correction, or an export artefact
 - **revised-backward** — a later vintage asserts an EARLIER date than an earlier vintage did — issue #800 found event-time creep forward-only, so this direction is a finding in its own right; candidate explanations include a republished stale extract or an upstream correction
 - **window-restated** — a forward-looking window end changed — renewal/termination bookkeeping is routine for this kind, recorded but not read as a revision of a past event
+- **same-vintage-divergence** — two datasets sharing ONE vintage assert different dates for the same (subject, event-kind) fact — a divergence WITHIN a vintage, not a revision across vintages. With no time between the two observations the disagreement has no direction, so it is kept distinct rather than forced into an arbitrary revised-forward/revised-backward ordering (which the alphabetical dataset tiebreak would decide either way); candidate explanations include one copy transcribing or re-rendering the other, a mid-vintage upstream correction, or two genuinely independent sources — adjudicated as none
 - **version-window-drop** (mechanism) — the earlier vintage held multiple dated rows for this subject, so a rolling retention window dropping the older rows can explain the movement (issue #800 mechanism A) — candidate, not adjudicated
 - **version-window-extension** (mechanism) — the later vintage carries an older dated row the earlier export did not, while the earlier assertion survives among its rows — a wider retention window rather than a replacement; candidate, not adjudicated
 - **rendering-difference** (mechanism) — the two observations' columns attest DIFFERENT date renderings (day-first CSV vs ISO workbook extract) and the movement is EXACTLY one day — the only shift a day-truncation collision can produce (a 23:00Z timestamp truncates to the previous day against a BST date-only rendering), so the movement may be a rendering artefact rather than any event. Preferred over sole-row-replacement wherever it applies; a movement larger than a day cannot be produced by the collision and keeps its multiplicity-based candidate. Candidate, not adjudicated
@@ -99,8 +100,9 @@ kind is a non-observation, never "nothing happened".
 ## Notable vintage pairs
 
 Pairs of consecutive observations where at least 100 subjects
-were classified as revised, episode-member or window-restated — where the
-register’s story changed between two vintages. The full distribution
+were classified as revised, episode-member, window-restated or
+same-vintage-divergence — where the register’s account of a fact changed
+across vintages, or two datasets of one vintage disagreed. The full distribution
 (every pair, every classification) is re-derivable from the fold
 (src/ci/event-time-coherency.ts).
 
