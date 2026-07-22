@@ -57,6 +57,13 @@
  *                           stated end) changed: renewal and termination
  *                           bookkeeping are routine for this kind, so a change
  *                           is recorded but is not a revision of a past event.
+ *  - same-vintage-divergence — two datasets sharing one vintage assert
+ *                           DIFFERENT dates for the same fact: a divergence
+ *                           within a vintage with no direction in time, kept
+ *                           distinct rather than forced into an arbitrary
+ *                           revised-forward/revised-backward ordering (issue
+ *                           #859 — the alphabetical dataset tiebreak would
+ *                           otherwise flip the direction of the same disagreement).
  *
  * Revision mechanism (issue #800's two mechanisms, distinguishable exactly
  * when the earlier vintage's row multiplicity distinguishes them — a CANDIDATE
@@ -166,6 +173,17 @@ export interface EpisodeParams {
   // rows, not evidence of a mass touch. The full day histogram stays
   // re-derivable regardless — this bounds only what is FLAGGED.
   minPopulated: number;
+  // A ceiling on how wide a merged corpus-level episode may grow, as a
+  // multiple of windowDays: mergeEpisodes unions overlapping per-dataset
+  // windows into one episode, but staggered windows (each ≤ windowDays wide,
+  // each overlapping the next by a day) could chain transitively into a span
+  // covering two genuinely distinct clusters weeks apart. Witnesses of ONE
+  // mass touch cluster on the same days (the two recorded episodes each span
+  // ~20 days, inside a single windowDays), so a merge whose span would exceed
+  // this multiple of windowDays is refused and the far signal opens a new
+  // episode instead. Years-apart episodes never approach this bound; it only
+  // bites a staggered chain that would otherwise fuse distinct clusters.
+  mergeSpanCapMultiple: number;
 }
 
 export const DEFAULT_EPISODE_PARAMS: EpisodeParams = {
@@ -174,6 +192,7 @@ export const DEFAULT_EPISODE_PARAMS: EpisodeParams = {
   edgeTrimShare: 0.01,
   peakDayShare: 0.05,
   minPopulated: 1000,
+  mergeSpanCapMultiple: 2,
 };
 
 // A pair summary row must reach this many subjects to appear in the report's
@@ -241,7 +260,8 @@ export type RevisionClassification =
   | 'episode-member'
   | 'revised-forward'
   | 'revised-backward'
-  | 'window-restated';
+  | 'window-restated'
+  | 'same-vintage-divergence';
 
 export type RevisionMechanism = 'version-window-drop' | 'version-window-extension' | 'rendering-difference' | 'sole-row-replacement';
 
@@ -254,6 +274,7 @@ export const CLASSIFICATION_GLOSSES: ReadonlyMap<RevisionClassification, string>
   ['revised-forward', 'a later vintage asserts a LATER date for a past event than an earlier vintage did — a retroactive revision; candidate explanations include a retention-window drop, a reissue/variation, an upstream correction, or an export artefact'],
   ['revised-backward', 'a later vintage asserts an EARLIER date than an earlier vintage did — issue #800 found event-time creep forward-only, so this direction is a finding in its own right; candidate explanations include a republished stale extract or an upstream correction'],
   ['window-restated', 'a forward-looking window end changed — renewal/termination bookkeeping is routine for this kind, recorded but not read as a revision of a past event'],
+  ['same-vintage-divergence', 'two datasets sharing ONE vintage assert different dates for the same (subject, event-kind) fact — a divergence WITHIN a vintage, not a revision across vintages. With no time between the two observations the disagreement has no direction, so it is kept distinct rather than forced into an arbitrary revised-forward/revised-backward ordering (which the alphabetical dataset tiebreak would decide either way); candidate explanations include one copy transcribing or re-rendering the other, a mid-vintage upstream correction, or two genuinely independent sources — adjudicated as none'],
 ]);
 
 export const MECHANISM_GLOSSES: ReadonlyMap<RevisionMechanism, string> = new Map([
@@ -384,13 +405,22 @@ export function detectEpisodeSignals(days: readonly DaySignal[], params: Episode
 
 // Merge per-dataset signals whose date windows overlap into corpus-level
 // episodes: several vintages (and several bookkeeping columns) each showing
-// the same clustered window are treated as witnesses of ONE episode.
-export function mergeEpisodes(signals: readonly EpisodeSignal[]): Episode[] {
+// the same clustered window are treated as witnesses of ONE episode. A merge
+// is refused — the overlapping signal opens a new episode — when it would
+// stretch the episode's span past mergeSpanCapMultiple × windowDays, so a
+// staggered chain of overlapping windows can never fuse two genuinely distinct
+// clusters weeks apart into one episode (issue #859). params is required so a
+// caller can never silently merge under a different window than it detected on.
+export function mergeEpisodes(signals: readonly EpisodeSignal[], params: EpisodeParams): Episode[] {
+  const capDays = Math.max(params.windowDays, 1) * Math.max(params.mergeSpanCapMultiple, 1);
   const sorted = [...signals].sort((a, b) => a.windowStart.localeCompare(b.windowStart) || a.windowEnd.localeCompare(b.windowEnd));
   const episodes: Episode[] = [];
   for (const signal of sorted) {
     const current = episodes[episodes.length - 1];
-    if (current !== undefined && signal.windowStart <= current.end) {
+    const mergedEnd = current !== undefined && signal.windowEnd > current.end ? signal.windowEnd : current?.end;
+    const withinCap = current !== undefined && mergedEnd !== undefined
+      && dayNumber(mergedEnd) - dayNumber(current.start) <= capDays;
+    if (current !== undefined && signal.windowStart <= current.end && withinCap) {
       current.signals.push(signal);
       if (signal.windowEnd > current.end) current.end = signal.windowEnd;
     } else {
@@ -524,10 +554,14 @@ function episodeMembershipExpr(column: string, episodes: readonly Episode[]): st
 // observation against the previous one in vintage order. The full vocabulary
 // rationale is the module doc-comment; 'first-observation' marks a subject's
 // first appearance for the kind (nothing to compare) and is excluded from
-// every report surface. Each observation carries its dataset+kind's attested
-// date grammar (the '*' rows cover a whole open-data dataset), so a step
-// whose two sides attest DIFFERENT renderings prefers the
-// rendering-difference candidate over sole-row-replacement.
+// every report surface. A step whose two sides share one vintage (two datasets
+// of the same vintage disagreeing) has no direction in time, so it classifies
+// as 'same-vintage-divergence' ahead of any forward/backward branch (issue
+// #859) — the alphabetical dataset tiebreak in the window order must never
+// decide a revised-forward-vs-revised-backward verdict. Each observation
+// carries its dataset+kind's attested date grammar (the '*' rows cover a whole
+// open-data dataset), so a step whose two sides attest DIFFERENT renderings
+// prefers the rendering-difference candidate over sole-row-replacement.
 function classifiedSql(source: ClaimsSource, episodes: readonly Episode[], grammars: readonly AttestedGrammarRow[]): string {
   const bookkeeping = sqlList(kindsWith('bookkeeping'));
   const forwardLooking = sqlList(kindsWith('forward-looking'));
@@ -561,6 +595,7 @@ classified AS (
     CASE
       WHEN prevStat IS NULL THEN 'first-observation'
       WHEN stat = prevStat THEN 'corroborated'
+      WHEN vintage = prevVintage THEN 'same-vintage-divergence'
       WHEN kind IN (${forwardLooking}) THEN 'window-restated'
       WHEN kind IN (${bookkeeping}) AND stat > prevStat AND (${episodeMembershipExpr('stat', episodes)}) THEN 'episode-member'
       WHEN kind IN (${bookkeeping}) AND stat > prevStat THEN 'expected-progression'
@@ -569,6 +604,7 @@ classified AS (
     END AS classification,
     CASE
       WHEN prevStat IS NULL OR stat = prevStat THEN NULL
+      WHEN vintage = prevVintage THEN NULL
       WHEN kind IN (${forwardLooking}) THEN NULL
       WHEN kind IN (${bookkeeping}) AND stat > prevStat THEN NULL
       WHEN stat < prevStat AND nrows > 1 AND prevStat <= latest THEN 'version-window-extension'
@@ -730,7 +766,7 @@ export interface EventTimeCoherency {
 export function computeEventTimeCoherency(source: string | ClaimsSource, params: EpisodeParams = DEFAULT_EPISODE_PARAMS, grammars: readonly AttestedGrammarRow[] = attestedDateGrammars()): EventTimeCoherency {
   const claims = toClaimsSource(source);
   const days = time('coherency:day-signals', () => foldDaySignals(claims));
-  const episodes = mergeEpisodes(detectEpisodeSignals(days, params));
+  const episodes = mergeEpisodes(detectEpisodeSignals(days, params), params);
   const pairs = time('coherency:pair-summary', () => foldPairSummary(claims, episodes, grammars));
   const exemplars = time('coherency:exemplars', () => foldExemplars(claims, episodes, grammars));
   const corroboration = time('coherency:corroboration', () => foldCorroboration(claims));
@@ -799,7 +835,7 @@ function mdCode(value: string): string {
 // The revision classes a notable-pair row is reported for: the routine bulk
 // (corroborated, expected-progression) stays in the totals; the pairs table
 // exists to locate WHERE the register's story changed.
-const NOTABLE_CLASSES: ReadonlySet<string> = new Set(['revised-forward', 'revised-backward', 'episode-member', 'window-restated']);
+const NOTABLE_CLASSES: ReadonlySet<string> = new Set(['revised-forward', 'revised-backward', 'episode-member', 'window-restated', 'same-vintage-divergence']);
 
 export function renderEventTimeCoherency(c: EventTimeCoherency): string {
   const lines: string[] = [
@@ -825,7 +861,10 @@ export function renderEventTimeCoherency(c: EventTimeCoherency): string {
     'The deliberately naive v1 spike rule (issue #725): flag any window of at',
     `most ${c.params.windowDays} days holding more than ${pct(c.params.shareThreshold)} of a dataset’s`,
     'populated dates for one event kind; overlapping windows across datasets',
-    `and kinds merge into one episode. A dataset needs at least ${num(c.params.minPopulated)}`,
+    'and kinds merge into one episode — but only while the merged span stays',
+    `within ${num(c.params.mergeSpanCapMultiple * c.params.windowDays)} days (${num(c.params.mergeSpanCapMultiple)}× the window): a wider staggered chain of`,
+    'overlapping windows is refused and splits into separate episodes rather',
+    `than fusing two distinct clusters. A dataset needs at least ${num(c.params.minPopulated)}`,
     'populated dates for a kind to count as episode evidence — a majority of a',
     'sparse column is a handful of rows, not a mass touch. Window and',
     'threshold are tuning parameters — a spread-out episode (the recorded 2024 rolling',
@@ -869,8 +908,9 @@ export function renderEventTimeCoherency(c: EventTimeCoherency): string {
     '## Notable vintage pairs',
     '',
     `Pairs of consecutive observations where at least ${num(NOTABLE_PAIR_MIN)} subjects`,
-    'were classified as revised, episode-member or window-restated — where the',
-    'register’s story changed between two vintages. The full distribution',
+    'were classified as revised, episode-member, window-restated or',
+    'same-vintage-divergence — where the register’s account of a fact changed',
+    'across vintages, or two datasets of one vintage disagreed. The full distribution',
     '(every pair, every classification) is re-derivable from the fold',
     '(src/ci/event-time-coherency.ts).',
     '',
