@@ -94,6 +94,7 @@ interface EventsMeta {
   rules: { id: string; gloss: string }[];
   caveats: { id: string; label: string; gloss: string }[];
   episodes: { start: string; end: string }[];
+  seriesIntro: Record<string, string>;
   shards: string[];
 }
 
@@ -208,6 +209,24 @@ describe('callsign event shards (issue #726)', { tags: ['unit'] }, () => {
       expect(caveat.label.trim().length, caveat.id).toBeGreaterThan(0);
       expect(caveat.gloss.trim().length, caveat.id).toBeGreaterThan(0);
     }
+  });
+
+  it('EventShardsMeta_SeriesIntroMap_CarriesEachRecordedSeriesIntroductionMonth', () => {
+    // Issue #921: the dial's series-introduction context marker reads meta.json,
+    // so the builder must ship each prefix series' introduction month from
+    // reference-data/prefix-formats.csv. Series with a recorded month appear;
+    // series without one (the long-standing prefixes) are absent, never blank.
+    const { meta } = build(fixtureProjection());
+    expect(meta.seriesIntro.M7).toBe('2018-10');
+    expect(meta.seriesIntro.M8).toBe('2025-10');
+    expect(meta.seriesIntro.M9).toBe('2025-10');
+    expect(meta.seriesIntro).not.toHaveProperty('M0');
+    expect(meta.seriesIntro).not.toHaveProperty('G4');
+    // Every recorded value is an ISO year-month, and the map is sorted so the
+    // meta stays byte-deterministic across builds.
+    for (const month of Object.values(meta.seriesIntro)) expect(month).toMatch(/^\d{4}-\d{2}$/);
+    const keys = Object.keys(meta.seriesIntro);
+    expect(keys).toEqual([...keys].sort());
   });
 
   it('KindAndCaveatLabels_AreTotalOverTheAuthoredVocabularies', () => {

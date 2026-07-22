@@ -975,14 +975,36 @@ jobs:
           # db-size/aggregate-stamped pages) is in place, so the hash covers the
           # final deployed bytes.
           node src/ci/build-sw-precache.ts _site/v0/sw.js
-      # Preserve every old root URL (issue #921). The whole site now assembles
-      # under _site/v0, so mirror each emitted v0 page with a thin redirect stub
-      # at its former root path: canonical to /v0/, instant <meta> refresh, and
-      # a no-JavaScript fallback anchor. Runs immediately after assembly, once
-      # every v0 page exists. claimedRootPaths is empty here - the v1 shell PR
-      # later claims index.html/callsign.html/how-to-get-the-raw-data.html.
-      - name: Build v0 root redirect stubs
-        run: node src/ci/build-v0-redirect-stubs.ts _site/v0 _site --base-url=https://mysteraitch.github.io/amateur-callsigns-file-watch/v0
+      # Land the v1 shell at the deploy root (issue #921). The v1 pages plus
+      # their modules and stylesheets copy flat into _site/, so the root serves
+      # the v1 front door (index.html, callsign.html, how-to-get-the-raw-data.html
+      # and the honest 404.html). Every v1 asset references its siblings
+      # relatively (tokens.css, shell.js, the shared modules beside it), and the
+      # v1 surface points at nothing under _site/v0 - the v1-self-containment
+      # test enforces that. The site-deploy-coverage test guards that this glob
+      # ships every deployable v1 file.
+      - name: Copy the v1 shell to the deploy root
+        run: cp site/v1/*.html site/v1/*.js site/v1/*.css _site/
+      # Deploy the shared pure data modules at the root too, so the v1 callsign
+      # page resolves entirely from the root and never reaches into _site/v0.
+      # The builder computes the full import closure of the modules the page
+      # loads, so a new dependency is shipped automatically (the deploy-coverage
+      # test pins the closure). These are byte-identical to the copies under
+      # _site/v0 - a few tens of KB hosted twice during migration.
+      - name: Deploy the v1 shared modules at the root
+        run: node src/ci/build-v1-shared-modules.ts site _site
+      # Duplicate the prefix-sharded callsign data at the root (hard-linked, so
+      # it costs inodes not bytes) - the v1 callsign page fetches it from
+      # _site/callsign/data/ rather than reaching into _site/v0. The v0 tree
+      # keeps its own copy untouched.
+      - name: Deploy the callsign data at the root
+        run: |
+          mkdir -p _site/callsign/data
+          cp -al _site/v0/callsign/data/. _site/callsign/data/
+      # Root discovery files (issue #921): a slim sitemap.xml listing the three
+      # launched v1 URLs and a robots.txt pointing at it.
+      - name: Build the root discovery files
+        run: node src/ci/build-root-discovery.ts _site https://mysteraitch.github.io/amateur-callsigns-file-watch
       # Pages upload is a deploy-only concern: gated to main so a PR builds and
       # assembles _site (the pre-merge coverage) but never uploads an artefact.
       - if: github.ref == 'refs/heads/main'

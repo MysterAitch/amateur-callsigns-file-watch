@@ -6,13 +6,13 @@
 <title>Look up a callsign · callsign-record</title>
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="shell.css">
-<script type="module" src="callsign.js"></script>
+<script type="module" src="callsign-page.js"></script>
 </head>
-<!-- One static template, resolved client-side from ?c=<value> (the same
-     convention the previous version uses for ?q=). The header, nav and footer
-     read with JavaScript off; the lookup form below is a plain GET form, so a
-     JavaScript-off visitor can still submit a callsign. callsign.js resolves
-     the value in-browser and mounts the config-array sections. -->
+<!-- One static template, resolved client-side from ?c=<value>. The header, nav
+     and footer read with JavaScript off; the lookup form below is a plain GET
+     form, so a JavaScript-off visitor can still submit a callsign.
+     callsign-page.js resolves the value in-browser and mounts the config-array
+     sections. -->
 <body>
 
 <div id="sitebar">
@@ -21,14 +21,12 @@
       <div class="topbar">
         <span class="id">callsign-record</span>
         <span>uk amateur register mirror</span>
-        <a class="chip asof" href="v0/data-status.html" title="Build-derived fact: the newest publication held is dated 23 June 2026, and 65 publications are held in total. This page was generated from that set.">Record as of 23 June 2026 · <b>65</b> publications held</a>
+        <span class="chip asof" title="Build-derived fact: the newest publication held is dated 23 June 2026, and 65 publications are held in total. This page was generated from that set.">Record as of 23 June 2026 · <b>65</b> publications held</span>
       </div>
       <nav class="journeys" aria-label="Journeys">
         <a href="index.html">Home</a><span class="sep">·</span>
         <a href="callsign.html" aria-current="page">Look up</a><span class="sep">·</span>
-        <a href="v0/on-this-day.html">Explore the history <span class="v0mark">(previous version)</span></a><span class="sep">·</span>
-        <a href="v0/explore.html">Browse &amp; query <span class="v0mark">(previous version)</span></a><span class="sep">·</span>
-        <a href="v0/about.html">How the record works <span class="v0mark">(previous version)</span></a>
+        <a href="how-to-get-the-raw-data.html">Get the raw data</a>
       </nav>
     </div>
   </header>
@@ -60,7 +58,7 @@
 <div id="sitefooter">
   <footer class="sitefoot">
     <div class="wrap">
-      <p class="foot-prov">callsign-record · uk amateur register mirror<br>A projection of the archived publications. Absence here is never evidence about the register. Values as published, not independently verified · not affiliated with or endorsed by Ofcom · <a href="v0/index.html">the previous, fuller-featured version</a></p>
+      <p class="foot-prov">callsign-record · uk amateur register mirror<br>A projection of the archived publications. Absence here is never evidence about the register. Values as published, not independently verified · not affiliated with or endorsed by Ofcom</p>
     </div>
   </footer>
 </div>

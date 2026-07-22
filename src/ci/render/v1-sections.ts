@@ -35,9 +35,9 @@ export type CallsignSectionId = (typeof CALLSIGN_SECTION_ORDER)[number];
 export type SectionId = HomeSectionId | CallsignSectionId;
 
 // One registered section: an id and a renderer producing the section's inner
-// HTML. Server-side rendering of the v1 bodies is deferred to the wiring PR, so
-// each renderer here emits the section's canonical heading scaffold — a real,
-// stable artefact the wiring PR fills in.
+// HTML. This build-side registry emits each section's canonical heading
+// scaffold (the JavaScript-off baseline and the drift-guard's anchor); the
+// browser twins mount the live, data-driven section bodies over it.
 export interface SectionDef<Ctx> {
   id: string;
   heading: string;

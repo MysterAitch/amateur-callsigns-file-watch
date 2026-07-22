@@ -9,10 +9,10 @@
 <script type="module" src="home.js"></script>
 </head>
 <!-- The static markup below is the JavaScript-off baseline: the header (with
-     the dated-fact chip), the five-journey nav, the lookup hero (a plain GET
-     form that resolves without JavaScript), the ways-in cards and the scope
-     note all read with no script. home.js re-mounts the shell and sections from
-     the copy registry as a progressive enhancement. -->
+     the dated-fact chip), the journey nav, the lookup hero (a plain GET form
+     that resolves without JavaScript), the ways-in cards and the scope note all
+     read with no script. home.js re-mounts the shell and sections from the copy
+     registry as a progressive enhancement. -->
 <body>
 
 <div id="sitebar">
@@ -21,14 +21,12 @@
       <div class="topbar">
         <span class="id">callsign-record</span>
         <span>uk amateur register mirror</span>
-        <a class="chip asof" href="v0/data-status.html" title="Build-derived fact: the newest publication held is dated 23 June 2026, and 65 publications are held in total. This page was generated from that set.">Record as of 23 June 2026 · <b>65</b> publications held</a>
+        <span class="chip asof" title="Build-derived fact: the newest publication held is dated 23 June 2026, and 65 publications are held in total. This page was generated from that set.">Record as of 23 June 2026 · <b>65</b> publications held</span>
       </div>
       <nav class="journeys" aria-label="Journeys">
         <a href="index.html" aria-current="page">Home</a><span class="sep">·</span>
         <a href="callsign.html">Look up</a><span class="sep">·</span>
-        <a href="v0/on-this-day.html">Explore the history <span class="v0mark">(previous version)</span></a><span class="sep">·</span>
-        <a href="v0/explore.html">Browse &amp; query <span class="v0mark">(previous version)</span></a><span class="sep">·</span>
-        <a href="v0/about.html">How the record works <span class="v0mark">(previous version)</span></a>
+        <a href="how-to-get-the-raw-data.html">Get the raw data</a>
       </nav>
     </div>
   </header>
@@ -72,9 +70,7 @@
         <div class="lbl">ways in</div>
         <div class="modules">
           <div class="mod"><div class="top"><div class="name"><a href="callsign.html">Look up a callsign</a></div><span class="idx">01</span></div><p class="say">One callsign, resolved from a single small fetch: latest register state, parsed anatomy, and every sighting across the archive.</p></div>
-          <div class="mod"><div class="top"><div class="name"><a href="v0/on-this-day.html">Explore the history</a></div><span class="idx">02</span></div><p class="say">Trace a licence chain across the decades, or read the record’s own timeline: series introductions, forbidden suffixes, on-this-day.</p></div>
-          <div class="mod"><div class="top"><div class="name"><a href="v0/explore.html">Browse &amp; query the data</a></div><span class="idx">03</span></div><p class="say">Query the whole corpus in-browser over HTTP range requests. A link can carry a query, so a URL can point straight at a result.</p><div class="re"><a href="how-to-get-the-raw-data.html">get the raw data</a></div></div>
-          <div class="mod"><div class="top"><div class="name"><a href="v0/about.html">How the record works</a></div><span class="idx">04</span></div><p class="say">Method, provenance and limits: what is folded in, how a claim resolves to its byte, and what the record deliberately does not assert.</p></div>
+          <div class="mod"><div class="top"><div class="name"><a href="how-to-get-the-raw-data.html">Get the raw data</a></div><span class="idx">02</span></div><p class="say">Every archived publication is preserved byte-for-byte in the open repository, with provenance carried to the byte. See how to download the files and the databases folded from them.</p></div>
         </div>
       </section>
 
@@ -100,7 +96,7 @@
 <div id="sitefooter">
   <footer class="sitefoot">
     <div class="wrap">
-      <p class="foot-prov">callsign-record · uk amateur register mirror<br>provenance carried to the byte in the raw-keyed claim ledger · values as published, not independently verified · not affiliated with or endorsed by Ofcom · <a href="v0/index.html">the previous, fuller-featured version</a></p>
+      <p class="foot-prov">callsign-record · uk amateur register mirror<br>provenance carried to the byte in the raw-keyed claim ledger · values as published, not independently verified · not affiliated with or endorsed by Ofcom</p>
     </div>
   </footer>
 </div>

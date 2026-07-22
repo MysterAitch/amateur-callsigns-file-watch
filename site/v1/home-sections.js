@@ -8,7 +8,6 @@
 // build-stampable figures ride in the model with grounded defaults.
 
 import { V1_COPY, EVENT_TIME_GLOSS, ASSERTION_TIME_GLOSS } from './copy.js';
-import { v0Href } from './shell.js';
 
 // The bitemporal glosses are imported so the home module participates in the
 // same verbatim-gloss guarantee the dial does (they are re-exported for any
@@ -53,7 +52,7 @@ export function defaultHomeModel() {
     facts: { date: '23 June 2026', count: 65 },
     // Holdings readouts. Figures grounded in reports/curiosity-index.md (the
     // newest publication, 2026-06-23, holds 158,318 records) and the archive
-    // span; build-stamped in the wiring PR.
+    // span; grounded defaults, overridable at build time.
     glance: [
       { k: 'publications', v: '65', u: 'folded, 2013–2026' },
       { k: 'callsigns', v: '158,318', u: 'latest register' },
@@ -154,13 +153,11 @@ function mountAtAGlance(host, model) {
 function mountWaysIn(host) {
   host.appendChild(el('div', 'lbl', V1_COPY.home.waysInLabel));
   const grid = el('div', 'modules');
-  // Event-first order: Look up · Explore the history, then Browse & query ·
-  // How the record works.
+  // Only the journeys the v1 surface serves. Unmigrated destinations do not
+  // appear here — nothing on the surface points off it.
   const cards = [
     { idx: '01', card: V1_COPY.home.cards.lookup, href: 'callsign.html' },
-    { idx: '02', card: V1_COPY.home.cards.history, href: v0Href('on-this-day.html') },
-    { idx: '03', card: V1_COPY.home.cards.browse, href: v0Href('explore.html'), extra: { href: 'how-to-get-the-raw-data.html', label: 'get the raw data' } },
-    { idx: '04', card: V1_COPY.home.cards.how, href: v0Href('about.html') },
+    { idx: '02', card: V1_COPY.home.cards.rawData, href: 'how-to-get-the-raw-data.html' },
   ];
   for (const c of cards) {
     const mod = el('div', 'mod');
@@ -171,11 +168,6 @@ function mountWaysIn(host) {
     top.appendChild(el('span', 'idx', c.idx));
     mod.appendChild(top);
     mod.appendChild(el('p', 'say', c.card.say));
-    if (c.extra !== undefined) {
-      const re = el('div', 're');
-      re.appendChild(link(c.extra.href, c.extra.label));
-      mod.appendChild(re);
-    }
     grid.appendChild(mod);
   }
   host.appendChild(grid);

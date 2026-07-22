@@ -21,7 +21,15 @@ import { shellAssetNames } from './build-sw-precache.ts';
 // point on sw.js.
 
 const SITE_DIR = 'site';
+const SITE_V1_DIR = path.join('site', 'v1');
 const PAGES_WORKFLOW = path.join('.github', 'workflows', 'cicd.yaml');
+
+// The v1 shell's deployable assets - the pages, modules and stylesheets copied
+// flat to the deploy root (issue #921). *.test.ts are tooling, not shipped.
+const V1_DEPLOYABLE_EXT = ['.html', '.js', '.css'];
+function v1DeployableFiles(): string[] {
+  return fs.readdirSync(SITE_V1_DIR).filter(f => V1_DEPLOYABLE_EXT.includes(path.extname(f)) && !f.endsWith('.test.ts'));
+}
 
 // Every browser module in site/. The service worker is deployed but never
 // precaches itself, and *.test.ts are tooling, not shipped assets.
@@ -74,6 +82,37 @@ describe('site deploy coverage', { tags: ['unit'] }, () => {
     expect(globLine ?? '').toMatch(/site\/\*\.css\b/);
     expect(globLine ?? '').toMatch(/site\/\*\.webmanifest\b/);
     expect(globLine ?? '', 'the site-asset glob copy must target _site/v0/').toMatch(/\s_site\/v0\/\s*$/);
+  });
+
+  it('DeployV1CopyStep_ShipsEveryV1Asset_ViaGlobIntoTheDeployRoot', () => {
+    // Issue #921: the v1 shell copies flat into the deploy ROOT (not /v0/), so
+    // the three v1 pages own the root. The copy is glob-based by extension, so a
+    // new v1 module cannot be forgotten - but a v1 asset with an extension
+    // OUTSIDE the globbed set would be silently dropped, so this guard fails
+    // loudly if one ever appears (forcing the glob to be widened alongside it).
+    const wf = fs.readFileSync(PAGES_WORKFLOW, 'utf8').replace(/\r\n/g, '\n');
+    const globLine = wf.split('\n').find(l => /\bcp\b[^\n]*site\/v1\/\*\.html\b/.test(l));
+    expect(globLine, 'the v1-shell copy step is missing').toBeDefined();
+    expect(globLine ?? '').toMatch(/site\/v1\/\*\.js\b/);
+    expect(globLine ?? '').toMatch(/site\/v1\/\*\.css\b/);
+    // It must land at the bare deploy root, not the /v0/ re-root.
+    expect(globLine ?? '', 'the v1 shell must copy into the bare _site/ root').toMatch(/\s_site\/\s*$/);
+    // Every deployable v1 file's extension must be covered by the glob set.
+    const globbed = new Set([...(globLine ?? '').matchAll(/site\/v1\/\*(\.[a-z]+)\b/g)].map(m => m[1]));
+    const uncovered = v1DeployableFiles().filter(f => !globbed.has(path.extname(f)));
+    expect(uncovered, `v1 deployable files with no matching copy glob: ${uncovered.join(', ')}`).toEqual([]);
+  });
+
+  it('V1SiteModuleImports_EveryTarget_ResolvesToAShippedV1File', () => {
+    // The v1 modules import each other by './name.js'; every such target must be
+    // a real file in site/v1 (the flat copy ships them all together).
+    const present = new Set(fs.readdirSync(SITE_V1_DIR));
+    for (const mod of v1DeployableFiles().filter(f => f.endsWith('.js'))) {
+      const src = fs.readFileSync(path.join(SITE_V1_DIR, mod), 'utf8');
+      for (const m of src.matchAll(/from\s+['"]\.\/([a-z0-9-]+\.js)['"]/g)) {
+        expect(present.has(m[1]), `${mod} imports ./${m[1]}, which is not a file in site/v1/`).toBe(true);
+      }
+    }
   });
 
   it('DeployStep_StampsThePrecacheManifest_IntoTheWorker', () => {
