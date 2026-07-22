@@ -327,8 +327,9 @@ describe('Playground page deploy integrity', { tags: ['ui'] }, () => {
   it('PlaygroundPage_ShipsToTheDeployWithCanonicalNav', () => {
     const wf = fs.readFileSync(PAGES_WORKFLOW, 'utf8');
     // The asset globs already carry every site .html/.js; the nav injector must
-    // be handed the page too, or its deployed copy keeps a stale hand-written nav.
-    expect(wf).toMatch(/build-nav\.ts[^\n]*\b_site\/playground\.html\b/);
+    // be handed the page too, or its deployed copy keeps a stale hand-written
+    // nav. The site assembles under the /v0/ re-root (#921).
+    expect(wf).toMatch(/build-nav\.ts[^\n]*\b_site\/v0\/playground\.html\b/);
   });
 
   it('PlaygroundPage_CarriesNavMarkersAndHonestScopeFraming', () => {

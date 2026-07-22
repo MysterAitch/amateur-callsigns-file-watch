@@ -879,7 +879,7 @@ jobs:
           # committed archive. meta.json and the raw files stay archive reads.
           BUILDER_PROJECTION_DIR: ${{ github.workspace }}/.builder-projection
         run: |
-          mkdir -p _site/data _site/vendor .perf-reports
+          mkdir -p _site/v0/data _site/v0/vendor .perf-reports
           # Publish the built databases - restored from the cache above, or freshly
           # built on a miss. -l HARDLINKS instead of copying: .dbstage and _site
           # share one filesystem, so the multi-GB databases are named twice, not
@@ -888,13 +888,13 @@ jobs:
           # fresh separate file - so the shared inodes are safe and the .dbstage
           # the cache re-saves is unchanged. -a preserves the datasets/ subtree
           # and the chunks.
-          cp -al .dbstage/. _site/data/
+          cp -al .dbstage/. _site/v0/data/
           # Version stamp: the app appends ?v=<sha> to the database URL so each
           # deploy is a distinct CDN cache object - two deploys inside the Pages
           # max-age window otherwise mix range chunks from different database
           # versions (observed live: "database disk image is malformed"). Written
           # fresh each deploy, so it is deliberately NOT part of the cached .dbstage.
-          printf '%s' "$GITHUB_SHA" > _site/data/version.txt
+          printf '%s' "$GITHUB_SHA" > _site/v0/data/version.txt
           # Deploy provenance for page footers: the commit's own timestamp and this
           # build's time (the run id/number/url come from the standard GITHUB_* env
           # vars the generator reads). Declare then export separately so the
@@ -905,59 +905,59 @@ jobs:
           # Dataset index (issue #149 item 3): per-entry pages publishing the
           # archived files verbatim at stable URLs + Frictionless descriptors +
           # sitemap.xml - the Wayback Machine crawl seed.
-          PERF=1 PERF_JSON=.perf-reports/build-dataset-pages.json node src/ci/build-dataset-pages.ts _site
+          PERF=1 PERF_JSON=.perf-reports/build-dataset-pages.json node src/ci/build-dataset-pages.ts _site/v0 https://mysteraitch.github.io/amateur-callsigns-file-watch/v0
           # Copy every hand-authored site asset by glob rather than a hand-listed
           # set: a module added later (and imported by app.js et al) is deployed
           # automatically, so a missing import can no longer break the live pages.
           # The site-deploy-coverage test guards this contract.
-          cp site/*.html site/*.js site/*.css site/*.webmanifest _site/
+          cp site/*.html site/*.js site/*.css site/*.webmanifest _site/v0/
           # Stamp the real, current database sizes into the [[db-size:*]]
           # placeholders the size labels carry (issue #499), so they never drift as
           # the databases grow - the combined database was labelled "257 MB" long
           # after it passed 1 GB. Reads the published databases; fails loudly if one
           # is missing.
-          node src/ci/build-db-sizes.ts _site
+          node src/ci/build-db-sizes.ts _site/v0
           # Version-stamp the service worker (ADR 0008). The browser re-installs a
           # worker only when its script bytes change, so writing the commit SHA into
           # DEPLOY_VERSION makes each deploy supersede the last. Same rationale as
           # the database ?v= stamp above.
-          sed -i "s/const DEPLOY_VERSION = 'dev';/const DEPLOY_VERSION = '$GITHUB_SHA';/" _site/sw.js
+          sed -i "s/const DEPLOY_VERSION = 'dev';/const DEPLOY_VERSION = '$GITHUB_SHA';/" _site/v0/sw.js
           # The statistics page's aggregates (locator matrix, flags table) are
           # deterministic per deploy - pre-rendered so the page is fully static.
-          node src/ci/build-home-aggregates.ts _site/statistics.html
+          node src/ci/build-home-aggregates.ts _site/v0/statistics.html
           # The home page's build-time surfaces (issue #712): the corpus-wide
           # holdings map (every dataset, one lettered cell deep-linking to its
           # page) and the headline figures, pre-rendered from the committed
           # archive so the front door works with JavaScript off. Runs after the
           # site copy above (which lands index.html in _site) and after
           # build-dataset-pages, which builds the dataset pages the map links to.
-          node src/ci/build-front-door.ts _site/index.html
+          node src/ci/build-front-door.ts _site/v0/index.html
           # The /data-status coverage tracker (issue #376): the dataset ×
           # processing-stage grid, per-type rollup, known-but-absent work-queue and
           # series/gap view - all derived here from the committed archive and the
           # source register, never hand-maintained.
-          node src/ci/build-data-status.ts _site/data-status.html
+          node src/ci/build-data-status.ts _site/v0/data-status.html
           # The instant per-callsign page's data (issue #594): prefix-sharded
           # static JSON + the datasets.json manifest, a deterministic projection
           # of the same archived publications the databases fold. Built fresh
           # each deploy (fast, byte-deterministic) rather than riding the
           # .dbstage cache, whose key does not cover this builder.
-          node src/ci/build-callsign-shards.ts _site/callsign/data
+          node src/ci/build-callsign-shards.ts _site/v0/callsign/data
           # The event-time surfaces (issue #726): the per-callsign event
           # strip's sharded JSON (+ meta) under _site/callsign/data/events/
           # and the on-this-day calendar page - one pass over the same
           # canonical inputs, run through the S1 event-date emit path
           # in-process (the claim ledger stays the deep-provenance surface).
-          node src/ci/build-event-time-surfaces.ts _site
+          node src/ci/build-event-time-surfaces.ts _site/v0
           # The About page's licensing/provenance acknowledgement (issue #560)
           # is derived from the publisher register at build time - one line
           # per publisher, so it cannot drift out of step with
           # reference-data/publishers.json. Runs after build-dataset-pages
           # above, which is what builds the publisher pages this links to.
-          node src/ci/build-about-acknowledgement.ts _site/about.html
+          node src/ci/build-about-acknowledgement.ts _site/v0/about.html
           # Stamp the canonical nav strip (the single source, navHtml in
           # site-render.ts) into every hand-authored page (issue #308).
-          node src/ci/build-nav.ts _site/index.html _site/statistics.html _site/explore.html _site/compare.html _site/ledger.html _site/callsign.html _site/playground.html _site/data-status.html _site/glossary.html _site/about.html
+          node src/ci/build-nav.ts _site/v0/index.html _site/v0/statistics.html _site/v0/explore.html _site/v0/compare.html _site/v0/ledger.html _site/v0/callsign.html _site/v0/playground.html _site/v0/data-status.html _site/v0/glossary.html _site/v0/about.html
           # sql.js-httpvfs is served from the npm-audited package, vendored at build
           # time - no CDN scripts, nothing committed. The sourcemap is included so
           # browser devtools stop 404ing for it.
@@ -965,7 +965,7 @@ jobs:
              node_modules/sql.js-httpvfs/dist/index.js.map \
              node_modules/sql.js-httpvfs/dist/sqlite.worker.js \
              node_modules/sql.js-httpvfs/dist/sql-wasm.wasm \
-             _site/vendor/
+             _site/v0/vendor/
           # Stamp the service-worker precache manifest (issue #614). Enumerates
           # the shipped static shell by the same rule the deploy-coverage guard
           # enforces and injects it into sw.js's SHELL_ASSETS, plus a content-hash
@@ -974,7 +974,15 @@ jobs:
           # Runs LAST, after every asset (incl. vendored library and the nav/
           # db-size/aggregate-stamped pages) is in place, so the hash covers the
           # final deployed bytes.
-          node src/ci/build-sw-precache.ts _site/sw.js
+          node src/ci/build-sw-precache.ts _site/v0/sw.js
+      # Preserve every old root URL (issue #921). The whole site now assembles
+      # under _site/v0, so mirror each emitted v0 page with a thin redirect stub
+      # at its former root path: canonical to /v0/, instant <meta> refresh, and
+      # a no-JavaScript fallback anchor. Runs immediately after assembly, once
+      # every v0 page exists. claimedRootPaths is empty here - the v1 shell PR
+      # later claims index.html/callsign.html/how-to-get-the-raw-data.html.
+      - name: Build v0 root redirect stubs
+        run: node src/ci/build-v0-redirect-stubs.ts _site/v0 _site --base-url=https://mysteraitch.github.io/amateur-callsigns-file-watch/v0
       # Pages upload is a deploy-only concern: gated to main so a PR builds and
       # assembles _site (the pre-merge coverage) but never uploads an artefact.
       - if: github.ref == 'refs/heads/main'
@@ -1036,7 +1044,9 @@ jobs:
       # data/version.txt and the generated-page footer.
       - run: node src/ci/smoke-test.ts "$PAGES_URL"
         env:
-          PAGES_URL: ${{ needs.deploy.outputs.page_url }}
+          # The site serves under /v0/ (issue #921); the root URLs are redirect
+          # stubs, so the post-deploy checks target the live /v0/ tree directly.
+          PAGES_URL: ${{ needs.deploy.outputs.page_url }}v0/
 
   # Post-deploy browser-console check (issue #497 follow-up): loads a selection of
   # pages in headless Chromium (Playwright) against the LIVE deployment and fails
@@ -1064,7 +1074,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node src/ci/console-check.ts "$PAGES_URL"
         env:
-          PAGES_URL: ${{ needs.deploy.outputs.page_url }}
+          # The site serves under /v0/ (issue #921); the root URLs are redirect
+          # stubs, so the post-deploy checks target the live /v0/ tree directly.
+          PAGES_URL: ${{ needs.deploy.outputs.page_url }}v0/
 
   # Post-deploy functionality check (issue #497 follow-up): drives the PRIMARY
   # interaction on each dynamic page in headless Chromium and verifies, content-
@@ -1090,4 +1102,6 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node src/ci/functionality-check.ts "$PAGES_URL"
         env:
-          PAGES_URL: ${{ needs.deploy.outputs.page_url }}
+          # The site serves under /v0/ (issue #921); the root URLs are redirect
+          # stubs, so the post-deploy checks target the live /v0/ tree directly.
+          PAGES_URL: ${{ needs.deploy.outputs.page_url }}v0/

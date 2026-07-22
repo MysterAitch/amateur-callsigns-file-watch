@@ -179,6 +179,43 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
     expect(block, 'data-validation gained BUILDER_PROJECTION_DIR - it would validate the projection instead of the committed record').not.toContain('BUILDER_PROJECTION_DIR:');
   });
 
+  it('SiteAssembly_TargetsTheV0Reroot_NotTheBareDeployRoot', () => {
+    // Issue #921: the whole generated site now assembles under _site/v0 so a
+    // bare-bones v1 can own the deploy root. Every builder invocation and copy
+    // in the assemble step must target _site/v0, and the dataset-pages sitemap
+    // must carry the /v0 baseUrl (its URLs move too). A builder left writing to
+    // the bare root would publish half the tree at the root and collide with
+    // the redirect stubs that now own those paths.
+    const block = jobBlock(workflow(), 'build-site-databases');
+    expect(block, 'dataset-pages must build into _site/v0 with the /v0 baseUrl').toContain(
+      'node src/ci/build-dataset-pages.ts _site/v0 https://mysteraitch.github.io/amateur-callsigns-file-watch/v0',
+    );
+    expect(block).toContain('cp -al .dbstage/. _site/v0/data/');
+    expect(block).toContain('> _site/v0/data/version.txt');
+    expect(block).toMatch(/cp site\/\*\.html[^\n]*\s_site\/v0\//);
+    expect(block).toContain('node src/ci/build-callsign-shards.ts _site/v0/callsign/data');
+    expect(block).toContain('node src/ci/build-event-time-surfaces.ts _site/v0');
+    expect(block).toContain('node src/ci/build-nav.ts _site/v0/index.html');
+    expect(block).toContain('node src/ci/build-sw-precache.ts _site/v0/sw.js');
+    // No page builder may still write to the bare deploy root.
+    expect(block, 'a page builder still targets the bare _site root').not.toMatch(
+      /node src\/ci\/build-[a-z-]+\.ts _site\/(?!v0)/,
+    );
+  });
+
+  it('V0RedirectStubs_AreBuiltFromTheV0Tree_AfterAssembly', () => {
+    // Issue #921: a thin redirect stub mirrors every emitted v0 page at its
+    // former root URL, so no deep link breaks while v1 launches at the root.
+    // The step must read the assembled _site/v0 tree, write into the deploy
+    // root, and run AFTER assembly - before which the v0 pages do not yet exist.
+    const block = jobBlock(workflow(), 'build-site-databases');
+    const stub = block.indexOf('node src/ci/build-v0-redirect-stubs.ts _site/v0 _site');
+    const assembleEnd = block.indexOf('node src/ci/build-sw-precache.ts _site/v0/sw.js');
+    expect(stub, 'the v0 redirect-stub step is missing from build-site-databases').toBeGreaterThan(-1);
+    expect(assembleEnd, 'the assemble step is missing').toBeGreaterThan(-1);
+    expect(stub, 'the redirect stubs are built before assembly completes').toBeGreaterThan(assembleEnd);
+  });
+
   it('BuildCaches_UseTheTestExcludingClosureHash_NotBareHashFiles', () => {
     // #517: build-cache keys are the test-excluding closure hash, so a test-only
     // change no longer rebuilds the corpus. A regression to `hashFiles(...)` would
