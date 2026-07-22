@@ -54,6 +54,21 @@ assertion instant and classifies cleanly; a month-keyed vintage is a span,
 and only the bands that hold under every day of the month are asserted —
 the residual is reported as undeterminable, never guessed.
 
+### An era boundary: the rest period changed in October 2025
+
+The two-year window is **era-scoped**. The cited 2019 FOI statement (reaffirmed
+by the December 2023 FOI response) describes a two-year cooling period; Ofcom’s
+October 2025 licensing guidance moved the callsign rest period to **five years**
+(“in all circumstances”), alongside the portal changes that introduced the
+M8/M9 corresponding-callsign scheme (issues #863, #915). So a `reserved-until`
+end asserted from a post-October-2025 vintage should be read against a
+five-year, not a two-year, expectation. This report does not silently re-scope
+the check: it still classifies every observation against the on-the-record
+two-year statement — the corpus’s reservation evidence predates the change —
+and flags this era boundary so that a future longer-than-stated observation
+from a 2025-10-or-later vintage is read as a candidate policy change (the named
+candidate under `longer-than-stated`), never as an anomaly. Flag, not verdict.
+
 ### Finding vocabulary
 
 Each observation lands in exactly one class (used only with these meanings):

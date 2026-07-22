@@ -57,6 +57,16 @@ export interface OnThisDayEntry {
   // Indices into the projection's dataset list — the assertion-time citation.
   datasetIdxs: number[];
   caveats: StateCaveat[];
+  // The month the series was introduced (ISO yyyy-mm), from the reference data;
+  // '' when the reference data records none. Only meaningful for a start entry.
+  seriesIntroduced: string;
+  // True when this is an earliest-START entry whose event day predates the
+  // series' own recorded introduction: the licence-version original start is
+  // then carried licence history (the licence chain's origin), NOT the
+  // callsign's issuance — the callsign did not exist that early (issues
+  // #915/#918). A superlative rendered without this reads as "the series had a
+  // start that year", which is false at callsign level.
+  predatesSeriesIntroduction: boolean;
 }
 
 interface SeriesAcc {
@@ -124,6 +134,15 @@ export function computeOnThisDayEntries(projection: EventTimeProjection, ref: Re
       if (ref === undefined) throw new Error(`computeOnThisDayEntries: dataset index ${idx} outside the projection's dataset list`);
       return isMonthPrecisionVintage(ref.vintage);
     })) caveats.push('month-precision-vintage');
+    // Series-introduction awareness (issues #915/#918): an earliest-start day
+    // that falls before the series' own recorded introduction month is carried
+    // licence history — the licence chain's origin surviving onto a callsign
+    // introduced far later — never the callsign's own issuance. Month-grained
+    // comparison, matching the reference data's month-precision introduction.
+    const seriesIntroduced = ref.prefixSeries.get(series)?.introduced ?? '';
+    const predatesSeriesIntroduction = event === 'first-start'
+      && seriesIntroduced !== ''
+      && acc.day.slice(0, 7) < seriesIntroduced;
     entries.push({
       monthDay: acc.day.slice(5),
       year: acc.day.slice(0, 4),
@@ -134,6 +153,8 @@ export function computeOnThisDayEntries(projection: EventTimeProjection, ref: Re
       kinds: [...acc.kinds].sort(),
       datasetIdxs: [...acc.datasetIdxs].sort((a, b) => a - b),
       caveats,
+      seriesIntroduced,
+      predatesSeriesIntroduction,
     });
   }
   return entries.sort((a, b) =>
@@ -147,6 +168,16 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
 function dayHeading(monthDay: string): string {
   const [month, day] = monthDay.split('-').map(Number);
   return `${day} ${MONTH_NAMES[month - 1]}`;
+}
+
+// A reference-data introduction month (ISO yyyy-mm) as reader-facing prose:
+// "2025-10" -> "October 2025". Any other shape renders verbatim (defensive:
+// the reference data is hand-curated, so an unexpected value stays visible
+// rather than being silently dropped).
+function introductionLabel(iso: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(iso);
+  if (match === null) return iso;
+  return `${MONTH_NAMES[Number(match[2]) - 1]} ${match[1]}`;
 }
 
 // The stable anchor for one calendar day: #d-mm-dd (the enhancement script
@@ -173,11 +204,19 @@ function entryHtml(entry: OnThisDayEntry, datasets: readonly EventDatasetRef[]):
     : ` <span class="otd-caveats">Caveats: ${entry.caveats.map(caveat =>
       `<a href="#reading-these-dates">${escapeHtml(caveatLabelOf(caveat))}</a>`).join('; ')}.</span>`;
   const tie = entry.callsigns.length > 1 ? ` (${entry.callsigns.length} callsigns tie on this day)` : '';
+  // Series-introduction context (issues #915/#918): when the earliest held
+  // start predates the series' own introduction, the date is carried licence
+  // history, not the callsign's issuance. Rendered as the MORE interesting
+  // reading (the record is exemplary of a policy), never a hedge on the date.
+  const carriedHistory = entry.predatesSeriesIntroduction
+    ? ` <span class="otd-carried">This start predates the ${escapeHtml(entry.series)}-series’ own introduction (${escapeHtml(introductionLabel(entry.seriesIntroduced))}): it is <b>carried licence history</b> — the original start of the holder’s licence chain, which this later-introduced callsign inherited, not the callsign’s own issuance (the callsign did not exist this early). See <a href="series/${encodeURIComponent(entry.series)}.html">the series page</a> for its introduction.</span>`
+    : '';
   return `<li id="otd-${escapeHtml(entry.event)}-${escapeHtml(entry.series)}">`
     + `<b>${escapeHtml(entry.year)}</b> ${epistemicsPill('derived', 0)} — the ${lead} for a `
     + `<a href="series/${encodeURIComponent(entry.series)}.html">${escapeHtml(entry.series)}-series</a> callsign: `
     + `${callsigns}${tie}, ${escapeHtml(entry.event === 'first-start' ? 'a start' : 'a cancellation')} dated `
     + `${dateTime(entry.day, { precision: 'full-date', exactLabel: 'Event day (as asserted)' })} — as asserted (${kinds}) per ${cite}.`
+    + carriedHistory
     + caveats
     + ` <span class="otd-links"><a href="callsign.html?c=${encodeURIComponent(entry.callsigns[0])}">event strip</a> · `
     + `<a href="ledger.html?c=${encodeURIComponent(entry.callsigns[0])}">ledger</a></span>`
@@ -220,6 +259,11 @@ export function renderOnThisDayPage(entries: readonly OnThisDayEntry[], projecti
     + 'history than an earlier one.</li>',
     `<li><b>${escapeHtml(caveatLabelOf('pre-1977'))}</b> — original start dates before 1977 are attested-unreliable `
     + '(OARC, citing an administrative glitch by the then regulator).</li>',
+    '<li><b>carried licence history</b> — the start dates are the <em>licence chain’s</em> original start '
+    + '(Ofcom’s own Licence-View field dictionary, 2014/15 FOI), never the callsign’s issuance date. A '
+    + 'recently-introduced series (M8 and M9 from October 2025, M7 from October 2018) inherits the holder’s '
+    + 'existing licence history, so its earliest held start can predate the series’ own introduction by decades. '
+    + 'Where it does, the entry says so — the carried origin is the interesting fact, not a flaw in the date.</li>',
     `<li><b>${escapeHtml(caveatLabelOf('availability-trap'))}</b> — a day with no entry means the held sources attest `
     + 'nothing for it: non-observation, never “nothing happened”.</li>',
     `<li><b>${escapeHtml(caveatLabelOf('cancellation-sparsity'))}</b> — cancellation dates are attested by very few `
