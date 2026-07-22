@@ -28,6 +28,7 @@
  *                  vintage, title, href), the event-kind vocabulary with
  *                  reader-facing labels, the rule and caveat glosses (the
  *                  engine's own, verbatim), the detected mass-episode windows,
+ *                  the per-series introduction months (seriesIntro, issue #921),
  *                  the as-at day and the shard list.
  *   <SHARD>.json — { shard, callsigns: { <cleaned form>: EventRecord } }.
  *
@@ -85,6 +86,7 @@ import {
 import { EVENT_DATE_KINDS } from '../v2/claim.ts';
 import { partitionShards } from './build-callsign-shards.ts';
 import { datasetIndexOf, type EventTimeProjection } from './event-time-projection.ts';
+import { loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 
 // Event shards carry more per record than the instant shards, so they split
 // hot buckets sooner to keep each lazy fetch modest.
@@ -171,7 +173,22 @@ export interface EventShardBuildSummary {
 // a domain model — the domain model is the engine's StateAtT.
 type EventRecord = Record<string, unknown>;
 
-export function buildCallsignEventShards(projection: EventTimeProjection, outputDir: string, params: EpisodeParams = DEFAULT_EPISODE_PARAMS): EventShardBuildSummary {
+// The prefix-series introduction months (issue #921), keyed by prefix series
+// ('M7' -> '2018-10'). A pure projection of reference-data/prefix-formats.csv's
+// `introduced` column via the shared reference-data loader: only series that
+// record an introduction month appear, and the keys are sorted so the meta
+// stays byte-deterministic. This is the callsign SERIES' own start, distinct
+// from any licence chain's original-start date; the dial reads it to add a
+// series-introduction context marker beside the event scale.
+export function seriesIntroMonths(ref: ReferenceData): Record<string, string> {
+  const entries = [...ref.prefixSeries]
+    .filter(([, info]) => info.introduced.trim() !== '')
+    .map(([prefix, info]): [string, string] => [prefix, info.introduced])
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return Object.fromEntries(entries);
+}
+
+export function buildCallsignEventShards(projection: EventTimeProjection, outputDir: string, params: EpisodeParams = DEFAULT_EPISODE_PARAMS, ref: ReferenceData = loadReferenceData()): EventShardBuildSummary {
   const { datasets, rows, daySignals, asAt } = projection;
 
   // The S2 mass-episode detector over the projection's own day histogram —
@@ -293,6 +310,10 @@ export function buildCallsignEventShards(projection: EventTimeProjection, output
     caveats: CAVEAT_IDS.map(caveat => ({ id: caveat, label: caveatLabelOf(caveat), gloss: mustGloss(CAVEAT_GLOSSES, caveat) })),
     episodes: episodes.map(e => ({ start: e.start, end: e.end })),
     episodeParams: { windowDays: params.windowDays, shareThreshold: params.shareThreshold, minPopulated: params.minPopulated },
+    // Prefix-series introduction months (issue #921), so the dial can name when
+    // a callsign's series was opened without re-loading reference data client-
+    // side. A series' own start, never a per-record licence claim.
+    seriesIntro: seriesIntroMonths(ref),
     shards: [...shards.keys()],
   };
   const metaJson = JSON.stringify(meta);

@@ -203,17 +203,41 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
     );
   });
 
-  it('V0RedirectStubs_AreBuiltFromTheV0Tree_AfterAssembly', () => {
-    // Issue #921: a thin redirect stub mirrors every emitted v0 page at its
-    // former root URL, so no deep link breaks while v1 launches at the root.
-    // The step must read the assembled _site/v0 tree, write into the deploy
-    // root, and run AFTER assembly - before which the v0 pages do not yet exist.
+  it('V1Shell_IsCopiedToTheBareDeployRoot_AfterAssembly', () => {
+    // Issue #921: the v1 pages copy flat into the bare _site root, AFTER the v0
+    // assembly (before which the tree they sit beside does not exist). It must
+    // target the bare root, not the /v0/ re-root.
     const block = jobBlock(workflow(), 'build-site-databases');
-    const stub = block.indexOf('node src/ci/build-v0-redirect-stubs.ts _site/v0 _site');
+    const v1Copy = block.indexOf('cp site/v1/*.html');
     const assembleEnd = block.indexOf('node src/ci/build-sw-precache.ts _site/v0/sw.js');
-    expect(stub, 'the v0 redirect-stub step is missing from build-site-databases').toBeGreaterThan(-1);
+    expect(v1Copy, 'the v1-shell copy step is missing from build-site-databases').toBeGreaterThan(-1);
     expect(assembleEnd, 'the assemble step is missing').toBeGreaterThan(-1);
-    expect(stub, 'the redirect stubs are built before assembly completes').toBeGreaterThan(assembleEnd);
+    expect(v1Copy, 'the v1 shell is copied before the v0 assembly completes').toBeGreaterThan(assembleEnd);
+    expect(block).toMatch(/cp site\/v1\/\*\.html[^\n]*\s_site\/\s*$/m);
+  });
+
+  it('NoRedirectStubMachinery_RemainsInTheWorkflow', () => {
+    // Issue #921 v0-isolation: the redirect-stub approach is removed entirely.
+    // Old pre-move URLs 404 to the honest static page instead.
+    expect(workflow(), 'a redirect-stub step lingers in the workflow').not.toContain('build-v0-redirect-stubs');
+  });
+
+  it('V1SharedModulesAndData_AreDeployedAtTheRoot_ForSelfContainment', () => {
+    // Issue #921 v0-isolation: the v1 callsign page must resolve entirely from
+    // the root, so the shared modules and the prefix-sharded data are deployed
+    // beside the v1 pages rather than reached for under _site/v0.
+    const block = jobBlock(workflow(), 'build-site-databases');
+    expect(block, 'the shared-module deploy step is missing').toContain('node src/ci/build-v1-shared-modules.ts site _site');
+    expect(block, 'the callsign data is not hard-linked to the root').toContain('cp -al _site/v0/callsign/data/. _site/callsign/data/');
+  });
+
+  it('RootDiscoveryFiles_AreBuilt_AtTheDeployRoot', () => {
+    // Issue #921: the slim root sitemap + robots.txt for the v1 launch, built
+    // into the bare _site root.
+    const block = jobBlock(workflow(), 'build-site-databases');
+    expect(block, 'the root discovery build step is missing').toContain(
+      'node src/ci/build-root-discovery.ts _site https://mysteraitch.github.io/amateur-callsigns-file-watch',
+    );
   });
 
   it('BuildCaches_UseTheTestExcludingClosureHash_NotBareHashFiles', () => {

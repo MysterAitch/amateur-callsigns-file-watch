@@ -33,23 +33,26 @@ export const V1_COPY = {
     title: 'Build-derived fact: the newest publication held is dated {date}, and {count} publications are held in total. This page was generated from that set.',
   },
 
-  // The five journeys. Non-launch journeys route into the preserved previous
-  // version under /v0/, labelled honestly as the earlier, fuller-featured site.
+  // The journeys the v1 surface offers. Only migrated pages appear here: an
+  // unmigrated journey is simply absent rather than pointing anywhere off the
+  // v1 surface — the honest state for something not here yet.
   journeys: {
     home: 'Home',
     lookup: 'Look up',
-    history: 'Explore the history',
-    browse: 'Browse & query',
-    how: 'How the record works',
-    // The honest label appended to a journey that points into the previous
-    // version — never dressed up as a new surface.
-    v0Mark: 'previous version',
+    raw: 'Get the raw data',
   },
 
   footer: {
     provenance: 'provenance carried to the byte in the raw-keyed claim ledger · values as published, not independently verified',
     notAffiliated: 'not affiliated with or endorsed by Ofcom',
-    v0Link: 'the previous, fuller-featured version',
+  },
+
+  // The honest 404 for an address the v1 surface does not serve. Record-scoped:
+  // it states that the record is being migrated and this part has not moved
+  // yet, and offers only the pages that DO exist. No verdict wording.
+  notFound: {
+    title: 'This address isn’t part of the site',
+    lede: 'The record is being migrated to a new home, and this part of it has not moved here yet. Start from one of the pages that has:',
   },
 
   home: {
@@ -64,24 +67,15 @@ export const V1_COPY = {
     fromTheRecordFoot: 'Selection rotates at build time — a different notable detail leads on each rebuild.',
     scopeDisclaimerLabel: 'scope & disclaimer',
     scopeDisclaimer: 'Proof-of-concept mirror; not affiliated with or endorsed by Ofcom, and not authoritative — Ofcom’s own register is. The value here is continuity: a decade of snapshots Ofcom does not itself publish as a series. Presence in an availability list means offered, not licensed. Absence is read scope-aware: missing from a partial publication is not evidence. The record flags what looks inconsistent and adjudicates nothing.',
-    // The four ways-in cards, event-first order (Look up · Explore the history,
-    // then Browse & query · How the record works).
+    // The ways-in cards — only the journeys the v1 surface actually serves.
     cards: {
       lookup: {
         name: 'Look up a callsign',
         say: 'One callsign, resolved from a single small fetch: latest register state, parsed anatomy, and every sighting across the archive.',
       },
-      history: {
-        name: 'Explore the history',
-        say: 'Trace a licence chain across the decades, or read the record’s own timeline: series introductions, forbidden suffixes, on-this-day.',
-      },
-      browse: {
-        name: 'Browse & query the data',
-        say: 'Query the whole corpus in-browser over HTTP range requests. A link can carry a query, so a URL can point straight at a result.',
-      },
-      how: {
-        name: 'How the record works',
-        say: 'Method, provenance and limits: what is folded in, how a claim resolves to its byte, and what the record deliberately does not assert.',
+      rawData: {
+        name: 'Get the raw data',
+        say: 'Every archived publication is preserved byte-for-byte in the open repository, with provenance carried to the byte. See how to download the files and the databases folded from them.',
       },
     },
   },
@@ -106,23 +100,52 @@ export const V1_COPY = {
       showBoth: 'Show both',
       eventOnly: 'Event only',
       assertOnly: 'Assertion only',
+      // A record-scoped context marker on the dial: when the reference data
+      // records when this callsign's SERIES was opened, name it beside the
+      // event scale — a series-level fact, never a per-record licensing claim.
+      // {series} is the prefix ('M7'); {month} is the introduction month
+      // rendered as "October 2018".
+      seriesIntro: '{series} series opened {month}',
       readingLead: 'Reading',
       calibrationLead: 'Calibration',
       calibrationNote: 'The sightings beneath are how the event story is evidenced. A callsign can exist before any held publication records it, so the earliest event may predate the first sighting.',
       // Shown when no event-time claim is held for this callsign — a
       // non-observation state, never "was available" or "did not exist".
       noEvidence: 'No dated event-time evidence is held for this callsign in the publications mirrored here. This is non-observation: it is not evidence the callsign was available, nor that it never existed.',
+      // Shown when the ONLY dated evidence is record-bookkeeping (created /
+      // last-modified stamps): system presence, never a licensing event.
+      bookkeepingOnly: 'The only dated evidence held for this callsign is record-bookkeeping — the register’s own created and last-modified stamps. These attest system presence by a date, not a licensing event.',
+      // The cross-vintage disagreement block (#467): every camp kept, adjudicated nowhere.
+      disagreementLabel: 'The held vintages disagree about this record’s dates',
+      disagreementGloss: 'Different vintages assert different dates for the same past event. Every camp is listed with its asserting datasets; the record adjudicates none of them — a later assertion is not automatically the truer one.',
     },
     // The carried-origin explainer. Record-scoped throughout: it describes what
-    // the HELD RECORD shows, never an unqualified claim about the world. When a
-    // chain origin post-dates the series, the wording is "consistent with a
-    // fresh issuance"; when it pre-dates, "the held record names no earlier
-    // callsign" that carried it.
+    // the HELD RECORD shows, never an unqualified claim about the world. The
+    // rendered path is DATA-DRIVEN — the chain origin month is compared to the
+    // series introduction month: "fresh" when the origin post-dates the series,
+    // "carried" when it pre-dates it, and "neutral" when the series
+    // introduction is not recorded, so neither path is asserted.
     carriedOrigin: {
       label: 'how licence-chain origins are read',
       ordinary: 'This licence chain begins with this callsign, and its origin post-dates the series introduction — consistent with a fresh issuance. The held record names no earlier callsign, so nothing here reads as carried history.',
       carried: 'Some records carry a licence-chain origin that pre-dates the callsign’s own series — a sign the licence history was carried over from an earlier callsign. Where that happens the held record names no earlier callsign that carried it, and the record raises a prominent scope note rather than treating the two dates as a conflict.',
+      neutral: 'How a licence chain’s origin reads depends on when the callsign’s series opened. Where the series introduction month is not recorded here, the record makes no claim either way about carried history.',
     },
+    // The twin-row conflict annotation (#633): a NAME for the shape of the
+    // disagreement between differently-spelled rows of the same callsign, never
+    // a verdict on which row is right.
+    twin: {
+      inversion: 'A non-standard spelling holds the active licence',
+      formatSplit: 'The written forms differ in format and status',
+      statusDisagree: 'Two written forms disagree on status',
+      gloss: 'The latest register snapshot lists this callsign more than once, with the rows differing on status. The record classifies the disagreement and adjudicates none of it.',
+    },
+    // The regional-rendering note: a looked-up form resolved to the register's
+    // core record. {cleaned} is the typed form; {key} the stored core.
+    viaRenderingNote: '“{cleaned}” is a regional rendering; the register stores the core record {key} — the Regional Secondary Locator travels separately.',
+    // Blank-but-present value wording (never a bare em dash).
+    noStatusRecorded: '(no status recorded)',
+    noProductRecorded: '(no product recorded — many legitimate allocations carry a blank product)',
     fidelity: {
       selfConsistent: 'Where a record’s dates and derived series rules agree, nothing is flagged. Values are kept exactly as published.',
       flaggedNotAdjudicated: 'Values are flagged where they look inconsistent with the derived rules; the record adjudicates none of them and picks no winner.',

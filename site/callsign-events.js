@@ -56,6 +56,7 @@ import { dateTime } from './datetime.js';
  * @property {{ id: string, gloss: string }[]} rules
  * @property {{ id: string, label: string, gloss: string }[]} caveats
  * @property {{ start: string, end: string }[]} episodes
+ * @property {Record<string, string>} [seriesIntro]  prefix series -> introduction month (yyyy-mm), issue #921
  * @property {string[]} shards
  */
 

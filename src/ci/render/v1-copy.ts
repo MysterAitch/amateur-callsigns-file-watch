@@ -26,16 +26,17 @@ export const V1_COPY = {
   journeys: {
     home: 'Home',
     lookup: 'Look up',
-    history: 'Explore the history',
-    browse: 'Browse & query',
-    how: 'How the record works',
-    v0Mark: 'previous version',
+    raw: 'Get the raw data',
   },
 
   footer: {
     provenance: 'provenance carried to the byte in the raw-keyed claim ledger · values as published, not independently verified',
     notAffiliated: 'not affiliated with or endorsed by Ofcom',
-    v0Link: 'the previous, fuller-featured version',
+  },
+
+  notFound: {
+    title: 'This address isn’t part of the site',
+    lede: 'The record is being migrated to a new home, and this part of it has not moved here yet. Start from one of the pages that has:',
   },
 
   home: {
@@ -55,17 +56,9 @@ export const V1_COPY = {
         name: 'Look up a callsign',
         say: 'One callsign, resolved from a single small fetch: latest register state, parsed anatomy, and every sighting across the archive.',
       },
-      history: {
-        name: 'Explore the history',
-        say: 'Trace a licence chain across the decades, or read the record’s own timeline: series introductions, forbidden suffixes, on-this-day.',
-      },
-      browse: {
-        name: 'Browse & query the data',
-        say: 'Query the whole corpus in-browser over HTTP range requests. A link can carry a query, so a URL can point straight at a result.',
-      },
-      how: {
-        name: 'How the record works',
-        say: 'Method, provenance and limits: what is folded in, how a claim resolves to its byte, and what the record deliberately does not assert.',
+      rawData: {
+        name: 'Get the raw data',
+        say: 'Every archived publication is preserved byte-for-byte in the open repository, with provenance carried to the byte. See how to download the files and the databases folded from them.',
       },
     },
   },
@@ -88,16 +81,31 @@ export const V1_COPY = {
       showBoth: 'Show both',
       eventOnly: 'Event only',
       assertOnly: 'Assertion only',
+      // The dial's series-introduction context marker (see site/v1/copy.js).
+      seriesIntro: '{series} series opened {month}',
       readingLead: 'Reading',
       calibrationLead: 'Calibration',
       calibrationNote: 'The sightings beneath are how the event story is evidenced. A callsign can exist before any held publication records it, so the earliest event may predate the first sighting.',
       noEvidence: 'No dated event-time evidence is held for this callsign in the publications mirrored here. This is non-observation: it is not evidence the callsign was available, nor that it never existed.',
+      bookkeepingOnly: 'The only dated evidence held for this callsign is record-bookkeeping — the register’s own created and last-modified stamps. These attest system presence by a date, not a licensing event.',
+      disagreementLabel: 'The held vintages disagree about this record’s dates',
+      disagreementGloss: 'Different vintages assert different dates for the same past event. Every camp is listed with its asserting datasets; the record adjudicates none of them — a later assertion is not automatically the truer one.',
     },
     carriedOrigin: {
       label: 'how licence-chain origins are read',
       ordinary: 'This licence chain begins with this callsign, and its origin post-dates the series introduction — consistent with a fresh issuance. The held record names no earlier callsign, so nothing here reads as carried history.',
       carried: 'Some records carry a licence-chain origin that pre-dates the callsign’s own series — a sign the licence history was carried over from an earlier callsign. Where that happens the held record names no earlier callsign that carried it, and the record raises a prominent scope note rather than treating the two dates as a conflict.',
+      neutral: 'How a licence chain’s origin reads depends on when the callsign’s series opened. Where the series introduction month is not recorded here, the record makes no claim either way about carried history.',
     },
+    twin: {
+      inversion: 'A non-standard spelling holds the active licence',
+      formatSplit: 'The written forms differ in format and status',
+      statusDisagree: 'Two written forms disagree on status',
+      gloss: 'The latest register snapshot lists this callsign more than once, with the rows differing on status. The record classifies the disagreement and adjudicates none of it.',
+    },
+    viaRenderingNote: '“{cleaned}” is a regional rendering; the register stores the core record {key} — the Regional Secondary Locator travels separately.',
+    noStatusRecorded: '(no status recorded)',
+    noProductRecorded: '(no product recorded — many legitimate allocations carry a blank product)',
     fidelity: {
       selfConsistent: 'Where a record’s dates and derived series rules agree, nothing is flagged. Values are kept exactly as published.',
       flaggedNotAdjudicated: 'Values are flagged where they look inconsistent with the derived rules; the record adjudicates none of them and picks no winner.',

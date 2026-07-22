@@ -1,26 +1,27 @@
 // @ts-check
 // v1 SITE SHELL (issue #921): the three chrome renderers shared by every v1
-// page — the white header bar (brand + dated-fact chip + five-journey nav),
-// the breadcrumb, and the white footer bar. Dependency-free of any third party;
+// page — the white header bar (brand + dated-fact chip + journey nav), the
+// breadcrumb, and the white footer bar. Dependency-free of any third party;
 // all wording comes from the copy registry (site/v1/copy.js), and the DOM is
-// built with the same el()/elAttrs() idiom as site/callsign.js.
+// built with the same el() idiom as the shared page modules.
+//
+// The v1 surface is self-contained: it links only to pages the v1 surface
+// itself serves. A journey that has not been migrated simply does not appear —
+// the honest state for something not here yet — rather than pointing off the
+// surface.
 
 import { V1_COPY } from './copy.js';
 
 // ---------------------------------------------------------------------------
-// THE DEPLOY-LAYOUT ASSUMPTION, in one place.
+// SHARED-MODULE DEPLOY BASE, in one place.
 //
-// v1 is the deploy root; the previous, fuller-featured site is preserved one
-// directory down, under /v0/. Every reference from a v1 root page to a v0
-// surface (its pages, and — for the callsign page — its prefix-sharded data)
-// is built relative to this base. Change this one constant if the two ever move
-// relative to each other. Tests override it to a fixture tree.
-export const V0_BASE = 'v0/';
-
-/** A path into the preserved previous version. @param {string} rel */
-export function v0Href(rel) {
-  return `${V0_BASE}${rel}`;
-}
+// The v1 callsign page resolves in the browser by dynamically importing a
+// handful of pure data modules that are shared with the legacy tree. So the v1
+// surface stays self-contained, those modules are deployed at the site ROOT
+// beside the v1 pages (see src/ci/build-v1-shared-modules.ts), the same base the
+// v1 pages sit at. This constant is that base ('' = the page's own directory);
+// the tests override it to point at a fixture tree.
+export const SHARED_MODULE_BASE = '';
 
 // ---------------------------------------------------------------------------
 // DOM helpers (the page-module idiom: textContent everywhere; never innerHTML).
@@ -37,26 +38,22 @@ const el = (tag, cls, txt) => {
   return node;
 };
 
-// The five journeys, in launch order. `current` journeys are v1 pages; the rest
-// route into the preserved previous version and wear an honest label so a
-// reader is never misled into thinking a v0 surface is part of the new shell.
+// The journeys the v1 surface offers, in order — every one a page v1 serves at
+// the root. Unmigrated destinations are deliberately absent.
 /**
  * @typedef {object} JourneyDef
  * @property {string} id
  * @property {string} label
  * @property {string} href
- * @property {boolean} previous  true when the target is a /v0/ surface
  */
 
 /** @returns {JourneyDef[]} */
 function journeys() {
   const j = V1_COPY.journeys;
   return [
-    { id: 'home', label: j.home, href: 'index.html', previous: false },
-    { id: 'lookup', label: j.lookup, href: 'callsign.html', previous: false },
-    { id: 'history', label: j.history, href: v0Href('on-this-day.html'), previous: true },
-    { id: 'browse', label: j.browse, href: v0Href('explore.html'), previous: true },
-    { id: 'how', label: j.how, href: v0Href('about.html'), previous: true },
+    { id: 'home', label: j.home, href: 'index.html' },
+    { id: 'lookup', label: j.lookup, href: 'callsign.html' },
+    { id: 'raw', label: j.raw, href: 'how-to-get-the-raw-data.html' },
   ];
 }
 
@@ -76,10 +73,26 @@ export function datedFactChip(facts) {
 }
 
 /**
+ * The chip's parts, split STRUCTURALLY on the {count} placeholder in the
+ * template — never on the rendered count value. The rendered count can also
+ * occur inside the date (e.g. "23 June 2026" with 23 publications held), so
+ * splitting the finished string on the count would break the chip; splitting
+ * the template on the placeholder before the date is substituted cannot.
+ * @param {{ date: string, count: number | string }} facts
+ * @returns {{ before: string, count: string, after: string, title: string }}
+ */
+export function datedFactChipParts(facts) {
+  const [rawBefore, rawAfter = ''] = V1_COPY.chip.template.split('{count}');
+  /** @param {string} s */
+  const fillDate = (s) => s.replaceAll('{date}', facts.date);
+  return { before: fillDate(rawBefore), count: String(facts.count), after: fillDate(rawAfter), title: datedFactChip(facts).title };
+}
+
+/**
  * Build the header bar. `currentJourney` is the id of the active journey (or ''
- * / unknown for pages outside the five, e.g. the raw-data guide). `facts` fills
- * the dated-fact chip; when omitted the chip is left out (a page with no build
- * stamp still renders a valid bar).
+ * / unknown for pages outside the nav, e.g. the raw-data guide when it is not
+ * the current journey). `facts` fills the dated-fact chip; when omitted the
+ * chip is left out (a page with no build stamp still renders a valid bar).
  * @param {string} currentJourney
  * @param {{ date: string, count: number | string } | null} [facts]
  * @returns {HTMLElement}
@@ -94,20 +107,20 @@ export function renderSiteBar(currentJourney, facts = null) {
   top.appendChild(el('span', 'id', V1_COPY.brand.id));
   top.appendChild(el('span', null, V1_COPY.brand.tagline));
   if (facts !== null) {
-    const chip = datedFactChip(facts);
-    const a = el('a', 'chip asof');
-    a.setAttribute('href', `${v0Href('data-status.html')}`);
-    a.setAttribute('title', chip.title);
-    // The count is bolded inside the otherwise-plain chip text.
-    const [before, after] = chip.text.split(String(facts.count));
-    a.append(before);
-    a.appendChild(el('b', null, String(facts.count)));
-    if (after !== undefined) a.append(after);
-    top.appendChild(a);
+    const parts = datedFactChipParts(facts);
+    // A stated fact, not a link: the data-status surface it once pointed at is
+    // not part of the v1 surface, so the chip carries the fact in a tooltip
+    // rather than leading off the surface.
+    const chip = el('span', 'chip asof');
+    chip.setAttribute('title', parts.title);
+    chip.append(parts.before);
+    chip.appendChild(el('b', null, parts.count));
+    if (parts.after !== '') chip.append(parts.after);
+    top.appendChild(chip);
   }
   wrap.appendChild(top);
 
-  // Five-journey nav.
+  // Journey nav (only the migrated journeys).
   const nav = el('nav', 'journeys');
   nav.setAttribute('aria-label', 'Journeys');
   const list = journeys();
@@ -116,11 +129,6 @@ export function renderSiteBar(currentJourney, facts = null) {
     const a = el('a', null, jr.label);
     a.setAttribute('href', jr.href);
     if (jr.id === currentJourney) a.setAttribute('aria-current', 'page');
-    if (jr.previous) {
-      a.append(' ');
-      const mark = el('span', 'v0mark', `(${V1_COPY.journeys.v0Mark})`);
-      a.appendChild(mark);
-    }
     nav.appendChild(a);
   });
   wrap.appendChild(nav);
@@ -164,10 +172,7 @@ export function renderFooter() {
   const prov = el('p', 'foot-prov');
   prov.append(`${V1_COPY.brand.id} · ${V1_COPY.brand.tagline}`);
   prov.appendChild(el('br'));
-  prov.append(`${V1_COPY.footer.provenance} · ${V1_COPY.footer.notAffiliated} · `);
-  const a = el('a', null, V1_COPY.footer.v0Link);
-  a.setAttribute('href', v0Href('index.html'));
-  prov.appendChild(a);
+  prov.append(`${V1_COPY.footer.provenance} · ${V1_COPY.footer.notAffiliated}`);
   wrap.appendChild(prov);
   foot.appendChild(wrap);
   return foot;

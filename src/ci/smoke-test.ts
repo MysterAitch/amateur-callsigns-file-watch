@@ -87,6 +87,51 @@ async function expectOk(pathRel: string, label = pathRel): Promise<void> {
   }
 }
 
+// A page must load 200 and its body must carry every `include` marker and none
+// of the `exclude` markers - the content check that tells a served v1 page
+// apart from the redirect stub that used to own the same URL (issue #921).
+async function expectPageContent(
+  pathRel: string,
+  markers: { include?: string[]; exclude?: string[] },
+  label = pathRel,
+): Promise<void> {
+  try {
+    const res = await fetchRetry(pathRel, { method: 'GET', headers: { ...IDENTITY } }, CHECK_ATTEMPTS, CHECK_DELAY_MS);
+    if (res.status !== 200) { fail(`GET ${label}`, `status ${res.status}`); return; }
+    const html = await res.text();
+    for (const needle of markers.include ?? []) {
+      if (!html.includes(needle)) { fail(`content ${label}`, `expected body to contain "${needle}"`); return; }
+    }
+    for (const needle of markers.exclude ?? []) {
+      if (html.includes(needle)) { fail(`content ${label}`, `expected body NOT to contain "${needle}"`); return; }
+    }
+    pass(`GET ${label}`, '200 + content');
+  } catch (e) {
+    fail(`GET ${label}`, String(e));
+  }
+}
+
+// An address the v1 surface does not serve must return the honest static 404:
+// HTTP 404 (so programmatic clients see the miss) with the honest page body (so
+// a human is told the record is migrating and offered the pages that exist).
+async function expectHonest404(pathRel: string, mustInclude: string, label = pathRel): Promise<void> {
+  try {
+    let res: Response | undefined;
+    for (let attempt = 1; attempt <= CHECK_ATTEMPTS; attempt += 1) {
+      res = await fetch(abs(pathRel), { method: 'GET', headers: { ...IDENTITY } });
+      if (res.status === 404) break;
+      if (attempt < CHECK_ATTEMPTS) await delay(CHECK_DELAY_MS);
+    }
+    if (res === undefined) { fail(`404 ${label}`, 'no response'); return; }
+    if (res.status !== 404) { fail(`404 ${label}`, `expected 404, got ${res.status}`); return; }
+    const html = await res.text();
+    if (html.includes(mustInclude)) pass(`404 ${label}`, '404 + honest page');
+    else fail(`404 ${label}`, `honest-404 body missing "${mustInclude}"`);
+  } catch (e) {
+    fail(`404 ${label}`, String(e));
+  }
+}
+
 // A 0-0 Range returns 206 with the full size in Content-Range (bytes 0-0/TOTAL),
 // so a large file's reachability and size are checked without downloading it.
 async function rangeTotal(pathRel: string): Promise<number | undefined> {
@@ -195,6 +240,15 @@ async function main(): Promise<void> {
   await expectGzip('data/foi-observations.csv.gz', 100 * 1024 * 1024); // raw union CSV is ~0.6 GB; compressed is tens of MB.
   await expectGzip('data/datasets/foi--ofcom-498906--reciprocal-licences-since-2010.sqlite.gz');
   await expectGzip('data/combined.sqlite.gz', 1024 * 1024 * 1024); // the raw combined is ~1.1 GB; its gzip twin is well under a GB.
+
+  // 6. The v1 front door (issue #921). baseUrl is the /v0/ subtree, so the site
+  //    root is one level up. The three v1 pages must serve the real v1 shell at
+  //    the root, and an old pre-move URL that is not part of the v1 surface must
+  //    serve the honest static 404 (not a redirect, not a broken link).
+  await expectPageContent('../', { include: ['callsign-record', 'Look up'] }, 'root / (v1 home)');
+  await expectPageContent('../callsign.html', { include: ['Look up a callsign'] }, 'root /callsign.html (v1)');
+  await expectPageContent('../how-to-get-the-raw-data.html', { include: ['get the raw data'] }, 'root /how-to-get-the-raw-data.html (v1)');
+  await expectHonest404('../statistics.html', 'isn’t part of the site', 'root /statistics.html (honest 404)');
 
   console.log('');
   if (failures.length > 0) {
