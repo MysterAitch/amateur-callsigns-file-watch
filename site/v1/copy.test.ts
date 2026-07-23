@@ -69,7 +69,7 @@ describe('v1 copy — claims bar (JS)', { tags: ['unit'] }, () => {
     // B1: the popover registry pairs each coined term with a plain definition;
     // the temporal glosses, the assertion-time "sighting", and the provenance
     // chips are all present so every wired popover resolves.
-    for (const key of ['eventTime', 'assertionTime', 'sighting', 'vintage', 'publication', 'bookkeeping', 'disputed', 'series', 'carriedOrigin', 'derived', 'inferred', 'context'] as const) {
+    for (const key of ['eventTime', 'assertionTime', 'sighting', 'vintage', 'publication', 'bookkeeping', 'disputed', 'series', 'carriedOrigin', 'derived', 'inferred', 'context', 'prefix', 'rsl', 'suffix', 'operatingSuffix'] as const) {
       expect(V1_COPY.glossary[key].term.length).toBeGreaterThan(0);
       expect(V1_COPY.glossary[key].def.length).toBeGreaterThan(20);
     }

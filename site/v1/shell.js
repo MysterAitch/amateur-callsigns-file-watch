@@ -55,6 +55,7 @@ function journeys() {
     { id: 'lookup', label: j.lookup, href: 'callsign.html' },
     { id: 'raw', label: j.raw, href: 'how-to-get-the-raw-data.html' },
     { id: 'glossary', label: j.glossary, href: 'glossary.html' },
+    { id: 'anatomy', label: j.anatomy, href: 'anatomy.html' },
   ];
 }
 
