@@ -217,6 +217,15 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .tl .ttl{font-weight:600;color:var(--ink);font-size:1rem}
 .tl .by{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.02em;font-weight:400}
 .tl .dsc{color:var(--ink-2);font-size:.92rem;margin:.3rem 0 0}
+/* A same-day group is one dated card; its events are distinguished within it by
+   a hairline rule and breathing space, never split into separate dated nodes
+   (issue #921). A lone event carries no inner rule. */
+.tl .track .evt+.evt{margin-top:.55rem;padding-top:.55rem;border-top:1px solid var(--line)}
+/* the agreeing-origin semantic row: the equivalence mark beside "Licence origin",
+   the record-scoped coincidence prose, then the constituent kinds folded beneath */
+.tl.origin .eqmark{font-family:var(--mono);font-size:10px;color:var(--signal-strong);background:var(--signal-tint);
+  border:1px solid var(--signal-dim);border-radius:2px;padding:.02rem .3rem;margin-left:.4rem;font-weight:600}
+.tl.origin .track>.dsc{margin:.3rem 0 .6rem}
 
 /* ---- anatomy ---- */
 .anat{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
@@ -250,21 +259,50 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
   background:var(--panel);color:var(--ink-2);padding:.28rem .55rem;border-radius:2px}
 .dial-ctl button[aria-pressed="true"]{background:var(--signal-tint);border-color:var(--signal-dim);color:var(--signal-strong);font-weight:600}
 .dial-ctl button:hover{border-color:var(--signal-dim)}
-.scale{position:relative;min-width:600px;height:150px;margin:.1rem 0 .2rem}
-.scale .axis{position:absolute;left:0;right:0;top:76px;height:2px;background:var(--ink-2)}
-.scale .yr{position:absolute;top:83px;transform:translateX(-50%);font-family:var(--mono);font-size:11px;color:var(--muted)}
+/* The axis sits in a scale whose HEIGHT is composed by dialGeometry (issue #921
+   review): --scale-h and --axis-top grow to fit the tallest same-day stack and
+   near-dated tier, so captions never spill into the controls above nor open an
+   accidental scrollbar, and fall back to the compact default when nothing needs
+   the room. Every vertical offset below reads a var() fed from
+   DIAL_SCALE_GEOMETRY, so the JS height budget and this layout share one source.
+   --tier-step is how far each near-dated separation tier lifts a marker. */
+.scale{position:relative;min-width:600px;height:var(--scale-h,210px);margin:.1rem 0 .2rem;--tier-step:30px}
+.scale .axis{position:absolute;left:0;right:0;top:var(--axis-top,136px);height:2px;background:var(--ink-2)}
+.scale .yr{position:absolute;top:calc(var(--axis-top,136px) + 7px);transform:translateX(-50%);font-family:var(--mono);font-size:11px;color:var(--muted)}
 .scale .yr::before{content:"";position:absolute;top:-9px;left:50%;width:1px;height:7px;background:var(--line-2)}
-/* event markers point UP from the axis — primary reading, teal */
-.scale .ev{position:absolute;top:76px}
-.scale .ev .stem{position:absolute;bottom:0;left:-1px;width:2px;height:34px;background:var(--signal)}
-.scale .ev .dot{position:absolute;bottom:30px;left:-5px;width:10px;height:10px;background:var(--signal);transform:rotate(45deg)}
-.scale .ev .cap{position:absolute;bottom:46px;transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);
+/* event markers point UP from the axis — primary reading, teal. --tier lifts a
+   near-dated marker by whole steps; a flat marker carries tier 0. */
+.scale .ev{position:absolute;top:var(--axis-top,136px);--tier:0}
+.scale .ev .stem{position:absolute;bottom:0;left:-1px;width:2px;height:calc(var(--stem-base,34px) + var(--tier) * var(--tier-step));background:var(--signal)}
+.scale .ev .dot{position:absolute;bottom:calc(var(--dot-base,30px) + var(--tier) * var(--tier-step));left:-5px;width:10px;height:10px;background:var(--signal);transform:rotate(45deg)}
+.scale .ev .cap{position:absolute;bottom:calc(var(--cap-base,46px) + var(--tier) * var(--tier-step));transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);
   font-size:11px;color:var(--signal-strong);font-weight:600;max-width:14rem;overflow:hidden;text-overflow:ellipsis}
 .scale .ev .cap small{display:block;font-weight:400;color:var(--muted);letter-spacing:0}
 .scale .ev.state .stem,.scale .ev.state .dot{background:var(--ok)}
 .scale .ev.state .cap{color:var(--ok)}
+/* a disputed single marker reads hollow — a held vintage asserts a competing
+   date for its kind, so the diamond is outlined (in the kind tint where set)
+   rather than filled (issue #921). The leading caption swatch carries the kind
+   hue so the marker matches its rail entry. */
+.scale .ev.disputed .dot{background:var(--panel);border:1.5px solid var(--kt,var(--signal))}
+.scale .ev .cap[data-kind]::before{content:"";display:inline-block;width:.45rem;height:.45rem;border-radius:1px;background:var(--kt);margin-right:.3rem;vertical-align:middle}
+/* same-day centred vertical stack: every co-dated event named on its own row in
+   record order, the shared day shown once beneath, a short connector to the
+   diamond. Row heights are fixed to the shared --stack-row-h / --stack-day-h so
+   the painted stack matches the reserved budget exactly. Tall stacks grow upward
+   into the composed headroom (issue #921). */
+.scale .ev.stacked .conn{position:absolute;bottom:calc(var(--conn-base,30px) + var(--tier) * var(--tier-step));left:-.5px;width:1px;height:var(--conn-h,6px);background:var(--signal-dim)}
+.scale .ev .vstack{position:absolute;bottom:calc(var(--stack-base,34px) + var(--tier) * var(--tier-step));left:0;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:0;white-space:nowrap}
+.scale .ev .vstack .r{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--signal-strong);line-height:var(--stack-row-h,15px);height:var(--stack-row-h,15px);display:flex;align-items:center;gap:.3rem}
+.scale .ev .vstack .r[data-kind]::before{content:"";width:.5rem;height:.5rem;border-radius:1px;background:var(--kt);flex:none}
+/* a disputed stack row: its swatch is hollow (outlined in the kind tint) and its
+   name takes the kind's stronger tone, so a mixed day reads honestly (#921). */
+.scale .ev .vstack .r.disputed[data-kind]::before{background:var(--panel);border:1px solid var(--kt)}
+.scale .ev .vstack .r.disputed{color:var(--kt,var(--signal-strong))}
+.scale .ev .vstack .d{font-family:var(--mono);font-size:10px;font-weight:400;color:var(--muted);line-height:var(--stack-day-h,15px);height:var(--stack-day-h,15px)}
 /* sighting markers point DOWN from the axis — calibration, muted */
-.scale .si{position:absolute;top:76px}
+.scale .si{position:absolute;top:136px}
 .scale .si .stem{position:absolute;top:0;left:-.5px;width:1px;height:20px;background:var(--line-2)}
 .scale .si .pip{position:absolute;top:18px;left:-3px;width:6px;height:6px;border-radius:50%;background:var(--muted)}
 .scale .si .cap{position:absolute;top:28px;transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);
@@ -279,8 +317,36 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .dial-note .g.assert b{color:var(--muted)}
 .dial-finding{margin:.55rem 0 0;padding:.5rem .7rem;border:1px solid var(--line);border-left:3px solid var(--signal-dim);
   background:var(--panel);font-size:.9rem;color:var(--ink-2)}
-.dial-finding .tb{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--signal-strong);
-  border:1px solid var(--signal-dim);background:var(--signal-tint);border-radius:2px;padding:.05rem .3rem;margin-right:.4rem}
+/* ---- provenance/derivation tag chip + kind tints (issue #921) ---- */
+/* The provenance/derivation tag chip: the small monospace marker labelling a
+   derived or inferred surface. Previously styled only inside .dial-finding, so
+   the same tag rendered unstyled on the disagreement head and the record-fidelity
+   note; this is the shared base, matching the eyebrow / status-chip language
+   wherever the tag appears. Its glossary popover is deferred to the popover-
+   wiring batch (B1). */
+.tb{display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--signal-strong);
+  border:1px solid var(--signal-dim);background:var(--signal-tint);border-radius:2px;padding:.05rem .3rem;margin-right:.4rem;vertical-align:middle}
+/* Kind tints: a subtle per-kind hue keyed by data-kind, carried on BOTH surfaces
+   — a swatch on the dial (stack rows / single caption) and a left accent on the
+   rail event line — so a reader can match an event on the dial to its rail entry
+   by tint. Deliberately subordinate to the teal signal and green state grammar:
+   the hues avoid teal and green, and the tint is never the sole discriminator
+   (the event name is always present). */
+[data-kind="licence-issued"]{--kt:#3f4ea3}
+[data-kind="licence-original-start"]{--kt:#7b3f96}
+[data-kind="licence-version-original-start"]{--kt:#2e6ea8}
+[data-kind="licence-cancelled"]{--kt:#a23a5b}
+[data-kind="reserved-until"]{--kt:#8a5a1c}
+/* rail event line: a kind-hue left accent; a disputed entry reads hollow (dashed)
+   and links to the disagreement narrative (issue #921). */
+.tl .track .evt[data-kind]{border-left:3px solid var(--kt);padding-left:.55rem}
+.tl .track .evt.disputed[data-kind]{border-left-style:dashed}
+.tl .track .evt .dispute-link{font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--kt,var(--signal));border-bottom:1px dashed currentColor;margin-left:.35rem;white-space:nowrap}
+/* high-density disagreement nudge: the instrument is deliberately cluttered when
+   a record holds many competing claims (the mess is the signal, #921) — this
+   pairs the clutter with an invitation into the narrative. */
+.dial-dispute-nudge{margin:.55rem 0 0;padding:.5rem .7rem;border:1px solid var(--warn-line);background:var(--warn-tint);color:var(--ink-2);font-size:.9rem;border-radius:2px}
+.dial-dispute-nudge .nudge-cta{font-family:var(--mono);font-size:11px;letter-spacing:.02em;color:var(--warn);border-bottom:1px dashed var(--warn);white-space:nowrap}
 
 /* ---- tables (evidence census) ---- */
 table{width:100%;border-collapse:collapse;font-size:.9rem;border:1px solid var(--line);background:var(--panel)}

@@ -100,9 +100,20 @@ export const V1_COPY = {
       assertOnly: 'Assertion only',
       // The dial's series-introduction context marker (see site/v1/copy.js).
       seriesIntro: '{series} series opened {month}',
-      // The same-day event cluster caption and the current-state terminus suffix
-      // (see site/v1/copy.js for the rationale).
-      eventCluster: '{count} events',
+      // The agreeing-origin semantic row and the current-state terminus suffix
+      // (see site/v1/copy.js for the rationale). Kept string-identical to the
+      // browser copy so the drift-guard parity test holds.
+      originSemantic: {
+        title: 'Licence origin',
+        equiv: '= issuance',
+        coincide: 'The record’s licence-issued, original-start and version-start dates coincide on this day. Each is listed below with the publication that asserts it; the record reads them as one origin and adjudicates nothing.',
+        // An attested interpretation of the original-start field, carried from
+        // held research (issue #921): sourced to Ofcom's own field dictionary and
+        // hedged, since it is confirmed for the field's DEFINITION but not for
+        // every individual record. Cited, never asserted as universal fact.
+        interpretationLabel: 'how the original-start date is read',
+        interpretation: 'The register’s own field guidance — Ofcom’s Licence-View field dictionary, disclosed under FOI (2014/15) — defines Original Start Date as a licence-view field: the licence chain’s first-ever start, surviving revisions, rather than this callsign’s own issuance. In at least some records it pre-dates the callsign’s series, so it dates the holder’s inherited licence chain, not this callsign; whether that reading holds for every record is not confirmed.',
+      },
       currentStateLabel: 'current state',
       readingLead: 'Reading',
       calibrationLead: 'Calibration',
@@ -111,6 +122,12 @@ export const V1_COPY = {
       bookkeepingOnly: 'The only dated evidence held for this callsign is record-bookkeeping — the register’s own created and last-modified stamps. These attest system presence by a date, not a licensing event.',
       disagreementLabel: 'The held vintages disagree about this record’s dates',
       disagreementGloss: 'Different vintages assert different dates for the same past event. Every camp is listed with its asserting datasets; the record adjudicates none of them — a later assertion is not automatically the truer one.',
+      // Plain-language resolution + disputed link + high-density nudge (issue #921;
+      // see site/v1/copy.js). Kept string-identical to the browser copy.
+      disagreementResolution: 'the held publications disagree; both values are shown and neither is adjudicated',
+      disputeLink: 'disputed — why?',
+      disputeNudge: 'This record carries {count} conflicting dated claims — the instrument shows every one.',
+      disputeNudgeCta: 'examine the disagreements',
     },
     carriedOrigin: {
       label: 'how licence-chain origins are read',
