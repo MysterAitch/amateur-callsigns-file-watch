@@ -30,16 +30,35 @@ const el = (tag, cls, txt) => {
 /** @typedef {keyof typeof V1_COPY.glossary} GlossaryKey */
 
 /**
- * The definition body of a popover: the term name as a label, then its plain
- * definition. Built with textContent throughout (never innerHTML).
- * @param {{ term: string, def: string }} entry
+ * The stable page-anchor id for a glossary term (issue #930): a deterministic
+ * kebab-case of the registry key, shared by the popover link-out below and the
+ * glossary page that renders the full definition — so a popover and its page
+ * entry cannot drift to different anchors.
+ * @param {GlossaryKey} key
+ * @returns {string}
+ */
+export function glossaryAnchorId(key) {
+  return `def-${String(key).replace(/[A-Z]/g, (/** @type {string} */ m) => `-${m.toLowerCase()}`)}`;
+}
+
+/**
+ * The definition body of a popover: the term name as a label, its plain
+ * definition, then a link out to the full definition's permanent anchor on the
+ * glossary page (issue #930) — so the popover carries the answer inline AND is
+ * never a dead end. Built with textContent throughout (never innerHTML).
+ * @param {GlossaryKey} key
  * @returns {HTMLElement}
  */
-function buildPop(entry) {
+function buildPop(key) {
+  const entry = V1_COPY.glossary[key];
   const pop = el('div', 'pop');
   pop.setAttribute('role', 'tooltip');
   pop.appendChild(el('span', 'pl', entry.term));
   pop.append(entry.def);
+  const more = el('a', 'pop-more', V1_COPY.glossaryPage.popMore);
+  more.setAttribute('href', `glossary.html#${glossaryAnchorId(key)}`);
+  more.setAttribute('aria-label', `${V1_COPY.glossaryPage.popMore} of ${entry.term}, on the glossary page`);
+  pop.appendChild(more);
   return pop;
 }
 
@@ -58,7 +77,7 @@ export function inlineTerm(key, label) {
   const summary = el('summary', null, label ?? entry.term);
   summary.setAttribute('aria-label', `${label ?? entry.term} – glossary definition`);
   details.appendChild(summary);
-  details.appendChild(buildPop(entry));
+  details.appendChild(buildPop(key));
   return details;
 }
 
@@ -76,7 +95,7 @@ export function termCue(key) {
   const summary = el('summary', null, '?');
   summary.setAttribute('aria-label', `${entry.term} – glossary definition`);
   details.appendChild(summary);
-  details.appendChild(buildPop(entry));
+  details.appendChild(buildPop(key));
   return details;
 }
 
@@ -90,13 +109,12 @@ export function termCue(key) {
  * @returns {HTMLDetailsElement}
  */
 export function provenanceChip(kind) {
-  const entry = V1_COPY.glossary[kind];
   const details = /** @type {HTMLDetailsElement} */ (el('details', 'term prov-term'));
   const summary = el('summary', 'prov-summary');
   summary.setAttribute('aria-label', `${kind} – glossary definition`);
   summary.appendChild(el('span', 'tb', kind));
   details.appendChild(summary);
-  details.appendChild(buildPop(entry));
+  details.appendChild(buildPop(kind));
   return details;
 }
 

@@ -2,14 +2,14 @@
 
 /**
  * Root discovery files for the v1 launch (issue #921): a slim sitemap.xml at
- * the deploy root listing the three v1 pages that now own the root, plus a
- * robots.txt that points crawlers at it.
+ * the deploy root listing the v1 pages that now own the root (see
+ * ROOT_DISCOVERY_PATHS below), plus a robots.txt that points crawlers at it.
  *
  * The preserved previous version keeps its own, fuller sitemap at
  * /v0/sitemap.xml (built by build-dataset-pages.ts and left untouched); this
- * root sitemap is deliberately just the three launched v1 URLs, so a crawler
- * that reads the root discovers the new front door rather than the redirect
- * stubs mirroring every old deep link.
+ * root sitemap is deliberately just the v1 pages listed in
+ * ROOT_DISCOVERY_PATHS, so a crawler that reads the root discovers the new
+ * front door rather than the redirect stubs mirroring every old deep link.
  *
  * Pure and deterministic: the URL set is fixed and the output carries no build
  * clock, so two builds over the same base URL are byte-identical.
@@ -35,9 +35,11 @@ const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-w
 // flip from half-applying — the guarding tests assert both states off it.
 export const SITE_INDEXABLE = false;
 
-// The three v1 pages that own the deploy root. The home page is listed as the
-// directory root (a clean canonical URL), the other two by filename.
-export const ROOT_DISCOVERY_PATHS = ['', 'callsign.html', 'how-to-get-the-raw-data.html'] as const;
+// The v1 pages that own the deploy root. The home page is listed as the
+// directory root (a clean canonical URL), the others by filename. A page joins
+// this set when it enters the v1 navigation, so a nav-advertised page is always
+// in the crawlable universe.
+export const ROOT_DISCOVERY_PATHS = ['', 'callsign.html', 'how-to-get-the-raw-data.html', 'glossary.html'] as const;
 
 // The absolute URLs the root sitemap advertises, for a given site base.
 export function rootDiscoveryUrls(baseUrl: string): string[] {
