@@ -59,7 +59,9 @@ import { writeSurvivalCohort } from './survival-cohort.ts';
 import { writeTimezoneRendering } from './timezone-rendering.ts';
 import { writeReprocessingStratification } from './reprocessing-stratification.ts';
 import { mdCell } from '../shared/markdown.ts';
-import { time, perfReport } from '../shared/perf.ts';
+import { time, perfReport, perfSnapshot, perfMerge } from '../shared/perf.ts';
+import { isMainThread, workerData, parentPort } from 'node:worker_threads';
+import { runBounded, runTaskInWorker } from './report-sweep-pool.ts';
 
 // mdCell (markdown table-cell sanitiser) is shared with the other report
 // generators; re-exported here so existing importers keep their path.
@@ -116,11 +118,99 @@ function entryCoverage(key: string, failed: ReportSweepReport['failed']): EntryC
   return { key, sourceKey, state: 'derived', note: `${stats.recordCount} records` };
 }
 
+// The independent report generators (issue #929): each is a producer over the
+// shared inputs (the ledger projection + the archive) that writes its OWN
+// disjoint files under reports/. This list is the single source of truth for
+// which reports the sweep regenerates and what each is; the sequential and
+// worker-parallel sweep paths differ only in how they SCHEDULE it. `id` is both
+// the worker dispatch key and the perf label, so a run's breakdown names every
+// generator wherever it ran. Ordering is not an input to any report - the output
+// files are disjoint - so concurrency cannot change a single output byte, and
+// the golden gate diffs the result to prove it.
+interface ReportGeneratorTask { id: string; run: () => void }
+const INDEPENDENT_REPORT_TASKS: readonly ReportGeneratorTask[] = [
+  // The cross-lane value catalogue (issues #43/#223): every distinct value of
+  // the tracked fields across both lanes, so a PR diff flags vocabulary drift
+  // and unexpected values.
+  { id: 'reports:value-catalogue', run: () => time('reports:value-catalogue', () => writeValueCatalogue()) },
+  // The cross-dataset invariant probes (issue #241): available-pool depletion,
+  // the still-absent decomposition and the original-issue-date invariant,
+  // joining the FOI lane against the register. Its own buildDepletion/
+  // buildOverlapMatrix spans are recorded internally, so it is left unwrapped
+  // here to keep those figures free of a nesting parent.
+  { id: 'reports:cross-dataset-invariants', run: () => writeCrossDatasetInvariants() },
+  // The forbidden-suffix history (issues #289/#291): the forbidden list as a
+  // first-class dataset category, diffed across every disclosure held, carrying
+  // the ever-forbidden union and per-suffix first-known dates.
+  { id: 'reports:forbidden-suffix-history', run: () => time('reports:forbidden-suffix-history', () => writeForbiddenSuffixHistory()) },
+  // The cross-vintage event-time coherency report (issue #725 S2): the
+  // retroactive-revision detector over the S1 event-date claims — mass-update
+  // episodes, per-step revision classifications and corroboration depth.
+  { id: 'reports:event-time-coherency', run: () => time('reports:event-time-coherency', () => writeEventTimeCoherency()) },
+  // The state-at-t reconstruction report (issue #725 S3): the bi-temporal
+  // inference engine demonstrated over the real corpus — inference rules,
+  // per-kind coverage honesty and the authored worked examples.
+  { id: 'reports:state-at-t', run: () => time('reports:state-at-t', () => writeStateAtTReport()) },
+  // The policy-as-tests invariants report (issue #863): the regulator's stated
+  // rules encoded as executable invariants over the ledger — the two-year
+  // reservation window tested against every `reserved-until` claim.
+  { id: 'reports:policy-invariants', run: () => time('reports:policy-invariants', () => writePolicyInvariantsReport()) },
+  // The per-record curiosity index (issue #866): a reference-free rarity score
+  // over the newest publication's records, sorted into the most-unusual-records
+  // report with each score's component breakdown.
+  { id: 'reports:curiosity-index', run: () => time('reports:curiosity-index', () => writeCuriosityIndex()) },
+  // The namespace sequence analytics (issue #864): allocation order (the
+  // register's H5), gap structure, issuance-rate curves and a naive
+  // series-exhaustion projection per prefix series.
+  { id: 'reports:sequence-analytics', run: () => time('reports:sequence-analytics', () => writeSequenceAnalytics()) },
+  // The per-column distributional drift report (issue #862): per-vintage
+  // fingerprints over every canonical column of the open-data normalised.csvs,
+  // and the vintage-over-vintage divergences the thresholds flag.
+  { id: 'reports:column-drift', run: () => time('reports:column-drift', () => writeColumnDrift()) },
+  // The survival/cohort report (issue #865): the register as a life table over
+  // the S1 event claims + open-data snapshot presence — right-censored licence
+  // ages, retention by class and era-cohort, and the reservation-cycle picture.
+  { id: 'reports:survival-cohort', run: () => time('reports:survival-cohort', () => writeSurvivalCohort()) },
+  // The per-source timezone-rendering classification (issue #858): which clock
+  // convention each source's date/datetime columns render under, derived by
+  // chained pairwise natural experiments over the raw datetime cells.
+  { id: 'reports:timezone-rendering', run: () => time('reports:timezone-rendering', () => writeTimezoneRendering()) },
+  // The reprocessing-touch series stratification (issue #871): for every
+  // inter-snapshot window, the per-series composition of the records touched in
+  // that window against the snapshot's own series composition (flags, never
+  // verdicts) — e.g. the 2024-10 bulk run largely excludes M7.
+  { id: 'reports:reprocessing-stratification', run: () => time('reports:reprocessing-stratification', () => writeReprocessingStratification()) },
+];
+
+// Worker-pool width: the runner's core count, but capped, because each
+// concurrent generator holds its own DuckDB fold's working set - unbounded fan
+// on a many-core host would multiply peak memory (and temp-spill disk) beyond a
+// standard runner's headroom, where the sequential sweep only ever held one
+// fold's. The cap keeps the win (a standard CI runner is <= this wide anyway)
+// while bounding the footprint; REPORT_SWEEP_CONCURRENCY (a positive integer)
+// overrides it either way, for a constrained host or a deliberately wider one.
+const MAX_REPORT_CONCURRENCY = 4;
+function defaultReportConcurrency(): number {
+  const override = process.env.REPORT_SWEEP_CONCURRENCY;
+  if (override !== undefined && override !== '') {
+    const parsed = Number.parseInt(override, 10);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return Math.max(1, Math.min(os.availableParallelism(), MAX_REPORT_CONCURRENCY));
+}
+
 // Regenerate every committed report and assemble the coverage markdown. The
 // change detector is deliberately NOT here: the scheduled workflow's own
 // `git status` over reports/ decides whether a PR opens, and the golden gate
 // diffs the regeneration against the committed tree - the regeneration only
 // has to be deterministic.
+//
+// Sequential reference path: fold the shared data-quality rollup once, write the
+// per-entry quality reports from it, then run every independent generator in
+// order. runReportSweepParallel produces byte-identical output by fanning the
+// same generators across worker threads; this single-process path is the one the
+// unit suites drive (they call it ~30 times), so those runs never spawn a thread
+// pool inside the fast test lane (the #375 oversubscription trap).
 export function runReportSweep(): ReportSweepReport {
   const failed: ReportSweepReport['failed'] = [];
   const keys = listArchiveKeys().sort();
@@ -135,90 +225,62 @@ export function runReportSweep(): ReportSweepReport {
 
   // Committed quality reports (issue #46): reports/{key}.md per entry with
   // stats - the durable, diffable, browsable home for the pattern matrix and
-  // pairwise comparisons. Regenerated wholesale each run; byte-identical
-  // regeneration means no git change, so unchanged windows never churn.
+  // pairwise comparisons. Reads the shared fold above, so it stays on the
+  // folding thread in both sweep paths.
   time('reports:quality-reports', () => writeQualityReports(keys, dataQualityFold));
 
-  // The cross-lane value catalogue (issues #43/#223): every distinct value of
-  // the tracked fields across both lanes, regenerated and committed here so a
-  // PR diff flags vocabulary drift and unexpected values.
-  time('reports:value-catalogue', () => writeValueCatalogue());
+  for (const task of INDEPENDENT_REPORT_TASKS) task.run();
 
-  // The cross-dataset invariant probes (issue #241): available-pool depletion,
-  // the still-absent decomposition and the original-issue-date invariant,
-  // joining the FOI lane against the register. Committed so a PR diff is a
-  // drift signal. Its own buildDepletion/buildOverlapMatrix spans are recorded
-  // internally, so the call is left unwrapped here to keep those figures free
-  // of a nesting parent.
-  writeCrossDatasetInvariants();
+  return assembleCoverage(keys, coverageRows, dataQualityFold, failed);
+}
 
-  // The forbidden-suffix history (issues #289/#291): the forbidden list as a
-  // first-class dataset category, diffed across every disclosure held and
-  // carrying the ever-forbidden union and per-suffix first-known dates.
-  // Committed, so a change to the disallowed vocabulary shows up in a PR diff.
-  time('reports:forbidden-suffix-history', () => writeForbiddenSuffixHistory());
+// Worker-parallel path (issue #929): byte-identical output to runReportSweep,
+// but the independent generators fan across worker threads (report-sweep-pool.ts)
+// instead of running one after another - the ~54-min sweep critical path was pure
+// sequential addition, one generator per analytical wave, with nothing between
+// them shared to force an order. The shared data-quality fold and the per-entry
+// quality reports that consume it run in THIS thread while the pool churns, so
+// the folding thread is a working lane rather than idle. Used by the CLI (the
+// golden gate and the scheduled sweep); the unit suites drive the sequential
+// path. Determinism is structural - each generator writes a disjoint set of
+// files, so scheduling order is not an input to any report - and the golden gate
+// diffs the result on every cache miss, proving it per run.
+export async function runReportSweepParallel(concurrency: number = defaultReportConcurrency()): Promise<ReportSweepReport> {
+  const failed: ReportSweepReport['failed'] = [];
+  const keys = listArchiveKeys().sort();
+  const coverageRows = keys.map(key => entryCoverage(key, failed));
 
-  // The cross-vintage event-time coherency report (issue #725 S2): the
-  // retroactive-revision detector over the S1 event-date claims — mass-update
-  // episodes, per-step revision classifications and corroboration depth.
-  // Committed so a new vintage shifting the coherency picture is a PR diff.
-  time('reports:event-time-coherency', () => writeEventTimeCoherency());
+  const dataQualityFold = time('reports:data-quality-fold', () => buildDataQualityFold());
 
-  // The state-at-t reconstruction report (issue #725 S3): the bi-temporal
-  // inference engine demonstrated over the real corpus — inference rules,
-  // per-kind coverage honesty and the authored worked examples. Committed so
-  // a new vintage shifting any answer is a PR diff.
-  time('reports:state-at-t', () => writeStateAtTReport());
+  // Fan the independent generators across worker threads; each worker is this
+  // same module (self-as-worker: see the worker branch at the foot of the file),
+  // selecting its generator by id and posting its perf spans back to merge into
+  // the one breakdown. Launched BEFORE the main-thread quality reports so the two
+  // overlap on the folding thread.
+  const workerUrl = new URL(import.meta.url);
+  const pool = runBounded(INDEPENDENT_REPORT_TASKS, concurrency, async (task) => {
+    const result = await runTaskInWorker(workerUrl, task.id);
+    perfMerge(result.perf);
+    return result;
+  });
 
-  // The policy-as-tests invariants report (issue #863): the regulator's stated
-  // rules encoded as executable invariants over the ledger — the first being
-  // the two-year reservation window (FOI 756622's Reserved definition) tested
-  // against every `reserved-until` claim. Committed so a new vintage shifting
-  // any policy finding is a PR diff.
-  time('reports:policy-invariants', () => writePolicyInvariantsReport());
+  time('reports:quality-reports', () => writeQualityReports(keys, dataQualityFold));
 
-  // The per-record curiosity index (issue #866): a reference-free rarity score
-  // over the newest publication's records, sorted into the most-unusual-records
-  // report with each score's component breakdown. Committed, so a publication
-  // that shifts which records are unusual shows up in a PR diff. Build side; the
-  // reader-facing page follows the #104 conventions.
-  time('reports:curiosity-index', () => writeCuriosityIndex());
+  await pool;
 
-  // The namespace sequence analytics (issue #864): allocation order (the
-  // register's H5), gap structure, issuance-rate curves and a naive
-  // series-exhaustion projection per prefix series, folded from the S1
-  // allocation-time event claims. Committed so a new vintage shifting the
-  // picture is a PR diff.
-  time('reports:sequence-analytics', () => writeSequenceAnalytics());
+  return assembleCoverage(keys, coverageRows, dataQualityFold, failed);
+}
 
-  // The per-column distributional drift report (issue #862): per-vintage
-  // fingerprints over every canonical column of the open-data normalised.csvs,
-  // and the vintage-over-vintage divergences the thresholds flag. Committed so
-  // a new vintage shifting any fingerprint is a PR diff.
-  time('reports:column-drift', () => writeColumnDrift());
-
-  // The survival/cohort report (issue #865): the register as a life table over
-  // the S1 event claims + open-data snapshot presence — right-censored licence
-  // ages, retention by class and era-cohort, and the reservation-cycle picture,
-  // every curve stating its censoring and coverage. Committed so a new vintage
-  // shifting the actuarial picture is a PR diff.
-  time('reports:survival-cohort', () => writeSurvivalCohort());
-
-  // The per-source timezone-rendering classification (issue #858): which
-  // clock convention each source's date/datetime columns render under,
-  // derived by chained pairwise natural experiments over the raw datetime
-  // cells and the S1 event-date claims. Committed so a new vintage shifting
-  // any classification (or introducing conflicting evidence) is a PR diff.
-  time('reports:timezone-rendering', () => writeTimezoneRendering());
-
-  // The reprocessing-touch series stratification (issue #871): for every
-  // inter-snapshot window, the per-series composition of the records touched in
-  // that window against the snapshot's own series composition — the durable,
-  // re-runnable home for the observation that Ofcom's bulk reprocessing runs
-  // are callsign-series-stratified (the 2024-10 run largely excludes M7).
-  // Committed so a new reprocessing wave shifting the picture is a PR diff.
-  time('reports:reprocessing-stratification', () => writeReprocessingStratification());
-
+// Assemble the coverage markdown from the per-entry coverage rows and the shared
+// data-quality fold: the dashboard table, the newest dataset's RSL matrix, and
+// the flag/status trend tables. Shared by both sweep paths so their non-report
+// output (the scheduled workflow's dashboard body) is identical too.
+function assembleCoverage(
+  keys: string[],
+  coverageRows: EntryCoverage[],
+  dataQualityFold: DataQualityFold,
+  failed: ReportSweepReport['failed'],
+): ReportSweepReport {
   // The newest dataset's matrix always appears: the coverage body is the
   // does-this-look-right triage surface, and current state belongs on it -
   // when the reports changed because a publication landed, the newest entry
@@ -1219,7 +1281,7 @@ function writePatternTimeSeries(series: CallsignPatternSeriesFold): void {
 }
 
 
-function main(): void {
+async function main(): Promise<void> {
   // --build-projection: build the ledger projection to a scratch directory and
   // run the sweep against it - the projection-fed semantics the workflows use,
   // in one local command (the `npm run regen` path). Without the flag (and
@@ -1237,7 +1299,9 @@ function main(): void {
       buildBuilderProjection(scratchProjection);
       process.env[BUILDER_PROJECTION_DIR_ENV] = scratchProjection;
     }
-    mainSweep();
+    // The projection env is now set (in-process), so the worker threads the
+    // parallel sweep spawns inherit it in their process.env copy.
+    await mainSweep();
   } finally {
     // The scratch projection is cleaned up whatever threw - including the
     // projection build itself (an unauthored binding on a fresh entry), which
@@ -1249,8 +1313,10 @@ function main(): void {
   }
 }
 
-function mainSweep(): void {
-  const report = runReportSweep();
+async function mainSweep(): Promise<void> {
+  // The CLI (golden gate + scheduled sweep) runs the worker-parallel path;
+  // the unit suites drive the sequential runReportSweep directly.
+  const report = await runReportSweepParallel();
   console.log(report.coverageMarkdown);
   console.log('');
   console.log(`entries=${listArchiveKeys().length} failed=${report.failed.length}`);
@@ -1258,7 +1324,9 @@ function mainSweep(): void {
     console.error(`FAILED ${f.key}: ${f.reason}`);
   }
   // Self-guarded: prints the profiling breakdown to stderr only under PERF,
-  // and writes the JSON per-run report when PERF_JSON names a path.
+  // and writes the JSON per-run report when PERF_JSON names a path. The worker
+  // generators' spans were merged back (perfMerge) as each finished, so the
+  // breakdown still accounts for every report.
   perfReport({ entrypoint: 'report-sweep' });
   // Emit the coverage for the workflow to consume (rolling issue + PR body).
   // The workflow's other signals are the shell-captured exit code and git
@@ -1271,6 +1339,29 @@ function mainSweep(): void {
   }
 }
 
-if (import.meta.main) {
-  main();
+// A report generator running in a worker thread (report-sweep-pool.ts fans them
+// out): run the single task named in workerData, then post its perf spans back
+// for the orchestrator to merge. A thrown error becomes the worker's 'error'
+// event, which the pool turns into a rejection naming the task - so a broken
+// generator fails the sweep loudly, never a silent missing report.
+function runReportTaskAsWorker(): void {
+  const { reportTaskId } = workerData as { reportTaskId: string };
+  const task = INDEPENDENT_REPORT_TASKS.find(t => t.id === reportTaskId);
+  if (task === undefined) throw new Error(`unknown report task '${reportTaskId}'`);
+  task.run();
+  parentPort?.postMessage({ perf: perfSnapshot() });
+}
+
+// isMainThread is the authoritative gate: a worker's entry module is this file
+// too, so it must branch to the task runner BEFORE the import.meta.main CLI
+// check (which a worker may also satisfy). In the main thread, main() runs only
+// when this module IS the process entry point - importing it (the unit suites)
+// has no side effect.
+if (!isMainThread) {
+  runReportTaskAsWorker();
+} else if (import.meta.main) {
+  main().catch((err: unknown) => {
+    console.error(err instanceof Error ? (err.stack ?? err.message) : String(err));
+    process.exitCode = 1;
+  });
 }

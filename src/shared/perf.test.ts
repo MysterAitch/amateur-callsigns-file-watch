@@ -8,6 +8,7 @@ import {
   perfReport,
   perfReset,
   perfSnapshot,
+  perfMerge,
   perfReportJson,
   PERF_REPORT_SCHEMA,
   type PerfReportJson,
@@ -116,6 +117,37 @@ describe('timeAsync', { tags: ['unit'] }, () => {
     delete process.env.PERF;
     const value = await timeAsync('async-op', () => Promise.resolve('done'));
     expect(value).toBe('done');
+    expect(perfSnapshot()).toHaveLength(0);
+  });
+});
+
+describe('perfMerge', { tags: ['unit'] }, () => {
+  it('WorkerRows_MergedIntoAFreshReport_AppearWithTheirCallsTotalsAndSizes', () => {
+    // A build that fans work across worker threads collects each worker's
+    // perfSnapshot() and folds it in; a label only a worker measured appears in
+    // the merged report exactly as it was posted.
+    perfMerge([{ label: 'reports:survival-cohort', calls: 1, totalMs: 446_000, size: 12 }]);
+    const row = perfSnapshot().find(r => r.label === 'reports:survival-cohort');
+    expect(row).toEqual({ label: 'reports:survival-cohort', calls: 1, totalMs: 446_000, size: 12 });
+  });
+
+  it('WorkerRows_SharingALabelWithInProcessSpans_Accumulate', () => {
+    // The folding thread timed one span; a worker posts another under the same
+    // label. The merged report adds them, exactly as two in-process time() calls
+    // on that label would.
+    process.env.PERF = '1';
+    time('reports:shared', () => undefined);
+    perfMerge([{ label: 'reports:shared', calls: 2, totalMs: 100, size: 5 }]);
+    const row = perfSnapshot().find(r => r.label === 'reports:shared');
+    expect(row?.calls).toBe(3);
+    expect(row?.totalMs).toBeGreaterThanOrEqual(100);
+    expect(row?.size).toBe(5);
+  });
+
+  it('EmptyRows_Merged_LeaveTheReportUnchanged', () => {
+    // A worker that measured nothing (PERF off in the worker) posts an empty
+    // snapshot; merging it is a no-op rather than an error.
+    perfMerge([]);
     expect(perfSnapshot()).toHaveLength(0);
   });
 });
