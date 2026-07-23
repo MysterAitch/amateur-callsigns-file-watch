@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v1 dial polish harness</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="shell.css">
+<style>
+  body{padding:1.25rem}
+  .harness-case{margin:2rem 0;border:2px dashed #c33;padding:.5rem}
+  .harness-case > h3{font-family:var(--mono);font-size:12px;color:#c33;margin:.2rem 0 .6rem}
+  .rule{outline:1px solid rgba(200,0,0,.25)}
+</style>
+</head>
+<body>
+<div class="wrap" id="root"></div>
+<script type="module">
+import { renderCallsignSections, CALLSIGN_SECTION_REGISTRY } from './callsign-sections.js';
+
+function cm(over = {}) {
+  const dial = { events: [], sightings: [], findings: [], bookkeeping: [], disagreements: [], hasEvents: false, hasBookkeeping: false, ...(over.dial ?? {}) };
+  const { dial: _d, ...rest } = over;
+  return {
+    key: 'M7TEE', cleaned: 'M7TEE', found: true, viaRendering: false,
+    latest: null, seen: null, anatomy: null, twin: null,
+    carriedOrigin: 'neutral', series: null, seriesIntro: null,
+    ...rest, dial,
+  };
+}
+const ab = (title, vintage) => [{ title, href: '#', vintage, nrows: 1 }];
+const sight = (v, t) => ({ vintage: v, title: t });
+const allocated = { statuses: ['Allocated'], products: ['Amateur Foundation'], types: [], dataset: { title: 'Ofcom register snapshot', vintage: '2026-06-23', href: '#' } };
+
+const root = document.getElementById('root');
+function addCase(title, node) {
+  const wrap = document.createElement('div');
+  wrap.className = 'harness-case';
+  const h = document.createElement('h3'); h.textContent = title; wrap.appendChild(h);
+  wrap.appendChild(node);
+  root.appendChild(wrap);
+}
+function dialOnly(model) {
+  const host = document.createElement('div');
+  CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(host, model);
+  return host;
+}
+function fullPage(model) {
+  const host = document.createElement('div');
+  renderCallsignSections(host, model);
+  return host;
+}
+
+// 1. M7TEE: three same-day origin events -> dial stack + rail semantic origin row + state node + legend.
+const m7tee = cm({
+  key: 'M7TEE', series: 'M7', seriesIntro: '2018-10', latest: allocated,
+  anatomy: [
+    { chars: 'M', name: 'prefix', meaning: 'UK amateur prefix' },
+    { chars: '7', name: 'digit', meaning: 'the allocation digit' },
+    { chars: 'TEE', name: 'suffix', meaning: 'the personal suffix' },
+  ],
+  dial: {
+    hasEvents: true,
+    events: [
+      { day: '2018-10-18', label: 'licence issued — foundation', kindId: 'licence-issued', state: false, assertedBy: ab('Ofcom register snapshot', '2026-06-23') },
+      { day: '2018-10-18', label: 'licence original start', kindId: 'licence-original-start', state: false, assertedBy: ab('Ofcom register snapshot', '2026-06-23') },
+      { day: '2018-10-18', label: 'licence-version start', kindId: 'licence-version-original-start', state: false, assertedBy: ab('Ofcom register snapshot', '2026-06-23') },
+    ],
+    sightings: [sight('2018-11-01','Ofcom 2018'), sight('2019-06-15','Ofcom 2019'), sight('2021-06-15','Ofcom 2021'), sight('2024-03-01','Ofcom 2024'), sight('2026-06-23','Ofcom register snapshot')],
+    findings: [{ statement: 'One licence: originated 2018-10-18, still allocated', caveats: ['earliest surviving date, not “the true original”'] }],
+  },
+});
+addCase('1. M7TEE stack + semantic origin row (full page)', fullPage(m7tee));
+
+// 2. Synthetic 4-event same-day stack.
+addCase('2. Synthetic 4-event same-day stack', dialOnly(cm({
+  latest: allocated,
+  dial: { hasEvents: true, sightings: [sight('2026-06-23','Ofcom register snapshot')],
+    events: [
+      { day: '2019-06-05', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: [] },
+      { day: '2019-06-05', label: 'licence original start', kindId: 'licence-original-start', state: false, assertedBy: [] },
+      { day: '2019-06-05', label: 'licence-version start', kindId: 'licence-version-original-start', state: false, assertedBy: [] },
+      { day: '2019-06-05', label: 'record created', state: false, assertedBy: [] },
+    ] },
+})));
+
+// 3. Near-dated tiered run.
+addCase('3. Near-dated tiered run (adjacent days on a wide axis)', dialOnly(cm({
+  latest: allocated,
+  dial: { hasEvents: true, sightings: [sight('2026-06-23','Ofcom register snapshot')],
+    events: [
+      { day: '2013-01-05', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: [] },
+      { day: '2021-04-16', label: 'licence original start', kindId: 'licence-original-start', state: false, assertedBy: [] },
+      { day: '2021-04-18', label: 'licence-version start', kindId: 'licence-version-original-start', state: false, assertedBy: [] },
+      { day: '2021-04-21', label: 'reserved until', kindId: 'reserved-until', state: false, assertedBy: [] },
+      { day: '2021-05-02', label: 'licence cancelled', kindId: 'licence-cancelled', state: false, assertedBy: [] },
+    ] },
+})));
+
+// 4. G8NNZ-shape disputed camps (2 camps).
+addCase('4. Disputed 2-camp (G8NNZ shape)', dialOnly(cm({
+  latest: allocated,
+  dial: { hasEvents: true, sightings: [sight('2020-05-01','entry-a'), sight('2026-06-23','Ofcom register snapshot')],
+    events: [{ day: '2021-02-23', label: 'licence-version start', kindId: 'licence-version-original-start', state: false, assertedBy: ab('entry-b register','2021-06-01') }],
+    disagreements: [{ kindLabel: 'licence-version start', kindId: 'licence-version-original-start', camps: [
+      { day: '1977-07-09', datasets: [{ title: 'entry-a register', href: '#', vintage: '2020-05-01' }] },
+      { day: '2021-02-23', datasets: [{ title: 'entry-b register', href: '#', vintage: '2021-06-01' }] },
+    ] }],
+  },
+})));
+
+// 5. Heavy 4-5 camp case (dispute nudge).
+addCase('5. Heavy 5-camp disagreement (dispute nudge)', dialOnly(cm({
+  latest: allocated,
+  dial: { hasEvents: true, sightings: [sight('2026-06-23','Ofcom register snapshot')],
+    events: [{ day: '2021-02-23', label: 'licence original start', kindId: 'licence-original-start', state: false, assertedBy: [] }],
+    disagreements: [{ kindLabel: 'licence original start', kindId: 'licence-original-start', camps: [
+      { day: '1977-07-09', datasets: [{ title: 'the 1977 vintage register', href: '#', vintage: '2015-01-01' }] },
+      { day: '1999-03-01', datasets: [{ title: 'the 1999 vintage register', href: '#', vintage: '2016-01-01' }] },
+      { day: '2008-11-20', datasets: [{ title: 'the 2008 vintage register', href: '#', vintage: '2018-01-01' }] },
+      { day: '2015-06-30', datasets: [{ title: 'the 2015 vintage register', href: '#', vintage: '2020-01-01' }] },
+      { day: '2021-02-23', datasets: [{ title: 'the 2021 vintage register', href: '#', vintage: '2021-06-01' }] },
+    ] }],
+  },
+})));
+
+// 6. Long kind labels.
+addCase('6. Very long kind labels', dialOnly(cm({
+  latest: allocated,
+  dial: { hasEvents: true, sightings: [sight('2026-06-23','Ofcom register snapshot')],
+    events: [
+      { day: '2018-03-14', label: 'licence issued — full (reciprocal, temporary, non-standard rendering)', kindId: 'licence-issued', state: false, assertedBy: [] },
+      { day: '2023-09-30', label: 'licence-version original start superseded by later revision', kindId: 'licence-version-original-start', state: false, assertedBy: [] },
+    ] },
+})));
+
+// 7. No-record ZZ9ZZZ suppression (full page).
+addCase('7. No-record ZZ9ZZZ (sections suppressed)', fullPage(cm({ found: false, key: 'ZZ9ZZZ', cleaned: 'ZZ9ZZZ' })));
+
+// 8. Realistic recent event near the current-state terminus on a wide axis.
+addCase('8. Realistic recent event near the state terminus', dialOnly(cm({
+  latest: allocated,
+  dial: { hasEvents: true, sightings: [sight('2005-01-01','Ofcom 2005'), sight('2026-06-23','Ofcom register snapshot')],
+    events: [
+      { day: '1998-05-10', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: [] },
+      { day: '2023-09-30', label: 'callsign first recorded', state: false, assertedBy: [] },
+    ] },
+})));
+
+window.__harnessReady = true;
+</script>
+</body>
+</html>
