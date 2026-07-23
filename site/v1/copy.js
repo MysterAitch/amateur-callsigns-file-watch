@@ -316,12 +316,12 @@ export const V1_COPY = {
   glossaryPage: {
     eyebrow: 'plain-language reference',
     title: 'Glossary',
-    lede: 'Plain-language definitions of the coined terms this record uses — the vocabulary of the two-clock instrument, what the record holds, and how each value was produced. Each entry is one clear line, deep-linkable by its #anchor, and is the very definition the inline popovers open.',
+    lede: 'Plain-language definitions of the coined terms this record uses – the vocabulary of the two-clock instrument, what the record holds, and how each value was produced. Each entry is one clear line, deep-linkable by its #anchor, and is the very definition the inline popovers open.',
     readingLabel: 'reading the record',
     holdingsLabel: 'what the record holds',
     provenanceLabel: 'how a value is produced',
     popMore: 'Full definition',
-    foot: 'These are the terms coined for this record’s own surfaces. The wider domain vocabulary — the register’s status values, prefix and suffix structure, dataset classes and flags — moves here as each of those surfaces is migrated, rather than being described ahead of a page that uses it.',
+    foot: 'These are the terms coined for this record’s own surfaces. The wider domain vocabulary – the register’s status values, prefix and suffix structure, dataset classes and flags – moves here as each of those surfaces is migrated, rather than being described ahead of a page that uses it.',
   },
 };
 
