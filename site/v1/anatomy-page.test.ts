@@ -178,6 +178,45 @@ describe('v1 anatomy page — structure-reference completeness (issue #959)', { 
   });
 });
 
+describe('v1 anatomy page — special contest callsign detail (RSGB sources, #959 follow-up)', { tags: ['unit'] }, () => {
+  it('AnatomyPage_SpecialContestCallsign_StatesFormatPoolMechanismUsageAndValidity', () => {
+    // The RSL slot, the 520-callsign pool, the Ofcom-grants/RSGB-administers
+    // mechanism, the contest-only usage bound and the validity horizon, each
+    // sourced from the Ofcom guidance as published on the RSGB application page.
+    expect(ANATOMY_HTML).toContain('(G)(#)(&amp;)(A-Z)');
+    expect(ANATOMY_HTML).toContain('520 call signs');
+    expect(ANATOMY_HTML).toContain('RSGB administers and distributes them');
+    expect(ANATOMY_HTML).toContain('no more than 48 hours');
+    expect(ANATOMY_HTML).toContain('31 December 2029');
+    // The RSL slot is corroborated by the RSGB Contest Committee's own worked
+    // examples, distinct from the Ofcom-guidance G8Z/M7R shape examples above.
+    expect(ANATOMY_HTML).toContain('GM8C');
+    expect(ANATOMY_HTML).toContain('MW7D');
+    expect(ANATOMY_HTML).toContain('Ofcom guidance, as published on the RSGB Special Contest Call Sign application page');
+  });
+
+  it('AnatomyPage_SpecialContestCallsign_StatesIssuanceHistoryAndLifecycleFromTheContestCommittee', () => {
+    // Operational/administrative detail the Ofcom guidance does not state, cited
+    // to the RSGB Contest Committee page and tiered best available (RSGB), never
+    // averaged with the Ofcom-authored licence-condition facts above.
+    expect(ANATOMY_HTML).toContain('since about 1995');
+    expect(ANATOMY_HTML).toContain('eligible from 2010');
+    expect(ANATOMY_HTML).toContain('withdrawn for two years');
+    expect(ANATOMY_HTML).toContain('Best available (RSGB)');
+  });
+
+  it('AnatomyPage_SuffixWitness_StatesExpectedAbsenceOfSingleLetterSuffixesFromTheRegister', () => {
+    // The key epistemics point: special contest callsigns are NoV-borne, not
+    // register entries, so their near-absence from the held snapshots is
+    // expected — never presented as an anomaly. The RSGB allocation table is
+    // cited as the declared-availability witness instead.
+    expect(ANATOMY_HTML).toContain('expected, not anomalous');
+    expect(ANATOMY_HTML).toContain('Notice of Variation associated with a normal Full licence');
+    expect(ANATOMY_HTML).toContain('GW4SKA');
+    expect(ANATOMY_HTML).toContain('declared-availability source');
+  });
+});
+
 describe('v1 anatomy page — term popovers (issue #931)', { tags: ['ui'] }, () => {
   beforeEach(() => { document.body.innerHTML = ''; });
 
