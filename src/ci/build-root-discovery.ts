@@ -39,7 +39,7 @@ export const SITE_INDEXABLE = false;
 // directory root (a clean canonical URL), the others by filename. A page joins
 // this set when it enters the v1 navigation, so a nav-advertised page is always
 // in the crawlable universe.
-export const ROOT_DISCOVERY_PATHS = ['', 'callsign.html', 'on-this-day.html', 'timeline.html', 'how-to-get-the-raw-data.html', 'glossary.html'] as const;
+export const ROOT_DISCOVERY_PATHS = ['', 'callsign.html', 'on-this-day.html', 'timeline.html', 'how-to-get-the-raw-data.html', 'glossary.html', 'anatomy.html'] as const;
 
 // The absolute URLs the root sitemap advertises, for a given site base.
 export function rootDiscoveryUrls(baseUrl: string): string[] {

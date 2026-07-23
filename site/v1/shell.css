@@ -333,6 +333,14 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .anat .m{display:flex;flex-direction:column;gap:.35rem;padding-top:.1rem;min-width:0}
 .anat .m .role{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .anat .m .d{font-size:.95rem;color:var(--ink-2);line-height:1.45}
+/* The link-out to the full structure-reference page (issue #931): a "goes
+   somewhere" affordance beneath the terse grid, in the signal colour with a
+   trailing arrow that reinforces (never carries alone) the cue. */
+.anat-more{margin-top:1rem}
+.anat-more a{color:var(--signal-strong);font-family:var(--mono);font-size:.85rem;text-decoration:none;border-bottom:1px solid var(--signal-dim)}
+.anat-more a::after{content:" →"}
+.anat-more a:hover{color:var(--signal);border-bottom-color:var(--signal)}
+.anat-more a:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 
 /* ---- record-fidelity notes ---- */
 .notes .n{border:1px solid var(--line);border-left:3px solid var(--signal-dim);background:var(--panel);

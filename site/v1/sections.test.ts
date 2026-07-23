@@ -32,7 +32,7 @@ import {
 import { renderSiteBar, datedFactChipParts } from './shell.js';
 import { preserveLookupInput } from './callsign-page.js';
 import { provenanceChip, inlineTerm, termCue, wireTermPopovers } from './glossary.js';
-import { EVENT_TIME_GLOSS, ASSERTION_TIME_GLOSS } from './copy.js';
+import { EVENT_TIME_GLOSS, ASSERTION_TIME_GLOSS, V1_COPY } from './copy.js';
 // The shared pure data functions, reused by injection (the exact functions the
 // deployed v1 orchestrator loads at runtime from the site root). Importing them
 // here proves the reuse contract end to end over a fixture shard.
@@ -1379,6 +1379,36 @@ describe('v1 odd-count grids (issue #921, C1)', { tags: ['ui'] }, () => {
     const cells = [...root.querySelectorAll('.anat .p')];
     expect(cells).toHaveLength(3);
     for (const c of cells) expect((c.textContent ?? '').trim().length).toBeGreaterThan(0);
+  });
+
+  it('AnatomySection_ResolvedRecord_LinksOutToTheFullStructureReferencePage', () => {
+    // The terse per-callsign grid gains a link-out to the full anatomy page
+    // (issue #931), so the section is a route to the sourced explanation rather
+    // than standing alone. The link-out carries the registry copy and stays on
+    // the v1 surface (anatomy.html), never a /v0/ deep link.
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY.anatomy.mount(root, cm({
+      found: true,
+      anatomy: [
+        { chars: 'M', name: 'prefix', meaning: 'UK amateur prefix' },
+        { chars: '7', name: 'digit', meaning: 'the allocation digit' },
+        { chars: 'TEE', name: 'suffix', meaning: 'the personal suffix' },
+      ],
+    }));
+    const out = root.querySelector('.anat-more a');
+    expect(out?.getAttribute('href')).toBe('anatomy.html');
+    expect(out?.textContent).toBe(V1_COPY.callsign.anatomyLinkOut);
+    // The grid is untouched — the link-out is a sibling, not a phantom part cell.
+    expect(root.querySelectorAll('.anat .p')).toHaveLength(3);
+  });
+
+  it('AnatomySection_UnparsedRecord_StillLinksOutToTheStructureReferencePage', () => {
+    // Even where no diagram is drawn (no confident decomposition), the explainer
+    // is reachable — the link-out appears in that branch too.
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY.anatomy.mount(root, cm({ found: true, anatomy: null }));
+    expect(root.querySelector('.anat-more a')?.getAttribute('href')).toBe('anatomy.html');
+    expect(root.querySelector('.anat')).toBeNull();
   });
 
   it('AnatomyGrid_Stylesheet_UsesAnAutoFitTrackSoOddCountsLeaveNoBlankTile', () => {

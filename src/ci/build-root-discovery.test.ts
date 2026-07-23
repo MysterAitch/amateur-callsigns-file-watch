@@ -37,15 +37,19 @@ describe('root discovery files', { tags: ['unit'] }, () => {
       'https://example.test/mirror/timeline.html',
       'https://example.test/mirror/how-to-get-the-raw-data.html',
       'https://example.test/mirror/glossary.html',
+      'https://example.test/mirror/anatomy.html',
     ]);
     const sitemap = renderRootSitemap(BASE);
     for (const url of urls) expect(sitemap).toContain(`<loc>${url}</loc>`);
   });
 
   it('RootSitemap_WhenAPageEntersTheNav_ItJoinsTheCrawlableUniverse', () => {
-    // The glossary page is nav-advertised (issue #930), so it must be discoverable
-    // — not silently absent from the sitemap the launch flip advertises.
+    // A nav-advertised page must be discoverable — not silently absent from the
+    // sitemap the launch flip advertises. The glossary (issue #930) and the
+    // anatomy structure-reference page (issue #931) each enter the nav, so each
+    // joins the crawlable universe.
     expect(rootDiscoveryUrls(BASE)).toContain('https://example.test/mirror/glossary.html');
+    expect(rootDiscoveryUrls(BASE)).toContain('https://example.test/mirror/anatomy.html');
   });
 
   it('RootSitemap_LeavesTheV0SitemapAlone_AdvertisingNoV0Urls', () => {

@@ -30,6 +30,7 @@ export const V1_COPY = {
     timeline: 'Timeline',
     raw: 'Get the raw data',
     glossary: 'Glossary',
+    anatomy: 'Anatomy',
   },
 
   footer: {
@@ -122,6 +123,10 @@ export const V1_COPY = {
     eventTimelineMoreOnThisDay: 'the on-this-day calendar',
     eventTimelineMoreTimeline: 'the timeline',
     anatomyLabel: 'anatomy',
+    // The link-out from the terse per-callsign anatomy grid to the full
+    // structure-reference page (issue #931): the grid answers "what are this
+    // callsign's parts", the page answers "what the parts mean, sourced".
+    anatomyLinkOut: 'The parts of a UK callsign, explained – the labelled diagram and the sourced facts',
     recordFidelityLabel: 'record fidelity',
     extrasLabel: 'related views & provenance',
     dial: {
@@ -224,6 +229,14 @@ export const V1_COPY = {
     derived: { term: 'derived', def: 'This value is computed by the mirror from the held publications, not read verbatim from any single one of them.' },
     inferred: { term: 'inferred', def: 'A reading the mirror interprets from the held values, hedged where it is not certain – not a fact asserted by any publication.' },
     context: { term: 'context', def: 'A framing fact drawn from reference data, not a claim about this record – shown to place the reading in its wider setting.' },
+    // Callsign-structure vocabulary (issue #931): the domain terms the anatomy
+    // page uses, arriving with that surface. Each links out to its full
+    // definition on the glossary page and opens inline where the anatomy prose
+    // names it. Record-scoped and non-adjudicating like every other entry.
+    prefix: { term: 'prefix', def: 'The opening character or characters of a callsign, showing the country that issued it. UK amateur callsigns begin G, M or 2, allocated by the ITU.' },
+    rsl: { term: 'Regional Secondary Locator', def: 'A letter inserted after the first character of a callsign to show which UK nation or Crown Dependency the station is in – for example W for Wales. Often abbreviated RSL.' },
+    suffix: { term: 'suffix', def: 'The ending letters of a callsign – for example the TEE in M7TEE. This is the sense of “suffix” used across the record, distinct from the optional post-slash operating suffix.' },
+    operatingSuffix: { term: 'operating suffix', def: 'An optional addition after a forward slash, such as /P for portable – what Ofcom’s licence conditions call a “suffix”. The record names it the operating suffix to keep it distinct from a callsign’s ending-letter suffix.' },
   },
 
   // The v1 glossary page (issue #930): the full-page home for the coined
@@ -235,12 +248,36 @@ export const V1_COPY = {
   glossaryPage: {
     eyebrow: 'plain-language reference',
     title: 'Glossary',
-    lede: 'Plain-language definitions of the coined terms this record uses – the vocabulary of the two-clock instrument, what the record holds, and how each value was produced. Each entry is one clear line, deep-linkable by its #anchor, and is the very definition the inline popovers open.',
+    lede: 'Plain-language definitions of the terms this record uses – the vocabulary of the two-clock instrument, what the record holds, how each value is produced, and the parts of a callsign. Each entry is one clear line, deep-linkable by its #anchor, and is the very definition the inline popovers open.',
     readingLabel: 'reading the record',
     holdingsLabel: 'what the record holds',
     provenanceLabel: 'how a value is produced',
+    structureLabel: 'the parts of a callsign',
     popMore: 'Full definition',
-    foot: 'These are the terms coined for this record’s own surfaces. The wider domain vocabulary – the register’s status values, prefix and suffix structure, dataset classes and flags – moves here as each of those surfaces is migrated, rather than being described ahead of a page that uses it.',
+    foot: 'The vocabulary here grows with the record: each term joins the glossary as the surface that uses it is migrated, rather than being described ahead of a page that uses it. The remaining domain vocabulary – the register’s status values, dataset classes and flags – follows the same way.',
+  },
+
+  // The v1 anatomy / structure-reference page (issue #931): the full-page home
+  // for the callsign-structure explainer migrated from the previous surface. The
+  // labelled diagram and the sourced facts tables are authored in the static
+  // baseline (site/v1/anatomy.html); these strings are its framing copy, walked
+  // by the claims-bar test and held against the page by a parity test.
+  // Record-scoped, plain-English, no verdict words. Kept string-identical to the
+  // browser twin (site/v1/copy.js); the mirror drift-guard holds the two.
+  anatomyPage: {
+    eyebrow: 'explainer · plain-english background',
+    title: 'Anatomy',
+    lede: 'The parts of a UK amateur callsign, which characters belong in one, and who decides what is allowed – background for the notes shown across the record. This is not official guidance; for that, see Ofcom. Each fact below carries its source and how confident the reading is.',
+    howToReadSources: 'How to read the sources – authoritative means stated in an Ofcom-published document; best available means a reputable secondary source where the primary is silent; institutional knowledge means widely known but not sourced here.',
+    diagramLabel: 'a callsign, taken apart',
+    partsLabel: 'the parts of a callsign',
+    rslLabel: 'regional secondary locators',
+    classesLabel: 'licence classes and their prefixes',
+    charactersLabel: 'which characters belong',
+    slashesLabel: 'operating away or abroad',
+    whoLabel: 'who decides what is allowed',
+    sourcesLabel: 'sources',
+    foot: 'An independent, unofficial mirror. Plain-English background, not official guidance – for licensing questions consult Ofcom directly.',
   },
 
   // The v1 history journey (issue #932): two event-first surfaces built on the

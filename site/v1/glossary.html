@@ -31,7 +31,8 @@
         <a href="on-this-day.html">On this day</a><span class="sep">·</span>
         <a href="timeline.html">Timeline</a><span class="sep">·</span>
         <a href="how-to-get-the-raw-data.html">Get the raw data</a><span class="sep">·</span>
-        <a href="glossary.html" aria-current="page">Glossary</a>
+        <a href="glossary.html" aria-current="page">Glossary</a><span class="sep">·</span>
+        <a href="anatomy.html">Anatomy</a>
       </nav>
     </div>
   </header>
@@ -46,7 +47,7 @@
     <header class="head">
       <div class="ey">plain-language reference</div>
       <h1>callsign-record<span class="path"> / glossary</span></h1>
-      <p class="lede" style="font-size:1.3rem">Plain-language definitions of the coined terms this record uses – the vocabulary of the two-clock instrument, what the record holds, and how each value was produced. Each entry is one clear line, deep-linkable by its #anchor, and is the very definition the inline popovers open.</p>
+      <p class="lede" style="font-size:1.3rem">Plain-language definitions of the terms this record uses – the vocabulary of the two-clock instrument, what the record holds, how each value is produced, and the parts of a callsign. Each entry is one clear line, deep-linkable by its #anchor, and is the very definition the inline popovers open.</p>
     </header>
 
     <div id="sections">
@@ -100,9 +101,25 @@
           </dl>
         </section>
       </section>
+
+      <section data-section="the-parts-of-a-callsign">
+        <section class="surface">
+          <div class="lbl">the parts of a callsign</div>
+          <dl class="gloss">
+            <dt id="def-prefix">prefix</dt>
+            <dd>The opening character or characters of a callsign, showing the country that issued it. UK amateur callsigns begin G, M or 2, allocated by the ITU.</dd>
+            <dt id="def-rsl">Regional Secondary Locator</dt>
+            <dd>A letter inserted after the first character of a callsign to show which UK nation or Crown Dependency the station is in – for example W for Wales. Often abbreviated RSL.</dd>
+            <dt id="def-suffix">suffix</dt>
+            <dd>The ending letters of a callsign – for example the TEE in M7TEE. This is the sense of “suffix” used across the record, distinct from the optional post-slash operating suffix.</dd>
+            <dt id="def-operating-suffix">operating suffix</dt>
+            <dd>An optional addition after a forward slash, such as /P for portable – what Ofcom’s licence conditions call a “suffix”. The record names it the operating suffix to keep it distinct from a callsign’s ending-letter suffix.</dd>
+          </dl>
+        </section>
+      </section>
     </div>
 
-    <p class="note muted">These are the terms coined for this record’s own surfaces. The wider domain vocabulary – the register’s status values, prefix and suffix structure, dataset classes and flags – moves here as each of those surfaces is migrated, rather than being described ahead of a page that uses it.</p>
+    <p class="note muted">The vocabulary here grows with the record: each term joins the glossary as the surface that uses it is migrated, rather than being described ahead of a page that uses it. The remaining domain vocabulary – the register’s status values, dataset classes and flags – follows the same way.</p>
   </div>
 </main>
 
