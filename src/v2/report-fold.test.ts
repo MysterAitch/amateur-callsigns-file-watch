@@ -13,6 +13,7 @@ import {
   deployClaimsSource,
   LEDGER_COLUMNS,
   CLAIMS_PARQUET_ENV,
+  REPORT_FOLD_THREADS_ENV,
 } from './report-fold.ts';
 
 // The reusable "fold a report from the claim data via DuckDB" scaffold (issue
@@ -113,5 +114,66 @@ describe.skipIf(!duckDbAvailable())('report-fold — DuckDB query runner', { tag
       `SET threads TO 1; SELECT ${cleanedKeyExpr('c')} AS ck, 1 AS n FROM (VALUES ('2e1hon'), ('G6 FMU')) t(c) ORDER BY ck`,
     );
     expect(rows).toEqual([{ ck: '2E1HON', n: 1 }, { ck: 'G6FMU', n: 1 }]);
+  });
+});
+
+describe.skipIf(!duckDbAvailable())('report-fold — REPORT_FOLD_THREADS pinning (issue #929)', { tags: ['unit'] }, () => {
+  // Observe the thread count DuckDB actually ran the fold with. DuckDB reports the
+  // effective setting through current_setting('threads'), so a fold reading it
+  // proves whether the preamble reached the engine — no core-count assumption, so
+  // the expectations hold on a runner of any width.
+  function effectiveThreads(): number {
+    return foldQuery<{ threads: number }>("SELECT current_setting('threads')::BIGINT AS threads")[0].threads;
+  }
+
+  function withFoldThreads<T>(value: string | undefined, run: () => T): T {
+    const original = process.env[REPORT_FOLD_THREADS_ENV];
+    if (value === undefined) delete process.env[REPORT_FOLD_THREADS_ENV];
+    else process.env[REPORT_FOLD_THREADS_ENV] = value;
+    try {
+      return run();
+    } finally {
+      if (original === undefined) delete process.env[REPORT_FOLD_THREADS_ENV];
+      else process.env[REPORT_FOLD_THREADS_ENV] = original;
+    }
+  }
+
+  it('FoldQuery_ReportFoldThreadsSetToOne_RunsTheFoldWithASingleThread', () => {
+    // The sweep's concurrent region sets '1' so N single-threaded folds match the
+    // N cores instead of each spawning ~cores threads and oversubscribing.
+    expect(withFoldThreads('1', effectiveThreads)).toBe(1);
+  });
+
+  it('FoldQuery_ReportFoldThreadsSetToAValue_HonoursThatCountNotAHardcodedOne', () => {
+    // The preamble carries the requested integer through, not a fixed 1 — a
+    // deliberately over-subscribed value is honoured so the cap stays a knob.
+    expect(withFoldThreads('3', effectiveThreads)).toBe(3);
+  });
+
+  it('FoldQuery_ReportFoldThreadsUnset_LeavesDuckDbsDefaultThreadCount', () => {
+    // Off the concurrent path — the ~30 sequential unit-suite folds and any solo
+    // fold — no preamble is injected, so DuckDB keeps its default (threads=cores,
+    // at least one), the fast path for a fold running alone.
+    expect(withFoldThreads(undefined, effectiveThreads)).toBeGreaterThanOrEqual(1);
+  });
+
+  it('FoldQuery_ReportFoldThreadsBlankOrInvalid_InjectsNoPreambleAndNeverErrors', () => {
+    // A blank, zero, or non-numeric value is ignored rather than emitted as a
+    // bogus `SET threads TO 0`, which DuckDB would reject: the fold still runs and
+    // its own explicit pin governs.
+    for (const bogus of ['', '   ', '0', '-2', 'abc']) {
+      expect(withFoldThreads(bogus, () =>
+        foldQuery<{ threads: number }>("SET threads TO 2; SELECT current_setting('threads')::BIGINT AS threads")[0].threads,
+      )).toBe(2);
+    }
+  });
+
+  it('FoldQuery_FoldPinsItsOwnThreadCount_IsNeverOverriddenByThePreamble', () => {
+    // Last-writer-wins: a fold that pins `SET threads TO N` for last-writer-wins
+    // ordering issues that AFTER the preamble, so a correctness-pinned fold is
+    // never loosened OR tightened by the concurrent-region cap.
+    expect(withFoldThreads('1', () =>
+      foldQuery<{ threads: number }>("SET threads TO 4; SELECT current_setting('threads')::BIGINT AS threads")[0].threads,
+    )).toBe(4);
   });
 });
