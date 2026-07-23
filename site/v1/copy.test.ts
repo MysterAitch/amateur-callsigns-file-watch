@@ -65,6 +65,23 @@ describe('v1 copy — claims bar (JS)', { tags: ['unit'] }, () => {
     expect(V1_COPY.home.cards.rawData.say).toContain('built from them');
   });
 
+  it('GlossaryRegistry_RslAndSuffix_AcknowledgeTheirVariants', () => {
+    // Issue #959: the RSL entry admits the club and temporary-event variants, and
+    // the suffix entry admits its length variation — the record's structure
+    // reference is no longer silent on them.
+    expect(V1_COPY.glossary.rsl.def).toContain('club-only set');
+    expect(V1_COPY.glossary.rsl.def).toContain('temporary RSL');
+    expect(V1_COPY.glossary.suffix.def).toContain('three letters');
+    expect(V1_COPY.glossary.suffix.def).toContain('only two');
+  });
+
+  it('GlossaryRegistry_VisitorPrefix_IsDefinedAsAReciprocalForm', () => {
+    // Issue #959: the visitor/reciprocal prefix construction earns its own term.
+    expect(V1_COPY.glossary.visitorPrefix.term).toBe('visitor prefix');
+    expect(V1_COPY.glossary.visitorPrefix.def).toContain('before a slash');
+    expect(V1_COPY.glossary.visitorPrefix.def).toContain('reciprocal');
+  });
+
   it('HistoryExplainers_CarriedLicenceHistoryBackground_CitesItsSourceOnBothPages', () => {
     // Content parity with v0 (src/ci/build-on-this-day.ts, build-timeline.ts):
     // the carried-licence-history background must cite the Ofcom field

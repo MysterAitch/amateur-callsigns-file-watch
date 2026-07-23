@@ -234,9 +234,10 @@ export const V1_COPY = {
     // definition on the glossary page and opens inline where the anatomy prose
     // names it. Record-scoped and non-adjudicating like every other entry.
     prefix: { term: 'prefix', def: 'The opening character or characters of a callsign, showing the country that issued it. UK amateur callsigns begin G, M or 2, allocated by the ITU.' },
-    rsl: { term: 'Regional Secondary Locator', def: 'A letter inserted after the first character of a callsign to show which UK nation or Crown Dependency the station is in – for example W for Wales. Often abbreviated RSL.' },
-    suffix: { term: 'suffix', def: 'The ending letters of a callsign – for example the TEE in M7TEE. This is the sense of “suffix” used across the record, distinct from the optional post-slash operating suffix.' },
+    rsl: { term: 'Regional Secondary Locator', def: 'A letter inserted after the first character of a callsign to show which UK nation or Crown Dependency the station is in – for example W for Wales. Often abbreviated RSL. Club stations may instead use a letter from a club-only set (the GX/MX forms), and Ofcom may notify a temporary RSL to mark a national occasion.' },
+    suffix: { term: 'suffix', def: 'The ending letters of a callsign – for example the TEE in M7TEE. Normally three letters, though some heritage callsigns carry only two. This is the sense of “suffix” used across the record, distinct from the optional post-slash operating suffix.' },
     operatingSuffix: { term: 'operating suffix', def: 'An optional addition after a forward slash, such as /P for portable – what Ofcom’s licence conditions call a “suffix”. The record names it the operating suffix to keep it distinct from a callsign’s ending-letter suffix.' },
+    visitorPrefix: { term: 'visitor prefix', def: 'The form a visiting operator uses in the UK: a UK prefix and Regional Secondary Locator before a slash, then their home callsign – for example MW/ before a non-UK callsign. The record keeps these reciprocal forms distinct from core callsigns.' },
   },
 
   // The v1 glossary page (issue #930): the full-page home for the coined

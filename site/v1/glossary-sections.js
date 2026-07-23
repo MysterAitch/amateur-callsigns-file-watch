@@ -45,7 +45,7 @@ export const GLOSSARY_GROUPS = [
   { id: 'reading-the-record', label: V1_COPY.glossaryPage.readingLabel, keys: ['eventTime', 'assertionTime', 'sighting', 'disputed'] },
   { id: 'what-the-record-holds', label: V1_COPY.glossaryPage.holdingsLabel, keys: ['publication', 'vintage', 'bookkeeping', 'series', 'carriedOrigin'] },
   { id: 'how-a-value-is-produced', label: V1_COPY.glossaryPage.provenanceLabel, keys: ['derived', 'inferred', 'context'] },
-  { id: 'the-parts-of-a-callsign', label: V1_COPY.glossaryPage.structureLabel, keys: ['prefix', 'rsl', 'suffix', 'operatingSuffix'] },
+  { id: 'the-parts-of-a-callsign', label: V1_COPY.glossaryPage.structureLabel, keys: ['prefix', 'rsl', 'suffix', 'operatingSuffix', 'visitorPrefix'] },
 ];
 
 // Every glossary registry key, and the keys the groups actually place — the two

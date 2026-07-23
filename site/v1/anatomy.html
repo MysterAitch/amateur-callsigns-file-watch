@@ -128,6 +128,11 @@
         <span class="src"><em>Authoritative</em> – Ofcom, <em>Amateur Radio Wireless Telegraphy Licence Conditions Booklet</em> (OFW611, 21 February 2024), definitions, cl. (w).</span></p>
 
       <div class="callout"><strong>Two different meanings of “suffix”.</strong> On this record and among amateurs, the <em>suffix</em> is the callsign’s ending letters (<code>TEE</code> in <code>M7TEE</code>) – the ITU/amateur-standard sense, and the one the record always means by “suffix”. Ofcom’s licence T&amp;Cs (cl. 26) use the same word, <em>suffix</em>, for something different: the optional addition after a slash (such as <code>/P</code>). To keep the two apart, this page calls that one the <a class="term-link" data-term="operatingSuffix" href="glossary.html#def-operating-suffix"><strong>operating suffix</strong></a> (also “post-slash suffix”). The two are unrelated.</div>
+
+      <p><strong>How many letters?</strong> The suffix is <strong>normally three letters</strong>. Some very old callsigns – and any starting <code>G2</code> – carry only <strong>two</strong>, and such a form is available only to a licensee who previously held it. Ofcom also grants special contest callsigns, whose core is a prefix letter, a digit and a single suffix letter (for example <code>G8Z</code> or <code>M7R</code>), by Notice of Variation.
+        <span class="src"><em>Authoritative</em> – Ofcom, <em>Amateur radio guidance</em> (updated 14 October 2025), §5.2 (normally three letters; the two-letter and <code>G2</code> legacy forms); §6.4 (special contest callsigns).</span></p>
+      <p>Observed in the register as held, among the core callsigns the record’s parser decomposes into parts: almost all – about <strong>99.7%</strong> – carry three trailing letters, and a small remainder – about <strong>0.3%</strong> – carry two, overwhelmingly the heritage <code>G</code>-series forms. Forms the parser sets aside are counted separately, not folded in – the visitor/reciprocal slash callsigns and rows that do not fit the standard shape. Some of those carry other lengths, for example the reciprocal <code>M/KQ4U</code> (Reserved), a single trailing letter, and the non-standard <code>2IFJG</code> (Allocated), four – which the record flags rather than adjudicates.
+        <span class="src"><em>Observation of what the record holds, within the scope stated</em> – derived from the newest held register snapshot (23 June 2026) with this record’s own callsign parser; a data-validity test recomputes the distribution from that snapshot and holds these figures to it.</span></p>
     </section>
 
     <div class="lbl" id="rsl">regional secondary locators</div>
@@ -149,8 +154,29 @@
         </tbody>
       </table>
       </div>
+      <p>A <strong>Full (Club)</strong> callsign must itself carry an RSL. A club may use one of the all-licences letters – but not <code>E</code> for England – or a letter from a set reserved for club stations. That club-only set supplies an England letter, <code>X</code>, giving the familiar <code>GX</code>/<code>MX</code> club forms (for example <code>GX3DEF</code>).
+        <span class="src"><em>Authoritative</em> – Ofcom, <em>Policy on temporary call signs and call sign enhancement</em> (March 2018), §3.6; the club-only letters are also listed in Ofcom, <em>Amateur radio guidance</em>, §5.7, Table 2.</span></p>
       <p>Using an <abbr title="Regional Secondary Locator">RSL</abbr> is normally optional; but for an Intermediate callsign beginning with <code>2</code>, an <abbr title="Regional Secondary Locator">RSL</abbr> <em>must</em> be inserted as the new second character. Ofcom may also notify a licensee of a different character to use “in place of an RSL”.
         <span class="src"><em>Authoritative</em> – Ofcom OFW611, cl. 22, 23 and 25 (pp 7–8).</span></p>
+    </section>
+
+    <div class="lbl" id="special">special-event and temporary callsigns</div>
+    <section class="surface">
+      <p>To mark a national occasion, Ofcom may notify a <strong>temporary RSL</strong> – a special letter used in the <a href="#rsl">RSL</a> position, in place of the normal nation letter, for a bounded period of no more than one year. The permission is notified via the Ofcom website; a royal coronation is named among the occasions it covers.
+        <span class="src"><em>Authoritative</em> – Ofcom, <em>Amateur radio guidance</em> (updated 14 October 2025), §5.7.1 (the mechanism, the one-year bound, the “Q” 2022 example, and the royal-coronation occasion); the second-character mechanism and the earlier grants are set out in Ofcom, <em>Policy on temporary call signs and call sign enhancement</em> (March 2018), §5.</span></p>
+      <div class="overflow">
+      <table>
+        <caption class="table-caption">Documented temporary RSLs (Ofcom guidance §5.7.1; Ofcom 2018 policy §5).</caption>
+        <thead><tr><th scope="col">Letter</th><th scope="col">Occasion</th><th scope="col">Example</th><th scope="col">Source</th></tr></thead>
+        <tbody>
+          <tr><th scope="row"><code>Q</code></th><td>Period of national mourning, 2022</td><td>used in the RSL position</td><td>Ofcom guidance §5.7.1</td></tr>
+          <tr><th scope="row"><code>O</code></th><td>2012 Olympics – throughout 2012, UK-wide</td><td><code>2O0ABC</code></td><td>Ofcom 2018 policy §5.3</td></tr>
+          <tr><th scope="row"><code>A</code></th><td>Homecoming Scotland (“Alba”), Burns’ Night to St Andrew’s Day</td><td><code>MA6ABC</code></td><td>Ofcom 2018 policy §5.3</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>A temporary RSL is distinct from a <strong>special-event station</strong> callsign. A Full licensee (personal or club) may be granted an additional, <code>GB</code>-prefixed callsign by Notice of Variation – for a defined event, or as a permanent showcase station such as <code>GB0IWM</code> for the Imperial War Museum. These <code>GB</code>-prefixed callsigns appear in the register data as a distinct population.
+        <span class="src"><em>Authoritative</em> – Ofcom, <em>Amateur radio guidance</em>, §6.2 (Special Event Station) and §6.3 (Permanent Special Event Station).</span></p>
     </section>
 
     <div class="lbl" id="classes">licence classes and their prefixes</div>
@@ -187,8 +213,10 @@
     <section class="surface">
       <p>A callsign can carry more than one slash. Operating overseas under <abbr title="European Conference of Postal and Telecommunications Administrations">CEPT</abbr> Recommendation T/R 61-01, a UK amateur must place “the appropriate country prefix before your call sign” (for example <code>F/M0ABC</code> in France) and may still add an operating suffix – so the transmitted call has both a prefix-slash and a suffix-slash.
         <span class="src"><em>Authoritative</em> – Ofcom guidance, §7.3 (Your call sign beyond UK jurisdiction).</span></p>
-      <p>The mirror image – a visitor operating in the UK under a reciprocal arrangement, shown as a UK prefix and RSL before their home callsign (for example <code>MW/</code> then a non-UK callsign, optionally with <code>/P</code>) – appears in the register data.
+      <p>The mirror image is the <a class="term-link" data-term="visitorPrefix" href="glossary.html#def-visitor-prefix">visitor prefix</a> – a visitor operating in the UK under a reciprocal arrangement, shown as a UK prefix and RSL before their home callsign (for example <code>MW/</code> then a non-UK callsign, optionally with <code>/P</code>). These forms appear in the register data.
         <span class="src"><em>Best available</em> – reciprocal/CEPT operating practice (RSGB, <a href="https://rsgb.org/main/operating/licensing-novs-visitors/international-prefixes/" target="_blank" rel="noopener">International Prefixes</a>); the exact visitor format is convention, not spelled out in the primary licence documents. Confidence: medium.</span></p>
+      <p>Ofcom defines a <strong>Full (Temporary Reciprocal) Licence</strong> as one issued to a person who holds an amateur licence granted by a recognised foreign administration; it runs for six months, may be renewed once, and Ofcom has stated it will be phased out. The held register data witnesses this <strong>Temporary Reciprocal</strong> product; the record’s category reference table additionally distinguishes a separate <strong>Full (Reciprocal)</strong> product, kept apart from it rather than folded together.
+        <span class="src"><em>Authoritative</em> – Ofcom, <em>Statement: Updating the amateur radio licensing framework</em> (11 December 2023), definition (l); Ofcom, <em>Amateur radio guidance</em>, §2.1.4.2.2 (six-month term, renewal, phase-out). <em>Observed / reference</em> – the held snapshots carry “Amateur Temporary Reciprocal Radio Licence”; the two reciprocal products are recorded as distinct in <code>reference-data/licence-category.csv</code> (#232).</span></p>
     </section>
 
     <div class="lbl" id="who">who decides what is allowed</div>
@@ -211,6 +239,8 @@
         <li><strong>Authoritative</strong> – Ofcom, <em>Amateur Radio Wireless Telegraphy Licence Conditions Booklet</em> (OFW611, published 21 February 2024): RSLs cl. 22–26, pp 7–8; definition cl. (w). – <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info" target="_blank" rel="noopener">landing page</a> · <a href="https://www.ofcom.org.uk/siteassets/resources/documents/spectrum/emf/emf-amateur-licence-terms-and-conditions.pdf" target="_blank" rel="noopener">direct PDF</a>.</li>
         <li><strong>Authoritative</strong> – Ofcom, <em>Licensing guidance document for amateur radio</em>: callsign formats §5 Table 1; post-slash suffixes §5.8; operating abroad §7.3. – <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info" target="_blank" rel="noopener">landing page</a> (direct PDF link to be confirmed).</li>
         <li><strong>Authoritative</strong> – Ofcom, <em>UK Interface Requirement 2028</em> (amateur radio licence parameters). – <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info" target="_blank" rel="noopener">landing page</a> (direct PDF link to be confirmed).</li>
+        <li><strong>Authoritative</strong> – Ofcom, <em>Policy on temporary call signs and call sign enhancement</em> (March 2018): club RSLs §3.6; Special Event Stations §4; temporary RSLs §5. – <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info" target="_blank" rel="noopener">landing page</a>.</li>
+        <li><strong>Authoritative</strong> – Ofcom, <em>Statement: Updating the amateur radio licensing framework</em> (11 December 2023): reciprocal licence definitions. – <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info" target="_blank" rel="noopener">landing page</a>.</li>
         <li><strong>Authoritative (instrument)</strong> – ITU Radio Regulations, Appendix 42: <a href="https://www.itu.int/en/ITU-R/terrestrial/fmd/Pages/call_sign_series.aspx" target="_blank" rel="noopener">Table of International Call Sign Series</a>.</li>
         <li><strong>Best available</strong> – Wikipedia, <a href="https://en.wikipedia.org/wiki/Call_signs_in_the_United_Kingdom" target="_blank" rel="noopener">Call signs in the United Kingdom</a> (enumerated UK blocks); RSGB, <a href="https://rsgb.org/main/operating/licensing-novs-visitors/international-prefixes/" target="_blank" rel="noopener">International Prefixes</a> (reciprocal/visitor practice).</li>
       </ul>
