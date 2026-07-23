@@ -34,31 +34,78 @@ const link = (href, label, cls = null) => {
   return a;
 };
 
-// The home model. Every figure defaults to a value grounded in the committed
-// reports (cited below), and is overridable at build time. The three
-// from-the-record facts are real, notable and record-scoped — each cites the
-// report it is drawn from — and ship as a static placeholder pool ready for
-// build-time rotation.
+// The archive figures, centralised in one place. These are hand-authored,
+// report-cited CONSTANTS — not build-time-derived — so this is the single source
+// the dated-fact chip, the readout row and the archive-span dial all read,
+// rather than three independent copies. The JS-rendered home and the static
+// no-JS baseline in index.html are held to these same values by a parity test
+// (site/v1/sections.test.ts), so a future edit here cannot silently split the
+// two renders. Deriving these from the committed archive/reports AT BUILD TIME
+// is a possible follow-up, not something claimed here.
+// Citations:
+//  - 1903: the earliest dated allocation the record holds, verified in three
+//    reports (reports/state-at-t.md, survival-cohort.md and sequence-analytics.md
+//    all report "Dated allocations 1903-05-03 → …").
+//  - 158,318 callsigns in the newest publication held (reports/curiosity-index.md).
+//  - The 65-publications / 2013 pair is drawn from the archive's own extent and
+//    has no single citable report; it is an honestly-noted centralised constant,
+//    not a derived figure.
+const GROUNDED_ARCHIVE = {
+  latestDateIso: '2026-06-23',
+  latestDateLabel: '23 June 2026',
+  latestMonthLabel: 'June 2026',
+  callsigns: 158318,
+  publicationsHeld: 65,
+  heldStartYear: 2013,
+  latestYear: 2026,
+  historyStartYear: 1903,
+};
+
+// The home model. Every figure reads from GROUNDED_ARCHIVE above — one source
+// for the readout row and the span dial, with the static no-JS baseline held to
+// it by the parity test. The three from-the-record facts are real, notable and
+// record-scoped, and ship as a static placeholder pool ready for build-time
+// rotation.
+/**
+ * The archive-span facts the dial reads. Every field is build-derived from the
+ * same grounded source that feeds the readout row.
+ * @typedef {object} ArchiveSpan
+ * @property {number} historyStartYear  earliest dated material the record reaches back to
+ * @property {number} heldStartYear     first held publication — the scale-break boundary
+ * @property {number} latestYear        the newest held publication's year
+ * @property {string} latestLabel       humanised newest-held date (shared with the dated-fact chip)
+ * @property {number} count             publications held (shared with the dated-fact chip)
+ */
 /**
  * @typedef {object} HomeModel
  * @property {{ date: string, count: number }} facts
  * @property {{ k: string, v: string, u: string }[]} glance
+ * @property {ArchiveSpan} span
  * @property {{ headline: string, sentence: string, callsign?: string }[]} fromTheRecord
  */
 
 /** @returns {HomeModel} */
 export function defaultHomeModel() {
+  const g = GROUNDED_ARCHIVE;
+  const heldYears = g.latestYear - g.heldStartYear;
   return {
-    facts: { date: '23 June 2026', count: 65 },
-    // Holdings readouts. Figures grounded in reports/curiosity-index.md (the
-    // newest publication, 2026-06-23, holds 158,318 records) and the archive
-    // span; grounded defaults, overridable at build time.
+    facts: { date: g.latestDateLabel, count: g.publicationsHeld },
+    // Holdings readouts, derived from the grounded source above.
     glance: [
-      { k: 'publications', v: '65', u: 'folded, 2013–2026' },
-      { k: 'callsigns', v: '158,318', u: 'latest register' },
-      { k: 'span held', v: '13y', u: '2013 → 2026' },
-      { k: 'latest snapshot', v: '2026-06-23', u: 'June 2026' },
+      { k: 'publications', v: String(g.publicationsHeld), u: `folded, ${g.heldStartYear}–${g.latestYear}` },
+      { k: 'callsigns', v: g.callsigns.toLocaleString('en-GB'), u: 'latest register' },
+      { k: 'span held', v: `${heldYears}y`, u: `${g.heldStartYear} → ${g.latestYear}` },
+      { k: 'latest snapshot', v: g.latestDateIso, u: g.latestMonthLabel },
     ],
+    // The archive-span dial's facts — the same grounded figures, plus the deeper
+    // history horizon the readout row does not itself surface.
+    span: {
+      historyStartYear: g.historyStartYear,
+      heldStartYear: g.heldStartYear,
+      latestYear: g.latestYear,
+      latestLabel: g.latestDateLabel,
+      count: g.publicationsHeld,
+    },
     // From-the-record notable-detail pool (static placeholder, ready for
     // build-time rotation). Each fact is record-scoped and sourced:
     //  1. reports/curiosity-index.md — the newest publication (2026-06-23)
@@ -87,8 +134,61 @@ export function defaultHomeModel() {
 }
 
 // ---------------------------------------------------------------------------
+// The archive-span dial geometry — pure, so the reading it draws is pinned by
+// test independently of the DOM. Given the build-derived ArchiveSpan it returns
+// whether there is a reading worth drawing at all, whether a distinct earlier-
+// history segment (and the scale break) applies, and the tick/needle geometry.
+/**
+ * @typedef {object} SpanDialGeometry
+ * @property {boolean} render        whether there is a held run worth drawing
+ * @property {boolean} showHistory   whether a distinct history segment + scale break applies
+ * @property {number} heldDivisions  year cells across the dense held run (always >= 1)
+ * @property {number} needleLeft     the current reading's position within the held run, percent
+ * @property {number} count
+ * @property {number} historyStartYear
+ * @property {number} heldStartYear
+ * @property {number} latestYear
+ */
+/** @param {ArchiveSpan} span @returns {SpanDialGeometry} */
+export function spanDialGeometry(span) {
+  const { historyStartYear, heldStartYear, latestYear, count } = span;
+  const heldFinite = Number.isFinite(heldStartYear) && Number.isFinite(latestYear);
+  // Corrupt input: dated, but the held run ends before it starts. This is a data
+  // error, not the legitimate empty-archive state (count <= 0) — so fail loud
+  // rather than render:false, which would silently read as "nothing held".
+  if (heldFinite && latestYear < heldStartYear) {
+    throw new RangeError(`spanDialGeometry: held run ends (${latestYear}) before it starts (${heldStartYear}) — corrupt span dates`);
+  }
+  const validHeld = heldFinite;
+  // No publications held, or no usable held-run dates: there is no reading to
+  // draw, so the dial is omitted. The readout row still carries every figure as
+  // text, so nothing is lost — the dial is its decorative-plus-informative twin.
+  const render = count > 0 && validHeld;
+  const heldYears = validHeld ? latestYear - heldStartYear : 0;
+  // A single-date held run (start === latest) collapses to one cell rather than
+  // dividing the axis by zero; the needle then sits at that sole reading.
+  const heldDivisions = Math.max(1, heldYears);
+  // The current reading is the newest held publication — the right end of the
+  // dense run (a collapsed single-point run reads at that same sole position).
+  const needleLeft = 100;
+  // A distinct history segment (and the scale break) is drawn only where the
+  // record genuinely reaches back before the held run began.
+  const showHistory = render && Number.isFinite(historyStartYear) && historyStartYear < heldStartYear;
+  return { render, showHistory, heldDivisions, needleLeft, count, historyStartYear, heldStartYear, latestYear };
+}
+
+// Fill a wording template's {placeholders} from a values map.
+/** @param {string} tpl @param {Record<string, string | number>} vals */
+const fillTemplate = (tpl, vals) =>
+  tpl.replace(/\{(\w+)\}/g, (/** @type {string} */ _m, /** @type {string} */ key) => String(vals[key] ?? ''));
+
+// ---------------------------------------------------------------------------
 // Section mounts. Each renders into its own host element (the <section> the
-// renderer created), using textContent for every data-derived value.
+// renderer created), using textContent for every data-derived value. Body
+// sections mount their content on a `.surface` legibility panel — the same
+// carded component the callsign page uses — so no body content sits bare on the
+// page ground (the round-3 backing-surface rule); only the header/footer bars
+// and the ground itself are uncarded.
 
 /** @param {HTMLElement} host */
 function mountLookupHero(host) {
@@ -137,7 +237,8 @@ function mountLookupHero(host) {
 
 /** @param {HTMLElement} host @param {HomeModel} model */
 function mountAtAGlance(host, model) {
-  host.appendChild(el('div', 'lbl', V1_COPY.home.atAGlanceLabel));
+  const surface = el('section', 'surface');
+  surface.appendChild(el('div', 'lbl', V1_COPY.home.atAGlanceLabel));
   const grid = el('div', 'readout');
   for (const cell of model.glance) {
     const c = el('div', 'cell');
@@ -146,12 +247,124 @@ function mountAtAGlance(host, model) {
     c.appendChild(el('div', 'u', cell.u));
     grid.appendChild(c);
   }
-  host.appendChild(grid);
+  surface.appendChild(grid);
+  mountSpanDial(surface, model.span);
+  host.appendChild(surface);
+}
+
+// The compact archive-span dial: a miniature of the site's dial language. It
+// derives everything from the build-derived ArchiveSpan (never a view literal),
+// and is the readout row's decorative-plus-informative twin — so it carries
+// role="img" with an aria-label summarising the reading, its scale is
+// aria-hidden, and every fact it shows is also present as text (the readout row
+// above, and the dial's own text foot). A span with nothing to draw is omitted
+// rather than rendered empty.
+/** @param {HTMLElement} host @param {ArchiveSpan} span */
+function mountSpanDial(host, span) {
+  const geo = spanDialGeometry(span);
+  if (!geo.render) return;
+  const S = V1_COPY.home.span;
+  const vals = {
+    count: geo.count,
+    heldStart: geo.heldStartYear,
+    latest: geo.latestYear,
+    historyStart: geo.historyStartYear,
+    asOf: span.latestLabel,
+  };
+
+  const dial = el('div', 'spandial');
+  dial.setAttribute('role', 'img');
+  dial.setAttribute('aria-label', fillTemplate(geo.showHistory ? S.ariaWithHistory : S.ariaHeldOnly, vals));
+
+  // Header: label + the visible range it covers.
+  const head = el('div', 'sd-head');
+  head.appendChild(el('span', 'sd-lbl', S.label));
+  const rangeStart = geo.showHistory ? geo.historyStartYear : geo.heldStartYear;
+  head.appendChild(el('span', 'sd-range', `${rangeStart} — ${geo.latestYear}`));
+  dial.appendChild(head);
+
+  // The scale itself is decorative reinforcement — the reading is in the
+  // aria-label and the text foot, so it is hidden from assistive technology.
+  const scale = el('div', 'sd-scale');
+  scale.setAttribute('aria-hidden', 'true');
+
+  if (geo.showHistory) {
+    const hist = el('div', 'sd-seg history');
+    hist.appendChild(el('div', 'sd-cap', S.historyCap));
+    hist.appendChild(el('div', 'sd-base'));
+    for (const left of ['0', '50%', '100%']) {
+      const tick = el('span', 'sd-tick');
+      tick.style.left = left;
+      hist.appendChild(tick);
+    }
+    const yr = el('span', 'sd-yr edge-l', String(geo.historyStartYear));
+    yr.style.left = '0';
+    hist.appendChild(yr);
+    scale.appendChild(hist);
+
+    const brk = el('div', 'sd-break');
+    brk.appendChild(el('span'));
+    brk.appendChild(el('span'));
+    scale.appendChild(brk);
+  }
+
+  const held = el('div', 'sd-seg held');
+  held.appendChild(el('div', 'sd-cap on', fillTemplate(S.heldCap, vals)));
+  held.appendChild(el('div', 'sd-base on'));
+  const ticks = el('div', 'sd-ticks');
+  for (let i = 0; i < geo.heldDivisions; i++) ticks.appendChild(el('span'));
+  held.appendChild(ticks);
+  const yrStart = el('span', 'sd-yr', String(geo.heldStartYear));
+  yrStart.style.left = '0';
+  held.appendChild(yrStart);
+  // Only label the end year when the run actually spans more than a single point.
+  if (geo.latestYear > geo.heldStartYear) {
+    const yrEnd = el('span', 'sd-yr', String(geo.latestYear));
+    yrEnd.style.left = '100%';
+    held.appendChild(yrEnd);
+  }
+  const needle = el('div', 'sd-needle');
+  needle.style.left = `${geo.needleLeft}%`;
+  needle.appendChild(el('span', 'nd'));
+  needle.appendChild(el('span', 'nlbl', fillTemplate(S.needleLabel, vals)));
+  held.appendChild(needle);
+  scale.appendChild(held);
+  dial.appendChild(scale);
+
+  // Text foot: the same facts in plain words, so nothing is conveyed by the
+  // scale's colour or position alone. The reading ("as of <date>") leads and is
+  // ALWAYS present here — the in-scale needle label that also carries it is
+  // hidden at narrow widths, so the foot is the reading's text home on mobile.
+  const foot = el('div', 'sd-foot');
+  const readingItem = el('span');
+  readingItem.append(`${S.footReading} `);
+  readingItem.appendChild(el('b', null, span.latestLabel));
+  foot.appendChild(readingItem);
+  const heldItem = el('span');
+  heldItem.appendChild(el('b', null, String(geo.count)));
+  heldItem.append(` ${S.footHeld}`);
+  foot.appendChild(heldItem);
+  const runItem = el('span');
+  runItem.appendChild(el('b', null, String(geo.heldStartYear)));
+  runItem.append(' → ');
+  runItem.appendChild(el('b', null, String(geo.latestYear)));
+  runItem.append(` ${S.footRun}`);
+  foot.appendChild(runItem);
+  if (geo.showHistory) {
+    const histItem = el('span');
+    histItem.append(`${S.footHistory} `);
+    histItem.appendChild(el('b', null, String(geo.historyStartYear)));
+    foot.appendChild(histItem);
+  }
+  dial.appendChild(foot);
+
+  host.appendChild(dial);
 }
 
 /** @param {HTMLElement} host */
 function mountWaysIn(host) {
-  host.appendChild(el('div', 'lbl', V1_COPY.home.waysInLabel));
+  const surface = el('section', 'surface');
+  surface.appendChild(el('div', 'lbl', V1_COPY.home.waysInLabel));
   const grid = el('div', 'modules');
   // Only the journeys the v1 surface serves. Unmigrated destinations do not
   // appear here — nothing on the surface points off it.
@@ -170,12 +383,14 @@ function mountWaysIn(host) {
     mod.appendChild(el('p', 'say', c.card.say));
     grid.appendChild(mod);
   }
-  host.appendChild(grid);
+  surface.appendChild(grid);
+  host.appendChild(surface);
 }
 
 /** @param {HTMLElement} host @param {HomeModel} model */
 function mountFromTheRecord(host, model) {
-  host.appendChild(el('div', 'lbl', V1_COPY.home.fromTheRecordLabel));
+  const surface = el('section', 'surface');
+  surface.appendChild(el('div', 'lbl', V1_COPY.home.fromTheRecordLabel));
   const watch = el('div', 'watch');
   const bar = el('div', 'bar');
   const chip = el('span', 'chip');
@@ -198,7 +413,8 @@ function mountFromTheRecord(host, model) {
   body.appendChild(inner);
   watch.appendChild(body);
   watch.appendChild(el('div', 'rot-foot', V1_COPY.home.fromTheRecordFoot));
-  host.appendChild(watch);
+  surface.appendChild(watch);
+  host.appendChild(surface);
 }
 
 /** @param {HTMLElement} host */

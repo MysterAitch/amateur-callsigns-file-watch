@@ -47,6 +47,23 @@ export const V1_COPY = {
     trust: 'Every value is a projection of an archived publication; every claim traces to the source byte that asserts it. Nothing is independently verified — and disagreeing sources are both kept, unresolved.',
     waysInLabel: 'ways in',
     atAGlanceLabel: 'the record at a glance',
+    // The compact archive-span dial inside "the record at a glance" (see the
+    // browser twin site/v1/copy.js for the full note). Wording only; the
+    // centralised, report-cited numbers are interpolated at mount. Record-
+    // scoped, no verdict words; the readout row carries the identical facts as
+    // text.
+    span: {
+      label: 'holdings across time',
+      historyCap: 'earliest dated licence history',
+      heldCap: '{count} publications, byte-for-byte',
+      needleLabel: 'as of {asOf} · {count} held',
+      footReading: 'read as of',
+      footHeld: 'publications held',
+      footRun: 'byte-for-byte',
+      footHistory: 'dated history to',
+      ariaWithHistory: 'Holdings across time: {count} publications held byte-for-byte across the dense run {heldStart} to {latest}, and dated licence history reaching back to {historyStart}. Most recent held as of {asOf}.',
+      ariaHeldOnly: 'Holdings across time: {count} publications held byte-for-byte, {heldStart} to {latest}. Most recent held as of {asOf}.',
+    },
     fromTheRecordLabel: 'from the record',
     fromTheRecordFoot: 'Selection rotates at build time — a different notable detail leads on each rebuild.',
     scopeDisclaimerLabel: 'scope & disclaimer',
