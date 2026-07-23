@@ -109,11 +109,15 @@ describe('v1 self-containment', { tags: ['unit'] }, () => {
 // on-this-day.html and glossary.html#available. These are INERT on the v1
 // surface: site/v1/callsign-page.js destructures only the pure data functions
 // (shardNameFor, latestSummary, stripModel, …) and never calls the renderers,
-// so their hrefs are never emitted. Were one ever mis-wired regardless: some of
-// these hrefs (ledger.html, on-this-day.html) resolve to no page at the root
-// and fall through to the honest 404; glossary.html now resolves to a real v1
+// so their hrefs are never emitted. Were one ever mis-wired regardless: the
+// residual differs per href. ledger.html resolves to no page at the root and
+// falls through to the honest 404. glossary.html now resolves to a real v1
 // page, but its anchor scheme is def-* (e.g. def-sighting), so a legacy
 // fragment such as #available resolves nothing on it — the mis-wire would land
-// anchor-less on a real page rather than 404ing. The token scan cannot see any
-// of this — the hrefs carry no "v0" token — so the safeguard is the
-// destructure-only contract in callsign-page.js, not a regex.
+// anchor-less on a real page rather than 404ing. on-this-day.html ALSO now
+// resolves to a real v1 page (issue #932) — and, since the hardcoded href
+// carries no query string or fragment, it lands correctly: the bare link's own
+// label ("the on-this-day calendar") is exactly what the page now is, so a
+// mis-wire here would be accidentally correct rather than broken. The token
+// scan cannot see any of this — the hrefs carry no "v0" token — so the
+// safeguard is the destructure-only contract in callsign-page.js, not a regex.

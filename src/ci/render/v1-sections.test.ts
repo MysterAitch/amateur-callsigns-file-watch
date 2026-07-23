@@ -95,6 +95,30 @@ describe('v1 copy — claims bar (TS)', { tags: ['unit'] }, () => {
     expect(V1_COPY.chip.template).toContain('Record as of');
     expect(V1_COPY.chip.template.toLowerCase()).not.toContain('current');
   });
+
+  it('HistoryExplainers_CarriedLicenceHistoryBackground_CitesItsSourceOnBothPages', () => {
+    // Content parity with v0 (src/ci/build-on-this-day.ts, build-timeline.ts):
+    // the carried-licence-history background must cite the Ofcom field
+    // dictionary and FOI disclosure, never assert the reading unsourced.
+    for (const page of [V1_COPY.history.onThisDay, V1_COPY.history.timeline]) {
+      expect(page.explainerCarriedHistory).toContain('Licence-View field dictionary');
+      expect(page.explainerCarriedHistory).toContain('FOI');
+      expect(page.explainerCarriedHistory).toContain('October 2018');
+      expect(page.explainerCarriedHistory).toContain('October 2025');
+    }
+  });
+
+  it('HistoryExplainers_FurtherWorkingBullet_CarriesSubstanceWithNoOffSurfaceLink', () => {
+    for (const page of [V1_COPY.history.onThisDay, V1_COPY.history.timeline]) {
+      expect(page.explainerFurtherWorking).toContain('committed reports');
+      expect(page.explainerFurtherWorking.toLowerCase()).not.toContain('http');
+      expect(page.explainerFurtherWorking).not.toContain('v0');
+    }
+  });
+
+  it('TimelineReadoutReservations_Wording_StatesTheBitemporalTestParenthetically', () => {
+    expect(V1_COPY.history.timeline.readoutReservations).toContain('(stated end on or after then, stating vintage proven by then)');
+  });
 });
 
 describe('v1 copy — JS/TS mirror', { tags: ['unit'] }, () => {

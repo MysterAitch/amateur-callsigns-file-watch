@@ -8,6 +8,7 @@ import {
   dayAnchor,
   todayMonthDay,
 } from './on-this-day-sections.js';
+import { V1_COPY } from './copy.js';
 
 // The v1 on-this-day calendar (issue #932): the event-time calendar of dated
 // licensing callouts, rendered from the root-served manifest, with the viewer's
@@ -120,6 +121,40 @@ describe('v1 on-this-day — calendar render', { tags: ['unit'] }, () => {
     expect((caveatLink?.getAttribute('title') ?? '').length).toBeGreaterThan(0);
     // The explainer's bullet ids match the caveat ids, so the links resolve.
     expect(root.querySelector('#reading-these-dates-earliest-surviving')).not.toBeNull();
+  });
+
+  it('Caveats_ForAnEntry_LeadWithTheRegistryLabelNotAHardcodedString', () => {
+    const root = renderInto(makeData());
+    const caveats = root.querySelector('.hx-caveats');
+    expect(norm(caveats?.textContent)).toContain(V1_COPY.history.timeline.readoutCaveats.trim());
+  });
+
+  it('Explainer_Always_CarriesTheCarriedLicenceHistoryBackgroundWithItsSourcing', () => {
+    // Content parity with v0 (src/ci/build-on-this-day.ts): the carried-licence-
+    // history background bullet, with its evidentiary sourcing, must not be
+    // silently dropped from the v1 explainer.
+    const root = renderInto(makeData());
+    const text = norm(root.querySelector('#reading-these-dates')?.textContent);
+    expect(text).toContain('Licence-View field dictionary');
+    expect(text).toContain('FOI');
+    expect(text).toContain('October 2018');
+    expect(text).toContain('October 2025');
+  });
+
+  it('Explainer_Always_NamesTheUnparsedSeriesFormsWithNoSlot', () => {
+    const root = renderInto(makeData());
+    const text = norm(root.querySelector('#reading-these-dates')?.textContent);
+    expect(text).toContain('have no slot here');
+  });
+
+  it('Explainer_Always_CarriesTheFullWorkingSubstanceWithoutLinkingOffSurface', () => {
+    // The v0 explainer linked out to the committed reports; those are not a v1
+    // surface, so the substance is carried inline and the explainer links only
+    // to itself (issue #921 self-containment).
+    const explainer = renderInto(makeData()).querySelector('#reading-these-dates');
+    const text = norm(explainer?.textContent);
+    expect(text).toContain('committed reports');
+    expect([...(explainer?.querySelectorAll('a') ?? [])].every((a) => !(a.getAttribute('href') ?? '').startsWith('http'))).toBe(true);
   });
 
   it('Calendar_WhenNoEntriesFold_RendersAnHonestEmptyStateNotAFabricatedDay', () => {

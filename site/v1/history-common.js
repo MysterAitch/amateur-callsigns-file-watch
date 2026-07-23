@@ -111,12 +111,16 @@ export function assertedByFold(datasets, foldLabelTemplate) {
  * @param {string[]} caveatIds
  * @param {Map<string, HistoryCaveat>} legend
  * @param {string} explainerHref
+ * @param {string} caveatsLabel  the "Caveats: " lead, from the copy registry
+ *                               (V1_COPY.history.timeline.readoutCaveats) —
+ *                               never hardcoded here, so the claims-bar wording
+ *                               gate actually covers it.
  * @returns {HTMLElement | null}  a `.hx-caveats` span, or null when there are none
  */
-export function caveatLinks(caveatIds, legend, explainerHref) {
+export function caveatLinks(caveatIds, legend, explainerHref, caveatsLabel) {
   if (caveatIds.length === 0) return null;
   const span = el('span', 'hx-caveats');
-  span.append('Caveats: ');
+  span.append(caveatsLabel);
   caveatIds.forEach((id, i) => {
     if (i > 0) span.append('; ');
     const caveat = legend.get(id);
@@ -130,15 +134,20 @@ export function caveatLinks(caveatIds, legend, explainerHref) {
 
 /**
  * The folded mechanism explainer, built from the manifest's caveat legend so its
- * every bullet is the engine's own gloss — never a second, driftable copy. Each
- * caveat's stable id becomes the `<li>` id, so the caveat links can target it.
+ * every caveat bullet is the engine's own gloss — never a second, driftable
+ * copy. Each caveat's stable id becomes the `<li>` id, so the caveat links can
+ * target it. `backgroundBullets` carries always-applicable background text
+ * that no caveat id covers (e.g. the carried-licence-history sourcing, the
+ * unparsed-series note) — copy-registry strings, appended after the caveats
+ * in their own plain `<li>`s.
  * @param {string} explainerId
  * @param {string} labelText
  * @param {string} leadText
  * @param {HistoryCaveat[]} caveats
+ * @param {string[]} [backgroundBullets]
  * @returns {HTMLElement}
  */
-export function explainer(explainerId, labelText, leadText, caveats) {
+export function explainer(explainerId, labelText, leadText, caveats, backgroundBullets = []) {
   const details = el('details', 'hx-explainer');
   details.id = explainerId;
   details.appendChild(el('summary', null, labelText));
@@ -152,6 +161,7 @@ export function explainer(explainerId, labelText, leadText, caveats) {
     li.append(` – ${c.gloss}`);
     ul.appendChild(li);
   }
+  for (const text of backgroundBullets) ul.appendChild(el('li', null, text));
   body.appendChild(ul);
   details.appendChild(body);
   return details;

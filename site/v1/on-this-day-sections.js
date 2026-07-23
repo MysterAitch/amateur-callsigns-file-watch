@@ -122,7 +122,7 @@ function entryLine(entry, data, legend) {
   const datasets = entry.datasetIdxs.map((i) => data.datasets[i]).filter((x) => x !== undefined);
   if (datasets.length > 0) evt.appendChild(assertedByFold(datasets, copy.assertedByFold));
 
-  const caveats = caveatLinks(entry.caveatIds, legend, `#${EXPLAINER_ID}`);
+  const caveats = caveatLinks(entry.caveatIds, legend, `#${EXPLAINER_ID}`, V1_COPY.history.timeline.readoutCaveats);
   if (caveats !== null) evt.appendChild(caveats);
   return evt;
 }
@@ -150,7 +150,8 @@ export function renderOnThisDay(root, data) {
   todaySlot.id = 'today-slot';
   surface.appendChild(todaySlot);
 
-  surface.appendChild(explainer(EXPLAINER_ID, copy.explainerLabel, copy.explainerLead, data.caveats));
+  surface.appendChild(explainer(EXPLAINER_ID, copy.explainerLabel, copy.explainerLead, data.caveats,
+    [copy.explainerCarriedHistory, copy.explainerUnparsedSeries, copy.explainerFurtherWorking]));
 
   if (data.entries.length === 0) {
     surface.appendChild(el('p', 'note', copy.empty));

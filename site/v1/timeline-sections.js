@@ -150,7 +150,7 @@ export function renderReadout(host, bucket, data) {
   }
   host.appendChild(assert);
 
-  const caveats = caveatLinks(bucket.caveatIds, legend, `#${EXPLAINER_ID}`);
+  const caveats = caveatLinks(bucket.caveatIds, legend, `#${EXPLAINER_ID}`, copy.readoutCaveats);
   if (caveats !== null) {
     caveats.classList.add('tl-caveats');
     host.appendChild(caveats);
@@ -303,7 +303,8 @@ export function renderTimeline(root, data) {
   root.textContent = '';
   const surface = el('section', 'surface');
   surface.appendChild(ledeWithCue(copy.lede));
-  surface.appendChild(explainer(EXPLAINER_ID, copy.explainerLabel, copy.explainerLead, data.caveats));
+  surface.appendChild(explainer(EXPLAINER_ID, copy.explainerLabel, copy.explainerLead, data.caveats,
+    [copy.explainerCarriedHistory, copy.explainerUnparsedSeries, copy.explainerFurtherWorking]));
 
   if (data.kinds.length === 0 || data.buckets.length === 0) {
     surface.appendChild(el('p', 'note', copy.empty));

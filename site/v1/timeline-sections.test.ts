@@ -8,6 +8,7 @@ import {
   parseTimeline,
   anchorIndex,
 } from './timeline-sections.js';
+import { V1_COPY } from './copy.js';
 
 // The v1 timeline (issue #932): the event-time histogram + scrubber, rendered
 // from the root-served manifest. Event time leads — each bar counts dated events
@@ -101,6 +102,32 @@ describe('v1 timeline — histogram + surface render', { tags: ['unit'] }, () =>
     expect(root.querySelector('#reading-this-timeline-earliest-surviving')).not.toBeNull();
   });
 
+  it('Explainer_Always_CarriesTheCarriedLicenceHistoryBackgroundWithItsSourcing', () => {
+    // Content parity with v0 (src/ci/build-timeline.ts): the carried-licence-
+    // history background, with its evidentiary sourcing, must not be silently
+    // dropped from the v1 explainer.
+    const root = renderInto(makeData());
+    const text = norm(root.querySelector('#reading-this-timeline')?.textContent);
+    expect(text).toContain('Licence-View field dictionary');
+    expect(text).toContain('FOI');
+    expect(text).toContain('October 2018');
+    expect(text).toContain('October 2025');
+  });
+
+  it('Explainer_Always_NamesTheUnparsedSeriesFormsWithNoSlot', () => {
+    const root = renderInto(makeData());
+    const text = norm(root.querySelector('#reading-this-timeline')?.textContent);
+    expect(text).toContain('have no slot');
+  });
+
+  it('Explainer_Always_CarriesTheFullWorkingSubstanceWithoutLinkingOffSurface', () => {
+    const root = renderInto(makeData());
+    const explainer = root.querySelector('#reading-this-timeline');
+    const text = norm(explainer?.textContent);
+    expect(text).toContain('committed reports');
+    expect([...(explainer?.querySelectorAll('a') ?? [])].every((a) => !(a.getAttribute('href') ?? '').startsWith('http'))).toBe(true);
+  });
+
   it('Surface_WhenTheCorpusCarriesNoLicensingEvidence_StatesNonObservationNotEmptiness', () => {
     const root = renderInto(makeData({ kinds: [], buckets: [], histograms: {}, totals: {}, caveats: [] }));
     expect(root.querySelector('#timeline-scrubber')).toBeNull();
@@ -137,6 +164,24 @@ describe('v1 timeline — scrubber readout', { tags: ['unit'] }, () => {
     const caveatLink = host.querySelector('.tl-caveats a');
     expect(caveatLink?.getAttribute('href')).toBe('#reading-this-timeline');
     expect((caveatLink?.getAttribute('title') ?? '').length).toBeGreaterThan(0);
+  });
+
+  it('Readout_ForABucket_LeadsItsCaveatsWithTheRegistryLabelNotAHardcodedString', () => {
+    const data = makeData();
+    const host = document.createElement('div');
+    renderReadout(host, data.buckets[0] as never, data as never);
+    const caveats = host.querySelector('.tl-caveats');
+    expect(norm(caveats?.textContent)).toContain(V1_COPY.history.timeline.readoutCaveats.trim());
+  });
+
+  it('Readout_ForABucketWithAnOpenReservationWindow_StatesTheBitemporalTestParenthetically', () => {
+    // The bi-temporal reading a reservation-window figure rests on (v0 parity:
+    // site/timeline.js) must not be silently dropped from the v1 wording.
+    const data = makeData();
+    const host = document.createElement('div');
+    renderReadout(host, data.buckets[1] as never, data as never); // 2019: activeReservations = 1
+    const text = norm(host.textContent);
+    expect(text).toContain('stated end on or after then, stating vintage proven by then');
   });
 
   it('Scrubber_WhenDraggedToAnEarlierYear_UpdatesTheLinkedReadout', () => {
