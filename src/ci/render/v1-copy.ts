@@ -124,6 +124,28 @@ export const V1_COPY = {
       showBoth: 'Show both',
       eventOnly: 'Event only',
       assertOnly: 'Assertion only',
+      // The instrument legend, worked micro-example, kind-tint names and marker
+      // tooltip templates (issue #921, A2). Kept string-identical to the browser
+      // copy (site/v1/copy.js carries the rationale); the mirror drift-guard test
+      // holds the two registries' strings in lockstep.
+      legendLabel: 'how to read it',
+      legendEvent: 'an event — when something happened, as the record states it',
+      legendSighting: 'a sighting — a publication that recorded this callsign, at its vintage',
+      legendState: 'current state — the latest status the mirror holds',
+      legendDisputed: 'disputed — held publications assert competing dates for a kind; every one is shown',
+      microExample: 'Worked example: a diamond above the axis at 2018 says the record states that happened in 2018; a pip below at 2021 is a publication that recorded this callsign in 2021 — an event can predate the first sighting.',
+      kindLegend: {
+        'licence-issued': 'licence issued',
+        'licence-original-start': 'licence original start',
+        'licence-version-original-start': 'licence-version start',
+        'licence-cancelled': 'licence cancelled',
+        'reserved-until': 'reserved until',
+      },
+      tooltipEvent: '{label} · {day}',
+      tooltipSighting: 'Sighting: recorded by {title} · {vintage}',
+      tooltipSightingNoTitle: 'Sighting · {vintage}',
+      tooltipState: '{label} · as of {day}',
+      tooltipStateAssertedBy: '{label} · as of {day}, asserted by {source}',
       // The dial's series-introduction context marker (see site/v1/copy.js).
       seriesIntro: '{series} series opened {month}',
       // The agreeing-origin semantic row and the current-state terminus suffix

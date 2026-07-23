@@ -93,6 +93,8 @@ const link = (href, label, cls = null) => {
 /**
  * @typedef {object} DialSighting
  * @property {string} vintage  assertion-time vintage (YYYY-MM-DD or YYYY-MM)
+ * @property {string} [title]  the publication that recorded the sighting, carried
+ *                            so each pip's tooltip can name it (issue #921, A2)
  */
 
 /**
@@ -187,7 +189,7 @@ export function buildCallsignModel(deps) {
     if (h[i] === '.') continue;
     const dataset = manifest.datasets[i];
     if (dataset === undefined || dataset.vintage == null) continue;
-    sightings.push({ vintage: dataset.vintage });
+    sightings.push({ vintage: dataset.vintage, title: dataset.title });
   }
 
   // Event axis, findings, bookkeeping and cross-vintage disagreements, from the
@@ -335,15 +337,13 @@ export const DISAGREEMENT_ANCHOR_ID = 'record-disagreements';
 // nudge (issue #921) — heavy disagreement is surfaced, not summarised away.
 export const DISPUTE_NUDGE_THRESHOLD = 4;
 
-// Near-dated separation threshold (issue #921). A dial caption is centred on its
-// marker, so two markers whose captions would overlap must be disambiguated. A
-// representative single-line caption is about NEAR_DATED_CAPTION_WIDTH_REM wide;
-// measured against the scale's own minimum width (DIAL_AXIS_MIN_WIDTH_REM, the
-// .scale min-width) it occupies this fraction of the axis. When two adjacent
-// event markers sit closer than that in axis-percent their captions collide, so
-// the later markers of the run take stepped heights (the x positions stay true;
-// only the caption height disambiguates). A narrow, deterministic tail: the
-// worst observed cases are adjacent calendar days on decades-wide axes.
+// A representative single-line caption's width, as a fraction of the scale's
+// minimum width (DIAL_AXIS_MIN_WIDTH_REM, the .scale min-width) — a reference the
+// geometry tests use to reason about "near" vs "well-separated" markers. The LIVE
+// tiering no longer keys off this single figure: it measures each caption's OWN
+// width and tiers two markers apart exactly when their spans would overlap (see
+// intervalOf in dialGeometry, issue #921 polish). Kept as documentation of the
+// typical case and the tests' reference point.
 const NEAR_DATED_CAPTION_WIDTH_REM = 7;
 const DIAL_AXIS_MIN_WIDTH_REM = 600 / 16;
 export const NEAR_DATED_SEPARATION_THRESHOLD_PERCENT = (NEAR_DATED_CAPTION_WIDTH_REM / DIAL_AXIS_MIN_WIDTH_REM) * 100;
@@ -385,18 +385,61 @@ export function isAgreeingOriginGroup(group, allGroups, disagreements) {
 export const DIAL_SCALE_GEOMETRY = {
   axisTopDefault: 136, // compact axis offset from the scale top; the panel only grows past this
   belowAxis: 74,       // room kept beneath the axis for the sighting (calibration) track
-  tierStep: 30,        // each near-dated separation tier lifts a marker this far
+  tierStep: 34,        // each near-dated separation tier lifts a marker this far; kept a
+                       //   few px above the rendered caption height so consecutive tiers
+                       //   clear with breathing room, never touch (issue #921 polish)
   stackBase: 34,       // a co-dated stack's bottom clearance above the axis
   stackRowH: 15,       // rendered height of one named row in a stack
   stackDayH: 15,       // rendered height of the shared day line beneath a stack
   capBase: 46,         // a single marker's caption bottom clearance above the axis
-  capH: 30,            // a single two-line caption's rendered height
+  capH: 32,            // a single two-line caption's rendered height (a true upper bound
+                       //   on the ~30.3px paint, so the reserved headroom never under-reserves)
   stemBase: 34,        // stem length from the axis
   dotBase: 30,         // diamond bottom clearance above the axis
   connBase: 30,        // stack connector bottom clearance above the axis
   connH: 6,            // stack connector length
   topMargin: 14,       // breathing room kept above the tallest composed caption
 };
+
+// A caption's estimated rendered width in px (issue #921 polish): the dial
+// captions are 11px monospace, so width tracks character count. Clamped to the
+// .cap max-width (14rem) and grown by the caption plate padding plus a small
+// safety allowance (real glyph advances vary a touch, so estimating a little wide
+// anchors a shade early — always safe, never an overflow). Pure, so both the
+// edge decision and the caption geometry can reason about widths without a DOM.
+const DIAL_MONO_CHAR_PX = 6.6;
+const DIAL_CAP_MAX_PX = 224; // 14rem at 16px, the .cap max-width
+const DIAL_CAP_CHROME_PX = 16; // caption plate padding + safety allowance
+export const DIAL_AXIS_MIN_WIDTH_PX = DIAL_AXIS_MIN_WIDTH_REM * 16;
+/** @param {string} text @returns {number} */
+export function estimateCaptionWidthPx(text) {
+  return Math.min(text.length * DIAL_MONO_CHAR_PX, DIAL_CAP_MAX_PX) + DIAL_CAP_CHROME_PX;
+}
+
+// Caption edge-anchoring (issue #921 polish): a dial caption is centred on its
+// marker, so a marker near the axis extreme would push its caption past the scale
+// edge — the overflow the owner's round-2 captures showed. WIDTH-AWARE: a caption
+// only fits centred when the marker sits at least a half-caption-width from each
+// edge, so a wider caption anchors further in than a narrow one. Measured against
+// the scale's MINIMUM width (the worst case: captions occupy the largest fraction
+// there), so the same anchoring holds at every viewport. Returns 'l' to anchor the
+// caption's left to the marker (extend inward, rightward), 'r' to anchor its right
+// (extend inward, leftward), or null to stay centred. Never truncates.
+/** @param {number} leftPct @param {number} capWidthPx @returns {'l' | 'r' | null} */
+export function captionEdge(leftPct, capWidthPx) {
+  const halfPct = (capWidthPx / 2) / DIAL_AXIS_MIN_WIDTH_PX * 100;
+  if (leftPct < halfPct) return 'l';
+  if (leftPct > 100 - halfPct) return 'r';
+  return null;
+}
+
+// The caption text a cluster paints — the single event's leading clause, or the
+// widest row of a co-dated stack — used to estimate the cluster's caption width.
+/** @param {string[]} labels @returns {string} */
+export function clusterCaptionText(labels) {
+  const clauses = labels.map((l) => l.split(' — ')[0]);
+  return clauses.reduce((widest, c) => (c.length > widest.length ? c : widest), clauses[0] ?? '');
+}
 
 // The upward extent (px above the axis) a cluster's caption reaches at its tier:
 // a co-dated stack grows by its row count, a lone marker by its two-line caption.
@@ -470,7 +513,7 @@ export function disputedClaimCount(disagreements) {
  * @param {DialEvent[]} events
  * @param {DialSighting[]} sightings
  * @param {{ label: string, day: string } | null} [state]  the current-state terminus, or null for none
- * @returns {{ minYear: number, maxYear: number, years: { year: number, left: number }[], events: { left: number, day: string, labels: string[], kinds: (string | null)[], disputed: boolean[], count: number, tier: number }[], sightings: { left: number, vintage: string }[], state: { left: number, label: string, day: string } | null, axisTop: number, scaleHeight: number }}
+ * @returns {{ minYear: number, maxYear: number, years: { year: number, left: number }[], events: { left: number, day: string, labels: string[], kinds: (string | null)[], disputed: boolean[], count: number, tier: number }[], sightings: { left: number, vintage: string, title?: string }[], state: { left: number, label: string, day: string, tier: number } | null, axisTop: number, scaleHeight: number }}
  */
 export function dialGeometry(events, sightings, state = null) {
   const fracs = [
@@ -493,7 +536,10 @@ export function dialGeometry(events, sightings, state = null) {
   const years = [];
   for (let y = minYear; y <= maxYear; y += step) years.push({ year: y, left: pos(y) });
   const clusters = groupEventsByDay(events.filter((e) => !Number.isNaN(fractionalYear(e.day))))
-    .map((g) => ({ left: pos(fractionalYear(g.day)), day: g.day, labels: g.events.map((e) => e.label), kinds: g.events.map((e) => e.kindId ?? null), disputed: g.events.map((e) => e.disputed === true), count: g.events.length, tier: 0 }));
+    .map((grp) => {
+      const labels = grp.events.map((e) => e.label);
+      return { left: pos(fractionalYear(grp.day)), day: grp.day, labels, kinds: grp.events.map((e) => e.kindId ?? null), disputed: grp.events.map((e) => e.disputed === true), count: grp.events.length, tier: 0, capText: clusterCaptionText(labels) };
+    });
   // Near-dated separation: walking the clusters left-to-right, any cluster
   // whose gap to the one before it is under the caption-width threshold joins a
   // run and steps up one tier; a gap at or above the threshold starts a fresh
@@ -506,18 +552,39 @@ export function dialGeometry(events, sightings, state = null) {
   const baseOf = (c) => (c.count > 1 ? g.stackBase : g.capBase);
   /** @param {{ count: number }} c */
   const contentOf = (c) => (c.count > 1 ? c.count * g.stackRowH + g.stackDayH : g.capH);
-  const byLeft = [...clusters].sort((a, b) => a.left - b.left);
+  // Each caption's anchored horizontal span, as a fraction of the axis at the
+  // MINIMUM scale width (the worst case for fit). A centred caption spans a half
+  // each side of its marker; an edge-anchored one spans its full width inward. Two
+  // captions must tier apart exactly when these spans would overlap (issue #921
+  // polish), so the criterion tracks each caption's OWN width rather than a single
+  // assumed figure.
+  /** @param {{ left: number, capText: string }} t @returns {{ lo: number, hi: number }} */
+  const spanOf = (t) => {
+    const half = (estimateCaptionWidthPx(t.capText) / 2) / DIAL_AXIS_MIN_WIDTH_PX * 100;
+    const edge = captionEdge(t.left, estimateCaptionWidthPx(t.capText));
+    if (edge === 'l') return { lo: t.left, hi: t.left + 2 * half };
+    if (edge === 'r') return { lo: t.left - 2 * half, hi: t.left };
+    return { lo: t.left - half, hi: t.left + half };
+  };
+  // The current-state terminus joins the SAME tiering pass as the event clusters
+  // (issue #921 polish): it is not one of the clusters, so without this a terminus
+  // whose caption would overlap the newest event's would overprint it at tier 0.
+  // Placed in the left-to-right pass, whichever sits rightmost lifts clear.
+  const stateFrac = state !== null ? fractionalYear(state.day) : NaN;
+  /** @type {{ left: number, count: number, tier: number, capText: string } | null} */
+  const stateTierable = state !== null && !Number.isNaN(stateFrac) ? { left: pos(stateFrac), count: 1, tier: 0, capText: state.label } : null;
+  const byLeft = [...clusters, ...(stateTierable !== null ? [stateTierable] : [])].sort((a, b) => a.left - b.left);
   for (let i = 1; i < byLeft.length; i += 1) {
     const prev = byLeft[i - 1];
     const cur = byLeft[i];
-    const gap = cur.left - prev.left;
-    if (gap >= NEAR_DATED_SEPARATION_THRESHOLD_PERCENT) {
+    // No horizontal overlap between the two captions → the later one stays flat.
+    if (spanOf(cur).lo >= spanOf(prev).hi - 0.01) {
       cur.tier = 0;
       continue;
     }
     // Lift this caption clear of the previous caption's full painted top, so
-    // near-dated captions never overlap — whatever the mix of stacks and singles
-    // (issue #921). At least one step, matching the original separation.
+    // overlapping captions never collide — whatever the mix of stacks, singles and
+    // the state terminus (issue #921). At least one step.
     const prevTop = baseOf(prev) + prev.tier * g.tierStep + contentOf(prev);
     cur.tier = Math.max(1, Math.ceil((prevTop - baseOf(cur)) / g.tierStep));
   }
@@ -525,21 +592,21 @@ export function dialGeometry(events, sightings, state = null) {
   // tallest stacked-and-tiered caption always clears the axis with no spill into
   // the controls above and no accidental scrollbar, and keep the compact default
   // when nothing needs the room. Stacks, near-dated singles and the state caption
-  // are all measured.
+  // are all measured at their tier.
   let maxExtent = 0;
   for (const c of clusters) maxExtent = Math.max(maxExtent, clusterCaptionExtent(c.count, c.tier));
-  if (state !== null && !Number.isNaN(fractionalYear(state.day))) maxExtent = Math.max(maxExtent, clusterCaptionExtent(1, 0));
+  if (stateTierable !== null) maxExtent = Math.max(maxExtent, clusterCaptionExtent(1, stateTierable.tier));
   const axisTop = Math.max(g.axisTopDefault, maxExtent + g.topMargin);
   const scaleHeight = axisTop + g.belowAxis;
-  const stateOut = state !== null && !Number.isNaN(fractionalYear(state.day))
-    ? { left: pos(fractionalYear(state.day)), label: state.label, day: state.day }
+  const stateOut = state !== null && stateTierable !== null
+    ? { left: stateTierable.left, label: state.label, day: state.day, tier: stateTierable.tier }
     : null;
   return {
     minYear,
     maxYear,
     years,
     events: clusters,
-    sightings: sightings.filter((s) => !Number.isNaN(fractionalYear(s.vintage))).map((s) => ({ left: pos(fractionalYear(s.vintage)), vintage: s.vintage })),
+    sightings: sightings.filter((s) => !Number.isNaN(fractionalYear(s.vintage))).map((s) => ({ left: pos(fractionalYear(s.vintage)), vintage: s.vintage, title: s.title })),
     state: stateOut,
     axisTop,
     scaleHeight,
@@ -637,6 +704,22 @@ function mountFastAnswer(host, model) {
   host.appendChild(head);
 }
 
+// Fill a `{placeholder}` template from a map of values. Only the named
+// placeholders are substituted; any stray brace is left untouched, so a missing
+// value fails visibly rather than silently blanking.
+/** @param {string} tpl @param {Record<string, string>} vars @returns {string} */
+const fillTemplate = (tpl, vars) => tpl.replace(/\{(\w+)\}/g, (/** @type {string} */ m, /** @type {string} */ k) => (Object.hasOwn(vars, k) ? vars[k] : m));
+
+// Give a dial marker its tooltip (issue #921, A2): the same text on `title` (the
+// hover tooltip) and `aria-label` (the accessible equivalent), so a marker is
+// never a bare unlabelled dot. The scale as a whole keeps its role="img"
+// overview; these per-marker labels name the individual reading.
+/** @param {HTMLElement} node @param {string} text */
+function markerTooltip(node, text) {
+  node.setAttribute('title', text);
+  node.setAttribute('aria-label', text);
+}
+
 // Apply a kind-tint to a node (issue #921): mark it with data-kind so shell.css
 // paints the kind's swatch/accent. Only the licensing event kinds are tinted;
 // anything else is left in the base grammar. The tint is decorative — the event
@@ -664,6 +747,62 @@ function applyScaleGeometry(scale, geo) {
   for (const [k, v] of Object.entries(props)) scale.style.setProperty(k, `${v}px`);
 }
 
+// The instrument legend (issue #921, A2): a plain-English row decoding the dial
+// so a first-time reader need not infer the marker vocabulary from prose. Each
+// marker TYPE is named only when it is actually drawn (no phantom entries), and
+// the row is the natural home for the kind-tint scheme — every tinted kind
+// present is named beside a swatch in its stable hue, so the colour scheme is
+// learnable. Returns null when there is nothing to decode.
+/**
+ * @param {{ hasEvents: boolean, hasSightings: boolean, hasState: boolean, hasDisputed: boolean, tintedKinds: string[] }} present
+ * @returns {HTMLElement | null}
+ */
+function buildDialLegend(present) {
+  if (!present.hasEvents && !present.hasSightings && !present.hasState) return null;
+  const legend = el('div', 'dial-legend');
+  legend.setAttribute('role', 'group');
+  legend.setAttribute('aria-label', V1_COPY.callsign.dial.legendLabel);
+  legend.appendChild(el('span', 'dl-lbl', V1_COPY.callsign.dial.legendLabel));
+  /** @param {string} markCls @param {string} text */
+  const item = (markCls, text) => {
+    const it = el('span', 'dl-item');
+    it.appendChild(el('span', `dl-mk ${markCls}`));
+    it.append(` ${text}`);
+    legend.appendChild(it);
+  };
+  if (present.hasEvents) item('ev', V1_COPY.callsign.dial.legendEvent);
+  if (present.hasSightings) item('si', V1_COPY.callsign.dial.legendSighting);
+  if (present.hasState) item('state', V1_COPY.callsign.dial.legendState);
+  if (present.hasDisputed) item('disputed', V1_COPY.callsign.dial.legendDisputed);
+  const kindNames = V1_COPY.callsign.dial.kindLegend;
+  for (const kindId of present.tintedKinds) {
+    // A tinted kind with no registered legend name is skipped rather than drawn
+    // nameless — the swatch is never the sole cue.
+    if (!Object.hasOwn(kindNames, kindId)) continue;
+    const name = kindNames[/** @type {keyof typeof kindNames} */ (kindId)];
+    const it = el('span', 'dl-item');
+    const sw = el('span', 'dl-sw');
+    sw.setAttribute('data-kind', kindId);
+    it.appendChild(sw);
+    it.append(` ${name}`);
+    legend.appendChild(it);
+  }
+  return legend;
+}
+
+// The tinted event kinds present among a record's events, in first-seen order —
+// the set the legend names beside their swatches. Bookkeeping and the state
+// terminus keep the base grammar, so only the TINTED_EVENT_KINDS appear.
+/** @param {DialEvent[]} events @returns {string[]} */
+function tintedKindsPresent(events) {
+  /** @type {string[]} */
+  const out = [];
+  for (const e of events) {
+    if (e.kindId != null && TINTED_EVENT_KINDS.has(e.kindId) && !out.includes(e.kindId)) out.push(e.kindId);
+  }
+  return out;
+}
+
 // The bitemporal dial (the signature element).
 /** @param {HTMLElement} host @param {CallsignModel} model */
 function mountEvidenceDial(host, model) {
@@ -672,6 +811,10 @@ function mountEvidenceDial(host, model) {
   lbl.append(V1_COPY.callsign.evidenceLabel);
   surface.appendChild(lbl);
   surface.appendChild(el('p', 'note', V1_COPY.callsign.evidenceLead));
+  // A one-line worked micro-example in the framing copy (issue #921, A2): reads
+  // one diamond and one pip so the event-time / assertion-time distinction is
+  // concrete before the reader meets the instrument.
+  surface.appendChild(el('p', 'note dial-example', V1_COPY.callsign.dial.microExample));
 
   const dial = el('div', 'dial');
 
@@ -739,6 +882,10 @@ function mountEvidenceDial(host, model) {
     if (allDisputed) cls.push('disputed');
     const marker = el('div', cls.join(' '));
     marker.setAttribute('style', `left:${cl.left.toFixed(1)}%;--tier:${cl.tier}`);
+    // Anchor the caption inward when a centred caption would overflow the scale
+    // edge, sized to this cluster's own caption width (issue #921 polish).
+    const edge = captionEdge(cl.left, estimateCaptionWidthPx(clusterCaptionText(cl.labels)));
+    if (edge !== null) marker.setAttribute('data-edge', edge);
     if (cl.count === 1) applyKindTint(marker, cl.kinds[0]);
     marker.appendChild(el('span', 'stem'));
     marker.appendChild(el('span', 'dot'));
@@ -748,6 +895,7 @@ function mountEvidenceDial(host, model) {
       const cap = el('span', 'cap', cl.labels[0].split(' — ')[0]);
       cap.appendChild(el('small', null, cl.day));
       marker.appendChild(cap);
+      markerTooltip(marker, fillTemplate(V1_COPY.callsign.dial.tooltipEvent, { label: cl.labels[0], day: cl.day }));
     } else {
       // Co-dated events: the centred vertical stack (issue #921). Every event is
       // named on its own row in record order, the shared day shown once beneath.
@@ -762,7 +910,7 @@ function mountEvidenceDial(host, model) {
         stack.appendChild(r);
       });
       stack.appendChild(el('span', 'd', cl.day));
-      marker.setAttribute('title', cl.labels.join('; '));
+      markerTooltip(marker, fillTemplate(V1_COPY.callsign.dial.tooltipEvent, { label: cl.labels.join('; '), day: cl.day }));
       marker.appendChild(stack);
     }
     scale.appendChild(marker);
@@ -771,17 +919,23 @@ function mountEvidenceDial(host, model) {
   // node the shell already styles (.scale .ev.state), closing the event story.
   if (geo.state !== null) {
     const marker = el('div', 'ev state');
-    marker.setAttribute('style', `left:${geo.state.left.toFixed(1)}%`);
+    marker.setAttribute('style', `left:${geo.state.left.toFixed(1)}%;--tier:${geo.state.tier}`);
+    const sEdge = captionEdge(geo.state.left, estimateCaptionWidthPx(geo.state.label));
+    if (sEdge !== null) marker.setAttribute('data-edge', sEdge);
     marker.appendChild(el('span', 'stem'));
     marker.appendChild(el('span', 'dot'));
     const cap = el('span', 'cap', geo.state.label);
     cap.appendChild(el('small', null, geo.state.day));
     // The dial marker cannot host a disclosure fold; its assertion-time
     // provenance rides the title/aria instead, with the expandable fold on the
-    // matching event-rail terminus.
+    // matching event-rail terminus. Every state node carries a tooltip naming its
+    // status and date, gaining the asserting publication when one is held.
     if (stateNode !== null && stateNode.assertedBy.length > 0) {
       const a = stateNode.assertedBy[0];
-      marker.setAttribute('title', `as of ${geo.state.day}, asserted by ${a.vintage != null ? `${a.title} (vintage ${a.vintage})` : a.title}`);
+      const source = a.vintage != null ? `${a.title} (vintage ${a.vintage})` : a.title;
+      markerTooltip(marker, fillTemplate(V1_COPY.callsign.dial.tooltipStateAssertedBy, { label: geo.state.label, day: geo.state.day, source }));
+    } else {
+      markerTooltip(marker, fillTemplate(V1_COPY.callsign.dial.tooltipState, { label: geo.state.label, day: geo.state.day }));
     }
     marker.appendChild(cap);
     scale.appendChild(marker);
@@ -791,6 +945,11 @@ function mountEvidenceDial(host, model) {
     marker.setAttribute('style', `left:${si.left.toFixed(1)}%`);
     marker.appendChild(el('span', 'stem'));
     marker.appendChild(el('span', 'pip'));
+    // Each pip names the publication that recorded the sighting and its vintage
+    // (issue #921, A2), falling back to the vintage alone when no title is held.
+    markerTooltip(marker, si.title != null && si.title !== ''
+      ? fillTemplate(V1_COPY.callsign.dial.tooltipSighting, { title: si.title, vintage: si.vintage })
+      : fillTemplate(V1_COPY.callsign.dial.tooltipSightingNoTitle, { vintage: si.vintage }));
     scale.appendChild(marker);
   }
   dial.appendChild(scale);
@@ -801,6 +960,17 @@ function mountEvidenceDial(host, model) {
   asLab.appendChild(el('b', null, V1_COPY.callsign.dial.assertLabel));
   asLab.append(` — ${V1_COPY.callsign.dial.assertGloss.replace(`${V1_COPY.callsign.dial.assertLabel} — `, '')}`);
   dial.appendChild(asLab);
+
+  // The instrument legend (issue #921, A2): decode the marker vocabulary and the
+  // kind-tint scheme, naming only the marker types actually drawn on this record.
+  const legend = buildDialLegend({
+    hasEvents: geo.events.length > 0,
+    hasSightings: geo.sightings.length > 0,
+    hasState: geo.state !== null,
+    hasDisputed: events.some((e) => e.disputed === true),
+    tintedKinds: tintedKindsPresent(events),
+  });
+  if (legend !== null) dial.appendChild(legend);
 
   // Reading / calibration note.
   const note = el('div', 'dial-note');
@@ -1189,6 +1359,21 @@ export const CALLSIGN_SECTION_ORDER = [
   'extras',
 ];
 
+// Sections that only make sense with a resolved record (issue #921, A4). On a
+// no-record lookup these are suppressed entirely, so the no-record card stands
+// alone rather than fronting an empty evidence instrument, a bare axis and an
+// undrawable anatomy — which read as broken and undercut the clean no-record
+// message. Only 'fast-answer' (which carries the no-record callout) survives a
+// miss. Kept as a set so the suppression is one greppable rule, not a literal id
+// test scattered through the renderer.
+export const RECORD_DEPENDENT_SECTIONS = new Set([
+  'the-evidence-dial',
+  'event-timeline',
+  'anatomy',
+  'record-fidelity',
+  'extras',
+]);
+
 /** @type {Record<string, { id: string, mount: (host: HTMLElement, model: CallsignModel) => void }>} */
 export const CALLSIGN_SECTION_REGISTRY = {
   'fast-answer': { id: 'fast-answer', mount: mountFastAnswer },
@@ -1210,6 +1395,10 @@ export const CALLSIGN_SECTION_REGISTRY = {
  */
 export function renderCallsignSections(root, model, order = CALLSIGN_SECTION_ORDER, registry = CALLSIGN_SECTION_REGISTRY) {
   for (const id of order) {
+    // A no-record lookup suppresses the record-dependent sections (issue #921,
+    // A4): the no-record card stands alone. The id is still validated below when
+    // it is not suppressed, so an unregistered id never renders a silent gap.
+    if (!model.found && RECORD_DEPENDENT_SECTIONS.has(id)) continue;
     const entry = registry[id];
     if (entry === undefined) {
       throw new Error(`renderCallsignSections: no registered section for id "${id}" — every id in CALLSIGN_SECTION_ORDER must have a registry entry`);

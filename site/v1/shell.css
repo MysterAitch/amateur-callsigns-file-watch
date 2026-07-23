@@ -237,7 +237,12 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .sd-holdlist ul{margin:.55rem 0 0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.25rem;color:var(--ink-2);max-height:14rem;overflow:auto}
 
 /* ---- module cards (dense, hairline-gridded, not rounded-uniform) ---- */
-.modules{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line)}
+/* auto-fit columns (issue #921, C1): the card count varies by surface — two on
+   the home ways-in, three on the 404 — and a fixed two-column track left the odd
+   third card beside a blank grey cell. auto-fit with a min track fills the row at
+   any count, so a three-card grid reads as three columns with no empty tile,
+   while the two-card grid still reads as two. */
+.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
 .mod{background:var(--panel);padding:1.1rem 1.15rem;display:flex;flex-direction:column;gap:.55rem}
 .mod:hover{background:var(--panel-2)}
 .mod .top{display:flex;align-items:baseline;justify-content:space-between;gap:.6rem}
@@ -301,7 +306,11 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .tl.origin .track>.dsc{margin:.3rem 0 .6rem}
 
 /* ---- anatomy ---- */
-.anat{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+/* auto-fit columns (issue #921, C1): a UK callsign decomposes into two or three
+   parts (prefix/digit or prefix/digit/suffix). A fixed two-column track left the
+   three-part case with a blank fourth cell; auto-fit fills the row at either
+   count with no empty tile. */
+.anat{display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
 .anat .p{background:var(--panel);padding:.85rem 1rem;display:flex;align-items:baseline;gap:.8rem}
 .anat .g{font-family:var(--mono);font-size:1.9rem;font-weight:600;color:var(--signal)}
 .anat .m .role{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -339,7 +348,7 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
    the room. Every vertical offset below reads a var() fed from
    DIAL_SCALE_GEOMETRY, so the JS height budget and this layout share one source.
    --tier-step is how far each near-dated separation tier lifts a marker. */
-.scale{position:relative;min-width:600px;height:var(--scale-h,210px);margin:.1rem 0 .2rem;--tier-step:30px}
+.scale{position:relative;min-width:600px;height:var(--scale-h,210px);margin:.1rem 0 .2rem;--tier-step:34px}
 .scale .axis{position:absolute;left:0;right:0;top:var(--axis-top,136px);height:2px;background:var(--ink-2)}
 .scale .yr{position:absolute;top:calc(var(--axis-top,136px) + 7px);transform:translateX(-50%);font-family:var(--mono);font-size:11px;color:var(--muted)}
 .scale .yr::before{content:"";position:absolute;top:-9px;left:50%;width:1px;height:7px;background:var(--line-2)}
@@ -349,8 +358,22 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .scale .ev .stem{position:absolute;bottom:0;left:-1px;width:2px;height:calc(var(--stem-base,34px) + var(--tier) * var(--tier-step));background:var(--signal)}
 .scale .ev .dot{position:absolute;bottom:calc(var(--dot-base,30px) + var(--tier) * var(--tier-step));left:-5px;width:10px;height:10px;background:var(--signal);transform:rotate(45deg)}
 .scale .ev .cap{position:absolute;bottom:calc(var(--cap-base,46px) + var(--tier) * var(--tier-step));transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);
-  font-size:11px;color:var(--signal-strong);font-weight:600;max-width:14rem;overflow:hidden;text-overflow:ellipsis}
+  font-size:11px;color:var(--signal-strong);font-weight:600;max-width:14rem;overflow:hidden;text-overflow:ellipsis;
+  /* A caption plate (issue #921 polish): a background matching the dial and a
+     stacking context above the marker stems, so a caption reads cleanly over the
+     shared stem/dot column of a near-dated run rather than the track lines
+     striking through the text. Occludes only the decorative marks, never text. */
+  background:var(--bg-2);padding:0 3px;border-radius:2px;z-index:2}
 .scale .ev .cap small{display:block;font-weight:400;color:var(--muted);letter-spacing:0}
+/* Edge-anchored captions (issue #921 polish): a marker in the left band anchors
+   its caption's left to the marker (caption extends inward, rightward); one in
+   the right band anchors its right (extends inward, leftward). This keeps a
+   caption near the axis extreme inside the scale without ever truncating it.
+   data-edge is set from the marker's axis position by captionEdge(). */
+.scale .ev[data-edge="l"] .cap{transform:none;left:-1px;text-align:left}
+.scale .ev[data-edge="r"] .cap{transform:translateX(-100%);left:1px;text-align:right}
+.scale .ev[data-edge="l"] .vstack{transform:none;left:-1px;align-items:flex-start}
+.scale .ev[data-edge="r"] .vstack{transform:translateX(-100%);left:1px;align-items:flex-end}
 .scale .ev.state .stem,.scale .ev.state .dot{background:var(--ok)}
 .scale .ev.state .cap{color:var(--ok)}
 /* a disputed single marker reads hollow — a held vintage asserts a competing
@@ -366,7 +389,11 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
    into the composed headroom (issue #921). */
 .scale .ev.stacked .conn{position:absolute;bottom:calc(var(--conn-base,30px) + var(--tier) * var(--tier-step));left:-.5px;width:1px;height:var(--conn-h,6px);background:var(--signal-dim)}
 .scale .ev .vstack{position:absolute;bottom:calc(var(--stack-base,34px) + var(--tier) * var(--tier-step));left:0;transform:translateX(-50%);
-  display:flex;flex-direction:column;align-items:center;gap:0;white-space:nowrap}
+  display:flex;flex-direction:column;align-items:center;gap:0;white-space:nowrap;
+  /* The stack carries the same caption plate as a single caption (issue #921
+     polish): background + stacking context so a tiered stack reads over the
+     shared stem column, never struck through by it. */
+  background:var(--bg-2);padding:0 3px;border-radius:2px;z-index:2}
 .scale .ev .vstack .r{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--signal-strong);line-height:var(--stack-row-h,15px);height:var(--stack-row-h,15px);display:flex;align-items:center;gap:.3rem}
 .scale .ev .vstack .r[data-kind]::before{content:"";width:.5rem;height:.5rem;border-radius:1px;background:var(--kt);flex:none}
 /* a disputed stack row: its swatch is hollow (outlined in the kind tint) and its
@@ -420,6 +447,27 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
    pairs the clutter with an invitation into the narrative. */
 .dial-dispute-nudge{margin:.55rem 0 0;padding:.5rem .7rem;border:1px solid var(--warn-line);background:var(--warn-tint);color:var(--ink-2);font-size:.9rem;border-radius:2px}
 .dial-dispute-nudge .nudge-cta{font-family:var(--mono);font-size:11px;letter-spacing:.02em;color:var(--warn);border-bottom:1px dashed var(--warn);white-space:nowrap}
+/* ---- instrument legend + worked micro-example (issue #921, A2) ---- */
+/* The framing micro-example: a calm left-accented reading, distinct from the
+   lead note so a first-timer's eye lands on the worked example. */
+.note.dial-example{border-left:2px solid var(--signal-dim);padding-left:.7rem;color:var(--ink-2)}
+/* The legend row decoding the marker vocabulary and the kind-tint scheme. It sits
+   beneath the scale inside the dial card, wraps freely, and each swatch aligns to
+   the text baseline. Items never overflow the card: the row wraps and each item's
+   text is allowed to wrap so a long name cannot spill past the panel edge. */
+.dial-legend{display:flex;flex-wrap:wrap;align-items:baseline;gap:.35rem .95rem;margin-top:.6rem;padding-top:.6rem;
+  border-top:1px solid var(--line-2);font-family:var(--mono);font-size:10.5px;line-height:1.5;color:var(--ink-2)}
+.dial-legend .dl-lbl{letter-spacing:.1em;text-transform:uppercase;color:var(--muted);flex:0 0 auto}
+.dial-legend .dl-item{display:inline-flex;align-items:baseline;gap:.35rem;max-width:100%}
+/* Marker samples mirror the real markers so the legend teaches the actual shapes.
+   Sized in em so they scale with the legend text, and given a fixed box that does
+   not shift the baseline. */
+.dial-legend .dl-mk{flex:0 0 auto;position:relative;top:.05em;width:.62rem;height:.62rem;display:inline-block}
+.dial-legend .dl-mk.ev{background:var(--signal);transform:rotate(45deg)}
+.dial-legend .dl-mk.si{background:var(--muted);border-radius:50%;width:.5rem;height:.5rem}
+.dial-legend .dl-mk.state{background:var(--ok);border-radius:50%}
+.dial-legend .dl-mk.disputed{background:var(--panel);border:1.5px solid var(--signal);transform:rotate(45deg)}
+.dial-legend .dl-sw{flex:0 0 auto;position:relative;top:.05em;width:.6rem;height:.6rem;border-radius:1px;display:inline-block;background:var(--kt,var(--muted))}
 
 /* ---- tables (evidence census) ---- */
 table{width:100%;border-collapse:collapse;font-size:.9rem;border:1px solid var(--line);background:var(--panel)}
