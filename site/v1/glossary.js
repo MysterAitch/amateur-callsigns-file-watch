@@ -56,7 +56,7 @@ export function inlineTerm(key, label) {
   const entry = V1_COPY.glossary[key];
   const details = /** @type {HTMLDetailsElement} */ (el('details', 'term'));
   const summary = el('summary', null, label ?? entry.term);
-  summary.setAttribute('aria-label', `${label ?? entry.term} — glossary definition`);
+  summary.setAttribute('aria-label', `${label ?? entry.term} – glossary definition`);
   details.appendChild(summary);
   details.appendChild(buildPop(entry));
   return details;
@@ -74,7 +74,7 @@ export function termCue(key) {
   const entry = V1_COPY.glossary[key];
   const details = /** @type {HTMLDetailsElement} */ (el('details', 'term cue'));
   const summary = el('summary', null, '?');
-  summary.setAttribute('aria-label', `${entry.term} — glossary definition`);
+  summary.setAttribute('aria-label', `${entry.term} – glossary definition`);
   details.appendChild(summary);
   details.appendChild(buildPop(entry));
   return details;
@@ -93,7 +93,7 @@ export function provenanceChip(kind) {
   const entry = V1_COPY.glossary[kind];
   const details = /** @type {HTMLDetailsElement} */ (el('details', 'term prov-term'));
   const summary = el('summary', 'prov-summary');
-  summary.setAttribute('aria-label', `${kind} — glossary definition`);
+  summary.setAttribute('aria-label', `${kind} – glossary definition`);
   summary.appendChild(el('span', 'tb', kind));
   details.appendChild(summary);
   details.appendChild(buildPop(entry));

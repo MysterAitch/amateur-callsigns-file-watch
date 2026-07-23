@@ -50,20 +50,20 @@
 
     <header class="head">
       <h1>callsign-record<span class="path"> / get the raw data</span></h1>
-      <p class="lede" style="font-size:1.3rem">Every archived publication, preserved byte-for-byte in the open repository — and the databases folded from them.</p>
-      <p class="note">The mirror preserves each publication exactly as published. Nothing is derived beyond what the sources state; every derived database carries provenance to the byte. The archived files and the code that folds them — the build step that assembles each database from the raw files — are in the public repository. The bundled downloads and the in-browser query surfaces are being migrated to this site; where a surface has not moved here yet, this page points to the repository rather than anywhere off this site.</p>
+      <p class="lede" style="font-size:1.3rem">Every archived publication, preserved byte-for-byte in the open repository – and the databases folded from them.</p>
+      <p class="note">The mirror preserves each publication exactly as published. Nothing is derived beyond what the sources state; every derived database carries provenance to the byte. The archived files and the code that folds them – the build step that assembles each database from the raw files – are in the public repository. The bundled downloads and the in-browser query surfaces are being migrated to this site; where a surface has not moved here yet, this page points to the repository rather than anywhere off this site.</p>
     </header>
 
     <div class="lbl">browse the archive</div>
     <div class="dl">
       <div class="row">
         <h3><a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/archive" target="_blank" rel="noopener">The archive, in the repository</a></h3>
-        <p>Every archived dataset in both collections — Ofcom open-data publications and FOI requests — with the raw, extract and normalised files preserved verbatim. Each entry carries its <code>meta.json</code> (a sha256 for every file) and a Frictionless <code>datapackage.json</code> beside the raw bytes.</p>
+        <p>Every archived dataset in both collections – Ofcom open-data publications and FOI requests – with the raw, extract and normalised files preserved verbatim. Each entry carries its <code>meta.json</code> (a sha256 for every file) and a Frictionless <code>datapackage.json</code> beside the raw bytes.</p>
         <p class="meta">per-entry: raw files · datapackage.json · meta.json</p>
       </div>
       <div class="row">
         <h3><a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/reference-data" target="_blank" rel="noopener">Reference data &amp; schemas</a></h3>
-        <p>The vocabularies and schemas that make the published datasets interpretable without the repository — prefix formats, licence categories, the forbidden-suffix union and the flag registry — each documented alongside the data.</p>
+        <p>The vocabularies and schemas that make the published datasets interpretable without the repository – prefix formats, licence categories, the forbidden-suffix union and the flag registry – each documented alongside the data.</p>
       </div>
     </div>
 
@@ -71,12 +71,12 @@
     <div class="dl">
       <div class="row">
         <h3>combined SQLite &amp; the FOI observations union</h3>
-        <p>One SQLite database of everything — the FOI observations union plus every open-data publication’s normalised rows — and the flat union CSV, are produced at build time by the folding code in the repository. These bundled downloads are being migrated to this site; until then, the builder that produces them is open in the repository.</p>
-        <p class="meta">SQLite · CSV · gzipped — migrating</p>
+        <p>One SQLite database of everything – the FOI observations union plus every open-data publication’s normalised rows – and the flat union CSV, are produced at build time by the folding code in the repository. These bundled downloads are being migrated to this site; until then, the builder that produces them is open in the repository.</p>
+        <p class="meta">SQLite · CSV · gzipped – migrating</p>
       </div>
       <div class="row">
         <h3><a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/src" target="_blank" rel="noopener">The folding code</a></h3>
-        <p>Every derived database is a deterministic projection of the archived bytes — a rebuild from the raw files, never a re-interpretation of them. The code that reads the archive and folds each tier is in the repository, so any derived value can be reproduced from the raw files.</p>
+        <p>Every derived database is a deterministic projection of the archived bytes – a rebuild from the raw files, never a re-interpretation of them. The code that reads the archive and folds each tier is in the repository, so any derived value can be reproduced from the raw files.</p>
       </div>
     </div>
 
@@ -84,11 +84,11 @@
     <div class="dl">
       <div class="row">
         <h3>the raw-keyed claim ledger</h3>
-        <p>Every value the mirror derives traces to the source byte that asserts it — one record per raw byte, every derivation rule and every source row behind a value. The interactive ledger is being migrated to this site; the ledger data and its builder are open in the repository.</p>
+        <p>Every value the mirror derives traces to the source byte that asserts it – one record per raw byte, every derivation rule and every source row behind a value. The interactive ledger is being migrated to this site; the ledger data and its builder are open in the repository.</p>
       </div>
       <div class="row">
         <h3><a href="https://github.com/MysterAitch/amateur-callsigns-file-watch" target="_blank" rel="noopener">The project repository</a></h3>
-        <p>What is held, how it is folded, and the integrity record for every publication — all in the open, versioned repository this mirror is built from.</p>
+        <p>What is held, how it is folded, and the integrity record for every publication – all in the open, versioned repository this mirror is built from.</p>
       </div>
     </div>
 
@@ -96,7 +96,7 @@
     <section class="surface">
       <p>This project’s own code and original documentation are released under the
       <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/LICENSE" target="_blank" rel="noopener">MIT licence</a>.
-      The data it mirrors is not covered by that licence: every archived file is reproduced from its publisher under that publisher’s own terms — see
+      The data it mirrors is not covered by that licence: every archived file is reproduced from its publisher under that publisher’s own terms – see
       <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/archive/LICENSE.md" target="_blank" rel="noopener">archive/LICENSE.md</a>
       for how that applies, and each publisher’s statement and verification links in the repository.</p>
       <p class="note">An independent, unofficial mirror, not affiliated with or endorsed by Ofcom. Data belongs to its original publishers; provenance and integrity hashes accompany every file.</p>

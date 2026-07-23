@@ -29,7 +29,7 @@ import { emitEventDateClaims, eventKindOf } from '../v2/claim.ts';
 import { collectLedgerSources } from '../v2/collectors/index.ts';
 import { defaultArchiveDir } from '../v2/collectors/open-data-register.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
-import { defaultFoiDir } from '../shared/foi-archive.ts';
+import { defaultFoiDir, readFoiEntryMeta, type FoiEntryMeta } from '../shared/foi-archive.ts';
 import { cleanedCallsign } from '../sources/ofcom-amateur/components.ts';
 import { vintageDaySpan, type SubjectEventRow } from './state-at-t.ts';
 import type { DaySignal } from './event-time-coherency.ts';
@@ -83,8 +83,31 @@ interface DatasetAcc {
   index: number;
 }
 
-function datasetTitle(lane: string, dataset: string): string {
-  return lane === 'opendata' ? `Ofcom open data, ${dataset}` : dataset;
+// The friendly publication name for a dataset reference, never the raw entry
+// key (issue #954: an event's assertion-time provenance fold must name "Radio
+// amateur licence breakdown by duration held and age", not
+// "wdtk-1180568--licence-breakdown-duration-age"). The FOI entry's own
+// meta.json carries a mandatory title field in the real archive; a synthetic
+// fixture entry the test seam folds (`options.sources`) carries no such
+// meta.json on disk at all, so THAT specific miss falls back to the raw key
+// HONESTLY (never a fabricated name) rather than failing the whole
+// projection. Any OTHER read failure - malformed JSON, or a meta.json that
+// exists but declares a blank title - is a data-integrity defect on a real
+// archive entry, never the fixture seam, so it fails loud rather than being
+// swallowed into the same silent fallback.
+function datasetTitle(lane: string, dataset: string, foiDir: string): string {
+  if (lane !== 'foi') return `Ofcom open data, ${dataset}`;
+  let meta: FoiEntryMeta;
+  try {
+    meta = readFoiEntryMeta(foiDir, dataset);
+  } catch (cause) {
+    if (cause instanceof Error && cause.message.includes('meta.json not found')) return dataset;
+    throw cause;
+  }
+  if (typeof meta.title !== 'string' || meta.title.trim() === '') {
+    throw new Error(`${foiDir}/${dataset}/meta.json: title is missing or blank - every FOI entry must declare a non-empty title`);
+  }
+  return meta.title;
 }
 
 function datasetHref(lane: string, dataset: string): string {
@@ -97,9 +120,10 @@ function datasetHref(lane: string, dataset: string): string {
 // rows and the day histogram. Deterministic: source order is the collector
 // registry's stable corpus order, and every output list is explicitly sorted.
 export function foldEventTimeProjection(options: EventProjectionOptions = {}): EventTimeProjection {
+  const foiDir = options.foiDir ?? defaultFoiDir();
   const sources = options.sources ?? collectLedgerSources({
     archiveDir: options.archiveDir ?? defaultArchiveDir(),
-    foiDir: options.foiDir ?? defaultFoiDir(),
+    foiDir,
   });
 
   const datasetsByKey = new Map<string, DatasetAcc>();
@@ -124,7 +148,7 @@ export function foldEventTimeProjection(options: EventProjectionOptions = {}): E
     let acc = datasetsByKey.get(`${lane}/${dataset}`);
     if (acc === undefined) {
       acc = {
-        ref: { lane, dataset, vintage, title: datasetTitle(lane, dataset), href: datasetHref(lane, dataset) },
+        ref: { lane, dataset, vintage, title: datasetTitle(lane, dataset, foiDir), href: datasetHref(lane, dataset) },
         index: -1,
       };
       datasetsByKey.set(`${lane}/${dataset}`, acc);

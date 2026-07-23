@@ -55,7 +55,7 @@ function cm(over: Partial<Omit<CallsignModel, 'dial'>> & { dial?: Partial<Callsi
   return {
     key: 'M7TEE', cleaned: 'M7TEE', found: true, viaRendering: false,
     latest: null, seen: null, anatomy: null, twin: null,
-    carriedOrigin: 'neutral', series: null, seriesIntro: null,
+    carriedOrigin: 'neutral', series: null, seriesIntro: null, seriesIntroSource: null,
     ...rest,
     dial: { ...dialDefaults, ...(dial ?? {}) },
   };
@@ -714,6 +714,44 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
     expect(root.querySelector('.dial-context')?.textContent).toContain('M7 series opened October 2018');
   });
 
+  it('EvidenceDial_WhenSeriesIntroCitationPresent_RendersItAsAnAssertedByFoldLikeEveryOtherRailRow', () => {
+    // Issue #954: the series-opened row must not state its fact without a
+    // source, once meta.json carries the citation. nrows is per-claim (this
+    // series' own introduction is asserted by exactly its own CSV row), like
+    // every other AssertedBy entry — never the file's total row count, which
+    // would overstate every series' citation alike.
+    const root = document.createElement('div');
+    const model = cm({
+      series: 'M7', seriesIntro: '2018-10',
+      seriesIntroSource: { title: 'reference-data/prefix-formats.csv', href: '', vintage: null, nrows: 1 },
+      dial: { events: [{ day: '2021-04-16', label: 'licence issued', state: false, assertedBy: [] }], sightings: [{ vintage: '2026-06-23' }], hasEvents: true },
+    });
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, model);
+    const context = root.querySelector('.dial-context');
+    const fold = context?.querySelector('details.evt-assert');
+    expect(fold).not.toBeNull();
+    expect(fold?.textContent).toContain('reference-data/prefix-formats.csv');
+    // A single asserting row renders the file title alone, with no row-count
+    // suffix (the count would only earn its place past one row).
+    expect(fold?.textContent).not.toContain('rows');
+  });
+
+  it('EvidenceDial_WhenSeriesIntroCitationMissing_RendersTheRowHonestlyWithNoFoldRatherThanFabricateASource', () => {
+    // Issue #954, unhappy path: an older cached meta.json (or the event axis
+    // not loaded) carries seriesIntro without seriesIntroSource. The context
+    // row must still render its plain-text fact, but with no asserted-by fold
+    // rather than inventing a citation.
+    const root = document.createElement('div');
+    const model = cm({
+      series: 'M7', seriesIntro: '2018-10', seriesIntroSource: null,
+      dial: { events: [{ day: '2021-04-16', label: 'licence issued', state: false, assertedBy: [] }], sightings: [{ vintage: '2026-06-23' }], hasEvents: true },
+    });
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, model);
+    const context = root.querySelector('.dial-context');
+    expect(context?.textContent).toContain('M7 series opened October 2018');
+    expect(context?.querySelector('details.evt-assert')).toBeNull();
+  });
+
   it('EvidenceDial_WhenSeriesIntroAbsent_OmitsTheContextMarker', () => {
     const root = document.createElement('div');
     const model = cm({
@@ -1143,6 +1181,42 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
     const fold = root.querySelector('.evt-assert');
     expect(fold?.querySelector('summary')?.textContent).toContain('asserted by 1 publication');
     expect(fold?.textContent).toContain('Ofcom register snapshot');
+  });
+
+  it('EventTimeline_AssertedByEntry_CarriesTheRawArchiveKeyAsASecondaryTooltipNeverAsThePrimaryLabel', () => {
+    // Issue #954: the friendly title leads the visible text; the raw archive
+    // key rides only as a native tooltip (title attribute), never in the
+    // primary label.
+    const root = document.createElement('div');
+    const model = cm({
+      dial: {
+        hasEvents: true,
+        events: [{
+          day: '2024-10-01', label: 'attribute addendum', state: false,
+          assertedBy: [{ title: 'Radio amateur licence breakdown by duration held and age', href: '#', vintage: '2024-10', nrows: 1, key: 'wdtk-1180568--licence-breakdown-duration-age' }],
+        }],
+      },
+    });
+    CALLSIGN_SECTION_REGISTRY['event-timeline'].mount(root, model);
+    const li = root.querySelector('.evt-assert li');
+    expect(li?.textContent).toContain('Radio amateur licence breakdown by duration held and age');
+    expect(li?.textContent).not.toContain('wdtk-1180568');
+    expect(li?.getAttribute('title')).toBe('wdtk-1180568--licence-breakdown-duration-age');
+  });
+
+  it('EventTimeline_AssertedByEntryWithNoRawKeyCarried_RendersTheFriendlyTitleWithNoTooltipRatherThanFabricatingOne', () => {
+    // Unhappy path: an older fixture/manifest that carries no raw key must
+    // still render honestly (no tooltip), never a made-up identifier.
+    const root = document.createElement('div');
+    const model = cm({
+      dial: {
+        hasEvents: true,
+        events: [{ day: '2021-04-16', label: 'licence issued', state: false, assertedBy: [{ title: 'Ofcom register snapshot', href: '#', vintage: '2026-06-23', nrows: 1 }] }],
+      },
+    });
+    CALLSIGN_SECTION_REGISTRY['event-timeline'].mount(root, model);
+    const li = root.querySelector('.evt-assert li');
+    expect(li?.hasAttribute('title')).toBe(false);
   });
 
   it('EventTimeline_WhenMultipleEventsShareADay_DistinguishesThemWithinOneCard', () => {
@@ -1591,6 +1665,7 @@ describe('v1 callsign model (reusing the shared pure functions)', { tags: ['ui']
     caveats: [{ id: 'earliest-surviving', label: 'earliest surviving date, not “the true original”', gloss: 'a caveat gloss' }],
     episodes: [],
     seriesIntro: { M7: '2018-10' },
+    seriesIntroSource: { title: 'reference-data/prefix-formats.csv', href: '', vintage: null, nrows: 1 },
     shards: ['M7'],
   };
   const eventRecord: EventRecord = { e: [[0, '2021-04-16', [[0, 1]]]], f: [[0, 'One licence: originated 2021-04-16, still allocated', [0], [0]]] };
@@ -1613,9 +1688,14 @@ describe('v1 callsign model (reusing the shared pure functions)', { tags: ['ui']
     expect(model.dial.findings[0].statement).toBe('One licence: originated 2021-04-16, still allocated');
     // Each event carries its assertion-time provenance.
     expect(model.dial.events[0].assertedBy[0].title).toBe('Ofcom register snapshot');
+    // ...including the raw archive key, carried as secondary-detail-only data
+    // (issue #954): never the primary label, but traceable on request.
+    expect(model.dial.events[0].assertedBy[0].key).toBe('2026-06-23');
     // The series-introduction month is resolved from meta.json's seriesIntro map.
     expect(model.series).toBe('M7');
     expect(model.seriesIntro).toBe('2018-10');
+    // Its citation is resolved from meta.json's seriesIntroSource (issue #954).
+    expect(model.seriesIntroSource).toEqual({ title: 'reference-data/prefix-formats.csv', href: '', vintage: null, nrows: 1 });
     // Origin (2021-04) post-dates the series (2018-10): a fresh-issuance reading.
     expect(model.carriedOrigin).toBe('fresh');
   });
@@ -1639,6 +1719,20 @@ describe('v1 callsign model (reusing the shared pure functions)', { tags: ['ui']
     });
     expect(model.seriesIntro).toBeNull();
     expect(model.carriedOrigin).toBe('neutral');
+  });
+
+  it('BuildCallsignModel_MetaWithNoSeriesIntroSource_ResolvesSeriesIntroSourceAsNullRatherThanFabricatingOne', () => {
+    // Issue #954, unhappy path: an older cached meta.json can carry seriesIntro
+    // without the citation field.
+    const metaWithoutSource: EventsMeta = { ...eventMeta };
+    delete metaWithoutSource.seriesIntroSource;
+    const model = buildCallsignModel({
+      res: { key: 'M7TEE', record, cleaned: 'M7TEE', typed: 'M7TEE', viaRendering: false },
+      manifest, eventRecord, eventMeta: metaWithoutSource,
+      latestSummary, seenSummary, anatomyFigureParts, twinConflict, stripModel,
+    });
+    expect(model.seriesIntro).toBe('2018-10');
+    expect(model.seriesIntroSource).toBeNull();
   });
 
   it('BuildCallsignModel_TwinRowConflict_IsClassifiedFromTheInjectedSharedFunction', () => {

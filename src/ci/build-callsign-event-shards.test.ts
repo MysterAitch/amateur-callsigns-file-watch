@@ -95,6 +95,7 @@ interface EventsMeta {
   caveats: { id: string; label: string; gloss: string }[];
   episodes: { start: string; end: string }[];
   seriesIntro: Record<string, string>;
+  seriesIntroSource: { title: string; href: string; vintage: string | null; nrows: number };
   shards: string[];
 }
 
@@ -227,6 +228,21 @@ describe('callsign event shards (issue #726)', { tags: ['unit'] }, () => {
     for (const month of Object.values(meta.seriesIntro)) expect(month).toMatch(/^\d{4}-\d{2}$/);
     const keys = Object.keys(meta.seriesIntro);
     expect(keys).toEqual([...keys].sort());
+  });
+
+  it('EventShardsMeta_SeriesIntroSource_CitesTheReferenceDataFileWithAPerClaimRowCount', () => {
+    // Issue #954: the series-opened context row on the dial states a fact
+    // without naming its source; the citation must trace to the actual
+    // reference-data file, never a hand-authored label, and never fabricate a
+    // publication vintage the hand-curated CSV does not carry. nrows carries
+    // the same meaning it does on every other AssertedBy entry (rows of this
+    // dataset asserting THIS line): each series' own introduction is asserted
+    // by exactly its own row, never the file's total count of introduced
+    // series (which would overstate every series' citation alike).
+    const { meta } = build(fixtureProjection());
+    expect(meta.seriesIntroSource.title).toBe('reference-data/prefix-formats.csv');
+    expect(meta.seriesIntroSource.vintage).toBeNull();
+    expect(meta.seriesIntroSource.nrows).toBe(1);
   });
 
   it('KindAndCaveatLabels_AreTotalOverTheAuthoredVocabularies', () => {
