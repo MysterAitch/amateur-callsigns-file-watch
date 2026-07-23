@@ -7,6 +7,11 @@ import {
   renderHomeSections,
   defaultHomeModel,
   spanDialGeometry,
+  enhanceHomeModel,
+  parseHoldings,
+  fractionalYearOf,
+  milestoneRotationStart,
+  humaniseIsoDate,
 } from './home-sections.js';
 import {
   CALLSIGN_SECTION_ORDER,
@@ -61,6 +66,40 @@ function cm(over: Partial<Omit<CallsignModel, 'dial'>> & { dial?: Partial<Callsi
 beforeEach(() => {
   document.body.innerHTML = '';
 });
+
+// A build-derived holdings manifest in the shape home.js fetches from
+// holdings.json: mixed kinds, a month-only vintage, the newest register snapshot
+// flagged latest, and three cited milestones (one a loosely-dated range). Used
+// to exercise the enhanced (marks-drawn) render.
+type HomeHoldings = import('./home-sections.js').HomeHoldings;
+function holdingsFixture(): HomeHoldings {
+  return {
+    count: 4,
+    heldStartYear: 2013,
+    latestYear: 2026,
+    latestDateIso: '2026-06-23',
+    publications: [
+      { vintage: '2013-09-06', kind: 'available-pool', letter: 'A', title: 'wdtk-174341--available-callsigns-list', rows: 9099, latest: false },
+      { vintage: '2017-07-03', kind: 'register-snapshot', letter: 'R', title: 'Ofcom open data, 2017-07-03', rows: 120000, latest: false },
+      { vintage: '2021-04', kind: 'issuance-events', letter: 'I', title: 'wdtk-issuance-events', rows: 42, latest: false },
+      { vintage: '2026-06-23', kind: 'register-snapshot', letter: 'R', title: 'Ofcom open data, 2026-06-23', rows: 158318, latest: true },
+    ],
+    milestones: [
+      { start: '2016', end: '2017', range: true, label: 'Licensing system changed, c. 2016–2017', citation: 'Cited to docs/narratives and docs/hypothesis-register.' },
+      { start: '2018-10', end: '2018-10', range: false, label: 'M7 series opened October 2018', citation: 'Introduced October 2018 — cited to FOI reservation data.', series: 'M7' },
+      { start: '2025-10', end: '2025-10', range: false, label: 'M8 series opened October 2025', citation: 'Introduced October 2025.', series: 'M8' },
+    ],
+  };
+}
+
+function mountEnhancedDial(holdings: HomeHoldings): HTMLElement {
+  const root = document.createElement('div');
+  const model = enhanceHomeModel(defaultHomeModel(), holdings);
+  HOME_SECTION_REGISTRY['at-a-glance'].mount(root, model);
+  const dial = root.querySelector('.spandial');
+  if (dial === null) throw new Error('no dial rendered');
+  return dial as HTMLElement;
+}
 
 describe('v1 home sections', { tags: ['ui'] }, () => {
   it('HomeSectionOrder_EveryId_HasARegistryEntryAndViceVersa', () => {
@@ -187,6 +226,139 @@ describe('v1 home sections', { tags: ['ui'] }, () => {
     const needle = root.querySelector<HTMLElement>('.spandial .sd-needle');
     expect(needle?.style.left).toBe('100%');
   });
+
+  it('HomeAtAGlance_GroundedNoJsBaseline_ShowsTheHonestNoteAndDrawsNoMarks', () => {
+    // With no holdings manifest consumed (the grounded model), the dial keeps the
+    // axis, count and needle but draws NO individual marks — and states so
+    // honestly, so the baseline never implies marks that are absent.
+    const root = document.createElement('div');
+    renderHomeSections(root, defaultHomeModel());
+    const dial = root.querySelector('.spandial');
+    expect(dial?.classList.contains('enhanced')).toBe(false);
+    expect(dial?.querySelectorAll('.sd-pip')).toHaveLength(0);
+    expect(dial?.querySelectorAll('.sd-up')).toHaveLength(0);
+    expect(dial?.querySelector('.sd-note')?.textContent).toContain('appear when the page');
+  });
+
+  it('HomeAtAGlance_WithHoldingsManifest_DrawsKindTintedLetteredPublicationMarks', () => {
+    // The build-derived manifest, consumed: one down-marker per held publication,
+    // each carrying its kind (the tint) AND its letter (never colour alone), with
+    // the newest register snapshot ringed.
+    const dial = mountEnhancedDial(holdingsFixture());
+    const pips = [...dial.querySelectorAll('.sd-pip')];
+    expect(pips).toHaveLength(4);
+    // Kind rides a data attribute AND the letter text — colour is never the only cue.
+    const reg = pips.find(p => p.getAttribute('data-kind') === 'register-snapshot');
+    expect(reg?.textContent).toBe('R');
+    const avail = pips.find(p => p.getAttribute('data-kind') === 'available-pool');
+    expect(avail?.textContent).toBe('A');
+    // Exactly one ringed "latest" mark, the newest register snapshot.
+    const ringed = pips.filter(p => p.classList.contains('latest'));
+    expect(ringed).toHaveLength(1);
+    expect(ringed[0].getAttribute('title')).toContain('2026-06-23');
+    expect(ringed[0].getAttribute('title')).toContain('newest register snapshot');
+    // The dial is marked enhanced (taller axis, mark bands).
+    expect(dial.classList.contains('enhanced')).toBe(true);
+  });
+
+  it('HomeAtAGlance_WithMilestones_DrawsCitedUpMarkersAndAPaginatedCaption', () => {
+    // Up-markers point up from the axis; the caption names the focused milestone
+    // and carries ITS citation behind a "source" fold — never an uncited claim.
+    const dial = mountEnhancedDial(holdingsFixture());
+    expect([...dial.querySelectorAll('.sd-up')]).toHaveLength(3);
+    const caption = dial.querySelector('.sd-milecap');
+    expect(caption).not.toBeNull();
+    expect(caption?.querySelector('.sd-mile-pos')?.textContent).toMatch(/of 3$/);
+    // The focused milestone's citation is present (a milestone is never uncited).
+    const source = caption?.querySelector('.sd-mile-src');
+    expect(source?.querySelector('summary')?.textContent).toBe('source');
+    expect((source?.querySelector('p')?.textContent ?? '').length).toBeGreaterThan(0);
+    // Overwhelm control: exactly one milestone is focused at a time.
+    expect([...dial.querySelectorAll('.sd-up.focus')]).toHaveLength(1);
+  });
+
+  it('HomeAtAGlance_MilestonePagination_CyclesTheFocusStateOnlyWithNoNavigation', () => {
+    // Prev/next cycle the focused milestone in place — state-only, buttons not
+    // links (no viewport movement), and the focus follows to the marks.
+    const dial = mountEnhancedDial(holdingsFixture());
+    const buttons = [...dial.querySelectorAll('.sd-mile-nav button')];
+    expect(buttons).toHaveLength(2);
+    for (const b of buttons) expect((b as HTMLButtonElement).type).toBe('button');
+    const focusedLabel = () => dial.querySelector('.sd-mile-what')?.textContent ?? '';
+    const before = focusedLabel();
+    (buttons[1] as HTMLButtonElement).click(); // next
+    const afterNext = focusedLabel();
+    expect(afterNext).not.toBe(before);
+    (buttons[0] as HTMLButtonElement).click(); // prev — returns to the start
+    expect(focusedLabel()).toBe(before);
+    // Still exactly one focused mark after cycling.
+    expect([...dial.querySelectorAll('.sd-up.focus')]).toHaveLength(1);
+  });
+
+  it('HomeAtAGlance_EnhancedAriaAndText_NameTheMarksAndMilestonesNotByPositionAlone', () => {
+    // Text parity for the marks: the aria-label names the held-publication count
+    // over the run and lists the milestones; the foot carries the milestone
+    // count; and the fold lists every publication in words.
+    const dial = mountEnhancedDial(holdingsFixture());
+    const aria = dial.getAttribute('aria-label') ?? '';
+    expect(aria).toContain('4 held publications are marked');
+    expect(aria).toContain('M7 series opened October 2018');
+    // The foot carries the milestone count as text.
+    expect(dial.querySelector('.sd-foot')?.textContent).toContain('register milestones');
+    // The text-parity fold names every held publication (kind + title + vintage).
+    const fold = dial.querySelector('.sd-holdlist');
+    expect(fold?.querySelector('summary')?.textContent).toContain('all 4 held publications');
+    expect([...(fold?.querySelectorAll('li') ?? [])]).toHaveLength(4);
+    expect(fold?.textContent).toContain('register snapshot');
+    expect(fold?.textContent).toContain('2026-06-23');
+  });
+
+  it('HomeAtAGlance_HoldingsWithNoMilestones_DrawsThePipsButOmitsTheCaption', () => {
+    // Degenerate: publications but no cited milestones — the down-markers draw,
+    // the up-marker caption is simply absent (never an empty control).
+    const h = holdingsFixture();
+    h.milestones = [];
+    const dial = mountEnhancedDial(h);
+    expect([...dial.querySelectorAll('.sd-pip')].length).toBeGreaterThan(0);
+    expect(dial.querySelector('.sd-milecap')).toBeNull();
+    expect([...dial.querySelectorAll('.sd-up')]).toHaveLength(0);
+  });
+
+  it('HomeAtAGlance_CoDatedPublications_StackAllVisiblyRatherThanOverprint', () => {
+    // The real archive holds a six-way same-date collision (2015-10-13). Every
+    // co-dated publication must render as its own mark, stacked downward at
+    // distinct offsets — none may overprint (the invisible-mark finding).
+    const h = holdingsFixture();
+    const sixWay = Array.from({ length: 6 }, (_v, i) => ({
+      vintage: '2015-10-13', kind: 'available-pool', letter: 'A',
+      title: `wdtk-collision-${i}`, rows: 100 + i, latest: false,
+    }));
+    h.publications = [...sixWay, h.publications[3]]; // six colliding + the latest R
+    h.count = h.publications.length;
+    const dial = mountEnhancedDial(h);
+    const pips = [...dial.querySelectorAll<HTMLElement>('.sd-pip')];
+    // Every publication is visibly present.
+    expect(pips).toHaveLength(7);
+    // The six co-dated marks share one x but stack at distinct vertical offsets.
+    const colliding = pips.filter(p => (p.getAttribute('title') ?? '').includes('2015-10-13'));
+    expect(colliding).toHaveLength(6);
+    const tops = new Set(colliding.map(p => p.style.top));
+    expect(tops.size, 'co-dated pips must not overprint at the same offset').toBe(6);
+    const lefts = new Set(colliding.map(p => p.style.left));
+    expect(lefts.size, 'co-dated pips share the same x position').toBe(1);
+  });
+
+  it('HomeAtAGlance_SinglePublication_DrawsOnePipWithoutCrashing', () => {
+    // Degenerate: one held publication — one down-marker, the collapsed run, no
+    // divide-by-zero.
+    const h = holdingsFixture();
+    h.count = 1;
+    h.heldStartYear = 2026;
+    h.latestYear = 2026;
+    h.publications = [h.publications[3]]; // the 2026-06-23 register snapshot
+    const dial = mountEnhancedDial(h);
+    expect([...dial.querySelectorAll('.sd-pip')]).toHaveLength(1);
+  });
 });
 
 // The hand-maintained-duplicate structural-fragility class this repo hunts: the
@@ -213,6 +385,10 @@ function extractGlanceFigures(scope: ParentNode) {
     needle: norm(dial?.querySelector('.nlbl')?.textContent),
     ticks: dial?.querySelectorAll('.sd-ticks span').length ?? 0,
     foot: [...(dial?.querySelectorAll('.sd-foot span') ?? [])].map(s => norm(s.textContent)),
+    // The honest no-JS note: the baseline states plainly that the individual
+    // marks appear with the script, so the static render can never imply marks
+    // it does not draw. Parity holds it identical to the grounded render.
+    note: norm(dial?.querySelector('.sd-note')?.textContent),
   };
 }
 
@@ -286,6 +462,162 @@ describe('v1 home span-dial geometry (pure)', { tags: ['unit'] }, () => {
     expect(geo.render).toBe(true);
     expect(geo.showHistory).toBe(true);
     expect(geo.heldDivisions).toBe(1);
+  });
+
+  it('SpanDialGeometry_WithPublications_PositionsEachPipWithinTheHeldRunAndFlagsLatest', () => {
+    const geo = spanDialGeometry({
+      historyStartYear: 1903, heldStartYear: 2013, latestYear: 2026, latestLabel: '23 June 2026', count: 3,
+      publications: [
+        { vintage: '2013-09-06', kind: 'available-pool', letter: 'A', title: 't1', rows: 1, latest: false },
+        { vintage: '2019-01-14', kind: 'register-snapshot', letter: 'R', title: 't2', rows: 1, latest: false },
+        { vintage: '2026-06-23', kind: 'register-snapshot', letter: 'R', title: 't3', rows: 1, latest: true },
+      ],
+    });
+    expect(geo.pips).toHaveLength(3);
+    for (const p of geo.pips) {
+      expect(p.leftPct).toBeGreaterThanOrEqual(0);
+      expect(p.leftPct).toBeLessThanOrEqual(100);
+    }
+    // Position monotonic with vintage; the newest reads at (or near) the run end.
+    expect(geo.pips[0].leftPct).toBeLessThan(geo.pips[2].leftPct);
+    expect(geo.pips[2].latest).toBe(true);
+  });
+
+  it('SpanDialGeometry_WithMilestones_PlacesEachUpMarkerInItsSegment', () => {
+    const geo = spanDialGeometry({
+      historyStartYear: 1903, heldStartYear: 2013, latestYear: 2026, latestLabel: '23 June 2026', count: 1,
+      publications: [{ vintage: '2026-06-23', kind: 'register-snapshot', letter: 'R', title: 't', rows: 1, latest: true }],
+      milestones: [
+        { start: '2018-10', end: '2018-10', range: false, label: 'M7 series opened October 2018', citation: 'c' },
+        { start: '2016', end: '2017', range: true, label: 'system change', citation: 'c' },
+      ],
+    });
+    expect(geo.milestones).toHaveLength(2);
+    // Both fall in the held run (>= 2013), positioned within the axis.
+    for (const m of geo.milestones) {
+      expect(m.seg).toBe('held');
+      expect(m.leftPct).toBeGreaterThanOrEqual(0);
+      expect(m.leftPct).toBeLessThanOrEqual(100);
+    }
+    // The range milestone carries a non-zero span; the point one does not.
+    const range = geo.milestones.find(m => m.range);
+    expect((range?.endLeft ?? 0) - (range?.startLeft ?? 0)).toBeGreaterThan(0);
+  });
+
+  it('SpanDialGeometry_EmptyArchive_DrawsNoMarks', () => {
+    // Nothing held: no reading, and so no marks — never marks on an absent axis.
+    const geo = spanDialGeometry({
+      historyStartYear: 1903, heldStartYear: 2013, latestYear: 2026, latestLabel: '23 June 2026', count: 0,
+      publications: [{ vintage: '2020-01-01', kind: 'register-snapshot', letter: 'R', title: 't', rows: 1, latest: true }],
+      milestones: [{ start: '2018-10', end: '2018-10', range: false, label: 'm', citation: 'c' }],
+    });
+    expect(geo.render).toBe(false);
+    expect(geo.pips).toHaveLength(0);
+    expect(geo.milestones).toHaveLength(0);
+  });
+});
+
+describe('v1 home span-dial marks (pure helpers)', { tags: ['unit'] }, () => {
+  it('FractionalYearOf_MonthAndDay_MoveTheValueWithinTheYear', () => {
+    expect(fractionalYearOf('2018')).toBe(2018);
+    expect(fractionalYearOf('2018-10')).toBeCloseTo(2018 + 9 / 12, 3);
+    expect(fractionalYearOf('bad')).toBeNaN();
+  });
+
+  it('MilestoneRotationStart_SameSeed_IsDeterministicAndAlwaysInRange', () => {
+    // The rotation is build-seeded, never Math.random: the same seed yields the
+    // same start, and the index is always valid.
+    expect(milestoneRotationStart(3, '2026-06-23')).toBe(milestoneRotationStart(3, '2026-06-23'));
+    for (const seed of ['2026-06-23', '2013', 'x', '']) {
+      const idx = milestoneRotationStart(3, seed);
+      expect(idx).toBeGreaterThanOrEqual(0);
+      expect(idx).toBeLessThan(3);
+    }
+    // No milestones: a safe zero rather than a modulo-by-zero.
+    expect(milestoneRotationStart(0, 'seed')).toBe(0);
+  });
+
+  it('HumaniseIsoDate_FullDateOnly_ElseNull', () => {
+    expect(humaniseIsoDate('2026-06-23')).toBe('23 June 2026');
+    // Month-only or null never implies a day.
+    expect(humaniseIsoDate('2021-04')).toBeNull();
+    expect(humaniseIsoDate(null)).toBeNull();
+  });
+
+  it('SpanDialGeometry_CoDatedPublications_AssignDistinctStackDepthsAndSetMaxStack', () => {
+    const geo = spanDialGeometry({
+      historyStartYear: 1903, heldStartYear: 2013, latestYear: 2026, latestLabel: '23 June 2026', count: 4,
+      publications: [
+        { vintage: '2015-10-13', kind: 'available-pool', letter: 'A', title: 'a', rows: 1, latest: false },
+        { vintage: '2015-10-13', kind: 'available-pool', letter: 'A', title: 'b', rows: 1, latest: false },
+        { vintage: '2015-10-13', kind: 'available-pool', letter: 'A', title: 'c', rows: 1, latest: false },
+        { vintage: '2026-06-23', kind: 'register-snapshot', letter: 'R', title: 'd', rows: 1, latest: true },
+      ],
+    });
+    // The three co-dated pips take stacks 0,1,2 at one x; the lone one is stack 0.
+    const collided = geo.pips.filter(p => p.vintage === '2015-10-13');
+    expect(collided.map(p => p.stack).sort()).toEqual([0, 1, 2]);
+    expect(geo.pips.find(p => p.vintage === '2026-06-23')?.stack).toBe(0);
+    expect(geo.maxStack).toBe(3);
+  });
+});
+
+describe('v1 home holdings manifest validation (untrusted input)', { tags: ['unit'] }, () => {
+  it('ParseHoldings_WellFormedManifest_ReturnsATypedValue', () => {
+    const h = parseHoldings(holdingsFixture());
+    expect(h).not.toBeNull();
+    expect(h?.count).toBe(4);
+    expect(h?.publications).toHaveLength(4);
+    expect(h?.milestones).toHaveLength(3);
+  });
+
+  it('ParseHoldings_JunkOrNonObject_ReturnsNull', () => {
+    expect(parseHoldings(null)).toBeNull();
+    expect(parseHoldings('not json')).toBeNull();
+    expect(parseHoldings(42)).toBeNull();
+    expect(parseHoldings([])).toBeNull(); // an array is not the manifest object
+  });
+
+  it('ParseHoldings_MissingOrWrongTypedKeys_ReturnsNull', () => {
+    const base = holdingsFixture();
+    // Missing count.
+    const noCount: Record<string, unknown> = { ...base };
+    delete noCount.count;
+    expect(parseHoldings(noCount)).toBeNull();
+    // Wrong-typed count.
+    expect(parseHoldings({ ...base, count: '4' })).toBeNull();
+    // publications not an array.
+    expect(parseHoldings({ ...base, publications: {} })).toBeNull();
+    // milestones not an array.
+    expect(parseHoldings({ ...base, milestones: null })).toBeNull();
+  });
+
+  it('ParseHoldings_MalformedPublicationOrMilestone_ReturnsNull', () => {
+    const base = holdingsFixture();
+    // A publication whose rows is a string (the kind of shape a schema drift
+    // would produce) fails the whole parse rather than mis-rendering.
+    const badPub = { ...base, publications: [{ ...base.publications[0], rows: 'lots' }] };
+    expect(parseHoldings(badPub)).toBeNull();
+    // A milestone missing its citation.
+    const badMile = { ...base, milestones: [{ start: '2018-10', end: '2018-10', range: false, label: 'x' }] };
+    expect(parseHoldings(badMile)).toBeNull();
+  });
+
+  it('EnhanceHomeModel_FromManifest_DerivesCountSpanAndCarriesTheMarks', () => {
+    const base = defaultHomeModel();
+    const enhanced = enhanceHomeModel(base, holdingsFixture());
+    // The count / span / newest-date become derived; the 1903 history horizon
+    // stays the base constant the manifest does not carry.
+    expect(enhanced.span.count).toBe(4);
+    expect(enhanced.span.heldStartYear).toBe(2013);
+    expect(enhanced.span.latestYear).toBe(2026);
+    expect(enhanced.span.latestLabel).toBe('23 June 2026');
+    expect(enhanced.span.historyStartYear).toBe(base.span.historyStartYear);
+    expect(enhanced.span.publications).toHaveLength(4);
+    expect(enhanced.span.milestones).toHaveLength(3);
+    // The dated-fact chip's facts are derived too, so the surface stays coherent.
+    expect(enhanced.facts.count).toBe(4);
+    expect(enhanced.facts.date).toBe('23 June 2026');
   });
 });
 

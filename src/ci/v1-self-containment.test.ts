@@ -6,6 +6,7 @@ import { sharedModuleClosure } from './build-v1-shared-modules.ts';
 import { buildCallsignShards } from './build-callsign-shards.ts';
 import { foldEventTimeProjection } from './event-time-projection.ts';
 import { buildCallsignEventShards } from './build-callsign-event-shards.ts';
+import { homeHoldings, loadPrefixIntroRows } from './build-home-holdings.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
 import { SITE_INDEXABLE } from './build-root-discovery.ts';
 
@@ -87,6 +88,17 @@ describe('v1 self-containment', { tags: ['unit'] }, () => {
     const shManifest = parseJsonObject(fs.readFileSync(path.join(shDir, 'datasets.json'), 'utf8'), 'datasets.json') as { datasets: { href: string }[] };
     expect(shManifest.datasets.length).toBeGreaterThan(0);
     for (const d of shManifest.datasets) expect(d.href, `shard dataset href: ${d.href}`).not.toMatch(LEGACY_REF);
+
+    // The home holdings manifest is derived from the SAME datasets enumeration
+    // and is also root-served (holdings.json). Walk its serialized content for
+    // legacy references, exactly as the callsign manifest is walked — a title or
+    // milestone citation could carry a legacy pointer unseen otherwise.
+    const shFull = parseJsonObject(fs.readFileSync(path.join(shDir, 'datasets.json'), 'utf8'), 'datasets.json') as {
+      datasets: { lane: 'open-data' | 'foi'; vintage: string | null; title: string; classes: string[]; rows: number }[];
+    };
+    const holdings = homeHoldings(shFull.datasets, loadPrefixIntroRows());
+    expect(holdings.publications.length).toBeGreaterThan(0);
+    expect(JSON.stringify(holdings), 'home holdings manifest carries a legacy reference').not.toMatch(LEGACY_REF);
   });
 });
 

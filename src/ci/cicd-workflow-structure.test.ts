@@ -291,6 +291,18 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
     expect(block, 'the callsign data is not hard-linked to the root').toContain('cp -al _site/v0/callsign/data/. _site/callsign/data/');
   });
 
+  it('HomeHoldingsManifest_IsBuiltAtTheRoot_AfterTheCallsignData', () => {
+    // Issue #921 span dial: the home holdings manifest (per-publication marks +
+    // cited milestones) is derived from the root callsign manifest, so it must be
+    // built into the bare root AFTER the callsign data is hard-linked there.
+    const block = jobBlock(workflow(), 'build-site-databases');
+    expect(block, 'the home holdings build step is missing').toContain('node src/ci/build-home-holdings.ts _site');
+    const dataAtRoot = block.indexOf('cp -al _site/v0/callsign/data/. _site/callsign/data/');
+    const holdings = block.indexOf('node src/ci/build-home-holdings.ts _site');
+    expect(dataAtRoot).toBeGreaterThan(-1);
+    expect(holdings, 'the holdings manifest is built before the callsign data reaches the root').toBeGreaterThan(dataAtRoot);
+  });
+
   it('RootDiscoveryFiles_AreBuilt_AtTheDeployRoot', () => {
     // Issue #921: the slim root sitemap + robots.txt for the v1 launch, built
     // into the bare _site root.

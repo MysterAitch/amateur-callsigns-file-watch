@@ -63,6 +63,32 @@ export const V1_COPY = {
       footHistory: 'dated history to',
       ariaWithHistory: 'Holdings across time: {count} publications held byte-for-byte across the dense run {heldStart} to {latest}, and dated licence history reaching back to {historyStart}. Most recent held as of {asOf}.',
       ariaHeldOnly: 'Holdings across time: {count} publications held byte-for-byte, {heldStart} to {latest}. Most recent held as of {asOf}.',
+      // The bi-temporal enhancement (issue #921) — see site/v1/copy.js for the
+      // full note. Down-markers (publications, assertion time) and up-markers
+      // (register-history milestones, event time) are progressive enhancement
+      // over the no-JS baseline; all wording record-scoped, no verdict words.
+      ariaPublicationsClause: ' {count} held publications are marked along the run, {heldStart} to {latest}.',
+      ariaMilestonesClause: ' Register milestones marked: {list}.',
+      enhanceNote: 'Individual publication marks and register milestones appear when the page’s script runs.',
+      legendLabel: 'held publications by kind',
+      latestMarkLabel: 'newest register snapshot',
+      kindLabels: {
+        'register-snapshot': 'register snapshot',
+        'available-pool': 'available-callsign list',
+        'issuance-events': 'issuance events',
+        'forbidden-list': 'forbidden-suffix list',
+        'statistics-aggregate': 'statistics',
+        'attribute-addendum': 'attribute addendum',
+        'reference-context': 'reference context',
+      },
+      allPublicationsSummary: 'list all {count} held publications',
+      publicationLine: '{title} — {vintage} · {rows} rows',
+      publicationLineNoRows: '{title} — {vintage}',
+      milestonesLabel: 'register milestones',
+      milestonePrev: 'Previous milestone',
+      milestoneNext: 'Next milestone',
+      milestonePosition: '{i} of {n}',
+      milestoneSourceLabel: 'source',
     },
     fromTheRecordLabel: 'from the record',
     fromTheRecordFoot: 'Selection rotates at build time — a different notable detail leads on each rebuild.',
