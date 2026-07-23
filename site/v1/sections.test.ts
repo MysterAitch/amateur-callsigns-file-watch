@@ -8,6 +8,7 @@ import {
   defaultHomeModel,
   spanDialGeometry,
   enhanceHomeModel,
+  parseHoldings,
   fractionalYearOf,
   milestoneRotationStart,
   humaniseIsoDate,
@@ -319,6 +320,30 @@ describe('v1 home sections', { tags: ['ui'] }, () => {
     expect([...dial.querySelectorAll('.sd-up')]).toHaveLength(0);
   });
 
+  it('HomeAtAGlance_CoDatedPublications_StackAllVisiblyRatherThanOverprint', () => {
+    // The real archive holds a six-way same-date collision (2015-10-13). Every
+    // co-dated publication must render as its own mark, stacked downward at
+    // distinct offsets — none may overprint (the invisible-mark finding).
+    const h = holdingsFixture();
+    const sixWay = Array.from({ length: 6 }, (_v, i) => ({
+      vintage: '2015-10-13', kind: 'available-pool', letter: 'A',
+      title: `wdtk-collision-${i}`, rows: 100 + i, latest: false,
+    }));
+    h.publications = [...sixWay, h.publications[3]]; // six colliding + the latest R
+    h.count = h.publications.length;
+    const dial = mountEnhancedDial(h);
+    const pips = [...dial.querySelectorAll<HTMLElement>('.sd-pip')];
+    // Every publication is visibly present.
+    expect(pips).toHaveLength(7);
+    // The six co-dated marks share one x but stack at distinct vertical offsets.
+    const colliding = pips.filter(p => (p.getAttribute('title') ?? '').includes('2015-10-13'));
+    expect(colliding).toHaveLength(6);
+    const tops = new Set(colliding.map(p => p.style.top));
+    expect(tops.size, 'co-dated pips must not overprint at the same offset').toBe(6);
+    const lefts = new Set(colliding.map(p => p.style.left));
+    expect(lefts.size, 'co-dated pips share the same x position').toBe(1);
+  });
+
   it('HomeAtAGlance_SinglePublication_DrawsOnePipWithoutCrashing', () => {
     // Degenerate: one held publication — one down-marker, the collapsed run, no
     // divide-by-zero.
@@ -513,6 +538,65 @@ describe('v1 home span-dial marks (pure helpers)', { tags: ['unit'] }, () => {
     // Month-only or null never implies a day.
     expect(humaniseIsoDate('2021-04')).toBeNull();
     expect(humaniseIsoDate(null)).toBeNull();
+  });
+
+  it('SpanDialGeometry_CoDatedPublications_AssignDistinctStackDepthsAndSetMaxStack', () => {
+    const geo = spanDialGeometry({
+      historyStartYear: 1903, heldStartYear: 2013, latestYear: 2026, latestLabel: '23 June 2026', count: 4,
+      publications: [
+        { vintage: '2015-10-13', kind: 'available-pool', letter: 'A', title: 'a', rows: 1, latest: false },
+        { vintage: '2015-10-13', kind: 'available-pool', letter: 'A', title: 'b', rows: 1, latest: false },
+        { vintage: '2015-10-13', kind: 'available-pool', letter: 'A', title: 'c', rows: 1, latest: false },
+        { vintage: '2026-06-23', kind: 'register-snapshot', letter: 'R', title: 'd', rows: 1, latest: true },
+      ],
+    });
+    // The three co-dated pips take stacks 0,1,2 at one x; the lone one is stack 0.
+    const collided = geo.pips.filter(p => p.vintage === '2015-10-13');
+    expect(collided.map(p => p.stack).sort()).toEqual([0, 1, 2]);
+    expect(geo.pips.find(p => p.vintage === '2026-06-23')?.stack).toBe(0);
+    expect(geo.maxStack).toBe(3);
+  });
+});
+
+describe('v1 home holdings manifest validation (untrusted input)', { tags: ['unit'] }, () => {
+  it('ParseHoldings_WellFormedManifest_ReturnsATypedValue', () => {
+    const h = parseHoldings(holdingsFixture());
+    expect(h).not.toBeNull();
+    expect(h?.count).toBe(4);
+    expect(h?.publications).toHaveLength(4);
+    expect(h?.milestones).toHaveLength(3);
+  });
+
+  it('ParseHoldings_JunkOrNonObject_ReturnsNull', () => {
+    expect(parseHoldings(null)).toBeNull();
+    expect(parseHoldings('not json')).toBeNull();
+    expect(parseHoldings(42)).toBeNull();
+    expect(parseHoldings([])).toBeNull(); // an array is not the manifest object
+  });
+
+  it('ParseHoldings_MissingOrWrongTypedKeys_ReturnsNull', () => {
+    const base = holdingsFixture();
+    // Missing count.
+    const noCount: Record<string, unknown> = { ...base };
+    delete noCount.count;
+    expect(parseHoldings(noCount)).toBeNull();
+    // Wrong-typed count.
+    expect(parseHoldings({ ...base, count: '4' })).toBeNull();
+    // publications not an array.
+    expect(parseHoldings({ ...base, publications: {} })).toBeNull();
+    // milestones not an array.
+    expect(parseHoldings({ ...base, milestones: null })).toBeNull();
+  });
+
+  it('ParseHoldings_MalformedPublicationOrMilestone_ReturnsNull', () => {
+    const base = holdingsFixture();
+    // A publication whose rows is a string (the kind of shape a schema drift
+    // would produce) fails the whole parse rather than mis-rendering.
+    const badPub = { ...base, publications: [{ ...base.publications[0], rows: 'lots' }] };
+    expect(parseHoldings(badPub)).toBeNull();
+    // A milestone missing its citation.
+    const badMile = { ...base, milestones: [{ start: '2018-10', end: '2018-10', range: false, label: 'x' }] };
+    expect(parseHoldings(badMile)).toBeNull();
   });
 
   it('EnhanceHomeModel_FromManifest_DerivesCountSpanAndCarriesTheMarks', () => {

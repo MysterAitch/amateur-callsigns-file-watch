@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import {
   yearOf,
   monthLabel,
@@ -6,10 +9,12 @@ import {
   seriesMilestones,
   homeMilestones,
   homeHoldings,
+  buildHomeHoldings,
   loadPrefixIntroRows,
   SYSTEM_MIGRATION_MILESTONE,
   type PrefixIntroRow,
 } from './build-home-holdings.ts';
+import { buildCallsignShards } from './build-callsign-shards.ts';
 
 // The home span-dial holdings manifest (issue #921): a build-time DERIVATION of
 // the held publications (the down-markers) from the shards-manifest enumeration,
@@ -67,6 +72,43 @@ describe('home holdings — publications (the down-markers)', { tags: ['unit'] }
     const ringed = pubs.filter(p => p.latest);
     expect(ringed).toHaveLength(1);
     expect(ringed[0].vintage).toBe('2026-06-23');
+  });
+
+  it('HoldingsPublications_ClasslessDataset_FallsBackToTheLaneKindFromTheSharedConstant', () => {
+    // A dataset declaring no class falls back to the lane's implicit kind — the
+    // SAME constant the holdings map uses (imported, not hand-duplicated), so the
+    // home dial and the v0 map can never drift on the fallback.
+    const classless: ManifestDataset[] = [
+      { lane: 'open-data', vintage: '2020-01-01', title: 'classless open-data', classes: [], rows: 5 },
+      { lane: 'foi', vintage: '2020-02-01', title: 'classless foi', classes: [], rows: 5 },
+    ];
+    const pubs = holdingsPublications(classless);
+    const byVintage = new Map(pubs.map(p => [p.vintage, p]));
+    expect(byVintage.get('2020-01-01')?.kind).toBe('register-snapshot');
+    expect(byVintage.get('2020-01-01')?.letter).toBe('R');
+    expect(byVintage.get('2020-02-01')?.kind).toBe('reference-context');
+    expect(byVintage.get('2020-02-01')?.letter).toBe('C');
+  });
+});
+
+describe('home holdings — real archive (deriving over the committed corpus)', { tags: ['unit'] }, () => {
+  it('HoldingsPublications_RealArchive_KeepsEverySameDateCollisionAsADistinctPublication', () => {
+    // Regression pin for the collision finding: the committed archive holds a
+    // six-way same-date collision on 2015-10-13 (and other multi-way dates).
+    // Every colliding publication must survive as its own manifest entry — the
+    // dial stacks them, so none may be folded away here. Built through the REAL
+    // builders over the committed corpus.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'home-holdings-real-'));
+    buildCallsignShards(path.join(root, 'callsign', 'data'));
+    const holdings = buildHomeHoldings(root);
+    const byDate = new Map<string, number>();
+    for (const p of holdings.publications) byDate.set(p.vintage, (byDate.get(p.vintage) ?? 0) + 1);
+    expect(byDate.get('2015-10-13'), 'the 2015-10-13 six-way collision must keep all six publications').toBe(6);
+    // The count is the number of held (dated) publications — collisions included.
+    expect(holdings.publications.length).toBe(holdings.count);
+    // The deepest stack is at least the six-way case, so the dial reserves room.
+    const maxStack = Math.max(...byDate.values());
+    expect(maxStack).toBeGreaterThanOrEqual(6);
   });
 });
 
@@ -150,16 +192,21 @@ describe('home holdings — milestones (the up-markers)', { tags: ['unit'] }, ()
     }
   });
 
-  it('SystemMigrationMilestone_LooselyDatedEvent_IsARangeAndFlagsTheInferredPlatform', () => {
-    // The mid-2010s licensing-system change: carried as a c.2016–2017 RANGE, and
-    // the pre-2016 Siebel platform is flagged inferred (claims bar) rather than
-    // asserted, because the held documents do not name it.
-    expect(SYSTEM_MIGRATION_MILESTONE.range).toBe(true);
-    expect(SYSTEM_MIGRATION_MILESTONE.start).not.toBe(SYSTEM_MIGRATION_MILESTONE.end);
+  it('SystemMigrationMilestone_AnchoredToTheEvidencedChange_IsAPointBy2016AndFlagsInferredPlatform', () => {
+    // The headline is anchored to the EVIDENCED change (by 2016), a POINT — not a
+    // 2016–2017 range, which would read as a two-year migration the record does
+    // not describe. The 2017 naming date stays in the citation fold; the pre-2016
+    // Siebel platform is flagged inferred (claims bar), since the verbatim held
+    // correspondence does not name it.
+    expect(SYSTEM_MIGRATION_MILESTONE.range).toBe(false);
+    expect(SYSTEM_MIGRATION_MILESTONE.start).toBe('2016');
+    expect(SYSTEM_MIGRATION_MILESTONE.end).toBe('2016');
+    expect(SYSTEM_MIGRATION_MILESTONE.label).toBe('Licensing system changed, by 2016');
     expect(SYSTEM_MIGRATION_MILESTONE.citation.toLowerCase()).toContain('inferred');
     expect(SYSTEM_MIGRATION_MILESTONE.citation).toContain('Siebel');
-    // The observed anchor (Salesforce, 2017) and the cited docs are named.
+    // The observed anchor (Salesforce, 2017) and the cited docs stay in the fold.
     expect(SYSTEM_MIGRATION_MILESTONE.citation).toContain('Salesforce');
+    expect(SYSTEM_MIGRATION_MILESTONE.citation).toContain('2017');
     expect(SYSTEM_MIGRATION_MILESTONE.citation).toContain('docs/narratives/ofcom-systems-and-publication-chronology.md');
   });
 

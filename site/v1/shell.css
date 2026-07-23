@@ -170,15 +170,21 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
    the band above for up-markers and the band below for down-markers. The honest
    no-JS note is the sole addition to the grounded baseline. */
 .sd-note{margin-top:1rem;font-size:.8rem;color:var(--muted);font-style:italic}
-.spandial.enhanced .sd-scale{height:112px;margin-top:2.6rem}
-.spandial.enhanced .sd-base,.spandial.enhanced .sd-tick,.spandial.enhanced .sd-ticks,.spandial.enhanced .sd-needle{bottom:46px}
+/* The enhanced axis is a vertical budget of three regions, so co-dated pip
+   stacks of any depth fit honestly: --sd-up above the base for milestones,
+   --sd-down below it for the deepest publication stack (set inline from the
+   geometry's maxStack), and --sd-yr at the foot for the year labels. */
+.spandial.enhanced{--sd-up:34px;--sd-down:15px;--sd-yr:14px}
+.spandial.enhanced .sd-scale{height:calc(var(--sd-up) + var(--sd-down) + var(--sd-yr) + 22px);margin-top:2.6rem}
+.spandial.enhanced .sd-base,.spandial.enhanced .sd-tick,.spandial.enhanced .sd-ticks,.spandial.enhanced .sd-needle{bottom:calc(var(--sd-yr) + var(--sd-down))}
 .spandial.enhanced .sd-needle{height:26px}
 .spandial.enhanced .sd-needle .nlbl{bottom:32px}
-.spandial.enhanced .sd-cap{bottom:90px}
-.spandial.enhanced .sd-break span{bottom:42px}
+.spandial.enhanced .sd-cap{bottom:calc(var(--sd-yr) + var(--sd-down) + var(--sd-up) + 6px)}
+.spandial.enhanced .sd-break span{bottom:calc(var(--sd-yr) + var(--sd-down) - 4px)}
+.spandial.enhanced .sd-yr{bottom:0}
 /* Up-markers (event time): a stem rising from the axis with a head; a range
    (a loosely-dated event) spans its width with a centred stem. */
-.sd-up{position:absolute;bottom:46px}
+.sd-up{position:absolute;bottom:calc(var(--sd-yr) + var(--sd-down))}
 .sd-up:not(.range){transform:translateX(-50%)}
 .sd-up-stem{position:absolute;bottom:0;left:0;width:2px;height:24px;background:var(--signal-dim)}
 .sd-up-head{position:absolute;bottom:22px;left:0;width:7px;height:7px;border-radius:50%;transform:translate(-50%,0);background:var(--signal-dim)}
@@ -188,14 +194,15 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .sd-up.focus .sd-up-stem{background:var(--signal);width:2px}
 .sd-up.focus .sd-up-head{background:var(--signal-strong);width:10px;height:10px;box-shadow:0 0 0 3px color-mix(in srgb,var(--signal) 22%,transparent)}
 .sd-up.focus.range::after{background:var(--signal)}
-/* Down-markers (assertion time): one kind-tinted, lettered mark per publication,
-   with a thin connector up to the axis; the newest register snapshot ringed. */
-.sd-downs{position:absolute;left:0;right:0;bottom:14px;height:16px}
-.sd-pip{position:absolute;bottom:0;transform:translateX(-50%);min-width:11px;height:15px;padding:0 1.5px;
+/* Down-markers (assertion time): one kind-tinted, lettered mark per publication;
+   co-dated marks STACK downward from the axis (top set inline per stack depth)
+   so every held publication is visibly present; the newest register snapshot is
+   ringed. The band hangs from the base line and is as deep as the tallest stack. */
+.sd-downs{position:absolute;left:0;right:0;top:auto;bottom:var(--sd-yr);height:var(--sd-down)}
+.sd-pip{position:absolute;top:0;transform:translateX(-50%);min-width:11px;height:13px;padding:0 1.5px;
   display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:8.5px;font-weight:700;
-  line-height:1;color:#fff;border-radius:2px;background:var(--kh,#8a8f98)}
-.sd-pip::before{content:"";position:absolute;bottom:100%;left:50%;width:1px;height:16px;background:var(--kh,#8a8f98);opacity:.45}
-.sd-pip.latest{outline:2px solid var(--ink);outline-offset:1px}
+  line-height:1;color:#fff;border-radius:2px;background:var(--kh,#8a8f98);box-shadow:0 0 0 1px var(--panel)}
+.sd-pip.latest{outline:2px solid var(--ink);outline-offset:1px;z-index:1}
 .sd-pip[data-kind="register-snapshot"],.sd-legend-chip[data-kind="register-snapshot"]{--kh:#3b82c4}
 .sd-pip[data-kind="available-pool"],.sd-legend-chip[data-kind="available-pool"]{--kh:#3f9d6b}
 .sd-pip[data-kind="issuance-events"],.sd-legend-chip[data-kind="issuance-events"]{--kh:#c07d1a}

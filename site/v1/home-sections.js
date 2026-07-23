@@ -211,6 +211,54 @@ export function enhanceHomeModel(base, holdings) {
   };
 }
 
+// Validate a parsed holdings.json against the HomeHoldings shape, returning a
+// clean typed value or null on ANY mismatch — never `as` on untrusted network
+// input (the #812 anti-pattern). The shared src/shared/json-shape.ts validator
+// is a Node build module and cannot be imported into a browser module, so this
+// is its browser-side equivalent; the caller degrades to the grounded baseline
+// when it returns null.
+/** @param {unknown} raw @returns {HomeHoldings | null} */
+export function parseHoldings(raw) {
+  if (raw === null || typeof raw !== 'object') return null;
+  const o = /** @type {Record<string, unknown>} */ (raw);
+  const isNumOrNull = (/** @type {unknown} */ v) => v === null || typeof v === 'number';
+  const isStrOrNull = (/** @type {unknown} */ v) => v === null || typeof v === 'string';
+  if (typeof o.count !== 'number' || !isNumOrNull(o.heldStartYear) || !isNumOrNull(o.latestYear) || !isStrOrNull(o.latestDateIso)) return null;
+  if (!Array.isArray(o.publications) || !Array.isArray(o.milestones)) return null;
+
+  /** @type {HoldingPublication[]} */
+  const publications = [];
+  for (const p of /** @type {unknown[]} */ (o.publications)) {
+    if (p === null || typeof p !== 'object') return null;
+    const q = /** @type {Record<string, unknown>} */ (p);
+    if (typeof q.vintage !== 'string' || typeof q.kind !== 'string' || typeof q.letter !== 'string'
+      || typeof q.title !== 'string' || typeof q.rows !== 'number' || typeof q.latest !== 'boolean') return null;
+    publications.push({ vintage: q.vintage, kind: q.kind, letter: q.letter, title: q.title, rows: q.rows, latest: q.latest });
+  }
+
+  /** @type {HoldingMilestone[]} */
+  const milestones = [];
+  for (const m of /** @type {unknown[]} */ (o.milestones)) {
+    if (m === null || typeof m !== 'object') return null;
+    const q = /** @type {Record<string, unknown>} */ (m);
+    if (typeof q.start !== 'string' || typeof q.end !== 'string' || typeof q.range !== 'boolean'
+      || typeof q.label !== 'string' || typeof q.citation !== 'string') return null;
+    milestones.push({
+      start: q.start, end: q.end, range: q.range, label: q.label, citation: q.citation,
+      ...(typeof q.series === 'string' ? { series: q.series } : {}),
+    });
+  }
+
+  return {
+    count: o.count,
+    heldStartYear: o.heldStartYear,
+    latestYear: o.latestYear,
+    latestDateIso: o.latestDateIso,
+    publications,
+    milestones,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // The archive-span dial geometry — pure, so the reading it draws is pinned by
 // test independently of the DOM. Given the build-derived ArchiveSpan it returns
@@ -227,11 +275,13 @@ export function enhanceHomeModel(base, holdings) {
  * @property {number} heldStartYear
  * @property {number} latestYear
  * @property {PipGeometry[]} pips         the down-markers, positioned within the held run
+ * @property {number} maxStack            deepest same-vintage stack (sizes the down-band)
  * @property {MilestoneGeometry[]} milestones  the up-markers, positioned within their segment
  */
 /**
  * @typedef {object} PipGeometry
  * @property {number} leftPct  position within the held segment, percent
+ * @property {number} stack    0-based depth within its same-vintage stack (co-dated pips stack downward)
  * @property {string} vintage
  * @property {string} kind
  * @property {string} letter
@@ -318,15 +368,28 @@ export function spanDialGeometry(span) {
   /** @param {number} f */
   const posInHist = (f) => clamp(histSpan > 0 ? ((f - historyStartYear) / histSpan) * 100 : 0, 0, 100);
 
+  // Publications that share an exact vintage land on the same x. Rather than
+  // overprint (which would hide 43% of the real marks), co-dated pips STACK
+  // downward — the assertion direction — so every held publication is visibly
+  // present. `stack` is the pip's 0-based depth within its vintage; `maxStack`
+  // sizes the down-band so the deepest stack fits.
+  /** @type {Map<string, number>} */
+  const stackDepth = new Map();
   /** @type {PipGeometry[]} */
   const pips = render
     ? (span.publications ?? [])
         .filter(p => Number.isFinite(fractionalYearOf(p.vintage)))
-        .map(p => ({
-          leftPct: posInHeld(fractionalYearOf(p.vintage)),
-          vintage: p.vintage, kind: p.kind, letter: p.letter, title: p.title, rows: p.rows, latest: p.latest === true,
-        }))
+        .map(p => {
+          const depth = stackDepth.get(p.vintage) ?? 0;
+          stackDepth.set(p.vintage, depth + 1);
+          return {
+            leftPct: posInHeld(fractionalYearOf(p.vintage)),
+            stack: depth,
+            vintage: p.vintage, kind: p.kind, letter: p.letter, title: p.title, rows: p.rows, latest: p.latest === true,
+          };
+        })
     : [];
+  const maxStack = pips.length > 0 ? Math.max(...stackDepth.values()) : 0;
 
   /** @type {MilestoneGeometry[]} */
   const milestones = render
@@ -347,7 +410,7 @@ export function spanDialGeometry(span) {
         })
     : [];
 
-  return { render, showHistory, heldDivisions, needleLeft, count, historyStartYear, heldStartYear, latestYear, pips, milestones };
+  return { render, showHistory, heldDivisions, needleLeft, count, historyStartYear, heldStartYear, latestYear, pips, maxStack, milestones };
 }
 
 // Fill a wording template's {placeholders} from a values map.
@@ -544,6 +607,10 @@ function mountSpanDial(host, span) {
   // mark's kind rides a data attribute (the tint) AND its letter (never colour
   // alone); the hover title and the text-parity fold below carry the detail.
   if (geo.pips.length > 0) {
+    // Co-dated pips stack downward (PIP_ROW px apart), so the down-band is sized
+    // to the deepest stack and the enhanced axis reserves room below the base.
+    const PIP_ROW = 15;
+    dial.style.setProperty('--sd-down', `${Math.max(1, geo.maxStack) * PIP_ROW}px`);
     const downs = el('div', 'sd-downs');
     for (const pip of geo.pips) {
       const line = fillTemplate(pip.rows > 0 ? S.publicationLine : S.publicationLineNoRows, {
@@ -551,6 +618,7 @@ function mountSpanDial(host, span) {
       });
       const mark = el('span', pip.latest ? 'sd-pip latest' : 'sd-pip', pip.letter);
       mark.style.left = `${pip.leftPct}%`;
+      mark.style.top = `${pip.stack * PIP_ROW}px`;
       mark.setAttribute('data-kind', pip.kind);
       mark.setAttribute('title', pip.latest ? `${line} · ${S.latestMarkLabel}` : line);
       downs.appendChild(mark);

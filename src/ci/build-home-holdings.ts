@@ -52,7 +52,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { KIND_LETTER } from './build-publisher-pages.ts';
+import { OPEN_DATA_IMPLICIT_CLASS } from './build-class-pages.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
+
+// The FOI-lane fallback kind, matching build-publisher-pages.primaryClass: a FOI
+// dataset that declares no class is drawn as reference context.
+const FOI_IMPLICIT_CLASS = 'reference-context';
 
 // The milestone catalogue is authored HERE (the deploy/render layer), not as a
 // new reference-data file: it CITES the reference data and the narrative docs
@@ -162,7 +167,7 @@ export function monthLabel(iso: string): string {
 // lane's implicit default. Mirrors build-publisher-pages.primaryClass so the
 // home marks and the v0 holdings map derive kind identically.
 function primaryKind(dataset: ManifestDataset): string {
-  return dataset.classes[0] ?? (dataset.lane === 'open-data' ? 'register-snapshot' : 'reference-context');
+  return dataset.classes[0] ?? (dataset.lane === 'open-data' ? OPEN_DATA_IMPLICIT_CLASS : FOI_IMPLICIT_CLASS);
 }
 
 // ---------------------------------------------------------------------------
@@ -213,20 +218,22 @@ export function seriesMilestones(prefixRows: readonly PrefixIntroRow[]): Holding
 }
 
 // The mid-2010s licensing-system change — a documented narrative milestone. The
-// change itself is OBSERVED (a "system change" had replaced list-based
-// assignment by 2016, and the licensing database was named Salesforce in 2017,
-// visible in the salesforce.com copyright line and the Value__c column names);
-// the pre-2016 platform is INFERRED to be Siebel from the source register and
-// the 2014/15 Licence-View field dictionary, so the wording flags it as
-// inferred rather than asserting it. Cited to the in-repo chronology and
-// hypothesis register — a loosely-dated event, carried as a c.2016–2017 range.
+// headline is anchored to the EVIDENCED change date: a "system change" had
+// replaced list-based assignment by 2016. The 2017 date is only when the
+// platform's name was disclosed, so it stays in the citation fold rather than
+// widening the headline into a two-year span the record does not describe. The
+// pre-2016 platform is INFERRED to be Siebel: the archive's curatorial notes and
+// source register associate it (the wdtk-174341 significance note, the 2014/15
+// Licence-View field dictionary), but the verbatim held FOI correspondence does
+// not name it — so the wording flags it as inferred rather than asserting it.
+// A point milestone (not a range), positioned at the evidenced change year.
 export const SYSTEM_MIGRATION_MILESTONE: HoldingMilestone = {
   start: '2016',
-  end: '2017',
-  range: true,
-  label: 'Licensing system changed, c. 2016–2017',
+  end: '2016',
+  range: false,
+  label: 'Licensing system changed, by 2016',
   citation:
-    'The record shows Ofcom’s licensing system changing in the mid-2010s: a “system change” had replaced list-based assignment by 2016, and the licensing database was named Salesforce in 2017 (seen in the salesforce.com copyright line and the Value__c column names). The pre-2016 platform is inferred to be Siebel from the archive’s source register and the 2014/15 Licence-View field dictionary (archive/foi/wdtk-238892), not directly named in the held documents. Sources: docs/narratives/ofcom-systems-and-publication-chronology.md; docs/hypothesis-register.md.',
+    'The record shows Ofcom’s licensing system changing by 2016: a “system change” had replaced list-based assignment with an algorithm by September 2016. The licensing database was later named Salesforce in 2017 (seen in the salesforce.com copyright line and the Value__c column names). The pre-2016 platform is inferred to be Siebel — the archive’s curatorial notes and source register associate it (the wdtk-174341 significance note; the 2014/15 Licence-View field dictionary, archive/foi/wdtk-238892) — but the verbatim held FOI correspondence does not name it. Sources: docs/narratives/ofcom-systems-and-publication-chronology.md; docs/hypothesis-register.md.',
 };
 
 export function homeMilestones(prefixRows: readonly PrefixIntroRow[]): HoldingMilestone[] {

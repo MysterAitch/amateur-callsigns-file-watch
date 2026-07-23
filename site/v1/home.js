@@ -13,7 +13,7 @@
 
 import { renderSiteBar, renderBreadcrumb, renderFooter, mountInto } from './shell.js';
 import { V1_COPY } from './copy.js';
-import { renderHomeSections, defaultHomeModel, enhanceHomeModel, HOME_SECTION_REGISTRY } from './home-sections.js';
+import { renderHomeSections, defaultHomeModel, enhanceHomeModel, parseHoldings, HOME_SECTION_REGISTRY } from './home-sections.js';
 
 /** @param {HTMLElement} root */
 async function enhanceAtAGlance(root) {
@@ -22,7 +22,10 @@ async function enhanceAtAGlance(root) {
     if (!res.ok) return;
     const text = await res.text();
     const parsed = /** @type {unknown} */ (JSON.parse(text));
-    const holdings = /** @type {import('./home-sections.js').HomeHoldings} */ (parsed);
+    // Validate the untrusted manifest shape before use; a wrong-shaped manifest
+    // degrades to the grounded baseline rather than mis-rendering.
+    const holdings = parseHoldings(parsed);
+    if (holdings === null) return;
     const enhanced = enhanceHomeModel(defaultHomeModel(), holdings);
     const section = root.querySelector('section[data-section="at-a-glance"]');
     if (section === null) return;
