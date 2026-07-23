@@ -217,6 +217,15 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .tl .ttl{font-weight:600;color:var(--ink);font-size:1rem}
 .tl .by{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.02em;font-weight:400}
 .tl .dsc{color:var(--ink-2);font-size:.92rem;margin:.3rem 0 0}
+/* A same-day group is one dated card; its events are distinguished within it by
+   a hairline rule and breathing space, never split into separate dated nodes
+   (issue #921). A lone event carries no inner rule. */
+.tl .track .evt+.evt{margin-top:.55rem;padding-top:.55rem;border-top:1px solid var(--line)}
+/* the agreeing-origin semantic row: the equivalence mark beside "Licence origin",
+   the record-scoped coincidence prose, then the constituent kinds folded beneath */
+.tl.origin .eqmark{font-family:var(--mono);font-size:10px;color:var(--signal-strong);background:var(--signal-tint);
+  border:1px solid var(--signal-dim);border-radius:2px;padding:.02rem .3rem;margin-left:.4rem;font-weight:600}
+.tl.origin .track>.dsc{margin:.3rem 0 .6rem}
 
 /* ---- anatomy ---- */
 .anat{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
@@ -250,21 +259,35 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
   background:var(--panel);color:var(--ink-2);padding:.28rem .55rem;border-radius:2px}
 .dial-ctl button[aria-pressed="true"]{background:var(--signal-tint);border-color:var(--signal-dim);color:var(--signal-strong);font-weight:600}
 .dial-ctl button:hover{border-color:var(--signal-dim)}
-.scale{position:relative;min-width:600px;height:150px;margin:.1rem 0 .2rem}
-.scale .axis{position:absolute;left:0;right:0;top:76px;height:2px;background:var(--ink-2)}
-.scale .yr{position:absolute;top:83px;transform:translateX(-50%);font-family:var(--mono);font-size:11px;color:var(--muted)}
+/* The axis sits low in a tall scale so same-day event captions can stack
+   upward as a centred vertical column (issue #921) without clipping — the
+   observed maximum is four events on a day, and the agreeing origin triple is
+   the common case. --tier-step is how far each near-dated separation tier lifts
+   a marker so adjacent captions never overlap. */
+.scale{position:relative;min-width:600px;height:210px;margin:.1rem 0 .2rem;--tier-step:30px}
+.scale .axis{position:absolute;left:0;right:0;top:136px;height:2px;background:var(--ink-2)}
+.scale .yr{position:absolute;top:143px;transform:translateX(-50%);font-family:var(--mono);font-size:11px;color:var(--muted)}
 .scale .yr::before{content:"";position:absolute;top:-9px;left:50%;width:1px;height:7px;background:var(--line-2)}
-/* event markers point UP from the axis — primary reading, teal */
-.scale .ev{position:absolute;top:76px}
-.scale .ev .stem{position:absolute;bottom:0;left:-1px;width:2px;height:34px;background:var(--signal)}
-.scale .ev .dot{position:absolute;bottom:30px;left:-5px;width:10px;height:10px;background:var(--signal);transform:rotate(45deg)}
-.scale .ev .cap{position:absolute;bottom:46px;transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);
+/* event markers point UP from the axis — primary reading, teal. --tier lifts a
+   near-dated marker by whole steps; a flat marker carries tier 0. */
+.scale .ev{position:absolute;top:136px;--tier:0}
+.scale .ev .stem{position:absolute;bottom:0;left:-1px;width:2px;height:calc(34px + var(--tier) * var(--tier-step));background:var(--signal)}
+.scale .ev .dot{position:absolute;bottom:calc(30px + var(--tier) * var(--tier-step));left:-5px;width:10px;height:10px;background:var(--signal);transform:rotate(45deg)}
+.scale .ev .cap{position:absolute;bottom:calc(46px + var(--tier) * var(--tier-step));transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);
   font-size:11px;color:var(--signal-strong);font-weight:600;max-width:14rem;overflow:hidden;text-overflow:ellipsis}
 .scale .ev .cap small{display:block;font-weight:400;color:var(--muted);letter-spacing:0}
 .scale .ev.state .stem,.scale .ev.state .dot{background:var(--ok)}
 .scale .ev.state .cap{color:var(--ok)}
+/* same-day centred vertical stack: every co-dated event named on its own row in
+   record order, the shared day shown once beneath, a short connector to the
+   diamond. Tall stacks grow upward into the axis headroom (issue #921). */
+.scale .ev.stacked .conn{position:absolute;bottom:calc(30px + var(--tier) * var(--tier-step));left:-.5px;width:1px;height:6px;background:var(--signal-dim)}
+.scale .ev .vstack{position:absolute;bottom:calc(34px + var(--tier) * var(--tier-step));left:0;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:1px;white-space:nowrap}
+.scale .ev .vstack .r{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--signal-strong);line-height:1.3}
+.scale .ev .vstack .d{font-family:var(--mono);font-size:10px;font-weight:400;color:var(--muted);margin-top:1px}
 /* sighting markers point DOWN from the axis — calibration, muted */
-.scale .si{position:absolute;top:76px}
+.scale .si{position:absolute;top:136px}
 .scale .si .stem{position:absolute;top:0;left:-.5px;width:1px;height:20px;background:var(--line-2)}
 .scale .si .pip{position:absolute;top:18px;left:-3px;width:6px;height:6px;border-radius:50%;background:var(--muted)}
 .scale .si .cap{position:absolute;top:28px;transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);

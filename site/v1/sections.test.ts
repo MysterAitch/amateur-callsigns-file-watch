@@ -17,6 +17,8 @@ import {
   groupEventsByDay,
   currentStateNode,
   fractionalYear,
+  isAgreeingOriginGroup,
+  NEAR_DATED_SEPARATION_THRESHOLD_PERCENT,
 } from './callsign-sections.js';
 import { renderSiteBar, datedFactChipParts } from './shell.js';
 import { EVENT_TIME_GLOSS, ASSERTION_TIME_GLOSS } from './copy.js';
@@ -413,9 +415,12 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
     expect(scale?.classList.contains('dim-event')).toBe(true);
   });
 
-  it('EvidenceDial_WhenMultipleEventsShareADay_RendersOneClusteredMarker', () => {
+  it('EvidenceDial_WhenMultipleEventsShareADay_RendersACentredStackNamingEachEventNotACount', () => {
     // The M7TEE case: three events all dated 2018-10-18 must not overprint at an
-    // identical x; they collapse into a single dated cluster marker.
+    // identical x. Behaviour change (issue #921): the rejected "3 events · date"
+    // count teaser is replaced by a centred vertical stack — every event named
+    // on its own row in record order, the shared day shown once, nothing to
+    // hunt for.
     const root = document.createElement('div');
     const model = cm({
       dial: {
@@ -431,9 +436,34 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
     CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, model);
     const eventMarkers = [...root.querySelectorAll('.scale .ev:not(.state)')];
     expect(eventMarkers).toHaveLength(1);
-    const cap = eventMarkers[0].querySelector('.cap')?.textContent ?? '';
-    expect(cap).toContain('3 events');
-    expect(cap).toContain('2018-10-18');
+    // Each event is named on its own stack row, in record order.
+    const rows = [...eventMarkers[0].querySelectorAll('.vstack .r')].map((r) => r.textContent);
+    expect(rows).toEqual(['licence issued', 'licence-version start', 'callsign first recorded']);
+    // The shared day is shown once, and there is no count teaser.
+    expect(eventMarkers[0].querySelector('.vstack .d')?.textContent).toBe('2018-10-18');
+    expect(eventMarkers[0].textContent ?? '').not.toContain('3 events');
+    // No plain single-line caption is emitted when the day stacks.
+    expect(eventMarkers[0].querySelector('.cap')).toBeNull();
+  });
+
+  it('EvidenceDial_WhenFourEventsShareADay_RendersAllFourStackRows', () => {
+    // Tall stacks are accepted (the observed visible maximum is four).
+    const root = document.createElement('div');
+    const model = cm({
+      dial: {
+        hasEvents: true,
+        events: [
+          { day: '2019-06-05', label: 'licence issued', state: false, assertedBy: [] },
+          { day: '2019-06-05', label: 'licence original start', state: false, assertedBy: [] },
+          { day: '2019-06-05', label: 'licence-version start', state: false, assertedBy: [] },
+          { day: '2019-06-05', label: 'record created', state: false, assertedBy: [] },
+        ],
+        sightings: [{ vintage: '2026-06-23' }],
+      },
+    });
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, model);
+    const rows = [...root.querySelectorAll('.scale .ev:not(.state) .vstack .r')].map((r) => r.textContent);
+    expect(rows).toHaveLength(4);
   });
 
   it('EvidenceDial_WhenSingleEventOnADay_RendersTheEventLabelNotAClusterCount', () => {
@@ -600,6 +630,95 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
     expect(fold?.textContent).toContain('Ofcom register snapshot');
   });
 
+  it('EventTimeline_WhenMultipleEventsShareADay_DistinguishesThemWithinOneCard', () => {
+    // The day-group is one dated card (issue #921): its events sit in one .track
+    // as distinct .evt lines, each keeping its own provenance fold — never split
+    // into separate dated nodes.
+    const root = document.createElement('div');
+    const model = cm({
+      dial: {
+        hasEvents: true,
+        events: [
+          { day: '2018-10-18', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: [{ title: 'Ofcom register snapshot', href: '#', vintage: '2026-06-23', nrows: 1 }] },
+          { day: '2018-10-18', label: 'licence cancelled', kindId: 'licence-cancelled', state: false, assertedBy: [{ title: 'Ofcom register snapshot', href: '#', vintage: '2026-06-23', nrows: 1 }] },
+        ],
+      },
+    });
+    CALLSIGN_SECTION_REGISTRY['event-timeline'].mount(root, model);
+    const dayNodes = [...root.querySelectorAll('.timeline .tl:not(.state)')];
+    expect(dayNodes).toHaveLength(1);
+    const events = [...dayNodes[0].querySelectorAll('.track .evt')];
+    expect(events).toHaveLength(2);
+    // Each distinguished event carries its own provenance fold.
+    expect(events[0].querySelector('.evt-assert')).not.toBeNull();
+    expect(events[1].querySelector('.evt-assert')).not.toBeNull();
+  });
+
+  it('EventTimeline_WhenOriginTripleCoincides_RendersTheLicenceOriginSemanticRow', () => {
+    // The 87.6k agreeing-origin case: issued + original-start + version-start all
+    // on one day, no held vintage disagreeing. The rail tells the coalesced
+    // "Licence origin = issuance" story with the three constituents beneath, each
+    // still provenance-folded, in record-scoped no-verdict wording.
+    const root = document.createElement('div');
+    const asserted = [{ title: 'Ofcom register snapshot', href: '#', vintage: '2026-06-23', nrows: 1 }];
+    const model = cm({
+      dial: {
+        hasEvents: true,
+        events: [
+          { day: '2018-10-18', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: asserted },
+          { day: '2018-10-18', label: 'licence original start — the earliest surviving in the asserting vintage', kindId: 'licence-original-start', state: false, assertedBy: asserted },
+          { day: '2018-10-18', label: 'licence-version start — the earliest surviving in the asserting vintage', kindId: 'licence-version-original-start', state: false, assertedBy: asserted },
+        ],
+      },
+    });
+    CALLSIGN_SECTION_REGISTRY['event-timeline'].mount(root, model);
+    const originRow = root.querySelector('.timeline .tl.origin');
+    expect(originRow).not.toBeNull();
+    expect(originRow?.querySelector('.ttl')?.textContent).toContain('Licence origin');
+    expect(originRow?.querySelector('.eqmark')?.textContent).toContain('= issuance');
+    // Record-scoped coincidence wording, no verdict words.
+    expect(originRow?.textContent).toContain('coincide');
+    expect(originRow?.textContent ?? '').not.toContain('this is one event');
+    // The three constituents are each present with their own provenance fold.
+    expect(originRow?.querySelectorAll('.evt')).toHaveLength(3);
+    expect(originRow?.querySelectorAll('.evt .evt-assert')).toHaveLength(3);
+  });
+
+  it('EventTimeline_WhenOriginKindsDisagreeAcrossVintages_FallsBackToTheDistinctGroupedRows', () => {
+    // G8NNZ-shape divergence: the origin kinds land together in the latest
+    // vintage but a held vintage disagrees about the version start. The semantic
+    // row must not coalesce it; the plain grouped card renders instead, and the
+    // disagreement surfaces remain intact on the dial.
+    const root = document.createElement('div');
+    const disagreements = [{
+      kindLabel: 'licence-version start — the earliest surviving in the asserting vintage',
+      camps: [
+        { day: '1991-07-26', datasets: [{ title: 'earlier vintage', href: '#', vintage: '2020-05-01' }] },
+        { day: '2018-10-18', datasets: [{ title: 'later vintage', href: '#', vintage: '2026-06-23' }] },
+      ],
+    }];
+    const dial = {
+      hasEvents: true,
+      events: [
+        { day: '2018-10-18', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: [] },
+        { day: '2018-10-18', label: 'licence original start — the earliest surviving in the asserting vintage', kindId: 'licence-original-start', state: false, assertedBy: [] },
+        { day: '2018-10-18', label: 'licence-version start — the earliest surviving in the asserting vintage', kindId: 'licence-version-original-start', state: false, assertedBy: [] },
+      ],
+      disagreements,
+    };
+    // Rail: no semantic row, a plain grouped card with distinct rows instead.
+    CALLSIGN_SECTION_REGISTRY['event-timeline'].mount(root, cm({ dial }));
+    expect(root.querySelector('.timeline .tl.origin')).toBeNull();
+    const grouped = root.querySelector('.timeline .tl:not(.state)');
+    expect(grouped?.querySelectorAll('.track .evt')).toHaveLength(3);
+    // Dial: the disagreement surfaces remain intact (both camps kept, #467).
+    const dialRoot = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(dialRoot, cm({ dial }));
+    const disagree = dialRoot.querySelector('.dial-disagree')?.textContent ?? '';
+    expect(disagree).toContain('1991-07-26');
+    expect(disagree).toContain('earlier vintage');
+  });
+
   it('FastAnswer_ViaRenderingResolution_NamesTheCoreRecordAndAbsentSeriesUsesTheMarker', () => {
     const root = document.createElement('div');
     const model = cm({ key: 'M7TEE', cleaned: 'MW7TEE', viaRendering: true, series: null, latest: { statuses: [], products: [], types: [], dataset: { title: 't', vintage: null, href: '#' } } });
@@ -731,6 +850,90 @@ describe('v1 dial geometry (pure)', { tags: ['unit'] }, () => {
     expect(geo.years.length).toBeGreaterThan(0);
     expect(geo.minYear).toBeLessThanOrEqual(2018);
     expect(geo.maxYear).toBeGreaterThanOrEqual(2026);
+  });
+
+  it('DialGeometry_WhenAdjacentMarkersNearerThanACaptionWidth_TakeSteppedSeparationTiers', () => {
+    // The near-dated tail (issue #921): two distinct calendar days one day apart
+    // on a decades-wide axis sit far closer than a caption width, so the later
+    // marker steps up a separation tier while the earlier stays flat. The x
+    // positions stay true — only the caption height disambiguates.
+    const geo = dialGeometry(
+      [
+        { day: '2001-06-01', label: 'licence issued', state: false, assertedBy: [] },
+        { day: '2001-06-02', label: 'licence-version start', state: false, assertedBy: [] },
+      ],
+      [{ vintage: '2026-06-23' }],
+    );
+    expect(geo.events).toHaveLength(2);
+    const gap = Math.abs(geo.events[0].left - geo.events[1].left);
+    expect(gap).toBeLessThan(NEAR_DATED_SEPARATION_THRESHOLD_PERCENT);
+    expect(geo.events.map((e) => e.tier).sort()).toEqual([0, 1]);
+  });
+
+  it('DialGeometry_WhenMarkersAreWellSeparated_AllStayAtTierZero', () => {
+    // Events years apart on a modest axis clear the caption-width threshold, so
+    // no separation is applied — the common multi-event case stays flat.
+    const geo = dialGeometry(
+      [
+        { day: '2016-01-01', label: 'licence issued', state: false, assertedBy: [] },
+        { day: '2024-01-01', label: 'licence cancelled', state: false, assertedBy: [] },
+      ],
+      [{ vintage: '2026-06-23' }],
+    );
+    const gap = Math.abs(geo.events[0].left - geo.events[1].left);
+    expect(gap).toBeGreaterThanOrEqual(NEAR_DATED_SEPARATION_THRESHOLD_PERCENT);
+    expect(geo.events.every((e) => e.tier === 0)).toBe(true);
+  });
+});
+
+describe('v1 agreeing-origin semantic row (pure)', { tags: ['unit'] }, () => {
+  const originTriple = [
+    { day: '2018-10-18', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: [] },
+    { day: '2018-10-18', label: 'licence original start — the earliest surviving in the asserting vintage', kindId: 'licence-original-start', state: false, assertedBy: [] },
+    { day: '2018-10-18', label: 'licence-version start — the earliest surviving in the asserting vintage', kindId: 'licence-version-original-start', state: false, assertedBy: [] },
+  ];
+
+  it('IsAgreeingOriginGroup_WhenTheOriginTripleCoincidesWithNoDisagreement_IsTrue', () => {
+    const groups = groupEventsByDay(originTriple);
+    expect(isAgreeingOriginGroup(groups[0], groups, [])).toBe(true);
+  });
+
+  it('IsAgreeingOriginGroup_WhenAnOriginKindLandsOnADifferentDay_FallsBackToFalse', () => {
+    // G8NNZ-shape divergence by spread date: the version start is stated on a
+    // different day, so the three origin dates do not coincide.
+    const spread = [
+      { day: '2018-10-18', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: [] },
+      { day: '2018-10-18', label: 'licence original start', kindId: 'licence-original-start', state: false, assertedBy: [] },
+      { day: '1991-07-26', label: 'licence-version start', kindId: 'licence-version-original-start', state: false, assertedBy: [] },
+    ];
+    const groups = groupEventsByDay(spread);
+    const originDay = groups.find((g) => g.day === '2018-10-18');
+    expect(originDay).toBeDefined();
+    expect(isAgreeingOriginGroup(originDay!, groups, [])).toBe(false);
+  });
+
+  it('IsAgreeingOriginGroup_WhenAHeldVintageDisagreesAboutAnOriginKind_FallsBackToFalse', () => {
+    // G8NNZ-shape divergence by disagreement: the dates land together in the
+    // latest vintage, but a held vintage disagrees about the version start, so
+    // the coincidence is not clean and the semantic row must not coalesce it.
+    const groups = groupEventsByDay(originTriple);
+    const disagreements = [{
+      kindLabel: 'licence-version start — the earliest surviving in the asserting vintage',
+      camps: [
+        { day: '1991-07-26', datasets: [{ title: 'earlier vintage', href: '#', vintage: '2020-05-01' }] },
+        { day: '2018-10-18', datasets: [{ title: 'later vintage', href: '#', vintage: '2026-06-23' }] },
+      ],
+    }];
+    expect(isAgreeingOriginGroup(groups[0], groups, disagreements)).toBe(false);
+  });
+
+  it('IsAgreeingOriginGroup_WhenAKindIsMissing_IsFalse', () => {
+    const pair = [
+      { day: '2018-10-18', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: [] },
+      { day: '2018-10-18', label: 'licence original start', kindId: 'licence-original-start', state: false, assertedBy: [] },
+    ];
+    const groups = groupEventsByDay(pair);
+    expect(isAgreeingOriginGroup(groups[0], groups, [])).toBe(false);
   });
 });
 

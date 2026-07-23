@@ -129,11 +129,17 @@ export const V1_COPY = {
       // {series} is the prefix ('M7'); {month} is the introduction month
       // rendered as "October 2018".
       seriesIntro: '{series} series opened {month}',
-      // The same-day event cluster caption: co-dated events collapse to one
-      // dial marker labelled by their count, with the individual event lines
-      // listed on the event rail below. {count} is the number of events on the
-      // shared day.
-      eventCluster: '{count} events',
+      // The agreeing-origin semantic row (issue #921): when a day holds all
+      // three origin kinds (issued, original start, version start) with no held
+      // vintage disagreeing, the rail tells it as one "licence origin" story
+      // with an equivalence mark, the three kinds listed beneath as its
+      // constituents. Record-scoped, no verdict words: the wording names that
+      // the record's own dates coincide, never that this "is" one event.
+      originSemantic: {
+        title: 'Licence origin',
+        equiv: '= issuance',
+        coincide: 'The record’s licence-issued, original-start and version-start dates coincide on this day. Each is listed below with the publication that asserts it; the record reads them as one origin and adjudicates nothing.',
+      },
       // The current-state terminus suffix. Appended to the record's own latest
       // status value ('Allocated — current state') as the green node closing the
       // event story on both the dial scale and the event rail. Record-scoped: it

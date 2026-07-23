@@ -61,6 +61,9 @@ const link = (href, label, cls = null) => {
  * @typedef {object} DialEvent
  * @property {string} day     event-time day (YYYY-MM-DD)
  * @property {string} label
+ * @property {string} [kindId]  the authored event-kind id (e.g. 'licence-issued'),
+ *                            carried so the rail can recognise the agreeing origin
+ *                            shape by kind rather than by matching label prose.
  * @property {boolean} state  whether this event is itself a state marker. The
  *                            current-state terminus is derived from the record's
  *                            status as a dedicated node, so licensing events
@@ -199,7 +202,7 @@ export function buildCallsignModel(deps) {
   let hasBookkeeping = false;
   if (eventRecord != null && eventMeta != null) {
     const strip = deps.stripModel(eventRecord, eventMeta);
-    events = strip.licensing.map((line) => ({ day: line.day, label: line.kindLabel, state: false, assertedBy: mapAssertedBy(line.assertedBy) }));
+    events = strip.licensing.map((line) => ({ day: line.day, label: line.kindLabel, kindId: line.kindId, state: false, assertedBy: mapAssertedBy(line.assertedBy) }));
     bookkeeping = strip.bookkeeping.map((line) => ({ day: line.day, label: line.kindLabel, assertedBy: mapAssertedBy(line.assertedBy) }));
     findings = strip.findings.map((f) => ({ statement: f.statement, caveats: f.caveats.map((c) => c.label) }));
     disagreements = strip.disagreements.map((d) => ({
@@ -292,16 +295,69 @@ export function groupEventsByDay(events) {
   return groups;
 }
 
+// The three event kinds whose coincidence on one day is the agreeing origin
+// shape — a licence issued, its original start and its earliest surviving
+// version start all stated for the same day (issue #921). When they coincide
+// with no cross-vintage disagreement the rail tells it as one "licence origin"
+// story; any divergence falls back to distinct rows.
+/** @type {string[]} */
+export const ORIGIN_KIND_IDS = ['licence-issued', 'licence-original-start', 'licence-version-original-start'];
+const ORIGIN_KIND_SET = new Set(ORIGIN_KIND_IDS);
+/** @param {string | undefined} kindId @returns {boolean} */
+const isOriginKind = (kindId) => kindId !== undefined && ORIGIN_KIND_SET.has(kindId);
+
+// Near-dated separation threshold (issue #921). A dial caption is centred on its
+// marker, so two markers whose captions would overlap must be disambiguated. A
+// representative single-line caption is about NEAR_DATED_CAPTION_WIDTH_REM wide;
+// measured against the scale's own minimum width (DIAL_AXIS_MIN_WIDTH_REM, the
+// .scale min-width) it occupies this fraction of the axis. When two adjacent
+// event markers sit closer than that in axis-percent their captions collide, so
+// the later markers of the run take stepped heights (the x positions stay true;
+// only the caption height disambiguates). A narrow, deterministic tail: the
+// worst observed cases are adjacent calendar days on decades-wide axes.
+const NEAR_DATED_CAPTION_WIDTH_REM = 7;
+const DIAL_AXIS_MIN_WIDTH_REM = 600 / 16;
+export const NEAR_DATED_SEPARATION_THRESHOLD_PERCENT = (NEAR_DATED_CAPTION_WIDTH_REM / DIAL_AXIS_MIN_WIDTH_REM) * 100;
+
+// Whether a day-group is the agreeing origin shape (issue #921): it holds all
+// three origin kinds (issued, original start, version start), none of those
+// kinds is also stated on a different day, and no held vintage disagrees about
+// any of them. Every divergence — a spread date or a surfaced disagreement —
+// returns false, so the rail falls back to the plain grouped card with distinct
+// rows. Record-scoped: this reads the held record's own coincidence, never an
+// unqualified claim about the register.
+/**
+ * @param {{ day: string, events: DialEvent[] }} group
+ * @param {{ day: string, events: DialEvent[] }[]} allGroups
+ * @param {DialDisagreement[]} disagreements
+ * @returns {boolean}
+ */
+export function isAgreeingOriginGroup(group, allGroups, disagreements) {
+  const groupKinds = new Set(group.events.map((e) => e.kindId));
+  if (!ORIGIN_KIND_IDS.every((k) => groupKinds.has(k))) return false;
+  // Divergence: an origin kind also stated on another day (dates differ).
+  for (const other of allGroups) {
+    if (other === group) continue;
+    if (other.events.some((e) => isOriginKind(e.kindId))) return false;
+  }
+  // Divergence: a held vintage disagrees about one of the origin kinds. Matched
+  // against the origin events' own labels, so no label vocabulary is duplicated.
+  const originLabels = new Set(group.events.filter((e) => isOriginKind(e.kindId)).map((e) => e.label));
+  return !disagreements.some((d) => originLabels.has(d.kindLabel));
+}
+
 // Pure geometry for the dial: map event days and sighting vintages onto one
 // shared year axis. Returns the axis domain, the year ticks and each marker's
 // left-percentage — everything the mount needs, and everything the test pins.
-// Co-dated events collapse into one positioned cluster, and an optional
-// current-state terminus is positioned on the same axis.
+// Co-dated events collapse into one positioned cluster (carrying every event's
+// label and kind), adjacent clusters closer than a caption width take stepped
+// separation tiers, and an optional current-state terminus is positioned on the
+// same axis.
 /**
  * @param {DialEvent[]} events
  * @param {DialSighting[]} sightings
  * @param {{ label: string, day: string } | null} [state]  the current-state terminus, or null for none
- * @returns {{ minYear: number, maxYear: number, years: { year: number, left: number }[], events: { left: number, day: string, labels: string[], count: number }[], sightings: { left: number, vintage: string }[], state: { left: number, label: string, day: string } | null }}
+ * @returns {{ minYear: number, maxYear: number, years: { year: number, left: number }[], events: { left: number, day: string, labels: string[], count: number, tier: number }[], sightings: { left: number, vintage: string }[], state: { left: number, label: string, day: string } | null }}
  */
 export function dialGeometry(events, sightings, state = null) {
   const fracs = [
@@ -324,7 +380,17 @@ export function dialGeometry(events, sightings, state = null) {
   const years = [];
   for (let y = minYear; y <= maxYear; y += step) years.push({ year: y, left: pos(y) });
   const clusters = groupEventsByDay(events.filter((e) => !Number.isNaN(fractionalYear(e.day))))
-    .map((g) => ({ left: pos(fractionalYear(g.day)), day: g.day, labels: g.events.map((e) => e.label), count: g.events.length }));
+    .map((g) => ({ left: pos(fractionalYear(g.day)), day: g.day, labels: g.events.map((e) => e.label), count: g.events.length, tier: 0 }));
+  // Near-dated separation: walking the clusters left-to-right, any cluster
+  // whose gap to the one before it is under the caption-width threshold joins a
+  // run and steps up one tier; a gap at or above the threshold starts a fresh
+  // run at tier 0. This keeps every caption in a crowded run at a distinct
+  // height while leaving well-spaced markers flat.
+  const byLeft = [...clusters].sort((a, b) => a.left - b.left);
+  for (let i = 1; i < byLeft.length; i += 1) {
+    const gap = byLeft[i].left - byLeft[i - 1].left;
+    byLeft[i].tier = gap < NEAR_DATED_SEPARATION_THRESHOLD_PERCENT ? byLeft[i - 1].tier + 1 : 0;
+  }
   const stateOut = state !== null && !Number.isNaN(fractionalYear(state.day))
     ? { left: pos(fractionalYear(state.day)), label: state.label, day: state.day }
     : null;
@@ -489,19 +555,30 @@ function mountEvidenceDial(host, model) {
     scale.appendChild(yr);
   }
   for (const cl of geo.events) {
-    const marker = el('div', 'ev');
-    marker.setAttribute('style', `left:${cl.left.toFixed(1)}%`);
+    // The separation tier rides a CSS custom property; the stylesheet steps the
+    // stem, dot and caption up by it so a near-dated run's captions never
+    // overlap while every x stays true (issue #921).
+    const marker = el('div', cl.count > 1 ? 'ev stacked' : 'ev');
+    marker.setAttribute('style', `left:${cl.left.toFixed(1)}%;--tier:${cl.tier}`);
     marker.appendChild(el('span', 'stem'));
     marker.appendChild(el('span', 'dot'));
-    // A single event shows the leading clause of its kind label; co-dated events
-    // show their count and defer the individual lines to the event-timeline
-    // section below (and to the marker's own title), so a crowded day never
-    // overruns the panel and never overprints at one x.
-    const capText = cl.count === 1 ? cl.labels[0].split(' — ')[0] : V1_COPY.callsign.dial.eventCluster.replace('{count}', String(cl.count));
-    const cap = el('span', 'cap', capText);
-    cap.appendChild(el('small', null, cl.day));
-    if (cl.count > 1) marker.setAttribute('title', cl.labels.join('; '));
-    marker.appendChild(cap);
+    if (cl.count === 1) {
+      // A single event shows the leading clause of its kind label, the day
+      // beneath — no interaction needed to read what happened.
+      const cap = el('span', 'cap', cl.labels[0].split(' — ')[0]);
+      cap.appendChild(el('small', null, cl.day));
+      marker.appendChild(cap);
+    } else {
+      // Co-dated events: the centred vertical stack (issue #921). Every event is
+      // named on its own row in record order, the shared day shown once beneath.
+      // No count teaser and nothing to hunt for — a tall stack is accepted.
+      marker.appendChild(el('span', 'conn'));
+      const stack = el('span', 'vstack');
+      for (const label of cl.labels) stack.appendChild(el('span', 'r', label.split(' — ')[0]));
+      stack.appendChild(el('span', 'd', cl.day));
+      marker.setAttribute('title', cl.labels.join('; '));
+      marker.appendChild(stack);
+    }
     scale.appendChild(marker);
   }
   // The current-state terminus — the record's latest held status, in the green
@@ -645,6 +722,57 @@ function stateTerminusRow(stateNode) {
   return tl;
 }
 
+// One event as a rail line: its title and, one affordance away, the publications
+// that assert it. Wrapped in .evt so a multi-event day-group card can distinguish
+// its events with a hairline rule between them (issue #921).
+/** @param {DialEvent} ev @returns {HTMLElement} */
+function eventLine(ev) {
+  const line = el('div', 'evt');
+  line.appendChild(el('div', 'ttl', ev.label));
+  if (ev.assertedBy.length > 0) line.appendChild(assertedByFold(ev.assertedBy));
+  return line;
+}
+
+// A day-group as the plain grouped card: one dated node, each same-day event
+// distinguished within it (issue #921). A lone event carries no inner rule.
+/** @param {{ day: string, events: DialEvent[] }} group @returns {HTMLElement} */
+function plainGroupRow(group) {
+  const tl = el('div', group.events.length > 1 ? 'tl grouped' : 'tl');
+  const when = el('div', 'when', group.day);
+  when.appendChild(el('small', null, 'event'));
+  tl.appendChild(when);
+  const track = el('div', 'track');
+  for (const ev of group.events) track.appendChild(eventLine(ev));
+  tl.appendChild(track);
+  return tl;
+}
+
+// A day-group as the agreeing-origin semantic row (issue #921): the told-story
+// form for the common case where a licence's issue, original-start and
+// version-start dates coincide. One "Licence origin" title with an equivalence
+// mark and record-scoped coincidence prose, the constituent kinds listed
+// beneath — each still carrying its own assertion-provenance fold.
+/** @param {{ day: string, events: DialEvent[] }} group @returns {HTMLElement} */
+function originGroupRow(group) {
+  const tl = el('div', 'tl origin');
+  const when = el('div', 'when', group.day);
+  when.appendChild(el('small', null, 'origin'));
+  tl.appendChild(when);
+  const track = el('div', 'track');
+  const ttl = el('div', 'ttl');
+  ttl.append(`${V1_COPY.callsign.dial.originSemantic.title} `);
+  ttl.appendChild(el('span', 'eqmark', V1_COPY.callsign.dial.originSemantic.equiv));
+  track.appendChild(ttl);
+  track.appendChild(el('p', 'dsc', V1_COPY.callsign.dial.originSemantic.coincide));
+  // The origin constituents first, then any other same-day event, so the story
+  // leads with the three kinds it coalesces.
+  const origin = group.events.filter((e) => isOriginKind(e.kindId));
+  const others = group.events.filter((e) => !isOriginKind(e.kindId));
+  for (const ev of [...origin, ...others]) track.appendChild(eventLine(ev));
+  tl.appendChild(track);
+  return tl;
+}
+
 /** @param {HTMLElement} host @param {CallsignModel} model */
 function mountEventTimeline(host, model) {
   const surface = el('section', 'surface');
@@ -678,20 +806,14 @@ function mountEventTimeline(host, model) {
   if (hasEvents || stateNode !== null) {
     const tlWrap = el('div', 'timeline');
     // Co-dated events group under one dated node, so the rail reads as the dial
-    // does — one node per day — rather than as near-identical repeated rows.
-    // Each event keeps its own title and assertion-time provenance beneath it.
-    for (const group of groupEventsByDay(model.dial.events)) {
-      const tl = el('div', 'tl');
-      const when = el('div', 'when', group.day);
-      when.appendChild(el('small', null, 'event'));
-      tl.appendChild(when);
-      const track = el('div', 'track');
-      for (const ev of group.events) {
-        track.appendChild(el('div', 'ttl', ev.label));
-        if (ev.assertedBy.length > 0) track.appendChild(assertedByFold(ev.assertedBy));
-      }
-      tl.appendChild(track);
-      tlWrap.appendChild(tl);
+    // does — one card per day — rather than as near-identical repeated rows. The
+    // agreeing origin triple tells its own "licence origin" story; every other
+    // day renders the plain grouped card with its events distinguished within.
+    const groups = groupEventsByDay(model.dial.events);
+    for (const group of groups) {
+      tlWrap.appendChild(isAgreeingOriginGroup(group, groups, model.dial.disagreements)
+        ? originGroupRow(group)
+        : plainGroupRow(group));
     }
     // The current-state terminus closes the rail with the record's latest held
     // status, in the green state node the shell already styles (.tl.state).

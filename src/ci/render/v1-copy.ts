@@ -100,9 +100,14 @@ export const V1_COPY = {
       assertOnly: 'Assertion only',
       // The dial's series-introduction context marker (see site/v1/copy.js).
       seriesIntro: '{series} series opened {month}',
-      // The same-day event cluster caption and the current-state terminus suffix
-      // (see site/v1/copy.js for the rationale).
-      eventCluster: '{count} events',
+      // The agreeing-origin semantic row and the current-state terminus suffix
+      // (see site/v1/copy.js for the rationale). Kept string-identical to the
+      // browser copy so the drift-guard parity test holds.
+      originSemantic: {
+        title: 'Licence origin',
+        equiv: '= issuance',
+        coincide: 'The record’s licence-issued, original-start and version-start dates coincide on this day. Each is listed below with the publication that asserts it; the record reads them as one origin and adjudicates nothing.',
+      },
       currentStateLabel: 'current state',
       readingLead: 'Reading',
       calibrationLead: 'Calibration',
