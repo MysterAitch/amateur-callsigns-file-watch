@@ -244,11 +244,15 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 
 /* ---- module cards (dense, hairline-gridded, not rounded-uniform) ---- */
 /* auto-fit columns (issue #921, C1): the card count varies by surface — two on
-   the home ways-in, three on the 404 — and a fixed two-column track left the odd
-   third card beside a blank grey cell. auto-fit with a min track fills the row at
-   any count, so a three-card grid reads as three columns with no empty tile,
-   while the two-card grid still reads as two. */
-.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+   the home ways-in, four on the 404 — and a fixed-column track left an odd
+   count beside a blank grey cell. auto-fit with a min track fills the row at
+   any count, so a four-card grid reads as four columns with no empty tile,
+   while the two-card grid still reads as two — PROVIDED the min track is small
+   enough that the full count still fits one row at the .wrap max-width; a min
+   track that only leaves room for three columns re-creates the exact blank
+   cell this rule exists to prevent once a fourth card is added, silently, at
+   ordinary desktop widths (900px and up) rather than at any obvious edge. */
+.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
 .mod{background:var(--panel);padding:1.1rem 1.15rem;display:flex;flex-direction:column;gap:.55rem}
 .mod:hover{background:var(--panel-2)}
 .mod .top{display:flex;align-items:baseline;justify-content:space-between;gap:.6rem}
