@@ -1313,12 +1313,20 @@ describe('v1 odd-count grids (issue #921, C1)', { tags: ['ui'] }, () => {
     expect(shellCss).toMatch(/\.anat\{[^}]*grid-template-columns:repeat\(auto-fit,minmax\([^)]*\)\)/);
   });
 
-  it('NotFoundRouteCards_Markup_RendersThreeCardsInAnAutoFitGrid', () => {
-    // The 404 repeats the anatomy defect: three route cards in a two-column grid
-    // left a blank cell. Same one grid rule fixes it (issue #921, C1).
+  it('NotFoundRouteCards_Markup_MatchesTheNavJourneysInAnAutoFitGrid', () => {
+    // The 404 repeats the anatomy defect: route cards in a fixed-column grid
+    // left a blank cell at some counts. Same one grid rule fixes it at any
+    // count (issue #921, C1) — asserted here without pinning a literal number,
+    // because a hard-coded card count is exactly what let the card set drift
+    // from the nav once already (a fourth nav journey landed with only three
+    // cards). Instead the card set is derived from the page's own nav: every
+    // journey link's href must have a matching route card, and vice versa, so
+    // the next journey added to the nav fails this test until its card exists.
     const doc = new DOMParser().parseFromString(fs.readFileSync('site/v1/404.html', 'utf8'), 'text/html');
-    const cards = [...doc.querySelectorAll('.modules .mod')];
-    expect(cards).toHaveLength(3);
+    const navHrefs = [...doc.querySelectorAll('nav.journeys a')].map(a => a.getAttribute('href'));
+    const cardHrefs = [...doc.querySelectorAll('.modules .mod a')].map(a => a.getAttribute('href'));
+    expect(navHrefs.length).toBeGreaterThan(0);
+    expect([...cardHrefs].sort()).toEqual([...navHrefs].sort());
     expect(shellCss).toMatch(/\.modules\{[^}]*grid-template-columns:repeat\(auto-fit,minmax\([^)]*\)\)/);
   });
 });

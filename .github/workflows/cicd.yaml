@@ -995,12 +995,11 @@ jobs:
           node src/ci/build-sw-precache.ts _site/v0/sw.js
       # Land the v1 shell at the deploy root (issue #921). The v1 pages plus
       # their modules and stylesheets copy flat into _site/, so the root serves
-      # the v1 front door (index.html, callsign.html, how-to-get-the-raw-data.html
-      # and the honest 404.html). Every v1 asset references its siblings
-      # relatively (tokens.css, shell.js, the shared modules beside it), and the
-      # v1 surface points at nothing under _site/v0 - the v1-self-containment
-      # test enforces that. The site-deploy-coverage test guards that this glob
-      # ships every deployable v1 file.
+      # the v1 front-door pages and the honest 404.html. Every v1 asset
+      # references its siblings relatively (tokens.css, shell.js, the shared
+      # modules beside it), and the v1 surface points at nothing under _site/v0
+      # - the v1-self-containment test enforces that. The site-deploy-coverage
+      # test guards that this glob ships every deployable v1 file.
       - name: Copy the v1 shell to the deploy root
         run: cp site/v1/*.html site/v1/*.js site/v1/*.css _site/
       # Deploy the shared pure data modules at the root too, so the v1 callsign

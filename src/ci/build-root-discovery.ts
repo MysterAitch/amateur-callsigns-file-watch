@@ -2,14 +2,14 @@
 
 /**
  * Root discovery files for the v1 launch (issue #921): a slim sitemap.xml at
- * the deploy root listing the three v1 pages that now own the root, plus a
- * robots.txt that points crawlers at it.
+ * the deploy root listing the v1 pages that now own the root (see
+ * ROOT_DISCOVERY_PATHS below), plus a robots.txt that points crawlers at it.
  *
  * The preserved previous version keeps its own, fuller sitemap at
  * /v0/sitemap.xml (built by build-dataset-pages.ts and left untouched); this
- * root sitemap is deliberately just the three launched v1 URLs, so a crawler
- * that reads the root discovers the new front door rather than the redirect
- * stubs mirroring every old deep link.
+ * root sitemap is deliberately just the v1 pages listed in
+ * ROOT_DISCOVERY_PATHS, so a crawler that reads the root discovers the new
+ * front door rather than the redirect stubs mirroring every old deep link.
  *
  * Pure and deterministic: the URL set is fixed and the output carries no build
  * clock, so two builds over the same base URL are byte-identical.
