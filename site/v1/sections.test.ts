@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
+import * as fs from 'node:fs';
 import {
   HOME_SECTION_ORDER,
   HOME_SECTION_REGISTRY,
@@ -159,6 +160,73 @@ describe('v1 home sections', { tags: ['ui'] }, () => {
     expect(glance?.querySelector('.spandial')).toBeNull();
     expect(glance?.querySelector('.readout')).not.toBeNull();
   });
+
+  it('HomeAtAGlance_TheReading_IsAlwaysPresentInTheFootText', () => {
+    // The in-scale needle label carrying "as of <date>" is hidden at narrow
+    // widths, so the reading must also live in the width-independent text foot —
+    // otherwise mobile would lose the reading entirely (the text-parity break
+    // the review flagged). The foot is DOM-present regardless of viewport.
+    const root = document.createElement('div');
+    const model = defaultHomeModel();
+    renderHomeSections(root, model);
+    const foot = root.querySelector('.spandial .sd-foot')?.textContent ?? '';
+    expect(foot).toContain(model.span.latestLabel);
+  });
+
+  it('HomeAtAGlance_Needle_RendersAtTheCurrentReadingEndOfTheRun', () => {
+    // The needle is the current-reading indicator; a wiring regression that
+    // detached its position from the geometry would otherwise be invisible.
+    const root = document.createElement('div');
+    renderHomeSections(root, defaultHomeModel());
+    const needle = root.querySelector<HTMLElement>('.spandial .sd-needle');
+    expect(needle?.style.left).toBe('100%');
+  });
+});
+
+// The hand-maintained-duplicate structural-fragility class this repo hunts: the
+// static no-JS baseline in index.html carries an independent copy of every home
+// figure. This parity guard renders the model and parses the committed static
+// markup, asserting the two agree — so a future edit to the centralised figures
+// cannot silently split the JS and static renders.
+function extractGlanceFigures(scope: ParentNode) {
+  const glance = scope.querySelector('section[data-section="at-a-glance"]');
+  if (glance === null) throw new Error('at-a-glance section not found');
+  const norm = (s: string | null | undefined): string => (s ?? '').replace(/\s+/g, ' ').trim();
+  const cells = [...glance.querySelectorAll('.readout .cell')].map(c => ({
+    k: norm(c.querySelector('.k')?.textContent),
+    v: norm(c.querySelector('.v')?.textContent),
+    u: norm(c.querySelector('.u')?.textContent),
+  }));
+  const dial = glance.querySelector('.spandial');
+  return {
+    cells,
+    aria: norm(dial?.getAttribute('aria-label')),
+    range: norm(dial?.querySelector('.sd-range')?.textContent),
+    heldCap: norm(dial?.querySelector('.sd-cap.on')?.textContent),
+    years: [...(dial?.querySelectorAll('.sd-yr') ?? [])].map(y => norm(y.textContent)),
+    needle: norm(dial?.querySelector('.nlbl')?.textContent),
+    ticks: dial?.querySelectorAll('.sd-ticks span').length ?? 0,
+    foot: [...(dial?.querySelectorAll('.sd-foot span') ?? [])].map(s => norm(s.textContent)),
+  };
+}
+
+describe('v1 home static/JS parity', { tags: ['unit'] }, () => {
+  it('StaticBaseline_AtAGlanceFigures_MatchTheModelRenderedFigures', () => {
+    const jsRoot = document.createElement('div');
+    renderHomeSections(jsRoot, defaultHomeModel());
+    const staticDoc = new DOMParser().parseFromString(fs.readFileSync('site/v1/index.html', 'utf8'), 'text/html');
+    expect(extractGlanceFigures(staticDoc)).toEqual(extractGlanceFigures(jsRoot));
+  });
+
+  it('StaticBaseline_DatedFactChip_MatchesTheModelRenderedChip', () => {
+    const model = defaultHomeModel();
+    const bar = renderSiteBar('home', model.facts);
+    const norm = (s: string | null | undefined): string => (s ?? '').replace(/\s+/g, ' ').trim();
+    const jsChip = norm(bar.querySelector('.chip.asof')?.textContent);
+    const staticDoc = new DOMParser().parseFromString(fs.readFileSync('site/v1/index.html', 'utf8'), 'text/html');
+    const staticChip = norm(staticDoc.querySelector('.chip.asof')?.textContent);
+    expect(staticChip).toBe(jsChip);
+  });
 });
 
 describe('v1 home span-dial geometry (pure)', { tags: ['unit'] }, () => {
@@ -194,6 +262,24 @@ describe('v1 home span-dial geometry (pure)', { tags: ['unit'] }, () => {
     const geo = spanDialGeometry({ historyStartYear: 2013, heldStartYear: 2013, latestYear: 2026, latestLabel: '23 June 2026', count: 65 });
     expect(geo.render).toBe(true);
     expect(geo.showHistory).toBe(false);
+  });
+
+  it('SpanDialGeometry_ReversedHeldRun_ThrowsRatherThanReadAsEmpty', () => {
+    // Dated but reversed dates are a corruption, not the legitimate empty-
+    // archive state — fail loud rather than collapse to an indistinguishable
+    // render:false that would silently read as "nothing held".
+    expect(() => spanDialGeometry({ historyStartYear: 1903, heldStartYear: 2026, latestYear: 2013, latestLabel: '23 June 2026', count: 65 }))
+      .toThrow(/corrupt span dates/);
+  });
+
+  it('SpanDialGeometry_SingleDatePlusEarlierHistory_CollapsesRunButKeepsTheBreak', () => {
+    // A single-point held run (start === latest) that STILL reaches back to
+    // earlier history: the run collapses to one cell, but the history segment
+    // and its scale break are kept, since 1903 genuinely predates the run.
+    const geo = spanDialGeometry({ historyStartYear: 1903, heldStartYear: 2026, latestYear: 2026, latestLabel: '23 June 2026', count: 1 });
+    expect(geo.render).toBe(true);
+    expect(geo.showHistory).toBe(true);
+    expect(geo.heldDivisions).toBe(1);
   });
 });
 

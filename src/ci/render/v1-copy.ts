@@ -49,13 +49,15 @@ export const V1_COPY = {
     atAGlanceLabel: 'the record at a glance',
     // The compact archive-span dial inside "the record at a glance" (see the
     // browser twin site/v1/copy.js for the full note). Wording only; the
-    // build-derived numbers are interpolated at mount. Record-scoped, no
-    // verdict words; the readout row carries the identical facts as text.
+    // centralised, report-cited numbers are interpolated at mount. Record-
+    // scoped, no verdict words; the readout row carries the identical facts as
+    // text.
     span: {
       label: 'holdings across time',
       historyCap: 'earliest dated licence history',
       heldCap: '{count} publications, byte-for-byte',
       needleLabel: 'as of {asOf} · {count} held',
+      footReading: 'read as of',
       footHeld: 'publications held',
       footRun: 'byte-for-byte',
       footHistory: 'dated history to',

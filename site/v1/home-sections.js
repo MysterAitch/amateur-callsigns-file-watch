@@ -34,17 +34,22 @@ const link = (href, label, cls = null) => {
   return a;
 };
 
-// The grounded archive figures — the SINGLE record-scoped source the dated-fact
-// chip, the readout row and the archive-span dial all derive from, so no two of
-// them can ever disagree. Each is grounded in a committed report (cited) and is
-// overridable at build time; none is a view-layer literal.
-//  - The newest publication held (2026-06-23) records 158,318 callsigns
-//    (reports/curiosity-index.md).
-//  - 65 open-data publications are held, spanning the dense run 2013 → 2026.
-//  - The earliest dated material the record reaches back to is 1903 — licence
-//    history far predating the publication run, and the segment the dial's
-//    scale breaks across (reports/state-at-t.md, survival-cohort.md,
-//    sequence-analytics.md all report "Dated allocations 1903-05-03 → …").
+// The archive figures, centralised in one place. These are hand-authored,
+// report-cited CONSTANTS — not build-time-derived — so this is the single source
+// the dated-fact chip, the readout row and the archive-span dial all read,
+// rather than three independent copies. The JS-rendered home and the static
+// no-JS baseline in index.html are held to these same values by a parity test
+// (site/v1/sections.test.ts), so a future edit here cannot silently split the
+// two renders. Deriving these from the committed archive/reports AT BUILD TIME
+// is a possible follow-up, not something claimed here.
+// Citations:
+//  - 1903: the earliest dated allocation the record holds, verified in three
+//    reports (reports/state-at-t.md, survival-cohort.md and sequence-analytics.md
+//    all report "Dated allocations 1903-05-03 → …").
+//  - 158,318 callsigns in the newest publication held (reports/curiosity-index.md).
+//  - The 65-publications / 2013 pair is drawn from the archive's own extent and
+//    has no single citable report; it is an honestly-noted centralised constant,
+//    not a derived figure.
 const GROUNDED_ARCHIVE = {
   latestDateIso: '2026-06-23',
   latestDateLabel: '23 June 2026',
@@ -56,10 +61,10 @@ const GROUNDED_ARCHIVE = {
   historyStartYear: 1903,
 };
 
-// The home model. Every figure is derived from GROUNDED_ARCHIVE above — a single
-// source, so the readout row and the span dial cannot drift apart — and is
-// overridable at build time. The three from-the-record facts are real, notable
-// and record-scoped, and ship as a static placeholder pool ready for build-time
+// The home model. Every figure reads from GROUNDED_ARCHIVE above — one source
+// for the readout row and the span dial, with the static no-JS baseline held to
+// it by the parity test. The three from-the-record facts are real, notable and
+// record-scoped, and ship as a static placeholder pool ready for build-time
 // rotation.
 /**
  * The archive-span facts the dial reads. Every field is build-derived from the
@@ -147,7 +152,14 @@ export function defaultHomeModel() {
 /** @param {ArchiveSpan} span @returns {SpanDialGeometry} */
 export function spanDialGeometry(span) {
   const { historyStartYear, heldStartYear, latestYear, count } = span;
-  const validHeld = Number.isFinite(heldStartYear) && Number.isFinite(latestYear) && latestYear >= heldStartYear;
+  const heldFinite = Number.isFinite(heldStartYear) && Number.isFinite(latestYear);
+  // Corrupt input: dated, but the held run ends before it starts. This is a data
+  // error, not the legitimate empty-archive state (count <= 0) — so fail loud
+  // rather than render:false, which would silently read as "nothing held".
+  if (heldFinite && latestYear < heldStartYear) {
+    throw new RangeError(`spanDialGeometry: held run ends (${latestYear}) before it starts (${heldStartYear}) — corrupt span dates`);
+  }
+  const validHeld = heldFinite;
   // No publications held, or no usable held-run dates: there is no reading to
   // draw, so the dial is omitted. The readout row still carries every figure as
   // text, so nothing is lost — the dial is its decorative-plus-informative twin.
@@ -320,8 +332,14 @@ function mountSpanDial(host, span) {
   dial.appendChild(scale);
 
   // Text foot: the same facts in plain words, so nothing is conveyed by the
-  // scale's colour or position alone.
+  // scale's colour or position alone. The reading ("as of <date>") leads and is
+  // ALWAYS present here — the in-scale needle label that also carries it is
+  // hidden at narrow widths, so the foot is the reading's text home on mobile.
   const foot = el('div', 'sd-foot');
+  const readingItem = el('span');
+  readingItem.append(`${S.footReading} `);
+  readingItem.appendChild(el('b', null, span.latestLabel));
+  foot.appendChild(readingItem);
   const heldItem = el('span');
   heldItem.appendChild(el('b', null, String(geo.count)));
   heldItem.append(` ${S.footHeld}`);

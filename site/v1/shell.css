@@ -151,10 +151,16 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .sd-foot b{color:var(--ink)}
 /* Narrow viewports: the in-scale captions and needle label would collide in the
    compact width, so drop them — they are decorative reinforcement, and the text
-   foot below (and the readout row above) carry every one of the same facts. */
+   foot below (and the readout row above) carry every one of the same facts,
+   including the "read as of <date>" reading. The segment minimums are relaxed so
+   the whole instrument fits without internal scroll — the needle (the current
+   reading) must stay on-screen, never hidden past a scroll edge. */
 @media(max-width:30rem){
   .sd-cap,.sd-needle .nlbl{display:none}
-  .sd-scale{margin-top:1rem}
+  .sd-scale{margin-top:1rem;min-width:0}
+  .sd-seg.history{flex:0 0 26%;min-width:0}
+  .sd-seg.held{min-width:0}
+  .sd-break{flex:0 0 16px}
 }
 
 /* ---- module cards (dense, hairline-gridded, not rounded-uniform) ---- */

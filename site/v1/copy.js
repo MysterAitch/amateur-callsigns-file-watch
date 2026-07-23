@@ -67,17 +67,19 @@ export const V1_COPY = {
     // miniature of the site's dial language showing the archive's temporal
     // coverage — the sparse dated licence history the record reaches back to,
     // a scale break, then the dense run of held publications with a needle at
-    // the newest reading. Every figure is build-derived from the same home
-    // model that feeds the readout row; these strings carry only the wording,
-    // with build-derived numbers interpolated at mount ({count}, {heldStart},
-    // {latest}, {historyStart}, {asOf}). Record-scoped throughout, no verdict
-    // words. The readout row above carries the identical facts as text, so the
-    // dial is given role="img" and summarised by one of the aria templates.
+    // the newest reading. Every figure is read from the centralised, report-
+    // cited home-model figures that also feed the readout row (centralised
+    // constants, NOT build-derived); these strings carry only the wording, with
+    // those numbers interpolated at mount ({count}, {heldStart}, {latest},
+    // {historyStart}, {asOf}). Record-scoped throughout, no verdict words. The
+    // readout row above carries the identical facts as text, so the dial is
+    // given role="img" and summarised by one of the aria templates.
     span: {
       label: 'holdings across time',
       historyCap: 'earliest dated licence history',
       heldCap: '{count} publications, byte-for-byte',
       needleLabel: 'as of {asOf} · {count} held',
+      footReading: 'read as of',
       footHeld: 'publications held',
       footRun: 'byte-for-byte',
       footHistory: 'dated history to',
