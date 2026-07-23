@@ -75,6 +75,15 @@ describe('v1 copy — claims bar (JS)', { tags: ['unit'] }, () => {
     expect(V1_COPY.glossary.suffix.def).toContain('only two');
   });
 
+  it('GlossaryRegistry_Suffix_NamesTheSingleLetterSpecialContestRoute', () => {
+    // The single-letter suffix form belongs to a special contest callsign, an
+    // Ofcom grant administered by the RSGB — not an unexplained exception to
+    // "normally three letters".
+    expect(V1_COPY.glossary.suffix.def).toContain('special contest callsign');
+    expect(V1_COPY.glossary.suffix.def).toContain('granted by Ofcom');
+    expect(V1_COPY.glossary.suffix.def).toContain('administered by the RSGB');
+  });
+
   it('GlossaryRegistry_VisitorPrefix_IsDefinedAsAReciprocalForm', () => {
     // Issue #959: the visitor/reciprocal prefix construction earns its own term.
     expect(V1_COPY.glossary.visitorPrefix.term).toBe('visitor prefix');
