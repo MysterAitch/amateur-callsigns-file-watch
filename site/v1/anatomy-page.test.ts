@@ -146,9 +146,35 @@ describe('v1 anatomy page — structure-reference completeness (issue #959)', { 
     expect(ANATOMY_HTML).toContain('normally three letters');
     expect(ANATOMY_HTML).toContain('special contest callsigns');
     expect(ANATOMY_HTML).toContain('§5.2');
-    // The observed distribution is framed as an observation, not a completeness claim.
-    expect(ANATOMY_HTML).toContain('99.7%');
-    expect(ANATOMY_HTML).toContain('Observation of what the record holds');
+    // The special-contest shape follows the guidance's own worked examples, with no
+    // total-character-count claim the examples contradict.
+    expect(ANATOMY_HTML).toContain('G8Z');
+    expect(ANATOMY_HTML).toContain('M7R');
+    expect(ANATOMY_HTML).not.toContain('four-character special contest');
+    // The witness states its scope and is framed as an observation (the figures
+    // themselves are held to the data by the data-validity test).
+    expect(ANATOMY_HTML).toContain('the record’s parser decomposes into parts');
+    expect(ANATOMY_HTML).toContain('Observation of what the record holds, within the scope stated');
+  });
+
+  it('AnatomyPage_SuffixWitness_PresentsSetAsideOutliers_RatherThanClaimingAbsence', () => {
+    // The reworded witness names the set-aside forms honestly instead of claiming
+    // one-letter and longer forms are absent — the data contains both.
+    expect(ANATOMY_HTML).toContain('M/KQ4U');
+    expect(ANATOMY_HTML).toContain('2IFJG');
+    expect(ANATOMY_HTML).toContain('counted separately');
+    // The discredited absolute-absence phrasing is gone.
+    expect(ANATOMY_HTML).not.toContain('are not present in the data mirrored here');
+  });
+
+  it('AnatomyPage_Reciprocal_MakesNoFalseHeldDataClaimForFullReciprocal', () => {
+    // The held snapshots carry only the Temporary Reciprocal product; the Full
+    // (Reciprocal) distinction lives in the category reference table. The page must
+    // not claim the register itself carries a Full (Reciprocal) product.
+    expect(ANATOMY_HTML).toContain('The held register data witnesses this');
+    expect(ANATOMY_HTML).toContain('reference-data/licence-category.csv');
+    expect(ANATOMY_HTML).not.toContain('The register also carries a separate');
+    expect(ANATOMY_HTML).not.toContain('the register carries both');
   });
 });
 
