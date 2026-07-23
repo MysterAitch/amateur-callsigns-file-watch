@@ -106,6 +106,16 @@ export const V1_COPY = {
       // {series} is the prefix ('M7'); {month} is the introduction month
       // rendered as "October 2018".
       seriesIntro: '{series} series opened {month}',
+      // The same-day event cluster caption: co-dated events collapse to one
+      // dial marker labelled by their count, with the individual event lines
+      // listed on the event rail below. {count} is the number of events on the
+      // shared day.
+      eventCluster: '{count} events',
+      // The current-state terminus suffix. Appended to the record's own latest
+      // status value ('Allocated — current state') as the green node closing the
+      // event story on both the dial scale and the event rail. Record-scoped: it
+      // names the latest status the mirror holds, not a claim about the register.
+      currentStateLabel: 'current state',
       readingLead: 'Reading',
       calibrationLead: 'Calibration',
       calibrationNote: 'The sightings beneath are how the event story is evidenced. A callsign can exist before any held publication records it, so the earliest event may predate the first sighting.',
