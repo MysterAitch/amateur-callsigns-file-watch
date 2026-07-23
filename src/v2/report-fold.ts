@@ -43,15 +43,39 @@ export function duckDbAvailable(): boolean {
   }
 }
 
+// Names a per-fold DuckDB thread cap. DuckDB defaults `threads` to the core
+// count, which is optimal for a fold running ALONE (it uses every core) but ruins
+// the report sweep's worker-parallel path: N folds at once each spawn ~cores
+// threads, oversubscribing an N-core runner N-fold, and every fold then runs
+// ~2-3x slower (measured on the #929 / PR #947 parallel golden run). The sweep
+// sets this to '1' for the span it runs folds concurrently (report-sweep.ts), so
+// N single-threaded folds match the N cores; off that path it is unset and folds
+// keep the default. A non-positive or non-numeric value is ignored (no preamble).
+export const REPORT_FOLD_THREADS_ENV = 'REPORT_FOLD_THREADS';
+
+// The `SET threads TO <n>;` preamble REPORT_FOLD_THREADS requests, or '' when it
+// names no positive integer. Prepended to every fold script: a fold that pins its
+// own `SET threads TO 1` for last-writer-wins ordering still issues that AFTER
+// this preamble, and the later SET wins, so a correctness-pinned fold is never
+// loosened — this preamble only constrains the otherwise-default folds.
+function foldThreadsPreamble(): string {
+  const configured = process.env[REPORT_FOLD_THREADS_ENV];
+  if (configured === undefined || configured.trim() === '') return '';
+  const parsed = Number.parseInt(configured, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return '';
+  return `SET threads TO ${parsed}; `;
+}
+
 // Run one SQL script against an in-memory DuckDB and parse its JSON result set.
 // `-json` emits the final statement's rows as a JSON array (leading PRAGMA/SET
 // statements return no rows and contribute nothing), so a script may open with
 // `SET threads TO 1;` before its single result-bearing query.
 export function foldQuery<Row>(sql: string): Row[] {
   const binary = duckDbBinary();
+  const script = foldThreadsPreamble() + sql;
   let stdout: string;
   try {
-    stdout = execFileSync(binary, ['-json', ':memory:', sql], { maxBuffer: 1 << 30, encoding: 'utf8' });
+    stdout = execFileSync(binary, ['-json', ':memory:', script], { maxBuffer: 1 << 30, encoding: 'utf8' });
   } catch (err) {
     throw new Error(
       `DuckDB fold failed (binary: ${binary}). Install the pinned CLI via .github/actions/setup-duckdb `

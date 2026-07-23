@@ -62,6 +62,7 @@ import { mdCell } from '../shared/markdown.ts';
 import { time, perfReport, perfSnapshot, perfMerge } from '../shared/perf.ts';
 import { isMainThread, workerData, parentPort } from 'node:worker_threads';
 import { runBounded, runTaskInWorker } from './report-sweep-pool.ts';
+import { REPORT_FOLD_THREADS_ENV } from '../v2/report-fold.ts';
 
 // mdCell (markdown table-cell sanitiser) is shared with the other report
 // generators; re-exported here so existing importers keep their path.
@@ -250,23 +251,48 @@ export async function runReportSweepParallel(concurrency: number = defaultReport
   const keys = listArchiveKeys().sort();
   const coverageRows = keys.map(key => entryCoverage(key, failed));
 
+  // Folded alone before any worker starts, so it keeps DuckDB's default
+  // threads=cores — one fold on an otherwise-idle runner should use every core
+  // (a solo fold measured ~2.4x faster multi-threaded than at threads=1, #929).
   const dataQualityFold = time('reports:data-quality-fold', () => buildDataQualityFold());
 
-  // Fan the independent generators across worker threads; each worker is this
-  // same module (self-as-worker: see the worker branch at the foot of the file),
-  // selecting its generator by id and posting its perf spans back to merge into
-  // the one breakdown. Launched BEFORE the main-thread quality reports so the two
-  // overlap on the folding thread.
-  const workerUrl = new URL(import.meta.url);
-  const pool = runBounded(INDEPENDENT_REPORT_TASKS, concurrency, async (task) => {
-    const result = await runTaskInWorker(workerUrl, task.id);
-    perfMerge(result.perf);
-    return result;
-  });
+  // Pin every fold in the concurrent region to a single DuckDB thread. Each fold
+  // otherwise defaults to threads=cores, so `concurrency` folds at once
+  // oversubscribe an N-core runner N-fold and each runs ~2-3x slower (measured on
+  // PR #947's parallel golden run); one thread per fold matches the folds to the
+  // cores. Set on process.env BEFORE the pool spawns so each worker thread
+  // inherits it in its process.env copy, and so it also constrains the
+  // main-thread quality-reports fold that runs alongside the pool below.
+  const previousFoldThreads = process.env[REPORT_FOLD_THREADS_ENV];
+  process.env[REPORT_FOLD_THREADS_ENV] = '1';
+  try {
+    // Fan the independent generators across worker threads; each worker is this
+    // same module (self-as-worker: see the worker branch at the foot of the
+    // file), selecting its generator by id and posting its perf spans back to
+    // merge into the one breakdown. Launched BEFORE the main-thread quality
+    // reports so the two overlap on the folding thread.
+    const workerUrl = new URL(import.meta.url);
+    const pool = runBounded(INDEPENDENT_REPORT_TASKS, concurrency, async (task) => {
+      const result = await runTaskInWorker(workerUrl, task.id);
+      perfMerge(result.perf);
+      return result;
+    });
+    // Observe the pool promise the instant it exists. If the main-thread work
+    // below throws before the `await pool`, the function unwinds without awaiting,
+    // and a worker that later rejects would otherwise orphan that rejection into
+    // an unhandled-rejection race (a second, misleading crash trace). This inert
+    // observer settles that branch; the real error still propagates — a worker
+    // failure through `await pool`, or the main-thread throw itself. On the happy
+    // path the pool resolves and this handler is never invoked.
+    pool.catch(() => {});
 
-  time('reports:quality-reports', () => writeQualityReports(keys, dataQualityFold));
+    time('reports:quality-reports', () => writeQualityReports(keys, dataQualityFold));
 
-  await pool;
+    await pool;
+  } finally {
+    if (previousFoldThreads === undefined) delete process.env[REPORT_FOLD_THREADS_ENV];
+    else process.env[REPORT_FOLD_THREADS_ENV] = previousFoldThreads;
+  }
 
   return assembleCoverage(keys, coverageRows, dataQualityFold, failed);
 }
