@@ -1,5 +1,7 @@
 [
-  "src/ci/value-catalogue-fold.test.ts",
+  "src/ci/value-catalogue-fold.licence-parse.test.ts",
+  "src/ci/value-catalogue-fold.flags.test.ts",
+  "src/ci/value-catalogue-fold.status-product.test.ts",
   "src/ci/quality-report-fold.test.ts",
   "src/ci/data-quality-fold.test.ts",
   "src/ci/event-time-coherency-corpus.test.ts",
