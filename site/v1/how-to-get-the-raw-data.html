@@ -51,7 +51,7 @@
     <header class="head">
       <h1>callsign-record<span class="path"> / get the raw data</span></h1>
       <p class="lede" style="font-size:1.3rem">Every archived publication, preserved byte-for-byte in the open repository — and the databases folded from them.</p>
-      <p class="note">The mirror preserves each publication exactly as published. Nothing is derived beyond what the sources state; every derived database carries provenance to the byte. The archived files and the code that folds them are in the public repository. The bundled downloads and the in-browser query surfaces are being migrated to this site; where a surface has not moved here yet, this page points to the repository rather than anywhere off this site.</p>
+      <p class="note">The mirror preserves each publication exactly as published. Nothing is derived beyond what the sources state; every derived database carries provenance to the byte. The archived files and the code that folds them — the build step that assembles each database from the raw files — are in the public repository. The bundled downloads and the in-browser query surfaces are being migrated to this site; where a surface has not moved here yet, this page points to the repository rather than anywhere off this site.</p>
     </header>
 
     <div class="lbl">browse the archive</div>
@@ -76,7 +76,7 @@
       </div>
       <div class="row">
         <h3><a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/src" target="_blank" rel="noopener">The folding code</a></h3>
-        <p>Every derived database is a deterministic projection of the archived bytes. The code that reads the archive and folds each tier is in the repository, so any derived value can be reproduced from the raw files.</p>
+        <p>Every derived database is a deterministic projection of the archived bytes — a rebuild from the raw files, never a re-interpretation of them. The code that reads the archive and folds each tier is in the repository, so any derived value can be reproduced from the raw files.</p>
       </div>
     </div>
 

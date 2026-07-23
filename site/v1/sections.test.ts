@@ -30,6 +30,8 @@ import {
   estimateCaptionWidthPx,
 } from './callsign-sections.js';
 import { renderSiteBar, datedFactChipParts } from './shell.js';
+import { preserveLookupInput } from './callsign-page.js';
+import { provenanceChip, inlineTerm, termCue, wireTermPopovers } from './glossary.js';
 import { EVENT_TIME_GLOSS, ASSERTION_TIME_GLOSS } from './copy.js';
 // The shared pure data functions, reused by injection (the exact functions the
 // deployed v1 orchestrator loads at runtime from the site root). Importing them
@@ -1904,5 +1906,193 @@ describe('v1 dial/rail round-2 collision treatments (ui, issue #921)', { tags: [
     expect(originRow?.textContent).toContain('how the original-start date is read');
     expect(originRow?.textContent).toContain('Licence-View field dictionary');
     expect(originRow?.textContent).toContain('not confirmed');
+  });
+});
+
+// The owner-reported round-4 defects and the batch minors (issue #921). The dial
+// pip/axis alignment and the anatomy spacing are layout relations the stylesheet
+// binds, so they are asserted against shell.css (the same approach the C1 grid
+// tests use); the input-retention rule is asserted through its own seam.
+describe('v1 round-4 fixes and minors (issue #921)', { tags: ['ui'] }, () => {
+  const shellCss = fs.readFileSync('site/v1/shell.css', 'utf8');
+  const tokensCss = fs.readFileSync('site/v1/tokens.css', 'utf8');
+
+  it('EvidenceDial_WhenGrownHeadroom_SightingPipsHangFromTheComposedAxisOffset', () => {
+    // Round-4 regression: near-dated captions grow the panel headroom and slide
+    // the axis DOWN (a larger --axis-top), but the downward sighting pips stayed
+    // pinned to the old compact 136px and detached from the axis line. Every
+    // axis-anchored element — baseline, event stems, year ticks, state terminus
+    // AND the sighting track — must read the one composed --axis-top offset.
+    const camps = ['2018-06-01', '2018-06-02', '2018-06-03', '2018-06-04', '2018-06-05']
+      .map((day, i) => ({ day, datasets: [{ title: 'vintage ' + i, href: '#', vintage: '20' + (20 + i) + '-01-01' }] }));
+    const dial = {
+      hasEvents: true,
+      events: [{ day: '2018-06-05', label: 'licence-version start', kindId: 'licence-version-original-start', state: false, assertedBy: [] }],
+      sightings: [{ vintage: '2026-06-23' }, { vintage: '2024-01-01' }],
+      disagreements: [{ kindLabel: 'licence-version start', camps }],
+    };
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({ dial }));
+    const scale = root.querySelector<HTMLElement>('.scale');
+    const axisTop = parseInt(scale?.style.getPropertyValue('--axis-top') ?? '0', 10);
+    // The headroom grew, so the axis is pushed below the compact default.
+    expect(axisTop).toBeGreaterThan(136);
+    // The downward sighting pips are drawn on this grown composition …
+    expect(root.querySelectorAll('.scale .si').length).toBeGreaterThan(0);
+    // … and the stylesheet anchors that sighting track to the SAME composed
+    // --axis-top the axis and event track use, so the pips follow the shift.
+    expect(shellCss).toMatch(/\.scale \.si\{position:absolute;top:var\(--axis-top,136px\)\}/);
+  });
+
+  it('Anatomy_RoleEyebrow_IsSeparatedFromTheDescriptionByAStackedGap', () => {
+    // The eyebrow ran straight into the description ("PREFIXThe UK country
+    // block"). The meaning block now stacks vertically with a gap, so the role
+    // label and the description are visibly separated rows, not run-together
+    // inline text.
+    expect(shellCss).toMatch(/\.anat \.m\{[^}]*flex-direction:column[^}]*\}/);
+    expect(shellCss).toMatch(/\.anat \.m\{[^}]*gap:[^}]*\}/);
+    // The role remains a block so it never abuts the description inline.
+    expect(shellCss).toMatch(/\.anat \.m \.role\{[^}]*display:block[^}]*\}/);
+  });
+
+  it('SurfaceElevation_Token_IsBumpedForVisibleLiftOnThePlainGround', () => {
+    // C2: the near-flat original shadow lost the floating-card intent on the
+    // plain ground; the elevation token now carries more alpha and a wider,
+    // softer second layer.
+    expect(tokensCss).toMatch(/--elevation:0 1px 2px rgba\(17,24,35,\.16\),0 4px 12px rgba\(17,24,35,\.11\)/);
+  });
+
+  it('PrimaryNav_Stylesheet_SitsAtA14pxReadingAboveTheLegibilityFloor', () => {
+    // C3: the top-level journey nav was at the ~12px floor; it now reads at 14px.
+    expect(shellCss).toMatch(/nav\.journeys a\{[^}]*font-size:14px/);
+  });
+
+  it('MobileDial_Stylesheet_SignalsHorizontalScrollAndGivesControls44pxTouchTargets', () => {
+    // A5: the instrument scrolls horizontally on a narrow viewport. Edge shadows
+    // (background-attachment:local) make that scroll discoverable, and the
+    // highlight controls become ≥44px touch targets on small screens.
+    expect(shellCss).toMatch(/\.dial\{[^}]*background-attachment:local,local,scroll,scroll[^}]*\}/);
+    expect(shellCss).toMatch(/\.dial-ctl button\{min-height:44px/);
+  });
+});
+
+// The lookup box must never discard the reader's entered callsign, whatever the
+// resolution concludes: after a not-found, an invalid format or a shard-fetch
+// failure the typed callsign stays put so a typo is fixed in place, not retyped
+// (issue #921). Preservation happens once at entry — before any resolution — so
+// it structurally covers every downstream path.
+describe('v1 lookup input retention (issue #921)', { tags: ['ui'] }, () => {
+  function lookupBox(): HTMLInputElement {
+    document.body.innerHTML = '<input id="csq" class="lk-in" placeholder="e.g. M7TEE">';
+    return document.getElementById('csq') as HTMLInputElement;
+  }
+
+  it('LookupInput_AfterNotFoundLookup_RetainsTheEnteredCallsign', () => {
+    const input = lookupBox();
+    preserveLookupInput(document, 'M7ZZZ');
+    expect(input.value).toBe('M7ZZZ');
+  });
+
+  it('LookupInput_AfterInvalidFormat_RetainsTheEnteredCallsign', () => {
+    const input = lookupBox();
+    preserveLookupInput(document, '!!bad!!');
+    expect(input.value).toBe('!!bad!!');
+  });
+
+  it('LookupInput_AfterShardFetchFailure_RetainsTheEnteredCallsign', () => {
+    // Set at entry, before any fetch, so a later fetch failure cannot empty it.
+    const input = lookupBox();
+    preserveLookupInput(document, 'G4ABC');
+    expect(input.value).toBe('G4ABC');
+  });
+
+  it('LookupInput_WhenNoCallsignEntered_LeavesThePlaceholderShowing', () => {
+    const input = lookupBox();
+    preserveLookupInput(document, '   ');
+    expect(input.value).toBe('');
+  });
+});
+
+// Coined vocabulary and provenance chips become click-toggled popovers with the
+// definition inline — the interaction grammar for jargon (issue #921, B1). The
+// popover is a plain <details> so it works with no script; the enhancement makes
+// the set well-mannered (one open at a time, Escape-dismissable).
+describe('v1 glossary popovers (issue #921, B1)', { tags: ['ui'] }, () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  it('ProvenanceChip_Rendered_KeepsItsChipTextAndCarriesTheMechanismDefinition', () => {
+    // The chip still reads "derived"; clicking it now explains what that means,
+    // naming the mechanism (computed by the mirror) — never a verdict.
+    const chip = provenanceChip('derived');
+    expect(chip.matches('details.term.prov-term')).toBe(true);
+    expect(chip.querySelector('.tb')?.textContent).toBe('derived');
+    expect(chip.querySelector('.pop')?.textContent).toContain('computed by the mirror');
+  });
+
+  it('InlineTerm_WithNoScript_RevealsItsDefinitionOnTheOpenState', () => {
+    // The no-JS baseline: a plain <details> whose definition shows when open, so
+    // the affordance never depends on the enhancement script.
+    const term = inlineTerm('sighting');
+    document.body.appendChild(term);
+    expect(term.querySelector('summary')?.textContent).toBe('sighting');
+    term.open = true;
+    expect(term.querySelector('.pop')?.textContent).toContain('archived publication');
+  });
+
+  it('TermPopovers_WhenOneOpens_TheOthersClose', () => {
+    const a = inlineTerm('vintage');
+    const b = inlineTerm('publication');
+    document.body.append(a, b);
+    wireTermPopovers(document);
+    a.open = true; a.dispatchEvent(new Event('toggle'));
+    b.open = true; b.dispatchEvent(new Event('toggle'));
+    expect(a.open).toBe(false);
+    expect(b.open).toBe(true);
+  });
+
+  it('TermPopovers_OnEscape_AllClose', () => {
+    const a = termCue('eventTime');
+    document.body.appendChild(a);
+    wireTermPopovers(document);
+    a.open = true; a.dispatchEvent(new Event('toggle'));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(a.open).toBe(false);
+  });
+
+  it('EvidenceDial_InferredFinding_IsAClickTogglePopoverNotBarePlainText', () => {
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({
+      dial: {
+        hasEvents: true,
+        events: [{ day: '2021-04-16', label: 'licence issued', state: false, assertedBy: [] }],
+        sightings: [{ vintage: '2026-06-23' }],
+        findings: [{ statement: 'One licence: originated 2021-04-16', caveats: [] }],
+      },
+    }));
+    const finding = root.querySelector('.dial-finding');
+    expect(finding?.querySelector('details.term.prov-term .tb')?.textContent).toBe('inferred');
+    expect(finding?.querySelector('.pop')?.textContent).toContain('interprets from the held values');
+  });
+
+  it('RawDataPage_FoldAndProjection_AreGlossedAtFirstUse', () => {
+    // D1: the raw-data guide introduces its internal "fold" metaphor and
+    // "projection" with plain-English first-use glosses so a non-specialist can
+    // decode them.
+    const html = fs.readFileSync('site/v1/how-to-get-the-raw-data.html', 'utf8');
+    expect(html).toContain('the build step that assembles each database from the raw files');
+    expect(html).toContain('a rebuild from the raw files, never a re-interpretation');
+  });
+
+  it('EvidenceDial_TrackLabels_KeepTheirVerbatimGlossAndGainAPopoverCue', () => {
+    // The one-line gloss stays verbatim in the prose (the cue is a trailing
+    // sibling), and a "?" cue opens the fuller definition as a popover.
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({
+      dial: { hasEvents: true, events: [{ day: '2021-04-16', label: 'licence issued', state: false, assertedBy: [] }], sightings: [{ vintage: '2026-06-23' }] },
+    }));
+    const evLab = root.querySelector('.tracklab.event');
+    expect(evLab?.querySelector('details.term.cue')).not.toBeNull();
+    // The verbatim gloss is still contiguous within the label text.
+    expect(evLab?.textContent).toContain(EVENT_TIME_GLOSS);
   });
 });

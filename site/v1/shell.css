@@ -52,15 +52,21 @@ a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible{
 
 /* ---- persistent compact journey nav ---- */
 nav.journeys{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap;padding:.35rem 0 .5rem}
-nav.journeys a{font-family:var(--mono);font-size:12px;letter-spacing:.02em;color:var(--muted);
-  padding:.3rem .55rem;border-radius:2px;white-space:nowrap}
+/* Primary journey nav: lifted off the ~12px legibility floor to a 14px reading
+   within the B-light hierarchy — the top-level wayfinding earns a size the eye
+   does not have to strain for (issue #921, C3). */
+nav.journeys a{font-family:var(--mono);font-size:14px;letter-spacing:.02em;color:var(--muted);
+  padding:.32rem .58rem;border-radius:2px;white-space:nowrap}
 nav.journeys a:hover{color:var(--signal);background:var(--panel-2);text-decoration:none}
 nav.journeys a[aria-current="page"]{color:var(--ink);background:var(--panel-2);
   box-shadow:inset 0 -2px 0 var(--signal);font-weight:600}
 nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 
 /* ---- breadcrumb (depth) ---- */
-.crumbs{font-family:var(--mono);font-size:11.5px;color:var(--muted);padding:.6rem 0 0;letter-spacing:.02em}
+/* The breadcrumb is subordinate depth-chrome, so it stays quieter than the
+   primary nav — but nudged off the 11.5px floor to a steadier 12.5px (issue
+   #921, C3). */
+.crumbs{font-family:var(--mono);font-size:12.5px;color:var(--muted);padding:.6rem 0 0;letter-spacing:.02em}
 .crumbs a{color:var(--muted)}.crumbs a:hover{color:var(--signal)}
 .crumbs b{color:var(--ink);font-weight:600}
 .crumbs .arw{color:var(--line-2);padding:0 .35rem}
@@ -311,10 +317,18 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
    three-part case with a blank fourth cell; auto-fit fills the row at either
    count with no empty tile. */
 .anat{display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
-.anat .p{background:var(--panel);padding:.85rem 1rem;display:flex;align-items:baseline;gap:.8rem}
-.anat .g{font-family:var(--mono);font-size:1.9rem;font-weight:600;color:var(--signal)}
-.anat .m .role{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.anat .m .d{font-size:.95rem;color:var(--ink-2)}
+/* A part cell pairs the big part glyph with its meaning block. The glyph aligns
+   to the TOP of the meaning (not a shared baseline, which pulled the small
+   eyebrow down against the glyph's cap height), and the two sit in a comfortable
+   gutter with even padding (issue #921 spacing pass). */
+.anat .p{background:var(--panel);padding:1rem 1.1rem;display:flex;align-items:flex-start;gap:1rem}
+.anat .g{font-family:var(--mono);font-size:1.9rem;font-weight:600;color:var(--signal);line-height:1;flex:0 0 auto}
+/* The meaning block stacks its parts VERTICALLY so the role eyebrow no longer
+   runs straight into the description ("PREFIXThe UK country block"): the eyebrow
+   takes its own line with a clear gap beneath it before the description. */
+.anat .m{display:flex;flex-direction:column;gap:.35rem;padding-top:.1rem;min-width:0}
+.anat .m .role{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.anat .m .d{font-size:.95rem;color:var(--ink-2);line-height:1.45}
 
 /* ---- record-fidelity notes ---- */
 .notes .n{border:1px solid var(--line);border-left:3px solid var(--signal-dim);background:var(--panel);
@@ -327,8 +341,26 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
    assertion scale calibration (lower, grey). Ported from
    green-field mockup D into B-light tokens (issue #921).
    ============================================================ */
-.dial{background:var(--bg-2);border:1px solid var(--line);border-radius:3px;padding:1.05rem 1.2rem 1rem;margin-top:.7rem;
-  overflow-x:auto;box-shadow:inset 0 1px 2px rgba(17,24,35,.05)}
+/* On a narrow viewport the instrument stays wider than the panel (min-width:600px
+   below) and scrolls horizontally. Rather than leave that scroll invisible, edge
+   shadows signal there is more content off each side and fade away once that end
+   is reached — the classic background-attachment:local scroll cue, dependency-
+   free: the panel-coloured cover layers scroll WITH the content and mask the
+   shadow at whichever end is fully in view, while the grey shadow layers stay put
+   (issue #921, A5). Momentum scrolling on touch. */
+.dial{border:1px solid var(--line);border-radius:3px;padding:1.05rem 1.2rem 1rem;margin-top:.7rem;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+  background-color:var(--bg-2);
+  background-image:
+    linear-gradient(to right,var(--bg-2),rgba(228,233,239,0) 2.5rem),
+    linear-gradient(to left,var(--bg-2),rgba(228,233,239,0) 2.5rem),
+    linear-gradient(to right,rgba(17,24,35,.11),rgba(17,24,35,0) 1.1rem),
+    linear-gradient(to left,rgba(17,24,35,.11),rgba(17,24,35,0) 1.1rem);
+  background-position:0 0,100% 0,0 0,100% 0;
+  background-repeat:no-repeat;
+  background-size:2.5rem 100%,2.5rem 100%,1.1rem 100%,1.1rem 100%;
+  background-attachment:local,local,scroll,scroll;
+  box-shadow:inset 0 1px 2px rgba(17,24,35,.05)}
 .tracklab{display:flex;align-items:baseline;gap:.5rem;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.45}
 .tracklab .sw{width:.9rem;height:.16rem;display:inline-block;flex:none;position:relative;top:-.16rem}
 .tracklab.event{color:var(--signal-strong)}
@@ -401,8 +433,13 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .scale .ev .vstack .r.disputed[data-kind]::before{background:var(--panel);border:1px solid var(--kt)}
 .scale .ev .vstack .r.disputed{color:var(--kt,var(--signal-strong))}
 .scale .ev .vstack .d{font-family:var(--mono);font-size:10px;font-weight:400;color:var(--muted);line-height:var(--stack-day-h,15px);height:var(--stack-day-h,15px)}
-/* sighting markers point DOWN from the axis — calibration, muted */
-.scale .si{position:absolute;top:136px}
+/* sighting markers point DOWN from the axis — calibration, muted. They hang from
+   the SAME composed axis line as the baseline, event stems, year ticks and the
+   state terminus: every axis-anchored element reads --axis-top, so when a tall or
+   near-dated caption grows the headroom and slides the axis down, the assertion
+   track follows it and the pips stay joined to the axis rather than detaching at
+   the old compact height (issue #921). */
+.scale .si{position:absolute;top:var(--axis-top,136px)}
 .scale .si .stem{position:absolute;top:0;left:-.5px;width:1px;height:20px;background:var(--line-2)}
 .scale .si .pip{position:absolute;top:18px;left:-3px;width:6px;height:6px;border-radius:50%;background:var(--muted)}
 .scale .si .cap{position:absolute;top:28px;transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);
@@ -492,9 +529,34 @@ td.date,.num{font-family:var(--mono);white-space:nowrap;color:var(--ink-2)}
 /* <details> fallback: hidden until the disclosure is open */
 .term:not([open]) .pop{display:none}
 .term[open] .pop{display:block}
-/* popover-API upgrade: the script converts .pop to [popover]; keep it positioned */
-.pop[popover]{position:absolute;margin:0;inset:auto}
+/* Viewport-aware flip (issue #921, B1): a term near the right edge would push a
+   left-anchored popover off-screen; the script sets data-edge="r" and the
+   popover then hangs from the term's right instead. */
+.term[data-edge="r"] .pop{left:auto;right:0}
 .pop .pl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--signal);display:block;margin-bottom:.25rem}
+/* Standalone "?" cue term (issue #921, B1): used where the surrounding prose
+   already writes the term out and only a click-through to the fuller definition
+   is wanted (e.g. the dial track labels). A small ringed question mark. */
+.term.cue{display:inline-block;vertical-align:baseline}
+.term.cue>summary{list-style:none;display:inline-flex;align-items:center;justify-content:center;
+  width:1.05em;height:1.05em;border:1px solid var(--signal-dim);border-radius:50%;border-bottom:1px solid var(--signal-dim);
+  font-family:var(--mono);font-size:.82em;line-height:1;color:var(--signal-strong);background:var(--signal-tint);cursor:help}
+.term.cue>summary::-webkit-details-marker{display:none}
+.term.cue>summary:hover{background:#c7e6ea;border-color:var(--signal)}
+.term.cue>summary:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+/* Provenance-chip term (issue #921, B1): the .tb chip itself is the affordance,
+   so the summary carries no dashed underline — only a help cursor and a small
+   trailing "?" cue inside the chip. Clicking the chip opens what the mechanism
+   (derived / inferred / context) means. */
+.term.prov-term{display:inline-block;vertical-align:middle;margin-right:.4rem}
+.term.prov-term>summary{list-style:none;display:inline;border-bottom:none;cursor:help}
+.term.prov-term>summary::-webkit-details-marker{display:none}
+.term.prov-term>summary:focus-visible{outline:2px solid var(--signal);outline-offset:2px;border-radius:2px}
+.term.prov-term .tb{margin-right:0}
+.term.prov-term>summary .tb::after{content:"?";margin-left:.28em;font-weight:700;opacity:.75}
+.term.prov-term>summary:hover .tb{border-color:var(--signal);background:#c7e6ea}
+/* A track-label cue sits in the flex tracklab row without disturbing baseline. */
+.tracklab .term.cue{position:relative;top:0}
 
 /* ---- folded disclosure ---- */
 details.fold{border:1px solid var(--line);background:var(--panel);margin-top:1.1rem;box-shadow:var(--elevation);border-radius:3px}
@@ -533,6 +595,11 @@ details.fold .b p:last-child{margin-bottom:0}
   .tl .when{text-align:left;margin-bottom:.15rem}
   .tl .track{border-left:0;padding-left:0}
   .tl .track::before{display:none}
+  /* Dial highlight controls become ≥44px touch targets on small screens, so the
+     "Show both / Event only / Assertion only" toggles are comfortably tappable
+     alongside the scrollable instrument (issue #921, A5). */
+  .dial-ctl{gap:.5rem}
+  .dial-ctl button{min-height:44px;padding:.5rem .8rem;font-size:11.5px}
 }
 
 /* ---- prefers-reduced-motion: no smooth transitions/animations ---- */
