@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Timeline · callsign-record</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="shell.css">
+<script type="module" src="timeline.js"></script>
+</head>
+<!-- The static markup below is the JavaScript-off baseline: the header, nav and
+     footer read with no script, and the page's framing and reading notes stand
+     complete. The per-year charts, the cumulative table and the scrubber are a
+     build-derived projection of the archived publications (never hand-authored),
+     so timeline.js fetches the root-served timeline.json and renders them. Event
+     time leads; each figure names the publications and vintages that assert it. -->
+<body>
+
+<div id="sitebar">
+  <header class="sitebar">
+    <div class="wrap">
+      <div class="topbar">
+        <span class="id">callsign-record</span>
+        <span>uk amateur register mirror</span>
+        <span class="chip asof" title="Build-derived fact: the newest publication held is dated 23 June 2026, and 65 publications are held in total. This page was generated from that set.">Record as of 23 June 2026 · <b>65</b> publications held</span>
+      </div>
+      <nav class="journeys" aria-label="Journeys">
+        <a href="index.html">Home</a><span class="sep">·</span>
+        <a href="callsign.html">Look up</a><span class="sep">·</span>
+        <a href="on-this-day.html">On this day</a><span class="sep">·</span>
+        <a href="timeline.html" aria-current="page">Timeline</a><span class="sep">·</span>
+        <a href="how-to-get-the-raw-data.html">Get the raw data</a><span class="sep">·</span>
+        <a href="glossary.html">Glossary</a><span class="sep">·</span>
+        <a href="anatomy.html">Anatomy</a>
+      </nav>
+    </div>
+  </header>
+</div>
+
+<main data-page="timeline">
+  <div class="wrap">
+    <div id="breadcrumb">
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span class="arw">→</span><b>Timeline</b></nav>
+    </div>
+
+    <header class="head">
+      <div class="ey">event-time over the years</div>
+      <h1>callsign-record<span class="path"> / timeline</span></h1>
+    </header>
+
+    <div id="sections">
+      <!-- JS-off baseline: the framing and the honest enhancement note. The
+           per-year charts, cumulative table and scrubber render from
+           timeline.json when the script runs. -->
+      <section class="surface">
+        <p class="note hx-lede">Event time — when things happened, as the record states it. The held corpus’s licensing activity along event time: for each licensing kind, how many dated events the archived publications place in each year. Scrub the years to read what the mirror can say as at any instant – each figure naming the publications and vintages that assert it, the assertion time beneath. Counts describe this mirror’s holdings, never “the whole truth”.</p>
+        <p class="note hx-note">The per-year charts and the scrubber render when the page’s script runs. The framing and the reading notes below are the complete no-script baseline.</p>
+        <p class="note">For the same event time arranged by calendar day, see the <a href="on-this-day.html">on-this-day calendar</a>.</p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div id="sitefooter">
+  <footer class="sitefoot">
+    <div class="wrap">
+      <p class="foot-prov">callsign-record · uk amateur register mirror<br>provenance carried to the byte in the raw-keyed claim ledger · values as published, not independently verified · not affiliated with or endorsed by Ofcom</p>
+    </div>
+  </footer>
+</div>
+
+</body>
+</html>

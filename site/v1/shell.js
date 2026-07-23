@@ -53,6 +53,8 @@ function journeys() {
   return [
     { id: 'home', label: j.home, href: 'index.html' },
     { id: 'lookup', label: j.lookup, href: 'callsign.html' },
+    { id: 'onThisDay', label: j.onThisDay, href: 'on-this-day.html' },
+    { id: 'timeline', label: j.timeline, href: 'timeline.html' },
     { id: 'raw', label: j.raw, href: 'how-to-get-the-raw-data.html' },
     { id: 'glossary', label: j.glossary, href: 'glossary.html' },
     { id: 'anatomy', label: j.anatomy, href: 'anatomy.html' },

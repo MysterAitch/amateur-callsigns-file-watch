@@ -1201,6 +1201,20 @@ function originGroupRow(group) {
   return tl;
 }
 
+// The link-out to the deeper event-time surfaces (issue #932): the same
+// event-first hierarchy, zoomed out to the whole record. The v1 history pages
+// are part of the v1 surface, so these link on-surface.
+/** @returns {HTMLElement} */
+function eventTimelineMore() {
+  const p = el('p', 'note evt-more');
+  p.append(V1_COPY.callsign.eventTimelineMoreLead);
+  p.appendChild(link('on-this-day.html', V1_COPY.callsign.eventTimelineMoreOnThisDay));
+  p.append(' · ');
+  p.appendChild(link('timeline.html', V1_COPY.callsign.eventTimelineMoreTimeline));
+  p.append('.');
+  return p;
+}
+
 /** @param {HTMLElement} host @param {CallsignModel} model */
 function mountEventTimeline(host, model) {
   const surface = el('section', 'surface');
@@ -1230,6 +1244,7 @@ function mountEventTimeline(host, model) {
       tlWrap.appendChild(stateTerminusRow(stateNode));
       surface.appendChild(tlWrap);
     }
+    surface.appendChild(eventTimelineMore());
     host.appendChild(surface);
     return;
   }
@@ -1277,6 +1292,7 @@ function mountEventTimeline(host, model) {
     surface.appendChild(details);
   }
 
+  surface.appendChild(eventTimelineMore());
   host.appendChild(surface);
 }
 

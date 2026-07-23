@@ -247,9 +247,14 @@ async function main(): Promise<void> {
   //    serve the honest static 404 (not a redirect, not a broken link).
   await expectPageContent('../', { include: ['callsign-record', 'Look up'] }, 'root / (v1 home)');
   await expectPageContent('../callsign.html', { include: ['Look up a callsign'] }, 'root /callsign.html (v1)');
+  await expectPageContent('../on-this-day.html', { include: ['callsign-record', 'On this day'] }, 'root /on-this-day.html (v1)');
+  await expectPageContent('../timeline.html', { include: ['callsign-record', 'Timeline'] }, 'root /timeline.html (v1)');
   await expectPageContent('../how-to-get-the-raw-data.html', { include: ['get the raw data'] }, 'root /how-to-get-the-raw-data.html (v1)');
   await expectPageContent('../glossary.html', { include: ['callsign-record', 'reading the record'] }, 'root /glossary.html (v1)');
   await expectPageContent('../anatomy.html', { include: ['callsign-record', 'The parts of a UK amateur callsign'] }, 'root /anatomy.html (v1)');
+  // The root-served history manifests the two pages fetch (issue #932).
+  await expectOk('../on-this-day.json', 'root /on-this-day.json (v1 history data)');
+  await expectOk('../timeline.json', 'root /timeline.json (v1 history data)');
   await expectHonest404('../statistics.html', 'isn’t part of the site', 'root /statistics.html (honest 404)');
 
   console.log('');

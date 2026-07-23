@@ -39,6 +39,8 @@ export const V1_COPY = {
   journeys: {
     home: 'Home',
     lookup: 'Look up',
+    onThisDay: 'On this day',
+    timeline: 'Timeline',
     raw: 'Get the raw data',
     glossary: 'Glossary',
     anatomy: 'Anatomy',
@@ -158,6 +160,11 @@ export const V1_COPY = {
     evidenceLead: 'One shared year axis. The event readings are the primary scale, above; the publication sightings are the calibration beneath – how the reading was taken. Highlight one clock to read it alone.',
     eventTimelineLabel: 'what happened',
     eventTimelineLead: EVENT_TIME_GLOSS + ' Each event names the source that asserts it.',
+    // The link-out to the deeper event-time surfaces (issue #932): the same
+    // event-first hierarchy, zoomed out to the whole record.
+    eventTimelineMoreLead: 'Zoom out to the whole record along event time: ',
+    eventTimelineMoreOnThisDay: 'the on-this-day calendar',
+    eventTimelineMoreTimeline: 'the timeline',
     anatomyLabel: 'anatomy',
     // The link-out from the terse per-callsign anatomy grid to the full
     // structure-reference page (issue #931): the grid answers "what are this
@@ -359,6 +366,88 @@ export const V1_COPY = {
     whoLabel: 'who decides what is allowed',
     sourcesLabel: 'sources',
     foot: 'An independent, unofficial mirror. Plain-English background, not official guidance – for licensing questions consult Ofcom directly.',
+  },
+
+  // The v1 history journey (issue #932): two event-first surfaces built on the
+  // settled temporal hierarchy – event time leads (what the record states
+  // happened), assertion time rides beneath as the evidence layer (which
+  // publications state it). Both ledes carry the event-time gloss verbatim, the
+  // same calibration the callsign dial rests on. Record-scoped throughout, no
+  // verdict words; the claims-bar test walks every string here.
+  history: {
+    onThisDay: {
+      eyebrow: 'event-time calendar',
+      title: 'On this day',
+      lede: EVENT_TIME_GLOSS + ' Dated licensing events, arranged by calendar day: for each series, the earliest start evidence and the earliest cancellation evidence the held corpus carries. Every entry cites the publications that assert it – its assertion time – so the two clocks never merge. “Earliest held” describes this mirror’s holdings, never “the first ever”.',
+      // The no-JS baseline states plainly that the dated calendar renders with
+      // the page’s script (the entries are a build-derived projection, never
+      // hand-authored) – so a script-off reader is never left at a dead control.
+      enhanceNote: 'The dated calendar renders when the page’s script runs. The framing and the reading notes below are the complete no-script baseline.',
+      // The viewer’s own calendar day, surfaced from the rendered calendar.
+      todayLead: 'Today is {day}',
+      todayEntriesLink: '{count} on this day',
+      todayIn: ' in the held record.',
+      todayNone: 'Today is {day}. The held corpus places no first-of-series event on this day – non-observation, never “nothing ever happened on this day”.',
+      // Per-entry wording.
+      leadStart: 'earliest held start evidence',
+      leadCancellation: 'earliest held cancellation evidence',
+      tie: '{count} callsigns tie on this day',
+      assertedByFold: 'asserted by {count} {publication}',
+      carriedHistory: 'This start predates the {series}-series’ own introduction ({month}): it is carried licence history – the original start of the holder’s licence chain, which this later-introduced callsign inherited, not the callsign’s own issuance (the callsign did not exist this early).',
+      // The folded mechanism explainer; each caveat’s full gloss rides beside it
+      // from the manifest legend, so a caveat id never renders bare. Three
+      // further bullets carry always-applicable background that no caveat id
+      // covers, appended after the legend (see explainerCarriedHistory /
+      // explainerUnparsedSeries / explainerFurtherWorking below).
+      explainerLabel: 'How to read these dates (earliest-surviving semantics, reissues, coverage)',
+      explainerLead: 'Every entry is derived from what the archived publications assert. The caveats an entry can carry:',
+      // The carried-licence-history background, with its evidentiary sourcing:
+      // Ofcom’s own Licence-View field dictionary (disclosed under FOI,
+      // 2014/15) and the dated series introductions the carried-origin reading
+      // rests on.
+      explainerCarriedHistory: 'Carried licence history – the start dates are the licence chain’s original start, never the callsign’s own issuance date (Ofcom’s Licence-View field dictionary, disclosed under FOI, 2014/15). A recently-introduced series inherits the holder’s existing licence history – M7 from October 2018, M8 and M9 from October 2025 – so its earliest held start can predate the series’ own introduction by decades. Where it does, the entry says so: the carried origin is the interesting fact, not a flaw in the date.',
+      // Series the parser reads no prefix from have no slot on this calendar.
+      explainerUnparsedSeries: 'Series whose callsigns the parser reads no prefix series from – visitor M/… renderings, special-event GB… forms – have no slot here; their records remain on the per-callsign page.',
+      // The full inference-rule working (the earliest-surviving rules; how
+      // cross-vintage revisions are reconciled) lives in the project’s
+      // committed reports, which are not a v1 surface: the substance is
+      // carried inline here rather than linked.
+      explainerFurtherWorking: 'The full working behind these readings – the earliest-surviving inference rules, and how cross-vintage revisions are reconciled – is carried in the project’s committed reports rather than on this page.',
+      countFoot: '{count} entries across {days} calendar days, covering the series the held corpus carries start or cancellation evidence for. Days not listed carry no held evidence – non-observation, never “nothing happened”.',
+      empty: 'No entries. The held corpus carries no per-series licensing-event evidence to place on a calendar – a statement about these holdings, not about history.',
+      loadError: 'Could not load the on-this-day calendar. The framing and reading notes above are the complete record; the timeline offers the same event time by year.',
+    },
+    timeline: {
+      eyebrow: 'event-time over the years',
+      title: 'Timeline',
+      lede: EVENT_TIME_GLOSS + ' The held corpus’s licensing activity along event time: for each licensing kind, how many dated events the archived publications place in each year. Scrub the years to read what the mirror can say as at any instant – each figure naming the publications and vintages that assert it, the assertion time beneath. Counts describe this mirror’s holdings, never “the whole truth”.',
+      enhanceNote: 'The per-year charts and the scrubber render when the page’s script runs. The framing and the reading notes below are the complete no-script baseline.',
+      histogramsLabel: 'activity by year, per licensing kind',
+      histogramsNote: 'Each bar is a count of distinct dated events (one per callsign, kind and day; a date asserted by several vintages is one event). A year with no bar carries no held evidence for that kind – non-observation, never “nothing happened”.',
+      histogramTotal: '{count} dated events across the held corpus',
+      cumulativeLabel: 'as at the end of a year',
+      scrubberLabel: 'Scrub the timeline – as at the end of a year',
+      readoutAsAt: 'As at end of {year}',
+      readoutStarts: '{count} {subject} a surviving licence-start dated on or before end of {year}.',
+      // The parenthetical names the bi-temporal test itself: "stated end on or
+      // after then" is the reservation-still-open TEST, "stating vintage proven
+      // by then" is the proof bound on when that publication's assertion holds.
+      readoutReservations: '{count} reservation {subject} stated to still be open at end of {year} (stated end on or after then, stating vintage proven by then) – a reading of the stated bound, never a status.',
+      readoutActivity: 'New dated events in {year}: ',
+      readoutSeries: 'Leading prefix series by starts to date: ',
+      readoutAssertedLead: 'This year’s events are asserted by ',
+      readoutAssertedNone: 'No new dated event is asserted in {year} – the figures above carry forward from earlier years.',
+      readoutCaveats: 'Caveats: ',
+      // The folded mechanism explainer; see the on-this-day copy above for the
+      // rationale for the three non-caveat background bullets below.
+      explainerLabel: 'How to read this timeline (derived counts, earliest-surviving semantics, non-observation)',
+      explainerLead: 'Every figure is derived from what the held vintages assert, and cites the datasets and their vintages that state it – the two time axes are never merged. The caveats the figures can carry:',
+      explainerCarriedHistory: 'Carried licence history – a “starts to date” count includes callsigns whose earliest surviving start is the licence chain’s original start, never the callsign’s own issuance date (Ofcom’s Licence-View field dictionary, disclosed under FOI, 2014/15). A recently-introduced series inherits the holder’s existing licence history – M7 from October 2018, M8 and M9 from October 2025 – so some of its counted starts can predate the series’ own introduction by decades: the carried origin is the interesting fact, not a flaw in the count.',
+      explainerUnparsedSeries: 'Series whose callsigns the parser reads no prefix series from – visitor M/… renderings, special-event GB… forms – have no slot in these per-series figures; their records remain on the per-callsign page.',
+      explainerFurtherWorking: 'The full working behind these figures – the earliest-surviving inference rules, and how cross-vintage revisions are reconciled – is carried in the project’s committed reports rather than on this page.',
+      empty: 'No entries. The held corpus carries no dated licensing-event evidence to place on a timeline – a statement about these holdings, not about history.',
+      loadError: 'Could not load the timeline data. The framing and reading notes above are the complete record; the on-this-day calendar offers the same event time by calendar day.',
+    },
   },
 };
 

@@ -54,7 +54,7 @@ describe('v1 self-containment', { tags: ['unit'] }, () => {
   it('V1Surface_ShipsTheLaunchedPages_AndTheirChrome', () => {
     // A guard that the walk above is not vacuous: the pages that must exist do.
     const names = new Set(fs.readdirSync(V1_DIR));
-    for (const page of ['index.html', 'callsign.html', 'how-to-get-the-raw-data.html', 'glossary.html', 'anatomy.html', '404.html']) {
+    for (const page of ['index.html', 'callsign.html', 'on-this-day.html', 'timeline.html', 'how-to-get-the-raw-data.html', 'glossary.html', 'anatomy.html', '404.html']) {
       expect(names.has(page), `${page} is missing from site/v1`).toBe(true);
     }
   });
@@ -64,7 +64,7 @@ describe('v1 self-containment', { tags: ['unit'] }, () => {
     // v1 page carries a noindex meta while the flag is false, and none may once
     // it flips. Coupling the static pages to the flag makes the launch flip
     // one line that cannot half-apply.
-    for (const page of ['index.html', 'callsign.html', 'how-to-get-the-raw-data.html', 'glossary.html', 'anatomy.html', '404.html']) {
+    for (const page of ['index.html', 'callsign.html', 'on-this-day.html', 'timeline.html', 'how-to-get-the-raw-data.html', 'glossary.html', 'anatomy.html', '404.html']) {
       const html = fs.readFileSync(path.join(V1_DIR, page), 'utf8');
       const hasNoindex = /<meta name="robots" content="noindex">/.test(html);
       expect(hasNoindex, `${page} robots meta must match SITE_INDEXABLE=${String(SITE_INDEXABLE)}`).toBe(!SITE_INDEXABLE);
@@ -109,11 +109,15 @@ describe('v1 self-containment', { tags: ['unit'] }, () => {
 // on-this-day.html and glossary.html#available. These are INERT on the v1
 // surface: site/v1/callsign-page.js destructures only the pure data functions
 // (shardNameFor, latestSummary, stripModel, …) and never calls the renderers,
-// so their hrefs are never emitted. Were one ever mis-wired regardless: some of
-// these hrefs (ledger.html, on-this-day.html) resolve to no page at the root
-// and fall through to the honest 404; glossary.html now resolves to a real v1
+// so their hrefs are never emitted. Were one ever mis-wired regardless: the
+// residual differs per href. ledger.html resolves to no page at the root and
+// falls through to the honest 404. glossary.html now resolves to a real v1
 // page, but its anchor scheme is def-* (e.g. def-sighting), so a legacy
 // fragment such as #available resolves nothing on it — the mis-wire would land
-// anchor-less on a real page rather than 404ing. The token scan cannot see any
-// of this — the hrefs carry no "v0" token — so the safeguard is the
-// destructure-only contract in callsign-page.js, not a regex.
+// anchor-less on a real page rather than 404ing. on-this-day.html ALSO now
+// resolves to a real v1 page (issue #932) — and, since the hardcoded href
+// carries no query string or fragment, it lands correctly: the bare link's own
+// label ("the on-this-day calendar") is exactly what the page now is, so a
+// mis-wire here would be accidentally correct rather than broken. The token
+// scan cannot see any of this — the hrefs carry no "v0" token — so the
+// safeguard is the destructure-only contract in callsign-page.js, not a regex.

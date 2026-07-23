@@ -33,6 +33,8 @@ describe('root discovery files', { tags: ['unit'] }, () => {
     expect(urls).toEqual([
       'https://example.test/mirror/',
       'https://example.test/mirror/callsign.html',
+      'https://example.test/mirror/on-this-day.html',
+      'https://example.test/mirror/timeline.html',
       'https://example.test/mirror/how-to-get-the-raw-data.html',
       'https://example.test/mirror/glossary.html',
       'https://example.test/mirror/anatomy.html',
