@@ -139,14 +139,14 @@ export function defaultHomeModel() {
     fromTheRecord: [
       {
         headline: '158,318 callsigns',
-        sentence: 'The newest publication held (2026-06-23) records 158,318 callsigns — the whole body a decade of publications is folded against.',
+        sentence: 'The newest publication held (2026-06-23) records 158,318 callsigns – the whole body a decade of publications is folded against.',
       },
       {
         headline: '1,465 withheld suffixes',
-        sentence: 'The 2016 forbidden-suffix disclosure withheld 1,465 three-letter suffixes from new issues; the held record shows that set shifting since — one added, two dropped by 2024.',
+        sentence: 'The 2016 forbidden-suffix disclosure withheld 1,465 three-letter suffixes from new issues; the held record shows that set shifting since – one added, two dropped by 2024.',
       },
       {
-        headline: 'M2 — reserved-only',
+        headline: 'M2 – reserved-only',
         sentence: 'Across the publications held, the M2 prefix block appears reserved-only: the record shows no issued callsign in it.',
         callsign: 'M7TEE',
       },
@@ -532,7 +532,7 @@ function mountSpanDial(host, span) {
   const head = el('div', 'sd-head');
   head.appendChild(el('span', 'sd-lbl', S.label));
   const rangeStart = geo.showHistory ? geo.historyStartYear : geo.heldStartYear;
-  head.appendChild(el('span', 'sd-range', `${rangeStart} — ${geo.latestYear}`));
+  head.appendChild(el('span', 'sd-range', `${rangeStart} – ${geo.latestYear}`));
   dial.appendChild(head);
 
   // The milestone marks, built up front so the caption's pagination can toggle

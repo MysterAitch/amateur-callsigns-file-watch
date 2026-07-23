@@ -188,6 +188,22 @@ export function seriesIntroMonths(ref: ReferenceData): Record<string, string> {
   return Object.fromEntries(entries);
 }
 
+// The shared citation for the series-introduction reference data (issue
+// #954): the dial's series-opened context marker names WHEN a series opened,
+// but not source of that fact; every other rail row carries its
+// assertion-time provenance as an asserted-by fold, and this row should too.
+// `reference-data/prefix-formats.csv` is hand-curated, in-repo reference data
+// rather than a dated archived publication, so it carries no publication
+// vintage (honestly null, never guessed) and no site-served href (v1 renders
+// dataset names as plain text). `nrows` carries the SAME meaning it does on
+// every other AssertedBy entry: rows of this dataset asserting THIS line -
+// and each series' own introduction is asserted by exactly one row (its own
+// line in the CSV), never the count of series the whole file happens to
+// record. A constant 1, not the file's total row count.
+export function seriesIntroCitation(): { title: string; href: string; vintage: string | null; nrows: number } {
+  return { title: 'reference-data/prefix-formats.csv', href: '', vintage: null, nrows: 1 };
+}
+
 export function buildCallsignEventShards(projection: EventTimeProjection, outputDir: string, params: EpisodeParams = DEFAULT_EPISODE_PARAMS, ref: ReferenceData = loadReferenceData()): EventShardBuildSummary {
   const { datasets, rows, daySignals, asAt } = projection;
 
@@ -314,6 +330,9 @@ export function buildCallsignEventShards(projection: EventTimeProjection, output
     // a callsign's series was opened without re-loading reference data client-
     // side. A series' own start, never a per-record licence claim.
     seriesIntro: seriesIntroMonths(ref),
+    // The citation for that reference data (issue #954), so the series-opened
+    // context row can carry an asserted-by fold like every other rail row.
+    seriesIntroSource: seriesIntroCitation(),
     shards: [...shards.keys()],
   };
   const metaJson = JSON.stringify(meta);
