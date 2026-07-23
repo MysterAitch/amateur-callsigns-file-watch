@@ -650,7 +650,7 @@ jobs:
       - id: closure
         uses: ./.github/actions/closure-hash
         with:
-          paths: archive reference-data src/ci/column-drift.ts src/ci/cross-dataset-invariants.ts src/ci/curiosity-index.ts src/ci/data-quality-fold.ts src/ci/event-time-coherency.ts src/ci/field-source-roles.ts src/ci/foi-unkeyable-fold.ts src/ci/forbidden-suffix-history.ts src/ci/policy-invariants.ts src/ci/quality-report-fold.ts src/ci/render/html.ts src/ci/report-sweep.ts src/ci/reprocessing-stratification.ts src/ci/sequence-analytics.ts src/ci/state-at-t.ts src/ci/survival-cohort.ts src/ci/timezone-rendering.ts src/ci/value-catalogue-fold.ts src/ci/value-catalogue.ts src/v2 src/shared src/sources package-lock.json .nvmrc .github/actions/setup-duckdb/action.yml
+          paths: archive reference-data src/ci/column-drift.ts src/ci/cross-dataset-invariants.ts src/ci/curiosity-index.ts src/ci/data-quality-fold.ts src/ci/event-time-coherency.ts src/ci/field-source-roles.ts src/ci/foi-unkeyable-fold.ts src/ci/forbidden-suffix-history.ts src/ci/policy-invariants.ts src/ci/quality-report-fold.ts src/ci/render/html.ts src/ci/report-sweep-pool.ts src/ci/report-sweep.ts src/ci/reprocessing-stratification.ts src/ci/sequence-analytics.ts src/ci/state-at-t.ts src/ci/survival-cohort.ts src/ci/timezone-rendering.ts src/ci/value-catalogue-fold.ts src/ci/value-catalogue.ts src/v2 src/shared src/sources package-lock.json .nvmrc .github/actions/setup-duckdb/action.yml
       - id: reports-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

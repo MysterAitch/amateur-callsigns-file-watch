@@ -113,6 +113,21 @@ export function perfReset(): void {
   entries.clear();
 }
 
+// Fold spans measured in another isolate into this process's report. A build
+// that fans work across worker threads (each with its own module-level map)
+// collects every worker's perfSnapshot() and merges it here, so the single
+// PERF / PERF_JSON breakdown still accounts for every span wherever it ran.
+// Same-label rows accumulate exactly as repeated in-process time() calls would.
+export function perfMerge(rows: readonly PerfSnapshotRow[]): void {
+  for (const row of rows) {
+    const entry = entries.get(row.label) ?? { calls: 0, totalMs: 0, size: 0 };
+    entry.calls += row.calls;
+    entry.totalMs += row.totalMs;
+    entry.size += row.size;
+    entries.set(row.label, entry);
+  }
+}
+
 // The current on-disk report schema. Bump the version suffix on any
 // breaking change to the field shape so consumers can branch on it.
 export const PERF_REPORT_SCHEMA = 'perf-report/v1';
