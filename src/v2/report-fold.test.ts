@@ -14,6 +14,7 @@ import {
   LEDGER_COLUMNS,
   CLAIMS_PARQUET_ENV,
   REPORT_FOLD_THREADS_ENV,
+  REPORT_FOLD_MEMORY_LIMIT_ENV,
 } from './report-fold.ts';
 
 // The reusable "fold a report from the claim data via DuckDB" scaffold (issue
@@ -175,5 +176,69 @@ describe.skipIf(!duckDbAvailable())('report-fold — REPORT_FOLD_THREADS pinning
     expect(withFoldThreads('1', () =>
       foldQuery<{ threads: number }>("SET threads TO 4; SELECT current_setting('threads')::BIGINT AS threads")[0].threads,
     )).toBe(4);
+  });
+});
+
+describe.skipIf(!duckDbAvailable())('report-fold — REPORT_FOLD_MEMORY_LIMIT pinning (issue #929)', { tags: ['unit'] }, () => {
+  // Observe DuckDB's own rendering of the effective budget. current_setting
+  // returns a human string ("4.0 GiB"), so the tests configure GiB-suffixed
+  // values, which DuckDB echoes back exactly — width- and RAM-independent, no
+  // reliance on the runner's actual memory.
+  function effectiveMemoryLimit(): string {
+    return foldQuery<{ memoryLimit: string }>("SELECT current_setting('memory_limit') AS memoryLimit")[0].memoryLimit;
+  }
+
+  function withFoldMemoryLimit<T>(value: string | undefined, run: () => T): T {
+    const original = process.env[REPORT_FOLD_MEMORY_LIMIT_ENV];
+    if (value === undefined) delete process.env[REPORT_FOLD_MEMORY_LIMIT_ENV];
+    else process.env[REPORT_FOLD_MEMORY_LIMIT_ENV] = value;
+    try {
+      return run();
+    } finally {
+      if (original === undefined) delete process.env[REPORT_FOLD_MEMORY_LIMIT_ENV];
+      else process.env[REPORT_FOLD_MEMORY_LIMIT_ENV] = original;
+    }
+  }
+
+  it('FoldQuery_ReportFoldMemoryLimitSet_PinsTheConfiguredBudget', () => {
+    // The sweep's concurrent region sets a per-fold budget so N folds sharing a
+    // runner each bound their spill instead of grabbing memory unchecked.
+    expect(withFoldMemoryLimit('4GiB', effectiveMemoryLimit)).toBe('4.0 GiB');
+  });
+
+  it('FoldQuery_ReportFoldMemoryLimitSetToADifferentValue_HonoursThatValueNotAHardcodedOne', () => {
+    // The preamble carries the requested size through, not a fixed figure — the
+    // per-fold budget stays a knob (mirrors the threads test's same intent).
+    expect(withFoldMemoryLimit('500MiB', effectiveMemoryLimit)).toBe('500.0 MiB');
+  });
+
+  it('FoldQuery_ReportFoldMemoryLimitUnset_LeavesDuckDbsDefaultBudget', () => {
+    // Off the concurrent path, no preamble is injected, so DuckDB keeps
+    // whatever default budget it derives from the host - never the empty
+    // string, and never one of the fixed test values above.
+    const result = withFoldMemoryLimit(undefined, effectiveMemoryLimit);
+    expect(result).not.toBe('');
+    expect(result).toMatch(/^[\d.]+ ?[KMGT]?iB$/);
+  });
+
+  it('FoldQuery_ReportFoldMemoryLimitBlankOrInvalid_InjectsNoPreambleAndNeverErrors', () => {
+    // A blank string, an out-of-memory `0GB`, a sign DuckDB would silently
+    // reinterpret as a huge limit, or an unrecognised unit are all ignored
+    // rather than spliced into the script unvalidated: the fold still runs
+    // and its own explicit pin governs.
+    for (const bogus of ['', '   ', '0GB', '-5GB', '3XB', 'abc']) {
+      expect(withFoldMemoryLimit(bogus, () =>
+        foldQuery<{ memoryLimit: string }>("SET memory_limit='2GiB'; SELECT current_setting('memory_limit') AS memoryLimit")[0].memoryLimit,
+      )).toBe('2.0 GiB');
+    }
+  });
+
+  it('FoldQuery_FoldPinsItsOwnMemoryLimit_IsNeverOverriddenByThePreamble', () => {
+    // Last-writer-wins: a fold that pins `SET memory_limit=...` issues that
+    // AFTER the preamble, so a correctness-pinned fold's budget is never
+    // overridden by the concurrent-region cap.
+    expect(withFoldMemoryLimit('4GiB', () =>
+      foldQuery<{ memoryLimit: string }>("SET memory_limit='1GiB'; SELECT current_setting('memory_limit') AS memoryLimit")[0].memoryLimit,
+    )).toBe('1.0 GiB');
   });
 });
