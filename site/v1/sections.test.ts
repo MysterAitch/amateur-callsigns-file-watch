@@ -1079,10 +1079,11 @@ describe('v1 dial height budget (pure, issue #921)', { tags: ['unit'] }, () => {
     Array.from({ length: n }, (_, i) => ({ day, label: 'kind ' + i, state: false, assertedBy: [] }));
 
   it('DialGeometry_WhenAStackedClusterIsTiered_GrowsTheComposedScaleHeight', () => {
-    // A four-row stack pushed onto separation tier 1 by a near-dated neighbour
-    // exceeds the compact headroom, so the scale height and axis offset grow to
-    // contain it (extent 34 + 30 + 4*15 + 15 = 139; axis 139 + 14 = 153; height
-    // 153 + 74 = 227) — no spill, no scrollbar.
+    // A four-row stack pushed onto a separation tier by a near-dated single lifts
+    // clear of that single's caption (the tier steps by enough to clear it: prev
+    // top 76, stack base 34, ceil(42/30) = 2 steps) and grows the panel to contain
+    // it (extent 34 + 60 + 4*15 + 15 = 169; axis 169 + 14 = 183; height 257) —
+    // no spill, no scrollbar, no caption overlap.
     const geo = dialGeometry(
       [
         { day: '2001-06-01', label: 'lone', state: false, assertedBy: [] },
@@ -1091,9 +1092,9 @@ describe('v1 dial height budget (pure, issue #921)', { tags: ['unit'] }, () => {
       sighting,
     );
     const fourStack = geo.events.find((e) => e.count === 4);
-    expect(fourStack?.tier).toBe(1);
-    expect(geo.axisTop).toBe(153);
-    expect(geo.scaleHeight).toBe(227);
+    expect(fourStack?.tier).toBe(2);
+    expect(geo.axisTop).toBe(183);
+    expect(geo.scaleHeight).toBe(257);
   });
 
   it('DialGeometry_WhenAFiveEventDay_GrowsThePanelRatherThanClippingOrScrolling', () => {
@@ -1115,9 +1116,11 @@ describe('v1 dial height budget (pure, issue #921)', { tags: ['unit'] }, () => {
   });
 
   it('DialGeometry_WhenANearDatedRunsMiddleMemberIsAStack_ComposesHeightAcrossTheRun', () => {
-    // Three near-dated day-groups, the middle a stack: they take tiers 0, 1, 2 and
-    // the tallest composed caption drives the height (the tier-2 single reaches
-    // 46 + 60 + 30 = 136; axis 136 + 14 = 150; height 224).
+    // Three near-dated day-groups, the middle a stack: each caption lifts clear of
+    // the previous one's full painted top, so the tiers step by more than one
+    // where a stack intervenes (0, then 2 to clear the first single, then 4 to
+    // clear the stack) and the tallest composed caption drives the height (the
+    // last single reaches 46 + 120 + 30 = 196; axis 196 + 14 = 210; height 284).
     const geo = dialGeometry(
       [
         { day: '2001-06-01', label: 'first', state: false, assertedBy: [] },
@@ -1126,10 +1129,10 @@ describe('v1 dial height budget (pure, issue #921)', { tags: ['unit'] }, () => {
       ],
       sighting,
     );
-    expect([...geo.events].map((e) => e.tier).sort()).toEqual([0, 1, 2]);
+    expect([...geo.events].map((e) => e.tier).sort((a, b) => a - b)).toEqual([0, 2, 4]);
     const midStack = geo.events.find((e) => e.count === 3);
-    expect(midStack?.tier).toBe(1);
-    expect(geo.scaleHeight).toBe(224);
+    expect(midStack?.tier).toBe(2);
+    expect(geo.scaleHeight).toBe(284);
   });
 });
 

@@ -499,17 +499,33 @@ export function dialGeometry(events, sightings, state = null) {
   // run and steps up one tier; a gap at or above the threshold starts a fresh
   // run at tier 0. This keeps every caption in a crowded run at a distinct
   // height while leaving well-spaced markers flat.
+  const g = DIAL_SCALE_GEOMETRY;
+  // Base clearance and content height of a cluster's caption, in px — a stack
+  // grows by its rows, a lone marker by its two-line caption.
+  /** @param {{ count: number }} c */
+  const baseOf = (c) => (c.count > 1 ? g.stackBase : g.capBase);
+  /** @param {{ count: number }} c */
+  const contentOf = (c) => (c.count > 1 ? c.count * g.stackRowH + g.stackDayH : g.capH);
   const byLeft = [...clusters].sort((a, b) => a.left - b.left);
   for (let i = 1; i < byLeft.length; i += 1) {
-    const gap = byLeft[i].left - byLeft[i - 1].left;
-    byLeft[i].tier = gap < NEAR_DATED_SEPARATION_THRESHOLD_PERCENT ? byLeft[i - 1].tier + 1 : 0;
+    const prev = byLeft[i - 1];
+    const cur = byLeft[i];
+    const gap = cur.left - prev.left;
+    if (gap >= NEAR_DATED_SEPARATION_THRESHOLD_PERCENT) {
+      cur.tier = 0;
+      continue;
+    }
+    // Lift this caption clear of the previous caption's full painted top, so
+    // near-dated captions never overlap — whatever the mix of stacks and singles
+    // (issue #921). At least one step, matching the original separation.
+    const prevTop = baseOf(prev) + prev.tier * g.tierStep + contentOf(prev);
+    cur.tier = Math.max(1, Math.ceil((prevTop - baseOf(cur)) / g.tierStep));
   }
   // Compose the vertical height budget (issue #921 review): grow the scale so the
   // tallest stacked-and-tiered caption always clears the axis with no spill into
   // the controls above and no accidental scrollbar, and keep the compact default
   // when nothing needs the room. Stacks, near-dated singles and the state caption
   // are all measured.
-  const g = DIAL_SCALE_GEOMETRY;
   let maxExtent = 0;
   for (const c of clusters) maxExtent = Math.max(maxExtent, clusterCaptionExtent(c.count, c.tier));
   if (state !== null && !Number.isNaN(fractionalYear(state.day))) maxExtent = Math.max(maxExtent, clusterCaptionExtent(1, 0));
