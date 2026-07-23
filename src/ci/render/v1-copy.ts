@@ -26,6 +26,8 @@ export const V1_COPY = {
   journeys: {
     home: 'Home',
     lookup: 'Look up',
+    onThisDay: 'On this day',
+    timeline: 'Timeline',
     raw: 'Get the raw data',
     glossary: 'Glossary',
   },
@@ -114,6 +116,11 @@ export const V1_COPY = {
     evidenceLead: 'One shared year axis. The event readings are the primary scale, above; the publication sightings are the calibration beneath – how the reading was taken. Highlight one clock to read it alone.',
     eventTimelineLabel: 'what happened',
     eventTimelineLead: EVENT_TIME_GLOSS + ' Each event names the source that asserts it.',
+    // The link-out to the deeper event-time surfaces (issue #932): the same
+    // event-first hierarchy, zoomed out to the whole record.
+    eventTimelineMoreLead: 'Zoom out to the whole record along event time: ',
+    eventTimelineMoreOnThisDay: 'the on-this-day calendar',
+    eventTimelineMoreTimeline: 'the timeline',
     anatomyLabel: 'anatomy',
     recordFidelityLabel: 'record fidelity',
     extrasLabel: 'related views & provenance',
@@ -234,6 +241,58 @@ export const V1_COPY = {
     provenanceLabel: 'how a value is produced',
     popMore: 'Full definition',
     foot: 'These are the terms coined for this record’s own surfaces. The wider domain vocabulary – the register’s status values, prefix and suffix structure, dataset classes and flags – moves here as each of those surfaces is migrated, rather than being described ahead of a page that uses it.',
+  },
+
+  // The v1 history journey (issue #932): two event-first surfaces built on the
+  // settled temporal hierarchy – event time leads (what the record states
+  // happened), assertion time rides beneath as the evidence layer (which
+  // publications state it). Kept string-identical to the browser twin
+  // (site/v1/copy.js); the mirror drift-guard holds the two, and the claims-bar
+  // test walks every string here.
+  history: {
+    onThisDay: {
+      eyebrow: 'event-time calendar',
+      title: 'On this day',
+      lede: EVENT_TIME_GLOSS + ' Dated licensing events, arranged by calendar day: for each series, the earliest start evidence and the earliest cancellation evidence the held corpus carries. Every entry cites the publications that assert it – its assertion time – so the two clocks never merge. “Earliest held” describes this mirror’s holdings, never “the first ever”.',
+      enhanceNote: 'The dated calendar renders when the page’s script runs. The framing and the reading notes below are the complete no-script baseline.',
+      todayLead: 'Today is {day}',
+      todayEntriesLink: '{count} on this day',
+      todayIn: ' in the held record.',
+      todayNone: 'Today is {day}. The held corpus places no first-of-series event on this day – non-observation, never “nothing ever happened on this day”.',
+      leadStart: 'earliest held start evidence',
+      leadCancellation: 'earliest held cancellation evidence',
+      tie: '{count} callsigns tie on this day',
+      assertedByFold: 'asserted by {count} {publication}',
+      carriedHistory: 'This start predates the {series}-series’ own introduction ({month}): it is carried licence history – the original start of the holder’s licence chain, which this later-introduced callsign inherited, not the callsign’s own issuance (the callsign did not exist this early).',
+      explainerLabel: 'How to read these dates (earliest-surviving semantics, reissues, coverage)',
+      explainerLead: 'Every entry is derived from what the archived publications assert. The caveats an entry can carry:',
+      countFoot: '{count} entries across {days} calendar days, covering the series the held corpus carries start or cancellation evidence for. Days not listed carry no held evidence – non-observation, never “nothing happened”.',
+      empty: 'No entries. The held corpus carries no per-series licensing-event evidence to place on a calendar – a statement about these holdings, not about history.',
+      loadError: 'Could not load the on-this-day calendar. The framing and reading notes above are the complete record; the timeline offers the same event time by year.',
+    },
+    timeline: {
+      eyebrow: 'event-time over the years',
+      title: 'Timeline',
+      lede: EVENT_TIME_GLOSS + ' The held corpus’s licensing activity along event time: for each licensing kind, how many dated events the archived publications place in each year. Scrub the years to read what the mirror can say as at any instant – each figure naming the publications and vintages that assert it, the assertion time beneath. Counts describe this mirror’s holdings, never “the whole truth”.',
+      enhanceNote: 'The per-year charts and the scrubber render when the page’s script runs. The framing and the reading notes below are the complete no-script baseline.',
+      histogramsLabel: 'activity by year, per licensing kind',
+      histogramsNote: 'Each bar is a count of distinct dated events (one per callsign, kind and day; a date asserted by several vintages is one event). A year with no bar carries no held evidence for that kind – non-observation, never “nothing happened”.',
+      histogramTotal: '{count} dated events across the held corpus',
+      cumulativeLabel: 'as at the end of a year',
+      scrubberLabel: 'Scrub the timeline – as at the end of a year',
+      readoutAsAt: 'As at end of {year}',
+      readoutStarts: '{count} {subject} a surviving licence-start dated on or before end of {year}.',
+      readoutReservations: '{count} reservation {subject} stated to still be open at end of {year} – a reading of the stated bound, never a status.',
+      readoutActivity: 'New dated events in {year}: ',
+      readoutSeries: 'Leading prefix series by starts to date: ',
+      readoutAssertedLead: 'This year’s events are asserted by ',
+      readoutAssertedNone: 'No new dated event is asserted in {year} – the figures above carry forward from earlier years.',
+      readoutCaveats: 'Caveats: ',
+      explainerLabel: 'How to read this timeline (derived counts, earliest-surviving semantics, non-observation)',
+      explainerLead: 'Every figure is derived from what the held vintages assert, and cites the datasets and their vintages that state it – the two time axes are never merged. The caveats the figures can carry:',
+      empty: 'No entries. The held corpus carries no dated licensing-event evidence to place on a timeline – a statement about these holdings, not about history.',
+      loadError: 'Could not load the timeline data. The framing and reading notes above are the complete record; the on-this-day calendar offers the same event time by calendar day.',
+    },
   },
 } as const;
 

@@ -636,3 +636,54 @@ details.fold .b p:last-child{margin-bottom:0}
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
     transition-duration:.001ms!important;scroll-behavior:auto!important}
 }
+
+/* ---------------------------------------------------------------------------
+   v1 HISTORY journey (issue #932): the on-this-day calendar and the event-time
+   timeline. Reuses the .surface / .lbl / .tl rail / .evt-assert idioms; this
+   block adds only the surface-specific pieces (the lede axis cue, the calendar
+   month headings, the histogram bars and the scrubber readout). Light-only for
+   now (#927 later); every colour is a shared design token, so it stays in the
+   site's visual language. */
+.hx-lede .hx-ax{display:inline-flex;align-items:center;gap:.25rem;margin-left:.15rem;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--signal-strong);border:1px solid var(--signal-dim);background:var(--signal-tint);
+  border-radius:2px;padding:.05rem .3rem;vertical-align:.08em}
+.hx-note{color:var(--muted)}
+.otd-calendar{margin-top:1rem}
+.otd-month{font-family:var(--mono);font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);margin:1.4rem 0 .7rem;padding-bottom:.25rem;border-bottom:1px solid var(--line)}
+.otd-calendar .when.otd-today,.otd-calendar .tl .when:target{color:var(--signal-strong)}
+.otd-count{margin-top:1.2rem}
+.hx-carried{border-left:2px solid var(--signal-dim);padding-left:.7rem;color:var(--ink-2)}
+.hx-caveats,.tl-caveats{display:block;margin-top:.35rem;color:var(--muted);font-size:.86rem}
+.hx-caveats a,.tl-caveats a{color:var(--signal);border-bottom:1px dashed var(--signal-dim)}
+.hx-explainer{margin:.6rem 0 1rem;border:1px solid var(--line);border-radius:6px;background:var(--panel-2)}
+.hx-explainer>summary{cursor:pointer;padding:.55rem .8rem;font-weight:600;font-size:.92rem}
+.hx-explainer .b{padding:0 .9rem .6rem}
+.hx-explainer ul{margin:.2rem 0 0;padding-left:1.1rem}
+.hx-explainer li{margin:.3rem 0;color:var(--ink-2);font-size:.9rem}
+.hx-explainer li b{color:var(--ink)}
+/* Histograms */
+.hx-chart{margin:0 0 1.3rem}
+.hx-chart figcaption{display:flex;align-items:baseline;justify-content:space-between;gap:.7rem;
+  font-weight:600;font-size:.92rem;margin:0 0 .4rem}
+.hx-chart .hx-total{font-family:var(--mono);font-size:11px;font-weight:400;color:var(--muted)}
+.hx-bars-wrap{overflow-x:auto}
+.hx-bars{display:flex;align-items:flex-end;gap:2px;height:150px;min-width:min(100%,34rem);
+  border-bottom:1px solid var(--line);padding-top:.3rem}
+.hx-bar{flex:1 1 0;min-width:3px;height:100%;display:flex;align-items:flex-end}
+.hx-bar-fill{width:100%;background:var(--signal);border-radius:1px 1px 0 0;min-height:0}
+.hx-bar.zero .hx-bar-fill{background:var(--line-2)}
+.hx-data{margin-top:.4rem}
+.hx-data>summary{cursor:pointer;color:var(--signal);font-size:.84rem}
+.hx-data table{margin-top:.4rem;max-width:24rem}
+/* Scrubber + readout */
+.tl-scrubber{margin:1rem 0 1.6rem;padding:.9rem 1.1rem;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
+.tl-scrubber label{display:block;font-weight:600;margin-bottom:.4rem}
+.tl-scrubber input[type=range]{width:100%;accent-color:var(--signal)}
+.tl-year{font-variant-numeric:tabular-nums;font-weight:650;margin:.6rem 0 .3rem;font-size:1rem}
+.tl-readout .tl-figure{margin:.35rem 0}
+.tl-readout .tl-figure .tb{margin-right:.25rem}
+.tl-assert{color:var(--muted);font-size:.9rem;margin:.35rem 0}
+/* The event-timeline link-out on the callsign page */
+.evt-more{margin-top:1rem;padding-top:.7rem;border-top:1px solid var(--line)}
