@@ -168,6 +168,38 @@ export const V1_COPY = {
       showBoth: 'Show both',
       eventOnly: 'Event only',
       assertOnly: 'Assertion only',
+      // The instrument legend and a worked micro-example (issue #921, A2): a
+      // first-time reader meets unlabelled markers and a clock metaphor carried by
+      // prose alone, so the dial names each marker type in plain English (only the
+      // types actually drawn), and this is the natural home for the kind-tint
+      // scheme — each tinted kind named beside its swatch so the stable colour
+      // scheme is learnable. The micro-example reads one diamond and one pip so the
+      // event-time / assertion-time distinction is concrete rather than abstract.
+      // Record-scoped, no verdict words.
+      legendLabel: 'how to read it',
+      legendEvent: 'an event — when something happened, as the record states it',
+      legendSighting: 'a sighting — a publication that recorded this callsign, at its vintage',
+      legendState: 'current state — the latest status the mirror holds',
+      legendDisputed: 'disputed — held publications assert competing dates for a kind; every one is shown',
+      microExample: 'Worked example: a diamond above the axis at 2018 says the record states that happened in 2018; a pip below at 2021 is a publication that recorded this callsign in 2021 — an event can predate the first sighting.',
+      // Plain-English names for the tinted event kinds, keyed by kind id, so the
+      // legend can name each hue of the stable colour scheme beside its swatch.
+      kindLegend: {
+        'licence-issued': 'licence issued',
+        'licence-original-start': 'licence original start',
+        'licence-version-original-start': 'licence-version start',
+        'licence-cancelled': 'licence cancelled',
+        'reserved-until': 'reserved until',
+      },
+      // The marker tooltip templates (issue #921, A2): each dial marker carries a
+      // title and an accessible equivalent naming its kind, date and — for a
+      // sighting — the publication that recorded it. {label}/{day}/{title}/
+      // {vintage} are filled at mount.
+      tooltipEvent: '{label} · {day}',
+      tooltipSighting: 'Sighting: recorded by {title} · {vintage}',
+      tooltipSightingNoTitle: 'Sighting · {vintage}',
+      tooltipState: '{label} · as of {day}',
+      tooltipStateAssertedBy: '{label} · as of {day}, asserted by {source}',
       // A record-scoped context marker on the dial: when the reference data
       // records when this callsign's SERIES was opened, name it beside the
       // event scale — a series-level fact, never a per-record licensing claim.

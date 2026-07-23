@@ -26,6 +26,8 @@ import {
   NEAR_DATED_SEPARATION_THRESHOLD_PERCENT,
   expandDisputedEvents,
   disputedClaimCount,
+  captionEdge,
+  estimateCaptionWidthPx,
 } from './callsign-sections.js';
 import { renderSiteBar, datedFactChipParts } from './shell.js';
 import { EVENT_TIME_GLOSS, ASSERTION_TIME_GLOSS } from './copy.js';
@@ -632,11 +634,42 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
   });
 
   it('RenderCallsignSections_NotFoundModel_RendersTheNoRecordCallout', () => {
-    // The whole default order mounts for a miss too; the fast-answer callout
-    // states the non-observation without claiming anything about the register.
+    // The fast-answer callout states the non-observation without claiming anything
+    // about the register.
     const root = document.createElement('div');
     renderCallsignSections(root, cm({ found: false, key: 'ZZ9ZZZ' }));
     expect(root.querySelector('.callout')?.textContent).toContain('No record for ZZ9ZZZ');
+  });
+
+  it('RenderCallsignSections_NoRecordLookup_SuppressesTheRecordDependentSections', () => {
+    // A no-record lookup (e.g. ZZ9ZZZ) must NOT render the evidence instrument,
+    // the event timeline or the anatomy beneath the no-record card — an empty
+    // axis reads as broken and undercuts the clean message (issue #921, A4). The
+    // no-record card stands alone.
+    const root = document.createElement('div');
+    renderCallsignSections(root, cm({ found: false, key: 'ZZ9ZZZ' }));
+    expect(root.querySelector('section[data-section="fast-answer"]')).not.toBeNull();
+    expect(root.querySelector('section[data-section="the-evidence-dial"]')).toBeNull();
+    expect(root.querySelector('section[data-section="event-timeline"]')).toBeNull();
+    expect(root.querySelector('section[data-section="anatomy"]')).toBeNull();
+    // No dangling axis, dial or non-observation copy for a callsign with no record.
+    expect(root.querySelector('.scale')).toBeNull();
+    expect(root.textContent ?? '').not.toContain('No dated event-time evidence is held');
+  });
+
+  it('RenderCallsignSections_ResolvedRecord_StillShowsTheEvidenceTimelineAndAnatomy', () => {
+    // The counterpart to the suppression: a resolved record renders the full set,
+    // so the suppression only ever fires on a genuine miss (issue #921, A4).
+    const root = document.createElement('div');
+    renderCallsignSections(root, cm({
+      found: true, key: 'M7TEE',
+      anatomy: [{ chars: 'M7', name: 'prefix', meaning: 'a prefix' }],
+      dial: { hasEvents: true, events: [{ day: '2018-10-18', label: 'licence issued', state: false, assertedBy: [] }], sightings: [{ vintage: '2026-06-23' }] },
+    }));
+    expect(root.querySelector('section[data-section="the-evidence-dial"]')).not.toBeNull();
+    expect(root.querySelector('section[data-section="event-timeline"]')).not.toBeNull();
+    expect(root.querySelector('section[data-section="anatomy"]')).not.toBeNull();
+    expect(root.querySelector('.scale')).not.toBeNull();
   });
 
   it('RenderCallsignSections_FoundButNoDatedEvidence_ShowsNonObservationInDialAndTimeline', () => {
@@ -837,6 +870,152 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
     });
     CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, model);
     expect(root.querySelector('.scale .ev.state')).toBeNull();
+  });
+
+  it('EvidenceDial_Legend_NamesEachMarkerTypeThatIsDrawn', () => {
+    // A2 (issue #921): the instrument is conceptually opaque without a legend.
+    // Every marker type actually drawn is named in plain English, so a first-time
+    // reader can decode the dial without inferring the vocabulary from prose.
+    const root = document.createElement('div');
+    const model = cm({
+      latest: { statuses: ['Allocated'], products: [], types: [], dataset: { title: 'Ofcom register snapshot', vintage: '2026-06-23', href: '#' } },
+      dial: {
+        hasEvents: true,
+        events: [{ day: '2018-10-18', label: 'licence issued', state: false, assertedBy: [] }],
+        sightings: [{ vintage: '2026-06-23', title: 'Ofcom register snapshot' }],
+      },
+    });
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, model);
+    const legend = root.querySelector('.dial-legend');
+    expect(legend).not.toBeNull();
+    const text = legend?.textContent ?? '';
+    expect(text).toContain('an event');
+    expect(text).toContain('a sighting');
+    expect(text).toContain('current state');
+  });
+
+  it('EvidenceDial_Legend_NamesTheTintedKindsPresentBesideASwatch', () => {
+    // The legend is the home for the stable kind-tint scheme (A2): each tinted
+    // kind present is named beside a swatch keyed to its hue, so the colour scheme
+    // becomes learnable and colour is never the sole cue.
+    const root = document.createElement('div');
+    const model = cm({
+      dial: {
+        hasEvents: true,
+        events: [{ day: '2018-10-18', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: [] }],
+        sightings: [{ vintage: '2026-06-23' }],
+      },
+    });
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, model);
+    const swatch = root.querySelector('.dial-legend .dl-sw[data-kind="licence-issued"]');
+    expect(swatch).not.toBeNull();
+    expect(root.querySelector('.dial-legend')?.textContent ?? '').toContain('licence issued');
+  });
+
+  it('EvidenceDial_LegendDisputedEntry_AppearsOnlyWhenClaimsAreDisputed', () => {
+    // The disputed (hollow) marker is decoded only when the record actually holds
+    // a disputed claim, so the legend never names a marker type that is not drawn.
+    const undisputed = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(undisputed, cm({
+      dial: { hasEvents: true, events: [{ day: '2018-10-18', label: 'licence issued', state: false, assertedBy: [] }], sightings: [{ vintage: '2026-06-23' }] },
+    }));
+    expect(undisputed.querySelector('.dial-legend')?.textContent ?? '').not.toContain('disputed');
+
+    const disputed = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(disputed, cm({
+      dial: {
+        hasEvents: true,
+        events: [{ day: '2021-02-23', label: 'licence-version start', kindId: 'licence-version-original-start', state: false, assertedBy: [] }],
+        sightings: [{ vintage: '2026-06-23' }],
+        disagreements: [{
+          kindLabel: 'licence-version start',
+          camps: [
+            { day: '1977-07-09', datasets: [{ title: 'entry-a register', href: '#', vintage: '2020-05-01' }] },
+            { day: '2021-02-23', datasets: [{ title: 'entry-b register', href: '#', vintage: '2021-06-01' }] },
+          ],
+        }],
+      },
+    }));
+    expect(disputed.querySelector('.dial-legend')?.textContent ?? '').toContain('disputed');
+  });
+
+  it('EvidenceDial_MicroExample_AppearsInTheFramingCopy', () => {
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({
+      dial: { hasEvents: true, events: [{ day: '2018-10-18', label: 'licence issued', state: false, assertedBy: [] }], sightings: [{ vintage: '2026-06-23' }] },
+    }));
+    const example = root.querySelector('.dial-example');
+    expect(example).not.toBeNull();
+    // The worked example reads one diamond and one pip so the two clocks are
+    // concrete, not abstract.
+    expect(example?.textContent ?? '').toContain('a diamond above the axis');
+    expect(example?.textContent ?? '').toContain('a pip below');
+  });
+
+  it('EvidenceDial_SingleEventMarker_CarriesATooltipNamingKindAndDate', () => {
+    // Every marker carries a tooltip and its accessible equivalent (A2): a bare
+    // unlabelled dot yields nothing on hover and nothing to assistive tech.
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({
+      dial: { hasEvents: true, events: [{ day: '2021-04-16', label: 'licence issued — foundation', state: false, assertedBy: [] }], sightings: [{ vintage: '2026-06-23' }] },
+    }));
+    const marker = root.querySelector('.scale .ev:not(.state)');
+    expect(marker?.getAttribute('title')).toBe('licence issued — foundation · 2021-04-16');
+    expect(marker?.getAttribute('aria-label')).toBe('licence issued — foundation · 2021-04-16');
+  });
+
+  it('EvidenceDial_SightingMarker_CarriesATooltipNamingThePublicationAndVintage', () => {
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({
+      dial: { hasEvents: true, events: [{ day: '2021-04-16', label: 'licence issued', state: false, assertedBy: [] }], sightings: [{ vintage: '2026-06-23', title: 'Ofcom register snapshot' }] },
+    }));
+    const pip = root.querySelector('.scale .si');
+    const title = pip?.getAttribute('title') ?? '';
+    expect(title).toContain('Ofcom register snapshot');
+    expect(title).toContain('2026-06-23');
+    expect(pip?.getAttribute('aria-label')).toBe(title);
+  });
+
+  it('EvidenceDial_SightingMarkerWithoutAPublicationTitle_FallsBackToTheVintageAlone', () => {
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({
+      dial: { hasEvents: true, events: [{ day: '2021-04-16', label: 'licence issued', state: false, assertedBy: [] }], sightings: [{ vintage: '2026-06-23' }] },
+    }));
+    const title = root.querySelector('.scale .si')?.getAttribute('title') ?? '';
+    expect(title).toContain('2026-06-23');
+  });
+
+  it('EvidenceDial_MarkersAtTheAxisExtremes_AnchorTheirCaptionInwardToAvoidOverflow', () => {
+    // On a wide axis the leftmost event and the rightmost state terminus fall in
+    // the edge bands, so their captions anchor inward (data-edge) rather than
+    // overflow the scale (issue #921 polish).
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({
+      latest: { statuses: ['Allocated'], products: [], types: [], dataset: { title: 'Ofcom register snapshot', vintage: '2026-06-23', href: '#' } },
+      dial: {
+        hasEvents: true,
+        sightings: [{ vintage: '2026-06-23' }],
+        events: [
+          { day: '1977-07-09', label: 'old event', state: false, assertedBy: [] },
+          { day: '2026-01-01', label: 'recent event', state: false, assertedBy: [] },
+        ],
+      },
+    }));
+    expect(root.querySelector('.scale .ev:not(.state)')?.getAttribute('data-edge')).toBe('l');
+    expect(root.querySelector('.scale .ev.state')?.getAttribute('data-edge')).toBe('r');
+  });
+
+  it('EvidenceDial_StateNode_CarriesATooltipNamingTheStatusAndDate', () => {
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({
+      latest: { statuses: ['Allocated'], products: [], types: [], dataset: { title: 'Ofcom register snapshot', vintage: '2026-06-23', href: '#' } },
+      dial: { hasEvents: true, events: [{ day: '2018-10-18', label: 'licence issued', state: false, assertedBy: [] }], sightings: [{ vintage: '2026-06-23' }] },
+    }));
+    const state = root.querySelector('.scale .ev.state');
+    const title = state?.getAttribute('title') ?? '';
+    expect(title).toContain('Allocated');
+    expect(title).toContain('2026-06-23');
+    expect(state?.getAttribute('aria-label')).toBe(title);
   });
 
   it('EventTimeline_WhenMultipleEventsShareADay_GroupsThemUnderOneDatedNode', () => {
@@ -1105,6 +1284,43 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
   });
 });
 
+describe('v1 odd-count grids (issue #921, C1)', { tags: ['ui'] }, () => {
+  const shellCss = fs.readFileSync('site/v1/shell.css', 'utf8');
+
+  it('AnatomyGrid_OddPartCount_RendersEveryPartWithNoBlankCell', () => {
+    // A three-part callsign (prefix/digit/suffix) filled a two-column grid with a
+    // conspicuous blank fourth cell. Every rendered cell must carry a part — no
+    // empty placeholder tile at any part count (issue #921, C1).
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY.anatomy.mount(root, cm({
+      found: true,
+      anatomy: [
+        { chars: 'M', name: 'prefix', meaning: 'UK amateur prefix' },
+        { chars: '7', name: 'digit', meaning: 'the allocation digit' },
+        { chars: 'TEE', name: 'suffix', meaning: 'the personal suffix' },
+      ],
+    }));
+    const cells = [...root.querySelectorAll('.anat .p')];
+    expect(cells).toHaveLength(3);
+    for (const c of cells) expect((c.textContent ?? '').trim().length).toBeGreaterThan(0);
+  });
+
+  it('AnatomyGrid_Stylesheet_UsesAnAutoFitTrackSoOddCountsLeaveNoBlankTile', () => {
+    // The single grid rule that fixes both surfaces: an auto-fit track fills the
+    // row at any item count rather than a fixed two-column track.
+    expect(shellCss).toMatch(/\.anat\{[^}]*grid-template-columns:repeat\(auto-fit,minmax\([^)]*\)\)/);
+  });
+
+  it('NotFoundRouteCards_Markup_RendersThreeCardsInAnAutoFitGrid', () => {
+    // The 404 repeats the anatomy defect: three route cards in a two-column grid
+    // left a blank cell. Same one grid rule fixes it (issue #921, C1).
+    const doc = new DOMParser().parseFromString(fs.readFileSync('site/v1/404.html', 'utf8'), 'text/html');
+    const cards = [...doc.querySelectorAll('.modules .mod')];
+    expect(cards).toHaveLength(3);
+    expect(shellCss).toMatch(/\.modules\{[^}]*grid-template-columns:repeat\(auto-fit,minmax\([^)]*\)\)/);
+  });
+});
+
 describe('v1 dial geometry (pure)', { tags: ['unit'] }, () => {
   it('FractionalYear_MonthAndDay_MoveTheValueWithinTheYear', () => {
     expect(fractionalYear('2020')).toBe(2020);
@@ -1210,6 +1426,59 @@ describe('v1 dial geometry (pure)', { tags: ['unit'] }, () => {
     const gap = Math.abs(geo.events[0].left - geo.events[1].left);
     expect(gap).toBeLessThan(NEAR_DATED_SEPARATION_THRESHOLD_PERCENT);
     expect(geo.events.map((e) => e.tier).sort()).toEqual([0, 1]);
+  });
+
+  it('CaptionEdge_WhenACentredCaptionWouldOverflow_AnchorsInwardOtherwiseCentres', () => {
+    // A centred caption near the axis extreme overflows the scale, so it anchors
+    // inward; mid-axis it stays centred (issue #921 polish). Width-aware.
+    const w = estimateCaptionWidthPx('licence original start');
+    expect(captionEdge(2, w)).toBe('l');
+    expect(captionEdge(98, w)).toBe('r');
+    expect(captionEdge(50, w)).toBeNull();
+  });
+
+  it('CaptionEdge_WiderCaption_AnchorsFurtherFromTheEdgeThanANarrowOne', () => {
+    // The decision tracks the caption's OWN width: a wide caption needs anchoring
+    // where a narrow one at the same position still fits centred.
+    const wide = estimateCaptionWidthPx('Allocated / Revoked — current state');
+    const narrow = estimateCaptionWidthPx('issued');
+    expect(captionEdge(15, wide)).toBe('l');
+    expect(captionEdge(15, narrow)).toBeNull();
+  });
+
+  it('EstimateCaptionWidth_LongLabels_ClampToTheCaptionMaxWidth', () => {
+    // The estimate is bounded by the .cap max-width (14rem ≈ 224px) plus chrome,
+    // matching the ellipsis clamp, so an unbounded label cannot claim unbounded
+    // space in the geometry.
+    const huge = estimateCaptionWidthPx('x'.repeat(500));
+    expect(huge).toBeLessThanOrEqual(224 + 20);
+    expect(estimateCaptionWidthPx('a')).toBeLessThan(huge);
+  });
+
+  it('DialGeometry_WhenTheStateNodeSitsNearTheNewestEvent_LiftsItClearOfThatEventsTier', () => {
+    // The current-state terminus joins the near-dated tiering pass (issue #921
+    // polish): an event and the terminus close together on a wide axis would
+    // otherwise overprint at tier 0. On a 1977→2027 axis the 2021 event and the
+    // 2026 terminus sit within a caption width, so the terminus lifts clear.
+    const geo = dialGeometry(
+      [
+        { day: '1977-07-09', label: 'old', state: false, assertedBy: [] },
+        { day: '2021-02-23', label: 'recent', state: false, assertedBy: [] },
+      ],
+      [{ vintage: '2026-06-23' }],
+      { label: 'Allocated — current state', day: '2026-06-23' },
+    );
+    expect(geo.state?.tier).toBeGreaterThanOrEqual(1);
+  });
+
+  it('DialGeometry_WhenTheStateNodeIsWellClearOfEvents_StaysAtTierZero', () => {
+    // The common case: the terminus is far from every event, so it stays flat.
+    const geo = dialGeometry(
+      [{ day: '2016-01-01', label: 'issued', state: false, assertedBy: [] }],
+      [{ vintage: '2026-06-23' }],
+      { label: 'Allocated — current state', day: '2026-06-23' },
+    );
+    expect(geo.state?.tier).toBe(0);
   });
 
   it('DialGeometry_WhenMarkersAreWellSeparated_AllStayAtTierZero', () => {
@@ -1335,7 +1604,9 @@ describe('v1 callsign model (reusing the shared pure functions)', { tags: ['ui']
     expect(model.latest?.statuses).toContain('Allocated');
     expect(model.seen?.present).toBe(1);
     expect(model.anatomy?.length).toBeGreaterThan(0);
-    expect(model.dial.sightings).toEqual([{ vintage: '2026-06-23' }]);
+    // Each sighting carries the publication that recorded it, so its dial pip can
+    // name it in a tooltip (issue #921, A2).
+    expect(model.dial.sightings).toEqual([{ vintage: '2026-06-23', title: 'Ofcom register snapshot' }]);
     // The finding statement is carried verbatim from the event shard.
     expect(model.dial.findings[0].statement).toBe('One licence: originated 2021-04-16, still allocated');
     // Each event carries its assertion-time provenance.
@@ -1413,8 +1684,8 @@ describe('v1 dial height budget (pure, issue #921)', { tags: ['unit'] }, () => {
   it('DialGeometry_WhenAStackedClusterIsTiered_GrowsTheComposedScaleHeight', () => {
     // A four-row stack pushed onto a separation tier by a near-dated single lifts
     // clear of that single's caption (the tier steps by enough to clear it: prev
-    // top 76, stack base 34, ceil(42/30) = 2 steps) and grows the panel to contain
-    // it (extent 34 + 60 + 4*15 + 15 = 169; axis 169 + 14 = 183; height 257) —
+    // top 78, stack base 34, ceil(44/34) = 2 steps) and grows the panel to contain
+    // it (extent 34 + 68 + 4*15 + 15 = 177; axis 177 + 14 = 191; height 265) —
     // no spill, no scrollbar, no caption overlap.
     const geo = dialGeometry(
       [
@@ -1425,8 +1696,8 @@ describe('v1 dial height budget (pure, issue #921)', { tags: ['unit'] }, () => {
     );
     const fourStack = geo.events.find((e) => e.count === 4);
     expect(fourStack?.tier).toBe(2);
-    expect(geo.axisTop).toBe(183);
-    expect(geo.scaleHeight).toBe(257);
+    expect(geo.axisTop).toBe(191);
+    expect(geo.scaleHeight).toBe(265);
   });
 
   it('DialGeometry_WhenAFiveEventDay_GrowsThePanelRatherThanClippingOrScrolling', () => {
@@ -1452,7 +1723,7 @@ describe('v1 dial height budget (pure, issue #921)', { tags: ['unit'] }, () => {
     // the previous one's full painted top, so the tiers step by more than one
     // where a stack intervenes (0, then 2 to clear the first single, then 4 to
     // clear the stack) and the tallest composed caption drives the height (the
-    // last single reaches 46 + 120 + 30 = 196; axis 196 + 14 = 210; height 284).
+    // last single reaches 46 + 136 + 32 = 214; axis 214 + 14 = 228; height 302).
     const geo = dialGeometry(
       [
         { day: '2001-06-01', label: 'first', state: false, assertedBy: [] },
@@ -1464,7 +1735,7 @@ describe('v1 dial height budget (pure, issue #921)', { tags: ['unit'] }, () => {
     expect([...geo.events].map((e) => e.tier).sort((a, b) => a - b)).toEqual([0, 2, 4]);
     const midStack = geo.events.find((e) => e.count === 3);
     expect(midStack?.tier).toBe(2);
-    expect(geo.scaleHeight).toBe(284);
+    expect(geo.scaleHeight).toBe(302);
   });
 });
 
