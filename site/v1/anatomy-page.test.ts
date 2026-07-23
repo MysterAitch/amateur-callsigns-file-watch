@@ -89,6 +89,69 @@ describe('v1 anatomy page — static baseline (issue #931)', { tags: ['unit'] },
   });
 });
 
+describe('v1 anatomy page — structure-reference completeness (issue #959)', { tags: ['unit'] }, () => {
+  it('AnatomyPage_ClubRsl_NamesTheClubOnlySetAndCitesAPrimarySource', () => {
+    // The club RSL front: the page must state that a club draws on a club-only
+    // letter set (the GX/MX class) and cite a saved primary document for it.
+    expect(ANATOMY_HTML).toContain('GX3DEF');
+    expect(ANATOMY_HTML).toContain('Full (Club)');
+    expect(ANATOMY_HTML).toContain('Policy on temporary call signs and call sign enhancement');
+    expect(ANATOMY_HTML).toContain('§3.6');
+  });
+
+  it('AnatomyPage_TemporaryRsl_DocumentsMechanismAndKnownGrantsWithSources', () => {
+    // The special-event RSL front: the notified, time-bounded mechanism plus the
+    // documented letter grants, each cited to Ofcom guidance §5.7.1 / the 2018 policy.
+    expect(ANATOMY_HTML).toContain('temporary RSL');
+    expect(ANATOMY_HTML).toContain('no more than one year');
+    expect(ANATOMY_HTML).toContain('§5.7.1');
+    // The three documented grants.
+    expect(ANATOMY_HTML).toContain('national mourning, 2022');
+    expect(ANATOMY_HTML).toContain('2O0ABC');
+    expect(ANATOMY_HTML).toContain('MA6ABC');
+  });
+
+  it('AnatomyPage_TemporaryRslTable_EveryRow_CarriesANonEmptySourceCell', () => {
+    // Unhappy-path guard: a documented-grant row with no source is an uncited
+    // fact. Locate the grants table by its caption and assert every row's final
+    // (Source) cell is non-empty.
+    const table = [...parse().querySelectorAll('table')].find(
+      (t) => /Documented temporary RSLs/.test(norm(t.querySelector('caption')?.textContent)),
+    );
+    expect(table, 'the documented temporary-RSL table is missing').toBeDefined();
+    const rows = [...(table as HTMLTableElement).querySelectorAll('tbody tr')];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const tr of rows) {
+      const cells = [...tr.querySelectorAll('td, th')];
+      const source = norm(cells[cells.length - 1]?.textContent);
+      expect(source.length, `a temporary-RSL row has an empty source cell: "${norm(tr.textContent)}"`).toBeGreaterThan(0);
+      expect(/Ofcom/.test(source), `a temporary-RSL row's source names no document: "${source}"`).toBe(true);
+    }
+  });
+
+  it('AnatomyPage_Reciprocal_NamesBothReciprocalProductsWithSources', () => {
+    // The reciprocal/visitor front: the two distinct reciprocal products (#232)
+    // are both named, with the authoritative definition cited.
+    expect(ANATOMY_HTML).toContain('Full (Temporary Reciprocal) Licence');
+    expect(ANATOMY_HTML).toContain('Full (Reciprocal)');
+    expect(ANATOMY_HTML).toContain('11 December 2023');
+    // The visitor-prefix construction links to its new glossary term.
+    const visitorLink = parse().querySelector('a.term-link[data-term="visitorPrefix"]');
+    expect(visitorLink?.getAttribute('href')).toBe('glossary.html#def-visitor-prefix');
+  });
+
+  it('AnatomyPage_SuffixLength_StatesPermittedFormsAndTheRegisterWitness', () => {
+    // The suffix-length front: the permitted forms (primary source) beside the
+    // register's own observed distribution (in-repo witness), each attributed.
+    expect(ANATOMY_HTML).toContain('normally three letters');
+    expect(ANATOMY_HTML).toContain('special contest callsigns');
+    expect(ANATOMY_HTML).toContain('§5.2');
+    // The observed distribution is framed as an observation, not a completeness claim.
+    expect(ANATOMY_HTML).toContain('99.7%');
+    expect(ANATOMY_HTML).toContain('Observation of what the record holds');
+  });
+});
+
 describe('v1 anatomy page — term popovers (issue #931)', { tags: ['ui'] }, () => {
   beforeEach(() => { document.body.innerHTML = ''; });
 

@@ -65,6 +65,23 @@ describe('v1 copy — claims bar (JS)', { tags: ['unit'] }, () => {
     expect(V1_COPY.home.cards.rawData.say).toContain('built from them');
   });
 
+  it('GlossaryRegistry_RslAndSuffix_AcknowledgeTheirVariants', () => {
+    // Issue #959: the RSL entry admits the club and temporary-event variants, and
+    // the suffix entry admits its length variation — the record's structure
+    // reference is no longer silent on them.
+    expect(V1_COPY.glossary.rsl.def).toContain('club-only set');
+    expect(V1_COPY.glossary.rsl.def).toContain('temporary RSL');
+    expect(V1_COPY.glossary.suffix.def).toContain('three letters');
+    expect(V1_COPY.glossary.suffix.def).toContain('only two');
+  });
+
+  it('GlossaryRegistry_VisitorPrefix_IsDefinedAsAReciprocalForm', () => {
+    // Issue #959: the visitor/reciprocal prefix construction earns its own term.
+    expect(V1_COPY.glossary.visitorPrefix.term).toBe('visitor prefix');
+    expect(V1_COPY.glossary.visitorPrefix.def).toContain('before a slash');
+    expect(V1_COPY.glossary.visitorPrefix.def).toContain('reciprocal');
+  });
+
   it('GlossaryRegistry_EveryCoinedTerm_HasATermAndADefinition', () => {
     // B1: the popover registry pairs each coined term with a plain definition;
     // the temporal glosses, the assertion-time "sighting", and the provenance
