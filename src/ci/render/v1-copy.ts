@@ -27,6 +27,7 @@ export const V1_COPY = {
     home: 'Home',
     lookup: 'Look up',
     raw: 'Get the raw data',
+    glossary: 'Glossary',
   },
 
   footer: {
@@ -216,6 +217,23 @@ export const V1_COPY = {
     derived: { term: 'derived', def: 'This value is computed by the mirror from the held publications, not read verbatim from any single one of them.' },
     inferred: { term: 'inferred', def: 'A reading the mirror interprets from the held values, hedged where it is not certain — not a fact asserted by any publication.' },
     context: { term: 'context', def: 'A framing fact drawn from reference data, not a claim about this record — shown to place the reading in its wider setting.' },
+  },
+
+  // The v1 glossary page (issue #930): the full-page home for the coined
+  // vocabulary above. Its entries render from the SAME V1_COPY.glossary registry
+  // the popovers open — one source of truth, never a second copy — and every
+  // inline popover links out to the matching anchor here. Record-scoped wording,
+  // walked by the claims-bar test like every other string. Kept string-identical
+  // to the browser twin (site/v1/copy.js); the mirror drift-guard holds the two.
+  glossaryPage: {
+    eyebrow: 'plain-language reference',
+    title: 'Glossary',
+    lede: 'Plain-language definitions of the coined terms this record uses — the vocabulary of the two-clock instrument, what the record holds, and how each value was produced. Each entry is one clear line, deep-linkable by its #anchor, and is the very definition the inline popovers open.',
+    readingLabel: 'reading the record',
+    holdingsLabel: 'what the record holds',
+    provenanceLabel: 'how a value is produced',
+    popMore: 'Full definition',
+    foot: 'These are the terms coined for this record’s own surfaces. The wider domain vocabulary — the register’s status values, prefix and suffix structure, dataset classes and flags — moves here as each of those surfaces is migrated, rather than being described ahead of a page that uses it.',
   },
 } as const;
 

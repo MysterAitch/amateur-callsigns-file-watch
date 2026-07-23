@@ -583,6 +583,31 @@ details.fold .b p:last-child{margin-bottom:0}
   padding:.9rem 1.1rem;font-size:.95rem;color:var(--ink)}
 .muted{color:var(--muted)}
 
+/* ---- glossary popover link-out (issue #930) ---- */
+/* Inside an open popover, a link to the term's permanent anchor on the glossary
+   page. The popover carries the answer inline AND a way to go deeper, so it is
+   never a dead end. A decorative trailing arrow reinforces the "goes somewhere"
+   affordance without being the sole cue (the link text carries the meaning). */
+.pop-more{display:inline-block;margin-top:.5rem;font-family:var(--mono);font-size:11px;letter-spacing:.04em;
+  color:var(--signal);text-decoration:none;border-bottom:1px solid var(--signal-dim)}
+.pop-more::after{content:" →"}
+.pop-more:hover{color:var(--signal-strong);border-bottom-color:var(--signal)}
+.pop-more:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+
+/* ---- glossary page (issue #930): the definition list ---- */
+/* The glossary page's eyebrow reuses the callsign-head eyebrow grammar. */
+.head .ey{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.gloss{margin:0}
+/* Each term is a deep-linkable heading; its definition sits beneath in one clear
+   line. A left accent ties the pair together and gives the :target-highlighted
+   term a visible focus when reached from a popover link-out. */
+.gloss dt{font-family:var(--mono);font-size:1rem;letter-spacing:.02em;color:var(--ink);font-weight:600;
+  margin-top:1.1rem;padding-left:.6rem;border-left:2px solid var(--signal-dim);scroll-margin-top:5rem}
+.gloss dt:first-child{margin-top:0}
+.gloss dd{margin:.3rem 0 0;padding-left:.6rem;color:var(--ink-2);font-size:.95rem;line-height:1.5}
+.gloss dt:target{border-left-color:var(--signal)}
+.gloss dt:target,.gloss dt:target+dd{background:var(--signal-tint)}
+
 /* ---- responsive ---- */
 @media(max-width:44rem){
   .readout{grid-template-columns:1fr 1fr}

@@ -242,12 +242,13 @@ async function main(): Promise<void> {
   await expectGzip('data/combined.sqlite.gz', 1024 * 1024 * 1024); // the raw combined is ~1.1 GB; its gzip twin is well under a GB.
 
   // 6. The v1 front door (issue #921). baseUrl is the /v0/ subtree, so the site
-  //    root is one level up. The three v1 pages must serve the real v1 shell at
-  //    the root, and an old pre-move URL that is not part of the v1 surface must
+  //    root is one level up. The v1 pages must serve the real v1 shell at the
+  //    root, and an old pre-move URL that is not part of the v1 surface must
   //    serve the honest static 404 (not a redirect, not a broken link).
   await expectPageContent('../', { include: ['callsign-record', 'Look up'] }, 'root / (v1 home)');
   await expectPageContent('../callsign.html', { include: ['Look up a callsign'] }, 'root /callsign.html (v1)');
   await expectPageContent('../how-to-get-the-raw-data.html', { include: ['get the raw data'] }, 'root /how-to-get-the-raw-data.html (v1)');
+  await expectPageContent('../glossary.html', { include: ['callsign-record', 'reading the record'] }, 'root /glossary.html (v1)');
   await expectHonest404('../statistics.html', 'isn’t part of the site', 'root /statistics.html (honest 404)');
 
   console.log('');

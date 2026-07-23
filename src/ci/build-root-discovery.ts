@@ -35,9 +35,11 @@ const DEFAULT_BASE_URL = 'https://mysteraitch.github.io/amateur-callsigns-file-w
 // flip from half-applying — the guarding tests assert both states off it.
 export const SITE_INDEXABLE = false;
 
-// The three v1 pages that own the deploy root. The home page is listed as the
-// directory root (a clean canonical URL), the other two by filename.
-export const ROOT_DISCOVERY_PATHS = ['', 'callsign.html', 'how-to-get-the-raw-data.html'] as const;
+// The v1 pages that own the deploy root. The home page is listed as the
+// directory root (a clean canonical URL), the others by filename. A page joins
+// this set when it enters the v1 navigation, so a nav-advertised page is always
+// in the crawlable universe.
+export const ROOT_DISCOVERY_PATHS = ['', 'callsign.html', 'how-to-get-the-raw-data.html', 'glossary.html'] as const;
 
 // The absolute URLs the root sitemap advertises, for a given site base.
 export function rootDiscoveryUrls(baseUrl: string): string[] {

@@ -28,15 +28,22 @@ function build(): { dir: string; sitemap: string; robots: string } {
 }
 
 describe('root discovery files', { tags: ['unit'] }, () => {
-  it('RootSitemap_ListsTheThreeV1Urls_AsAbsoluteLocations', () => {
+  it('RootSitemap_ListsTheV1Urls_AsAbsoluteLocations', () => {
     const urls = rootDiscoveryUrls(BASE);
     expect(urls).toEqual([
       'https://example.test/mirror/',
       'https://example.test/mirror/callsign.html',
       'https://example.test/mirror/how-to-get-the-raw-data.html',
+      'https://example.test/mirror/glossary.html',
     ]);
     const sitemap = renderRootSitemap(BASE);
     for (const url of urls) expect(sitemap).toContain(`<loc>${url}</loc>`);
+  });
+
+  it('RootSitemap_WhenAPageEntersTheNav_ItJoinsTheCrawlableUniverse', () => {
+    // The glossary page is nav-advertised (issue #930), so it must be discoverable
+    // — not silently absent from the sitemap the launch flip advertises.
+    expect(rootDiscoveryUrls(BASE)).toContain('https://example.test/mirror/glossary.html');
   });
 
   it('RootSitemap_LeavesTheV0SitemapAlone_AdvertisingNoV0Urls', () => {
