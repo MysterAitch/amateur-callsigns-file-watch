@@ -83,6 +83,10 @@ export const V1_COPY = {
       assertOnly: 'Assertion only',
       // The dial's series-introduction context marker (see site/v1/copy.js).
       seriesIntro: '{series} series opened {month}',
+      // The same-day event cluster caption and the current-state terminus suffix
+      // (see site/v1/copy.js for the rationale).
+      eventCluster: '{count} events',
+      currentStateLabel: 'current state',
       readingLead: 'Reading',
       calibrationLead: 'Calibration',
       calibrationNote: 'The sightings beneath are how the event story is evidenced. A callsign can exist before any held publication records it, so the earliest event may predate the first sighting.',
