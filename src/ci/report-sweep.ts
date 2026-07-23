@@ -62,7 +62,7 @@ import { mdCell } from '../shared/markdown.ts';
 import { time, perfReport, perfSnapshot, perfMerge } from '../shared/perf.ts';
 import { isMainThread, workerData, parentPort } from 'node:worker_threads';
 import { runBounded, runTaskInWorker } from './report-sweep-pool.ts';
-import { REPORT_FOLD_THREADS_ENV } from '../v2/report-fold.ts';
+import { REPORT_FOLD_THREADS_ENV, REPORT_FOLD_MEMORY_LIMIT_ENV } from '../v2/report-fold.ts';
 
 // mdCell (markdown table-cell sanitiser) is shared with the other report
 // generators; re-exported here so existing importers keep their path.
@@ -191,6 +191,24 @@ const INDEPENDENT_REPORT_TASKS: readonly ReportGeneratorTask[] = [
 // while bounding the footprint; REPORT_SWEEP_CONCURRENCY (a positive integer)
 // overrides it either way, for a constrained host or a deliberately wider one.
 const MAX_REPORT_CONCURRENCY = 4;
+
+// Per-fold memory budget under sweep concurrency (issue #929, following PR
+// #951's thread-pinning result). PR #947/#951 both regenerated the golden
+// report set in ~37 min at 4-wide concurrency with Σ CPU ~175 min — pinning
+// threads=1 per fold (removing the CPU-oversubscription hypothesis) left that
+// figure unchanged, which points the remaining 2-3.4x per-fold slowdown at
+// memory/IO contention: four concurrent DuckDB CLI processes, each defaulting
+// to its own large memory budget, spilling to disk and thrashing the shared
+// page cache over the same parquet scans. GitHub-hosted `ubuntu-latest`
+// runners (this workflow's runs-on) carry 16 GB RAM; at MAX_REPORT_CONCURRENCY
+// (4) folds running simultaneously, capping each at 3 GB uses 12 GB and
+// leaves ~4 GB of headroom for Node's own heap, the four worker threads'
+// overhead, and the OS page cache the shared parquet scans lean on — tight
+// enough to force each fold to bound its spill rather than grab memory
+// unchecked, generous enough that 3 GB should comfortably hold one fold's
+// working set (the folds ran solo in low seconds pre-#929, well under this).
+const CONCURRENT_FOLD_MEMORY_LIMIT = '3GB';
+
 function defaultReportConcurrency(): number {
   const override = process.env.REPORT_SWEEP_CONCURRENCY;
   if (override !== undefined && override !== '') {
@@ -265,6 +283,13 @@ export async function runReportSweepParallel(concurrency: number = defaultReport
   // main-thread quality-reports fold that runs alongside the pool below.
   const previousFoldThreads = process.env[REPORT_FOLD_THREADS_ENV];
   process.env[REPORT_FOLD_THREADS_ENV] = '1';
+  // Pin every fold in the concurrent region to a bounded memory budget too
+  // (the sibling lever to threads-pinning: PR #951 measured NO speed-up from
+  // threads=1 alone, which revises the contention hypothesis from CPU to
+  // memory/IO — see CONCURRENT_FOLD_MEMORY_LIMIT above). Set and restored the
+  // same way as the threads pin, for the same reasons.
+  const previousFoldMemoryLimit = process.env[REPORT_FOLD_MEMORY_LIMIT_ENV];
+  process.env[REPORT_FOLD_MEMORY_LIMIT_ENV] = CONCURRENT_FOLD_MEMORY_LIMIT;
   try {
     // Fan the independent generators across worker threads; each worker is this
     // same module (self-as-worker: see the worker branch at the foot of the
@@ -292,6 +317,8 @@ export async function runReportSweepParallel(concurrency: number = defaultReport
   } finally {
     if (previousFoldThreads === undefined) delete process.env[REPORT_FOLD_THREADS_ENV];
     else process.env[REPORT_FOLD_THREADS_ENV] = previousFoldThreads;
+    if (previousFoldMemoryLimit === undefined) delete process.env[REPORT_FOLD_MEMORY_LIMIT_ENV];
+    else process.env[REPORT_FOLD_MEMORY_LIMIT_ENV] = previousFoldMemoryLimit;
   }
 
   return assembleCoverage(keys, coverageRows, dataQualityFold, failed);

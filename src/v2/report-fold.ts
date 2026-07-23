@@ -53,6 +53,18 @@ export function duckDbAvailable(): boolean {
 // keep the default. A non-positive or non-numeric value is ignored (no preamble).
 export const REPORT_FOLD_THREADS_ENV = 'REPORT_FOLD_THREADS';
 
+// Names a per-fold DuckDB memory budget (issue #929, following PR #951's
+// thread-pinning result). Pinning threads left the parallel golden run
+// unchanged (~37 min, same as unpinned), which points the contention at
+// memory/IO rather than CPU: four concurrent DuckDB CLI processes, each with
+// no memory ceiling, can spill and thrash the shared page cache over the same
+// parquet scans. Setting a per-fold budget bounds the spill instead. Sibling
+// mechanism to REPORT_FOLD_THREADS: the sweep sets this for the concurrent
+// region only (report-sweep.ts), restored afterwards, so a fold running alone
+// keeps DuckDB's default. A value DuckDB would not accept as a memory size is
+// ignored (no preamble) rather than handed to the engine unvalidated.
+export const REPORT_FOLD_MEMORY_LIMIT_ENV = 'REPORT_FOLD_MEMORY_LIMIT';
+
 // The `SET threads TO <n>;` preamble REPORT_FOLD_THREADS requests, or '' when it
 // names no positive integer. Prepended to every fold script: a fold that pins its
 // own `SET threads TO 1` for last-writer-wins ordering still issues that AFTER
@@ -66,13 +78,37 @@ function foldThreadsPreamble(): string {
   return `SET threads TO ${parsed}; `;
 }
 
+// A DuckDB memory-size literal: a positive decimal magnitude followed by a
+// recognised byte-unit suffix (decimal B/KB/MB/GB/TB or the binary Ki/Mi/Gi/Ti
+// variants DuckDB also accepts), case-insensitive. Deliberately stricter than
+// DuckDB's own parser — which accepts a bare `0GB` (an immediate
+// out-of-memory budget) or a leading `-` (silently reinterpreted as an
+// enormous limit rather than rejected) — because this string is spliced
+// straight into the script rather than bound as a parameter.
+const MEMORY_LIMIT_PATTERN = /^(\d+(?:\.\d+)?)\s*(B|KB|MB|GB|TB|KIB|MIB|GIB|TIB)$/i;
+
+// The `SET memory_limit='<value>';` preamble REPORT_FOLD_MEMORY_LIMIT requests,
+// or '' when it names no positive memory size. Prepended alongside the threads
+// preamble: a fold that pins its own `SET memory_limit=...` still issues that
+// AFTER this preamble, so the later SET wins and a correctness-pinned fold's
+// budget is never overridden — mirrors foldThreadsPreamble's last-writer-wins
+// contract exactly.
+function foldMemoryLimitPreamble(): string {
+  const configured = process.env[REPORT_FOLD_MEMORY_LIMIT_ENV];
+  if (configured === undefined) return '';
+  const trimmed = configured.trim();
+  const match = MEMORY_LIMIT_PATTERN.exec(trimmed);
+  if (match === null || Number.parseFloat(match[1]) <= 0) return '';
+  return `SET memory_limit='${trimmed}'; `;
+}
+
 // Run one SQL script against an in-memory DuckDB and parse its JSON result set.
 // `-json` emits the final statement's rows as a JSON array (leading PRAGMA/SET
 // statements return no rows and contribute nothing), so a script may open with
 // `SET threads TO 1;` before its single result-bearing query.
 export function foldQuery<Row>(sql: string): Row[] {
   const binary = duckDbBinary();
-  const script = foldThreadsPreamble() + sql;
+  const script = foldThreadsPreamble() + foldMemoryLimitPreamble() + sql;
   let stdout: string;
   try {
     stdout = execFileSync(binary, ['-json', ':memory:', script], { maxBuffer: 1 << 30, encoding: 'utf8' });
