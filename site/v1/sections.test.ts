@@ -13,6 +13,7 @@ import {
   buildCallsignModel,
   dialGeometry,
   groupEventsByDay,
+  currentStateNode,
   fractionalYear,
 } from './callsign-sections.js';
 import { renderSiteBar, datedFactChipParts } from './shell.js';
@@ -317,6 +318,74 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
     expect(root.querySelector('.timeline .tl.state')).toBeNull();
   });
 
+  it('EventTimeline_WhenBookkeepingOnlyRecordHasStatus_StillEmitsTheStateTerminus', () => {
+    // A record with a held status but no parsed licensing events (only
+    // bookkeeping stamps) must still close the rail with the terminus — the dial
+    // shows it, so the rail cannot omit it.
+    const root = document.createElement('div');
+    const model = cm({
+      latest: { statuses: ['Allocated'], products: [], types: [], dataset: { title: 'Ofcom register snapshot', vintage: '2026-06-23', href: '#' } },
+      dial: {
+        hasEvents: false, hasBookkeeping: true,
+        bookkeeping: [{ day: '2019-01-01', label: 'record created', assertedBy: [] }],
+        sightings: [{ vintage: '2026-06-23' }],
+      },
+    });
+    CALLSIGN_SECTION_REGISTRY['event-timeline'].mount(root, model);
+    const stateNode = root.querySelector('.timeline .tl.state');
+    expect(stateNode).not.toBeNull();
+    expect(stateNode?.querySelector('.ttl')?.textContent).toContain('Allocated');
+  });
+
+  it('EventTimeline_WhenSightingsOnlyRecordHasStatus_EmitsTerminusWithoutContradictingTheEventCopy', () => {
+    // A sightings-only record with a held status: the non-observation copy still
+    // holds (no event evidence), and the terminus renders beside it as a STATE
+    // node — never as an event row — so the sibling sections cannot contradict.
+    const root = document.createElement('div');
+    const model = cm({
+      latest: { statuses: ['Allocated'], products: [], types: [], dataset: { title: 'Ofcom register snapshot', vintage: '2026-06-23', href: '#' } },
+      dial: { hasEvents: false, hasBookkeeping: false, sightings: [{ vintage: '2026-06-23' }] },
+    });
+    CALLSIGN_SECTION_REGISTRY['event-timeline'].mount(root, model);
+    const surface = root.querySelector('section[data-section]') ?? root;
+    // The non-observation copy is present (it speaks to event evidence).
+    expect(root.textContent).toContain('No dated event-time evidence is held');
+    // The terminus is present, anchored to the newest sighting.
+    const stateNode = root.querySelector('.timeline .tl.state');
+    expect(stateNode).not.toBeNull();
+    expect(stateNode?.querySelector('.when')?.textContent).toContain('2026-06-23');
+    // No event row masquerades on the rail — the terminus is the only .tl.
+    expect(surface.querySelectorAll('.tl:not(.state)')).toHaveLength(0);
+  });
+
+  it('EventTimeline_StateTerminus_CarriesItsAssertionProvenanceFold', () => {
+    // The terminus is a rail node like any other: its asserting publication must
+    // be expandable, exactly as licensing events and bookkeeping lines are.
+    const root = document.createElement('div');
+    const model = cm({
+      latest: { statuses: ['Allocated'], products: [], types: [], dataset: { title: 'Ofcom register snapshot', vintage: '2026-06-23', href: '#' } },
+      dial: { hasEvents: true, events: [{ day: '2018-10-18', label: 'licence issued', state: false, assertedBy: [] }], sightings: [{ vintage: '2026-06-23' }] },
+    });
+    CALLSIGN_SECTION_REGISTRY['event-timeline'].mount(root, model);
+    const fold = root.querySelector('.tl.state .evt-assert');
+    expect(fold).not.toBeNull();
+    expect(fold?.querySelector('summary')?.textContent).toContain('asserted by 1 publication');
+    expect(fold?.textContent).toContain('Ofcom register snapshot');
+  });
+
+  it('EvidenceDial_StateTerminus_CarriesAssertionProvenanceInItsTitle', () => {
+    // The dial marker cannot host a disclosure fold, so its provenance rides the
+    // title (the rail terminus carries the expandable fold).
+    const root = document.createElement('div');
+    const model = cm({
+      latest: { statuses: ['Allocated'], products: [], types: [], dataset: { title: 'Ofcom register snapshot', vintage: '2026-06-23', href: '#' } },
+      dial: { hasEvents: true, events: [{ day: '2018-10-18', label: 'licence issued', state: false, assertedBy: [] }], sightings: [{ vintage: '2026-06-23' }] },
+    });
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, model);
+    const title = root.querySelector('.scale .ev.state')?.getAttribute('title') ?? '';
+    expect(title).toContain('Ofcom register snapshot');
+  });
+
   it('EventTimeline_EachEvent_CarriesItsAssertionTimeProvenanceExpandable', () => {
     const root = document.createElement('div');
     const model = cm({
@@ -433,6 +502,21 @@ describe('v1 dial geometry (pure)', { tags: ['unit'] }, () => {
       [{ vintage: '2026-06-23' }],
     );
     expect(geo.state).toBeNull();
+  });
+
+  it('CurrentStateNode_WhenNewestEventPostdatesNewestSighting_AnchorsToTheNewestSighting', () => {
+    // The terminus is an assertion-anchored claim — "as of the newest publication
+    // that asserts it" — so a later event day must not drag it past the sightings.
+    const model = cm({
+      latest: { statuses: ['Allocated'], products: [], types: [], dataset: { title: 'Ofcom register snapshot', vintage: '2026-06-23', href: '#' } },
+      dial: {
+        events: [{ day: '2027-05-01', label: 'future-dated event', state: false, assertedBy: [] }],
+        sightings: [{ vintage: '2026-06-23' }],
+      },
+    });
+    const node = currentStateNode(model);
+    expect(node?.day).toBe('2026-06-23');
+    expect(node?.assertedBy[0].title).toBe('Ofcom register snapshot');
   });
 
   it('DialGeometry_MarkerPositions_StayWithinTheAxis', () => {

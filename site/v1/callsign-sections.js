@@ -340,20 +340,24 @@ export function dialGeometry(events, sightings, state = null) {
 
 // The current-state terminus (issue #921): the record's latest held status as a
 // green node closing the event story on both the dial scale and the event rail.
-// Anchored to the latest held date — the newest publication sighting, or the
-// newest event day when none is held — and absent when the record carries no
-// status, so a status-less record renders no terminus and never a bare node.
-/** @param {CallsignModel} model @returns {{ label: string, day: string } | null} */
+// It is an assertion-anchored claim — "as of the newest publication that asserts
+// it" — so it anchors to the newest publication sighting, falling back to the
+// newest event day only when no sighting is held. It carries the latest dataset
+// as its assertion-time provenance, so the terminus expands to which publication
+// asserts it exactly as every other rail node does. Absent when the record
+// carries no status, so a status-less record renders no terminus and never a
+// bare node.
+/** @param {CallsignModel} model @returns {{ label: string, day: string, assertedBy: AssertedBy[] } | null} */
 export function currentStateNode(model) {
-  const statuses = model.latest !== null ? model.latest.statuses : [];
-  if (statuses.length === 0) return null;
-  const dates = [
-    ...model.dial.sightings.map((s) => s.vintage),
-    ...model.dial.events.map((e) => e.day),
-  ].filter((d) => !Number.isNaN(fractionalYear(d)));
-  if (dates.length === 0) return null;
-  const day = dates.reduce((newest, d) => (fractionalYear(d) > fractionalYear(newest) ? d : newest));
-  return { label: `${statuses.join(' / ')} — ${V1_COPY.callsign.dial.currentStateLabel}`, day };
+  if (model.latest === null || model.latest.statuses.length === 0) return null;
+  const sightingDays = model.dial.sightings.map((s) => s.vintage).filter((d) => !Number.isNaN(fractionalYear(d)));
+  const eventDays = model.dial.events.map((e) => e.day).filter((d) => !Number.isNaN(fractionalYear(d)));
+  const anchorDays = sightingDays.length > 0 ? sightingDays : eventDays;
+  if (anchorDays.length === 0) return null;
+  const day = anchorDays.reduce((newest, d) => (fractionalYear(d) > fractionalYear(newest) ? d : newest));
+  const dataset = model.latest.dataset;
+  const assertedBy = dataset.title !== '' ? [{ title: dataset.title, href: dataset.href, vintage: dataset.vintage, nrows: 1 }] : [];
+  return { label: `${model.latest.statuses.join(' / ')} — ${V1_COPY.callsign.dial.currentStateLabel}`, day, assertedBy };
 }
 
 // ---------------------------------------------------------------------------
@@ -473,7 +477,10 @@ function mountEvidenceDial(host, model) {
   const ariaBits = [`One year axis from ${geo.minYear} to ${geo.maxYear}.`];
   if (geo.events.length > 0) ariaBits.push(`Event time, above the axis: ${geo.events.flatMap((c) => c.labels.map((l) => `${l} (${c.day})`)).join('; ')}.`);
   if (geo.sightings.length > 0) ariaBits.push(`Assertion time, below the axis: ${geo.sightings.length} publication sightings.`);
-  if (geo.state !== null) ariaBits.push(`${geo.state.label}, as of ${geo.state.day}.`);
+  if (geo.state !== null) {
+    const by = stateNode !== null && stateNode.assertedBy.length > 0 ? `, asserted by ${stateNode.assertedBy[0].title}` : '';
+    ariaBits.push(`${geo.state.label}, as of ${geo.state.day}${by}.`);
+  }
   scale.setAttribute('aria-label', ariaBits.join(' '));
   scale.appendChild(el('div', 'axis'));
   for (const y of geo.years) {
@@ -506,6 +513,13 @@ function mountEvidenceDial(host, model) {
     marker.appendChild(el('span', 'dot'));
     const cap = el('span', 'cap', geo.state.label);
     cap.appendChild(el('small', null, geo.state.day));
+    // The dial marker cannot host a disclosure fold; its assertion-time
+    // provenance rides the title/aria instead, with the expandable fold on the
+    // matching event-rail terminus.
+    if (stateNode !== null && stateNode.assertedBy.length > 0) {
+      const a = stateNode.assertedBy[0];
+      marker.setAttribute('title', `as of ${geo.state.day}, asserted by ${a.vintage != null ? `${a.title} (vintage ${a.vintage})` : a.title}`);
+    }
     marker.appendChild(cap);
     scale.appendChild(marker);
   }
@@ -615,6 +629,22 @@ function assertedByFold(assertedBy) {
   return details;
 }
 
+// The current-state terminus as a rail node: the green .tl.state node the shell
+// styles, carrying the record's latest held status and — like every other rail
+// node — its assertion-time provenance as an expandable fold.
+/** @param {{ label: string, day: string, assertedBy: AssertedBy[] }} stateNode @returns {HTMLElement} */
+function stateTerminusRow(stateNode) {
+  const tl = el('div', 'tl state');
+  const when = el('div', 'when', stateNode.day);
+  when.appendChild(el('small', null, 'state'));
+  tl.appendChild(when);
+  const track = el('div', 'track');
+  track.appendChild(el('div', 'ttl', stateNode.label));
+  if (stateNode.assertedBy.length > 0) track.appendChild(assertedByFold(stateNode.assertedBy));
+  tl.appendChild(track);
+  return tl;
+}
+
 /** @param {HTMLElement} host @param {CallsignModel} model */
 function mountEventTimeline(host, model) {
   const surface = el('section', 'surface');
@@ -626,13 +656,26 @@ function mountEventTimeline(host, model) {
 
   const hasEvents = model.dial.events.length > 0;
   const hasBookkeeping = model.dial.bookkeeping.length > 0;
+  // The current-state terminus is a STATE claim, not an event, so it renders
+  // whenever a status is held — independent of event/bookkeeping evidence,
+  // mirroring the dial. When there is no event-time evidence the non-observation
+  // copy still holds (it speaks to events, which are genuinely absent); the
+  // terminus renders beside it rather than instead of it, so the two never
+  // contradict and the dial never shows a terminus the rail omits.
+  const stateNode = currentStateNode(model);
+
   if (!hasEvents && !hasBookkeeping) {
     surface.appendChild(el('p', 'note muted', V1_COPY.callsign.dial.noEvidence));
+    if (stateNode !== null) {
+      const tlWrap = el('div', 'timeline');
+      tlWrap.appendChild(stateTerminusRow(stateNode));
+      surface.appendChild(tlWrap);
+    }
     host.appendChild(surface);
     return;
   }
 
-  if (hasEvents) {
+  if (hasEvents || stateNode !== null) {
     const tlWrap = el('div', 'timeline');
     // Co-dated events group under one dated node, so the rail reads as the dial
     // does — one node per day — rather than as near-identical repeated rows.
@@ -652,17 +695,7 @@ function mountEventTimeline(host, model) {
     }
     // The current-state terminus closes the rail with the record's latest held
     // status, in the green state node the shell already styles (.tl.state).
-    const stateNode = currentStateNode(model);
-    if (stateNode !== null) {
-      const tl = el('div', 'tl state');
-      const when = el('div', 'when', stateNode.day);
-      when.appendChild(el('small', null, 'state'));
-      tl.appendChild(when);
-      const track = el('div', 'track');
-      track.appendChild(el('div', 'ttl', stateNode.label));
-      tl.appendChild(track);
-      tlWrap.appendChild(tl);
-    }
+    if (stateNode !== null) tlWrap.appendChild(stateTerminusRow(stateNode));
     surface.appendChild(tlWrap);
   }
 
