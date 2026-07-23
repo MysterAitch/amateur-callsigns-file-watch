@@ -139,6 +139,12 @@ export const V1_COPY = {
         title: 'Licence origin',
         equiv: '= issuance',
         coincide: 'The record’s licence-issued, original-start and version-start dates coincide on this day. Each is listed below with the publication that asserts it; the record reads them as one origin and adjudicates nothing.',
+        // An attested interpretation of the original-start field, carried from
+        // held research (issue #921): sourced to Ofcom's own field dictionary and
+        // hedged, since it is confirmed for the field's DEFINITION but not for
+        // every individual record. Cited, never asserted as universal fact.
+        interpretationLabel: 'how the original-start date is read',
+        interpretation: 'The register’s own field guidance — Ofcom’s Licence-View field dictionary, disclosed under FOI (2014/15) — defines Original Start Date as a licence-view field: the licence chain’s first-ever start, surviving revisions, rather than this callsign’s own issuance. In at least some records it pre-dates the callsign’s series, so it dates the holder’s inherited licence chain, not this callsign; whether that reading holds for every record is not confirmed.',
       },
       // The current-state terminus suffix. Appended to the record's own latest
       // status value ('Allocated — current state') as the green node closing the
@@ -157,6 +163,16 @@ export const V1_COPY = {
       // The cross-vintage disagreement block (#467): every camp kept, adjudicated nowhere.
       disagreementLabel: 'The held vintages disagree about this record’s dates',
       disagreementGloss: 'Different vintages assert different dates for the same past event. Every camp is listed with its asserting datasets; the record adjudicates none of them — a later assertion is not automatically the truer one.',
+      // The plain-language resolution appended to each disagreement (issue #921):
+      // it names the mechanism (the publications disagree), never a verdict.
+      disagreementResolution: 'the held publications disagree; both values are shown and neither is adjudicated',
+      // The disputed-entry link and the high-density "examine" nudge (issue #921):
+      // where held vintages assert competing dates, every claim renders on the
+      // instrument and links to the narrative. Record-scoped, no verdict — the
+      // mechanism (claims conflict) is named, never a ruling on which is right.
+      disputeLink: 'disputed — why?',
+      disputeNudge: 'This record carries {count} conflicting dated claims — the instrument shows every one.',
+      disputeNudgeCta: 'examine the disagreements',
     },
     // The carried-origin explainer. Record-scoped throughout: it describes what
     // the HELD RECORD shows, never an unqualified claim about the world. The

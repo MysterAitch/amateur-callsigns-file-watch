@@ -68,6 +68,10 @@ const link = (href, label, cls = null) => {
  *                            current-state terminus is derived from the record's
  *                            status as a dedicated node, so licensing events
  *                            carry false.
+ * @property {boolean} [disputed]  set when a held vintage asserts a competing date
+ *                            for this event's kind; the dial and rail then render
+ *                            every distinct claim with the visibly-disputed
+ *                            treatment (issue #921).
  * @property {AssertedBy[]} assertedBy  the assertion-time provenance for this event
  */
 
@@ -81,6 +85,8 @@ const link = (href, label, cls = null) => {
 /**
  * @typedef {object} DialDisagreement
  * @property {string} kindLabel
+ * @property {string} [kindId]  the disagreeing kind's authored id, resolved from the
+ *                            matching event so a disputed marker carries the kind tint
  * @property {{ day: string, datasets: { title: string, href: string, vintage: string | null }[] }[]} camps  every camp kept, resolved nowhere (#467)
  */
 
@@ -207,6 +213,9 @@ export function buildCallsignModel(deps) {
     findings = strip.findings.map((f) => ({ statement: f.statement, caveats: f.caveats.map((c) => c.label) }));
     disagreements = strip.disagreements.map((d) => ({
       kindLabel: d.kindLabel,
+      // Resolve the disagreeing kind's id from the matching event, so a disputed
+      // marker/entry can carry the same kind tint as its undisputed siblings.
+      kindId: events.find((e) => e.label === d.kindLabel)?.kindId,
       camps: d.camps.map((c) => ({ day: c.day, datasets: c.datasets.map((ds) => ({ title: ds.title, href: ds.href, vintage: ds.vintage })) })),
     }));
     hasEvents = events.length > 0;
@@ -306,6 +315,26 @@ const ORIGIN_KIND_SET = new Set(ORIGIN_KIND_IDS);
 /** @param {string | undefined} kindId @returns {boolean} */
 const isOriginKind = (kindId) => kindId !== undefined && ORIGIN_KIND_SET.has(kindId);
 
+// Kind-tints (issue #921, owner-adopted): the licensing event kinds that carry a
+// subtle per-kind hue, so a reader can match an event on the dial to its line on
+// the rail by tint. The hues live in shell.css keyed by data-kind; this set only
+// decides WHICH kinds are tinted (bookkeeping stamps and the state terminus keep
+// the base grammar). The tint is always subordinate — a small swatch or a left
+// accent beside a name that is always present, never the primary diamond or the
+// green state node.
+/** @type {Set<string>} */
+export const TINTED_EVENT_KINDS = new Set([
+  'licence-issued', 'licence-original-start', 'licence-version-original-start',
+  'licence-cancelled', 'reserved-until',
+]);
+
+// The disagreement narrative's anchor id: disputed markers and entries link here
+// so the visual (a hollow, tinted marker) and the verbal explanation reinforce.
+export const DISAGREEMENT_ANCHOR_ID = 'record-disagreements';
+// At or above this many competing dated claims, the dial carries the "examine"
+// nudge (issue #921) — heavy disagreement is surfaced, not summarised away.
+export const DISPUTE_NUDGE_THRESHOLD = 4;
+
 // Near-dated separation threshold (issue #921). A dial caption is centred on its
 // marker, so two markers whose captions would overlap must be disambiguated. A
 // representative single-line caption is about NEAR_DATED_CAPTION_WIDTH_REM wide;
@@ -346,6 +375,90 @@ export function isAgreeingOriginGroup(group, allGroups, disagreements) {
   return !disagreements.some((d) => originLabels.has(d.kindLabel));
 }
 
+// Vertical geometry of the dial scale, in px — the SINGLE source shared with
+// shell.css. dialGeometry composes the tallest caption extent from these
+// constants; the mount publishes them (and the derived --scale-h / --axis-top)
+// as custom properties on the .scale element, and shell.css positions every
+// marker from the same var()s, so the height budget the JS reserves and the
+// layout the CSS paints cannot drift. A stacked or near-dated composition grows
+// the panel; a lone compact reading keeps the default height.
+export const DIAL_SCALE_GEOMETRY = {
+  axisTopDefault: 136, // compact axis offset from the scale top; the panel only grows past this
+  belowAxis: 74,       // room kept beneath the axis for the sighting (calibration) track
+  tierStep: 30,        // each near-dated separation tier lifts a marker this far
+  stackBase: 34,       // a co-dated stack's bottom clearance above the axis
+  stackRowH: 15,       // rendered height of one named row in a stack
+  stackDayH: 15,       // rendered height of the shared day line beneath a stack
+  capBase: 46,         // a single marker's caption bottom clearance above the axis
+  capH: 30,            // a single two-line caption's rendered height
+  stemBase: 34,        // stem length from the axis
+  dotBase: 30,         // diamond bottom clearance above the axis
+  connBase: 30,        // stack connector bottom clearance above the axis
+  connH: 6,            // stack connector length
+  topMargin: 14,       // breathing room kept above the tallest composed caption
+};
+
+// The upward extent (px above the axis) a cluster's caption reaches at its tier:
+// a co-dated stack grows by its row count, a lone marker by its two-line caption.
+// The same arithmetic the stylesheet lays out, so the reserved headroom is a true
+// upper bound on the painted height (issue #921 review).
+/** @param {number} count @param {number} tier @returns {number} */
+export function clusterCaptionExtent(count, tier) {
+  const g = DIAL_SCALE_GEOMETRY;
+  const lift = tier * g.tierStep;
+  return count > 1
+    ? g.stackBase + lift + count * g.stackRowH + g.stackDayH
+    : g.capBase + lift + g.capH;
+}
+
+// Within-kind disagreements render EVERY distinct claim (issue #921): the shard
+// keeps only the earliest-surviving value per kind on the primary strip and
+// confines the competing dates to the disagreement block, which hid them from
+// the instrument. This expands the event list so each camp day of a disagreeing
+// kind becomes its own event — marked disputed and carrying that camp's asserting
+// datasets — while an existing event on a camp day is marked disputed in place.
+// The result feeds the normal layout machinery (same-day stacking, near-dated
+// tiering, kind tints), so disputed claims collide and grow the panel exactly as
+// undisputed ones do. No cap: heavy disagreement is surfaced, not summarised
+// away. Events are returned in day order so the rail reads chronologically.
+/**
+ * @param {DialEvent[]} events
+ * @param {DialDisagreement[]} disagreements
+ * @returns {DialEvent[]}
+ */
+export function expandDisputedEvents(events, disagreements) {
+  /** @type {DialEvent[]} */
+  const out = events.map((e) => ({ ...e }));
+  for (const d of disagreements) {
+    const kindId = d.kindId ?? out.find((e) => e.label === d.kindLabel)?.kindId;
+    for (const camp of d.camps) {
+      const existing = out.find((e) => e.label === d.kindLabel && e.day === camp.day);
+      if (existing !== undefined) {
+        existing.disputed = true;
+        continue;
+      }
+      out.push({
+        day: camp.day,
+        label: d.kindLabel,
+        kindId,
+        state: false,
+        disputed: true,
+        assertedBy: camp.datasets.map((ds) => ({ title: ds.title, href: ds.href, vintage: ds.vintage, nrows: 1 })),
+      });
+    }
+  }
+  return out.sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
+}
+
+// How many distinct competing dated claims a record holds across all its
+// disagreeing kinds — the count behind the high-density "examine" nudge (issue
+// #921). Each camp is one asserted date, so the total is the number of
+// conflicting claims on the instrument.
+/** @param {DialDisagreement[]} disagreements @returns {number} */
+export function disputedClaimCount(disagreements) {
+  return disagreements.reduce((n, d) => n + d.camps.length, 0);
+}
+
 // Pure geometry for the dial: map event days and sighting vintages onto one
 // shared year axis. Returns the axis domain, the year ticks and each marker's
 // left-percentage — everything the mount needs, and everything the test pins.
@@ -357,7 +470,7 @@ export function isAgreeingOriginGroup(group, allGroups, disagreements) {
  * @param {DialEvent[]} events
  * @param {DialSighting[]} sightings
  * @param {{ label: string, day: string } | null} [state]  the current-state terminus, or null for none
- * @returns {{ minYear: number, maxYear: number, years: { year: number, left: number }[], events: { left: number, day: string, labels: string[], count: number, tier: number }[], sightings: { left: number, vintage: string }[], state: { left: number, label: string, day: string } | null }}
+ * @returns {{ minYear: number, maxYear: number, years: { year: number, left: number }[], events: { left: number, day: string, labels: string[], kinds: (string | null)[], disputed: boolean[], count: number, tier: number }[], sightings: { left: number, vintage: string }[], state: { left: number, label: string, day: string } | null, axisTop: number, scaleHeight: number }}
  */
 export function dialGeometry(events, sightings, state = null) {
   const fracs = [
@@ -380,7 +493,7 @@ export function dialGeometry(events, sightings, state = null) {
   const years = [];
   for (let y = minYear; y <= maxYear; y += step) years.push({ year: y, left: pos(y) });
   const clusters = groupEventsByDay(events.filter((e) => !Number.isNaN(fractionalYear(e.day))))
-    .map((g) => ({ left: pos(fractionalYear(g.day)), day: g.day, labels: g.events.map((e) => e.label), count: g.events.length, tier: 0 }));
+    .map((g) => ({ left: pos(fractionalYear(g.day)), day: g.day, labels: g.events.map((e) => e.label), kinds: g.events.map((e) => e.kindId ?? null), disputed: g.events.map((e) => e.disputed === true), count: g.events.length, tier: 0 }));
   // Near-dated separation: walking the clusters left-to-right, any cluster
   // whose gap to the one before it is under the caption-width threshold joins a
   // run and steps up one tier; a gap at or above the threshold starts a fresh
@@ -391,6 +504,17 @@ export function dialGeometry(events, sightings, state = null) {
     const gap = byLeft[i].left - byLeft[i - 1].left;
     byLeft[i].tier = gap < NEAR_DATED_SEPARATION_THRESHOLD_PERCENT ? byLeft[i - 1].tier + 1 : 0;
   }
+  // Compose the vertical height budget (issue #921 review): grow the scale so the
+  // tallest stacked-and-tiered caption always clears the axis with no spill into
+  // the controls above and no accidental scrollbar, and keep the compact default
+  // when nothing needs the room. Stacks, near-dated singles and the state caption
+  // are all measured.
+  const g = DIAL_SCALE_GEOMETRY;
+  let maxExtent = 0;
+  for (const c of clusters) maxExtent = Math.max(maxExtent, clusterCaptionExtent(c.count, c.tier));
+  if (state !== null && !Number.isNaN(fractionalYear(state.day))) maxExtent = Math.max(maxExtent, clusterCaptionExtent(1, 0));
+  const axisTop = Math.max(g.axisTopDefault, maxExtent + g.topMargin);
+  const scaleHeight = axisTop + g.belowAxis;
   const stateOut = state !== null && !Number.isNaN(fractionalYear(state.day))
     ? { left: pos(fractionalYear(state.day)), label: state.label, day: state.day }
     : null;
@@ -401,6 +525,8 @@ export function dialGeometry(events, sightings, state = null) {
     events: clusters,
     sightings: sightings.filter((s) => !Number.isNaN(fractionalYear(s.vintage))).map((s) => ({ left: pos(fractionalYear(s.vintage)), vintage: s.vintage })),
     state: stateOut,
+    axisTop,
+    scaleHeight,
   };
 }
 
@@ -495,6 +621,33 @@ function mountFastAnswer(host, model) {
   host.appendChild(head);
 }
 
+// Apply a kind-tint to a node (issue #921): mark it with data-kind so shell.css
+// paints the kind's swatch/accent. Only the licensing event kinds are tinted;
+// anything else is left in the base grammar. The tint is decorative — the event
+// name is always present, so it is never the sole discriminator.
+/** @param {HTMLElement} node @param {string | null | undefined} kindId */
+function applyKindTint(node, kindId) {
+  if (kindId != null && TINTED_EVENT_KINDS.has(kindId)) node.setAttribute('data-kind', kindId);
+}
+
+// Publish the composed vertical geometry as custom properties on the scale (issue
+// #921): --scale-h / --axis-top are the height and axis offset dialGeometry grew
+// to fit this composition; the rest are the shared constant offsets shell.css
+// lays every marker out from. One writer keeps the JS budget and the CSS layout
+// locked together.
+/** @param {HTMLElement} scale @param {{ scaleHeight: number, axisTop: number }} geo */
+function applyScaleGeometry(scale, geo) {
+  const g = DIAL_SCALE_GEOMETRY;
+  /** @type {Record<string, number>} */
+  const props = {
+    '--scale-h': geo.scaleHeight, '--axis-top': geo.axisTop, '--tier-step': g.tierStep,
+    '--stem-base': g.stemBase, '--dot-base': g.dotBase, '--cap-base': g.capBase,
+    '--stack-base': g.stackBase, '--stack-row-h': g.stackRowH, '--stack-day-h': g.stackDayH,
+    '--conn-base': g.connBase, '--conn-h': g.connH,
+  };
+  for (const [k, v] of Object.entries(props)) scale.style.setProperty(k, `${v}px`);
+}
+
 // The bitemporal dial (the signature element).
 /** @param {HTMLElement} host @param {CallsignModel} model */
 function mountEvidenceDial(host, model) {
@@ -539,7 +692,10 @@ function mountEvidenceDial(host, model) {
 
   // The scale.
   const stateNode = currentStateNode(model);
-  const geo = dialGeometry(model.dial.events, model.dial.sightings, stateNode);
+  // Expand within-kind disagreements into a marker per distinct claim (issue #921)
+  // before laying out, so disputed claims join the same stacking/tiering machinery.
+  const events = expandDisputedEvents(model.dial.events, model.dial.disagreements);
+  const geo = dialGeometry(events, model.dial.sightings, stateNode);
   const ariaBits = [`One year axis from ${geo.minYear} to ${geo.maxYear}.`];
   if (geo.events.length > 0) ariaBits.push(`Event time, above the axis: ${geo.events.flatMap((c) => c.labels.map((l) => `${l} (${c.day})`)).join('; ')}.`);
   if (geo.sightings.length > 0) ariaBits.push(`Assertion time, below the axis: ${geo.sightings.length} publication sightings.`);
@@ -548,6 +704,7 @@ function mountEvidenceDial(host, model) {
     ariaBits.push(`${geo.state.label}, as of ${geo.state.day}${by}.`);
   }
   scale.setAttribute('aria-label', ariaBits.join(' '));
+  applyScaleGeometry(scale, geo);
   scale.appendChild(el('div', 'axis'));
   for (const y of geo.years) {
     const yr = el('div', 'yr', String(y.year));
@@ -558,8 +715,15 @@ function mountEvidenceDial(host, model) {
     // The separation tier rides a CSS custom property; the stylesheet steps the
     // stem, dot and caption up by it so a near-dated run's captions never
     // overlap while every x stays true (issue #921).
-    const marker = el('div', cl.count > 1 ? 'ev stacked' : 'ev');
+    const allDisputed = cl.disputed.every((d) => d);
+    const cls = ['ev'];
+    if (cl.count > 1) cls.push('stacked');
+    // A single wholly-disputed marker reads hollow; a stack marks its disputed
+    // rows individually and only goes hollow when every row is disputed.
+    if (allDisputed) cls.push('disputed');
+    const marker = el('div', cls.join(' '));
     marker.setAttribute('style', `left:${cl.left.toFixed(1)}%;--tier:${cl.tier}`);
+    if (cl.count === 1) applyKindTint(marker, cl.kinds[0]);
     marker.appendChild(el('span', 'stem'));
     marker.appendChild(el('span', 'dot'));
     if (cl.count === 1) {
@@ -571,10 +735,16 @@ function mountEvidenceDial(host, model) {
     } else {
       // Co-dated events: the centred vertical stack (issue #921). Every event is
       // named on its own row in record order, the shared day shown once beneath.
-      // No count teaser and nothing to hunt for — a tall stack is accepted.
+      // No count teaser and nothing to hunt for — a tall stack is accepted. Each
+      // row carries its own kind tint and disputed state so a mixed day reads
+      // honestly.
       marker.appendChild(el('span', 'conn'));
       const stack = el('span', 'vstack');
-      for (const label of cl.labels) stack.appendChild(el('span', 'r', label.split(' — ')[0]));
+      cl.labels.forEach((label, i) => {
+        const r = el('span', cl.disputed[i] ? 'r disputed' : 'r', label.split(' — ')[0]);
+        applyKindTint(r, cl.kinds[i]);
+        stack.appendChild(r);
+      });
       stack.appendChild(el('span', 'd', cl.day));
       marker.setAttribute('title', cl.labels.join('; '));
       marker.appendChild(stack);
@@ -620,7 +790,11 @@ function mountEvidenceDial(host, model) {
   const note = el('div', 'dial-note');
   const g1 = el('span', 'g event');
   g1.appendChild(el('b', null, V1_COPY.callsign.dial.readingLead));
-  g1.append(` — ${model.dial.events.length} event${model.dial.events.length === 1 ? '' : 's'} on the primary scale.`);
+  // The count is honest about CLAIMS: every distinct dated event reading, disputed
+  // ones included (issue #921), so a record whose vintages disagree reads as more
+  // claims, not fewer.
+  const claimCount = events.length;
+  g1.append(` — ${claimCount} dated event claim${claimCount === 1 ? '' : 's'} on the primary scale.`);
   note.appendChild(g1);
   const g2 = el('span', 'g assert');
   g2.appendChild(el('b', null, V1_COPY.callsign.dial.calibrationLead));
@@ -639,6 +813,19 @@ function mountEvidenceDial(host, model) {
       .replace('{month}', formatSeriesIntroMonth(model.seriesIntro));
     context.append(` ${text}.`);
     dial.appendChild(context);
+  }
+
+  // High-density disagreement nudge (issue #921): where a record carries many
+  // competing dated claims the instrument is deliberately cluttered — the mess is
+  // the signal. Pair it with an explicit invitation into the plain-language
+  // narrative rather than smoothing the clutter away.
+  const disputes = disputedClaimCount(model.dial.disagreements);
+  if (disputes >= DISPUTE_NUDGE_THRESHOLD) {
+    const nudge = el('div', 'dial-dispute-nudge');
+    nudge.appendChild(el('span', 'tb', 'derived'));
+    nudge.append(` ${V1_COPY.callsign.dial.disputeNudge.replace('{count}', String(disputes))} `);
+    nudge.appendChild(link(`#${DISAGREEMENT_ANCHOR_ID}`, V1_COPY.callsign.dial.disputeNudgeCta, 'nudge-cta'));
+    dial.appendChild(nudge);
   }
 
   surface.appendChild(dial);
@@ -663,6 +850,7 @@ function mountEvidenceDial(host, model) {
   // Dataset names render as plain text — the v1 surface links only to itself.
   if (model.dial.disagreements.length > 0) {
     const card = el('div', 'dial-disagree');
+    card.setAttribute('id', DISAGREEMENT_ANCHOR_ID);
     const dhead = el('div', 'dd-head');
     dhead.appendChild(el('span', 'tb', 'derived'));
     dhead.append(` ${V1_COPY.callsign.dial.disagreementLabel}`);
@@ -670,14 +858,20 @@ function mountEvidenceDial(host, model) {
     card.appendChild(el('p', 'note', V1_COPY.callsign.dial.disagreementGloss));
     const ul = el('ul', 'dd-camps');
     for (const d of model.dial.disagreements) {
+      // Plain language a fresh reader can reconstruct (issue #921): which held
+      // publication asserts which date for this kind, and that the values cannot
+      // all hold together. Record-scoped, both sides shown, none adjudicated.
       const li = el('li');
-      li.append(`${d.kindLabel} — `);
+      const kind = d.kindLabel.split(' — ')[0];
       d.camps.forEach((camp, i) => {
-        if (i > 0) li.append(' vs ');
+        if (i > 0) li.append('; ');
+        const sources = camp.datasets
+          .map((ds) => (ds.vintage != null ? `the ${ds.title} (vintage ${ds.vintage})` : `the ${ds.title}`))
+          .join(' and ');
+        li.append(`${sources} state${camp.datasets.length === 1 ? 's' : ''} the ${kind} as `);
         li.appendChild(el('b', null, camp.day));
-        const titles = camp.datasets.map((ds) => (ds.vintage != null ? `${ds.title} (vintage ${ds.vintage})` : ds.title)).join(', ');
-        li.append(` per ${titles}`);
       });
+      li.append(` — ${V1_COPY.callsign.dial.disagreementResolution}.`);
       ul.appendChild(li);
     }
     card.appendChild(ul);
@@ -727,8 +921,16 @@ function stateTerminusRow(stateNode) {
 // its events with a hairline rule between them (issue #921).
 /** @param {DialEvent} ev @returns {HTMLElement} */
 function eventLine(ev) {
-  const line = el('div', 'evt');
-  line.appendChild(el('div', 'ttl', ev.label));
+  const line = el('div', ev.disputed === true ? 'evt disputed' : 'evt');
+  applyKindTint(line, ev.kindId);
+  const ttl = el('div', 'ttl', ev.label);
+  // A disputed entry links to the plain-language disagreement narrative, so the
+  // hollow tinted marker and the verbal explanation reinforce (issue #921).
+  if (ev.disputed === true) {
+    ttl.append(' ');
+    ttl.appendChild(link(`#${DISAGREEMENT_ANCHOR_ID}`, V1_COPY.callsign.dial.disputeLink, 'dispute-link'));
+  }
+  line.appendChild(ttl);
   if (ev.assertedBy.length > 0) line.appendChild(assertedByFold(ev.assertedBy));
   return line;
 }
@@ -769,6 +971,14 @@ function originGroupRow(group) {
   const origin = group.events.filter((e) => isOriginKind(e.kindId));
   const others = group.events.filter((e) => !isOriginKind(e.kindId));
   for (const ev of [...origin, ...others]) track.appendChild(eventLine(ev));
+  // An attested, sourced caveat on how the original-start date is read (issue
+  // #921), folded so it supports the story without crowding it.
+  const note = el('details', 'fold origin-note');
+  note.appendChild(el('summary', null, V1_COPY.callsign.dial.originSemantic.interpretationLabel));
+  const nb = el('div', 'b');
+  nb.appendChild(el('p', null, V1_COPY.callsign.dial.originSemantic.interpretation));
+  note.appendChild(nb);
+  track.appendChild(note);
   tl.appendChild(track);
   return tl;
 }
@@ -782,7 +992,10 @@ function mountEventTimeline(host, model) {
   surface.appendChild(lbl);
   surface.appendChild(el('p', 'note', V1_COPY.callsign.eventTimelineLead));
 
-  const hasEvents = model.dial.events.length > 0;
+  // Expand within-kind disagreements into a rail entry per distinct claim (issue
+  // #921), so the fallback grouped cards show every camp, not just the earliest.
+  const events = expandDisputedEvents(model.dial.events, model.dial.disagreements);
+  const hasEvents = events.length > 0;
   const hasBookkeeping = model.dial.bookkeeping.length > 0;
   // The current-state terminus is a STATE claim, not an event, so it renders
   // whenever a status is held — independent of event/bookkeeping evidence,
@@ -809,7 +1022,7 @@ function mountEventTimeline(host, model) {
     // does — one card per day — rather than as near-identical repeated rows. The
     // agreeing origin triple tells its own "licence origin" story; every other
     // day renders the plain grouped card with its events distinguished within.
-    const groups = groupEventsByDay(model.dial.events);
+    const groups = groupEventsByDay(events);
     for (const group of groups) {
       tlWrap.appendChild(isAgreeingOriginGroup(group, groups, model.dial.disagreements)
         ? originGroupRow(group)

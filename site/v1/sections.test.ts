@@ -19,6 +19,8 @@ import {
   fractionalYear,
   isAgreeingOriginGroup,
   NEAR_DATED_SEPARATION_THRESHOLD_PERCENT,
+  expandDisputedEvents,
+  disputedClaimCount,
 } from './callsign-sections.js';
 import { renderSiteBar, datedFactChipParts } from './shell.js';
 import { EVENT_TIME_GLOSS, ASSERTION_TIME_GLOSS } from './copy.js';
@@ -684,11 +686,12 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
     expect(originRow?.querySelectorAll('.evt .evt-assert')).toHaveLength(3);
   });
 
-  it('EventTimeline_WhenOriginKindsDisagreeAcrossVintages_FallsBackToTheDistinctGroupedRows', () => {
+  it('EventTimeline_WhenOriginKindsDisagreeAcrossVintages_FallsBackAndShowsEveryCampsRow', () => {
     // G8NNZ-shape divergence: the origin kinds land together in the latest
     // vintage but a held vintage disagrees about the version start. The semantic
-    // row must not coalesce it; the plain grouped card renders instead, and the
-    // disagreement surfaces remain intact on the dial.
+    // row must not coalesce it; the plain grouped card renders instead — and now
+    // EVERY camp is shown (issue #921 item 7), so the competing 1991-07-26 value
+    // gets its own dated card, not just the earliest-surviving one.
     const root = document.createElement('div');
     const disagreements = [{
       kindLabel: 'licence-version start — the earliest surviving in the asserting vintage',
@@ -706,11 +709,18 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
       ],
       disagreements,
     };
-    // Rail: no semantic row, a plain grouped card with distinct rows instead.
     CALLSIGN_SECTION_REGISTRY['event-timeline'].mount(root, cm({ dial }));
     expect(root.querySelector('.timeline .tl.origin')).toBeNull();
-    const grouped = root.querySelector('.timeline .tl:not(.state)');
-    expect(grouped?.querySelectorAll('.track .evt')).toHaveLength(3);
+    // Two dated cards now: the competing 1991-07-26 camp and the 2018-10-18 group.
+    const cards = [...root.querySelectorAll('.timeline .tl:not(.state)')];
+    expect(cards).toHaveLength(2);
+    const days = cards.map((c) => c.querySelector('.when')?.textContent ?? '');
+    expect(days.some((d) => d.includes('1991-07-26'))).toBe(true);
+    expect(days.some((d) => d.includes('2018-10-18'))).toBe(true);
+    // Both the added camp and the earliest-surviving value read as disputed and
+    // link to the narrative — two disputed rail entries in all.
+    expect(root.querySelectorAll('.timeline .track .evt.disputed')).toHaveLength(2);
+    expect(root.querySelector('.timeline .evt.disputed .dispute-link')?.getAttribute('href')).toBe('#record-disagreements');
     // Dial: the disagreement surfaces remain intact (both camps kept, #467).
     const dialRoot = document.createElement('div');
     CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(dialRoot, cm({ dial }));
@@ -908,8 +918,8 @@ describe('v1 agreeing-origin semantic row (pure)', { tags: ['unit'] }, () => {
     ];
     const groups = groupEventsByDay(spread);
     const originDay = groups.find((g) => g.day === '2018-10-18');
-    expect(originDay).toBeDefined();
-    expect(isAgreeingOriginGroup(originDay!, groups, [])).toBe(false);
+    if (originDay === undefined) throw new Error('fixture: expected a 2018-10-18 day-group');
+    expect(isAgreeingOriginGroup(originDay, groups, [])).toBe(false);
   });
 
   it('IsAgreeingOriginGroup_WhenAHeldVintageDisagreesAboutAnOriginKind_FallsBackToFalse', () => {
@@ -1060,5 +1070,233 @@ describe('v1 callsign model (reusing the shared pure functions)', { tags: ['ui']
     expect(model.found).toBe(false);
     expect(model.key).toBe('ZZ9ZZZ');
     expect(model.carriedOrigin).toBe('neutral');
+  });
+});
+
+describe('v1 dial height budget (pure, issue #921)', { tags: ['unit'] }, () => {
+  const sighting = [{ vintage: '2026-06-23' }];
+  const stack = (day: string, n: number) =>
+    Array.from({ length: n }, (_, i) => ({ day, label: 'kind ' + i, state: false, assertedBy: [] }));
+
+  it('DialGeometry_WhenAStackedClusterIsTiered_GrowsTheComposedScaleHeight', () => {
+    // A four-row stack pushed onto separation tier 1 by a near-dated neighbour
+    // exceeds the compact headroom, so the scale height and axis offset grow to
+    // contain it (extent 34 + 30 + 4*15 + 15 = 139; axis 139 + 14 = 153; height
+    // 153 + 74 = 227) — no spill, no scrollbar.
+    const geo = dialGeometry(
+      [
+        { day: '2001-06-01', label: 'lone', state: false, assertedBy: [] },
+        ...stack('2001-06-02', 4),
+      ],
+      sighting,
+    );
+    const fourStack = geo.events.find((e) => e.count === 4);
+    expect(fourStack?.tier).toBe(1);
+    expect(geo.axisTop).toBe(153);
+    expect(geo.scaleHeight).toBe(227);
+  });
+
+  it('DialGeometry_WhenAFiveEventDay_GrowsThePanelRatherThanClippingOrScrolling', () => {
+    // Tall stacks are the ACCEPTED design: a five-event day grows the panel
+    // (extent 34 + 5*15 + 15 = 124; axis 124 + 14 = 138; height 212) instead of
+    // clipping the top row or opening an internal scrollbar.
+    const geo = dialGeometry(stack('2019-06-05', 5), sighting);
+    expect(geo.events[0].count).toBe(5);
+    expect(geo.scaleHeight).toBe(212);
+    expect(geo.scaleHeight).toBeGreaterThan(210);
+  });
+
+  it('DialGeometry_WhenNothingNeedsExtraRoom_KeepsTheCompactDefault', () => {
+    // A lone four-row stack still fits the compact default (extent 109 + 14 < 136),
+    // so the panel does not grow needlessly.
+    const geo = dialGeometry(stack('2019-06-05', 4), sighting);
+    expect(geo.axisTop).toBe(136);
+    expect(geo.scaleHeight).toBe(210);
+  });
+
+  it('DialGeometry_WhenANearDatedRunsMiddleMemberIsAStack_ComposesHeightAcrossTheRun', () => {
+    // Three near-dated day-groups, the middle a stack: they take tiers 0, 1, 2 and
+    // the tallest composed caption drives the height (the tier-2 single reaches
+    // 46 + 60 + 30 = 136; axis 136 + 14 = 150; height 224).
+    const geo = dialGeometry(
+      [
+        { day: '2001-06-01', label: 'first', state: false, assertedBy: [] },
+        ...stack('2001-06-02', 3),
+        { day: '2001-06-03', label: 'third', state: false, assertedBy: [] },
+      ],
+      sighting,
+    );
+    expect([...geo.events].map((e) => e.tier).sort()).toEqual([0, 1, 2]);
+    const midStack = geo.events.find((e) => e.count === 3);
+    expect(midStack?.tier).toBe(1);
+    expect(geo.scaleHeight).toBe(224);
+  });
+});
+
+describe('v1 dial/rail round-2 collision treatments (ui, issue #921)', { tags: ['ui'] }, () => {
+  const codated = [
+    { day: '2020-01-01', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: [] },
+    { day: '2020-01-01', label: 'licence cancelled', kindId: 'licence-cancelled', state: false, assertedBy: [] },
+  ];
+
+  it('DialAndRail_KindTints_UseTheSameKindKeyOnBothSurfaces', () => {
+    // A reader must be able to match an event on the dial to its rail entry by
+    // tint: both surfaces key the tint off the same data-kind, and the event name
+    // is always present so the tint is never the sole discriminator.
+    const dialRoot = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(dialRoot, cm({ dial: { hasEvents: true, events: codated } }));
+    const dialKinds = [...dialRoot.querySelectorAll('.scale .ev .vstack .r')].map((r) => r.getAttribute('data-kind'));
+    expect(dialKinds).toEqual(['licence-issued', 'licence-cancelled']);
+
+    const railRoot = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['event-timeline'].mount(railRoot, cm({ dial: { hasEvents: true, events: codated } }));
+    const railKinds = [...railRoot.querySelectorAll('.timeline .track .evt')].map((e) => e.getAttribute('data-kind'));
+    expect(railKinds).toEqual(['licence-issued', 'licence-cancelled']);
+    // The names remain present on both surfaces.
+    expect(dialRoot.textContent ?? '').toContain('licence issued');
+    expect(railRoot.textContent ?? '').toContain('licence cancelled');
+  });
+
+  const g8nnz = () => ({
+    hasEvents: true,
+    events: [
+      { day: '2018-10-18', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: [] },
+      { day: '2018-10-18', label: 'licence original start', kindId: 'licence-original-start', state: false, assertedBy: [] },
+      { day: '2018-10-18', label: 'licence-version start', kindId: 'licence-version-original-start', state: false, assertedBy: [] },
+    ],
+    disagreements: [{
+      kindLabel: 'licence-version start',
+      camps: [
+        { day: '1991-07-26', datasets: [{ title: '2020 register', href: '#', vintage: '2020-05-01' }] },
+        { day: '2018-10-18', datasets: [{ title: '2024 register', href: '#', vintage: '2024-10-01' }] },
+      ],
+    }],
+  });
+
+  it('EvidenceDial_DisagreementNarrative_NamesBothDatesAndAPublicationPerSide', () => {
+    // A fresh reader must be able to reconstruct the conflict: each side names its
+    // publication, its asserted date, and the record adjudicates neither.
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({ dial: g8nnz() }));
+    const text = root.querySelector('.dial-disagree')?.textContent ?? '';
+    expect(text).toContain('1991-07-26');
+    expect(text).toContain('2018-10-18');
+    expect(text).toContain('2020 register');
+    expect(text).toContain('2024 register');
+    expect(text).toContain('disagree');
+    expect(text).toContain('neither is adjudicated');
+  });
+
+  it('EvidenceDial_DisagreementHead_CarriesAStyledDerivedTag', () => {
+    // The provenance tag renders as the shared chip (item 6): it is present and
+    // labelled, no longer a bare unstyled word.
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({ dial: g8nnz() }));
+    expect(root.querySelector('.dial-disagree .dd-head .tb')?.textContent).toBe('derived');
+  });
+
+  it('EvidenceDial_WithinKindDisagreement_RendersADisputedMarkerPerCamp', () => {
+    // Every distinct claim gets a marker (item 7): the competing 1991-07-26 value
+    // is its own hollow disputed marker, and the version-start row inside the
+    // 2018 stack reads disputed too — composing with the same-day stack.
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({ dial: g8nnz() }));
+    expect(root.querySelectorAll('.scale .ev.disputed')).toHaveLength(1);
+    expect(root.querySelectorAll('.scale .ev.stacked .vstack .r.disputed')).toHaveLength(1);
+    // Two competing dated claims are visible on the instrument in total.
+    const disputedRows = root.querySelectorAll('.scale .ev.disputed, .scale .ev .vstack .r.disputed');
+    expect(disputedRows).toHaveLength(2);
+  });
+
+  it('EvidenceDial_TwoCampDisagreement_KeepsBothMarkersAtTheirTrueYears', () => {
+    // The camps sit at their true x on the axis — a 1991 marker and a 2018 marker,
+    // not one collapsed to the earliest-surviving value.
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({ dial: g8nnz() }));
+    const markers = [...root.querySelectorAll('.scale .ev:not(.state)')];
+    expect(markers).toHaveLength(2);
+  });
+
+  it('ExpandDisputedEvents_WhenAKindHasTwoCamps_YieldsAClaimPerCampInDayOrder', () => {
+    const events = [{ day: '2018-10-18', label: 'licence-version start', kindId: 'licence-version-original-start', state: false, assertedBy: [] }];
+    const disagreements = [{
+      kindLabel: 'licence-version start',
+      camps: [
+        { day: '1991-07-26', datasets: [{ title: '2020 register', href: '#', vintage: '2020-05-01' }] },
+        { day: '2018-10-18', datasets: [{ title: '2024 register', href: '#', vintage: '2024-10-01' }] },
+      ],
+    }];
+    const out = expandDisputedEvents(events, disagreements);
+    expect(out.map((e) => e.day)).toEqual(['1991-07-26', '2018-10-18']);
+    expect(out.every((e) => e.disputed === true)).toBe(true);
+  });
+
+  it('ExpandDisputedEvents_WhenAKindHasThreeCamps_YieldsThreeDistinctClaims', () => {
+    const events = [{ day: '2018-10-18', label: 'licence-version start', kindId: 'licence-version-original-start', state: false, assertedBy: [] }];
+    const disagreements = [{
+      kindLabel: 'licence-version start',
+      camps: [
+        { day: '1991-07-26', datasets: [{ title: 'a', href: '#', vintage: '2020-05-01' }] },
+        { day: '2005-03-03', datasets: [{ title: 'b', href: '#', vintage: '2022-05-01' }] },
+        { day: '2018-10-18', datasets: [{ title: 'c', href: '#', vintage: '2024-10-01' }] },
+      ],
+    }];
+    const out = expandDisputedEvents(events, disagreements);
+    expect(out).toHaveLength(3);
+    expect(out.map((e) => e.day)).toEqual(['1991-07-26', '2005-03-03', '2018-10-18']);
+  });
+
+  it('EventTimeline_WithinKindDisagreement_RendersARailEntryPerCamp', () => {
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['event-timeline'].mount(root, cm({ dial: g8nnz() }));
+    expect(root.querySelectorAll('.timeline .track .evt.disputed')).toHaveLength(2);
+  });
+
+  it('EvidenceDial_HeavyDisagreement_RendersEveryCampGrowsThePanelAndNudges', () => {
+    // Heavy disagreement is designed behaviour (issue #921): no cap, the layout
+    // machinery absorbs the density (five near-dated disputed markers take tiers
+    // 0-4 and grow the panel past the compact default), and a high-density nudge
+    // invites the reader into the narrative.
+    const camps = ['2018-06-01', '2018-06-02', '2018-06-03', '2018-06-04', '2018-06-05']
+      .map((day, i) => ({ day, datasets: [{ title: 'vintage ' + i, href: '#', vintage: '20' + (20 + i) + '-01-01' }] }));
+    const dial = {
+      hasEvents: true,
+      events: [{ day: '2018-06-05', label: 'licence-version start', kindId: 'licence-version-original-start', state: false, assertedBy: [] }],
+      sightings: [{ vintage: '2026-06-23' }],
+      disagreements: [{ kindLabel: 'licence-version start', camps }],
+    };
+    expect(disputedClaimCount(dial.disagreements)).toBe(5);
+    const root = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, cm({ dial }));
+    // All five distinct claims render as disputed markers — none summarised away.
+    expect(root.querySelectorAll('.scale .ev.disputed')).toHaveLength(5);
+    // The panel grew to absorb the near-dated density (composed height > default).
+    const scaleH = parseInt(root.querySelector<HTMLElement>('.scale')?.style.getPropertyValue('--scale-h') ?? '0', 10);
+    expect(scaleH).toBeGreaterThan(210);
+    // The high-density "examine" nudge appears and routes into the narrative.
+    const nudge = root.querySelector('.dial-dispute-nudge');
+    expect(nudge?.textContent).toContain('5');
+    expect(nudge?.querySelector('.nudge-cta')?.getAttribute('href')).toBe('#record-disagreements');
+  });
+
+  it('EventTimeline_OriginSemanticRow_CarriesTheSourcedOriginalStartInterpretation', () => {
+    // The origin narrative carries the held, cited interpretation of the
+    // original-start field (item 5), hedged where the reading is not confirmed
+    // for every record.
+    const root = document.createElement('div');
+    const asserted = [{ title: 'Ofcom register snapshot', href: '#', vintage: '2026-06-23', nrows: 1 }];
+    const dial = {
+      hasEvents: true,
+      events: [
+        { day: '2018-10-18', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: asserted },
+        { day: '2018-10-18', label: 'licence original start — the earliest surviving in the asserting vintage', kindId: 'licence-original-start', state: false, assertedBy: asserted },
+        { day: '2018-10-18', label: 'licence-version start — the earliest surviving in the asserting vintage', kindId: 'licence-version-original-start', state: false, assertedBy: asserted },
+      ],
+    };
+    CALLSIGN_SECTION_REGISTRY['event-timeline'].mount(root, cm({ dial }));
+    const originRow = root.querySelector('.timeline .tl.origin');
+    expect(originRow?.textContent).toContain('how the original-start date is read');
+    expect(originRow?.textContent).toContain('Licence-View field dictionary');
+    expect(originRow?.textContent).toContain('not confirmed');
   });
 });
