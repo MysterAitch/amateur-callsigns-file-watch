@@ -65,6 +65,33 @@ describe('v1 copy — claims bar (JS)', { tags: ['unit'] }, () => {
     expect(V1_COPY.home.cards.rawData.say).toContain('built from them');
   });
 
+  it('HistoryExplainers_CarriedLicenceHistoryBackground_CitesItsSourceOnBothPages', () => {
+    // Content parity with v0 (src/ci/build-on-this-day.ts, build-timeline.ts):
+    // the carried-licence-history background must cite the Ofcom field
+    // dictionary and FOI disclosure, never assert the reading unsourced.
+    for (const page of [V1_COPY.history.onThisDay, V1_COPY.history.timeline]) {
+      expect(page.explainerCarriedHistory).toContain('Licence-View field dictionary');
+      expect(page.explainerCarriedHistory).toContain('FOI');
+      expect(page.explainerCarriedHistory).toContain('October 2018');
+      expect(page.explainerCarriedHistory).toContain('October 2025');
+    }
+  });
+
+  it('HistoryExplainers_FurtherWorkingBullet_CarriesSubstanceWithNoOffSurfaceLink', () => {
+    // The v0 explainer linked out to the committed reports; those reports are
+    // not a v1 surface, so the substance is carried inline (issue #921
+    // self-containment) rather than dropped.
+    for (const page of [V1_COPY.history.onThisDay, V1_COPY.history.timeline]) {
+      expect(page.explainerFurtherWorking).toContain('committed reports');
+      expect(page.explainerFurtherWorking.toLowerCase()).not.toContain('http');
+      expect(page.explainerFurtherWorking).not.toContain('v0');
+    }
+  });
+
+  it('TimelineReadoutReservations_Wording_StatesTheBitemporalTestParenthetically', () => {
+    expect(V1_COPY.history.timeline.readoutReservations).toContain('(stated end on or after then, stating vintage proven by then)');
+  });
+
   it('GlossaryRegistry_EveryCoinedTerm_HasATermAndADefinition', () => {
     // B1: the popover registry pairs each coined term with a plain definition;
     // the temporal glosses, the assertion-time "sighting", and the provenance
