@@ -30,7 +30,10 @@
   --flag:#a8341f;--flag-tint:#f2ddd7;
   --mono:ui-monospace,"Cascadia Code","SF Mono","JetBrains Mono",Consolas,monospace;
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  /* round-4: the shadow elevation variant, adopted as the surface base —
-     small offset, low alpha, minimal blur. */
-  --elevation:0 1px 2px rgba(17,24,35,.11),0 2px 5px rgba(17,24,35,.06);
+  /* The surface elevation shadow. On the plain untextured ground the earlier
+     low-alpha value read almost flat, so the floating-card intent was lost; this
+     is a deliberate bump — a touch more alpha and a wider, softer second layer —
+     so surfaces lift off the ground legibly while staying calm, not glossy
+     (issue #921, C2). */
+  --elevation:0 1px 2px rgba(17,24,35,.16),0 4px 12px rgba(17,24,35,.11);
 }

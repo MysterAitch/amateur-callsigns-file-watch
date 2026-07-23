@@ -55,4 +55,23 @@ describe('v1 copy — claims bar (JS)', { tags: ['unit'] }, () => {
     expect(V1_COPY.chip.template).toContain('Record as of');
     expect(V1_COPY.chip.template.toLowerCase()).not.toContain('current');
   });
+
+  it('CoinedVocabulary_ProjectionAndFold_AreGlossedOrPlainAtFirstUse', () => {
+    // D1: a non-specialist meets "projection" with an inline first-use gloss, and
+    // the outward-facing ways-in card drops the internal "folded" metaphor for a
+    // plain word.
+    expect(V1_COPY.home.trust).toContain('copied straight from one dated file');
+    expect(V1_COPY.home.cards.rawData.say).not.toContain('folded');
+    expect(V1_COPY.home.cards.rawData.say).toContain('built from them');
+  });
+
+  it('GlossaryRegistry_EveryCoinedTerm_HasATermAndADefinition', () => {
+    // B1: the popover registry pairs each coined term with a plain definition;
+    // the temporal glosses, the assertion-time "sighting", and the provenance
+    // chips are all present so every wired popover resolves.
+    for (const key of ['eventTime', 'assertionTime', 'sighting', 'vintage', 'publication', 'bookkeeping', 'disputed', 'series', 'carriedOrigin', 'derived', 'inferred', 'context'] as const) {
+      expect(V1_COPY.glossary[key].term.length).toBeGreaterThan(0);
+      expect(V1_COPY.glossary[key].def.length).toBeGreaterThan(20);
+    }
+  });
 });

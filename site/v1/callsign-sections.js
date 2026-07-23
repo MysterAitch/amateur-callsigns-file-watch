@@ -26,6 +26,7 @@
 // bookkeeping distinction rather than reading as no evidence at all.
 
 import { V1_COPY } from './copy.js';
+import { provenanceChip, termCue } from './glossary.js';
 
 /**
  * @param {string} tag
@@ -822,7 +823,12 @@ function mountEvidenceDial(host, model) {
   const evLab = el('div', 'tracklab event');
   evLab.appendChild(el('span', 'sw'));
   evLab.appendChild(el('b', null, V1_COPY.callsign.dial.eventLabel));
-  evLab.append(` — ${V1_COPY.callsign.dial.eventGloss.replace(`${V1_COPY.callsign.dial.eventLabel} — `, '')}`);
+  // The one-line gloss stays verbatim in the prose; a "?" cue after it opens the
+  // fuller definition as a popover rather than sending the reader off the page
+  // (issue #921, B1). Kept as a trailing sibling so the verbatim gloss text is
+  // never broken up.
+  evLab.append(` — ${V1_COPY.callsign.dial.eventGloss.replace(`${V1_COPY.callsign.dial.eventLabel} — `, '')} `);
+  evLab.appendChild(termCue('eventTime'));
   dial.appendChild(evLab);
 
   // Controls.
@@ -958,7 +964,8 @@ function mountEvidenceDial(host, model) {
   const asLab = el('div', 'tracklab assert');
   asLab.appendChild(el('span', 'sw'));
   asLab.appendChild(el('b', null, V1_COPY.callsign.dial.assertLabel));
-  asLab.append(` — ${V1_COPY.callsign.dial.assertGloss.replace(`${V1_COPY.callsign.dial.assertLabel} — `, '')}`);
+  asLab.append(` — ${V1_COPY.callsign.dial.assertGloss.replace(`${V1_COPY.callsign.dial.assertLabel} — `, '')} `);
+  asLab.appendChild(termCue('assertionTime'));
   dial.appendChild(asLab);
 
   // The instrument legend (issue #921, A2): decode the marker vocabulary and the
@@ -993,7 +1000,7 @@ function mountEvidenceDial(host, model) {
   // frames the event scale — never a claim about this record's own issuance.
   if (model.seriesIntro !== null && model.series !== null) {
     const context = el('div', 'dial-context');
-    context.appendChild(el('span', 'tb', 'context'));
+    context.appendChild(provenanceChip('context'));
     const text = V1_COPY.callsign.dial.seriesIntro
       .replace('{series}', model.series)
       .replace('{month}', formatSeriesIntroMonth(model.seriesIntro));
@@ -1008,7 +1015,7 @@ function mountEvidenceDial(host, model) {
   const disputes = disputedClaimCount(model.dial.disagreements);
   if (disputes >= DISPUTE_NUDGE_THRESHOLD) {
     const nudge = el('div', 'dial-dispute-nudge');
-    nudge.appendChild(el('span', 'tb', 'derived'));
+    nudge.appendChild(provenanceChip('derived'));
     nudge.append(` ${V1_COPY.callsign.dial.disputeNudge.replace('{count}', String(disputes))} `);
     nudge.appendChild(link(`#${DISAGREEMENT_ANCHOR_ID}`, V1_COPY.callsign.dial.disputeNudgeCta, 'nudge-cta'));
     dial.appendChild(nudge);
@@ -1020,7 +1027,7 @@ function mountEvidenceDial(host, model) {
   if (model.dial.findings.length > 0) {
     for (const f of model.dial.findings) {
       const fEl = el('div', 'dial-finding');
-      fEl.appendChild(el('span', 'tb', 'inferred'));
+      fEl.appendChild(provenanceChip('inferred'));
       fEl.append(` ${f.statement}.`);
       if (f.caveats.length > 0) fEl.append(` Caveats: ${f.caveats.join('; ')}.`);
       surface.appendChild(fEl);
@@ -1038,7 +1045,7 @@ function mountEvidenceDial(host, model) {
     const card = el('div', 'dial-disagree');
     card.setAttribute('id', DISAGREEMENT_ANCHOR_ID);
     const dhead = el('div', 'dd-head');
-    dhead.appendChild(el('span', 'tb', 'derived'));
+    dhead.appendChild(provenanceChip('derived'));
     dhead.append(` ${V1_COPY.callsign.dial.disagreementLabel}`);
     card.appendChild(dhead);
     card.appendChild(el('p', 'note', V1_COPY.callsign.dial.disagreementGloss));
@@ -1284,7 +1291,7 @@ function mountRecordFidelity(host, model) {
     const card = el('div', 'fid-note');
     const cardHead = el('div', 'fid-note-head');
     cardHead.appendChild(el('span', 'fn', t.label));
-    cardHead.appendChild(el('span', 'tb', 'derived'));
+    cardHead.appendChild(provenanceChip('derived'));
     card.appendChild(cardHead);
     card.appendChild(el('p', 'note', V1_COPY.callsign.twin.gloss));
     const detail = el('p', 'note');

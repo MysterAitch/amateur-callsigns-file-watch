@@ -60,7 +60,7 @@ export const V1_COPY = {
     lookupLabel: 'Look up a callsign',
     placeholder: 'e.g. M7TEE',
     lookupHint: 'Resolved in-browser from a single small fetch — latest register state, parsed anatomy, and every sighting across the archive.',
-    trust: 'Every value is a projection of an archived publication; every claim traces to the source byte that asserts it. Nothing is independently verified — and disagreeing sources are both kept, unresolved.',
+    trust: 'Every value is a projection of an archived publication — copied straight from one dated file, never merged or reinterpreted; every claim traces to the source byte that asserts it. Nothing is independently verified — and disagreeing sources are both kept, unresolved.',
     waysInLabel: 'ways in',
     atAGlanceLabel: 'the record at a glance',
     // The compact archive-span dial inside "the record at a glance": a
@@ -143,7 +143,7 @@ export const V1_COPY = {
       },
       rawData: {
         name: 'Get the raw data',
-        say: 'Every archived publication is preserved byte-for-byte in the open repository, with provenance carried to the byte. See how to download the files and the databases folded from them.',
+        say: 'Every archived publication is preserved byte-for-byte in the open repository, with provenance carried to the byte. See how to download the files and the databases built from them.',
       },
     },
   },
@@ -283,6 +283,28 @@ export const V1_COPY = {
       flaggedNotAdjudicated: 'Values are flagged where they look inconsistent with the derived rules; the record adjudicates none of them and picks no winner.',
     },
     footer: 'A projection of the archived publications. Absence here is never evidence about the register. Values as published, not independently verified.',
+  },
+
+  // The coined-vocabulary glossary (issue #921, B1): the terms this record uses
+  // that a newcomer cannot decode from context. Each is wired to a click-toggled
+  // popover (site/v1/glossary.js) carrying its definition inline — the
+  // interaction grammar for jargon: a definition on click, never a whole-page
+  // navigation out of the prose. Record-scoped and non-adjudicating like every
+  // other string here (the claims-bar test walks these too); the provenance
+  // definitions name the mechanism a chip marks, never a verdict on the value.
+  glossary: {
+    eventTime: { term: 'Event time', def: 'When the record states a thing happened. Event time is the dial’s primary upper scale — the readings that answer “what happened, and when”.' },
+    assertionTime: { term: 'Assertion time', def: 'When a publication said so. Assertion time is the dial’s lower calibration scale — the sightings that show how each reading was evidenced.' },
+    sighting: { term: 'sighting', def: 'One archived publication that recorded this callsign, shown at that publication’s vintage. Each pip on the lower scale is a sighting.' },
+    vintage: { term: 'vintage', def: 'The date a publication itself carries — when it was published, not when the events it lists happened.' },
+    publication: { term: 'publication', def: 'One archived file the mirror holds byte-for-byte: a register snapshot, an availability list, a statistics table, and so on.' },
+    bookkeeping: { term: 'record-bookkeeping', def: 'The register’s own created and last-modified stamps. They attest that a record was present in the system by a date, not that a licensing event happened.' },
+    disputed: { term: 'disputed', def: 'The held publications assert competing dates for the same kind of event. Every competing claim is shown; the record adjudicates none of them.' },
+    series: { term: 'series', def: 'The block a callsign belongs to, opened on a date (for example the M7 series). A series-level fact that frames the record, never a claim about this callsign’s own licensing.' },
+    carriedOrigin: { term: 'carried origin', def: 'A licence-chain start date that pre-dates the callsign’s own series — a sign the licence history was carried over from an earlier callsign. The record raises a scope note rather than treating the two dates as a conflict.' },
+    derived: { term: 'derived', def: 'This value is computed by the mirror from the held publications, not read verbatim from any single one of them.' },
+    inferred: { term: 'inferred', def: 'A reading the mirror interprets from the held values, hedged where it is not certain — not a fact asserted by any publication.' },
+    context: { term: 'context', def: 'A framing fact drawn from reference data, not a claim about this record — shown to place the reading in its wider setting.' },
   },
 };
 

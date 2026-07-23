@@ -22,6 +22,7 @@
 import { renderSiteBar, renderBreadcrumb, renderFooter, mountInto, SHARED_MODULE_BASE } from './shell.js';
 import { V1_COPY } from './copy.js';
 import { buildCallsignModel, renderCallsignSections } from './callsign-sections.js';
+import { wireTermPopovers } from './glossary.js';
 
 // The prefix-sharded static data, deployed at the root beside this page.
 const DATA_BASE = `${SHARED_MODULE_BASE}callsign/data/`;
@@ -40,11 +41,35 @@ function paramCallsign() {
   return params.get('c') ?? params.get('q') ?? params.get('callsign') ?? '';
 }
 
+/**
+ * Keep the entered callsign in the lookup box on EVERY resolution path. A GET
+ * submit reloads the page fresh, so without this the input reverts to its
+ * placeholder — and after a not-found (or an invalid form, or a shard-fetch
+ * failure) the reader would have to retype the whole callsign just to fix a
+ * typo. Setting the value unconditionally at entry, before any resolution runs,
+ * means no downstream outcome can discard the input: the typed callsign is
+ * always there to edit in place (issue #921). Exported so the rule is testable
+ * on its own. The trimmed typed form is kept as-is (the field renders it
+ * upper-case via CSS); an empty parameter leaves the placeholder showing.
+ * @param {Document} doc
+ * @param {string} typed
+ */
+export function preserveLookupInput(doc, typed) {
+  const input = doc.getElementById('csq');
+  if (input === null || !(input instanceof HTMLInputElement)) return;
+  const value = typed.trim();
+  if (value !== '') input.value = value;
+}
+
 async function initCallsignPageV1() {
   // Chrome first, so the page frames itself even if the data fetch fails.
   const facts = { date: '23 June 2026', count: 65 };
   mountInto('sitebar', renderSiteBar('lookup', facts));
   const typed = paramCallsign();
+  // Retain the entered callsign in the search box up front, so no resolution
+  // outcome below (found, not-found, invalid or fetch failure) can leave the
+  // reader with an emptied field (issue #921).
+  preserveLookupInput(document, typed);
   mountInto('breadcrumb', renderBreadcrumb([
     { label: V1_COPY.journeys.home, href: 'index.html' },
     { label: V1_COPY.journeys.lookup, href: 'callsign.html' },
@@ -128,6 +153,10 @@ async function initCallsignPageV1() {
     const model = buildCallsignModel({ res, manifest, eventRecord, eventMeta, latestSummary, seenSummary, anatomyFigureParts, twinConflict, stripModel });
     root.textContent = '';
     renderCallsignSections(/** @type {HTMLElement} */ (root), model);
+    // Enhance the coined-term and provenance-chip popovers into a well-mannered
+    // set (issue #921, B1); with the script off they remain plain <details>
+    // disclosures that still open their definitions.
+    wireTermPopovers(document);
     if (status !== null) {
       status.textContent = model.found
         ? `Answered ${model.key} from one shard (${shardName}.json) — no database involved.`
