@@ -716,11 +716,14 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
 
   it('EvidenceDial_WhenSeriesIntroCitationPresent_RendersItAsAnAssertedByFoldLikeEveryOtherRailRow', () => {
     // Issue #954: the series-opened row must not state its fact without a
-    // source, once meta.json carries the citation.
+    // source, once meta.json carries the citation. nrows is per-claim (this
+    // series' own introduction is asserted by exactly its own CSV row), like
+    // every other AssertedBy entry — never the file's total row count, which
+    // would overstate every series' citation alike.
     const root = document.createElement('div');
     const model = cm({
       series: 'M7', seriesIntro: '2018-10',
-      seriesIntroSource: { title: 'reference-data/prefix-formats.csv', href: '', vintage: null, nrows: 42 },
+      seriesIntroSource: { title: 'reference-data/prefix-formats.csv', href: '', vintage: null, nrows: 1 },
       dial: { events: [{ day: '2021-04-16', label: 'licence issued', state: false, assertedBy: [] }], sightings: [{ vintage: '2026-06-23' }], hasEvents: true },
     });
     CALLSIGN_SECTION_REGISTRY['the-evidence-dial'].mount(root, model);
@@ -728,6 +731,9 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
     const fold = context?.querySelector('details.evt-assert');
     expect(fold).not.toBeNull();
     expect(fold?.textContent).toContain('reference-data/prefix-formats.csv');
+    // A single asserting row renders the file title alone, with no row-count
+    // suffix (the count would only earn its place past one row).
+    expect(fold?.textContent).not.toContain('rows');
   });
 
   it('EvidenceDial_WhenSeriesIntroCitationMissing_RendersTheRowHonestlyWithNoFoldRatherThanFabricateASource', () => {

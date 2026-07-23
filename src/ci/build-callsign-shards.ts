@@ -290,6 +290,16 @@ export function foiSources(foiDir: string): DatasetSource[] {
     const cached = titleCache.get(entry);
     if (cached !== undefined) return cached;
     const title = readFoiEntryMeta(foiDir, entry).title;
+    // A present-but-blank (or missing, despite the declared type) title is a
+    // data-integrity defect on the archive entry itself (every FOI meta.json
+    // must declare a non-empty title) - fail loud and locatable rather than
+    // silently shipping an empty label (issue #954). Every entry reaching
+    // here was just enumerated from this same foiDir by buildFoiObservations,
+    // so this is never the "genuinely no meta.json" case a test fixture could
+    // hit; typeof-checked rather than trusting the readFoiEntryMeta cast.
+    if (typeof title !== 'string' || title.trim() === '') {
+      throw new Error(`${path.join(foiDir, entry, 'meta.json')}: title is missing or blank - every FOI entry must declare a non-empty title`);
+    }
     titleCache.set(entry, title);
     return title;
   };

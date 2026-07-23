@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { foldEventTimeProjection, datasetIndexOf } from './event-time-projection.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
 import type { SourceObservationSet } from '../v2/claim.ts';
@@ -91,6 +94,67 @@ describe('event-time projection (issue #726)', { tags: ['unit'] }, () => {
     });
     expect(projection.datasets[0].dataset).toBe('wdtk-1180568--licence-breakdown-duration-age');
     expect(projection.datasets[0].title).toBe('Radio amateur licence breakdown by duration held and age');
+  });
+
+  describe('malformed meta.json title (issue #954)', () => {
+    let tmpRoot: string | undefined;
+
+    afterEach(() => {
+      if (tmpRoot) fs.rmSync(tmpRoot, { recursive: true, force: true });
+      tmpRoot = undefined;
+    });
+
+    // A real meta.json on disk (unlike the "genuinely no meta.json" case
+    // above, which the raw-key fallback covers) with a controllable `title`,
+    // so datasetTitle reaches the real readFoiEntryMeta path.
+    function makeFoiDirWithTitle(entry: string, title: unknown): string {
+      tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'event-projection-foi-title-'));
+      const entryDir = path.join(tmpRoot, entry);
+      fs.mkdirSync(entryDir, { recursive: true });
+      const meta: Record<string, unknown> = {
+        schemaVersion: 1,
+        sourceKey: 'wdtk-foi',
+        requestId: 1,
+        ofcomReference: null,
+        requestUrl: 'https://www.whatdotheyknow.com/request/example',
+        requester: 'A. Requester',
+        requestedAt: '2024-01-01',
+        respondedAt: '2024-02-01',
+        outcome: 'successful',
+        dataVintage: '2024-01',
+        datasetClasses: ['register-snapshot'],
+        converter: null,
+        files: {},
+      };
+      if (title !== undefined) meta.title = title;
+      fs.writeFileSync(path.join(entryDir, 'meta.json'), JSON.stringify(meta), 'utf8');
+      return tmpRoot;
+    }
+
+    it('Projection_FoiDatasetWithBlankStringTitleOnARealMetaJson_FailsLoudRatherThanRenderingAnEmptyLabel', () => {
+      const foiDir = makeFoiDirWithTitle('wdtk-9999999-test-entry', '');
+      expect(() => foldEventTimeProjection({
+        foiDir,
+        sources: [fixtureSource({ sourceFile: 'foi/wdtk-9999999-test-entry/reg.csv', vintage: '2024-01-01', rows: [{ callsign: 'M7TEE', start: '20/12/2018' }] })],
+      })).toThrowError(/wdtk-9999999-test-entry.*meta\.json.*title is missing or blank/);
+    });
+
+    it('Projection_FoiDatasetWithNoTitleFieldOnARealMetaJson_FailsLoudRatherThanRenderingAnEmptyLabel', () => {
+      const foiDir = makeFoiDirWithTitle('wdtk-9999999-test-entry', undefined);
+      expect(() => foldEventTimeProjection({
+        foiDir,
+        sources: [fixtureSource({ sourceFile: 'foi/wdtk-9999999-test-entry/reg.csv', vintage: '2024-01-01', rows: [{ callsign: 'M7TEE', start: '20/12/2018' }] })],
+      })).toThrowError(/wdtk-9999999-test-entry.*meta\.json.*title is missing or blank/);
+    });
+
+    it('Projection_FoiDatasetWithAGenuineTitleOnARealMetaJson_ResolvesItRatherThanFailing', () => {
+      const foiDir = makeFoiDirWithTitle('wdtk-9999999-test-entry', 'A test entry');
+      const projection = foldEventTimeProjection({
+        foiDir,
+        sources: [fixtureSource({ sourceFile: 'foi/wdtk-9999999-test-entry/reg.csv', vintage: '2024-01-01', rows: [{ callsign: 'M7TEE', start: '20/12/2018' }] })],
+      });
+      expect(projection.datasets[0].title).toBe('A test entry');
+    });
   });
 
   it('Projection_MultipleRowsOfOneSubjectOnOneDay_AggregatesNrowsInsteadOfDuplicating', () => {

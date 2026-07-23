@@ -199,8 +199,16 @@ export function buildCallsignModel(deps) {
   // event strip when the event shard is present. Each event carries its
   // assertion-time provenance so it never floats free of the source that
   // asserts it (issue #726).
+  // A friendly title with no reader-facing empty label (issue #954): the build
+  // is expected to always emit a non-blank title (a blank one now fails the
+  // build loud, see src/ci/build-callsign-shards.ts / event-time-projection.ts),
+  // but a stale or mismatched artefact reaching the browser must still render
+  // something honest rather than a blank string — the raw key it is filed
+  // under, never fabricated prose.
+  /** @param {import('../callsign-events.js').EventDataset} dataset @returns {string} */
+  const friendlyTitle = (dataset) => (dataset.title !== '' ? dataset.title : dataset.key);
   /** @param {{ dataset: import('../callsign-events.js').EventDataset, nrows: number }[]} assertedBy @returns {AssertedBy[]} */
-  const mapAssertedBy = (assertedBy) => assertedBy.map((a) => ({ title: a.dataset.title, href: a.dataset.href, vintage: a.dataset.vintage, nrows: a.nrows, key: a.dataset.key }));
+  const mapAssertedBy = (assertedBy) => assertedBy.map((a) => ({ title: friendlyTitle(a.dataset), href: a.dataset.href, vintage: a.dataset.vintage, nrows: a.nrows, key: a.dataset.key }));
   /** @type {DialEvent[]} */
   let events = [];
   /** @type {DialFinding[]} */
@@ -221,7 +229,7 @@ export function buildCallsignModel(deps) {
       // Resolve the disagreeing kind's id from the matching event, so a disputed
       // marker/entry can carry the same kind tint as its undisputed siblings.
       kindId: events.find((e) => e.label === d.kindLabel)?.kindId,
-      camps: d.camps.map((c) => ({ day: c.day, datasets: c.datasets.map((ds) => ({ title: ds.title, href: ds.href, vintage: ds.vintage })) })),
+      camps: d.camps.map((c) => ({ day: c.day, datasets: c.datasets.map((ds) => ({ title: friendlyTitle(ds), href: ds.href, vintage: ds.vintage })) })),
     }));
     hasEvents = events.length > 0;
     hasBookkeeping = bookkeeping.length > 0;
@@ -442,10 +450,10 @@ export function captionEdge(leftPct, capWidthPx) {
 
 // The caption text a cluster paints — the single event's leading clause, or the
 // widest row of a co-dated stack — used to estimate the cluster's caption width.
-// The ' — ' split delimiter is the em dash KIND_LABELS itself is authored with
-// (src/ci/build-callsign-event-shards.ts), not a copy-registry string — it is
-// left as-is by the issue #954 house-style pass, which retimed prose glue text
-// rather than this build-time label vocabulary's own separator.
+// The ' — ' split delimiter is the em dash KIND_LABELS (issue #954) is
+// authored with (src/ci/build-callsign-event-shards.ts) — a build-time
+// vocabulary separator, distinct from the copy registry's en-dash house
+// style, so it stays an em dash here regardless of any copy-wording pass.
 /** @param {string[]} labels @returns {string} */
 export function clusterCaptionText(labels) {
   const clauses = labels.map((l) => l.split(' — ')[0]);
