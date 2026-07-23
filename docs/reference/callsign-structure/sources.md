@@ -18,6 +18,46 @@ acknowledged, non-misleading context).
 | Guidance: Implementing Phase 2 and 3 of the Amateur Review (`ofcom-guidance-amateur-radio-phase-2-and-3-review-2025-10.pdf`) | **14 October 2025** — go-live announcement for M8/M9, call sign changes, single licence, SES | `ffcc058444f2c7b446f71fc5eb35c593a02d7929a96efb4b9b34d3e193352504` | [ofcom.org.uk](https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-radio-phase-2-and-3-review.pdf) |
 | Policy on temporary call signs and call sign enhancement (`policy-on-temporary-call-signs-and-call-sign-enhancement.pdf`) | **March 2018** — ⚠ SUPERSEDED by the 2023–2025 review; mirrored deliberately as the authoritative record of the *pre-2024* RSL and special-event regime | `877d4f7647f44482b03f420fdd8bc273befe0655953e6db61f1e041450e5ef00` | [ofcom.org.uk](https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/policy-on-temporary-call-signs-and-call-sign-enhancement.pdf) |
 
+## Mirrored primary documents (Ofcom guidance, hosted via RSGB)
+
+The RSGB's Special Contest Call Sign (SCC) application page hosts Ofcom's own
+guidance text verbatim ("Please read the Ofcom guidance below before starting
+your application") ahead of the downloadable NoV application form. The
+guidance content is Ofcom-authored and is treated as authoritative on that
+basis — but the page is served from `rsgb.org`, not `ofcom.org.uk`, so the
+hosting is recorded honestly here rather than folded into the Ofcom-direct
+table above or the RSGB operational table below.
+
+| document | published | sha256 | original URL |
+|---|---|---|---|
+| Application for a Special Contest Call Sign — Ofcom guidance (§§1–3) as published on the RSGB application page (`rsgb-special-contest-call-sign-application.html`) | undated on the page; captured 2026-07-23 | `512872e3c5b37d3cfd8180e5c96dbc9a6f57e63c585ec03b04f04e28bf9b539a` | [rsgb.org](https://rsgb.org/main/operating/licensing-novs-visitors/online-nov-application/application-for-a-special-contest-call-sign/) |
+
+## Mirrored primary documents (RSGB, best available)
+
+The RSGB Contest Committee administers the SCC scheme operationally (the
+Ofcom-guidance page above states "the RSGB administers, distributes SCCs").
+Its own page is the best-available source for administrative and historical
+detail the Ofcom guidance does not state — issuance history, the five-year
+common-expiry/renewal/withdrawal lifecycle, and a live table of per-slot
+allocation status. It is an RSGB operational page rather than an Ofcom
+document, so it is tiered **best available (RSGB)** rather than
+authoritative, matching this library's existing tiering for RSGB material
+(see the `visitorPrefix` precedent, #959/#960).
+
+| document | published | sha256 | original URL |
+|---|---|---|---|
+| Special Contest Calls — FAQ, lifecycle, and the full per-slot allocation table (`rsgb-contest-committee-special-contest-calls-2026-07.html`) | page states **"Updated 20 July 2026"**; captured 2026-07-23 | `9d6e3ea644e58caf200e061b3dc7d51de833a5e90756233677166c54a353ca83` | [rsgbcc.org](https://www.rsgbcc.org/hf/information/scc.shtml) |
+
+The allocation table runs the complete `G0A`–`M9Z` slot space (520 rows) and
+declares one of three per-slot statuses — **Issued** (with the holder's
+register callsign, e.g. `G0A` → `GW4SKA`), **Withdrawn**, or **Available**.
+Because it declares an *available* pool for the SCC slot space specifically —
+something the Ofcom register itself never does for callsigns generally — it
+is a distinct kind of witness from the held snapshots (see the suffix-length
+section of `callsign-structure.md`). The table is not reproduced on this
+project's pages; the mirrored HTML holds it verbatim. Its candidacy as a
+future monitored data source is tracked separately (issue #109).
+
 ## Mirrored primary data (ITU)
 
 - **ITU — Table of International Call Sign Series (Appendix 42 to the Radio
