@@ -69,12 +69,33 @@ const GROUNDED_ARCHIVE = {
 /**
  * The archive-span facts the dial reads. Every field is build-derived from the
  * same grounded source that feeds the readout row.
+ * @typedef {object} HoldingPublication
+ * @property {string} vintage  the publication's data vintage (ISO date or month)
+ * @property {string} kind     dataset-class key driving the mark's tint (never colour alone)
+ * @property {string} letter   the kind's single letter (R/A/I/F/S/T/C) — the colour-independent cue
+ * @property {string} title    the dataset title (the marker's hover/text-parity detail)
+ * @property {number} rows     row count (the hover/text-parity detail)
+ * @property {boolean} latest  the single newest register snapshot — the ringed mark
+ */
+/**
+ * @typedef {object} HoldingMilestone
+ * @property {string} start     ISO year/month; === end for a point milestone
+ * @property {string} end       later value for a loosely-dated range
+ * @property {boolean} range    whether this is a range (a loosely-dated event)
+ * @property {string} label     record-scoped, claims-bar wording
+ * @property {string} citation  the in-repo citation — never empty
+ * @property {string} [series]  the prefix series, for series-introduction milestones
+ */
+/**
  * @typedef {object} ArchiveSpan
  * @property {number} historyStartYear  earliest dated material the record reaches back to
  * @property {number} heldStartYear     first held publication — the scale-break boundary
  * @property {number} latestYear        the newest held publication's year
  * @property {string} latestLabel       humanised newest-held date (shared with the dated-fact chip)
  * @property {number} count             publications held (shared with the dated-fact chip)
+ * @property {HoldingPublication[]} [publications]  the down-markers; absent on the grounded no-JS baseline
+ * @property {HoldingMilestone[]} [milestones]      the up-markers; absent on the grounded no-JS baseline
+ * @property {string} [rotationSeed]    build-stable seed for the milestone rotation (never Math.random)
  */
 /**
  * @typedef {object} HomeModel
@@ -133,6 +154,63 @@ export function defaultHomeModel() {
   };
 }
 
+// The build-derived holdings manifest (src/ci/build-home-holdings.ts), as fetched
+// at runtime. Root-served (`holdings.json`) so the v1 surface stays self-
+// contained.
+/**
+ * @typedef {object} HomeHoldings
+ * @property {number} count
+ * @property {number | null} heldStartYear
+ * @property {number | null} latestYear
+ * @property {string | null} latestDateIso
+ * @property {HoldingPublication[]} publications
+ * @property {HoldingMilestone[]} milestones
+ */
+
+const HUMAN_MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+// "23 June 2026" from an ISO date; null for anything that is not a full date, so
+// a month-only value never implies a day.
+/** @param {string | null} iso @returns {string | null} */
+export function humaniseIsoDate(iso) {
+  if (iso === null) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (m === null) return null;
+  const month = HUMAN_MONTHS[Number(m[2]) - 1];
+  return month === undefined ? null : `${Number(m[3])} ${month} ${m[1]}`;
+}
+
+// Fold the build-derived holdings manifest into a home model: the span dial's
+// figures and its bi-temporal marks become derived (retiring the hand-authored
+// count / span / newest-date for the enhanced render), while the figures the
+// manifest does not carry — the 1903 history horizon and the latest-register
+// callsign total — stay the report-cited constants of the base model. The
+// grounded base model remains the honest no-JS baseline; this is the progressive
+// enhancement layered over it once the manifest arrives.
+/** @param {HomeModel} base @param {HomeHoldings} holdings @returns {HomeModel} */
+export function enhanceHomeModel(base, holdings) {
+  const heldStartYear = holdings.heldStartYear ?? base.span.heldStartYear;
+  const latestYear = holdings.latestYear ?? base.span.latestYear;
+  const latestLabel = humaniseIsoDate(holdings.latestDateIso) ?? base.span.latestLabel;
+  return {
+    ...base,
+    facts: { date: latestLabel, count: holdings.count },
+    span: {
+      ...base.span,
+      count: holdings.count,
+      heldStartYear,
+      latestYear,
+      latestLabel,
+      publications: holdings.publications,
+      milestones: holdings.milestones,
+      rotationSeed: holdings.latestDateIso ?? String(latestYear),
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // The archive-span dial geometry — pure, so the reading it draws is pinned by
 // test independently of the DOM. Given the build-derived ArchiveSpan it returns
@@ -148,7 +226,61 @@ export function defaultHomeModel() {
  * @property {number} historyStartYear
  * @property {number} heldStartYear
  * @property {number} latestYear
+ * @property {PipGeometry[]} pips         the down-markers, positioned within the held run
+ * @property {MilestoneGeometry[]} milestones  the up-markers, positioned within their segment
  */
+/**
+ * @typedef {object} PipGeometry
+ * @property {number} leftPct  position within the held segment, percent
+ * @property {string} vintage
+ * @property {string} kind
+ * @property {string} letter
+ * @property {string} title
+ * @property {number} rows
+ * @property {boolean} latest
+ */
+/**
+ * @typedef {object} MilestoneGeometry
+ * @property {'history' | 'held'} seg  the segment the mark sits in
+ * @property {number} leftPct   the label/point position within that segment, percent
+ * @property {number} startLeft  the range's left edge within that segment, percent
+ * @property {number} endLeft    the range's right edge within that segment, percent
+ * @property {boolean} range
+ * @property {string} start
+ * @property {string} end
+ * @property {string} label
+ * @property {string} citation
+ * @property {string} [series]
+ */
+
+/** @param {number} value @param {number} lo @param {number} hi */
+const clamp = (value, lo, hi) => Math.max(lo, Math.min(hi, value));
+
+// The fractional-year position of an ISO year / month / day ('2018-10' ->
+// 2018.75). Month and day move the value within the year so a mark sits at its
+// real vintage, not merely its year column. NaN for an unparseable value, so a
+// bad vintage cannot silently position at year zero.
+/** @param {string} iso @returns {number} */
+export function fractionalYearOf(iso) {
+  const m = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?/.exec(iso);
+  if (m === null) return Number.NaN;
+  const year = Number(m[1]);
+  const month = m[2] !== undefined ? Number(m[2]) : 1;
+  const day = m[3] !== undefined ? Number(m[3]) : 1;
+  return year + (month - 1) / 12 + (day - 1) / 372;
+}
+
+// The initial focused milestone for the paginated caption: a DETERMINISTIC
+// rotation seeded from a build-stable value (never Math.random at render, so a
+// rebuild — not a page view — moves the selection). Always a valid index.
+/** @param {number} count @param {string} seed @returns {number} */
+export function milestoneRotationStart(count, seed) {
+  if (count <= 0) return 0;
+  let sum = 0;
+  for (const ch of String(seed)) sum = (sum + ch.charCodeAt(0)) % 100000;
+  return sum % count;
+}
+
 /** @param {ArchiveSpan} span @returns {SpanDialGeometry} */
 export function spanDialGeometry(span) {
   const { historyStartYear, heldStartYear, latestYear, count } = span;
@@ -174,7 +306,48 @@ export function spanDialGeometry(span) {
   // A distinct history segment (and the scale break) is drawn only where the
   // record genuinely reaches back before the held run began.
   const showHistory = render && Number.isFinite(historyStartYear) && historyStartYear < heldStartYear;
-  return { render, showHistory, heldDivisions, needleLeft, count, historyStartYear, heldStartYear, latestYear };
+
+  // The bi-temporal marks (issue #921). Publications position within the held
+  // run (assertion time, drawn DOWN); milestones position within whichever
+  // segment contains them (event time, drawn UP). A collapsed single-year run
+  // reads every mark at the sole reading rather than dividing by zero.
+  const heldSpan = latestYear - heldStartYear;
+  const histSpan = heldStartYear - historyStartYear;
+  /** @param {number} f */
+  const posInHeld = (f) => clamp(heldSpan > 0 ? ((f - heldStartYear) / heldSpan) * 100 : 100, 0, 100);
+  /** @param {number} f */
+  const posInHist = (f) => clamp(histSpan > 0 ? ((f - historyStartYear) / histSpan) * 100 : 0, 0, 100);
+
+  /** @type {PipGeometry[]} */
+  const pips = render
+    ? (span.publications ?? [])
+        .filter(p => Number.isFinite(fractionalYearOf(p.vintage)))
+        .map(p => ({
+          leftPct: posInHeld(fractionalYearOf(p.vintage)),
+          vintage: p.vintage, kind: p.kind, letter: p.letter, title: p.title, rows: p.rows, latest: p.latest === true,
+        }))
+    : [];
+
+  /** @type {MilestoneGeometry[]} */
+  const milestones = render
+    ? (span.milestones ?? [])
+        .filter(m => Number.isFinite(fractionalYearOf(m.start)) && Number.isFinite(fractionalYearOf(m.end)))
+        .map(m => {
+          const fStart = fractionalYearOf(m.start);
+          const fEnd = fractionalYearOf(m.end);
+          const mid = (fStart + fEnd) / 2;
+          const seg = showHistory && mid < heldStartYear ? 'history' : 'held';
+          const pos = seg === 'history' ? posInHist : posInHeld;
+          const startLeft = pos(Math.min(fStart, fEnd));
+          const endLeft = pos(Math.max(fStart, fEnd));
+          return {
+            seg, leftPct: (startLeft + endLeft) / 2, startLeft, endLeft,
+            range: m.range === true, start: m.start, end: m.end, label: m.label, citation: m.citation, series: m.series,
+          };
+        })
+    : [];
+
+  return { render, showHistory, heldDivisions, needleLeft, count, historyStartYear, heldStartYear, latestYear, pips, milestones };
 }
 
 // Fill a wording template's {placeholders} from a values map.
@@ -272,9 +445,25 @@ function mountSpanDial(host, span) {
     asOf: span.latestLabel,
   };
 
-  const dial = el('div', 'spandial');
+  // The bi-temporal marks are drawn only when the build-derived holdings
+  // manifest has been consumed (the enhanced model); the grounded no-JS baseline
+  // carries the axis, count and needle plus an honest note that the marks appear
+  // with the script.
+  const enhanced = geo.pips.length > 0 || geo.milestones.length > 0;
+
+  const dial = el('div', enhanced ? 'spandial enhanced' : 'spandial');
   dial.setAttribute('role', 'img');
-  dial.setAttribute('aria-label', fillTemplate(geo.showHistory ? S.ariaWithHistory : S.ariaHeldOnly, vals));
+  // The reading, in the aria-label: the base summary, plus the marks named as a
+  // count over the run and the milestones listed, so nothing the marks show is
+  // conveyed by colour or position alone.
+  let aria = fillTemplate(geo.showHistory ? S.ariaWithHistory : S.ariaHeldOnly, vals);
+  if (geo.pips.length > 0) {
+    aria += fillTemplate(S.ariaPublicationsClause, { count: geo.pips.length, heldStart: geo.heldStartYear, latest: geo.latestYear });
+  }
+  if (geo.milestones.length > 0) {
+    aria += fillTemplate(S.ariaMilestonesClause, { list: geo.milestones.map(m => m.label).join(', ') });
+  }
+  dial.setAttribute('aria-label', aria);
 
   // Header: label + the visible range it covers.
   const head = el('div', 'sd-head');
@@ -282,6 +471,22 @@ function mountSpanDial(host, span) {
   const rangeStart = geo.showHistory ? geo.historyStartYear : geo.heldStartYear;
   head.appendChild(el('span', 'sd-range', `${rangeStart} — ${geo.latestYear}`));
   dial.appendChild(head);
+
+  // The milestone marks, built up front so the caption's pagination can toggle
+  // their focus state. Parallel to geo.milestones by index.
+  /** @type {HTMLElement[]} */
+  const milestoneMarks = geo.milestones.map((m) => {
+    const mark = el('span', m.range ? 'sd-up range' : 'sd-up');
+    if (m.range) {
+      mark.style.left = `${m.startLeft}%`;
+      mark.style.width = `${Math.max(0, m.endLeft - m.startLeft)}%`;
+    } else {
+      mark.style.left = `${m.leftPct}%`;
+    }
+    mark.appendChild(el('span', 'sd-up-stem'));
+    mark.appendChild(el('span', 'sd-up-head'));
+    return mark;
+  });
 
   // The scale itself is decorative reinforcement — the reading is in the
   // aria-label and the text foot, so it is hidden from assistive technology.
@@ -300,6 +505,8 @@ function mountSpanDial(host, span) {
     const yr = el('span', 'sd-yr edge-l', String(geo.historyStartYear));
     yr.style.left = '0';
     hist.appendChild(yr);
+    // Any milestone whose event falls in the earlier-history segment.
+    geo.milestones.forEach((m, i) => { if (m.seg === 'history') hist.appendChild(milestoneMarks[i]); });
     scale.appendChild(hist);
 
     const brk = el('div', 'sd-break');
@@ -328,8 +535,42 @@ function mountSpanDial(host, span) {
   needle.appendChild(el('span', 'nd'));
   needle.appendChild(el('span', 'nlbl', fillTemplate(S.needleLabel, vals)));
   held.appendChild(needle);
+
+  // Up-markers (event time) that fall in the held run.
+  geo.milestones.forEach((m, i) => { if (m.seg === 'held') held.appendChild(milestoneMarks[i]); });
+
+  // Down-markers (assertion time): one kind-tinted, lettered mark per held
+  // publication at its vintage, the single newest register snapshot ringed. The
+  // mark's kind rides a data attribute (the tint) AND its letter (never colour
+  // alone); the hover title and the text-parity fold below carry the detail.
+  if (geo.pips.length > 0) {
+    const downs = el('div', 'sd-downs');
+    for (const pip of geo.pips) {
+      const line = fillTemplate(pip.rows > 0 ? S.publicationLine : S.publicationLineNoRows, {
+        title: pip.title, vintage: pip.vintage, rows: pip.rows.toLocaleString('en-GB'),
+      });
+      const mark = el('span', pip.latest ? 'sd-pip latest' : 'sd-pip', pip.letter);
+      mark.style.left = `${pip.leftPct}%`;
+      mark.setAttribute('data-kind', pip.kind);
+      mark.setAttribute('title', pip.latest ? `${line} · ${S.latestMarkLabel}` : line);
+      downs.appendChild(mark);
+    }
+    held.appendChild(downs);
+  }
+
   scale.appendChild(held);
   dial.appendChild(scale);
+
+  // The milestone caption + its pagination (overwhelm control): a small,
+  // deterministically-rotated selection is captioned at once, prev/next cycling
+  // the full cited set with no viewport movement. Built before the foot so the
+  // whole up-marker story sits together beneath the axis.
+  if (geo.milestones.length > 0) mountMilestoneCaption(dial, geo.milestones, milestoneMarks, span.rotationSeed ?? String(geo.latestYear), S);
+
+  // The kind legend: only the kinds actually present, letter + tint + plain
+  // name, so the tint is never the sole cue. Decorative reinforcement of the
+  // text-parity fold below, so hidden from assistive technology.
+  if (geo.pips.length > 0) mountKindLegend(dial, geo.pips, S);
 
   // Text foot: the same facts in plain words, so nothing is conveyed by the
   // scale's colour or position alone. The reading ("as of <date>") leads and is
@@ -356,9 +597,125 @@ function mountSpanDial(host, span) {
     histItem.appendChild(el('b', null, String(geo.historyStartYear)));
     foot.appendChild(histItem);
   }
+  // Milestone count, in the text foot, so the up-marks are never position-only.
+  if (geo.milestones.length > 0) {
+    const mileItem = el('span');
+    mileItem.appendChild(el('b', null, String(geo.milestones.length)));
+    mileItem.append(` ${S.milestonesLabel}`);
+    foot.appendChild(mileItem);
+  }
   dial.appendChild(foot);
 
+  // Text parity for the down-markers: the full held list behind a fold, so the
+  // marks' kind/title/vintage/row-count are never conveyed by colour or position
+  // alone — and the keyboard/AT reader reaches every publication without tabbing
+  // 65 individual marks.
+  if (geo.pips.length > 0) {
+    const fold = el('details', 'sd-holdlist');
+    fold.appendChild(el('summary', null, fillTemplate(S.allPublicationsSummary, { count: geo.pips.length })));
+    const list = el('ul');
+    for (const pip of geo.pips) {
+      const kindName = /** @type {Record<string, string>} */ (S.kindLabels)[pip.kind] ?? pip.letter;
+      const line = fillTemplate(pip.rows > 0 ? S.publicationLine : S.publicationLineNoRows, {
+        title: pip.title, vintage: pip.vintage, rows: pip.rows.toLocaleString('en-GB'),
+      });
+      const li = el('li');
+      li.append(`${kindName}: ${line}`);
+      if (pip.latest) li.append(` · ${S.latestMarkLabel}`);
+      list.appendChild(li);
+    }
+    fold.appendChild(list);
+    dial.appendChild(fold);
+  }
+
+  // The honest no-JS / no-manifest note: shown only when the individual marks
+  // are not drawn, so the static baseline never implies marks that are absent.
+  if (!enhanced) dial.appendChild(el('div', 'sd-note', S.enhanceNote));
+
   host.appendChild(dial);
+}
+
+// The milestone caption + pagination. The focused milestone is chosen by a
+// deterministic build-seeded rotation (never Math.random), and prev/next cycle
+// the full set — state-only, no viewport movement, an aria-live region so the
+// change is announced. Each caption carries the milestone's own citation behind
+// a "source" fold, so a milestone can never read as an uncited claim.
+/**
+ * @param {HTMLElement} dial
+ * @param {MilestoneGeometry[]} milestones
+ * @param {HTMLElement[]} marks
+ * @param {string} seed
+ * @param {typeof V1_COPY.home.span} S
+ */
+function mountMilestoneCaption(dial, milestones, marks, seed, S) {
+  const wrap = el('div', 'sd-milecap');
+  const bar = el('div', 'sd-mile-bar');
+  bar.appendChild(el('span', 'sd-mile-lbl', S.milestonesLabel));
+  const pos = el('span', 'sd-mile-pos');
+  bar.appendChild(pos);
+  const nav = el('div', 'sd-mile-nav');
+  const prev = el('button', 'sd-mile-btn', '‹');
+  prev.setAttribute('type', 'button');
+  prev.setAttribute('aria-label', S.milestonePrev);
+  const next = el('button', 'sd-mile-btn', '›');
+  next.setAttribute('type', 'button');
+  next.setAttribute('aria-label', S.milestoneNext);
+  nav.appendChild(prev);
+  nav.appendChild(next);
+  bar.appendChild(nav);
+  wrap.appendChild(bar);
+
+  const body = el('div', 'sd-mile-body');
+  body.setAttribute('aria-live', 'polite');
+  wrap.appendChild(body);
+
+  let focused = milestoneRotationStart(milestones.length, seed);
+  const paint = () => {
+    const m = milestones[focused];
+    pos.textContent = fillTemplate(S.milestonePosition, { i: focused + 1, n: milestones.length });
+    marks.forEach((mark, i) => mark.classList.toggle('focus', i === focused));
+    body.textContent = '';
+    body.appendChild(el('div', 'sd-mile-when', m.range ? `${m.start} – ${m.end}` : m.start));
+    body.appendChild(el('div', 'sd-mile-what', m.label));
+    if (m.citation !== '') {
+      const src = el('details', 'sd-mile-src');
+      src.appendChild(el('summary', null, S.milestoneSourceLabel));
+      src.appendChild(el('p', null, m.citation));
+      body.appendChild(src);
+    }
+  };
+  const step = (/** @type {number} */ delta) => { focused = (focused + delta + milestones.length) % milestones.length; paint(); };
+  prev.addEventListener('click', () => step(-1));
+  next.addEventListener('click', () => step(1));
+  paint();
+
+  dial.appendChild(wrap);
+}
+
+// The kind legend: one chip per kind PRESENT among the marks, in first-seen
+// order, carrying the kind letter, its tint and its plain-English name. Hidden
+// from assistive technology — the text-parity fold names each publication's kind
+// in words — so the tint is reinforcement, never the sole cue.
+/**
+ * @param {HTMLElement} dial
+ * @param {PipGeometry[]} pips
+ * @param {typeof V1_COPY.home.span} S
+ */
+function mountKindLegend(dial, pips, S) {
+  const seen = new Set();
+  const legend = el('div', 'sd-legend');
+  legend.setAttribute('aria-hidden', 'true');
+  for (const pip of pips) {
+    if (seen.has(pip.kind)) continue;
+    seen.add(pip.kind);
+    const item = el('span', 'sd-legend-item');
+    const chip = el('span', 'sd-legend-chip', pip.letter);
+    chip.setAttribute('data-kind', pip.kind);
+    item.appendChild(chip);
+    item.appendChild(el('span', null, /** @type {Record<string, string>} */ (S.kindLabels)[pip.kind] ?? pip.letter));
+    legend.appendChild(item);
+  }
+  dial.appendChild(legend);
 }
 
 /** @param {HTMLElement} host */

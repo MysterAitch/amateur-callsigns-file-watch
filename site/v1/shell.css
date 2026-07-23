@@ -162,6 +162,72 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
   .sd-seg.held{min-width:0}
   .sd-break{flex:0 0 16px}
 }
+/* The bi-temporal enhancement (issue #921): per-publication marks drop DOWN
+   from the axis (assertion time), register-history milestones point UP (event
+   time). Everything here is drawn ONLY on the enhanced dial (the grounded no-JS
+   baseline keeps the axis + count + needle and the honest .sd-note); so the
+   enhanced axis is given more vertical room and its baseline slides up, leaving
+   the band above for up-markers and the band below for down-markers. The honest
+   no-JS note is the sole addition to the grounded baseline. */
+.sd-note{margin-top:1rem;font-size:.8rem;color:var(--muted);font-style:italic}
+.spandial.enhanced .sd-scale{height:112px;margin-top:2.6rem}
+.spandial.enhanced .sd-base,.spandial.enhanced .sd-tick,.spandial.enhanced .sd-ticks,.spandial.enhanced .sd-needle{bottom:46px}
+.spandial.enhanced .sd-needle{height:26px}
+.spandial.enhanced .sd-needle .nlbl{bottom:32px}
+.spandial.enhanced .sd-cap{bottom:90px}
+.spandial.enhanced .sd-break span{bottom:42px}
+/* Up-markers (event time): a stem rising from the axis with a head; a range
+   (a loosely-dated event) spans its width with a centred stem. */
+.sd-up{position:absolute;bottom:46px}
+.sd-up:not(.range){transform:translateX(-50%)}
+.sd-up-stem{position:absolute;bottom:0;left:0;width:2px;height:24px;background:var(--signal-dim)}
+.sd-up-head{position:absolute;bottom:22px;left:0;width:7px;height:7px;border-radius:50%;transform:translate(-50%,0);background:var(--signal-dim)}
+.sd-up.range .sd-up-stem{left:50%}
+.sd-up.range .sd-up-head{left:50%}
+.sd-up.range::after{content:"";position:absolute;bottom:24px;left:0;right:0;height:2px;border-radius:1px;background:var(--signal-dim)}
+.sd-up.focus .sd-up-stem{background:var(--signal);width:2px}
+.sd-up.focus .sd-up-head{background:var(--signal-strong);width:10px;height:10px;box-shadow:0 0 0 3px color-mix(in srgb,var(--signal) 22%,transparent)}
+.sd-up.focus.range::after{background:var(--signal)}
+/* Down-markers (assertion time): one kind-tinted, lettered mark per publication,
+   with a thin connector up to the axis; the newest register snapshot ringed. */
+.sd-downs{position:absolute;left:0;right:0;bottom:14px;height:16px}
+.sd-pip{position:absolute;bottom:0;transform:translateX(-50%);min-width:11px;height:15px;padding:0 1.5px;
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:8.5px;font-weight:700;
+  line-height:1;color:#fff;border-radius:2px;background:var(--kh,#8a8f98)}
+.sd-pip::before{content:"";position:absolute;bottom:100%;left:50%;width:1px;height:16px;background:var(--kh,#8a8f98);opacity:.45}
+.sd-pip.latest{outline:2px solid var(--ink);outline-offset:1px}
+.sd-pip[data-kind="register-snapshot"],.sd-legend-chip[data-kind="register-snapshot"]{--kh:#3b82c4}
+.sd-pip[data-kind="available-pool"],.sd-legend-chip[data-kind="available-pool"]{--kh:#3f9d6b}
+.sd-pip[data-kind="issuance-events"],.sd-legend-chip[data-kind="issuance-events"]{--kh:#c07d1a}
+.sd-pip[data-kind="forbidden-list"],.sd-legend-chip[data-kind="forbidden-list"]{--kh:#c0485d}
+.sd-pip[data-kind="statistics-aggregate"],.sd-legend-chip[data-kind="statistics-aggregate"]{--kh:#7c6bcc}
+.sd-pip[data-kind="attribute-addendum"],.sd-legend-chip[data-kind="attribute-addendum"]{--kh:#3fa3a3}
+.sd-pip[data-kind="reference-context"],.sd-legend-chip[data-kind="reference-context"]{--kh:#8a8f98}
+/* The kind legend: letter + tint + plain name, only for the kinds present. */
+.sd-legend{display:flex;flex-wrap:wrap;gap:.4rem .9rem;margin-top:1rem;font-family:var(--mono);font-size:10px;color:var(--muted)}
+.sd-legend-item{display:flex;align-items:center;gap:.3rem}
+.sd-legend-chip{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:2px;color:#fff;font-size:8.5px;font-weight:700;background:var(--kh,#8a8f98)}
+/* The milestone caption + its pagination (overwhelm control). Prev/next are
+   ≥44px touch targets; the body is an aria-live region. */
+.sd-milecap{margin-top:1.1rem;border-top:1px solid var(--line);padding-top:.75rem}
+.sd-mile-bar{display:flex;align-items:center;gap:.6rem}
+.sd-mile-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sd-mile-pos{font-family:var(--mono);font-size:10px;color:var(--ink-2)}
+.sd-mile-nav{margin-left:auto;display:flex;gap:.4rem}
+.sd-mile-btn{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:4px;font-size:17px;line-height:1;cursor:pointer}
+.sd-mile-btn:hover{background:var(--panel-2);border-color:var(--signal)}
+.sd-mile-btn:focus-visible{outline:2px solid var(--signal);outline-offset:1px}
+.sd-mile-body{margin-top:.55rem}
+.sd-mile-when{font-family:var(--mono);font-size:10.5px;color:var(--signal-strong);font-weight:600}
+.sd-mile-what{font-size:.92rem;color:var(--ink);margin-top:.15rem;line-height:1.4}
+.sd-mile-src{margin-top:.4rem;font-size:.8rem}
+.sd-mile-src summary{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);cursor:pointer}
+.sd-mile-src p{margin:.35rem 0 0;color:var(--ink-2);line-height:1.5}
+/* Text parity for the down-markers: the full held list behind a fold. */
+.sd-holdlist{margin-top:.9rem;font-size:.82rem}
+.sd-holdlist summary{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);cursor:pointer}
+.sd-holdlist ul{margin:.55rem 0 0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.25rem;color:var(--ink-2);max-height:14rem;overflow:auto}
 
 /* ---- module cards (dense, hairline-gridded, not rounded-uniform) ---- */
 .modules{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line)}

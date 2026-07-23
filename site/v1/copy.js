@@ -85,6 +85,51 @@ export const V1_COPY = {
       footHistory: 'dated history to',
       ariaWithHistory: 'Holdings across time: {count} publications held byte-for-byte across the dense run {heldStart} to {latest}, and dated licence history reaching back to {historyStart}. Most recent held as of {asOf}.',
       ariaHeldOnly: 'Holdings across time: {count} publications held byte-for-byte, {heldStart} to {latest}. Most recent held as of {asOf}.',
+      // The bi-temporal enhancement (issue #921): per-publication marks drop
+      // DOWN from the axis at each publication's vintage (assertion time), and
+      // register-history milestones point UP (event time) — the site-wide
+      // convention, in miniature. Both layers are progressive enhancement, drawn
+      // from the build-derived holdings manifest; the no-JS baseline keeps the
+      // axis, count and needle and honestly says the marks appear with the
+      // script. All wording here is record-scoped, no verdict words.
+      //
+      // The clause appended to the aria-label when marks are drawn: the down-
+      // markers summarised as a count over the span, and the up-markers named.
+      ariaPublicationsClause: ' {count} held publications are marked along the run, {heldStart} to {latest}.',
+      ariaMilestonesClause: ' Register milestones marked: {list}.',
+      // The honest no-JS / no-manifest note, shown in the text foot when the
+      // individual marks are not drawn. States plainly that they appear with the
+      // page's script, so the static baseline never implies marks that are absent.
+      enhanceNote: 'Individual publication marks and register milestones appear when the page’s script runs.',
+      // The down-marker band: a legend mapping each kind PRESENT to its letter and
+      // plain-English name (colour is never the sole cue), and the ringed newest
+      // register snapshot. `kindLabels` names each dataset kind; unlisted kinds
+      // fall back to their letter.
+      legendLabel: 'held publications by kind',
+      latestMarkLabel: 'newest register snapshot',
+      kindLabels: {
+        'register-snapshot': 'register snapshot',
+        'available-pool': 'available-callsign list',
+        'issuance-events': 'issuance events',
+        'forbidden-list': 'forbidden-suffix list',
+        'statistics-aggregate': 'statistics',
+        'attribute-addendum': 'attribute addendum',
+        'reference-context': 'reference context',
+      },
+      // The text-parity fold: the full held list, so the marks' information is
+      // never colour- or position-only. {count} is the number held.
+      allPublicationsSummary: 'list all {count} held publications',
+      // A single held publication's line in that fold and its marker title.
+      publicationLine: '{title} — {vintage} · {rows} rows',
+      publicationLineNoRows: '{title} — {vintage}',
+      // The up-marker band: the milestone caption + its paginated controls. Only
+      // a small selection is captioned at once (overwhelm control); prev/next
+      // cycle the full cited set, state-only, with no viewport movement.
+      milestonesLabel: 'register milestones',
+      milestonePrev: 'Previous milestone',
+      milestoneNext: 'Next milestone',
+      milestonePosition: '{i} of {n}',
+      milestoneSourceLabel: 'source',
     },
     fromTheRecordLabel: 'from the record',
     fromTheRecordFoot: 'Selection rotates at build time — a different notable detail leads on each rebuild.',

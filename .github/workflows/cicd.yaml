@@ -1019,6 +1019,13 @@ jobs:
         run: |
           mkdir -p _site/callsign/data
           cp -al _site/v0/callsign/data/. _site/callsign/data/
+      # Home span-dial holdings manifest (issue #921): the per-publication marks
+      # and the cited register-history milestones, DERIVED from the just-deployed
+      # root callsign manifest and the committed reference data, written to
+      # _site/holdings.json (root-served, so the v1 home stays self-contained).
+      # Runs AFTER the callsign data is at the root, since it reads that manifest.
+      - name: Build the home holdings manifest
+        run: node src/ci/build-home-holdings.ts _site
       # Root discovery files (issue #921): a slim sitemap.xml listing the three
       # launched v1 URLs and a robots.txt pointing at it.
       - name: Build the root discovery files
