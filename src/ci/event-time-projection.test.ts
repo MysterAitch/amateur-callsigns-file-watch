@@ -66,6 +66,33 @@ describe('event-time projection (issue #726)', { tags: ['unit'] }, () => {
     expect(projection.asAt).toBe('2021-06-01');
   });
 
+  it('Projection_FoiDatasetWithNoArchivedMetadata_TitleFallsBackToTheRawEntryKeyHonestly', () => {
+    // 'entry-a' is a synthetic fixture key with no meta.json on disk (issue
+    // #954): a lookup miss must render the raw key honestly rather than throw
+    // or fabricate a name.
+    const projection = foldEventTimeProjection({
+      sources: [
+        fixtureSource({ sourceFile: 'foi/entry-a/reg.csv', vintage: '2020-05-01', rows: [{ callsign: 'M7TEE', start: '20/12/2018' }] }),
+      ],
+    });
+    expect(projection.datasets[0].title).toBe('entry-a');
+  });
+
+  it('Projection_FoiDatasetWithArchivedMetadata_TitleIsTheFriendlyPublicationNameNotTheRawEntryKey', () => {
+    // A real archive entry (issue #954): the projection must name the
+    // publication readers recognise, e.g. "Radio amateur licence breakdown by
+    // duration held and age", never the raw
+    // "wdtk-1180568--licence-breakdown-duration-age" directory key. The raw
+    // key stays available as the `dataset` field (the traceable identifier).
+    const projection = foldEventTimeProjection({
+      sources: [
+        fixtureSource({ sourceFile: 'foi/wdtk-1180568--licence-breakdown-duration-age/reg.csv', vintage: '2024-10-01', rows: [{ callsign: 'M7TEE', start: '20/12/2018' }] }),
+      ],
+    });
+    expect(projection.datasets[0].dataset).toBe('wdtk-1180568--licence-breakdown-duration-age');
+    expect(projection.datasets[0].title).toBe('Radio amateur licence breakdown by duration held and age');
+  });
+
   it('Projection_MultipleRowsOfOneSubjectOnOneDay_AggregatesNrowsInsteadOfDuplicating', () => {
     const projection = foldEventTimeProjection({
       sources: [

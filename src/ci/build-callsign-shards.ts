@@ -90,7 +90,7 @@ import { DIRS } from '../shared/constants.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { derivedEntryFile } from '../shared/derived-entries.ts';
 import { buildFoiObservations, type FoiObservationRow } from '../shared/foi-observations.ts';
-import { defaultFoiDir } from '../shared/foi-archive.ts';
+import { defaultFoiDir, readFoiEntryMeta } from '../shared/foi-archive.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
 import { cleanedCallsign, parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
@@ -267,7 +267,7 @@ function openDataSources(archiveDir: string): DatasetSource[] {
   });
 }
 
-function foiSources(foiDir: string): DatasetSource[] {
+export function foiSources(foiDir: string): DatasetSource[] {
   // buildFoiObservations already folds every callsign-bearing normalised FOI
   // file (and only those) into one union; group its rows back into per-file
   // datasets so each file is one history-string position.
@@ -279,6 +279,20 @@ function foiSources(foiDir: string): DatasetSource[] {
     if (group) group.push(row);
     else groups.set(groupKey, [row]);
   }
+  // The archive entry's own declared title (meta.json, a mandatory field) -
+  // the friendly publication name, never the raw entry key (issue #954: a
+  // disagreement narrative or provenance fold naming this dataset must read
+  // "Radio amateur licence breakdown by duration held and age", not
+  // "wdtk-1180568--licence-breakdown-duration-age"). Cached per entry: several
+  // groups (one per declared file/sheet) commonly share one FOI entry.
+  const titleCache = new Map<string, string>();
+  const titleOf = (entry: string): string => {
+    const cached = titleCache.get(entry);
+    if (cached !== undefined) return cached;
+    const title = readFoiEntryMeta(foiDir, entry).title;
+    titleCache.set(entry, title);
+    return title;
+  };
   const sources: DatasetSource[] = [];
   for (const [groupKey, group] of [...groups.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
     const first = group[0];
@@ -288,7 +302,7 @@ function foiSources(foiDir: string): DatasetSource[] {
       entry: first.entry,
       file: first.sourceFile,
       vintage: first.vintage,
-      title: first.entry,
+      title: titleOf(first.entry),
       classes: first.datasetClasses.split(',').filter(c => c !== ''),
       href: `datasets/foi/${first.entry}/index.html`,
       rows: 0,

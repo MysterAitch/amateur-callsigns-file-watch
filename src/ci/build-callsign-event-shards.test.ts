@@ -95,6 +95,7 @@ interface EventsMeta {
   caveats: { id: string; label: string; gloss: string }[];
   episodes: { start: string; end: string }[];
   seriesIntro: Record<string, string>;
+  seriesIntroSource: { title: string; href: string; vintage: string | null; nrows: number };
   shards: string[];
 }
 
@@ -227,6 +228,17 @@ describe('callsign event shards (issue #726)', { tags: ['unit'] }, () => {
     for (const month of Object.values(meta.seriesIntro)) expect(month).toMatch(/^\d{4}-\d{2}$/);
     const keys = Object.keys(meta.seriesIntro);
     expect(keys).toEqual([...keys].sort());
+  });
+
+  it('EventShardsMeta_SeriesIntroSource_CitesTheReferenceDataFileWithARowCountDerivedFromIt', () => {
+    // Issue #954: the series-opened context row on the dial states a fact
+    // without naming its source; the citation must trace to the actual
+    // reference-data file, never a hand-authored label, and never fabricate a
+    // publication vintage the hand-curated CSV does not carry.
+    const { meta } = build(fixtureProjection());
+    expect(meta.seriesIntroSource.title).toBe('reference-data/prefix-formats.csv');
+    expect(meta.seriesIntroSource.vintage).toBeNull();
+    expect(meta.seriesIntroSource.nrows).toBe(Object.keys(meta.seriesIntro).length);
   });
 
   it('KindAndCaveatLabels_AreTotalOverTheAuthoredVocabularies', () => {

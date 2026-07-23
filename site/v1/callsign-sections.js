@@ -52,10 +52,11 @@ const link = (href, label, cls = null) => {
 
 /**
  * @typedef {object} AssertedBy
- * @property {string} title    the asserting dataset's title
+ * @property {string} title    the asserting dataset's friendly, reader-recognisable name (issue #954: never the raw archive key)
  * @property {string} href     its dataset entry page (not linked by the v1 surface)
  * @property {string | null} vintage  its assertion-time vintage
  * @property {number} nrows    how many rows in that dataset assert the line
+ * @property {string} [key]    the raw archive dataset key (issue #954): secondary detail carried in a tooltip, never the primary label
  */
 
 /**
@@ -127,6 +128,7 @@ const link = (href, label, cls = null) => {
  * @property {'fresh' | 'carried' | 'neutral'} carriedOrigin  how this record's licence-chain origin reads against its series introduction
  * @property {string | null} series  e.g. 'M7' (from parsed anatomy prefix)
  * @property {string | null} seriesIntro  the series' introduction month (yyyy-mm), from meta.json's seriesIntro, or null when not recorded
+ * @property {AssertedBy | null} seriesIntroSource  the citation for the series-introduction reference data (issue #954), from meta.json's seriesIntroSource, or null when not carried
  */
 
 // The shared data-shape and function types, referenced by type-only import() so
@@ -173,7 +175,7 @@ export function buildCallsignModel(deps) {
   const key = res.key;
   const viaRendering = res.viaRendering ?? false;
   if (record === null || key === null) {
-    return { key: res.cleaned !== '' ? res.cleaned : res.typed, cleaned: res.cleaned, found: false, viaRendering, latest: null, seen: null, anatomy: null, dial: { events: [], sightings: [], findings: [], bookkeeping: [], disagreements: [], hasEvents: false, hasBookkeeping: false }, twin: null, carriedOrigin: 'neutral', series: null, seriesIntro: null };
+    return { key: res.cleaned !== '' ? res.cleaned : res.typed, cleaned: res.cleaned, found: false, viaRendering, latest: null, seen: null, anatomy: null, dial: { events: [], sightings: [], findings: [], bookkeeping: [], disagreements: [], hasEvents: false, hasBookkeeping: false }, twin: null, carriedOrigin: 'neutral', series: null, seriesIntro: null, seriesIntroSource: null };
   }
 
   const latest = deps.latestSummary(record, manifest);
@@ -198,7 +200,7 @@ export function buildCallsignModel(deps) {
   // assertion-time provenance so it never floats free of the source that
   // asserts it (issue #726).
   /** @param {{ dataset: import('../callsign-events.js').EventDataset, nrows: number }[]} assertedBy @returns {AssertedBy[]} */
-  const mapAssertedBy = (assertedBy) => assertedBy.map((a) => ({ title: a.dataset.title, href: a.dataset.href, vintage: a.dataset.vintage, nrows: a.nrows }));
+  const mapAssertedBy = (assertedBy) => assertedBy.map((a) => ({ title: a.dataset.title, href: a.dataset.href, vintage: a.dataset.vintage, nrows: a.nrows, key: a.dataset.key }));
   /** @type {DialEvent[]} */
   let events = [];
   /** @type {DialFinding[]} */
@@ -242,6 +244,10 @@ export function buildCallsignModel(deps) {
   // map when the event axis is loaded and the series has a recorded month.
   const introMonths = eventMeta != null ? eventMeta.seriesIntro : undefined;
   const seriesIntro = series !== null && introMonths != null ? (introMonths[series] ?? null) : null;
+  // Its citation (issue #954): render honestly when meta.json does not carry
+  // one (an older cached meta, or the event axis not loaded) rather than
+  // fabricate a source for the context row.
+  const seriesIntroSource = eventMeta != null && eventMeta.seriesIntroSource != null ? eventMeta.seriesIntroSource : null;
 
   // Carried-origin state, DATA-DRIVEN (issue #921): compare the licence-chain
   // origin month to the series introduction month, where both are known. When
@@ -254,7 +260,7 @@ export function buildCallsignModel(deps) {
     carriedOrigin = originDate.slice(0, 7) < seriesIntro ? 'carried' : 'fresh';
   }
 
-  return { key, cleaned: res.cleaned, found: true, viaRendering, latest, seen, anatomy, dial: { events, sightings, findings, bookkeeping, disagreements, hasEvents, hasBookkeeping }, twin, carriedOrigin, series, seriesIntro };
+  return { key, cleaned: res.cleaned, found: true, viaRendering, latest, seen, anatomy, dial: { events, sightings, findings, bookkeeping, disagreements, hasEvents, hasBookkeeping }, twin, carriedOrigin, series, seriesIntro, seriesIntroSource };
 }
 
 // A yyyy-mm introduction month rendered for readers ('2018-10' -> 'October
@@ -436,6 +442,10 @@ export function captionEdge(leftPct, capWidthPx) {
 
 // The caption text a cluster paints — the single event's leading clause, or the
 // widest row of a co-dated stack — used to estimate the cluster's caption width.
+// The ' — ' split delimiter is the em dash KIND_LABELS itself is authored with
+// (src/ci/build-callsign-event-shards.ts), not a copy-registry string — it is
+// left as-is by the issue #954 house-style pass, which retimed prose glue text
+// rather than this build-time label vocabulary's own separator.
 /** @param {string[]} labels @returns {string} */
 export function clusterCaptionText(labels) {
   const clauses = labels.map((l) => l.split(' — ')[0]);
@@ -633,7 +643,7 @@ export function currentStateNode(model) {
   const day = anchorDays.reduce((newest, d) => (fractionalYear(d) > fractionalYear(newest) ? d : newest));
   const dataset = model.latest.dataset;
   const assertedBy = dataset.title !== '' ? [{ title: dataset.title, href: dataset.href, vintage: dataset.vintage, nrows: 1 }] : [];
-  return { label: `${model.latest.statuses.join(' / ')} — ${V1_COPY.callsign.dial.currentStateLabel}`, day, assertedBy };
+  return { label: `${model.latest.statuses.join(' / ')} – ${V1_COPY.callsign.dial.currentStateLabel}`, day, assertedBy };
 }
 
 // ---------------------------------------------------------------------------
@@ -658,7 +668,7 @@ function mountFastAnswer(host, model) {
   head.appendChild(el('h1', null, model.key));
   if (!model.found) {
     const callout = el('div', 'callout');
-    callout.append(`No record for ${model.key} in any of the publications this mirror holds. Absence here is never evidence about the register — this mirror holds only what has been published or disclosed.`);
+    callout.append(`No record for ${model.key} in any of the publications this mirror holds. Absence here is never evidence about the register – this mirror holds only what has been published or disclosed.`);
     head.appendChild(callout);
     host.appendChild(head);
     return;
@@ -987,17 +997,20 @@ function mountEvidenceDial(host, model) {
   // ones included (issue #921), so a record whose vintages disagree reads as more
   // claims, not fewer.
   const claimCount = events.length;
-  g1.append(` — ${claimCount} dated event claim${claimCount === 1 ? '' : 's'} on the primary scale.`);
+  g1.append(` – ${claimCount} dated event claim${claimCount === 1 ? '' : 's'} on the primary scale.`);
   note.appendChild(g1);
   const g2 = el('span', 'g assert');
   g2.appendChild(el('b', null, V1_COPY.callsign.dial.calibrationLead));
-  g2.append(` — ${geo.sightings.length} sighting${geo.sightings.length === 1 ? '' : 's'}. ${V1_COPY.callsign.dial.calibrationNote}`);
+  g2.append(` – ${geo.sightings.length} sighting${geo.sightings.length === 1 ? '' : 's'}. ${V1_COPY.callsign.dial.calibrationNote}`);
   note.appendChild(g2);
   dial.appendChild(note);
 
   // Series-introduction context marker (issue #921): only when meta.json
   // records when this callsign's SERIES was opened. A series-level fact that
   // frames the event scale — never a claim about this record's own issuance.
+  // Carries an asserted-by fold like every other rail row (issue #954), when
+  // meta.json ships the citation; rendered without one otherwise, honestly,
+  // rather than inventing a source.
   if (model.seriesIntro !== null && model.series !== null) {
     const context = el('div', 'dial-context');
     context.appendChild(provenanceChip('context'));
@@ -1005,6 +1018,7 @@ function mountEvidenceDial(host, model) {
       .replace('{series}', model.series)
       .replace('{month}', formatSeriesIntroMonth(model.seriesIntro));
     context.append(` ${text}.`);
+    if (model.seriesIntroSource !== null) context.appendChild(assertedByFold([model.seriesIntroSource]));
     dial.appendChild(context);
   }
 
@@ -1064,7 +1078,7 @@ function mountEvidenceDial(host, model) {
         li.append(`${sources} state${camp.datasets.length === 1 ? 's' : ''} the ${kind} as `);
         li.appendChild(el('b', null, camp.day));
       });
-      li.append(` — ${V1_COPY.callsign.dial.disagreementResolution}.`);
+      li.append(` – ${V1_COPY.callsign.dial.disagreementResolution}.`);
       ul.appendChild(li);
     }
     card.appendChild(ul);
@@ -1077,6 +1091,8 @@ function mountEvidenceDial(host, model) {
 // An event's assertion-time provenance, as a compact expandable list — the
 // assertion axis carried one affordance away from each event-time claim (issue
 // #726). Dataset names are plain text: the v1 surface links only to itself.
+// The friendly title leads (issue #954); the raw archive key, where carried,
+// rides as a native-tooltip secondary detail rather than the primary label.
 /** @param {AssertedBy[]} assertedBy @returns {HTMLElement} */
 function assertedByFold(assertedBy) {
   const details = el('details', 'evt-assert');
@@ -1085,6 +1101,7 @@ function assertedByFold(assertedBy) {
   const ul = el('ul');
   for (const a of assertedBy) {
     const li = el('li');
+    if (a.key != null && a.key !== '') li.setAttribute('title', a.key);
     const bits = a.vintage != null ? `${a.title} (vintage ${a.vintage})` : a.title;
     li.append(a.nrows > 1 ? `${bits}, ${a.nrows} rows` : bits);
     ul.appendChild(li);
@@ -1235,7 +1252,7 @@ function mountEventTimeline(host, model) {
     const details = el('details', 'evt-bookkeeping');
     if (!hasEvents) details.setAttribute('open', '');
     const n = model.dial.bookkeeping.length;
-    details.appendChild(el('summary', null, `record bookkeeping stamps (${n} dated ${n === 1 ? 'line' : 'lines'} — system presence, not licensing events)`));
+    details.appendChild(el('summary', null, `record bookkeeping stamps (${n} dated ${n === 1 ? 'line' : 'lines'} – system presence, not licensing events)`));
     const ul = el('div', 'timeline');
     for (const bk of model.dial.bookkeeping) {
       const tl = el('div', 'tl');
@@ -1260,7 +1277,7 @@ function mountAnatomy(host, model) {
   const surface = el('section', 'surface');
   surface.appendChild(el('div', 'lbl', V1_COPY.callsign.anatomyLabel));
   if (model.anatomy === null || model.anatomy.length === 0) {
-    surface.appendChild(el('p', 'note muted', 'No confident decomposition — the parser did not read this as a standard UK callsign, so no diagram is drawn (a guessed segmentation would be worse than none).'));
+    surface.appendChild(el('p', 'note muted', 'No confident decomposition – the parser did not read this as a standard UK callsign, so no diagram is drawn (a guessed segmentation would be worse than none).'));
     host.appendChild(surface);
     return;
   }
@@ -1299,7 +1316,7 @@ function mountRecordFidelity(host, model) {
     const states = t.variants.map((v) => `${v.raw}${v.status !== '' ? ` (${v.status}${v.modified !== '' ? `, modified ${v.modified}` : ''})` : ''}`);
     detail.append(`In the latest register snapshot (${vintage}): ${states.join(' vs ')}. `);
     if (t.recency.kind === 'ordered' && t.recency.newestRaw !== null) {
-      detail.append(`By the register’s own last-modified dates, ${t.recency.newestRaw} is the most recently modified${t.recency.newestModified !== null ? ` (${t.recency.newestModified})` : ''} — recency, not a ruling.`);
+      detail.append(`By the register’s own last-modified dates, ${t.recency.newestRaw} is the most recently modified${t.recency.newestModified !== null ? ` (${t.recency.newestModified})` : ''} – recency, not a ruling.`);
     } else if (t.recency.kind === 'tied') {
       detail.append('Both rows carry the newest last-modified date, so recency does not order them.');
     } else if (t.recency.kind === 'partial') {
@@ -1346,7 +1363,7 @@ function mountExtras(host, model) {
   const ul = el('ul');
   const liRaw = el('li');
   liRaw.appendChild(link('how-to-get-the-raw-data.html', 'Get the raw data'));
-  liRaw.append(' — the archived files, per-entry zips, the SQLite tiers and the claim ledger.');
+  liRaw.append(' – the archived files, per-entry zips, the SQLite tiers and the claim ledger.');
   ul.appendChild(liRaw);
   pb.appendChild(ul);
   pb.appendChild(el('p', null, V1_COPY.callsign.footer));

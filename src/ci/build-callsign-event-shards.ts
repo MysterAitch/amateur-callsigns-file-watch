@@ -188,6 +188,21 @@ export function seriesIntroMonths(ref: ReferenceData): Record<string, string> {
   return Object.fromEntries(entries);
 }
 
+// The shared citation for the series-introduction reference data (issue
+// #954): the dial's series-opened context marker names WHEN a series opened,
+// but not source of that fact; every other rail row carries its
+// assertion-time provenance as an asserted-by fold, and this row should too.
+// `reference-data/prefix-formats.csv` is hand-curated, in-repo reference data
+// rather than a dated archived publication, so it carries no publication
+// vintage (honestly null, never guessed) and no site-served href (v1 renders
+// dataset names as plain text). `nrows` is the count of series rows that
+// actually carry an introduction month — the same rows seriesIntroMonths
+// resolves from, never a hand-typed figure.
+export function seriesIntroCitation(ref: ReferenceData): { title: string; href: string; vintage: string | null; nrows: number } {
+  const nrows = [...ref.prefixSeries.values()].filter(info => info.introduced.trim() !== '').length;
+  return { title: 'reference-data/prefix-formats.csv', href: '', vintage: null, nrows };
+}
+
 export function buildCallsignEventShards(projection: EventTimeProjection, outputDir: string, params: EpisodeParams = DEFAULT_EPISODE_PARAMS, ref: ReferenceData = loadReferenceData()): EventShardBuildSummary {
   const { datasets, rows, daySignals, asAt } = projection;
 
@@ -314,6 +329,9 @@ export function buildCallsignEventShards(projection: EventTimeProjection, output
     // a callsign's series was opened without re-loading reference data client-
     // side. A series' own start, never a per-record licence claim.
     seriesIntro: seriesIntroMonths(ref),
+    // The citation for that reference data (issue #954), so the series-opened
+    // context row can carry an asserted-by fold like every other rail row.
+    seriesIntroSource: seriesIntroCitation(ref),
     shards: [...shards.keys()],
   };
   const metaJson = JSON.stringify(meta);

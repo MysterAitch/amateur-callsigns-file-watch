@@ -159,8 +159,8 @@ async function initCallsignPageV1() {
     wireTermPopovers(document);
     if (status !== null) {
       status.textContent = model.found
-        ? `Answered ${model.key} from one shard (${shardName}.json) — no database involved.`
-        : `No record found for ${typed} — checked shard ${shardName}.json.`;
+        ? `Answered ${model.key} from one shard (${shardName}.json) – no database involved.`
+        : `No record found for ${typed} – checked shard ${shardName}.json.`;
     }
   } catch (err) {
     if (status !== null) status.textContent = '';

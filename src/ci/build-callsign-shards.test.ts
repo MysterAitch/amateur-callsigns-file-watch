@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { shardBucketOf, shardNameFor, partitionShards, MARKERS, SHARD_SPLIT_THRESHOLD } from './build-callsign-shards.ts';
+import { shardBucketOf, shardNameFor, partitionShards, MARKERS, SHARD_SPLIT_THRESHOLD, foiSources } from './build-callsign-shards.ts';
+import { defaultFoiDir } from '../shared/foi-archive.ts';
 
 // The sharding rules of the instant per-callsign projection (issue #594),
 // pinned on fixtures: the two-character bucket, the hot-bucket subdivision,
@@ -68,5 +69,27 @@ describe('callsign shard partitioning', { tags: ['unit'] }, () => {
     // A guard against accidental order-of-magnitude regressions: the whole
     // point of the sharding is that one fetch stays small.
     expect(SHARD_SPLIT_THRESHOLD).toBeLessThanOrEqual(5000);
+  });
+});
+
+describe('FOI dataset titles over the real archive (issue #954)', { tags: ['unit'] }, () => {
+  // A disagreement narrative or an event's assertion-time provenance fold
+  // names the publication a reader recognises, never the raw archive entry
+  // key it is filed under (canonical-at-rest / presentation-at-the-edge). The
+  // key itself stays the traceable `entry`/`href` identifier.
+  const sources = foiSources(defaultFoiDir());
+
+  it('FoiSources_KnownEntry_TitleIsTheFriendlyPublicationNameNotTheRawEntryKey', () => {
+    const wdtk1180568 = sources.filter(s => s.dataset.entry === 'wdtk-1180568--licence-breakdown-duration-age');
+    expect(wdtk1180568.length).toBeGreaterThan(0);
+    for (const source of wdtk1180568) {
+      expect(source.dataset.title).toBe('Radio amateur licence breakdown by duration held and age');
+    }
+  });
+
+  it('FoiSources_EveryEntry_TitleNeverEqualsTheRawEntryKey', () => {
+    for (const source of sources) {
+      expect(source.dataset.title, `entry "${source.dataset.entry}" should carry a friendly title, not its raw key`).not.toBe(source.dataset.entry);
+    }
   });
 });

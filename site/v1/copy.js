@@ -1,5 +1,5 @@
 // @ts-check
-// v1 COPY REGISTRY (issue #921) — the single home for every wording-sensitive
+// v1 COPY REGISTRY (issue #921) – the single home for every wording-sensitive
 // string on the v1 shell: the dated-fact chip template, journey labels, the
 // dial's track labels and glosses, the carried-origin explainer, the home lede
 // and card blurbs. The owner's wording rules are binding and machine-checked:
@@ -35,7 +35,7 @@ export const V1_COPY = {
 
   // The journeys the v1 surface offers. Only migrated pages appear here: an
   // unmigrated journey is simply absent rather than pointing anywhere off the
-  // v1 surface — the honest state for something not here yet.
+  // v1 surface – the honest state for something not here yet.
   journeys: {
     home: 'Home',
     lookup: 'Look up',
@@ -59,13 +59,13 @@ export const V1_COPY = {
     lede: 'Look up any UK amateur callsign’s recorded history.',
     lookupLabel: 'Look up a callsign',
     placeholder: 'e.g. M7TEE',
-    lookupHint: 'Resolved in-browser from a single small fetch — latest register state, parsed anatomy, and every sighting across the archive.',
-    trust: 'Every value is a projection of an archived publication — copied straight from one dated file, never merged or reinterpreted; every claim traces to the source byte that asserts it. Nothing is independently verified — and disagreeing sources are both kept, unresolved.',
+    lookupHint: 'Resolved in-browser from a single small fetch – latest register state, parsed anatomy, and every sighting across the archive.',
+    trust: 'Every value is a projection of an archived publication – copied straight from one dated file, never merged or reinterpreted; every claim traces to the source byte that asserts it. Nothing is independently verified – and disagreeing sources are both kept, unresolved.',
     waysInLabel: 'ways in',
     atAGlanceLabel: 'the record at a glance',
     // The compact archive-span dial inside "the record at a glance": a
     // miniature of the site's dial language showing the archive's temporal
-    // coverage — the sparse dated licence history the record reaches back to,
+    // coverage – the sparse dated licence history the record reaches back to,
     // a scale break, then the dense run of held publications with a needle at
     // the newest reading. Every figure is read from the centralised, report-
     // cited home-model figures that also feed the readout row (centralised
@@ -87,7 +87,7 @@ export const V1_COPY = {
       ariaHeldOnly: 'Holdings across time: {count} publications held byte-for-byte, {heldStart} to {latest}. Most recent held as of {asOf}.',
       // The bi-temporal enhancement (issue #921): per-publication marks drop
       // DOWN from the axis at each publication's vintage (assertion time), and
-      // register-history milestones point UP (event time) — the site-wide
+      // register-history milestones point UP (event time) – the site-wide
       // convention, in miniature. Both layers are progressive enhancement, drawn
       // from the build-derived holdings manifest; the no-JS baseline keeps the
       // axis, count and needle and honestly says the marks appear with the
@@ -120,8 +120,8 @@ export const V1_COPY = {
       // never colour- or position-only. {count} is the number held.
       allPublicationsSummary: 'list all {count} held publications',
       // A single held publication's line in that fold and its marker title.
-      publicationLine: '{title} — {vintage} · {rows} rows',
-      publicationLineNoRows: '{title} — {vintage}',
+      publicationLine: '{title} – {vintage} · {rows} rows',
+      publicationLineNoRows: '{title} – {vintage}',
       // The up-marker band: the milestone caption + its paginated controls. Only
       // a small selection is captioned at once (overwhelm control); prev/next
       // cycle the full cited set, state-only, with no viewport movement.
@@ -132,10 +132,10 @@ export const V1_COPY = {
       milestoneSourceLabel: 'source',
     },
     fromTheRecordLabel: 'from the record',
-    fromTheRecordFoot: 'Selection rotates at build time — a different notable detail leads on each rebuild.',
+    fromTheRecordFoot: 'Selection rotates at build time – a different notable detail leads on each rebuild.',
     scopeDisclaimerLabel: 'scope & disclaimer',
-    scopeDisclaimer: 'Proof-of-concept mirror; not affiliated with or endorsed by Ofcom, and not authoritative — Ofcom’s own register is. The value here is continuity: a decade of snapshots Ofcom does not itself publish as a series. Presence in an availability list means offered, not licensed. Absence is read scope-aware: missing from a partial publication is not evidence. The record flags what looks inconsistent and adjudicates nothing.',
-    // The ways-in cards — only the journeys the v1 surface actually serves.
+    scopeDisclaimer: 'Proof-of-concept mirror; not affiliated with or endorsed by Ofcom, and not authoritative – Ofcom’s own register is. The value here is continuity: a decade of snapshots Ofcom does not itself publish as a series. Presence in an availability list means offered, not licensed. Absence is read scope-aware: missing from a partial publication is not evidence. The record flags what looks inconsistent and adjudicates nothing.',
+    // The ways-in cards – only the journeys the v1 surface actually serves.
     cards: {
       lookup: {
         name: 'Look up a callsign',
@@ -153,7 +153,7 @@ export const V1_COPY = {
     fastAnswerLabel: 'fast answer',
     // Section heading for the signature dial ("The evidence").
     evidenceLabel: 'the evidence',
-    evidenceLead: 'One shared year axis. The event readings are the primary scale, above; the publication sightings are the calibration beneath — how the reading was taken. Highlight one clock to read it alone.',
+    evidenceLead: 'One shared year axis. The event readings are the primary scale, above; the publication sightings are the calibration beneath – how the reading was taken. Highlight one clock to read it alone.',
     eventTimelineLabel: 'what happened',
     eventTimelineLead: EVENT_TIME_GLOSS + ' Each event names the source that asserts it.',
     anatomyLabel: 'anatomy',
@@ -172,16 +172,16 @@ export const V1_COPY = {
       // first-time reader meets unlabelled markers and a clock metaphor carried by
       // prose alone, so the dial names each marker type in plain English (only the
       // types actually drawn), and this is the natural home for the kind-tint
-      // scheme — each tinted kind named beside its swatch so the stable colour
+      // scheme – each tinted kind named beside its swatch so the stable colour
       // scheme is learnable. The micro-example reads one diamond and one pip so the
       // event-time / assertion-time distinction is concrete rather than abstract.
       // Record-scoped, no verdict words.
       legendLabel: 'how to read it',
-      legendEvent: 'an event — when something happened, as the record states it',
-      legendSighting: 'a sighting — a publication that recorded this callsign, at its vintage',
-      legendState: 'current state — the latest status the mirror holds',
-      legendDisputed: 'disputed — held publications assert competing dates for a kind; every one is shown',
-      microExample: 'Worked example: a diamond above the axis at 2018 says the record states that happened in 2018; a pip below at 2021 is a publication that recorded this callsign in 2021 — an event can predate the first sighting.',
+      legendEvent: 'an event – when something happened, as the record states it',
+      legendSighting: 'a sighting – a publication that recorded this callsign, at its vintage',
+      legendState: 'current state – the latest status the mirror holds',
+      legendDisputed: 'disputed – held publications assert competing dates for a kind; every one is shown',
+      microExample: 'Worked example: a diamond above the axis at 2018 says the record states that happened in 2018; a pip below at 2021 is a publication that recorded this callsign in 2021 – an event can predate the first sighting.',
       // Plain-English names for the tinted event kinds, keyed by kind id, so the
       // legend can name each hue of the stable colour scheme beside its swatch.
       kindLegend: {
@@ -192,8 +192,8 @@ export const V1_COPY = {
         'reserved-until': 'reserved until',
       },
       // The marker tooltip templates (issue #921, A2): each dial marker carries a
-      // title and an accessible equivalent naming its kind, date and — for a
-      // sighting — the publication that recorded it. {label}/{day}/{title}/
+      // title and an accessible equivalent naming its kind, date and – for a
+      // sighting – the publication that recorded it. {label}/{day}/{title}/
       // {vintage} are filled at mount.
       tooltipEvent: '{label} · {day}',
       tooltipSighting: 'Sighting: recorded by {title} · {vintage}',
@@ -202,7 +202,7 @@ export const V1_COPY = {
       tooltipStateAssertedBy: '{label} · as of {day}, asserted by {source}',
       // A record-scoped context marker on the dial: when the reference data
       // records when this callsign's SERIES was opened, name it beside the
-      // event scale — a series-level fact, never a per-record licensing claim.
+      // event scale – a series-level fact, never a per-record licensing claim.
       // {series} is the prefix ('M7'); {month} is the introduction month
       // rendered as "October 2018".
       seriesIntro: '{series} series opened {month}',
@@ -221,46 +221,46 @@ export const V1_COPY = {
         // hedged, since it is confirmed for the field's DEFINITION but not for
         // every individual record. Cited, never asserted as universal fact.
         interpretationLabel: 'how the original-start date is read',
-        interpretation: 'The register’s own field guidance — Ofcom’s Licence-View field dictionary, disclosed under FOI (2014/15) — defines Original Start Date as a licence-view field: the licence chain’s first-ever start, surviving revisions, rather than this callsign’s own issuance. In at least some records it pre-dates the callsign’s series, so it dates the holder’s inherited licence chain, not this callsign; whether that reading holds for every record is not confirmed.',
+        interpretation: 'The register’s own field guidance – Ofcom’s Licence-View field dictionary, disclosed under FOI (2014/15) – defines Original Start Date as a licence-view field: the licence chain’s first-ever start, surviving revisions, rather than this callsign’s own issuance. In at least some records it pre-dates the callsign’s series, so it dates the holder’s inherited licence chain, not this callsign; whether that reading holds for every record is not confirmed.',
       },
       // The current-state terminus suffix. Appended to the record's own latest
-      // status value ('Allocated — current state') as the green node closing the
+      // status value ('Allocated – current state') as the green node closing the
       // event story on both the dial scale and the event rail. Record-scoped: it
       // names the latest status the mirror holds, not a claim about the register.
       currentStateLabel: 'current state',
       readingLead: 'Reading',
       calibrationLead: 'Calibration',
       calibrationNote: 'The sightings beneath are how the event story is evidenced. A callsign can exist before any held publication records it, so the earliest event may predate the first sighting.',
-      // Shown when no event-time claim is held for this callsign — a
+      // Shown when no event-time claim is held for this callsign – a
       // non-observation state, never "was available" or "did not exist".
       noEvidence: 'No dated event-time evidence is held for this callsign in the publications mirrored here. This is non-observation: it is not evidence the callsign was available, nor that it never existed.',
       // Shown when the ONLY dated evidence is record-bookkeeping (created /
       // last-modified stamps): system presence, never a licensing event.
-      bookkeepingOnly: 'The only dated evidence held for this callsign is record-bookkeeping — the register’s own created and last-modified stamps. These attest system presence by a date, not a licensing event.',
+      bookkeepingOnly: 'The only dated evidence held for this callsign is record-bookkeeping – the register’s own created and last-modified stamps. These attest system presence by a date, not a licensing event.',
       // The cross-vintage disagreement block (#467): every camp kept, adjudicated nowhere.
       disagreementLabel: 'The held vintages disagree about this record’s dates',
-      disagreementGloss: 'Different vintages assert different dates for the same past event. Every camp is listed with its asserting datasets; the record adjudicates none of them — a later assertion is not automatically the truer one.',
+      disagreementGloss: 'Different vintages assert different dates for the same past event. Every camp is listed with its asserting datasets; the record adjudicates none of them – a later assertion is not automatically the truer one.',
       // The plain-language resolution appended to each disagreement (issue #921):
       // it names the mechanism (the publications disagree), never a verdict.
       disagreementResolution: 'the held publications disagree; both values are shown and neither is adjudicated',
       // The disputed-entry link and the high-density "examine" nudge (issue #921):
       // where held vintages assert competing dates, every claim renders on the
-      // instrument and links to the narrative. Record-scoped, no verdict — the
+      // instrument and links to the narrative. Record-scoped, no verdict – the
       // mechanism (claims conflict) is named, never a ruling on which is right.
-      disputeLink: 'disputed — why?',
-      disputeNudge: 'This record carries {count} conflicting dated claims — the instrument shows every one.',
+      disputeLink: 'disputed – why?',
+      disputeNudge: 'This record carries {count} conflicting dated claims – the instrument shows every one.',
       disputeNudgeCta: 'examine the disagreements',
     },
     // The carried-origin explainer. Record-scoped throughout: it describes what
     // the HELD RECORD shows, never an unqualified claim about the world. The
-    // rendered path is DATA-DRIVEN — the chain origin month is compared to the
+    // rendered path is DATA-DRIVEN – the chain origin month is compared to the
     // series introduction month: "fresh" when the origin post-dates the series,
     // "carried" when it pre-dates it, and "neutral" when the series
     // introduction is not recorded, so neither path is asserted.
     carriedOrigin: {
       label: 'how licence-chain origins are read',
-      ordinary: 'This licence chain begins with this callsign, and its origin post-dates the series introduction — consistent with a fresh issuance. The held record names no earlier callsign, so nothing here reads as carried history.',
-      carried: 'Some records carry a licence-chain origin that pre-dates the callsign’s own series — a sign the licence history was carried over from an earlier callsign. Where that happens the held record names no earlier callsign that carried it, and the record raises a prominent scope note rather than treating the two dates as a conflict.',
+      ordinary: 'This licence chain begins with this callsign, and its origin post-dates the series introduction – consistent with a fresh issuance. The held record names no earlier callsign, so nothing here reads as carried history.',
+      carried: 'Some records carry a licence-chain origin that pre-dates the callsign’s own series – a sign the licence history was carried over from an earlier callsign. Where that happens the held record names no earlier callsign that carried it, and the record raises a prominent scope note rather than treating the two dates as a conflict.',
       neutral: 'How a licence chain’s origin reads depends on when the callsign’s series opened. Where the series introduction month is not recorded here, the record makes no claim either way about carried history.',
     },
     // The twin-row conflict annotation (#633): a NAME for the shape of the
@@ -274,10 +274,10 @@ export const V1_COPY = {
     },
     // The regional-rendering note: a looked-up form resolved to the register's
     // core record. {cleaned} is the typed form; {key} the stored core.
-    viaRenderingNote: '“{cleaned}” is a regional rendering; the register stores the core record {key} — the Regional Secondary Locator travels separately.',
+    viaRenderingNote: '“{cleaned}” is a regional rendering; the register stores the core record {key} – the Regional Secondary Locator travels separately.',
     // Blank-but-present value wording (never a bare em dash).
     noStatusRecorded: '(no status recorded)',
-    noProductRecorded: '(no product recorded — many legitimate allocations carry a blank product)',
+    noProductRecorded: '(no product recorded – many legitimate allocations carry a blank product)',
     fidelity: {
       selfConsistent: 'Where a record’s dates and derived series rules agree, nothing is flagged. Values are kept exactly as published.',
       flaggedNotAdjudicated: 'Values are flagged where they look inconsistent with the derived rules; the record adjudicates none of them and picks no winner.',
@@ -287,28 +287,28 @@ export const V1_COPY = {
 
   // The coined-vocabulary glossary (issue #921, B1): the terms this record uses
   // that a newcomer cannot decode from context. Each is wired to a click-toggled
-  // popover (site/v1/glossary.js) carrying its definition inline — the
+  // popover (site/v1/glossary.js) carrying its definition inline – the
   // interaction grammar for jargon: a definition on click, never a whole-page
   // navigation out of the prose. Record-scoped and non-adjudicating like every
   // other string here (the claims-bar test walks these too); the provenance
   // definitions name the mechanism a chip marks, never a verdict on the value.
   glossary: {
-    eventTime: { term: 'Event time', def: 'When the record states a thing happened. Event time is the dial’s primary upper scale — the readings that answer “what happened, and when”.' },
-    assertionTime: { term: 'Assertion time', def: 'When a publication said so. Assertion time is the dial’s lower calibration scale — the sightings that show how each reading was evidenced.' },
+    eventTime: { term: 'Event time', def: 'When the record states a thing happened. Event time is the dial’s primary upper scale – the readings that answer “what happened, and when”.' },
+    assertionTime: { term: 'Assertion time', def: 'When a publication said so. Assertion time is the dial’s lower calibration scale – the sightings that show how each reading was evidenced.' },
     sighting: { term: 'sighting', def: 'One archived publication that recorded this callsign, shown at that publication’s vintage. Each pip on the lower scale is a sighting.' },
-    vintage: { term: 'vintage', def: 'The date a publication itself carries — when it was published, not when the events it lists happened.' },
+    vintage: { term: 'vintage', def: 'The date a publication itself carries – when it was published, not when the events it lists happened.' },
     publication: { term: 'publication', def: 'One archived file the mirror holds byte-for-byte: a register snapshot, an availability list, a statistics table, and so on.' },
     bookkeeping: { term: 'record-bookkeeping', def: 'The register’s own created and last-modified stamps. They attest that a record was present in the system by a date, not that a licensing event happened.' },
     disputed: { term: 'disputed', def: 'The held publications assert competing dates for the same kind of event. Every competing claim is shown; the record adjudicates none of them.' },
     series: { term: 'series', def: 'The block a callsign belongs to, opened on a date (for example the M7 series). A series-level fact that frames the record, never a claim about this callsign’s own licensing.' },
-    carriedOrigin: { term: 'carried origin', def: 'A licence-chain start date that pre-dates the callsign’s own series — a sign the licence history was carried over from an earlier callsign. The record raises a scope note rather than treating the two dates as a conflict.' },
+    carriedOrigin: { term: 'carried origin', def: 'A licence-chain start date that pre-dates the callsign’s own series – a sign the licence history was carried over from an earlier callsign. The record raises a scope note rather than treating the two dates as a conflict.' },
     derived: { term: 'derived', def: 'This value is computed by the mirror from the held publications, not read verbatim from any single one of them.' },
-    inferred: { term: 'inferred', def: 'A reading the mirror interprets from the held values, hedged where it is not certain — not a fact asserted by any publication.' },
-    context: { term: 'context', def: 'A framing fact drawn from reference data, not a claim about this record — shown to place the reading in its wider setting.' },
+    inferred: { term: 'inferred', def: 'A reading the mirror interprets from the held values, hedged where it is not certain – not a fact asserted by any publication.' },
+    context: { term: 'context', def: 'A framing fact drawn from reference data, not a claim about this record – shown to place the reading in its wider setting.' },
   },
 };
 
-// Every string value in the registry, flattened — the surface the claims-bar
+// Every string value in the registry, flattened – the surface the claims-bar
 // test walks. Kept as a helper so both the JS and TS twins check the identical
 // set without re-listing it.
 /** @param {unknown} value @returns {string[]} */
