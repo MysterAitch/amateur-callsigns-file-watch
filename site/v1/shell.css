@@ -116,6 +116,47 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .readout .v small{font-size:.9rem;color:var(--signal)}
 .readout .u{font-family:var(--mono);font-size:11px;color:var(--ink-2);margin-top:.2rem}
 
+/* ---- compact archive-span dial (home "the record at a glance") --------------
+   A miniature of the site's dial language: a sparse dated-history segment, a
+   scale break, then the dense held-publication run with a needle at the newest
+   reading. Ported from the round-4 mockup into the shipped B-light tokens (no
+   grid ground; a shadowed card). role="img" + aria-label carry the reading; the
+   readout row above and the .sd-foot below carry the same facts as text. */
+.spandial{margin-top:1.4rem;border:1px solid var(--line);background:var(--panel);border-radius:3px;
+  padding:.9rem 1.15rem 1rem;box-shadow:var(--elevation);overflow-x:auto}
+.sd-head{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap}
+.sd-lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.sd-range{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--ink-2)}
+.sd-scale{display:flex;align-items:flex-end;margin-top:2rem;height:62px;min-width:min-content}
+.sd-seg{position:relative;height:100%}
+.sd-seg.history{flex:0 0 30%;min-width:5.5rem}
+.sd-seg.held{flex:1 1 auto;min-width:11rem}
+.sd-base{position:absolute;left:0;right:0;bottom:20px;height:2px;background:var(--line-2)}
+.sd-base.on{height:3px;background:var(--signal)}
+.sd-tick{position:absolute;bottom:20px;width:1px;height:9px;background:var(--line-2)}
+.sd-ticks{position:absolute;left:0;right:0;bottom:20px;height:11px;display:flex}
+.sd-ticks span{flex:1;border-left:1px solid var(--signal-dim)}
+.sd-ticks span:last-child{border-right:1px solid var(--signal-dim)}
+.sd-yr{position:absolute;bottom:0;transform:translateX(-50%);font-family:var(--mono);font-size:10px;color:var(--muted)}
+.sd-yr.edge-l{transform:translateX(0)}
+.sd-cap{position:absolute;bottom:26px;left:0;font-family:var(--mono);font-size:10px;letter-spacing:.02em;color:var(--muted);white-space:nowrap}
+.sd-cap.on{color:var(--signal-strong);font-weight:600}
+.sd-break{flex:0 0 26px;position:relative;height:100%}
+.sd-break span{position:absolute;bottom:16px;width:1.5px;height:11px;background:var(--line-2);transform:skewX(-22deg)}
+.sd-break span:first-child{left:9px}.sd-break span:last-child{left:15px}
+.sd-needle{position:absolute;bottom:20px;height:34px;width:2px;background:var(--signal)}
+.sd-needle .nd{position:absolute;top:-4px;left:-3px;width:8px;height:8px;border-radius:50%;background:var(--signal)}
+.sd-needle .nlbl{position:absolute;bottom:40px;right:-1px;white-space:nowrap;font-family:var(--mono);font-size:10px;color:var(--signal-strong);font-weight:600}
+.sd-foot{display:flex;gap:1.4rem;flex-wrap:wrap;margin-top:1.4rem;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.sd-foot b{color:var(--ink)}
+/* Narrow viewports: the in-scale captions and needle label would collide in the
+   compact width, so drop them — they are decorative reinforcement, and the text
+   foot below (and the readout row above) carry every one of the same facts. */
+@media(max-width:30rem){
+  .sd-cap,.sd-needle .nlbl{display:none}
+  .sd-scale{margin-top:1rem}
+}
+
 /* ---- module cards (dense, hairline-gridded, not rounded-uniform) ---- */
 .modules{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line)}
 .mod{background:var(--panel);padding:1.1rem 1.15rem;display:flex;flex-direction:column;gap:.55rem}

@@ -5,6 +5,7 @@ import {
   HOME_SECTION_REGISTRY,
   renderHomeSections,
   defaultHomeModel,
+  spanDialGeometry,
 } from './home-sections.js';
 import {
   CALLSIGN_SECTION_ORDER,
@@ -80,6 +81,119 @@ describe('v1 home sections', { tags: ['ui'] }, () => {
     const hrefs = [...root.querySelectorAll('section[data-section="ways-in"] a')].map(a => a.getAttribute('href') ?? '');
     expect(hrefs.length).toBeGreaterThan(0);
     for (const href of hrefs) expect(href).not.toMatch(/v0/);
+  });
+
+  it('RenderHomeSections_EveryBodySection_SitsOnALegibilityPanel', () => {
+    // The round-3 backing-surface rule: no body content sits bare on the page
+    // ground — every rendered section carries a legibility panel (.surface, or
+    // the .head/.fold panel components that share the same border+shadow+radius
+    // tokens). Only the header/footer bars and the ground itself are uncarded.
+    const root = document.createElement('div');
+    renderHomeSections(root, defaultHomeModel());
+    const sections = [...root.querySelectorAll('section[data-section]')];
+    expect(sections.length).toBeGreaterThan(0);
+    for (const section of sections) {
+      const id = section.getAttribute('data-section');
+      expect(
+        section.querySelector('.surface, .head, .fold'),
+        `home body section "${id}" must render on a legibility panel, not bare on the ground`,
+      ).not.toBeNull();
+    }
+  });
+
+  it('HomeAtAGlance_HappyPath_RendersTheSpanDialFromModelData', () => {
+    // The span dial's figures are build-derived from the same home model that
+    // feeds the readout row — the count, the held run and the deeper history
+    // horizon all appear, and derive (never a view literal).
+    const root = document.createElement('div');
+    const model = defaultHomeModel();
+    renderHomeSections(root, model);
+    const dial = root.querySelector('section[data-section="at-a-glance"] .spandial');
+    expect(dial).not.toBeNull();
+    // Held-run count and endpoints, plus the deeper history horizon, all present.
+    const foot = dial?.querySelector('.sd-foot')?.textContent ?? '';
+    expect(foot).toContain(String(model.span.count));
+    expect(foot).toContain(String(model.span.heldStartYear));
+    expect(foot).toContain(String(model.span.latestYear));
+    expect(foot).toContain(String(model.span.historyStartYear));
+    // A distinct history segment and its scale break are drawn for a real span.
+    expect(dial?.querySelector('.sd-seg.history')).not.toBeNull();
+    expect(dial?.querySelector('.sd-break')).not.toBeNull();
+    // The needle count divisions across the held run derive from the year span.
+    const geo = spanDialGeometry(model.span);
+    expect(dial?.querySelectorAll('.sd-ticks span').length).toBe(geo.heldDivisions);
+  });
+
+  it('HomeAtAGlance_AriaAndTextParity_LabelsTheReadingAndHidesTheScale', () => {
+    // Decorative-plus-informative: the dial is role="img" with an aria-label
+    // summarising the reading; its scale is hidden from assistive technology;
+    // and the same facts remain as text in the readout row above and the dial's
+    // own text foot — nothing is conveyed by colour or position alone.
+    const root = document.createElement('div');
+    const model = defaultHomeModel();
+    renderHomeSections(root, model);
+    const glance = root.querySelector('section[data-section="at-a-glance"]');
+    const dial = glance?.querySelector('.spandial');
+    expect(dial?.getAttribute('role')).toBe('img');
+    const label = dial?.getAttribute('aria-label') ?? '';
+    expect(label).toContain(String(model.span.count));
+    expect(label).toContain(String(model.span.latestYear));
+    expect(label).toContain(model.span.latestLabel);
+    // The scale is hidden from AT; the facts live in the label + text foot.
+    expect(dial?.querySelector('.sd-scale')?.getAttribute('aria-hidden')).toBe('true');
+    // Text parity: the readout row still carries the figures as text.
+    expect(glance?.querySelector('.readout')?.textContent).toContain(String(model.span.count));
+    expect(dial?.querySelector('.sd-foot')?.textContent).toContain(String(model.span.count));
+  });
+
+  it('HomeAtAGlance_DegenerateSpan_OmitsTheDialButKeepsTheReadout', () => {
+    // An empty archive (no publications held) has no reading to draw: the dial
+    // is omitted gracefully rather than rendered empty, and the readout row —
+    // the text-parity source — still mounts without crashing.
+    const root = document.createElement('div');
+    const model = defaultHomeModel();
+    model.span = { historyStartYear: 1903, heldStartYear: 2013, latestYear: 2026, latestLabel: '23 June 2026', count: 0 };
+    model.glance = [{ k: 'publications', v: '0', u: 'none held' }];
+    expect(() => renderHomeSections(root, model)).not.toThrow();
+    const glance = root.querySelector('section[data-section="at-a-glance"]');
+    expect(glance?.querySelector('.spandial')).toBeNull();
+    expect(glance?.querySelector('.readout')).not.toBeNull();
+  });
+});
+
+describe('v1 home span-dial geometry (pure)', { tags: ['unit'] }, () => {
+  it('SpanDialGeometry_FullSpan_DrawsHistoryBreakAndDerivesHeldDivisions', () => {
+    const geo = spanDialGeometry({ historyStartYear: 1903, heldStartYear: 2013, latestYear: 2026, latestLabel: '23 June 2026', count: 65 });
+    expect(geo.render).toBe(true);
+    expect(geo.showHistory).toBe(true);
+    // Held divisions derive from the year span (2013→2026 = 13), never hardcoded.
+    expect(geo.heldDivisions).toBe(13);
+    expect(geo.needleLeft).toBe(100);
+  });
+
+  it('SpanDialGeometry_SingleDateRun_CollapsesWithoutDividingByZero', () => {
+    // A held run of a single point (start === latest) and no earlier history:
+    // the scale collapses to one cell, the history segment is dropped, and
+    // nothing divides by zero.
+    const geo = spanDialGeometry({ historyStartYear: 2026, heldStartYear: 2026, latestYear: 2026, latestLabel: '23 June 2026', count: 1 });
+    expect(geo.render).toBe(true);
+    expect(geo.showHistory).toBe(false);
+    expect(geo.heldDivisions).toBe(1);
+  });
+
+  it('SpanDialGeometry_EmptyArchive_DoesNotRender', () => {
+    // No publications held: nothing to draw. The caller omits the dial; the
+    // readout row still carries the figures as text.
+    const geo = spanDialGeometry({ historyStartYear: 1903, heldStartYear: 2013, latestYear: 2026, latestLabel: '23 June 2026', count: 0 });
+    expect(geo.render).toBe(false);
+  });
+
+  it('SpanDialGeometry_HistoryNotBeforeHeldRun_DrawsNoBreak', () => {
+    // When the earliest dated material does not predate the held run, there is
+    // no gap to break across — the dense run is drawn on its own.
+    const geo = spanDialGeometry({ historyStartYear: 2013, heldStartYear: 2013, latestYear: 2026, latestLabel: '23 June 2026', count: 65 });
+    expect(geo.render).toBe(true);
+    expect(geo.showHistory).toBe(false);
   });
 });
 
