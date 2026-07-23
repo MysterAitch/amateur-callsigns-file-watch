@@ -54,7 +54,7 @@ describe('v1 self-containment', { tags: ['unit'] }, () => {
   it('V1Surface_ShipsTheLaunchedPages_AndTheirChrome', () => {
     // A guard that the walk above is not vacuous: the pages that must exist do.
     const names = new Set(fs.readdirSync(V1_DIR));
-    for (const page of ['index.html', 'callsign.html', 'how-to-get-the-raw-data.html', 'glossary.html', '404.html']) {
+    for (const page of ['index.html', 'callsign.html', 'how-to-get-the-raw-data.html', 'glossary.html', 'anatomy.html', '404.html']) {
       expect(names.has(page), `${page} is missing from site/v1`).toBe(true);
     }
   });
@@ -64,7 +64,7 @@ describe('v1 self-containment', { tags: ['unit'] }, () => {
     // v1 page carries a noindex meta while the flag is false, and none may once
     // it flips. Coupling the static pages to the flag makes the launch flip
     // one line that cannot half-apply.
-    for (const page of ['index.html', 'callsign.html', 'how-to-get-the-raw-data.html', 'glossary.html', '404.html']) {
+    for (const page of ['index.html', 'callsign.html', 'how-to-get-the-raw-data.html', 'glossary.html', 'anatomy.html', '404.html']) {
       const html = fs.readFileSync(path.join(V1_DIR, page), 'utf8');
       const hasNoindex = /<meta name="robots" content="noindex">/.test(html);
       expect(hasNoindex, `${page} robots meta must match SITE_INDEXABLE=${String(SITE_INDEXABLE)}`).toBe(!SITE_INDEXABLE);

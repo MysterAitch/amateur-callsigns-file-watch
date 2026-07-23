@@ -1280,12 +1280,25 @@ function mountEventTimeline(host, model) {
   host.appendChild(surface);
 }
 
+// The link-out to the full structure-reference page (issue #931): the terse
+// grid above answers "what are THIS callsign's parts"; the anatomy page answers
+// "what the parts mean, with every fact sourced". Appended to the surface in
+// both branches (a decomposed record and an unparsed one) so the explainer is
+// reachable from the section whether or not a diagram was drawn.
+/** @param {HTMLElement} surface */
+function appendAnatomyLinkOut(surface) {
+  const p = el('p', 'note anat-more');
+  p.appendChild(link('anatomy.html', V1_COPY.callsign.anatomyLinkOut));
+  surface.appendChild(p);
+}
+
 /** @param {HTMLElement} host @param {CallsignModel} model */
 function mountAnatomy(host, model) {
   const surface = el('section', 'surface');
   surface.appendChild(el('div', 'lbl', V1_COPY.callsign.anatomyLabel));
   if (model.anatomy === null || model.anatomy.length === 0) {
     surface.appendChild(el('p', 'note muted', 'No confident decomposition – the parser did not read this as a standard UK callsign, so no diagram is drawn (a guessed segmentation would be worse than none).'));
+    appendAnatomyLinkOut(surface);
     host.appendChild(surface);
     return;
   }
@@ -1300,6 +1313,7 @@ function mountAnatomy(host, model) {
     grid.appendChild(p);
   }
   surface.appendChild(grid);
+  appendAnatomyLinkOut(surface);
   host.appendChild(surface);
 }
 

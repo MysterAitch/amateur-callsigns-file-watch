@@ -249,6 +249,7 @@ async function main(): Promise<void> {
   await expectPageContent('../callsign.html', { include: ['Look up a callsign'] }, 'root /callsign.html (v1)');
   await expectPageContent('../how-to-get-the-raw-data.html', { include: ['get the raw data'] }, 'root /how-to-get-the-raw-data.html (v1)');
   await expectPageContent('../glossary.html', { include: ['callsign-record', 'reading the record'] }, 'root /glossary.html (v1)');
+  await expectPageContent('../anatomy.html', { include: ['callsign-record', 'The parts of a UK amateur callsign'] }, 'root /anatomy.html (v1)');
   await expectHonest404('../statistics.html', 'isn’t part of the site', 'root /statistics.html (honest 404)');
 
   console.log('');
