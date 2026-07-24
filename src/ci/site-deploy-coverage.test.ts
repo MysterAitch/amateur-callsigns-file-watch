@@ -86,7 +86,7 @@ describe('site deploy coverage', { tags: ['unit'] }, () => {
 
   it('DeployV1CopyStep_ShipsEveryV1Asset_ViaGlobIntoTheDeployRoot', () => {
     // Issue #921: the v1 shell copies flat into the deploy ROOT (not /v0/), so
-    // the three v1 pages own the root. The copy is glob-based by extension, so a
+    // the v1 pages own the root. The copy is glob-based by extension, so a
     // new v1 module cannot be forgotten - but a v1 asset with an extension
     // OUTSIDE the globbed set would be silently dropped, so this guard fails
     // loudly if one ever appears (forcing the glob to be widened alongside it).

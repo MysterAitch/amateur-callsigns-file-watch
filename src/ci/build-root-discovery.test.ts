@@ -11,7 +11,7 @@ import {
 } from './build-root-discovery.ts';
 
 // Root discovery files for the v1 launch (issue #921): the slim root sitemap +
-// robots.txt that advertise the three v1 pages now owning the deploy root,
+// robots.txt that advertise the v1 pages now owning the deploy root,
 // distinct from the preserved /v0/sitemap.xml. Test names follow
 // Subject_Scenario_Outcome.
 

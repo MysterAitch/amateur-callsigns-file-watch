@@ -6,6 +6,12 @@ ratified; delete or trim freely.*
 
 ## Implementation status (updated 2026-07-09)
 
+> **Superseded in part (2026-07-23) by the v1 redesign (#921).** The status
+> below describes the v0 site, which is now preserved under `/v0/`; the deploy
+> root serves a redesigned pre-launch v1 surface (lookup, per-callsign evidence
+> page, on-this-day + timeline history, anatomy, glossary, raw-data). Treat this
+> section as v0-era history; the README's Presentation bullet is current.
+
 Much of this draft is now built. Shipped: the lookup, statistics (with the
 latest-publication headline breakdowns expanded from `stats.json`), in-browser
 Explore (SQL) and Compare surfaces; the dataset index publishing every entry's
