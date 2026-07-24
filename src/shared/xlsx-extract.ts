@@ -77,6 +77,7 @@ export interface XlsxLimits {
   maxCells: number;               // populated cells across all sheets
   maxRowIndex: number;            // largest 1-based row reference
   maxColumnIndex: number;         // largest 1-based column reference
+  maxGridCells: number;           // maxRow x maxColumn of a sheet's dense reconstruction
 }
 
 export const DEFAULT_XLSX_LIMITS: XlsxLimits = {
@@ -86,6 +87,7 @@ export const DEFAULT_XLSX_LIMITS: XlsxLimits = {
   maxCells: 20_000_000,                     // ~24x the largest legit sheet's cell count
   maxRowIndex: 1_048_576,                   // Excel's own worksheet row limit
   maxColumnIndex: 16_384,                   // Excel's own worksheet column limit (column XFD)
+  maxGridCells: 50_000_000,                 // ~16x the largest legit dense grid (~3M); bounds the dense reconstruction
 };
 
 // Tracks the running inflated-byte total for one workbook so the whole-archive
@@ -439,6 +441,15 @@ export function extractWorkbook(bytes: Buffer, limits: XlsxLimits = DEFAULT_XLSX
         if (row === undefined) grid.set(rowIndex, row = new Map<number, string>());
         row.set(columnIndex, rendered);
       }
+    }
+
+    // The dense reconstruction below allocates maxRow x maxColumn entries. The
+    // per-index caps bound each dimension, but a sparse sheet with two cells at
+    // opposite corners (e.g. A1 and XFD1048576) passes the populated-cell cap
+    // while still demanding a ~1.7e10-entry grid. Bound the PRODUCT so that a
+    // hostile sparse extent is refused rather than driving an allocation OOM.
+    if (maxRow * maxColumn > limits.maxGridCells) {
+      throw new Error(`sheet ${JSON.stringify(title)}: dense grid ${maxRow}x${maxColumn} exceeds the ${limits.maxGridCells}-cell grid cap (sparse-extent guard)`);
     }
 
     const rows: string[][] = [];

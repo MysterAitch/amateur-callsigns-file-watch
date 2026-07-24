@@ -20,7 +20,11 @@ const SAFE_URL_SCHEMES = new Set(['http:', 'https:', 'mailto:']);
  * @returns {boolean}
  */
 export function isSafeUrl(url) {
-  const raw = String(url).trim();
+  // Normalise backslashes to forward slashes as a browser does before resolving
+  // a URL, so `/\host` or `\\host` - which a browser treats as the
+  // protocol-relative `//host` (an open-redirect vector) - cannot masquerade as
+  // an ordinary relative path and slip through as "relative".
+  const raw = String(url).trim().replace(/\\/g, '/');
   if (raw === '') return true; // an empty href/src is inert, not a scheme vector
   if (raw.startsWith('//')) return false; // protocol-relative: inherits page scheme
   let parsed = null;

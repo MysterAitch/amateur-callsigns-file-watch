@@ -2,21 +2,30 @@
  * Build-output safety scan (issue #969, defence-in-depth with the #966
  * output-encoding work). A fail-closed net over the ACTUAL published HTML.
  *
- * It decodes HTML character references in every attribute value it inspects (so
- * an entity-obfuscated payload such as `&#106;avascript:` or `java&#9;script:`
- * is resolved to the same string a browser would see before the scheme is read
- * - a plain substring grep would miss both), and refuses:
+ * The HTML is parsed with parse5 - the same HTML5-spec-compliant parser a
+ * browser (and jsdom) uses - so every attribute value is decoded EXACTLY as a
+ * browser would decode it before its scheme is read: numeric character
+ * references with OR WITHOUT the trailing semicolon (`&#106avascript:` decodes
+ * to `javascript:` in a browser), the legacy named references, whitespace and
+ * control characters, and both quoted and unquoted attribute syntax. A
+ * hand-rolled entity regex cannot match that faithfully (it misses the
+ * semicolon-less form, among others), so the parser closes the obfuscation
+ * class structurally rather than by chasing edge cases. parse5 is a dev/build
+ * dependency (a test-oracle tool), never shipped to the browser.
+ *
+ * It refuses:
  *   - any inline event-handler attribute (on*),
  *   - any url-typed attribute (href/src/action/formaction/xlink:href/poster)
  *     whose value resolves to a scheme outside the allowlist (http/https/mailto/
  *     relative, plus image data URIs for favicons), and
  *   - any inline <script> outside an explicit per-page allowlist.
  *
- * It is a pure, allocation-light string scan (no DOM tree is built - scanning
- * the whole generated site page-by-page with a DOM parser exhausts memory), so
- * it runs over the entire built site as well as against the fixture self-tests.
+ * Each page is parsed to a lightweight AST that is walked and then discarded, so
+ * the whole built site is scanned one page at a time without the memory blow-up
+ * of retaining a full DOM per page.
  */
 
+import { parseFragment } from 'parse5';
 import { isSafeUrl } from './render/html.ts';
 
 // URL-bearing attributes a browser will navigate to or fetch from.
@@ -37,31 +46,7 @@ export interface ScanOptions {
   allowInlineScripts: boolean;
 }
 
-const NAMED_ENTITIES: Record<string, string> = {
-  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
-  tab: '\t', newline: '\n', nbsp: ' ',
-};
-
-// Decode the HTML character references a browser would resolve inside an
-// attribute value: numeric (decimal and hex) and the small set of named
-// entities that matter for scheme obfuscation. Unknown named entities are left
-// verbatim (a conservative, safe default).
-function decodeEntities(value: string): string {
-  return value.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (whole, body: string) => {
-    if (body.startsWith('#x') || body.startsWith('#X')) {
-      const code = parseInt(body.slice(2), 16);
-      return Number.isFinite(code) ? String.fromCodePoint(code) : whole;
-    }
-    if (body.startsWith('#')) {
-      const code = parseInt(body.slice(1), 10);
-      return Number.isFinite(code) ? String.fromCodePoint(code) : whole;
-    }
-    const named = NAMED_ENTITIES[body.toLowerCase()];
-    return named ?? whole;
-  });
-}
-
-// The scan's URL allowlist is the shared isSafeUrl policy (https / mailto /
+// The scan's URL allowlist is the shared isSafeUrl policy (http/https/mailto/
 // relative) PLUS one narrow, documented carve-out: a `data:image/…` URI. The
 // static pages carry inline SVG favicons as `data:image/svg+xml` link icons - a
 // safe, non-scripting image data URI - so the gate permits image data URIs
@@ -88,41 +73,55 @@ function snippet(value: string): string {
   return oneLine.length > 80 ? `${oneLine.slice(0, 80)}…` : oneLine;
 }
 
-// Matches one quoted attribute: name plus its single- or double-quoted value.
-const ATTRIBUTE_RE = /([A-Za-z_][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
-// Matches a <script …>…</script> block; the first group holds its attributes.
-const SCRIPT_RE = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+// A parse5 default-tree-adapter node. Only the shape this scan reads is typed.
+interface Parse5Node {
+  tagName?: string;
+  attrs?: { name: string; value: string }[];
+  childNodes?: Parse5Node[];
+  nodeName?: string;
+  value?: string;
+}
 
-// Every unsafe sink in one HTML document.
+function inlineScriptBody(node: Parse5Node): string | null {
+  const hasSrc = (node.attrs ?? []).some(a => a.name.toLowerCase() === 'src');
+  if (hasSrc) return null;
+  const text = (node.childNodes ?? [])
+    .filter(child => child.nodeName === '#text')
+    .map(child => child.value ?? '')
+    .join('');
+  return text.trim() === '' ? null : text;
+}
+
+// Every unsafe sink in one HTML document, walking the parsed tree.
 export function findUnsafeSinks(html: string, options: ScanOptions): UnsafeSink[] {
   const sinks: UnsafeSink[] = [];
+  const root = parseFragment(html) as unknown as Parse5Node;
 
-  for (const match of html.matchAll(ATTRIBUTE_RE)) {
-    const name = match[1].toLowerCase();
-    const rawValue = match[2] !== undefined ? match[2] : (match[3] ?? '');
-    // Inline event handlers (onclick, onload, onerror, …) execute script.
-    if (/^on[a-z]/.test(name)) {
-      sinks.push({ kind: 'event-handler', detail: `${name}=…` });
-      continue;
-    }
-    // url-typed attributes: the entity-decoded value must pass the allowlist.
-    if (URL_ATTRIBUTES.has(name)) {
-      const decoded = decodeEntities(rawValue);
-      if (!isAllowedUrlValue(decoded)) {
-        sinks.push({ kind: 'unsafe-url', detail: `${name}="${snippet(decoded)}"` });
+  const visit = (node: Parse5Node): void => {
+    if (node.tagName !== undefined) {
+      for (const attr of node.attrs ?? []) {
+        const name = attr.name.toLowerCase();
+        // Inline event handlers (onclick, onload, onerror, …) execute script.
+        if (/^on[a-z]/.test(name)) {
+          sinks.push({ kind: 'event-handler', detail: `<${node.tagName} ${name}=…>` });
+          continue;
+        }
+        // url-typed attributes: parse5 has already decoded the value exactly as
+        // a browser would, so allowlisting the parsed scheme is browser-faithful.
+        if (URL_ATTRIBUTES.has(name) && !isAllowedUrlValue(attr.value)) {
+          sinks.push({ kind: 'unsafe-url', detail: `<${node.tagName} ${name}="${snippet(attr.value)}">` });
+        }
+      }
+      if (!options.allowInlineScripts && node.tagName === 'script') {
+        const body = inlineScriptBody(node);
+        if (body !== null) {
+          sinks.push({ kind: 'inline-script', detail: `inline <script>: ${snippet(body)}` });
+        }
       }
     }
-  }
+    for (const child of node.childNodes ?? []) visit(child);
+  };
 
-  if (!options.allowInlineScripts) {
-    for (const match of html.matchAll(SCRIPT_RE)) {
-      const attrs = match[1];
-      const body = match[2] ?? '';
-      if (!/\bsrc\s*=/i.test(attrs) && body.trim() !== '') {
-        sinks.push({ kind: 'inline-script', detail: `inline <script>: ${snippet(body)}` });
-      }
-    }
-  }
-
+  visit(root);
   return sinks;
 }

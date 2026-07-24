@@ -300,6 +300,30 @@ describe('xlsx extractor - resource caps (issue #969)', { tags: ['unit'] }, () =
     expect(() => extractWorkbook(workbook, tiny({ maxColumnIndex: 2 }))).toThrow(/column index/);
   });
 
+  it('XlsxExtract_SparseGridAcrossOppositeCorners_AbortsRatherThanAllocating', () => {
+    // Two cells at opposite corners (A1 and XFD1048576): every populated-cell
+    // and per-index cap passes (totalCells=2, each index at Excel's own limit),
+    // but the dense reconstruction would demand a ~1.7e10-entry grid. The
+    // product guard must refuse it BEFORE allocating - under DEFAULT limits, so
+    // it never OOMs.
+    const workbook = workbookOf([{
+      name: 'Sheet1',
+      cells:
+        '<row r="1"><c r="A1" t="inlineStr"><is><t>a</t></is></c></row>' +
+        '<row r="1048576"><c r="XFD1048576" t="inlineStr"><is><t>b</t></is></c></row>',
+    }]);
+    expect(() => extractWorkbook(workbook)).toThrow(/grid cap/);
+  });
+
+  it('XlsxExtract_DenseGridOverGridCap_Throws', () => {
+    // A small dense sheet against a tiny grid cap trips the same product guard.
+    const workbook = workbookOf([{
+      name: 'Sheet1',
+      cells: '<row r="1"><c r="A1" t="inlineStr"><is><t>a</t></is></c></row><row r="3"><c r="C3" t="inlineStr"><is><t>b</t></is></c></row>',
+    }]);
+    expect(() => extractWorkbook(workbook, tiny({ maxGridCells: 4 }))).toThrow(/grid cap/);
+  });
+
   it('XlsxExtract_XmlDeclaresAnExternalEntityDtd_Throws', () => {
     // The XXE-closed strength, locked with a test: a DOCTYPE with a SYSTEM
     // entity in any part makes the reader refuse the workbook outright.

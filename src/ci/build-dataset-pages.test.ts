@@ -1253,10 +1253,12 @@ describe('Build-output safety scan across the built site (issue #969)', { tags: 
   // static page that ships is scanned for the three stored-XSS sink classes -
   // inline event handlers, url-typed attributes whose scheme is off the
   // allowlist (javascript:/data:text-html/vbscript:/protocol-relative), and
-  // unexpected inline <script>. The scan entity-decodes each attribute value
-  // before reading its scheme, so it catches entity- and whitespace-obfuscated
-  // payloads a substring match would miss (self-tested in
-  // src/ci/output-safety-scan.test.ts). Generated pages carry NO inline
+  // unexpected inline <script>. The scan parses each page with parse5 (the
+  // browser's HTML5 parser), so attribute values are decoded exactly as a
+  // browser would decode them - including semicolon-less character references -
+  // before their scheme is read (self-tested in
+  // src/ci/output-safety-scan.test.ts). Each page is parsed and discarded, so
+  // the whole site is scanned one page at a time. Generated pages carry NO inline
   // script (their behaviour is external modules), so they are scanned with
   // inline scripts disallowed; the hand-authored static pages carry reviewed
   // bootstrap scripts and are scanned with inline scripts allowed but their

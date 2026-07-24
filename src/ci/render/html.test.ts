@@ -45,6 +45,8 @@ describe('isSafeUrl / safeUrl scheme allowlist', { tags: ['unit'] }, () => {
     'data html': 'data:text/html,<script>alert(1)</script>',
     'vbscript': 'vbscript:msgbox(1)',
     'protocol-relative host': '//evil.example/path',
+    'backslash open-redirect': '/\\evil.example/path',
+    'double-backslash open-redirect': '\\\\evil.example/path',
   };
 
   for (const [label, url] of Object.entries(HOSTILE)) {

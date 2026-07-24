@@ -14,6 +14,8 @@ describe('v1 safe-url scheme allowlist (JS)', { tags: ['unit'] }, () => {
     'data html': 'data:text/html,<script>alert(1)</script>',
     'vbscript': 'vbscript:msgbox(1)',
     'protocol-relative host': '//evil.example/x',
+    'backslash open-redirect': '/\\evil.example/x',
+    'double-backslash open-redirect': '\\\\evil.example/x',
   };
 
   for (const [label, url] of Object.entries(HOSTILE)) {
