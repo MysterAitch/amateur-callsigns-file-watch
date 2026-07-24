@@ -9,7 +9,7 @@ import { renderSiteBar, renderBreadcrumb, renderFooter, mountInto } from './shel
 import { V1_COPY } from './copy.js';
 
 if (typeof document !== 'undefined' && document.querySelector('main[data-page="raw-data"]') !== null) {
-  mountInto('sitebar', renderSiteBar('', { date: '23 June 2026', count: 65 }));
+  mountInto('sitebar', renderSiteBar(''));
   mountInto('breadcrumb', renderBreadcrumb([
     { label: V1_COPY.journeys.home, href: 'index.html' },
     { label: 'Get the raw data' },

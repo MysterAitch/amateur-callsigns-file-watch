@@ -38,7 +38,7 @@ async function enhanceAtAGlance(root) {
 
 if (typeof document !== 'undefined' && document.querySelector('main[data-page="home"]') !== null) {
   const model = defaultHomeModel();
-  mountInto('sitebar', renderSiteBar('home', model.facts));
+  mountInto('sitebar', renderSiteBar('home'));
   mountInto('breadcrumb', renderBreadcrumb([{ label: V1_COPY.journeys.home }]));
   mountInto('sitefooter', renderFooter());
   const root = document.getElementById('sections');

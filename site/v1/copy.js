@@ -30,7 +30,7 @@ export const V1_COPY = {
     // Placeholders filled at build time; {date} is the newest held publication
     // date, {count} the number of publications held.
     template: 'Record as of {date} · {count} publications held',
-    title: 'Build-derived fact: the newest publication held is dated {date}, and {count} publications are held in total. This page was generated from that set.',
+    title: 'The record’s currency, stamped into this page at build time: the newest publication held is dated {date}, and {count} publications are held in total.',
   },
 
   // The journeys the v1 surface offers. Only migrated pages appear here: an
@@ -265,15 +265,18 @@ export const V1_COPY = {
       disputeNudgeCta: 'examine the disagreements',
     },
     // The carried-origin explainer. Record-scoped throughout: it describes what
-    // the HELD RECORD shows, never an unqualified claim about the world. The
-    // rendered path is DATA-DRIVEN – the chain origin month is compared to the
-    // series introduction month: "fresh" when the origin post-dates the series,
-    // "carried" when it pre-dates it, and "neutral" when the series
-    // introduction is not recorded, so neither path is asserted.
+    // the HELD RECORD shows, never an unqualified claim about the world, and it
+    // attests the reading AS an inference (the chain origin is compared to the
+    // series-introduction month, not observed). The rendered path is DATA-DRIVEN
+    // and compares months: "fresh" when the origin is dated AFTER the series
+    // introduction, "carried" when it pre-dates it, "coincident" when the two
+    // fall in the SAME month (too close to read confidently either way), and
+    // "neutral" when the series introduction is not recorded at all.
     carriedOrigin: {
       label: 'how licence-chain origins are read',
-      ordinary: 'This licence chain begins with this callsign, and its origin post-dates the series introduction – consistent with a fresh issuance. The held record names no earlier callsign, so nothing here reads as carried history.',
+      ordinary: 'The held record’s licence-chain origin is dated after this callsign’s series introduction – read here as a fresh issuance, not carried history. That reading is inferred by comparing the chain origin to the series-introduction month, not a fact any single publication states; the held record names no earlier callsign, so nothing here reads as carried history.',
       carried: 'Some records carry a licence-chain origin that pre-dates the callsign’s own series – a sign the licence history was carried over from an earlier callsign. Where that happens the held record names no earlier callsign that carried it, and the record raises a prominent scope note rather than treating the two dates as a conflict.',
+      coincident: 'The held record’s licence-chain origin falls in the same month as this callsign’s series introduction – too close to read confidently as a fresh issuance or as carried history. Comparing the chain origin to the series-introduction month is an inference, not a fact any single publication states, so the record makes no confident claim either way here.',
       neutral: 'How a licence chain’s origin reads depends on when the callsign’s series opened. Where the series introduction month is not recorded here, the record makes no claim either way about carried history.',
     },
     // The twin-row conflict annotation (#633): a NAME for the shape of the

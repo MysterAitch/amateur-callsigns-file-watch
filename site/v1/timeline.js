@@ -27,7 +27,7 @@ async function loadTimeline(root) {
 }
 
 if (typeof document !== 'undefined' && document.querySelector('main[data-page="timeline"]') !== null) {
-  mountInto('sitebar', renderSiteBar('timeline', { date: '23 June 2026', count: 65 }));
+  mountInto('sitebar', renderSiteBar('timeline'));
   mountInto('breadcrumb', renderBreadcrumb([
     { label: V1_COPY.journeys.home, href: 'index.html' },
     { label: V1_COPY.journeys.timeline },

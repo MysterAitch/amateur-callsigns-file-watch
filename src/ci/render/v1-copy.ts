@@ -20,7 +20,7 @@ export const V1_COPY = {
 
   chip: {
     template: 'Record as of {date} · {count} publications held',
-    title: 'Build-derived fact: the newest publication held is dated {date}, and {count} publications are held in total. This page was generated from that set.',
+    title: 'The record’s currency, stamped into this page at build time: the newest publication held is dated {date}, and {count} publications are held in total.',
   },
 
   journeys: {
@@ -192,8 +192,9 @@ export const V1_COPY = {
     },
     carriedOrigin: {
       label: 'how licence-chain origins are read',
-      ordinary: 'This licence chain begins with this callsign, and its origin post-dates the series introduction – consistent with a fresh issuance. The held record names no earlier callsign, so nothing here reads as carried history.',
+      ordinary: 'The held record’s licence-chain origin is dated after this callsign’s series introduction – read here as a fresh issuance, not carried history. That reading is inferred by comparing the chain origin to the series-introduction month, not a fact any single publication states; the held record names no earlier callsign, so nothing here reads as carried history.',
       carried: 'Some records carry a licence-chain origin that pre-dates the callsign’s own series – a sign the licence history was carried over from an earlier callsign. Where that happens the held record names no earlier callsign that carried it, and the record raises a prominent scope note rather than treating the two dates as a conflict.',
+      coincident: 'The held record’s licence-chain origin falls in the same month as this callsign’s series introduction – too close to read confidently as a fresh issuance or as carried history. Comparing the chain origin to the series-introduction month is an inference, not a fact any single publication states, so the record makes no confident claim either way here.',
       neutral: 'How a licence chain’s origin reads depends on when the callsign’s series opened. Where the series introduction month is not recorded here, the record makes no claim either way about carried history.',
     },
     twin: {

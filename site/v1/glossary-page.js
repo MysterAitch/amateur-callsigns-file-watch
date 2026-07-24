@@ -11,7 +11,7 @@ import { V1_COPY } from './copy.js';
 import { renderGlossarySections } from './glossary-sections.js';
 
 if (typeof document !== 'undefined' && document.querySelector('main[data-page="glossary"]') !== null) {
-  mountInto('sitebar', renderSiteBar('glossary', { date: '23 June 2026', count: 65 }));
+  mountInto('sitebar', renderSiteBar('glossary'));
   mountInto('breadcrumb', renderBreadcrumb([
     { label: V1_COPY.journeys.home, href: 'index.html' },
     { label: V1_COPY.journeys.glossary },

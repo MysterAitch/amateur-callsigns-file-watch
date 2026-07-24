@@ -415,6 +415,45 @@ describe('v1 home static/JS parity', { tags: ['unit'] }, () => {
   });
 });
 
+// The dated-fact chip is a define-once primitive (issues #965, #966): the date +
+// count are authored in ONE build-injected source (record-facts.js) and consumed
+// by the single shared site-bar component, so no page re-authors the value. The
+// static-HTML no-JS baselines mirror that source for crawler visibility; this is
+// their backstop — every v1 page's static chip (text AND tooltip) must equal the
+// single-source render, so a page drifting, or the source changing without a page
+// restamped, fails loud. renderSiteBar with no facts reads the single source.
+describe('v1 dated-fact chip — cross-page parity (single source)', { tags: ['unit'] }, () => {
+  const V1_PAGES_WITH_CHIP = [
+    'index.html', 'callsign.html', 'anatomy.html', 'glossary.html',
+    'how-to-get-the-raw-data.html', 'on-this-day.html', 'timeline.html',
+  ];
+  const norm = (s: string | null | undefined): string => (s ?? '').replace(/\s+/g, ' ').trim();
+
+  it('EveryV1Page_StaticChipTextAndTooltip_MatchTheSingleBuildSource', () => {
+    const bar = renderSiteBar('home'); // no facts passed: reads the single source
+    const sourceChip = bar.querySelector('.chip.asof');
+    const sourceText = norm(sourceChip?.textContent);
+    const sourceTitle = norm(sourceChip?.getAttribute('title'));
+    expect(sourceText, 'the single-source chip renders text').not.toBe('');
+    expect(sourceTitle, 'the single-source chip renders a tooltip').not.toBe('');
+    for (const page of V1_PAGES_WITH_CHIP) {
+      const doc = new DOMParser().parseFromString(fs.readFileSync(`site/v1/${page}`, 'utf8'), 'text/html');
+      const chip = doc.querySelector('.chip.asof');
+      expect(chip, `${page} carries a static dated-fact chip`).not.toBeNull();
+      expect(norm(chip?.textContent), `${page} chip text drifted from the single source`).toBe(sourceText);
+      expect(norm(chip?.getAttribute('title')), `${page} chip tooltip drifted from the single source`).toBe(sourceTitle);
+    }
+  });
+
+  it('DatedFactChipTooltip_IsHonest_AndDropsTheFalseGeneratedFromThatSetClaim', () => {
+    // The old tooltip falsely told every page it "was generated from that set"
+    // (issue #965). The honest tooltip states the record's currency only.
+    const title = renderSiteBar('home').querySelector('.chip.asof')?.getAttribute('title') ?? '';
+    expect(title.toLowerCase()).not.toContain('generated from that set');
+    expect(title).toContain('newest publication held');
+  });
+});
+
 describe('v1 home span-dial geometry (pure)', { tags: ['unit'] }, () => {
   it('SpanDialGeometry_FullSpan_DrawsHistoryBreakAndDerivesHeldDivisions', () => {
     const geo = spanDialGeometry({ historyStartYear: 1903, heldStartYear: 2013, latestYear: 2026, latestLabel: '23 June 2026', count: 65 });
@@ -622,6 +661,56 @@ describe('v1 home holdings manifest validation (untrusted input)', { tags: ['uni
     // The dated-fact chip's facts are derived too, so the surface stays coherent.
     expect(enhanced.facts.count).toBe(4);
     expect(enhanced.facts.date).toBe('23 June 2026');
+  });
+
+  it('EnhanceHomeModel_FromManifest_ProjectsTheAtAGlanceReadoutSoItCannotDesyncFromTheDial', () => {
+    // Issue #965: the readout must read the SAME manifest the span dial uses, so
+    // the two figures beside each other can never contradict.
+    const enhanced = enhanceHomeModel(defaultHomeModel(), holdingsFixture());
+    const cell = (k: string): { v: string; u: string } | undefined => enhanced.glance.find(c => c.k === k);
+    expect(cell('publications')?.v).toBe('4'); // the manifest count, not the hand-authored 65
+    expect(cell('publications')?.u).toBe('folded, 2013–2026');
+    expect(cell('span held')?.v).toBe('13y');
+    expect(cell('latest snapshot')?.v).toBe('2026-06-23');
+    expect(cell('latest snapshot')?.u).toBe('June 2026');
+    // The callsign total is not carried by the manifest, so its cell stays the
+    // grounded, report-cited constant rather than being invented.
+    expect(cell('callsigns')?.v).toBe(defaultHomeModel().glance.find(c => c.k === 'callsigns')?.v);
+  });
+
+  it('EnhanceHomeModel_ManifestMissingTheNewestFullDate_FallsBackHonestlyNotToAStaleConfidentNumber', () => {
+    // Unhappy path: a manifest with no full newest date and no span years. The
+    // readout falls back to the grounded base cells rather than emitting a
+    // fabricated ISO or a NaN span.
+    const base = defaultHomeModel();
+    const thin = { ...holdingsFixture(), count: 2, heldStartYear: null, latestYear: null, latestDateIso: null };
+    const enhanced = enhanceHomeModel(base, thin);
+    const cell = (k: string): { v: string; u: string } | undefined => enhanced.glance.find(c => c.k === k);
+    // The count still updates (the manifest carries it)…
+    expect(cell('publications')?.v).toBe('2');
+    // …but the span and snapshot fall back to the base, never NaN or "null".
+    expect(cell('span held')?.v).not.toContain('NaN');
+    expect(cell('latest snapshot')).toEqual(base.glance.find(c => c.k === 'latest snapshot'));
+    expect(enhanced.facts.date).toBe(base.span.latestLabel);
+  });
+});
+
+describe('v1 home "from the record" rotation (issue #965)', { tags: ['ui'] }, () => {
+  const lead = (seed: string): string => {
+    const model = { ...defaultHomeModel(), rotationSeed: seed };
+    const host = document.createElement('section');
+    HOME_SECTION_REGISTRY['from-the-record'].mount(host, model);
+    return host.querySelector('.big')?.textContent ?? '';
+  };
+
+  it('FromTheRecord_BuildSeed_SelectsADeterministicLeadThatVariesWithTheSeed', () => {
+    // The footer promises the lead "rotates at build time"; the seeded rotation
+    // makes that claim true — deterministic for a given seed, and moving as the
+    // seed (the holdings date) changes across rebuilds. Three distinct seeds map
+    // to the three distinct notable details.
+    expect(lead('x')).toBe(lead('x'));
+    const leads = new Set([lead('x'), lead('y'), lead('z')]);
+    expect(leads.size).toBe(3);
   });
 });
 
@@ -1348,15 +1437,23 @@ describe('v1 callsign sections', { tags: ['ui'] }, () => {
     expect(text).toContain('recency, not a ruling');
   });
 
-  it('Extras_CarriedOriginNeutral_ShowsTheNeutralExplainerNotADeclarativeClaim', () => {
+  it('Extras_CarriedOrigin_ShowsTheStateExplainerAttestedAsInferenceNotADeclarativeClaim', () => {
     const rootFresh = document.createElement('div');
     CALLSIGN_SECTION_REGISTRY.extras.mount(rootFresh, cm({ carriedOrigin: 'fresh' }));
-    expect(rootFresh.textContent).toContain('consistent with a fresh issuance');
+    // The 'fresh' reading names itself an inference (issue #965), never a fact.
+    expect(rootFresh.textContent).toContain('read here as a fresh issuance');
+    expect(rootFresh.textContent).toContain('inferred');
+
+    // The equal-month case gets its own honest explainer, not the 'fresh' claim.
+    const rootCoincident = document.createElement('div');
+    CALLSIGN_SECTION_REGISTRY.extras.mount(rootCoincident, cm({ carriedOrigin: 'coincident' }));
+    expect(rootCoincident.textContent).toContain('same month');
+    expect(rootCoincident.textContent).not.toContain('read here as a fresh issuance');
 
     const rootNeutral = document.createElement('div');
     CALLSIGN_SECTION_REGISTRY.extras.mount(rootNeutral, cm({ carriedOrigin: 'neutral' }));
     expect(rootNeutral.textContent).toContain('the series introduction month is not recorded');
-    expect(rootNeutral.textContent).not.toContain('consistent with a fresh issuance');
+    expect(rootNeutral.textContent).not.toContain('read here as a fresh issuance');
   });
 });
 
@@ -1652,6 +1749,20 @@ describe('v1 agreeing-origin semantic row (pure)', { tags: ['unit'] }, () => {
     expect(isAgreeingOriginGroup(groups[0], groups, disagreements)).toBe(false);
   });
 
+  it('IsAgreeingOriginGroup_WhenTheCoincidingOriginsPredateTheSeries_FallsBackToFalse', () => {
+    // Issue #965: the "licence origin = issuance" story asserts an issuance, so it
+    // must not fire when the coinciding origins predate the callsign's own series
+    // — that would present an issuance of a callsign that did not yet exist. The
+    // origins coincide on 2018-10-18; a series introduced 2019-01 post-dates them.
+    const groups = groupEventsByDay(originTriple);
+    expect(isAgreeingOriginGroup(groups[0], groups, [], '2019-01')).toBe(false);
+    // And when the series opened in or before the origins' own month, the story
+    // still fires (an issuance in the series' opening month is coherent).
+    expect(isAgreeingOriginGroup(groups[0], groups, [], '2018-10')).toBe(true);
+    // The guard is opt-in: with no series month known, prior behaviour holds.
+    expect(isAgreeingOriginGroup(groups[0], groups, [])).toBe(true);
+  });
+
   it('IsAgreeingOriginGroup_WhenAKindIsMissing_IsFalse', () => {
     const pair = [
       { day: '2018-10-18', label: 'licence issued', kindId: 'licence-issued', state: false, assertedBy: [] },
@@ -1746,6 +1857,19 @@ describe('v1 callsign model (reusing the shared pure functions)', { tags: ['ui']
       latestSummary, seenSummary, anatomyFigureParts, twinConflict, stripModel,
     });
     expect(model.carriedOrigin).toBe('carried');
+  });
+
+  it('BuildCallsignModel_OriginInTheSameMonthAsTheSeriesIntro_ReadsAsCoincidentNotFresh', () => {
+    // Issue #965: M7TEE's origin month (2018-10) EQUALS the M7 introduction month
+    // (2018-10). Equal is not "post-dates", so it must not read 'fresh' — the
+    // boundary resolves to 'coincident' (no confident fresh/carried claim).
+    const sameMonthRecord: CallsignRecord = { ...record, d: { o: '2018-10-18' } };
+    const model = buildCallsignModel({
+      res: { key: 'M7TEE', record: sameMonthRecord, cleaned: 'M7TEE', typed: 'M7TEE', viaRendering: false },
+      manifest, eventRecord, eventMeta,
+      latestSummary, seenSummary, anatomyFigureParts, twinConflict, stripModel,
+    });
+    expect(model.carriedOrigin).toBe('coincident');
   });
 
   it('BuildCallsignModel_NoSeriesIntroRecorded_ReadsAsNeutral', () => {

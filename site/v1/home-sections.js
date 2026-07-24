@@ -8,6 +8,7 @@
 // build-stampable figures ride in the model with grounded defaults.
 
 import { V1_COPY, EVENT_TIME_GLOSS, ASSERTION_TIME_GLOSS } from './copy.js';
+import { RECORD_FACTS } from './record-facts.js';
 
 // The bitemporal glosses are imported so the home module participates in the
 // same verbatim-gloss guarantee the dial does (they are re-exported for any
@@ -34,28 +35,28 @@ const link = (href, label, cls = null) => {
   return a;
 };
 
-// The archive figures, centralised in one place. These are hand-authored,
-// report-cited CONSTANTS — not build-time-derived — so this is the single source
-// the dated-fact chip, the readout row and the archive-span dial all read,
-// rather than three independent copies. The JS-rendered home and the static
-// no-JS baseline in index.html are held to these same values by a parity test
-// (site/v1/sections.test.ts), so a future edit here cannot silently split the
-// two renders. Deriving these from the committed archive/reports AT BUILD TIME
-// is a possible follow-up, not something claimed here.
+// The archive figures, centralised in one place. The dated-fact newest-date and
+// publications-held pair is READ from the single build-injected source of truth
+// (record-facts.js, issues #965/#966), so the readout row, the archive-span dial
+// and the site-bar chip cannot split — one figure, authored once and stamped at
+// build time. The remaining figures (the 1903 history horizon, the latest-
+// register callsign total, the ISO/month rendering of the newest date) are
+// hand-authored, report-cited CONSTANTS the holdings manifest does not carry.
+// The JS-rendered home and the static no-JS baseline in index.html are held to
+// these same values by a parity test (site/v1/sections.test.ts).
 // Citations:
 //  - 1903: the earliest dated allocation the record holds, verified in three
 //    reports (reports/state-at-t.md, survival-cohort.md and sequence-analytics.md
 //    all report "Dated allocations 1903-05-03 → …").
 //  - 158,318 callsigns in the newest publication held (reports/curiosity-index.md).
-//  - The 65-publications / 2013 pair is drawn from the archive's own extent and
-//    has no single citable report; it is an honestly-noted centralised constant,
-//    not a derived figure.
+//  - The 2013 held-run start is drawn from the archive's own extent and has no
+//    single citable report; it is an honestly-noted centralised constant.
 const GROUNDED_ARCHIVE = {
   latestDateIso: '2026-06-23',
-  latestDateLabel: '23 June 2026',
+  latestDateLabel: RECORD_FACTS.date,
   latestMonthLabel: 'June 2026',
   callsigns: 158318,
-  publicationsHeld: 65,
+  publicationsHeld: RECORD_FACTS.count,
   heldStartYear: 2013,
   latestYear: 2026,
   historyStartYear: 1903,
@@ -103,21 +104,36 @@ const GROUNDED_ARCHIVE = {
  * @property {{ k: string, v: string, u: string }[]} glance
  * @property {ArchiveSpan} span
  * @property {{ headline: string, sentence: string, callsign?: string }[]} fromTheRecord
+ * @property {string} rotationSeed  build-stable seed for the from-the-record rotation (never Math.random)
  */
+
+/**
+ * The "at a glance" readout cells, projected from a set of figures. Defined once
+ * so the grounded default and the manifest-derived enhancement build the readout
+ * identically — the readout can never desync from the span dial beside it, since
+ * both read the same figures (issue #965).
+ * @param {{ count: number, callsigns: number, heldStartYear: number, latestYear: number, latestDateIso: string, latestMonthLabel: string }} f
+ * @returns {{ k: string, v: string, u: string }[]}
+ */
+function glanceCells(f) {
+  return [
+    { k: 'publications', v: String(f.count), u: `folded, ${f.heldStartYear}–${f.latestYear}` },
+    { k: 'callsigns', v: f.callsigns.toLocaleString('en-GB'), u: 'latest register' },
+    { k: 'span held', v: `${f.latestYear - f.heldStartYear}y`, u: `${f.heldStartYear} → ${f.latestYear}` },
+    { k: 'latest snapshot', v: f.latestDateIso, u: f.latestMonthLabel },
+  ];
+}
 
 /** @returns {HomeModel} */
 export function defaultHomeModel() {
   const g = GROUNDED_ARCHIVE;
-  const heldYears = g.latestYear - g.heldStartYear;
   return {
     facts: { date: g.latestDateLabel, count: g.publicationsHeld },
     // Holdings readouts, derived from the grounded source above.
-    glance: [
-      { k: 'publications', v: String(g.publicationsHeld), u: `folded, ${g.heldStartYear}–${g.latestYear}` },
-      { k: 'callsigns', v: g.callsigns.toLocaleString('en-GB'), u: 'latest register' },
-      { k: 'span held', v: `${heldYears}y`, u: `${g.heldStartYear} → ${g.latestYear}` },
-      { k: 'latest snapshot', v: g.latestDateIso, u: g.latestMonthLabel },
-    ],
+    glance: glanceCells({
+      count: g.publicationsHeld, callsigns: g.callsigns, heldStartYear: g.heldStartYear,
+      latestYear: g.latestYear, latestDateIso: g.latestDateIso, latestMonthLabel: g.latestMonthLabel,
+    }),
     // The archive-span dial's facts — the same grounded figures, plus the deeper
     // history horizon the readout row does not itself surface.
     span: {
@@ -127,8 +143,13 @@ export function defaultHomeModel() {
       latestLabel: g.latestDateLabel,
       count: g.publicationsHeld,
     },
-    // From-the-record notable-detail pool (static placeholder, ready for
-    // build-time rotation). Each fact is record-scoped and sourced:
+    // The build-stable rotation seed for "from the record": the newest held
+    // publication date, so the leading detail is chosen deterministically and a
+    // new snapshot (a rebuild) moves the selection (issue #965).
+    rotationSeed: g.latestDateIso,
+    // From-the-record notable-detail pool. A different detail leads on each
+    // rebuild, chosen by the seeded rotation above. Each fact is record-scoped
+    // and sourced:
     //  1. reports/curiosity-index.md — the newest publication (2026-06-23)
     //     holds 158,318 records.
     //  2. reports/forbidden-suffix-history.md — 1,465 three-letter suffixes
@@ -183,6 +204,17 @@ export function humaniseIsoDate(iso) {
   return month === undefined ? null : `${Number(m[3])} ${month} ${m[1]}`;
 }
 
+// "June 2026" from an ISO date or month; null for anything without a parseable
+// year+month, so the readout's snapshot unit is never a fabricated month.
+/** @param {string | null} iso @returns {string | null} */
+export function humaniseIsoMonth(iso) {
+  if (iso === null) return null;
+  const m = /^(\d{4})-(\d{2})/.exec(iso);
+  if (m === null) return null;
+  const month = HUMAN_MONTHS[Number(m[2]) - 1];
+  return month === undefined ? null : `${month} ${m[1]}`;
+}
+
 // Fold the build-derived holdings manifest into a home model: the span dial's
 // figures and its bi-temporal marks become derived (retiring the hand-authored
 // count / span / newest-date for the enhanced render), while the figures the
@@ -195,9 +227,26 @@ export function enhanceHomeModel(base, holdings) {
   const heldStartYear = holdings.heldStartYear ?? base.span.heldStartYear;
   const latestYear = holdings.latestYear ?? base.span.latestYear;
   const latestLabel = humaniseIsoDate(holdings.latestDateIso) ?? base.span.latestLabel;
+  // Project the "at a glance" readout from the SAME manifest the span dial reads,
+  // so the two can never disagree (issue #965). The callsign total is not carried
+  // by the manifest, so its cell is kept from the grounded base; the newest-
+  // snapshot cell falls back to the base cell honestly when the manifest carries
+  // no full date (never a stale-but-confident invented ISO).
+  const glance = base.glance.map((cell) => {
+    if (cell.k === 'publications') return { ...cell, v: String(holdings.count), u: `folded, ${heldStartYear}–${latestYear}` };
+    if (cell.k === 'span held') return { ...cell, v: `${latestYear - heldStartYear}y`, u: `${heldStartYear} → ${latestYear}` };
+    if (cell.k === 'latest snapshot') {
+      return holdings.latestDateIso === null
+        ? cell
+        : { ...cell, v: holdings.latestDateIso, u: humaniseIsoMonth(holdings.latestDateIso) ?? cell.u };
+    }
+    return cell; // callsigns — not carried by the manifest, kept from the grounded base
+  });
   return {
     ...base,
     facts: { date: latestLabel, count: holdings.count },
+    glance,
+    rotationSeed: holdings.latestDateIso ?? base.rotationSeed,
     span: {
       ...base.span,
       count: holdings.count,
@@ -823,7 +872,12 @@ function mountFromTheRecord(host, model) {
   chip.append('from the pool');
   bar.appendChild(chip);
   watch.appendChild(bar);
-  const first = model.fromTheRecord[0];
+  // The leading detail rotates at build time (issue #965): a deterministic index
+  // seeded off the holdings date (never Math.random at render), so a rebuild —
+  // not a page view — moves the selection, making the "rotates at build time"
+  // footer copy true. Reuses the same seeded-rotation primitive the milestone
+  // caption uses, so the rotation is defined once.
+  const first = model.fromTheRecord[milestoneRotationStart(model.fromTheRecord.length, model.rotationSeed)];
   const body = el('div', 'body');
   const inner = el('div');
   inner.appendChild(el('div', 'big mono', first.headline));

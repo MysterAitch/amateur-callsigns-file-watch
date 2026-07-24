@@ -42,10 +42,18 @@ describe('v1 copy — claims bar (JS)', { tags: ['unit'] }, () => {
   it('CarriedOriginCopy_WhenRendered_UsesOnlyRecordScopedWording', () => {
     const ordinary = V1_COPY.callsign.carriedOrigin.ordinary.toLowerCase();
     const carried = V1_COPY.callsign.carriedOrigin.carried.toLowerCase();
+    const coincident = V1_COPY.callsign.carriedOrigin.coincident.toLowerCase();
     const neutral = V1_COPY.callsign.carriedOrigin.neutral.toLowerCase();
-    expect(ordinary).toContain('consistent with a fresh issuance');
+    // The 'fresh' reading is attested AS an inference (issue #965), never a bald
+    // fact, and drops the "post-dates" boundary language the equal-month case broke.
+    expect(ordinary).toContain('inferred');
+    expect(ordinary).not.toContain('post-dates');
     expect(ordinary).toContain('the held record names no earlier callsign');
     expect(carried).toContain('the held record names no earlier callsign');
+    // The equal-month case makes no confident fresh/carried claim, and names the
+    // comparison as an inference rather than an observation.
+    expect(coincident).toContain('same month');
+    expect(coincident).toContain('inference');
     // The neutral path asserts neither fresh nor carried when the series
     // introduction is unrecorded — it makes no claim either way.
     expect(neutral).toContain('makes no claim either way');

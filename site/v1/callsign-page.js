@@ -62,9 +62,10 @@ export function preserveLookupInput(doc, typed) {
 }
 
 async function initCallsignPageV1() {
-  // Chrome first, so the page frames itself even if the data fetch fails.
-  const facts = { date: '23 June 2026', count: 65 };
-  mountInto('sitebar', renderSiteBar('lookup', facts));
+  // Chrome first, so the page frames itself even if the data fetch fails. The
+  // dated-fact chip reads the single build-injected source (issues #965/#966),
+  // so this page re-authors no figure.
+  mountInto('sitebar', renderSiteBar('lookup'));
   const typed = paramCallsign();
   // Retain the entered callsign in the search box up front, so no resolution
   // outcome below (found, not-found, invalid or fetch failure) can leave the

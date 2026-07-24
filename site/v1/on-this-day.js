@@ -28,7 +28,7 @@ async function loadCalendar(root) {
 }
 
 if (typeof document !== 'undefined' && document.querySelector('main[data-page="on-this-day"]') !== null) {
-  mountInto('sitebar', renderSiteBar('onThisDay', { date: '23 June 2026', count: 65 }));
+  mountInto('sitebar', renderSiteBar('onThisDay'));
   mountInto('breadcrumb', renderBreadcrumb([
     { label: V1_COPY.journeys.home, href: 'index.html' },
     { label: V1_COPY.journeys.onThisDay },
