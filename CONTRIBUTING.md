@@ -29,6 +29,70 @@ afterthought.
 Don't turn this into a tickbox exercise: delete sections that don't apply and
 don't pad. Pragmatism wins.
 
+## Site-wide engineering baseline
+
+These principles are the floor for **every** user-facing feature, not only the
+component work of [ADR 0022](docs/adr/0022-v1-component-architecture.md). They
+are cross-cutting: apply them to each new surface rather than rediscovering them
+per feature. The concise statement is here; the architectural rationale lives in
+the ADRs cross-referenced below.
+
+- **Robust, context-aware output encoding.** Prefer the platform's safe sinks —
+  `textContent`, `setAttribute`, DOM construction — which encode by
+  construction; treat any data value (a callsign, a dataset or publication
+  title, FOI free text) as untrusted external input that may contain markup.
+  Encode for the **context** it lands in, per the OWASP output-encoding contexts:
+  HTML text, HTML attribute (always double-quoted; escape `& " < '`), URL,
+  rawtext / `<script>` / inline-JSON island (escape `<` to `<`, never plain
+  entity-escaping — a `</script>` in a title must not break out), and SVG /
+  foreign content. Validate a URL's scheme by **parsing it with the WHATWG URL
+  parser** and allowlisting relative and `https:` — never by naive string
+  matching. Never use `innerHTML` / `insertAdjacentHTML` / `outerHTML` /
+  `document.write`, and never derive an attribute *name* from data. Verify the
+  encoding against the checked-in **hostile-string corpus** (Big List of Naughty
+  Strings, the OWASP XSS evasion vectors, the DOMPurify test suite) with a
+  **DOMPurify oracle**, asserting on the **parsed DOM tree** (zero script nodes,
+  zero `on*` attributes), not on string equality.
+
+- **Announce dynamic changes.** Follow the WAI-ARIA Authoring Practices. When a
+  change alters what is shown, a **single controller-owned live region**
+  (`role=status` / `aria-live=polite`, `aria-atomic`) announces the **aggregate**
+  outcome ("Showing 12 of 50") — never each element announcing its own change,
+  which floods a screen reader. Manage focus: an element that held focus and is
+  then hidden must move focus to a stable anchor first. Honour
+  `prefers-reduced-motion` for any show/hide transition.
+
+- **No-JS honesty.** Every surface is meaningful without JavaScript — a
+  build-rendered, crawler-visible form that carries the real content, even if a
+  simpler one than the enhanced view; never an empty shell that only script
+  fills. This is enforced by a test gate, not left to discipline.
+
+- **Per-feature error isolation.** One feature's failure degrades **its own
+  island** and never the page. Wrap each component's enhancement and refresh in
+  its own `try`/`catch` (mark the degraded island); a single throw must not break
+  the load-time walk, a refresh sweep, or a sibling surface.
+
+- **Define once; no duplication.** Author a fact, a unit or a render **once** and
+  reuse it structurally; do not duplicate-and-guard. Duplication that can desync
+  — one page reading a value from JSON while another hardcodes it, or a static
+  markup baseline pinned against a separate renderer by a parity test — is
+  *actively harmful*, because the two copies are guaranteed to drift. Design it
+  out (generate the second view from the one source) rather than policing it with
+  a parity test.
+
+- **The least-bad decision test.** Score a design by the **future active pain**
+  it avoids, not by its elegance. Foregone niceties are acceptable; a decision
+  that is plainer but has no glaring downside beats a clever one that mortgages
+  the future. Prefer the **reversible** option — the one whose exit is cheap if
+  the call proves wrong.
+
+- **Dependency tiers and the browser-library criterion.** Before adding a
+  dependency, place it on the **SHIPPED (strict) → BUILD (deliberate) →
+  TEST-ORACLE (liberal)** spectrum and apply the adopt-checklist; a dependency
+  that would ship to the client is judged by **value × blast-radius**. Both are
+  set out in [ADR 0012](docs/adr/0012-supply-chain-posture.md) (see its 2026-07-24
+  addendum) — consult it rather than restating the rules here.
+
 ## Dataset-class labels
 
 Data PRs get labelled automatically by dataset class — the label name *is* the

@@ -57,6 +57,7 @@ the #431 programme.
 | [0019](0019-layered-build-cache-and-unified-cicd.md) | Layered, content-addressed build cache with a stepped deploy fallback, and a unified `cicd.yaml` gating deploy on `main` | accepted | 2026-07-14 |
 | [0020](0020-sharded-static-json-serving.md) | Sharded static JSON as the serving projection for the single-callsign intent — no database on that path | accepted | 2026-07-16 |
 | [0021](0021-frozen-derived-baseline.md) | Freeze the committed derived baseline; the ledger projection is the derivation lane (the #446 retirement) | accepted | 2026-07-17 |
+| [0022](0022-v1-component-architecture.md) | The v1 UI component architecture: frameworkless JSDoc-typed modules, DOM-construction rendering, one implementation across build and browser | accepted | 2026-07-24 |
 
 ## Related documentation
 
