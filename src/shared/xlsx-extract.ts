@@ -58,6 +58,54 @@ const EOCD_SIGNATURE = 0x06054b50;
 const CENTRAL_SIGNATURE = 0x02014b50;
 const LOCAL_SIGNATURE = 0x04034b50;
 
+// --- Resource caps (issue #969) ----------------------------------------
+// This reader parses UNTRUSTED archived workbooks (a .xlsx is a zip of XML),
+// so every otherwise-unbounded step carries an explicit ceiling: a hostile
+// archive can be a decompression bomb, a billion-entry grid, or a sharedStrings
+// table sized to exhaust memory before a single row is read. Each default sits
+// FAR above the largest legitimate archived export (as of 2026 the biggest is
+// ~38 MB inflated in total, ~35 MB in its largest part, ~158k shared strings,
+// ~840k cells and ~158k rows), so a genuine workbook never trips one while a
+// bomb or hostile grid is refused loudly, naming the file/part it tripped on.
+// The limits are a parameter (not baked-in constants) so each ceiling is
+// exercised by a small synthetic fixture in the tests rather than needing a
+// multi-hundred-megabyte one.
+export interface XlsxLimits {
+  maxPartInflatedBytes: number;   // per zip part
+  maxTotalInflatedBytes: number;  // summed across the workbook
+  maxSharedStrings: number;       // shared-string table entries
+  maxCells: number;               // populated cells across all sheets
+  maxRowIndex: number;            // largest 1-based row reference
+  maxColumnIndex: number;         // largest 1-based column reference
+  maxGridCells: number;           // maxRow x maxColumn of a sheet's dense reconstruction
+}
+
+export const DEFAULT_XLSX_LIMITS: XlsxLimits = {
+  maxPartInflatedBytes: 256 * 1024 * 1024,  // ~7x the largest legit part
+  maxTotalInflatedBytes: 512 * 1024 * 1024, // ~13x the largest legit total
+  maxSharedStrings: 5_000_000,              // ~30x the largest legit table
+  maxCells: 20_000_000,                     // ~24x the largest legit sheet's cell count
+  maxRowIndex: 1_048_576,                   // Excel's own worksheet row limit
+  maxColumnIndex: 16_384,                   // Excel's own worksheet column limit (column XFD)
+  maxGridCells: 50_000_000,                 // ~16x the largest legit dense grid (~3M); bounds the dense reconstruction
+};
+
+// Tracks the running inflated-byte total for one workbook so the whole-archive
+// ceiling is enforced across parts, not just per part.
+interface InflateBudget {
+  totalInflated: number;
+}
+
+// A .xlsx is trusted to be a plain SpreadsheetML zip; it has no legitimate need
+// of a document type definition or entity declarations. Refusing them outright
+// keeps the door closed on XXE and billion-laughs entity expansion regardless
+// of what the entity decoder does downstream (defence in depth).
+function assertNoDoctypeOrEntity(xml: string, partName: string): void {
+  if (/<!DOCTYPE/i.test(xml) || /<!ENTITY/i.test(xml)) {
+    throw new Error(`${partName}: XML declares a DOCTYPE or ENTITY - refused (XXE / entity-expansion guard)`);
+  }
+}
+
 // Reads the central directory into a name -> entry map. ZIP64 markers throw:
 // these workbooks are all far below the 4 GiB thresholds.
 function readZipDirectory(bytes: Buffer): Map<string, ZipEntry> {
@@ -109,16 +157,39 @@ function readZipDirectory(bytes: Buffer): Map<string, ZipEntry> {
   return entries;
 }
 
-function readZipFile(bytes: Buffer, entries: Map<string, ZipEntry>, name: string): Buffer {
+function readZipFile(bytes: Buffer, entries: Map<string, ZipEntry>, name: string, budget: InflateBudget, limits: XlsxLimits): Buffer {
   const entry = entries.get(name);
   if (entry === undefined) {
     throw new Error(`workbook part missing: ${name} (parts present: ${[...entries.keys()].join(', ')})`);
   }
   const raw = bytes.subarray(entry.compressedStart, entry.compressedStart + entry.compressedSize);
   let data: Buffer;
-  if (entry.method === 0) data = Buffer.from(raw);
-  else if (entry.method === 8) data = zlib.inflateRawSync(raw);
-  else throw new Error(`${name}: unsupported zip compression method ${entry.method}`);
+  if (entry.method === 0) {
+    // A stored (uncompressed) part cannot be a decompression bomb, but a
+    // hostile archive could still declare a giant stored member; bound it too.
+    if (raw.length > limits.maxPartInflatedBytes) {
+      throw new Error(`${name}: stored part is ${raw.length} bytes, over the ${limits.maxPartInflatedBytes}-byte per-part cap`);
+    }
+    data = Buffer.from(raw);
+  } else if (entry.method === 8) {
+    // maxOutputLength stops inflation the moment it would exceed the per-part
+    // cap, so a decompression bomb is refused BEFORE it is materialised in
+    // memory rather than after (which would already have OOM'd the run).
+    try {
+      data = zlib.inflateRawSync(raw, { maxOutputLength: limits.maxPartInflatedBytes });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ERR_BUFFER_TOO_LARGE') {
+        throw new Error(`${name}: inflated part exceeds the ${limits.maxPartInflatedBytes}-byte per-part cap (possible decompression bomb)`);
+      }
+      throw err;
+    }
+  } else {
+    throw new Error(`${name}: unsupported zip compression method ${entry.method}`);
+  }
+  budget.totalInflated += data.length;
+  if (budget.totalInflated > limits.maxTotalInflatedBytes) {
+    throw new Error(`${name}: workbook inflated total exceeds the ${limits.maxTotalInflatedBytes}-byte cap (possible decompression bomb)`);
+  }
   const actualCrc = zlib.crc32(data);
   if (actualCrc !== entry.crc32) {
     throw new Error(`${name}: crc32 mismatch (archive corruption?)`);
@@ -213,9 +284,15 @@ export interface ExtractedSheet {
   rows: string[][] | null;
 }
 
-export function extractWorkbook(bytes: Buffer): ExtractedSheet[] {
+export function extractWorkbook(bytes: Buffer, limits: XlsxLimits = DEFAULT_XLSX_LIMITS): ExtractedSheet[] {
   const zipEntries = readZipDirectory(bytes);
-  const readPart = (name: string): string => readZipFile(bytes, zipEntries, name).toString('utf8');
+  const budget: InflateBudget = { totalInflated: 0 };
+  const readPart = (name: string): string => {
+    const xml = readZipFile(bytes, zipEntries, name, budget, limits).toString('utf8');
+    assertNoDoctypeOrEntity(xml, name);
+    return xml;
+  };
+  let totalCells = 0;
 
   const workbookXml = readPart('xl/workbook.xml');
   if (/<workbookPr[^>]*date1904="(?:1|true)"/.test(workbookXml)) {
@@ -239,6 +316,9 @@ export function extractWorkbook(bytes: Buffer): ExtractedSheet[] {
   if (zipEntries.has('xl/sharedStrings.xml')) {
     for (const match of readPart('xl/sharedStrings.xml').matchAll(/<si\/>|<si[ >][\s\S]*?<\/si>/g)) {
       sharedStrings.push(textOf(match[0], 'xl/sharedStrings.xml'));
+      if (sharedStrings.length > limits.maxSharedStrings) {
+        throw new Error(`xl/sharedStrings.xml: shared-string table exceeds the ${limits.maxSharedStrings}-entry cap`);
+      }
     }
   }
 
@@ -341,6 +421,19 @@ export function extractWorkbook(bytes: Buffer): ExtractedSheet[] {
         }
         const rowIndex = Number(/\d+$/.exec(cellRef)?.[0]);
         const columnIndex = columnIndexOf(cellRef, `sheet ${JSON.stringify(title)}`);
+        // Bound the declared grid coordinates: the dense `rows` array below is
+        // sized from maxRow/maxColumn, so an out-of-range cell reference (a
+        // hostile r="99999999") would otherwise drive an unbounded allocation.
+        if (rowIndex > limits.maxRowIndex) {
+          throw new Error(`sheet ${JSON.stringify(title)} cell ${cellRef}: row index ${rowIndex} exceeds the ${limits.maxRowIndex}-row cap`);
+        }
+        if (columnIndex > limits.maxColumnIndex) {
+          throw new Error(`sheet ${JSON.stringify(title)} cell ${cellRef}: column index ${columnIndex} exceeds the ${limits.maxColumnIndex}-column cap`);
+        }
+        totalCells += 1;
+        if (totalCells > limits.maxCells) {
+          throw new Error(`workbook cell count exceeds the ${limits.maxCells}-cell cap`);
+        }
         const rendered = renderCell(cellMatch[0], title);
         maxRow = Math.max(maxRow, rowIndex);
         maxColumn = Math.max(maxColumn, columnIndex);
@@ -348,6 +441,15 @@ export function extractWorkbook(bytes: Buffer): ExtractedSheet[] {
         if (row === undefined) grid.set(rowIndex, row = new Map<number, string>());
         row.set(columnIndex, rendered);
       }
+    }
+
+    // The dense reconstruction below allocates maxRow x maxColumn entries. The
+    // per-index caps bound each dimension, but a sparse sheet with two cells at
+    // opposite corners (e.g. A1 and XFD1048576) passes the populated-cell cap
+    // while still demanding a ~1.7e10-entry grid. Bound the PRODUCT so that a
+    // hostile sparse extent is refused rather than driving an allocation OOM.
+    if (maxRow * maxColumn > limits.maxGridCells) {
+      throw new Error(`sheet ${JSON.stringify(title)}: dense grid ${maxRow}x${maxColumn} exceeds the ${limits.maxGridCells}-cell grid cap (sparse-extent guard)`);
     }
 
     const rows: string[][] = [];

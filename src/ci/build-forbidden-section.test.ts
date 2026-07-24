@@ -162,7 +162,8 @@ describe('Forbidden-suffix section — 2024 disclosure page', { tags: ['data-val
     const page = read('forbidden', D2024, 'index.html');
     // The source's own vintage note (which states the ~2020 currency) is shown.
     expect(page).toContain('Vintage note:');
-    expect(page).toContain("data's currency predates the December 2024 listing");
+    // The apostrophe in the source's note is HTML-escaped in the rendered page (#966).
+    expect(page).toContain('data&#x27;s currency predates the December 2024 listing');
   });
 
   it('ForbiddenSection2024Page_NotableChanges_DrillDownIntoPerSuffixPages', () => {

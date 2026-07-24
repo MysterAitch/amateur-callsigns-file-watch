@@ -1,7 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import * as http from 'http';
 import {
   decideVersionCheckPath,
   extractVersionParam,
+  verifyAmateurCsv,
+  downloadFile,
 } from './scrape.ts';
 import type { ScrapeOptions } from '../../shared/utils.ts';
 
@@ -106,5 +112,107 @@ describe('decideVersionCheckPath', { tags: ['unit'] }, () => {
       // We can't fast-path if we don't know what v the current page is on.
       expect(decideVersionCheckPath(undefined, state, NOW)).toBe('download-new');
     });
+  });
+});
+
+// --- Intake resource caps (issue #969) ---------------------------------
+
+const scratchDirs: string[] = [];
+function scratchFile(name: string, contents: Buffer | string): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scrape-cap-'));
+  scratchDirs.push(dir);
+  const p = path.join(dir, name);
+  fs.writeFileSync(p, contents);
+  return p;
+}
+
+afterEach(() => {
+  while (scratchDirs.length > 0) {
+    const dir = scratchDirs.pop();
+    if (dir !== undefined) fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+describe('verifyAmateurCsv size window', { tags: ['unit'] }, () => {
+  const HEADER = 'callsign,status,other\n';
+
+  it('VerifyAmateurCsv_WhenFileBelowMinimum_Throws', () => {
+    const p = scratchFile('tiny.csv', HEADER); // a few bytes, well under the 100 KB floor
+    expect(() => verifyAmateurCsv(p)).toThrow(/suspiciously small/);
+  });
+
+  it('VerifyAmateurCsv_WhenFileAboveMaximum_Throws', () => {
+    // A valid header but a body far larger than the amateur CSV should ever be.
+    const body = HEADER + 'G0ABC,Issued,x\n'.repeat(200);
+    const p = scratchFile('huge.csv', body);
+    expect(() => verifyAmateurCsv(p, { minBytes: 10, maxBytes: 50 })).toThrow(/suspiciously large/);
+  });
+
+  it('VerifyAmateurCsv_WhenHeaderAndSizeAreValid_DoesNotThrow', () => {
+    const p = scratchFile('ok.csv', HEADER + 'G0ABC,Issued,x\n');
+    expect(() => verifyAmateurCsv(p, { minBytes: 10, maxBytes: 100_000 })).not.toThrow();
+  });
+
+  it('VerifyAmateurCsv_WhenHeaderMissingExpectedColumns_Throws', () => {
+    const p = scratchFile('wrong.csv', 'foo,bar,baz\n1,2,3\n');
+    expect(() => verifyAmateurCsv(p, { minBytes: 1, maxBytes: 100_000 })).toThrow(/missing expected column/);
+  });
+});
+
+describe('downloadFile streamed-byte cap', { tags: ['unit'] }, () => {
+  function startServer(handler: http.RequestListener): Promise<{ url: string; close: () => Promise<void> }> {
+    return new Promise((resolve) => {
+      const server = http.createServer(handler);
+      server.on('clientError', () => { /* client aborts on cap: expected, ignore */ });
+      server.listen(0, '127.0.0.1', () => {
+        const address = server.address();
+        const port = typeof address === 'object' && address !== null ? address.port : 0;
+        resolve({
+          url: `http://127.0.0.1:${port}/`,
+          close: () => new Promise<void>((r) => server.close(() => r())),
+        });
+      });
+    });
+  }
+
+  it('DownloadFile_WhenBodyExceedsCap_RejectsAndDoesNotKeepGrowing', async () => {
+    // A chunked response (no Content-Length) far larger than the cap: the
+    // streamed-byte counter must abort the download.
+    const { url, close } = await startServer((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/csv' });
+      const chunk = Buffer.alloc(16 * 1024, 0x41);
+      let sent = 0;
+      const pump = (): void => {
+        if (sent >= 512 * 1024 || res.writableEnded) { res.end(); return; }
+        res.write(chunk);
+        sent += chunk.length;
+        setImmediate(pump);
+      };
+      res.on('close', () => { sent = Infinity; });
+      pump();
+    });
+    const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'scrape-dl-')), 'body.bin');
+    scratchDirs.push(path.dirname(out));
+    try {
+      await expect(downloadFile(url, out, 4 * 1024)).rejects.toThrow();
+    } finally {
+      await close();
+    }
+  });
+
+  it('DownloadFile_WhenBodyWithinCap_ResolvesAndWritesFile', async () => {
+    const payload = 'callsign,status\nG0ABC,Issued\n';
+    const { url, close } = await startServer((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/csv' });
+      res.end(payload);
+    });
+    const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'scrape-dl-')), 'ok.csv');
+    scratchDirs.push(path.dirname(out));
+    try {
+      await downloadFile(url, out, 1024 * 1024);
+      expect(fs.readFileSync(out, 'utf8')).toBe(payload);
+    } finally {
+      await close();
+    }
   });
 });

@@ -8,6 +8,8 @@ import {
   extractFileNameFor,
   excelSerialToIso,
   isDateFormatCode,
+  DEFAULT_XLSX_LIMITS,
+  type XlsxLimits,
 } from './xlsx-extract.ts';
 import { parseJsonObject } from './json-shape.ts';
 
@@ -211,6 +213,138 @@ describe('xlsx extractor - sheet shaping', { tags: ['unit'] }, () => {
       { date1904: true },
     );
     expect(() => extractWorkbook(workbook)).toThrow(/1904/);
+  });
+});
+
+describe('xlsx extractor - resource caps (issue #969)', { tags: ['unit'] }, () => {
+  // A .xlsx is an UNTRUSTED zip of XML; the reader must refuse decompression
+  // bombs, hostile grids and entity-expansion/XXE. The caps are exercised with
+  // tiny limits over small synthetic fixtures rather than needing a real
+  // multi-hundred-megabyte bomb. Test names follow Subject_Scenario_Outcome.
+
+  const tiny = (over: Partial<XlsxLimits>): XlsxLimits => ({ ...DEFAULT_XLSX_LIMITS, ...over });
+
+  // A single-part zip whose one member is DEFLATE-compressed (method 8), so the
+  // inflate path (and its maxOutputLength bomb guard) is exercised. The member
+  // need not be a valid workbook: the cap trips before any parsing.
+  function deflatedZip(name: string, content: string): Buffer {
+    const nameBytes = Buffer.from(name, 'utf8');
+    const raw = Buffer.from(content, 'utf8');
+    const data = zlib.deflateRawSync(raw);
+    const crc = zlib.crc32(raw);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(8, 8); // compression method: deflate
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(raw.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    const dir = Buffer.alloc(46);
+    dir.writeUInt32LE(0x02014b50, 0);
+    dir.writeUInt16LE(8, 10); // compression method: deflate
+    dir.writeUInt32LE(crc, 16);
+    dir.writeUInt32LE(data.length, 20);
+    dir.writeUInt32LE(raw.length, 24);
+    dir.writeUInt16LE(nameBytes.length, 28);
+    dir.writeUInt32LE(0, 42);
+    const centralBytes = Buffer.concat([dir, nameBytes]);
+    const eocd = Buffer.alloc(22);
+    eocd.writeUInt32LE(0x06054b50, 0);
+    eocd.writeUInt16LE(1, 8);
+    eocd.writeUInt16LE(1, 10);
+    eocd.writeUInt32LE(centralBytes.length, 12);
+    eocd.writeUInt32LE(30 + nameBytes.length + data.length, 16);
+    return Buffer.concat([local, nameBytes, data, centralBytes, eocd]);
+  }
+
+  it('XlsxExtract_StoredPartOverPerPartCap_Throws', () => {
+    const workbook = workbookOf([{ name: 'Sheet1', cells: '<row r="1"><c r="A1" t="inlineStr"><is><t>x</t></is></c></row>' }]);
+    expect(() => extractWorkbook(workbook, tiny({ maxPartInflatedBytes: 10 }))).toThrow(/per-part cap/);
+  });
+
+  it('XlsxExtract_InflatedPartOverPerPartCap_ThrowsAsDecompressionBomb', () => {
+    // A highly-compressible part that inflates to 5000 bytes against a 1000-byte
+    // cap: inflation is aborted mid-stream, never materialised.
+    const bomb = deflatedZip('xl/workbook.xml', 'A'.repeat(5000));
+    expect(() => extractWorkbook(bomb, tiny({ maxPartInflatedBytes: 1000 }))).toThrow(/decompression bomb/);
+  });
+
+  it('XlsxExtract_InflatedTotalOverTotalCap_Throws', () => {
+    const workbook = workbookOf([{ name: 'Sheet1', cells: '<row r="1"><c r="A1" t="inlineStr"><is><t>x</t></is></c></row>' }]);
+    expect(() => extractWorkbook(workbook, tiny({ maxTotalInflatedBytes: 20 }))).toThrow(/inflated total/);
+  });
+
+  it('XlsxExtract_SharedStringTableOverCap_Throws', () => {
+    const workbook = workbookOf(
+      [{ name: 'Sheet1', cells: '<row r="1"><c r="A1" t="s"><v>0</v></c></row>' }],
+      { sharedStrings: ['a', 'b', 'c'] },
+    );
+    expect(() => extractWorkbook(workbook, tiny({ maxSharedStrings: 2 }))).toThrow(/shared-string table/);
+  });
+
+  it('XlsxExtract_CellCountOverCap_Throws', () => {
+    const workbook = workbookOf([{
+      name: 'Sheet1',
+      cells: '<row r="1"><c r="A1" t="inlineStr"><is><t>a</t></is></c><c r="B1" t="inlineStr"><is><t>b</t></is></c><c r="C1" t="inlineStr"><is><t>c</t></is></c></row>',
+    }]);
+    expect(() => extractWorkbook(workbook, tiny({ maxCells: 2 }))).toThrow(/cell count/);
+  });
+
+  it('XlsxExtract_RowIndexOverCap_Throws', () => {
+    const workbook = workbookOf([{ name: 'Sheet1', cells: '<row r="5"><c r="A5" t="inlineStr"><is><t>x</t></is></c></row>' }]);
+    expect(() => extractWorkbook(workbook, tiny({ maxRowIndex: 4 }))).toThrow(/row index/);
+  });
+
+  it('XlsxExtract_ColumnIndexOverCap_Throws', () => {
+    const workbook = workbookOf([{ name: 'Sheet1', cells: '<row r="1"><c r="C1" t="inlineStr"><is><t>x</t></is></c></row>' }]);
+    expect(() => extractWorkbook(workbook, tiny({ maxColumnIndex: 2 }))).toThrow(/column index/);
+  });
+
+  it('XlsxExtract_SparseGridAcrossOppositeCorners_AbortsRatherThanAllocating', () => {
+    // Two cells at opposite corners (A1 and XFD1048576): every populated-cell
+    // and per-index cap passes (totalCells=2, each index at Excel's own limit),
+    // but the dense reconstruction would demand a ~1.7e10-entry grid. The
+    // product guard must refuse it BEFORE allocating - under DEFAULT limits, so
+    // it never OOMs.
+    const workbook = workbookOf([{
+      name: 'Sheet1',
+      cells:
+        '<row r="1"><c r="A1" t="inlineStr"><is><t>a</t></is></c></row>' +
+        '<row r="1048576"><c r="XFD1048576" t="inlineStr"><is><t>b</t></is></c></row>',
+    }]);
+    expect(() => extractWorkbook(workbook)).toThrow(/grid cap/);
+  });
+
+  it('XlsxExtract_DenseGridOverGridCap_Throws', () => {
+    // A small dense sheet against a tiny grid cap trips the same product guard.
+    const workbook = workbookOf([{
+      name: 'Sheet1',
+      cells: '<row r="1"><c r="A1" t="inlineStr"><is><t>a</t></is></c></row><row r="3"><c r="C3" t="inlineStr"><is><t>b</t></is></c></row>',
+    }]);
+    expect(() => extractWorkbook(workbook, tiny({ maxGridCells: 4 }))).toThrow(/grid cap/);
+  });
+
+  it('XlsxExtract_XmlDeclaresAnExternalEntityDtd_Throws', () => {
+    // The XXE-closed strength, locked with a test: a DOCTYPE with a SYSTEM
+    // entity in any part makes the reader refuse the workbook outright.
+    const files: Record<string, string> = {
+      'xl/workbook.xml':
+        '<!DOCTYPE workbook [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>' +
+        '<workbook><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>',
+      'xl/_rels/workbook.xml.rels':
+        '<Relationships><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+      'xl/worksheets/sheet1.xml': '<worksheet><sheetData></sheetData></worksheet>',
+    };
+    expect(() => extractWorkbook(storedZip(files))).toThrow(/DOCTYPE or ENTITY/);
+  });
+
+  it('XlsxExtract_LegitWorkbookUnderDefaultLimits_ParsesNormally', () => {
+    const workbook = workbookOf(
+      [{ name: 'Sheet1', cells: '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="inlineStr"><is><t>G6 FMU</t></is></c></row>' }],
+      { sharedStrings: ['G0ARC'] },
+    );
+    const [sheet] = extractWorkbook(workbook);
+    expect(sheet.rows).toEqual([['G0ARC', 'G6 FMU']]);
   });
 });
 
