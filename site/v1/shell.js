@@ -12,6 +12,7 @@
 
 import { V1_COPY } from './copy.js';
 import { RECORD_FACTS } from './record-facts.js';
+import { safeHref } from './safe-url.js';
 
 // ---------------------------------------------------------------------------
 // SHARED-MODULE DEPLOY BASE, in one place.
@@ -133,7 +134,7 @@ export function renderSiteBar(currentJourney, facts = RECORD_FACTS) {
   list.forEach((jr, i) => {
     if (i > 0) nav.appendChild(el('span', 'sep', '·'));
     const a = el('a', null, jr.label);
-    a.setAttribute('href', jr.href);
+    a.setAttribute('href', safeHref(jr.href));
     if (jr.id === currentJourney) a.setAttribute('aria-current', 'page');
     nav.appendChild(a);
   });
@@ -158,7 +159,7 @@ export function renderBreadcrumb(crumbs) {
     const last = i === crumbs.length - 1;
     if (crumb.href !== undefined && !last) {
       const a = el('a', null, crumb.label);
-      a.setAttribute('href', crumb.href);
+      a.setAttribute('href', safeHref(crumb.href));
       nav.appendChild(a);
     } else {
       nav.appendChild(el('b', null, crumb.label));

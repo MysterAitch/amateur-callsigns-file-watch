@@ -11,7 +11,55 @@
 export const REPO_URL = 'https://github.com/MysterAitch/amateur-callsigns-file-watch';
 
 export function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    // The apostrophe is escaped too (issue #966): an attribute the escaper's
+    // contract assumes is double-quoted stays safe even if a caller ever emits
+    // a single-quoted one, closing the one HTML metacharacter the set omitted.
+    .replace(/'/g, '&#x27;');
+}
+
+// ---- URL scheme allowlist (issue #969) ----
+// URL-typed, witness- and meta-derived values are UNTRUSTED and reach href/src
+// sinks. They are validated by PARSING (the WHATWG URL parser, the same
+// normalisation a browser applies - it strips tabs, newlines and leading
+// control characters and lower-cases the scheme) and then ALLOWLISTING the
+// scheme. Allowlisting, not denylisting, is what makes this obfuscation-proof:
+// a mangled `java\tscript:` either parses to the javascript scheme (not on the
+// allowlist) or fails to parse (not an allowed absolute URL). Relative
+// references (path / query / fragment) are ordinary same-site navigation and
+// are allowed; a protocol-relative `//host` inherits the page scheme and is
+// refused so callers must be explicit. The allowed absolute schemes are http,
+// https and mailto: none can execute script, so the dangerous ones
+// (javascript:/data:/vbscript:/…) are refused. http is included because the
+// archived FOI correspondence carries legitimate historical http:// links,
+// rendered verbatim - a safe (if insecure-transport) scheme, never an XSS
+// vector.
+const SAFE_URL_SCHEMES = new Set(['http:', 'https:', 'mailto:']);
+
+export function isSafeUrl(url: string): boolean {
+  const raw = url.trim();
+  if (raw === '') return true; // an empty href/src is inert, not a scheme vector
+  if (raw.startsWith('//')) return false; // protocol-relative: inherits page scheme
+  let parsed: URL | null = null;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    parsed = null;
+  }
+  // No parseable absolute scheme => a relative reference: ordinary navigation.
+  if (parsed === null) return true;
+  return SAFE_URL_SCHEMES.has(parsed.protocol);
+}
+
+// Returns the url unchanged when it is safe to place in an href/src, or the
+// inert '#' when it is not - so a neutralised link lands nowhere rather than
+// firing a javascript:/data:/vbscript: payload.
+export function safeUrl(url: string): string {
+  return isSafeUrl(url) ? url : '#';
 }
 
 // ---- Shared affordances (issue #310) ----
@@ -28,7 +76,11 @@ export function escapeHtml(text: string): string {
 // generalises the one-off series-nav ↗ into a single reusable convention.
 export function externalLink(href: string, text: string, options: { escapeText?: boolean } = {}): string {
   const label = options.escapeText === false ? text : escapeHtml(text);
-  return `<a href="${href}" target="_blank" rel="noopener">${label} <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>`;
+  // The href is neutralised through the scheme allowlist (issue #969): callers
+  // pass pre-built (already entity-safe) hrefs, so it is not re-escaped here,
+  // but a hostile scheme reaching this shared external-link affordance is
+  // defanged to '#' rather than emitted.
+  return `<a href="${safeUrl(href)}" target="_blank" rel="noopener">${label} <span class="ext-marker" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>`;
 }
 
 // A deep link into the interactive Explore SQL console (site/explore.js),

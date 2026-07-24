@@ -22,6 +22,7 @@ import {
   anchorIds,
   listFilesRelative,
 } from './internal-link-crawl.ts';
+import { findUnsafeSinks, type UnsafeSink } from './output-safety-scan.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
@@ -1243,6 +1244,74 @@ describe('Internal link integrity across the built site (issue #561)', { tags: [
     expect(navPages).toContain('timeline.html');
     const missing = navPages.filter(p => !emittedFiles.has(p));
     expect(missing, `nav advertises pages absent from the emitted universe: ${missing.join(', ')}`).toEqual([]);
+  });
+});
+
+describe('Build-output safety scan across the built site (issue #969)', { tags: ['data-validity'] }, () => {
+  // Defence-in-depth with the #966 output-encoding work: a fail-closed net over
+  // the ACTUAL published HTML. Every generated page and every hand-authored
+  // static page that ships is scanned for the three stored-XSS sink classes -
+  // inline event handlers, url-typed attributes whose scheme is off the
+  // allowlist (javascript:/data:text-html/vbscript:/protocol-relative), and
+  // unexpected inline <script>. The scan entity-decodes each attribute value
+  // before reading its scheme, so it catches entity- and whitespace-obfuscated
+  // payloads a substring match would miss (self-tested in
+  // src/ci/output-safety-scan.test.ts). Generated pages carry NO inline
+  // script (their behaviour is external modules), so they are scanned with
+  // inline scripts disallowed; the hand-authored static pages carry reviewed
+  // bootstrap scripts and are scanned with inline scripts allowed but their
+  // url/handler sinks still gated.
+
+  let generatedViolations: string[];
+  let generatedPagesScanned: number;
+  let staticViolations: string[];
+
+  const format = (rel: string, sink: UnsafeSink): string => `${rel}: [${sink.kind}] ${sink.detail}`;
+
+  beforeAll(() => {
+    generatedViolations = [];
+    generatedPagesScanned = 0;
+    for (const rel of listFilesRelative(outputDir).filter(r => r.endsWith('.html'))) {
+      const html = fs.readFileSync(path.join(outputDir, rel), 'utf8');
+      generatedPagesScanned += 1;
+      for (const sink of findUnsafeSinks(html, { allowInlineScripts: false })) {
+        generatedViolations.push(format(rel, sink));
+      }
+    }
+
+    // The hand-authored static pages the deploy copies verbatim (site/*.html and
+    // site/v1/*.html). Their reviewed inline bootstrap scripts are allowed; a
+    // hostile url or event handler in them is still a failure.
+    staticViolations = [];
+    const staticDirs: { dir: string; label: string }[] = [
+      { dir: 'site', label: 'site' },
+      { dir: path.join('site', 'v1'), label: 'site/v1' },
+    ];
+    for (const { dir, label } of staticDirs) {
+      for (const file of fs.readdirSync(dir)) {
+        if (!file.endsWith('.html')) continue;
+        const html = fs.readFileSync(path.join(dir, file), 'utf8');
+        for (const sink of findUnsafeSinks(html, { allowInlineScripts: true })) {
+          staticViolations.push(format(`${label}/${file}`, sink));
+        }
+      }
+    }
+  }, 300_000);
+
+  it('BuiltSite_EveryGeneratedPage_CarriesNoUnsafeSinkOrInlineScript', () => {
+    // Guard against a vacuous scan (a broken walk passing on zero pages).
+    expect(generatedPagesScanned).toBeGreaterThan(100);
+    expect(
+      generatedViolations,
+      `unsafe sinks on generated pages (${generatedViolations.length}):\n${generatedViolations.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('DeployedStaticPages_CarryNoHostileUrlOrEventHandler', () => {
+    expect(
+      staticViolations,
+      `unsafe sinks on hand-authored static pages (${staticViolations.length}):\n${staticViolations.join('\n')}`,
+    ).toEqual([]);
   });
 });
 

@@ -68,3 +68,41 @@ describe('data-sweep.yml structure', { tags: ['unit'] }, () => {
     expect(elseBranch, 'the non-data-only human-review comment regressed').toMatch(/needs human review/);
   });
 });
+
+// The auto-merge credential must only ever land pure data publications: the
+// sweep watches ONLY `data/*` branches, and its allowlist admits only archived
+// and derived data paths, so ingested code/xlsx (the `ingest/*` lane) can never
+// reach auto-merge (issue #969). This locks that structural invariant.
+describe('data-sweep.yml auto-merge path allowlist (issue #969)', { tags: ['unit'] }, () => {
+  it('SweepScope_OnlyDataStarBranches_AreWatchedNeverIngestOrCode', () => {
+    const wf = workflow();
+    // The fetch and the enumeration both target data/* and nothing else.
+    expect(wf, 'the sweep no longer fetches only data/* branches').toMatch(/git fetch origin '\+refs\/heads\/data\/\*:refs\/remotes\/origin\/data\/\*'/);
+    expect(wf, 'the sweep no longer enumerates only data/* branches').toMatch(/git for-each-ref[^\n]*'refs\/remotes\/origin\/data\/\*'/);
+    // The ingest/* lane (bundled converter code + regenerated masters) is never
+    // swept, so it can never be auto-merged.
+    expect(wf, 'the sweep now watches an ingest/* ref - ingested code could auto-merge').not.toMatch(/refs\/(heads|remotes\/origin)\/ingest/);
+    expect(wf, 'the scope note documenting that ingest/* is ignored has gone').toMatch(/ingest\/\*/);
+  });
+
+  it('DataOnlyAllowlist_AdmitsOnlyArchivedAndDerivedDataPaths', () => {
+    const wf = workflow();
+    // The path allowlist that decides data_only: archive/* plus the named
+    // derived-data files, and a catch-all that flips data_only off.
+    expect(wf, 'the archive/* allowlist entry regressed').toMatch(/\n\s*archive\/\*\)\s*;;/);
+    expect(wf, 'the catch-all that rejects anything outside the allowlist regressed - the sweep could fail OPEN').toMatch(/\n\s*\*\)\s*data_only=false\s*;;/);
+  });
+
+  it('CodeAndWorkbookPaths_AreNeverAllowlisted_SoNeverAutoMerge', () => {
+    const wf = workflow();
+    const allowlist = wf.match(/case "\$p" in\n([\s\S]*?)\n\s*esac/);
+    expect(allowlist, 'the data_only path allowlist block is missing').not.toBeNull();
+    const body = allowlist === null ? '' : allowlist[1];
+    // A branch touching code or a workbook must fall through to the catch-all
+    // (data_only=false), so none of these may appear as an accepting case.
+    expect(body, 'source code was added to the auto-merge allowlist').not.toMatch(/src\//);
+    expect(body, 'a workbook extension was added to the auto-merge allowlist').not.toMatch(/\.xlsx/);
+    expect(body, 'an ingest/* path was added to the auto-merge allowlist').not.toMatch(/ingest\//);
+    expect(body, 'a workflow path was added to the auto-merge allowlist').not.toMatch(/\.github\//);
+  });
+});

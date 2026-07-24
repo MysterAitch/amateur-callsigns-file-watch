@@ -39,13 +39,9 @@ import {
   type Holding,
 } from './build-publisher-pages.ts';
 import { humaniseClassKey } from './dataset-class-overviews.ts';
-import { humanDate, monthYear, dateTimeDisplay } from './site-render.ts';
+import { humanDate, monthYear, dateTimeDisplay, escapeHtml } from './site-render.ts';
 import { type EntryStats } from '../shared/stats.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
 
 // The headline shape of the record, as DERIVED figures read from the committed
 // archive. Epistemics: these summarise committed data at a known build; the

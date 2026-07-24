@@ -75,7 +75,14 @@ export function datedFactsFromHoldings(h: ChipHoldings): RecordFacts {
 }
 
 function escAttr(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    // The apostrophe is escaped too (issue #966), so this attribute escaper is
+    // safe regardless of the surrounding quote style.
+    .replace(/'/g, '&#x27;');
 }
 
 function escText(s: string): string {

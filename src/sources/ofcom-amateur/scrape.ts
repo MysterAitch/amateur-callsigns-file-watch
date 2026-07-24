@@ -41,7 +41,19 @@ interface HtmlLinkDetails {
   element: Element;
 }
 
-async function downloadFile(url: string, outputPath: string): Promise<void> {
+// Resource caps for fetching UNTRUSTED remote content (issue #969). The
+// amateur CSV is ~11 MB and the opendata HTML page a few hundred KB; these
+// ceilings sit far above both, so a legitimate fetch never trips one while a
+// hostile or misdirected endpoint cannot stream an unbounded body into CI/the
+// fetch host (a resource-exhaustion / disk-fill vector). Redirects are held to
+// a small count so a chain cannot walk the fetch off to an unrelated host.
+const MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024; // hard ceiling on a streamed download
+const MAX_HTML_BYTES = 25 * 1024 * 1024;      // the opendata listing page
+const MAX_REDIRECTS = 3;
+
+// Exported for testing (the abort-past-cap path). `maxBytes` defaults to the
+// production ceiling; a test can lower it to exercise the abort cheaply.
+export async function downloadFile(url: string, outputPath: string, maxBytes: number = MAX_DOWNLOAD_BYTES): Promise<void> {
   try {
     logger.info(`Downloading: ${url} to ${outputPath}`);
     const response = await axios({
@@ -50,19 +62,45 @@ async function downloadFile(url: string, outputPath: string): Promise<void> {
       responseType: 'stream',
       timeout: 30000,
       headers: BROWSER_HEADERS,
+      maxRedirects: MAX_REDIRECTS,
+      // Belt-and-braces: reject up front if the server advertises an oversized
+      // body. The streamed byte counter below is the real enforcement, since
+      // a hostile server can omit or understate Content-Length.
+      maxContentLength: maxBytes,
+      maxBodyLength: maxBytes,
     });
 
     const writer = fsSync.createWriteStream(outputPath);
-    (response.data as NodeJS.ReadableStream).pipe(writer);
+    const source = response.data as NodeJS.ReadableStream;
 
     return new Promise<void>((resolve, reject) => {
+      let received = 0;
+      let aborted = false;
+      source.on('data', (chunk: Buffer) => {
+        received += chunk.length;
+        if (received > maxBytes && !aborted) {
+          aborted = true;
+          // Stop pulling bytes and tear the pipeline down: past the cap this is
+          // no longer a download we are willing to complete.
+          (source as NodeJS.ReadableStream & { destroy?: () => void }).destroy?.();
+          writer.destroy();
+          reject(new Error(`Download aborted: exceeded the ${maxBytes}-byte cap for ${url}`));
+        }
+      });
+      source.pipe(writer);
       writer.on('finish', () => {
+        if (aborted) return;
         logger.debug(`Download complete: ${outputPath}`);
         resolve();
       });
       writer.on('error', (err) => {
+        if (aborted) return;
         logger.error(`Error writing to file: ${outputPath}`, err);
         reject(err);
+      });
+      source.on('error', (err: unknown) => {
+        if (aborted) return;
+        reject(err instanceof Error ? err : new Error(`stream error: ${errorMessage(err)}`));
       });
     });
   } catch (error) {
@@ -188,10 +226,14 @@ function findCsvLink(document: Document): HtmlLinkDetails {
  *       size check alone won't catch it; we assert the expected header columns.
  *
  * Throws on failure so the caller can abort without overwriting good data.
+ *
+ * Exported for testing; `bounds` defaults to the production size window and a
+ * test can narrow it to exercise the min/max guards cheaply.
  */
-function verifyAmateurCsv(filePath: string): void {
+export function verifyAmateurCsv(filePath: string, bounds: { minBytes?: number; maxBytes?: number } = {}): void {
   const EXPECTED_HEADER_TOKENS = ['callsign', 'status']; // tolerant of column reordering/renames
-  const MIN_BYTES = 100 * 1024; // real file is ~10 MB; a challenge page is a few KB
+  const MIN_BYTES = bounds.minBytes ?? 100 * 1024; // real file is ~10 MB; a challenge page is a few KB
+  const MAX_BYTES = bounds.maxBytes ?? MAX_DOWNLOAD_BYTES; // real file is ~11 MB; anything near the download ceiling is not this CSV
 
   if (!fileExistsAndNotEmpty(filePath)) {
     throw new Error(`Downloaded file missing or empty: ${filePath}`);
@@ -202,6 +244,12 @@ function verifyAmateurCsv(filePath: string): void {
     throw new Error(
       `Downloaded file is suspiciously small (${formatFileSize(stats.size)}, ` +
       `expected >= ${formatFileSize(MIN_BYTES)}). Likely a challenge page or truncated download, not the CSV.`
+    );
+  }
+  if (stats.size > MAX_BYTES) {
+    throw new Error(
+      `Downloaded file is suspiciously large (${formatFileSize(stats.size)}, ` +
+      `expected <= ${formatFileSize(MAX_BYTES)}). Refusing to accept it as the amateur callsign CSV.`
     );
   }
 
@@ -340,6 +388,9 @@ export async function runScrape(options?: ScrapeOptions): Promise<ScrapeResult> 
   const response = await axios.get(OFCOM_URL, {
     headers: BROWSER_HEADERS,
     timeout: 30000,
+    maxRedirects: MAX_REDIRECTS,
+    maxContentLength: MAX_HTML_BYTES,
+    maxBodyLength: MAX_HTML_BYTES,
   });
 
   await fs.writeFile(OUTPUT_FILES.htmlOutput, response.data as string);

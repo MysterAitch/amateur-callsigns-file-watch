@@ -29,15 +29,11 @@ import {
   flagAssessable,
   flagRequirementReason,
 } from '../shared/stats.ts';
-import { humanDate, monthYear, humaniseLabel, tableCaption, callsignField, callsignDisplay, prefixSeriesField, absentMarker, notAssessableMarker } from './site-render.ts';
+import { humanDate, monthYear, humaniseLabel, tableCaption, callsignField, callsignDisplay, prefixSeriesField, absentMarker, notAssessableMarker, escapeHtml } from './site-render.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const REFERENCE_DATA_DIR = path.join(REPO_ROOT, 'reference-data');
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
 
 // Mirrors app.js renderTable: thead/tbody, 'num' class from numericFrom,
 // wrapped in div.overflow. rawHeaders lets a caller pass pre-built header
