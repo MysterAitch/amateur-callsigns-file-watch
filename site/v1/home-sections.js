@@ -144,12 +144,13 @@ export function defaultHomeModel() {
       count: g.publicationsHeld,
     },
     // The build-stable rotation seed for "from the record": the newest held
-    // publication date, so the leading detail is chosen deterministically and a
-    // new snapshot (a rebuild) moves the selection (issue #965).
+    // publication date, so the leading detail is chosen deterministically and
+    // moves only when a NEW publication lands — an ordinary rebuild with the
+    // same newest date shows the same lead (issue #965).
     rotationSeed: g.latestDateIso,
-    // From-the-record notable-detail pool. A different detail leads on each
-    // rebuild, chosen by the seeded rotation above. Each fact is record-scoped
-    // and sourced:
+    // From-the-record notable-detail pool. A different detail leads each time
+    // the newest publication changes, chosen by the seeded rotation above. Each
+    // fact is record-scoped and sourced:
     //  1. reports/curiosity-index.md — the newest publication (2026-06-23)
     //     holds 158,318 records.
     //  2. reports/forbidden-suffix-history.md — 1,465 three-letter suffixes
@@ -872,11 +873,12 @@ function mountFromTheRecord(host, model) {
   chip.append('from the pool');
   bar.appendChild(chip);
   watch.appendChild(bar);
-  // The leading detail rotates at build time (issue #965): a deterministic index
-  // seeded off the holdings date (never Math.random at render), so a rebuild —
-  // not a page view — moves the selection, making the "rotates at build time"
-  // footer copy true. Reuses the same seeded-rotation primitive the milestone
-  // caption uses, so the rotation is defined once.
+  // The leading detail rotates with the record (issue #965): a deterministic
+  // index seeded off the holdings date (never Math.random at render), so the
+  // selection moves only when the newest held publication changes — never on
+  // an ordinary rebuild or page view alone — matching the footer copy below.
+  // Reuses the same seeded-rotation primitive the milestone caption uses, so
+  // the rotation is defined once.
   const first = model.fromTheRecord[milestoneRotationStart(model.fromTheRecord.length, model.rotationSeed)];
   const body = el('div', 'body');
   const inner = el('div');

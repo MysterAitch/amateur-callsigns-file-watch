@@ -136,7 +136,7 @@ export const V1_COPY = {
       milestoneSourceLabel: 'source',
     },
     fromTheRecordLabel: 'from the record',
-    fromTheRecordFoot: 'Selection rotates at build time – a different notable detail leads on each rebuild.',
+    fromTheRecordFoot: 'Selection rotates as the record grows – a different notable detail leads when the newest publication changes, not on every rebuild.',
     scopeDisclaimerLabel: 'scope & disclaimer',
     scopeDisclaimer: 'Proof-of-concept mirror; not affiliated with or endorsed by Ofcom, and not authoritative – Ofcom’s own register is. The value here is continuity: a decade of snapshots Ofcom does not itself publish as a series. Presence in an availability list means offered, not licensed. Absence is read scope-aware: missing from a partial publication is not evidence. The record flags what looks inconsistent and adjudicates nothing.',
     // The ways-in cards – only the journeys the v1 surface actually serves.

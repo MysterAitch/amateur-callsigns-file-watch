@@ -64,6 +64,17 @@ describe('v1 copy — claims bar (JS)', { tags: ['unit'] }, () => {
     expect(V1_COPY.chip.template.toLowerCase()).not.toContain('current');
   });
 
+  it('FromTheRecordFoot_Copy_DescribesPublicationScopedRotationNeverPerRebuild', () => {
+    // Issue #965 follow-up: the rotation seed is the newest held publication
+    // date, which moves only when a new publication lands — an ordinary
+    // rebuild (same newest date) shows the same lead, so the footer must not
+    // claim rotation "on each rebuild".
+    const foot = V1_COPY.home.fromTheRecordFoot;
+    expect(foot).toContain('newest publication changes');
+    expect(foot).toContain('not on every rebuild');
+    expect(foot.toLowerCase()).not.toContain('leads on each rebuild');
+  });
+
   it('CoinedVocabulary_ProjectionAndFold_AreGlossedOrPlainAtFirstUse', () => {
     // D1: a non-specialist meets "projection" with an inline first-use gloss, and
     // the outward-facing ways-in card drops the internal "folded" metaphor for a

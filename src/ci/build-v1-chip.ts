@@ -99,6 +99,21 @@ export function chipHtml(facts: RecordFacts): string {
 // closing tag matches exactly one chip per occurrence without over-reaching.
 const CHIP_RE = /<span class="chip asof"[^>]*>.*?<\/span>/g;
 
+// Which static HTML pages in a site root carry the dated-fact chip, decided by
+// content scan for the same marker the stamp itself matches on
+// (`class="chip asof"`) — never a hand-maintained page list, which drifts
+// silently the moment a page gains a chip nobody remembered to add to it. This
+// is the single source of truth for "which page has a chip", shared by the
+// build stamp below and its cross-page parity test (site/v1/sections.test.ts),
+// so a new chip-bearing page is covered automatically rather than waiting on a
+// list to catch up.
+export function htmlPagesWithChip(siteRoot: string): string[] {
+  return fs.readdirSync(siteRoot)
+    .filter(name => name.endsWith('.html'))
+    .filter(name => fs.readFileSync(path.join(siteRoot, name), 'utf8').includes('class="chip asof"'))
+    .sort();
+}
+
 // Replace every static chip in a page with the freshly-built one, reporting how
 // many were rewritten so the caller can fail loud on a page that lost its chip.
 export function stampChipHtml(html: string, facts: RecordFacts): { html: string; replaced: number } {
@@ -150,11 +165,9 @@ export function buildV1Chip(siteRoot: string): { facts: RecordFacts; pagesStampe
   fs.writeFileSync(factsPath, stampedJs.js);
 
   const pagesStamped: string[] = [];
-  for (const name of fs.readdirSync(siteRoot).filter(f => f.endsWith('.html')).sort()) {
+  for (const name of htmlPagesWithChip(siteRoot)) {
     const p = path.join(siteRoot, name);
-    const src = fs.readFileSync(p, 'utf8');
-    if (!src.includes('class="chip asof"')) continue;
-    const stamped = stampChipHtml(src, facts);
+    const stamped = stampChipHtml(fs.readFileSync(p, 'utf8'), facts);
     if (stamped.replaced === 0) continue;
     fs.writeFileSync(p, stamped.html);
     pagesStamped.push(name);

@@ -33,6 +33,10 @@ import { renderSiteBar, datedFactChipParts } from './shell.js';
 import { preserveLookupInput } from './callsign-page.js';
 import { provenanceChip, inlineTerm, termCue, wireTermPopovers } from './glossary.js';
 import { EVENT_TIME_GLOSS, ASSERTION_TIME_GLOSS, V1_COPY } from './copy.js';
+// The same content-scan the build stamp uses to decide which pages carry the
+// dated-fact chip (issue #965 follow-up) — shared so the parity test's page set
+// can never drift from a hand-maintained list.
+import { htmlPagesWithChip } from '../../src/ci/build-v1-chip.ts';
 // The shared pure data functions, reused by injection (the exact functions the
 // deployed v1 orchestrator loads at runtime from the site root). Importing them
 // here proves the reuse contract end to end over a fixture shard.
@@ -423,10 +427,12 @@ describe('v1 home static/JS parity', { tags: ['unit'] }, () => {
 // single-source render, so a page drifting, or the source changing without a page
 // restamped, fails loud. renderSiteBar with no facts reads the single source.
 describe('v1 dated-fact chip — cross-page parity (single source)', { tags: ['unit'] }, () => {
-  const V1_PAGES_WITH_CHIP = [
-    'index.html', 'callsign.html', 'anatomy.html', 'glossary.html',
-    'how-to-get-the-raw-data.html', 'on-this-day.html', 'timeline.html',
-  ];
+  // Content-scanned, not hand-authored (issue #965 follow-up): the same test
+  // helper the build stamp uses to decide which pages carry a chip, so a future
+  // page that gains one is covered automatically rather than escaping the guard
+  // because nobody remembered to add it to a list. 404.html carries no chip and
+  // is correctly absent from the result.
+  const V1_PAGES_WITH_CHIP = htmlPagesWithChip('site/v1');
   const norm = (s: string | null | undefined): string => (s ?? '').replace(/\s+/g, ' ').trim();
 
   it('EveryV1Page_StaticChipTextAndTooltip_MatchTheSingleBuildSource', () => {
@@ -704,13 +710,29 @@ describe('v1 home "from the record" rotation (issue #965)', { tags: ['ui'] }, ()
   };
 
   it('FromTheRecord_BuildSeed_SelectsADeterministicLeadThatVariesWithTheSeed', () => {
-    // The footer promises the lead "rotates at build time"; the seeded rotation
-    // makes that claim true — deterministic for a given seed, and moving as the
-    // seed (the holdings date) changes across rebuilds. Three distinct seeds map
-    // to the three distinct notable details.
+    // The footer promises the lead changes as the record grows, when the
+    // newest publication changes — never merely "on each rebuild" (an ordinary
+    // rebuild with the same newest date must show the same lead). The seeded
+    // rotation makes that claim true: deterministic for a given seed, and
+    // moving only when the seed (the holdings date) itself changes. Three
+    // distinct seeds map to the three distinct notable details.
     expect(lead('x')).toBe(lead('x'));
     const leads = new Set([lead('x'), lead('y'), lead('z')]);
     expect(leads.size).toBe(3);
+  });
+
+  it('FromTheRecordFooter_RenderedCopy_MatchesTheRegistryAndNeverClaimsPerRebuildRotation', () => {
+    // The footer copy (issue #965 follow-up) must be true to the actual
+    // mechanism: the rotation seed is the newest held publication date, which
+    // only changes when a new publication lands — not on every rebuild.
+    const model = defaultHomeModel();
+    const host = document.createElement('section');
+    HOME_SECTION_REGISTRY['from-the-record'].mount(host, model);
+    const footer = host.querySelector('.rot-foot')?.textContent ?? '';
+    expect(footer).toBe(V1_COPY.home.fromTheRecordFoot);
+    expect(footer).toContain('newest publication changes');
+    expect(footer).toContain('not on every rebuild');
+    expect(footer.toLowerCase()).not.toBe('selection rotates at build time – a different notable detail leads on each rebuild.');
   });
 });
 
