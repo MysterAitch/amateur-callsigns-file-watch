@@ -2,7 +2,14 @@
 
 - Status: accepted
 - Date: 2026-07-10
-- Related: ADR 0001 (PR-gated processing), ADR 0002 (repository write controls), ADR 0003 (frameworkless site), ADR 0009 (branch relay), ADR 0010 (archive contract), ADR 0019 (unified `cicd.yaml` — preserves the read-only-CI posture via job-level permissions); issue #47 (item 4)
+- Related: ADR 0001 (PR-gated processing), ADR 0002 (repository write controls), ADR 0003 (frameworkless site), ADR 0009 (branch relay), ADR 0010 (archive contract), ADR 0019 (unified `cicd.yaml` — preserves the read-only-CI posture via job-level permissions), ADR 0022 (v1 component architecture — the render backend and a11y oracle sanctioned in the 2026-07-24 addendum below); issues #47 (item 4), #966 (the dependency-stance deliberation the addendum consolidates)
+
+> *(Amended 2026-07-24.)* The original decision below states the posture as a
+> single line held uniformly across every dependency. The
+> [addendum](#addendum-2026-07-24-dependency-tiers-and-the-adopt-vs-build-criteria)
+> refines it into three tiers by where a dependency runs — shipped, build, and
+> test-oracle — and gives the criteria for adopting one; it sharpens the
+> original principle rather than reversing it. Read the two together.
 
 ## Context
 
@@ -105,3 +112,113 @@ rewrite the record.
 - This posture is a living record: when `.npmrc`, the action pins, the vendoring
   approach, or a renderer's ownership changes, update this ADR alongside the
   code, as ADR 0002 is treated for the GitHub-settings half.
+
+## Addendum (2026-07-24): dependency tiers and the adopt-vs-build criteria
+
+The original decision above treats "a dependency" as one uniform thing. The
+component-architecture work (ADR 0022, issue #966) showed that this conflates
+dependencies that behave very differently, and that the conflation was pushing
+the project toward hand-rolling code — a security-critical HTML output encoder —
+where hand-rolling was the *riskier* choice, not the safer one. This addendum
+draws the distinction the original decision left implicit. It refines the
+principle; it does not weaken it.
+
+### The reserved anchor bites hardest on shipped code
+
+The two concerns behind the whole posture — **archival longevity** and the
+**client-side supply chain** — bite mainly on code that **ships** to the
+published site and is captured in the archive. A build- or test-time dependency
+runs in CI, emits reviewed output, and **never reaches the client or the
+record**. And determinism, the other half of the original principle, comes from
+the **golden-master tests**, not from the code being hand-rolled: a library-built
+artefact that a golden test pins byte-for-byte is exactly as deterministic as a
+hand-rolled one. So the strictness that is right for shipped code is
+disproportionate for a build dependency, and hand-rolling a complex,
+security-sensitive primitive to avoid a build dependency can *increase* risk
+rather than reduce it.
+
+### Three tiers by where a dependency runs
+
+- **SHIPPED / browser-runtime — strict.** Anything served to the client or
+  vendored into the deploy artefact stays bare-minimal, vendored, pinned and
+  audited (the `sql.js-httpvfs` pattern, ADR 0003). This is the original
+  posture, unchanged. The published site carries no client-side npm supply chain
+  and no CDN script tags.
+- **BUILD / dev — deliberate.** A dependency used only in the Node build or the
+  test toolchain may be adopted for **targeted value** under the adopt-checklist
+  below. It must never appear in the build output.
+- **TEST-ORACLE — liberal.** A library we would never ship may be used at
+  build/verification time purely as a **correctness oracle**: run our
+  hand-rolled or platform implementation and the mature reference over the same
+  inputs and assert they agree. Oracle dependencies never enter the build
+  output — they only verify — so they are the most freely adoptable tier. This
+  is how we trust a thin-slice hand-roll without flying blind: we
+  differentially-test it against the solved thing (for example, our output
+  encoder against DOMPurify over the hostile-string corpus, with parsed-DOM
+  assertions; a future build-time force layout against `d3-force`; `axe-core` as
+  the accessibility oracle).
+
+The spectrum is therefore **SHIPPED (strict) → BUILD (deliberate) → TEST-ORACLE
+(liberal)**.
+
+### Adopt-checklist for a build or test dependency
+
+A build/dev/test dependency is adopted only when it clears all of:
+
+1. it solves a problem that is **actively harmful if hand-rolled** (security- or
+   correctness-critical, or a systemic surface), not mere convenience;
+2. it is **non-shipped, or vendorable** — it does not enter the client bundle or
+   the deploy artefact;
+3. it has a **small, auditable surface**;
+4. it **installs cleanly under `ignore-scripts`** (no postinstall build the
+   posture would have to fight);
+5. it is **maintained and has verifiable provenance**;
+6. it has a **cheap, reversible exit** — dropping it later is not a rewrite;
+7. it is **lockfile-pinned**;
+8. its output is **golden-covered** — a test pins the artefact, so a version bump
+   cannot silently churn committed output.
+
+### The browser-library criterion: value × blast-radius
+
+For a dependency that *would* ship to the client, the adopt-vs-build call is
+**value × blast-radius** — how much it buys against how much of the surface it
+touches and how hard it is to remove. Worked examples:
+
+- **`sql.js-httpvfs`** — *adopt.* High value (in-browser range-read of the
+  published database), low blast-radius (isolated to the Explore path), already
+  vendored and audited.
+- **`jsdom`** — *adopt, build-only.* Already an in-tree audited dependency (the
+  scrapers use it), so the render backend below adds **no new dependency** and
+  never ships.
+- **Reactivity libraries** — *resist.* High blast-radius: they impose a paradigm
+  across the whole component surface and are the ADR 0022 framework tripwire.
+- **`d3-force`** — *adopt when the need is real*, and prefer **baking the layout
+  at build time** so it is a build dependency rather than shipped, unless the
+  interactivity genuinely has to ship.
+- **WebGL / `three.js`** — the far end: a clear adopt for a single contained
+  visualisation surface where the value is high and the blast-radius stays inside
+  that surface.
+- **`crossfilter`** — *not yet.* Plain `Array.filter` suffices until data scale
+  forces the upgrade.
+
+### Concrete sanctions under this policy
+
+- **`jsdom` as the build-time render backend** for the v1 components (ADR 0022):
+  one vanilla-DOM render codebase runs against jsdom's spec-faithful DOM in the
+  Node build and against the native DOM in the browser. It replaces both a
+  hand-rolled string serialiser (whose escaping would be a systemic XSS surface)
+  and any new DOM library (`happy-dom`, `linkedom` — the latter carries
+  documented entity-fidelity quirks). It is build-time only, already in-tree, and
+  the most spec-faithful option — the safest choice for a security-critical
+  serialiser. **Adopted.**
+- **`axe-core` (dev-only)** as the accessibility oracle for proactive a11y
+  testing of the components. It never ships and purely verifies. **Adopted.**
+
+The **hand-rolled-renderer clause** of the original decision is reframed
+accordingly: hand-rolling remains right for the small, byte-stability-critical
+renderers whose subset the repository fully controls (`renderCsv`, the markdown
+helpers, the deterministic zip writer, the xlsx extractor), because there the
+hand-roll *is* the low-risk option and a library would add churn surface. It is
+**not** a mandate to hand-roll a large, security-sensitive primitive to avoid a
+build-only dependency — there, a spec-faithful build backend held to golden and
+differential tests is the least-bad choice.
