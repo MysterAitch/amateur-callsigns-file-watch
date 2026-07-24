@@ -40,7 +40,7 @@ export function enhanceTermLinks(root) {
 }
 
 if (typeof document !== 'undefined' && document.querySelector('main[data-page="anatomy"]') !== null) {
-  mountInto('sitebar', renderSiteBar('anatomy', { date: '23 June 2026', count: 65 }));
+  mountInto('sitebar', renderSiteBar('anatomy'));
   mountInto('breadcrumb', renderBreadcrumb([
     { label: V1_COPY.journeys.home, href: 'index.html' },
     { label: V1_COPY.journeys.anatomy },

@@ -1,0 +1,138 @@
+import { describe, it, expect } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import {
+  humaniseIsoDate,
+  datedFactsFromHoldings,
+  chipHtml,
+  stampChipHtml,
+  stampRecordFacts,
+  buildV1Chip,
+} from './build-v1-chip.ts';
+import { V1_COPY } from './render/v1-copy.ts';
+
+// The dated-fact chip build stamp (issues #965, #966): the chip's date + count
+// are derived in ONE place (the holdings manifest) and injected into the single
+// JS source of truth plus the static no-JS baselines. Test names follow
+// Subject_Scenario_Outcome.
+
+// A static chip line in exactly the shape the v1 pages carry.
+const SAMPLE_CHIP =
+  '<span class="chip asof" title="old title">Record as of 1 January 2000 · <b>1</b> publications held</span>';
+const SAMPLE_PAGE = `<!DOCTYPE html><html><body>\n  ${SAMPLE_CHIP}\n  <main>body</main>\n</body></html>`;
+const SAMPLE_FACTS_JS = "export const RECORD_FACTS = { date: '1 January 2000', count: 1 };\n";
+
+describe('build-v1-chip — dated-fact derivation', { tags: ['unit'] }, () => {
+  it('HumaniseIsoDate_FullDate_RendersDayMonthYear_MonthOnlyReturnsNull', () => {
+    expect(humaniseIsoDate('2026-06-23')).toBe('23 June 2026');
+    expect(humaniseIsoDate('2026-06')).toBeNull();
+  });
+
+  it('DatedFactsFromHoldings_FullNewestDate_HumanisesItWithTheCount', () => {
+    expect(datedFactsFromHoldings({ count: 65, latestDateIso: '2026-06-23', latestYear: 2026 }))
+      .toEqual({ date: '23 June 2026', count: 65 });
+  });
+
+  it('DatedFactsFromHoldings_MonthOnlyNewestVintage_FallsBackToTheYearNeverAFabricatedDay', () => {
+    // Unhappy path: the newest vintage is month-only, so latestDateIso is null.
+    // The chip shows the year rather than inventing a day.
+    expect(datedFactsFromHoldings({ count: 40, latestDateIso: null, latestYear: 2025 }))
+      .toEqual({ date: '2025', count: 40 });
+  });
+
+  it('DatedFactsFromHoldings_NoDatesAtAll_DegradesToAnHonestBlankNotABareDash', () => {
+    expect(datedFactsFromHoldings({ count: 0, latestDateIso: null, latestYear: null }))
+      .toEqual({ date: '(date not recorded)', count: 0 });
+  });
+});
+
+describe('build-v1-chip — static-HTML stamping', { tags: ['unit'] }, () => {
+  it('ChipHtml_FromFacts_CarriesTheTemplateTextBoldCountAndHonestTooltip', () => {
+    const html = chipHtml({ date: '23 June 2026', count: 65 });
+    expect(html).toContain('Record as of 23 June 2026 · <b>65</b> publications held');
+    // The tooltip is the honest registry title, with no false "generated" claim.
+    const expectedTitle = V1_COPY.chip.title.replaceAll('{date}', '23 June 2026').replaceAll('{count}', '65');
+    expect(html).toContain(`title="${expectedTitle}"`);
+    expect(html.toLowerCase()).not.toContain('generated from that set');
+  });
+
+  it('StampChipHtml_APageCarryingTheChip_RewritesItToTheDerivedFactsExactlyOnce', () => {
+    const { html, replaced } = stampChipHtml(SAMPLE_PAGE, { date: '23 June 2026', count: 65 });
+    expect(replaced).toBe(1);
+    expect(html).toContain('Record as of 23 June 2026 · <b>65</b> publications held');
+    expect(html).not.toContain('1 January 2000');
+  });
+
+  it('StampChipHtml_RunTwice_IsIdempotentAndDeterministic', () => {
+    const facts = { date: '23 June 2026', count: 65 };
+    const once = stampChipHtml(SAMPLE_PAGE, facts).html;
+    const twice = stampChipHtml(once, facts).html;
+    expect(twice).toBe(once);
+  });
+
+  it('StampChipHtml_APageWithNoChip_ReportsZeroReplacementsSoTheCallerCanFailLoud', () => {
+    const { replaced } = stampChipHtml('<html><body>no chip here</body></html>', { date: 'x', count: 1 });
+    expect(replaced).toBe(0);
+  });
+});
+
+describe('build-v1-chip — JS source stamping', { tags: ['unit'] }, () => {
+  it('StampRecordFacts_RewritesTheSingleLiteral_ToTheDerivedFacts', () => {
+    const { js, replaced } = stampRecordFacts(SAMPLE_FACTS_JS, { date: '23 June 2026', count: 65 });
+    expect(replaced).toBe(1);
+    expect(js).toContain('export const RECORD_FACTS = { date: "23 June 2026", count: 65 };');
+    expect(js).not.toContain('1 January 2000');
+  });
+});
+
+describe('build-v1-chip — deploy integration', { tags: ['unit'] }, () => {
+  function scaffold(holdings: object): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'v1-chip-'));
+    fs.writeFileSync(path.join(dir, 'holdings.json'), JSON.stringify(holdings));
+    fs.writeFileSync(path.join(dir, 'record-facts.js'), SAMPLE_FACTS_JS);
+    fs.writeFileSync(path.join(dir, 'index.html'), SAMPLE_PAGE);
+    fs.writeFileSync(path.join(dir, 'callsign.html'), SAMPLE_PAGE);
+    // A non-chip root page must be left untouched.
+    fs.writeFileSync(path.join(dir, 'redirect.html'), '<html><body>go</body></html>');
+    return dir;
+  }
+
+  const HOLDINGS = { count: 65, heldStartYear: 2013, latestYear: 2026, latestDateIso: '2026-06-23', publications: [], milestones: [] };
+
+  it('BuildV1Chip_FromTheManifest_StampsTheJsSourceAndEveryChipPage', () => {
+    const dir = scaffold(HOLDINGS);
+    const { facts, pagesStamped } = buildV1Chip(dir);
+    expect(facts).toEqual({ date: '23 June 2026', count: 65 });
+    expect(pagesStamped.sort()).toEqual(['callsign.html', 'index.html']);
+    expect(fs.readFileSync(path.join(dir, 'record-facts.js'), 'utf8'))
+      .toContain('date: "23 June 2026", count: 65');
+    for (const page of ['index.html', 'callsign.html']) {
+      expect(fs.readFileSync(path.join(dir, page), 'utf8'))
+        .toContain('Record as of 23 June 2026 · <b>65</b> publications held');
+    }
+    // The non-chip page is left exactly as written.
+    expect(fs.readFileSync(path.join(dir, 'redirect.html'), 'utf8')).toBe('<html><body>go</body></html>');
+  });
+
+  it('BuildV1Chip_RunTwiceOverTheSameManifest_IsByteIdentical', () => {
+    const a = scaffold(HOLDINGS);
+    buildV1Chip(a);
+    const first = fs.readFileSync(path.join(a, 'index.html'));
+    const firstJs = fs.readFileSync(path.join(a, 'record-facts.js'));
+    buildV1Chip(a);
+    expect(fs.readFileSync(path.join(a, 'index.html')).equals(first)).toBe(true);
+    expect(fs.readFileSync(path.join(a, 'record-facts.js')).equals(firstJs)).toBe(true);
+  });
+
+  it('BuildV1Chip_MissingRecordFactsSource_FailsLoud', () => {
+    const dir = scaffold(HOLDINGS);
+    fs.rmSync(path.join(dir, 'record-facts.js'));
+    expect(() => buildV1Chip(dir)).toThrow(/record-facts\.js not found/);
+  });
+
+  it('BuildV1Chip_ManifestWithNoFiniteCount_FailsLoudRatherThanStampingNaN', () => {
+    const dir = scaffold({ ...HOLDINGS, count: 'lots' });
+    expect(() => buildV1Chip(dir)).toThrow(/no finite count/);
+  });
+});

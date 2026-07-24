@@ -11,6 +11,7 @@
 // surface.
 
 import { V1_COPY } from './copy.js';
+import { RECORD_FACTS } from './record-facts.js';
 
 // ---------------------------------------------------------------------------
 // SHARED-MODULE DEPLOY BASE, in one place.
@@ -95,13 +96,14 @@ export function datedFactChipParts(facts) {
 /**
  * Build the header bar. `currentJourney` is the id of the active journey (or ''
  * / unknown for pages outside the nav, e.g. the raw-data guide when it is not
- * the current journey). `facts` fills the dated-fact chip; when omitted the
- * chip is left out (a page with no build stamp still renders a valid bar).
+ * the current journey). `facts` fills the dated-fact chip and defaults to the
+ * single build-injected source (record-facts.js, issues #965/#966), so no page
+ * re-authors the value; pass `null` to omit the chip entirely.
  * @param {string} currentJourney
  * @param {{ date: string, count: number | string } | null} [facts]
  * @returns {HTMLElement}
  */
-export function renderSiteBar(currentJourney, facts = null) {
+export function renderSiteBar(currentJourney, facts = RECORD_FACTS) {
   const bar = el('header', 'sitebar');
   bar.setAttribute('role', 'banner');
   const wrap = el('div', 'wrap');

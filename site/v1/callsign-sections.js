@@ -125,7 +125,7 @@ const link = (href, label, cls = null) => {
  * @property {{ chars: string, name: string, meaning: string }[] | null} anatomy
  * @property {{ events: DialEvent[], sightings: DialSighting[], findings: DialFinding[], bookkeeping: DialBookkeeping[], disagreements: DialDisagreement[], hasEvents: boolean, hasBookkeeping: boolean }} dial
  * @property {TwinView | null} twin  the twin-row conflict annotation (issue #633), or null
- * @property {'fresh' | 'carried' | 'neutral'} carriedOrigin  how this record's licence-chain origin reads against its series introduction
+ * @property {'fresh' | 'carried' | 'coincident' | 'neutral'} carriedOrigin  how this record's licence-chain origin reads against its series introduction
  * @property {string | null} series  e.g. 'M7' (from parsed anatomy prefix)
  * @property {string | null} seriesIntro  the series' introduction month (yyyy-mm), from meta.json's seriesIntro, or null when not recorded
  * @property {AssertedBy | null} seriesIntroSource  the citation for the series-introduction reference data (issue #954), from meta.json's seriesIntroSource, or null when not carried
@@ -257,15 +257,19 @@ export function buildCallsignModel(deps) {
   // fabricate a source for the context row.
   const seriesIntroSource = eventMeta != null && eventMeta.seriesIntroSource != null ? eventMeta.seriesIntroSource : null;
 
-  // Carried-origin state, DATA-DRIVEN (issue #921): compare the licence-chain
-  // origin month to the series introduction month, where both are known. When
-  // the series introduction is not recorded, the record asserts NEITHER path —
-  // a neutral explainer, never a declarative fresh/carried claim.
+  // Carried-origin state, DATA-DRIVEN (issues #921, #965): compare the licence-
+  // chain origin month to the series introduction month, where both are known.
+  // The comparison is three-way at month precision so the boundary is described
+  // accurately — an origin month EQUAL to the introduction month is not "dated
+  // after" it, so it reads as 'coincident' (no confident fresh/carried claim)
+  // rather than being mislabelled 'fresh'. When the series introduction is not
+  // recorded, the record asserts NO path — a neutral explainer.
   const originDate = record.d !== undefined && typeof record.d.o === 'string' ? record.d.o : null;
-  /** @type {'fresh' | 'carried' | 'neutral'} */
+  /** @type {'fresh' | 'carried' | 'coincident' | 'neutral'} */
   let carriedOrigin = 'neutral';
   if (seriesIntro !== null && originDate !== null && /^\d{4}-\d{2}/.test(originDate)) {
-    carriedOrigin = originDate.slice(0, 7) < seriesIntro ? 'carried' : 'fresh';
+    const originMonth = originDate.slice(0, 7);
+    carriedOrigin = originMonth < seriesIntro ? 'carried' : originMonth > seriesIntro ? 'fresh' : 'coincident';
   }
 
   return { key, cleaned: res.cleaned, found: true, viaRendering, latest, seen, anatomy, dial: { events, sightings, findings, bookkeeping, disagreements, hasEvents, hasBookkeeping }, twin, carriedOrigin, series, seriesIntro, seriesIntroSource };
@@ -363,22 +367,30 @@ const NEAR_DATED_CAPTION_WIDTH_REM = 7;
 const DIAL_AXIS_MIN_WIDTH_REM = 600 / 16;
 export const NEAR_DATED_SEPARATION_THRESHOLD_PERCENT = (NEAR_DATED_CAPTION_WIDTH_REM / DIAL_AXIS_MIN_WIDTH_REM) * 100;
 
-// Whether a day-group is the agreeing origin shape (issue #921): it holds all
-// three origin kinds (issued, original start, version start), none of those
-// kinds is also stated on a different day, and no held vintage disagrees about
-// any of them. Every divergence — a spread date or a surfaced disagreement —
-// returns false, so the rail falls back to the plain grouped card with distinct
-// rows. Record-scoped: this reads the held record's own coincidence, never an
-// unqualified claim about the register.
+// Whether a day-group is the agreeing origin shape (issues #921, #965): it holds
+// all three origin kinds (issued, original start, version start), none of those
+// kinds is also stated on a different day, no held vintage disagrees about any of
+// them, and — where the series introduction month is known — the coinciding day
+// is not before the series existed. Every divergence — a spread date, a surfaced
+// disagreement, or a pre-series date — returns false, so the rail falls back to
+// the plain grouped card with distinct rows. Record-scoped: this reads the held
+// record's own coincidence, never an unqualified claim about the register.
 /**
  * @param {{ day: string, events: DialEvent[] }} group
  * @param {{ day: string, events: DialEvent[] }[]} allGroups
  * @param {DialDisagreement[]} disagreements
+ * @param {string | null} [seriesIntro]  the series' introduction month (yyyy-mm), when known
  * @returns {boolean}
  */
-export function isAgreeingOriginGroup(group, allGroups, disagreements) {
+export function isAgreeingOriginGroup(group, allGroups, disagreements, seriesIntro = null) {
   const groupKinds = new Set(group.events.map((e) => e.kindId));
   if (!ORIGIN_KIND_IDS.every((k) => groupKinds.has(k))) return false;
+  // Pre-series guard (issue #965): the "licence origin = issuance" story asserts
+  // an issuance, so it must not fire when the coinciding origins predate the
+  // callsign's own series — that would present an issuance of a callsign that did
+  // not yet exist. Such a record falls to the plain grouped rows, where the
+  // carried-history reading belongs.
+  if (seriesIntro !== null && /^\d{4}-\d{2}/.test(group.day) && group.day.slice(0, 7) < seriesIntro) return false;
   // Divergence: an origin kind also stated on another day (dates differ).
   for (const other of allGroups) {
     if (other === group) continue;
@@ -1257,7 +1269,7 @@ function mountEventTimeline(host, model) {
     // day renders the plain grouped card with its events distinguished within.
     const groups = groupEventsByDay(events);
     for (const group of groups) {
-      tlWrap.appendChild(isAgreeingOriginGroup(group, groups, model.dial.disagreements)
+      tlWrap.appendChild(isAgreeingOriginGroup(group, groups, model.dial.disagreements, model.seriesIntro)
         ? originGroupRow(group)
         : plainGroupRow(group));
     }
@@ -1383,13 +1395,17 @@ function mountRecordFidelity(host, model) {
 function mountExtras(host, model) {
   // Carried-origin explainer (folded). DATA-DRIVEN: the paragraph reflects this
   // record's own origin-vs-series state — "fresh" when the licence-chain origin
-  // post-dates the series, "carried" when it pre-dates it, and "neutral" when
-  // the series introduction is not recorded, so no path is asserted.
+  // is dated after the series, "carried" when it pre-dates it, "coincident" when
+  // origin and series fall in the same month, and "neutral" when the series
+  // introduction is not recorded, so no path is asserted.
   const carried = el('details', 'fold');
   carried.appendChild(el('summary', null, V1_COPY.callsign.carriedOrigin.label));
   const cb = el('div', 'b');
   const co = V1_COPY.callsign.carriedOrigin;
-  const para = model.carriedOrigin === 'fresh' ? co.ordinary : model.carriedOrigin === 'carried' ? co.carried : co.neutral;
+  const para = model.carriedOrigin === 'fresh' ? co.ordinary
+    : model.carriedOrigin === 'carried' ? co.carried
+    : model.carriedOrigin === 'coincident' ? co.coincident
+    : co.neutral;
   cb.appendChild(el('p', null, para));
   carried.appendChild(cb);
   host.appendChild(carried);

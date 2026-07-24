@@ -1025,6 +1025,15 @@ jobs:
       # Runs AFTER the callsign data is at the root, since it reads that manifest.
       - name: Build the home holdings manifest
         run: node src/ci/build-home-holdings.ts _site
+      # Dated-fact chip (issues #921, #965, #966): stamp the record's currency —
+      # the newest held publication date and the count held — into the single JS
+      # source of truth (record-facts.js, which the shared site bar reads) and
+      # every root v1 page's static no-JS baseline, DERIVED from the holdings
+      # manifest just built above. This makes the chip build-derived, crawler-
+      # visible and non-drifting; a cross-page parity test guards the baselines.
+      # Runs after the holdings manifest and OUTSIDE the golden-master closure.
+      - name: Stamp the dated-fact chip
+        run: node src/ci/build-v1-chip.ts _site
       # v1 history manifests (issue #932): the on-this-day calendar and the
       # event-time timeline are derived here as small, root-served JSON
       # (_site/on-this-day.json, _site/timeline.json), so the v1 history pages
