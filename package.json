@@ -35,7 +35,7 @@
     "csv-parse": "^7.0.1",
     "csv-stringify": "^6.8.1",
     "dotenv": "^17.4.2",
-    "jsdom": "^29.1.1"
+    "jsdom": "^30.0.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
