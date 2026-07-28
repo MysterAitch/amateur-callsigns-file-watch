@@ -148,6 +148,44 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+  # MICRO benchmarks, in-process. Separate from the arm matrix above because the
+  # two answer different questions at wildly different precision: whole-job
+  # wall-clock carries ~70% jitter and can only resolve process-level levers
+  # (coverage provider, GC flags, pool); these carry ~1% and resolve algorithmic
+  # differences the macro arms could never see. Measure at the LOWEST level that
+  # can answer the question.
+  #
+  # Runs WITHOUT coverage deliberately: instrumentation is not neutral between
+  # candidates - istanbul instruments user JS while JSON.stringify is native C++
+  # and receives none - so an instrumented benchmark systematically flatters
+  # builtins. This is the regime production actually uses.
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Significance is decided by each benchmark's OWN margin of error - two
+      # results differ only when their confidence intervals do not overlap - plus
+      # an independent floor on effect size, so a measurable-but-trivial shift is
+      # not announced. Silence is the designed-for outcome.
+      - name: Run the benchmark suite
+        run: |
+          set -euo pipefail
+          node src/ci/bench-suite.ts             --out bench-results.json             --baseline src/testing/bench-baseline.json             | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: bench-results
+          path: bench-results.json
+          retention-days: 90
+          if-no-files-found: warn
+
   collate:
     needs: arm
     if: ${{ !cancelled() }}
