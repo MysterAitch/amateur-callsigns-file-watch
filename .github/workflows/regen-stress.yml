@@ -244,15 +244,6 @@ jobs:
           cache: npm
       - run: npm ci
       - uses: ./.github/actions/setup-duckdb
-      - name: Build shared claim-ledger Parquet
-        env:
-          PARQUET_STREAM: ${{ matrix.pq_stream }}
-        run: |
-          set -euo pipefail
-          mkdir -p .diagnostics
-          /usr/bin/time -v -o .diagnostics/rusage-parquet-build.txt \
-            node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only
-          stat -c "%n %s bytes" "$RUNNER_TEMP/claims.parquet" >> .diagnostics/runner-facts.txt
       - name: Record runner facts and start sampler
         env:
           ARM: ${{ matrix.arm }}
@@ -281,6 +272,15 @@ jobs:
       # peak is released before the folds start. Captured under /usr/bin/time -v
       # because this is the largest single allocation in the pipeline (measured
       # 3.08 GB at 9 publications, 2026-07-28) and a sampler can miss its peak.
+      - name: Build shared claim-ledger Parquet
+        env:
+          PARQUET_STREAM: ${{ matrix.pq_stream }}
+        run: |
+          set -euo pipefail
+          mkdir -p .diagnostics
+          /usr/bin/time -v -o .diagnostics/rusage-parquet-build.txt \
+            node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only
+          stat -c "%n %s bytes" "$RUNNER_TEMP/claims.parquet" >> .diagnostics/runner-facts.txt
       - name: Build the builder projection (separate process, as golden-master does)
         id: projection
         run: |
