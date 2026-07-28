@@ -22,6 +22,12 @@
 //   - rawtext elements (script, style, iframe, …), whose children the HTML
 //     serialiser emits UNESCAPED (a `</script>` in an FOI title would break
 //     out), are refused at construction AND re-checked at serialisation;
+//   - every guard above is re-applied at serialisation to the tree AS IT
+//     STANDS — element categories, attribute names and URL schemes alike —
+//     because "this tree came from el()" is not a property serialise() can
+//     rely on: a node can be appended by other code, or an el() node mutated
+//     after construction. Both layers read the same sources, so they cannot
+//     drift apart;
 //   - void elements refuse children, and the serialiser — the platform's own
 //     HTML fragment serialisation via the outerHTML getter, never a hand-rolled
 //     escaper — emits them per spec (`<br>`, no closing tag);
@@ -34,7 +40,7 @@
 // serialisation SOURCE (spec: HTML fragment serialisation algorithm), not a
 // sink.
 
-import { safeHref } from './safe-url.js';
+import { isSafeUrl, safeHref } from './safe-url.js';
 
 /**
  * A child of el(): text (string/number), a DOM node, null/undefined for "not
@@ -195,18 +201,32 @@ function flattenChildren(tag, children, out) {
 }
 
 /**
+ * Why an attribute NAME is refused, or null when it is permitted. The single
+ * source both layers read: construction refuses the name outright, and the
+ * serialise-time re-check refuses a node carrying it — so, exactly as with
+ * REFUSED_ELEMENTS, there is no second list to keep in step.
+ * @param {string} name
+ * @returns {string | null}
+ */
+function attributeNameRefusal(name) {
+  if (EVENT_HANDLER_NAME.test(name)) {
+    return `event-handler attribute "${name}" — behaviour is wired by enhance(), never by a markup attribute`;
+  }
+  if (!ATTRIBUTE_NAME_ALLOWLIST.has(name) && !ATTRIBUTE_NAME_PATTERN.test(name)) {
+    return `attribute name "${name}" is not on the allowlist (site/v1/el.js) — attribute names are never data-derived; add a genuinely needed name there deliberately`;
+  }
+  return null;
+}
+
+/**
  * @param {HTMLElement} node
  * @param {string} name
  * @param {ElAttrValue} value
  * @returns {void}
  */
 function setGuardedAttribute(node, name, value) {
-  if (EVENT_HANDLER_NAME.test(name)) {
-    throw new Error(`el(): refusing event-handler attribute "${name}" — behaviour is wired by enhance(), never by a markup attribute`);
-  }
-  if (!ATTRIBUTE_NAME_ALLOWLIST.has(name) && !ATTRIBUTE_NAME_PATTERN.test(name)) {
-    throw new Error(`el(): attribute name "${name}" is not on the allowlist (site/v1/el.js) — attribute names are never data-derived; add a genuinely needed name there deliberately`);
-  }
+  const refusal = attributeNameRefusal(name);
+  if (refusal !== null) throw new Error(`el(): refusing ${refusal}`);
   if (value === null || value === undefined || value === false) return; // omit
   const str = value === true ? '' : String(value);
   node.setAttribute(name, URL_VALUED_ATTRIBUTES.has(name) ? safeHref(str) : str);
@@ -292,6 +312,30 @@ const ELEMENT_NODE = 1;
 const TEXT_NODE = 3;
 
 /**
+ * Re-apply the construction-time attribute guards to an element as it actually
+ * stands. Construction guards the attributes it is GIVEN; this reads the ones
+ * the node CARRIES, so neither a node built outside el() nor an el() node
+ * mutated after construction can carry an event handler or a script-scheme URL
+ * into the output. Both checks read the same sources construction does
+ * (attributeNameRefusal, the URL-valued set, safe-url's scheme allowlist).
+ * @param {Element} element
+ * @returns {void}
+ */
+function assertAttributesGuarded(element) {
+  const tag = element.nodeName.toLowerCase();
+  for (const attribute of element.attributes) {
+    const name = attribute.name.toLowerCase();
+    const refusal = attributeNameRefusal(name);
+    if (refusal !== null) {
+      throw new Error(`serialise(): refusing a tree whose <${tag}> carries ${refusal}`);
+    }
+    if (URL_VALUED_ATTRIBUTES.has(name) && !isSafeUrl(attribute.value)) {
+      throw new Error(`serialise(): refusing a tree whose <${tag}> carries a ${name} whose scheme is not on the allowlist (site/v1/safe-url.js) — a URL that never passed through construction is not trusted at serialisation either`);
+    }
+  }
+}
+
+/**
  * Walk the whole tree and refuse anything the platform serialiser would emit
  * unsafely: any node that is not an element or a text node (comment / PI /
  * CDATA), and any element from a construction-refused category. The two checks
@@ -308,6 +352,7 @@ function assertSerialisableTree(root) {
     if (REFUSED_ELEMENTS.has(current.nodeName.toLowerCase())) {
       throw new Error(`serialise(): refusing a tree containing <${current.nodeName.toLowerCase()}> — ${refusalReason(current.nodeName.toLowerCase())}`);
     }
+    assertAttributesGuarded(current);
     for (const child of current.childNodes) {
       if (child.nodeType === TEXT_NODE) continue; // text is entity-escaped by the serialiser
       if (child.nodeType !== ELEMENT_NODE) {

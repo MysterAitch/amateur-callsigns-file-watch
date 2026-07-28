@@ -8,6 +8,14 @@ import { el, serialise } from './el.js';
 // reparse. Held in this test file as executable verification of the refusal.
 const COMMENT_TERMINATOR_BREAKOUT = '--><img src=x onerror=alert(1)>';
 
+// An event-handler attribute name and a script-scheme URL: the two values
+// construction refuses outright (the on* refusal and the safe-url scheme
+// allowlist). Held here as executable verification that serialisation refuses
+// them too, on a node construction never saw.
+const HANDLER_ATTRIBUTE_NAME = 'onerror';
+const HANDLER_ATTRIBUTE_VALUE = 'alert(1)';
+const SCRIPT_SCHEME_URL = 'javascript:alert(1)';
+
 // The el() DOM-construction foundation (issue #966, ADR 0022): construction
 // semantics, the fail-loud residual guards (attribute-name allowlist, URL
 // scheme routing, rawtext refusal, void-element correctness), and the
@@ -215,8 +223,8 @@ describe('v1 el() foundation — the platform serialiser', { tags: ['ui'] }, () 
   });
 
   it('Serialise_SmuggledCommentAtArbitraryDepth_RefusedAnywhereInTheTree', () => {
-    // The reviewer reproduced the smuggle at depth, not only as a direct child —
-    // so the walk must reach every descendant, not just the root's children.
+    // A smuggle at depth is the same hazard as one at the root, so the walk must
+    // reach every descendant, not only the root's direct children.
     const host = el('div', null, el('section', null, el('p', null, 'x')));
     host.querySelector('p')?.appendChild(document.createComment(COMMENT_TERMINATOR_BREAKOUT));
     expect(() => serialise(host)).toThrow(/comment|non-element/);
@@ -245,6 +253,59 @@ describe('v1 el() foundation — the platform serialiser', { tags: ['ui'] }, () 
     const host = el('div', null, 'x');
     host.appendChild(document.createElement('template'));
     expect(() => serialise(host)).toThrow(/structural-hazard|template|content fragment/);
+  });
+
+  it('Serialise_SmuggledElementCarryingAnEventHandler_RefusedSymmetricallyWithConstruction', () => {
+    // Construction refuses on* attribute names outright; the serialise re-check
+    // must refuse them too, or the guard that stops the classic injection has no
+    // serialisation-time counterpart while the element categories do.
+    const host = el('div', null, el('p', null, 'x'));
+    const smuggled = document.createElement('img');
+    smuggled.setAttribute('src', 'x');
+    smuggled.setAttribute(HANDLER_ATTRIBUTE_NAME, HANDLER_ATTRIBUTE_VALUE);
+    host.appendChild(smuggled);
+    // The danger is real: raw platform serialisation of this tree, reparsed the
+    // way a browser meeting the static page would, yields a live handler —
+    // asserted on the PARSED DOM, not on the markup string.
+    const leaked = new DOMParser().parseFromString(host.outerHTML, 'text/html');
+    const handlerSurvived = [...leaked.querySelectorAll('*')]
+      .some(node => [...node.attributes].some(attr => attr.name.toLowerCase().startsWith('on')));
+    expect(handlerSurvived, 'the raw serialisation would ship a live handler').toBe(true);
+    expect(() => serialise(host)).toThrow(/event-handler|attribute/);
+  });
+
+  it('Serialise_SmuggledElementWithAScriptSchemeUrl_RefusedSymmetricallyWithConstruction', () => {
+    // Construction routes href/src/cite through the scheme allowlist; a node
+    // that never passed through construction carries its URL verbatim, so the
+    // re-check must re-apply the same allowlist rather than trust the tree.
+    const host = el('div', null, 'x');
+    const smuggled = document.createElement('a');
+    smuggled.setAttribute('href', SCRIPT_SCHEME_URL);
+    smuggled.textContent = 'click';
+    host.appendChild(smuggled);
+    const leaked = new DOMParser().parseFromString(host.outerHTML, 'text/html');
+    expect(leaked.querySelector('a')?.getAttribute('href'), 'the raw serialisation would ship the script-scheme URL').toBe(SCRIPT_SCHEME_URL);
+    expect(() => serialise(host)).toThrow(/scheme|href|attribute/);
+  });
+
+  it('Serialise_ElBuiltNodeMutatedAfterConstruction_RefusedBecauseTheCheckReadsTheTreeNotItsHistory', () => {
+    // Construction-time guards alone are insufficient: a node el() built and
+    // approved can be mutated before it reaches the serialiser, so "this tree
+    // came from el()" is never the property being relied on — the re-check reads
+    // the tree as it stands.
+    const link = el('a', { href: '/ok' }, 'link');
+    link.setAttribute('href', SCRIPT_SCHEME_URL);
+    expect(() => serialise(el('p', null, link))).toThrow(/scheme|href|attribute/);
+  });
+
+  it('Serialise_SmuggledElementWithANonAllowlistedAttributeName_RefusedLikeConstructionDoes', () => {
+    // The attribute-NAME allowlist is a construction guard; symmetry means a
+    // name construction would have refused cannot arrive by another route.
+    const host = el('div', null, 'x');
+    const smuggled = document.createElement('span');
+    smuggled.setAttribute('style', 'position:fixed;inset:0');
+    host.appendChild(smuggled);
+    expect(() => serialise(host)).toThrow(/allowlist|attribute/);
   });
 
   it('Serialise_LegitimateElAndTextTree_StillSerialisesUnaffectedByTheWholeTreeCheck', () => {
