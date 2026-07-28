@@ -44,7 +44,7 @@
     "@types/node": "^26.1.1",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.8.0",
-    "globals": "^17.7.0",
+    "globals": "^17.8.0",
     "js-yaml": "^5.2.2",
     "parse5": "^8.0.1",
     "sql.js-httpvfs": "^0.8.12",
