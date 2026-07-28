@@ -86,11 +86,12 @@ jobs:
           cache: npm
       - run: npm ci
       - uses: ./.github/actions/setup-duckdb
-      # NOT committed: only this matrix compares providers, and the repo ships
-      # one. --ignore-scripts per the supply-chain posture (ADR 0012).
-      - name: Install the non-default coverage provider
-        if: matrix.arm.coverage == 'v8'
-        run: npm install --no-save --ignore-scripts @vitest/coverage-v8
+      # NOTE: both coverage providers are real, lockfile-pinned devDependencies.
+      # An earlier draft installed the non-default one ad hoc with
+      # `npm install --no-save`; zizmor rejected it as installing outside the
+      # lockfile, and it was right on the substance as well as the rule - a
+      # benchmark that floats to whatever version npm resolves that morning
+      # cannot be compared against a stored baseline.
       # FIDELITY: the real `fast` job consumes the shared Parquet. Without it
       # those suites materialise the ledger on demand and measure a job the
       # pipeline never runs.
