@@ -5,6 +5,7 @@ import * as path from 'path';
 import {
   csvFileList,
   cleanedKeyExpr,
+  describeSpawnFailure,
   foldQuery,
   duckDbAvailable,
   claimsRelation,
@@ -103,6 +104,44 @@ describe('report-fold — claims source resolution (issue #403)', { tags: ['unit
       else process.env[CLAIMS_PARQUET_ENV] = original;
       fs.rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('report-fold — a failed fold names its reason', { tags: ['unit'] }, () => {
+  // A fold that dies leaves the operator holding a CI log. What that log has to
+  // answer is WHY, and the two answers that matter read very differently: DuckDB
+  // rejecting the query (a diagnostic on stderr) and DuckDB being killed
+  // outright (no output at all, only a signal). The thrown error carries the
+  // command, which names neither.
+
+  it('FailedFold_WhenDuckDbWroteADiagnostic_TheErrorCarriesThatDiagnostic', () => {
+    const described = describeSpawnFailure({ status: 1, stderr: 'Parser Error: syntax error at or near "SELCT"' });
+    expect(described).toContain('Parser Error');
+    expect(described).toContain('exit status 1');
+  });
+
+  it('FailedFold_WhenDuckDbWasKilledWithNoOutput_TheErrorNamesTheSignalAndSaysSoExplicitly', () => {
+    // The out-of-memory case: no stderr at all, so an error that reports only
+    // the command is indistinguishable from a bad query. The signal is the whole
+    // signal, and it is named rather than left for the reader to infer.
+    const described = describeSpawnFailure({ signal: 'SIGKILL', status: null, stderr: '' });
+    expect(described).toContain('SIGKILL');
+    expect(described).toContain('out-of-memory');
+    expect(described).toContain('no stderr output');
+  });
+
+  it('FailedFold_WhenStderrArrivesAsABuffer_ItIsStillReadable', () => {
+    // execFileSync hands back Buffers unless an encoding is set, so a Buffer must
+    // not degrade to "[object Object]" in the one place the reason is recorded.
+    expect(describeSpawnFailure({ status: 1, stderr: Buffer.from('Out of Memory Error: could not allocate') }))
+      .toContain('Out of Memory Error');
+  });
+
+  it('FailedFold_WhenTheErrorIsNotAnObject_DescribingItAddsNothingRatherThanThrowing', () => {
+    // The describer runs inside a catch; it must never be the thing that fails.
+    expect(describeSpawnFailure('a string')).toBe('');
+    expect(describeSpawnFailure(null)).toBe('');
+    expect(describeSpawnFailure(undefined)).toBe('');
   });
 });
 

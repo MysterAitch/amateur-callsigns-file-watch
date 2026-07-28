@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { escapeHtml, isSafeUrl, safeUrl, externalLink } from './html.ts';
+import { escapeHtml, passesSchemeAllowlist, neutraliseDisallowedScheme, externalLink } from './html.ts';
 
 // The lowest-level render helpers carry two security contracts (issues #966,
 // #969): escapeHtml neutralises every HTML metacharacter that could break out
-// of an attribute or element, and isSafeUrl/safeUrl allowlist the scheme of any
+// of an attribute or element, and passesSchemeAllowlist/neutraliseDisallowedScheme allowlist the scheme of any
 // URL that reaches an href/src. Test names follow Subject_Scenario_Outcome.
 
 describe('escapeHtml', { tags: ['unit'] }, () => {
@@ -31,7 +31,7 @@ describe('escapeHtml', { tags: ['unit'] }, () => {
   });
 });
 
-describe('isSafeUrl / safeUrl scheme allowlist', { tags: ['unit'] }, () => {
+describe('passesSchemeAllowlist / neutraliseDisallowedScheme scheme allowlist', { tags: ['unit'] }, () => {
   // Obfuscation vectors drawn from the OWASP/PortSwigger XSS filter-evasion
   // families: the WHATWG parser decodes and normalises each one exactly as a
   // browser would, so allowlisting the parsed scheme catches them all.
@@ -51,8 +51,8 @@ describe('isSafeUrl / safeUrl scheme allowlist', { tags: ['unit'] }, () => {
 
   for (const [label, url] of Object.entries(HOSTILE)) {
     it(`SafeUrl_WhenSchemeIsHostileOrObfuscated_NeutralisesToHash [${label}]`, () => {
-      expect(isSafeUrl(url)).toBe(false);
-      expect(safeUrl(url)).toBe('#');
+      expect(passesSchemeAllowlist(url)).toBe(false);
+      expect(neutraliseDisallowedScheme(url)).toBe('#');
     });
   }
 
@@ -72,8 +72,8 @@ describe('isSafeUrl / safeUrl scheme allowlist', { tags: ['unit'] }, () => {
 
   for (const url of SAFE) {
     it(`SafeUrl_WhenRelativeOrHttpsOrMailto_PassesThrough [${JSON.stringify(url)}]`, () => {
-      expect(isSafeUrl(url)).toBe(true);
-      expect(safeUrl(url)).toBe(url);
+      expect(passesSchemeAllowlist(url)).toBe(true);
+      expect(neutraliseDisallowedScheme(url)).toBe(url);
     });
   }
 });

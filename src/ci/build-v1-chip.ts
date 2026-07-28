@@ -35,8 +35,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { V1_COPY } from './render/v1-copy.ts';
+import { JSDOM } from 'jsdom';
 import { parseJsonObject } from '../shared/json-shape.ts';
+import { serialise, setBuildDocument } from '../../site/v1/el.js';
+import * as chip from '../../site/v1/chip.js';
 
 export interface RecordFacts {
   date: string;
@@ -74,37 +76,51 @@ export function datedFactsFromHoldings(h: ChipHoldings): RecordFacts {
   return { date, count: h.count };
 }
 
-function escAttr(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    // The apostrophe is escaped too (issue #966), so this attribute escaper is
-    // safe regardless of the surrounding quote style.
-    .replace(/'/g, '&#x27;');
-}
+// The el() foundation's Node build backend (ADR 0022): one jsdom document,
+// supplied once, used only where no browser document exists — so importing
+// this module from a DOM-environment test leaves that environment untouched.
+setBuildDocument(new JSDOM('').window.document);
 
-function escText(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-// The chip's static-HTML markup, built from the copy registry template + title.
-// The count is split off the TEMPLATE (never the rendered string, which can also
-// contain the count inside the date) and bolded, matching the shell's DOM render
-// so the parity test compares like with like.
+// The chip's static-HTML markup: the SAME renderStatic the browser site bar
+// appends (site/v1/chip.js), serialised by the platform's HTML serialiser
+// under the jsdom build backend. The static baseline is thereby GENERATED from
+// the one implementation — there is no second, hand-baked markup string left
+// to drift from the browser render (ADR 0022 retires duplicate-plus-guard).
 export function chipHtml(facts: RecordFacts): string {
-  const [rawBefore, rawAfter = ''] = V1_COPY.chip.template.split('{count}');
-  const before = rawBefore.replaceAll('{date}', facts.date);
-  const after = rawAfter.replaceAll('{date}', facts.date);
-  const title = V1_COPY.chip.title.replaceAll('{date}', facts.date).replaceAll('{count}', String(facts.count));
-  return `<span class="chip asof" title="${escAttr(title)}">${escText(before)}<b>${facts.count}</b>${escText(after)}</span>`;
+  const html = serialise(chip.renderStatic(facts));
+  // The generated chip must be matched WHOLE by the very pattern the stamp uses
+  // to find chips in a page. Checking the coupling end to end — rather than
+  // checking the one input that can currently break it — means any future
+  // divergence (a new attribute, a reordered one, a nested span, a line break)
+  // fails loudly here instead of silently stamping partial markup into a page.
+  if (!WHOLE_CHIP_RE.test(html)) {
+    throw new Error(`build-v1-chip: the generated chip is not matched whole by the page-stamp pattern, so stamping it into a page would corrupt the markup: ${html}`);
+  }
+  return html;
 }
 
-// The chip span sits on a single line, and its title carries no '>' — so a
-// greedy-safe `[^>]*` over the attributes plus a non-greedy body to the first
-// closing tag matches exactly one chip per occurrence without over-reaching.
-const CHIP_RE = /<span class="chip asof"[^>]*>.*?<\/span>/g;
+// The page stamp's chip pattern, written ONCE and used both to FIND chips in a
+// page and to check that the chip this module GENERATES is matchable by it.
+//
+// The attribute run consumes any double-quoted value ATOMICALLY (`"[^"]*"`)
+// rather than scanning for the next '>' — because the HTML serialiser escapes
+// '&' and '"' inside an attribute value but leaves '<' and '>' RAW. Angle
+// brackets in a title are perfectly ordinary content ("Home > Datasets",
+// "10 > 1", "1000 entries <= 01-Jan-2025") and parse back with full fidelity,
+// so the pattern accommodates them rather than the title avoiding them. A
+// naive `[^>]*` run would end the tag early at such a character, and if the
+// same value later contained a closing-tag sequence the match would terminate
+// inside the attribute, replacing part of the chip and orphaning the rest.
+//
+// What the pattern still relies on is that a '"' inside an attribute value is
+// escaped — guaranteed by the serialiser and pinned by el.test.ts's
+// Serialise_AttributeValueContainingQuotes_IsAlwaysDoubleQuotedAndEscaped —
+// and that the chip is a single-line span with no nested span. chipHtml()
+// asserts the generated chip is matched WHOLE rather than trusting the two ends
+// of the coupling to stay in step.
+const CHIP_PATTERN = '<span class="chip asof"(?:"[^"]*"|[^">])*>.*?<\\/span>';
+const CHIP_RE = new RegExp(CHIP_PATTERN, 'g');
+const WHOLE_CHIP_RE = new RegExp(`^${CHIP_PATTERN}$`);
 
 // Which static HTML pages in a site root carry the dated-fact chip, decided by
 // content scan for the same marker the stamp itself matches on

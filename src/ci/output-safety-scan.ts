@@ -26,7 +26,7 @@
  */
 
 import { parseFragment } from 'parse5';
-import { isSafeUrl } from './render/html.ts';
+import { passesSchemeAllowlist } from './render/html.ts';
 
 // URL-bearing attributes a browser will navigate to or fetch from.
 const URL_ATTRIBUTES = new Set(['href', 'src', 'action', 'formaction', 'xlink:href', 'poster']);
@@ -46,7 +46,7 @@ export interface ScanOptions {
   allowInlineScripts: boolean;
 }
 
-// The scan's URL allowlist is the shared isSafeUrl policy (http/https/mailto/
+// The scan's URL allowlist is the shared scheme-allowlist policy (http/https/mailto/
 // relative) PLUS one narrow, documented carve-out: a `data:image/…` URI. The
 // static pages carry inline SVG favicons as `data:image/svg+xml` link icons - a
 // safe, non-scripting image data URI - so the gate permits image data URIs
@@ -64,7 +64,7 @@ function isImageDataUri(value: string): boolean {
 }
 
 function isAllowedUrlValue(value: string): boolean {
-  return isSafeUrl(value) || isImageDataUri(value);
+  return passesSchemeAllowlist(value) || isImageDataUri(value);
 }
 
 // A short, safe-to-log fingerprint of an attribute or script body.

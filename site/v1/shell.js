@@ -12,7 +12,8 @@
 
 import { V1_COPY } from './copy.js';
 import { RECORD_FACTS } from './record-facts.js';
-import { safeHref } from './safe-url.js';
+import { neutraliseDisallowedScheme } from './safe-url.js';
+import * as chip from './chip.js';
 
 // ---------------------------------------------------------------------------
 // SHARED-MODULE DEPLOY BASE, in one place.
@@ -64,35 +65,9 @@ function journeys() {
 }
 
 // ---------------------------------------------------------------------------
-// renderSiteBar — the white full-width header bar.
-
-/**
- * The dated-fact chip text, from the build-stamped facts. Never the word
- * "current": it states, as a fact, the newest publication held and the count.
- * @param {{ date: string, count: number | string }} facts
- * @returns {{ text: string, title: string }}
- */
-export function datedFactChip(facts) {
-  /** @param {string} s */
-  const fill = (s) => s.replaceAll('{date}', facts.date).replaceAll('{count}', String(facts.count));
-  return { text: fill(V1_COPY.chip.template), title: fill(V1_COPY.chip.title) };
-}
-
-/**
- * The chip's parts, split STRUCTURALLY on the {count} placeholder in the
- * template — never on the rendered count value. The rendered count can also
- * occur inside the date (e.g. "23 June 2026" with 23 publications held), so
- * splitting the finished string on the count would break the chip; splitting
- * the template on the placeholder before the date is substituted cannot.
- * @param {{ date: string, count: number | string }} facts
- * @returns {{ before: string, count: string, after: string, title: string }}
- */
-export function datedFactChipParts(facts) {
-  const [rawBefore, rawAfter = ''] = V1_COPY.chip.template.split('{count}');
-  /** @param {string} s */
-  const fillDate = (s) => s.replaceAll('{date}', facts.date);
-  return { before: fillDate(rawBefore), count: String(facts.count), after: fillDate(rawAfter), title: datedFactChip(facts).title };
-}
+// renderSiteBar — the white full-width header bar. The dated-fact chip itself
+// is the shared component (site/v1/chip.js, ADR 0022): the same renderStatic
+// the build stamp serialises into the static baselines renders it here.
 
 /**
  * Build the header bar. `currentJourney` is the id of the active journey (or ''
@@ -114,16 +89,7 @@ export function renderSiteBar(currentJourney, facts = RECORD_FACTS) {
   top.appendChild(el('span', 'id', V1_COPY.brand.id));
   top.appendChild(el('span', null, V1_COPY.brand.tagline));
   if (facts !== null) {
-    const parts = datedFactChipParts(facts);
-    // A stated fact, not a link: the data-status surface it once pointed at is
-    // not part of the v1 surface, so the chip carries the fact in a tooltip
-    // rather than leading off the surface.
-    const chip = el('span', 'chip asof');
-    chip.setAttribute('title', parts.title);
-    chip.append(parts.before);
-    chip.appendChild(el('b', null, parts.count));
-    if (parts.after !== '') chip.append(parts.after);
-    top.appendChild(chip);
+    top.appendChild(chip.renderStatic(facts));
   }
   wrap.appendChild(top);
 
@@ -134,7 +100,7 @@ export function renderSiteBar(currentJourney, facts = RECORD_FACTS) {
   list.forEach((jr, i) => {
     if (i > 0) nav.appendChild(el('span', 'sep', '·'));
     const a = el('a', null, jr.label);
-    a.setAttribute('href', safeHref(jr.href));
+    a.setAttribute('href', neutraliseDisallowedScheme(jr.href));
     if (jr.id === currentJourney) a.setAttribute('aria-current', 'page');
     nav.appendChild(a);
   });
@@ -159,7 +125,7 @@ export function renderBreadcrumb(crumbs) {
     const last = i === crumbs.length - 1;
     if (crumb.href !== undefined && !last) {
       const a = el('a', null, crumb.label);
-      a.setAttribute('href', safeHref(crumb.href));
+      a.setAttribute('href', neutraliseDisallowedScheme(crumb.href));
       nav.appendChild(a);
     } else {
       nav.appendChild(el('b', null, crumb.label));

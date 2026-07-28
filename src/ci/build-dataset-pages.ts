@@ -56,7 +56,7 @@ import { parseJsonObject } from '../shared/json-shape.ts';
 import {
   REPO_URL,
   escapeHtml,
-  safeUrl,
+  neutraliseDisallowedScheme,
   formatBytes,
   sizeOf,
   humanDate,
@@ -219,7 +219,7 @@ function witnessLinks(witnesses: FoiWitness[] | undefined, heldHashes: ReadonlyS
     const publisherLink = publisher === undefined
       ? escapeHtml(channelName)
       : `<a href="${publisherHref(publisher.id, depthToRoot)}">${escapeHtml(channelName)}</a>`;
-    return ` · recovered from ${publisherLink} — <a href="${escapeHtml(safeUrl(w.url))}">${when}</a>${agreementMarker(classifyWitnessAgreement(w.sha256, heldHashes))}`;
+    return ` · recovered from ${publisherLink} — <a href="${escapeHtml(neutraliseDisallowedScheme(w.url))}">${when}</a>${agreementMarker(classifyWitnessAgreement(w.sha256, heldHashes))}`;
   }).join('');
 }
 
@@ -266,7 +266,7 @@ function publishedByBlock(sourceKey: string, witnesses: FoiWitness[], heldHashes
       deriveTransitiveAuthority(own, agreement === 'corroborating' ? entryAuthority : undefined),
       depthToRoot,
     );
-    items.push(`<li>${nameLink} — <a href="${escapeHtml(safeUrl(w.url))}">${when}</a>${agreementMarker(agreement)}${transitive === '' ? '' : ` ${transitive}`}</li>`);
+    items.push(`<li>${nameLink} — <a href="${escapeHtml(neutraliseDisallowedScheme(w.url))}">${when}</a>${agreementMarker(agreement)}${transitive === '' ? '' : ` ${transitive}`}</li>`);
   }
 
   const hostLine = items.length === 0
@@ -976,7 +976,7 @@ function atAGlanceOpenData(key: string, previousKey: string | undefined, stats: 
     // register-snapshot; the chip links to every entry of that class.
     `<div class="bd"><h3>${glossaryTerm('dataset-class', 3, { label: 'Dataset class' })}</h3><div class="brow"><span class="lab">${classChipLink('register-snapshot', '../../')} <small class="lvl">declared</small></span></div></div>`,
     '<div class="attr">',
-    `<div><b>Source</b> · ${meta.sourceUrl !== undefined ? `<a href="${escapeHtml(safeUrl(meta.sourceUrl))}">Ofcom open-data page →</a>` : 'Ofcom open-data page'}</div>`,
+    `<div><b>Source</b> · ${meta.sourceUrl !== undefined ? `<a href="${escapeHtml(neutraliseDisallowedScheme(meta.sourceUrl))}">Ofcom open-data page →</a>` : 'Ofcom open-data page'}</div>`,
     `<div>Published ${escapeHtml(humanDate(publishedIso))}${meta.fetchedAt !== undefined ? ` · fetched ${escapeHtml(humanDate(meta.fetchedAt.slice(0, 10)))}` : ''}</div>`,
     `<div>${bd.flaggedRows.toLocaleString('en-GB')} rows carry a quality flag · ${fidelityNudge(3, { section: 'flags', label: 'what flags mean', about: 'what data-quality flags mean (observations, not verdicts)' })}</div>`,
     '</div>',
@@ -1208,8 +1208,8 @@ function buildFoiEntry(outputDir: string, foiDir: string, key: string, summaries
     `<div class="bd"><h3>Data ${glossaryTerm('vintage', 3, { label: 'vintage' })}</h3><div class="brow"><span class="lab">${escapeHtml(meta.dataVintage ?? 'not stated')}</span></div></div>`,
     `<div class="bd"><h3>${glossaryTerm('dataset-class', 3, { label: 'Dataset classes' })}</h3>${meta.datasetClasses.map(c => `<div class="brow"><span class="lab">${classChipLink(c, '../../')}</span></div>`).join('')}</div>`,
     '<div class="attr">',
-    meta.requestUrl !== null ? `<div><b>Source</b> · <a href="${escapeHtml(safeUrl(meta.requestUrl))}">request on WhatDoTheyKnow →</a></div>` : '',
-    meta.publicationUrl !== undefined ? `<div><a href="${escapeHtml(safeUrl(meta.publicationUrl))}">also published by Ofcom →</a></div>` : '',
+    meta.requestUrl !== null ? `<div><b>Source</b> · <a href="${escapeHtml(neutraliseDisallowedScheme(meta.requestUrl))}">request on WhatDoTheyKnow →</a></div>` : '',
+    meta.publicationUrl !== undefined ? `<div><a href="${escapeHtml(neutraliseDisallowedScheme(meta.publicationUrl))}">also published by Ofcom →</a></div>` : '',
     `<div>Requested ${meta.requestedAt === null ? absentMarker() : escapeHtml(meta.requestedAt)} · responded ${meta.respondedAt === null ? absentMarker() : escapeHtml(meta.respondedAt)}</div>`,
     '</div>',
     notable.length > 0 ? `<div class="notable"><h3>Notable</h3><ul>${notable.join('')}</ul></div>` : '',

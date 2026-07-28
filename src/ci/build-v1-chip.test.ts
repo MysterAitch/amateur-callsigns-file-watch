@@ -10,7 +10,10 @@ import {
   stampRecordFacts,
   buildV1Chip,
 } from './build-v1-chip.ts';
-import { V1_COPY } from './render/v1-copy.ts';
+// The chip's wording source is the site copy registry (site/v1/copy.js): the
+// build stamp renders through the SAME component module the browser uses
+// (ADR 0022), so the assertion reads the same single source.
+import { V1_COPY } from '../../site/v1/copy.js';
 
 // The dated-fact chip build stamp (issues #965, #966): the chip's date + count
 // are derived in ONE place (the holdings manifest) and injected into the single
@@ -57,6 +60,33 @@ describe('build-v1-chip — static-HTML stamping', { tags: ['unit'] }, () => {
     expect(html.toLowerCase()).not.toContain('generated from that set');
   });
 
+  it('ChipHtml_TheGeneratedChip_IsMatchedWholeByThePageStampPattern', () => {
+    // The stamp finds a chip with a pattern; the chip it generates must be the
+    // thing that pattern matches, entire. Pinned because the two are written
+    // apart and the platform serialiser leaves '>' raw inside an attribute
+    // value, so a title carrying one would be matched only in part.
+    const html = chipHtml({ date: '23 June 2026', count: 65 });
+    const { html: stamped, replaced } = stampChipHtml(`<p>${html}</p>`, { date: '1 January 2000', count: 1 });
+    expect(replaced).toBe(1);
+    expect(stamped).toBe(`<p>${chipHtml({ date: '1 January 2000', count: 1 })}</p>`);
+  });
+
+  it('ChipHtml_ADateCarryingAngleBracketsOrAClosingTagSequence_StillStampsTheWholeChip', () => {
+    // Angle brackets are ordinary title content — a breadcrumb, a comparison, a
+    // date threshold — and the serialiser leaves them raw inside an attribute
+    // value, which is valid and reparses faithfully. The stamp must therefore
+    // accommodate them rather than the content avoiding them. The last two cases
+    // are the shape that genuinely defeated a naive `[^>]*` attribute run: an
+    // angle bracket followed by a closing-tag sequence in the SAME value, which
+    // ended the match inside the attribute and orphaned the rest of the chip.
+    for (const date of ['Home > Datasets', '1000 entries <= 01-Jan-2025', '65 > 60 </span> x', '23 June 2026</span><b>x']) {
+      const html = chipHtml({ date, count: 65 });
+      const { html: stamped, replaced } = stampChipHtml(`<p>before</p>${html}<p>after</p>`, { date: '1 January 2000', count: 1 });
+      expect(replaced, date).toBe(1);
+      expect(stamped, date).toBe(`<p>before</p>${chipHtml({ date: '1 January 2000', count: 1 })}<p>after</p>`);
+    }
+  });
+
   it('StampChipHtml_APageCarryingTheChip_RewritesItToTheDerivedFactsExactlyOnce', () => {
     const { html, replaced } = stampChipHtml(SAMPLE_PAGE, { date: '23 June 2026', count: 65 });
     expect(replaced).toBe(1);
@@ -74,6 +104,23 @@ describe('build-v1-chip — static-HTML stamping', { tags: ['unit'] }, () => {
   it('StampChipHtml_APageWithNoChip_ReportsZeroReplacementsSoTheCallerCanFailLoud', () => {
     const { replaced } = stampChipHtml('<html><body>no chip here</body></html>', { date: 'x', count: 1 });
     expect(replaced).toBe(0);
+  });
+
+  it('ChipHtml_AgainstTheCommittedStaticBaseline_IsByteIdentical', () => {
+    // The renderStatic-generated markup (ADR 0022) must reproduce the committed
+    // production chip byte for byte, for the facts the committed pages carry —
+    // read from record-facts.js (the deploy stamp writes double-quoted values;
+    // the committed default is single-quoted, so both are accepted). This pins
+    // the DOM-construction render to the exact bytes the hand-baked serialiser
+    // used to emit, and can never go stale: both sides restamp on every deploy.
+    const factsSrc = fs.readFileSync('site/v1/record-facts.js', 'utf8');
+    const m = /export const RECORD_FACTS = \{ date: ['"]([^'"]+)['"], count: (\d+) \};/.exec(factsSrc);
+    expect(m, 'record-facts.js carries the single RECORD_FACTS literal').not.toBeNull();
+    const facts = { date: (m ?? [])[1] ?? '', count: Number((m ?? [])[2]) };
+    const page = fs.readFileSync('site/v1/index.html', 'utf8');
+    const committed = /<span class="chip asof"[^>]*>.*?<\/span>/.exec(page)?.[0];
+    expect(committed, 'index.html carries a static chip').toBeDefined();
+    expect(chipHtml(facts)).toBe(committed);
   });
 });
 
