@@ -525,7 +525,13 @@ function renderReconciliation(strat: ReprocessingStratification): string[] {
       '(6.9%), the G-series bloc (52.7% vs 48.6%) and the `M7` record count',
       `(10,854) reproduce it. ${soleClaim} enriched — the observation that`,
       'prompted #871. Between this window and the enriched 2024-07 one sits the',
-      `narrower issued-only 2024-07-22 window, where \`M7\` is ${seriesEnrichmentFor(strat, '2024-07-22').find(x => x.series === 'M7')?.enrichment ?? 'not present'}.`,
+      // The 2024-07-22 aside only quotes a figure when that window is actually
+      // in the corpus; otherwise the absence is stated honestly rather than
+      // narrated as a window with nothing in it (issue #977 fail-loud/honest-
+      // degradation discipline for the pinned vintage names).
+      strat.windows.some(w => w.vintage === '2024-07-22')
+        ? `narrower issued-only 2024-07-22 window, where \`M7\` is ${seriesEnrichmentFor(strat, '2024-07-22').find(x => x.series === 'M7')?.enrichment ?? 'not present'}.`
+        : 'narrower issued-only 2024-07-22 window — absent from this corpus, so no figure is quoted for it.',
       '',
     );
   }

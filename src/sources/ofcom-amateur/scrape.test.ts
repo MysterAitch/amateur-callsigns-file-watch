@@ -3,11 +3,13 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as http from 'http';
+import { JSDOM } from 'jsdom';
 import {
   decideVersionCheckPath,
   extractVersionParam,
   verifyAmateurCsv,
   downloadFile,
+  findCsvLink,
 } from './scrape.ts';
 import type { ScrapeOptions } from '../../shared/utils.ts';
 
@@ -131,6 +133,54 @@ afterEach(() => {
     const dir = scratchDirs.pop();
     if (dir !== undefined) fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+describe('findCsvLink selector scoping', { tags: ['unit'] }, () => {
+  // Ofcom files BOTH the amateur callsign CSV and the Business Radio Light
+  // CSV under the same /amateur/ path prefix, so these tests pin the trap:
+  // the selector must never regress to a bare path-substring match (issue
+  // #977; the CSV-selector pitfall).
+  const AMATEUR_LINK =
+    '<a href="/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list.csv?v=123">Amateur radio call signs</a>';
+  const BUSINESS_RADIO_LINK =
+    '<a href="/siteassets/resources/documents/manage-your-licence/amateur/live-br-light-licences.csv?v=456">Business Radio Light licences</a>';
+
+  function documentWith(linksHtml: string): Document {
+    return new JSDOM(`<!DOCTYPE html><html><body>${linksHtml}</body></html>`).window.document;
+  }
+
+  it('FindCsvLink_WhenBusinessRadioCsvSharesTheAmateurPathPrefix_SelectsTheAmateurCallsignListOnly', () => {
+    const link = findCsvLink(documentWith(`${BUSINESS_RADIO_LINK}${AMATEUR_LINK}`));
+    expect(link.href).toContain('amateur-callsign-list.csv');
+    expect(link.href).not.toContain('br-light');
+  });
+
+  it('FindCsvLink_WhenOnlyTheBusinessRadioCsvIsPresent_ThrowsRatherThanGrabbingANeighbour', () => {
+    expect(() => findCsvLink(documentWith(BUSINESS_RADIO_LINK)))
+      .toThrow(/No amateur callsign CSV link found/);
+  });
+
+  it('FindCsvLink_WhenNoCsvLinksArePresent_ThrowsRatherThanGuessing', () => {
+    expect(() => findCsvLink(documentWith('<a href="/somewhere/else.pdf">A PDF</a>')))
+      .toThrow(/No amateur callsign CSV link found/);
+  });
+
+  it('FindCsvLink_WhenTwoAmateurCandidateLinksArePresent_ThrowsRatherThanGuessing', () => {
+    const second =
+      '<a href="/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list-old.csv">Amateur radio call signs (archive)</a>';
+    expect(() => findCsvLink(documentWith(`${AMATEUR_LINK}${second}`)))
+      .toThrow(/expected exactly one/);
+  });
+
+  it('FindCsvLink_WhenFilenameMatchesButLinkTextDoesNot_IsRejectedAsAPartialMatch', () => {
+    // Positive identification requires BOTH signals; filename alone (e.g. a
+    // renamed or repurposed page label) is a near-miss to diagnose, not a
+    // match to accept.
+    const partial =
+      '<a href="/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list.csv">Some other dataset</a>';
+    expect(() => findCsvLink(documentWith(partial)))
+      .toThrow(/No amateur callsign CSV link found/);
+  });
 });
 
 describe('verifyAmateurCsv size window', { tags: ['unit'] }, () => {

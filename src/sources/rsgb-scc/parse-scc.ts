@@ -164,19 +164,31 @@ function rowCells(tr: Element): Element[] {
 // when zero or more than one table matches.
 function findSccTable(document: Document): { table: Element | undefined; problem: string | undefined } {
   const matches: Element[] = [];
+  const nearMisses: string[] = [];
   for (const table of document.querySelectorAll('table')) {
     const firstRow = table.querySelector('tr');
     if (firstRow === null) continue;
     const labels = rowCells(firstRow).map((c) => cellText(c).toLowerCase());
-    if (EXPECTED_HEADER_LABELS.every((label, i) => labels[i] === label)) {
+    // The header must match EXACTLY — same labels, same order, same count. A
+    // prefix-only comparison would silently accept a table that gained a
+    // trailing column, and positional extraction would then run against a
+    // shape it does not understand.
+    if (labels.length === EXPECTED_HEADER_LABELS.length && EXPECTED_HEADER_LABELS.every((label, i) => labels[i] === label)) {
       matches.push(table);
+    } else if (labels.some((label) => (EXPECTED_HEADER_LABELS as readonly string[]).includes(label))) {
+      // A header sharing at least one expected label is almost certainly the
+      // data table after a reorder/rename/added column; record what it
+      // actually says so the failure NAMES the drift rather than merely
+      // reporting an absence.
+      nearMisses.push(`[${labels.join(' | ')}]`);
     }
   }
   if (matches.length === 1) return { table: matches[0], problem: undefined };
   if (matches.length === 0) {
+    const drift = nearMisses.length > 0 ? `; nearest header row(s) seen: ${nearMisses.join(', ')}` : '';
     return {
       table: undefined,
-      problem: `no table on the page carries the expected SCC header row [${EXPECTED_HEADER_LABELS.join(' | ')}] — the page structure may have changed`,
+      problem: `no table on the page carries the expected SCC header row [${EXPECTED_HEADER_LABELS.join(' | ')}]${drift} — the page structure may have changed`,
     };
   }
   return {

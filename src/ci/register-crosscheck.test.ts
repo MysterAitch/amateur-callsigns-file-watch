@@ -140,6 +140,65 @@ describe('Source-register cross-check', { tags: ['unit'] }, () => {
     expect(findUnmatchedIngestedRows(synthetic)).toHaveLength(0);
   });
 
+  it('RegisterCrosscheck_PendingRowInTableWithLeadingIndexColumn_KeyCellResolvedByHeaderName', () => {
+    // Structural-fragility guard (#977): a table that gains a leading column
+    // must not silently shift the identifier match off the title cell — the
+    // key cell is resolved from the header's `source` column, not by physical
+    // position.
+    const synthetic = [
+      '| # | source | data vintage | status | notes |',
+      '|---|---|---|---|---|',
+      '| 7 | WDTK 596532 (someone) | 2019 | pending-ingest | notes |',
+    ].join('\n');
+    const rows = findStaleRegisterRows(synthetic);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].firstCell).toBe('WDTK 596532 (someone)');
+    expect(rows[0].matchedBy).toBe('identifier');
+  });
+
+  it('RegisterCrosscheck_FoiTableWithReorderedColumns_StatusResolvedByHeaderNameNotPosition', () => {
+    // Structural-fragility guard (#977): with `status` moved to a different
+    // column, a fixed-position read would look at the vintage cell, see no
+    // `ingested`, and silently stop checking the table. The status column is
+    // resolved from the header, so the unmatched claim is still caught.
+    const synthetic = [
+      '## FOI datasets — register snapshots',
+      '',
+      '| source | status | data vintage | notes |',
+      '|---|---|---|---|',
+      '| A dataset nobody archived | ingested | 2030-01-01 | no archive/foi pointer exists for this |',
+    ].join('\n');
+    const rows = findUnmatchedIngestedRows(synthetic);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].firstCell).toBe('A dataset nobody archived');
+  });
+
+  it('RegisterCrosscheck_FoiTableHeaderWithoutStatusColumn_FailsLoudNamingTheHeader', () => {
+    // Fail loud, not silent: an FOI-section table whose header no longer names
+    // a `status` column is a layout this check cannot read — guessing a column
+    // would turn every future drift into a silent no-op.
+    const synthetic = [
+      '## FOI datasets — register snapshots',
+      '',
+      '| source | date | state | notes |',
+      '|---|---|---|---|',
+      '| A dataset nobody archived | 2030-01-01 | ingested | no pointer |',
+    ].join('\n');
+    expect(() => findUnmatchedIngestedRows(synthetic)).toThrow(/no "status" column/);
+    expect(() => findUnmatchedIngestedRows(synthetic)).toThrow(/source \| date \| state \| notes/);
+  });
+
+  it('RegisterCrosscheck_FoiTableRowWithNoPrecedingHeader_FailsLoudRatherThanGuessingColumns', () => {
+    // A table fragment with no header row gives the check nothing to derive
+    // the status column from; reading by position would be a guess.
+    const synthetic = [
+      '## FOI datasets — register snapshots',
+      '',
+      '| A dataset nobody archived | 2030-01-01 | ingested | no pointer |',
+    ].join('\n');
+    expect(() => findUnmatchedIngestedRows(synthetic)).toThrow(/no preceding header row/);
+  });
+
   it('RegisterCrosscheck_LiveRegister_HasNoUnmatchedIngestedRowInAnFoiSection', () => {
     // The gate's other half (#673): every row claiming `ingested` inside an
     // FOI-titled section must be corroborated by the archive it claims to

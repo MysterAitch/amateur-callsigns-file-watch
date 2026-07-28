@@ -162,6 +162,40 @@ describe('parseSccTable', { tags: ['unit'] }, () => {
     expect(parsed.problems.some((p) => p.includes('no table on the page carries the expected SCC header'))).toBe(true);
     expect(parsed.rows).toEqual([]);
   });
+
+  it('SccHeader_WhenRsgbAppendsAColumn_IsRefusedLoudlyNamingTheHeaderSeen', () => {
+    // A community edit appends a fourth column: the first three labels still
+    // match, so a prefix-only header comparison would accept the table and the
+    // extra cells would then surface only as per-row noise. The parser must
+    // refuse at the HEADER and name what it actually saw, so the failure
+    // message states the drift directly.
+    const html = `<!DOCTYPE html><html><body><p>Updated 15 June 2026</p>
+      <table><tbody>
+        <tr><td>SPECIAL CONTEST CALL</td><td>LICENSEE OR CLUB CALL</td><td>STATUS</td><td>DATE ISSUED</td></tr>
+        <tr><td>G0A</td><td>GW4SKA</td><td>Issued</td><td>2026-01-01</td></tr>
+      </tbody></table></body></html>`;
+    const parsed = parseSccTable(html);
+    expect(parsed.rows).toEqual([]);
+    const problem = parsed.problems.find((p) => p.includes('no table on the page carries the expected SCC header'));
+    expect(problem).toBeDefined();
+    expect(problem).toContain('date issued');
+  });
+
+  it('SccHeader_WhenRsgbReordersColumns_IsRefusedLoudlyRatherThanMisMapped', () => {
+    // The columns swapped: every cell still exists, so positional extraction
+    // would happily transpose base callsigns and SCC codes. The header check
+    // must refuse the table and the failure must name the reordered header.
+    const html = `<!DOCTYPE html><html><body><p>Updated 15 June 2026</p>
+      <table><tbody>
+        <tr><td>LICENSEE OR CLUB CALL</td><td>SPECIAL CONTEST CALL</td><td>STATUS</td></tr>
+        <tr><td>GW4SKA</td><td>G0A</td><td>Issued</td></tr>
+      </tbody></table></body></html>`;
+    const parsed = parseSccTable(html);
+    expect(parsed.rows).toEqual([]);
+    const problem = parsed.problems.find((p) => p.includes('no table on the page carries the expected SCC header'));
+    expect(problem).toBeDefined();
+    expect(problem).toContain('licensee or club call | special contest call | status');
+  });
 });
 
 describe('sanityGateProblems', { tags: ['unit'] }, () => {

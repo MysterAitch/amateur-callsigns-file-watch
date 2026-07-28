@@ -262,6 +262,35 @@ describe('readCommittedRows', { tags: ['unit'] }, () => {
   it('MissingFile_WhenRead_ReturnsEmpty', () => {
     expect(readCommittedRows(path.join(os.tmpdir(), 'definitely-absent-scc.csv'))).toEqual([]);
   });
+
+  it('CommittedCsvWithReorderedHeader_WhenRead_ThrowsNamingTheDriftRatherThanMisMapping', () => {
+    // A re-shaped committed file (hand edit, schema change without a matching
+    // reader change) must never be read by position: every base callsign would
+    // silently land in the wrong field. The header is asserted before any
+    // positional access.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-header-drift-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv');
+      fs.writeFileSync(csvPath, 'base_callsign,scc_code,status,notes\nGW4SKA,G0A,Issued,\n');
+      expect(() => readCommittedRows(csvPath)).toThrow(/expected header/);
+      expect(() => readCommittedRows(csvPath)).toThrow(/base_callsign,scc_code,status,notes/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('CommittedCsvRowWithWrongFieldCount_WhenRead_ThrowsRatherThanSkippingSilently', () => {
+    // A malformed row silently skipped would make the sweep's diff mis-report
+    // a real change (fail loud: a wrong diff is worse than an aborted run).
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-row-drift-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv');
+      fs.writeFileSync(csvPath, 'scc_code,base_callsign,status,notes\nG0A,GW4SKA,Issued,\nG0B,Issued\n');
+      expect(() => readCommittedRows(csvPath)).toThrow(/line 3/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('runSccIntake', { tags: ['unit'] }, () => {
