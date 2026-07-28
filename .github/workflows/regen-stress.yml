@@ -41,13 +41,34 @@
 # the other arms to a fail-fast cancellation would defeat the purpose.
 name: regen-stress
 
+# TRIGGERS. Push, scoped to diagnostic branches, is the working mode: it keeps
+# the matrix iterating inside a PR while it is still being refined, rather than
+# needing a series of merges into main to make each revision runnable
+# (workflow_dispatch only fires from the DEFAULT branch, so a dispatch-only
+# diagnostic has to land on main before it can run even once). Once the matrix
+# has stabilised and answered its questions, it can land on main and be run
+# deliberately by dispatch — which is why that trigger is kept rather than
+# swapped out.
 on:
+  push:
+    branches:
+      - 'diag/**'
+      - 'fix/991-**'
   workflow_dispatch:
     inputs:
       repetitions:
         description: "Repetitions per arm (1-5). Intermittent failure needs several to estimate a rate."
         required: false
         default: "3"
+
+# A new push supersedes the matrix still running for the previous one. While the
+# configuration is being refined, only the newest result describes the code that
+# now exists — and at ~30 jobs per push, letting superseded runs continue would
+# spend a great deal of runner time producing answers about a configuration that
+# has already been replaced.
+concurrency:
+  group: regen-stress-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
