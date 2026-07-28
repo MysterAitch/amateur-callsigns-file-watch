@@ -346,6 +346,12 @@ describe('DuckDB -> Parquet bulk lane', { tags: ['data-validity'] }, () => {
     // never dropped by sampled inference.
     expect(sql).toContain("rule: 'VARCHAR'");
     expect(sql).toContain("TO '/out/claims.parquet' (FORMAT parquet, COMPRESSION zstd)");
+    // Insertion-order preservation is off (issue #991): it takes this build's
+    // peak resident memory from 6.7 GB to 1.3 GB at no cost in sweep time. Pinned
+    // because losing it silently would give back a 5.3x memory reduction while
+    // every report it produces still looked correct — the regression would show
+    // up only as a runner running out of room, months later and somewhere else.
+    expect(sql).toContain('SET preserve_insertion_order = false;');
   });
 
   it('Parquet_WhenDuckdbAvailable_RowCountMatchesClaimCount', () => {

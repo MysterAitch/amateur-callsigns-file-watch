@@ -275,7 +275,27 @@ export function writeParquetScript(ledgerGlob: string, parquetPath: string): str
   const glob = ledgerGlob.replace(/\\/g, '/').replace(/'/g, "''");
   const out = parquetPath.replace(/\\/g, '/').replace(/'/g, "''");
   const columns = "{layer: 'VARCHAR', rawSubject: 'VARCHAR', predicate: 'VARCHAR', object: 'VARCHAR', sourceFile: 'VARCHAR', ordinal: 'BIGINT', vintage: 'VARCHAR', rule: 'VARCHAR'}";
+  // `preserve_insertion_order = false` lets DuckDB emit row groups as workers
+  // finish them, instead of buffering to reproduce the read order in the output.
+  // Measured on the real corpus (issue #991, 2026-07-28): it takes this build's
+  // peak resident memory from **6.7 GB to 1.3 GB** — a 5.3x reduction in the
+  // largest single allocation in the pipeline — at no cost in sweep time
+  // (97 s against 98 s over four repetitions each) and with every regenerated
+  // report byte-identical.
+  //
+  // It is safe here, but it was NOT safe before the folds stopped materialising
+  // the claims CTE: the flag gives up the row-group locality that emission order
+  // incidentally provided, and while every fold scanned all 55.4M rows that loss
+  // pushed them over the edge (it failed 3/3 in that configuration). With the
+  // filters now pushed into the Parquet scan the folds read far less and no
+  // longer depend on that locality — 4/4 and 4/4 clean across two rounds. The
+  // ordering of these two changes is therefore load-bearing, not incidental.
+  //
+  // Row ORDER in the output is deliberately not relied upon: every fold feeding
+  // committed output carries its own total ORDER BY, and the one fold that reads
+  // physical source order reads normalised.csv rather than this Parquet.
   return [
+    `SET preserve_insertion_order = false;`,
     `COPY (`,
     `  SELECT layer, rawSubject, predicate, object, sourceFile, ordinal, vintage, rule`,
     `  FROM read_json('${glob}', format = 'newline_delimited', columns = ${columns})`,
