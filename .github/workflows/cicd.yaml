@@ -24,10 +24,47 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Nightly MAINTENANCE run (issue #1004). Same jobs, same matrix, but with
+  # coverage collection switched on - see COVERAGE_ARGS below. A schedule keeps
+  # the maintenance lane reading the SAME job definitions the PR gate uses, so
+  # the two cannot drift the way a duplicated matrix would.
+  schedule:
+    - cron: '17 3 * * *'
   workflow_dispatch:
+    inputs:
+      collect_coverage:
+        description: "Collect coverage and enforce the floor (break-glass; nightly does this automatically)"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
+
+# COVERAGE IS NOT A PR GATE (issue #1004, decided 2026-07-28).
+#
+# It was one until the numbers were looked at: the floor sat at 28/26/23/28
+# while measured coverage was 86/78/92/87 - three times the threshold - and the
+# floor had never been ratcheted since the commit that introduced it on
+# 2026-07-06. A gate that cannot fire short of a catastrophic regression is not
+# enforcement; it is a rubber stamp, and this one was expensive. `--coverage`
+# costs 2.4-3.5x on the whole-corpus builders (measured three independent ways),
+# and the merge job that applies the floor `needs:` every fan-out job, making it
+# a serialisation point at the end of the required `tests` check as well as a
+# per-job tax.
+#
+# So coverage moved tiers rather than being deleted. The test for which tier
+# something belongs in: does a red result mean "this change is wrong", or "someone
+# should look at this soon"? Coverage is the second, so it runs nightly and on
+# demand. Correctness gates - golden-master drift, the oracles, data-validation,
+# the unit suites - did not move.
+#
+# #478 considered and REJECTED a nightly coverage run, on the reasoning that
+# merging per-job blobs keeps the gate pre-merge. That reasoning was sound; it
+# just assumed the gate was gating.
+env:
+  COVERAGE_ARGS: ${{ (github.event_name == 'schedule' || inputs.collect_coverage) && '--coverage' || '' }}
+  COLLECTING_COVERAGE: ${{ github.event_name == 'schedule' || inputs.collect_coverage }}
 
 concurrency:
   group: cicd-${{ github.ref }}
@@ -173,7 +210,7 @@ jobs:
           name: claims-parquet
       # --coverage + blob per job; the `coverage` job merges them. Matrix values
       # go via env (zizmor template-injection); the blob is uniquely named.
-      - run: npx vitest run "$HEAVY_FILE" --coverage --reporter=default --reporter=blob --outputFile=".vitest-reports/fold-${JOB_INDEX}.json"
+      - run: npx vitest run "$HEAVY_FILE" $COVERAGE_ARGS --reporter=default --reporter=blob --outputFile=".vitest-reports/fold-${JOB_INDEX}.json"
         env:
           HEAVY_FILE: ${{ matrix.file }}
           JOB_INDEX: ${{ strategy.job-index }}
@@ -209,7 +246,7 @@ jobs:
           cache: npm
       - run: npm ci
       - uses: ./.github/actions/setup-duckdb
-      - run: npx vitest run "$HEAVY_FILE" --coverage --reporter=default --reporter=blob --outputFile=".vitest-reports/nonfold-${JOB_INDEX}.json"
+      - run: npx vitest run "$HEAVY_FILE" $COVERAGE_ARGS --reporter=default --reporter=blob --outputFile=".vitest-reports/nonfold-${JOB_INDEX}.json"
         env:
           HEAVY_FILE: ${{ matrix.file }}
           JOB_INDEX: ${{ strategy.job-index }}
@@ -248,7 +285,7 @@ jobs:
           cache: npm
       - run: npm ci
       - uses: ./.github/actions/setup-duckdb
-      - run: npx vitest run "$HEAVY_FILE" --coverage --reporter=default --reporter=blob --outputFile=".vitest-reports/shard-${JOB_INDEX}.json"
+      - run: npx vitest run "$HEAVY_FILE" $COVERAGE_ARGS --reporter=default --reporter=blob --outputFile=".vitest-reports/shard-${JOB_INDEX}.json"
         env:
           HEAVY_FILE: ${{ matrix.file }}
           JOB_INDEX: ${{ strategy.job-index }}
@@ -308,7 +345,7 @@ jobs:
       # persists it) or verifies the restored build on a hit - see the reuse
       # contract in the test's beforeAll. --coverage + blob so the merged coverage
       # floor still counts this file; matrix-free (a fixed file), starts at t=0.
-      - run: npx vitest run src/ci/build-sqlite.tiers.test.ts --coverage --reporter=default --reporter=blob --outputFile=".vitest-reports/tiers.json"
+      - run: npx vitest run src/ci/build-sqlite.tiers.test.ts $COVERAGE_ARGS --reporter=default --reporter=blob --outputFile=".vitest-reports/tiers.json"
         env:
           TIERS_CACHE_DIR: ${{ github.workspace }}/.tier-cache
           COVERAGE_SKIP_THRESHOLDS: '1'
@@ -367,7 +404,7 @@ jobs:
       # save then persists it) or verifies the restored build on a hit - see the
       # reuse contract in the test's beforeAll. --coverage + blob so the merged
       # coverage floor still counts this file; matrix-free (a fixed file), t=0.
-      - run: npx vitest run src/v2/build-ledger.test.ts --coverage --reporter=default --reporter=blob --outputFile=".vitest-reports/ledger.json"
+      - run: npx vitest run src/v2/build-ledger.test.ts $COVERAGE_ARGS --reporter=default --reporter=blob --outputFile=".vitest-reports/ledger.json"
         env:
           LEDGER_CACHE_DIR: ${{ github.workspace }}/.ledger-cache
           COVERAGE_SKIP_THRESHOLDS: '1'
@@ -403,7 +440,7 @@ jobs:
       # The ~78 trivial files (the fast project excludes the isolated heavy list),
       # sharded across 2 runners. Folds among them (e.g. cross-dataset-invariants)
       # read the shared Parquet too. --coverage + blob as above; merged in `coverage`.
-      - run: npx vitest run --project fast --shard="${SHARD}/2" --coverage --reporter=default --reporter=blob --outputFile=".vitest-reports/fast-${SHARD}.json"
+      - run: npx vitest run --project fast --shard="${SHARD}/2" $COVERAGE_ARGS --reporter=default --reporter=blob --outputFile=".vitest-reports/fast-${SHARD}.json"
         env:
           SHARD: ${{ matrix.shard }}
           CLAIMS_PARQUET: ${{ github.workspace }}/claims.parquet
@@ -419,13 +456,19 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
-  # Collate coverage across the fan-out (#478): download every job's blob and
-  # merge them into one v8 report, applying the thresholds in vitest.config. This
-  # keeps the coverage floor enforced PER-PR despite the tests being split across
-  # jobs - the alternative (a nightly/main-only coverage run) was rejected since
-  # the merge keeps the gate pre-merge. Fails iff merged coverage is below floor.
-  coverage:
-    name: coverage
+  # Collate the fan-out's per-job report blobs into one merged run report (#478):
+  # totals, failure names, and the deltas-vs-main summary. This part runs on
+  # EVERY event and stays on the PR path - it is how a fan-out of ~20 jobs reads
+  # as one result.
+  #
+  # On a nightly or a break-glass dispatch it ALSO merges coverage and applies
+  # the floor from vitest.config.ts (COVERAGE_ARGS above). On a PR it does not,
+  # because the floor was measured to be three times below actual coverage and
+  # could not fire - see the header note on #1004.
+  #
+  # The job is named for what it always does, not for what it sometimes does.
+  test-report:
+    name: test-report
     needs: [heavy-fold, heavy-nonfold, heavy-shard, build-sqlite-tiers, build-ledger, fast]
     # Runs on red too (skipped only on cancellation): the merged report and the
     # run summary are MOST needed when a shard failed, and the blob uploads now
@@ -449,7 +492,19 @@ jobs:
           pattern: coverage-blob-*
           merge-multiple: true
           path: .vitest-reports
-      - run: npx vitest --merge-reports --coverage --reporter=default --reporter=json --outputFile=.vitest-reports/merged-results.json --coverage.reporter=text --coverage.reporter=json-summary --coverage.reporter=json
+      # The coverage reporters are appended only when coverage was actually
+      # collected; asking vitest to merge coverage out of blobs that carry none
+      # would report a fictitious 0% and fail the floor for the wrong reason.
+      - run: |
+          set -euo pipefail
+          if [ "${COLLECTING_COVERAGE}" = "true" ]; then
+            npx vitest --merge-reports --coverage --reporter=default --reporter=json \
+              --outputFile=.vitest-reports/merged-results.json \
+              --coverage.reporter=text --coverage.reporter=json-summary --coverage.reporter=json
+          else
+            npx vitest --merge-reports --reporter=default --reporter=json \
+              --outputFile=.vitest-reports/merged-results.json
+          fi
       # Fetch the latest successful main run's baseline artefact (read-only,
       # default token) so the summary shows DELTAS vs main — the change is the
       # interesting figure, not the raw number. Best-effort: a missing baseline
@@ -511,7 +566,7 @@ jobs:
   # branch protection would otherwise treat as a pass.
   tests:
     name: tests
-    needs: [typecheck, build-claims, matrix-setup, heavy-fold, heavy-nonfold, heavy-shard, build-sqlite-tiers, build-ledger, fast, coverage]
+    needs: [typecheck, build-claims, matrix-setup, heavy-fold, heavy-nonfold, heavy-shard, build-sqlite-tiers, build-ledger, fast, test-report]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -1136,9 +1191,9 @@ jobs:
         run: node src/ci/build-root-discovery.ts _site https://mysteraitch.github.io/amateur-callsigns-file-watch
       # Pages upload is a deploy-only concern: gated to main so a PR builds and
       # assembles _site (the pre-merge coverage) but never uploads an artefact.
-      - if: github.ref == 'refs/heads/main'
+      - if: github.ref == 'refs/heads/main' && github.event_name != 'schedule'
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-      - if: github.ref == 'refs/heads/main'
+      - if: github.ref == 'refs/heads/main' && github.event_name != 'schedule'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
@@ -1176,7 +1231,7 @@ jobs:
           if-no-files-found: ignore
 
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'schedule'
     needs: build-site-databases
     runs-on: ubuntu-latest
     permissions:
@@ -1201,7 +1256,7 @@ jobs:
   # the script uses only built-in fetch), reports every failing check, and fails
   # the run on a bad deployment. Checks + rationale: src/ci/smoke-test.ts.
   smoke:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'schedule'
     needs: deploy
     runs-on: ubuntu-latest
     steps:
@@ -1230,7 +1285,7 @@ jobs:
   # ignore-scripts=true (ADR 0002) stops Playwright's postinstall auto-downloading
   # it, so the fetch is a deliberate, visible step.
   console-check:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'schedule'
     needs: deploy
     runs-on: ubuntu-latest
     steps:
@@ -1258,7 +1313,7 @@ jobs:
   # the interaction counterpart to console-check (pages load clean) and smoke-test
   # (bytes are served). Same browser install rationale as console-check.
   functionality-check:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'schedule'
     needs: deploy
     runs-on: ubuntu-latest
     steps:

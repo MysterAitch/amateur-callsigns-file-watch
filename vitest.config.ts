@@ -99,22 +99,30 @@ export default defineConfig({
         'src/ci/console-check.ts',
         'src/ci/functionality-check.ts',
       ],
-      // Regression floor, set just below measured coverage (pure modules are well
-      // covered; the I/O-heavy scrape / process / orchestrator bodies are not).
-      // Raise as coverage grows - never lower without a written reason.
+      // Regression floor, set just below measured coverage. Raise as coverage
+      // grows - never lower without a written reason.
       //
-      // ENFORCED ONLY ON THE MERGED REPORT. The fan-out CI (#478) runs each
-      // heavy/fast job over a SUBSET with --coverage, so applying the floor
-      // per-job would fail every job (one file covers ~6% of src). Those jobs set
-      // COVERAGE_SKIP_THRESHOLDS=1 to collect coverage without gating; the
-      // `coverage` job then merges every blob and applies the floor to the whole.
+      // RE-BASELINED 2026-07-28 (issue #1004) from 28/26/23/28, which was set on
+      // 2026-07-06 and never touched while measured coverage roughly TRIPLED to
+      // 86.21/77.93/91.86/87.19. A floor three times below actual is worse than
+      // no floor: it reads as enforcement while silently permitting a ~58-point
+      // regression. The written reason for the earlier figures being wrong is
+      // simply that they went stale, not that coverage fell.
+      //
+      // ENFORCED ONLY ON THE MERGED REPORT, and only on runs that actually
+      // COLLECT coverage - the nightly maintenance run and break-glass dispatch,
+      // not the PR gate (see the header note in cicd.yaml). The fan-out runs each
+      // heavy/fast job over a SUBSET, so applying the floor per-job would fail
+      // every job (one file covers ~6% of src); those jobs set
+      // COVERAGE_SKIP_THRESHOLDS=1 to collect without gating, and the
+      // `test-report` job merges every blob and applies the floor to the whole.
       thresholds: process.env.COVERAGE_SKIP_THRESHOLDS
         ? undefined
         : {
-            statements: 28,
-            branches: 26,
-            functions: 23,
-            lines: 28,
+            statements: 84,
+            branches: 75,
+            functions: 89,
+            lines: 85,
           },
     },
     projects: [
