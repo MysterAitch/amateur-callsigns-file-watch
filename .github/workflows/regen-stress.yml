@@ -202,24 +202,36 @@ jobs:
         rep: ${{ fromJSON(needs.plan.outputs.reps) }}
         arm:
           - control
-          - fix-caps
-          - fix-cte
-          - fix-parquet-order
-          - all-fixes
+          - cap-off
+          - threads-off
+          - cte-on
+          - cte-on-cap-off
+          - pq-stream
+          - pq-sort
+          - best-combo
         include:
-          # The control is the current configuration. Its failure rate is what
-          # every other arm is measured against, so it earns its slot.
-          - { arm: control,           memlimit: "3GB", threads: "1", inline_cte: "0", parquet_ordered: "0" }
-          # PREDICTION: no failures; duration broadly unchanged.
-          - { arm: fix-caps,          memlimit: "",    threads: "",  inline_cte: "0", parquet_ordered: "0" }
-          # PREDICTION: no failures AND materially lower peak fold RSS, because
-          # filters reach the Parquet scan instead of running over 55.4M rows.
-          - { arm: fix-cte,           memlimit: "3GB", threads: "1", inline_cte: "1", parquet_ordered: "0" }
-          # PREDICTION: faster folds, but a slower and heavier Parquet BUILD.
-          # The one arm expected to cost something, hence measured alone.
-          - { arm: fix-parquet-order, memlimit: "3GB", threads: "1", inline_cte: "0", parquet_ordered: "1" }
-          # PREDICTION: fastest overall, no failures.
-          - { arm: all-fixes,         memlimit: "",    threads: "",  inline_cte: "1", parquet_ordered: "1" }
+          # Baseline. Every other arm is read against this one.
+          - { arm: control,        memlimit: "3GB", threads: "1", inline_cte: "0", pq_sort: "0", pq_stream: "0" }
+          # L1 alone. Iteration 1 could not separate this from the threads pin.
+          - { arm: cap-off,        memlimit: "",    threads: "1", inline_cte: "0", pq_sort: "0", pq_stream: "0" }
+          # L2 alone — the other half of that bundle.
+          - { arm: threads-off,    memlimit: "3GB", threads: "",  inline_cte: "0", pq_sort: "0", pq_stream: "0" }
+          # L3 alone, cap still on: does inlining prevent the failure at the very
+          # cap that causes it? (Iteration 1: yes.)
+          - { arm: cte-on,         memlimit: "3GB", threads: "1", inline_cte: "1", pq_sort: "0", pq_stream: "0" }
+          # L3 with the cap OFF. Iteration 1's RSS prediction was censored by the
+          # cap — both arms were bounded at ~3GB, so the measurement could not
+          # show a difference. Read against cap-off, this one finally can.
+          - { arm: cte-on-cap-off, memlimit: "",    threads: "1", inline_cte: "1", pq_sort: "0", pq_stream: "0" }
+          # L5 alone: preserve_insertion_order=false with NO sort. Expected to
+          # REDUCE the build peak; bundled with the sort it could only be
+          # inferred, never seen.
+          - { arm: pq-stream,      memlimit: "3GB", threads: "1", inline_cte: "0", pq_sort: "0", pq_stream: "1" }
+          # L4 alone: the sort with insertion-order preservation left at default.
+          # Isolates how much of iteration 1's +7.5 GB the sort actually owns.
+          - { arm: pq-sort,        memlimit: "3GB", threads: "1", inline_cte: "0", pq_sort: "1", pq_stream: "0" }
+          # The candidate to adopt: the two levers that won, nothing that lost.
+          - { arm: best-combo,     memlimit: "",    threads: "",  inline_cte: "1", pq_sort: "0", pq_stream: "1" }
     steps:
       - name: Free runner disk space
         run: |
@@ -237,7 +249,8 @@ jobs:
       - uses: ./.github/actions/setup-duckdb
       - name: Build shared claim-ledger Parquet
         env:
-          PARQUET_ORDERED: ${{ matrix.parquet_ordered }}
+          PARQUET_SORT: ${{ matrix.pq_sort }}
+          PARQUET_STREAM: ${{ matrix.pq_stream }}
         run: |
           set -euo pipefail
           mkdir -p .diagnostics
@@ -251,14 +264,15 @@ jobs:
           MEMLIMIT: ${{ matrix.memlimit }}
           THREADS: ${{ matrix.threads }}
           INLINE_CTE: ${{ matrix.inline_cte }}
-          PARQUET_ORDERED: ${{ matrix.parquet_ordered }}
+          PQ_SORT: ${{ matrix.pq_sort }}
+          PQ_STREAM: ${{ matrix.pq_stream }}
         run: |
           set -euo pipefail
           mkdir -p .diagnostics
           {
             echo "== arm =="
             echo "arm=${ARM} rep=${REP}"
-            echo "memlimit='${MEMLIMIT}' threads='${THREADS}' inline_cte=${INLINE_CTE} parquet_ordered=${PARQUET_ORDERED}"
+            echo "memlimit='${MEMLIMIT}' threads='${THREADS}' inline_cte=${INLINE_CTE} pq_sort=${PQ_SORT} pq_stream=${PQ_STREAM}"
             echo "== runner =="
             echo "nproc=$(nproc)"
             grep -E "^MemTotal:|^SwapTotal:" /proc/meminfo
@@ -322,7 +336,8 @@ jobs:
           MEMLIMIT: ${{ matrix.memlimit }}
           THREADS: ${{ matrix.threads }}
           INLINE_CTE: ${{ matrix.inline_cte }}
-          PARQUET_ORDERED: ${{ matrix.parquet_ordered }}
+          PQ_SORT: ${{ matrix.pq_sort }}
+          PQ_STREAM: ${{ matrix.pq_stream }}
           OUTCOME: ${{ steps.regen.outcome }}
           PROJECTION: ${{ steps.projection.outcome }}
           DRIFT: ${{ steps.drift.outputs.drift }}
@@ -334,7 +349,8 @@ jobs:
             echo "memlimit=${MEMLIMIT}"
             echo "threads=${THREADS}"
             echo "inline_cte=${INLINE_CTE}"
-            echo "parquet_ordered=${PARQUET_ORDERED}"
+            echo "pq_sort=${PQ_SORT}"
+            echo "pq_stream=${PQ_STREAM}"
             echo "outcome=${OUTCOME}"
             echo "projection=${PROJECTION}"
             echo "drift=${DRIFT}"
@@ -365,8 +381,8 @@ jobs:
           {
             echo "# Regeneration stress matrix"
             echo
-            echo "| arm | rep | memlimit | threads | inline_cte | pq_ordered | outcome | drift | elapsed | peak fold RSS | parquet bytes | OOM |"
-            echo "|---|---|---|---|---|---|---|---|---|---|---|---|"
+            echo "| arm | rep | memlimit | threads | cte | pq_sort | pq_stream | outcome | drift | elapsed | peak fold RSS | parquet bytes | OOM |"
+            echo "|---|---|---|---|---|---|---|---|---|---|---|---|---|"
             for d in arms/*/; do
               f="$d/arm-outcome.txt"
               [ -f "$f" ] || continue
@@ -375,7 +391,7 @@ jobs:
               oom=$(grep -c "Killed process" "$d/post-mortem.txt" 2>/dev/null || true)
               mb() { [ -n "${1:-}" ] && echo "$(( $1 / 1024 )) MB" || echo "n/a"; }
               pq=$(grep -oE '[0-9]+ bytes' "$d/runner-facts.txt" 2>/dev/null | head -1 | cut -d' ' -f1)
-              echo "| $(get arm) | $(get rep) | $(get memlimit) | $(get threads) | $(get inline_cte) | $(get parquet_ordered) | $(get outcome) | $(get drift) | $(get elapsed_s)s | $(mb "$peak") | ${pq:-n/a} | ${oom:-0} |"
+              echo "| $(get arm) | $(get rep) | $(get memlimit) | $(get threads) | $(get inline_cte) | $(get pq_sort) | $(get pq_stream) | $(get outcome) | $(get drift) | $(get elapsed_s)s | $(mb "$peak") | ${pq:-n/a} | ${oom:-0} |"
             done
             echo
             echo "## Failure detail (per arm)"

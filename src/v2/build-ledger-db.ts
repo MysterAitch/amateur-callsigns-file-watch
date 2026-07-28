@@ -293,9 +293,14 @@ export function writeParquetScript(ledgerGlob: string, parquetPath: string): str
   // preserve_insertion_order=false is paired with it because it lets DuckDB
   // stream row groups out instead of buffering to hold order, targeting that
   // peak directly. Delete once the measurement has decided.
-  const ordered = process.env[PARQUET_ORDERED_ENV] === '1';
-  const preamble = ordered ? `SET preserve_insertion_order = false;\n` : '';
-  const orderBy = ordered ? `  ORDER BY layer, predicate, sourceFile, ordinal\n` : '';
+  // The two are SEPARATE switches because bundling them made their effects
+  // inseparable: the first measurement moved peak build RSS from 5.97 GB to
+  // 13.51 GB, and could not say whether the sort cost that much or whether
+  // preserve_insertion_order=false had already saved some of it back.
+  const sorted = process.env[PARQUET_SORT_ENV] === '1';
+  const streamed = process.env[PARQUET_STREAM_ENV] === '1';
+  const preamble = streamed ? `SET preserve_insertion_order = false;\n` : '';
+  const orderBy = sorted ? `  ORDER BY layer, predicate, sourceFile, ordinal\n` : '';
   return preamble + [
     `COPY (`,
     `  SELECT layer, rawSubject, predicate, object, sourceFile, ordinal, vintage, rule`,
@@ -304,7 +309,8 @@ export function writeParquetScript(ledgerGlob: string, parquetPath: string): str
   ].join('\n') + '\n';
 }
 
-export const PARQUET_ORDERED_ENV = 'PARQUET_ORDERED';
+export const PARQUET_SORT_ENV = 'PARQUET_SORT';
+export const PARQUET_STREAM_ENV = 'PARQUET_STREAM';
 
 // Locate a DuckDB CLI: an explicit path (env DUCKDB_BIN) wins, else `duckdb` on
 // PATH. Returns null when neither resolves - the Parquet lane is optional at
