@@ -194,7 +194,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # BOTH axes belong in the base matrix: `include` adds properties to
+        # combinations that already exist rather than forming a product, so a
+        # bare `rep` base with ten arm entries in `include` collapses to ONE
+        # arm (each entry overwrites the previous one's keys). rep x arm here,
+        # with include matching on `arm` to attach that arm's settings.
         rep: ${{ fromJSON(needs.plan.outputs.reps) }}
+        arm:
+          - baseline-3gb
+          - raise-8gb
+          - nolimit
+          - lower-1gb
+          - unpinned-threads
+          - both-levers-off
+          - serial
+          - conc2
+          - conc6
+          - no-disk-reclaim
         include:
           - { arm: baseline-3gb,     concurrency: "4", memlimit: "3GB", threads: "1", reclaim: "yes" }
           - { arm: raise-8gb,        concurrency: "4", memlimit: "8GB", threads: "1", reclaim: "yes" }
@@ -341,7 +357,7 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v6.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: arms
       - name: Summarise every arm
