@@ -93,3 +93,40 @@ The hot internals they call — register CSV parse/load, `buildFoiObservations`
 and the observations union render, the per-entry and combined SQLite inserts,
 report and page renders — are timed with individual labels so the breakdown
 ranks them directly.
+
+## Measuring a CI job's resources, not just its time
+
+`PERF` answers *where did the time go inside one process*. A second, separate
+set of tools answers *what did a whole CI job do to the machine* — memory,
+disk, per-child peak RSS, and what state it was in when it died. They exist
+because #987 was unexplainable for three rounds: a killed regeneration writes
+no summary, so a diagnostic that only reports on success reports nothing about
+the case it was built for.
+
+All of these are **dormant by default** and cost nothing when unused.
+
+| tool | what it gives you | how to turn it on |
+|---|---|---|
+| [`.github/scripts/sample-resources.sh`](../.github/scripts/sample-resources.sh) | a TSV sample every 2 s: memory, swap, load, per-process RSS, disk free | run it in the background, redirect stdout to a file |
+| [`.github/scripts/capture-post-mortem.sh`](../.github/scripts/capture-post-mortem.sh) | final machine state, largest directories, surviving processes, and an explicit OOM-killer finding | `DIAGNOSTICS_DIR=… bash …`, from a step with `if: always()` |
+| [`src/ci/sweep-trace.ts`](../src/ci/sweep-trace.ts) | a streaming JSONL event per fold start/finish/failure, written as it happens | set `SWEEP_TRACE_FILE` |
+| `FOLD_RUSAGE_DIR` (in [`src/v2/report-fold.ts`](../src/v2/report-fold.ts)) | true peak RSS per fold child, via `/usr/bin/time -v` | set the variable to a directory |
+| [`.github/workflows/regen-stress.yml`](../.github/workflows/regen-stress.yml) | a repetition matrix varying one lever at a time, with collation | `workflow_dispatch`; see its header before reusing |
+
+The first four are wired into `golden-master` on a cache miss, so a real
+regeneration always leaves a baseline behind — which is what makes the *next*
+failure legible. `regen-stress.yml` is dormant and dispatch-only.
+
+**Four traps worth knowing before you measure anything**, each of which cost a
+round in the #991 investigation and is recorded at greater length in that
+workflow's header and in [ADR 0023](adr/0023-fold-resource-tuning-by-measurement.md):
+
+1. **Sample before the step you are measuring**, not after. An intermediate
+   that is written and deleted inside one step is invisible to a sampler that
+   starts when the step ends.
+2. **Check the arms actually differ.** A lever that the code under test
+   overrides unconditionally produces a confident, meaningless "no effect".
+3. **A measurement can be censored by its own configuration** — a reading
+   bounded by a cap cannot show the cap's effect.
+4. **Interval sampling cannot see a spike between two samples.** True peak RSS
+   comes from `getrusage` (`/usr/bin/time -v`), not from a sampler.

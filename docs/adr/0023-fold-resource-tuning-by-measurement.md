@@ -94,13 +94,27 @@ supported "disk is fine" for the wrong reason. Sampling from before the build
 | no disk-reclaim | 85.8 GB | **72.9 GB** | 12.9 GB |
 
 The peak is the 12.727 GiB ledger intermediate, exactly. **Without the reclaim
-step the regeneration still floors at 72.9 GB free**, so the step is defending a
-margin roughly six times larger than the largest thing the job writes. It is
-removed from `golden-master` here. The same step in `build-site-databases` is a
-different job with a different disk profile and is not covered by this
-measurement; the `df` it already logs shows that job starting at **88 GB
-available** before reclaiming, but its peak *consumption* has not been measured,
-so it stays until it is.
+step the regeneration still floors at 72.9 GB free.**
+
+**But observation is not the contract, and the reclaim step is therefore made
+conditional rather than removed.** GitHub *documents* a standard runner as
+having **14 GB** of SSD space. Against the 85.8 GB actually observed, a 12.9 GB
+peak is 15%; against the documented 14 GB it is **92%**. Both readings are real,
+and deleting the step outright would have bet the deploy path on runners
+continuing to exceed their published specification indefinitely — a bet that
+looked like a measurement because one side of it had been measured.
+
+The resolution is a shared preflight
+(`.github/scripts/ensure-disk-headroom.sh`) that costs a single `df` when
+headroom is plentiful, reclaims when it is not, and **fails loudly with a
+diagnosable message** rather than surfacing as an ENOSPC from whichever write
+happened to be unlucky. That keeps the 75–85 s saving on every run we actually
+see, without removing the protection on a run we might one day get.
+
+`build-site-databases` uses the same script with a deliberately conservative
+threshold: its profile differs (packaged databases, the assembled tree, a
+~1.2 GB Pages artefact) and its peak consumption has not been measured, so it is
+instrumented rather than tuned.
 
 **Insertion-order preservation is resolved, and the ordering of the two changes
 was load-bearing.** Re-tested against the post-`NOT MATERIALIZED` baseline, as
@@ -143,6 +157,13 @@ unconditionally in #1001.
   reading. The prediction was right; the instrument was wrong.
 - A lever introduced on a hypothesis **owes a measurement**, and the burden sits
   with the lever rather than with the person questioning it.
+- **A measurement of what a platform currently provides is not a measurement of
+  what it guarantees.** The disk-reclaim step was very nearly deleted on 85.8 GB
+  of observed headroom, against a documented allowance of 14 GB — the removal
+  would have been presented as evidence-led while being, in substance, a bet on
+  over-provisioning. Where observation and contract disagree, the cheap answer
+  is usually to *measure at runtime and act conditionally* rather than to pick
+  one number and build on it.
 - Stale figures in comments actively mislead: a `~37 min` regeneration figure
   predating the shared-Parquet change was cited as current for a job that by
   then took under six minutes. Measurements in comments now carry their date and

@@ -621,18 +621,28 @@ jobs:
     name: golden-master
     runs-on: ubuntu-latest
     steps:
-      # NO disk reclaim here, deliberately. This job once deleted the preinstalled
-      # toolchains before regenerating, on the belief that a cache-MISS
-      # regeneration exhausts the image. Measured instead (ADR 0023, run
-      # 30384764770, 2026-07-28): the regeneration's peak consumption is 12.9 GB
-      # - the ledger intermediate - and WITHOUT the reclaim it still floors at
-      # 72.9 GB free. The step was defending a margin about six times the largest
-      # thing the job writes, at 75-85 s a run, and it cleared the tool cache that
-      # setup-node then had to repopulate. If ENOSPC ever recurs here, the ledger
-      # intermediate is the thing to shrink (#997), not the toolchains to delete.
+      # CONDITIONAL reclaim, not unconditional and not removed. This job once
+      # deleted ~20 GB of preinstalled toolchains on every run, costing 75-85 s
+      # to insure against an exhaustion that measurement does not support on
+      # today's runners (peak consumption 12.9 GB against 85.8 GB free before
+      # any reclaim; ADR 0023, run 30384764770, 2026-07-28).
+      #
+      # But GitHub DOCUMENTS a standard runner as 14 GB, and 12.9 GB of 14 GB is
+      # 92%. Deleting the step outright would bet the deploy path on runners
+      # continuing to exceed their published spec. The guard measures instead:
+      # one `df` when headroom is plentiful, a reclaim when it is not, and a
+      # loud stop rather than a mid-run ENOSPC if even that is insufficient.
+      #
+      # Runs AFTER checkout because the guard is a repo script: a shared one, so
+      # this job and build-site-databases cannot drift apart on the policy. The
+      # checkout itself writes a few hundred MB, far inside any plausible margin.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Ensure disk headroom
+        env:
+          NEEDED_GB: '16'   # 12.9 GB peak (the ledger JSONL) rounded up
+        run: bash .github/scripts/ensure-disk-headroom.sh
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
@@ -817,27 +827,22 @@ jobs:
   build-site-databases:
     runs-on: ubuntu-latest
     steps:
-      # Reclaim runner disk before anything writes: the packaged databases plus
-      # the archive (now including copies held in full) leave little headroom on
-      # the default image, and the assembly has failed with ENOSPC. Delete the
-      # large preinstalled toolchains this job never uses; each path is guarded
-      # (|| true) so a future image that drops one is not a failure, and setup-node
-      # below reinstalls Node into the tool cache after it is cleared. df -h is
-      # echoed before and after so any recurrence is diagnosable from the log.
-      - name: Free runner disk space
-        run: |
-          echo "== disk before =="; df -h /
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}" || true
-          echo "== disk after =="; df -h /
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # TEMPORARY INSTRUMENTATION (#991). golden-master's twin of the reclaim step
-      # above has been removed on measurement; this job's has NOT, because it has a
-      # different disk profile (packaged databases, the assembled tree, a ~1.2 GB
-      # Pages artefact) and no measurement of its own. The `df` the step already
-      # logs shows this job starting at 88 GB available BEFORE reclaiming, so the
-      # open question is only peak consumption. Sample it, then decide. Remove this
+      # Same conditional guard as golden-master, sharing the same script so the
+      # two jobs cannot drift apart on the policy. This job's profile differs -
+      # packaged databases, the assembled tree, and a ~1.2 GB Pages artefact -
+      # and unlike golden-master its peak consumption has NOT been measured, so
+      # NEEDED_GB is set deliberately conservatively until the sampler below
+      # reports. On a cache MISS it also builds the full ledger, so it inherits
+      # golden-master's 12.9 GB intermediate on top of its own writes.
+      - name: Ensure disk headroom
+        env:
+          NEEDED_GB: '24'
+        run: bash .github/scripts/ensure-disk-headroom.sh
+      # TEMPORARY INSTRUMENTATION (#991): measures this job's actual peak so
+      # NEEDED_GB above can be set from evidence rather than caution. Remove this
       # step and its upload once ADR 0023 records the answer.
       - name: Start resource sampler
         run: |
