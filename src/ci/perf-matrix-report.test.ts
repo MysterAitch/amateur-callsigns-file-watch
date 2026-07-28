@@ -94,11 +94,30 @@ describe('computeRatios', { tags: ['unit'] }, () => {
     expect(r.ratio).toBeCloseTo(2.6, 2);
   });
 
-  it('Ratio_WhenEitherSideIsUnreliable_IsMarkedIndicativeNotSettled', () => {
-    // The exact trap from the first matrix run: build-ledger's ratio came from
-    // an arm whose two reps differed by 1.7x, and was nearly quoted flatly.
+  it('Ratio_NoisyVariantWhoseRangeStillClearsTheBaseline_IsSettledOnDirection', () => {
+    // CORRECTED after the first real run. This case (base 198..205 against a
+    // very noisy variant 270..462) originally asserted NOT settled, on the
+    // grounds that a 1.7x spread cannot support a confident ratio.
+    //
+    // That conflated two questions. The variant's MINIMUM sits 32% above the
+    // baseline's MAXIMUM, so the effect is unambiguously real - only its
+    // magnitude is imprecise. `settled` answers "is this difference real?"; the
+    // spread column, rendered in bold when wide, answers "how precisely do we
+    // know it?". Answering the first with the second is what marked a genuine
+    // 3.18x finding "indicative only".
     const [r] = computeRatios(
       summaries({ base: [200, 205, 198], variant: [270, 462] }),
+      [{ id: 'tax', baseline: 'base', variant: 'variant' }],
+    );
+    expect(r.settled).toBe(true);
+  });
+
+  it('Ratio_NoisyVariantWhoseRangeReachesIntoTheBaseline_IsNotSettled', () => {
+    // The concern the test above used to carry, stated correctly: here the
+    // variant's noise genuinely could explain the difference, because its range
+    // overlaps the baseline's.
+    const [r] = computeRatios(
+      summaries({ base: [200, 205, 260], variant: [230, 462] }),
       [{ id: 'tax', baseline: 'base', variant: 'variant' }],
     );
     expect(r.settled).toBe(false);
@@ -160,5 +179,58 @@ describe('renderMatrixMarkdown', { tags: ['unit'] }, () => {
 
   it('Report_NoRunsAtAll_SaysSoRatherThanRenderingAnEmptyTable', () => {
     expect(renderMatrixMarkdown([], [], []).toLowerCase()).toContain('no ');
+  });
+});
+
+// Added after the mechanism's first real run (#1004) reported "indicative only"
+// against a 3.18x effect, because ONE arm spread 1.26x against a fixed 1.25
+// threshold. The reliability test was effect-agnostic: a 26% spread genuinely
+// prevents resolving a 4% difference and says nothing about a 218% one. That is
+// the cry-wolf failure this module exists to avoid, so `settled` now asks
+// whether the arms' observed RANGES separate rather than whether each arm is
+// tight in isolation.
+describe('computeRatios — settled is judged against the effect, not a fixed spread', { tags: ['unit'] }, () => {
+  const from = (input: Record<string, number[]>): ArmSummary[] =>
+    Object.entries(input).map(([id, secs]) =>
+      summariseArm(secs.map((s, i) => ({ arm: id, rep: i + 1, elapsedS: s, peakRssKb: 0, status: 0 }))));
+
+  it('Ratio_HugeEffectDespiteAWideBaseline_IsSettledBecauseTheRangesDoNotOverlap', () => {
+    // The real case: pages-nocov 145..182 against pages-v8 484..634. No sample
+    // of either arm comes close to the other; disclaiming this is absurd.
+    const [r] = computeRatios(
+      from({ base: [145, 172, 176, 180, 182], variant: [484, 547, 560, 600, 634] }),
+      [{ id: 'tax', baseline: 'base', variant: 'variant' }],
+    );
+    expect(r.ratio).toBeGreaterThan(3);
+    expect(r.settled).toBe(true);
+  });
+
+  it('Ratio_SmallEffectWithOverlappingRanges_IsNotSettled', () => {
+    // pages-istanbul 182..196 against pages-nocov 145..182: the ranges touch, so
+    // this sample cannot separate an 8% difference from noise.
+    const [r] = computeRatios(
+      from({ base: [145, 172, 176, 180, 182], variant: [182, 185, 188, 190, 196] }),
+      [{ id: 'tax', baseline: 'base', variant: 'variant' }],
+    );
+    expect(r.settled).toBe(false);
+  });
+
+  it('Ratio_ControlArmAgainstItsTwin_IsNeverSettled', () => {
+    // The control MUST come back unsettled - that is what "no effect" looks
+    // like, and a settled control would mean the harness invents differences.
+    const [r] = computeRatios(
+      from({ base: [145, 172, 176, 180, 182], variant: [143, 170, 174, 179, 182] }),
+      [{ id: 'control', baseline: 'base', variant: 'variant' }],
+    );
+    expect(r.settled).toBe(false);
+  });
+
+  it('Ratio_TooFewRepsToSeeARange_IsNotSettledEvenWhenTheMediansDiffer', () => {
+    // A single rep per arm has no range at all, so separation is unmeasurable.
+    const [r] = computeRatios(
+      from({ base: [100], variant: [400] }),
+      [{ id: 'tax', baseline: 'base', variant: 'variant' }],
+    );
+    expect(r.settled).toBe(false);
   });
 });

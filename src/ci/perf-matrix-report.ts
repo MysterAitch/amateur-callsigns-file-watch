@@ -126,6 +126,17 @@ export function summariseArm(runs: readonly ArmRun[]): ArmSummary {
   };
 }
 
+/**
+ * Do the two arms' observed ranges separate entirely? Requires at least two
+ * repetitions each: a single run has no range, so separation is unmeasurable
+ * however far apart the two points happen to sit.
+ */
+function rangesSeparate(a: ArmSummary, b: ArmSummary): boolean {
+  if (a.reps < 2 || b.reps < 2) return false;
+  if (a.minS === null || a.maxS === null || b.minS === null || b.maxS === null) return false;
+  return a.maxS < b.minS || b.maxS < a.minS;
+}
+
 export function computeRatios(summaries: readonly ArmSummary[], specs: readonly ComparisonSpec[]): RatioResult[] {
   const byArm = new Map(summaries.map(s => [s.arm, s]));
   const out: RatioResult[] = [];
@@ -143,7 +154,21 @@ export function computeRatios(summaries: readonly ArmSummary[], specs: readonly 
       baseline: spec.baseline,
       variant: spec.variant,
       ratio: variant.medianS / base.medianS,
-      settled: base.reliable && variant.reliable,
+      // SETTLED IS JUDGED AGAINST THE EFFECT, not against a fixed spread.
+      //
+      // The first real run (2026-07-28) marked a 3.18x effect "indicative only"
+      // because one arm spread 1.26x against a 1.25 threshold - the exact
+      // cry-wolf behaviour this module exists to prevent. The old test asked "is
+      // each arm tight?" when the question is "is THIS effect resolvable given
+      // this much noise?". A 26% spread genuinely blocks a 4% finding and has no
+      // bearing on a 218% one.
+      //
+      // The replacement is the same idea as the benchmark comparator's
+      // confidence-interval test, at the resolution repeated CI arms allow: the
+      // arms' observed ranges must not overlap. It needs no threshold, it scales
+      // automatically with each arm's own noise, and it is interpretable - "no
+      // run of either arm came near the other".
+      settled: rangesSeparate(base, variant),
     });
   }
   return out;
