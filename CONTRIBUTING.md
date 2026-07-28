@@ -37,6 +37,25 @@ are cross-cutting: apply them to each new surface rather than rediscovering them
 per feature. The concise statement is here; the architectural rationale lives in
 the ADRs cross-referenced below.
 
+- **Comments must be evergreen — and a measurement is only evergreen when it
+  carries its date.** A comment states what is true about the code, not what was
+  true while it was being written. Measurements are the trap: *"this takes about
+  37 minutes"* silently stops being true the moment the pipeline changes and
+  then actively misleads, whereas *"measured on PR #947 (2026-07): ~37 min"* is
+  true forever, because it records an observation rather than asserting a
+  property. Give every figure — timing, size, row count, speed-up ratio — its
+  date and its source run or PR. This is not pedantry: a stale `~37 min` in
+  `report-sweep.ts` was cited as current in later reasoning about a job that by
+  then took under six minutes, and a stale `~11 GB` described a ledger that had
+  grown to 12.73 GiB. When a figure is superseded, add the new dated observation
+  rather than overwriting the old one — the trend is usually the point.
+- **Prefer stable-over-time to fast-today.** Given a choice between a build step
+  that is quicker now and one that is slower but whose cost does not grow with
+  the archive, take the second. A change that moves a full rebuild from ten
+  minutes to fifteen is a good trade if it converts growth in the number of
+  publications into a constant — the archive only ever grows, so anything that
+  scales with it is a deferred failure rather than a cost. Say which of the two
+  a change is buying (see [#994](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/994)).
 - **Robust, context-aware output encoding.** Prefer the platform's safe sinks —
   `textContent`, `setAttribute`, DOM construction — which encode by
   construction; treat any data value (a callsign, a dataset or publication

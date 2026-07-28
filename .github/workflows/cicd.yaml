@@ -693,9 +693,9 @@ jobs:
       # died intermittently (2 of 3 cache-miss runs, a different fold each time),
       # and the logs could not say why: the sweep's perf breakdown is written
       # only on success, so a crash uploaded nothing, and a killed child process
-      # leaves no stderr to read. Each failed run costs ~40 minutes, so the
+      # leaves no stderr to read. A failed run costs a full CI cycle, so the
       # capture is deliberately over-broad — recording a redundant field is free,
-      # whereas a missing one buys another 40-minute run that still cannot
+      # whereas a missing one buys another whole run that still cannot
       # answer the question.
       #
       # Three independent records, none of which depends on the run succeeding:

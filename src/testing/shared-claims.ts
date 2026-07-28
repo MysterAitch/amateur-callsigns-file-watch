@@ -37,7 +37,10 @@ export async function buildSharedClaimsParquet(): Promise<void> {
     fs.mkdirSync(path.dirname(SHARED_CLAIMS_PARQUET), { recursive: true });
     emitClaimsParquet(path.join(dir, 'ledger'), SHARED_CLAIMS_PARQUET);
   } finally {
-    // Drop the ~11 GB JSONL immediately; only the compact Parquet is kept.
+    // Drop the JSONL immediately; only the compact Parquet is kept. It is by far
+    // the largest thing the build materialises and it grows with the archive —
+    // measured 12.73 GiB at 2026-07-28 (55.4M claims), against ~11 GB when this
+    // was written, so treat any figure here as a dated observation, not a size.
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }

@@ -22,8 +22,11 @@ export default async function (): Promise<void> {
     return;
   }
   // Build the ONE shared claims Parquet the fold suites read (#478), so each of
-  // them stops re-materialising the whole archive (~11 GB JSONL, ~98 s, ×N folds
-  // - the bulk of the CI `tests` job). This is a WHOLE-RUN optimisation: it only
+  // them stops re-materialising the whole archive once per fold - the bulk of
+  // the CI `tests` job. Measured when this landed (#478, 2026-07): ~11 GB JSONL
+  // and ~98 s per materialisation; the ledger had grown to 12.73 GiB by
+  // 2026-07-28, so the saving scales with the archive rather than holding
+  // steady. This is a WHOLE-RUN optimisation: it only
   // pays off when the run includes the real-archive fold suites, so it is opt-in
   // (ACF_SHARED_CLAIMS, set by the CI `tests` step). A targeted local run - a
   // single `-t` test, a non-fold file - must NOT pay a full-archive build just to

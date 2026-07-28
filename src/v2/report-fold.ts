@@ -48,18 +48,22 @@ export function duckDbAvailable(): boolean {
 // count, which is optimal for a fold running ALONE (it uses every core) but ruins
 // the report sweep's worker-parallel path: N folds at once each spawn ~cores
 // threads, oversubscribing an N-core runner N-fold, and every fold then runs
-// ~2-3x slower (measured on the #929 / PR #947 parallel golden run). The sweep
+// slower — measured ~2-3x on the #929 / PR #947 parallel golden run (2026-07).
+// The sweep
 // sets this to '1' for the span it runs folds concurrently (report-sweep.ts), so
 // N single-threaded folds match the N cores; off that path it is unset and folds
 // keep the default. A non-positive or non-numeric value is ignored (no preamble).
 export const REPORT_FOLD_THREADS_ENV = 'REPORT_FOLD_THREADS';
 
 // Names a per-fold DuckDB memory budget (issue #929, following PR #951's
-// thread-pinning result). Pinning threads left the parallel golden run
-// unchanged (~37 min, same as unpinned), which points the contention at
-// memory/IO rather than CPU: four concurrent DuckDB CLI processes, each with
-// no memory ceiling, can spill and thrash the shared page cache over the same
-// parquet scans. Setting a per-fold budget bounds the spill instead. Sibling
+// thread-pinning result). Measured on PR #951 (2026-07): pinning threads left
+// the parallel golden run unchanged at ~37 min, which was read at the time as
+// pointing the contention at memory/IO rather than CPU — four concurrent DuckDB
+// CLI processes, each with no memory ceiling, spilling and thrashing the shared
+// page cache over the same parquet scans. UNDER REVIEW (#991): that reading is
+// contradicted by run 30359094189 (2026-07-28), where peak memory across the
+// whole job was 6.9 GB of 16 GB and load reached 3.84 of 4 vCPU. See
+// report-sweep.ts's CONCURRENT_FOLD_MEMORY_LIMIT for the full record. Sibling
 // mechanism to REPORT_FOLD_THREADS: the sweep sets this for the concurrent
 // region only (report-sweep.ts), restored afterwards, so a fold running alone
 // keeps DuckDB's default. A value DuckDB would not accept as a memory size is

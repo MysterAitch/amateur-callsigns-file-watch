@@ -193,21 +193,31 @@ const INDEPENDENT_REPORT_TASKS: readonly ReportGeneratorTask[] = [
 // overrides it either way, for a constrained host or a deliberately wider one.
 const MAX_REPORT_CONCURRENCY = 4;
 
-// Per-fold memory budget under sweep concurrency (issue #929, following PR
-// #951's thread-pinning result). PR #947/#951 both regenerated the golden
-// report set in ~37 min at 4-wide concurrency with Σ CPU ~175 min — pinning
-// threads=1 per fold (removing the CPU-oversubscription hypothesis) left that
-// figure unchanged, which points the remaining 2-3.4x per-fold slowdown at
-// memory/IO contention: four concurrent DuckDB CLI processes, each defaulting
-// to its own large memory budget, spilling to disk and thrashing the shared
-// page cache over the same parquet scans. GitHub-hosted `ubuntu-latest`
-// runners (this workflow's runs-on) carry 16 GB RAM; at MAX_REPORT_CONCURRENCY
-// (4) folds running simultaneously, capping each at 3 GB uses 12 GB and
-// leaves ~4 GB of headroom for Node's own heap, the four worker threads'
-// overhead, and the OS page cache the shared parquet scans lean on — tight
-// enough to force each fold to bound its spill rather than grab memory
-// unchecked, generous enough that 3 GB should comfortably hold one fold's
-// working set (the folds ran solo in low seconds pre-#929, well under this).
+// Per-fold memory budget under sweep concurrency (issue #929).
+//
+// THIS CAP IS UNDER REVIEW AND MAY BE REMOVED (#991). It was set on a
+// hypothesis — that four concurrent DuckDB processes, each taking its own
+// default budget, were contending on memory and IO — which later measurement
+// does not support. State the observations with their dates, since a bare
+// "this takes N minutes" stops being true the moment the pipeline changes and
+// then actively misleads:
+//
+//   - measured on PR #947 / #951 (2026-07): the golden report set regenerated
+//     in ~37 min at 4-wide concurrency, Σ CPU ~175 min, and pinning threads=1
+//     per fold left that unchanged;
+//   - measured on run 30359094189 (2026-07-28, after #988 shared the claim
+//     ledger Parquet): the whole regeneration took 2 min 55 s, peak memory
+//     across the entire job was 6.9 GB of 16 GB with 9.1 GB still available,
+//     swap was never touched, and load reached 3.84 of 4 vCPU.
+//
+// The second reading supersedes the first: the ~37 min figure predates #988 and
+// is no longer the cost of anything. It also contradicts the reasoning above —
+// the box was never short of memory, and CPU, not memory, is the saturated
+// resource. Since DuckDB enforces `memory_limit` itself and raises its own
+// error when a query exceeds it, a cap set below what the runner can afford is
+// a candidate CAUSE of the intermittent regeneration deaths rather than a
+// mitigation. The stress matrix (.github/workflows/regen-stress.yml) varies it
+// against 1 GB / 8 GB / unset to settle that from evidence.
 const CONCURRENT_FOLD_MEMORY_LIMIT = '3GB';
 
 function defaultReportConcurrency(): number {
@@ -270,9 +280,6 @@ export async function runReportSweepParallel(concurrency: number = defaultReport
   const keys = listArchiveKeys().sort();
   const coverageRows = keys.map(key => entryCoverage(key, failed));
 
-  // Folded alone before any worker starts, so it keeps DuckDB's default
-  // threads=cores — one fold on an otherwise-idle runner should use every core
-  // (a solo fold measured ~2.4x faster multi-threaded than at threads=1, #929).
   // Record the settings actually in force, not the ones the source suggests:
   // both are env-overridable, so a run's behaviour cannot be inferred from
   // reading the code alone (issue #991).
@@ -286,14 +293,22 @@ export async function runReportSweepParallel(concurrency: number = defaultReport
     nodeVersion: process.version,
   });
 
+  // Folded alone before any worker starts, so it keeps DuckDB's default
+  // threads=cores — one fold on an otherwise-idle runner should use every core.
+  // Measured on #929 (2026-07): a solo fold ran ~2.4x faster multi-threaded than
+  // at threads=1.
   const dataQualityFold = time('reports:data-quality-fold', () => buildDataQualityFold());
   traceSweepEvent('data-quality-fold-done');
 
   // Pin every fold in the concurrent region to a single DuckDB thread. Each fold
   // otherwise defaults to threads=cores, so `concurrency` folds at once
-  // oversubscribe an N-core runner N-fold and each runs ~2-3x slower (measured on
-  // PR #947's parallel golden run); one thread per fold matches the folds to the
-  // cores. Set on process.env BEFORE the pool spawns so each worker thread
+  // oversubscribe an N-core runner N-fold; one thread per fold matches the folds
+  // to the cores. Measured on PR #947 (2026-07): oversubscribed folds ran ~2-3x
+  // slower. UNDER REVIEW (#991) — #951 then measured NO overall speed-up from
+  // this pin, and run 30359094189 (2026-07-28) reached load 3.84 of 4 vCPU, so
+  // CPU is the saturated resource and halving each fold's threads may cost more
+  // than the oversubscription it avoids. The stress matrix runs an unpinned arm.
+  // Set on process.env BEFORE the pool spawns so each worker thread
   // inherits it in its process.env copy, and so it also constrains the
   // main-thread quality-reports fold that runs alongside the pool below.
   const previousFoldThreads = process.env[REPORT_FOLD_THREADS_ENV];
