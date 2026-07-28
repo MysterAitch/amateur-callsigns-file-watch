@@ -42,6 +42,7 @@ import { execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { buildLedger, type EntrySelector } from './build-ledger.ts';
 import { readClaimsJsonlSync } from './serialise.ts';
+import { time, perfReport } from '../shared/perf.ts';
 import {
   NORMALISES_TO_PREDICATE,
   CLEANED_CALLSIGN_RULE,
@@ -440,13 +441,24 @@ export function buildClaimsParquet(parquetPath: string, options: { selectEntry?:
   }
   const ledgerRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'v2-claims-parquet-'));
   try {
-    buildLedger(ledgerRoot, undefined, undefined, options.selectEntry, true);
-    const parquet = emitClaimsParquet(path.join(ledgerRoot, 'ledger'), parquetPath, bin);
+    // Two spans, not one. This is the longest single step in the pipeline, and
+    // its cost splits across two quite different mechanisms: emitting the JSONL
+    // intermediate (JSON serialisation and a multi-GB write) and DuckDB reading
+    // that same text back to encode Parquet. An aggregate number cannot tell
+    // them apart, and until they were separated the split had to be inferred
+    // off-runner rather than measured on it (#991).
+    time(LEDGER_EMIT_SPAN, () => buildLedger(ledgerRoot, undefined, undefined, options.selectEntry, true));
+    const parquet = time(PARQUET_COPY_SPAN, () => emitClaimsParquet(path.join(ledgerRoot, 'ledger'), parquetPath, bin));
     return { parquet, sizeBytes: fs.statSync(parquet.parquetPath).size };
   } finally {
     fs.rmSync(ledgerRoot, { recursive: true, force: true });
   }
 }
+
+// Span labels are exported so the profiling guard asserts the same strings the
+// build records, rather than a copy that can drift out of step with it.
+export const LEDGER_EMIT_SPAN = 'claims-parquet: emit ledger JSONL';
+export const PARQUET_COPY_SPAN = 'claims-parquet: duckdb COPY to Parquet';
 
 if (import.meta.main) {
   const args = process.argv.slice(2).filter(a => a.trim().length > 0);
@@ -462,6 +474,8 @@ if (import.meta.main) {
     const result = buildClaimsParquet(parquetPath, { selectEntry: useSubset ? subsetSelector() : undefined });
     console.log(`built shared claims.parquet ${result.parquet.parquetPath} (${useSubset ? 'subset' : 'full corpus'})`);
     console.log(`  rows: ${result.parquet.rows}, ${result.sizeBytes} bytes`);
+    // No-op unless PERF is set; writes JSON only when PERF_JSON is set too.
+    perfReport({ entrypoint: 'build-claims-parquet' });
   } else {
     const dbPath = positional[0] ?? path.join('_site', 'data', 'claim-ledger.sqlite.png');
     const wantParquet = flags.has('--parquet');
