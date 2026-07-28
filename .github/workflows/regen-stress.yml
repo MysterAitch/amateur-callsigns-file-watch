@@ -103,7 +103,7 @@ jobs:
           mkdir -p .diagnostics
           /usr/bin/time -v -o .diagnostics/rusage-parquet-build.txt \
             node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only
-          ls -l "$RUNNER_TEMP/claims.parquet" | tee .diagnostics/parquet-size.txt
+          stat -c "%n %s bytes" "$RUNNER_TEMP/claims.parquet" | tee .diagnostics/parquet-size.txt
           du -h "$RUNNER_TEMP/claims.parquet" | tee -a .diagnostics/parquet-size.txt
       - name: Explain the fold access patterns
         run: |
@@ -202,7 +202,7 @@ jobs:
           mkdir -p .diagnostics
           /usr/bin/time -v -o .diagnostics/rusage-parquet-build.txt \
             node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only
-          ls -l "$RUNNER_TEMP/claims.parquet" >> .diagnostics/runner-facts.txt
+          stat -c "%n %s bytes" "$RUNNER_TEMP/claims.parquet" >> .diagnostics/runner-facts.txt
       - name: Record runner facts and start sampler
         run: |
           set -euo pipefail
