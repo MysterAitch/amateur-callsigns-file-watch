@@ -51,6 +51,12 @@ export interface ArmSummary {
   reps: number;
   failures: number;
   reliable: boolean;
+  /**
+   * How many separated clusters the samples fall into. 1 is the normal case.
+   * >1 means the median describes NO actual population, which is worse than a
+   * wide error bar because it looks precise.
+   */
+  modes: number;
 }
 
 export interface ComparisonSpec {
@@ -93,6 +99,43 @@ const MAX_RELIABLE_SPREAD = 1.25;
  */
 const NOISE_BAND = 1.1;
 
+/**
+ * Count separated clusters in a sample set, so a bimodal or trimodal arm is not
+ * summarised by a median that sits between its populations.
+ *
+ * Detection is a GAP RULE rather than a kernel-density or dip test: sort the
+ * samples and split wherever a consecutive gap dwarfs the typical gap. It needs
+ * no distributional assumption, works at the sample counts CI runs actually
+ * produce (5-25), and is interpretable - "there is a hole here and nothing
+ * landed in it".
+ *
+ * Deliberately conservative in two ways. A merely WIDE but continuous spread
+ * must report ONE mode: noise is not structure, and inventing clusters would be
+ * the mirror of the cry-wolf failure this module already carries scars from.
+ * And fewer than four samples always reports one mode, because two or three
+ * points cannot distinguish a gap from a sparse sample.
+ */
+function countModes(values: readonly number[]): number {
+  if (values.length < 4) return 1;
+  const sorted = [...values].sort((a, b) => a - b);
+  const gaps = sorted.slice(1).map((v, i) => v - sorted[i]);
+  const range = sorted[sorted.length - 1] - sorted[0];
+  if (range === 0) return 1;
+
+  // A cluster boundary is a gap far larger than the TYPICAL gap. The median gap
+  // is the right yardstick rather than the mean or an even-spread estimate:
+  // those are themselves inflated by the very boundaries being looked for, which
+  // makes three clusters harder to detect than two - the bug this replaces.
+  //
+  // The range floor guards the degenerate case where most samples are identical,
+  // so the median gap is 0 and every difference would otherwise look infinite.
+  const sortedGaps = [...gaps].sort((a, b) => a - b);
+  const mid = sortedGaps.length >> 1;
+  const medianGap = sortedGaps.length % 2 === 0 ? (sortedGaps[mid - 1] + sortedGaps[mid]) / 2 : sortedGaps[mid];
+  const threshold = Math.max(medianGap * 5, range * 0.15);
+  return gaps.filter(g => g > threshold).length + 1;
+}
+
 function median(values: readonly number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = sorted.length >> 1;
@@ -105,10 +148,11 @@ export function summariseArm(runs: readonly ArmRun[]): ArmSummary {
   const failures = runs.length - good.length;
 
   if (good.length === 0) {
-    return { arm, medianS: null, minS: null, maxS: null, spreadRatio: null, peakRssKb: 0, reps: 0, failures, reliable: false };
+    return { arm, medianS: null, minS: null, maxS: null, spreadRatio: null, peakRssKb: 0, reps: 0, failures, reliable: false, modes: 1 };
   }
 
   const times = good.map(r => r.elapsedS);
+  const modes = countModes(times);
   const minS = Math.min(...times);
   const maxS = Math.max(...times);
   const spreadRatio = minS > 0 ? maxS / minS : null;
@@ -122,7 +166,10 @@ export function summariseArm(runs: readonly ArmRun[]): ArmSummary {
     peakRssKb: Math.max(...good.map(r => r.peakRssKb)),
     reps: good.length,
     failures,
-    reliable: good.length >= MIN_RELIABLE_REPS && spreadRatio !== null && spreadRatio <= MAX_RELIABLE_SPREAD,
+    modes,
+    // A multimodal arm is never reliable however tight each cluster is: the
+    // summary statistic does not describe any population that exists.
+    reliable: modes === 1 && good.length >= MIN_RELIABLE_REPS && spreadRatio !== null && spreadRatio <= MAX_RELIABLE_SPREAD,
   };
 }
 
@@ -208,8 +255,9 @@ export function renderMatrixMarkdown(
     // The warning travels WITH the number. A caveat kept in the data and left
     // out of the table is a caveat nobody reads.
     const spread = s.spreadRatio === null ? '-'
-      : s.reliable ? `${fmt(s.spreadRatio, 2)}x`
-        : `**${fmt(s.spreadRatio, 2)}x wide spread**`;
+      : s.modes > 1 ? `**${fmt(s.spreadRatio, 2)}x — ${s.modes === 2 ? 'BIMODAL' : s.modes === 3 ? 'TRIMODAL' : `${s.modes}-MODAL`}, median describes no population**`
+        : s.reliable ? `${fmt(s.spreadRatio, 2)}x`
+          : `**${fmt(s.spreadRatio, 2)}x wide spread**`;
     lines.push(`| ${s.arm} | ${fmt(s.medianS)} | ${fmt(s.minS)} | ${fmt(s.maxS)} | ${spread} | ${(s.peakRssKb / 1024).toFixed(0)} | ${s.reps} | ${s.failures} |`);
   }
 
