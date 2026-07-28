@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { runReportSweep, mdCell } from './report-sweep.ts';
+import { runReportSweep, mdCell, effectiveFoldSetting, CONCURRENT_FOLD_MEMORY_LIMIT } from './report-sweep.ts';
 import { DIRS } from '../shared/constants.ts';
 import { OFCOM_AMATEUR_SOURCE_KEY } from '../sources/ofcom-amateur/constants.ts';
 import { convertRawCsv } from '../sources/ofcom-amateur/normalise.ts';
@@ -620,5 +620,33 @@ describe('mdCell', { tags: ['unit'] }, () => {
   it('MdCell_WhenTextShort_UnchangedApartFromEscaping', () => {
     expect(mdCell('plain text')).toBe('plain text');
     expect(mdCell('a|b')).toBe('a\\|b');
+  });
+});
+
+describe('concurrent-region fold settings honour the caller (#991)', { tags: ['unit'] }, () => {
+  // These levers are documented as env-overridable, and the concurrent region is
+  // the ONLY place they act. The assignment used to be unconditional, so a
+  // caller setting either was silently discarded — which made a ten-arm stress
+  // run across four memory limits produce ten identical runs. A default that
+  // cannot be overridden is a constant, and a lever that cannot be varied cannot
+  // be tested.
+
+  it('FoldSetting_WhenTheCallerSuppliesNothing_TakesTheModuleDefault', () => {
+    expect(effectiveFoldSetting(undefined, CONCURRENT_FOLD_MEMORY_LIMIT)).toBe('3GB');
+    expect(effectiveFoldSetting(undefined, '1')).toBe('1');
+  });
+
+  it('FoldSetting_WhenTheCallerSuppliesAValue_TheCallerWins', () => {
+    expect(effectiveFoldSetting('8GB', CONCURRENT_FOLD_MEMORY_LIMIT)).toBe('8GB');
+    expect(effectiveFoldSetting('1GB', CONCURRENT_FOLD_MEMORY_LIMIT)).toBe('1GB');
+    expect(effectiveFoldSetting('4', '1')).toBe('4');
+  });
+
+  it('FoldSetting_WhenTheCallerSuppliesAnEmptyValue_ThatIsARequestForNoLimitNotAnAbsence', () => {
+    // An empty value is how a caller asks for no preamble at all, leaving DuckDB
+    // on its own default. Treating it as "unset" would silently reimpose the cap
+    // — the exact confusion this guards.
+    expect(effectiveFoldSetting('', CONCURRENT_FOLD_MEMORY_LIMIT)).toBe('');
+    expect(effectiveFoldSetting('', '1')).toBe('');
   });
 });

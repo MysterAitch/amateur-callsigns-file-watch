@@ -218,7 +218,24 @@ const MAX_REPORT_CONCURRENCY = 4;
 // a candidate CAUSE of the intermittent regeneration deaths rather than a
 // mitigation. The stress matrix (.github/workflows/regen-stress.yml) varies it
 // against 1 GB / 8 GB / unset to settle that from evidence.
-const CONCURRENT_FOLD_MEMORY_LIMIT = '3GB';
+export const CONCURRENT_FOLD_MEMORY_LIMIT = '3GB';
+
+/**
+ * The value a concurrent-region fold setting takes: whatever the caller
+ * supplied, or the module's default when the caller supplied nothing.
+ *
+ * Exists as its own function because the precedence is the thing that broke. The
+ * assignment used to be unconditional, so these documented-overridable levers
+ * were silently un-overridable in the only region where they act — which made a
+ * ten-arm stress run across four different memory limits produce ten identical
+ * runs whose null result was very nearly read as "the limit does not matter".
+ *
+ * An EMPTY string is a caller value, not an absence: it is how a caller asks for
+ * no preamble at all, leaving DuckDB on its own default.
+ */
+export function effectiveFoldSetting(supplied: string | undefined, fallback: string): string {
+  return supplied === undefined ? fallback : supplied;
+}
 
 function defaultReportConcurrency(): number {
   const override = process.env.REPORT_SWEEP_CONCURRENCY;
@@ -285,7 +302,7 @@ export async function runReportSweepParallel(concurrency: number = defaultReport
   // reading the code alone (issue #991).
   traceSweepEvent('sweep-start', {
     concurrency,
-    foldMemoryLimit: CONCURRENT_FOLD_MEMORY_LIMIT,
+    foldMemoryLimitDefault: CONCURRENT_FOLD_MEMORY_LIMIT,
     availableParallelism: os.availableParallelism(),
     cpus: os.cpus().length,
     taskCount: INDEPENDENT_REPORT_TASKS.length,
@@ -311,15 +328,38 @@ export async function runReportSweepParallel(concurrency: number = defaultReport
   // Set on process.env BEFORE the pool spawns so each worker thread
   // inherits it in its process.env copy, and so it also constrains the
   // main-thread quality-reports fold that runs alongside the pool below.
+  //
+  // An externally-supplied value WINS. These are documented as env-overridable
+  // levers, but the assignment below used to be unconditional, so a caller
+  // setting either of them was silently ignored for the concurrent region — the
+  // only region where they do anything. That made both untestable from outside:
+  // a stress run varying the memory limit across ten arms produced ten
+  // IDENTICAL runs, and its (null) result was very nearly read as evidence that
+  // the limit does not matter. A default that cannot be overridden is not a
+  // default; it is a constant wearing a default's clothes.
   const previousFoldThreads = process.env[REPORT_FOLD_THREADS_ENV];
-  process.env[REPORT_FOLD_THREADS_ENV] = '1';
+  process.env[REPORT_FOLD_THREADS_ENV] = effectiveFoldSetting(previousFoldThreads, '1');
   // Pin every fold in the concurrent region to a bounded memory budget too
   // (the sibling lever to threads-pinning: PR #951 measured NO speed-up from
   // threads=1 alone, which revises the contention hypothesis from CPU to
   // memory/IO — see CONCURRENT_FOLD_MEMORY_LIMIT above). Set and restored the
   // same way as the threads pin, for the same reasons.
+  // Externally-supplied value wins, for the reasons given above the threads pin.
   const previousFoldMemoryLimit = process.env[REPORT_FOLD_MEMORY_LIMIT_ENV];
-  process.env[REPORT_FOLD_MEMORY_LIMIT_ENV] = CONCURRENT_FOLD_MEMORY_LIMIT;
+  process.env[REPORT_FOLD_MEMORY_LIMIT_ENV] = effectiveFoldSetting(previousFoldMemoryLimit, CONCURRENT_FOLD_MEMORY_LIMIT);
+  // Record what is ACTUALLY in force, read back from the environment after
+  // resolution. The sweep-start event above reports the module's default, which
+  // is what the source says rather than what the run does — reporting only that
+  // is how ten differently-configured stress arms all appeared to be running at
+  // the same memory limit.
+  traceSweepEvent('fold-settings-resolved', {
+    effectiveFoldThreads: process.env[REPORT_FOLD_THREADS_ENV] ?? '(unset — DuckDB default)',
+    effectiveFoldMemoryLimit: process.env[REPORT_FOLD_MEMORY_LIMIT_ENV] === undefined || process.env[REPORT_FOLD_MEMORY_LIMIT_ENV] === ''
+      ? '(unset — DuckDB default)'
+      : process.env[REPORT_FOLD_MEMORY_LIMIT_ENV],
+    threadsCameFromCaller: previousFoldThreads !== undefined,
+    memoryLimitCameFromCaller: previousFoldMemoryLimit !== undefined,
+  });
   try {
     // Fan the independent generators across worker threads; each worker is this
     // same module (self-as-worker: see the worker branch at the foot of the
