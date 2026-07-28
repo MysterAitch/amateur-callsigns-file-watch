@@ -60,9 +60,14 @@ jobs:
       reps: ${{ steps.plan.outputs.reps }}
     steps:
       - id: plan
+        env:
+          # Passed as DATA rather than spliced into the script text: a
+          # workflow_dispatch input is user-controlled, so interpolating it
+          # directly into a run block is a code-injection vector.
+          REPETITIONS: ${{ github.event.inputs.repetitions }}
         run: |
           set -euo pipefail
-          n="${{ github.event.inputs.repetitions }}"
+          n="${REPETITIONS}"
           case "$n" in (''|*[!0-9]*) n=3 ;; esac
           if [ "$n" -lt 1 ]; then n=1; fi
           if [ "$n" -gt 5 ]; then n=5; fi
@@ -204,13 +209,20 @@ jobs:
             node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only
           stat -c "%n %s bytes" "$RUNNER_TEMP/claims.parquet" >> .diagnostics/runner-facts.txt
       - name: Record runner facts and start sampler
+        env:
+          ARM: ${{ matrix.arm }}
+          REP: ${{ matrix.rep }}
+          CONCURRENCY: ${{ matrix.concurrency }}
+          MEMLIMIT: ${{ matrix.memlimit }}
+          THREADS: ${{ matrix.threads }}
+          RECLAIM: ${{ matrix.reclaim }}
         run: |
           set -euo pipefail
           mkdir -p .diagnostics
           {
             echo "== arm =="
-            echo "arm=${{ matrix.arm }} rep=${{ matrix.rep }}"
-            echo "concurrency=${{ matrix.concurrency }} memlimit='${{ matrix.memlimit }}' threads='${{ matrix.threads }}' reclaim=${{ matrix.reclaim }}"
+            echo "arm=${ARM} rep=${REP}"
+            echo "concurrency=${CONCURRENCY} memlimit='${MEMLIMIT}' threads='${THREADS}' reclaim=${RECLAIM}"
             echo "== runner =="
             echo "nproc=$(nproc)"
             grep -E "^MemTotal:|^SwapTotal:" /proc/meminfo
@@ -268,18 +280,29 @@ jobs:
         run: bash .github/scripts/capture-post-mortem.sh
       - name: Record arm outcome
         if: always()
+        env:
+          ARM: ${{ matrix.arm }}
+          REP: ${{ matrix.rep }}
+          CONCURRENCY: ${{ matrix.concurrency }}
+          MEMLIMIT: ${{ matrix.memlimit }}
+          THREADS: ${{ matrix.threads }}
+          RECLAIM: ${{ matrix.reclaim }}
+          OUTCOME: ${{ steps.regen.outcome }}
+          PROJECTION: ${{ steps.projection.outcome }}
+          DRIFT: ${{ steps.drift.outputs.drift }}
+          ELAPSED: ${{ steps.regen.outputs.elapsed_s }}
         run: |
           {
-            echo "arm=${{ matrix.arm }}"
-            echo "rep=${{ matrix.rep }}"
-            echo "concurrency=${{ matrix.concurrency }}"
-            echo "memlimit=${{ matrix.memlimit }}"
-            echo "threads=${{ matrix.threads }}"
-            echo "reclaim=${{ matrix.reclaim }}"
-            echo "outcome=${{ steps.regen.outcome }}"
-            echo "projection=${{ steps.projection.outcome }}"
-            echo "drift=${{ steps.drift.outputs.drift }}"
-            echo "elapsed_s=${{ steps.regen.outputs.elapsed_s }}"
+            echo "arm=${ARM}"
+            echo "rep=${REP}"
+            echo "concurrency=${CONCURRENCY}"
+            echo "memlimit=${MEMLIMIT}"
+            echo "threads=${THREADS}"
+            echo "reclaim=${RECLAIM}"
+            echo "outcome=${OUTCOME}"
+            echo "projection=${PROJECTION}"
+            echo "drift=${DRIFT}"
+            echo "elapsed_s=${ELAPSED}"
           } > .diagnostics/arm-outcome.txt
           cat .diagnostics/arm-outcome.txt
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
