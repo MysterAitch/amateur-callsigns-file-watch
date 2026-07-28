@@ -43,6 +43,7 @@ import { BUILDER_PROJECTION_DIR_ENV, DERIVED_ENTRY_FILES, derivedEntriesMode, de
 import { buildBuilderProjection } from '../v2/build-builder-projection.ts';
 import { compareStats, markUnprintables, type EntryStats } from '../shared/stats.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { traceSweepEvent, traceSweepTask } from './sweep-trace.ts';
 import { writeValueCatalogue } from './value-catalogue.ts';
 import { buildQualityReportFold, type PrefixDistributionFold, type MismatchFold, type RegionalIdentifierFold, type CallsignPatternSeriesFold } from './quality-report-fold.ts';
 import { buildDataQualityFold, type DataQualityFold } from './data-quality-fold.ts';
@@ -272,7 +273,21 @@ export async function runReportSweepParallel(concurrency: number = defaultReport
   // Folded alone before any worker starts, so it keeps DuckDB's default
   // threads=cores — one fold on an otherwise-idle runner should use every core
   // (a solo fold measured ~2.4x faster multi-threaded than at threads=1, #929).
+  // Record the settings actually in force, not the ones the source suggests:
+  // both are env-overridable, so a run's behaviour cannot be inferred from
+  // reading the code alone (issue #991).
+  traceSweepEvent('sweep-start', {
+    concurrency,
+    foldMemoryLimit: CONCURRENT_FOLD_MEMORY_LIMIT,
+    availableParallelism: os.availableParallelism(),
+    cpus: os.cpus().length,
+    taskCount: INDEPENDENT_REPORT_TASKS.length,
+    claimsParquet: process.env.CLAIMS_PARQUET ?? '(unset)',
+    nodeVersion: process.version,
+  });
+
   const dataQualityFold = time('reports:data-quality-fold', () => buildDataQualityFold());
+  traceSweepEvent('data-quality-fold-done');
 
   // Pin every fold in the concurrent region to a single DuckDB thread. Each fold
   // otherwise defaults to threads=cores, so `concurrency` folds at once
@@ -298,7 +313,7 @@ export async function runReportSweepParallel(concurrency: number = defaultReport
     // reports so the two overlap on the folding thread.
     const workerUrl = new URL(import.meta.url);
     const pool = runBounded(INDEPENDENT_REPORT_TASKS, concurrency, async (task) => {
-      const result = await runTaskInWorker(workerUrl, task.id);
+      const result = await traceSweepTask(task.id, () => runTaskInWorker(workerUrl, task.id));
       perfMerge(result.perf);
       return result;
     });
@@ -1401,7 +1416,24 @@ function runReportTaskAsWorker(): void {
   const { reportTaskId } = workerData as { reportTaskId: string };
   const task = INDEPENDENT_REPORT_TASKS.find(t => t.id === reportTaskId);
   if (task === undefined) throw new Error(`unknown report task '${reportTaskId}'`);
-  task.run();
+  // Traced from INSIDE the worker as well as from the orchestrator (issue
+  // #991). The orchestrator's view ends at "this task never returned", which
+  // cannot distinguish a task that died from one still running when the process
+  // was killed; the worker's own start line, carrying its pid and thread id,
+  // is what ties a task to the process the kernel killed.
+  traceSweepEvent('worker-task-start', { id: reportTaskId });
+  const startedAt = Date.now();
+  try {
+    task.run();
+  } catch (err) {
+    traceSweepEvent('worker-task-failed', {
+      id: reportTaskId,
+      ms: Date.now() - startedAt,
+      error: err instanceof Error ? err.message.slice(0, 4000) : String(err).slice(0, 4000),
+    });
+    throw err;
+  }
+  traceSweepEvent('worker-task-end', { id: reportTaskId, ms: Date.now() - startedAt });
   parentPort?.postMessage({ perf: perfSnapshot() });
 }
 

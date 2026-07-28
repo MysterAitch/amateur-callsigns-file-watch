@@ -663,7 +663,7 @@ jobs:
       - id: closure
         uses: ./.github/actions/closure-hash
         with:
-          paths: archive reference-data src/ci/column-drift.ts src/ci/cross-dataset-invariants.ts src/ci/curiosity-index.ts src/ci/data-quality-fold.ts src/ci/event-time-coherency.ts src/ci/field-source-roles.ts src/ci/foi-unkeyable-fold.ts src/ci/forbidden-suffix-history.ts src/ci/policy-invariants.ts src/ci/quality-report-fold.ts src/ci/render/html.ts src/ci/report-sweep-pool.ts src/ci/report-sweep.ts src/ci/reprocessing-stratification.ts src/ci/sequence-analytics.ts src/ci/state-at-t.ts src/ci/survival-cohort.ts src/ci/timezone-rendering.ts src/ci/value-catalogue-fold.ts src/ci/value-catalogue.ts src/v2 src/shared src/sources package-lock.json .nvmrc .github/actions/setup-duckdb/action.yml
+          paths: archive reference-data src/ci/column-drift.ts src/ci/cross-dataset-invariants.ts src/ci/curiosity-index.ts src/ci/data-quality-fold.ts src/ci/event-time-coherency.ts src/ci/field-source-roles.ts src/ci/foi-unkeyable-fold.ts src/ci/forbidden-suffix-history.ts src/ci/policy-invariants.ts src/ci/quality-report-fold.ts src/ci/render/html.ts src/ci/report-sweep-pool.ts src/ci/report-sweep.ts src/ci/reprocessing-stratification.ts src/ci/sequence-analytics.ts src/ci/state-at-t.ts src/ci/survival-cohort.ts src/ci/sweep-trace.ts src/ci/timezone-rendering.ts src/ci/value-catalogue-fold.ts src/ci/value-catalogue.ts src/v2 src/shared src/sources package-lock.json .nvmrc .github/actions/setup-duckdb/action.yml
       - id: reports-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -689,8 +689,72 @@ jobs:
       - name: Build shared claim-ledger Parquet (cache miss)
         if: steps.reports-cache.outputs.cache-hit != 'true'
         run: node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only
+      # OBSERVABILITY FOR THE REGENERATION (issue #991). The regeneration has
+      # died intermittently (2 of 3 cache-miss runs, a different fold each time),
+      # and the logs could not say why: the sweep's perf breakdown is written
+      # only on success, so a crash uploaded nothing, and a killed child process
+      # leaves no stderr to read. Each failed run costs ~40 minutes, so the
+      # capture is deliberately over-broad — recording a redundant field is free,
+      # whereas a missing one buys another 40-minute run that still cannot
+      # answer the question.
+      #
+      # Three independent records, none of which depends on the run succeeding:
+      # a system sampler streaming to disk while the sweep runs, the sweep's own
+      # per-task JSONL (SWEEP_TRACE_FILE, appended as events happen), and a
+      # post-mortem below that runs even when the step above fails.
+      - name: Start resource sampler (cache miss)
+        if: steps.reports-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p .diagnostics
+          # Static facts first: what the box actually is, so later numbers mean
+          # something without assuming a runner spec that may change.
+          {
+            echo "== runner =="
+            echo "date=$(date -Is)"
+            echo "nproc=$(nproc)"
+            echo "kernel=$(uname -a)"
+            echo "cgroup_memory_max=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || echo 'n/a')"
+            echo "cgroup_memory_high=$(cat /sys/fs/cgroup/memory.high 2>/dev/null || echo 'n/a')"
+            echo "== meminfo =="; cat /proc/meminfo
+            echo "== disk =="; df -h
+            echo "== swap =="; swapon --show || echo 'no swap'
+            echo "== duckdb =="; "${DUCKDB_BIN:-duckdb}" --version 2>/dev/null || echo 'n/a'
+            echo "== node =="; node --version
+          } > .diagnostics/runner-facts.txt 2>&1
+          # The sampler: one line every 2s, streamed. A crash keeps everything
+          # written so far, which is the whole point — the trajectory into the
+          # failure is the evidence, and it is exactly what a post-hoc dump loses.
+          cat > .diagnostics/sample.sh <<'SAMPLER'
+          #!/usr/bin/env bash
+          printf 'ts\tmem_total_kb\tmem_free_kb\tmem_available_kb\tswap_free_kb\tdirty_kb\tload1\tprocs_duckdb\trss_duckdb_kb\trss_node_kb\tdisk_root_avail_kb\tdisk_tmp_avail_kb\n'
+          while true; do
+            ts=$(date +%s)
+            mt=$(awk '/^MemTotal:/{print $2}' /proc/meminfo)
+            mf=$(awk '/^MemFree:/{print $2}' /proc/meminfo)
+            ma=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
+            sf=$(awk '/^SwapFree:/{print $2}' /proc/meminfo)
+            dt=$(awk '/^Dirty:/{print $2}' /proc/meminfo)
+            l1=$(awk '{print $1}' /proc/loadavg)
+            nd=$(pgrep -c duckdb 2>/dev/null || echo 0)
+            rd=$(ps -eo rss,comm 2>/dev/null | awk '$2 ~ /duckdb/ {s+=$1} END{print s+0}')
+            rn=$(ps -eo rss,comm 2>/dev/null | awk '$2 ~ /node/ {s+=$1} END{print s+0}')
+            dr=$(df -Pk / | awk 'NR==2{print $4}')
+            dp=$(df -Pk "${RUNNER_TEMP:-/tmp}" | awk 'NR==2{print $4}')
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$ts" "$mt" "$mf" "$ma" "$sf" "$dt" "$l1" "$nd" "$rd" "$rn" "$dr" "$dp"
+            sleep 2
+          done
+          SAMPLER
+          chmod +x .diagnostics/sample.sh
+          nohup .diagnostics/sample.sh > .diagnostics/resource-samples.tsv 2>.diagnostics/sampler-errors.txt &
+          echo $! > .diagnostics/sampler.pid
+          echo "sampler started pid=$(cat .diagnostics/sampler.pid)"
       - name: Regenerate reports (cache miss) and snapshot for the cache
         if: steps.reports-cache.outputs.cache-hit != 'true'
+        env:
+          # The sweep appends one JSON line per task event here, flushed as it
+          # happens, so a killed run still says which tasks were in flight.
+          SWEEP_TRACE_FILE: ${{ github.workspace }}/.diagnostics/sweep-trace.jsonl
         run: |
           set -euo pipefail
           # Golden regeneration flows FROM THE LEDGER PROJECTION (issue #629):
@@ -712,6 +776,50 @@ jobs:
           rm -rf .golden-cache/reports
           mkdir -p .golden-cache
           cp -r reports .golden-cache/reports
+      # POST-MORTEM (issue #991). Runs on failure as well as success — the
+      # failure case is the one it exists for. The decisive question is whether
+      # DuckDB was KILLED (the kernel's out-of-memory killer leaves a dmesg
+      # record and no stderr) or exited on its own, and that evidence is gone
+      # once the runner is recycled.
+      - name: Capture post-mortem diagnostics
+        if: ${{ always() && steps.reports-cache.outputs.cache-hit != 'true' }}
+        run: |
+          # Deliberately NOT `set -e`: every probe below is best-effort, and a
+          # post-mortem that aborts halfway is how evidence gets lost.
+          mkdir -p .diagnostics
+          if [ -f .diagnostics/sampler.pid ]; then kill "$(cat .diagnostics/sampler.pid)" 2>/dev/null || true; fi
+          {
+            echo "== final meminfo =="; cat /proc/meminfo
+            echo "== final disk =="; df -h
+            echo "== temp dir usage =="; du -sh "${RUNNER_TEMP:-/tmp}"/* 2>/dev/null | sort -rh | head -30
+            echo "== workspace usage =="; du -sh ./* 2>/dev/null | sort -rh | head -30
+            echo "== surviving processes =="; ps -eo pid,ppid,rss,pcpu,stat,etime,comm --sort=-rss | head -40
+            echo "== OOM-KILLER EVIDENCE =="
+            # The single most decisive line. A 'Killed process' record here means
+            # the memory budget is the answer and no further guessing is needed;
+            # its ABSENCE is equally informative, so the negative is recorded
+            # explicitly rather than left as an empty section.
+            sudo dmesg -T 2>/dev/null | grep -iE "out of memory|killed process|oom-kill|oom_reaper" || echo "(no OOM-killer records in dmesg)"
+            echo "== dmesg tail =="; sudo dmesg -T 2>/dev/null | tail -60 || echo "(dmesg unavailable)"
+            echo "== sampler stderr =="; cat .diagnostics/sampler-errors.txt 2>/dev/null || echo "(none)"
+          } > .diagnostics/post-mortem.txt 2>&1
+          # Surface the headline in the job log too, so the common case needs no
+          # artifact download at all.
+          echo "---- OOM evidence ----"
+          grep -A2 "OOM-KILLER EVIDENCE" .diagnostics/post-mortem.txt || true
+          echo "---- last trace events ----"
+          tail -25 .diagnostics/sweep-trace.jsonl 2>/dev/null || echo "(no sweep trace written)"
+          echo "---- resource samples (last 20) ----"
+          tail -20 .diagnostics/resource-samples.tsv 2>/dev/null || echo "(no samples written)"
+      - name: Upload regeneration diagnostics
+        if: ${{ always() && steps.reports-cache.outputs.cache-hit != 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: regen-diagnostics-golden-master
+          path: .diagnostics/
+          include-hidden-files: true
+          retention-days: 90
+          if-no-files-found: warn
       # Same phase-timing history for the report sweep (#354); regeneration
       # is cache-gated, so absence on a run means "not regenerated".
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
