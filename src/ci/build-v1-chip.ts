@@ -35,8 +35,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { V1_COPY } from './render/v1-copy.ts';
+import { JSDOM } from 'jsdom';
 import { parseJsonObject } from '../shared/json-shape.ts';
+import { serialise, setBuildDocument } from '../../site/v1/el.js';
+import * as chip from '../../site/v1/chip.js';
 
 export interface RecordFacts {
   date: string;
@@ -74,31 +76,18 @@ export function datedFactsFromHoldings(h: ChipHoldings): RecordFacts {
   return { date, count: h.count };
 }
 
-function escAttr(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    // The apostrophe is escaped too (issue #966), so this attribute escaper is
-    // safe regardless of the surrounding quote style.
-    .replace(/'/g, '&#x27;');
-}
+// The el() foundation's Node build backend (ADR 0022): one jsdom document,
+// supplied once, used only where no browser document exists — so importing
+// this module from a DOM-environment test leaves that environment untouched.
+setBuildDocument(new JSDOM('').window.document);
 
-function escText(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-// The chip's static-HTML markup, built from the copy registry template + title.
-// The count is split off the TEMPLATE (never the rendered string, which can also
-// contain the count inside the date) and bolded, matching the shell's DOM render
-// so the parity test compares like with like.
+// The chip's static-HTML markup: the SAME renderStatic the browser site bar
+// appends (site/v1/chip.js), serialised by the platform's HTML serialiser
+// under the jsdom build backend. The static baseline is thereby GENERATED from
+// the one implementation — there is no second, hand-baked markup string left
+// to drift from the browser render (ADR 0022 retires duplicate-plus-guard).
 export function chipHtml(facts: RecordFacts): string {
-  const [rawBefore, rawAfter = ''] = V1_COPY.chip.template.split('{count}');
-  const before = rawBefore.replaceAll('{date}', facts.date);
-  const after = rawAfter.replaceAll('{date}', facts.date);
-  const title = V1_COPY.chip.title.replaceAll('{date}', facts.date).replaceAll('{count}', String(facts.count));
-  return `<span class="chip asof" title="${escAttr(title)}">${escText(before)}<b>${facts.count}</b>${escText(after)}</span>`;
+  return serialise(chip.renderStatic(facts));
 }
 
 // The chip span sits on a single line, and its title carries no '>' — so a

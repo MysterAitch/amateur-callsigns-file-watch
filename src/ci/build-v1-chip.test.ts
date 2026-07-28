@@ -10,7 +10,10 @@ import {
   stampRecordFacts,
   buildV1Chip,
 } from './build-v1-chip.ts';
-import { V1_COPY } from './render/v1-copy.ts';
+// The chip's wording source is the site copy registry (site/v1/copy.js): the
+// build stamp renders through the SAME component module the browser uses
+// (ADR 0022), so the assertion reads the same single source.
+import { V1_COPY } from '../../site/v1/copy.js';
 
 // The dated-fact chip build stamp (issues #965, #966): the chip's date + count
 // are derived in ONE place (the holdings manifest) and injected into the single
@@ -74,6 +77,23 @@ describe('build-v1-chip — static-HTML stamping', { tags: ['unit'] }, () => {
   it('StampChipHtml_APageWithNoChip_ReportsZeroReplacementsSoTheCallerCanFailLoud', () => {
     const { replaced } = stampChipHtml('<html><body>no chip here</body></html>', { date: 'x', count: 1 });
     expect(replaced).toBe(0);
+  });
+
+  it('ChipHtml_AgainstTheCommittedStaticBaseline_IsByteIdentical', () => {
+    // The renderStatic-generated markup (ADR 0022) must reproduce the committed
+    // production chip byte for byte, for the facts the committed pages carry —
+    // read from record-facts.js (the deploy stamp writes double-quoted values;
+    // the committed default is single-quoted, so both are accepted). This pins
+    // the DOM-construction render to the exact bytes the hand-baked serialiser
+    // used to emit, and can never go stale: both sides restamp on every deploy.
+    const factsSrc = fs.readFileSync('site/v1/record-facts.js', 'utf8');
+    const m = /export const RECORD_FACTS = \{ date: ['"]([^'"]+)['"], count: (\d+) \};/.exec(factsSrc);
+    expect(m, 'record-facts.js carries the single RECORD_FACTS literal').not.toBeNull();
+    const facts = { date: (m ?? [])[1] ?? '', count: Number((m ?? [])[2]) };
+    const page = fs.readFileSync('site/v1/index.html', 'utf8');
+    const committed = /<span class="chip asof"[^>]*>.*?<\/span>/.exec(page)?.[0];
+    expect(committed, 'index.html carries a static chip').toBeDefined();
+    expect(chipHtml(facts)).toBe(committed);
   });
 });
 
