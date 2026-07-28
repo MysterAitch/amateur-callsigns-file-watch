@@ -125,7 +125,7 @@ export function recognisedProducts(ref: ReferenceData): string[] {
 // runs category, then totals before variants, then records, then product.
 function foldSql(source: ClaimsSource, products: readonly string[]): string {
   const key = cleanedKeyExpr('rawSubject');
-  return `WITH claims AS (
+  return `WITH claims AS NOT MATERIALIZED (
   SELECT * FROM ${claimsRelation(source)}
 ),
 cat AS (
@@ -310,7 +310,7 @@ interface FieldFoldRow {
 // total ORDER BY keeps the byte output deterministic (report-fold's contract).
 function fieldFoldSql(source: ClaimsSource, predicate: string): string {
   const key = cleanedKeyExpr('rawSubject');
-  return `WITH claims AS (
+  return `WITH claims AS NOT MATERIALIZED (
   SELECT * FROM ${claimsRelation(source)}
 ),
 alloc AS (
@@ -490,7 +490,7 @@ function productFoldSql(source: ClaimsSource, sources: FieldSources): string {
   const key = cleanedKeyExpr('rawSubject');
   const preds = predicateList(PRODUCT_PREDICATES);
   const productSrc = sourceFileList(sources.productSources);
-  return `WITH claims AS (
+  return `WITH claims AS NOT MATERIALIZED (
   SELECT * FROM ${claimsRelation(source)}
 ),
 alloc AS (
@@ -535,7 +535,7 @@ function statusFoldSql(source: ClaimsSource, sources: FieldSources): string {
   const statusSrc = sourceFileList(sources.statusSources);
   const availSrc = sourceFileList(sources.availablePoolSources);
   const forbidSrc = sourceFileList(sources.forbiddenSources);
-  return `WITH claims AS (
+  return `WITH claims AS NOT MATERIALIZED (
   SELECT * FROM ${claimsRelation(source)}
 ),
 attested AS (

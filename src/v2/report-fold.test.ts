@@ -281,3 +281,43 @@ describe.skipIf(!duckDbAvailable())('report-fold — REPORT_FOLD_MEMORY_LIMIT pi
     )).toBe('1.0 GiB');
   });
 });
+
+describe('fold queries do not materialise the claims relation (#991)', { tags: ['unit'] }, () => {
+  // Every fold opens a CTE over the claim relation and then references it three
+  // to seven times. Without NOT MATERIALIZED, DuckDB materialises it: EXPLAIN
+  // ANALYZE on the real corpus showed each reference becoming a scan of all
+  // 55,426,648 rows with the filter applied afterwards, so no predicate reached
+  // the Parquet scan. Inlining pushes the filters into the scan — measured
+  // 20,649,907 rows read for the same predicate, and a 19% faster sweep.
+  //
+  // A new fold that opens a plain `WITH claims AS (` silently gives that back,
+  // and nothing about the report it produces would look wrong. Hence a guard
+  // rather than a convention.
+  const FOLD_SOURCES = [
+    'src/ci/forbidden-suffix-history.ts',
+    'src/ci/quality-report-fold.ts',
+    'src/ci/survival-cohort.ts',
+    'src/ci/data-quality-fold.ts',
+    'src/ci/value-catalogue-fold.ts',
+  ];
+
+  it('ClaimsCte_InEveryFoldSource_IsDeclaredNotMaterialised', () => {
+    const offenders: string[] = [];
+    for (const rel of FOLD_SOURCES) {
+      const text = fs.readFileSync(path.join(process.cwd(), rel), 'utf8');
+      for (const [index, line] of text.split(/\r?\n/).entries()) {
+        if (/WITH\s+claims\s+AS\s*\(/.test(line)) offenders.push(`${rel}:${index + 1}`);
+      }
+    }
+    expect(offenders, 'these open a MATERIALISED claims CTE; add NOT MATERIALIZED').toEqual([]);
+  });
+
+  it('ClaimsCte_AtLeastOneSitePerSource_IsActuallyPresent', () => {
+    // Guards the guard: if the CTE were renamed or restructured away, the check
+    // above would pass vacuously while measuring nothing.
+    for (const rel of FOLD_SOURCES) {
+      const text = fs.readFileSync(path.join(process.cwd(), rel), 'utf8');
+      expect(/WITH\s+claims\s+AS\s+NOT\s+MATERIALIZED\s*\(/.test(text), `${rel} has no claims CTE at all`).toBe(true);
+    }
+  });
+});

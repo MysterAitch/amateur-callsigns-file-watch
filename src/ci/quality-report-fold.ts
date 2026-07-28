@@ -124,7 +124,7 @@ interface PrefixFoldRow {
 // record count. The total ORDER BY keeps DuckDB's output deterministic; the row
 // label and final sort are assembled in TypeScript to match the legacy key sort.
 function prefixFoldSql(source: ClaimsSource): string {
-  return `WITH claims AS (
+  return `WITH claims AS NOT MATERIALIZED (
   SELECT * FROM ${claimsRelation(source)}
 ),
 obs AS (
@@ -218,7 +218,7 @@ interface MismatchFoldRow {
 // product (the flag is raised only when the implied class contradicts a declared
 // product), so the joins resolve; the report shows all four verbatim.
 function mismatchFoldSql(source: ClaimsSource, productHeaders: readonly string[]): string {
-  return `WITH claims AS (
+  return `WITH claims AS NOT MATERIALIZED (
   SELECT * FROM ${claimsRelation(source)}
 ),
 mm AS (
@@ -325,7 +325,7 @@ interface RegionalFoldRow {
 // record count. The rendered label and final sort are assembled in TypeScript to
 // match the legacy key sort.
 function regionalFoldSql(source: ClaimsSource): string {
-  return `WITH claims AS (
+  return `WITH claims AS NOT MATERIALIZED (
   SELECT * FROM ${claimsRelation(source)}
 ),
 obs AS (
@@ -431,7 +431,7 @@ interface PatternFoldRow {
 // per-date sum is the record count. Every record lands in exactly one pattern
 // bucket — the legacy invariant — the blank ones under the recovered '' bucket.
 function callsignPatternSeriesSql(source: ClaimsSource): string {
-  return `WITH claims AS (
+  return `WITH claims AS NOT MATERIALIZED (
   SELECT * FROM ${claimsRelation(source)}
 ),
 obs AS (
