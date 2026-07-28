@@ -13,6 +13,8 @@ import {
   UNCLASSIFIED_SERIES,
   type StratParams,
   type VintageExtent,
+  type VintageWindow,
+  type ReprocessingStratification,
 } from './reprocessing-stratification.ts';
 import type { Episode } from './event-time-coherency.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
@@ -273,5 +275,58 @@ describe.skipIf(!duckDbAvailable())('reprocessing stratification — fold over a
     const first = renderReprocessingStratification(computeReprocessingStratification(dir, SMALL));
     const second = renderReprocessingStratification(computeReprocessingStratification(dir, SMALL));
     expect(second).toBe(first);
+  });
+});
+
+// --- Reconciliation narrative degradation (issue #977) -----------------------
+// The reconciliation section names three specific vintages ('2024-07',
+// '2024-10-21', '2024-07-22') because the prior derivations it reconciles
+// against were made on them. Those names are pins to history, not assumptions
+// about the corpus: rendering must degrade honestly (omit or state the
+// absence) when a named snapshot is not in the analysed windows, never crash
+// or narrate a window that is not there.
+
+describe('reprocessing stratification — reconciliation degradation', { tags: ['unit'] }, () => {
+  function windowOf(vintage: string, vintageDate: string, predVintage: string, predDate: string): VintageWindow {
+    return { vintage, vintageDate, predVintage, predDate, baseSubjects: 100, cohortSubjects: 0, overlapsEpisode: false };
+  }
+
+  function stratOf(windows: VintageWindow[]): ReprocessingStratification {
+    return {
+      params: SMALL,
+      touchKind: 'record-last-modified',
+      assertionCeiling: windows.length > 0 ? windows[windows.length - 1].vintageDate : '',
+      windows,
+      rows: [],
+      episodes: [],
+    };
+  }
+
+  it('Reconciliation_WhenTheNamedVintageSnapshotsAreAbsent_SectionIsOmittedRatherThanFabricated', () => {
+    const report = renderReprocessingStratification(stratOf([
+      windowOf('2026-01-14', '2026-01-14', '2025-06-04', '2025-06-04'),
+    ]));
+    expect(report).not.toContain('Named cohorts and reconciliation');
+    expect(report).toContain('2026-01-14');
+  });
+
+  it('Reconciliation_When20241021PresentButIssuedOnly20240722Absent_StatesTheAbsenceHonestly', () => {
+    const report = renderReprocessingStratification(stratOf([
+      windowOf('2024-10-21', '2024-10-21', '2024-07-22', '2024-07-22'),
+    ]));
+    expect(report).toContain('Named cohorts and reconciliation');
+    // The aside must state the window's absence, not narrate a figure for a
+    // window the corpus does not contain.
+    expect(report).toContain('absent from this corpus, so no figure is quoted for it');
+    expect(report).not.toContain('window, where `M7` is');
+  });
+
+  it('Reconciliation_When20240722WindowPresent_QuotesItsM7StateInline', () => {
+    const report = renderReprocessingStratification(stratOf([
+      windowOf('2024-07-22', '2024-07-22', '2024-07-01', '2024-07-01'),
+      windowOf('2024-10-21', '2024-10-21', '2024-07-22', '2024-07-22'),
+    ]));
+    expect(report).toContain('window, where `M7` is');
+    expect(report).not.toContain('absent from this corpus');
   });
 });

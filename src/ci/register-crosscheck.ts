@@ -81,14 +81,56 @@ function ingestedEntries(foiDir: string): IngestedEntry[] {
   });
 }
 
+// --- Markdown-table plumbing (issue #977) -----------------------------------
+// Both checks read particular table cells, so both derive their column indices
+// from each table's own header row rather than assuming a fixed layout — a
+// register table that gains, loses or reorders a column must either still
+// resolve correctly by name or fail loud, never silently read the wrong cell.
+
+// The cells of one `|`-delimited table row, in physical order (the leading and
+// trailing pipe bookends stripped, every cell trimmed).
+function tableRowCells(line: string): string[] {
+  const parts = line.split('|').map(part => part.trim());
+  if (parts.length > 0 && parts[0] === '') parts.shift();
+  if (parts.length > 0 && parts[parts.length - 1] === '') parts.pop();
+  return parts;
+}
+
+// A table separator row (`|---|:---:|…`) — the line that marks the row above
+// it as the table's header.
+function isSeparatorRow(line: string): boolean {
+  if (!line.startsWith('|')) return false;
+  const cells = tableRowCells(line);
+  return cells.length > 0 && cells.every(cell => /^:?-+:?$/.test(cell));
+}
+
 export function findStaleRegisterRows(registerMarkdown: string, foiDir: string = FOI_ARCHIVE_DIR): StaleRegisterRow[] {
   const entries = ingestedEntries(foiDir);
   const stale: StaleRegisterRow[] = [];
-  const lines = registerMarkdown.split('\n');
+  // Split tolerant of CRLF: a Windows checkout would otherwise leave a trailing
+  // \r on every line, and the heading/section matching below (a line terminator
+  // \r stops `.` and defeats an end-anchored regex) would silently no-op — the
+  // very silent-break class this hardening targets.
+  const lines = registerMarkdown.split(/\r?\n/);
+  // The current table's lower-cased header cells, tracked so the key cell can
+  // be resolved by column NAME; reset whenever the table ends.
+  let header: string[] | undefined;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (!line.startsWith('|') || !/pending-(ingest|fetch)/.test(line)) continue;
-    const firstCell = line.split('|')[1]?.trim() ?? '';
+    if (!line.startsWith('|')) { header = undefined; continue; }
+    if (isSeparatorRow(lines[i + 1] ?? '')) {
+      header = tableRowCells(line).map(cell => cell.toLowerCase());
+      continue;
+    }
+    if (isSeparatorRow(line) || !/pending-(ingest|fetch)/.test(line)) continue;
+    // The row's KEY (title) cell: the `source`-named column when the table's
+    // header declares one — so an added leading column cannot silently shift
+    // the match target — else the physical first cell (the shape of a
+    // headerless fragment, and of tables keyed by a differently-named title
+    // column).
+    const cells = tableRowCells(line);
+    const sourceIndex = header?.indexOf('source') ?? -1;
+    const firstCell = cells[sourceIndex >= 0 ? sourceIndex : 0] ?? '';
     // Identifier-or-ofcomReference-in-first-cell is the strong signal and
     // wins outright; a data-file name anywhere in the row is a weaker
     // fallback candidate (rows often cite ingested entries' files as related
@@ -122,28 +164,62 @@ export function findStaleRegisterRows(registerMarkdown: string, foiDir: string =
 // column-position assumption.
 const FOI_SECTION_HEADING = /^##\s+.*FOI.*$/i;
 
-// A row's status cell, for the small family of 4-column FOI-section tables
-// (`| source | date | status | notes |` / `| source | data vintage | status
-// | notes |`) this check runs over.
-function statusCell(line: string): string {
-  return line.split('|')[3]?.trim() ?? '';
-}
-
 export function findUnmatchedIngestedRows(registerMarkdown: string, foiDir: string = FOI_ARCHIVE_DIR): UnmatchedIngestedRow[] {
   const entries = ingestedEntries(foiDir);
   const unmatched: UnmatchedIngestedRow[] = [];
-  const lines = registerMarkdown.split('\n');
+  // Split tolerant of CRLF (see findStaleRegisterRows): the FOI-section heading
+  // regex below is end-anchored, so a trailing \r on a Windows checkout would
+  // stop it matching and silently disable the whole check.
+  const lines = registerMarkdown.split(/\r?\n/);
   let inFoiSection = false;
+  // The current table's lower-cased header cells; the status column is
+  // resolved from these by NAME (issue #977) — a fixed-position read would
+  // silently look at the wrong cell the day a column is added or reordered.
+  // The header is held for the whole section, not just an unbroken run of
+  // table rows: a section's table may be split by an intervening prose
+  // paragraph (the register's mid-table "Discovery coverage note" does exactly
+  // this), and the rows below it are the same table and legitimately inherit
+  // its header. It is reset only at a section boundary, so a data row that
+  // precedes any header in its section still fails loud below.
+  let header: string[] | undefined;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (/^##\s+/.test(line)) {
       inFoiSection = FOI_SECTION_HEADING.test(line);
+      header = undefined;
       continue;
     }
-    if (!inFoiSection || !line.startsWith('|')) continue;
-    if (statusCell(line) !== 'ingested') continue;
-    const firstCell = line.split('|')[1]?.trim() ?? '';
-    if (firstCell === '' || firstCell === 'source') continue; // header row
+    // A non-table line (blank or prose) does NOT reset the header — the table
+    // may resume below an intervening paragraph within the same section.
+    if (!line.startsWith('|')) continue;
+    if (isSeparatorRow(lines[i + 1] ?? '')) {
+      header = tableRowCells(line).map(cell => cell.toLowerCase());
+      continue;
+    }
+    if (isSeparatorRow(line) || !inFoiSection) continue;
+    // A data row inside an FOI section: the layout this check reads must be
+    // derivable from the table's own header, or the check fails loud rather
+    // than guessing a column and silently missing every claim.
+    if (header === undefined) {
+      throw new Error(`source-register.md line ${i + 1}: table row inside an FOI section with no preceding header row — cannot locate the status column, refusing to guess`);
+    }
+    const statusIndex = header.indexOf('status');
+    if (statusIndex === -1) {
+      throw new Error(`source-register.md line ${i + 1}: FOI-section table header [${header.join(' | ')}] has no "status" column — the layout this check reads has drifted, refusing to guess`);
+    }
+    const cells = tableRowCells(line);
+    // The status column is located by name in the header but read by position
+    // from the row, so the row must carry exactly as many cells as the header
+    // declares. A ragged row (a stray/escaped pipe, a dropped cell) would shift
+    // the status read onto the wrong cell — or off the end to `''` — and let an
+    // `ingested` claim slip past this gate unseen, the exact silent miss #673
+    // exists to close. Fail loud instead, matching the header throws above.
+    if (cells.length !== header.length) {
+      throw new Error(`source-register.md line ${i + 1}: FOI-section table row has ${cells.length} cell(s) but its header declares ${header.length} — a ragged row would shift the positional status read onto the wrong cell, refusing to guess`);
+    }
+    if ((cells[statusIndex] ?? '') !== 'ingested') continue;
+    const sourceIndex = header.indexOf('source');
+    const firstCell = cells[sourceIndex >= 0 ? sourceIndex : 0] ?? '';
     // Deliberately checked across the WHOLE row, not just the first cell: a
     // confirmed-ingested row conventionally cites its own `archive/foi/{key}`
     // pointer in the notes column, and this check's job is to confirm that

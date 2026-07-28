@@ -127,8 +127,12 @@ export async function downloadFile(url: string, outputPath: string, maxBytes: nu
  *
  * If the page structure changes such that we match zero or more-than-one link,
  * we throw loudly rather than silently grabbing a neighbour.
+ *
+ * Exported for testing: the business-radio-CSV-under-/amateur/ trap is pinned
+ * by tests so the scoping can never be quietly loosened back to a bare
+ * path-substring match.
  */
-function findCsvLink(document: Document): HtmlLinkDetails {
+export function findCsvLink(document: Document): HtmlLinkDetails {
   logger.info("Searching for amateur callsigns CSV link...");
 
   // Tokens that POSITIVELY identify the amateur callsign list.
