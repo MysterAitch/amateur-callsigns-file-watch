@@ -129,12 +129,28 @@ jobs:
           end=$(date +%s)
           tail -15 run.log || true
           peak=$(awk -F': ' '/Maximum resident set size/{print $2}' rusage.txt 2>/dev/null | head -1 || true)
+          # RUNTIME CONTEXT recorded with every sample, because a covariate not
+          # captured at measurement time can never be recovered afterwards.
+          #
+          # started_utc / hour_utc: GitHub's hosted runners are shared capacity,
+          # so contention plausibly varies by time of day the way oversubscribed
+          # shared hosting does. That is a HYPOTHESIS, not a finding - it is
+          # recorded now so it becomes testable once runs accumulate across the
+          # clock, rather than argued about from memory.
+          #
+          # image/os: the runner image can change under an unchanged commit,
+          # which nothing else in the repo records. It is a pooling key (#1011).
           {
             echo "arm=${ARM_ID}"
             echo "rep=${REP}"
             echo "elapsed_s=$((end-start))"
             echo "peak_rss_kb=${peak:-0}"
             echo "status=${status}"
+            echo "started_utc=$(date -u -d "@${start}" +%Y-%m-%dT%H:%M:%SZ)"
+            echo "hour_utc=$(date -u -d "@${start}" +%H)"
+            echo "image=${ImageVersion:-unknown}"
+            echo "os=${ImageOS:-unknown}"
+            echo "cores=$(nproc)"
           } > arm-result.txt
           cat arm-result.txt
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

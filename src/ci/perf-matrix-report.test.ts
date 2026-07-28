@@ -234,3 +234,53 @@ describe('computeRatios — settled is judged against the effect, not a fixed sp
     expect(r.settled).toBe(false);
   });
 });
+
+// Multimodality (#1004). A median summarises a SINGLE population. When an arm's
+// samples fall into separate clusters - two runner classes, a cache that hit on
+// some reps and missed on others, thermal throttling partway through - the
+// median lands between the clusters and describes none of them, while the spread
+// reads as ordinary noise. That is worse than a wide honest error bar, because
+// it looks precise.
+describe('multimodality detection', { tags: ['unit'] }, () => {
+  const arm = (secs: number[]): ArmSummary =>
+    summariseArm(secs.map((s, i) => ({ arm: 'a', rep: i + 1, elapsedS: s, peakRssKb: 0, status: 0 })));
+
+  it('Samples_TightlyClustered_AreNotFlaggedAsMultimodal', () => {
+    expect(arm([100, 102, 99, 101, 103]).modes).toBe(1);
+  });
+
+  it('Samples_InTwoSeparatedClusters_AreFlaggedAsBimodal', () => {
+    // e.g. five reps where two landed on a contended runner.
+    const s = arm([100, 102, 101, 260, 265]);
+    expect(s.modes).toBe(2);
+    expect(s.reliable).toBe(false);
+  });
+
+  it('Samples_InThreeSeparatedClusters_AreFlaggedAsTrimodal', () => {
+    expect(arm([100, 102, 200, 203, 400, 405]).modes).toBe(3);
+  });
+
+  it('BimodalArm_MedianAlone_IsNotTreatedAsTrustworthy', () => {
+    // The median of [100,102,101,260,265] is 102 - inside the fast cluster and
+    // describing neither population. Reporting it unqualified would be a lie
+    // that looks like a measurement.
+    const s = arm([100, 102, 101, 260, 265]);
+    expect(s.medianS).toBe(102);
+    expect(s.reliable).toBe(false);
+  });
+
+  it('Samples_EvenlySpreadWithoutClustering_AreNotForcedIntoModes', () => {
+    // A wide but CONTINUOUS distribution is noisy, not multimodal, and must not
+    // be reported as structure that is not there.
+    expect(arm([100, 130, 160, 190, 220, 250]).modes).toBe(1);
+  });
+
+  it('Samples_TooFewToSeeStructure_ReportASingleMode', () => {
+    expect(arm([100, 300]).modes).toBe(1);
+  });
+
+  it('Report_MultimodalArm_SaysSoRatherThanShowingOnlyASpread', () => {
+    const md = renderMatrixMarkdown([arm([100, 102, 101, 260, 265])], [], []);
+    expect(md.toLowerCase()).toContain('modal');
+  });
+});
