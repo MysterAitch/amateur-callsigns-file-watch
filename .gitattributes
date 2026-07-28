@@ -69,3 +69,7 @@ reference-data/rsgb-special-contest-calls.meta.json  text eol=lf
 # reproducibility guard (forbidden-suffix-rationale.test.ts) - pin LF for the
 # same reason as the SCC table above.
 reference-data/forbidden-suffix-rationale.csv  text eol=lf
+
+# Shell scripts run on Linux CI runners: pin LF so a CRLF-normalising
+# checkout cannot produce "bad interpreter", and keep them executable.
+*.sh text eol=lf

@@ -722,34 +722,10 @@ jobs:
             echo "== duckdb =="; "${DUCKDB_BIN:-duckdb}" --version 2>/dev/null || echo 'n/a'
             echo "== node =="; node --version
           } > .diagnostics/runner-facts.txt 2>&1
-          # The sampler: one line every 2s, streamed. A crash keeps everything
-          # written so far, which is the whole point — the trajectory into the
-          # failure is the evidence, and it is exactly what a post-hoc dump loses.
-          cat > .diagnostics/sample.sh <<'SAMPLER'
-          #!/usr/bin/env bash
-          printf 'ts\tmem_total_kb\tmem_free_kb\tmem_available_kb\tswap_free_kb\tdirty_kb\tload1\tprocs_duckdb\trss_duckdb_kb\trss_node_kb\tdisk_root_avail_kb\tdisk_tmp_avail_kb\n'
-          while true; do
-            ts=$(date +%s)
-            mt=$(awk '/^MemTotal:/{print $2}' /proc/meminfo)
-            mf=$(awk '/^MemFree:/{print $2}' /proc/meminfo)
-            ma=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
-            sf=$(awk '/^SwapFree:/{print $2}' /proc/meminfo)
-            dt=$(awk '/^Dirty:/{print $2}' /proc/meminfo)
-            l1=$(awk '{print $1}' /proc/loadavg)
-            # `pgrep -c` PRINTS 0 and EXITS NON-ZERO when nothing matches, so a
-            # `|| echo 0` fallback appends a second value and splits the row
-            # across two lines. Take the first line and default an empty result.
-            nd=$(pgrep -c duckdb 2>/dev/null | head -1); nd=${nd:-0}
-            rd=$(ps -eo rss,comm 2>/dev/null | awk '$2 ~ /duckdb/ {s+=$1} END{print s+0}')
-            rn=$(ps -eo rss,comm 2>/dev/null | awk '$2 ~ /node/ {s+=$1} END{print s+0}')
-            dr=$(df -Pk / | awk 'NR==2{print $4}')
-            dp=$(df -Pk "${RUNNER_TEMP:-/tmp}" | awk 'NR==2{print $4}')
-            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$ts" "$mt" "$mf" "$ma" "$sf" "$dt" "$l1" "$nd" "$rd" "$rn" "$dr" "$dp"
-            sleep 2
-          done
-          SAMPLER
-          chmod +x .diagnostics/sample.sh
-          nohup .diagnostics/sample.sh > .diagnostics/resource-samples.tsv 2>.diagnostics/sampler-errors.txt &
+          # The sampler is a committed script shared with the regeneration stress
+          # matrix (.github/workflows/regen-stress.yml), so the diagnostic the
+          # experiment runs cannot drift from the one the real job runs.
+          nohup bash .github/scripts/sample-resources.sh > .diagnostics/resource-samples.tsv 2>.diagnostics/sampler-errors.txt &
           echo $! > .diagnostics/sampler.pid
           echo "sampler started pid=$(cat .diagnostics/sampler.pid)"
           # Echo the headline facts into the LOG as well as the artifact: a run
@@ -792,34 +768,12 @@ jobs:
       # once the runner is recycled.
       - name: Capture post-mortem diagnostics
         if: ${{ always() && steps.reports-cache.outputs.cache-hit != 'true' }}
-        run: |
-          # Deliberately NOT `set -e`: every probe below is best-effort, and a
-          # post-mortem that aborts halfway is how evidence gets lost.
-          mkdir -p .diagnostics
-          if [ -f .diagnostics/sampler.pid ]; then kill "$(cat .diagnostics/sampler.pid)" 2>/dev/null || true; fi
-          {
-            echo "== final meminfo =="; cat /proc/meminfo
-            echo "== final disk =="; df -h
-            echo "== temp dir usage =="; du -sh "${RUNNER_TEMP:-/tmp}"/* 2>/dev/null | sort -rh | head -30
-            echo "== workspace usage =="; du -sh ./* 2>/dev/null | sort -rh | head -30
-            echo "== surviving processes =="; ps -eo pid,ppid,rss,pcpu,stat,etime,comm --sort=-rss | head -40
-            echo "== OOM-KILLER EVIDENCE =="
-            # The single most decisive line. A 'Killed process' record here means
-            # the memory budget is the answer and no further guessing is needed;
-            # its ABSENCE is equally informative, so the negative is recorded
-            # explicitly rather than left as an empty section.
-            sudo dmesg -T 2>/dev/null | grep -iE "out of memory|killed process|oom-kill|oom_reaper" || echo "(no OOM-killer records in dmesg)"
-            echo "== dmesg tail =="; sudo dmesg -T 2>/dev/null | tail -60 || echo "(dmesg unavailable)"
-            echo "== sampler stderr =="; cat .diagnostics/sampler-errors.txt 2>/dev/null || echo "(none)"
-          } > .diagnostics/post-mortem.txt 2>&1
-          # Surface the headline in the job log too, so the common case needs no
-          # artifact download at all.
-          echo "---- OOM evidence ----"
-          grep -A2 "OOM-KILLER EVIDENCE" .diagnostics/post-mortem.txt || true
-          echo "---- last trace events ----"
-          tail -25 .diagnostics/sweep-trace.jsonl 2>/dev/null || echo "(no sweep trace written)"
-          echo "---- resource samples (last 20) ----"
-          tail -20 .diagnostics/resource-samples.tsv 2>/dev/null || echo "(no samples written)"
+        env:
+          DIAGNOSTICS_DIR: .diagnostics
+        # Committed script, shared with the regeneration stress matrix so the
+        # experiment and the real job capture identically. Runs on failure as
+        # well as success - the failure case is the one it exists for.
+        run: bash .github/scripts/capture-post-mortem.sh
       - name: Upload regeneration diagnostics
         if: ${{ always() && steps.reports-cache.outputs.cache-hit != 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

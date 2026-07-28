@@ -1,0 +1,215 @@
+# DIAGNOSTIC STRESS MATRIX for the report regeneration (issue #991).
+#
+# Manual-dispatch only. This is an INVESTIGATIVE workflow, not a gate: nothing
+# depends on it, it never writes anywhere, and it is expected to be deleted once
+# the questions it exists to answer are answered.
+#
+# Why a matrix. The failure is INTERMITTENT (two of three cache-miss runs), so a
+# single run of a single configuration proves nothing either way. Varying one
+# lever at a time and repeating each arm costs the same wall clock as one run,
+# because the arms are independent and run concurrently — which is the whole
+# point of doing it this way rather than serially over days.
+#
+# What each arm is testing (all three levers were introduced on a HYPOTHESIS
+# that the instrumented baseline does not support — see #929):
+#
+#   - fold memory limit: 3GB is the current setting, justified as leaving
+#     headroom on a 16GB runner. Measured peak usage is 6.9GB with 9.1GB still
+#     available, so the cap rations a resource that is not scarce. DuckDB
+#     enforces the limit ITSELF and errors when a query exceeds it, so the cap
+#     is a plausible direct CAUSE of the failures — meaning the intuitive fix
+#     (lower it) may be exactly backwards. Arms: 1GB / 3GB / 8GB / unset.
+#   - fold threads: pinned to 1. The code's own comment records that pinning
+#     measured no speed-up, and load reached 3.84 of 4 vCPU, so CPU — not
+#     memory — is the saturated resource. Arm: unpinned.
+#   - sweep concurrency: 4. Arms: 1 (serial baseline) and 2.
+#
+# `continue-on-error` is set on every arm so one failure never cancels the rest:
+# a failed arm is a RESULT here, not an accident, and losing the other eleven
+# would defeat the purpose.
+name: regen-stress
+
+on:
+  workflow_dispatch:
+    inputs:
+      repetitions:
+        description: "Repetitions per arm (raises confidence in the failure rate)"
+        required: false
+        default: "2"
+
+permissions:
+  contents: read
+
+jobs:
+  matrix-plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      reps: ${{ steps.plan.outputs.reps }}
+    steps:
+      - id: plan
+        run: |
+          set -euo pipefail
+          n="${{ github.event.inputs.repetitions }}"
+          case "$n" in (''|*[!0-9]*) n=2 ;; esac
+          [ "$n" -lt 1 ] && n=1
+          [ "$n" -gt 5 ] && n=5
+          printf 'reps=[' > /tmp/r
+          for i in $(seq 1 "$n"); do [ "$i" -gt 1 ] && printf ',' >> /tmp/r; printf '%s' "$i" >> /tmp/r; done
+          printf ']' >> /tmp/r
+          echo "reps=$(cat /tmp/r)" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+
+  regen:
+    name: "regen ${{ matrix.arm }} #${{ matrix.rep }}"
+    needs: matrix-plan
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        rep: ${{ fromJSON(needs.matrix-plan.outputs.reps) }}
+        include:
+          - arm: baseline-3gb
+            concurrency: "4"
+            memlimit: "3GB"
+            threads: "1"
+          - arm: raise-8gb
+            concurrency: "4"
+            memlimit: "8GB"
+            threads: "1"
+          - arm: nolimit
+            concurrency: "4"
+            memlimit: ""
+            threads: "1"
+          - arm: lower-1gb
+            concurrency: "4"
+            memlimit: "1GB"
+            threads: "1"
+          - arm: unpinned-threads
+            concurrency: "4"
+            memlimit: "3GB"
+            threads: ""
+          - arm: serial
+            concurrency: "1"
+            memlimit: "3GB"
+            threads: "1"
+    steps:
+      - name: Free runner disk space
+        run: |
+          echo "== disk before =="; df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}" || true
+          echo "== disk after =="; df -h /
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: ./.github/actions/setup-duckdb
+      - name: Build shared claim-ledger Parquet
+        run: |
+          set -euo pipefail
+          mkdir -p .diagnostics
+          /usr/bin/time -v -o .diagnostics/rusage-parquet-build.txt \
+            node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only
+          ls -l "$RUNNER_TEMP/claims.parquet" | tee -a .diagnostics/runner-facts.txt
+      - name: Record runner facts and start sampler
+        run: |
+          set -euo pipefail
+          mkdir -p .diagnostics
+          {
+            echo "== arm =="
+            echo "arm=${{ matrix.arm }} rep=${{ matrix.rep }}"
+            echo "concurrency=${{ matrix.concurrency }} memlimit='${{ matrix.memlimit }}' threads='${{ matrix.threads }}'"
+            echo "== runner =="
+            echo "nproc=$(nproc)"
+            grep -E "^MemTotal:|^SwapTotal:" /proc/meminfo
+            df -h /
+            "${DUCKDB_BIN:-duckdb}" --version 2>/dev/null || true
+          } >> .diagnostics/runner-facts.txt 2>&1
+          cat .diagnostics/runner-facts.txt
+          nohup bash .github/scripts/sample-resources.sh > .diagnostics/resource-samples.tsv 2>.diagnostics/sampler-errors.txt &
+          echo $! > .diagnostics/sampler.pid
+      - name: Regenerate reports under this arm
+        id: regen
+        env:
+          CLAIMS_PARQUET: ${{ runner.temp }}/claims.parquet
+          BUILDER_PROJECTION_DIR: ${{ runner.temp }}/projection
+          SWEEP_TRACE_FILE: ${{ github.workspace }}/.diagnostics/sweep-trace.jsonl
+          FOLD_RUSAGE_DIR: ${{ github.workspace }}/.diagnostics
+          REPORT_SWEEP_CONCURRENCY: ${{ matrix.concurrency }}
+          REPORT_FOLD_MEMORY_LIMIT: ${{ matrix.memlimit }}
+          REPORT_FOLD_THREADS: ${{ matrix.threads }}
+        run: |
+          set -euo pipefail
+          started=$(date +%s)
+          node src/ci/report-sweep.ts --build-projection
+          echo "elapsed_s=$(( $(date +%s) - started ))" >> "$GITHUB_OUTPUT"
+      - name: Capture post-mortem
+        if: always()
+        env:
+          DIAGNOSTICS_DIR: .diagnostics
+        run: bash .github/scripts/capture-post-mortem.sh
+      - name: Record arm outcome
+        if: always()
+        run: |
+          {
+            echo "arm=${{ matrix.arm }}"
+            echo "rep=${{ matrix.rep }}"
+            echo "concurrency=${{ matrix.concurrency }}"
+            echo "memlimit=${{ matrix.memlimit }}"
+            echo "threads=${{ matrix.threads }}"
+            echo "outcome=${{ steps.regen.outcome }}"
+            echo "elapsed_s=${{ steps.regen.outputs.elapsed_s }}"
+          } > .diagnostics/arm-outcome.txt
+          cat .diagnostics/arm-outcome.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: stress-${{ matrix.arm }}-rep${{ matrix.rep }}
+          path: .diagnostics/
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: warn
+
+  collate:
+    name: collate
+    needs: regen
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v6.0.0
+        with:
+          path: arms
+      - name: Summarise every arm
+        run: |
+          set -uo pipefail
+          {
+            echo "# Regeneration stress matrix"
+            echo
+            echo "| arm | rep | conc | memlimit | threads | outcome | elapsed | peak fold RSS | OOM records |"
+            echo "|---|---|---|---|---|---|---|---|---|"
+            for d in arms/*/; do
+              f="$d/arm-outcome.txt"
+              [ -f "$f" ] || continue
+              a=$(grep '^arm=' "$f" | cut -d= -f2); r=$(grep '^rep=' "$f" | cut -d= -f2)
+              c=$(grep '^concurrency=' "$f" | cut -d= -f2); m=$(grep '^memlimit=' "$f" | cut -d= -f2)
+              t=$(grep '^threads=' "$f" | cut -d= -f2); o=$(grep '^outcome=' "$f" | cut -d= -f2)
+              e=$(grep '^elapsed_s=' "$f" | cut -d= -f2)
+              peak=$(grep -h "Maximum resident set size" "$d"/rusage-*.txt 2>/dev/null | awk '{print $NF}' | sort -rn | head -1)
+              oom=$(grep -c "Killed process" "$d/post-mortem.txt" 2>/dev/null || echo 0)
+              echo "| $a | $r | $c | ${m:-<unset>} | ${t:-<unset>} | $o | ${e:-n/a}s | ${peak:-n/a} kB | $oom |"
+            done
+            echo
+            echo "## Failure reasons"
+            for d in arms/*/; do
+              [ -f "$d/sweep-trace.jsonl" ] || continue
+              a=$(grep '^arm=' "$d/arm-outcome.txt" 2>/dev/null | cut -d= -f2)
+              fail=$(grep -h '"outcome":"failed"' "$d/sweep-trace.jsonl" 2>/dev/null | head -2)
+              if [ -n "$fail" ]; then echo "### $a"; echo '```'; echo "$fail" | cut -c1-1200; echo '```'; fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
