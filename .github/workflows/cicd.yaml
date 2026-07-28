@@ -210,7 +210,16 @@ jobs:
           name: claims-parquet
       # --coverage + blob per job; the `coverage` job merges them. Matrix values
       # go via env (zizmor template-injection); the blob is uniquely named.
-      - run: npx vitest run "$HEAVY_FILE" $COVERAGE_ARGS --reporter=default --reporter=blob --outputFile=".vitest-reports/fold-${JOB_INDEX}.json"
+      - run: |
+          set -euo pipefail
+          # COVERAGE_ARGS is either empty or `--coverage` (see the header note).
+          # An ARRAY rather than bare word-splitting: quoting the variable would
+          # pass an empty positional argument, which vitest reads as a file
+          # pattern matching nothing, and leaving it unquoted trips shellcheck
+          # SC2086 in the workflow audit. The array expresses the intent exactly.
+          cov=()
+          if [ -n "${COVERAGE_ARGS}" ]; then cov=("${COVERAGE_ARGS}"); fi
+          npx vitest run "$HEAVY_FILE" "${cov[@]}" --reporter=default --reporter=blob --outputFile=".vitest-reports/fold-${JOB_INDEX}.json"
         env:
           HEAVY_FILE: ${{ matrix.file }}
           JOB_INDEX: ${{ strategy.job-index }}
@@ -246,7 +255,16 @@ jobs:
           cache: npm
       - run: npm ci
       - uses: ./.github/actions/setup-duckdb
-      - run: npx vitest run "$HEAVY_FILE" $COVERAGE_ARGS --reporter=default --reporter=blob --outputFile=".vitest-reports/nonfold-${JOB_INDEX}.json"
+      - run: |
+          set -euo pipefail
+          # COVERAGE_ARGS is either empty or `--coverage` (see the header note).
+          # An ARRAY rather than bare word-splitting: quoting the variable would
+          # pass an empty positional argument, which vitest reads as a file
+          # pattern matching nothing, and leaving it unquoted trips shellcheck
+          # SC2086 in the workflow audit. The array expresses the intent exactly.
+          cov=()
+          if [ -n "${COVERAGE_ARGS}" ]; then cov=("${COVERAGE_ARGS}"); fi
+          npx vitest run "$HEAVY_FILE" "${cov[@]}" --reporter=default --reporter=blob --outputFile=".vitest-reports/nonfold-${JOB_INDEX}.json"
         env:
           HEAVY_FILE: ${{ matrix.file }}
           JOB_INDEX: ${{ strategy.job-index }}
@@ -285,7 +303,16 @@ jobs:
           cache: npm
       - run: npm ci
       - uses: ./.github/actions/setup-duckdb
-      - run: npx vitest run "$HEAVY_FILE" $COVERAGE_ARGS --reporter=default --reporter=blob --outputFile=".vitest-reports/shard-${JOB_INDEX}.json"
+      - run: |
+          set -euo pipefail
+          # COVERAGE_ARGS is either empty or `--coverage` (see the header note).
+          # An ARRAY rather than bare word-splitting: quoting the variable would
+          # pass an empty positional argument, which vitest reads as a file
+          # pattern matching nothing, and leaving it unquoted trips shellcheck
+          # SC2086 in the workflow audit. The array expresses the intent exactly.
+          cov=()
+          if [ -n "${COVERAGE_ARGS}" ]; then cov=("${COVERAGE_ARGS}"); fi
+          npx vitest run "$HEAVY_FILE" "${cov[@]}" --reporter=default --reporter=blob --outputFile=".vitest-reports/shard-${JOB_INDEX}.json"
         env:
           HEAVY_FILE: ${{ matrix.file }}
           JOB_INDEX: ${{ strategy.job-index }}
@@ -345,7 +372,16 @@ jobs:
       # persists it) or verifies the restored build on a hit - see the reuse
       # contract in the test's beforeAll. --coverage + blob so the merged coverage
       # floor still counts this file; matrix-free (a fixed file), starts at t=0.
-      - run: npx vitest run src/ci/build-sqlite.tiers.test.ts $COVERAGE_ARGS --reporter=default --reporter=blob --outputFile=".vitest-reports/tiers.json"
+      - run: |
+          set -euo pipefail
+          # COVERAGE_ARGS is either empty or `--coverage` (see the header note).
+          # An ARRAY rather than bare word-splitting: quoting the variable would
+          # pass an empty positional argument, which vitest reads as a file
+          # pattern matching nothing, and leaving it unquoted trips shellcheck
+          # SC2086 in the workflow audit. The array expresses the intent exactly.
+          cov=()
+          if [ -n "${COVERAGE_ARGS}" ]; then cov=("${COVERAGE_ARGS}"); fi
+          npx vitest run src/ci/build-sqlite.tiers.test.ts "${cov[@]}" --reporter=default --reporter=blob --outputFile=".vitest-reports/tiers.json"
         env:
           TIERS_CACHE_DIR: ${{ github.workspace }}/.tier-cache
           COVERAGE_SKIP_THRESHOLDS: '1'
@@ -404,7 +440,16 @@ jobs:
       # save then persists it) or verifies the restored build on a hit - see the
       # reuse contract in the test's beforeAll. --coverage + blob so the merged
       # coverage floor still counts this file; matrix-free (a fixed file), t=0.
-      - run: npx vitest run src/v2/build-ledger.test.ts $COVERAGE_ARGS --reporter=default --reporter=blob --outputFile=".vitest-reports/ledger.json"
+      - run: |
+          set -euo pipefail
+          # COVERAGE_ARGS is either empty or `--coverage` (see the header note).
+          # An ARRAY rather than bare word-splitting: quoting the variable would
+          # pass an empty positional argument, which vitest reads as a file
+          # pattern matching nothing, and leaving it unquoted trips shellcheck
+          # SC2086 in the workflow audit. The array expresses the intent exactly.
+          cov=()
+          if [ -n "${COVERAGE_ARGS}" ]; then cov=("${COVERAGE_ARGS}"); fi
+          npx vitest run src/v2/build-ledger.test.ts "${cov[@]}" --reporter=default --reporter=blob --outputFile=".vitest-reports/ledger.json"
         env:
           LEDGER_CACHE_DIR: ${{ github.workspace }}/.ledger-cache
           COVERAGE_SKIP_THRESHOLDS: '1'
@@ -440,7 +485,16 @@ jobs:
       # The ~78 trivial files (the fast project excludes the isolated heavy list),
       # sharded across 2 runners. Folds among them (e.g. cross-dataset-invariants)
       # read the shared Parquet too. --coverage + blob as above; merged in `coverage`.
-      - run: npx vitest run --project fast --shard="${SHARD}/2" $COVERAGE_ARGS --reporter=default --reporter=blob --outputFile=".vitest-reports/fast-${SHARD}.json"
+      - run: |
+          set -euo pipefail
+          # COVERAGE_ARGS is either empty or `--coverage` (see the header note).
+          # An ARRAY rather than bare word-splitting: quoting the variable would
+          # pass an empty positional argument, which vitest reads as a file
+          # pattern matching nothing, and leaving it unquoted trips shellcheck
+          # SC2086 in the workflow audit. The array expresses the intent exactly.
+          cov=()
+          if [ -n "${COVERAGE_ARGS}" ]; then cov=("${COVERAGE_ARGS}"); fi
+          npx vitest run --project fast --shard="${SHARD}/2" "${cov[@]}" --reporter=default --reporter=blob --outputFile=".vitest-reports/fast-${SHARD}.json"
         env:
           SHARD: ${{ matrix.shard }}
           CLAIMS_PARQUET: ${{ github.workspace }}/claims.parquet
