@@ -40,7 +40,7 @@
 // serialisation SOURCE (spec: HTML fragment serialisation algorithm), not a
 // sink.
 
-import { isSafeUrl, safeHref } from './safe-url.js';
+import { passesSchemeAllowlist, neutraliseDisallowedScheme } from './safe-url.js';
 
 /**
  * A child of el(): text (string/number), a DOM node, null/undefined for "not
@@ -229,7 +229,7 @@ function setGuardedAttribute(node, name, value) {
   if (refusal !== null) throw new Error(`el(): refusing ${refusal}`);
   if (value === null || value === undefined || value === false) return; // omit
   const str = value === true ? '' : String(value);
-  node.setAttribute(name, URL_VALUED_ATTRIBUTES.has(name) ? safeHref(str) : str);
+  node.setAttribute(name, URL_VALUED_ATTRIBUTES.has(name) ? neutraliseDisallowedScheme(str) : str);
 }
 
 /**
@@ -329,7 +329,7 @@ function assertAttributesGuarded(element) {
     if (refusal !== null) {
       throw new Error(`serialise(): refusing a tree whose <${tag}> carries ${refusal}`);
     }
-    if (URL_VALUED_ATTRIBUTES.has(name) && !isSafeUrl(attribute.value)) {
+    if (URL_VALUED_ATTRIBUTES.has(name) && !passesSchemeAllowlist(attribute.value)) {
       throw new Error(`serialise(): refusing a tree whose <${tag}> carries a ${name} whose scheme is not on the allowlist (site/v1/safe-url.js) — a URL that never passed through construction is not trusted at serialisation either`);
     }
   }

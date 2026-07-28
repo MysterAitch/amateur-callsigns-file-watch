@@ -12,7 +12,7 @@
 
 import { V1_COPY } from './copy.js';
 import { RECORD_FACTS } from './record-facts.js';
-import { safeHref } from './safe-url.js';
+import { neutraliseDisallowedScheme } from './safe-url.js';
 import * as chip from './chip.js';
 
 // ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ export function renderSiteBar(currentJourney, facts = RECORD_FACTS) {
   list.forEach((jr, i) => {
     if (i > 0) nav.appendChild(el('span', 'sep', '·'));
     const a = el('a', null, jr.label);
-    a.setAttribute('href', safeHref(jr.href));
+    a.setAttribute('href', neutraliseDisallowedScheme(jr.href));
     if (jr.id === currentJourney) a.setAttribute('aria-current', 'page');
     nav.appendChild(a);
   });
@@ -125,7 +125,7 @@ export function renderBreadcrumb(crumbs) {
     const last = i === crumbs.length - 1;
     if (crumb.href !== undefined && !last) {
       const a = el('a', null, crumb.label);
-      a.setAttribute('href', safeHref(crumb.href));
+      a.setAttribute('href', neutraliseDisallowedScheme(crumb.href));
       nav.appendChild(a);
     } else {
       nav.appendChild(el('b', null, crumb.label));

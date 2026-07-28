@@ -27,7 +27,7 @@
 
 import { V1_COPY } from './copy.js';
 import { provenanceChip, termCue } from './glossary.js';
-import { safeHref } from './safe-url.js';
+import { neutraliseDisallowedScheme } from './safe-url.js';
 
 /**
  * @param {string} tag
@@ -44,7 +44,7 @@ const el = (tag, cls, txt) => {
 /** @param {string} href @param {string} label @param {string | null} [cls] */
 const link = (href, label, cls = null) => {
   const a = el('a', cls, label);
-  a.setAttribute('href', safeHref(href));
+  a.setAttribute('href', neutraliseDisallowedScheme(href));
   return a;
 };
 

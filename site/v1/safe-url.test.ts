@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isSafeUrl, safeHref } from './safe-url.js';
+import { passesSchemeAllowlist, neutraliseDisallowedScheme } from './safe-url.js';
 
 // The browser twin of src/ci/render/html.ts's URL allowlist (issue #969). It
 // must neutralise the same obfuscated scheme vectors by PARSING, not string
@@ -19,9 +19,9 @@ describe('v1 safe-url scheme allowlist (JS)', { tags: ['unit'] }, () => {
   };
 
   for (const [label, url] of Object.entries(HOSTILE)) {
-    it(`SafeHref_WhenSchemeIsHostileOrObfuscated_NeutralisesToHash [${label}]`, () => {
-      expect(isSafeUrl(url)).toBe(false);
-      expect(safeHref(url)).toBe('#');
+    it(`NeutraliseDisallowedScheme_WhenSchemeIsHostileOrObfuscated_NeutralisesToHash [${label}]`, () => {
+      expect(passesSchemeAllowlist(url)).toBe(false);
+      expect(neutraliseDisallowedScheme(url)).toBe('#');
     });
   }
 
@@ -36,9 +36,30 @@ describe('v1 safe-url scheme allowlist (JS)', { tags: ['unit'] }, () => {
   ];
 
   for (const url of SAFE) {
-    it(`SafeHref_WhenRelativeOrHttpsOrMailto_PassesThrough [${JSON.stringify(url)}]`, () => {
-      expect(isSafeUrl(url)).toBe(true);
-      expect(safeHref(url)).toBe(url);
+    it(`NeutraliseDisallowedScheme_WhenRelativeOrHttpsOrMailto_PassesThrough [${JSON.stringify(url)}]`, () => {
+      expect(passesSchemeAllowlist(url)).toBe(true);
+      expect(neutraliseDisallowedScheme(url)).toBe(url);
     });
   }
+
+  // The two limits the module documents (issue #990) are pinned here, so the
+  // narrow claim these functions make cannot quietly be read as a broader one.
+  // Both cases below are PASSES by design, recorded as boundaries rather than
+  // endorsements: a caller needing more must add its own check on top.
+  it('PassesSchemeAllowlist_AnAllowlistedSchemeCarryingAnUntrustedDestination_StillPasses_BecauseOnlyTheSchemeIsChecked', () => {
+    // The scheme is cleared; the host, path and authority are not looked at. A
+    // surface that must trust the DESTINATION (an outbound redirect target, for
+    // instance) cannot delegate that decision to this function.
+    for (const url of ['https://untrusted.example/anything', 'http://user:pw@untrusted.example']) {
+      expect(passesSchemeAllowlist(url), url).toBe(true);
+      expect(neutraliseDisallowedScheme(url), url).toBe(url);
+    }
+  });
+
+  it('PassesSchemeAllowlist_AValueWithNoParseableScheme_PassesByDefaultAllowRatherThanVerification', () => {
+    // A relative reference has no scheme to refuse, so it is allowed by default
+    // for ordinary same-site navigation. Nothing positive is established about
+    // the value — which is why a true result is not a safety verdict.
+    expect(passesSchemeAllowlist('not a url at all')).toBe(true);
+  });
 });
