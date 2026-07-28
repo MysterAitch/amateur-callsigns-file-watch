@@ -202,39 +202,35 @@ jobs:
         rep: ${{ fromJSON(needs.plan.outputs.reps) }}
         arm:
           - baseline
-          - threads-off
-          - pq-stream
-          - pq-sort
-          - conc2
-          - conc6
+          - adopt-stream
+          - no-reclaim
+          - conc8
         include:
-          # The new main: cap gone, CTE inlined, threads still pinned.
-          # PREDICTION: 0 failures across all repetitions.
-          - { arm: baseline,     concurrency: "4", threads: "1", pq_sort: "0", pq_stream: "0" }
-          # The threads pin has NEVER been isolated with the cap off — it failed
-          # 2/3 and 3/3 while the cap was on, but that may have been it
-          # compensating for the cap rather than protecting anything.
-          # PREDICTION: 0 failures, and possibly FASTER, since load reached 3.84
-          # of 4 vCPU and the pin halves each fold's threads.
-          - { arm: threads-off,  concurrency: "4", threads: "",  pq_sort: "0", pq_stream: "0" }
-          # Insertion-order streaming took the Parquet build from 6.48 GB to
-          # 1.28 GB but failed 3/3 alone, because it destroyed the row-group
-          # locality the folds pruned on. The CTE is now inlined, so folds read
-          # far less and may no longer depend on that locality.
-          # PREDICTION: now SAFE — 0 failures — retaining the 5x build-memory win.
-          # This is the arm most likely to surprise, in either direction.
-          - { arm: pq-stream,    concurrency: "4", threads: "1", pq_sort: "0", pq_stream: "1" }
-          # PREDICTION: still rejected — ~13.5 GB build peak and a LARGER file,
-          # unchanged by the CTE fix, because the cost is in the sort itself.
-          # Included to confirm rather than assume the earlier verdict holds.
-          - { arm: pq-sort,      concurrency: "4", threads: "1", pq_sort: "1", pq_stream: "0" }
-          # Concurrency was chosen when memory was capped at 4 x 3 GB. With the
-          # cap gone the constraint is CPU, not memory.
-          # PREDICTION: 2 is slower, 6 is no faster (4 vCPU), both 0 failures.
-          - { arm: conc2,        concurrency: "2", threads: "1", pq_sort: "0", pq_stream: "0" }
-          - { arm: conc6,        concurrency: "6", threads: "1", pq_sort: "0", pq_stream: "0" }
+          # Current main. The reference every other arm is read against.
+          - { arm: baseline,     concurrency: "4", threads: "1", pq_stream: "0", reclaim: "yes" }
+          # The candidate to land: insertion-order streaming, which round 3
+          # showed safe once the CTE was inlined (4/4 clean, against 3/3 failing
+          # before that fix) while keeping the build at 1.28 GB against 6.61 GB.
+          # PREDICTION: 0 failures again, ~5x lower build RSS, ~7% slower sweep.
+          # Four more repetitions before landing it, because one clean round is
+          # a weak basis for a change to the deploy path.
+          - { arm: adopt-stream, concurrency: "4", threads: "1", pq_stream: "1", reclaim: "yes" }
+          # The disk-reclaim step deletes ~30 GB of preinstalled toolchains and
+          # has NEVER been measured on the current pipeline — it was added for an
+          # exhaustion that #988 has since removed the cause of. This arm also
+          # yields the number that actually matters for #997: PEAK DISK USED,
+          # against a documented runner allowance of 14 GB.
+          # PREDICTION: 0 failures, and peak disk far below the reclaimed
+          # headroom — i.e. the step is now vestigial.
+          - { arm: no-reclaim,   concurrency: "4", threads: "1", pq_stream: "0", reclaim: "no"  }
+          # Concurrency was capped at 4 when each fold was also capped at 3 GB.
+          # With no memory cap the binding constraint should be CPU, but folds
+          # spend real time in IO, so oversubscription may still pay.
+          # PREDICTION: no better than 4 — the least confident prediction here.
+          - { arm: conc8,        concurrency: "8", threads: "1", pq_stream: "0", reclaim: "yes" }
     steps:
       - name: Free runner disk space
+        if: matrix.reclaim == 'yes'
         run: |
           echo "== disk before =="; df -h /
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}" || true
@@ -250,7 +246,6 @@ jobs:
       - uses: ./.github/actions/setup-duckdb
       - name: Build shared claim-ledger Parquet
         env:
-          PARQUET_SORT: ${{ matrix.pq_sort }}
           PARQUET_STREAM: ${{ matrix.pq_stream }}
         run: |
           set -euo pipefail
@@ -264,15 +259,15 @@ jobs:
           REP: ${{ matrix.rep }}
           THREADS: ${{ matrix.threads }}
           CONCURRENCY: ${{ matrix.concurrency }}
-          PQ_SORT: ${{ matrix.pq_sort }}
           PQ_STREAM: ${{ matrix.pq_stream }}
+          RECLAIM: ${{ matrix.reclaim }}
         run: |
           set -euo pipefail
           mkdir -p .diagnostics
           {
             echo "== arm =="
             echo "arm=${ARM} rep=${REP}"
-            echo "threads='${THREADS}' concurrency=${CONCURRENCY} pq_sort=${PQ_SORT} pq_stream=${PQ_STREAM}"
+            echo "threads='${THREADS}' concurrency=${CONCURRENCY} pq_stream=${PQ_STREAM}"
             echo "== runner =="
             echo "nproc=$(nproc)"
             grep -E "^MemTotal:|^SwapTotal:" /proc/meminfo
@@ -334,8 +329,8 @@ jobs:
           REP: ${{ matrix.rep }}
           THREADS: ${{ matrix.threads }}
           CONCURRENCY: ${{ matrix.concurrency }}
-          PQ_SORT: ${{ matrix.pq_sort }}
           PQ_STREAM: ${{ matrix.pq_stream }}
+          RECLAIM: ${{ matrix.reclaim }}
           OUTCOME: ${{ steps.regen.outcome }}
           PROJECTION: ${{ steps.projection.outcome }}
           DRIFT: ${{ steps.drift.outputs.drift }}
@@ -346,8 +341,8 @@ jobs:
             echo "rep=${REP}"
             echo "threads=${THREADS}"
             echo "concurrency=${CONCURRENCY}"
-            echo "pq_sort=${PQ_SORT}"
             echo "pq_stream=${PQ_STREAM}"
+            echo "reclaim=${RECLAIM}"
             echo "outcome=${OUTCOME}"
             echo "projection=${PROJECTION}"
             echo "drift=${DRIFT}"
@@ -378,7 +373,7 @@ jobs:
           {
             echo "# Regeneration stress matrix"
             echo
-            echo "| arm | rep | conc | threads | pq_sort | pq_stream | outcome | drift | elapsed | peak fold RSS | parquet bytes | OOM |"
+            echo "| arm | rep | conc | threads | pq_stream | reclaim | outcome | drift | elapsed | peak fold RSS | parquet bytes | OOM |"
             echo "|---|---|---|---|---|---|---|---|---|---|---|---|---|"
             for d in arms/*/; do
               f="$d/arm-outcome.txt"
@@ -388,7 +383,7 @@ jobs:
               oom=$(grep -c "Killed process" "$d/post-mortem.txt" 2>/dev/null || true)
               mb() { [ -n "${1:-}" ] && echo "$(( $1 / 1024 )) MB" || echo "n/a"; }
               pq=$(grep -oE '[0-9]+ bytes' "$d/runner-facts.txt" 2>/dev/null | head -1 | cut -d' ' -f1)
-              echo "| $(get arm) | $(get rep) | $(get concurrency) | $(get threads) | $(get pq_sort) | $(get pq_stream) | $(get outcome) | $(get drift) | $(get elapsed_s)s | $(mb "$peak") | ${pq:-n/a} | ${oom:-0} |"
+              echo "| $(get arm) | $(get rep) | $(get concurrency) | $(get threads) | $(get pq_stream) | $(get reclaim) | $(get outcome) | $(get drift) | $(get elapsed_s)s | $(mb "$peak") | ${pq:-n/a} | ${oom:-0} |"
             done
             echo
             echo "## Failure detail (per arm)"
