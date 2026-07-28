@@ -17,7 +17,16 @@ import * as fs from 'node:fs';
 // Overridable so the guards below can be exercised against fixtures rather
 // than only asserted by reading them.
 const SPEC_PATH = process.env.PERF_ARMS_SPEC ?? 'src/testing/perf-arms.json';
-const MAX_REPS = 9;
+// Raised from 9 after a power analysis of the first 5-rep run (2026-07-28).
+// Measured CVs put the reps needed for 80% power at 95% confidence at:
+//   ~200% effect (the v8 coverage tax)      -> n = 1
+//    ~20% effect                            -> n = 5
+//    ~10% effect                            -> n = 12
+//     ~5% effect                            -> n = 55
+// The default of 5 is right-sized for what this matrix exists to decide, which
+// is large-effect questions. Anything under ~20% needs a deliberate high-rep
+// run, and the cap should not be what stops it.
+const MAX_REPS = 25;
 
 const spec = JSON.parse(fs.readFileSync(SPEC_PATH, 'utf8'));
 
