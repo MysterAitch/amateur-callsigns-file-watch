@@ -86,7 +86,23 @@ export default defineConfig({
       { name: 'data-validity', description: 'Validates the real full dataset / pipeline against encoded assumptions (full-data tier).' },
     ],
     coverage: {
-      provider: 'v8',
+      // ISTANBUL, NOT V8, on measurement (issue #1004, matrix run 30394242424,
+      // 2026-07-28). Collecting coverage under the v8 provider costs ~2.6x on the
+      // whole-corpus builders - 8.65 min against 3.3 min for the same file with
+      // no coverage at all. Under istanbul the same collection costs ~0.4 min:
+      // 3.7 min, a 12% overhead rather than a 160% one.
+      //
+      // The counter-intuition is worth recording, because the v8 provider is
+      // usually described as the cheap one: v8 uses the engine's native counters
+      // but then REMAPS the result back to source, and on a builder that parses
+      // the whole corpus that remap dominates. istanbul instruments the source up
+      // front and pays nothing afterwards.
+      //
+      // Coverage is unchanged by the swap, not merely similar - measured on the
+      // same file: 23.14/20.36/26.53/23.75 (istanbul) against
+      // 23.18/20.61/26.56/23.78 (v8), within 0.25pp on every metric. Per-job
+      // blobs also merge equivalently, which the CI fan-out depends on.
+      provider: 'istanbul',
       include: ['src/**/*.ts'],
       exclude: [
         'src/**/*.test.ts',
@@ -99,22 +115,28 @@ export default defineConfig({
         'src/ci/console-check.ts',
         'src/ci/functionality-check.ts',
       ],
-      // Regression floor, set just below measured coverage (pure modules are well
-      // covered; the I/O-heavy scrape / process / orchestrator bodies are not).
-      // Raise as coverage grows - never lower without a written reason.
+      // Regression floor, set just below measured coverage. Raise as coverage
+      // grows - never lower without a written reason.
+      //
+      // RE-BASELINED 2026-07-28 (issue #1004) from 28/26/23/28. Those figures
+      // were set on 2026-07-06 and never touched, while measured coverage roughly
+      // TRIPLED to 86.21/77.93/91.86/87.19. A floor three times below actual is
+      // worse than no floor: it reads as enforcement while silently permitting a
+      // ~58-point regression. The written reason the old numbers were wrong is
+      // simply that they went stale - coverage did not fall.
       //
       // ENFORCED ONLY ON THE MERGED REPORT. The fan-out CI (#478) runs each
-      // heavy/fast job over a SUBSET with --coverage, so applying the floor
-      // per-job would fail every job (one file covers ~6% of src). Those jobs set
+      // heavy/fast job over a SUBSET, so applying the floor per-job would fail
+      // every job (one file covers ~23% of src). Those jobs set
       // COVERAGE_SKIP_THRESHOLDS=1 to collect coverage without gating; the
       // `coverage` job then merges every blob and applies the floor to the whole.
       thresholds: process.env.COVERAGE_SKIP_THRESHOLDS
         ? undefined
         : {
-            statements: 28,
-            branches: 26,
-            functions: 23,
-            lines: 28,
+            statements: 84,
+            branches: 75,
+            functions: 89,
+            lines: 85,
           },
     },
     projects: [
