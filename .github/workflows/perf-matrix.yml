@@ -1,0 +1,195 @@
+# REPEATABLE PERFORMANCE MATRIX (issue #1004).
+#
+# Not a gate. Dispatch-only plus a monthly schedule, so nothing waits on it and
+# it cannot fire by accident.
+#
+# WHY IT IS PERMANENT rather than a throwaway diagnostic. Two performance
+# conclusions in this repo were confidently wrong - a fold memory cap believed
+# protective was CAUSING the failures it was added to prevent (ADR 0023), and
+# the test suite's coverage cost was attributed to "coverage" when it belonged
+# to the v8 PROVIDER, worth 2.3x. Neither was a bad measurement; both were sound
+# numbers carrying an unstated assumption.
+#
+# The defence against that is not care, it is REPEATABILITY. Every conclusion
+# here is conditional on a Node version, a vitest version, a corpus size and a
+# runner generation, and all four move without warning. A matrix that lives in a
+# throwaway branch can never be re-run, so its assumptions harden into folklore.
+# This one is committed, derives its arms from a committed file, and stores
+# baselines so "what did the new Node do?" is a question with an answer.
+#
+# RUN IT WHEN: Node or vitest is upgraded; the corpus grows materially; a
+# runner-image change is suspected; or before trusting any performance claim
+# older than a few months.
+#
+# HOW TO ADD AN ARM: edit src/testing/perf-arms.json. The matrix is derived from
+# it and hardcodes nothing, so the file and the run cannot disagree.
+name: perf-matrix
+
+on:
+  workflow_dispatch:
+    inputs:
+      repetitions:
+        description: "Repetitions per arm (1-9). Runner variance of 1.7x has been observed on identical config, so prefer 5+."
+        required: false
+        default: "5"
+  schedule:
+    # Monthly. Frequent enough to catch a runtime or runner-image shift while it
+    # is still attributable; rare enough that ~50 jobs is not a habit.
+    - cron: '23 4 1 * *'
+
+concurrency:
+  group: perf-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      arms: ${{ steps.plan.outputs.arms }}
+      reps: ${{ steps.plan.outputs.reps }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: plan
+        env:
+          # DATA, never spliced into the script: a dispatch input is
+          # user-controlled and interpolation would be an injection vector.
+          REPETITIONS: ${{ github.event.inputs.repetitions }}
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("fs");
+            const spec = JSON.parse(fs.readFileSync("src/testing/perf-arms.json", "utf8"));
+            let n = parseInt(process.env.REPETITIONS || "", 10);
+            if (!Number.isInteger(n)) n = spec.defaultRepetitions || 5;
+            n = Math.min(9, Math.max(1, n));
+            const reps = Array.from({ length: n }, (_, i) => i + 1);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `arms=${JSON.stringify(spec.arms)}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `reps=${JSON.stringify(reps)}\n`);
+            console.log(`${spec.arms.length} arms x ${n} reps = ${spec.arms.length * n} jobs`);
+          '
+
+  arm:
+    needs: plan
+    name: ${{ matrix.arm.id }} r${{ matrix.rep }}
+    runs-on: ubuntu-latest
+    # A failed arm is a RESULT. Losing the others to a fail-fast cancellation
+    # would discard the run that explains the failure.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        arm: ${{ fromJSON(needs.plan.outputs.arms) }}
+        rep: ${{ fromJSON(needs.plan.outputs.reps) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: ./.github/actions/setup-duckdb
+      # NOT committed: only this matrix compares providers, and the repo ships
+      # one. --ignore-scripts per the supply-chain posture (ADR 0012).
+      - name: Install the non-default coverage provider
+        if: matrix.arm.coverage == 'v8'
+        run: npm install --no-save --ignore-scripts @vitest/coverage-v8
+      # FIDELITY: the real `fast` job consumes the shared Parquet. Without it
+      # those suites materialise the ledger on demand and measure a job the
+      # pipeline never runs.
+      - name: Build the shared claims Parquet
+        if: matrix.arm.needsParquet
+        run: node src/v2/build-ledger-db.ts "${{ github.workspace }}/claims.parquet" --parquet-only
+      - name: Run the arm
+        env:
+          ARM_ID: ${{ matrix.arm.id }}
+          TARGET: ${{ matrix.arm.target }}
+          COVERAGE: ${{ matrix.arm.coverage }}
+          REP: ${{ matrix.rep }}
+          CLAIMS_PARQUET: ${{ matrix.arm.needsParquet && format('{0}/claims.parquet', github.workspace) || '' }}
+          # Per-job coverage over a SUBSET sits far below the whole-repo floor.
+          COVERAGE_SKIP_THRESHOLDS: '1'
+        run: |
+          set -uo pipefail
+          # An array, so "no coverage" contributes no argument at all rather than
+          # an empty one (which vitest reads as a file pattern matching nothing).
+          cov=()
+          if [ "${COVERAGE}" != "none" ]; then
+            cov=(--coverage "--coverage.provider=${COVERAGE}")
+          fi
+          # `/usr/bin/time -v` gives TRUE peak RSS from the kernel; interval
+          # sampling cannot see a spike between two reads.
+          start=$(date +%s)
+          set +e
+          # shellcheck disable=SC2086
+          # TARGET is a deliberate multi-word argument list from the committed
+          # arm spec ("--project fast --shard=1/2"), not user input; it must
+          # word-split. The values are repo-controlled, not from the event.
+          /usr/bin/time -v -o rusage.txt npx vitest run $TARGET "${cov[@]}" --reporter=default > run.log 2>&1
+          status=$?
+          set -e
+          end=$(date +%s)
+          tail -15 run.log || true
+          peak=$(awk -F': ' '/Maximum resident set size/{print $2}' rusage.txt 2>/dev/null | head -1 || true)
+          {
+            echo "arm=${ARM_ID}"
+            echo "rep=${REP}"
+            echo "elapsed_s=$((end-start))"
+            echo "peak_rss_kb=${peak:-0}"
+            echo "status=${status}"
+          } > arm-result.txt
+          cat arm-result.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: perf-${{ matrix.arm.id }}-r${{ matrix.rep }}
+          path: |
+            arm-result.txt
+            rusage.txt
+            run.log
+          retention-days: 30
+          if-no-files-found: warn
+
+  collate:
+    needs: arm
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: perf-*
+          path: arms
+      # The report carries every median's SPREAD and marks a ratio drawn from a
+      # noisy arm as indicative - the reporting logic is unit-tested so it cannot
+      # drift from what the numbers support.
+      - name: Collate
+        run: |
+          set -euo pipefail
+          node src/ci/perf-matrix-collate.ts arms \
+            --baseline src/testing/perf-baseline.json \
+            --write-baseline perf-baseline-candidate.json \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+      # Written, never auto-committed: writeback is PR-only (ADR 0001), and a
+      # self-updating baseline would silently ratchet in whatever regression
+      # happened to land - the exact opposite of the point.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: perf-baseline-candidate
+          path: perf-baseline-candidate.json
+          retention-days: 90
+          if-no-files-found: warn
