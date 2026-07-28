@@ -621,19 +621,15 @@ jobs:
     name: golden-master
     runs-on: ubuntu-latest
     steps:
-      # Reclaim runner disk before regenerating: a cache MISS (any edit to the
-      # sweep's input closure - e.g. render/html.ts) reruns the full report
-      # regeneration, whose multi-GB ledger folds exhaust the default image and
-      # fail with ENOSPC. Delete the large preinstalled toolchains this job never
-      # uses; each path is guarded (|| true) so a future image that drops one is
-      # not a failure, and setup-node below reinstalls Node into the tool cache
-      # after it is cleared. df -h brackets the delete so any recurrence is
-      # diagnosable from the log. (Mirrors build-site-databases' reclaim step.)
-      - name: Free runner disk space
-        run: |
-          echo "== disk before =="; df -h /
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}" || true
-          echo "== disk after =="; df -h /
+      # NO disk reclaim here, deliberately. This job once deleted the preinstalled
+      # toolchains before regenerating, on the belief that a cache-MISS
+      # regeneration exhausts the image. Measured instead (ADR 0023, run
+      # 30384764770, 2026-07-28): the regeneration's peak consumption is 12.9 GB
+      # - the ledger intermediate - and WITHOUT the reclaim it still floors at
+      # 72.9 GB free. The step was defending a margin about six times the largest
+      # thing the job writes, at 75-85 s a run, and it cleared the tool cache that
+      # setup-node then had to repopulate. If ENOSPC ever recurs here, the ledger
+      # intermediate is the thing to shrink (#997), not the toolchains to delete.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -686,11 +682,37 @@ jobs:
       # with a single read_parquet - a data-access-path change only, proven byte-
       # identical to the on-demand ledger fold by report-fold-parquet-equivalence.test.ts.
       # Gated on the same cache miss as the sweep, and needs the DuckDB CLI above.
+      # ADR 0023's fourth decision - diagnostics must survive the failure they
+      # describe - applied to the job it was learned on. #987 was unexplainable
+      # for three rounds because a killed regeneration uploaded nothing, and the
+      # apparatus that eventually explained it lived only in a diagnostic
+      # workflow, so production kept the failure mode and lost the evidence.
+      # Sampling costs one `sleep 2` loop; the post-mortem runs on failure too.
+      #
+      # STARTS BEFORE THE PARQUET BUILD, deliberately. That step writes and then
+      # deletes the 12.7 GiB ledger intermediate, which is the largest thing this
+      # job puts on disk; a sampler started after it reports a trough for a peak
+      # it never saw. An earlier round made exactly that mistake and had to be
+      # re-run to correct it.
+      - name: Start resource sampler (cache miss)
+        if: steps.reports-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p .diagnostics
+          nohup bash .github/scripts/sample-resources.sh \
+            > .diagnostics/resource-samples.tsv 2> .diagnostics/sampler-errors.txt &
+          echo $! > .diagnostics/sampler.pid
       - name: Build shared claim-ledger Parquet (cache miss)
         if: steps.reports-cache.outputs.cache-hit != 'true'
         run: node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only
       - name: Regenerate reports (cache miss) and snapshot for the cache
         if: steps.reports-cache.outputs.cache-hit != 'true'
+        env:
+          # Stream fold lifecycle events to disk as they happen. A summary
+          # written at the end is exactly what a killed process never reaches.
+          SWEEP_TRACE_FILE: .diagnostics/sweep-trace.jsonl
+          # True peak RSS per fold child, which interval sampling cannot see.
+          FOLD_RUSAGE_DIR: .diagnostics
         run: |
           set -euo pipefail
           # Golden regeneration flows FROM THE LEDGER PROJECTION (issue #629):
@@ -712,6 +734,22 @@ jobs:
           rm -rf .golden-cache/reports
           mkdir -p .golden-cache
           cp -r reports .golden-cache/reports
+      # `always()` rather than success: the failing run is the one whose evidence
+      # is worth having, and it is the run that cannot write its own summary.
+      - name: Capture regeneration post-mortem
+        if: ${{ always() && steps.reports-cache.outputs.cache-hit != 'true' }}
+        env:
+          DIAGNOSTICS_DIR: .diagnostics
+        run: bash .github/scripts/capture-post-mortem.sh
+      - name: Upload regeneration diagnostics
+        if: ${{ always() && steps.reports-cache.outputs.cache-hit != 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: regeneration-diagnostics
+          path: .diagnostics/
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: ignore
       # Same phase-timing history for the report sweep (#354); regeneration
       # is cache-gated, so absence on a run means "not regenerated".
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -794,6 +832,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # TEMPORARY INSTRUMENTATION (#991). golden-master's twin of the reclaim step
+      # above has been removed on measurement; this job's has NOT, because it has a
+      # different disk profile (packaged databases, the assembled tree, a ~1.2 GB
+      # Pages artefact) and no measurement of its own. The `df` the step already
+      # logs shows this job starting at 88 GB available BEFORE reclaiming, so the
+      # open question is only peak consumption. Sample it, then decide. Remove this
+      # step and its upload once ADR 0023 records the answer.
+      - name: Start resource sampler
+        run: |
+          set -euo pipefail
+          mkdir -p .diagnostics
+          nohup bash .github/scripts/sample-resources.sh \
+            > .diagnostics/resource-samples.tsv 2> .diagnostics/sampler-errors.txt &
+          echo $! > .diagnostics/sampler.pid
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
@@ -1086,6 +1138,23 @@ jobs:
         with:
           path: _site
 
+      # TEMPORARY (#991), paired with the sampler started above: stop it and
+      # upload the trace so this job's PEAK DISK CONSUMPTION can be read against
+      # the 88 GB it starts with before reclaiming. Remove both once ADR 0023
+      # records whether this job's reclaim step is vestigial too.
+      - name: Stop resource sampler and upload the trace
+        if: ${{ always() }}
+        run: |
+          if [ -f .diagnostics/sampler.pid ]; then kill "$(cat .diagnostics/sampler.pid)" 2>/dev/null || true; fi
+          echo "== final disk =="; df -h /
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() }}
+        with:
+          name: site-build-resource-samples
+          path: .diagnostics/
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: ignore
       # Phase-timing history for the optimisation work (#354): coarse per-
       # phase reports from the instrumented builders, recorded on every run
       # that actually built (cache-hit runs produce only the assemble-step

@@ -79,9 +79,38 @@ lower peak fold memory, and no failures **even with the 3 GB cap still in
 force** — which is what identifies materialisation as the mechanism rather than
 merely the trigger.
 
-**Not implicated.** Disk (free space never fell below 103.6 GB of 145 GB, and
-removing the reclaim step changed nothing); sweep concurrency (1, 2 and 6 all
-passed at the same cap); runner size.
+**Not implicated.** Sweep concurrency (1, 2, 6 and 8 all passed); runner size.
+
+**Disk is not a constraint, and the earlier reading understated why.** The first
+rounds sampled free space from a point *after* the Parquet build, by which time
+the JSONL intermediate had already been written and deleted — so they recorded a
+2.6 GB trough for a step that in fact consumes five times that, and would have
+supported "disk is fine" for the wrong reason. Sampling from before the build
+(2026-07-28, run 30384764770) measures the real peak:
+
+| arm | free at start | min free | peak consumed |
+|---|---|---|---|
+| baseline | 106.4 GB | 93.5 GB | 12.8 GB |
+| no disk-reclaim | 85.8 GB | **72.9 GB** | 12.9 GB |
+
+The peak is the 12.727 GiB ledger intermediate, exactly. **Without the reclaim
+step the regeneration still floors at 72.9 GB free**, so the step is defending a
+margin roughly six times larger than the largest thing the job writes. It is
+removed from `golden-master` here. The same step in `build-site-databases` is a
+different job with a different disk profile and is not covered by this
+measurement; the `df` it already logs shows that job starting at **88 GB
+available** before reclaiming, but its peak *consumption* has not been measured,
+so it stays until it is.
+
+**Insertion-order preservation is resolved, and the ordering of the two changes
+was load-bearing.** Re-tested against the post-`NOT MATERIALIZED` baseline, as
+this ADR deferred it to be: `preserve_insertion_order = false` takes the Parquet
+build's peak resident memory from 5.88 GB to **1.28 GB** (reproduced across a
+four-arm round), with 4/4 clean folds and byte-identical reports. It failed 3/3
+*before* the CTE change, because the folds then scanned all 55.4M rows and
+depended on the row-group locality that emission order incidentally provided;
+with the filters pushed into the Parquet scan they no longer do. Adopted
+unconditionally in #1001.
 
 ## Arguments considered and rejected
 
@@ -95,11 +124,9 @@ passed at the same cap); runner size.
   commonest fold filter, currently reads 39.81% of the corpus to find 9.48%.
   Rejected for now: the sort alone costs 13.46 GB of build memory against a
   6.48 GB baseline and produces a *larger* file, on a runner documented at 16 GB.
-- **"Turn off insertion-order preservation."** The largest single memory win
-  found — the Parquet build drops from 6.48 GB to 1.28 GB — but alone it failed
-  3/3, because it destroys the row-group locality the folds prune on. Deferred,
-  not rejected: re-tested against the post-`NOT MATERIALIZED` baseline, where
-  folds read far less and may no longer depend on that locality.
+- **"Turn off insertion-order preservation."** Deferred when this ADR was
+  written, because alone it failed 3/3; **subsequently re-tested and adopted**
+  (see the evidence above). The largest single memory win found.
 - **"Remove the threads pin too."** Deliberately **not** taken in #996: it
   failed 2/3 and 3/3 while the cap was on, and no arm isolated it with the cap
   off, so it has no clean evidence of its own yet.
