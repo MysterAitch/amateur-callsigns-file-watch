@@ -677,6 +677,18 @@ jobs:
       # restores the regeneration and never invokes the sweep, so it needs no CLI.
       - if: steps.reports-cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/setup-duckdb
+      # Build the shared claim-ledger Parquet ONCE (issue #403), mirroring the
+      # scheduled report sweep (reports-sweep.yml). Without it, every fold in the
+      # regeneration below (foldPrefixDistribution and its siblings) re-materialises
+      # the multi-GB ledger on demand - each fold spilling to DuckDB's .tmp, which a
+      # disk-pressured runner truncates, so the subsequent spill read fails (#987).
+      # One shared Parquet, read via CLAIMS_PARQUET, replaces every re-materialisation
+      # with a single read_parquet - a data-access-path change only, proven byte-
+      # identical to the on-demand ledger fold by report-fold-parquet-equivalence.test.ts.
+      # Gated on the same cache miss as the sweep, and needs the DuckDB CLI above.
+      - name: Build shared claim-ledger Parquet (cache miss)
+        if: steps.reports-cache.outputs.cache-hit != 'true'
+        run: node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only
       - name: Regenerate reports (cache miss) and snapshot for the cache
         if: steps.reports-cache.outputs.cache-hit != 'true'
         run: |
@@ -690,9 +702,13 @@ jobs:
           # to the committed files (the parity gate), and a publication newer
           # than the baseline exists only in the projection - reading it here
           # is what keeps this drift gate honest the day one lands.
+          #
+          # CLAIMS_PARQUET points the ledger folds at the single Parquet built
+          # above instead of re-materialising the ledger per fold (issue #403,
+          # #987): same fold SQL, same source claims, one shared read_parquet.
           node src/v2/build-builder-projection.ts "$RUNNER_TEMP/builder-projection"
           mkdir -p .perf-reports
-          PERF=1 PERF_JSON=.perf-reports/report-sweep.json BUILDER_PROJECTION_DIR="$RUNNER_TEMP/builder-projection" npm run reports:sweep
+          PERF=1 PERF_JSON=.perf-reports/report-sweep.json CLAIMS_PARQUET="$RUNNER_TEMP/claims.parquet" BUILDER_PROJECTION_DIR="$RUNNER_TEMP/builder-projection" npm run reports:sweep
           rm -rf .golden-cache/reports
           mkdir -p .golden-cache
           cp -r reports .golden-cache/reports
