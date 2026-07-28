@@ -102,6 +102,13 @@ export default defineConfig({
       // same file: 23.14/20.36/26.53/23.75 (istanbul) against
       // 23.18/20.61/26.56/23.78 (v8), within 0.25pp on every metric. Per-job
       // blobs also merge equivalently, which the CI fan-out depends on.
+      //
+      // @vitest/coverage-v8 REMAINS a devDependency despite not being the active
+      // provider. It is the comparand in the repeatable performance matrix
+      // (src/testing/perf-arms.json), which re-tests this very choice when Node,
+      // vitest, the corpus or the runner image moves. Removing it would make the
+      // decision permanently unre-testable - which is precisely how a measured
+      // result decays into folklore.
       provider: 'istanbul',
       include: ['src/**/*.ts'],
       exclude: [
