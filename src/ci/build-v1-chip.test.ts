@@ -60,6 +60,28 @@ describe('build-v1-chip — static-HTML stamping', { tags: ['unit'] }, () => {
     expect(html.toLowerCase()).not.toContain('generated from that set');
   });
 
+  it('ChipHtml_TheGeneratedChip_IsMatchedWholeByThePageStampPattern', () => {
+    // The stamp finds a chip with a pattern; the chip it generates must be the
+    // thing that pattern matches, entire. Pinned because the two are written
+    // apart and the platform serialiser leaves '>' raw inside an attribute
+    // value, so a title carrying one would be matched only in part.
+    const html = chipHtml({ date: '23 June 2026', count: 65 });
+    const { html: stamped, replaced } = stampChipHtml(`<p>${html}</p>`, { date: '1 January 2000', count: 1 });
+    expect(replaced).toBe(1);
+    expect(stamped).toBe(`<p>${chipHtml({ date: '1 January 2000', count: 1 })}</p>`);
+  });
+
+  it('ChipHtml_ADatePuttingAnAngleBracketInTheTitle_FailsLoudRatherThanEmittingAnUnstampableChip', () => {
+    // Unhappy path for that coupling: the serialiser leaves '<' and '>' raw
+    // inside an attribute value, and the date reaches the title. facts.date is
+    // constrained upstream so this cannot happen today — the guard exists so it
+    // stays impossible rather than becoming a silently corrupt stamp if the
+    // constraint ever relaxes.
+    for (const date of ['23 June 2026>', '23 June 2026</span><b>x', '<img src=x>']) {
+      expect(() => chipHtml({ date, count: 65 }), date).toThrow(/page-stamp pattern|title carries/);
+    }
+  });
+
   it('StampChipHtml_APageCarryingTheChip_RewritesItToTheDerivedFactsExactlyOnce', () => {
     const { html, replaced } = stampChipHtml(SAMPLE_PAGE, { date: '23 June 2026', count: 65 });
     expect(replaced).toBe(1);

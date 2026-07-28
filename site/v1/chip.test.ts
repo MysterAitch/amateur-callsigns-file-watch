@@ -26,8 +26,16 @@ describe('v1 dated-fact chip component', { tags: ['ui'] }, () => {
     // template's {count} placeholder, never on the rendered value.
     const node = chip.renderStatic({ date: '23 June 2026', count: 23 });
     expect(node.textContent).toBe('Record as of 23 June 2026 · 23 publications held');
-    expect(node.querySelector('b')?.textContent).toBe('23');
-    expect(node.textContent?.indexOf('23')).toBeLessThan(node.textContent?.indexOf('June') ?? -1);
+    // Exactly one bolded run, and it is the COUNT slot rather than the "23"
+    // inside the date: everything rendered before it is the whole date clause.
+    // Comparing the bolded text alone cannot show this — both candidates read
+    // "23" — so the assertion is on WHICH occurrence carries the emphasis.
+    const children = [...node.childNodes];
+    const boldIndex = children.findIndex(child => child.nodeName === 'B');
+    expect(children.filter(child => child.nodeName === 'B')).toHaveLength(1);
+    expect(children.slice(0, boldIndex).map(child => child.textContent).join(''))
+      .toBe('Record as of 23 June 2026 · ');
+    expect(children[boldIndex].textContent).toBe('23');
   });
 
   it('ChipRenderStatic_HostileFactValues_StayInertTextInBothTextAndTitleSinks', () => {

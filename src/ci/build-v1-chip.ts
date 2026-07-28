@@ -87,29 +87,37 @@ setBuildDocument(new JSDOM('').window.document);
 // the one implementation — there is no second, hand-baked markup string left
 // to drift from the browser render (ADR 0022 retires duplicate-plus-guard).
 export function chipHtml(facts: RecordFacts): string {
-  const html = serialise(chip.renderStatic(facts));
-  // The page-stamp regex (CHIP_RE) reads the chip's attributes with `[^>]*`, and
-  // the HTML serialiser does NOT escape '>' inside an attribute value — so a '>'
-  // in the chip's title would truncate the match and split the stamp. facts.date
-  // is constrained upstream (humaniseIsoDate, a bare year, or a fixed literal —
-  // none containing '>') and the count is a number, so this cannot happen from a
-  // real manifest; assert it anyway, so a future date source cannot silently
-  // reopen the hazard.
-  const title = /<span class="chip asof" title="([^"]*)"/.exec(html)?.[1] ?? '';
-  if (title.includes('>')) {
-    throw new Error(`build-v1-chip: chip title contains '>', which the serialiser leaves unescaped and would truncate the page-stamp regex — got ${JSON.stringify(title)}`);
+  const node = chip.renderStatic(facts);
+  if (/[<>]/.test(node.getAttribute('title') ?? '')) {
+    throw new Error("build-v1-chip: refusing a chip whose title carries '<' or '>' — the HTML serialiser leaves both raw inside an attribute value, so the page-stamp pattern would read the attribute run or the chip body as ending early and stamp corrupt markup");
+  }
+  const html = serialise(node);
+  // The generated chip must be matched WHOLE by the very pattern the stamp uses
+  // to find chips in a page. Checking the coupling end to end — rather than
+  // checking the one input that can currently break it — means any future
+  // divergence (a new attribute, a reordered one, a nested span, a line break)
+  // fails loudly here instead of silently stamping partial markup into a page.
+  if (!WHOLE_CHIP_RE.test(html)) {
+    throw new Error(`build-v1-chip: the generated chip is not matched whole by the page-stamp pattern, so stamping it into a page would corrupt the markup: ${html}`);
   }
   return html;
 }
 
-// The chip span sits on a single line, and its title carries no '>' — so a
-// greedy-safe `[^>]*` over the attributes plus a non-greedy body to the first
-// closing tag matches exactly one chip per occurrence without over-reaching.
-// The no-'>' assumption is load-bearing: the HTML serialiser leaves '>'
-// unescaped inside an attribute value, so a '>' in the title would end the
-// `[^>]*` run early. chipHtml() asserts the built title has no '>' (facts.date
-// is constrained upstream, so this is inert but guarded, never assumed).
-const CHIP_RE = /<span class="chip asof"[^>]*>.*?<\/span>/g;
+// The page stamp's chip pattern, written ONCE and used both to FIND chips in a
+// page and to check that the chip this module GENERATES is matchable by it.
+//
+// COUPLING: the pattern assumes the chip span sits on a single line and that no
+// '<' or '>' appears inside its attribute values. The HTML serialiser escapes
+// '<' and '&' in TEXT but leaves both angle brackets RAW inside an attribute
+// value, so a title carrying one would end the `[^>]*` attribute run — or the
+// non-greedy body — early, matching only part of the chip. The only data
+// reaching the title is facts.date, constrained upstream to a humanised ISO
+// date, a year, or the fixed "not recorded" wording, so this is inert today;
+// chipHtml() above enforces the assumption rather than trusting the two ends of
+// the coupling to stay in step.
+const CHIP_PATTERN = '<span class="chip asof"[^>]*>.*?<\\/span>';
+const CHIP_RE = new RegExp(CHIP_PATTERN, 'g');
+const WHOLE_CHIP_RE = new RegExp(`^${CHIP_PATTERN}$`);
 
 // Which static HTML pages in a site root carry the dated-fact chip, decided by
 // content scan for the same marker the stamp itself matches on
