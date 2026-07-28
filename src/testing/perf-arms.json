@@ -1,0 +1,98 @@
+{
+  "$comment": [
+    "Arm definitions for the repeatable performance matrix (.github/workflows/perf-matrix.yml, issue #1004).",
+    "SINGLE SOURCE OF TRUTH: the workflow derives its matrix from this file and never hardcodes an arm,",
+    "so adding or retiring one is a single edit here.",
+    "",
+    "WHY THIS IS COMMITTED RATHER THAN AD HOC. Two performance conclusions in this repo were confidently",
+    "wrong: a fold memory cap believed protective was CAUSING the failures it was added to prevent, and the",
+    "test suite's coverage cost was attributed to coverage when it belonged to the v8 PROVIDER. Neither was a",
+    "bad measurement - both were sound numbers carrying an unstated assumption. A matrix that lives only in a",
+    "throwaway branch cannot be re-run against a new Node, a new vitest, or a new corpus size, so the",
+    "assumption never gets retested and hardens into folklore.",
+    "",
+    "EVERY ARM MUST DIFFER FROM ITS COMPARAND IN EXACTLY ONE RESPECT. Six of ten arms in an earlier matrix",
+    "were silently inert because the code under test overrode the caller's environment, and the matrix",
+    "confidently reported 'no effect' for a lever it had never varied.",
+    "",
+    "ALWAYS KEEP A CONTROL ARM - one expected to show nothing. If it shows something, the harness is",
+    "reporting noise and no other arm in the run can be trusted."
+  ],
+  "defaultRepetitions": 5,
+  "arms": [
+    {
+      "id": "pages-nocov",
+      "label": "dataset-pages, no coverage",
+      "target": "src/ci/build-dataset-pages.test.ts",
+      "coverage": "none"
+    },
+    {
+      "id": "pages-istanbul",
+      "label": "dataset-pages, istanbul coverage",
+      "target": "src/ci/build-dataset-pages.test.ts",
+      "coverage": "istanbul"
+    },
+    {
+      "id": "pages-v8",
+      "label": "dataset-pages, v8 coverage",
+      "target": "src/ci/build-dataset-pages.test.ts",
+      "coverage": "v8"
+    },
+    {
+      "id": "ledger-nocov",
+      "label": "ledger build, no coverage",
+      "target": "src/v2/build-ledger.test.ts",
+      "coverage": "none"
+    },
+    {
+      "id": "ledger-istanbul",
+      "label": "ledger build, istanbul coverage",
+      "target": "src/v2/build-ledger.test.ts",
+      "coverage": "istanbul"
+    },
+    {
+      "id": "ledger-v8",
+      "label": "ledger build, v8 coverage",
+      "target": "src/v2/build-ledger.test.ts",
+      "coverage": "v8"
+    },
+    {
+      "id": "fast-nocov",
+      "label": "fast shard 1/2, no coverage",
+      "target": "--project fast --shard=1/2",
+      "coverage": "none",
+      "needsParquet": true
+    },
+    {
+      "id": "fast-istanbul",
+      "label": "fast shard 1/2, istanbul coverage",
+      "target": "--project fast --shard=1/2",
+      "coverage": "istanbul",
+      "needsParquet": true
+    },
+    {
+      "id": "fast-v8",
+      "label": "fast shard 1/2, v8 coverage",
+      "target": "--project fast --shard=1/2",
+      "coverage": "v8",
+      "needsParquet": true
+    },
+    {
+      "id": "pages-control",
+      "label": "CONTROL: dataset-pages, no coverage, repeated as a second no-op arm",
+      "target": "src/ci/build-dataset-pages.test.ts",
+      "coverage": "none",
+      "control": "pages-nocov"
+    }
+  ],
+  "comparisons": [
+    { "id": "pages-v8-tax", "baseline": "pages-nocov", "variant": "pages-v8" },
+    { "id": "pages-istanbul-tax", "baseline": "pages-nocov", "variant": "pages-istanbul" },
+    { "id": "pages-provider", "baseline": "pages-istanbul", "variant": "pages-v8" },
+    { "id": "ledger-v8-tax", "baseline": "ledger-nocov", "variant": "ledger-v8" },
+    { "id": "ledger-istanbul-tax", "baseline": "ledger-nocov", "variant": "ledger-istanbul" },
+    { "id": "fast-v8-tax", "baseline": "fast-nocov", "variant": "fast-v8" },
+    { "id": "fast-istanbul-tax", "baseline": "fast-nocov", "variant": "fast-istanbul" },
+    { "id": "CONTROL-should-be-1.0", "baseline": "pages-nocov", "variant": "pages-control" }
+  ]
+}

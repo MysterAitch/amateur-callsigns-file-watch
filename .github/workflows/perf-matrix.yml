@@ -1,0 +1,225 @@
+# REPEATABLE PERFORMANCE MATRIX (issue #1004).
+#
+# Not a gate. Dispatch-only plus a monthly schedule, so nothing waits on it and
+# it cannot fire by accident.
+#
+# WHY IT IS PERMANENT rather than a throwaway diagnostic. Two performance
+# conclusions in this repo were confidently wrong - a fold memory cap believed
+# protective was CAUSING the failures it was added to prevent (ADR 0023), and
+# the test suite's coverage cost was attributed to "coverage" when it belonged
+# to the v8 PROVIDER, worth 2.3x. Neither was a bad measurement; both were sound
+# numbers carrying an unstated assumption.
+#
+# The defence against that is not care, it is REPEATABILITY. Every conclusion
+# here is conditional on a Node version, a vitest version, a corpus size and a
+# runner generation, and all four move without warning. A matrix that lives in a
+# throwaway branch can never be re-run, so its assumptions harden into folklore.
+# This one is committed, derives its arms from a committed file, and stores
+# baselines so "what did the new Node do?" is a question with an answer.
+#
+# RUN IT WHEN: Node or vitest is upgraded; the corpus grows materially; a
+# runner-image change is suspected; or before trusting any performance claim
+# older than a few months.
+#
+# HOW TO ADD AN ARM: edit src/testing/perf-arms.json. The matrix is derived from
+# it and hardcodes nothing, so the file and the run cannot disagree.
+name: perf-matrix
+
+on:
+  workflow_dispatch:
+    inputs:
+      repetitions:
+        description: "Repetitions per arm (1-9). Runner variance of 1.7x has been observed on identical config, so prefer 5+."
+        required: false
+        default: "5"
+  schedule:
+    # Monthly. Frequent enough to catch a runtime or runner-image shift while it
+    # is still attributable; rare enough that ~50 jobs is not a habit.
+    - cron: '23 4 1 * *'
+
+concurrency:
+  group: perf-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      arms: ${{ steps.plan.outputs.arms }}
+      reps: ${{ steps.plan.outputs.reps }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: plan
+        env:
+          # DATA, never spliced into the script: a dispatch input is
+          # user-controlled and interpolation would be an injection vector.
+          REPETITIONS: ${{ github.event.inputs.repetitions }}
+        # The script also FAILS LOUDLY on a spec that would produce a misleading
+        # run - a comparison naming an arm that does not exist, or a matrix with
+        # no control arm.
+        run: node .github/scripts/perf-plan.mjs
+
+  arm:
+    needs: plan
+    name: ${{ matrix.arm.id }} r${{ matrix.rep }}
+    runs-on: ubuntu-latest
+    # A failed arm is a RESULT. Losing the others to a fail-fast cancellation
+    # would discard the run that explains the failure.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        arm: ${{ fromJSON(needs.plan.outputs.arms) }}
+        rep: ${{ fromJSON(needs.plan.outputs.reps) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: ./.github/actions/setup-duckdb
+      # NOTE: both coverage providers are real, lockfile-pinned devDependencies.
+      # An earlier draft installed the non-default one ad hoc with
+      # `npm install --no-save`; zizmor rejected it as installing outside the
+      # lockfile, and it was right on the substance as well as the rule - a
+      # benchmark that floats to whatever version npm resolves that morning
+      # cannot be compared against a stored baseline.
+      # FIDELITY: the real `fast` job consumes the shared Parquet. Without it
+      # those suites materialise the ledger on demand and measure a job the
+      # pipeline never runs.
+      - name: Build the shared claims Parquet
+        if: matrix.arm.needsParquet
+        run: node src/v2/build-ledger-db.ts "${{ github.workspace }}/claims.parquet" --parquet-only
+      - name: Run the arm
+        env:
+          ARM_ID: ${{ matrix.arm.id }}
+          TARGET: ${{ matrix.arm.target }}
+          COVERAGE: ${{ matrix.arm.coverage }}
+          REP: ${{ matrix.rep }}
+          CLAIMS_PARQUET: ${{ matrix.arm.needsParquet && format('{0}/claims.parquet', github.workspace) || '' }}
+          # Per-job coverage over a SUBSET sits far below the whole-repo floor.
+          COVERAGE_SKIP_THRESHOLDS: '1'
+        run: |
+          set -uo pipefail
+          # An array, so "no coverage" contributes no argument at all rather than
+          # an empty one (which vitest reads as a file pattern matching nothing).
+          cov=()
+          if [ "${COVERAGE}" != "none" ]; then
+            cov=(--coverage "--coverage.provider=${COVERAGE}")
+          fi
+          # `/usr/bin/time -v` gives TRUE peak RSS from the kernel; interval
+          # sampling cannot see a spike between two reads.
+          start=$(date +%s)
+          set +e
+          # shellcheck disable=SC2086
+          # TARGET is a deliberate multi-word argument list from the committed
+          # arm spec ("--project fast --shard=1/2"), not user input; it must
+          # word-split. The values are repo-controlled, not from the event.
+          /usr/bin/time -v -o rusage.txt npx vitest run $TARGET "${cov[@]}" --reporter=default > run.log 2>&1
+          status=$?
+          set -e
+          end=$(date +%s)
+          tail -15 run.log || true
+          peak=$(awk -F': ' '/Maximum resident set size/{print $2}' rusage.txt 2>/dev/null | head -1 || true)
+          {
+            echo "arm=${ARM_ID}"
+            echo "rep=${REP}"
+            echo "elapsed_s=$((end-start))"
+            echo "peak_rss_kb=${peak:-0}"
+            echo "status=${status}"
+          } > arm-result.txt
+          cat arm-result.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: perf-${{ matrix.arm.id }}-r${{ matrix.rep }}
+          path: |
+            arm-result.txt
+            rusage.txt
+            run.log
+          retention-days: 30
+          if-no-files-found: warn
+
+  # MICRO benchmarks, in-process. Separate from the arm matrix above because the
+  # two answer different questions at wildly different precision: whole-job
+  # wall-clock carries ~70% jitter and can only resolve process-level levers
+  # (coverage provider, GC flags, pool); these carry ~1% and resolve algorithmic
+  # differences the macro arms could never see. Measure at the LOWEST level that
+  # can answer the question.
+  #
+  # Runs WITHOUT coverage deliberately: instrumentation is not neutral between
+  # candidates - istanbul instruments user JS while JSON.stringify is native C++
+  # and receives none - so an instrumented benchmark systematically flatters
+  # builtins. This is the regime production actually uses.
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Significance is decided by each benchmark's OWN margin of error - two
+      # results differ only when their confidence intervals do not overlap - plus
+      # an independent floor on effect size, so a measurable-but-trivial shift is
+      # not announced. Silence is the designed-for outcome.
+      - name: Run the benchmark suite
+        run: |
+          set -euo pipefail
+          node src/ci/bench-suite.ts             --out bench-results.json             --baseline src/testing/bench-baseline.json             | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: bench-results
+          path: bench-results.json
+          retention-days: 90
+          if-no-files-found: warn
+
+  collate:
+    needs: arm
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: perf-*
+          path: arms
+      # The report carries every median's SPREAD and marks a ratio drawn from a
+      # noisy arm as indicative - the reporting logic is unit-tested so it cannot
+      # drift from what the numbers support.
+      - name: Collate
+        run: |
+          set -euo pipefail
+          node src/ci/perf-matrix-collate.ts arms \
+            --baseline src/testing/perf-baseline.json \
+            --write-baseline perf-baseline-candidate.json \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+      # Written, never auto-committed: writeback is PR-only (ADR 0001), and a
+      # self-updating baseline would silently ratchet in whatever regression
+      # happened to land - the exact opposite of the point.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: perf-baseline-candidate
+          path: perf-baseline-candidate.json
+          retention-days: 90
+          if-no-files-found: warn
