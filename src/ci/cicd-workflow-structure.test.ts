@@ -230,6 +230,24 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
     expect(sweep, 'golden-master runs the report sweep without BUILDER_PROJECTION_DIR - reports would regenerate from the frozen committed derivatives only').toBeGreaterThan(projectionBuild);
   });
 
+  it('GoldenMaster_BuildsTheSharedClaimLedgerParquetOnce_AndTheSweepReadsIt', () => {
+    // Issue #987: on a cache miss the report sweep's ledger folds otherwise each
+    // re-materialise the multi-GB ledger, spilling to DuckDB's .tmp until a disk-
+    // pressured runner truncates a spill and the read fails. The scheduled report
+    // sweep never hits this because it builds the shared claims.parquet ONCE
+    // (build-ledger-db --parquet-only) and passes CLAIMS_PARQUET so each fold reads
+    // that single artefact (issue #403). golden-master must mirror it: build the
+    // Parquet before the sweep, and set CLAIMS_PARQUET on the sweep so the folds
+    // consult it (deployClaimsSource) instead of re-materialising per fold. Losing
+    // either half reinstates the spill exhaustion on every dependency-bump cache miss.
+    const block = jobBlock(workflow(), 'golden-master');
+    const parquetBuild = block.indexOf('node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only');
+    const sweep = block.indexOf('CLAIMS_PARQUET="$RUNNER_TEMP/claims.parquet" BUILDER_PROJECTION_DIR="$RUNNER_TEMP/builder-projection" npm run reports:sweep');
+    expect(parquetBuild, 'golden-master no longer builds the shared claim-ledger Parquet before the sweep - folds would re-materialise the ledger and spill (#987)').toBeGreaterThan(-1);
+    expect(sweep, 'golden-master runs the report sweep without CLAIMS_PARQUET - the folds would re-materialise the multi-GB ledger per fold instead of reading the shared Parquet (#987)').toBeGreaterThan(-1);
+    expect(sweep, 'the shared Parquet is built AFTER the sweep that must read it').toBeGreaterThan(parquetBuild);
+  });
+
   it('DataValidation_StaysOnTheCommittedArchive_NoProjectionSwitch', () => {
     // validate-data gates what a data PR COMMITS - the raw/meta record and
     // the frozen committed derivatives - so its derived-file reads stay
