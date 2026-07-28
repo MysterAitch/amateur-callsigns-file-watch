@@ -16,7 +16,21 @@
     "confidently reported 'no effect' for a lever it had never varied.",
     "",
     "ALWAYS KEEP A CONTROL ARM - one expected to show nothing. If it shows something, the harness is",
-    "reporting noise and no other arm in the run can be trusted."
+    "reporting noise and no other arm in the run can be trusted.",
+    "",
+    "HOW MANY REPETITIONS. Measured from the first 5-rep run (2026-07-28), pooled CV ~9%:",
+    "  effect ~200% (the v8 coverage tax) -> n = 1     effect ~20% -> n = 5",
+    "  effect  ~10%                       -> n = 12    effect  ~5% -> n = 55",
+    "The default of 5 is right-sized for LARGE-effect questions, which is what this",
+    "matrix exists to decide. It CANNOT resolve anything under ~20%: the istanbul",
+    "overhead (8-17% depending on target) needs 8-12 reps, and a 5% effect needs 55.",
+    "Do not quote a sub-20% figure from a 5-rep run - raise the repetitions instead.",
+    "",
+    "THE CONTROL ARM IS THE READ-OUT FOR THIS. pages-control is configured",
+    "identically to pages-nocov, so its apparent 'effect' IS the noise floor. On the",
+    "first run it read 1.04x, needing 80 reps to call that real - i.e. correctly",
+    "indistinguishable from zero. If the control ever shows a resolvable difference,",
+    "the harness is generating noise and no other arm in that run can be trusted."
   ],
   "defaultRepetitions": 5,
   "arms": [
@@ -86,13 +100,45 @@
     }
   ],
   "comparisons": [
-    { "id": "pages-v8-tax", "baseline": "pages-nocov", "variant": "pages-v8" },
-    { "id": "pages-istanbul-tax", "baseline": "pages-nocov", "variant": "pages-istanbul" },
-    { "id": "pages-provider", "baseline": "pages-istanbul", "variant": "pages-v8" },
-    { "id": "ledger-v8-tax", "baseline": "ledger-nocov", "variant": "ledger-v8" },
-    { "id": "ledger-istanbul-tax", "baseline": "ledger-nocov", "variant": "ledger-istanbul" },
-    { "id": "fast-v8-tax", "baseline": "fast-nocov", "variant": "fast-v8" },
-    { "id": "fast-istanbul-tax", "baseline": "fast-nocov", "variant": "fast-istanbul" },
-    { "id": "CONTROL-should-be-1.0", "baseline": "pages-nocov", "variant": "pages-control" }
+    {
+      "id": "pages-v8-tax",
+      "baseline": "pages-nocov",
+      "variant": "pages-v8"
+    },
+    {
+      "id": "pages-istanbul-tax",
+      "baseline": "pages-nocov",
+      "variant": "pages-istanbul"
+    },
+    {
+      "id": "pages-provider",
+      "baseline": "pages-istanbul",
+      "variant": "pages-v8"
+    },
+    {
+      "id": "ledger-v8-tax",
+      "baseline": "ledger-nocov",
+      "variant": "ledger-v8"
+    },
+    {
+      "id": "ledger-istanbul-tax",
+      "baseline": "ledger-nocov",
+      "variant": "ledger-istanbul"
+    },
+    {
+      "id": "fast-v8-tax",
+      "baseline": "fast-nocov",
+      "variant": "fast-v8"
+    },
+    {
+      "id": "fast-istanbul-tax",
+      "baseline": "fast-nocov",
+      "variant": "fast-istanbul"
+    },
+    {
+      "id": "CONTROL-should-be-1.0",
+      "baseline": "pages-nocov",
+      "variant": "pages-control"
+    }
   ]
 }
