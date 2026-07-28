@@ -19,6 +19,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { threadId } from 'node:worker_threads';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { errorMessage } from '../shared/utils.ts';
@@ -127,6 +128,22 @@ export function describeSpawnFailure(err: unknown): string {
   return ` DuckDB reported: ${parts.join('; ')}.`;
 }
 
+export const FOLD_RUSAGE_DIR_ENV = 'FOLD_RUSAGE_DIR';
+
+// Optionally run each fold under `/usr/bin/time -v`, which reports the child's
+// TRUE PEAK resident set size from the kernel's own accounting (issue #991).
+// This closes a blind spot the sampled resource trace cannot: a sampler reading
+// every couple of seconds cannot see a spike that begins and ends between two
+// reads, and a fold that balloons and dies in under a second is exactly the case
+// under investigation. getrusage is a high-water mark, so it cannot miss.
+// Off unless FOLD_RUSAGE_DIR names a directory, and it degrades to running the
+// binary directly wherever /usr/bin/time is absent.
+function rusagePrefix(): string[] {
+  const dir = process.env[FOLD_RUSAGE_DIR_ENV];
+  if (dir === undefined || dir === '' || !fs.existsSync('/usr/bin/time')) return [];
+  return ['/usr/bin/time', '-v', '-o', path.join(dir, `rusage-${process.pid}-${threadId}.txt`), '--append'];
+}
+
 // Run one SQL script against an in-memory DuckDB and parse its JSON result set.
 // `-json` emits the final statement's rows as a JSON array (leading PRAGMA/SET
 // statements return no rows and contribute nothing), so a script may open with
@@ -136,7 +153,8 @@ export function foldQuery<Row>(sql: string): Row[] {
   const script = foldThreadsPreamble() + foldMemoryLimitPreamble() + sql;
   let stdout: string;
   try {
-    stdout = execFileSync(binary, ['-json', ':memory:', script], { maxBuffer: 1 << 30, encoding: 'utf8' });
+    const argv = [...rusagePrefix(), binary, '-json', ':memory:', script];
+    stdout = execFileSync(argv[0], argv.slice(1), { maxBuffer: 1 << 30, encoding: 'utf8' });
   } catch (err) {
     throw new Error(
       `DuckDB fold failed (binary: ${binary}). Install the pinned CLI via .github/actions/setup-duckdb `

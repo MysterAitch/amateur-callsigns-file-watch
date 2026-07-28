@@ -43,6 +43,7 @@ import { BUILDER_PROJECTION_DIR_ENV, DERIVED_ENTRY_FILES, derivedEntriesMode, de
 import { buildBuilderProjection } from '../v2/build-builder-projection.ts';
 import { compareStats, markUnprintables, type EntryStats } from '../shared/stats.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { traceSweepEvent, traceSweepTask } from './sweep-trace.ts';
 import { writeValueCatalogue } from './value-catalogue.ts';
 import { buildQualityReportFold, type PrefixDistributionFold, type MismatchFold, type RegionalIdentifierFold, type CallsignPatternSeriesFold } from './quality-report-fold.ts';
 import { buildDataQualityFold, type DataQualityFold } from './data-quality-fold.ts';
@@ -62,7 +63,7 @@ import { mdCell } from '../shared/markdown.ts';
 import { time, perfReport, perfSnapshot, perfMerge } from '../shared/perf.ts';
 import { isMainThread, workerData, parentPort } from 'node:worker_threads';
 import { runBounded, runTaskInWorker } from './report-sweep-pool.ts';
-import { REPORT_FOLD_THREADS_ENV } from '../v2/report-fold.ts';
+import { REPORT_FOLD_THREADS_ENV, REPORT_FOLD_MEMORY_LIMIT_ENV } from '../v2/report-fold.ts';
 
 // mdCell (markdown table-cell sanitiser) is shared with the other report
 // generators; re-exported here so existing importers keep their path.
@@ -280,8 +281,25 @@ export async function runReportSweepParallel(concurrency: number = defaultReport
   // cores. Set on process.env BEFORE the pool spawns so each worker thread
   // inherits it in its process.env copy, and so it also constrains the
   // main-thread quality-reports fold that runs alongside the pool below.
+  //
+  // An externally-supplied value WINS. This assignment used to be
+  // unconditional, so a caller setting the variable was silently ignored for
+  // the concurrent region — the only region where it acts. That made the pin
+  // untestable from outside: a stress run varying it across ten arms produced
+  // ten IDENTICAL runs whose null result was very nearly read as evidence that
+  // the pin does not matter. A default that cannot be overridden is not a
+  // default; it is a constant wearing a default's clothes.
   const previousFoldThreads = process.env[REPORT_FOLD_THREADS_ENV];
-  process.env[REPORT_FOLD_THREADS_ENV] = '1';
+  if (previousFoldThreads === undefined) process.env[REPORT_FOLD_THREADS_ENV] = '1';
+  traceSweepEvent('fold-settings-resolved', {
+    concurrency,
+    effectiveFoldThreads: process.env[REPORT_FOLD_THREADS_ENV] ?? '(unset — DuckDB default)',
+    effectiveFoldMemoryLimit: process.env[REPORT_FOLD_MEMORY_LIMIT_ENV] ?? '(unset — DuckDB default)',
+    threadsCameFromCaller: previousFoldThreads !== undefined,
+    claimsParquet: process.env.CLAIMS_PARQUET ?? '(unset)',
+    availableParallelism: os.availableParallelism(),
+    taskCount: INDEPENDENT_REPORT_TASKS.length,
+  });
   try {
     // Fan the independent generators across worker threads; each worker is this
     // same module (self-as-worker: see the worker branch at the foot of the
@@ -290,7 +308,7 @@ export async function runReportSweepParallel(concurrency: number = defaultReport
     // reports so the two overlap on the folding thread.
     const workerUrl = new URL(import.meta.url);
     const pool = runBounded(INDEPENDENT_REPORT_TASKS, concurrency, async (task) => {
-      const result = await runTaskInWorker(workerUrl, task.id);
+      const result = await traceSweepTask(task.id, () => runTaskInWorker(workerUrl, task.id));
       perfMerge(result.perf);
       return result;
     });

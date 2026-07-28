@@ -24,6 +24,10 @@ landing/
 # Deploy build staging (cicd.yaml database cache) - never committed
 .dbstage/
 
+# Regeneration diagnostics (resource samples, sweep trace, rusage, post-mortem).
+# Written by the CI jobs that regenerate, uploaded as an artifact, never committed.
+.diagnostics/
+
 # Builder-facing ledger projection output (build-builder-projection.ts) -
 # a build artefact re-derived from the ledger on demand, never committed
 _projection/
