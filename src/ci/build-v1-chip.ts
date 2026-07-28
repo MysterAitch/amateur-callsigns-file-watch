@@ -87,11 +87,7 @@ setBuildDocument(new JSDOM('').window.document);
 // the one implementation — there is no second, hand-baked markup string left
 // to drift from the browser render (ADR 0022 retires duplicate-plus-guard).
 export function chipHtml(facts: RecordFacts): string {
-  const node = chip.renderStatic(facts);
-  if (/[<>]/.test(node.getAttribute('title') ?? '')) {
-    throw new Error("build-v1-chip: refusing a chip whose title carries '<' or '>' — the HTML serialiser leaves both raw inside an attribute value, so the page-stamp pattern would read the attribute run or the chip body as ending early and stamp corrupt markup");
-  }
-  const html = serialise(node);
+  const html = serialise(chip.renderStatic(facts));
   // The generated chip must be matched WHOLE by the very pattern the stamp uses
   // to find chips in a page. Checking the coupling end to end — rather than
   // checking the one input that can currently break it — means any future
@@ -106,16 +102,23 @@ export function chipHtml(facts: RecordFacts): string {
 // The page stamp's chip pattern, written ONCE and used both to FIND chips in a
 // page and to check that the chip this module GENERATES is matchable by it.
 //
-// COUPLING: the pattern assumes the chip span sits on a single line and that no
-// '<' or '>' appears inside its attribute values. The HTML serialiser escapes
-// '<' and '&' in TEXT but leaves both angle brackets RAW inside an attribute
-// value, so a title carrying one would end the `[^>]*` attribute run — or the
-// non-greedy body — early, matching only part of the chip. The only data
-// reaching the title is facts.date, constrained upstream to a humanised ISO
-// date, a year, or the fixed "not recorded" wording, so this is inert today;
-// chipHtml() above enforces the assumption rather than trusting the two ends of
-// the coupling to stay in step.
-const CHIP_PATTERN = '<span class="chip asof"[^>]*>.*?<\\/span>';
+// The attribute run consumes any double-quoted value ATOMICALLY (`"[^"]*"`)
+// rather than scanning for the next '>' — because the HTML serialiser escapes
+// '&' and '"' inside an attribute value but leaves '<' and '>' RAW. Angle
+// brackets in a title are perfectly ordinary content ("Home > Datasets",
+// "10 > 1", "1000 entries <= 01-Jan-2025") and parse back with full fidelity,
+// so the pattern accommodates them rather than the title avoiding them. A
+// naive `[^>]*` run would end the tag early at such a character, and if the
+// same value later contained a closing-tag sequence the match would terminate
+// inside the attribute, replacing part of the chip and orphaning the rest.
+//
+// What the pattern still relies on is that a '"' inside an attribute value is
+// escaped — guaranteed by the serialiser and pinned by el.test.ts's
+// Serialise_AttributeValueContainingQuotes_IsAlwaysDoubleQuotedAndEscaped —
+// and that the chip is a single-line span with no nested span. chipHtml()
+// asserts the generated chip is matched WHOLE rather than trusting the two ends
+// of the coupling to stay in step.
+const CHIP_PATTERN = '<span class="chip asof"(?:"[^"]*"|[^">])*>.*?<\\/span>';
 const CHIP_RE = new RegExp(CHIP_PATTERN, 'g');
 const WHOLE_CHIP_RE = new RegExp(`^${CHIP_PATTERN}$`);
 

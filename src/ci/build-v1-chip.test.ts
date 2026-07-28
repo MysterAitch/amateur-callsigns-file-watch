@@ -71,14 +71,19 @@ describe('build-v1-chip — static-HTML stamping', { tags: ['unit'] }, () => {
     expect(stamped).toBe(`<p>${chipHtml({ date: '1 January 2000', count: 1 })}</p>`);
   });
 
-  it('ChipHtml_ADatePuttingAnAngleBracketInTheTitle_FailsLoudRatherThanEmittingAnUnstampableChip', () => {
-    // Unhappy path for that coupling: the serialiser leaves '<' and '>' raw
-    // inside an attribute value, and the date reaches the title. facts.date is
-    // constrained upstream so this cannot happen today — the guard exists so it
-    // stays impossible rather than becoming a silently corrupt stamp if the
-    // constraint ever relaxes.
-    for (const date of ['23 June 2026>', '23 June 2026</span><b>x', '<img src=x>']) {
-      expect(() => chipHtml({ date, count: 65 }), date).toThrow(/page-stamp pattern|title carries/);
+  it('ChipHtml_ADateCarryingAngleBracketsOrAClosingTagSequence_StillStampsTheWholeChip', () => {
+    // Angle brackets are ordinary title content — a breadcrumb, a comparison, a
+    // date threshold — and the serialiser leaves them raw inside an attribute
+    // value, which is valid and reparses faithfully. The stamp must therefore
+    // accommodate them rather than the content avoiding them. The last two cases
+    // are the shape that genuinely defeated a naive `[^>]*` attribute run: an
+    // angle bracket followed by a closing-tag sequence in the SAME value, which
+    // ended the match inside the attribute and orphaned the rest of the chip.
+    for (const date of ['Home > Datasets', '1000 entries <= 01-Jan-2025', '65 > 60 </span> x', '23 June 2026</span><b>x']) {
+      const html = chipHtml({ date, count: 65 });
+      const { html: stamped, replaced } = stampChipHtml(`<p>before</p>${html}<p>after</p>`, { date: '1 January 2000', count: 1 });
+      expect(replaced, date).toBe(1);
+      expect(stamped, date).toBe(`<p>before</p>${chipHtml({ date: '1 January 2000', count: 1 })}<p>after</p>`);
     }
   });
 
@@ -99,21 +104,6 @@ describe('build-v1-chip — static-HTML stamping', { tags: ['unit'] }, () => {
   it('StampChipHtml_APageWithNoChip_ReportsZeroReplacementsSoTheCallerCanFailLoud', () => {
     const { replaced } = stampChipHtml('<html><body>no chip here</body></html>', { date: 'x', count: 1 });
     expect(replaced).toBe(0);
-  });
-
-  it('ChipHtml_StampedTitle_ContainsNoAngleBracketThatWouldTruncateThePageStampRegex', () => {
-    // The page-stamp regex reads the chip's attributes with [^>]* and the HTML
-    // serialiser leaves '>' unescaped in an attribute value, so a '>' in the
-    // title would split the stamp. A well-formed date must never produce one.
-    const html = chipHtml({ date: '23 June 2026', count: 65 });
-    const title = /title="([^"]*)"/.exec(html)?.[1] ?? '';
-    expect(title).not.toContain('>');
-  });
-
-  it('ChipHtml_DateContainingAnAngleBracket_FailsLoudRatherThanSilentlyTruncatingTheStamp', () => {
-    // Unhappy path: were a future date source to emit a '>', the guard fails loud
-    // rather than letting the page-stamp regex truncate the chip.
-    expect(() => chipHtml({ date: 'a > b', count: 1 })).toThrow(/truncate|'>'/);
   });
 
   it('ChipHtml_AgainstTheCommittedStaticBaseline_IsByteIdentical', () => {
