@@ -736,7 +736,10 @@ jobs:
             sf=$(awk '/^SwapFree:/{print $2}' /proc/meminfo)
             dt=$(awk '/^Dirty:/{print $2}' /proc/meminfo)
             l1=$(awk '{print $1}' /proc/loadavg)
-            nd=$(pgrep -c duckdb 2>/dev/null || echo 0)
+            # `pgrep -c` PRINTS 0 and EXITS NON-ZERO when nothing matches, so a
+            # `|| echo 0` fallback appends a second value and splits the row
+            # across two lines. Take the first line and default an empty result.
+            nd=$(pgrep -c duckdb 2>/dev/null | head -1); nd=${nd:-0}
             rd=$(ps -eo rss,comm 2>/dev/null | awk '$2 ~ /duckdb/ {s+=$1} END{print s+0}')
             rn=$(ps -eo rss,comm 2>/dev/null | awk '$2 ~ /node/ {s+=$1} END{print s+0}')
             dr=$(df -Pk / | awk 'NR==2{print $4}')
@@ -749,6 +752,12 @@ jobs:
           nohup .diagnostics/sample.sh > .diagnostics/resource-samples.tsv 2>.diagnostics/sampler-errors.txt &
           echo $! > .diagnostics/sampler.pid
           echo "sampler started pid=$(cat .diagnostics/sampler.pid)"
+          # Echo the headline facts into the LOG as well as the artifact: a run
+          # in progress is otherwise completely opaque, and the artifact only
+          # exists once the job has finished.
+          echo "---- runner baseline ----"
+          grep -E "^nproc=|^MemTotal:|^SwapTotal:" .diagnostics/runner-facts.txt || true
+          df -h / "${RUNNER_TEMP:-/tmp}" | sed 's/^/  /'
       - name: Regenerate reports (cache miss) and snapshot for the cache
         if: steps.reports-cache.outputs.cache-hit != 'true'
         env:
