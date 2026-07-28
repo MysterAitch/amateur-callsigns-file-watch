@@ -58,6 +58,7 @@ the #431 programme.
 | [0020](0020-sharded-static-json-serving.md) | Sharded static JSON as the serving projection for the single-callsign intent — no database on that path | accepted | 2026-07-16 |
 | [0021](0021-frozen-derived-baseline.md) | Freeze the committed derived baseline; the ledger projection is the derivation lane (the #446 retirement) | accepted | 2026-07-17 |
 | [0022](0022-v1-component-architecture.md) | The v1 UI component architecture: frameworkless JSDoc-typed modules, DOM-construction rendering, one implementation across build and browser | accepted | 2026-07-24 |
+| [0023](0023-fold-resource-tuning-by-measurement.md) | Report-fold resource tuning is settled by controlled measurement; no lever survives without evidence | accepted | 2026-07-28 |
 
 ## Related documentation
 
