@@ -161,7 +161,7 @@ interface RecordsRow {
 }
 
 function recordsSql(source: ClaimsSource): string {
-  return `WITH claims AS (
+  return `WITH claims AS NOT MATERIALIZED (
   SELECT * FROM ${claimsRelation(source)}
 ),
 obs AS (
@@ -190,7 +190,7 @@ interface AggregateRow {
 }
 
 function aggregateSql(source: ClaimsSource, predicate: string): string {
-  return `WITH claims AS (
+  return `WITH claims AS NOT MATERIALIZED (
   SELECT * FROM ${claimsRelation(source)}
 )
 SELECT ${DATE_EXPR} AS date, object AS object, count(*) AS records
@@ -212,7 +212,7 @@ interface OffenderRow {
 }
 
 function offendersSql(source: ClaimsSource, flags: readonly string[]): string {
-  return `WITH claims AS (
+  return `WITH claims AS NOT MATERIALIZED (
   SELECT * FROM ${claimsRelation(source)}
 )
 SELECT ${DATE_EXPR} AS date, object AS flag, rawSubject AS rawSubject

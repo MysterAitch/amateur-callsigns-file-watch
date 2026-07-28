@@ -360,7 +360,7 @@ function foldSqlOver(claimsCte: string, lastModifiedPredicates: readonly string[
   // A never-matching filter when no enumerated disclosure declares a dated
   // column, so the CTE stays valid SQL and every join yields NULL.
   const inList = lastModifiedPredicates.length === 0 ? "''" : lastModifiedPredicates.map(literal).join(', ');
-  return `WITH claims AS (
+  return `WITH claims AS NOT MATERIALIZED (
 ${claimsCte}
 ),
 listed AS (SELECT didx, ordinal, rawSubject FROM claims WHERE predicate = '${LISTED_PREDICATE}'),

@@ -423,7 +423,7 @@ export function foldClassRetention(source: string | ClaimsSource, base: string, 
   const claims = toClaimsSource(source);
   if (!claimsSourcePresent(claims)) return [];
   const key = cleanedKeyExpr('rawSubject');
-  return foldQuery<ClassRetentionRow>(`WITH claims AS (
+  return foldQuery<ClassRetentionRow>(`WITH claims AS NOT MATERIALIZED (
   SELECT * FROM ${claimsRelation(claims)}
 ),
 listed AS (
