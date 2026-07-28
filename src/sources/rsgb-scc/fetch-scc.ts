@@ -275,7 +275,12 @@ export function diffSccTables(oldRows: SccRow[], newRows: SccRow[]): SccDiff {
 export function readCommittedRows(csvPath: string = SCC_CSV_PATH): SccRow[] {
   if (!fs.existsSync(csvPath)) return [];
   const text = fs.readFileSync(csvPath, 'utf8');
-  const lines = text.split('\n').filter((l) => l.length > 0);
+  // Keep every physical line (blank ones included) so a reported `line N` names
+  // the row's real position in the file, and so a header pushed off line 1 by a
+  // leading blank is caught rather than silently accepted; blanks are skipped
+  // inside the loop. This mirrors the physical-line idiom in the sibling
+  // build-forbidden-section reference readers.
+  const lines = text.split(/\r?\n/);
   const expectedHeader = SCC_CSV_HEADER.join(',');
   if (lines[0] !== expectedHeader) {
     throw new Error(
@@ -284,6 +289,7 @@ export function readCommittedRows(csvPath: string = SCC_CSV_PATH): SccRow[] {
   }
   const rows: SccRow[] = [];
   for (let i = 1; i < lines.length; i++) {
+    if (lines[i] === '') continue; // a blank line (trailing newline, spacer) is not a row
     // Minimal CSV read matching toCsv's minimal-quoting output; the notes column
     // may be quoted, so split on the first three unquoted commas only.
     const cells = parseCsvLine(lines[i]);

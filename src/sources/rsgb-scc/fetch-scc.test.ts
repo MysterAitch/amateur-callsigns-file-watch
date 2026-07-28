@@ -291,6 +291,34 @@ describe('readCommittedRows', { tags: ['unit'] }, () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('CommittedCsvWithABlankLineBeforeAMalformedRow_WhenRead_NamesThePhysicalFileLine', () => {
+    // The reported `line N` must name the row's real position in the file, so a
+    // maintainer can jump straight to it. A blank line before the offending row
+    // must not shift the count: the malformed row is on physical line 4 here.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-blank-line-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv');
+      fs.writeFileSync(csvPath, 'scc_code,base_callsign,status,notes\nG0A,GW4SKA,Issued,\n\nG0B,Issued\n');
+      expect(() => readCommittedRows(csvPath)).toThrow(/line 4/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('CommittedCsvWithALeadingBlankLine_WhenRead_ThrowsBecauseTheHeaderIsNotOnLineOne', () => {
+    // The header contract is that the file OPENS with it; a leading blank line
+    // pushing the header to line 2 is a re-shaped file and must fail loud, not
+    // be silently tolerated by discarding blanks before the header check.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scc-leading-blank-'));
+    try {
+      const csvPath = path.join(dir, 'scc.csv');
+      fs.writeFileSync(csvPath, '\nscc_code,base_callsign,status,notes\nG0A,GW4SKA,Issued,\n');
+      expect(() => readCommittedRows(csvPath)).toThrow(/expected header/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('runSccIntake', { tags: ['unit'] }, () => {

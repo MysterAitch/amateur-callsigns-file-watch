@@ -107,7 +107,11 @@ function isSeparatorRow(line: string): boolean {
 export function findStaleRegisterRows(registerMarkdown: string, foiDir: string = FOI_ARCHIVE_DIR): StaleRegisterRow[] {
   const entries = ingestedEntries(foiDir);
   const stale: StaleRegisterRow[] = [];
-  const lines = registerMarkdown.split('\n');
+  // Split tolerant of CRLF: a Windows checkout would otherwise leave a trailing
+  // \r on every line, and the heading/section matching below (a line terminator
+  // \r stops `.` and defeats an end-anchored regex) would silently no-op — the
+  // very silent-break class this hardening targets.
+  const lines = registerMarkdown.split(/\r?\n/);
   // The current table's lower-cased header cells, tracked so the key cell can
   // be resolved by column NAME; reset whenever the table ends.
   let header: string[] | undefined;
@@ -163,11 +167,20 @@ const FOI_SECTION_HEADING = /^##\s+.*FOI.*$/i;
 export function findUnmatchedIngestedRows(registerMarkdown: string, foiDir: string = FOI_ARCHIVE_DIR): UnmatchedIngestedRow[] {
   const entries = ingestedEntries(foiDir);
   const unmatched: UnmatchedIngestedRow[] = [];
-  const lines = registerMarkdown.split('\n');
+  // Split tolerant of CRLF (see findStaleRegisterRows): the FOI-section heading
+  // regex below is end-anchored, so a trailing \r on a Windows checkout would
+  // stop it matching and silently disable the whole check.
+  const lines = registerMarkdown.split(/\r?\n/);
   let inFoiSection = false;
   // The current table's lower-cased header cells; the status column is
   // resolved from these by NAME (issue #977) — a fixed-position read would
   // silently look at the wrong cell the day a column is added or reordered.
+  // The header is held for the whole section, not just an unbroken run of
+  // table rows: a section's table may be split by an intervening prose
+  // paragraph (the register's mid-table "Discovery coverage note" does exactly
+  // this), and the rows below it are the same table and legitimately inherit
+  // its header. It is reset only at a section boundary, so a data row that
+  // precedes any header in its section still fails loud below.
   let header: string[] | undefined;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -176,7 +189,9 @@ export function findUnmatchedIngestedRows(registerMarkdown: string, foiDir: stri
       header = undefined;
       continue;
     }
-    if (!line.startsWith('|')) { header = undefined; continue; }
+    // A non-table line (blank or prose) does NOT reset the header — the table
+    // may resume below an intervening paragraph within the same section.
+    if (!line.startsWith('|')) continue;
     if (isSeparatorRow(lines[i + 1] ?? '')) {
       header = tableRowCells(line).map(cell => cell.toLowerCase());
       continue;
@@ -193,6 +208,15 @@ export function findUnmatchedIngestedRows(registerMarkdown: string, foiDir: stri
       throw new Error(`source-register.md line ${i + 1}: FOI-section table header [${header.join(' | ')}] has no "status" column — the layout this check reads has drifted, refusing to guess`);
     }
     const cells = tableRowCells(line);
+    // The status column is located by name in the header but read by position
+    // from the row, so the row must carry exactly as many cells as the header
+    // declares. A ragged row (a stray/escaped pipe, a dropped cell) would shift
+    // the status read onto the wrong cell — or off the end to `''` — and let an
+    // `ingested` claim slip past this gate unseen, the exact silent miss #673
+    // exists to close. Fail loud instead, matching the header throws above.
+    if (cells.length !== header.length) {
+      throw new Error(`source-register.md line ${i + 1}: FOI-section table row has ${cells.length} cell(s) but its header declares ${header.length} — a ragged row would shift the positional status read onto the wrong cell, refusing to guess`);
+    }
     if ((cells[statusIndex] ?? '') !== 'ingested') continue;
     const sourceIndex = header.indexOf('source');
     const firstCell = cells[sourceIndex >= 0 ? sourceIndex : 0] ?? '';

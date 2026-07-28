@@ -199,6 +199,65 @@ describe('Source-register cross-check', { tags: ['unit'] }, () => {
     expect(() => findUnmatchedIngestedRows(synthetic)).toThrow(/no preceding header row/);
   });
 
+  it('RegisterCrosscheck_FoiTableRowBelowAnInterveningProseParagraph_InheritsTheSectionHeader', () => {
+    // The live register's attribute-addenda table is split by a mid-table prose
+    // note (the "Discovery coverage note"), so the rows below it have no
+    // immediately-preceding header row. They are the same table and must inherit
+    // its header: resolving the status column from the section's established
+    // header (not throwing, not guessing by position) is what lets an unmatched
+    // `ingested` claim below the prose still be caught. The header here is
+    // reordered so a positional read would miss the status entirely.
+    const synthetic = [
+      '## FOI datasets — register snapshots',
+      '',
+      '| source | status | data vintage | notes |',
+      '|---|---|---|---|',
+      '| A pending thing | pending-fetch | 2028-01-01 | not yet fetched |',
+      '',
+      '**Coverage note (2026-07-07)**: prose splitting the table into two fragments.',
+      '',
+      '| A dataset nobody archived | ingested | 2030-01-01 | no archive/foi pointer exists for this |',
+    ].join('\n');
+    const rows = findUnmatchedIngestedRows(synthetic);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].firstCell).toBe('A dataset nobody archived');
+  });
+
+  it('RegisterCrosscheck_FoiTableRowWithFewerCellsThanHeader_FailsLoudRatherThanSilentlyMisreadingStatus', () => {
+    // Structural-fragility guard (#977): the status column is located by header
+    // NAME but read by row POSITION, so a ragged row (here the date cell is
+    // dropped) would shift the positional read off the real status cell, letting
+    // an `ingested` claim slip past this gate unseen. The cell count is asserted
+    // against the header, matching readCommittedRows' field-count fail-loud.
+    const synthetic = [
+      '## FOI datasets — register snapshots',
+      '',
+      '| source | date | status | notes |',
+      '|---|---|---|---|',
+      '| A dataset nobody archived | ingested | no archive/foi pointer exists for this |',
+    ].join('\n');
+    expect(() => findUnmatchedIngestedRows(synthetic)).toThrow(/has 3 cell\(s\) but its header declares 4/);
+    expect(() => findUnmatchedIngestedRows(synthetic)).toThrow(/refusing to guess/);
+  });
+
+  it('RegisterCrosscheck_WhenRegisterHasCrlfLineEndings_SectionsAreStillDetected', () => {
+    // Latent silent-break (#977): the FOI-section heading regex is end-anchored,
+    // so a trailing \r from a Windows/CRLF checkout would stop it matching and
+    // silently no-op the whole check on that platform — manifesting only on LF/CI.
+    // Line endings are normalised on read, so the section (and its unmatched
+    // ingested row) is detected identically regardless of CRLF vs LF.
+    const synthetic = [
+      '## FOI datasets — register snapshots',
+      '',
+      '| source | data vintage | status | notes |',
+      '|---|---|---|---|',
+      '| A dataset nobody archived | 2030-01-01 | ingested | no archive/foi pointer exists for this |',
+    ].join('\r\n');
+    const rows = findUnmatchedIngestedRows(synthetic);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].firstCell).toBe('A dataset nobody archived');
+  });
+
   it('RegisterCrosscheck_LiveRegister_HasNoUnmatchedIngestedRowInAnFoiSection', () => {
     // The gate's other half (#673): every row claiming `ingested` inside an
     // FOI-titled section must be corroborated by the archive it claims to
