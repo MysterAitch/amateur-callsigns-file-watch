@@ -79,6 +79,21 @@ describe('build-v1-chip — static-HTML stamping', { tags: ['unit'] }, () => {
     expect(replaced).toBe(0);
   });
 
+  it('ChipHtml_StampedTitle_ContainsNoAngleBracketThatWouldTruncateThePageStampRegex', () => {
+    // The page-stamp regex reads the chip's attributes with [^>]* and the HTML
+    // serialiser leaves '>' unescaped in an attribute value, so a '>' in the
+    // title would split the stamp. A well-formed date must never produce one.
+    const html = chipHtml({ date: '23 June 2026', count: 65 });
+    const title = /title="([^"]*)"/.exec(html)?.[1] ?? '';
+    expect(title).not.toContain('>');
+  });
+
+  it('ChipHtml_DateContainingAnAngleBracket_FailsLoudRatherThanSilentlyTruncatingTheStamp', () => {
+    // Unhappy path: were a future date source to emit a '>', the guard fails loud
+    // rather than letting the page-stamp regex truncate the chip.
+    expect(() => chipHtml({ date: 'a > b', count: 1 })).toThrow(/truncate|'>'/);
+  });
+
   it('ChipHtml_AgainstTheCommittedStaticBaseline_IsByteIdentical', () => {
     // The renderStatic-generated markup (ADR 0022) must reproduce the committed
     // production chip byte for byte, for the facts the committed pages carry —

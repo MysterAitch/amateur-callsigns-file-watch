@@ -72,6 +72,38 @@ const FOREIGN_CONTENT_ROOTS = new Set(['svg', 'math']);
 // use; refused.
 const CONTEXT_HAZARD_ELEMENTS = new Set(['base', 'embed', 'object']);
 
+// Elements whose serialised form does NOT come from their child-node list:
+// <template> holds its children in a separate `content` DocumentFragment that
+// the serialiser emits, so children appended the ordinary way land in the
+// child-node list and are SILENTLY DROPPED from the output. No v1 surface uses
+// a template; refused, so "children vanished" can never happen unnoticed.
+const STRUCTURAL_HAZARD_ELEMENTS = new Set(['template']);
+
+// The union every construction-refusing category contributes to. Construction
+// refuses each category below with its own message; serialise() re-checks THIS
+// union across the whole tree (defence in depth), so the two layers are derived
+// from the same source and can never fall out of step — a tag added to any
+// category set above is refused at BOTH construction and serialisation, with no
+// second list to keep in sync.
+const REFUSED_ELEMENTS = new Set([
+  ...RAWTEXT_ELEMENTS, ...FOREIGN_CONTENT_ROOTS, ...CONTEXT_HAZARD_ELEMENTS, ...STRUCTURAL_HAZARD_ELEMENTS,
+]);
+
+/**
+ * Why a given tag is refused, naming the category it belongs to — so both the
+ * construction guards and the serialise-time re-check speak from the same
+ * categorisation. Every tag passed here is in REFUSED_ELEMENTS.
+ * @param {string} tag  lowercase tag name
+ * @returns {string}
+ */
+function refusalReason(tag) {
+  if (RAWTEXT_ELEMENTS.has(tag)) return 'a rawtext element (script/style/…) whose text serialises unescaped';
+  if (FOREIGN_CONTENT_ROOTS.has(tag)) return 'foreign content (svg/math) needing namespace-aware serialisation';
+  if (CONTEXT_HAZARD_ELEMENTS.has(tag)) return 'a context-hazard element (base/embed/object) that redefines the page trust context';
+  if (STRUCTURAL_HAZARD_ELEMENTS.has(tag)) return 'a structural-hazard element (template) whose content fragment serialises apart from its child-node list';
+  return 'a construction-refused element';
+}
+
 // The HTML void elements: no children, and serialised with no closing tag.
 const VOID_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
 
@@ -204,6 +236,9 @@ export function el(tag, attrs = null, ...children) {
   if (CONTEXT_HAZARD_ELEMENTS.has(tag)) {
     throw new Error(`el(): refusing <${tag}> — it redefines the page's URL or active-content context and has no v1 use`);
   }
+  if (STRUCTURAL_HAZARD_ELEMENTS.has(tag)) {
+    throw new Error(`el(): refusing <${tag}> — its children live in a separate content fragment that serialises apart from the child-node list, so appended children would be silently dropped`);
+  }
   if (attrs !== null && (typeof attrs !== 'object' || Array.isArray(attrs) || isDomNode(attrs))) {
     throw new Error(`el(): <${tag}> attrs must be a plain object or null — got ${typeof attrs}; pass null when the element has attributes to skip`);
   }
@@ -224,9 +259,21 @@ export function el(tag, attrs = null, ...children) {
  * using the platform's HTML fragment serialisation (the outerHTML getter —
  * jsdom's serialiser at build time, the browser's in a page). Never a
  * hand-rolled escaper (ADR 0022 rejected that as the highest-risk code to get
- * subtly wrong). Defence in depth: a rawtext element anywhere in the tree —
- * impossible via el(), but a hand-created node could be smuggled in — is
- * refused here too, because serialisation would emit its text unescaped.
+ * subtly wrong).
+ *
+ * Defence in depth for a tree NOT built purely by el() (a hand-created node
+ * appended via appendChild, ordinary future childNodes work): the whole tree is
+ * walked and asserted to contain ONLY elements and text nodes, and no element
+ * from any construction-refused category. Two hazards this closes that a live
+ * el() tree never carries:
+ *   - a comment / processing-instruction / CDATA node, whose data the serialiser
+ *     emits between its delimiters with NO markup escaping — a comment crafted to
+ *     close early would re-introduce a live element (and an event handler) on
+ *     browser reparse; refused because only elements and text are permitted;
+ *   - a construction-refused element (rawtext, foreign-content, context-hazard
+ *     such as <base>, structural-hazard such as <template>) — refused from the
+ *     SAME REFUSED_ELEMENTS the construction guards derive from, so serialise can
+ *     never fall behind what construction rejects.
  * @param {Element} node
  * @returns {string}
  */
@@ -235,9 +282,38 @@ export function serialise(node) {
     throw new Error('serialise(): expected an el()-built element');
   }
   const element = /** @type {Element} */ (node);
-  const rawtextSelector = [...RAWTEXT_ELEMENTS].join(', ');
-  if (RAWTEXT_ELEMENTS.has(element.tagName.toLowerCase()) || element.querySelector(rawtextSelector) !== null) {
-    throw new Error('serialise(): refusing a tree containing a rawtext element (script/style/…) — its text would serialise unescaped');
-  }
+  assertSerialisableTree(element);
   return element.outerHTML;
+}
+
+// Node-type constants (the DOM's own numbering), named so the whole-tree check
+// reads as intent rather than magic numbers.
+const ELEMENT_NODE = 1;
+const TEXT_NODE = 3;
+
+/**
+ * Walk the whole tree and refuse anything the platform serialiser would emit
+ * unsafely: any node that is not an element or a text node (comment / PI /
+ * CDATA), and any element from a construction-refused category. The two checks
+ * together mean the serialised output can only contain el()-shaped, escaped
+ * content — the property the whole foundation rests on.
+ * @param {Element} root
+ * @returns {void}
+ */
+function assertSerialisableTree(root) {
+  /** @type {Element[]} */
+  const stack = [root];
+  while (stack.length > 0) {
+    const current = /** @type {Element} */ (stack.pop());
+    if (REFUSED_ELEMENTS.has(current.nodeName.toLowerCase())) {
+      throw new Error(`serialise(): refusing a tree containing <${current.nodeName.toLowerCase()}> — ${refusalReason(current.nodeName.toLowerCase())}`);
+    }
+    for (const child of current.childNodes) {
+      if (child.nodeType === TEXT_NODE) continue; // text is entity-escaped by the serialiser
+      if (child.nodeType !== ELEMENT_NODE) {
+        throw new Error('serialise(): refusing a tree containing a non-element, non-text node (comment/processing-instruction/CDATA) — its data would serialise with no markup escaping, so a smuggled comment could re-introduce live markup on reparse');
+      }
+      stack.push(/** @type {Element} */ (child));
+    }
+  }
 }

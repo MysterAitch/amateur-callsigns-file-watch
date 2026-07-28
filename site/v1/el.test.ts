@@ -2,6 +2,12 @@
 import { describe, it, expect } from 'vitest';
 import { el, serialise } from './el.js';
 
+// A comment whose data begins with the comment-terminator sequence, so a naive
+// serialiser that emits the data raw between the delimiters would close the
+// comment early and re-introduce a live element carrying an event handler on
+// reparse. Held in this test file as executable verification of the refusal.
+const COMMENT_TERMINATOR_BREAKOUT = '--><img src=x onerror=alert(1)>';
+
 // The el() DOM-construction foundation (issue #966, ADR 0022): construction
 // semantics, the fail-loud residual guards (attribute-name allowlist, URL
 // scheme routing, rawtext refusal, void-element correctness), and the
@@ -101,6 +107,15 @@ describe('v1 el() foundation — fail-loud guards', { tags: ['ui'] }, () => {
     }
   });
 
+  it('El_TemplateElement_Refused_BecauseItsContentFragmentSerialisesApartFromItsChildren', () => {
+    // <template> keeps its children in a separate content fragment the serialiser
+    // emits, so children appended the ordinary way land in the child-node list
+    // and are SILENTLY DROPPED from the output. Refused, so "children vanished"
+    // can never happen unnoticed.
+    expect(() => el('template')).toThrow(/content fragment|silently dropped/);
+    expect(() => el('template', null, el('b', null, 'x'))).toThrow(/content fragment|silently dropped/);
+  });
+
   it('El_InvalidOrNonLowercaseTagName_Throws', () => {
     for (const tag of ['DIV', 'di v', 'a b', '', 'my-widget', '<p>']) {
       expect(() => el(tag), JSON.stringify(tag)).toThrow(/tag name/);
@@ -179,6 +194,80 @@ describe('v1 el() foundation — the platform serialiser', { tags: ['ui'] }, () 
     host.appendChild(document.createElement('script'));
     expect(() => serialise(host)).toThrow(/rawtext/);
     expect(() => serialise(document.createElement('style'))).toThrow(/rawtext/);
+  });
+
+  it('Serialise_SmuggledCommentNodeClosingTheCommentEarly_RefusedBeforeItRevivesAHandler', () => {
+    // Impossible via el() (a comment is never a child it builds), but appendChild
+    // could smuggle one in. The re-check must walk the WHOLE tree and refuse any
+    // node that is not an element or text, so a comment can never reach the
+    // serialiser — whose raw emission of comment data would revive live markup.
+    const host = el('div', null, 'x');
+    host.appendChild(document.createComment(COMMENT_TERMINATOR_BREAKOUT));
+    // The danger is real: the raw platform serialisation of this very node, when
+    // reparsed the way a browser meeting the static page would, revives an
+    // element carrying an on* handler — asserted on the PARSED DOM.
+    const leaked = new DOMParser().parseFromString(host.outerHTML, 'text/html');
+    const handlerSurvived = [...leaked.querySelectorAll('*')]
+      .some(node => [...node.attributes].some(attr => attr.name.toLowerCase().startsWith('on')));
+    expect(handlerSurvived, 'the raw serialisation would revive a handler').toBe(true);
+    // serialise() refuses the tree, so that markup never ships.
+    expect(() => serialise(host)).toThrow(/comment|non-element/);
+  });
+
+  it('Serialise_SmuggledCommentAtArbitraryDepth_RefusedAnywhereInTheTree', () => {
+    // The reviewer reproduced the smuggle at depth, not only as a direct child —
+    // so the walk must reach every descendant, not just the root's children.
+    const host = el('div', null, el('section', null, el('p', null, 'x')));
+    host.querySelector('p')?.appendChild(document.createComment(COMMENT_TERMINATOR_BREAKOUT));
+    expect(() => serialise(host)).toThrow(/comment|non-element/);
+  });
+
+  it('Serialise_SmuggledContextHazardBaseNode_RefusedSymmetricallyWithConstruction', () => {
+    // Construction refuses <base>; the serialise re-check must refuse it too. A
+    // smuggled <base href> hijacks page-wide relative-URL resolution — invisible
+    // to the per-attribute URL guard — so a rawtext-only re-check let it pass.
+    const host = el('div', null, el('p', null, 'x'));
+    const base = document.createElement('base');
+    base.setAttribute('href', 'https://example.test/hijack/');
+    host.appendChild(base);
+    expect(() => serialise(host)).toThrow(/context-hazard|base/);
+  });
+
+  it('Serialise_SmuggledForeignContentSvgNode_RefusedSymmetricallyWithConstruction', () => {
+    // Construction refuses foreign content (svg/math); the serialise re-check
+    // refuses it from the SAME source, so the two layers can never diverge.
+    const host = el('div', null, 'x');
+    host.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'svg'));
+    expect(() => serialise(host)).toThrow(/foreign content|svg/);
+  });
+
+  it('Serialise_SmuggledTemplateNode_RefusedSoItsChildrenCannotBeSilentlyDropped', () => {
+    const host = el('div', null, 'x');
+    host.appendChild(document.createElement('template'));
+    expect(() => serialise(host)).toThrow(/structural-hazard|template|content fragment/);
+  });
+
+  it('Serialise_LegitimateElAndTextTree_StillSerialisesUnaffectedByTheWholeTreeCheck', () => {
+    // The whole-tree walk must not disturb an ordinary el() tree of elements and
+    // text: it serialises exactly as before.
+    const node = el('div', { class: 'x' }, 'a ', el('b', null, '1'), ' z');
+    expect(serialise(node)).toBe('<div class="x">a <b>1</b> z</div>');
+  });
+
+  it('Serialise_AttributeValueContainingQuotes_IsAlwaysDoubleQuotedAndEscaped', () => {
+    // Pins the invariant that makes the retired apostrophe-escaping inert by
+    // construction: an attribute value is ALWAYS wrapped in double quotes with
+    // the double-quote and ampersand entity-encoded, so a value carrying quotes
+    // or an apostrophe cannot break out of its quoting. A future serialiser
+    // change must not silently invalidate this.
+    const value = `he said "hi" — it's fine & <ok>`;
+    const html = serialise(el('span', { title: value }));
+    expect(html).toBe(`<span title="he said &quot;hi&quot; — it's fine &amp; <ok>"></span>`);
+    // Parsed-DOM proof: one element, one attribute, value round-trips intact —
+    // no attribute broke out of the double-quoted value.
+    const reparsed = new DOMParser().parseFromString(html, 'text/html').body.firstElementChild;
+    expect(reparsed?.attributes.length).toBe(1);
+    expect(reparsed?.getAttribute('title')).toBe(value);
   });
 
   it('Serialise_NonElementInput_Throws', () => {

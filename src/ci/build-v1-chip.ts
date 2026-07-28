@@ -87,12 +87,28 @@ setBuildDocument(new JSDOM('').window.document);
 // the one implementation — there is no second, hand-baked markup string left
 // to drift from the browser render (ADR 0022 retires duplicate-plus-guard).
 export function chipHtml(facts: RecordFacts): string {
-  return serialise(chip.renderStatic(facts));
+  const html = serialise(chip.renderStatic(facts));
+  // The page-stamp regex (CHIP_RE) reads the chip's attributes with `[^>]*`, and
+  // the HTML serialiser does NOT escape '>' inside an attribute value — so a '>'
+  // in the chip's title would truncate the match and split the stamp. facts.date
+  // is constrained upstream (humaniseIsoDate, a bare year, or a fixed literal —
+  // none containing '>') and the count is a number, so this cannot happen from a
+  // real manifest; assert it anyway, so a future date source cannot silently
+  // reopen the hazard.
+  const title = /<span class="chip asof" title="([^"]*)"/.exec(html)?.[1] ?? '';
+  if (title.includes('>')) {
+    throw new Error(`build-v1-chip: chip title contains '>', which the serialiser leaves unescaped and would truncate the page-stamp regex — got ${JSON.stringify(title)}`);
+  }
+  return html;
 }
 
 // The chip span sits on a single line, and its title carries no '>' — so a
 // greedy-safe `[^>]*` over the attributes plus a non-greedy body to the first
 // closing tag matches exactly one chip per occurrence without over-reaching.
+// The no-'>' assumption is load-bearing: the HTML serialiser leaves '>'
+// unescaped inside an attribute value, so a '>' in the title would end the
+// `[^>]*` run early. chipHtml() asserts the built title has no '>' (facts.date
+// is constrained upstream, so this is inert but guarded, never assumed).
 const CHIP_RE = /<span class="chip asof"[^>]*>.*?<\/span>/g;
 
 // Which static HTML pages in a site root carry the dated-fact chip, decided by
