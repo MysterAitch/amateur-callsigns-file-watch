@@ -1,0 +1,413 @@
+# DIAGNOSTIC STRESS MATRIX for the report regeneration (issue #991).
+#
+# Manual-dispatch only. This is an INVESTIGATIVE workflow, not a gate: nothing
+# depends on it, it never writes anywhere, and it is expected to be DELETED once
+# the questions it exists to answer are answered.
+#
+# Why a matrix. The failure is INTERMITTENT (observed on two of three cache-miss
+# runs, 2026-07-28), so one run of one configuration proves nothing either way.
+# The arms are independent, so a dozen cost the same wall clock as one.
+#
+# FIDELITY: the regeneration steps below mirror cicd.yaml's golden-master job
+# exactly — the builder projection is built in its OWN process first (so its
+# peak memory is released before the sweep starts) and the sweep then reads it
+# from disk via BUILDER_PROJECTION_DIR. Running the projection inside the sweep
+# instead would hold ~3 GB across the whole fold phase and measure a memory
+# profile the real job never has. If golden-master's regeneration changes, this
+# must change with it or the experiment stops describing reality.
+#
+# WHAT EACH ARM TESTS. All three levers were introduced on hypotheses that the
+# instrumented baseline does not support (see #929):
+#
+#   - per-fold memory limit (3GB today). Measured on run 30359094189
+#     (2026-07-28): peak usage 6.9 GB of 16 GB with 9.1 GB still available and
+#     swap untouched — so the cap rations a resource that is not scarce. DuckDB
+#     enforces `memory_limit` ITSELF and errors when a query exceeds it, so the
+#     cap is a candidate CAUSE of the deaths and the intuitive fix (lower it)
+#     may be backwards. Arms: 1GB / 3GB / 8GB / unset.
+#   - fold threads (pinned to 1). #951 measured no overall speed-up from the
+#     pin, and the same run reached load 3.84 of 4 vCPU — CPU, not memory, is
+#     saturated. Arm: unpinned.
+#   - sweep concurrency (4). Arms: 1 / 2 / 6.
+#   - the disk-reclaim step. Minimum free space measured 103.6 GB of 145 GB, and
+#     #988 removed the per-fold ledger re-materialisation that caused the
+#     original exhaustion. Arm: skip it entirely.
+#
+# Plus a `both-levers-off` arm, because removing one lever at a time cannot show
+# an interaction, and an `explain` job answering the two questions the
+# complexity analysis could not settle from source alone.
+#
+# `continue-on-error` on every arm: a failed arm is a RESULT here, and losing
+# the other arms to a fail-fast cancellation would defeat the purpose.
+name: regen-stress
+
+# TRIGGERS. Push, scoped to diagnostic branches, is the working mode: it keeps
+# the matrix iterating inside a PR while it is still being refined, rather than
+# needing a series of merges into main to make each revision runnable
+# (workflow_dispatch only fires from the DEFAULT branch, so a dispatch-only
+# diagnostic has to land on main before it can run even once). Once the matrix
+# has stabilised and answered its questions, it can land on main and be run
+# deliberately by dispatch — which is why that trigger is kept rather than
+# swapped out.
+on:
+  push:
+    branches:
+      - 'diag/**'
+      - 'fix/991-**'
+  workflow_dispatch:
+    inputs:
+      repetitions:
+        description: "Repetitions per arm (1-5). Intermittent failure needs several to estimate a rate."
+        required: false
+        default: "4"
+
+# A new push supersedes the matrix still running for the previous one. While the
+# configuration is being refined, only the newest result describes the code that
+# now exists — and at ~30 jobs per push, letting superseded runs continue would
+# spend a great deal of runner time producing answers about a configuration that
+# has already been replaced.
+concurrency:
+  group: regen-stress-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      reps: ${{ steps.plan.outputs.reps }}
+    steps:
+      - id: plan
+        env:
+          # Passed as DATA rather than spliced into the script text: a
+          # workflow_dispatch input is user-controlled, so interpolating it
+          # directly into a run block is a code-injection vector.
+          REPETITIONS: ${{ github.event.inputs.repetitions }}
+        run: |
+          set -euo pipefail
+          n="${REPETITIONS}"
+          case "$n" in (''|*[!0-9]*) n=4 ;; esac
+          if [ "$n" -lt 1 ]; then n=1; fi
+          if [ "$n" -gt 5 ]; then n=5; fi
+          out="["
+          i=1
+          while [ "$i" -le "$n" ]; do
+            if [ "$i" -gt 1 ]; then out="$out,"; fi
+            out="$out$i"
+            i=$((i+1))
+          done
+          out="$out]"
+          echo "reps=$out" >> "$GITHUB_OUTPUT"
+          echo "repetitions per arm: $n -> $out"
+
+  # Answers the two questions the complexity analysis could not settle by
+  # reading source: whether DuckDB materialises the repeatedly-referenced
+  # `claims` CTE (if it does, every fold builds a full 55M-row intermediate that
+  # MUST spill under a 3GB cap — precisely #987's mode), and whether the
+  # correlated NOT EXISTS anti-joins decorrelate to O(C) rather than O(C^2).
+  # Cheap: no regeneration, just the Parquet and a planner.
+  explain:
+    name: explain-plans
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: ./.github/actions/setup-duckdb
+      - name: Build claim-ledger Parquet and record its size
+        run: |
+          set -euo pipefail
+          mkdir -p .diagnostics
+          /usr/bin/time -v -o .diagnostics/rusage-parquet-build.txt \
+            node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only
+          stat -c "%n %s bytes" "$RUNNER_TEMP/claims.parquet" | tee .diagnostics/parquet-size.txt
+          du -h "$RUNNER_TEMP/claims.parquet" | tee -a .diagnostics/parquet-size.txt
+      - name: Explain the fold access patterns
+        run: |
+          set -uo pipefail
+          P="$RUNNER_TEMP/claims.parquet"
+          D="${DUCKDB_BIN:-duckdb}"
+          {
+            echo "=== row count and schema ==="
+            "$D" :memory: "SELECT count(*) AS claims FROM read_parquet('$P');"
+            "$D" :memory: "DESCRIBE SELECT * FROM read_parquet('$P');"
+
+            echo
+            echo "=== Q1: is a multiply-referenced CTE MATERIALISED or inlined? ==="
+            echo "--- if materialised, each fold builds a full-corpus intermediate ---"
+            "$D" :memory: "
+              EXPLAIN ANALYZE
+              WITH claims AS (SELECT * FROM read_parquet('$P'))
+              SELECT (SELECT count(*) FROM claims WHERE layer='raw')
+                   + (SELECT count(*) FROM claims WHERE layer='derived')
+                   + (SELECT count(*) FROM claims WHERE predicate='@listed');"
+
+            echo
+            echo "=== Q1b: the same shape WITHOUT the CTE (filters pushed into the scan) ==="
+            "$D" :memory: "
+              EXPLAIN ANALYZE
+              SELECT (SELECT count(*) FROM read_parquet('$P') WHERE layer='raw')
+                   + (SELECT count(*) FROM read_parquet('$P') WHERE layer='derived')
+                   + (SELECT count(*) FROM read_parquet('$P') WHERE predicate='@listed');"
+
+            echo
+            echo "=== Q2: does the correlated NOT EXISTS anti-join decorrelate? ==="
+            echo "--- a hash anti-join is O(C); a nested loop would be O(C^2) ---"
+            "$D" :memory: "
+              EXPLAIN ANALYZE
+              WITH claims AS (SELECT * FROM read_parquet('$P'))
+              SELECT count(*) FROM claims c
+              WHERE c.predicate='@listed'
+                AND NOT EXISTS (
+                  SELECT 1 FROM claims s
+                  WHERE s.sourceFile=c.sourceFile AND s.ordinal=c.ordinal
+                    AND s.layer='raw' AND s.predicate IN ('Status','Status__c','status'));"
+
+            echo
+            echo "=== Q3: memory actually used, and the spill setting ==="
+            "$D" :memory: "SELECT current_setting('memory_limit') AS memory_limit, current_setting('threads') AS threads, current_setting('temp_directory') AS temp_dir;"
+          } > .diagnostics/explain-plans.txt 2>&1
+          cat .diagnostics/explain-plans.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: stress-explain-plans
+          path: .diagnostics/
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: warn
+
+  regen:
+    name: "${{ matrix.arm }} #${{ matrix.rep }}"
+    needs: plan
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        # BOTH axes belong in the base matrix: `include` adds properties to
+        # combinations that already exist rather than forming a product, so a
+        # bare `rep` base with ten arm entries in `include` collapses to ONE
+        # arm (each entry overwrites the previous one's keys). rep x arm here,
+        # with include matching on `arm` to attach that arm's settings.
+        rep: ${{ fromJSON(needs.plan.outputs.reps) }}
+        arm:
+          - baseline
+          - threads-off
+          - pq-stream
+          - pq-sort
+          - conc2
+          - conc6
+        include:
+          # The new main: cap gone, CTE inlined, threads still pinned.
+          # PREDICTION: 0 failures across all repetitions.
+          - { arm: baseline,     concurrency: "4", threads: "1", pq_sort: "0", pq_stream: "0" }
+          # The threads pin has NEVER been isolated with the cap off — it failed
+          # 2/3 and 3/3 while the cap was on, but that may have been it
+          # compensating for the cap rather than protecting anything.
+          # PREDICTION: 0 failures, and possibly FASTER, since load reached 3.84
+          # of 4 vCPU and the pin halves each fold's threads.
+          - { arm: threads-off,  concurrency: "4", threads: "",  pq_sort: "0", pq_stream: "0" }
+          # Insertion-order streaming took the Parquet build from 6.48 GB to
+          # 1.28 GB but failed 3/3 alone, because it destroyed the row-group
+          # locality the folds pruned on. The CTE is now inlined, so folds read
+          # far less and may no longer depend on that locality.
+          # PREDICTION: now SAFE — 0 failures — retaining the 5x build-memory win.
+          # This is the arm most likely to surprise, in either direction.
+          - { arm: pq-stream,    concurrency: "4", threads: "1", pq_sort: "0", pq_stream: "1" }
+          # PREDICTION: still rejected — ~13.5 GB build peak and a LARGER file,
+          # unchanged by the CTE fix, because the cost is in the sort itself.
+          # Included to confirm rather than assume the earlier verdict holds.
+          - { arm: pq-sort,      concurrency: "4", threads: "1", pq_sort: "1", pq_stream: "0" }
+          # Concurrency was chosen when memory was capped at 4 x 3 GB. With the
+          # cap gone the constraint is CPU, not memory.
+          # PREDICTION: 2 is slower, 6 is no faster (4 vCPU), both 0 failures.
+          - { arm: conc2,        concurrency: "2", threads: "1", pq_sort: "0", pq_stream: "0" }
+          - { arm: conc6,        concurrency: "6", threads: "1", pq_sort: "0", pq_stream: "0" }
+    steps:
+      - name: Free runner disk space
+        run: |
+          echo "== disk before =="; df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}" || true
+          echo "== disk after =="; df -h /
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: ./.github/actions/setup-duckdb
+      - name: Build shared claim-ledger Parquet
+        env:
+          PARQUET_SORT: ${{ matrix.pq_sort }}
+          PARQUET_STREAM: ${{ matrix.pq_stream }}
+        run: |
+          set -euo pipefail
+          mkdir -p .diagnostics
+          /usr/bin/time -v -o .diagnostics/rusage-parquet-build.txt \
+            node src/v2/build-ledger-db.ts "$RUNNER_TEMP/claims.parquet" --parquet-only
+          stat -c "%n %s bytes" "$RUNNER_TEMP/claims.parquet" >> .diagnostics/runner-facts.txt
+      - name: Record runner facts and start sampler
+        env:
+          ARM: ${{ matrix.arm }}
+          REP: ${{ matrix.rep }}
+          THREADS: ${{ matrix.threads }}
+          CONCURRENCY: ${{ matrix.concurrency }}
+          PQ_SORT: ${{ matrix.pq_sort }}
+          PQ_STREAM: ${{ matrix.pq_stream }}
+        run: |
+          set -euo pipefail
+          mkdir -p .diagnostics
+          {
+            echo "== arm =="
+            echo "arm=${ARM} rep=${REP}"
+            echo "threads='${THREADS}' concurrency=${CONCURRENCY} pq_sort=${PQ_SORT} pq_stream=${PQ_STREAM}"
+            echo "== runner =="
+            echo "nproc=$(nproc)"
+            grep -E "^MemTotal:|^SwapTotal:" /proc/meminfo
+            df -h / "${RUNNER_TEMP:-/tmp}"
+            "${DUCKDB_BIN:-duckdb}" --version 2>/dev/null || true
+          } >> .diagnostics/runner-facts.txt 2>&1
+          cat .diagnostics/runner-facts.txt
+          nohup bash .github/scripts/sample-resources.sh > .diagnostics/resource-samples.tsv 2>.diagnostics/sampler-errors.txt &
+          echo $! > .diagnostics/sampler.pid
+      # Mirrors golden-master: the projection is built in its OWN process so its
+      # peak is released before the folds start. Captured under /usr/bin/time -v
+      # because this is the largest single allocation in the pipeline (measured
+      # 3.08 GB at 9 publications, 2026-07-28) and a sampler can miss its peak.
+      - name: Build the builder projection (separate process, as golden-master does)
+        id: projection
+        run: |
+          set -euo pipefail
+          /usr/bin/time -v -o .diagnostics/rusage-projection-build.txt \
+            node src/v2/build-builder-projection.ts "$RUNNER_TEMP/builder-projection"
+          grep -E "Maximum resident set size|Elapsed" .diagnostics/rusage-projection-build.txt || true
+      - name: Regenerate reports under this arm
+        id: regen
+        env:
+          PERF: "1"
+          PERF_JSON: .diagnostics/report-sweep-perf.json
+          CLAIMS_PARQUET: ${{ runner.temp }}/claims.parquet
+          BUILDER_PROJECTION_DIR: ${{ runner.temp }}/builder-projection
+          SWEEP_TRACE_FILE: ${{ github.workspace }}/.diagnostics/sweep-trace.jsonl
+          FOLD_RUSAGE_DIR: ${{ github.workspace }}/.diagnostics
+          REPORT_FOLD_THREADS: ${{ matrix.threads }}
+          REPORT_SWEEP_CONCURRENCY: ${{ matrix.concurrency }}
+        run: |
+          set -euo pipefail
+          started=$(date +%s)
+          npm run reports:sweep
+          echo "elapsed_s=$(( $(date +%s) - started ))" >> "$GITHUB_OUTPUT"
+      - name: Check the regeneration is byte-identical to the committed tree
+        id: drift
+        if: always()
+        run: |
+          # A configuration that finishes but changes the output is a FAILURE we
+          # must not read as a success — the levers are supposed to be
+          # performance knobs with no effect on what is produced.
+          if git diff --quiet -- reports/; then
+            echo "drift=clean" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift=DRIFTED" >> "$GITHUB_OUTPUT"
+            git diff --stat -- reports/ | tail -20
+          fi
+      - name: Capture post-mortem
+        if: always()
+        env:
+          DIAGNOSTICS_DIR: .diagnostics
+        run: bash .github/scripts/capture-post-mortem.sh
+      - name: Record arm outcome
+        if: always()
+        env:
+          ARM: ${{ matrix.arm }}
+          REP: ${{ matrix.rep }}
+          THREADS: ${{ matrix.threads }}
+          CONCURRENCY: ${{ matrix.concurrency }}
+          PQ_SORT: ${{ matrix.pq_sort }}
+          PQ_STREAM: ${{ matrix.pq_stream }}
+          OUTCOME: ${{ steps.regen.outcome }}
+          PROJECTION: ${{ steps.projection.outcome }}
+          DRIFT: ${{ steps.drift.outputs.drift }}
+          ELAPSED: ${{ steps.regen.outputs.elapsed_s }}
+        run: |
+          {
+            echo "arm=${ARM}"
+            echo "rep=${REP}"
+            echo "threads=${THREADS}"
+            echo "concurrency=${CONCURRENCY}"
+            echo "pq_sort=${PQ_SORT}"
+            echo "pq_stream=${PQ_STREAM}"
+            echo "outcome=${OUTCOME}"
+            echo "projection=${PROJECTION}"
+            echo "drift=${DRIFT}"
+            echo "elapsed_s=${ELAPSED}"
+          } > .diagnostics/arm-outcome.txt
+          cat .diagnostics/arm-outcome.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: stress-${{ matrix.arm }}-rep${{ matrix.rep }}
+          path: .diagnostics/
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: warn
+
+  collate:
+    name: collate
+    needs: [regen, explain]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: arms
+      - name: Summarise every arm
+        run: |
+          set -uo pipefail
+          {
+            echo "# Regeneration stress matrix"
+            echo
+            echo "| arm | rep | conc | threads | pq_sort | pq_stream | outcome | drift | elapsed | peak fold RSS | parquet bytes | OOM |"
+            echo "|---|---|---|---|---|---|---|---|---|---|---|---|---|"
+            for d in arms/*/; do
+              f="$d/arm-outcome.txt"
+              [ -f "$f" ] || continue
+              get() { grep "^$1=" "$f" 2>/dev/null | head -1 | cut -d= -f2-; }
+              peak=$(grep -h "Maximum resident set size" "$d"/rusage-*.txt 2>/dev/null | awk '{print $NF}' | sort -rn | head -1)
+              oom=$(grep -c "Killed process" "$d/post-mortem.txt" 2>/dev/null || true)
+              mb() { [ -n "${1:-}" ] && echo "$(( $1 / 1024 )) MB" || echo "n/a"; }
+              pq=$(grep -oE '[0-9]+ bytes' "$d/runner-facts.txt" 2>/dev/null | head -1 | cut -d' ' -f1)
+              echo "| $(get arm) | $(get rep) | $(get concurrency) | $(get threads) | $(get pq_sort) | $(get pq_stream) | $(get outcome) | $(get drift) | $(get elapsed_s)s | $(mb "$peak") | ${pq:-n/a} | ${oom:-0} |"
+            done
+            echo
+            echo "## Failure detail (per arm)"
+            for d in arms/*/; do
+              [ -f "$d/arm-outcome.txt" ] || continue
+              a=$(grep '^arm=' "$d/arm-outcome.txt" | cut -d= -f2)
+              r=$(grep '^rep=' "$d/arm-outcome.txt" | cut -d= -f2)
+              fail=$(grep -h '"outcome":"failed"' "$d/sweep-trace.jsonl" 2>/dev/null | head -2)
+              if [ -n "$fail" ]; then
+                echo "### $a rep$r"
+                echo '```'
+                echo "$fail" | cut -c1-1500
+                echo '```'
+              fi
+            done
+            echo
+            echo "## Query plans"
+            echo '```'
+            head -120 arms/stress-explain-plans/explain-plans.txt 2>/dev/null || echo "(explain job produced nothing)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
