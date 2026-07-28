@@ -1,0 +1,53 @@
+// Expand src/testing/perf-arms.json into the matrix inputs perf-matrix.yml
+// consumes (issue #1004).
+//
+// A FILE rather than an inline `node -e` in the workflow: the script builds
+// strings with JS template literals, and shellcheck reads `${...}` inside the
+// single-quoted heredoc as a shell expansion that will not expand (SC2016).
+// The single quotes are correct - shell expansion is exactly what must NOT
+// happen there - so the warning is a false positive, and extracting the script
+// removes the ambiguity rather than suppressing the warning. It also matches how
+// the other CI helpers live under .github/scripts/.
+//
+// Reads REPETITIONS from the environment (a workflow_dispatch input, so it is
+// user-controlled and is passed as DATA, never spliced into a script).
+// Writes `arms` and `reps` to $GITHUB_OUTPUT.
+import * as fs from 'node:fs';
+
+// Overridable so the guards below can be exercised against fixtures rather
+// than only asserted by reading them.
+const SPEC_PATH = process.env.PERF_ARMS_SPEC ?? 'src/testing/perf-arms.json';
+const MAX_REPS = 9;
+
+const spec = JSON.parse(fs.readFileSync(SPEC_PATH, 'utf8'));
+
+if (!Array.isArray(spec.arms) || spec.arms.length === 0) {
+  throw new Error(`${SPEC_PATH} declares no arms`);
+}
+
+// Every comparison must name arms that exist. A comparison pointing at an absent
+// arm is the commonest way a matrix reports a confident result about a lever it
+// never varied, so it fails loudly here rather than silently producing no row.
+const ids = new Set(spec.arms.map(a => a.id));
+const dangling = (spec.comparisons ?? []).filter(c => !ids.has(c.baseline) || !ids.has(c.variant));
+if (dangling.length > 0) {
+  throw new Error(`${SPEC_PATH}: comparisons reference arms that do not exist: ${dangling.map(c => c.id).join(', ')}`);
+}
+
+// A control arm - one expected to show no difference - is what distinguishes a
+// harness that measures from one that merely reports. Without it, noise is
+// indistinguishable from signal.
+if (!spec.arms.some(a => a.control !== undefined)) {
+  throw new Error(`${SPEC_PATH}: no control arm declared. Add one arm with a "control" field naming the arm it should match.`);
+}
+
+const requested = Number.parseInt(process.env.REPETITIONS ?? '', 10);
+const reps = Math.min(MAX_REPS, Math.max(1, Number.isInteger(requested) ? requested : (spec.defaultRepetitions ?? 5)));
+
+const out = process.env.GITHUB_OUTPUT;
+if (out !== undefined && out !== '') {
+  fs.appendFileSync(out, `arms=${JSON.stringify(spec.arms)}\n`);
+  fs.appendFileSync(out, `reps=${JSON.stringify(Array.from({ length: reps }, (_, i) => i + 1))}\n`);
+}
+
+console.log(`${spec.arms.length} arms x ${reps} reps = ${spec.arms.length * reps} jobs`);

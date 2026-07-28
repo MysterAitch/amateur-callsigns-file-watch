@@ -59,19 +59,10 @@ jobs:
           # DATA, never spliced into the script: a dispatch input is
           # user-controlled and interpolation would be an injection vector.
           REPETITIONS: ${{ github.event.inputs.repetitions }}
-        run: |
-          set -euo pipefail
-          node -e '
-            const fs = require("fs");
-            const spec = JSON.parse(fs.readFileSync("src/testing/perf-arms.json", "utf8"));
-            let n = parseInt(process.env.REPETITIONS || "", 10);
-            if (!Number.isInteger(n)) n = spec.defaultRepetitions || 5;
-            n = Math.min(9, Math.max(1, n));
-            const reps = Array.from({ length: n }, (_, i) => i + 1);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `arms=${JSON.stringify(spec.arms)}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `reps=${JSON.stringify(reps)}\n`);
-            console.log(`${spec.arms.length} arms x ${n} reps = ${spec.arms.length * n} jobs`);
-          '
+        # The script also FAILS LOUDLY on a spec that would produce a misleading
+        # run - a comparison naming an arm that does not exist, or a matrix with
+        # no control arm.
+        run: node .github/scripts/perf-plan.mjs
 
   arm:
     needs: plan
