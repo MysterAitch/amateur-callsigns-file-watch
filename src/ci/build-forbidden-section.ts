@@ -485,16 +485,30 @@ function analyseSuffix(suffix: string, h: ForbiddenSuffixHistory, info: SuffixCa
 // Undefined for a suffix with no row: the caller omits the hop rather than
 // fabricating a line (the honesty rule).
 let cachedSuffixReferenceLines: Map<string, number> | undefined;
+
+// Suffix -> 1-based physical line, keyed by each row's FIRST field. That read
+// is positional, so the header's first column is asserted to BE `suffix`
+// before any row is keyed (issue #977): a re-shaped file read by position
+// would silently mis-key every row. Exported for the guard's own tests.
+export function suffixReferenceLinesFrom(csvText: string, sourceLabel: string): Map<string, number> {
+  const lines = csvText.split(/\r?\n/);
+  const headerKey = (lines[0] ?? '').split(',', 1)[0].trim();
+  if (headerKey !== 'suffix') {
+    throw new Error(`${sourceLabel}: expected the first column to be "suffix" but the header opens with "${headerKey}" — refusing to key rows by position from a re-shaped file`);
+  }
+  const map = new Map<string, number>();
+  lines.forEach((line, index) => {
+    if (index === 0) return; // the header row
+    const key = line.split(',', 1)[0].trim();
+    if (key !== '' && !map.has(key)) map.set(key, index + 1);
+  });
+  return map;
+}
+
 export function forbiddenSuffixReferenceLine(suffix: string): number | undefined {
   if (cachedSuffixReferenceLines === undefined) {
-    const map = new Map<string, number>();
-    const lines = fs.readFileSync(path.join(REPO_ROOT, 'reference-data', 'forbidden-suffixes.csv'), 'utf8').split(/\r?\n/);
-    lines.forEach((line, index) => {
-      if (index === 0) return; // the header row
-      const key = line.split(',', 1)[0].trim();
-      if (key !== '' && !map.has(key)) map.set(key, index + 1);
-    });
-    cachedSuffixReferenceLines = map;
+    const csvPath = path.join(REPO_ROOT, 'reference-data', 'forbidden-suffixes.csv');
+    cachedSuffixReferenceLines = suffixReferenceLinesFrom(fs.readFileSync(csvPath, 'utf8'), 'reference-data/forbidden-suffixes.csv');
   }
   return cachedSuffixReferenceLines.get(suffix);
 }

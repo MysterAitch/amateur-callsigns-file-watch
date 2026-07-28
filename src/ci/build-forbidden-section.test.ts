@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { buildForbiddenSection, suffixPage, forbiddenSuffixReferenceLine } from './build-forbidden-section.ts';
+import { buildForbiddenSection, suffixPage, forbiddenSuffixReferenceLine, suffixReferenceLinesFrom } from './build-forbidden-section.ts';
 import { buildForbiddenSuffixHistory, type ForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { type SuffixCallsignInfo } from './forbidden-suffix-callsigns.ts';
 import { callsignPill } from './site-render.ts';
@@ -415,6 +415,23 @@ describe('Forbidden-suffix section — examine trail (issue #439)', { tags: ['da
 
   it('ForbiddenSuffixReferenceLine_UnknownSuffix_IsUndefinedNeverFabricated', () => {
     expect(forbiddenSuffixReferenceLine('NOT-A-SUFFIX')).toBeUndefined();
+  });
+
+  it('SuffixReferenceLines_WhenFirstColumnIsNotSuffix_ThrowsNamingTheDriftRatherThanMisKeying', () => {
+    // Structural-fragility guard (#977): the map keys every row by its first
+    // field, so a re-shaped file whose first column is no longer the suffix
+    // would silently mis-key every row (the sort-key vulnerability class).
+    const reshaped = 'first_known_forbidden,suffix\n2016-07-29,ADS\n';
+    expect(() => suffixReferenceLinesFrom(reshaped, 'reference-data/forbidden-suffixes.csv'))
+      .toThrow(/expected the first column to be "suffix"/);
+    expect(() => suffixReferenceLinesFrom(reshaped, 'reference-data/forbidden-suffixes.csv'))
+      .toThrow(/first_known_forbidden/);
+  });
+
+  it('SuffixReferenceLines_WhenHeaderIsTheExpectedShape_MapsEachSuffixToItsPhysicalLine', () => {
+    const map = suffixReferenceLinesFrom('suffix,first_known_forbidden\nADS,2016-07-29\nBAD,2016-07-29\n', 'test.csv');
+    expect(map.get('ADS')).toBe(2);
+    expect(map.get('BAD')).toBe(3);
   });
 });
 

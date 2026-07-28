@@ -133,9 +133,15 @@ export function categoriseSuffix(suffix: string): { category: RationaleCategory;
 }
 
 // Read the ever-forbidden union's suffixes (the CSV's first column), in file
-// order, skipping the header row and any blank line.
+// order, skipping the header row and any blank line. The read is positional,
+// so the header's first column is asserted to BE `suffix` first (issue #977):
+// a re-shaped file read by position would silently return non-suffix values.
 export function everForbiddenSuffixes(csvPath: string = FORBIDDEN_SUFFIXES_CSV): string[] {
   const lines = fs.readFileSync(csvPath, 'utf8').split(/\r?\n/);
+  const headerKey = (lines[0] ?? '').split(',', 1)[0].trim();
+  if (headerKey !== 'suffix') {
+    throw new Error(`${csvPath}: expected the first column to be "suffix" but the header opens with "${headerKey}" — refusing to read the key column by position from a re-shaped file`);
+  }
   return lines
     .slice(1)
     .map(line => line.split(',', 1)[0].trim())
@@ -155,12 +161,22 @@ export function buildForbiddenSuffixRationale(csvPath: string = FORBIDDEN_SUFFIX
   return rows.sort((a, b) => a.suffix.localeCompare(b.suffix));
 }
 
+// The rationale CSV's exact header — the layout both toCsv writes and
+// loadForbiddenSuffixRationale reads back positionally.
+const RATIONALE_CSV_HEADER = 'suffix,category,epistemics,source';
+
 // Load the committed rationale CSV into a lookup map, keyed by suffix - the
 // shape the section renderer and tests actually want. Returns undefined for
 // any suffix absent from the file (unclassified), never a fabricated entry.
+// Each row is destructured positionally, so the header is asserted first
+// (issue #977): a reordered file read by position would silently land every
+// field under the wrong name.
 export function loadForbiddenSuffixRationale(csvPath: string = RATIONALE_CSV): Map<string, SuffixRationale> {
   const map = new Map<string, SuffixRationale>();
   const lines = fs.readFileSync(csvPath, 'utf8').split(/\r?\n/);
+  if (lines[0] !== RATIONALE_CSV_HEADER) {
+    throw new Error(`${csvPath}: expected the header "${RATIONALE_CSV_HEADER}" but found "${lines[0] ?? ''}" — refusing to read fields by position from a re-shaped file`);
+  }
   for (const line of lines.slice(1)) {
     if (line.trim() === '') continue;
     const [suffix, category, epistemics, source] = line.split(',');
@@ -170,9 +186,8 @@ export function loadForbiddenSuffixRationale(csvPath: string = RATIONALE_CSV): M
 }
 
 function toCsv(rows: SuffixRationale[]): string {
-  const header = 'suffix,category,epistemics,source';
   const body = rows.map(r => `${r.suffix},${r.category},${r.epistemics},${r.source}`);
-  return [header, ...body].join('\n') + '\n';
+  return [RATIONALE_CSV_HEADER, ...body].join('\n') + '\n';
 }
 
 function main(): void {

@@ -23,6 +23,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   SCC_SOURCE_URL,
+  SCC_CSV_HEADER,
   parseSccTable,
   sanityGateProblems,
   toCsv,
@@ -266,17 +267,37 @@ export function diffSccTables(oldRows: SccRow[], newRows: SccRow[]): SccDiff {
 }
 
 // Parse the previously-committed CSV back into rows, for the diff. Returns an
-// empty list when no committed table exists yet (the first-ever run).
+// empty list when no committed table exists yet (the first-ever run). The
+// fields are read by position, so the header is asserted first: a re-shaped
+// file (hand edit, schema change without a matching reader change) read
+// positionally would silently transpose every field, and a wrong diff is worse
+// than an aborted run.
 export function readCommittedRows(csvPath: string = SCC_CSV_PATH): SccRow[] {
   if (!fs.existsSync(csvPath)) return [];
   const text = fs.readFileSync(csvPath, 'utf8');
-  const lines = text.split('\n').filter((l) => l.length > 0);
+  // Keep every physical line (blank ones included) so a reported `line N` names
+  // the row's real position in the file, and so a header pushed off line 1 by a
+  // leading blank is caught rather than silently accepted; blanks are skipped
+  // inside the loop. This mirrors the physical-line idiom in the sibling
+  // build-forbidden-section reference readers.
+  const lines = text.split(/\r?\n/);
+  const expectedHeader = SCC_CSV_HEADER.join(',');
+  if (lines[0] !== expectedHeader) {
+    throw new Error(
+      `committed SCC table ${csvPath} does not open with the expected header "${expectedHeader}" (found "${lines[0] ?? '(empty file)'}") — refusing to read fields by position from a re-shaped file`,
+    );
+  }
   const rows: SccRow[] = [];
   for (let i = 1; i < lines.length; i++) {
+    if (lines[i] === '') continue; // a blank line (trailing newline, spacer) is not a row
     // Minimal CSV read matching toCsv's minimal-quoting output; the notes column
     // may be quoted, so split on the first three unquoted commas only.
     const cells = parseCsvLine(lines[i]);
-    if (cells.length < 4) continue;
+    if (cells.length !== SCC_CSV_HEADER.length) {
+      throw new Error(
+        `committed SCC table ${csvPath} line ${i + 1} has ${cells.length} field(s), expected ${SCC_CSV_HEADER.length} — refusing to mis-map a malformed row`,
+      );
+    }
     rows.push({ scc_code: cells[0], base_callsign: cells[1], status: cells[2], notes: cells[3] });
   }
   return rows;

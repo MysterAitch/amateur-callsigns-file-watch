@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import {
   categoriseSuffix,
@@ -117,6 +118,37 @@ describe('forbidden-suffix rationale — committed CSV', { tags: ['data-validity
     const buf = fs.readFileSync(csvPath);
     expect(buf.includes(0)).toBe(false);
     expect(buf.toString('utf8')).not.toContain('\r');
+  });
+
+  it('EverForbiddenSuffixes_WhenFirstColumnIsNotSuffix_ThrowsNamingTheDriftRatherThanMisKeying', () => {
+    // Structural-fragility guard (#977): the union's suffixes are read from
+    // each row's FIRST field, so a re-shaped file (columns reordered or a
+    // column prepended) read by position would silently return non-suffix
+    // values as "suffixes".
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'forbidden-header-drift-'));
+    try {
+      const csvPath = path.join(dir, 'forbidden-suffixes.csv');
+      fs.writeFileSync(csvPath, 'first_known_forbidden,suffix\n2016-07-29,ADS\n');
+      expect(() => everForbiddenSuffixes(csvPath)).toThrow(/expected the first column to be "suffix"/);
+      expect(() => everForbiddenSuffixes(csvPath)).toThrow(/first_known_forbidden/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('LoadForbiddenSuffixRationale_WhenHeaderReordered_ThrowsRatherThanMisMappingColumns', () => {
+    // The loader destructures each row positionally into
+    // suffix/category/epistemics/source, so a reordered header means every
+    // field would land under the wrong name — asserted loud, never guessed.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rationale-header-drift-'));
+    try {
+      const csvPath = path.join(dir, 'forbidden-suffix-rationale.csv');
+      fs.writeFileSync(csvPath, 'category,suffix,epistemics,source\nitu-q-code,QNF,sourced,ofcom-foi-337399\n');
+      expect(() => loadForbiddenSuffixRationale(csvPath)).toThrow(/expected the header/);
+      expect(() => loadForbiddenSuffixRationale(csvPath)).toThrow(/category,suffix,epistemics,source/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('LoadForbiddenSuffixRationale_SuffixAbsentFromTheFile_IsUndefinedNeverFabricated', () => {
