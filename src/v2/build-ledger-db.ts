@@ -275,13 +275,36 @@ export function writeParquetScript(ledgerGlob: string, parquetPath: string): str
   const glob = ledgerGlob.replace(/\\/g, '/').replace(/'/g, "''");
   const out = parquetPath.replace(/\\/g, '/').replace(/'/g, "''");
   const columns = "{layer: 'VARCHAR', rawSubject: 'VARCHAR', predicate: 'VARCHAR', object: 'VARCHAR', sourceFile: 'VARCHAR', ordinal: 'BIGINT', vintage: 'VARCHAR', rule: 'VARCHAR'}";
-  return [
+  // EXPERIMENT SCAFFOLDING (issue #991) — not a permanent mechanism.
+  //
+  // Physical row order is JSONL emission order, which already lets row groups
+  // prune on `layer` and on the tier-block predicates. It does NOT let them
+  // prune on `predicate = '@listed'`, the commonest filter in the fold estate
+  // (seven folds): the raw block interleaves each row's @listed anchor with that
+  // row's attribute claims, so every row group spanning it carries the whole
+  // predicate vocabulary in its min/max. Measured consequence: a fold filtering
+  // @listed reads 39.81% of the corpus to find 9.48% of it.
+  //
+  // Ordering the COPY would let those row groups prune. The canonical JSONL is
+  // untouched, and the one fold that depends on physical scan order reads
+  // normalised.csv rather than this Parquet. The cost is a global sort over
+  // 55.4M rows in a step already peaking at 5.68 GB, which is why this is a
+  // switch to be measured rather than a change to be assumed:
+  // preserve_insertion_order=false is paired with it because it lets DuckDB
+  // stream row groups out instead of buffering to hold order, targeting that
+  // peak directly. Delete once the measurement has decided.
+  const ordered = process.env[PARQUET_ORDERED_ENV] === '1';
+  const preamble = ordered ? `SET preserve_insertion_order = false;\n` : '';
+  const orderBy = ordered ? `  ORDER BY layer, predicate, sourceFile, ordinal\n` : '';
+  return preamble + [
     `COPY (`,
     `  SELECT layer, rawSubject, predicate, object, sourceFile, ordinal, vintage, rule`,
     `  FROM read_json('${glob}', format = 'newline_delimited', columns = ${columns})`,
-    `) TO '${out}' (FORMAT parquet, COMPRESSION zstd);`,
+    orderBy + `) TO '${out}' (FORMAT parquet, COMPRESSION zstd);`,
   ].join('\n') + '\n';
 }
+
+export const PARQUET_ORDERED_ENV = 'PARQUET_ORDERED';
 
 // Locate a DuckDB CLI: an explicit path (env DUCKDB_BIN) wins, else `duckdb` on
 // PATH. Returns null when neither resolves - the Parquet lane is optional at

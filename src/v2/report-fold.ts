@@ -157,9 +157,30 @@ function rusagePrefix(): string[] {
 // `-json` emits the final statement's rows as a JSON array (leading PRAGMA/SET
 // statements return no rows and contribute nothing), so a script may open with
 // `SET threads TO 1;` before its single result-bearing query.
+export const FOLD_INLINE_CLAIMS_CTE_ENV = 'FOLD_INLINE_CLAIMS_CTE';
+
+// EXPERIMENT SCAFFOLDING (issue #991) — not a permanent mechanism.
+//
+// Every fold opens `WITH claims AS (SELECT * FROM read_parquet(...))` and then
+// references `claims` three to seven times. EXPLAIN ANALYZE on the real corpus
+// shows DuckDB MATERIALISES that CTE: each reference becomes a CTE_SCAN of all
+// 55,426,648 rows with the filter applied afterwards, so no predicate reaches
+// the Parquet scan. Inlining the same query instead pushes the filters into the
+// scan (20,649,907 rows read for the same predicate).
+//
+// The permanent fix is to stop wrapping the relation in a CTE at each of the
+// twelve call sites. This switch exists to MEASURE that change before paying
+// for it: rewriting the marker to `AS NOT MATERIALIZED` asks DuckDB for the
+// inlined plan without touching a single fold. Delete it once the measurement
+// has decided the question.
+function applyClaimsCteMode(sql: string): string {
+  if (process.env[FOLD_INLINE_CLAIMS_CTE_ENV] !== '1') return sql;
+  return sql.replace(/\bWITH\s+claims\s+AS\s*\(/gi, 'WITH claims AS NOT MATERIALIZED (');
+}
+
 export function foldQuery<Row>(sql: string): Row[] {
   const binary = duckDbBinary();
-  const script = foldThreadsPreamble() + foldMemoryLimitPreamble() + sql;
+  const script = foldThreadsPreamble() + foldMemoryLimitPreamble() + applyClaimsCteMode(sql);
   const argv = [...rusagePrefix(), binary, '-json', ':memory:', script];
   let stdout: string;
   try {

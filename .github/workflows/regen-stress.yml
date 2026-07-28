@@ -201,30 +201,27 @@ jobs:
         # with include matching on `arm` to attach that arm's settings.
         rep: ${{ fromJSON(needs.plan.outputs.reps) }}
         arm:
-          - baseline-3gb
-          - raise-8gb
-          - nolimit
-          - lower-1gb
-          - unpinned-threads
-          - both-levers-off
-          - serial
-          - conc2
-          - conc6
-          - no-disk-reclaim
+          - control
+          - fix-caps
+          - fix-cte
+          - fix-parquet-order
+          - all-fixes
         include:
-          - { arm: baseline-3gb,     concurrency: "4", memlimit: "3GB", threads: "1", reclaim: "yes" }
-          - { arm: raise-8gb,        concurrency: "4", memlimit: "8GB", threads: "1", reclaim: "yes" }
-          - { arm: nolimit,          concurrency: "4", memlimit: "",    threads: "1", reclaim: "yes" }
-          - { arm: lower-1gb,        concurrency: "4", memlimit: "1GB", threads: "1", reclaim: "yes" }
-          - { arm: unpinned-threads, concurrency: "4", memlimit: "3GB", threads: "",  reclaim: "yes" }
-          - { arm: both-levers-off,  concurrency: "4", memlimit: "",    threads: "",  reclaim: "yes" }
-          - { arm: serial,           concurrency: "1", memlimit: "3GB", threads: "1", reclaim: "yes" }
-          - { arm: conc2,            concurrency: "2", memlimit: "3GB", threads: "1", reclaim: "yes" }
-          - { arm: conc6,            concurrency: "6", memlimit: "3GB", threads: "1", reclaim: "yes" }
-          - { arm: no-disk-reclaim,  concurrency: "4", memlimit: "3GB", threads: "1", reclaim: "no"  }
+          # The control is the current configuration. Its failure rate is what
+          # every other arm is measured against, so it earns its slot.
+          - { arm: control,           memlimit: "3GB", threads: "1", inline_cte: "0", parquet_ordered: "0" }
+          # PREDICTION: no failures; duration broadly unchanged.
+          - { arm: fix-caps,          memlimit: "",    threads: "",  inline_cte: "0", parquet_ordered: "0" }
+          # PREDICTION: no failures AND materially lower peak fold RSS, because
+          # filters reach the Parquet scan instead of running over 55.4M rows.
+          - { arm: fix-cte,           memlimit: "3GB", threads: "1", inline_cte: "1", parquet_ordered: "0" }
+          # PREDICTION: faster folds, but a slower and heavier Parquet BUILD.
+          # The one arm expected to cost something, hence measured alone.
+          - { arm: fix-parquet-order, memlimit: "3GB", threads: "1", inline_cte: "0", parquet_ordered: "1" }
+          # PREDICTION: fastest overall, no failures.
+          - { arm: all-fixes,         memlimit: "",    threads: "",  inline_cte: "1", parquet_ordered: "1" }
     steps:
       - name: Free runner disk space
-        if: matrix.reclaim == 'yes'
         run: |
           echo "== disk before =="; df -h /
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}" || true
@@ -239,6 +236,8 @@ jobs:
       - run: npm ci
       - uses: ./.github/actions/setup-duckdb
       - name: Build shared claim-ledger Parquet
+        env:
+          PARQUET_ORDERED: ${{ matrix.parquet_ordered }}
         run: |
           set -euo pipefail
           mkdir -p .diagnostics
@@ -249,17 +248,17 @@ jobs:
         env:
           ARM: ${{ matrix.arm }}
           REP: ${{ matrix.rep }}
-          CONCURRENCY: ${{ matrix.concurrency }}
           MEMLIMIT: ${{ matrix.memlimit }}
           THREADS: ${{ matrix.threads }}
-          RECLAIM: ${{ matrix.reclaim }}
+          INLINE_CTE: ${{ matrix.inline_cte }}
+          PARQUET_ORDERED: ${{ matrix.parquet_ordered }}
         run: |
           set -euo pipefail
           mkdir -p .diagnostics
           {
             echo "== arm =="
             echo "arm=${ARM} rep=${REP}"
-            echo "concurrency=${CONCURRENCY} memlimit='${MEMLIMIT}' threads='${THREADS}' reclaim=${RECLAIM}"
+            echo "memlimit='${MEMLIMIT}' threads='${THREADS}' inline_cte=${INLINE_CTE} parquet_ordered=${PARQUET_ORDERED}"
             echo "== runner =="
             echo "nproc=$(nproc)"
             grep -E "^MemTotal:|^SwapTotal:" /proc/meminfo
@@ -289,9 +288,9 @@ jobs:
           BUILDER_PROJECTION_DIR: ${{ runner.temp }}/builder-projection
           SWEEP_TRACE_FILE: ${{ github.workspace }}/.diagnostics/sweep-trace.jsonl
           FOLD_RUSAGE_DIR: ${{ github.workspace }}/.diagnostics
-          REPORT_SWEEP_CONCURRENCY: ${{ matrix.concurrency }}
           REPORT_FOLD_MEMORY_LIMIT: ${{ matrix.memlimit }}
           REPORT_FOLD_THREADS: ${{ matrix.threads }}
+          FOLD_INLINE_CLAIMS_CTE: ${{ matrix.inline_cte }}
         run: |
           set -euo pipefail
           started=$(date +%s)
@@ -320,10 +319,10 @@ jobs:
         env:
           ARM: ${{ matrix.arm }}
           REP: ${{ matrix.rep }}
-          CONCURRENCY: ${{ matrix.concurrency }}
           MEMLIMIT: ${{ matrix.memlimit }}
           THREADS: ${{ matrix.threads }}
-          RECLAIM: ${{ matrix.reclaim }}
+          INLINE_CTE: ${{ matrix.inline_cte }}
+          PARQUET_ORDERED: ${{ matrix.parquet_ordered }}
           OUTCOME: ${{ steps.regen.outcome }}
           PROJECTION: ${{ steps.projection.outcome }}
           DRIFT: ${{ steps.drift.outputs.drift }}
@@ -332,10 +331,10 @@ jobs:
           {
             echo "arm=${ARM}"
             echo "rep=${REP}"
-            echo "concurrency=${CONCURRENCY}"
             echo "memlimit=${MEMLIMIT}"
             echo "threads=${THREADS}"
-            echo "reclaim=${RECLAIM}"
+            echo "inline_cte=${INLINE_CTE}"
+            echo "parquet_ordered=${PARQUET_ORDERED}"
             echo "outcome=${OUTCOME}"
             echo "projection=${PROJECTION}"
             echo "drift=${DRIFT}"
@@ -366,17 +365,17 @@ jobs:
           {
             echo "# Regeneration stress matrix"
             echo
-            echo "| arm | rep | conc | memlimit | threads | reclaim | outcome | drift | elapsed | peak fold RSS | peak projection RSS | OOM |"
+            echo "| arm | rep | memlimit | threads | inline_cte | pq_ordered | outcome | drift | elapsed | peak fold RSS | parquet bytes | OOM |"
             echo "|---|---|---|---|---|---|---|---|---|---|---|---|"
             for d in arms/*/; do
               f="$d/arm-outcome.txt"
               [ -f "$f" ] || continue
               get() { grep "^$1=" "$f" 2>/dev/null | head -1 | cut -d= -f2-; }
               peak=$(grep -h "Maximum resident set size" "$d"/rusage-*.txt 2>/dev/null | awk '{print $NF}' | sort -rn | head -1)
-              proj=$(grep -h "Maximum resident set size" "$d/rusage-projection-build.txt" 2>/dev/null | awk '{print $NF}')
               oom=$(grep -c "Killed process" "$d/post-mortem.txt" 2>/dev/null || true)
               mb() { [ -n "${1:-}" ] && echo "$(( $1 / 1024 )) MB" || echo "n/a"; }
-              echo "| $(get arm) | $(get rep) | $(get concurrency) | $(get memlimit || echo '<unset>') | $(get threads || echo '<unset>') | $(get reclaim) | $(get outcome) | $(get drift) | $(get elapsed_s)s | $(mb "$peak") | $(mb "$proj") | ${oom:-0} |"
+              pq=$(grep -oE '[0-9]+ bytes' "$d/runner-facts.txt" 2>/dev/null | head -1 | cut -d' ' -f1)
+              echo "| $(get arm) | $(get rep) | $(get memlimit) | $(get threads) | $(get inline_cte) | $(get parquet_ordered) | $(get outcome) | $(get drift) | $(get elapsed_s)s | $(mb "$peak") | ${pq:-n/a} | ${oom:-0} |"
             done
             echo
             echo "## Failure detail (per arm)"
