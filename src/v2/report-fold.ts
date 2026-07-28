@@ -102,6 +102,31 @@ function foldMemoryLimitPreamble(): string {
   return `SET memory_limit='${trimmed}'; `;
 }
 
+// What a failed child process actually reported, drawn from the fields an
+// execFileSync error carries beyond its message. Without this the thrown error
+// says only "Command failed: <the whole SQL script>" — which names the query but
+// not the reason, so the two failures that matter most are indistinguishable
+// from a malformed query: DuckDB exiting with a diagnostic on stderr, and DuckDB
+// being KILLED (no stderr at all, only a signal — what an out-of-memory kill
+// looks like from here). Reporting the signal, the exit status and any stderr
+// makes the failure locatable from a CI log instead of a guess.
+export function describeSpawnFailure(err: unknown): string {
+  if (typeof err !== 'object' || err === null) return '';
+  const detail = err as Record<string, unknown>;
+  const parts: string[] = [];
+  const signal = detail.signal;
+  if (typeof signal === 'string' && signal !== '') {
+    parts.push(`killed by signal ${signal} (a kill with no diagnostic is characteristically the out-of-memory killer)`);
+  }
+  const status = detail.status;
+  if (typeof status === 'number') parts.push(`exit status ${status}`);
+  const stderr = detail.stderr;
+  const stderrText = typeof stderr === 'string' ? stderr : Buffer.isBuffer(stderr) ? stderr.toString('utf8') : '';
+  const trimmedStderr = stderrText.trim();
+  parts.push(trimmedStderr === '' ? 'no stderr output' : `stderr: ${trimmedStderr.slice(0, 2000)}`);
+  return ` DuckDB reported: ${parts.join('; ')}.`;
+}
+
 // Run one SQL script against an in-memory DuckDB and parse its JSON result set.
 // `-json` emits the final statement's rows as a JSON array (leading PRAGMA/SET
 // statements return no rows and contribute nothing), so a script may open with
@@ -115,7 +140,7 @@ export function foldQuery<Row>(sql: string): Row[] {
   } catch (err) {
     throw new Error(
       `DuckDB fold failed (binary: ${binary}). Install the pinned CLI via .github/actions/setup-duckdb `
-      + `or set DUCKDB_BIN to a DuckDB executable. Cause: ${errorMessage(err)}`,
+      + `or set DUCKDB_BIN to a DuckDB executable.${describeSpawnFailure(err)} Cause: ${errorMessage(err)}`,
     );
   }
   const trimmed = stdout.trim();
