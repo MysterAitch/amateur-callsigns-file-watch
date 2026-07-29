@@ -39,7 +39,10 @@ flow.
 
 3. **Auto-merge is gated by a data-path allowlist.** Auto-merge is enabled only
    when a branch's diff is confined to data paths (`archive/`, the `latest-*`
-   pointer set, the download-info sidecar). A branch that touches `src/**`,
+   pointer set, the root raw copy `amateur-callsigns-raw.csv`, and the
+   `metadata-download-info.json` sidecar — the allowlist in
+   `.github/workflows/data-sweep.yml` mirrors exactly the paths the fetch
+   host's commit step stages). A branch that touches `src/**`,
    `.github/**`, or any other code path falls to ordinary human review — the
    allowlist is what lets data land unattended while code cannot.
 
@@ -57,7 +60,11 @@ flow.
    cannot break it.
 
 5. **Required status checks make the gate real.** Auto-merge completes only when
-   the `tests` and `data-validation` checks are green (ADR 0002). A red check
+   every required status check is green. The authoritative set is recorded in
+   ADR 0002 and has grown since this record was written — at the 2026-07-17
+   update it is `tests`, `data-validation`, `golden-master` and
+   `workflow-audit`, and all of them gate every pull request, data PRs
+   included. A red check
    holds the PR open, and the branch then *is* the preserved record of the
    anomalous bytes; landing past a red check remains possible as a deliberate,
    logged admin-bypass act.

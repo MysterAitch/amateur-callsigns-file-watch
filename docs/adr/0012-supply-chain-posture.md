@@ -113,6 +113,71 @@ rewrite the record.
   approach, or a renderer's ownership changes, update this ADR alongside the
   code, as ADR 0002 is treated for the GitHub-settings half.
 
+### The attack classes this posture answers
+
+Each mechanism above exists against a specific, named class of compromise; a
+reader weighing an exception should identify which class the exception would
+reopen.
+
+1. **Install-time arbitrary code execution** — a dependency's lifecycle script
+   runs attacker code on `npm install`, before any review (the event-stream /
+   ua-parser-js / colors.js shape). Answered by `ignore-scripts=true`
+   (decision 1).
+2. **Upstream re-tagging** — a compromised action repository re-aims a version
+   tag at malicious code, so an unchanged workflow file runs changed bytes.
+   Answered by commit-SHA pinning (decision 2).
+3. **A third-party credential becoming a write path into the record** — a
+   hosted service holding a token that can push, merge, or rewrite history.
+   Answered by the no-third-party-write rule (decision 3); the only writers are
+   the branch-scoped deploy key and PR-only workflow tokens, both landing
+   through the gated door ADR 0002 records.
+4. **Silent derived-output churn** — a dependency bump changing committed
+   golden-master bytes without anyone deciding it should. A correctness and
+   trust failure rather than a classic intrusion, but the posture treats it as
+   the same family: unreviewed third-party change reaching the record. Answered
+   by the hand-rolled renderers plus golden-master tests (decision 4), and it
+   doubles as detection — an unexplained re-run diff is the tripwire.
+5. **Client-side injection on the published site** — a CDN script or a
+   client-bundle dependency compromised after review. Answered by the no-build,
+   no-CDN, vendored-only site surface (decision 3; ADR 0003).
+
+Two neighbouring classes are answered *outside* this record and are listed so
+the map is complete: **workflows executing attacker-pushed content**
+(pwn-request shapes) are answered by schedule-only triggers and the
+`workflow-audit` required check (ADR 0001, ADR 0002), and **compromise of the
+fetch host itself** is bounded by the branch-scoped deploy key and the
+data-path allowlist (ADR 0009).
+
+### When a scoped write pattern would be acceptable
+
+"No third-party service holds write access" is the standing rule, not a
+never. The accepted writers (the deploy key, the workflow tokens, Dependabot)
+already trace the boundary, so the conditions for any future scoped writer are
+derivable rather than novel — all of them, together:
+
+- its writes can only land as branches or pull requests through the same
+  ruleset-gated door (never a token that can reach `main` or rewrite history);
+- its capability is the narrowest that does the job — branch-scoped,
+  path-allowlisted where the write shape allows it;
+- its actions are attributable and auditable after the fact;
+- the required status checks still gate every merge it proposes.
+
+What remains unacceptable in all cases is a standing credential, held outside
+this repository's review flow, that can write the default branch directly —
+that is the compromise class the whole posture exists to keep closed.
+
+### The posture under a real capability demand
+
+The line has been probed once by a genuine capability gap: PDF text
+extraction for archived FOI response letters, evaluated on issue #979. No
+JS-ecosystem route fits, and the evaluated self-hosted web tools failed the
+pipeline bar (no API, or determinism unproven). The evaluation's outcome was
+to prefer scripting version-pinned external engines directly, under the same
+byte-determinism and sanity-gate rules as every converter — that is, the
+posture held and the pressure was answered *within* it. The tool choice
+itself is recorded on the issue and graduates to an ADR only once determinism
+is proven on held corpus files; nothing here pre-decides it.
+
 ## Addendum (2026-07-24): dependency tiers and the adopt-vs-build criteria
 
 The original decision above treats "a dependency" as one uniform thing. The

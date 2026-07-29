@@ -2,7 +2,26 @@
 
 - Status: accepted
 - Date: 2026-07-06
-- Related: issues #1 (decision thread), #14, #15, #18, #25; ADR 0010 (archive contract); ADR 0013 (raw-keyed claim ledger — recasts this lane's derivations as ledger folds)
+- Related: issues #1 (decision thread), #14, #15, #18, #25; ADR 0010 (archive contract); ADR 0013 (raw-keyed claim ledger — recasts this lane's derivations as ledger folds); ADR 0021 (frozen derived baseline — retires the open-data re-run sweep this record describes)
+
+> *(Amended 2026-07-29.)* Three parts of this record have been overtaken and are
+> kept for the reasoning they carry, read as follows. **Prerequisites:** the
+> ordered list in Consequences (#18, #14, #15) completed in July 2026; ADR 0002
+> records the resulting settings and their end-to-end verification.
+> **Re-run semantics:** decision item 4's "converters re-run across all entries"
+> applied to the open-data lane only until [ADR 0021](0021-frozen-derived-baseline.md)
+> froze the committed derived baseline — the committed `normalised.csv` set is now
+> a frozen equivalence baseline, and new derivation happens as ledger folds
+> ([ADR 0013](0013-raw-keyed-claim-ledger.md)). The byte-determinism requirement
+> item 4 states is unchanged and still binding: the FOI lane's converter
+> outputs are re-derived from the committed bytes and byte-compared on every
+> pull request (`src/ci/foi-verification.ts`). **Consumer surfaces:** the final consequence
+> ("consumer surfaces stay out of this repository") was revised the next day by
+> [ADR 0003](0003-in-repo-presentation-poc.md), which brought presentation
+> in-repo; the site has since grown well beyond a proof of concept (ADR 0022).
+> The parts of this decision that remain fully operative are the location and
+> write posture: post-fetch processing runs in this repository, scheduled, with
+> pull requests as its only write path.
 
 ## Context
 

@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-09
+- Related: issues #204 (the visitor/reciprocal work that occasioned this record), #201 (CEPT/HAREC class labelling, deliberately out of scope); ADR 0010 (the verbatim raw values the forms are derived from, never overwrite); `docs/normalised-schema.md` (column definitions and non-uniqueness caveats)
 
 ## Context
 

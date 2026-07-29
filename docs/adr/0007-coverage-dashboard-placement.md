@@ -1,7 +1,17 @@
 # ADR 0007 — Publish the coverage dashboard as a site page, keep a workflow alarm
 
-- Status: proposed
+- Status: proposed (not implemented — the dashboard remains the title-keyed issue)
 - Date: 2026-07-09
+
+> *(Amended 2026-07-29.)* This remains a proposal, and the state it describes
+> is still current: the coverage dashboard is the auto-updated issue
+> "Normalisation coverage (rolling dashboard)" (#360), which the report sweep
+> (`.github/workflows/reports-sweep.yml`) still finds **by its exact title**
+> and rewrites on every run — the load-bearing-title fragility this record
+> names is live, and the reopen-under-a-new-number failure it anticipated has
+> already happened once (#43 → #360). No committed `reports/coverage.md`
+> exists yet. The decision below is the recorded direction, not a description
+> of the built system.
 
 ## Context
 

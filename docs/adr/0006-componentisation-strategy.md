@@ -2,6 +2,25 @@
 
 - Status: proposed
 - Date: 2026-07-09
+- Related: issues #266 (the originating ask), #257 (styling unification); ADR 0003 and ADR 0012 (the frameworkless / no-build / vendored-only constraint), ADR 0008 (offline-first PWA), ADR 0022 (the accepted v1 component architecture that settles this record's open questions)
+
+> *(Amended 2026-07-29.)* Two reading notes. First, this record never
+> graduated from `proposed`: [ADR 0022](0022-v1-component-architecture.md)
+> (accepted 2026-07-24) settled its open questions and **revised its default
+> mechanism** — light DOM confirmed; reusable modules are JSDoc-typed
+> JavaScript ES modules dispatched through a `data-component` registry, with
+> a Custom Element class *reserved* for the rare component that genuinely
+> needs per-instance lifecycle and state. Read this record as the direction
+> that framed the problem (shared component boundaries first, no framework,
+> the sequencing in the Decision) and ADR 0022 as the operative
+> architecture. Second, this record attributes the binding frameworkless /
+> no-build / vendored-only constraint to ADR 0002; that constraint is in
+> fact recorded in [ADR 0003](0003-in-repo-presentation-poc.md) and
+> consolidated in [ADR 0012](0012-supply-chain-posture.md) — ADR 0002
+> records the repository write controls that sit behind the same posture.
+> The reversal condition is unchanged in substance: adopting a runtime
+> framework would mean overturning the supply-chain posture, and requires
+> its own ADR.
 
 ## Context
 

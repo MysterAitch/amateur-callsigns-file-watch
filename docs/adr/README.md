@@ -83,7 +83,7 @@ the #431 programme.
     <tr>
       <td><a href="0006-componentisation-strategy.md">ADR 0006</a></td>
       <td>Reusable UI modules via native Web Components, not a framework</td>
-      <td>Stated in the record itself: only if a need for framework reactivity/DX becomes strong enough to justify reversing <a href="0002-repo-level-write-controls.md">ADR 0002</a> — and that requires its own ADR. Refined, not reversed, by <a href="0022-v1-component-architecture.md">ADR 0022</a></td>
+      <td>Only a need for framework reactivity/DX strong enough to overturn the supply-chain posture (<a href="0012-supply-chain-posture.md">ADR 0012</a>, <a href="0003-in-repo-presentation-poc.md">ADR 0003</a>) — and that requires its own ADR. Open questions settled and the default mechanism revised by <a href="0022-v1-component-architecture.md">ADR 0022</a>: registry-dispatched JSDoc modules, with custom elements reserved for genuine lifecycle needs</td>
       <td>proposed</td>
       <td>2026-07-09</td>
     </tr>
@@ -91,7 +91,7 @@ the #431 programme.
       <td><a href="0007-coverage-dashboard-placement.md">ADR 0007</a></td>
       <td>Publish the coverage dashboard as a site page, keep a workflow alarm</td>
       <td>A drift signal that a static page cannot carry, since a page cannot itself go red — the workflow alarm exists for exactly that gap</td>
-      <td>proposed</td>
+      <td>proposed (not implemented; the dashboard remains the title-keyed issue)</td>
       <td>2026-07-09</td>
     </tr>
     <tr>
@@ -125,7 +125,7 @@ the #431 programme.
     <tr>
       <td><a href="0012-supply-chain-posture.md">ADR 0012</a></td>
       <td>Supply-chain posture: a minimal, auditable dependency and write surface</td>
-      <td>A genuinely required capability with no pure-JS and no pinned-checksummed-binary route. Tested and held on #979, where the PDF tooling lane was resolved with script engines rather than a relaxed posture</td>
+      <td>A genuinely required capability that neither the JS ecosystem nor a scripted, version-pinned external engine can supply. Probed and held on #979: the PDF-tooling evaluation ended in pinned script engines, not a relaxed posture — the tool choice itself stays open on the issue</td>
       <td>accepted</td>
       <td>2026-07-10</td>
     </tr>
