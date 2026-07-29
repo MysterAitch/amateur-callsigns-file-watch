@@ -59,6 +59,7 @@ the #431 programme.
 | [0021](0021-frozen-derived-baseline.md) | Freeze the committed derived baseline; the ledger projection is the derivation lane (the #446 retirement) | accepted | 2026-07-17 |
 | [0022](0022-v1-component-architecture.md) | The v1 UI component architecture: frameworkless JSDoc-typed modules, DOM-construction rendering, one implementation across build and browser | accepted | 2026-07-24 |
 | [0023](0023-fold-resource-tuning-by-measurement.md) | Report-fold resource tuning is settled by controlled measurement; no lever survives without evidence | accepted | 2026-07-28 |
+| [0024](0024-ledger-serialisation-format.md) | JSON Lines is the ledger serialisation; records the four load-bearing properties, the measured bar an alternative must clear, and why TSV looks viable but is blocked | accepted | 2026-07-29 |
 
 ## Related documentation
 

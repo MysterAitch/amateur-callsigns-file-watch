@@ -86,13 +86,22 @@ pages — becomes a derived projection over it.**
   forbidden-suffix disclosure, an available-callsign pool) emits no attribute
   claims, so an explicit existence predicate anchors the observation; without it
   the subject would vanish from the ledger.
-- **The committed canonical serialisation is JSON Lines.** It is approachable,
+- **The canonical serialisation is JSON Lines.** It is approachable,
   diffable at the claim grain (drift is a stronger signal than today's row-level
   golden), and directly loadable by the build-time query engine. A linked-data
   export (N-Quads / Turtle) is offered as a *derived*, provably-folded artefact
   for that audience; it is not the canonical or the primary published surface,
   which must remain a static, git-diffable, in-browser-queryable file under the
   hosting constraints.
+
+  **"Canonical" here names the serialisation this project has settled on, not a
+  file tracked in git.** The ledger is emitted to a build-output directory and
+  discarded; no `.jsonl` is committed to the repository, and whether one should
+  be is an open question rather than an unimplemented decision. The two readings
+  are worth separating explicitly because they were conflated for some time.
+  [ADR 0024](0024-ledger-serialisation-format.md) carries the reasoning behind
+  this choice, the measured evidence, the bar an alternative must clear, and that
+  open question.
 
 ### Three distinct axes (kept separate, never conflated)
 
@@ -134,7 +143,7 @@ They are orthogonal and each has its own home:
 An engine bench-off over the real ledger settled a deliberate split rather than a
 single winner, because the workloads genuinely differ:
 
-- **JSON Lines is the committed canonical.** Everything below is built from it.
+- **JSON Lines is the canonical serialisation.** Everything below is built from it.
 - **SQLite serves the in-browser interactive path.** Range-read over a static
   host via the already-proven, already-vendored `sql.js-httpvfs` mechanism
   (ADR 0003, ADR 0008), it answers the lookup-shaped workload the ledger invites
