@@ -34,32 +34,187 @@ within-table date-format mixing and normalisation collisions as loud,
 non-fatal doubt. ADR 0015 through ADR 0018 are the fidelity infrastructure of
 the #431 programme.
 
-| ADR | Decision | Status | Date |
-|---|---|---|---|
-| [0001](0001-post-fetch-processing-in-repo.md) | Post-fetch processing runs in this repository via scheduled, PR-gated GitHub Actions | accepted | 2026-07-06 |
-| [0002](0002-repo-level-write-controls.md) | Repository-level write controls live in GitHub settings | accepted | 2026-07-06 |
-| [0003](0003-in-repo-presentation-poc.md) | In-repo presentation proof of concept (GitHub Pages + published SQLite) | accepted | 2026-07-07 |
-| [0004](0004-foi-source-lane.md) | FOI source lane — request-keyed entries, data optional, correspondence always | accepted | 2026-07-07 |
-| [0005](0005-canonical-callsign-forms.md) | Canonical callsign forms (`cleaned` / `placeholder_form`) as the join strategy | accepted | 2026-07-09 |
-| [0006](0006-componentisation-strategy.md) | Reusable UI modules via native Web Components, not a framework | proposed | 2026-07-09 |
-| [0007](0007-coverage-dashboard-placement.md) | Publish the coverage dashboard as a site page, keep a workflow alarm | proposed | 2026-07-09 |
-| [0008](0008-offline-first-pwa.md) | Offline-first progressive web app with opt-in full-database download | accepted | 2026-07-09 |
-| [0009](0009-data-landing-via-branches-and-sweep.md) | Raw data lands on `main` via `data/*` branches and a scheduled sweep | accepted | 2026-07-10 |
-| [0010](0010-archive-contract.md) | The archive contract: raw bytes verbatim, keyed, provenanced, accepted before processability | accepted | 2026-07-10 |
-| [0011](0011-two-tier-architecture.md) | Two-tier architecture: a minimal residential fetch host, everything else in-repo | accepted | 2026-07-10 |
-| [0012](0012-supply-chain-posture.md) | Supply-chain posture: a minimal, auditable dependency and write surface | accepted | 2026-07-10 |
-| [0013](0013-raw-keyed-claim-ledger.md) | A raw-keyed claim ledger as the canonical record, everything else a derived fold | accepted (open-data migration complete; FOI lane tracked on #455) | 2026-07-11 |
-| [0014](0014-trust-rating-safety-net.md) | The trust-rating model, derived from provenance and guarded against inflation | accepted | 2026-07-12 |
-| [0015](0015-source-intrinsic-vs-archive-provenance.md) | Source-intrinsic vs archive/processing provenance, with the filesystem-stat origin made unrepresentable | accepted | 2026-07-12 |
-| [0016](0016-file-level-claims-and-reconstruction-oracle.md) | File-level claims (sentinel ordinal, `@column`/`@subject`/`@ignored`) and the reconstruction oracle | accepted | 2026-07-12 |
-| [0017](0017-show-the-working-behind-derived-claims.md) | Show the working behind derived claims by reconstructing it on read, with a self-checking oracle | accepted | 2026-07-12 |
-| [0018](0018-attest-column-interpretation-and-within-table-flags.md) | Attest each column's inferred `{type, format}` as a derived file-level claim, and flag within-table date-format mixing / normalisation collisions | proposed | 2026-07-12 |
-| [0019](0019-layered-build-cache-and-unified-cicd.md) | Layered, content-addressed build cache with a stepped deploy fallback, and a unified `cicd.yaml` gating deploy on `main` | accepted | 2026-07-14 |
-| [0020](0020-sharded-static-json-serving.md) | Sharded static JSON as the serving projection for the single-callsign intent — no database on that path | accepted | 2026-07-16 |
-| [0021](0021-frozen-derived-baseline.md) | Freeze the committed derived baseline; the ledger projection is the derivation lane (the #446 retirement) | accepted | 2026-07-17 |
-| [0022](0022-v1-component-architecture.md) | The v1 UI component architecture: frameworkless JSDoc-typed modules, DOM-construction rendering, one implementation across build and browser | accepted | 2026-07-24 |
-| [0023](0023-fold-resource-tuning-by-measurement.md) | Report-fold resource tuning is settled by controlled measurement; no lever survives without evidence | accepted | 2026-07-28 |
-| [0024](0024-ledger-serialisation-format.md) | JSON Lines is the ledger serialisation; records the four load-bearing properties, the measured bar an alternative must clear, and why TSV looks viable but is blocked | accepted | 2026-07-29 |
+<table>
+  <thead>
+    <tr>
+      <th>ADR</th>
+      <th>Decision</th>
+      <th>What would reverse it</th>
+      <th>Status</th>
+      <th>Date</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="0001-post-fetch-processing-in-repo.md">ADR 0001</a></td>
+      <td>Post-fetch processing runs in this repository via scheduled, PR-gated GitHub Actions</td>
+      <td>Processing outgrows the Actions runner, or a write path wider than opening pull requests becomes unavoidable</td>
+      <td>accepted</td>
+      <td>2026-07-06</td>
+    </tr>
+    <tr>
+      <td><a href="0002-repo-level-write-controls.md">ADR 0002</a></td>
+      <td>Repository-level write controls live in GitHub settings</td>
+      <td>Moving off GitHub, or GitHub changing its settings model. <strong>This record must be edited whenever the settings change</strong> — it is their only source of truth, so it goes stale silently</td>
+      <td>accepted</td>
+      <td>2026-07-06</td>
+    </tr>
+    <tr>
+      <td><a href="0003-in-repo-presentation-poc.md">ADR 0003</a></td>
+      <td>In-repo presentation proof of concept (GitHub Pages + published SQLite)</td>
+      <td>Largely overtaken already: amended 2026-07-16, and <a href="0020-sharded-static-json-serving.md">ADR 0020</a> took the single-callsign path off this one. Reverses fully if the site outgrows frameworkless static hosting</td>
+      <td>accepted</td>
+      <td>2026-07-07</td>
+    </tr>
+    <tr>
+      <td><a href="0004-foi-source-lane.md">ADR 0004</a></td>
+      <td>FOI source lane — request-keyed entries, data optional, correspondence always</td>
+      <td>A source that is neither request-keyed nor date-keyed, so neither lane can hold it without a split rule</td>
+      <td>accepted</td>
+      <td>2026-07-07</td>
+    </tr>
+    <tr>
+      <td><a href="0005-canonical-callsign-forms.md">ADR 0005</a></td>
+      <td>Canonical callsign forms (<code>cleaned</code> / <code>placeholder_form</code>) as the join strategy</td>
+      <td>A callsign family that neither <code>cleaned</code> nor <code>placeholder_form</code> can unify — the two forms are unifiers, not identity claims, so a family needing a third would force the question</td>
+      <td>accepted</td>
+      <td>2026-07-09</td>
+    </tr>
+    <tr>
+      <td><a href="0006-componentisation-strategy.md">ADR 0006</a></td>
+      <td>Reusable UI modules via native Web Components, not a framework</td>
+      <td>Stated in the record itself: only if a need for framework reactivity/DX becomes strong enough to justify reversing <a href="0002-repo-level-write-controls.md">ADR 0002</a> — and that requires its own ADR. Refined, not reversed, by <a href="0022-v1-component-architecture.md">ADR 0022</a></td>
+      <td>proposed</td>
+      <td>2026-07-09</td>
+    </tr>
+    <tr>
+      <td><a href="0007-coverage-dashboard-placement.md">ADR 0007</a></td>
+      <td>Publish the coverage dashboard as a site page, keep a workflow alarm</td>
+      <td>A drift signal that a static page cannot carry, since a page cannot itself go red — the workflow alarm exists for exactly that gap</td>
+      <td>proposed</td>
+      <td>2026-07-09</td>
+    </tr>
+    <tr>
+      <td><a href="0008-offline-first-pwa.md">ADR 0008</a></td>
+      <td>Offline-first progressive web app with opt-in full-database download</td>
+      <td>Database size or the Range-from-cache memory cost making an offline copy impractical on a normal device</td>
+      <td>accepted</td>
+      <td>2026-07-09</td>
+    </tr>
+    <tr>
+      <td><a href="0009-data-landing-via-branches-and-sweep.md">ADR 0009</a></td>
+      <td>Raw data lands on <code>main</code> via <code>data/*</code> branches and a scheduled sweep</td>
+      <td>The fetch host needing a write path beyond <code>data/*</code> branches, or a legitimate diff the path allowlist cannot express</td>
+      <td>accepted</td>
+      <td>2026-07-10</td>
+    </tr>
+    <tr>
+      <td><a href="0010-archive-contract.md">ADR 0010</a></td>
+      <td>The archive contract: raw bytes verbatim, keyed, provenanced, accepted before processability</td>
+      <td><strong>Effectively nothing.</strong> The verbatim-bytes guarantee and its <code>.gitattributes</code> binary markings are a hard invariant that idempotence and reconstruction both rest on, not a preference to be traded</td>
+      <td>accepted</td>
+      <td>2026-07-10</td>
+    </tr>
+    <tr>
+      <td><a href="0011-two-tier-architecture.md">ADR 0011</a></td>
+      <td>Two-tier architecture: a minimal residential fetch host, everything else in-repo</td>
+      <td>A second fetch host (the split earns its keep at N=1; N≥2 reopens shared configuration management), or fetching ceasing to need a residential IP</td>
+      <td>accepted</td>
+      <td>2026-07-10</td>
+    </tr>
+    <tr>
+      <td><a href="0012-supply-chain-posture.md">ADR 0012</a></td>
+      <td>Supply-chain posture: a minimal, auditable dependency and write surface</td>
+      <td>A genuinely required capability with no pure-JS and no pinned-checksummed-binary route. Tested and held on #979, where the PDF tooling lane was resolved with script engines rather than a relaxed posture</td>
+      <td>accepted</td>
+      <td>2026-07-10</td>
+    </tr>
+    <tr>
+      <td><a href="0013-raw-keyed-claim-ledger.md">ADR 0013</a></td>
+      <td>A raw-keyed claim ledger as the canonical record, everything else a derived fold</td>
+      <td>Foundational — too situational for one line. The FOI lane has not made this crossing (its text sources are ledger-lossy, with a parallel oracle mirror standing in); see the record and <a href="0021-frozen-derived-baseline.md">ADR 0021</a></td>
+      <td>accepted (open-data migration complete; FOI lane tracked on #455)</td>
+      <td>2026-07-11</td>
+    </tr>
+    <tr>
+      <td><a href="0014-trust-rating-safety-net.md">ADR 0014</a></td>
+      <td>The trust-rating model, derived from provenance and guarded against inflation</td>
+      <td>A legitimate case where trust must <em>increase</em> through derivation — the committed checks deliberately make that fail loud, so it cannot happen quietly</td>
+      <td>accepted</td>
+      <td>2026-07-12</td>
+    </tr>
+    <tr>
+      <td><a href="0015-source-intrinsic-vs-archive-provenance.md">ADR 0015</a></td>
+      <td>Source-intrinsic vs archive/processing provenance, with the filesystem-stat origin made unrepresentable</td>
+      <td>A fact that is genuinely both source-intrinsic and archive-side, which the predicate-namespace split cannot express</td>
+      <td>accepted</td>
+      <td>2026-07-12</td>
+    </tr>
+    <tr>
+      <td><a href="0016-file-level-claims-and-reconstruction-oracle.md">ADR 0016</a></td>
+      <td>File-level claims (sentinel ordinal, <code>@column</code>/<code>@subject</code>/<code>@ignored</code>) and the reconstruction oracle</td>
+      <td>A lane whose sources cannot be reconstructed from claims. Already partly live: the FOI text lanes are ledger-lossy and carry an honest residual rather than a clean oracle</td>
+      <td>accepted</td>
+      <td>2026-07-12</td>
+    </tr>
+    <tr>
+      <td><a href="0017-show-the-working-behind-derived-claims.md">ADR 0017</a></td>
+      <td>Show the working behind derived claims by reconstructing it on read, with a self-checking oracle</td>
+      <td>Recomputation cost outgrowing the cost of storing the working — the decision rests on <code>explain()</code> being cheap enough to run on demand</td>
+      <td>accepted</td>
+      <td>2026-07-12</td>
+    </tr>
+    <tr>
+      <td><a href="0018-attest-column-interpretation-and-within-table-flags.md">ADR 0018</a></td>
+      <td>Attest each column's inferred <code>{type, format}</code> as a derived file-level claim, and flag within-table date-format mixing / normalisation collisions</td>
+      <td>Column-type inference becoming unreliable enough that formats must be declared rather than inferred and attested</td>
+      <td>proposed</td>
+      <td>2026-07-12</td>
+    </tr>
+    <tr>
+      <td><a href="0019-layered-build-cache-and-unified-cicd.md">ADR 0019</a></td>
+      <td>Layered, content-addressed build cache with a stepped deploy fallback, and a unified <code>cicd.yaml</code> gating deploy on <code>main</code></td>
+      <td>Too situational for one line — the live tension is that narrowing a cache closure risks a stale-artefact false hit, which is worse than a false miss. See the record and <a href="../ci-cache-behaviour.md"><code>../ci-cache-behaviour.md</code></a></td>
+      <td>accepted</td>
+      <td>2026-07-14</td>
+    </tr>
+    <tr>
+      <td><a href="0020-sharded-static-json-serving.md">ADR 0020</a></td>
+      <td>Sharded static JSON as the serving projection for the single-callsign intent — no database on that path</td>
+      <td>Shard count or size outgrowing static hosting, or the single-callsign intent needing a query static JSON cannot answer</td>
+      <td>accepted</td>
+      <td>2026-07-16</td>
+    </tr>
+    <tr>
+      <td><a href="0021-frozen-derived-baseline.md">ADR 0021</a></td>
+      <td>Freeze the committed derived baseline; the ledger projection is the derivation lane (the #446 retirement)</td>
+      <td>A consumer needing live re-derivation of a publication from before the freeze</td>
+      <td>accepted</td>
+      <td>2026-07-17</td>
+    </tr>
+    <tr>
+      <td><a href="0022-v1-component-architecture.md">ADR 0022</a></td>
+      <td>The v1 UI component architecture: frameworkless JSDoc-typed modules, DOM-construction rendering, one implementation across build and browser</td>
+      <td>Too situational for one line — reverses if the one-shot progressive-enhancement model cannot express a required interaction. See the record</td>
+      <td>accepted</td>
+      <td>2026-07-24</td>
+    </tr>
+    <tr>
+      <td><a href="0023-fold-resource-tuning-by-measurement.md">ADR 0023</a></td>
+      <td>Report-fold resource tuning is settled by controlled measurement; no lever survives without evidence</td>
+      <td>Not reversible as such: it is a method, not a setting. The individual <strong>pins</strong> it produced are expected to be revisited on a corpus, Node or runner change</td>
+      <td>accepted</td>
+      <td>2026-07-28</td>
+    </tr>
+    <tr>
+      <td><a href="0024-ledger-serialisation-format.md">ADR 0024</a></td>
+      <td>JSON Lines is the ledger serialisation; records the four load-bearing properties, the measured bar an alternative must clear, and why TSV looks viable but is blocked</td>
+      <td>Seven explicit triggers, too many for one line — see <a href="0024-ledger-serialisation-format.md">the record's "Revisit when" section</a></td>
+      <td>accepted</td>
+      <td>2026-07-29</td>
+    </tr>
+  </tbody>
+</table>
 
 ## What goes where — narrative, state of play, and decision
 
@@ -69,7 +224,7 @@ reading forty comments in order. They are different **tenses**, written for
 different readers.
 
 | surface | tense | its job | the reader |
-|---|---|---|---|
+|---|---|---|---|---|
 | **Issue comments** | past, append-only | narrative as it happened — what was tried, what was measured, what was wrong and how we knew | someone reconstructing how we got here |
 | **Issue body** | present, curated, rewritten in place | state of play — what is true *now*, what is next, links to the load-bearing comments | someone joining or resuming |
 | **ADR** | perpetual present | the decision, why it was taken, what it costs, and what would reverse it | someone about to change something |

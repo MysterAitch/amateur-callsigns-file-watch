@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import { JSDOM } from 'jsdom';
 
 // Decision-index contract.
 //
@@ -27,22 +28,50 @@ import * as path from 'path';
 const ADR_DIR = path.join('docs', 'adr');
 const INDEX = path.join(ADR_DIR, 'README.md');
 
-interface IndexRow { id: string; href: string; decision: string; status: string; date: string }
+interface IndexRow { id: string; href: string; decision: string; reverses: string; status: string; date: string }
 
 function adrFiles(): string[] {
   return fs.readdirSync(ADR_DIR).filter(f => /^\d{4}-.+\.md$/.test(f)).sort();
 }
 
-// `| [0024](0024-….md) | decision text | accepted | 2026-07-29 |`
+// The index is an HTML table, one cell per line, rendered by GitHub inside the
+// Markdown page. Markdown was outgrown rather than disliked: a five-column pipe
+// table put every row on one ~330-character line (max 436), so editing any single
+// cell marked the whole row changed in a diff — the row-level-versus-claim-grain
+// problem ADR 0024 sets out, reproduced in this project's own documentation. It
+// also cannot hold a list inside a cell, which reversal conditions will want.
+//
+// Note markdown is NOT processed inside a raw HTML block, so cells carry real
+// tags (`<strong>`, `<code>`, `<a>`) rather than markdown that would render
+// literally.
+//
+// Parsed with jsdom — already a dependency for the render codebase (ADR 0022) —
+// rather than by regular expression. A regex over HTML is right until the markup
+// gains an attribute, a nested tag or a line break in a place it did not expect,
+// at which point it fails by silently matching less rather than by erroring, and
+// this file's whole purpose is to make silent under-coverage impossible.
+function parsedIndex(): Document {
+  return new JSDOM(fs.readFileSync(INDEX, 'utf8')).window.document;
+}
+
 function indexRows(): IndexRow[] {
-  const text = fs.readFileSync(INDEX, 'utf8').replace(/\r\n/g, '\n');
-  const rows: IndexRow[] = [];
-  for (const line of text.split('\n')) {
-    const m = line.match(/^\|\s*\[(\d{4})\]\(([^)]+)\)\s*\|(.+?)\|(.+?)\|(.+?)\|\s*$/);
-    if (m === null) continue;
-    rows.push({ id: m[1], href: m[2], decision: m[3].trim(), status: m[4].trim(), date: m[5].trim() });
-  }
-  return rows;
+  const table = parsedIndex().querySelector('table');
+  if (table === null) throw new Error(`no <table> found in ${INDEX}`);
+  return [...table.querySelectorAll('tbody tr')].map(tr => {
+    const cells = [...tr.querySelectorAll('td')];
+    if (cells.length !== 5) throw new Error(`index row has ${cells.length} cells, expected 5`);
+    const anchor = cells[0].querySelector('a');
+    if (anchor === null) throw new Error(`index row's first cell has no link: ${cells[0].textContent ?? ''}`);
+    const id = (anchor.textContent ?? '').replace(/^ADR\s+/, '').trim();
+    return {
+      id,
+      href: anchor.getAttribute('href') ?? '',
+      decision: (cells[1].textContent ?? '').trim(),
+      reverses: (cells[2].textContent ?? '').trim(),
+      status: (cells[3].textContent ?? '').trim(),
+      date: (cells[4].textContent ?? '').trim(),
+    };
+  });
 }
 
 function adrText(file: string): string {
@@ -64,6 +93,45 @@ function statusHead(status: string): string {
 }
 
 describe('ADR decision index', { tags: ['unit'] }, () => {
+  it('EveryIndexRow_WhenParsed_CarriesAtLeastOneResolvableLink', () => {
+    // A PER-ROW precondition, deliberately stronger than the aggregate checks.
+    //
+    // The aggregate link check can pass for the wrong reason: if the parser stops
+    // seeing links — a markup change, a selector that no longer matches — it
+    // reports zero broken links out of zero examined and goes green. That already
+    // happened once here, when the table converted from markdown to HTML and the
+    // markdown-only matcher quietly stopped covering 24 links.
+    //
+    // Anchoring the assertion to each ROW makes that failure impossible: a row
+    // that yields no link fails on its own account, whatever the totals say.
+    //
+    // ONE link, not two. The first cell's ADR link is mandatory; the reversal cell
+    // carries one only when it signposts to a longer discussion, so demanding two
+    // would fail precisely on the rows that succeeded in compressing an answer.
+    // Walks the DOM directly rather than going through `indexRows`, which throws
+    // on a row it cannot parse. A throw is a fine failure mode but a poor
+    // DIAGNOSTIC: it names the parser's disappointment, not the offending row.
+    // This check exists to say which row is wrong and how.
+    const table = parsedIndex().querySelector('table');
+    if (table === null) throw new Error(`no <table> found in ${INDEX}`);
+    const bodyRows = [...table.querySelectorAll('tbody tr')];
+    expect(bodyRows.length, 'rows parsed from the index table').toBeGreaterThan(0);
+
+    const faults: string[] = [];
+    bodyRows.forEach((tr, i) => {
+      const label = `row ${i + 1}`;
+      const anchor = tr.querySelector('a[href]');
+      if (anchor === null) { faults.push(`${label}: no link at all`); return; }
+      const href = anchor.getAttribute('href') ?? '';
+      const id = (anchor.textContent ?? '').replace(/^ADR\s+/, '').trim();
+      if (href === '') faults.push(`${label}: link has no href`);
+      else if (!fs.existsSync(path.resolve(ADR_DIR, href))) faults.push(`${label}: ${href} does not exist`);
+      if (!/^\d{4}$/.test(id)) faults.push(`${label}: link text is not an ADR number ('${id}')`);
+      else if (href !== '' && !href.startsWith(id)) faults.push(`${label}: labelled ADR ${id} but links to ${href}`);
+    });
+    expect(faults).toEqual([]);
+  });
+
   it('EveryAdrFile_WhenTheIndexIsRead_HasExactlyOneRow', () => {
     const rows = indexRows();
     const indexed = rows.map(r => r.href).sort();
@@ -112,15 +180,29 @@ describe('ADR decision index', { tags: ['unit'] }, () => {
     // The failure this catches is a RENAME elsewhere in the repo: nothing about a
     // dead link looks wrong until someone clicks it, so the rot is silent and the
     // index's discoverability claim quietly stops being true.
+    // BOTH link forms. The index table is HTML (see `indexRows`), so a checker
+    // that only understood markdown `](…)` would silently stop covering its 24
+    // links the moment the table converted — passing not because the links are
+    // sound but because it had stopped looking. The count assertion below exists
+    // to make that failure mode impossible to reach quietly.
     const broken: string[] = [];
+    let checked = 0;
     for (const file of adrFiles().concat('README.md')) {
-      for (const link of adrText(file).matchAll(/\]\(([^)]+)\)/g)) {
-        const href = link[1].split('#')[0].trim();
+      const text = adrText(file);
+      // Markdown links by pattern (they are not HTML and jsdom cannot see them);
+      // embedded HTML links through the parser, for the reason given above.
+      const htmlHrefs = [...new JSDOM(text).window.document.querySelectorAll('a[href]')]
+        .map(a => a.getAttribute('href') ?? '');
+      const hrefs = [...[...text.matchAll(/\]\(([^)]+)\)/g)].map(m => m[1]), ...htmlHrefs];
+      for (const raw of hrefs) {
+        const href = raw.split('#')[0].trim();
         if (href === '' || /^(https?:|mailto:)/.test(href)) continue;
+        checked++;
         if (!fs.existsSync(path.resolve(ADR_DIR, href))) broken.push(`${file} -> ${href}`);
       }
     }
     expect(broken).toEqual([]);
+    expect(checked, 'links actually resolved — a green run over zero links proves nothing').toBeGreaterThan(50);
   });
 
   it('EveryIndexRow_WhenComparedToItsAdr_AgreesOnStatusAndDate', () => {
@@ -144,6 +226,31 @@ describe('ADR decision index', { tags: ['unit'] }, () => {
     // but it catches the actual regression: a new row pasted in as a short title.
     const thin = indexRows().filter(r => r.decision.length < 40).map(r => `${r.id}: ${r.decision}`);
     expect(thin, 'index rows that state too little to judge relevance from').toEqual([]);
+  });
+
+  it('EveryIndexRow_WhenAskedWhatWouldReverseTheDecision_AnswersOrSaysItCannotBeCompressed', () => {
+    // The column that keeps the index honest about the PRESENT rather than only
+    // recording the past. A blank cell is the failure: it reads as "nothing would
+    // reverse this", which is a far stronger claim than anyone meant to make.
+    //
+    // An explicit escape hatch is legitimate and expected — some conditions are
+    // genuinely too situational to compress, and a forced one-liner would
+    // overstate. What that costs is a SIGNPOST: say it does not compress, and
+    // point at the record. Silence is not an option; vagueness must be declared.
+    //
+    // "Effectively nothing" and "not reversible as such" are NOT evasions — they
+    // are complete answers, and requiring them to signpost elsewhere would be
+    // asking for a pointer to a discussion that does not exist. Only a genuine
+    // decline-to-compress owes the reader a destination.
+    const bad: string[] = [];
+    for (const row of indexRows()) {
+      if (row.reverses === '' || row.reverses === '—') { bad.push(`${row.id}: empty`); continue; }
+      const signposts = /see (the record|\[)|section\]|\.md\)/i.test(row.reverses);
+      const declinesToCompress = /too situational|too many for one line/i.test(row.reverses);
+      if (declinesToCompress && !signposts) bad.push(`${row.id}: declines to summarise without signposting where the answer is`);
+      if (row.reverses.length < 25) bad.push(`${row.id}: too thin to be a condition ('${row.reverses}')`);
+    }
+    expect(bad).toEqual([]);
   });
 
   it('DecisionsRecordedOutsideTheAdrSet_WhenTheIndexIsRead_AreSignpostedWithTheirEnforcement', () => {
