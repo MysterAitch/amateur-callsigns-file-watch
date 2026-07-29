@@ -26,6 +26,16 @@
 name: perf-matrix
 
 on:
+  # LABEL-GATED on pull requests. The full matrix is ~50 jobs, so it must never
+  # fire on every PR - but a PR that changes something performance-relevant is
+  # exactly when the controlled comparison is worth having, and asking someone to
+  # remember to dispatch it afterwards means it will not happen.
+  #
+  # `labeled` fires when the label is ADDED, so the matrix runs once on demand
+  # rather than on every subsequent push to the branch. Remove and re-add the
+  # label to run it again.
+  pull_request:
+    types: [labeled]
   workflow_dispatch:
     inputs:
       repetitions:
@@ -46,6 +56,9 @@ permissions:
 
 jobs:
   plan:
+    # On a pull_request event, proceed only for the opt-in label. Every other
+    # label change is ignored, so labelling a PR `bug` does not spend 50 jobs.
+    if: ${{ github.event_name != 'pull_request' || github.event.label.name == 'perf-matrix' }}
     runs-on: ubuntu-latest
     outputs:
       arms: ${{ steps.plan.outputs.arms }}
