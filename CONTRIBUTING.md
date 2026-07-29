@@ -35,6 +35,23 @@ long after the world has moved, and the cost of that failure is recorded in
 Don't turn this into a tickbox exercise: delete sections that don't apply and
 don't pad. Pragmatism wins.
 
+## Writing conventions
+
+### Dashes differ by surface, deliberately
+
+- **Reader-facing generated site copy: a spaced en dash** (` – `). Established by the
+  typography pass on the v1 surfaces, where unspaced em dashes read heavy in short
+  rendered strings and at small sizes.
+- **Documentation and repository prose: the em dash** (`—`), unspaced. This is the
+  established style here by a wide margin, and the two settled bi-temporal glosses
+  are kept verbatim wherever they appear.
+- **Numeric ranges: an en dash** on every surface (`2016–2024`, `19–25%`).
+
+The split is worth stating because it is easy to assume one rule covers both, and
+acting on that assumption would rewrite several hundred instances in `docs/` to no
+benefit. If you are changing dashes in bulk, you are almost certainly applying the
+wrong surface's rule — check which surface the text ships to first.
+
 ## Site-wide engineering baseline
 
 These principles are the floor for **every** user-facing feature, not only the
