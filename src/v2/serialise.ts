@@ -2,8 +2,15 @@
  * Serialisations of the claim ledger.
  *
  * Canonical: JSON Lines (claims.jsonl) — one claim per line, approachable,
- * git-diffable, and natively loadable by DuckDB. This is the committed
- * source-of-truth format.
+ * git-diffable, and natively loadable by DuckDB. This is the source-of-truth
+ * format the project has settled on; see ADR 0024 for the reasoning, the
+ * measured evidence, and the bar an alternative must clear.
+ *
+ * "Canonical" is about the FORMAT, not about a tracked file: the ledger is
+ * emitted to a build-output directory and discarded, and no .jsonl is committed
+ * to the repository. Whether one should be is an open question rather than an
+ * unimplemented decision. Worth stating because "git-diffable" above describes a
+ * property of the format that nothing currently exercises.
  *
  * Derived: a thin N-Quads export for linked-data consumers, provably a fold of
  * the JSONL. Each claim becomes a quad in a per-source named graph, with the

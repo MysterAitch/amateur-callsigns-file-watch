@@ -22,17 +22,20 @@ that looks viable and is not.
 ADR 0013 decides the **ledger model**: raw-keyed claims as the canonical record,
 everything else a derived fold. That decision stands entirely unchanged.
 
-This ADR supplements it by expanding **one clause** — "the committed canonical
-serialisation is JSON Lines" — into the reasoning, the measured evidence, and a
+This ADR supplements it by expanding **one clause** — that the canonical
+serialisation is JSON Lines — into the reasoning, the measured evidence, and a
 bar for alternatives. The format decision is 0013's; what is new here is *why*,
 *how much*, and *what would change it*.
 
-It also **clarifies an ambiguity** in that clause. "Committed" reads two ways:
-the serialisation the project has *committed to*, or a file *committed to git*.
-No `.jsonl` has ever been committed, so only the first reading matches reality.
-This ADR adopts that reading and records the second as an open question rather
-than an unimplemented decision — see "The commit question" below. Nothing in
-0013 is reversed; an ambiguity is resolved and its evidence attached.
+It also prompted a **wording fix in 0013**. That clause formerly read "the
+committed canonical serialisation", which carries two readings: the serialisation
+the project has *committed to*, or a file *committed to git*. No `.jsonl` has ever
+been in git, so only the first matched reality — but the second is the natural
+reading in a document that elsewhere uses "committed" to mean precisely "tracked
+in the repository" (of golden masters, of `normalised.csv`, of the reconstruction
+oracle). 0013 now says "canonical" and states the ledger's build-output status
+outright. Nothing in 0013 is reversed; ambiguous wording is repaired and the
+evidence attached.
 
 ## Three orthogonal concerns, routinely conflated
 
@@ -56,9 +59,8 @@ evaluating any proposal.
 order, UTF-8, newline-delimited.
 
 **The ledger is NOT committed to git.** It is built to a temporary directory and
-deleted. ADR 0013's phrase "the committed canonical serialisation" describes the
-serialisation the project has *committed to*, not a file checked into the
-repository; no `.jsonl` has ever been committed. See "The commit question" below.
+deleted; no `.jsonl` has ever been in the repository. Whether one should be is an
+open question, not an unimplemented decision — see "The commit question" below.
 
 **Compression is not applied on the build path.** Per the build-vs-publish
 principle, compression is a publish responsibility (see "Compression" below).
