@@ -149,6 +149,27 @@ line-delimited. Proposals to "minify" target 0.4%.
 
 Full-corpus emit takes ~101 s.
 
+### Reproducing these numbers
+
+A bar stated in figures is only enforceable if the figures can be regenerated, so
+the measuring tool is committed rather than left as a one-off:
+
+```
+node src/ci/ledger-format-bench.ts [sourceCount] [--out results.json]
+```
+
+It emits the real ledger, then for each of the N largest sources reports bytes,
+serialise time, write time and DuckDB ingest time per candidate format — and
+counts TSV-unsafe values, which is how the TSV block below was found rather than
+assumed.
+
+**Two caveats when quoting it.** It profiles the N largest sources, not all 71,
+because the production emit is per-source precisely because the corpus does not
+fit in memory; a corpus total is an extrapolation and should be labelled as one.
+And it deliberately runs on the real corpus — the synthetic figures that preceded
+it were wrong in *direction*, not just magnitude (zstd level ordering inverts
+above ~26 MB), so a synthetic re-run does not discharge this bar.
+
 ## The bar: what an alternative must demonstrate
 
 A proposal to change the serialisation must show, **with measurements on the real
