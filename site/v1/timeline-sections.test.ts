@@ -216,6 +216,30 @@ describe('v1 timeline — embedded readout data', { tags: ['unit'] }, () => {
     expect(encodeReadoutData(data as never).length).toBeLessThan(JSON.stringify(data).length);
   });
 
+  it('EmbeddedReadoutData_WhenAFigureIsNotANumber_RejectsThePayloadRatherThanReadingItAsZero', () => {
+    // A count coerced to zero would state a WRONG FIGURE, and a citation index
+    // coerced to zero would name the WRONG PUBLICATION. Both are worse than no
+    // scrubber, because the served readout beneath is intact and correct.
+    const data = makeData();
+    const corrupt = (mutate: (buckets: unknown[][]) => void): string => {
+      const decoded = JSON.parse(encodeReadoutData(data as never)) as unknown[];
+      mutate(decoded[4] as unknown[][]);
+      return JSON.stringify(decoded);
+    };
+    expect(decodeReadoutData(corrupt((b) => { b[0][1] = 'lots'; })), 'starts-to-date').toBeNull();
+    expect(decodeReadoutData(corrupt((b) => { b[0][2] = null; })), 'reservations').toBeNull();
+    expect(decodeReadoutData(corrupt((b) => { b[0][5] = ['nope']; })), 'citation index').toBeNull();
+    expect(decodeReadoutData(corrupt((b) => { b[0][0] = ''; })), 'year').toBeNull();
+  });
+
+  it('EmbeddedReadoutData_WhenACitationIndexNamesNoPublication_DropsItRatherThanGuessing', () => {
+    const data = makeData();
+    const decoded = JSON.parse(encodeReadoutData(data as never)) as unknown[];
+    (decoded[4] as unknown[][])[0][5] = [0, 99];
+    const out = decodeReadoutData(JSON.stringify(decoded));
+    expect(out?.buckets[0]?.datasetIdxs).toEqual([0]);
+  });
+
   it('EmbeddedReadoutData_WhenTheAttributeIsCorrupt_DegradesToTheStaticReadout', () => {
     // Unhappy path: a truncated or replaced payload must leave the served
     // figures standing rather than throwing or showing a wrong number.

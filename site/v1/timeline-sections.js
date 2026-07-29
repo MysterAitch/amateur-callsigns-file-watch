@@ -326,15 +326,21 @@ export function encodeReadoutData(data) {
 
 /** @param {unknown} v @returns {string} */
 const asString = (v) => (typeof v === 'string' ? v : '');
-/** @param {unknown} v @returns {number} */
-const asNumber = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+/** A finite number, or null where the value is not one — never a stand-in zero.
+ * @param {unknown} v @returns {number | null} */
+const asNumber = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 /** @param {unknown} v @returns {unknown[]} */
 const asArray = (v) => (Array.isArray(v) ? v : []);
 
 /**
- * Decode the embedded payload. Every field is validated rather than asserted:
- * a page whose payload was truncated or replaced degrades to no scrubber over
- * an intact static readout, never to a wrong figure.
+ * Decode the embedded payload.
+ *
+ * Every field is VALIDATED rather than coerced, and a value that is not what it
+ * should be rejects the whole payload rather than standing in for it. Coercing a
+ * missing count to zero, or a missing citation index to the first publication,
+ * would put a WRONG FIGURE or a WRONG SOURCE in front of a reader — worse than
+ * no scrubber at all, because the static readout beneath is intact and correct.
+ * Returning null degrades the page to exactly that.
  * @param {string} json
  * @returns {ReadoutData | null}
  */
@@ -353,37 +359,64 @@ export function decodeReadoutData(json) {
     label: asString(asArray(c)[1]),
     gloss: asString(asArray(c)[2]),
   }));
-  const buckets = asArray(parsed[4]).map((raw) => {
+  const datasets = asArray(parsed[1]).map((d) => ({
+    key: asString(asArray(d)[0]),
+    vintage: asString(asArray(d)[1]),
+    title: asString(asArray(d)[2]),
+  }));
+
+  /** @type {TimelineBucket[]} */
+  const buckets = [];
+  for (const raw of asArray(parsed[4])) {
     const b = asArray(raw);
+    const startsToDate = asNumber(b[1]);
+    const activeReservations = asNumber(b[2]);
+    const year = asString(b[0]);
+    if (year === '' || startsToDate === null || activeReservations === null) return null;
+
     /** @type {Record<string, number>} */
     const perKind = {};
-    asArray(b[3]).forEach((n, i) => {
+    const counts = asArray(b[3]);
+    for (let i = 0; i < counts.length; i += 1) {
+      const n = asNumber(counts[i]);
       const kind = kinds[i];
-      if (kind !== undefined && asNumber(n) !== 0) perKind[kind.id] = asNumber(n);
-    });
-    return {
-      year: asString(b[0]),
-      startsToDate: asNumber(b[1]),
-      activeReservations: asNumber(b[2]),
-      perKind,
-      topSeries: /** @type {Array<[string, number]>} */ (
-        asArray(b[4]).map((s) => [asString(asArray(s)[0]), asNumber(asArray(s)[1])])),
-      datasetIdxs: asArray(b[5]).map(asNumber),
-      caveatIds: asArray(b[6]).map((i) => caveats[asNumber(i)]?.id ?? '').filter((id) => id !== ''),
-    };
-  });
+      if (n === null) return null;
+      if (kind !== undefined && n !== 0) perKind[kind.id] = n;
+    }
+
+    /** @type {Array<[string, number]>} */
+    const topSeries = [];
+    for (const s of asArray(b[4])) {
+      const series = asString(asArray(s)[0]);
+      const n = asNumber(asArray(s)[1]);
+      if (series === '' || n === null) return null;
+      topSeries.push([series, n]);
+    }
+
+    // A citation index that does not resolve is dropped rather than guessed at:
+    // naming the wrong publication is the one failure this surface must not
+    // have. The static readout already carries the correct citations.
+    /** @type {number[]} */
+    const datasetIdxs = [];
+    for (const idx of asArray(b[5])) {
+      const i = asNumber(idx);
+      if (i === null) return null;
+      if (datasets[i] !== undefined) datasetIdxs.push(i);
+    }
+
+    /** @type {string[]} */
+    const caveatIds = [];
+    for (const idx of asArray(b[6])) {
+      const i = asNumber(idx);
+      if (i === null) return null;
+      const caveat = caveats[i];
+      if (caveat !== undefined && caveat.id !== '') caveatIds.push(caveat.id);
+    }
+
+    buckets.push({ year, startsToDate, activeReservations, perKind, topSeries, datasetIdxs, caveatIds });
+  }
   if (buckets.length === 0) return null;
-  return {
-    asAt: asString(parsed[0]),
-    datasets: asArray(parsed[1]).map((d) => ({
-      key: asString(asArray(d)[0]),
-      vintage: asString(asArray(d)[1]),
-      title: asString(asArray(d)[2]),
-    })),
-    kinds,
-    caveats,
-    buckets,
-  };
+  return { asAt: asString(parsed[0]), datasets, kinds, caveats, buckets };
 }
 
 // How long to wait after the last scrub before announcing, so dragging the
