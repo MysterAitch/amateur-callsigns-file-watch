@@ -130,3 +130,76 @@ part of the schedule.
 Run `npm run setup:duckdb` once to install the pinned DuckDB CLI locally; the
 report-fold and report-sweep tests fold committed reports through it and skip
 (with a pointer back to this command) until it is present.
+
+## Test conventions
+
+### Prefer a round-trip where a change spans layers
+
+Where a change crosses layers — render → serialise → parse, encode → decode,
+build → fetch → render, claims → text — reach for a **round-trip** before
+reaching for more granular unit tests.
+
+Their value shape is unusual, and easy to undervalue by the wrong yardstick:
+
+- **Low diagnostic granularity, wide net.** A round-trip rarely says *where* the
+  fault is. What it does is exercise a tall stack in one cheap assertion, so it
+  catches gaps no individual layer's tests can see — including ones nobody
+  thought to look for.
+- **The red flag is the deliverable.** A failure says *"something odd is going on
+  here — it may be deliberate, but it warrants a closer look."* That signal is the
+  point. Do not weaken a round-trip to quieten it; investigate what it caught.
+- **Usually cheap to construct** relative to the coverage it buys. That ratio is
+  the argument for them.
+
+A worked example, from the history journeys' static baseline. An HTML parser
+**ends an open `<p>` at a `<details>` start tag**. A render placed citations
+inside paragraphs; the DOM tree was correct and the serialised markup was
+correct, but it **reparsed into a different tree** — the citations became
+siblings of the paragraph rather than its children. That is invisible to a
+browser-only render and to any unit test that never round-trips. It was caught
+only by serialising, reparsing, and comparing against the tree the render built,
+which is now a build-time assertion with a test proving the assertion can fail.
+
+The reconstruction oracle is the same idea at corpus scale: every registered text
+source is rebuilt from its claims alone and compared to the archived bytes, which
+is what makes the claim ledger demonstrably canonical rather than merely asserted
+to be.
+
+Pair a round-trip with a test that proves it can fail. A guard nobody has seen
+fail is not yet evidence of anything.
+
+### Every test declares its kind
+
+Each `describe` carries a `unit`, `ui` or `data-validity` tag:
+
+```js
+describe('…', { tags: ['unit'] }, () => { … })
+```
+
+This is enforced by `src/testing/test-taxonomy.test.ts`, so an untagged suite
+fails the merge check rather than being silently mis-tiered. A pull-request
+failure in the fast leg that will not reproduce on the bare branch is very often
+this: the check runs against the merge result, not the branch alone.
+
+### Assertions inside a loop need a non-empty guard
+
+A test whose assertions live entirely inside a loop over a collection derived from
+real data, with nothing asserting that the collection is non-empty, passes green
+having asserted nothing the moment that collection empties — a loader change, a
+filter that stops matching, a schema rename. Use the shared guards in
+`src/testing/non-vacuity.ts` (`sampleIndices`, `forEachSampled`,
+`assertNonEmpty`), which refuse an empty collection themselves and name which one
+in the failure message.
+
+Deliberate sampling is not this defect and is often correct — re-checking every
+row of a large source buys little and costs minutes of CI. Pinning an exact
+derived total is not this defect either; it fails loudly on drift, which is the
+opposite behaviour.
+
+### Naming
+
+Test names read `Subject_Scenario_Outcome`, describing a scenario a reader would
+recognise rather than an internal state — for example
+`OnThisDayPage_WhenServedWithNoScript_CarriesTheDatedEntriesThemselves`. Cover
+the unhappy paths alongside the happy one: what happens when the input is
+malformed, the corpus is empty, or the configuration is unexpected.
