@@ -216,7 +216,7 @@ read**, and needs no new dependency. On criteria 5, 6, 7 and 10 it beats JSONL
 outright. Dropping key names alone targets 23.1% of the bytes and quotes another
 11.9%, which matches the measured saving almost exactly.
 
-**Why it fails.** Criterion 1. A fixed TSV schema cannot carry a six-variant
+**Why it fails.** Criterion 1. A fixed TSV schema cannot carry a five-variant
 discriminated union. The options are:
 
 - **a column per variant field** — `sheet`, `sheetName`, `row`, `column`,

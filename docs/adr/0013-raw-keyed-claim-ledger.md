@@ -2,7 +2,7 @@
 
 - Status: accepted (open-data lane migration complete at ADR 0021; FOI text-source promotion complete via #813, closing #455)
 - Date: 2026-07-11
-- Related: ADR 0001 (PR-gated in-repo processing), ADR 0002 (write controls), ADR 0003 (frameworkless site, vendored `sql.js-httpvfs`), ADR 0005 (canonical callsign forms), ADR 0006 (componentisation), ADR 0008 (offline-first PWA), ADR 0010 (archive contract), ADR 0011 (two-tier architecture), ADR 0012 (supply-chain posture); issues #361 (exploration tracker), #376 (`/data-status`)
+- Related: ADR 0001 (PR-gated in-repo processing), ADR 0002 (write controls), ADR 0003 (frameworkless site, vendored `sql.js-httpvfs`), ADR 0005 (canonical callsign forms), ADR 0006 (componentisation), ADR 0008 (offline-first PWA), ADR 0010 (archive contract), ADR 0011 (two-tier architecture), ADR 0012 (supply-chain posture), ADR 0021 (the open-data lane freeze that completed this migration), ADR 0024 (expands the serialisation clause into the reasoning, evidence and bar); issues #361 (exploration tracker), #376 (`/data-status`)
 
 ## Context
 
