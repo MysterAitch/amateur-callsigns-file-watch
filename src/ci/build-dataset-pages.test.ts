@@ -24,6 +24,7 @@ import {
 } from './internal-link-crawl.ts';
 import { findUnsafeSinks, type UnsafeSink } from './output-safety-scan.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -999,7 +1000,7 @@ describe('Dataset pages build', () => {
     const sitemap = fs.readFileSync(path.join(outputDir, 'sitemap.xml'), 'utf8');
     expect(sitemap).toContain('<loc>https://example.test/site/datasets/index.html</loc>');
     expect(sitemap).toContain('<loc>https://example.test/site/explore.html</loc>');
-    for (const url of summary.pageUrls) {
+    for (const url of assertNonEmpty(summary.pageUrls, 'dataset page URLs')) {
       expect(sitemap).toContain(`<loc>${url}</loc>`);
     }
   });

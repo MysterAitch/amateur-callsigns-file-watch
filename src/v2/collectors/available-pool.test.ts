@@ -132,7 +132,11 @@ describe('sub-shape A - the 2013/14 suffix-shaped lists', { tags: ['data-validit
     const listed = claims.filter(c => c.predicate === LISTED_PREDICATE);
     expect(listed.length).toBe(obs.rows.length);
     expect(claims.length).toBe(listed.length);
-    for (const claim of listed.slice(0, 50)) {
+    // Every listed claim, not just a prefix (issue #977): the row-count checked
+    // above is itself established non-zero for this entry by the family-wide
+    // collection test, so widening costs nothing and closes the gap a `.slice`
+    // would otherwise leave from row 51 onwards.
+    for (const claim of listed) {
       expect(claim.layer).toBe('raw');
       expect(claim.rawSubject.length).toBeGreaterThan(0);
       // Bare suffix - no prefix letters synthesised onto it.
@@ -217,7 +221,9 @@ describe('sub-shape B - the 2015/16 typed Siebel exports', { tags: ['data-validi
     // sheet framing never counts as an attested register status).
     expect(attrs.find(c => c.predicate === 'Status')?.object).toBe('Available');
     expect(attrs.find(c => c.predicate === 'Type')?.object).toBe('Call Sign');
-    for (const claim of listed.slice(0, 50)) {
+    // Every listed claim, not just a prefix (issue #977) - see the sibling
+    // sub-shape-A test above for why widening is safe here.
+    for (const claim of listed) {
       expect(claim.provenance.vintage).toBe('2015-02-25');
     }
 

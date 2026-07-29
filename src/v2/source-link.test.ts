@@ -5,6 +5,7 @@ import { parse } from 'csv-parse/sync';
 import { collectOpenDataRegisterSources } from './collectors/open-data-register.ts';
 import { collectFoiRegisterSources } from './collectors/foi-register.ts';
 import { emitClaims, LISTED_PREDICATE, type SourceObservationSet } from './claim.ts';
+import { sampleIndices } from '../testing/non-vacuity.ts';
 import {
   SOURCE_REPO_URL,
   SOURCE_PERMALINK_RULE,
@@ -59,12 +60,6 @@ function subjectAtLineInCommit(repoPath: string, sha: string, subjectColumn: str
   const miniCsv = `${lines[0]}\n${lines[line - 1]}\n`;
   const records = parse(miniCsv, { columns: true, bom: true, relax_column_count: true }) as Record<string, string>[];
   return records[0]?.[subjectColumn] ?? '';
-}
-
-function sampleOrdinals(count: number, samples: number): number[] {
-  if (count <= samples) return Array.from({ length: count }, (_, i) => i);
-  const step = (count - 1) / (samples - 1);
-  return Array.from({ length: samples }, (_, i) => Math.round(i * step));
 }
 
 describe('the source permalink composes the stored position into a pinned GitHub blob link', { tags: ['unit'] }, () => {
@@ -142,7 +137,7 @@ describe('the composed permalink round-trips to the exact source cell it deep-li
       const sha = introducingCommit(repoPath, { cwd: REPO_ROOT }).introducedInCommit;
       const lineNumbers = source.lineNumbers ?? [];
       const encoding = source.encoding ?? 'utf8';
-      const ordinals = sampleOrdinals(source.rows.length, Math.min(source.rows.length, 50));
+      const ordinals = sampleIndices(source.rows.length, 50, source.sourceFile);
       for (const ordinal of ordinals) {
         const line = lineNumbers[ordinal];
         const url = sourcePermalink({ repoPath, line }, sha);
@@ -166,7 +161,7 @@ describe('the composed permalink round-trips to the exact source cell it deep-li
     const encoding = source.encoding ?? 'utf8';
     const anchors = emitClaims(source).filter(c => c.predicate === LISTED_PREDICATE);
     expect(anchors.length).toBe(source.rows.length);
-    for (const ordinal of sampleOrdinals(anchors.length, Math.min(anchors.length, 50))) {
+    for (const ordinal of sampleIndices(anchors.length, 50, source.sourceFile)) {
       const anchor = anchors[ordinal];
       const url = permalinkForProvenance(anchor.provenance, sha);
       expect(url).toBeDefined();
@@ -180,5 +175,15 @@ describe('the composed permalink round-trips to the exact source cell it deep-li
     // The rule name is exported so a surface (#433) attributes the composed link as
     // a Computed-confidence derivation, not an as-published source string.
     expect(SOURCE_PERMALINK_RULE).toBe('github-blob-permalink');
+  });
+
+  it('AnchorPermalinkRoundTrip_WhenSourceHasNoAnchors_FailsRatherThanPassingVacuously', () => {
+    // The tests above assert `anchors.length === source.rows.length` before
+    // sampling - a genuine coupling check, but one that holds trivially when
+    // BOTH sides are zero. Left there alone, a source that emitted no anchors
+    // would sail through the round-trip loop having asserted nothing about any
+    // actual permalink (issue #977). Sampling from that empty anchor set must
+    // fail loudly instead of yielding an empty, silently-skipped loop.
+    expect(() => sampleIndices(0, 50, 'foi/empty-entry/raw.csv')).toThrow(/foi\/empty-entry\/raw\.csv/);
   });
 });

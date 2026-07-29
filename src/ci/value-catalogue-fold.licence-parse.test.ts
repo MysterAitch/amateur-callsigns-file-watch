@@ -465,6 +465,7 @@ describe('parse-derived fields — ledger vs legacy equivalence oracle', { tags:
     for (const field of FOLDED_PARSE_FIELDS.keys()) {
       const folded = parseCommittedFieldTable(field);
       const legacy = new Map((legacyByField.get(field)?.values ?? []).map(v => [v.value, v]));
+      expect(folded.size, `${field} committed fold`).toBeGreaterThan(0);
       for (const [value, f] of folded) {
         const l = legacy.get(value);
         expect(l, `legacy ${field}/${value}`).toBeDefined();
@@ -482,6 +483,7 @@ describe('parse-derived fields — ledger vs legacy equivalence oracle', { tags:
     for (const field of FOLDED_PARSE_FIELDS.keys()) {
       const folded = parseCommittedFieldTable(field);
       const legacy = new Map((legacyByField.get(field)?.values ?? []).map(v => [v.value, new Set(v.lanes)]));
+      expect(folded.size, `${field} committed fold`).toBeGreaterThan(0);
       for (const [value, f] of folded) {
         const legacyLanes = legacy.get(value) ?? new Set<string>();
         for (const lane of f.lanes) {
@@ -557,6 +559,7 @@ describe.skipIf(!duckDbAvailable())('parse-derived fields fold — real-archive 
       const committed = parseCommittedFieldTable(field);
       const folded = new Map((foldedFields.get(field)?.values ?? []).map(v => [v.value, v]));
       expect([...folded.keys()].sort(), `${field} value set`).toEqual([...committed.keys()].sort());
+      expect(committed.size, `${field} committed golden`).toBeGreaterThan(0);
       for (const [value, c] of committed) {
         const f = folded.get(value);
         expect(f, `folded ${field}/${value}`).toBeDefined();

@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { GLOSSARY_ANCHORS } from '../src/ci/site-render.ts';
 import { buildClassPages } from '../src/ci/build-class-pages.ts';
+import { assertNonEmpty } from '../src/testing/non-vacuity.ts';
 
 // Glossary-link integrity (issues #329 / #397). The site is dense with domain
 // jargon and the glossary is the single place that defines it, so a glossary
@@ -61,7 +62,7 @@ describe('glossary anchor registry (issue #329)', { tags: ['ui'] }, () => {
 
 describe('hand-authored pages glossary links (issues #329 / #397)', { tags: ['ui'] }, () => {
   it('HandAuthoredPages_EveryGlossaryDeepLink_ResolvesToARealGlossaryId', () => {
-    for (const file of HAND_AUTHORED) {
+    for (const file of assertNonEmpty(HAND_AUTHORED, 'hand-authored site pages')) {
       const html = fs.readFileSync(path.join(SITE_DIR, file), 'utf8');
       for (const fragment of glossaryLinkFragments(html)) {
         expect(VALID_IDS.has(fragment), `${file} links glossary.html#${fragment}, which is not an id in glossary.html`).toBe(true);
@@ -90,7 +91,7 @@ describe('hand-authored pages glossary links (issues #329 / #397)', { tags: ['ui
     // The "?" cue is decorative; the accessible name comes from the sibling
     // visually-hidden text / aria-label. A cue glyph exposed to a screen-reader
     // would announce a meaningless bare "?", so every one must be aria-hidden.
-    for (const file of HAND_AUTHORED) {
+    for (const file of assertNonEmpty(HAND_AUTHORED, 'hand-authored site pages')) {
       const html = fs.readFileSync(path.join(SITE_DIR, file), 'utf8');
       for (const m of html.matchAll(/<span class="gloss-cue"([^>]*)>/g)) {
         expect(m[1], `${file} has a gloss-cue span that is not aria-hidden`).toContain('aria-hidden="true"');

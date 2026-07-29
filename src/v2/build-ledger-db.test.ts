@@ -17,6 +17,7 @@ import {
 import { emitLedger, type SourceObservationSet } from './claim.ts';
 import { serialiseClaimsJsonl } from './serialise.ts';
 import { loadReferenceData, parseCallsign } from '../sources/ofcom-amateur/components.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
 //
@@ -309,7 +310,7 @@ describe('deterministic build', { tags: ['data-validity'] }, () => {
     buildLedger(second, undefined, undefined, subsetSelector());
     const dirA = path.join(ledgerDir, 'ledger');
     const dirB = path.join(second, 'ledger');
-    const filesA = fs.readdirSync(dirA).filter(f => f.endsWith('.jsonl')).sort();
+    const filesA = assertNonEmpty(fs.readdirSync(dirA).filter(f => f.endsWith('.jsonl')).sort(), 'ledger JSONL files');
     const filesB = fs.readdirSync(dirB).filter(f => f.endsWith('.jsonl')).sort();
     expect(filesB).toEqual(filesA);
     for (const file of filesA) {

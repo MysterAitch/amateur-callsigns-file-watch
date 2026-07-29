@@ -17,6 +17,7 @@ import {
   type Claim,
 } from '../src/v2/claim.ts';
 import { placeholderOf } from './browser-query.js';
+import { assertNonEmpty } from '../src/testing/non-vacuity.ts';
 
 // The Ledger page (issue #361, Stage 3a) serves LIVE data end-to-end: raw bytes
 // -> claim ledger -> claim-ledger SQLite -> in-browser query -> page. These
@@ -379,7 +380,10 @@ describe('Ledger page deploy integrity', { tags: ['ui'] }, () => {
     // page can never open the database.
     expect(html).toMatch(/<script[^>]*\bsrc="vendor\/index\.js"/);
     // No inline model logic: the only inline script is the SW registration.
-    const inlineScripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+    const inlineScripts = assertNonEmpty(
+      [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]),
+      'ledger.html inline scripts',
+    );
     for (const body of inlineScripts) {
       expect(body).toContain('serviceWorker');
     }

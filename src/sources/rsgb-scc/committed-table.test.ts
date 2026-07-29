@@ -12,6 +12,7 @@ import {
 import { SCC_CSV_PATH, SCC_META_PATH, readCommittedRows } from './fetch-scc.ts';
 import type { SccMeta } from './parse-scc.ts';
 import { parseJsonObject } from '../../shared/json-shape.ts';
+import { assertNonEmpty } from '../../testing/non-vacuity.ts';
 
 // These validations run against the REAL committed derived table, not a fixture —
 // the encoded assumptions this project relies on for the RSGB Special Contest
@@ -59,7 +60,7 @@ describe('committed SCC table', { tags: ['data-validity'] }, () => {
   });
 
   it('NotesFlags_WhenChecked_DrawFromTheClosedVocabulary', () => {
-    for (const row of rows) {
+    for (const row of assertNonEmpty(rows, 'committed SCC rows')) {
       if (row.notes === '') continue;
       for (const token of row.notes.split('; ')) {
         // A remnant capture is `source-cell-remnant:<column>=<verbatim>`; a status
@@ -73,7 +74,7 @@ describe('committed SCC table', { tags: ['data-validity'] }, () => {
   it('CarriedAnomalies_WhenChecked_AreFlaggedNotSilentlyPresent', () => {
     // Each status carried in a non-canonical spelling/casing MUST also carry the
     // matching flag in its notes — the carry-verbatim-AND-flag contract.
-    for (const row of rows) {
+    for (const row of assertNonEmpty(rows, 'committed SCC rows')) {
       const expectedFlags = classifyStatus(row.status).flags.filter((f) => f !== 'status-unrecognised');
       for (const flag of expectedFlags) {
         expect(row.notes.split('; '), `${row.scc_code} carries status "${row.status}" but is not flagged ${flag}`).toContain(flag);

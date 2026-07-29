@@ -7,6 +7,7 @@ import { collectFoiRegisterSources } from './collectors/foi-register.ts';
 import { emitClaims, LISTED_PREDICATE, type SourceObservationSet } from './claim.ts';
 import { serialiseClaimsJsonl, parseClaimsJsonl } from './serialise.ts';
 import { physicalLines } from '../sources/ofcom-amateur/normalise.ts';
+import { sampleIndices } from '../testing/non-vacuity.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
 //
@@ -50,15 +51,6 @@ function subjectAtLine(repoPath: string, subjectColumn: string, line: number): s
   return records[0]?.[subjectColumn] ?? '';
 }
 
-// Evenly-spread ordinals across a source, always including the first and last, so
-// a large source is covered without re-reading the file for every one of its
-// ~160k rows.
-function sampleOrdinals(count: number, samples: number): number[] {
-  if (count <= samples) return Array.from({ length: count }, (_, i) => i);
-  const step = (count - 1) / (samples - 1);
-  return Array.from({ length: samples }, (_, i) => Math.round(i * step));
-}
-
 function assertPositionsRoundTrip(source: SourceObservationSet, ordinals: number[]): void {
   expect(source.lineNumbers).toBeDefined();
   expect(source.repoPath).toBeDefined();
@@ -77,17 +69,38 @@ function assertPositionsRoundTrip(source: SourceObservationSet, ordinals: number
 describe('CSV source line captured while parsing round-trips to the source row', { tags: ['data-validity'] }, () => {
   it('OpenDataLane_WhenSmallSnapshotFullyChecked_EveryObservationLineYieldsItsRawSubject', () => {
     const source = openDataSource(OPEN_DATA_SMALL_KEY);
-    assertPositionsRoundTrip(source, sampleOrdinals(source.rows.length, source.rows.length));
+    assertPositionsRoundTrip(source, sampleIndices(source.rows.length, source.rows.length, source.sourceFile));
   });
 
   it('OpenDataLane_WhenLargeSnapshotSampled_AttestedLinesYieldTheirRawSubjects', () => {
     const source = openDataSource(OPEN_DATA_LARGE_KEY);
-    assertPositionsRoundTrip(source, sampleOrdinals(source.rows.length, 200));
+    assertPositionsRoundTrip(source, sampleIndices(source.rows.length, 200, source.sourceFile));
   });
 
   it('FoiLane_WhenRegisterSourceSampled_AttestedLinesYieldTheirRawSubjects', () => {
     const source = foiSource(FOI_ENTRY);
-    assertPositionsRoundTrip(source, sampleOrdinals(source.rows.length, 200));
+    assertPositionsRoundTrip(source, sampleIndices(source.rows.length, 200, source.sourceFile));
+  });
+});
+
+describe('the round-trip sampler refuses to pass vacuously over an empty source', { tags: ['unit'] }, () => {
+  it('PositionRoundTrip_WhenSourceLoadsNoRows_FailsRatherThanPassingVacuously', () => {
+    // A source that loaded zero rows (a loader change, a filter that stops
+    // matching, a schema rename) must not let `assertPositionsRoundTrip` pass
+    // green having asserted nothing (issue #977) - sampling zero ordinals from it
+    // must fail loudly, naming the empty source, rather than yielding `[]` for
+    // the round-trip loop to iterate zero times over.
+    const emptySource: SourceObservationSet = {
+      sourceFile: 'foi/empty-entry/raw.csv',
+      vintage: '2020-01-01',
+      columns: ['Callsign'],
+      subjectColumn: 'Callsign',
+      rows: [],
+      lineNumbers: [],
+      repoPath: 'archive/foi/empty-entry/raw.csv',
+    };
+    expect(() => assertPositionsRoundTrip(emptySource, sampleIndices(emptySource.rows.length, 200, emptySource.sourceFile)))
+      .toThrow(/foi\/empty-entry\/raw\.csv/);
   });
 });
 

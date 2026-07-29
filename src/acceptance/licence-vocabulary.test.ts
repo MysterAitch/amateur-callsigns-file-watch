@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { loadReferenceData, normaliseLicenceCategory } from '../sources/ofcom-amateur/components.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Independent acceptance criteria for the licence-type / status vocabulary
 // rules a rebuild MUST satisfy (v2 reference, section B). The canonical
@@ -98,7 +99,10 @@ describe('licence-category mapping integrity', { tags: ['data-validity'] }, () =
     // one-to-one product→category join stays honest.
     const csv = fs.readFileSync(
       path.resolve(import.meta.dirname, '..', '..', 'reference-data', 'licence-category.csv'), 'utf8');
-    const rows = parse(csv, { columns: true, skip_empty_lines: true }) as { product: string; normalised_category: string }[];
+    const rows = assertNonEmpty(
+      parse(csv, { columns: true, skip_empty_lines: true }) as { product: string; normalised_category: string }[],
+      'licence-category.csv rows',
+    );
     const seen = new Set<string>();
     for (const row of rows) {
       expect(seen.has(row.product), `duplicate product key: ${row.product}`).toBe(false);

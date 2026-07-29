@@ -15,6 +15,7 @@ import {
 import { emitClaims, type SourceObservationSet } from '../v2/claim.ts';
 import { serialiseClaimsJsonl } from '../v2/serialise.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Issue #361 (migration map step 3): the forbidden-suffix-history report folds
 // from the raw-keyed claim ledger rather than the retired normalised suffix
@@ -249,7 +250,7 @@ describe('forbidden-suffix history — DuckDB-free claim fold vs committed golde
     // gained or lost observations the DuckDB pass did not — a mis-joined last-modified
     // claim or a dropped trim, not a routine regeneration.
     const foldByEntry = new Map(duckDbFreeFold.disclosures.map(d => [d.entry, d]));
-    for (const golden of committed.disclosures) {
+    for (const golden of assertNonEmpty(committed.disclosures, 'committed golden disclosures')) {
       const folded = foldByEntry.get(golden.entry);
       expect(folded, `claim-fold disclosure ${golden.entry}`).toBeDefined();
       expect(folded?.distinctCount, `distinct for ${golden.entry}`).toBe(golden.distinct);

@@ -13,6 +13,7 @@ import {
   type Holding,
 } from './build-publisher-pages.ts';
 import { authorPublisherId, readPublisherRegister, type PublisherEntry, type PublisherRegister } from '../shared/publishers.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Issue #618, increment 2: the per-publisher pages and the publishers index,
 // plus the sourceKey -> author derivation they build on. The pure-rendering
@@ -552,7 +553,7 @@ describe('the committed publisher pages built from the real archive', { tags: ['
     // Index + one page per register entry.
     expect(urls.length).toBe(register.publishers.length + 1);
     expect(fs.existsSync(path.join(outputDir, 'publishers', 'index.html'))).toBe(true);
-    for (const p of register.publishers) {
+    for (const p of assertNonEmpty(register.publishers, 'publisher register entries')) {
       expect(fs.existsSync(path.join(outputDir, 'publishers', p.id, 'index.html')), p.id).toBe(true);
     }
   });

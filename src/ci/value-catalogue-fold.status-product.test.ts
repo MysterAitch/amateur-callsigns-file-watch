@@ -161,6 +161,7 @@ describe('status field — ledger vs legacy classified-equivalence oracle', { ta
     // Every attested status but `Available` folds its record count EXACTLY from
     // the raw status claims — the fold reads the same status cells the legacy
     // tally did, so a drift here is a real divergence, not a classified one.
+    expect(legacyStatus.size, 'legacy status tally').toBeGreaterThan(0);
     for (const [value, legacy] of legacyStatus) {
       if (value === 'Available') continue;
       const folded = committed.get(value);
@@ -275,6 +276,7 @@ describe('product field — ledger vs legacy classified-equivalence oracle', { t
     // A register-lane census can only report FEWER records/callsigns than the
     // legacy tally, which also folds the available-pool pool-slot rows. An
     // inversion means the fold gained observations to investigate.
+    expect(committed.size, 'committed product fold').toBeGreaterThan(0);
     for (const [value, f] of committed) {
       const l = legacyProduct.get(value);
       expect(l, `legacy product ${value}`).toBeDefined();
@@ -298,6 +300,7 @@ describe('product field — ledger vs legacy classified-equivalence oracle', { t
   it('ProductFold_UnchangedValues_MatchLegacyRecordsExactly', () => {
     // Every product value NOT borne by the available-pool lists folds its record
     // count exactly — a drift there is a real divergence, not a classified one.
+    expect(committed.size, 'committed product fold').toBeGreaterThan(0);
     for (const [value, f] of committed) {
       if (PRODUCT_FOLD_LOWER.includes(value)) continue;
       expect(f.records, `unchanged product ${value} records`).toBe(legacyProduct.get(value)?.count);
@@ -460,6 +463,7 @@ describe.skipIf(!duckDbAvailable())('status / product folds — real-archive ret
         .map(v => [v.value, v]),
     );
     expect([...attestedFolded.keys()].sort(), 'status value set').toEqual([...committed.keys()].sort());
+    expect(committed.size, 'committed status golden').toBeGreaterThan(0);
     for (const [key, c] of committed) {
       const f = attestedFolded.get(key);
       expect(f, `folded status ${key}`).toBeDefined();
@@ -491,6 +495,7 @@ describe.skipIf(!duckDbAvailable())('status / product folds — real-archive ret
     const committed = parseCommittedFieldTable(RAW_PRODUCT_FIELD);
     const folded = new Map((fields.get(RAW_PRODUCT_FIELD)?.values ?? []).map(v => [v.value, v]));
     expect([...folded.keys()].sort(), 'product value set').toEqual([...committed.keys()].sort());
+    expect(committed.size, 'committed product golden').toBeGreaterThan(0);
     for (const [value, c] of committed) {
       const f = folded.get(value);
       expect(f, `folded product ${value}`).toBeDefined();

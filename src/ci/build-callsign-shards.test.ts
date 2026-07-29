@@ -5,6 +5,7 @@ import * as path from 'path';
 import { shardBucketOf, shardNameFor, partitionShards, MARKERS, SHARD_SPLIT_THRESHOLD, foiSources } from './build-callsign-shards.ts';
 import { defaultFoiDir } from '../shared/foi-archive.ts';
 import { resetFoiObservationsCache } from '../shared/foi-observations.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // The sharding rules of the instant per-callsign projection (issue #594),
 // pinned on fixtures: the two-character bucket, the hot-bucket subdivision,
@@ -92,7 +93,7 @@ describe('FOI dataset titles over the real archive (issue #954)', { tags: ['unit
   });
 
   it('FoiSources_EveryEntry_TitleNeverEqualsTheRawEntryKey', () => {
-    for (const source of sources) {
+    for (const source of assertNonEmpty(sources, 'FOI sources')) {
       expect(source.dataset.title, `entry "${source.dataset.entry}" should carry a friendly title, not its raw key`).not.toBe(source.dataset.entry);
     }
   });

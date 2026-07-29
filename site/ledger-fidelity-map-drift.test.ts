@@ -21,6 +21,7 @@ import {
 } from '../src/v2/claim.ts';
 import { PARSE_CALLSIGN_RULE } from '../src/v2/parse-attribute-emit.ts';
 import { UNPARSEABLE_CALLSIGN_FLAG } from '../src/sources/ofcom-amateur/components.ts';
+import { assertNonEmpty } from '../src/testing/non-vacuity.ts';
 
 // Drift guard for the record-fidelity surface (issue #465; relates to #438, #398).
 //
@@ -134,6 +135,7 @@ describe('fidelity-map drift guard — flags (#465)', { tags: ['ui'] }, () => {
   });
 
   it('EveryEmittedFlag_HasASiteNote_SoNoReaderMeetsBareJargon', () => {
+    expect(emitted.length, 'no flags emitted by the registry/parser union to check').toBeGreaterThan(0);
     const missing = emitted.filter(flag => !Object.prototype.hasOwnProperty.call(FLAG_NOTES, flag));
     expect(missing, `flags emitted by the ledger but absent from FLAG_NOTES: ${missing.join(', ')}`).toEqual([]);
   });
@@ -143,7 +145,7 @@ describe('fidelity-map drift guard — flags (#465)', { tags: ['ui'] }, () => {
     // carrying each flag must produce a note whose label is human prose (not the
     // bare flag token) and whose gloss carries text. An unglossed flag would
     // surface as `{ label: <token>, gloss: '' }` — exactly the jargon we forbid.
-    for (const flag of emitted) {
+    for (const flag of assertNonEmpty(emitted, 'emitted flag vocabulary')) {
       const note = fidelityOf(claimsRaisingFlag(flag), RESOLVED).notes.find(n => n.id === flag);
       expect(note, `no note surfaced for flag "${flag}"`).toBeDefined();
       expect(note?.label, `flag "${flag}" surfaced its bare token as the label`).not.toBe(flag);

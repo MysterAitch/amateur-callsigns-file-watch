@@ -6,6 +6,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { buildProjectionDbs } from './build-projection-db.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { placeholderOf, buildPredicate, matchingCountSql, setDiffSql, COLUMNS } from '../../site/browser-query.js';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -194,7 +195,7 @@ describe('Ledger projection invariants - lookup database', { tags: ['data-validi
     // render a flag at the edge. Every holder the series table names must have a
     // crosswalk row, so a resolved allocation never lacks its flag lookup; and
     // each code is either blank (a flagless organisation) or a two-letter code.
-    const holders = all(lookup, 'SELECT DISTINCT allocated_to FROM itu_series');
+    const holders = assertNonEmpty(all(lookup, 'SELECT DISTINCT allocated_to FROM itu_series'), 'itu_series.allocated_to holders');
     for (const holder of holders) {
       const match = all(lookup, 'SELECT iso_3166_alpha2 FROM ref_entity_iso WHERE allocated_to = ?', [String(holder.allocated_to)]);
       expect(match, String(holder.allocated_to)).toHaveLength(1);

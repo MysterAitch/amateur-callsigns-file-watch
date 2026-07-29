@@ -38,6 +38,7 @@ import { EVENT_TIME_GLOSS, ASSERTION_TIME_GLOSS, V1_COPY } from './copy.js';
 // dated-fact chip (issue #965 follow-up) — shared so the parity test's page set
 // can never drift from a hand-maintained list.
 import { htmlPagesWithChip } from '../../src/ci/build-v1-chip.ts';
+import { assertNonEmpty } from '../../src/testing/non-vacuity.ts';
 // The shared pure data functions, reused by injection (the exact functions the
 // deployed v1 orchestrator loads at runtime from the site root). Importing them
 // here proves the reuse contract end to end over a fixture shard.
@@ -439,7 +440,7 @@ describe('v1 dated-fact chip — cross-page parity (single source)', { tags: ['u
     const sourceTitle = norm(sourceChip?.getAttribute('title'));
     expect(sourceText, 'the single-source chip renders text').not.toBe('');
     expect(sourceTitle, 'the single-source chip renders a tooltip').not.toBe('');
-    for (const page of V1_PAGES_WITH_CHIP) {
+    for (const page of assertNonEmpty(V1_PAGES_WITH_CHIP, 'v1 pages carrying a dated-fact chip')) {
       const doc = new DOMParser().parseFromString(fs.readFileSync(`site/v1/${page}`, 'utf8'), 'text/html');
       const chip = doc.querySelector('.chip.asof');
       expect(chip, `${page} carries a static dated-fact chip`).not.toBeNull();

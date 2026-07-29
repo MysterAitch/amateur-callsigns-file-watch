@@ -9,6 +9,7 @@ import {
 } from './policy-invariants.ts';
 import { acquireClaimsSource, type ClaimsSourceHandle } from './event-time-coherency.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Issue #863: the two-year reservation invariant validated against the
 // corpus's RECORDED ground truth. Test names follow Subject_Scenario_Outcome.
@@ -61,7 +62,7 @@ describe.skipIf(!duckDbAvailable())('policy invariants — real-corpus ground tr
     // 2024-09 and 2024-10), so this asserts the property, not one dataset.
     const monthKeyed = /^\d{4}-\d{2}$/;
     const f = report.twoYearReservation;
-    for (const b of f.breakdown) {
+    for (const b of assertNonEmpty(f.breakdown, 'two-year-reservation breakdown')) {
       if (monthKeyed.test(b.vintage)) {
         expect(b.undeterminable).toBeGreaterThan(0);
       } else {
@@ -94,8 +95,10 @@ describe.skipIf(!duckDbAvailable())('policy invariants — real-corpus ground tr
     // classification lands the cohorts where the source semantics predict.
     const f = report.twoYearReservation;
     const shorter = f.totals.find(t => t.klass === 'shorter-than-stated')?.observations ?? 0;
-    for (const t of f.totals) {
-      if (t.klass !== 'shorter-than-stated') expect(shorter).toBeGreaterThan(t.observations);
+    const others = f.totals.filter(t => t.klass !== 'shorter-than-stated');
+    expect(others.length, 'no other classification totals to compare against').toBeGreaterThan(0);
+    for (const t of others) {
+      expect(shorter).toBeGreaterThan(t.observations);
     }
   });
 });

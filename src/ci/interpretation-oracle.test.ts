@@ -17,6 +17,7 @@ import {
 } from '../v2/claim.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { time, perfReport } from '../shared/perf.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
 //
@@ -156,7 +157,7 @@ describe('the flag reproducibility + completeness check holds on a constructed c
 
 describe('the attestation adds only file-level claims across the real corpus', { tags: ['data-validity'] }, () => {
   it('EveryInterpretationClaim_WhenEmittedOverTheCorpus_RidesTheSentinelOrdinalAsDerivedLookedUp', () => {
-    for (const src of sources) {
+    for (const src of assertNonEmpty(sources, 'interpreted sources')) {
       for (const claim of emitInterpretationClaims(src)) {
         expect(claim.provenance.ordinal).toBe(FILE_LEVEL_ORDINAL);
         expect(claim.layer).toBe('derived');

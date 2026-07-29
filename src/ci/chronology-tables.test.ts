@@ -11,6 +11,7 @@ import {
   FORMAT_EVOLUTION_TOKEN,
   AVAILABLE_LIST_TOKEN,
 } from './chronology-tables.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention. These
 // exercise the two self-updating chronology tables (issue #821) against the
@@ -79,13 +80,15 @@ describe('FormatEvolutionTable', { tags: ['unit'] }, () => {
     // A header cell is only populated when the export's first line is genuinely
     // a column-header row (carries a field separator); the early prefix/suffix
     // lists with no header row report null instead of a section marker.
-    for (const row of buildFormatEvolutionRows(foiDir, archiveDir)) {
-      if (row.header !== null) expect(row.header).toContain(',');
+    const withHeader = buildFormatEvolutionRows(foiDir, archiveDir).filter(row => row.header !== null);
+    expect(withHeader.length, 'no format-evolution row carried a non-null header to check').toBeGreaterThan(0);
+    for (const row of withHeader) {
+      expect(row.header).toContain(',');
     }
   });
 
   it('FormatEvolutionTable_WhenRendered_LinksEveryRowToItsEntryPage', () => {
-    const rows = buildFormatEvolutionRows(foiDir, archiveDir);
+    const rows = assertNonEmpty(buildFormatEvolutionRows(foiDir, archiveDir), 'format-evolution rows');
     const html = renderFormatEvolutionTable(rows);
     for (const row of rows) {
       const href = row.lane === 'foi'
@@ -129,7 +132,7 @@ describe('AvailableListEnumeration', { tags: ['unit'] }, () => {
   });
 
   it('AvailableListEnumeration_WhenRendered_LinksEverySnapshotToItsPage', () => {
-    const rows = buildAvailableListRows(foiDir);
+    const rows = assertNonEmpty(buildAvailableListRows(foiDir), 'available-list rows');
     const html = renderAvailableListEnumeration(rows);
     for (const row of rows) {
       expect(html).toContain(`href="../../datasets/foi/${encodeURIComponent(row.key)}/index.html"`);
