@@ -137,3 +137,34 @@ workflow's header and in [ADR 0023](adr/0023-fold-resource-tuning-by-measurement
    bounded by a cap cannot show the cap's effect.
 4. **Interval sampling cannot see a spike between two samples.** True peak RSS
    comes from `getrusage` (`/usr/bin/time -v`), not from a sampler.
+5. **An arm that bundles several differences measures none of them.** Added
+   after #1026, which reported a striking platform inversion that did not exist.
+   One arm made a single large encode; the "opposing" arm made 2000 small ones,
+   plus a string join, plus an allocation — and one platform in the matrix was a
+   different CPU architecture entirely. Decomposing to one variable per arm
+   reversed the conclusion outright. Before believing a comparison, list every
+   way the arms differ; if that list has more than one entry, the result names no
+   cause.
+
+## The benchmark suite, and the parked diagnostic arms
+
+[`src/ci/bench-suite.ts`](../src/ci/bench-suite.ts) holds the repeatable
+serialisation, encoding and compression benchmarks, driven through
+[`perf-matrix.yml`](../.github/workflows/perf-matrix.yml) — label-gated on PRs so
+it never runs unasked. [`src/ci/ledger-format-bench.ts`](../src/ci/ledger-format-bench.ts)
+compares candidate ledger formats on the **real** corpus; it is the tool that
+regenerates the bar in [ADR 0024](adr/0024-ledger-serialisation-format.md).
+
+Two properties of these benchmarks are easy to lose and expensive to rediscover:
+
+- **The compression corpus is deliberately large.** zstd derives parameters from
+  level *and* input size, so level ordering **inverts** above roughly 26 MB. A
+  small corpus yields a confident ranking that reverses at production scale.
+- **Synthetic claims do not stand in for real ones.** Ratios differ several-fold
+  between uniform generated lines and real varied text.
+
+Arms built to settle a since-closed question are **parked, not deleted**, on
+`diag/1025-platform-bench`: the three-platform matrix, the compression codec and
+level sweep, and the decomposed encode arms that produced trap 5. Their
+*conclusions* live on the issues (#997, #1025, #1026) — read those first, since a
+branch is a weaker record than an issue and may be pruned.
