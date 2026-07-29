@@ -79,11 +79,12 @@ describe('FOI dataset-recovery states (acceptance criterion C5 / D-appendix)', {
   it('DatasetRecovery_WhenValuePresent_DrawnFromClosedVocabulary', () => {
     // Recovery states are a closed vocabulary; absence of the field means
     // fully recovered.
-    for (const key of listFoiEntryKeys(defaultFoiDir())) {
-      const recovery = readFoiEntryMeta(defaultFoiDir(), key).datasetRecovery;
-      if (recovery !== undefined) {
-        expect(FOI_DATASET_RECOVERY).toContain(recovery);
-      }
+    const declared = listFoiEntryKeys(defaultFoiDir())
+      .map(key => readFoiEntryMeta(defaultFoiDir(), key).datasetRecovery)
+      .filter((recovery): recovery is string => recovery !== undefined);
+    expect(declared.length, 'no FOI entry declared a datasetRecovery value to check').toBeGreaterThan(0);
+    for (const recovery of declared) {
+      expect(FOI_DATASET_RECOVERY).toContain(recovery);
     }
   });
 });

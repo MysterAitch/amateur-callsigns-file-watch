@@ -42,6 +42,7 @@ import { collectIssuanceEventsSources } from '../v2/collectors/issuance-events.t
 import { collectForbiddenListSources } from '../v2/collectors/forbidden-list.ts';
 import { COLLECTORS } from '../v2/collectors/index.ts';
 import type { ResolvedLedgerSource } from '../v2/collectors/types.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // The repo root, two levels up from src/ci/ (as the oracle module resolves it),
 // so a source's repo-relative repoPath resolves to the real archived file.
@@ -422,7 +423,7 @@ describe('available-pool sources reconstruct from their REGISTERED claims (issue
       collectAvailablePoolSources().map(resolved => resolved.load().repoPath ?? ''),
     );
     expect(poolRepoPaths.size).toBe(25);
-    for (const resolved of collectFoiVerbatimCsvSources()) {
+    for (const resolved of assertNonEmpty(collectFoiVerbatimCsvSources(), 'foi-verbatim-csv sources')) {
       const mirrored = resolved.load().repoPath ?? '';
       expect(poolRepoPaths.has(mirrored), `${mirrored} mirrored twice`).toBe(false);
     }
@@ -781,7 +782,7 @@ describe('the oracle declares its coverage and any residual gaps explicitly', { 
     const reconstruction = collectReconstructionSources().map(source => `${source.family}|${source.sourceFile}`);
     const families = new Set(collectReconstructionSources().map(source => source.family));
     expect(new Set(reconstruction).size).toBe(reconstruction.length);
-    for (const family of families) expect(COVERED_FAMILIES).toContain(family);
+    for (const family of assertNonEmpty([...families], 'resolved reconstruction families')) expect(COVERED_FAMILIES).toContain(family);
   });
 
   it('EveryAuthoredFoiConversion_WhenCrossChecked_IsEmittedBySomeRegisteredFamily', () => {

@@ -13,6 +13,7 @@ import {
 } from './event-time-coherency.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
 import { EVENT_DATE_KINDS } from '../v2/claim.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Issue #725 S2: the detector validated against the corpus's RECORDED ground
 // truth — the two data-coherency episodes documented in
@@ -236,7 +237,7 @@ describe.skipIf(!duckDbAvailable())('event-time coherency — real-corpus ground
     expect(recordCreatedRevised).toBeLessThan(20);
     // Each licence-scoped kind currently has at most the two 2024/2025
     // witnesses, so no licence-scoped comparison crosses into any other kind.
-    for (const t of c.totals) {
+    for (const t of assertNonEmpty(c.totals, 'event-time coherency totals')) {
       expect(['record-created', 'record-last-modified', 'licence-version-last-modified', 'licence-version-original-start', 'licence-issued', 'licence-cancelled', 'reserved-until', 'licence-created', 'licence-last-modified', 'licence-original-start']).toContain(t.kind);
     }
   });

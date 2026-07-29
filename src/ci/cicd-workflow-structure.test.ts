@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // CI/CD structure contract (ADR 0019). The unified `cicd.yaml` carries the
 // highest-blast-radius invariants in the repo: the required-check job NAMES (a
@@ -102,7 +103,8 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
     // workflow must load as YAML and declare jobs that are maps with steps or
     // a `uses` reference.
     const dir = path.join(process.cwd(), '.github', 'workflows');
-    for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'))) {
+    const workflowFiles = assertNonEmpty(fs.readdirSync(dir).filter((f) => f.endsWith('.yml') || f.endsWith('.yaml')), 'workflow files');
+    for (const file of workflowFiles) {
       const doc = yaml.load(fs.readFileSync(path.join(dir, file), 'utf8')) as { jobs?: Record<string, { steps?: unknown[]; uses?: string }> };
       expect(doc, `${file} did not parse to a mapping`).toBeTypeOf('object');
       expect(doc.jobs, `${file} has no jobs mapping`).toBeTypeOf('object');

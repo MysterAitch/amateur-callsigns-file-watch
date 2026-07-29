@@ -7,6 +7,7 @@ import {
   sharedModuleClosure,
   deployV1SharedModules,
 } from './build-v1-shared-modules.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // The v1 shared-module deployment (issue #921): the pure data modules the v1
 // callsign page imports at runtime, deployed at the site root so the v1 surface
@@ -29,7 +30,7 @@ describe('v1 shared-module deployment', { tags: ['unit'] }, () => {
   it('SharedModuleClosure_IsComplete_EveryModuleImportsOnlyOtherClosureMembers', () => {
     // The closure is closed under import: no module in it imports a relative
     // module outside the set (which would 404 when the browser followed it).
-    const closure = new Set(sharedModuleClosure(SITE_DIR));
+    const closure = new Set(assertNonEmpty(sharedModuleClosure(SITE_DIR), 'v1 shared-module closure'));
     for (const file of closure) {
       const src = fs.readFileSync(path.join(SITE_DIR, file), 'utf8');
       for (const m of src.matchAll(/from\s+['"]\.\/([a-z0-9-]+\.js)['"]/g)) {
@@ -40,7 +41,7 @@ describe('v1 shared-module deployment', { tags: ['unit'] }, () => {
 
   it('DeployV1SharedModules_CopiesEveryClosureModule_IntoTheDeployRoot', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'v1-shared-'));
-    const copied = deployV1SharedModules(SITE_DIR, dir);
+    const copied = assertNonEmpty(deployV1SharedModules(SITE_DIR, dir), 'deployed v1 shared modules');
     expect(copied).toEqual(sharedModuleClosure(SITE_DIR));
     for (const file of copied) {
       expect(fs.existsSync(path.join(dir, file)), `${file} was not copied`).toBe(true);

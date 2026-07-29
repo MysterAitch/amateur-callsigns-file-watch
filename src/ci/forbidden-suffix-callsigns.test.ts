@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { buildForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { buildSuffixCallsignIndex, type SuffixCallsignIndex } from './forbidden-suffix-callsigns.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Issue #291 phase 3: the suffix -> callsigns index over the ever-forbidden
 // union, joining the open-data publications and the callsign-bearing FOI
@@ -23,7 +24,7 @@ describe('forbidden-suffix callsign index — real archive', { tags: ['data-vali
     info(suffix).byStatus.find(b => b.status === status);
 
   it('SuffixIndex_EveryUnionSuffix_HasAnEntry', () => {
-    const union = buildForbiddenSuffixHistory().everForbiddenUnion;
+    const union = assertNonEmpty(buildForbiddenSuffixHistory().everForbiddenUnion, 'ever-forbidden union');
     expect(index.size).toBe(union.length);
     for (const suffix of union) expect(index.has(suffix)).toBe(true);
   });

@@ -18,6 +18,7 @@ import { collectFoiVerbatimCsvSources, verbatimCsvSourcesFor, loadFoiVerbatimCsv
 import { attributeAddendumEntries } from './attribute-addendum.ts';
 import { registerSourcesFor, qualifyingRegisterEntries, ATTRIBUTE_ADDENDUM_CLASS } from './foi-register.ts';
 import { listFoiEntryKeys, readFoiEntryMeta, defaultFoiDir, type FoiEntryMeta } from '../../shared/foi-archive.ts';
+import { assertNonEmpty } from '../../testing/non-vacuity.ts';
 import type { FoiSourceConversion } from '../../shared/foi-normalise.ts';
 import { loadReferenceData } from '../../sources/ofcom-amateur/components.ts';
 
@@ -141,7 +142,7 @@ describe('foi-verbatim-csv family registration (issue #813 Stage B)', { tags: ['
     // licence-category tier, nothing derived at all. (Promotion to callsign
     // tiers would move the committed value-catalogue goldens; it is the Stage D
     // rider, a decision to be taken deliberately, not a side effect here.)
-    for (const source of collectFoiVerbatimCsvSources()) {
+    for (const source of assertNonEmpty(collectFoiVerbatimCsvSources(), 'foi-verbatim-csv sources')) {
       const claims = emitClaims(source.load());
       expect(claims.length).toBeGreaterThan(0);
       expect(claims.every(c => c.layer === 'raw')).toBe(true);

@@ -113,8 +113,10 @@ describe.skipIf(!duckDbAvailable())('sequence analytics — real-corpus ground t
   });
 
   it('Projections_AreConfinedToCurrentlyIssuingSeries', () => {
-    for (const s of a.series) {
-      if (s.projection !== null) expect(s.issuingStatus).toBe('currently-issuing');
+    const projected = a.series.filter(s => s.projection !== null);
+    expect(projected.length, 'no series carried a projection to check').toBeGreaterThan(0);
+    for (const s of projected) {
+      expect(s.issuingStatus).toBe('currently-issuing');
     }
   });
 });

@@ -167,6 +167,7 @@ describe('flags distribution — ledger vs legacy classified-equivalence oracle'
     // way: legacy and folded figures must be identical, so a drift here is a real
     // divergence, not a classified one.
     const classified = new Set([...FLAG_FOLD_LOWER, ...FLAG_FOLD_HIGHER]);
+    expect(legacyFlags.size, 'legacy flags tally').toBeGreaterThan(0);
     for (const [flag, l] of legacyFlags) {
       if (classified.has(flag)) continue;
       const f = committedFlags.get(flag);

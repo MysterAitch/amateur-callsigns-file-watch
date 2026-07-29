@@ -10,6 +10,7 @@ import { defaultFoiDir } from '../shared/foi-archive.ts';
 import { parseCsvCached } from '../shared/parse-cache.ts';
 import { cleanedCallsign } from '../sources/ofcom-amateur/components.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // The instant per-callsign projection built over the REAL archive (issue
 // #594): the self-check the proposal committed to - the shards are a
@@ -68,7 +69,7 @@ beforeAll(() => {
 
 describe('callsign shards over the real archive', { tags: ['data-validity'] }, () => {
   it('ShardBuild_RunTwiceOverTheSameArchive_IsByteIdentical', () => {
-    const filesA = fs.readdirSync(outA).sort();
+    const filesA = assertNonEmpty(fs.readdirSync(outA).sort(), 'callsign shard files');
     const filesB = fs.readdirSync(outB).sort();
     expect(filesA).toEqual(filesB);
     for (const file of filesA) {
@@ -123,6 +124,7 @@ describe('callsign shards over the real archive', { tags: ['data-validity'] }, (
   it('ShardRecords_EveryRecord_IsStructurallySoundAndIndexable', () => {
     const legalChars = new Set([...Object.keys(manifest.legend.statuses), ...Object.keys(MARKERS)]);
     const shardNames = new Set(manifest.shards);
+    expect(shardRecords.size, 'shard records').toBeGreaterThan(0);
     for (const [shard, records] of shardRecords) {
       for (const [key, record] of Object.entries(records)) {
         expect(shardNameFor(key, shardNames), `${key} must live in the shard the resolution rule picks`).toBe(shard);

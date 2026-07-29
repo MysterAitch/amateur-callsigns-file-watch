@@ -89,12 +89,10 @@ describe('generated tables — self-evidence contract (issues #334 / #397)', { t
   });
 
   it('GeneratedTables_EveryHeaderCell_IsScoped', () => {
-    for (const html of [classIndex, classPage]) {
-      for (const table of tables(html)) {
-        for (const th of table.matchAll(/<th(\s[^>]*)?>/g)) {
-          expect(th[1] ?? '', `a header cell is missing scope: ${th[0]}`).toMatch(/scope="(col|row|colgroup|rowgroup)"/);
-        }
-      }
+    const headers = [classIndex, classPage].flatMap(html => tables(html).flatMap(table => [...table.matchAll(/<th(\s[^>]*)?>/g)]));
+    expect(headers.length, 'no header cells found on the generated class tables').toBeGreaterThan(0);
+    for (const th of headers) {
+      expect(th[1] ?? '', `a header cell is missing scope: ${th[0]}`).toMatch(/scope="(col|row|colgroup|rowgroup)"/);
     }
   });
 
@@ -112,12 +110,12 @@ describe('generated tables — self-evidence contract (issues #334 / #397)', { t
     // The row-header (first) cell of each listing table is the entity's
     // identifier and must link to its detail page — a reader navigates onward
     // from the table, not by hunting elsewhere.
-    for (const html of [classIndex, classPage]) {
-      // Class-tolerant: the identifier cell now carries the shared dataset-label
-      // component's `class="dskey"` wrapper (issues #328 / #310).
-      for (const th of html.matchAll(/<th scope="row"[^>]*>([\s\S]*?)<\/th>/g)) {
-        expect(th[1], `a row-header identifier is dead text: ${th[0]}`).toContain('<a href="');
-      }
+    // Class-tolerant: the identifier cell now carries the shared dataset-label
+    // component's `class="dskey"` wrapper (issues #328 / #310).
+    const rowHeaders = [classIndex, classPage].flatMap(html => [...html.matchAll(/<th scope="row"[^>]*>([\s\S]*?)<\/th>/g)]);
+    expect(rowHeaders.length, 'no row-header identifier cells found on the generated class tables').toBeGreaterThan(0);
+    for (const th of rowHeaders) {
+      expect(th[1], `a row-header identifier is dead text: ${th[0]}`).toContain('<a href="');
     }
   });
 });
@@ -167,12 +165,11 @@ describe('census / rollup tables — self-evidence contract (issue #418)', { tag
   });
 
   it('CensusTables_EveryHeaderCell_IsScoped', () => {
-    for (const html of [statisticsPage, dataStatusPage, interDatasetPage]) {
-      for (const table of tables(html)) {
-        for (const th of table.matchAll(/<th(\s[^>]*)?>/g)) {
-          expect(th[1] ?? '', `a header cell is missing scope: ${th[0]}`).toMatch(/scope="(col|row|colgroup|rowgroup)"/);
-        }
-      }
+    const headers = [statisticsPage, dataStatusPage, interDatasetPage]
+      .flatMap(html => tables(html).flatMap(table => [...table.matchAll(/<th(\s[^>]*)?>/g)]));
+    expect(headers.length, 'no header cells found on the census/rollup tables').toBeGreaterThan(0);
+    for (const th of headers) {
+      expect(th[1] ?? '', `a header cell is missing scope: ${th[0]}`).toMatch(/scope="(col|row|colgroup|rowgroup)"/);
     }
   });
 });

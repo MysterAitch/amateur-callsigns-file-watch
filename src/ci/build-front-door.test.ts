@@ -11,6 +11,7 @@ import {
 } from './build-front-door.ts';
 import { collectHoldings, type Holding } from './build-publisher-pages.ts';
 import { readPublisherRegister } from '../shared/publishers.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -221,7 +222,7 @@ describe('Home figures derive from the real corpus (issue #712)', { tags: ['data
     // for.
     expect(hrefs).toHaveLength(holdings.length);
     const keys = new Set(holdings.map(h => h.key));
-    for (const href of hrefs) {
+    for (const href of assertNonEmpty(hrefs, 'holdings-map cell hrefs')) {
       const m = /^datasets\/(?:open-data|foi)\/(.+)\/index\.html$/.exec(href);
       expect(m, `unexpected cell href ${href}`).not.toBeNull();
       expect(keys.has(decodeURIComponent(m?.[1] ?? '')), `${href} names no held dataset`).toBe(true);

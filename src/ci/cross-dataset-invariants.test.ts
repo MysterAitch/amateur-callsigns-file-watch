@@ -4,6 +4,7 @@ import * as path from 'path';
 import { buildDepletion, buildOverlapMatrix, buildComplementarity, renderCrossDatasetInvariants, CROSS_DATASET_INVARIANTS_PATH, type CrossDataset, type OverlapMatrix, type Complementarity } from './cross-dataset-invariants.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
 import { DIRS } from '../shared/constants.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Issue #241: the cross-dataset probes join each FOI available snapshot against
 // the latest register on the cleaned callsign key. Issue #361: the join is now a
@@ -224,6 +225,7 @@ describe.skipIf(!duckDbAvailable())('cross-dataset invariants — real-archive f
     const latest = m.registers.length - 1;
     expect(m.registers[earliest].vintage).toBe('2016-09');
     expect(m.registers[latest].key).toBe('2026-06-23');
+    assertNonEmpty(m.pools, 'overlap-matrix pools');
     for (let pi = 0; pi < m.pools.length; pi += 1) {
       expect(m.present[pi][latest]).toBeGreaterThan(m.present[pi][earliest]);
     }

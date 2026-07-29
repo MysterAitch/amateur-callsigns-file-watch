@@ -11,6 +11,7 @@ import { shardNameFor } from './build-callsign-shards.ts';
 import { acquireClaimsSource, type ClaimsSourceHandle } from './event-time-coherency.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // The issue #726 surfaces over the REAL corpus. The load-bearing assertion is
 // PARITY: the in-process projection (collectLedgerSources +
@@ -66,7 +67,7 @@ describe('event-time surfaces over the real corpus (issue #726)', { tags: ['data
   it('EventShards_RebuiltFromTheSameProjection_AreByteIdentical', () => {
     const again = fs.mkdtempSync(path.join(os.tmpdir(), 'event-surfaces-corpus-b-'));
     buildCallsignEventShards(projection, again);
-    const files = fs.readdirSync(outDir).sort();
+    const files = assertNonEmpty(fs.readdirSync(outDir).sort(), 'event shard files');
     expect(fs.readdirSync(again).sort()).toEqual(files);
     for (const file of files) {
       expect(fs.readFileSync(path.join(outDir, file)).equals(fs.readFileSync(path.join(again, file))), `${file} should be byte-identical`).toBe(true);
@@ -115,13 +116,15 @@ describe('event-time surfaces over the real corpus (issue #726)', { tags: ['data
   });
 
   it('EveryFindingInTheExemplarShards_ShipsStatementPlusResolvableCaveats', () => {
-    for (const subject of ['G3ATI', 'G3SDS', 'GB0SNB', 'M7TEE']) {
+    const findings = ['G3ATI', 'G3SDS', 'GB0SNB', 'M7TEE'].flatMap(subject => {
       const record = readRecord(subject);
       expect(record, subject).toBeDefined();
-      for (const [, statement, caveatIdxs] of record?.f ?? []) {
-        expect(statement.trim().length, `${subject}: statement (issue #861 item 4)`).toBeGreaterThan(0);
-        for (const idx of caveatIdxs) expect(idx).toBeGreaterThanOrEqual(0);
-      }
+      return (record?.f ?? []).map(finding => ({ subject, finding }));
+    });
+    expect(findings.length, 'no findings across the exemplar shards').toBeGreaterThan(0);
+    for (const { subject, finding: [, statement, caveatIdxs] } of findings) {
+      expect(statement.trim().length, `${subject}: statement (issue #861 item 4)`).toBeGreaterThan(0);
+      for (const idx of caveatIdxs) expect(idx).toBeGreaterThanOrEqual(0);
     }
   });
 

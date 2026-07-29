@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { JSDOM } from 'jsdom';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Decision-index contract.
 //
@@ -139,7 +140,7 @@ describe('ADR decision index', { tags: ['unit'] }, () => {
   });
 
   it('EveryIndexRow_WhenItsLinkIsFollowed_ResolvesToAFileThatExists', () => {
-    for (const row of indexRows()) {
+    for (const row of assertNonEmpty(indexRows(), 'ADR index rows')) {
       expect(fs.existsSync(path.join(ADR_DIR, row.href)), `row ${row.id} -> ${row.href}`).toBe(true);
     }
   });

@@ -28,6 +28,7 @@ import { collectAttributeAddendumSources } from './attribute-addendum.ts';
 import { defaultFoiDir } from '../../shared/foi-archive.ts';
 import { loadReferenceData } from '../../sources/ofcom-amateur/components.ts';
 import { parseMarkdownTable, type FoiSourceConversion } from '../../shared/foi-normalise.ts';
+import { assertNonEmpty } from '../../testing/non-vacuity.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
 //
@@ -119,7 +120,7 @@ describe('issuance-events family collection', { tags: ['data-validity'] }, () =>
     // No issuance-events entry is also a qualifying register entry, so nothing is
     // emitted twice by the register family.
     const registerKeys = new Set(qualifyingRegisterEntries().map(e => e.entry));
-    for (const { entry } of issuanceEventsEntries()) {
+    for (const { entry } of assertNonEmpty(issuanceEventsEntries(), 'issuance-events entries')) {
       expect(registerKeys.has(entry)).toBe(false);
     }
 

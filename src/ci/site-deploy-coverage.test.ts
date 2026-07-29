@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { shellAssetNames } from './build-sw-precache.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Deploy-integrity contract. A newly-added browser module that was imported by
 // a page but never shipped 404s at load and takes down every page whose script
@@ -62,10 +63,10 @@ function committedShellAssets(): string[] {
 describe('site deploy coverage', { tags: ['unit'] }, () => {
   it('SiteModuleImports_EveryTarget_ResolvesToAShippedFile', () => {
     const present = new Set(fs.readdirSync(SITE_DIR));
-    for (const mod of [...browserModules(), 'sw.js']) {
-      for (const target of importTargets(mod)) {
-        expect(present.has(target), `${mod} imports ./${target}, which is not a file in site/`).toBe(true);
-      }
+    const imports = [...browserModules(), 'sw.js'].flatMap(mod => importTargets(mod).map(target => ({ mod, target })));
+    expect(imports.length, 'no static ./x.js imports found across the shipped site modules').toBeGreaterThan(0);
+    for (const { mod, target } of imports) {
+      expect(present.has(target), `${mod} imports ./${target}, which is not a file in site/`).toBe(true);
     }
   });
 
@@ -107,7 +108,8 @@ describe('site deploy coverage', { tags: ['unit'] }, () => {
     // The v1 modules import each other by './name.js'; every such target must be
     // a real file in site/v1 (the flat copy ships them all together).
     const present = new Set(fs.readdirSync(SITE_V1_DIR));
-    for (const mod of v1DeployableFiles().filter(f => f.endsWith('.js'))) {
+    const v1Modules = assertNonEmpty(v1DeployableFiles().filter(f => f.endsWith('.js')), 'v1 deployable .js modules');
+    for (const mod of v1Modules) {
       const src = fs.readFileSync(path.join(SITE_V1_DIR, mod), 'utf8');
       for (const m of src.matchAll(/from\s+['"]\.\/([a-z0-9-]+\.js)['"]/g)) {
         expect(present.has(m[1]), `${mod} imports ./${m[1]}, which is not a file in site/v1/`).toBe(true);

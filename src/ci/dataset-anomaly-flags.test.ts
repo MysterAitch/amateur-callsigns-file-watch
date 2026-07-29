@@ -17,6 +17,7 @@ import {
   type DatasetAnomalyFlag,
 } from './dataset-anomaly-flags.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Issue #467: dataset-level anomaly flags. EXPERIMENTAL / LOCAL-ONLY — not
 // wired into report-sweep, so these tests guard the module directly rather
@@ -374,7 +375,7 @@ describe.skipIf(!duckDbAvailable())('dataset anomaly flags — real archive', { 
   });
 
   it('ComputeDatasetAnomalyFlags_EveryRenderedFlag_NeverAssertsTrustworthyOrVerified', () => {
-    const flags = computeDatasetAnomalyFlags();
+    const flags = assertNonEmpty(computeDatasetAnomalyFlags(), 'dataset anomaly flags');
     for (const flag of flags) {
       const text = renderFlag(flag).toLowerCase();
       expect(text).not.toMatch(/\btrustworthy\b|\bsafe to use\b/);

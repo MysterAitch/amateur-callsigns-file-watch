@@ -11,6 +11,7 @@ import {
 } from './reprocessing-stratification.ts';
 import { acquireClaimsSource, type ClaimsSourceHandle } from './event-time-coherency.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Issue #871: the series-stratified reprocessing observation validated against
 // the committed corpus's ground truth, and its committed golden pinned
@@ -114,7 +115,7 @@ describe.skipIf(!duckDbAvailable())('reprocessing stratification — real-corpus
   });
 
   it('Windows_EveryCohortIsASubsetOfItsBase_AndSharesAreHonestFractions', () => {
-    for (const w of strat.windows) {
+    for (const w of assertNonEmpty(strat.windows, 'reprocessing-stratification windows')) {
       expect(w.cohortSubjects).toBeLessThanOrEqual(w.baseSubjects);
       const seriesTotal = strat.rows.filter(r => r.vintage === w.vintage).reduce((sum, r) => sum + r.baseSubjects, 0);
       // The per-series base subjects partition the window's base exactly.

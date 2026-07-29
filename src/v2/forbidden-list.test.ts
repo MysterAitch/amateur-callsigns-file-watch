@@ -20,6 +20,7 @@ import {
 import { registerSourcesFor } from './collectors/foi-register.ts';
 import { readFoiEntryMeta, defaultFoiDir } from '../shared/foi-archive.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
 //
@@ -165,7 +166,7 @@ describe('forbidden-suffix claims are raw-only and carry their tokens verbatim',
     // reconstruction source: the forbidden loader now attests per-row source
     // lines, the header line and the true repo path/encoding, so the oracle
     // rebuilds each forbidden sheet from the persisted claims.
-    for (const source of collectForbiddenListSources(FOI_DIR)) {
+    for (const source of assertNonEmpty(collectForbiddenListSources(FOI_DIR), 'forbidden-list sources')) {
       const observationSet = source.load();
       expect(observationSet.repoPath).toBe(`archive/${observationSet.sourceFile}`);
       expect(observationSet.lineNumbers?.length).toBe(observationSet.rows.length);

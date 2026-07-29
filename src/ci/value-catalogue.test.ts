@@ -7,6 +7,7 @@ import {
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { DIRS } from '../shared/constants.ts';
 import { renderMarkdown } from '../shared/render-markdown.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // The value catalogue (issues #43/#223) enumerates every distinct value of the
 // tracked fields across both lanes with counts, flagging the unexpected.
@@ -527,7 +528,8 @@ describe('buildNormalisationFidelity over the real archive', { tags: ['data-vali
     expect(y2022?.coerced.length).toBe(0);
     expect(y2022?.dropped).toContain('Ofcom');
     // Every other publication is 1:1 faithful (no drops, no coercions).
-    for (const f of fidelity.filter(f => f.key !== '2022-05-30')) {
+    const otherPublications = assertNonEmpty(fidelity.filter(f => f.key !== '2022-05-30'), 'non-2022-05-30 publications');
+    for (const f of otherPublications) {
       expect(f.dropped.length).toBe(0);
       expect(f.coerced.length).toBe(0);
     }

@@ -9,6 +9,7 @@ import {
   loadForbiddenSuffixRationale,
   OFCOM_FOI_SOURCE,
 } from './forbidden-suffix-rationale.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Issue #196: categorise WHY each withheld suffix is likely restricted.
 // Test names follow Subject_Scenario_Outcome. The oracle throughout is the
@@ -109,7 +110,7 @@ describe('forbidden-suffix rationale — committed CSV', { tags: ['data-validity
     const generated = buildForbiddenSuffixRationale();
     const map = loadForbiddenSuffixRationale(csvPath);
     expect(map.size).toBe(generated.length);
-    for (const row of generated) {
+    for (const row of assertNonEmpty(generated, 'generated forbidden-suffix rationale rows')) {
       expect(map.get(row.suffix)).toEqual(row);
     }
   });
