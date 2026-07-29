@@ -37,6 +37,36 @@ don't pad. Pragmatism wins.
 
 ## Writing conventions
 
+### Search for prior wording before authoring an explanation
+
+Before writing reader-facing copy that explains a concept, **search the whole
+estate for an existing explanation and prefer carrying it across**. Look wider
+than the current surface: the build-time renderers and page builders under
+`src/ci/`, the preserved previous surface, `reference-data/flags.md`, and the
+committed reports all carry reader-facing prose. A concept can be well explained
+somewhere a search of the live pages will not reach.
+
+This is not a tidiness preference — **authoring fresh loses substance, quietly.**
+Two measured instances from one change:
+
+- An explanation of why a version-scoped start date is the *earliest surviving*
+  rather than the original was rewritten from scratch. The prior wording carried
+  the consequence — that a later publication can hold **less** early history than
+  an earlier one — and the fresh draft dropped it. That consequence is the whole
+  point of the concept.
+- An explanation of mass-update episodes was rewritten as "records a single
+  system-wide episode". The prior wording hedged: a stamp inside an episode
+  "**largely** records the episode itself". The rewrite turned a hedge into a flat
+  claim, which is overstatement — the one failure this project treats as
+  cardinal.
+
+Prior wording has already been reviewed, and its hedges and consequences are
+usually there because something forced them. A fresh draft starts from the
+author's current understanding, which is exactly the thing that drifts. Where the
+old wording is genuinely inadequate, extend it and say what changed; where it is
+adequate, reuse it verbatim and link rather than restate, so there is one copy
+rather than two that can diverge.
+
 ### Dashes differ by surface, deliberately
 
 - **Reader-facing generated site copy: a spaced en dash** (` – `). Established by the
