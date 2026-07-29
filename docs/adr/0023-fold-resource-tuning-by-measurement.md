@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-28
-- Related: ADR 0002 (DuckDB as a pinned CLI, never a native npm dependency — the engine this tunes), ADR 0012 (supply-chain posture), ADR 0013 (the raw-keyed claim ledger these folds read), ADR 0019 (layered build cache and unified CI/CD — the caching model whose invalidation this affects); issues #929 (CI perf), #987 (closed: spill exhaustion), #991 (the full experimental record this consolidates), #994 (whether the rebuild model itself is right)
+- Related: ADR 0013 (the raw-keyed claim ledger these folds read, and where the engine this tunes is adopted as a pinned CLI, never a native npm dependency), ADR 0012 (supply-chain posture — the stance that pinning satisfies), ADR 0002 (repository write controls), ADR 0019 (layered build cache and unified CI/CD — the caching model whose invalidation this affects); issues #929 (CI perf), #987 (closed: spill exhaustion), #991 (the full experimental record this consolidates), #994 (whether the rebuild model itself is right)
 
 ## Context
 

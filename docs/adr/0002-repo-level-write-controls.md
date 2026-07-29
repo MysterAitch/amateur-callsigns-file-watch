@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-06
-- Related: ADR 0001, ADR 0019 (the unified CI/CD pipeline these checks now live in); issues #14, #15, #243, #588; PR #28 (implementation); PR #29 (first end-to-end data PR)
+- Related: ADR 0001, ADR 0019 (the unified CI/CD pipeline these checks now live in). Records that constrain the settings below: [ADR 0009](0009-data-landing-via-branches-and-sweep.md) (the data-landing flow depends on merge commits, which is why *require linear history* must stay off and why squash and rebase merges are disabled — enabling any of them breaks fetch-host convergence; it also treats the required-check set recorded here as the gate that makes its auto-merge genuinely conditional), [ADR 0012](0012-supply-chain-posture.md) (states the single principle these write controls serve, and is maintained the same way — a living record updated alongside the thing it describes; the Dependabot-over-hosted-Renovate reasoning belongs to it); issues #14, #15, #243, #588; PR #28 (implementation); PR #29 (first end-to-end data PR)
 
 ## Context
 
@@ -242,3 +242,13 @@ gh api -X PATCH repos/{owner}/{repo}/code-scanning/default-setup -f state=config
 - Dependency freshness: Dependabot (`.github/dependabot.yml`) keeps the SHA-pinned
   actions and npm dependencies updated via ordinary gated PRs. Chosen over hosted
   Renovate so no third-party service holds write access to the repository.
+- **Scope, stated because this record is cited for constraints it does not
+  hold.** What lives here is repository-level write control: the ruleset, the
+  Actions token policy, merge behaviour, the fetch host's deploy key, and the
+  read-only analysis features. Two neighbouring constraints are recorded
+  elsewhere and are easy to attribute here because they sit behind the same
+  overall posture — the frameworkless / no-build / vendored-only site
+  constraint, which is ADR 0003 consolidated by ADR 0012; and the
+  pinned-external-CLI dependency stance (the build-time query engine adopted as
+  a checksum-verified static binary rather than a native npm dependency), which
+  is ADR 0013's decision under ADR 0012's posture. Neither is decided here.

@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-10
-- Related: ADR 0001 (PR-gated processing), ADR 0002 (repository write controls), ADR 0003 (frameworkless site), ADR 0009 (branch relay), ADR 0010 (archive contract), ADR 0019 (unified `cicd.yaml` — preserves the read-only-CI posture via job-level permissions), ADR 0022 (v1 component architecture — the render backend and a11y oracle sanctioned in the 2026-07-24 addendum below); issues #47 (item 4), #966 (the dependency-stance deliberation the addendum consolidates)
+- Related: ADR 0001 (PR-gated processing), ADR 0002 (repository write controls), ADR 0003 (frameworkless site), ADR 0009 (branch relay), ADR 0010 (archive contract), [ADR 0013](0013-raw-keyed-claim-ledger.md) (extends this posture to a class it was not written for: a build-time query engine adopted as a pinned, checksum-verified static CLI binary rather than a native npm dependency — outside the lockfile, so its integrity rests on the pin and the checksum rather than on `npm audit`), ADR 0019 (unified `cicd.yaml` — preserves the read-only-CI posture via job-level permissions), ADR 0022 (v1 component architecture — the render backend and a11y oracle sanctioned in the 2026-07-24 addendum below); issues #47 (item 4), #966 (the dependency-stance deliberation the addendum consolidates)
 
 > *(Amended 2026-07-24.)* The original decision below states the posture as a
 > single line held uniformly across every dependency. The

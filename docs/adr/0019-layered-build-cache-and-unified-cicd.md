@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-14
-- Related: ADR 0002 (repository write controls), ADR 0003 (in-repo presentation / Pages deploy), ADR 0012 (supply-chain posture); issues #478 (CI performance), #497 (post-deploy verification), #499 (loading affordance), #533 (DB-build profiling + speedup plan), #539 (shared raw-build reuse refactor), #929 (the later CI/CD performance tracker — current figures live there); PRs #507 (smoke-test exit), #513 (deploy database cache), #516 (the `cicd.yaml` unification), #517 (test-excluding closure keys), #536 (free layer)
+- Related: ADR 0002 (repository write controls), ADR 0003 (in-repo presentation / Pages deploy), ADR 0012 (supply-chain posture), [ADR 0023](0023-fold-resource-tuning-by-measurement.md) (governs the fold resource settings on the cached build path, and has a consequence for the closure keying below: those pins live in the builder source these layer keys hash, yet every measured arm produced byte-identical output — so a tuning change invalidates a layer it provably cannot alter, and the cost of a tuning experiment includes a cold rebuild. It also added the shared disk-headroom preflight the deploy's `build-site-databases` job runs, and left that job instrumented rather than tuned); issues #478 (CI performance), #497 (post-deploy verification), #499 (loading affordance), #533 (DB-build profiling + speedup plan), #539 (shared raw-build reuse refactor), #929 (the later CI/CD performance tracker — current figures live there); PRs #507 (smoke-test exit), #513 (deploy database cache), #516 (the `cicd.yaml` unification), #517 (test-excluding closure keys), #536 (free layer)
 
 ## Context
 

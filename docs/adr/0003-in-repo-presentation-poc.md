@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-07
-- Related: ADR 0002 (write posture), ADR 0008 (offline-first PWA over the same SQLite), ADR 0013 (raw-keyed claim ledger — reuses this vendored `sql.js-httpvfs` range-read path for the in-browser ledger query lane), ADR 0019 (the deploy workflow named below is now the `deploy` job of the unified `cicd.yaml`, with a layered build cache), ADR 0020 (the sharded static-JSON serving projection that now answers the single-callsign intent)
+- Related: ADR 0002 (write posture), ADR 0008 (offline-first PWA over the same SQLite), ADR 0013 (raw-keyed claim ledger — reuses this vendored `sql.js-httpvfs` range-read path for the in-browser ledger query lane), ADR 0019 (the deploy workflow named below is now the `deploy` job of the unified `cicd.yaml`, with a layered build cache), ADR 0020 (the sharded static-JSON serving projection that now answers the single-callsign intent), [ADR 0022](0022-v1-component-architecture.md) (the operative site architecture: this record's "contract demonstrator, not a product" framing has been overtaken, while the frameworkless, no-build constraint stated here is the constraint ADR 0022 works within), [ADR 0012](0012-supply-chain-posture.md) (re-reads that no-build constraint as a security property rather than a simplicity preference — it is what keeps a client-side npm supply chain off the published surface, so adding a build step is a posture change requiring its own record), ADR 0001 (whose closing consequence, that consumer surfaces stay out of this repository, this record revised)
 
 > *(Amended 2026-07-16.)* This ADR records the original proof of concept, in
 > which the published SQLite database was *the* site data source. That framing

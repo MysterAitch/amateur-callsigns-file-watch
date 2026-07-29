@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-29
-- Related: ADR 0013 (the raw-keyed claim ledger this serialises), ADR 0002 (DuckDB as a pinned CLI — the engine that must ingest it), ADR 0012 (supply-chain posture — constrains which codecs and libraries are admissible), ADR 0023 (resource tuning by measurement); issues #997 (compression), #994 (whether the intermediate is needed at all), #361 (the original ledger exploration)
+- Related: ADR 0013 (the raw-keyed claim ledger this serialises, and where the engine that must ingest it is adopted as a pinned CLI), ADR 0012 (supply-chain posture — constrains which codecs and libraries are admissible), ADR 0023 (resource tuning by measurement); issues #997 (compression), #994 (whether the intermediate is needed at all), #361 (the original ledger exploration)
 
 ## Context
 
