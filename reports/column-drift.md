@@ -11,6 +11,16 @@ expectations: the detector says only that "the shape changed", never what
 to look for. Regenerated and committed, so a new vintage shifting any
 fingerprint shows up as a PR diff.
 
+**This is one of two anomaly-detection surfaces, and the one that sees a
+STRUCTURAL anomaly** — a whole cohort or character class entering or leaving
+a publication. The other, `dataset-anomaly-flags`, compares a vintage’s
+aggregate metrics (record count, per-status shares, product-column
+emptiness) against its neighbours; it does not look inside the value space,
+so a class-wide disappearance is invisible there and visible here. Named
+because "where are anomalies detected?" leads naturally to the aggregate
+detector and straight past this report — which is where the `Z`-cohort
+omission between the 2025-11-11 and 2026-01-14 vintages was actually caught.
+
 **Flags, never verdicts** (issue #467): every divergence carries candidate
 explanations (a schema/variant change, an export filter, an upstream data
 event) and chooses none; a novel value is surfaced, never auto-suppressed.
