@@ -3,6 +3,20 @@
 - Status: accepted
 - Date: 2026-07-09
 
+> *(Amended 2026-07-29.)* Decision item 3's cache-versioning has since been
+> refined by issue #614 without changing the design's intent. The shell cache
+> is now keyed by `SHELL_VERSION`, a content hash over the names and bytes of
+> the precached set, so it is busted precisely when the shell actually
+> changes rather than on every deploy; the `DEPLOY_VERSION` commit-SHA stamp
+> is retained for the two jobs it still does — changing the worker's own
+> bytes each deploy (the only reliable re-install trigger, which runs the
+> activate-time prune) and keying the offline database's `?v=` match. The
+> precache list itself is no longer hand-maintained: it is stamped at deploy
+> by `src/ci/build-sw-precache.ts` from what is actually shipped, so a
+> newly-added site module cannot be silently left out of the shell. The
+> hand-authored page and asset names in item 2 are therefore illustrative of
+> the shell's shape, not a maintained list.
+
 ## Context
 
 The lookup and Explore pages query a published SQLite database directly from

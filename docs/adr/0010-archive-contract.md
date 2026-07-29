@@ -22,12 +22,25 @@ the README design notes. This ADR consolidates them.
 1. **Raw bytes are preserved verbatim.** `.gitattributes` marks
    `archive/**/raw.*`, `latest-raw.*`, and the FOI lane's data attachments as
    `binary`, so a publisher's exact bytes (Ofcom's CRLF-terminated CSVs among
-   them) survive checkout on any platform. This is not cosmetic: the archive
-   idempotence check hashes the freshly-downloaded staging file against the
-   archived `raw.*` hash, and any line-ending normalisation would break that
-   invariant. Derived files (sorted CSVs, JSON, `meta.json`, `normalised.csv`)
-   are deliberately text with pinned LF — Node's writers emit `\n`
-   unconditionally, and text handling gives readable git diffs.
+   them) survive checkout on any platform. This is not cosmetic, and the
+   load-bearing reason is worth spelling out for anyone editing
+   `.gitattributes`: **a raw file's sha256 *is* the archive entry's
+   identity.** Intake decides "is this download already archived?" by hashing
+   the fresh download and looking it up against the hash of every committed
+   `raw.*` (`findArchiveKeyByRawHash` in
+   `src/sources/ofcom-amateur/process.ts`), and same-date key collisions are
+   disambiguated with a suffix of that same hash. Git's default text
+   normalisation rewrites CRLF on commit or checkout, so without the `binary`
+   marking the committed blob's bytes would drift from the bytes the live
+   endpoint serves; the lookup would then miss, and the next fetch would mint
+   a **duplicate archive entry for a publication whose bytes never changed** —
+   silently, on the platform whose checkout did the smudging. Derived files
+   (sorted CSVs, JSON, `meta.json`, `normalised.csv`) need no `binary`
+   protection because their identity is not a hash of foreign bytes: their
+   writers emit `\n` unconditionally on every platform, so their content is
+   born LF. They are deliberately text — which keeps git diffs readable — with
+   `eol=lf` pinned in `.gitattributes` so a checkout cannot smudge them away
+   from the sha256 their `meta.json` declares.
 
 2. **Keys are publication dates, content-hash-suffixed on collision, and
    correctable.** An open-data key is Ofcom's own publication date

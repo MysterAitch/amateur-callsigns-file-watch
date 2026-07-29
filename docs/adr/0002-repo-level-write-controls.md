@@ -187,7 +187,8 @@ gh api -X POST repos/{owner}/{repo}/rulesets --input - <<'JSON'
         "required_status_checks": [
           { "context": "tests" },
           { "context": "data-validation" },
-          { "context": "golden-master" }
+          { "context": "golden-master" },
+          { "context": "workflow-audit" }
         ]
       } },
     { "type": "non_fast_forward" },
@@ -219,7 +220,14 @@ gh api -X PATCH repos/{owner}/{repo}/code-scanning/default-setup -f state=config
 ## Consequences
 
 - The settings above are not version-controlled by GitHub; treat this ADR as their
-  source of truth and update it when they change.
+  source of truth and update it when they change. Because it goes stale silently, a
+  periodic re-check against the live API (`gh api repos/{owner}/{repo}/rules/branches/main`,
+  `…/actions/permissions/workflow`, and the repository settings endpoint) is the
+  only guard. Last verified in full 2026-07-29: the live ruleset, workflow policy
+  and merge settings all matched this record, except that the recreation block had
+  omitted `workflow-audit` from the required checks after the 2026-07-17 update
+  amended only the prose — corrected the same day. When a required check is added
+  or renamed, both the prose *and* the recreation block must change.
 - Verified end-to-end 2026-07-06 with a synthetic publication test: fetcher pushed
   `data/2026-06-23`, the sweep opened PR #29, the allowlist passed, auto-merge landed it
   with a merge commit, and the pushing checkout fast-forwarded cleanly over the merge.

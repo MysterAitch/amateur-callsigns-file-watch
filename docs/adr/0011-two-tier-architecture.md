@@ -61,6 +61,14 @@ ADR states it.
   actually forces. No second long-lived server and no downstream polling repo
   are provisioned speculatively — both were considered and rejected as burden
   without benefit under this split.
+- The minimalism is calibrated to exactly one host. A single hand-tended host
+  needs no shared configuration management: its deployed state is checked for
+  drift against the repository on every tick, which is enough at N=1. A second
+  always-on fetch host — whether for redundancy or for a new source needing a
+  different network origin — would reopen the provisioning and
+  configuration-management question this split deliberately avoids answering,
+  so N≥2 is the trigger to revisit how tier one is provisioned, not merely to
+  clone it.
 - If a future source can be fetched from a datacenter IP (for example, an
   archive replay fronted by a CDN), it can run entirely in tier two, and the
   residential host stays scoped to the sources that genuinely require it.
