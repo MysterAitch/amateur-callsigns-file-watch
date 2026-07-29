@@ -175,8 +175,8 @@ the #431 programme.
     </tr>
     <tr>
       <td><a href="0019-layered-build-cache-and-unified-cicd.md">ADR 0019</a></td>
-      <td>Layered, content-addressed build cache with a stepped deploy fallback, and a unified <code>cicd.yaml</code> gating deploy on <code>main</code></td>
-      <td>Too situational for one line — the live tension is that narrowing a cache closure risks a stale-artefact false hit, which is worse than a false miss. See the record and <a href="../ci-cache-behaviour.md"><code>../ci-cache-behaviour.md</code></a></td>
+      <td>Layered, content-addressed build cache with a stepped deploy fallback, and a unified <code>cicd.yaml</code> gating deploy on <code>main</code> (the stepped walk's middle rung — deploy reusing CI's raw layer — is decided but unbuilt, tracked on #539)</td>
+      <td>The cache proving insufficient — its branch scope or the 10&nbsp;GB ceiling — reverses the store choice towards the record's named escalation, Release assets keyed on the closure hash, which trades a <code>contents: write</code> grant against ADR 0012. The single-workflow half reverses only if job-scoped permissions stop being auditable. Operating hazards (closure narrowing risks a stale false hit) live in <a href="../ci-cache-behaviour.md"><code>../ci-cache-behaviour.md</code></a></td>
       <td>accepted</td>
       <td>2026-07-14</td>
     </tr>
@@ -190,21 +190,21 @@ the #431 programme.
     <tr>
       <td><a href="0021-frozen-derived-baseline.md">ADR 0021</a></td>
       <td>Freeze the committed derived baseline; the ledger projection is the derivation lane (the #446 retirement)</td>
-      <td>A consumer needing live re-derivation of a publication from before the freeze</td>
+      <td>A consumer that can only read committed files needing derived views for a <em>post</em>-freeze entry, or a deliberate derivation-semantics change that makes the fold rightly diverge from the frozen files — either reopens sweep-versus-projection. Removing the baseline itself is explicitly a separate decision (ADR 0013's retention stands)</td>
       <td>accepted</td>
       <td>2026-07-17</td>
     </tr>
     <tr>
       <td><a href="0022-v1-component-architecture.md">ADR 0022</a></td>
       <td>The v1 UI component architecture: frameworkless JSDoc-typed modules, DOM-construction rendering, one implementation across build and browser</td>
-      <td>Too situational for one line — reverses if the one-shot progressive-enhancement model cannot express a required interaction. See the record</td>
+      <td>The record's written tripwire: reactive client-side state driving synchronised re-renders across components. The timeline legend-filter is the named canary — if hand-rolling that wiring becomes painful, or several such surfaces accrue, the fallback is a minimal SSR-plus-islands library, never a full SPA framework</td>
       <td>accepted</td>
       <td>2026-07-24</td>
     </tr>
     <tr>
       <td><a href="0023-fold-resource-tuning-by-measurement.md">ADR 0023</a></td>
       <td>Report-fold resource tuning is settled by controlled measurement; no lever survives without evidence</td>
-      <td>Not reversible as such: it is a method, not a setting. The individual <strong>pins</strong> it produced are expected to be revisited on a corpus, Node or runner change</td>
+      <td>Not reversible as such: it is a method, not a setting. The individual <strong>pins</strong> it produced are expected to be revisited on a corpus, Node, DuckDB or runner change</td>
       <td>accepted</td>
       <td>2026-07-28</td>
     </tr>
@@ -277,14 +277,15 @@ past; a pointer with a test beside it is a claim about the present.
 | decision / finding | where it lives | what enforces it |
 |---|---|---|
 | **Claim-ledger delivery** — migration maps, oracle milestones, phase coherence | issue #361 (closed) | superseded by the ADRs it produced (0013, 0016, 0017, 0018, 0024) |
-| **CI/CD performance, longitudinally** — the ~39 min → 5.2 min campaign, what moved the needle and what did not | issue #929 (open tracker) | `perf-matrix.yml`, re-run on Node / vitest / corpus / runner change |
+| **CI/CD performance, longitudinally** — the ~39 min → 5.2 min campaign (figures as at 2026-07-29), what moved the needle and what did not | issue #929 (open tracker) | `perf-matrix.yml` — monthly cron (`23 4 1 * *`) plus the `perf-matrix` PR label; re-run sooner on a Node / vitest / corpus / runner change |
 | **Granular rebuild** — why splitting is worth pursuing independently of committing, and why dirty-detection is the hard half | issue #994 | — (open direction, not yet built) |
-| **Cache behaviour and merge cadence** — cache state is a vector, not a hit/miss flag; N merges in a row cost N cold runs | [`../ci-cache-behaviour.md`](../ci-cache-behaviour.md) | `cicd-workflow-structure.test.ts` pins the cache keys and required-check names |
+| **Cache behaviour and merge cadence** — cache state is a vector, not a hit/miss flag; N merges in a row cost N cold runs | [`../ci-cache-behaviour.md`](../ci-cache-behaviour.md) | `cicd-workflow-structure.test.ts` pins the closure-hash keying, the golden-master closure's import-graph coverage, and the required-check names (not the literal key strings) |
 | **Measurement traps** — the five ways a performance reading misleads, including bundled levers | [`../perf-profiling.md`](../perf-profiling.md) | ADR 0023; the benchmark arms in `bench-suite.ts` |
 | **SQLite needs `ANALYZE` at build time** — without it point lookups mis-plan onto a scan (300 ms–3.6 s versus sub-millisecond) | `src/v2/build-ledger-db.ts` header | `QueryPlanner_AfterAnalyze_…` in `build-ledger-db.test.ts` and the compact variant |
 | **The ledger must not be stageable** — a local build writes ~12.7 GiB inside the working tree | `.gitignore` (`_build/`), ADR 0024 | `ledger-output-hygiene.test.ts`, which derives the path from the CLI |
 | **Every test declares a kind tag** — `unit` / `ui` / `data-validity`, so nothing is silently mis-tiered | [`../../src/testing/test-taxonomy.test.ts`](../../src/testing/test-taxonomy.test.ts) | the file is itself the enforcement; exemptions are explicit and retirable |
-| **Compression is a publish responsibility, never a verify one** — CI builds raw; the deploy publishes compressed | ADR 0023, ADR 0024 | separate cache scopes for build and publish paths |
+| **Compression is a publish responsibility, never a verify one** — CI builds raw; the deploy publishes compressed | ADR 0019 (where the split was drawn, during #478), ADR 0023, ADR 0024 | distinct cache keys in `cicd.yaml` (`…-verify-…` vs `pages-db-…`) keep the two paths apart, but no test asserts the separation — it holds by convention |
+| **Measured figures carry their date and source run** — an undated number reads as current long after the world moves | `CONTRIBUTING.md` (pull-request evidence), ADR 0023's consequences | — (review-time convention; no test can tell a dated figure from a stale one) |
 
 ## Related documentation
 
@@ -292,4 +293,7 @@ past; a pointer with a test beside it is a claim about the present.
 - [`../foi-schemas.md`](../foi-schemas.md) — generated FOI schema registry (ADR 0004).
 - [`../source-register.md`](../source-register.md) — cross-lane index of every known source and its intake status.
 - [`../dataset-status.md`](../dataset-status.md) — generated per-dataset overview of what exists.
+- [`../data-flow.md`](../data-flow.md) — the end-to-end pipeline map: per stage, its trigger, its gate and the ADR that governs it (and where the workflows differ from what the ADRs intend, it says so).
+- [`../adding-a-dataset.md`](../adding-a-dataset.md) — the step-by-step intake companion to ADR 0001 / ADR 0004 and the two schema documents above.
+- [`../hypothesis-register.md`](../hypothesis-register.md) — the statused ledger of assumptions and hypotheses about the data, each with re-runnable evidence; institutional memory for *claims*, as `source-register.md` is for *sources*.
 - [`../../README.md`](../../README.md) — project overview and deployment guide.

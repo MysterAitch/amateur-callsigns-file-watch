@@ -114,7 +114,10 @@ see, without removing the protection on a run we might one day get.
 `build-site-databases` uses the same script with a deliberately conservative
 threshold: its profile differs (packaged databases, the assembled tree, a
 ~1.2 GB Pages artefact) and its peak consumption has not been measured, so it is
-instrumented rather than tuned.
+instrumented rather than tuned. (Still the case as of 2026-07-29: the sampler
+remains in the job and no threshold has been derived from its readings — the
+instrumentation step's own comment says to remove it once this ADR records the
+answer, which it has not yet done.)
 
 **Insertion-order preservation is resolved, and the ordering of the two changes
 was load-bearing.** Re-tested against the post-`NOT MATERIALIZED` baseline, as
@@ -154,7 +157,10 @@ unconditionally in #1001.
   and the correction is on #991. And **a measurement can be censored by the
   configuration it runs under**: peak fold memory was predicted to fall and
   appeared not to, because both arms sat under a 3 GB cap that bounded the
-  reading. The prediction was right; the instrument was wrong.
+  reading. The prediction was right; the instrument was wrong. The full trap
+  list (five, as of 2026-07-29) is operationalised in
+  [`../perf-profiling.md`](../perf-profiling.md), alongside the kept benchmark
+  arms that make each conclusion re-runnable.
 - A lever introduced on a hypothesis **owes a measurement**, and the burden sits
   with the lever rather than with the person questioning it.
 - **A measurement of what a platform currently provides is not a measurement of

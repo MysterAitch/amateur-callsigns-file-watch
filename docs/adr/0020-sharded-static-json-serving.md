@@ -14,9 +14,12 @@ range-reads the published file, and only then can a query run. That machinery is
 the right tool for the workloads it was chosen for — reference joins, the suffix
 availability matrix, temporal folds, raw-byte provenance traversals — but for a
 single-callsign answer it is enormously overproportioned. Cold opens of that path
-were measured at roughly **20–30 seconds** on GitHub Pages (issue #475), dominated
-by worker start-up and the first range reads, for a result that is a few hundred
-bytes of data.
+were measured at roughly **20–30 seconds** on GitHub Pages (issue #475, 2026-07),
+dominated by worker start-up and the first range reads, for a result that is a few
+hundred bytes of data. (#475 has since been closed — chunked serving cut the
+cold-open cost on the database path — but that reduces, not removes, machinery the
+single-callsign intent never needed; the decision does not rest on the worst-case
+figure remaining current.)
 
 Two shifts made a different serving shape both possible and consistent with the
 project's direction. First, [ADR 0013](0013-raw-keyed-claim-ledger.md) inverted the
@@ -90,7 +93,15 @@ re-implemented.
   shards** plus the manifest; the largest shard was **13.8 KB gzipped** (185.2 KB
   raw, 999 callsigns), well inside a fetch-sized budget. Rows with no addressable
   callsign characters (39 of them) are counted as `unkeyable`, never silently
-  dropped.
+  dropped. Those counts are the 2026-07-16 measurement, not a contract: the
+  corpus keeps growing (71 ledger sources by 2026-07-29 — ADR 0024's per-source
+  table), and the builder re-shards on every deploy, so dataset, entity and
+  shard counts drift upward by design. Current values are recomputed — and the
+  shard-size bound re-asserted — by the committed self-check on every CI run;
+  what this record owns is the *mechanism* (the two-character rule, the
+  2,000-callsign `SHARD_SPLIT_THRESHOLD` subdivision, the manifest-driven
+  longest-prefix match), which holds regardless of corpus size until a
+  threshold or rule change re-opens it.
 - **The projection is verified by a committed self-check, not by a committed
   artefact.** Like the SQLite databases (ADR 0003, ADR 0019) the shards are built
   at deploy and **never committed** — so they are not golden masters. Unlike the

@@ -40,7 +40,8 @@ them — but what their standing IS once nothing regenerates them.
 2. **The committed derived files freeze as the equivalence baseline.** Every
    pre-freeze publication keeps its committed `normalised.csv`,
    `components.csv` and `stats.json` exactly as derived — pinned entry by
-   entry in the parity gate (`FROZEN_BASELINE_KEYS`), which continues to
+   entry in the parity gate (`FROZEN_BASELINE_KEYS`, in
+   `src/v2/builder-projection-parity.test.ts`), which continues to
    byte-compare the projection against them on every CI run. They are the
    durable proof that two independent derivation paths — the authored
    converter lane that wrote them, and the claim-ledger fold — agree
@@ -60,7 +61,11 @@ them — but what their standing IS once nothing regenerates them.
      per-PR by the golden-master job — unchanged semantics, new producer.
    - *FOI committed derivatives* (`normalised--*.csv`, extracts): unchanged —
      still committed, still regenerated in reviewed PRs, still byte-verified
-     (the #445/#447 chain owns their future).
+     (the #445/#447 chain owns their future). This clause survived the FOI
+     lane's own ledger crossing: #455 (closed 2026-07-18) made the ledger
+     canonical for every FOI text source and deleted the oracle mirrors, but
+     did not change the committed-derivative policy — 62 `normalised--*.csv`
+     files remain committed as of 2026-07-29.
 5. **Protection converts, it does not die.** The retired derivation's
    verification value lives on as: the parity gate over the frozen baseline;
    the projection invariant suite and the reconstruction/interpretation
