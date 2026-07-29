@@ -50,6 +50,66 @@ if (!spec.arms.some(a => a.control !== undefined)) {
   throw new Error(`${SPEC_PATH}: no control arm declared. Add one arm with a "control" field naming the arm it should match.`);
 }
 
+// Round 1 accidentally shipped FOUR byte-identical arms, spending ~40 jobs on
+// redundancy nobody intended. Duplicates are legitimate ONLY as a declared
+// control - which is a deliberate noise-floor read, not an accident.
+// The signature is DERIVED from every field except known metadata, rather than an
+// allowlist of the fields that happened to exist when this was written. An
+// allowlist silently misses each field added later: `extraArgs`, `perf`,
+// `perfJson`, `needsParquet` and `shardGroup` were all introduced incrementally,
+// and the list had already fallen a field behind before this was noticed - two
+// arms differing ONLY in `needsParquet` would have been called duplicates.
+//
+// `shardGroup` counts as metadata deliberately: two arms running the SAME thing
+// in different groups are still duplicates. That is how the packed-1/solo-1
+// clash was caught.
+const METADATA_FIELDS = new Set(['id', 'label', 'control', 'shardGroup']);
+const signature = (a) => JSON.stringify(
+  Object.keys(a).filter(k => !METADATA_FIELDS.has(k)).sort().map(k => [k, a[k]]),
+);
+
+const bySignature = new Map();
+for (const a of spec.arms) {
+  const key = signature(a);
+  if (!bySignature.has(key)) bySignature.set(key, []);
+  bySignature.get(key).push(a);
+}
+for (const [key, group] of bySignature) {
+  if (group.length < 2) continue;
+  const undeclared = group.filter(a => a.control === undefined);
+  if (undeclared.length > 1) {
+    throw new Error(`${SPEC_PATH}: arms ${undeclared.map(a => a.id).join(', ')} share an identical configuration ${key}. Declare one as a "control" of the other, or make them differ.`);
+  }
+}
+
+// OPTIONAL FACTORIAL COVERAGE. The duplicate check answers "did we run the same
+// thing twice". It says nothing about "did we forget a combination" - and a
+// matrix missing a cell yields a confident conclusion about a design it never
+// ran, which is the same class of error as an inert arm and just as invisible.
+//
+// Declaring `factors` makes the intended design explicit and checkable. Gaps stay
+// allowed but must be ACKNOWLEDGED in `knownGaps`, so a deliberately partial
+// design reads differently from an oversight.
+if (spec.factors !== undefined) {
+  const names = Object.keys(spec.factors);
+  const combos = names.reduce(
+    (acc, n) => acc.flatMap(prefix => spec.factors[n].map(v => ({ ...prefix, [n]: v }))),
+    [{}],
+  );
+  const cell = (o) => JSON.stringify(names.map(n => o[n] ?? null));
+  const present = new Set(spec.arms.map(cell));
+  const acknowledged = new Set((spec.knownGaps ?? []).map(cell));
+  const missing = combos.map(cell).filter(k => !present.has(k) && !acknowledged.has(k));
+  if (missing.length > 0) {
+    throw new Error(
+      `${SPEC_PATH}: the declared factorial design over [${names.join(', ')}] is missing `
+      + `${missing.length} of ${combos.length} combination(s): ${missing.slice(0, 6).join(' ')}`
+      + `${missing.length > 6 ? ' ...' : ''}. Add the arms, or list them under "knownGaps" to acknowledge a partial design.`,
+    );
+  }
+  console.log(`factorial [${names.join(', ')}]: ${combos.length} combinations, all present or acknowledged`);
+}
+
 const requested = Number.parseInt(process.env.REPETITIONS ?? '', 10);
 const reps = Math.min(MAX_REPS, Math.max(1, Number.isInteger(requested) ? requested : (spec.defaultRepetitions ?? 5)));
 

@@ -21,6 +21,7 @@ import {
   computeRatios,
   compareToBaseline,
   renderMatrixMarkdown,
+  aggregateShardGroups,
   type ArmRun,
   type ComparisonSpec,
   type PerfBaseline,
@@ -62,7 +63,14 @@ for (const run of runs) {
 }
 const summaries = [...byArm.values()].map(summariseArm);
 
-const spec = parseJsonObject(fs.readFileSync(armsSpecPath, 'utf8'), armsSpecPath) as { comparisons?: ComparisonSpec[] };
+const spec = parseJsonObject(fs.readFileSync(armsSpecPath, 'utf8'), armsSpecPath) as {
+  comparisons?: ComparisonSpec[];
+  arms?: { id: string; shardGroup?: string }[];
+};
+// How many shards each group DECLARES, so a partial measurement is reported as
+// incomplete rather than as a total that silently understates.
+const expectedShards: Record<string, number> = {};
+for (const a of spec.arms ?? []) if (a.shardGroup !== undefined) expectedShards[a.shardGroup] = (expectedShards[a.shardGroup] ?? 0) + 1;
 const ratios = computeRatios(summaries, spec.comparisons ?? []);
 
 const baselinePath = argValue('--baseline');
@@ -70,7 +78,7 @@ const deltas = baselinePath !== undefined && fs.existsSync(baselinePath)
   ? compareToBaseline(summaries, parseJsonObject(fs.readFileSync(baselinePath, 'utf8'), baselinePath) as unknown as PerfBaseline)
   : [];
 
-process.stdout.write(renderMatrixMarkdown(summaries, ratios, deltas));
+process.stdout.write(renderMatrixMarkdown(summaries, ratios, deltas, aggregateShardGroups(summaries, expectedShards)));
 
 const writePath = argValue('--write-baseline');
 if (writePath !== undefined) {

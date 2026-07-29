@@ -31,6 +31,8 @@
 
 export interface ArmRun {
   arm: string;
+  /** Present when this run is one shard of a split (see aggregateShardGroups). */
+  shardGroup?: string;
   rep: number;
   elapsedS: number;
   peakRssKb: number;
@@ -51,6 +53,8 @@ export interface ArmSummary {
   reps: number;
   failures: number;
   reliable: boolean;
+  /** Set when this arm is one shard of a split; groups are aggregated. */
+  shardGroup?: string;
   /**
    * How many separated clusters the samples fall into. 1 is the normal case.
    * >1 means the median describes NO actual population, which is worse than a
@@ -148,7 +152,7 @@ export function summariseArm(runs: readonly ArmRun[]): ArmSummary {
   const failures = runs.length - good.length;
 
   if (good.length === 0) {
-    return { arm, medianS: null, minS: null, maxS: null, spreadRatio: null, peakRssKb: 0, reps: 0, failures, reliable: false, modes: 1 };
+    return { arm, medianS: null, minS: null, maxS: null, spreadRatio: null, peakRssKb: 0, reps: 0, failures, reliable: false, modes: 1, shardGroup: runs[0]?.shardGroup };
   }
 
   const times = good.map(r => r.elapsedS);
@@ -166,6 +170,7 @@ export function summariseArm(runs: readonly ArmRun[]): ArmSummary {
     peakRssKb: Math.max(...good.map(r => r.peakRssKb)),
     reps: good.length,
     failures,
+    shardGroup: runs[0]?.shardGroup,
     modes,
     // A multimodal arm is never reliable however tight each cluster is: the
     // summary statistic does not describe any population that exists.
@@ -241,10 +246,66 @@ function fmt(n: number | null, digits = 1): string {
   return n === null ? '-' : n.toFixed(digits);
 }
 
+export interface ShardGroupSummary {
+  group: string;
+  /** Sum across shards: what the split costs in RUNNER MINUTES. */
+  totalS: number;
+  /** Max across shards: what the split costs in WALL CLOCK. */
+  wallS: number;
+  /** slowest / fastest shard. 1.0 is perfect balance. */
+  imbalance: number;
+  shards: number;
+  /** False when fewer shards were measured than the split declares. */
+  complete: boolean;
+}
+
+/**
+ * Aggregate the shards of a split.
+ *
+ * A split has TWO costs and they trade against each other: the SUM across shards
+ * is runner-minutes, the MAX is wall clock. Reporting one without the other is
+ * how a sharding decision gets made on the wrong axis.
+ *
+ * `expected` maps a group to how many shards it should have. Supplying it turns
+ * a partial measurement into an explicit `complete: false` rather than a total
+ * that silently understates. Round 1 of the slicing matrix measured only shard 1
+ * and multiplied by N - invalid, because vitest shards by FILE COUNT while file
+ * durations are wildly uneven, so no single shard represents the split.
+ */
+export function aggregateShardGroups(
+  summaries: readonly ArmSummary[],
+  expected: Readonly<Record<string, number>> = {},
+): ShardGroupSummary[] {
+  const groups = new Map<string, ArmSummary[]>();
+  for (const s of summaries) {
+    if (s.shardGroup === undefined || s.medianS === null) continue;
+    const list = groups.get(s.shardGroup) ?? [];
+    list.push(s);
+    groups.set(s.shardGroup, list);
+  }
+
+  const out: ShardGroupSummary[] = [];
+  for (const [group, members] of groups) {
+    const times = members.map(m => m.medianS as number);
+    const wallS = Math.max(...times);
+    const fastest = Math.min(...times);
+    out.push({
+      group,
+      totalS: times.reduce((a, b) => a + b, 0),
+      wallS,
+      imbalance: fastest > 0 ? wallS / fastest : 1,
+      shards: members.length,
+      complete: expected[group] === undefined ? true : members.length === expected[group],
+    });
+  }
+  return out.sort((a, b) => a.group.localeCompare(b.group));
+}
+
 export function renderMatrixMarkdown(
   summaries: readonly ArmSummary[],
   ratios: readonly RatioResult[],
   deltas: readonly BaselineDelta[],
+  groups: readonly ShardGroupSummary[] = [],
 ): string {
   if (summaries.length === 0) return '## Performance matrix\n\nNo arms produced a result.\n';
 
@@ -265,6 +326,15 @@ export function renderMatrixMarkdown(
     lines.push('', '### Ratios', '', '| comparison | variant / baseline | status |', '|---|---:|---|');
     for (const r of ratios) {
       lines.push(`| ${r.id} (${r.variant} vs ${r.baseline}) | ${r.ratio.toFixed(2)}x | ${r.settled ? 'settled' : '**indicative only - a noisy arm**'} |`);
+    }
+  }
+
+  if (groups.length > 0) {
+    lines.push('', '### Shard groups', '',
+      '| split | shards | wall clock (max) | runner minutes (sum) | imbalance |', '|---|---:|---:|---:|---:|');
+    for (const g of groups) {
+      const flag = g.complete ? '' : ' **INCOMPLETE — some shards missing, totals understate**';
+      lines.push(`| ${g.group}${flag} | ${g.shards} | ${(g.wallS / 60).toFixed(2)} min | ${(g.totalS / 60).toFixed(2)} min | ${g.imbalance.toFixed(2)}x |`);
     }
   }
 
@@ -306,5 +376,6 @@ export function parseArmResult(text: string): ArmRun | null {
     elapsedS: elapsed,
     peakRssKb: Number(fields.get('peak_rss_kb')) || 0,
     status: Number(fields.get('status')) || 0,
+    shardGroup: fields.get('shard_group') || undefined,
   };
 }
