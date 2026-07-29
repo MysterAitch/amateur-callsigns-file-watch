@@ -1130,6 +1130,16 @@ jobs:
       # dataset names as plain text). Runs outside the golden-master closure.
       - name: Build the v1 history manifests
         run: node src/ci/build-v1-history.ts _site
+      # Static no-JS baseline for the v1 history journeys (issues #965, #966):
+      # stamp the calendar and the timeline into the SERVED HTML of
+      # on-this-day.html and timeline.html, rendered through the same
+      # renderStatic the browser runs. A client-rendered page is an empty shell
+      # to a crawler and preserves nothing in a web archive, and the archive's
+      # first capture of a URL cannot be re-taken. Consumes the manifests built
+      # in the step above, so it must follow it; runs outside the golden-master
+      # closure, as the chip stamp does.
+      - name: Stamp the static history baseline
+        run: node src/ci/build-v1-history-static.ts _site
       # Root discovery files (issue #921): a slim sitemap.xml listing the
       # launched v1 URLs and a robots.txt pointing at it.
       - name: Build the root discovery files

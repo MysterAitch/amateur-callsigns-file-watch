@@ -9,13 +9,13 @@
 <link rel="stylesheet" href="shell.css">
 <script type="module" src="on-this-day.js"></script>
 </head>
-<!-- The static markup below is the JavaScript-off baseline: the header, nav and
-     footer read with no script, and the page's framing and reading notes stand
-     complete. The dated calendar itself is a build-derived projection of the
-     archived publications (never hand-authored), so on-this-day.js fetches the
-     root-served on-this-day.json and renders it, layering the viewer's own
-     "today" signpost on top. Event time leads; each entry's assertion-time
-     provenance rides one affordance beneath. -->
+<!-- The static markup below is the JavaScript-off baseline, and it is the whole
+     substance: the header, nav and footer read with no script, and the dated
+     calendar is stamped into the marked region at build time
+     (src/ci/build-v1-history-static.ts) from the same renderStatic the browser
+     runs. Event time leads; each entry's assertion-time provenance rides one
+     affordance beneath. The page's script adds only the reader's own "today"
+     signpost. -->
 <body>
 
 <div id="sitebar">
@@ -51,11 +51,18 @@
     </header>
 
     <div id="sections">
-      <!-- JS-off baseline: the framing and the honest enhancement note. The
-           dated calendar renders from on-this-day.json when the script runs. -->
+      <div id="history-host">
+<!-- v1-history-static: on-this-day -->
+      <!-- The deploy replaces this region with the rendered calendar. This
+           un-stamped placeholder is what a source tree served directly shows;
+           there, the page falls back to rendering the published manifest
+           through the very same renderStatic. -->
       <section class="surface">
-        <p class="note hx-lede">Event time — when things happened, as the record states it. Dated licensing events, arranged by calendar day: for each series, the earliest start evidence and the earliest cancellation evidence the held corpus carries. Every entry cites the publications that assert it – its assertion time – so the two clocks never merge. “Earliest held” describes this mirror’s holdings, never “the first ever”.</p>
-        <p class="note hx-note">The dated calendar renders when the page’s script runs. The framing and the reading notes below are the complete no-script baseline.</p>
+        <p class="note">The dated calendar is stamped into this page at build time. In this un-stamped copy it renders from the published manifest instead.</p>
+      </section>
+<!-- /v1-history-static -->
+      </div>
+      <section class="surface">
         <p class="note">For the whole record along event time as a scrubbable count of activity by year, see the <a href="timeline.html">timeline</a>.</p>
       </section>
     </div>

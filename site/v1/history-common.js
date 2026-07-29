@@ -8,10 +8,18 @@
 // exactly as the callsign page's assertedByFold does (post-#956 conventions).
 
 import { inlineTerm, termCue } from './glossary.js';
+import { renderDocument } from './el.js';
 
-/** @param {string} tag @param {string | null} [cls] @param {string | null} [txt] */
+/**
+ * The render document comes from the el() foundation rather than the global
+ * `document`, so this module renders identically in the browser and in the Node
+ * build (where a jsdom backend is supplied). This helper folds into el() under
+ * issue #966; the document resolution is shared already so the two contexts can
+ * never diverge in the meantime.
+ * @param {string} tag @param {string | null} [cls] @param {string | null} [txt]
+ */
 export const el = (tag, cls, txt) => {
-  const node = document.createElement(tag);
+  const node = renderDocument().createElement(tag);
   if (cls) node.className = cls;
   if (txt != null) node.textContent = txt;
   return node;
@@ -60,7 +68,10 @@ export function fill(template, values) {
  * @returns {HTMLElement}
  */
 export function ledeWithCue(ledeText) {
-  const p = el('p', 'note hx-lede');
+  // A <div>, not a <p>: the cue is a <details>, whose start tag would implicitly
+  // END an open paragraph — so as static HTML the cue and everything after it
+  // would reparse as siblings of the lede rather than as part of it.
+  const p = el('div', 'note hx-lede');
   p.append(ledeText);
   const ax = el('span', 'ax hx-ax');
   ax.append('event-time');
