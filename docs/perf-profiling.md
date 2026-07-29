@@ -163,8 +163,17 @@ Two properties of these benchmarks are easy to lose and expensive to rediscover:
 - **Synthetic claims do not stand in for real ones.** Ratios differ several-fold
   between uniform generated lines and real varied text.
 
-Arms built to settle a since-closed question are **parked, not deleted**, on
-`diag/1025-platform-bench`: the three-platform matrix, the compression codec and
-level sweep, and the decomposed encode arms that produced trap 5. Their
-*conclusions* live on the issues (#997, #1025, #1026) — read those first, since a
-branch is a weaker record than an issue and may be pruned.
+Arms built for a specific investigation are **kept, not deleted** — the
+three-platform matrix (#1025), the compression codec and level sweep (#997), and
+the decomposed encode arms that produced trap 5 (#1026). They cost nothing
+dormant, because the workflow is label-gated on pull requests and
+`workflow_dispatch` otherwise, so nothing here runs unasked.
+
+Keeping them is deliberate rather than tidy-minded. The compression pin in
+particular **cannot be settled once**: every new derived tier shifts the ratio of
+repeated key names to distinguishing content, so the arm that justifies the pin
+has to be re-runnable, not reconstructed. The same goes for re-running the matrix
+after a Node, vitest, corpus or runner change. An arm that lives only on a branch
+is an arm that will not be re-run.
+
+Each investigation's *conclusion* lives on its issue; the arms only reproduce it.
