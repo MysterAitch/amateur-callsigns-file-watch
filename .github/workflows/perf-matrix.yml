@@ -77,8 +77,31 @@ jobs:
         # no control arm.
         run: node .github/scripts/perf-plan.mjs
 
+  # Build the shared claims Parquet ONCE and pass it to every arm that needs it.
+  # Mirrors cicd.yaml (build-claims -> claims-parquet artifact -> fold jobs), for
+  # two reasons: fidelity, since that is what the real pipeline does, and cost -
+  # rebuilding it per arm would spend ~2.5 min x N jobs producing an identical file.
+  parquet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: ./.github/actions/setup-duckdb
+      - run: node src/v2/build-ledger-db.ts claims.parquet --parquet-only
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: perf-claims-parquet
+          path: claims.parquet
+          retention-days: 1
+
   arm:
-    needs: plan
+    needs: [plan, parquet]
     name: ${{ matrix.arm.id }} r${{ matrix.rep }}
     runs-on: ubuntu-latest
     # A failed arm is a RESULT. Losing the others to a fail-fast cancellation
@@ -105,12 +128,14 @@ jobs:
       # lockfile, and it was right on the substance as well as the rule - a
       # benchmark that floats to whatever version npm resolves that morning
       # cannot be compared against a stored baseline.
-      # FIDELITY: the real `fast` job consumes the shared Parquet. Without it
-      # those suites materialise the ledger on demand and measure a job the
-      # pipeline never runs.
-      - name: Build the shared claims Parquet
+      # FIDELITY: the real `fast` and fold jobs consume the shared Parquet.
+      # Without it those suites materialise the ledger on demand and measure a
+      # job the pipeline never runs.
+      - name: Fetch the shared claims Parquet
         if: matrix.arm.needsParquet
-        run: node src/v2/build-ledger-db.ts "${{ github.workspace }}/claims.parquet" --parquet-only
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: perf-claims-parquet
       - name: Run the arm
         env:
           ARM_ID: ${{ matrix.arm.id }}
@@ -120,6 +145,14 @@ jobs:
           CLAIMS_PARQUET: ${{ matrix.arm.needsParquet && format('{0}/claims.parquet', github.workspace) || '' }}
           # Per-job coverage over a SUBSET sits far below the whole-repo floor.
           COVERAGE_SKIP_THRESHOLDS: '1'
+          # ONE LEVER PER ARM. Each of these is empty unless the arm declares it,
+          # so an arm that enables PERF does not also change the reporter, and a
+          # timing difference can be attributed to exactly one cause. Bundling
+          # levers is how a matrix produces a confident result about a
+          # combination nobody intended to test (ADR 0023).
+          EXTRA_ARGS: ${{ matrix.arm.extraArgs || '' }}
+          ARM_PERF: ${{ matrix.arm.perf || '' }}
+          ARM_PERF_JSON: ${{ matrix.arm.perfJson || '' }}
         run: |
           set -uo pipefail
           # An array, so "no coverage" contributes no argument at all rather than
@@ -132,11 +165,14 @@ jobs:
           # sampling cannot see a spike between two reads.
           start=$(date +%s)
           set +e
+          # PERF is exported only when the arm asks for it, so the flag-gated
+          # harness stays a true pass-through in every other arm.
+          if [ -n "${ARM_PERF}" ]; then export PERF="${ARM_PERF}"; fi
+          if [ -n "${ARM_PERF_JSON}" ]; then export PERF_JSON="${ARM_PERF_JSON}"; fi
           # shellcheck disable=SC2086
-          # TARGET is a deliberate multi-word argument list from the committed
-          # arm spec ("--project fast --shard=1/2"), not user input; it must
-          # word-split. The values are repo-controlled, not from the event.
-          /usr/bin/time -v -o rusage.txt npx vitest run $TARGET "${cov[@]}" --reporter=default > run.log 2>&1
+          # TARGET and EXTRA_ARGS are deliberate multi-word argument lists from
+          # the committed arm spec, not user input; they must word-split.
+          /usr/bin/time -v -o rusage.txt npx vitest run $TARGET "${cov[@]}" $EXTRA_ARGS --reporter=default > run.log 2>&1
           status=$?
           set -e
           end=$(date +%s)
@@ -174,6 +210,8 @@ jobs:
             arm-result.txt
             rusage.txt
             run.log
+            .perf-arm/
+            test-runner-profile/
           retention-days: 30
           if-no-files-found: warn
 
