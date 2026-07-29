@@ -47,7 +47,7 @@
     <header class="head">
       <div class="ey">plain-language reference</div>
       <h1>callsign-record<span class="path"> / glossary</span></h1>
-      <p class="lede" style="font-size:1.3rem">Plain-language definitions of the terms this record uses – the vocabulary of the two-clock instrument, what the record holds, how each value is produced, and the parts of a callsign. Each entry is one clear line, deep-linkable by its #anchor, and is the very definition the inline popovers open.</p>
+      <p class="lede" style="font-size:1.3rem">Plain-language definitions of the terms this record uses – the vocabulary of the two-clock instrument, what the record holds, how the record reads a date, how each value is produced, and the parts of a callsign. Each entry is one clear line, deep-linkable by its #anchor, and is the very definition the inline popovers open.</p>
     </header>
 
     <div id="sections">
@@ -66,6 +66,8 @@
             <dd>One archived publication that recorded this callsign, shown at that publication’s vintage. Each pip on the lower scale is a sighting.</dd>
             <dt id="def-disputed">disputed</dt>
             <dd>The held publications assert competing dates for the same kind of event. Every competing claim is shown; the record adjudicates none of them.</dd>
+            <dt id="def-flag">flag, never a verdict</dt>
+            <dd>A marker the record raises where a value looks inconsistent with what the other held publications, or the record’s own derived rules, would lead you to expect. A flag says where to look and offers the candidate explanations; it is never a ruling, and the record chooses none of them.</dd>
           </dl>
         </section>
       </section>
@@ -84,6 +86,20 @@
             <dd>The block a callsign belongs to, opened on a date (for example the M7 series). A series-level fact that frames the record, never a claim about this callsign’s own licensing.</dd>
             <dt id="def-carried-origin">carried origin</dt>
             <dd>A licence-chain start date that pre-dates the callsign’s own series – a sign the licence history was carried over from an earlier callsign. The record raises a scope note rather than treating the two dates as a conflict.</dd>
+          </dl>
+        </section>
+      </section>
+
+      <section data-section="how-the-record-reads-a-date">
+        <section class="surface">
+          <div class="lbl">how the record reads a date</div>
+          <dl class="gloss">
+            <dt id="def-earliest-surviving">earliest surviving</dt>
+            <dd>A start date read as the earliest one still present in the publication that asserts it, rather than the original. Rolling retention and reissues drop or replace older rows, so an earlier start may have existed and left no surviving trace – the date bounds how far back the held record reaches, never “the first ever”.</dd>
+            <dt id="def-pre1977">pre-1977 start date</dt>
+            <dd>A recorded original start date before 1977, read as attested-unreliable: the OARC community wiki reports that the register’s original-start field is not reliable before then, citing an administrative glitch by the then regulator. That is community-tier sourcing, not corroborated against Ofcom – the date is shown exactly as held, carrying this limit beside it.</dd>
+            <dt id="def-mass-update-episode">mass-update episode</dt>
+            <dd>A window in which tens of thousands of records carry the same date stamp. Inside one, a stamp records a single system-wide episode – a migration or a bulk edit – rather than something that happened to each record, so the record reads it as bookkeeping and never as a licensing event.</dd>
           </dl>
         </section>
       </section>
@@ -121,7 +137,7 @@
       </section>
     </div>
 
-    <p class="note muted">The vocabulary here grows with the record: each term joins the glossary as the surface that uses it is migrated, rather than being described ahead of a page that uses it. The remaining domain vocabulary – the register’s status values, dataset classes and flags – follows the same way.</p>
+    <p class="note muted">The vocabulary here grows with the record: each term joins the glossary as the surface that uses it is migrated, rather than being described ahead of a page that uses it. The remaining domain vocabulary – the register’s status values and dataset classes – follows the same way.</p>
   </div>
 </main>
 
