@@ -1,7 +1,7 @@
-# ADR 0007: Publish the coverage dashboard as a site page, keep a workflow alarm
+# ADR 0007 — Publish the coverage dashboard as a site page, keep a workflow alarm
 
-Date: 2026-07-09
-Status: proposed
+- Status: proposed
+- Date: 2026-07-09
 
 ## Context
 

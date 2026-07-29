@@ -1,7 +1,7 @@
-# ADR 0006: Reusable UI modules via native Web Components, not a framework
+# ADR 0006 — Reusable UI modules via native Web Components, not a framework
 
-Date: 2026-07-09
-Status: proposed
+- Status: proposed
+- Date: 2026-07-09
 
 ## Context
 

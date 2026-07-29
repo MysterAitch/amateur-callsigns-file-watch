@@ -1,7 +1,7 @@
-# ADR 0008: Offline-first progressive web app with opt-in full-database download
+# ADR 0008 — Offline-first progressive web app with opt-in full-database download
 
-Date: 2026-07-09
-Status: accepted
+- Status: accepted
+- Date: 2026-07-09
 
 ## Context
 

@@ -1,7 +1,7 @@
-# ADR 0004: FOI source lane — request-keyed archive entries, data optional, correspondence always
+# ADR 0004 — FOI source lane — request-keyed archive entries, data optional, correspondence always
 
-Date: 2026-07-07
-Status: accepted
+- Status: accepted
+- Date: 2026-07-07
 
 ## Context
 
