@@ -58,9 +58,18 @@ evaluating any proposal.
 **The ledger is serialised as JSON Lines.** One claim per line, keys in a fixed
 order, UTF-8, newline-delimited.
 
-**The ledger is NOT committed to git.** It is built to a temporary directory and
-deleted; no `.jsonl` has ever been in the repository. Whether one should be is an
-open question, not an unimplemented decision — see "The commit question" below.
+**The ledger is NOT committed to git.** No `.jsonl` has ever been tracked, on any
+branch. Whether one should be is an open question, not an unimplemented decision —
+see "The commit question" below.
+
+Nothing enforced that until now, which is worth recording rather than glossing.
+There is no `*.jsonl` ignore rule; the ledger stayed out of the repository because
+the paths actually exercised happen to fall outside it — CI writes to
+`$RUNNER_TEMP`, benchmarks to an OS temp directory. But `build-ledger.ts` with no
+path argument defaults to `_build/v2-ledger` **inside the working tree**, so a
+plain local build left ~12.7 GiB untracked and one `git add -A` from being staged.
+`_build/` is now ignored: the accident should be hard, while a deliberate
+`git add -f` remains available if the open question ever resolves to "yes".
 
 **Compression is not applied on the build path.** Per the build-vs-publish
 principle, compression is a publish responsibility (see "Compression" below).

@@ -37,3 +37,11 @@ _projection/
 # recorded publicly in archive/local-holdings/index.json instead (hash,
 # provenance, obtain-from pointer). See archive/local-holdings/README.md.
 archive/local-holdings/bytes/
+
+# Default ledger build output (build-ledger.ts with no path argument). The full
+# corpus is ~12.7 GiB across 71 files, 33 of which exceed GitHub's 100 MB hard
+# limit, so an accidental `git add -A` after a local build must not be able to
+# stage it. Ignoring the BUILD directory does not prejudge whether a ledger is
+# ever committed (ADR 0024 records that as open) - a committed ledger would live
+# at a chosen path, not in build output.
+_build/
