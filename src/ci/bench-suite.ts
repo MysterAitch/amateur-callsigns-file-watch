@@ -20,6 +20,7 @@
  * Usage: node src/ci/bench-suite.ts [--out <file>] [--time <ms per task>]
  */
 import * as fs from 'fs';
+import * as zlib from 'zlib';
 import { Bench } from 'tinybench';
 import { serialiseClaimJsonlLine } from '../v2/serialise.ts';
 import type { Claim } from '../v2/claim.ts';
@@ -65,7 +66,7 @@ function handRolled(claim: Claim): string {
 }
 
 const encoder = new TextEncoder();
-const scratch = new Uint8Array(1 << 20);
+const scratch = new Uint8Array(1 << 21);
 
 function argValue(flag: string, fallback: string): string {
   const i = process.argv.indexOf(flag);
@@ -99,7 +100,93 @@ bench
     }
   });
 
+// DECOMPOSITION. The two arms above are a fair comparison of two PRODUCTION
+// STRATEGIES, but they are not a fair comparison of two ENCODING APIs: the
+// Buffer.from arm also performs a string join and allocates a fresh ~490 KB
+// buffer every iteration, while the encodeInto arm reuses a scratch buffer and
+// never joins. Three differences are bundled.
+//
+// That matters because a platform difference was attributed to the encoding APIs
+// (#1026: Windows favoured encodeInto, Linux and macOS favoured Buffer.from). If
+// what actually differs by platform is LARGE-BUFFER ALLOCATION or string join,
+// the conclusion is about the allocator, not about the API - and the remedy would
+// be entirely different.
+//
+// These arms isolate each component so the effect can be attributed rather than
+// assumed. Each does exactly one thing.
+const PREJOINED = LINES.join(String.fromCharCode(10));
+const PREJOINED_BYTES = Buffer.byteLength(PREJOINED, 'utf8');
+bench
+  .add('component: join 2000 strings (no encoding)', () => {
+    LINES.join(String.fromCharCode(10));
+  })
+  .add('component: allocate a ~490KB buffer (no encoding)', () => {
+    Buffer.allocUnsafe(PREJOINED_BYTES);
+  })
+  .add('component: Buffer.from a PRE-joined string', () => {
+    Buffer.from(PREJOINED, 'utf8');
+  })
+  .add('component: encodeInto the SAME pre-joined string, reused buffer', () => {
+    encoder.encodeInto(PREJOINED, scratch);
+  });
+
+// COMPRESSION (#997). The level/codec choice is data-shape dependent and cannot
+// be settled once: every new derived tier shifts the ratio of repeated key names
+// to distinguishing content, and each new dataset brings a different field
+// structure. Ratio is DETERMINISTIC so it needs no repetitions; only the timing
+// does, which is what this harness is for.
+//
+// The choice must stay PINNED rather than auto-selected - byte-determinism is a
+// core tenet, and a compressor that picks a level per run would emit different
+// bytes from identical inputs. So this benchmark exists to justify changing the
+// pin deliberately, not to drive it automatically.
+// A LARGER corpus than the serialisation arms use, deliberately. zstd derives its
+// compression parameters from the level AND the input size, so the ratio ranking
+// is size-dependent: at ~0.4 MB the levels are monotonic (74.0 / 75.0 / 76.0x),
+// while at ~44 MB level 1 BEATS level 3 outright. A small sample would therefore
+// give a confident and wrong answer to the question #997 actually asks, which is
+// about a 12.73 GiB corpus.
+//
+// This is still far short of corpus scale and cannot settle the absolute ratio -
+// that needs the real ledger (see #997). What it can do repeatably is compare
+// codecs and track whether the ranking MOVES when Node's zlib bindings change.
+const COMPRESSION_CORPUS_LINES = 120_000;
+const CORPUS = Buffer.from(
+  Array.from({ length: COMPRESSION_CORPUS_LINES }, (_, i) => serialiseClaimJsonlLine(makeClaim(i)))
+    .join(String.fromCharCode(10)),
+  'utf8',
+);
+const zstd = (level: number) => (): void => {
+  zlib.zstdCompressSync(CORPUS, { params: { [zlib.constants.ZSTD_c_compressionLevel]: level } });
+};
+bench
+  .add('compress: zstd level 1', zstd(1))
+  .add('compress: zstd level 3', zstd(3))
+  .add('compress: zstd level 9', zstd(9))
+  .add('compress: gzip level 1', () => { zlib.gzipSync(CORPUS, { level: 1 }); })
+  .add('compress: gzip level 6 (default)', () => { zlib.gzipSync(CORPUS); })
+  .add('compress: brotli quality 1', () => {
+    zlib.brotliCompressSync(CORPUS, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 1 } });
+  });
+
 await bench.run();
+
+// Ratios are deterministic, so they are reported ONCE rather than benchmarked.
+// Reporting them alongside the timings keeps the trade visible: the fastest
+// codec is not always the smallest, and on this corpus the ranking inverts with
+// how self-similar the data is.
+const ratios: Record<string, number> = {
+  'zstd-1': CORPUS.length / zlib.zstdCompressSync(CORPUS, { params: { [zlib.constants.ZSTD_c_compressionLevel]: 1 } }).length,
+  'zstd-3': CORPUS.length / zlib.zstdCompressSync(CORPUS, { params: { [zlib.constants.ZSTD_c_compressionLevel]: 3 } }).length,
+  'zstd-9': CORPUS.length / zlib.zstdCompressSync(CORPUS, { params: { [zlib.constants.ZSTD_c_compressionLevel]: 9 } }).length,
+  'gzip-1': CORPUS.length / zlib.gzipSync(CORPUS, { level: 1 }).length,
+  'gzip-6': CORPUS.length / zlib.gzipSync(CORPUS).length,
+  'brotli-1': CORPUS.length / zlib.brotliCompressSync(CORPUS, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 1 } }).length,
+};
+console.log(`\ncompression ratios over ${(CORPUS.length / 1048576).toFixed(1)} MB of ledger-shaped JSONL (deterministic, not benchmarked):`);
+for (const [k, v] of Object.entries(ratios).sort((a, b) => b[1] - a[1])) {
+  console.log(`  ${k.padEnd(10)} ${v.toFixed(1).padStart(6)}x`);
+}
 
 const results: BenchResult[] = bench.tasks.map(task => ({
   name: task.name,

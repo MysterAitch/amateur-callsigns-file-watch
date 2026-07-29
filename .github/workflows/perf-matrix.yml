@@ -229,7 +229,28 @@ jobs:
   # and receives none - so an instrumented benchmark systematically flatters
   # builtins. This is the regime production actually uses.
   bench:
-    runs-on: ubuntu-latest
+    # PLATFORM MATRIX. A local Windows run and a CI Linux run disagreed about
+    # whether `encodeInto` beats `Buffer.from` - by 1.5x one way and 2.4x the
+    # other. That was one observation per platform on entirely different
+    # hardware, with the Windows one taken on a machine that had been running
+    # test suites all session, so it establishes nothing.
+    #
+    # GitHub offers all three OS families free for public repositories, so the
+    # confound is removable rather than something to reason around: same Node,
+    # same code, same runner class, one arm per platform. It also answers a
+    # separate question directly - whether any workload here would be better off
+    # on a non-Linux runner.
+    #
+    # Ecosystem consensus is that Buffer.from is the Node-optimised path and
+    # TextEncoder is slower, which matches the LINUX reading; the Windows one is
+    # the outlier and is what needs corroborating.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rep: [1, 2, 3]
+    name: bench (${{ matrix.os }} r${{ matrix.rep }})
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -243,14 +264,20 @@ jobs:
       # results differ only when their confidence intervals do not overlap - plus
       # an independent floor on effect size, so a measurable-but-trivial shift is
       # not announced. Silence is the designed-for outcome.
+      # `shell: bash` pinned because the SCRIPT BODY is bash syntax, not because
+      # PowerShell is unportable - pwsh runs on all three runner families and
+      # would have been an equally valid choice had the script been written for
+      # it. windows-latest merely defaults to PowerShell, so the shell the script
+      # expects has to be stated rather than assumed.
       - name: Run the benchmark suite
+        shell: bash
         run: |
           set -euo pipefail
-          node src/ci/bench-suite.ts             --out bench-results.json             --baseline src/testing/bench-baseline.json             | tee -a "$GITHUB_STEP_SUMMARY"
+          node src/ci/bench-suite.ts --out bench-results.json --baseline src/testing/bench-baseline.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ !cancelled() }}
         with:
-          name: bench-results
+          name: bench-results-${{ matrix.os }}-r${{ matrix.rep }}
           path: bench-results.json
           retention-days: 90
           if-no-files-found: warn
