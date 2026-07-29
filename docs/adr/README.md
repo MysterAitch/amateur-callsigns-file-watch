@@ -113,7 +113,7 @@ the #431 programme.
     <tr>
       <td><a href="0010-archive-contract.md">ADR 0010</a></td>
       <td>The archive contract: raw bytes verbatim, keyed, provenanced, accepted before processability</td>
-      <td><strong>Effectively nothing.</strong> The verbatim-bytes guarantee and its <code>.gitattributes</code> binary markings are a hard invariant that idempotence and reconstruction both rest on, not a preference to be traded</td>
+      <td><strong>Effectively nothing.</strong> The verbatim-bytes guarantee and its <code>.gitattributes</code> binary markings are a hard invariant that idempotence and reconstruction both rest on, not a preference to be traded. The record also names one change that will keep being proposed and should keep being refused — deleting the sorted derivative as redundant, which it is to machines and is not to readers</td>
       <td>accepted</td>
       <td>2026-07-10</td>
     </tr>
