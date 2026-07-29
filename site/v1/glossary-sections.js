@@ -42,8 +42,12 @@ const el = (tag, cls, txt) => {
 // placed in a group here, or the invariant fails loudly rather than dropping it.
 /** @type {GlossaryGroup[]} */
 export const GLOSSARY_GROUPS = [
-  { id: 'reading-the-record', label: V1_COPY.glossaryPage.readingLabel, keys: ['eventTime', 'assertionTime', 'sighting', 'disputed'] },
+  { id: 'reading-the-record', label: V1_COPY.glossaryPage.readingLabel, keys: ['eventTime', 'assertionTime', 'sighting', 'disputed', 'flag'] },
   { id: 'what-the-record-holds', label: V1_COPY.glossaryPage.holdingsLabel, keys: ['publication', 'vintage', 'bookkeeping', 'series', 'carriedOrigin'] },
+  // The named readings a dated figure's caveats invoke. They sit in their own
+  // group because they qualify a DATE the record holds, rather than describing
+  // what the record holds or how a value was produced.
+  { id: 'how-the-record-reads-a-date', label: V1_COPY.glossaryPage.datesLabel, keys: ['earliestSurviving', 'pre1977', 'massUpdateEpisode'] },
   { id: 'how-a-value-is-produced', label: V1_COPY.glossaryPage.provenanceLabel, keys: ['derived', 'inferred', 'context'] },
   { id: 'the-parts-of-a-callsign', label: V1_COPY.glossaryPage.structureLabel, keys: ['prefix', 'rsl', 'suffix', 'operatingSuffix', 'visitorPrefix'] },
 ];

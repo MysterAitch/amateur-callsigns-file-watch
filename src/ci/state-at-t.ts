@@ -178,7 +178,7 @@ const RULE_ORDER: readonly StateRule[] = [
 
 export const RULE_GLOSSES: ReadonlyMap<StateRule, string> = new Map([
   ['no-evidence-for-subject', 'no event-time claim for this subject exists in the consulted corpus at all — outside coverage: an explicit cannot-infer, never "did not exist" or "was available"'],
-  ['licence-start-on-or-before-t', 'at least one consulted vintage asserts a licence(-version) start or issue date on or before t — evidence a licence had started by t, as asserted by the named vintages; for the version-scoped kinds the date is only the earliest start SURVIVING in the asserting vintage (issue #800), so the true first start may be earlier still'],
+  ['licence-start-on-or-before-t', 'at least one consulted vintage asserts a licence(-version) start or issue date on or before t — evidence a licence had started by t, as asserted by the named vintages; for the version-scoped kinds the date is only the earliest start SURVIVING in the asserting vintage, so the true first start may be earlier still'],
   ['consistent-with-licence-in-force-at-t', 'start evidence on or before t, with no cancellation evidence dated on or after that start and on or before t (a cancellation dated on the start day itself is treated as addressing that start) — CONSISTENT WITH a licence being in force at t, never proof: absence of a cancellation claim is non-observation (cancellation dates are sparsely attested in the held corpus), and a licence can end without any held dataset recording a dated end; the finding inherits the earliest-surviving/pre-1977 unreliability of the start it rests on, so it stays honest rendered alone'],
   ['licence-cancelled-on-or-before-t', 'a consulted vintage asserts a licence cancellation date on or before t — evidence a licence had been cancelled by then'],
   ['cancelled-with-no-later-start-evidence-by-t', 'the latest cancellation evidence on or before t post-dates every consulted start assertion on or before t — evidence the then-licence had been cancelled by t with no surviving evidence of a later start by t; NOT evidence the callsign was available at t (non-observation of a later grant is not absence of one)'],
@@ -204,16 +204,24 @@ export type StateCaveat =
   | 'month-precision-vintage'
   | 'vintages-disagree';
 
+// These glosses are READER-FACING copy: they ship in the event-shard and history
+// manifests and render verbatim on the launch surface. A gloss therefore carries
+// its own explanation and never a tracker reference or a repository path in place
+// of one — a reader who needs more is routed to a published explainer (the
+// glossary term each caveat is mapped to in the v1 copy registry), never off the
+// site. The reader-copy reference guard (src/ci/reader-copy-references.test.ts)
+// holds this for the whole vocabulary; issue traceability belongs in the comments
+// and commit history, where it costs a reader nothing.
 export const CAVEAT_GLOSSES: ReadonlyMap<StateCaveat, string> = new Map([
-  ['earliest-surviving', 'issue #800 — a version-scoped start date is the earliest start SURVIVING in the asserting vintage, not "the true original": rolling retention and reissues drop or replace older rows, so earlier starts may have existed and left no surviving trace'],
-  ['pre-1977', 'issue #565 — original start dates before 1977 are attested-unreliable (OARC, citing an administrative glitch by the then regulator)'],
+  ['earliest-surviving', 'a version-scoped start date is the earliest start SURVIVING in the asserting vintage, not "the true original": rolling retention and reissues drop or replace older rows, so earlier starts may have existed and left no surviving trace'],
+  ['pre-1977', 'original start dates before 1977 are attested-unreliable (OARC, citing an administrative glitch by the then regulator)'],
   ['availability-trap', 'absence of evidence is non-observation, never "was available" or "did not exist": event-time coverage is only as complete as what sources attested'],
   ['cancellation-sparsity', 'cancellation dates are attested by very few held vintages (see the per-kind coverage table), so "no cancellation evidence" is weak: a cancellation may simply be unrecorded in what is held'],
   ['reserved-cohort-ambiguity', 'the reserved-until column carries three meanings by cohort (a planned close on Reserved rows, a retrospective termination record on Available rows, and an undecidable anomaly) — the engine reads only the stated window bound, never a status'],
   ['window-restated', 'the consulted vintages state more than one reservation window end — renewal/termination bookkeeping is routine for this column; every stated end appears in the evidence table'],
-  ['mass-episode-window', 'at least one supporting date falls inside a detected mass-update episode window (see reports/event-time-coherency.md): tens of thousands of identical stamps record ONE system episode, not per-record events'],
+  ['mass-episode-window', 'at least one supporting date falls inside a detected mass-update episode window: tens of thousands of identical stamps record ONE system episode, not per-record events'],
   ['month-precision-vintage', 'at least one asserting vintage is keyed by month, not day — its assertion time carries month precision, and every comparison against it treats the whole month conservatively'],
-  ['vintages-disagree', 'the consulted vintages disagree on this fact — the disagreement is surfaced in the answer’s disagreements list and resolved nowhere (issue #467)'],
+  ['vintages-disagree', 'the consulted vintages disagree on this fact — the disagreement is surfaced in the answer’s disagreements list and resolved nowhere'],
 ]);
 
 // --- Vintage precision -------------------------------------------------------
@@ -997,9 +1005,10 @@ export function renderStateAtTReport(report: StateAtTReport): string {
     'The authored contribution registry — total over the S1 kind vocabulary,',
     'so a new kind cannot silently join (or silently skip) the state reading.',
     'Bookkeeping kinds NEVER feed a licensing inference: inside a detected',
-    'mass-update episode (issue #801) their stamps record one system episode,',
-    'not per-record licensing events, and even outside an episode they attest',
-    'only the record’s presence in the publisher’s system.',
+    'mass-update episode (the **mass-episode-window** caveat above) their',
+    'stamps record one system episode, not per-record licensing events, and',
+    'even outside an episode they attest only the record’s presence in the',
+    'publisher’s system.',
     '',
     '| event kind | contribution | reading |',
     '|---|---|---|',
@@ -1007,7 +1016,7 @@ export function renderStateAtTReport(report: StateAtTReport): string {
       const contribution = contributionOf(kind);
       const reading = contribution === 'licence-start'
         ? (EARLIEST_SURVIVING_KINDS.has(kind)
-          ? 'licence-start evidence; earliest SURVIVING start only (#800), pre-1977 unreliability (#565)'
+          ? 'licence-start evidence; earliest SURVIVING start only, pre-1977 unreliability (the **earliest-surviving** and **pre-1977** caveats above)'
           : 'licence-start evidence')
         : contribution === 'licence-end'
           ? 'cancellation evidence (sparsely attested — see coverage)'

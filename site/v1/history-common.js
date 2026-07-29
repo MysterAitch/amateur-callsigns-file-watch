@@ -8,6 +8,7 @@
 // exactly as the callsign page's assertedByFold does (post-#956 conventions).
 
 import { inlineTerm, termCue } from './glossary.js';
+import { V1_COPY, CAVEAT_GLOSSARY_TERMS } from './copy.js';
 import { renderDocument } from './el.js';
 
 /**
@@ -144,13 +145,32 @@ export function caveatLinks(caveatIds, legend, explainerHref, caveatsLabel) {
 }
 
 /**
+ * The glossary cue for a caveat whose reading has a published definition, or null
+ * where it has none. A caveat's gloss states the caveat; the term behind it — what
+ * "earliest surviving" or a "mass-update episode" actually means — is a published
+ * explainer, so the bullet offers that definition inline and links to its
+ * permanent anchor. A caveat with no mapped term renders its gloss alone; a
+ * mapping naming a term the registry does not carry renders nothing rather than a
+ * popover with no definition in it (the drift guard in
+ * src/ci/render/v1-sections.test.ts is what catches the mapping itself).
+ * @param {string} caveatId
+ * @returns {HTMLElement | null}
+ */
+export function caveatTermCue(caveatId) {
+  const key = CAVEAT_GLOSSARY_TERMS[caveatId];
+  if (key === undefined || !Object.hasOwn(V1_COPY.glossary, key)) return null;
+  return termCue(key);
+}
+
+/**
  * The folded mechanism explainer, built from the manifest's caveat legend so its
  * every caveat bullet is the engine's own gloss — never a second, driftable
  * copy. Each caveat's stable id becomes the `<li>` id, so the caveat links can
- * target it. `backgroundBullets` carries always-applicable background text
- * that no caveat id covers (e.g. the carried-licence-history sourcing, the
- * unparsed-series note) — copy-registry strings, appended after the caveats
- * in their own plain `<li>`s.
+ * target it, and a caveat whose reading has a published glossary term carries
+ * that definition as a cue (see caveatTermCue). `backgroundBullets` carries
+ * always-applicable background text that no caveat id covers (e.g. the
+ * carried-licence-history sourcing, the unparsed-series note) — copy-registry
+ * strings, appended after the caveats in their own plain `<li>`s.
  * @param {string} explainerId
  * @param {string} labelText
  * @param {string} leadText
@@ -170,6 +190,11 @@ export function explainer(explainerId, labelText, leadText, caveats, backgroundB
     li.id = `${explainerId}-${c.id}`;
     li.appendChild(el('b', null, c.label));
     li.append(` – ${c.gloss}`);
+    const cue = caveatTermCue(c.id);
+    if (cue !== null) {
+      li.append(' ');
+      li.appendChild(cue);
+    }
     ul.appendChild(li);
   }
   for (const text of backgroundBullets) ul.appendChild(el('li', null, text));
