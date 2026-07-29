@@ -55,7 +55,7 @@ function gitIgnores(repoRelativePath: string): boolean {
   }
 }
 
-describe('ledger build output hygiene', () => {
+describe('ledger build output hygiene', { tags: ['unit'] }, () => {
   it('LedgerBuildOutput_WhenWrittenToTheCliDefaultPath_IsIgnoredByGit', () => {
     const dir = defaultLedgerOutputDir();
     expect(gitIgnores(`${dir}/claims.jsonl`)).toBe(true);
