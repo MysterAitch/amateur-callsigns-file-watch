@@ -1,300 +1,178 @@
 {
   "$comment": [
-    "Arm definitions for the repeatable performance matrix (.github/workflows/perf-matrix.yml, issue #1004).",
-    "SINGLE SOURCE OF TRUTH: the workflow derives its matrix from this file and never hardcodes an arm,",
-    "so adding or retiring one is a single edit here.",
+    "Arm definitions for the repeatable performance matrix (.github/workflows/perf-matrix.yml).",
+    "SINGLE SOURCE OF TRUTH: the workflow derives its matrix from this file and hardcodes nothing.",
     "",
-    "WHY THIS IS COMMITTED RATHER THAN AD HOC. Two performance conclusions in this repo were confidently",
-    "wrong: a fold memory cap believed protective was CAUSING the failures it was added to prevent, and the",
-    "test suite's coverage cost was attributed to coverage when it belonged to the v8 PROVIDER. Neither was a",
-    "bad measurement - both were sound numbers carrying an unstated assumption. A matrix that lives only in a",
-    "throwaway branch cannot be re-run against a new Node, a new vitest, or a new corpus size, so the",
-    "assumption never gets retested and hardens into folklore.",
+    "ROUND 2 - CORRECTED SLICING MATRIX (#1017).",
     "",
-    "EVERY ARM MUST DIFFER FROM ITS COMPARAND IN EXACTLY ONE RESPECT. Six of ten arms in an earlier matrix",
-    "were silently inert because the code under test overrode the caller's environment, and the matrix",
-    "confidently reported 'no effect' for a lever it had never varied.",
+    "Round 1 ran only SHARD 1 of each split and multiplied by N to estimate total work.",
+    "That is invalid: vitest shards by FILE COUNT, not duration, and 13 of 205 files carry",
+    "~89% of the work - so shard 1 of 8 drew light files (0.80 min) while shard 1 of 4 drew",
+    "heavy ones (1.90 min), and N x T did not conserve total work. EVERY shard of every",
+    "split is now an arm, so the split is measured rather than extrapolated from one slice.",
     "",
-    "ALWAYS KEEP A CONTROL ARM - one expected to show nothing. If it shows something, the harness is",
-    "reporting noise and no other arm in the run can be trusted.",
+    "Arms carrying `shardGroup` are aggregated by the collator: SUM across the group is the",
+    "runner-minutes cost, MAX is the wall-clock cost. Reporting only one of those is how a",
+    "sharding decision gets made on the wrong axis.",
     "",
-    "HOW MANY REPETITIONS. Measured from the first 5-rep run (2026-07-28), pooled CV ~9%:",
-    "  effect ~200% (the v8 coverage tax) -> n = 1     effect ~20% -> n = 5",
-    "  effect  ~10%                       -> n = 12    effect  ~5% -> n = 55",
-    "The default of 5 is right-sized for LARGE-effect questions, which is what this",
-    "matrix exists to decide. It CANNOT resolve anything under ~20%: the istanbul",
-    "overhead (8-17% depending on target) needs 8-12 reps, and a 5% effect needs 55.",
-    "Do not quote a sub-20% figure from a 5-rep run - raise the repetitions instead.",
+    "Round 1 also created FOUR byte-identical arms by accident (fast-nocov == slice-fast-2",
+    "== lever-baseline == lever-control). That was wasteful but informative: 20 samples of",
+    "one configuration put the noise floor at ~14%, well above the 9% the power analysis",
+    "assumed. Nothing below ~15-20% is readable from this harness. perf-plan.mjs now fails",
+    "on undeclared duplicates.",
     "",
-    "THE CONTROL ARM IS THE READ-OUT FOR THIS. pages-control is configured",
-    "identically to pages-nocov, so its apparent 'effect' IS the noise floor. On the",
-    "first run it read 1.04x, needing 80 reps to call that real - i.e. correctly",
-    "indistinguishable from zero. If the control ever shows a resolvable difference,",
-    "the harness is generating noise and no other arm in that run can be trusted.",
-    "",
-    "SLICING ARMS (#1017). 28% of test-job runner time is per-job setup, so the",
-    "question 'how finely should the suite be sliced' is now worth measuring rather",
-    "than assuming. These arms establish the runtime at each slicing level, INCLUDING",
-    "no sharding at all - a configuration nobody has run recently and whose cost is",
-    "quoted from memory.",
-    "",
-    "ONE LEVER PER ARM. The instrumentation arms below vary exactly one thing against",
-    "a fixed slicing baseline, so a difference attributes to one cause. Bundling PERF",
-    "with a reporter change, or coverage with a shard change, is how a matrix produces",
-    "a confident answer about a combination nobody meant to test.",
-    "",
-    "A packed or unsharded run is ALSO a test-hygiene probe: tests must not affect",
-    "global state, so if regrouping changes RESULTS that is a bug to fix, not a reason",
-    "to keep them apart."
+    "The coverage-provider and per-lever arms are NOT repeated here - round 1 is still",
+    "running them on its own ref, and repeating them would confound two rounds."
   ],
-  "defaultRepetitions": 5,
+  "defaultRepetitions": 3,
   "arms": [
     {
-      "id": "pages-nocov",
-      "label": "dataset-pages, no coverage",
-      "target": "src/ci/build-dataset-pages.test.ts",
-      "coverage": "none"
-    },
-    {
-      "id": "pages-istanbul",
-      "label": "dataset-pages, istanbul coverage",
-      "target": "src/ci/build-dataset-pages.test.ts",
-      "coverage": "istanbul"
-    },
-    {
-      "id": "pages-v8",
-      "label": "dataset-pages, v8 coverage",
-      "target": "src/ci/build-dataset-pages.test.ts",
-      "coverage": "v8"
-    },
-    {
-      "id": "ledger-nocov",
-      "label": "ledger build, no coverage",
-      "target": "src/v2/build-ledger.test.ts",
-      "coverage": "none"
-    },
-    {
-      "id": "ledger-istanbul",
-      "label": "ledger build, istanbul coverage",
-      "target": "src/v2/build-ledger.test.ts",
-      "coverage": "istanbul"
-    },
-    {
-      "id": "ledger-v8",
-      "label": "ledger build, v8 coverage",
-      "target": "src/v2/build-ledger.test.ts",
-      "coverage": "v8"
-    },
-    {
-      "id": "fast-nocov",
-      "label": "fast shard 1/2, no coverage",
-      "target": "--project fast --shard=1/2",
-      "coverage": "none",
-      "needsParquet": true
-    },
-    {
-      "id": "fast-istanbul",
-      "label": "fast shard 1/2, istanbul coverage",
-      "target": "--project fast --shard=1/2",
-      "coverage": "istanbul",
-      "needsParquet": true
-    },
-    {
-      "id": "fast-v8",
-      "label": "fast shard 1/2, v8 coverage",
-      "target": "--project fast --shard=1/2",
-      "coverage": "v8",
-      "needsParquet": true
-    },
-    {
-      "id": "pages-control",
-      "label": "CONTROL: dataset-pages, no coverage, repeated as a second no-op arm",
-      "target": "src/ci/build-dataset-pages.test.ts",
-      "coverage": "none",
-      "control": "pages-nocov"
-    },
-    {
-      "id": "slice-everything-one-job",
-      "label": "NO sharding: the entire suite in one job",
-      "target": "",
-      "coverage": "none",
-      "needsParquet": true
-    },
-    {
-      "id": "slice-fast-whole",
-      "label": "the whole fast project, unsharded",
+      "id": "fast-whole",
+      "label": "fast: unsharded, all files in one job",
       "target": "--project fast",
       "coverage": "none",
       "needsParquet": true
     },
     {
-      "id": "slice-fast-2",
-      "label": "fast, 1 of 2 shards (current)",
+      "id": "fast-2-1",
+      "label": "fast: shard 1 of 2",
       "target": "--project fast --shard=1/2",
       "coverage": "none",
-      "needsParquet": true
+      "needsParquet": true,
+      "shardGroup": "fast-2"
     },
     {
-      "id": "slice-fast-4",
-      "label": "fast, 1 of 4 shards",
+      "id": "fast-2-2",
+      "label": "fast: shard 2 of 2",
+      "target": "--project fast --shard=2/2",
+      "coverage": "none",
+      "needsParquet": true,
+      "shardGroup": "fast-2"
+    },
+    {
+      "id": "fast-4-1",
+      "label": "fast: shard 1 of 4",
       "target": "--project fast --shard=1/4",
       "coverage": "none",
-      "needsParquet": true
+      "needsParquet": true,
+      "shardGroup": "fast-4"
     },
     {
-      "id": "slice-fast-8",
-      "label": "fast, 1 of 8 shards",
+      "id": "fast-4-2",
+      "label": "fast: shard 2 of 4",
+      "target": "--project fast --shard=2/4",
+      "coverage": "none",
+      "needsParquet": true,
+      "shardGroup": "fast-4"
+    },
+    {
+      "id": "fast-4-3",
+      "label": "fast: shard 3 of 4",
+      "target": "--project fast --shard=3/4",
+      "coverage": "none",
+      "needsParquet": true,
+      "shardGroup": "fast-4"
+    },
+    {
+      "id": "fast-4-4",
+      "label": "fast: shard 4 of 4",
+      "target": "--project fast --shard=4/4",
+      "coverage": "none",
+      "needsParquet": true,
+      "shardGroup": "fast-4"
+    },
+    {
+      "id": "fast-8-1",
+      "label": "fast: shard 1 of 8",
       "target": "--project fast --shard=1/8",
       "coverage": "none",
-      "needsParquet": true
+      "needsParquet": true,
+      "shardGroup": "fast-8"
     },
     {
-      "id": "slice-heavy-whole",
-      "label": "the whole heavy project in one job",
+      "id": "fast-8-2",
+      "label": "fast: shard 2 of 8",
+      "target": "--project fast --shard=2/8",
+      "coverage": "none",
+      "needsParquet": true,
+      "shardGroup": "fast-8"
+    },
+    {
+      "id": "fast-8-3",
+      "label": "fast: shard 3 of 8",
+      "target": "--project fast --shard=3/8",
+      "coverage": "none",
+      "needsParquet": true,
+      "shardGroup": "fast-8"
+    },
+    {
+      "id": "fast-8-4",
+      "label": "fast: shard 4 of 8",
+      "target": "--project fast --shard=4/8",
+      "coverage": "none",
+      "needsParquet": true,
+      "shardGroup": "fast-8"
+    },
+    {
+      "id": "fast-8-5",
+      "label": "fast: shard 5 of 8",
+      "target": "--project fast --shard=5/8",
+      "coverage": "none",
+      "needsParquet": true,
+      "shardGroup": "fast-8"
+    },
+    {
+      "id": "fast-8-6",
+      "label": "fast: shard 6 of 8",
+      "target": "--project fast --shard=6/8",
+      "coverage": "none",
+      "needsParquet": true,
+      "shardGroup": "fast-8"
+    },
+    {
+      "id": "fast-8-7",
+      "label": "fast: shard 7 of 8",
+      "target": "--project fast --shard=7/8",
+      "coverage": "none",
+      "needsParquet": true,
+      "shardGroup": "fast-8"
+    },
+    {
+      "id": "fast-8-8",
+      "label": "fast: shard 8 of 8",
+      "target": "--project fast --shard=8/8",
+      "coverage": "none",
+      "needsParquet": true,
+      "shardGroup": "fast-8"
+    },
+    {
+      "id": "heavy-whole",
+      "label": "heavy: the whole project in one job",
       "target": "--project heavy",
       "coverage": "none",
       "needsParquet": true
     },
     {
-      "id": "lever-baseline",
-      "label": "LEVER BASELINE: fast 1/2, nothing enabled",
-      "target": "--project fast --shard=1/2",
+      "id": "everything-one-job",
+      "label": "NO sharding at all: the entire suite in one job",
+      "target": "",
       "coverage": "none",
       "needsParquet": true
     },
     {
-      "id": "lever-perf",
-      "label": "+PERF=1 only",
-      "target": "--project fast --shard=1/2",
+      "id": "fast-whole-control",
+      "label": "CONTROL: identical to fast-whole",
+      "target": "--project fast",
       "coverage": "none",
       "needsParquet": true,
-      "perf": "1"
-    },
-    {
-      "id": "lever-coverage",
-      "label": "+istanbul coverage only",
-      "target": "--project fast --shard=1/2",
-      "coverage": "istanbul",
-      "needsParquet": true
-    },
-    {
-      "id": "lever-import-durations",
-      "label": "+experimental.importDurations only",
-      "target": "--project fast --shard=1/2",
-      "coverage": "none",
-      "needsParquet": true,
-      "extraArgs": "--experimental.importDurations.print"
-    },
-    {
-      "id": "lever-no-isolate",
-      "label": "+--no-isolate only",
-      "target": "--project fast --shard=1/2",
-      "coverage": "none",
-      "needsParquet": true,
-      "extraArgs": "--no-isolate"
-    },
-    {
-      "id": "lever-pool-forks",
-      "label": "+--pool=forks only",
-      "target": "--project fast --shard=1/2",
-      "coverage": "none",
-      "needsParquet": true,
-      "extraArgs": "--pool=forks"
-    },
-    {
-      "id": "lever-control",
-      "label": "CONTROL: identical to lever-baseline",
-      "target": "--project fast --shard=1/2",
-      "coverage": "none",
-      "needsParquet": true,
-      "control": "lever-baseline"
+      "control": "fast-whole"
     }
   ],
   "comparisons": [
     {
-      "id": "pages-v8-tax",
-      "baseline": "pages-nocov",
-      "variant": "pages-v8"
-    },
-    {
-      "id": "pages-istanbul-tax",
-      "baseline": "pages-nocov",
-      "variant": "pages-istanbul"
-    },
-    {
-      "id": "pages-provider",
-      "baseline": "pages-istanbul",
-      "variant": "pages-v8"
-    },
-    {
-      "id": "ledger-v8-tax",
-      "baseline": "ledger-nocov",
-      "variant": "ledger-v8"
-    },
-    {
-      "id": "ledger-istanbul-tax",
-      "baseline": "ledger-nocov",
-      "variant": "ledger-istanbul"
-    },
-    {
-      "id": "fast-v8-tax",
-      "baseline": "fast-nocov",
-      "variant": "fast-v8"
-    },
-    {
-      "id": "fast-istanbul-tax",
-      "baseline": "fast-nocov",
-      "variant": "fast-istanbul"
-    },
-    {
       "id": "CONTROL-should-be-1.0",
-      "baseline": "pages-nocov",
-      "variant": "pages-control"
-    },
-    {
-      "id": "SLICE-fast-whole-vs-half",
-      "baseline": "slice-fast-2",
-      "variant": "slice-fast-whole"
-    },
-    {
-      "id": "SLICE-fast-quarter-vs-half",
-      "baseline": "slice-fast-2",
-      "variant": "slice-fast-4"
-    },
-    {
-      "id": "SLICE-fast-eighth-vs-half",
-      "baseline": "slice-fast-2",
-      "variant": "slice-fast-8"
-    },
-    {
-      "id": "LEVER-perf",
-      "baseline": "lever-baseline",
-      "variant": "lever-perf"
-    },
-    {
-      "id": "LEVER-coverage",
-      "baseline": "lever-baseline",
-      "variant": "lever-coverage"
-    },
-    {
-      "id": "LEVER-importDurations",
-      "baseline": "lever-baseline",
-      "variant": "lever-import-durations"
-    },
-    {
-      "id": "LEVER-noIsolate",
-      "baseline": "lever-baseline",
-      "variant": "lever-no-isolate"
-    },
-    {
-      "id": "LEVER-poolForks",
-      "baseline": "lever-baseline",
-      "variant": "lever-pool-forks"
-    },
-    {
-      "id": "LEVER-CONTROL-should-be-1.0",
-      "baseline": "lever-baseline",
-      "variant": "lever-control"
+      "baseline": "fast-whole",
+      "variant": "fast-whole-control"
     }
   ]
 }

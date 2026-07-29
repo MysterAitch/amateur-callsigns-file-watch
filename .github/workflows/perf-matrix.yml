@@ -153,6 +153,7 @@ jobs:
           EXTRA_ARGS: ${{ matrix.arm.extraArgs || '' }}
           ARM_PERF: ${{ matrix.arm.perf || '' }}
           ARM_PERF_JSON: ${{ matrix.arm.perfJson || '' }}
+          SHARD_GROUP: ${{ matrix.arm.shardGroup || '' }}
         run: |
           set -uo pipefail
           # An array, so "no coverage" contributes no argument at all rather than
@@ -195,6 +196,7 @@ jobs:
             echo "elapsed_s=$((end-start))"
             echo "peak_rss_kb=${peak:-0}"
             echo "status=${status}"
+            echo "shard_group=${SHARD_GROUP}"
             echo "started_utc=$(date -u -d "@${start}" +%Y-%m-%dT%H:%M:%SZ)"
             echo "hour_utc=$(date -u -d "@${start}" +%H)"
             echo "image=${ImageVersion:-unknown}"

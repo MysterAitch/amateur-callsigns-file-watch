@@ -4,6 +4,7 @@ import {
   compareToBaseline,
   computeRatios,
   renderMatrixMarkdown,
+  aggregateShardGroups,
   type ArmRun,
   type ArmSummary,
 } from './perf-matrix-report.ts';
@@ -282,5 +283,53 @@ describe('multimodality detection', { tags: ['unit'] }, () => {
   it('Report_MultimodalArm_SaysSoRatherThanShowingOnlyASpread', () => {
     const md = renderMatrixMarkdown([arm([100, 102, 101, 260, 265])], [], []);
     expect(md.toLowerCase()).toContain('modal');
+  });
+});
+
+// Shard-group aggregation (#1017). A split has TWO costs and they trade against
+// each other: the SUM across shards is runner-minutes, the MAX is wall clock.
+// Reporting one without the other is how a sharding decision gets made on the
+// wrong axis - and round 1 of the slicing matrix made a worse error still,
+// measuring only shard 1 and multiplying by N, which is invalid when the
+// sharder splits by file count and file durations are wildly uneven.
+describe('aggregateShardGroups', { tags: ['unit'] }, () => {
+  const arm = (id: string, secs: number[], shardGroup?: string): ArmSummary => ({
+    ...summariseArm(secs.map((s, i) => ({ arm: id, rep: i + 1, elapsedS: s, peakRssKb: 0, status: 0 }))),
+    shardGroup,
+  });
+
+  it('Group_SummedAcrossShards_ReportsTheRunnerMinutesCost', () => {
+    const [g] = aggregateShardGroups([arm('a', [100], 'g'), arm('b', [140], 'g')]);
+    expect(g.totalS).toBe(240);
+  });
+
+  it('Group_MaxAcrossShards_ReportsTheWallClockCost', () => {
+    const [g] = aggregateShardGroups([arm('a', [100], 'g'), arm('b', [140], 'g')]);
+    expect(g.wallS).toBe(140);
+  });
+
+  it('Group_ImbalancedShards_SurfacesTheImbalanceRatio', () => {
+    // The slowest shard sets the wall clock, so a 3x imbalance means two thirds
+    // of the fan-out sits idle waiting. That is the number that decides whether
+    // duration-aware bin-packing is worth building.
+    const [g] = aggregateShardGroups([arm('a', [60], 'g'), arm('b', [180], 'g')]);
+    expect(g.imbalance).toBeCloseTo(3, 3);
+  });
+
+  it('Group_WithAMissingShard_IsReportedAsIncompleteNotAggregated', () => {
+    // Round 1's exact error: a group measured from a subset of its shards
+    // extrapolates, and extrapolation across uneven shards is what produced
+    // totals that did not conserve work.
+    const [g] = aggregateShardGroups([arm('a', [100], 'g'), arm('b', [140], 'g')], { g: 4 });
+    expect(g.complete).toBe(false);
+  });
+
+  it('Group_WithEveryShardPresent_IsReportedAsComplete', () => {
+    const [g] = aggregateShardGroups([arm('a', [100], 'g'), arm('b', [140], 'g')], { g: 2 });
+    expect(g.complete).toBe(true);
+  });
+
+  it('UngroupedArms_AreNotInventedIntoAGroup', () => {
+    expect(aggregateShardGroups([arm('solo', [100])])).toEqual([]);
   });
 });

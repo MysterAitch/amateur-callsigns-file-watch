@@ -50,6 +50,22 @@ if (!spec.arms.some(a => a.control !== undefined)) {
   throw new Error(`${SPEC_PATH}: no control arm declared. Add one arm with a "control" field naming the arm it should match.`);
 }
 
+// Round 1 accidentally shipped FOUR byte-identical arms, spending ~40 jobs on
+// redundancy nobody intended. Duplicates are legitimate ONLY as a declared
+// control - which is a deliberate noise-floor read, not an accident.
+const bySignature = new Map();
+for (const a of spec.arms) {
+  const key = JSON.stringify([a.target ?? '', a.coverage ?? '', a.extraArgs ?? '', a.perf ?? '']);
+  (bySignature.get(key) ?? bySignature.set(key, []).get(key)).push(a);
+}
+for (const [key, group] of bySignature) {
+  if (group.length < 2) continue;
+  const undeclared = group.filter(a => a.control === undefined);
+  if (undeclared.length > 1) {
+    throw new Error(`${SPEC_PATH}: arms ${undeclared.map(a => a.id).join(', ')} share an identical configuration ${key}. Declare one as a "control" of the other, or make them differ.`);
+  }
+}
+
 const requested = Number.parseInt(process.env.REPETITIONS ?? '', 10);
 const reps = Math.min(MAX_REPS, Math.max(1, Number.isInteger(requested) ? requested : (spec.defaultRepetitions ?? 5)));
 
