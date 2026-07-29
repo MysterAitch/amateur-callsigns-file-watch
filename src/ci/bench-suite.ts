@@ -66,7 +66,7 @@ function handRolled(claim: Claim): string {
 }
 
 const encoder = new TextEncoder();
-const scratch = new Uint8Array(1 << 20);
+const scratch = new Uint8Array(1 << 21);
 
 function argValue(flag: string, fallback: string): string {
   const i = process.argv.indexOf(flag);
@@ -98,6 +98,36 @@ bench
       offset += written + 1;
       if (offset >= scratch.length - 1024) offset = 0;
     }
+  });
+
+// DECOMPOSITION. The two arms above are a fair comparison of two PRODUCTION
+// STRATEGIES, but they are not a fair comparison of two ENCODING APIs: the
+// Buffer.from arm also performs a string join and allocates a fresh ~490 KB
+// buffer every iteration, while the encodeInto arm reuses a scratch buffer and
+// never joins. Three differences are bundled.
+//
+// That matters because a platform difference was attributed to the encoding APIs
+// (#1026: Windows favoured encodeInto, Linux and macOS favoured Buffer.from). If
+// what actually differs by platform is LARGE-BUFFER ALLOCATION or string join,
+// the conclusion is about the allocator, not about the API - and the remedy would
+// be entirely different.
+//
+// These arms isolate each component so the effect can be attributed rather than
+// assumed. Each does exactly one thing.
+const PREJOINED = LINES.join(String.fromCharCode(10));
+const PREJOINED_BYTES = Buffer.byteLength(PREJOINED, 'utf8');
+bench
+  .add('component: join 2000 strings (no encoding)', () => {
+    LINES.join(String.fromCharCode(10));
+  })
+  .add('component: allocate a ~490KB buffer (no encoding)', () => {
+    Buffer.allocUnsafe(PREJOINED_BYTES);
+  })
+  .add('component: Buffer.from a PRE-joined string', () => {
+    Buffer.from(PREJOINED, 'utf8');
+  })
+  .add('component: encodeInto the SAME pre-joined string, reused buffer', () => {
+    encoder.encodeInto(PREJOINED, scratch);
   });
 
 // COMPRESSION (#997). The level/codec choice is data-shape dependent and cannot
