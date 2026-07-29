@@ -31,6 +31,10 @@
 //     rely on: a node can be appended by other code, or an el() node mutated
 //     after construction. Both layers read the same sources, so they cannot
 //     drift apart;
+//   - a <p> refuses an element whose start tag would implicitly END it, because
+//     such a tree renders correctly in a browser but REPARSES into a different
+//     tree — the hazard a build-time render carries that a browser-only one
+//     never meets;
 //   - void elements refuse children, and the serialiser — the platform's own
 //     HTML fragment serialisation via the outerHTML getter, never a hand-rolled
 //     escaper — emits them per spec (`<br>`, no closing tag);
@@ -115,6 +119,35 @@ function refusalReason(tag) {
 
 // The HTML void elements: no children, and serialised with no closing tag.
 const VOID_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+
+// Elements whose START TAG implicitly ENDS an open <p> (the HTML parser's
+// "close a p element in button scope" rule). A DOM tree can hold any of them
+// inside a <p>, and in the browser that tree renders as built — but the moment
+// it is serialised into static HTML and PARSED BACK, the <p> ends early and
+// every following child becomes a SIBLING of the paragraph rather than part of
+// it. The tree the reader gets is then not the tree the render built.
+//
+// This is invisible in a browser-only render and invisible in a jsdom unit test
+// that never round-trips, which is exactly why it is guarded here: build-time
+// serialisation is the one place the tree must survive a reparse intact.
+const P_IMPLIED_END_TAG_ELEMENTS = new Set([
+  'address', 'article', 'aside', 'blockquote', 'details', 'div', 'dl', 'fieldset',
+  'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'header', 'hgroup', 'hr', 'main', 'menu', 'nav', 'ol', 'p', 'pre', 'search',
+  'section', 'table', 'ul',
+]);
+
+/**
+ * Why a child cannot live inside a <p>, or null when it may. Read by BOTH
+ * construction and the serialise-time re-check, so the two layers cannot drift.
+ * @param {string} parentTag  lowercase
+ * @param {string} childTag   lowercase
+ * @returns {string | null}
+ */
+function paragraphNestingRefusal(parentTag, childTag) {
+  if (parentTag !== 'p' || !P_IMPLIED_END_TAG_ELEMENTS.has(childTag)) return null;
+  return `<${childTag}> inside a <p> — an HTML parser ends the paragraph at that start tag, so the serialised markup would reparse with <${childTag}> and everything after it as SIBLINGS of the paragraph rather than its children; wrap the content in a <div> instead`;
+}
 
 // The attribute-NAME allowlist (ADR 0022: attribute names are never
 // data-derived). Deliberately small — covering the chrome, tables, links and
@@ -309,6 +342,12 @@ export function el(tag, attrs = null, ...children) {
   if (VOID_ELEMENTS.has(tag) && flat.length > 0) {
     throw new Error(`el(): void element <${tag}> cannot take children`);
   }
+  for (const child of flat) {
+    if (typeof child !== 'string' && child.nodeType === ELEMENT_NODE) {
+      const refusal = paragraphNestingRefusal(tag, child.nodeName.toLowerCase());
+      if (refusal !== null) throw new Error(`el(): refusing ${refusal}`);
+    }
+  }
   for (const child of flat) node.append(child);
   return node;
 }
@@ -395,10 +434,15 @@ function assertSerialisableTree(root) {
       throw new Error(`serialise(): refusing a tree containing <${current.nodeName.toLowerCase()}> — ${refusalReason(current.nodeName.toLowerCase())}`);
     }
     assertAttributesGuarded(current);
+    const currentTag = current.nodeName.toLowerCase();
     for (const child of current.childNodes) {
       if (child.nodeType === TEXT_NODE) continue; // text is entity-escaped by the serialiser
       if (child.nodeType !== ELEMENT_NODE) {
         throw new Error('serialise(): refusing a tree containing a non-element, non-text node (comment/processing-instruction/CDATA) — its data would serialise with no markup escaping, so a smuggled comment could re-introduce live markup on reparse');
+      }
+      const refusal = paragraphNestingRefusal(currentTag, child.nodeName.toLowerCase());
+      if (refusal !== null) {
+        throw new Error(`serialise(): refusing a tree with ${refusal}`);
       }
       stack.push(/** @type {Element} */ (child));
     }

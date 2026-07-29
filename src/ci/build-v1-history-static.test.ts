@@ -7,6 +7,7 @@ import {
   buildV1HistoryStatic,
   stampRegion,
   assertComponentsRegistered,
+  assertReparsesIdentically,
   onThisDayHtml,
   timelineHtml,
   REGION_START,
@@ -189,6 +190,27 @@ describe('build-v1-history-static — determinism and failure modes', { tags: ['
     expect(onThisDayHtml(dir)).toBe(onThisDayHtml(dir));
     expect(timelineHtml(dir)).toBe(timelineHtml(dir));
     expect(onThisDayHtml(dir)).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:/); // no ISO timestamp
+  });
+
+  it('HistoryHtml_AsServedAndReparsed_IsTheSameTreeTheRenderBuilt', () => {
+    // A build-time render is the one place a DOM tree and the markup a reader
+    // receives can disagree: HTML's implied-end-tag rules restructure some
+    // nestings on reparse. Both surfaces are checked on the REAL output of every
+    // build, not on a fixture, so a rule nobody anticipated still fails loud.
+    const dir = scaffold();
+    expect(() => onThisDayHtml(dir)).not.toThrow();
+    expect(() => timelineHtml(dir)).not.toThrow();
+  });
+
+  it('AssertReparsesIdentically_MarkupThatTheParserRestructures_FailsLoudNamingTheDivergence', () => {
+    // The guard proves it can fail: a paragraph holding a <details> renders as
+    // built in a browser and reparses with the details as a SIBLING.
+    const doc = new JSDOM('').window.document;
+    const p = doc.createElement('p');
+    p.append('text');
+    p.appendChild(doc.createElement('details'));
+    expect(() => assertReparsesIdentically(p, p.outerHTML, 'a test fixture'))
+      .toThrow(/does not survive serialisation|DIFFERENT tree/);
   });
 
   it('BuildV1HistoryStatic_WhenAPageLostItsMarkers_FailsLoudRatherThanShippingAShell', () => {

@@ -119,7 +119,11 @@ const READOUT_SLOTS = /** @type {const} */ ([
   ['reservations', 'p', 'tl-figure'],
   ['activity', 'p', 'tl-figure'],
   ['series', 'p', 'tl-figure'],
-  ['assert', 'p', 'tl-assert'],
+  // A <div>, not a <p>: the assertion line carries vintage popovers, which are
+  // <details> — a start tag that implicitly ENDS an open paragraph, so as static
+  // HTML the citations would reparse as siblings of the line rather than part
+  // of it.
+  ['assert', 'div', 'tl-assert'],
   ['caveats', 'p', 'hx-caveats tl-caveats'],
 ]);
 
@@ -583,7 +587,11 @@ export function renderStatic(data) {
   // the corpus's own "as at" instant; with script the slider lands above it.
   const scrubberSlot = el('div', null);
   scrubberSlot.id = 'timeline-scrubber';
-  const status = el('p', 'tl-status');
+  // The announcement region is for assistive technology only: the readout
+  // beneath already SHOWS the same figures, so announcing them a second time on
+  // screen would be redundant. Visually hidden rather than display:none, which
+  // some assistive technology treats as not present and never announces.
+  const status = el('p', 'tl-status visually-hidden');
   status.setAttribute('role', 'status');
   scrubberSlot.appendChild(status);
   const readout = readoutSkeleton();

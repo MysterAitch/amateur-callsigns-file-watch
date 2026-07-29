@@ -88,6 +88,46 @@ export function assertComponentsRegistered(html: string, where: string): string[
   return [...new Set(emitted)].sort();
 }
 
+// The tree's shape in document order, as `depth:tag` steps. Compared either
+// side of a serialise-and-reparse so a divergence names where it happened.
+function treeShape(root: Element): string[] {
+  const shape: string[] = [];
+  const walk = (node: Element, depth: number): void => {
+    shape.push(`${depth}:${node.nodeName.toLowerCase()}`);
+    for (const child of node.children) walk(child, depth + 1);
+  };
+  walk(root, 0);
+  return shape;
+}
+
+/**
+ * Assert the serialised markup PARSES BACK to the tree that was rendered.
+ *
+ * A build-time render carries a hazard a browser-only render never meets: the
+ * DOM it builds is not what the reader receives — the reader receives the
+ * SERIALISED form, re-parsed. HTML's implied-end-tag rules can quietly restructure
+ * that (a `<details>` ends an open `<p>`, so its following siblings escape the
+ * paragraph). The render looks right in every jsdom unit test that never round-
+ * trips, and wrong on the page.
+ *
+ * el()'s own guards refuse the nestings known to do this; this is the backstop
+ * that would catch a rule nobody thought of, checked on the real output of every
+ * build rather than on a fixture.
+ */
+export function assertReparsesIdentically(rendered: Element, html: string, where: string): void {
+  const reparsed = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document.body.firstElementChild;
+  if (reparsed === null) {
+    throw new Error(`build-v1-history-static: ${where} serialised to markup that parses back to nothing`);
+  }
+  const before = treeShape(rendered);
+  const after = treeShape(reparsed);
+  const at = before.findIndex((step, i) => step !== after[i]);
+  if (at !== -1 || before.length !== after.length) {
+    const step = at === -1 ? before.length : at;
+    throw new Error(`build-v1-history-static: ${where} does not survive serialisation — the markup a reader receives parses back to a DIFFERENT tree (${before.length} elements rendered, ${after.length} after reparse; first divergence at step ${step}: rendered "${before[step] ?? '(end)'}" vs reparsed "${after[step] ?? '(end)'}")`);
+  }
+}
+
 /** Read a manifest and hand it to its own shape validator, failing loud rather than rendering a wrong shape. */
 function readManifest<T>(siteRoot: string, name: string, parse: (v: unknown) => T | null): T {
   const manifestPath = path.join(siteRoot, name);
@@ -101,15 +141,19 @@ function readManifest<T>(siteRoot: string, name: string, parse: (v: unknown) => 
 
 export function onThisDayHtml(siteRoot: string): string {
   const data = readManifest(siteRoot, 'on-this-day.json', onThisDay.parseOnThisDay);
-  const html = serialise(onThisDay.renderStatic(data));
+  const rendered = onThisDay.renderStatic(data);
+  const html = serialise(rendered);
   assertComponentsRegistered(html, 'the on-this-day render');
+  assertReparsesIdentically(rendered, html, 'the on-this-day render');
   return html;
 }
 
 export function timelineHtml(siteRoot: string): string {
   const data = readManifest(siteRoot, 'timeline.json', timeline.parseTimeline);
-  const html = serialise(timeline.renderStatic(data));
+  const rendered = timeline.renderStatic(data);
+  const html = serialise(rendered);
   assertComponentsRegistered(html, 'the timeline render');
+  assertReparsesIdentically(rendered, html, 'the timeline render');
   return html;
 }
 

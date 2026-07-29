@@ -68,7 +68,10 @@ export function fill(template, values) {
  * @returns {HTMLElement}
  */
 export function ledeWithCue(ledeText) {
-  const p = el('p', 'note hx-lede');
+  // A <div>, not a <p>: the cue is a <details>, whose start tag would implicitly
+  // END an open paragraph — so as static HTML the cue and everything after it
+  // would reparse as siblings of the lede rather than as part of it.
+  const p = el('div', 'note hx-lede');
   p.append(ledeText);
   const ax = el('span', 'ax hx-ax');
   ax.append('event-time');
