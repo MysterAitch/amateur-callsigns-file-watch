@@ -1,10 +1,23 @@
 # ADR 0018 — Attest column interpretation + flag within-table inconsistency
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-07-12
 - Related: #435, #434/ADR 0016 (file-level claims + reconstruction oracle),
          #433/ADR 0017 (show the working), #431/ADR 0015 (source position),
          #404/ADR 0014 (trust net), #429 (stripped-collision), #361/ADR 0013 (claim ledger)
+
+> *(Amended 2026-07-29.)* Recorded as `proposed` when written and never
+> re-statused, although the decision was implemented and is enforced: the
+> attestation tier, the drift oracle, both within-table passes and the scope
+> guard are built (`src/v2/interpretation.ts`, `src/v2/within-table.ts`) and
+> guarded by a committed, corpus-level oracle family
+> (`src/ci/interpretation-oracle.ts` + `interpretation-oracle.test.ts`), and the
+> attested format is load-bearing — the event-time tier (#725) parses date
+> cells strictly under it. The status now reads `accepted`. Two boundaries
+> remain open: the reader-facing surface (P4) is only partly landed (see the
+> final consequence), and the `@interpretation`/`@column-flag` claim streams
+> are emitted and oracle-checked on demand rather than riding the canonical
+> persisted ledger emit (`emitSourceLedgerClaims`).
 
 ## Context
 
@@ -86,13 +99,22 @@ sheets the long forms) and must NOT be flagged.
 - The interpretation stays single-sourced in the loaders; the claim cannot rot (the
   drift oracle).
 - Within-table inconsistencies become visible review candidates without silent
-  collapse or loss of the fail-loud guarantee for a true parse failure. On the
-  current committed corpus the passes surface NOTHING (the strict converter rejects
-  mixed dates, and each table uses one product vocabulary) — the detectors are
-  proven by constructed fixtures, and a future mixed snapshot becomes visible data
-  rather than a silent pass.
+  collapse or loss of the fail-loud guarantee for a true parse failure. The
+  date-mixing pass surfaces nothing on the committed corpus (the strict
+  converter rejects mixed dates at intake), but the normalisation-collision
+  pass has since earned its keep on real data: the 2024-09 register snapshot
+  genuinely mixes raw product spellings that fold to one special-event licence
+  category, and the oracle surfaces both column flags rather than swallowing
+  them — pinned as the expected corpus finding in
+  `interpretation-oracle.test.ts`, so any change to that list documents the
+  surprise. The detectors are proven by constructed fixtures either way, and a
+  future mixed snapshot becomes visible data rather than a silent pass.
 - Additive: no observation-claim/golden change; #404's observation trace is
   unaffected beyond the file-level grounding rule.
 - The reader-facing surface (attested interpretation on the schema view, flags as
   review candidates, `explainColumnFlag` behind a "why?" affordance) is DEFERRED to
-  a follow-up lane (P4).
+  a follow-up lane (P4). Partly landed since: the fidelity deep-dive
+  (`fidelity.html`, built by `src/ci/build-fidelity-page.ts`) describes both
+  passes and links this record. The per-file flag listing with its evidence,
+  and the schema-view attestation, remain the open remainder — with #435 now
+  closed, no live tracker carries them.

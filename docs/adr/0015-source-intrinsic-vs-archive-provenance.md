@@ -115,3 +115,12 @@ than reopening it.
   the exact source cell. The file-provenance *source-intrinsic* stream (P3: OOXML
   `dcterms:*` document dates, container-preserved mtimes) remains named here but
   built later, keeping the honesty-rule namespace separation this ADR fixes.
+- The reserved phases remain reserved (as of 2026-07-29): P2 (`sheet-cell`
+  positions read from inside the workbook) and the P3 file-provenance stream are
+  unbuilt, and #431 has since closed without them — no live tracker carries
+  them, so a resumption starts from this record and the reserved
+  `SourcePosition` arms in `src/v2/claim-core.ts`. Until P3 lands, the
+  `FileProvenanceOrigin` type described in the Decision exists only as the
+  delivered `git-log` arm (`ArchiveProvenance.origin`, `src/v2/source-link.ts`);
+  the `ooxml-*` and `zip-central-directory` origins are part of the decided
+  frame, not yet of the code.

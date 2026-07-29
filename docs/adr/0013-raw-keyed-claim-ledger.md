@@ -1,6 +1,6 @@
 # ADR 0013 — A raw-keyed claim ledger as the canonical record, everything else a derived fold
 
-- Status: accepted (open-data lane migration complete at ADR 0021; FOI lane tracked on #455)
+- Status: accepted (open-data lane migration complete at ADR 0021; FOI text-source promotion complete via #813, closing #455)
 - Date: 2026-07-11
 - Related: ADR 0001 (PR-gated in-repo processing), ADR 0002 (write controls), ADR 0003 (frameworkless site, vendored `sql.js-httpvfs`), ADR 0005 (canonical callsign forms), ADR 0006 (componentisation), ADR 0008 (offline-first PWA), ADR 0010 (archive contract), ADR 0011 (two-tier architecture), ADR 0012 (supply-chain posture); issues #361 (exploration tracker), #376 (`/data-status`)
 
@@ -237,7 +237,9 @@ disclosures), and the issuance-events family (callsign-subject dated licensing
 events) — each joined through a shared collector registry
 (`src/v2/collectors/`) in which adding a family is adding a module plus one
 registry line, so the source-family-extension pattern is now proven across the
-corpus rather than on a single family. The reports-fold cutover is complete:
+corpus rather than on a single family. (The registry has since grown to eight
+families: the verbatim-CSV lane for the pre-war annex joined under #813
+Stage B.) The reports-fold cutover is complete:
 every report generator now folds from the raw-keyed claim ledger — the value
 catalogue (licence-category and parse-derived field tables), the byte-identical
 forbidden-suffix history report, and the quality reports (prefix-series,
@@ -258,18 +260,24 @@ parse-dependent quality-report folds. Source-position provenance is now attested
 per observation — the exact CSV line or spreadsheet cell an observation came
 from — with source-intrinsic facts kept rigorously distinct from
 archive/processing artefacts ([ADR 0015](0015-source-intrinsic-vs-archive-provenance.md)).
-A committed reconstruction oracle now rebuilds every text source — 44 across the
-open-data, FOI-CSV, addendum and FOI free-text lanes (markdown-table, preamble,
-prefixed-suffix) — from claims alone, byte-identical modulo cosmetic
-quoting/line-ending differences, with the verbatim as-published header attested
-as a file-level claim
-([ADR 0016](0016-file-level-claims-and-reconstruction-oracle.md)). For the CSV
-lanes this proves the *main ledger's* raw layer canonical, not merely asserted.
-For the 13 FOI free-text sources, however, the lossless projection is currently
-built by the oracle alone rather than promoted into the main ledger (whose
-claims for these sources remain lossy), so the oracle mirror — not the ledger —
-is canonical for them today; closing that gap against the inversion premise is
+A committed reconstruction oracle now rebuilds every text source from claims
+alone, byte-identical modulo cosmetic quoting/line-ending differences, with the
+verbatim as-published header attested as a file-level claim
+([ADR 0016](0016-file-level-claims-and-reconstruction-oracle.md)). When the
+oracle first landed it covered 44 sources across the open-data, FOI-CSV,
+addendum and FOI free-text lanes, and for the 13 FOI free-text sources
+(markdown-table, preamble, prefixed-suffix) the lossless projection was built by
+the oracle alone rather than promoted into the main ledger — the oracle mirror,
+not the ledger, was canonical for them, a gap against the inversion premise
 tracked in [#455](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/455).
+That gap has since closed (#455, delivered by the staged promotion in
+[#813](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/813)):
+the file-level manifest rides the canonical ledger emit, the parallel oracle
+mirrors are deleted, exactly one family emits per source file (enforced at emit
+time), and reconstruction coverage is structural — the collector registry *is*
+the reconstruction corpus (71 sources round-tripping from the persisted ledger
+at the arc's close), so a silently-uncovered shape class can no longer exist.
+The ledger, not any mirror, is canonical for every registered text source.
 Every derived claim can now show its working — the input claims, their source
 positions, and the named rule that produced it — reconstructed on read
 ([ADR 0017](0017-show-the-working-behind-derived-claims.md)), guarded by a
@@ -282,24 +290,28 @@ non-fatal doubt flags — cross-file terminology drift stays data, not a defect
 ([ADR 0018](0018-attest-column-interpretation-and-within-table-flags.md)).
 
 With this, the fidelity **emit** foundation is complete: the ledger attests
-source position (ADR 0015), attests file structure and reconstructs all 44 text
-sources (ADR 0016), explains every derived claim (ADR 0017), and attests column
-interpretation with within-table integrity flags (ADR 0018). The next arc —
+source position (ADR 0015), attests file structure and reconstructs every
+registered text source (ADR 0016; coverage structural since #813), explains
+every derived claim (ADR 0017), and attests column interpretation with
+within-table integrity flags (ADR 0018). The next arc —
 surfacing that fidelity to readers inline and in linked deep-dive pages
 ([#438](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/438),
 [#439](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/439))
-— has begun: the first increment landed a fidelity and integrity deep-dive
+— followed: the first increment landed a fidelity and integrity deep-dive
 (`fidelity.html`) reachable by inline nudges from the highest-traffic generated
 surfaces, with the ADR 0017 "show the working" disclosure wired into a real
 generated page end to end
 ([#601](https://github.com/MysterAitch/amateur-callsigns-file-watch/pull/601));
-the remaining surfaces continue under #438.
+the remaining surfaces followed under the same issue, and #438 has since closed
+with that surfacing arc delivered.
 
 Remaining: the reviewed canonical vocabularies and coverage-aware gating the
-temporal fold depends on; the continued onboarding through the registry of
+temporal fold depends on; and the continued onboarding through the registry of
 heterogeneous sources still pending intake (tracked in
-`docs/source-register.md`); and retirement of the legacy snapshot-canonical
-flow — every report now folds, and the interactive query surfaces (lookup,
+`docs/source-register.md`).
+
+The retirement of the legacy snapshot-canonical flow is complete: every report
+now folds, and the interactive query surfaces (lookup,
 comparison, entry browser, Explore) have been repointed onto ledger-derived
 projection databases folded from the claim ledger, verified against the legacy
 databases by a full-corpus parity oracle

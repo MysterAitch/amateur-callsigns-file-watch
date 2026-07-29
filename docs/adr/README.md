@@ -16,9 +16,11 @@ retired, and the snapshot-canonical flow the earlier ADRs (notably
 [0001](0001-post-fetch-processing-in-repo.md) and
 [0010](0010-archive-contract.md)) describe now stands as a frozen equivalence
 baseline that every consumer reads alongside the ledger projection, not a
-still-running lane. The FOI lane has not made the same crossing — its text
-sources are ledger-lossy, with a parallel oracle mirror standing in as their
-lossless canonical record instead — tracked on #455. The two trust axes that model
+still-running lane. The FOI lane has since made the same crossing: its text
+sources' lossless claims were promoted into the ledger by the staged #813 arc
+(closing #455), the parallel oracle mirrors are deleted, and reconstruction
+coverage is structural — the collector registry is the reconstruction corpus,
+every registered text source rebuilding from the persisted ledger. The two trust axes that model
 surfaces — source authority and claim confidence — are derived from provenance
 and guarded against inflation by [ADR 0014](0014-trust-rating-safety-net.md), the
 enforcement companion to 0013's confidence model; and [ADR 0015](0015-source-intrinsic-vs-archive-provenance.md)
@@ -26,7 +28,7 @@ keeps source-intrinsic provenance rigorously distinct from archive/processing
 artefacts (a filesystem-stat origin is made unrepresentable, not merely
 discouraged); and [ADR 0016](0016-file-level-claims-and-reconstruction-oracle.md)
 adds the file-level-claim convention and a reconstruction oracle that rebuilds
-the CSV-lane text sources from their claims alone; and [ADR 0017](0017-show-the-working-behind-derived-claims.md)
+every registered text source from its claims alone; and [ADR 0017](0017-show-the-working-behind-derived-claims.md)
 reconstructs on read the working behind every derived claim (its inputs, source
 positions and rule); and [ADR 0018](0018-attest-column-interpretation-and-within-table-flags.md)
 attests each column's inferred `{type, format}` as a file-level claim and flags
@@ -132,8 +134,8 @@ the #431 programme.
     <tr>
       <td><a href="0013-raw-keyed-claim-ledger.md">ADR 0013</a></td>
       <td>A raw-keyed claim ledger as the canonical record, everything else a derived fold</td>
-      <td>Foundational — too situational for one line. The FOI lane has not made this crossing (its text sources are ledger-lossy, with a parallel oracle mirror standing in); see the record and <a href="0021-frozen-derived-baseline.md">ADR 0021</a></td>
-      <td>accepted (open-data migration complete; FOI lane tracked on #455)</td>
+      <td>Foundational — too situational for one line. The load-bearing premise is that every published artefact re-derives from the raw-keyed ledger, held by the structural reconstruction oracle and the parity gates; a source class the claim model could not capture losslessly would force the question. See the record and <a href="0021-frozen-derived-baseline.md">ADR 0021</a></td>
+      <td>accepted (open-data migration complete at ADR 0021; FOI text sources promoted at #813)</td>
       <td>2026-07-11</td>
     </tr>
     <tr>
@@ -153,7 +155,7 @@ the #431 programme.
     <tr>
       <td><a href="0016-file-level-claims-and-reconstruction-oracle.md">ADR 0016</a></td>
       <td>File-level claims (sentinel ordinal, <code>@column</code>/<code>@subject</code>/<code>@ignored</code>) and the reconstruction oracle</td>
-      <td>A lane whose sources cannot be reconstructed from claims. Already partly live: the FOI text lanes are ledger-lossy and carry an honest residual rather than a clean oracle</td>
+      <td>A lane whose sources cannot be reconstructed from claims alone. The boundary already has a declared shape: markdown prose sits outside the fidelity claim (table region only) as an explicit scope note, never a silent pass</td>
       <td>accepted</td>
       <td>2026-07-12</td>
     </tr>
@@ -167,8 +169,8 @@ the #431 programme.
     <tr>
       <td><a href="0018-attest-column-interpretation-and-within-table-flags.md">ADR 0018</a></td>
       <td>Attest each column's inferred <code>{type, format}</code> as a derived file-level claim, and flag within-table date-format mixing / normalisation collisions</td>
-      <td>Column-type inference becoming unreliable enough that formats must be declared rather than inferred and attested</td>
-      <td>proposed</td>
+      <td>A column that genuinely cannot be read under one <code>{type, format}</code> — the one-interpretation-per-column attestation could not express it, and the within-table mixing flag is the early warning of exactly that</td>
+      <td>accepted</td>
       <td>2026-07-12</td>
     </tr>
     <tr>

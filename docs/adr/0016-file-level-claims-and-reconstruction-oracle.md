@@ -82,17 +82,32 @@ canonical.
 
 5. **The oracle is a committed CI self-check, and non-coverage is explicit.** It
    runs over the real corpus and fails the build loudly on any miss, like
-   `trust-rating.ts`. It covers the three CSV-producing families (open-data
-   register, FOI-CSV register, attribute-addendum). The FOI markdown-table,
-   preamble, and prefixed (synthesised-callsign) shapes emit no claims today and
-   so cannot be reconstructed: they are enumerated as explicit not-yet-covered
-   (never a silent pass), pending the ingest work (#434 Phase 3 / E3).
+   `trust-rating.ts`. At acceptance it covered the three CSV-producing families
+   (open-data register, FOI-CSV register, attribute-addendum), with the FOI
+   markdown-table, preamble, and prefixed (synthesised-callsign) shapes —
+   which emitted no claims then and so could not be reconstructed — enumerated
+   as explicit not-yet-covered (never a silent pass), pending the ingest work
+   (#434 Phase 3 / E3).
+
+   *(Update 2026-07-29.)* That ingest has since landed and the enumeration is
+   generalised structurally (#434 Phase 3 via #453, then #455/#813): the
+   reconstruction corpus is now the collector registry itself
+   (`collectLedgerSources`), every registered family emits its sources
+   losslessly through the one canonical emit, and the oracle round-trips each
+   source from the **persisted ledger** rather than a parallel oracle-only
+   projection. `listNotYetCovered` now reports the structural complement — an
+   authored conversion emitted by no registered family — whose emptiness is the
+   coverage guarantee, so a silently-uncovered shape class cannot exist. A
+   markdown source compares its table region only; the surrounding prose is a
+   declared scope note outside the fidelity claim, never silently dropped.
 
 ## Consequences
 
-- The raw claim layer is demonstrably canonical for the CSV lanes: the committed
-  raw file is redundant-by-derivation, and any future change that drops or
-  corrupts source structure fails the oracle rather than passing silently.
+- The raw claim layer is demonstrably canonical for the CSV lanes — and, since
+  the #455/#813 promotion recorded in point 5's update, for every registered
+  text source: the committed raw file is redundant-by-derivation of the
+  persisted ledger, and any future change that drops or corrupts source
+  structure fails the oracle rather than passing silently.
 - The verbatim as-published header is now attested, giving #433's header→canonical
   mapping self-check the ground truth it needs.
 - Additive: legacy ledgers (no file-level claims) parse and fold unchanged; #404,
@@ -102,3 +117,7 @@ canonical.
 - The open-data lane is the strongest pass: `parseRawRegister`'s line-accounting
   invariant already rules out the one hazard (a multiline cell) the CSV serialiser
   cannot otherwise detect.
+- The byte-level (re-encoding) comparison mode named in point 4 was never
+  built, and #434 has since closed without it: decoded-text-modulo-cosmetics
+  stands as the accepted bar, and no live tracker carries the byte-level mode —
+  a resumption would start from this record.
