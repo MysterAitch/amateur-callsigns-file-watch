@@ -66,8 +66,8 @@ existing inputs into a re-verifiable trace.
    `permalinkForProvenance`). The fidelity and integrity deep-dive
    (`fidelity.html#show-working`) is its first production consumer — rendering real
    derived claims from the newest archived publication through this engine (#438,
-   #601); wiring the disclosure into the remaining generated surfaces continues
-   under #438.
+   #601); the remaining generated surfaces followed under the same issue, and
+   #438 has since closed with that surfacing arc delivered.
 
 7. **Self-checked by a committed oracle.** A CI self-check beside
    `trust-rating.ts` (`src/ci/explain-oracle.test.ts`) asserts, over a
@@ -92,18 +92,24 @@ existing inputs into a re-verifiable trace.
   projection of it, so it cannot rot.
 - Additive: no format or golden change; legacy ledgers and the #404 no-inflation
   trace are undisturbed, because nothing is stored.
-- The rule set the oracle explains is the FULL derived vocabulary emitted today —
-  `cleaned-callsign`, `placeholder-form`, `callsign-pattern`, `licence-category`,
-  `stripped-collision`, and the `parse-callsign` fan-out — not only the four the
-  original design enumerated: the fail-loud "no derived claim is unexplainable"
-  invariant forces completeness, so the #422 callsign-pattern rule is explained
-  too.
+- The completeness guarantee is the MECHANISM, not a fixed list: the fail-loud
+  "no derived claim is unexplainable" invariant forces the dispatcher to cover
+  the full derived vocabulary the ledger emit produces, whatever it grows to.
+  At acceptance that vocabulary was `cleaned-callsign`, `placeholder-form`,
+  `callsign-pattern`, `licence-category`, `stripped-collision` and the
+  `parse-callsign` fan-out — already wider than the four the original design
+  enumerated (the #422 callsign-pattern rule was forced in exactly this way) —
+  and the tiers added since joined the dispatcher the same way:
+  `authored-event-vocabulary` and `authored-binding-role` from the #813
+  promotion, and `event-date-extraction` from the #725 event-time tier. The
+  within-table column flags of ADR 0018 explain through their own
+  `explainColumnFlag`, reusing this decision's `Working` shape.
 - The backend engine plus its oracle (design phases P1–P3) and the reusable P4
   render engine — the "show working" disclosure and its permalink resolver
   (#562) — have landed, and the fidelity and integrity deep-dive (#438, #601) is
-  the render engine's first production consumer. Wiring the disclosure into the
-  remaining generated surfaces continues under #438's inline-nudge + deep-dive
-  work.
+  the render engine's first production consumer. The remaining generated
+  surfaces followed under #438's inline-nudge + deep-dive work, which has since
+  closed with that arc delivered.
 - The render engine also carries the #439 "examine" affordance: a derivation-
   code register maps each emitted rule to the function whose re-run IS its
   working (linked as a pinned blob inside every rendered disclosure — the

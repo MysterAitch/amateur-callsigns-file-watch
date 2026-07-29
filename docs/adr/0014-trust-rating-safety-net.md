@@ -107,9 +107,25 @@ Together these assert that a value's surfaced trust cannot exceed its provenance
   those of `site/glossary.html` and ADR 0013; this ADR records how they are
   *derived and enforced*, and adds no new axis or vocabulary.
 - **First draft, deliberately minimal.** The claim invariant is exercised in CI
-  over a representative real sample carrying every claim shape rather than the
-  full multi-million-claim corpus; the functions are pure over `Claim[]`, so the
-  same checks scale to a whole-corpus or streaming gate unchanged when that cost
-  is warranted. The `project-derived` and `community` lanes are defined in the
-  derivation ahead of a source that populates them, so a future community or
-  self-derived source classifies without a code change.
+  over a representative real sample rather than the full multi-million-claim
+  corpus — a sample that carried every claim shape the ledger emitted at
+  acceptance. Claim streams added since are exercised against the same pure
+  checks in the committed tier tests that own them rather than by growing this
+  one sample — the file-level manifest (ADR 0016), the column-interpretation
+  stream (ADR 0018) and the event-time tier each run `checkNoInflationClaims`
+  over their own emit — so the net's coverage follows the vocabulary. The functions are pure
+  over `Claim[]`, so the same checks scale to a whole-corpus or streaming gate
+  unchanged when that cost is warranted. The `project-derived` and `community`
+  lanes are defined in the derivation ahead of a source that populates them, so
+  a future community or self-derived source classifies without a code change.
+- **The Looked-up rung is an enumerated set, and keeping it current is part of
+  the guard.** `claimConfidence` reads *Looked-up* from an explicit rule list
+  (`LOOKUP_RULES`, `src/v2/claim-core.ts`) rather than from any structural
+  property of the claim. At acceptance that list held only the licence-category
+  rule; the authored-registry rules added since (column interpretation, the
+  authored event and role vocabularies) joined by being enumerated there. The
+  ladder runs As-published → Computed → Looked-up, so a lookup-shaped rule
+  *missing* from the enumeration reads out Computed — one rung higher than a
+  lookup warrants. That correspondence is held by review when a rule is added,
+  not by a committed check; a rule author extends `LOOKUP_RULES` in the same
+  change that introduces a registry- or reference-resolved rule.
