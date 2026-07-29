@@ -26,6 +26,12 @@ with what remains, vs `Closes #N` when fully resolved — multiple targeted PRs 
 one issue are fine). Keeping issues and PRs current is a priority, not an
 afterthought.
 
+**A measured figure carries its date and its source run** (a run id, a PR, or a
+dated issue comment) wherever it is quoted — PR bodies, issue comments, ADRs and
+docs alike. Stale figures actively mislead: an undated number reads as current
+long after the world has moved, and the cost of that failure is recorded in
+[ADR 0023](docs/adr/0023-fold-resource-tuning-by-measurement.md)'s consequences.
+
 Don't turn this into a tickbox exercise: delete sections that don't apply and
 don't pad. Pragmatism wins.
 

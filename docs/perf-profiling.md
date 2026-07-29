@@ -124,9 +124,10 @@ The first four are wired into `golden-master` on a cache miss, so a real
 regeneration always leaves a baseline behind — which is what makes the *next*
 failure legible. `regen-stress.yml` is dormant and dispatch-only.
 
-**Four traps worth knowing before you measure anything**, each of which cost a
-round in the #991 investigation and is recorded at greater length in that
-workflow's header and in [ADR 0023](adr/0023-fold-resource-tuning-by-measurement.md):
+**Five traps worth knowing before you measure anything**, each of which cost a
+round of a real investigation — the first four in #991, recorded at greater
+length in that workflow's header and in
+[ADR 0023](adr/0023-fold-resource-tuning-by-measurement.md); the fifth in #1026:
 
 1. **Sample before the step you are measuring**, not after. An intermediate
    that is written and deleted inside one step is invisible to a sampler that

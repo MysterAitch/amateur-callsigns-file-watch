@@ -80,7 +80,7 @@ Each is a *requirement*, not a preference. An alternative must satisfy all four.
 
 ### 1. Edge-data is free — and this is a hard block, not a nicety
 
-`Provenance.position` is a **discriminated union of six heterogeneous variants**
+`Provenance.position` is a **discriminated union of five heterogeneous variants**
 (`claim-core.ts`):
 
 | variant | fields |
@@ -172,7 +172,10 @@ node src/ci/ledger-format-bench.ts [sourceCount] [--out results.json]
 It emits the real ledger, then for each of the N largest sources reports bytes,
 serialise time, write time and DuckDB ingest time per candidate format — and
 counts TSV-unsafe values, which is how the TSV block below was found rather than
-assumed.
+assumed. Current JSONL is itself one of the measured candidates, so the ingest
+and emit baselines that criteria 6 and 7 compare against are produced in the
+same run as the challenger's figures — a comparison never rests on a stale
+number quoted here.
 
 **Two caveats when quoting it.** It profiles the N largest sources, not all 71,
 because the production emit is per-source precisely because the corpus does not
@@ -188,7 +191,7 @@ corpus and no fields dropped**:
 
 | # | criterion | how it is judged |
 |---|---|---|
-| 1 | **Lossless for sparse union-typed fields** | round-trips `position` (all six variants) and `viewAnchor` without a nested serialised object |
+| 1 | **Lossless for sparse union-typed fields** | round-trips `position` (all five variants) and `viewAnchor` without a nested serialised object |
 | 2 | **Natively ingestible by the pinned DuckDB** | reads via a built-in reader, no extension, no pre-decompression step |
 | 3 | **Line-grain diffable as committed** | a one-claim change produces a one-line diff — this rules out any compressed-at-rest form |
 | 4 | **Deterministic** | byte-identical output for identical input across runs and platforms |
@@ -320,11 +323,15 @@ changed source affects — which is valuable whether or not anything is committe
   `markdown-row`, `pdf`, `image`) are abandoned. Criterion 1 is the hard block;
   if the data model flattens, tabular formats come back into play.
 - **The corpus grows past ~50 GiB raw**, or a single source past ~2 GiB — the
-  V8 string cap and per-source memory ceiling already bind at 563 MB.
+  V8 string cap (~536.9 MB) already binds: the largest source, at 537.4 MB, is
+  past it, which is why the emit chunks rather than serialising whole.
 - **A new derived tier multiplies claim count several-fold** — the emit is ~101 s
   today and scales linearly with claims.
 - **Node's `zlib` gains LZMA**, or DuckDB accepts a denser codec — the codec
-  comparison here is pinned to DuckDB 1.5.4 and Node 25.
+  comparison here is pinned to DuckDB 1.5.4 and the Node line at measurement
+  (the #997 findings were recorded against Node 25's standard library; the
+  repository's CI pin is `.nvmrc`, Node 26 as of 2026-07-29 — `zlib` zstd
+  support is present in both).
 - **The commit question is decided** — that changes which criteria bind, since
   diffability and working-tree size only matter for a committed artefact.
 - **Anyone proposes denormalised TSV with join columns** — evaluate it against
