@@ -86,7 +86,12 @@ pages — becomes a derived projection over it.**
   forbidden-suffix disclosure, an available-callsign pool) emits no attribute
   claims, so an explicit existence predicate anchors the observation; without it
   the subject would vanish from the ledger.
-- **The committed canonical serialisation is JSON Lines.** It is approachable,
+- **The committed canonical serialisation is JSON Lines.** *(See
+  [ADR 0024](0024-ledger-serialisation-format.md) — it supplements this clause
+  with the reasoning, measured evidence, and the bar an alternative must clear,
+  and resolves the ambiguity in "committed": the serialisation is the one the
+  project has committed TO; no `.jsonl` is committed to git, and whether it
+  should be is recorded there as open.)* It is approachable,
   diffable at the claim grain (drift is a stronger signal than today's row-level
   golden), and directly loadable by the build-time query engine. A linked-data
   export (N-Quads / Turtle) is offered as a *derived*, provably-folded artefact

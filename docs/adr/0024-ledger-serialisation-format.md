@@ -17,6 +17,39 @@ This ADR exists to stop that. It states the decision, the measured evidence, the
 **objective bar** an alternative must clear, and a worked example of a proposal
 that looks viable and is not.
 
+## Relationship to ADR 0013 — SUPPLEMENTS, does not supersede
+
+ADR 0013 decides the **ledger model**: raw-keyed claims as the canonical record,
+everything else a derived fold. That decision stands entirely unchanged.
+
+This ADR supplements it by expanding **one clause** — "the committed canonical
+serialisation is JSON Lines" — into the reasoning, the measured evidence, and a
+bar for alternatives. The format decision is 0013's; what is new here is *why*,
+*how much*, and *what would change it*.
+
+It also **clarifies an ambiguity** in that clause. "Committed" reads two ways:
+the serialisation the project has *committed to*, or a file *committed to git*.
+No `.jsonl` has ever been committed, so only the first reading matches reality.
+This ADR adopts that reading and records the second as an open question rather
+than an unimplemented decision — see "The commit question" below. Nothing in
+0013 is reversed; an ambiguity is resolved and its evidence attached.
+
+## Three orthogonal concerns, routinely conflated
+
+Most of the recurring confusion comes from treating these as one question. They
+are not, and compression has a *different answer* in each:
+
+| concern | what it is | compression |
+|---|---|---|
+| **Publishing** | shipping data to consumers — Actions artifacts, Release attachments, Pages downloads | **YES — already done, uncontroversial.** Compression is a publish responsibility (ADR 0023's build-vs-publish principle) and hosted size is what it optimises |
+| **Storing text in git** | diffability at the claim grain, traceability of derived claims through history | **NO — antagonistic.** A committed `.zst` is binary to git: no textual diff, no line delta, a fresh blob per revision. Compression forfeits the only reason to commit text |
+| **Optimising CI/CD steps** | build-time wall clock and I/O on the transport intermediate | **NEUTRAL TO NEGATIVE.** Measured: ~16% more serialise time to save disk that is not scarce (#999 measured a 72.9 GB floor). It is publish-shaped work on the verify path |
+
+So "should we compress the ledger?" has no single answer. **Publishing compressed
+is settled and orthogonal** — it neither helps nor hinders the git-storage
+question, and it is not a lever on CI time. Keep the three separate when
+evaluating any proposal.
+
 ## Decision
 
 **The ledger is serialised as JSON Lines.** One claim per line, keys in a fixed
