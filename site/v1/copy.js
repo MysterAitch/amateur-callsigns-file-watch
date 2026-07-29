@@ -319,17 +319,24 @@ export const V1_COPY = {
     // The record's central convention, named so it can be linked rather than
     // asserted in passing: everywhere a value looks inconsistent, the record
     // raises a flag and stops there. Every caveat and every fidelity note on the
-    // site rests on this, which is why it earns a term of its own.
-    flag: { term: 'flag, never a verdict', def: 'A marker the record raises where a value looks inconsistent with what the other held publications, or the record’s own derived rules, would lead you to expect. A flag says where to look and offers the candidate explanations; it is never a ruling, and the record chooses none of them.' },
+    // site rests on this, which is why it earns a term of its own. The wording is
+    // CARRIED from the already-reviewed fidelity-page copy (the resolve-and-flag
+    // rule, and "never a verdict about a record or its holder") rather than
+    // re-authored, so the two surfaces cannot drift apart on one fact; only the
+    // cross-publication half is new, because no prior copy defined it.
+    flag: { term: 'flag, never a verdict', def: 'A recorded observation about a value as the source published it – never a correction, and never a verdict about a record or its holder. The rule is to resolve and flag: the value is kept verbatim, the derived views work from a cleaned form, and the flag says exactly what was observed, so nothing is silently transformed or dropped. Where held publications disagree with each other the same rule holds – every camp is shown and none is chosen.' },
     series: { term: 'series', def: 'The block a callsign belongs to, opened on a date (for example the M7 series). A series-level fact that frames the record, never a claim about this callsign’s own licensing.' },
     carriedOrigin: { term: 'carried origin', def: 'A licence-chain start date that pre-dates the callsign’s own series – a sign the licence history was carried over from an earlier callsign. The record raises a scope note rather than treating the two dates as a conflict.' },
     // How the record reads a date it holds (issue #965): three named readings the
     // caveats beside a dated figure lean on. Each was previously reachable only by
     // opening the project tracker, so each is defined here and linked from the
-    // caveat that invokes it.
-    earliestSurviving: { term: 'earliest surviving', def: 'A start date read as the earliest one still present in the publication that asserts it, rather than the original. Rolling retention and reissues drop or replace older rows, so an earlier start may have existed and left no surviving trace – the date bounds how far back the held record reaches, never “the first ever”.' },
-    pre1977: { term: 'pre-1977 start date', def: 'A recorded original start date before 1977, read as attested-unreliable: the OARC community wiki reports that the register’s original-start field is not reliable before then, citing an administrative glitch by the then regulator. That is community-tier sourcing, not corroborated against Ofcom – the date is shown exactly as held, carrying this limit beside it.' },
-    massUpdateEpisode: { term: 'mass-update episode', def: 'A window in which tens of thousands of records carry the same date stamp. Inside one, a stamp records a single system-wide episode – a migration or a bulk edit – rather than something that happened to each record, so the record reads it as bookkeeping and never as a licensing event.' },
+    // caveat that invokes it. Where prior reviewed reader copy for a reading
+    // already existed it is CARRIED rather than re-authored — the forward-only
+    // creep clause and the "largely records the episode itself" hedge both come
+    // from it — so one fact never ends up with two independent explanations.
+    earliestSurviving: { term: 'earliest surviving', def: 'A start date read as the earliest one still surviving in the publication that asserts it, not the original. Rolling retention and reissues drop or replace older rows, so earlier starts may have existed and left no surviving trace, and a later publication can carry less early history than an earlier one. The date bounds how far back the held record reaches, never “the first ever”.' },
+    pre1977: { term: 'pre-1977 start date', def: 'A recorded original start date before 1977, read as attested-unreliable: the OARC community wiki reports that the register’s original-start field is not reliable prior to 1977, citing an administrative glitch by the then regulator. Community tier, not yet corroborated against Ofcom – the date is shown exactly as held, carrying this limit beside it.' },
+    massUpdateEpisode: { term: 'mass-update episode', def: 'A window in which tens of thousands of records carry the same date stamp. A stamp inside one largely records the episode itself – for pre-2016 records, the migration into the current system – rather than something that happened to that record, so the record reads it as bookkeeping and never as a licensing event.' },
     derived: { term: 'derived', def: 'This value is computed by the mirror from the held publications, not read verbatim from any single one of them.' },
     inferred: { term: 'inferred', def: 'A reading the mirror interprets from the held values, hedged where it is not certain – not a fact asserted by any publication.' },
     context: { term: 'context', def: 'A framing fact drawn from reference data, not a claim about this record – shown to place the reading in its wider setting.' },
