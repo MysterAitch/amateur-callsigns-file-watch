@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   runInterpretationOracle,
   assertInterpretationOracle,
@@ -16,6 +16,7 @@ import {
   type SourceObservationSet,
 } from '../v2/claim.ts';
 import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
+import { time, perfReport } from '../shared/perf.ts';
 
 // Test names follow the project's Subject_Scenario_Outcome convention.
 //
@@ -27,9 +28,26 @@ import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 
 const REF = loadReferenceData();
 
+// HOISTED CORPUS LOAD (#1017). Three tests below each called
+// collectInterpretedSources() independently, so the whole-corpus load ran THREE
+// times for one file - ~51 s of which the loads were the overwhelming majority.
+// Loading once in a hook removes the work rather than redistributing it, which
+// splitting the file into three would not: each fragment would pay its own load.
+//
+// SAFE because the value is READ-ONLY here. Every consumer
+// (assertInterpretationOracle / runInterpretationOracle / the claim sweep) only
+// reads the sources; none mutates them, so sharing one array across the three
+// tests cannot make a result depend on execution order. If a future test needs
+// to mutate, it must take its own copy rather than quietly reintroduce coupling.
+let sources: ReturnType<typeof collectInterpretedSources>;
+beforeAll(() => {
+  sources = time('interpretation-oracle: collectInterpretedSources (hoisted)', () => collectInterpretedSources());
+});
+afterAll(() => { perfReport({ entrypoint: 'interpretation-oracle.test' }); });
+
 describe('the interpretation oracle holds over the whole real corpus', { tags: ['data-validity'] }, () => {
   it('EveryInterpretedSource_WhenCheckedAgainstItsData_PassesAllInterpretationSelfChecks', () => {
-    const report = assertInterpretationOracle(collectInterpretedSources(), REF);
+    const report = time('interpretation-oracle: assertInterpretationOracle', () => assertInterpretationOracle(sources, REF));
     // The corpus genuinely exercises the checks: interpreted sources are present,
     // and both date and enumerated-category columns are among them.
     expect(report.sourcesChecked).toBeGreaterThan(0);
@@ -39,7 +57,7 @@ describe('the interpretation oracle holds over the whole real corpus', { tags: [
     // The strict converter rejects mixed dates, so no date flags survive intake -
     // but the report EXPOSES whatever it finds, so within-table mixing is visible
     // data rather than a silent pass.
-    const report = runInterpretationOracle(collectInterpretedSources(), REF);
+    const report = time('interpretation-oracle: runInterpretationOracle', () => runInterpretationOracle(sources, REF));
     expect(report.violations).toEqual([]);
     // A durable, checkable statement of the current corpus. The 2024-09 register
     // snapshot genuinely mixes raw product spellings that normalise to the same
@@ -138,7 +156,7 @@ describe('the flag reproducibility + completeness check holds on a constructed c
 
 describe('the attestation adds only file-level claims across the real corpus', { tags: ['data-validity'] }, () => {
   it('EveryInterpretationClaim_WhenEmittedOverTheCorpus_RidesTheSentinelOrdinalAsDerivedLookedUp', () => {
-    for (const src of collectInterpretedSources()) {
+    for (const src of sources) {
       for (const claim of emitInterpretationClaims(src)) {
         expect(claim.provenance.ordinal).toBe(FILE_LEVEL_ORDINAL);
         expect(claim.layer).toBe('derived');
