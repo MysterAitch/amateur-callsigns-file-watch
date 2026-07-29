@@ -105,7 +105,12 @@ which is why it is described below as a snapshot rather than a view.
 
 3. **Provenance is declared, from a closed vocabulary.** Every entry's
    `meta.json` carries a `provenance` field, one of `live`,
-   `reconstructed-from-git-history`, or `reconstructed-from-prior-download`.
+   `reconstructed-from-git-history`, `reconstructed-from-prior-download`, or
+   `recovered-from-web-archive`. The vocabulary is closed but not frozen: it has
+   grown once, and the authoritative list is the union type in
+   `src/shared/utils.ts` — this clause enumerates it for readability and must be
+   corrected when it grows, exactly as ADR 0002 must be when the repository
+   settings change.
    `live` entries were fetched first-hand by the current codebase;
    reconstructed entries were materialised retroactively (from prior git blobs,
    or from downloads retained outside the repository) and may legitimately lack

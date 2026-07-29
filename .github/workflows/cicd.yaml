@@ -6,12 +6,14 @@
 # build pre-merge coverage, since build-site-databases runs on PRs too (it just
 # stops short of uploading the Pages artefact).
 #
-# The two job names below (tests, data-validation) are required status checks in
-# the main ruleset - renaming a job here without updating the ruleset will block
-# all merges. `golden-master` is a pending required-check candidate (#588 part
-# 2, #583): it is a single, non-matrixed job, so its reported check context is
-# the stable string "golden-master" - see that job's comment for the ruleset
-# addition this enables.
+# FOUR job names below are required status checks in the main ruleset - tests,
+# data-validation, golden-master and workflow-audit - so renaming any of them
+# here without updating the ruleset will block all merges. `golden-master` became
+# required on 2026-07-17 (#588 part 2, #583) and `workflow-audit` the same day;
+# each is a single, non-matrixed job, so its reported check context is the stable
+# string matching its job name. ADR 0002 records the live ruleset and is the
+# authority on the set; verify against it, or against
+# `gh api repos/<owner>/<repo>/rules/branches/main`, before assuming this list.
 #
 # Write posture (ADR 0012): the workflow's default scope is contents:read. Only
 # the deploy job elevates (pages:write + id-token:write), at the job level, so
