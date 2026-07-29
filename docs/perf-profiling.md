@@ -94,6 +94,13 @@ and the observations union render, the per-entry and combined SQLite inserts,
 report and page renders — are timed with individual labels so the breakdown
 ranks them directly.
 
+## CI caching and merge cadence
+
+Separate concern, separate document: [`ci-cache-behaviour.md`](ci-cache-behaviour.md)
+records which caches gate work, why cache state is a vector rather than a
+hit/miss flag, and why merging several PRs faster than `main` can complete a run
+costs a cold build each time.
+
 ## Measuring a CI job's resources, not just its time
 
 `PERF` answers *where did the time go inside one process*. A second, separate
