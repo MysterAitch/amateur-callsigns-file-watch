@@ -35,6 +35,35 @@ long after the world has moved, and the cost of that failure is recorded in
 Don't turn this into a tickbox exercise: delete sections that don't apply and
 don't pad. Pragmatism wins.
 
+### How much review a change gets — scale to blast radius, and say why
+
+Verification is scaled to **what it costs to be wrong**, not to the size of the
+diff and not to politeness. State which level you chose and why, in the body — an
+unstated choice cannot be disagreed with, and the reasoning is the part a reviewer
+can check.
+
+- **Full adversarial treatment** — foundation code everything else builds on;
+  security guards; **anything whose failure is silent**; and durable factual
+  claims or decision records, because those are read as settled and stop anyone
+  re-deriving them. A wrong record misleads for longer than wrong code, which
+  fails a test or a user and gets found.
+- **Proportionate, then move on** — mechanical or behaviour-preserving changes
+  where a corpus proves before equals after. Do not run a wide adversarial pass on
+  a documentation tweak.
+
+Two riders that are easy to miss:
+
+- **Blast radius changes scheduling, not only review.** Wide-reaching work —
+  cross-cutting renames, design tokens, sweep retirements, many-surface changes —
+  runs on a deliberately light board: thin the concurrent lanes first so conflicts
+  and regressions cannot compound. Parallelism scales inversely with blast radius.
+- **Completeness is a separate question from correctness.** If a change fixes N
+  instances of a class, say what establishes that N is the whole set. Three fixed
+  is not evidence about a fourth. A class fix owes one of: a mechanical
+  enumeration that can be re-run, a guard that fails when a new instance appears,
+  or an explicitly stated bound ("swept X, found N, bounded at Y, residual filed
+  as #n"). Without one of those it is a sample presented as a sweep.
+
 ## Writing conventions
 
 ### Search for prior wording before authoring an explanation
