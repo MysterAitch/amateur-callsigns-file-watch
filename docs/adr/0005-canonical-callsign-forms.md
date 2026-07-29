@@ -1,7 +1,7 @@
-# ADR 0005: Canonical callsign forms as the unification strategy
+# ADR 0005 — Canonical callsign forms as the unification strategy
 
-Date: 2026-07-09
-Status: accepted
+- Status: accepted
+- Date: 2026-07-09
 
 ## Context
 

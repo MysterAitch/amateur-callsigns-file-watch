@@ -1,8 +1,8 @@
-# ADR 0003: In-repo presentation proof of concept (GitHub Pages + published SQLite)
+# ADR 0003 — In-repo presentation proof of concept (GitHub Pages + published SQLite)
 
-Date: 2026-07-07
-Status: accepted
-Related: ADR 0002 (write posture), ADR 0008 (offline-first PWA over the same SQLite), ADR 0013 (raw-keyed claim ledger — reuses this vendored `sql.js-httpvfs` range-read path for the in-browser ledger query lane), ADR 0019 (the deploy workflow named below is now the `deploy` job of the unified `cicd.yaml`, with a layered build cache), ADR 0020 (the sharded static-JSON serving projection that now answers the single-callsign intent)
+- Status: accepted
+- Date: 2026-07-07
+- Related: ADR 0002 (write posture), ADR 0008 (offline-first PWA over the same SQLite), ADR 0013 (raw-keyed claim ledger — reuses this vendored `sql.js-httpvfs` range-read path for the in-browser ledger query lane), ADR 0019 (the deploy workflow named below is now the `deploy` job of the unified `cicd.yaml`, with a layered build cache), ADR 0020 (the sharded static-JSON serving projection that now answers the single-callsign intent)
 
 > *(Amended 2026-07-16.)* This ADR records the original proof of concept, in
 > which the published SQLite database was *the* site data source. That framing

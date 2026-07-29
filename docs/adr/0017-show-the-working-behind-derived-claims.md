@@ -1,8 +1,8 @@
-# 0017. Show the working behind derived claims (reconstruct-on-read)
+# ADR 0017 — Show the working behind derived claims (reconstruct-on-read)
 
-Status: accepted
-Date: 2026-07-12
-Relates: #433 (backend engine + oracle), #438 (P4 surface: inline nudges + deep-dive that render this working), #361 (raw-keyed claim ledger, ADR 0013), #404 (trust-rating net, ADR 0014), #431/#436 (source position + permalinks, ADR 0015), #434 (file-level claims + reconstruction oracle, ADR 0016), #310/#329 (shared affordances + glossary cue)
+- Status: accepted
+- Date: 2026-07-12
+- Related: #433 (backend engine + oracle), #438 (P4 surface: inline nudges + deep-dive that render this working), #361 (raw-keyed claim ledger, ADR 0013), #404 (trust-rating net, ADR 0014), #431/#436 (source position + permalinks, ADR 0015), #434 (file-level claims + reconstruction oracle, ADR 0016), #310/#329 (shared affordances + glossary cue)
 
 ## Context
 

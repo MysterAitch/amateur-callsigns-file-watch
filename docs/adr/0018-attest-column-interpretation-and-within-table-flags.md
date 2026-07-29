@@ -1,8 +1,8 @@
-# 0018. Attest column interpretation + flag within-table inconsistency
+# ADR 0018 — Attest column interpretation + flag within-table inconsistency
 
-Status: proposed
-Date: 2026-07-12
-Relates: #435, #434/ADR 0016 (file-level claims + reconstruction oracle),
+- Status: proposed
+- Date: 2026-07-12
+- Related: #435, #434/ADR 0016 (file-level claims + reconstruction oracle),
          #433/ADR 0017 (show the working), #431/ADR 0015 (source position),
          #404/ADR 0014 (trust net), #429 (stripped-collision), #361/ADR 0013 (claim ledger)
 
