@@ -430,3 +430,583 @@ annotations committed in
   callsign issuance; ~1,430 `M8`/`M9` + 14 `M7` carried pre-introduction origins
   absent from every pre-introduction publication corroborate. Residual migration/
   blanking semantics remain the ask-Ofcom question. Source: #915, #918.
+
+---
+
+## H9 — The `M2` prefix has never been issued: its sole register row is a reservation
+
+**Status: `validated`** (bounded to the copies held, 2016-09 onwards) &nbsp;·&nbsp; epistemics: **[derived]**
+
+A register row beginning `M2` reads at first like a data error, or like a
+missing reference-data entry. It is neither. Across every register copy held
+— the nine open-data snapshots (`2022-05-30` → `2026-06-23`) and the 62
+committed FOI parse sources spanning 2016-09 → 2025-09 — exactly **one** `M2`
+callsign appears anywhere: **`M2IBX`**. It carries the status **`Reserved`**
+in every one of the 19 sources that hold it, the earliest being the
+2016-09-20 register snapshot, and **no `M2` callsign has ever been observed
+`Allocated`** in any copy. The prefix is correspondingly **absent from
+[`reference-data/prefix-formats.csv`](../reference-data/prefix-formats.csv)**
+(which mirrors Ofcom's current Table 1), so the row draws the
+`unknown-prefix-series` flag — of which it is the *sole* instance in every
+snapshot that carries it — and the unexpected-locator marker in the regional
+identifier matrix. Both are correct behaviour rather than defects to repair:
+an honest unknown, with no licence class implied.
+
+**What the evidence supports, and what it does not.** This is an argument
+from absence, and its reach is bounded in three named ways.
+
+- The corpus begins at 2016-09. No earlier register copy is held, so nothing
+  here speaks to issuance before that date.
+- Ofcom holds no record of the never-allocated pool at all (**H10**), so the
+  absence of an unissued block from the register is *expected* rather than
+  probative. The claim the corpus positively supports is therefore the
+  narrow one: **no copy held records an `M2` callsign as allocated** — not
+  the unbounded "never issued in the history of UK amateur licensing".
+- The primary-source support the finding was first recorded with — a
+  2018-07-05 per-prefix live-callsign count table which omits `M2` entirely
+  while listing G2 (164) and G5 (58) — **cannot be re-run against this
+  repository**. That disclosure is `pending-ingest`
+  ([`docs/source-register.md`](source-register.md), attribute-addenda table),
+  its counts held only inline in correspondence outside the archive. It is a
+  lead, not evidence, until ingested.
+
+**One observation recorded, not adjudicated.** The earliest disclosure
+carrying a licence-class column (2016-09-29) records `M2IBX` as `Reserved`
+with the class `Amateur Foundation Radio Licence`; every later export leaves
+its product blank. 3,005 rows in that disclosure carry the
+Reserved + Foundation combination, so the value is unremarkable in itself —
+but it is the only class ever attributed to an `M2` callsign, and it is
+Foundation. No mechanism is chosen.
+
+`M2IBX` is also absent from three publications (`2025-05-27`, `2025-06-04`,
+`2025-06-08`) — not a change of status, but a consequence of its blank
+product field and the omission recorded at **H14**.
+
+**Evidence (re-runnable):** scan the callsign column of every
+`archive/*/normalised.csv` and `archive/foi/*/normalised--*.csv` for the
+pattern `^M2[A-Z]` and tabulate the status column — one distinct value
+(`M2IBX`), `Reserved` in all 19 sources that hold it, oldest
+[`archive/foi/ofcom-2016-09-20--callsign-database--all-callsigns/normalised--sheet-1-sheet1.csv`](../archive/foi/ofcom-2016-09-20--callsign-database--all-callsigns/normalised--sheet-1-sheet1.csv).
+The Foundation class is in
+[`archive/foi/wdtk-356636--all-callsigns-plus-forbidden/normalised--sheet-1-all-call-signs.csv`](../archive/foi/wdtk-356636--all-callsigns-plus-forbidden/normalised--sheet-1-all-call-signs.csv).
+The flag definition is in
+[`reference-data/flags.md`](../reference-data/flags.md); its per-snapshot
+count is `callsignFlags["unknown-prefix-series"]` in each
+`archive/*/stats.json`.
+
+**Status history:**
+
+- 2026-07-29 — `validated` as the narrow claim, on migration from working
+  notes to this register. Verified against the corpus as it stands: one `M2`
+  callsign, `Reserved` in all 19 sources holding it; `M2` absent from
+  `prefix-formats.csv`; `unknown-prefix-series` count 1 per snapshot. The
+  note being migrated dated the Reserved run from `2022-05-30`; the FOI
+  corpus **extends it back to 2016-09-20**, roughly a decade rather than the
+  four years recorded. The 2018 count-table support was found **not
+  re-runnable** (`pending-ingest`) and is recorded as a lead. Originally
+  observed 2026-07-07.
+
+### H9a — `M2` was withheld to avoid a clash with VHF Marine Channel M2
+
+**Status: `untested`** &nbsp;·&nbsp; epistemics: **[hypothesis]**
+
+The *reason* the block was never brought into use — a separate question from
+H9's observation that it was not. A rationale recorded alongside H9 on
+2026-07-07 attributes it to a clash with **VHF Marine Channel M2**
+(161.425 MHz, used at UK ports and marinas). This is **not asserted here, and
+must not be cited as fact**: it arrived as a third-party web summary, not
+from any Ofcom document, and **no source held connects the marine channel to
+an amateur allocation decision**. That marine Channel M2 exists and is in use
+is separately attested by community sources; the *causal* step from that to
+Ofcom withholding amateur `M2` is precisely the untested part.
+
+A companion claim from the same summary — that `M2` appeared in
+amateur-licensing reform paperwork as a candidate **Intermediate**
+designation — is equally unverified, and the one class ever recorded against
+an `M2` callsign is Foundation (H9), which does not support it.
+
+Worth holding in mind when reading any source that appears to discuss the
+block: in UK amateur usage "M2" far more often means the 2-metre band, or an
+antenna manufacturer, than a callsign prefix.
+
+**Evidence route (not yet run):** Ofcom's amateur-licensing consultation and
+statement series, for any documented consideration of an `M2` designation;
+failing that, a targeted request for the allocation rationale, in the manner
+of the correspondence already held under `archive/foi/`. Neither has been
+done, and the community sources held support only the existence of the marine
+channel, never the causal link.
+
+**Status history:**
+
+- 2026-07-29 — `untested`. Recorded on migration, deliberately separated from
+  H9's validated core so the unverified rationale cannot be read as part of
+  it. Route identified; not run. Originally noted 2026-07-07, flagged
+  unverified from the outset.
+
+---
+
+## H10 — Ofcom holds a record of the callsigns available for issue
+
+**Status: `refuted`** &nbsp;·&nbsp; epistemics: **[confirmed]**
+
+The natural assumption behind any "which callsigns are free?" question, and
+the reason the register lists far fewer callsigns than the callsign space
+allows. **Refuted against Ofcom's own repeated statements**, held verbatim in
+the archive: since a 2016 licensing-system change, availability is computed on
+demand and no list of available callsigns is kept.
+
+- **Ofcom 337399, 29 September 2016** — "We do not hold a list of call signs
+  that are available. Due to a system change, the assignment of call signs is
+  now done using an algorithm rather than 'grabbing' from a list."
+- **Ofcom 671462, 27 February 2019** — "We do not hold lists of available
+  call signs, but instead our licensing system generates them on demand."
+  Ofcom 518689 and 632469 carry the same refusal.
+- **FOI 01842686, 22 July 2024** — "We do not hold a list of completely new
+  callsigns which have never been previously allocated as our system
+  generates new callsigns on demand." The same letter describes its annex as
+  the callsigns "which have been issued".
+- **FOI 1562825, 1 March 2023** — no discrete list of formerly-issued Full
+  callsigns is held either; the system generates callsigns on demand.
+
+Two consequences the register's semantics rest on. First, **most of the
+callsign space is absent by design**: a callsign that has never been seen is
+outside what Ofcom stores, so "not yet in the record" is normal rather than
+notable. Second, the register is a record of **callsigns with a reason to
+exist** — issued, reserved, released — never an enumeration of availability,
+so its size must not be read as a count of what is in use or free.
+
+**A bound worth stating**: "not held" dates from the 2016 system change, not
+from always. Nine available-callsign lists spanning 2013-09 → 2016-01 *were*
+served and are held (`archive/foi/wdtk-174341--available-callsigns-list`
+through `wdtk-309076--available-callsigns-list`), and the 337399 letter itself
+signposts a July 2016 list as historic. Any statement about availability must
+therefore be dated: pre-2016 snapshots of the available pool exist; after
+2016 they do not, because the underlying list ceased to.
+
+**Evidence (cited, held):** the letters above, extracted verbatim beside the
+originals in
+[`archive/foi/ofcom-337399--all-callsigns-published-copy/`](../archive/foi/ofcom-337399--all-callsigns-published-copy/)
+(requester-served copy under
+[`archive/foi/wdtk-356636--all-callsigns-plus-forbidden/`](../archive/foi/wdtk-356636--all-callsigns-plus-forbidden/)),
+[`archive/foi/ofcom-671462--suffix-availability-not-held/`](../archive/foi/ofcom-671462--suffix-availability-not-held/),
+`archive/foi/ofcom-518689--suffix-availability-not-held/`,
+`archive/foi/ofcom-632469--suffix-availability-not-held/`,
+[`archive/foi/wdtk-1141667--issued-callsigns/correspondence.md`](../archive/foi/wdtk-1141667--issued-callsigns/correspondence.md)
+and
+[`archive/foi/wdtk-945167--available-full-callsigns-not-held/`](../archive/foi/wdtk-945167--available-full-callsigns-not-held/).
+A further on-the-record statement to the same effect (internal review
+01224257, 2021) is listed `pending-fetch` in
+[`docs/source-register.md`](source-register.md) and is **not** relied on here.
+
+**Status history:**
+
+- 2026-07-29 — `refuted`, epistemics `[confirmed]`. Migrated from working
+  notes, where the supporting references were recorded as "pin the exact
+  references and wording before publishing". They are now pinned: five
+  distinct Ofcom references (337399, 518689, 632469, 671462, 01842686) plus
+  FOI 1562825, all held verbatim under `archive/foi/`, spanning 2016 → 2024.
+  The pre-2016 bound was added on verification; the note did not carry it.
+  Originally recorded 2026-07-13.
+
+### H10a — Once a callsign is in the record it stays there, so a disappearance is an anomaly
+
+**Status: `undeterminable`** &nbsp;·&nbsp; epistemics: **[hypothesis]**
+
+The companion to H10, and the intended grounding for treating a callsign that
+vanishes after appearing as notable rather than routine: if Ofcom retains a
+record of every callsign it has ever had reason to record, a disappearance
+cannot be a routine gap. **Undeterminable from the data and sources held —
+and the reason it cannot be settled is the finding.**
+
+Two obstacles, both concrete. **No held source states a retention policy**:
+the refusals pinned in H10 establish what Ofcom does *not* hold, never that
+what it does hold is never removed. And **the publications show removal at
+scale**: 14,253 callsigns present in the `2025-11-11` publication are absent
+from `2026-01-14` (159,677 → 146,218 distinct callsigns, against only 794
+new).
+
+That dropout also demonstrates why the two readings cannot be separated from
+the copies held. **6,138 of the 14,253 — 43% — are callsigns ending in the
+letter `Z`, and *no* callsign ending in `Z` survives in the `2026-01-14`
+publication at all (6,138 → 0).** An entire terminal-letter class leaving
+wholesale is not a licensing event; it is the export-shape anomaly already
+recorded in
+[`reports/column-drift.md`](../reports/column-drift.md) and on #564. So at
+least part of publication-level disappearance is an artefact of the export,
+which is exactly what a retention claim would need to be distinguished from.
+Whether the remainder reflects Ofcom's record shrinking or a differently
+scoped report cannot be told apart here; both readings fit.
+
+The practical consequence is a narrowing, not an abandonment: a callsign
+disappearing between publications stays worth **flagging** — but as an
+unexplained divergence *between publications*, never as evidence about what
+Ofcom retains. Flags, never verdicts.
+
+**Evidence route (not yet run):** distinguishing the two readings needs a
+statement from Ofcom on record retention, or an export whose scope is
+declared precisely enough to attribute each disappearance. The dropout figures
+above are re-runnable now — set-difference the callsign column of
+[`archive/2025-11-11/normalised.csv`](../archive/2025-11-11/normalised.csv)
+against
+[`archive/2026-01-14/normalised.csv`](../archive/2026-01-14/normalised.csv) —
+and the `Z`-cohort omission is folded mechanically into
+[`reports/column-drift.md`](../reports/column-drift.md).
+
+**Status history:**
+
+- 2026-07-29 — `undeterminable`. Migrated at a **weaker status than the
+  working note carried**: the note recorded the retention half as high
+  confidence, domain-owner-stated. On verification no held Ofcom source
+  states a retention policy, and the publications contradict a naive reading
+  of persistence (14,253 dropouts across one vintage pair, 43% of them the
+  `Z`-terminal cohort). The claim is retained because the *reason* it cannot
+  be settled is itself worth recording. Originally recorded 2026-07-13.
+
+---
+
+## H11 — The register's two "reciprocal" licence strings name the same product
+
+**Status: `refuted`** &nbsp;·&nbsp; epistemics: **[confirmed]**
+
+Two similar strings for a licence granted on the strength of a foreign
+qualification invite collapsing into one category. **Refuted against named
+guidance**: they are distinct products, differing in duration, rights,
+lifecycle and legal basis.
+
+- **`Amateur Temporary Reciprocal Radio Licence`** — a short-term *visitor*
+  authorisation for an amateur from a non-CEPT country with which the UK
+  holds a bilateral reciprocal agreement. Time-limited and renewable, tied to
+  the holder's home licence, and excluding Special Event Station callsigns.
+  This is the visitor lane that CEPT T/R 61-01 otherwise covers for CEPT
+  countries.
+- **`Amateur Full (Reciprocal) Radio Licence`** — a substantive, ongoing UK
+  **Full** licence with a UK callsign, granted to an amateur holding a
+  recognised foreign qualification (typically a HAREC under CEPT T/R 61-02)
+  who is UK-resident or has a permanent UK contact address. Not time-limited:
+  the same Full licence a UK-examined amateur holds, entered through
+  qualification recognition rather than a UK examination.
+
+One is a temporary visitor permit; the other a full ongoing licence on
+qualification recognition. They are consequently kept as **two** categories,
+`Temporary Reciprocal` and `Full Reciprocal`, in
+[`reference-data/licence-category.csv`](../reference-data/licence-category.csv),
+with source fidelity preserved rather than the strings merged.
+
+**Caveat — the mapping to the application form is inferred, not read.** The
+`OfW346` application form is published image-encoded rather than as
+machine-readable text, so the correspondence between these register strings
+and the form's own fields is **inferred from Ofcom and RSGB guidance**, never
+confirmed verbatim against the form. A further claim recorded with the
+finding — that the temporary product is being wound down as short visits
+become licence-exempt — is guidance-derived, **has not been checked here**,
+and is not asserted by this entry, which is worth knowing because
+[`reference-data/README.md`](../reference-data/README.md) states it
+unqualified ("being phased out"). The distinctness of the two products does
+not depend on it either way.
+
+**How thinly the second product is witnessed** (established on verification,
+and not part of the original note). Across the whole corpus the two strings
+are **not co-witnessed in any single export**:
+`Amateur Temporary Reciprocal Radio Licence` appears 1,620 times across 23
+sources, including 100 rows of the current `2026-06-23` publication, whereas
+`Amateur Full (Reciprocal) Radio Licence` appears in **exactly one source** —
+15 rows of the 2016-09-29 disclosure's licence-class column — and in **no**
+publication since. Keeping the categories separate is therefore right, but
+the Full (Reciprocal) category presently rests on a single decade-old
+witness. That is consistent with the product being rare, renamed, or no
+longer separately reported; none of the three is chosen.
+
+**Evidence (cited, external + re-runnable):** Ofcom's amateur licence
+guidance for licensees and its introductory licensing guidance; RSGB's
+visitor and overseas-operating guidance (T/R 61-01 versus T/R 61-02, HAREC) —
+all named, none reproduced. The corpus counts are re-runnable: tabulate the
+product / licence-class column of every `archive/*/normalised.csv` and
+`archive/foi/*/normalised--*.csv` for values containing "Reciprocal". The
+two-category outcome is committed in
+[`reference-data/licence-category.csv`](../reference-data/licence-category.csv).
+
+**Status history:**
+
+- 2026-07-29 — `refuted`, epistemics `[confirmed]`. Migrated from research
+  recorded 2026-07-09. The image-encoded-form caveat is carried across intact:
+  the register-string-to-form-field mapping remains inferred from guidance.
+  Added on verification: the two strings are never co-witnessed, and
+  `Amateur Full (Reciprocal) Radio Licence` has exactly one witness in the
+  whole corpus.
+
+---
+
+## H12 — The forbidden-suffix vocabulary dates from the August 2019 disclosure
+
+**Status: `refuted`** &nbsp;·&nbsp; epistemics: **[confirmed]**
+
+A trap once set by the reference data's own provenance.
+[`reference-data/forbidden-suffixes.csv`](../reference-data/forbidden-suffixes.csv)
+was distilled from an August 2019 disclosure and originally documented only
+that vintage — from which it is natural, and wrong, to read August 2019 as
+when the list came into force. **Refuted twice over.**
+
+- **The vocabulary is identical three years earlier.** The September 2016
+  disclosure and the August 2019 disclosure carry the **same 1,465-suffix
+  set**, with zero set difference in either direction. A third witness, the
+  September 2019 published register, agrees exactly.
+- **Ofcom's own per-suffix timestamps date it earlier still.** The December
+  2024 disclosure carries a `LastModifiedDate` column the earlier lists
+  lacked, and **1,463 of its suffixes are stamped 2016-07-29** — earlier than
+  the September 2016 disclosure that first exposed the list.
+
+So 2016-07-29 is the earliest date Ofcom's own data attributes to the bulk of
+the list, and 2016-09 the earliest date a *disclosure* attests it. Anything
+before that is unknown: no earlier list is held, so **2016-07-29 is the
+earliest defensible effective date, not a claimed origin**.
+
+Why it matters operationally: a per-suffix "forbidden from" date is what makes
+an "issued after the suffix became forbidden" reading possible at all, and
+anchoring it at 2019-08 rather than 2016 would misdate every such reading by
+three years. Any such inference additionally inherits the pre-1977
+start-date caveat at **H6**.
+
+**Evidence (re-runnable):** the committed golden
+[`reports/forbidden-suffix-history.md`](../reports/forbidden-suffix-history.md),
+regenerated from the committed FOI `forbidden-list` entries and gated by
+`src/ci/forbidden-suffix-history-fold.test.ts`, which tabulates all four
+disclosures with their distinct counts, duplicates and set diffs. The
+underlying comparison can be run directly: sort the unique suffixes of
+[`archive/foi/wdtk-356636--all-callsigns-plus-forbidden/normalised--sheet-2-forbidden-suffixes.csv`](../archive/foi/wdtk-356636--all-callsigns-plus-forbidden/normalised--sheet-2-forbidden-suffixes.csv)
+(2016-09) against
+[`archive/foi/wdtk-596532--allocated-reserved-forbidden/normalised--sheet-2-forbidden-call-signs.csv`](../archive/foi/wdtk-596532--allocated-reserved-forbidden/normalised--sheet-2-forbidden-call-signs.csv)
+(2019-08) and diff both ways — 1,465 distinct each, empty difference. The
+2016-07-29 stamps are in
+[`archive/foi/ofcom-2024-12--forbidden-suffixes/normalised--forbidden-amateur-radio-callsigns.csv`](../archive/foi/ofcom-2024-12--forbidden-suffixes/normalised--forbidden-amateur-radio-callsigns.csv).
+
+**Status history:**
+
+- 2026-07-29 — `refuted`, epistemics `[confirmed]`. Verified against the
+  corpus as it stands: 1,465 distinct suffixes in each of the 2016 and 2019
+  sources, empty set difference both ways. Two figures recorded on migration
+  because they have **moved since the finding was made**:
+  `reference-data/forbidden-suffixes.csv` is no longer the 2019 snapshot the
+  comparison was originally run against but the ever-forbidden **union**
+  (header `suffix,first_known_forbidden`, **1,466** rows, verified to equal
+  the 2016 set plus `JIZ` exactly), so the 2019 vocabulary must now be read
+  from the `wdtk-596532` disclosure named above. And the trap itself is
+  **closed**: [`reference-data/README.md`](../reference-data/README.md) now
+  documents the union basis, all four disclosures and the `2016-07-29` bulk
+  origin, so the misdating this entry guards against is no longer invited by
+  the file's own documentation. The entry stays as the record of the claim.
+- 2026-07-13 — **correction of an earlier over-claim, recorded rather than
+  erased.** The two files had been reported as "byte-for-byte identical".
+  That was wrong, and a filtered, sorted set comparison had been mistaken for
+  a byte comparison. The accurate finding is **same set, different bytes**:
+  the 2016 sheet uses LF line endings where the reference table uses CRLF,
+  and the 2016 sheet carries a **duplicated `ZIT` row** — 1,466 rows for
+  1,465 distinct suffixes, `ZIT` being on both lists, so the duplicate is a
+  data-quality artefact of the 2016 disclosure and not an extra suffix. All
+  three details re-verified 2026-07-29 and surfaced in the report's
+  `duplicated` column, never silently deduplicated.
+
+### H12a — The forbidden-suffix vocabulary is fixed
+
+**Status: `refuted`** &nbsp;·&nbsp; epistemics: **[derived]**
+
+The tempting corollary of H12's three-year invariance: that the list, once
+set, does not move. **It does.** Stability 2016 → 2019 holds, but by the
+December 2024 disclosure the vocabulary has changed: **`JIZ` added**
+(`LastModifiedDate` 2020-12-10, the one post-2016 change carrying a date) and
+**`QNF` and `ZFJ` removed** — both present in 2016 *and* 2019, absent in
+2024, with no date, removals leaving no stamp behind. Net 1,465 → 1,464.
+
+Two consequences. A per-suffix date is load-bearing rather than decorative: a
+callsign carrying `JIZ` and issued before 2020-12-10 did not contradict the
+list of its day. And the distilled reference table is deliberately the
+**ever-forbidden union** (1,466 suffixes, `QNF` and `ZFJ` retained at
+`2016-09`, `JIZ` at `2020-12-10`) rather than any single snapshot, so it
+survives churn and de-listing instead of ageing into a stale copy.
+
+The `QNF`/`ZFJ` de-listing is **flagged, not explained**. A working reading is
+that the removal is an artefact rather than a deliberate policy change, and
+the union retains them on that basis; that reading is not established.
+
+**Evidence (re-runnable):** the per-disclosure diff rows and the
+first-known-forbidden distribution in
+[`reports/forbidden-suffix-history.md`](../reports/forbidden-suffix-history.md)
+(fold gated by `src/ci/forbidden-suffix-history-fold.test.ts`); the union
+itself in
+[`reference-data/forbidden-suffixes.csv`](../reference-data/forbidden-suffixes.csv),
+verified 2026-07-29 to carry 1,466 rows including `JIZ,2020-12-10`,
+`QNF,2016-09` and `ZFJ,2016-09`.
+
+**Status history:**
+
+- 2026-07-29 — `refuted`. Migrated and re-verified against the committed
+  union and report: `JIZ` added 2020-12-10; `QNF` and `ZFJ` present 2016 and
+  2019, absent 2024. Originally established 2026-07-13.
+
+---
+
+## H13 — The 2021 annex's `#REF!` corruption was introduced downstream of Ofcom
+
+**Status: `refuted`** &nbsp;·&nbsp; epistemics: **[confirmed]**
+
+The first question to ask of a published spreadsheet carrying broken formula
+errors where callsigns should be: is the damage ours? **Refuted — the file was
+published already corrupt**, and the finding is recorded here in claim form
+because the archived-source side is documented separately in
+[`docs/source-register.md`](source-register.md).
+
+The decisive step was an **independent second witness**. The asset URL,
+recovered from web-archive index queries, resolves to two independently
+captured copies of the same 2021-01 annex — a UK Government Web Archive
+memento and an Internet Archive capture — and **both carry the same broken
+call-sign cells**. Two archives capturing identical corruption is evidence
+about what Ofcom served, not about any later handling of it. The live asset
+URL is additionally a genuine 404 (an HTML not-found page, not an access
+block) following a publisher site redesign, so no clean re-fetch of that asset
+is possible: there is nothing cleaner upstream to fetch.
+
+A **clean same-vintage alternative is already held** by a different disclosure
+route: the 2021-01 FOI annex
+[`archive/foi/ofcom-2021-01--all-callsigns/`](../archive/foi/ofcom-2021-01--all-callsigns/)
+carries zero error cells over a wider six-column shape. The corrupt asset is
+therefore kept as the divergent copy it is — errors preserved verbatim and
+flagged `spreadsheet-error-token`, never repaired or substituted — while the
+clean twin stands as the faithful record of the vintage. Corruption at source
+is itself the useful finding.
+
+**Evidence (re-runnable, held):** the two-witness comparison and the 404 are
+recorded in
+[`archive/foi/ofcom-210648--corrupt-annex-callsigns/correspondence.md`](../archive/foi/ofcom-210648--corrupt-annex-callsigns/correspondence.md)
+with the affected cells enumerated in that entry's `meta.json`
+`divergences[]`. The counts are re-runnable now: the committed parse source
+`archive/foi/ofcom-210648--corrupt-annex-callsigns/normalised--sheet-1-sheet1.csv`
+carries the error token in **14 rows** where a call sign should be, against
+**zero** in the clean twin's
+`normalised--sheet-1-callsigns.csv`.
+
+**Status history:**
+
+- 2026-07-29 — `refuted`, epistemics `[confirmed]`. Recorded in claim form on
+  migration; the source-side facts were already public in the source register
+  and are not duplicated. Figure reconciled on verification: the note being
+  migrated counted 42 error tokens in the workbook (each broken cell holding
+  a two-operand formula plus its rendered value), whereas the committed parse
+  source carries **14** — one per affected row. Both describe the same
+  fourteen cells; the surface counted differs, and the committed extract is
+  the figure a reader can reproduce. Originally established 2026-07-15.
+
+---
+
+## H14 — A publication declaring complete coverage contains every record Ofcom held
+
+**Status: `refuted`** &nbsp;·&nbsp; epistemics: **[derived]**
+
+The assumption that makes absence usable as evidence: if a publication
+declares complete coverage, a callsign missing from it was not on the
+register. **Refuted for at least one publication**, and the consequence is
+that `intendedCoverage.complete` must always be read as **declared intent,
+never verified fact**.
+
+The `2025-06-04` publication declares `"intendedCoverage": {"complete": true}`
+in its `meta.json` and carries **112,650 records with not one blank product
+field**, where the neighbouring `2025-04-08` publication carries 157,427
+records of which **45,157 have a blank product**. The records that survive
+line up closely across the pair, status by status — Allocated with a product
+101,875 → 102,213, Reserved 10,134 → 10,177, Available 248 → 246 — which is
+the shape of *one class of record being dropped*, not of a register that
+shrank by a third in eight weeks.
+
+**The omission is not confined to the reserved pool.** In the neighbouring
+vintage the blank-product records include **2,752 `Allocated`** and **263
+`Available`** rows alongside 42,141 `Reserved`. A blank product field is
+common on live allocations, so treating "blank product" as "never licensed"
+is a false equivalence, and records omitted on that basis include live
+allocations. `M2IBX` (**H9**) is one such casualty.
+
+**Three epistemic layers, not two**, follow for any absence argument:
+declared-partial publications, where absence carries no information at all;
+declared-complete-but-demonstrably-filtered, where absence of a blank-product
+callsign is weak evidence at best; and genuinely complete. Scope-aware
+analysis may treat absence in an intended-complete publication as evidence —
+the right default — but only carrying the declared-not-verified caveat.
+
+**Flags, never verdicts.** Candidate mechanisms are offered and **none is
+chosen**: an export filter on the product field; a differently scoped report
+run against the same system; a join that drops productless rows. Nothing here
+adjudicates the publisher's intent, and no motive is imputed.
+
+**Two bounds on the finding.** The publication's bytes carry
+`"provenance": "reconstructed-from-git-history"` rather than a captured live
+fetch, so "as published" rests on that reconstruction; the reconstructed
+`raw.csv` does already carry the 112,650-record shape, placing the omission
+upstream of this project's normalisation rather than in it. And the two other
+zero-blank-product publications (`2025-05-27`, `2025-06-08`) are a **separate,
+already-documented case** — the 1,074-row truncation and its byte-twin — not
+further instances of this one.
+
+**Evidence (re-runnable):** the coverage declaration and a dated
+`qualityObservations` entry are committed in
+[`archive/2025-06-04/meta.json`](../archive/2025-06-04/meta.json); the
+per-publication figures are in each `archive/*/stats.json` as
+`columns.product.empty` against `recordCount`; the status-by-status
+reconciliation is a cross-tabulation of the `status` and `product` columns of
+[`archive/2025-06-04/normalised.csv`](../archive/2025-06-04/normalised.csv)
+and [`archive/2025-04-08/normalised.csv`](../archive/2025-04-08/normalised.csv).
+The blank-share shift is also folded mechanically into
+[`reports/column-drift.md`](../reports/column-drift.md). Tracked on #177.
+
+**Status history:**
+
+- 2026-07-29 — `refuted`. Migrated from a finding recorded 2026-07-09 and
+  re-verified end to end against the corpus as it stands: the coverage
+  declaration, the 112,650 / 157,427 record counts, the 45,157 blank-product
+  rows in the neighbouring vintage, the per-status reconciliation, and the
+  2,752 Allocated + 263 Available rows in the omitted class. The
+  reconstructed-provenance bound was added on verification; the note did not
+  carry it.
+
+### H14a — Comparing blank-product counts across publications identifies which of them omitted those records
+
+**Status: `validated`** (for the open-data lane) &nbsp;·&nbsp; epistemics: **[derived]**
+
+The detection method proposed alongside H14: rather than inspecting
+publications one at a time, compare `columns.product.empty` against
+`recordCount` across every `archive/*/stats.json` — a publication whose
+blank-product count collapses to near zero while its neighbours carry
+thousands is a filter suspect. **Run across the nine open-data snapshots, the
+comparison discriminates**, isolating `2025-06-04` (0 blanks against 45,157
+next door) and correctly leaving the intended-blank cases alone: `2022-05-30`
+has no product data at all rather than a filtered column, and the two
+1,074-row publications are the separately documented truncation.
+
+**It yields suspects, not verdicts, and its scope is narrow.** Three limits,
+all named.
+
+- Separating "omitted" from "differently scoped" needed the per-status
+  reconciliation done by hand in H14; the count comparison alone cannot do it.
+  A declared issued-scope export legitimately carries no blank-product rows —
+  `wdtk-1141667` is exactly that — and would show up as a suspect.
+- It has been run over the **open-data lane only**. The FOI entries do not
+  carry the same `stats.json` shape, so the corpus-wide sweep is not done.
+- **No standing detector attributes filtering to a publication.**
+  [`reports/column-drift.md`](../reports/column-drift.md) flags the
+  blank-share shift at the boundaries of the zero-blank run (28.7% → 0.0%,
+  then 0.0% → 26.9%) but, because the 1,074-row truncation sits
+  chronologically between them, its consecutive-pair comparison never
+  attributes the omission to `2025-06-04` itself. Mechanising that attribution
+  is the outstanding work.
+
+**Evidence (re-runnable):** tabulate `recordCount` and
+`columns.product.empty` from every `archive/*/stats.json`; the discriminating
+figures are 45,157 blanks of 157,427 records (`2025-04-08`) and 0 of 112,650
+(`2025-06-04`), with `2025-11-11` at 42,956 of 159,895 and `2026-06-23` at
+40,160 of 158,318 either side of the run. Tracked on #177.
+
+**Status history:**
+
+- 2026-07-29 — `validated` for the open-data lane. **Migrated at a stronger
+  status than the working note carried**: the note recorded this as a
+  candidate method not yet run, and it was run during migration, so recording
+  it as untested would misstate the record. Scope bounded explicitly — the
+  FOI lane is not swept, filter-versus-scope still needs the per-status
+  reconciliation, and no standing detector performs the attribution.
+  Originally proposed 2026-07-09.
