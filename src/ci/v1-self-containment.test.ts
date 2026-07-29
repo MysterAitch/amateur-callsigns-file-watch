@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -9,6 +9,7 @@ import { buildCallsignEventShards } from './build-callsign-event-shards.ts';
 import { homeHoldings, loadPrefixIntroRows } from './build-home-holdings.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
 import { SITE_INDEXABLE } from './build-root-discovery.ts';
+import { time, perfReport } from '../shared/perf.ts';
 
 // v1 SELF-CONTAINMENT (issue #921), mechanically enforced. The v1 surface must
 // reference nothing under the legacy tree: no href, import specifier, fetch
@@ -38,6 +39,12 @@ function v1DeployedFiles(): string[] {
 function sharedDeployedFiles(): string[] {
   return sharedModuleClosure(SITE_DIR).map(f => path.join(SITE_DIR, f));
 }
+
+// SELF-ACCOUNTING (#1017). This file is ~87 s, effectively ALL of it inside the
+// single href test below, which drives four whole-corpus derivations. The spans
+// attribute that cost so the "should this file be split?" question is answered
+// with numbers rather than by counting tests. Inert unless PERF is set.
+afterAll(() => { perfReport({ entrypoint: 'v1-self-containment.test' }); });
 
 describe('v1 self-containment', { tags: ['unit'] }, () => {
   it('V1Surface_AnyDeployedFile_NeverReferencesTheLegacyTree', () => {
@@ -78,13 +85,14 @@ describe('v1 self-containment', { tags: ['unit'] }, () => {
     // JSON, unseen. Build the data through the REAL builders and assert every
     // emitted href is root-relative (no legacy prefix).
     const evDir = fs.mkdtempSync(path.join(os.tmpdir(), 'v1-selfcheck-ev-'));
-    buildCallsignEventShards(foldEventTimeProjection(), evDir);
+    const projection = time('v1-selfcheck: foldEventTimeProjection', () => foldEventTimeProjection());
+    time('v1-selfcheck: buildCallsignEventShards', () => buildCallsignEventShards(projection, evDir));
     const evMeta = parseJsonObject(fs.readFileSync(path.join(evDir, 'meta.json'), 'utf8'), 'meta.json') as { datasets: { href: string }[] };
     expect(evMeta.datasets.length).toBeGreaterThan(0);
     for (const d of evMeta.datasets) expect(d.href, `event dataset href: ${d.href}`).not.toMatch(LEGACY_REF);
 
     const shDir = fs.mkdtempSync(path.join(os.tmpdir(), 'v1-selfcheck-sh-'));
-    buildCallsignShards(shDir);
+    time('v1-selfcheck: buildCallsignShards', () => buildCallsignShards(shDir));
     const shManifest = parseJsonObject(fs.readFileSync(path.join(shDir, 'datasets.json'), 'utf8'), 'datasets.json') as { datasets: { href: string }[] };
     expect(shManifest.datasets.length).toBeGreaterThan(0);
     for (const d of shManifest.datasets) expect(d.href, `shard dataset href: ${d.href}`).not.toMatch(LEGACY_REF);
@@ -96,7 +104,7 @@ describe('v1 self-containment', { tags: ['unit'] }, () => {
     const shFull = parseJsonObject(fs.readFileSync(path.join(shDir, 'datasets.json'), 'utf8'), 'datasets.json') as {
       datasets: { lane: 'open-data' | 'foi'; vintage: string | null; title: string; classes: string[]; rows: number }[];
     };
-    const holdings = homeHoldings(shFull.datasets, loadPrefixIntroRows());
+    const holdings = time('v1-selfcheck: homeHoldings', () => homeHoldings(shFull.datasets, loadPrefixIntroRows()));
     expect(holdings.publications.length).toBeGreaterThan(0);
     expect(JSON.stringify(holdings), 'home holdings manifest carries a legacy reference').not.toMatch(LEGACY_REF);
   });
