@@ -264,9 +264,11 @@ jobs:
       # results differ only when their confidence intervals do not overlap - plus
       # an independent floor on effect size, so a measurable-but-trivial shift is
       # not announced. Silence is the designed-for outcome.
-      # `shell: bash` explicitly - windows-latest defaults to PowerShell, where
-      # `set -euo pipefail` is a parse error. The suite itself is pure Node and
-      # portable; only the shell wrapper needed pinning.
+      # `shell: bash` pinned because the SCRIPT BODY is bash syntax, not because
+      # PowerShell is unportable - pwsh runs on all three runner families and
+      # would have been an equally valid choice had the script been written for
+      # it. windows-latest merely defaults to PowerShell, so the shell the script
+      # expects has to be stated rather than assumed.
       - name: Run the benchmark suite
         shell: bash
         run: |
