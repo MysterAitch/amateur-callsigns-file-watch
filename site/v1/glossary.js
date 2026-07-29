@@ -18,10 +18,17 @@
 // authored here.
 
 import { V1_COPY } from './copy.js';
+import { renderDocument } from './el.js';
 
-/** @param {string} tag @param {string | null} [cls] @param {string | null} [txt] */
+/**
+ * The render document comes from the el() foundation rather than the global
+ * `document`, so a popover built into build-time static HTML and one built in
+ * the browser are the same construction. This helper folds into el() under
+ * issue #966.
+ * @param {string} tag @param {string | null} [cls] @param {string | null} [txt]
+ */
 const el = (tag, cls, txt) => {
-  const node = document.createElement(tag);
+  const node = renderDocument().createElement(tag);
   if (cls) node.className = cls;
   if (txt != null) node.textContent = txt;
   return node;

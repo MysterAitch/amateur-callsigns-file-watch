@@ -19,6 +19,9 @@
 //   - URL-valued attributes (href/src/cite) are routed through the WHATWG-
 //     parsing scheme allowlist in site/v1/safe-url.js — a javascript:/data:/
 //     protocol-relative value is neutralised to the inert '#';
+//   - `style` is the one attribute whose VALUE is itself a language the browser
+//     parses, so it is confined to plain declarations (geometry: a chart bar's
+//     height, a dial mark's offset) with no functions, at-rules or escapes;
 //   - rawtext elements (script, style, iframe, …), whose children the HTML
 //     serialiser emits UNESCAPED (a `</script>` in an FOI title would break
 //     out), are refused at construction AND re-checked at serialisation;
@@ -120,8 +123,28 @@ const VOID_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img'
 const ATTRIBUTE_NAME_ALLOWLIST = new Set([
   'alt', 'cite', 'class', 'colspan', 'datetime', 'dir', 'for', 'headers',
   'hidden', 'href', 'id', 'lang', 'open', 'rel', 'role', 'rowspan', 'scope',
-  'src', 'tabindex', 'title', 'type', 'value',
+  'src', 'style', 'tabindex', 'title', 'type', 'value',
 ]);
+
+// `style` carries GEOMETRY the stylesheet cannot express — a chart bar's height
+// as a percentage of its column, a dial mark's offset — so it is on the
+// allowlist. Unlike every other attribute, its value is itself a small language
+// the browser parses, so the value is confined to plain declarations: property
+// names, and values built only from digits, letters, spaces and the punctuation
+// a length/colour/keyword needs. No parentheses (so `url(…)` and the legacy
+// `expression(…)` cannot be written), no braces, no at-rules, no escapes.
+const STYLE_VALUE_PATTERN = /^(?:\s*-{0,2}[a-z][a-z0-9-]*\s*:[a-z0-9 .,%#/+-]+;?\s*)+$/i;
+
+/**
+ * Whether a `style` attribute value is confined to the plain declarations
+ * above. Read by BOTH construction and the serialise-time re-check, so a style
+ * that never passed construction is not trusted at serialisation either.
+ * @param {string} value
+ * @returns {boolean}
+ */
+function passesStylePattern(value) {
+  return value.trim() === '' || STYLE_VALUE_PATTERN.test(value);
+}
 
 // data-* / aria-* names pass by pattern (lowercase, hyphenated), so component
 // roots (`data-component`) and a11y wiring need no per-name registration.
@@ -167,6 +190,19 @@ function resolveDocument() {
   if (typeof document !== 'undefined') return document;
   if (buildDocument !== null) return buildDocument;
   throw new Error('el(): no DOM available — in a Node build call setBuildDocument(new JSDOM().window.document) before rendering');
+}
+
+/**
+ * The document the render is building into — the browser's own where one
+ * exists, otherwise the injected build backend. Exported so the v1 modules that
+ * still carry their own small construction helpers resolve the SAME document
+ * this foundation does, and therefore run unchanged in the Node build. (Those
+ * helpers fold into el() under issue #966; until then this is the one place the
+ * render document is decided, so there is no second resolution rule to drift.)
+ * @returns {Document}
+ */
+export function renderDocument() {
+  return resolveDocument();
 }
 
 /**
@@ -229,6 +265,9 @@ function setGuardedAttribute(node, name, value) {
   if (refusal !== null) throw new Error(`el(): refusing ${refusal}`);
   if (value === null || value === undefined || value === false) return; // omit
   const str = value === true ? '' : String(value);
+  if (name === 'style' && !passesStylePattern(str)) {
+    throw new Error(`el(): refusing a style value outside the plain-declaration grammar (site/v1/el.js) — style carries geometry only, never functions, at-rules or escapes: ${str}`);
+  }
   node.setAttribute(name, URL_VALUED_ATTRIBUTES.has(name) ? neutraliseDisallowedScheme(str) : str);
 }
 
@@ -331,6 +370,9 @@ function assertAttributesGuarded(element) {
     }
     if (URL_VALUED_ATTRIBUTES.has(name) && !passesSchemeAllowlist(attribute.value)) {
       throw new Error(`serialise(): refusing a tree whose <${tag}> carries a ${name} whose scheme is not on the allowlist (site/v1/safe-url.js) — a URL that never passed through construction is not trusted at serialisation either`);
+    }
+    if (name === 'style' && !passesStylePattern(attribute.value)) {
+      throw new Error(`serialise(): refusing a tree whose <${tag}> carries a style value outside the plain-declaration grammar (site/v1/el.js) — a style set through the CSSOM rather than through construction is not trusted at serialisation either: ${attribute.value}`);
     }
   }
 }

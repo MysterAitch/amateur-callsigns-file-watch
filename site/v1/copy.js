@@ -382,10 +382,10 @@ export const V1_COPY = {
       eyebrow: 'event-time calendar',
       title: 'On this day',
       lede: EVENT_TIME_GLOSS + ' Dated licensing events, arranged by calendar day: for each series, the earliest start evidence and the earliest cancellation evidence the held corpus carries. Every entry cites the publications that assert it – its assertion time – so the two clocks never merge. “Earliest held” describes this mirror’s holdings, never “the first ever”.',
-      // The no-JS baseline states plainly that the dated calendar renders with
-      // the page’s script (the entries are a build-derived projection, never
-      // hand-authored) – so a script-off reader is never left at a dead control.
-      enhanceNote: 'The dated calendar renders when the page’s script runs. The framing and the reading notes below are the complete no-script baseline.',
+      // The calendar is stamped into the served HTML at build time, so it reads
+      // with no script at all. The note states what the script ADDS on top –
+      // never that the substance is waiting on it.
+      enhanceNote: 'Every dated entry below is in this page as served, with no script needed to read it. The page’s script adds one thing: a signpost for the reader’s own calendar day.',
       // The viewer’s own calendar day, surfaced from the rendered calendar.
       todayLead: 'Today is {day}',
       todayEntriesLink: '{count} on this day',
@@ -424,12 +424,18 @@ export const V1_COPY = {
       eyebrow: 'event-time over the years',
       title: 'Timeline',
       lede: EVENT_TIME_GLOSS + ' The held corpus’s licensing activity along event time: for each licensing kind, how many dated events the archived publications place in each year. Scrub the years to read what the mirror can say as at any instant – each figure naming the publications and vintages that assert it, the assertion time beneath. Counts describe this mirror’s holdings, never “the whole truth”.',
-      enhanceNote: 'The per-year charts and the scrubber render when the page’s script runs. The framing and the reading notes below are the complete no-script baseline.',
+      // The charts, the per-year table and the readout for the record’s own
+      // “as at” year are stamped into the served HTML at build time. The note
+      // states what the script ADDS – never that the figures are waiting on it.
+      enhanceNote: 'Every figure below is in this page as served, with no script needed to read it: the charts and their data tables, the cumulative figures for every year, and the full readout for the record’s own “as at” year. The page’s script adds a slider that moves that readout to any year.',
       histogramsLabel: 'activity by year, per licensing kind',
       histogramsNote: 'Each bar is a count of distinct dated events (one per callsign, kind and day; a date asserted by several vintages is one event). A year with no bar carries no held evidence for that kind – non-observation, never “nothing happened”.',
       histogramTotal: '{count} dated events across the held corpus',
       cumulativeLabel: 'as at the end of a year',
       scrubberLabel: 'Scrub the timeline – as at the end of a year',
+      // The single aggregate announcement the scrubber’s status region makes
+      // after a scrub settles – never one announcement per value node.
+      scrubberAnnouncement: 'As at end of {year}: {starts} starts to date, {reservations} active reservation windows.',
       readoutAsAt: 'As at end of {year}',
       readoutStarts: '{count} {subject} a surviving licence-start dated on or before end of {year}.',
       // The parenthetical names the bi-temporal test itself: "stated end on or

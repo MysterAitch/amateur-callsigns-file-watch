@@ -1,21 +1,37 @@
 // @ts-check
-// v1 ON-THIS-DAY sections (issue #932): renders the event-time calendar of
-// dated licensing callouts from the root-served on-this-day manifest, and
-// layers the viewer's own "today" signpost on top. Event time leads — each
-// entry is a dated event the record states happened — and its assertion-time
-// provenance (which publications state it) rides one affordance beneath, in the
-// shared assertedByFold. The entries are a build-derived projection, never
-// hand-authored; the static page's framing and reading notes are the complete
-// no-script baseline.
+// v1 ON-THIS-DAY component (issues #932, #965, #966; ADR 0022): the event-time
+// calendar of dated licensing callouts. Event time leads — each entry is a
+// dated event the record states happened — and its assertion-time provenance
+// (which publications state it) rides one affordance beneath, in the shared
+// assertedByFold. The entries are a build-derived projection, never
+// hand-authored.
+//
+// ONE RENDER IMPLEMENTATION. renderStatic() below is the component's single
+// source of content: the deploy (src/ci/build-v1-history-static.ts) serialises
+// it under the jsdom build backend into the page's served HTML, so the calendar
+// is real content in the first byte a crawler or a web archive receives, and
+// the browser runs the SAME function only where a page was served un-stamped.
+// There is no second, parallel markup builder to police.
+//
+// enhance() ADDS THE ONE GENUINELY VIEWER-DEPENDENT THING — the reader's own
+// "today" signpost — and reads its count OUT OF THE RENDERED CALENDAR rather
+// than from any second copy of the data. The enhanced page therefore cannot
+// state a number the static page does not: the number it states IS the number
+// of entries standing in the static DOM.
 
 import { V1_COPY } from './copy.js';
-import { el, link, fill, ledeWithCue, assertedByFold, caveatLinks, explainer } from './history-common.js';
+import { el, link, fill, ledeWithCue, assertedByFold, caveatLinks, explainer, calmNote } from './history-common.js';
 import { wireTermPopovers } from './glossary.js';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
 
 const EXPLAINER_ID = 'reading-these-dates';
+
+// The registry name this component's root carries (ADR 0022): the load-time
+// enhance walk finds the island by it, and the build asserts every emitted name
+// has an enhancer registered behind it.
+export const COMPONENT = 'on-this-day';
 
 /**
  * @typedef {import('./history-common.js').HistoryDataset} HistoryDataset
@@ -135,17 +151,24 @@ function introductionLabel(iso) {
 }
 
 /**
- * Render the whole calendar into `root` (the page's #sections host).
- * @param {HTMLElement} root
+ * The component's authoritative content: the whole calendar as a detached
+ * element, complete and readable with no script. Synchronous and PURE — a
+ * function of the manifest alone, with no clock, environment value or random
+ * source in it — so the build-time HTML is reproducible byte for byte.
  * @param {OnThisDayData} data
+ * @returns {HTMLElement}
  */
-export function renderOnThisDay(root, data) {
+export function renderStatic(data) {
   const copy = V1_COPY.history.onThisDay;
-  root.textContent = '';
   const surface = el('section', 'surface');
+  surface.setAttribute('data-component', COMPONENT);
   surface.appendChild(ledeWithCue(copy.lede));
+  surface.appendChild(calmNote(copy.enhanceNote));
 
-  // The today slot, filled by the enhancement below.
+  // The today slot: empty in the static HTML because "today" is the READER's
+  // day, not the build's. Rendered-then-filled rather than inserted from
+  // nothing, so the enhancement only ever writes into an element that is
+  // already in the served markup.
   const todaySlot = el('div', null);
   todaySlot.id = 'today-slot';
   surface.appendChild(todaySlot);
@@ -155,8 +178,7 @@ export function renderOnThisDay(root, data) {
 
   if (data.entries.length === 0) {
     surface.appendChild(el('p', 'note', copy.empty));
-    root.appendChild(surface);
-    return;
+    return surface;
   }
 
   const legend = new Map(data.caveats.map((c) => [c.id, c]));
@@ -179,6 +201,9 @@ export function renderOnThisDay(root, data) {
     for (const monthDay of monthDays) {
       const dayEntries = byMonthDay.get(monthDay) ?? [];
       const tl = el('div', 'tl');
+      // The day key rides as an attribute VALUE, so the enhancement matches on
+      // it by comparison rather than by building a selector out of data.
+      tl.setAttribute('data-day', monthDay);
       const when = el('div', 'when', dayHeading(monthDay));
       when.id = dayAnchor(monthDay);
       when.appendChild(el('small', null, 'event'));
@@ -191,25 +216,66 @@ export function renderOnThisDay(root, data) {
   }
   surface.appendChild(calendar);
   surface.appendChild(el('p', 'note otd-count', fill(copy.countFoot, { count: data.count, days: data.days })));
-  root.appendChild(surface);
-  wireTermPopovers(root);
+  return surface;
 }
 
 /**
- * Layer the viewer's "today" signpost into #today-slot. Pure over the data
- * (never the build clock); returns what was decided, for the jsdom tests.
- * @param {Document} doc
+ * Render the calendar into `root` (the page's #sections host). This is the
+ * FALLBACK path only — it exists for a page served without its build-time
+ * stamp — and it renders through the very same renderStatic the build uses, so
+ * the two contexts cannot produce different content.
+ * @param {HTMLElement} root
  * @param {OnThisDayData} data
+ * @returns {HTMLElement} the rendered component root
+ */
+export function renderOnThisDay(root, data) {
+  const surface = renderStatic(data);
+  root.replaceChildren(surface);
+  return surface;
+}
+
+/**
+ * The calendar's progressive enhancement, over the EXISTING static DOM: the
+ * glossary popovers become a well-mannered set, and the reader's own "today"
+ * signpost is written into the slot the static render left for it. Nothing is
+ * re-rendered and nothing is re-fetched.
+ * @param {HTMLElement} root  the component root
+ * @returns {void}
+ */
+export function enhance(root) {
+  wireTermPopovers(root);
+  enhanceToday(root);
+}
+
+/**
+ * How many entries the RENDERED calendar carries for a calendar day. The count
+ * is read from the static DOM — the entries standing on the page — so the
+ * signpost can never state a figure the page itself does not show.
+ * @param {HTMLElement} root
+ * @param {string} monthDay 'mm-dd'
+ * @returns {number}
+ */
+export function renderedEntriesOnDay(root, monthDay) {
+  // Matched by comparing the attribute VALUE, never by building a selector out
+  // of it: a day key is data, and data never becomes a selector.
+  const day = [...root.querySelectorAll('.tl')].find((t) => t.getAttribute('data-day') === monthDay);
+  return day === undefined ? 0 : day.querySelectorAll('.evt').length;
+}
+
+/**
+ * Write the viewer's "today" signpost into the slot the static render left.
+ * Returns what was decided, for the jsdom tests.
+ * @param {HTMLElement} root  the component root
  * @param {Date} [now]
  * @returns {{ monthDay: string, found: boolean, entries: number } | null}
  */
-export function enhanceToday(doc, data, now = new Date()) {
-  const slot = doc.getElementById('today-slot');
+export function enhanceToday(root, now = new Date()) {
+  const slot = root.querySelector('#today-slot');
   if (slot === null) return null;
   const copy = V1_COPY.history.onThisDay;
   const monthDay = todayMonthDay(now);
   const human = dayHeading(monthDay);
-  const entries = data.entries.filter((e) => e.monthDay === monthDay).length;
+  const entries = renderedEntriesOnDay(root, monthDay);
 
   const callout = el('p', 'callout otd-today-note');
   if (entries > 0) {

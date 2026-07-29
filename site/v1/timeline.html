@@ -9,12 +9,14 @@
 <link rel="stylesheet" href="shell.css">
 <script type="module" src="timeline.js"></script>
 </head>
-<!-- The static markup below is the JavaScript-off baseline: the header, nav and
-     footer read with no script, and the page's framing and reading notes stand
-     complete. The per-year charts, the cumulative table and the scrubber are a
-     build-derived projection of the archived publications (never hand-authored),
-     so timeline.js fetches the root-served timeline.json and renders them. Event
-     time leads; each figure names the publications and vintages that assert it. -->
+<!-- The static markup below is the JavaScript-off baseline, and it is the whole
+     substance: the header, nav and footer read with no script, and the per-year
+     charts, the cumulative table and the readout for the record's own "as at"
+     year are stamped into the marked region at build time
+     (src/ci/build-v1-history-static.ts) from the same renderStatic the browser
+     runs. Event time leads; each figure names the publications and vintages
+     that assert it. The page's script adds the year slider, driven by figures
+     embedded in this same HTML rather than a second request. -->
 <body>
 
 <div id="sitebar">
@@ -50,12 +52,18 @@
     </header>
 
     <div id="sections">
-      <!-- JS-off baseline: the framing and the honest enhancement note. The
-           per-year charts, cumulative table and scrubber render from
-           timeline.json when the script runs. -->
+      <div id="history-host">
+<!-- v1-history-static: timeline -->
+      <!-- The deploy replaces this region with the rendered timeline. This
+           un-stamped placeholder is what a source tree served directly shows;
+           there, the page falls back to rendering the published manifest
+           through the very same renderStatic. -->
       <section class="surface">
-        <p class="note hx-lede">Event time — when things happened, as the record states it. The held corpus’s licensing activity along event time: for each licensing kind, how many dated events the archived publications place in each year. Scrub the years to read what the mirror can say as at any instant – each figure naming the publications and vintages that assert it, the assertion time beneath. Counts describe this mirror’s holdings, never “the whole truth”.</p>
-        <p class="note hx-note">The per-year charts and the scrubber render when the page’s script runs. The framing and the reading notes below are the complete no-script baseline.</p>
+        <p class="note">The per-year charts, the cumulative table and the year readout are stamped into this page at build time. In this un-stamped copy they render from the published manifest instead.</p>
+      </section>
+<!-- /v1-history-static -->
+      </div>
+      <section class="surface">
         <p class="note">For the same event time arranged by calendar day, see the <a href="on-this-day.html">on-this-day calendar</a>.</p>
       </section>
     </div>

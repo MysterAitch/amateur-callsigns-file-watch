@@ -79,7 +79,7 @@ describe('v1 el() foundation — fail-loud guards', { tags: ['ui'] }, () => {
   });
 
   it('El_UnknownAttributeName_ThrowsSoTheAllowlistGrowsDeliberately', () => {
-    for (const name of ['style', 'srcdoc', 'formaction', 'background', 'action']) {
+    for (const name of ['srcdoc', 'formaction', 'background', 'action']) {
       expect(() => el('div', { [name]: 'x' }), name).toThrow(/allowlist/);
     }
   });
@@ -303,7 +303,7 @@ describe('v1 el() foundation — the platform serialiser', { tags: ['ui'] }, () 
     // name construction would have refused cannot arrive by another route.
     const host = el('div', null, 'x');
     const smuggled = document.createElement('span');
-    smuggled.setAttribute('style', 'position:fixed;inset:0');
+    smuggled.setAttribute('srcdoc', '<p>x</p>');
     host.appendChild(smuggled);
     expect(() => serialise(host)).toThrow(/allowlist|attribute/);
   });
@@ -346,5 +346,37 @@ describe('v1 el() foundation — the platform serialiser', { tags: ['ui'] }, () 
     expect(reparsed?.getAttribute('data-component')).toBe('x');
     expect(reparsed?.textContent).toBe(built.textContent);
     expect(reparsed?.querySelector('b')?.textContent).toBe('1');
+  });
+});
+
+describe('v1 el() foundation — the style attribute carries geometry only', { tags: ['ui'] }, () => {
+  it('Style_APlainGeometryDeclaration_IsSetAndSerialisedAsGiven', () => {
+    // A chart bar's height is the reason the attribute is on the allowlist at
+    // all: geometry the shared stylesheet cannot express per datum.
+    expect(serialise(el('div', { style: 'height:42%' }))).toBe('<div style="height:42%"></div>');
+    expect(el('div', { style: '--sd-down: 16px' }).getAttribute('style')).toBe('--sd-down: 16px');
+  });
+
+  it('Style_AValueCarryingAFunctionOrAtRule_IsRefusedAtConstruction', () => {
+    // The value is the one attribute value the browser itself parses as a
+    // language, so it is confined rather than merely encoded.
+    expect(() => el('div', { style: 'background:url(https://example.invalid/x)' })).toThrow(/plain-declaration/);
+    expect(() => el('div', { style: 'width:expression(alert(1))' })).toThrow(/plain-declaration/);
+    expect(() => el('div', { style: '}@import "x";' })).toThrow(/plain-declaration/);
+  });
+
+  it('Style_SetThroughTheCssomRatherThanConstruction_IsRefusedAtSerialisation', () => {
+    // Defence in depth: an el() node mutated after construction, or a node built
+    // elsewhere, never bypasses the guard on its way into static HTML.
+    const node = el('div');
+    node.setAttribute('style', 'background:url(https://example.invalid/x)');
+    expect(() => serialise(node)).toThrow(/plain-declaration/);
+  });
+
+  it('Style_SetThroughTheCssomWithPlainGeometry_StillSerialises', () => {
+    // The path the histogram bars actually take: `.style.height = '42%'`.
+    const node = el('div');
+    node.style.height = '42%';
+    expect(serialise(node)).toContain('height: 42%');
   });
 });
