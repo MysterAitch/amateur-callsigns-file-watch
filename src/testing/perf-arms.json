@@ -3,176 +3,132 @@
     "Arm definitions for the repeatable performance matrix (.github/workflows/perf-matrix.yml).",
     "SINGLE SOURCE OF TRUTH: the workflow derives its matrix from this file and hardcodes nothing.",
     "",
-    "ROUND 2 - CORRECTED SLICING MATRIX (#1017).",
+    "ROUND 3 - THE PACKED CONFIGURATION (#1017).",
     "",
-    "Round 1 ran only SHARD 1 of each split and multiplied by N to estimate total work.",
-    "That is invalid: vitest shards by FILE COUNT, not duration, and 13 of 205 files carry",
-    "~89% of the work - so shard 1 of 8 drew light files (0.80 min) while shard 1 of 4 drew",
-    "heavy ones (1.90 min), and N x T did not conserve total work. EVERY shard of every",
-    "split is now an arm, so the split is measured rather than extrapolated from one slice.",
+    "Rounds 1 and 2 measured FINER slicing and none. Nobody had measured the one",
+    "arrangement #1017 actually proposes: the same test files grouped into FEWER jobs.",
+    "Shipping a 27 -> 8 repack without measuring it would be acting on an extrapolation,",
+    "which is precisely the error round 1 made by multiplying one shard by N.",
     "",
-    "Arms carrying `shardGroup` are aggregated by the collator: SUM across the group is the",
-    "runner-minutes cost, MAX is the wall-clock cost. Reporting only one of those is how a",
-    "sharding decision gets made on the wrong axis.",
+    "The groups come from first-fit-decreasing bin packing over MEASURED per-file",
+    "durations (taken from the unsharded round-2 run), targeting 180s of work per job -",
+    "just under the ~3.5 min job that currently binds, minus the ~27s of fixed setup.",
+    "Hand-curated grouping is what let the heavy-tests threshold go stale; this is",
+    "derived from data and can be re-derived when the data moves.",
     "",
-    "Round 1 also created FOUR byte-identical arms by accident (fast-nocov == slice-fast-2",
-    "== lever-baseline == lever-control). That was wasteful but informative: 20 samples of",
-    "one configuration put the noise floor at ~14%, well above the 9% the power analysis",
-    "assumed. Nothing below ~15-20% is readable from this harness. perf-plan.mjs now fails",
-    "on undeclared duplicates.",
+    "PREDICTION, recorded before the run: wall clock UNCHANGED (both arrangements are",
+    "bound by reconstruction-oracle at ~186s + setup), runner minutes down from ~34.6",
+    "to ~27.6 - about 7 minutes saved by paying setup 8 times instead of 27.",
     "",
-    "The coverage-provider and per-lever arms are NOT repeated here - round 1 is still",
-    "running them on its own ref, and repeating them would confound two rounds."
+    "Reference arms measure the four largest files ALONE, so the setup-cost model is",
+    "validated on the same runners at the same time rather than against yesterday numbers.",
+    "",
+    "packed-1 IS reconstruction-oracle alone - it exceeds the 180s ceiling so bin packing gave it its own group. It therefore doubles as that file's solo reference, and a separate solo-1 arm would be a byte-identical duplicate. The planner's duplicate guard caught exactly that when this spec was first generated."
   ],
   "defaultRepetitions": 3,
   "arms": [
     {
-      "id": "fast-whole",
-      "label": "fast: unsharded, all files in one job",
-      "target": "--project fast",
-      "coverage": "none",
-      "needsParquet": true
-    },
-    {
-      "id": "fast-2-1",
-      "label": "fast: shard 1 of 2",
-      "target": "--project fast --shard=1/2",
+      "id": "packed-1",
+      "label": "packed group 1 (1 files)",
+      "target": "src/ci/reconstruction-oracle.test.ts",
       "coverage": "none",
       "needsParquet": true,
-      "shardGroup": "fast-2"
+      "shardGroup": "packed"
     },
     {
-      "id": "fast-2-2",
-      "label": "fast: shard 2 of 2",
-      "target": "--project fast --shard=2/2",
+      "id": "packed-2",
+      "label": "packed group 2 (3 files)",
+      "target": "src/v2/build-ledger.test.ts src/ci/survival-cohort-corpus.test.ts src/ci/policy-invariants-corpus.test.ts",
       "coverage": "none",
       "needsParquet": true,
-      "shardGroup": "fast-2"
+      "shardGroup": "packed"
     },
     {
-      "id": "fast-4-1",
-      "label": "fast: shard 1 of 4",
-      "target": "--project fast --shard=1/4",
+      "id": "packed-3",
+      "label": "packed group 3 (3 files)",
+      "target": "src/ci/build-dataset-pages.test.ts src/ci/forbidden-suffix-callsigns.test.ts src/ci/reprocessing-stratification-corpus.test.ts",
       "coverage": "none",
       "needsParquet": true,
-      "shardGroup": "fast-4"
+      "shardGroup": "packed"
     },
     {
-      "id": "fast-4-2",
-      "label": "fast: shard 2 of 4",
-      "target": "--project fast --shard=2/4",
+      "id": "packed-4",
+      "label": "packed group 4 (4 files)",
+      "target": "src/ci/build-callsign-shards.corpus.test.ts src/ci/value-catalogue-fold.licence-parse.test.ts src/ci/quality-report-fold.test.ts src/ci/sequence-analytics-corpus.test.ts",
       "coverage": "none",
       "needsParquet": true,
-      "shardGroup": "fast-4"
+      "shardGroup": "packed"
     },
     {
-      "id": "fast-4-3",
-      "label": "fast: shard 3 of 4",
-      "target": "--project fast --shard=3/4",
+      "id": "packed-5",
+      "label": "packed group 5 (3 files)",
+      "target": "src/ci/build-sqlite.tiers.test.ts src/v2/projection-invariants.test.ts src/ci/column-drift-corpus.test.ts",
       "coverage": "none",
       "needsParquet": true,
-      "shardGroup": "fast-4"
+      "shardGroup": "packed"
     },
     {
-      "id": "fast-4-4",
-      "label": "fast: shard 4 of 4",
-      "target": "--project fast --shard=4/4",
+      "id": "packed-6",
+      "label": "packed group 6 (3 files)",
+      "target": "src/v2/build-ledger-db-compact.test.ts src/ci/value-catalogue-fold.status-product.test.ts src/ci/interpretation-oracle.test.ts",
       "coverage": "none",
       "needsParquet": true,
-      "shardGroup": "fast-4"
+      "shardGroup": "packed"
     },
     {
-      "id": "fast-8-1",
-      "label": "fast: shard 1 of 8",
-      "target": "--project fast --shard=1/8",
+      "id": "packed-7",
+      "label": "packed group 7 (4 files)",
+      "target": "src/ci/event-time-surfaces-corpus.test.ts src/v2/builder-projection-parity.test.ts src/v2/build-ledger-db.test.ts src/ci/value-catalogue-fold.flags.test.ts",
       "coverage": "none",
       "needsParquet": true,
-      "shardGroup": "fast-8"
+      "shardGroup": "packed"
     },
     {
-      "id": "fast-8-2",
-      "label": "fast: shard 2 of 8",
-      "target": "--project fast --shard=2/8",
+      "id": "packed-8",
+      "label": "packed group 8 (6 files)",
+      "target": "src/ci/build-forbidden-section.test.ts src/ci/state-at-t-corpus.test.ts src/ci/timezone-rendering-corpus.test.ts src/ci/event-time-coherency-corpus.test.ts src/shared/foi-normalise.test.ts src/ci/data-quality-fold.test.ts",
       "coverage": "none",
       "needsParquet": true,
-      "shardGroup": "fast-8"
+      "shardGroup": "packed"
     },
     {
-      "id": "fast-8-3",
-      "label": "fast: shard 3 of 8",
-      "target": "--project fast --shard=3/8",
+      "id": "solo-2",
+      "label": "REFERENCE: build-ledger.test.ts alone",
+      "target": "src/v2/build-ledger.test.ts",
       "coverage": "none",
       "needsParquet": true,
-      "shardGroup": "fast-8"
+      "shardGroup": "solo-ref"
     },
     {
-      "id": "fast-8-4",
-      "label": "fast: shard 4 of 8",
-      "target": "--project fast --shard=4/8",
+      "id": "solo-3",
+      "label": "REFERENCE: build-dataset-pages.test.ts alone",
+      "target": "src/ci/build-dataset-pages.test.ts",
       "coverage": "none",
       "needsParquet": true,
-      "shardGroup": "fast-8"
+      "shardGroup": "solo-ref"
     },
     {
-      "id": "fast-8-5",
-      "label": "fast: shard 5 of 8",
-      "target": "--project fast --shard=5/8",
+      "id": "solo-4",
+      "label": "REFERENCE: build-callsign-shards.corpus.test.ts alone",
+      "target": "src/ci/build-callsign-shards.corpus.test.ts",
       "coverage": "none",
       "needsParquet": true,
-      "shardGroup": "fast-8"
+      "shardGroup": "solo-ref"
     },
     {
-      "id": "fast-8-6",
-      "label": "fast: shard 6 of 8",
-      "target": "--project fast --shard=6/8",
+      "id": "packed-1-control",
+      "label": "CONTROL: identical to packed-1",
+      "target": "src/ci/reconstruction-oracle.test.ts",
       "coverage": "none",
       "needsParquet": true,
-      "shardGroup": "fast-8"
-    },
-    {
-      "id": "fast-8-7",
-      "label": "fast: shard 7 of 8",
-      "target": "--project fast --shard=7/8",
-      "coverage": "none",
-      "needsParquet": true,
-      "shardGroup": "fast-8"
-    },
-    {
-      "id": "fast-8-8",
-      "label": "fast: shard 8 of 8",
-      "target": "--project fast --shard=8/8",
-      "coverage": "none",
-      "needsParquet": true,
-      "shardGroup": "fast-8"
-    },
-    {
-      "id": "heavy-whole",
-      "label": "heavy: the whole project in one job",
-      "target": "--project heavy",
-      "coverage": "none",
-      "needsParquet": true
-    },
-    {
-      "id": "everything-one-job",
-      "label": "NO sharding at all: the entire suite in one job",
-      "target": "",
-      "coverage": "none",
-      "needsParquet": true
-    },
-    {
-      "id": "fast-whole-control",
-      "label": "CONTROL: identical to fast-whole",
-      "target": "--project fast",
-      "coverage": "none",
-      "needsParquet": true,
-      "control": "fast-whole"
+      "control": "packed-1"
     }
   ],
   "comparisons": [
     {
       "id": "CONTROL-should-be-1.0",
-      "baseline": "fast-whole",
-      "variant": "fast-whole-control"
+      "baseline": "packed-1",
+      "variant": "packed-1-control"
     }
   ]
 }
