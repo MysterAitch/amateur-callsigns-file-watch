@@ -268,19 +268,48 @@ describe('ADR decision index', { tags: ['unit'] }, () => {
   ): string | null {
     const terms = citationTerms(description);
     const mine = fitScore(target, terms, corpus, titles);
-    let best = 0, bestId: string | null = null;
+    let best = 0, bestId: string | null = null, bestWitnesses = 0;
     for (const id of Object.keys(corpus)) {
       // A description cannot be evidence about the record that WROTE it: the
       // citing record's own Related line contains the phrase verbatim, so it
       // always wins as "best fit" for its own citations.
       if (id === target || id === citer) continue;
       const score = fitScore(id, terms, corpus, titles);
-      if (score > best) { best = score; bestId = id; }
+      if (score > best) {
+        best = score;
+        bestId = id;
+        // How many DISTINCT discriminating terms carried that score. One shared
+        // rare word is coincidence, not evidence — see the two-witness rule below.
+        bestWitnesses = terms.filter(t => {
+          const s = recordSpread(t, corpus);
+          return s > 0 && s <= CITATION_SPREAD_CAP && corpus[id].includes(t);
+        }).length;
+      }
     }
     // Margin, not zero. A stray common word gives a wrong target a small
     // non-zero score, and a zero-test excuses it — which is exactly how the real
     // misattribution survived two authorings.
-    const decisive = best >= 0.5 && best - mine >= 0.4 && best >= mine * 3;
+    //
+    // The FLOOR is what keeps this stable as the set grows. Term weights are
+    // inverse-spread, so every added record reshuffles every score: without a
+    // floor, adding ADR 0025 flipped two ACCURATE citations of ADR 0013 to
+    // failing, because newer records reuse its vocabulary densely and scored
+    // higher on it. The question a citation must answer is "does this describe
+    // the record it cites?" — not "does something else describe it better?", which
+    // two records covering adjacent ground will always make true of one of them.
+    // So object only when the description barely fits its own target.
+    // TWO WITNESSES. A widely-cited foundational record cannot be described in
+    // discriminating words at all — every term for ADR 0013 (`record`, `claim`,
+    // `ledger`, `raw-keyed`) is reused across the set and skipped, so an accurate
+    // description of it scores exactly zero. With a single-term threshold, one
+    // coincidentally shared rare word in an unrelated record then reads as proof of
+    // misattribution: adding ADR 0025 flagged two CORRECT citations of ADR 0013 that
+    // way, each resting entirely on one word. Requiring two independent
+    // discriminating terms is the same bar this project applies to any other claim —
+    // and zero evidence must mean abstain, never accuse.
+    const MINE_FLOOR = 0.35;
+    const decisive =
+      bestWitnesses >= 2 && mine < MINE_FLOOR && best >= 0.5 && best - mine >= 0.4 && best >= mine * 3;
     return decisive ? bestId : null;
   }
 
