@@ -117,8 +117,11 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
   });
 
   it('RequiredChecks_JobNames_ArePreserved', () => {
-    // The main ruleset requires these two checks BY NAME; renaming either job
-    // here without updating the ruleset blocks all merges. Guard the names.
+    // The main ruleset requires FOUR checks BY NAME — `tests`, `data-validation`,
+    // `workflow-audit` and `golden-master` — and renaming any of those jobs without
+    // updating the ruleset blocks every merge. Three are guarded here; golden-master
+    // is guarded in the next test, which also pins the absence of a matrix strategy.
+    // Keep that split in mind before concluding a name is unprotected.
     const wf = workflow();
     expect(wf, 'the required check job `tests` is missing/renamed').toMatch(/\n {2}tests:\n/);
     expect(wf, 'the required check job `data-validation` is missing/renamed').toMatch(/\n {2}data-validation:\n/);
@@ -126,8 +129,10 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
   });
 
   it('GoldenMaster_ReportsAStable_NonMatrixContext', () => {
-    // golden-master is the pending required-check candidate (#588 part 2): a
-    // ruleset matches a required status check on its EXACT reported context
+    // golden-master is a LIVE required check on the main ruleset, alongside tests,
+    // data-validation and workflow-audit — no longer the pending candidate of #588
+    // part 2. That makes this test's guarantees load-bearing rather than
+    // preparatory: a ruleset matches a required status check on its EXACT reported context
     // string. A bare job (no `strategy:`) reports that context as its job
     // name alone - stable across runs. Guard both the name and the absence of
     // a matrix, since a matrix strategy suffixes the reported context per leg
