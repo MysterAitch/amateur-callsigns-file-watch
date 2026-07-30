@@ -36,6 +36,12 @@ roughly 11 MB (the `2026-06-23` entry's `raw.csv` is 11,817,502 bytes as at
 change, presented at the callsign neighbourhood where a reader would look for
 it.
 
+**So a proposal to delete or remove the sorted derivative as redundant will keep
+recurring, and should keep being declined** — it is redundant to machines, which
+is what makes it look deletable, and it is not redundant to readers, which is why
+it exists. (Stated in those words deliberately: someone reaching this decision is
+most likely searching for "delete", "remove" or "redundant".)
+
 The derivative is therefore for **human readers, not for machines**, and it
 lives in exactly one place: the repository-root `latest-raw-sorted.csv`,
 rewritten from the parsed records on every processing run. Per-entry sorted
