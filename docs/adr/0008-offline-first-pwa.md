@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-09
+- Related: [ADR 0002](0002-repo-level-write-controls.md) (repo-level write controls — the no-writeback rule this worker must respect), [ADR 0003](0003-in-repo-presentation-poc.md) (in-repo presentation on GitHub Pages — the frameworkless, no-build constraint the worker and manifest ship within), [ADR 0012](0012-supply-chain-posture.md) (supply-chain posture — the vendored-dependencies-only rule that keeps the worker a plain static file), [ADR 0006](0006-componentisation-strategy.md) (reusable UI modules, still *proposed* — referenced for direction only; nothing decided here depends on it being settled), [ADR 0022](0022-v1-component-architecture.md) (the accepted v1 component architecture, which revised ADR 0006's default mechanism); issue #248
 
 > *(Amended 2026-07-29.)* Decision item 3's cache-versioning has since been
 > refined by issue #614 without changing the design's intent. The shell cache
@@ -46,8 +47,8 @@ Two constraints shape the design:
   dependencies only**; the service worker and manifest must be plain static
   files copied by the Pages workflow, with no bundler.
 - A broken service worker can make a site **un-updatable** (a stale cached
-  shell that never refreshes). The supply-chain posture (ADR 0002) also forbids
-  any repository writeback; the worker is a pure client-side deploy artefact.
+  shell that never refreshes). The write controls (ADR 0002) also forbid any
+  repository writeback; the worker is a pure client-side deploy artefact.
 
 ## Decision
 
@@ -139,5 +140,4 @@ The design has four parts.
   files; nothing is added to the supply chain and the deploy job keeps its
   read-only, Pages-only posture (ADR 0002, ADR 0003).
 
-Relates to: issue #248; ADR 0002 (repo-level write controls / supply-chain
-posture); ADR 0003 (in-repo presentation on GitHub Pages); ADR 0006.
+Relations are recorded in the `Related` header above, so they have a single home.

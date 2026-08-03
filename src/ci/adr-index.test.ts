@@ -349,6 +349,38 @@ describe('ADR decision index', { tags: ['unit'] }, () => {
     expect(wrong).toEqual([]);
   });
 
+  // A record that rests reasoning on an unratified one, without saying so, reads as
+  // settled foundation when half of it is still a proposal — the missing-constraint
+  // failure. ADR 0013 lifted its cleaning rules from ADR 0006 (proposed) and said
+  // nothing; ADR 0008 cited it bare. Only ADR 0022 flagged it. The status is the
+  // citing record's to disclose, because that is where a reader forms the belief.
+  it('EveryAdrCitation_WhenItNamesARecordThatIsNotYetAccepted_SaysSoRatherThanReadingAsSettled', () => {
+    const unratified = adrFiles().filter(f => statusHead(headerField(f, 'Status') ?? '') !== 'accepted');
+    // Non-vacuity: if every record were accepted this would pass without checking anything.
+    assertNonEmpty(unratified, 'records whose status is not "accepted"');
+
+    const silent: string[] = [];
+    for (const target of unratified) {
+      const id = target.slice(0, 4);
+      for (const file of adrFiles()) {
+        if (file === target) continue;
+        const related = headerField(file, 'Related') ?? '';
+        const at = related.indexOf(`ADR ${id}`);
+        if (at === -1) continue;
+        // Read only the clause naming this record, not the whole line: a neighbouring
+        // citation's "proposed" must not excuse this one.
+        const clause = related.slice(at, at + 220);
+        if (!/proposed|unratified|not (yet )?ratified/i.test(clause)) {
+          silent.push(
+            `${file} cites ADR ${id} without noting that its status is ` +
+            `"${statusHead(headerField(target, 'Status') ?? '')}" — a reader takes it as settled`,
+          );
+        }
+      }
+    }
+    expect(silent).toEqual([]);
+  });
+
   it('CitationCheck_WhenARecordIsCitedForReasoningItDoesNotHold_FlagsItRatherThanPassing', () => {
     // The guard must be shown to fail, or a green result says nothing. The first
     // case is the REAL defect, verbatim as it shipped in ADR 0023 and ADR 0024.
