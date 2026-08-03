@@ -215,6 +215,13 @@ the #431 programme.
       <td>accepted</td>
       <td>2026-07-29</td>
     </tr>
+    <tr>
+      <td><a href="0025-outward-contributions-and-corroboration.md">ADR 0025</a></td>
+      <td>Claims published outward carry a directional provenance marker and are excluded from corroboration counts, so the project's own output cannot launder itself into a second independent witness</td>
+      <td>Contributing outward stops, or citing any resource contributed to stops, or corroboration stops being counted over sources — see <a href="0025-outward-contributions-and-corroboration.md">the record's "Revisit when" section</a></td>
+      <td>accepted</td>
+      <td>2026-07-30</td>
+    </tr>
   </tbody>
 </table>
 

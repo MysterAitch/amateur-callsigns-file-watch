@@ -111,6 +111,58 @@ acting on that assumption would rewrite several hundred instances in `docs/` to 
 benefit. If you are changing dashes in bulk, you are almost certainly applying the
 wrong surface's rule — check which surface the text ships to first.
 
+## What we will not trade away
+
+These are the project's non-negotiables. A change that weakens one is rejected
+regardless of what it buys, and "it is faster", "it is simpler" and "no user will
+notice" are not arguments against them.
+
+**This is the canonical statement.** They are summarised in one line on the
+direction hub (issue #1000) and applied in many places; where a record, a doc or a
+comment restates one, it should point here rather than re-derive it, so a
+correction is one edit rather than a search.
+
+- **Reproducibility and re-derivability.** Every published conclusion can be
+  re-run from the archived bytes and reach the same answer. Nothing is asserted
+  that cannot be regenerated. Applied in
+  [ADR 0001](docs/adr/0001-post-fetch-processing-in-repo.md) and
+  [`docs/adding-a-dataset.md`](docs/adding-a-dataset.md).
+- **Error-locability.** When an output is wrong it must be possible to say *which
+  step made it wrong*. A pipeline that produces a bad answer without indicating
+  where the answer went bad is not acceptable, however good its outputs usually
+  are. This is why derivations are staged rather than fused.
+- **Chain of custody.** Every claim can be traced back through the steps that
+  produced it to the source bytes it came from — generated on demand rather than
+  asserted. See [ADR 0004](docs/adr/0004-foi-source-lane.md) and
+  [ADR 0025](docs/adr/0025-outward-contributions-and-corroboration.md).
+- **Bi-temporality: event time and assertion time never collapse.** *When
+  something happened* and *when a source said it happened* are different facts,
+  and a source revising its account of the past is itself an observation. Neither
+  may be overwritten with the other. See
+  [`docs/source-register.md`](docs/source-register.md).
+- **Raw bytes verbatim.** A publisher's exact bytes are preserved unaltered,
+  because the archive's identity is a hash of them; derived views are separate
+  artefacts. See [ADR 0010](docs/adr/0010-archive-contract.md).
+- **Fail loud.** Corrupt or misleading data is worse than no data. Where
+  integrity is in doubt the correct behaviour is a hard, diagnosable failure, not
+  a best-effort partial result that reads as complete. Applied throughout
+  [ADR 0010](docs/adr/0010-archive-contract.md) and
+  [ADR 0014](docs/adr/0014-trust-rating-safety-net.md).
+- **No silent transformation — resolve *and* flag.** Cleaning, inferring or
+  dropping anything without recording that it happened is forbidden. Where a
+  value must be interpreted to be usable, both the interpretation and the fact of
+  interpreting are published.
+- **Flags never verdicts.** Surfacing that something deviates from its neighbours
+  is not the same as ruling on why, and the vocabulary must not smuggle in a
+  judgement the evidence does not support. Name the mechanism or the purpose, not
+  an imputed state of the source.
+- **Corrections by adding a source, never by editing history.** A wrong claim is
+  superseded by new evidence recorded alongside it. Published history is not
+  rewritten to make the present look tidier — including when the error was ours.
+- **Right of reply.** A record about a real person or organisation carries a route
+  for them to contest it, and a contested claim is marked as contested rather than
+  quietly removed or quietly kept.
+
 ## Site-wide engineering baseline
 
 These principles are the floor for **every** user-facing feature, not only the
