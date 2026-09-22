@@ -5,91 +5,51 @@
   "intendedCoverage": {
     "complete": true
   },
-  "fetchedAt": "2026-07-06T09:56:05.262Z",
+  "fetchedAt": "2026-09-22T13:45:26.755Z",
   "files": {
     "raw.csv": {
-      "bytes": 11817502,
-      "sha256": "d9ba5c69d82dca9712d2f88853692aaad42e6fb3fedf7a9f3de6df269a069cf4",
+      "bytes": 13286368,
+      "sha256": "63066f48aa2199db71f159396162d9523d00ca5e316cc7efc795fad881822a5c",
       "format": "csv",
-      "columnCount": 6,
+      "columnCount": 7,
       "columnNames": [
-        "﻿Callsign",
+        "Callsign",
         "Product__c",
         "Status",
         "Type__c",
         "Licence_Version.LastModifiedDate",
+        "Licence_Version.Licence_Issued_Date__c",
         "Licence_Version.Original_start_date__c"
       ],
-      "recordCount": 158318
-    },
-    "normalised.csv": {
-      "bytes": 11975841,
-      "sha256": "4978f137da2df7af6f019dd9d28ce21b9dce368bd3609e636ee90aacf6a6171a",
-      "format": "csv",
-      "columnCount": 8,
-      "columnNames": [
-        "callsign",
-        "product",
-        "status",
-        "type",
-        "created_date",
-        "last_modified_date",
-        "licence_version_last_modified_date",
-        "licence_version_original_start_date"
-      ],
-      "recordCount": 158318,
-      "sortedBy": "callsign"
-    },
-    "stats.json": {
-      "bytes": 2960,
-      "sha256": "895910378e2dbdaad4611a5162cbae78cf5e07147c62ef308b405ddec19b1358",
-      "format": "json"
-    },
-    "components.csv": {
-      "bytes": 6978744,
-      "sha256": "c669e2757a915b69af9db4175300c30795d4ed18031434284cddd4b1c5a07ecc",
-      "format": "csv",
-      "columnCount": 10,
-      "columnNames": [
-        "callsign",
-        "cleaned",
-        "parse_status",
-        "prefix_series",
-        "rsl",
-        "suffix",
-        "placeholder_form",
-        "home_callsign",
-        "implied_class",
-        "flags"
-      ],
-      "recordCount": 158318,
-      "sortedBy": "callsign"
+      "recordCount": 163342
     }
   },
   "diffSummary": {
-    "currentRecordCount": 158318,
+    "currentRecordCount": 163342,
     "previousArchiveKey": "2026-06-23",
     "previousRecordCount": 158318,
-    "unchanged": 158318,
-    "fieldChanged": 0,
-    "added": 0,
-    "removed": 0
+    "unchanged": 0,
+    "fieldChanged": 158054,
+    "added": 5288,
+    "removed": 264,
+    "sampleAdded": [
+      "M/KNIZ",
+      "M7DZW",
+      "M7ADZ",
+      "20MYZ",
+      "20KBZ"
+    ],
+    "sampleRemoved": [
+      "G2FTR",
+      "G8PVV",
+      "M6GTQ",
+      "G4ZQZ",
+      "M6CBH"
+    ]
   },
-  "sourceUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list.csv?v=419818",
-  "ofcomReportedUpdate": "23 June 2026",
-  "ofcomReportedUpdateIso": "2026-06-23",
+  "sourceUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list.csv?v=425690",
+  "ofcomReportedUpdate": "22 September 2026",
+  "ofcomReportedUpdateIso": "2026-09-22",
   "linkText": "Amateur radio call signs",
-  "sourceVersionParam": "419818",
-  "normalised": {
-    "schemaVersion": 1,
-    "headerVariant": "v2026-licence-version",
-    "statsSchemaVersion": 6,
-    "componentsSchemaVersion": 5
-  },
-  "headerLines": [
-    {
-      "line": 1,
-      "content": "﻿Callsign,Product__c,Status,Type__c,Licence_Version.LastModifiedDate,Licence_Version.Original_start_date__c"
-    }
-  ]
+  "sourceVersionParam": "425690"
 }
