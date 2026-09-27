@@ -1,0 +1,1158 @@
+Amateur radio guidance
+
+Licensing guidance document for amateur
+radio
+
+Amateur Radio Guidance
+
+Updated 14 October 2025
+Contents
+
+1. Overview.............................................................................................................................4
+      1.1 What is amateur radio? ...................................................................................................... 4
+      1.2 About this document .......................................................................................................... 4
+      1.3 How do I become a radio amateur? ................................................................................... 4
+
+2. How to apply for a licence..................................................................................................5
+      2.1 Applying for a personal amateur radio licence ................................................................... 5
+      2.2 Applying for a club licence .................................................................................................. 6
+
+3. Non-technical licence conditions .......................................................................................8
+      3.1 High level licence summary ................................................................................................ 8
+      3.2 Licence duration and revocation ........................................................................................ 8
+      3.3 Licence Fees ........................................................................................................................ 9
+      3.4 Where it can be used .......................................................................................................... 9
+      3.5 Coordination requirements ................................................................................................ 9
+      3.6 Use of the radio equipment ................................................................................................ 9
+      3.7 Powers to access, modify and shut down your equipment..............................................11
+      3.8 Compliance with EMF ....................................................................................................... 11
+
+4. Technical licence conditions.............................................................................................12
+      4.1 Not to cause undue interference......................................................................................12
+      4.2 Transmit power ................................................................................................................. 12
+      4.3 Airborne use......................................................................................................................13
+      4.4 Remote control and unattended operation...................................................................... 14
+      4.5 Repeater, beacon, gateway, and data station operation ................................................. 14
+
+5. Call signs ...........................................................................................................................18
+      5.1 The purpose of call signs...................................................................................................18
+      5.2 Acceptable call sign formats ............................................................................................. 18
+      5.3 Assigning call signs ............................................................................................................ 18
+      5.4 Changing and transferring call signs ................................................................................. 19
+      5.5 Holding multiple call signs ................................................................................................ 19
+      5.6 Re-issuing old call signs ..................................................................................................... 20
+      5.7 Using a Regional Secondary Locator (RSL) ........................................................................ 20
+      5.8 Suffixes .............................................................................................................................. 21
+6. Notices of variation ..........................................................................................................22
+      6.1 What is a notice of variation? ........................................................................................... 22
+      6.2 Special Event Station (SES)................................................................................................22
+      6.3 Permanent Special Event Station (SES) ............................................................................. 23
+      6.4 Special contest call signs (SCC)..........................................................................................23
+      6.5 Beacons and Repeaters.....................................................................................................24
+      6.6 Additional frequency bands .............................................................................................. 24
+      6.7 Special Research Permit (SRP) .......................................................................................... 25
+7. Advice to UK radio amateurs operating in other countries .............................................26
+      7.1 Operating overseas as a UK radio amateur ...................................................................... 26
+      7.2 Use on a ship or aircraft outside of the UK ....................................................................... 27
+      7.3 Your call sign beyond UK jurisdiction................................................................................27
+1. Overview
+
+1.1 What is amateur radio?
+
+Amateur radio is a hobby that allows people to experiment with and learn about radio, and to
+communicate with other radio amateurs both in the UK and around the world. By international
+agreement, amateur radio is exclusively non-commercial and is designed for self-training and
+technical experimentation.
+
+1.2 About this document
+
+This Guidance document provides information on how Ofcom licences amateur radio, also known as
+ham radio, in the United Kingdom (UK) and the Crown Dependencies of Jersey, Guernsey and the Isle
+of Man. It also provides advice on some Ofcom policies associated with amateur radio such as
+temporary call signs and operating overseas.
+From time to time this document may be amended or updated. This guidance is not intended to be
+relied upon as legal advice, nor does Ofcom give advice to licensees on individual cases. Licensees
+should seek their own independent advice to ensure compliance with the terms and conditions of
+their licence.
+
+1.3 How do I become a radio amateur?
+
+To operate as a radio amateur in the UK or Crown Dependencies you need to have a Wireless
+Telegraphy Act licence issued by Ofcom. We issue three levels of Amateur Radio Licences ­
+Foundation, Intermediate and Full. Each level of licence grants certain privileges, for example Full
+licensees are allowed to transmit at greater powers and are able to use more frequency bands than
+the lower level licences.
+To obtain a licence, an applicant must first pass an exam to demonstrate that they have sufficient
+knowledge to use amateur radio at that level. These exams are administered by the Radio Society of
+Great Britain (`RSGB'), the main representative body for radio amateurs in the UK. Examinations can
+be booked through the RSGB website, and further information on guidance for students can be
+found here.
+Once you have passed your exam the RSGB will supply you with a pass certificate and a candidate
+number. This number is important as it is needed when you apply to Ofcom for a licence.
+
+                                                             4
+2. How to apply for a licence
+
+2.1 Applying for a personal amateur radio licence
+
+Individuals who have passed the relevant examination can then apply to Ofcom for an Amateur
+Radio Licence. Once you have the licence you are able to operate radio equipment subject to the
+conditions and limitations set out in the licence.
+
+2.1.1 Online applications
+
+You can apply for an Amateur Radio Licence via our online licensing portal. This is free of charge and
+the licence document is produced as soon as the application process is complete. For help on how to
+register, login and download licences via our portal, please see the guidance document. Please note
+that as part of this process you will need to provide your RSGB candidate number.
+
+You can request a specific call sign suffix via the online system or leave it to the system to select one.
+
+2.1.2 Postal applications
+
+Alternatively, you can submit an application via email, or post to our Spectrum Licensing team.
+Postal or email applications incur a £20 administration fee for applicants under 75 years old, for
+those above the age of 75 there is no fee. The application form can be found here.
+
+Once we have received the application, it can take up to 10 working days for us to process the
+application and issue the invoice for payment. Please note that as part of this process you will need
+to provide your RSGB candidate number. Once the fee has been paid, for those who are required to
+pay, the licence document will be automatically issued. This can be either via email or post,
+depending on your communications preference.
+
+You can request a specific call sign or leave the system to select one. If you request a specific call
+sign, it can only be assigned if available.
+
+2.1.3 Returning to the hobby
+
+If you had previously held an amateur radio licence but no longer have it you can reapply for a
+licence at the same level, without the need to take a fresh examination. In order for us to issue a
+licence we would need some form of proof that an exam had been passed. This could be a copy of an
+old exam pass certificate or an old licence. A copy of these should be included alongside the paper
+application form. When applying, you can request to resume use of your old call sign if it is still
+available.
+
+2.1.4 Operating in the UK with an overseas licence
+
+Some overseas radio amateurs may qualify to operate in the UK and even obtain a UK amateur radio
+licence.
+
+2.1.4.1 Visiting the UK for less than three months
+If you only intend to operate in the UK for less than three months, you may be able to do so using
+your existing licence. If your licence is from a country that has signed up to CEPT Recommendation
+T/R 61-01 do not need to apply for a UK licence if you are only in the UK for less than three months.
+If you intend to stay longer than three months or are from an administration that doesn't participate
+in the Recommendation, you will need to apply for an amateur radio licence issued by Ofcom.
+
+                                                             5
+In October 2025, we have also decided to permit licensees, from those countries where the UK has a
+bilaterial reciprocal licensing agreement with, to also operate on a licence exempt basis. We are in
+the process of updating the necessary regulations to enable this so this is not currently in place.
+
+2.1.4.2 Longer term operation in the UK
+Some overseas radio amateurs may qualify for a UK licence. The process for applying for a licence
+will vary depending on the country where the examination was taken.
+2.1.4.2.1 CEPT Recommendation T/R 61-02
+Many countries, including the UK, participate in CEPT Recommendation T/R 61-02, which enables
+radio amateurs from certain countries to be licensed to operate in another. Details of which
+countries are signatories of T/R 61-02 are set out in the document.
+
+To apply for a UK Amateur Radio (Full) Licence you must have a Harmonised Amateur Radio
+Examination Certificate (HAREC) issued by a participating T/R 61-02 country. A copy of the HAREC
+should be included alongside the paper application form. A fee of £20 is payable when the licence is
+first issued.
+2.1.4.2.2 Countries with a reciprocal agreement with the UK
+For some other countries outside of T/R 61-02, we also have similar bilateral reciprocal agreements.
+For those countries where the UK has a bilateral reciprocal agreement, you can apply for an Amateur
+Radio Full (Temporary Reciprocal) Licence. The countries which this applies to are listed in the
+application form. Applicants must submit a completed paper application form, accompanied by a
+copy of their Amateur Radio licence.
+
+The Amateur Radio Full (Temporary Reciprocal) Licence is valid for six months, but it may be
+renewed for a further six-month period. A fee is payable when the licence is first issued and upon
+each subsequent renewal.
+
+We will shortly be phasing out the Amateur Radio Full (Temporary Reciprocal) Licence. When the
+necessary regulations are in place short term use for a period of up to three months would be
+licence exempt. After this period users would need to apply for a UK Amateur Radio licence.
+
+2.2 Applying for a club licence
+
+2.2.1 What is a club licence?
+
+For many years amateur radio licensees have formed clubs so that they can share their common
+interest in the hobby with others. Members of amateur radio clubs engage in various activities
+including training and running examinations. Some of these clubs have their own call sign used to
+identify the club's radio transmissions which they can do so as they hold a Full (Club) Licence.
+
+As these clubs are often not legal entities, we cannot issue a licence to the club directly. Instead, we
+issue the licence to a named individual who has been authorised by the club to hold the licence. The
+club is named on the front of the licence document. Whilst the licence is issued to an individual
+person in this case, it should be clear that it is being held for the activities of the club.
+
+2.2.2 Qualifying criteria
+
+To apply for a Full (Club) Licence, an applicant must hold a Full Licence, and be supported by two
+other Full Licence holders associated with the club.
+
+                                                             6
+There are specific provisions available for Full (Club) Licence applications for educational
+environments such as schools and universities. These applications only need one Full Licence holder
+and do not need to be supported by two other Full licensees.
+Full (Club) licensees can hold a maximum of five licences for that club, and therefore call signs. This
+is to enable more flexibility for clubs to simultaneously operate in different modes, bands, and
+potentially at different locations.
+
+2.2.3 How to apply
+
+You can apply for Club licences online provided the you are registered with our online licensing
+service.
+You can also apply for a Club Licence by submitting a completed application form OfW346 to our
+Spectrum Licensing team. There will be a one-time administrative fee of £20, payable upon
+completion of the application.
+
+2.2.4 Making Changes to Club Licences
+
+Any request to make a change to a Full (Club) licence, must be submitted using the Amateur Radio
+Licence amendment form Of346a. This is because the form includes a formal declaration that the
+licensee has due authority of the club to request the change. If it were subsequently to emerge that
+the licensee did not have due authority to request the change, we may reverse the variation and the
+licence would revert to the details that applied before that change.
+To change the individual who holds the Full (Club) Licence the existing licence must either be
+surrendered or revoked. We would then issue a new licence to the person taking over responsibility
+of the club licence. Any replacement licence will authorise the use of the same call sign to ensure
+that the club's identity remains consistent. However, until any such revocation has taken place, the
+terms and conditions of the existing licence will continue to apply. This means that, until or unless
+the licence has been surrendered or revoked, the club's call sign can only be used with the
+permission of the named licensee.
+If the holder of the licence dies, the licence dies with them. In this case, another club member must
+apply for a fresh licence and the application must be supported by two other club officials that hold
+a Full Licence. The application should be accompanied by evidence that the previous licensee has
+died, together with a note of the club's call sign.
+In some cases, the licensed individual ceases to be associated with the club; if this were to happen
+this is grounds for Ofcom to consider revoking the licence. To do this, we must be satisfied that the
+licensee no longer represents the club and be provided with evidence that this is the case. For
+Ofcom to revoke a licence we must follow the process that is set out in the Wireless Telegraphy Act
+20061. Until this process has completed the club's call sign can only be used with the permission of
+the named licensee.
+
+1 WT Act 2006, para. 6A of Sch. 1
+
+                                                             7
+3. Non-technical licence
+    conditions
+
+3.1 High level licence summary
+
+The licence authorises spectrum use in accordance with the licence terms and conditions. Like most
+other licences that Ofcom issues, the licence consists of three separate parts:
+
+         · The licence document: this includes information specific to a licensee, and covers:
+             > Licence Details and Validity: information such as the licensee's address details,
+                   licence number and the date their licence was issued.
+
+         · Wireless Telegraphy (WT) Licence Conditions Booklet: this includes the standard
+               terms and conditions applicable to the installation and use of many licences that
+               Ofcom issues. These standard terms and conditions are available on our website in
+               the Amateur Radio Wireless Telegraphy Licence Conditions Booklet (the "Amateur
+               Conditions Booklet"). It covers amongst other things:
+
+             > The process for varying or revoking a licence;
+             > How any changes to the licence need to be notified to Ofcom;
+             > The requirements for licence fee payment (where relevant);
+             > General provisions regarding the use of radio equipment;
+             > Ofcom's powers to access and inspect the equipment;
+             > If required, Ofcom's powers to require licensees to modify, restrict or stop using the
+
+                   radio equipment; and
+             > Requirements on licensees to ensure that members of the general public are
+
+                   protected from Electromagnetic Fields (EMF).
+         · Notice of Coordination: this provides information on all the mandatory
+
+               coordination requirements placed on licensees to protect other services from
+               interference. It includes exclusion zones for some forms of operation.
+These three documents together form the licence. Licensees are required to comply with all the
+terms and conditions in both the licence document, the separate Amateur Conditions Booklet and
+Notice of Coordination. Licensees are issued with their own licence document and can access the
+Amateur Conditions Booklet and Notice of Coordination online.
+
+3.2 Licence duration and revocation
+
+The licence is a lifetime licence as long as you revalidate it every five years and do not breach any of
+the licence terms and conditions. Licences are valid, unless surrendered by the licensee or revoked
+by Ofcom.
+
+The licence permits Ofcom to revoke the licence for spectrum management reasons, so long as five
+years' notice has been given. We normally only do this if we intend to change the way a band is
+used. However, in the case of 2310-2350 MHz, 2390-2400 MHz and 3400-3410 MHz, only three
+months' notice is required.
+
+We may also revoke the licence at any time for other reasons set out in the licence, including if the
+conditions of the licence are breached or a licensed user is causing interference to other authorised
+spectrum users.
+
+                                                             8
+3.2.1 Revalidation
+
+It is important for Ofcom to have accurate licensee details as without it we are unable to contact
+licensees. This can undermine our ability to regulate the operation of amateur radio equipment
+effectively. It is the responsibility of the licensee to confirm to us that Licence details remain valid. If
+a licensee fails to maintain their details, we may propose to revoke the licence.
+To validate your licence, you must log in to the Online Licensing System. An on-screen prompt will
+appear asking you to check and update or confirm your details, to do this use the `Verify my details'
+button. If you are unable to access the Online Licensing System, you can contact Spectrum Licensing
+to revalidate your licence.
+
+3.3 Licence Fees
+
+A licence fee of £20 is charged for all paper applications unless the applicant is over 75 years of age.
+If carried out online no fee is charged.
+
+3.4 Where it can be used
+
+The licence authorises use of the designated spectrum across and over the UK and the Crown
+Dependencies of Jersey, Guernsey and the Isle of Man, including their territorial seas. This covers the
+area out to twelve nautical miles or until a point is reached halfway to another country, such as
+France. The licence also applies to other areas covered by UK law such as UK controlled areas of the
+North Sea.
+The licence continues to apply if used on a UK registered ship or aircraft in international waters or
+airspace. The licence does not cover the use on a non-UK registered ship or aircraft internationally
+nor any use within the territorial waters or airspace of another country. Further information on
+requirements for operating outside of the UK can be found in Section 7.
+The licence requires you to obtain the permission of the captain (or the person in charge at that
+time) of the ship or aircraft before transmitting and comply with any instructions they give, including
+stopping transmitting.
+Airborne operation must be restricted to 500 mW ERP in primary amateur radio bands only, as
+detailed in Schedule 1 of the Amateur Conditions Booklet.
+
+3.5 Coordination requirements
+
+The use of certain frequencies or modes of operation may be restricted or must be coordinated with
+other users before any transmissions can start. As part of the licence conditions licensees must
+operate in accordance with these restrictions.
+Information on these is set out in the Notice of Coordination.
+
+3.6 Use of the radio equipment
+
+3.6.1 Purpose
+
+Amateur Radio is a radio service that is recognised internationally under the International
+Telecommunications Union (ITU) Radio Regulations. It is up to the licensee to ensure that the radio
+equipment is only used in accordance with Condition 6(4-5) of the Licence terms and conditions.
+
+                                                             9
+Amateur Radio is an activity pursued by individuals for personal (or `hobby') purposes with no
+commercial, financial or profit aspect to it. The UK Amateur Radio Licence does not authorise the
+use of Amateur Radio for business purposes.
+
+3.6.2 Who can use the equipment
+
+Normally, a station may be operated only by the licensee or by someone else who holds a UK
+Amateur Radio Licence. However, the Licence allows others to use the station in some
+circumstances. It should be noted that at all times the licensee is responsible for ensuring
+compliance with the terms and conditions of the licence.
+3.6.2.1 Supervised use
+The Licence allows anyone to use the radio equipment providing that they are under the direct
+physical supervision of the licensee. This is required so that at any time the licensee can take back
+control of the radio equipment.
+Under a Full (Club) Licence, the licensee may allow any Full-level Licence holder to use the radio or
+to directly supervise anybody else using the radio.
+3.6.2.2 Emergency services and responders
+The Licence includes specific provisions to allow licensees to provide emergency communications to
+support the response to an incident or training for one.
+
+3.6.3 Making transmissions
+
+When transmitting and sending messages there are a number of things that a licensee must comply
+with.
+3.6.3.3 Encryption
+Messages sent between amateur stations shall not be encrypted unless this is a control signal
+between an earth command station and an amateur satellite. This provision does not apply if
+supporting a User Service that requires encryption.
+3.6.3.4 General reception messages
+The purpose of Amateur Radio is to communicate with other radio amateurs (individually or in
+networks). The Licence states that the licensee must not send messages for general reception,
+except for initial ("CQ") calls or transmissions to groups of three or more Amateurs, so long as
+communication is first established separately.
+The only exception to this is covered by Condition 6(20)(c), enabling messages transmitted by a
+Beacon or Data Station which typically transmit data automatically. This provision also covers
+existing bulletin board and mailbox forms of operation.
+3.6.3.5 Identification
+A station's unique identity is the call sign that we assign, and this is the identity that must be
+transmitted. The call sign can also include a Regional Secondary Locator (RSL)2 or suffix, on an
+optional basis. For more information see section 5 on call signs.
+
+2 For Intermediate stations utilising a `2' format call sign, use of an RSL remains a requirement.
+
+                                                            10
+3.6.3.6 Sending of grossly offensive, obscene, or menacing messages
+It is an offence under the Wireless Telegraphy (Content of Transmission) Regulations 1988 to send a
+message, communication or other matter that is grossly offensive or of an obscene or menacing
+character.
+Sadly, there are a small number of cases which occur each year that involve threatening violence,
+harassment, malicious communication or can be classified as a hate crime. If you receive any threats
+of immediate danger or violence, these should be referred directly to the police. Ofcom will seek to
+support a police investigation and take steps when appropriate to revoke the licence of those
+involved with committing such an offence.
+
+3.7 Powers to access, modify and shut down your equipment
+
+The licence includes terms that allow Ofcom to instruct the licensee to provide access to, modify or
+shut down the radio equipment ­ but we will only do this if there is a problem that we consider
+requires such action. For example, we may do this if your equipment was causing interference to
+another user. In these cases, we may request that you modify your equipment parameters and
+change the way it transmits so that it no longer causes interference.
+
+3.8 Compliance with EMF
+
+All uses of radio spectrum generate electromagnetic fields (EMF). There are internationally agreed
+guidelines published by the International Commission for Non-Ionising Radiation Protection (ICNIRP)
+to help ensure services operate in a way that will not adversely affect health. These guidelines
+include limits on EMF exposure for the protection of the general public. We refer to these limits as
+the "ICNIRP general public limits".
+In our Statement on "Measures to require compliance with international guidelines for limiting
+exposure to electromagnetic fields (EMF)" (the "EMF Statement"), we explained that some spectrum
+users are not fully aware of the limits in the ICNIRP Guidelines or are not taking full account of EMF
+exposure when installing or modifying radio equipment. In order to address these risks, we decided
+to include a specific condition in licences requiring licensees to comply with the ICNIRP general
+public limits. This condition applies to all licence classes which authorise equipment to transmit at
+powers higher than 10 Watts EIRP or 6.1 Watts ERP (including, for example, the licences of mobile
+phone companies, TV and radio broadcasters and most point-to-point microwave links).
+Therefore, a requirement of the licence is that the licensee carry out as assessment3 to check that its
+radio equipment operates within the ICNIRP general public limits.
+We have published guidance on how to comply with the EMF condition on our website. This includes
+some user-friendly guidance specifically designed for radio amateurs. More general information on
+Ofcom's work in relation to EMF condition can be found on the EMF section of our website.
+
+3 There are some circumstances where licensees do not need to carry out an assessment. These are set out in
+paragraph 6.12 of our Guidance on EMF Compliance and Enforcement.
+
+                                                            11
+4. Technical licence conditions
+
+The amateur radio licence includes a number of technical conditions that licensees must adhere to.
+A summary of these is provided in this section.
+
+4.1 Not to cause undue interference
+
+The Licence requires that any radio equipment is designed, constructed, maintained, and used so
+that its use does not cause any undue interference to any other wireless telegraphy user. Licensees
+therefore need to ensure that all measures are taken for this not to occur, this should include testing
+the radio equipment from time to time.
+
+4.1.1 Unwanted emissions
+
+Unwanted emissions consist of spurious emissions and out-of-band emissions. To prevent
+interference, the radio equipment should be as stable and as free from unwanted emissions, as the
+technical development for the radio equipment permits. For example, close attention should be
+given to the transmitted bandwidth and to avoid spectral regrowth affecting adjacent users, as well
+as harmonics that may arise further away in other frequency allocations.
+For reference, Table 16 in Annex 6 of the CEPT ERC Recommendation 74-01 sets out the spurious
+limits for Amateur Radio equipment. Annex 9 of ITU-R Recommendation SM.1541-6 provides
+information on out of band limits for amateur services. If building your own equipment, you need to
+consider the limits set out in these documents in order to avoid causing undue interference.
+
+4.1.2 Equipment compliance
+
+For equipment that is self-built, there is no general requirement for Amateur Radio apparatus to
+conform to the essential requirements of the Radio Equipment Regulations 2017 (RER). However,
+the RER does cover commercially available Amateur Radio apparatus (`plug-and-play' equipment or
+kits). More information on the RER can be found here.
+
+4.2 Transmit power
+
+The class of amateur radio licence determines the maximum permissible power level a licensee is
+able to use. Table 3 provides a high-level summary of the permitted power levels at each level.
+The powers set out below are the maximum limits the licence permits you to transmit at. However,
+you should always look to use only the power you need for your operations at the time.
+
+                                                            12
+Table 3: Permitted Power Levels4
+
+      Licence level Power                                   Comments
+                                                            Available in most bands
+Foundation                        25 Watts / 13.98 dBW PEP  Available in most bands
+                                                            Bands allocated as Primary in
+Intermediate                      100 Watts / 20 dBW PEP    Schedule 1 of the licence.
+                                                            Available in most other bands.
+Full                              1000 Watts / 30 dBW PEP
+
+                                  400 Watts / 26 dBW PEP
+
+Please note that some frequency bands are subject to further power restrictions. For full details of
+the power restrictions please consult Schedule 1 in your licence.
+
+As set out in Section 3, the use of transmit powers above 10 Watts EIRP or 6.1 Watts ERP is only
+permitted if the licensee can demonstrate (prior to transmitting) that their use of radio equipment
+complies with the EMF licence condition.
+
+4.2.1 Measurement of power
+
+The Amateur Conditions Booklet sets out the transmit power requirements for radio equipment for
+the three levels of licence. These limits include a reference stating how the power is calculated.
+
+4.2.1.1 Peak Envelope Power (PEP)
+PEP is the average power supplied to the antenna by a transmitter during one radio frequency cycle
+at the crest of the modulation envelope taken under normal operating conditions.
+
+4.2.1.2 Effective radiated power (ERP)
+ERP is the product of the power supplied to an antenna and its gain in a given direction relative to a
+half-wave dipole.
+
+4.2.1.3 Equivalent isotropic radiated power (EIRP)
+EIRP is the total power radiated by an antenna, taking into account the power delivered to the
+antenna and the antenna gain in a given direction relative to an isotropic antenna.
+
+4.3 Airborne use
+
+Any airborne amateur use must comply with all the conditions set out in the Licence, including the
+non-commercial nature of the amateur service. Airborne use is only permitted where amateur radio
+is the Primary user of the frequency band and is subject to a maximum transmit power of 500mW
+EIRP. Schedule 1 of the Amateur Conditions Booklet details the bands where airborne operation is
+allowed.
+
+Use of amateur radio equipment on things such as balloons, kites or paragliders is allowed within UK
+airspace. Airborne use in international airspace is only permitted if on board a UK registered aircraft.
+
+4 Detailed information can be found in Schedule 1 of the Licence terms and conditions booklet.
+
+                                                            13
+4.3.1 Aircraft
+
+Airborne operation on an aircraft must only be done with the permission of the captain or the
+person in charge of the aircraft and must cease upon request. The amateur radio licence only
+authorises the use of radio equipment in regard to the authorisation under the Wireless Telegraphy
+Act 2006. It does not provide any broader authorisation related to airborne operations,
+airworthiness or supersede any aviation safety rules or requirements. Therefore, it should be noted
+that the use of amateur radio should in no way be used instead of the appropriate aeronautical
+communications requirements set by the Civil Aviation Authority (CAA).
+
+The licence permits the use of Amateur Radio in international airspace only on a UK registered
+aircraft. It does not permit the use in another country's airspace. Use on a non-UK registered aircraft
+outside UK airspace falls outside of Ofcom's jurisdiction and requires authorisation from the
+administration of the country where the aircraft is registered. Further information about
+requirements for international operation can be found in section 7.
+
+4.3.2 Drones
+
+Ofcom receives enquiries from those wishing to control a drone under the Amateur Radio Licence.
+These operations include telecommand (used to control the drone) or data transmission (e.g. video
+showing a pilot's eye view of the flight termed `First Person View' (FPV)). This is desired as the
+transmit powers permitted by the Amateur Radio Licence are more than those set out in exemption
+regulations for Wi-Fi type devices.
+
+This is not the purpose of Amateur Radio and this type of use is not compatible with the terms of the
+Licence. It should also be noted that the 2.4 GHz and 5 GHz bands used by most drones are in
+Secondary allocations where no airborne use is permitted. Ofcom has a UAS Radio Operator licence
+that may be more appropriate for longer range requirements. More information on this licence can
+be found here.
+
+4.4 Remote control and unattended operation
+
+Remote control operation is where the radio equipment is not located at the same place as the
+licensee but remains under their direct control. This can be either via a radio link, or alternative
+method such as an internet connection.
+
+Unattended operation is where the radio equipment is located outside of the licensee's main station
+address and used by a person not at the same location. This is especially the case for systems such as
+repeaters that may be used by other amateurs.
+
+4.4.1 Identification of the radio equipment
+
+Where the radio equipment is located away from the main station address and at a different
+location to the licensee, the licence states that the licence number must be clearly displayed on, or
+next to, the radio equipment. This is the minimum information we request as it is essential that we
+can identify the owner of the equipment when investigating reports of interference or compliance
+with the electromagnetic fields (EMF) provisions in the licence.
+
+4.5 Repeater, beacon, gateway, and data station operation
+
+Operation of most repeaters, beacons, gateways, and data stations now falls under the licence terms
+and conditions and no longer requires an NoV to the licence. An NoV will still be required in some
+circumstances so please check the information below.
+
+                                                            14
+Where a beacon, repeater, gateway, or data station operates either remotely or unattended the
+licensee must comply with the unattended or remote operation licence conditions in addition to the
+licence provisions for the type of station.
+
+4.5.1 Arrangements for existing NoV holders
+
+For those who hold an existing NoV for a repeater, beacon, gateway, or data station, please note:
+
+    · If the repeater or beacon NoV is for powers above 25 Watts ERP, it remains valid and is
+         required.
+
+    · If the NoV is for powers below 25 Watts ERP, the NoV whilst no longer formally valid, can be
+         used as evidence that steps have been taken to avoid interference under the revised licence
+         conditions. However, the power or other parameters change, you will have to show that the
+         increase in power does not cause interference and comply with the steps outlined below.
+
+4.5.2 Demonstrating reasonable steps have been taken to
+         minimise risk of undue interference
+
+When operating a beacon, repeater, gateway, or data station a condition of the Licence is that the
+licensee must be able to demonstrate that they have taken reasonable steps to minimise the risk of
+causing undue interference to other authorised uses of radio. If requested, the licensee must be able
+to provide written evidence of this to Ofcom. It is up to the licensee to decide on how they comply
+with this provision however, a failure to do this would be a breach of the licence possibly leading to
+enforcement action by Ofcom.
+
+The relevant licence conditions include Condition-5 regarding Coordination (and the Notice of
+Coordination attached to the licence terms).
+
+Licensees can carry out their own interference assessments or use existing procedures such as the
+RSGB coordination process. For those licensees previously operating under an NoV, but is no longer
+required following the changes, providing that transmissions remain within those parameters set out
+in the NoV, this can be used as evidence of compliance. In some cases, operating within agreed
+amateur radio practices can be another way of demonstrating compliance, especially for low power
+operation.
+
+The use of certain types of these modes of operation are coordinated by the amateur community in
+order for these not to cause problems to other users. To support this, the RSGB has developed a
+band plan (coordinated internationally) which provides guidance to amateurs on how they transmit
+using different operating modes without causing incompatibility issues.
+
+There remain specific protection requirements and coordination procedures necessary to ensure
+protection of other radio users from Amateur Radio transmissions in certain bands. We have
+introduced a Notice of Coordination that sets these out. In addition to the general conditions
+regarding assessing interference, in the 1240 ­ 1325 MHz band there will continue to be the
+requirement for unattended amateur apparatus of any power to be coordinated with the CAA and
+MoD before transmissions can begin. A number of other bands and some specific locations are also
+included in the Notice of Coordination.
+
+4.5.2.1 Frequency clearance request process
+
+Where applicable, the frequency clearance for repeaters, beacons, gateways, and data stations
+requires that a licensee must first obtain a provisional call sign from the RSGB. The RSGB or an
+applicant must then send the clearance request to Ofcom. This also needs to include any
+documentation provided by the RSGB and evidence that demonstrates that reasonable steps have
+
+                                                            15
+been taken to minimise the risk of interference. After receiving this information, we will engage with
+the CAA and MoD who will approve or deny the clearance request. We will then issue the clearance
+authorisation should it be approved.
+
+Frequency clearance approval is also required for repeaters, beacons, gateways, and data stations
+operating above 25 Watts ERP in bands such as 430 ­ 440 MHz and 1240 ­ 1325 MHz band.
+Equipment operating above 25 Watts ERP requires an NoV meaning that the clearance approval will
+remain part of the NoV application process.
+
+4.5.3 Misuse of the station
+
+Repeaters, gateways and data stations allow the retransmission of messages and data generated by
+other radio amateurs both in the UK and across the world. The licensee remains responsible for
+transmissions made via their radio equipment. Therefore, all reasonable steps need to be taken to
+minimise the risk of unsuitable content being transmitted. If the station keeper becomes aware of
+misuse or is aware of persistent cases, they need to take action to address the issue. This may
+include documenting or audio recording the incident, switching it off the station for a period of time
+or restricting access to the station to certain licensees. Failure by the station keeper to tackle these
+problems may result in Ofcom requiring the permanent shutdown of the station or in the worst
+circumstances the revocation of their licence.
+
+4.5.4 Repeater operation
+
+An amateur radio repeater is a device that receives an amateur radio signal and retransmits it, so
+that the signal can cover longer distances without degradation. Throughout the UK there is a
+network of such devices.
+
+         · Low power repeaters under 5 Watts: Holders of an Intermediate or any Full-level
+               Licence may operate a repeater that transmit at less than 5 Watts ERP.
+
+         · Higher power repeaters between 5 and 25 Watts: Holders of an Intermediate or
+               any Full, Full (Club) or Full (Temporary Reciprocal) Licence can deploy repeaters that
+               transmit above 5 Watts ERP but no greater than 25 Watts ERP without an NoV.
+               Licensees will need to obtain a specific call sign from the RSGB, or other body
+               stipulated by Ofcom, before transmission begins.
+
+         · NoV for repeaters above 25 Watts: In exceptional cases, repeaters that operate
+               above 25 Watts ERP may be permitted, but will still require an NoV and clearance.
+               Further information on these can be found in Section 7 below.
+
+All repeaters must operate on frequencies above 28 MHz, as set out in Condition 6(14).
+
+The deployment and operation of repeaters in certain frequency bands are subject to restrictions
+which are set out in Table 2 of the Notice of Coordination document.
+
+4.5.5 Gateway operation
+
+A gateway is a radio device through which amateur radio equipment can connect to a non-Amateur
+network, such as the internet.
+
+         · Low power Gateways under 5 Watts: Holders of any Amateur Radio Licence
+               (Foundation, Intermediate or Full) can operate a Gateway radio device under 5
+               Watts ERP without the need for an NoV.
+
+         · Connectivity equivalent to a Gateway: This can also be implemented by Repeaters
+               and Data Stations, whereby they incorporate non-RF connections to non-amateur
+               networks (a facility included in their former NoV).
+
+                                                            16
+Where a separate Gateway station provides an RF link to/from a repeater, the general rules for the
+use of a repeater would continue to apply. However, before such a link can connect to a repeater,
+individuals must obtain the repeater keeper's permission.
+The deployment and operation of gateways in certain frequency bands are subject to restrictions
+which are set out in Table 2 of the Notice of Coordination document.
+
+4.5.6 Beacon operation
+
+An amateur radio beacon is a transmit-only device that automatically emits a signal on a specific
+frequency. They can be used to monitor propagation conditions and how radio waves travel through
+the atmosphere as well as for position reporting, direction finding or telemetry. Examples of the
+latter include transmit-only APRS.
+
+         · Low power beacons under 5 Watts: all radio amateurs (Foundation, Intermediate
+               and Full) that hold a Licence can deploy beacons up to 5 Watts ERP.
+
+         · Higher power beacons between 5 and 25 Watts: Intermediate and Full licensees
+               can deploy beacons up to 25 Watts ERP, subject to the licensee obtaining a
+               necessary call sign from the RSGB or other bodies stipulated by Ofcom.
+
+         · NoV for beacons above 25 Watts: Intermediate and Full-level licensees can still
+               deploy beacons over 25 Watts ERP. The deployment of these beacons will require a
+               NoV, more information on the process can be found below in Section 7.
+
+The deployment and operation of some types of radio beacons are subject to restrictions which are
+set out in Table 2 of the Notice of Coordination document.
+
+4.5.7 Data Station operation
+
+A Data station transmits or receives data. These are usually machine-to-machine operations that
+carry third-party amateur radio traffic. Examples of a data station include APRS, UIView/Packet
+stations, data/trunk links and RF mesh networks.
+
+         · Low power data stations under 5 Watts: any Amateur Radio Licence holder can
+               operate data stations up to 5 Watts ERP.
+
+         · Higher power data stations between 5 and 25 Watts: Intermediate and Full-level
+               licensees can operate data stations, up to 25 Watts ERP, subject to the licensee
+               obtaining a necessary call sign from the RSGB or other bodies stipulated by Ofcom.
+
+The deployment and operation of data stations in certain frequency bands are subject to restrictions
+which are set out in Table 2 of the Notice of Coordination document.
+
+                                                            17
+5. Call signs
+
+5.1 The purpose of call signs
+
+Call signs are the primary method amateurs use to identify themselves when communicating with
+other operators. Each amateur radio licensee has a unique call sign, by which they can be identified.
+This is important for spectrum management as it enables receiving stations to know who is calling
+them and so ensures compliance with relevant international agreements and identification of the
+source of any problematic signals.
+
+5.2 Acceptable call sign formats
+
+The call signs that Ofcom issues for normal operation under the Amateur Radio Licence are made up
+of an initial character `G' or `M' (denoting that a station is authorised by the UK), followed by a
+number and then, normally, three letters. Very old call signs, some of which remain in use, have only
+two trailing letters. A call sign with only two trailing letters or which starts with `G2' is only available
+if the applicant previously held it.
+
+The call signs that Ofcom issues for normal operation under the Amateur Radio Licence for Full
+(Club) Licences are made up of an initial character `G' or `M', followed by three letters. Some club
+call signs have only two trailing letters if the club can prove the call sign heritage and connection to
+the Club.
+The call sign that we issue shows the level of the station, as set out in the table below.
+
+Table 1: Amateur Radio Call sign formats
+
+                            Call sign initial characters Station level
+
+                      Currently issuing: M3, M6, M7 Foundation
+
+                            Currently issuing: M8, M9 Intermediate
+                            Formerly issued: 2#0, 2#1
+
+  Currently issuing: M0, M1, M5, G1, G2, G3, G4, Full
+                                     G5, G6, G7, G8, G0
+
+                                   Formerly issued: G2
+
+5.3 Assigning call signs
+
+When applying online, you are able to choose both the call sign prefix (e.g., for Foundation, `M3,
+`M6' or`M7') and suffix (trailing three letters) that you wish to use. If the selected combination is
+available to be issued you will be granted that call sign. There is also the option to choose the next
+available call sign if you have no preferences.
+Lists of available call signs are not routinely published by Ofcom, but when requesting a call sign, it is
+important to consider if it is permitted with your licence level and acceptable call-sign formats. We
+do not allow individuals to change their call sign immediately if allocated one they don't like online.
+
+                                                            18
+Please note that when considering choosing a call sign, Ofcom has no control over third-party
+platforms such as QRZ. On such platforms, if your newly assigned call sign is already listed under a
+different user, you may not be able to register your call sign on that platform. Ofcom is not able to
+intervene in any such disputes and it is your responsibility to address any issues directly with them.
+
+5.4 Changing and transferring call signs
+
+We assign each station a unique identifier ­ its call sign. This enables us to meet our obligations
+under the Radio Regulations, which require stations to be clearly identifiable and prohibits
+misleading identities.
+
+5.4.1 Changing a call sign
+
+We allow individuals to change their call signs periodically if the proposed new call sign is available,
+and the licensee has not changed their call sign in the last 5-years.5
+
+5.4.2 Transferring personal call signs
+
+Individual personal call signs can not be transferred from one licensee to another. When a licence is
+revoked or surrendered the call sign will be rested for a five-year period. During this time, it will not
+be available for reallocation. Once the five period has been completed it will be available for re-
+issue. For more information on this process please see section 5.6.
+
+5.4.3 Transferring club call signs
+
+As mentioned previously, a Full (Club) Licence and its associated call sign are issued to an individual
+acting on behalf of the club. As we do not permit the transfer of amateur radio call signs, to transfer
+the call sign to a new individual acting on behalf of the club requires the revocation of the existing
+Full (Club) Licence and applying for a new one.
+
+5.5 Holding multiple call signs
+
+We restrict the number of personal licences, and therefore call signs, an individual can hold. This
+means that you can only hold a single personal licence and call sign. If you currently hold multiple
+call signs, you will have the option to elect which call sign you wish to keep.
+This also means that when a licensee progresses to the next level of licence, their lower-level licence
+will be revoked. Licensees will retain their highest-level licence; in cases where licensees hold
+multiple Full Licences, they will be required to nominate the one they wish to keep, and surrender all
+others.
+We will amend any standard licence that currently allows multiple call signs to limit it to one call sign
+per personal licence. Call signs obtained through a Notice of Variation (NoV)--such as special contest
+call signs--will not be affected by this change. Call signs issued for specialist operations such as a
+repeater as also not affected. This means that a licensee may continue to hold both a standard call
+sign and a special contest call sign at the same time.
+
+5 A call sign is available, if it is in the correct format for the class of licence, is not withheld (for example
+because it is offensive), is not currently assigned to a licensee and has not been in the past five years.
+
+                                                            19
+5.6 Re-issuing old call signs
+
+Once a call sign is relinquished, there must be a period of `rest' before it can be re-assigned to
+identify a new station to ensure the unique identity of a station is maintained. Therefore, we will not
+make a call sign available for five years following the expiry of its previous use. This applies in all
+circumstances no matter who the requester is. Once the five-year period has elapsed, we can reissue
+a call sign if it is available.
+
+5.7 Using a Regional Secondary Locator (RSL)
+
+An RSL enhances the `core' call sign of an Amateur Radio Licence. They are used to indicate the UK
+nation (or Crown Dependency) in which a station is operating. The use of RSL's, in most cases, is now
+optional for licensees.
+
+The licence does not require the use of an RSL except in the case of Intermediate stations that utilise
+a `2' format call sign. This is because, without an RSL, the format of these call signs (e.g., `20aaa')
+does not confirm to the requirements set out in the Radio Regulations. Inserting the RSL ensures
+that the call sign does confirm to the Radio Regulations.
+
+RSL's are not mandated by the Radio Regulations and are used by few other countries and serve no
+spectrum management purposes, hence they are no longer a mandatory requirement. However, we
+understand that RSLs are important to some radio amateurs and therefore, they can continue to be
+used in call signs, on an optional basis.
+
+Table 2: UK Regional Secondary Locators (RSL)
+
+Region            All Licences                     Full (Club) Licence only
+                                                                X
+England           E                                             P
+                                                                T
+Guernsey          U                                             H
+                                                                N
+Isle of Man       D                                             S
+                                                                C
+Jersey            J
+
+Northern Ireland  I
+
+Scotland          M
+
+Wales             W
+
+5.7.1 Temporary RSLs
+
+We sometimes issue temporary RSLs to mark special occasions such as a royal coronation and other
+significant national events. The amateur radio licence allows licensees to use any special RSL as
+notified by Ofcom. An example of a special RSL was the use of `Q' to mark the period of national
+mourning in 2022.
+
+Such temporary RSLs are only available on a temporary basis, which means:
+
+    · The RSL is available for no more than one year;
+
+                                               20
+    · Where possible, the period of availability will be bounded by two dates of significance to the
+         event being marked;
+
+    · The start and end dates do not need to be in the same calendar year.
+The ability to use a temporary RSL will be notified via the Ofcom website.
+
+5.8 Suffixes
+
+A `suffix' is a group of one or more letters added to the end of a call sign following the `slash' (`/')
+character. These have typically been used to indicate that the station is not at its main station
+address. Examples of suffixes that can be used to indicate an alternative location are `/A', `/M',
+`/MM', `/P', `/AM'.
+Any suffix, following the `slash' (`/') symbol may be added to the transmitted call sign, so long as the
+station remains identifiable. Suffixes are not mandated by, or referenced in, the amateur radio
+licence as they do not form part of the `core' call sign and are not required for the management of
+the radio spectrum.
+When used, the suffix becomes part of the call sign and is therefore subject to the Wireless
+Telegraphy (Content of Transmission) Regulations, 1988 which must be complied with at all times;
+any breach of these regulations could be considered a police matter and will be referred to the
+correct authorities as appropriate.
+
+                                                            21
+6. Notices of variation
+
+6.1 What is a notice of variation?
+
+An amateur radio licence can, in some circumstances, be varied the allow the licensee to do things
+that the normal licence will not allow.
+The rules and criteria set out for Special Event Stations will be changing in the future, for more
+information on these changes see Section 8. The guidance below will be updated once the new rules
+are in force.
+
+6.2 Special Event Station (SES)
+
+The holder of a Full Licence (personal or Club) may apply for permission to use an additional call sign
+to denote an official event. We authorise SES call signs by varying the individual Amateur Radio
+Licence. An SES must mark a recognised event, such as a sporting or local event.
+The effect of the variation is to authorise the licensee to identify the station using the SES call sign,
+because the (unvaried) licence does not normally allow that. However, using an SES call sign remains
+optional and the licensee may still identify the station with the normal station call sign.
+Our December 2023 statement outlined our decision to introduce a more permissive and liberalised
+SES NoV. As a result of these changes, in October 2025 we withdraw the Special, Special Event
+Stations (SSES) NoV as there is no spectrum management purpose for a distinctive process between
+the two.
+
+Eligibility
+
+To apply for an SES call sign, the applicant must be a Full, or Full (Club) Licence holder. Holders of
+Temporary Reciprocal Licences are excluded.
+We authorise any location(s) that is/are clearly defined, including mobile or peripatetic operation.
+Other radio amateurs are able to operate the station, as long as it is in accordance with the licence
+terms and conditions.
+
+Duration
+
+We normally authorise an SES for up to one year and allow only one SES per event. It is therefore
+first come, first served.
+An SES call sign can be applied for up to 6 months prior to the event.
+We also allow the dates of operation not to be consecutive, enabling radio amateurs to mark a series
+of events planned throughout the year.
+
+Call sign format
+
+SES call sign formats must comply with Article 19 of the Radio Regulations. They must not be
+offensive and must not have been used for another event in the past two years. Applicants may
+request a specific call sign or alternatively we can assign one. Available call signs can be a maximum
+
+                                                            22
+of 8 characters in length, in the format `GBxcccca'6 meaning licensees will be able to choose any SES
+call sign, as long as they start `GBx' and end with a letter. It is our practice to rest a call sign for five
+years following the event to ensure that any subsequent use does not cause confusion.
+
+6.3 Permanent Special Event Station (SES)
+
+A PSES is designed as a showcase for the hobby. These stations are usually established in a museum
+or other curated display of national or international significance. Examples include the Imperial War
+Museum and the Abbey Mills sewage pumping station in South London.
+To apply for a Permanent Special Event Station, you must complete an application form and submit
+it to Spectrum Licensing via post or email.
+
+Eligibility
+
+PSES NoVs are available to Full Licence holders only, including Club Licences. Holders of Temporary
+Reciprocal Licences are excluded due to their temporary nature.
+PSES applications must meet the following qualifying criteria:
+
+    · PSES must be an adjunct to a non-amateur radio permanent event display or museum; it
+         must not be an amateur radio event in itself.
+
+    · The curated display/event (etc) must be of national or international significance; and
+    · Those running the museum (etc) must agree to the PSES being associated with their display.
+
+Duration
+
+PSES are valid for 5 years. Variations are renewable every five years, upon reapplication. The PSES
+variations that we grant all expire on the same date, allowing us to review them.
+
+Call sign format
+
+The call sign that we authorise for a PSES will reflect the station, for example GB0IWM for the
+Imperial War Museum. The format of PSES call signs that we assign is `GB' followed by 2 or 3 digits
+(0-9) and 2 or 3 letters (e.g., `GBxccca)7.
+
+6.4 Special contest call signs (SCC)
+
+An SCC is a short form call sign (four characters) that identifies an amateur radio station participating
+in a contest. The purpose of many contests is to make as many contacts as possible in a given time,
+therefore a short call sign is quick to say or to key (Morse Code) increasing the number of possible
+contacts a radio amateur can obtain.
+The RSGB processes applications for Special contest call signs for Ofcom, although it remains
+Ofcom's decision on whether or not to grant a variation.
+
+Eligibility
+
+SCC NoVs are available to Full Licence holders only, including Club Licences. To obtain an SCC,
+individual licensees (or the licence-holder in the case of club licensees) must supply evidence of
+
+6 For example, `x' equals a number and `c' represents any letter or number in the call sign
+7 Where `x' represents a digit, `c' represents a digit or letter, and `a' represents a letter.
+
+                                                            23
+having entered at least five contests from the list supplied on the RSGB website, and the applicant
+must have accrued five achievement points from the contests entered.
+
+Duration
+
+SCCs are valid for up to 5 years; all SCC NoVs expire (and are renewable) at the end of the same 5
+year period. All applications for SCC NoV (including renewals) are made to the RSGB, who undertake
+administration for Ofcom.
+
+Format
+
+The SCC is in the format `G' or `M', followed by a chosen digit and a chosen suffix letter. Examples
+are G8Z or M7R. An RSL may be used with these SCCs.
+
+Location
+
+The SCC may be used only in the UK or Crown Dependencies.
+
+6.5 Beacons and Repeaters
+
+Some beacons, gateways and repeaters will still require an NoV to operate, and individuals wishing
+to deploy these will have to go through the current process to obtain one. The below text sets out
+the criteria that requires a NoV:
+
+    · Intermediate and Full licensees who wish to operate beacons above 25 Watts ERP, and
+    · Full licensees who wish to operate a repeater above 5 Watts ERP.
+It is important to note that, where a gateway operates in a dog-leg (via a repeater), the general rules
+for the use of a repeater will continue to apply. For more information on rules around repeaters,
+please see Section 4 above, and below.
+
+Process
+
+Applications for these NoVs are applied for via the RSGB Website, here. Once the relevant checks
+have been conducted, the RSGB will send the completed NoV to Ofcom and our Spectrum Licensing
+team will send it out to the applicant.
+Should the application be in a band requiring coordination, we will engage with the relevant third
+parties and, if approved our Spectrum Licensing team will inform the RSGB and the applicant. If the
+clearance request is not approved, we will inform the RSGB who will liaise with the applicant to seek
+alternative arrangements.
+
+6.6 Additional frequency bands
+
+In addition to the frequency bands listed in Schedule 1 of the Amateur Condition's Booklet, access to
+the following frequency bands is available via an NoV to the licence. The bands are:
+
+         · 70.5-71.5 MHz;
+         · 146-147 MHz; and
+         · above 275 GHz.
+Access to the 70 MHz and 146 MHz bands can be agreed by applying for an NoV from this website.
+
+                                                            24
+6.7 Special Research Permit (SRP)
+
+An SRP allows the licensee to vary the licence in order to carry out research and experimentation
+that might not be permitted under the licence. Each request is assessed on a case by case basis. In
+some cases we may advise that an Innovation and Trial licence may be the appropriate licence. The
+SRP application form can be found here.
+
+                                                            25
+7. Advice to UK radio amateurs
+    operating in other countries
+
+The UK is a member of CEPT, the European regional organisation that deals with postal and
+telecommunications issues. Reciprocal arrangements have been agreed within CEPT (and some
+other countries) concerning licensed radio amateurs. These arrangements detail how a licensed
+radio amateur from one country may use amateur radio equipment in another country.
+
+The bands and frequencies available to amateur radio services vary, and individual countries may
+impose different restrictions. UK radio amateurs wishing to operate overseas must familiarise
+themselves and comply with all locally applicable restrictions in the country they are operating in
+and abide by the local authority in charge of radiocommunications. When operating on a ship or
+aircraft, different rules apply depending on location and the country where the ship or aircraft is
+registered. Before operating a radio amateur must have the consent of the captain or person in
+charge of the ship or aircraft.
+
+7.1 Operating overseas as a UK radio amateur
+
+Each country has its own licensing arrangements, and the holder of a UK Amateur Radio Licence
+must ask the relevant licensing authority about the arrangements for obtaining a licence.
+
+The use of amateur radio equipment in some overseas countries may be covered by CEPT
+Recommendation T/R 61-01. The Recommendation makes provisions for amateurs to operate for a
+short period, usually up to three months, in other participating countries without the need for an
+individual authorisation from the host country.
+
+A person who has passed the UK Amateur Full examination may be able to obtain a licence in
+another country if that country applies to CEPT Recommendation T/R 61-02. To get the overseas
+licence, a UK HAREC is needed. These are normally issued alongside the Amateur Full examination
+certificate by the RSGB. For existing Full Licensees If you have misplaced yours, or don't have one,
+you can apply for one from Ofcom. These are only available to holders of the Amateur Radio (Full)
+Licence, or to those who can otherwise demonstrate that they have passed a UK Full examination.
+
+If the UK has a bilateral reciprocal agreement with the country, the holder of a UK Amateur Radio
+(Full) Licence may be able to obtain a licence from the other country. The UK radio amateur must
+consult the relevant licensing authorities in the other country on the arrangements for obtaining a
+licence there.
+
+When operating in another country, including its territorial waters and airspace, you are required to
+follow the rules set by the administration of that country. This may mean that use of certain
+frequency bands or types of operation, such as airborne, may not be permitted. For example, the
+band at 70 ­ 70.5 MHz is authorised in the UK but has not been allocated elsewhere in ITU Region 1
+for amateur services. This means that some frequency bands may only be used within the UK and its
+territorial seas or airspace and not beyond it. Similarly, UK radio amateurs must comply with the
+relevant regional rules set out in the Radio Regulations when operating in international waters or
+airspace on a UK-registered aircraft or ship. It is a condition of the licence that the licensee does not
+cause undue interference to any wireless telegraphy.
+
+                                                            26
+7.2 Use on a ship or aircraft outside of the UK
+
+Prior to using any radio equipment on a ship or aircraft you must have permission of the ship or
+aircraft captain or whoever is in charge at the time. It should be noted that an amateur radio licence
+does not provide any broader authorisation related to airborne or maritime operations. Nor does it
+supersede any safety rules or requirements.
+
+7.2.1 UK registered ship or aircraft
+
+If the ship or aircraft is UK registered your UK licence provisions continue to apply in UK or
+international waters or airspace. When operating in international waters or airspace you can only
+use frequency bands which are both (i) authorised under the Licence (including those for low power
+airborne use where relevant); and (ii) allocated to the Amateur service in the Radio Regulations for
+the ITU region you are operating in.
+When in the waters or airspace of a foreign country, licensees would fall under that country's
+jurisdiction. As this would be classed as operating overseas, only holders of a Full Licence would be
+able to seek authorisation to operate. If the foreign administration is part of CEPT Recommendation
+T/R 61-02 or the UK has a bilateral agreement operation may be permitted. However, licensees must
+follow the rules and regulations for that country noting that is some cases airborne use may not be
+permitted and the transmit frequencies and permitted powers may be different to those in the UK
+Licence.
+
+7.2.2 Non-UK registered ship or aircraft
+
+If the ship or aircraft is not UK registered, you can only operate in international waters or airspace if
+authorised by the country where the ship or aircraft is registered. This would be the same as
+operating overseas as a UK amateur and is only available to holders of a Full Licence. If authorised,
+you would have to adhere to the terms and conditions set out by the administration of the country
+of registration. Please note that some administrations may not permit airborne use under their
+Amateur Radio licence.
+
+7.3 Your call sign beyond UK jurisdiction
+
+If operating overseas under CEPT Recommendation T/R 61-01, you are required to use the
+appropriate country prefix before your call sign. Details of these are listed in the document.
+When providing your call sign please note that an RSL denotes a part of the UK, or Crown
+Dependency, in which the station is operating from. If operating in another country or beyond UK
+territorial seas, there is no applicable RSL available. You should speak to the licensing administration
+of the country you will be transmitting in regarding licence conditions and operating practices.
+
+                                                            27
+

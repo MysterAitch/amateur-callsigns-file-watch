@@ -1,0 +1,93 @@
+Amateur Radio
+
+Implementing Phase 2 and 3 of the Amateur
+Review
+
+Guidance
+
+Published 14 October 2025
+1. Amateur Radio Review
+    Update
+
+We have now implemented Phases 2 and 3 of our Amateur Radio licensing review. These changes
+are designed to modernise the licensing framework and improve flexibility for licensees. The updates
+include:
+
+         · Intermediate M8 and M9 go live-- new Intermediate licensees will now be able to
+               choose an M8 or M9 call sign. Existing licensee can change their current 2 series call
+               sign to the corresponding M series. For 20 call sign holders we have reserved the
+               corresponding M8 call sign and 21 the M9) via the online portal.
+
+         · Ability to change call sign-- all licensees can now propose a new call sign of their
+               choice via the online portal, once every 5 years. The system will check whether the
+               requested call sign is available (i.e. not currently in use). Once a call sign is
+               surrendered or revoked, it will remain unavailable for assignment for 5 years.
+
+         · Introduction of a single personal licence -going forward licensees will only be able
+               to hold a single personal licence. If progressing to the next level your previous lower
+               level licence(s) will be revoked. For existing licensees not progressing we will an
+               update later concerning the revocation process.
+
+         · Enhanced online licensing tools-- we have made it easier to manage your licences,
+               select a wider range of call signs and validate information online. Licensees that fail
+               to revalidate their licence every 5 years will see their licence revoked.
+
+         · Updated rules for Special Event stations(SES)-- we have liberalisedthe use of SES.
+               The new SES will allow call signs to a maximum 6 characters in length, in the
+               format`GBdccccca' (d = digit other than 3 or 7, c = digit or letter, a = letter).
+               Licensees will be able to choose a range of SES call signs, as long as they start `GB'.
+               As a result of these changes we have removed the Special SES Notice of Variation.
+
+Information on the Radio Amateur Framework is also available here.
+
+                                                             2
+Changing Call Sign Guide                                            New Application Guide                                     Revalidation Licence Guide
+
+ Before You Begin                                                    Before You Begin                                          Before You Begin
+
+· You must have an active Amateur Radio licence.                    · You will need to have access to the Ofcom               · Revalidating your licence once every five years is
+· Call sign changes are only allowed once every 5 years                  licensing portal.                                         required to keep your licence active.
+
+     (except for Intermediate licence holders).                     · Have your personal details ready to complete the        · Make sure your contact details are up to date.
+· Make sure you haven't changed your call sign in the last 5             application.
+                                                                                                                               Step-by-Step Instructions
+     years.                                                          Step-by-Step Instructions
+                                                                                                                              1. Log into the Licensing Portal
+ Step-by-Step Instructions                                          1. Log into the Licensing Portal                                     o Visit the official licensing portal and enter
+                                                                               o Visit the official licensing portal and                      your login credentials.
+1. Log into the Licensing Portal                                                    enter your login credentials.
+           o Visit the official licensing portal and enter your                                                               2. Access Your Amateur Radio Licence
+                login credentials.                                  2. Start a New Application                                           o On the dashboard, find Amateur Radio.
+                                                                               o On the dashboard, find Amateur Radio.                   o Click Manage next to it.
+2. Access Your Amateur Radio Licence                                           o Click Apply next to it.
+           o On the dashboard, find Amateur Radio.                                                                            3. Revalidate Your Licence
+           o Click Manage next to it.                               3. Complete the Application Form                                     o Click on Re-Validate.
+                                                                               o Fill in all required fields (marked with an             o Review your contact details carefully.
+3. View Your Licences                                                               asterisk *).                                         o If everything is correct, click Update to
+           o Select View my licences to see your current                       o Double-check your information for                            complete the revalidation.
+                licence details.                                                    accuracy.
+                                                                                                                              Important Notes
+4. Amend Your Licence                                               4. Submit Your Application
+           o Hover over the licence you want to change.                        o Once all fields are completed, click         · Keeping your contact details up to date ensures you
+           o Click Amend.                                                           Finish to submit your application.             receive important notifications.
+
+5. Go to the Call Sign Assignment Tab                               Important Notes                                           · Revalidation is a quick process but essential for
+           o In the amendment section, click on the Call Sign                                                                      maintaining your licence status.
+                Assignment tab.                                     · Make sure all required fields are filled in correctly
+           o Tick the box that says Change the existing call             to avoid delays.                                     · If you need help, check the portal's help section or
+                sign.                                                                                                              contact the Spectrum Licensing team.
+                                                                    · You'll receive confirmation once your application
+Important Notes                                                          has been successfully submitted.
+
+· Intermediate Licence Holders                                      · If you encounter any issues, check the portal's
+     You can change your call sign from a 2*XXXX format to an            help section or contact the Spectrum Licensing
+     M8/M9 format.                                                       team.
+
+· All Other Licence Types
+     You can only change your call sign once every 5 years.
+     If you've changed it within the last 5 years, the option will
+     be unavailable.
+
+                                                                    3
+4
+
