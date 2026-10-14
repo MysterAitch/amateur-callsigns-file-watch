@@ -209,7 +209,7 @@ jobs:
             "$D" :memory: "SELECT current_setting('memory_limit') AS memory_limit, current_setting('threads') AS threads, current_setting('temp_directory') AS temp_dir;"
           } > .diagnostics/explain-plans.txt 2>&1
           cat .diagnostics/explain-plans.txt
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: stress-explain-plans
@@ -381,7 +381,7 @@ jobs:
             echo "elapsed_s=${ELAPSED}"
           } > .diagnostics/arm-outcome.txt
           cat .diagnostics/arm-outcome.txt
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: stress-${{ matrix.arm }}-rep${{ matrix.rep }}

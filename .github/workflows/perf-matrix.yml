@@ -94,7 +94,7 @@ jobs:
       - run: npm ci
       - uses: ./.github/actions/setup-duckdb
       - run: node src/v2/build-ledger-db.ts claims.parquet --parquet-only
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: perf-claims-parquet
           path: claims.parquet
@@ -204,7 +204,7 @@ jobs:
             echo "cores=$(nproc)"
           } > arm-result.txt
           cat arm-result.txt
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: perf-${{ matrix.arm.id }}-r${{ matrix.rep }}
@@ -274,7 +274,7 @@ jobs:
         run: |
           set -euo pipefail
           node src/ci/bench-suite.ts --out bench-results.json --baseline src/testing/bench-baseline.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: bench-results-${{ matrix.os }}-r${{ matrix.rep }}
@@ -312,7 +312,7 @@ jobs:
       # Written, never auto-committed: writeback is PR-only (ADR 0001), and a
       # self-updating baseline would silently ratchet in whatever regression
       # happened to land - the exact opposite of the point.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: perf-baseline-candidate
