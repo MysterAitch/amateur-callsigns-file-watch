@@ -1,0 +1,292 @@
+Amateur radio
+
+Policy on temporary call signs and call sign
+enhancement
+
+POLICY
+Publication Date: March 2018
+About this document
+
+This document explains our policy on enhancing amateur radio call signs (notably with Regional
+Secondary Locators) and on the formation of call signs for temporary special event stations. It
+updates a document published in 2015 though without making any substantive changes to the
+policy.
+Contents
+
+Section
+
+1. International context                     1
+
+2. Call sign format                          2
+
+3. Using RSLs                                3
+
+4. Special Event Station (`SES') call signs  5
+
+5. Temporary RSLs                            6
+Amateur radio temporary call signs and call sign enhancement
+
+1. International context
+
+The Radio Regulations
+
+1.1  Article 19 of the Radio Regulations ("RRs") 1 requires administrations to ensure that
+
+     Amateur Radio stations are identified with a call sign. It sets out the format that call signs
+
+     must adopt for different types of stations. Further, it prohibits misleading identities. These
+
+     considerations underpin our overall policy regarding call signs for Amateur Radio stations.
+
+The UK Amateur Radio Licence
+
+1.2  Clause 13 of the UK Amateur Radio Licence requires licensees to ensure that the station is
+
+     clearly identifiable at all times and that the call sign is transmitted as often as is practicable.
+
+     Clause 2(2) requires licensees to use the appropriate Regional Secondary Locator ("RSL") 2
+
+     and sets out rules for using RSLs. This is explainedbelow.
+
+1 The Radio Regulations are the rules in the use of the radio spectrum agreed by the international community at the
+International Telecommunication Union
+2 The Amateur Radio Licence defines Regional Secondary Locator as "a letter used by the Licensee to convey the
+location of the Radio Equipment in accordance with Clause 2(2) and note (c) to this Licence"
+
+                                                                                                                          1
+Amateur radio temporary call signs and call sign enhancement
+
+2. Call sign format
+
+2.1  We assign each Amateur Radio station a unique call sign, in the format cnaaa3. This format
+
+     ensures that station identities conform to Article 19 of the RRs. The format of the call
+
+     signs that we assign (notably the initial characters) denotes the level of the station,
+
+     Foundation (eg M6ABC), Intermediate (eg 21ABC) or Full (eg M0ABC) - including both
+
+     personal and club licences.
+
+2.2  We permit Radio Amateurs to use other formats of call signs in certain circumstances. For
+
+     example, Special Event Stations (perhaps at a village fete) are given call signs in a different,
+
+     but distinctive, format.
+
+2.3  The composition of amateur radio call signs and the use of RSLs is described in greater
+
+     detail, in paragraph 2.43 et seq of our online guidance, here:
+
+     https://www.ofcom.org.uk/__data/assets/pdf_file/0026/82637/amateur_radio_licence_guidance_f
+
+     or_licensees.pdf.
+
+3 Here, `c' is a character (2, G or M), `n' is a number and `a' is a letter
+
+                                                                                                                          2
+Amateur radio temporary call signs and call sign enhancement
+
+3. Using RSLs
+
+Normal use of RSLs
+
+3.1  In most circumstances, the Amateur Radio Licence requires licensees to enhance the
+
+     normal call sign with a so-called `Regional Secondary Locator' ("RSL"). This is an additional
+
+     letter, inserted after the initial character of the call sign, to denote the part of the British
+
+     Islands in which the station is operating (eg `GW8ABC' for a station operating in Wales).
+
+3.2  RSLs serve no regulatory purpose. They are not mandated by the Radio Regulations or UK
+
+     law (beyond their inclusion in the Licence). They are used by few other countries. They
+
+     seem first to have appeared in the UK Amateur Radio Licence in the 1950s. However, they
+
+     have become custom and practice amongst Radio Amateurs and we are therefore prepared
+
+     for RSLs to be retained.
+
+3.3  The rules on the use of RSLs are set out in Clause 2 of the Licence. This clause says that,
+
+     with the exception of individual Foundation or Full stations operating in England, licensees
+
+     must use the applicable RSL, listed in Clause 2(2) of the Licence, to denote where they are
+
+     operating.
+
+Intermediate stations
+
+3.4  The call sign used to identify an Intermediate station must always include an RSL, wherever
+
+     it is operating, even in England. When operating in England, therefore, the RSL `E' must be
+
+     inserted into the call sign of an Intermediate station, for example `2E1ZYX'. By contrast, if
+
+     operating in Wales, that station would be `2W1ZYX'.
+
+3.5  However, Foundation and Full (including Club) stations must not use the RSL `E' to denote
+
+     England.
+
+Club stations
+
+3.6  The call sign used to identify a Club station must also include an RSL. This could be one of
+
+     the RSLs listed in Clause 2(2) (therefore excluding `E' for England). Alternatively, however,
+
+     it could be an RSL from the set listed in Note (c) to the Licence. The RSLs in this list are
+
+     solely for use by Club stations. This list of RSLs includes an RSL (`X') to denote England (for
+
+     example `GX3DEF').
+
+New permanent RSLs
+
+3.7  We do not issue new permanent RSLs. Clause 2(2) and Note (c) to the Licence already
+
+     account for 14 RSLs. This leaves only 12 letters and some of these have been used as
+
+     temporary RSLs. Noting the limited number of remaining unused letter designations, we
+
+     believe that it would be inappropriate to make such a permanent award without careful
+
+     consideration of the criteria and mechanism for such a permanent award. Further, we
+
+                                                                                                       3
+Amateur radio temporary call signs and call sign enhancement
+
+     believe that to implement such a permanent change may require us to vary a number of
+     amateur radio licences, and doing so would be at odds with the international regulations4
+     that specify permitted permanent UK RSLs.
+
+3.8  Developing and implementing changes to put in place a wider framework for the allocation
+
+     of new permanent RSLs would impose a cost on us. In the absence of any spectrum
+
+     management value in such a measure, we believe that it is not proportionate or justifiable
+
+     to pursue the development or implementation of a policy for allocating new permanent
+
+     RSLs.
+
+4 Annex 2 to CEPT Recommendation T/R 61-01 (http://www.erodocdb.dk/docs/doc98/official/pdf/TR6101.pdf )
+lists the format of the call signs that visitors must use. For the UK, it lists the RSLs from Clause 2 of the UK Amateur
+Radio Licence.
+
+                                                                                                                          4
+Amateur radio temporary call signs and call sign enhancement
+
+4. Special Event Station (`SES') call signs
+
+4.1  The holder of a Full licence (personal or club) may apply for permission to use an additional
+
+     call sign to denote a special event. We authorise these SES call signs by varying the
+
+     individual Amateur Radio licence. An SES must mark a recognised event, such as a sporting
+
+     or local event. A Permanent SES ("PSES") marks a permanent fixture, such as a museum.
+
+4.2  The effect of the variation is to authorise the licensee to identify the station using the SES
+
+     call sign, because the (unvaried) licence does not normally allow that. However, using an
+
+     SES call sign remains optional. The licensee may still identify the station with the normal
+
+     station call sign.
+
+Special Event Stations
+
+4.3  The criteria for determining requests for SES call signs are that their format must comply
+
+     with Art 19 of the RRs, they must not be offensive or otherwise profane and must not have
+
+     been used for another event in the past two years. The applicant may request a particular
+
+     qualifying call sign. Alternatively, we assign one.
+
+4.4  We always assign an SES call sign in the format `GB' followed by a digit (except `3' or `7', as
+
+     these are used to identify other types of stations), followed by up to two or three letters. It
+
+     is our practice to rest a call sign for two years following the event, to ensure that any
+
+     subsequent use is not confused. The SES call sign is therefore an additional call sign, which
+
+     the licensee may opt to use.
+
+4.5  We normally authorise an SES for no more than 28 days and allow only one SES per event.
+
+     It is therefore first come, first served. In a limited set of circumstances, we may authorise a
+
+     SES for longer than 28 days, for example to mark a longer celebration or as a PSES.
+
+Special Special Event Stations
+
+4.6  If we agree that an event is itself of clear national or international significance, we may
+
+     grant an NoV for a `Special Special Event Station' (`SSES'). The requirements in section
+
+     4.3, above, also apply to an SSES call sign. To reduce the risk of the station's identity
+
+     being mistaken, the call sign should not normally exceed eight characters in total though
+
+     we may consider requests for longer call signs. The format of the SSES call signs that we
+
+     assign is `GB' followed by 2 or 3 digits (0-9) and by 2 or 3 letters.
+
+Permanent Special Event Stations
+
+4.7  The PSES variations that we grant all expire on the same date, allowing us to review them
+
+     en bloc. The call sign that we authorise for a PSES will reflect the station, such as GB0IWM,
+
+     for the Imperial War Museum.
+
+                                                                                                      5
+Amateur radio temporary call signs and call sign enhancement
+
+5. Temporary RSLs
+
+5.1  We may also permit the temporary use of other special call signs to mark particular events.
+
+     These are formed by inserting an additional letter as the second character of the call sign.
+
+     They are therefore akin to special RSLs though they need not identify an area. Licensees
+
+     may use them as an alternative to the normal RSLs, for the duration of the event. Requests
+
+     to establish these special call signs are handled on a first come, first served basis. Use of
+
+     this facility by licensees is authorised by varying the individual licence of either a person or
+
+     club.
+
+5.2  Such temporary RSLs are only available on a temporary basis which we take to mean:
+
+     � The RSL is available for no more than one year;
+     � Where possible, the period of availability will be bounded by two dates of significance
+
+         to the event beingmarked;
+     � The start and end dates need not be in the same calendar year; and
+     � We only allow a temporary RSL to be re-used if we are satisfied that doing so will not
+
+         lead to confusion.
+
+5.3  Examples of such temporary enhancementsinclude:
+
+     � `A' for `Alba', which was available to licensees with a main station address in Scotland,
+         between Burns' Night and St Andrew's Day, to celebrate the Homecoming Scotland (eg
+         `MA6ABC'); and
+
+     � `O' which was available throughout 2012, to all licensees in the UK and Crown
+         Dependencies to celebrate the 2012 Olympics (eg `2O0ABC')
+
+5.4  We use our discretion in reaching a decision on these requests, based on past cases. We
+
+     assess them on their merits and take a view on the significance of the event in question.
+
+                                                                                                    6
+

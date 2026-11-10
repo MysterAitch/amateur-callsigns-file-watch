@@ -1,0 +1,659 @@
+MENUMENU
+
+Your Services
+
+News and events
+
+GB2RS
+
+Regional news
+
+RSGB notices
+
+AGM 2026
+
+Tonight@8 webinars
+
+Special focus
+
+Silent Keys
+
+RSGB Convention
+
+RSGB Construction Competition 2026
+
+International Women in Engineering Day
+
+All about us
+
+RSGB Strategy
+
+RSGB committees
+
+Our teams
+
+Our policies
+
+Consultations
+
+Contact
+
+Organisation
+
+Volunteers
+
+Volunteers’ Week
+
+Board
+
+RSGB Regions
+
+National Radio Centre
+
+Radio Communications Foundation
+
+Company information
+
+Have Your Say
+
+Careers
+
+Clubs
+
+Club Finder
+
+Affiliate your club
+
+UK events
+
+Beyond Exams
+
+Insurance
+
+Events pack
+
+Media guide
+
+Special interest
+
+School Zone
+
+University Corner
+
+Training
+
+Course & exam finder
+
+Student information
+
+Trainer information
+
+Useful Resources
+
+Exam FAQ
+
+Exam forms
+
+Exam payments
+
+Schools Link Project
+
+Cadets Foundation licence application
+
+Student stories
+
+On the air
+
+Apps
+
+Live solar data
+
+Live DX cluster
+
+WebSDR receivers
+
+Operating
+
+Licensing
+
+Band plans
+
+Planning matters
+
+EMF guidance and calculator
+
+NoV applications
+
+Beacons & repeaters
+
+Operating Advisory Service (OAS)
+
+Awards & programmes
+
+Emergency comms
+
+Morse
+
+QSL Bureau
+
+VDSL interference reporting
+
+Technical
+
+Spectrum protection
+
+Amateur television
+
+EMC
+
+Forums
+
+Microwaves
+
+Propagation
+
+Space & satellites
+
+Emerging technologies
+
+Contesting
+
+What is contesting?
+
+HF contests
+
+VHF contests
+
+RSGB Contest Club
+
+RadCom contesting
+
+GR2HQ IARU Contest Team
+
+Commonwealth Contest
+
+Activity
+
+Outreach
+
+Planning a public event
+
+Special Event Stations (SES)
+
+British Science Week
+
+Coding and amateur radio
+
+Practical events
+
+Useful practical skills for new licensees
+
+ARDF
+
+HF DXpeditions
+
+Radio Marathons
+
+Transatlantic Tests Centenary
+
+Membership
+
+Membership Services
+
+Login
+
+Bletchley Park free admission vouchers
+
+Discounted museum entry
+
+Join & help
+
+Join the RSGB
+
+Join a friend
+
+Volunteer
+
+Renew
+
+Renew your Membership
+
+Hear from our members
+
+Your stories
+
+Shop
+
+RSGB Shop
+
+All products
+
+What's new
+
+Special offers
+
+Other publications
+
+Other products
+
+Booking office
+
+Membership & donations
+
+Join the RSGB
+
+Renew your Membership
+
+Spectrum Defence Fund
+
+RCF donations
+
+Books
+
+Radio
+
+General
+
+Publications & videos
+
+RadCom
+
+RadCom
+
+RadCom Basics
+
+RadCom Plus
+
+Books
+
+Books
+
+Books - extra
+
+Video
+
+About the RSGB
+
+The excitement of amateur radio
+
+Practical skills videos
+
+Technical videos
+
+RSGB Convention lectures
+
+RSGB Strategy
+
+Syllabus resources
+
+Young amateurs
+
+Film archive
+
+Archive
+
+Consultations
+
+Events
+
+Publications
+
+FAQs
+
+General
+
+Amateur radio
+
+Becoming an amateur
+
+Exams
+
+Candidates
+
+Trainers
+
+Club exam bookings
+
+DBS checks
+
+Insurance
+
+Clubs & repeaters
+
+Programmes
+
+IOTA
+
+Operating
+
+Receiving interference
+
+Beginners
+
+Getting started
+
+What is amateur radio?
+
+Getting licensed
+
+First steps
+
+FAQ
+
+Your station
+
+Setting up
+
+Operating
+
+Antennas
+
+EMC considerations
+
+Watch
+
+Discover amateur radio
+
+Foundation practicals
+
+Useful practical skills
+
+Aged 26 or under?
+
+More RSGB videos
+
+Read
+
+RadCom Basics
+
+Student stories
+
+Your stories
+
+Alex discovers amateur radio
+
+Search
+
+Special Contest Call Sign
+
+Make an application for a special contest call sign by downloading and completing the form on this page.
+
+Please read the Ofcom guidance below before starting your application.
+
+Policy and procedure
+
+1. Guidance
+
+The holder of a UK Amateur Radio Full Licence or Full (Club) Licence may apply for a Special Contest Call sign (“SCC”). This call sign may only be used in amateur radio contests of no more than 48 hours duration, run with the aim of contacting as many other stations as possible in a given period of time and run by an amateur radio club, national or international amateur radio association or another organisation (including amateur radio publications), generally accepted within the amateur radio hobby (locally, nationally or internationally) as being a bona fide contest organiser.
+
+The call sign will be in the format ‘G’ or ‘M’, followed by a chosen digit and a chosen suffix letter. Examples are G8Z or M7R. We have made 520 call signs available, (G)(#)(&)(A-Z) and (M)(#)(&)(A-Z), where ‘#’ is an applicable Regional Secondary Locator (if any) and ‘&’ is a digit from 0 to 9.
+
+Although variations are granted by Ofcom, the Radio Society of Great Britain (RSGB) administers, distributes SCCs and also advises Ofcom on applications. However, the RSGB’s advice is only a recommendation, and the final decision remains with Ofcom.
+
+1.1 How Ofcom handles personal data
+
+We require this information in order to carry out our spectrum licensing duties under the Wireless Telegraphy Act 2006. Please see Ofcom’s General Privacy Statement for further information about how Ofcom handles your personal information and your corresponding right.
+
+2. Qualifying criteria
+
+The qualifying criteria are divided into two parts, – one for contest participation and the other for your achievement in the contest. Both parts of the criteria must be met in order for a SCC to be granted.
+
+Ofcom will also consider results from other contests, not listed in Table 1.  In those cases, Ofcom will assess the suitability of the contest for the purposes of issuing an SCC.
+
+2.1 Participation criteria
+
+Individual licensees (or the licence-holder in the case of club licensees) must supply evidence of having entered at least five contests from the list in Table 1 within the last five years.
+
+If you are requesting a variation to an individual licence (as opposed to a Full (Club) licence), you must have entered all of the contests as a single operator. If you are applying on behalf of a club, the contests may have been entered as a single operator or as a multi-operator team.
+
+Table 1: List of qualification contests
+
+ARRL DX CW
+ARRL DX SSB
+ARRL 1.8MHz CW only
+
+ARRL 28MHz
+ARRL RTTY Roundup
+BARTG HF RTTY (March)
+
+BARTG SPRINT (January)
+BARTG SPRINT75 (April)
+BARTG SPRINT PSK63 (September)
+
+CQ WPX CW
+CQ WPX RTTY
+CQ WPX SSB
+
+CW WW CW
+CW WW RTTY
+CW WW SSB
+
+CQ WW 160m CW
+CQ WW 160m SSB
+IARU HF Championship
+
+Russian DX
+UK/EI CW DX Contest
+UK/EI SSB DX Contest
+
+WAE DX CW
+WAE DX RTTY
+WAE DX SSB
+
+WW-DIGI
+RSGB Commonwealth Contest
+RSGB IOTA
+
+RSGB DX
+RSGB 1st 1.8MHz
+RSGB 2nd 1.8MHz
+
+144MHz Marconi Memorial
+RSGB 50MHz Trophy
+RSGB 144MHz Trophy
+
+RSGB March 144MHz/432MHz (counts as one contest)
+RSGB May 432MHz – 248GHz (counts as one contest)
+RSGB 432MHz – 248GHz (Oct) (counts as one contest)
+
+2.2 Achievement criteria
+
+2.2.1 If you use a UK and Crown Dependency (UK&CD) call sign to enter a contest:
+
+The applicant must have accrued five achievement points from the contests entered.  One point is accrued if the licensee (or licence-holder) makes at least one fifth (20%) of the number of contacts of the UK&CD leader. Two points are accrued if the licensee (or licence-holder) makes at least one half (50%) of the number of contacts of the UK&CD leader.
+
+2.2.2 If you use a Non-UK&CD call sign to enter a contest:
+
+The applicant must have accrued five achievement points from the contests entered.  One point is accrued if the licensee (or licence-holder) makes at least one fifth (20%) of the number of contacts of the world leader. Two points are accrued if the licensee (or licence-holder) makes at least one half (50%) of the number of contacts of the world leader.
+
+3. Application
+
+Call signs for use in amateur radio contests are available to holders of the UK Amateur Radio (Full) Licence and Full (Club) Licence who can demonstrate that they meet the criteria in the section above.
+
+Any variation that we grant will be valid until 31st December 2029, unless, before then, the licensee surrenders the licence or asks for the variation to be cancelled or Ofcom revokes the licence or cancels the variation.
+
+Applications take up to 42 days to be processed.
+
+Call sign choices: Please apply on the following form giving three choices of call signs, in order of preference. The RSGB publishes a list of SCCs, which is a guide to availability.
+
+3.1 Qualifying contests
+
+List at least 5 of the qualification contests that the applicant or club has entered within the last 5 years, together with the call sign used, the section of the qualification contest entered and the number of contacts gained by the applicant or club and by the relevant leader.
+
+Overlay results are not accepted as qualifying criteria.  Being a subset, it is easier to gain a higher ranking within an overlay category.  Results submitted in support of an application for an SCC NoV must have been gained in the competition as a whole, not just an overlay category.  This ensures that Ofcom compare like with like, ensuring that all applications are treated equally.
+
+3.2 Reapplication
+
+When your variation expires, you may request a fresh variation for the following five-year period, keeping the same call sign, if you still qualify (see ‘Qualifying criteria’, above).  You must apply between 1st January and 31st December of the year of expiry.  If a fresh application is not received, the call sign will be withdrawn for a period of 2 years before it is made available again.
+
+If the Licence revalidation date falls due during the term of the SCC variation, the variation may be withdrawn if the licensee fails to revalidate the Licence.
+
+You may ask the RSGB to remind you about your renewal, using the following address scc@rsgb.org.uk.   While the RSGB has offered this facility, please note that it remains your responsibility to reapply, even if you do not receive a reminder.
+
+Application
+
+Download the Ofcom application form from the link below.
+
+Application for an Amateur Radio Special Contest Call Sign
+
+(6-page/Microsoft Word document)
+
+Details of where to send the form are on the form itself.
+
+Data protection
+
+By sending the RSGB your application form you consent to RSGB collecting and storing your data from this application form solely for the purpose of issuing and administering the Special Contest Call Sign scheme and sharing this data with Ofcom if requested to do so.
+
+In this section
+
+Operating
+
+Operating Guidelines
+
+DX Code of Conduct
+
+Operating Advisory Service
+
+Awards
+
+Band Plans and information
+
+Beacons & Repeaters
+
+Emergency communications
+
+HF DXpedition Fund
+
+Licensing, NoVs and visitors
+
+UK Amateur Licensing
+
+Operating Abroad
+
+Applying for a Special Event Station
+
+Permanent Special Event Stations
+
+Operating for Visitors
+
+Online NoV applications
+
+70.5 MHz and 71.5 MHz NoV
+
+146 and 147MHz NoV
+
+2300-2302 MHz NoV
+
+Above 275GHz NoV
+
+GB2RS Newsreaders NoV
+
+Special Contest Call Sign
+
+International Prefixes
+
+Live DX Cluster
+
+Live solar data
+
+Morse
+
+Planning matters
+
+RSGB QSL Bureau
+
+Propagation predictions
+
+WebSDR receivers
+
+Connect
+
+Radio Society of Great Britain – Main Site
+
+Posts Index
+
+Sitemap
+
+Legals
+
+Internet Guidelines
+
+Privacy Policy
+
+RSGB cookies policy
+
+Accessibility
+
+Contact
+
+© 2026 Radio Society of Great Britain – Main Site. All rights reserved.
+
+Cookies on the RSGB website
+
+COOKIES ON THE RSGB WEBSITE
+
+Necessary cookies
+
+The RSGB uses necessary cookies to make our site work.
+
+Necessary cookies enable security and accessibility functions on the website and allow features such as Membership Services login to work. You can disable these cookies in your browser settings, but this may adversely affect the website's functionality.
+
+For more information see our Cookie Policy page.
+
+--------------------------------------------------------
+
+Analytics cookies
+
+We would also like to set optional analytics cookies that show how you are using the website, so we can improve the way it works. These cookies are only set if you opt into them under the View Preferences option.
+
+For more information see our Cookie Policy page.
+
+--------------------------------------------------------
+
+Marketing cookies
+
+Some third party content providers featured on our site may use marketing cookies. To see this content either enable marketing cookies here, or opt-into them when prompted.
+
+Functional
+
+Functional
+
+Always active
+
+The technical storage or access is strictly necessary for the legitimate purpose of enabling the use of a specific service explicitly requested by the subscriber or user, or for the sole purpose of carrying out the transmission of a communication over an electronic communications network.
+
+Preferences
+
+Preferences
+
+The technical storage or access is necessary for the legitimate purpose of storing preferences that are not requested by the subscriber or user.
+
+Statistics
+
+Statistics
+
+The technical storage or access that is used exclusively for statistical purposes.
+The technical storage or access that is used exclusively for anonymous statistical purposes. Without a subpoena, voluntary compliance on the part of your Internet Service Provider, or additional records from a third party, information stored or retrieved for this purpose alone cannot usually be used to identify you.
+
+Marketing
+
+Marketing
+
+The technical storage or access is required to create user profiles to send advertising, or to track the user on a website or across several websites for similar marketing purposes.
+
+Manage options
+Manage services
+Manage {vendor_count} vendors
+Read more about these purposes
+
+Accept
+Deny
+View preferences
+Save preferences
+View preferences
+
+{title}
+{title}
+{title}
+
+Manage consent
