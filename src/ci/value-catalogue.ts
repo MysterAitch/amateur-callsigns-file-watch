@@ -835,6 +835,23 @@ export function renderValueCatalogue(tallies: Tallies, ref: ReferenceData, timel
 export const VALUE_CATALOGUE_PATH = 'reports/value-catalogue.md';
 
 export function writeValueCatalogue(ledgerDir?: string): { path: string; changed: boolean } {
+  const markdown = renderValueCatalogueFromLedger(ledgerDir);
+  // Written relative to the working directory - the SAME root the tallies read
+  // archive/ from (DIRS.archive is relative). So a sweep run against
+  // a fixture archive in a temp cwd writes ITS catalogue there, never
+  // clobbering the committed real one.
+  const target = path.resolve(process.cwd(), VALUE_CATALOGUE_PATH);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  const existing = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : undefined;
+  const changed = existing !== markdown;
+  if (changed) fs.writeFileSync(target, markdown);
+  return { path: VALUE_CATALOGUE_PATH, changed };
+}
+
+// The catalogue report as a string, folded from the claim ledger.
+// Separate from the write so a test can render it over a scoped archive and
+// compare, without touching the committed file.
+export function renderValueCatalogueFromLedger(ledgerDir?: string): string {
   const ref = loadReferenceData();
   // The "Normalised licence category" table and EVERY tracked field distribution
   // — `status` and raw `product / licence_class` (the raw observation layer,
@@ -856,17 +873,7 @@ export function writeValueCatalogue(ledgerDir?: string): { path: string; changed
   // legacy full-corpus tally (buildFieldTallies) is retired from the production
   // path and survives only as the equivalence oracle's witness in the tests. An
   // empty tally map is passed so the renderer reads the folds for every field.
-  const markdown = renderValueCatalogue(new Map(), ref, openDataTimeline(), buildNormalisationFidelity(), foldedCategories, foldedFields, sesWindows, membershipVintages);
-  // Written relative to the working directory - the SAME root the tallies read
-  // archive/ from (DIRS.archive is relative). So a sweep run against
-  // a fixture archive in a temp cwd writes ITS catalogue there, never
-  // clobbering the committed real one.
-  const target = path.resolve(process.cwd(), VALUE_CATALOGUE_PATH);
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  const existing = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : undefined;
-  const changed = existing !== markdown;
-  if (changed) fs.writeFileSync(target, markdown);
-  return { path: VALUE_CATALOGUE_PATH, changed };
+  return renderValueCatalogue(new Map(), ref, openDataTimeline(), buildNormalisationFidelity(), foldedCategories, foldedFields, sesWindows, membershipVintages);
 }
 
 if (import.meta.main) {

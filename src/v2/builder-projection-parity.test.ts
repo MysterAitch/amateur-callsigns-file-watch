@@ -5,6 +5,7 @@ import * as path from 'path';
 import { buildBuilderProjection, PROJECTED_ENTRY_FILES } from './build-builder-projection.ts';
 import { listArchiveKeys } from '../shared/archive.ts';
 import { DIRS } from '../shared/constants.ts';
+import { FROZEN_BASELINE_KEYS } from '../shared/derived-entries.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -80,22 +81,9 @@ function firstDifferingLine(committed: string, projected: string): string {
   return 'no differing line found - the difference is in raw bytes only (encoding or line terminators)';
 }
 
-// The frozen committed baseline, pinned entry by entry: every dated
-// publication whose derivatives were committed by the derivation lane. A
-// publication landing AFTER the freeze legitimately never joins this list;
-// one LEAVING it (committed derivatives deleted) must fail the gate loudly,
+// The baseline is pinned entry by entry (FROZEN_BASELINE_KEYS) so that an
+// entry LEAVING it (committed derivatives deleted) fails this gate loudly,
 // which a live directory scan alone could not guarantee.
-const FROZEN_BASELINE_KEYS = [
-  '2022-05-30',
-  '2023-02-20',
-  '2025-04-08',
-  '2025-05-27',
-  '2025-06-04',
-  '2025-06-08',
-  '2025-11-11',
-  '2026-01-14',
-  '2026-06-23',
-] as const;
 
 // The entries carrying a committed baseline: the pinned freeze list plus any
 // later entry that does carry committed derivatives (derivation still runs

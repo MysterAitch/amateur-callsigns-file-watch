@@ -15,6 +15,10 @@ import {
   type PrefixIntroRow,
 } from './build-home-holdings.ts';
 import { buildCallsignShards } from './build-callsign-shards.ts';
+import { pinArchiveToFrozenBaseline } from '../testing/frozen-baseline-archive.ts';
+
+// Reads committed derived files, which stop at the frozen baseline.
+pinArchiveToFrozenBaseline();
 
 // The home span-dial holdings manifest (issue #921): a build-time DERIVATION of
 // the held publications (the down-markers) from the shards-manifest enumeration,

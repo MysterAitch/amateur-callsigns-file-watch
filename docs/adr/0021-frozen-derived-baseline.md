@@ -41,6 +41,7 @@ them — but what their standing IS once nothing regenerates them.
    pre-freeze publication keeps its committed `normalised.csv`,
    `components.csv` and `stats.json` exactly as derived — pinned entry by
    entry in the parity gate (`FROZEN_BASELINE_KEYS`, in
+   `src/shared/derived-entries.ts`, enforced by
    `src/v2/builder-projection-parity.test.ts`), which continues to
    byte-compare the projection against them on every CI run. They are the
    durable proof that two independent derivation paths — the authored
@@ -96,3 +97,37 @@ them — but what their standing IS once nothing regenerates them.
   binding for post-freeze entries is resolved from the publication's own
   header row and cross-checked against any curated declaration (PR #677) —
   a forced `converter.variant` remains the curation point for twin shapes.
+
+## Addendum (2026-11-24): tests that pin real-corpus figures read the frozen baseline
+
+The first publication to land after the freeze (22 September 2026) showed a
+gap this record left open. Many tests pinned figures of "the whole archive" or
+"the newest entry", and many read committed derived files in archive mode. A
+post-freeze entry moves the first kind and has no files for the second, so the
+arrival of ordinary data failed some fifty tests that guard code, not data, and
+the publication sat unmerged for two months.
+
+- **Decision.** A test that pins a figure of the real corpus declares that it
+  reads the frozen baseline, through the helpers in
+  `src/testing/frozen-baseline-archive.ts`. They set an explicit scope
+  (`ARCHIVE_SCOPE`, defined and documented in `src/shared/derived-entries.ts`)
+  that narrows archive enumeration and the open-data claims to the baseline
+  entries. The FOI lane is not narrowed. Pinned figures therefore change only
+  when code changes, which is what those tests exist to detect.
+- **The scope is for tests only.** Outside a test run the code that reads it
+  refuses to proceed, so a stray setting in a shell or a `.env` file stops a
+  fetch or a build instead of hiding a publication from it. As a second line,
+  `src/ci/cicd-workflow-structure.test.ts` fails if a workflow, setup
+  document or package script sets it.
+- **Rejected: updating the pinned figures at each publication.** It makes
+  every data arrival a code change, which is the coupling decision 3 set out to
+  remove, and it trains reviewers to approve figure changes unread.
+- **Rejected: fixture corpora in place of the real baseline.** The pinned
+  figures are valuable because they are real; the constructed-input tests exist
+  alongside and are not narrowed by the scope.
+- **What this does not settle.** Byte comparisons of committed reports against
+  a fresh fold still fail between a publication landing and the reports being
+  regenerated, and the golden-master job is a required check, so a publication
+  cannot yet merge unattended. The two report comparisons that need the newest
+  entry's derived views run only where a projection is supplied. Both are
+  tracked on issue #1091.

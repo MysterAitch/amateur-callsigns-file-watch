@@ -2,6 +2,10 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { buildForbiddenSuffixHistory } from './forbidden-suffix-history.ts';
 import { buildSuffixCallsignIndex, type SuffixCallsignIndex } from './forbidden-suffix-callsigns.ts';
 import { assertNonEmpty } from '../testing/non-vacuity.ts';
+import { pinArchiveToFrozenBaseline } from '../testing/frozen-baseline-archive.ts';
+
+// Reads committed derived files, which stop at the frozen baseline.
+pinArchiveToFrozenBaseline();
 
 // Issue #291 phase 3: the suffix -> callsigns index over the ever-forbidden
 // union, joining the open-data publications and the callsign-bearing FOI

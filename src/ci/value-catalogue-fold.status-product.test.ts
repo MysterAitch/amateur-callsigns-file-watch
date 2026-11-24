@@ -33,6 +33,8 @@ import {
   type Claim,
 } from '../v2/claim.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
+import { withFrozenBaselineArchive } from '../testing/frozen-baseline-archive.ts';
+import { baselineValueCatalogueMarkdown } from '../testing/baseline-value-catalogue.ts';
 
 const ref = loadReferenceData();
 
@@ -49,12 +51,14 @@ function claim(over: Partial<Claim> & Pick<Claim, 'predicate' | 'object' | 'rawS
 
 interface FieldFigures { records: number; callsigns: number; allocated: number; sources: number; lanes: string[] }
 
-// Parse one committed field table ("## `<field>` — N distinct") back into
-// figures per value, reading the same folded golden the freshness gate
-// regenerates and diffs, so the equivalence check runs on every CI run whether or
-// not DuckDB is present.
-function parseCommittedFieldTable(field: string): Map<string, FieldFigures> {
-  const markdown = fs.readFileSync(path.resolve(process.cwd(), VALUE_CATALOGUE_PATH), 'utf8');
+function committedCatalogueMarkdown(): string {
+  return fs.readFileSync(path.resolve(process.cwd(), VALUE_CATALOGUE_PATH), 'utf8');
+}
+
+// Parse one field table ("## `<field>` — N distinct") of a rendered catalogue
+// back into figures per value: the committed report by default, or the
+// baseline rendering the equivalence oracles compare against.
+function parseCommittedFieldTable(field: string, markdown: string = committedCatalogueMarkdown()): Map<string, FieldFigures> {
   const lines = markdown.split('\n');
   const start = lines.findIndex(l => l.startsWith(`## \`${field}\` — `));
   expect(start, `section for ${field}`).toBeGreaterThanOrEqual(0);
@@ -85,8 +89,7 @@ function parseCommittedFieldTable(field: string): Map<string, FieldFigures> {
 // section (parseCommittedMembershipCuriosities, below). Parse the table back
 // into figures keyed by value.
 interface StatusFigures { value: string; records: number; callsigns: number; sources: number; lanes: string[] }
-function parseCommittedStatusTable(): Map<string, StatusFigures> {
-  const markdown = fs.readFileSync(path.resolve(process.cwd(), VALUE_CATALOGUE_PATH), 'utf8');
+function parseCommittedStatusTable(markdown: string = committedCatalogueMarkdown()): Map<string, StatusFigures> {
   const lines = markdown.split('\n');
   const start = lines.findIndex(l => l.startsWith('## `status` — '));
   expect(start, 'status section').toBeGreaterThanOrEqual(0);
@@ -123,8 +126,7 @@ function committedStatusSectionText(): string {
 // location rather than deleted. Parsed straight from the committed golden so
 // the equivalence oracle covers the presentation move, not just the fold.
 interface MembershipCuriosityFigures { value: string; membership: string; distinctCallsigns: number; latestSnapshotSize: number; records: number; sources: number }
-function parseCommittedMembershipCuriosities(): Map<string, MembershipCuriosityFigures> {
-  const markdown = fs.readFileSync(path.resolve(process.cwd(), VALUE_CATALOGUE_PATH), 'utf8');
+function parseCommittedMembershipCuriosities(markdown: string = committedCatalogueMarkdown()): Map<string, MembershipCuriosityFigures> {
   const lines = markdown.split('\n');
   const start = lines.findIndex(l => l.startsWith('### Membership-derived rows demoted from `status`'));
   expect(start, 'membership curiosities section').toBeGreaterThanOrEqual(0);
@@ -144,17 +146,17 @@ function parseCommittedMembershipCuriosities(): Map<string, MembershipCuriosityF
   return byKey;
 }
 
-describe('status field — ledger vs legacy classified-equivalence oracle', { tags: ['data-validity'] }, () => {
-  // Always-on: reads the committed folded golden and recomputes the legacy status
-  // catalogue live over the real archive (no DuckDB needed for this side).
+describe.skipIf(!duckDbAvailable())('status field — ledger vs legacy classified-equivalence oracle', { tags: ['data-validity'] }, () => {
+  // Both sides over the frozen baseline (src/testing/baseline-value-catalogue.ts):
+  // the legacy status catalogue recomputed live, and the ledger fold rendered.
   let legacyStatus: Map<string, ValueTally>;
   let committed: Map<string, StatusFigures>;
   let membershipCuriosities: Map<string, MembershipCuriosityFigures>;
   beforeAll(() => {
-    const cells = buildFieldTallies().get(STATUS_FIELD);
+    const cells = withFrozenBaselineArchive(() => buildFieldTallies()).get(STATUS_FIELD);
     legacyStatus = new Map((cells === undefined ? [] : catalogueField(STATUS_FIELD, cells).values).map(v => [v.value, v]));
-    committed = parseCommittedStatusTable();
-    membershipCuriosities = parseCommittedMembershipCuriosities();
+    committed = parseCommittedStatusTable(baselineValueCatalogueMarkdown());
+    membershipCuriosities = parseCommittedMembershipCuriosities(baselineValueCatalogueMarkdown());
   }, 600_000);
 
   it('StatusFold_AttestedStatuses_MatchLegacyRecordsExactly', () => {
@@ -255,14 +257,14 @@ const PRODUCT_FOLD_LOWER: readonly string[] = [
 ];
 const PRODUCT_FOLD_LOWER_REASON = 'the register-lane census reads product claims on CALLSIGN observations only, so it drops the available-pool sheets pool-slot licence class (a class attached to an availability list, not a licensed register product) — the same faithfulness the licence-category fold applies';
 
-describe('product field — ledger vs legacy classified-equivalence oracle', { tags: ['data-validity'] }, () => {
-  // Always-on: the committed folded golden vs the live legacy catalogue.
+describe.skipIf(!duckDbAvailable())('product field — ledger vs legacy classified-equivalence oracle', { tags: ['data-validity'] }, () => {
+  // Both sides over the frozen baseline: the ledger fold rendered vs the live legacy catalogue.
   let legacyProduct: Map<string, ValueTally>;
   let committed: Map<string, FieldFigures>;
   beforeAll(() => {
-    const cells = buildFieldTallies().get(PRODUCT_FIELD);
+    const cells = withFrozenBaselineArchive(() => buildFieldTallies()).get(PRODUCT_FIELD);
     legacyProduct = new Map((cells === undefined ? [] : catalogueField(PRODUCT_FIELD, cells).values).map(v => [v.value, v]));
-    committed = parseCommittedFieldTable(PRODUCT_FIELD);
+    committed = parseCommittedFieldTable(PRODUCT_FIELD, baselineValueCatalogueMarkdown());
   }, 600_000);
 
   it('ProductFold_ValueSet_EqualsLegacyValueSet_NeitherInventedNorDropped', () => {

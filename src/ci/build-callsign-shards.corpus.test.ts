@@ -11,6 +11,10 @@ import { parseCsvCached } from '../shared/parse-cache.ts';
 import { cleanedCallsign } from '../sources/ofcom-amateur/components.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
 import { assertNonEmpty } from '../testing/non-vacuity.ts';
+import { pinArchiveToFrozenBaseline } from '../testing/frozen-baseline-archive.ts';
+
+// Reads committed derived files, which stop at the frozen baseline.
+pinArchiveToFrozenBaseline();
 
 // The instant per-callsign projection built over the REAL archive (issue
 // #594): the self-check the proposal committed to - the shards are a

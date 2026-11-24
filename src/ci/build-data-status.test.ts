@@ -22,6 +22,8 @@ import {
   CLASS_BLURBS,
 } from './build-data-status.ts';
 import { RATIONALE_SOURCE_LABEL } from './build-forbidden-section.ts';
+import { FROZEN_BASELINE_KEYS } from '../shared/derived-entries.ts';
+import { assertNonEmpty } from '../testing/non-vacuity.ts';
 import { computeDatasetAnomalyFlags, anomalyMetricsChecked, type DatasetAnomalyFlag, type AnomalyMetricsChecked } from './dataset-anomaly-flags.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
@@ -33,17 +35,35 @@ import { computeDatasetAnomalyFlags, anomalyMetricsChecked, type DatasetAnomalyF
 // on disk fails here.
 
 describe('data-status: held-dataset inventory & processing grid', { tags: ['data-validity'] }, () => {
-  it('OpenDataRows_RealArchive_AreFullyProcessedRegisterSnapshots', () => {
+  it('OpenDataRows_NewestFrozenBaselineEntry_IsAFullyProcessedRegisterSnapshot', () => {
     const rows = buildOpenDataRows();
-    expect(rows.length).toBeGreaterThan(0);
-    // Every open-data publication is a register snapshot carrying raw +
-    // normalised + components, so all five stages read as done.
-    const newest = rows[rows.length - 1];
+    const baseline: ReadonlySet<string> = new Set(FROZEN_BASELINE_KEYS);
+    expect(rows.filter(r => baseline.has(r.key)).map(r => r.key)).toEqual([...FROZEN_BASELINE_KEYS]);
+    // The newest baseline publication is a register snapshot carrying raw +
+    // normalised + components in the committed archive, so all five stages
+    // read as done without a projection.
+    const newestKey = FROZEN_BASELINE_KEYS[FROZEN_BASELINE_KEYS.length - 1];
+    const newest = rows.find(r => r.key === newestKey);
+    expect(newest, newestKey).toBeDefined();
+    if (newest === undefined) return;
     expect(newest.primaryClass).toBe('register-snapshot');
     expect(newest.lane).toBe('open-data');
     expect(newest.authority.label).toBe('Official');
     for (const stage of STAGES) {
       expect(newest.stages[stage.key].state, `${stage.label} for ${newest.key}`).toBe('done');
+    }
+  });
+
+  it('OpenDataRows_EntryPublishedAfterTheFreeze_IsStillListedAsAnOfficialRegisterSnapshot', () => {
+    // A post-freeze publication has no committed derived files, so its stage
+    // cells depend on the read mode; its identity must not.
+    const baseline: ReadonlySet<string> = new Set(FROZEN_BASELINE_KEYS);
+    const later = buildOpenDataRows().filter(r => !baseline.has(r.key));
+    assertNonEmpty(later, 'open-data rows published after the freeze');
+    for (const row of later) {
+      expect(row.primaryClass, row.key).toBe('register-snapshot');
+      expect(row.lane, row.key).toBe('open-data');
+      expect(row.authority.label, row.key).toBe('Official');
     }
   });
 

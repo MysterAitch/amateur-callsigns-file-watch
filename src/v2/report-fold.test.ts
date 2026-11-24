@@ -17,6 +17,7 @@ import {
   REPORT_FOLD_THREADS_ENV,
   REPORT_FOLD_MEMORY_LIMIT_ENV,
 } from './report-fold.ts';
+import { ARCHIVE_SCOPE_ENV, FROZEN_BASELINE_KEYS } from '../shared/derived-entries.ts';
 
 // The reusable "fold a report from the claim data via DuckDB" scaffold (issue
 // #361). The pure SQL-fragment builders always run; the query runner is gated on
@@ -154,6 +155,75 @@ describe.skipIf(!duckDbAvailable())('report-fold — DuckDB query runner', { tag
       `SET threads TO 1; SELECT ${cleanedKeyExpr('c')} AS ck, 1 AS n FROM (VALUES ('2e1hon'), ('G6 FMU')) t(c) ORDER BY ck`,
     );
     expect(rows).toEqual([{ ck: '2E1HON', n: 1 }, { ck: 'G6FMU', n: 1 }]);
+  });
+});
+
+describe('report-fold — archive scope on the claims relation', { tags: ['unit'] }, () => {
+  function withScope<T>(value: string | undefined, run: () => T): T {
+    const original = process.env[ARCHIVE_SCOPE_ENV];
+    if (value === undefined) delete process.env[ARCHIVE_SCOPE_ENV];
+    else process.env[ARCHIVE_SCOPE_ENV] = value;
+    try {
+      return run();
+    } finally {
+      if (original === undefined) delete process.env[ARCHIVE_SCOPE_ENV];
+      else process.env[ARCHIVE_SCOPE_ENV] = original;
+    }
+  }
+
+  // One claim per source. The answer is decided here, before any query runs:
+  // unscoped sees all five; the frozen baseline drops exactly the one
+  // open-data publication that is not a baseline entry, and keeps both FOI
+  // sources whatever their dates, because the baseline pins open-data entries only.
+  const SOURCES = [
+    `opendata/${FROZEN_BASELINE_KEYS[0]}/raw.csv`,
+    `opendata/${FROZEN_BASELINE_KEYS[FROZEN_BASELINE_KEYS.length - 1]}/raw.csv`,
+    'opendata/2099-01-01/raw.csv',
+    'foi/ofcom-2099-01-01--after-the-freeze/normalised--sheet-1.csv',
+    'foi/ofcom-2019-01-01--before-the-freeze/normalised--sheet-1.csv',
+  ];
+
+  function ledgerOfOneClaimPerSource(): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scope-ledger-'));
+    const lines = SOURCES.map((sourceFile, i) => JSON.stringify({
+      layer: 'raw', rawSubject: `M0AA${i}`, predicate: 'Status', object: 'Allocated', sourceFile, ordinal: 1, vintage: '2020-01-01',
+    }));
+    fs.writeFileSync(path.join(dir, 'claims.jsonl'), `${lines.join('\n')}\n`);
+    return dir;
+  }
+
+  it('ClaimsRelation_WhenScopeUnset_IsTheBareReaderWithNoFilter', () => {
+    withScope(undefined, () => {
+      expect(claimsRelation({ kind: 'parquet', path: 'p.parquet' })).toBe("read_parquet('p.parquet')");
+    });
+  });
+
+  it('ClaimsRelation_WhenScopeUnrecognised_FailsLoud', () => {
+    withScope('everything-please', () => {
+      expect(() => claimsRelation({ kind: 'parquet', path: 'p.parquet' })).toThrow(/not a recognised scope/);
+    });
+  });
+
+  it.skipIf(!duckDbAvailable())('ClaimsRelation_WhenScopeUnset_ReadsEverySource', () => {
+    const dir = ledgerOfOneClaimPerSource();
+    try {
+      const rows = withScope(undefined, () =>
+        foldQuery<{ sourceFile: string }>(`SELECT sourceFile FROM ${claimsRelation({ kind: 'ledger', dir })} ORDER BY sourceFile`));
+      expect(rows.map(r => r.sourceFile)).toEqual([...SOURCES].sort());
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(!duckDbAvailable())('ClaimsRelation_WhenFrozenBaseline_DropsOnlyTheOpenDataPublicationOutsideTheBaseline', () => {
+    const dir = ledgerOfOneClaimPerSource();
+    try {
+      const rows = withScope('frozen-baseline', () =>
+        foldQuery<{ sourceFile: string }>(`SELECT sourceFile FROM ${claimsRelation({ kind: 'ledger', dir })} ORDER BY sourceFile`));
+      expect(rows.map(r => r.sourceFile)).toEqual(SOURCES.filter(s => s !== 'opendata/2099-01-01/raw.csv').sort());
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

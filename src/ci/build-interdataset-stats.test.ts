@@ -7,6 +7,10 @@ import { listArchiveKeys } from '../shared/archive.ts';
 import { BUILDER_PROJECTION_DIR_ENV } from '../shared/derived-entries.ts';
 import { DIRS } from '../shared/constants.ts';
 import { absentMarker } from './render/format.ts';
+import { pinArchiveToFrozenBaseline } from '../testing/frozen-baseline-archive.ts';
+
+// Reads committed derived files, which stop at the frozen baseline.
+pinArchiveToFrozenBaseline();
 
 // Issue #177 Surface 2: the STATIC inter-dataset statistics page — statistics
 // ACROSS the archived open-data publications (blank-product filtering,

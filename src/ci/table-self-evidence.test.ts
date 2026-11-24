@@ -7,6 +7,10 @@ import { injectHomeAggregates } from './build-home-aggregates.ts';
 import { injectDataStatus } from './build-data-status.ts';
 import { buildInterdatasetStats } from './build-interdataset-stats.ts';
 import { tableCaption, escapeHtml } from './site-render.ts';
+import { pinArchiveToFrozenBaseline } from '../testing/frozen-baseline-archive.ts';
+
+// Reads committed derived files, which stop at the frozen baseline.
+pinArchiveToFrozenBaseline();
 
 // Table self-evidence contract (issues #334 / #397). A data table is
 // self-evident when a reader — sighted or using assistive tech — can tell what

@@ -9,6 +9,7 @@ import {
 } from './timezone-rendering.ts';
 import { acquireClaimsSource, type ClaimsSourceHandle } from './event-time-coherency.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
+import { withFrozenBaselineArchive } from '../testing/frozen-baseline-archive.ts';
 
 // Issue #858: the timezone-rendering classification validated against the
 // corpus's recorded ground truth — the #857 review's proven anchor pair
@@ -17,16 +18,15 @@ import { duckDbAvailable } from '../v2/report-fold.ts';
 // — plus the classification structure the generalised experiment derives
 // from the whole corpus. Test names follow Subject_Scenario_Outcome.
 //
-// Figures asserted exactly are figures of the COMMITTED archive (immutable
-// entries): they change only when a new dataset is ingested, which is exactly
-// when this suite should demand a deliberate re-read.
+// Which entries the pinned figures cover, and why a later publication does not
+// move them: src/testing/frozen-baseline-archive.ts.
 
 describe.skipIf(!duckDbAvailable())('timezone rendering — real-corpus ground truth', { tags: ['data-validity'] }, () => {
   let handle: ClaimsSourceHandle;
   let t: TimezoneRendering;
   beforeAll(() => {
     handle = acquireClaimsSource();
-    t = computeTimezoneRendering(handle.source);
+    t = withFrozenBaselineArchive(() => computeTimezoneRendering(handle.source));
   }, 600_000);
   afterAll(() => { handle.dispose(); });
 
@@ -39,12 +39,13 @@ describe.skipIf(!duckDbAvailable())('timezone rendering — real-corpus ground t
   // --- The committed report is exactly this fold ---------------------------
 
   it('TimezoneReport_FoldedFromTheClaimLedger_MatchesTheCommittedGoldenByteForByte', () => {
+    // The committed report covers every publication held, so this one fold is unscoped.
     const golden = fs.readFileSync(path.resolve(process.cwd(), TIMEZONE_RENDERING_PATH), 'utf8');
-    expect(renderTimezoneRendering(t)).toBe(golden);
+    expect(renderTimezoneRendering(computeTimezoneRendering(handle.source))).toBe(golden);
   });
 
   it('TimezoneFold_RunTwiceOverTheSameClaims_IsByteDeterministic', () => {
-    expect(renderTimezoneRendering(computeTimezoneRendering(handle.source))).toBe(renderTimezoneRendering(t));
+    expect(renderTimezoneRendering(withFrozenBaselineArchive(() => computeTimezoneRendering(handle.source)))).toBe(renderTimezoneRendering(t));
   });
 
   // --- Ground truth (a): the #857 anchor pair ------------------------------

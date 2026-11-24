@@ -25,6 +25,11 @@ import {
 import { findUnsafeSinks, type UnsafeSink } from './output-safety-scan.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
 import { assertNonEmpty } from '../testing/non-vacuity.ts';
+import { pinArchiveToFrozenBaseline } from '../testing/frozen-baseline-archive.ts';
+import { FROZEN_BASELINE_KEYS } from '../shared/derived-entries.ts';
+
+// Reads committed derived files, which stop at the frozen baseline.
+pinArchiveToFrozenBaseline();
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -1199,6 +1204,16 @@ describe('Internal link integrity across the built site (issue #561)', { tags: [
         if (ASSET_PREFIXES.some(p => target.startsWith(p))) continue;
         const key = resolveEmittedFile(target, emitted);
         if (key === null) {
+          // Some generated pages list every publication held, but this build
+          // reads committed derived files and so emits dataset pages for the
+          // frozen baseline only. A link to the dataset page of a HELD later
+          // publication is therefore unresolvable HERE by construction, not
+          // dead on the deployed site, where the projection supplies the page.
+          // A link to a publication that is not held at all is still a fault.
+          const dataset = /^datasets\/open-data\/(\d{4}-\d{2}-\d{2}(?:--[0-9a-f]+)?)\//.exec(target);
+          if (dataset !== null
+            && !(FROZEN_BASELINE_KEYS as readonly string[]).includes(dataset[1])
+            && fs.existsSync(path.join(DIRS.archive, dataset[1], 'meta.json'))) continue;
           unresolvedFiles.push(`${rel} -> ${raw}`);
           continue;
         }

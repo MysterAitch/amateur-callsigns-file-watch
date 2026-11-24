@@ -12,6 +12,7 @@ import {
   loadJsonFile,
 } from './utils.ts';
 import { DIRS } from './constants.ts';
+import { scopeArchiveKeys } from './derived-entries.ts';
 
 const ARCHIVE_DIR = DIRS.archive;
 
@@ -156,9 +157,9 @@ const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}(--[0-9a-f]+)?$/;
 // ISO dates, optionally with content-hash suffix which orders stably within a date).
 export function listArchiveKeys(): string[] {
   if (!fsSync.existsSync(ARCHIVE_DIR)) return [];
-  return fsSync.readdirSync(ARCHIVE_DIR)
+  return scopeArchiveKeys(fsSync.readdirSync(ARCHIVE_DIR)
     .filter(name => DATE_KEY_RE.test(name) && fsSync.statSync(path.join(ARCHIVE_DIR, name)).isDirectory())
-    .sort();
+    .sort());
 }
 
 // Copy the newest archive entry's raw.csv into the repo-root `latest-raw.csv`
