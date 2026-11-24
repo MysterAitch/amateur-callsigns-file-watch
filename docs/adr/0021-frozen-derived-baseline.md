@@ -128,6 +128,7 @@ the publication sat unmerged for two months.
 - **What this does not settle.** Byte comparisons of committed reports against
   a fresh fold still fail between a publication landing and the reports being
   regenerated, and the golden-master job is a required check, so a publication
-  cannot yet merge unattended. The two report comparisons that need the newest
-  entry's derived views run only where a projection is supplied. Both are
-  tracked on issue #1091.
+  cannot yet merge unattended. A report comparison that needs a post-freeze
+  entry's derived views runs only where a projection is supplied, and no test
+  job supplies one; the golden-master job holds those reports instead. Each
+  such test says so where it is gated. Both points are tracked on issue #1091.
