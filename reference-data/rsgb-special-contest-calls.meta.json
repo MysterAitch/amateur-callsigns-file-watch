@@ -6,20 +6,20 @@
     "licenceBasis": "copyright-cite-only",
     "treatment": "Only the uncopyrightable three-column factual table is extracted; the page's RSGB-authored prose (rules, FAQ, contest lists) is cited by URL and fetch date, not reproduced."
   },
-  "fetchedAt": "2026-09-01T11:34:47.892Z",
+  "fetchedAt": "2026-11-01T13:14:34.115Z",
   "upstreamUpdated": {
-    "text": "Updated 05 August 2026",
-    "iso": "2026-08-05"
+    "text": "Updated 27 September 2026",
+    "iso": "2026-09-27"
   },
   "rowCount": 520,
   "statusCounts": {
-    "Available": 204,
-    "Issued": 263,
+    "Available": 202,
+    "Issued": 265,
     "Withdrawb": 1,
     "withdrawn": 1,
     "Withdrawn": 51
   },
   "sourceHeaders": {
-    "date": "Tue, 01 Sep 2026 11:34:47 GMT"
+    "date": "Sun, 01 Nov 2026 13:14:33 GMT"
   }
 }
