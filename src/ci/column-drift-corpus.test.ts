@@ -11,6 +11,7 @@ import {
   type DriftSignal,
 } from './column-drift.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
+import { derivedEntriesMode } from '../shared/derived-entries.ts';
 
 // Issue #862: the distributional-drift detector validated against the corpus's
 // RECORDED ground truth — the known cases must surface from the fingerprints
@@ -20,10 +21,9 @@ import { duckDbAvailable } from '../v2/report-fold.ts';
 // export-variant/schema drifts (date-format and column populate/empty). Test
 // names follow Subject_Scenario_Outcome.
 //
-// Figures asserted exactly are figures of the COMMITTED archive (immutable
-// entries): they change only when a new dataset is ingested, which is exactly
-// when this suite should demand a deliberate re-read, like the other
-// data-validity goldens.
+// Figures asserted exactly are figures of named vintages whose normalised CSVs
+// are committed (immutable entries), so a later publication does not move
+// them.
 
 describe.skipIf(!duckDbAvailable())('column drift — real-corpus ground truth', { tags: ['data-validity'] }, () => {
   let drift: ColumnDrift;
@@ -38,7 +38,12 @@ describe.skipIf(!duckDbAvailable())('column drift — real-corpus ground truth',
 
   // --- The committed report is exactly this fold -------------------------
 
-  it('DriftReport_FoldedFromTheNormalisedCsvs_MatchesTheCommittedGoldenByteForByte', () => {
+  // The committed report covers every publication held. A publication landed
+  // after the derived-file freeze (ADR 0021) has a normalised CSV only in the
+  // projection, so this comparison can be made only when one is supplied;
+  // without one the golden-master job, which is projection-fed, is what holds
+  // the committed file to its regeneration.
+  it.runIf(derivedEntriesMode() === 'projection')('DriftReport_FoldedFromTheNormalisedCsvs_MatchesTheCommittedGoldenByteForByte', () => {
     const golden = fs.readFileSync(path.resolve(process.cwd(), COLUMN_DRIFT_PATH), 'utf8');
     expect(renderColumnDrift(drift)).toBe(golden);
   });
