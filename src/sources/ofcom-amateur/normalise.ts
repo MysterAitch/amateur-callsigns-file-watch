@@ -103,6 +103,20 @@ const VARIANTS: Record<string, Record<string, CanonicalColumn | null>> = {
     'Licence_Version.LastModifiedDate': 'licence_version_last_modified_date',
     'Licence_Version.Original_start_date__c': 'licence_version_original_start_date',
   },
+  // The live export from 22 September 2026: the v2026-licence-version columns
+  // with a licence issued date inserted between the two existing dates.
+  // The issued date is genuine per-row data, null-mapped because the canonical
+  // schema has no column for it (see IGNORED_COLUMN_VERIFICATION).
+  // TODO(#1089): project the issued date.
+  'v2026-licence-issued-date': {
+    'Callsign': 'callsign',
+    'Product__c': 'product',
+    'Status': 'status',
+    'Type__c': 'type',
+    'Licence_Version.LastModifiedDate': 'licence_version_last_modified_date',
+    'Licence_Version.Licence_Issued_Date__c': null,
+    'Licence_Version.Original_start_date__c': 'licence_version_original_start_date',
+  },
   // The 2025-11-11 web-archived export: the v2026-licence-version columns plus
   // five empty-named trailing padding columns. Parsed via a shape-only
   // raw-extract that fills the empty header names (unknown-1..5) so csv-parse
@@ -159,6 +173,12 @@ export function openDataDateFormat(variant?: string): 'DD/MM/YYYY' | 'YYYY-MM-DD
 // the fifth carries a stray Excel-mangled month token on 29 of 159,895 rows -
 // a blind ignore-by-null would have dropped that signal without a trace.
 const IGNORED_COLUMN_VERIFICATION: Record<string, Record<string, IgnoredColumnVerification>> = {
+  'v2026-licence-issued-date': {
+    'Licence_Version.Licence_Issued_Date__c': {
+      kind: 'content-bearing',
+      note: 'a genuine licence issued date (day-first), populated on 105,321 of 163,342 rows of the 22 September 2026 export - every Allocated row plus six Reserved ones; not projected because the canonical schema has no issued-date column, and adding one changes the normalised output of every earlier entry; carried verbatim in the raw-keyed claim ledger; projection is owed and tracked on issue #1089',
+    },
+  },
   'v2026-licence-version-padded': {
     'unknown-1': { kind: 'empty' },
     'unknown-2': { kind: 'empty' },

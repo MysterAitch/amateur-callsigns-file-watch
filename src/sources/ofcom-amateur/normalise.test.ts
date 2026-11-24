@@ -39,6 +39,17 @@ const LICENCE_VERSION_ISO =
   '20DLQ,Amateur Intermediate Radio Licence,Allocated,Call Sign - Amateur,2025-10-11,2015-05-29\n';
 const ISO_VARIANT = 'v2026-licence-version-iso';
 
+// The 22 September 2026 export: the licence-version columns with an issued
+// date inserted BETWEEN the two existing dates, no BOM, CRLF line endings.
+// Rows are verbatim from that publication, plus one of its 15 blank-status
+// rows (a state no earlier publication carries).
+const ISSUED_DATE_HEADERS = ['Callsign', 'Product__c', 'Status', 'Type__c', 'Licence_Version.LastModifiedDate', 'Licence_Version.Licence_Issued_Date__c', 'Licence_Version.Original_start_date__c'];
+const LICENCE_VERSION_ISSUED_DATE =
+  `${ISSUED_DATE_HEADERS.join(',')}\r\n` +
+  'M0IVB,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,11/10/2025,21/04/2024,20/01/2019\r\n' +
+  'M5TX,,Available,Call Sign - Amateur,,,\r\n' +
+  'M0ZZZ,Amateur Full Radio Licence,,Call Sign - Amateur,,,\r\n';
+
 // The 2025-11-11 web-archived export's shape-only header fill: the five
 // empty trailing header names become unknown-1..5 so csv-parse cannot
 // collapse them (issue #577's motivating case - see IGNORED_COLUMN_VERIFICATION
@@ -67,6 +78,17 @@ describe('detectHeaderVariant', { tags: ['unit'] }, () => {
 
   it('HeaderVariant_WhenLicenceVersionColumns_Detected', () => {
     expect(detectHeaderVariant(['Callsign', 'Product__c', 'Status', 'Type__c', 'Licence_Version.LastModifiedDate', 'Licence_Version.Original_start_date__c'])).toBe('v2026-licence-version');
+  });
+
+  it('HeaderVariant_WhenLicenceVersionColumnsWithIssuedDate_DetectedAsItsOwnVariant', () => {
+    expect(detectHeaderVariant(ISSUED_DATE_HEADERS)).toBe('v2026-licence-issued-date');
+  });
+
+  it('HeaderVariant_WhenIssuedDateColumnSitsInADifferentPosition_ReturnsUndefined', () => {
+    // Order-sensitive on purpose: the same seven names rearranged is a new
+    // export shape to review, not the registered one.
+    const reordered = [...ISSUED_DATE_HEADERS.slice(0, 5), ISSUED_DATE_HEADERS[6], ISSUED_DATE_HEADERS[5]];
+    expect(detectHeaderVariant(reordered)).toBeUndefined();
   });
 
   it('HeaderVariant_WhenMmsiLabelledColumns_Detected', () => {
@@ -134,6 +156,29 @@ describe('convertRawCsv', { tags: ['unit'] }, () => {
     // Licence-version dates land in their own canonical columns; the
     // created/last-modified pair stays empty for this variant.
     expect(lines(result.csv)).toContain('20DLQ,Amateur Intermediate Radio Licence,Allocated,Call Sign - Amateur,,,2025-10-11,2015-05-29');
+  });
+
+  it('Convert_WhenIssuedDateVariant_MapsSharedColumnsAndLeavesIssuedDateOutOfTheCanonicalRow', () => {
+    const result = convertRawCsv(LICENCE_VERSION_ISSUED_DATE, FETCH_CONTEXT);
+    expect(result.headerVariant).toBe('v2026-licence-issued-date');
+    expect(result.recordCount).toBe(3);
+    const rows = lines(result.csv);
+    expect(rows[0]).toBe(CANONICAL_COLUMNS.join(','));
+    // The two shared dates land where the six-column variant puts them. The
+    // issued date (21/04/2024) is deliberately absent: it is carried by the
+    // raw-keyed ledger, not by the canonical projection.
+    expect(rows).toContain('M0IVB,Amateur Full Radio Licence,Allocated,Call Sign - Amateur,,,2025-10-11,2019-01-20');
+    expect(result.csv).not.toContain('2024-04-21');
+  });
+
+  it('Convert_WhenIssuedDateVariantRowHasBlankStatus_RowStaysARecordWithEmptyStatus', () => {
+    const result = convertRawCsv(LICENCE_VERSION_ISSUED_DATE, FETCH_CONTEXT);
+    expect(lines(result.csv)).toContain('M0ZZZ,Amateur Full Radio Licence,,Call Sign - Amateur,,,,');
+  });
+
+  it('Convert_WhenIssuedDateColumnIsRenamed_ThrowsNamingTheHeaders', () => {
+    const renamed = LICENCE_VERSION_ISSUED_DATE.replace('Licence_Issued_Date__c', 'Issued__c');
+    expect(() => convertRawCsv(renamed, FETCH_CONTEXT)).toThrow(/unknown raw header variant.*Licence_Version\.Issued__c/);
   });
 
   it('Convert_WhenVariantLacksTypeColumn_LeavesTypeEmpty', () => {
