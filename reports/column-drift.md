@@ -87,6 +87,7 @@ histogram are re-derivable from the fold (src/ci/column-drift.ts).
 | 2025-11-11 | 159,895 | 159,895 (100.0%) | 0 | 159,678 | 4 / 5.00 / 10 | digit 100.0%, upper 100.0%, lower 0.0%, space 0.0%, punct 0.0%, nonascii 0.0% |
 | 2026-01-14 | 146,417 | 146,417 (100.0%) | 0 | 146,219 | 4 / 5.00 / 12 | digit 100.0%, upper 100.0%, lower 0.0%, space 0.0%, punct 0.0%, nonascii 0.0% |
 | 2026-06-23 | 158,318 | 158,318 (100.0%) | 0 | 158,318 | 4 / 5.00 / 12 | digit 100.0%, upper 100.0%, lower 0.0%, space 0.0%, punct 0.1%, nonascii 0.0% |
+| 2026-09-22 | 163,342 | 163,342 (100.0%) | 0 | 163,342 | 1 / 5.00 / 12 | digit 100.0%, upper 100.0%, lower 0.0%, space 0.0%, punct 0.1%, nonascii 0.0% |
 
 ### `product`
 
@@ -101,6 +102,7 @@ histogram are re-derivable from the fold (src/ci/column-drift.ts).
 | 2025-11-11 | 159,895 | 116,939 (73.1%) | 42,956 | 6 | 21 / 28.97 / 42 | upper all, lower all, space all |
 | 2026-01-14 | 146,417 | 106,430 (72.7%) | 39,987 | 6 | 21 / 28.99 / 42 | upper all, lower all, space all |
 | 2026-06-23 | 158,318 | 118,158 (74.6%) | 40,160 | 5 | 26 / 29.03 / 42 | upper all, lower all, space all |
+| 2026-09-22 | 163,342 | 120,041 (73.5%) | 43,301 | 5 | 26 / 29.05 / 42 | upper all, lower all, space all |
 
 ### `status`
 
@@ -115,6 +117,7 @@ histogram are re-derivable from the fold (src/ci/column-drift.ts).
 | 2025-11-11 | 159,895 | 159,884 (100.0%) | 11 | 3 | 8 / 8.66 / 9 | upper all, lower all |
 | 2026-01-14 | 146,417 | 146,407 (100.0%) | 10 | 3 | 8 / 8.66 / 9 | upper all, lower all |
 | 2026-06-23 | 158,318 | 158,318 (100.0%) | 0 | 3 | 8 / 8.67 / 9 | upper all, lower all |
+| 2026-09-22 | 163,342 | 163,327 (100.0%) | 15 | 3 | 8 / 8.65 / 9 | upper all, lower all |
 
 ### `type`
 
@@ -129,6 +132,7 @@ histogram are re-derivable from the fold (src/ci/column-drift.ts).
 | 2025-11-11 | 159,895 | 159,895 (100.0%) | 0 | 1 | 19 / 19.00 / 19 | upper all, lower all, space all, punct all |
 | 2026-01-14 | 146,417 | 146,417 (100.0%) | 0 | 1 | 19 / 19.00 / 19 | upper all, lower all, space all, punct all |
 | 2026-06-23 | 158,318 | 158,318 (100.0%) | 0 | 1 | 19 / 19.00 / 19 | upper all, lower all, space all, punct all |
+| 2026-09-22 | 163,342 | 163,342 (100.0%) | 0 | 1 | 19 / 19.00 / 19 | upper all, lower all, space all, punct all |
 
 ### `created_date`
 
@@ -143,6 +147,7 @@ histogram are re-derivable from the fold (src/ci/column-drift.ts).
 | 2025-11-11 | 159,895 | 0 (0.0%) | 159,895 | 0 | — | — |
 | 2026-01-14 | 146,417 | 0 (0.0%) | 146,417 | 0 | — | — |
 | 2026-06-23 | 158,318 | 0 (0.0%) | 158,318 | 0 | — | — |
+| 2026-09-22 | 163,342 | 0 (0.0%) | 163,342 | 0 | — | — |
 
 ### `last_modified_date`
 
@@ -157,6 +162,7 @@ histogram are re-derivable from the fold (src/ci/column-drift.ts).
 | 2025-11-11 | 159,895 | 0 (0.0%) | 159,895 | 0 | — | — |
 | 2026-01-14 | 146,417 | 0 (0.0%) | 146,417 | 0 | — | — |
 | 2026-06-23 | 158,318 | 0 (0.0%) | 158,318 | 0 | — | — |
+| 2026-09-22 | 163,342 | 0 (0.0%) | 163,342 | 0 | — | — |
 
 ### `licence_version_last_modified_date`
 
@@ -171,6 +177,7 @@ histogram are re-derivable from the fold (src/ci/column-drift.ts).
 | 2025-11-11 | 159,895 | 105,716 (66.1%) | 54,179 | 38 | 10 / 10.00 / 10 | digit all, punct all |
 | 2026-01-14 | 146,417 | 96,155 (65.7%) | 50,262 | 101 | 10 / 10.00 / 10 | digit all, punct all |
 | 2026-06-23 | 158,318 | 105,332 (66.5%) | 52,986 | 249 | 10 / 10.00 / 10 | digit all, punct all |
+| 2026-09-22 | 163,342 | 105,320 (64.5%) | 58,022 | 339 | 10 / 10.00 / 10 | digit all, punct all |
 
 ### `licence_version_original_start_date`
 
@@ -185,6 +192,7 @@ histogram are re-derivable from the fold (src/ci/column-drift.ts).
 | 2025-11-11 | 159,895 | 105,716 (66.1%) | 54,179 | 15,309 | 10 / 10.00 / 10 | digit all, punct all |
 | 2026-01-14 | 146,417 | 96,155 (65.7%) | 50,262 | 14,917 | 10 / 10.00 / 10 | digit all, punct all |
 | 2026-06-23 | 158,318 | 105,332 (66.5%) | 52,986 | 15,488 | 10 / 10.00 / 10 | digit all, punct all |
+| 2026-09-22 | 163,342 | 105,320 (64.5%) | 58,022 | 15,568 | 10 / 10.00 / 10 | digit all, punct all |
 
 ## Top values per vintage
 
@@ -206,6 +214,7 @@ profile — a single day holding a majority is the mass-update fingerprint
 - **2025-11-11** (159,678 distinct): `G3EVA` 3 (0.0%), `G5CWP` 3 (0.0%), `G8SDX` 3 (0.0%), `M0BUS` 3 (0.0%), `20CAM` 2 (0.0%), `20NAE` 2 (0.0%), `20TWA` 2 (0.0%), `21DQG` 2 (0.0%)
 - **2026-01-14** (146,219 distinct): `G3EVA` 3 (0.0%), `G5CWP` 3 (0.0%), `G8SDX` 3 (0.0%), `M0BUS` 3 (0.0%), `20CAM` 2 (0.0%), `20NAE` 2 (0.0%), `20TWA` 2 (0.0%), `21DQG` 2 (0.0%)
 - **2026-06-23** (158,318 distinct): `G0TQK` 2 (0.0%), `G7IWE` 2 (0.0%), `20AAA` 1 (0.0%), `20AAB` 1 (0.0%), `20AAC` 1 (0.0%), `20AAD` 1 (0.0%), `20AAE` 1 (0.0%), `20AAF` 1 (0.0%)
+- **2026-09-22** (163,342 distinct): `.` 1 (0.0%), `2#0MVL` 1 (0.0%), `20AAA` 1 (0.0%), `20AAB` 1 (0.0%), `20AAC` 1 (0.0%), `20AAD` 1 (0.0%), `20AAE` 1 (0.0%), `20AAF` 1 (0.0%)
 
 ### `product`
 
@@ -217,6 +226,7 @@ profile — a single day holding a majority is the mass-update fingerprint
 - **2025-11-11** (6 distinct): `Amateur Full Radio Licence` 61,854 (52.9%), `Amateur Foundation Radio Licence` 37,995 (32.5%), `Amateur Intermediate Radio Licence` 14,816 (12.7%), `Amateur Club Radio Licence` 2,222 (1.9%), `Amateur Temporary Reciprocal Radio Licence` 47 (0.0%), `Special Event Station` 5 (0.0%)
 - **2026-01-14** (6 distinct): `Amateur Full Radio Licence` 55,907 (52.5%), `Amateur Foundation Radio Licence` 34,719 (32.6%), `Amateur Intermediate Radio Licence` 13,645 (12.8%), `Amateur Club Radio Licence` 2,119 (2.0%), `Amateur Temporary Reciprocal Radio Licence` 37 (0.0%), `Special Event Station` 3 (0.0%)
 - **2026-06-23** (5 distinct): `Amateur Full Radio Licence` 61,466 (52.0%), `Amateur Foundation Radio Licence` 38,784 (32.8%), `Amateur Intermediate Radio Licence` 15,529 (13.1%), `Amateur Club Radio Licence` 2,279 (1.9%), `Amateur Temporary Reciprocal Radio Licence` 100 (0.1%)
+- **2026-09-22** (5 distinct): `Amateur Full Radio Licence` 62,202 (51.8%), `Amateur Foundation Radio Licence` 39,548 (32.9%), `Amateur Intermediate Radio Licence` 15,865 (13.2%), `Amateur Club Radio Licence` 2,301 (1.9%), `Amateur Temporary Reciprocal Radio Licence` 125 (0.1%)
 
 ### `status`
 
@@ -229,6 +239,7 @@ profile — a single day holding a majority is the mass-update fingerprint
 - **2025-11-11** (3 distinct): `Allocated` 105,716 (66.1%), `Reserved` 53,673 (33.6%), `Available` 495 (0.3%)
 - **2026-01-14** (3 distinct): `Allocated` 96,155 (65.7%), `Reserved` 49,723 (34.0%), `Available` 529 (0.4%)
 - **2026-06-23** (3 distinct): `Allocated` 105,332 (66.5%), `Reserved` 52,418 (33.1%), `Available` 568 (0.4%)
+- **2026-09-22** (3 distinct): `Allocated` 105,315 (64.5%), `Reserved` 57,420 (35.2%), `Available` 592 (0.4%)
 
 ### `type`
 
@@ -240,6 +251,7 @@ profile — a single day holding a majority is the mass-update fingerprint
 - **2025-11-11** (1 distinct): `Call Sign - Amateur` 159,895 (100.0%)
 - **2026-01-14** (1 distinct): `Call Sign - Amateur` 146,417 (100.0%)
 - **2026-06-23** (1 distinct): `Call Sign - Amateur` 158,318 (100.0%)
+- **2026-09-22** (1 distinct): `Call Sign - Amateur` 163,342 (100.0%)
 
 ### `created_date`
 
@@ -261,12 +273,14 @@ profile — a single day holding a majority is the mass-update fingerprint
 - **2025-11-11** (38 distinct): `2025-10-11` 86,890 (82.2%), `2025-10-30` 11,749 (11.1%), `2025-10-14` 915 (0.9%), `2025-10-13` 631 (0.6%), `2025-10-15` 496 (0.5%), `2025-10-17` 483 (0.5%), `2025-10-16` 366 (0.3%), `2025-10-18` 305 (0.3%)
 - **2026-01-14** (101 distinct): `2025-10-11` 75,280 (78.3%), `2025-10-30` 10,433 (10.9%), `2025-11-17` 855 (0.9%), `2025-10-14` 534 (0.6%), `2025-10-13` 374 (0.4%), `2025-10-17` 323 (0.3%), `2025-10-15` 302 (0.3%), `2025-10-19` 260 (0.3%)
 - **2026-06-23** (249 distinct): `2025-10-11` 76,378 (72.5%), `2025-10-30` 11,062 (10.5%), `2026-02-13` 630 (0.6%), `2025-11-17` 402 (0.4%), `2026-02-16` 402 (0.4%), `2026-02-14` 343 (0.3%), `2025-10-14` 256 (0.2%), `2025-10-20` 214 (0.2%)
+- **2026-09-22** (339 distinct): `2025-10-11` 72,311 (68.7%), `2025-10-30` 10,807 (10.3%), `2026-02-13` 595 (0.6%), `2025-11-17` 367 (0.3%), `2026-02-16` 347 (0.3%), `2026-02-14` 319 (0.3%), `2026-07-22` 241 (0.2%), `2025-10-14` 235 (0.2%)
 
 ### `licence_version_original_start_date`
 
 - **2025-11-11** (15,309 distinct): `1982-04-16` 137 (0.1%), `1990-07-24` 89 (0.1%), `2004-01-09` 89 (0.1%), `1985-07-18` 87 (0.1%), `2015-07-08` 84 (0.1%), `2013-07-09` 83 (0.1%), `1985-07-12` 79 (0.1%), `1996-04-01` 74 (0.1%)
 - **2026-01-14** (14,917 distinct): `1982-04-16` 130 (0.1%), `2004-01-09` 86 (0.1%), `1990-07-24` 85 (0.1%), `1985-07-18` 80 (0.1%), `1985-07-12` 78 (0.1%), `2013-07-09` 75 (0.1%), `2015-07-08` 74 (0.1%), `1986-07-23` 69 (0.1%)
 - **2026-06-23** (15,488 distinct): `1982-04-16` 137 (0.1%), `1990-07-24` 89 (0.1%), `2004-01-09` 89 (0.1%), `1985-07-18` 87 (0.1%), `2015-07-08` 83 (0.1%), `2013-07-09` 82 (0.1%), `1985-07-12` 79 (0.1%), `1996-04-01` 74 (0.1%)
+- **2026-09-22** (15,568 distinct): `1982-04-16` 137 (0.1%), `1990-07-24` 89 (0.1%), `2004-01-09` 89 (0.1%), `1985-07-18` 87 (0.1%), `2015-07-08` 82 (0.1%), `2013-07-09` 81 (0.1%), `1985-07-12` 79 (0.1%), `1996-04-01` 74 (0.1%)
 
 ## Flagged divergences
 

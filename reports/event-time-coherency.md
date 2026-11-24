@@ -71,6 +71,7 @@ Witnessed by (one row per dataset × event kind whose dates cluster in this wind
 | `licence-version-last-modified` | opendata | `2025-11-11` | 2025-11-11 | 2025-10-11 → 2025-10-30 | 104,221 | 105,716 | 98.6% | 2025-10-11 (82.2%), 2025-10-30 (11.1%) |
 | `licence-version-last-modified` | opendata | `2026-01-14` | 2026-01-14 | 2025-10-11 → 2025-10-30 | 89,792 | 96,155 | 93.4% | 2025-10-11 (78.3%), 2025-10-30 (10.9%) |
 | `licence-version-last-modified` | opendata | `2026-06-23` | 2026-06-23 | 2025-10-11 → 2025-10-30 | 90,189 | 105,332 | 85.6% | 2025-10-11 (72.5%), 2025-10-30 (10.5%) |
+| `licence-version-last-modified` | opendata | `2026-09-22` | 2026-09-22 | 2025-10-11 → 2025-10-30 | 85,604 | 105,319 | 81.3% | 2025-10-11 (68.7%), 2025-10-30 (10.3%) |
 
 ## Cross-vintage classification totals
 
@@ -85,12 +86,12 @@ kind is a non-observation, never "nothing happened".
 | `licence-original-start` | corroborated | 103,052 |
 | `licence-original-start` | revised-backward | 1 |
 | `licence-original-start` | revised-forward | 120 |
-| `licence-version-last-modified` | corroborated | 185,309 |
-| `licence-version-last-modified` | expected-progression | 13,362 |
+| `licence-version-last-modified` | corroborated | 284,255 |
+| `licence-version-last-modified` | expected-progression | 18,979 |
 | `licence-version-last-modified` | revised-backward | 5 |
-| `licence-version-original-start` | corroborated | 386,853 |
-| `licence-version-original-start` | revised-backward | 39 |
-| `licence-version-original-start` | revised-forward | 488 |
+| `licence-version-original-start` | corroborated | 491,405 |
+| `licence-version-original-start` | revised-backward | 41 |
+| `licence-version-original-start` | revised-forward | 502 |
 | `record-created` | corroborated | 478,182 |
 | `record-created` | revised-backward | 3 |
 | `record-created` | revised-forward | 3 |
@@ -189,12 +190,14 @@ exactly the revision material classified above.
 |---|---:|---:|---:|
 | `licence-issued` | 2 | 103,901 | 0 |
 | `licence-original-start` | 2 | 103,052 | 121 |
-| `licence-version-last-modified` | 2 | 10,862 | 1,648 |
-| `licence-version-last-modified` | 3 | 82,352 | 10,731 |
-| `licence-version-original-start` | 2 | 6,135 | 4 |
-| `licence-version-original-start` | 3 | 11,382 | 40 |
-| `licence-version-original-start` | 4 | 10,984 | 59 |
-| `licence-version-original-start` | 5 | 80,916 | 401 |
+| `licence-version-last-modified` | 2 | 3,267 | 646 |
+| `licence-version-last-modified` | 3 | 9,130 | 1,861 |
+| `licence-version-last-modified` | 4 | 78,112 | 14,336 |
+| `licence-version-original-start` | 2 | 6,195 | 3 |
+| `licence-version-original-start` | 3 | 2,383 | 32 |
+| `licence-version-original-start` | 4 | 12,089 | 25 |
+| `licence-version-original-start` | 5 | 9,884 | 93 |
+| `licence-version-original-start` | 6 | 80,568 | 366 |
 | `record-created` | 2 | 283 | 0 |
 | `record-created` | 3 | 3,340 | 0 |
 | `record-created` | 4 | 145,294 | 1 |
