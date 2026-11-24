@@ -85,9 +85,9 @@ such as forbidden suffixes), an honest over-count preferred to an
 invented classifier — so the addressable shares are, if anything,
 understated.
 
-- Cleaned subjects in the ledger: 193,092
-- …with at least one event-time claim: 166,683 (86.3%)
-- …with at least one LICENSING-evidence claim (start / cancellation / reservation bound): 129,875 (67.3%)
+- Cleaned subjects in the ledger: 193,774
+- …with at least one event-time claim: 167,363 (86.4%)
+- …with at least one LICENSING-evidence claim (start / cancellation / reservation bound): 130,609 (67.4%)
 
 Per-kind coverage — the vintages that attest each kind at all, and the
 asserted-day span they cover. A kind absent from a period cannot support
@@ -102,8 +102,8 @@ weak, caveated absence.
 | `licence-issued` | licence-start | 2 | 103,901 | 207,806 | 1903-05-03 → 2019-08-10 | 2019-08-12, 2019-09-12 |
 | `licence-last-modified` | system-presence | 1 | 105,518 | 105,518 | 2020-10-15 → 2025-09-11 | 2025-09-11 |
 | `licence-original-start` | licence-start | 2 | 105,849 | 209,236 | 1903-05-03 → 2025-09-11 | 2024-10, 2025-09-11 |
-| `licence-version-last-modified` | system-presence | 3 | 108,112 | 307,203 | 2017-01-27 → 2026-06-11 | 2025-11-11, 2026-01-14, 2026-06-23 |
-| `licence-version-original-start` | licence-start | 5 | 112,438 | 500,233 | 1903-05-03 → 2026-06-11 | 2021-01-29, 2021-04-21, 2025-11-11, 2026-01-14, 2026-06-23 |
+| `licence-version-last-modified` | system-presence | 4 | 108,868 | 412,522 | 2017-01-27 → 2026-09-09 | 2025-11-11, 2026-01-14, 2026-06-23, 2026-09-22 |
+| `licence-version-original-start` | licence-start | 6 | 113,189 | 605,552 | 1903-05-03 → 2026-09-09 | 2021-01-29, 2021-04-21, 2025-11-11, 2026-01-14, 2026-06-23, 2026-09-22 |
 | `record-created` | system-presence | 7 | 161,756 | 639,970 | 2016-07-23 → 2025-06-03 | 2020-10-23, 2024-09, 2025-03-13, 2025-04-08, 2025-05-27, 2025-06-04, 2025-06-08 |
 | `record-last-modified` | system-presence | 15 | 157,823 | 1,731,482 | 2016-07-23 → 2025-06-03 | 2020-10-23, 2023-01-25, 2023-02-20, 2023-08-18, 2023-11-24, 2023-12-07, 2024-01, 2024-07, 2024-07-22, 2024-10-21, 2025-03-13, 2025-04-08, 2025-05-27, 2025-06-04, 2025-06-08 |
 | `reserved-until` | reservation-end | 5 | 4,369 | 5,257 | 2016-01-04 → 2099-12-31 | 2020-10-23, 2021-01-29, 2021-04-21, 2024-09, 2024-10 |
@@ -117,7 +117,7 @@ Evidence lines whose day falls inside a window are annotated in every
 answer, so a bookkeeping stamp never masquerades as a per-record event.
 
 - Episode 1: 2016-07-23 → 2016-08-12 (13 witness signals)
-- Episode 2: 2025-10-11 → 2025-10-30 (3 witness signals)
+- Episode 2: 2025-10-11 → 2025-10-30 (4 witness signals)
 
 ## Worked examples
 
@@ -204,7 +204,7 @@ not; the answer lists both camps by vintage and adjudicates neither.
 
 Query: state of `G3SDS` at t = 2000-01-01, consulting the whole corpus.
 
-Vintages consulted: 2019-08-12, 2019-09-12, 2021-01-29, 2021-04-21, 2023-01-25, 2023-02-20, 2023-08-18, 2023-11-24, 2023-12-07, 2024-01, 2024-07, 2024-07-22, 2024-09, 2024-10, 2024-10-21, 2025-03-13, 2025-04-08, 2025-06-04, 2025-09-11, 2025-11-11, 2026-01-14, 2026-06-23.
+Vintages consulted: 2019-08-12, 2019-09-12, 2021-01-29, 2021-04-21, 2023-01-25, 2023-02-20, 2023-08-18, 2023-11-24, 2023-12-07, 2024-01, 2024-07, 2024-07-22, 2024-09, 2024-10, 2024-10-21, 2025-03-13, 2025-04-08, 2025-06-04, 2025-09-11, 2025-11-11, 2026-01-14, 2026-06-23, 2026-09-22.
 
 Bounding assertions: latest on or before t: `licence-issued` 1977-07-09, `licence-original-start` 1977-07-09, `licence-version-original-start` 1977-07-09; earliest after t: `record-created` 2016-07-23.
 
@@ -215,7 +215,7 @@ Findings (every finding is **[inferred]** — issue #723):
 
 Vintage disagreements (surfaced, never resolved — issue #467):
 
-- `licence-version-original-start` (earliest-asserted): 1977-07-09 per `ofcom-2021-01--all-callsigns` (2021-01-29), `ofcom-2021-04--all-callsigns` (2021-04-21), `2025-11-11` (2025-11-11), `2026-01-14` (2026-01-14) vs 2026-02-23 per `2026-06-23` (2026-06-23)
+- `licence-version-original-start` (earliest-asserted): 1977-07-09 per `ofcom-2021-01--all-callsigns` (2021-01-29), `ofcom-2021-04--all-callsigns` (2021-04-21), `2025-11-11` (2025-11-11), `2026-01-14` (2026-01-14) vs 2026-02-23 per `2026-06-23` (2026-06-23), `2026-09-22` (2026-09-22)
 
 Evidence:
 
@@ -230,8 +230,9 @@ Evidence:
 | `licence-last-modified` | system-presence | 2024-03-15 | after-t | `ofcom-2025-09-11--callsigns--all-callsigns` (2025-09-11) | — |
 | `record-last-modified` | system-presence | 2024-03-15 | after-t | `ofcom-2024-07--call-signs--all-callsigns` (2024-07); `wdtk-1141667--issued-callsigns` (2024-07-22); `ofcom-2024-10-21--callsigns--all-callsigns` (2024-10-21); `ofcom-2025-03-13--callsigns--all-callsigns` (2025-03-13); `2025-04-08` (2025-04-08); `2025-06-04` (2025-06-04) | — |
 | `licence-version-last-modified` | system-presence | 2025-10-11 | after-t | `2025-11-11` (2025-11-11); `2026-01-14` (2026-01-14) | 2025-10-11 → 2025-10-30 |
-| `licence-version-original-start` | licence-start | 2026-02-23 | after-t | `2026-06-23` (2026-06-23) | — |
+| `licence-version-original-start` | licence-start | 2026-02-23 | after-t | `2026-06-23` (2026-06-23); `2026-09-22` (2026-09-22) | — |
 | `licence-version-last-modified` | system-presence | 2026-04-17 | after-t | `2026-06-23` (2026-06-23) | — |
+| `licence-version-last-modified` | system-presence | 2026-08-02 | after-t | `2026-09-22` (2026-09-22) | — |
 
 ### A reservation window bound: GB0SNB at 2025-06-01
 

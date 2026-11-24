@@ -13,6 +13,10 @@ import {
   sharePct,
 } from './build-home-aggregates.ts';
 import { absentMarker } from './render/format.ts';
+import { pinArchiveToFrozenBaseline } from '../testing/frozen-baseline-archive.ts';
+
+// Reads committed derived files, which stop at the frozen baseline.
+pinArchiveToFrozenBaseline();
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //

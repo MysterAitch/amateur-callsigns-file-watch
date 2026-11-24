@@ -116,6 +116,24 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
     }
   });
 
+  it('NoWorkflowOrBuildScript_SetsTheArchiveScope_SoABuildAlwaysSeesEveryPublication', () => {
+    // The scope narrows what a run enumerates to the frozen baseline; it is a
+    // test-only instrument (scopeArchiveKeys, src/shared/derived-entries.ts).
+    const mentions: string[] = [];
+    const scan = (dir: string): void => {
+      if (!fs.existsSync(dir)) return;
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) scan(full);
+        else if (fs.readFileSync(full, 'utf8').includes('ARCHIVE_SCOPE')) mentions.push(path.relative(process.cwd(), full));
+      }
+    };
+    scan(path.join(process.cwd(), '.github'));
+    scan(path.join(process.cwd(), 'docs', 'setup'));
+    if (fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8').includes('ARCHIVE_SCOPE')) mentions.push('package.json');
+    expect(mentions).toEqual([]);
+  });
+
   it('RequiredChecks_JobNames_ArePreserved', () => {
     // The main ruleset requires FOUR checks BY NAME — `tests`, `data-validation`,
     // `workflow-audit` and `golden-master` — and renaming any of those jobs without

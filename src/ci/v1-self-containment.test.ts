@@ -10,6 +10,10 @@ import { homeHoldings, loadPrefixIntroRows } from './build-home-holdings.ts';
 import { parseJsonObject } from '../shared/json-shape.ts';
 import { SITE_INDEXABLE } from './build-root-discovery.ts';
 import { time, perfReport } from '../shared/perf.ts';
+import { pinArchiveToFrozenBaseline } from '../testing/frozen-baseline-archive.ts';
+
+// Reads committed derived files, which stop at the frozen baseline.
+pinArchiveToFrozenBaseline();
 
 // v1 SELF-CONTAINMENT (issue #921), mechanically enforced. The v1 surface must
 // reference nothing under the legacy tree: no href, import specifier, fetch

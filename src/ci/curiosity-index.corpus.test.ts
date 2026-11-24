@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DIRS } from '../shared/constants.ts';
+import { derivedEntriesMode } from '../shared/derived-entries.ts';
 import {
   scoreCuriosity,
   renderCuriosityIndex,
@@ -41,7 +42,12 @@ function rankByCallsign(records: readonly CuriosityRecord[]): { total: number; r
 }
 
 describe.skipIf(!entryPresent(LATEST_KEY))('curiosity index — golden report', { tags: ['data-validity'] }, () => {
-  it('CuriosityReport_RenderedFromNewestPublication_MatchesCommittedGoldenByteForByte', () => {
+  // The committed report scores the newest publication held. Once a
+  // publication lands after the derived-file freeze (ADR 0021), its derived
+  // views exist only in the projection, so this comparison can be made only
+  // when one is supplied; without one the golden-master job, which is
+  // projection-fed, is what holds the committed file to its regeneration.
+  it.runIf(derivedEntriesMode() === 'projection')('CuriosityReport_RenderedFromNewestPublication_MatchesCommittedGoldenByteForByte', () => {
     // The standing report is a derived golden like every other under reports/:
     // rendering it afresh from the newest publication's derived views must
     // reproduce the committed file exactly, or the drift gate would misfire.

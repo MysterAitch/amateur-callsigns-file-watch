@@ -1,10 +1,16 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { buildDepletion, buildOverlapMatrix, buildComplementarity, renderCrossDatasetInvariants, CROSS_DATASET_INVARIANTS_PATH, type CrossDataset, type OverlapMatrix, type Complementarity } from './cross-dataset-invariants.ts';
+import { buildDepletion, buildOverlapMatrix, buildComplementarity, renderCrossDatasetInvariants, CROSS_DATASET_INVARIANTS_PATH, type CrossDataset, type OverlapMatrix } from './cross-dataset-invariants.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
 import { DIRS } from '../shared/constants.ts';
 import { assertNonEmpty } from '../testing/non-vacuity.ts';
+import { derivedEntriesMode } from '../shared/derived-entries.ts';
+import { pinArchiveToFrozenBaseline, withWholeArchive } from '../testing/frozen-baseline-archive.ts';
+
+// The register side of every join below is read from committed derived files,
+// which stop at the frozen baseline; "the latest register" here is its newest entry.
+pinArchiveToFrozenBaseline();
 
 // Issue #241: the cross-dataset probes join each FOI available snapshot against
 // the latest register on the cleaned callsign key. Issue #361: the join is now a
@@ -121,7 +127,7 @@ describe('cross-dataset invariants — renderers', { tags: ['unit'] }, () => {
 // The real-archive fold needs the pinned DuckDB CLI (DUCKDB_BIN / `duckdb` on
 // PATH, installed in CI by .github/actions/setup-duckdb). Where the binary is
 // absent — a bare local checkout — these cases skip rather than pretend the fold
-// was verified. CI always has it, so the byte-identity gate always runs there.
+// was verified. CI always has it.
 describe.skipIf(!duckDbAvailable())('cross-dataset invariants — real-archive fold', { tags: ['data-validity'] }, () => {
   // The real-archive fold reads every FOI snapshot and the ~158k-row registers;
   // build each struct once and share it across the assertions rather than
@@ -129,15 +135,21 @@ describe.skipIf(!duckDbAvailable())('cross-dataset invariants — real-archive f
   // slow, matching the allowance the build-sqlite tiers hook uses.
   let d: CrossDataset;
   let m: OverlapMatrix;
-  let c: Complementarity;
-  beforeAll(() => { d = buildDepletion(); m = buildOverlapMatrix(); c = buildComplementarity(); }, 480_000);
+  beforeAll(() => { d = buildDepletion(); m = buildOverlapMatrix(); }, 480_000);
 
   // The retirement gate (issue #361): the report folded from the claim data via
   // DuckDB must equal the committed golden byte-for-byte. This IS the proof that
   // the fold reproduces the legacy join, so the legacy generator can retire.
-  it('CrossDatasetInvariants_FoldedFromClaimData_MatchesCommittedGoldenByteForByte', () => {
+  //
+  // The committed report joins against the newest register held. Once a
+  // publication lands after the derived-file freeze (ADR 0021), that register's
+  // derived views exist only in the projection, so this comparison can be made
+  // only when one is supplied; without one the golden-master job, which is
+  // projection-fed, is what holds the committed file to its regeneration.
+  it.runIf(derivedEntriesMode() === 'projection')('CrossDatasetInvariants_FoldedFromClaimData_MatchesCommittedGoldenByteForByte', () => {
     const golden = fs.readFileSync(path.resolve(process.cwd(), CROSS_DATASET_INVARIANTS_PATH), 'utf8');
-    expect(renderCrossDatasetInvariants(d, m, c)).toBe(golden);
+    const [wholeD, wholeM, wholeC] = withWholeArchive(() => [buildDepletion(), buildOverlapMatrix(), buildComplementarity()] as const);
+    expect(renderCrossDatasetInvariants(wholeD, wholeM, wholeC)).toBe(golden);
   });
 
   it('AvailablePool_2013Snapshot_DepletionMatchesIndependentJoin', () => {

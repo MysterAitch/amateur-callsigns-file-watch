@@ -14,6 +14,10 @@ import {
 import { duckDbAvailable } from '../v2/report-fold.ts';
 import { EVENT_DATE_KINDS } from '../v2/claim.ts';
 import { assertNonEmpty } from '../testing/non-vacuity.ts';
+import { pinArchiveToFrozenBaseline, withWholeArchive } from '../testing/frozen-baseline-archive.ts';
+
+// Every figure and worked example below is asserted over the frozen baseline.
+pinArchiveToFrozenBaseline();
 
 // Issue #725 S2: the detector validated against the corpus's RECORDED ground
 // truth — the two data-coherency episodes documented in
@@ -24,10 +28,8 @@ import { assertNonEmpty } from '../testing/non-vacuity.ts';
 // mass episode ONE finding rather than tens of thousands. Test names follow
 // Subject_Scenario_Outcome.
 //
-// Figures asserted exactly are figures of the COMMITTED archive (immutable
-// entries): they change only when a new dataset is ingested, which is exactly
-// when this suite should demand a deliberate re-read, like the other
-// data-validity goldens.
+// Which entries the pinned figures cover, and why a later publication does not
+// move them: src/testing/frozen-baseline-archive.ts.
 
 describe.skipIf(!duckDbAvailable())('event-time coherency — real-corpus ground truth', { tags: ['data-validity'] }, () => {
   let handle: ClaimsSourceHandle;
@@ -35,17 +37,19 @@ describe.skipIf(!duckDbAvailable())('event-time coherency — real-corpus ground
   beforeAll(() => {
     // One claims source for the whole suite: the shared deploy-time Parquet
     // where the run provides one (CLAIMS_PARQUET), else a one-off full-corpus
-    // materialisation.
-    handle = acquireClaimsSource();
-    c = computeEventTimeCoherency(handle.source);
+    // materialisation. Acquired over everything held, whichever way it is
+    // obtained: the scope narrows what a fold reads, never what is emitted.
+    handle = withWholeArchive(() => acquireClaimsSource());
+    c =computeEventTimeCoherency(handle.source);
   }, 600_000);
   afterAll(() => { handle.dispose(); });
 
   // --- The committed report is exactly this fold -------------------------
 
   it('CoherencyReport_FoldedFromTheClaimLedger_MatchesTheCommittedGoldenByteForByte', () => {
+    // The committed report covers every publication held, so this one fold is unscoped.
     const golden = fs.readFileSync(path.resolve(process.cwd(), EVENT_TIME_COHERENCY_PATH), 'utf8');
-    expect(renderEventTimeCoherency(c)).toBe(golden);
+    expect(renderEventTimeCoherency(withWholeArchive(() => computeEventTimeCoherency(handle.source)))).toBe(golden);
   });
 
   it('CoherencyFold_RunTwiceOverTheSameClaims_IsByteDeterministic', () => {

@@ -7,6 +7,10 @@ import { loadReferenceData } from '../sources/ofcom-amateur/components.ts';
 import { defaultFoiDir, readFoiEntryMeta } from '../shared/foi-archive.ts';
 import { escapeHtml } from './site-render.ts';
 import type { SourceObservationSet } from '../v2/claim.ts';
+import { pinArchiveToFrozenBaseline } from '../testing/frozen-baseline-archive.ts';
+
+// Reads committed derived files, which stop at the frozen baseline.
+pinArchiveToFrozenBaseline();
 
 // The fidelity & integrity deep-dive page (issue #438): the page the inline
 // nudges land on, carrying the flag registry with per-flag anchors, the

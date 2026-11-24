@@ -12,14 +12,17 @@ import {
   type SurvivalCohort,
 } from './survival-cohort.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
+import { withFrozenBaselineArchive } from '../testing/frozen-baseline-archive.ts';
 
 // Issue #865: the survival/cohort fold validated against the committed archive.
 // The committed golden IS this fold's output, so byte-identity is the retirement
 // gate; the ground-truth pins record the corpus's actual actuarial shape (the
 // censoring dominance, the disjoint-attestation sparsity, the class/era
-// retention) so a drift is a deliberate re-read, not silent churn. Figures are
-// figures of the immutable committed archive — they move only when a new dataset
-// lands. Test names follow Subject_Scenario_Outcome.
+// retention) so a drift is a deliberate re-read, not silent churn.
+// Test names follow Subject_Scenario_Outcome.
+//
+// Which entries the pinned figures cover, and why a later publication does not
+// move them: src/testing/frozen-baseline-archive.ts.
 
 describe.skipIf(!duckDbAvailable())('survival/cohort — real-corpus ground truth', { tags: ['data-validity'] }, () => {
   let handle: ClaimsSourceHandle;
@@ -28,17 +31,18 @@ describe.skipIf(!duckDbAvailable())('survival/cohort — real-corpus ground trut
     // One claims source for the whole suite: the shared deploy-time Parquet
     // where the run provides one (CLAIMS_PARQUET), else a full-corpus build.
     handle = acquireClaimsSource();
-    c = computeSurvivalCohort(handle.source);
+    c = withFrozenBaselineArchive(() => computeSurvivalCohort(handle.source));
   }, 600_000);
   afterAll(() => { handle.dispose(); });
 
   it('SurvivalCohortReport_FoldedFromTheClaimLedger_MatchesTheCommittedGoldenByteForByte', () => {
+    // The committed report covers every publication held, so this one fold is unscoped.
     const golden = fs.readFileSync(path.resolve(process.cwd(), SURVIVAL_COHORT_PATH), 'utf8');
-    expect(renderSurvivalCohort(c)).toBe(golden);
+    expect(renderSurvivalCohort(computeSurvivalCohort(handle.source))).toBe(golden);
   });
 
   it('SurvivalCohortFold_RunTwiceOverTheSameClaims_IsByteDeterministic', () => {
-    expect(renderSurvivalCohort(computeSurvivalCohort(handle.source))).toBe(renderSurvivalCohort(c));
+    expect(renderSurvivalCohort(withFrozenBaselineArchive(() => computeSurvivalCohort(handle.source)))).toBe(renderSurvivalCohort(c));
   });
 
   it('DeclaredCompleteVintages_ExcludeTheTruncatedPartials_LatestIsTheNewestFullExport', () => {

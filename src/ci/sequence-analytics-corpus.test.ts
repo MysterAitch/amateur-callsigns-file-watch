@@ -9,15 +9,14 @@ import {
 } from './sequence-analytics.ts';
 import { acquireClaimsSource, type ClaimsSourceHandle } from './event-time-coherency.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
+import { withFrozenBaselineArchive } from '../testing/frozen-baseline-archive.ts';
 
 // Issue #864: the sequence-analytics engine validated against the committed
 // archive's ground truth, and its committed golden pinned byte-for-byte. Test
 // names follow Subject_Scenario_Outcome.
 //
-// Figures asserted exactly are figures of the COMMITTED archive (immutable
-// entries): they change only when a new dataset is ingested, which is exactly
-// when this suite should demand a deliberate re-read, like the other
-// data-validity goldens.
+// Which entries the pinned figures cover, and why a later publication does not
+// move them: src/testing/frozen-baseline-archive.ts.
 
 describe.skipIf(!duckDbAvailable())('sequence analytics — real-corpus ground truth', { tags: ['data-validity'] }, () => {
   let handle: ClaimsSourceHandle;
@@ -26,7 +25,7 @@ describe.skipIf(!duckDbAvailable())('sequence analytics — real-corpus ground t
     // One claims source for the whole suite: the shared deploy-time Parquet where
     // the run provides one (CLAIMS_PARQUET), else a one-off full-corpus build.
     handle = acquireClaimsSource();
-    a = computeSequenceAnalytics(handle.source);
+    a = withFrozenBaselineArchive(() => computeSequenceAnalytics(handle.source));
   }, 600_000);
   afterAll(() => { handle.dispose(); });
 
@@ -35,12 +34,13 @@ describe.skipIf(!duckDbAvailable())('sequence analytics — real-corpus ground t
   // --- The committed report is exactly this fold -------------------------
 
   it('SequenceAnalytics_FoldedFromTheClaimLedger_MatchesTheCommittedGoldenByteForByte', () => {
+    // The committed report covers every publication held, so this one fold is unscoped.
     const golden = fs.readFileSync(path.resolve(process.cwd(), SEQUENCE_ANALYTICS_PATH), 'utf8');
-    expect(renderSequenceAnalytics(a)).toBe(golden);
+    expect(renderSequenceAnalytics(computeSequenceAnalytics(handle.source))).toBe(golden);
   });
 
   it('SequenceAnalytics_RunTwiceOverTheSameClaims_IsByteDeterministic', () => {
-    expect(renderSequenceAnalytics(computeSequenceAnalytics(handle.source))).toBe(renderSequenceAnalytics(a));
+    expect(renderSequenceAnalytics(withFrozenBaselineArchive(() => computeSequenceAnalytics(handle.source)))).toBe(renderSequenceAnalytics(a));
   });
 
   // --- Coverage honesty ----------------------------------------------------

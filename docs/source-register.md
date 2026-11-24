@@ -50,7 +50,8 @@ the register as authoritative on which publisher a channel resolves to.
 | 2025-06-04 | ingested | `v2025-friendly` |
 | 2025-11-11 | ingested | recovered-from-web-archive (Internet Archive Wayback capture 2025-12-02 of the dated `amateur-callsigns-11-nov-2025.csv` publication); `v2026-licence-version-padded` (five empty trailing padding columns, parsed via a shape-only header-fill extract); 159,895 records |
 | 2026-01-14 | ingested | recovered-from-web-archive (UK Government Web Archive capture 2026-02-04); published as a WORKBOOK (`amateur-callsign-list.xlsx`, archived verbatim) with a mechanical sheet extract as parse source; `v2026-licence-version-iso`; 146,417 records — ~13,478 fewer than 2025-11-11 (net removal: allocated −9,561, reserved −3,950; flagged for longitudinal analysis) |
-| 2026-06-23 | ingested | `v2026-licence-version`; live watcher continues |
+| 2026-06-23 | ingested | `v2026-licence-version` |
+| 2026-09-22 | ingested | `v2026-licence-issued-date` (adds `Licence_Version.Licence_Issued_Date__c`, carried in the ledger but not yet projected - issue #1089); the first publication after the derived-file freeze (ADR 0021), so raw + meta only; live watcher continues |
 
 ## FOI datasets — register snapshots
 

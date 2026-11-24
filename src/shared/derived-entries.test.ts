@@ -10,6 +10,9 @@ import {
   derivedEntryFile,
   derivedEntryFileExists,
   isDerivedEntryFile,
+  ARCHIVE_SCOPE_ENV,
+  FROZEN_BASELINE_KEYS,
+  scopeArchiveKeys,
 } from './derived-entries.ts';
 import { DIRS } from './constants.ts';
 
@@ -23,16 +26,21 @@ const KEY = '2026-01-01';
 
 let scratch: string;
 let savedEnv: string | undefined;
+let savedScope: string | undefined;
 
 beforeEach(() => {
   scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'derived-entries-'));
   savedEnv = process.env[BUILDER_PROJECTION_DIR_ENV];
   delete process.env[BUILDER_PROJECTION_DIR_ENV];
+  savedScope = process.env[ARCHIVE_SCOPE_ENV];
+  delete process.env[ARCHIVE_SCOPE_ENV];
 });
 
 afterEach(() => {
   if (savedEnv === undefined) delete process.env[BUILDER_PROJECTION_DIR_ENV];
   else process.env[BUILDER_PROJECTION_DIR_ENV] = savedEnv;
+  if (savedScope === undefined) delete process.env[ARCHIVE_SCOPE_ENV];
+  else process.env[ARCHIVE_SCOPE_ENV] = savedScope;
   fs.rmSync(scratch, { recursive: true, force: true });
 });
 
@@ -97,6 +105,65 @@ describe('derived-entries switch', { tags: ['unit'] }, () => {
     // The presence check stays a question, not an assertion - the data-status
     // grid reports honestly on what the projection materialised.
     expect(derivedEntryFileExists(KEY, 'stats.json')).toBe(false);
+  });
+
+  describe('archive scope', () => {
+    const LATER = '2099-01-01';
+    const everything = [...FROZEN_BASELINE_KEYS, LATER];
+
+    it('ArchiveScope_WhenUnset_KeepsEveryEntryIncludingOnePublishedAfterTheFreeze', () => {
+      expect(scopeArchiveKeys(everything)).toEqual(everything);
+    });
+
+    it('ArchiveScope_WhenFrozenBaseline_DropsAnEntryPublishedAfterTheFreeze', () => {
+      process.env[ARCHIVE_SCOPE_ENV] = 'frozen-baseline';
+      expect(scopeArchiveKeys(everything)).toEqual([...FROZEN_BASELINE_KEYS]);
+    });
+
+    it('ArchiveScope_WhenFrozenBaseline_KeepsTheCallersOrder', () => {
+      process.env[ARCHIVE_SCOPE_ENV] = 'frozen-baseline';
+      const reversed = [...everything].reverse();
+      expect(scopeArchiveKeys(reversed)).toEqual([...FROZEN_BASELINE_KEYS].reverse());
+    });
+
+    it('ArchiveScope_WhenValueIsUnrecognised_FailsLoudNamingTheValue', () => {
+      // A typo must not read as "no scope" and quietly widen what a test sees.
+      process.env[ARCHIVE_SCOPE_ENV] = 'frozen-baselin';
+      expect(() => scopeArchiveKeys(everything)).toThrow(/ARCHIVE_SCOPE="frozen-baselin"/);
+    });
+
+    describe('outside a test run', () => {
+      let savedMarker: string | undefined;
+      beforeEach(() => {
+        savedMarker = process.env.VITEST;
+        delete process.env.VITEST;
+      });
+      afterEach(() => {
+        if (savedMarker === undefined) delete process.env.VITEST;
+        else process.env.VITEST = savedMarker;
+      });
+
+      it('ArchiveScope_WhenSetOutsideATestRun_RefusesRatherThanDropAPublication', () => {
+        // The route a workflow scan cannot see: a line in an operator's .env,
+        // or a variable exported in the shell a fetch or build is started from.
+        process.env[ARCHIVE_SCOPE_ENV] = 'frozen-baseline';
+        expect(() => scopeArchiveKeys(everything)).toThrow(/ARCHIVE_SCOPE.*only.*test/);
+      });
+
+      it('ArchiveScope_WhenUnsetOutsideATestRun_KeepsEveryEntry', () => {
+        expect(scopeArchiveKeys(everything)).toEqual(everything);
+      });
+    });
+
+    it('FrozenBaseline_EveryPinnedEntry_CarriesAllThreeCommittedDerivedFiles', () => {
+      // The scope is only honest if the entries it names really are readable
+      // from the committed archive.
+      for (const key of FROZEN_BASELINE_KEYS) {
+        for (const name of DERIVED_ENTRY_FILES) {
+          expect(derivedEntryFileExists(key, name), `${key}/${name}`).toBe(true);
+        }
+      }
+    });
   });
 
   it('DerivedFileNames_CoverExactlyTheThreeProjectedFiles', () => {

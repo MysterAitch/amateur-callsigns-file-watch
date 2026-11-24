@@ -36,6 +36,12 @@ import {
   type Claim,
 } from '../v2/claim.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
+import { withFrozenBaselineArchive } from '../testing/frozen-baseline-archive.ts';
+import { baselineValueCatalogueMarkdown } from '../testing/baseline-value-catalogue.ts';
+
+function committedCatalogueMarkdown(): string {
+  return fs.readFileSync(path.resolve(process.cwd(), VALUE_CATALOGUE_PATH), 'utf8');
+}
 
 // Issue #361: the value catalogue's "Normalised licence category" table is the
 // first analytical DATA generator to fold its numbers from the raw-keyed claim
@@ -205,12 +211,10 @@ const EXPECTED_CATEGORIES: Record<string, CategoryExpectation> = {
   },
 };
 
-// Parse the committed report's "Normalised licence category" table back into
-// figures. The committed golden IS the ledger fold's output (the freshness gate
-// regenerates and diffs it), so this reads the folded side without re-folding —
-// letting the equivalence check run on every CI run, DuckDB present or not.
-function parseCommittedFolded(): Map<string, LicenceCategoryFigures> {
-  const markdown = fs.readFileSync(path.resolve(process.cwd(), VALUE_CATALOGUE_PATH), 'utf8');
+// Parse a rendered catalogue's "Normalised licence category" table back into
+// figures: the committed report by default, or the baseline rendering the
+// equivalence oracle compares against.
+function parseCommittedFolded(markdown: string = committedCatalogueMarkdown()): Map<string, LicenceCategoryFigures> {
   const lines = markdown.split('\n');
   const start = lines.indexOf('## Normalised licence category');
   expect(start).toBeGreaterThanOrEqual(0);
@@ -233,19 +237,19 @@ function underscored(n: number | undefined): string {
   return (n ?? 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '_');
 }
 
-// When a new dataset shifts the corpus, the committed EXPECTED_CATEGORIES figures
-// go stale and the assertions below fail. To make the (deliberate, human-reviewed)
-// allow-list update a copy rather than a hand-count, emit a paste-ready block of
-// the freshly-computed legacy + committed-folded figures whenever any category
-// drifts. Variants and reasons are structural, not counts, so they carry over
+// When the emit, the fold, or the legacy path changes the baseline figures, the
+// EXPECTED_CATEGORIES figures go stale and the assertions below fail. To make
+// the (deliberate, human-reviewed) allow-list update a copy rather than a
+// hand-count, emit a paste-ready block of the freshly-computed legacy and
+// baseline-folded figures whenever any category drifts. Variants and reasons are structural, not counts, so they carry over
 // unchanged and are echoed for convenience.
 function emitRegeneratedAllowListOnDrift(
   legacyByCategory: Map<string, LicenceCategoryFigures>,
-  committedFolded: Map<string, LicenceCategoryFigures>,
+  baselineFolded: Map<string, LicenceCategoryFigures>,
 ): void {
   const drifted = Object.entries(EXPECTED_CATEGORIES).some(([cat, exp]) => {
     const l = legacyByCategory.get(cat);
-    const f = committedFolded.get(cat);
+    const f = baselineFolded.get(cat);
     return l === undefined || f === undefined
       || l.records !== exp.legacy.records || l.callsigns !== exp.legacy.callsigns || l.allocated !== exp.legacy.allocated
       || f.records !== exp.folded.records || f.callsigns !== exp.folded.callsigns || f.allocated !== exp.folded.allocated;
@@ -254,7 +258,7 @@ function emitRegeneratedAllowListOnDrift(
   const out = ['', 'EXPECTED_CATEGORIES drift — paste-ready regenerated figures (verify before committing):'];
   for (const [cat, exp] of Object.entries(EXPECTED_CATEGORIES)) {
     const l = legacyByCategory.get(cat);
-    const f = committedFolded.get(cat);
+    const f = baselineFolded.get(cat);
     out.push(`  '${cat}': {`);
     out.push(`    legacy: { records: ${underscored(l?.records)}, callsigns: ${underscored(l?.callsigns)}, allocated: ${underscored(l?.allocated)} },`);
     out.push(`    folded: { records: ${underscored(f?.records)}, callsigns: ${underscored(f?.callsigns)}, allocated: ${underscored(f?.allocated)} },`);
@@ -265,29 +269,29 @@ function emitRegeneratedAllowListOnDrift(
   console.log(out.join('\n'));
 }
 
-describe('licence-category — ledger vs legacy equivalence oracle', { tags: ['data-validity'] }, () => {
-  // Always-on: reads the committed folded golden and recomputes the legacy
-  // figures live over the real archive (no DuckDB needed for this side). Any
-  // drift in either path — beyond a regenerated golden — trips the allow-list.
+describe.skipIf(!duckDbAvailable())('licence-category — ledger vs legacy equivalence oracle', { tags: ['data-validity'] }, () => {
+  // Both sides over the frozen baseline (src/testing/baseline-value-catalogue.ts):
+  // the legacy figures recomputed live, and the ledger fold rendered.
+  // Any drift in either path trips the allow-list.
   let legacyByCategory: Map<string, LicenceCategoryFigures>;
-  let committedFolded: Map<string, LicenceCategoryFigures>;
+  let baselineFolded: Map<string, LicenceCategoryFigures>;
   beforeAll(() => {
-    const tallies = buildFieldTallies();
+    const tallies = withFrozenBaselineArchive(() => buildFieldTallies());
     const productCells = tallies.get(PRODUCT_FIELD);
     const productCatalogue = productCells === undefined ? undefined : catalogueField(PRODUCT_FIELD, productCells);
     const legacy = computeLegacyLicenceCategories(productCatalogue, ref, productCells);
     legacyByCategory = new Map(legacy.categories.map(c => [c.category, c]));
-    committedFolded = parseCommittedFolded();
-    emitRegeneratedAllowListOnDrift(legacyByCategory, committedFolded);
+    baselineFolded = parseCommittedFolded(baselineValueCatalogueMarkdown());
+    emitRegeneratedAllowListOnDrift(legacyByCategory, baselineFolded);
   }, 600_000);
 
   it('LicenceCategories_LegacyAndFolded_ShareTheSameCategoryAndVariantSets', () => {
     // Structure is preserved exactly: the fold surfaces the same categories and
     // the same raw spellings folded into each — only the counts differ.
-    expect([...committedFolded.keys()].sort()).toEqual(Object.keys(EXPECTED_CATEGORIES).sort());
+    expect([...baselineFolded.keys()].sort()).toEqual(Object.keys(EXPECTED_CATEGORIES).sort());
     expect([...legacyByCategory.keys()].sort()).toEqual(Object.keys(EXPECTED_CATEGORIES).sort());
     for (const [category, expectation] of Object.entries(EXPECTED_CATEGORIES)) {
-      const foldedVariants = (committedFolded.get(category)?.variants ?? []).map(v => v.product).sort();
+      const foldedVariants = (baselineFolded.get(category)?.variants ?? []).map(v => v.product).sort();
       const legacyVariants = (legacyByCategory.get(category)?.variants ?? []).map(v => v.product).sort();
       expect(foldedVariants, `folded variants for ${category}`).toEqual([...expectation.variants].sort());
       expect(legacyVariants, `legacy variants for ${category}`).toEqual([...expectation.variants].sort());
@@ -305,12 +309,12 @@ describe('licence-category — ledger vs legacy equivalence oracle', { tags: ['d
     }
   });
 
-  it('LicenceCategories_CommittedFold_MatchesClassifiedAllowList', () => {
-    // The committed golden (the ledger fold's output, guarded by the freshness
-    // gate) still matches the allow-list; a drift means the ledger emit or fold
-    // changed the numbers without the classification being revisited.
+  it('LicenceCategories_BaselineFold_MatchesClassifiedAllowList', () => {
+    // The ledger fold over the frozen baseline still matches the allow-list; a
+    // drift means the ledger emit or fold changed the numbers without the
+    // classification being revisited.
     for (const [category, expectation] of Object.entries(EXPECTED_CATEGORIES)) {
-      const actual = committedFolded.get(category);
+      const actual = baselineFolded.get(category);
       expect(actual, `folded category ${category}`).toBeDefined();
       expect({ records: actual?.records, callsigns: actual?.callsigns, allocated: actual?.allocated }, `folded ${category} (${expectation.reason})`)
         .toEqual(expectation.folded);
@@ -324,7 +328,7 @@ describe('licence-category — ledger vs legacy equivalence oracle', { tags: ['d
     // ever inverts, the ledger has gained rows the legacy path lacks — a genuine
     // divergence to investigate, not a routine regeneration.
     for (const category of Object.keys(EXPECTED_CATEGORIES)) {
-      const folded = committedFolded.get(category);
+      const folded = baselineFolded.get(category);
       const legacy = legacyByCategory.get(category);
       expect(folded?.records ?? 0, `folded records for ${category}`).toBeLessThanOrEqual(legacy?.records ?? 0);
     }
@@ -339,16 +343,19 @@ describe('licence-category — ledger vs legacy equivalence oracle', { tags: ['d
 describe.skipIf(!duckDbAvailable())('licence-category fold — real-archive retirement gate', { tags: ['data-validity'] }, () => {
   let folded: Map<string, FoldedCategory>;
   beforeAll(() => {
+    // Over everything held, like the committed report it is compared with.
     folded = new Map(buildLicenceCategoryFold(undefined, ref).map(c => [c.category, c]));
   }, 600_000);
 
   it('LicenceCategoryFold_RealArchive_ReproducesCommittedGoldenFigures', () => {
-    for (const [category, expectation] of Object.entries(EXPECTED_CATEGORIES)) {
+    const committed = parseCommittedFolded();
+    expect([...folded.keys()].sort()).toEqual([...committed.keys()].sort());
+    expect(committed.size).toBeGreaterThan(0);
+    for (const [category, golden] of committed) {
       const actual = folded.get(category);
-      expect(actual, `folded category ${category}`).toBeDefined();
       expect({ records: actual?.records, callsigns: actual?.callsigns, allocated: actual?.allocated }, category)
-        .toEqual(expectation.folded);
-      expect((actual?.variants ?? []).map(v => v.product).sort()).toEqual([...expectation.variants].sort());
+        .toEqual({ records: golden.records, callsigns: golden.callsigns, allocated: golden.allocated });
+      expect((actual?.variants ?? []).map(v => v.product).sort(), category).toEqual(golden.variants.map(v => v.product).sort());
     }
   });
 });
@@ -395,12 +402,10 @@ const PARSE_FIELD_CLASSIFICATION: Record<string, { legacyOnly: string[]; reason:
 
 const PARSE_FIELD_DIRECTION_REASON = 'a T1 fold counts only converter-bound callsign observations and distinct cleaned keys, whereas the legacy tally also folds the available-pool "available callsigns" lists (pool-slots, never parsed as callsigns) and the out-of-sequence list, and unions raw-trimmed spellings — so the fold is never larger';
 
-// Parse one committed field table ("## `<field>` — N distinct") back into
-// figures per value, reading the same folded golden the freshness gate
-// regenerates and diffs, so the equivalence check runs on every CI run whether or
-// not DuckDB is present.
-function parseCommittedFieldTable(field: string): Map<string, FieldFigures> {
-  const markdown = fs.readFileSync(path.resolve(process.cwd(), VALUE_CATALOGUE_PATH), 'utf8');
+// Parse one field table ("## `<field>` — N distinct") of a rendered catalogue
+// back into figures per value: the committed report by default, or the
+// baseline rendering the equivalence oracle compares against.
+function parseCommittedFieldTable(field: string, markdown: string = committedCatalogueMarkdown()): Map<string, FieldFigures> {
   const lines = markdown.split('\n');
   const start = lines.findIndex(l => l.startsWith(`## \`${field}\` — `));
   expect(start, `section for ${field}`).toBeGreaterThanOrEqual(0);
@@ -420,12 +425,12 @@ function parseCommittedFieldTable(field: string): Map<string, FieldFigures> {
   return byValue;
 }
 
-describe('parse-derived fields — ledger vs legacy equivalence oracle', { tags: ['data-validity'] }, () => {
-  // Always-on: reads the committed folded golden and recomputes the legacy field
-  // catalogues live over the real archive (no DuckDB needed for this side).
+describe.skipIf(!duckDbAvailable())('parse-derived fields — ledger vs legacy equivalence oracle', { tags: ['data-validity'] }, () => {
+  // Both sides over the frozen baseline (src/testing/baseline-value-catalogue.ts):
+  // the legacy field catalogues recomputed live, and the ledger fold rendered.
   let legacyByField: Map<string, FieldCatalogue>;
   beforeAll(() => {
-    const tallies = buildFieldTallies();
+    const tallies = withFrozenBaselineArchive(() => buildFieldTallies());
     legacyByField = new Map();
     for (const field of FOLDED_PARSE_FIELDS.keys()) {
       const cells = tallies.get(field);
@@ -437,7 +442,7 @@ describe('parse-derived fields — ledger vs legacy equivalence oracle', { tags:
     // Never-invents: a raw-keyed fold reports only values a source's parse
     // actually produced, so every folded value is one the legacy tally also has.
     for (const field of FOLDED_PARSE_FIELDS.keys()) {
-      const folded = parseCommittedFieldTable(field);
+      const folded = parseCommittedFieldTable(field, baselineValueCatalogueMarkdown());
       const legacyValues = new Set((legacyByField.get(field)?.values ?? []).map(v => v.value));
       for (const value of folded.keys()) {
         expect(legacyValues.has(value), `${field} folds a value legacy lacks: ${value}`).toBe(true);
@@ -449,7 +454,7 @@ describe('parse-derived fields — ledger vs legacy equivalence oracle', { tags:
     // The only values the fold omits are the classified synthesised buckets; a
     // NEW omission (a real value the fold silently drops) trips here.
     for (const field of FOLDED_PARSE_FIELDS.keys()) {
-      const folded = parseCommittedFieldTable(field);
+      const folded = parseCommittedFieldTable(field, baselineValueCatalogueMarkdown());
       const legacyValues = (legacyByField.get(field)?.values ?? []).map(v => v.value);
       const omitted = legacyValues.filter(v => !folded.has(v)).sort();
       const classified = [...PARSE_FIELD_CLASSIFICATION[field].legacyOnly].sort();
@@ -463,7 +468,7 @@ describe('parse-derived fields — ledger vs legacy equivalence oracle', { tags:
     // An inversion means the fold gained observations the legacy path lacks — a
     // genuine divergence to investigate, not a routine regeneration.
     for (const field of FOLDED_PARSE_FIELDS.keys()) {
-      const folded = parseCommittedFieldTable(field);
+      const folded = parseCommittedFieldTable(field, baselineValueCatalogueMarkdown());
       const legacy = new Map((legacyByField.get(field)?.values ?? []).map(v => [v.value, v]));
       expect(folded.size, `${field} committed fold`).toBeGreaterThan(0);
       for (const [value, f] of folded) {
@@ -481,7 +486,7 @@ describe('parse-derived fields — ledger vs legacy equivalence oracle', { tags:
     // Lanes are preserved: the fold surfaces a value in no lane the legacy tally
     // did not already carry it in (the fold reads the same two lanes).
     for (const field of FOLDED_PARSE_FIELDS.keys()) {
-      const folded = parseCommittedFieldTable(field);
+      const folded = parseCommittedFieldTable(field, baselineValueCatalogueMarkdown());
       const legacy = new Map((legacyByField.get(field)?.values ?? []).map(v => [v.value, new Set(v.lanes)]));
       expect(folded.size, `${field} committed fold`).toBeGreaterThan(0);
       for (const [value, f] of folded) {

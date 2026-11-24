@@ -49,9 +49,9 @@ bookkeeping stamp, so this is "ever observed in a snapshot"). Dated
 allocation evidence is far sparser, and unevenly so — every figure states the
 dated coverage of the series it rests on.
 
-- Parsed core/2-format slots across all series: 162,563
-- …with allocation-time dated evidence: 125,726 (77.3%)
-- Dated-evidence ceiling (latest allocation day dating any series): 2026-06-11 — the boundary every rate and projection sits behind; allocation-dating columns are carried by disclosures of a bounded vintage range, so later issuance is largely undated here.
+- Parsed core/2-format slots across all series: 163,242
+- …with allocation-time dated evidence: 126,464 (77.5%)
+- Dated-evidence ceiling (latest allocation day dating any series): 2026-09-09 — the boundary every rate and projection sits behind; allocation-dating columns are carried by disclosures of a bounded vintage range, so later issuance is largely undated here.
 
 ## Per-series summary
 
@@ -64,25 +64,25 @@ slots as a share of the span between the first and last suffix.
 
 | series | level | status | population | dated | coverage | suffix range | fill | ρ | adjacent-monotonic |
 |---|---|---|---:|---:|---:|---|---:|---:|---:|
-| `M3` | Foundation | currently-issuing | 16,694 | 12,607 | 75.5% | `AAA`–`ZZZ` | 95.0% | 0.572 | 63.1% |
-| `M6` | Foundation | currently-issuing | 14,803 | 14,737 | 99.6% | `CB`–`ZZZ` | 81.3% | 0.243 | 58.7% |
-| `G0` | Full | currently-issuing | 14,227 | 10,385 | 73.0% | `DX`–`ZZZ` | 78.4% | 0.729 | 82.6% |
-| `G4` | Full | currently-issuing | 14,098 | 10,916 | 77.4% | `AL`–`ZZZ` | 77.3% | 0.596 | 73.2% |
+| `M3` | Foundation | currently-issuing | 16,695 | 12,623 | 75.6% | `AAA`–`ZZZ` | 95.0% | 0.569 | 63.1% |
+| `M6` | Foundation | currently-issuing | 14,831 | 14,766 | 99.6% | `CB`–`ZZZ` | 81.5% | 0.246 | 58.7% |
+| `G0` | Full | currently-issuing | 14,233 | 10,396 | 73.0% | `DX`–`ZZZ` | 78.4% | 0.727 | 82.6% |
+| `G4` | Full | currently-issuing | 14,103 | 10,923 | 77.5% | `AL`–`ZZZ` | 77.3% | 0.594 | 73.2% |
+| `M7` | Foundation | currently-issuing | 14,081 | 13,958 | 99.1% | `AP`–`ZAK` | 80.1% | 0.273 | 59.1% |
 | `20` | Intermediate | formerly-issued | 13,882 | 13,287 | 95.7% | `DR`–`ZZZ` | 76.5% | 0.150 | 56.7% |
-| `M7` | Foundation | currently-issuing | 13,721 | 13,598 | 99.1% | `AP`–`ZAK` | 78.1% | 0.252 | 59.0% |
-| `M0` | Full | currently-issuing | 13,091 | 11,407 | 87.1% | `BB`–`ZZZ` | 71.8% | 0.460 | 60.9% |
-| `G7` | Full | currently-issuing | 12,803 | 6,759 | 52.8% | `DX`–`ZZZ` | 70.5% | 0.581 | 75.7% |
-| `G3` | Full | currently-issuing | 9,333 | 6,613 | 70.9% | `AB`–`ZZZ` | 51.1% | -0.037 | 56.2% |
-| `G1` | Full | currently-issuing | 9,305 | 5,888 | 63.3% | `H`–`ZZY` | 50.9% | 0.469 | 74.2% |
-| `G6` | Full | currently-issuing | 8,411 | 5,810 | 69.1% | `AD`–`ZZZ` | 46.1% | 0.315 | 65.7% |
-| `G8` | Full | currently-issuing | 7,531 | 5,700 | 75.7% | `AA`–`ZZZ` | 41.3% | 0.273 | 60.5% |
-| `21` | Intermediate | formerly-issued | 6,210 | 2,136 | 34.4% | `GW`–`ZPR` | 34.9% | 0.560 | 73.3% |
-| `M1` | Full | currently-issuing | 4,559 | 2,753 | 60.4% | `KE`–`ZZY` | 25.3% | 0.660 | 75.1% |
-| `M9` | Intermediate | currently-issuing | 982 | 982 | 100.0% | `ACO`–`YZT` | 5.8% | 0.093 | 52.4% |
-| `M5` | Full | currently-issuing | 911 | 469 | 51.5% | `AA`–`ZZZ` | 5.0% | 0.363 | 58.5% |
-| `M8` | Intermediate | currently-issuing | 875 | 875 | 100.0% | `PS`–`ZBW` | 5.1% | 0.175 | 55.4% |
+| `M0` | Full | currently-issuing | 13,103 | 11,425 | 87.2% | `BB`–`ZZZ` | 71.9% | 0.459 | 60.9% |
+| `G7` | Full | currently-issuing | 12,804 | 6,770 | 52.9% | `DX`–`ZZZ` | 70.5% | 0.578 | 75.6% |
+| `G3` | Full | currently-issuing | 9,358 | 6,643 | 71.0% | `AB`–`ZZZ` | 51.3% | -0.042 | 56.2% |
+| `G1` | Full | currently-issuing | 9,320 | 5,909 | 63.4% | `H`–`ZZY` | 51.0% | 0.464 | 74.1% |
+| `G6` | Full | currently-issuing | 8,416 | 5,820 | 69.2% | `AD`–`ZZZ` | 46.1% | 0.314 | 65.7% |
+| `G8` | Full | currently-issuing | 7,546 | 5,716 | 75.7% | `AA`–`ZZZ` | 41.3% | 0.271 | 60.4% |
+| `21` | Intermediate | formerly-issued | 6,210 | 2,137 | 34.4% | `GW`–`ZPR` | 34.9% | 0.559 | 73.2% |
+| `M1` | Full | currently-issuing | 4,584 | 2,780 | 60.6% | `KE`–`ZZY` | 25.5% | 0.663 | 74.8% |
+| `M9` | Intermediate | currently-issuing | 1,075 | 1,075 | 100.0% | `ACO`–`YZT` | 6.4% | 0.097 | 53.0% |
+| `M8` | Intermediate | currently-issuing | 931 | 931 | 100.0% | `PS`–`ZBW` | 5.4% | 0.184 | 55.7% |
+| `M5` | Full | currently-issuing | 924 | 482 | 52.2% | `AA`–`ZZZ` | 5.1% | 0.365 | 58.2% |
 | `G2` | Full | formerly-issued | 599 | 320 | 53.4% | `AA`–`XYL` | 3.6% | -0.446 | 51.1% |
-| `G5` | Full | currently-issuing | 527 | 484 | 91.8% | `AT`–`YZI` | 3.0% | 0.327 | 49.1% |
+| `G5` | Full | currently-issuing | 546 | 503 | 92.1% | `AT`–`YZI` | 3.1% | 0.321 | 48.6% |
 | `M2` ⚠ | — | — | 1 | 0 | 0.0% | `IBX` | 100.0% | — | — |
 
 ⚠ series absent from `reference-data/prefix-formats.csv` — an unexpected primary locator is a finding in its own right.
@@ -107,25 +107,25 @@ order, not callsign-issuance order; the firm-issued share column is the flag.
 
 | series | dated slots | ρ | adjacent-monotonic | firm-issued share | reading |
 |---|---:|---:|---:|---:|---|
-| `M3` | 12,607 | 0.572 | 63.1% | 99.4% | weakly sequential |
-| `M6` | 14,737 | 0.243 | 58.7% | 99.4% | no clear order |
-| `G0` | 10,385 | 0.729 | 82.6% | 97.5% | broadly sequential |
-| `G4` | 10,916 | 0.596 | 73.2% | 97.4% | weakly sequential |
+| `M3` | 12,623 | 0.569 | 63.1% | 99.2% | weakly sequential |
+| `M6` | 14,766 | 0.246 | 58.7% | 99.2% | no clear order |
+| `G0` | 10,396 | 0.727 | 82.6% | 97.4% | broadly sequential |
+| `G4` | 10,923 | 0.594 | 73.2% | 97.3% | weakly sequential |
+| `M7` | 13,958 | 0.273 | 59.1% | 9.7% | no clear order |
 | `20` | 13,287 | 0.150 | 56.7% | 78.5% | no clear order |
-| `M7` | 13,598 | 0.252 | 59.0% | 10.0% | no clear order |
-| `M0` | 11,407 | 0.460 | 60.9% | 84.5% | weakly sequential |
-| `G7` | 6,759 | 0.581 | 75.7% | 96.2% | weakly sequential |
-| `G3` | 6,613 | -0.037 | 56.2% | 94.9% | no clear order |
-| `G1` | 5,888 | 0.469 | 74.2% | 94.4% | weakly sequential |
-| `G6` | 5,810 | 0.315 | 65.7% | 95.1% | no clear order |
-| `G8` | 5,700 | 0.273 | 60.5% | 95.1% | no clear order |
-| `21` | 2,136 | 0.560 | 73.3% | 92.0% | weakly sequential |
-| `M1` | 2,753 | 0.660 | 75.1% | 93.5% | weakly sequential |
-| `M9` | 982 | 0.093 | 52.4% | 0.0% | no clear order |
-| `M5` | 469 | 0.363 | 58.5% | 75.1% | no clear order |
-| `M8` | 875 | 0.175 | 55.4% | 0.0% | no clear order |
+| `M0` | 11,425 | 0.459 | 60.9% | 84.3% | weakly sequential |
+| `G7` | 6,770 | 0.578 | 75.6% | 96.1% | weakly sequential |
+| `G3` | 6,643 | -0.042 | 56.2% | 94.5% | no clear order |
+| `G1` | 5,909 | 0.464 | 74.1% | 94.0% | weakly sequential |
+| `G6` | 5,820 | 0.314 | 65.7% | 94.9% | no clear order |
+| `G8` | 5,716 | 0.271 | 60.4% | 94.8% | no clear order |
+| `21` | 2,137 | 0.559 | 73.2% | 92.0% | weakly sequential |
+| `M1` | 2,780 | 0.663 | 74.8% | 92.6% | weakly sequential |
+| `M9` | 1,075 | 0.097 | 53.0% | 0.0% | no clear order |
+| `M8` | 931 | 0.184 | 55.7% | 0.0% | no clear order |
+| `M5` | 482 | 0.365 | 58.2% | 73.0% | no clear order |
 | `G2` | 320 | -0.446 | 51.1% | 91.6% | reverse-ordered |
-| `G5` | 484 | 0.327 | 49.1% | 16.5% | no clear order |
+| `G5` | 503 | 0.321 | 48.6% | 15.9% | no clear order |
 
 ## Per-series detail
 
@@ -148,7 +148,7 @@ presence and is unaffected either way.
 
 ### `M3` — Foundation (currently-issuing)
 
-Population 16,694 slots, 12,607 dated (75.5% coverage: 12,527 firm-issued, 80 earliest-surviving only). Suffix range `AAA`–`ZZZ` (3-letter); span 17,576, fill 95.0%, largest unallocated run 343. Dated allocations 2002-01-01 → 2026-06-10.
+Population 16,695 slots, 12,623 dated (75.6% coverage: 12,527 firm-issued, 96 earliest-surviving only). Suffix range `AAA`–`ZZZ` (3-letter); span 17,576, fill 95.0%, largest unallocated run 343. Dated allocations 2002-01-01 → 2026-09-08.
 
 Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
 
@@ -167,7 +167,7 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2012 | 16 |
 | 2013 | 16 |
 | 2014 | 20 |
-| 2015 | 22 |
+| 2015 | 23 |
 | 2016 | 12 |
 | 2017 | 10 |
 | 2018 | 10 |
@@ -176,20 +176,20 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2021 | 5 |
 | 2022 | 6 |
 | 2023 | 8 |
-| 2024 | 8 |
+| 2024 | 9 |
 | 2025 | 22 |
-| 2026 | 12 |
+| 2026 | 26 |
 
 Naive exhaustion projection ([inferred], extrapolation not prediction):
 
 - Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
-- Slots observed at that length (snapshot presence): 16,694 — 95.0% of the space full; remaining under the model: 882.
-- Flat rate: 14.0 dated allocations/year (42 dated over 2024–2026).
-- **Naive projection: ~95.0% full with only 882 slots left — effectively exhausted; the remainder (much of it forbidden or unpopular suffixes) trickles out at 14.0/year.** Ofcom’s response to a full series is a new prefix (e.g. the M8/M9 intermediate series introduced October 2025).
+- Slots observed at that length (snapshot presence): 16,695 — 95.0% of the space full; remaining under the model: 881.
+- Flat rate: 19.0 dated allocations/year (57 dated over 2024–2026).
+- **Naive projection: ~95.0% full with only 881 slots left — effectively exhausted; the remainder (much of it forbidden or unpopular suffixes) trickles out at 19.0/year.** Ofcom’s response to a full series is a new prefix (e.g. the M8/M9 intermediate series introduced October 2025).
 
 ### `M6` — Foundation (currently-issuing)
 
-Population 14,803 slots, 14,737 dated (99.6% coverage: 14,646 firm-issued, 91 earliest-surviving only). Suffix range `CB`–`ZZZ` (2, 3-letter); span 18,199, fill 81.3%, largest unallocated run 539. Dated allocations 2002-03-30 → 2026-06-10.
+Population 14,831 slots, 14,766 dated (99.6% coverage: 14,646 firm-issued, 120 earliest-surviving only). Suffix range `CB`–`ZZZ` (2, 3-letter); span 18,199, fill 81.5%, largest unallocated run 539. Dated allocations 2002-03-30 → 2026-09-05.
 
 Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
 
@@ -203,27 +203,27 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2012 | 1,568 |
 | 2013 | 1,554 |
 | 2014 | 1,401 |
-| 2015 | 1,437 |
+| 2015 | 1,438 |
 | 2016 | 1,407 |
 | 2017 | 1,289 |
 | 2018 | 953 |
 | 2019 | 1 |
-| 2020 | 2 |
+| 2020 | 3 |
 | 2021 | 1 |
-| 2024 | 1 |
+| 2024 | 2 |
 | 2025 | 25 |
-| 2026 | 55 |
+| 2026 | 81 |
 
 Naive exhaustion projection ([inferred], extrapolation not prediction):
 
 - Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
-- Slots observed at that length (snapshot presence): 14,798 — 84.2% of the space full; remaining under the model: 2,778.
-- Flat rate: 27.0 dated allocations/year (81 dated over 2024–2026).
-- **Naive projection: ~102.9 years of capacity at that rate — a nominal run-out near 2129.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
+- Slots observed at that length (snapshot presence): 14,826 — 84.4% of the space full; remaining under the model: 2,750.
+- Flat rate: 36.0 dated allocations/year (108 dated over 2024–2026).
+- **Naive projection: ~76.4 years of capacity at that rate — a nominal run-out near 2102.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
 
 ### `G0` — Full (currently-issuing)
 
-Population 14,227 slots, 10,385 dated (73.0% coverage: 10,126 firm-issued, 259 earliest-surviving only). Suffix range `DX`–`ZZZ` (2, 3-letter); span 18,151, fill 78.4%, largest unallocated run 676. Dated allocations 1970-08-27 → 2026-06-08.
+Population 14,233 slots, 10,396 dated (73.0% coverage: 10,126 firm-issued, 270 earliest-surviving only). Suffix range `DX`–`ZZZ` (2, 3-letter); span 18,151, fill 78.4%, largest unallocated run 676. Dated allocations 1970-08-27 → 2026-08-19.
 
 Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
 
@@ -252,7 +252,7 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2001 | 18 |
 | 2002 | 29 |
 | 2003 | 34 |
-| 2004 | 52 |
+| 2004 | 53 |
 | 2005 | 35 |
 | 2006 | 41 |
 | 2007 | 145 |
@@ -271,21 +271,21 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2020 | 47 |
 | 2021 | 28 |
 | 2022 | 17 |
-| 2023 | 23 |
+| 2023 | 24 |
 | 2024 | 29 |
 | 2025 | 39 |
-| 2026 | 16 |
+| 2026 | 25 |
 
 Naive exhaustion projection ([inferred], extrapolation not prediction):
 
 - Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
-- Slots observed at that length (snapshot presence): 14,225 — 80.9% of the space full; remaining under the model: 3,351.
-- Flat rate: 28.0 dated allocations/year (84 dated over 2024–2026).
-- **Naive projection: ~119.7 years of capacity at that rate — a nominal run-out near 2146.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
+- Slots observed at that length (snapshot presence): 14,231 — 81.0% of the space full; remaining under the model: 3,345.
+- Flat rate: 31.0 dated allocations/year (93 dated over 2024–2026).
+- **Naive projection: ~107.9 years of capacity at that rate — a nominal run-out near 2134.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
 
 ### `G4` — Full (currently-issuing)
 
-Population 14,098 slots, 10,916 dated (77.4% coverage: 10,630 firm-issued, 286 earliest-surviving only). Suffix range `AL`–`ZZZ` (2, 3-letter); span 18,241, fill 77.3%, largest unallocated run 677. Dated allocations 1903-05-03 → 2026-06-09.
+Population 14,103 slots, 10,923 dated (77.5% coverage: 10,630 firm-issued, 293 earliest-surviving only). Suffix range `AL`–`ZZZ` (2, 3-letter); span 18,241, fill 77.3%, largest unallocated run 677. Dated allocations 1903-05-03 → 2026-09-09.
 
 Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
 
@@ -328,13 +328,13 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 1989 | 70 |
 | 1990 | 54 |
 | 1991 | 60 |
-| 1992 | 60 |
+| 1992 | 61 |
 | 1993 | 73 |
 | 1994 | 59 |
 | 1995 | 21 |
 | 1996 | 25 |
 | 1997 | 26 |
-| 1998 | 10 |
+| 1998 | 11 |
 | 1999 | 17 |
 | 2000 | 23 |
 | 2001 | 16 |
@@ -354,7 +354,7 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2015 | 60 |
 | 2016 | 53 |
 | 2017 | 34 |
-| 2018 | 31 |
+| 2018 | 32 |
 | 2019 | 29 |
 | 2020 | 50 |
 | 2021 | 37 |
@@ -362,14 +362,50 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2023 | 24 |
 | 2024 | 26 |
 | 2025 | 26 |
-| 2026 | 18 |
+| 2026 | 22 |
 
 Naive exhaustion projection ([inferred], extrapolation not prediction):
 
 - Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
-- Slots observed at that length (snapshot presence): 14,041 — 79.9% of the space full; remaining under the model: 3,535.
-- Flat rate: 23.3 dated allocations/year (70 dated over 2024–2026).
-- **Naive projection: ~151.5 years of capacity at that rate — a nominal run-out near 2178.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
+- Slots observed at that length (snapshot presence): 14,046 — 79.9% of the space full; remaining under the model: 3,530.
+- Flat rate: 24.7 dated allocations/year (74 dated over 2024–2026).
+- **Naive projection: ~143.1 years of capacity at that rate — a nominal run-out near 2169.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
+
+### `M7` — Foundation (currently-issuing)
+
+Population 14,081 slots, 13,958 dated (99.1% coverage: 1,357 firm-issued, 12,601 earliest-surviving only). Suffix range `AP`–`ZAK` (2, 3-letter); span 17,572, fill 80.1%, largest unallocated run 461. Dated allocations 2002-09-04 → 2026-09-09.
+
+Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
+
+| year | dated allocations |
+|---|---:|
+| 2002 | 1 |
+| 2003 | 1 |
+| 2006 | 1 |
+| 2007 | 1 |
+| 2008 | 2 |
+| 2009 | 1 |
+| 2010 | 1 |
+| 2013 | 1 |
+| 2014 | 6 |
+| 2015 | 2 |
+| 2016 | 2 |
+| 2018 | 427 |
+| 2019 | 1,365 |
+| 2020 | 2,731 |
+| 2021 | 1,970 |
+| 2022 | 1,384 |
+| 2023 | 1,296 |
+| 2024 | 1,889 |
+| 2025 | 1,761 |
+| 2026 | 1,116 |
+
+Naive exhaustion projection ([inferred], extrapolation not prediction):
+
+- Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
+- Slots observed at that length (snapshot presence): 14,078 — 80.1% of the space full; remaining under the model: 3,498.
+- Flat rate: 1588.7 dated allocations/year (4,766 dated over 2024–2026).
+- **Naive projection: ~2.2 years of capacity at that rate — a nominal run-out near 2028.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
 
 ### `20` — Intermediate (formerly-issued)
 
@@ -418,45 +454,9 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 
 Naive exhaustion projection: not applicable — the series is not currently issuing.
 
-### `M7` — Foundation (currently-issuing)
-
-Population 13,721 slots, 13,598 dated (99.1% coverage: 1,357 firm-issued, 12,241 earliest-surviving only). Suffix range `AP`–`ZAK` (2, 3-letter); span 17,572, fill 78.1%, largest unallocated run 461. Dated allocations 2002-09-04 → 2026-06-11.
-
-Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
-
-| year | dated allocations |
-|---|---:|
-| 2002 | 1 |
-| 2003 | 1 |
-| 2006 | 1 |
-| 2007 | 1 |
-| 2008 | 2 |
-| 2009 | 1 |
-| 2010 | 1 |
-| 2013 | 1 |
-| 2014 | 5 |
-| 2015 | 2 |
-| 2016 | 1 |
-| 2018 | 427 |
-| 2019 | 1,365 |
-| 2020 | 2,730 |
-| 2021 | 1,970 |
-| 2022 | 1,383 |
-| 2023 | 1,296 |
-| 2024 | 1,888 |
-| 2025 | 1,761 |
-| 2026 | 761 |
-
-Naive exhaustion projection ([inferred], extrapolation not prediction):
-
-- Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
-- Slots observed at that length (snapshot presence): 13,718 — 78.0% of the space full; remaining under the model: 3,858.
-- Flat rate: 1470.0 dated allocations/year (4,410 dated over 2024–2026).
-- **Naive projection: ~2.6 years of capacity at that rate — a nominal run-out near 2029.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
-
 ### `M0` — Full (currently-issuing)
 
-Population 13,091 slots, 11,407 dated (87.1% coverage: 9,635 firm-issued, 1,772 earliest-surviving only). Suffix range `BB`–`ZZZ` (2, 3-letter); span 18,225, fill 71.8%, largest unallocated run 553. Dated allocations 1991-08-19 → 2026-06-10.
+Population 13,103 slots, 11,425 dated (87.2% coverage: 9,635 firm-issued, 1,790 earliest-surviving only). Suffix range `BB`–`ZZZ` (2, 3-letter); span 18,225, fill 71.9%, largest unallocated run 553. Dated allocations 1991-08-19 → 2026-09-05.
 
 Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
 
@@ -485,7 +485,7 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2014 | 419 |
 | 2015 | 417 |
 | 2016 | 396 |
-| 2017 | 398 |
+| 2017 | 399 |
 | 2018 | 429 |
 | 2019 | 427 |
 | 2020 | 302 |
@@ -494,18 +494,18 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2023 | 207 |
 | 2024 | 223 |
 | 2025 | 203 |
-| 2026 | 51 |
+| 2026 | 68 |
 
 Naive exhaustion projection ([inferred], extrapolation not prediction):
 
 - Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
-- Slots observed at that length (snapshot presence): 13,082 — 74.4% of the space full; remaining under the model: 4,494.
-- Flat rate: 159.0 dated allocations/year (477 dated over 2024–2026).
-- **Naive projection: ~28.3 years of capacity at that rate — a nominal run-out near 2054.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
+- Slots observed at that length (snapshot presence): 13,094 — 74.5% of the space full; remaining under the model: 4,482.
+- Flat rate: 164.7 dated allocations/year (494 dated over 2024–2026).
+- **Naive projection: ~27.2 years of capacity at that rate — a nominal run-out near 2053.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
 
 ### `G7` — Full (currently-issuing)
 
-Population 12,803 slots, 6,759 dated (52.8% coverage: 6,503 firm-issued, 256 earliest-surviving only). Suffix range `DX`–`ZZZ` (2, 3-letter); span 18,151, fill 70.5%, largest unallocated run 676. Dated allocations 1980-11-01 → 2026-05-27.
+Population 12,804 slots, 6,770 dated (52.9% coverage: 6,503 firm-issued, 267 earliest-surviving only). Suffix range `DX`–`ZZZ` (2, 3-letter); span 18,151, fill 70.5%, largest unallocated run 676. Dated allocations 1980-11-01 → 2026-09-07.
 
 Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
 
@@ -552,18 +552,18 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2023 | 24 |
 | 2024 | 31 |
 | 2025 | 30 |
-| 2026 | 8 |
+| 2026 | 19 |
 
 Naive exhaustion projection ([inferred], extrapolation not prediction):
 
 - Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
-- Slots observed at that length (snapshot presence): 12,800 — 72.8% of the space full; remaining under the model: 4,776.
-- Flat rate: 23.0 dated allocations/year (69 dated over 2024–2026).
-- **Naive projection: ~207.7 years of capacity at that rate — a nominal run-out near 2234.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
+- Slots observed at that length (snapshot presence): 12,801 — 72.8% of the space full; remaining under the model: 4,775.
+- Flat rate: 26.7 dated allocations/year (80 dated over 2024–2026).
+- **Naive projection: ~179.1 years of capacity at that rate — a nominal run-out near 2205.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
 
 ### `G3` — Full (currently-issuing)
 
-Population 9,333 slots, 6,613 dated (70.9% coverage: 6,275 firm-issued, 338 earliest-surviving only). Suffix range `AB`–`ZZZ` (2, 3-letter); span 18,251, fill 51.1%, largest unallocated run 676. Dated allocations 1920-03-03 → 2026-06-04.
+Population 9,358 slots, 6,643 dated (71.0% coverage: 6,275 firm-issued, 368 earliest-surviving only). Suffix range `AB`–`ZZZ` (2, 3-letter); span 18,251, fill 51.3%, largest unallocated run 676. Dated allocations 1920-03-03 → 2026-09-05.
 
 Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
 
@@ -612,60 +612,60 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 1981 | 46 |
 | 1982 | 36 |
 | 1983 | 306 |
-| 1984 | 133 |
-| 1985 | 39 |
+| 1984 | 134 |
+| 1985 | 40 |
 | 1986 | 54 |
 | 1987 | 108 |
-| 1988 | 62 |
-| 1989 | 66 |
-| 1990 | 43 |
+| 1988 | 63 |
+| 1989 | 67 |
+| 1990 | 44 |
 | 1991 | 51 |
 | 1992 | 40 |
 | 1993 | 35 |
 | 1994 | 31 |
-| 1995 | 15 |
+| 1995 | 16 |
 | 1996 | 25 |
 | 1997 | 19 |
 | 1998 | 16 |
-| 1999 | 26 |
-| 2000 | 25 |
+| 1999 | 27 |
+| 2000 | 26 |
 | 2001 | 21 |
 | 2002 | 26 |
 | 2003 | 47 |
-| 2004 | 60 |
+| 2004 | 61 |
 | 2005 | 33 |
 | 2006 | 24 |
-| 2007 | 54 |
-| 2008 | 47 |
+| 2007 | 55 |
+| 2008 | 48 |
 | 2009 | 35 |
 | 2010 | 27 |
 | 2011 | 34 |
 | 2012 | 40 |
 | 2013 | 37 |
-| 2014 | 33 |
+| 2014 | 34 |
 | 2015 | 35 |
 | 2016 | 29 |
 | 2017 | 26 |
-| 2018 | 25 |
-| 2019 | 21 |
+| 2018 | 26 |
+| 2019 | 22 |
 | 2020 | 16 |
 | 2021 | 24 |
 | 2022 | 18 |
 | 2023 | 20 |
 | 2024 | 23 |
 | 2025 | 44 |
-| 2026 | 24 |
+| 2026 | 40 |
 
 Naive exhaustion projection ([inferred], extrapolation not prediction):
 
 - Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
-- Slots observed at that length (snapshot presence): 9,259 — 52.7% of the space full; remaining under the model: 8,317.
-- Flat rate: 30.3 dated allocations/year (91 dated over 2024–2026).
-- **Naive projection: ~274.2 years of capacity at that rate — a nominal run-out near 2300.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
+- Slots observed at that length (snapshot presence): 9,284 — 52.8% of the space full; remaining under the model: 8,292.
+- Flat rate: 35.7 dated allocations/year (107 dated over 2024–2026).
+- **Naive projection: ~232.5 years of capacity at that rate — a nominal run-out near 2258.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
 
 ### `G1` — Full (currently-issuing)
 
-Population 9,305 slots, 5,888 dated (63.3% coverage: 5,557 firm-issued, 331 earliest-surviving only). Suffix range `H`–`ZZY` (1, 2, 3-letter); span 18,270, fill 50.9%, largest unallocated run 676. Dated allocations 1965-07-16 → 2026-06-10.
+Population 9,320 slots, 5,909 dated (63.4% coverage: 5,557 firm-issued, 352 earliest-surviving only). Suffix range `H`–`ZZY` (1, 2, 3-letter); span 18,270, fill 51.0%, largest unallocated run 676. Dated allocations 1965-07-16 → 2026-09-09.
 
 Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
 
@@ -688,7 +688,7 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 1995 | 21 |
 | 1996 | 32 |
 | 1997 | 36 |
-| 1998 | 25 |
+| 1998 | 26 |
 | 1999 | 23 |
 | 2000 | 15 |
 | 2001 | 20 |
@@ -704,30 +704,30 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2011 | 59 |
 | 2012 | 49 |
 | 2013 | 68 |
-| 2014 | 59 |
+| 2014 | 61 |
 | 2015 | 51 |
 | 2016 | 53 |
 | 2017 | 33 |
-| 2018 | 46 |
+| 2018 | 47 |
 | 2019 | 43 |
 | 2020 | 58 |
-| 2021 | 44 |
+| 2021 | 46 |
 | 2022 | 29 |
 | 2023 | 32 |
 | 2024 | 37 |
 | 2025 | 39 |
-| 2026 | 14 |
+| 2026 | 29 |
 
 Naive exhaustion projection ([inferred], extrapolation not prediction):
 
 - Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
-- Slots observed at that length (snapshot presence): 9,300 — 52.9% of the space full; remaining under the model: 8,276.
-- Flat rate: 30.0 dated allocations/year (90 dated over 2024–2026).
-- **Naive projection: ~275.9 years of capacity at that rate — a nominal run-out near 2302.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
+- Slots observed at that length (snapshot presence): 9,315 — 53.0% of the space full; remaining under the model: 8,261.
+- Flat rate: 35.0 dated allocations/year (105 dated over 2024–2026).
+- **Naive projection: ~236.0 years of capacity at that rate — a nominal run-out near 2262.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
 
 ### `G6` — Full (currently-issuing)
 
-Population 8,411 slots, 5,810 dated (69.1% coverage: 5,524 firm-issued, 286 earliest-surviving only). Suffix range `AD`–`ZZZ` (2, 3-letter); span 18,249, fill 46.1%, largest unallocated run 679. Dated allocations 1904-02-16 → 2026-06-09.
+Population 8,416 slots, 5,820 dated (69.2% coverage: 5,524 firm-issued, 296 earliest-surviving only). Suffix range `AD`–`ZZZ` (2, 3-letter); span 18,249, fill 46.1%, largest unallocated run 679. Dated allocations 1904-02-16 → 2026-09-09.
 
 Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
 
@@ -789,18 +789,18 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2023 | 23 |
 | 2024 | 34 |
 | 2025 | 27 |
-| 2026 | 16 |
+| 2026 | 26 |
 
 Naive exhaustion projection ([inferred], extrapolation not prediction):
 
 - Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
-- Slots observed at that length (snapshot presence): 8,352 — 47.5% of the space full; remaining under the model: 9,224.
-- Flat rate: 25.7 dated allocations/year (77 dated over 2024–2026).
-- **Naive projection: ~359.4 years of capacity at that rate — a nominal run-out near 2385.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
+- Slots observed at that length (snapshot presence): 8,357 — 47.5% of the space full; remaining under the model: 9,219.
+- Flat rate: 29.0 dated allocations/year (87 dated over 2024–2026).
+- **Naive projection: ~317.9 years of capacity at that rate — a nominal run-out near 2344.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
 
 ### `G8` — Full (currently-issuing)
 
-Population 7,531 slots, 5,700 dated (75.7% coverage: 5,421 firm-issued, 279 earliest-surviving only). Suffix range `AA`–`ZZZ` (2, 3-letter); span 18,252, fill 41.3%, largest unallocated run 678. Dated allocations 1904-02-04 → 2026-06-10.
+Population 7,546 slots, 5,716 dated (75.7% coverage: 5,421 firm-issued, 295 earliest-surviving only). Suffix range `AA`–`ZZZ` (2, 3-letter); span 18,252, fill 41.3%, largest unallocated run 678. Dated allocations 1904-02-04 → 2026-09-04.
 
 Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
 
@@ -838,7 +838,7 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 1988 | 59 |
 | 1989 | 60 |
 | 1990 | 54 |
-| 1991 | 47 |
+| 1991 | 48 |
 | 1992 | 57 |
 | 1993 | 53 |
 | 1994 | 35 |
@@ -855,7 +855,7 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2005 | 42 |
 | 2006 | 35 |
 | 2007 | 125 |
-| 2008 | 87 |
+| 2008 | 88 |
 | 2009 | 80 |
 | 2010 | 66 |
 | 2011 | 58 |
@@ -865,26 +865,26 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2015 | 53 |
 | 2016 | 40 |
 | 2017 | 41 |
-| 2018 | 53 |
+| 2018 | 54 |
 | 2019 | 46 |
 | 2020 | 50 |
 | 2021 | 27 |
 | 2022 | 38 |
-| 2023 | 33 |
+| 2023 | 34 |
 | 2024 | 43 |
 | 2025 | 27 |
-| 2026 | 20 |
+| 2026 | 32 |
 
 Naive exhaustion projection ([inferred], extrapolation not prediction):
 
 - Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
-- Slots observed at that length (snapshot presence): 7,470 — 42.5% of the space full; remaining under the model: 10,106.
-- Flat rate: 30.0 dated allocations/year (90 dated over 2024–2026).
-- **Naive projection: ~336.9 years of capacity at that rate — a nominal run-out near 2363.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
+- Slots observed at that length (snapshot presence): 7,485 — 42.6% of the space full; remaining under the model: 10,091.
+- Flat rate: 34.0 dated allocations/year (102 dated over 2024–2026).
+- **Naive projection: ~296.8 years of capacity at that rate — a nominal run-out near 2323.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
 
 ### `21` — Intermediate (formerly-issued)
 
-Population 6,210 slots, 2,136 dated (34.4% coverage: 1,965 firm-issued, 171 earliest-surviving only). Suffix range `GW`–`ZPR` (2, 3-letter); span 17,806, fill 34.9%, largest unallocated run 685. Dated allocations 1955-10-23 → 2026-03-17.
+Population 6,210 slots, 2,137 dated (34.4% coverage: 1,965 firm-issued, 172 earliest-surviving only). Suffix range `GW`–`ZPR` (2, 3-letter); span 17,806, fill 34.9%, largest unallocated run 685. Dated allocations 1955-10-23 → 2026-07-08.
 
 Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
 
@@ -926,13 +926,13 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2023 | 16 |
 | 2024 | 20 |
 | 2025 | 21 |
-| 2026 | 1 |
+| 2026 | 2 |
 
 Naive exhaustion projection: not applicable — the series is not currently issuing.
 
 ### `M1` — Full (currently-issuing)
 
-Population 4,559 slots, 2,753 dated (60.4% coverage: 2,575 firm-issued, 178 earliest-surviving only). Suffix range `KE`–`ZZY` (2, 3-letter); span 17,987, fill 25.3%, largest unallocated run 725. Dated allocations 1992-08-08 → 2026-06-09.
+Population 4,584 slots, 2,780 dated (60.6% coverage: 2,575 firm-issued, 205 earliest-surviving only). Suffix range `KE`–`ZZY` (2, 3-letter); span 17,987, fill 25.5%, largest unallocated run 725. Dated allocations 1992-08-08 → 2026-09-08.
 
 Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
 
@@ -942,7 +942,7 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 1996 | 327 |
 | 1997 | 350 |
 | 1998 | 368 |
-| 1999 | 323 |
+| 1999 | 324 |
 | 2000 | 230 |
 | 2001 | 221 |
 | 2002 | 200 |
@@ -956,7 +956,7 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2010 | 17 |
 | 2011 | 19 |
 | 2012 | 22 |
-| 2013 | 17 |
+| 2013 | 18 |
 | 2014 | 14 |
 | 2015 | 17 |
 | 2016 | 17 |
@@ -964,16 +964,68 @@ Dated issuance-rate curve (allocations per calendar year — [derived], sparse w
 | 2018 | 17 |
 | 2019 | 9 |
 | 2020 | 18 |
-| 2021 | 17 |
+| 2021 | 18 |
 | 2022 | 21 |
 | 2023 | 13 |
 | 2024 | 29 |
-| 2025 | 32 |
-| 2026 | 31 |
+| 2025 | 33 |
+| 2026 | 54 |
 
 Naive exhaustion projection ([inferred], extrapolation not prediction):
 
 - Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
-- Slots observed at that length (snapshot presence): 4,558 — 25.9% of the space full; remaining under the model: 13,018.
-- Flat rate: 30.7 dated allocations/year (92 dated over 2024–2026).
-- **Naive projection: ~424.5 years of capacity at that rate — a nominal run-out near 2451.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
+- Slots observed at that length (snapshot presence): 4,583 — 26.1% of the space full; remaining under the model: 12,993.
+- Flat rate: 38.7 dated allocations/year (116 dated over 2024–2026).
+- **Naive projection: ~336.0 years of capacity at that rate — a nominal run-out near 2362.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).
+
+### `M9` — Intermediate (currently-issuing)
+
+Population 1,075 slots, 1,075 dated (100.0% coverage: 0 firm-issued, 1,075 earliest-surviving only). Suffix range `ACO`–`YZT` (3-letter); span 16,828, fill 6.4%, largest unallocated run 691. Dated allocations 1991-07-26 → 2026-09-09.
+
+Dated issuance-rate curve (allocations per calendar year — [derived], sparse where the allocation-dating disclosures are sparse):
+
+| year | dated allocations |
+|---|---:|
+| 1991 | 2 |
+| 1992 | 4 |
+| 1993 | 5 |
+| 1994 | 5 |
+| 1995 | 6 |
+| 1996 | 4 |
+| 1997 | 3 |
+| 1998 | 7 |
+| 1999 | 5 |
+| 2000 | 10 |
+| 2001 | 5 |
+| 2002 | 7 |
+| 2003 | 11 |
+| 2004 | 10 |
+| 2005 | 15 |
+| 2006 | 14 |
+| 2007 | 18 |
+| 2008 | 16 |
+| 2009 | 22 |
+| 2010 | 18 |
+| 2011 | 20 |
+| 2012 | 10 |
+| 2013 | 30 |
+| 2014 | 34 |
+| 2015 | 29 |
+| 2016 | 24 |
+| 2017 | 22 |
+| 2018 | 40 |
+| 2019 | 57 |
+| 2020 | 58 |
+| 2021 | 49 |
+| 2022 | 45 |
+| 2023 | 51 |
+| 2024 | 77 |
+| 2025 | 141 |
+| 2026 | 201 |
+
+Naive exhaustion projection ([inferred], extrapolation not prediction):
+
+- Current issuing suffix length: 3 letters — theoretical capacity 17,576 (26^3). Up to 1,466 suffixes of that length are forbidden for NEW issuance (many are long-standing allocations already counted in the population), further shrinking the usable remainder.
+- Slots observed at that length (snapshot presence): 1,075 — 6.1% of the space full; remaining under the model: 16,501.
+- Flat rate: 139.7 dated allocations/year (419 dated over 2024–2026).
+- **Naive projection: ~118.1 years of capacity at that rate — a nominal run-out near 2144.** Extrapolation, not prediction: it holds the flat rate fixed, ignores forbidden-suffix scatter and non-sequential issuance, and runs off dated evidence ending 2026 (the register has issued callsigns since, uncounted here).

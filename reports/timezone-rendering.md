@@ -75,6 +75,7 @@ are additional evidence, not fully independent derivations).
 | `opendata/2025-11-11` | unclassified — no pairwise experiment reaches this source (no shared record overlap with a time-of-day-bearing source) | — |
 | `opendata/2026-01-14` | unclassified — no pairwise experiment reaches this source (no shared record overlap with a time-of-day-bearing source) | — |
 | `opendata/2026-06-23` | unclassified — no pairwise experiment reaches this source (no shared record overlap with a time-of-day-bearing source) | — |
+| `opendata/2026-09-22` | unclassified — no pairwise experiment reaches this source (no shared record overlap with a time-of-day-bearing source) | — |
 
 ## Pairwise natural experiments
 
@@ -274,3 +275,5 @@ nothing without a pairwise experiment.
 | `opendata/2026-01-14` | `licence-version-original-start` | 2026-01-14 | 95,957 | 73 | 0 | 0 | 0 | — |
 | `opendata/2026-06-23` | `licence-version-last-modified` | 2026-06-23 | 105,332 | 0 | 0 | 0 | 0 | — |
 | `opendata/2026-06-23` | `licence-version-original-start` | 2026-06-23 | 105,332 | 0 | 0 | 0 | 0 | — |
+| `opendata/2026-09-22` | `licence-version-last-modified` | 2026-09-22 | 105,319 | 0 | 0 | 0 | 0 | — |
+| `opendata/2026-09-22` | `licence-version-original-start` | 2026-09-22 | 105,319 | 0 | 0 | 0 | 0 | — |

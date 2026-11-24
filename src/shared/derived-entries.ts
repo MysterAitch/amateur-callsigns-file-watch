@@ -54,6 +54,56 @@ export function derivedEntriesMode(): DerivedEntriesMode {
   return dir !== undefined && dir.trim() !== '' ? 'projection' : 'archive';
 }
 
+// The frozen committed baseline (ADR 0021), pinned entry by entry: every dated
+// publication whose derived files were committed before the derivation lane
+// retired. A publication landing after the freeze never joins this list.
+export const FROZEN_BASELINE_KEYS = [
+  '2022-05-30',
+  '2023-02-20',
+  '2025-04-08',
+  '2025-05-27',
+  '2025-06-04',
+  '2025-06-08',
+  '2025-11-11',
+  '2026-01-14',
+  '2026-06-23',
+] as const;
+
+// An explicit narrowing of which archive entries a run enumerates.
+// It exists for tests that read derived files from the committed archive:
+// those files stop at the frozen baseline, so such a test must say that the
+// baseline is what it is asserting over, rather than take "every entry" and
+// break on the first publication after the freeze.
+// That is what happened on 22 September 2026, when 17 fast tests and several
+// corpus tests read derived files for an entry that by design has none.
+// Unset means every entry. It is never set by a build or a deploy.
+export const ARCHIVE_SCOPE_ENV = 'ARCHIVE_SCOPE';
+export const FROZEN_BASELINE_SCOPE = 'frozen-baseline';
+
+// The variable the test runner sets in every process it starts.
+const TEST_RUN_MARKER_ENV = 'VITEST';
+
+// Applies the scope to a list of archive keys, preserving order.
+// Refuses an unrecognised value, so a typo cannot read as "no scope".
+// Refuses any scope outside a test run: a scoped fetch would not recognise a
+// publication it already holds, and a scoped build would publish a site with
+// its newest publication silently missing. Every entry point loads .env from
+// the working directory, so the variable can arrive by a route no scan of the
+// workflows sees; the refusal is here, where the scope is read.
+export function scopeArchiveKeys(keys: readonly string[]): string[] {
+  const scope = process.env[ARCHIVE_SCOPE_ENV];
+  if (scope === undefined || scope === '') return [...keys];
+  if (scope !== FROZEN_BASELINE_SCOPE) {
+    throw new Error(`${ARCHIVE_SCOPE_ENV}=${JSON.stringify(scope)} is not a recognised scope - the only one is "${FROZEN_BASELINE_SCOPE}"`);
+  }
+  const testRun = process.env[TEST_RUN_MARKER_ENV];
+  if (testRun === undefined || testRun === '') {
+    throw new Error(`${ARCHIVE_SCOPE_ENV} is set, and it is honoured only inside a test run - unset it (check the shell and any .env file) so that every publication is seen`);
+  }
+  const baseline: ReadonlySet<string> = new Set(FROZEN_BASELINE_KEYS);
+  return keys.filter(key => baseline.has(key));
+}
+
 // The projection root, validated to exist: an env var pointing at nothing is
 // a wiring error (projection never built, or built elsewhere) and must fail
 // the build loudly rather than let every entry read as absent.

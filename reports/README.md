@@ -20,6 +20,7 @@ Standing, deterministic views over the archive. Drill-downs:
 
 | dataset | records | distinct patterns | flag instances |
 |---|---:|---:|---:|
+| [2026-09-22](entries/2026-09-22.md) | 163342 | 43 | 3351 |
 | [2026-06-23](entries/2026-06-23.md) | 158318 | 36 | 3004 |
 | [2026-01-14](entries/2026-01-14.md) | 146417 | 31 | 508 |
 | [2025-11-11](entries/2025-11-11.md) | 159895 | 34 | 3356 |

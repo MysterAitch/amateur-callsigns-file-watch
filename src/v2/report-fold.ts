@@ -24,6 +24,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { errorMessage } from '../shared/utils.ts';
 import { parseJsonArray } from '../shared/json-shape.ts';
+import { FROZEN_BASELINE_KEYS, scopeArchiveKeys } from '../shared/derived-entries.ts';
 
 // The DuckDB CLI to invoke: the pinned binary the setup-duckdb action installs
 // (via DUCKDB_BIN), else a `duckdb` already on PATH for local runs.
@@ -206,12 +207,36 @@ export function toClaimsSource(source: string | ClaimsSource): ClaimsSource {
 // over the shared Parquet or an on-demand JSONL ledger — the byte-identity
 // contract (issue #403) rests on both relations exposing LEDGER_COLUMNS.
 export function claimsRelation(source: ClaimsSource): string {
+  return scopedToArchiveScope(bareClaimsRelation(source));
+}
+
+function bareClaimsRelation(source: ClaimsSource): string {
   if (source.kind === 'parquet') {
     return `read_parquet('${source.path.replace(/\\/g, '/').replace(/'/g, "''")}')`;
   }
   const glob = path.join(source.dir, '*.jsonl').replace(/\\/g, '/').replace(/'/g, "''");
   return `read_json('${glob}', format='newline_delimited', columns=${LEDGER_COLUMNS})`;
 }
+
+// The claim-side half of the archive scope (scopeArchiveKeys,
+// src/shared/derived-entries.ts, owns what the scope is and why).
+// Unscoped, the relation is returned untouched, so a build's fold SQL is
+// exactly what it was. Scoped, the open-data claims are narrowed to the same
+// entries the key listing is narrowed to; other lanes are not keyed by
+// publication date and pass through.
+function scopedToArchiveScope(relation: string): string {
+  const everyKeyKept = scopeArchiveKeys([OPEN_DATA_SCOPE_PROBE_KEY]).length === 1;
+  if (everyKeyKept) return relation;
+  const kept = FROZEN_BASELINE_KEYS.map(key => `'${key}'`).join(', ');
+  return `(SELECT * FROM ${relation} WHERE NOT starts_with(sourceFile, '${OPEN_DATA_SOURCE_PREFIX}') OR split_part(sourceFile, '/', 2) IN (${kept}))`;
+}
+
+// The ledger's sourceFile prefix for open-data publications
+// (opendata/<archive key>/<file>).
+const OPEN_DATA_SOURCE_PREFIX = 'opendata/';
+
+// A key no baseline can contain: if the scope keeps it, nothing is scoped.
+const OPEN_DATA_SCOPE_PROBE_KEY = '0000-00-00';
 
 // Whether a source holds any claims to fold. An absent/empty ledger yields the
 // empty report rather than reaching DuckDB, whose read_json errors on a glob that

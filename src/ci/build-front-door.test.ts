@@ -12,6 +12,10 @@ import {
 import { collectHoldings, type Holding } from './build-publisher-pages.ts';
 import { readPublisherRegister } from '../shared/publishers.ts';
 import { assertNonEmpty } from '../testing/non-vacuity.ts';
+import { pinArchiveToFrozenBaseline } from '../testing/frozen-baseline-archive.ts';
+
+// Reads committed derived files, which stop at the frozen baseline.
+pinArchiveToFrozenBaseline();
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //

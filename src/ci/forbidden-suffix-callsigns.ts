@@ -26,7 +26,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import { buildFoiObservations } from '../shared/foi-observations.ts';
-import { derivedEntryFile } from '../shared/derived-entries.ts';
+import { derivedEntryFile, scopeArchiveKeys } from '../shared/derived-entries.ts';
 import { parseCallsign, loadReferenceData, type ReferenceData } from '../sources/ofcom-amateur/components.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -104,9 +104,9 @@ function readCsv(file: string): Record<string, string>[] {
 // the working directory.
 export function listOpenDataKeys(): string[] {
   if (!fs.existsSync(ARCHIVE_DIR)) return [];
-  return fs.readdirSync(ARCHIVE_DIR)
+  return scopeArchiveKeys(fs.readdirSync(ARCHIVE_DIR)
     .filter(name => DATE_KEY_RE.test(name) && fs.statSync(path.join(ARCHIVE_DIR, name)).isDirectory())
-    .sort();
+    .sort());
 }
 
 // The status-breakdown ordering: the states we have reasoned about first

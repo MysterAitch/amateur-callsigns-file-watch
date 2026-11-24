@@ -1,11 +1,11 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { loadReferenceData, parseCallsign } from './components.ts';
 
 // Suffix-length witness (issue #959, review round). The v1 anatomy page states
 // the register's observed suffix-length distribution as an in-repo witness. Those
 // figures MUST be derived from the held data, never hand-typed: this test
-// recomputes the distribution from the newest held snapshot with the SAME parser
+// recomputes the distribution from the snapshot the page names, with the SAME parser
 // the site uses and asserts the page displays exactly those rounded figures, so
 // any drift in the data (or a stale hand-edit) fails loud rather than shipping a
 // wrong number. It also pins the scope the page states (parser-decomposed core
@@ -16,6 +16,7 @@ import { loadReferenceData, parseCallsign } from './components.ts';
 // full-data tier, not the fast leg.
 
 const SNAPSHOT_DATE = '2026-06-23';
+const SNAPSHOT_LABEL = '23 June 2026';
 const SNAPSHOT = `archive/${SNAPSHOT_DATE}/normalised.csv`;
 const ANATOMY = 'site/v1/anatomy.html';
 
@@ -33,19 +34,14 @@ function readSnapshot(path: string): Row[] {
   return rows;
 }
 
-function newestSnapshotDate(): string {
-  return readdirSync('archive')
-    .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
-    .sort()
-    .at(-1) ?? '';
-}
-
 describe('suffix-length witness on the anatomy page', { tags: ['data-validity'] }, () => {
-  it('AnatomySuffixWitness_CitedSnapshot_IsStillTheNewestHeld', () => {
-    // The page cites a specific dated snapshot as "the newest held". If a newer
-    // one lands, the witness (and this test's figures) must be refreshed together
-    // — fail loud rather than let the page's "newest" claim go stale silently.
-    expect(newestSnapshotDate(), `${SNAPSHOT_DATE} is no longer the newest snapshot — refresh the anatomy suffix witness and this test`).toBe(SNAPSHOT_DATE);
+  it('AnatomySuffixWitness_PageNamesTheSnapshotItsFiguresComeFrom_AndDoesNotCallItTheNewest', () => {
+    // The witness is a statement about one dated snapshot. Calling that
+    // snapshot "the newest held" made the page false, and this suite red, the
+    // day the next publication landed; naming the date stays true.
+    const html = readFileSync(ANATOMY, 'utf8');
+    expect(html).toContain(`derived from the held register snapshot dated ${SNAPSHOT_LABEL}`);
+    expect(html).not.toContain('newest held register snapshot');
   });
 
   it('AnatomySuffixWitness_DisplayedFigures_MatchTheRecomputedCoreDistribution', () => {

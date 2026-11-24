@@ -26,17 +26,21 @@ import {
   type Claim,
 } from '../v2/claim.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
+import { withFrozenBaselineArchive } from '../testing/frozen-baseline-archive.ts';
+import { baselineValueCatalogueMarkdown } from '../testing/baseline-value-catalogue.ts';
 
 const ref = loadReferenceData();
 
 interface FieldFigures { records: number; callsigns: number; allocated: number; sources: number; lanes: string[] }
 
-// Parse one committed field table ("## `<field>` — N distinct") back into
-// figures per value, reading the same folded golden the freshness gate
-// regenerates and diffs, so the equivalence check runs on every CI run whether or
-// not DuckDB is present.
-function parseCommittedFieldTable(field: string): Map<string, FieldFigures> {
-  const markdown = fs.readFileSync(path.resolve(process.cwd(), VALUE_CATALOGUE_PATH), 'utf8');
+function committedCatalogueMarkdown(): string {
+  return fs.readFileSync(path.resolve(process.cwd(), VALUE_CATALOGUE_PATH), 'utf8');
+}
+
+// Parse one field table ("## `<field>` — N distinct") of a rendered catalogue
+// back into figures per value: the committed report by default, or the
+// baseline rendering the equivalence oracle compares against.
+function parseCommittedFieldTable(field: string, markdown: string = committedCatalogueMarkdown()): Map<string, FieldFigures> {
   const lines = markdown.split('\n');
   const start = lines.findIndex(l => l.startsWith(`## \`${field}\` — `));
   expect(start, `section for ${field}`).toBeGreaterThanOrEqual(0);
@@ -99,22 +103,22 @@ const FLAG_FOLD_HIGHER: readonly string[] = [
 const FLAG_FOLD_LOWER_REASON = 'the legacy tally raised this flag on FOI available-pool tokens parsed AS callsigns and unioned raw-trimmed spellings; the raw-keyed fold emits those pool-slots raw-only and counts distinct cleaned keys';
 const FLAG_FOLD_HIGHER_REASON = 'the fold reads the RAW token verbatim (the legacy FOI path re-parsed the cleaned callsign) and runs the cross-row collision pass over every register source (the legacy path ran it on the open-data lane alone), so it catches raw distinctions the legacy path lost';
 
-describe('flags distribution — ledger vs legacy classified-equivalence oracle', { tags: ['data-validity'] }, () => {
-  // Always-on: reads the committed folded golden and recomputes the legacy flags
-  // catalogue live over the real archive (no DuckDB needed for this side).
+describe.skipIf(!duckDbAvailable())('flags distribution — ledger vs legacy classified-equivalence oracle', { tags: ['data-validity'] }, () => {
+  // Both sides over the frozen baseline (src/testing/baseline-value-catalogue.ts):
+  // the legacy flags catalogue recomputed live, and the ledger fold rendered.
   let legacyFlags: Map<string, ValueTally>;
-  let committedFlags: Map<string, FieldFigures>;
+  let baselineFlags: Map<string, FieldFigures>;
   beforeAll(() => {
-    const cells = buildFieldTallies().get(FLAGS_FIELD);
+    const cells = withFrozenBaselineArchive(() => buildFieldTallies()).get(FLAGS_FIELD);
     legacyFlags = new Map((cells === undefined ? [] : catalogueField(FLAGS_FIELD, cells).values).map(v => [v.value, v]));
-    committedFlags = parseCommittedFieldTable(FLAGS_FIELD);
+    baselineFlags = parseCommittedFieldTable(FLAGS_FIELD, baselineValueCatalogueMarkdown());
   }, 600_000);
 
   it('Flags_FoldedValueSet_EqualsLegacyValueSet_LosingNoSignal', () => {
     // The union that the emission of the two higher-tier signals makes safe: the
     // fold surfaces EXACTLY the legacy flag vocabulary — no flag invented, and
     // (the point of emitting the two signals first) none silently dropped.
-    expect([...committedFlags.keys()].sort()).toEqual([...legacyFlags.keys()].sort());
+    expect([...baselineFlags.keys()].sort()).toEqual([...legacyFlags.keys()].sort());
   });
 
   it('Flags_Classification_PartitionsTheWholeFlagVocabulary', () => {
@@ -132,7 +136,7 @@ describe('flags distribution — ledger vs legacy classified-equivalence oracle'
     // FEWER on a flag the legacy tally also raised on available-pool callsign
     // tokens. An inversion means the fold gained observations to investigate.
     for (const flag of FLAG_FOLD_LOWER) {
-      const f = committedFlags.get(flag);
+      const f = baselineFlags.get(flag);
       const l = legacyFlags.get(flag);
       expect(f, `folded ${flag}`).toBeDefined();
       expect(l, `legacy ${flag}`).toBeDefined();
@@ -142,7 +146,7 @@ describe('flags distribution — ledger vs legacy classified-equivalence oracle'
     }
     // Non-vacuous: at least one lower-class flag genuinely shrinks, so the class
     // is not silently a no-op hiding a regression.
-    const shrank = FLAG_FOLD_LOWER.some(flag => (committedFlags.get(flag)?.records ?? 0) < (legacyFlags.get(flag)?.count ?? 0));
+    const shrank = FLAG_FOLD_LOWER.some(flag => (baselineFlags.get(flag)?.records ?? 0) < (legacyFlags.get(flag)?.count ?? 0));
     expect(shrank, 'no FOLD_LOWER flag actually shrank').toBe(true);
   });
 
@@ -151,14 +155,14 @@ describe('flags distribution — ledger vs legacy classified-equivalence oracle'
     // running the collision pass everywhere can only find MORE, never fewer, of
     // these flags than the legacy path that re-parsed the cleaned callsign.
     for (const flag of FLAG_FOLD_HIGHER) {
-      const f = committedFlags.get(flag);
+      const f = baselineFlags.get(flag);
       const l = legacyFlags.get(flag);
       expect(f, `folded ${flag}`).toBeDefined();
       expect(l, `legacy ${flag}`).toBeDefined();
       expect(f?.records ?? 0, `${flag} records (${FLAG_FOLD_HIGHER_REASON})`).toBeGreaterThanOrEqual(l?.count ?? 0);
     }
     // Non-vacuous: at least one higher-class flag genuinely grows.
-    const grew = FLAG_FOLD_HIGHER.some(flag => (committedFlags.get(flag)?.records ?? 0) > (legacyFlags.get(flag)?.count ?? 0));
+    const grew = FLAG_FOLD_HIGHER.some(flag => (baselineFlags.get(flag)?.records ?? 0) > (legacyFlags.get(flag)?.count ?? 0));
     expect(grew, 'no FOLD_HIGHER flag actually grew').toBe(true);
   });
 
@@ -170,7 +174,7 @@ describe('flags distribution — ledger vs legacy classified-equivalence oracle'
     expect(legacyFlags.size, 'legacy flags tally').toBeGreaterThan(0);
     for (const [flag, l] of legacyFlags) {
       if (classified.has(flag)) continue;
-      const f = committedFlags.get(flag);
+      const f = baselineFlags.get(flag);
       expect(f, `folded ${flag}`).toBeDefined();
       expect({ records: f?.records, callsigns: f?.callsigns, allocated: f?.allocated, sources: f?.sources }, `unchanged ${flag}`)
         .toEqual({ records: l.count, callsigns: l.distinctCallsigns, allocated: l.allocated, sources: l.sources });

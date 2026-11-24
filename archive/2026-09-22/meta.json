@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "sourceKey": "ofcom-amateur-callsigns",
+  "provenance": "live",
+  "intendedCoverage": {
+    "complete": true
+  },
+  "fetchedAt": "2026-09-22T13:45:26.755Z",
+  "files": {
+    "raw.csv": {
+      "bytes": 13286368,
+      "sha256": "63066f48aa2199db71f159396162d9523d00ca5e316cc7efc795fad881822a5c",
+      "format": "csv",
+      "columnCount": 7,
+      "columnNames": [
+        "Callsign",
+        "Product__c",
+        "Status",
+        "Type__c",
+        "Licence_Version.LastModifiedDate",
+        "Licence_Version.Licence_Issued_Date__c",
+        "Licence_Version.Original_start_date__c"
+      ],
+      "recordCount": 163342
+    }
+  },
+  "diffSummary": {
+    "currentRecordCount": 163342,
+    "previousArchiveKey": "2026-06-23",
+    "previousRecordCount": 158318,
+    "unchanged": 0,
+    "fieldChanged": 158054,
+    "added": 5288,
+    "removed": 264,
+    "sampleAdded": [
+      "M/KNIZ",
+      "M7DZW",
+      "M7ADZ",
+      "20MYZ",
+      "20KBZ"
+    ],
+    "sampleRemoved": [
+      "G2FTR",
+      "G8PVV",
+      "M6GTQ",
+      "G4ZQZ",
+      "M6CBH"
+    ]
+  },
+  "sourceUrl": "https://www.ofcom.org.uk/siteassets/resources/documents/manage-your-licence/amateur/amateur-callsign-list.csv?v=425690",
+  "ofcomReportedUpdate": "22 September 2026",
+  "ofcomReportedUpdateIso": "2026-09-22",
+  "linkText": "Amateur radio call signs",
+  "sourceVersionParam": "425690"
+}
