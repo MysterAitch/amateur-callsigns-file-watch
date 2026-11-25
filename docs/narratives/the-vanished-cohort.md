@@ -387,10 +387,12 @@ key, which makes them a pair of the kind described in
 ["The six twins"](the-six-twins.md). The `20MVL` row is in 2026-06-23 as
 well, where `2#0MVL` is not.
 
-**[derived]** So "then gone" describes one vintage, 2026-06-23, for fourteen
-of the sixteen, and both later vintages for the other two. Fifteen
-blank-status rows is also more than any earlier declared-complete vintage
-carries: the most before it is fourteen, in 2025-04-08 and 2025-06-04.
+**[derived]** So "then gone" describes a single vintage, 2026-06-23, for ten
+of the sixteen; three vintages in a row for four more; and every vintage
+since they left for the remaining two (`22032024` since 2025-11-11, `LR388`
+since 2026-01-14). Fifteen blank-status rows is also more than any earlier
+declared-complete vintage carries in its `normalised.csv`: the most before it
+is fourteen, in 2025-04-08 and 2025-06-04.
 
 **[derived]** The caution in
 [The disappearance, and what it does not prove](#the-disappearance-and-what-it-does-not-prove)

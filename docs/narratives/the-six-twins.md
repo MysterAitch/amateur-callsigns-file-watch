@@ -5,8 +5,8 @@ first surprise to a labelled, testable hypothesis. It is a story about
 record-keeping mechanics, not about the people who hold these callsigns.*
 
 > **Read this as an account of the register as it stood at 23 June 2026.** Its
-> counts and statuses are those of the snapshots named beside them, the newest
-> being [2026-06-23](../../archive/2026-06-23/raw.csv). A later publication,
+> counts and statuses are those of the snapshots named beside them, none later
+> than [2026-06-23](../../archive/2026-06-23/raw.csv). A later publication,
 > [2026-09-22](../../archive/2026-09-22/raw.csv), holds the same six pairs with
 > the same statuses, and two further pairs besides. What it adds is set out in
 > [Follow-up: what the 2026-09-22 publication shows](#follow-up-what-the-2026-09-22-publication-shows).
@@ -250,7 +250,11 @@ form `Available` beside an `Allocated` embedded-space twin.
 | `20MVL` | `20MVL`: Reserved · `2#0MVL`: no status | 2025-11-11 and 2026-01-14, with the same statuses |
 
 **[observed]** `M/MKG4BZB` is the group this page calls transient. In
-2026-06-23 neither of its tokens is listed; in 2026-09-22 both are. The
+2026-06-23 neither of its tokens is listed; in 2026-09-22 both are, and both
+read `Reserved`. That bears on the "four of the five" count above, which
+includes this group on the strength of 2025-04-08, where its `#` form was
+`Allocated`: in September neither of its rows is. The other three counted
+there (`G0TQK`, `G6FMU`, `G7IWE`) are as they were in June. The
 `20MVL` pair is the third to disagree on status, and it disagrees in a way
 none of the six does: one row is `Reserved` and the other states no status at
 all. `2#0MVL` is one of the blank-status callsigns followed in
@@ -277,9 +281,9 @@ missing from them is not examined here.
 **[observed]** Those two later vintages also need a distinction the six never
 raised. 2025-11-11 repeats 213 raw callsigns exactly, and 2026-01-14 repeats
 194: the same token on two or three rows, every one `Allocated`. Applying the
-grouping rule as written counts those too (216 and 197 groups). They are
-repeated rows, not twins: a twin is two *different* tokens that clean to one
-key. Neither 2026-06-23 nor 2026-09-22 repeats any raw callsign.
+grouping rule as written counts those too (216 and 197 groups). They are one
+token listed more than once, not twins: a twin is two *different* tokens that
+clean to one key. Neither 2026-06-23 nor 2026-09-22 repeats any raw callsign.
 
 **[observed]** Two cautions from above read differently against September.
 
@@ -304,7 +308,20 @@ tabulated, not a fixed membership.
 To re-run the September grouping against the committed file:
 
 ```
-node -e "const fs=require('fs');const m=new Map();for(const l of fs.readFileSync('archive/2026-09-22/raw.csv','latin1').split(/\r?\n/).slice(1)){if(!l)continue;const f=l.split(',');const k=f[0].toUpperCase().replace(/[^A-Z0-9/]/g,'');m.set(k,[...(m.get(k)||[]),f]);}for(const [k,r] of m)if(r.length>1)console.log(k,r.map(f=>JSON.stringify(f[0])+' '+(f[2]||'(no status)')).join(' | '));"
+node -e "
+const rows = require('fs').readFileSync('archive/2026-09-22/raw.csv', 'latin1')
+  .split(/\r?\n/).slice(1).filter(Boolean).map(line => line.split(','));
+const groups = new Map();
+for (const row of rows) {
+  const key = row[0].toUpperCase().replace(/[^A-Z0-9/]/g, '');
+  groups.set(key, [...(groups.get(key) || []), row]);
+}
+for (const [key, members] of groups) {
+  if (members.length > 1) {
+    console.log(key, members.map(r => JSON.stringify(r[0]) + ' ' + (r[2] || '(no status)')).join(' | '));
+  }
+}
+"
 ```
 
 It prints eight lines, one per group. The file holds no quoted fields, so
