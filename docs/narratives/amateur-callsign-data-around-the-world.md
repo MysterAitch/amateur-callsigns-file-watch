@@ -12,7 +12,7 @@ Only the claims below that are genuinely read off, or derived from, this
 project's own held/archived register data carry one of three tags —
 **[observed]**, **[derived]**, or **[hypothesis]** — the same convention its
 sibling narratives use throughout. Select any tag to see its full definition
-in the [glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics).
+in the [glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#epistemics).
 Most of what follows, though, is material about *other* regulators' own
 registers — this project holds none of it (see "Context, not collection",
 below) — so those claims carry their own inline primary-source citation
@@ -22,7 +22,7 @@ a held-data tag onto it would misstate what actually backs the claim.
 
 **Context, not collection.** No foreign register data enters this project's
 corpus. This mirror archives one register: the UK's, published by Ofcom (see
-the [publisher register](https://mysteraitch.github.io/amateur-callsigns-file-watch/publishers/index.html)
+the [publisher register](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/publishers/index.html)
 and [`README.md`](../../README.md)). Every source cited below is recorded in
 [`docs/source-register.md`](../source-register.md) with the status `context`
 — that vocabulary's own definition is *"retained for reference, not a
@@ -321,7 +321,7 @@ tends to stop short of full openness — without BNetzA's advantage of stating
 that reason on the record.
 
 None of this is a finding about *this* project's own data quality or
-completeness — that is what the [fidelity](https://mysteraitch.github.io/amateur-callsigns-file-watch/fidelity.html)
+completeness — that is what the [fidelity](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/fidelity.html)
 and [glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html)
 pages cover. This page is scoped narrowly to *how open the underlying register
 is, and under what licence* — the context a reader needs to judge whether

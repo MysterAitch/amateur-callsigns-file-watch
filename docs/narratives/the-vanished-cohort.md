@@ -5,10 +5,20 @@ small, stubborn oddity in the `status` column to a clean disappearance. It is
 a story about how a register's own edge cases get held, and eventually
 dropped, not about the people who once held these callsigns.*
 
+> **Read this as an account of the publications held at 23 June 2026.** It
+> was written against the nine vintages held up to
+> [2026-06-23](../../archive/2026-06-23/raw.csv), and its title describes what
+> those nine showed. The next publication,
+> [2026-09-22](../../archive/2026-09-22/raw.csv), lists fourteen of the sixteen
+> vanished callsigns again, each with an empty status. The June account is kept
+> below as what was true of the vintages then held, and what September adds is
+> set out in
+> [Follow-up: what the 2026-09-22 publication shows](#follow-up-what-the-2026-09-22-publication-shows).
+
 Every claim below carries one of three tags — **[observed]**, **[derived]**,
 or **[hypothesis]** — so you can tell at a glance what kind of statement it is
 and check it yourself. Select any tag to see its full definition in the
-[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics).
+[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#epistemics).
 
 The counts and rows below were re-derived directly from the archived
 snapshots for this write-up, not carried over from an earlier pass. Where a
@@ -19,14 +29,16 @@ rather than taken on trust.
 
 ## Summary
 
-**[observed]** Nine [vintages](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#vintage)
-of the open-data register are held in this archive. Two of them —
+**[observed]** Nine [vintages](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#vintage)
+of the open-data register, up to 2026-06-23, were held in this archive when
+this account was written. Two of them —
 [2025-05-27](../../archive/2025-05-27/normalised.csv) and
 [2025-06-08](../../archive/2025-06-08/normalised.csv) — are
-[declared partial](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#declared-complete)
+[declared partial](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#declared-complete)
 (1,074 rows each, a truncated fetch) and are set aside here, the same way the
 project's own sweep set them aside. That leaves seven declared-complete
-vintages: six older ones, tested here, plus the newest.
+vintages: six older ones, tested here, plus 2026-06-23, the newest of the
+nine.
 
 **[derived]** In every one of the six older vintages — from
 [2022-05-30](../../archive/2022-05-30/normalised.csv) through
@@ -38,18 +50,24 @@ one of those six vintages, without exception (an intersection across the six
 files; each per-file blank is directly observable). A wider set of
 **seventeen** callsigns is blank in at least one of them.
 
-**[derived]** By the newest vintage, [2026-06-23](../../archive/2026-06-23/normalised.csv),
-the blank-status count is **zero** — and sixteen of those seventeen
+**[derived]** In the [2026-06-23](../../archive/2026-06-23/normalised.csv)
+vintage the blank-status count is **zero** — and sixteen of those seventeen
 callsigns, including all four of the persisting core, are not merely
 resolved to a real status: they are **absent from the export altogether**,
 verified against the raw text of the publication itself. Only one member of
 the wider seventeen, `G5EFV`, escapes this pattern: it picked up a genuine
-status years earlier and is still on the register today.
+status years earlier and is still listed in that vintage.
+
+**[derived]** That absence lasted one vintage for most of them. The
+2026-09-22 publication carries fifteen rows with an empty status: fourteen of
+the sixteen are listed again, and one callsign appears that no earlier vintage
+held. See the
+[follow-up](#follow-up-what-the-2026-09-22-publication-shows).
 
 **[hypothesis]** Whether this is a deliberate administrative clear-out of
 long-dormant, status-less entries, or the same kind of export-mechanism
 idiosyncrasy already documented twice elsewhere in this exact vintage
-lineage — extended, in the newest publication, to drop every remaining
+lineage — extended, in the 2026-06-23 publication, to drop every remaining
 status-less row outright — is **not established** from anything this mirror
 holds. Both readings are recorded below; neither is asserted.
 
@@ -57,11 +75,11 @@ holds. Both readings are recorded below; neither is asserted.
 
 ## What a blank `status` is
 
-**[observed]** The register's [status](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#status-values)
+**[observed]** The register's [status](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#status-values)
 column is meant to record one of a small, closed set of values — chiefly
-[Allocated](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#allocated),
-[Reserved](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#reserved),
-or [Available](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#available).
+[Allocated](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#allocated),
+[Reserved](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#reserved),
+or [Available](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#available).
 A **blank** value is a fourth, unlabelled case: the register still holds a
 row for the callsign — a `product`, usually a `type` — but declines to say
 what state it is in. This is not the same as no row at all; it is a row that
@@ -111,11 +129,14 @@ value is stable across two entirely different header shapes (the bare
 three-column 2022 layout and the six/eight-column Salesforce-family layouts
 of 2025 onward), so it survives a schema change as well as time.
 
-**[observed]** Two of the seventeen, `GOOUC` (one of the persisting four)
-and `G98JSS` (from the wider set below), match no known UK callsign
-formation at all — the components parser
-records them as `unparseable`
-([`archive/2025-11-11/components.csv`](../../archive/2025-11-11/components.csv)),
+**[observed]** `GOOUC`, one of the persisting four, matches no known UK
+callsign formation at all, and nor does `G98JSS`, which belongs to the wider
+set introduced below — the components parser
+records both as `unparseable`
+([`archive/2025-11-11/components.csv`](../../archive/2025-11-11/components.csv)).
+They are not the only such members: the full count, five of the seventeen, is
+in [its own section below](#some-of-the-cohort-were-never-valid-callsigns-to-begin-with).
+`unparseable` is
 the same closed vocabulary documented in
 [`reference-data/flags.md`](../../reference-data/flags.md) and put to work
 narrating a different pair of unparseable values on
@@ -159,7 +180,7 @@ thinning in three distinct steps, not one single cut-over:
 **[observed]** The first five (`G1ZJL`, `G1ZRU`, `G3ZQE`, `G4ISZ`, `22032024`)
 do not merely gain a status — they are absent from
 [`archive/2025-11-11/normalised.csv`](../../archive/2025-11-11/normalised.csv)
-entirely, and stay absent from every vintage since. `LR388` follows the same
+entirely, and stay absent from 2026-01-14 and 2026-06-23 as well. `LR388` follows the same
 pattern one step later: present and blank through 2025-11-11, gone entirely
 by [`archive/2026-01-14/normalised.csv`](../../archive/2026-01-14/normalised.csv).
 The final ten — the persisting core of four plus six others still blank as
@@ -179,8 +200,8 @@ evidence, not a claim about its cause.
 story at all. `G5EFV` is blank in 2022-05-30 and 2023-02-20 only; by
 [`archive/2025-04-08/normalised.csv`](../../archive/2025-04-08/normalised.csv)
 it carries a real status, `Allocated`; by 2025-11-11 it reads `Reserved`;
-and it is still present, still `Reserved`, in the newest vintage,
-2026-06-23. `G5EFV` resolved to an ordinary status years before the rest of
+and it is still present, still `Reserved`, in the 2026-06-23 vintage.
+`G5EFV` resolved to an ordinary status years before the rest of
 the cohort disappeared, and never left the register at all — the opposite
 outcome to its sixteen former neighbours.
 
@@ -188,8 +209,8 @@ outcome to its sixteen former neighbours.
 blank in 2022-05-30, 2023-02-20 and 2025-04-08, then **absent altogether**
 from `archive/2025-06-04/normalised.csv` — not blank, not present with a
 status, simply not in that one export — before reappearing blank in
-2025-11-11 and 2026-01-14, and finally vanishing for good with the rest of
-the final ten. **[derived]** That one-vintage gap lines up exactly with an
+2025-11-11 and 2026-01-14, and finally leaving the 2026-06-23 export with the
+rest of the final ten. **[derived]** That one-vintage gap lines up exactly with an
 already-documented defect in that specific publication: `M1NSK`'s `product`
 field is blank in every vintage it appears (confirmed in
 [`archive/2025-04-08/normalised.csv`](../../archive/2025-04-08/normalised.csv)),
@@ -243,9 +264,9 @@ match for any of them. They are not recategorised into `Allocated`,
 `Reserved`, or `Available`; they are not in the file at all.
 
 **[derived]** This is the same shape of evidence the mirror's own
-[availability trap](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#available)
+[availability trap](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#available)
 warns readers about, applied to a whole cohort at once. Looking any of these
-sixteen callsigns up on the mirror today returns "no record" — and per that
+sixteen callsigns up in the 2026-06-23 export returns "no record" — and per that
 warning, **absence of a record is not evidence of availability**. It means
 only that this export holds no row for the callsign; it is not a statement
 that the callsign is free to issue, or that Ofcom has withdrawn it, or
@@ -256,7 +277,7 @@ longer published," not "confirmed available."
 observations mentions this cohort or its disappearance — unlike the
 already-documented 2025-06-04 blank-product omission or the 2026-01-14
 Z-suffix omission (both cited above and in `docs/source-register.md`), the
-newest vintage carries no note that would explain the drop. This is a fresh
+2026-06-23 vintage carries no note that would explain the drop. This is a fresh
 observation, not one this mirror had already recorded before this write-up.
 
 ---
@@ -277,7 +298,7 @@ and this mirror cannot tell them apart:
   as omitting every blank-product row; the 2026-01-14 publication is already
   documented as omitting every Z-suffix row (`docs/source-register.md`,
   issue #564). Both are publisher-side export idiosyncrasies affecting a
-  category of row, not a change to the underlying register. A newest export
+  category of row, not a change to the underlying register. A 2026-06-23 export
   that omits every row lacking a status value — rather than genuinely
   deleting the licences behind them — would produce identical evidence to
   the clear-out reading, from outside the export process.
@@ -300,13 +321,118 @@ arbitrate. No such request is currently open for this specific finding.
 
 ---
 
+## Follow-up: what the 2026-09-22 publication shows
+
+*Added November 2026. Everything above this heading describes the nine
+vintages held up to 2026-06-23. This section adds the tenth and changes none
+of the counts above.*
+
+**[observed]** The tenth vintage is
+[`archive/2026-09-22/raw.csv`](../../archive/2026-09-22/raw.csv): 163,342 data
+rows, reported by Ofcom as updated on 22 September 2026, fetched the same day,
+and merged into this archive on 24 November 2026. No `normalised.csv` or
+`components.csv` is committed for it, so the figures in this section are read
+from the `Status` column of the raw file itself, and nothing is said here
+about how the components parser classifies its rows.
+
+**[observed]** **Fifteen** of those rows have an empty `Status`. The 2026-06-23
+vintage had none. Set against the sixteen callsigns this account calls
+vanished, matching each raw callsign exactly:
+
+| callsign | last listed before 2026-06-23 | 2026-06-23 | 2026-09-22 |
+|---|---|:---:|:---:|
+| `G1RRV` | 2026-01-14 | absent | blank |
+| `G8LEN` | 2026-01-14 | absent | blank |
+| `GOOUC` | 2026-01-14 | absent | blank |
+| `M0KXY` | 2026-01-14 | absent | blank |
+| `M1NSK` | 2026-01-14 | absent | blank |
+| `20JUU` | 2026-01-14 | absent | blank |
+| `G0LVW` | 2026-01-14 | absent | blank |
+| `G98JSS` | 2026-01-14 | absent | blank |
+| `G5EOA` | 2026-01-14 | absent | blank |
+| `2#0MVL` | 2026-01-14 | absent | blank |
+| `G1ZJL` | 2025-06-04 | absent | blank |
+| `G1ZRU` | 2025-06-04 | absent | blank |
+| `G3ZQE` | 2025-06-04 | absent | blank |
+| `G4ISZ` | 2025-06-04 | absent | blank |
+| `22032024` | 2025-06-04 | absent | absent |
+| `LR388` | 2025-11-11 | absent | absent |
+
+**[derived]** **Fourteen of the sixteen are listed again**, each with an empty
+status, including all four of the persisting core. Two, `22032024` and
+`LR388`, are in neither vintage. `G5EFV`, the seventeenth, reads `Reserved`
+in both.
+
+**[observed]** Four of the fourteen had been away for longer than one
+publication. `G1ZJL`, `G1ZRU`, `G3ZQE`, and `G4ISZ` left between 2025-06-04
+and 2025-11-11 and are in none of 2025-11-11, 2026-01-14, or 2026-06-23 -
+three declared-complete vintages in a row - before being listed again in
+2026-09-22.
+
+**[observed]** The fifteenth blank-status row is `M1TXF`, which is not one of
+the seventeen. The string `M1TXF` occurs in no earlier vintage held here
+(searched: the `raw.csv` of every earlier vintage, the two partial ones
+included, and for 2026-01-14, whose raw file is a spreadsheet, its
+`normalised.csv` and committed sheet extract).
+
+**[observed]** The fifteen rows share a shape. Each carries the type
+`Call Sign - Amateur` and none carries a value in any of the publication's
+three date columns. Twelve carry the product `Amateur Full Radio Licence`,
+two (`20JUU` and `2#0MVL`) carry `Amateur Intermediate Radio Licence`, and
+one (`M1NSK`) carries no product, as in the earlier vintages that list it.
+
+**[observed]** `2#0MVL` does not stand alone. The same publication also holds
+a row for `20MVL`, with status `Reserved`; the two reduce to the same cleaned
+key, which makes them a pair of the kind described in
+["The six twins"](the-six-twins.md). The `20MVL` row is in 2026-06-23 as
+well, where `2#0MVL` is not.
+
+**[derived]** So "then gone" describes a single vintage, 2026-06-23, for ten
+of the sixteen; three vintages in a row for four more; and every vintage
+since they left for the remaining two (`22032024` since 2025-11-11, `LR388`
+since 2026-01-14). Fifteen blank-status rows is also more than any earlier
+declared-complete vintage carries in its `normalised.csv`: the most before it
+is fourteen, in 2025-04-08 and 2025-06-04.
+
+**[derived]** The caution in
+[The disappearance, and what it does not prove](#the-disappearance-and-what-it-does-not-prove)
+runs in both directions. A callsign's absence from 2026-06-23 was not evidence
+that it was available, and its listing in 2026-09-22 with an empty status is
+not evidence about the licence behind it either. What the files show is which
+exports held a row, and that the row never states a status.
+
+**[hypothesis]** On the two readings recorded above: rows that are missing
+from one export and present in the next, with the same callsign, the same
+product, and still no status, are what the second reading would produce - an
+export that left status-less rows out of one publication. They sit less easily
+with the first reading as it was written, since rows removed from the register
+would have had to be entered again in the same form. That is not decisive.
+Removal followed by re-entry would look identical from outside, and neither
+reading accounts for `M1TXF`, for the four that were away for three vintages,
+or for the two that have not come back. Why the rows left and why they are
+listed again is **not established** by anything this mirror holds.
+
+To re-run the September figures against the committed file (the count of
+empty-status rows, their callsigns, and how many of the sixteen are present):
+
+```
+awk -F, 'NR > 1 && $3 == ""' archive/2026-09-22/raw.csv | wc -l
+awk -F, 'NR > 1 && $3 == "" { print $1 }' archive/2026-09-22/raw.csv | sort
+grep -a -c -E '^(20JUU|22032024|2#0MVL|G0LVW|G1RRV|G1ZJL|G1ZRU|G3ZQE|G4ISZ|G5EOA|G8LEN|G98JSS|GOOUC|LR388|M0KXY|M1NSK),' archive/2026-09-22/raw.csv
+```
+
+These print 15, the fifteen callsigns, and 14. The same three commands against
+`archive/2026-06-23/raw.csv` print 0, nothing, and 0.
+
+---
+
 ## How the record handles it today
 
 **[observed]** The mirror does not adjudicate this. Each archived vintage is
 kept exactly as published, so the blank-status rows are still readable in
 every one of the six older snapshots linked throughout this page — the
-evidence is not overwritten by the newest publication superseding it. The
-newest vintage's own [data-status page](https://mysteraitch.github.io/amateur-callsigns-file-watch/data-status.html)
+evidence is not overwritten by a newer publication superseding it. The
+[data-status page](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/data-status.html)
 and the callsigns' own lookup pages
 (for example [`GOOUC`](https://mysteraitch.github.io/amateur-callsigns-file-watch/callsign.html?c=GOOUC)
 or [`G5EFV`](https://mysteraitch.github.io/amateur-callsigns-file-watch/callsign.html?c=G5EFV))
@@ -333,8 +459,8 @@ reproduce the same counts.
 ## Provenance and related threads
 
 - The finding, filed directly from the data-coherency sweep, with the
-  original cohort count and the note that it reads as "historical note
-  rather than a live defect": **issue #803**
+  original cohort count and its own description of itself as a
+  "Historical/narrative note rather than a live defect": **issue #803**
   ([thread](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/803)).
 - The wider sweep this finding was one of four results from (alongside
   #800, #801, #802): **issue #804**
@@ -351,6 +477,9 @@ reproduce the same counts.
   ([tracker](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/292)).
 
 *Observations were re-derived from the archived snapshots for this write-up.
-The current register holds no row for the sixteen vanished callsigns named
-above; that can change in a future publication, and should be read fresh
-from the linked lookup pages rather than assumed to stand indefinitely.*
+The 2026-06-23 export held no row for the sixteen vanished callsigns
+named above; whether the register behind it did is what the two readings
+leave open. That was written with the warning that it could change in a
+future publication, and in 2026-09-22 it did, for fourteen of them. The same
+warning applies to the September figures: read them fresh from the linked
+lookup pages rather than assuming they stand indefinitely.*
