@@ -29,5 +29,5 @@
   // tsconfig.site-worker.json (see that file for why it cannot share a program
   // with this one).
   "include": ["site/**/*"],
-  "exclude": ["node_modules", "dist", "site/sw.js"]
+  "exclude": ["node_modules", "dist", "site/sw.js", "site/v1/sw.js"]
 }

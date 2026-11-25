@@ -74,7 +74,7 @@ export default tseslint.config(
     // tsconfig's include is site/**/*), so they get the same rules as the
     // .js modules, matching how src/**/*.test.ts get no special treatment.
     files: ['site/**/*.js', 'site/**/*.ts'],
-    ignores: ['site/sw.js'],
+    ignores: ['site/sw.js', 'site/v1/sw.js'],
     languageOptions: {
       parserOptions: {
         project: ['./tsconfig.site.json'],
@@ -89,7 +89,7 @@ export default tseslint.config(
     // site/sw.js: the service-worker global scope, its own tsc program
     // (tsconfig.site-worker.json) for the same reason it cannot share a
     // program with the DOM-scoped one (see that tsconfig for the lib clash).
-    files: ['site/sw.js'],
+    files: ['site/sw.js', 'site/v1/sw.js'],
     languageOptions: {
       parserOptions: {
         project: ['./tsconfig.site-worker.json'],
