@@ -57,9 +57,34 @@ jobs:
               continue
             fi
 
-            if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
-              echo "PR already open for $branch."
-              continue
+            # A pull request this sweep finished setting up always carries at
+            # least one of: auto-merge, an assignee, a comment. An open one
+            # with none of the three was opened and then abandoned mid-step,
+            # and is finished here instead of skipped. On 2026-09-22 the
+            # create call answered HTTP 502 after creating the pull request,
+            # the step stopped, and every later sweep skipped it as "already
+            # open" - it sat unassigned, without auto-merge, for two months.
+            # Any of the three marks is respected, so a person who turns
+            # auto-merge off to hold a pull request is not overridden.
+            #
+            # Only this repository's own pull request, at the commit the
+            # allowlist below is judged on, is ever acted on. A lookup by head
+            # name also returns a pull request from a fork whose branch has
+            # the same name, and acting on that one would put auto-merge on
+            # content this sweep never judged.
+            tip="$(git rev-parse "$ref")"
+            own_pr='map(select((.isCrossRepository | not) and .headRefOid == "'"$tip"'")) | .[0] // empty'
+            existing="$(gh pr list --head "$branch" --state open \
+              --json url,isCrossRepository,headRefOid,autoMergeRequest,assignees,comments \
+              --jq "$own_pr"' | [.url, ((.autoMergeRequest != null) or ((.assignees | length) > 0) or ((.comments | length) > 0))] | @tsv')"
+            pr_url=""
+            if [ -n "$existing" ]; then
+              pr_url="${existing%%$'\t'*}"
+              if [ "${existing##*$'\t'}" = "true" ]; then
+                echo "PR already open for $branch."
+                continue
+              fi
+              echo "::warning::$pr_url is open but was never set up; finishing it now."
             fi
 
             # Allowlist mirrors the paths gitCommitAndPush stages (and the
@@ -79,11 +104,24 @@ jobs:
               esac
             done <<< "$changed"
 
-            title="$(git log -1 --format=%s "$ref")"
-            pr_url="$(gh pr create --head "$branch" --base main \
-              --title "$title" \
-              --body "Automated data publication (branch \`$branch\`), opened by the scheduled data sweep. Merge method is merge-commit so the fetcher's per-publication commit messages are preserved on main.")"
-            echo "Opened $pr_url"
+            if [ -z "$pr_url" ]; then
+              title="$(git log -1 --format=%s "$ref")"
+              if pr_url="$(gh pr create --head "$branch" --base main \
+                --title "$title" \
+                --body "Automated data publication (branch \`$branch\`), opened by the scheduled data sweep. Merge method is merge-commit so the fetcher's per-publication commit messages are preserved on main.")"; then
+                echo "Opened $pr_url"
+              else
+                # A failed create is not proof that nothing was created, so
+                # look before giving up.
+                pr_url="$(gh pr list --head "$branch" --state open \
+                  --json url,isCrossRepository,headRefOid --jq "$own_pr"' | .url')"
+                if [ -z "$pr_url" ]; then
+                  echo "::error::Could not open a pull request for $branch."
+                  exit 1
+                fi
+                echo "::warning::Creating the pull request for $branch reported a failure, but $pr_url exists; continuing with it."
+              fi
+            fi
 
             if [ "$data_only" = true ]; then
               # --auto waits for required checks (tests + data-validation are
