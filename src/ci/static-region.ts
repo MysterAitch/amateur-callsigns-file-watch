@@ -12,10 +12,11 @@ import { JSDOM } from 'jsdom';
  * how many were rewritten so the caller can fail loud on a page that lost its
  * markers or carries one twice.
  *
- * The delimiters are literal comments this repository authors, so locating them
- * is string work on a self-authored sentinel rather than parsing (issue #993's
- * third case). The body is matched lazily so a page carrying two regions never
- * swallows what lies between them.
+ * The delimiters are literal comments this repository authors, so they are
+ * located by plain substring search, with no pattern over the page's markup
+ * (issue #993's third case). Each opening marker pairs with the first closing
+ * marker after it, so a page carrying two regions never swallows what lies
+ * between them; an opening marker with no closing marker is not counted.
  *
  * A render that itself contains the closing marker would end its region early
  * on the next stamp and orphan the rest. The serialiser escapes `<` in text but
@@ -26,13 +27,19 @@ export function stampMarkedRegion(html: string, start: string, end: string, rend
   if (rendered.includes(end)) {
     throw new Error(`stampMarkedRegion: the render contains the region's closing marker ${JSON.stringify(end)}, so stamping it would corrupt the page on the next build`);
   }
-  const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   let replaced = 0;
-  const out = html.replace(new RegExp(`${escape(start)}[\\s\\S]*?${escape(end)}`, 'g'), () => {
+  let out = '';
+  let from = 0;
+  for (;;) {
+    const open = html.indexOf(start, from);
+    if (open === -1) break;
+    const close = html.indexOf(end, open + start.length);
+    if (close === -1) break;
+    out += `${html.slice(from, open)}${start}\n${rendered}\n${end}`;
+    from = close + end.length;
     replaced += 1;
-    return `${start}\n${rendered}\n${end}`;
-  });
-  return { html: out, replaced };
+  }
+  return { html: out + html.slice(from), replaced };
 }
 
 // The tree's shape in document order, as `depth:tag` steps. Compared either

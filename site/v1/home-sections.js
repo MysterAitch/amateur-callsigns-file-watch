@@ -45,13 +45,16 @@ const link = (href, label, cls = null) => {
 // and the site-bar chip cannot split — one figure, authored once and stamped at
 // build time. The remaining figures (the 1903 history horizon, the latest-
 // register callsign total, the ISO/month rendering of the newest date) are
-// hand-authored CONSTANTS, and every one but the 1903 horizon is a default that
-// no deployed reader sees: the deploy stamps the two sections that show them
+// hand-authored CONSTANTS, and every one but the 1903 horizon is a default a
+// deployed reader should not see: the deploy stamps the two sections that show them
 // from the holdings manifest (src/ci/build-v1-home-static.ts, which fails rather
 // than stamp a default), and the script keeps those stamped sections until the
 // manifest arrives (renderHomeOverBaseline). A deployed page whose manifest
 // failed to load once showed these June figures beside September ones; that is
-// why. The committed index.html carries the stamp's render of these defaults.
+// why. One path still reaches them: a manifest that parses but names no
+// register (an older cached copy) re-mounts the sections with the default
+// callsign total. The committed index.html carries the stamp's render of these
+// defaults.
 // Citations:
 //  - 1903: the earliest dated allocation the record holds
 //    (reports/sequence-analytics.md, "Dated allocations 1903-05-03 → …"), pinned

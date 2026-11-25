@@ -182,6 +182,31 @@ describe('build-v1-home-static - publications arriving and edge cases', { tags: 
     expect(text).not.toContain('2027-03-16');
   });
 
+  // The from-the-record lead rotates with the newest date. Known answers: the
+  // seed 2027-03-14 sums to 493 (493 mod 3 is 1, the withheld-suffixes fact);
+  // 2027-03-15 sums to 494 (mod 3 is 2, the M2 fact with its callsign link).
+  // The 2026-09-22 publication lands on the M2 position.
+  it.each([
+    ['2027-03-14', '1,465 withheld suffixes', null],
+    ['2027-03-15', 'M2 – reserved-only', 'callsign.html?c=M7TEE'],
+  ])('HomePage_WhenTheNewestDateRotatesTo_%s_StampsThatFactAsTheScriptWould', (vintage, headline, href) => {
+    const datasets = MARCH_2027.map(d => (d.vintage === '2027-03-16' ? { ...d, vintage, title: `Ofcom open data, ${vintage}` } : d));
+    const dir = scaffold(holdingsJson(datasets));
+    buildV1HomeStatic(dir);
+    const doc = served(dir);
+    expect(norm(doc.querySelector('section[data-section="from-the-record"] .big')?.textContent)).toBe(headline);
+    expect(doc.querySelector('section[data-section="from-the-record"] a')?.getAttribute('href') ?? null).toBe(href);
+    expect(fromTheRecord(doc)).not.toContain('158,318');
+  });
+
+  it('StampMarkedRegion_TwoRegionsAndAnUnclosedMarker_ReplacesEachClosedRegionAndNothingBetween', () => {
+    const a = HOME_REGION_START('at-a-glance');
+    const page = `head ${a} one ${HOME_REGION_END} middle ${a} two ${HOME_REGION_END} tail ${a} unclosed`;
+    const { html, replaced } = stampMarkedRegion(page, a, HOME_REGION_END, 'NEW');
+    expect(replaced).toBe(2);
+    expect(html).toBe(`head ${a}\nNEW\n${HOME_REGION_END} middle ${a}\nNEW\n${HOME_REGION_END} tail ${a} unclosed`);
+  });
+
   it('HomePage_StampedTwiceFromOneManifest_IsByteIdentical', () => {
     const dir = scaffold(holdingsJson(MARCH_2027));
     buildV1HomeStatic(dir);

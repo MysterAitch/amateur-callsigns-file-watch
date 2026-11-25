@@ -457,6 +457,12 @@ describe('v1 home script over the stamped baseline', { tags: ['ui'] }, () => {
 // quietly going false on the page.
 describe('v1 home hand-written facts pinned to their reports', { tags: ['unit'] }, () => {
   const sequenceAnalytics = (): string => fs.readFileSync('reports/sequence-analytics.md', 'utf8');
+  // The "dated" cell of a series' row in the report's series table:
+  // | series | level | status | population | dated | ...
+  const datedAllocationsOf = (series: string, report: string): string | undefined => {
+    const row = report.split('\n').find(line => line.startsWith(`| \`${series}\``));
+    return row?.split('|').map(c => c.trim())[5];
+  };
 
   it('HomeHistoryHorizon_IsTheEarliestDatedAllocationTheReportsRecord', () => {
     const years = [...sequenceAnalytics().matchAll(/Dated allocations (\d{4})-\d{2}-\d{2} →/g)].map(m => Number(m[1]));
@@ -469,11 +475,17 @@ describe('v1 home hand-written facts pinned to their reports', { tags: ['unit'] 
     // does not have; the first issued M2 callsign would give the block one.
     const fact = defaultHomeModel().fromTheRecord.find(f => f.headline.startsWith('M2'));
     expect(fact, 'the M2 fact is still in the pool').toBeDefined();
-    const row = sequenceAnalytics().split('\n').find(line => line.startsWith('| `M2`'));
-    expect(row, 'reports/sequence-analytics.md has an M2 row').toBeDefined();
-    const cells = (row ?? '').split('|').map(c => c.trim());
-    // | series | level | status | population | dated | ...
-    expect(cells[5], `M2 row: ${row ?? ''}`).toBe('0');
+    expect(datedAllocationsOf('M2', sequenceAnalytics())).toBe('0');
+  });
+
+  it('HomeM2Pin_GivenAReportWhereM2HasADatedAllocation_ReadsItAndSoWouldFail', () => {
+    // The row shape the report writes, with one M2 allocation dated.
+    const report = [
+      '| series | level | status | population | dated | coverage | suffix range | fill | ρ | adjacent-monotonic |',
+      '|---|---|---|---:|---:|---:|---|---:|---:|---:|',
+      '| `M2` ⚠ | — | — | 2 | 1 | 50.0% | `IBX`–`IBY` | 100.0% | — | — |',
+    ].join('\n');
+    expect(datedAllocationsOf('M2', report)).toBe('1');
   });
 });
 
