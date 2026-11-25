@@ -18,7 +18,7 @@ function servedDocument(): Document {
   return new DOMParser().parseFromString(html, 'text/html');
 }
 
-describe('raw-data page — what it offers is what is here', { tags: ['ui'] }, () => {
+describe('raw-data page - what it offers is what is here', { tags: ['ui'] }, () => {
   it('RawDataPage_EveryDownloadRow_EitherLinksOrSaysThereIsNoLinkHereYet', () => {
     const rows = [...servedDocument().querySelectorAll('.dl .row')];
     expect(rows.length).toBeGreaterThan(0);
@@ -59,6 +59,16 @@ describe('raw-data page — what it offers is what is here', { tags: ['ui'] }, (
     const committedDescriptors = fs.readdirSync('archive', { recursive: true })
       .filter((f) => path.basename(String(f)) === 'datapackage.json');
     if (committedDescriptors.length === 0) expect(text).not.toMatch(/datapackage\.json beside the raw bytes/);
+    // Derived files are not committed for every entry (a newer publication
+    // carries its raw file alone; an FOI entry may hold correspondence only),
+    // so the page must not promise extract and normalised files for every one.
+    const entries = fs.readdirSync('archive', { recursive: true })
+      .map(String)
+      .filter((f) => path.basename(f) === 'meta.json')
+      .map((f) => path.dirname(path.join('archive', f)));
+    expect(entries.length).toBeGreaterThan(0);
+    const withoutNormalised = entries.filter((dir) => !fs.readdirSync(dir).some((f) => f.startsWith('normalised')));
+    if (withoutNormalised.length > 0) expect(text).not.toMatch(/with the raw, extract and normalised files/);
     // The ledger is built at deploy time and never committed; only its builder is.
     expect(text).not.toMatch(/ledger data and its builder are open in the repository/);
     // The repository is itself off this site.
@@ -73,7 +83,7 @@ describe('raw-data page — what it offers is what is here', { tags: ['ui'] }, (
   });
 });
 
-describe('raw-data page — the shared chrome after the script runs', { tags: ['ui'] }, () => {
+describe('raw-data page - the shared chrome after the script runs', { tags: ['ui'] }, () => {
   beforeAll(async () => {
     const served = servedDocument();
     document.documentElement.replaceChildren(...[...served.documentElement.childNodes].map((n) => document.importNode(n, true)));
