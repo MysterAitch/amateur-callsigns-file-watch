@@ -9,9 +9,11 @@ import {
   dialGeometry,
   describeLookupInput,
   lookupShape,
+  lookupLabel,
   operatingSuffixOf,
   boundedQuery,
   callsignPageTitle,
+  syncScrollerFocus,
   QUERY_DISPLAY_MAX,
 } from './callsign-sections.js';
 // The real shared functions the deployed page loads at runtime, so the
@@ -24,19 +26,21 @@ import { stripModel } from '../callsign-events.js';
 type CallsignRecord = import('../callsign.js').CallsignRecord;
 type ShardManifest = import('../callsign.js').ShardManifest;
 type ShardDataset = import('../callsign.js').ShardDataset;
+type NewestRegister = { vintage: string, records: number };
 
 // What a visitor types into the lookup, and what the callsign page then says
 // about it and about the record it finds. Every expected value in the tables
 // below was decided before the code that produces it was written, so a fault
-// shows as a disagreement rather than as something to judge.
+// shows as a disagreement rather than as something to judge. Characters that are
+// hard to see or to type are written as escapes.
 
 beforeEach(() => {
   document.body.innerHTML = '';
   document.title = '';
 });
 
-function dataset(i: number, vintage: string | null, classes: string[], title = `publication ${i}`): ShardDataset {
-  return { key: `k${i}`, lane: 'open-data', entry: `e${i}`, file: null, vintage, title, classes, href: '#', rows: 1, unkeyable: 0, intendedComplete: null, scopeNotes: '', coverageNote: '' };
+function dataset(i: number, vintage: string | null, classes: string[], title = `publication ${i}`, rows = 1, unkeyable = 0): ShardDataset {
+  return { key: `k${i}`, lane: 'open-data', entry: `e${i}`, file: null, vintage, title, classes, href: '#', rows, unkeyable, intendedComplete: null, scopeNotes: '', coverageNote: '' };
 }
 
 function manifestOf(datasets: ShardDataset[]): ShardManifest {
@@ -51,27 +55,33 @@ function manifestOf(datasets: ShardDataset[]): ShardManifest {
 }
 
 // The live archive's shape at the time of writing, reduced: an old register
-// snapshot, then a newest publication split across two files of one date.
+// snapshot, the newest whole register (163,341 keyed rows plus one unkeyable),
+// and a 1,074-row partial file of the same date that is not the newest register.
 const ARCHIVE = manifestOf([
-  dataset(0, '2016-09-20', ['register-snapshot'], 'Amateur callsign database, 20 September 2016'),
-  dataset(1, '2026-09-22', ['register-snapshot'], 'Ofcom open data, 2026-09-22'),
-  dataset(2, '2026-09-22', ['register-snapshot'], 'Ofcom open data, 2026-09-22'),
+  dataset(0, '2016-09-20', ['register-snapshot'], 'Amateur callsign database, 20 September 2016', 139758),
+  dataset(1, '2026-09-22', ['register-snapshot'], 'Ofcom open data, 2026-09-22', 163341, 1),
+  dataset(2, '2026-09-22', ['register-snapshot'], 'Ofcom open data, 2026-09-22', 1074),
 ]);
+// holdings.json's latestRegister for ARCHIVE, as the build would write it.
+const NEWEST: NewestRegister = { vintage: '2026-09-22', records: 163342 };
 
-function modelFor(record: CallsignRecord | null, manifest: ShardManifest, typed: string) {
+function modelFor(record: CallsignRecord | null, manifest: ShardManifest, typed: string, newestRegister: NewestRegister | null = NEWEST) {
   const cleaned = cleanCallsign(typed.trim());
   return buildCallsignModel({
     res: { key: record === null ? null : cleaned, record, cleaned, typed, input: describeLookupInput(typed, cleanCallsign) },
     manifest, eventRecord: null, eventMeta: null,
     latestSummary, seenSummary, anatomyFigureParts, twinConflict, stripModel,
+    newestRegister,
   });
 }
 
-function render(record: CallsignRecord | null, manifest: ShardManifest, typed: string): HTMLElement {
+function render(record: CallsignRecord | null, manifest: ShardManifest, typed: string, newestRegister: NewestRegister | null = NEWEST): HTMLElement {
   const root = document.createElement('div');
-  renderCallsignSections(root, modelFor(record, manifest, typed));
+  renderCallsignSections(root, modelFor(record, manifest, typed, newestRegister));
   return root;
 }
+
+const fastAnswer = (root: HTMLElement) => root.querySelector('section[data-section="fast-answer"]')?.textContent ?? '';
 
 describe('Callsign lookup input: what was typed against what was looked up', { tags: ['unit'] }, () => {
   // typed → [looked up, characters left out, inner spaces removed, shape]
@@ -88,6 +98,10 @@ describe('Callsign lookup input: what was typed against what was looked up', { t
     ['M/KQ4U', 'M/KQ4U', [], false, 'callsign'],
     ['GB200ADA', 'GB200ADA', [], false, 'callsign'],
     ['C', 'C', [], false, 'unrecognised'],
+    ['/', '/', [], false, 'empty'],
+    ['АБВ', '', ['А', 'Б', 'В'], false, 'empty'],
+    ['١٢', '', ['١', '٢'], false, 'empty'],
+    ['​', '', ['U+200B'], false, 'empty'],
     ['', '', [], false, 'empty'],
     ['   ', '', [], false, 'empty'],
   ];
@@ -98,17 +112,43 @@ describe('Callsign lookup input: what was typed against what was looked up', { t
       expect(input.entered).toBe(typed.trim());
       expect(input.lookedUp).toBe(lookedUp);
       expect(input.removed).toEqual(removed);
+      expect(input.changed).toEqual([]);
       expect(input.spacesRemoved).toBe(spaces);
       expect(lookupShape(input.lookedUp)).toBe(shape);
     });
   }
 
+  // Letters whose upper-case form lands in A-Z, so the old "cleans to its own
+  // upper case" test let them through unannounced.
+  const CHANGED: [string, string, { from: string, to: string }[]][] = [
+    ['M7TıE', 'M7TIE', [{ from: 'ı', to: 'I' }]],
+    ['M7TEß', 'M7TESS', [{ from: 'ß', to: 'SS' }]],
+    ['M7TEEſ', 'M7TEES', [{ from: 'ſ', to: 'S' }]],
+    ['M7TEﬁ', 'M7TEFI', [{ from: 'ﬁ', to: 'FI' }]],
+  ];
+  for (const [typed, lookedUp, changed] of CHANGED) {
+    it(`LookupInput_Typed${JSON.stringify(typed)}_NamesTheLetterTheCleaningChanged`, () => {
+      const input = describeLookupInput(typed, cleanCallsign);
+      expect(input.lookedUp).toBe(lookedUp);
+      expect(input.changed).toEqual(changed);
+      expect(input.removed).toEqual([]);
+    });
+  }
+
   it('LookupInput_DecomposedAccent_NamesTheCombiningMarkByCodePoint', () => {
-    // E followed by a combining acute: the mark is invisible on its own, so it is
-    // named by code point rather than printed bare.
     const input = describeLookupInput('M7TÉE', cleanCallsign);
     expect(input.lookedUp).toBe('M7TEE');
     expect(input.removed).toEqual(['U+0301']);
+  });
+
+  it('LookupInput_RightToLeftOverride_IsNamedAndNeverShownRaw', () => {
+    const input = describeLookupInput('M7TEE‮', cleanCallsign);
+    expect(input.removed).toEqual(['U+202E']);
+    expect(input.shown).toBe('M7TEE[U+202E]');
+  });
+
+  it('LookupLabel_OnlyAZeroWidthSpace_IsNeverEmpty', () => {
+    expect(lookupLabel(describeLookupInput('​', cleanCallsign))).toBe('[U+200B]');
   });
 
   const SUFFIXES: [string, { base: string, suffix: string } | null][] = [
@@ -131,7 +171,7 @@ describe('Callsign lookup input: what was typed against what was looked up', { t
     const q = boundedQuery('A'.repeat(300));
     expect(q.truncated).toBe(true);
     expect(q.length).toBe(300);
-    expect(q.text).toBe(`${'A'.repeat(QUERY_DISPLAY_MAX)}…`);
+    expect(q.text).toBe(`${'A'.repeat(QUERY_DISPLAY_MAX)}...`);
   });
 
   it('BoundedQuery_ACallsign_IsShownWhole', () => {
@@ -143,13 +183,8 @@ describe('Callsign lookup input: what was typed against what was looked up', { t
     expect(lookupBreadcrumb('').map((c) => c.label)).toEqual(['Home', 'Look up']);
   });
 
-  it('Breadcrumb_AfterALookup_EndsWithTheLookedUpKeyNotTheRawInput', () => {
-    const input = describeLookupInput(' m7 tée ', cleanCallsign);
-    expect(lookupBreadcrumb(input.lookedUp).map((c) => c.label)).toEqual(['Home', 'Look up', 'M7TE']);
-  });
-
   it('Breadcrumb_AfterAnOverlongLookup_EndsWithTheBoundedForm', () => {
-    expect(lookupBreadcrumb('A'.repeat(300)).at(-1)?.label).toBe(`${'A'.repeat(QUERY_DISPLAY_MAX)}…`);
+    expect(lookupBreadcrumb('A'.repeat(300)).at(-1)?.label).toBe(`${'A'.repeat(QUERY_DISPLAY_MAX)}...`);
   });
 
   it('PageTitle_ForALookup_NamesTheCallsignBeforeThePageName', () => {
@@ -159,7 +194,7 @@ describe('Callsign lookup input: what was typed against what was looked up', { t
   it('PageTitle_ForAnOverlongQuery_CarriesOnlyTheBoundedForm', () => {
     const title = callsignPageTitle('A'.repeat(3000), 'Look up a callsign · callsign-record');
     expect(title.length).toBeLessThan(80);
-    expect(title).toContain('…');
+    expect(title).toContain('...');
   });
 });
 
@@ -178,35 +213,55 @@ describe('Callsign page: input that is not a held callsign', { tags: ['ui'] }, (
       const root = render(null, ARCHIVE, typed);
       const text = root.textContent ?? '';
       expect(text).toContain('is not shaped like a callsign this page recognises');
-      // Still says nothing about the register, and still says it is not held.
       expect(text).toContain('No record for');
       expect(text).toContain('Absence here is never evidence about the register');
     });
   }
 
-  it('FastAnswer_PunctuationOnly_SaysThereIsNothingToLookUp', () => {
-    const root = render(null, ARCHIVE, '!?!');
-    const text = root.textContent ?? '';
-    expect(text).toContain('“!?!” has no letters or digits in it, so there is nothing to look up');
-    expect(text).not.toContain('No record for');
-    expect(text).not.toContain('This page looked up');
-    expect(root.querySelectorAll('h1').length).toBe(1);
-    expect(root.querySelector('h1')?.textContent).toBe('!?!');
+  for (const [typed, quoted] of [['!?!', '!?!'], ['/', '/'], ['АБВ', 'АБВ'], ['١٢', '١٢']]) {
+    it(`FastAnswer_${JSON.stringify(typed)}WithNoLetterAToZOrDigit_SaysThereIsNothingToLookUp`, () => {
+      const root = render(null, ARCHIVE, typed);
+      const text = root.textContent ?? '';
+      expect(text).toContain(`"${quoted}" has no letters A to Z or digits 0 to 9 in it, so there is nothing to look up`);
+      expect(text).not.toContain('No record for');
+      expect(text).not.toContain('This page looked up');
+      expect(root.querySelectorAll('h1').length).toBe(1);
+      expect(root.querySelector('h1')?.textContent).toBe(quoted);
+    });
+  }
+
+  it('FastAnswer_OnlyAZeroWidthSpace_HeadsThePageWithTheCodePointNotABlank', () => {
+    const root = render(null, ARCHIVE, '​');
+    expect(root.querySelector('h1')?.textContent).toBe('[U+200B]');
+    expect(root.textContent ?? '').not.toContain('​');
   });
 
   it('FastAnswer_AccentedLetterLeftOut_ShowsWhatWasEnteredWhatWasLookedUpAndWhatWasLeftOut', () => {
     const root = render(null, ARCHIVE, 'M7TÉE');
     const text = root.textContent ?? '';
     expect(root.querySelector('h1')?.textContent).toBe('M7TE');
-    expect(text).toContain('You entered “M7TÉE”. This page looked up M7TE.');
+    expect(text).toContain('You entered "M7TÉE". This page looked up M7TE.');
     expect(text).toContain('Left out: É');
+  });
+
+  it('FastAnswer_DotlessIInAHeldCallsign_SaysTheLetterWasReadAsI', () => {
+    const record: CallsignRecord = { h: '.O.', l: { d: 1, s: ['O'] } };
+    const root = render(record, ARCHIVE, 'G3UıO');
+    expect(fastAnswer(root)).toContain('You entered "G3UıO". This page looked up G3UIO. Read as plain capitals: ı as I.');
+  });
+
+  it('FastAnswer_RightToLeftOverrideInTheInput_QuotesItIsolatedAndNamedNeverRaw', () => {
+    const root = render(null, ARCHIVE, 'M7TEE‮');
+    const note = root.querySelector('.lookup-input');
+    expect(note?.querySelector('bdi')?.textContent).toBe('M7TEE[U+202E]');
+    expect(root.textContent ?? '').not.toContain('‮');
   });
 
   it('FastAnswer_InnerSpaceInAFoundCallsign_SaysSpacesWereIgnored', () => {
     const record: CallsignRecord = { h: '.O.', l: { d: 1, s: ['O'] } };
     const root = render(record, ARCHIVE, 'g3 uo');
     expect(root.querySelector('h1')?.textContent).toBe('G3UO');
-    expect(root.textContent ?? '').toContain('You entered “g3 uo”. This page looked up G3UO. Spaces are ignored.');
+    expect(root.textContent ?? '').toContain('You entered "g3 uo". This page looked up G3UO. Spaces are ignored.');
   });
 
   it('FastAnswer_CaseOnlyDifference_AddsNoNote', () => {
@@ -217,8 +272,7 @@ describe('Callsign page: input that is not a held callsign', { tags: ['ui'] }, (
 
   it('FastAnswer_PortableSuffixMiss_OffersTheCallsignWithoutTheSuffixAsALink', () => {
     const root = render(null, ARCHIVE, 'M7TEE/P');
-    const a = root.querySelector('a[href="callsign.html?c=M7TEE"]');
-    expect(a).not.toBeNull();
+    expect(root.querySelector('a[href="callsign.html?c=M7TEE"]')).not.toBeNull();
     expect(root.textContent ?? '').toContain('M7TEE/P ends in what looks like an operating suffix (/P)');
   });
 
@@ -230,9 +284,25 @@ describe('Callsign page: input that is not a held callsign', { tags: ['ui'] }, (
 
   it('FastAnswer_OverlongQuery_HeadingShowsABoundedFormAndSaysHowLongTheInputWas', () => {
     const root = render(null, ARCHIVE, 'A'.repeat(300));
-    expect(root.querySelector('h1')?.textContent).toBe(`${'A'.repeat(QUERY_DISPLAY_MAX)}…`);
+    expect(root.querySelector('h1')?.textContent).toBe(`${'A'.repeat(QUERY_DISPLAY_MAX)}...`);
     expect(root.textContent ?? '').toContain(`300 characters; the first ${QUERY_DISPLAY_MAX} are shown`);
   });
+
+  // The cases where the quoted input itself used to run unbounded: a long input
+  // with something the cleaning left out, and one made of many distinct symbols.
+  for (const [name, typed] of [
+    ['ThreeHundredLettersAndAnAccent', `${'A'.repeat(300)}É`],
+    ['ThreeHundredDistinctSymbols', Array.from({ length: 300 }, (_, i) => String.fromCodePoint(0x2190 + i)).join('')],
+  ]) {
+    it(`FastAnswer_${name}_QuotesAndListsOnlyABoundedPart`, () => {
+      const root = render(null, ARCHIVE, typed);
+      const note = root.querySelector('.lookup-input')?.textContent ?? root.querySelector('.callout')?.textContent ?? '';
+      expect(note.length).toBeLessThan(400);
+      // No unbroken run longer than a bounded query (its "..." included) once
+      // the surrounding quotes and punctuation are set aside.
+      for (const word of note.split(/\s+/)) expect(word.replace(/^["(]+|[".,):]+$/g, '').length, word).toBeLessThanOrEqual(QUERY_DISPLAY_MAX + 3);
+    });
+  }
 
   // Markup-shaped strings, kept here as fixtures: each must come back as text.
   const MARKUP_SHAPED = [
@@ -248,112 +318,146 @@ describe('Callsign page: input that is not a held callsign', { tags: ['ui'] }, (
       for (const node of root.querySelectorAll('*')) {
         for (const attr of [...node.attributes]) expect(attr.name.startsWith('on')).toBe(false);
       }
-      expect(root.textContent ?? '').toContain(`You entered “${typed}”`);
+      expect(root.textContent ?? '').toContain(`You entered "${boundedQuery(typed).text}"`);
     });
   }
 });
 
-describe('Callsign page: a status from an older publication', { tags: ['ui'] }, () => {
-  // G3UO in the live archive: seen only in 2016, absent from the newest publication.
+describe('Callsign page: a status against the newest register snapshot held', { tags: ['ui'] }, () => {
+  // G3UO in the live archive: seen only in 2016, absent from the newest register.
   const STALE: CallsignRecord = { h: 'O..', l: { d: 0, s: ['O'] } };
   const CURRENT: CallsignRecord = { h: '.O.', l: { d: 1, s: ['O'] } };
-  const CURRENT_IN_SIBLING_FILE: CallsignRecord = { h: '..O', l: { d: 2, s: ['O'] } };
 
-  it('CallsignModel_StatusOnlyFromAnOldPublication_IsNotFromTheNewestAndNotInIt', () => {
-    const m = modelFor(STALE, ARCHIVE, 'G3UO');
-    expect(m.currency).toEqual({ asOf: '2016-09-20', newest: '2026-09-22', inNewest: false, statusFromNewest: false });
+  it('CallsignModel_StatusOnlyFromAnOldRegister_IsNotFromTheNewestAndNotInIt', () => {
+    expect(modelFor(STALE, ARCHIVE, 'G3UO').currency).toEqual({ known: true, asOf: '2016-09-20', newest: '2026-09-22', inNewest: false, statusFromNewest: false });
   });
 
-  it('CallsignModel_StatusFromTheNewestPublication_IsFromTheNewestAndInIt', () => {
-    expect(modelFor(CURRENT, ARCHIVE, 'G3UO').currency).toEqual({ asOf: '2026-09-22', newest: '2026-09-22', inNewest: true, statusFromNewest: true });
+  it('CallsignModel_StatusFromTheNewestRegister_IsFromTheNewestAndInIt', () => {
+    expect(modelFor(CURRENT, ARCHIVE, 'G3UO').currency).toEqual({ known: true, asOf: '2026-09-22', newest: '2026-09-22', inNewest: true, statusFromNewest: true });
   });
 
-  it('CallsignModel_ListedOnlyInTheSecondFileOfTheNewestPublication_StillCountsAsInTheNewest', () => {
-    expect(modelFor(CURRENT_IN_SIBLING_FILE, ARCHIVE, 'G3UO').currency.inNewest).toBe(true);
+  it('CallsignModel_ListedOnlyInAPartialFileOfTheSameDate_IsNotInTheNewestRegister', () => {
+    // The newest register is the one file holdings.json names, not every file of its date.
+    const m = modelFor({ h: '..O', l: { d: 2, s: ['O'] } }, ARCHIVE, 'G3UO');
+    expect(m.currency.inNewest).toBe(false);
+    expect(m.currency.statusFromNewest).toBe(false);
   });
 
-  it('CallsignModel_InTheNewestPoolListButStatusFromAnOlderSnapshot_KeepsTheTwoFactsApart', () => {
-    const archive = manifestOf([dataset(0, '2016-09-20', ['register-snapshot']), dataset(1, '2026-09-22', ['available-pool'])]);
-    const record: CallsignRecord = { h: 'O?', l: { d: 0, s: ['O'] } };
-    expect(modelFor(record, archive, 'G3UO').currency).toEqual({ asOf: '2016-09-20', newest: '2026-09-22', inNewest: true, statusFromNewest: false });
+  it('CallsignModel_NewestPublicationIsATinyPartialRegisterFile_TheWholeRegisterBeforeItKeepsItsDot', () => {
+    // The live archive at 2025-06-08: a 1,074-row truncated file four days after a
+    // whole register. The build names the whole one; the callsign keeps its dot.
+    const archive = manifestOf([dataset(0, '2025-06-04', ['register-snapshot'], 'whole', 157427), dataset(1, '2025-06-08', ['register-snapshot'], 'truncated', 1074)]);
+    const root = render({ h: 'O.', l: { d: 0, s: ['O'] } }, archive, 'M7TEE', { vintage: '2025-06-04', records: 157427 });
+    expect(root.querySelector('.status-row .led')).not.toBeNull();
+    expect(fastAnswer(root)).toContain('the newest register snapshot held');
   });
 
-  it('FastAnswer_InTheNewestPoolListWithItsOwnLetter_SaysListedThereAndClaimsNothingAboutItsStatusThere', () => {
-    // An availability list marks its rows with a letter of its own (A), so the
-    // page must not say the newest publication carries no status for the callsign.
-    const archive = manifestOf([dataset(0, '2016-09-20', ['register-snapshot'], 'Amateur callsign database, 20 September 2016'), dataset(1, '2026-09-22', ['available-pool'])]);
-    const root = render({ h: 'OA', l: { d: 0, s: ['O'] } }, archive, 'G3UO');
-    const head = root.querySelector('section[data-section="fast-answer"]')?.textContent ?? '';
-    expect(head).toContain('Listed in the newest publication held, dated 2026-09-22.');
-    expect(head).not.toContain('carries no status');
-    expect(head).not.toContain('Not in the newest publication');
+  it('CallsignModel_NewerAvailabilityListDoesNotListIt_TheRegisterStatusStaysCurrent', () => {
+    // A newer publication of another kind never displaces the newest register.
+    const archive = manifestOf([dataset(0, '2026-06-23', ['register-snapshot'], 'r', 158318), dataset(1, '2026-09-22', ['available-pool'], 'p', 77)]);
+    const m = modelFor({ h: 'O.', l: { d: 0, s: ['O'] } }, archive, 'G3UO', { vintage: '2026-06-23', records: 158318 });
+    expect(m.currency).toEqual({ known: true, asOf: '2026-06-23', newest: '2026-06-23', inNewest: true, statusFromNewest: true });
+  });
+
+  it('CallsignModel_HoldingsCouldNotBeRead_CurrencyIsUnknownNotCurrent', () => {
+    expect(modelFor(CURRENT, ARCHIVE, 'G3UO', null).currency).toEqual({ known: false, asOf: '2026-09-22', newest: null, inNewest: false, statusFromNewest: false });
+  });
+
+  it('FastAnswer_HoldingsCouldNotBeRead_SaysTheCurrencyWasNotCheckedAndDrawsNoDot', () => {
+    const root = render(CURRENT, ARCHIVE, 'G3UO', null);
+    expect(fastAnswer(root)).toContain('Whether that is the newest register snapshot held could not be checked.');
     expect(root.querySelector('.status-row .led')).toBeNull();
+    expect(root.querySelector('.dial-legend')?.textContent ?? '').toContain('not checked against the newest register snapshot held');
   });
 
-  it('CallsignModel_NewestPublicationIsAPoolListNotListingIt_ReadsAsNotInTheNewest', () => {
-    // "Newest publication held" is the newest dated publication of any kind - the
-    // same rule as the header's "Record as of" date - so a newer availability
-    // list that omits the callsign makes the register status a last-recorded one.
-    const archive = manifestOf([dataset(0, '2026-06-23', ['register-snapshot']), dataset(1, '2026-09-22', ['available-pool'])]);
-    expect(modelFor({ h: 'O.', l: { d: 0, s: ['O'] } }, archive, 'G3UO').currency).toEqual({ asOf: '2026-06-23', newest: '2026-09-22', inNewest: false, statusFromNewest: false });
-  });
-
-  it('CallsignModel_StatusPublicationUndated_IsNeverTreatedAsTheNewest', () => {
-    const archive = manifestOf([dataset(0, null, ['register-snapshot']), dataset(1, '2026-09-22', ['register-snapshot'])]);
-    const record: CallsignRecord = { h: 'O.', l: { d: 0, s: ['O'] } };
-    expect(modelFor(record, archive, 'G3UO').currency).toEqual({ asOf: null, newest: '2026-09-22', inNewest: false, statusFromNewest: false });
-  });
-
-  it('FastAnswer_StatusOnlyFromAnOldPublication_NamesThatPublicationAndSaysItIsNotInTheNewest', () => {
+  it('FastAnswer_StatusOnlyFromAnOldRegister_NamesThatRegisterAndSaysItIsNotInTheNewest', () => {
     const root = render(STALE, ARCHIVE, 'G3UO');
-    const head = root.querySelector('section[data-section="fast-answer"]')?.textContent ?? '';
+    const head = fastAnswer(root);
     expect(head).toContain('Allocated');
     expect(head).toContain('Status as recorded in Amateur callsign database, 20 September 2016 (2016-09-20).');
-    expect(head).toContain('Not in the newest publication held, dated 2026-09-22.');
-    expect(head).toContain('This is the last status this mirror holds, not a reading of the register today');
-    // No verdict about the register: nothing says the licence ended.
-    for (const word of ['lapsed', 'no longer', 'expired', 'cancelled', 'revoked']) expect(head.toLowerCase()).not.toContain(word);
-    // The green "live" dot is drawn only for a status the newest publication carries.
+    expect(head).toContain('Not in the newest register snapshot held, dated 2026-09-22.');
+    expect(head).toContain('This is the last status recorded for it in a register snapshot held, not a reading of the register today.');
+    expect(head).toContain('Absence from one publication is never evidence about the register.');
+    for (const word of ['lapsed', 'no longer', 'expired', 'cancelled', 'revoked', 'this mirror holds']) expect(head.toLowerCase()).not.toContain(word);
     expect(root.querySelector('.status-row .led')).toBeNull();
   });
 
-  it('FastAnswer_StatusFromTheNewestPublication_KeepsTheDotAndSaysItIsTheNewest', () => {
+  it('FastAnswer_LaterAvailabilityListCarriesItsOwnLetter_CallsTheStatusTheLastOneInARegisterSnapshot', () => {
+    // Register 2016 says Allocated; a 2020 availability list marks it A; the newest
+    // register does not list it. The availability letter is not a register status.
+    const archive = manifestOf([
+      dataset(0, '2016-09-20', ['register-snapshot'], 'Amateur callsign database, 20 September 2016', 139758),
+      dataset(1, '2020-01-01', ['available-pool'], 'pool', 9000),
+      dataset(2, '2026-09-22', ['register-snapshot'], 'Ofcom open data, 2026-09-22', 163342),
+    ]);
+    const head = fastAnswer(render({ h: 'OA.', l: { d: 0, s: ['O'] } }, archive, 'G3UO'));
+    expect(head).toContain('This is the last status recorded for it in a register snapshot held');
+    expect(head).not.toContain('this mirror holds');
+  });
+
+  it('FastAnswer_StatusFromTheNewestRegister_KeepsTheDotAndSaysItIsTheNewest', () => {
     const root = render(CURRENT, ARCHIVE, 'G3UO');
-    const head = root.querySelector('section[data-section="fast-answer"]')?.textContent ?? '';
     expect(root.querySelector('.status-row .led')).not.toBeNull();
-    expect(head).toContain('Status as recorded in Ofcom open data, 2026-09-22, the newest publication held.');
-    expect(head).not.toContain('Not in the newest publication');
+    expect(fastAnswer(root)).toContain('Status as recorded in Ofcom open data, 2026-09-22, the newest register snapshot held.');
+    expect(fastAnswer(root)).not.toContain('Not in the newest');
+  });
+
+  it('FastAnswer_LatestRegisterRowHasABlankStatus_SaysListedWithNoStatusAndNothingAboutAStatus', () => {
+    // G1BWQ's live shape: listed in 2016 with a blank status, absent since.
+    const root = render({ h: '-..', l: { d: 0 } }, ARCHIVE, 'G1BWQ');
+    const head = fastAnswer(root);
+    expect(head).toContain('(no status recorded)');
+    expect(head).toContain('Amateur callsign database, 20 September 2016 (2016-09-20) lists it with no status recorded.');
+    expect(head).toContain('Not in the newest register snapshot held, dated 2026-09-22.');
+    expect(head).not.toContain('Status as recorded in');
+    expect(head).not.toContain('last status');
+    expect(root.querySelector('.status-row .led')).toBeNull();
+  });
+
+  it('FastAnswer_NewestRegisterListsItWithABlankStatus_SaysSoAndDrawsNoDot', () => {
+    // G1RRV's live shape: in the September 2026 register with a blank status.
+    const root = render({ h: '.-.', l: { d: 1 } }, ARCHIVE, 'G1RRV');
+    const head = fastAnswer(root);
+    expect(head).toContain('The newest register snapshot held, Ofcom open data, 2026-09-22, lists it with no status recorded.');
+    expect(head).not.toContain('Status as recorded in');
+    expect(root.querySelector('.status-row .led')).toBeNull();
+  });
+
+  it('RecordFidelity_TwoRawRowsCleaningToOneKey_ShowsBothRowsVerbatim', () => {
+    // 20MVL in the September 2026 register: "20MVL" Reserved, and "2#0MVL" with a
+    // blank status, which cleans to the same key - one record, two raw rows.
+    const record: CallsignRecord = { h: '.!.', l: { d: 1, s: ['R'] }, tw: [{ r: '2#0MVL' }, { r: '20MVL', s: 'R' }] };
+    const fidelity = render(record, ARCHIVE, '20MVL').querySelector('section[data-section="record-fidelity"]')?.textContent ?? '';
+    expect(fidelity).toContain('2#0MVL (no status recorded); 20MVL (Reserved)');
   });
 
   it('FastAnswer_NoStatusRecordedAnywhere_DrawsNoDot', () => {
-    // The one-letter row C in the live archive: listed in availability lists only.
-    const archive = manifestOf([dataset(0, '2015-04-16', ['available-pool']), dataset(1, '2026-09-22', ['register-snapshot'])]);
+    const archive = manifestOf([dataset(0, '2015-04-16', ['available-pool'], 'pool', 9000), dataset(1, '2026-09-22', ['register-snapshot'], 'r', 163342)]);
     const root = render({ h: 'A.' }, archive, 'C');
     expect(root.querySelector('.status-row .led')).toBeNull();
-    expect(root.textContent ?? '').toContain('Not in the newest publication held, dated 2026-09-22.');
+    expect(root.textContent ?? '').toContain('Not in the newest register snapshot held, dated 2026-09-22.');
   });
 
-  it('EvidenceDialAndRail_StatusOnlyFromAnOldPublication_CallItTheLastRecordedStateNotTheCurrentOne', () => {
+  it('EvidenceDialAndRail_StatusOnlyFromAnOldRegister_CallItTheLastRecordedStateNotTheCurrentOne', () => {
     const root = render(STALE, ARCHIVE, 'G3UO');
     const dialCap = root.querySelector('.scale .ev.state .cap')?.textContent ?? '';
     expect(dialCap).toContain('Allocated');
     expect(dialCap).toContain('last recorded');
     expect(dialCap).not.toContain('current state');
-    const rail = root.querySelector('section[data-section="event-timeline"]')?.textContent ?? '';
-    expect(rail).not.toContain('current state');
-    expect(root.querySelector('.dial-legend')?.textContent ?? '').not.toContain('current state');
+    expect(root.querySelector('section[data-section="event-timeline"]')?.textContent ?? '').not.toContain('current state');
+    const legend = root.querySelector('.dial-legend')?.textContent ?? '';
+    expect(legend).not.toContain('current state');
+    expect(legend).not.toContain('this mirror holds');
     expect(root.querySelector('.scale')?.getAttribute('aria-label') ?? '').not.toContain('current state');
   });
 
-  it('EvidenceDial_StatusFromTheNewestPublication_StillCallsItTheCurrentState', () => {
-    const root = render(CURRENT, ARCHIVE, 'G3UO');
-    expect(root.querySelector('.scale .ev.state .cap')?.textContent ?? '').toContain('current state');
+  it('EvidenceDial_StatusFromTheNewestRegister_StillCallsItTheCurrentState', () => {
+    expect(render(CURRENT, ARCHIVE, 'G3UO').querySelector('.scale .ev.state .cap')?.textContent ?? '').toContain('current state');
   });
 
-  it('StateTerminus_NewerPoolSightingThanTheStatusPublication_IsDatedByThePublicationThatGaveTheStatus', () => {
-    const archive = manifestOf([dataset(0, '2016-09-20', ['register-snapshot']), dataset(1, '2020-01-01', ['available-pool']), dataset(2, '2026-09-22', ['register-snapshot'])]);
-    const model = modelFor({ h: 'OA.', l: { d: 0, s: ['O'] } }, archive, 'G3UO');
-    expect(currentStateNode(model)?.day).toBe('2016-09-20');
+  it('StateTerminus_NewerPoolSightingThanTheStatusRegister_IsDatedByTheRegisterThatGaveTheStatus', () => {
+    const archive = manifestOf([dataset(0, '2016-09-20', ['register-snapshot'], 'a', 139758), dataset(1, '2020-01-01', ['available-pool'], 'p', 9000), dataset(2, '2026-09-22', ['register-snapshot'], 'b', 163342)]);
+    expect(currentStateNode(modelFor({ h: 'OA.', l: { d: 0, s: ['O'] } }, archive, 'G3UO'))?.day).toBe('2016-09-20');
   });
 });
 
@@ -365,41 +469,37 @@ describe('Callsign page: structure and wording', { tags: ['ui'] }, () => {
     expect(doc.querySelectorAll('h1').length).toBe(1);
   });
 
-  it('CallsignPage_AfterALookupReplacesTheSections_StillHasExactlyOneLevelOneHeading', () => {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    document.body.innerHTML = doc.body.innerHTML;
-    const root = document.getElementById('sections');
-    if (root === null) throw new Error('callsign.html has no #sections host');
-    root.textContent = '';
-    renderCallsignSections(root, modelFor({ h: '.O.', l: { d: 1, s: ['O'] } }, ARCHIVE, 'G3UO'));
-    expect(document.querySelectorAll('h1').length).toBe(1);
+  it('CallsignSections_SectionTitles_AreExposedAsLevelTwoHeadingsNamedByTheirTitleAlone', () => {
+    const root = render(CURRENT_RECORD(), ARCHIVE, 'G3UO');
+    const names = [...root.querySelectorAll('[role="heading"][aria-level="2"]')].map((h) => h.getAttribute('aria-label') ?? (h.textContent ?? '').trim());
+    expect(names).toEqual(['the evidence', 'what happened', 'anatomy', 'record fidelity']);
   });
 
-  it('CallsignSections_SectionTitles_AreExposedAsLevelTwoHeadings', () => {
-    const root = render({ h: '.O.', l: { d: 1, s: ['O'] } }, ARCHIVE, 'G3UO');
-    const headings = [...root.querySelectorAll('[role="heading"][aria-level="2"]')].map((h) => (h.textContent ?? '').trim());
-    expect(headings.some((h) => h.startsWith('the evidence'))).toBe(true);
-    expect(headings.some((h) => h.startsWith('what happened'))).toBe(true);
-    expect(headings.some((h) => h.startsWith('anatomy'))).toBe(true);
-    expect(headings.some((h) => h.startsWith('record fidelity'))).toBe(true);
-  });
-
-  it('EvidenceDial_WideScaleInANarrowBox_IsReachableByKeyboard', () => {
-    const root = render({ h: '.O.', l: { d: 1, s: ['O'] } }, ARCHIVE, 'G3UO');
-    const dial = root.querySelector('.dial');
-    expect(dial?.getAttribute('tabindex')).toBe('0');
+  it('EvidenceDial_WhenMounted_IsNamedButNotATabStopUntilItIsKnownToScroll', () => {
+    const dial = render(CURRENT_RECORD(), ARCHIVE, 'G3UO').querySelector('.dial');
     expect(dial?.getAttribute('aria-label') ?? '').not.toBe('');
+    expect(dial?.hasAttribute('tabindex')).toBe(false);
   });
+
+  for (const [scrollWidth, clientWidth, focusable] of [[638, 291, true], [940, 940, false], [600, 940, false]] as const) {
+    it(`ScrollerFocus_ContentWidth${scrollWidth}InABox${clientWidth}Wide_${focusable ? 'TakesKeyboardFocus' : 'IsNoTabStop'}`, () => {
+      const dial = render(CURRENT_RECORD(), ARCHIVE, 'G3UO').querySelector('.dial');
+      if (dial === null) throw new Error('no dial');
+      dial.setAttribute('tabindex', '0');
+      Object.defineProperty(dial, 'scrollWidth', { value: scrollWidth });
+      Object.defineProperty(dial, 'clientWidth', { value: clientWidth });
+      syncScrollerFocus(dial);
+      expect(dial.getAttribute('tabindex')).toBe(focusable ? '0' : null);
+    });
+  }
 
   it('EvidenceDial_SpanOfSeventySixYears_DrawsNoMoreThanTwelveYearLabels', () => {
-    // GB2RS in the live archive: a 2024 sighting and a reservation stated to end 2099-12-31.
     const geo = dialGeometry([{ day: '2099-12-31', label: 'reserved until', state: false, assertedBy: [] }], [{ vintage: '2024-09' }]);
     expect(geo.years.length).toBeGreaterThan(1);
     expect(geo.years.length).toBeLessThanOrEqual(12);
   });
 
   it('EvidenceDial_SpanOfNineYears_KeepsLabellingEverySecondYear', () => {
-    // M7TEE's span: the spacing a short span already had is left alone.
     const geo = dialGeometry([{ day: '2018-10-18', label: 'licence issued', state: false, assertedBy: [] }], [{ vintage: '2026-06-23' }]);
     expect(geo.years.map((y) => y.year)).toEqual([2018, 2020, 2022, 2024, 2026]);
   });
@@ -409,10 +509,13 @@ describe('Callsign page: structure and wording', { tags: ['ui'] }, () => {
     expect(geo.years.map((y) => y.year)).toEqual([2021, 2022, 2023, 2024, 2025, 2026]);
   });
 
-  it('RelatedViews_RawDataLink_DescribesOnlyWhatThatPageOffers', () => {
-    const root = render({ h: '.O.', l: { d: 1, s: ['O'] } }, ARCHIVE, 'G3UO');
-    const extras = root.querySelector('section[data-section="extras"]')?.textContent ?? '';
+  it('RelatedViews_RawDataLink_PromisesOnlyTheArchiveAndHowTheDatabasesAreBuilt', () => {
+    const extras = render(CURRENT_RECORD(), ARCHIVE, 'G3UO').querySelector('section[data-section="extras"]')?.textContent ?? '';
     expect(extras).toContain('Get the raw data');
-    expect(extras).not.toContain('per-entry zips');
+    for (const promise of ['zip', 'SQLite', 'ledger', 'download the']) expect(extras).not.toContain(promise);
   });
 });
+
+function CURRENT_RECORD(): CallsignRecord {
+  return { h: '.O.', l: { d: 1, s: ['O'] } };
+}

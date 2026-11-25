@@ -137,11 +137,12 @@ const link = (href, label, cls = null) => {
  * @property {{ chars: string, name: string, meaning: string }[] | null} anatomy
  * @property {{ events: DialEvent[], sightings: DialSighting[], findings: DialFinding[], bookkeeping: DialBookkeeping[], disagreements: DialDisagreement[], hasEvents: boolean, hasBookkeeping: boolean }} dial
  * @property {TwinView | null} twin  the twin-row conflict annotation (issue #633), or null
+ * @property {{ vintage: string | null, rows: { raw: string, status: string }[] } | null} [sameKeyRows]  rows of the latest register that clean to this key more than once without a status conflict
  * @property {'fresh' | 'carried' | 'coincident' | 'neutral'} carriedOrigin  how this record's licence-chain origin reads against its series introduction
  * @property {string | null} series  e.g. 'M7' (from parsed anatomy prefix)
  * @property {string | null} seriesIntro  the series' introduction month (yyyy-mm), from meta.json's seriesIntro, or null when not recorded
  * @property {AssertedBy | null} seriesIntroSource  the citation for the series-introduction reference data (issue #954), from meta.json's seriesIntroSource, or null when not carried
- * @property {StatusCurrency} currency  where the held status came from, against the newest publication held
+ * @property {StatusCurrency} currency  where the held status came from, against the newest register snapshot held
  * @property {LookupInput | null} [input]  what was typed and looked up, when the orchestrator supplies it
  */
 
@@ -151,23 +152,33 @@ const link = (href, label, cls = null) => {
  * and shown, never removed silently.
  * @typedef {object} LookupInput
  * @property {string} entered      the input as typed, outer whitespace trimmed
+ * @property {string} shown        the entered input made safe to display: every control,
+ *                                 format, and line-separator character written as [U+XXXX]
  * @property {string} lookedUp     the key actually looked up
  * @property {string[]} removed    each distinct character the cleaning left out, in order of
- *                                 first appearance (an invisible mark is named as U+XXXX)
+ *                                 first appearance (an invisible one is named as U+XXXX)
+ * @property {{ from: string, to: string }[]} changed  each distinct character the cleaning
+ *                                 turned into different letters (a dotless i into I, a sharp
+ *                                 s into SS), named the same way
  * @property {boolean} spacesRemoved  whether whitespace inside the input was ignored
  */
 
 /**
- * The status currency of a held record: which publication its status came from,
- * and whether the callsign is listed in the newest publication held. Two separate
- * facts, kept apart, because a callsign can be listed in a newer publication that
- * carries no status for it. Neither says anything about the register itself.
+ * The status currency of a held record, against THE newest register snapshot
+ * held - the one register the whole site names, chosen at build time
+ * (latestRegister in src/ci/build-home-holdings.ts) and served in holdings.json.
+ * Two separate facts, kept apart: which register snapshot the latest status came
+ * from, and whether the newest register lists the callsign at all. Neither says
+ * anything about the register itself.
  * @typedef {object} StatusCurrency
- * @property {string | null} asOf      vintage of the publication the status came from (null when undated or no status)
- * @property {string | null} newest    vintage of the newest publication held
- * @property {boolean} inNewest        listed in any file of the newest publication
- * @property {boolean} statusFromNewest  the status itself comes from the newest publication
+ * @property {boolean} known           whether the newest register could be identified in the manifest
+ * @property {string | null} asOf      vintage of the register snapshot the latest status row came from
+ * @property {string | null} newest    vintage of the newest register snapshot held
+ * @property {boolean} inNewest        listed in the newest register snapshot
+ * @property {boolean} statusFromNewest  the latest status row is the newest register snapshot's own
  */
+
+/** @typedef {{ vintage: string, records: number }} NewestRegister */
 
 /**
  * @param {string} typed
@@ -178,25 +189,56 @@ export function describeLookupInput(typed, clean) {
   const entered = typed.trim();
   /** @type {string[]} */
   const removed = [];
+  /** @type {{ from: string, to: string }[]} */
+  const changed = [];
   let spacesRemoved = false;
   for (const ch of entered) {
     if (/\s/.test(ch)) { spacesRemoved = true; continue; }
-    if (clean(ch) === ch.toUpperCase()) continue;
-    const name = /[\p{M}\p{C}\p{Z}]/u.test(ch)
-      ? `U+${(ch.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}`
-      : ch;
-    if (!removed.includes(name)) removed.push(name);
+    // Compared by the exact character, not by its upper-case form: a dotless i,
+    // a sharp s, a long s, or a ligature upper-cases INTO A-Z, so "cleans to its
+    // own upper case" would let them through as if nothing had happened.
+    if (/[A-Z0-9/a-z]/.test(ch)) continue;
+    const name = characterName(ch);
+    const out = clean(ch);
+    if (out === '') {
+      if (!removed.includes(name)) removed.push(name);
+    } else if (!changed.some((c) => c.from === name)) {
+      changed.push({ from: name, to: out });
+    }
   }
-  return { entered, lookedUp: clean(entered), removed, spacesRemoved };
+  return { entered, shown: displayable(entered), lookedUp: clean(entered), removed, changed, spacesRemoved };
+}
+
+// A character as a reader can see it: invisible ones (marks, controls, format
+// characters such as a right-to-left override or a zero-width space, and
+// separators) by code point, everything else as itself.
+/** @param {string} ch @returns {string} */
+function characterName(ch) {
+  return /[\p{M}\p{C}\p{Z}]/u.test(ch) ? codePointName(ch) : ch;
+}
+
+/** @param {string} ch @returns {string} */
+function codePointName(ch) {
+  return `U+${(ch.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}`;
+}
+
+// Text made safe to show: control, format, and line or paragraph separator
+// characters are written as [U+XXXX] rather than printed, so an override cannot
+// mirror the sentence around it and a zero-width input cannot leave a blank
+// heading.
+/** @param {string} text @returns {string} */
+function displayable(text) {
+  return text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, (ch) => `[${codePointName(ch)}]`);
 }
 
 // Whether a looked-up key is shaped like a callsign. Deliberately loose - letters
 // together with at least one digit - because it only chooses the wording of a
 // miss: a held record is always shown whatever its shape (the archive holds rows
-// such as the one-letter "C" that no grammar would admit).
+// such as the one-letter "C" that no grammar would admit). A key with no letter
+// A-Z or digit 0-9 at all (empty, or a lone "/") has nothing to look up.
 /** @param {string} lookedUp @returns {'callsign' | 'unrecognised' | 'empty'} */
 export function lookupShape(lookedUp) {
-  if (lookedUp === '') return 'empty';
+  if (!/[A-Z0-9]/.test(lookedUp)) return 'empty';
   return /[A-Z]/.test(lookedUp) && /[0-9]/.test(lookedUp) ? 'callsign' : 'unrecognised';
 }
 
@@ -219,14 +261,22 @@ export const QUERY_DISPLAY_MAX = 24;
 export function boundedQuery(query) {
   const chars = [...query];
   if (chars.length <= QUERY_DISPLAY_MAX) return { text: query, truncated: false, length: chars.length };
-  return { text: `${chars.slice(0, QUERY_DISPLAY_MAX).join('')}…`, truncated: true, length: chars.length };
+  return { text: `${chars.slice(0, QUERY_DISPLAY_MAX).join('')}...`, truncated: true, length: chars.length };
+}
+
+// What a lookup is called in the heading, breadcrumb, and tab title: the key
+// looked up, or - when nothing survived the cleaning - the input as typed,
+// made displayable. Never empty, and bounded.
+/** @param {LookupInput} input @returns {string} */
+export function lookupLabel(input) {
+  return boundedQuery(lookupShape(input.lookedUp) === 'empty' ? input.shown : input.lookedUp).text;
 }
 
 // The document title for a lookup: the query first, so tabs, history entries
 // and bookmarks for different callsigns can be told apart.
-/** @param {string} lookedUp @param {string} baseTitle @returns {string} */
-export function callsignPageTitle(lookedUp, baseTitle) {
-  return `${boundedQuery(lookedUp).text} · ${baseTitle}`;
+/** @param {string} label @param {string} baseTitle @returns {string} */
+export function callsignPageTitle(label, baseTitle) {
+  return `${boundedQuery(label).text} · ${baseTitle}`;
 }
 
 // The shared data-shape and function types, referenced by type-only import() so
@@ -265,6 +315,7 @@ function twinLabel(conflict) {
  * @param {typeof import('../callsign.js').anatomyFigureParts} deps.anatomyFigureParts
  * @param {typeof import('../callsign.js').twinConflict} deps.twinConflict
  * @param {typeof import('../callsign-events.js').stripModel} deps.stripModel
+ * @param {NewestRegister | null} [deps.newestRegister]  holdings.json's latestRegister; null or absent when it could not be read
  * @returns {CallsignModel}
  */
 export function buildCallsignModel(deps) {
@@ -273,13 +324,14 @@ export function buildCallsignModel(deps) {
   const key = res.key;
   const viaRendering = res.viaRendering ?? false;
   const input = res.input ?? null;
+  const registerIndices = newestRegisterIndices(manifest, deps.newestRegister ?? null);
   if (record === null || key === null) {
-    const currency = { asOf: null, newest: newestVintage(manifest), inNewest: false, statusFromNewest: false };
+    const currency = { known: registerIndices.length > 0, asOf: null, newest: registerIndices.length > 0 ? (deps.newestRegister?.vintage ?? null) : null, inNewest: false, statusFromNewest: false };
     return { key: res.cleaned !== '' ? res.cleaned : res.typed.trim(), cleaned: res.cleaned, found: false, viaRendering, latest: null, seen: null, anatomy: null, dial: { events: [], sightings: [], findings: [], bookkeeping: [], disagreements: [], hasEvents: false, hasBookkeeping: false }, twin: null, carriedOrigin: 'neutral', series: null, seriesIntro: null, seriesIntroSource: null, currency, input };
   }
 
   const latest = deps.latestSummary(record, manifest);
-  const currency = statusCurrency(record, manifest, latest === null ? null : latest.dataset);
+  const currency = statusCurrency(record, registerIndices, deps.newestRegister ?? null, latest === null ? null : latest.dataset);
   const seen = deps.seenSummary(record, manifest);
   const anatomyParts = deps.anatomyFigureParts(key, record.a ?? {});
   const anatomy = anatomyParts === null ? null : anatomyParts.map((p) => ({ chars: p.chars, name: p.name, meaning: p.meaning }));
@@ -347,6 +399,18 @@ export function buildCallsignModel(deps) {
     variants: conflict.variants.map((v) => ({ raw: v.raw, normal: v.normal, status: v.status, modified: v.modified })),
     recency: { kind: conflict.recency.kind, newestRaw: conflict.recency.newest?.raw ?? null, newestModified: conflict.recency.newest?.modified ?? null },
   };
+  // Rows that clean to this key more than once but are not a status conflict -
+  // one carries a status and the other none, or they agree. The shared twin
+  // classifier rightly declines to call that a conflict, so the rows would
+  // otherwise go unseen: 2#0MVL (blank) and 20MVL (Reserved) in the September
+  // 2026 register showed only "Reserved". Listed verbatim, adjudicated nowhere.
+  const twRows = record.tw ?? [];
+  const sameKeyRows = conflict === null && twRows.length >= 2 && record.l !== undefined
+    ? {
+      vintage: manifest.datasets[record.l.d]?.vintage ?? null,
+      rows: twRows.map((t) => ({ raw: t.r, status: t.s !== undefined && Object.hasOwn(manifest.legend.statuses, t.s) ? manifest.legend.statuses[t.s] : '' })),
+    }
+    : null;
 
   const series = record.a !== undefined && typeof record.a.pre === 'string' ? record.a.pre : null;
   // The series-introduction month (issue #921), from meta.json's seriesIntro
@@ -373,36 +437,41 @@ export function buildCallsignModel(deps) {
     carriedOrigin = originMonth < seriesIntro ? 'carried' : originMonth > seriesIntro ? 'fresh' : 'coincident';
   }
 
-  return { key, cleaned: res.cleaned, found: true, viaRendering, latest, seen, anatomy, dial: { events, sightings, findings, bookkeeping, disagreements, hasEvents, hasBookkeeping }, twin, carriedOrigin, series, seriesIntro, seriesIntroSource, currency, input };
+  return { key, cleaned: res.cleaned, found: true, viaRendering, latest, seen, anatomy, dial: { events, sightings, findings, bookkeeping, disagreements, hasEvents, hasBookkeeping }, twin, sameKeyRows, carriedOrigin, series, seriesIntro, seriesIntroSource, currency, input };
 }
 
-// The newest vintage among the publications held, or null when none is dated.
-// Dates of mixed precision (2024-10 against 2024-10-21) compare as the strings
-// they are, which orders a month before the days within it.
-/** @param {ShardManifest} manifest @returns {string | null} */
-function newestVintage(manifest) {
-  let newest = null;
-  for (const d of manifest.datasets) {
-    if (d.vintage != null && (newest === null || d.vintage > newest)) newest = d.vintage;
-  }
-  return newest;
+// The manifest positions of the newest register snapshot holdings.json names.
+// It is named by vintage and record count (the file's keyed plus unkeyable
+// rows), so this finds the register-snapshot file(s) carrying both. The page
+// does not re-decide which register is newest; empty when holdings.json could
+// not be read or names a file this manifest does not hold.
+/** @param {ShardManifest} manifest @param {NewestRegister | null} newest @returns {number[]} */
+function newestRegisterIndices(manifest, newest) {
+  if (newest === null) return [];
+  /** @type {number[]} */
+  const out = [];
+  manifest.datasets.forEach((d, i) => {
+    const kind = d.classes[0] ?? (d.lane === 'open-data' ? 'register-snapshot' : 'reference-context');
+    if (kind === 'register-snapshot' && d.vintage === newest.vintage && d.rows + d.unkeyable === newest.records) out.push(i);
+  });
+  return out;
 }
 
-// Where a record's status came from, against the newest publication held. The
-// newest publication can span several files of one date, so "in the newest" asks
-// whether ANY file of that date lists the callsign.
+// Where a record's latest status row came from, against the newest register.
 /**
  * @param {CallsignRecord} record
- * @param {ShardManifest} manifest
- * @param {{ vintage: string | null } | null} statusDataset  the publication the latest status came from
+ * @param {number[]} registerIndices  from newestRegisterIndices
+ * @param {NewestRegister | null} newestRegister
+ * @param {{ vintage: string | null } | null} statusDataset  the register snapshot the latest status row came from
  * @returns {StatusCurrency}
  */
-function statusCurrency(record, manifest, statusDataset) {
-  const newest = newestVintage(manifest);
+function statusCurrency(record, registerIndices, newestRegister, statusDataset) {
+  const known = registerIndices.length > 0;
   const h = record.h ?? '';
-  const inNewest = newest !== null && manifest.datasets.some((d, i) => d.vintage === newest && i < h.length && h[i] !== '.');
+  const inNewest = registerIndices.some((i) => i < h.length && h[i] !== '.');
   const asOf = statusDataset === null ? null : statusDataset.vintage;
-  return { asOf, newest, inNewest, statusFromNewest: asOf !== null && asOf === newest && inNewest };
+  const statusFromNewest = record.l !== undefined && registerIndices.includes(record.l.d);
+  return { known, asOf, newest: known && newestRegister !== null ? newestRegister.vintage : null, inNewest, statusFromNewest };
 }
 
 // A yyyy-mm introduction month rendered for readers ('2018-10' -> 'October
@@ -792,19 +861,16 @@ export function dialGeometry(events, sightings, state = null) {
 
 // The current-state terminus (issue #921): the record's latest held status as a
 // green node closing the event story on both the dial scale and the event rail.
-// It is an assertion-anchored claim — "as of the newest publication that asserts
-// it" — so it anchors to the newest publication sighting, falling back to the
-// newest event day only when no sighting is held. It carries the latest dataset
-// as its assertion-time provenance, so the terminus expands to which publication
-// asserts it exactly as every other rail node does. Absent when the record
-// carries no status, so a status-less record renders no terminus and never a
-// bare node.
-// The terminus is dated by the publication its status came from whenever that is
-// dated: a newer sighting in an availability list carries no status, so dating
-// the status by it would make an old status look newer than it is. Only an
-// undated status publication falls back to the newest sighting. A status the
-// newest publication does not carry is labelled the last recorded state, never
-// the current one.
+// It is an assertion-anchored claim, dated by the register snapshot its status
+// came from whenever that is dated: a newer sighting in an availability list
+// carries no register status, so dating the status by it would make an old
+// status look newer than it is. Only an undated status publication falls back to
+// the newest sighting, then to the newest event day. It carries the latest
+// dataset as its assertion-time provenance, so the terminus expands to which
+// publication asserts it exactly as every other rail node does. Absent when the
+// record carries no status, so a status-less record renders no terminus and
+// never a bare node. A status that is not the newest register snapshot's own row
+// (see StatusCurrency) is labelled the last recorded state, never the current one.
 /** @param {CallsignModel} model @returns {{ label: string, day: string, assertedBy: AssertedBy[], current: boolean } | null} */
 export function currentStateNode(model) {
   if (model.latest === null || model.latest.statuses.length === 0) return null;
@@ -838,7 +904,17 @@ function absentMark(label = 'not recorded') {
   return span;
 }
 
-// Marks a state terminus whose status the newest publication does not carry, so
+// A sideways scroller takes keyboard focus exactly when it scrolls: without it
+// a keyboard user could never reach the dial's newer end on a phone, and with
+// it at a width where nothing scrolls it would be a tab stop that does nothing.
+// Call after layout, and again when the width changes.
+/** @param {Element} scroller */
+export function syncScrollerFocus(scroller) {
+  if (scroller.scrollWidth > scroller.clientWidth) scroller.setAttribute('tabindex', '0');
+  else scroller.removeAttribute('tabindex');
+}
+
+// Marks a state terminus whose status is not the newest register snapshot's own, so
 // the stylesheet can draw it apart from a current one; the label already says so
 // in words, which stay the primary cue.
 /** @param {HTMLElement} node @param {boolean} current */
@@ -860,21 +936,53 @@ function publicationName(dataset) {
 // when nothing was left to look up (the miss callout says that instead).
 /** @param {LookupInput} input @returns {HTMLElement | null} */
 function lookupInputNote(input) {
-  if (input.lookedUp === '') return null;
+  if (lookupShape(input.lookedUp) === 'empty') return null;
   const shown = boundedQuery(input.lookedUp);
-  const differs = input.removed.length > 0 || input.spacesRemoved;
+  const differs = input.removed.length > 0 || input.changed.length > 0 || input.spacesRemoved;
   if (!differs && !shown.truncated) return null;
   const c = V1_COPY.callsign.lookup;
   const note = el('p', 'note muted lookup-input');
-  const parts = [];
   if (differs) {
-    parts.push(fillTemplate(c.entered, { entered: input.entered, lookedUp: shown.text }));
-    if (input.spacesRemoved) parts.push(c.spacesIgnored);
-    if (input.removed.length > 0) parts.push(fillTemplate(c.leftOut, { chars: input.removed.join(' ') }));
+    note.append(...fillTemplateNodes(c.entered, { entered: enteredNode(input), lookedUp: shown.text }));
+    if (input.spacesRemoved) note.append(` ${c.spacesIgnored}`);
+    if (input.changed.length > 0) note.append(` ${fillTemplate(c.changed, { pairs: boundedList(input.changed.map((p) => fillTemplate(c.changedPair, p))) })}`);
+    if (input.removed.length > 0) note.append(` ${fillTemplate(c.leftOut, { chars: boundedList(input.removed) })}`);
   }
-  if (shown.truncated) parts.push(fillTemplate(c.truncated, { length: String(shown.length), shown: String(QUERY_DISPLAY_MAX) }));
-  note.append(parts.join(' '));
+  if (shown.truncated) note.append(`${differs ? ' ' : ''}${fillTemplate(c.truncated, { length: String(shown.length), shown: String(QUERY_DISPLAY_MAX) })}`);
   return note;
+}
+
+// The most distinct characters a note lists by name; the rest are counted, so
+// a pasted page of symbols cannot make the note itself run off the screen.
+const NOTE_LIST_MAX = 8;
+/** @param {string[]} items @returns {string} */
+function boundedList(items) {
+  if (items.length <= NOTE_LIST_MAX) return items.join(', ');
+  return `${items.slice(0, NOTE_LIST_MAX).join(', ')}, and ${items.length - NOTE_LIST_MAX} more`;
+}
+
+// The input as typed, for quoting inside a sentence: displayable (see
+// displayable), bounded like every other echo of the query, and isolated in a
+// <bdi> so right-to-left text in it cannot reorder the sentence around it.
+/** @param {LookupInput} input @returns {HTMLElement} */
+function enteredNode(input) {
+  return el('bdi', null, boundedQuery(input.shown).text);
+}
+
+// fillTemplate for a sentence that carries an element: returns the pieces to
+// append, each {name} replaced by its string or node.
+/** @param {string} tpl @param {Record<string, string | Node>} vars @returns {(string | Node)[]} */
+function fillTemplateNodes(tpl, vars) {
+  /** @type {(string | Node)[]} */
+  const out = [];
+  let last = 0;
+  for (const m of tpl.matchAll(/\{(\w+)\}/g)) {
+    if (!Object.hasOwn(vars, m[1])) continue;
+    out.push(tpl.slice(last, m.index), vars[m[1]]);
+    last = (m.index ?? 0) + m[0].length;
+  }
+  out.push(tpl.slice(last));
+  return out.filter((p) => p !== '');
 }
 
 // The miss: what was looked up is not held. Distinguishes input with nothing to
@@ -888,7 +996,8 @@ function appendMiss(head, model) {
   const lookedUp = boundedQuery(model.key).text;
   const shape = lookupShape(model.cleaned);
   if (shape === 'empty') {
-    callout.append(fillTemplate(c.nothingToLookUp, { entered: model.input?.entered ?? model.key }));
+    const entered = model.input != null ? enteredNode(model.input) : el('bdi', null, boundedQuery(displayable(model.key)).text);
+    callout.append(...fillTemplateNodes(c.nothingToLookUp, { entered }));
     head.appendChild(callout);
     return;
   }
@@ -905,20 +1014,27 @@ function appendMiss(head, model) {
   }
 }
 
-// Which publication the status came from, and whether the callsign is in the
-// newest publication held (see StatusCurrency).
+// Which register snapshot the latest status row came from, and whether the
+// callsign is in the newest register snapshot held (see StatusCurrency). A row
+// with a blank status is described as listed with no status recorded - never
+// with a sentence about a status it does not have.
 /** @param {CallsignModel} model @returns {HTMLElement | null} */
 function currencyNote(model) {
   const c = V1_COPY.callsign.currency;
   const cur = model.currency;
+  const hasStatus = model.latest !== null && model.latest.statuses.length > 0;
   const parts = [];
   if (model.latest !== null) {
     const publication = publicationName(model.latest.dataset);
-    parts.push(fillTemplate(cur.statusFromNewest ? c.recordedInNewest : c.recordedIn, { publication }));
+    if (cur.statusFromNewest) parts.push(fillTemplate(hasStatus ? c.recordedInNewest : c.noStatusInNewest, { publication }));
+    else parts.push(fillTemplate(hasStatus ? c.recordedIn : c.noStatusIn, { publication }));
   }
-  if (cur.newest !== null && !cur.statusFromNewest) {
+  if (!cur.known) {
+    parts.push(c.newestUnknown);
+  } else if (!cur.statusFromNewest && cur.newest !== null) {
     parts.push(fillTemplate(cur.inNewest ? c.listedInNewest : c.notInNewest, { newest: cur.newest }));
-    if (model.latest !== null) parts.push(c.lastHeld);
+    if (hasStatus) parts.push(c.lastHeld);
+    if (!cur.inNewest) parts.push(c.absence);
   }
   if (parts.length === 0) return null;
   const note = el('p', 'note status-currency', parts.join(' '));
@@ -930,7 +1046,10 @@ function currencyNote(model) {
 function mountFastAnswer(host, model) {
   const head = el('header', 'cshead surface');
   head.appendChild(el('div', 'ey', V1_COPY.callsign.eyebrow));
-  head.appendChild(el('h1', null, boundedQuery(model.key).text));
+  // A miss is headed by what was looked up (or, with nothing left to look up,
+  // by the input made displayable); a found record by the record's own key.
+  const heading = !model.found && model.input != null ? lookupLabel(model.input) : boundedQuery(displayable(model.key)).text;
+  head.appendChild(el('h1', null, heading));
   if (model.input != null) {
     const inputNote = lookupInputNote(model.input);
     if (inputNote !== null) head.appendChild(inputNote);
@@ -953,7 +1072,7 @@ function mountFastAnswer(host, model) {
   const statusCell = el('div', 'c');
   statusCell.appendChild(el('div', 'k', 'status'));
   const statusV = el('div', 'v');
-  // The green dot marks a status the newest publication held carries, and only
+  // The green dot marks the newest register snapshot's own status, and only
   // that: drawn beside a ten-year-old status it read as the present one.
   if (model.currency.statusFromNewest && model.latest !== null && model.latest.statuses.length > 0) statusV.appendChild(el('span', 'led'));
   if (model.latest !== null && model.latest.statuses.length > 0) statusV.append(model.latest.statuses.join(' / '));
@@ -1036,7 +1155,7 @@ function applyScaleGeometry(scale, geo) {
 // present is named beside a swatch in its stable hue, so the colour scheme is
 // learnable. Returns null when there is nothing to decode.
 /**
- * @param {{ hasEvents: boolean, hasSightings: boolean, hasState: boolean, stateIsCurrent: boolean, hasDisputed: boolean, tintedKinds: string[] }} present
+ * @param {{ hasEvents: boolean, hasSightings: boolean, hasState: boolean, stateIsCurrent: boolean, stateChecked: boolean, hasDisputed: boolean, tintedKinds: string[] }} present
  * @returns {HTMLElement | null}
  */
 function buildDialLegend(present) {
@@ -1054,7 +1173,10 @@ function buildDialLegend(present) {
   };
   if (present.hasEvents) item('ev', V1_COPY.callsign.dial.legendEvent);
   if (present.hasSightings) item('si', V1_COPY.callsign.dial.legendSighting);
-  if (present.hasState) item('state', present.stateIsCurrent ? V1_COPY.callsign.dial.legendState : V1_COPY.callsign.dial.legendLastRecordedState);
+  if (present.hasState) {
+    const d = V1_COPY.callsign.dial;
+    item('state', present.stateIsCurrent ? d.legendState : present.stateChecked ? d.legendLastRecordedState : d.legendUncheckedState);
+  }
   if (present.hasDisputed) item('disputed', V1_COPY.callsign.dial.legendDisputed);
   const kindNames = V1_COPY.callsign.dial.kindLegend;
   for (const kindId of present.tintedKinds) {
@@ -1097,10 +1219,8 @@ function mountEvidenceDial(host, model) {
   surface.appendChild(el('p', 'note dial-example', V1_COPY.callsign.dial.microExample));
 
   const dial = el('div', 'dial');
-  // The dial scrolls sideways when its scale is wider than the box (on a phone,
-  // always), so it takes keyboard focus and a name; without them a keyboard
-  // user could never reach its newer end.
-  dial.setAttribute('tabindex', '0');
+  // A name for the instrument; whether it takes keyboard focus depends on
+  // whether it scrolls at the current width (syncScrollerFocus).
   dial.setAttribute('role', 'group');
   dial.setAttribute('aria-label', V1_COPY.callsign.dial.scrollerLabel);
 
@@ -1261,6 +1381,7 @@ function mountEvidenceDial(host, model) {
     hasSightings: geo.sightings.length > 0,
     hasState: geo.state !== null,
     stateIsCurrent: model.currency.statusFromNewest,
+    stateChecked: model.currency.known,
     hasDisputed: events.some((e) => e.disputed === true),
     tintedKinds: tintedKindsPresent(events),
   });
@@ -1489,6 +1610,8 @@ function eventTimelineMore() {
 function mountEventTimeline(host, model) {
   const surface = el('section', 'surface');
   const lbl = sectionLabel(V1_COPY.callsign.eventTimelineLabel);
+  // The axis chip is a visual tag, not part of the heading's name.
+  lbl.setAttribute('aria-label', V1_COPY.callsign.eventTimelineLabel);
   lbl.appendChild(el('span', 'ax', 'event-time'));
   surface.appendChild(lbl);
   surface.appendChild(el('p', 'note', V1_COPY.callsign.eventTimelineLead));
@@ -1632,6 +1755,14 @@ function mountRecordFidelity(host, model) {
       detail.append('No row carries a last-modified date, so recency cannot order them.');
     }
     card.appendChild(detail);
+    surface.appendChild(card);
+  }
+
+  if (model.sameKeyRows != null) {
+    const s = model.sameKeyRows;
+    const rows = s.rows.map((r) => `${r.raw} (${r.status !== '' ? r.status : V1_COPY.callsign.noStatusRecorded.replace(/^\(|\)$/g, '')})`);
+    const card = el('div', 'fid-note');
+    card.appendChild(el('p', 'note', fillTemplate(V1_COPY.callsign.twin.sameKeyRows, { vintage: s.vintage ?? 'an undated snapshot', rows: rows.join('; ') })));
     surface.appendChild(card);
   }
 
