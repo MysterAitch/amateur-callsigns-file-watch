@@ -124,17 +124,6 @@ describe('root retirement worker', { tags: ['unit'] }, () => {
   });
 });
 
-// A root page that registered this worker would install it, be unregistered,
-// reload, and register it again - for ever.
-describe('root pages and the retirement worker', { tags: ['unit'] }, () => {
-  it('RootPagesAndScripts_NeverRegisterAServiceWorker', () => {
-    const dir = path.join('site', 'v1');
-    const offenders = fs
-      .readdirSync(dir)
-      .filter((name) => /\.(html|js)$/.test(name) && name !== 'sw.js')
-      .filter((name) => /serviceWorker\s*\.\s*register/.test(fs.readFileSync(path.join(dir, name), 'utf8')));
-
-    expect(fs.readdirSync(dir).filter((name) => name.endsWith('.html')).length).toBeGreaterThan(0);
-    expect(offenders).toEqual([]);
-  });
-});
+// That nothing served at the root registers this worker (which would loop) is
+// pinned in src/ci/root-worker-registration.test.ts, beside the deploy step
+// that decides what is served there.

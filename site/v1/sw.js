@@ -24,8 +24,9 @@
 //    The old shell cache is small, and that worker clears foreign caches
 //    when it activates.
 //
-// No root page may register this file: it would install, unregister, reload
-// and register again without end (pinned by sw.test.ts). It must stay served
+// Nothing served at the root may register this file: it would install,
+// unregister, reload and register again without end (pinned by
+// src/ci/root-worker-registration.test.ts). It must stay served
 // for as long as a browser might still hold the old worker - removing it puts
 // those browsers back where they were.
 
