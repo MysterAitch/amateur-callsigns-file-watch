@@ -158,7 +158,19 @@ describe.skipIf(!RUNS_HERE)('report sweep pull request step, executed', { tags: 
     const run = runStep();
 
     expect(run.status, run.output).not.toBe(0);
-    expect(gh.calls()).not.toContain('workflow run');
+    expect(gh.calls()).toEqual(['pr list', 'pr create', 'pr list']);
+  });
+
+  it('ReportSweep_WhenTheEarlierAttemptsPullRequestIsListedBehindThirtyNewerOnes_IsStillFound', () => {
+    // A listing returns 30 pull requests unless asked for more.
+    sweepRegeneratedAReport();
+    gh.openPullRequestBehind(30, { headName: 'reports/run-4242-1', head: 'a'.repeat(40) });
+
+    const rerun = runStep(2);
+
+    expect(rerun.status, rerun.output).toBe(0);
+    expect(gh.calls()).toEqual(['pr list', 'workflow run']);
+    expect(reportBranchesOnOrigin()).toEqual([]);
   });
 
   it('ReportSweep_WhenCreateFailsAndOnlyAForksPullRequestOfThatNameExists_FailsTheJobWithoutDispatching', () => {

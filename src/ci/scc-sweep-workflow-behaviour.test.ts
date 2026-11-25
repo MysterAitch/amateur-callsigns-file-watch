@@ -117,7 +117,20 @@ describe.skipIf(!RUNS_HERE)('Special Contest Calls sweep step, executed', { tags
     const run = runStep();
 
     expect(run.status, run.output).not.toBe(0);
-    expect(gh.calls()).not.toContain('pr edit');
+    expect(gh.calls()).toEqual(['pr list', 'pr create', 'pr list']);
+  });
+
+  it('SccSweep_WhenTheOpenRefreshIsListedBehindThirtyNewerPullRequests_IsStillFoundAndNotStacked', () => {
+    // A listing returns 30 pull requests unless asked for more, and a
+    // refresh awaiting review is by its nature not among the newest.
+    tableChanged();
+    gh.openPullRequestBehind(30, { headName: EARLIER_BRANCH, head: 'a'.repeat(40) });
+
+    const run = runStep();
+
+    expect(run.status, run.output).toBe(0);
+    expect(gh.calls()).toEqual(['pr list', ...ASSIGNING_CALLS]);
+    expect(refreshBranchesOnOrigin()).toEqual([]);
   });
 
   it('SccSweep_WhenAnEarlierRefreshIsOpenAndAssigned_LeavesItForReviewWithoutStacking', () => {

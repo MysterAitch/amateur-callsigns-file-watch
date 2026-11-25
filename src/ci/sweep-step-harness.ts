@@ -45,21 +45,25 @@ export function git(cwd: string, ...args: string[]): string {
 //   create-fails-after-creating  `pr create` creates the pull request, then exits 1
 //   create-fails                 `pr create` exits 1 and creates nothing
 //   merge-fails                  `pr merge` exits 1
-// A created pull request takes its head branch name from `--head`.
+// A created pull request takes its head branch name from `--head`. A listing
+// returns the first 30 entries unless `--limit` says otherwise, as the real
+// one does - a lookup that filters afterwards misses anything past that.
 const GH_STUB = `#!/usr/bin/env bash
 set -euo pipefail
 line="$*"
 printf '%s\\n' "\${line//$'\\n'/ }" >> "$GH_STUB_DIR/calls.log"
 jq_expr=""
 head_name=""
+limit=30
 args=("$@")
 for ((i = 0; i < \${#args[@]}; i++)); do
   if [ "\${args[i]}" = "--jq" ]; then jq_expr="\${args[i + 1]}"; fi
   if [ "\${args[i]}" = "--head" ]; then head_name="\${args[i + 1]}"; fi
+  if [ "\${args[i]}" = "--limit" ]; then limit="\${args[i + 1]}"; fi
 done
 emit() { if [ -n "$jq_expr" ]; then jq -r "$jq_expr"; else cat; fi; }
 case "$1 $2" in
-  "pr list") emit < "$GH_STUB_DIR/pr.json" ;;
+  "pr list") jq -c --argjson n "$limit" '.[0:$n]' "$GH_STUB_DIR/pr.json" | emit ;;
   "pr create")
     if [ -f "$GH_STUB_DIR/create-fails" ]; then echo "pull request create failed" >&2; exit 1; fi
     jq -c --arg head "$head_name" --arg tip "$(cat "$GH_STUB_DIR/tip" 2>/dev/null || true)" \\
@@ -124,8 +128,28 @@ export class GhStandIn {
     return fs.readFileSync(path.join(this.stateDir, 'tip'), 'utf8');
   }
 
+  // The same pull request, listed after `newerCount` unrelated open ones.
+  openPullRequestBehind(newerCount: number, fields: OpenPullRequest): void {
+    const newer = Array.from({ length: newerCount }, (_, i) => ({
+      number: 100 + i,
+      url: `https://github.test/example/repo/pull/${100 + i}`,
+      isCrossRepository: false,
+      headRefName: `feature/unrelated-${i}`,
+      headRefOid: 'b'.repeat(40),
+      autoMergeRequest: null,
+      assignees: [{ login: 'someone' }],
+      comments: [],
+    }));
+    fs.writeFileSync(path.join(this.stateDir, 'pr.json'), `${JSON.stringify([...newer, this.listed(fields)])}\n`);
+  }
+
   openPullRequest(fields: OpenPullRequest): void {
-    const pr = {
+    fs.writeFileSync(path.join(this.stateDir, 'pr.json'), `${JSON.stringify([this.listed(fields)])}\n`);
+  }
+
+  // A pull request as a listing reports it.
+  private listed(fields: OpenPullRequest): Record<string, unknown> {
+    return {
       number: fields.fromAFork === true ? 66 : 7,
       url: fields.fromAFork === true ? FOREIGN_PR_URL : PR_URL,
       isCrossRepository: fields.fromAFork === true,
@@ -135,7 +159,6 @@ export class GhStandIn {
       assignees: (fields.assignees ?? []).map((login) => ({ login })),
       comments: (fields.comments ?? []).map((body) => ({ body })),
     };
-    fs.writeFileSync(path.join(this.stateDir, 'pr.json'), `${JSON.stringify([pr])}\n`);
   }
 
   flag(name: string): void {
