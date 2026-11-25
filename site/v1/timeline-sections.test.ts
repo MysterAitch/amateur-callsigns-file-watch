@@ -496,6 +496,75 @@ describe('v1 timeline - the chart year axis', { tags: ['ui'] }, () => {
   it('Histogram_Axis_IsInThePageAsServed', () => {
     expect(serveStatic(makeData()).querySelectorAll('.hx-axis')).toHaveLength(2);
   });
+
+  it('Histogram_WhenARoundYearSitsTooCloseToAnEndLabel_DropsItRatherThanCollide', () => {
+    // 2002 to 2027 at phone width put 2005 one pixel from the 2002 end label.
+    // Known answer: 2005 and 2025 are dropped, the rest kept.
+    const fig = renderHistogram('licence issued', yearSeries(2002, 2027), 1);
+    expect(axisYears(fig)).toEqual(['2002', '2010', '2015', '2020', '2027']);
+  });
+
+  it('Histogram_OverAThousandYearSpan_KeepsToAHandfulOfLabels', () => {
+    // The step list used to stop at 100, giving ten labels that overlapped.
+    const fig = renderHistogram('licence issued', yearSeries(1026, 2026), 1);
+    expect(axisYears(fig)).toEqual(['1026', '1200', '1400', '1600', '1800', '2026']);
+  });
+});
+
+describe('v1 timeline - what a chart says in words', { tags: ['ui'] }, () => {
+  it('Histogram_AccessibleName_CountsOnlyTheDrawnEventsAndStatesTheLaterOnes', () => {
+    // Known answer for the reservation chart of makeFutureData: 4 drawn (3 in
+    // 2019, 1 in 2020) and 57 dated 2022, after the as-at year.
+    const reservations = [...serveStatic(makeFutureData()).querySelectorAll('.hx-chart')][1];
+    const name = reservations?.querySelector('.hx-bars')?.getAttribute('aria-label') ?? '';
+    expect(name).toContain('4 dated events from 2019 to 2020');
+    expect(name).toContain('the busiest year is 2019, with 3');
+    expect(name).toContain('A further 57 are dated after 2020 and not drawn');
+    expect(name).not.toContain('61');
+  });
+
+  it('Histogram_Summary_IsVisibleTextUnderTheChart', () => {
+    const fig = renderHistogram('licence issued', [['2018', 2], ['2019', 0], ['2020', 5]], 7, '2020');
+    expect(norm(fig.querySelector('.hx-summary')?.textContent)).toBe('Drawn here: 7 dated events from 2018 to 2020; the busiest year is 2020, with 5.');
+  });
+
+  it('Histogram_WhenTwoYearsTieForBusiest_NamesTheEarlier', () => {
+    const fig = renderHistogram('licence issued', [['2018', 5], ['2019', 0], ['2020', 5]], 10);
+    expect(norm(fig.querySelector('.hx-summary')?.textContent)).toContain('the busiest year is 2018, with 5');
+  });
+
+  it('Histogram_WhenNoEventFallsInTheDrawnYears_SaysSoRatherThanNamingABusiestYear', () => {
+    const fig = renderHistogram('reservation window', [['2018', 0], ['2019', 0], ['2020', 0], ['2021', 4]], 4, '2020');
+    const summary = norm(fig.querySelector('.hx-summary')?.textContent);
+    expect(summary).toBe('No dated events fall in the drawn years.');
+    expect(fig.querySelector('.hx-bars')?.getAttribute('aria-label')).toContain('A further 4 are dated after 2020 and not drawn');
+  });
+
+  it('Histogram_DataTableSummary_SaysItListsYearsTheChartDoesNotDraw', () => {
+    const fig = renderHistogram('licence issued', [['2018', 2]], 2);
+    expect(norm(fig.querySelector('.hx-data > summary')?.textContent)).not.toContain('behind the chart');
+    expect(norm(fig.querySelector('.hx-data > summary')?.textContent)).toContain('including any after the chart ends');
+  });
+
+  it('Histogram_WhenManyYearsFallAfterTheAsAtYear_NamesTheFirstFewAndCountsTheRest', () => {
+    // As-at year equal to the first year, with 40 later years carrying events.
+    // Known answer: five named, then "and 70 more across 35 later years"
+    // (35 later years with 2 events each).
+    const series: Array<[string, number]> = [['1980', 1]];
+    for (let y = 1981; y <= 2020; y += 1) series.push([String(y), 2]);
+    const fig = renderHistogram('reservation window', series, 81, '1980');
+    const beyond = norm(fig.querySelector('.hx-beyond')?.textContent);
+    expect(beyond).toContain('2 in 1981, 2 in 1982, 2 in 1983, 2 in 1984, 2 in 1985, and 70 more across 35 later years');
+    expect(beyond).not.toContain('1986');
+    expect(beyond.length).toBeLessThan(300);
+  });
+
+  it('Histogram_AnyYearWithEvents_DrawsAVisibleBarHowSmallItsShare', () => {
+    // One event against a peak of 1,000 rounded to a 0% bar and drew nothing.
+    const fig = renderHistogram('licence issued', [['2018', 1], ['2019', 0], ['2020', 1000]], 1001);
+    const fills = [...fig.querySelectorAll<HTMLElement>('.hx-bar-fill')].map((f) => f.style.height);
+    expect(fills).toEqual(['2%', '0px', '100%']);
+  });
 });
 
 describe('v1 timeline - heading outline', { tags: ['ui'] }, () => {
@@ -588,6 +657,20 @@ describe('v1 timeline - the year in the address', { tags: ['ui'] }, () => {
   it('Scrubber_WhenTheAddressYearIsNotAYear_OpensOnTheAsAtYear', () => {
     const surface = openAt('?year=%3Cb%3E');
     expect(surface.querySelector<HTMLInputElement>('input[type=range]')?.value).toBe('2');
+  });
+
+  it('Scrubber_WhenTheAddressNamesAYearItCannotShow_DropsItFromTheAddressAndKeepsTheRest', () => {
+    // An address the page has not honoured must not keep claiming a year.
+    openAt('?other=keep&year=2099#frag');
+    expect(window.location.search).toBe('?other=keep');
+    expect(window.location.hash).toBe('#frag');
+    openAt('?year=abc');
+    expect(window.location.search).toBe('');
+  });
+
+  it('Scrubber_WhenTheAddressNamesAYearItCanShow_LeavesTheAddressAlone', () => {
+    openAt('?year=2019');
+    expect(window.location.search).toBe('?year=2019');
   });
 
   it('Scrubber_WhenOpenedWithAYearInTheAddress_AnnouncesNothingBeforeTheReaderMoves', () => {

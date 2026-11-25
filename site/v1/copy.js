@@ -455,6 +455,15 @@ export const V1_COPY = {
       // of reservation windows): counted in the caption total, so never dropped
       // silently, but not drawn on an axis that stops at the as-at year.
       histogramBeyond: 'Also dated after the record’s “as at” year ({year}), and not drawn: {list}. These are counted in the total above and listed in the data table.',
+      // Where the later years run past a handful, the rest are counted.
+      histogramBeyondMore: 'and {count} more across {years} later years',
+      // One sentence per chart on where its DRAWN events fall: visible under
+      // the chart and the start of its accessible name.
+      histogramSummary: 'Drawn here: {count} dated events from {first} to {last}; the busiest year is {peak}, with {peakCount}.',
+      histogramSummaryNone: 'No dated events fall in the drawn years.',
+      histogramBeyondCount: 'A further {count} are dated after {year} and not drawn.',
+      histogramFiguresBelow: '(Figures are in the table below.)',
+      histogramTable: 'Data table (every year with events, including any after the chart ends)',
       cumulativeLabel: 'as at the end of a year',
       scrubberLabel: 'Scrub the timeline – as at the end of a year',
       // The single aggregate announcement the scrubber’s status region makes

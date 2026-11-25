@@ -128,12 +128,14 @@ export function boundToAsAt(data) {
 }
 
 // How many labels an axis may carry between its two ends, and the narrowest gap
-// (as a share of the track) a label may keep from an end label. At the narrowest
-// supported width the track is under 300 px, where a four-digit year needs
-// roughly a tenth of it; anything closer than this overlaps its neighbour.
+// (as a share of the track) an interior label's centre may keep from either
+// end. The end labels sit flush with the track's edges, so a centred interior
+// label must clear a whole label width plus half its own. At the narrowest
+// supported track (about 240 px) a four-digit year is 26 px wide: 0.12 left
+// 2005 one pixel from a 2002 end label at 293 px, and 0.17 keeps a clear gap.
 const AXIS_MAX_INTERIOR = 5;
-const AXIS_MIN_GAP = 0.12;
-const AXIS_STEPS = [1, 2, 5, 10, 20, 25, 50, 100];
+const AXIS_MIN_GAP = 0.17;
+const AXIS_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
 
 /**
  * The years an axis over `years` labels: both ends, then round years between at
@@ -148,11 +150,14 @@ function axisTicks(years) {
   const last = Number(years[years.length - 1]);
   if (years.length === 1) return [{ year: years[0], index: 0 }];
   const span = last - first;
-  const step = AXIS_STEPS.find((s) => span / s <= AXIS_MAX_INTERIOR + 1) ?? AXIS_STEPS[AXIS_STEPS.length - 1];
+  // Past the largest listed step, a power of ten keeps the count a handful.
+  const step = AXIS_STEPS.find((s) => span / s <= AXIS_MAX_INTERIOR + 1)
+    ?? 10 ** Math.ceil(Math.log10(span / (AXIS_MAX_INTERIOR + 1)));
   /** @type {{ year: string, index: number }[]} */
   const ticks = [{ year: years[0], index: 0 }];
   for (let y = Math.ceil((first + 1) / step) * step; y < last; y += step) {
-    const share = (y - first) / span;
+    // The share at the label's own centre, where renderAxis places it.
+    const share = (y - first + 0.5) / years.length;
     if (share < AXIS_MIN_GAP || 1 - share < AXIS_MIN_GAP) continue;
     ticks.push({ year: String(y), index: y - first });
   }
@@ -568,6 +573,17 @@ export function buildScrubber(slot, data) {
   const view = slot.ownerDocument.defaultView ?? undefined;
   const requested = requestedIndex(data.buckets, view?.location);
   const opening = requested !== -1 ? requested : Math.max(anchorIndex(data), 0);
+  // An address naming a year the page did not open on must not go on claiming
+  // it: drop the parameter, keeping every other part of the address.
+  if (view !== undefined && requested === -1 && new URLSearchParams(view.location.search).has(YEAR_PARAM)) {
+    try {
+      const url = new URL(view.location.href);
+      url.searchParams.delete(YEAR_PARAM);
+      view.history.replaceState(view.history.state, '', url.toString());
+    } catch {
+      // Only the address is affected; the page opened on the as-at year.
+    }
+  }
   input.value = String(opening);
   input.setAttribute('aria-label', copy.scrubberLabel);
   wrap.appendChild(input);
@@ -631,6 +647,54 @@ export function buildScrubber(slot, data) {
 // ---------------------------------------------------------------------------
 // The static per-kind histograms (the substance, complete without interaction).
 
+// The smallest fill, as a share of the bar track, drawn for a year with any
+// events at all (3 px of the 150 px track).
+const MIN_BAR_PERCENT = 2;
+
+// How many later years the "also dated after" line names before counting the
+// rest. With the as-at year equal to the first year, every year of the span
+// fell into one sentence of over a thousand characters.
+const BEYOND_NAMED_MAX = 5;
+
+/**
+ * One sentence on where a chart's drawn events fall: how many, first and last
+ * year with events, and the busiest year (the earliest, on a tie).
+ * @param {Array<[string, number]>} drawn
+ * @returns {string}
+ */
+function histogramSummary(drawn) {
+  const copy = V1_COPY.history.timeline;
+  const populated = drawn.filter(([, n]) => n > 0);
+  if (populated.length === 0) return copy.histogramSummaryNone;
+  let peak = populated[0];
+  for (const entry of populated) if (entry[1] > peak[1]) peak = entry;
+  const count = populated.reduce((sum, [, n]) => sum + n, 0);
+  return fill(copy.histogramSummary, {
+    count: count.toLocaleString('en-GB'),
+    first: populated[0][0],
+    last: populated[populated.length - 1][0],
+    peak: peak[0],
+    peakCount: peak[1].toLocaleString('en-GB'),
+  });
+}
+
+/**
+ * The later years for the "also dated after" line: the first few named, the
+ * rest counted.
+ * @param {Array<[string, number]>} beyond  later years with events, ascending
+ * @returns {string}
+ */
+function beyondList(beyond) {
+  const named = beyond.slice(0, BEYOND_NAMED_MAX).map(([year, n]) => `${n.toLocaleString('en-GB')} in ${year}`);
+  const rest = beyond.slice(BEYOND_NAMED_MAX);
+  if (rest.length === 0) return named.join(', ');
+  const restCount = rest.reduce((sum, [, n]) => sum + n, 0);
+  return `${named.join(', ')}, ${fill(V1_COPY.history.timeline.histogramBeyondMore, {
+    count: restCount.toLocaleString('en-GB'),
+    years: rest.length,
+  })}`;
+}
+
 /**
  * A CSS bar chart over one kind's [year, count] series, with a year axis and a
  * data table as the accessible, complete content beneath. Colour is never the
@@ -658,14 +722,23 @@ export function renderHistogram(kindLabel, series, total, lastYear) {
   const beyond = lastYear === undefined ? [] : series.filter(([year, n]) => year > lastYear && n > 0);
 
   const max = drawn.reduce((m, [, n]) => (n > m ? n : m), 0);
+  const summary = histogramSummary(drawn);
+  const laterCount = beyond.reduce((sum, [, n]) => sum + n, 0);
+  const later = laterCount > 0 && lastYear !== undefined
+    ? ` ${fill(copy.histogramBeyondCount, { count: laterCount.toLocaleString('en-GB'), year: lastYear })}`
+    : '';
   const bars = el('div', 'hx-bars');
   bars.setAttribute('role', 'img');
-  const span = drawn.length === 0 ? '' : ` from ${drawn[0][0]} to ${drawn[drawn.length - 1][0]}`;
-  bars.setAttribute('aria-label', `${kindLabel}: ${total.toLocaleString('en-GB')} dated events by year${span} (figures in the table below)`);
+  // The accessible name states what is DRAWN: a total that includes events
+  // after the drawn span would describe bars that are not there.
+  bars.setAttribute('aria-label', `${kindLabel}: ${summary}${later} ${copy.histogramFiguresBelow}`);
   for (const [year, n] of drawn) {
     const col = el('div', 'hx-bar');
     const fillEl = el('div', 'hx-bar-fill');
-    fillEl.style.height = max > 0 ? `${Math.round((n / max) * 100)}%` : '0';
+    // A year with events always shows: at a peak in the thousands a single
+    // event rounds to 0% and drew nothing, which reads as non-observation.
+    const share = max > 0 ? Math.round((n / max) * 100) : 0;
+    fillEl.style.height = n > 0 ? `${Math.max(share, MIN_BAR_PERCENT)}%` : '0';
     if (n === 0) col.classList.add('zero');
     col.setAttribute('title', `${year}: ${n.toLocaleString('en-GB')} dated ${n === 1 ? 'event' : 'events'}`);
     col.appendChild(fillEl);
@@ -676,16 +749,20 @@ export function renderHistogram(kindLabel, series, total, lastYear) {
   const axis = renderAxis(drawn.map(([year]) => year));
   if (axis !== null) wrap.appendChild(axis);
   fig.appendChild(wrap);
+  // The same statement as the accessible name, as visible text: bars a few
+  // pixels wide fuse at phone width, and a title attribute cannot be reached
+  // by touch or keyboard.
+  fig.appendChild(el('p', 'note hx-summary', summary));
 
   if (beyond.length > 0 && lastYear !== undefined) {
     fig.appendChild(el('p', 'note hx-beyond', fill(copy.histogramBeyond, {
       year: lastYear,
-      list: beyond.map(([year, n]) => `${n.toLocaleString('en-GB')} in ${year}`).join(', '),
+      list: beyondList(beyond),
     })));
   }
 
   const details = el('details', 'hx-data');
-  details.appendChild(el('summary', null, 'Data table (the years with events behind the chart)'));
+  details.appendChild(el('summary', null, copy.histogramTable));
   const table = el('table');
   const thead = el('thead');
   const htr = el('tr');
