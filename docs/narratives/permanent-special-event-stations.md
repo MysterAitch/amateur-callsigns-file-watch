@@ -9,7 +9,7 @@ Every claim below carries one of four tags — **[observed]**, **[derived]**,
 **[hypothesis]**, or **[confirmed]** — so you can tell at a glance what kind
 of statement it is and check it yourself. Select any tag to see its full
 definition in the
-[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics).
+[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#epistemics).
 
 Figures carry the vintage they were read from. Where a station's identity is
 asserted, the source tier — primary, community, or unconfirmed — is stated
@@ -19,7 +19,7 @@ plainly rather than smoothed away.
 
 ## Summary
 
-**[observed]** Ofcom's ["Every radio callsign spreadsheet"](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-2024-09--every-radio-callsign--all-callsigns/index.html)
+**[observed]** Ofcom's ["Every radio callsign spreadsheet"](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/ofcom-2024-09--every-radio-callsign--all-callsigns/index.html)
 — the September-2024 snapshot — classes 53 register rows
 `Permanent Special Event Station`. The class name is a small paradox on its
 own terms: if a station is *permanent*, why does its register row carry a
@@ -40,7 +40,7 @@ the site's.
 
 ## The puzzle
 
-**[observed]** In the [value catalogue](https://mysteraitch.github.io/amateur-callsigns-file-watch/reports/value-catalogue.html#temporal-character-of-the-special-event-family),
+**[observed]** In the [value catalogue](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/reports/value-catalogue.html#temporal-character-of-the-special-event-family),
 the licence-category vocabulary includes both an event-bounded
 `Special Event Station` class (3,740 records corpus-wide) and a `Permanent
 Special Event Station` class (53 records). The ordinary class's name reads as
@@ -59,18 +59,18 @@ per-record evidence in the next section is what actually discriminates.
 
 ## The three cohorts
 
-**[derived]** Reading the [2024-09 snapshot](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-2024-09--every-radio-callsign--all-callsigns/index.html)'s
-53 permanent-SES rows against their [`status`](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#status-values)
+**[derived]** Reading the [2024-09 snapshot](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/ofcom-2024-09--every-radio-callsign--all-callsigns/index.html)'s
+53 permanent-SES rows against their [`status`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#status-values)
 and `reserved_to_date` fields (the disclosure is dated 2024-09-10, so "the
 perspective date" for what follows is around 10 September 2024) splits them
 into three cohorts, plus one anomaly — a bucketing rule applied to the rows,
 so the split is derived; each row's own field values are directly observable:
 
-**Cohort 1 — blank end date + [Allocated](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#allocated) (17 rows): permanent while held.**
+**Cohort 1 — blank end date + [Allocated](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#allocated) (17 rows): permanent while held.**
 No end date is stated at all — a station in current use, e.g. `GB0MWM`,
 `GB0RSM`, `GB0SMA`.
 
-**Cohort 2 — future end date + [Reserved](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#reserved) (7 rows): active reservations with a forward window.**
+**Cohort 2 — future end date + [Reserved](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#reserved) (7 rows): active reservations with a forward window.**
 
 | callsign | status | `reserved_to_date` | relation to vintage |
 |---|---|---|---|
@@ -84,7 +84,7 @@ No end date is stated at all — a station in current use, e.g. `GB0MWM`,
 
 Seven distinct, unclustered dates — not one shared national date.
 
-**Cohort 3 — past end date + [Available](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#available) (28 rows): the termination reading.**
+**Cohort 3 — past end date + [Available](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#available) (28 rows): the termination reading.**
 If the field were a forward-looking expiry, a snapshot taken years afterwards
 should show either a renewed date or no record at all; instead the *ended*
 date persists beside pool-availability. That behaviour is only consistent
@@ -278,15 +278,15 @@ the reasoning that got here is exactly as checkable as the answer itself.
 
 ## Reproduce this yourself
 
-The cohort splits above come from filtering the [2024-09 snapshot](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-2024-09--every-radio-callsign--all-callsigns/index.html)'s
+The cohort splits above come from filtering the [2024-09 snapshot](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/ofcom-2024-09--every-radio-callsign--all-callsigns/index.html)'s
 `normalised--every-radio-callsign-spreadsheet.csv` to rows whose
-[licence class](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#licence-class)
+[licence class](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#licence-class)
 matches `Perm(anent)? Special Event`, then bucketing each row's
-`reserved_to_date` against the snapshot's own [vintage](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#vintage)
+`reserved_to_date` against the snapshot's own [vintage](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#vintage)
 (2024-09) and reading its `status` column alongside. A blank date pairs with
 `Allocated`; a future date pairs with `Reserved`; a past date pairs with
 `Available` (bar the one flagged anomaly). The value catalogue's own
-[temporal-character table](https://mysteraitch.github.io/amateur-callsigns-file-watch/reports/value-catalogue.html#temporal-character-of-the-special-event-family)
+[temporal-character table](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/reports/value-catalogue.html#temporal-character-of-the-special-event-family)
 gives the wider corpus context these 53 rows sit inside.
 
 ---

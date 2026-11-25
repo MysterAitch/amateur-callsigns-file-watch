@@ -34,9 +34,9 @@
  *     all). The qualifying in-repo set is deliberately small; expanding the
  *     sourced catalogue is a tracked follow-up (community-level register history).
  *
- * The 1903 history horizon and the latest-register callsign total are NOT in
- * this manifest: neither is carried by the publication enumeration, so they stay
- * report-cited constants on the home model, kept with their citations.
+ * The 1903 history horizon is NOT in this manifest: the publication enumeration
+ * does not carry it, so it stays a report-cited constant on the home model. The
+ * newest register's callsign total is (latestRegister).
  *
  * DETERMINISM. The output is a pure function of its inputs: publications are
  * ordered by (vintage, title); milestones by (start, label); no timestamps or
@@ -108,6 +108,7 @@ export interface HoldingPublication {
   // The kind's single letter (R/A/I/F/S/T/C) — the colour-independent cue.
   letter: string;
   title: string;
+  // Every row in the publication's file, keyable or not (recordsInFile).
   rows: number;
   // The single newest register snapshot: the ringed "latest" mark.
   latest: boolean;
@@ -180,6 +181,15 @@ function primaryKind(dataset: ManifestDataset): string {
   return dataset.classes[0] ?? (dataset.lane === 'open-data' ? OPEN_DATA_IMPLICIT_CLASS : FOI_IMPLICIT_CLASS);
 }
 
+// Every row a publication's file holds: the rows the lookup keyed plus those it
+// could not. The home page states this one count for a publication wherever it
+// shows one, as the dataset and statistics pages do; the dial's marks once
+// counted keyed rows only and so read "163,341 rows" beside "163,342 callsigns"
+// for the same 2026-09-22 register.
+function recordsInFile(dataset: ManifestDataset): number {
+  return dataset.rows + (dataset.unkeyable ?? 0);
+}
+
 // ---------------------------------------------------------------------------
 // Publications (the down-markers), derived from the shards manifest.
 
@@ -200,7 +210,7 @@ export function holdingsPublications(datasets: readonly ManifestDataset[]): Hold
         kind,
         letter: KIND_LETTER[kind] ?? kind.charAt(0).toUpperCase(),
         title: d.title,
-        rows: d.rows,
+        rows: recordsInFile(d),
         latest: primaryKind(d) === 'register-snapshot' && d.vintage === latestKey,
       };
     })
@@ -263,7 +273,7 @@ export function latestRegister(datasets: readonly ManifestDataset[]): { vintage:
     if (typeof d.vintage !== 'string' || d.vintage === '' || primaryKind(d) !== 'register-snapshot') continue;
     if (newest === null || d.vintage > newest.vintage) newest = { ...d, vintage: d.vintage };
   }
-  return newest === null ? null : { vintage: newest.vintage, records: newest.rows + (newest.unkeyable ?? 0) };
+  return newest === null ? null : { vintage: newest.vintage, records: recordsInFile(newest) };
 }
 
 export function homeHoldings(datasets: readonly ManifestDataset[], prefixRows: readonly PrefixIntroRow[]): HomeHoldings {
