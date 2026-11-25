@@ -24,7 +24,7 @@ const pressEscape = (): void => {
   document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 };
 
-describe('glossary popovers — dismissing from the keyboard', { tags: ['ui'] }, () => {
+describe('glossary popovers - dismissing from the keyboard', { tags: ['ui'] }, () => {
   beforeEach(() => { document.body.replaceChildren(); });
 
   it('GlossaryPopover_WhenEscapeIsPressedOnItsFullDefinitionLink_ClosesAndReturnsFocusToItsTrigger', () => {

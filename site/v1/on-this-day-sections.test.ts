@@ -216,7 +216,7 @@ describe('v1 on-this-day — calendar render', { tags: ['unit'] }, () => {
   });
 });
 
-describe('v1 on-this-day — callsigns lead to their own record', { tags: ['ui'] }, () => {
+describe('v1 on-this-day - callsigns lead to their own record', { tags: ['ui'] }, () => {
   it('OnThisDayEntry_ForEveryCallsignItNames_LinksToThatCallsignsLookupPage', () => {
     const surface = serveStatic(makeData());
     const links = [...surface.querySelectorAll<HTMLAnchorElement>('.evt .dsc a.cs')].map((a) => [a.textContent, a.getAttribute('href')]);
