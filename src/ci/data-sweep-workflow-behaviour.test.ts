@@ -25,6 +25,7 @@ import * as yaml from 'js-yaml';
 const WORKFLOW = path.join('.github', 'workflows', 'data-sweep.yml');
 const STEP_NAME = 'Open PRs for data branches';
 const PR_URL = 'https://github.test/example/repo/pull/7';
+const FOREIGN_PR_URL = 'https://github.test/example/repo/pull/66';
 const RUNS_HERE = process.platform !== 'win32';
 
 interface WorkflowShape {
@@ -52,12 +53,13 @@ for ((i = 0; i < \${#args[@]}; i++)); do
   if [ "\${args[i]}" = "--jq" ]; then jq_expr="\${args[i + 1]}"; fi
 done
 emit() { if [ -n "$jq_expr" ]; then jq -r "$jq_expr"; else cat; fi; }
-created='[{"number":7,"url":"${PR_URL}","autoMergeRequest":null,"assignees":[],"comments":[]}]'
+created='{"number":7,"url":"${PR_URL}","isCrossRepository":false,"headRefOid":"'"$(cat "$GH_STUB_DIR/tip" 2>/dev/null || true)"'","autoMergeRequest":null,"assignees":[],"comments":[]}'
 case "$1 $2" in
   "pr list") emit < "$GH_STUB_DIR/pr.json" ;;
   "pr create")
     if [ -f "$GH_STUB_DIR/create-fails" ]; then echo "pull request create failed" >&2; exit 1; fi
-    echo "$created" > "$GH_STUB_DIR/pr.json"
+    jq -c --argjson new "$created" '. + [$new]' "$GH_STUB_DIR/pr.json" > "$GH_STUB_DIR/pr.json.next"
+    mv "$GH_STUB_DIR/pr.json.next" "$GH_STUB_DIR/pr.json"
     if [ -f "$GH_STUB_DIR/create-fails-after-creating" ]; then
       echo "pull request create failed: HTTP 502: 502 Bad Gateway" >&2
       exit 1
@@ -133,12 +135,25 @@ describe.skipIf(!RUNS_HERE)('data sweep step, executed', { tags: ['unit'] }, () 
     git(host, 'add', '-A');
     git(host, 'commit', '-m', `Update amateur callsigns CSV (${archiveKey})`);
     git(host, 'push', 'origin', `HEAD:refs/heads/data/${archiveKey}`);
+    fs.writeFileSync(path.join(stubDir, 'tip'), git(host, 'rev-parse', 'HEAD'));
   }
 
-  function openPullRequest(fields: { autoMerge?: boolean; assignees?: string[]; comments?: string[] }): void {
+  // An open pull request whose head branch has the data branch's name. By
+  // default it is the repository's own, at the branch tip. `fromAFork` makes
+  // it someone else's branch of the same name, which a lookup by head name
+  // also returns; `head` puts it at a commit other than the branch tip.
+  function openPullRequest(fields: {
+    autoMerge?: boolean;
+    assignees?: string[];
+    comments?: string[];
+    fromAFork?: boolean;
+    head?: string;
+  }): void {
     const pr = {
-      number: 7,
-      url: PR_URL,
+      number: fields.fromAFork === true ? 66 : 7,
+      url: fields.fromAFork === true ? FOREIGN_PR_URL : PR_URL,
+      isCrossRepository: fields.fromAFork === true,
+      headRefOid: fields.head ?? fs.readFileSync(path.join(stubDir, 'tip'), 'utf8'),
       autoMergeRequest: fields.autoMerge === true ? { mergeMethod: 'MERGE' } : null,
       assignees: (fields.assignees ?? []).map((login) => ({ login })),
       comments: (fields.comments ?? []).map((body) => ({ body })),
@@ -289,6 +304,48 @@ describe.skipIf(!RUNS_HERE)('data sweep step, executed', { tags: ['unit'] }, () 
 
     expect(run.status, run.output).toBe(0);
     expect(calls()).toEqual(['pr list', 'pr comment']);
+  });
+
+  // The allowlist is judged on the repository's own data branch, so the sweep
+  // may only ever act on a pull request that is that branch at that commit.
+  // Anyone can open a pull request from a fork whose branch carries a data
+  // branch's name, and a lookup by head name returns it.
+  it('DataBranch_WhenAForkHoldsAPullRequestOfTheSameName_OpensItsOwnAndNeverMergesTheForks', () => {
+    pushDataBranch('2026-07-06');
+    openPullRequest({ fromAFork: true });
+
+    const run = runSweep();
+
+    expect(run.status, run.output).toBe(0);
+    expect(calls()).toEqual(['pr list', 'pr create', ...FINISHING_CALLS]);
+    expect(callLines().filter((l) => l.includes(FOREIGN_PR_URL))).toEqual([]);
+    expect(callLines().find((l) => l.startsWith('pr merge'))).toBe(`pr merge --auto --merge --delete-branch ${PR_URL}`);
+  });
+
+  it('DataBranch_WhenOnlyAForksPullRequestExistsAndCreateFails_FailsTheJobWithoutMerging', () => {
+    pushDataBranch('2026-07-06');
+    openPullRequest({ fromAFork: true });
+    flag('create-fails');
+
+    const run = runSweep();
+
+    expect(run.status, run.output).not.toBe(0);
+    expect(calls()).toEqual(['pr list', 'pr create', 'pr list']);
+    expect(callLines().filter((l) => l.includes(FOREIGN_PR_URL))).toEqual([]);
+  });
+
+  it('DataBranch_WhenAnOpenPullRequestIsNotAtTheBranchTip_IsNotActedOn', () => {
+    // What was judged against the allowlist is the tip; a pull request at any
+    // other commit is not the thing that was judged.
+    pushDataBranch('2026-07-06');
+    openPullRequest({ head: '0000000000000000000000000000000000000000' });
+    flag('create-fails');
+
+    const run = runSweep();
+
+    expect(run.status, run.output).not.toBe(0);
+    expect(calls()).not.toContain('pr merge');
+    expect(calls()).not.toContain('pr edit');
   });
 
   it('DataBranch_WhenAlreadyMergedIntoMain_IsDeletedWithoutTouchingPullRequests', () => {
